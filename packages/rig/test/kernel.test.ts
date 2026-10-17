@@ -29,6 +29,7 @@ import {
   quatAt,
   restPoseFixture,
   richHumanoid,
+  rng,
   subarray16,
   syntheticSkeleton,
   genericSkeleton,
@@ -196,6 +197,50 @@ describe('kernel: forward evaluation', () => {
     const root = 0;
     const fileRoot = quatAt(pose0.boneLocal, root * 10 + 3);
     expect(quatAngleBetween(fileRoot, quatAt(pose1.boneLocal, root * 10 + 3))).toBeGreaterThan(3);
+  });
+
+  it('gives the same humanLocal for the same channel values on different avatars (FR-RIG-06)', () => {
+    // Different bodies, bone sets (twist joints, toes), proportions and facing: world-aligned controls mean the same.
+    const a = rigFor(syntheticSkeleton());
+    const b = rigFor(richHumanoid({ vrm0: true }));
+    const keysB = new Set(b.controls.map((c) => c.key));
+    const random = rng(23);
+    const ca = a.allocChannels();
+    const cb = b.allocChannels();
+    let shared = 0;
+    for (const control of a.controls) {
+      if (!keysB.has(control.key) || control.group === 'secondary') continue;
+      shared++;
+      const values = {
+        rx: random() - 0.5,
+        ry: random() - 0.5,
+        rz: random() - 0.5,
+        tx: 0.1 * random(),
+        ty: 0.1 * random(),
+      };
+      writeControlChannels(a, ca, control.id, values);
+      writeControlChannels(b, cb, controlId(IDS.rig, control.key), values);
+    }
+    expect(shared).toBeGreaterThan(20);
+    const pa = a.allocPose();
+    const pb = b.allocPose();
+    a.evaluate(ca, pa);
+    b.evaluate(cb, pb);
+    const humanA = a.skeleton.humanoid ?? {};
+    const humanB = b.skeleton.humanoid ?? {};
+    let compared = 0;
+    HUMAN_BONE_NAMES.forEach((bone, h) => {
+      if (humanA[bone] === undefined || humanB[bone] === undefined) return;
+      compared++;
+      expect({
+        bone,
+        angle: quatAngleBetween(quatAt(pa.humanLocal, h * 4), quatAt(pb.humanLocal, h * 4)) < 1e-9,
+      }).toEqual({
+        bone,
+        angle: true,
+      });
+    });
+    expect(compared).toBeGreaterThan(20);
   });
 
   it('drives generic joints with full bindings in bone-aligned frames', () => {

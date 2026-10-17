@@ -229,6 +229,56 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     },
   );
 
+  it('rigs Seed-san with ≥ 50 controls; the pelvis turns without swinging the spine (FR-RIG-01)', async () => {
+    const { skeleton } = await loadSkeleton('seed-san.vrm');
+    const program = rig(skeleton);
+    expect(program.controls.length).toBeGreaterThanOrEqual(50);
+    const pose = program.allocPose();
+    program.evaluate(program.allocChannels(), pose);
+    const node = (bone: HumanBoneName): number => skeleton.humanoid?.[bone] as number;
+    const worldQ = (n: number): Quat => mat4Decompose(pose.boneWorld.slice(n * 16, n * 16 + 16)).q;
+    const spineBefore = worldQ(node('spine'));
+    const legBefore = worldQ(node('leftUpperLeg'));
+    const ch = program.allocChannels();
+    const hips = program.controls.find((c) => c.key === 'fk.hips')?.id as ControlId;
+    writeControlChannels(program, ch, hips, { rx: 0.3, ry: -0.2, rz: 0.1 });
+    program.evaluate(ch, pose);
+    expect(quatAngle(worldQ(node('spine')), spineBefore)).toBeLessThan(1e-9);
+    expect(quatAngle(worldQ(node('leftUpperLeg')), legBefore)).toBeGreaterThan(0.1);
+  });
+
+  it('gives Polybot and Seed-san the same humanLocal for the same channel values (FR-RIG-06, 1e-6)', async () => {
+    const programs = await Promise.all(
+      (['polybot.vrm', 'seed-san.vrm'] as const).map(async (name) => rig((await loadSkeleton(name)).skeleton)),
+    );
+    const [a, b] = programs as [RigProgram, RigProgram];
+    const keysB = new Map(b.controls.map((c) => [c.key, c.id]));
+    const ca = a.allocChannels();
+    const cb = b.allocChannels();
+    let state = 11;
+    const next = (): number => {
+      state = (state * 16807) % 2147483647;
+      return state / 2147483647 - 0.5;
+    };
+    for (const control of a.controls) {
+      const other = keysB.get(control.key);
+      if (other === undefined || control.group === 'secondary') continue;
+      const values: ChannelValues = { rx: next(), ry: next(), rz: next() };
+      writeControlChannels(a, ca, control.id, values);
+      writeControlChannels(b, cb, other, values);
+    }
+    const pa = a.allocPose();
+    const pb = b.allocPose();
+    a.evaluate(ca, pa);
+    b.evaluate(cb, pb);
+    let worst = 0;
+    HUMAN_BONE_NAMES.forEach((bone, h) => {
+      if (a.skeleton.humanoid?.[bone] === undefined || b.skeleton.humanoid?.[bone] === undefined) return;
+      worst = Math.max(worst, quatAngle(quatAt(pa.humanLocal, h * 4), quatAt(pb.humanLocal, h * 4)));
+    });
+    expect(worst).toBeLessThan(1e-6);
+  });
+
   it('filters secondary controls on Seed-san (no spring joints, no node-constraint destinations)', async () => {
     const { skeleton } = await loadSkeleton('seed-san.vrm');
     const def = autoRig(skeleton, IDS);
