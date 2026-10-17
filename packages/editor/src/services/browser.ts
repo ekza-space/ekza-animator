@@ -10,6 +10,8 @@ import { createLocalStorage, createMemoryStorage } from './storage';
 
 export interface ShellServicesOptions {
   readonly decoderPath: string;
+  /** Base URL of the bundled samples (`file.loadSample`); default '/samples/'. */
+  readonly samplesPath?: string;
   readonly createValidatorWorker?: () => Worker;
   /** 'local': localStorage (default); 'memory': a fresh in-memory namespace (e2e runs); null: no storage. */
   readonly storage?: 'local' | 'memory' | null;
@@ -34,12 +36,14 @@ export function createShellServices(opts: ShellServicesOptions): ShellServices {
     // The in-app glTF-Validator worker is M1-stretch (MVP-SPEC §1.2); exports run the read-back check instead.
     validate: null,
     storage: storageKind === 'local' ? createLocalStorage() : storageKind === 'memory' ? createMemoryStorage() : null,
+    samplesPath: opts.samplesPath ?? '/samples/',
   };
   return { services, toasts };
 }
 
 export function createBrowserServices(opts: {
   readonly decoderPath: string;
+  readonly samplesPath?: string;
   readonly createValidatorWorker?: () => Worker;
 }): EditorServices {
   return createShellServices(opts).services;

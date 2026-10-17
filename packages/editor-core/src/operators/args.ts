@@ -6,8 +6,8 @@ import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, Deri
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
 import type { MirrorMode, ReduceSpec } from '@ekza-animator/rig';
 import type { ChannelEditResult, ChannelRef, DisplayFlags, HistoryResult, KeyPartSelection, KeyPolicy,
-  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, SelectMode, ToolId, UiDialog,
-  ViewportLayout } from '../types';
+  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, Prefs, SelectionMask, SelectMode, ToolId,
+  UiDialog, ViewportLayout } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -79,6 +79,7 @@ export interface OperatorMap {
   'select.mirror': { args: void; result: void };
   'select.keys': { args: { readonly items: readonly { readonly key: KeyId; readonly parts?: Partial<KeyPartSelection> }[]; readonly mode: SelectMode }; result: void };
   'select.curveKeys': { args: { readonly curve: CurveId; readonly mode: SelectMode }; result: void };
+  'select.channels': { args: { readonly refs: readonly ChannelRef[]; readonly mode: SelectMode }; result: void };   // v0.3 integration (WP-9 R-1)
   // key
   'key.set': { args: { readonly channels?: KeyChannels; readonly target?: 'selected' | 'character' } | void; result: CountResult };
   'key.deleteAtFrame': { args: void; result: CountResult };
@@ -146,6 +147,8 @@ export interface OperatorMap {
   'view.setManipSpace': { args: { readonly tool: 'move' | 'rotate'; readonly space: ManipSpace }; result: void };
   'view.setNavProfile': { args: { readonly profile: NavProfile }; result: void };
   'view.cameraRadial': { args: { readonly paneId?: string } | void; result: void };   // M1-stretch
+  'view.camera.setSettings': { args: { readonly camera: CameraId; readonly fovY?: number; readonly near?: number; readonly far?: number; readonly aspect?: number | null }; result: void };   // v0.3 integration (WP-9 R-3), U
+  'view.selectionMask': { args: { readonly mask: Partial<SelectionMask> }; result: void };   // v0.3 integration (WP-8 R-1)
   // rig
   'rig.setRotateOrder': { args: { readonly control: ControlId; readonly order: RotateOrder }; result: void };   // M1-stretch
   'rig.setControlSize': { args: { readonly control: ControlId; readonly size: number }; result: void };
@@ -153,4 +156,8 @@ export interface OperatorMap {
   // ui
   'ui.open': { args: { readonly dialog: UiDialog }; result: void };
   'ui.close': { args: void; result: void };
+  // prefs and workspace (shell, v0.3 integration: WP-8 R-1)
+  'prefs.set': { args: { readonly patch: Partial<Omit<Prefs, 'version'>> }; result: void };
+  'workspace.reset': { args: void; result: void };
+  'workspace.showPanel': { args: { readonly panel: PanelKind }; result: void };
 }

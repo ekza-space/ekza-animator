@@ -31,6 +31,8 @@ export interface CreateAppArgs {
 export interface EditorRootProps {
   readonly createApp: (args: CreateAppArgs) => EditorApp;
   readonly decoderPath?: string;
+  /** Base URL of the bundled samples; default '/samples/'. */
+  readonly samplesPath?: string;
   /** The build allows e2e mode (NEXT_PUBLIC_EKZA_E2E=1); e2e mode itself needs `?e2e=1` as well. */
   readonly e2e?: boolean;
   /** Overrides the URL parameters (harnesses and tests). */
@@ -52,6 +54,7 @@ function boot(props: EditorRootProps): Boot {
   let shell: Shell | null = null;
   const { services, toasts } = createShellServices({
     decoderPath: props.decoderPath ?? '/decoders/',
+    samplesPath: props.samplesPath ?? '/samples/',
     storage: params.e2e ? 'memory' : 'local',
     onDownload: (record) => shell?.exports.recordDownload(record),
     ...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker }),

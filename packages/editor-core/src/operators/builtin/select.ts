@@ -243,13 +243,6 @@ const selectKeys = defineOperator({
   },
 });
 
-declare module '../args' {
-  interface OperatorMap {
-    /** Channel Box / Graph channel-list selection (`Selection.channels`); requested by WP-9 (R-1). */
-    'select.channels': { args: { readonly refs: readonly ChannelRef[]; readonly mode: SelectMode }; result: void };
-  }
-}
-
 const selectChannels = defineOperator({
   id: 'select.channels',
   label: 'Select Channels',

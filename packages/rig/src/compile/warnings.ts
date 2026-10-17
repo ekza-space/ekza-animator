@@ -17,7 +17,7 @@ export function checkRig(internals: RigInternals, warnings: RigWarning[]): void 
     const other = mirror[slot] as number;
     if (other === -1) {
       warnings.push({
-        code: 'asymmetric-rest',
+        code: 'unpaired-mirror',
         message: `${control.key}: no mirror counterpart; mirroring leaves it unchanged`,
         ids: [control.id],
       });

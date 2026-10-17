@@ -115,6 +115,7 @@ export interface SessionState {
   readonly viewportLayout: ViewportLayout;                        // default 'split'
   readonly maximizedPane: string | null;
   readonly hoveredPanel: { readonly kind: PanelKind; readonly paneId: string | null } | null;
+  readonly hoverControl: ControlId | null;                        // Outliner hover → viewport pre-highlight (v0.3 integration, WP-9 R-2)
   readonly clipboard: { readonly pose: PoseClipboard | null; readonly keys: KeyClipboard | null };
   readonly feetPins: FeetPins | null;
   readonly dialog: UiDialog | null;
@@ -173,6 +174,8 @@ export interface OperatorDef<A = void, R = void, P = void> {
     readonly structural?: boolean;                                // rewrites many records (fps change); M3: needs an exclusive claim
   };
   undoLabel?(args: A): string;
+  /** v0.3 integration (WP-7a): consecutive runs with the same key within `ms` merge into one step (§4.11.0 rule 7). */
+  coalesce?(args: A): { readonly key: string; readonly ms: number } | null;
   poll?(ctx: OperatorContext, args: A): PollResult;
   prepare?(ctx: OperatorContext, args: A): Promise<P> | P;
   apply(ctx: ApplyContext, args: A, prepared: P): R;
@@ -354,6 +357,7 @@ export interface EditorServices {
   readonly models: ModelLoader | null;                            // null in Node tests
   readonly validate: ((bytes: Uint8Array) => Promise<ValidationReport>) | null;
   readonly storage: PrefsStorage | null;                          // null: preferences are not persisted
+  readonly samplesPath?: string;                                  // base URL of the bundled samples, default '/samples/' (v0.3 integration, WP-8 R-2)
 }
 
 // ---------- characters and evaluation ----------

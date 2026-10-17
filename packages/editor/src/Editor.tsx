@@ -27,6 +27,7 @@ export function Editor(props: EditorProps): JSX.Element {
     <EditorRoot
       createApp={createProductionApp}
       {...(props.decoderPath === undefined ? {} : { decoderPath: props.decoderPath })}
+      {...(props.samplesPath === undefined ? {} : { samplesPath: props.samplesPath })}
       {...(props.e2e === undefined ? {} : { e2e: props.e2e })}
       {...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker })}
     />

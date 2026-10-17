@@ -3,7 +3,6 @@
 import { EkzaError } from '@ekza-animator/anim-core';
 import { GLOBAL_SCOPE, type MenuItemDef } from '@ekza-animator/editor-core';
 import { describe, expect, it } from 'vitest';
-import type {} from '../src/shell/operator-map';
 import { menuContents, shortcutFor, stableKey, topMenus } from '../src/shell/menus';
 import { shellMenuItems } from '../src/shell/menuItems';
 import { createTestShell, waveFixtures } from './shell-helpers';
@@ -48,6 +47,36 @@ describe('shell operators', () => {
     expect(app.prefs.getState()).toMatchObject({ navProfile: 'trackpad', spaceBehaviour: 'play', firstRunDone: true });
     const rejected = await shell.runFromUi('prefs.set', { patch: { colour: 'pink' } });
     expect(rejected).toEqual({ status: 'cancelled', reason: 'Unknown preference colour' });
+  });
+
+  it('file.new from the UI asks before discarding unsaved work (WP-7b B7-1)', async () => {
+    const { shell, app } = createTestShell();
+    const runs: string[] = [];
+    app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'file.new',
+        label: 'New Project',
+        category: 'file',
+        scope: 'global',
+        apply: () => void runs.push('new'),
+      },
+    });
+    // Clean project: no question.
+    expect((await shell.runFromUi('file.new')).status).toBe('finished');
+    expect(shell.ui.getState().confirm).toBeNull();
+    // Dirty project: the confirmation decides.
+    app.session.setState({ dirty: true });
+    const declined = shell.runFromUi('file.new');
+    await Promise.resolve();
+    expect(shell.ui.getState().confirm?.confirmLabel).toBe('Discard and start new');
+    shell.ui.getState().confirm?.resolve(false);
+    expect((await declined).status).toBe('cancelled');
+    const accepted = shell.runFromUi('file.new');
+    await Promise.resolve();
+    shell.ui.getState().confirm?.resolve(true);
+    expect((await accepted).status).toBe('finished');
+    expect(runs).toEqual(['new', 'new']);
   });
 
   it('view.selectionMask merges into the session tool state', async () => {

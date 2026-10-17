@@ -67,7 +67,7 @@ that `model/vrma` has no registry or IANA meaning, and that the Studio → Anima
    |---|---|---|---|
    | `rendition_external_data` | no `uri` key anywhere (any case); no external buffer or image | error | error |
    | `rendition_format` | original `VRM`/`VRMC_vrm` block value-equal; never both VRM versions | error | error |
-   | `source_too_large` / `rendition_too_large` | file size ≤ profile `maxBytes` | warning | error |
+   | `source_too_large` | file size ≤ profile `maxBytes` (one code for every export kind; v0.3 integration, WP-4 W4-2) | warning | error |
    | `source_humanoid` | humanoid map with `hips` (VRM/VRMA profiles) | error | error |
    | `rendition_animation` | the profile's required clips exist and every channel targets a node | — | error |
    | `rendition_skeleton` | skins with valid joints (bake profiles) | error | error |
@@ -76,7 +76,7 @@ that `model/vrma` has no registry or IANA meaning, and that the Studio → Anima
    | `ekza.json-chunk-size` | JSON chunk ≤ 4 MiB (OMOBA); > 8 MiB is always an error | warning | error |
    | `ekza.extensions-required` | `extensionsRequired ⊆ {KHR_materials_unlit, KHR_texture_transform}`, never extended by us | warning | error |
    | `ekza.slot-name` | exported names match `[a-z][a-z0-9_]{0,31}`; `tpose` never exported | warning | error |
-   | `ekza.unique-names` | clip names unique, case-insensitive | error | error |
+   | `ekza.unique-names` | clip names unique, case-insensitive (local: warning since the v0.3 integration, MVP-SPEC §4.11.13, WP-4 W4-1) | warning | error |
    | `ekza.hips-only-translation` | humanoid clips translate only hips | warning | error |
    | `ekza.unit-quaternions` | rotation outputs unit length (1e-6) | error | error |
    | `ekza.provenance-unknown` | a clip's `redistributable` is `unknown` | warning | warning |

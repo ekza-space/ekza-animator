@@ -564,7 +564,9 @@ export class ViewportManager {
     }
     if (this.stylesDirty) {
       this.stylesDirty = false;
-      if (this.controls.setStyles(session.selection.controls, this.hoverControl)) this.dirty = true;
+      // The pointer's hover in a pane wins; otherwise the Outliner's hovered row pre-highlights (FR-OUT-03).
+      const hover = this.hoverControl ?? session.hoverControl;
+      if (this.controls.setStyles(session.selection.controls, hover)) this.dirty = true;
     }
     if (this.autoFrame) {
       this.autoFrame = false;
@@ -1172,6 +1174,10 @@ export class ViewportManager {
         if (state.selection.controls !== previous.selection.controls) {
           this.stylesDirty = true;
           this.manipulatorDirty = true;
+          this.invalidate();
+        }
+        if (state.hoverControl !== previous.hoverControl) {
+          this.stylesDirty = true;
           this.invalidate();
         }
         if (state.tools !== previous.tools) {

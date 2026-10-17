@@ -97,7 +97,10 @@ bone hierarchies differ.
   joints, node constraints, bone radii and height.
 - Importing a clip that animates spring-bone joints, node-constraint destinations or non-rigged nodes drops those
   channels with a warning.
-- Generic skeletons with non-uniform or negative scale display but warn; world composition uses float64 4×4
-  matrices; decomposition loses shear (warning).
+- Generic skeletons with non-uniform or negative scale display but warn. *Amended at the v0.3 integration
+  (WP-3 R-4)*: world composition uses float64 **similarity transforms** (t, q, s) — allocation-free and exact for
+  uniform scale (every humanoid rig and the fixtures' driven bones); a driven bone under non-uniform scale is
+  approximated and `compileRig` warns `non-uniform-scale`. Undriven bones output their rest locals exactly, so
+  skinning is unaffected. A per-node 4×4 matrix path is V1 if a real asset needs it.
 - The README, the demo script and the first-run "Getting started" card say plainly that M1 legs are FK with Plant
   Feet.

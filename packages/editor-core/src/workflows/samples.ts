@@ -53,11 +53,11 @@ export function isSampleId(value: unknown): value is SampleId {
   return typeof value === 'string' && Object.hasOwn(SAMPLES, value);
 }
 
-/** Downloads a sample's bytes (`fetch` of `/samples/<file>`). */
-export async function fetchSample(sample: SampleDef): Promise<Uint8Array> {
+/** Downloads a sample's bytes (`fetch` of `<base>/<file>`, base `EditorServices.samplesPath` or `/samples/`). */
+export async function fetchSample(sample: SampleDef, base: string = SAMPLE_BASE_URL): Promise<Uint8Array> {
   let response: Response;
   try {
-    response = await fetch(`${SAMPLE_BASE_URL}${sample.file}`);
+    response = await fetch(`${base.endsWith('/') ? base : `${base}/`}${sample.file}`);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new EkzaError('asset-missing', `The sample ${sample.file} could not be downloaded: ${message}`);

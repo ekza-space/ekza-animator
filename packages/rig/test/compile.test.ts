@@ -148,7 +148,7 @@ describe('compileRig: repair, never throw', () => {
   it('reports a dangling mirror and unpaired sided controls', () => {
     const program = compileRig(patch('fk.toes.L', { mirror: 'rig_X:gone' as ControlId }), skeleton);
     expect(program.warnings.some((w) => w.code === 'dangling-ref' && w.ids[0] === id('fk.toes.L'))).toBe(true);
-    expect(program.warnings.some((w) => w.code === 'asymmetric-rest' && w.ids[0] === id('fk.toes.L'))).toBe(true);
+    expect(program.warnings.some((w) => w.code === 'unpaired-mirror' && w.ids[0] === id('fk.toes.L'))).toBe(true);
   });
 
   it('warns when mirror pairs are not mirror images at rest', () => {

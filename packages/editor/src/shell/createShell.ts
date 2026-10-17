@@ -110,6 +110,16 @@ export function createShell(opts: CreateShellOptions): Shell {
   const exports = createExportRecorder(params.e2e);
 
   const runFromUi = async (op: string, args?: unknown, ctx?: RunContext): Promise<OperatorResult<unknown>> => {
+    // `file.new` discards without asking (WP-7b B7-1): every UI path (menu, keymap, palette) confirms unsaved work
+    // here first, like opening a project does (v0.3 integration).
+    if (op === 'file.new' && app.session.getState().dirty) {
+      const discard = await confirm({
+        title: 'New project',
+        text: 'The current project has unsaved changes. Starting a new project discards them.',
+        confirmLabel: 'Discard and start new',
+      });
+      if (!discard) return { status: 'cancelled', reason: 'New project cancelled: unsaved changes kept' };
+    }
     let result: OperatorResult<unknown>;
     try {
       result = await app.runUntyped(op, args, ctx);

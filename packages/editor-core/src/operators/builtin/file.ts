@@ -195,7 +195,7 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
     return busy(app, `Loading ${sample.file}…`, async (progress) =>
       prepareModelImport(app, {
         fileName: sample.file,
-        bytes: await fetchSample(sample),
+        bytes: await fetchSample(sample, app.services.samplesPath),
         options: args.options,
         known: sample.license,
         defaultClip: sample.defaultClip,

@@ -37,6 +37,7 @@ export function defaultSession(user: UserId = 'local' as UserId): SessionState {
     viewportLayout: 'split',
     maximizedPane: null,
     hoveredPanel: null,
+    hoverControl: null,
     clipboard: { pose: null, keys: null },
     feetPins: null,
     dialog: null,

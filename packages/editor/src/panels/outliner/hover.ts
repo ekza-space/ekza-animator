@@ -1,17 +1,13 @@
-// Outliner hover → viewport pre-highlight (FR-OUT-03). `SessionState` has no field for a hovered control yet;
-// contract request R-2 (docs/wp-notes/wp-9.md) adds `hoverControl: ControlId | null` for the viewport to read.
-// Until it lands the Outliner writes that field untyped, so the viewport can adopt it without a panel change.
+// Outliner hover → viewport pre-highlight (FR-OUT-03): the Outliner writes `session.hoverControl` (v0.3 integration,
+// WP-9 R-2) and the viewport draws that control with the hover style while the pointer hovers no control in a pane.
 import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
-
-type SessionWithHover = SessionState & { readonly hoverControl?: ControlId | null };
+import type { EditorApp } from '@ekza-animator/editor-core';
 
 export function hoveredControl(app: EditorApp): ControlId | null {
-  return (app.session.getState() as SessionWithHover).hoverControl ?? null;
+  return app.session.getState().hoverControl;
 }
 
 export function setHoveredControl(app: EditorApp, control: ControlId | null): void {
   if (hoveredControl(app) === control) return;
-  const patch: Pick<SessionWithHover, 'hoverControl'> = { hoverControl: control };
-  app.session.setState(patch as Partial<SessionState>);
+  app.session.setState({ hoverControl: control });
 }

@@ -50,6 +50,7 @@ export function repairSession(
     if (overrides.size !== state.overrides.size) patch.overrides = overrides;
   }
   if (state.feetPins !== null && store.get('characters', state.feetPins.character) === undefined) patch.feetPins = null;
+  if (state.hoverControl !== null && store.get('controls', state.hoverControl) === undefined) patch.hoverControl = null;
   if (cause === 'load' || cause === 'open') {
     if (state.dirty) patch.dirty = false;
     const name = store.get('project', 'project')?.name;

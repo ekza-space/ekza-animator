@@ -346,7 +346,7 @@ describe('setKeyHandle (§4.11.4 handle rules)', () => {
     expect(app.store.get('keys', K15)).toMatchObject({ inType: 'fixed', outType: 'auto', broken: true });
   });
 
-  it('weight-locked weighted keys change the angle only; unlocked ones take the length, limited by the span', () => {
+  it('weight-locked weighted keys change the angle only; unlocked ones take the handle with dt clamped to the span', () => {
     const fps = 30;
     const k = RAD2DEG;
     const weight = (h: { dt: number; dv: number }) => 3 * Math.hypot(Math.abs(h.dt) / fps, h.dv * k);
@@ -363,9 +363,10 @@ describe('setKeyHandle (§4.11.4 handle rules)', () => {
     edit(app, 'Drag', (tx) => setKeyHandle(app, tx, K0, 'out', { dt: 6, dv: 0.3 }, { tempBreak: false }));
     expect(app.store.get('keys', K0)?.outHandle).toEqual({ dt: 6, dv: 0.3 });
     edit(app, 'Drag', (tx) => setKeyHandle(app, tx, K0, 'out', { dt: 60, dv: 1 }, { tempBreak: false }));
+    // §4.11.4 "dt is clamped to (0, span]": the height is kept (WP-6 G-21, v0.3 integration).
     const limited = app.store.get('keys', K0)?.outHandle;
     expect(limited?.dt).toBeCloseTo(15, 12);
-    expect(limited?.dv).toBeCloseTo(0.25, 12);
+    expect(limited?.dv).toBeCloseTo(1, 12);
   });
 
   it('turns a handle dragged across its key vertical, ignores locked curves and rejects bad input', () => {

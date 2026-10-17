@@ -24,3 +24,6 @@ apps/web/public/decoders/
 apps/web/public/THIRD_PARTY_NOTICES.txt
 apps/web/next-env.d.ts
 apps/web/out/
+
+# Local acceptance screenshots (integration smoke runs)
+.acceptance/

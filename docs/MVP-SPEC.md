@@ -742,13 +742,21 @@ export const MERGE_UNIT: Readonly<Record<BuiltinTableName, MergeUnit>> = {
   keys: 'record',
 };
 
+/** v0.3 integration (WP-2): resolves what a record alone cannot tell — rig-scoped records (controls, constraints,
+ *  solvers) reference only their rig, and their partition is `char:<the rig's character>`. Stores pass a lookup over
+ *  their own state; an unknown rig yields `undefined` (the record then belongs to `scene`). */
+export interface PartitionLookup {
+  rigCharacter(rig: RigId): CharacterId | undefined;
+}
+
 /** Runtime description of a table: built-ins are registered by `doc`, extensions call registerTable(). */
 export interface TableDef {
   readonly name: string;                       // built-ins unprefixed; extensions namespaced 'vendor.table'
   readonly version: number;                    // per-table schema version (DocSnapshot.tableVersions)
   readonly mergeUnit: MergeUnit;               // nested objects (shape, keyable, range, placement, …) are atomic values
   readonly softDelete: boolean;
-  partition(record: { readonly id: string }): Partition;
+  /** `lookup` (v0.3 integration) is passed by stores; the built-in rig-scoped tables require it. */
+  partition(record: { readonly id: string }, lookup?: PartitionLookup): Partition;
   /** [] when valid; otherwise human-readable problems. */
   validate(record: unknown): readonly string[];
   /** Pure, idempotent migrations; index i migrates version i+1 → i+2. New IDs derive as hash(oldId + ':' + purpose). */
@@ -1008,7 +1016,7 @@ export interface RigDefinition {
 }
 
 export interface RigWarning {
-  readonly code: 'dangling-ref' | 'cycle' | 'unsupported-op' | 'non-uniform-scale' | 'missing-bone' | 'duplicate-binding' | 'shear' | 'asymmetric-rest';
+  readonly code: 'dangling-ref' | 'cycle' | 'unsupported-op' | 'non-uniform-scale' | 'missing-bone' | 'duplicate-binding' | 'shear' | 'asymmetric-rest' | 'unpaired-mirror';   // unpaired-mirror: v0.3 integration (WP-3 R-5)
   readonly message: string;
   readonly ids: readonly string[];
 }
@@ -1295,6 +1303,9 @@ export interface EkzaBakeMarkerV1 {
   readonly baseSha256: string;                 // sha256 of the pre-bake file — provenance only
   /** Original JSON of every pre-baseline animation replaced in place, keyed by its index; written once. */
   readonly replaced: Readonly<Record<string, unknown>>;
+  /** v0.3 integration (WP-4): present (true) only when the pre-bake file had no `asset.generator`: the surgeon
+   *  wrote its own, and a rollback removes it again. */
+  readonly generatorAdded?: true;
 }
 
 export type LintSeverity = 'error' | 'warning' | 'info';
@@ -1501,6 +1512,7 @@ export interface SessionState {
   readonly viewportLayout: ViewportLayout;                        // default 'split'
   readonly maximizedPane: string | null;
   readonly hoveredPanel: { readonly kind: PanelKind; readonly paneId: string | null } | null;
+  readonly hoverControl: ControlId | null;                        // Outliner hover → viewport pre-highlight (v0.3 integration, WP-9 R-2)
   readonly clipboard: { readonly pose: PoseClipboard | null; readonly keys: KeyClipboard | null };
   readonly feetPins: FeetPins | null;
   readonly dialog: UiDialog | null;
@@ -1559,6 +1571,8 @@ export interface OperatorDef<A = void, R = void, P = void> {
     readonly structural?: boolean;                                // rewrites many records (fps change); M3: needs an exclusive claim
   };
   undoLabel?(args: A): string;
+  /** v0.3 integration (WP-7a): consecutive runs with the same key within `ms` merge into one step (§4.11.0 rule 7). */
+  coalesce?(args: A): { readonly key: string; readonly ms: number } | null;
   poll?(ctx: OperatorContext, args: A): PollResult;
   prepare?(ctx: OperatorContext, args: A): Promise<P> | P;
   apply(ctx: ApplyContext, args: A, prepared: P): R;
@@ -1740,6 +1754,7 @@ export interface EditorServices {
   readonly models: ModelLoader | null;                            // null in Node tests
   readonly validate: ((bytes: Uint8Array) => Promise<ValidationReport>) | null;
   readonly storage: PrefsStorage | null;                          // null: preferences are not persisted
+  readonly samplesPath?: string;                                  // base URL of the bundled samples, default '/samples/' (v0.3 integration, WP-8 R-2)
 }
 
 // ---------- characters and evaluation ----------
@@ -1884,8 +1899,8 @@ import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, Deri
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
 import type { MirrorMode, ReduceSpec } from '@ekza-animator/rig';
 import type { ChannelEditResult, ChannelRef, DisplayFlags, HistoryResult, KeyPartSelection, KeyPolicy,
-  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, SelectMode, ToolId, UiDialog,
-  ViewportLayout } from '../types';
+  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, Prefs, SelectionMask, SelectMode, ToolId,
+  UiDialog, ViewportLayout } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -1957,6 +1972,7 @@ export interface OperatorMap {
   'select.mirror': { args: void; result: void };
   'select.keys': { args: { readonly items: readonly { readonly key: KeyId; readonly parts?: Partial<KeyPartSelection> }[]; readonly mode: SelectMode }; result: void };
   'select.curveKeys': { args: { readonly curve: CurveId; readonly mode: SelectMode }; result: void };
+  'select.channels': { args: { readonly refs: readonly ChannelRef[]; readonly mode: SelectMode }; result: void };   // v0.3 integration (WP-9 R-1)
   // key
   'key.set': { args: { readonly channels?: KeyChannels; readonly target?: 'selected' | 'character' } | void; result: CountResult };
   'key.deleteAtFrame': { args: void; result: CountResult };
@@ -2024,6 +2040,8 @@ export interface OperatorMap {
   'view.setManipSpace': { args: { readonly tool: 'move' | 'rotate'; readonly space: ManipSpace }; result: void };
   'view.setNavProfile': { args: { readonly profile: NavProfile }; result: void };
   'view.cameraRadial': { args: { readonly paneId?: string } | void; result: void };   // M1-stretch
+  'view.camera.setSettings': { args: { readonly camera: CameraId; readonly fovY?: number; readonly near?: number; readonly far?: number; readonly aspect?: number | null }; result: void };   // v0.3 integration (WP-9 R-3), U
+  'view.selectionMask': { args: { readonly mask: Partial<SelectionMask> }; result: void };   // v0.3 integration (WP-8 R-1)
   // rig
   'rig.setRotateOrder': { args: { readonly control: ControlId; readonly order: RotateOrder }; result: void };   // M1-stretch
   'rig.setControlSize': { args: { readonly control: ControlId; readonly size: number }; result: void };
@@ -2031,6 +2049,10 @@ export interface OperatorMap {
   // ui
   'ui.open': { args: { readonly dialog: UiDialog }; result: void };
   'ui.close': { args: void; result: void };
+  // prefs and workspace (shell, v0.3 integration: WP-8 R-1)
+  'prefs.set': { args: { readonly patch: Partial<Omit<Prefs, 'version'>> }; result: void };
+  'workspace.reset': { args: void; result: void };
+  'workspace.showPanel': { args: { readonly panel: PanelKind }; result: void };
 }
 ```
 
@@ -2187,7 +2209,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `file.openProject` | — | 7b | `readProjectArchive` → asset hash checks → `store.load` (read-only when newer). Never merges (ADR 0011). |
 | `file.importModel` | U | 7b | §4.11.6. `prepare` parses, hashes, rigs and converts clips; `apply` writes all records in one transaction. |
 | `file.importAnimation` | U | 7b | VRMA → new clip on the target humanoid (§4.11.7). Animation-only GLB onto a character: M1-stretch (`remapRawClipByName`). |
-| `file.loadSample` | U | 7b | Fetches `/samples/<file>` in `prepare`, then the `file.importModel` pipeline with sample provenance (quaternius: `clips: [index of 'Idle_Loop']`). |
+| `file.loadSample` | U | 7b | Fetches `<services.samplesPath ?? '/samples/'><file>` in `prepare` (*v0.3 integration*: base URL from `EditorProps.samplesPath`), then the `file.importModel` pipeline with sample provenance (quaternius: `clips: [index of 'Idle_Loop']`). |
 | `file.save` / `file.saveAs` | — | 7b | `writeProjectArchive(store.snapshot(), assets)` → `services.files.download('<name>.ekzanim')`; clears `dirty`. |
 | `file.saveJson` | — | 7b | Debug `.ekzanim.json` download. |
 | `file.export` | — | 7b | §4.11.10 via the exporter registry. Returns `ExportArtifact[]`; downloads each; toast with lint summary. |
@@ -2200,6 +2222,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `select.mirror` | — | 7b | Replace selection with mirror counterparts (centre and unpaired controls stay). |
 | `select.keys` | — | 7b | Graph/time-slider key selection. |
 | `select.curveKeys` | — | 6 | Double-click on a curve: all keys of that curve. |
+| `select.channels` | — | 7b | *v0.3 integration* (WP-9 R-1): replaces/toggles/adds/removes `selection.channels` (Channel Box channel names, Graph Editor channel list); internal (no menu entry). |
 | `key.set` | U | 7b | §4.11.1. `S` = all, `Shift+W/E/R` = translate/rotate/scale, Channel Box "Key selected" = `selected`. |
 | `key.deleteAtFrame` | U | 7b | Delete keys at the current clip frame on the selected controls' curves (active clip, base layer). |
 | `key.toggleAutoKey` | — | 7b | Toggle `prefs.autoKey`. |
@@ -2252,10 +2275,14 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `view.setManipSpace` | — | 7b | Writes `prefs.moveSpace`/`prefs.rotateSpace` (gimbal only for rotate). |
 | `view.setNavProfile` | — | 7b | Writes `prefs.navProfile`. |
 | `view.cameraRadial` | — | 5 | M1-stretch: Space-hold pane camera radial. |
+| `view.camera.setSettings` | U | 7b | *v0.3 integration* (WP-9 R-3): patches a shot camera's `fovY`/`near`/`far`/`aspect` (0 < fovY < π, near > 0, far > near); the Attributes lens fields. |
+| `view.selectionMask` | — | 8 | *v0.3 integration* (WP-8 R-1): writes `session.tools.selectionMask` (status line Pick toggles; `meshes` enables mesh-click picking). |
 | `rig.setRotateOrder` | U | 7b | M1-stretch: pose-preserving conversion (§4.11.5). |
 | `rig.setControlSize` | U | 7b | `shape.size`. |
 | `rig.toggleSecondary` | — | 7b | Session `showSecondary`. |
 | `ui.open` / `ui.close` | — | 8 | Session `dialog` (open/import/export/shortcuts/about/firstRun/preferences). |
+| `prefs.set` | — | 8 | *v0.3 integration* (WP-8 R-1): patches preference fields (Preferences dialog, status line, first run). |
+| `workspace.reset` / `workspace.showPanel` | — | 8 | *v0.3 integration* (WP-8 R-1): rebuilds the default Animate layout / shows (re-opens) a dock panel (Windows menu). |
 
 ### 4.10 Default keymap (preset `maya`)
 
@@ -2323,15 +2350,27 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
    record deep-equals `change.after`. For field-merge tables each field in `change.fields` (all top-level fields
    when absent) is reverted only if the current value deep-equals `after[field]`; skipped fields are reported.
    Inserts and hard deletes are whole-record. Changes in unopened partitions are skipped with
-   `missing-partition`. Redo is symmetric.
+   `missing-partition`. Redo is symmetric. *v0.3 integration (WP-2)*: undo/redo never hard-deletes a record that
+   a record outside the step still references (hidden and soft-deleted referrers included); that change is
+   skipped with `changed-by-other` (checked to a fixpoint, so a clip, its layer and a curve all stay while a
+   foreign key uses the curve).
 5. Only `origin: 'local'` batches with `undoable !== false` enter the undo stack.
+6. *v0.3 integration (WP-2)*: `ChangeBatch` origin `'load'` comes from `store.load` **and** from partition
+   visibility changes (`open`, `close`, records revealed when a write opened their partition; labels `Load`,
+   `Open <partition>`, `Close <partition>`, `Open partitions`). Only `store.load` clears the undo stacks; the kernel
+   treats a `'load'` batch as a document load only when both doc undo stacks are empty afterwards.
+   `DocQueries.curvesOfClip`/`curvesOfControl` list only canonical curves (smallest `CurveId` per
+   `(clip, layer, control, channel)`); `missingPartitions()` is `[]` in the MVP (local writes open the partitions
+   they write; `load` opens every character and clip partition).
 
 **Operator runner** (WP-7a), for `app.run(id, args, ctx)`:
 
 1. Resolve the operator; `poll(ctx, args)`; a failed poll returns `cancelled` with the reason.
 2. `await prepare(ctx, args)` when defined. `prepare` may do I/O, parsing, hashing, `store.open`, and call
    `app.run` (dispatchers such as `file.open`, `edit.copy`). It MUST NOT write the document.
-3. Re-run `poll`; if a preview (gesture) is active return `cancelled: 'gesture in progress'`.
+3. Re-run `poll`; if a preview (gesture) is active return `cancelled: 'gesture in progress'`. *v0.3 integration
+   (WP-7a)*: `edit.escape` is exempt (it must cancel the gesture) and a run that started during a gesture records
+   no history step.
 4. Snapshot `session.overrides`, the selection and the session (for rollback).
 5. `flags.undo`: `store.transact({ label: undoLabel?.(args) ?? label, selectionBefore }, tx => apply({…ctx, tx}, args, prepared))`;
    before returning, the runner calls `tx.annotate({ selectionAfter })`. Otherwise `apply({…ctx, tx: null}, …)`.
@@ -2340,7 +2379,11 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
    `failed` (`EkzaError.code`, else `'internal'`).
 7. History: if the doc undo stack has a new top entry, or `session.overrides` changed, the runner calls
    `history.record({ label, docTxId, overrides })` (override delta for the active character's clip).
-   Coalesced transactions (same `coalesceKey` within `coalesceMs`) merge into the previous step.
+   Coalesced transactions (same `coalesceKey` within `coalesceMs`, from `OperatorDef.coalesce`) merge into the
+   previous step. *v0.3 integration (WP-7a)*: an operator that navigated the history (`edit.undo`/`edit.redo`)
+   records no step; the override delta is recorded only when the active character, clip and clip frame are the
+   same before and after `apply`; a step that keys overridden controls removes their override parts from earlier
+   steps (§4.11.1 rule 5).
 8. Operators may run their `prepare` phases concurrently; `apply` phases are atomic by construction.
 
 **Edit kernel** (WP-7a; stubs with final types in WP-0). Every writer of channels or keys uses these:
@@ -2368,7 +2411,10 @@ the document entry only if it is still the top of the doc undo stack (else it re
 doc part). A step with `overrides` restores `before` when the active clip and clip frame still match.
 `history.dropOverrides` runs on every clip-frame change, clip switch, `file.new/open` and when keying writes
 keys for overridden controls (the override is consumed). Redo is symmetric; any new step clears the redo stack.
-The doc `UndoManager` and the conformance suite are unaffected.
+The doc `UndoManager` and the conformance suite are unaffected. *v0.3 integration (WP-7a)*: every other local
+undoable commit (a panel's `store.transact`, a Graph Editor or time-slider `beginPreview(…).commit()`) becomes a
+step of its own, labelled by its batch, so `Mod+Z` never skips a doc entry no step owns; `undoable: false` commits
+add nothing and keep the redo stack.
 
 **Error codes** (`EkzaError.code`): `not-implemented`, `invalid-record`, `use-patch`, `preview-active`,
 `read-only`, `nested-run`, `asset-missing`, `asset-corrupt`, `not-glb`, `vrm-both`, `budget-exceeded`,
@@ -2656,11 +2702,13 @@ source key time and integer frame is ≤ tolerance.
    Rollback restores every `replaced` entry first, then truncates `animations`, `accessors`, `bufferViews` and the
    BIN to the baseline, then re-appends. Otherwise the bake appends on top (no rollback) and lints a warning.
 8. Never rename nodes, never touch `extensionsUsed/Required`, never prune, never re-serialize the original BIN;
-   `asset.generator` is set only if absent. Output is a `Blob`-style concatenation (no copy of large originals).
+   `asset.generator` is set only if absent (the marker then records `generatorAdded: true`, and a rollback removes
+   the generator again — v0.3 integration, WP-4). Output is one `Uint8Array` into which the original BIN prefix is
+   copied exactly once (`ExportArtifact.bytes`; a `Blob` output is V1).
 9. Tests: all three fixtures; re-bake with identical input is byte-identical; on UAL, bake `{Idle_Loop}` then
    re-bake `{Walk_Loop}` → no new validator errors and `animations[index of Idle_Loop]` deep-equals the source
-   entry; bake then rollback only → JSON value equal to the source except `asset.extras`; the marker contains no
-   `uri` key.
+   entry; bake then rollback only → JSON value equal to the source except `asset.extras` (and the generator the
+   surgeon added); the marker contains no `uri` key.
 
 #### 4.11.12 VRMA writer rules (`writeVrma`)
 
@@ -2685,7 +2733,9 @@ source key time and integer frame is ≤ tolerance.
   identical prefix bytes for the BIN. Byte identity of JSON text is not a goal.
 - Lint codes, severities and their registry mapping are the table in ADR 0010 §4. The lowercase slot-name and
   uniqueness lints are errors only under Ekza profiles (`ExportProfileDef.ekza`), warnings otherwise; uniqueness
-  is case-insensitive. `provenance-unknown` is a warning; `non-redistributable` is an error under Ekza profiles
+  is case-insensitive (ADR 0010's table lists `ekza.unique-names` as an error locally; this text wins, WP-4 W4-1:
+  the writers already refuse duplicate names among exported clips, so a local hit can only come from the model's own
+  animations). `provenance-unknown` is a warning; `non-redistributable` is an error under Ekza profiles
   and a warning for local export; `height-scale-range` warns outside 0.5..2.
 
 #### 4.11.14 Input budgets and structural checks (`checkInputBudget`)
@@ -3122,9 +3172,10 @@ export function spanKindAt(c: CompiledAnimCurve, frame: Frame): SegmentKind | nu
 export function infinityMap(c: CompiledAnimCurve, frame: Frame): { readonly frame: Frame; readonly valueOffset: number; readonly mirrored: boolean };
 export function keyIndexAt(c: CompiledAnimCurve, frame: Frame, epsilon?: number): number;           // −1 if none
 export function visibleKeyRange(c: CompiledAnimCurve, f0: Frame, f1: Frame): readonly [lo: number, hi: number];
-export function resolveKeyHandles(curve: AnimCurve, index: number): { readonly inHandle: Handle; readonly outHandle: Handle };
-/** §4.11.4 insert rule; `frozen` = indices (in the result) of keys whose computed sides became 'fixed'. */
-export function insertKeyPreservingShape(curve: AnimCurve, frame: Frame): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
+export function resolveKeyHandles(curve: AnimCurve, index: number, opts?: { readonly cycleAwareAuto?: boolean }): { readonly inHandle: Handle; readonly outHandle: Handle };   // opts: v0.3 integration (WP-1 W1-1)
+/** §4.11.4 insert rule; `frozen` = indices (in the result) of every pre-existing key whose data changed (computed sides
+ *  frozen as 'fixed', resized weighted sub-handles, an end key fixed to the infinity slope; v0.3 integration, WP-1 W1-2). */
+export function insertKeyPreservingShape(curve: AnimCurve, frame: Frame, opts?: { readonly cycleAwareAuto?: boolean }): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
 export function tangentFields(h: Handle, side: 'in' | 'out', fps: Fps, displayScale: number): TangentFields;
 export function handleFromFields(fields: Partial<TangentFields>, current: Handle, side: 'in' | 'out', fps: Fps, displayScale: number): Handle;
 export function makeKeyData(t: Frame, v: number, tangents?: { readonly in: TangentType; readonly out: TangentType }): KeyData;
@@ -3180,7 +3231,7 @@ export function createMemoryStore(opts?: { readonly user?: UserId; readonly undo
 export function registerTable(def: TableDef): Disposer;
 export function getTableDef(name: string): TableDef | undefined;
 export function fractionalIndex(before: string | null, after: string | null): string;
-export function partitionOf<T extends TableName>(table: T, record: RecordOf<T>): Partition;
+export function partitionOf<T extends TableName>(table: T, record: RecordOf<T>, lookup?: PartitionLookup): Partition;   // lookup: v0.3 integration; throws 'unsupported' for rig-scoped tables without it
 export function validateRecord<T extends TableName>(table: T, record: unknown): readonly string[];   // [] = valid
 export function defaultChannelValue(channel: ChannelId): number;                       // 0, or 1 for sx/sy/sz
 export function isRotationChannel(channel: ChannelId): boolean;
@@ -3554,9 +3605,11 @@ export class TimeSliderController {
   pointerUp(e: ToolPointerEvent): void;
   contextMenu(x: number, y: number): readonly { readonly id: string; readonly label: string; readonly op: string; readonly args?: unknown }[];
   redraw(force?: boolean): void;
+  cancel(): void;                                                            // v0.3 integration (WP-6t): pointer cancel drops a key drag
+  readonly dragging: boolean;                                                // v0.3 integration (WP-6t)
   dispose(): void;
 }
-/** Registers time.selectBand (acting on the focused controller). */
+/** Registers time.selectBand (acting on the focused controller) and the `timeline.context` menu items. */
 export function registerTimelineContributions(app: EditorApp, focused: () => TimeSliderController | null): Disposer;
 ```
 
@@ -3697,7 +3750,7 @@ export interface EditorProps {
   readonly e2e?: boolean;
 }
 export function Editor(props: EditorProps): JSX.Element;
-export function createBrowserServices(opts: { readonly decoderPath: string; readonly createValidatorWorker?: () => Worker }): EditorServices;
+export function createBrowserServices(opts: { readonly decoderPath: string; readonly samplesPath?: string; readonly createValidatorWorker?: () => Worker }): EditorServices;   // samplesPath: v0.3 integration
 export interface PanelProps { readonly app: EditorApp; readonly instanceId: string }
 export interface PanelDef {
   readonly id: string;

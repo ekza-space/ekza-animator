@@ -184,7 +184,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   );
   const program = compileRig(rig, skeleton);
   for (const warning of program.warnings) {
-    if (warning.code !== 'asymmetric-rest') notes.push(warning.message);
+    if (warning.code !== 'asymmetric-rest' && warning.code !== 'unpaired-mirror') notes.push(warning.message);
   }
 
   const license = format === 'gltf' ? null : readVrmLicense(container);

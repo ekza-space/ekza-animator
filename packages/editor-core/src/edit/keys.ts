@@ -375,10 +375,11 @@ export function setKeyHandle(
   if (!curve.weighted || record.weightLocked) {
     next = withLengthOf(dragged, side);
   } else {
+    // §4.11.4: angle and length follow the pointer; only `dt` is clamped to (0, span] ("clamp x, keep y", the Graph
+    // Editor's drag rule, WP-6 G-21), so scripted callers get what a drag gets.
     const neighbour = keys[side === 'out' ? index + 1 : index - 1];
     const span = neighbour === undefined ? Infinity : Math.abs(neighbour.t - record.t);
-    const scale = Math.abs(dragged.dt) > span ? span / Math.abs(dragged.dt) : 1;
-    next = { dt: dragged.dt * scale, dv: dragged.dv * scale };
+    next = Math.abs(dragged.dt) > span ? { dt: Math.sign(dragged.dt) * span, dv: dragged.dv } : dragged;
   }
 
   let updated: KeyRecord =

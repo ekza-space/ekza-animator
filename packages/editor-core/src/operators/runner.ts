@@ -26,16 +26,15 @@ export interface OperatorCoalescing {
 }
 
 /**
- * An operator that opts into coalescing (§4.11.0 rule 7) — an addition to `OperatorDef` pending a contract change
- * (docs/wp-notes/wp-7a.md). Its transaction carries `coalesceKey`/`coalesceMs`, so the store merges the document
- * part; override-only steps with the same key merge in the editor history within the same window.
+ * An operator that opts into coalescing (§4.11.0 rule 7). `OperatorDef.coalesce` is part of the contract since the
+ * v0.3 integration; this alias stays for code written against the WP-7a export. The run's transaction carries
+ * `coalesceKey`/`coalesceMs`, so the store merges the document part; override-only steps with the same key merge in
+ * the editor history within the same window.
  */
-export type CoalescingOperatorDef<A = void, R = void, P = void> = OperatorDef<A, R, P> & {
-  coalesce?(args: A): OperatorCoalescing | null;
-};
+export type CoalescingOperatorDef<A = void, R = void, P = void> = OperatorDef<A, R, P>;
 
 function coalescingOf(def: AnyOperatorDef, args: unknown): OperatorCoalescing | null {
-  const spec = (def as CoalescingOperatorDef<unknown, unknown, unknown>).coalesce?.(args) ?? null;
+  const spec = def.coalesce?.(args) ?? null;
   return spec !== null && spec.key.length > 0 && spec.ms > 0 ? spec : null;
 }
 

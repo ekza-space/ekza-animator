@@ -90,22 +90,6 @@ const setNavProfile = defineOperator({
   },
 });
 
-declare module '../args' {
-  interface OperatorMap {
-    /** Lens and clip planes of a shot camera (undoable); requested by WP-9 (R-3) for the Attributes panel. */
-    'view.camera.setSettings': {
-      args: {
-        readonly camera: CameraId;
-        readonly fovY?: number;
-        readonly near?: number;
-        readonly far?: number;
-        readonly aspect?: number | null;
-      };
-      result: void;
-    };
-  }
-}
-
 function cameraSettingsProblem(app: EditorApp, args: unknown): string | null {
   if (!isRecord(args) || typeof args['camera'] !== 'string') return 'expects { camera, fovY?, near?, far?, aspect? }';
   const camera = app.store.get('cameras', args['camera'] as CameraId);

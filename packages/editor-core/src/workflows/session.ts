@@ -55,6 +55,7 @@ export function resetDocumentSession(app: EditorApp): void {
     overrides: new Map(),
     hiddenControls: new Set(),
     maximizedPane: null,
+    hoverControl: null,
     feetPins: null,
     busy: null,
   });
