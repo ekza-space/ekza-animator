@@ -19,6 +19,7 @@ import { RegisteredPanel } from '../shell/PanelFrame';
 import type { Shell } from '../shell/types';
 import { DEFAULT_PARAMS } from '../test-api/params';
 import { DEV_STATE_PANEL } from './DevStatePanel';
+import { createSyntheticModelLoader } from './syntheticModels';
 
 declare global {
   interface Window {
@@ -120,6 +121,9 @@ function createHarness(props: PanelHarnessProps): Harness {
     snapshot: asSnapshot(props.snapshot),
     ...(props.skeleton === null ? {} : { skeleton: asSkeleton(props.skeleton) }),
     ...(props.platform === undefined ? {} : { platform: props.platform }),
+    // A model loader, as in the editor: the viewport panel then uses the shell's GL host mounted below rather than
+    // a canvas of its own (WP-5 V-9 hosts one only for apps without a loader).
+    services: { models: createSyntheticModelLoader() },
   });
   const panels = createPanelRegistry();
   registerBuiltinPanels(panels);
