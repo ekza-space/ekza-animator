@@ -200,13 +200,15 @@ describe('rig: curve cache and clip sampler (shared test kit store)', () => {
     const all = (clip: ClipId): readonly CurveRecord[] =>
       store.list('curves').filter((curve) => curve.clip === clip && curve.deleted === null);
     const query = new Proxy(store.query, {
-      get: (target, prop) => (prop === 'curvesOfClip' ? all : Reflect.get(target, prop, target)),
+      get: (target, prop) => (prop === 'curvesOfClip' ? all : (Reflect.get(target, prop, target) as unknown)),
     });
     const view = new Proxy(store, {
       get: (target, prop) => {
         if (prop === 'query') return query;
         const value: unknown = Reflect.get(target, prop, target);
-        return typeof value === 'function' ? value.bind(target) : value;
+        return typeof value === 'function'
+          ? ((value as (...args: unknown[]) => unknown).bind(target) as unknown)
+          : value;
       },
     });
     expect(view.query.curvesOfClip(CLIP).filter((curve) => curve.control === ARM)).toHaveLength(2);
