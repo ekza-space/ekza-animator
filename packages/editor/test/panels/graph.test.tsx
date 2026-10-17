@@ -62,9 +62,9 @@ async function settle(): Promise<void> {
   });
 }
 
-/** Sets the key selection (the panel re-renders its fields; see `quietly`). */
+/** Sets the key selection (the panel re-renders its fields). */
 function select(keys: readonly (readonly [KeyId, Partial<KeyPartSelection>])[]): Promise<void> {
-  return quietly(() =>
+  return inAct(() =>
     update(() => {
       const selection = app.session.getState().selection;
       app.session.setState({
@@ -75,22 +75,6 @@ function select(keys: readonly (readonly [KeyId, Partial<KeyPartSelection>])[]):
       });
     }),
   );
-}
-
-/** Runs `fn` with the expected render-error reports of the stubbed tangent fields silenced (WP-1 not landed). */
-async function quietly(fn: () => Promise<void>): Promise<void> {
-  if (TANGENT_FIELDS_READY) return inAct(fn);
-  const warn = console.warn;
-  const error = console.error;
-  console.warn = () => {};
-  console.error = () => {};
-  try {
-    await inAct(fn);
-    await settle();
-  } finally {
-    console.warn = warn;
-    console.error = error;
-  }
 }
 
 /** Runs a user interaction inside act() so React flushes the renders it causes. */
@@ -174,7 +158,7 @@ describe('GraphPanel', () => {
     await update(() => byTestId(container, `ge-lock-${LOWER_ARM}/rz`).click());
     await settle();
     expect(callsOf('channel.toggleLock')).toEqual([{ refs: [{ control: LOWER_ARM, channel: 'rz' }], locked: true }]);
-    await quietly(() => userEvent.dblClick(byTestId(container, `ge-row-${LOWER_ARM}/rz`)));
+    await inAct(() => userEvent.dblClick(byTestId(container, `ge-row-${LOWER_ARM}/rz`)));
     expect(callsOf('select.curveKeys')).toEqual([{ curve: CURVE, mode: 'replace' }]);
     expect(app.session.getState().selection.keys.size).toBe(3);
   });
@@ -302,7 +286,7 @@ describe('GraphPanel', () => {
     const rect = canvas.getBoundingClientRect();
     const point = graphTestHooks(app).screenOfCurve(CURVE, 7.5);
     if (point === null) throw new Error('curve not on screen');
-    await quietly(() => userEvent.dblClick(canvas, { position: { x: point.x - rect.left, y: point.y - rect.top } }));
+    await inAct(() => userEvent.dblClick(canvas, { position: { x: point.x - rect.left, y: point.y - rect.top } }));
     expect(callsOf('select.curveKeys')).toEqual([{ curve: CURVE, mode: 'replace' }]);
     expect([...app.session.getState().selection.keys.keys()]).toEqual([...KEYS]);
     await settle();

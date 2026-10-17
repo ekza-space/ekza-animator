@@ -14,6 +14,7 @@ import { KeyFields } from './KeyFields';
 import {
   applyChannelSelection,
   flattenRows,
+  keyFieldValues,
   listedControls,
   sameTree,
   selectedKeys,
@@ -58,6 +59,7 @@ export function GraphPanel({ app }: PanelProps): JSX.Element {
 
   const readKeys = useCallback((store: DocumentStore) => selectedKeys(store, keySelection), [keySelection]);
   const keys = useDocQuery(readKeys, ['keys', 'curves', 'clips']);
+  const fields = useMemo(() => keyFieldValues(app, keys), [app, keys]);
   const readToolbar = useCallback(
     (store: DocumentStore) => toolbarState(store, keys, channelSelection, visible),
     [keys, channelSelection, visible],
@@ -104,7 +106,7 @@ export function GraphPanel({ app }: PanelProps): JSX.Element {
     <div className="flex h-full min-h-0 flex-col bg-panel text-fg" data-testid="graph-panel">
       <div className="flex shrink-0 flex-col gap-1 border-b border-line bg-header px-1.5 py-1">
         <GraphToolbar app={app} state={toolbar} controller={controller} hasControls={controls.length > 0} />
-        <KeyFields app={app} keys={keys} />
+        <KeyFields app={app} fields={fields} />
       </div>
       <Group orientation="horizontal" className="min-h-0 flex-1">
         <Panel defaultSize="22%" minSize={120}>

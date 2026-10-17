@@ -29,6 +29,7 @@ import {
   flattenRows,
   formatField,
   frameValueFields,
+  keyFieldValues,
   listedControls,
   MIXED_FIELD_HINT,
   MIXED_SCALE_ERROR,
@@ -274,6 +275,54 @@ describe('Graph panel model', () => {
       key: { ...(keys[0] as SelectedKey).key, id: 'k_ghost0000000' as KeyId },
     } as SelectedKey;
     expect(tangentFieldValues(source, [ghost], fieldsFormula).inAngle).toBeNull();
+  });
+
+  it('derives every field value; a failing curve engine only hides the tangent fields', () => {
+    app = createFakeEditorApp({ snapshot });
+    const two = selectedKeys(
+      app.store,
+      new Map([
+        [KEYS[1], KEY_PART],
+        [KEYS[2], KEY_PART],
+      ]),
+    );
+    const compiled = app.evaluation.compiledCurve(CURVE);
+    expect(keyFieldValues(app, two, handleProbe)).toEqual({
+      count: 2,
+      frame: null,
+      value: null,
+      tangent: {
+        inAngle: common([compiled.inDt[1] as number, compiled.inDt[2] as number]),
+        outAngle: common([(compiled.outDt[1] as number) * 10, (compiled.outDt[2] as number) * 10]),
+        inWeight: null,
+        outWeight: null,
+        weighted: false,
+      },
+    });
+    expect(keyFieldValues(app, [], handleProbe)).toEqual({
+      count: 0,
+      frame: null,
+      value: null,
+      tangent: { inAngle: null, outAngle: null, inWeight: null, outWeight: null, weighted: false },
+    });
+    // Not implemented yet (WP-1): hidden quietly. Any other failure: hidden and reported.
+    const stub = () => {
+      throw new EkzaError('not-implemented', 'tangentFields');
+    };
+    const broken = () => {
+      throw new Error('boom');
+    };
+    const warn = console.warn;
+    const warnings: unknown[][] = [];
+    console.warn = (...args: unknown[]) => warnings.push(args);
+    try {
+      expect(keyFieldValues(app, two, stub)).toMatchObject({ count: 2, tangent: null });
+      expect(warnings).toHaveLength(0);
+      expect(keyFieldValues(app, two, broken)).toMatchObject({ count: 2, tangent: null });
+      expect(warnings).toHaveLength(1);
+    } finally {
+      console.warn = warn;
+    }
   });
 
   it('computes tangent fields for 50k selected keys in under 20 ms', async ({ annotate }) => {

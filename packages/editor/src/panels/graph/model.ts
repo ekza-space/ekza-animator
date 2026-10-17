@@ -1,6 +1,6 @@
 // Pure state of the Graph Editor panel: which controls and curves it lists and shows, the numeric fields of the
 // selected keys and the toolbar's toggle states. Everything is derived from the document and the session.
-import { type Fps, type InfinityMode, tangentFields } from '@ekza-animator/anim-core';
+import { EkzaError, type Fps, type InfinityMode, tangentFields } from '@ekza-animator/anim-core';
 import { type ChannelTreeNode, channelDisplayScale, channelNodes } from '@ekza-animator/curve-editor';
 import type {
   CharacterId,
@@ -309,6 +309,43 @@ export function tangentFieldValues(
     outWeight: weighted ? outWeight.value : null,
     weighted,
   };
+}
+
+const NO_TANGENT_FIELDS: TangentFieldValues = {
+  inAngle: null,
+  outAngle: null,
+  inWeight: null,
+  outWeight: null,
+  weighted: false,
+};
+
+/** Everything the numeric fields show, small enough to hand to components (not the selected keys themselves). */
+export interface KeyFieldValues extends FrameValueFields {
+  /** Null when the curve engine cannot resolve the handles (WP-1 not landed, or it failed): the fields hide. */
+  readonly tangent: TangentFieldValues | null;
+}
+
+/**
+ * Field values of the selected keys. A failure of the curve engine only takes the angle and weight fields away
+ * (logged unless the engine is not implemented yet); frame and value stay usable.
+ */
+export function keyFieldValues(
+  source: TangentFieldSource,
+  keys: readonly SelectedKey[],
+  fieldsOf: typeof tangentFields = tangentFields,
+): KeyFieldValues {
+  const base = frameValueFields(keys);
+  if (keys.length === 0) return { ...base, tangent: NO_TANGENT_FIELDS };
+  let tangent: TangentFieldValues | null;
+  try {
+    tangent = tangentFieldValues(source, keys, fieldsOf);
+  } catch (error) {
+    if (!(error instanceof EkzaError && error.code === 'not-implemented')) {
+      console.warn('Graph Editor: tangent fields unavailable:', error);
+    }
+    tangent = null;
+  }
+  return { ...base, tangent };
 }
 
 export type KeyField = 'frame' | 'value' | 'inAngleDeg' | 'outAngleDeg' | 'inWeight' | 'outWeight';

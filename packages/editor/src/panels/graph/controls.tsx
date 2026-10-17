@@ -1,15 +1,6 @@
 // Small form controls of the Graph Editor panel, styled with the design tokens (research 09 §8.2, §8.7). They stay
 // local until the shared primitives of @ekza-animator/ui land (WP-8).
-import {
-  Component,
-  type ErrorInfo,
-  type JSX,
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type JSX, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 const BUTTON =
   'inline-flex h-6 shrink-0 items-center rounded-[4px] px-1.5 text-[11px] leading-none text-fg-2 ' +
@@ -155,31 +146,4 @@ export function SelectField<T extends string>(props: {
       </select>
     </label>
   );
-}
-
-/** Keeps a failing part of the panel from taking the whole Graph Editor down. */
-export class PartBoundary extends Component<
-  { readonly fallback: ReactNode; readonly children?: ReactNode; readonly resetKey?: unknown },
-  { readonly failed: boolean; readonly resetKey: unknown }
-> {
-  override state = { failed: false, resetKey: this.props.resetKey };
-
-  static getDerivedStateFromError(): { readonly failed: boolean } {
-    return { failed: true };
-  }
-
-  static getDerivedStateFromProps(
-    props: { readonly resetKey?: unknown },
-    state: { readonly failed: boolean; readonly resetKey: unknown },
-  ): { readonly failed: boolean; readonly resetKey: unknown } | null {
-    return Object.is(props.resetKey, state.resetKey) ? null : { failed: false, resetKey: props.resetKey };
-  }
-
-  override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.warn('Graph Editor part failed:', error, info.componentStack);
-  }
-
-  override render(): ReactNode {
-    return this.state.failed ? this.props.fallback : this.props.children;
-  }
 }
