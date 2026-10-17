@@ -59,7 +59,7 @@ pnpm install
 pnpm dev            # http://localhost:3000/editor
 pnpm test           # unit + headless tests
 pnpm test:e2e       # Playwright (real Chrome; install a browser with `pnpm exec playwright install chromium` on CI)
-pnpm ci             # format, lint, typecheck, layering, fixtures, licences, tests, build, e2e
+pnpm run ci         # format, lint, typecheck, layering, fixtures, licences, tests, build, e2e (`pnpm ci` is reserved by pnpm)
 ```
 
 ## Repository layout
