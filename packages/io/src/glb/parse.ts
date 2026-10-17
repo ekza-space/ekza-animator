@@ -12,6 +12,11 @@ export const GLB_MAGIC = 0x46546c67; // 'glTF'
 export const CHUNK_JSON = 0x4e4f534a; // 'JSON'
 export const CHUNK_BIN = 0x004e4942; // 'BIN\0'
 export const GLB_HEADER_BYTES = 12;
+/**
+ * JSON chunks above this are refused before JSON.parse (EkzaError('budget-exceeded')). It sits far above any real
+ * model (the default JSON budget is 8 MiB) and only bounds the parse of hostile files.
+ */
+export const MAX_PARSE_JSON_BYTES = 67_108_864;
 export const CHUNK_HEADER_BYTES = 8;
 
 export interface GlbChunk {
@@ -82,6 +87,12 @@ export function parseGlbSync(bytes: Uint8Array): Omit<GlbContainer, 'sha256'> {
   const first = layout.chunks[0];
   if (first === undefined || first.type !== CHUNK_JSON) {
     throw new EkzaError('malformed-gltf', 'The GLB does not start with a complete JSON chunk');
+  }
+  if (first.length > MAX_PARSE_JSON_BYTES) {
+    throw new EkzaError(
+      'budget-exceeded',
+      `The JSON chunk is ${first.length} bytes; files above 64 MiB of JSON are refused`,
+    );
   }
   const json = parseJsonChunk(bytes.subarray(first.offset, first.offset + first.length));
   const binChunk = layout.chunks.slice(1).find((chunk) => chunk.type === CHUNK_BIN);

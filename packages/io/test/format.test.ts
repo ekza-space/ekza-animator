@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { readEmbeddedAvatarHeightScale } from '../src/gltf/ekzaMeta';
 import { detectModelFormat, readVrmLicense } from '../src/gltf/format';
+import { importProvenance } from '../src/gltf/provenance';
 import { makeGlb } from '../src/testing/glb';
 import type { GltfJson } from '../src/types';
 
@@ -84,5 +85,50 @@ describe('readEmbeddedAvatarHeightScale', () => {
     ).toBe(0.75);
     expect(readEmbeddedAvatarHeightScale(asJson({ extras: { ekza: { avatar: { heightScale: 'tall' } } } }))).toBeNull();
     expect(readEmbeddedAvatarHeightScale(asJson({ extras: { ekza: { avatar: { heightScale: 3 } } } }))).toBe(3);
+  });
+});
+
+describe('importProvenance', () => {
+  const vrm: Parameters<typeof importProvenance>[0] = {
+    title: 'Seed-san',
+    authors: ['VirtualCast, Inc.'],
+    licenseUrl: 'https://vrm.dev/licenses/1.0/',
+    allowRedistribution: true,
+    modification: 'allowModificationRedistribution',
+    commercialUsage: 'corporation',
+    creditNotation: 'required',
+    licenseName: 'LicenseRef-VRM-PL-1.0',
+  };
+
+  it('inherits the VRM meta for embedded clips', () => {
+    expect(importProvenance(vrm, { sourceSha256: 'ABC', names: ['wave'] })).toEqual({
+      derivedFrom: [
+        { title: 'Seed-san', author: 'VirtualCast, Inc.', license: 'LicenseRef-VRM-PL-1.0', sourceSha256: 'abc' },
+      ],
+      redistributable: 'yes',
+    });
+    expect(
+      importProvenance({ ...vrm, allowRedistribution: false }, { sourceSha256: null, names: [] }).redistributable,
+    ).toBe('no');
+    expect(
+      importProvenance({ ...vrm, allowRedistribution: null }, { sourceSha256: null, names: [] }).redistributable,
+    ).toBe('unknown');
+  });
+
+  it('marks Mixamo material as not redistributable and unknown sources as unknown', () => {
+    expect(importProvenance(vrm, { sourceSha256: null, names: ['mixamo.com'] }).redistributable).toBe('no');
+    expect(importProvenance(null, { sourceSha256: null, names: ['Idle'] })).toEqual({
+      derivedFrom: [],
+      redistributable: 'unknown',
+    });
+    expect(importProvenance(null, { sourceSha256: null, names: ['mixamorig:Hips'] }).redistributable).toBe('no');
+  });
+
+  it('passes the known licence of bundled samples', () => {
+    const known = { title: 'Universal Animation Library', author: 'Quaternius', license: 'CC0-1.0' };
+    expect(importProvenance(null, { sourceSha256: 'ff', names: ['Idle_Loop'], known })).toEqual({
+      derivedFrom: [{ ...known, sourceSha256: 'ff' }],
+      redistributable: 'yes',
+    });
   });
 });

@@ -105,3 +105,20 @@ describe('assembleGlb', () => {
     expect(layout.chunks).toHaveLength(1);
   });
 });
+
+describe('parseGlb limits', () => {
+  it('refuses JSON chunks above 64 MiB before parsing them', async () => {
+    const header = new Uint8Array(20);
+    const dv = new DataView(header.buffer);
+    dv.setUint32(0, 0x46546c67, true);
+    dv.setUint32(4, 2, true);
+    const length = 64 * 1_048_576 + 4;
+    const bytes = new Uint8Array(20 + length);
+    bytes.set(header);
+    const view = new DataView(bytes.buffer);
+    view.setUint32(8, bytes.length, true);
+    view.setUint32(12, length, true);
+    view.setUint32(16, CHUNK_JSON, true);
+    await expect(parseGlb(bytes)).rejects.toMatchObject({ code: 'budget-exceeded' });
+  });
+});

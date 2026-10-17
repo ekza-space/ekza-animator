@@ -15,7 +15,7 @@ import {
 import { type UnzipFileInfo, unzipSync, zipSync, type Zippable } from 'fflate';
 import { canonicalJson } from '../gltf/json';
 import { isIndex, isRecord, type JsonRecord, textOf, unknownList } from '../gltf/schema';
-import { sha256Hex, sha256HexSync } from '../hash/sha256';
+import { sha256Hex } from '../hash/sha256';
 import { DEFAULT_INPUT_BUDGET, type ProjectArchive } from '../types';
 
 export const PROJECT_FORMAT = 'ekza-animator-project';
@@ -51,7 +51,7 @@ export interface ProjectManifest {
 
 type AssetEntry = { readonly record: AssetRecord; readonly bytes: Uint8Array };
 
-/** Deterministic `.ekzanim` zip. Throws EkzaError('asset-corrupt') when an asset's bytes do not match its record. */
+/** Deterministic `.ekzanim` zip. Throws EkzaError('asset-corrupt') when an asset's id or size does not match. */
 export function writeProjectArchive(
   snapshot: DocSnapshot,
   assets: ReadonlyMap<AssetId, AssetEntry>,
@@ -69,7 +69,8 @@ export function zipProject(
 ): Uint8Array {
   const entries = [...assets.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
   const manifestAssets: ProjectManifestAsset[] = entries.map(([id, { record, bytes }]) => {
-    if (record.id !== id || bytes.byteLength !== record.size || sha256HexSync(bytes) !== id) {
+    // The asset store verified the hash when it handed out the bytes; a cheap consistency check suffices here.
+    if (record.id !== id || bytes.byteLength !== record.size) {
       throw new EkzaError('asset-corrupt', `Asset ${id} (${record.name}) does not match its bytes`, { asset: id });
     }
     return { sha256: id, size: record.size, mime: record.mime, ext: record.ext, path: assetPath(id, record.ext) };

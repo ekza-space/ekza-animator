@@ -3,6 +3,7 @@ export { bakeClip, clipFramesToSeconds, ekzaAnimationMeta } from './bake/bake';
 export { checkInputBudget } from './budget/check';
 export { parseGlb, sha256Hex } from './glb/parse';
 export { detectModelFormat, readVrmLicense } from './gltf/format';
+export { importProvenance } from './gltf/provenance';
 export { lintExport } from './lint/lintExport';
 export { LINT_RULES, type LintRuleDef, ruleSeverity } from './lint/rules';
 export { ANY_EXPORT_KIND, BUILTIN_EXPORT_PROFILES, profilesForKind } from './profiles/builtin';
