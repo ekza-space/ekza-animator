@@ -224,6 +224,15 @@ were reported. Each fix has a unit test and a real-input e2e check in `apps/web/
 | INT-45 | UX: a plain click inside a selected time-slider band did nothing (it started a band move) | **Changed, spec amended** (§4.11.17): a press on the band middle released without moving the keys clears the band and sets the time there, like a click outside it. | `curve-editor/src/timeline/TimeSliderController.ts`; `test/timeline/{time-slider,key-drag}.test.ts` |
 | INT-46 | UX: a rotate-order change is exact at key times only; between keys the motion changed noticeably (Polybot hand up to 17.9 cm) with no warning | **Changed**: the operator says so in an info toast when the control has a rotation curve with two or more keys; the Attributes tooltip and the operator description no longer promise unchanged motion. A "bake every frame" option is V1. | `editor-core/src/operators/builtin/rig.ts`, `editor/src/panels/attributes/AttributesPanel.tsx`, §4.11.5; `test/builtin/rig.test.ts` |
 | INT-47 | UX: Outliner rows at the default 240 px: deep finger rows read "L …" and at depth 10 the expand chevron sat mid-row | **Changed**: levels below the fourth indent by 5 px instead of 12 (depth 10: 82 px instead of 124), and a row's secondary text (template key, humanoid name) gives way before its name. | `editor/src/panels/outliner/OutlinerPanel.tsx` (`rowIndentPx`); `test/panels/outliner.test.tsx` |
+| INT-48 | Clips panel truncated ordinary names ("Idle_Lo…") at the default dock width (INT-38 leftover); the pane header's display toggles wrapped ("X-ray") and were cut ("Sp") at 1024 px | **Fixed**: the Range, fps and loop columns shrink to their content, so the name takes the rest. Pane headers hide the toggles that do not fit (never wrapped or cut) and list them in a "»" menu (`pane-display-more-<pane>`, check items); at 1440 px HUD and Springs move there, at 1024 px more. | `editor/src/panels/clips/ClipsPanel.tsx`, `panels/viewport/{PaneView,PaneMenu}.tsx`; `apps/web/e2e/acceptance-round2.spec.ts` |
+
+UX notes of round 2 **not changed** (owner may revisit):
+
+- *The shot camera's default placement ignores scene-like files* (ashton.glb puts the locked shot inside the scene
+  geometry): the shot frames the character from its skinned bounds (§4.11.6 step 8), which is right for the
+  character files the MVP targets. Framing the whole scene would make the character tiny. Workaround: unlock the
+  shot (Alt+L) and frame, or Copy view to shot camera. Recommendation: V1 option "frame the scene".
+- *Positive notes and the known `THREE.Clock` console warning*: nothing to change (see round 1).
 
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 

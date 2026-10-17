@@ -609,7 +609,7 @@ function RowContent(props: {
   );
   // The secondary text (template key, humanoid name) gives way first, so the name stays readable.
   const secondary = (text: string | null): JSX.Element | null =>
-    text === null ? null : <span className="min-w-0 shrink-[4] truncate text-fg-3">{text}</span>;
+    text === null ? null : <span className="min-w-0 shrink-[50] truncate text-fg-3">{text}</span>;
   switch (row.kind) {
     case 'character':
       return (

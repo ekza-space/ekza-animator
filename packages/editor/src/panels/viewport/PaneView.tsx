@@ -108,6 +108,31 @@ function PaneRadial(props: {
   return <CameraRadial app={props.app} vm={props.vm} paneId={props.paneId} at={props.at} choices={choices} />;
 }
 
+/**
+ * How many children of a row fit its width, from the left (all of them until the first one that would be cut).
+ * Measured from layout, which `visibility: hidden` keeps, so hiding the rest never changes the answer.
+ */
+function useFittingCount(row: { readonly current: HTMLElement | null }, total: number): number {
+  const [fitting, setFitting] = useState(total);
+  useLayoutEffect(() => {
+    const element = row.current;
+    if (element === null) return undefined;
+    const measure = (): void => {
+      const limit = element.getBoundingClientRect().right + 0.5;
+      const children = [...element.children];
+      const first = children.findIndex((child) => child.getBoundingClientRect().right > limit);
+      setFitting(first === -1 ? children.length : first);
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return undefined;
+    const observer = new ResizeObserver(measure);
+    observer.observe(element);
+    for (const child of element.children) observer.observe(child); // labels re-measure when a web font lands
+    return () => observer.disconnect();
+  }, [row]);
+  return fitting;
+}
+
 function PaneHeader(props: {
   readonly app: EditorApp;
   readonly paneId: string;
@@ -144,6 +169,8 @@ function PaneHeader(props: {
   ];
   const locked = state?.locked === true;
   const shot = state?.cameraKind === 'shot';
+  const toggles = useRef<HTMLDivElement>(null);
+  const fitting = useFittingCount(toggles, DISPLAY_TOGGLES.length);
   return (
     <header className="flex h-[22px] shrink-0 items-center gap-0.5 border-b border-line bg-header px-1 text-[11px] text-fg-2">
       <PaneMenu
@@ -164,24 +191,44 @@ function PaneHeader(props: {
       >
         <LockIcon locked={locked} />
       </button>
-      <span className="mx-1 h-3 w-px bg-line" aria-hidden="true" />
-      {DISPLAY_TOGGLES.map(({ flag, label, title }) => {
-        const on = state?.display[flag] ?? DEFAULT_DISPLAY[flag];
-        return (
-          <button
-            key={flag}
-            type="button"
-            className="h-5 rounded px-1 text-fg-3 hover:bg-[var(--bg-hover,#30323a)] aria-pressed:bg-[var(--bg-pressed,#3a3d46)] aria-pressed:text-fg"
-            aria-pressed={on}
-            title={title}
-            data-testid={`pane-display-${flag}-${paneId}`}
-            onClick={() => run('view.display.toggle', { flag, paneId })}
-          >
-            {label}
-          </button>
-        );
-      })}
-      <span className="flex-1" />
+      <span className="mx-1 h-3 w-px shrink-0 bg-line" aria-hidden="true" />
+      {/* The toggles that do not fit the pane's width are hidden (never wrapped or cut) and listed in the "»" menu
+          (acceptance round 2: at 1024 px "X-ray" wrapped and "Springs" was cut). */}
+      <div ref={toggles} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
+        {DISPLAY_TOGGLES.map(({ flag, label, title }, index) => {
+          const on = state?.display[flag] ?? DEFAULT_DISPLAY[flag];
+          const hidden = index >= fitting;
+          return (
+            <button
+              key={flag}
+              type="button"
+              className={`h-5 shrink-0 whitespace-nowrap rounded px-1 text-fg-3 hover:bg-[var(--bg-hover,#30323a)] aria-pressed:bg-[var(--bg-pressed,#3a3d46)] aria-pressed:text-fg ${hidden ? 'invisible' : ''}`}
+              aria-pressed={on}
+              title={title}
+              data-testid={`pane-display-${flag}-${paneId}`}
+              data-overflow={hidden ? 'true' : undefined}
+              onClick={() => run('view.display.toggle', { flag, paneId })}
+            >
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      {fitting < DISPLAY_TOGGLES.length ? (
+        <PaneMenu
+          label={<span aria-hidden="true">»</span>}
+          title="More display toggles"
+          testId={`pane-display-more-${paneId}`}
+          align="right"
+          items={DISPLAY_TOGGLES.slice(fitting).map(({ flag, title }) => ({
+            id: flag,
+            label: title,
+            checkbox: true,
+            checked: state?.display[flag] ?? DEFAULT_DISPLAY[flag],
+            onSelect: () => run('view.display.toggle', { flag, paneId }),
+          }))}
+        />
+      ) : null}
       <button
         type="button"
         className="grid h-5 w-5 place-items-center rounded hover:bg-[var(--bg-hover,#30323a)]"

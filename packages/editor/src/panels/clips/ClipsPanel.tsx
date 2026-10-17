@@ -186,13 +186,15 @@ export function ClipsPanel({ app, instanceId }: PanelProps): JSX.Element {
                 <th scope="col" className="pr-2 pl-1 font-normal">
                   Name
                 </th>
-                <th scope="col" className="pr-2 font-normal">
+                {/* Range, fps and loop shrink to their content (w-px), so the name gets the rest of the dock
+                    (acceptance round 2: "Idle_Loop" read "Idle_Lo…" beside a 40 px fps column). */}
+                <th scope="col" className="w-px pr-2 font-normal whitespace-nowrap">
                   Range
                 </th>
-                <th scope="col" className="w-10 text-right font-normal">
+                <th scope="col" className="w-px pr-1.5 text-right font-normal whitespace-nowrap">
                   fps
                 </th>
-                <th scope="col" className="w-6 font-normal">
+                <th scope="col" className="w-5 font-normal">
                   <span className="sr-only">Loop</span>
                 </th>
                 <th scope="col" className="hidden pr-1 font-normal @xs:table-cell">
@@ -324,7 +326,7 @@ function ClipRow(props: ClipRowProps): JSX.Element {
         {clip.range.start}–{clip.range.end}{' '}
         <span className={`hidden @xs:inline ${MUTED_TEXT}`}>· {formatDuration(clip.range, clip.fps)}</span>
       </td>
-      <td className="pr-2 text-right text-fg-2 tabular-nums">{formatFps(clip.fps)}</td>
+      <td className="pr-1.5 text-right whitespace-nowrap text-fg-2 tabular-nums">{formatFps(clip.fps)}</td>
       <td className="text-fg-2" title={clip.loop ? 'Loops' : 'Plays once'}>
         {clip.loop ? <LoopIcon /> : null}
         <span className="sr-only">{clip.loop ? 'loops' : 'once'}</span>

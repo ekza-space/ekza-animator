@@ -5,17 +5,23 @@ import { type JSX, type KeyboardEvent, type ReactNode, useEffect, useId, useRef,
 export interface PaneMenuItem {
   readonly id: string;
   readonly label: string;
+  /** An on/off item (`menuitemcheckbox`, ✓) instead of one choice among several (`menuitemradio`, •). */
+  readonly checkbox?: boolean;
   readonly checked?: boolean;
   readonly disabled?: boolean;
   readonly separatorBefore?: boolean;
   readonly onSelect: () => void;
 }
 
+const ITEM = '[role="menuitemradio"]:not([disabled]),[role="menuitemcheckbox"]:not([disabled])';
+
 export function PaneMenu(props: {
   readonly label: ReactNode;
   readonly title: string;
   readonly testId: string;
   readonly items: readonly PaneMenuItem[];
+  /** Which edge of the button the menu lines up with (default left). */
+  readonly align?: 'left' | 'right';
 }): JSX.Element {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -31,7 +37,7 @@ export function PaneMenu(props: {
   }, [open]);
 
   useEffect(() => {
-    if (open) root.current?.querySelector<HTMLButtonElement>('[role="menuitemradio"]:not([disabled])')?.focus();
+    if (open) root.current?.querySelector<HTMLButtonElement>(ITEM)?.focus();
   }, [open]);
 
   const onMenuKey = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -43,16 +49,14 @@ export function PaneMenu(props: {
     }
     if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
     e.preventDefault();
-    const items = [
-      ...(root.current?.querySelectorAll<HTMLButtonElement>('[role="menuitemradio"]:not([disabled])') ?? []),
-    ];
+    const items = [...(root.current?.querySelectorAll<HTMLButtonElement>(ITEM) ?? [])];
     const index = items.indexOf(document.activeElement as HTMLButtonElement);
     const next = items[(index + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length];
     next?.focus();
   };
 
   return (
-    <div ref={root} className="relative">
+    <div ref={root} className="relative shrink-0">
       <button
         type="button"
         className="flex h-5 items-center gap-1 rounded px-1.5 text-[11px] text-fg hover:bg-[var(--bg-hover,#30323a)]"
@@ -79,7 +83,7 @@ export function PaneMenu(props: {
           id={menuId}
           role="menu"
           tabIndex={-1}
-          className="absolute left-0 top-6 z-40 min-w-44 rounded-md border border-line bg-[var(--bg-popover,#2c2e34)] py-1 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.45)]"
+          className={`absolute ${props.align === 'right' ? 'right-0' : 'left-0'} top-6 z-40 min-w-44 rounded-md border border-line bg-[var(--bg-popover,#2c2e34)] py-1 text-[12px] shadow-[0_8px_24px_rgba(0,0,0,0.45)]`}
           onKeyDown={onMenuKey}
         >
           {props.items.map((item) => (
@@ -87,7 +91,7 @@ export function PaneMenu(props: {
               {item.separatorBefore === true ? <hr className="my-1 border-line" /> : null}
               <button
                 type="button"
-                role="menuitemradio"
+                role={item.checkbox === true ? 'menuitemcheckbox' : 'menuitemradio'}
                 aria-checked={item.checked === true}
                 disabled={item.disabled === true}
                 className="flex w-full items-center gap-2 px-3 py-1 text-left text-fg hover:bg-[var(--bg-hover,#30323a)] focus:bg-[var(--bg-hover,#30323a)] focus:outline-none disabled:text-[var(--text-disabled,#5d616b)]"
@@ -98,7 +102,7 @@ export function PaneMenu(props: {
                 }}
               >
                 <span className="w-3 text-accent-text" aria-hidden="true">
-                  {item.checked === true ? '•' : ''}
+                  {item.checked === true ? (item.checkbox === true ? '✓' : '•') : ''}
                 </span>
                 {item.label}
               </button>
