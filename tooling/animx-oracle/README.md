@@ -1,0 +1,84 @@
+# AnimX oracle
+
+Golden-value generator for the curve engine of `@ekza-animator/anim-core` (MVP-SPEC §6.3, ADR 0003). It compiles
+[Autodesk AnimX](https://github.com/Autodesk/animx) — the C++ library that evaluates animation curves "in the exact
+same way as Maya" — together with a small adapter, runs deterministic curves through it and writes the results to
+`packages/anim-core/test/goldens/animx-goldens.json`. The unit test `test/curve/animx-goldens.test.ts` compares the
+TypeScript port against those values. The oracle is a maintainer tool, not part of CI: the goldens are committed.
+
+| File | Purpose |
+|---|---|
+| `oracle.cpp` | Curve generator, `adsk::ICurve` adapter and JSON writer (MIT). |
+| `generate.mjs` | Fetches AnimX at the pinned commit, compiles, runs, writes and formats the goldens. |
+| `.cache/` | AnimX checkout and the compiled binary (git-ignored). |
+
+## Regenerating
+
+```sh
+node tooling/animx-oracle/generate.mjs            # fetch + build + write the goldens
+node tooling/animx-oracle/generate.mjs --check    # exit 1 when the committed goldens differ from a fresh run
+node tooling/animx-oracle/generate.mjs --animx ~/src/animx --seed 7 --curves 1000   # local checkout, other set
+```
+
+Requirements: git, a C++11 compiler (`$CXX`, default `clang++`) and network access for the first fetch. AnimX is
+pinned to `11c31ac74e526b599031414866db639383c9a5e0` (Apache-2.0; it is compiled, never vendored).
+
+Build flags, and why:
+
+- `-DMAYA_64BIT_TIME_PRECISION`: AnimX's `seconds` type becomes `double`, like the TypeScript engine's frames.
+- `-ffp-contract=off`: no fused multiply-adds, so AnimX's arithmetic rounds exactly like JavaScript's.
+- `-include limits`: `animx/src/internal/math.h` uses `std::numeric_limits` without including `<limits>`.
+
+## What the goldens contain
+
+`animx-goldens.json` holds the AnimX commit, the seed and a list of curves. Keys use a compact form
+`[t, v, inType, outType, inDt, inDv, outDt, outDv]` (the `KeyData` fields; handles are offsets in frames/values).
+Per curve:
+
+- `samples`: `[frame, value]` from `adsk::evaluateCurve` at every key, every span midpoint and random frames on a
+  1/64-frame grid across `[first − 2.6·R − 1, last + 2.6·R + 1]` (negative and multi-cycle times included).
+- `autoSlopes`: `[key, side, slope]` from `adsk::autoTangent` for every `auto` / `autoMix` / `autoEase` side.
+
+The set (seed `20261017`, 408 curves, 16,245 samples, 1,048 auto slopes):
+
+- every computed tangent type × weighted/non-weighted × every infinity mode on one asymmetric 4-key curve with two
+  equal neighbours;
+- the synthetic wave clip (30° / −30° / 30° at 0 / 15 / 30) with the E2E-08 tangent edits, constant and cycle;
+- a step / step-next / linear span-rule curve;
+- weighted handles beyond the span (both `constrainInsideBounds` branches), negative out-`dt`, positive in-`dt`,
+  near-vertical handles and the monotonic ellipse edge;
+- 320 random curves: 2–7 keys on a 1/8-frame grid, values on a 1/16 grid (sometimes repeated or 1/1024 apart), any
+  tangent types, any infinities, fixed handles on a 1/64 grid (weighted handles up to 1.6× their span).
+
+Tolerances checked by the unit test: values ≤ 1e-9, auto slopes ≤ 1e-12. At generation the port matched AnimX to
+8.2e-12 (values) and 4.4e-16 (slopes).
+
+## Adapter conventions
+
+AnimX evaluates a curve from per-key tangents `(x, y)` (Maya's `3 · (control point − key)`, x pointing forward in
+time for both sides). The adapter converts Ekza keys exactly as the TypeScript engine resolves them (MVP-SPEC
+§4.11.4):
+
+- `auto`, `autoMix`, `autoEase`: computed by `adsk::autoTangent` (end keys flat via AnimX's `flatTangent`). These
+  are what the slope goldens check.
+- `fixed`: `out = (3·dt, 3·dv)`, `in = (−3·dt, −3·dv)`. Handles sit on a 1/64 grid so that AnimX's `x · (1/3)`
+  gives back exactly `dt` (asserted).
+- `linear`, `spline`, `clamped`, `flat`, `step`, `stepNext`, and `plateau` (= legacy auto): AnimX does not compute
+  these, so the adapter applies the engine's rules (`x` = span to the neighbour, `y` = slope · span). Their goldens
+  validate segment evaluation and infinities, not the tangent rules; the rules have their own unit and property
+  tests (`test/curve/tangents.test.ts`, `span-rules.test.ts`).
+- Span flag: a span is linear iff the start key's out side and the end key's in side are both linear. (AnimX's Maya
+  test plugin also marks a span linear when the start key's *in* side and its previous key's out side are linear;
+  MVP-SPEC §4.11.4 does not, and neither does the adapter.)
+- `isStatic()` is always false (a static Maya curve evaluates the same values).
+
+## Known deviations of the port from AnimX (not covered by the goldens)
+
+| AnimX | Port | Why |
+|---|---|---|
+| Single-key curve with a non-constant infinity evaluates to 0 (`range == 0`). | The key value, or value + slope·Δt for linear infinity. | 0 is an artifact of the zero range; the key value is the limit. |
+| Mapped infinity times are rounded to Maya ticks (`toTickDoubleTime`). | No rounding. | Ticks model Maya's seconds; the engine works in frames. The goldens use tick-aligned times, so both agree. |
+| A non-weighted tangent with `x = 0` has slope 0. | Fixed handles keep at least 1e-6 frames of `dt`, so a vertical handle is very steep. | MVP-SPEC §4.11.4 (`|dt| ≥ 1e-6`). |
+| Slopes are derived from control points as `ty / tx`. | Slopes are resolved directly. | Same value up to rounding (≤ 1e-14 relative). |
+
+Generation stays inside the one-day timebox of MVP-SPEC §6.3, so no hand-derived fallback goldens were needed.
