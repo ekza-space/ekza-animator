@@ -1,4 +1,5 @@
 import {
+  curveEngine,
   EkzaError,
   type Fps,
   type KeyData,
@@ -353,27 +354,91 @@ describe('importRawClip: rotations, dropped curves and warnings', () => {
   });
 });
 
-describe.skipIf(
-  pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 })),
-)('importRawClip: reduction (needs WP-1 reduceKeys)', () => {
-  it('reduces dense curves within tolerance and reports the stats', () => {
+/** Blocked by WP-1 (anim-core reduceKeys + curve engine) until it lands. */
+const WP1_REDUCE_PENDING =
+  pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 })) ||
+  pendingStub(() => curveEngine.compile({ keys: [], weighted: false, pre: 'constant', post: 'constant' }));
+
+describe.skipIf(WP1_REDUCE_PENDING)('importRawClip: reduction (needs WP-1 reduceKeys)', () => {
+  const frames = 61;
+
+  /** A dense 24 fps swing of the left lower arm about +Z, one key per frame. */
+  function swing(skeleton: SkeletonDesc, angle: (frame: number) => number): RawClip {
+    const node = skeleton.humanoid?.leftLowerArm as number;
+    const values = new Float32Array(frames * 4);
+    for (let f = 0; f < frames; f++) values.set(quatFromAxisAngle([0, 0, 1], angle(f)), f * 4);
+    const times = Float32Array.from({ length: frames }, (_, f) => f / 24);
+    return clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]);
+  }
+
+  function toleranceOf(channel: string): number {
+    if (channel.startsWith('r')) return DEFAULT_REDUCE.rotationRad;
+    return channel.startsWith('t') ? DEFAULT_REDUCE.translationM : DEFAULT_REDUCE.scale;
+  }
+
+  /**
+   * Worst error of each reduced curve against the unreduced import (both evaluated with the curve engine) at every
+   * unreduced key time and every integer frame, as a multiple of the channel tolerance.
+   */
+  function worstRatio(reduced: ImportedClipKeys, dense: ImportedClipKeys): number {
+    let worst = 0;
+    const integerFrames = Array.from({ length: dense.range.end - dense.range.start + 1 }, (_, i) => i);
+    for (const c of reduced.curves) {
+      const original = dense.curves.find((d) => d.control === c.control && d.channel === c.channel);
+      if (original === undefined) throw new Error(`${c.control}/${c.channel} missing from the dense import`);
+      const tolerance = toleranceOf(c.channel);
+      expect(c.stats.maxReduceError).toBeLessThanOrEqual(tolerance);
+      const compiled = curveEngine.compile({ keys: c.keys, weighted: false, pre: 'constant', post: 'constant' });
+      const reference = curveEngine.compile({
+        keys: original.keys,
+        weighted: false,
+        pre: 'constant',
+        post: 'constant',
+      });
+      for (const t of [...original.keys.map((key) => key.t), ...integerFrames]) {
+        const error = Math.abs(curveEngine.evaluate(compiled, t) - curveEngine.evaluate(reference, t));
+        worst = Math.max(worst, error / tolerance);
+      }
+    }
+    return worst;
+  }
+
+  it('keeps LINEAR-sourced curves linear and within tolerance at every source key and frame', () => {
+    // Linear tangents are kept through reduction (MVP-SPEC §4.11.4), so a sine sampled with LINEAR interpolation
+    // only sheds keys where it is nearly straight; the promise is fewer keys within tolerance, not a ratio.
     const skeleton = syntheticSkeleton();
     const program = rig(skeleton);
-    const node = skeleton.humanoid?.leftLowerArm as number;
-    const frames = 61;
-    const values = new Float32Array(frames * 4);
-    for (let f = 0; f < frames; f++) values.set(quatFromAxisAngle([0, 0, 1], Math.sin(f / 10) * 0.8), f * 4);
-    const times = Float32Array.from({ length: frames }, (_, f) => f / 24);
-    const imported = importRawClip(
-      clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]),
-      program,
-      opts(FPS24, { reduce: DEFAULT_REDUCE }),
-    );
-    for (const c of imported.curves) {
+    const raw = swing(skeleton, (f) => Math.sin(f / 10) * 0.8);
+    const dense = importRawClip(raw, program, opts(FPS24));
+    const reduced = importRawClip(raw, program, opts(FPS24, { reduce: DEFAULT_REDUCE }));
+    expect(reduced.curves.length).toBeGreaterThan(0);
+    expect(reduced.curves.map((c) => c.channel)).toEqual(dense.curves.map((c) => c.channel));
+    for (const c of reduced.curves) {
       expect(c.stats.sourceKeys).toBe(frames);
-      expect(c.keys.length).toBeLessThan(frames / 3);
-      expect(c.stats.maxReduceError).toBeLessThanOrEqual(DEFAULT_REDUCE.rotationRad);
+      expect(c.keys.length).toBeLessThan(frames);
+      for (const key of c.keys) expect([key.inType, key.outType]).toEqual(['linear', 'linear']);
     }
+    expect(worstRatio(reduced, dense)).toBeLessThanOrEqual(1 + 1e-9);
+  });
+
+  it('reduces eased key-pose motion (auto tangents) back to its three poses', () => {
+    // Resampling keys every frame with auto tangents (MVP-SPEC §4.11.6); a smoothstep ease 0 → 0.8 rad → 0 is the
+    // Hermite segment between flat auto keys, so top-down insertion (§4.11.4) stops at the poses on 0, 30 and 60.
+    const skeleton = syntheticSkeleton();
+    const program = rig(skeleton);
+    const raw = swing(skeleton, (f) => {
+      const u = f <= 30 ? f / 30 : (60 - f) / 30;
+      return 0.8 * u * u * (3 - 2 * u);
+    });
+    const dense = importRawClip(raw, program, opts(FPS24, { keyMode: 'resample' }));
+    const reduced = importRawClip(raw, program, opts(FPS24, { keyMode: 'resample', reduce: DEFAULT_REDUCE }));
+    expect(reduced.curves.map((c) => c.channel)).toEqual(['rz']);
+    const rz = reduced.curves[0] as (typeof reduced.curves)[number];
+    expect(rz.stats.sourceKeys).toBe(frames);
+    expect(rz.keys.map((key) => key.t)).toEqual([0, 30, 60]);
+    expect(rz.keys[1]?.v).toBeCloseTo(0.8, 6);
+    for (const key of rz.keys) expect([key.inType, key.outType]).toEqual(['auto', 'auto']);
+    expect(worstRatio(reduced, dense)).toBeLessThanOrEqual(1 + 1e-9);
   });
 });
 
