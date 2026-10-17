@@ -11,7 +11,7 @@ WP-6 — `packages/curve-editor/` (except `src/timeline/`) and `packages/editor/
 | Two stacked canvases (base / overlay), hi-DPI backing stores, dirty-layer redraws, `CurveRenderer` seam | `src/painters/renderer.ts`, `canvas.ts`, `graph/GraphEditorController.ts` | `controller.test.ts` (redraw scheduling), `painters.test.ts` |
 | Exact Bézier painting (`bezierCurveTo` from the compiled handles), linear/step/stepNext spans, per-pixel fallback for dense curves, dotted infinity (constant, linear, cycle, cycle-offset, oscillate) | `src/painters/curves.ts`, `src/graph/geometry.ts` | pixel probes at DPR 1 and 2, infinity probes, dense fallback |
 | Keys (5/7 px, selected yellow), handles (selected keys or prefs `all`; 40 px non-weighted, true length weighted; broken ends), selected segments, inactive curves at 40 %, locked curves dashed | `src/painters/keys.ts`, `curves.ts` | `painters.test.ts` |
-| Hit-testing: selected handle > key > handle > curve > empty, 5/6/5/4 px; marquee range queries | `src/hit/hitTest.ts` | `hit-test.test.ts` |
+| Hit-testing: selected handle > key > handle > curve > empty, 5/6/5/4 px; overlapping curves/keys resolve to the one drawn on top; marquee range queries | `src/hit/hitTest.ts` | `hit-test.test.ts` |
 | Selection: click (Shift toggle, Mod remove, Mod+Shift add) and marquee through `select.keys`; double-click curve → `select.curveKeys` | `src/graph/press.ts`, `src/graph/selection.ts` | `hit-test.test.ts`, `controller.test.ts`, `gestures.test.ts` |
 | Key moves (LMB on selected key/handle, MMB anywhere), snapping, Alt = no snap, Shift axis lock after 4 px, collisions on commit, one history step, Esc cancels | `src/graph/gestures.ts` (`KeyMoveGesture`), `press.ts` | `gestures.test.ts`; `edits.test.ts` (needs WP-7a) |
 | Handle drags (§4.11.4): angle-only for non-weighted / weight-locked, angle+length for free weighted (dt clamped to the span), Alt temp-break, one history step `Edit Tangent` | `HandleDragGesture`, `handleFromPointer` | `gestures.test.ts`; `edits.test.ts` (needs WP-7a) |
@@ -22,6 +22,7 @@ WP-6 — `packages/curve-editor/` (except `src/timeline/`) and `packages/editor/
 | Channel tree (character › control › channel, X/Y/Z swatches, clip curves, filter, only animated) | `src/channel-tree/` | `channel-tree.test.ts` |
 | React Graph panel: toolbar (tools, tangent types incl. "More", break/unify, weighted, lock weight, pre/post infinity, Euler filter, Simplify, frame), numeric fields with expressions, virtualized channel list (eye, lock, swatch, filter, only animated), two canvases | `editor/src/panels/graph/` | `editor/test/panels/graph.test.tsx`, `graph-model.test.ts` |
 | Redraw benchmark (report) | `curve-editor/test/bench.test.ts` | see below |
+| The Graph Editor steps of E2E-08…E2E-13 over the real packages (`createEditorApp`, memory store, AnimX, curve cache, kernel history) | — | `curve-editor/test/real-app.test.ts` (runs once WP-1/2/3/7a are merged) |
 
 ### Benchmark (ADR 0007 §9, reported, not a gate)
 
@@ -32,7 +33,11 @@ Google Chrome 155 (headless, Vitest browser mode) on an Apple M4 Pro, canvas 144
 |---|---|---|
 | 50 curves × 200 keys, full redraw (some keys selected) | ≤ 4 ms | 1.3 ms |
 | 50k keys loaded, ~10k visible, pan/zoom redraw | ≤ 8 ms | 1.0 ms |
+| 50k keys loaded, one curve edited (a drag update), commit + redraw | — | 9.4 ms with the test kit's naive store (it scans every key per query); 1.2 ms with WP-2's store and WP-3's curve cache (preview update + redraw, measured against those branches) |
 | Hit-test on 50k keys | — | 0.02 ms |
+
+The Graph panel's React work per drag update (16k keys, 27 controls × 6 channels, development build, real
+packages): ~1 ms of commits; the channel list and the canvas do not re-render for key edits.
 
 ## Public API beyond §7 (additive)
 
@@ -56,18 +61,25 @@ Google Chrome 155 (headless, Vitest browser mode) on an Apple M4 Pro, canvas 144
    `panels/graph/focus.ts`). The shell must not call it again (the registries refuse duplicates; the panel then
    only logs a warning). `graph.frame` polls "no Graph Editor is open" while none is mounted.
 2. **Test API (§4.8)**: `graph()`, `screenOfKey`, `screenOfHandle`, `screenOfCurve` are implemented by
-   `graphTestHooks(app)` (page CSS px, focused editor, pending redraws flushed first); the shell's test API can
-   delegate to it. `screenOfHandle` is null until the key has a selected part (handles are not shown otherwise).
+   `graphTestHooks(app)` (page CSS px, focused editor, pending redraws flushed first). Its shape is exactly
+   WP-8's `GraphProbe`; nothing publishes it yet at the base commit, so at integration either the shell registers
+   it once per app (`shell.probes.set('graph', graphTestHooks(app))`; it always follows the focused Graph Editor) or
+   `GraphPanel` calls `useTestProbe('graph', useMemo(() => graphTestHooks(app), [app]))` once that hook exists.
+   Without it `screenOfKey` & co. stay null and E2E-08…E2E-13 cannot run. `screenOfHandle` is null until the key has a selected part (handles are not shown otherwise).
    `screenOf*` return null when the point is outside the canvas.
-3. **Redraws** are self-scheduled with `requestAnimationFrame` (coalesced, nothing while idle). Hosts may still
+3. **History**: key and handle drags commit their preview and call `history.record({ label, docTxId })`.
+   WP-7a's kernel also records every local commit by itself (its decision 3); `record` with the same `docTxId`
+   merges into that step, so the explicit call is harmless there and keeps "one drag = one step" if the
+   auto-capture is not adopted.
+4. **Redraws** are self-scheduled with `requestAnimationFrame` (coalesced, nothing while idle). Hosts may still
    call `redraw()` from `addAfterEffect`; it draws only dirty layers.
-4. **Input**: the panel's canvas adapter turns DOM events into `ToolPointerEvent`s (own double-click counter:
+5. **Input**: the panel's canvas adapter turns DOM events into `ToolPointerEvent`s (own double-click counter:
    400 ms / 4 px, because `pointerdown.detail` is not a click count in every browser), normalizes wheel
    `deltaMode`, suppresses the context menu, MMB autoscroll and pinch page-zoom, and listens to `keydown`/`keyup` on
    `window` (capture) only while hovered or dragging, so Esc cancels a drag before the shell's `edit.escape` runs.
    Hotkeys (1–7, B, U, F, A, S, Q/W/I, Delete, Mod+C/V) reach operators through the shell's keymap with scope
    `graph` (the panel registers `keyScope: 'graph'`).
-5. **Data-testids** (§4.8) are on: `ge-canvas` (overlay canvas, the pointer surface), `ge-field-*`,
+6. **Data-testids** (§4.8) are on: `ge-canvas` (overlay canvas, the pointer surface), `ge-field-*`,
    `ge-tangent-<type>` (auto, spline, clamped, linear, flat, step, and in "More": stepNext, fixed, plateau,
    autoEase, autoMix), `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre/post` (native
    `<select>`, use `selectOption`), `ge-euler-filter`, `ge-simplify`. Extra: `ge-tool-<id>`, `ge-frame-all`,
@@ -83,7 +95,7 @@ Google Chrome 155 (headless, Vitest browser mode) on an Apple M4 Pro, canvas 144
   weight-locked handles keep the resolved `dt`; free weighted handles have `dt` clamped to the span). A temporary,
   uncommitted kernel built from §4.11.3/§4.11.4 made every gated test in `curve-editor/test/edits.test.ts` pass.
 - **WP-7a (keymap)**: `MAYA_KEYMAP` must carry the scope-`graph` rows of §4.10 (`F`/`A` → `graph.frame`,
-  `Q`/`W`/`I` → `view.tool {panel:'graph'}`, …).
+  `Q`/`W`/`I` → `view.tool {panel:'graph'}`, …). Done on `wp/wp-7a`.
 - **WP-7b (operators)**: with no key and no channel selection, curve-level operators (`graph.infinity.set`,
   `graph.curve.setWeighted`, `graph.curves.simplify`, `graph.tangent.set`) should act on the curves of the selected
   controls (all animated controls of the active character when none is selected) — that is what the Graph Editor
@@ -114,6 +126,20 @@ Google Chrome 155 (headless, Vitest browser mode) on an Apple M4 Pro, canvas 144
 | G-14 | The angle and weight fields render inside an error boundary with a "Tangent fields unavailable" fallback; frame/value fields stay usable. Field text is parsed with editor-core's `parseNumericInput`; with mixed values `+=x`/`-=x` apply relatively (`relative: true`) and a plain value is set on every key. | `tangentFields` (WP-1) and `parseNumericInput` (WP-7a) are stubs at the base commit; a stub must not take the panel down. |
 | G-15 | `packages/editor/vitest.config.ts` pre-bundles `react-resizable-panels` and `@tanstack/react-virtual`. | Otherwise Vite discovers them mid-run and reloads the page under a running test (same reason as B-21); WP-9's virtualized lists need it too. |
 | G-16 | `packages/curve-editor/vitest.config.ts` drops `passWithNoTests` (the package has tests now). | Its comment asked for that. |
+| G-17 | Where curves or keys overlap, hit candidates within 0.5 px of the nearest resolve to the one drawn on top: focused curves (with selected keys or channels) above the others, then the later curve in list order; selected keys above unselected ones. | Flat channels cross a wave at its zero (E2E-08 double-clicks `rz` at 7.5 where `rx`/`ry` sit at 0°); before, flattening noise picked a hidden flat curve. What is hit is what is seen. |
+| G-18 | A weighted span whose handle times lie within 1e-6 (normalized) of the thirds is drawn with the thirds. | AnimX evaluates such spans linear in time (`fLinear`); WP-1's `segmentControlPoints` does the same, and the drawn curve stays the evaluated one (cross-checked over 24 seeded random curves). |
+| G-19 | The curve set is updated per edited curve: key and curve changes rebuild only the touched curves; a key is located through its record's `curve` and that entry's index (no set-wide key map). Control, clip, layer, project and load batches rebuild everything. | A drag update on 50k loaded keys cost ~6 ms before the redraw (real packages). |
+
+## Integration check against the sibling branches
+
+`wp/wp-1`, `wp/wp-2`, `wp/wp-3` and `wp/wp-7a` merge cleanly with this branch (checked in a scratch copy built with
+`git merge-tree`, nothing written to other worktrees). With them every curve-editor and editor test passes,
+including the gated ones (key moves, handle drags, the engine cross-check and `real-app.test.ts`); only the
+"stubbed kernel" fallbacks skip. That run found two bugs fixed here (G-17, G-18) and one test that assumed the
+test kit's engine honoured weights (it does not; the locked-weight check now compares with the resolved handle,
+which is what the kernel keeps). A dev server over that copy (`/dev/panels?panel=graph`, real Chrome, real mouse
+input) showed key selection, pen-handle drags with live curve updates, MMB moves, the marquee and wheel zoom
+working through the real kernel.
 
 ## Tests waiting for other work packages (auto-enabled)
 
@@ -126,6 +152,10 @@ without edits (MVP-SPEC §8.1):
 - `curve-editor/test/geometry.test.ts` — **WP-1**: drawn geometry vs `segmentControlPoints` / `evaluateAnimCurve`.
 - `editor/test/panels/graph.test.tsx` — **WP-7a** (`parseNumericInput`): typed fields; **WP-1** (`tangentFields`):
   angle/weight display.
+- `curve-editor/test/real-app.test.ts` — **WP-1, WP-2, WP-3, WP-7a** (`createEditorApp` over the real packages):
+  E2E-08 double-click and tangent types, E2E-09/13 pen handle with exact undo/redo, E2E-10 free and locked weights,
+  E2E-11 Insert tool, MMB collision. It registers stand-ins for `select.keys` and `graph.key.insert` only while
+  WP-7b's builtins do not provide them.
 
 Each of these has a counterpart that runs while the stub is in place (failed edits report a toast and leave the
 document untouched; the tangent fields show their fallback).
