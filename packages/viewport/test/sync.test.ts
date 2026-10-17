@@ -188,7 +188,7 @@ describe('SceneSync', () => {
       camera.position.set(0, 0, 5);
       camera.layers.set(LAYER.mesh);
       camera.updateMatrixWorld();
-      const centre = (): number[] => {
+      const centre = (): [number, number, number] => {
         renderer.render(s.scene, camera);
         const gl = renderer.getContext();
         const pixel = new Uint8Array(4);

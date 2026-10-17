@@ -60,6 +60,7 @@ import { MarqueeBox } from '../overlays/marquee';
 import { SkeletonLayer } from '../overlays/skeleton';
 import { defaultPaneCamera, paneGl } from '../panes/layout';
 import { PaneProjector } from '../picking/geometry';
+import { MeshPicker } from '../picking/meshPicker';
 import { ControlPicker } from '../picking/picker';
 import { SceneSync } from '../sync/SceneSync';
 import type { ViewportToolHost } from '../tools/host';
@@ -160,6 +161,7 @@ export class ViewportManager {
   private readonly backdrop = new Backdrop();
   private readonly sync: SceneSync;
   private readonly picker = new ControlPicker();
+  private readonly meshPicker = new MeshPicker();
   private readonly panes = new Map<string, PaneRuntime>();
   private readonly memory = new Map<string, { camera: PaneCamera; display: DisplayFlags }>();
   private readonly views = new Map<string, Map<ViewPreset, ViewCamera>>();
@@ -396,6 +398,16 @@ export class ViewportManager {
     if (view.pane.display.skeleton && mask.joints) {
       for (const hit of this.picker.jointHits(this.skeleton.jointSets(), view.projector, x, y)) {
         results.push({ kind: 'joint', character: hit.character, node: hit.node });
+      }
+    }
+    if (view.pane.display.mesh && mask.meshes) {
+      // M1-stretch mesh click: lowest priority, the nearest surface only.
+      const ndcX = (x / view.width) * 2 - 1;
+      const ndcY = 1 - (y / view.height) * 2;
+      const hit = this.meshPicker.pick(view.camera, ndcX, ndcY, this.sync.meshTargets(), this.sync.poseStamp);
+      if (hit !== null) {
+        const control = this.controlForNode(hit.character, hit.node);
+        results.push({ kind: 'mesh', character: hit.character, node: hit.node, control });
       }
     }
     return results;
@@ -1194,17 +1206,20 @@ export class ViewportManager {
         this.kit.setActive(handle);
         this.invalidate();
       },
-      controlForJoint: (character: CharacterId, node: number) => {
-        const runtime = this.app.characters.get(character);
-        if (runtime === undefined) return null;
-        try {
-          return controlForNode(runtime.program, node);
-        } catch (error) {
-          if (error instanceof EkzaError && error.code === 'not-implemented') return null;
-          throw error;
-        }
-      },
+      controlForJoint: (character: CharacterId, node: number) => this.controlForNode(character, node),
     };
+  }
+
+  /** The control driving a node (nearest driven ancestor), or null (also while the rig kernel is stubbed). */
+  private controlForNode(character: CharacterId, node: number): ControlId | null {
+    const runtime = this.app.characters.get(character);
+    if (runtime === undefined) return null;
+    try {
+      return controlForNode(runtime.program, node);
+    } catch (error) {
+      if (error instanceof EkzaError && error.code === 'not-implemented') return null;
+      throw error;
+    }
   }
 
   private beginManipulatorDrag(paneId: string, handle: ManipHandle, x: number, y: number): DragSession | null {

@@ -10,6 +10,7 @@ import { Group, type Material, type Mesh, type Object3D, type Scene } from 'thre
 import type { ControlLayer } from '../controls/ControlLayer';
 import { LAYER } from '../layers';
 import type { SkeletonLayer } from '../overlays/skeleton';
+import { type MeshPickTarget, nodeIndexOf } from '../picking/meshPicker';
 import { XRAY_OPACITY } from '../theme';
 
 interface MaterialState {
@@ -24,6 +25,8 @@ interface CharacterSlot {
   readonly group: Group;
   runtime: CharacterRuntime;
   model: LoadedModel | null;
+  /** Inverse of `model.nodeObjects` (mesh picking). */
+  nodeOf: ReadonlyMap<Object3D, number>;
   materials: MaterialState[];
   readonly placement: Float64Array;
   poseDirty: boolean;
@@ -56,6 +59,7 @@ export class SceneSync {
   private structureDirty = true;
   private placementDirty = true;
   private lastSpringTime = -1;
+  private stamp = 0;
 
   constructor(private readonly opts: SceneSyncOptions) {
     this.characterRoot.name = 'ekza.characters';
@@ -103,6 +107,18 @@ export class SceneSync {
   /** Character group (scene placement), e.g. for framing. */
   group(character: CharacterId): Group | null {
     return this.slots.get(character)?.group ?? null;
+  }
+
+  /** Changes whenever any pose, model or placement changed in `update()` (cache key for posed geometry). */
+  get poseStamp(): number {
+    return this.stamp;
+  }
+
+  /** Characters with a display model, for mesh picking. */
+  *meshTargets(): IterableIterator<MeshPickTarget> {
+    for (const slot of this.slots.values()) {
+      if (slot.model !== null) yield { character: slot.id, model: slot.model, nodeOf: slot.nodeOf };
+    }
   }
 
   /** Scene matrix of a character's placement (column-major). */
@@ -166,6 +182,7 @@ export class SceneSync {
       this.opts.skeleton.updatePose(slot.id, slot.placement, slot.runtime.pose.boneWorld);
       changed = true;
     }
+    if (changed || anyPose) this.stamp++;
     return changed;
   }
 
@@ -195,6 +212,7 @@ export class SceneSync {
     if (slot === undefined || slot.model === model) return;
     this.detachModel(slot);
     slot.model = model;
+    slot.nodeOf = nodeIndexOf(model);
     slot.group.add(model.root);
     model.root.traverse((object) => prepareObject(object, slot.materials));
     slot.poseDirty = true;
@@ -229,6 +247,7 @@ export class SceneSync {
         group,
         runtime,
         model: null,
+        nodeOf: new Map(),
         materials: [],
         placement: new Float64Array(16),
         poseDirty: true,
@@ -261,6 +280,7 @@ export class SceneSync {
     if (this.xray) for (const state of slot.materials) restoreMaterial(state);
     slot.model.root.removeFromParent();
     slot.model = null;
+    slot.nodeOf = new Map();
     slot.materials = [];
   }
 
