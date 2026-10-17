@@ -2,7 +2,8 @@
 
 Branch `wp/wp-7a`. Scope: MVP-SPEC §7 WP-7a (`packages/editor-core/` except `src/operators/builtin/`,
 `src/workflows/`). No contract file changed (`src/types.ts`, `src/operators/args.ts` untouched); no `package.json`
-or lockfile change.
+or lockfile change. Additive public exports beyond §7: the types `CoalescingOperatorDef` and `OperatorCoalescing`
+(see 16).
 
 ## What is implemented
 
@@ -20,14 +21,25 @@ or lockfile change.
 | Character registry (async runtimes, recompile, display models, events) | `src/characters/` |
 | Evaluation service | `src/evaluation/` |
 | Playback clock | `src/playback/clock.ts` |
-| Memory asset store (async verify) | `src/services/assets.ts` |
+| Memory asset store (async verify) | `src/services/assets.ts` (also the fake services' asset store) |
 | Numeric input parser and display helpers | `src/edit/numeric.ts` |
 | `testing` subpath (from WP-0b) | `src/testing/` |
 
 Tests: `packages/editor-core/test/kernel/*.test.ts` (unit + fast-check property tests: history undo-all/redo-all
 over random sessions, shape-preserving insert over random curves of every tangent type, numeric round trips) and the
-existing kit tests in `test/testing/`. `test/kernel/create-editor-app.test.ts` exercises `createEditorApp` over the
-real packages and **skips itself until WP-1, WP-2 and WP-3 are merged** (probes for `not-implemented`; §8.1).
+existing kit tests in `test/testing/`, plus property tests for `moveKeys`/`scaleKeys` (curves stay ordered, no
+crossing while dragging, unique times after the final update). `test/kernel/create-editor-app.test.ts` exercises
+`createEditorApp` over the real packages and **skips itself until WP-1, WP-2 and WP-3 are merged** (probes for
+`not-implemented`; §8.1); its model-import case also waits for **WP-4**.
+
+**Integration check against the sibling branches** (not merged; done by temporarily checking out
+`wp/wp-1` anim-core, `wp/wp-2` doc, `wp/wp-3` rig and `wp/wp-4` io into this worktree, then restoring them): all
+editor-core tests pass, including the 7 gated real-package cases — AnimX evaluation of the wave clip, shape-preserving
+insert, rig compile + pose evaluation once per change, exact undo-all/redo-all over `createMemoryStore` (operators,
+gestures, direct commits, store coalescing, `undoable: false` camera navigation), partition close/reopen keeping the
+history, and asynchronous runtime creation from `seed-san.vrm` through the asset store (`parseGlb`,
+`skeletonFromGltf`, `autoRig`, `writeRigDefinition`). The partition case failed with the first kernel version (see
+15), which is why it exists.
 
 ## Design decisions and deviations (please review)
 
@@ -94,6 +106,29 @@ real packages and **skips itself until WP-1, WP-2 and WP-3 are merged** (probes 
 13. Channel facts (`isRotation`, `channelDefault`, TRS slots) are local constants mirroring doc's
     `isRotationChannel` / `defaultChannelValue` so numeric display has no app-level dependency.
 14. Platform defaults to `'other'`: headless code cannot inspect the browser; the editor passes the platform.
+15. **Document loads vs partition batches.** WP-2's memory store also emits `origin: 'load'` batches when a
+    partition is opened or closed and when a write reveals records of an unopened partition; those leave the doc
+    undo stacks alone, while `store.load` clears them. The kernel treats a `'load'` batch as a document load only
+    when both doc undo stacks are empty afterwards (`src/session/loads.ts`): only then is the history cleared, the
+    session marked clean and the project name taken; partition batches still repair the session and re-evaluate.
+    Separately, whenever the doc undo stacks become empty (e.g. a `load` that changed nothing visible and so emitted
+    no batch, or `undo.clear()`), every history step loses its document part.
+16. **Coalescing operators** (runner rule 7 needs a way for an operator to coalesce, e.g. Channel Box ↑/↓ nudges
+    through `channel.setValues`): an operator definition may carry `coalesce(args) → { key, ms } | null`
+    (`CoalescingOperatorDef`, exported). The runner passes `coalesceKey`/`coalesceMs` to its transaction, so the store
+    merges the document part, and records the step with that `coalesceKey`, so override-only steps merge in the
+    history within the same window. Without `coalesce` nothing changes.
+17. **Coalescing is recognised by entry identity**: a commit counts as coalesced only when the doc undo top keeps
+    its `txId` but is a new entry object (what both the naive store and WP-2's `PatchUndoManager` do), so an
+    `undoable: false` commit touching the same fields as the top entry no longer extends that step or clears the
+    redo stack (cf. B-23).
+18. **`edit.escape` during a gesture** (§4.11.0 rule 3 exception): the runner lets `edit.escape`
+    (`GESTURE_SAFE_OPERATORS`) run while a preview is active, so Esc can cancel it, and records no step for any run
+    that started during a gesture. Every other operator still gets `cancelled: 'gesture in progress'`.
+19. A step's label is the final label of its new doc entry, so `tx.annotate({ label })` inside `apply` names the
+    step ("Delete 3 Keys"); otherwise `undoLabel(args) ?? label`.
+20. A gesture whose `preview.commit` throws ends like a cancel (overlay dropped, overrides restored, no step) and
+    rethrows.
 
 ## Notes for other work packages
 
@@ -101,26 +136,35 @@ real packages and **skips itself until WP-1, WP-2 and WP-3 are merged** (probes 
   (`src/app/internals.ts`) for record IDs, `writeKeyAt`/`ensureCurve` (`src/edit/keys.ts`),
   `cancelChannelEditGestures` for `edit.escape`, `activeLocation` (`src/session/location.ts`). `registerBuiltins`
   must contribute `MAYA_KEYMAP`. `file.new`/`file.openProject` get history clearing and session repair from the
-  kernel on the `load` batch.
+  kernel on the `load` batch. `edit.escape` runs during gestures (18) and must not write the document while a
+  preview is active; `channel.setValues` should declare `coalesce` for Channel Box nudges (16).
 - **WP-2**: the kernel assumes the memory store records a local batch's undo entry before emitting the batch (the
-  naive store does; a lazy fallback attributes the entry at the next history access otherwise) and that coalescing
-  keeps the entry's `txId`.
+  naive store does; a lazy fallback attributes the entry at the next history access otherwise), that coalescing
+  keeps the entry's `txId` in a new entry object (17), and that partition batches leave the undo stacks alone (15).
+  All three hold for `wp/wp-2` as of ca9777a.
 - **WP-8**: call `app.services.models.setRenderer` (see 9); pass `KeyInput.repeat`; editor-core imports io's
   headless entry at runtime, so once WP-4 lands the editor's Vitest `optimizeDeps.include` may need io's runtime
   dependencies (`@gltf-transform/*`, `fflate`) to avoid mid-run reloads (B-21).
 - **WP-5/6/6t/9**: plain `store.transact` and preview commits become history steps automatically (3); channel
   edits go through `beginChannelEditGesture` / `applyChannelEdits`; `characters` 'recompiled' replaces a runtime's
-  program, channel and pose buffers in place (same runtime object).
+  program, channel and pose buffers in place (same runtime object). WP-9 nudges: run `channel.setValues` and let
+  WP-7b give that operator a `coalesce` (16).
 
-## Requested contract clarifications (spec text only, no shape change)
+## Requested contract changes and clarifications
 
 - §4.11.0 runner rule 7: add the history-navigation exception and the same-location condition for override deltas
   (5 above).
 - §4.11.0 editor history: state that direct local commits outside operators and gestures become steps (3 above).
 - §4.5 `EvaluationService.tick`: "returns true when any pose changed" — the kit previously returned true on the
   first tick regardless.
+- §4.11.0 rule 3: exempt `edit.escape` from the "gesture in progress" cancel, and record no step for it (18).
+- §4.5 `OperatorDef`: add `coalesce?(args: A): { readonly key: string; readonly ms: number } | null` (16); until
+  then editor-core exports `CoalescingOperatorDef`.
+- §4.2: say whether partition open/close and revealed records are announced with `origin: 'load'` (WP-2 does) or
+  with a distinct origin; the kernel copes with both (15).
 
 ## Gates (run in this worktree)
 
 `format:check`, `lint`, `typecheck`, `check:deps`, `test` (all packages; editor's browser tests use the new fake
-app), `build`, and `test:e2e` on port 3108 (00-webgl, dev-panels, tailwind-smoke): all pass.
+app), `build`, and `test:e2e` on port 3108 (00-webgl, dev-panels, tailwind-smoke): all pass. editor-core alone: 316
+tests pass, 7 skip until WP-1/2/3(/4) are merged (they pass against those branches, see above).
