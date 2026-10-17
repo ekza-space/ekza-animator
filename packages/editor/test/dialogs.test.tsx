@@ -221,6 +221,20 @@ describe('export clip defaults (acceptance round 1)', () => {
     expect([...defaultExportClips('vrma', clips, active)]).toEqual(['clp_b']);
     expect([...defaultExportClips('vrma', clips, undefined)]).toEqual([]);
   });
+
+  it('leaves clips without keys unchecked for the multi-clip containers unless every clip is empty (acceptance round 2)', () => {
+    const clips = [
+      { id: 'clp_take', animated: false },
+      { id: 'clp_idle', animated: true },
+      { id: 'clp_walk', animated: true },
+    ] as unknown as readonly { readonly id: ClipId; readonly animated: boolean }[];
+    expect([...defaultExportClips('bake-into-model', clips, 'clp_take' as ClipId)]).toEqual(['clp_idle', 'clp_walk']);
+    expect([...defaultExportClips('animation-glb', clips, undefined)]).toEqual(['clp_idle', 'clp_walk']);
+    // VRMA keeps the active clip; a character with only empty clips keeps them all checked.
+    expect([...defaultExportClips('vrma', clips, 'clp_take' as ClipId)]).toEqual(['clp_take']);
+    const empty = clips.map((clip) => ({ ...clip, animated: false }));
+    expect([...defaultExportClips('bake-into-model', empty, undefined)]).toEqual(['clp_take', 'clp_idle', 'clp_walk']);
+  });
 });
 
 describe('shortcuts and preferences', () => {

@@ -174,6 +174,40 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     expect(names).toEqual(animationNames(await parseGlb(sourceBytes)));
   });
 
+  it('bakes a clip whose source name import had to sanitize back over its source animation (acceptance round 2)', async () => {
+    const { app } = realApp();
+    const source = await parseGlb(readFixture('quaternius-ual.glb'));
+    const original = 'Armature|Idle_Loop:Take 001';
+    const bytes = withJson(source, (json) => {
+      (json['animations'] as { name: string }[])[9] = {
+        ...(json['animations'] as { name: string }[])[9],
+        name: original,
+      } as { name: string };
+    });
+    const imported = (await runOk(app, 'file.importModel', {
+      name: 'ual-sanitized.glb',
+      bytes,
+      options: { clips: [9] },
+    })) as ImportResult;
+    await runtimeOf(app, imported.character);
+    const clip = imported.clips[0] as ClipId;
+    expect(app.store.get('clips', clip)?.name).toBe('Armature_Idle_Loop_Take 001');
+    const sourceNames = animationNames(await parseGlb(bytes));
+    const [artifact] = await exportOk(app, request(imported.character, [clip], { fileNamePattern: 'out' }));
+    if (artifact === undefined) throw new Error('no artifact');
+    const output = await parseGlb(artifact.bytes);
+    // Replaced in place under its original name: no renamed duplicate is appended.
+    expect(animationNames(output)).toEqual(sourceNames);
+    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as { clips: { name: string; index: number }[] };
+    expect(meta.clips.map((c) => [c.name, c.index])).toEqual([[original, 9]]);
+
+    // A clip renamed in the editor is a new animation of its own.
+    await runOk(app, 'clip.rename', { clip, name: 'idle edit' });
+    const [renamed] = await exportOk(app, request(imported.character, [clip], { fileNamePattern: 'out' }));
+    if (renamed === undefined) throw new Error('no artifact');
+    expect(animationNames(await parseGlb(renamed.bytes))).toEqual([...sourceNames, 'idle_edit']);
+  });
+
   it('writes self-contained clips when several are baked together', async () => {
     const { app } = realApp();
     const bot = await importFixture(app, 'polybot.vrm');

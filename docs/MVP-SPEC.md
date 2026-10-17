@@ -2731,7 +2731,13 @@ source key time and integer frame is ≤ tolerance.
    (VRM source) or `.glb` for bakes, `.glb` for animation-only, `.vrma`; MIME `model/gltf-binary`.
 7. *Acceptance round 1 (INT-38)*: the Export dialog checks every clip of the character for `bake-into-model` and
    `animation-glb` (one file holds them all) and the active clip for `vrma` (one file per clip), until the user
-   changes the checkboxes.
+   changes the checkboxes. *Acceptance round 2 (INT-43)*: clips without a single key (they would write only the
+   rest pose) start unchecked for the multi-clip containers, unless every clip is empty.
+8. *Acceptance round 2 (INT-43)*: animation names are `clipExportName` (slot, else the sanitized clip name), except
+   in `bake-into-model`: a clip imported from one of the model's own animations (`source.kind = 'embedded'`, same
+   asset) that has neither been renamed nor given a slot since is written under that animation's **original**
+   name (`exportNameOf`), so §4.11.11 rule 6 replaces it in place even when import had to sanitize the name
+   (`a:b|Take 001` → `a_b_Take 001`).
 
 #### 4.11.11 Surgeon container rules (`bakeIntoModel`)
 

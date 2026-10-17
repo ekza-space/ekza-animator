@@ -41,6 +41,12 @@ function characterOptions(store: DocumentStore): CharacterOption[] {
   return store.list('characters').map((c) => ({ id: c.id, name: c.name, format: c.format }));
 }
 
+/** False only for a loaded clip without a single key (an unopened partition counts as animated). */
+function hasKeys(store: DocumentStore, clip: ClipId): boolean {
+  if (!store.isOpen(`clip:${clip}`)) return true;
+  return store.query.curvesOfClip(clip).some((curve) => store.query.keysOfCurve(curve.id).length > 0);
+}
+
 function clipOptions(store: DocumentStore, character: CharacterId | null) {
   if (character === null) return [];
   return store.query.clipsOfCharacter(character).map((clip) => ({
@@ -50,6 +56,7 @@ function clipOptions(store: DocumentStore, character: CharacterId | null) {
     start: clip.range.start,
     end: clip.range.end,
     loop: clip.loop,
+    animated: hasKeys(store, clip.id),
   }));
 }
 
@@ -131,15 +138,18 @@ function Results(props: { readonly artifacts: readonly ExportArtifact[] }): JSX.
 /**
  * Clips checked when the dialog opens (until the user changes them): every clip of the character for the containers
  * that hold several clips (bake into the model, animation-only GLB), the active clip for VRMA, which writes one file
- * per clip (acceptance round 1: baking usually wants all clips).
+ * per clip (acceptance round 1: baking usually wants all clips). Clips without a single key (an imported animation
+ * that moved no joint, a new empty clip) would only write the rest pose: they start unchecked unless every clip is
+ * empty (acceptance round 2).
  */
 export function defaultExportClips(
   kind: string,
-  clips: readonly { readonly id: ClipId }[],
+  clips: readonly { readonly id: ClipId; readonly animated?: boolean }[],
   active: ClipId | undefined,
 ): ReadonlySet<ClipId> {
   if (kind === 'vrma') return new Set(clips.filter((clip) => clip.id === active).map((clip) => clip.id));
-  return new Set(clips.map((clip) => clip.id));
+  const animated = clips.filter((clip) => clip.animated !== false);
+  return new Set((animated.length > 0 ? animated : clips).map((clip) => clip.id));
 }
 
 export function ExportDialog(): JSX.Element {
@@ -152,7 +162,7 @@ export function ExportDialog(): JSX.Element {
   const activeClips = useSession((s) => s.activeClip);
   const [characterChoice, setCharacterChoice] = useState<CharacterId | null>(null);
   const character = characterChoice ?? activeCharacter ?? characters[0]?.id ?? null;
-  const clips = useDocQuery((store) => clipOptions(store, character), ['clips', 'characters']);
+  const clips = useDocQuery((store) => clipOptions(store, character), ['clips', 'characters', 'curves', 'keys']);
 
   const [kind, setKind] = useState<string>(() => exporters[0]?.id ?? 'bake-into-model');
   const [selectedClips, setSelectedClips] = useState<ReadonlySet<ClipId> | null>(null);

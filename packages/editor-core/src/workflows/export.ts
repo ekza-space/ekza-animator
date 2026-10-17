@@ -39,7 +39,7 @@ import {
 } from '@ekza-animator/rig';
 import type { CharacterRuntime, EditorApp, PollResult } from '../types';
 import { yieldToHost } from './host';
-import { nameKey } from './names';
+import { nameKey, sanitizeClipName } from './names';
 import { isRestrictedLicense } from './provenance';
 import { EDITOR_VERSION } from './samples';
 import { fpsValue, isRecord } from './util';
@@ -133,10 +133,35 @@ function severityOf(profile: ExportProfileDef | null, rule: string, local: LintS
   return override ?? (profile?.ekza === true ? ekza : local);
 }
 
+/**
+ * The animation name a clip is written under (§4.11.10 step 6, §4.11.11 rule 6). In a bake into the model, a clip
+ * imported from one of that model's own animations and not renamed or given a slot since keeps the animation's
+ * original name, so the bake replaces its source in place even when import had to sanitize the name (`a:b|c` →
+ * `a_b_c`; acceptance round 2). Everywhere else: the slot or the sanitized clip name (`clipExportName`).
+ */
+export function exportNameOf(
+  clip: ClipRecord,
+  kind: BuiltinExportKind,
+  character: CharacterRecord,
+  container: GlbContainer,
+): string {
+  const fallback = clipExportName(clip);
+  if (kind !== 'bake-into-model' || (clip.slot !== null && clip.slot.trim() !== '')) return fallback;
+  const source = clip.source;
+  if (source.kind !== 'embedded' || source.asset !== character.asset) return fallback;
+  if (nameKey(clip.name) !== nameKey(sanitizeClipName(source.animationName))) return fallback; // renamed since
+  const animations = container.json['animations'];
+  const original = Array.isArray(animations) ? (animations as readonly unknown[])[source.animationIndex] : undefined;
+  if (!isRecord(original) || original['name'] !== source.animationName || source.animationName.trim() === '') {
+    return fallback;
+  }
+  return source.animationName;
+}
+
 /** Preflight lints that can fail before baking (§4.11.10 step 1); errors only, warnings come from `lintExport`. */
 export function preflightProblem(subject: ExportSubject, kind: BuiltinExportKind): string | null {
   const { clips, profile } = subject;
-  const names = clips.map((clip) => clipExportName(clip));
+  const names = clips.map((clip) => exportNameOf(clip, kind, subject.character, subject.runtime.container));
   const keys = names.map(nameKey);
   const duplicate = names.find((_, i) => keys.indexOf(keys[i] as string) !== i);
   if (duplicate !== undefined) return `Two clips export as '${duplicate}'; rename one or give it another slot`;
@@ -216,12 +241,12 @@ export function inPlaceNode(view: ReadView, program: RigProgram, clip: ClipRecor
   return best?.node ?? null;
 }
 
-/** `ekza_animation_v1` clip entry of a clip (§4.11.10 step 4, ADR 0010 §2). */
-export function clipMeta(clip: ClipRecord, index: number): EkzaClipMetaV1 {
+/** `ekza_animation_v1` clip entry of a clip (§4.11.10 step 4, ADR 0010 §2); `name` is its animation's name. */
+export function clipMeta(clip: ClipRecord, index: number, name: string = clipExportName(clip)): EkzaClipMetaV1 {
   const fps = fpsValue(clip.fps);
   return {
     index,
-    name: clipExportName(clip),
+    name,
     slot: clip.slot,
     loop: clip.loop,
     fps,
@@ -276,6 +301,7 @@ export async function runExport(
   const warnings: LintIssue[] = [];
 
   const bakes: ClipBake[] = clips.map((clip, index) => {
+    const name = exportNameOf(clip, kind, character, runtime.container);
     const range = bakeRange(clip);
     let rootMotion = clip.rootMotion;
     const node = inPlaceNode(app.store, program, clip);
@@ -290,7 +316,7 @@ export async function runExport(
     return {
       clip,
       options: {
-        name: clipExportName(clip),
+        name,
         fps: clip.fps,
         range,
         target,
@@ -299,7 +325,7 @@ export async function runExport(
         rootMotion,
         inPlaceNode: node,
         stepSchedule: computeStepSchedule(program, runtime.sampler(clip.id), range, target),
-        meta: clipMeta(clip, index),
+        meta: clipMeta(clip, index, name),
       },
     };
   });
