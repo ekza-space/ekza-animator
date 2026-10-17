@@ -29,6 +29,7 @@
     },
     "test": {
       "dependsOn": ["transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/**"],
       "outputs": []
     },
     "//#test:tooling": {
