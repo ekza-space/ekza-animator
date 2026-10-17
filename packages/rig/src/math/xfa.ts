@@ -140,6 +140,14 @@ export function xfaMul(a: XfArrays, ai: number, b: XfArrays, bi: number, o: XfAr
   o.s[o3 + 2] = asz * bsz;
 }
 
+/**
+ * 1 / s, or 0 for a collapsed axis (pseudo-inverse): a control keyed to scale 0 collapses its subtree, and the
+ * locals below it stay finite instead of turning into NaN.
+ */
+function inverseScale(s: number): number {
+  return s === 0 ? 0 : 1 / s;
+}
+
 /** `o[oi] = a[ai]⁻¹ · b[bi]`. */
 export function xfaInvMul(a: XfArrays, ai: number, b: XfArrays, bi: number, o: XfArrays, oi: number): void {
   const a3 = ai * 3;
@@ -151,9 +159,9 @@ export function xfaInvMul(a: XfArrays, ai: number, b: XfArrays, bi: number, o: X
   const qy = -(a.q[a4 + 1] as number);
   const qz = -(a.q[a4 + 2] as number);
   const qw = a.q[a4 + 3] as number;
-  const isx = 1 / (a.s[a3] as number);
-  const isy = 1 / (a.s[a3 + 1] as number);
-  const isz = 1 / (a.s[a3 + 2] as number);
+  const isx = inverseScale(a.s[a3] as number);
+  const isy = inverseScale(a.s[a3 + 1] as number);
+  const isz = inverseScale(a.s[a3 + 2] as number);
   const vx = (b.t[b3] as number) - (a.t[a3] as number);
   const vy = (b.t[b3 + 1] as number) - (a.t[a3 + 1] as number);
   const vz = (b.t[b3 + 2] as number) - (a.t[a3 + 2] as number);
@@ -195,9 +203,9 @@ export function xfaMulInv(a: XfArrays, ai: number, b: XfArrays, bi: number, o: X
   const qy = -(b.q[b4 + 1] as number);
   const qz = -(b.q[b4 + 2] as number);
   const qw = b.q[b4 + 3] as number;
-  const isx = 1 / (b.s[b3] as number);
-  const isy = 1 / (b.s[b3 + 1] as number);
-  const isz = 1 / (b.s[b3 + 2] as number);
+  const isx = inverseScale(b.s[b3] as number);
+  const isy = inverseScale(b.s[b3 + 1] as number);
+  const isz = inverseScale(b.s[b3 + 2] as number);
   const vx = -(b.t[b3] as number);
   const vy = -(b.t[b3 + 1] as number);
   const vz = -(b.t[b3 + 2] as number);

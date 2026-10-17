@@ -220,6 +220,19 @@ describe('kernel: forward evaluation', () => {
     ).toBeLessThan(1e-12);
   });
 
+  it('keeps every output finite when a control collapses its subtree to scale 0', () => {
+    const skeleton = genericSkeleton();
+    const program = rigFor(skeleton);
+    const ch = program.allocChannels();
+    const pose = program.allocPose();
+    const spine = program.controls.find((c) => c.key === 'fk.spine') as { id: ControlId };
+    writeControlChannels(program, ch, spine.id, { sx: 0, sy: 0, sz: 0, rx: 0.3 });
+    program.evaluate(ch, pose);
+    for (const buffer of [pose.boneLocal, pose.boneWorld, pose.controlWorld, pose.humanLocal, pose.hipsPosition]) {
+      expect(buffer.every((x) => Number.isFinite(x))).toBe(true);
+    }
+  });
+
   it('is deterministic and allocation-free in shape (same buffers, same values)', () => {
     const skeleton = richHumanoid();
     const program = rigFor(skeleton);
