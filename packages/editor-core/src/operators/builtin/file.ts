@@ -241,7 +241,9 @@ function saveOperator(id: 'file.save' | 'file.saveAs', label: string): AnyOperat
     prepare: ({ app }, args) => busy(app, 'Saving…', () => prepareProjectArchive(app, saveName(app, args))),
     apply({ app }, _args, artifact) {
       const result = download(app, artifact);
-      app.session.setState({ dirty: false });
+      toastWarnings(app, `Saved ${artifact.fileName}`, artifact.warnings);
+      // Changes made while the file was being written are not in it: the project stays dirty then.
+      if (app.store.version === artifact.version) app.session.setState({ dirty: false });
       return result;
     },
   });

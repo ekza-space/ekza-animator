@@ -88,7 +88,10 @@ function keyJump(direction: 1 | -1): AnyOperator {
       const clip = activeClipRecord(app);
       if (clip === undefined) return;
       const selected = selectedControls(app);
-      const times = keyTimes(app.store, clip, selected.length > 0 ? new Set(selected.map((c) => c.id)) : null);
+      // Keys outside the clip range (kept after shortening it) are not frames the clip can show.
+      const times = keyTimes(app.store, clip, selected.length > 0 ? new Set(selected.map((c) => c.id)) : null).filter(
+        (t) => t >= clip.range.start - KEY_EPSILON && t <= clip.range.end + KEY_EPSILON,
+      );
       if (times.length === 0) return;
       const now = currentFrame(app);
       // Like Maya, the jump wraps around at the last (first) key.

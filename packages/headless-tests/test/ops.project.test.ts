@@ -164,6 +164,61 @@ describe.skipIf(!SIBLINGS_READY)(`projects ${BLOCKED}`, { timeout: 120_000 }, ()
     expect(times).toEqual([0, 30, 60]);
   });
 
+  it('keeps the project dirty when it changes while the file is written', async () => {
+    let gate: Promise<void> | null = null;
+    let entered: () => void = () => {};
+    const { app } = realApp({
+      assets: (store) => ({
+        put: (bytes, meta) => store.put(bytes, meta),
+        has: (id) => store.has(id),
+        peek: (id) => store.peek(id),
+        ids: () => store.ids(),
+        async get(id) {
+          if (gate !== null) {
+            entered();
+            await gate;
+          }
+          return store.get(id);
+        },
+      }),
+    });
+    const { control } = await waveScene(app);
+    let release: () => void = () => {};
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const inside = new Promise<void>((resolve) => {
+      entered = resolve;
+    });
+    const saving = app.runUntyped('file.save');
+    // The save has taken its snapshot and waits for the model bytes: an edit now is not in the file.
+    await inside;
+    await runOk(app, 'channel.setValues', { edits: [{ control, channel: 'rx', value: 0.3 }], key: 'force' });
+    gate = null;
+    release();
+    expect((await saving).status).toBe('finished');
+    expect(app.session.getState().dirty).toBe(true);
+    // A save without changes in between marks the project clean.
+    await runOk(app, 'file.save');
+    expect(app.session.getState().dirty).toBe(false);
+  });
+
+  it('saves a project whose model is missing (opened from the JSON variant), without the model', async () => {
+    const source = realApp();
+    await waveScene(source.app);
+    await runOk(source.app, 'file.saveJson');
+    const json = source.services.downloads.at(-1)?.bytes;
+    const { app, services } = realApp({ seed: 21 });
+    await runOk(app, 'file.openProject', { name: 'polybot.ekzanim.json', bytes: json });
+    const saved = (await runOk(app, 'file.save')) as { fileName: string };
+    expect(saved.fileName).toBe('polybot.ekzanim');
+    expect(services.toasts.at(-1)).toMatchObject({ kind: 'warning' });
+    expect(services.toasts.at(-1)?.text).toMatch(/polybot\.vrm is not available/);
+    const reopened = realApp({ seed: 22 }).app;
+    await runOk(reopened, 'file.openProject', { name: saved.fileName, bytes: services.downloads.at(-1)?.bytes });
+    expect(counts(reopened)).toEqual(counts(app));
+  });
+
   it('refuses a file that is not a project', async () => {
     const { app } = realApp();
     const result = await app.runUntyped('file.openProject', { name: 'x.ekzanim', bytes: new Uint8Array([1, 2, 3]) });

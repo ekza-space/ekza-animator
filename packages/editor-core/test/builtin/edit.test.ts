@@ -44,11 +44,12 @@ describe('edit.copy / edit.paste / edit.delete', () => {
     const app = opsApp();
     app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.lowerArmL] } });
     setSceneFrame(app, 15);
-    await app.runUntyped('edit.delete', undefined, { panel: 'channelBox' });
+    expect((await app.runUntyped('edit.delete', undefined, { panel: 'channelBox' })).status).toBe('finished');
     expect(app.store.get('keys', WAVE.keys[1])).toBeUndefined();
     await app.runUntyped('select.keys', { items: [{ key: WAVE.keys[0] }], mode: 'replace' });
-    await app.runUntyped('edit.copy', undefined, { panel: 'graph' });
-    await app.runUntyped('edit.delete', undefined, { panel: 'timeline' });
+    expect((await app.runUntyped('edit.copy', undefined, { panel: 'graph' })).status).toBe('finished');
+    // The target's own effect (the keys are gone, so nothing is selected) does not turn the run into a refusal.
+    expect((await app.runUntyped('edit.delete', undefined, { panel: 'timeline' })).status).toBe('finished');
     const ids = app.calls.map((call) => call.id);
     expect(ids).toContain('key.deleteAtFrame');
     expect(ids).toContain('graph.keys.copy');

@@ -70,9 +70,18 @@ export interface RealApp {
 }
 
 /** The production kernel with recording services, the validator and seeded ids. */
-export function realApp(opts?: { readonly validator?: boolean; readonly seed?: number }): RealApp {
+export function realApp(opts?: {
+  readonly validator?: boolean;
+  readonly seed?: number;
+  /** Wraps the asset store (e.g. to hold a read while a test acts). */
+  readonly assets?: (store: EditorServices['assets']) => EditorServices['assets'];
+}): RealApp {
   const services = createFakeServices();
-  const withValidator: EditorServices = { ...services, validate: opts?.validator === false ? null : validate };
+  const withValidator: EditorServices = {
+    ...services,
+    assets: opts?.assets?.(services.assets) ?? services.assets,
+    validate: opts?.validator === false ? null : validate,
+  };
   const app = createEditorApp({ services: withValidator, idSource: seededIdSource(opts?.seed ?? 7) });
   return { app, services };
 }

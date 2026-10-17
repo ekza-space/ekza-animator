@@ -181,6 +181,17 @@ describe.skipIf(!SIBLINGS_READY)(`file.importModel on the fixtures ${BLOCKED}`, 
     expect(two.warnings.some((w) => w.includes('already in the project'))).toBe(true);
   });
 
+  it('places a new character beside the right-most one, also after a deletion', async () => {
+    const { app } = realApp();
+    const a = await importFixture(app, 'polybot.vrm');
+    const b = await importFixture(app, 'polybot.vrm');
+    const bx = app.store.get('characters', b.character)?.placement.t[0] ?? 0;
+    expect(bx).toBeGreaterThan(1);
+    app.store.transact({ label: 'delete' }, (tx) => tx.softDelete('characters', a.character));
+    const c = await importFixture(app, 'polybot.vrm');
+    expect(app.store.get('characters', c.character)?.placement.t[0]).toBeGreaterThan(bx + 1);
+  });
+
   it('undoes and redoes an import exactly', async () => {
     const { app } = realApp();
     const before = docJson(app);

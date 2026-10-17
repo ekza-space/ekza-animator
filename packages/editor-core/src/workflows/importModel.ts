@@ -89,6 +89,29 @@ export function animationNames(container: GlbContainer): readonly string[] {
   });
 }
 
+/**
+ * Reads only the wanted glTF animations (io `readAnimations` over a container that lists just those), so a large
+ * library is not decoded for one clip and an unwanted compressed animation does not block the import. The clips keep
+ * their original index and name.
+ */
+export function readWantedAnimations(
+  container: GlbContainer,
+  skeleton: SkeletonDesc,
+  wanted: readonly number[],
+  names: readonly string[],
+): readonly RawClip[] {
+  const animations = container.json['animations'];
+  if (!Array.isArray(animations) || wanted.length === 0) return [];
+  const subset: GlbContainer = {
+    ...container,
+    json: { ...container.json, animations: wanted.map((index) => (animations as readonly unknown[])[index]) },
+  };
+  return readAnimations(subset, skeleton).flatMap((raw) => {
+    const index = wanted[raw.index];
+    return index === undefined ? [] : [{ ...raw, index, name: names[index] ?? raw.name }];
+  });
+}
+
 /** glTF animation indices to import: the option, else the sample default, else all of them when there are few. */
 export function selectClips(
   names: readonly string[],
@@ -141,8 +164,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   let raws: readonly RawClip[] = [];
   if (wanted.length > 0) {
     try {
-      const all = readAnimations(container, skeleton);
-      raws = wanted.map((index) => all.find((clip) => clip.index === index)).filter((clip) => clip !== undefined);
+      raws = readWantedAnimations(container, skeleton, wanted, names);
     } catch (error) {
       if (!(error instanceof EkzaError && error.code === 'compressed-animation') || Array.isArray(options.clips)) {
         throw error;
@@ -290,7 +312,11 @@ export function applyModelImport(app: EditorApp, tx: Tx, plan: ModelImportPlan):
   }
 
   const height = Number.isFinite(plan.height) && plan.height > 0 ? plan.height : 1.7;
-  const x = existing.length * CHARACTER_SPACING * height;
+  // Next to the right-most character (deleted ones leave gaps rather than overlaps).
+  const x =
+    existing.length === 0
+      ? 0
+      : Math.max(...existing.map((character) => character.placement.t[0])) + CHARACTER_SPACING * height;
   tx.put(
     'characters',
     characterRecord({

@@ -167,6 +167,8 @@ const keyDeleteAtFrame = defineOperator({
     const keys = [];
     for (const control of selectedControls(app, tx)) {
       for (const channel of TRS_CHANNELS) {
+        // Locked channels (Channel Box) and locked curves (Graph Editor) keep their keys.
+        if (isLocked(control, channel)) continue;
         const curve = curveOf(tx, clip, control.id, channel);
         if (curve === undefined || curve.locked) continue;
         for (const key of tx.query.keysOfCurve(curve.id)) if (Math.abs(key.t - frame) < SAME_FRAME) keys.push(key.id);

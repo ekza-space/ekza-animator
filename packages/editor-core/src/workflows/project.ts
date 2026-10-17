@@ -17,6 +17,10 @@ export interface SaveArtifact {
   readonly fileName: string;
   readonly bytes: Uint8Array;
   readonly mime: string;
+  /** `store.version` of the saved snapshot: a later change keeps the project dirty. */
+  readonly version: number;
+  /** Problems worth telling the user (models missing from the asset store). */
+  readonly warnings: readonly string[];
 }
 
 /** `name` reduced to a safe file name with the given extension (keeps an extension that is already there). */
@@ -52,24 +56,34 @@ export async function openAllPartitions(app: EditorApp): Promise<void> {
 /** The `.ekzanim` archive of the current document with every asset it references (async: verified reads). */
 export async function prepareProjectArchive(app: EditorApp, name: string): Promise<SaveArtifact> {
   await openAllPartitions(app);
+  const version = app.store.version;
   const snapshot = app.store.snapshot();
   const assets = new Map<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>();
+  const warnings: string[] = [];
   for (const record of assetRecords(snapshot)) {
+    // A project opened from the JSON variant may lack a model: save the rest (like that variant) and say so.
+    if (!(await app.services.assets.has(record.id))) {
+      warnings.push(`${record.name} is not available and was not included`);
+      continue;
+    }
     assets.set(record.id, { record, bytes: await app.services.assets.get(record.id) });
   }
   const bytes = writeProjectArchive(snapshot, assets, { version: EDITOR_VERSION });
-  return { fileName: projectFileName(name, PROJECT_EXTENSION), bytes, mime: PROJECT_MIME };
+  return { fileName: projectFileName(name, PROJECT_EXTENSION), bytes, mime: PROJECT_MIME, version, warnings };
 }
 
 /** The `.ekzanim.json` debug variant (document + asset descriptions, no bytes). */
 export async function prepareProjectJson(app: EditorApp, name: string): Promise<SaveArtifact> {
   await openAllPartitions(app);
+  const version = app.store.version;
   const snapshot = app.store.snapshot();
   const text = writeProjectJson(snapshot, assetRecords(snapshot));
   return {
     fileName: projectFileName(name, PROJECT_JSON_EXTENSION),
     bytes: new TextEncoder().encode(text),
     mime: PROJECT_JSON_MIME,
+    version,
+    warnings: [],
   };
 }
 

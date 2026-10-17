@@ -39,6 +39,13 @@ const redo = defineOperator({
 /** Panels whose copy/paste/delete act on keys rather than on the pose. */
 const KEY_PANELS: ReadonlySet<string> = new Set([PANEL.graph, PANEL.timeline]);
 
+/**
+ * Dispatchers whose target already ran in this run's `prepare`. The runner polls again after `prepare` (§4.11.0 rule
+ * 3); by then the target's own effect may have changed its poll (deleted keys are no longer selected), so that one
+ * poll answers from this marker instead.
+ */
+const forwarded = new WeakMap<EditorApp, Set<string>>();
+
 /** A menu command forwarded to the pose or key operator of the panel it is for (§4.9). */
 function dispatcher(
   id: 'edit.copy' | 'edit.paste' | 'edit.delete',
@@ -55,9 +62,18 @@ function dispatcher(
     description: `${label} poses (viewport, outliner, Channel Box) or keys (Graph Editor, time slider).`,
     category: 'edit',
     scope: GLOBAL_SCOPE,
-    poll: (ctx) => ctx.app.operators.poll(target(ctx), runContextOf(ctx)),
+    poll(ctx) {
+      if (forwarded.get(ctx.app)?.delete(id) === true) return OK;
+      return ctx.app.operators.poll(target(ctx), runContextOf(ctx));
+    },
     async prepare(ctx) {
       await forward(ctx, target(ctx), undefined);
+      let done = forwarded.get(ctx.app);
+      if (done === undefined) {
+        done = new Set();
+        forwarded.set(ctx.app, done);
+      }
+      done.add(id);
     },
     apply() {},
   });

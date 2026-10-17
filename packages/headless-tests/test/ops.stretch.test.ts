@@ -139,4 +139,32 @@ describe.skipIf(!SIBLINGS_READY)(`M1-stretch operators ${BLOCKED}`, { timeout: 1
     });
     expect(refused).toMatchObject({ status: 'failed', error: { code: 'unsupported' } });
   });
+
+  it('keeps each clip’s own provenance when an animation-only GLB of several clips comes back', async () => {
+    const { app } = realApp();
+    const ual = await importFixture(app, 'quaternius-ual.glb', { clips: [9, 45] });
+    const [idle, walk] = ual.clips as [ClipId, ClipId];
+    const cc0 = { title: 'Mocap', author: 'Studio', license: 'CC0-1.0', sourceSha256: null };
+    await runOk(app, 'clip.setSettings', { clip: idle, provenance: { derivedFrom: [cc0], redistributable: 'yes' } });
+    await runOk(app, 'clip.setSettings', { clip: walk, provenance: { redistributable: 'no' } });
+    const [glb] = (await runOk(app, 'file.export', {
+      kind: 'animation-glb',
+      character: ual.character,
+      clips: [idle, walk],
+      fileNamePattern: 'pair',
+      closeLoop: false,
+      includeConstantTracks: true,
+      acknowledgeLicense: false,
+      profile: null,
+    })) as ExportArtifact[];
+    const back = (await runOk(app, 'file.importAnimation', { name: 'pair.glb', bytes: glb?.bytes })) as {
+      clips: ClipId[];
+    };
+    const records = back.clips.map((id) => app.store.get('clips', id));
+    expect(records.map((clip) => [clip?.name, clip?.provenance.redistributable])).toEqual([
+      ['Idle_Loop 2', 'yes'],
+      ['Walk_Loop 2', 'no'],
+    ]);
+    expect(records[0]?.provenance.derivedFrom).toEqual([cc0]);
+  });
 });

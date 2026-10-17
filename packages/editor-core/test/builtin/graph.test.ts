@@ -388,6 +388,16 @@ describe.skipIf(!READY.wp1)('graph.keys.setFields [needs WP-1 tangentFields]', (
     ]);
   });
 
+  it('moves several keys of one curve to a typed frame as a block, and never moves handle-only selections', async () => {
+    const app = opsApp();
+    await selectKeys(app, [K(1), K(2)]);
+    await runOk(app, 'graph.keys.setFields', { frame: 20 });
+    expect(keys(app).map((k) => k.t)).toEqual([0, 20, 35]);
+    await selectKeys(app, [K(0)], { out: true });
+    expect((await runResult(app, 'graph.keys.setFields', { frame: 5 })).status).toBe('finished');
+    expect(key(app, K(0)).t).toBe(0);
+  });
+
   it('applies relative edits and weights only on weighted curves', async () => {
     const app = opsApp();
     await selectKeys(app, [K(0), K(2)]);

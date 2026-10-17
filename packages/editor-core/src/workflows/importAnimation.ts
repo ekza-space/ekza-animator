@@ -191,7 +191,7 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
   const raws = readAnimations(container, source);
   if (raws.length === 0) throw new EkzaError('unsupported', `${input.fileName} has no animations`);
   const asset = await storeSource(app, input, 'glb');
-  const base = fileProvenance(container, baseName(input.fileName));
+  const unknown = sourceProvenance({ fileTitle: baseName(input.fileName), sha256: container.sha256, license: null });
   const clips: ClipWritePlan[] = [];
   const taken: string[] = [];
   for (const raw of raws) {
@@ -229,7 +229,8 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
     const names = [raw.name, ...raw.channels.map((channel) => source.nodes[channel.node]?.name ?? '')];
     const name = uniqueName(sanitizeClipName(raw.name), taken);
     taken.push(name);
-    clips.push(planImported(app, input, asset, name, clipProvenance(base, names), imported));
+    const provenance = embeddedEkzaProvenance(container, raw.index) ?? clipProvenance(unknown, names);
+    clips.push(planImported(app, input, asset, name, provenance, imported));
     await yieldToHost();
   }
   if (clips.length === 0) throw new EkzaError('unsupported', `No animation of ${input.fileName} fits the character`);

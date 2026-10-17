@@ -86,6 +86,14 @@ describe('time.nextKey / time.prevKey / goToStart / goToEnd', () => {
     expect(frame(app)).toBe(4);
   });
 
+  it('ignores keys outside the clip range', async () => {
+    const app = opsApp();
+    app.store.transact({ label: 'setup' }, (tx) => tx.patch('clips', WAVE.clip, { range: { start: 0, end: 20 } }));
+    setSceneFrame(app, 15);
+    await runOk(app, 'time.nextKey');
+    expect(frame(app)).toBe(0);
+  });
+
   it('goes to the playback range or the clip range', async () => {
     const app = opsApp();
     await runOk(app, 'time.goToEnd');

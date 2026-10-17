@@ -6,6 +6,7 @@ import {
   type AnimCurve,
   EkzaError,
   eulerFilterCurves,
+  type Fps,
   type Handle,
   handleFromFields,
   type InfinityMode,
@@ -279,32 +280,12 @@ const infinitySet = defineOperator({
 
 const FIELD_NAMES = ['frame', 'value', 'inAngleDeg', 'outAngleDeg', 'inWeight', 'outWeight'] as const;
 
-/** Maya weight of a handle (seconds, display units). */
-function weightOf(h: Handle, fps: number, k: number): number {
-  return 3 * Math.hypot(Math.abs(h.dt) / fps, h.dv * k);
-}
-
-/** The opposite side of a unified key turned collinear with `h`, keeping its own length. */
-function alignOpposite(
-  h: Handle,
-  opposite: Handle,
-  side: 'in' | 'out',
-  weighted: boolean,
-  fps: number,
-  k: number,
-): Handle {
-  const direction: Handle = { dt: -h.dt, dv: -h.dv };
-  if (weighted) {
-    const from = weightOf(direction, fps, k);
-    const to = weightOf(opposite, fps, k);
-    if (from > 0 && to > 0) return { dt: (direction.dt * to) / from, dv: (direction.dv * to) / from };
-  }
-  const absDt = Math.abs(opposite.dt) > 1e-6 ? Math.abs(opposite.dt) : 1;
-  const sign = side === 'out' ? 1 : -1;
-  const slope = Math.abs(direction.dt) > 0 ? direction.dv / direction.dt : 0;
-  return { dt: sign * absDt, dv: slope * sign * absDt };
-}
-
+/**
+ * A typed tangent angle and/or weight on one side of a key (§4.11.4 `handleFromFields`). The angle goes through the
+ * kernel's `setKeyHandle` — the side becomes `fixed`, and a unified key turns its opposite side collinear with its own
+ * length, exactly like a handle drag. A weight (weighted curves only; the fields are disabled otherwise) then scales
+ * that side along its direction, so it stays collinear.
+ */
 function applyTangentField(
   app: EditorApp,
   tx: Tx,
@@ -314,34 +295,54 @@ function applyTangentField(
   weight: number | undefined,
   relative: boolean,
 ): void {
-  const key = tx.get('keys', id);
-  const curve = key === undefined ? undefined : tx.get('curves', key.curve);
-  const clip = curve === undefined ? undefined : tx.get('clips', curve.clip);
-  if (key === undefined || curve === undefined || clip === undefined || curve.locked) return;
-  // Weight fields are disabled on non-weighted curves.
-  const w = curve.weighted ? weight : undefined;
-  if (angle === undefined && w === undefined) return;
-  const handles = resolvedHandles(app, tx, curve, id);
-  if (handles === null) return;
-  const k = isRotation(curve.channel) ? RAD2DEG : 1;
-  const current = handles[side];
-  const now = tangentFields(current, side, clip.fps, k);
-  const fields = {
-    ...(angle === undefined ? {} : { angleDeg: relative ? now.angleDeg + angle : angle }),
-    ...(w === undefined ? {} : { weight: Math.max(0, relative ? now.weight + w : w) }),
+  const curveOfKey = (): { readonly curve: CurveRecord; readonly fps: Fps; readonly k: number } | null => {
+    const key = tx.get('keys', id);
+    const curve = key === undefined ? undefined : tx.get('curves', key.curve);
+    const clip = curve === undefined ? undefined : tx.get('clips', curve.clip);
+    if (curve === undefined || clip === undefined || curve.locked) return null;
+    return { curve, fps: clip.fps, k: isRotation(curve.channel) ? RAD2DEG : 1 };
   };
-  const handle = handleFromFields(fields, current, side, clip.fps, k);
-  let updated: KeyRecord =
-    side === 'in' ? { ...key, inType: 'fixed', inHandle: handle } : { ...key, outType: 'fixed', outHandle: handle };
-  if (!key.broken && angle !== undefined) {
-    const opposite = side === 'in' ? 'out' : 'in';
-    const aligned = alignOpposite(handle, handles[opposite], opposite, curve.weighted, clip.fps.num / clip.fps.den, k);
-    updated =
-      opposite === 'in'
-        ? { ...updated, inType: 'fixed', inHandle: aligned }
-        : { ...updated, outType: 'fixed', outHandle: aligned };
+  const target = curveOfKey();
+  if (target === null) return;
+  const resolved = (): Handle | null => resolvedHandles(app, tx, target.curve, id)?.[side] ?? null;
+  if (angle !== undefined) {
+    const current = resolved();
+    if (current === null) return;
+    const angleDeg = relative ? tangentFields(current, side, target.fps, target.k).angleDeg + angle : angle;
+    setKeyHandle(app, tx, id, side, handleFromFields({ angleDeg }, current, side, target.fps, target.k), {
+      tempBreak: false,
+    });
   }
-  tx.put('keys', updated);
+  if (weight !== undefined && target.curve.weighted) {
+    const current = resolved();
+    const key = tx.get('keys', id);
+    if (current === null || key === undefined) return;
+    const now = tangentFields(current, side, target.fps, target.k).weight;
+    const handle = handleFromFields(
+      { weight: Math.max(0, relative ? now + weight : weight) },
+      current,
+      side,
+      target.fps,
+      target.k,
+    );
+    tx.put(
+      'keys',
+      side === 'in' ? { ...key, inType: 'fixed', inHandle: handle } : { ...key, outType: 'fixed', outHandle: handle },
+    );
+  }
+}
+
+/** Selected key ids (key parts) grouped by curve, in selection order. */
+function byCurveOf(tx: Tx, ids: readonly KeyId[]): Map<CurveId, KeyId[]> {
+  const groups = new Map<CurveId, KeyId[]>();
+  for (const id of ids) {
+    const key = tx.get('keys', id);
+    if (key === undefined) continue;
+    const group = groups.get(key.curve);
+    if (group === undefined) groups.set(key.curve, [id]);
+    else group.push(id);
+  }
+  return groups;
 }
 
 const setFields = defineOperator({
@@ -365,27 +366,30 @@ const setFields = defineOperator({
   apply({ app, tx }, args: KeyFieldsArgs) {
     const t = txOf(tx, 'graph.keys.setFields');
     const relative = args.relative === true;
-    const ids = selectedKeys(app, t).map((s) => s.key.id);
+    // Frame and value act on selected keys (key parts), like moving; tangent fields on every selected key or handle.
+    const keyIds = selectedKeyIds(app, t);
     const deleted: KeyId[] = [];
     const typed = { snap: false, resolveCollisions: true } as const;
     if (args.frame !== undefined) {
       if (relative) {
         // One block move: the keys keep their spacing and never land on each other.
-        if (args.frame !== 0) deleted.push(...moveKeys(app, t, ids, args.frame, 0, typed).deleted);
+        if (args.frame !== 0) deleted.push(...moveKeys(app, t, keyIds, args.frame, 0, typed).deleted);
       } else {
-        for (const id of ids) {
-          const key = t.get('keys', id);
-          if (key !== undefined && key.t !== args.frame) {
-            deleted.push(...moveKeys(app, t, [id], args.frame - key.t, 0, typed).deleted);
+        // Per curve the selected keys move as a block whose first key lands on the typed frame (several keys of one
+        // curve cannot share a frame).
+        for (const ids of byCurveOf(t, keyIds).values()) {
+          const first = Math.min(...ids.map((id) => t.get('keys', id)?.t ?? Number.POSITIVE_INFINITY));
+          if (Number.isFinite(first) && first !== args.frame) {
+            deleted.push(...moveKeys(app, t, ids, args.frame - first, 0, typed).deleted);
           }
         }
       }
     }
     if (args.value !== undefined) {
       if (relative) {
-        if (args.value !== 0) moveKeys(app, t, ids, 0, args.value, typed);
+        if (args.value !== 0) moveKeys(app, t, keyIds, 0, args.value, typed);
       } else {
-        for (const id of ids) {
+        for (const id of keyIds) {
           const key = t.get('keys', id);
           const curve = key === undefined ? undefined : t.get('curves', key.curve);
           if (key === undefined || curve === undefined) continue;
@@ -394,11 +398,12 @@ const setFields = defineOperator({
         }
       }
     }
+    const tangentIds = selectedKeys(app, t).map((s) => s.key.id);
     for (const side of ['in', 'out'] as const) {
       const angle = side === 'in' ? args.inAngleDeg : args.outAngleDeg;
       const weight = side === 'in' ? args.inWeight : args.outWeight;
       if (angle === undefined && weight === undefined) continue;
-      for (const id of ids) applyTangentField(app, t, id, side, angle, weight, relative);
+      for (const id of tangentIds) applyTangentField(app, t, id, side, angle, weight, relative);
     }
     forgetKeys(app, deleted);
   },

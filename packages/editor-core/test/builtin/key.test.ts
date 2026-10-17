@@ -158,6 +158,15 @@ describe('key.deleteAtFrame / key.toggleAutoKey', () => {
     expect((await runResult(app, 'key.deleteAtFrame')).status).toBe('cancelled');
   });
 
+  it('keeps the keys of locked channels', async () => {
+    const app = opsApp();
+    select(app, [WAVE.lowerArmL]);
+    await runOk(app, 'channel.toggleLock', { refs: [{ control: WAVE.lowerArmL, channel: 'rz' }] });
+    setSceneFrame(app, 15);
+    expect(await runOk(app, 'key.deleteAtFrame')).toEqual({ count: 0 });
+    expect(keysAt(app, WAVE.lowerArmL, 'rz')).toHaveLength(3);
+  });
+
   it('toggles auto key', async () => {
     const app = opsApp();
     expect(app.prefs.getState().autoKey).toBe(false);
