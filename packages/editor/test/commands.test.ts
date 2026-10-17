@@ -125,6 +125,32 @@ describe('shell operators', () => {
     expect(shell.ui.getState().help?.text).toContain('acme.missing');
   });
 
+  it('says in the help line what Simplify did when a menu or the keymap runs it (acceptance round 1)', async () => {
+    const { shell, app } = createTestShell();
+    const results = [
+      { before: 21, after: 21, maxError: 0 },
+      { before: 41, after: 24, maxError: 0.001 },
+    ];
+    app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'graph.curves.simplify',
+        label: 'Simplify Curves',
+        category: 'graph',
+        scope: 'global',
+        apply: () => results.shift(),
+      },
+    });
+    await shell.runFromUi('graph.curves.simplify');
+    expect(shell.ui.getState().help).toMatchObject({
+      tone: 'info',
+      text: 'Simplify: nothing to remove within 0.1° (21 keys); choose a larger tolerance',
+    });
+    const tolerance = { rotationRad: Math.PI / 180, translationM: 0.005, scale: 1e-3 };
+    await shell.runFromUi('graph.curves.simplify', { tolerance });
+    expect(shell.ui.getState().help?.text).toBe('Simplify: 41 → 24 keys (17 removed within 1°)');
+  });
+
   it('typed run() accepts the shell operators added to OperatorMap', async () => {
     const { app } = createTestShell();
     const result = await app.run('prefs.set', { patch: { autoKey: true } });

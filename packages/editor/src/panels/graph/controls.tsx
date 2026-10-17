@@ -2,7 +2,8 @@
 // local until the shared primitives of @ekza-animator/ui land (WP-8).
 import { type JSX, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
-const BUTTON =
+/** Look of the toolbar's buttons (exported for menu triggers that render their own button). */
+export const BUTTON_CLASS =
   'inline-flex h-6 shrink-0 items-center rounded-[4px] px-1.5 text-[11px] leading-none text-fg-2 ' +
   'hover:bg-[var(--bg-hover,#30323a)] hover:text-fg disabled:pointer-events-none disabled:opacity-40 ' +
   'aria-pressed:bg-[var(--bg-pressed,#3a3d46)] aria-pressed:text-fg aria-pressed:shadow-[inset_0_-2px_0_var(--accent)] ' +
@@ -19,7 +20,7 @@ export function ToolButton(props: {
   return (
     <button
       type="button"
-      className={BUTTON}
+      className={BUTTON_CLASS}
       data-testid={props.testId}
       title={props.title}
       aria-pressed={props.pressed}

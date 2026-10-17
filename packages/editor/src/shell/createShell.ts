@@ -7,6 +7,7 @@ import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter } from '../input/keyboard';
 import { scopeChainOf } from '../input/pointer';
 import { registerBuiltinPanels } from '../panels';
+import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
 import { screenOfTimelineFrame, screenOfTimelineTick } from '../panels/timeline/host';
 import { createPanelRegistry } from '../panels/registry';
@@ -139,6 +140,10 @@ export function createShell(opts: CreateShellOptions): Shell {
     } else if (op === 'file.export') {
       const artifacts = asArtifacts(result.value);
       if (artifacts !== null) exports.recordArtifacts(artifacts);
+    } else if (op === 'graph.curves.simplify') {
+      // Menus, palette and keymap say what Simplify did, like the Graph Editor's button (acceptance round 1).
+      const text = simplifyMessage(result.value, toleranceOfArgs(args));
+      if (text !== null) help(text, 'info');
     }
     return result;
   };

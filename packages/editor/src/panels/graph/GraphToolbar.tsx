@@ -3,11 +3,13 @@
 import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
 import type { GraphEditorController } from '@ekza-animator/curve-editor';
 import { type EditorApp, GRAPH_TOOL, PANEL } from '@ekza-animator/editor-core';
-import type { JSX } from 'react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ekza-animator/ui';
+import { type JSX, useState } from 'react';
 import { useSession } from '../../hooks';
-import { SelectField, Separator, ToolButton } from './controls';
+import { BUTTON_CLASS, SelectField, Separator, ToolButton } from './controls';
 import type { ToolbarState } from './model';
 import { runGraphOperator } from './run';
+import { SIMPLIFY_TOLERANCES, type SimplifyFactor, simplifyMessage, simplifyTolerance } from './simplify';
 
 const TOOLS = [
   { id: GRAPH_TOOL.select, label: 'Select', key: 'Q' },
@@ -51,6 +53,15 @@ export function GraphToolbar(props: {
   const noCurves = state.curves.length === 0;
   const tangentTarget = state.hasKeys || !noCurves;
   const run = (id: string, args?: unknown) => () => runGraphOperator(app, id, args);
+  const [simplifyFactor, setSimplifyFactor] = useState<SimplifyFactor>('1');
+  const simplify = (): void => {
+    // The default tolerance runs without arguments (the operator's DEFAULT_REDUCE).
+    const tolerance = simplifyFactor === '1' ? undefined : simplifyTolerance(Number(simplifyFactor));
+    runGraphOperator(app, 'graph.curves.simplify', tolerance === undefined ? undefined : { tolerance }, (value) => {
+      const text = simplifyMessage(value, tolerance);
+      if (text !== null) app.services.notify.toast({ kind: 'info', text });
+    });
+  };
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-0.5" role="toolbar" aria-label="Graph Editor">
       {TOOLS.map(({ id, label, key }) => (
@@ -74,26 +85,27 @@ export function GraphToolbar(props: {
           onClick={run('graph.tangent.set', { type })}
         />
       ))}
-      <details className="relative">
-        <summary
-          className="flex h-6 cursor-default list-none items-center rounded-[4px] px-1.5 text-[11px] text-fg-2 hover:bg-[var(--bg-hover,#30323a)]"
-          data-testid="ge-tangent-more"
-        >
-          More ▾
-        </summary>
-        <div className="absolute left-0 top-7 z-10 flex flex-col rounded-[6px] bg-[var(--bg-popover,#2c2e34)] p-1 shadow-lg">
+      {/* Menu-only tangent types: a Radix menu closes on choice, Esc and an outside click (acceptance round 1). */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild disabled={!tangentTarget}>
+          <button type="button" className={BUTTON_CLASS} data-testid="ge-tangent-more" title="More tangent types">
+            More ▾
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start" className="min-w-36" data-testid="ge-tangent-more-menu">
           {MORE_TANGENTS.map(({ type, label }) => (
-            <ToolButton
+            <DropdownMenuItem
               key={type}
-              testId={`ge-tangent-${type}`}
-              label={label}
+              className="whitespace-nowrap"
+              data-testid={`ge-tangent-${type}`}
               title={`${label} tangents`}
-              disabled={!tangentTarget}
-              onClick={run('graph.tangent.set', { type })}
-            />
+              onSelect={() => runGraphOperator(app, 'graph.tangent.set', { type })}
+            >
+              {label}
+            </DropdownMenuItem>
           ))}
-        </div>
-      </details>
+        </DropdownMenuContent>
+      </DropdownMenu>
       <Separator />
       <ToolButton
         testId="ge-break"
@@ -153,9 +165,17 @@ export function GraphToolbar(props: {
       <ToolButton
         testId="ge-simplify"
         label="Simplify"
-        title="Remove keys within the reduction tolerance"
+        title="Remove keys while the curves stay within the tolerance of their shape"
         disabled={noCurves}
-        onClick={run('graph.curves.simplify')}
+        onClick={simplify}
+      />
+      <SelectField
+        testId="ge-simplify-tolerance"
+        label="Tol"
+        value={simplifyFactor}
+        options={SIMPLIFY_TOLERANCES}
+        disabled={noCurves}
+        onChange={setSimplifyFactor}
       />
       <Separator />
       <ToolButton

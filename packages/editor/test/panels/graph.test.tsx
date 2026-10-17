@@ -168,7 +168,8 @@ describe('GraphPanel', () => {
     expect((byTestId(container, 'ge-break') as HTMLButtonElement).disabled).toBe(true);
     await update(() => byTestId(container, 'ge-tool-insert').click());
     await update(() => byTestId(container, 'ge-tangent-linear').click());
-    await update(() => byTestId(container, 'ge-tangent-stepNext').click());
+    await inAct(() => userEvent.click(byTestId(container, 'ge-tangent-more')));
+    await inAct(() => userEvent.click(byTestId(document.body, 'ge-tangent-stepNext')));
     await update(() => byTestId(container, 'ge-weighted').click());
     await update(() => byTestId(container, 'ge-euler-filter').click());
     await update(() => byTestId(container, 'ge-simplify').click());
@@ -195,6 +196,67 @@ describe('GraphPanel', () => {
     // Unknown operators (the fake app registers none of 7b's) come back as info toasts.
     expect((app.services as unknown as { toasts: readonly { kind: string }[] }).toasts.at(-1)?.kind).toBe('info');
     expect((byTestId(container, 'graph-infinity-post') as HTMLSelectElement).value).toBe('constant');
+  });
+
+  // Acceptance round 1: the "More ▾" popup stayed open over the key fields and its labels wrapped.
+  it('closes the More tangent menu on a choice, on Esc and on an outside click', async () => {
+    const container = await mountPanel();
+    const menu = () => document.body.querySelector('[data-testid="ge-tangent-more-menu"]');
+    const open = () => inAct(() => userEvent.click(byTestId(container, 'ge-tangent-more')));
+    await open();
+    expect(menu()).not.toBeNull();
+    const item = byTestId(document.body, 'ge-tangent-autoEase');
+    // Labels stay on one line (the panel tests run without Tailwind's CSS; the e2e acceptance spec measures it).
+    expect(menu()?.querySelectorAll('[role="menuitem"]')).toHaveLength(5);
+    expect(item.className).toContain('whitespace-nowrap');
+    await inAct(() => userEvent.click(item));
+    await settle();
+    expect(menu()).toBeNull();
+    expect(callsOf('graph.tangent.set')).toEqual([{ type: 'autoEase' }]);
+
+    await open();
+    expect(menu()).not.toBeNull();
+    await inAct(() => userEvent.keyboard('{Escape}'));
+    await settle();
+    expect(menu()).toBeNull();
+
+    await open();
+    expect(menu()).not.toBeNull();
+    // The open menu is modal (the page ignores the pointer): a click outside only closes it.
+    await inAct(() => userEvent.click(byTestId(container, 'ge-canvas'), { position: { x: 300, y: 200 }, force: true }));
+    await settle();
+    expect(menu()).toBeNull();
+    expect(callsOf('graph.tangent.set')).toEqual([{ type: 'autoEase' }]);
+  });
+
+  // Acceptance round 1: Simplify said nothing, even when the curve was already reduced at the same tolerance.
+  it('reports what Simplify did and runs it with the chosen tolerance', async () => {
+    const container = await mountPanel();
+    const results = [
+      { before: 21, after: 21, maxError: 0 },
+      { before: 41, after: 24, maxError: 0.0015 },
+    ];
+    app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'graph.curves.simplify',
+        label: 'Simplify Curves',
+        category: 'graph',
+        scope: 'global',
+        apply: () => results.shift(),
+      },
+    });
+    const toasts = () => (app.services as unknown as { toasts: readonly { text: string }[] }).toasts.map((t) => t.text);
+    await update(() => byTestId(container, 'ge-simplify').click());
+    await settle();
+    expect(toasts().at(-1)).toBe('Simplify: nothing to remove within 0.1° (21 keys); choose a larger tolerance');
+    await inAct(() => userEvent.selectOptions(byTestId(container, 'ge-simplify-tolerance'), '5'));
+    await update(() => byTestId(container, 'ge-simplify').click());
+    await settle();
+    expect(toasts().at(-1)).toBe('Simplify: 41 → 24 keys (17 removed within 0.5°)');
+    const runs = callsOf('graph.curves.simplify') as ({ tolerance: { rotationRad: number } } | undefined)[];
+    expect(runs[0]).toBeUndefined();
+    expect(runs[1]?.tolerance.rotationRad).toBeCloseTo((0.5 * Math.PI) / 180, 15);
   });
 
   it('shows the frame and value of the selected keys, "—" when they differ', async () => {
