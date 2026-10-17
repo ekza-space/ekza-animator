@@ -246,6 +246,7 @@ describe('memory store properties (fast-check)', () => {
             preview.cancel();
             expectBruteForce(store, scene);
           }
+          expect(store.preview).toBeNull();
         },
       ),
       { numRuns: 150 },

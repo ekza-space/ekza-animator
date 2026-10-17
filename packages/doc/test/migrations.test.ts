@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import {
   createMemoryStore,
   deriveMigratedId,
-  type DocSnapshot,
   emptySnapshot,
   migrateSnapshot,
   registerTable,
@@ -155,7 +154,7 @@ describe('per-table migrations', () => {
       n1: { id: 'n1', text: 'hello' },
     });
     const store = createMemoryStore();
-    store.load(snapshot as DocSnapshot);
+    store.load(snapshot);
     expect(store.snapshot()).toEqual(snapshot);
   });
 });

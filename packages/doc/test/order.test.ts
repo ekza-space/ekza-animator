@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { compareStrings, EkzaError, fractionalIndex, isFractionalIndex } from '../src';
+import { compareStrings, fractionalIndex, isFractionalIndex } from '../src';
 
 describe('fractionalIndex', () => {
   it('starts at a0 and appends with short keys', () => {
@@ -33,8 +33,8 @@ describe('fractionalIndex', () => {
           const right = before ? (keys[i] ?? null) : (keys[i + 1] ?? null);
           const key = fractionalIndex(left, right);
           expect(isFractionalIndex(key)).toBe(true);
-          if (left !== null) expect(compareStrings(left, key)).toBeLessThan(0);
-          if (right !== null) expect(compareStrings(key, right)).toBeLessThan(0);
+          expect(left === null || compareStrings(left, key) < 0).toBe(true);
+          expect(right === null || compareStrings(key, right) < 0).toBe(true);
           keys.splice(before ? i : i + 1, 0, key);
         }
         expect([...keys].sort(compareStrings)).toEqual(keys);
@@ -64,12 +64,7 @@ describe('fractionalIndex', () => {
       ['?0', null],
       ['a0!', null],
     ] as const) {
-      expect(() => fractionalIndex(a, b)).toThrow(EkzaError);
-      try {
-        fractionalIndex(a, b);
-      } catch (error) {
-        expect((error as EkzaError).code).toBe('invalid-record');
-      }
+      expect(() => fractionalIndex(a, b)).toThrow(expect.objectContaining({ code: 'invalid-record' }));
     }
     expect(isFractionalIndex('a0V')).toBe(true);
     expect(isFractionalIndex('a0V0')).toBe(false);

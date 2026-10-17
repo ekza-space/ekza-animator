@@ -1,7 +1,6 @@
 // Adapter-level tests of the Yjs store: the CRDT encoding (research 06 R2/R3), the outgoing/receive mechanics and
 // the rules the conformance suite cannot reach from the public API.
 import {
-  type AnyChange,
   type ChangeBatch,
   type DocSnapshot,
   type KeyRecord,
@@ -14,7 +13,7 @@ import {
 import { makeTestDocument, newScene, seedScene, writeScene } from '@ekza-animator/doc/testing';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
-import { createYjsStore, isYjsStore, YjsDocumentStore, yjsHarness } from '../src';
+import { createYjsStore, isYjsStore, type YjsDocumentStore, yjsHarness } from '../src';
 
 function yjs(store: ReplicatingStore): YjsDocumentStore {
   if (!isYjsStore(store)) throw new Error('not a Yjs store');
@@ -113,7 +112,7 @@ describe('outgoing and receive', () => {
     const first = yjs(createYjsStore({ replicaId: 'r0' }));
     expect(yjs(createYjsStore({ replicaId: 'r0' })).yjsClientId).toBe(first.yjsClientId);
     expect(yjs(createYjsStore({ replicaId: 'r1' })).yjsClientId).not.toBe(first.yjsClientId);
-    expect(() => createYjsStore({ replicaId: '' })).toThrow();
+    expect(() => createYjsStore({ replicaId: '' })).toThrow('replicaId must be a non-empty string');
   });
 
   it('a record present in two partition documents resolves to the smallest partition name', async () => {
@@ -126,12 +125,12 @@ describe('outgoing and receive', () => {
       doc.getMap('keys').set(key.id, { ...key, v });
       return Y.encodeStateAsUpdateV2(doc);
     };
-    store.receive('clip:zzz' as Partition, stale('clip:zzz' as Partition, 7));
+    store.receive('clip:zzz', stale('clip:zzz', 7));
     expect(store.get('keys', key.id)?.v).toBe(key.v); // `clip:<scene clip>` sorts before `clip:zzz`
-    await store.open('clip:000' as Partition);
-    store.receive('clip:000' as Partition, stale('clip:000' as Partition, 9));
+    await store.open('clip:000');
+    store.receive('clip:000', stale('clip:000', 9));
     expect(store.get('keys', key.id)?.v).toBe(9); // clip:000 sorts first: its copy wins on every replica
-    store.close('clip:000' as Partition);
+    store.close('clip:000');
     expect(store.get('keys', key.id)).toBeUndefined(); // the record now lives in clip:000
   });
 
@@ -161,7 +160,7 @@ describe('outgoing and receive', () => {
     for (const partition of scene.partitions) await b.open(partition);
     net.settle();
     const key = makeKey({ id: 'k_importedKey1' as never, clip: scene.clip, curve: scene.curve, t: 40, v: 1 });
-    a.applyChanges([{ table: 'keys', id: key.id, before: undefined, after: key } as AnyChange], {
+    a.applyChanges([{ table: 'keys', id: key.id, before: undefined, after: key }], {
       origin: 'import',
       label: 'Import',
     });

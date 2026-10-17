@@ -86,7 +86,8 @@ describe('wrapClipFrame', () => {
           const wrapped = wrapClipFrame(clip, frame);
           expect(wrapped).toBeGreaterThanOrEqual(start);
           expect(wrapped).toBeLessThanOrEqual(start + length);
-          if (loop && (frame < start || frame > start + length)) expect(wrapped).toBeLessThan(start + length);
+          const outside = frame < start || frame > start + length;
+          expect(!loop || !outside || wrapped < start + length).toBe(true);
         },
       ),
     );

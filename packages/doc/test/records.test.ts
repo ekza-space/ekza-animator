@@ -33,7 +33,8 @@ import { makeTestDocument, readSyntheticFixture } from '../src/testing';
 const lookup: PartitionLookup = { rigCharacter: (rig) => (rig === 'rig_A' ? ('chr_A' as CharacterId) : undefined) };
 
 function firstRecord<T extends TableName>(snapshot: DocSnapshot, table: T): RecordOf<T> {
-  const record = Object.values(snapshot.tables[table])[0];
+  const rows: Readonly<Record<string, unknown>> = snapshot.tables[table];
+  const record = Object.values(rows)[0];
   if (record === undefined) throw new Error(`no ${table} record`);
   return record as RecordOf<T>;
 }
@@ -168,10 +169,12 @@ describe('table definitions and partitions', () => {
       }),
       keys: makeKey({ clip: 'clp_A' as ClipId, curve: 'crv_A' as never, t: 0, v: 0 }),
     };
-    for (const table of BUILTIN_TABLES) {
-      expect(partitionOf(table, samples[table] as never, lookup), table).toBe(expected[table]);
-      expect(validateRecord(table, samples[table]), table).toEqual([]);
-    }
+    const partitions = Object.fromEntries(
+      BUILTIN_TABLES.map((table) => [table, partitionOf(table, samples[table] as never, lookup)]),
+    );
+    expect(partitions).toEqual(expected);
+    const problems = Object.fromEntries(BUILTIN_TABLES.map((table) => [table, validateRecord(table, samples[table])]));
+    expect(problems).toEqual(Object.fromEntries(BUILTIN_TABLES.map((table) => [table, []])));
     expect(partitionOf('controls', { ...samples.controls, rig: 'rig_unknown' as RigId }, lookup)).toBe('scene');
     expect(() => partitionOf('controls', samples.controls)).toThrow(expect.objectContaining({ code: 'unsupported' }));
     expect(partitionOf('vendor.notes' as TableName, { id: 'n' } as never)).toBe('scene');

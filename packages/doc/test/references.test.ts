@@ -99,14 +99,18 @@ describe('references', () => {
           if (op.record === undefined) after.delete(rowKey(op.table, op.id));
           else after.set(rowKey(op.table, op.id), { table: op.table, record: op.record });
         }
+        const actual: Record<string, readonly (string | null)[]> = {};
+        const expected: Record<string, readonly (string | null)[]> = {};
         for (const table of ['clips', 'curves', 'layers', 'controls', 'rigs']) {
           for (const id of IDS) {
-            expect(index.dependantOf(table, id, current), `${table}/${id}`).toBe(bruteForce(rows, table, id));
-            expect(index.dependantOf(table, id, current, planned), `${table}/${id} planned`).toBe(
-              bruteForce(after, table, id),
-            );
+            actual[`${table}/${id}`] = [
+              index.dependantOf(table, id, current),
+              index.dependantOf(table, id, current, planned),
+            ];
+            expected[`${table}/${id}`] = [bruteForce(rows, table, id), bruteForce(after, table, id)];
           }
         }
+        expect(actual).toEqual(expected);
         expect(index.dependantOf('keys', 'a', current)).toBeNull();
       }),
       { numRuns: 300 },

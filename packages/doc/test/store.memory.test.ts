@@ -137,13 +137,10 @@ describe('transactions (memory store details)', () => {
     const store = createMemoryStore();
     const scene = await seedScene(store);
     const clip = store.get('clips', scene.clip)!;
-    store.applyChanges(
-      [{ table: 'clips', id: clip.id, before: undefined, after: { ...clip, name: 'bad|name' } } as AnyChange],
-      {
-        origin: 'remote',
-        label: 'Remote',
-      },
-    );
+    store.applyChanges([{ table: 'clips', id: clip.id, before: undefined, after: { ...clip, name: 'bad|name' } }], {
+      origin: 'remote',
+      label: 'Remote',
+    });
     store.transact({ label: 'Loop' }, (tx) => tx.patch('clips', scene.clip, { loop: true }));
     expect(store.get('clips', scene.clip)?.loop).toBe(true);
     expect(code(() => store.transact({ label: 'Bad' }, (tx) => tx.patch('clips', scene.clip, { tags: ['UP'] })))).toBe(
@@ -209,7 +206,7 @@ describe('batches and listeners', () => {
     const scene = await seedScene(store);
     const version = store.version;
     const key = store.get('keys', scene.keys[0])!;
-    const batch = store.applyChanges([{ table: 'keys', id: key.id, before: key, after: key } as AnyChange], {
+    const batch = store.applyChanges([{ table: 'keys', id: key.id, before: key, after: key }], {
       origin: 'remote',
       label: 'Same',
     });
@@ -281,7 +278,7 @@ describe('partitions (memory store details)', () => {
     const store = new MemoryDocumentStore();
     const scene = await seedScene(store);
     const rig = store.get('rigs', scene.rig)!;
-    store.applyChanges([{ table: 'rigs', id: rig.id, before: rig, after: undefined } as AnyChange], {
+    store.applyChanges([{ table: 'rigs', id: rig.id, before: rig, after: undefined }], {
       origin: 'remote',
       label: 'Rig gone',
     });
@@ -410,7 +407,7 @@ describe('observeCommits (adapters)', () => {
     const preview = store.beginPreview('Drag');
     preview.update((tx) => tx.patch('keys', key.id, { v: 2 }));
     expect(seen).toEqual([]);
-    store.applyChanges([{ table: 'keys', id: key.id, before: key, after: { ...key, v: 9 } } as AnyChange], {
+    store.applyChanges([{ table: 'keys', id: key.id, before: key, after: { ...key, v: 9 } }], {
       origin: 'remote',
       label: 'R',
     });

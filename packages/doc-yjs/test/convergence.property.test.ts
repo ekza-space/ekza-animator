@@ -83,7 +83,7 @@ describe('Yjs replicas (fast-check)', () => {
     await fc.assert(
       fc.asyncProperty(fc.array(op, { maxLength: 50 }), fc.nat(), async (ops, seed) => {
         const net = yjsHarness().create(3, { seed });
-        const peers = net.peers as readonly ReplicatingStore[];
+        const peers = net.peers;
         const scene = newScene(5);
         for (const store of peers) for (const partition of scene.partitions) await store.open(partition);
         (peers[0] as ReplicatingStore).transact({ label: 'Seed' }, (tx) => writeScene(tx, scene));
@@ -107,9 +107,12 @@ describe('Yjs replicas (fast-check)', () => {
   });
 });
 
+/** The steps a single replica performs (network steps are handled by the property). */
+type PeerOp = Extract<Op, { readonly peer: number }>;
+
 function apply(
   store: ReplicatingStore,
-  step: Op,
+  step: PeerOp,
   ids: ReturnType<typeof seededIdSource>,
   scene: ReturnType<typeof newScene>,
 ): void {
@@ -174,8 +177,6 @@ function apply(
       return;
     case 'redo':
       store.undo.redo();
-      return;
-    default:
       return;
   }
 }
