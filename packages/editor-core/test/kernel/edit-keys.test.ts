@@ -107,12 +107,30 @@ describe('moveKeys (§4.11.3)', () => {
     );
   });
 
-  it('on the final update a key landing on a non-moved key deletes it', () => {
+  it('on the final update a key landing exactly on a non-moved key deletes it', () => {
     const app = waveApp();
-    const result = edit(app, 'Move', (tx) => moveKeys(app, tx, [K15], 22, 0, FINAL));
+    const result = edit(app, 'Move', (tx) => moveKeys(app, tx, [K15], 15, 0, FINAL));
     expect(result).toEqual({ moved: 1, deleted: [K30] });
     expect(app.store.get('keys', K30)).toBeUndefined();
     expect(wavePoints(app).map(([t]) => t)).toEqual([0, 30]);
+  });
+
+  it('with snapping, a key dragged past a neighbour stops on the last whole frame before it (acceptance round 2)', () => {
+    const app = waveApp();
+    const snapDrag: KeyEditOptions = { snap: true, resolveCollisions: false };
+    edit(app, 'Drag', (tx) => moveKeys(app, tx, [K15], 22, 0, snapDrag));
+    expect(app.store.get('keys', K15)?.t).toBe(29);
+    const result = edit(app, 'Move', (tx) => moveKeys(app, tx, [K15], 8, 0, FINAL)); // 29 + 8 = 37: past 30
+    expect(result).toEqual({ moved: 0, deleted: [] });
+    expect(wavePoints(app).map(([t]) => t)).toEqual([0, 29, 30]);
+    // Backwards past frame 0, as a block of two keys: the run stops at 1 and 2… unless it does not fit.
+    const fresh = waveApp();
+    edit(fresh, 'Move', (tx) => moveKeys(fresh, tx, [K15, K30], -40, 0, FINAL));
+    expect(wavePoints(fresh).map(([t]) => t)).toEqual([0, 1, 16]);
+    // Without snapping the old rule holds: it stops at the neighbour and lands on it on the final update.
+    const free = waveApp();
+    const freeResult = edit(free, 'Move', (tx) => moveKeys(free, tx, [K15], 22, 0, { snap: false, resolveCollisions: true }));
+    expect(freeResult.deleted).toEqual([K30]);
   });
 
   it('keeps one of two moved keys that snap onto one frame (the nearer one)', () => {

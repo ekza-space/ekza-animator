@@ -102,8 +102,10 @@ interface Placement {
 /**
  * Places the moving keys of one curve at their target times under the §4.11.3 rules and returns the keys to delete.
  * Runs of consecutive moving keys never cross a non-moving neighbour: while dragging they stop `DRAG_MARGIN` short
- * (as a block for moves, key by key for scales); on the final update they may land on it, which deletes it. Two
- * moving keys landing on one frame keep the `preferred` one (final update only).
+ * (as a block for moves, key by key for scales); on the final update a key that lands exactly on it deletes it. With
+ * snapping, a key dragged **past** the neighbour stops on the last whole frame before it instead, so an overshoot
+ * never deletes a key (acceptance round 2). Two moving keys landing on one frame keep the `preferred` one (final
+ * update only).
  */
 function place(
   keys: readonly KeyRecord[],
@@ -126,8 +128,21 @@ function place(
     }
     let j = i;
     while (j < placements.length && (placements[j] as Placement).moving) j++;
-    const lower = i > 0 ? (placements[i - 1] as Placement).t + margin : -Infinity;
-    const upper = j < placements.length ? (placements[j] as Placement).t - margin : Infinity;
+    const prev = i > 0 ? (placements[i - 1] as Placement).t : -Infinity;
+    const next = j < placements.length ? (placements[j] as Placement).t : Infinity;
+    const lower = prev + margin;
+    const upper = next - margin;
+    // Snapped stops for an overshoot: the whole frames just inside the neighbours (when there is one).
+    const wholeLower = opts.snap ? Math.max(Math.floor(prev) + 1, lower) : lower;
+    const wholeUpper = opts.snap ? Math.min(Math.ceil(next) - 1, upper) : upper;
+    const roomy = wholeLower <= wholeUpper;
+    const clampOne = (t: number): number => {
+      if (t > next + SAME_FRAME_EPS) return roomy ? wholeUpper : upper; // past the neighbour
+      if (t > upper) return upper; // on it: lands (final update) or stops just short (drag)
+      if (t < prev - SAME_FRAME_EPS) return roomy ? wholeLower : lower;
+      if (t < lower) return lower;
+      return t;
+    };
     const run = placements.slice(i, j);
     let min = Infinity;
     let max = -Infinity;
@@ -136,10 +151,12 @@ function place(
       if (p.t > max) max = p.t;
     }
     if (clampAs === 'block' && max - min <= upper - lower) {
-      const shift = min < lower ? lower - min : max > upper ? upper - max : 0;
+      let shift = min < lower ? clampOne(min) - min : max > upper ? clampOne(max) - max : 0;
+      // The whole-frame stop leaves no room for the block: stop at the neighbour as before.
+      if (min + shift < lower || max + shift > upper) shift = min < lower ? lower - min : upper - max;
       for (const p of run) p.t += shift;
     } else {
-      for (const p of run) p.t = Math.min(Math.max(p.t, lower), upper);
+      for (const p of run) p.t = clampOne(p.t);
     }
     i = j;
   }

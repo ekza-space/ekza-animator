@@ -2512,6 +2512,10 @@ For each edit (locked or non-keyable channels are skipped with a toast):
 - Keys of one curve keep their relative order; while dragging, a moved key may not cross a non-moved neighbour
   (clamped to `neighbour ± 1e-3` frames). With `resolveCollisions: true` (final update before commit), a moved
   key that lands on a non-moved key's time (`|Δt| < 1e-6`) deletes the non-moved key in the same transaction.
+  *v0.3 integration, acceptance round 2*: with snapping on, a key whose target is **past** a non-moved neighbour
+  (by more than 1e-6) stops on the last whole frame before it (`ceil(t_n) − 1`, or `floor(t_p) + 1` going back),
+  while dragging and on release, so an overshoot never deletes a key; only a key that lands exactly on the
+  neighbour's frame replaces it. When no whole frame fits, the `± 1e-3` rule applies.
 - Handles of moved keys keep their offsets; computed tangents are recomputed by the engine.
 - **Scale** (`scaleKeys`, time only): `t' = pivot + (t − pivot)·factor`, `factor ≥ 0.01`, snapped when
   snapping is on; fixed-handle `dt` is multiplied by `factor` (weighted curves) and kept (non-weighted). If two
