@@ -4,11 +4,18 @@ export { checkInputBudget } from './budget/check';
 export { parseGlb, sha256Hex } from './glb/parse';
 export { detectModelFormat, readVrmLicense } from './gltf/format';
 export { lintExport } from './lint/lintExport';
-export { BUILTIN_EXPORT_PROFILES } from './profiles/builtin';
+export { LINT_RULES, type LintRuleDef, ruleSeverity } from './lint/rules';
+export { ANY_EXPORT_KIND, BUILTIN_EXPORT_PROFILES, profilesForKind } from './profiles/builtin';
 export { readProjectArchive, writeProjectArchive, writeProjectJson } from './project/archive';
 export { skeletonFromGltf } from './skeleton/read';
 export { bakeIntoModel, preexistingTracks } from './surgeon/bakeIntoModel';
 export * from './types';
-export { compareValidation, readBackCheck, validateGltf } from './validate/validate';
-export { readVrma } from './vrma/read';
+export {
+  compareValidation,
+  type GltfValidatorModule,
+  readBackCheck,
+  setGltfValidator,
+  validateGltf,
+} from './validate/validate';
+export { inspectVrma, readVrma, type VrmaReadResult } from './vrma/read';
 export { clipExportName, exportFileName, writeAnimationGlb, writeVrma } from './writers/write';
