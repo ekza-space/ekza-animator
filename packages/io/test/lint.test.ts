@@ -120,7 +120,14 @@ describe('lintExport', () => {
     const issues = await lintExport('bake-into-model', build({ names: ['tpose', 'idle', 'IDLE '] }), null);
     expect(find(issues, 'ekza.slot-name')[0]?.message).toMatch(/tpose/);
     expect(find(issues, 'ekza.unique-names')).toHaveLength(1);
-    expect(find(issues, 'ekza.unique-names')[0]?.severity).toBe('error');
+    // §4.11.13: a warning locally, an error under Ekza profiles.
+    expect(find(issues, 'ekza.unique-names')[0]?.severity).toBe('warning');
+    const ekza = await lintExport(
+      'bake-into-model',
+      build({ names: ['idle', 'IDLE '] }),
+      profile('ekza/space-avatar-v1'),
+    );
+    expect(find(ekza, 'ekza.unique-names')[0]?.severity).toBe('error');
   });
 
   it('checks provenance, the height scale and required extensions', async () => {

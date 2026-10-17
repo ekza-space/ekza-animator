@@ -57,7 +57,14 @@ export const LINT_RULES: readonly LintRuleDef[] = [
     ekza: 'error',
     description: 'Exported clip names match [a-z][a-z0-9_]{0,31}; tpose is never exported',
   },
-  { id: 'ekza.unique-names', local: 'error', ekza: 'error', description: 'Clip names unique, case-insensitive' },
+  // MVP-SPEC §4.11.13 (warning locally) wins over the ADR 0010 table (error/error): writers already refuse duplicate
+  // names among the exported clips, so a local hit can only come from the model's own animations.
+  {
+    id: 'ekza.unique-names',
+    local: 'warning',
+    ekza: 'error',
+    description: 'Clip names unique, case-insensitive',
+  },
   {
     id: 'ekza.hips-only-translation',
     local: 'warning',
