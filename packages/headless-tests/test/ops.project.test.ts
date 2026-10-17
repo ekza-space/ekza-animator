@@ -141,6 +141,29 @@ describe.skipIf(!SIBLINGS_READY)(`projects ${BLOCKED}`, { timeout: 120_000 }, ()
     expect(app.history.canRedo()).toBe(false);
   });
 
+  it('saves and edits clips whose partition is closed (§4.11.21)', async () => {
+    const { app, services } = realApp();
+    const { clip } = await waveScene(app);
+    const keys = app.store.query.curvesOfClip(clip).flatMap((c) => app.store.query.keysOfCurve(c.id)).length;
+    const other = (await runOk(app, 'clip.new', { name: 'idle' })) as { clip: ClipId };
+    expect(app.session.getState().activeClip[app.store.list('characters')[0]?.id as never]).toBe(other.clip);
+    app.store.close(`clip:${clip}`);
+    expect(app.store.query.curvesOfClip(clip)).toEqual([]);
+    await runOk(app, 'file.saveJson');
+    const json = JSON.parse(new TextDecoder().decode(services.downloads.at(-1)?.bytes)) as {
+      tables: { keys: Record<string, { clip: string }> };
+    };
+    expect(Object.values(json.tables.keys).filter((k) => k.clip === clip)).toHaveLength(keys);
+    app.store.close(`clip:${clip}`);
+    await runOk(app, 'clip.setSettings', { clip, fps: { num: 60, den: 1 } });
+    const times = app.store.query
+      .curvesOfClip(clip)
+      .flatMap((c) => app.store.query.keysOfCurve(c.id))
+      .map((k) => k.t)
+      .sort((x, y) => x - y);
+    expect(times).toEqual([0, 30, 60]);
+  });
+
   it('refuses a file that is not a project', async () => {
     const { app } = realApp();
     const result = await app.runUntyped('file.openProject', { name: 'x.ekzanim', bytes: new Uint8Array([1, 2, 3]) });

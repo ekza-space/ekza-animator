@@ -398,6 +398,10 @@ const clipSetSettings = defineOperator({
     );
     return problem === null ? pollEditable(app) : fail(problem);
   },
+  async prepare({ app }, args) {
+    // A frame-rate change rescales the clip's keys: they must be loaded.
+    await app.store.open(`clip:${args.clip}`);
+  },
   apply({ tx }, args: ClipSettingsArgs) {
     if (tx === null) throw new EkzaError('internal', 'clip.setSettings runs in a transaction');
     const clip = tx.get('clips', args.clip);

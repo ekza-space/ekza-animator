@@ -22,8 +22,8 @@ import {
   loadProject,
   type OpenedProject,
   prepareProjectArchive,
+  prepareProjectJson,
   prepareProjectOpen,
-  projectJson,
   type SaveArtifact,
 } from '../../workflows/project';
 import { fetchSample, isSampleId, SAMPLES } from '../../workflows/samples';
@@ -247,13 +247,14 @@ function saveOperator(id: 'file.save' | 'file.saveAs', label: string): AnyOperat
   });
 }
 
-const fileSaveJson = defineOperator({
+const fileSaveJson = defineOperator<'file.saveJson', SaveArtifact>({
   id: 'file.saveJson',
   label: 'Save Debug JSON',
   description: 'Download the document as .ekzanim.json (models are referenced, not included).',
   category: 'file',
   scope: GLOBAL_SCOPE,
-  apply: ({ app }) => download(app, projectJson(app, app.session.getState().projectName)),
+  prepare: ({ app }) => prepareProjectJson(app, app.session.getState().projectName),
+  apply: ({ app }, _args, artifact) => download(app, artifact),
 });
 
 const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({

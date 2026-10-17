@@ -32,8 +32,21 @@ function assetRecords(snapshot: DocSnapshot): readonly AssetRecord[] {
   return Object.values(snapshot.tables.assets ?? {});
 }
 
+/**
+ * Opens every character and clip partition (§4.11.21): a snapshot holds only open partitions, and a project file must
+ * hold the whole document.
+ */
+export async function openAllPartitions(app: EditorApp): Promise<void> {
+  await app.store.open('scene');
+  for (const character of app.store.list('characters')) {
+    await app.store.open(`char:${character.id}`);
+    for (const clip of app.store.query.clipsOfCharacter(character.id)) await app.store.open(`clip:${clip.id}`);
+  }
+}
+
 /** The `.ekzanim` archive of the current document with every asset it references (async: verified reads). */
 export async function prepareProjectArchive(app: EditorApp, name: string): Promise<SaveArtifact> {
+  await openAllPartitions(app);
   const snapshot = app.store.snapshot();
   const assets = new Map<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>();
   for (const record of assetRecords(snapshot)) {
@@ -44,7 +57,8 @@ export async function prepareProjectArchive(app: EditorApp, name: string): Promi
 }
 
 /** The `.ekzanim.json` debug variant (document + asset descriptions, no bytes). */
-export function projectJson(app: EditorApp, name: string): SaveArtifact {
+export async function prepareProjectJson(app: EditorApp, name: string): Promise<SaveArtifact> {
+  await openAllPartitions(app);
   const snapshot = app.store.snapshot();
   const text = writeProjectJson(snapshot, assetRecords(snapshot));
   return {
