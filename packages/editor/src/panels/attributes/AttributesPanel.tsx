@@ -205,7 +205,7 @@ function ControlFields(props: {
           disabled={!orderEditable}
           title={
             orderEditable
-              ? 'First letter applied first; the pose is kept'
+              ? 'First letter applied first; the pose is kept at every key (between keys the motion can differ)'
               : `Read-only: ${orderPoll.reason}. The pose-preserving change is an M1-stretch item.`
           }
           data-testid="attr-rotate-order"

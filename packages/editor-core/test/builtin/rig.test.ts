@@ -3,7 +3,7 @@
 import { mat4Decompose, type Quat, quatAngle } from '@ekza-animator/anim-core';
 import type { ControlId } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
-import { expectUndoRedoExact, opsApp, READY, runOk, runResult, setSceneFrame, WAVE } from './support';
+import { expectUndoRedoExact, opsApp, opsAppWith, READY, runOk, runResult, setSceneFrame, WAVE } from './support';
 
 type App = ReturnType<typeof opsApp>;
 const DEG = Math.PI / 180;
@@ -44,6 +44,19 @@ describe.skipIf(!(READY.wp1 && READY.wp3))('rig.setRotateOrder [needs WP-1, WP-3
     [0, 15, 30].forEach((frame, i) => {
       expect(quatAngle(worldRotation(app, arm, frame), before[i] as Quat)).toBeLessThan(1e-9);
     });
+  });
+
+  it('says the conversion is exact at keys only when the control moves between keys (acceptance round 2)', async () => {
+    const { app, services } = opsAppWith();
+    const head = `${WAVE.rig}:fk.head` as ControlId;
+    await runOk(app, 'channel.setValues', { edits: [{ control: head, channel: 'rx', value: 0.4 }] });
+    await runOk(app, 'rig.setRotateOrder', { control: head, order: 'yxz' }); // a static value: exact everywhere
+    expect(services.toasts).toEqual([]);
+    // The wave clip keys fk.lowerArm.L rz at 0/15/30.
+    await runOk(app, 'rig.setRotateOrder', { control: WAVE.lowerArmL, order: 'zyx' });
+    expect(services.toasts.map((toast) => [toast.kind, toast.text.slice(0, 48)])).toEqual([
+      ['info', 'Rotate order zyx: the pose is kept at every key;'],
+    ]);
   });
 
   it('converts static values and the pose override', async () => {

@@ -2595,6 +2595,8 @@ Tolerance per channel kind from `ReduceSpec` (rotation radians, translation metr
   times; convert each sample with `eulerNear` against the previously converted sample; Euler-filter; write keys
   on **all three** curves at the union (synchronizing them), keeping each source key's tangent types (new keys
   `auto`). Test with unsynchronized `rx`/`ry` key times: bone worlds equal at every union time (1e-6).
+  *Acceptance round 2*: the result is exact at key times only; when a converted rotation curve has two or more
+  keys the operator shows an info toast saying so ("key more frames first for an exact result").
 
 #### 4.11.6 Model import (`file.importModel`)
 
