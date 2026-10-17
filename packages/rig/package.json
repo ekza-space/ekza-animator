@@ -1,0 +1,27 @@
+{
+  "name": "@ekza-animator/rig",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Auto-rig, rig compiler and stateless kernel, clip sampling, clip import, mirror, pose clipboard and two-bone IK.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/three": "catalog:",
+    "fast-check": "4.10.2",
+    "three": "catalog:",
+    "vitest": "catalog:"
+  }
+}

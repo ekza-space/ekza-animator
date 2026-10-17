@@ -1,0 +1,14 @@
+{
+  "name": "@ekza-animator/sharp-stub",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Stand-in for `sharp` so ndarray-pixels loads in Node without the LGPL libvips binaries (ADR 0009).",
+  "license": "MIT",
+  "exports": {
+    ".": {
+      "import": "./index.mjs",
+      "require": "./index.cjs"
+    }
+  },
+  "main": "./index.cjs"
+}

@@ -1,0 +1,1226 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc", "import", "react", "jsx-a11y", "vitest", "nextjs"],
+  "categories": {
+    "correctness": "error"
+  },
+  "options": {
+    "typeAware": true
+  },
+  "env": {
+    "builtin": true,
+    "es2024": true
+  },
+  "ignorePatterns": [
+    "**/.tsbuild/**",
+    "**/.next/**",
+    "**/node_modules/**",
+    "apps/web/public/**",
+    "apps/web/next-env.d.ts",
+    "tooling/test/fixtures/**"
+  ],
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "args": "after-used",
+        "argsIgnorePattern": "^_",
+        "varsIgnorePattern": "^_",
+        "caughtErrors": "none",
+        "ignoreRestSiblings": true
+      }
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "react/rules-of-hooks": "error",
+    "react/exhaustive-deps": "error",
+    "eqeqeq": ["error", "always"],
+    "no-var": "error",
+    "prefer-const": "error",
+    "no-console": [
+      "error",
+      {
+        "allow": ["warn", "error"]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["packages/anim-core/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**"],
+                "message": "@ekza-animator/anim-core may import only: relative modules (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/anim-core/test/**", "packages/anim-core/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!fast-check",
+                  "!three",
+                  "!three/**",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/anim-core tests may import only: fast-check, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc/src/**"],
+      "excludeFiles": ["packages/doc/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-animator/anim-core"],
+                "message": "@ekza-animator/doc may import only: @ekza-animator/anim-core (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-animator/anim-core", "!node:*"],
+                "message": "@ekza-animator/doc/testing may import only: @ekza-animator/anim-core, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc/test/**", "packages/doc/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!fast-check",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/doc tests may import only: @ekza-animator/anim-core, fast-check, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc-yjs/src/**"],
+      "excludeFiles": ["packages/doc-yjs/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-animator/doc", "!@ekza-animator/doc/testing", "!yjs"],
+                "message": "@ekza-animator/doc-yjs may import only: @ekza-animator/doc, @ekza-animator/doc/testing, yjs (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc-yjs/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!yjs",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/doc-yjs testing may import only: @ekza-animator/doc, @ekza-animator/doc/testing, yjs, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/doc-yjs/test/**", "packages/doc-yjs/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!yjs",
+                  "!fast-check",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/doc-yjs tests may import only: @ekza-animator/doc, @ekza-animator/doc/testing, yjs, fast-check, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/rig/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-animator/anim-core", "!@ekza-animator/doc"],
+                "message": "@ekza-animator/rig may import only: @ekza-animator/anim-core, @ekza-animator/doc (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/rig/test/**", "packages/rig/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!fast-check",
+                  "!three",
+                  "!three/**",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/rig tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, fast-check, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/io/src/**"],
+      "excludeFiles": ["packages/io/src/three/**", "packages/io/src/worker/**", "packages/io/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@gltf-transform/**",
+                  "!fflate"
+                ],
+                "message": "@ekza-animator/io may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/io/src/three/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@pixiv/three-vrm",
+                  "!three",
+                  "!three/**"
+                ],
+                "message": "@ekza-animator/io/three may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @pixiv/three-vrm, three, three/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/io/src/worker/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig"
+                ],
+                "message": "@ekza-animator/io/worker may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/io/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@gltf-transform/**",
+                  "!fflate",
+                  "!@pixiv/three-vrm",
+                  "!@pixiv/three-vrm-animation",
+                  "!@ekza-animator/doc/testing",
+                  "!three",
+                  "!three/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/io/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, @ekza-animator/doc/testing, three, three/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/io/test/**", "packages/io/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@gltf-transform/**",
+                  "!fflate",
+                  "!@pixiv/three-vrm",
+                  "!@pixiv/three-vrm-animation",
+                  "!gltf-validator",
+                  "!@ekza-animator/doc/testing",
+                  "!three",
+                  "!three/**",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/io tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, @ekza-animator/doc/testing, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor-core/src/**"],
+      "excludeFiles": ["packages/editor-core/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!zustand/vanilla"
+                ],
+                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, zustand/vanilla (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor-core/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/testing",
+                  "!zustand/vanilla",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor-core/test/**", "packages/editor-core/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/testing",
+                  "!zustand/vanilla",
+                  "!fast-check",
+                  "!gltf-validator",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/editor-core tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, zustand/vanilla, fast-check, gltf-validator, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/headless-tests/test/**", "packages/headless-tests/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/doc/testing",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/testing",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/editor-core/testing",
+                  "!@pixiv/three-vrm",
+                  "!@pixiv/three-vrm-animation",
+                  "!gltf-validator",
+                  "!three",
+                  "!three/**",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/headless-tests tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/viewport/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/three",
+                  "!camera-controls",
+                  "!three",
+                  "!three/**"
+                ],
+                "message": "@ekza-animator/viewport may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/viewport/test/**", "packages/viewport/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/editor-core/testing",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/three",
+                  "!camera-controls",
+                  "!three",
+                  "!three/**",
+                  "!vitest",
+                  "!vitest/**",
+                  "!@vitest/browser-playwright"
+                ],
+                "message": "@ekza-animator/viewport tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/**, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/curve-editor/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/editor-core"
+                ],
+                "message": "@ekza-animator/curve-editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/curve-editor/test/**", "packages/curve-editor/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/editor-core/testing",
+                  "!vitest",
+                  "!vitest/**",
+                  "!@vitest/browser-playwright"
+                ],
+                "message": "@ekza-animator/curve-editor tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/ui/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!lucide-react"
+                ],
+                "message": "@ekza-animator/ui may import only: react, react/**, react-dom, react-dom/**, radix-ui, lucide-react (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/ui/test/**", "packages/ui/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!radix-ui",
+                  "!lucide-react",
+                  "!vitest",
+                  "!vitest/**",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/ui tests may import only: react, react/**, react-dom, react-dom/**, radix-ui, lucide-react, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor/src/**"],
+      "excludeFiles": ["packages/editor/src/workers/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/three",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/viewport",
+                  "!@ekza-animator/curve-editor",
+                  "!@ekza-animator/ui",
+                  "!@react-three/fiber",
+                  "!dockview-react",
+                  "!react-resizable-panels",
+                  "!@tanstack/react-virtual",
+                  "!zustand",
+                  "!zustand/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!three",
+                  "!three/**"
+                ],
+                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor/src/workers/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!gltf-validator"
+                ],
+                "message": "@ekza-animator/editor workers may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, gltf-validator (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor/test/**", "packages/editor/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/three",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/viewport",
+                  "!@ekza-animator/curve-editor",
+                  "!@ekza-animator/ui",
+                  "!@react-three/fiber",
+                  "!dockview-react",
+                  "!react-resizable-panels",
+                  "!@tanstack/react-virtual",
+                  "!zustand",
+                  "!zustand/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!three",
+                  "!three/**",
+                  "!@ekza-animator/editor-core/testing",
+                  "!vitest",
+                  "!vitest/**",
+                  "!@vitest/browser-playwright"
+                ],
+                "message": "@ekza-animator/editor tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/app/**"],
+      "excludeFiles": ["apps/web/app/e2e/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/editor",
+                  "!@ekza-animator/ui",
+                  "!@ekza-animator/ui/styles.css",
+                  "!next",
+                  "!next/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**"
+                ],
+                "message": "apps/web may import only: @ekza-animator/editor, @ekza-animator/ui, @ekza-animator/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/app/e2e/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/editor",
+                  "!@ekza-animator/ui",
+                  "!@ekza-animator/ui/styles.css",
+                  "!next",
+                  "!next/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!@pixiv/three-vrm",
+                  "!@pixiv/three-vrm-animation",
+                  "!three",
+                  "!three/**"
+                ],
+                "message": "apps/web e2e route may import only: @ekza-animator/editor, @ekza-animator/ui, @ekza-animator/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/**, @pixiv/three-vrm, @pixiv/three-vrm-animation, three, three/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/e2e/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@playwright/test",
+                  "!@ekza-animator/editor",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/doc",
+                  "!gltf-validator",
+                  "!node:*"
+                ],
+                "message": "apps/web e2e specs may import only: @playwright/test, @ekza-animator/editor, @ekza-animator/io, @ekza-animator/doc, gltf-validator, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/*.config.ts", "apps/web/*.config.mjs"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!next", "!@playwright/test", "!vitest/config", "!node:*"],
+                "message": "apps/web config may import only: next, @playwright/test, vitest/config, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["tooling/**", "apps/web/scripts/**"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["**/*.mjs", "**/*.cjs", "**/*.js"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off"
+      }
+    }
+  ]
+}

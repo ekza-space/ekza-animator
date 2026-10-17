@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../../tooling/tsconfig/browser.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../.tsbuild/three"
+  },
+  "include": ["./**/*"],
+  "references": [
+    {
+      "path": ".."
+    },
+    {
+      "path": "../../../anim-core/src"
+    },
+    {
+      "path": "../../../doc/src"
+    },
+    {
+      "path": "../../../rig/src"
+    }
+  ]
+}

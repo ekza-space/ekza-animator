@@ -1,0 +1,37 @@
+{
+  "name": "@ekza-animator/io",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "GLB/VRM/VRMA readers, input budgets, bake, surgeon, VRMA and animation-only GLB writers, lints, export profiles and .ekzanim projects.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./three": "./src/three/index.ts",
+    "./worker": "./src/worker/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/rig": "workspace:*",
+    "@gltf-transform/core": "4.5.1",
+    "@gltf-transform/extensions": "4.5.1",
+    "@gltf-transform/functions": "4.5.1",
+    "@pixiv/three-vrm": "catalog:",
+    "fflate": "0.8.3",
+    "three": "catalog:"
+  },
+  "devDependencies": {
+    "@pixiv/three-vrm-animation": "catalog:",
+    "@types/node": "catalog:",
+    "@types/three": "catalog:",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "vitest": "catalog:"
+  }
+}

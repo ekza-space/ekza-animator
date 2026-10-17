@@ -1,0 +1,28 @@
+{
+  "name": "@ekza-animator/curve-editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Canvas2D Graph Editor and time slider: view transform, painters, hit-testing, interaction controllers.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/editor-core": "workspace:*",
+    "@ekza-animator/rig": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitest/browser-playwright": "4.1.11",
+    "playwright": "1.63.0",
+    "vitest": "catalog:"
+  }
+}

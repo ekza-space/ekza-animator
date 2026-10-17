@@ -1,0 +1,26 @@
+{
+  "name": "@ekza-animator/headless-tests",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Private, test-only cross-package Node tests on the licensed fixtures (rig.* WP-3, io.* WP-4, ops.* WP-7b).",
+  "license": "MIT",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/editor-core": "workspace:*",
+    "@ekza-animator/io": "workspace:*",
+    "@ekza-animator/rig": "workspace:*",
+    "@pixiv/three-vrm": "catalog:",
+    "@pixiv/three-vrm-animation": "catalog:",
+    "@types/node": "catalog:",
+    "@types/three": "catalog:",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "three": "catalog:",
+    "vitest": "catalog:"
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "name": "@ekza-animator/anim-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Math, rotate orders, Euler filter, AnimX-based curve engine, key reduction and control shapes (zero runtime dependencies).",
+  "license": "MIT AND Apache-2.0",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/three": "catalog:",
+    "fast-check": "4.10.2",
+    "three": "catalog:",
+    "vitest": "catalog:"
+  }
+}

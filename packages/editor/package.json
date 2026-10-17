@@ -1,0 +1,44 @@
+{
+  "name": "@ekza-animator/editor",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "React editor shell: dockview workspace, panels, dialogs, R3F GL host, input adapter, browser services and the e2e test API.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/curve-editor": "workspace:*",
+    "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/editor-core": "workspace:*",
+    "@ekza-animator/io": "workspace:*",
+    "@ekza-animator/rig": "workspace:*",
+    "@ekza-animator/ui": "workspace:*",
+    "@ekza-animator/viewport": "workspace:*",
+    "@react-three/fiber": "9.8.1",
+    "@tanstack/react-virtual": "3.14.13",
+    "dockview-react": "8.4.0",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "react-resizable-panels": "4.14.2",
+    "three": "catalog:",
+    "zustand": "5.0.15"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@types/three": "catalog:",
+    "@vitest/browser-playwright": "4.1.11",
+    "playwright": "1.63.0",
+    "vitest": "catalog:"
+  }
+}

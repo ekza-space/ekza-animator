@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tooling/tsconfig/browser.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": ".tsbuild/app",
+    "plugins": [{ "name": "next" }]
+  },
+  "include": ["env.d.ts", "app/**/*"],
+  "references": [{ "path": "../../packages/editor/src" }, { "path": "../../packages/ui/src" }]
+}

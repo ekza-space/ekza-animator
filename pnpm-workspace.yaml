@@ -1,0 +1,21 @@
+packages: ["apps/*", "packages/*"]
+minimumReleaseAge: 20160          # 14 days, minutes
+ignoredOptionalDependencies: ["sharp"]   # LGPL libvips binaries never installed (ADR 0009)
+catalog:
+  three: 0.186.1
+  "@types/three": 0.186.0
+  react: 19.3.0
+  react-dom: 19.3.0
+  "@types/react": 19.3.0
+  "@types/react-dom": 19.3.0
+  "@pixiv/three-vrm": 3.5.5
+  "@pixiv/three-vrm-animation": 3.5.5
+  typescript: 6.0.3
+  vitest: 4.1.11
+  "@types/node": 24.19.1
+onlyBuiltDependencies: []         # add only after review when `pnpm install` reports ignored builds
+# Build deviation (docs/DECISIONS-OPEN.md, "Build deviations"): ndarray-pixels, a dependency of
+# @gltf-transform/functions, declares `sharp` as a regular (non-optional) dependency. `sharp` pulls the LGPL
+# libvips binaries that ADR 0009 keeps out, so it is replaced by an MIT stub that throws if image decoding is used.
+overrides:
+  "ndarray-pixels>sharp": "link:./tooling/sharp-stub"

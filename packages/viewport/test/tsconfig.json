@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["../src/tsconfig.json", "../../../tooling/tsconfig/test.json"],
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../.tsbuild/test",
+    "types": ["node", "vitest/globals", "@vitest/browser-playwright"]
+  },
+  "include": ["./**/*", "../vitest.config.ts"],
+  "references": [
+    {
+      "path": "../src"
+    },
+    {
+      "path": "../../anim-core/src"
+    },
+    {
+      "path": "../../doc/src"
+    },
+    {
+      "path": "../../rig/src"
+    },
+    {
+      "path": "../../io/src"
+    },
+    {
+      "path": "../../io/src/three"
+    },
+    {
+      "path": "../../editor-core/src"
+    }
+  ]
+}

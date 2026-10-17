@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
+  "root": true,
+  "vcs": {
+    "enabled": true,
+    "clientKind": "git",
+    "useIgnoreFile": true
+  },
+  "files": {
+    "ignoreUnknown": true,
+    "includes": [
+      "**",
+      "!**/.tsbuild",
+      "!**/.next",
+      "!**/.turbo",
+      "!apps/web/public",
+      "!apps/web/next-env.d.ts",
+      "!pnpm-lock.yaml",
+      "!docs/research"
+    ]
+  },
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 120,
+    "lineEnding": "lf",
+    "includes": [
+      "**",
+      "!packages/anim-core/src/types.ts",
+      "!packages/anim-core/src/errors.ts",
+      "!packages/doc/src/ids.ts",
+      "!packages/doc/src/records.ts",
+      "!packages/doc/src/store.ts",
+      "!packages/rig/src/types.ts",
+      "!packages/io/src/types.ts",
+      "!packages/editor-core/src/types.ts",
+      "!packages/editor-core/src/operators/args.ts",
+      "!packages/viewport/src/types.ts",
+      "!packages/curve-editor/src/types.ts",
+      "!packages/editor/src/test-api/types.ts"
+    ]
+  },
+  "linter": {
+    "enabled": false
+  },
+  "assist": {
+    "enabled": true,
+    "actions": {
+      "source": {
+        "organizeImports": "on"
+      }
+    },
+    "includes": [
+      "**",
+      "!packages/anim-core/src/types.ts",
+      "!packages/anim-core/src/errors.ts",
+      "!packages/doc/src/ids.ts",
+      "!packages/doc/src/records.ts",
+      "!packages/doc/src/store.ts",
+      "!packages/rig/src/types.ts",
+      "!packages/io/src/types.ts",
+      "!packages/editor-core/src/types.ts",
+      "!packages/editor-core/src/operators/args.ts",
+      "!packages/viewport/src/types.ts",
+      "!packages/curve-editor/src/types.ts",
+      "!packages/editor/src/test-api/types.ts"
+    ]
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "jsxQuoteStyle": "double",
+      "semicolons": "always",
+      "trailingCommas": "all",
+      "arrowParentheses": "always"
+    }
+  },
+  "json": {
+    "formatter": {
+      "expand": "auto"
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
+  }
+}
