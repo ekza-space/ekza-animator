@@ -1,16 +1,13 @@
-import { EkzaError } from '@ekza-animator/anim-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { act, type JSX, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ExpressionField, NumberField } from '../../src/panels/channel-box/kit/fields';
 import {
-  fallbackParseNumericInput,
   formatChannelValue,
   formatFixed,
   fromDisplayValue,
   parseNumericInput,
   toDisplayValue,
-  withFallback,
 } from '../../src/panels/channel-box/kit/kernel';
 import { type MenuEntry, useContextMenu } from '../../src/panels/channel-box/kit/menu';
 import { selectModeOf } from '../../src/panels/channel-box/kit/run';
@@ -19,31 +16,6 @@ import { by, cleanup, input, maybe, mountPlain as render, user } from './helpers
 afterEach(cleanup);
 
 describe('kernel adapters', () => {
-  it('withFallback switches to the fallback once the real helper reports not-implemented', () => {
-    const real = vi.fn<(x: number) => number>((x) => {
-      throw new EkzaError('not-implemented', `real(${x})`);
-    });
-    const fallback = vi.fn<(x: number) => number>((x) => x * 2);
-    const call = withFallback(real, fallback);
-    expect(call(2)).toBe(4);
-    expect(call(3)).toBe(6);
-    expect(real).toHaveBeenCalledTimes(1);
-  });
-
-  it('withFallback keeps the real helper once it worked, and lets its other errors through', () => {
-    let fail = true;
-    const real = (x: number): number => {
-      if (fail) throw new EkzaError('invalid-record', 'bad input');
-      return x + 1;
-    };
-    const call = withFallback(real, () => -1);
-    expect(() => call(1)).toThrow('bad input');
-    fail = false;
-    expect(call(1)).toBe(2);
-    fail = true;
-    expect(() => call(1)).toThrow('bad input');
-  });
-
   it('parses the spec examples relative to the current display value (MVP-SPEC §7 WP-7a)', () => {
     expect(parseNumericInput('45', 30)).toBe(45);
     expect(parseNumericInput('+=10', 30)).toBe(40);
@@ -56,7 +28,7 @@ describe('kernel adapters', () => {
     expect(parseNumericInput('', 0)).toBeNull();
   });
 
-  it('the fallback parser covers the research 09 §6.4 grammar', () => {
+  it('the fields use the research 09 §6.4 grammar (editor-core parseNumericInput)', () => {
     const cases: readonly (readonly [string, number, number | null])[] = [
       ['=12.5', 0, 12.5],
       ['-5', 30, -5],
@@ -80,7 +52,7 @@ describe('kernel adapters', () => {
       ['   ', 0, null],
     ];
     const round = (value: number | null): number | null => (value === null ? null : Math.round(value * 1e9) / 1e9);
-    expect(cases.map(([text, current]) => [text, round(fallbackParseNumericInput(text, current))])).toEqual(
+    expect(cases.map(([text, current]) => [text, round(parseNumericInput(text, current))])).toEqual(
       cases.map(([text, , expected]) => [text, round(expected)]),
     );
   });

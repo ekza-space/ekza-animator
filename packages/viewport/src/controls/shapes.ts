@@ -1,41 +1,27 @@
 // Control shape line geometry (MVP-SPEC §4.11.15): unit splines from the anim-core shape registry, tessellated
 // into line segments, then placed in control-local space by `size` and `ControlShape.offset`.
-import { EkzaError, getControlShape, mat4Compose, type SplineSet, tessellateSplineSet } from '@ekza-animator/anim-core';
+import { getControlShape, mat4Compose, tessellateSplineSet } from '@ekza-animator/anim-core';
 import type { ControlShape } from '@ekza-animator/doc';
 
-/** Segments per circle of the fallback shape. */
+/** Segments per circle of the fallback shape (an unknown kind, or a `custom` shape without data). */
 const FALLBACK_SEGMENTS = 48;
 
 /** Unit segments (xyz pairs) per built-in kind; shapes are immutable, so the cache never invalidates. */
 const unitCache = new Map<string, Float32Array>();
-let registryAvailable = true;
 
 /**
- * Line segments (xyz pairs, unit size, local XY plane for planar shapes) of a control shape.
- *
- * Until the anim-core shape library lands (WP-1) `getControlShape` / `tessellateSplineSet` throw
- * `not-implemented`; every kind then draws as a unit circle so controls stay visible and pickable. The fallback
- * runs only while that stub is in place (recorded in docs/wp-notes/wp-5.md).
+ * Line segments (xyz pairs, unit size, local XY plane for planar shapes) of a control shape: the anim-core shape
+ * registry (built-ins and registered kinds) or the shape's own `custom` spline set; an unknown kind or a `custom`
+ * shape without data draws as a unit circle so the control stays visible and pickable.
  */
 export function unitShapeSegments(shape: Pick<ControlShape, 'kind' | 'custom'>): Float32Array {
   if (shape.kind === 'custom') {
-    return shape.custom === null ? fallbackCircle() : tessellate(shape.custom);
+    return shape.custom === null ? fallbackCircle() : tessellateSplineSet(shape.custom);
   }
   const cached = unitCache.get(shape.kind);
   if (cached !== undefined) return cached;
-  let segments: Float32Array;
-  if (!registryAvailable) {
-    segments = fallbackCircle();
-  } else {
-    try {
-      const spline = getControlShape(shape.kind);
-      segments = spline === undefined ? fallbackCircle() : tessellate(spline);
-    } catch (error) {
-      if (!isNotImplemented(error)) throw error;
-      registryAvailable = false;
-      segments = fallbackCircle();
-    }
-  }
+  const spline = getControlShape(shape.kind);
+  const segments = spline === undefined ? fallbackCircle() : tessellateSplineSet(spline);
   unitCache.set(shape.kind, segments);
   return segments;
 }
@@ -60,34 +46,6 @@ export function shapeLocalSegments(shape: ControlShape): Float32Array {
   return out;
 }
 
-function tessellate(spline: SplineSet): Float32Array {
-  if (registryAvailable) {
-    try {
-      return tessellateSplineSet(spline);
-    } catch (error) {
-      if (!isNotImplemented(error)) throw error;
-      registryAvailable = false;
-    }
-  }
-  return polylineSegments(spline);
-}
-
-/** Tessellation stand-in: control points as straight segments (Bézier handles ignored). */
-function polylineSegments(spline: SplineSet): Float32Array {
-  const out: number[] = [];
-  for (const s of spline.splines) {
-    const n = s.points.length;
-    const count = s.closed ? n : n - 1;
-    for (let i = 0; i < count; i++) {
-      const a = s.points[i];
-      const b = s.points[(i + 1) % n];
-      if (a === undefined || b === undefined) continue;
-      out.push(a[0], a[1], a[2], b[0], b[1], b[2]);
-    }
-  }
-  return out.length === 0 ? fallbackCircle() : new Float32Array(out);
-}
-
 function fallbackCircle(): Float32Array {
   const out = new Float32Array(FALLBACK_SEGMENTS * 6);
   for (let i = 0; i < FALLBACK_SEGMENTS; i++) {
@@ -96,8 +54,4 @@ function fallbackCircle(): Float32Array {
     out.set([Math.cos(a0), Math.sin(a0), 0, Math.cos(a1), Math.sin(a1), 0], i * 6);
   }
   return out;
-}
-
-function isNotImplemented(error: unknown): boolean {
-  return error instanceof EkzaError && error.code === 'not-implemented';
 }

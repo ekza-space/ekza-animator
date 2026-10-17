@@ -25,6 +25,16 @@ describe('parseNumericInput', () => {
     ['+=10deg', 5, 15],
     ['1,5', 0, 1.5],
     ['−3', 0, -3],
+    // research 09 §6.4 expressions (v0.3 integration: one grammar for every numeric field)
+    ['=5', 1, 5],
+    ['=12.5', 0, 12.5],
+    ['(1 + 2) * 3', 0, 9],
+    ['2 * -3', 0, -6],
+    ['1 - 2 - 3', 0, -4],
+    ['8 / 2 / 2', 0, 2],
+    ['+=(2+3)deg', 1, 6],
+    ['*=1.5', 10, 15],
+    ['-=2*3', 10, 4],
   ])('%j with current %d → %d', (text, current, expected) => {
     expect(parseNumericInput(text, current)).toBeCloseTo(expected, 12);
   });
@@ -34,12 +44,29 @@ describe('parseNumericInput', () => {
     expect(parseNumericInput('-=0.5rad', 90)).toBeCloseTo(90 - 0.5 * RAD2DEG, 12);
   });
 
-  it.each(['', '   ', 'abc', '4 5', '/0', '*=0rad', '2rad*', '--5', '1e400', '+', '=5', '5 meters', '1.2.3'])(
-    'rejects %j',
-    (text) => {
-      expect(parseNumericInput(text, 1)).toBeNull();
-    },
-  );
+  it.each([
+    '',
+    '   ',
+    'abc',
+    '4 5',
+    '/0',
+    '*=0rad',
+    '2rad*',
+    '--5',
+    '1e400',
+    '+',
+    '5 meters',
+    '1.2.3',
+    '1/0',
+    '/=0',
+    '(1 + 2',
+    '1 +',
+    '45 deg deg',
+    '++',
+    '=',
+  ])('rejects %j', (text) => {
+    expect(parseNumericInput(text, 1)).toBeNull();
+  });
 
   it('round-trips any formatted finite number', () => {
     fc.assert(

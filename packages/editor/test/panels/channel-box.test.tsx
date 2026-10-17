@@ -1,10 +1,9 @@
 import { DEG2RAD } from '@ekza-animator/anim-core';
-import { type ChannelState, beginChannelEditGesture, type EditorApp } from '@ekza-animator/editor-core';
+import type { ChannelState, EditorApp } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';
-import { isNotImplemented } from '../../src/panels/channel-box/kit/kernel';
 import { ChannelReadout, type FrameScheduler } from '../../src/panels/channel-box/readout';
 import { CHANNEL_STATE_STYLE, channelStateTitle } from '../../src/panels/channel-box/states';
 import {
@@ -32,16 +31,6 @@ afterEach(cleanup);
 beforeAll(async () => {
   await loadFixtures();
 });
-
-/** True once WP-7a's edit kernel is on this branch (the nudge test of the gesture path then runs). */
-const kernelReady = ((): boolean => {
-  try {
-    beginChannelEditGesture(createFakeEditorApp(), 'probe', { key: 'none' }).cancel();
-    return true;
-  } catch (error) {
-    return !isNotImplemented(error);
-  }
-})();
 
 const panel = (app: EditorApp) =>
   mount(app, <ChannelBoxPanel app={app} instanceId="cb#1" />, { width: 300, height: 400 });
@@ -251,40 +240,7 @@ describe('Channel Box numeric entry (FR-CB-03, US-11)', () => {
     await view.unmount();
   });
 
-  it.skipIf(kernelReady)(
-    'nudges with ↑/↓ (Shift ×10) as one coalesced channel.setValues per burst until the edit kernel lands',
-    async () => {
-      const app = waveApp();
-      const view = await panel(app);
-      await select(app, [LOWER_ARM_L]);
-      await user.click(field('rz'));
-      await user.keyboard('{ArrowUp>3}');
-      expect(field('rz').value).toBe('33.000'); // shown while the burst runs
-      expect(callsOf(app, 'channel.setValues')).toEqual([]);
-      await user.keyboard('{/ArrowUp}');
-      const [burst] = callsOf(app, 'channel.setValues') as { edits: { value: number }[]; label: string }[];
-      expect(burst?.label).toBe('Nudge Rotate Z');
-      expect(burst?.edits[0]?.value).toBeCloseTo(rad(33), 12);
-      // The fake app has no operator: the run is cancelled and the field shows the document value again.
-      await act(async () => {
-        await Promise.resolve();
-      });
-      expect(field('rz').value).toBe('30.000');
-
-      await user.keyboard('{Shift>}{ArrowDown}{/Shift}');
-      const second = callsOf(app, 'channel.setValues')[1] as { edits: { value: number }[] };
-      expect(second.edits[0]?.value).toBeCloseTo(rad(20), 12);
-
-      // Esc cancels a burst without writing.
-      await user.keyboard('{ArrowUp>}');
-      await user.keyboard('{Escape}');
-      expect(callsOf(app, 'channel.setValues')).toHaveLength(2);
-      expect(field('rz').value).toBe('30.000');
-      await view.unmount();
-    },
-  );
-
-  it.runIf(kernelReady)('nudges with ↑/↓ as one beginChannelEditGesture per burst (one history step)', async () => {
+  it('nudges with ↑/↓ as one beginChannelEditGesture per burst (one history step)', async () => {
     const app = waveApp();
     const view = await panel(app);
     await select(app, [LOWER_ARM_L]);

@@ -1,12 +1,10 @@
 // ↑/↓ value nudges in a Channel Box field (FR-CB-03, research 09 §4.5): ±step (Shift ×10, Alt ×0.1) on every
 // selected control, relative to each control's own value. A burst — key presses and auto-repeat until the arrow is
 // released, Enter, Tab, blur or Esc — is ONE interactive edit: a `beginChannelEditGesture` (live preview, one
-// history step, auto-key on commit). While the edit kernel is not implemented the burst is shown in the fields and
-// written by one `channel.setValues` run when it ends (wp-notes D-1).
+// history step, auto-key on commit).
 import type { ControlId, TrsChannel } from '@ekza-animator/doc';
 import type { ChannelEditGesture, EditorApp, PanelKind } from '@ekza-animator/editor-core';
 import { fromDisplayValue, isRotationChannel, startChannelEditGesture, toDisplayValue } from './kit/kernel';
-import { runOperator } from './kit/run';
 import { type ChannelReadout, readoutValueKey } from './readout';
 
 /** Display units per press: 1° for rotations, 0.01 for translations (metres) and scales. */
@@ -22,7 +20,6 @@ interface NudgeEdit {
 }
 
 interface Burst {
-  readonly id: number;
   readonly label: string;
   /** `${control}/${channel}` → value when the burst started (internal units). */
   readonly base: ReadonlyMap<
@@ -31,23 +28,19 @@ interface Burst {
   >;
   readonly signature: string;
   readonly offset: Map<TrsChannel, number>;
-  readonly gesture: ChannelEditGesture | null;
+  readonly gesture: ChannelEditGesture;
   edits: readonly NudgeEdit[];
 }
 
 export class ChannelNudge {
   readonly #app: EditorApp;
   readonly #readout: ChannelReadout;
-  readonly #panel: PanelKind;
   #burst: Burst | null = null;
-  #bursts = 0;
-  /** The burst whose values the readout shows as pending (deferred mode). */
-  #pendingBurst: number | null = null;
 
-  constructor(app: EditorApp, readout: ChannelReadout, panel: PanelKind) {
+  /** `_panel`: the panel kind the nudges come from (kept for the call sites; the gesture needs no run context). */
+  constructor(app: EditorApp, readout: ChannelReadout, _panel: PanelKind) {
     this.#app = app;
     this.#readout = readout;
-    this.#panel = panel;
   }
 
   get active(): boolean {
@@ -74,7 +67,6 @@ export class ChannelNudge {
         }
       }
       burst = {
-        id: ++this.#bursts,
         label,
         base,
         signature,
@@ -90,14 +82,7 @@ export class ChannelNudge {
       channel,
       value: fromDisplayValue(channel, toDisplayValue(channel, value) + (burst.offset.get(channel) ?? 0)),
     }));
-    if (burst.gesture !== null) {
-      burst.gesture.update(burst.edits);
-    } else {
-      this.#pendingBurst = burst.id;
-      this.#readout.setPending(
-        new Map(burst.edits.map((edit) => [readoutValueKey(edit.control, edit.channel), edit.value])),
-      );
-    }
+    burst.gesture.update(burst.edits);
   }
 
   /** Ends the burst: commits it, or with `cancel` restores the values from before it. No-op without a burst. */
@@ -105,26 +90,7 @@ export class ChannelNudge {
     const burst = this.#burst;
     if (burst === null) return;
     this.#burst = null;
-    if (burst.gesture !== null) {
-      if (cancel) burst.gesture.cancel();
-      else burst.gesture.commit();
-      return;
-    }
-    if (cancel || burst.edits.length === 0) {
-      this.#clearPending(burst.id);
-      return;
-    }
-    // The pending values stay on screen until the run lands, so the field does not flash the old value.
-    void runOperator(this.#app, this.#panel, 'channel.setValues', {
-      edits: burst.edits,
-      key: 'auto',
-      label: burst.label,
-    }).finally(() => this.#clearPending(burst.id));
-  }
-
-  #clearPending(burst: number): void {
-    if (this.#pendingBurst !== burst) return; // a newer burst shows its own values
-    this.#pendingBurst = null;
-    this.#readout.setPending(null);
+    if (cancel) burst.gesture.cancel();
+    else burst.gesture.commit();
   }
 }
