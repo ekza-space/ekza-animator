@@ -103,7 +103,12 @@ describe.runIf(READY)('finger pick separation (WP-1, WP-3, WP-4)', () => {
       const visible = (c: ControlRecord) => !c.hiddenByDefault;
       const fingers = controls.filter((c) => c.group === 'fingers' && c.side === 'L' && visible(c));
       const hand = controls.find((c) => c.key === 'fk.hand.L');
-      expect(fingers.length).toBeGreaterThanOrEqual(10);
+      // Every left-hand finger bone of the model has its control (Seed-san 15; Polybot has one-segment fingers: 5).
+      const fingerBones = Object.keys(skeleton.humanoid ?? {}).filter((bone) =>
+        /^left(Thumb|Index|Middle|Ring|Little)/.test(bone),
+      );
+      expect(fingerBones.length).toBeGreaterThanOrEqual(5);
+      expect(fingers.length).toBe(fingerBones.length);
       app.session.setState({
         selection: {
           controls: [...fingers.map((c) => c.id), ...(hand === undefined ? [] : [hand.id])],

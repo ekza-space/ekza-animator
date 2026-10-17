@@ -116,9 +116,12 @@ const HEAD_SEGMENTS = 24;
 
 /**
  * Finger lollipop: a stick of length `stick` (metres) from the control pivot along `up` (control-local dorsal
- * normal) with a head circle of radius `size` in the plane spanned by `up` and the finger direction `along`.
- * Emitted as kind `custom` whose spline set is in shape units (scaled by `size` like built-in shapes), because a
- * rigid unit `lollipop` cannot express the per-joint stick length of §4.11.15 (docs/wp-notes/wp-3.md).
+ * normal) with a head circle of radius `size` facing along the finger: the head lies in the plane spanned by `up`
+ * and the hand's lateral axis `up × along`, its normal follows the finger direction `along`. Neighbouring fingers'
+ * heads then sit side by side in one plane, staggered in height by the per-joint stick lengths, instead of being
+ * stacked face to face, which keeps every head pickable in a framed three-quarter hand view (§4.11.15 acceptance;
+ * DECISIONS-OPEN E, R-1). Emitted as kind `custom` whose spline set is in shape units (scaled by `size` like
+ * built-in shapes), because a rigid unit `lollipop` cannot express the per-joint stick length of §4.11.15.
  */
 export function lollipopShape(size: number, stick: number, up: ReadonlyVec3, along: ReadonlyVec3): ControlShape {
   const length = stick / size;
@@ -141,7 +144,12 @@ export function lollipopShape(size: number, stick: number, up: ReadonlyVec3, alo
       { kind: 'poly', closed: true, points: head },
     ],
   };
-  return makeShape('custom', size, [0, 0, 0], basisQuat(along, up), custom);
+  const lateral: Vec3 = [
+    up[1] * along[2] - up[2] * along[1],
+    up[2] * along[0] - up[0] * along[2],
+    up[0] * along[1] - up[1] * along[0],
+  ];
+  return makeShape('custom', size, [0, 0, 0], basisQuat(lateral, up), custom);
 }
 
 /** Rotation whose local +X follows `x` (orthogonalized) and local +Y follows `y`. */

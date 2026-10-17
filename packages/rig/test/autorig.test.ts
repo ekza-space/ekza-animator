@@ -215,6 +215,9 @@ describe('autoRig: humanoid template (MVP-SPEC §4.11.15)', () => {
       // Local +Y of the shape is the dorsal normal (+Y for palms-down T-pose hands).
       const up = quatRotateVec3(shape.offset.q, [0, 1, 0]);
       expect(up[1]).toBeGreaterThan(0.99);
+      // The head faces along the finger (+X for a left T-pose hand): its plane normal, local ±Z, is the finger axis.
+      const normal = quatRotateVec3(shape.offset.q, [0, 0, 1]);
+      expect(Math.abs(normal[0])).toBeGreaterThan(0.99);
       return ((stick?.points[1]?.[1] as number) * shape.size) / H;
     });
     expect(sticks[0]).toBeCloseTo(0.02, 9);

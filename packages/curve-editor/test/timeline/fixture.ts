@@ -82,7 +82,7 @@ export function addCurve(
       weightLocked: true,
     }),
   );
-  app.store.transact({ label: 'Add Curve' }, (tx) => {
+  app.store.transact({ label: 'Add Curve', undoable: false }, (tx) => {
     tx.put('curves', curve);
     for (const key of keys) tx.put('keys', key);
   });
@@ -90,7 +90,7 @@ export function addCurve(
 }
 
 export function patchClip(app: FakeEditorApp, fields: Partial<Omit<ClipRecord, 'id'>>): void {
-  app.store.transact({ label: 'Clip Settings' }, (tx) => tx.patch('clips', WAVE.clip, fields));
+  app.store.transact({ label: 'Clip Settings', undoable: false }, (tx) => tx.patch('clips', WAVE.clip, fields));
 }
 
 export function selectControls(app: FakeEditorApp, controls: readonly ControlId[]): void {
