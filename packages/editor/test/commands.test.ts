@@ -1,5 +1,6 @@
 // Shell operators (view.toggleMaximize, ui.open/close, prefs.set, view.selectionMask), the menu bar model (registry
 // order, dedupe, sub-menus, poll-driven enabled state, keymap labels) and runFromUi's result handling.
+import { EkzaError } from '@ekza-animator/anim-core';
 import { GLOBAL_SCOPE, type MenuItemDef } from '@ekza-animator/editor-core';
 import { describe, expect, it } from 'vitest';
 import type {} from '../src/shell/operator-map';
@@ -74,6 +75,22 @@ describe('shell operators', () => {
       kind: 'error',
       text: 'Broken Command failed: kaput',
     });
+    app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'acme.stub',
+        label: 'Stubbed Command',
+        category: 'acme',
+        scope: 'global',
+        apply: () => {
+          throw new EkzaError('not-implemented', 'rig.autoRig');
+        },
+      },
+    });
+    await shell.runFromUi('acme.stub');
+    expect(toasts.store.getState().toasts.at(-1)?.text).toBe(
+      'Stubbed Command failed: rig.autoRig is not implemented in this build',
+    );
     await shell.runFromUi('acme.missing');
     expect(shell.ui.getState().help?.tone).toBe('warning');
     expect(shell.ui.getState().help?.text).toContain('acme.missing');
