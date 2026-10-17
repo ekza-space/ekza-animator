@@ -18,6 +18,8 @@ export interface KernelHistory extends EditorHistory {
   owns(docTxId: string): boolean;
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
   forgetDocEntry(docTxId: string): void;
+  /** The doc undo stacks were emptied: every step loses its doc part; steps left empty disappear. */
+  forgetDocEntries(): void;
 }
 
 export interface HistoryContext {
@@ -30,6 +32,8 @@ export interface HistoryContext {
   restoreSelection(snapshot: unknown): void;
   /** Runs before every read or navigation, so pending direct commits are attributed first. */
   reconcile(): void;
+  /** Runs after the doc undo stack was navigated (whether or not the store emitted a batch). */
+  navigated(): void;
   readonly limit?: number;
 }
 
@@ -67,6 +71,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       if (top?.txId === step.docTxId) {
         // May throw (preview active, read-only store): the stacks stay unchanged then.
         doc = direction === 'undo' ? undo.undo() : undo.redo();
+        ctx.navigated();
       } else {
         warnings.push(`'${step.label}': the document change is no longer on the undo stack; skipped`);
       }
@@ -181,6 +186,12 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       undoSteps.some((step) => step.docTxId === docTxId) || redoSteps.some((step) => step.docTxId === docTxId),
     forgetDocEntry(docTxId: string): void {
       const edit = (step: HistoryStep): HistoryStep => (step.docTxId === docTxId ? { ...step, docTxId: null } : step);
+      const changedUndo = prune(undoSteps, edit);
+      const changedRedo = prune(redoSteps, edit);
+      if (changedUndo || changedRedo) notify();
+    },
+    forgetDocEntries(): void {
+      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === null ? step : { ...step, docTxId: null });
       const changedUndo = prune(undoSteps, edit);
       const changedRedo = prune(redoSteps, edit);
       if (changedUndo || changedRedo) notify();

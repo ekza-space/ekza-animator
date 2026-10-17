@@ -1,6 +1,6 @@
 // Session repair against the document: after a committed batch (or when an app opens a document) the session points
 // only at live records. Pure: returns the fields to change.
-import type { ChangeBatch, CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
+import type { CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
 import type { SessionState } from '../types';
 import { pruneSelection } from './selection';
 
@@ -12,15 +12,22 @@ export function orderedCharacters(store: DocumentStore): readonly CharacterId[] 
 }
 
 /**
+ * Why the session is repaired: an app opened its store (`open`), a document load replaced the document (`load`), a
+ * committed batch changed it (`commit`: local, undo/redo, remote, import, …), or a partition was opened or closed
+ * (`visibility`: records appeared or disappeared, the document did not change).
+ */
+export type RepairCause = 'open' | 'load' | 'commit' | 'visibility';
+
+/**
  * The session fields to change so that: an active character exists when any character does; every character with
  * clips has a live active clip of its own; selection, overrides and feet pins reference live records; `dirty` follows
- * the batch (`load` → clean, anything else committed → dirty); a load also takes the project name. Null when nothing
- * changes.
+ * the cause (open/load → clean, commit → dirty, visibility → unchanged); a load also takes the project name. Null
+ * when nothing changes.
  */
 export function repairSession(
   store: DocumentStore,
   state: SessionState,
-  origin: ChangeBatch['origin'] | 'open',
+  cause: RepairCause,
 ): Partial<SessionState> | null {
   const patch: { -readonly [K in keyof SessionState]?: SessionState[K] } = {};
   const characters = orderedCharacters(store);
@@ -43,11 +50,11 @@ export function repairSession(
     if (overrides.size !== state.overrides.size) patch.overrides = overrides;
   }
   if (state.feetPins !== null && store.get('characters', state.feetPins.character) === undefined) patch.feetPins = null;
-  if (origin === 'load' || origin === 'open') {
+  if (cause === 'load' || cause === 'open') {
     if (state.dirty) patch.dirty = false;
     const name = store.get('project', 'project')?.name;
     if (name !== undefined && name !== state.projectName) patch.projectName = name;
-  } else if (origin !== 'preview' && !state.dirty) {
+  } else if (cause === 'commit' && !state.dirty) {
     patch.dirty = true;
   }
   return Object.keys(patch).length === 0 ? null : patch;

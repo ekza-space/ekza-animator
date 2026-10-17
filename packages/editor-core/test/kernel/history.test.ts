@@ -1,5 +1,5 @@
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { CameraId, CameraRecord, ChannelValues, ControlId } from '@ekza-animator/doc';
+import type { CameraId, CameraRecord, ChangeBatch, ChannelValues, ControlId } from '@ekza-animator/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, beginChannelEditGesture } from '../../src';
@@ -129,6 +129,88 @@ describe('editor history (ADR 0013)', () => {
     expect(app.history.peekUndo()?.label).toBe('Unlock Camera');
     app.history.undo();
     expect(app.store.get('cameras', camera.id)).toMatchObject({ locked: true, target: [1, 1, 0] });
+  });
+
+  it('never mistakes an undoable: false commit of the same fields for coalescing (the redo stack survives)', async () => {
+    const app = waveApp();
+    registerEditOps(app);
+    await app.runUntyped('test.rename', { name: 'one' });
+    await app.runUntyped('test.rename', { name: 'two' });
+    app.history.undo();
+    expect(app.history.peekRedo()?.label).toBe('Rename Clip');
+    // Same record and field as the doc undo top ('one'), outside the undo stack.
+    const preview = app.store.beginPreview('Live Rename');
+    preview.update((tx) => tx.patch('clips', W.clip, { name: 'live' }));
+    preview.commit({ undoable: false });
+    expect(app.history.canRedo()).toBe(true);
+    expect(app.history.peekUndo()?.docTxId).toBe(app.store.undo.peekUndo()?.txId);
+    // The redo still runs; the doc's compare-before-restore keeps the live name.
+    expect(app.history.redo()).toMatchObject({
+      label: 'Rename Clip',
+      warnings: [expect.stringContaining('edited since')],
+    });
+    expect(app.store.get('clips', W.clip)?.name).toBe('live');
+  });
+
+  it('forgets every doc part when the doc undo stacks are emptied without a load; override parts stay', async () => {
+    const app = waveApp();
+    registerEditOps(app);
+    setFrame(app, 5);
+    await app.runUntyped('test.rename', { name: 'one' });
+    await app.runUntyped('test.pose', { control: W.lowerArmL, rz: 0.2 });
+    await app.runUntyped('test.rename', { name: 'two' });
+    app.history.undo();
+    app.store.undo.clear();
+    expect(app.history.canRedo()).toBe(false);
+    expect(app.history.peekUndo()).toMatchObject({ label: 'Edit Pose', docTxId: null });
+    const step = app.history.undo();
+    expect(step).toMatchObject({ label: 'Edit Pose', doc: null, overridesRestored: true, warnings: [] });
+    expect(overrideOf(app)).toBeUndefined();
+    expect(app.history.canUndo()).toBe(false);
+  });
+
+  it('keeps the history and the dirty flag on partition visibility batches (origin load, undo kept)', async () => {
+    const base = naiveKernelDeps(null).createStore();
+    base.load(waveDoc());
+    const listeners = new Set<(batch: ChangeBatch) => void>();
+    base.subscribe((batch) => {
+      for (const listener of listeners) listener(batch);
+    });
+    // The naive store does not announce partition visibility; this view lets the test emit what WP-2's store does.
+    const store = new Proxy(base, {
+      get(target, prop) {
+        if (prop === 'subscribe') {
+          return (listener: (batch: ChangeBatch) => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          };
+        }
+        const value: unknown = Reflect.get(target, prop, target);
+        return typeof value === 'function' ? (value as (...args: unknown[]) => unknown).bind(target) : value;
+      },
+    });
+    const app = createKernelApp(
+      { services: createFakeServices(), store, builtins: false },
+      naiveKernelDeps(humanoidSkeleton()),
+    );
+    registerEditOps(app);
+    await app.runUntyped('test.rename', { name: 'one' });
+    expect(app.session.getState().dirty).toBe(true);
+    const key = store.get('keys', W.keys[0]);
+    const reveal: ChangeBatch = {
+      txId: 'tx_reveal',
+      origin: 'load',
+      label: `Open clip:${W.clip}`,
+      user: store.user,
+      version: store.version,
+      changes: key === undefined ? [] : [{ table: 'keys', id: key.id, before: undefined, after: key }],
+    };
+    for (const listener of listeners) listener(reveal);
+    expect(app.history.peekUndo()?.label).toBe('Rename Clip');
+    expect(app.session.getState().dirty).toBe(true);
+    store.load(waveDoc());
+    expect(app.history.canUndo()).toBe(false);
+    expect(app.session.getState().dirty).toBe(false);
   });
 
   it('extends a step when the store coalesces, and forgets it when coalesced edits cancel out', () => {

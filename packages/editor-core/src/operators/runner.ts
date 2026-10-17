@@ -10,6 +10,12 @@ import { selectionSnapshot } from '../session/selection';
 import type { EditorApp, OperatorRegistry, OperatorResult, RunContext, SessionState, SessionStore } from '../types';
 import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
 
+/**
+ * Operators that run while a preview (gesture) is active (§4.11.0 rule 3 exception): `edit.escape` exists to cancel
+ * that gesture. They must not write the document while the preview is active (`store.transact` would throw).
+ */
+export const GESTURE_SAFE_OPERATORS: ReadonlySet<string> = new Set(['edit.escape']);
+
 export interface OperatorRunner {
   /** Throws `nested-run` synchronously when called from inside an operator's apply. */
   run(id: string, args: unknown, ctx: RunContext | undefined): Promise<OperatorResult<unknown>>;
@@ -62,7 +68,10 @@ export function createOperatorRunner(deps: {
       const prepared = def.prepare === undefined ? undefined : await def.prepare(opCtx, args);
       const second = def.poll?.(opCtx, args) ?? true;
       if (second !== true) return cancelled(second.reason);
-      if (store.preview?.active === true) return cancelled('gesture in progress');
+      // A gesture-safe operator run during a gesture records no step: the overrides it sees are the gesture's
+      // transient values, and cancelling the gesture is not an edit.
+      const duringGesture = store.preview?.active === true;
+      if (duringGesture && !GESTURE_SAFE_OPERATORS.has(def.id)) return cancelled('gesture in progress');
 
       rollback = session.getState();
       const where = deps.location();
@@ -88,7 +97,9 @@ export function createOperatorRunner(deps: {
       }
       // An operator that navigated the history (edit.undo/redo) adds no step: its doc undo and restored overrides
       // are the navigation itself, and a new step would clear the redo stack.
-      if (history.navigations === navigations && !scope.loaded) recordStep(label, rollback, where, outcome);
+      if (history.navigations === navigations && !scope.loaded && !duringGesture) {
+        recordStep(label, rollback, where, outcome);
+      }
       return { status: 'finished', value } as const;
     } catch (error) {
       if (rollback !== null) session.setState(rollback, true);

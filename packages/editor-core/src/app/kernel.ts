@@ -131,6 +131,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     locate: (character: CharacterId) => locateCharacter(app, character),
     restoreSelection: (snapshot: unknown) => restoreSelection(app, snapshot),
     reconcile: () => capture?.reconcile(),
+    navigated: () => capture?.sync(),
   });
   capture = createDocCapture(store, () => history);
   const operators = createOperatorRegistry(() => app);

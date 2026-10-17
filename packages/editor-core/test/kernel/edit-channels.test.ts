@@ -312,6 +312,29 @@ describe('beginChannelEditGesture', () => {
     expect((await app.runUntyped('test.op')).status).toBe('finished');
   });
 
+  it('lets edit.escape run during the gesture (§4.11.0 rule 3 exception); the cancel records no step', async () => {
+    const app = waveApp();
+    setFrame(app, 5);
+    addOperator(app, {
+      id: 'edit.escape',
+      label: 'Escape',
+      category: 'edit',
+      scope: 'global',
+      apply: (ctx) => {
+        cancelChannelEditGestures(ctx.app);
+      },
+    });
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.4 }]);
+    gesture.update([{ control: W.upperArmL, channel: 'rz', value: 0.2 }]);
+    expect(await app.runUntyped('edit.escape')).toEqual({ status: 'finished', value: undefined });
+    expect(gesture.active).toBe(false);
+    expect(app.store.preview).toBeNull();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(curveOf(app, W.upperArmL, 'rz')).toBeUndefined();
+    expect(app.history.canUndo()).toBe(false);
+  });
+
   it('toasts once for skipped channels on commit', () => {
     const { app, services } = waveAppWithServices();
     const gesture = beginChannelEditGesture(app, 'Move', { key: 'auto' });

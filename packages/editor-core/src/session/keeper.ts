@@ -12,6 +12,7 @@ import type { KernelEvaluation } from '../evaluation/service';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';
 import type { KernelHistory } from '../history/history';
 import type { SessionState, SessionStore } from '../types';
+import { isDocumentLoad } from './loads';
 import { repairSession } from './repair';
 
 export interface SessionKeeper {
@@ -68,7 +69,8 @@ export function createSessionKeeper(ctx: {
   });
   const unsubscribeStore = store.subscribe((batch) => {
     if (batch.origin === 'preview') return;
-    const patch = repairSession(store, session.getState(), batch.origin);
+    const cause = batch.origin !== 'load' ? 'commit' : isDocumentLoad(store, batch) ? 'load' : 'visibility';
+    const patch = repairSession(store, session.getState(), cause);
     if (patch !== null) session.setState(patch);
     // Clip fps, range, scene start or loop may have moved a clip frame without a session change.
     if (
