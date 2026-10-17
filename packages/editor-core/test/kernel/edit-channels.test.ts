@@ -15,6 +15,7 @@ import {
   W,
   waveApp,
   waveAppWithServices,
+  waveDoc,
   wavePoints,
 } from './support';
 
@@ -328,6 +329,48 @@ describe('beginChannelEditGesture', () => {
     gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.4 }]);
     gesture.update([{ control: W.upperArmL, channel: 'rz', value: 0.2 }]);
     expect(await app.runUntyped('edit.escape')).toEqual({ status: 'finished', value: undefined });
+    expect(gesture.active).toBe(false);
+    expect(app.store.preview).toBeNull();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(curveOf(app, W.upperArmL, 'rz')).toBeUndefined();
+    expect(app.history.canUndo()).toBe(false);
+  });
+
+  it('ends like a cancel when the commit fails: overrides restored, preview gone, nothing recorded', () => {
+    const app = kernelApp({
+      snapshot: waveDoc(),
+      deps: (base) => ({
+        ...base,
+        createStore: () => {
+          const store = base.createStore();
+          return new Proxy(store, {
+            get(target, prop) {
+              if (prop !== 'beginPreview') {
+                const value: unknown = Reflect.get(target, prop, target);
+                return typeof value === 'function' ? (value as (...a: unknown[]) => unknown).bind(target) : value;
+              }
+              return (label: string) => {
+                const preview = target.beginPreview(label);
+                return Object.assign(Object.create(preview) as typeof preview, {
+                  update: preview.update.bind(preview),
+                  cancel: preview.cancel.bind(preview),
+                  commit: () => {
+                    throw new EkzaError('invalid-record', 'rejected by the store');
+                  },
+                });
+              };
+            },
+          });
+        },
+      }),
+    });
+    setFrame(app, 5);
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([
+      { control: W.lowerArmL, channel: 'rz', value: 0.4 },
+      { control: W.upperArmL, channel: 'rz', value: 0.2 },
+    ]);
+    expect(() => gesture.commit()).toThrow(expect.objectContaining({ code: 'invalid-record' }));
     expect(gesture.active).toBe(false);
     expect(app.store.preview).toBeNull();
     expect(app.session.getState().overrides.size).toBe(0);

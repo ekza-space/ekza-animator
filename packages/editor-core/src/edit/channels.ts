@@ -221,6 +221,11 @@ export function beginChannelEditGesture(
             outcome = { kind: 'new', txId: top.txId, label };
           }
         }
+      } catch (error) {
+        // Nothing was written (read-only store, …): the gesture ends as if cancelled.
+        if (preview.active) preview.cancel();
+        app.session.setState({ overrides: startOverrides });
+        throw error;
       } finally {
         if (capture !== null && scope !== null) outcome = capture.end(scope);
       }
