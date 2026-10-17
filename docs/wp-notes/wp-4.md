@@ -40,6 +40,8 @@ prefix verbatim and never re-serializes it; every writer is deterministic (byte-
 | `ANY_EXPORT_KIND` (`'*'`), `profilesForKind(kind)` | `local/generic` applies to every exporter; the dialog lists the profiles of a kind. |
 | `io/testing`: `GltfBuilder`, `makeGlb`, `makeBudgetStressGlb`, `makeHostileGlb`, `HostileKind`, `createFkPoseSource`, `FkPoseSourceOptions`, `withNodeImageStub` | Shared test kit (convention 12): synthetic GLBs and a naive FK `PoseSource` so bake/writer/surgeon tests run without the rig kernel. |
 | `io/three`: `ThreeModelLoader` (the return type of `createThreeModelLoader`) | Named type for the registry. |
+| `io/worker`: `VALIDATOR_PROTOCOL`, `ValidatorRequest`, `ValidatorResponse`, `MessageEndpoint`, `serveGltfValidator`, `createValidatorClient`, `ValidatorClient` | M1-stretch validator worker (below). |
+| `HostileKind` gains `'index-out-of-range'` and `'joint-out-of-range'` | W4-5 tests; the template itself is validator-clean, so each kind plants exactly one defect. |
 
 ## Contract addition inside `io` (requested spec change)
 
@@ -97,12 +99,16 @@ prefix verbatim and never re-serializes it; every writer is deterministic (byte-
 - **WP-8**: `createThreeModelLoader({ decoderPath: '/decoders/' })`, `setRenderer(gl)` before the first load.
 - **Integration (DECISIONS-OPEN)**: W4-1 (ADR 0010 table), the `generatorAdded` marker field, W4-2.
 
-## M1-stretch
+## M1-stretch (done)
 
-See the end of this file for what was done after the core (updated as it lands).
+| Item | Where | Notes |
+|---|---|---|
+| In-app glTF-Validator worker | `src/worker/index.ts` (`@ekza-animator/io/worker`), `test/worker.test.ts` | Protocol only, as ARCHITECTURE §3 keeps `gltf-validator` out of io: `serveGltfValidator(endpoint, module)` (worker side) and `createValidatorClient(endpoint)` → `{ validate(bytes, opts?), dispose() }` (main thread). Endpoints are structural (`postMessage(message, transfer)`, `add/removeEventListener('message')`): a DOM `Worker`/`MessagePort` and a `DedicatedWorkerGlobalScope` type-check against it. The client transfers a copy (the download keeps its bytes); requests match by id; validator failures reject with `EkzaError(code)` (`internal` for non-Ekza errors); `dispose()` rejects pending calls with `unsupported`. **WP-8 hand-off**: `packages/editor/src/workers/index.ts` → `serveGltfValidator(self, await import('gltf-validator'))`; `createBrowserServices({ createValidatorWorker })` → `createValidatorClient(worker)`; the export dialog can then show `compareValidation(await client.validate(source), await client.validate(artifact.bytes))` for surgeon outputs and `report.errors` for fresh writers. |
+| Bevy lints (`bevy.*`) | `src/lint/lintExport.ts` (`checkBevyPaths`), `src/lint/rules.ts` | `bevy.unnamed-path-node` (a node that is animated or above an animated node has no name) and `bevy.duplicate-sibling-name` (a node on an animated path shares its name with a sibling; scene roots are siblings), warning/warning, at most 20 each; not run for VRMA. The fixtures produce none. |
+| Animation-only GLB import onto a character (FR-IO-10) | — | io's part already works (`skeletonFromGltf` + `readAnimations` on an animation-only GLB); the name remapping is WP-3's `remapRawClipByName`. |
 
 ## Gates (worktree, 2026-10-17)
 
 `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`, `test` (all
-packages; io 130+ tests, 4 skipped on WP-2; headless io file skipped on WP-3) and
+packages; io 138 tests, 4 skipped on WP-2; headless io file skipped on WP-3) and
 `node tooling/make-compressed-fixture.mjs --check` pass. io has no e2e spec of its own and touches no UI package.
