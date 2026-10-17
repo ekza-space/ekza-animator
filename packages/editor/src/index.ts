@@ -6,6 +6,7 @@ export {
   useFrameCallback,
   useHelpLine,
   usePrefs,
+  useRunOperator,
   useSession,
   useTestProbe,
   useViewportManager,

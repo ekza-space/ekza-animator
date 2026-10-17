@@ -1,8 +1,10 @@
 // Shell hooks for panels (MVP-SPEC §7 WP-8; the shell ↔ panel bridge documented in docs/wp-notes/wp-8.md). They
 // degrade to no-ops when a panel renders without the shell (a bare EditorAppProvider in a unit test).
+import type { OperatorResult, RunContext } from '@ekza-animator/editor-core';
 import type { ViewportManager } from '@ekza-animator/viewport';
-import { useEffect, useRef, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useOptionalShell } from '../shell/context';
+import { useEditorApp } from './context';
 import type { FrameCallback, HelpMessage, ProbeMap } from '../shell/types';
 
 const noSubscribe = (): (() => void) => () => {};
@@ -53,6 +55,20 @@ export function useTestProbe<K extends keyof ProbeMap>(kind: K, probe: ProbeMap[
     if (shell === null || probe === null) return undefined;
     return shell.probes.set(kind, probe);
   }, [shell, kind, probe]);
+}
+
+/**
+ * Runs operators the way the shell's own controls do: a failed run becomes an error toast, a cancelled one (poll
+ * reason, "gesture in progress", unknown operator) a help-line warning. Without the shell it is `app.runUntyped`.
+ */
+export function useRunOperator(): (op: string, args?: unknown, ctx?: RunContext) => Promise<OperatorResult<unknown>> {
+  const shell = useOptionalShell();
+  const app = useEditorApp();
+  return useCallback(
+    (op: string, args?: unknown, ctx?: RunContext) =>
+      shell === null ? app.runUntyped(op, args, ctx) : shell.runFromUi(op, args, ctx),
+    [shell, app],
+  );
 }
 
 /** Shows a transient message in the help line (e.g. "Camera locked — Alt+L to unlock"). */

@@ -5,7 +5,7 @@ import { useEditorApp } from './context';
 import { useStoreSelector } from './useStoreSelector';
 
 export { EditorAppProvider, useEditorApp } from './context';
-export { useFrameCallback, useHelpLine, useTestProbe, useViewportManager } from './shell';
+export { useFrameCallback, useHelpLine, useRunOperator, useTestProbe, useViewportManager } from './shell';
 export { useDocQuery } from './useDocQuery';
 
 /** Selected session (U) state; re-renders only when the selection changes under `equality` (default `Object.is`). */
