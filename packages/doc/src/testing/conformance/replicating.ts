@@ -222,13 +222,28 @@ export function registerReplicatingCases(r: SuiteRunner, caps: ConformanceCaps):
     r.it(
       'H4: concurrent sets of one key, then undo by one writer: the key never vanishes or clobbers the winner',
       async () => {
-        for (const seed of [140, 141, 142, 143]) {
-          const n = await seededNetwork(caps, 2, seed);
-          const [a, b] = [peerAt(n, 0), peerAt(n, 1)];
+        // Swapping the writers and the order of their writes makes any deterministic LWW rule (by replica, by order)
+        // pick each side at least once, so both outcomes are exercised.
+        const outcomes = new Set<'A won' | 'B won'>();
+        for (const [ai, bi, aFirst] of [
+          [0, 1, true],
+          [0, 1, false],
+          [1, 0, true],
+          [1, 0, false],
+        ] as const) {
+          const n = await seededNetwork(caps, 2, 140 + ai * 2 + (aFirst ? 0 : 1));
+          const [a, b] = [peerAt(n, ai), peerAt(n, bi)];
           const id = n.scene.keys[1];
           const original = read(a, 'keys', id);
-          a.transact({ label: 'Set A' }, (tx) => tx.patch('keys', id, { v: 1 }));
-          b.transact({ label: 'Set B' }, (tx) => tx.patch('keys', id, { v: 2 }));
+          const setA = (): void => a.transact({ label: 'Set A' }, (tx) => tx.patch('keys', id, { v: 1 }));
+          const setB = (): void => b.transact({ label: 'Set B' }, (tx) => tx.patch('keys', id, { v: 2 }));
+          if (aFirst) {
+            setA();
+            setB();
+          } else {
+            setB();
+            setA();
+          }
           n.net.settle();
           assertConverged(n.peers, 'H4 sets');
           const winner = read(a, 'keys', id)?.v;
@@ -237,9 +252,11 @@ export function registerReplicatingCases(r: SuiteRunner, caps: ConformanceCaps):
           n.net.settle();
           assertConverged(n.peers, 'H4 undo');
           if (winner === 1) {
+            outcomes.add('A won');
             equal(result?.skipped, [], 'A won: its undo applies');
             equal(read(b, 'keys', id), original, 'A’s undo restores the original key');
           } else {
+            outcomes.add('B won');
             equal(
               result?.skipped.map((s) => s.reason),
               ['changed-by-other'],
@@ -248,6 +265,7 @@ export function registerReplicatingCases(r: SuiteRunner, caps: ConformanceCaps):
             equal(read(b, 'keys', id)?.v, 2, 'B’s value is kept');
           }
         }
+        equal([...outcomes].sort(), ['A won', 'B won'], 'both H4 outcomes were exercised');
       },
     );
 
@@ -371,19 +389,35 @@ export function registerReplicatingCases(r: SuiteRunner, caps: ConformanceCaps):
         }
         // Keep seconds: every key time is rescaled (30 → 24 fps: t·0.8) while B edits key 1. Keys merge as whole
         // records, so key 1 is either A's rescaled copy or B's edit at its old time — never both, never lost, never a
-        // duplicate. This is why structural clip edits will require an exclusive claim (ADR 0002 §8).
-        {
-          const n = await seededNetwork(caps, 2, 191);
-          const [a, b] = [peerAt(n, 0), peerAt(n, 1)];
+        // duplicate; which one depends on the merge order (both are exercised by swapping the writers). This is why
+        // structural clip edits will require an exclusive claim (ADR 0002 §8).
+        const outcomes = new Set<'rescale won' | 'edit won'>();
+        for (const [ai, bi, aFirst] of [
+          [0, 1, true],
+          [0, 1, false],
+          [1, 0, true],
+          [1, 0, false],
+        ] as const) {
+          const n = await seededNetwork(caps, 2, 191 + ai * 2 + (aFirst ? 0 : 1));
+          const [a, b] = [peerAt(n, ai), peerAt(n, bi)];
           const { scene } = n;
-          a.transact({ label: 'Clip fps (keep seconds)' }, (tx) => {
-            tx.patch('clips', scene.clip, { fps: { num: 24, den: 1 } });
-            for (const id of scene.keys) {
-              const key = tx.get('keys', id) as KeyRecord;
-              tx.patch('keys', id, { t: key.t * 0.8 });
-            }
-          });
-          b.transact({ label: 'Edit key' }, (tx) => tx.patch('keys', scene.keys[1], { v: 0.3 }));
+          const rescale = (): void =>
+            a.transact({ label: 'Clip fps (keep seconds)' }, (tx) => {
+              tx.patch('clips', scene.clip, { fps: { num: 24, den: 1 } });
+              for (const id of scene.keys) {
+                const key = tx.get('keys', id) as KeyRecord;
+                tx.patch('keys', id, { t: key.t * 0.8 });
+              }
+            });
+          const edit = (): void =>
+            b.transact({ label: 'Edit key' }, (tx) => tx.patch('keys', scene.keys[1], { v: 0.3 }));
+          if (aFirst) {
+            rescale();
+            edit();
+          } else {
+            edit();
+            rescale();
+          }
           n.net.settle();
           assertConverged(n.peers, 'keep seconds');
           const keys = b.query.keysOfCurve(scene.curve);
@@ -396,7 +430,9 @@ export function registerReplicatingCases(r: SuiteRunner, caps: ConformanceCaps):
             aWon !== bWon,
             `the contested key is exactly one side’s version, got t=${contested.t} v=${contested.v}`,
           );
+          outcomes.add(aWon ? 'rescale won' : 'edit won');
         }
+        equal([...outcomes].sort(), ['edit won', 'rescale won'], 'either side can win the contested key');
       },
     );
 
