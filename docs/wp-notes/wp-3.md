@@ -22,9 +22,9 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
 
 ## Test status and gating
 
-- `packages/rig`: 106 tests pass. Two are skipped until WP-1 lands (they probe for the anim-core stub and turn on
-  by themselves): import reduction (`reduceKeys`) and rotate-order conversion of unsynchronized curves
-  (`curveEngine`).
+- `packages/rig`: 106 tests pass. Three are skipped until WP-1 lands (they probe for the anim-core stub and turn on
+  by themselves): import reduction of a LINEAR-sourced sine and of an eased key-pose swing (`reduceKeys`,
+  `curveEngine`), and rotate-order conversion of unsynchronized curves (`curveEngine`).
 - `packages/headless-tests/test/rig.definition.test.ts`, `rig.sampler.test.ts`: run now against the shared test
   kit (`createNaiveStore`, `naiveCurveEngine`), convention 12.
 - `packages/headless-tests/test/rig.fixtures.test.ts` (zero pose on the three fixtures, three-vrm parity with the
@@ -43,6 +43,18 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
   within 1e-5 rad / 1e-5 m of three's `AnimationMixer`; Polybot feet back on their pins within 1e-4; **Seed-san
   evaluate 0.030 ms/pose** (92 controls, 147 nodes; budget 0.5 ms). Only the reduction gate (needs WP-1) was not
   exercised.
+- **Integration evidence (fix round 1).** With a throwaway vitest alias config (not committed) pointing
+  `@ekza-animator/io` at the WP-4 worktree's real readers and, in a second run, `@ekza-animator/anim-core` at the
+  WP-1 worktree: `rig.fixtures.test.ts` 14 pass + 1 skipped (WP-4 only) and 15/15 pass (WP-4 + WP-1), exit code 0
+  in both; `packages/rig` with WP-1's anim-core 109/109 pass.
+- **Stub probes** (`pendingStub`, both test helpers) mark a promise returned by a real async implementation as
+  handled: WP-4's `parseGlb` is async, so the probe `parseGlb(new Uint8Array(0))` rejects with `not-glb` and would
+  otherwise fail the Vitest run as an unhandled rejection once WP-4 merges.
+- **Reduction unit tests.** `reduceKeys` keeps the original tangent types (§4.11.4), so a LINEAR-sourced sine only
+  sheds keys where it is nearly straight (WP-1: 61 → 52 keys at 0.1°). That test asserts only what reduction
+  promises: fewer keys, linear tangents kept, `maxReduceError` ≤ tolerance and the error at every source key time
+  and integer frame ≤ tolerance. The ratio test uses an eased key-pose swing resampled with auto tangents, which
+  top-down insertion reduces to exactly the poses on frames 0, 30 and 60 (61 → 3 keys, error ~1e-7).
 
 ## Deviations and interpretations (smallest sane choices; recorded, not silent)
 
@@ -63,6 +75,7 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
 | R-13 | `mirrorPose` `leftToRight`/`rightToLeft` leave centre controls untouched; `flip` mirrors them in place. Generic and secondary (bone-aligned) controls mirror their local transform in character axes, `L' = R'⁻¹·M·(R·L·R⁻¹)·M·R'` with the two rest rotations (exact involution). | §4.11.20 defines `flip` for centre controls only. | `mirror/mirrorPose.ts` |
 | R-14 | Humanoid step schedule (`target: 'humanoid'`): the influencing controls of humanoid track `h` are the chain of the control driving `h` (or its nearest driven ancestor) plus the chain of the control driving `h`'s normalized parent. | §4.11.10 step 3 names the raw case ("parent bone"); `N_b` depends on the normalized parent instead. | `schedule/steps.ts` |
 | R-15 | Plant Feet treats non-humanoid nodes between the upper leg, lower leg and foot (twist bones) as rigid at their rest relation. | Matches the FK-leg scope of §4.11.19; a posed twist bone would otherwise move the solve target. | `ik/plantFeet.ts` |
+| R-16 | `solveTwoBoneIk` with `soft` > 0 reports `reached` exactly as without softness: true when the end lands on the target (within 1e-6·(l1 + l2)) — every target in the band closer than l1 + l2 − soft — and false in the softened zone, where the end deliberately falls short. | `TwoBoneIkOutput.reached` is not defined for soft mode; V1's `ik2` op should not see in-reach targets reported as missed. | `ik/twoBone.ts` |
 
 ## Requests for cross-package / contract decisions
 
