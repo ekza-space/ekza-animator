@@ -52,8 +52,47 @@ export function controlSize(group: SizeGroup, boneRadius: number | null, boneLen
 /** Rotation about X by −90°: lays a planar shape (normal +Z) flat on the floor (normal +Y). */
 const FLOOR: Quat = [-Math.SQRT1_2, 0, 0, Math.SQRT1_2];
 
-export function floorShape(kind: 'arrow4' | 'star', size: number): ControlShape {
+export function floorShape(kind: 'star', size: number): ControlShape {
   return makeShape(kind, size, [0, 0, 0], FLOOR, null);
+}
+
+/** Segments of the root circle (research 07 §5.3: 48-segment circles). */
+const ROOT_SEGMENTS = 48;
+
+/**
+ * The root's `arrow4` + `circle` (MVP-SPEC §4.11.15) on the floor: a unit circle with four arrows pointing out of it
+ * along ±X and ±Y (shape units, scaled by `size` like built-in shapes). One ControlShape has one kind, so the
+ * combination is emitted as kind `custom` (docs/wp-notes/wp-3.md).
+ */
+export function rootShape(size: number): ControlShape {
+  const circle: [number, number, number][] = [];
+  for (let k = 0; k < ROOT_SEGMENTS; k++) {
+    const angle = (2 * Math.PI * k) / ROOT_SEGMENTS;
+    circle.push([clean(Math.cos(angle)), clean(Math.sin(angle)), 0]);
+  }
+  // One arrow along +X: a shaft from the circle to the tip with a head; the others are its quarter turns.
+  const arrow: readonly (readonly [number, number])[] = [
+    [1.05, -0.06],
+    [1.3, -0.06],
+    [1.3, -0.16],
+    [1.5, 0],
+    [1.3, 0.16],
+    [1.3, 0.06],
+    [1.05, 0.06],
+  ];
+  const turns: readonly (readonly [number, number])[] = [
+    [1, 0],
+    [0, 1],
+    [-1, 0],
+    [0, -1],
+  ];
+  const arrows = turns.map(([c, s]) => ({
+    kind: 'poly' as const,
+    closed: true,
+    points: arrow.map(([x, y]): [number, number, number] => [clean(c * x - s * y), clean(s * x + c * y), 0]),
+  }));
+  const custom: SplineSet = { v: 1, splines: [{ kind: 'poly', closed: true, points: circle }, ...arrows] };
+  return makeShape('custom', size, [0, 0, 0], FLOOR, custom);
 }
 
 /**

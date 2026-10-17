@@ -12,7 +12,7 @@ import {
   mirrorHumanBone,
   nearestHumanAncestor,
 } from '../humanoid/map';
-import { boneShape, controlSize, floorShape, lollipopShape, normalize, type SizeGroup } from './shapes';
+import { boneShape, controlSize, floorShape, lollipopShape, normalize, rootShape, type SizeGroup } from './shapes';
 import { AXES_ALL, AXES_NONE, boneAxis, type ControlSpec, position, type RestContext } from './spec';
 
 const IDENTITY_Q = [0, 0, 0, 1] as const;
@@ -67,7 +67,7 @@ export function humanoidControlSpecs(ctx: RestContext): ControlSpec[] {
       keyable: { t: AXES_ALL, r: AXES_ALL, s: AXES_NONE },
       drives: null,
       mirrorKey: null,
-      shape: floorShape('arrow4', 0.35 * height),
+      shape: rootShape(0.35 * height),
       hiddenByDefault: false,
     },
     {

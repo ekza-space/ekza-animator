@@ -147,11 +147,25 @@ describe('autoRig: humanoid template (MVP-SPEC §4.11.15)', () => {
   it('sizes shapes from bone radii with per-group clamps and offsets', () => {
     const H = skeleton.height;
     const shape = (key: string): ControlRecord['shape'] => controls.get(key)?.shape as ControlRecord['shape'];
-    expect(shape('root')).toMatchObject({ kind: 'arrow4', size: 0.35 * H, color: 'side', lineWidth: null });
-    expect(shape('cog')).toMatchObject({ kind: 'star', size: 0.18 * H });
+    expect(shape('root')).toMatchObject({ kind: 'custom', size: 0.35 * H, color: 'side', lineWidth: null });
+    expect(shape('cog')).toMatchObject({ kind: 'star', size: 0.18 * H, custom: null });
+    // Root: arrow4 + circle — a unit circle and four closed arrows reaching 1.5 units out along ±X / ±Y.
+    const root = shape('root').custom;
+    expect(root?.splines).toHaveLength(5);
+    const ring = root?.splines[0]?.points ?? [];
+    expect(ring).toHaveLength(48);
+    for (const p of ring) expect(Math.hypot(p[0], p[1], p[2])).toBeCloseTo(1, 10);
+    const tips = (root?.splines.slice(1) ?? []).map((arrow) =>
+      arrow.points.reduce((far, p) => (Math.hypot(...p) > Math.hypot(...far) ? p : far)),
+    );
+    expect(tips.map((p) => [Math.round(p[0] * 10) / 10, Math.round(p[1] * 10) / 10])).toEqual([
+      [1.5, 0],
+      [0, 1.5],
+      [-1.5, 0],
+      [0, -1.5],
+    ]);
     // Floor shapes: normal +Z rotated onto +Y.
-    const normal = quatRotateVec3(shape('cog').offset.q, [0, 0, 1]);
-    expect(normal[1]).toBeCloseTo(1, 12);
+    for (const key of ['root', 'cog']) expect(quatRotateVec3(shape(key).offset.q, [0, 0, 1])[1]).toBeCloseTo(1, 12);
     // Torso: radius 0.14 inside [0.05, 0.25]·H; circle centred half way up the bone (spine → chest is 0.12 m).
     expect(shape('fk.spine')).toMatchObject({ kind: 'circle', size: 0.13 });
     expect(shape('fk.spine').offset.t[1]).toBeCloseTo(0.06, 12);
