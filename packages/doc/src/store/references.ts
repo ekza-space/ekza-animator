@@ -75,6 +75,27 @@ export function referencesOf(table: string, row: Row): readonly Reference[] {
   return out;
 }
 
+/** Fields that hold references, per table (a write that keeps them all identical keeps the references). */
+const REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
+  characters: ['asset', 'rig'],
+  rigs: ['character'],
+  controls: ['rig', 'parent', 'mirror'],
+  constraints: ['rig', 'driven', 'targets'],
+  solvers: ['rig'],
+  clips: ['character', 'source'],
+  layers: ['clip'],
+  curves: ['clip', 'layer', 'control'],
+  keys: ['clip', 'curve'],
+};
+
+/** Fast path of the index: true when a rewrite of a record cannot have changed its references. */
+function sameReferenceFields(table: string, prev: Row, next: Row): boolean {
+  const fields = REFERENCE_FIELDS[table];
+  if (fields === undefined) return true;
+  for (const field of fields) if (prev[field] !== next[field]) return false;
+  return true;
+}
+
 /** True when `row` (a record of `table`) references `target/id`. */
 export function referencesRecord(table: string, row: Row, target: string, id: string): boolean {
   return referencesOf(table, row).some(([t, i]) => t === target && i === id);
@@ -113,6 +134,7 @@ export class ReferenceIndex {
 
   /** Storage write hook. */
   onWrite(table: string, id: string, prev: Row | undefined, next: Row | undefined): void {
+    if (prev !== undefined && next !== undefined && sameReferenceFields(table, prev, next)) return;
     const self = rowKey(table, id);
     if (prev !== undefined) {
       for (const [t, i] of referencesOf(table, prev)) {
