@@ -1,4 +1,5 @@
 import { type AnimCurve, curveEngine, eulerToQuat, type KeyData, type RotateOrder } from '@ekza-animator/anim-core';
+import { Euler, Quaternion } from 'three';
 import { describe, expect, it } from 'vitest';
 import { convertRotateOrderKeys } from '../src';
 import { pendingStub, quatAngleBetween } from './helpers';
@@ -40,6 +41,32 @@ describe('convertRotateOrderKeys (M1-stretch, MVP-SPEC §4.11.5)', () => {
         // Existing keys keep their tangent types.
         expect(y.every((k) => k.inType === 'auto')).toBe(true);
         expect(z.every((k) => k.outType === 'step')).toBe(true);
+      }
+    }
+  });
+
+  it('agrees with three.js rotations for every order pair (independent oracle)', () => {
+    // DCC order 'abc' applies a first: R = R_c · R_b · R_a, which is three's order 'CBA' (R = R_C · R_B · R_A).
+    const threeQuat = (e: readonly [number, number, number], order: RotateOrder): Quaternion =>
+      new Quaternion().setFromEuler(
+        new Euler(e[0], e[1], e[2], order.split('').reverse().join('').toUpperCase() as 'XYZ'),
+      );
+    let seed = 3;
+    const next = (): number => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed / 2147483647 - 0.5) * 2 * Math.PI;
+    };
+    for (const from of ORDERS) {
+      for (const to of ORDERS) {
+        const triple: [number, number, number] = [next(), next() / 2, next()];
+        const [x, y, z] = convertRotateOrderKeys(
+          [curve([key(0, triple[0])]), curve([key(0, triple[1])]), curve([key(0, triple[2])])],
+          from,
+          to,
+        );
+        const before = threeQuat(triple, from);
+        const after = threeQuat([x[0]?.v ?? 0, y[0]?.v ?? 0, z[0]?.v ?? 0], to);
+        expect(Math.abs(before.dot(after))).toBeCloseTo(1, 12);
       }
     }
   });
