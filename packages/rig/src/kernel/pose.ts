@@ -1,8 +1,12 @@
-// WP-3 stub: final signature (MVP-SPEC §7 WP-3); throws until the kernel lands.
-import { EkzaError, type Mat4 } from '@ekza-animator/anim-core';
+import type { Mat4 } from '@ekza-animator/anim-core';
 import type { ControlId } from '@ekza-animator/doc';
+import { controlSlotOf } from '../sampler/channels';
 import type { PoseBuffers, RigProgram } from '../types';
 
-export function controlWorld(_program: RigProgram, _pose: PoseBuffers, _control: ControlId, _out?: Mat4): Mat4 {
-  throw new EkzaError('not-implemented', 'rig.controlWorld');
+/** The evaluated world matrix of `control` (canonical character space), copied into `out`. */
+export function controlWorld(program: RigProgram, pose: PoseBuffers, control: ControlId, out?: Mat4): Mat4 {
+  const slot = controlSlotOf(program, control);
+  const target = out ?? new Float64Array(16);
+  for (let i = 0; i < 16; i++) target[i] = pose.controlWorld[slot * 16 + i] as number;
+  return target;
 }
