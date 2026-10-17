@@ -13,6 +13,7 @@ import type {
   LayerId,
 } from '@ekza-animator/doc';
 import {
+  type EditorApp,
   type KeyPartSelection,
   moveKeys,
   parseNumericInput,
@@ -198,7 +199,7 @@ export function key(t: number, v: number, inType: TangentType = 'auto', outType:
 
 /** Adds a curve with `keys` on the wave clip's base layer (one transaction); returns its id and key ids. */
 export function addCurve(
-  app: FakeEditorApp,
+  app: EditorApp,
   opts: {
     readonly control?: ControlId;
     readonly channel: ChannelId;
