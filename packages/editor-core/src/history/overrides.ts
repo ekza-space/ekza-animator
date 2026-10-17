@@ -56,14 +56,6 @@ export function overrideDelta(
   return changed ? { ...where, before: changedBefore, after: changedAfter } : null;
 }
 
-/** Controls that had overrides before and have none after (consumed by keying). */
-export function consumedControls(
-  before: ReadonlyMap<ControlId, ChannelValues>,
-  after: ReadonlyMap<ControlId, ChannelValues>,
-): ControlId[] {
-  return [...before.keys()].filter((control) => !after.has(control));
-}
-
 /** Two consecutive deltas as one: the earliest `before` and the latest `after` of every touched control. */
 export function mergeDeltas(first: OverrideDelta | null, second: OverrideDelta | null): OverrideDelta | null {
   if (first === null) return second;

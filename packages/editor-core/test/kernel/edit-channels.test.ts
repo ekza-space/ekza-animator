@@ -222,6 +222,29 @@ describe('beginChannelEditGesture', () => {
     expect(app.session.getState().overrides.get(W.lowerArmL)).toEqual({ rz: 0.3 });
   });
 
+  it('a drag that keys an overridden channel keeps the override step: undo walks back key, then pose', () => {
+    const app = waveApp();
+    setFrame(app, 20);
+    const before = app.store.snapshot();
+    const pose = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    pose.update([{ control: W.lowerArmL, channel: 'rz', value: 0.1 }]);
+    pose.commit();
+    expect(app.session.getState().overrides.get(W.lowerArmL)).toEqual({ rz: 0.1 });
+    app.prefs.setState({ autoKey: true });
+    const keyed = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    keyed.update([{ control: W.lowerArmL, channel: 'rz', value: 0.2 }]);
+    keyed.commit();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(wavePoints(app).find(([t]) => t === 20)).toEqual([20, 0.2]);
+    app.history.undo();
+    expect(wavePoints(app).map(([t]) => t)).toEqual([0, 15, 30]);
+    expect(app.session.getState().overrides.get(W.lowerArmL)).toEqual({ rz: 0.1 });
+    app.history.undo();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(app.store.snapshot()).toEqual(before);
+    expect(app.history.canUndo()).toBe(false);
+  });
+
   it('auto-key on: keys live in the preview and commit as one transaction and one step', () => {
     const app = waveApp();
     app.prefs.setState({ autoKey: true });

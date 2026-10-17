@@ -13,7 +13,7 @@ import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza
 import { internalsOf } from '../app/internals';
 import { activeClipOf } from '../evaluation/time';
 import type { CaptureOutcome } from '../history/capture';
-import { consumedControls, type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
+import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
 import { activeLocation, ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type { ChannelEdit, ChannelEditGesture, ChannelEditResult, EditorApp, KeyPolicy, OverrideDelta } from '../types';
@@ -269,9 +269,6 @@ function recordGestureStep(
     where !== null && sameLocation(where, activeLocation(app))
       ? overrideDelta(startOverrides, after, where, (control) => ownerOfControl(app.store, control))
       : null;
-  if (delta !== null && docTxId !== null) {
-    const consumed = consumedControls(startOverrides, after);
-    if (consumed.length > 0) app.history.dropOverrides({ character: delta.character, controls: consumed });
-  }
+  // A gesture that keys overridden channels keeps the earlier override steps (see the runner's recordStep).
   if (docTxId !== null || delta !== null) app.history.record({ label, docTxId, overrides: delta });
 }

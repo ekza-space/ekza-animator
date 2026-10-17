@@ -430,7 +430,7 @@ describe('operator runner (§4.11.0)', () => {
     expect(app.history.canUndo()).toBe(false);
   });
 
-  it('consumes overrides when keying: the earlier override step loses its part, the key step restores it', async () => {
+  it('consumes overrides when keying: the key step restores them on undo, the next undo reverts the edit', async () => {
     const app = waveApp();
     setFrame(app, 5);
     addOperator(app, {
@@ -464,12 +464,16 @@ describe('operator runner (§4.11.0)', () => {
     await app.runUntyped('test.key');
     expect(app.session.getState().overrides.size).toBe(0);
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 5, 15, 30]);
-    // One step: undo removes the key and brings the unkeyed pose back; nothing older is left.
+    // Maya: the first undo removes the key and leaves the unkeyed pose; the second undoes the edit that made it.
     const undone = app.history.undo();
     expect(undone).toMatchObject({ label: 'Set Key', overridesRestored: true, warnings: [] });
     expect(app.store.query.keysOfCurve(W.curve).map((key) => key.t)).toEqual([0, 15, 30]);
     expect(app.session.getState().overrides.get(W.lowerArmL)).toEqual({ rz: 10 * DEG });
+    expect(app.history.undo()).toMatchObject({ label: 'Rotate', overridesRestored: true, warnings: [] });
+    expect(app.session.getState().overrides.size).toBe(0);
     expect(app.history.canUndo()).toBe(false);
+    app.history.redo();
+    expect(app.session.getState().overrides.get(W.lowerArmL)).toEqual({ rz: 10 * DEG });
     app.history.redo();
     expect(app.session.getState().overrides.size).toBe(0);
     expect(app.store.query.keysOfCurve(W.curve)).toHaveLength(4);

@@ -432,7 +432,7 @@ export interface EditorHistory {
   redo(): HistoryResult | null;
   /** Called by the operator runner and the gesture helpers; clears the redo stack. */
   record(step: Omit<HistoryStep, 'id' | 'at'>): void;
-  /** Drop override parts (frame change, clip switch, keying); steps left empty are removed. */
+  /** Drop override parts (frame change, clip switch, file.new/open); steps left empty are removed. */
   dropOverrides(where: { readonly character?: CharacterId; readonly clip?: ClipId; readonly controls?: readonly ControlId[] }): void;
   clear(): void;
   subscribe(listener: () => void): Disposer;

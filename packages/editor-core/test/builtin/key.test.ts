@@ -111,6 +111,90 @@ describe('key.set', () => {
     expect(keysAt(app, WAVE.lowerArmL, 'rz').map(([t]) => t)).toEqual([0, 15, 30]);
   });
 
+  // Acceptance round 1 (§8.3 step 12): keying a typed, unkeyed edit used to strip the edit's own step, so the next
+  // undo skipped it and the typed value stayed as an override no step owned.
+  it('keys a typed unkeyed edit without losing its undo step (Maya order: key, edit, older key)', async () => {
+    const app = opsApp();
+    select(app, [WAVE.upperArmL]);
+    setSceneFrame(app, 0);
+    const start = docJson(app);
+    await runOk(app, 'key.set');
+    const keyed = docJson(app);
+    await runOk(app, 'channel.setValues', { edits: [{ control: WAVE.upperArmL, channel: 'rx', value: 15 * DEG }] });
+    expect(app.session.getState().overrides.get(WAVE.upperArmL)).toEqual({ rx: 15 * DEG });
+    await runOk(app, 'key.set');
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(keysAt(app, WAVE.upperArmL, 'rx')).toEqual([[0, 15 * DEG]]);
+
+    expect(app.history.undo()).toMatchObject({ label: 'Set Key', overridesRestored: true, warnings: [] });
+    expect(docJson(app)).toEqual(keyed);
+    expect(app.session.getState().overrides.get(WAVE.upperArmL)).toEqual({ rx: 15 * DEG });
+    expect(app.history.undo()).toMatchObject({ overridesRestored: true, warnings: [] });
+    expect(docJson(app)).toEqual(keyed);
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(app.evaluation.channelValues(WAVE.upperArmL).rx).toBe(0);
+    expect(app.history.undo()).toMatchObject({ label: 'Set Key', warnings: [] });
+    expect(docJson(app)).toEqual(start);
+    expect(app.history.canUndo()).toBe(false);
+
+    app.history.redo();
+    app.history.redo();
+    expect(app.session.getState().overrides.get(WAVE.upperArmL)).toEqual({ rx: 15 * DEG });
+    app.history.redo();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(keysAt(app, WAVE.upperArmL, 'rx')).toEqual([[0, 15 * DEG]]);
+  });
+
+  it('undoes ten mixed actions one by one back to the start and redoes them (§8.3 step 12)', async () => {
+    const app = opsApp();
+    setSceneFrame(app, 15);
+    const start = docJson(app);
+    const R2 = (control: ControlId) => ({ control, channel: 'rz' as const });
+    const actions: readonly (readonly [string, unknown])[] = [
+      ['select.controls', { ids: [WAVE.lowerArmL], mode: 'replace' }],
+      ['key.set', undefined],
+      ['channel.setValues', { edits: [{ control: WAVE.lowerArmL, channel: 'rz', value: 40 * DEG }] }],
+      ['key.set', { channels: 'rotate' }],
+      ['graph.tangent.set', { type: 'linear' }],
+      ['channel.setValues', { edits: [{ control: WAVE.upperArmL, channel: 'rx', value: 12 * DEG }] }],
+      ['channel.toggleLock', { refs: [R2(WAVE.handL)], locked: true }],
+      ['channel.setValues', { edits: [{ control: WAVE.lowerArmL, channel: 'rx', value: 15 * DEG }] }],
+      ['key.set', { channels: 'rotate' }],
+      ['graph.infinity.set', { post: 'cycle' }],
+    ];
+    const states: unknown[] = [];
+    const overrides: string[] = [];
+    const snapshot = () => JSON.stringify([...app.session.getState().overrides]);
+    for (const [id, args] of actions) {
+      states.push(docJson(app));
+      overrides.push(snapshot());
+      if (id === 'graph.tangent.set' || id === 'graph.infinity.set') {
+        // The Graph Editor targets the selected keys: select the lowerArm rz keys (a double-click on the curve).
+        const curve = waveCurve(app, WAVE.lowerArmL, 'rz');
+        const keys = app.store.query.keysOfCurve(curve?.id as never);
+        const selection = app.session.getState().selection;
+        const parts = { key: true, in: false, out: false };
+        app.session.setState({ selection: { ...selection, keys: new Map(keys.map((key) => [key.id, parts])) } });
+      }
+      await runOk(app, id, args);
+    }
+    const end = docJson(app);
+    const endOverrides = snapshot();
+    for (let i = actions.length - 1; i >= 0; i--) {
+      // Selection-only runs are not history steps; every other action is exactly one.
+      if (actions[i]?.[0] === 'select.controls') continue;
+      expect(app.history.undo()?.warnings).toEqual([]);
+      expect(docJson(app)).toEqual(states[i]);
+      expect(snapshot()).toBe(overrides[i]);
+    }
+    expect(docJson(app)).toEqual(start);
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(app.history.canUndo()).toBe(false);
+    while (app.history.canRedo()) app.history.redo();
+    expect(docJson(app)).toEqual(end);
+    expect(snapshot()).toBe(endOverrides);
+  });
+
   it('refuses without targets or an active clip', async () => {
     const app = opsApp();
     expect(await runResult(app, 'key.set')).toEqual({ status: 'cancelled', reason: 'nothing selected' });

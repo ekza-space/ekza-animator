@@ -1841,7 +1841,7 @@ export interface EditorHistory {
   redo(): HistoryResult | null;
   /** Called by the operator runner and the gesture helpers; clears the redo stack. */
   record(step: Omit<HistoryStep, 'id' | 'at'>): void;
-  /** Drop override parts (frame change, clip switch, keying); steps left empty are removed. */
+  /** Drop override parts (frame change, clip switch, file.new/open); steps left empty are removed. */
   dropOverrides(where: { readonly character?: CharacterId; readonly clip?: ClipId; readonly controls?: readonly ControlId[] }): void;
   clear(): void;
   subscribe(listener: () => void): Disposer;
@@ -2399,8 +2399,8 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
    Coalesced transactions (same `coalesceKey` within `coalesceMs`, from `OperatorDef.coalesce`) merge into the
    previous step. *v0.3 integration (WP-7a)*: an operator that navigated the history (`edit.undo`/`edit.redo`)
    records no step; the override delta is recorded only when the active character, clip and clip frame are the
-   same before and after `apply`; a step that keys overridden controls removes their override parts from earlier
-   steps (§4.11.1 rule 5).
+   same before and after `apply`. *Acceptance round 1 (INT-32)*: a step that keys overridden controls records
+   their removal in its own override delta and leaves earlier steps' override parts alone (§4.11.1 rule 5).
 8. Operators may run their `prepare` phases concurrently; `apply` phases are atomic by construction.
 
 **Edit kernel** (WP-7a; stubs with final types in WP-0). Every writer of channels or keys uses these:
@@ -2426,8 +2426,10 @@ commit passes `resolveCollisions: true`. Navigating an unlocked shot camera uses
 **Editor history** (WP-7a, ADR 0013): `edit.undo` pops the newest `HistoryStep`. A step with `docTxId` undoes
 the document entry only if it is still the top of the doc undo stack (else it reports a warning and skips the
 doc part). A step with `overrides` restores `before` when the active clip and clip frame still match.
-`history.dropOverrides` runs on every clip-frame change, clip switch, `file.new/open` and when keying writes
-keys for overridden controls (the override is consumed). Redo is symmetric; any new step clears the redo stack.
+`history.dropOverrides` runs on every clip-frame change, clip switch and `file.new/open`. *Acceptance round 1
+(INT-32)*: keying an overridden channel does not drop override parts; the key step's delta (override → none)
+restores the override on undo, and the earlier step that made it stays undoable. Redo is symmetric; any new step
+clears the redo stack.
 The doc `UndoManager` and the conformance suite are unaffected. *v0.3 integration (WP-7a)*: every other local
 undoable commit (a panel's `store.transact`, a Graph Editor or time-slider `beginPreview(…).commit()`) becomes a
 step of its own, labelled by its batch, so `Mod+Z` never skips a doc entry no step owns; `undoable: false` commits
@@ -2448,8 +2450,11 @@ add nothing and keep the redo stack.
 3. Value = `evaluation.channelValues(control)[channel]` (curve ⊕ static ⊕ override) at the active clip frame.
 4. For each channel: `ensureCurve`; if a key exists with `|t − frame| < 1e-6` patch its `v`; else insert a key
    with `prefs.defaultTangents`, handles `{dt: 0, dv: 0}`, `broken: false`, `weightLocked: true`.
-5. Keyed channels leave `session.overrides` and their history override parts. One transaction labelled
-   `Set Key` (`Key Translate`, `Key Rotate`, `Key Scale`).
+5. Keyed channels leave `session.overrides`; one transaction labelled `Set Key` (`Key Translate`,
+   `Key Rotate`, `Key Scale`). *Acceptance round 1 (INT-32)*: the step records the consumed overrides in its
+   override delta and earlier steps keep theirs, so undo follows Maya: the first `Mod+Z` removes the key and shows
+   the unkeyed (pink) value again, the next one reverts the edit that set it. Undoing N actions returns to the
+   starting state.
 
 #### 4.11.2 Value edits — Channel Box, manipulators, reset, paste, mirror, plant feet
 

@@ -5,7 +5,7 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { DocumentStore } from '@ekza-animator/doc';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
-import { consumedControls, type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
+import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
 import { ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type {
@@ -80,11 +80,8 @@ export function createOperatorRunner(deps: {
       whereAfter !== null && sameLocation(where, whereAfter)
         ? overrideDelta(before.overrides, after.overrides, whereAfter, (control) => ownerOfControl(store, control))
         : null;
-    if (delta !== null && docTxId !== null) {
-      // Keying consumed these overrides: earlier steps lose their override parts (§4.11.1 rule 5).
-      const consumed = consumedControls(before.overrides, after.overrides);
-      if (consumed.length > 0) history.dropOverrides({ character: delta.character, controls: consumed });
-    }
+    // Keying that consumes overrides keeps the earlier override steps: this step's delta brings the override back
+    // on undo, so the next undo still finds the typed edit that made it (§4.11.1 rule 5, acceptance round 1).
     if (docTxId === null && delta === null) return;
     // A new doc entry carries the final label (`tx.annotate` may have refined it).
     const stepLabel = outcome.kind === 'new' ? outcome.label : label;
