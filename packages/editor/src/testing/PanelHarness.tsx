@@ -1,15 +1,23 @@
-// Panel harness behind the dev/e2e-only route /dev/panels?panel=<id> (MVP-SPEC §7 WP-0b): mounts one registered
-// panel full-page with a fake EditorApp (@ekza-animator/editor-core/testing), so panel owners can work on a panel
-// before the shell and the real kernel exist. Browser and Vitest browser mode only.
+// Panel harness behind the dev/e2e-only route /dev/panels?panel=<id> (MVP-SPEC §7 WP-0b, then WP-8): mounts one
+// registered panel full-page with a fake EditorApp (@ekza-animator/editor-core/testing) inside the shell's context
+// (shell hooks, frame callbacks, probes; the GL host for the viewport panel), so panel owners can work on a panel
+// before the real kernel exists. Browser and Vitest browser mode only.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { DocSnapshot } from '@ekza-animator/doc';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
+import { PANEL } from '@ekza-animator/editor-core';
 import { type JSX, useEffect, useState } from 'react';
+import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
 import { registerBuiltinPanels } from '../panels';
 import { createPanelRegistry } from '../panels/registry';
 import type { PanelDef, PanelRegistry } from '../panels/types';
+import { ShellProvider } from '../shell/context';
+import { createShell } from '../shell/createShell';
+import { RegisteredPanel } from '../shell/PanelFrame';
+import type { Shell } from '../shell/types';
+import { DEFAULT_PARAMS } from '../test-api/params';
 import { DEV_STATE_PANEL } from './DevStatePanel';
 
 declare global {
@@ -32,6 +40,7 @@ export interface PanelHarnessProps {
 interface Harness {
   readonly app: FakeEditorApp;
   readonly panels: PanelRegistry;
+  readonly shell: Shell;
 }
 
 /** Built-in panels plus the harness's `dev.state` panel. The props are read once, when the harness mounts. */
@@ -41,33 +50,37 @@ export function PanelHarness(props: PanelHarnessProps): JSX.Element {
   const panelId = props.panel === undefined ? new URLSearchParams(window.location.search).get('panel') : props.panel;
 
   useEffect(() => {
-    window.__EKZA_DEV_PANELS__ = harness;
+    const exposed = { app: harness.app, panels: harness.panels };
+    window.__EKZA_DEV_PANELS__ = exposed;
     return () => {
-      if (window.__EKZA_DEV_PANELS__ === harness) delete window.__EKZA_DEV_PANELS__;
+      if (window.__EKZA_DEV_PANELS__ === exposed) delete window.__EKZA_DEV_PANELS__;
     };
   }, [harness]);
 
   const def = panelId === null ? undefined : harness.panels.get(panelId);
   if (def === undefined) return <PanelIndex panels={harness.panels.list()} unknown={panelId} />;
-  const Panel = def.component;
+  const viewport = def.kind === PANEL.viewport;
   return (
-    <EditorAppProvider app={harness.app}>
-      <div className="flex h-dvh flex-col bg-app text-fg" data-testid="dev-panels">
-        <header className="flex items-center gap-3 border-b border-line bg-header px-3 py-1 text-xs text-fg-2">
-          {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- the editor package does not depend on Next.js. */}
-          <a className="text-accent-text" href="?" data-testid="dev-panels-home">
-            Panels
-          </a>
-          <span data-testid="dev-panels-title">{def.title}</span>
-          <span className="text-fg-3">
-            {def.id} · kind {def.kind} · scope {def.keyScope}
-          </span>
-        </header>
-        <main className="relative min-h-0 flex-1 bg-panel" data-testid={`dev-panel-${def.id}`}>
-          <Panel app={harness.app} instanceId={`${def.id}#1`} />
-        </main>
-      </div>
-    </EditorAppProvider>
+    <ShellProvider shell={harness.shell}>
+      <EditorAppProvider app={harness.app}>
+        {viewport ? <GLHost /> : null}
+        <div className="relative flex h-dvh flex-col text-fg" data-testid="dev-panels">
+          <header className="flex items-center gap-3 border-b border-line bg-header px-3 py-1 text-xs text-fg-2">
+            {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- the editor package does not depend on Next.js. */}
+            <a className="text-accent-text" href="?" data-testid="dev-panels-home">
+              Panels
+            </a>
+            <span data-testid="dev-panels-title">{def.title}</span>
+            <span className="text-fg-3">
+              {def.id} · kind {def.kind} · scope {def.keyScope}
+            </span>
+          </header>
+          <main className={`relative min-h-0 flex-1 ${viewport ? '' : 'bg-panel'}`} data-testid={`dev-panel-${def.id}`}>
+            <RegisteredPanel def={def} app={harness.app} instanceId={`${def.id}#1`} />
+          </main>
+        </div>
+      </EditorAppProvider>
+    </ShellProvider>
   );
 }
 
@@ -111,7 +124,8 @@ function createHarness(props: PanelHarnessProps): Harness {
   const panels = createPanelRegistry();
   registerBuiltinPanels(panels);
   panels.register(DEV_STATE_PANEL);
-  return { app, panels };
+  const shell = createShell({ app, params: DEFAULT_PARAMS, storage: null, panels });
+  return { app, panels, shell };
 }
 
 function asSnapshot(value: unknown): DocSnapshot {

@@ -30,9 +30,11 @@ export async function render(node: ReactNode): Promise<Rendered> {
   };
 }
 
-/** Runs `fn` inside act() so React flushes the resulting renders. */
-export function update(fn: () => void): Promise<void> {
-  return act(async () => fn());
+/** Runs `fn` (sync or async) inside act() so React flushes the resulting renders. */
+export function update(fn: () => unknown): Promise<void> {
+  return act(async () => {
+    await fn();
+  });
 }
 
 export function byTestId(container: ParentNode, id: string): HTMLElement {
@@ -42,6 +44,8 @@ export function byTestId(container: ParentNode, id: string): HTMLElement {
 }
 
 /** A synthetic fixture read through Vitest's browser commands (paths resolve from the package root). */
-export async function readSynthetic(name: 'wave-doc.json' | 'humanoid-skeleton.json'): Promise<unknown> {
+export async function readSynthetic(
+  name: 'wave-doc.json' | 'humanoid-skeleton.json' | 'rest-pose.json',
+): Promise<unknown> {
   return JSON.parse(await commands.readFile(`../../fixtures/synthetic/${name}`)) as unknown;
 }

@@ -1,6 +1,7 @@
-// WP-0a placeholder of the e2e test API (MVP-SPEC §4.8): `ready`, `webgl` and `renderedFrames` work; everything
-// else throws until WP-8 installs the full API.
+// Degraded e2e test API for an editor whose kernel could not start (e.g. a build where createEditorApp is still a
+// stub): `ready`, `webgl` and `renderedFrames` work, every other function throws EkzaError('not-implemented').
 import { EkzaError } from '@ekza-animator/anim-core';
+import type { WebGlInfo } from '../gl/webgl';
 import type { EkzaAnimatorTestApi } from './types';
 
 declare global {
@@ -9,22 +10,12 @@ declare global {
   }
 }
 
-export interface WebGlInfo {
-  readonly ok: boolean;
-  readonly renderer: string | null;
-}
-
-/** Imperative side of the placeholder API, driven by the editor's canvas. */
+/** Imperative side of the placeholder API, driven by the fallback canvas. */
 export interface PlaceholderTestApi {
   readonly api: EkzaAnimatorTestApi;
   /** The WebGL context exists (or could not be created): resolves `ready`. */
   settle(webgl: WebGlInfo): void;
   countFrame(): void;
-}
-
-/** True when the build allows e2e mode and the URL asks for it (`?e2e=1`). */
-export function isE2eRequested(buildAllowsE2e: boolean, search: string): boolean {
-  return buildAllowsE2e && new URLSearchParams(search).get('e2e') === '1';
 }
 
 export function createPlaceholderTestApi(): PlaceholderTestApi {
@@ -35,7 +26,7 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
     resolveReady = resolve;
   });
   const notImplemented = (name: string): never => {
-    throw new EkzaError('not-implemented', `editor.testApi.${name}`);
+    throw new EkzaError('not-implemented', `editor.testApi.${name} (the editor kernel did not start)`);
   };
   const api: EkzaAnimatorTestApi = {
     ready,
@@ -78,24 +69,4 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
       frames++;
     },
   };
-}
-
-/** Creates a throwaway WebGL2 context to learn whether the canvas can render and with which GPU. */
-export function probeWebGl(): WebGlInfo {
-  try {
-    const canvas = document.createElement('canvas');
-    const gl = canvas.getContext('webgl2');
-    if (gl === null) return { ok: false, renderer: null };
-    const info = rendererName(gl);
-    gl.getExtension('WEBGL_lose_context')?.loseContext();
-    return { ok: true, renderer: info };
-  } catch {
-    return { ok: false, renderer: null };
-  }
-}
-
-export function rendererName(gl: WebGLRenderingContext | WebGL2RenderingContext): string | null {
-  const debug = gl.getExtension('WEBGL_debug_renderer_info');
-  const name: unknown = gl.getParameter(debug === null ? gl.RENDERER : debug.UNMASKED_RENDERER_WEBGL);
-  return typeof name === 'string' ? name : null;
 }
