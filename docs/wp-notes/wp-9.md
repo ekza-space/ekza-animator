@@ -35,6 +35,7 @@ control without keys → no commit at all.
 | D-7 | A nudge "burst" is the run of ↑/↓ key-downs (auto-repeat included) until the arrow is released (or Enter, Tab, blur; Esc cancels): one gesture, one history step. Separate taps are separate steps. | "↑/↓ nudge (coalesced)" needs a boundary; key release is deterministic and matches one-gesture-one-step (research 09 §6.3). | — |
 | D-8 | Colour state and tooltip show the **lead's** state; the value shows `—` when the selected controls disagree (relative tolerance 1e-9). | Maya behaviour; FR-CB-01/02. | — |
 | D-9 | Custom attribute channels (`@name`) are not listed. | `ControlRecord.attrs` is empty in the MVP and `ChannelValues`/`channelValues()` cover TRS only. | Add rows when attrs land (V1). |
+| D-10 | A panel reports the operator runs it starts that do not finish: `failed` as an error toast, `cancelled` (poll reason, "gesture in progress") as a warning (`kit/run.ts`). | The runner never throws (§4.11.0) and no contract says who surfaces a refused run. | Drop it if the shell (WP-8) reports runs globally. |
 
 ## Contract changes requested
 
