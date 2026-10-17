@@ -14,7 +14,7 @@ import {
   type ReadonlyVec3,
   type Vec3,
 } from '@ekza-animator/anim-core';
-import type { CameraId, CharacterId, ControlId, PreviewSession } from '@ekza-animator/doc';
+import type { CameraId, CameraRecord, CharacterId, ControlId, PreviewSession } from '@ekza-animator/doc';
 import {
   type EditorApp,
   type NavProfile,
@@ -754,9 +754,18 @@ export class ViewportManager {
       if (record.deleted !== null) continue;
       live.add(record.id);
       const shot = this.shots.get(record.id);
-      if (shot === undefined) this.shots.set(record.id, createShotCamera(record));
-      else if (shot.record !== record && !this.isNavigating(record.id)) applyShotRecord(shot, record);
-      else shot.record = record;
+      const navigating = this.isNavigating(record.id);
+      if (shot === undefined) {
+        this.shots.set(record.id, createShotCamera(record));
+      } else if (!navigating && projectionOf(shot) !== record.projection) {
+        // A three camera cannot change its projection: replace it (e.g. an ortho view copied to the shot camera).
+        shot.nav.dispose();
+        this.shots.set(record.id, createShotCamera(record));
+      } else if (shot.record !== record && !navigating) {
+        applyShotRecord(shot, record);
+      } else {
+        shot.record = record;
+      }
     }
     for (const [id, shot] of this.shots) {
       if (live.has(id)) continue;
@@ -1335,6 +1344,10 @@ function sameState(a: PaneState, b: PaneState | undefined): boolean {
     a.lockFlash === b.lockFlash &&
     a.radial === b.radial
   );
+}
+
+function projectionOf(shot: ShotCamera): CameraRecord['projection'] {
+  return shot.nav.camera instanceof OrthographicCamera ? 'orthographic' : 'perspective';
 }
 
 function directionalLight(): DirectionalLight {

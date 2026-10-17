@@ -1,5 +1,6 @@
 import { type CameraId, EkzaError, fractionalIndex } from '@ekza-animator/doc';
 import { afterEach, describe, expect, it } from 'vitest';
+import { FIRST_SHOT_CAMERA } from '../src';
 import { RADIAL_MARGIN_PX } from '../src/manager/ViewportManager';
 import { addCamera, createRig, pointer, type Rig, shotCamera } from './helpers';
 
@@ -123,6 +124,27 @@ describe('viewport operators', () => {
     for (let i = 0; i < 3; i++) expect(shown.position[i]).toBeCloseTo(view.position[i] ?? Number.NaN, 9);
     rig.app.history.undo();
     expect(rig.app.store.get('cameras', SHOT)?.transform.t).toEqual([0, 1.2, 4]);
+  });
+
+  it('view.copyViewToShot from an orthographic view turns the shot camera orthographic (and undo back)', async () => {
+    rig = await createRig();
+    addCamera(rig.app, shotCamera({ locked: false }));
+    rig.layout('split', {
+      camera: (id) => (id === 'pane-right' ? { kind: 'view', preset: 'front' } : FIRST_SHOT_CAMERA),
+    });
+    rig.frame();
+    const view = rig.vm.camera('pane-right');
+    expect(view.projection).toBe('orthographic');
+    await rig.app.run('view.copyViewToShot', { paneId: 'pane-right' });
+    expect(rig.app.store.get('cameras', SHOT)).toMatchObject({ projection: 'orthographic' });
+    const shown = rig.vm.camera('pane-left');
+    expect(shown.projection).toBe('orthographic');
+    expect(shown.orthoHeight).toBeCloseTo(view.orthoHeight, 9);
+    for (let i = 0; i < 3; i++) expect(shown.position[i]).toBeCloseTo(view.position[i] ?? Number.NaN, 9);
+    rig.frame();
+    rig.app.history.undo();
+    expect(rig.vm.camera('pane-left')).toMatchObject({ projection: 'perspective', position: [0, 1.2, 4] });
+    rig.frame();
   });
 
   it.runIf(FRACTIONAL_INDEX)('view.copyViewToShot creates shotCam when the project has none', async () => {
