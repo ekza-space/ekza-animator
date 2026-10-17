@@ -5,7 +5,6 @@ import {
   bezierParameter,
   bezierSlopeAt,
   evaluateBezierSegment,
-  evaluateHermiteSegment,
   hermiteSlope,
   INFINITY_MAP,
   mapCyclicInfinity,
@@ -61,12 +60,6 @@ function evaluateInRange(c: CompiledAnimCurve, frame: number): number {
   if (Math.abs(t[lo]! - frame) <= KEY_SNAP_EPSILON || lo === 0) return c.v[lo]!;
   const k = lo - 1;
   switch (c.segment[k] as SegmentKind) {
-    case Segment.Hermite: {
-      const coef = coefficientsFast(c);
-      const o = k * COEF_STRIDE;
-      const s = frame - t[k]!;
-      return s * (s * (s * coef[o]! + coef[o + 1]!) + coef[o + 2]!) + coef[o + 3]!;
-    }
     case Segment.Linear: {
       const t0 = t[k]!;
       const t1 = t[lo]!;
@@ -79,8 +72,14 @@ function evaluateInRange(c: CompiledAnimCurve, frame: number): number {
       return c.v[lo]!;
     case Segment.Bezier:
       return evaluateBezierSegment(coefficientsFast(c), k * COEF_STRIDE, t[k]!, t[lo]!, frame);
-    default:
-      return evaluateHermiteSegment(coefficientsFast(c), k * COEF_STRIDE, frame - t[k]!);
+    case Segment.Hermite:
+    default: {
+      // AnimX `hermite`: t·(t·(t·c0 + c1) + c2) + c3 with t frames after the start key
+      const coef = coefficientsFast(c);
+      const o = k * COEF_STRIDE;
+      const s = frame - t[k]!;
+      return s * (s * (s * coef[o]! + coef[o + 1]!) + coef[o + 2]!) + coef[o + 3]!;
+    }
   }
 }
 
@@ -241,7 +240,10 @@ export function segmentControlPoints(c: CompiledAnimCurve, i: number, out: Float
   }
 }
 
-/** Kind of the span containing `frame` (the span starting at a key's time); null outside the key range. */
+/**
+ * Kind of the span containing `frame` (at a key's time: the span starting there; at the last key: the last span);
+ * null outside the key range and on curves with fewer than two keys.
+ */
 export function spanKindAt(c: CompiledAnimCurve, frame: Frame): SegmentKind | null {
   const n = c.keyCount;
   if (n < 2 || !(frame >= c.t[0]!) || !(frame <= c.t[n - 1]!)) return null;

@@ -365,35 +365,56 @@ describe('curve properties (MVP-SPEC §7 WP-1 tests)', () => {
 
 describe('glTF CUBICSPLINE equivalence (research 01 §5.11)', () => {
   it('non-weighted Hermite segments equal the glTF cubic with per-second tangents ≤ 1e-9', () => {
+    let straight = 0;
+    let cubic = 0;
     fc.assert(
       fc.property(
         curveArbitrary({ weighted: false, types: NON_STEP_TYPES }),
         fc.constantFrom(24, 25, 30, 60),
         (anim, fps) => {
           const c = compileAnimCurve(anim);
+          let worst = 0;
           for (let i = 0; i < c.keyCount - 1; i++) {
             if (c.segment[i] !== Segment.Hermite) continue;
             const t0 = c.t[i] as number;
             const t1 = c.t[i + 1] as number;
-            const td = (t1 - t0) / fps; // seconds
-            const bk = (c.outSlope[i] as number) * fps; // value per second
-            const ak = (c.inSlope[i + 1] as number) * fps;
+            const v0 = c.v[i] as number;
+            const v1 = c.v[i + 1] as number;
+            const dx = t1 - t0;
+            const dy = v1 - v0;
+            let m0 = c.outSlope[i] as number;
+            let m1 = c.inSlope[i + 1] as number;
+            // AnimX draws a span whose tangents are both within 2e-7 (relative) of the chord as a straight line; its
+            // exact glTF form then uses the chord slope for both tangents
+            if (
+              Math.abs(dx * m0 - dy) <= Math.abs(2e-7 * dx * m0) &&
+              Math.abs(dx * m1 - dy) <= Math.abs(2e-7 * dx * m1)
+            ) {
+              m0 = dy / dx;
+              m1 = dy / dx;
+              straight++;
+            } else {
+              cubic++;
+            }
+            const td = dx / fps; // seconds
+            const bk = m0 * fps; // out-tangent, value per second
+            const ak = m1 * fps; // in-tangent of the next key
             for (let j = 0; j <= 20; j++) {
               const s = j / 20;
               const gltf =
-                (2 * s ** 3 - 3 * s ** 2 + 1) * (c.v[i] as number) +
+                (2 * s ** 3 - 3 * s ** 2 + 1) * v0 +
                 td * (s ** 3 - 2 * s ** 2 + s) * bk +
-                (-2 * s ** 3 + 3 * s ** 2) * (c.v[i + 1] as number) +
+                (-2 * s ** 3 + 3 * s ** 2) * v1 +
                 td * (s ** 3 - s ** 2) * ak;
-              const ours = evaluateAnimCurve(c, t0 + (t1 - t0) * s);
-              // AnimX straightens spans whose tangents are within 2e-7 of the chord; the glTF cubic does not
-              const tol = 1e-9 + 1e-6 * Math.abs((c.v[i + 1] as number) - (c.v[i] as number));
-              expect(Math.abs(gltf - ours)).toBeLessThan(tol);
+              worst = Math.max(worst, Math.abs(gltf - evaluateAnimCurve(c, t0 + dx * s)));
             }
           }
+          expect(worst).toBeLessThanOrEqual(1e-9);
         },
       ),
       { numRuns: 500 },
     );
+    expect(cubic).toBeGreaterThan(500);
+    expect(straight).toBeGreaterThan(0);
   });
 });

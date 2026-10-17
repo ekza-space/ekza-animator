@@ -64,7 +64,7 @@ export function insertKeyPreservingShape(
   const p = upperBound(compiled.t, n, frame);
   const result: KeyData[] = keys.slice();
   const modified = new Set<number>();
-  // Sides set explicitly above (`${oldIndex}:${side}`); the general freeze leaves them alone.
+  // Sides already set by `setSide` (`${oldIndex}:${side}`); the general freeze (rule 3) leaves them alone.
   const explicit = new Set<string>();
   const setSide = (index: number, side: Side, handle: Handle): void => {
     result[index] = withFixedSide(result[index]!, side, handle);
