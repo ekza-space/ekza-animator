@@ -113,6 +113,7 @@
   /* font */
   --font-ui: "Inter Variable", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-code: "JetBrains Mono Variable", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --font-mono: var(--font-code);
   /* shadow */
   --elevation-popover: 0 8px 24px rgba(0, 0, 0, 0.45);
   /* motion */
