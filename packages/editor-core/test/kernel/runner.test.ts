@@ -5,6 +5,7 @@ import { applyChannelEdits } from '../../src';
 import { createNaiveStore } from '../../src/testing';
 import { naiveKernelDeps } from '../../src/testing/deps';
 import { createKernelApp } from '../../src/app/kernel';
+import type { CoalescingOperatorDef } from '../../src/operators/runner';
 import { createFakeServices } from '../../src/testing';
 import { addOperator, DEG, select, setFrame, W, waveApp, waveDoc, humanoidSkeleton } from './support';
 
@@ -276,6 +277,74 @@ describe('operator runner (§4.11.0)', () => {
     expect(app.store.get('clips', W.clip)?.name).toBe('fast');
     app.history.undo();
     expect(app.store.get('clips', W.clip)?.name).toBe('wave');
+  });
+
+  it('names the step after the annotated transaction label', async () => {
+    const app = waveApp();
+    addOperator(app, {
+      id: 'test.deleteKeys',
+      label: 'Delete Keys',
+      category: 'graph',
+      scope: 'global',
+      flags: { undo: true },
+      apply: (ctx) => {
+        ctx.tx?.remove('keys', W.keys[1]);
+        ctx.tx?.annotate({ label: 'Delete 1 Key' });
+      },
+    });
+    await app.runUntyped('test.deleteKeys');
+    expect(app.history.peekUndo()?.label).toBe('Delete 1 Key');
+  });
+
+  it('coalesces opted-in runs (Channel Box nudges): doc parts through the store, override parts in the history', async () => {
+    let now = 1_000;
+    const store = createNaiveStore({ now: () => now });
+    store.load(waveDoc());
+    const app = createKernelApp(
+      { services: createFakeServices(), store, builtins: false, now: () => now },
+      naiveKernelDeps(humanoidSkeleton()),
+    );
+    setFrame(app, 5);
+    const nudge: CoalescingOperatorDef<{ readonly control: ControlId; readonly rz: number }> = {
+      id: 'test.nudge',
+      label: 'Nudge',
+      category: 'channel',
+      scope: 'channelBox',
+      flags: { undo: true },
+      coalesce: (args) => ({ key: `nudge:${args.control}.rz`, ms: 500 }),
+      apply: (ctx, args) => {
+        if (ctx.tx !== null) {
+          applyChannelEdits(ctx.app, ctx.tx, [{ control: args.control, channel: 'rz', value: args.rz }], {
+            key: 'auto',
+          });
+        }
+      },
+    };
+    app.operators.register(nudge);
+    // Unkeyed channel: static values (document), merged by the store into one entry and one step.
+    for (const rz of [0.1, 0.2, 0.3]) {
+      await app.runUntyped('test.nudge', { control: W.upperArmL, rz });
+      now += 100;
+    }
+    // Keyed channel, auto-key off: overrides only, merged by the history.
+    for (const rz of [0.5, 0.6]) {
+      await app.runUntyped('test.nudge', { control: W.lowerArmL, rz });
+      now += 100;
+    }
+    now += 1_000; // outside the window: a new step
+    await app.runUntyped('test.nudge', { control: W.lowerArmL, rz: 0.7 });
+    const overrides = () => app.session.getState().overrides.get(W.lowerArmL);
+    const upperRz = () => app.evaluation.channelValues(W.upperArmL).rz;
+
+    expect(app.history.undo()?.label).toBe('Nudge');
+    expect(overrides()).toEqual({ rz: 0.6 });
+    expect(app.history.undo()?.overridesRestored).toBe(true);
+    expect(overrides()).toBeUndefined();
+    expect(upperRz()).toBeCloseTo(0.3, 15);
+    app.history.undo();
+    expect(upperRz()).toBe(0);
+    expect(app.history.canUndo()).toBe(false);
+    expect(app.store.undo.canUndo()).toBe(false);
   });
 
   it('records no step for an undoable operator that changed nothing', async () => {

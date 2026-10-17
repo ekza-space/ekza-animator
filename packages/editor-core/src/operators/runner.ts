@@ -7,8 +7,36 @@ import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { consumedControls, type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
 import { selectionSnapshot } from '../session/selection';
-import type { EditorApp, OperatorRegistry, OperatorResult, RunContext, SessionState, SessionStore } from '../types';
+import type {
+  EditorApp,
+  OperatorDef,
+  OperatorRegistry,
+  OperatorResult,
+  RunContext,
+  SessionState,
+  SessionStore,
+} from '../types';
 import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
+
+/** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
+export interface OperatorCoalescing {
+  readonly key: string;
+  readonly ms: number;
+}
+
+/**
+ * An operator that opts into coalescing (§4.11.0 rule 7) — an addition to `OperatorDef` pending a contract change
+ * (docs/wp-notes/wp-7a.md). Its transaction carries `coalesceKey`/`coalesceMs`, so the store merges the document
+ * part; override-only steps with the same key merge in the editor history within the same window.
+ */
+export type CoalescingOperatorDef<A = void, R = void, P = void> = OperatorDef<A, R, P> & {
+  coalesce?(args: A): OperatorCoalescing | null;
+};
+
+function coalescingOf(def: AnyOperatorDef, args: unknown): OperatorCoalescing | null {
+  const spec = (def as CoalescingOperatorDef<unknown, unknown, unknown>).coalesce?.(args) ?? null;
+  return spec !== null && spec.key.length > 0 && spec.ms > 0 ? spec : null;
+}
 
 /**
  * Operators that run while a preview (gesture) is active (§4.11.0 rule 3 exception): `edit.escape` exists to cancel
@@ -40,6 +68,7 @@ export function createOperatorRunner(deps: {
     before: SessionState,
     where: OverrideLocation | null,
     outcome: CaptureOutcome,
+    coalescing: OperatorCoalescing | null,
   ): void => {
     if (outcome.kind === 'removed') history.forgetDocEntry(outcome.txId);
     const docTxId = outcome.kind === 'new' || outcome.kind === 'coalesced' ? outcome.txId : null;
@@ -56,7 +85,13 @@ export function createOperatorRunner(deps: {
       const consumed = consumedControls(before.overrides, after.overrides);
       if (consumed.length > 0) history.dropOverrides({ character: delta.character, controls: consumed });
     }
-    if (docTxId !== null || delta !== null) history.record({ label, docTxId, overrides: delta });
+    if (docTxId === null && delta === null) return;
+    // A new doc entry carries the final label (`tx.annotate` may have refined it).
+    const stepLabel = outcome.kind === 'new' ? outcome.label : label;
+    if (coalescing === null) history.record({ label: stepLabel, docTxId, overrides: delta });
+    else {
+      history.record({ label: stepLabel, docTxId, overrides: delta, coalesceKey: coalescing.key }, coalescing.ms);
+    }
   };
 
   const execute = async (def: AnyOperatorDef, args: unknown, ctx: RunContext | undefined) => {
@@ -76,6 +111,7 @@ export function createOperatorRunner(deps: {
       rollback = session.getState();
       const where = deps.location();
       const label = def.undoLabel?.(args) ?? def.label;
+      const coalescing = coalescingOf(def, args);
       const navigations = history.navigations;
       const scope = capture.begin();
       let value: unknown;
@@ -83,7 +119,12 @@ export function createOperatorRunner(deps: {
       applying++;
       try {
         if (def.flags?.undo === true) {
-          value = store.transact({ label, selectionBefore: selectionSnapshot(rollback.selection) }, (tx) => {
+          const meta = {
+            label,
+            selectionBefore: selectionSnapshot(rollback.selection),
+            ...(coalescing === null ? {} : { coalesceKey: coalescing.key, coalesceMs: coalescing.ms }),
+          };
+          value = store.transact(meta, (tx) => {
             const result = def.apply({ ...opCtx, tx }, args, prepared);
             tx.annotate({ selectionAfter: selectionSnapshot(session.getState().selection) });
             return result;
@@ -98,7 +139,7 @@ export function createOperatorRunner(deps: {
       // An operator that navigated the history (edit.undo/redo) adds no step: its doc undo and restored overrides
       // are the navigation itself, and a new step would clear the redo stack.
       if (history.navigations === navigations && !scope.loaded && !duringGesture) {
-        recordStep(label, rollback, where, outcome);
+        recordStep(label, rollback, where, outcome, coalescing);
       }
       return { status: 'finished', value } as const;
     } catch (error) {

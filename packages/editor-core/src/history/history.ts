@@ -6,7 +6,7 @@ import type { CharacterId, DocumentStore, UndoResult } from '@ekza-animator/doc'
 import type { EditorHistory, HistoryResult, HistoryStep, OverrideDelta, SessionStore } from '../types';
 import { applyOverrideValues, mergeDeltas, type OverrideLocation, sameLocation, withoutControls } from './overrides';
 
-/** Override-only steps with the same coalesce key merge within this window (doc steps follow the store's). */
+/** Default window in which override-only steps with the same coalesce key merge (doc steps follow the store's). */
 export const HISTORY_COALESCE_MS = 1_000;
 /** Oldest steps beyond this are dropped (the doc undo stack keeps 500 entries by default). */
 export const HISTORY_LIMIT = 1_000;
@@ -14,6 +14,8 @@ export const HISTORY_LIMIT = 1_000;
 export interface KernelHistory extends EditorHistory {
   /** Number of undo/redo navigations so far (the runner records no step for an operator that navigated). */
   readonly navigations: number;
+  /** `record` with the coalescing window of override-only steps (default `HISTORY_COALESCE_MS`). */
+  record(step: Omit<HistoryStep, 'id' | 'at'>, coalesceMs?: number): void;
   /** True when a step owns the doc entry. */
   owns(docTxId: string): boolean;
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
@@ -131,7 +133,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     },
     undo: () => navigate('undo'),
     redo: () => navigate('redo'),
-    record(step: Omit<HistoryStep, 'id' | 'at'>): void {
+    record(step: Omit<HistoryStep, 'id' | 'at'>, coalesceMs: number = HISTORY_COALESCE_MS): void {
       if (step.docTxId === null && step.overrides === null) return;
       const now = ctx.now();
       const top = undoSteps.at(-1);
@@ -142,7 +144,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         top.docTxId === null &&
         step.coalesceKey !== undefined &&
         top.coalesceKey === step.coalesceKey &&
-        now - top.at <= HISTORY_COALESCE_MS;
+        now - top.at <= coalesceMs;
       if (top !== undefined && (sameDocEntry || sameKey)) {
         undoSteps[undoSteps.length - 1] = { ...top, overrides: mergeDeltas(top.overrides, step.overrides), at: now };
       } else {
