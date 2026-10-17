@@ -40,12 +40,16 @@ export function PreferencesDialog(): JSX.Element {
         <div className="flex flex-col gap-3">
           <Row label="Navigation" hint="Viewport and Graph Editor gestures">
             <NativeSelect
-              value={navProfile === 'trackpad' ? 'trackpad' : 'maya'}
+              value={navProfile}
               data-testid="prefs-nav"
-              onChange={(event) => set({ navProfile: event.currentTarget.value === 'trackpad' ? 'trackpad' : 'maya' })}
+              onChange={(event) => {
+                const value = event.currentTarget.value;
+                set({ navProfile: value === 'trackpad' || value === 'mayaOneButton' ? value : 'maya' });
+              }}
               options={[
                 { value: 'maya', label: 'Mouse — Maya (Alt + drag)' },
                 { value: 'trackpad', label: 'Trackpad (scroll, pinch)' },
+                { value: 'mayaOneButton', label: 'One-button mouse (Option + drag)' },
               ]}
             />
           </Row>

@@ -247,6 +247,13 @@ describe('shortcuts and preferences', () => {
     });
     await waitFor(() => test.app.prefs.getState().spaceBehaviour === 'play');
     expect(space.value).toBe('play');
+    const nav = body('prefs-nav') as HTMLSelectElement;
+    await update(() => {
+      nav.value = 'mayaOneButton';
+      nav.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await waitFor(() => test.app.prefs.getState().navProfile === 'mayaOneButton');
+    expect(nav.value).toBe('mayaOneButton');
     await view.unmount();
   });
 });
