@@ -122,6 +122,9 @@ export interface EkzaBakeMarkerV1 {
   readonly baseSha256: string;                 // sha256 of the pre-bake file — provenance only
   /** Original JSON of every pre-baseline animation replaced in place, keyed by its index; written once. */
   readonly replaced: Readonly<Record<string, unknown>>;
+  /** Present (true) only when the pre-bake file had no `asset.generator`: the surgeon wrote its own, and a
+   *  rollback removes it again (WP-4 addition, docs/wp-notes/wp-4.md). */
+  readonly generatorAdded?: true;
 }
 
 export type LintSeverity = 'error' | 'warning' | 'info';

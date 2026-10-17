@@ -3,6 +3,7 @@
 // `self` and `createImageBitmap` are stubbed while a load runs. Textures do not affect skeletons or motion.
 import { type VRM, VRMLoaderPlugin } from '@pixiv/three-vrm';
 import type { AnimationClip, Object3D } from 'three';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { readGlbJson, skeletonNodeOrder } from './nodeOrder';
 
@@ -20,9 +21,9 @@ export interface NodeGltf {
 /** Loads a GLB/VRM with three.js in Node. Throws EkzaError('not-glb') for anything but a GLB. */
 export async function loadGltfInNode(bytes: Uint8Array): Promise<NodeGltf> {
   const order = skeletonNodeOrder(readGlbJson(bytes));
-  const loader = new GLTFLoader();
+  const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
   loader.register((parser) => new VRMLoaderPlugin(parser));
-  const gltf = await withImageStub(() => loader.parseAsync(bytes.slice().buffer, ''));
+  const gltf = await withNodeImageStub(() => loader.parseAsync(bytes.slice().buffer, ''));
   const byGltfIndex = new Map<number, Object3D>();
   gltf.scene.traverse((object) => {
     const index = gltf.parser.associations.get(object)?.nodes;
@@ -40,8 +41,11 @@ export async function loadGltfInNode(bytes: Uint8Array): Promise<NodeGltf> {
 let activeLoads = 0;
 let restoreGlobals: (() => void) | null = null;
 
-/** Installs the globals for the duration of the outermost concurrent load and restores them afterwards. */
-async function withImageStub<T>(load: () => Promise<T>): Promise<T> {
+/**
+ * Runs a three.js load in Node with `self` and `createImageBitmap` stubbed (GLTFLoader waits on image decoding,
+ * which Node lacks); the globals exist for the outermost concurrent load only and are restored afterwards.
+ */
+export async function withNodeImageStub<T>(load: () => Promise<T>): Promise<T> {
   if (activeLoads++ === 0) restoreGlobals = installImageStub();
   try {
     return await load();

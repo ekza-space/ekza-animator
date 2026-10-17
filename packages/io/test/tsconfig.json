@@ -11,6 +11,12 @@
       "path": "../src"
     },
     {
+      "path": "../src/three"
+    },
+    {
+      "path": "../src/worker"
+    },
+    {
       "path": "../../anim-core/src"
     },
     {
