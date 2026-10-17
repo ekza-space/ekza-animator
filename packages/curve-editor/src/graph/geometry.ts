@@ -7,6 +7,12 @@ import { type CompiledAnimCurve, Segment, type SegmentKind } from '@ekza-animato
 
 const at = (array: Float64Array, i: number): number => array[i] as number;
 
+/**
+ * AnimX evaluates a weighted span linear in time when both handle times lie within this distance of the thirds
+ * (normalized to the span; `fLinear`). The drawn cubic then takes the thirds too, so it is the evaluated one.
+ */
+const LINEAR_TIME_EPSILON = 1e-6;
+
 /** Kind of segment i (key i → key i+1). */
 export function segmentKind(c: CompiledAnimCurve, i: number): SegmentKind {
   return c.segment[i] as SegmentKind;
@@ -18,11 +24,23 @@ export function segmentBezier(c: CompiledAnimCurve, i: number, out: Float64Array
   const v0 = at(c.v, i);
   const t3 = at(c.t, i + 1);
   const v3 = at(c.v, i + 1);
+  const span = t3 - t0;
+  let x1 = t0 + at(c.outDt, i);
+  let x2 = t3 + at(c.inDt, i + 1);
+  if (
+    segmentKind(c, i) === Segment.Bezier &&
+    span > 0 &&
+    Math.abs((x1 - t0) / span - 1 / 3) <= LINEAR_TIME_EPSILON &&
+    Math.abs((x2 - t0) / span - 2 / 3) <= LINEAR_TIME_EPSILON
+  ) {
+    x1 = t0 + span / 3;
+    x2 = t3 - span / 3;
+  }
   out[0] = t0;
   out[1] = v0;
-  out[2] = t0 + at(c.outDt, i);
+  out[2] = x1;
   out[3] = v0 + at(c.outDv, i);
-  out[4] = t3 + at(c.inDt, i + 1);
+  out[4] = x2;
   out[5] = v3 + at(c.inDv, i + 1);
   out[6] = t3;
   out[7] = v3;

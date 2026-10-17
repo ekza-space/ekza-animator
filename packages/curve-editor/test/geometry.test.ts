@@ -125,6 +125,34 @@ describe('drawn-curve geometry', () => {
   });
 });
 
+/** Deterministic random curves of every tangent type, weighted and not, with fixed handles of any length. */
+function randomCurves(count: number): AnimCurve[] {
+  let seed = 0x6b8b4567;
+  const random = (): number => {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    return seed / 2 ** 32;
+  };
+  const types = ['auto', 'spline', 'clamped', 'linear', 'flat', 'step', 'stepNext', 'fixed', 'autoEase', 'autoMix'];
+  const modes: InfinityMode[] = ['constant', 'linear', 'cycle', 'cycleOffset', 'oscillate'];
+  const pick = <T>(list: readonly T[]): T => list[Math.floor(random() * list.length)] as T;
+  return Array.from({ length: count }, () => {
+    let t = -5 + random() * 10;
+    const keys: KeyData[] = [];
+    const n = 2 + Math.floor(random() * 6);
+    for (let i = 0; i < n; i++) {
+      t += 0.5 + random() * 12;
+      keys.push({
+        ...key(t, (random() - 0.5) * 4, pick(types) as KeyData['inType'], pick(types) as KeyData['outType']),
+        inHandle: { dt: -(0.1 + random() * 9), dv: (random() - 0.5) * 3 },
+        outHandle: { dt: 0.1 + random() * 9, dv: (random() - 0.5) * 3 },
+        broken: random() < 0.5,
+        weightLocked: random() < 0.5,
+      });
+    }
+    return { keys, weighted: random() < 0.5, pre: pick(modes), post: pick(modes) };
+  });
+}
+
 /** WP-1's AnimX engine is implemented (until then anim-core's curve functions are stubs). */
 const ENGINE_READY = (() => {
   try {
@@ -157,6 +185,17 @@ describe.skipIf(!ENGINE_READY)('[needs WP-1] drawn geometry equals the anim-core
       pre: 'constant',
       post: 'linear',
     },
+    // Weighted handles a hair off the thirds: AnimX evaluates these spans linear in time (`fLinear`).
+    {
+      keys: [
+        { ...key(0, 0, 'fixed'), outHandle: { dt: 10 / 3 + 4e-6, dv: 0.8 }, broken: true, weightLocked: false },
+        { ...key(10, 1, 'fixed'), inHandle: { dt: -10 / 3 - 3e-6, dv: 0.9 }, broken: true, weightLocked: false },
+      ],
+      weighted: true,
+      pre: 'constant',
+      post: 'constant',
+    },
+    ...randomCurves(24),
   ];
 
   it('segment control points match segmentControlPoints', () => {
