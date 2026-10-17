@@ -93,11 +93,12 @@ package's interface.
   `'rest-pose.json'` (expected rest bone worlds). Browser-mode tests read the same files with
   `commands.readFile('../../fixtures/synthetic/<name>')` from `vitest/browser` (paths resolve from the package root).
   The synthetic files are generated: change `tooling/make-synthetic-fixtures.mjs` and run it, never edit the JSON.
-- **three.js in Node** (`@ekza-animator/io/testing`): `loadGltfInNode(bytes)` returns the scene, the VRM and
-  `nodeByIndex` in `SkeletonDesc` node order (`skeletonNodeOrder`: parents first, smallest glTF index first).
+- **three.js in Node** (`@ekza-animator/io/testing`): `loadGltfInNode(bytes)` returns the scene, the VRM,
+  `nodeByIndex` in `SkeletonDesc` node order (`skeletonNodeOrder`: parents first, smallest glTF index first) and
+  three's `animations`.
 - **Panel harness**: `pnpm dev`, then open `/dev/panels?panel=<id>` to mount one registered panel full-page with the
   fake app over the wave document (`dev.state` shows what the fake app holds). E2E builds serve it too and expose the
-  fake app as `window.__EKZA_DEV_PANELS__`; production builds answer 404.
+  fake app as `window.__EKZA_DEV_PANELS__`. Other builds do not compile the route (`page.dev.tsx`) and answer 404.
 
 ## Dependencies
 
