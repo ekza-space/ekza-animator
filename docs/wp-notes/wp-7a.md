@@ -129,6 +129,10 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
     step ("Delete 3 Keys"); otherwise `undoLabel(args) ?? label`.
 20. A gesture whose `preview.commit` throws ends like a cancel (overlay dropped, overrides restored, no step) and
     rethrows.
+21. An override delta holds only the controls of the character it is located at (the active one): it restores at
+    that character's clip frame, so another character's values in it could return at a frame they no longer belong
+    to (ADR 0013 §4). Override edits of other characters in the same run are not undoable; the MVP limits selection
+    to one character, so edits normally target the active one.
 
 ## Notes for other work packages
 
@@ -166,5 +170,5 @@ history, and asynchronous runtime creation from `seed-san.vrm` through the asset
 ## Gates (run in this worktree)
 
 `format:check`, `lint`, `typecheck`, `check:deps`, `test` (all packages; editor's browser tests use the new fake
-app), `build`, and `test:e2e` on port 3108 (00-webgl, dev-panels, tailwind-smoke): all pass. editor-core alone: 316
+app), `build`, and `test:e2e` on port 3108 (00-webgl, dev-panels, tailwind-smoke): all pass. editor-core alone: 317
 tests pass, 7 skip until WP-1/2/3(/4) are merged (they pass against those branches, see above).
