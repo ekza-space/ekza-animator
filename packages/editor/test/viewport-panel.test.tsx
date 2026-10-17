@@ -7,6 +7,7 @@ import { viewportManagerOf } from '@ekza-animator/viewport';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, EditorAppProvider } from '../src';
 import { registerViewportPanel, ViewportPanel } from '../src/panels/viewport';
+import { RADIAL_RADIUS_PX, radialItemAt, radialOffsets } from '../src/panels/viewport/CameraRadial';
 import { byTestId, type Rendered, readSynthetic, render, update } from './render';
 
 let snapshot: DocSnapshot;
@@ -189,5 +190,80 @@ describe('viewport panel', () => {
     expect(frame()).toBe('f 15');
     expect(seconds()).toBe('0.50 s');
     expect(view.container.querySelector('[data-testid="pane-hud-feet-pinned"]')).toBeNull();
+  });
+
+  it('Space-hold camera radial: point at a camera and release Space to look through it', async () => {
+    const { view, app } = await mount(withCharacter());
+    const radial = () => view.container.querySelector('[data-testid="pane-radial-pane-right"]');
+    const lookThroughCalls = () => app.calls.filter((c) => c.id === 'view.lookThrough').map((c) => c.args);
+    await update(() => void app.run('view.cameraRadial', { paneId: 'pane-right' }));
+    await update(() => {});
+    expect(radial()).not.toBeNull();
+    const items = [...(radial()?.querySelectorAll<HTMLElement>('[role="menuitemradio"]') ?? [])];
+    expect(items.map((item) => item.dataset['testid'])).toEqual([
+      'pane-radial-pane-right-persp',
+      'pane-radial-pane-right-top',
+      'pane-radial-pane-right-front',
+      'pane-radial-pane-right-side',
+    ]);
+    expect(byTestId(view.container, 'pane-radial-pane-right-persp').getAttribute('aria-checked')).toBe('true');
+
+    // Pointing straight down from the centre highlights the third item (clockwise from the top).
+    const centre = viewportManagerOf(app)?.paneState('pane-right')?.radial ?? { x: 0, y: 0 };
+    const pane = byTestId(view.container, 'pane-pane-right').getBoundingClientRect();
+    const move = (dx: number, dy: number) =>
+      update(() => {
+        window.dispatchEvent(
+          new PointerEvent('pointermove', { clientX: pane.left + centre.x + dx, clientY: pane.top + centre.y + dy }),
+        );
+      });
+    await move(0, 60);
+    expect(byTestId(view.container, 'pane-radial-pane-right-front').dataset['hot']).toBe('true');
+    await update(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ' })));
+    await update(() => {});
+    expect(radial()).toBeNull();
+    expect(lookThroughCalls()).toEqual([{ paneId: 'pane-right', camera: { kind: 'view', preset: 'front' } }]);
+    expect(viewportManagerOf(app)?.paneState('pane-right')).toMatchObject({ cameraKind: 'view', preset: 'front' });
+
+    // Released in the centre: closes without a change. Escape closes too. A click on an item picks it.
+    await update(() => void app.run('view.cameraRadial', { paneId: 'pane-right' }));
+    await move(2, 3);
+    await update(() => window.dispatchEvent(new KeyboardEvent('keyup', { code: 'Space', key: ' ' })));
+    expect(radial()).toBeNull();
+    await update(() => void app.run('view.cameraRadial', { paneId: 'pane-right' }));
+    await update(() => window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' })));
+    expect(radial()).toBeNull();
+    await update(() => void app.run('view.cameraRadial', { paneId: 'pane-right' }));
+    await update(() => byTestId(view.container, 'pane-radial-pane-right-side').click());
+    await update(() => {});
+    expect(radial()).toBeNull();
+    expect(lookThroughCalls()).toEqual([
+      { paneId: 'pane-right', camera: { kind: 'view', preset: 'front' } },
+      { paneId: 'pane-right', camera: { kind: 'view', preset: 'side' } },
+    ]);
+    // A press elsewhere closes it.
+    await update(() => void app.run('view.cameraRadial', { paneId: 'pane-right' }));
+    await update(() =>
+      byTestId(view.container, 'pane-pane-left').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })),
+    );
+    expect(radial()).toBeNull();
+  });
+
+  it('radial geometry: items clockwise from the top, the nearest angle outside the dead zone', () => {
+    const offsets = radialOffsets(4);
+    expect(offsets[0]?.x).toBeCloseTo(0, 9);
+    expect(offsets[0]?.y).toBeCloseTo(-RADIAL_RADIUS_PX, 9);
+    expect(offsets[1]?.x).toBeCloseTo(RADIAL_RADIUS_PX, 9);
+    expect(offsets[2]?.y).toBeCloseTo(RADIAL_RADIUS_PX, 9);
+    expect(offsets[3]?.x).toBeCloseTo(-RADIAL_RADIUS_PX, 9);
+    expect(radialItemAt(4, 0, -50)).toBe(0);
+    expect(radialItemAt(4, 50, 0)).toBe(1);
+    expect(radialItemAt(4, 0, 50)).toBe(2);
+    expect(radialItemAt(4, -50, 0)).toBe(3);
+    expect(radialItemAt(4, -50, -51)).toBe(0); // just past the top-left diagonal
+    expect(radialItemAt(4, 5, 5)).toBeNull(); // dead zone
+    expect(radialItemAt(0, 50, 0)).toBeNull();
+    expect(radialItemAt(5, 0, -50)).toBe(0);
+    expect(radialItemAt(5, -10, -50)).toBe(0);
   });
 });

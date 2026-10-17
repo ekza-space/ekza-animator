@@ -1,6 +1,7 @@
 import { type CameraId, EkzaError, fractionalIndex } from '@ekza-animator/doc';
 import { afterEach, describe, expect, it } from 'vitest';
-import { addCamera, createRig, type Rig, shotCamera } from './helpers';
+import { RADIAL_MARGIN_PX } from '../src/manager/ViewportManager';
+import { addCamera, createRig, pointer, type Rig, shotCamera } from './helpers';
 
 /** fractionalIndex (WP-2) is stubbed until the doc package lands; creating a new shot camera needs it. */
 const FRACTIONAL_INDEX = (() => {
@@ -183,12 +184,34 @@ describe('viewport operators', () => {
     expect(rig.vm.paneState('pane-left')?.lockFlash).toBe(1);
   });
 
-  it('view.cameraRadial is an M1-stretch placeholder that never runs', async () => {
+  it('view.cameraRadial opens the pane radial at the last pointer position, kept inside the pane', async () => {
     rig = await createRig();
     rig.layout('split');
-    expect(await rig.app.run('view.cameraRadial', { paneId: 'pane-right' })).toEqual({
-      status: 'cancelled',
-      reason: 'not available yet',
-    });
+    const right = rig.panes.get('pane-right') as HTMLElement;
+    const rect = right.getBoundingClientRect();
+    // No pointer over the pane yet: its centre.
+    expect((await rig.app.run('view.cameraRadial', { paneId: 'pane-right' })).status).toBe('finished');
+    expect(rig.vm.paneState('pane-right')?.radial).toEqual({ x: rect.width / 2, y: rect.height / 2 });
+    // At the pointer, through the hovered pane of the run context.
+    pointer(right, 'pointermove', rect.left + 200, rect.top + 150, { buttons: 0 });
+    expect(
+      (await rig.app.run('view.cameraRadial', undefined, { panel: 'viewport', paneId: 'pane-right' })).status,
+    ).toBe('finished');
+    expect(rig.vm.paneState('pane-right')?.radial).toEqual({ x: 200, y: 150 });
+    // Near an edge it is pushed inside by RADIAL_MARGIN_PX.
+    pointer(right, 'pointermove', rect.left + 5, rect.bottom - 5, { buttons: 0 });
+    await rig.app.run('view.cameraRadial', { paneId: 'pane-right' });
+    expect(rig.vm.paneState('pane-right')?.radial).toEqual({ x: RADIAL_MARGIN_PX, y: rect.height - RADIAL_MARGIN_PX });
+    // One radial at a time; closeRadial and unregistering close it.
+    await rig.app.run('view.cameraRadial', { paneId: 'pane-left' });
+    expect(rig.vm.paneState('pane-right')?.radial).toBeNull();
+    expect(rig.vm.paneState('pane-left')?.radial).not.toBeNull();
+    rig.vm.closeRadial();
+    expect(rig.vm.paneState('pane-left')?.radial).toBeNull();
+    await rig.app.run('view.cameraRadial', { paneId: 'pane-left' });
+    rig.layout('single');
+    expect(rig.vm.paneState('pane-left')).toBeNull();
+    await rig.app.run('view.cameraRadial', { paneId: 'pane-single' });
+    expect(rig.vm.paneState('pane-single')?.radial).not.toBeNull();
   });
 });

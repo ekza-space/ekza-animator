@@ -1,6 +1,7 @@
 // Viewport contributions (MVP-SPEC §4.9 owner 5, §7 WP-5): the `select` / `move` / `rotate` viewport tools and the
 // operators view.layout, view.frame, view.display.toggle, view.lookThrough, view.copyViewToShot,
-// view.toggleCameraLock and view.cameraRadial (M1-stretch: polls "not available yet").
+// view.toggleCameraLock and view.cameraRadial (M1-stretch: opens the pane's camera radial; the viewport panel draws
+// it and picks on Space release).
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import { type CameraId, type CameraRecord, fractionalIndex, newId } from '@ekza-animator/doc';
 import type {
@@ -176,12 +177,15 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
 
   const cameraRadial: Def<'view.cameraRadial'> = {
     id: 'view.cameraRadial',
-    label: 'Camera Menu',
+    label: 'Camera Radial',
     category: 'view',
     scope: 'viewport',
     flags: { internal: true },
-    poll: () => ({ ok: false, reason: 'not available yet' }),
-    apply: () => {},
+    poll: (ctx, args) => (paneOf(ctx, args?.paneId) === null ? NO_PANE : true),
+    apply: (ctx, args) => {
+      const pane = paneOf(ctx, args?.paneId);
+      if (pane !== null) vm.openRadial(pane);
+    },
   };
 
   const disposers: Disposer[] = [

@@ -13,6 +13,7 @@ import {
 } from '@ekza-animator/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
+import { CameraRadial, type CameraChoice } from './CameraRadial';
 import { usePaneState } from './hooks';
 import { PaneMenu, type PaneMenuItem } from './PaneMenu';
 
@@ -69,9 +70,42 @@ export function PaneView(props: {
         data-ekza-pane={paneId}
       >
         {state === null || state.display.hud ? <Hud app={app} state={state} /> : null}
+        {vm !== null && state !== null && state.radial !== null ? (
+          <PaneRadial app={app} vm={vm} paneId={paneId} state={state} at={state.radial} />
+        ) : null}
       </div>
     </section>
   );
+}
+
+/** The pane's cameras: the four view presets, then the live shot cameras by order. */
+function useCameraChoices(state: PaneState | null): readonly CameraChoice[] {
+  const cameras = useDocQuery(liveCameras, ['cameras']);
+  return [
+    ...VIEW_PRESETS.map((preset) => ({
+      id: preset,
+      label: preset,
+      camera: { kind: 'view', preset } as const,
+      checked: state?.cameraKind === 'view' && state.preset === preset,
+    })),
+    ...cameras.map((camera) => ({
+      id: `shot-${camera.id}`,
+      label: camera.locked ? `${camera.name} (locked)` : camera.name,
+      camera: { kind: 'shot', cameraId: camera.id } as const,
+      checked: state?.shotCameraId === camera.id,
+    })),
+  ];
+}
+
+function PaneRadial(props: {
+  readonly app: EditorApp;
+  readonly vm: ViewportManager;
+  readonly paneId: string;
+  readonly state: PaneState;
+  readonly at: { readonly x: number; readonly y: number };
+}): JSX.Element {
+  const choices = useCameraChoices(props.state);
+  return <CameraRadial app={props.app} vm={props.vm} paneId={props.paneId} at={props.at} choices={choices} />;
 }
 
 function PaneHeader(props: {
@@ -80,25 +114,19 @@ function PaneHeader(props: {
   readonly state: PaneState | null;
 }): JSX.Element {
   const { app, paneId, state } = props;
-  const cameras = useDocQuery(liveCameras, ['cameras']);
+  const choices = useCameraChoices(state);
   const run = (op: string, args: unknown): void => {
     void app.runUntyped(op, args, { panel: PANEL.viewport, paneId });
   };
   const lookThrough = (camera: PaneCamera): void => run('view.lookThrough', { paneId, camera });
   const binding = state?.binding;
   const items: PaneMenuItem[] = [
-    ...VIEW_PRESETS.map((preset) => ({
-      id: preset,
-      label: preset,
-      checked: state?.cameraKind === 'view' && state.preset === preset,
-      onSelect: () => lookThrough({ kind: 'view', preset }),
-    })),
-    ...cameras.map((camera, index) => ({
-      id: `shot-${camera.id}`,
-      label: camera.locked ? `${camera.name} (locked)` : camera.name,
-      checked: state?.shotCameraId === camera.id,
-      separatorBefore: index === 0,
-      onSelect: () => lookThrough({ kind: 'shot', cameraId: camera.id }),
+    ...choices.map((choice, index) => ({
+      id: choice.id,
+      label: choice.label,
+      checked: choice.checked,
+      separatorBefore: index === VIEW_PRESETS.length,
+      onSelect: () => lookThrough(choice.camera),
     })),
     {
       id: 'copy-view-to-shot',

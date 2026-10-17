@@ -101,7 +101,12 @@ export interface PaneState {
   readonly display: DisplayFlags;
   /** Incremented whenever a locked camera swallowed navigation (the panel flashes LOCKED). */
   readonly lockFlash: number;
+  /** Centre (pane CSS px) of the open Space-hold camera radial (M1-stretch), or null. */
+  readonly radial: { readonly x: number; readonly y: number } | null;
 }
+
+/** Pane CSS px the radial keeps between its centre and the pane edges (when the pane is large enough). */
+export const RADIAL_MARGIN_PX = 96;
 
 interface PaneRuntime {
   readonly id: string;
@@ -113,6 +118,7 @@ interface PaneRuntime {
   readonly marquee: MarqueeBox;
   state: PaneState;
   lockFlash: number;
+  radial: { readonly x: number; readonly y: number } | null;
 }
 
 type Resolved =
@@ -181,6 +187,8 @@ export class ViewportManager {
   private manipulatorDirty = true;
   private entryMap: { readonly version: number; readonly map: Map<ControlId, ControlEntry> } | null = null;
   private lastPointerPane: string | null = null;
+  /** Last pointer position over a pane (page CSS px): where the camera radial opens. */
+  private pointerAt: { readonly paneId: string; readonly clientX: number; readonly clientY: number } | null = null;
   private disposed = false;
   /** Untouched view cameras should be (re)framed at the next frame preparation. */
   private autoFrame = true;
@@ -262,6 +270,7 @@ export class ViewportManager {
       marquee: new MarqueeBox(desc.element),
       state: undefined as unknown as PaneState,
       lockFlash: 0,
+      radial: null,
     };
     pane.state = this.stateOf(pane);
     this.panes.set(desc.id, pane);
@@ -342,6 +351,34 @@ export class ViewportManager {
   subscribePanes(listener: () => void): Disposer {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Opens the Space-hold camera radial (M1-stretch) of a pane at the last pointer position over it (else its centre),
+   * kept RADIAL_MARGIN_PX inside the pane. Closes any other radial. False for an unknown pane.
+   */
+  openRadial(paneId: string): boolean {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return false;
+    const r = pane.element.getBoundingClientRect();
+    const at = this.pointerAt?.paneId === paneId ? this.pointerAt : null;
+    const clamp = (v: number, size: number): number =>
+      size <= 2 * RADIAL_MARGIN_PX ? size / 2 : Math.min(Math.max(v, RADIAL_MARGIN_PX), size - RADIAL_MARGIN_PX);
+    const x = clamp(at === null ? r.width / 2 : at.clientX - r.left, r.width);
+    const y = clamp(at === null ? r.height / 2 : at.clientY - r.top, r.height);
+    for (const other of this.panes.values()) other.radial = null;
+    pane.radial = { x, y };
+    this.refreshPaneStates();
+    return true;
+  }
+
+  closeRadial(): void {
+    let open = false;
+    for (const pane of this.panes.values()) {
+      open ||= pane.radial !== null;
+      pane.radial = null;
+    }
+    if (open) this.refreshPaneStates();
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -812,6 +849,7 @@ export class ViewportManager {
 
   private pointerDown(pane: PaneRuntime, e: PointerEvent): void {
     this.lastPointerPane = pane.id;
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
     if (this.nav !== null || this.toolPointer !== null) return;
     const gesture = pointerGesture(this.profile, e);
@@ -833,6 +871,7 @@ export class ViewportManager {
   }
 
   private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     const nav = this.nav;
     if (nav !== null) {
       if (nav.pointerId === e.pointerId) this.moveNav(pane, e, nav);
@@ -1173,6 +1212,7 @@ export class ViewportManager {
       locked,
       display: pane.display,
       lockFlash: pane.lockFlash,
+      radial: pane.radial,
     };
   }
 
@@ -1292,7 +1332,8 @@ function sameState(a: PaneState, b: PaneState | undefined): boolean {
     a.cameraName === b.cameraName &&
     a.locked === b.locked &&
     a.display === b.display &&
-    a.lockFlash === b.lockFlash
+    a.lockFlash === b.lockFlash &&
+    a.radial === b.radial
   );
 }
 
