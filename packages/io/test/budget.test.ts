@@ -44,6 +44,42 @@ describe('checkInputBudget', () => {
     expect(new Set(all.map((i) => i.code))).toEqual(new Set(['malformed-gltf', 'budget-exceeded']));
   });
 
+  it('accepts the hostile template without hostile parts and rejects out-of-range index and joint values', async () => {
+    expect(checkInputBudget(await parseGlb(makeHostileGlb([])))).toEqual([]);
+
+    const index = errors(checkInputBudget(await parseGlb(makeHostileGlb(['index-out-of-range']))));
+    expect(index).toEqual([
+      expect.objectContaining({ code: 'malformed-gltf', pointer: '/meshes/0/primitives/0/indices' }),
+    ]);
+    expect(index[0]?.message).toMatch(/index 3.*3 vertices/);
+
+    const joint = errors(checkInputBudget(await parseGlb(makeHostileGlb(['joint-out-of-range']))));
+    expect(joint).toEqual([
+      expect.objectContaining({ code: 'malformed-gltf', pointer: '/meshes/0/primitives/0/attributes/JOINTS_0' }),
+    ]);
+    expect(joint[0]?.message).toMatch(/joint 2.*2 joints/);
+  });
+
+  it('scans index values only within budget and only for plainly stored accessors', async () => {
+    const hostile = await parseGlb(makeHostileGlb(['index-out-of-range']));
+    const tight = { ...DEFAULT_INPUT_BUDGET, maxAccessorCount: 2 };
+    const issues = errors(checkInputBudget(hostile, tight));
+    expect(issues.some((i) => i.code === 'budget-exceeded')).toBe(true);
+    expect(issues.some((i) => i.pointer === '/meshes/0/primitives/0/indices')).toBe(false);
+
+    // Interleaved (byteStride) index data is read in place; out-of-range values past the stride gap are found.
+    const b = new GltfBuilder();
+    const json = b.json as Record<string, unknown>;
+    const positions = b.accessor(new Float32Array(9), 'VEC3', { minMax: true });
+    const view = b.view(new Uint8Array(new Uint16Array([0, 0xffff, 1, 0xffff, 5, 0xffff]).buffer));
+    (b.json.bufferViews[view] as Record<string, unknown>)['byteStride'] = 4;
+    b.json.accessors.push({ bufferView: view, componentType: 5123, count: 3, type: 'SCALAR' });
+    json['meshes'] = [{ primitives: [{ attributes: { POSITION: positions }, indices: b.json.accessors.length - 1 }] }];
+    json['nodes'] = [{ mesh: 0 }];
+    const strided = errors(checkInputBudget(await parseGlb(b.build())));
+    expect(strided.map((i) => i.message)).toEqual([expect.stringMatching(/index 5/)]);
+  });
+
   it('enforces every budget of the given limits', async () => {
     const c = await parseGlb(readFixture('polybot.vrm'));
     const tiny = {

@@ -202,19 +202,36 @@ export function makeBudgetStressGlb(): Uint8Array {
   return b.build();
 }
 
-/** Hostile variants for the structural checks: an out-of-range bufferView, a 2^31 count and a node cycle. */
-export type HostileKind = 'view-out-of-range' | 'huge-count' | 'cyclic-nodes';
+/**
+ * Hostile variants for the structural checks (§4.11.14): an out-of-range bufferView, a 2^31 count, a node cycle, a
+ * mesh index past the vertex count and a JOINTS_0 value past the skin's joint count.
+ */
+export type HostileKind =
+  | 'view-out-of-range'
+  | 'huge-count'
+  | 'cyclic-nodes'
+  | 'index-out-of-range'
+  | 'joint-out-of-range';
 
 export function makeHostileGlb(kinds: readonly HostileKind[]): Uint8Array {
   const b = new GltfBuilder();
   const json = b.json as Json;
   const positions = b.accessor(new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]), 'VEC3', { minMax: true });
-  json['meshes'] = [{ primitives: [{ attributes: { POSITION: positions } }] }];
+  const indices = b.accessor(new Uint16Array([0, 1, kinds.includes('index-out-of-range') ? 3 : 2]), 'SCALAR');
+  const joints = b.accessor(
+    new Uint16Array([0, 0, 0, 0, 1, 0, 0, 0, kinds.includes('joint-out-of-range') ? 2 : 1, 0, 0, 0]),
+    'VEC4',
+  );
+  const weights = b.accessor(new Float32Array([1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0]), 'VEC4');
+  json['meshes'] = [
+    { primitives: [{ attributes: { POSITION: positions, JOINTS_0: joints, WEIGHTS_0: weights }, indices }] },
+  ];
   json['nodes'] = [
     { name: 'a', children: [1] },
     { name: 'b', children: [] as number[] },
-    { name: 'mesh', mesh: 0 },
+    { name: 'mesh', mesh: 0, skin: 0 },
   ];
+  json['skins'] = [{ joints: [0, 1] }];
   json['scenes'] = [{ nodes: [0, 2] }];
   if (kinds.includes('view-out-of-range')) {
     // A view that starts past the end of the buffer.

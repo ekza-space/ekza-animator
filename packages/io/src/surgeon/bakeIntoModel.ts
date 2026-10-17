@@ -21,7 +21,7 @@ import type {
 } from '../types';
 import { finalizeArtifact } from '../writers/artifact';
 import { clipNameKey, outputMeta } from '../writers/names';
-import { assertUniqueNames } from '../writers/write';
+import { assertUniqueNames, generatorName } from '../writers/write';
 
 export const BAKE_MARKER_KEY = 'ekza_animator_bake_v1';
 export const ANIMATION_META_KEY = 'ekza_animation_v1';
@@ -85,6 +85,7 @@ export async function bakeIntoModel(
       baseBinSha256: await sha256Hex(binPrefix(original.bin, baseBinLength)),
       baseSha256: original.sha256,
       replaced: {},
+      ...(hasGenerator(json) ? {} : { generatorAdded: true as const }),
     };
   } else {
     marker = { ...existing, replaced: { ...existing.replaced } };
@@ -144,7 +145,7 @@ export async function bakeIntoModel(
         written.map((w) => w.index),
       );
   const meta = outputMeta(opts.meta, written, keptMeta);
-  writeExtras(json, marker, meta);
+  writeAsset(json, marker, meta, written.length > 0);
 
   const binParts =
     binLength(json) > 0 || original.bin !== null ? [binPrefix(original.bin, appendOffset), appended] : null;
@@ -183,6 +184,7 @@ function readMarker(json: MutableJson): EkzaBakeMarkerV1 | null {
     baseBinSha256: marker['baseBinSha256'],
     baseSha256: marker['baseSha256'],
     replaced,
+    ...(marker['generatorAdded'] === true ? { generatorAdded: true as const } : {}),
   };
 }
 
@@ -241,6 +243,10 @@ function structuralBlocker(json: MutableJson, marker: EkzaBakeMarkerV1, bin: Uin
 function rollBack(json: MutableJson, marker: EkzaBakeMarkerV1): void {
   const animations = arrayOf(json, 'animations');
   for (const [key, value] of Object.entries(marker.replaced)) animations[Number(key)] = structuredClone(value);
+  if (marker.generatorAdded === true && isRecord(json['asset'])) {
+    const { generator: _ours, ...asset } = json['asset'];
+    json['asset'] = asset;
+  }
   truncate(json, 'animations', marker.baseAnimations);
   truncate(json, 'accessors', marker.baseAccessors);
   truncate(json, 'bufferViews', marker.baseBufferViews);
@@ -443,6 +449,12 @@ class BinAppender {
   }
 }
 
+/** Whether `asset.generator` is present (any value counts: an existing key is never rewritten). */
+function hasGenerator(json: MutableJson): boolean {
+  const asset = json['asset'];
+  return isRecord(asset) && asset['generator'] !== undefined;
+}
+
 function arrayOf(json: MutableJson, key: string): unknown[] {
   const value = json[key];
   return Array.isArray(value) ? (value as unknown[]) : [];
@@ -486,8 +498,19 @@ function keptClipMeta(json: MutableJson, overwritten: readonly number[]): EkzaCl
     .map((clip) => normalizeClipMeta(clip));
 }
 
-function writeExtras(json: MutableJson, marker: MutableMarker, meta: EkzaAnimationV1): void {
-  const asset: MutableJson = isRecord(json['asset']) ? { ...json['asset'] } : { version: '2.0' };
+/**
+ * Writes the marker and the clip metadata into `asset.extras`. `asset.generator` is written only when the file has
+ * none and clips are baked (§4.11.11 rule 8); it goes right after `version` so a rollback that removed it and a
+ * re-bake that adds it again serialize identically. An existing generator names the model's tool and stays.
+ */
+function writeAsset(json: MutableJson, marker: MutableMarker, meta: EkzaAnimationV1, baked: boolean): void {
+  let asset: MutableJson = isRecord(json['asset']) ? { ...json['asset'] } : { version: '2.0' };
+  if (baked && !hasGenerator(json)) {
+    const entries = Object.entries(asset).filter(([key]) => key !== 'generator');
+    const at = entries.findIndex(([key]) => key === 'version') + 1;
+    entries.splice(at, 0, ['generator', generatorName(meta)]);
+    asset = Object.fromEntries(entries);
+  }
   const extras: MutableJson = isRecord(asset['extras']) ? { ...asset['extras'] } : {};
   extras[BAKE_MARKER_KEY] = {
     baseAnimations: marker.baseAnimations,
@@ -498,6 +521,7 @@ function writeExtras(json: MutableJson, marker: MutableMarker, meta: EkzaAnimati
     baseSha256: marker.baseSha256,
     // Integer-like keys iterate in ascending order, so re-bakes serialize identically.
     replaced: { ...marker.replaced },
+    ...(marker.generatorAdded === true ? { generatorAdded: true } : {}),
   };
   extras[ANIMATION_META_KEY] = meta;
   asset['extras'] = extras;

@@ -40,6 +40,8 @@ function expectPreserved(source: GlbContainer, out: GlbContainer, replaced: read
     if (key === 'asset') {
       const { extras: _a, ...restBefore } = value as Json;
       const { extras: _b, ...restAfter } = after[key] as Json;
+      // §4.11.11 rule 8: the surgeon names itself only in a file without a generator.
+      if (restBefore['generator'] === undefined) delete restAfter['generator'];
       if (!jsonEqual(restBefore, restAfter)) problems.push('asset');
     } else if (key === 'buffers') {
       const [b0, ...others] = value as Json[];
@@ -104,7 +106,8 @@ describe('bakeIntoModel', () => {
         replaced: {},
       });
       expect(hasUriKey(marker)).toBe(false);
-      expect(out.json.asset.generator).toBe(source.json.asset.generator);
+      expect(out.json.asset.generator).toBe(source.json.asset.generator ?? 'Ekza Animator 0.1.0');
+      expect(marker.generatorAdded).toBe(source.json.asset.generator === undefined ? true : undefined);
       // The clip reads back from the baked file exactly.
       const read = readAnimations(out, skeletonFromGltf(out)).find((c) => c.name === 'wave');
       for (const track of clip.tracks) {
@@ -152,24 +155,30 @@ describe('bakeIntoModel', () => {
     expect(meta.clips.map((c) => [c.index, c.name])).toEqual([[walk, 'Walk_Loop']]);
   });
 
-  it('rolls back to the original when re-baked with no clips', async () => {
-    const { source, skeleton } = await setup('polybot.vrm');
-    const baked = await parseGlb((await bake(source, skeleton, [rawClip(skeleton, 'wave')])).bytes);
-    const back = await bakeIntoModel(baked, skeleton, [], {
-      meta: metaOf([], skeleton),
-      fileName: 'x.vrm',
-      profile: null,
-    });
-    const out = await parseGlb(back.bytes);
-    const { asset: a1, ...restSource } = source.json as Json;
-    const { asset: a2, ...restOut } = out.json as Json;
-    expect(jsonEqual(restSource, restOut)).toBe(true);
-    const { extras: _e1, ...assetSource } = a1 as Json;
-    const { extras: _e2, ...assetOut } = a2 as Json;
-    expect(assetOut).toEqual(assetSource);
-    expect(out.bin).toEqual(source.bin);
-    expect(back.stats.bytesAppended).toBe(0);
-  });
+  it.each<LicensedFixture>(['polybot.vrm', 'seed-san.vrm'])(
+    'rolls %s back to the original when re-baked with no clips',
+    async (name) => {
+      const { source, skeleton } = await setup(name);
+      const baked = await parseGlb((await bake(source, skeleton, [rawClip(skeleton, 'wave')])).bytes);
+      const back = await bakeIntoModel(baked, skeleton, [], {
+        meta: metaOf([], skeleton),
+        fileName: 'x.vrm',
+        profile: null,
+      });
+      const out = await parseGlb(back.bytes);
+      const { asset: a1, ...restSource } = source.json as Json;
+      const { asset: a2, ...restOut } = out.json as Json;
+      expect(jsonEqual(restSource, restOut)).toBe(true);
+      const { extras: _e1, ...assetSource } = a1 as Json;
+      const { extras: _e2, ...assetOut } = a2 as Json;
+      expect(assetOut).toEqual(assetSource);
+      expect(Object.keys(assetOut)).toEqual(Object.keys(assetSource));
+      // Byte comparison by hash: deep-equality of a 10 MB BIN is slow in the matcher.
+      expect(out.bin?.length).toBe(source.bin?.length);
+      expect(sha256HexSync(out.bin ?? new Uint8Array())).toBe(sha256HexSync(source.bin ?? new Uint8Array()));
+      expect(back.stats.bytesAppended).toBe(0);
+    },
+  );
 
   it('refuses matrix nodes and external buffers', async () => {
     const b = new GltfBuilder();
@@ -210,6 +219,19 @@ describe('bakeIntoModel', () => {
     const back = await parseGlb((await bake(baked, skeleton, [])).bytes);
     expect(back.json['buffers']).toBeUndefined();
     expect(back.json['accessors']).toBeUndefined();
+  });
+
+  it('sets asset.generator only when the model has none', async () => {
+    const b = new GltfBuilder({ version: '2.0', copyright: 'CC0' });
+    (b.json as Json)['nodes'] = [{ name: 'root', children: [1] }, { name: 'bone' }];
+    const c = await parseGlb(b.build());
+    const skeleton = skeletonFromGltf(c);
+    const clip = rawClip({ ...skeleton, nodes: skeleton.nodes.map((n) => ({ ...n, isJoint: true })) }, 'wave');
+    const out = await parseGlb((await bake(c, skeleton, [clip])).bytes);
+    expect(out.json.asset).toMatchObject({ version: '2.0', copyright: 'CC0', generator: 'Ekza Animator 0.1.0' });
+    // A re-bake keeps the generator it finds.
+    const again = await parseGlb((await bake(out, skeleton, [clip])).bytes);
+    expect(again.json.asset.generator).toBe('Ekza Animator 0.1.0');
   });
 
   it('appends without rollback (and warns) after another tool or a BIN change', async () => {

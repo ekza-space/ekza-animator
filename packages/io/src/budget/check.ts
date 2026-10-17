@@ -46,6 +46,10 @@ class Issues {
     this.push({ code: 'malformed-gltf', severity: 'warning', message, ...(at === undefined ? {} : { pointer: at }) });
   }
 
+  has(code: LintIssue['code']): boolean {
+    return this.list.some((issue) => issue.code === code && issue.severity === 'error');
+  }
+
   private push(issue: LintIssue): void {
     if (this.list.length < MAX_BUDGET_ISSUES) this.list.push(issue);
     else this.dropped++;
@@ -90,6 +94,8 @@ export function checkInputBudget(c: GlbContainer, budget: InputBudget = DEFAULT_
   checkMeshes(json, issues);
   checkSkins(json, nodes.length, issues);
   checkAnimations(json, nodes.length, issues);
+  // Index values are scanned in place, and only within budget (the scan is linear in the accessor counts).
+  if (!issues.has('budget-exceeded')) checkIndexValues(c, views, issues);
   return issues.finish();
 }
 
@@ -543,6 +549,116 @@ function checkAnimations(json: JsonRecord, nodeCount: number, issues: Issues): v
       }
     });
   });
+}
+
+/**
+ * Mesh index values below the primitive's vertex count and JOINTS_n values below the joint count of every skin the
+ * mesh is bound with (glTF-Validator ACCESSOR_INDEX_OOB / ACCESSOR_JOINTS_INDEX_OOB). Only data stored plainly in the
+ * GLB BIN chunk is read: compressed, sparse or out-of-bounds accessors are skipped here (their other checks apply).
+ */
+function checkIndexValues(c: GlbContainer, views: readonly GltfBufferViewDef[], issues: Issues): void {
+  const json = c.json;
+  const accessors = accessorsOf(json);
+  const skins = skinsOf(json);
+  const scanner = new IntegerScanner(c, accessors, views);
+  // Smallest joint count of the skins each mesh is used with.
+  const jointLimit = new Map<number, number>();
+  for (const node of nodesOf(json)) {
+    if (!isIndex(node.mesh) || !isIndex(node.skin)) continue;
+    const joints = skins[node.skin]?.joints;
+    if (!Array.isArray(joints)) continue;
+    jointLimit.set(node.mesh, Math.min(jointLimit.get(node.mesh) ?? Infinity, joints.length));
+  }
+  meshesOf(json).forEach((mesh, m) => {
+    listField(mesh.primitives).forEach((primitive, p) => {
+      if (!isRecord(primitive) || !isRecord(primitive.attributes)) return;
+      const at = pointer('meshes', m, 'primitives', p);
+      const position = primitive.attributes['POSITION'];
+      const vertices = isIndex(position) ? accessors[position]?.count : undefined;
+      if (isIndex(primitive.indices) && isIndex(vertices)) {
+        const max = scanner.max(primitive.indices);
+        if (max !== null && max >= vertices) {
+          issues.error(
+            'malformed-gltf',
+            `meshes[${m}].primitives[${p}] has index ${max}, but the primitive has ${vertices} vertices`,
+            `${at}/indices`,
+          );
+        }
+      }
+      const limit = jointLimit.get(m);
+      if (limit === undefined) return;
+      for (const [name, ref] of Object.entries(primitive.attributes)) {
+        if (!/^JOINTS_\d+$/.test(name) || !isIndex(ref)) continue;
+        const max = scanner.max(ref);
+        if (max !== null && max >= limit) {
+          issues.error(
+            'malformed-gltf',
+            `meshes[${m}].primitives[${p}].${name} references joint ${max}, but its skin has ${limit} joints`,
+            `${at}/attributes/${name}`,
+          );
+        }
+      }
+    });
+  });
+}
+
+/** Largest component value of unsigned-integer accessors, read in place from the BIN chunk (memoized). */
+class IntegerScanner {
+  private readonly cache = new Map<number, number | null>();
+
+  constructor(
+    private readonly c: GlbContainer,
+    private readonly accessors: readonly GltfAccessorDef[],
+    private readonly views: readonly GltfBufferViewDef[],
+  ) {}
+
+  max(index: number): number | null {
+    let value = this.cache.get(index);
+    if (value === undefined) {
+      value = this.scan(index);
+      this.cache.set(index, value);
+    }
+    return value;
+  }
+
+  private scan(index: number): number | null {
+    const accessor = this.accessors[index];
+    const bin = this.c.bin;
+    if (accessor === undefined || bin === null || accessor.sparse !== undefined || !isIndex(accessor.bufferView)) {
+      return null;
+    }
+    const size = COMPONENT_SIZE[accessor.componentType];
+    const components = TYPE_COMPONENTS[accessor.type];
+    if (!INDEX_COMPONENT_TYPES.has(accessor.componentType) || size === undefined || components === undefined) {
+      return null;
+    }
+    const view = this.views[accessor.bufferView];
+    const buffer0 = buffersOf(this.c.json)[0];
+    if (view === undefined || view.buffer !== 0 || meshoptOf(view) !== null || buffer0?.uri !== undefined) return null;
+    const viewOffset = view.byteOffset ?? 0;
+    const offset = accessor.byteOffset ?? 0;
+    const element = components * size;
+    const stride = view.byteStride ?? element;
+    const count = accessor.count;
+    if (!isIndex(viewOffset) || !isIndex(offset) || !isIndex(view.byteLength) || !isIndex(stride) || !isIndex(count)) {
+      return null;
+    }
+    if (count === 0) return null;
+    const start = viewOffset + offset;
+    const end = start + stride * (count - 1) + element;
+    if (offset + stride * (count - 1) + element > view.byteLength || end > bin.byteLength) return null;
+    const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+    let max = 0;
+    for (let e = 0; e < count; e++) {
+      const base = start + e * stride;
+      for (let k = 0; k < components; k++) {
+        const at = base + k * size;
+        const v = size === 1 ? dv.getUint8(at) : size === 2 ? dv.getUint16(at, true) : dv.getUint32(at, true);
+        if (v > max) max = v;
+      }
+    }
+    return max;
+  }
 }
 
 function listLength(json: JsonRecord, key: string): number {
