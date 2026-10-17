@@ -314,6 +314,17 @@ describe('naive DocumentStore (test kit)', () => {
     });
   });
 
+  it('updates the undo stacks before listeners see the batch', () => {
+    const seen: (string | null)[] = [];
+    store.subscribe(() => seen.push(store.undo.peekUndo()?.label ?? null));
+    store.transact({ label: 'First' }, (tx) => tx.patch('clips', WAVE.clip, { loop: false }));
+    const preview = store.beginPreview('Drag');
+    preview.update((tx) => tx.patch('clips', WAVE.clip, { name: 'dragged' }));
+    preview.commit();
+    store.undo.undo();
+    expect(seen).toEqual(['First', 'First', 'Drag', 'First']);
+  });
+
   it('projects duplicate key times: the greatest KeyId wins, the others are hidden', () => {
     store.transact({ label: 'Dup' }, (tx) => tx.put('keys', newKey('k_SynthWave999', 15, 9)));
     expect(store.query.keysOfCurve(WAVE.curve).map((k) => k.id)).toEqual([

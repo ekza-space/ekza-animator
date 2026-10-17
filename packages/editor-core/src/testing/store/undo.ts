@@ -161,9 +161,10 @@ export class NaiveUndoManager implements UndoManager {
         });
       }
     }
-    if (writes.length > 0) this.host.commit(direction, item.entry.label, writes);
+    // Stacks first, then the batch: listeners of the undo/redo batch see the updated stacks.
     to.push(item);
     this.capturing = false;
+    if (writes.length > 0) this.host.commit(direction, item.entry.label, writes);
     this.notify();
     const selection = direction === 'undo' ? item.entry.selectionBefore : item.entry.selectionAfter;
     return {

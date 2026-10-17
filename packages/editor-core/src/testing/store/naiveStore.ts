@@ -169,8 +169,9 @@ class NaiveStore implements DocumentStore {
     }
     const changes = diffOverlay(context.overlay);
     if (changes.length === 0) return result;
-    const batch = this.commitChanges(changes, 'local', context.meta.label, this.user);
-    this.undo.record(batch.txId, changes, withMeta(meta, context.meta));
+    this.commitChanges(changes, 'local', context.meta.label, this.user, (txId) =>
+      this.undo.record(txId, changes, withMeta(meta, context.meta)),
+    );
     return result;
   }
 
@@ -204,19 +205,36 @@ class NaiveStore implements DocumentStore {
     return this.previewSession;
   }
 
-  /** Applies whole-row writes to the committed tables and emits one batch. */
-  commitChanges(writes: readonly RowChange[], origin: Origin, label: string, user: UserId): ChangeBatch {
+  /**
+   * Applies whole-row writes to the committed tables and emits one batch. `beforeEmit` runs once the state is
+   * committed and before listeners see the batch (the undo entry is recorded there, so listeners read it).
+   */
+  commitChanges(
+    writes: readonly RowChange[],
+    origin: Origin,
+    label: string,
+    user: UserId,
+    beforeEmit?: (txId: string) => void,
+  ): ChangeBatch {
     for (const write of writes) {
       this.committed.set(write.table, write.id, write.after);
       if (write.after !== undefined) this.openFor(this.committed, write.table, write.after);
     }
-    return this.emit(writes, origin, label, user);
+    const txId = this.nextTxId();
+    beforeEmit?.(txId);
+    return this.emit(writes, origin, label, user, txId);
   }
 
-  emit(changes: readonly RowChange[], origin: Origin, label: string, user: UserId = this.user): ChangeBatch {
+  emit(
+    changes: readonly RowChange[],
+    origin: Origin,
+    label: string,
+    user: UserId = this.user,
+    txId: string = this.nextTxId(),
+  ): ChangeBatch {
     this.versionCounter++;
     const batch: ChangeBatch = {
-      txId: this.nextTxId(),
+      txId,
       origin,
       label,
       user,
@@ -464,9 +482,9 @@ class NaivePreview implements PreviewSession {
     const changes = diffOverlay(this.overlay);
     if (changes.length === 0) return null;
     const label = meta?.label ?? this.label;
-    const batch = this.store.commitChanges(changes, 'local', label, this.store.user);
-    this.store.undo.record(batch.txId, changes, { ...meta, label });
-    return batch;
+    return this.store.commitChanges(changes, 'local', label, this.store.user, (txId) =>
+      this.store.undo.record(txId, changes, { ...meta, label }),
+    );
   }
 
   cancel(): void {
