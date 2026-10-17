@@ -1,9 +1,25 @@
-// Built-in importers (ADR 0008 importer registry): models (`.glb`, `.vrm`), VRMA clips and projects. Each names the
-// operator that receives `{ name, bytes }`; `file.open` and the shell's drop handler dispatch through them.
+// Built-in importers (ADR 0008 importer registry): models (`.glb`, `.vrm`), animation-only `.glb` and VRMA clips, and
+// projects. Each names the operator that receives `{ name, bytes }`; `file.open` and the shell's drop handler dispatch
+// through them, sniffing the content where two importers claim `.glb`.
 import type { ImporterDef, Registry } from '../../types';
+import { isAnimationOnlyGlb } from '../../workflows/importAnimation';
 
 export const BUILTIN_IMPORTERS: readonly ImporterDef[] = [
-  { id: 'gltf-model', label: 'glTF / VRM model', extensions: ['glb', 'vrm'], op: 'file.importModel' },
+  {
+    id: 'gltf-model',
+    label: 'glTF / VRM model',
+    extensions: ['glb', 'vrm'],
+    op: 'file.importModel',
+    sniff: (_name, bytes) => !isAnimationOnlyGlb(bytes),
+  },
+  {
+    // M1-stretch (FR-IO-10): a .glb with animations and no skin adds clips to the active character.
+    id: 'gltf-animation',
+    label: 'Animation-only glTF',
+    extensions: ['glb'],
+    op: 'file.importAnimation',
+    sniff: (_name, bytes) => isAnimationOnlyGlb(bytes),
+  },
   { id: 'vrma', label: 'VRM animation', extensions: ['vrma'], op: 'file.importAnimation' },
   { id: 'ekzanim', label: 'Ekza Animator project', extensions: ['ekzanim', 'ekzanim.json'], op: 'file.openProject' },
 ];

@@ -16,7 +16,7 @@ import { resolveImporter } from '../../src/operators/builtin/importers';
 import { createFakeEditorApp } from '../../src/testing';
 import type { OperatorContext } from '../../src/types';
 import { kernelApp } from '../kernel/support';
-import { humanoidSkeleton, opsApp, waveDoc } from './support';
+import { glbOf, humanoidSkeleton, opsApp, waveDoc } from './support';
 
 /** §4.9 rows owned by WP-7b, with the U column. */
 const CATALOG: Readonly<Record<string, boolean>> = {
@@ -287,19 +287,21 @@ describe('importers', () => {
     expect(op('model.fbx')).toBeNull();
   });
 
-  it('use a sniffer when several importers claim an extension', () => {
+  it('sniff .glb files: animation-only files add clips, others are models', () => {
     const app = kernelApp({ snapshot: waveDoc() });
     registerBuiltins(app);
+    const id = (bytes: Uint8Array) => resolveImporter(app.importers, 'clip.glb', bytes)?.id;
+    expect(id(glbOf({ asset: { version: '2.0' }, animations: [{ channels: [], samplers: [] }] }))).toBe(
+      'gltf-animation',
+    );
+    expect(id(glbOf({ asset: { version: '2.0' }, skins: [{ joints: [0] }], animations: [{}] }))).toBe('gltf-model');
+    expect(id(glbOf({ asset: { version: '2.0' } }))).toBe('gltf-model');
+    expect(id(new Uint8Array(3))).toBe('gltf-model');
+    // An extension's importer with its own sniffer takes the files the built-ins leave.
     app.contribute({
       kind: 'importer',
-      def: {
-        id: 'acme.anim-glb',
-        label: 'Animation GLB',
-        extensions: ['glb'],
-        op: 'acme.importAnim',
-        sniff: () => true,
-      },
+      def: { id: 'acme.gltf', label: 'Acme', extensions: ['gltf'], op: 'acme.importGltf', sniff: () => true },
     });
-    expect(resolveImporter(app.importers, 'clip.glb', new Uint8Array(0))?.id).toBe('acme.anim-glb');
+    expect(resolveImporter(app.importers, 'scene.gltf', new Uint8Array(0))?.id).toBe('acme.gltf');
   });
 });

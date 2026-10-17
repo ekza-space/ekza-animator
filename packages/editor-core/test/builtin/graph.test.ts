@@ -107,12 +107,10 @@ describe('graph.tangent.set', () => {
     expect(key(app, K(0)).outHandle).toEqual({ dt: compiled.outDt[0], dv: compiled.outDv[0] });
   });
 
-  it('refuses plateau (M1-stretch) and unknown types', async () => {
+  it('sets plateau (M1-stretch, AnimX legacy auto) and refuses unknown types', async () => {
     const app = opsApp();
-    expect(await runResult(app, 'graph.tangent.set', { type: 'plateau' })).toEqual({
-      status: 'cancelled',
-      reason: 'not available yet',
-    });
+    await runOk(app, 'graph.tangent.set', { type: 'plateau' });
+    expect(keys(app).every((k) => k.inType === 'plateau' && k.outType === 'plateau')).toBe(true);
     expect((await runResult(app, 'graph.tangent.set', { type: 'bezier' })).status).toBe('cancelled');
     expect((await runResult(app, 'graph.tangent.set', { type: 'flat', side: 'up' })).status).toBe('cancelled');
   });

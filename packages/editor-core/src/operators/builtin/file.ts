@@ -1,5 +1,5 @@
-// File operators (MVP-SPEC §4.9 `file.*`): new, open (importer dispatch), projects, model / VRMA / sample import,
-// save and export. Everything asynchronous (parsing, hashing, the asset store, baking) happens in `prepare`; `apply`
+// File operators (MVP-SPEC §4.9 `file.*`): new, open (importer dispatch), projects, model / animation / sample
+// import, save and export. Everything asynchronous (parsing, hashing, the asset store, baking) happens in `prepare`; `apply`
 // writes the document in one transaction (imports) or replaces it (new, open project), and downloads.
 import { EkzaError } from '@ekza-animator/anim-core';
 import { emptySnapshot } from '@ekza-animator/doc';
@@ -8,11 +8,12 @@ import type { EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import { blockingLints, requestProblem } from '../../workflows/export';
 import type { Progress } from '../../workflows/host';
-import type { ClipImportPlan } from '../../workflows/importAnimation';
 import {
+  animationTargetProblem,
   applyClipImport,
-  humanoidTargetProblem,
+  type ClipImportPlan,
   importTarget,
+  prepareGlbAnimationImport,
   prepareVrmaImport,
 } from '../../workflows/importAnimation';
 import { applyModelImport, type ModelImportPlan, prepareModelImport } from '../../workflows/importModel';
@@ -136,10 +137,16 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   },
 });
 
+/** Kind of animation file by extension: VRMA (humanoid) or animation-only GLB (any rig, M1-stretch). */
+function animationKind(name: string): 'vrma' | 'glb' | null {
+  const ext = extensionOf(name);
+  return ext === 'vrma' ? 'vrma' : ext === 'glb' ? 'glb' : null;
+}
+
 const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPlan>({
   id: 'file.importAnimation',
   label: 'Import Animation',
-  description: 'Add a .vrma clip to a humanoid character.',
+  description: 'Add clips from a .vrma (humanoid characters) or an animation-only .glb (matched by node name).',
   category: 'file',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
@@ -147,17 +154,18 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
   poll({ app }, args) {
     const problem = fileArgsProblem(args);
     if (problem !== null) return fail(problem);
-    if (extensionOf(args.name) !== 'vrma')
-      return fail('Animation-only GLB import onto a character is not available yet');
+    const kind = animationKind(args.name);
+    if (kind === null) return fail('expects a .vrma or an animation-only .glb file');
     const target = importTarget(app.store, args.character, app.session.getState().activeCharacter);
-    const targetProblem = humanoidTargetProblem(app, target);
+    const targetProblem = animationTargetProblem(app, target, kind === 'vrma');
     return all(pollEditable(app), targetProblem === null ? OK : fail(targetProblem));
   },
   prepare({ app }, args) {
     const target = importTarget(app.store, args.character, app.session.getState().activeCharacter);
-    if (target === null) throw new EkzaError('unsupported', 'Load a humanoid character first');
+    if (target === null) throw new EkzaError('unsupported', 'Load a character first');
+    const input = { fileName: args.name, bytes: args.bytes, character: target, options: args.options };
     return busy(app, `Importing ${args.name}…`, () =>
-      prepareVrmaImport(app, { fileName: args.name, bytes: args.bytes, character: target, options: args.options }),
+      animationKind(args.name) === 'vrma' ? prepareVrmaImport(app, input) : prepareGlbAnimationImport(app, input),
     );
   },
   apply({ app, tx }, args, plan) {

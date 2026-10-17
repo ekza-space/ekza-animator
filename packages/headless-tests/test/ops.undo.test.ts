@@ -227,6 +227,7 @@ const CASES: readonly Case[] = [
     (s) => ({ clip: s.clip, fps: { num: 24, den: 1 }, loop: true, slot: 'wave' }),
   ],
   ['rig.setControlSize', 'rig.setControlSize', (s) => ({ control: s.arm, size: 0.2 })],
+  ['rig.setRotateOrder', 'rig.setRotateOrder', (s) => ({ control: s.arm, order: 'zyx' })],
   ['file.importModel', 'file.importModel', () => ({ name: 'seed-san.vrm', bytes: readFixture('seed-san.vrm') })],
   [
     'file.importAnimation',

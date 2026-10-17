@@ -118,3 +118,19 @@ export async function expectUndoRedoExact(
 export function setSceneFrame(app: EditorApp, frame: number): void {
   app.session.setState({ time: { ...app.session.getState().time, sceneFrame: frame } });
 }
+
+/** A GLB with only a JSON chunk (sniffing and rejection tests). */
+export function glbOf(json: unknown): Uint8Array {
+  let text = JSON.stringify(json);
+  while (text.length % 4 !== 0) text += ' ';
+  const chunk = new TextEncoder().encode(text);
+  const glb = new Uint8Array(20 + chunk.length);
+  const view = new DataView(glb.buffer);
+  view.setUint32(0, 0x46546c67, true);
+  view.setUint32(4, 2, true);
+  view.setUint32(8, glb.length, true);
+  view.setUint32(12, chunk.length, true);
+  view.setUint32(16, 0x4e4f534a, true);
+  glb.set(chunk, 20);
+  return glb;
+}

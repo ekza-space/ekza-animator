@@ -15,13 +15,14 @@ import { BUILTIN_IMPORTERS } from './importers';
 import { KEY_OPERATORS } from './key';
 import { BUILTIN_MENU_ITEMS } from './menus';
 import { POSE_OPERATORS } from './pose';
+import { RIG_OPERATORS } from './rig';
 import { SELECT_OPERATORS } from './select';
 import { TIME_OPERATORS } from './time';
 import { VIEW_OPERATORS } from './view';
 
 export { BUILTIN_EXPORTERS, BUILTIN_IMPORTERS, BUILTIN_MENU_ITEMS };
 
-/** Every built-in operator definition (§4.9 rows owned by WP-7b, plus `select.channels`). */
+/** Every built-in operator definition (§4.9 rows owned by WP-7b, plus the operators other packages requested). */
 export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...FILE_OPERATORS,
   ...EDIT_OPERATORS,
@@ -32,6 +33,7 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...GRAPH_OPERATORS,
   ...CLIP_OPERATORS,
   ...VIEW_OPERATORS,
+  ...RIG_OPERATORS,
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {

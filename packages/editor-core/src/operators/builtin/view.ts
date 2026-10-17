@@ -1,7 +1,7 @@
-// View and rig operators owned by WP-7b (MVP-SPEC §4.9): tools, manipulator size and space, navigation profile,
-// control size, secondary controls. The pane, camera and framing operators belong to the viewport (WP-5).
+// View operators owned by WP-7b (MVP-SPEC §4.9): tools, manipulator size and space, navigation profile, and camera
+// settings (WP-9 R-3). The pane, camera navigation and framing operators belong to the viewport (WP-5).
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { CameraId, ControlId } from '@ekza-animator/doc';
+import type { CameraId } from '@ekza-animator/doc';
 import { type EditorApp, GLOBAL_SCOPE, type ManipSpace, type NavProfile, PANEL } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
@@ -90,56 +90,6 @@ const setNavProfile = defineOperator({
   },
 });
 
-const setRotateOrder = defineOperator({
-  id: 'rig.setRotateOrder',
-  label: 'Rotate Order',
-  description: "Change a control's rotate order keeping its pose (M1-stretch).",
-  category: 'rig',
-  scope: GLOBAL_SCOPE,
-  flags: { undo: true },
-  poll: () => fail('not available yet'),
-  apply() {
-    throw new EkzaError('not-implemented', 'rig.setRotateOrder is an M1-stretch item');
-  },
-});
-
-const setControlSize = defineOperator({
-  id: 'rig.setControlSize',
-  label: 'Control Size',
-  description: "Resize a control's shape (metres).",
-  category: 'rig',
-  scope: GLOBAL_SCOPE,
-  flags: { undo: true, internal: true },
-  undoLabel: () => 'Control Size',
-  poll({ app }, raw) {
-    const args: unknown = raw;
-    if (!isRecord(args) || typeof args['control'] !== 'string' || !isFiniteNumber(args['size'])) {
-      return fail('expects { control, size }');
-    }
-    if (args['size'] <= 0) return fail('The size must be positive');
-    if (app.store.get('controls', args['control'] as ControlId) === undefined)
-      return fail('The control does not exist');
-    return pollEditable(app);
-  },
-  apply({ tx }, args) {
-    if (tx === null) throw new EkzaError('internal', 'rig.setControlSize runs in a transaction');
-    const control = tx.get('controls', args.control);
-    if (control === undefined || control.shape.size === args.size) return;
-    tx.patch('controls', control.id, { shape: { ...control.shape, size: args.size } });
-  },
-});
-
-const toggleSecondary = defineOperator({
-  id: 'rig.toggleSecondary',
-  label: 'Show Secondary Controls',
-  description: 'Show or hide the controls of non-humanoid joints (hair, accessories).',
-  category: 'rig',
-  scope: GLOBAL_SCOPE,
-  apply({ app }) {
-    app.session.setState({ showSecondary: !app.session.getState().showSecondary });
-  },
-});
-
 declare module '../args' {
   interface OperatorMap {
     /** Lens and clip planes of a shot camera (undoable); requested by WP-9 (R-3) for the Attributes panel. */
@@ -205,8 +155,5 @@ export const VIEW_OPERATORS: readonly AnyOperator[] = [
   manipulatorSize,
   setManipSpace,
   setNavProfile,
-  setRotateOrder,
-  setControlSize,
-  toggleSecondary,
   cameraSettings,
 ];

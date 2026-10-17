@@ -51,8 +51,6 @@ const TANGENT_TYPES: readonly TangentType[] = [
   'stepNext',
   'fixed',
 ];
-/** M1-stretch tangent types (§1.2): the enum value exists, the operator refuses it. */
-const NOT_YET: ReadonlySet<TangentType> = new Set(['plateau']);
 /** Computed types that resolve one slope for both sides of a key (unifying needs no handles). */
 const SMOOTH: ReadonlySet<TangentType> = new Set([
   'auto',
@@ -136,7 +134,6 @@ const tangentSet = defineOperator({
   poll({ app }, raw) {
     const args: unknown = raw;
     if (!isRecord(args) || !TANGENT_TYPES.includes(args['type'] as TangentType)) return fail('expects { type, side? }');
-    if (NOT_YET.has(args['type'] as TangentType)) return fail('not available yet');
     if (args['side'] !== undefined && !SIDES.includes(args['side'] as (typeof SIDES)[number])) {
       return fail("side is 'both', 'in' or 'out'");
     }

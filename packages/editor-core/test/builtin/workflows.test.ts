@@ -6,6 +6,7 @@ import { DEFAULT_REDUCE } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
 import { frameShotCamera, lookAtQuaternion, SHOT_FOV_Y } from '../../src/workflows/camera';
 import { landsOnFrames, resolveClipOptions } from '../../src/workflows/clipWrite';
+import { isAnimationOnlyGlb } from '../../src/workflows/importAnimation';
 import { animationNames, selectClips } from '../../src/workflows/importModel';
 import {
   baseName,
@@ -26,6 +27,7 @@ import {
   sourceProvenance,
 } from '../../src/workflows/provenance';
 import { SAMPLES } from '../../src/workflows/samples';
+import { glbOf } from './support';
 
 const SHA = 'a'.repeat(64);
 
@@ -244,6 +246,19 @@ describe('import clip options (§4.11.6 step 5)', () => {
     expect(selectClips(nine, [7, 2, 2, 12], undefined, warnings)).toEqual([2, 7]);
     expect(warnings).toEqual(['The file has no animation 12; skipped']);
     expect(animationNames(container({ animations: [{ name: 'Idle' }, {}] }))).toEqual(['Idle', 'animation_1']);
+  });
+});
+
+describe('animation-only GLB detection', () => {
+  it('needs GLB magic, a JSON chunk, animations and no skin', () => {
+    expect(isAnimationOnlyGlb(glbOf({ asset: { version: '2.0' }, animations: [{}] }))).toBe(true);
+    expect(isAnimationOnlyGlb(glbOf({ asset: { version: '2.0' }, skins: [], animations: [{}] }))).toBe(true);
+    expect(isAnimationOnlyGlb(glbOf({ asset: { version: '2.0' }, skins: [{}], animations: [{}] }))).toBe(false);
+    expect(isAnimationOnlyGlb(glbOf({ asset: { version: '2.0' }, animations: [] }))).toBe(false);
+    const broken = glbOf({ asset: { version: '2.0' }, animations: [{}] });
+    broken[20] = 0x5b;
+    expect(isAnimationOnlyGlb(broken)).toBe(false);
+    expect(isAnimationOnlyGlb(new TextEncoder().encode('glTF but not really'))).toBe(false);
   });
 });
 

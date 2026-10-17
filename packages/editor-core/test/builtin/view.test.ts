@@ -1,5 +1,5 @@
 // View and rig operators owned by WP-7b (MVP-SPEC §4.9): tools, manipulator size and space, navigation profile,
-// control size (undoable), secondary controls; rotate-order change is M1-stretch and refuses.
+// control size (undoable), secondary controls, camera settings (WP-9 R-3). Rotate order: rig.test.ts.
 import type { CameraId } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
 import { expectUndoRedoExact, opsApp, runOk, runResult, WAVE } from './support';
@@ -61,14 +61,6 @@ describe('rig.*', () => {
     expect(app.session.getState().showSecondary).toBe(true);
     await runOk(app, 'rig.toggleSecondary');
     expect(app.session.getState().showSecondary).toBe(false);
-  });
-
-  it('refuses rotate-order changes until the M1-stretch item lands', async () => {
-    const app = opsApp();
-    expect(await runResult(app, 'rig.setRotateOrder', { control: WAVE.lowerArmL, order: 'xyz' })).toEqual({
-      status: 'cancelled',
-      reason: 'not available yet',
-    });
   });
 });
 
