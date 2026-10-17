@@ -183,9 +183,8 @@ export class SceneSync {
     this.xray = on;
     for (const slot of this.slots.values()) {
       for (const state of slot.materials) {
-        state.material.transparent = on ? true : state.transparent;
-        state.material.opacity = on ? state.opacity * XRAY_OPACITY : state.opacity;
-        state.material.depthWrite = on ? false : state.depthWrite;
+        if (on) applyXray(state);
+        else restoreMaterial(state);
       }
     }
   }
@@ -332,8 +331,25 @@ function prepareObject(object: Object3D, materials: MaterialState[]): void {
   }
 }
 
+function applyXray(state: MaterialState): void {
+  setTransparent(state.material, true);
+  state.material.opacity = state.opacity * XRAY_OPACITY;
+  state.material.depthWrite = false;
+}
+
 function restoreMaterial(state: MaterialState): void {
-  state.material.transparent = state.transparent;
+  setTransparent(state.material, state.transparent);
   state.material.opacity = state.opacity;
   state.material.depthWrite = state.depthWrite;
+}
+
+/**
+ * `transparent` feeds three's `OPAQUE` shader define (alpha forced to 1), which WebGLRenderer does not re-check on
+ * its own: flipping it needs a program lookup (`needsUpdate`). Both variants stay in the material's program cache,
+ * so switching per pane costs a cache-key computation, not a recompile.
+ */
+function setTransparent(material: Material, transparent: boolean): void {
+  if (material.transparent === transparent) return;
+  material.transparent = transparent;
+  material.needsUpdate = true;
 }

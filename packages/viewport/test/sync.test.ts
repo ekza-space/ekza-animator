@@ -9,11 +9,14 @@ import {
   Group,
   Matrix4,
   Mesh,
+  MeshBasicMaterial,
   MeshStandardMaterial,
   Object3D,
+  OrthographicCamera,
   Quaternion,
   Scene,
   type SkinnedMesh,
+  WebGLRenderer,
 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ControlLayer } from '../src/controls/ControlLayer';
@@ -165,6 +168,44 @@ describe('SceneSync', () => {
     expect([material.transparent, material.opacity, material.depthWrite]).toEqual([true, 0.5, false]);
     s.sync.setXray(false);
     expect([material.transparent, material.opacity, material.depthWrite]).toEqual([false, 1, true]);
+  });
+
+  it('x-ray really blends meshes on screen and switches back (shader variant follows `transparent`)', async () => {
+    const s = await setup();
+    const { skeleton } = await fixtures();
+    const model = modelOf(skeleton);
+    const mesh = new Mesh(new BoxGeometry(), new MeshBasicMaterial({ color: 0xff0000 }));
+    model.root.add(mesh);
+    s.sync.attachModel(s.character, model);
+    s.sync.update({ springs: false, nowMs: 0 });
+    const canvas = document.createElement('canvas');
+    const renderer = new WebGLRenderer({ canvas, antialias: false });
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(16, 16, false);
+      renderer.setClearColor(0x0000ff, 1);
+      const camera = new OrthographicCamera(-0.25, 0.25, 0.25, -0.25, 0.1, 10);
+      camera.position.set(0, 0, 5);
+      camera.layers.set(LAYER.mesh);
+      camera.updateMatrixWorld();
+      const centre = (): number[] => {
+        renderer.render(s.scene, camera);
+        const gl = renderer.getContext();
+        const pixel = new Uint8Array(4);
+        gl.readPixels(8, 8, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return [pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0];
+      };
+      expect(centre()).toEqual([255, 0, 0]);
+      s.sync.setXray(true);
+      const [r, g, b] = centre();
+      expect(Math.abs(r - 128)).toBeLessThanOrEqual(2);
+      expect(g).toBe(0);
+      expect(Math.abs(b - 128)).toBeLessThanOrEqual(2);
+      s.sync.setXray(false);
+      expect(centre()).toEqual([255, 0, 0]);
+    } finally {
+      renderer.dispose();
+    }
   });
 
   it('places controls through the character placement and follows visibility', async () => {
