@@ -92,6 +92,15 @@ export class GraphEditorController {
   private curveListChanged = false;
   private sceneCache: GraphScene | null = null;
   private pendingFrame: 'all' | 'selection' | null = null;
+  /**
+   * The view follows the shown curves until the user works in the Graph Editor (v0.3 integration): a newly shown set
+   * is framed, and again after document edits made elsewhere (keys set from the viewport or the Channel Box), so
+   * the first keys — whose curve appeared with a static value and no key — and later ones stay on screen. Any press,
+   * wheel, pan or zoom in the editor and an explicit F/A hand the view to the user until the next new curve set.
+   */
+  private autoFrame = false;
+  /** The document changed since the last automatic framing. */
+  private autoFrameDirty = false;
 
   private baseDirty = true;
   private overlayDirty = true;
@@ -148,7 +157,10 @@ export class GraphEditorController {
         return height();
       },
       scene: () => this.scene(),
-      setView: (next) => this.setView(next),
+      setView: (next) => {
+        this.autoFrame = false;
+        this.setView(next);
+      },
       invalidateOverlay: () => this.invalidateOverlay(),
       report: (label, error) => this.report(label, error),
       selectKeys: (items, mode) => this.selectKeys(items, mode),
@@ -218,7 +230,7 @@ export class GraphEditorController {
 
   /**
    * Shows `curves`. A set that shares no curve with the previous one is framed (frame all) so newly loaded curves are
-   * on screen.
+   * on screen — once it has keys (`autoFrame`).
    */
   setCurves(curves: readonly CurveId[]): void {
     const next = [...new Set(curves)];
@@ -228,10 +240,19 @@ export class GraphEditorController {
     this.curveIds = next;
     this.curveListChanged = true;
     this.invalidateBase();
-    if (disjoint) this.frame('all');
+    if (disjoint) {
+      this.autoFrame = true;
+      this.frameView('all');
+    }
   }
 
+  /** F / A: frames the selection or every shown curve; the view is the user's from now on. */
   frame(what: 'all' | 'selection'): void {
+    this.autoFrame = false;
+    this.frameView(what);
+  }
+
+  private frameView(what: 'all' | 'selection'): void {
     if (!(this.cssWidth > 0 && this.cssHeight > 0)) {
       this.pendingFrame = what;
       return;
@@ -283,7 +304,7 @@ export class GraphEditorController {
       this.overlayDirty = true;
       this.schedule();
     }
-    if (this.pendingFrame !== null && width > 0 && height > 0) this.frame(this.pendingFrame);
+    if (this.pendingFrame !== null && width > 0 && height > 0) this.frameView(this.pendingFrame);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -330,6 +351,7 @@ export class GraphEditorController {
 
   pointerDown(e: ToolPointerEvent): void {
     if (this.disposed) return;
+    this.autoFrame = false;
     if (this.busy) {
       // One gesture at a time; a press whose button is no longer down lost its release (outside the window
       // without capture), so its gesture is cancelled and the new press starts fresh.
@@ -406,6 +428,7 @@ export class GraphEditorController {
 
   wheel(e: ToolWheelEvent): void {
     if (this.disposed || this.busy) return;
+    this.autoFrame = false;
     const profile = this.app.prefs.getState().navProfile;
     if (profile === 'trackpad' && !e.ctrl) {
       // Two-finger scroll pans (content follows the fingers like a scrolled page).
@@ -474,6 +497,10 @@ export class GraphEditorController {
     }
     this.frameRequest = null;
     if (!(this.cssWidth > 0 && this.cssHeight > 0)) return;
+    if (this.autoFrame && this.autoFrameDirty && this.gesture === null && this.pending === null) {
+      this.autoFrameDirty = false;
+      this.frameView('all');
+    }
     const drawBase = force === true || this.baseDirty;
     const drawOverlay = force === true || this.overlayDirty;
     if (!drawBase && !drawOverlay) return;
@@ -560,6 +587,7 @@ export class GraphEditorController {
       }
     }
     if (!touched) return;
+    this.autoFrameDirty = true;
     if (full || this.editedCurves.size > MAX_INCREMENTAL_CURVES) this.dropCurveSet();
     this.invalidateBase();
   }

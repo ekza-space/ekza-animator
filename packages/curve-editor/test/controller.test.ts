@@ -1,3 +1,5 @@
+import { makeKeyData } from '@ekza-animator/anim-core';
+import type { KeyId } from '@ekza-animator/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GraphViewState } from '../src';
 import { GraphEditorController, registerGraphContributions } from '../src';
@@ -42,6 +44,38 @@ describe('view state, framing and resize', () => {
     expect(valueToY(controller.view, 300, 30)).toBeCloseTo((300 * 0.08) / 1.16, 6);
     expect(valueToY(controller.view, 300, -30)).toBeCloseTo(300 - (300 * 0.08) / 1.16, 6);
     expect(controller.curves).toEqual([WAVE.curve]);
+  });
+
+  it('the view follows edits made elsewhere until the user works in the Graph Editor', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const putKey = (id: string, frame: number, degrees: number) =>
+      app.store.transact({ label: 'Key', undoable: false }, (tx) => {
+        tx.put('keys', { ...makeKeyData(frame, degrees / RAD), id: id as KeyId, clip: WAVE.clip, curve: fresh.curve });
+      });
+    const onScreen = (degrees: number): boolean => {
+      const y = valueToY(controller.view, 300, degrees);
+      return y >= 0 && y <= 300;
+    };
+    // A channel edit without auto-key creates the curve with a static value and no key; the keys come later.
+    const fresh = addCurve(app, { channel: 'ry', keys: [] });
+    controller.setCurves([fresh.curve]);
+    controller.redraw(true);
+    putKey('k_TFrameLater01', 0, 80);
+    controller.redraw();
+    expect(onScreen(80)).toBe(true);
+    putKey('k_TFrameLater02', 10, -200);
+    controller.redraw();
+    expect(onScreen(80) && onScreen(-200)).toBe(true);
+
+    // A wheel zoom hands the view to the user: further edits leave it alone.
+    controller.wheel(wheel({ x: 300, y: 150, deltaY: 100 }));
+    controller.redraw();
+    const zoomed = controller.view;
+    putKey('k_TFrameLater03', 20, 400);
+    controller.redraw();
+    expect(controller.view).toEqual(zoomed);
   });
 
   it('frames the selected keys (F) and everything again (A)', async () => {
