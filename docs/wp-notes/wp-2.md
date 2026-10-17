@@ -27,10 +27,10 @@ Test counts: `doc` 156 tests in 15 files, `doc-yjs` 69 tests. The memory store p
 goldens, per-field undo across replicas, partition-order application, unopened partitions, the fps golden, the
 reparenting-cycle golden and a 150-run fuzz with shrinking).
 
-Bench (`test/bench.test.ts`, reported as test annotations, Apple M4 Pro, other agents building in parallel): commit of
-1,000 new keys **1.1 ms** (budget 4), undo **0.7 ms** (budget 5), redo 0.9 ms; drag of 1,000 existing keys: preview
-update 1.9 ms, commit 0.5 ms; cold `keysOfCurve` over 336 curves / 30,240 keys 3.5 ms. Assertions only catch 10×
-regressions.
+Bench (`test/bench.test.ts`, reported as test annotations; Apple M4 Pro with other agents building in parallel,
+load average 6–50, so ranges): commit of 1,000 new keys **1.1–1.6 ms** (budget 4), undo **0.7–1.2 ms** (budget 5),
+redo 0.9–1.5 ms; drag of 1,000 existing keys: preview update 1.9–2.4 ms, commit 0.5–0.6 ms; cold `keysOfCurve` over
+336 curves / 30,240 keys 3.5–5.4 ms. Assertions only catch 10× regressions.
 
 ## Requested contract changes (§4.2 / §4.11.0)
 
