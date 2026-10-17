@@ -43,13 +43,27 @@ describe('quaternions (cross-checked with three.js)', () => {
     expect(quatInvert([0, 0, 0, 0])).toEqual([0, 0, 0, 1]);
   });
 
-  it('slerp matches three.js (shortest path)', () => {
+  it('slerp moves along the shortest arc at constant angular speed', () => {
     fc.assert(
       fc.property(unitQuat, unitQuat, fc.double({ min: 0, max: 1, noNaN: true }), (a, b, t) => {
-        expect(quatDistance(quatSlerp(a, b, t), arr(three(a).slerp(three(b), t)))).toBeLessThan(1e-9);
+        const q = quatSlerp(a, b, t);
+        const total = quatAngle(a, b);
+        expect(Math.hypot(...q)).toBeCloseTo(1, 14);
+        expect(quatAngle(a, q)).toBeCloseTo(t * total, 9);
+        expect(quatAngle(q, b)).toBeCloseTo((1 - t) * total, 9);
       }),
     );
     expect(quatSlerp([0, 0, 0, 1], [0, 0, 0, 1], 0.5)).toEqual([0, 0, 0, 1]);
+  });
+
+  it('slerp matches three.js where three.js does not fall back to nlerp', () => {
+    fc.assert(
+      fc.property(unitQuat, unitQuat, fc.double({ min: 0, max: 1, noNaN: true }), (a, b, t) => {
+        // three.js switches to normalized lerp (an approximation) when |dot| ≥ 0.9995.
+        fc.pre(Math.abs(three(a).dot(three(b))) < 0.9995);
+        expect(quatDistance(quatSlerp(a, b, t), arr(three(a).slerp(three(b), t)))).toBeLessThan(1e-9);
+      }),
+    );
   });
 
   it('axis-angle, rotation of vectors and angles match three.js', () => {
