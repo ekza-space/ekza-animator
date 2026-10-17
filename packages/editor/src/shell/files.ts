@@ -174,7 +174,7 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
       disposed = true;
       unsubscribe();
       confirming = null;
-      for (const resolve of [...settlers.values()]) resolve();
+      for (const resolve of settlers.values()) resolve();
       settlers.clear();
     },
   };

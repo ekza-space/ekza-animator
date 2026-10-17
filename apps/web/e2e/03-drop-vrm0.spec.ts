@@ -56,5 +56,8 @@ test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
       { timeout: 30_000 },
     )
     .toBe(true);
+  // The §4.11.9 threshold as specified. Polybot's rest pose (head 1.35 cm ahead of the hips) tilts f by ~2.8°, so the
+  // formula gives 0.99882 and this fails once the kernel lands: contract request R-4 (docs/wp-notes/wp-8.md). The
+  // spec and this assertion change together once R-4 is decided.
   expect(facing[2]).toBeGreaterThan(0.999);
 });
