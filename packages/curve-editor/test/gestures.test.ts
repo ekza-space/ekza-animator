@@ -5,6 +5,7 @@ import {
   type HandleTarget,
   handleFromPointer,
   keyDragDelta,
+  lockedOffset,
   MIN_HANDLE_DT,
   resolveAxisLock,
 } from '../src/graph/gestures';
@@ -27,6 +28,12 @@ describe('key drag math (MVP-SPEC §4.11.3)', () => {
     expect(keyDragDelta(view, 25, -8, null)).toEqual({ dFrames: 2.5, dValue: 2 });
     expect(keyDragDelta(view, 25, -8, 'time')).toEqual({ dFrames: 2.5, dValue: 0 });
     expect(keyDragDelta(view, 25, -8, 'value')).toEqual({ dFrames: 0, dValue: 2 });
+  });
+
+  it('zeroes the locked axis of a pointer offset (keys and handle ends)', () => {
+    expect(lockedOffset(null, 7, -3)).toEqual({ dx: 7, dy: -3 });
+    expect(lockedOffset('time', 7, -3)).toEqual({ dx: 7, dy: 0 });
+    expect(lockedOffset('value', 7, -3)).toEqual({ dx: 0, dy: -3 });
   });
 });
 

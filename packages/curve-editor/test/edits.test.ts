@@ -5,7 +5,7 @@ import type { KeyRecord } from '@ekza-animator/doc';
 import type { ToolPointerEvent } from '@ekza-animator/editor-core';
 import { type FakeEditorApp, type FakeServices, naiveCurveEngine } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
-import { keyEvent, KERNEL_READY, type Mounted, mount, pointer, selectKeys, settle, WAVE, waveApp } from './support/app';
+import { KERNEL_READY, keyEvent, type Mounted, mount, pointer, selectKeys, settle, WAVE, waveApp } from './support/app';
 
 let mounted: Mounted | null = null;
 afterEach(() => {
@@ -166,6 +166,26 @@ describe.skipIf(!KERNEL_READY)('[needs WP-7a] handle drags (MVP-SPEC §4.11.4, E
     const k = keyRecord(app, 1);
     expect(k.broken).toBe(true);
     expect(k.inType).toBe('auto');
+  });
+
+  it('Shift locks a handle drag to the dominant axis', async () => {
+    const app = await waveApp();
+    app.store.transact({ label: 'Weighted' }, (tx) => {
+      tx.patch('curves', WAVE.curve, { weighted: true });
+      tx.put('keys', { ...keyRecord(app, 0), weightLocked: false });
+    });
+    mounted = mount(app);
+    const { controller } = mounted;
+    selectKeys(app, [[WAVE.keys[0], { key: true }]]);
+    const end = at(controller.handlePoint(WAVE.keys[0], 'out'));
+    // Mostly right with a little vertical wobble: the end moves right only, so the free handle grows but keeps dv.
+    const resolved = app.evaluation.compiledCurve(WAVE.curve);
+    const dv = resolved.outDv[0] as number;
+    dragBy(mounted, end, 40, -6, { shift: true });
+    await settle();
+    const handle = keyRecord(app, 0).outHandle;
+    expect(handle.dt).toBeCloseTo((resolved.outDt[0] as number) + 40 / controller.view.sx, 9);
+    expect(handle.dv).toBeCloseTo(dv, 9);
   });
 
   it('E2E-10: free weighted handles change length; locked weights keep the Maya weight', async () => {

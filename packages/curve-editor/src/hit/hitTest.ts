@@ -63,17 +63,22 @@ function topmostNearest(
 const curveRank = (scene: GraphScene, entry: CurveEntry): number =>
   scene.focus === null || scene.focus.has(entry.id) ? 1 : 0;
 
-/** Calls `visit(entry, index)` for every key whose handles are shown (and hittable). */
-function forEachShownHandleKey(scene: GraphScene, visit: (entry: CurveEntry, index: number) => void): void {
-  if (scene.handles === 'selected') {
-    for (const key of scene.selection.keys()) {
-      const found = scene.curves.byKey.get(key);
-      if (found !== undefined && !found.entry.locked) visit(found.entry, found.index);
-    }
-    return;
-  }
-  const f0 = xToFrame(scene.view, -GRAPH_METRICS.handleLength);
-  const f1 = xToFrame(scene.view, scene.width + GRAPH_METRICS.handleLength);
+/**
+ * Calls `visit(entry, index)`, in drawing order, for every key whose handles are shown (and hittable) and can reach
+ * the screen interval [x0, x1] (CSS px): the keys `paintHandles` draws (the canvas widened by one handle length,
+ * plus the neighbours a weighted handle can reach, see `visibleRange`) within one handle length of the interval.
+ * The cost follows the keys near the interval, not the size of the selection or of the curves.
+ */
+function forEachShownHandleKey(
+  scene: GraphScene,
+  x0: number,
+  x1: number,
+  visit: (entry: CurveEntry, index: number) => void,
+): void {
+  const reach = GRAPH_METRICS.handleLength;
+  const f0 = xToFrame(scene.view, Math.max(x0, 0) - reach);
+  const f1 = xToFrame(scene.view, Math.min(x1, scene.width) + reach);
+  if (!(f0 <= f1)) return;
   for (const entry of scene.curves.entries) {
     if (entry.locked) continue;
     const [lo, hi] = visibleRange(entry.compiled, f0, f1);
@@ -90,7 +95,7 @@ interface Best {
 
 function nearestHandle(scene: GraphScene, x: number, y: number, selectedOnly: boolean, scratch: HitScratch): Best {
   const best: Best = { distance: GRAPH_METRICS.hitHandle, entry: null, index: -1, side: 'in' };
-  forEachShownHandleKey(scene, (entry, i) => {
+  forEachShownHandleKey(scene, x - best.distance, x + best.distance, (entry, i) => {
     const key = entry.keys[i];
     if (key === undefined) return;
     const parts = scene.selection.get(key.id);
@@ -321,7 +326,7 @@ export function handlesInRect(
 ): { readonly key: KeyId; readonly side: 'in' | 'out' }[] {
   const r = normalized(rect);
   const handles: { key: KeyId; side: 'in' | 'out' }[] = [];
-  forEachShownHandleKey(scene, (entry, i) => {
+  forEachShownHandleKey(scene, r.x0, r.x1, (entry, i) => {
     const key = entry.keys[i];
     if (key === undefined) return;
     for (const side of ['in', 'out'] as const) {

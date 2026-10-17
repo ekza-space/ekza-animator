@@ -3,7 +3,7 @@
 // predicted from the click's selection change, so a drag never waits for the asynchronous `select.keys` run.
 import type { CurveId, KeyId } from '@ekza-animator/doc';
 import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-animator/editor-core';
-import { handlesInRect, type HitScratch, keysInRect, type ScreenRect } from '../hit/hitTest';
+import { type HitScratch, handlesInRect, keysInRect, type ScreenRect } from '../hit/hitTest';
 import type { GraphHit } from '../types';
 import {
   type Gesture,

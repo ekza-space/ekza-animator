@@ -21,7 +21,7 @@ import { HitScratch, hitTestScene } from '../hit/hitTest';
 import { sizeBackingStore } from '../painters/canvas';
 import type { OverlayState } from '../painters/overlay';
 import { Canvas2DCurveRenderer, type CurveRenderer } from '../painters/renderer';
-import { readGraphTheme, type GraphTheme } from '../painters/theme';
+import { type GraphTheme, readGraphTheme } from '../painters/theme';
 import { builtinGraphTool, GRAPH_SELECT_TOOL, type GraphToolHost } from '../tools/graphTools';
 import type { GraphHit, GraphViewState } from '../types';
 import {

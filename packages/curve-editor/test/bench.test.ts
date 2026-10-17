@@ -125,4 +125,23 @@ describe('Graph Editor redraw benchmark (ADR 0007 §9, reported)', () => {
     expect(ms).toBeLessThan(20);
     expect(controller.keyPoint(ids[0]?.keys[0] as KeyId)).not.toBeNull();
   });
+
+  it('hit-tests stay cheap with 50k keys selected (handles of selected keys shown)', async ({ annotate }) => {
+    const { app, ids } = await bigScene(50, 1000);
+    mounted = mount(app, { width: 1440, height: 400, dpr: 1, curves: ids.map((entry) => entry.curve) });
+    const { controller } = mounted;
+    selectKeys(
+      app,
+      ids.flatMap((entry) => entry.keys.map((k) => [k, { key: true }] as const)),
+    );
+    controller.frame('all');
+    controller.redraw(true);
+    controller.hitTest(10, 10);
+    const start = performance.now();
+    for (let i = 0; i < 200; i++) controller.hitTest((i * 7) % 1440, (i * 13) % 400);
+    const ms = (performance.now() - start) / 200;
+    await annotate(`hit-test with 50k selected keys: ${ms.toFixed(3)} ms per call`, 'notice');
+    // Only the keys within a handle length of the pointer are candidates (was ~4.4 ms with every selected key).
+    expect(ms).toBeLessThan(2);
+  });
 });

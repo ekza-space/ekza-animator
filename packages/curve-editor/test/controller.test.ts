@@ -1,5 +1,5 @@
-import type { GraphViewState } from '../src';
 import { afterEach, describe, expect, it } from 'vitest';
+import type { GraphViewState } from '../src';
 import { GraphEditorController, registerGraphContributions } from '../src';
 import { buildCurveSet, updateCurveSet } from '../src/graph/curveSet';
 import { frameToX, valueToY, xToFrame, yToValue } from '../src/view/transform';

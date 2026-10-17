@@ -69,6 +69,11 @@ export function resolveAxisLock(current: AxisLock, shift: boolean, dx: number, d
   return Math.abs(dx) >= Math.abs(dy) ? 'time' : 'value';
 }
 
+/** Pointer offset with the locked axis zeroed ('time' keeps the horizontal motion, 'value' the vertical). */
+export function lockedOffset(axis: AxisLock, dx: number, dy: number): { readonly dx: number; readonly dy: number } {
+  return { dx: axis === 'value' ? 0 : dx, dy: axis === 'time' ? 0 : dy };
+}
+
 /** Frame and display-value offsets of a key drag (dValue in display units, as `moveKeys` expects). */
 export function keyDragDelta(
   view: GraphViewState,
@@ -226,6 +231,7 @@ export class KeyMoveGesture extends PreviewGesture {
 
 export class HandleDragGesture extends PreviewGesture {
   readonly kind = 'handles';
+  private axis: AxisLock = null;
 
   constructor(
     host: GestureHost,
@@ -236,8 +242,9 @@ export class HandleDragGesture extends PreviewGesture {
   }
 
   protected edit(p: GesturePointer, _final: boolean) {
-    const dx = p.x - this.start.x;
-    const dy = p.y - this.start.y;
+    // Shift constrains handle ends like keys (MVP-SPEC §4.11.3, ADR 0007 §6): the dominant axis after 4 px.
+    this.axis = resolveAxisLock(this.axis, p.shift, p.x - this.start.x, p.y - this.start.y);
+    const { dx, dy } = lockedOffset(this.axis, p.x - this.start.x, p.y - this.start.y);
     const view = this.host.view;
     const app = this.host.app;
     const handles = this.targets.map((target) =>

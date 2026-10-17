@@ -1,7 +1,7 @@
 // Keys and tangent handles (research 09 §4.7): squares 5/7 px (selected yellow), handles as lines with 4 px ends,
 // only for keys with a selected part unless prefs.graphHandles is 'all'. One Path2D per state (ADR 0007 §4).
 import { visibleRange } from '../graph/geometry';
-import { handlePosition, handlesShown, keyX, keyY, type GraphScene, type Point } from '../graph/scene';
+import { type GraphScene, handlePosition, handlesShown, keyX, keyY, type Point } from '../graph/scene';
 import { xToFrame } from '../view/transform';
 import { GRAPH_METRICS, type GraphTheme } from './theme';
 
