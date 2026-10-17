@@ -46,7 +46,9 @@ export function KernelUnavailable(props: { readonly error: unknown; readonly e2e
       <div className="relative z-(--z-chrome) grid h-full place-items-center p-8" data-testid="kernel-unavailable">
         <div className="flex max-w-lg flex-col gap-2 rounded-dialog border border-line-strong bg-panel p-5 text-dialog">
           <h1 className="text-dialog-title font-semibold text-fg">The editor could not start</h1>
-          <p className="text-fg-2">{message}</p>
+          <p className="text-fg-2" data-testid="kernel-unavailable-message">
+            {message}
+          </p>
           <p className="text-ui text-fg-3">
             Reload the page; if this keeps happening, report it with the message above.
           </p>

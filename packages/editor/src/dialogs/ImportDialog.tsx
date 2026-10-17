@@ -92,9 +92,14 @@ function Summary(props: { readonly pending: PendingImport; readonly summary: Mod
         <p className="text-ui text-fg-3">Credits: {summary.license.authors.join(', ')}</p>
       ) : null}
       {props.pending.summaryError === null ? null : (
-        <p className="flex items-start gap-1.5 text-ui text-warn" role="alert">
+        <p
+          className="flex items-start gap-1.5 text-ui text-warn"
+          role="alert"
+          data-testid="import-summary-error"
+          data-error-code={props.pending.summaryError.code ?? undefined}
+        >
           <TriangleAlert size={14} className="mt-0.5 shrink-0" />
-          Could not read the file details ({props.pending.summaryError}). The import may still work.
+          Could not read the file details ({props.pending.summaryError.message}). The import may still work.
         </p>
       )}
       {summary === null || summary.warnings.length === 0 ? null : (

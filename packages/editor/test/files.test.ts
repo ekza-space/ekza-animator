@@ -1,6 +1,7 @@
 // The file pipeline (drag-and-drop, pickers, test API loadFile) and the browser services: importer resolution,
 // the import dialog hand-off, confirmation before replacing a dirty project, asset verification, storage
 // fallbacks, clipboard fallback and the toast queue.
+import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId } from '@ekza-animator/doc';
 import type { ImporterDef } from '@ekza-animator/editor-core';
 import { DEFAULT_REDUCE } from '@ekza-animator/rig';
@@ -127,7 +128,22 @@ describe('file pipeline', () => {
     });
     test.app.contribute({ kind: 'importer', def: MODEL });
     await test.shell.files.openFile('hero.glb', new Uint8Array([1]));
-    expect(test.shell.ui.getState().pendingImport).toMatchObject({ summary: null, summaryError: 'io not ready' });
+    expect(test.shell.ui.getState().pendingImport).toMatchObject({
+      summary: null,
+      summaryError: { code: null, message: 'io not ready' },
+    });
+    await test.shell.runFromUi('ui.close');
+    const coded = createTestShell({
+      summarize: async () => {
+        throw new EkzaError('not-glb', 'Not a binary glTF file');
+      },
+    });
+    coded.app.contribute({ kind: 'importer', def: MODEL });
+    await coded.shell.files.openFile('hero.glb', new Uint8Array([1]));
+    expect(coded.shell.ui.getState().pendingImport?.summaryError).toEqual({
+      code: 'not-glb',
+      message: 'Not a binary glTF file',
+    });
   });
 
   it('asks before a project replaces unsaved work, and cancels on "no"', async () => {

@@ -116,7 +116,12 @@ export function createShell(opts: CreateShellOptions): Shell {
     }
     if (result.status === 'failed') {
       const label = app.operators.get(op)?.label ?? op;
-      notifyError(`${label} failed: ${result.error.message}`);
+      // A stub of a work package that has not landed reports the symbol it stands for; say so plainly.
+      const message =
+        result.error.code === 'not-implemented'
+          ? `${result.error.message} is not implemented in this build`
+          : result.error.message;
+      notifyError(`${label} failed: ${message}`);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
     } else if (op === 'file.export') {

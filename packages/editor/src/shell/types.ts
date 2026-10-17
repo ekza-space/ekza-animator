@@ -72,7 +72,8 @@ export interface PendingImport {
   readonly importer: ImporterDef;
   /** null while the file is being read, or when no summary could be read (the import may still work). */
   readonly summary: ModelSummary | null;
-  readonly summaryError: string | null;
+  /** Why the summary could not be read (`code`: the EkzaError code, e.g. 'not-glb'), or null. */
+  readonly summaryError: { readonly code: string | null; readonly message: string } | null;
 }
 
 export interface HelpMessage {

@@ -1,0 +1,60 @@
+import { expect, test } from '@playwright/test';
+import { call, fixmeIfKernelUnavailable, openEditor, waitForCount } from './helpers/test-api';
+
+// E2E-03 (MVP-SPEC §6.2): a real DataTransfer drop of Polybot (VRM 0.x) on the window, the import dialog's badges,
+// then the humanoid rig facing +Z (§4.11.9).
+test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
+  await openEditor(page);
+  await fixmeIfKernelUnavailable(page);
+
+  const dataTransfer = await page.evaluateHandle(async () => {
+    const bytes = await (await fetch('/samples/polybot.vrm')).arrayBuffer();
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], 'polybot.vrm', { type: 'model/gltf-binary' }));
+    return transfer;
+  });
+  await page.dispatchEvent('[data-testid="editor-root"]', 'dragenter', { dataTransfer });
+  await page.dispatchEvent('[data-testid="editor-root"]', 'dragover', { dataTransfer });
+  await page.dispatchEvent('[data-testid="editor-root"]', 'drop', { dataTransfer });
+
+  const dialog = page.getByTestId('import-dialog');
+  const noImporter = page.getByTestId('toast').filter({ hasText: 'No importer' });
+  await expect(dialog.or(noImporter)).toBeVisible();
+  test.fixme((await noImporter.count()) > 0, 'Blocked by WP-7b: no importer is registered for .vrm');
+  const summaryError = page.getByTestId('import-summary-error');
+  if ((await summaryError.count()) > 0) {
+    test.fixme(
+      (await summaryError.getAttribute('data-error-code')) === 'not-implemented',
+      'Blocked by WP-4: the GLB/VRM summary readers are stubs',
+    );
+  }
+  await expect(page.getByTestId('import-format-badge')).toHaveText('VRM 0.x');
+  await expect(page.getByTestId('import-license-badge')).toContainText('CC0');
+
+  await page.getByTestId('import-confirm').click();
+  await expect(dialog).toBeHidden();
+  await waitForCount(page, 'characters', 1);
+
+  const character = (await call(page, 'state')).activeCharacter;
+  expect(character).not.toBeNull();
+  const keys = new Set((await call(page, 'controls')).map((control) => control.key));
+  for (const key of ['root', 'cog', 'fk.hips', 'fk.spine', 'fk.head', 'fk.upperArm.L', 'fk.upperLeg.R']) {
+    expect(keys.has(key), `humanoid control ${key}`).toBe(true);
+  }
+  // The runtime (rig program) is created asynchronously after the import transaction.
+  let facing: readonly number[] = [];
+  await expect
+    .poll(
+      async () => {
+        try {
+          facing = await call(page, 'facing', character ?? '');
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      { timeout: 30_000 },
+    )
+    .toBe(true);
+  expect(facing[2]).toBeGreaterThan(0.999);
+});

@@ -23,6 +23,11 @@ export interface FilePipelineDeps {
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
 
+const errorCode = (error: unknown): string | null => {
+  const code = typeof error === 'object' && error !== null ? (error as { readonly code?: unknown }).code : undefined;
+  return typeof code === 'string' ? code : null;
+};
+
 /** An operator run that did not finish; `runFromUi` has already shown it (toast or help line). */
 class ReportedFailure extends Error {
   override readonly name = 'ReportedFailure';
@@ -66,11 +71,11 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
   async function openImportDialog(name: string, bytes: Uint8Array, importer: PendingImporter): Promise<void> {
     ui.setState({ busy: `Reading ${name}…` });
     let summary = null;
-    let summaryError: string | null = null;
+    let summaryError: PendingImportSummaryError = null;
     try {
       summary = await deps.summarize(bytes);
     } catch (error) {
-      summaryError = errorText(error);
+      summaryError = { code: errorCode(error), message: errorText(error) };
     } finally {
       ui.setState({ busy: null });
     }
@@ -111,3 +116,4 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
 }
 
 type PendingImporter = NonNullable<ShellUiState['pendingImport']>['importer'];
+type PendingImportSummaryError = NonNullable<ShellUiState['pendingImport']>['summaryError'];
