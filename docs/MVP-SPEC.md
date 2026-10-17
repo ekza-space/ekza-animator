@@ -42,13 +42,19 @@ recorded in [DECISIONS-OPEN §D](DECISIONS-OPEN.md#d-design-review-outcomes-2026
 ### What changed in the v0.3 integration
 
 WP-1…WP-9 were merged into `dev` and their cross-package requests decided (DECISIONS-OPEN §E "Integration
-decisions", INT-1…INT-30). Contract changes, each marked *v0.3 integration* where it lands: six operators join
+decisions", INT-1…INT-31). Contract changes, each marked *v0.3 integration* where it lands: six operators join
 `OperatorMap` (`select.channels`, `view.camera.setSettings`, `view.selectionMask`, `prefs.set`, `workspace.reset`,
 `workspace.showPanel`); `OperatorDef.coalesce`; `SessionState.hoverControl`; `EditorServices.samplesPath`;
 `PartitionLookup`; `RigWarning` `'unpaired-mirror'`; `EkzaBakeMarkerV1.generatorAdded`; anim-core `opts` on
 `resolveKeyHandles`/`insertKeyPreservingShape`; `TimeSliderController.cancel()`. Behaviour clarifications: store and
 runner rules (§4.11.0), the yaw-only facing check (§4.11.9), the surgeon generator rule (§4.11.11), lint severities
 (§4.11.13), test-API probes (§4.8), the shell's `file.new` confirmation (§4.9).
+
+**Acceptance round 1** (2026-10-18, DECISIONS-OPEN §E INT-32…INT-38): keying an unkeyed edit keeps that edit's undo
+step (§4.11.0 rule 7, §4.11.1 rule 5, ADR 0013); Graph Editor press rules for Shift on a selected key and
+double-clicks across tools (§4.11.18); `F` frames a control with the controls below it (§4.9 `view.frame`); import
+and export dialog defaults (§4.11.6, §4.11.10 rule 7); the built stretch items (§1.2). Regression specs:
+`apps/web/e2e/acceptance-round1.spec.ts`.
 
 ---
 
@@ -2214,7 +2220,7 @@ Stable `data-testid` values (owners in brackets). Specs use only these selectors
 | Channel Box | `cb-field-<channel>` (e.g. `cb-field-rz`), `cb-name-<channel>`, `cb-menu-key-selected`, `cb-menu-reset`, `cb-menu-lock` | WP-9 |
 | Outliner | `outliner-filter`, `outliner-row-<controlId>` | WP-9 |
 | Clips panel | `clips-new`, `clips-row-<clipId>`, `clips-rename-input`, `clips-settings-<clipId>` | WP-9 |
-| Graph Editor | `ge-field-frame`, `ge-field-value`, `ge-field-in-angle`, `ge-field-out-angle`, `ge-field-in-weight`, `ge-field-out-weight`, `ge-tangent-<type>`, `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre`, `graph-infinity-post`, `ge-euler-filter`, `ge-simplify`, `ge-canvas` | WP-6 |
+| Graph Editor | `ge-field-frame`, `ge-field-value`, `ge-field-in-angle`, `ge-field-out-angle`, `ge-field-in-weight`, `ge-field-out-weight`, `ge-tangent-<type>` (menu-only types inside `ge-tangent-more` → `ge-tangent-more-menu`, acceptance round 1), `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre`, `graph-infinity-post`, `ge-euler-filter`, `ge-simplify`, `ge-simplify-tolerance`, `ge-canvas` | WP-6 |
 | Time slider and playback row | `timeline-canvas`, `timeline-frame-field`, `timeline-clip-select`, `timeline-fps`, `timeline-play`, `timeline-loop`, `timeline-autokey`, `timeline-menu-<action>` | WP-6t |
 | Status line | `status-tool-<id>`, `status-rotate-space-<space>`, `status-autokey`, `status-layout-<layout>` | WP-8 |
 | Viewport panes | `pane-<paneId>`, `pane-lock-<paneId>`, `pane-camera-menu-<paneId>`, `pane-display-<flag>-<paneId>` | WP-5 |
@@ -2280,7 +2286,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `graph.keys.keyCurves` | U | 7b | `S` in the Graph Editor: shape-preserving key at the current frame on the visible/selected curves. |
 | `graph.keys.copy` / `graph.keys.paste` | —/U | 7b | `KeyClipboard` v2 (§4.11.4); paste at the current frame onto the same template key + channel of the active character. |
 | `graph.eulerFilter` | U | 7b | §4.11.5 on rotation curves of the selected controls (active clip). |
-| `graph.curves.simplify` | U | 7b | `reduceKeys` per selected curve with `ReduceSpec` (default `DEFAULT_REDUCE`). |
+| `graph.curves.simplify` | U | 7b | `reduceKeys` per selected curve with `ReduceSpec` (default `DEFAULT_REDUCE`). *Acceptance round 1 (INT-33)*: the Graph Editor passes the toolbar's tolerance (`DEFAULT_REDUCE` × 1…20) and every UI path reports the result (`N → M keys` or "nothing to remove"). |
 | `graph.frame` | — | 6 | Graph view only. |
 | `clip.new` | U | 7b | Defaults: scene fps, range 0–60, `sceneStart` 0, base layer, provenance `{derivedFrom: [], redistributable: 'yes'}`; becomes active. |
 | `clip.rename` | U | 7b | Validates name rules (ADR 0010). |

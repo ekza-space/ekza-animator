@@ -172,6 +172,41 @@ work package and the item in its notes.
 | INT-30 | The Graph Editor framed a new curve set before it had keys (smoke run: a channel edit creates the curve with a static value first, so the first keys landed off screen) | **Changed**: the view follows the shown curves — framed when a new set appears and again after document edits made elsewhere (keys set from the viewport or the Channel Box) — until the user works in the Graph Editor (press, wheel, pan, zoom or F/A); the next new set restarts it. Like the viewport's untouched cameras (WP-5 V-8). | `curve-editor/src/graph/GraphEditorController.ts`, `test/controller.test.ts` |
 | INT-31 | The Import file picker and the model import summary both used `data-testid="import-dialog"` (smoke run) | **Fixed**: the picker dialogs are `open-picker` / `import-picker` (with `-choose`, `-file-input`, `-sample-<id>`); `import-dialog` stays the §4.8 import summary. | `editor/src/dialogs/OpenDialog.tsx` |
 
+### Acceptance round 1 (2026-10-18)
+
+An independent tester ran the owner demo script (MVP-SPEC §8.3) and the basics in real Chrome: every step passed
+except §8.3-12 (one major bug); six minor bugs and fourteen UX notes were reported. Each fix has a unit test and a
+real-input e2e check in `apps/web/e2e/acceptance-round1.spec.ts`.
+
+| # | Report | Decision | Where |
+|---|---|---|---|
+| INT-32 | **Major** (§8.3-12): after keying a typed, unkeyed edit, undo removed the key, then skipped the edit (an older action was undone) and the typed value stayed as an override no step owned | **Fixed, spec amended**: keying no longer drops earlier steps' override parts. The key step records the consumed overrides in its own delta (override → none), so undo follows Maya: key, then the edit, then older actions; undoing N actions returns to the start. Supersedes WP-7a note 4's "earlier steps lose their override parts". | `editor-core/src/operators/runner.ts`, `edit/channels.ts`; §4.11.0 rule 7 and history, §4.11.1 rule 5, ADR 0013 decision 4; `test/builtin/key.test.ts` (incl. a ten-action undo/redo walk), `kernel/runner.test.ts`, `kernel/edit-channels.test.ts` |
+| INT-33 | Graph Editor "More ▾" popup stayed open over the key fields and wrapped its labels; Simplify gave no feedback (on a curve already reduced at import it silently did nothing) | **Fixed**: the menu is the `ui` Radix dropdown (closes on a choice, Esc, an outside click; one line per label). Simplify gets a tolerance choice (`ge-simplify-tolerance`: 0.1°, 0.25°, 0.5°, 1°, 2°; translation and scale scale with it) and reports "N → M keys (K removed within T)" or "nothing to remove within T … choose a larger tolerance" (toast from the toolbar, help line from menus and the keymap). | `editor/src/panels/graph/{GraphToolbar.tsx,simplify.ts,run.ts}`, `shell/createShell.ts` |
+| INT-34 | Shift+LMB drag on a selected key toggled it off on press (no move); an Insert-tool click, `Q` and a click on the new key within the double-click time selected the whole curve | **Fixed**: a press on a selected part changes the selection on release only, Shift included (drag = axis-locked move, click = toggle off). A double-click needs both presses on the same tool. | `curve-editor/src/graph/{press.ts,GraphEditorController.ts}`, §4.11.18 |
+| INT-35 | The context-loss warning toast stayed after the restore; `/editor`'s help line kept the hover hints while the context was lost | **Fixed**: the lost state is the help line's text; on restore the warning is dismissed (`ToastNotifier.dismissWhere`) and "The 3D view was restored." is shown. | `editor/src/gl/GLHost.tsx`, `shell/HelpLine.tsx`, `services/notify.ts` |
+| INT-36 | A corrupt `.glb` opened the import summary ("the import may still work") with an enabled Import button | **Fixed**: summary errors the import would hit too (`not-glb`, `malformed-gltf`, `vrm-both`, `budget-exceeded`) end in an error toast "Cannot import <name>: …" without a dialog; other summary errors keep the dialog with its warning. | `editor/src/shell/files.ts` |
+| INT-37 | UX: `F` on a selected hand framed only the hand's circle (three distal fingers off-screen on Seed-san) | **Changed**: a selected control frames with the visible controls below it (Maya transform bounds). | `viewport/src/manager/ViewportManager.ts`, §4.9 `view.frame`; `viewport/test/fingers.test.ts` |
+| INT-38 | UX: UAL imports with "0 of 46 selected" and an empty clip; the Export dialog checked only the active clip for bake-into-model; the Clips panel read "NameRange" at the default width; the rotate order is editable although §1.2 said read-only | **Partly changed**: the import default stays "none when > 8 clips" (46 clips are slow and the demo picks one), but the button reads `Import without clips` and the count says so. Bake-into-model and animation-only GLB check every clip by default (VRMA keeps the active clip: one file per clip). The Clips table pads its header and shows the duration and Source columns only when the dock is wide enough (container query). §1.2 and FR-CB-06 now record the built stretch items, the rotate-order change among them. | `editor/src/dialogs/{ImportDialog,ExportDialog}.tsx`, `panels/clips/ClipsPanel.tsx`, §1.2, §4.11.6, §4.11.10 rule 7 |
+
+UX notes **not changed** (owner may revisit):
+
+- *Graph Editor shows every animated curve of the active character with nothing selected* (WP-6 G-4): kept for M1.
+  Right after an import nothing is selected and the curves are the quickest check that the clip arrived; Maya's
+  empty view needs a selection first. The "Animated" filter and the channel list eyes trim the view. Recommendation:
+  revisit with a "show curves of: selection / character" toggle in V1.
+- *Unkeyed (pink) edits are dropped on a clip switch or frame change, and undoing "New Clip" does not bring them
+  back*: as specified (§4.11.2, ADR 0013 lifetime) and Maya-like; overrides belong to one frame of one clip.
+- *Default import reduction makes a bake → re-import round trip differ by up to 0.073° between keys*: by design (the
+  0.1° tolerance); with "Reduce keys" off the round trip is exact (4e-8 rad). The bake and VRMA writers are lossless.
+- *The Channel Box refreshes about one frame after Enter*: human-invisible; scripts wait for the value.
+- *A world-space rotate drag changes all three Euler channels*: correct `eulerNear` output for a world-axis rotation;
+  the Graph Editor's Euler Filter is one click. An automatic filter would rewrite keys the user did not touch.
+- *e2e mode auto-confirms File › New*: intentional (scenarios reload); production confirms (checked by the tester).
+- *"THREE.Clock: This module has been deprecated" on every load*: emitted by `@react-three/fiber` 9.8.1 (its store
+  creates a `THREE.Clock`); our code uses no `Clock`. Disappears with an R3F release on `THREE.Timer`.
+- *Bundled samples are fetched lazily, so they fail offline (with a clear toast)*: user files work fully offline;
+  precaching samples (a service worker or bundling) is a V1 decision about download size.
+
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 
 Each work package recorded its interpretations in `docs/wp-notes/wp-*.md` (kept as history, with the reasoning and
