@@ -194,8 +194,18 @@ export function createClipSampler(
   const resolve = (): readonly PlanEntry[] => {
     if (plan !== null) return plan;
     const base = store.query.baseLayer(clip);
-    const curves = base === undefined ? [] : store.query.curvesOfClip(clip).filter((curve) => curve.layer === base.id);
-    const entries = curves
+    // Projection rule (ARCHITECTURE §4.2): one curve per channel, the smallest CurveId; the store unions the keys
+    // of its duplicates into it. Stores may or may not list duplicates in curvesOfClip, so they are dropped here.
+    const canonical = new Map<string, CurveRecord>();
+    if (base !== undefined) {
+      for (const curve of store.query.curvesOfClip(clip)) {
+        if (curve.layer !== base.id) continue;
+        const key = channelKey(curve);
+        const current = canonical.get(key);
+        if (current === undefined || curve.id < current.id) canonical.set(key, curve);
+      }
+    }
+    const entries = [...canonical.values()]
       .map((curve): PlanEntry => {
         const index = program.controlIndex.get(curve.control);
         const slot = channelSlot(curve.channel);

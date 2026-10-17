@@ -191,6 +191,37 @@ describe('rig: curve cache and clip sampler (shared test kit store)', () => {
     expect(readControlChannels(program, ch, ARM).rz).toBe(1);
   });
 
+  it('samples only the canonical (smallest id) curve when the store also lists duplicates', () => {
+    const { store, program } = setup();
+    store.transact({ label: 'Duplicate' }, (tx) => {
+      tx.put('curves', curveRecord('crv_ZDuplicateWave01', ARM, 'rz', { staticValue: 5 }));
+    });
+    // A store whose curvesOfClip lists every curve record, duplicates included (the contract leaves it open).
+    const all = (clip: ClipId): readonly CurveRecord[] =>
+      store.list('curves').filter((curve) => curve.clip === clip && curve.deleted === null);
+    const query = new Proxy(store.query, {
+      get: (target, prop) => (prop === 'curvesOfClip' ? all : Reflect.get(target, prop, target)),
+    });
+    const view = new Proxy(store, {
+      get: (target, prop) => {
+        if (prop === 'query') return query;
+        const value: unknown = Reflect.get(target, prop, target);
+        return typeof value === 'function' ? value.bind(target) : value;
+      },
+    });
+    expect(view.query.curvesOfClip(CLIP).filter((curve) => curve.control === ARM)).toHaveLength(2);
+    const cache = createCurveCache(view, naiveCurveEngine);
+    const sampler = createClipSampler(view, cache, CLIP, program);
+    disposers.push(
+      () => sampler.dispose(),
+      () => cache.dispose(),
+    );
+    const ch = program.allocChannels();
+    sampler.sample(15, ch);
+    expect(readControlChannels(program, ch, ARM).rz).toBeCloseTo(-30 * DEG, 12);
+    expect(sampler.curveInfo(ARM).map((info) => info.channel)).toEqual(['rz']);
+  });
+
   it('ignores curves of other layers and of controls outside the program', () => {
     const { store, program, sampler } = setup();
     const second: LayerRecord = {
