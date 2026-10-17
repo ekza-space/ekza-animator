@@ -1,19 +1,7 @@
-// '@ekza-animator/editor-core/testing' (WP-0b, then WP-7a). Final signatures (MVP-SPEC §7 WP-7a); the fake app
-// throws until the shared test kit lands.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { DocSnapshot } from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import type { EditorApp, EditorServices } from '../types';
-
-export interface FakeEditorApp extends EditorApp {
-  readonly calls: readonly { readonly id: string; readonly args: unknown }[];
-}
-
-export function createFakeEditorApp(_opts?: {
-  readonly snapshot?: DocSnapshot;
-  readonly skeleton?: SkeletonDesc;
-  readonly services?: Partial<EditorServices>;
-  readonly platform?: 'mac' | 'other';
-}): FakeEditorApp {
-  throw new EkzaError('not-implemented', 'editor-core/testing.createFakeEditorApp');
-}
+// '@ekza-animator/editor-core/testing': the shared test kit's fake app (MVP-SPEC §7 WP-0b, then WP-7a).
+// Browser-safe: nothing here imports Node APIs, so Vitest browser-mode panel tests and the /dev/panels route use it
+// as well. Read fixtures with `@ekza-animator/doc/testing` (Node) and pass them in.
+export { createFakeEditorApp, type FakeEditorApp } from './app';
+export { naiveCurveEngine } from './curves';
+export { createFakeServices, type FakeServices } from './services';
+export { createNaiveStore, type NaiveStoreOptions } from './store/naiveStore';
