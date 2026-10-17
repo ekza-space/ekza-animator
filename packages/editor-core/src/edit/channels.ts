@@ -14,7 +14,7 @@ import { internalsOf } from '../app/internals';
 import { activeClipOf } from '../evaluation/time';
 import type { CaptureOutcome } from '../history/capture';
 import { consumedControls, type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
-import { activeLocation } from '../session/location';
+import { activeLocation, ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type { ChannelEdit, ChannelEditGesture, ChannelEditResult, EditorApp, KeyPolicy, OverrideDelta } from '../types';
 import { isKeyable, isLocked } from './channelMeta';
@@ -266,7 +266,9 @@ function recordGestureStep(
   const after = app.session.getState().overrides;
   // Overrides recorded only where they still apply (a frame or clip change during the drag discarded them).
   const delta: OverrideDelta | null =
-    where !== null && sameLocation(where, activeLocation(app)) ? overrideDelta(startOverrides, after, where) : null;
+    where !== null && sameLocation(where, activeLocation(app))
+      ? overrideDelta(startOverrides, after, where, (control) => ownerOfControl(app.store, control))
+      : null;
   if (delta !== null && docTxId !== null) {
     const consumed = consumedControls(startOverrides, after);
     if (consumed.length > 0) app.history.dropOverrides({ character: delta.character, controls: consumed });

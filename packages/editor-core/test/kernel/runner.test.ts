@@ -7,7 +7,19 @@ import { naiveKernelDeps } from '../../src/testing/deps';
 import { createKernelApp } from '../../src/app/kernel';
 import type { CoalescingOperatorDef } from '../../src/operators/runner';
 import { createFakeServices } from '../../src/testing';
-import { addOperator, DEG, select, setFrame, W, waveApp, waveDoc, humanoidSkeleton } from './support';
+import {
+  addOperator,
+  DEG,
+  humanoidSkeleton,
+  kernelApp,
+  SECOND,
+  select,
+  setFrame,
+  twoCharacterDoc,
+  W,
+  waveApp,
+  waveDoc,
+} from './support';
 
 const rename = {
   id: 'test.rename',
@@ -345,6 +357,31 @@ describe('operator runner (§4.11.0)', () => {
     expect(upperRz()).toBe(0);
     expect(app.history.canUndo()).toBe(false);
     expect(app.store.undo.canUndo()).toBe(false);
+  });
+
+  it("records only the active character's overrides (a delta restores at that character's frame)", async () => {
+    const app = kernelApp({ snapshot: twoCharacterDoc() });
+    setFrame(app, 5);
+    addOperator(app, {
+      id: 'test.both',
+      label: 'Pose Both',
+      category: 'pose',
+      scope: 'global',
+      apply: (ctx) => {
+        ctx.app.session.setState({
+          overrides: new Map([
+            [W.lowerArmL, { rz: 0.1 }],
+            [SECOND.lowerArmL, { rz: 0.2 }],
+          ]),
+        });
+      },
+    });
+    await app.runUntyped('test.both');
+    const step = app.history.peekUndo();
+    expect(step?.overrides?.character).toBe(W.character);
+    expect([...(step?.overrides?.after.keys() ?? [])]).toEqual([W.lowerArmL]);
+    app.history.undo();
+    expect([...app.session.getState().overrides.keys()]).toEqual([SECOND.lowerArmL]);
   });
 
   it('records no step for an undoable operator that changed nothing', async () => {

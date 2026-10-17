@@ -29,17 +29,23 @@ export function channelValuesEqual(a: ChannelValues | undefined, b: ChannelValue
   return keys.every((key) => Object.is(a[key], b[key]));
 }
 
-/** The controls whose overrides differ, as an OverrideDelta at `where`; null when nothing changed. */
+/**
+ * The controls whose overrides differ, as an OverrideDelta at `where`; null when nothing changed. Only controls of
+ * `where.character` are taken (`owner`): a delta restores at that character's clip frame, so another character's
+ * values in it could come back at a frame they do not belong to.
+ */
 export function overrideDelta(
   before: ReadonlyMap<ControlId, ChannelValues>,
   after: ReadonlyMap<ControlId, ChannelValues>,
   where: OverrideLocation,
+  owner: (control: ControlId) => CharacterId | null,
 ): OverrideDelta | null {
   if (before === after) return null;
   const changedBefore = new Map<ControlId, ChannelValues>();
   const changedAfter = new Map<ControlId, ChannelValues>();
   let changed = false;
   for (const control of new Set([...before.keys(), ...after.keys()])) {
+    if (owner(control) !== where.character) continue;
     const a = before.get(control);
     const b = after.get(control);
     if (channelValuesEqual(a, b)) continue;

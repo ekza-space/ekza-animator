@@ -6,6 +6,7 @@ import type { DocumentStore } from '@ekza-animator/doc';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { consumedControls, type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
+import { ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type {
   EditorApp,
@@ -78,7 +79,7 @@ export function createOperatorRunner(deps: {
     // character has had its overrides discarded by the kernel.
     const delta =
       whereAfter !== null && sameLocation(where, whereAfter)
-        ? overrideDelta(before.overrides, after.overrides, whereAfter)
+        ? overrideDelta(before.overrides, after.overrides, whereAfter, (control) => ownerOfControl(store, control))
         : null;
     if (delta !== null && docTxId !== null) {
       // Keying consumed these overrides: earlier steps lose their override parts (§4.11.1 rule 5).
