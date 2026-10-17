@@ -179,10 +179,8 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     const source = await parseGlb(readFixture('quaternius-ual.glb'));
     const original = 'Armature|Idle_Loop:Take 001';
     const bytes = withJson(source, (json) => {
-      (json['animations'] as { name: string }[])[9] = {
-        ...(json['animations'] as { name: string }[])[9],
-        name: original,
-      } as { name: string };
+      const animations = json['animations'] as { name: string }[];
+      animations[9] = { ...(animations[9] as { name: string }), name: original };
     });
     const imported = (await runOk(app, 'file.importModel', {
       name: 'ual-sanitized.glb',
@@ -198,7 +196,9 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     const output = await parseGlb(artifact.bytes);
     // Replaced in place under its original name: no renamed duplicate is appended.
     expect(animationNames(output)).toEqual(sourceNames);
-    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as { clips: { name: string; index: number }[] };
+    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as {
+      clips: { name: string; index: number }[];
+    };
     expect(meta.clips.map((c) => [c.name, c.index])).toEqual([[original, 9]]);
 
     // A clip renamed in the editor is a new animation of its own.

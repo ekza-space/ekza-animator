@@ -127,10 +127,13 @@ describe('control picking', () => {
           const a = hits[i - 1];
           const b = hits[i];
           if (a?.kind !== 'control' || b?.kind !== 'control') continue;
-          expect(Math.floor(a.distancePx)).toBeLessThanOrEqual(Math.floor(b.distancePx));
-          if (Math.floor(a.distancePx) === Math.floor(b.distancePx)) {
-            expect(Math.floor(a.depth / 0.01)).toBeLessThanOrEqual(Math.floor(b.depth / 0.01));
-          }
+          // Distance bucket first; within one bucket the nearer depth bucket.
+          const order = [Math.floor(a.distancePx), Math.floor(a.depth / 0.01)];
+          const next = [Math.floor(b.distancePx), Math.floor(b.depth / 0.01)];
+          const ordered =
+            (order[0] as number) < (next[0] as number) ||
+            (order[0] === next[0] && (order[1] as number) <= (next[1] as number));
+          expect({ order, next, ordered }).toEqual({ order, next, ordered: true });
           expect(a.distancePx).toBeLessThanOrEqual(6);
         }
       }

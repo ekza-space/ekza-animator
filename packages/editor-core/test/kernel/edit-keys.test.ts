@@ -129,7 +129,9 @@ describe('moveKeys (§4.11.3)', () => {
     expect(wavePoints(fresh).map(([t]) => t)).toEqual([0, 1, 16]);
     // Without snapping the old rule holds: it stops at the neighbour and lands on it on the final update.
     const free = waveApp();
-    const freeResult = edit(free, 'Move', (tx) => moveKeys(free, tx, [K15], 22, 0, { snap: false, resolveCollisions: true }));
+    const freeResult = edit(free, 'Move', (tx) =>
+      moveKeys(free, tx, [K15], 22, 0, { snap: false, resolveCollisions: true }),
+    );
     expect(freeResult.deleted).toEqual([K30]);
   });
 
