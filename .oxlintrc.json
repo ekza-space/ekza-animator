@@ -963,7 +963,7 @@
     },
     {
       "files": ["packages/editor/src/**"],
-      "excludeFiles": ["packages/editor/src/workers/**"],
+      "excludeFiles": ["packages/editor/src/workers/**", "packages/editor/src/testing/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -997,6 +997,52 @@
                   "!three/**"
                 ],
                 "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/editor/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/doc",
+                  "!@ekza-animator/rig",
+                  "!@ekza-animator/io",
+                  "!@ekza-animator/io/three",
+                  "!@ekza-animator/editor-core",
+                  "!@ekza-animator/viewport",
+                  "!@ekza-animator/curve-editor",
+                  "!@ekza-animator/ui",
+                  "!@react-three/fiber",
+                  "!dockview-react",
+                  "!react-resizable-panels",
+                  "!@tanstack/react-virtual",
+                  "!zustand",
+                  "!zustand/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!three",
+                  "!three/**",
+                  "!@ekza-animator/editor-core/testing"
+                ],
+                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1087,7 +1133,7 @@
     },
     {
       "files": ["apps/web/app/**"],
-      "excludeFiles": ["apps/web/app/e2e/**"],
+      "excludeFiles": ["apps/web/app/e2e/**", "apps/web/app/dev/**"],
       "rules": {
         "no-restricted-imports": [
           "error",
@@ -1109,6 +1155,40 @@
                   "!react-dom/**"
                 ],
                 "message": "apps/web may import only: @ekza-animator/editor, @ekza-animator/ui, @ekza-animator/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/** (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["apps/web/app/dev/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/editor",
+                  "!@ekza-animator/ui",
+                  "!@ekza-animator/ui/styles.css",
+                  "!next",
+                  "!next/**",
+                  "!react",
+                  "!react/**",
+                  "!react-dom",
+                  "!react-dom/**",
+                  "!@ekza-animator/editor/testing"
+                ],
+                "message": "apps/web dev route may import only: @ekza-animator/editor, @ekza-animator/ui, @ekza-animator/ui/styles.css, next, next/**, react, react/**, react-dom, react-dom/**, @ekza-animator/editor/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",

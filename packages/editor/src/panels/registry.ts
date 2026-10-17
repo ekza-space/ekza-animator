@@ -1,7 +1,21 @@
-// WP-0b stub: final signature (MVP-SPEC §7 WP-8); throws until the shared test kit lands.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { PanelRegistry } from './types';
+import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import type { PanelDef, PanelRegistry } from './types';
 
+/**
+ * Registration-ordered panel registry (MVP-SPEC §3 convention 10). A duplicate id throws; a disposer removes only
+ * the definition it registered.
+ */
 export function createPanelRegistry(): PanelRegistry {
-  throw new EkzaError('not-implemented', 'editor.createPanelRegistry');
+  const panels = new Map<string, PanelDef>();
+  return {
+    register(def: PanelDef): Disposer {
+      if (panels.has(def.id)) throw new EkzaError('unsupported', `Panel '${def.id}' is already registered`);
+      panels.set(def.id, def);
+      return () => {
+        if (panels.get(def.id) === def) panels.delete(def.id);
+      };
+    },
+    get: (id: string) => panels.get(id),
+    list: () => [...panels.values()],
+  };
 }

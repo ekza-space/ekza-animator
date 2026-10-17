@@ -6,6 +6,9 @@ coverage/
 test-results/
 playwright-report/
 blob-report/
+# Vitest browser-mode failure artifacts
+__screenshots__/
+.vitest-attachments/
 .DS_Store
 *.log
 .env*

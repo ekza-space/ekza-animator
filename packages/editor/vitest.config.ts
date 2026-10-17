@@ -6,6 +6,10 @@ import { defineConfig } from 'vitest/config';
 const ci = process.env['CI'] === 'true' || process.env['CI'] === '1';
 
 export default defineConfig({
+  // Pre-bundled up front: discovering them mid-run makes Vite reload the page under a running test.
+  optimizeDeps: {
+    include: ['@react-three/fiber', 'react', 'react-dom/client', 'react/jsx-dev-runtime', 'zustand/vanilla'],
+  },
   test: {
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
