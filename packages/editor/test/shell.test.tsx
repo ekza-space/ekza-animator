@@ -9,6 +9,7 @@ import type { SkeletonDesc } from '@ekza-animator/rig';
 import { Profiler, StrictMode } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EditorRoot } from '../src/shell/EditorRoot';
+import type { Summarizer } from '../src/shell/summary';
 import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
 import { DEFAULT_PARAMS, type EditorParams } from '../src/test-api/params';
 import { byTestId } from './render';
@@ -72,11 +73,15 @@ function stubOperators(app: EditorApp): void {
   });
 }
 
-async function mount(params: Partial<EditorParams> = {}): Promise<{ view: Rendered; app: FakeEditorApp }> {
+async function mount(
+  params: Partial<EditorParams> = {},
+  opts: { readonly summarize?: Summarizer } = {},
+): Promise<{ view: Rendered; app: FakeEditorApp }> {
   let app: FakeEditorApp | null = null;
   const view = mountLive(
     <EditorRoot
       params={{ ...DEFAULT_PARAMS, e2e: true, ...params }}
+      {...(opts.summarize === undefined ? {} : { summarize: opts.summarize })}
       createApp={({ services, platform }) => {
         app = createFakeEditorApp({
           snapshot,
@@ -247,7 +252,15 @@ describe('editor shell', () => {
   });
 
   it('opens several dropped files one after another, each model through its own import dialog', async () => {
-    const { view, app } = await mount();
+    // The dropped bytes are placeholders: a summary that cannot be read (but is not a broken file) keeps the dialog.
+    const { view, app } = await mount(
+      {},
+      {
+        summarize: async () => {
+          throw new Error('no summary in this test');
+        },
+      },
+    );
     const runs: { id: string; name: unknown }[] = [];
     for (const id of ['file.importModel', 'file.importAnimation'] as const) {
       app.contribute({
