@@ -8,7 +8,8 @@ import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { createPanelRegistry, EditorAppProvider } from '../../src';
 import { focusedGraphEditor, GraphPanel, graphTestHooks, registerGraphPanel } from '../../src/panels/graph';
-import { byTestId, readSynthetic, type Rendered, render, update } from '../render';
+import { MIXED_SCALE_ERROR } from '../../src/panels/graph/model';
+import { byTestId, type Rendered, readSynthetic, render, update } from '../render';
 
 const CURVE = 'crv_SyntheticWave001' as CurveId;
 const CLIP = 'clp_SyntheticWave001' as ClipId;
@@ -226,6 +227,26 @@ describe('GraphPanel', () => {
     await settle();
     expect(input(container, 'ge-field-frame').value).toBe('');
     expect(input(container, 'ge-field-frame').placeholder).toBe('—');
+  });
+
+  it('refuses × and ÷ on keys with different values and keeps the document', async () => {
+    const container = await mountPanel();
+    await select([
+      [KEYS[0], { key: true }],
+      [KEYS[1], { key: true }],
+    ]);
+    await settle();
+    for (const [field, text] of [
+      ['ge-field-value', '*=2'],
+      ['ge-field-value', '*2'],
+      ['ge-field-frame', '/2'],
+    ] as const) {
+      await inAct(() => userEvent.fill(input(container, field), text));
+      await inAct(() => userEvent.keyboard('{Enter}'));
+      expect(input(container, field).getAttribute('aria-invalid')).toBe('true');
+      expect(input(container, field).title).toBe(MIXED_SCALE_ERROR);
+    }
+    expect(callsOf('graph.keys.setFields')).toEqual([]);
   });
 
   it.skipIf(!NUMERIC_READY)(

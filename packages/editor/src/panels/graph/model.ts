@@ -8,13 +8,14 @@ import type {
   ControlId,
   CurveId,
   CurveRecord,
+  DocQueries,
   DocumentStore,
   KeyId,
   KeyRecord,
 } from '@ekza-animator/doc';
 import {
   type ChannelRef,
-  type EditorApp,
+  type EvaluationService,
   type KeyFieldsArgs,
   type KeyPartSelection,
   parseNumericInput,
@@ -171,12 +172,34 @@ export function selectedKeys(store: DocumentStore, selection: ReadonlyMap<KeyId,
   return out;
 }
 
+/**
+ * Running common value within 1e-9 (relative to the first value): null once two values differ, when a value is not
+ * finite (nothing to show), or when empty.
+ */
+class CommonValue {
+  private first: number | null = null;
+  mixed = false;
+
+  add(value: number): void {
+    if (this.mixed) return;
+    if (!Number.isFinite(value)) this.mixed = true;
+    else if (this.first === null) this.first = value;
+    else if (!(Math.abs(value - this.first) <= 1e-9 * Math.max(1, Math.abs(this.first)))) this.mixed = true;
+  }
+
+  get value(): number | null {
+    return this.mixed ? null : this.first;
+  }
+}
+
 /** Common value of a list within 1e-9 (relative), null when mixed or empty. */
 export function common(values: readonly number[]): number | null {
-  const first = values[0];
-  if (first === undefined) return null;
-  const tolerance = 1e-9 * Math.max(1, Math.abs(first));
-  return values.every((value) => Math.abs(value - first) <= tolerance) ? first : null;
+  const acc = new CommonValue();
+  for (const value of values) {
+    acc.add(value);
+    if (acc.mixed) break;
+  }
+  return acc.value;
 }
 
 export interface FrameValueFields {
@@ -187,11 +210,14 @@ export interface FrameValueFields {
 
 /** Frame and display value of the selected keys (null = mixed). */
 export function frameValueFields(keys: readonly SelectedKey[]): FrameValueFields {
-  return {
-    count: keys.length,
-    frame: common(keys.map((k) => k.key.t)),
-    value: common(keys.map((k) => k.key.v * k.scale)),
-  };
+  const frame = new CommonValue();
+  const value = new CommonValue();
+  for (const k of keys) {
+    frame.add(k.key.t);
+    value.add(k.key.v * k.scale);
+    if (frame.mixed && value.mixed) break;
+  }
+  return { count: keys.length, frame: frame.value, value: value.value };
 }
 
 export interface TangentFieldValues {
@@ -203,61 +229,131 @@ export interface TangentFieldValues {
   readonly weighted: boolean;
 }
 
+/** What `tangentFieldValues` reads: the curves' sorted keys and their compiled (resolved) handles. */
+export interface TangentFieldSource {
+  readonly store: { readonly query: Pick<DocQueries, 'keysOfCurve' | 'curveFor'> };
+  readonly evaluation: Pick<EvaluationService, 'compiledCurve'>;
+}
+
+/** Index of `key` in a curve's keys (sorted by t, unique t per MVP-SPEC §4.2); -1 for a hidden duplicate. */
+function indexOfKey(sorted: readonly KeyRecord[], key: KeyRecord): number {
+  let lo = 0;
+  let hi = sorted.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if ((sorted[mid] as KeyRecord).t < key.t) lo = mid + 1;
+    else hi = mid;
+  }
+  return sorted[lo]?.id === key.id ? lo : -1;
+}
+
 /**
  * In/out angle and weight of the selected keys in Maya's convention (MVP-SPEC §4.11.4 `tangentFields`), from the
- * resolved handles of the compiled curves.
+ * resolved handles of the compiled curves. Linear in the selection: keys are grouped by curve, each curve is read
+ * once and every key is found by binary search; the scan stops as soon as every shown field is mixed.
  */
-export function tangentFieldValues(app: EditorApp, keys: readonly SelectedKey[]): TangentFieldValues {
-  const inAngles: number[] = [];
-  const outAngles: number[] = [];
-  const inWeights: number[] = [];
-  const outWeights: number[] = [];
-  for (const k of keys) {
-    const compiled = app.evaluation.compiledCurve(k.curve.id);
-    const index = app.store.query.keysOfCurve(k.curve.id).findIndex((other) => other.id === k.key.id);
-    if (index === -1 || index >= compiled.keyCount) continue;
-    const inHandle = { dt: compiled.inDt[index] as number, dv: compiled.inDv[index] as number };
-    const outHandle = { dt: compiled.outDt[index] as number, dv: compiled.outDv[index] as number };
-    const inFields = tangentFields(inHandle, 'in', k.fps, k.scale);
-    const outFields = tangentFields(outHandle, 'out', k.fps, k.scale);
-    inAngles.push(inFields.angleDeg);
-    outAngles.push(outFields.angleDeg);
-    inWeights.push(inFields.weight);
-    outWeights.push(outFields.weight);
-  }
+export function tangentFieldValues(
+  source: TangentFieldSource,
+  keys: readonly SelectedKey[],
+  fieldsOf: typeof tangentFields = tangentFields,
+): TangentFieldValues {
   const weighted = keys.length > 0 && keys.every((k) => k.curve.weighted);
+  const inAngle = new CommonValue();
+  const outAngle = new CommonValue();
+  const inWeight = new CommonValue();
+  const outWeight = new CommonValue();
+  const allMixed = (): boolean => inAngle.mixed && outAngle.mixed && (!weighted || (inWeight.mixed && outWeight.mixed));
+
+  const byCurve = new Map<CurveId, SelectedKey[]>();
+  for (const k of keys) {
+    const group = byCurve.get(k.curve.id);
+    if (group === undefined) byCurve.set(k.curve.id, [k]);
+    else group.push(k);
+  }
+  for (const [id, group] of byCurve) {
+    const { clip, layer, control, channel } = (group[0] as SelectedKey).curve;
+    // Duplicate curves of a channel are read through the canonical one, which unions their keys (§4.2).
+    const canonical = source.store.query.curveFor(clip, layer, control, channel)?.id ?? id;
+    const compiled = source.evaluation.compiledCurve(canonical);
+    const sorted = source.store.query.keysOfCurve(canonical);
+    // Compiled arrays and records must align index by index; a stale compiled curve is skipped.
+    if (sorted.length !== compiled.keyCount) continue;
+    for (const k of group) {
+      const index = indexOfKey(sorted, k.key);
+      if (index === -1) continue;
+      const inFields = fieldsOf(
+        { dt: compiled.inDt[index] as number, dv: compiled.inDv[index] as number },
+        'in',
+        k.fps,
+        k.scale,
+      );
+      const outFields = fieldsOf(
+        { dt: compiled.outDt[index] as number, dv: compiled.outDv[index] as number },
+        'out',
+        k.fps,
+        k.scale,
+      );
+      inAngle.add(inFields.angleDeg);
+      outAngle.add(outFields.angleDeg);
+      if (weighted) {
+        inWeight.add(inFields.weight);
+        outWeight.add(outFields.weight);
+      }
+      if (allMixed()) return { inAngle: null, outAngle: null, inWeight: null, outWeight: null, weighted };
+    }
+  }
   return {
-    inAngle: common(inAngles),
-    outAngle: common(outAngles),
-    inWeight: weighted ? common(inWeights) : null,
-    outWeight: weighted ? common(outWeights) : null,
+    inAngle: inAngle.value,
+    outAngle: outAngle.value,
+    inWeight: weighted ? inWeight.value : null,
+    outWeight: weighted ? outWeight.value : null,
     weighted,
   };
 }
 
 export type KeyField = 'frame' | 'value' | 'inAngleDeg' | 'outAngleDeg' | 'inWeight' | 'outWeight';
 
-const RELATIVE = /^\s*([+-])=\s*(.+)$/;
+/** Parsed field text: the `graph.keys.setFields` arguments, or why the text cannot be applied. */
+export type FieldInput =
+  | { readonly ok: true; readonly args: KeyFieldsArgs }
+  | { readonly ok: false; readonly error: string };
+
+const RELATIVE = /^([+-])=\s*(.*)$/;
+const MULTIPLICATIVE = /^[*/]/;
+/** An operator left at the start of a relative operand (`+=*2`, `-=+=1`). */
+const OPERATOR_AT_START = /^(?:[*/]|[+-]=)/;
+
+export const FIELD_HINT = 'Not a number or expression (e.g. 30, +=10, *2, 90deg)';
+export const MIXED_FIELD_HINT = 'Not a number or relative change (e.g. 30, +=10, -=5)';
+export const MIXED_SCALE_ERROR = '× and ÷ need a common value: the selected keys differ (use += or -=)';
+
+const invalid = (error: string): FieldInput => ({ ok: false, error });
 
 /**
- * `graph.keys.setFields` arguments for typed text (research 09 §6.4 grammar via `parseNumericInput`). With a common
- * current value the expression is evaluated against it; with mixed values `+=`/`-=` apply relatively to every key
- * and a plain value sets them all. Null when the text is not a valid expression.
+ * `graph.keys.setFields` arguments for typed text (research 09 §6.4 grammar, evaluated by `parseNumericInput`; a
+ * leading `=` is accepted). With a common current value the expression is evaluated against it. With mixed values
+ * `+=`/`-=` apply relatively to every key (`relative: true`) and a plain value sets them all; `*`, `/`, `*=` and `/=`
+ * are refused, since `KeyFieldsArgs` has no per-key scale and evaluating against 0 would zero every key.
  */
-export function fieldArgs(field: KeyField, text: string, current: number | null): KeyFieldsArgs | null {
-  if (text.trim() === '') return null;
+export function fieldArgs(field: KeyField, text: string, current: number | null): FieldInput {
+  let source = text.trim();
+  if (source.startsWith('=')) source = source.slice(1).trim();
+  if (source === '') return invalid(current === null ? MIXED_FIELD_HINT : FIELD_HINT);
   if (current !== null) {
-    const value = parseNumericInput(text, current);
-    return value === null || !Number.isFinite(value) ? null : { [field]: value };
+    const value = parseNumericInput(source, current);
+    return value === null || !Number.isFinite(value) ? invalid(FIELD_HINT) : { ok: true, args: { [field]: value } };
   }
-  const relative = RELATIVE.exec(text);
+  if (MULTIPLICATIVE.test(source)) return invalid(MIXED_SCALE_ERROR);
+  const relative = RELATIVE.exec(source);
   if (relative !== null) {
-    const amount = parseNumericInput(relative[2] as string, 0);
-    if (amount === null || !Number.isFinite(amount)) return null;
-    return { [field]: relative[1] === '-' ? -amount : amount, relative: true };
+    const operand = (relative[2] as string).trim();
+    if (OPERATOR_AT_START.test(operand)) return invalid(MIXED_FIELD_HINT);
+    const amount = operand === '' ? null : parseNumericInput(operand, 0);
+    if (amount === null || !Number.isFinite(amount)) return invalid(MIXED_FIELD_HINT);
+    return { ok: true, args: { [field]: relative[1] === '-' ? -amount : amount, relative: true } };
   }
-  const value = parseNumericInput(text, 0);
-  return value === null || !Number.isFinite(value) ? null : { [field]: value };
+  const value = parseNumericInput(source, 0);
+  return value === null || !Number.isFinite(value) ? invalid(MIXED_FIELD_HINT) : { ok: true, args: { [field]: value } };
 }
 
 /** Text of a field: three decimals (frames without decimals when whole), '' when mixed. */

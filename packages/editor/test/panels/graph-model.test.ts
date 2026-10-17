@@ -1,21 +1,73 @@
+import {
+  type CompiledAnimCurve,
+  EkzaError,
+  type Fps,
+  type Handle,
+  type TangentFields,
+  tangentFields,
+} from '@ekza-animator/anim-core';
 import { buildChannelTree, type ChannelTreeNode } from '@ekza-animator/curve-editor';
-import type { CharacterId, ClipId, ControlId, CurveId, DocSnapshot, KeyId } from '@ekza-animator/doc';
+import type {
+  CharacterId,
+  ClipId,
+  ControlId,
+  CurveId,
+  CurveRecord,
+  DocSnapshot,
+  KeyId,
+  KeyRecord,
+  LayerId,
+} from '@ekza-animator/doc';
+import { parseNumericInput } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   applyChannelSelection,
   common,
+  FIELD_HINT,
+  fieldArgs,
   flattenRows,
   formatField,
   frameValueFields,
   listedControls,
+  MIXED_FIELD_HINT,
+  MIXED_SCALE_ERROR,
   rowRefs,
+  type SelectedKey,
   sameTree,
   selectedKeys,
+  type TangentFieldSource,
+  tangentFieldValues,
   toolbarState,
   visibleCurves,
 } from '../../src/panels/graph/model';
 import { readSynthetic } from '../render';
+
+function implemented(probe: () => unknown): boolean {
+  try {
+    probe();
+    return true;
+  } catch (error) {
+    return !(error instanceof EkzaError && error.code === 'not-implemented');
+  }
+}
+/** WP-7a's numeric input parser evaluates field text. */
+const NUMERIC_READY = implemented(() => parseNumericInput('1', 0));
+const FPS30: Fps = { num: 30, den: 1 };
+/** WP-1's tangent fields when landed, else the §4.11.4 formulas (enough for timing and index checks). */
+const TANGENT_FIELDS_READY = implemented(() => tangentFields({ dt: 1, dv: 0 }, 'out', FPS30, 1));
+const fieldsFormula = (h: Handle, side: 'in' | 'out', fps: Fps, k: number): TangentFields => {
+  const fpsS = fps.num / fps.den;
+  const sign = side === 'out' ? 1 : -1;
+  return {
+    angleDeg: (Math.atan2(sign * h.dv * k, (sign * h.dt) / fpsS) * 180) / Math.PI,
+    weight: 3 * Math.hypot(Math.abs(h.dt) / fpsS, h.dv * k),
+  };
+};
+const fieldsImpl = TANGENT_FIELDS_READY ? tangentFields : fieldsFormula;
+/** Reports the handle's dt as the angle (×10 on the out side): shows which compiled index a key was read from. */
+const handleProbe = (h: Handle, side: 'in' | 'out'): TangentFields =>
+  side === 'in' ? { angleDeg: h.dt, weight: h.dv } : { angleDeg: h.dt * 10, weight: h.dv };
 
 const CHARACTER = 'chr_SyntheticWave001' as CharacterId;
 const CLIP = 'clp_SyntheticWave001' as ClipId;
@@ -138,4 +190,183 @@ describe('Graph panel model', () => {
     expect(toolbarState(app.store, keys, [], [])).toMatchObject({ hasKeys: true, weightLocked: true });
     expect(toolbarState(app.store, [], [], []).curves).toEqual([]);
   });
+
+  it('refuses × and ÷ on mixed values instead of evaluating them against 0', () => {
+    for (const text of ['*=2', '/=2', '*2', '/2', ' * 2', '=*2']) {
+      expect(fieldArgs('value', text, null)).toEqual({ ok: false, error: MIXED_SCALE_ERROR });
+      expect(fieldArgs('frame', text, null)).toEqual({ ok: false, error: MIXED_SCALE_ERROR });
+    }
+    // Operators left in a relative operand and empty input are refused before any parsing.
+    for (const text of ['+=*2', '-=/2', '+=-=1', '-=', '', '  ', '=']) {
+      expect(fieldArgs('value', text, null)).toEqual({ ok: false, error: MIXED_FIELD_HINT });
+    }
+    expect(fieldArgs('value', '', 1)).toEqual({ ok: false, error: FIELD_HINT });
+    expect(MIXED_FIELD_HINT).not.toContain('*');
+  });
+
+  it.skipIf(!NUMERIC_READY)(
+    '[needs WP-7a] evaluates field text against the common value, relatively when mixed',
+    () => {
+      expect(fieldArgs('value', '*2', 15)).toEqual({ ok: true, args: { value: 30 } });
+      expect(fieldArgs('frame', '/=2', 15)).toEqual({ ok: true, args: { frame: 7.5 } });
+      expect(fieldArgs('value', '+=10', 15)).toEqual({ ok: true, args: { value: 25 } });
+      expect(fieldArgs('value', '=30', 15)).toEqual({ ok: true, args: { value: 30 } });
+      expect(fieldArgs('value', '+=10', null)).toEqual({ ok: true, args: { value: 10, relative: true } });
+      expect(fieldArgs('frame', '-= 4', null)).toEqual({ ok: true, args: { frame: -4, relative: true } });
+      expect(fieldArgs('value', '-=-5', null)).toEqual({ ok: true, args: { value: 5, relative: true } });
+      expect(fieldArgs('outAngleDeg', '45', null)).toEqual({ ok: true, args: { outAngleDeg: 45 } });
+      expect(fieldArgs('value', 'abc', 1)).toEqual({ ok: false, error: FIELD_HINT });
+      expect(fieldArgs('value', 'abc', null)).toEqual({ ok: false, error: MIXED_FIELD_HINT });
+    },
+  );
+
+  it('reads tangent fields at each key’s own index, grouped per curve', () => {
+    app = createFakeEditorApp({ snapshot });
+    const compiled = app.evaluation.compiledCurve(CURVE);
+    for (const index of [1, 2] as const) {
+      const keys = selectedKeys(app.store, new Map([[KEYS[index], KEY_PART]]));
+      expect(tangentFieldValues(app, keys, handleProbe)).toEqual({
+        inAngle: compiled.inDt[index],
+        outAngle: (compiled.outDt[index] as number) * 10,
+        inWeight: null,
+        outWeight: null,
+        weighted: false,
+      });
+    }
+    expect(tangentFieldValues(app, [], handleProbe)).toEqual({
+      inAngle: null,
+      outAngle: null,
+      inWeight: null,
+      outWeight: null,
+      weighted: false,
+    });
+    // Different handles across keys and curves: every field is mixed.
+    const varied = syntheticSource(2, 5, { weighted: true, flat: false });
+    expect(tangentFieldValues(varied, varied.selected, fieldsFormula)).toEqual({
+      inAngle: null,
+      outAngle: null,
+      inWeight: null,
+      outWeight: null,
+      weighted: true,
+    });
+  });
+
+  it('shows weights only when every curve is weighted, and skips keys without a compiled handle', () => {
+    const source = syntheticSource(3, 4, { weighted: true, flat: true });
+    const keys = source.selected;
+    // Flat handles of equal length: every field is common.
+    const fields = tangentFieldValues(source, keys, fieldsFormula);
+    expect(fields.weighted).toBe(true);
+    expect(fields.inAngle).toBeCloseTo(0, 12);
+    expect(fields.outAngle).toBeCloseTo(0, 12);
+    expect(fields.inWeight).toBeCloseTo(3 * (1 / 30), 12);
+    expect(fields.outWeight).toBeCloseTo(3 * (1 / 30), 12);
+    // One non-weighted curve hides the weights.
+    const mixedCurve = { ...keys[0], curve: { ...(keys[0] as SelectedKey).curve, weighted: false } } as SelectedKey;
+    expect(tangentFieldValues(source, [mixedCurve, ...keys.slice(1)], fieldsFormula)).toMatchObject({
+      weighted: false,
+      inWeight: null,
+      outWeight: null,
+    });
+    // A key that is not in its curve's projection (a hidden duplicate) contributes nothing.
+    const ghost = {
+      ...keys[0],
+      key: { ...(keys[0] as SelectedKey).key, id: 'k_ghost0000000' as KeyId },
+    } as SelectedKey;
+    expect(tangentFieldValues(source, [ghost], fieldsFormula).inAngle).toBeNull();
+  });
+
+  it('computes tangent fields for 50k selected keys in under 20 ms', async ({ annotate }) => {
+    // 50 curves × 1000 keys, all selected, flat weighted handles: every field stays common, so nothing exits early.
+    const source = syntheticSource(50, 1000, { weighted: true, flat: true });
+    const run = () => tangentFieldValues(source, source.selected, fieldsImpl);
+    run();
+    const samples: number[] = [];
+    for (let i = 0; i < 9; i++) {
+      const start = performance.now();
+      const fields = run();
+      samples.push(performance.now() - start);
+      expect(fields.inWeight).not.toBeNull();
+    }
+    const ms = [...samples].sort((a, b) => a - b)[4] as number;
+    await annotate(`tangent fields, 50k selected keys: ${ms.toFixed(2)} ms (median of 9)`);
+    expect(ms).toBeLessThan(20);
+  });
 });
+
+/**
+ * A `TangentFieldSource` over `curves` × `keys` synthetic keys (one per frame, all selected), with indexed queries
+ * like the real store's (the test kit's store scans every key per query).
+ */
+function syntheticSource(
+  curves: number,
+  keys: number,
+  opts: { readonly weighted: boolean; readonly flat: boolean },
+): TangentFieldSource & { readonly selected: SelectedKey[] } {
+  const byCurve = new Map<CurveId, { record: CurveRecord; keys: KeyRecord[]; compiled: CompiledAnimCurve }>();
+  const selected: SelectedKey[] = [];
+  for (let c = 0; c < curves; c++) {
+    const id = `crv_Bench${String(c).padStart(9, '0')}` as CurveId;
+    const record = {
+      id,
+      clip: CLIP,
+      layer: 'lyr_Bench00000001' as LayerId,
+      control: LOWER_ARM,
+      channel: `@c${c}`,
+      weighted: opts.weighted,
+      pre: 'constant',
+      post: 'constant',
+      locked: false,
+    } as unknown as CurveRecord;
+    const records: KeyRecord[] = [];
+    const t = new Float64Array(keys);
+    const v = new Float64Array(keys);
+    const inDt = new Float64Array(keys).fill(-1);
+    const outDt = new Float64Array(keys).fill(1);
+    const inDv = new Float64Array(keys);
+    const outDv = new Float64Array(keys);
+    for (let i = 0; i < keys; i++) {
+      t[i] = i;
+      v[i] = Math.sin(i * 0.1);
+      if (!opts.flat) {
+        inDv[i] = -0.1 * Math.cos(i * 0.1);
+        outDv[i] = 0.1 * Math.cos(i * 0.1);
+      }
+      const key = { id: `k_B${c}_${i}` as KeyId, curve: id, clip: CLIP, t: i, v: v[i] } as unknown as KeyRecord;
+      records.push(key);
+      selected.push({ key, curve: record, parts: KEY_PART, scale: 1, fps: FPS30 });
+    }
+    const compiled = {
+      keyCount: keys,
+      t,
+      v,
+      inSlope: new Float64Array(keys),
+      outSlope: new Float64Array(keys),
+      inDt,
+      inDv,
+      outDt,
+      outDv,
+      segment: new Uint8Array(Math.max(keys - 1, 0)),
+      weighted: opts.weighted,
+      pre: 'constant',
+      post: 'constant',
+    } as CompiledAnimCurve;
+    byCurve.set(id, { record, keys: records, compiled });
+  }
+  const entry = (id: CurveId) => {
+    const found = byCurve.get(id);
+    if (found === undefined) throw new Error(`no curve ${id}`);
+    return found;
+  };
+  return {
+    selected,
+    store: {
+      query: {
+        keysOfCurve: (id) => entry(id).keys,
+        curveFor: (_clip, _layer, _control, channel) =>
+          [...byCurve.values()].find((curve) => curve.record.channel === channel)?.record,
+      },
+    },
+    evaluation: { compiledCurve: (id) => entry(id).compiled },
+  };
+}
