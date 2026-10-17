@@ -133,6 +133,9 @@ describe('.ekzanim container', () => {
       'project.json': new Uint8Array(2),
     });
     await expect(openProject(badManifest)).rejects.toMatchObject({ code: 'unsupported' });
+    // A truncated archive (local header intact, central directory gone).
+    const truncated = zipSync({ 'manifest.json': new Uint8Array(4) }).subarray(0, 40);
+    await expect(openProject(truncated)).rejects.toMatchObject({ code: 'unsupported' });
   });
 
   it('writes the JSON debug variant with sorted keys and asset entries without bytes', async () => {

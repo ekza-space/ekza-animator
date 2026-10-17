@@ -181,7 +181,7 @@ async function openZip(bytes: Uint8Array): Promise<OpenedProject> {
     });
   } catch (error) {
     if (error instanceof EkzaError) throw error;
-    throw new EkzaError('malformed-gltf', `The project archive is not a valid zip: ${(error as Error).message}`);
+    throw new EkzaError('unsupported', `The project archive is not a valid zip: ${(error as Error).message}`);
   }
   const manifestBytes = files['manifest.json'];
   const projectBytes = files['project.json'];

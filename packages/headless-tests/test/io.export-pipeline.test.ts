@@ -12,6 +12,7 @@ import {
   ekzaAnimationMeta,
   parseGlb,
   type PoseSource,
+  readVrma,
   setGltfValidator,
   skeletonFromGltf,
   validateGltf,
@@ -132,6 +133,13 @@ describe.skipIf(!rigReady())('io export pipeline on the real rig [needs WP-3 aut
       });
       expect(vrma.readBack?.ok).toBe(true);
       expect((await validateGltf(vrma.bytes)).errors).toBe(0);
+      // io's canonical rest worlds (bakeClip) and rig's humanoidRestWorldPositions (the writer's input) agree.
+      const read = readVrma(await parseGlb(vrma.bytes));
+      const restHips = humanoid.restHipsPosition ?? [Infinity, Infinity, Infinity];
+      expect(Math.hypot(...read.restHipsPosition.map((v, i) => v - (restHips[i] as number)))).toBeLessThan(1e-9);
+      // Seed-san's hips rest height is 0.7956 m (§4.11.12).
+      const hipsY = name === 'seed-san.vrm' ? 0.7956 : read.restHipsPosition[1];
+      expect(Math.abs(read.restHipsPosition[1] - hipsY)).toBeLessThan(1e-4);
     },
   );
 
