@@ -39,9 +39,15 @@ import {
 import { AnimationMixer, LoopOnce } from 'three';
 import { describe, expect, it } from 'vitest';
 
+/**
+ * True when calling `probe` hits a stub of an unmerged work package (EkzaError 'not-implemented'). Stubs throw
+ * synchronously; a real async implementation returns a promise that may reject on the bogus probe input, so that
+ * rejection is marked handled here (otherwise Vitest fails the run with an unhandled rejection).
+ */
 function pendingStub(probe: () => unknown): boolean {
   try {
-    probe();
+    const result = probe();
+    if (result instanceof Promise) result.catch(() => undefined);
     return false;
   } catch (error) {
     return error instanceof EkzaError && error.code === 'not-implemented';

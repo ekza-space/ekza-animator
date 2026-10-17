@@ -34,10 +34,15 @@ export function restPoseFixture(): RestPoseFixture {
   return readSyntheticFixture('rest-pose.json') as RestPoseFixture;
 }
 
-/** True when calling `probe` hits a stub of an unmerged work package (EkzaError 'not-implemented'). */
+/**
+ * True when calling `probe` hits a stub of an unmerged work package (EkzaError 'not-implemented'). Stubs throw
+ * synchronously; a promise returned by a real async implementation is marked handled so a rejection on the bogus
+ * probe input cannot fail the run as an unhandled rejection.
+ */
 export function pendingStub(probe: () => unknown): boolean {
   try {
-    probe();
+    const result = probe();
+    if (result instanceof Promise) result.catch(() => undefined);
     return false;
   } catch (error) {
     return error instanceof EkzaError && error.code === 'not-implemented';
