@@ -11,11 +11,12 @@ import {
   type Vec3,
 } from '@ekza-animator/anim-core';
 import type { ControlId, ControlRecord } from '@ekza-animator/doc';
-import { beginChannelEditGesture, type ChannelEdit } from '@ekza-animator/editor-core';
+import { beginChannelEditGesture, type ChannelEdit, type ChannelEditGesture } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { VIEW_RING_RADIUS } from '../src/manipulators/ManipulatorKit';
-import { createRig, drag, type Rig } from './helpers';
+import { type GestureFactory, moveToolDef, rotateToolDef } from '../src/tools/transformTool';
+import { createRig, drag, pointer, type Rig } from './helpers';
 
 /** The edit kernel (WP-7a) is stubbed until it lands; gesture-level tests run once it exists. */
 const KERNEL = (() => {
@@ -275,6 +276,143 @@ describe('manipulator press routing', () => {
     const rect = element.getBoundingClientRect();
     drag(element, { x: rect.left + 5, y: rect.top + 5 }, { x: rect.left + 5, y: rect.top + 5 }, undefined, 1);
     expect(rig.app.calls.filter((c) => c.id === 'select.controls').at(-1)?.args).toEqual({ ids: [], mode: 'replace' });
+  });
+});
+
+/** A ChannelEditGesture double that records the tool's calls (lifecycle only; the kernel's effects are WP-7a's). */
+interface Recorder {
+  readonly labels: string[];
+  readonly updates: (readonly ChannelEdit[])[];
+  commits: number;
+  cancels: number;
+  /** The live gesture (null before the first one opens). */
+  gesture: ChannelEditGesture & { active: boolean };
+}
+
+async function recordingRig(): Promise<{ readonly rig: Rig; readonly rec: Recorder }> {
+  const r = await createRig({ contributions: false });
+  const rec = { labels: [], updates: [], commits: 0, cancels: 0 } as unknown as Recorder;
+  const factory: GestureFactory = (_app, label) => {
+    rec.labels.push(label);
+    const gesture = {
+      active: true,
+      update: (edits: readonly ChannelEdit[]) => {
+        if (!gesture.active) throw new Error('update after the gesture ended');
+        rec.updates.push(edits);
+      },
+      commit: () => {
+        if (!gesture.active) throw new Error('commit after the gesture ended');
+        gesture.active = false;
+        rec.commits++;
+      },
+      cancel: () => {
+        gesture.active = false;
+        rec.cancels++;
+      },
+    };
+    rec.gesture = gesture;
+    return gesture;
+  };
+  r.app.contribute({ kind: 'tool', def: rotateToolDef(factory) });
+  r.app.contribute({ kind: 'tool', def: moveToolDef(factory) });
+  return { rig: r, rec };
+}
+
+function handlePage(r: Rig, handle: 'rx' | 'ry' | 'rz' | 'tx'): { readonly x: number; readonly y: number } {
+  const p = r.vm.manipulatorScreenPoint('pane-right', handle);
+  if (p === null) throw new Error(`no ${handle} handle`);
+  const rect = (r.panes.get('pane-right') as HTMLElement).getBoundingClientRect();
+  return { x: rect.left + p.x, y: rect.top + p.y };
+}
+
+describe('transform tool gesture lifecycle (recording gesture)', () => {
+  it('one gesture per drag: opened on movement, updated per move, committed once on release', async () => {
+    const { rig: r, rec } = await recordingRig();
+    rig = r;
+    r.layout('split');
+    const arm = control(r, 'fk.upperArm.L');
+    setup(r, arm.id, 'rotate', 'object');
+    const element = r.panes.get('pane-right') as HTMLElement;
+    const at = handlePage(r, 'rz');
+    drag(element, at, { x: at.x + 60, y: at.y }, undefined, 4);
+    expect(rec.labels).toEqual(['Rotate']);
+    expect(rec.commits).toBe(1);
+    expect(rec.cancels).toBe(0);
+    expect(rec.updates.length).toBe(5); // 4 moves + the release position
+    for (const edits of rec.updates) {
+      expect(edits.map((e) => [e.control, e.channel])).toEqual([
+        [arm.id, 'rx'],
+        [arm.id, 'ry'],
+        [arm.id, 'rz'],
+      ]);
+    }
+    expect(r.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
+
+    // Move tool: the same lifecycle with translate channels.
+    const cog = control(r, 'cog');
+    setup(r, cog.id, 'move', 'world');
+    const t = handlePage(r, 'tx');
+    drag(element, t, { x: t.x + 40, y: t.y }, undefined, 2);
+    expect(rec.labels).toEqual(['Rotate', 'Move']);
+    expect(rec.commits).toBe(2);
+    // World X under an unrotated parent: tx moves, ty and tz are sent unchanged.
+    const start = r.app.evaluation.channelValues(cog.id);
+    const moves = rec.updates.slice(5).map(values);
+    expect(moves.length).toBe(3);
+    for (const move of moves) {
+      expect(Object.keys(move).sort()).toEqual(['tx', 'ty', 'tz']);
+      expect(move['ty']).toBeCloseTo(start.ty, 9);
+      expect(move['tz']).toBeCloseTo(start.tz, 9);
+    }
+    expect(Math.abs((moves.at(-1)?.['tx'] ?? 0) - start.tx)).toBeGreaterThan(1e-3);
+  });
+
+  it('gimbal drags send exactly one channel per update', async () => {
+    const { rig: r, rec } = await recordingRig();
+    rig = r;
+    r.layout('split');
+    const arm = control(r, 'fk.upperArm.L');
+    setup(r, arm.id, 'rotate', 'gimbal');
+    const element = r.panes.get('pane-right') as HTMLElement;
+    const at = handlePage(r, 'rx');
+    drag(element, at, { x: at.x + 40, y: at.y }, undefined, 3);
+    expect(rec.commits).toBe(1);
+    expect(rec.updates.map((edits) => edits.map((e) => e.channel))).toEqual([['rx'], ['rx'], ['rx'], ['rx']]);
+  });
+
+  it('Escape cancels the gesture, later moves and the release do nothing', async () => {
+    const { rig: r, rec } = await recordingRig();
+    rig = r;
+    r.layout('split');
+    const arm = control(r, 'fk.upperArm.L');
+    setup(r, arm.id, 'rotate', 'object');
+    const element = r.panes.get('pane-right') as HTMLElement;
+    const at = handlePage(r, 'rz');
+    pointer(element, 'pointerdown', at.x, at.y);
+    pointer(element, 'pointermove', at.x + 20, at.y, { buttons: 1 });
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+    pointer(element, 'pointermove', at.x + 40, at.y, { buttons: 1 });
+    pointer(element, 'pointerup', at.x + 40, at.y);
+    expect([rec.updates.length, rec.commits, rec.cancels]).toEqual([1, 0, 1]);
+  });
+
+  it('a gesture ended elsewhere (edit.escape cancelled the preview) ends the drag without a commit', async () => {
+    const { rig: r, rec } = await recordingRig();
+    rig = r;
+    r.layout('split');
+    const arm = control(r, 'fk.upperArm.L');
+    setup(r, arm.id, 'rotate', 'object');
+    const element = r.panes.get('pane-right') as HTMLElement;
+    const at = handlePage(r, 'rz');
+    pointer(element, 'pointerdown', at.x, at.y);
+    pointer(element, 'pointermove', at.x + 20, at.y, { buttons: 1 });
+    rec.gesture.active = false; // cancelled behind the tool's back
+    pointer(element, 'pointermove', at.x + 40, at.y, { buttons: 1 });
+    pointer(element, 'pointerup', at.x + 40, at.y);
+    expect([rec.updates.length, rec.commits]).toEqual([1, 0]);
+    // The next press starts a fresh gesture.
+    drag(element, at, { x: at.x + 30, y: at.y }, undefined, 2);
+    expect([rec.labels.length, rec.commits]).toEqual([2, 1]);
   });
 });
 
