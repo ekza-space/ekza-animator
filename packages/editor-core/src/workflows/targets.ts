@@ -4,9 +4,10 @@
 // - Curves (§4.9 graph rows, WP-6 request): the curves of the selected keys; else the curves of the selected channels;
 //   else the curves of the selected controls; else every curve of the active clip — what the Graph Editor shows.
 //   Always the active clip's base layer.
-// - Controls: the selected ones, or every visible control of the active character when nothing is selected.
+// - Controls: the selected ones; keying the character and selecting all use its visible controls.
 import type {
   ChannelId,
+  CharacterId,
   ClipRecord,
   ControlId,
   ControlRecord,
@@ -48,8 +49,8 @@ export function activeClipRecord(app: EditorApp, view: ReadView = app.store): Cl
 }
 
 /** Controls of a character's rig, parents first. */
-export function controlsOfCharacter(view: ReadView, character: string): readonly ControlRecord[] {
-  const rig = view.query.rigOfCharacter(character as ClipRecord['character']);
+export function controlsOfCharacter(view: ReadView, character: CharacterId): readonly ControlRecord[] {
+  const rig = view.query.rigOfCharacter(character);
   return rig === undefined ? [] : view.query.controlsOfRig(rig.id);
 }
 
@@ -74,12 +75,6 @@ export function selectedControls(app: EditorApp, view: ReadView = app.store): re
     if (control !== undefined) out.push(control);
   }
   return out;
-}
-
-/** The selected controls, or every visible control of the active character when none is selected. */
-export function selectedOrAllControls(app: EditorApp, view: ReadView = app.store): readonly ControlRecord[] {
-  const selected = selectedControls(app, view);
-  return selected.length > 0 ? selected : visibleControls(app, view);
 }
 
 /** Base-layer curves of a clip, optionally limited to some controls. */

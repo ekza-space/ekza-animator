@@ -102,6 +102,9 @@ function isStub(error: unknown): boolean {
 
 const MENUS = /^(file|edit|select|key|pose|clip|graph|time|rig|view)$/;
 
+/** Operators beyond §4.9 requested by other work packages (WP-9 R-1, R-3), with their undo flag. */
+const ADDITIONS: Readonly<Record<string, boolean>> = { 'select.channels': false, 'view.camera.setSettings': true };
+
 /** §4.9 operators registered by other work packages (menus and keymaps may name them). */
 const OTHERS: ReadonlySet<string> = new Set([
   'select.curveKeys',
@@ -120,11 +123,14 @@ const OTHERS: ReadonlySet<string> = new Set([
 ]);
 
 describe('built-in operators', () => {
-  it('registers every §4.9 operator owned by WP-7b with its undo flag, plus select.channels', () => {
+  it('registers every §4.9 operator owned by WP-7b with its undo flag, plus the requested additions', () => {
     const app = createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });
     const dispose = registerBuiltinOperators(app);
     const ids = app.operators.list().map((def) => def.id);
-    expect([...ids].sort()).toEqual([...Object.keys(CATALOG), 'select.channels'].sort());
+    expect([...ids].sort()).toEqual([...Object.keys(CATALOG), ...Object.keys(ADDITIONS)].sort());
+    for (const [id, undo] of Object.entries(ADDITIONS)) {
+      expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
+    }
     for (const [id, undo] of Object.entries(CATALOG)) {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }

@@ -18,12 +18,7 @@ import { applyChannelEdits } from '../../edit/channels';
 import type { ChannelEditResult, CharacterRuntime, EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import { currentValues, editsFromValues, restValues } from '../../workflows/pose';
-import {
-  activeClipRecord,
-  controlsOfCharacter,
-  selectedControls,
-  selectedOrAllControls,
-} from '../../workflows/targets';
+import { activeClipRecord, controlsOfCharacter, selectedControls } from '../../workflows/targets';
 import { type AnyOperator, all, defineOperator, errorText, fail, isRecord, OK, optionalArgs } from './define';
 import { activeRuntimeOf, pollClipEdit, pollRuntime } from './polls';
 
@@ -111,7 +106,9 @@ const poseCopy = defineOperator({
     const runtime = requireRuntime(app);
     const rig = app.store.get('rigs', runtime.program.rigId);
     if (rig === undefined) throw new EkzaError('unsupported', 'The character has no rig');
-    const controls = selectedOrAllControls(app).map((control) => control.id);
+    // The selected controls, or the whole character (secondary controls included) when nothing is selected.
+    const selected = selectedControls(app);
+    const controls = (selected.length > 0 ? selected : controlsOfCharacter(app.store, runtime.id)).map((c) => c.id);
     const clipboard = makePoseClipboard(runtime.program, rig, currentValues(app, controls));
     const state = app.session.getState();
     app.session.setState({ clipboard: { ...state.clipboard, pose: clipboard } });

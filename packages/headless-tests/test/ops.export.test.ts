@@ -154,6 +154,26 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     );
   });
 
+  it('bakes an edited Idle_Loop back into the UAL file in place (generic GLB surgeon)', async () => {
+    const { app } = realApp();
+    const ual = await importFixture(app, 'quaternius-ual.glb', { clips: [9] });
+    const clip = ual.clips[0] as ClipId;
+    const rig = app.store.query.rigOfCharacter(ual.character);
+    const first = app.store.query.controlsOfRig(rig?.id as never)[3];
+    setSceneFrame(app, 12);
+    await runOk(app, 'channel.setValues', { edits: [{ control: first?.id, channel: 'rz', value: 0.4 }], key: 'force' });
+    const [artifact] = await exportOk(app, request(ual.character, [clip], { fileNamePattern: '{character}_edit' }));
+    if (artifact === undefined) throw new Error('no artifact');
+    expect(artifact.fileName).toBe('quaternius-ual_edit.glb');
+    const sourceBytes = readFixture('quaternius-ual.glb');
+    expect(compareValidation(await validate(sourceBytes), artifact.validation as never)).toEqual([]);
+    const output = await parseGlb(artifact.bytes);
+    const names = animationNames(output);
+    expect(names).toHaveLength(46);
+    expect(names[9]).toBe('Idle_Loop');
+    expect(names).toEqual(animationNames(await parseGlb(sourceBytes)));
+  });
+
   it('writes self-contained clips when several are baked together', async () => {
     const { app } = realApp();
     const bot = await importFixture(app, 'polybot.vrm');
