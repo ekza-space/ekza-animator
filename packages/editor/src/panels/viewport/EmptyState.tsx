@@ -4,9 +4,19 @@ import type { EditorApp, SampleId } from '@ekza-animator/editor-core';
 import type { JSX } from 'react';
 import { useSession } from '../../hooks';
 
-const SAMPLES: readonly { readonly id: SampleId; readonly label: string; readonly detail: string }[] = [
+const SAMPLES: readonly {
+  readonly id: SampleId;
+  readonly label: string;
+  readonly detail: string;
+  readonly title?: string;
+}[] = [
   { id: 'seed-san', label: 'Seed-san', detail: 'VRM 1.0' },
-  { id: 'polybot', label: 'Polybot', detail: 'VRM 0.x' },
+  {
+    id: 'polybot',
+    label: 'Polybot',
+    detail: 'VRM 0.x · A-pose',
+    title: 'Rests in an A-pose: VRMA clips from T-pose avatars play with the arms about 38° lower.',
+  },
   { id: 'quaternius-ual', label: 'Quaternius UAL', detail: 'GLB with clips' },
 ];
 
@@ -38,6 +48,7 @@ export function EmptyState(props: { readonly app: EditorApp }): JSX.Element {
               className="flex flex-col items-center rounded border border-line bg-header px-3 py-1.5 text-fg hover:bg-[var(--bg-hover,#30323a)] disabled:opacity-50"
               disabled={busy}
               data-testid={`sample-${sample.id}`}
+              title={sample.title}
               onClick={() => void app.run('file.loadSample', { sample: sample.id })}
             >
               <span>{sample.label}</span>

@@ -122,7 +122,8 @@ example "Maya-style hotkeys") are used descriptively only.
 ## Credits
 
 - "Seed-san" VRM 1.0 model by VirtualCast, Inc., [VRM Public License 1.0](https://vrm.dev/en/licenses/1.0/).
-- "Polybot" VRM 0.x model by Polygonal Mind (100Avatars), CC0 1.0.
+- "Polybot" VRM 0.x model by Polygonal Mind (100Avatars), CC0 1.0. It rests in an A-pose, so a VRMA clip from a
+  T-pose avatar plays with its arms about 38° lower (three-vrm-animation gives the same result).
 - Universal Animation Library by Quaternius, CC0 1.0.
 - Curve evaluation based on Autodesk AnimX (Apache-2.0).
 - Built on three.js, React Three Fiber, @pixiv/three-vrm, glTF Transform, dockview and camera-controls (MIT), and

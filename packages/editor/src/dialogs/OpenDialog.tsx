@@ -74,6 +74,11 @@ export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): J
                     <span className="truncate text-ui-dense text-fg-3">
                       {sample.credit}, {sample.license}
                     </span>
+                    {sample.note === undefined ? null : (
+                      <span className="text-ui-dense text-fg-3" data-testid={`sample-note-${sample.id}`}>
+                        {sample.note}
+                      </span>
+                    )}
                   </span>
                   <Button
                     size="sm"

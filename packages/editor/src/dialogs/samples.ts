@@ -8,6 +8,8 @@ export interface SampleInfo {
   readonly credit: string;
   readonly license: string;
   readonly licenseUrl: string;
+  /** Something to know before animating it (shown under the credit). */
+  readonly note?: string;
 }
 
 export const SAMPLES: readonly SampleInfo[] = [
@@ -26,6 +28,8 @@ export const SAMPLES: readonly SampleInfo[] = [
     credit: '"Polybot" by Polygonal Mind (100Avatars)',
     license: 'CC0 1.0',
     licenseUrl: 'https://creativecommons.org/publicdomain/zero/1.0/',
+    // Acceptance round 2: a VRMA from a T-pose avatar lands its arms lower; three-vrm-animation does the same.
+    note: 'Rests in an A-pose: VRMA clips from T-pose avatars play with the arms about 38° lower.',
   },
   {
     id: 'quaternius-ual',
