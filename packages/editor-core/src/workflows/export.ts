@@ -37,6 +37,7 @@ import {
   type TrackKey,
 } from '@ekza-animator/rig';
 import type { CharacterRuntime, EditorApp, PollResult } from '../types';
+import { yieldToHost } from './host';
 import { nameKey } from './names';
 import { isRestrictedLicense } from './provenance';
 import { EDITOR_VERSION } from './samples';
@@ -247,11 +248,6 @@ interface ClipBake {
   readonly options: Omit<BakeOptions, 'requiredTracks'>;
 }
 
-/** Yields to the event loop (export runs on the main thread, ADR 0005 §10). */
-function pause(): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, 0));
-}
-
 function fileClipToken(clips: readonly ClipRecord[]): string {
   const names = clips.map((clip) => clipExportName(clip));
   if (names.length <= 3) return names.join('-');
@@ -327,7 +323,7 @@ export async function runExport(
     const humanoidRestWorld = humanoidRestWorldPositions(skeleton);
     for (const job of bakes) {
       const baked = bake(job, new Set());
-      await pause();
+      await yieldToHost();
       const fileName = exportFileName(
         pattern,
         { character: character.name, clip: job.options.name, fps: fpsNumber(job.clip.fps) },
@@ -351,7 +347,7 @@ export async function runExport(
     const baked: BakedClip[] = [];
     for (const job of bakes) {
       baked.push(bake(job, base));
-      await pause();
+      await yieldToHost();
     }
     if (req.includeConstantTracks && baked.length > 1) {
       // Self-contained clips (ADR 0005 §3): every clip of the file carries every track any of them animates.
@@ -360,7 +356,7 @@ export async function runExport(
       for (let i = 0; i < baked.length; i++) {
         if (containsAll(trackKeys(baked[i] as BakedClip), union)) continue;
         baked[i] = bake(bakes[i] as ClipBake, union);
-        await pause();
+        await yieldToHost();
       }
     }
     const rig: EkzaAnimationV1['rig'] =

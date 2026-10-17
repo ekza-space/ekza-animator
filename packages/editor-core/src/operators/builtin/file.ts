@@ -7,6 +7,7 @@ import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
 import type { EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import { blockingLints, requestProblem } from '../../workflows/export';
+import type { Progress } from '../../workflows/host';
 import type { ClipImportPlan } from '../../workflows/importAnimation';
 import {
   applyClipImport,
@@ -43,11 +44,14 @@ function pollFile(args: unknown) {
   return problem === null ? OK : fail(problem);
 }
 
-/** Runs `prepare` work with a busy indicator in the session (the shell shows it). */
-async function busy<T>(app: EditorApp, label: string, work: () => Promise<T>): Promise<T> {
+/** Runs `prepare` work with a busy indicator in the session (the shell shows it); `work` may report progress. */
+async function busy<T>(app: EditorApp, label: string, work: (progress: Progress) => Promise<T>): Promise<T> {
   app.session.setState({ busy: { label, progress: null } });
+  const progress: Progress = (fraction) => {
+    if (app.session.getState().busy?.label === label) app.session.setState({ busy: { label, progress: fraction } });
+  };
   try {
-    return await work();
+    return await work(progress);
   } finally {
     if (app.session.getState().busy?.label === label) app.session.setState({ busy: null });
   }
@@ -121,8 +125,8 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   undoLabel: (args) => `Import ${args.name}`,
   poll: ({ app }, args) => all(pollFile(args), pollEditable(app)),
   prepare: ({ app }, args) =>
-    busy(app, `Importing ${args.name}…`, () =>
-      prepareModelImport(app, { fileName: args.name, bytes: args.bytes, options: args.options }),
+    busy(app, `Importing ${args.name}…`, (progress) =>
+      prepareModelImport(app, { fileName: args.name, bytes: args.bytes, options: args.options, progress }),
     ),
   apply({ app, tx }, _args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importModel runs in a transaction');
@@ -180,13 +184,14 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
   },
   prepare({ app }, args) {
     const sample = SAMPLES[args.sample];
-    return busy(app, `Loading ${sample.file}…`, async () =>
+    return busy(app, `Loading ${sample.file}…`, async (progress) =>
       prepareModelImport(app, {
         fileName: sample.file,
         bytes: await fetchSample(sample),
         options: args.options,
         known: sample.license,
         defaultClip: sample.defaultClip,
+        progress,
       }),
     );
   },

@@ -29,6 +29,7 @@ import type { ImportModelOptions, ImportResult } from '../operators/args';
 import type { EditorApp } from '../types';
 import { frameShotCamera, SHOT_FOV_Y } from './camera';
 import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
+import { type Progress, yieldToHost } from './host';
 import { baseName, extensionOf, nameKey, numberedName, sanitizeClipName, uniqueName } from './names';
 import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
@@ -47,6 +48,8 @@ export interface ModelImportInput {
   readonly known?: KnownLicense;
   /** Clip imported when `options.clips` is not given (bundled samples), by animation name. */
   readonly defaultClip?: string | null;
+  /** Called after each converted clip (busy indicator). */
+  readonly progress?: Progress;
 }
 
 export interface ModelImportPlan {
@@ -185,7 +188,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   const prefs = app.prefs.getState();
   const clips: ClipWritePlan[] = [];
   const takenNames: string[] = [];
-  for (const raw of raws) {
+  for (const [n, raw] of raws.entries()) {
     const detected = detectClipFps(raw);
     const resolved = resolveClipOptions({
       name: raw.name,
@@ -226,7 +229,8 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
       ),
     );
     // Yield between clips: a file with many clips must not freeze the page.
-    await Promise.resolve();
+    input.progress?.((n + 1) / raws.length);
+    await yieldToHost();
   }
   if (clips.length === 0) {
     clips.push(
