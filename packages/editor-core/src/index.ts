@@ -12,6 +12,7 @@ export {
 export { formatChannelValue, fromDisplayValue, parseNumericInput, toDisplayValue } from './edit/numeric';
 export { MAYA_KEYMAP } from './keymap/maya';
 export type * from './operators/args';
+export type { CoalescingOperatorDef, OperatorCoalescing } from './operators/runner';
 export {
   BUILTIN_EXPORTERS,
   BUILTIN_IMPORTERS,

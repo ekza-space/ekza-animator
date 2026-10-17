@@ -39,7 +39,8 @@ describe('createFakeEditorApp (test kit)', () => {
     const app = createFakeEditorApp();
     expect(app.session.getState().activeCharacter).toBeNull();
     expect(app.characters.list()).toEqual([]);
-    expect(app.evaluation.tick()).toBe(true);
+    // No character, so no pose changes.
+    expect(app.evaluation.tick()).toBe(false);
   });
 
   describe('operator registry and runner', () => {
@@ -295,11 +296,10 @@ describe('createFakeEditorApp (test kit)', () => {
       expect(app.history.peekUndo()?.overrides?.before.get(WAVE.lowerArmL)).toEqual({ rz: 0.1 });
       expect(app.history.undo()?.overridesRestored).toBe(true);
       expect(app.session.getState().overrides.get(WAVE.lowerArmL)).toEqual({ rz: 0.1 });
+      // A frame change discards the overrides and the history's override parts (§4.11.2, ADR 0013 §4).
       app.session.setState({ time: { ...app.session.getState().time, sceneFrame: 3 } });
-      const result = app.history.undo();
-      expect(result?.overridesRestored).toBe(false);
-      expect(result?.warnings).toHaveLength(1);
-      app.history.dropOverrides({ character: WAVE.character });
+      expect(app.session.getState().overrides.size).toBe(0);
+      expect(app.history.canUndo()).toBe(false);
       expect(app.history.canRedo()).toBe(false);
     });
   });
@@ -325,7 +325,9 @@ describe('createFakeEditorApp (test kit)', () => {
 
     const input = { code: 'KeyS', ctrlKey: true, metaKey: false, shiftKey: false, altKey: false, repeat: false };
     expect(app.keymap.resolve(input, ['graph', 'global'], 'press')?.op).toBe('file.save');
-    expect(app.keymap.resolve({ ...input, shiftKey: true }, ['global'], 'press')).toBeNull();
+    // The fake app carries the maya preset; the contribution shadows nothing here.
+    expect(app.keymap.resolve({ ...input, shiftKey: true }, ['global'], 'press')?.op).toBe('file.saveAs');
+    expect(app.keymap.resolve({ ...input, code: 'KeyP' }, ['global'], 'press')).toBeNull();
     expect(app.keymap.label({ code: 'KeyS', mod: true, shift: true })).toBe('Ctrl+Shift+S');
     const mac = createFakeEditorApp({ platform: 'mac' });
     expect(mac.keymap.label({ code: 'KeyS', mod: true, shift: true })).toBe('⇧⌘S');

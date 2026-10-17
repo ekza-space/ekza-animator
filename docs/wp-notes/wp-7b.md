@@ -1,0 +1,144 @@
+# WP-7b — editor-core operator catalog and workflows: build notes
+
+Branch `wp/wp-7b` (from `wp/wp-7a`). Scope: MVP-SPEC §7 WP-7b — `packages/editor-core/src/operators/builtin/`,
+`packages/editor-core/src/workflows/`, their tests in `packages/editor-core/test/builtin/` and the `ops.*` files of
+`packages/headless-tests`. No contract file changed (`types.ts`, `operators/args.ts` untouched: the two additional
+operators extend `OperatorMap` by declaration merging, see below); no `package.json` or lockfile change; no file of
+another work package edited.
+
+## What is implemented
+
+| Responsibility (§7 WP-7b) | Where |
+|---|---|
+| Every §4.9 operator owned by 7b (74), `prepare`/`apply` split, composition through the edit kernel and workflows only | `src/operators/builtin/{file,edit,select,key,pose,time,graph,clip,view,rig}.ts` |
+| Model import §4.11.6 (parse, budgets, format, skeleton, `no-skin`, asset store, auto-rig, clip conversion with fps detection / key mode / Euler filter / reduction, provenance, records in one transaction, shot camera, session) | `src/workflows/importModel.ts`, `clipWrite.ts`, `camera.ts`, `records.ts` |
+| VRMA import §4.11.7 (`readVrma` → `importHumanoidClip` onto the target humanoid, provenance from `ekza_animation_v1` when the Animator wrote the file); animation-only GLB import (M1-stretch) | `src/workflows/importAnimation.ts` |
+| Provenance and sample licences (ADR 0010 §3, ADR 0012) | `src/workflows/provenance.ts`, `samples.ts` |
+| Export §4.11.10 through the built-in exporters (bake / animation GLB / VRMA, step schedules, self-contained clips, metadata, licence gate, profile preflight, host validation) | `src/workflows/export.ts`, `src/operators/builtin/exporters.ts` |
+| Projects (`.ekzanim` save/open, JSON debug variant) | `src/workflows/project.ts` |
+| Built-in importers (with the shared resolution rule), exporters, export profiles, menu items, `MAYA_KEYMAP`, `registerBuiltins`, `registerBuiltinOperators` | `src/operators/builtin/{importers,exporters,menus,index}.ts` |
+| Selection targets, pose values, key clipboard | `src/workflows/{targets,pose,keyClipboard,session,names}.ts` |
+
+`registerBuiltinOperators` skips ids that are already registered (a host or extension may override a built-in);
+`registerBuiltins` likewise for importers, exporters, profiles and menu items, then contributes `MAYA_KEYMAP`. Both
+return one disposer that removes exactly what they added. `BUILTIN_OPERATORS` (all definitions) is exported from the
+module for tests; the package entry exports only the §7 API.
+
+### Additional operators (requested by WP-9, added by declaration merging on `OperatorMap`)
+
+| Id | Why |
+|---|---|
+| `select.channels { refs, mode }` | WP-9 R-1: Channel Box and Graph channel list share `Selection.channels`; keymaps and the test API can select channels. |
+| `view.camera.setSettings { camera, fovY?, near?, far?, aspect? }` (undoable) | WP-9 R-3: the Attributes panel's lens and clip-plane fields; validated (0 < fovY < π, near > 0, far > near, aspect > 0 or null). WP-5 should not register the same id. |
+
+## Interpretations and decisions (please review; each is small and reversible)
+
+| # | What | Why |
+|---|---|---|
+| B7-1 | **Confirmations are the shell's**: `file.new` and `file.openProject` replace the document without asking; the shell confirms a dirty project first. WP-8 does so for opening a project; **`file.new` still needs it** (request in the WP-8 section below). | `EditorServices` has no dialog service and `UiDialog` no confirmation kind; operators must stay headless. |
+| B7-2 | Importing a model that is **already in the project** imports another character (name `… 2`) and warns, instead of asking "new character or cancel" (§4.11.6 step 3). | Same reason; the import dialog can ask before running the operator. |
+| B7-3 | **Compressed animation data**: with the default clip choice (`clips` omitted or `'all'`) the model is imported without clips and a warning; when the caller picked clips by index the import fails with `compressed-animation`. | §4.11.6 step 4 names the error; refusing the whole model by default would make meshopt-compressed avatars unusable even though their meshes load. |
+| B7-4 | Operator default for embedded clips = the import dialog's: all when ≤ 8, else none; samples use their default clip (`Idle_Loop` for UAL). | §4.11.6 "Import dialog defaults"; the test API's `auto` imports get the same behaviour as the dialog. |
+| B7-5 | Imported clips are `loop: true` when their name contains "loop" (case-insensitive), else `false`. | Clip `loop` decides evaluation outside the range and the export's loop closure; UAL names its cycles `*_Loop`. |
+| B7-6 | The **first character sets the scene clock**: importing into a project without characters sets `sceneFps`/`sceneRange` to the first imported clip (and the project name to the file's base name while it is "Untitled"). | §4.11.8 "With one character, clip fps = scene fps and sceneStart = 0, all mappings are the identity" (UAL at 24 fps). |
+| B7-7 | Characters are placed side by side along +X, `1.2 · height` to the right of the right-most character (deleted characters leave gaps, never overlaps); the shot camera `shotCam` (created only when the project has none) is **locked**, 50 mm, yaw 30° towards the character's left, at 0.72·H looking at 0.5·H, with the height in frame plus 10 %. | §4.11.6 step 8; E2E-01 expects the left pane's shot camera locked. |
+| B7-8 | `import-reduce` / `reduce`: an explicit `reduce` option wins; else `prefs.reduceOnImport` ('auto' reduces when any channel has more than 0.5 keys per frame, resampled clips always). Source key times are kept by default only when they land on whole frames at the chosen rate (`fps / detected` an integer), so import never makes sub-frame keys by default; forcing `source-times` otherwise warns. | §4.11.6 step 5–6. |
+| B7-9 | Character display name: the VRM meta title (ignoring converter defaults such as the literal "undefined"), else the file's base name; unique among characters. | Readable outliner rows ("Seed-san"). |
+| B7-10 | **Pose tools write only channels whose value changes** (> 1e-12), so a reset, paste, mirror or plant does not key or override channels it did not move; locked channels are reported once. `pose.copy` with nothing selected copies the whole character (secondaries included). `pose.paste` pastes onto the selected controls only when the selection shares controls with the pasted pose, else onto every matching control. | §4.11.2 rules stay the single path (`applyChannelEdits`); avoids key churn under auto-key. |
+| B7-11 | **Curve-level Graph operators** (`graph.tangent.set` without selected keys, `graph.curve.setWeighted`, `graph.infinity.set`, `graph.curves.simplify`, `graph.keys.keyCurves`, and `graph.tangent.lockWeight` without selected keys) act on: the curves of the selected keys, else of `selection.channels`, else of the selected controls, else every curve of the active clip (what the Graph Editor shows). | WP-6 request; E2E-07 sets post-infinity right after keying, E2E-10 frees weights before selecting a key. |
+| B7-12 | `graph.tangent.unify` keeps keys whose sides share one computed slope (auto, spline, clamped, flat, … on both sides, or a stepped out side) computed and only clears `broken`; otherwise it runs the kernel's `setKeyHandle` with the resolved out handle, which keeps the out angle and turns the in side collinear with its own length. | §4.9 "unify keeps the out handle angle and each side's length" without freezing auto tangents. |
+| B7-13 | `graph.keys.setFields`: frame and value act on selected keys (key parts, like moving), angles and weights on every selected key or handle; typed values are not snapped. A relative frame moves the keys as one block; an absolute frame moves each curve's selected keys as a block whose first key lands on the frame (several keys of one curve cannot share a frame). An angle goes through the kernel's `setKeyHandle` (the side becomes `fixed`; a unified key turns its opposite side collinear with its own length; weight-locked keys keep their weight), so typing and dragging give the same result; a weight then scales its own side along its direction; weight fields are ignored on non-weighted curves; `relative` adds to angles/weights as well. | §4.11.4 numeric fields; Maya behaviour for unified keys; one implementation of the handle rules. |
+| B7-14 | `time.setFrame { unit: 'scene' }` sets the scene clock as given (no snapping or clamping); clip-frame sets snap (when `snapToFrames`) and clamp to the active clip range. `time.step` clamps at the range ends; `time.nextKey/prevKey` wrap around like Maya and never snap (keys may sit between frames). | §4.9 / §4.11.8. |
+| B7-15 | `channel.setValues` declares **no coalescing**. | WP-7a suggested it for nudges, but WP-9 sends a nudge burst as one gesture or one run and passes a label for typed values too, so label-based coalescing would merge separate typed edits. |
+| B7-16 | `clip.duplicate` does not switch the active clip; the copy is named `<name> copy` (`… copy 2`, … when taken) and ordered right after the source; layers, curves (canonical) and keys get new ids, provenance and source are copied. `clip.delete` soft-deletes the clip record only (its layers/curves stay attached to the deleted clip, so undo restores everything); the next clip in order (else the previous) becomes active, or a new empty `clip1` is created in the same step; for the active character the frame is clamped into the new active clip's range like `clip.setActive` (B7-34). | §4.9. |
+| B7-17 | `clip.setSettings`: `fpsMode` defaults to `keep-seconds`; it rescales every key of the clip (all layers) and handle `dt` by `newFps/oldFps`, rounds the range ends to whole frames (end ≥ start + 1) and rounds the contact frame; a contact outside the final range is clamped. Validation: slot vocabulary v1 (no `tpose`), ≤ 8 lowercase tags, contact inside the range, provenance sources with SHA-256 or null. | §4.9, ADR 0010 §5. |
+| B7-18 | `clip.new` makes the new clip active at its start frame; the default name is the first free `clipN`. | §4.9 "becomes active". |
+| B7-19 | **Export**: the licence gate (`modification: prohibited` or `allowRedistribution: false`) applies to `bake-into-model` only (VRMA always allowed); profile preflight errors (duplicate export names always; under Ekza profiles slot names, non-redistributable clips and required clips — for bakes the model's own animations count) make the poll fail; `rootMotion: 'in-place'` without a joint to lock exports as `hips` with lint `export.in-place-unavailable` (warning). Several clips in one file get the union of their tracks (two-pass bake) when `includeConstantTracks`; surgeon bakes also include `preexistingTracks`. `projectSha256` is null. `ekza_animation_v1.rig` is `vrm-humanoid` for VRMA and bakes into VRMs, else `gltf-nodes`. File-name `{clip}` token: the clip export names joined by `-`, or `<n>_clips` beyond three. | §4.11.10, ADR 0005/0010. |
+| B7-20 | When the host provides `services.validate`, `file.export` attaches the report to each artifact and turns policy violations (§4.11.13: errors for fresh writers, new `(code, pointer)` errors vs the source for surgeon outputs) into error lints `validator.<code>`, which block the download like any error lint. | One rule for "errors block the download". |
+| B7-21 | `file.loadSample` fetches `/samples/<file>` relative to the page origin (no base path). Node tests stub `fetch`. | §4.9; the web app serves the samples there (`copy-assets.mjs`). |
+| B7-22 | `file.openProject` with the JSON variant opens even when a referenced model is not in the asset store (warning toast; that character gets no runtime until the model is added). | ADR 0011 §3 "requires the referenced models to be supplied or already cached" — refusing would lose the curves. |
+| B7-23 | `edit.copy/paste/delete` dispatch on the run context's panel, else the panel under the pointer; graph and timeline go to the key operators, everything else (viewport, outliner, Channel Box, none) to the pose operators. A failed target fails the dispatcher with the same code. `file.open` likewise forwards the importer's failure. The runner polls again after `prepare`; since the target's own effect can change its poll (deleted keys are no longer selected), the dispatcher answers that one poll from a per-app "already forwarded" marker. | §4.9; the runner never throws, so failures must surface in the result. |
+| B7-24 | `edit.escape`: cancels channel-edit gestures (overrides restored), else any other active store preview, else closes the dialog, else stops playback. | §4.9. |
+| B7-25 | Selection operators are not undoable and record no history step; `select.controls` with another character's controls makes it active and replaces the selection (mode `remove` of foreign ids changes nothing); every control change prunes `selection.keys` to the curves the Graph Editor still shows and `selection.channels` to selected controls. | §4.9, ADR 0008 §8. |
+| B7-26 | `view.tool` accepts any id while no tool is registered for the panel (headless), else only registered tools. | Tools register with their panels (WP-5/6). |
+| B7-27 | `file.importAnimation` reads `.vrma` (humanoid targets) and animation-only `.glb` (any rigged target, matched by node name); other extensions are refused. A `.glb` with animations and no skin is routed to it by content sniffing (`gltf-animation` importer); every other `.glb` stays a model (`gltf-model`). | M1-stretch FR-IO-10 through the importer registry's `sniff` (§4.5). |
+| B7-28 | Import warnings for the user (clip choice, licence gate, sub-frame keys, dropped channels, duplicates) go to one warning toast and `ImportResult.warnings`; technical skeleton/rig notes (e.g. Seed-san's near-uniform joint scales, `compileRig` warnings other than unpaired sides) are appended to `ImportResult.warnings` only. | Loading the bundled Seed-san sample must not greet users with a scale diagnostic they cannot act on. |
+| B7-29 | Saving (`.ekzanim` and JSON) opens every character and clip partition first, and `clip.setSettings` opens its clip's partition, since snapshots and key queries see open partitions only (§4.11.21). `file.save` clears `dirty` only when the store version is still the one of the saved snapshot (edits during the asynchronous asset reads keep the project dirty), and a model missing from the asset store (a project opened from the JSON variant) is left out of the archive with a warning instead of failing the save. | A closed clip would otherwise be missing from the project file or keep its old key times; no silent loss of edits; work stays saveable. |
+| B7-30 | The model import decodes only the wanted animations (io `readAnimations` over a container that lists just those, clips keep their original index and name), so a library is not decoded for one clip and an unwanted compressed animation does not block it. A re-imported animation-only GLB takes each clip's provenance from its own `ekza_animation_v1` entry (by animation index). | Efficiency; B7-3; provenance must not leak between clips. |
+| B7-31 | Locks are respected everywhere: `key.deleteAtFrame` keeps keys of locked channels; `graph.eulerFilter` leaves a control alone when one of its keyed rotation curves is locked (the filter may change all three angles together) and says so; `time.nextKey/prevKey` ignore keys outside the clip range. | A locked channel never changes; key jumps never get stuck at a range end. |
+| B7-32 | **A failed read-back blocks the download**: an artifact whose `readBack.ok` is false gets the error lint `export.read-back` (message with the largest rotation and translation errors), added by the built-in export pipeline and by `file.export` to every artifact of any exporter (idempotent `withReadBackLint`). | §4.11.10 step 5, ADR 0005 §9: in the app the read-back is the only check of the written bytes (`services.validate` is null in the MVP); io records the report but adds no lint. |
+| B7-33 | **VRMA provenance follows the Mixamo rule**: without the Animator's `ekza_animation_v1` provenance, a VRMA clip is `redistributable: 'no'` when its name or any animation or node name of the file matches /mixamo/i, else `'unknown'`. Embedded Animator provenance still wins (as for animation-only GLB): a clip made in the Animator on a `mixamorig:` skeleton keeps its own provenance. | §4.11.6 step 7, ADR 0010 §3; same rule as the model and animation-only GLB paths. |
+| B7-34 | **Switching the active clip keeps the selection consistent**: `clip.setActive` onto another character's clip empties the selection (one character at a time, like `select.controls`); onto another clip of the same character it keeps the controls and channels and drops the selected keys (they belong to the previous clip's curves). `clip.delete` of the active character's active clip drops the selected keys and clamps the frame. | §4.9, ADR 0008 §8; otherwise `key.set` would key the previous character's controls. |
+| B7-35 | `rig.setRotateOrder` declares `flags.structural` (it rewrites the rotation keys of every clip and layer of the character), like `clip.setSettings`. | `types.ts`: structural = "rewrites many records; M3: needs an exclusive claim". |
+
+## Dependencies on other work packages
+
+Everything here calls the real sibling packages through their §7 public APIs only (no private stand-ins):
+anim-core (`tangentFields`, `handleFromFields`, `eulerFilterCurves`, `reduceKeys`, math), doc (`fractionalIndex`,
+`emptySnapshot`, `SCHEMA_VERSION`, ids), rig (`autoRig`, `compileRig`, `writeRigDefinition`, `importRawClip`,
+`importHumanoidClip`, `detectClipFps`, `mirrorPose`, `makePoseClipboard`, `applyPoseClipboard`, `plantFeetChannels`,
+`isHumanoidProgram`, `computeStepSchedule`, `humanoidRestWorldPositions`, `nodeForControl`), io (`parseGlb`,
+`checkInputBudget`, `detectModelFormat`, `skeletonFromGltf`, `readAnimations`, `readVrma`, `readVrmLicense`,
+`bakeClip`, `bakeIntoModel`, `writeAnimationGlb`, `writeVrma`, `preexistingTracks`, `ekzaAnimationMeta`,
+`exportFileName`, `clipExportName`, `clipFramesToSeconds`, `compareValidation`, `readProjectArchive`,
+`writeProjectArchive`, `writeProjectJson`, `BUILTIN_EXPORT_PROFILES`). io's extra exports (`importProvenance`,
+`inspectVrma`, `setGltfValidator`) are not used, so this branch type-checks against the WP-0a stubs.
+
+Tests that need an implementation skip themselves until it lands (§8.1), with the blocking WPs in their titles:
+
+| Tests | Blocked by | Status on this branch |
+|---|---|---|
+| `editor-core/test/builtin/*` (145 tests) | `clip.*` → WP-2 (`fractionalIndex`); `setFields`, Euler filter, Simplify → WP-1; pose clipboard, mirror, feet → WP-3; rotate order → WP-1 + WP-3 | run now: see Gates |
+| `headless-tests/test/ops.*` (68 tests: import of the three fixtures and of the meshopt-compressed fixture, sample loading, export of all three kinds with the validator policy, Mixamo-named VRMA refused by the Ekza VRMA profile, projects, pose tools on the real rig, undo/redo exactness of every undoable operator, a 30-step session, the stretch items) | WP-1, WP-2, WP-3, WP-4 (the compressed-animation case also needs WP-4's `quaternius-idle-meshopt.glb` fixture) | skip |
+
+**Integration evidence.** Every skipped test was run by overlaying the sibling branches' sources onto a scratch copy of
+this worktree (never committed: `wp/wp-1` anim-core @ b70f7dc, `wp/wp-2` doc @ 4277f31, `wp/wp-3` rig @ 0628635,
+`wp/wp-4` io and fixtures @ ec87ac7): editor-core 469/469 tests pass (all WP-7a tests included), headless `ops.*` 68/68
+pass, and `tsc -b` is clean in both states. The Mixamo VRMA test fails when the name rule is removed (checked).
+
+Notable results with the real packages: UAL `Idle_Loop` imports at 24 fps on whole frames 0…60 and matches the
+source samplers within 1e-4 rad / 1e-5 m at every source key time without reduction; with default reduction the
+dense curves shrink ≥ 3× and the pose error stays within 0.3°; Polybot Plant Feet returns both feet to their pins
+within 1e-4 m / 1e-4 rad; Seed-san bake adds no validator error, keeps the BIN prefix and `VRMC_vrm`, and re-imports
+with rz(15) = −30°; VRMA exports validate with 0 errors and round-trip onto Seed-san within 1e-4 rad; the
+animation-only GLB of UAL re-reads to the editor pose within 1e-4 rad; UAL in-place bake keeps 46 animations with
+`Idle_Loop` at index 9; `.ekzanim` save → open is identical (counts, curves, channel values at 5 frames, model bytes).
+
+## Requested contract changes and notes for other work packages
+
+- **§4.5 `OperatorMap`** (operator freeze): add `select.channels` and `view.camera.setSettings` (above) to
+  `operators/args.ts`; they are declared by module augmentation in `operators/builtin/{select,view}.ts` until then.
+- **§4.9**: state B7-1/B7-2 (confirmations belong to the shell) and B7-3 (compressed animation by default).
+- **WP-8 (request)**: confirm before running **`file.new`** when `session.dirty` — from the File menu item
+  `builtin.file.new`, the command palette and any binding — the same way the shell already confirms before
+  `file.openProject` ("Discard and start a new project?"). `file.new` itself discards without asking (B7-1); without
+  the shell's confirmation the menu item loses unsaved work. Alternatively add a confirmation `UiDialog` kind to the
+  §4.5 contract so the menu item could open it through `ui.open`.
+- **WP-8**: `file.importModel`/`file.loadSample`/`file.openProject`/`file.export` set `session.busy` during
+  `prepare` (`progress` is a fraction for imports); import warnings come back in `ImportResult.warnings` and as one
+  warning toast; `file.export` downloads the artifacts without error lints itself (the recorder sees them through
+  `services.files.download`) and returns all artifacts, blocked ones included (a failed read-back is the error lint
+  `export.read-back`, B7-32), so the dialog can list their lints.
+  Pass `services.validate` (the stretch validator worker) to get validation reports and policy lints.
+- **WP-5**: `view.camera.setSettings` is registered here; the Attributes panel enables its lens fields by polling it.
+- **WP-6t / WP-6**: the band menu and the Graph Editor run `graph.keys.*`, `graph.tangent.set` etc. on
+  `selection.keys`; key parts without the key part (handles only) are honoured by `graph.tangent.set` (that side) and
+  ignored by move/scale/delete/copy (key parts only).
+- **WP-10 (e2e)**: E2E-01 relies on B7-7 (locked `shotCam`); E2E-04 on B7-4/B7-8 (UAL with `Idle_Loop` only, 24 fps,
+  reduced); E2E-27 on `time.setFrame { unit: 'scene' }` (B7-14).
+
+## M1-stretch (done)
+
+| Item | Where | Notes |
+|---|---|---|
+| Plateau tangent (FR-GE-08) | `graph.tangent.set` accepts `plateau` (key 7, menu) | WP-1 implements plateau as AnimX legacy auto (W1-5). |
+| Pose-preserving rotate-order change (FR-RIG-08) | `rig.setRotateOrder` → `src/workflows/rotateOrder.ts` | Every clip and layer of the character: rx/ry/rz resampled at the union of their key times through rig `convertRotateOrderKeys` (key-less channels enter as their static value at an existing union time, so no extra key times appear), written synchronized with new key ids; static triples and the pose override converted; then `rotateOrder` patched (the runtime recompiles). One undo step. Tests: synchronized keys on the fake app (1e-9), unsynchronized rx/ry/rz on Polybot (bone worlds at every union time ≤ 1e-6), undo exactness. Enables the Channel Box / Attributes rotate-order field (WP-9 polls it). |
+| Animation-only GLB import onto a character (FR-IO-10) | `file.importAnimation` (`.glb`), importer `gltf-animation` | io `readAnimations` over the file's own skeleton → rig `remapRawClipByName` → `importRawClip`; one clip per animation; unmatched node names are warned, files that match nothing fail with `unsupported`. Test: UAL `Idle_Loop` exported as animation-only GLB and re-imported through `file.open` reproduces the clip (≤ 1e-4 rad without reduction). |
+
+## Gates (run in this worktree, without the overlays)
+
+`pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `test` (13/13 turbo tasks; editor-core 428 pass + 41
+skip-until-merged, of which the built-in operator tests are 111 + 34; headless-tests 68 skip-until-merged) and `build`
+pass. No e2e spec belongs to WP-7b (E2E-01…27
+are WP-10's); the web app on this branch does not create the kernel yet (WP-8), so the existing e2e specs are
+unaffected.
