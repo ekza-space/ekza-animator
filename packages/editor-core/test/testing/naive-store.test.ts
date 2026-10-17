@@ -171,6 +171,26 @@ describe('naive DocumentStore (test kit)', () => {
       expect(store.get('keys', WAVE.keys[1])).toMatchObject({ v: 0.2, t: 16 });
     });
 
+    it('a transaction inside preview.update throws preview-active instead of joining the overlay', () => {
+      const preview = store.beginPreview('Drag');
+      preview.update((tx) => tx.patch('keys', WAVE.keys[1], { v: 0.1 }));
+      const inner = (): void =>
+        preview.update(() =>
+          store.transact({ label: 'inner' }, (tx) => tx.patch('clips', WAVE.clip, { name: 'smuggled' })),
+        );
+      expect(codeOf(inner)).toBe('preview-active');
+      expect(codeOf(() => preview.update(() => store.beginPreview('nested')))).toBe('preview-active');
+      // The failed updates left the previous overlay in place.
+      expect(store.get('clips', WAVE.clip)?.name).toBe('wave');
+      expect(store.get('keys', WAVE.keys[1])?.v).toBe(0.1);
+      preview.commit();
+      expect(store.get('clips', WAVE.clip)?.name).toBe('wave');
+      expect(store.undo.peekUndo()?.changes.map((change) => change.table)).toEqual(['keys']);
+      // The store is usable again once the preview has ended.
+      store.transact({ label: 'after' }, (tx) => tx.patch('clips', WAVE.clip, { name: 'after' }));
+      expect(store.get('clips', WAVE.clip)?.name).toBe('after');
+    });
+
     it('a second update discards the previous overlay', () => {
       const preview = store.beginPreview('Drag');
       preview.update((tx) => tx.patch('clips', WAVE.clip, { name: 'first' }));
@@ -259,6 +279,34 @@ describe('naive DocumentStore (test kit)', () => {
       expect(result?.applied).toBe(1);
       expect(result?.skipped).toEqual([expect.objectContaining({ fields: ['name'], reason: 'changed-by-other' })]);
       expect(store.get('clips', WAVE.clip)).toMatchObject({ name: 'theirs', loop: true });
+      // The undo batch names only the field it reverted.
+      expect(batches.at(-1)).toMatchObject({ origin: 'undo', changes: [{ table: 'clips', fields: ['loop'] }] });
+    });
+
+    it('undo and redo batches carry `fields` for field-merge updates and none for whole-record tables', () => {
+      store.transact({ label: 'Settings' }, (tx) => {
+        tx.patch('clips', WAVE.clip, { name: 'mine', loop: false });
+        tx.patch('keys', WAVE.keys[0], { v: 1 });
+      });
+      const fieldsOf = (batch: ChangeBatch | undefined): Record<string, readonly string[] | null> =>
+        Object.fromEntries((batch?.changes ?? []).map((change) => [change.table, change.fields ?? null]));
+      const expected = { clips: ['loop', 'name'], keys: null };
+      expect(fieldsOf(batches.at(-1))).toEqual(expected);
+      store.undo.undo();
+      expect(batches.at(-1)?.origin).toBe('undo');
+      expect(fieldsOf(batches.at(-1))).toEqual(expected);
+      store.undo.redo();
+      expect(batches.at(-1)?.origin).toBe('redo');
+      expect(fieldsOf(batches.at(-1))).toEqual(expected);
+      // Undoing an insert is a whole-record delete.
+      store.transact({ label: 'Insert clip' }, (tx) =>
+        tx.put('clips', {
+          ...(store.get('clips', WAVE.clip) as ClipRecord),
+          id: 'clp_SyntheticCopy001' as ClipRecord['id'],
+        }),
+      );
+      store.undo.undo();
+      expect(batches.at(-1)?.changes.map((change) => 'fields' in change)).toEqual([false]);
     });
 
     it('skips a whole key change when the key no longer matches', () => {

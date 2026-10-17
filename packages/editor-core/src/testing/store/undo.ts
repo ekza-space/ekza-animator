@@ -200,7 +200,7 @@ export class NaiveUndoManager implements UndoManager {
     const fieldMerge = mergeUnitOf(change.table) === 'field' && expected !== undefined && target !== undefined;
     if (!fieldMerge) {
       if (!deepEqual(current, expected)) return { write: null, skipped: { fields: null, reason: 'changed-by-other' } };
-      return { write: { table: change.table, id: change.id, before: current, after: target }, skipped: null };
+      return { write: makeChange(change.table, change.id, current, target), skipped: null };
     }
     if (current === undefined) return { write: null, skipped: { fields: null, reason: 'changed-by-other' } };
     const fields = change.fields ?? diffFields(expected, target);
@@ -217,7 +217,7 @@ export class NaiveUndoManager implements UndoManager {
       reverted++;
     }
     return {
-      write: reverted === 0 ? null : { table: change.table, id: change.id, before: current, after: next as Row },
+      write: reverted === 0 ? null : makeChange(change.table, change.id, current, next as Row),
       skipped: skippedFields.length === 0 ? null : { fields: skippedFields, reason: 'changed-by-other' },
     };
   }

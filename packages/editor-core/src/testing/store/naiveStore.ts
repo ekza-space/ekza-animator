@@ -158,8 +158,9 @@ class NaiveStore implements DocumentStore {
   }
 
   transact<R>(meta: TxMeta, fn: (tx: Tx) => R): R {
-    if (this.current !== null) return fn(this.current.tx);
+    // Before the join: `preview.update` also sets `current`, and a transaction inside it must throw, not join.
     this.assertWritable();
+    if (this.current !== null) return fn(this.current.tx);
     const context = this.beginTx(new Overlay(this.committed), meta.label, meta.selectionAfter);
     let result: R;
     try {
