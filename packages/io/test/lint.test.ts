@@ -278,6 +278,54 @@ describe('lintExport', () => {
   });
 });
 
+describe('Bevy path lints (M1-stretch)', () => {
+  const nodes = (overrides: Record<number, Json>, extra: Json[] = []): Json[] => {
+    const base: Json[] = [
+      { name: 'hips', children: [1] },
+      { name: 'spine', children: [2] },
+      { name: 'head' },
+      { name: 'body', mesh: 0, skin: 0 },
+      ...extra,
+    ];
+    return base.map((node, i) => ({ ...node, ...overrides[i] }));
+  };
+
+  it('warns about unnamed nodes on animated paths only', async () => {
+    // hips (an ancestor of the animated spine) and the unanimated mesh node lose their names.
+    const bytes = build({ extra: { nodes: nodes({ 0: { name: undefined }, 3: { name: '' } }) } });
+    const issues = find(await lintExport('bake-into-model', bytes, null), 'bevy.unnamed-path-node');
+    expect(issues.map((i) => [i.pointer, i.severity])).toEqual([['/nodes/0', 'warning']]);
+    const ekza = find(
+      await lintExport('bake-into-model', bytes, profile('ekza/space-avatar-v1')),
+      'bevy.unnamed-path-node',
+    );
+    expect(ekza[0]?.severity).toBe('warning');
+  });
+
+  it('warns about sibling name clashes on animated paths, not elsewhere', async () => {
+    // A second 'spine' under hips clashes with the animated spine; two unanimated 'prop' roots do not count.
+    const bytes = build({
+      extra: {
+        nodes: nodes({ 0: { children: [1, 4] } }, [{ name: 'spine' }, { name: 'prop' }, { name: 'prop' }]),
+        scenes: [{ nodes: [0, 3, 5, 6] }],
+      },
+    });
+    const issues = find(await lintExport('animation-glb', bytes, null), 'bevy.duplicate-sibling-name');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ pointer: '/nodes/1', severity: 'warning' });
+    expect(issues[0]?.message).toMatch(/nodes\[1\], nodes\[4\].*'spine'/);
+  });
+
+  it('checks scene roots as siblings and skips VRMA files', async () => {
+    const bytes = build({
+      extra: { nodes: nodes({}, [{ name: 'hips' }]), scenes: [{ nodes: [0, 3, 4] }] },
+    });
+    expect(find(await lintExport('bake-into-model', bytes, null), 'bevy.duplicate-sibling-name')).toHaveLength(1);
+    const vrma = await lintExport('vrma', bytes, null);
+    expect(vrma.filter((i) => i.code.startsWith('bevy.'))).toEqual([]);
+  });
+});
+
 describe('profiles and rules', () => {
   it('ships the four ADR 0010 profiles as data', () => {
     expect(BUILTIN_EXPORT_PROFILES.map((p) => p.id)).toEqual([

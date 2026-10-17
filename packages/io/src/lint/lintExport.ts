@@ -20,6 +20,7 @@ import {
   nodesOf,
   pointer,
   rootExtensions,
+  scenesOf,
   skinsOf,
   unknownList,
 } from '../gltf/schema';
@@ -33,6 +34,7 @@ export const DEFAULT_JSON_LIMIT = 4 * MiB;
 const ALLOWED_REQUIRED = new Set(['KHR_materials_unlit', 'KHR_texture_transform']);
 const SLOT_NAME = /^[a-z][a-z0-9_]{0,31}$/;
 const MAX_URI_ISSUES = 20;
+const MAX_PATH_ISSUES = 20;
 
 export interface LintContext {
   /** The original file of a bake into model: its VRM block must survive value-equal (`rendition_format`). */
@@ -117,6 +119,7 @@ export async function lintExportWithContext(
     emit('ekza.height-scale-range', `extras.ekza.avatar.heightScale is ${heightScale}; Ekza clamps it to 0.5..2`);
   }
   if (kind === 'vrma') checkVrma(json, extensions, animations, emit);
+  else checkBevyPaths(json, animations, emit);
   return issues;
 }
 
@@ -457,4 +460,73 @@ function checkVrma(json: GltfJson, extensions: JsonRecord, animations: readonly 
       }
     });
   });
+}
+
+/**
+ * Bevy (M1-stretch, ADR 0010 `bevy.*`) binds a clip's curves to `AnimationTargetId`s hashed from the node-name path
+ * from the scene root, so every node on an animated path needs a name (unnamed nodes get index-based names that do
+ * not survive another export) and must not share it with a sibling (both siblings would get the same target id).
+ */
+function checkBevyPaths(json: GltfJson, animations: readonly GltfAnimationDef[], emit: Emit): void {
+  const nodes = nodesOf(json);
+  const parent = new Int32Array(nodes.length).fill(-1);
+  nodes.forEach((node, i) => {
+    for (const child of listField(node.children)) if (isIndex(child) && child < nodes.length) parent[child] = i;
+  });
+  const onPath = new Set<number>();
+  for (const animation of animations) {
+    for (const channel of listField(animation.channels)) {
+      const target = isRecord(channel.target) ? channel.target.node : undefined;
+      if (!isIndex(target) || target >= nodes.length) continue;
+      // The visited set also stops a (malformed) parent cycle.
+      for (let n = target; n !== -1 && !onPath.has(n); n = parent[n] as number) onPath.add(n);
+    }
+  }
+  if (onPath.size === 0) return;
+  const nameOf = (i: number): string => {
+    const name = nodes[i]?.name;
+    return typeof name === 'string' ? name : '';
+  };
+  let reported = 0;
+  for (const i of [...onPath].sort((a, b) => a - b)) {
+    if (nameOf(i).trim() !== '' || reported >= MAX_PATH_ISSUES) continue;
+    reported++;
+    emit(
+      'bevy.unnamed-path-node',
+      `nodes[${i}] is animated or above an animated node but has no name`,
+      pointer('nodes', i),
+    );
+  }
+  // Sibling groups: the children of each node, and the roots of every scene (all parentless nodes without scenes).
+  const groups: number[][] = nodes.map((node) =>
+    listField(node.children).filter((c): c is number => isIndex(c) && c < nodes.length),
+  );
+  const scenes = scenesOf(json);
+  if (scenes.length > 0) {
+    for (const scene of scenes)
+      groups.push(listField(scene.nodes).filter((n): n is number => isIndex(n) && n < nodes.length));
+  } else {
+    groups.push(nodes.map((_, i) => i).filter((i) => parent[i] === -1));
+  }
+  reported = 0;
+  const seen = new Set<number>();
+  for (const group of groups) {
+    const byName = new Map<string, number[]>();
+    for (const i of group) {
+      const name = nameOf(i);
+      if (name === '') continue;
+      byName.set(name, [...(byName.get(name) ?? []), i]);
+    }
+    for (const [name, members] of byName) {
+      const animated = members.filter((i) => onPath.has(i) && !seen.has(i));
+      if (members.length < 2 || animated.length === 0 || reported >= MAX_PATH_ISSUES) continue;
+      for (const i of animated) seen.add(i);
+      reported++;
+      emit(
+        'bevy.duplicate-sibling-name',
+        `Sibling nodes ${members.map((i) => `nodes[${i}]`).join(', ')} share the name '${name}' on an animated path`,
+        pointer('nodes', animated[0] as number),
+      );
+    }
+  }
 }

@@ -131,6 +131,19 @@ export const LINT_RULES: readonly LintRuleDef[] = [
     ekza: 'warning',
     description: 'Consecutive samples more than 90° apart',
   },
+  // M1-stretch (ADR 0010 `bevy.*`): Bevy addresses animation targets by the name path from the scene root.
+  {
+    id: 'bevy.unnamed-path-node',
+    local: 'warning',
+    ekza: 'warning',
+    description: 'Animated nodes and their ancestors are named',
+  },
+  {
+    id: 'bevy.duplicate-sibling-name',
+    local: 'warning',
+    ekza: 'warning',
+    description: 'No node on an animated path shares its name with a sibling',
+  },
 ];
 
 const BY_ID = new Map(LINT_RULES.map((rule) => [rule.id, rule]));
