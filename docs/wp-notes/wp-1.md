@@ -28,7 +28,8 @@ Bench (`pnpm exec vitest bench --run` in `packages/anim-core`; Apple M4 Pro, Nod
 parallel, load average 6–9): evaluating 2,200 compiled curves (80 % auto, 10 % weighted fixed, 5 % linear, 5 % step,
 mixed infinities) at one playback frame: **mean 0.26–0.32 ms, min 0.21 ms** (gate ≤ 0.3 ms, report only); with random
 frames incl. infinities 0.32 ms mean. Compile a 40-key curve: 9.4 µs. Reduce a 1,000-key dense import at 0.1°: 4.4 ms.
-Weighted (Bézier) evaluation costs ≈ 270 ns per call (AnimX root finder), Hermite ≈ 60 ns.
+Weighted (Bézier) evaluation costs ≈ 270 ns per call (AnimX root finder), Hermite ≈ 60 ns. Re-run after the resume
+(load average 4–7): mean 0.32 ms, min 0.20 ms; a timed loop's best pass is 0.13 ms, so the mean is mostly machine load.
 
 ## Interpretations and deviations (proposed DECISIONS-OPEN entries)
 
@@ -88,6 +89,13 @@ is likewise a `custom` set of the two built-ins (concatenate their `splines`).
 
 ## Gates run in this worktree
 
-`pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, `pnpm run check:deps`, `pnpm run test` (all
-packages), `node tooling/animx-oracle/generate.mjs --check`. No UI package or `apps/web` was touched, so `build` and
-e2e are not affected by this WP.
+`pnpm run format:check`, `pnpm run lint`, `pnpm run typecheck`, `pnpm run check:deps`, `pnpm run check:licenses`,
+`pnpm run check:fixtures`, `pnpm run test` (all packages), `node tooling/animx-oracle/generate.mjs --check` (fresh
+AnimX clone and build, byte-identical goldens). No UI package or `apps/web` was touched, so `build` and e2e are not
+affected by this WP.
+
+Resume review (second builder): stress runs beyond the CI property counts found no defect in the tested domains —
+insert on random curves of every type incl. cycle-aware auto and out-of-range frames (60,000 runs; the only
+differences were samples that rounding put past the last key, where cyclic infinity cannot be preserved, W1-4),
+`reduceKeys` bound and exact `maxError` (20,000 runs), weighted fixed handles within the span (100,000 runs). It did
+find the AnimX snapping-threshold cases of W1-22; the linear-time Bézier one is fixed.
