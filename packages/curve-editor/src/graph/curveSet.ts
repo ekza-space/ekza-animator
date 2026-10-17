@@ -22,14 +22,26 @@ export interface CurveEntry {
   readonly index: ReadonlyMap<KeyId, number>;
 }
 
+export interface KeyLocation {
+  readonly entry: CurveEntry;
+  readonly index: number;
+}
+
 export interface CurveSet {
   readonly entries: readonly CurveEntry[];
   readonly byCurve: ReadonlyMap<CurveId, CurveEntry>;
-  /** Key → its curve entry and index. */
-  readonly byKey: ReadonlyMap<KeyId, { readonly entry: CurveEntry; readonly index: number }>;
+  /**
+   * Key → its curve entry and index. Found through the key's record and the entry's own index, so an edit of one
+   * curve rebuilds only that curve's entry (no set-wide key map).
+   */
+  readonly byKey: { get(key: KeyId): KeyLocation | undefined };
 }
 
-export const EMPTY_CURVE_SET: CurveSet = { entries: [], byCurve: new Map(), byKey: new Map() };
+export const EMPTY_CURVE_SET: CurveSet = {
+  entries: [],
+  byCurve: new Map(),
+  byKey: { get: () => undefined },
+};
 
 /** True when the control's lock flags cover a TRS channel. */
 export function channelLocked(control: ControlRecord | undefined, channel: ChannelId): boolean {
@@ -39,40 +51,69 @@ export function channelLocked(control: ControlRecord | undefined, channel: Chann
   return axis !== -1 && (channel[0] === 't' || channel[0] === 'r' || channel[0] === 's') && group[axis] === true;
 }
 
-export function buildCurveSet(app: EditorApp, curves: readonly CurveId[]): CurveSet {
+/** The entry of one curve; null when it is gone or cannot be drawn yet. */
+function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
+  const record = app.store.get('curves', id);
+  if (record === undefined) return null;
+  let compiled: CompiledAnimCurve;
+  try {
+    compiled = app.evaluation.compiledCurve(id);
+  } catch {
+    return null; // a curve the evaluation service cannot compile (e.g. its partition is loading) is not drawn
+  }
+  const keys = app.store.query.keysOfCurve(id);
+  // Compiled arrays and records must align index by index; a stale compiled curve is not drawn.
+  if (keys.length !== compiled.keyCount) return null;
+  const index = new Map<KeyId, number>();
+  keys.forEach((key, i) => index.set(key.id, i));
+  const control = app.store.get('controls', record.control);
+  return {
+    id,
+    record,
+    channel: record.channel,
+    scale: channelDisplayScale(record.channel),
+    color: channelColor(record.channel),
+    locked: record.locked || channelLocked(control, record.channel),
+    compiled,
+    keys,
+    index,
+  };
+}
+
+function assemble(app: EditorApp, curves: readonly CurveId[], entryOf: (id: CurveId) => CurveEntry | null): CurveSet {
   const entries: CurveEntry[] = [];
   const byCurve = new Map<CurveId, CurveEntry>();
-  const byKey = new Map<KeyId, { entry: CurveEntry; index: number }>();
   for (const id of curves) {
     if (byCurve.has(id)) continue;
-    const record = app.store.get('curves', id);
-    if (record === undefined) continue;
-    let compiled: CompiledAnimCurve;
-    try {
-      compiled = app.evaluation.compiledCurve(id);
-    } catch {
-      continue; // a curve the evaluation service cannot compile (e.g. its partition is loading) is not drawn
-    }
-    const keys = app.store.query.keysOfCurve(id);
-    // Compiled arrays and records must align index by index; a stale compiled curve is not drawn.
-    if (keys.length !== compiled.keyCount) continue;
-    const index = new Map<KeyId, number>();
-    keys.forEach((key, i) => index.set(key.id, i));
-    const control = app.store.get('controls', record.control);
-    const entry: CurveEntry = {
-      id,
-      record,
-      channel: record.channel,
-      scale: channelDisplayScale(record.channel),
-      color: channelColor(record.channel),
-      locked: record.locked || channelLocked(control, record.channel),
-      compiled,
-      keys,
-      index,
-    };
+    const entry = entryOf(id);
+    if (entry === null) continue;
     entries.push(entry);
     byCurve.set(id, entry);
-    keys.forEach((key, i) => byKey.set(key.id, { entry, index: i }));
   }
+  const byKey = {
+    get(key: KeyId): KeyLocation | undefined {
+      const curve = app.store.get('keys', key)?.curve;
+      const entry = curve === undefined ? undefined : byCurve.get(curve);
+      const index = entry?.index.get(key);
+      return entry === undefined || index === undefined ? undefined : { entry, index };
+    },
+  };
   return { entries, byCurve, byKey };
+}
+
+export function buildCurveSet(app: EditorApp, curves: readonly CurveId[]): CurveSet {
+  return assemble(app, curves, (id) => buildEntry(app, id));
+}
+
+/**
+ * `set` after edits of the `changed` curves: their entries are rebuilt, the others are reused as they are. Curves
+ * that had no entry (not drawable before) are retried.
+ */
+export function updateCurveSet(
+  app: EditorApp,
+  set: CurveSet,
+  curves: readonly CurveId[],
+  changed: ReadonlySet<CurveId>,
+): CurveSet {
+  return assemble(app, curves, (id) => (changed.has(id) ? null : set.byCurve.get(id)) ?? buildEntry(app, id));
 }

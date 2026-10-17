@@ -3,7 +3,7 @@
 // interaction state machine (idle → pressed → drag → commit | cancel) and navigation per profile. Edits run through
 // document previews and the editor-core edit kernel; selection changes go through operators.
 import type { Disposer, Fps, Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
+import type { ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
 import {
   type EditorApp,
   type KeyPartSelection,
@@ -35,7 +35,7 @@ import {
   valueToY,
   zoomView,
 } from '../view/transform';
-import { buildCurveSet, type CurveEntry, type CurveSet, EMPTY_CURVE_SET } from './curveSet';
+import { buildCurveSet, type CurveEntry, type CurveSet, EMPTY_CURVE_SET, updateCurveSet } from './curveSet';
 import { curvesBounds, keysBounds } from './frame';
 import { drawnValueAt, newInfinityMapping } from './geometry';
 import {
@@ -57,6 +57,8 @@ const PINCH_ZOOM_RATE = 0.01;
 const FRAME_PADDING = 0.08;
 /** Tables whose changes can alter what the Graph Editor draws. */
 const WATCHED_TABLES = new Set(['curves', 'keys', 'controls', 'clips', 'project', 'layers']);
+/** Above this many edited curves in one batch the whole curve set is rebuilt. */
+const MAX_INCREMENTAL_CURVES = 64;
 
 /** PointerEvent.buttons bit of each PointerEvent.button (left, middle, right). */
 const BUTTON_BITS: readonly number[] = [1, 4, 2];
@@ -84,6 +86,10 @@ export class GraphEditorController {
   private dpr = 1;
   private curveIds: readonly CurveId[] = [];
   private curveSetCache: CurveSet | null = null;
+  /** Curves edited since `curveSetCache` was built (their entries are rebuilt on the next read). */
+  private readonly editedCurves = new Set<CurveId>();
+  /** `setCurves` changed the list since `curveSetCache` was built (entries of curves still shown are reused). */
+  private curveListChanged = false;
   private sceneCache: GraphScene | null = null;
   private pendingFrame: 'all' | 'selection' | null = null;
 
@@ -159,12 +165,7 @@ export class GraphEditorController {
       insertKey: (curve, frame) => this.insertKey(curve, frame),
     };
     this.disposers.push(
-      this.app.store.subscribe((batch) => {
-        if (batch.origin === 'load' || batch.changes.some((change) => WATCHED_TABLES.has(change.table))) {
-          this.curveSetCache = null;
-          this.invalidateBase();
-        }
-      }),
+      this.app.store.subscribe((batch) => this.onBatch(batch)),
       this.app.session.subscribe((state, previous) => this.onSession(state, previous)),
       this.app.prefs.subscribe((prefs, previous) => {
         if (prefs.graphHandles !== previous.graphHandles) this.invalidateBase();
@@ -225,7 +226,7 @@ export class GraphEditorController {
     const previous = new Set(this.curveIds);
     const disjoint = next.length > 0 && !next.some((id) => previous.has(id));
     this.curveIds = next;
-    this.curveSetCache = null;
+    this.curveListChanged = true;
     this.invalidateBase();
     if (disjoint) this.frame('all');
   }
@@ -538,10 +539,41 @@ export class GraphEditorController {
     });
   }
 
+  /**
+   * Document changes: key and curve edits (drags, operators) rebuild only the edited curves' entries; anything else
+   * that affects drawing (controls, clips, layers, project, loads) rebuilds the whole curve set.
+   */
+  private onBatch(batch: ChangeBatch): void {
+    let full = batch.origin === 'load';
+    let touched = full;
+    for (const change of batch.changes) {
+      if (full) break;
+      if (!WATCHED_TABLES.has(change.table)) continue;
+      touched = true;
+      if (change.table === 'keys') {
+        if (change.before !== undefined) this.editedCurves.add(change.before.curve);
+        if (change.after !== undefined) this.editedCurves.add(change.after.curve);
+      } else if (change.table === 'curves') {
+        this.editedCurves.add(change.id);
+      } else {
+        full = true;
+      }
+    }
+    if (!touched) return;
+    if (full || this.editedCurves.size > MAX_INCREMENTAL_CURVES) this.dropCurveSet();
+    this.invalidateBase();
+  }
+
+  private dropCurveSet(): void {
+    this.curveSetCache = null;
+    this.editedCurves.clear();
+    this.curveListChanged = false;
+  }
+
   private onSession(state: SessionState, previous: SessionState): void {
     if (state.tools.graph !== previous.tools.graph) this.invalidateOverlay();
     if (state.activeCharacter !== previous.activeCharacter || state.activeClip !== previous.activeClip) {
-      this.curveSetCache = null;
+      this.dropCurveSet();
       this.invalidateBase();
       return;
     }
@@ -561,7 +593,11 @@ export class GraphEditorController {
   private curveSet(): CurveSet {
     if (this.curveSetCache === null) {
       this.curveSetCache = this.curveIds.length === 0 ? EMPTY_CURVE_SET : buildCurveSet(this.app, this.curveIds);
+    } else if (this.editedCurves.size > 0 || this.curveListChanged) {
+      this.curveSetCache = updateCurveSet(this.app, this.curveSetCache, this.curveIds, this.editedCurves);
     }
+    this.editedCurves.clear();
+    this.curveListChanged = false;
     return this.curveSetCache;
   }
 

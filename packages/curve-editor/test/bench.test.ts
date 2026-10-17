@@ -88,6 +88,31 @@ describe('Graph Editor redraw benchmark (ADR 0007 §9, reported)', () => {
     expect(controller.stats.baseRedraws).toBeGreaterThanOrEqual(31);
   });
 
+  it('50k keys loaded: an edit of one curve (a drag update) redraws without rebuilding the others', async ({
+    annotate,
+  }) => {
+    const { app, ids } = await bigScene(50, 1000);
+    mounted = mount(app, { width: 1440, height: 400, dpr: 2, curves: ids.map((entry) => entry.curve) });
+    const { controller } = mounted;
+    controller.setView({ ...controller.view, f0: 800, sx: 1440 / 400 });
+    controller.redraw(true);
+    const edited = ids[7]?.keys[450] as KeyId;
+    const samples: number[] = [];
+    for (let i = 0; i < 30; i++) {
+      const start = performance.now();
+      app.store.transact({ label: 'Nudge' }, (tx) => tx.patch('keys', edited, { v: 0.01 * i }));
+      controller.redraw();
+      samples.push(performance.now() - start);
+    }
+    const ms = median(samples);
+    // The test kit's naive store scans every key per query; WP-2's indexed store and WP-3's curve cache are faster.
+    await annotate(
+      `50k keys, one curve edited (naive test store): commit + redraw median ${ms.toFixed(2)} ms`,
+      'notice',
+    );
+    expect(ms).toBeLessThan(200);
+  });
+
   it('hit-tests and keyPoint stay cheap on 50k keys', async ({ annotate }) => {
     const { app, ids } = await bigScene(50, 1000);
     mounted = mount(app, { width: 1440, height: 400, dpr: 1, curves: ids.map((entry) => entry.curve) });

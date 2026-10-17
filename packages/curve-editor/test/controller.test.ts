@@ -1,6 +1,7 @@
 import type { GraphViewState } from '../src';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GraphEditorController, registerGraphContributions } from '../src';
+import { buildCurveSet, updateCurveSet } from '../src/graph/curveSet';
 import { frameToX, valueToY, xToFrame, yToValue } from '../src/view/transform';
 import {
   addCurve,
@@ -17,6 +18,8 @@ import {
   waveApp,
   wheel,
 } from './support/app';
+
+const RAD = 180 / Math.PI;
 
 let mounted: Mounted | null = null;
 afterEach(() => {
@@ -386,6 +389,46 @@ describe('redraw scheduling', () => {
     controller.pointerLeave();
     controller.redraw();
     expect(controller.stats.overlayRedraws).toBe(before.overlayRedraws + 2);
+  });
+
+  it('rebuilds only the curves an edit touched; other changes rebuild the set', async () => {
+    const app = await waveApp();
+    const rx = addCurve(app, { channel: 'rx', keys: [key(0, 0.1), key(10, 0.2)] });
+    const set = buildCurveSet(app, [WAVE.curve, rx.curve]);
+    app.store.transact({ label: 'Nudge' }, (tx) => tx.patch('keys', rx.keys[1]!, { v: 0.5 }));
+    const next = updateCurveSet(app, set, [WAVE.curve, rx.curve], new Set([rx.curve]));
+    expect(next.byCurve.get(WAVE.curve)).toBe(set.byCurve.get(WAVE.curve));
+    expect(next.byCurve.get(rx.curve)).not.toBe(set.byCurve.get(rx.curve));
+    expect(next.byCurve.get(rx.curve)?.compiled.v[1]).toBe(0.5);
+    expect(next.byKey.get(rx.keys[1]!)).toMatchObject({ index: 1, entry: next.byCurve.get(rx.curve) });
+    expect(next.byKey.get(WAVE.keys[2])).toMatchObject({ index: 2, entry: set.byCurve.get(WAVE.curve) });
+    // Showing fewer curves keeps the remaining entries; a deleted curve leaves the set.
+    expect(updateCurveSet(app, next, [rx.curve], new Set()).byCurve.get(rx.curve)).toBe(next.byCurve.get(rx.curve));
+    app.store.transact({ label: 'Delete' }, (tx) => {
+      for (const id of rx.keys) tx.remove('keys', id);
+      tx.softDelete('curves', rx.curve);
+    });
+    const gone = updateCurveSet(app, next, [WAVE.curve, rx.curve], new Set([rx.curve]));
+    expect(gone.entries.map((entry) => entry.id)).toEqual([WAVE.curve]);
+    expect(gone.byKey.get(rx.keys[0]!)).toBeUndefined();
+
+    // Through the controller: key edits, curve-list changes and control locks all show up.
+    mounted = mount(app);
+    const { controller } = mounted;
+    const y0 = at(controller.keyPoint(WAVE.keys[1])).y;
+    app.store.transact({ label: 'Nudge' }, (tx) => tx.patch('keys', WAVE.keys[1], { v: -0.4 }));
+    expect(at(controller.keyPoint(WAVE.keys[1])).y).toBeCloseTo(valueToY(controller.view, 300, -0.4 * RAD), 9);
+    expect(at(controller.keyPoint(WAVE.keys[1])).y).not.toBeCloseTo(y0, 3);
+    const ry = addCurve(app, { channel: 'ry', keys: [key(3, 0)] });
+    controller.setCurves([WAVE.curve, ry.curve]);
+    expect(controller.keyPoint(ry.keys[0]!)).not.toBeNull();
+    const control = app.store.get('controls', WAVE.control);
+    if (control === undefined) throw new Error('no control');
+    app.store.transact({ label: 'Lock' }, (tx) =>
+      tx.patch('controls', WAVE.control, { locked: { ...control.locked, r: [true, true, true] } }),
+    );
+    const k = at(controller.keyPoint(WAVE.keys[0]));
+    expect(controller.hitTest(k.x, k.y).kind).toBe('none');
   });
 
   it('stops reacting after dispose', async () => {
