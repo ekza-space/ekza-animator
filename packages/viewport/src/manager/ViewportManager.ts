@@ -1,18 +1,81 @@
-// WP-5 stubs: final signatures (MVP-SPEC §7 WP-5; ADR 0006). The constructor throws until the viewport lands;
-// `registerViewportContributions` is a no-op so the app boots from day 1.
-import { type Disposer, EkzaError, type ReadonlyVec3 } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp, NavProfile } from '@ekza-animator/editor-core';
-import type { Scene, WebGLRenderer } from 'three';
+// ViewportManager (ADR 0006, MVP-SPEC §7 WP-5): one WebGL canvas, one shared scene, N panes. Panes register a
+// surface element, a camera binding and display flags; `render()` (called from R3F `useFrame(…, 1)`) draws every
+// visible pane with viewport/scissor rectangles: backdrop → main scene → control lines (two passes) → clearDepth →
+// manipulator. The manager also routes pointer input inside panes to navigation and the active viewport tool, and
+// answers picking/projection queries for tools, operators and the e2e test API.
+import {
+  type Disposer,
+  EkzaError,
+  eulerToQuat,
+  mat4Decompose,
+  type Quat,
+  quatInvert,
+  quatMultiply,
+  type ReadonlyVec3,
+  type Vec3,
+} from '@ekza-animator/anim-core';
+import type { CameraId, CameraRecord, CharacterId, ControlId, PreviewSession } from '@ekza-animator/doc';
+import {
+  type EditorApp,
+  type NavProfile,
+  PANEL,
+  type ToolInstance,
+  type ToolPointerEvent,
+  VIEWPORT_TOOL,
+} from '@ekza-animator/editor-core';
+import { controlForNode } from '@ekza-animator/rig';
+import {
+  AmbientLight,
+  type Camera,
+  DirectionalLight,
+  HemisphereLight,
+  NoToneMapping,
+  OrthographicCamera,
+  PerspectiveCamera,
+  Scene,
+  type WebGLRenderer,
+} from 'three';
+import {
+  applyShotRecord,
+  createShotCamera,
+  createViewCamera,
+  firstShotCamera,
+  fitCameraToAspect,
+  type ShotCamera,
+  setOrthoHeight,
+  shotTransformOf,
+  snapshotOf,
+  type ViewCamera,
+} from '../cameras/cameras';
+import { type ControlEntry, ControlLayer, multiplyAt } from '../controls/ControlLayer';
+import { measureSpatialBounds, pointBounds, type SpatialBounds, unionBounds } from '../framing/bounds';
+import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
+import { applyMainLayers, LAYER } from '../layers';
+import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
+import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
+import type { NavigationController, NavState } from '../navigation/NavigationController';
+import { type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
+import { Backdrop, createGrid } from '../overlays/background';
+import { MarqueeBox } from '../overlays/marquee';
+import { SkeletonLayer } from '../overlays/skeleton';
+import { defaultPaneCamera, paneGl } from '../panes/layout';
+import { PaneProjector } from '../picking/geometry';
+import { MeshPicker } from '../picking/meshPicker';
+import { ControlPicker } from '../picking/picker';
+import { SceneSync } from '../sync/SceneSync';
+import type { ViewportToolHost } from '../tools/host';
 import type {
   CameraSnapshot,
   DisplayFlags,
   ManipHandle,
   MarqueeRect,
+  PaneCamera,
   PaneDescriptor,
   PickResult,
   ScreenPoint,
+  ViewPreset,
 } from '../types';
+import { setManagerOf } from './registry';
 
 export const DEFAULT_DISPLAY: DisplayFlags = {
   mesh: true,
@@ -24,90 +87,1301 @@ export const DEFAULT_DISPLAY: DisplayFlags = {
   springBones: false,
 };
 
+/** What the viewport panel shows for a pane (header, HUD, lock badge). Immutable snapshots. */
+export interface PaneState {
+  readonly id: string;
+  /** The binding the pane asked for. */
+  readonly binding: PaneCamera;
+  /** What it actually looks through (a missing shot camera falls back, see FIRST_SHOT_CAMERA). */
+  readonly cameraKind: 'shot' | 'view';
+  readonly preset: ViewPreset | null;
+  readonly shotCameraId: CameraId | null;
+  readonly cameraName: string;
+  readonly locked: boolean;
+  readonly display: DisplayFlags;
+  /** Incremented whenever a locked camera swallowed navigation (the panel flashes LOCKED). */
+  readonly lockFlash: number;
+  /** Centre (pane CSS px) of the open Space-hold camera radial (M1-stretch), or null. */
+  readonly radial: { readonly x: number; readonly y: number } | null;
+}
+
+/** Pane CSS px the radial keeps between its centre and the pane edges (when the pane is large enough). */
+export const RADIAL_MARGIN_PX = 96;
+
+interface PaneRuntime {
+  readonly id: string;
+  readonly element: HTMLElement;
+  camera: PaneCamera;
+  display: DisplayFlags;
+  readonly abort: AbortController;
+  readonly resize: ResizeObserver | null;
+  readonly marquee: MarqueeBox;
+  state: PaneState;
+  lockFlash: number;
+  radial: { readonly x: number; readonly y: number } | null;
+}
+
+type Resolved =
+  | { readonly kind: 'shot'; readonly shot: ShotCamera; readonly nav: NavigationController }
+  | { readonly kind: 'view'; readonly view: ViewCamera; readonly nav: NavigationController };
+
+interface NavDrag {
+  readonly paneId: string;
+  readonly pointerId: number;
+  readonly gesture: NavGesture;
+  readonly startX: number;
+  readonly startY: number;
+  lastX: number;
+  lastY: number;
+  /** The gesture hit a locked camera (or could not start): moves are swallowed. */
+  readonly swallowed: boolean;
+  readonly shot: ShotNav | null;
+  /** View camera and its state at the start, restored when the gesture is cancelled (Esc, blur). */
+  readonly view: { readonly nav: NavigationController; readonly state: NavState } | null;
+}
+
+interface ShotNav {
+  readonly cameraId: CameraId;
+  readonly nav: NavigationController;
+  readonly preview: PreviewSession;
+}
+
+interface WheelBurst extends ShotNav {
+  timer: ReturnType<typeof setTimeout> | null;
+}
+
+/** A shot-camera wheel burst ends after this idle time (ms) and commits once (MVP-SPEC §4.11.16). */
+export const WHEEL_BURST_MS = 120;
+const SHOT_LABEL = 'Move Shot Camera';
+
 export class ViewportManager {
-  declare readonly scene: Scene;
-  declare readonly renderedFrames: number;
+  readonly scene = new Scene();
+  readonly app: EditorApp;
+  readonly renderer: WebGLRenderer;
+  /** What tools may ask of the viewport (`ToolDef<ViewportToolHost>`). */
+  readonly toolHost: ViewportToolHost;
+  private readonly controlScene = new Scene();
+  private readonly controls = new ControlLayer();
+  private readonly skeleton = new SkeletonLayer();
+  private readonly kit = new ManipulatorKit();
+  private readonly backdrop = new Backdrop();
+  private readonly sync: SceneSync;
+  private readonly picker = new ControlPicker();
+  private readonly meshPicker = new MeshPicker();
+  private readonly panes = new Map<string, PaneRuntime>();
+  private readonly memory = new Map<string, { camera: PaneCamera; display: DisplayFlags }>();
+  private readonly views = new Map<string, Map<ViewPreset, ViewCamera>>();
+  private readonly shots = new Map<CameraId, ShotCamera>();
+  private readonly listeners = new Set<() => void>();
+  private readonly disposers: Disposer[] = [];
+  private readonly toolInstances = new Map<string, ToolInstance>();
+  private activeToolId: string | null = null;
+  private profile: NavProfile;
+  private dirty = true;
+  private frames = 0;
+  private nav: NavDrag | null = null;
+  private wheel: WheelBurst | null = null;
+  private toolPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
+  private hoverControl: ControlId | null = null;
+  private stylesDirty = true;
+  private manipulatorDirty = true;
+  private entryMap: { readonly version: number; readonly map: Map<ControlId, ControlEntry> } | null = null;
+  private lastPointerPane: string | null = null;
+  /** Last pointer position over a pane (page CSS px): where the camera radial opens. */
+  private pointerAt: { readonly paneId: string; readonly clientX: number; readonly clientY: number } | null = null;
+  private disposed = false;
+  /** Untouched view cameras should be (re)framed at the next frame preparation. */
+  private autoFrame = true;
+  private readonly projector = new PaneProjector();
+  private readonly onKeyDown = (e: KeyboardEvent): void => {
+    if (e.code === 'Escape') this.cancelInteraction();
+  };
+  private readonly onBlur = (): void => this.cancelInteraction();
 
-  constructor(_opts: { readonly app: EditorApp; readonly renderer: WebGLRenderer }) {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager');
+  constructor(opts: { readonly app: EditorApp; readonly renderer: WebGLRenderer }) {
+    this.app = opts.app;
+    this.renderer = opts.renderer;
+    this.renderer.autoClear = false;
+    this.renderer.toneMapping = NoToneMapping;
+    this.profile = this.app.prefs.getState().navProfile;
+    this.scene.name = 'ekza.viewport';
+    this.scene.matrixWorldAutoUpdate = false;
+    this.controlScene.matrixWorldAutoUpdate = false;
+    this.controlScene.add(this.controls.root);
+    this.scene.add(this.skeleton.root);
+    this.scene.add(createGrid());
+    for (const light of [
+      new HemisphereLight(0xffffff, 0x50525a, 1.1),
+      new AmbientLight(0xffffff, 0.25),
+      directionalLight(),
+    ]) {
+      light.layers.enableAll();
+      this.scene.add(light);
+    }
+    this.sync = new SceneSync({
+      app: this.app,
+      scene: this.scene,
+      controls: this.controls,
+      skeleton: this.skeleton,
+      onChange: () => {
+        this.manipulatorDirty = true;
+        this.autoFrame = true;
+        this.invalidate();
+      },
+    });
+    this.toolHost = this.createToolHost();
+    this.syncShots();
+    this.subscribe();
+    const canvas = this.renderer.domElement;
+    const restored = (): void => {
+      this.sync.invalidatePoses();
+      this.invalidate();
+    };
+    canvas.addEventListener('webglcontextrestored', restored);
+    const canvasObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.invalidate());
+    canvasObserver?.observe(canvas);
+    this.disposers.push(() => {
+      canvas.removeEventListener('webglcontextrestored', restored);
+      canvasObserver?.disconnect();
+    });
+    setManagerOf(this.app, this);
   }
 
-  registerPane(_desc: PaneDescriptor): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.registerPane');
+  /** WebGL frames rendered so far (the e2e idle check: constant while nothing changes). */
+  get renderedFrames(): number {
+    return this.frames;
   }
 
-  updatePane(_id: string, _patch: Partial<Pick<PaneDescriptor, 'camera' | 'display'>>): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.updatePane');
+  // ---------------------------------------------------------------------------------------------------------------
+  // panes
+
+  registerPane(desc: PaneDescriptor): void {
+    if (this.panes.has(desc.id)) this.unregisterPane(desc.id);
+    const abort = new AbortController();
+    const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => this.invalidate());
+    resize?.observe(desc.element);
+    const pane: PaneRuntime = {
+      id: desc.id,
+      element: desc.element,
+      camera: desc.camera,
+      display: desc.display,
+      abort,
+      resize,
+      marquee: new MarqueeBox(desc.element),
+      state: undefined as unknown as PaneState,
+      lockFlash: 0,
+      radial: null,
+    };
+    pane.state = this.stateOf(pane);
+    this.panes.set(desc.id, pane);
+    this.memory.set(desc.id, { camera: desc.camera, display: desc.display });
+    this.attachInput(pane);
+    this.autoFrame = true;
+    this.notify();
+    this.invalidate();
   }
 
-  unregisterPane(_id: string): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.unregisterPane');
+  updatePane(id: string, patch: Partial<Pick<PaneDescriptor, 'camera' | 'display'>>): void {
+    const pane = this.panes.get(id);
+    const remembered = this.memory.get(id);
+    const camera = patch.camera ?? pane?.camera ?? remembered?.camera ?? defaultPaneCamera(id);
+    const display = patch.display ?? pane?.display ?? remembered?.display ?? DEFAULT_DISPLAY;
+    this.memory.set(id, { camera, display });
+    if (pane === undefined) return;
+    pane.camera = camera;
+    pane.display = display;
+    this.autoFrame = true;
+    this.picker.forget(id);
+    this.refreshPaneStates();
+    this.invalidate();
+  }
+
+  unregisterPane(id: string): void {
+    const pane = this.panes.get(id);
+    if (pane === undefined) return;
+    if (this.nav?.paneId === id) this.endNav(true);
+    if (this.toolPointer?.paneId === id) this.cancelInteraction();
+    pane.abort.abort();
+    pane.resize?.disconnect();
+    pane.marquee.dispose();
+    this.panes.delete(id);
+    this.picker.forget(id);
+    this.notify();
+    this.invalidate();
   }
 
   paneIds(): readonly string[] {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.paneIds');
+    return [...this.panes.keys()];
   }
 
-  paneAt(_clientX: number, _clientY: number): string | null {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.paneAt');
+  paneAt(clientX: number, clientY: number): string | null {
+    for (const pane of this.panes.values()) {
+      const r = pane.element.getBoundingClientRect();
+      if (r.width > 0 && clientX >= r.left && clientX < r.right && clientY >= r.top && clientY < r.bottom)
+        return pane.id;
+    }
+    return null;
   }
+
+  /** The pane's state for the panel (header, HUD), or null for an unknown pane. */
+  paneState(id: string): PaneState | null {
+    return this.panes.get(id)?.state ?? null;
+  }
+
+  /** Camera binding and display flags last used for a pane id (survive layout switches), or null. */
+  rememberedPane(id: string): { readonly camera: PaneCamera; readonly display: DisplayFlags } | null {
+    return this.memory.get(id) ?? null;
+  }
+
+  /** The pane's element rectangle in page CSS px, or null. */
+  paneRect(id: string): { readonly x: number; readonly y: number; readonly w: number; readonly h: number } | null {
+    const pane = this.panes.get(id);
+    if (pane === undefined) return null;
+    const r = pane.element.getBoundingClientRect();
+    return { x: r.left, y: r.top, w: r.width, h: r.height };
+  }
+
+  /** The pane that last received pointer input (fallback target of view operators), or the first pane. */
+  activePaneId(): string | null {
+    if (this.lastPointerPane !== null && this.panes.has(this.lastPointerPane)) return this.lastPointerPane;
+    return this.panes.keys().next().value ?? null;
+  }
+
+  /** Listens to pane state changes (panes added/removed, camera, lock, display, LOCKED flash). */
+  subscribePanes(listener: () => void): Disposer {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Opens the Space-hold camera radial (M1-stretch) of a pane at the last pointer position over it (else its centre),
+   * kept RADIAL_MARGIN_PX inside the pane. Closes any other radial. False for an unknown pane.
+   */
+  openRadial(paneId: string): boolean {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return false;
+    const r = pane.element.getBoundingClientRect();
+    const at = this.pointerAt?.paneId === paneId ? this.pointerAt : null;
+    const clamp = (v: number, size: number): number =>
+      size <= 2 * RADIAL_MARGIN_PX ? size / 2 : Math.min(Math.max(v, RADIAL_MARGIN_PX), size - RADIAL_MARGIN_PX);
+    const x = clamp(at === null ? r.width / 2 : at.clientX - r.left, r.width);
+    const y = clamp(at === null ? r.height / 2 : at.clientY - r.top, r.height);
+    for (const other of this.panes.values()) other.radial = null;
+    pane.radial = { x, y };
+    this.refreshPaneStates();
+    return true;
+  }
+
+  closeRadial(): void {
+    let open = false;
+    for (const pane of this.panes.values()) {
+      open ||= pane.radial !== null;
+      pane.radial = null;
+    }
+    if (open) this.refreshPaneStates();
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // rendering
 
   /** Render dirty panes. Call from R3F useFrame(…, 1). */
   render(): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.render');
+    if (this.disposed) return;
+    this.prepareFrame();
+    if (!this.dirty) return;
+    this.dirty = false;
+    const renderer = this.renderer;
+    const canvasRect = renderer.domElement.getBoundingClientRect();
+    let rendered = 0;
+    // Without preserveDrawingBuffer the browser may discard the canvas after compositing, so every visible pane is
+    // drawn whenever anything changed.
+    for (const pane of this.panes.values()) {
+      const gl = paneGl(canvasRect, pane.element.getBoundingClientRect());
+      if (gl === null) continue;
+      this.renderPane(pane, gl);
+      rendered++;
+    }
+    renderer.setScissorTest(false);
+    this.sync.setXray(false);
+    if (rendered > 0) this.frames++;
   }
 
   invalidate(_paneId?: string): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.invalidate');
+    if (this.disposed) return;
+    this.dirty = true;
+    this.app.requestFrame();
   }
 
-  /** Pane CSS px. */
-  pick(_paneId: string, _x: number, _y: number): PickResult | null {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.pick');
+  // ---------------------------------------------------------------------------------------------------------------
+  // picking and projection
+
+  pick(paneId: string, x: number, y: number): PickResult | null {
+    return this.pickCandidates(paneId, x, y)[0] ?? null;
   }
 
-  /** Sorted; for click cycling. */
-  pickCandidates(_paneId: string, _x: number, _y: number): readonly PickResult[] {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.pickCandidates');
+  pickCandidates(paneId: string, x: number, y: number): readonly PickResult[] {
+    const view = this.queryView(paneId);
+    if (view === null) return [];
+    const results: PickResult[] = [];
+    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    if (handle !== null) results.push({ kind: 'manipulator', handle });
+    const mask = this.app.session.getState().tools.selectionMask;
+    if (view.pane.display.controls && mask.controls) {
+      const projected = this.picker.projections(paneId, view.key, view.projector, this.controls.entries());
+      for (const hit of this.picker.controlHits(projected, this.entries(), x, y)) {
+        results.push({ kind: 'control', control: hit.control, distancePx: hit.distancePx, depth: hit.depth });
+      }
+    }
+    if (view.pane.display.skeleton && mask.joints) {
+      for (const hit of this.picker.jointHits(this.skeleton.jointSets(), view.projector, x, y)) {
+        results.push({ kind: 'joint', character: hit.character, node: hit.node });
+      }
+    }
+    if (view.pane.display.mesh && mask.meshes) {
+      // M1-stretch mesh click: lowest priority, the nearest surface only.
+      const ndcX = (x / view.width) * 2 - 1;
+      const ndcY = 1 - (y / view.height) * 2;
+      const hit = this.meshPicker.pick(view.camera, ndcX, ndcY, this.sync.meshTargets(), this.sync.poseStamp);
+      if (hit !== null) {
+        const control = this.controlForNode(hit.character, hit.node);
+        results.push({ kind: 'mesh', character: hit.character, node: hit.node, control });
+      }
+    }
+    return results;
   }
 
-  /** Crossing test. */
-  marquee(_paneId: string, _rect: MarqueeRect): readonly ControlId[] {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.marquee');
+  marquee(paneId: string, rect: MarqueeRect): readonly ControlId[] {
+    const view = this.queryView(paneId);
+    if (view === null || !view.pane.display.controls) return [];
+    if (!this.app.session.getState().tools.selectionMask.controls) return [];
+    return this.picker.marquee(
+      this.picker.projections(paneId, view.key, view.projector, this.controls.entries()),
+      rect,
+    );
   }
 
-  frame(_paneId: string, _what: 'selection' | 'all'): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.frame');
+  frame(paneId: string, what: 'selection' | 'all'): void {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return;
+    this.prepareForQuery();
+    const resolved = this.resolve(pane);
+    if (resolved.kind === 'shot' && resolved.shot.record.locked) {
+      this.flashLocked(pane);
+      return;
+    }
+    const bounds = this.boundsFor(what);
+    const rect = pane.element.getBoundingClientRect();
+    const aspect = rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
+    const apply = (): void => frameCamera(resolved.nav, bounds, aspect);
+    if (resolved.kind === 'shot') {
+      this.withShotPreview(resolved.shot, () => apply());
+    } else {
+      apply();
+      resolved.view.touched = true;
+    }
+    this.picker.forget(paneId);
+    this.invalidate();
   }
 
-  /** Pane CSS px. */
-  project(_paneId: string, _world: ReadonlyVec3): ScreenPoint | null {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.project');
+  project(paneId: string, world: ReadonlyVec3): ScreenPoint | null {
+    const view = this.queryView(paneId);
+    if (view === null) return null;
+    const out = [0, 0, 0];
+    if (!view.projector.project(world[0], world[1], world[2], out)) return null;
+    return { x: out[0] as number, y: out[1] as number, depth: out[2] as number };
   }
 
-  /** A point on the shape polyline. */
-  controlScreenPoint(_paneId: string, _control: ControlId): ScreenPoint | null {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.controlScreenPoint');
+  controlScreenPoint(paneId: string, control: ControlId): ScreenPoint | null {
+    return this.controlPickPoint(paneId, control)?.point ?? null;
   }
 
-  manipulatorScreenPoint(_paneId: string, _handle: ManipHandle): ScreenPoint | null {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.manipulatorScreenPoint');
+  /**
+   * The best click point of a control in a pane and its distance to every other visible control's polyline
+   * (MVP-SPEC §4.11.15 finger acceptance: ≥ 6 px). Null when the control is not visible in the pane.
+   */
+  controlPickPoint(
+    paneId: string,
+    control: ControlId,
+  ): { readonly point: ScreenPoint; readonly separationPx: number } | null {
+    const view = this.queryView(paneId);
+    if (view === null || !view.pane.display.controls) return null;
+    const projected = this.picker.projections(paneId, view.key, view.projector, this.controls.entries());
+    return this.picker.bestPickPoint(projected, control, view.width, view.height);
   }
 
-  camera(_paneId: string): CameraSnapshot {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.camera');
+  manipulatorScreenPoint(paneId: string, handle: ManipHandle): ScreenPoint | null {
+    const view = this.queryView(paneId);
+    if (view === null) return null;
+    return this.kit.grabPoint(handle, view.camera, view.projector, view.height);
   }
 
-  setNavProfile(_profile: NavProfile): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.setNavProfile');
+  /** Scene-space axes of the manipulator handles (translate: world/object; rotate: world/object/gimbal), or null. */
+  manipulatorAxes(): readonly [Vec3, Vec3, Vec3] | null {
+    this.prepareForQuery();
+    return this.kit.visible ? this.kit.axes() : null;
+  }
+
+  camera(paneId: string): CameraSnapshot {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) throw new EkzaError('unsupported', `No viewport pane '${paneId}'`);
+    return snapshotOf(this.resolve(pane).nav);
+  }
+
+  setNavProfile(profile: NavProfile): void {
+    this.profile = profile;
   }
 
   dispose(): void {
-    throw new EkzaError('not-implemented', 'viewport.ViewportManager.dispose');
+    if (this.disposed) return;
+    this.cancelInteraction();
+    for (const id of this.panes.keys()) this.unregisterPane(id);
+    this.disposed = true;
+    for (const dispose of this.disposers.splice(0).reverse()) dispose();
+    for (const tool of this.toolInstances.values()) tool.deactivate?.();
+    this.toolInstances.clear();
+    this.sync.dispose();
+    this.controls.dispose();
+    this.skeleton.dispose();
+    this.kit.dispose();
+    this.backdrop.dispose();
+    for (const shot of this.shots.values()) shot.nav.dispose();
+    for (const map of this.views.values()) for (const view of map.values()) view.nav.dispose();
+    this.listeners.clear();
+    setManagerOf<ViewportManager>(this.app, null, this);
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // internals: frame preparation
+
+  /** Pose sync, styles and manipulator placement; runs before rendering and before every query. */
+  private prepareFrame(): void {
+    const session = this.app.session.getState();
+    let springs = false;
+    if (session.time.playing) for (const pane of this.panes.values()) springs ||= pane.display.springBones;
+    if (this.sync.update({ springs, nowMs: performance.now() })) {
+      this.dirty = true;
+      this.manipulatorDirty = true;
+    }
+    if (this.stylesDirty) {
+      this.stylesDirty = false;
+      if (this.controls.setStyles(session.selection.controls, this.hoverControl)) this.dirty = true;
+    }
+    if (this.autoFrame) {
+      this.autoFrame = false;
+      if (this.frameUntouchedViews()) this.dirty = true;
+    }
+    if (this.manipulatorDirty) {
+      this.manipulatorDirty = false;
+      this.refreshManipulator();
+      this.dirty = true;
+    }
+    this.controls.flush();
+  }
+
+  private prepareForQuery(): void {
+    this.app.evaluation.tick();
+    this.prepareFrame();
+  }
+
+  private refreshManipulator(): void {
+    const session = this.app.session.getState();
+    const prefs = this.app.prefs.getState();
+    const tool = session.tools.viewport;
+    const mode: ManipMode | null =
+      tool === VIEWPORT_TOOL.move ? 'translate' : tool === VIEWPORT_TOOL.rotate ? 'rotate' : null;
+    this.kit.configure(mode, mode === 'translate' ? prefs.moveSpace : prefs.rotateSpace, session.tools.manipulatorSize);
+    this.kit.setTarget(mode === null ? null : this.manipTarget(session.selection.controls.at(-1) ?? null));
+  }
+
+  private manipTarget(lead: ControlId | null): ManipTarget | null {
+    if (lead === null) return null;
+    const entry = this.controls.entry(lead);
+    if (entry === undefined || !entry.visible) return null;
+    const runtime = this.app.characters.get(entry.character);
+    const placement = this.sync.placement(entry.character);
+    const record = this.app.store.get('controls', lead);
+    if (runtime === undefined || placement === null || record === undefined) return null;
+    const world = new Float64Array(16);
+    multiplyAt(placement, runtime.pose.controlWorld, entry.slot * 16, world);
+    const xf = mat4Decompose(world);
+    const values = this.app.evaluation.channelValues(lead);
+    const r: Vec3 = [values.rx, values.ry, values.rz];
+    const parentQ: Quat = quatMultiply(xf.q, quatInvert(eulerToQuat(r, record.rotateOrder)));
+    const free = (keyable: readonly boolean[], locked: readonly boolean[]): [boolean, boolean, boolean] => [
+      (keyable[0] ?? false) && !(locked[0] ?? false),
+      (keyable[1] ?? false) && !(locked[1] ?? false),
+      (keyable[2] ?? false) && !(locked[2] ?? false),
+    ];
+    return {
+      pivot: [xf.t[0], xf.t[1], xf.t[2]],
+      worldQ: xf.q,
+      parentQ,
+      r,
+      order: record.rotateOrder,
+      keyable: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
+    };
+  }
+
+  private renderPane(pane: PaneRuntime, gl: NonNullable<ReturnType<typeof paneGl>>): void {
+    const renderer = this.renderer;
+    const { viewport, scissor } = gl;
+    const camera = this.resolve(pane).nav.camera;
+    fitCameraToAspect(camera, viewport.width / viewport.height);
+    camera.updateMatrixWorld();
+    renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
+    renderer.setScissor(scissor.x, scissor.y, scissor.width, scissor.height);
+    renderer.setScissorTest(true);
+    renderer.clear(true, true, true);
+    renderer.render(this.backdrop.scene, this.backdrop.camera);
+
+    const display = pane.display;
+    this.sync.setXray(display.xray);
+    applyMainLayers(camera, display);
+    this.skeleton.lineMaterial.resolution.set(viewport.width, viewport.height);
+    renderer.render(this.scene, camera);
+    if (display.controls) {
+      for (const material of this.controls.allMaterials()) material.resolution.set(viewport.width, viewport.height);
+      camera.layers.set(LAYER.controlsOccluded);
+      renderer.render(this.controlScene, camera);
+      camera.layers.set(LAYER.controlsVisible);
+      renderer.render(this.controlScene, camera);
+    }
+    renderer.clearDepth();
+    if (this.kit.visible) {
+      this.projector.set(camera, viewport.width, viewport.height, camera.near);
+      this.kit.prepare(camera, viewport.width, viewport.height, this.projector);
+      camera.layers.set(LAYER.always);
+      renderer.render(this.kit.scene, camera);
+    }
+    camera.layers.set(LAYER.always);
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // internals: cameras
+
+  private resolve(pane: PaneRuntime): Resolved {
+    if (pane.camera.kind === 'shot') {
+      const shot = this.shotFor(pane.camera.cameraId);
+      if (shot !== null) return { kind: 'shot', shot, nav: shot.nav };
+      const view = this.viewCamera(pane.id, 'persp');
+      return { kind: 'view', view, nav: view.nav };
+    }
+    const view = this.viewCamera(pane.id, pane.camera.preset);
+    return { kind: 'view', view, nav: view.nav };
+  }
+
+  private shotFor(id: CameraId): ShotCamera | null {
+    const exact = this.shots.get(id);
+    if (exact !== undefined) return exact;
+    const first = firstShotCamera(this.app.store.list('cameras'));
+    return first === null ? null : (this.shots.get(first.id) ?? null);
+  }
+
+  private viewCamera(paneId: string, preset: ViewPreset): ViewCamera {
+    let map = this.views.get(paneId);
+    if (map === undefined) {
+      map = new Map();
+      this.views.set(paneId, map);
+    }
+    let view = map.get(preset);
+    if (view === undefined) {
+      view = createViewCamera(preset);
+      map.set(preset, view);
+      this.autoFrame = true;
+    }
+    return view;
+  }
+
+  /**
+   * Frames every untouched view camera shown in a pane on the current characters (first load, another character
+   * imported). Returns true when a camera moved. Runs after the pose sync, so the bounds are current.
+   */
+  private frameUntouchedViews(): boolean {
+    const ids = this.sync.characterIds();
+    if (ids.length === 0) return false;
+    const key = [...ids].sort().join('|');
+    let moved = false;
+    for (const pane of this.panes.values()) {
+      const resolved = this.resolve(pane);
+      if (resolved.kind !== 'view' || resolved.view.touched || resolved.view.autoFramedFor === key) continue;
+      this.frameView(pane.id, resolved.view);
+      resolved.view.autoFramedFor = key;
+      moved = true;
+    }
+    return moved;
+  }
+
+  private frameView(paneId: string, view: ViewCamera): void {
+    const pane = this.panes.get(paneId);
+    const rect = pane?.element.getBoundingClientRect();
+    const aspect = rect !== undefined && rect.width > 0 && rect.height > 0 ? rect.width / rect.height : 1;
+    frameCamera(view.nav, this.boundsFor('all'), aspect);
+    this.picker.forget(paneId);
+  }
+
+  private boundsFor(what: 'selection' | 'all'): SpatialBounds {
+    const selection = this.app.session.getState().selection.controls;
+    if (what === 'selection' && selection.length > 0) {
+      const selected = new Set(selection);
+      const worlds: Float32Array[] = [];
+      for (const entry of this.controls.entries()) if (selected.has(entry.id)) worlds.push(entry.world);
+      const bounds = pointBounds(worlds);
+      if (bounds !== null) return bounds;
+    }
+    const models = this.sync
+      .characterIds()
+      .map((id) => this.sync.model(id)?.root)
+      .filter((root): root is NonNullable<typeof root> => root !== undefined);
+    const worlds: Float32Array[] = [];
+    for (const entry of this.controls.entries()) if (entry.visible) worlds.push(entry.world);
+    for (const set of this.skeleton.jointSets()) worlds.push(set.positions);
+    return (
+      unionBounds(measureSpatialBounds(models), pointBounds(worlds)) ?? {
+        minX: -0.4,
+        maxX: 0.4,
+        minY: 0,
+        maxY: 1.8,
+        minZ: -0.3,
+        maxZ: 0.3,
+      }
+    );
+  }
+
+  private syncShots(): void {
+    const records = this.app.store.list('cameras');
+    const live = new Set<CameraId>();
+    for (const record of records) {
+      if (record.deleted !== null) continue;
+      live.add(record.id);
+      const shot = this.shots.get(record.id);
+      const navigating = this.isNavigating(record.id);
+      if (shot === undefined) {
+        this.shots.set(record.id, createShotCamera(record));
+      } else if (!navigating && projectionOf(shot) !== record.projection) {
+        // A three camera cannot change its projection: replace it (e.g. an ortho view copied to the shot camera).
+        shot.nav.dispose();
+        this.shots.set(record.id, createShotCamera(record));
+      } else if (shot.record !== record && !navigating) {
+        applyShotRecord(shot, record);
+      } else {
+        shot.record = record;
+      }
+    }
+    for (const [id, shot] of this.shots) {
+      if (live.has(id)) continue;
+      shot.nav.dispose();
+      this.shots.delete(id);
+    }
+  }
+
+  private isNavigating(id: CameraId): boolean {
+    return this.nav?.shot?.cameraId === id || this.wheel?.cameraId === id;
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // internals: queries
+
+  private entries(): ReadonlyMap<ControlId, ControlEntry> {
+    const version = this.controls.version;
+    if (this.entryMap?.version !== version) {
+      this.entryMap = { version, map: new Map([...this.controls.entries()].map((entry) => [entry.id, entry])) };
+    }
+    return this.entryMap.map;
+  }
+
+  /** Pane, camera and projector for a query, with poses and the manipulator brought up to date. */
+  private queryView(paneId: string): {
+    readonly pane: PaneRuntime;
+    readonly camera: Camera;
+    readonly projector: PaneProjector;
+    readonly width: number;
+    readonly height: number;
+    readonly key: string;
+  } | null {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined) return null;
+    this.prepareForQuery();
+    const rect = pane.element.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) return null;
+    const camera = this.resolve(pane).nav.camera;
+    fitCameraToAspect(camera, rect.width / rect.height);
+    camera.updateMatrixWorld();
+    const projector = new PaneProjector().set(camera, rect.width, rect.height, camera.near);
+    const key = `${camera.uuid}|${camera.matrixWorld.elements.join(',')}|${camera.projectionMatrix.elements.join(',')}|${rect.width}x${rect.height}|${this.controls.version}`;
+    return { pane, camera, projector, width: rect.width, height: rect.height, key };
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // internals: input
+
+  private attachInput(pane: PaneRuntime): void {
+    const element = pane.element;
+    const signal = pane.abort.signal;
+    element.style.touchAction = 'none';
+    element.addEventListener('pointerdown', (e) => this.pointerDown(pane, e), { signal });
+    element.addEventListener('pointermove', (e) => this.pointerMove(pane, e), { signal });
+    element.addEventListener('pointerup', (e) => this.pointerUp(pane, e), { signal });
+    element.addEventListener('pointercancel', (e) => this.pointerUp(pane, e, true), { signal });
+    element.addEventListener('pointerleave', () => this.setHover(null, null), { signal });
+    element.addEventListener('wheel', (e) => this.wheelInput(pane, e), { signal, passive: false });
+    element.addEventListener('contextmenu', (e) => e.preventDefault(), { signal });
+    element.addEventListener('auxclick', (e) => e.preventDefault(), { signal });
+  }
+
+  private local(
+    pane: PaneRuntime,
+    e: { readonly clientX: number; readonly clientY: number },
+  ): { x: number; y: number } {
+    const r = pane.element.getBoundingClientRect();
+    return { x: e.clientX - r.left, y: e.clientY - r.top };
+  }
+
+  private toolEvent(pane: PaneRuntime, e: PointerEvent): ToolPointerEvent {
+    const { x, y } = this.local(pane, e);
+    const mac = this.app.keymap.platform === 'mac';
+    return {
+      panel: PANEL.viewport,
+      paneId: pane.id,
+      x,
+      y,
+      button: e.button,
+      buttons: e.buttons,
+      shift: e.shiftKey,
+      alt: e.altKey,
+      mod: mac ? e.metaKey : e.ctrlKey,
+      ctrl: e.ctrlKey,
+      pointerType: e.pointerType === 'pen' || e.pointerType === 'touch' ? e.pointerType : 'mouse',
+      timeStamp: e.timeStamp,
+      detail: e.detail,
+    };
+  }
+
+  private pointerDown(pane: PaneRuntime, e: PointerEvent): void {
+    this.lastPointerPane = pane.id;
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+    if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
+    if (this.nav !== null || this.toolPointer !== null) return;
+    const gesture = pointerGesture(this.profile, e);
+    if (gesture !== null) {
+      e.preventDefault();
+      this.capture(pane, e.pointerId);
+      this.startNav(pane, e, gesture);
+      return;
+    }
+    const tool = this.tool();
+    if (tool?.pointerDown?.(this.toolEvent(pane, e)) === true) {
+      this.toolPointer = { paneId: pane.id, pointerId: e.pointerId };
+      this.capture(pane, e.pointerId);
+      this.setHover(null, null);
+      window.addEventListener('keydown', this.onKeyDown);
+      window.addEventListener('blur', this.onBlur);
+      this.invalidate();
+    }
+  }
+
+  private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
+    this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+    const nav = this.nav;
+    if (nav !== null) {
+      if (nav.pointerId === e.pointerId) this.moveNav(pane, e, nav);
+      return;
+    }
+    if (this.toolPointer !== null) {
+      if (this.toolPointer.pointerId === e.pointerId && this.toolPointer.paneId === pane.id) {
+        this.tool()?.pointerMove?.(this.toolEvent(pane, e));
+        this.invalidate();
+      }
+      return;
+    }
+    if (e.buttons !== 0) return;
+    const { x, y } = this.local(pane, e);
+    this.hoverAt(pane.id, x, y);
+  }
+
+  private pointerUp(pane: PaneRuntime, e: PointerEvent, cancelled = false): void {
+    const nav = this.nav;
+    if (nav !== null && nav.pointerId === e.pointerId) {
+      this.endNav(false);
+      this.release(pane, e.pointerId);
+      return;
+    }
+    const pointer = this.toolPointer;
+    if (pointer !== null && pointer.pointerId === e.pointerId && pointer.paneId === pane.id) {
+      this.toolPointer = null;
+      this.removeDragListeners();
+      const tool = this.tool();
+      if (cancelled) tool?.cancel?.();
+      else tool?.pointerUp?.(this.toolEvent(pane, e));
+      this.release(pane, e.pointerId);
+      this.invalidate();
+    }
+  }
+
+  /** Esc or window blur during a drag: cancel the tool gesture and any navigation in progress. */
+  private cancelInteraction(): void {
+    if (this.toolPointer !== null) {
+      this.toolPointer = null;
+      this.tool()?.cancel?.();
+      this.invalidate();
+    }
+    this.removeDragListeners();
+    if (this.nav !== null) this.endNav(true);
+  }
+
+  private removeDragListeners(): void {
+    window.removeEventListener('keydown', this.onKeyDown);
+    window.removeEventListener('blur', this.onBlur);
+  }
+
+  private capture(pane: PaneRuntime, pointerId: number): void {
+    try {
+      pane.element.setPointerCapture(pointerId);
+    } catch {
+      // Synthetic events in tests have no active pointer to capture.
+    }
+  }
+
+  private release(pane: PaneRuntime, pointerId: number): void {
+    try {
+      if (pane.element.hasPointerCapture(pointerId)) pane.element.releasePointerCapture(pointerId);
+    } catch {
+      // See capture().
+    }
+  }
+
+  private hoverAt(paneId: string, x: number, y: number): void {
+    const view = this.queryView(paneId);
+    if (view === null) return;
+    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    let control: ControlId | null = null;
+    if (handle === null && view.pane.display.controls && this.app.session.getState().tools.selectionMask.controls) {
+      const projected = this.picker.projections(paneId, view.key, view.projector, this.controls.entries());
+      control = this.picker.controlHits(projected, this.entries(), x, y)[0]?.control ?? null;
+    }
+    this.setHover(control, handle);
+  }
+
+  private setHover(control: ControlId | null, handle: ManipHandle | null): void {
+    let changed = this.kit.setHover(handle);
+    if (control !== this.hoverControl) {
+      this.hoverControl = control;
+      this.stylesDirty = true;
+      changed = true;
+    }
+    if (changed) this.invalidate();
+  }
+
+  private tool(): ToolInstance | null {
+    const id = this.app.session.getState().tools.viewport;
+    if (id !== this.activeToolId) {
+      if (this.activeToolId !== null) this.toolInstances.get(this.activeToolId)?.deactivate?.();
+      this.activeToolId = id;
+      this.toolInstances.get(id)?.activate?.();
+    }
+    let instance = this.toolInstances.get(id);
+    if (instance === undefined) {
+      const def = this.app.tools.get(PANEL.viewport, id);
+      if (def === undefined) return null;
+      instance = def.create(this.app, this.toolHost);
+      this.toolInstances.set(id, instance);
+      instance.activate?.();
+    }
+    return instance;
+  }
+
+  // navigation ------------------------------------------------------------------------------------------------------
+
+  private startNav(pane: PaneRuntime, e: PointerEvent, gesture: NavGesture): void {
+    this.endWheelBurst();
+    const resolved = this.resolve(pane);
+    let swallowed = false;
+    let shot: ShotNav | null = null;
+    let view: NavDrag['view'] = null;
+    if (resolved.kind === 'shot') {
+      if (resolved.shot.record.locked) {
+        swallowed = true;
+        this.flashLocked(pane);
+      } else {
+        shot = this.beginShotNav(resolved.shot);
+        swallowed = shot === null;
+      }
+    } else {
+      resolved.view.touched = true;
+      view = { nav: resolved.nav, state: resolved.nav.saveState() };
+    }
+    this.nav = {
+      paneId: pane.id,
+      pointerId: e.pointerId,
+      gesture,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      swallowed,
+      shot,
+      view,
+    };
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('blur', this.onBlur);
+  }
+
+  private moveNav(pane: PaneRuntime, e: PointerEvent, nav: NavDrag): void {
+    const dx = e.clientX - nav.lastX;
+    const dy = e.clientY - nav.lastY;
+    nav.lastX = e.clientX;
+    nav.lastY = e.clientY;
+    if (nav.swallowed || (dx === 0 && dy === 0)) return;
+    const resolved = this.resolve(pane);
+    const rect = pane.element.getBoundingClientRect();
+    const controller = nav.shot?.nav ?? resolved.nav;
+    if (nav.gesture === 'tumble') controller.tumble(dx, dy, rect.height);
+    else if (nav.gesture === 'track') controller.track(dx, dy, rect.width, rect.height);
+    else {
+      const ndcX = ((nav.startX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+      const ndcY = 1 - ((nav.startY - rect.top) / Math.max(rect.height, 1)) * 2;
+      controller.dolly((dx - dy) * 0.005, ndcX, ndcY);
+    }
+    if (nav.shot !== null) this.writeShot(nav.shot);
+    this.picker.forget(pane.id);
+    this.invalidate();
+  }
+
+  private endNav(cancelled: boolean): void {
+    const nav = this.nav;
+    if (nav === null) return;
+    this.nav = null;
+    this.removeDragListeners();
+    if (nav.shot !== null) this.finishShotNav(nav.shot, cancelled);
+    if (cancelled && nav.view !== null) {
+      nav.view.nav.restoreState(nav.view.state);
+      this.picker.forget(nav.paneId);
+      this.invalidate();
+    }
+  }
+
+  private wheelInput(pane: PaneRuntime, e: WheelEvent): void {
+    this.lastPointerPane = pane.id;
+    e.preventDefault();
+    if (this.nav !== null || this.toolPointer !== null) return;
+    const rect = pane.element.getBoundingClientRect();
+    const action = wheelAction(this.profile, e, rect.height);
+    const resolved = this.resolve(pane);
+    let controller = resolved.nav;
+    if (resolved.kind === 'shot') {
+      if (resolved.shot.record.locked) {
+        this.flashLocked(pane);
+        return;
+      }
+      if (this.wheel === null || this.wheel.cameraId !== resolved.shot.id) {
+        this.endWheelBurst();
+        const shot = this.beginShotNav(resolved.shot);
+        if (shot === null) return;
+        this.wheel = { ...shot, timer: null };
+      }
+      controller = this.wheel.nav;
+    } else {
+      this.endWheelBurst();
+      resolved.view.touched = true;
+    }
+    if (action.kind === 'dolly') {
+      const ndcX = ((e.clientX - rect.left) / Math.max(rect.width, 1)) * 2 - 1;
+      const ndcY = 1 - ((e.clientY - rect.top) / Math.max(rect.height, 1)) * 2;
+      controller.dolly(action.amount, ndcX, ndcY);
+    } else if (action.kind === 'tumble') {
+      controller.tumble(action.dx, action.dy, rect.height);
+    } else {
+      controller.track(action.dx, action.dy, rect.width, rect.height);
+    }
+    const burst = this.wheel;
+    if (burst !== null && resolved.kind === 'shot') {
+      this.writeShot(burst);
+      if (burst.timer !== null) clearTimeout(burst.timer);
+      burst.timer = setTimeout(() => this.endWheelBurst(), WHEEL_BURST_MS);
+    }
+    this.picker.forget(pane.id);
+    this.invalidate();
+  }
+
+  private endWheelBurst(): void {
+    const burst = this.wheel;
+    if (burst === null) return;
+    this.wheel = null;
+    if (burst.timer !== null) clearTimeout(burst.timer);
+    this.finishShotNav(burst, false);
+  }
+
+  /** Opens the preview that persists a shot-camera gesture; null when another gesture holds the document. */
+  private beginShotNav(shot: ShotCamera): ShotNav | null {
+    try {
+      const preview = this.app.store.beginPreview(SHOT_LABEL);
+      shot.nav.lookAt(shot.record.transform.t, shot.record.target);
+      return { cameraId: shot.id, nav: shot.nav, preview };
+    } catch (error) {
+      if (error instanceof EkzaError && (error.code === 'preview-active' || error.code === 'read-only')) return null;
+      throw error;
+    }
+  }
+
+  private writeShot(shot: ShotNav): void {
+    if (!shot.preview.active) return;
+    const fields = shotTransformOf(shot.nav);
+    shot.preview.update((tx) => tx.patch('cameras', shot.cameraId, fields));
+  }
+
+  /** One commit per gesture, never on the undo stack (Maya keeps camera moves out of undo). */
+  private finishShotNav(shot: ShotNav, cancelled: boolean): void {
+    if (!shot.preview.active) return;
+    if (cancelled) shot.preview.cancel();
+    else shot.preview.commit({ label: SHOT_LABEL, undoable: false });
+  }
+
+  /** Runs a programmatic shot-camera move (framing) as one non-undoable commit. */
+  private withShotPreview(shot: ShotCamera, move: () => void): void {
+    const nav = this.beginShotNav(shot);
+    if (nav === null) return;
+    move();
+    this.writeShot(nav);
+    this.finishShotNav(nav, false);
+  }
+
+  private flashLocked(pane: PaneRuntime): void {
+    pane.lockFlash++;
+    this.refreshPaneStates();
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // internals: state and subscriptions
+
+  private subscribe(): void {
+    const { app } = this;
+    this.disposers.push(
+      app.evaluation.subscribe(() => {
+        this.manipulatorDirty = true;
+        this.invalidate();
+      }),
+      app.store.subscribe((batch) => {
+        if (batch.origin === 'load' || batch.changes.some((change) => change.table === 'cameras')) {
+          this.syncShots();
+          this.refreshPaneStates();
+          for (const pane of this.panes.values()) this.picker.forget(pane.id);
+          this.invalidate();
+        }
+        if (batch.changes.some((change) => change.table === 'controls')) this.manipulatorDirty = true;
+      }),
+      app.session.subscribe((state, previous) => {
+        if (state.selection.controls !== previous.selection.controls) {
+          this.stylesDirty = true;
+          this.manipulatorDirty = true;
+          this.invalidate();
+        }
+        if (state.tools !== previous.tools) {
+          if (state.tools.viewport !== previous.tools.viewport) this.tool();
+          this.manipulatorDirty = true;
+          for (const pane of this.panes.values()) this.picker.forget(pane.id);
+          this.invalidate();
+        }
+        if (state.overrides !== previous.overrides || state.activeClip !== previous.activeClip)
+          this.manipulatorDirty = true;
+        if (state.time.playing !== previous.time.playing) this.invalidate();
+      }),
+      app.prefs.subscribe((prefs, previous) => {
+        if (prefs.navProfile !== previous.navProfile) this.setNavProfile(prefs.navProfile);
+        if (prefs.moveSpace !== previous.moveSpace || prefs.rotateSpace !== previous.rotateSpace) {
+          this.manipulatorDirty = true;
+          this.invalidate();
+        }
+      }),
+    );
+  }
+
+  private stateOf(pane: PaneRuntime): PaneState {
+    const binding = pane.camera;
+    let cameraKind: 'shot' | 'view' = 'view';
+    let preset: ViewPreset | null = binding.kind === 'view' ? binding.preset : 'persp';
+    let shotCameraId: CameraId | null = null;
+    let cameraName: string = preset ?? 'persp';
+    let locked = false;
+    if (binding.kind === 'shot') {
+      const shot = this.shotFor(binding.cameraId);
+      if (shot !== null) {
+        cameraKind = 'shot';
+        preset = null;
+        shotCameraId = shot.id;
+        cameraName = shot.record.name;
+        locked = shot.record.locked;
+      }
+    }
+    return {
+      id: pane.id,
+      binding,
+      cameraKind,
+      preset,
+      shotCameraId,
+      cameraName,
+      locked,
+      display: pane.display,
+      lockFlash: pane.lockFlash,
+      radial: pane.radial,
+    };
+  }
+
+  private refreshPaneStates(): void {
+    let changed = false;
+    for (const pane of this.panes.values()) {
+      const next = this.stateOf(pane);
+      if (!sameState(next, pane.state)) {
+        pane.state = next;
+        changed = true;
+      }
+    }
+    if (changed) this.notify();
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener();
+  }
+
+  private createToolHost(): ViewportToolHost {
+    return {
+      pickCandidates: (paneId, x, y) => this.pickCandidates(paneId, x, y),
+      pickManipulator: (paneId, x, y) => {
+        const view = this.queryView(paneId);
+        return view === null ? null : this.kit.pick(view.camera, view.projector, view.height, x, y);
+      },
+      marquee: (paneId, rect) => this.marquee(paneId, rect),
+      setMarquee: (paneId, rect) => this.panes.get(paneId)?.marquee.show(rect),
+      beginManipulatorDrag: (paneId, handle, x, y) => this.beginManipulatorDrag(paneId, handle, x, y),
+      setActiveHandle: (handle) => {
+        this.kit.setActive(handle);
+        this.invalidate();
+      },
+      controlForJoint: (character: CharacterId, node: number) => this.controlForNode(character, node),
+    };
+  }
+
+  /** The control driving a node (nearest driven ancestor), or null (also while the rig kernel is stubbed). */
+  private controlForNode(character: CharacterId, node: number): ControlId | null {
+    const runtime = this.app.characters.get(character);
+    if (runtime === undefined) return null;
+    try {
+      return controlForNode(runtime.program, node);
+    } catch (error) {
+      if (error instanceof EkzaError && error.code === 'not-implemented') return null;
+      throw error;
+    }
+  }
+
+  private beginManipulatorDrag(paneId: string, handle: ManipHandle, x: number, y: number): DragSession | null {
+    const view = this.queryView(paneId);
+    const target = this.kit.currentTarget;
+    if (view === null || target === null || !this.kit.handles().includes(handle)) return null;
+    const controls: DragControl[] = [];
+    for (const id of this.app.session.getState().selection.controls) {
+      const entry = this.controls.entry(id);
+      const record = this.app.store.get('controls', id);
+      const runtime = entry === undefined ? undefined : this.app.characters.get(entry.character);
+      const placement = entry === undefined ? null : this.sync.placement(entry.character);
+      if (entry === undefined || record === undefined || runtime === undefined || placement === null) continue;
+      const world = new Float64Array(16);
+      multiplyAt(placement, runtime.pose.controlWorld, entry.slot * 16, world);
+      const v = this.app.evaluation.channelValues(id);
+      const free = (keyable: readonly boolean[], locked: readonly boolean[]): [boolean, boolean, boolean] => [
+        (keyable[0] ?? false) && !(locked[0] ?? false),
+        (keyable[1] ?? false) && !(locked[1] ?? false),
+        (keyable[2] ?? false) && !(locked[2] ?? false),
+      ];
+      controls.push(
+        dragControl({
+          control: id,
+          order: record.rotateOrder,
+          world,
+          t: [v.tx, v.ty, v.tz],
+          r: [v.rx, v.ry, v.rz],
+          s: [v.sx, v.sy, v.sz],
+          keyable: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
+        }),
+      );
+    }
+    if (controls.length === 0) return null;
+    const dragView = { camera: view.camera, projector: view.projector };
+    if (this.kit.currentMode === 'translate') {
+      return translateDrag({
+        handle,
+        pivot: target.pivot,
+        axes: this.kit.axes(),
+        controls,
+        view: dragView,
+        start: { x, y },
+      });
+    }
+    const axis = this.kit.ringAxis(handle, view.camera);
+    const grab =
+      this.kit.ringGrab(handle, view.camera, view.projector, view.height, x, y) ??
+      ([target.pivot[0], target.pivot[1] + RING_RADIUS, target.pivot[2]] as Vec3);
+    return rotateDrag({
+      handle,
+      space: this.kit.currentSpace,
+      pivot: target.pivot,
+      axis,
+      grab,
+      controls,
+      view: dragView,
+      start: { x, y },
+    });
   }
 }
 
-/** Registers 'select' | 'move' | 'rotate' viewport tools and the viewport operators of §4.9 (owner 5). */
-export function registerViewportContributions(_app: EditorApp, _vm: ViewportManager): Disposer {
-  return () => {};
+function sameState(a: PaneState, b: PaneState | undefined): boolean {
+  if (b === undefined) return false;
+  return (
+    a.binding === b.binding &&
+    a.cameraKind === b.cameraKind &&
+    a.preset === b.preset &&
+    a.shotCameraId === b.shotCameraId &&
+    a.cameraName === b.cameraName &&
+    a.locked === b.locked &&
+    a.display === b.display &&
+    a.lockFlash === b.lockFlash &&
+    a.radial === b.radial
+  );
+}
+
+function projectionOf(shot: ShotCamera): CameraRecord['projection'] {
+  return shot.nav.camera instanceof OrthographicCamera ? 'orthographic' : 'perspective';
+}
+
+function directionalLight(): DirectionalLight {
+  const light = new DirectionalLight(0xffffff, 1.6);
+  light.position.set(2.5, 4, 3);
+  light.updateMatrixWorld();
+  light.target.updateMatrixWorld();
+  return light;
+}
+
+/** Frames bounds keeping the camera's view direction (perspective: distance; orthographic: zoom). */
+function frameCamera(nav: NavigationController, bounds: SpatialBounds, aspect: number): void {
+  const camera = nav.camera;
+  const target = nav.target();
+  const dir = camera.position.clone().sub(target);
+  if (dir.lengthSq() < 1e-12) dir.set(0, 0, 1);
+  dir.normalize();
+  if (camera instanceof PerspectiveCamera) {
+    const fit = fitCameraFrame({ bounds, aspect, verticalFovDegrees: camera.fov });
+    const c = fit.target;
+    nav.lookAt([c.x + dir.x * fit.distance, c.y + dir.y * fit.distance, c.z + dir.z * fit.distance], [c.x, c.y, c.z]);
+    return;
+  }
+  if (camera instanceof OrthographicCamera) {
+    const height = fitOrthoHeight(bounds, aspect);
+    const c = {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2,
+      z: (bounds.minZ + bounds.maxZ) / 2,
+    };
+    const distance = Math.max(camera.position.distanceTo(target), 10);
+    setOrthoHeight(camera, height, aspect);
+    camera.updateProjectionMatrix();
+    nav.lookAt([c.x + dir.x * distance, c.y + dir.y * distance, c.z + dir.z * distance], [c.x, c.y, c.z]);
+    nav.setZoom(1);
+  }
 }
