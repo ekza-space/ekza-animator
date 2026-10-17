@@ -43,7 +43,7 @@ function control(r: Rig, key: string): ControlRecord {
   return record;
 }
 
-function setup(r: Rig, id: ControlId, tool: 'move' | 'rotate', space: 'object' | 'world' | 'gimbal'): void {
+function setup(r: Rig, id: ControlId, tool: 'select' | 'move' | 'rotate', space: 'object' | 'world' | 'gimbal'): void {
   const state = r.app.session.getState();
   r.app.session.setState({
     selection: { controls: [id], keys: new Map(), channels: [] },
@@ -255,6 +255,58 @@ describe('manipulator drawing', () => {
     rig.app.session.setState({ tools: { ...rig.app.session.getState().tools, manipulatorSize: 140 } });
     rig.frame();
     expect(radius()).toBeCloseTo(VIEW_RING_RADIUS * 140, 6);
+  });
+
+  it('highlights the hovered handle and the hovered control on screen', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    const arm = control(rig, 'fk.upperArm.L');
+    const element = rig.panes.get('pane-right') as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const pixelAt = (x: number, y: number): [number, number, number] => {
+      rig?.frame();
+      const gl = rig?.renderer.getContext() as WebGL2RenderingContext;
+      const pixel = new Uint8Array(4);
+      gl.readPixels(
+        Math.round(rect.left + x),
+        Math.round(600 - (rect.top + y)),
+        1,
+        1,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        pixel,
+      );
+      return [pixel[0] ?? 0, pixel[1] ?? 0, pixel[2] ?? 0];
+    };
+    const hover = (x: number, y: number) =>
+      pointer(element, 'pointermove', rect.left + x, rect.top + y, { buttons: 0 });
+
+    // A control: lighter while hovered (side colour lightened, research 09 tokens).
+    setup(rig, arm.id, 'select', 'object');
+    rig.app.session.setState({ selection: { controls: [], keys: new Map(), channels: [] } });
+    const pick = rig.vm.controlScreenPoint('pane-right', control(rig, 'fk.hand.R').id);
+    if (pick === null) throw new Error('hand not visible');
+    const plain = pixelAt(pick.x, pick.y);
+    hover(pick.x, pick.y);
+    const lit = pixelAt(pick.x, pick.y);
+    expect(lit[0] + lit[1] + lit[2]).toBeGreaterThan(plain[0] + plain[1] + plain[2] + 20);
+    hover(5, 5);
+    expect(pixelAt(pick.x, pick.y)).toEqual(plain);
+
+    // A ring: --axis-active (#ffd84d) while hovered, its axis colour otherwise (rz: #4f8dff).
+    setup(rig, arm.id, 'rotate', 'object');
+    const p = rig.vm.manipulatorScreenPoint('pane-right', 'rz');
+    if (p === null) throw new Error('no rz handle');
+    const idle = pixelAt(p.x, p.y);
+    expect(idle[2]).toBeGreaterThan(200);
+    expect(idle[0]).toBeLessThan(150);
+    hover(p.x, p.y);
+    const active = pixelAt(p.x, p.y);
+    expect(active[0]).toBeGreaterThan(200);
+    expect(active[1]).toBeGreaterThan(170);
+    expect(active[2]).toBeLessThan(140);
+    hover(5, 5);
+    expect(pixelAt(p.x, p.y)).toEqual(idle);
   });
 
   it('draws dimmed handle meshes translucent (shader variant follows the opacity)', () => {

@@ -107,7 +107,9 @@ requests.
 - `manipulators.test.ts`: gimbal axes vs `gimbalAxes` in the parent·offset frame and the exact "turn about axis k =
   add to channel k" property, single-channel gimbal drags, gimbal-lock warning geometry, view-ring drag of N px =
   N / radius rad about the view axis (1e-6, orthographic), object/world ring axes and rotations, world translate on
-  axes and the view plane, dimmed non-keyable handles, press routing, click-without-move; tool lifecycle with a
+  axes and the view plane, dimmed non-keyable handles (drawn translucent, pixel check), constant pixel size in
+  perspective and with `manipulatorSize`, hover highlight of rings and controls in pixels, press routing,
+  click-without-move; tool lifecycle with a
   recording gesture (one gesture and one commit per drag, update per move, gimbal single channel, Esc, externally
   ended gesture); kernel gesture tests (one history step per drag, Esc cancel) gated on WP-7a.
 - `navigation.test.ts`: profile tables, Maya tumble/track/dolly, dolly-to-cursor, ortho no-tumble, trackpad
