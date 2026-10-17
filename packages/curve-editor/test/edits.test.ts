@@ -5,7 +5,19 @@ import type { KeyRecord } from '@ekza-animator/doc';
 import type { ToolPointerEvent } from '@ekza-animator/editor-core';
 import { type FakeEditorApp, type FakeServices, naiveCurveEngine } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
-import { KERNEL_READY, keyEvent, type Mounted, mount, pointer, selectKeys, settle, WAVE, waveApp } from './support/app';
+import { registerGraphContributions } from '../src';
+import {
+  callsOf,
+  KERNEL_READY,
+  keyEvent,
+  type Mounted,
+  mount,
+  pointer,
+  selectKeys,
+  settle,
+  WAVE,
+  waveApp,
+} from './support/app';
 
 let mounted: Mounted | null = null;
 afterEach(() => {
@@ -81,6 +93,39 @@ describe.skipIf(!KERNEL_READY)('[needs WP-7a] key moves (MVP-SPEC §4.11.3)', ()
     await settle();
     expect(keyRecord(app, 2).t).toBe(26);
     expect(keyRecord(app, 2).v).toBe(v);
+  });
+
+  // Acceptance round 1: Shift+press on a selected key toggled it off before the drag could start.
+  it('Shift+LMB drag on a selected key moves it on the dominant axis; Shift+click toggles it off', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const dispose = registerGraphContributions(app, () => controller);
+    try {
+      selectKeys(app, [[WAVE.keys[1], { key: true }]]);
+      const { sx, sy } = controller.view;
+      const v = keyRecord(app, 1).v;
+      dragBy(mounted, at(controller.keyPoint(WAVE.keys[1])), 3 * sx, 1.2 * sy, { shift: true });
+      await settle();
+      expect(keyRecord(app, 1).t).toBe(18);
+      expect(keyRecord(app, 1).v).toBe(v);
+      expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
+      expect(app.history.peekUndo()?.label).toBe('Move Keys');
+
+      // The press leaves the selection alone (no select.keys run); the release toggles the key off.
+      expect(callsOf(app, 'select.keys')).toEqual([]);
+      const k = at(controller.keyPoint(WAVE.keys[1]));
+      controller.pointerDown(pointer({ ...k, shift: true }));
+      await settle();
+      expect(callsOf(app, 'select.keys')).toEqual([]);
+      controller.pointerUp(pointer({ ...k, shift: true, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'select.keys')).toEqual([
+        { items: [{ key: WAVE.keys[1], parts: { key: true, in: false, out: false } }], mode: 'toggle' },
+      ]);
+    } finally {
+      dispose();
+    }
   });
 
   it('commits a landing on a non-moved key by deleting that key (resolveCollisions)', async () => {

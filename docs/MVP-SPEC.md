@@ -2851,6 +2851,10 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
 - LMB click selects (Shift toggle, Mod remove, Mod+Shift add); LMB drag on empty = marquee; **double-click a
   curve** selects all its keys (`select.curveKeys`); LMB drag on a selected key/handle or **MMB drag anywhere**
   moves the selection (§4.11.3); Insert tool: click on a curve inserts a shape-preserving key.
+  *Acceptance round 1 (INT-34)*: a press on a selected key/handle changes the selection only on release, without
+  a drag — with Shift too, so Shift+LMB drag moves the selection axis-locked and Shift+click toggles it off. Two
+  presses count as a double-click only when both use the same tool (an Insert click, `Q`, then a click on the new
+  key selects that key).
 - Navigation per profile (no keymap): **Maya** — wheel zoom around the cursor (Shift: value axis, Alt: time
   axis), Alt+MMB pan, Alt+RMB zoom; **Trackpad** — two-finger scroll pans, Ctrl+wheel (pinch) zooms (Alt: time
   axis, Shift: value axis). `F`/`A` frame selection/all with 8 % padding.

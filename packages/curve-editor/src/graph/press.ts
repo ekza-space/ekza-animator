@@ -132,16 +132,17 @@ export function defaultPress(
     const parts = hit.kind === 'key' ? KEY_PART : handlePart(hit.side);
     const isSelected = (selection: ReadonlyMap<KeyId, KeyPartSelection>): boolean =>
       hit.kind === 'key' ? selection.get(hit.key)?.key === true : selection.get(hit.key)?.[hit.side] === true;
-    // Pressing an already selected part keeps the selection so it can be dragged; a click without a drag then
-    // narrows the selection to that part (Maya).
-    const deferred = mode === 'replace' && isSelected(current);
+    // Pressing an already selected part keeps the selection so it can be dragged (Shift locks the axis); a click
+    // without a drag then narrows the selection to that part, or with Shift toggles it off (Maya; acceptance
+    // round 1: Shift+press deselected the key before the drag could start).
+    const deferred = (mode === 'replace' || mode === 'toggle') && isSelected(current);
     const predicted = deferred ? current : applyKeySelection(current, [{ key: hit.key, parts }], mode);
     if (!deferred) ctx.selectKeys([{ key: hit.key, parts }], mode);
     const item = [{ key: hit.key, parts }];
     return {
       start,
       drag: isSelected(predicted) ? () => selectionGesture(ctx, start, keyOrHandleParts(predicted, hit.kind)) : null,
-      click: deferred ? () => ctx.selectKeys(item, 'replace') : null,
+      click: deferred ? () => ctx.selectKeys(item, mode) : null,
     };
   }
   const clear = mode === 'replace' ? () => ctx.selectKeys([], 'replace') : null;

@@ -113,6 +113,8 @@ export class GraphEditorController {
   private toolCapture = false;
   private pointer: GesturePointer | null = null;
   private pressButton = 0;
+  /** Tool of the last LMB press: a double-click needs both presses on the same tool (acceptance round 1). */
+  private lastPressTool: string | null = null;
   private hover: OverlayState['hover'] = null;
   /** The document changed under a resting pointer: the hover target is recomputed before the next overlay. */
   private hoverStale = false;
@@ -373,7 +375,12 @@ export class GraphEditorController {
     }
     if (e.button !== 0) return;
     this.toolCapture = false;
-    const consumed = this.activeTool().pointerDown?.(e) ?? false;
+    // An Insert-tool click followed by a Select-tool click (Q in between) is two single clicks, not a double-click
+    // on the curve that would select all its keys.
+    const toolId = this.app.session.getState().tools.graph;
+    const press = this.lastPressTool === toolId || e.detail <= 1 ? e : { ...e, detail: 1 };
+    this.lastPressTool = toolId;
+    const consumed = this.activeTool().pointerDown?.(press) ?? false;
     // A tool that consumed the press without starting a host press receives the rest of the pointer stream.
     if (consumed && this.pending === null && this.gesture === null) this.toolCapture = true;
   }

@@ -338,6 +338,36 @@ describe('selection gestures', () => {
     }
   });
 
+  // Acceptance round 1: an Insert click, Q and a click on the new key within the double-click time selected the
+  // whole curve (the browser counted the two presses as a double-click across the tool switch).
+  it('an Insert-tool click and a Select-tool click are not a double-click', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const dispose = registerGraphContributions(app, () => controller);
+    try {
+      const setTool = (graph: string) => app.session.setState({ tools: { ...app.session.getState().tools, graph } });
+      setTool('insert');
+      const p = at(controller.curvePoint(WAVE.curve, 22));
+      controller.pointerDown(pointer({ ...p, detail: 1 }));
+      controller.pointerUp(pointer({ ...p, detail: 1, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'graph.key.insert')).toHaveLength(1);
+      setTool('select');
+      controller.pointerDown(pointer({ ...p, detail: 2 }));
+      controller.pointerUp(pointer({ ...p, detail: 2, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'select.curveKeys')).toEqual([]);
+      // A real double-click with the Select tool still selects the curve.
+      controller.pointerDown(pointer({ ...p, detail: 3 }));
+      controller.pointerUp(pointer({ ...p, detail: 3, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'select.curveKeys')).toEqual([{ curve: WAVE.curve, mode: 'replace' }]);
+    } finally {
+      dispose();
+    }
+  });
+
   it('ignores presses while another gesture runs and cancels a press with Esc', async () => {
     const app = await waveApp();
     mounted = mount(app);
