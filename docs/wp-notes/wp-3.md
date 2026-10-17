@@ -72,6 +72,12 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
 4. **ADR 0004 "Consequences"** says world composition uses 4×4 matrices; the kernel uses similarity transforms with
    a warning on non-uniform scale (R-4). Either amend the sentence or keep it as a V1 item.
 
+5. **Facing check threshold** (§4.11.9, E2E-03 — WP-8/WP-10): `f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) ×
+   (W(head) − W(hips)))` also measures how far the head sits forward of the hips. On Polybot (correct facing) the
+   head is 2.8° ahead, so `f · (0, 0, 1) = 0.99882` and the `> 0.999` bound fails; Seed-san gives 0.99917.
+   Suggest testing the horizontal part (`f.z / hypot(f.x, f.z) > 0.999`; both fixtures ≈ 1.0) or lowering the bound
+   to 0.998 — a wrong facing gives −1 either way. `rig.fixtures.test.ts` checks both of these.
+
 ## Dependencies on other WPs
 
 - WP-1: `curveEngine` (default engine of `createCurveCache`, `convertRotateOrderKeys`), `reduceKeys` (import

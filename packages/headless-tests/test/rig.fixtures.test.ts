@@ -26,6 +26,7 @@ import {
   detectClipFps,
   flipYawHumanLocal,
   HUMAN_BONE_NAMES,
+  humanoidRestWorldPositions,
   type ImportedClipKeys,
   importRawClip,
   plantFeetChannels,
@@ -198,6 +199,33 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
       });
       expect(rotation).toBeLessThan(1e-6);
       expect(translation).toBeLessThan(1e-6);
+    },
+  );
+
+  it.each(['seed-san.vrm', 'polybot.vrm'] as const)(
+    'faces +Z in canonical space at rest on %s (§4.11.9)',
+    async (name) => {
+      const { skeleton } = await loadSkeleton(name);
+      const p = humanoidRestWorldPositions(skeleton);
+      const at = (bone: HumanBoneName): Vec3 => {
+        const v = p[bone];
+        if (v === undefined) throw new Error(`${bone} missing`);
+        return [v[0], v[1], v[2]];
+      };
+      const across: Vec3 = [0, 1, 2].map(
+        (k) => (at('leftUpperLeg')[k] as number) - (at('rightUpperLeg')[k] as number),
+      ) as Vec3;
+      const up: Vec3 = [0, 1, 2].map((k) => (at('head')[k] as number) - (at('hips')[k] as number)) as Vec3;
+      const f: Vec3 = [
+        across[1] * up[2] - across[2] * up[1],
+        across[2] * up[0] - across[0] * up[2],
+        across[0] * up[1] - across[1] * up[0],
+      ];
+      // The §4.11.9 formula also measures how far the head leans forward of the hips: Polybot's head is 2.8° ahead
+      // (f·z = 0.9988), so the 0.999 bound holds only for the horizontal facing; the full vector is checked at 0.998
+      // (docs/wp-notes/wp-3.md). A wrong facing gives −1.
+      expect(f[2] / Math.hypot(f[0], f[1], f[2])).toBeGreaterThan(0.998);
+      expect(f[2] / Math.hypot(f[0], f[2])).toBeGreaterThan(0.999);
     },
   );
 
