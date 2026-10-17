@@ -4,6 +4,7 @@
 // `skeletonFromGltf` and `readAnimations` and turn on by themselves once those stop being stubs (MVP-SPEC §8.1 step 4).
 import {
   type AnimCurve,
+  curveEngine,
   EkzaError,
   type Fps,
   mat4Decompose,
@@ -48,12 +49,14 @@ function pendingStub(probe: () => unknown): boolean {
 
 /** Blocked by WP-4 (io readers) until they land. */
 const WP4_PENDING =
+  // A real parseGlb is async and rejects bad input; only the stub throws synchronously.
+  pendingStub(() => parseGlb(new Uint8Array(0))) ||
   pendingStub(() => skeletonFromGltf({} as GlbContainer)) ||
   pendingStub(() => readAnimations({} as GlbContainer, {} as SkeletonDesc));
 /** Blocked by WP-1 (anim-core reduceKeys) until it lands. */
-const WP1_PENDING = pendingStub(() =>
-  reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 }),
-);
+const WP1_PENDING =
+  pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 })) ||
+  pendingStub(() => curveEngine.compile({ keys: [], weighted: false, pre: 'constant', post: 'constant' }));
 
 const IDS = { character: 'chr_FixtureGates0001' as never, rig: 'rig_FixtureGates0001' as never };
 
@@ -299,17 +302,32 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     const before = big.reduce((sum, c) => sum + c.stats.sourceKeys, 0);
     const after = big.reduce((sum, c) => sum + c.keys.length, 0);
     expect(after * 3).toBeLessThanOrEqual(before);
+    // At every source key time and integer frame the reduced curve stays within tolerance of the dense one (both
+    // evaluated with the AnimX engine; the dense curves are LINEAR through the source keys).
+    let worst = 0;
+    const integerFrames = Array.from({ length: reduced.range.end - reduced.range.start + 1 }, (_, i) => i);
     for (const curve of reduced.curves) {
       const original = dense.curves.find((c) => c.control === curve.control && c.channel === curve.channel);
-      expect(original).toBeDefined();
-      expect(curve.stats.maxReduceError).toBeLessThanOrEqual(
-        curve.channel.startsWith('r')
-          ? DEFAULT_REDUCE.rotationRad
-          : curve.channel.startsWith('t')
-            ? DEFAULT_REDUCE.translationM
-            : DEFAULT_REDUCE.scale,
-      );
+      if (original === undefined) throw new Error(`${curve.control}/${curve.channel} missing from the dense import`);
+      const tolerance = curve.channel.startsWith('r')
+        ? DEFAULT_REDUCE.rotationRad
+        : curve.channel.startsWith('t')
+          ? DEFAULT_REDUCE.translationM
+          : DEFAULT_REDUCE.scale;
+      expect(curve.stats.maxReduceError).toBeLessThanOrEqual(tolerance);
+      const compiled = curveEngine.compile({ keys: curve.keys, weighted: false, pre: 'constant', post: 'constant' });
+      const reference = curveEngine.compile({
+        keys: original.keys,
+        weighted: false,
+        pre: 'constant',
+        post: 'constant',
+      });
+      for (const t of [...original.keys.map((key) => key.t), ...integerFrames]) {
+        const error = Math.abs(curveEngine.evaluate(compiled, t) - curveEngine.evaluate(reference, t));
+        worst = Math.max(worst, error / tolerance);
+      }
     }
+    expect(worst).toBeLessThanOrEqual(1 + 1e-9);
   });
 
   it('plants Polybot feet back on their pins after lowering the cog (1e-4)', async () => {
