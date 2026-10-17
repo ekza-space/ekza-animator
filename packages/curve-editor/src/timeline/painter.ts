@@ -175,28 +175,51 @@ export function formatFrame(frame: Frame): string {
   return Math.abs(frame - whole) < 1e-6 ? String(whole) : frame.toFixed(2);
 }
 
-/** The playhead line and its frame badge in the label strip. */
+/** The playhead's frame label, measured once per frame value (the playhead is drawn every playback frame). */
+export interface PlayheadBadge {
+  frame: Frame;
+  text: string;
+  /** Badge width in CSS px (text + padding). */
+  width: number;
+  font: string;
+}
+
+export function badgeFont(theme: TimelineTheme): string {
+  return `600 ${LABEL_FONT_PX}px ${theme.font}`;
+}
+
+/** Updates `badge` for `frame` in `font`; measures only when the text or the font changed. */
+export function updateBadge(ctx: CanvasRenderingContext2D, badge: PlayheadBadge, frame: Frame, font: string): void {
+  if (badge.frame === frame && badge.font === font) return;
+  const text = formatFrame(frame);
+  badge.frame = frame;
+  if (text === badge.text && badge.font === font) return;
+  badge.text = text;
+  badge.font = font;
+  ctx.font = font;
+  badge.width = Math.ceil(ctx.measureText(text).width) + 6;
+}
+
+/** The playhead line and its frame badge in the label strip. Allocation-free (runs every playback frame). */
 export function paintPlayhead(
   ctx: CanvasRenderingContext2D,
   dpr: number,
   layout: SliderLayout,
   frame: Frame,
-  label: string,
+  badge: PlayheadBadge,
   theme: TimelineTheme,
 ): void {
   const x = layoutFrameToX(layout, frame);
   if (x < -40 || x > layout.width + 40) return;
-  const snap = snapper(dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.fillStyle = theme.playhead;
-  ctx.fillRect(snap(x - PLAYHEAD_WIDTH / 2), 0, PLAYHEAD_WIDTH, layout.height);
-  ctx.font = `600 ${LABEL_FONT_PX}px ${theme.font}`;
-  const badge = Math.ceil(ctx.measureText(label).width) + 6;
-  const bx = snap(Math.min(Math.max(x - badge / 2, 0), Math.max(layout.width - badge, 0)));
-  const bh = Math.min(LABEL_STRIP, layout.height);
-  ctx.fillRect(bx, 0, badge, bh);
+  ctx.fillRect(Math.round((x - PLAYHEAD_WIDTH / 2) * dpr) / dpr, 0, PLAYHEAD_WIDTH, layout.height);
+  const bx =
+    Math.round(Math.min(Math.max(x - badge.width / 2, 0), Math.max(layout.width - badge.width, 0)) * dpr) / dpr;
+  ctx.fillRect(bx, 0, badge.width, Math.min(LABEL_STRIP, layout.height));
+  ctx.font = badge.font;
   ctx.fillStyle = theme.playheadText;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(label, bx + badge / 2, LABEL_FONT_PX);
+  ctx.fillText(badge.text, bx + badge.width / 2, LABEL_FONT_PX);
 }

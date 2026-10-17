@@ -31,7 +31,7 @@ import { registerContributions, TIMELINE_CONTEXT_MENU } from './contributions';
 import { KeyDrag } from './keyDrag';
 import { bandKeys, collectTicks, nearestTick, TICK_EPSILON, type TickSet } from './keys';
 import { layoutFrameToX, layoutXToFrame, type SliderLayout, sliderLayout, tickCentreY } from './layout';
-import { bandExtent, formatFrame, paintBase, paintPlayhead } from './painter';
+import { badgeFont, bandExtent, type PlayheadBadge, paintBase, paintPlayhead, updateBadge } from './painter';
 import { readTimelineTheme, type TimelineTheme } from './theme';
 
 /** Hit tolerances (CSS px). */
@@ -105,8 +105,8 @@ export class TimeSliderController {
   private view: View | null = null;
   private ticks: TickSet | null = null;
   private gesture: Gesture | null = null;
-  private badgeFrame = Number.NaN;
-  private badgeText = '';
+  private badgeFont: string;
+  private readonly badge: PlayheadBadge = { frame: Number.NaN, text: '', width: 0, font: '' };
   private disposed = false;
   private readonly disposers: Disposer[] = [];
 
@@ -117,6 +117,7 @@ export class TimeSliderController {
     this.base = opts.canvas.ownerDocument.createElement('canvas');
     this.baseCtx = context2d(this.base);
     this.theme = readTimelineTheme(opts.canvas);
+    this.badgeFont = badgeFont(this.theme);
     this.disposers.push(
       this.app.session.subscribe((state, previous) => this.onSession(state, previous)),
       this.app.prefs.subscribe((prefs, previous) => this.onPrefs(prefs, previous)),
@@ -137,6 +138,7 @@ export class TimeSliderController {
       if (canvas.height !== height) canvas.height = height;
     }
     this.theme = readTimelineTheme(this.canvas);
+    this.badgeFont = badgeFont(this.theme);
     this.view = null;
     this.redraw(true);
   }
@@ -389,11 +391,8 @@ export class TimeSliderController {
     target.clearRect(0, 0, this.canvas.width, this.canvas.height);
     target.drawImage(this.base, 0, 0);
     const frame = currentFrame(this.app, ctx);
-    if (frame !== this.badgeFrame) {
-      this.badgeFrame = frame;
-      this.badgeText = formatFrame(frame);
-    }
-    paintPlayhead(target, this.dpr, layout, frame, this.badgeText, this.theme);
+    updateBadge(target, this.badge, frame, this.badgeFont);
+    paintPlayhead(target, this.dpr, layout, frame, this.badge, this.theme);
     this.overlayDirty = false;
   }
 
