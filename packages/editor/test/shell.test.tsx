@@ -252,6 +252,48 @@ describe('editor shell', () => {
     await view.unmount();
   });
 
+  it('suppresses browser defaults inside the editor and guards unsaved work on unload', async () => {
+    const { view, app } = await mount({ e2e: false });
+    const inside = testId(view, 'statusline');
+    const fire = (target: EventTarget, event: Event): boolean => {
+      target.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const mouse = (type: string, init: MouseEventInit = {}) =>
+      new MouseEvent(type, { bubbles: true, cancelable: true, ...init });
+    // Context menu: suppressed in the editor, kept in text fields and outside the editor.
+    expect(fire(inside, mouse('contextmenu'))).toBe(true);
+    const field = document.createElement('input');
+    inside.append(field);
+    expect(fire(field, mouse('contextmenu'))).toBe(false);
+    field.remove();
+    const outside = document.createElement('div');
+    document.body.append(outside);
+    expect(fire(outside, mouse('contextmenu'))).toBe(false);
+    // Middle button: no autoscroll, no primary-selection paste.
+    expect(fire(inside, mouse('mousedown', { button: 1 }))).toBe(true);
+    expect(fire(inside, mouse('auxclick', { button: 1 }))).toBe(true);
+    expect(fire(inside, mouse('mousedown', { button: 0 }))).toBe(false);
+    expect(fire(outside, mouse('mousedown', { button: 1 }))).toBe(false);
+    outside.remove();
+    // Trackpad pinch (Ctrl+wheel) never zooms the page; a plain wheel is left alone.
+    expect(fire(inside, new WheelEvent('wheel', { bubbles: true, cancelable: true, ctrlKey: true, deltaY: 4 }))).toBe(
+      true,
+    );
+    expect(fire(inside, new WheelEvent('wheel', { bubbles: true, cancelable: true, deltaY: 4 }))).toBe(false);
+    // Unload guard: only with unsaved changes.
+    expect(fire(window, new Event('beforeunload', { cancelable: true }))).toBe(false);
+    app.session.setState({ dirty: true });
+    expect(fire(window, new Event('beforeunload', { cancelable: true }))).toBe(true);
+    app.session.setState({ dirty: false });
+    await view.unmount();
+    // e2e mode never prompts (reloads are part of the scenarios).
+    const e2e = await mount();
+    e2e.app.session.setState({ dirty: true });
+    expect(fire(window, new Event('beforeunload', { cancelable: true }))).toBe(false);
+    await e2e.view.unmount();
+  });
+
   it('reports a lost WebGL context and recovers when it is restored', async () => {
     const { view } = await mount();
     await window.__EKZA_ANIMATOR_TEST__?.ready;
