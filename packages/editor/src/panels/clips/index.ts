@@ -1,7 +1,17 @@
-// WP-9 owns this directory. Placeholder registration: a no-op until the panel lands (MVP-SPEC §3 convention 10).
+// WP-9 owns this directory (MVP-SPEC §7 WP-9; registered by panels/index.ts, §3 convention 10).
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { PanelRegistry } from '../types';
+import { PANEL } from '@ekza-animator/editor-core';
+import type { PanelDef, PanelRegistry } from '../types';
+import { ClipsPanel } from './ClipsPanel';
 
-export function registerClipsPanel(_registry: PanelRegistry): Disposer {
-  return () => {};
+export const CLIPS_PANEL: PanelDef = {
+  id: PANEL.clips,
+  kind: PANEL.clips,
+  title: 'Clips',
+  component: ClipsPanel,
+  keyScope: PANEL.clips,
+};
+
+export function registerClipsPanel(registry: PanelRegistry): Disposer {
+  return registry.register(CLIPS_PANEL);
 }
