@@ -93,9 +93,13 @@ export function insertKeyPreservingShape(
         const o = k * COEF_STRIDE;
         const u = bezierParameter(compiled.coef, o, t0, t1, frame);
         const value = bezierValueAt(compiled.coef, o, u);
-        const x1 = t0 + compiled.outDt[k]!;
+        // AnimX evaluates a span whose handle times sit within 1e-6 of the thirds as linear in time (`fLinear`):
+        // its effective X polygon is [t0, t0 + Δ/3, t1 − Δ/3, t1]. Splitting that polygon keeps both halves at
+        // exact thirds, so they stay linear in time and reproduce the span exactly.
+        const linearTime = compiled.coef[o + 7] === 1;
+        const x1 = linearTime ? t0 + (t1 - t0) * ONE_THIRD : t0 + compiled.outDt[k]!;
         const y1 = v0 + compiled.outDv[k]!;
-        const x2 = t1 + compiled.inDt[k + 1]!;
+        const x2 = linearTime ? t1 - (t1 - t0) * ONE_THIRD : t1 + compiled.inDt[k + 1]!;
         const y2 = v1 + compiled.inDv[k + 1]!;
         // de Casteljau at u
         const x01 = t0 + (x1 - t0) * u;
