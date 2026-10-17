@@ -2,10 +2,11 @@ import type { ClipId, ControlId, DocSnapshot, KeyId } from '@ekza-animator/doc';
 import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import { Component, type JSX, type ReactNode } from 'react';
+import { Component, type JSX, type ReactNode, useEffect } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { EditorAppProvider, useDocQuery, useEditorApp, usePrefs, useSession } from '../src';
+import { EditorAppProvider, useDocQuery, useEditorApp, usePrefs, useRunOperator, useSession } from '../src';
 import { byTestId, readSynthetic, render, update } from './render';
+import { createTestShell, ShellFrame } from './shell-helpers';
 
 let snapshot: DocSnapshot;
 let skeleton: SkeletonDesc;
@@ -167,5 +168,58 @@ describe('editor hooks over the fake app', () => {
     await update(() => fresh.store.load(snapshot));
     expect(clip()).toBe('wave');
     await view.unmount();
+  });
+});
+
+describe('useRunOperator', () => {
+  it('reports through the shell (toast or help line), or runs plainly without one', async () => {
+    const test = createTestShell();
+    test.app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'acme.broken',
+        label: 'Broken',
+        category: 'acme',
+        scope: 'global',
+        apply: () => {
+          throw new Error('kaput');
+        },
+      },
+    });
+    const probe: { run: ReturnType<typeof useRunOperator> | null } = { run: null };
+    const run = (op: string) => {
+      if (probe.run === null) throw new Error('Probe has not rendered');
+      return probe.run(op);
+    };
+    function Probe(props: { readonly expose: (run: ReturnType<typeof useRunOperator>) => void }): null {
+      const runOperator = useRunOperator();
+      useEffect(() => props.expose(runOperator), [props, runOperator]);
+      return null;
+    }
+    const expose = (runOperator: ReturnType<typeof useRunOperator>): void => {
+      probe.run = runOperator;
+    };
+    const view = await render(
+      <ShellFrame shell={test.shell}>
+        <Probe expose={expose} />
+      </ShellFrame>,
+    );
+    const failed = await run('acme.broken');
+    expect(failed.status).toBe('failed');
+    expect(test.toasts.store.getState().toasts.at(-1)?.text).toBe('Broken failed: kaput');
+    const cancelled = await run('acme.missing');
+    expect(cancelled.status).toBe('cancelled');
+    expect(test.shell.ui.getState().help?.text).toContain('acme.missing');
+    await view.unmount();
+
+    const bare = createFakeEditorApp();
+    const plain = await render(
+      <EditorAppProvider app={bare}>
+        <Probe expose={expose} />
+      </EditorAppProvider>,
+    );
+    expect((await run('acme.missing')).status).toBe('cancelled');
+    expect(bare.calls.map((call) => call.id)).toEqual(['acme.missing']);
+    await plain.unmount();
   });
 });

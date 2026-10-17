@@ -2,37 +2,97 @@
 @source "../editor/src";
 @source "./src";
 
-/* Design tokens (research 09 §8.2). Hand-written subset until WP-8 generates this block from tokens.json and
-   wires the self-hosted Inter / JetBrains Mono fonts. */
-:root {
-  color-scheme: dark;
-  --bg-app: #1b1c1f;
-  --bg-panel: #232428;
-  --bg-header: #2a2b30;
-  --border: #3a3c44;
-  --text: #e6e7ea;
-  --text-2: #aeb2bb;
-  --text-3: #969ba6;
-  --accent: #7c5cff;
-  --accent-fill: #6c4ff0;
-  --accent-text: #a996ff;
-  --font-ui: "Inter Variable", system-ui, sans-serif;
-  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
-}
+/* Self-hosted fonts (OFL-1.1, no third-party requests; research 09 §8.4). */
+@import "@fontsource-variable/inter/wght.css";
+@import "@fontsource-variable/jetbrains-mono/wght.css";
 
+/* Design tokens (generated from tokens.json), dockview's structural rules and the shell's dockview theme. */
+@import "./css/tokens.css";
+@import "./css/dockview-core.css";
+@import "./css/dockview-theme.css";
+
+/* Tailwind preset: utilities named after the tokens (bg-panel, text-fg-2, border-line, rounded-field, text-ui, …). */
 @theme inline {
   --color-app: var(--bg-app);
   --color-panel: var(--bg-panel);
   --color-header: var(--bg-header);
+  --color-field: var(--bg-field);
+  --color-hover: var(--bg-hover);
+  --color-pressed: var(--bg-pressed);
+  --color-selected: var(--bg-selected);
+  --color-popover: var(--bg-popover);
   --color-line: var(--border);
+  --color-line-strong: var(--border-strong);
   --color-fg: var(--text);
   --color-fg-2: var(--text-2);
   --color-fg-3: var(--text-3);
+  --color-fg-disabled: var(--text-disabled);
   --color-accent: var(--accent);
   --color-accent-fill: var(--accent-fill);
   --color-accent-text: var(--accent-text);
+  --color-on-accent: var(--on-accent);
+  --color-ok: var(--ok);
+  --color-warn: var(--warn);
+  --color-danger: var(--danger);
+  --color-info: var(--info);
+  --color-axis-x: var(--axis-x);
+  --color-axis-y: var(--axis-y);
+  --color-axis-z: var(--axis-z);
+  --color-axis-active: var(--axis-active);
+  --color-key-tick: var(--key-tick);
+  --color-key-selected: var(--key-selected);
+  --color-playhead: var(--playhead);
+  --color-autokey: var(--autokey);
+  --color-sel: var(--sel);
+  --color-sel-lead: var(--sel-lead);
+  --color-sel-hover: var(--sel-hover);
+  --color-range-select: var(--range-select);
+  --color-rig-left: var(--rig-left);
+  --color-rig-right: var(--rig-right);
+  --color-rig-center: var(--rig-center);
+  --color-locked-badge: var(--locked-badge);
+  --color-on-locked-badge: var(--on-locked-badge);
+  --color-scrim: var(--scrim);
+  --color-drop-overlay: var(--drop-overlay);
+  --color-cb-keyed-on: var(--cb-keyed-on);
+  --color-cb-keyed-on-text: var(--cb-keyed-on-text);
+  --color-cb-keyed-off: var(--cb-keyed-off);
+  --color-cb-keyed-off-text: var(--cb-keyed-off-text);
+  --color-cb-altered: var(--cb-altered);
+  --color-cb-altered-text: var(--cb-altered-text);
+  --color-cb-breakdown: var(--cb-breakdown);
+  --color-cb-breakdown-text: var(--cb-breakdown-text);
+  --color-cb-muted: var(--cb-muted);
+  --color-cb-muted-text: var(--cb-muted-text);
+  --color-cb-locked: var(--cb-locked);
+  --color-cb-locked-text: var(--cb-locked-text);
+  --color-cb-nonkeyable: var(--cb-nonkeyable);
+  --color-cb-nonkeyable-text: var(--cb-nonkeyable-text);
+  --color-cb-constrained: var(--cb-constrained);
+  --color-cb-constrained-text: var(--cb-constrained-text);
+  --color-cb-connected: var(--cb-connected);
+  --color-cb-connected-text: var(--cb-connected-text);
+
+  --radius-field: var(--r-field);
+  --radius-button: var(--r-button);
+  --radius-popover: var(--r-popover);
+  --radius-dialog: var(--r-dialog);
+
+  --shadow-popover: var(--elevation-popover);
+
   --font-sans: var(--font-ui);
-  --font-mono: var(--font-mono);
+  --font-mono: var(--font-code);
+
+  --text-ui: var(--type-ui-size);
+  --text-ui--line-height: var(--type-ui-line);
+  --text-ui-dense: var(--type-ui-dense-size);
+  --text-ui-dense--line-height: var(--type-ui-dense-line);
+  --text-ruler: var(--type-ruler-size);
+  --text-ruler--line-height: var(--type-ruler-line);
+  --text-dialog: var(--type-dialog-size);
+  --text-dialog--line-height: var(--type-dialog-line);
+  --text-dialog-title: var(--type-dialog-title-size);
+  --text-dialog-title--line-height: var(--type-dialog-title-line);
 }
 
 html,
@@ -40,4 +100,64 @@ body {
   background: var(--bg-app);
   color: var(--text);
   font-family: var(--font-ui);
+}
+
+/* Keyboard focus only (research 09 §8.2 --focus-ring). */
+.ekza-editor :focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 1px;
+}
+
+.ekza-editor {
+  font-size: var(--type-ui-size);
+  line-height: var(--type-ui-line);
+  font-feature-settings: "cv11" 1;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.ekza-editor input,
+.ekza-editor textarea,
+.ekza-editor [contenteditable="true"] {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.ekza-numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+/* The editor and what it portals to <body> (dialogs, menus, popovers): <html data-ekza-editor> while it is mounted. */
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border: 2px solid transparent;
+  border-radius: 6px;
+  background-clip: padding-box;
+}
+
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* `?e2e=1` (set on <html> as well, for portalled content) and reduced motion: no UI transitions or animations
+   (MVP-SPEC §4.8). */
+[data-ekza-motion="off"] *,
+[data-ekza-motion="off"] *::before,
+[data-ekza-motion="off"] *::after {
+  transition: none !important;
+  animation: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.ekza-editor, :root[data-ekza-editor]) *,
+  :is(.ekza-editor, :root[data-ekza-editor]) *::before,
+  :is(.ekza-editor, :root[data-ekza-editor]) *::after {
+    transition-duration: 0ms !important;
+    animation-duration: 0ms !important;
+  }
 }
