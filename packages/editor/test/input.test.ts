@@ -293,4 +293,31 @@ describe('hover target and scope chain', () => {
     expect(scopeChainOf(hoverTargetOf(inner, 0, 0, null))).toEqual(['viewport', GLOBAL_SCOPE]);
     expect(scopeChainOf(null)).toEqual([GLOBAL_SCOPE]);
   });
+
+  it("reads WP-5's pane surfaces (data-ekza-panel + data-ekza-pane) inside the shell's panel frame", () => {
+    const frame = document.createElement('div');
+    frame.setAttribute('data-ekza-panel', 'viewport');
+    frame.setAttribute('data-ekza-scope', 'viewport');
+    frame.setAttribute('data-ekza-panel-instance', 'viewport');
+    const surface = document.createElement('div');
+    surface.setAttribute('data-ekza-panel', 'viewport');
+    surface.setAttribute('data-ekza-pane', 'pane-right');
+    const inner = document.createElement('span');
+    surface.append(inner);
+    frame.append(surface);
+    document.body.append(frame);
+    cleanup.push(frame);
+
+    expect(hoverTargetOf(inner, 10, 10, null)).toEqual({
+      kind: 'viewport',
+      scope: 'viewport',
+      instanceId: 'viewport',
+      paneId: 'pane-right',
+    });
+    // A manager that cannot answer (e.g. a not-implemented stub) falls back to the DOM.
+    const throwing = (): string | null => {
+      throw new Error('not implemented');
+    };
+    expect(hoverTargetOf(inner, 10, 10, throwing)?.paneId).toBe('pane-right');
+  });
 });

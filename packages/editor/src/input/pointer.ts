@@ -6,8 +6,10 @@ import { GLOBAL_SCOPE, type KeyScope, PANEL, type PanelKind } from '@ekza-animat
 export const PANEL_ATTR = 'data-ekza-panel';
 export const SCOPE_ATTR = 'data-ekza-scope';
 export const INSTANCE_ATTR = 'data-ekza-panel-instance';
-/** Optional attribute on viewport pane surfaces (WP-5); the ViewportManager's paneAt() is preferred. */
-export const PANE_ATTR = 'data-pane-id';
+/** Attribute WP-5 puts on viewport pane surfaces; the ViewportManager's paneAt() is preferred when it answers. */
+export const PANE_ATTR = 'data-ekza-pane';
+/** Older spelling of PANE_ATTR, still honoured. */
+export const PANE_ATTR_ALT = 'data-pane-id';
 
 export interface HoverTarget {
   readonly kind: PanelKind;
@@ -19,7 +21,8 @@ export interface HoverTarget {
 
 /**
  * The panel under the pointer: the closest panel frame around `target`; for the viewport also the pane, from
- * `paneAt` (ViewportManager) or the closest `data-pane-id` element.
+ * `paneAt` (ViewportManager) or the closest pane surface. Panels may mark inner surfaces with `data-ekza-panel`
+ * too (WP-5's pane surfaces); scope and instance then come from the nearest ancestors that carry them.
  */
 export function hoverTargetOf(
   target: EventTarget | null,
@@ -34,12 +37,19 @@ export function hoverTargetOf(
   if (kind === '') return null;
   let paneId: string | null = null;
   if (kind === PANEL.viewport) {
-    paneId = paneAt?.(clientX, clientY) ?? target.closest(`[${PANE_ATTR}]`)?.getAttribute(PANE_ATTR) ?? null;
+    let fromManager: string | null = null;
+    try {
+      fromManager = paneAt?.(clientX, clientY) ?? null;
+    } catch {
+      // A ViewportManager that cannot answer yet: fall back to the DOM.
+    }
+    const surface = target.closest(`[${PANE_ATTR}],[${PANE_ATTR_ALT}]`);
+    paneId = fromManager ?? surface?.getAttribute(PANE_ATTR) ?? surface?.getAttribute(PANE_ATTR_ALT) ?? null;
   }
   return {
     kind,
-    scope: frame.getAttribute(SCOPE_ATTR) ?? kind,
-    instanceId: frame.getAttribute(INSTANCE_ATTR),
+    scope: frame.closest(`[${SCOPE_ATTR}]`)?.getAttribute(SCOPE_ATTR) ?? kind,
+    instanceId: frame.closest(`[${INSTANCE_ATTR}]`)?.getAttribute(INSTANCE_ATTR) ?? null,
     paneId,
   };
 }

@@ -49,6 +49,7 @@ function clipOptions(store: DocumentStore, character: CharacterId | null) {
     fps: clip.fps.num / clip.fps.den,
     start: clip.range.start,
     end: clip.range.end,
+    loop: clip.loop,
   }));
 }
 
@@ -143,7 +144,7 @@ export function ExportDialog(): JSX.Element {
   const [selectedClips, setSelectedClips] = useState<ReadonlySet<ClipId> | null>(null);
   const [pattern, setPattern] = useState<string | null>(null);
   const [profile, setProfile] = useState<string>('');
-  const [closeLoop, setCloseLoop] = useState(false);
+  const [closeLoopChoice, setCloseLoop] = useState<boolean | null>(null);
   const [includeConstantTracks, setIncludeConstantTracks] = useState(true);
   const [acknowledged, setAcknowledged] = useState(false);
   const [running, setRunning] = useState(false);
@@ -153,6 +154,9 @@ export function ExportDialog(): JSX.Element {
 
   const defaultClip = character === null ? undefined : activeClips[character];
   const chosenClips = selectedClips ?? new Set(clips.filter((clip) => clip.id === defaultClip).map((clip) => clip.id));
+  const chosen = clips.filter((clip) => chosenClips.has(clip.id));
+  // §4.11.10: loop closure defaults on for loop clips.
+  const closeLoop = closeLoopChoice ?? (chosen.length > 0 && chosen.every((clip) => clip.loop));
   const exporter = exporters.find((candidate) => candidate.id === kind);
   const kindProfiles = profiles.filter((candidate) => candidate.kind === kind);
   const fileNamePattern = pattern ?? (kind === 'bake-into-model' ? '{character}' : '{character}_{clip}');
@@ -175,7 +179,7 @@ export function ExportDialog(): JSX.Element {
       : {
           kind,
           character,
-          clips: clips.filter((clip) => chosenClips.has(clip.id)).map((clip) => clip.id),
+          clips: chosen.map((clip) => clip.id),
           fileNamePattern,
           closeLoop,
           includeConstantTracks,

@@ -20,15 +20,27 @@ import { FilePickerDialog } from './OpenDialog';
 
 const FPS_CHOICES = ['source', '24', '25', '30', '48', '50', '60'] as const;
 
+/** §4.11.6 dialog defaults: every embedded clip is checked when there are at most this many, otherwise none. */
+export const CHECK_ALL_CLIPS_MAX = 8;
+
+/** Clip indices checked when the dialog opens. */
+export function defaultClipSelection(clips: readonly { readonly index: number }[]): ReadonlySet<number> {
+  return new Set(clips.length <= CHECK_ALL_CLIPS_MAX ? clips.map((clip) => clip.index) : []);
+}
+
 /** ImportModelOptions (MVP-SPEC §4.5) from the dialog state; unset fields keep the operator's defaults. */
 export function importOptions(state: {
   readonly selected: ReadonlySet<number>;
   readonly clipCount: number;
   readonly fps: (typeof FPS_CHOICES)[number];
   readonly reduce: boolean | null;
+  readonly eulerFilter: boolean;
   readonly secondaryControls: boolean;
 }): Record<string, unknown> {
-  const options: Record<string, unknown> = { secondaryControls: state.secondaryControls };
+  const options: Record<string, unknown> = {
+    eulerFilter: state.eulerFilter,
+    secondaryControls: state.secondaryControls,
+  };
   if (state.clipCount > 0) {
     options['clips'] =
       state.selected.size === state.clipCount
@@ -100,9 +112,10 @@ function PendingImportDialog(props: { readonly pending: PendingImport }): JSX.El
   const shell = useShell();
   const reducePref = usePrefs((p) => p.reduceOnImport);
   const clips = props.pending.summary?.clips ?? [];
-  const [selected, setSelected] = useState<ReadonlySet<number>>(() => new Set(clips.map((clip) => clip.index)));
+  const [selected, setSelected] = useState<ReadonlySet<number>>(() => defaultClipSelection(clips));
   const [fps, setFps] = useState<(typeof FPS_CHOICES)[number]>('source');
   const [reduce, setReduce] = useState<boolean | null>(null);
+  const [eulerFilter, setEulerFilter] = useState(true);
   const [secondaryControls, setSecondaryControls] = useState(true);
   const [importing, setImporting] = useState(false);
   const ids = useId();
@@ -118,7 +131,7 @@ function PendingImportDialog(props: { readonly pending: PendingImport }): JSX.El
     setImporting(true);
     try {
       await shell.files.confirmImport(
-        importOptions({ selected, clipCount: clips.length, fps, reduce, secondaryControls }),
+        importOptions({ selected, clipCount: clips.length, fps, reduce, eulerFilter, secondaryControls }),
       );
     } finally {
       setImporting(false);
@@ -201,7 +214,13 @@ function PendingImportDialog(props: { readonly pending: PendingImport }): JSX.El
                   checked={reduce ?? reducePref !== 'never'}
                   onChange={(event) => setReduce(event.currentTarget.checked)}
                   data-testid="import-reduce"
-                  label="Reduce keys (error-bounded)"
+                  label={reduce === null && reducePref === 'auto' ? 'Reduce dense keys (auto)' : 'Reduce keys'}
+                />
+                <Checkbox
+                  checked={eulerFilter}
+                  onChange={(event) => setEulerFilter(event.currentTarget.checked)}
+                  data-testid="import-euler-filter"
+                  label="Euler filter"
                 />
               </div>
             </section>

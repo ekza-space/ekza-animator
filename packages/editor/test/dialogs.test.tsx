@@ -69,6 +69,8 @@ describe('import dialog', () => {
     expect([0, 1, 2].map((i) => checkbox(`import-clip-${i}`).checked)).toEqual([true, false, false]);
     expect(checkbox('import-reduce').checked).toBe(true); // prefs.reduceOnImport 'auto'
     await update(() => checkbox('import-reduce').click());
+    expect(checkbox('import-euler-filter').checked).toBe(true);
+    await update(() => checkbox('import-euler-filter').click());
     const fps = body('import-fps') as HTMLSelectElement;
     await update(() => {
       fps.value = '24';
@@ -79,7 +81,13 @@ describe('import dialog', () => {
     expect(received[0]).toEqual({
       name: 'ual.glb',
       bytes: new Uint8Array(1024),
-      options: { clips: [0], clipFps: { num: 24, den: 1 }, reduce: null, secondaryControls: true },
+      options: {
+        clips: [0],
+        clipFps: { num: 24, den: 1 },
+        reduce: null,
+        eulerFilter: false,
+        secondaryControls: true,
+      },
     });
     expect(test.app.session.getState().dialog).toBeNull();
     await view.unmount();
@@ -163,6 +171,7 @@ describe('export dialog', () => {
     await waitFor(() => document.querySelector('[data-testid="export-dialog"]') !== null);
     expect(body('export-kind-bake-into-model').getAttribute('aria-checked')).toBe('true');
     expect(checkbox('export-clip-clp_SyntheticWave001').checked).toBe(true);
+    expect(checkbox('export-close-loop').checked).toBe(true);
     const profiles = [...(body('export-profile') as HTMLSelectElement).options].map((o) => o.value);
     expect(profiles).toEqual(['', 'ekza/space-avatar-v1']);
 
@@ -183,7 +192,7 @@ describe('export dialog', () => {
       character: 'chr_SyntheticWave001',
       clips: ['clp_SyntheticWave001'],
       fileNamePattern: '{character}',
-      closeLoop: false,
+      closeLoop: true, // the wave clip loops (§4.11.10 default)
       includeConstantTracks: true,
       acknowledgeLicense: false,
       profile: 'ekza/space-avatar-v1',

@@ -1,7 +1,8 @@
 // The e2e test API (MVP-SPEC §4.8), installed on `window.__EKZA_ANIMATOR_TEST__` in e2e builds opened with
-// `?e2e=1`. Reads go through the store, session and evaluation service; screen positions come from the
-// ViewportManager and the probes the Graph Editor and timeline panels publish. Functions that take a `control`
-// accept a ControlId or a template key of the active character.
+// `?e2e=1`. Reads go through the store, session and evaluation service. The panel-owned slices (viewport panes and
+// cameras, Graph Editor and time-slider positions) come from the probes the panels' packages provide; without a
+// viewport probe the ViewportManager's public API answers. Functions that take a `control` accept a ControlId or a
+// template key of the active character.
 import { type CurveEngine, curveEngine, EkzaError, mat4Decompose } from '@ekza-animator/anim-core';
 import {
   BUILTIN_TABLES,
@@ -125,13 +126,17 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
   const curveValueAt = (curve: CurveId, frame: number): number =>
     engine.evaluate(app.evaluation.compiledCurve(curve), frame);
 
-  // ---------- screen helpers ----------
-  const paneElement = (paneId: string): Element | null =>
-    shell.probes
-      .get('viewport')
-      ?.panes()
-      .find((pane) => pane.id === paneId)?.element ??
-    document.querySelector(`[data-testid="pane-${CSS.escape(paneId)}"]`);
+  // ---------- viewport fallback (no WP-5 probe registered): the ViewportManager's public API ----------
+  const viewport = () => {
+    const vm = ui.getState().viewport;
+    if (vm === null)
+      throw new EkzaError('unsupported', 'No ViewportManager (WebGL unavailable or the viewport has not started)');
+    return vm;
+  };
+  const paneElement = (paneId: string): Element | null => {
+    const id = CSS.escape(paneId);
+    return document.querySelector(`[data-ekza-pane="${id}"],[data-pane-id="${id}"],[data-testid="pane-${id}"]`);
+  };
   const onPane = (
     paneId: string,
     point: { readonly x: number; readonly y: number } | null,
@@ -140,20 +145,6 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     if (point === null || element === null) return null;
     const r = rectOf(element);
     return { x: r.x + point.x, y: r.y + point.y };
-  };
-  const onCanvas = (
-    canvas: Element,
-    point: { readonly x: number; readonly y: number } | null,
-  ): { x: number; y: number } | null => {
-    if (point === null) return null;
-    const r = rectOf(canvas);
-    return { x: r.x + point.x, y: r.y + point.y };
-  };
-  const viewport = () => {
-    const vm = ui.getState().viewport;
-    if (vm === null)
-      throw new EkzaError('unsupported', 'No ViewportManager (WebGL unavailable or the viewport has not started)');
-    return vm;
   };
 
   const api: EkzaAnimatorTestApi = {
@@ -353,27 +344,17 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       return length === 0 ? f : [f[0] / length, f[1] / length, f[2] / length];
     },
     panes() {
-      const vm = ui.getState().viewport;
       const probe = shell.probes.get('viewport');
-      const panes =
-        probe?.panes() ??
-        (vm?.paneIds() ?? []).flatMap((id) => {
-          const element = paneElement(id);
-          return element instanceof HTMLElement ? [{ id, element, camera: null }] : [];
-        });
-      return panes.map((pane) => {
-        const camera = pane.camera;
-        const locked =
-          camera !== null && camera.kind === 'shot' ? (store.get('cameras', camera.cameraId)?.locked ?? false) : false;
-        return {
-          id: pane.id,
-          camera: camera === null ? 'unknown' : camera.kind === 'shot' ? 'shot' : camera.preset,
-          locked,
-          rect: rectOf(pane.element),
-        };
+      if (probe !== null) return probe.panes();
+      const vm = ui.getState().viewport;
+      return (vm?.paneIds() ?? []).flatMap((id) => {
+        const element = paneElement(id);
+        return element === null ? [] : [{ id, camera: 'unknown', locked: false, rect: rectOf(element) }];
       });
     },
     cameraOf(paneId) {
+      const probe = shell.probes.get('viewport');
+      if (probe !== null) return probe.cameraOf(paneId);
       const camera = viewport().camera(paneId);
       return {
         position: [camera.position[0], camera.position[1], camera.position[2]],
@@ -381,43 +362,21 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       };
     },
     screenOfControl(controlRef, paneId) {
+      const probe = shell.probes.get('viewport');
+      if (probe !== null) return probe.screenOfControl(controlRef, paneId);
       return onPane(paneId, viewport().controlScreenPoint(paneId, control(controlRef).id));
     },
     screenOfManipulator(paneId, handle: ManipHandle) {
+      const probe = shell.probes.get('viewport');
+      if (probe !== null) return probe.screenOfManipulator(paneId, handle);
       return onPane(paneId, viewport().manipulatorScreenPoint(paneId, handle));
     },
-    graph() {
-      const probe = shell.probes.get('graph');
-      if (probe === null) return null;
-      const view = probe.view();
-      return {
-        visibleCurves: [...probe.visibleCurves()],
-        view: { f0: view.f0, v0: view.v0, sx: view.sx, sy: view.sy },
-        canvasRect: rectOf(probe.canvas),
-      };
-    },
-    screenOfKey(key) {
-      const probe = shell.probes.get('graph');
-      return probe === null ? null : onCanvas(probe.canvas, probe.keyPoint(key));
-    },
-    screenOfHandle(key, side) {
-      const probe = shell.probes.get('graph');
-      return probe === null ? null : onCanvas(probe.canvas, probe.handlePoint(key, side));
-    },
-    screenOfCurve(curve, frame) {
-      const probe = shell.probes.get('graph');
-      return probe === null ? null : onCanvas(probe.canvas, probe.curvePoint(curve, frame));
-    },
-    screenOfFrame(frame) {
-      const probe = shell.probes.get('timeline');
-      if (probe === null) return null;
-      const r = rectOf(probe.canvas);
-      return { x: r.x + probe.frameToX(frame), y: r.y + r.h / 2 };
-    },
-    screenOfTick(frame) {
-      const probe = shell.probes.get('timeline');
-      return probe === null ? null : onCanvas(probe.canvas, probe.tickPoint(frame));
-    },
+    graph: () => shell.probes.get('graph')?.graph() ?? null,
+    screenOfKey: (key) => shell.probes.get('graph')?.screenOfKey(key) ?? null,
+    screenOfHandle: (key, side) => shell.probes.get('graph')?.screenOfHandle(key, side) ?? null,
+    screenOfCurve: (curve, frame) => shell.probes.get('graph')?.screenOfCurve(curve, frame) ?? null,
+    screenOfFrame: (frame) => shell.probes.get('timeline')?.screenOfFrame(frame) ?? null,
+    screenOfTick: (frame) => shell.probes.get('timeline')?.screenOfTick(frame) ?? null,
     lastExport() {
       const last = shell.exports.last();
       return last === null

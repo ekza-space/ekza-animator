@@ -5,7 +5,7 @@ import type { AssetId } from '@ekza-animator/doc';
 import type { ImporterDef } from '@ekza-animator/editor-core';
 import { DEFAULT_REDUCE } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
-import { importOptions } from '../src/dialogs/ImportDialog';
+import { CHECK_ALL_CLIPS_MAX, defaultClipSelection, importOptions } from '../src/dialogs/ImportDialog';
 import { createBrowserAssetStore, sha256Hex } from '../src/services/assets';
 import { createBrowserClipboard } from '../src/services/clipboard';
 import { createExportRecorder } from '../src/shell/exports';
@@ -149,7 +149,7 @@ describe('file pipeline', () => {
     expect(runs.map((r) => r.id)).toEqual(['file.openProject']);
   });
 
-  it('reports failures: unknown types reject, dropped files become toasts', async () => {
+  it('reports failures once: unknown types reject, dropped files become toasts', async () => {
     const { shell, app, toasts } = createTestShell();
     app.contribute({ kind: 'importer', def: MODEL });
     await expect(shell.files.openFile('notes.txt', new Uint8Array())).rejects.toThrow('No importer');
@@ -172,9 +172,10 @@ describe('file pipeline', () => {
     await shell.files.openFiles([new File([new Uint8Array([1])], 'bad.vrma'), new File(['x'], 'notes.txt')]);
     expect(toasts.store.getState().toasts.map((t) => t.text)).toEqual([
       'Import Animation failed: not a VRMA',
-      'bad.vrma: not a VRMA',
       expect.stringContaining('notes.txt: No importer'),
     ]);
+    // The test API's loadFile path still rejects with the operator's message.
+    await expect(shell.files.openFile('bad.vrma', new Uint8Array([1]))).rejects.toThrow('not a VRMA');
   });
 });
 
@@ -185,22 +186,52 @@ describe('import options', () => {
       clipCount: 2,
       fps: 'source',
       reduce: null,
+      eulerFilter: true,
       secondaryControls: true,
     });
-    expect(all).toEqual({ clips: 'all', clipFps: 'source', secondaryControls: true });
+    expect(all).toEqual({ clips: 'all', clipFps: 'source', eulerFilter: true, secondaryControls: true });
     const some = importOptions({
       selected: new Set([7, 2]),
       clipCount: 46,
       fps: '24',
       reduce: false,
+      eulerFilter: false,
       secondaryControls: false,
     });
-    expect(some).toEqual({ clips: [2, 7], clipFps: { num: 24, den: 1 }, reduce: null, secondaryControls: false });
-    const none = importOptions({ selected: new Set(), clipCount: 3, fps: '30', reduce: true, secondaryControls: true });
+    expect(some).toEqual({
+      clips: [2, 7],
+      clipFps: { num: 24, den: 1 },
+      reduce: null,
+      eulerFilter: false,
+      secondaryControls: false,
+    });
+    const none = importOptions({
+      selected: new Set(),
+      clipCount: 3,
+      fps: '30',
+      reduce: true,
+      eulerFilter: true,
+      secondaryControls: true,
+    });
     expect(none).toMatchObject({ clips: 'none', reduce: DEFAULT_REDUCE });
     expect(
-      importOptions({ selected: new Set(), clipCount: 0, fps: 'source', reduce: null, secondaryControls: true }),
+      importOptions({
+        selected: new Set(),
+        clipCount: 0,
+        fps: 'source',
+        reduce: null,
+        eulerFilter: true,
+        secondaryControls: true,
+      }),
     ).not.toHaveProperty('clips');
+  });
+
+  it('checks every embedded clip by default only when there are at most eight (§4.11.6)', () => {
+    const clips = (count: number) => Array.from({ length: count }, (_, index) => ({ index }));
+    expect([...defaultClipSelection(clips(3))]).toEqual([0, 1, 2]);
+    expect(defaultClipSelection(clips(CHECK_ALL_CLIPS_MAX)).size).toBe(CHECK_ALL_CLIPS_MAX);
+    expect(defaultClipSelection(clips(46)).size).toBe(0);
+    expect(defaultClipSelection([]).size).toBe(0);
   });
 
   it('summarises embedded clips and licences from glTF JSON', () => {

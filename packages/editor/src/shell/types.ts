@@ -1,12 +1,10 @@
 // The editor shell's imperative core (MVP-SPEC §7 WP-8): what the React shell, the GL host, the input adapter,
 // the dialogs, the panels and the e2e test API share. One Shell per mounted editor; no React state lives here.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { CurveId } from '@ekza-animator/doc';
 import type {
   EditorApp,
   ImporterDef,
   OperatorResult,
-  PaneCamera,
   PanelKind,
   PrefsStorage,
   RunContext,
@@ -20,31 +18,24 @@ import type { HoverTarget } from '../input/pointer';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
 import type { EditorParams } from '../test-api/params';
+import type { EkzaAnimatorTestApi } from '../test-api/types';
 import type { ModelSummary } from './summary';
 
-// ---------- probes: what the e2e test API reads from panels (registered by the panels, §4.8) ----------
+// ---------- probes: what the e2e test API reads from panels (§4.8) ----------
+// Each probe is the slice of the test API a panel owns, in page CSS px. The panel work packages export exactly these
+// shapes: WP-5 `viewportTestApi(vm)`, WP-6 `graphTestHooks(app)`, WP-6t `screenOfTimelineFrame/Tick(app, frame)`.
 
-/** Registered by the viewport panel (WP-5): its panes, so `panes()` and `screenOf*` know cameras and surfaces. */
-export interface ViewportProbe {
-  panes(): readonly { readonly id: string; readonly element: HTMLElement; readonly camera: PaneCamera }[];
-}
+/** Viewport slice (WP-5 `viewportTestApi(vm)`); without one the test API answers from the ViewportManager. */
+export type ViewportProbe = Pick<
+  EkzaAnimatorTestApi,
+  'panes' | 'cameraOf' | 'screenOfControl' | 'screenOfManipulator' | 'renderedFrames'
+>;
 
-/** Registered by the Graph Editor panel (WP-6) for its focused controller. Points are canvas CSS px. */
-export interface GraphProbe {
-  readonly canvas: HTMLElement;
-  view(): { readonly f0: number; readonly v0: number; readonly sx: number; readonly sy: number };
-  visibleCurves(): readonly CurveId[];
-  keyPoint(key: string): { readonly x: number; readonly y: number } | null;
-  handlePoint(key: string, side: 'in' | 'out'): { readonly x: number; readonly y: number } | null;
-  curvePoint(curve: string, frame: number): { readonly x: number; readonly y: number } | null;
-}
+/** Graph Editor slice (WP-6 `graphTestHooks(app)`); without one `graph()` and `screenOf{Key,Handle,Curve}` are null. */
+export type GraphProbe = Pick<EkzaAnimatorTestApi, 'graph' | 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'>;
 
-/** Registered by the timeline panel (WP-6t) for its time slider. Points are canvas CSS px. */
-export interface TimelineProbe {
-  readonly canvas: HTMLElement;
-  frameToX(frame: number): number;
-  tickPoint(frame: number): { readonly x: number; readonly y: number } | null;
-}
+/** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. */
+export type TimelineProbe = Pick<EkzaAnimatorTestApi, 'screenOfFrame' | 'screenOfTick'>;
 
 export interface ProbeMap {
   readonly viewport: ViewportProbe;

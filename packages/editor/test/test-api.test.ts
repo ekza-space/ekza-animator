@@ -126,57 +126,67 @@ describe('createTestApi', () => {
     expect(() => api.boneWorld(CHARACTER, 'tail')).toThrow("No humanoid bone or node named 'tail'");
   });
 
-  it('maps panel probes to page coordinates', () => {
+  it('delegates the panel slices to the registered probes; the newest probe wins', () => {
     const { api, shell } = setup();
-    const canvas = document.createElement('canvas');
-    canvas.style.cssText = 'position:fixed;left:100px;top:200px;width:400px;height:100px';
-    document.body.append(canvas);
-    try {
-      expect(api.graph()).toBeNull();
-      expect(api.screenOfKey('k_SynthWave001')).toBeNull();
-      const disposeGraph = shell.probes.set('graph', {
-        canvas,
-        view: () => ({ f0: 0, v0: -45, sx: 10, sy: 2 }),
-        visibleCurves: () => [CURVE],
-        keyPoint: (key) => (key === 'k_SynthWave001' ? { x: 5, y: 6 } : null),
-        handlePoint: () => ({ x: 7, y: 8 }),
-        curvePoint: (_curve, frame) => ({ x: frame * 10, y: 50 }),
-      });
-      expect(api.graph()).toEqual({
-        visibleCurves: [CURVE],
-        view: { f0: 0, v0: -45, sx: 10, sy: 2 },
-        canvasRect: { x: 100, y: 200, w: 400, h: 100 },
-      });
-      expect(api.screenOfKey('k_SynthWave001')).toEqual({ x: 105, y: 206 });
-      expect(api.screenOfKey('k_other')).toBeNull();
-      expect(api.screenOfHandle('k_SynthWave001', 'out')).toEqual({ x: 107, y: 208 });
-      expect(api.screenOfCurve(CURVE, 7.5)).toEqual({ x: 175, y: 250 });
-      disposeGraph();
-      expect(api.graph()).toBeNull();
+    expect(api.graph()).toBeNull();
+    expect(api.screenOfKey('k_SynthWave001')).toBeNull();
+    expect(api.screenOfFrame(10)).toBeNull();
+    expect(api.panes()).toEqual([]);
+    expect(() => api.cameraOf('pane-left')).toThrow('No ViewportManager');
 
-      shell.probes.set('timeline', {
-        canvas,
-        frameToX: (frame) => frame * 4,
-        tickPoint: (frame) => (frame === 15 ? { x: 60, y: 10 } : null),
-      });
-      expect(api.screenOfFrame(20)).toEqual({ x: 180, y: 250 });
-      expect(api.screenOfTick(15)).toEqual({ x: 160, y: 210 });
-      expect(api.screenOfTick(16)).toBeNull();
+    const graph = {
+      visibleCurves: [CURVE],
+      view: { f0: 0, v0: -45, sx: 10, sy: 2 },
+      canvasRect: { x: 100, y: 200, w: 400, h: 100 },
+    };
+    const disposeGraph = shell.probes.set('graph', {
+      graph: () => graph,
+      screenOfKey: (key) => (key === 'k_SynthWave001' ? { x: 105, y: 206 } : null),
+      screenOfHandle: (_key, side) => (side === 'out' ? { x: 107, y: 208 } : null),
+      screenOfCurve: (_curve, frame) => ({ x: 100 + frame * 10, y: 250 }),
+    });
+    expect(api.graph()).toEqual(graph);
+    expect(api.screenOfKey('k_SynthWave001')).toEqual({ x: 105, y: 206 });
+    expect(api.screenOfKey('k_other')).toBeNull();
+    expect(api.screenOfHandle('k_SynthWave001', 'out')).toEqual({ x: 107, y: 208 });
+    expect(api.screenOfHandle('k_SynthWave001', 'in')).toBeNull();
+    expect(api.screenOfCurve(CURVE, 7.5)).toEqual({ x: 175, y: 250 });
+    const disposeOther = shell.probes.set('graph', {
+      graph: () => null,
+      screenOfKey: () => null,
+      screenOfHandle: () => null,
+      screenOfCurve: () => null,
+    });
+    expect(api.graph()).toBeNull();
+    disposeOther();
+    expect(api.graph()).toEqual(graph);
+    disposeGraph();
+    expect(api.graph()).toBeNull();
 
-      const pane = document.createElement('div');
-      pane.style.cssText = 'position:fixed;left:10px;top:20px;width:300px;height:200px';
-      document.body.append(pane);
-      shell.probes.set('viewport', {
-        panes: () => [{ id: 'pane-left', element: pane, camera: { kind: 'view', preset: 'persp' } }],
-      });
-      expect(api.panes()).toEqual([
-        { id: 'pane-left', camera: 'persp', locked: false, rect: { x: 10, y: 20, w: 300, h: 200 } },
-      ]);
-      pane.remove();
-      expect(() => api.cameraOf('pane-left')).toThrow('No ViewportManager');
-    } finally {
-      canvas.remove();
-    }
+    shell.probes.set('timeline', {
+      screenOfFrame: (frame) => ({ x: 100 + frame * 4, y: 250 }),
+      screenOfTick: (frame) => (frame === 15 ? { x: 160, y: 210 } : null),
+    });
+    expect(api.screenOfFrame(20)).toEqual({ x: 180, y: 250 });
+    expect(api.screenOfTick(15)).toEqual({ x: 160, y: 210 });
+    expect(api.screenOfTick(16)).toBeNull();
+
+    shell.probes.set('viewport', {
+      panes: () => [{ id: 'pane-left', camera: 'shot', locked: true, rect: { x: 10, y: 20, w: 300, h: 200 } }],
+      cameraOf: () => ({ position: [0, 1, 2], quaternion: [0, 0, 0, 1] }),
+      screenOfControl: (control, paneId) =>
+        control === 'fk.lowerArm.L' && paneId === 'pane-left' ? { x: 1, y: 2 } : null,
+      screenOfManipulator: (_paneId, handle) => (handle === 'rz' ? { x: 3, y: 4 } : null),
+      renderedFrames: () => 99,
+    });
+    expect(api.panes()).toEqual([
+      { id: 'pane-left', camera: 'shot', locked: true, rect: { x: 10, y: 20, w: 300, h: 200 } },
+    ]);
+    expect(api.cameraOf('pane-left')).toEqual({ position: [0, 1, 2], quaternion: [0, 0, 0, 1] });
+    expect(api.screenOfControl('fk.lowerArm.L', 'pane-left')).toEqual({ x: 1, y: 2 });
+    expect(api.screenOfManipulator('pane-left', 'rz')).toEqual({ x: 3, y: 4 });
+    // The shell counts frames itself (fallback frames + the ViewportManager's counter).
+    expect(api.renderedFrames()).toBe(shell.renderedFrames());
   });
 
   it('runs operators and maps results; records export artifacts for lastExport()', async () => {

@@ -23,6 +23,11 @@ export interface FilePipelineDeps {
 const errorText = (error: unknown): string =>
   error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
 
+/** An operator run that did not finish; `runFromUi` has already shown it (toast or help line). */
+class ReportedFailure extends Error {
+  override readonly name = 'ReportedFailure';
+}
+
 export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
   const { app, ui } = deps;
 
@@ -30,6 +35,11 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
     if (result.status === 'failed') return result.error.message;
     if (result.status === 'cancelled') return result.reason;
     return null;
+  };
+  const throwIfUnfinished = (result: OperatorResult<unknown>, fallback?: string): void => {
+    const message = failure(result);
+    if (message !== null) throw new ReportedFailure(message);
+    if (result.status !== 'finished' && fallback !== undefined) throw new ReportedFailure(fallback);
   };
 
   async function openFile(name: string, bytes: Uint8Array, opts: OpenFileOptions = {}): Promise<void> {
@@ -49,9 +59,7 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
       if (!replace) return;
     }
     const args = opts.importOptions === undefined ? { name, bytes } : { name, bytes, options: opts.importOptions };
-    const result = await deps.runFromUi(importer.op, args);
-    const message = failure(result);
-    if (message !== null) throw new Error(message);
+    throwIfUnfinished(await deps.runFromUi(importer.op, args));
   }
 
   /** Reads the model summary, then opens the import dialog. Resolves once the dialog is showing. */
@@ -72,7 +80,7 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
     const opened = await deps.runFromUi('ui.open', { dialog: 'import' });
     if (opened.status !== 'finished') {
       ui.setState({ pendingImport: null });
-      throw new Error(failure(opened) ?? 'The import dialog could not open');
+      throwIfUnfinished(opened, 'The import dialog could not open');
     }
   }
 
@@ -83,7 +91,8 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
         try {
           await openFile(file.name, new Uint8Array(await file.arrayBuffer()));
         } catch (error) {
-          deps.toastError(`${file.name}: ${errorText(error)}`);
+          // Operator failures were already reported by the runner; report the rest (unknown type, read errors).
+          if (!(error instanceof ReportedFailure)) deps.toastError(`${file.name}: ${errorText(error)}`);
         }
       }
     },
