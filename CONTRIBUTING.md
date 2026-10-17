@@ -79,6 +79,26 @@ pointer, wheel and key handlers plus `cancel()`. Register it with `app.contribut
 owning package's `register*Contributions` function. Drags go through `store.beginPreview` and the edit kernel so one
 gesture is one undo step.
 
+## Shared test kit
+
+Test against the kit until the real package lands (MVP-SPEC §3 convention 12); do not write private fakes of another
+package's interface.
+
+- **Fake app** (`@ekza-animator/editor-core/testing`): `createFakeEditorApp({ snapshot, skeleton })` is a full
+  `EditorApp` over a naive document store (real transaction, preview and undo semantics), naive curves and naive FK.
+  It records every `app.run` in `app.calls`; operators you register run through the real runner rules. It never
+  imports Node APIs, so Vitest browser-mode tests use it too. `createFakeServices()` records downloads and toasts.
+- **Fixtures** (`@ekza-animator/doc/testing`, Node): `readFixture('seed-san.vrm')` for licensed binaries,
+  `readSyntheticFixture('wave-doc.json')` (a `DocSnapshot`), `'humanoid-skeleton.json'` (a `SkeletonDesc`) and
+  `'rest-pose.json'` (expected rest bone worlds). Browser-mode tests read the same files with
+  `commands.readFile('../../fixtures/synthetic/<name>')` from `vitest/browser` (paths resolve from the package root).
+  The synthetic files are generated: change `tooling/make-synthetic-fixtures.mjs` and run it, never edit the JSON.
+- **three.js in Node** (`@ekza-animator/io/testing`): `loadGltfInNode(bytes)` returns the scene, the VRM and
+  `nodeByIndex` in `SkeletonDesc` node order (`skeletonNodeOrder`: parents first, smallest glTF index first).
+- **Panel harness**: `pnpm dev`, then open `/dev/panels?panel=<id>` to mount one registered panel full-page with the
+  fake app over the wave document (`dev.state` shows what the fake app holds). E2E builds serve it too and expose the
+  fake app as `window.__EKZA_DEV_PANELS__`; production builds answer 404.
+
 ## Dependencies
 
 `package.json` files and `pnpm-lock.yaml` are owned by the integration agent (MVP-SPEC §3 convention 3). To add a

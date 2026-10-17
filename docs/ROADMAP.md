@@ -10,7 +10,7 @@ time depends on parallelism.
 | Milestone | Scope | Status | Started | Done | Notes |
 |---|---|---|---|---|---|
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
-| M0 | Scaffold, contracts, stubs, math, toolchain, test kit | In progress | 2026-10-17 | — | WP-0a done; WP-0b next |
+| M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | Planned | — | — | WP-1…WP-10 |
 | M2a | Game-clip daily driver | Planned | — | — | leg IK first |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
@@ -26,17 +26,17 @@ time depends on parallelism.
 | WP | Package(s) | Owner | Status | PR | Notes |
 |---|---|---|---|---|---|
 | WP-0a | scaffold, contracts, stubs, `anim-core/math`, toolchain, CI | Integration | Done (on `dev`) | — | build deviations: DECISIONS-OPEN §E |
-| WP-0b | shared test kit | Integration | Ready | — | unblocks UI WPs |
+| WP-0b | shared test kit | Integration | Done (on `dev`) | — | build deviations: DECISIONS-OPEN §E (B-14…) |
 | WP-1 | `anim-core` curves, reduction, shapes, AnimX goldens | A1 | Ready | — | |
 | WP-2 | `doc` + `doc-yjs` + conformance suite | A2 | Ready | — | contract checkpoint after merge |
 | WP-3 | `rig` | A3 | Ready | — | |
 | WP-4 | `io` | A4 | Ready | — | adds the meshopt fixture |
-| WP-5 | `viewport` + viewport panel | A5 | Waiting for WP-0b | — | |
-| WP-6 | Graph Editor + graph panel | A6 | Waiting for WP-0b | — | |
+| WP-5 | `viewport` + viewport panel | A5 | Ready | — | |
+| WP-6 | Graph Editor + graph panel | A6 | Ready | — | |
 | WP-6t | time slider + timeline panel | A2 | Waiting for WP-2 | — | |
 | WP-7a | `editor-core` kernel | A7 | Ready | — | |
 | WP-7b | operator catalog + workflows | A7 | Waiting for WP-7a | — | operator freeze at merge |
-| WP-8 | `editor` shell, `ui`, `apps/web` | Integration | Waiting for WP-0b | — | |
+| WP-8 | `editor` shell, `ui`, `apps/web` | Integration | Ready | — | |
 | WP-9 | data panels | A1 | Waiting for WP-1 | — | |
 | WP-10 | integration + e2e | Integration | Waiting | — | |
 
