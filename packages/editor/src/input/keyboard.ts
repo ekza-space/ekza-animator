@@ -16,7 +16,10 @@ import { isInOverlay, isTextEntry } from './focus';
 /** Tap vs hold threshold (research 09 §7.1 rule 3). */
 export const TAP_HOLD_MS = 200;
 
-/** Operators that repeat while their key is held (auto-repeat); every other binding fires once per press. */
+/**
+ * Operators that repeat while their key is held (auto-repeat); every other binding fires once per press. The keymap
+ * (WP-7a) applies the same rule to `KeyInput.repeat`; the adapter enforces it too for keymaps that do not.
+ */
 export const REPEATING_OPERATORS: ReadonlySet<string> = new Set([
   'time.step',
   'time.nextKey',
@@ -138,11 +141,19 @@ export class KeyboardAdapter {
     }
 
     const chain = this.#deps.scopeChain();
-    const binding = this.#deps.keymap.resolve(input, chain.scopes, 'press');
-    if (binding === null) return false;
+    // A held chord is still bound when the keymap refuses its repeats: its browser default (Mod+S "Save page",
+    // Mod+O "Open file") must stay suppressed on every repeat.
+    const bound = event.repeat
+      ? this.#deps.keymap.resolve({ ...input, repeat: false }, chain.scopes, 'press')
+      : this.#deps.keymap.resolve(input, chain.scopes, 'press');
+    if (bound === null) return false;
     event.preventDefault();
-    if (event.repeat && !REPEATING_OPERATORS.has(binding.op)) return true;
-    this.#dispatch(binding, chain, 'press');
+    if (event.repeat) {
+      const binding = this.#deps.keymap.resolve(input, chain.scopes, 'press');
+      if (binding !== null && REPEATING_OPERATORS.has(binding.op)) this.#dispatch(binding, chain, 'press');
+      return true;
+    }
+    this.#dispatch(bound, chain, 'press');
     return true;
   }
 

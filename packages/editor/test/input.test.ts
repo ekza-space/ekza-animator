@@ -179,6 +179,34 @@ describe('KeyboardAdapter', () => {
     expect(s.dispatched).toEqual([]);
   });
 
+  it('keeps suppressing the browser default of a held chord whose repeats the keymap refuses (Mod+S)', () => {
+    const app = createFakeEditorApp();
+    app.contribute({ kind: 'keymap', bindings: BINDINGS });
+    // The production keymap (WP-7a) resolves an auto-repeated keydown only for repeatable operators.
+    const keymap: KeymapManager = {
+      ...app.keymap,
+      resolve: (input, scopes, trigger) => {
+        const binding = app.keymap.resolve(input, scopes, trigger);
+        return input.repeat && binding !== null && binding.op !== 'time.step' ? null : binding;
+      },
+    };
+    const dispatched: KeyDispatch[] = [];
+    const adapter = new KeyboardAdapter({
+      keymap,
+      scopeChain: () => ({ scopes: [GLOBAL_SCOPE], panel: null, paneId: null }),
+      blocked: () => false,
+      spaceBehaviour: () => 'maya',
+      dispatch: (d) => dispatched.push(d),
+    });
+    const first = key('keydown', { code: 'KeyS', key: 's', ctrlKey: true });
+    const held = key('keydown', { code: 'KeyS', key: 's', ctrlKey: true, repeat: true });
+    expect(adapter.keyDown(first)).toBe(true);
+    expect(adapter.keyDown(held)).toBe(true);
+    expect(held.defaultPrevented).toBe(true);
+    adapter.keyDown(key('keydown', { code: 'Period', key: '.', altKey: true, repeat: true }));
+    expect(dispatched.map((d) => d.op)).toEqual(['file.save', 'time.step']);
+  });
+
   it('fires auto-repeat only for stepping commands', () => {
     const s = setup();
     s.adapter.keyDown(key('keydown', { code: 'KeyK', key: 'K', shiftKey: true }));
