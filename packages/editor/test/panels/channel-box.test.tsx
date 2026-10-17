@@ -1,6 +1,6 @@
 import { DEG2RAD } from '@ekza-animator/anim-core';
 import { type ChannelState, beginChannelEditGesture, type EditorApp } from '@ekza-animator/editor-core';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';
@@ -199,9 +199,40 @@ describe('Channel Box numeric entry (FR-CB-03, US-11)', () => {
     await user.keyboard('{Enter}');
     expect(field('rz').dataset.invalid).toBe('true');
     expect(field('rz').title).toContain('not a number');
+    expect(by('cb-field-rz-message').textContent).toBe("'abc' is not a number or expression");
+    // The draft is shown on a neutral field, not on the keyed red.
+    expect(field('rz').style.background).toBe('');
     await user.keyboard('{Escape}');
     expect(field('rz').value).toBe('30.000');
+    expect(field('rz').style.background).toContain('--cb-keyed-on');
+    expect(maybe('cb-field-rz-message')).toBeNull();
     expect(callsOf(app, 'channel.setValues')).toEqual([]);
+    await view.unmount();
+  });
+
+  it('a locked channel rejects typing and nudges with one toast per focus (FR-CB-04)', async () => {
+    const app = waveApp();
+    await transact(app, (tx) =>
+      tx.patch('controls', LOWER_ARM_L, {
+        locked: { t: [false, false, false], r: [true, false, false], s: [false, false, false] },
+      }),
+    );
+    const view = await panel(app);
+    await select(app, [LOWER_ARM_L]);
+    await user.click(field('rx'));
+    await user.keyboard('45{ArrowUp}');
+    expect(field('rx').value).toBe('0.000');
+    const lockToasts = () => (app.services as FakeServices).toasts.filter((t) => t.text.includes('locked'));
+    expect(lockToasts()).toEqual([
+      { kind: 'warning', text: 'Rotate X is locked. Unlock it from the right-click menu to edit it.' },
+    ]);
+    await user.keyboard('{Enter}');
+    expect(callsOf(app, 'channel.setValues')).toEqual([]);
+    // An unlocked field takes the same keys as usual and toasts nothing.
+    await user.fill(field('ry'), '5');
+    await user.keyboard('{Enter}');
+    expect(callsOf(app, 'channel.setValues')).toHaveLength(1);
+    expect(lockToasts()).toHaveLength(1);
     await view.unmount();
   });
 

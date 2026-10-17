@@ -1,17 +1,24 @@
 // Numeric entry of the data panels (research 09 §6.4): a text input that shows a live value, accepts expressions
-// while focused, commits on Enter/Tab/blur and reverts on Esc. Invalid input keeps the old value and shows a red
-// border with the reason as a tooltip.
+// while focused, commits on Enter/Tab/blur and reverts on Esc. Invalid input keeps the draft, a red border and a
+// message under the field with the reason. While the user types, the field drops its state colours (`style`), as
+// Maya's edit field does, so the draft stays legible on a keyed (red) or changed (pink) field.
 import {
   type CSSProperties,
   type JSX,
   type KeyboardEvent,
   type MouseEvent,
   useCallback,
+  useId,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
 import { formatFixed, parseNumericInput } from './kernel';
+import { FieldMessage } from './message';
 import { INPUT, INVALID } from './styles';
+
+/** Keys that start or extend a typed value (a read-only field reports them through `onRejectedEdit`). */
+const VALUE_KEY = /^[0-9.,+\-*/=]$/;
 
 export interface NudgeModifiers {
   readonly shift: boolean;
@@ -34,6 +41,11 @@ export interface ExpressionFieldProps {
   readonly onNudgeEnd?: ((cancel: boolean) => void) | undefined;
   /** Tab / Shift+Tab after a successful commit; without it the browser moves focus. */
   readonly onTab?: ((backwards: boolean) => void) | undefined;
+  /**
+   * A read-only field got a value key (digit, sign, operator) or ↑/↓: the caller explains why it cannot be edited
+   * (a locked channel). Called once per focus.
+   */
+  readonly onRejectedEdit?: (() => void) | undefined;
   readonly onContextMenu?: ((event: MouseEvent<HTMLInputElement>) => void) | undefined;
   readonly className?: string | undefined;
   readonly style?: CSSProperties | undefined;
@@ -51,6 +63,7 @@ export function ExpressionField(props: ExpressionFieldProps): JSX.Element {
     onNudge,
     onNudgeEnd,
     onTab,
+    onRejectedEdit,
     readOnly = false,
     disabled = false,
     bindInput,
@@ -69,6 +82,21 @@ export function ExpressionField(props: ExpressionFieldProps): JSX.Element {
   const settled = useRef(false);
   /** A pointer focus selects the text; the following mouseup must not collapse that selection. */
   const keepSelection = useRef(false);
+  /** `onRejectedEdit` already ran during this focus. */
+  const rejected = useRef(false);
+  const messageId = useId();
+
+  // A stable callback ref: the element is state (the message anchors to it) and `bindInput` may change identity on
+  // every render of the caller.
+  const [element, setElement] = useState<HTMLInputElement | null>(null);
+  const bindRef = useRef(bindInput);
+  useLayoutEffect(() => {
+    bindRef.current = bindInput;
+  });
+  const setInput = useCallback((input: HTMLInputElement | null) => {
+    setElement(input);
+    bindRef.current?.(input);
+  }, []);
 
   const reset = useCallback(() => {
     setDraft(null);
@@ -92,6 +120,22 @@ export function ExpressionField(props: ExpressionFieldProps): JSX.Element {
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     const input = event.currentTarget;
+    if (
+      readOnly &&
+      !disabled &&
+      onRejectedEdit !== undefined &&
+      !event.metaKey &&
+      !event.ctrlKey &&
+      !event.altKey &&
+      (VALUE_KEY.test(event.key) || event.key === 'ArrowUp' || event.key === 'ArrowDown')
+    ) {
+      event.preventDefault();
+      if (!rejected.current) {
+        rejected.current = true;
+        onRejectedEdit();
+      }
+      return;
+    }
     switch (event.key) {
       case 'Enter': {
         event.preventDefault();
@@ -145,6 +189,7 @@ export function ExpressionField(props: ExpressionFieldProps): JSX.Element {
   };
 
   const onBlur = (): void => {
+    rejected.current = false;
     onNudgeEnd?.(false);
     if (settled.current) {
       settled.current = false;
@@ -155,44 +200,58 @@ export function ExpressionField(props: ExpressionFieldProps): JSX.Element {
   };
 
   const invalid = error !== null;
+  const drafting = draft !== null;
   return (
-    <input
-      ref={bindInput}
-      id={id}
-      type="text"
-      inputMode="decimal"
-      autoComplete="off"
-      spellCheck={false}
-      value={draft ?? text}
-      placeholder={placeholder}
-      readOnly={readOnly}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      aria-invalid={invalid}
-      aria-readonly={readOnly}
-      title={error ?? title}
-      data-testid={testId}
-      data-invalid={invalid ? 'true' : undefined}
-      className={`${INPUT} ${invalid ? INVALID : ''} ${className}`}
-      style={style}
-      onChange={(event) => {
-        setDraft(event.currentTarget.value);
-        setError(null);
-      }}
-      onFocus={(event) => {
-        event.currentTarget.select();
-        keepSelection.current = true;
-      }}
-      onMouseUp={(event) => {
-        if (!keepSelection.current) return;
-        keepSelection.current = false;
-        event.preventDefault();
-      }}
-      onKeyDown={onKeyDown}
-      onKeyUp={onKeyUp}
-      onBlur={onBlur}
-      onContextMenu={onContextMenu}
-    />
+    <>
+      <input
+        ref={setInput}
+        id={id}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        spellCheck={false}
+        value={draft ?? text}
+        placeholder={placeholder}
+        readOnly={readOnly}
+        disabled={disabled}
+        aria-label={ariaLabel}
+        aria-invalid={invalid}
+        aria-readonly={readOnly}
+        aria-describedby={invalid ? messageId : undefined}
+        title={error ?? title}
+        data-testid={testId}
+        data-invalid={invalid ? 'true' : undefined}
+        data-drafting={drafting ? 'true' : undefined}
+        className={`${INPUT} ${invalid ? INVALID : ''} ${className}`}
+        style={drafting ? undefined : style}
+        onChange={(event) => {
+          setDraft(event.currentTarget.value);
+          setError(null);
+        }}
+        onFocus={(event) => {
+          rejected.current = false;
+          event.currentTarget.select();
+          keepSelection.current = true;
+        }}
+        onMouseUp={(event) => {
+          if (!keepSelection.current) return;
+          keepSelection.current = false;
+          event.preventDefault();
+        }}
+        onKeyDown={onKeyDown}
+        onKeyUp={onKeyUp}
+        onBlur={onBlur}
+        onContextMenu={onContextMenu}
+      />
+      {invalid ? (
+        <FieldMessage
+          anchor={element}
+          id={messageId}
+          text={error}
+          testId={testId === undefined ? undefined : `${testId}-message`}
+        />
+      ) : null}
+    </>
   );
 }
 

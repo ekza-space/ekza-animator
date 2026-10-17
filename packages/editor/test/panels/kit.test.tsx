@@ -1,6 +1,6 @@
 import { EkzaError } from '@ekza-animator/anim-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type JSX, useState } from 'react';
+import { act, type JSX, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ExpressionField, NumberField } from '../../src/panels/channel-box/kit/fields';
 import {
@@ -182,6 +182,88 @@ describe('ExpressionField', () => {
     await user.keyboard('{Tab}');
     expect(commits).toEqual(['7']);
     expect(onTab).toHaveBeenCalledWith(false);
+    await view.unmount();
+  });
+
+  it('shows the reason of a rejected draft in a message under the field, described by it', async () => {
+    const view = await render(<Harness onCommit={() => "'abc' is not a number or expression"} />);
+    const field = input('field');
+    expect(maybe('field-message')).toBeNull();
+    await user.fill(field, 'abc');
+    await user.keyboard('{Enter}');
+    const message = by('field-message');
+    expect(message.textContent).toBe("'abc' is not a number or expression");
+    expect(message.getAttribute('role')).toBe('alert');
+    expect(field.getAttribute('aria-describedby')).toBe(message.id);
+    await act(async () => {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+    });
+    const below = field.getBoundingClientRect();
+    const at = message.getBoundingClientRect();
+    expect(message.style.visibility).toBe('visible');
+    expect(at.top).toBeGreaterThanOrEqual(below.bottom);
+    expect(at.top - below.bottom).toBeLessThan(8);
+    // Typing again clears the reason; leaving the field drops the draft and the message.
+    await user.fill(field, 'ab');
+    expect(maybe('field-message')).toBeNull();
+    expect(field.hasAttribute('aria-describedby')).toBe(false);
+    await view.unmount();
+  });
+
+  it('drops the state colours while a draft is typed and restores them after', async () => {
+    const view = await render(
+      <ExpressionField
+        text="1.000"
+        ariaLabel="value"
+        testId="field"
+        style={{ background: 'rgb(200, 50, 60)' }}
+        onCommit={() => null}
+      />,
+    );
+    const field = input('field');
+    expect(field.style.background).toBe('rgb(200, 50, 60)');
+    await user.click(field);
+    expect(field.style.background).toBe('rgb(200, 50, 60)'); // focus alone keeps the state visible
+    await user.fill(field, '2');
+    expect(field.dataset.drafting).toBe('true');
+    expect(field.style.background).toBe('');
+    await user.keyboard('{Escape}');
+    expect(field.style.background).toBe('rgb(200, 50, 60)');
+    await view.unmount();
+  });
+
+  it('a read-only field reports value keys and nudges once per focus, and ignores other keys', async () => {
+    const rejected = vi.fn<() => void>();
+    const nudges = vi.fn<(direction: 1 | -1) => void>();
+    const view = await render(
+      <>
+        <ExpressionField
+          text="5.000"
+          ariaLabel="locked value"
+          testId="field"
+          readOnly
+          onCommit={() => null}
+          onNudge={nudges}
+          onRejectedEdit={rejected}
+        />
+        <button type="button" data-testid="elsewhere">
+          elsewhere
+        </button>
+      </>,
+    );
+    const field = input('field');
+    await user.click(field);
+    await user.keyboard('a{Shift>}{/Shift}');
+    expect(rejected).not.toHaveBeenCalled();
+    await user.keyboard('4');
+    await user.keyboard('5{ArrowUp}');
+    expect(rejected).toHaveBeenCalledTimes(1);
+    expect(nudges).not.toHaveBeenCalled();
+    expect(field.value).toBe('5.000');
+    await user.click(by('elsewhere'));
+    await user.click(field);
+    await user.keyboard('{ArrowDown}');
+    expect(rejected).toHaveBeenCalledTimes(2);
     await view.unmount();
   });
 });

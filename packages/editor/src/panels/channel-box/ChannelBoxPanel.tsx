@@ -171,6 +171,13 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
     nudge.press(scope, direction * nudgeStep(channel, modifiers), label);
   });
   const onNudgeEnd = useStableCallback((cancel: boolean) => nudge.end(cancel));
+  /** FR-CB-04: a locked channel rejects edits with a toast (its field is read-only). */
+  const onLockedEdit = useStableCallback((channel: TrsChannel): void => {
+    app.services.notify.toast({
+      kind: 'warning',
+      text: `${CHANNEL_LABEL[channel]} is locked. Unlock it from the right-click menu to edit it.`,
+    });
+  });
 
   // ---------- focus order (Tab / Shift+Tab cycle through the editable fields) ----------
   const fields = useRef(new Map<TrsChannel, HTMLInputElement>());
@@ -319,6 +326,7 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
                   onNudge={onNudge}
                   onNudgeEnd={onNudgeEnd}
                   onTab={onTab}
+                  onLockedEdit={onLockedEdit}
                   onNamePointerDown={onNamePointerDown}
                   onNamePointerEnter={onNamePointerEnter}
                   onMenu={onMenu}
@@ -343,6 +351,7 @@ interface ChannelRowProps {
   readonly onNudge: (channel: TrsChannel, direction: 1 | -1, modifiers: NudgeModifiers) => void;
   readonly onNudgeEnd: (cancel: boolean) => void;
   readonly onTab: (channel: TrsChannel, backwards: boolean) => void;
+  readonly onLockedEdit: (channel: TrsChannel) => void;
   readonly onNamePointerDown: (channel: TrsChannel, event: PointerEvent<HTMLElement>) => void;
   readonly onNamePointerEnter: (channel: TrsChannel, event: PointerEvent<HTMLElement>) => void;
   readonly onMenu: (channel: TrsChannel, event: MouseEvent) => void;
@@ -396,6 +405,7 @@ const ChannelRow = memo(function ChannelRow(props: ChannelRowProps): JSX.Element
           onNudge={(direction, modifiers) => props.onNudge(channel, direction, modifiers)}
           onNudgeEnd={props.onNudgeEnd}
           onTab={(backwards) => props.onTab(channel, backwards)}
+          onRejectedEdit={locked ? () => props.onLockedEdit(channel) : undefined}
         />
       </td>
     </tr>

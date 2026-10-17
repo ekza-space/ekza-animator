@@ -1,8 +1,9 @@
-// Inline clip rename (Clips panel and Outliner, FR-OUT-04): validates while typing, Enter or blur commits through
-// `clip.rename`, Esc cancels.
+// Inline clip rename (Clips panel, Outliner, Attributes; FR-OUT-04, FR-CLIP-02): validates while typing and shows
+// the reason under the field, Enter or blur commits through `clip.rename`, Esc cancels.
 import type { ClipRecord } from '@ekza-animator/doc';
 import type { EditorApp, PanelKind } from '@ekza-animator/editor-core';
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useEffect, useId, useRef, useState } from 'react';
+import { FieldMessage } from '../channel-box/kit/message';
 import { runOperator } from '../channel-box/kit/run';
 import { INPUT, INVALID } from '../channel-box/kit/styles';
 import { validateClipName } from './settings';
@@ -19,13 +20,14 @@ export interface ClipNameInputProps {
 export function ClipNameInput(props: ClipNameInputProps): JSX.Element {
   const { app, panel, clip, onDone } = props;
   const [text, setText] = useState(clip.name);
-  const ref = useRef<HTMLInputElement>(null);
+  const [element, setElement] = useState<HTMLInputElement | null>(null);
   const done = useRef(false);
+  const messageId = useId();
 
   useEffect(() => {
-    ref.current?.focus();
-    ref.current?.select();
-  }, []);
+    element?.focus();
+    element?.select();
+  }, [element]);
 
   const otherNames = (): string[] =>
     app.store.query
@@ -44,33 +46,39 @@ export function ClipNameInput(props: ClipNameInputProps): JSX.Element {
   };
 
   return (
-    <input
-      ref={ref}
-      type="text"
-      value={text}
-      maxLength={256}
-      spellCheck={false}
-      autoComplete="off"
-      aria-label={`Rename clip ${clip.name}`}
-      aria-invalid={error !== null}
-      title={error ?? undefined}
-      data-testid="clips-rename-input"
-      data-invalid={error !== null ? 'true' : undefined}
-      className={`${INPUT} w-full ${error !== null ? INVALID : ''} ${props.className ?? ''}`}
-      onChange={(event) => setText(event.currentTarget.value)}
-      onClick={(event) => event.stopPropagation()}
-      onDoubleClick={(event) => event.stopPropagation()}
-      onKeyDown={(event) => {
-        event.stopPropagation();
-        if (event.key === 'Enter') {
-          event.preventDefault();
-          finish(true);
-        } else if (event.key === 'Escape') {
-          event.preventDefault();
-          finish(false);
-        }
-      }}
-      onBlur={() => finish(error === null)}
-    />
+    <>
+      <input
+        ref={setElement}
+        type="text"
+        value={text}
+        maxLength={256}
+        spellCheck={false}
+        autoComplete="off"
+        aria-label={`Rename clip ${clip.name}`}
+        aria-invalid={error !== null}
+        aria-describedby={error === null ? undefined : messageId}
+        title={error ?? undefined}
+        data-testid="clips-rename-input"
+        data-invalid={error !== null ? 'true' : undefined}
+        className={`${INPUT} w-full ${error !== null ? INVALID : ''} ${props.className ?? ''}`}
+        onChange={(event) => setText(event.currentTarget.value)}
+        onClick={(event) => event.stopPropagation()}
+        onDoubleClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === 'Enter') {
+            event.preventDefault();
+            finish(true);
+          } else if (event.key === 'Escape') {
+            event.preventDefault();
+            finish(false);
+          }
+        }}
+        onBlur={() => finish(error === null)}
+      />
+      {error === null ? null : (
+        <FieldMessage anchor={element} id={messageId} text={error} testId="clips-rename-message" />
+      )}
+    </>
   );
 }
