@@ -22,21 +22,24 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
 
 ## Test status and gating
 
-- `packages/rig`: 104 tests pass. Two are skipped until WP-1 lands (they probe for the anim-core stub and turn on
+- `packages/rig`: 106 tests pass. Two are skipped until WP-1 lands (they probe for the anim-core stub and turn on
   by themselves): import reduction (`reduceKeys`) and rotate-order conversion of unsynchronized curves
   (`curveEngine`).
 - `packages/headless-tests/test/rig.definition.test.ts`, `rig.sampler.test.ts`: run now against the shared test
   kit (`createNaiveStore`, `naiveCurveEngine`), convention 12.
 - `packages/headless-tests/test/rig.fixtures.test.ts` (zero pose on the three fixtures, three-vrm parity with the
-  vrm0 mapping, Seed-san secondary filtering, generic rig on UAL, UAL `Idle_Loop` import vs three's
-  `GLTFLoader`, UAL reduction, Polybot Plant Feet, Seed-san bench): `describe.skipIf` on a probe of WP-4's
+  vrm0 mapping, facing check, FR-RIG-01 pelvis/spine independence, FR-RIG-06 same `humanLocal` on Polybot and
+  Seed-san, Seed-san secondary filtering, generic rig on UAL, UAL `Idle_Loop` import vs three's `GLTFLoader`, UAL
+  reduction at every key time and integer frame, Polybot Plant Feet, Seed-san bench): `describe.skipIf` on a probe of WP-4's
   `parseGlb`/`skeletonFromGltf`/`readAnimations` stubs (vitest has no `test.fixme`; the probe flips the gate when
   WP-4 merges, MVP-SPEC §8.1 step 4). The reduction gate also probes WP-1's `reduceKeys` and `curveEngine`.
 - **Pre-merge evidence for the fixture gates.** Before WP-4 exists, the same assertions were run with a throwaway
   `SkeletonDesc`/animation extractor written in the test (built on `readGlbJson`/`skeletonNodeOrder` from
   `io/testing`; not committed, because it would be a private stand-in for WP-4's readers). Result on this branch:
   all gates pass — zero pose ≤ 1e-9 on Seed-san, Polybot and UAL; three-vrm parity ≤ 1e-6 on Seed-san and
-  Polybot; secondary filtering on Seed-san; generic 1:1 rig on UAL; UAL `Idle_Loop` at 24 fps on frames 0…60
+  Polybot; facing (horizontal ≥ 0.999 on both VRMs, see request 5); Seed-san 92 controls with the spine world
+  unchanged by `fk.hips`; Polybot vs Seed-san `humanLocal` ≤ 1e-6; secondary filtering on Seed-san; generic 1:1
+  rig on UAL; UAL `Idle_Loop` at 24 fps on frames 0…60
   within 1e-5 rad / 1e-5 m of three's `AnimationMixer`; Polybot feet back on their pins within 1e-4; **Seed-san
   evaluate 0.030 ms/pose** (92 controls, 147 nodes; budget 0.5 ms). Only the reduction gate (needs WP-1) was not
   exercised.
