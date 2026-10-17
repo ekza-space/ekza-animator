@@ -1,6 +1,6 @@
 // Clip operators (MVP-SPEC §4.9 `clip.*`): several named clips per character. New clips and duplicates get their
 // IDs in `prepare`, where their partition (`clip:<id>`) is opened before the transaction writes into it (§4.11.21).
-import { EkzaError, type Fps, type Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type {
   CharacterId,
   ClipId,
@@ -27,6 +27,7 @@ import {
 } from '../../workflows/names';
 import { DEFAULT_CLIP_RANGE, orderAfter, orderBetween } from '../../workflows/records';
 import { activateClip, clipFrameOfScene, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
+import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
 import { pollEditable } from './polls';
@@ -303,19 +304,33 @@ const clipSetActive = defineOperator({
 
 // ---------- settings ----------
 
-function derivedFromProblem(value: unknown): string | null {
+function derivedFromListProblem(value: unknown): string | null {
   if (!Array.isArray(value)) return 'provenance.derivedFrom must be a list';
   for (const entry of value as readonly unknown[]) {
-    if (!isRecord(entry)) return 'provenance sources are { title, author, license, sourceSha256 }';
-    const { title, author, license, sourceSha256 } = entry;
-    if (typeof title !== 'string' || typeof author !== 'string' || typeof license !== 'string') {
-      return 'provenance sources need a title, author and licence';
-    }
-    if (sourceSha256 !== null && (typeof sourceSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sourceSha256))) {
-      return 'sourceSha256 is a lowercase SHA-256 or null';
-    }
+    const problem = derivedFromProblem(entry);
+    if (problem !== null) return problem;
   }
   return null;
+}
+
+/** The keep-seconds rescale ratio of a frame-rate change (null: no rescale). */
+function rescaleRatio(clip: ClipRecord, args: Pick<ClipSettingsArgs, 'fps' | 'fpsMode'>): number | null {
+  if (args.fps === undefined || sameFps(args.fps, clip.fps) || (args.fpsMode ?? 'keep-seconds') !== 'keep-seconds') {
+    return null;
+  }
+  return fpsValue(args.fps) / fpsValue(clip.fps);
+}
+
+/** The clip range after the settings: the given range, else the current one rescaled by a keep-seconds fps change. */
+function finalRange(
+  clip: ClipRecord,
+  args: Pick<ClipSettingsArgs, 'fps' | 'fpsMode' | 'range'>,
+): { readonly start: Frame; readonly end: Frame } {
+  if (args.range !== undefined) return args.range;
+  const ratio = rescaleRatio(clip, args);
+  if (ratio === null) return clip.range;
+  const start = Math.round(clip.range.start * ratio);
+  return { start, end: Math.max(start + 1, Math.round(clip.range.end * ratio)) };
 }
 
 /** Why the settings cannot apply to `clip`, or null (shape and value rules, §4.2 `ClipRecord`, ADR 0010). */
@@ -346,14 +361,14 @@ export function settingsProblem(clip: ClipRecord, args: Readonly<Record<string, 
   }
   if (args['contact'] !== undefined && args['contact'] !== null) {
     if (!isFiniteNumber(args['contact'])) return 'contact must be a frame or null';
-    const range = (args['range'] as ClipRecord['range'] | undefined) ?? clip.range;
+    const range = finalRange(clip, args);
     if (args['contact'] < range.start || args['contact'] > range.end) return 'contact must lie inside the clip range';
   }
   const provenance = args['provenance'];
   if (provenance !== undefined) {
     if (!isRecord(provenance)) return 'provenance is { derivedFrom?, redistributable? }';
     if (provenance['derivedFrom'] !== undefined) {
-      const problem = derivedFromProblem(provenance['derivedFrom']);
+      const problem = derivedFromListProblem(provenance['derivedFrom']);
       if (problem !== null) return problem;
     }
     const redistributable = provenance['redistributable'];
@@ -364,14 +379,15 @@ export function settingsProblem(clip: ClipRecord, args: Readonly<Record<string, 
   return null;
 }
 
-function fpsEqual(a: Fps, b: Fps): boolean {
-  return a.num * b.den === b.num * a.den;
-}
-
-/** Rescales every key of a clip by `ratio` (times and handle `dt`, so slopes per second are kept). */
+/**
+ * Rescales every key of a clip by `ratio` (times and handle `dt`, so slopes per second are kept): the keys of each
+ * canonical curve, duplicates' keys included (`keysOfCurve` unions them, `hiddenKeys` has the time collisions).
+ */
 function rescaleKeys(tx: Tx, clip: ClipId, ratio: number): void {
-  for (const key of tx.list('keys')) {
-    if (key.clip !== clip) continue;
+  const keys = tx.query
+    .curvesOfClip(clip)
+    .flatMap((curve) => [...tx.query.keysOfCurve(curve.id), ...tx.query.hiddenKeys(curve.id)]);
+  for (const key of keys) {
     tx.put('keys', {
       ...key,
       t: key.t * ratio,
@@ -407,19 +423,16 @@ const clipSetSettings = defineOperator({
     const clip = tx.get('clips', args.clip);
     if (clip === undefined) throw new EkzaError('invalid-record', `Clip ${args.clip} does not exist`);
     const patch: { -readonly [K in keyof ClipRecord]?: ClipRecord[K] } = {};
-    let range = clip.range;
+    const range = finalRange(clip, args);
     let contact = clip.contact;
-    if (args.fps !== undefined && !fpsEqual(args.fps, clip.fps)) {
+    if (args.fps !== undefined && !sameFps(args.fps, clip.fps)) {
       patch.fps = args.fps;
-      if ((args.fpsMode ?? 'keep-seconds') === 'keep-seconds') {
-        const ratio = args.fps.num / args.fps.den / (clip.fps.num / clip.fps.den);
+      const ratio = rescaleRatio(clip, args);
+      if (ratio !== null) {
         rescaleKeys(tx, clip.id, ratio);
-        const start = Math.round(range.start * ratio);
-        range = { start, end: Math.max(start + 1, Math.round(range.end * ratio)) };
         if (contact !== null) contact = Math.round(contact * ratio);
       }
     }
-    if (args.range !== undefined) range = args.range;
     if (args.contact !== undefined) contact = args.contact;
     if (contact !== null) contact = Math.min(Math.max(contact, range.start), range.end);
     if (range.start !== clip.range.start || range.end !== clip.range.end) patch.range = range;

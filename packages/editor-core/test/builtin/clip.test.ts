@@ -152,6 +152,14 @@ describe.skipIf(!READY.wp2)('clip.setSettings [needs WP-2 fractionalIndex]', () 
     expect(app.history.peekUndo()?.label).toBe('Clip Settings');
   });
 
+  it('checks a contact frame against the rescaled range', async () => {
+    const app = opsApp();
+    await runOk(app, 'clip.setSettings', { clip: WAVE.clip, fps: { num: 60, den: 1 }, contact: 50 });
+    expect(clip(app, WAVE.clip)).toMatchObject({ range: { start: 0, end: 60 }, contact: 50 });
+    const result = await runResult(app, 'clip.setSettings', { clip: WAVE.clip, fps: { num: 30, den: 1 }, contact: 50 });
+    expect(result.status).toBe('cancelled');
+  });
+
   it('keep-frames changes only the rate', async () => {
     const app = opsApp();
     await runOk(app, 'clip.setSettings', { clip: WAVE.clip, fps: { num: 60, den: 1 }, fpsMode: 'keep-frames' });

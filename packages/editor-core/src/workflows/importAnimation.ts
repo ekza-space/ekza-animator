@@ -18,7 +18,6 @@ import {
   importHumanoidClip,
   importRawClip,
   isHumanoidProgram,
-  type RawClip,
   remapRawClipByName,
 } from '@ekza-animator/rig';
 import { newRecordId } from '../app/internals';
@@ -31,6 +30,7 @@ import { baseName, sanitizeClipName, uniqueName } from './names';
 import { clipProvenance, embeddedEkzaProvenance, sourceProvenance } from './provenance';
 import { orderAfter } from './records';
 import { activateClip, sceneFpsIn } from './session';
+import { maxChannelKeys } from './util';
 
 /** Frame rate of a VRMA whose sample times fit no standard rate (§4.11.7). */
 const VRMA_DEFAULT_FPS: Fps = { num: 30, den: 1 };
@@ -70,8 +70,22 @@ function requireRuntime(app: EditorApp, character: CharacterId, humanoid: boolea
   return runtime;
 }
 
-/** True for a GLB that carries animations but no skin (an animation-only file, not a character). */
+const sniffed = new WeakMap<Uint8Array, boolean>();
+
+/**
+ * True for a GLB that carries animations but no skin (an animation-only file, not a character). Cached per byte
+ * array: importer resolution runs in every poll of `file.open`.
+ */
 export function isAnimationOnlyGlb(bytes: Uint8Array): boolean {
+  let result = sniffed.get(bytes);
+  if (result === undefined) {
+    result = sniffAnimationOnly(bytes);
+    sniffed.set(bytes, result);
+  }
+  return result;
+}
+
+function sniffAnimationOnly(bytes: Uint8Array): boolean {
   if (bytes.byteLength < 20) return false;
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   if (view.getUint32(0, true) !== 0x46546c67 || view.getUint32(16, true) !== 0x4e4f534a) return false;
@@ -91,12 +105,6 @@ export function isAnimationOnlyGlb(bytes: Uint8Array): boolean {
 function maxKeys(data: HumanoidClipData): number {
   let max = data.hips?.times.length ?? 0;
   for (const track of Object.values(data.rotations)) if (track !== undefined) max = Math.max(max, track.times.length);
-  return max;
-}
-
-function maxRawKeys(raw: RawClip): number {
-  let max = 0;
-  for (const channel of raw.channels) max = Math.max(max, channel.times.length);
   return max;
 }
 
@@ -207,7 +215,7 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
       reduce: options.reduce,
       reducePref: app.prefs.getState().reduceOnImport,
       defaultReduce: DEFAULT_REDUCE,
-      maxChannelKeys: maxRawKeys(remapped),
+      maxChannelKeys: maxChannelKeys(remapped),
       duration: remapped.duration,
     });
     warnings.push(...resolved.warnings);
@@ -231,6 +239,10 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
 
 /** Writes imported clips (unique names, after the character's clips) and makes the first one active. */
 export function applyClipImport(app: EditorApp, tx: Tx, plan: ClipImportPlan): ClipsResult {
+  // The file was read asynchronously: the character may have gone meanwhile (undo, delete).
+  if (tx.get('characters', plan.character) === undefined) {
+    throw new EkzaError('invalid-record', 'The character was removed while the file was being read');
+  }
   if (tx.get('assets', plan.asset.id) === undefined) tx.put('assets', plan.asset);
   const names = tx.query.clipsOfCharacter(plan.character).map((clip) => clip.name);
   const orders = tx.query.clipsOfCharacter(plan.character).map((clip) => clip.order);

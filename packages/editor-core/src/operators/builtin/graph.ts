@@ -34,6 +34,7 @@ import {
   selectedKeys,
   targetCurves,
 } from '../../workflows/targets';
+import { constantCurve } from '../../workflows/util';
 import type { KeyFieldsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
 import { pollClipEdit, pollEditable } from './polls';
@@ -366,22 +367,31 @@ const setFields = defineOperator({
     const relative = args.relative === true;
     const ids = selectedKeys(app, t).map((s) => s.key.id);
     const deleted: KeyId[] = [];
+    const typed = { snap: false, resolveCollisions: true } as const;
     if (args.frame !== undefined) {
-      for (const id of ids) {
-        const key = t.get('keys', id);
-        if (key === undefined) continue;
-        const dFrames = relative ? args.frame : args.frame - key.t;
-        if (dFrames !== 0)
-          deleted.push(...moveKeys(app, t, [id], dFrames, 0, { snap: false, resolveCollisions: true }).deleted);
+      if (relative) {
+        // One block move: the keys keep their spacing and never land on each other.
+        if (args.frame !== 0) deleted.push(...moveKeys(app, t, ids, args.frame, 0, typed).deleted);
+      } else {
+        for (const id of ids) {
+          const key = t.get('keys', id);
+          if (key !== undefined && key.t !== args.frame) {
+            deleted.push(...moveKeys(app, t, [id], args.frame - key.t, 0, typed).deleted);
+          }
+        }
       }
     }
     if (args.value !== undefined) {
-      for (const id of ids) {
-        const key = t.get('keys', id);
-        const curve = key === undefined ? undefined : t.get('curves', key.curve);
-        if (key === undefined || curve === undefined) continue;
-        const dValue = relative ? args.value : args.value - toDisplayValue(curve.channel, key.v);
-        if (dValue !== 0) moveKeys(app, t, [id], 0, dValue, { snap: false, resolveCollisions: true });
+      if (relative) {
+        if (args.value !== 0) moveKeys(app, t, ids, 0, args.value, typed);
+      } else {
+        for (const id of ids) {
+          const key = t.get('keys', id);
+          const curve = key === undefined ? undefined : t.get('curves', key.curve);
+          if (key === undefined || curve === undefined) continue;
+          const dValue = args.value - toDisplayValue(curve.channel, key.v);
+          if (dValue !== 0) moveKeys(app, t, [id], 0, dValue, typed);
+        }
       }
     }
     for (const side of ['in', 'out'] as const) {
@@ -556,21 +566,6 @@ const keysPaste = defineOperator({
 
 const ROTATIONS = ['rx', 'ry', 'rz'] as const;
 
-/** A curve standing for a channel without keys: one key holding its static value (anim-core contract). */
-function constantCurve(value: number): AnimCurve {
-  const key: KeyData = {
-    t: 0,
-    v: value,
-    inType: 'flat',
-    outType: 'flat',
-    inHandle: { dt: 0, dv: 0 },
-    outHandle: { dt: 0, dv: 0 },
-    broken: false,
-    weightLocked: true,
-  };
-  return { keys: [key], weighted: false, pre: 'constant', post: 'constant' };
-}
-
 const eulerFilter = defineOperator({
   id: 'graph.eulerFilter',
   label: 'Euler Filter',
@@ -591,19 +586,28 @@ const eulerFilter = defineOperator({
             .map((id: ControlId) => t.get('controls', id))
             .filter((control) => control !== undefined);
     let count = 0;
+    let skipped = 0;
     for (const control of controls) {
       const curves = ROTATIONS.map((channel) => curveOf(t, clip, control.id, channel));
       const keys = curves.map((curve) => (curve === undefined ? [] : t.query.keysOfCurve(curve.id)));
       if (keys.every((list) => list.length === 0)) continue;
+      // The filter may switch all three angles to the alternate triple together: a locked curve that cannot follow
+      // would change the rotation, so such a control is left alone.
+      if (curves.some((curve, axis) => curve?.locked === true && (keys[axis]?.length ?? 0) > 0)) {
+        skipped++;
+        continue;
+      }
+      let first = Number.POSITIVE_INFINITY;
+      for (const list of keys) for (const key of list) first = Math.min(first, key.t);
       const input = curves.map((curve, axis) => {
         const list = keys[axis] as readonly KeyRecord[];
-        if (curve === undefined || list.length === 0) return constantCurve(curve?.staticValue ?? 0);
+        if (curve === undefined || list.length === 0) return constantCurve(first, curve?.staticValue ?? 0);
         return animCurve(curve, list.map(keyDataOf));
       }) as [AnimCurve, AnimCurve, AnimCurve];
       const filtered = eulerFilterCurves(input, control.rotateOrder);
       curves.forEach((curve, axis) => {
         const list = keys[axis] as readonly KeyRecord[];
-        if (curve === undefined || curve.locked || list.length === 0) return;
+        if (curve === undefined || list.length === 0) return;
         const out = filtered[axis] as KeyData[];
         list.forEach((key, i) => {
           const data = out[i];
@@ -613,6 +617,12 @@ const eulerFilter = defineOperator({
           t.put('keys', keyRecord(key.id, key.clip, key.curve, data));
           count++;
         });
+      });
+    }
+    if (skipped > 0) {
+      app.services.notify.toast({
+        kind: 'warning',
+        text: `${skipped} control(s) with locked rotation curves were not filtered`,
       });
     }
     return { count };

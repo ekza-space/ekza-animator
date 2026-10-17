@@ -372,6 +372,22 @@ describe.skipIf(!READY.wp1)('graph.keys.setFields [needs WP-1 tangentFields]', (
     expect(slope).toBeCloseTo(Math.tan(30 * DEG) / (30 * RAD2DEG), 12);
   });
 
+  it('moves neighbouring keys by a relative frame as one block (no key lands on another)', async () => {
+    const app = opsApp();
+    const ids = setKeys(app, WAVE.curve, [
+      { t: 10, v: 0 },
+      { t: 11, v: 1 },
+      { t: 20, v: 0 },
+    ]);
+    await selectKeys(app, [ids[0] as KeyId, ids[1] as KeyId]);
+    await runOk(app, 'graph.keys.setFields', { frame: 1, relative: true });
+    expect(keys(app).map((k) => [k.t, k.v])).toEqual([
+      [11, 0],
+      [12, 1],
+      [20, 0],
+    ]);
+  });
+
   it('applies relative edits and weights only on weighted curves', async () => {
     const app = opsApp();
     await selectKeys(app, [K(0), K(2)]);
@@ -401,6 +417,19 @@ describe.skipIf(!READY.wp1)('graph.eulerFilter / graph.curves.simplify [needs WP
     const { value } = await expectUndoRedoExact(app, 'graph.eulerFilter');
     expect(value).toEqual({ count: 1 });
     expect(keys(app).map((k) => k.v)).toEqual([0.1, expect.closeTo(0.2, 9), 0.3]);
+  });
+
+  it('leaves controls with a locked rotation curve alone', async () => {
+    const { app, services } = opsAppWith();
+    setKeys(app, WAVE.curve, [
+      { t: 0, v: 0.1 },
+      { t: 10, v: 0.2 + 2 * Math.PI },
+    ]);
+    app.store.transact({ label: 'lock' }, (tx) => tx.patch('curves', WAVE.curve, { locked: true }));
+    const before = docJson(app);
+    expect(await runOk(app, 'graph.eulerFilter')).toEqual({ count: 0 });
+    expect(docJson(app)).toEqual(before);
+    expect(services.toasts.at(-1)?.text).toMatch(/locked rotation curves/);
   });
 
   it('reduces dense curves within the tolerance', async () => {

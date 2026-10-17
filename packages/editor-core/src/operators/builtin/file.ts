@@ -279,7 +279,6 @@ const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
     let warnings = 0;
     for (const artifact of artifacts) {
       const errors = blockingLints(artifact);
-      warnings += artifact.lints.filter((lint) => lint.severity === 'warning').length;
       if (errors.length > 0) {
         blocked++;
         app.services.notify.toast({
@@ -289,10 +288,12 @@ const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
         continue;
       }
       app.services.files.download(artifact.fileName, artifact.bytes, artifact.mime);
+      warnings += artifact.lints.filter((lint) => lint.severity === 'warning').length;
     }
     const saved = artifacts.length - blocked;
     if (saved > 0) {
-      const names = artifacts.length === 1 ? (artifacts[0]?.fileName ?? '') : `${saved} files`;
+      const names =
+        saved === 1 ? (artifacts.find((a) => blockingLints(a).length === 0)?.fileName ?? '') : `${saved} files`;
       app.services.notify.toast({
         kind: warnings > 0 ? 'warning' : 'success',
         text: `Exported ${names}${warnings > 0 ? ` with ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`,

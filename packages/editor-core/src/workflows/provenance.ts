@@ -4,6 +4,7 @@
 // licence; a VRMA written by the Animator carries its clips' provenance in `ekza_animation_v1`, which is kept.
 import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-animator/doc';
 import type { GlbContainer, VrmLicenseInfo } from '@ekza-animator/io';
+import { isRecord, parseDerivedFrom } from './util';
 
 /** A licence known in advance (bundled samples). */
 export interface KnownLicense {
@@ -74,18 +75,6 @@ export function isRestrictedLicense(license: VrmLicenseInfo | null): boolean {
 
 const REDISTRIBUTABLE: ReadonlySet<string> = new Set(['yes', 'no', 'unknown']);
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
-function derivedFromEntry(value: unknown): DerivedFrom | null {
-  if (!isRecord(value)) return null;
-  const { title, author, license, sourceSha256 } = value;
-  if (typeof title !== 'string' || typeof author !== 'string' || typeof license !== 'string') return null;
-  if (sourceSha256 !== null && (typeof sourceSha256 !== 'string' || !/^[0-9a-f]{64}$/.test(sourceSha256))) return null;
-  return { title, author, license, sourceSha256 };
-}
-
 /**
  * Provenance recorded by the Animator in a file it wrote (`asset.extras.ekza_animation_v1`, first clip), or null
  * when the file carries none or it is malformed.
@@ -100,7 +89,7 @@ export function embeddedEkzaProvenance(container: GlbContainer): ClipProvenance 
   if (typeof redistributable !== 'string' || !REDISTRIBUTABLE.has(redistributable)) return null;
   const derivedFrom: DerivedFrom[] = [];
   for (const entry of clip['derivedFrom'] as readonly unknown[]) {
-    const parsed = derivedFromEntry(entry);
+    const parsed = parseDerivedFrom(entry);
     if (parsed === null) return null;
     derivedFrom.push(parsed);
   }

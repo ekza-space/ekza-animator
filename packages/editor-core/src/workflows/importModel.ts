@@ -34,6 +34,7 @@ import { baseName, extensionOf, nameKey, numberedName, sanitizeClipName, uniqueN
 import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
 import { activateClip, EMPTY_SELECTION, sceneFpsIn } from './session';
+import { maxChannelKeys } from './util';
 
 /** Embedded clips are all imported by default when there are at most this many (import dialog default). */
 export const DEFAULT_ALL_CLIPS_LIMIT = 8;
@@ -119,12 +120,6 @@ function characterTitle(fileName: string, license: VrmLicenseInfo | null): strin
   const title = license?.title?.trim();
   const usable = title !== undefined && title !== '' && title !== 'undefined' ? title : baseName(fileName);
   return usable.slice(0, 64);
-}
-
-function maxChannelKeys(raw: RawClip): number {
-  let max = 0;
-  for (const channel of raw.channels) max = Math.max(max, channel.times.length);
-  return max;
 }
 
 export async function prepareModelImport(app: EditorApp, input: ModelImportInput): Promise<ModelImportPlan> {

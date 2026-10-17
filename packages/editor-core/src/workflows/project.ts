@@ -5,7 +5,6 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
 import { readProjectArchive, writeProjectArchive, writeProjectJson } from '@ekza-animator/io';
 import type { EditorApp } from '../types';
-import { baseName } from './names';
 import { EDITOR_VERSION } from './samples';
 import { resetDocumentSession } from './session';
 
@@ -22,9 +21,15 @@ export interface SaveArtifact {
 
 /** `name` reduced to a safe file name with the given extension (keeps an extension that is already there). */
 export function projectFileName(name: string, extension: string): string {
-  const stem = baseName(name.toLowerCase().endsWith(`.${extension}`) ? name.slice(0, -extension.length - 1) : name)
-    .replace(/[^A-Za-z0-9._ -]+/g, '_')
-    .trim();
+  // Only the project extensions are dropped: a name like 'walk.v2' keeps its dots.
+  let stem = name.split(/[\\/]/).pop() ?? name;
+  for (const ext of [PROJECT_JSON_EXTENSION, PROJECT_EXTENSION]) {
+    if (stem.toLowerCase().endsWith(`.${ext}`)) {
+      stem = stem.slice(0, -ext.length - 1);
+      break;
+    }
+  }
+  stem = stem.replace(/[^A-Za-z0-9._ -]+/g, '_').trim();
   return `${stem === '' ? 'Untitled' : stem}.${extension}`;
 }
 

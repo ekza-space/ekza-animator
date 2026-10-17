@@ -2,7 +2,7 @@
 // clip without session overrides; io bakes integer frames (step schedule from rig), writes the file (surgeon,
 // animation-only GLB or one VRMA per clip) with `ekza_animation_v1` metadata, lints it and reads it back. Async, no
 // document writes; yields between clips.
-import { EkzaError, type Fps, type Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type { CharacterRecord, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
 import {
   type BakedClip,
@@ -19,6 +19,7 @@ import {
   type ExportRequest,
   ekzaAnimationMeta,
   exportFileName,
+  type GlbContainer,
   type LintIssue,
   type LintSeverity,
   preexistingTracks,
@@ -41,6 +42,7 @@ import { yieldToHost } from './host';
 import { nameKey } from './names';
 import { isRestrictedLicense } from './provenance';
 import { EDITOR_VERSION } from './samples';
+import { fpsValue, isRecord } from './util';
 
 /** Kinds of the built-in exporters (io `BUILTIN_EXPORT_KINDS`). */
 export type BuiltinExportKind = 'bake-into-model' | 'animation-glb' | 'vrma';
@@ -59,8 +61,16 @@ export interface ExportSubject {
   readonly license: VrmLicenseInfo | null;
 }
 
-function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+const licenses = new WeakMap<GlbContainer, VrmLicenseInfo | null>();
+
+/** The VRM licence of a model, read once per container (export polls run often). */
+function licenseOf(container: GlbContainer): VrmLicenseInfo | null {
+  let license = licenses.get(container);
+  if (license === undefined) {
+    license = readVrmLicense(container);
+    licenses.set(container, license);
+  }
+  return license;
 }
 
 /** Shape check of an untyped request (keymaps, menus and the test API call operators untyped). */
@@ -107,7 +117,7 @@ export function resolveExport(
     if (profile === null) return fail(`Unknown export profile '${req.profile}'`);
     if (profile.kind !== kind && profile.kind !== ANY_KIND) return fail(`${profile.label} is not a ${kind} profile`);
   }
-  const license = character.format === 'gltf' ? null : readVrmLicense(runtime.container);
+  const license = character.format === 'gltf' ? null : licenseOf(runtime.container);
   if (kind === 'bake-into-model' && isRestrictedLicense(license) && !req.acknowledgeLicense) {
     return fail(
       "The avatar's licence forbids modification or redistribution; acknowledge the licence to bake into it",
@@ -173,10 +183,6 @@ export function exportExtension(app: EditorApp, req: ExportRequest, kind: Builti
   return character !== undefined && character.format !== 'gltf' ? 'vrm' : 'glb';
 }
 
-function fpsNumber(fps: Fps): number {
-  return fps.num / fps.den;
-}
-
 /** Depth of a skeleton node (scene roots: 0). */
 function depthOf(program: RigProgram, node: number): number {
   let depth = 0;
@@ -212,7 +218,7 @@ export function inPlaceNode(view: ReadView, program: RigProgram, clip: ClipRecor
 
 /** `ekza_animation_v1` clip entry of a clip (§4.11.10 step 4, ADR 0010 §2). */
 export function clipMeta(clip: ClipRecord, index: number): EkzaClipMetaV1 {
-  const fps = fpsNumber(clip.fps);
+  const fps = fpsValue(clip.fps);
   return {
     index,
     name: clipExportName(clip),
@@ -316,7 +322,7 @@ export async function runExport(
       projectSha256: null,
       baseSha256: runtime.container.sha256,
     });
-  const fps = fpsNumber(clips[0]?.fps ?? { num: 30, den: 1 });
+  const fps = fpsValue(clips[0]?.fps ?? { num: 30, den: 1 });
   const pattern = req.fileNamePattern.trim() === '' ? DEFAULT_FILE_PATTERN : req.fileNamePattern;
 
   if (kind === 'vrma') {
@@ -326,7 +332,7 @@ export async function runExport(
       await yieldToHost();
       const fileName = exportFileName(
         pattern,
-        { character: character.name, clip: job.options.name, fps: fpsNumber(job.clip.fps) },
+        { character: character.name, clip: job.options.name, fps: fpsValue(job.clip.fps) },
         'vrma',
       );
       artifacts.push(

@@ -1,12 +1,13 @@
 // Pure parts of the workflows: clip naming rules, provenance (§4.11.6 step 7), import clip options (§4.11.6 step 5),
 // clip selection defaults, shot-camera framing, project file names.
 import { quatRotateVec3 } from '@ekza-animator/anim-core';
+import type { CharacterId } from '@ekza-animator/doc';
 import type { GlbContainer, VrmLicenseInfo } from '@ekza-animator/io';
 import { DEFAULT_REDUCE } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
 import { frameShotCamera, lookAtQuaternion, SHOT_FOV_Y } from '../../src/workflows/camera';
 import { landsOnFrames, resolveClipOptions } from '../../src/workflows/clipWrite';
-import { isAnimationOnlyGlb } from '../../src/workflows/importAnimation';
+import { applyClipImport, type ClipImportPlan, isAnimationOnlyGlb } from '../../src/workflows/importAnimation';
 import { animationNames, selectClips } from '../../src/workflows/importModel';
 import {
   baseName,
@@ -27,7 +28,7 @@ import {
   sourceProvenance,
 } from '../../src/workflows/provenance';
 import { SAMPLES } from '../../src/workflows/samples';
-import { glbOf } from './support';
+import { glbOf, opsApp } from './support';
 
 const SHA = 'a'.repeat(64);
 
@@ -94,6 +95,9 @@ describe('clip names', () => {
     expect(extensionOf('README')).toBe('');
     expect(projectFileName('My Scene', 'ekzanim')).toBe('My Scene.ekzanim');
     expect(projectFileName('a/b:c.ekzanim', 'ekzanim')).toBe('b_c.ekzanim');
+    expect(projectFileName('walk.v2', 'ekzanim')).toBe('walk.v2.ekzanim');
+    expect(projectFileName('scene.ekzanim.json', 'ekzanim.json')).toBe('scene.ekzanim.json');
+    expect(projectFileName('scene.ekzanim', 'ekzanim.json')).toBe('scene.ekzanim.json');
   });
 });
 
@@ -284,5 +288,27 @@ describe('shot camera framing', () => {
     const q = lookAtQuaternion([0, 2, 0], [0, 0, 0]);
     const forward = quatRotateVec3(q, [0, 0, -1]);
     expect(forward[1]).toBeCloseTo(-1, 12);
+  });
+});
+
+describe('clip import apply', () => {
+  it('refuses to write clips for a character removed while the file was read', () => {
+    const app = opsApp();
+    const plan = {
+      character: 'chr_Removed000000001' as CharacterId,
+      asset: {
+        id: 'a'.repeat(64),
+        name: 'x.vrma',
+        ext: 'vrma',
+        mime: 'model/gltf-binary',
+        size: 0,
+        role: 'animation-source',
+      },
+      clips: [],
+      warnings: [],
+    } as unknown as ClipImportPlan;
+    expect(() => app.store.transact({ label: 'x' }, (tx) => applyClipImport(app, tx, plan))).toThrow(
+      /removed while the file was being read/,
+    );
   });
 });

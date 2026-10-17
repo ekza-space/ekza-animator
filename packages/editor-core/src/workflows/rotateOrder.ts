@@ -2,14 +2,7 @@
 // character, the control's rx/ry/rz curves are resampled at the union of their key times, converted to the new order
 // (rig `convertRotateOrderKeys`: `eulerNear` against the previous sample, then the Euler filter) and written back on
 // all three curves, synchronized. Static values and pose overrides are converted as a triple.
-import {
-  type AnimCurve,
-  eulerNear,
-  eulerToQuat,
-  type KeyData,
-  type RotateOrder,
-  type Vec3,
-} from '@ekza-animator/anim-core';
+import { type AnimCurve, eulerNear, eulerToQuat, type RotateOrder, type Vec3 } from '@ekza-animator/anim-core';
 import type {
   ChannelValues,
   ClipRecord,
@@ -26,24 +19,10 @@ import { animCurve, keyDataOf } from '../edit/context';
 import { ensureCurve } from '../edit/keys';
 import type { EditorApp } from '../types';
 import { curveRecord, keyRecord } from './records';
+import { constantCurve } from './util';
 
 const ROTATIONS = ['rx', 'ry', 'rz'] as const;
 const SAME_VALUE = 1e-12;
-
-/** A curve standing for a key-less channel: one key holding its value at an existing union time. */
-function constantAt(t: number, v: number): AnimCurve {
-  const key: KeyData = {
-    t,
-    v,
-    inType: 'flat',
-    outType: 'flat',
-    inHandle: { dt: 0, dv: 0 },
-    outHandle: { dt: 0, dv: 0 },
-    broken: false,
-    weightLocked: true,
-  };
-  return { keys: [key], weighted: false, pre: 'constant', post: 'constant' };
-}
 
 /** The same rotation in another order, nearest to the old triple. */
 export function convertTriple(values: Vec3, from: RotateOrder, to: RotateOrder): Vec3 {
@@ -106,7 +85,7 @@ function convertLayer(
   const input = curves.map((curve, axis) => {
     const list = keys[axis] as readonly KeyRecord[];
     return curve === undefined || list.length === 0
-      ? constantAt(first, statics[axis] as number)
+      ? constantCurve(first, statics[axis] as number)
       : animCurve(curve, list.map(keyDataOf));
   }) as [AnimCurve, AnimCurve, AnimCurve];
   const converted = convertRotateOrderKeys(input, from, to);

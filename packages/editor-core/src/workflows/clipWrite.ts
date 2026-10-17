@@ -17,6 +17,7 @@ import type { ImportedClipKeys, ReduceSpec } from '@ekza-animator/rig';
 import { newRecordId } from '../app/internals';
 import type { EditorApp } from '../types';
 import { baseLayerRecord, clipRecord, curveRecord, keyRecord } from './records';
+import { fpsValue } from './util';
 
 export interface ClipWritePlan {
   /** The clip with a provisional `order` (`writeClipPlan` gives it its final one). */
@@ -111,20 +112,11 @@ export interface ResolvedClipOptions {
   readonly warnings: readonly string[];
 }
 
-/** Frames per second as a number. */
-export function fpsValue(fps: Fps): number {
-  return fps.num / fps.den;
-}
-
 /** True when every source time at `source` fps lands on an integer frame at `target` fps. */
 export function landsOnFrames(source: Fps, target: Fps): boolean {
   const ratio = fpsValue(target) / fpsValue(source);
   const rounded = Math.round(ratio);
   return rounded >= 1 && Math.abs(ratio - rounded) < 1e-9;
-}
-
-export function sameFps(a: Fps, b: Fps): boolean {
-  return a.num * b.den === b.num * a.den;
 }
 
 /**

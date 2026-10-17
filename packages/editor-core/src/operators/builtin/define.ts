@@ -10,6 +10,7 @@ import type {
   PollResult,
   RunContext,
 } from '../../types';
+import { isRecord } from '../../workflows/util';
 import type { OperatorMap } from '../args';
 import type { CoalescingOperatorDef } from '../runner';
 
@@ -35,10 +36,6 @@ export function fail(reason: string): PollResult {
 /** The first failing poll, or OK. */
 export function all(...results: readonly PollResult[]): PollResult {
   return results.find((result) => result !== true) ?? OK;
-}
-
-export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Args of operators whose args may be omitted: an object, or {} for undefined/null. */
@@ -79,3 +76,5 @@ export async function forward(ctx: OperatorContext, op: string, args: unknown): 
   if (result.status === 'cancelled') throw new EkzaError('unsupported', result.reason);
   return result.value;
 }
+
+export { isRecord };
