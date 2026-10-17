@@ -280,13 +280,13 @@ const channelToggleLock = defineOperator({
     for (const [id, channels] of byControl) {
       const control = tx.get('controls', id);
       if (control === undefined) continue;
-      const next = { t: [...control.locked.t], r: [...control.locked.r], s: [...control.locked.s] };
-      for (const channel of channels) {
-        const slot = trsSlot(channel);
-        const group = slot < 3 ? next.t : slot < 6 ? next.r : next.s;
-        group[slot % 3] = lock;
-      }
-      const locked = { t: next.t as unknown as Axes, r: next.r as unknown as Axes, s: next.s as unknown as Axes };
+      const slots = new Set(channels.map(trsSlot));
+      const axes = (group: Axes, offset: number): Axes => [
+        slots.has(offset) ? lock : group[0],
+        slots.has(offset + 1) ? lock : group[1],
+        slots.has(offset + 2) ? lock : group[2],
+      ];
+      const locked = { t: axes(control.locked.t, 0), r: axes(control.locked.r, 3), s: axes(control.locked.s, 6) };
       if (JSON.stringify(locked) !== JSON.stringify(control.locked)) tx.patch('controls', id, { locked });
     }
   },

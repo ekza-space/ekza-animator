@@ -10,9 +10,9 @@ another work package edited.
 
 | Responsibility (§7 WP-7b) | Where |
 |---|---|
-| Every §4.9 operator owned by 7b (74), `prepare`/`apply` split, composition through the edit kernel and workflows only | `src/operators/builtin/{file,edit,select,key,pose,time,graph,clip,view}.ts` |
+| Every §4.9 operator owned by 7b (74), `prepare`/`apply` split, composition through the edit kernel and workflows only | `src/operators/builtin/{file,edit,select,key,pose,time,graph,clip,view,rig}.ts` |
 | Model import §4.11.6 (parse, budgets, format, skeleton, `no-skin`, asset store, auto-rig, clip conversion with fps detection / key mode / Euler filter / reduction, provenance, records in one transaction, shot camera, session) | `src/workflows/importModel.ts`, `clipWrite.ts`, `camera.ts`, `records.ts` |
-| VRMA import §4.11.7 (`readVrma` → `importHumanoidClip` onto the target humanoid, provenance from `ekza_animation_v1` when the Animator wrote the file) | `src/workflows/importAnimation.ts` |
+| VRMA import §4.11.7 (`readVrma` → `importHumanoidClip` onto the target humanoid, provenance from `ekza_animation_v1` when the Animator wrote the file); animation-only GLB import (M1-stretch) | `src/workflows/importAnimation.ts` |
 | Provenance and sample licences (ADR 0010 §3, ADR 0012) | `src/workflows/provenance.ts`, `samples.ts` |
 | Export §4.11.10 through the built-in exporters (bake / animation GLB / VRMA, step schedules, self-contained clips, metadata, licence gate, profile preflight, host validation) | `src/workflows/export.ts`, `src/operators/builtin/exporters.ts` |
 | Projects (`.ekzanim` save/open, JSON debug variant) | `src/workflows/project.ts` |
@@ -61,7 +61,7 @@ module for tests; the package entry exports only the §7 API.
 | B7-24 | `edit.escape`: cancels channel-edit gestures (overrides restored), else any other active store preview, else closes the dialog, else stops playback. | §4.9. |
 | B7-25 | Selection operators are not undoable and record no history step; `select.controls` with another character's controls makes it active and replaces the selection (mode `remove` of foreign ids changes nothing); every control change prunes `selection.keys` to the curves the Graph Editor still shows and `selection.channels` to selected controls. | §4.9, ADR 0008 §8. |
 | B7-26 | `view.tool` accepts any id while no tool is registered for the panel (headless), else only registered tools. | Tools register with their panels (WP-5/6). |
-| B7-27 | Plateau (`graph.tangent.set { type: 'plateau' }`, key 7) and `rig.setRotateOrder` poll-fail with "not available yet" (M1-stretch, §1.2). | See "M1-stretch" below. |
+| B7-27 | `file.importAnimation` reads `.vrma` (humanoid targets) and animation-only `.glb` (any rigged target, matched by node name); other extensions are refused. A `.glb` with animations and no skin is routed to it by content sniffing (`gltf-animation` importer); every other `.glb` stays a model (`gltf-model`). | M1-stretch FR-IO-10 through the importer registry's `sniff` (§4.5). |
 
 ## Dependencies on other work packages
 
@@ -80,12 +80,12 @@ Tests that need an implementation skip themselves until it lands (§8.1), with t
 
 | Tests | Blocked by | Status on this branch |
 |---|---|---|
-| `editor-core/test/builtin/*` (126 tests) | `clip.*` → WP-2 (`fractionalIndex`); `setFields`, Euler filter, Simplify → WP-1; pose clipboard, mirror, feet → WP-3 | 102 run now, 24 skip |
-| `headless-tests/test/ops.*` (58 tests: import of the three fixtures, sample loading, export of all three kinds with the validator policy, projects, pose tools on the real rig, undo/redo exactness of every undoable operator, a 30-step session) | WP-1, WP-2, WP-3, WP-4 | skip |
+| `editor-core/test/builtin/*` (130 tests) | `clip.*` → WP-2 (`fractionalIndex`); `setFields`, Euler filter, Simplify → WP-1; pose clipboard, mirror, feet → WP-3; rotate order → WP-1 + WP-3 | 103 run now, 27 skip |
+| `headless-tests/test/ops.*` (61 tests: import of the three fixtures, sample loading, export of all three kinds with the validator policy, projects, pose tools on the real rig, undo/redo exactness of every undoable operator, a 30-step session, the stretch items) | WP-1, WP-2, WP-3, WP-4 | skip |
 
 **Integration evidence.** Every skipped test was run by overlaying the sibling branches' sources into this worktree
 (working tree only, never committed: `wp/wp-1` anim-core @ 4aa4289, `wp/wp-2` doc @ 4277f31, `wp/wp-3` rig @ 0628635,
-`wp/wp-4` io @ ec87ac7): editor-core 451/451 tests pass (all WP-7a tests included), headless `ops.*` 58/58 pass, and
+`wp/wp-4` io @ ec87ac7): editor-core 454/454 tests pass (all WP-7a tests included), headless `ops.*` 61/61 pass, and
 `tsc -b` is clean in both states.
 
 Notable results with the real packages: UAL `Idle_Loop` imports at 24 fps on whole frames 0…60 and matches the
@@ -113,12 +113,17 @@ animation-only GLB of UAL re-reads to the editor pose within 1e-4 rad; UAL in-pl
 - **WP-10 (e2e)**: E2E-01 relies on B7-7 (locked `shotCam`); E2E-04 on B7-4/B7-8 (UAL with `Idle_Loop` only, 24 fps,
   reduced); E2E-27 on `time.setFrame { unit: 'scene' }` (B7-14).
 
-## M1-stretch
+## M1-stretch (done)
 
-Not done yet: plateau tangents (WP-1 implements plateau as AnimX legacy auto; enabling is a one-line change in
-`graph.ts` `NOT_YET` plus a test), pose-preserving rotate-order change (`rig.setRotateOrder` over WP-3's
-`convertRotateOrderKeys`), animation-only GLB import onto a character (FR-IO-10, WP-3's `remapRawClipByName`).
+| Item | Where | Notes |
+|---|---|---|
+| Plateau tangent (FR-GE-08) | `graph.tangent.set` accepts `plateau` (key 7, menu) | WP-1 implements plateau as AnimX legacy auto (W1-5). |
+| Pose-preserving rotate-order change (FR-RIG-08) | `rig.setRotateOrder` → `src/workflows/rotateOrder.ts` | Every clip and layer of the character: rx/ry/rz resampled at the union of their key times through rig `convertRotateOrderKeys` (key-less channels enter as their static value at an existing union time, so no extra key times appear), written synchronized with new key ids; static triples and the pose override converted; then `rotateOrder` patched (the runtime recompiles). One undo step. Tests: synchronized keys on the fake app (1e-9), unsynchronized rx/ry/rz on Polybot (bone worlds at every union time ≤ 1e-6), undo exactness. Enables the Channel Box / Attributes rotate-order field (WP-9 polls it). |
+| Animation-only GLB import onto a character (FR-IO-10) | `file.importAnimation` (`.glb`), importer `gltf-animation` | io `readAnimations` over the file's own skeleton → rig `remapRawClipByName` → `importRawClip`; one clip per animation; unmatched node names are warned, files that match nothing fail with `unsupported`. Test: UAL `Idle_Loop` exported as animation-only GLB and re-imported through `file.open` reproduces the clip (≤ 1e-4 rad without reduction). |
 
-## Gates (run in this worktree)
+## Gates (run in this worktree, without the overlays)
 
-See the final report of this work package for the gate results.
+`pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `test` (13/13 turbo tasks; editor-core 420 pass + 34
+skip-until-merged, headless-tests 61 skip-until-merged) and `build` pass. No e2e spec belongs to WP-7b (E2E-01…27
+are WP-10's); the web app on this branch does not create the kernel yet (WP-8), so the existing e2e specs are
+unaffected.

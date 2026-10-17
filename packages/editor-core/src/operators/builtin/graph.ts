@@ -668,13 +668,16 @@ const simplify = defineOperator({
         tolerance: toleranceFor(curve.channel, spec),
         keep,
       });
+      // reduceKeys returns the kept keys unchanged: every other key goes.
       const kept = new Set(result.keys.map((key) => key.t));
       for (const key of keys) {
-        if (kept.has(key.t)) continue;
+        if (kept.has(key.t)) {
+          after++;
+          continue;
+        }
         t.remove('keys', key.id);
         removed.push(key.id);
       }
-      after += keys.length - (keys.length - kept.size);
       maxError = Math.max(maxError, result.maxError);
     }
     forgetKeys(app, removed);

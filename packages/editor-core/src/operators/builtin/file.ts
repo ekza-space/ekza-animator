@@ -83,7 +83,7 @@ const fileNew = defineOperator({
 const fileOpen = defineOperator<'file.open', void>({
   id: 'file.open',
   label: 'Open…',
-  description: 'Open a project, import a model or add a VRMA clip, by file type.',
+  description: 'Open a project, import a model or add animation clips, by file type.',
   category: 'file',
   scope: GLOBAL_SCOPE,
   poll({ app }, args) {
