@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { EditorApp, TimeState } from '../../src/types';
-import { edit, kernelApp, setFrame, twoCharacterDoc, W, waveApp } from './support';
+import { edit, kernelApp, SECOND, setFrame, twoCharacterDoc, W, waveApp } from './support';
 
 function play(app: EditorApp, time: Partial<TimeState> = {}): void {
   app.session.setState({ time: { ...app.session.getState().time, playing: true, ...time } });
@@ -111,10 +111,25 @@ describe('playback clock', () => {
     play(app);
     ticks(app, [0, 200]);
     expect(time(app).sceneFrame).toBe(6);
-    setFrame(app, 20); // scrub while playing
-    expect(ticks(app, [300, 400])).toEqual([20, 23]);
+    setFrame(app, 20); // scrub while playing: the clock continues from there
+    expect(ticks(app, [300, 400])).toEqual([23, 26]);
     app.session.setState({ time: { ...time(app), speed: 'double' } });
-    expect(ticks(app, [500])).toEqual([29]);
+    expect(ticks(app, [450])).toEqual([29]);
+  });
+
+  it('re-derives the position when the active clip changes during playback', () => {
+    const app = kernelApp({
+      snapshot: twoCharacterDoc({ second: { fps: { num: 24, den: 1 }, sceneStart: 6, range: { start: 0, end: 48 } } }),
+    });
+    play(app);
+    ticks(app, [0, 1000]);
+    expect(time(app).sceneFrame).toBe(0); // 30 wraps to 0 in the 30 fps clip
+    ticks(app, [1200]);
+    expect(time(app).sceneFrame).toBe(6);
+    app.session.setState({ activeCharacter: SECOND.character }); // scene 6 = clip frame 0 at 24 fps
+    app.playback.advance(1700); // 0.5 s → 12 clip frames → scene 6 + 15
+    expect(time(app).sceneFrame).toBe(21);
+    expect(app.evaluation.clipFrame(SECOND.character)).toBe(12);
   });
 
   it('plays the scene range at the scene rate without an active clip', () => {

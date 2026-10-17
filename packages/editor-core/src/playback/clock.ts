@@ -24,6 +24,8 @@ const SPEED_FACTOR: Readonly<Record<TimeState['speed'], number>> = {
 
 /** Clip frames used while the active character has no clip: the scene clock itself. */
 interface Timeline {
+  /** Identity of the mapping (active clip, rates, range): the position is re-derived when it changes. */
+  readonly key: string;
   /** Active-clip frames per second. */
   readonly fps: number;
   readonly start: Frame;
@@ -48,6 +50,7 @@ export function createPlaybackClock(ctx: {
   /** Fractional position in active-clip frames, valid while `lastWritten` is the session's scene frame. */
   let position = 0;
   let lastWritten: Frame | null = null;
+  let lastKey: string | null = null;
 
   const timeline = (): Timeline => {
     const state = session.getState();
@@ -57,13 +60,27 @@ export function createPlaybackClock(ctx: {
     const range = state.time.playbackRange;
     if (clip === undefined) {
       const scene = range ?? store.get('project', 'project')?.sceneRange ?? { start: 0, end: 60 };
-      return { fps: fpsValue(sceneFps), start: scene.start, end: scene.end, toClip: (f) => f, toScene: (f) => f };
+      return {
+        key: `scene|${sceneFps.num}/${sceneFps.den}|${scene.start}|${scene.end}`,
+        fps: fpsValue(sceneFps),
+        start: scene.start,
+        end: scene.end,
+        toClip: (f) => f,
+        toScene: (f) => f,
+      };
     }
     const toClip = (f: Frame): Frame => deps.time.sceneToClipFrame(sceneFps, clip, f);
     const toScene = (f: Frame): Frame => deps.time.clipToSceneFrame(sceneFps, clip, f);
     const start = range === null ? clip.range.start : toClip(range.start);
     const end = range === null ? clip.range.end : toClip(range.end);
-    return { fps: fpsValue(clip.fps), start: Math.min(start, end), end: Math.max(start, end), toClip, toScene };
+    return {
+      key: `${clip.id}|${clip.fps.num}/${clip.fps.den}|${clip.sceneStart}|${sceneFps.num}/${sceneFps.den}|${start}|${end}`,
+      fps: fpsValue(clip.fps),
+      start: Math.min(start, end),
+      end: Math.max(start, end),
+      toClip,
+      toScene,
+    };
   };
 
   return {
@@ -73,6 +90,7 @@ export function createPlaybackClock(ctx: {
     reset(): void {
       lastMs = null;
       lastWritten = null;
+      lastKey = null;
     },
     advance(nowMs: number): boolean {
       const time = session.getState().time;
@@ -82,9 +100,10 @@ export function createPlaybackClock(ctx: {
       }
       const line = timeline();
       let first = false;
-      if (lastMs === null || lastWritten === null || time.sceneFrame !== lastWritten) {
-        // (Re)start at the current frame, brought into the range. Pressing play at the end of a 'once' range
-        // starts over.
+      if (lastMs === null || time.sceneFrame !== lastWritten || line.key !== lastKey) {
+        // (Re)derive the position from the current frame — at the start, after a frame set by someone else, or
+        // when the active clip or its mapping changed — and bring it into the range. Pressing play at the end of a
+        // 'once' range starts over.
         first = lastMs === null;
         position = line.toClip(time.sceneFrame);
         if (time.loop === 'once') {
@@ -92,8 +111,9 @@ export function createPlaybackClock(ctx: {
           if (time.direction === -1 && position <= line.start) position = line.end;
         }
         position = fold(position, time.direction, time.loop, line).position;
-        lastMs = nowMs;
+        lastKey = line.key;
       }
+      if (lastMs === null) lastMs = nowMs;
       const elapsed = Math.max(0, nowMs - lastMs);
       lastMs = nowMs;
       // The first tick only starts the clock (and moves an out-of-range frame into the range).
