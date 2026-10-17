@@ -1,0 +1,95 @@
+# Open owner decisions — defaults chosen
+
+Status: 2026-10-17, design review revision (rev. 2). Every item below has a **default chosen** so that work can
+start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
+cheap. Items marked **override** are cases where a coordinator default was replaced on evidence. Research
+references: `R01`…`R09` = [`research/0N-*.md`](research/). Section D records how the design review was resolved,
+including the points that were rejected or only partly accepted.
+
+## A. Coordinator defaults (recorded as given)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-NAME-1 | Product name, repository and package scope | **Ekza Animator**, repository `ekza-animator`, private workspace scope `@ekza-animator/*` (unpublished). Never romanized as "Exo" (ExoTools exists, R05 §5c). `.eza` is avoided (EZ-Animator). | Renaming packages is mechanical before M2; brand change touches docs and UI strings. | M2a |
+| Q-LIC-1 | Licence | **MIT + DCO** sign-off (checked in CI); Apache-2.0 headers kept on the AnimX port files; fixtures under their own licences; no GPL/AGPL code or runtime dependencies (ADR 0009). | Apache-2.0 for the whole repo is the fallback if a contributor needs an explicit patent grant; switch before the first external contribution. | before first external PR |
+| Q-TIME-1 | Default frame rate | **30 fps** scene and new-clip default; per clip 24/25/30/48/50/60/custom (rational). Imported clips keep their detected source rate (UAL: 24). | Only new-clip defaults change. | any time |
+| Q-PROJ-1 | Project file | **`.ekzanim`** zip (`manifest.json`, `project.json`, `assets/<sha256>`) plus a plain JSON debug variant `.ekzanim.json`; exports are derived artifacts (ADR 0011). | Switching to an "authoring GLB" container needs a registered `EKZA_` vendor prefix. | M2a |
+| Q-HK-1 | Default keymap and Space | **Maya-style preset** with a trackpad navigation profile; **Space tap = maximize the pane or panel under the pointer**, first-run toggle "Space plays" (R09 §15 Q1). Space-hold radial and the one-button macOS profile are M1-stretch. | Presets are data; changing defaults is trivial. | M2a |
+| Q-COL-1 | Collaboration in the MVP | **Not implemented.** The MVP ships the store boundary (transactions with per-field changes, preview sessions, stable IDs, D/U/P split, partitions with `open/close`, async assets, scene clock, per-user undo per merge unit) and the conformance suite. The production store is the plain in-house store; a **private, test-only Yjs store (`packages/doc-yjs`, yjs 13.6.33) runs the full suite in CI from M1** (ADR 0002). | A Yjs production store from day one would add async `open` and Yjs debugging to the MVP for no user value; the evidence it would provide is gathered by `doc-yjs` anyway. | M3 |
+| Q-MOD-1 | Modeling | **Not in the MVP.** Cheap path kept: `SplineSet` shared by control shapes and future splines, `TableDef` and tool registries, component-capable selection (ADR 0004, ADR 0008). | — | M6 |
+| Q-EKZA-1 | Ekza upload | **Not in the MVP.** Integration contract defined: typed kind `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1`, tiers T0–T3, `ekza_animation_v1` metadata with provenance, export profiles as data, Studio deep link and embed protocol; MVP = Tier 0 export compatibility (ADR 0010). | Upload needs registry/SDK/game changes in other repos (M4a). | M4a |
+| Q-EKZA-2 | Reuse of `@ekza/avatar-renderer` | **No runtime dependency** (peer `three <0.186`, not on npm, CDN Draco). Small MIT helpers are copy-adapted with attribution headers (ARCHITECTURE §13). | A "Preview as Ekza Space" panel first emulates Space; using the real renderer needs decoder injection, npm publication and peer `<0.187` upstream. | M2c |
+| Q-ASSET-1 | Bundled sample avatars | **override.** Coordinator default: NeonGlitch86 VRM 1.0 fixture from `ekza-avatar-renderer` + 100Avatars "Polybot". The NeonGlitch86 file's own VRM meta says `allowRedistribution: false`, `modification: prohibited`, `commercialUsage: personalNonProfit`, and it embeds a Mixamo clip, so it **cannot** ship in an MIT repository. **Chosen**: Seed-san (VRM 1.0, VRM Public License 1.0: redistribution, modification and commercial use allowed, credit required) + Polybot (VRM 0.x, CC0) + Quaternius UAL (generic GLB, CC0), credited in [`fixtures/LICENSES.md`](../fixtures/LICENSES.md) and the About dialog (ADR 0012, with an erratum to research 03). | The owner may provide a CC0 VRM 1.0 avatar to replace Seed-san as the default sample. | M1 |
+
+## B. Architect defaults the owner should know about
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-RIG-5 | **Leg IK in M1?** | **No — FK legs plus `Pose → Pin Feet / Plant Feet`** (two-bone solve written as FK keys, one undo step per key). The solver math and its tests ship in M1; leg IK controls, the `ik2` op and IK/FK match are M2a item 1 (ADR 0004 §12). M1 is said plainly to target in-place loops, upper-body emotes and blocking with planted feet. | Pulling leg IK into M1 costs ≈ 5 agent-days (WP-3 +4, WP-5 +1) and pushes the alpha by about 2 days on the critical path. | M1 start |
+| Q-RIG-6 | COG / hips split | `cog` is a pure space (t+r); `fk.hips` rotates the pelvis; spine under `cog`, legs under `fk.hips`; imports put hips motion on `cog` (Maya convention). | Template keys are baked into control IDs and pose clipboards: decide before projects exist. | M1 |
+| Q-TOOL-1 | TypeScript version | **override of research 04.** **TypeScript 6.0.3**, not 7.0.2: `typescript@7.0.2` exports only `lib/version.cjs` (no JS API), which Next.js and API-based tools need. tsconfig kept TS-7-clean and `types: []`-aware (ADR 0001, MVP-SPEC §2). | Moving to TS 7 is a version bump once Next/tooling declare support. | M2a |
+| Q-TOOL-2 | Package manager and test runner | **pnpm 10.32.1** (installed; no corepack on Node 25) and **Vitest 4.1.11** (engines include Node 25); Node 24 LTS in CI. | pnpm 11 / Vitest 5 are drop-in upgrades later. | any time |
+| Q-ANIM-1 | Default tangent type and weights | **Auto** (AnimX legacy auto with clamp: smooth, never overshoots; Maya 2025 default). Tangent weights **locked** by default on weighted curves. | Preference-level change. | any time |
+| Q-ANIM-2 | Unkeyed pose edits | Key-less channels store a per-clip **static value** (undoable, saved, exported); keyed channels edited with auto-key off get a **session override**, discarded on frame change, **undoable through the editor history** (ADR 0013). Maya keeps static values scene-wide; ours are per clip because clips are self-contained. | Scene-wide statics would need a per-character pose record. | M1 |
+| Q-ANIM-3 | Selection and undo | Selection changes are **not** undo steps; each history step restores the selection it was made with (R04 Q5, R08 §5.1). | Maya-style "selection in undo queue" can be a preference later. | M2a |
+| Q-ANIM-4 | Maya licence for golden fixtures | AnimX goldens cover Auto/AutoMix/AutoEase, flat, linear, step and infinities exactly. Spline/Clamped ship as documented approximations (R01 §5.4); the numeric weight-field unit is pinned when a Maya `.anim` fixture exists. | With a Maya licence: export `.anim` fixtures and calibrate. | M2a |
+| Q-ANIM-5 | Import defaults | Clip fps = **detected source rate** (24/25/30/48/50/60), keys on integer frames; irregular sources are resampled at the scene fps; **key reduction on by default for dense clips** (0.1°, 0.5 mm); constant-default curves not created. | Users can force source times or disable reduction per import; preference `reduceOnImport`. | any time |
+| Q-ANIM-6 | Tangent types without an oracle | **Spline and Clamped stay in M1 core** (the coordinator's list; a few lines each over the AnimX machinery, covered by property tests); **Plateau is M1-stretch** ("if cheap"). | Removing Spline/Clamped from M1 saves < 0.5 agent-day. | M1 |
+| Q-TIME-2 | Scene clock and ruler units | A shared scene clock (`sceneFps`, `sceneFrame`, clip `sceneStart`); **the ruler and Graph Editor show the active clip's frames** and the HUD shows scene seconds (ADR 0003). | Showing scene frames on the ruler would put keys of a 24 fps clip in a 30 fps scene on fractional ticks. | M1 |
+| Q-EXP-1 | Loop closure convention | For `loop: true` clips the exporter writes the first pose at the last sample (`closeLoop`, default on), as OMOBA's loop processing does (R02 §6.3, R03 §6.4). | Some consumers prefer omitting the duplicate sample; the option stays per export. Confirm for OMOBA/Bevy and Space. | M1 |
+| Q-EXP-2 | Root motion default | `hips` (translation on hips only, root folded in) for VRMA and Space; `in-place` available per clip and recommended for OMOBA (R07 §13). | Per-clip setting. | M2a |
+| Q-EXP-3 | Embed editable curves in exported GLBs | **Off** (V1 option `extras.ekza_animator_curves_v1`); the project file is the editable source (R02 §13 Q6, R07 Q6). | Privacy/size trade-off for uploads. | M2c |
+| Q-EXP-4 | Animation-only GLB for Blender | Skeleton nodes + clips, no meshes/skins (R02 §13 Q4: Blender may import unskinned joints as empties). | Alternative: include a minimal skin. Needs a Blender test. | M2c |
+| Q-EXP-5 | VRM spring bones and node constraints | Preview-only, **never baked** into VRM exports (R01 Q7, R02 §5.3); the export dialog warns plain-GLB consumers about node constraints. | A "bake simulation/constraints" option for non-VRM consumers is possible later. | M5 |
+| Q-EXP-6 | Animated `matrix` nodes in a surgeon bake | **Refuse** with `surgeon.matrix-node` (animation-only GLB and VRMA still work); decomposition into TRS with an allowed-diff entry is V1. | Decomposing now would be an edit outside the preservation invariant. | M2c |
+| Q-VP-1 | Camera lock scope | Lock is a **document flag on shot cameras** (a locked shot is locked for every collaborator); view cameras are per user (R01 VP-04 over R09 §5.3). Navigating an unlocked shot camera persists without an undo entry. | Per-pane lock could be added as a user preference. | M1 |
+| Q-VP-2 | Default layout and shot framing | **Split**: left pane = `shotCam` (auto-framed once on the first character: 50 mm, 3/4 front, chest height; then persisted), right pane = free perspective (R09 §15 Q3). | — | any time |
+| Q-VP-3 | Default navigation profile | Trackpad on macOS, Maya elsewhere; chosen explicitly in the first-run dialog (e2e builds force Maya). | — | any time |
+| Q-VP-4 | Default rotate manipulator space | **Object**, with **Gimbal** one click away in the status line; the choice is remembered per user. | Maya animators often prefer Gimbal by default; preference-level. | any time |
+| Q-RIG-1 | Rotate-order defaults | Research 07 table: root/cog/hips/torso/head `zxy`, shoulder/upper arm `yxz`, lower arm `xzy`, hand/fingers `xyz`, legs/feet `yzx` (supersedes research 01's spine/leg suggestion). Needs validation by animators; data-driven autotune later. | Changing defaults affects only new rigs; existing rigs convert pose-preservingly (when the stretch item lands). | M2a |
+| Q-RIG-2 | IK defaults (M2a) | Legs IK, arms FK; arm IK space `root` (R07 Q1). | — | M2a |
+| Q-RIG-3 | Right-side control frames | **World-aligned** (consistent axes; mirroring via the mirror tool), not Maya "behaviour-mirrored" (R07 Q3). | Behaviour mirroring changes the meaning of right-side channels; decide before many projects exist. | M2a |
+| Q-RIG-4 | Secondary controls | Generated for non-humanoid skin joints except spring-bone joints and node-constraint destinations; **hidden by default**; parented to the control driving the nearest driven ancestor. | — | any time |
+| Q-UI-1 | Model workspace tab | **Hidden** in the MVP (R09 suggested visible-but-disabled). | Cosmetic. | M2c |
+| Q-UI-2 | Arrow keys | Pick-walk (M2a, Maya); frame stepping stays on `Alt+,`/`Alt+.` (R09 §15 Q2). | Preference. | M2a |
+| Q-UI-3 | Brand accent | Violet accent for chrome only; never for semantic animation colours (R09 §15 Q7). | Cosmetic. | any time |
+| Q-DEPLOY-1 | Hosted demo | Vercel (dynamic) for the demo, with `sharp` never installed; static export also supported for GitHub Pages / IPFS (R04 Q2), verified manually in M1. | Hosting choice only. | M2a |
+| Q-DEPLOY-2 | Desktop wrapper (Tauri) | Not planned before M5 (R04 Q4, R08 Q8). | Would lift browser-reserved shortcuts and allow multi-window WebGL. | M5 |
+| Q-NAME-2 | npm publication scope (when packages are published) | Undecided; candidates `@ekza/animator-*` (claim the unclaimed `@ekza` scope now, R05 §5c) or a neutral scope. | Publishing is M2+. | M2c |
+| Q-NAME-3 | Trademark clearance | Run a USPTO/EUIPO/WIPO search for "Ekza Animator" (R05 §5c item 4) **before the M1 public alpha**. | A conflict would force a rename before the first public tag. | M1 alpha |
+| Q-FMT-1 | Register the `EKZA` glTF vendor prefix | Register before any file carries an `EKZA_*` extension (curves, authoring container) (R08 §9.7). Not needed for the MVP (`extras` only). | — | M6 |
+| Q-LIC-2 | Licence exceptions in the build toolchain | Allow `caniuse-lite` (CC-BY-4.0, build-time data) and `lightningcss` (MPL-2.0, unmodified build tool) via `tooling/license-exceptions.json`; ignore Next's optional `sharp` (LGPL libvips) (ADR 0009). | Replacing Tailwind or Next to avoid them is disproportionate. | M1 |
+
+## C. Ecosystem decisions (other repositories)
+
+| ID | Question | Recommendation | Impact | Decide by |
+|---|---|---|---|---|
+| Q-EKZA-3 | `ekza-avatar-renderer` skips its shared idle/walk library when any clip is embedded | Drop the `embedded.length === 0` gate (merge by name) (R02 §5.5). Until then the export dialog warns. | Baking only `wave` into a VRM removes Space's idle/walk. | M1 (warning) / M2c (fix) |
+| Q-EKZA-4 | Cross-runtime humanoid clip format | Standardize on **VRMA** for Space, OMOBA and the registry; retire bespoke JSON formats over time (R02 Q3, R03 §7). | Game-side VRMA loaders needed (OMOBA). | M4a |
+| Q-EKZA-5 | Licences of `ekza-registry` and `ekza-rust-server` | Add licence files (MIT suggested) so small helpers can be shared (R03 Q5). | Until then: reference only, no copying. | M4a |
+| Q-EKZA-6 | First integration tier and profile ownership | T1 standalone `ekza:animation` (protocol-owned profile accepted by Space and OMOBA) before T2 avatar animation sets; OMOBA cosmetic slots first (R03 Q1–Q3). | Defines registry and game work. | M4a |
+| Q-EKZA-7 | Store `.ekzanim` projects in the registry as private source objects | Not in T1; revisit with T3 (R03 Q4). | Needs a new `studio.objects` kind. | M4a |
+| Q-EKZA-8 | Device-flow scope for one-click publish | New `studio-upload` scope (R03 Q6). | Registry account change. | M4a |
+| Q-EKZA-9 | `ekza-avatar-renderer` ships `test/fixtures/vrm1-sample.vrm` (NeonGlitch86) in an MIT repository | Replace it with a redistributable VRM 1.0 (e.g. Seed-san with credit) or strip it; or re-source the original CC0 NeonGlitch86 VRM with correct meta and no Mixamo clip. Its meta forbids redistribution and its `name`/`authors` read `undefined` (ADR 0012 erratum). | Licence exposure for the renderer repository. | now |
+| Q-EKZA-10 | Studio ↔ Animator embedding | Adopt the `ekza-animator-embed/v1` iframe protocol and the hash-verified deep link (ADR 0010 §8), jointly owned with Ekza Studio. | Studio stays on React 18 behind the iframe. | M4a |
+| Q-EKZA-11 | Renderer packaging for a real "Preview as Ekza Space" | Injectable `DRACOLoader`/decoder path (no gstatic CDN), npm publication or tagged tarballs, three peer `<0.187` (ADR 0010 §7). | Until then the preview is an emulation. | M2c |
+| Q-COL-2 | Sync hosting, anonymous share links, hard permissions | Separate Hocuspocus service (not inside `ekza-rust-server`); share links allowed for review; character-scoped hard permissions in P2 (R06 §18). | Ops cost and data residency. | M3 |
+| Q-COL-3 | "Four hands" on one character | Per-user animation layers + region claims, usage-driven (R06 §16); headline collaboration = two characters in one scene + review. | Avoids building free co-editing of the same curves. | M5 |
+
+## D. Design review outcomes (2026-10-17)
+
+Four reviews (animator UX, IO/math correctness, implementability, future OSS/Ekza) raised 51 issues: 5 blockers
+(two of them the same tangent-test defect), 27 major and 19 minor. All blockers and majors, and the minor issues,
+are resolved in MVP-SPEC v0.2, the ADRs and REQUIREMENTS. Points that were **rejected or only partly accepted**:
+
+| Review point | Outcome | Reason | Where |
+|---|---|---|---|
+| Add IK-only legs to M1 (animator UX, preferred fix) | **Partly accepted** — the reviewer's fallback was taken: FK legs + Plant Feet, the `ik2` solver math in M1, plain statement of M1's target; leg IK is M2a item 1 | Coordinator scoped IK to V1; M1 already grew by the review; the solver ships now so M2a only adds controls and the op | ADR 0004 §12, Q-RIG-5 |
+| Ruler and playback range in scene frames (OSS/Ekza) | **Partly accepted** — scene clock added; ruler shows active-clip frames, HUD shows scene seconds | Keys of a 24 fps clip in a 30 fps scene would sit on fractional ruler ticks | ADR 0003, Q-TIME-2 |
+| Move Spline/Clamped tangents to M1-stretch (implementability) | **Rejected** for Spline/Clamped, accepted for Plateau | They are in the coordinator's MVP list and cost little; property tests cover them | Q-ANIM-6 |
+| Decompose animated `matrix` nodes in the surgeon (IO, option) | **Rejected for M1** — refuse with a lint instead | An edit outside the preservation invariant; V1 with an explicit allowed-diff entry | ADR 0005, Q-EXP-6 |
+| Adopt research 07's per-track sub-frame refinement for large rotation steps (IO, option) | **Deferred** — M1 lints a warning at > 90° | Smaller change; refinement is V1 | ADR 0005 §2 |
+| Time-slider plain click selects keys at a tick (animator UX wording) | **Adjusted to Maya**: plain click scrubs, Shift+click selects the frame band, Shift+drag a range | Maya muscle memory; the requested test (tick at 10 dragged to 14, one undo) is kept as E2E-23 | MVP-SPEC §4.11.17 |
+| Pay for retiming by moving the quad layout to V1 (animator UX) | **Rejected** — the quad layout stays (coordinator scope); the Space-hold radial and one-button profile became stretch instead | Coordinator listed 4-view as IN | MVP-SPEC §1.2 |
+| Make unknown tables writable with the full typed API (OSS/Ekza) | **Accepted with a typing caveat**: unknown tables are opaque but transactable; typed access comes through `Tables` declaration merging plus a `TableDef` | Keeps the built-in API strictly typed | MVP-SPEC §4.2, ADR 0008 |
+| Synthetic 300k-vertex, 60-morph VRM must pass the budget (IO) | **Accepted with a realistic shape**: 60 morph targets on a 20k-vertex face mesh | Full-mesh morphs on 300k vertices would be 36 M accessor elements, above any sane browser budget | MVP-SPEC §4.11.14 |
