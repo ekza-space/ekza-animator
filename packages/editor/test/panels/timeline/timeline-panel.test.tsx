@@ -195,6 +195,38 @@ describe('time slider canvas', () => {
   });
 });
 
+describe('mounted sliders per app', () => {
+  it('shares one registration between panels; the last one used is focused; the last unmount removes it', async () => {
+    const app = await waveApp();
+    const panel = (key: string) => (
+      <div key={key} style={{ width: 800, height: 58 }}>
+        <TimelinePanel app={app} instanceId={key} />
+      </div>
+    );
+    const both = await render(
+      <EditorAppProvider app={app}>
+        {panel('a')}
+        {panel('b')}
+      </EditorAppProvider>,
+    );
+    await frames(2);
+    const [first, second] = [...both.container.querySelectorAll<HTMLCanvasElement>('[data-testid="timeline-canvas"]')];
+    expect(focusedTimeSlider(app)?.canvas).toBe(second);
+    const at = first!.getBoundingClientRect();
+    pointerAt(first!, 'pointerdown', at.left + 100, at.top + 10);
+    pointerAt(first!, 'pointerup', at.left + 100, at.top + 10);
+    expect(focusedTimeSlider(app)?.canvas).toBe(first);
+    expect(app.operators.list().filter((op) => op.id === 'time.selectBand')).toHaveLength(1);
+
+    await both.rerender(<EditorAppProvider app={app}>{panel('b')}</EditorAppProvider>);
+    expect(focusedTimeSlider(app)?.canvas).toBe(second);
+    expect(app.operators.get('time.selectBand')).toBeDefined();
+    await both.unmount();
+    expect(app.operators.get('time.selectBand')).toBeUndefined();
+    app.dispose();
+  });
+});
+
 describe('frame field and scene time', () => {
   it('follows the active clip frame and the scene clock (24 fps clip on the 30 fps scene clock)', async () => {
     const v = await mountPanel();
