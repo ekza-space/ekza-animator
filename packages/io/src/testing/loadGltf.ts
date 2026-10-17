@@ -2,7 +2,7 @@
 // ekza-avatar-renderer's test/vrm1Retarget.test.ts: Node has no image decoder and GLTFLoader waits on it, so
 // `self` and `createImageBitmap` are stubbed while a load runs. Textures do not affect skeletons or motion.
 import { type VRM, VRMLoaderPlugin } from '@pixiv/three-vrm';
-import type { Object3D } from 'three';
+import type { AnimationClip, Object3D } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { readGlbJson, skeletonNodeOrder } from './nodeOrder';
 
@@ -13,6 +13,8 @@ export interface NodeGltf {
   readonly vrm: VRM | null;
   /** Objects by SkeletonDesc node index (see `skeletonNodeOrder`); null for nodes outside the default scene. */
   readonly nodeByIndex: readonly (Object3D | null)[];
+  /** three's clips (`gltf.animations`), for the `readAnimations` parity gate (§6.3); not attached to `scene`. */
+  readonly animations: readonly AnimationClip[];
 }
 
 /** Loads a GLB/VRM with three.js in Node. Throws EkzaError('not-glb') for anything but a GLB. */
@@ -31,6 +33,7 @@ export async function loadGltfInNode(bytes: Uint8Array): Promise<NodeGltf> {
     scene: gltf.scene,
     vrm: vrm === undefined ? null : (vrm as VRM),
     nodeByIndex: order.map((gltfIndex) => byGltfIndex.get(gltfIndex) ?? null),
+    animations: gltf.animations,
   };
 }
 

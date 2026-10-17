@@ -14,6 +14,7 @@ interface NodeJson {
 }
 interface FixtureJson {
   readonly nodes: readonly NodeJson[];
+  readonly animations?: readonly { readonly name?: string; readonly channels: readonly unknown[] }[];
   readonly extensions?: {
     readonly VRM?: {
       readonly humanoid: { readonly humanBones: readonly { readonly bone: string; readonly node: number }[] };
@@ -121,6 +122,16 @@ describe('io/testing loadGltfInNode (WP-0b)', () => {
     expect(loaded.vrm).toBeNull();
     expect(order).not.toEqual(json.nodes.map((_, i) => i));
     expectHierarchyMatchesFile(json, order, loaded.nodeByIndex, loaded.scene);
+  });
+
+  it("returns three's animation clips in file order (Quaternius UAL)", async () => {
+    const { json, loaded } = await load('quaternius-ual.glb');
+    const animations = json.animations ?? [];
+    expect(animations.length).toBeGreaterThan(0);
+    expect(loaded.animations.map((clip) => clip.name)).toEqual(animations.map((a, i) => a.name ?? `animation_${i}`));
+    expect(loaded.animations.every((clip) => clip.tracks.length > 0 && clip.duration > 0)).toBe(true);
+    const polybot = await load('polybot.vrm');
+    expect(polybot.loaded.animations).toEqual([]);
   });
 
   it('leaves no globals behind and handles concurrent loads', async () => {
