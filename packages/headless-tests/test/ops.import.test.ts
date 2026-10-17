@@ -72,8 +72,11 @@ function sourceError(
 
 describe.skipIf(!SIBLINGS_READY)(`file.importModel on the fixtures ${BLOCKED}`, { timeout: 60_000 }, () => {
   it('imports Seed-san (VRM 1.0): humanoid rig, hidden secondaries, locked shot camera, empty clip1', async () => {
-    const { app } = realApp();
+    const { app, services } = realApp();
     const result = await importFixture(app, 'seed-san.vrm');
+    // Technical skeleton notes (near-uniform joint scales) go to the summary, not to a toast.
+    expect(result.warnings.length).toBeGreaterThan(0);
+    expect(services.toasts.filter((toast) => toast.kind === 'warning')).toEqual([]);
     const character = app.store.get('characters', result.character);
     expect(character).toMatchObject({ name: 'Seed-san', format: 'vrm1', placement: { t: [0, 0, 0] } });
     const rig = app.store.query.rigOfCharacter(result.character);

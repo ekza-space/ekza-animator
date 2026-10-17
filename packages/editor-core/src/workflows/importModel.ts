@@ -63,7 +63,10 @@ export interface ModelImportPlan {
   readonly clips: readonly ClipWritePlan[];
   readonly cameraId: CameraId;
   readonly license: VrmLicenseInfo | null;
+  /** For the user (toast and import summary): clips, licence, sub-frame keys, dropped channels. */
   readonly warnings: readonly string[];
+  /** Technical notes on the skeleton and rig (summary only), e.g. near-uniform joint scales. */
+  readonly notes: readonly string[];
 }
 
 /** Rejects files that fail the input budgets or the structural checks (§4.11.14), before anything large is read. */
@@ -126,6 +129,7 @@ function maxChannelKeys(raw: RawClip): number {
 
 export async function prepareModelImport(app: EditorApp, input: ModelImportInput): Promise<ModelImportPlan> {
   const warnings: string[] = [];
+  const notes: string[] = [];
   const options = input.options ?? {};
   const container = await parseGlb(input.bytes);
   assertWithinBudget(container);
@@ -134,7 +138,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   if (!skeleton.nodes.some((node) => node.isJoint)) {
     throw new EkzaError('no-skin', `${input.fileName} has no skinned skeleton to animate`);
   }
-  warnings.push(...skeleton.warnings);
+  notes.push(...skeleton.warnings);
 
   // Clips: read only when some are wanted; compressed animation data cannot be edited.
   const names = animationNames(container);
@@ -163,7 +167,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   );
   const program = compileRig(rig, skeleton);
   for (const warning of program.warnings) {
-    if (warning.code !== 'asymmetric-rest') warnings.push(warning.message);
+    if (warning.code !== 'asymmetric-rest') notes.push(warning.message);
   }
 
   const license = format === 'gltf' ? null : readVrmLicense(container);
@@ -261,6 +265,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
     cameraId: newRecordId(app, 'camera'),
     license,
     warnings,
+    notes,
   };
 }
 
@@ -338,7 +343,7 @@ export function applyModelImport(app: EditorApp, tx: Tx, plan: ModelImportPlan):
   else app.session.setState({ activeCharacter: plan.characterId, selection: EMPTY_SELECTION });
   const name = tx.get('project', 'project')?.name;
   if (name !== undefined && name !== app.session.getState().projectName) app.session.setState({ projectName: name });
-  return { character: plan.characterId, clips: clipIds, warnings: plan.warnings };
+  return { character: plan.characterId, clips: clipIds, warnings: [...plan.warnings, ...plan.notes] };
 }
 
 /** Names of a character's live clips (unique-name checks), in any order. */

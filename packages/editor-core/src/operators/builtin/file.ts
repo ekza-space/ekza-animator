@@ -132,7 +132,7 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   apply({ app, tx }, _args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importModel runs in a transaction');
     const result = applyModelImport(app, tx, plan);
-    toastWarnings(app, `Imported ${plan.fileName}`, result.warnings);
+    toastWarnings(app, `Imported ${plan.fileName}`, plan.warnings);
     return result;
   },
 });
@@ -206,7 +206,7 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
   apply({ app, tx }, _args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.loadSample runs in a transaction');
     const result = applyModelImport(app, tx, plan);
-    toastWarnings(app, `Loaded ${plan.fileName}`, result.warnings);
+    toastWarnings(app, `Loaded ${plan.fileName}`, plan.warnings);
     return result;
   },
 });
