@@ -153,15 +153,20 @@ export function insertKeyPreservingShape(
     const slope = evaluateAnimCurveSlope(compiled, frame);
     const before = p === 0;
     const gap = (before ? compiled.t[0]! - frame : frame - compiled.t[n - 1]!) * ONE_THIRD;
-    // weighted handles keep the thirds (their length shapes the span); non-weighted ones only need the direction
-    const handle = (side: Side, s: number): Handle =>
-      weighted ? (side === 'in' ? { dt: -gap, dv: -s * gap } : { dt: gap, dv: s * gap }) : slopeHandle(side, gap, s);
-    inserted = fixedKey(frame, value, handle('in', slope), handle('out', slope));
+    // weighted handles bounding the new span keep the thirds (their length shapes it); the rest only need the
+    // direction: non-weighted handles, and the new end key's outer side (it shapes only the infinity)
+    const handle = (side: Side, s: number, outer: boolean): Handle =>
+      weighted && !outer
+        ? side === 'in'
+          ? { dt: -gap, dv: -s * gap }
+          : { dt: gap, dv: s * gap }
+        : slopeHandle(side, gap, s);
+    inserted = fixedKey(frame, value, handle('in', slope, before), handle('out', slope, !before));
     const mode = before ? pre : post;
     if (mode === 'constant' || mode === 'linear') {
       const endSlope = mode === 'constant' ? 0 : before ? compiled.inSlope[0]! : compiled.outSlope[n - 1]!;
-      if (before) setSide(0, 'in', handle('in', endSlope));
-      else setSide(n - 1, 'out', handle('out', endSlope));
+      if (before) setSide(0, 'in', handle('in', endSlope, false));
+      else setSide(n - 1, 'out', handle('out', endSlope, false));
     }
   }
 
@@ -186,9 +191,12 @@ export function insertKeyPreservingShape(
       const afterSlope = side === 'in' ? afterTangents.inSlope[jj] : afterTangents.outSlope[jj];
       if (beforeSlope === afterSlope) continue;
       const dt = side === 'in' ? beforeTangents.inDt[j]! : beforeTangents.outDt[j]!;
-      const handle: Handle = weighted
-        ? { dt, dv: side === 'in' ? beforeTangents.inDv[j]! : beforeTangents.outDv[j]! }
-        : slopeHandle(side, Math.abs(dt), beforeSlope!);
+      // a weighted handle's length shapes its span; an end key's outer side has no span
+      const outer = side === 'in' ? jj === 0 : jj === m - 1;
+      const handle: Handle =
+        weighted && !outer
+          ? { dt, dv: side === 'in' ? beforeTangents.inDv[j]! : beforeTangents.outDv[j]! }
+          : slopeHandle(side, Math.abs(dt), beforeSlope!);
       out[jj] = withFixedSide(out[jj]!, side, handle);
       modified.add(j);
     }

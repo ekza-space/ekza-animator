@@ -169,12 +169,16 @@ describe('insertKeyPreservingShape (MVP-SPEC §4.11.4)', () => {
     const frozen = insertKeyPreservingShape(close, 15);
     expect(frozen.frozen).toContain(2);
     expect(window(close, frozen.keys, 10, 10 + 2.5e-6)).toBeLessThanOrEqual(1e-12);
-    // outside the key range, just past the end key, under linear infinity
-    const linear = curve([key(0, 0, 'spline'), key(10, 3, 'spline')], { pre: 'linear', post: 'linear' });
-    for (const frame of [10 + 1.5e-6, -1.5e-6]) {
-      const result = insertKeyPreservingShape(linear, frame);
-      expect(window(linear, result.keys, frame - 1e-5, frame + 1e-5)).toBeLessThanOrEqual(1e-12);
-      expect(insertAndCompare(linear, frame)).toBeLessThanOrEqual(1e-12);
+    // outside the key range, just past an end key, under linear infinity (weighted: the new end key's outer side
+    // shapes only the infinity, so it too keeps |dt| ≥ 1e-6)
+    for (const weighted of [false, true]) {
+      const fixedIn = { ...key(0, 0, 'fixed', 'spline'), inHandle: { dt: -0.5, dv: -6 } };
+      const linear = curve([fixedIn, key(10, 3, 'spline')], { weighted, pre: 'linear', post: 'linear' });
+      for (const frame of [10 + 1.5e-6, -1.5e-6]) {
+        const result = insertKeyPreservingShape(linear, frame);
+        expect(window(linear, result.keys, frame - 1e-5, frame + 1e-5)).toBeLessThanOrEqual(1e-12);
+        expect(insertAndCompare(linear, frame), `weighted=${weighted} at ${frame}`).toBeLessThanOrEqual(1e-12);
+      }
     }
   });
 
