@@ -19,9 +19,10 @@ const KEY_SNAP_EPSILON = 1e-10;
  * AnimX `evaluateCurve` for `frame` inside [first, last] (a frame outside gives the end key's value). `coef` holds
  * the prepared segment coefficients (stride `BEZIER_STRIDE`: Hermite power basis or prepared Bézier). The key lookup
  * is AnimX's `keyframe(time)`: the first key at or after `frame`; a frame within 1e-10 of that key, or before the
- * first key, returns its value. Allocation-free.
+ * first key, returns its value. A positive `snap` first returns the value of the nearest key within `snap` (ties to
+ * the later key), exactly as evaluating at `snapToKey(t, n, frame, snap)` would. Allocation-free.
  */
-export function evaluateCurveInRange(c: CompiledAnimCurve, coef: Float64Array, frame: number): number {
+export function evaluateCurveInRange(c: CompiledAnimCurve, coef: Float64Array, frame: number, snap: number): number {
   const t = c.t;
   const n = c.keyCount;
   let lo = 0;
@@ -32,6 +33,15 @@ export function evaluateCurveInRange(c: CompiledAnimCurve, coef: Float64Array, f
     else hi = mid;
   }
   if (lo === n) return c.v[n - 1]!;
+  if (snap > 0 && lo > 0) {
+    const above = t[lo]! - frame;
+    const below = frame - t[lo - 1]!;
+    if (below < above) {
+      if (below <= snap) return c.v[lo - 1]!;
+    } else if (above <= snap) {
+      return c.v[lo]!;
+    }
+  }
   if (Math.abs(t[lo]! - frame) <= KEY_SNAP_EPSILON || lo === 0) return c.v[lo]!;
   const k = lo - 1;
   switch (c.segment[k] as SegmentKind) {

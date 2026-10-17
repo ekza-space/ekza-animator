@@ -57,11 +57,11 @@ export function evaluateAnimCurve(c: CompiledAnimCurve, frame: Frame): number {
   } else if (frame > t[n - 1]!) {
     if (c.post === 'constant') return c.v[n - 1]!;
   } else {
-    return evaluateCurveInRange(c, coefficientsFast(c), frame);
+    return evaluateCurveInRange(c, coefficientsFast(c), frame, 0);
   }
-  mapInfinity(c, frame);
+  mapInfinity(c, frame, false);
   const offset = INFINITY_MAP[1]!;
-  return evaluateCurveInRange(c, coefficientsFast(c), INFINITY_MAP[0]!) + offset;
+  return evaluateCurveInRange(c, coefficientsFast(c), INFINITY_MAP[0]!, INFINITY_MAP[3]!) + offset;
 }
 
 /**

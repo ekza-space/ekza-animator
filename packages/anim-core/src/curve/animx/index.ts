@@ -15,6 +15,6 @@ export {
 } from './bezier';
 export { evaluateCurveInRange } from './evaluate';
 export { evaluateHermiteSegment, HERMITE_STRIDE, hermiteSlope, prepareHermiteSegment } from './hermite';
-export { type CyclicInfinity, INFINITY_MAP, mapCyclicInfinity, mapInfinity } from './infinity';
+export { type CyclicInfinity, INFINITY_MAP, mapCyclicInfinity, mapInfinity, snapToKey } from './infinity';
 export { horner, polyZeroes } from './polyZeroes';
 export { type AnimxAutoType, autoTangentSlope } from './tangents';

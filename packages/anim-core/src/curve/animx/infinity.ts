@@ -17,9 +17,10 @@ export type CyclicInfinity = 'cycle' | 'cycleOffset' | 'oscillate';
 
 /**
  * Scratch result of `mapInfinity` / `mapCyclicInfinity`: [mapped in-range frame, value offset (`mapCyclicInfinity`:
- * the signed cycle count for cycle-with-offset, 0 otherwise), mirrored (1 where oscillation plays backwards)].
+ * the signed cycle count for cycle-with-offset, 0 otherwise), mirrored (1 where oscillation plays backwards), key-snap
+ * tolerance (0 when the mapped frame is exact or already snapped)].
  */
-export const INFINITY_MAP = new Float64Array(3);
+export const INFINITY_MAP = new Float64Array(4);
 
 /**
  * Bound on the rounding error of the cyclic mapping, relative to max(1, |time|, |first|, |last|). The subtraction,
@@ -34,7 +35,8 @@ function isCyclicMode(mode: InfinityMode): mode is CyclicInfinity {
 
 /**
  * Maps `time` before the first key (`pre`) or after the last key into [t[0], t[n − 1]] for a cyclic infinity mode,
- * with AnimX `evaluateInfinity`'s arithmetic. `n ≥ 2` and `t[n − 1] > t[0]` are required.
+ * with AnimX `evaluateInfinity`'s arithmetic. `n ≥ 2` and `t[n − 1] > t[0]` are required. Writes the mapped frame
+ * (clamped, not yet snapped) and the key-snap tolerance into INFINITY_MAP; `snapToKey` applies it.
  *
  * AnimX then rounds the mapped time to Maya ticks. Besides modelling Maya's seconds, that rounding removes the
  * mapping's rounding error where the exact mapped time is a key: without it, a time that should land on a key can
@@ -85,37 +87,41 @@ export function mapCyclicInfinity(
     factoredTime = first + factoredTime;
   }
 
-  let mapped = Math.min(Math.max(factoredTime, first), last);
-  // snap onto the nearest key when the mapping's rounding error is all that separates them
-  const tolerance = MAP_SNAP_RELATIVE * Math.max(1, Math.abs(time), Math.abs(first), Math.abs(last));
-  let lo = 0;
-  let hi = n - 1; // mapped ≤ last, so a key at or after it exists
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (t[mid]! < mapped) lo = mid + 1;
-    else hi = mid;
-  }
-  const above = t[lo]! - mapped;
-  const below = lo > 0 ? mapped - t[lo - 1]! : Number.POSITIVE_INFINITY;
-  if (above <= below) {
-    if (above <= tolerance) mapped = t[lo]!;
-  } else if (below <= tolerance) {
-    mapped = t[lo - 1]!;
-  }
-
-  INFINITY_MAP[0] = mapped;
+  INFINITY_MAP[3] = MAP_SNAP_RELATIVE * Math.max(1, Math.abs(time), Math.abs(first), Math.abs(last));
+  INFINITY_MAP[0] = Math.min(Math.max(factoredTime, first), last);
   INFINITY_MAP[1] = mode === 'cycleOffset' ? (pre ? -numCycles : numCycles) : 0;
   INFINITY_MAP[2] = mirrored ? 1 : 0;
 }
 
 /**
- * Writes the infinity mapping of `frame` into INFINITY_MAP ([in-range frame, value offset, mirrored]) so that
- * value(frame) = value(mapped frame) + offset; returns false when `frame` is inside the key range (or the curve is
- * empty). Constant maps to the end key; linear to the end key plus the end slope times the distance (AnimX:
+ * The key time nearest to `time` if it is within `tolerance`, else `time`; ties go to the later key. `time` must lie
+ * in [t[0], t[n − 1]]. `evaluateCurveInRange` with the same tolerance gives the same value without the extra search.
+ */
+export function snapToKey(t: ArrayLike<number>, n: number, time: number, tolerance: number): number {
+  let lo = 0;
+  let hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (t[mid]! < time) lo = mid + 1;
+    else hi = mid;
+  }
+  const above = t[lo]! - time;
+  const below = lo > 0 ? time - t[lo - 1]! : Number.POSITIVE_INFINITY;
+  if (below < above) return below <= tolerance ? t[lo - 1]! : time;
+  return above <= tolerance ? t[lo]! : time;
+}
+
+/**
+ * Writes the infinity mapping of `frame` into INFINITY_MAP ([in-range frame, value offset, mirrored, snap tolerance])
+ * so that value(frame) = value(mapped frame) + offset; returns false when `frame` is inside the key range (or the
+ * curve is empty). Constant maps to the end key; linear to the end key plus the end slope times the distance (AnimX:
  * `value ± inc · tan(angle)`); cyclic modes per `mapCyclicInfinity`, cycle-with-offset adding the end-value delta per
  * cycle. A cyclic mode on a single key behaves as constant (AnimX returns 0; the key value is the sane limit).
+ *
+ * With `snap` (the default) a cyclic mapped frame is snapped onto a key (`snapToKey`) and the tolerance is 0;
+ * without it the caller applies the tolerance (`evaluateCurveInRange` does so inside its own key search).
  */
-export function mapInfinity(c: CompiledAnimCurve, frame: number): boolean {
+export function mapInfinity(c: CompiledAnimCurve, frame: number, snap = true): boolean {
   const n = c.keyCount;
   if (n === 0) return false;
   const first = c.t[0]!;
@@ -128,13 +134,19 @@ export function mapInfinity(c: CompiledAnimCurve, frame: number): boolean {
     INFINITY_MAP[0] = boundary;
     INFINITY_MAP[1] = pre ? -(first - frame) * c.inSlope[0]! : (frame - last) * c.outSlope[n - 1]!;
     INFINITY_MAP[2] = 0;
+    INFINITY_MAP[3] = 0;
   } else if (isCyclicMode(mode) && last > first) {
     mapCyclicInfinity(frame, c.t, n, mode, pre);
     INFINITY_MAP[1] = INFINITY_MAP[1]! * (c.v[n - 1]! - c.v[0]!);
+    if (snap) {
+      INFINITY_MAP[0] = snapToKey(c.t, n, INFINITY_MAP[0]!, INFINITY_MAP[3]!);
+      INFINITY_MAP[3] = 0;
+    }
   } else {
     INFINITY_MAP[0] = boundary;
     INFINITY_MAP[1] = 0;
     INFINITY_MAP[2] = 0;
+    INFINITY_MAP[3] = 0;
   }
   return true;
 }
