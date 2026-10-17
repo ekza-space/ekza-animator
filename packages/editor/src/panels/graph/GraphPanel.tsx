@@ -11,7 +11,15 @@ import { ChannelList, channelLockState, type ModifierEvent, modifiers } from './
 import { GraphCanvas } from './GraphCanvas';
 import { GraphToolbar } from './GraphToolbar';
 import { KeyFields } from './KeyFields';
-import { applyChannelSelection, flattenRows, listedControls, selectedKeys, toolbarState, visibleCurves } from './model';
+import {
+  applyChannelSelection,
+  flattenRows,
+  listedControls,
+  sameTree,
+  selectedKeys,
+  toolbarState,
+  visibleCurves,
+} from './model';
 
 const DOC_TABLES = ['characters', 'rigs', 'controls', 'clips', 'layers', 'curves', 'keys'] as const;
 
@@ -38,7 +46,11 @@ export function GraphPanel({ app }: PanelProps): JSX.Element {
     },
     [app, character, clipId, selectedControls, filter, onlyAnimated],
   );
-  const { controls, tree } = useDocQuery(readTree, DOC_TABLES);
+  const { controls, tree: readTreeResult } = useDocQuery(readTree, DOC_TABLES);
+  // Key edits (every drag update) re-read the tree; keep the previous one while it shows the same rows, so the
+  // channel list and the curve view are not re-rendered for them.
+  const [tree, setTree] = useState(readTreeResult);
+  if (tree !== readTreeResult && !sameTree(tree, readTreeResult)) setTree(readTreeResult);
 
   const visibleRaw = useMemo(() => visibleCurves(tree, channelSelection, hidden), [tree, channelSelection, hidden]);
   const [visible, setVisible] = useState(visibleRaw);

@@ -10,6 +10,7 @@ import {
   frameValueFields,
   listedControls,
   rowRefs,
+  sameTree,
   selectedKeys,
   toolbarState,
   visibleCurves,
@@ -35,6 +36,22 @@ afterEach(() => app.dispose());
 const tree = (controls: readonly ControlId[]): ChannelTreeNode[] => buildChannelTree(app, { clip: CLIP, controls });
 
 describe('Graph panel model', () => {
+  it('compares channel trees by what they show, so key edits keep the rendered tree', () => {
+    app = createFakeEditorApp({ snapshot });
+    const before = tree([LOWER_ARM, UPPER_ARM]);
+    app.store.transact({ label: 'Nudge' }, (tx) => tx.patch('keys', KEYS[1], { v: -0.2 }));
+    const after = tree([LOWER_ARM, UPPER_ARM]);
+    expect(after).not.toBe(before);
+    expect(sameTree(before, after)).toBe(true);
+    expect(sameTree(before, tree([LOWER_ARM]))).toBe(false);
+    expect(sameTree(before, tree([UPPER_ARM, LOWER_ARM]))).toBe(false);
+    expect(sameTree(before, buildChannelTree(app, { clip: CLIP, controls: [LOWER_ARM, UPPER_ARM], filter: 'x' }))).toBe(
+      false,
+    );
+    // A curve appearing on a channel changes the row (its curve id).
+    expect(sameTree(before, buildChannelTree(app, { clip: null, controls: [LOWER_ARM, UPPER_ARM] }))).toBe(false);
+  });
+
   it('lists the selected controls of the active character, else its animated controls', () => {
     app = createFakeEditorApp({ snapshot });
     const context = { character: CHARACTER, clip: CLIP, selectedControls: [] as ControlId[] };

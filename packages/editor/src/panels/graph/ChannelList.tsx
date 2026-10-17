@@ -5,7 +5,7 @@ import { type ChannelTreeNode, selectModeFor } from '@ekza-animator/curve-editor
 import type { ControlRecord, DocumentStore } from '@ekza-animator/doc';
 import type { ChannelRef, EditorApp } from '@ekza-animator/editor-core';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { type JSX, type MouseEvent, useRef } from 'react';
+import { type JSX, type MouseEvent, memo, useRef } from 'react';
 import { type ChannelRow, rowRefs } from './model';
 import { runGraphOperator } from './run';
 
@@ -40,7 +40,8 @@ export interface ChannelListProps {
   readonly isLocked: (node: ChannelTreeNode) => boolean;
 }
 
-export function ChannelList(props: ChannelListProps): JSX.Element {
+/** Re-renders only when its rows, selection or callbacks change (not on every key edit of a drag). */
+export const ChannelList = memo(function ChannelList(props: ChannelListProps): JSX.Element {
   const scrollRef = useRef<HTMLDivElement>(null);
   // oxlint-disable-next-line react/incompatible-library -- TanStack Virtual is not memoizable; nothing here is compiled by React Compiler
   const virtualizer = useVirtualizer({
@@ -103,7 +104,7 @@ export function ChannelList(props: ChannelListProps): JSX.Element {
       </div>
     </div>
   );
-}
+});
 
 function channelIds(node: ChannelTreeNode): string[] {
   return node.kind === 'channel' ? [node.id] : node.children.flatMap(channelIds);

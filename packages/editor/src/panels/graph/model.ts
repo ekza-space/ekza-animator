@@ -72,6 +72,29 @@ export function visibleCurves(
   return shown.filter((node) => !hidden.has(node.id)).map((node) => node.curve as CurveId);
 }
 
+/** True when two channel trees show the same rows (ids, labels, curves, colours, structure). */
+export function sameTree(a: readonly ChannelTreeNode[], b: readonly ChannelTreeNode[]): boolean {
+  if (a === b) return true;
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] as ChannelTreeNode;
+    const y = b[i] as ChannelTreeNode;
+    if (
+      x.id !== y.id ||
+      x.kind !== y.kind ||
+      x.label !== y.label ||
+      x.curve !== y.curve ||
+      x.color !== y.color ||
+      x.control !== y.control ||
+      x.channel !== y.channel ||
+      !sameTree(x.children, y.children)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export interface ChannelRow {
   readonly node: ChannelTreeNode;
   readonly depth: number;

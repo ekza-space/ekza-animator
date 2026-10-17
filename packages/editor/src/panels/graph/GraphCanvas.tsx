@@ -4,7 +4,7 @@
 import { GraphEditorController } from '@ekza-animator/curve-editor';
 import type { CurveId } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-animator/editor-core';
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, memo, useEffect, useRef, useState } from 'react';
 import { attachGraphEditor, focusGraphEditor, type GraphEditorHandle } from './focus';
 
 /** Two presses within this time and distance count as a double-click (ToolPointerEvent.detail). */
@@ -26,7 +26,7 @@ export interface GraphCanvasProps {
   readonly onController?: (controller: GraphEditorController | null) => void;
 }
 
-export function GraphCanvas({ app, curves, onController }: GraphCanvasProps): JSX.Element {
+export const GraphCanvas = memo(function GraphCanvas({ app, curves, onController }: GraphCanvasProps): JSX.Element {
   const baseRef = useRef<HTMLCanvasElement>(null);
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const [controller, setController] = useState<GraphEditorController | null>(null);
@@ -67,7 +67,7 @@ export function GraphCanvas({ app, curves, onController }: GraphCanvasProps): JS
       />
     </div>
   );
-}
+});
 
 /** Wires DOM input on `surface` to the controller; returns the cleanup. */
 function bindInput(
