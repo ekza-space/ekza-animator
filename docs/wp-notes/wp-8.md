@@ -108,12 +108,16 @@ of WP-8 (in-app glTF-Validator worker) are not done.
 
 ## Integration trial (2026-10-18, detached HEAD over all WP branches, not kept)
 
-Merges were conflict-free. Found and fixed here: duplicate viewport contributions when a panel hosts its own
-manager (GL host now logs and keeps rendering; shell tests and harnesses give the fake app a model loader),
+Two trial merges of `wp/wp-8` with `wp/wp-1, 2, 3, 7a, 4, 5, 6, 6t, 9` (and `7b`, still equal to 7a) were
+conflict-free. The first found, and this branch fixes: duplicate viewport contributions when a panel hosts its own
+manager (the GL host now logs and keeps rendering; harnesses and shell tests give the fake app a model loader),
 `renderedFrames` not moving during playback with a real manager (W-3), shell tests that assumed an empty preset keymap
-or placeholder panels, display warnings for synthetic characters (W-5), and held-chord defaults (W-9). With the
-merged packages: editor tests 224 passed / 2 skipped (other WPs' gated tests); e2e: E2E-00 (both tests), the import
-summary badges and all `/dev/shell` specs pass; E2E-01/03/19/20 are fixme on WP-7b (`file.loadSample`, importers).
+or placeholder panels, display warnings for synthetic characters (W-5), held-chord defaults (W-9) and the panel
+harness starting a second viewport canvas. The second, with every fix: typecheck clean; editor tests 234 passed /
+2 skipped (other WPs' gated tests); e2e: E2E-00 (both tests, drop zone included), the import summary badges (WP-4),
+all `/dev/shell` and resilience specs pass; E2E-01/03/19/20 are fixme on WP-7b (`file.loadSample`, importers).
+`/editor`, `/dev/shell` and `/dev/panels?panel=viewport` render the real panels over the shell's single canvas with
+no console errors.
 
 ## Tests
 
