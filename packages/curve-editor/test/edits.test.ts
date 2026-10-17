@@ -189,10 +189,15 @@ describe.skipIf(!KERNEL_READY)('[needs WP-7a] handle drags (MVP-SPEC §4.11.4, E
     app.store.transact({ label: 'Lock' }, (tx) => tx.put('keys', { ...keyRecord(app, 0), weightLocked: true }));
     const weight = (h: { readonly dt: number; readonly dv: number }) =>
       3 * Math.hypot(Math.abs(h.dt) / 30, h.dv * RAD2DEG);
-    const locked = keyRecord(app, 0).outHandle;
+    // A locked weight keeps the length of the resolved handle (with the AnimX engine, the stored fixed handle; the
+    // test kit's naive engine ignores weights and resolves span/3) while the angle follows the pointer.
+    const compiled = app.evaluation.compiledCurve(WAVE.curve);
+    const resolved = { dt: compiled.outDt[0] as number, dv: compiled.outDv[0] as number };
     dragBy(mounted, at(controller.handlePoint(WAVE.keys[0], 'out')), 0, -50);
     await settle();
-    expect(weight(keyRecord(app, 0).outHandle)).toBeCloseTo(weight(locked), 6);
+    const locked = keyRecord(app, 0).outHandle;
+    expect(weight(locked)).toBeCloseTo(weight(resolved), 6);
+    expect(locked.dv / locked.dt).toBeGreaterThan(resolved.dv / resolved.dt);
   });
 });
 

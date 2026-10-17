@@ -80,6 +80,38 @@ describe('GraphEditorController.hitTest (MVP-SPEC §4.11.18)', () => {
     expect(controller.hitTest(out.x, out.y)).toMatchObject({ kind: 'handle', key: WAVE.keys[1], side: 'out' });
   });
 
+  it('E2E-08: where curves cross, the one drawn on top is hit (last listed, focused curves above the rest)', async () => {
+    const app = await waveApp();
+    // rx and ry flat at 0° with keys at 0/15/30, like `key.set` on the wave control: at frame 7.5 the rz wave
+    // crosses both at 0°.
+    const rx = addCurve(app, { channel: 'rx', keys: [key(0, 0), key(15, 0), key(30, 0)] });
+    const ry = addCurve(app, { channel: 'ry', keys: [key(0, 0), key(15, 0), key(30, 0)] });
+    mounted = mount(app, { curves: [rx.curve, ry.curve, WAVE.curve] });
+    const { controller } = mounted;
+    const crossing = at(controller.curvePoint(WAVE.curve, 7.5));
+    expect(at(controller.curvePoint(rx.curve, 7.5)).y).toBeCloseTo(crossing.y, 6);
+    for (const dy of [-0.2, 0, 0.2]) {
+      expect(controller.hitTest(crossing.x, crossing.y + dy)).toMatchObject({ kind: 'curve', curve: WAVE.curve });
+    }
+    // A selected key of rx focuses rx: it is drawn above rz, so the crossing hits rx.
+    selectKeys(app, [[rx.keys[0]!, { key: true }]]);
+    expect(controller.hitTest(crossing.x, crossing.y)).toMatchObject({ kind: 'curve', curve: rx.curve });
+    // A clearly nearer curve still wins over the topmost one.
+    expect(controller.hitTest(crossing.x, crossing.y - 3)).toMatchObject({ kind: 'curve', curve: WAVE.curve });
+  });
+
+  it('where keys overlap, a selected key is hit before the others, else the one of the last curve', async () => {
+    const app = await waveApp();
+    const rx = addCurve(app, { channel: 'rx', keys: [key(0, 0), key(15, 0)] });
+    const ry = addCurve(app, { channel: 'ry', keys: [key(0, 0), key(15, 0)] });
+    mounted = mount(app, { curves: [rx.curve, ry.curve] });
+    const { controller } = mounted;
+    const k = at(controller.keyPoint(rx.keys[1]!));
+    expect(controller.hitTest(k.x, k.y)).toMatchObject({ kind: 'key', key: ry.keys[1] });
+    selectKeys(app, [[rx.keys[1]!, { key: true }]]);
+    expect(controller.hitTest(k.x + 1, k.y)).toMatchObject({ kind: 'key', key: rx.keys[1] });
+  });
+
   it('never hits keys, handles or segments of locked curves', async () => {
     const app = await waveApp();
     const locked = addCurve(app, { channel: 'ry', keys: [key(5, 0.2), key(25, 0.9)], locked: true });
