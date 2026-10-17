@@ -1,5 +1,5 @@
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import type { CameraId, CameraRecord, ChannelValues, ControlId } from '@ekza-animator/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, beginChannelEditGesture } from '../../src';
@@ -102,6 +102,33 @@ describe('editor history (ADR 0013)', () => {
     expect(app.store.get('keys', W.keys[1])?.t).toBe(15);
     expect(app.history.canUndo()).toBe(false);
     expect(app.store.get('project', 'project')?.name).toBe('moved');
+  });
+
+  it('shot-camera navigation (undoable: false) after a lock toggle: Mod+Z re-locks, the move stays (E2E-05)', () => {
+    const app = waveApp();
+    const camera: CameraRecord = {
+      id: 'cam_ShotCamera000001' as CameraId,
+      name: 'shotCam',
+      projection: 'perspective',
+      fovY: 0.6,
+      orthoHeight: 2,
+      near: 0.01,
+      far: 100,
+      transform: { t: [0, 1, 3], q: [0, 0, 0, 1], s: [1, 1, 1] },
+      target: [0, 1, 0],
+      aspect: null,
+      locked: true,
+      order: 'a0',
+      deleted: null,
+    };
+    edit(app, 'Create Camera', (tx) => tx.put('cameras', camera));
+    edit(app, 'Unlock Camera', (tx) => tx.patch('cameras', camera.id, { locked: false }));
+    const navigate = app.store.beginPreview('Move Shot Camera');
+    navigate.update((tx) => tx.patch('cameras', camera.id, { target: [1, 1, 0] }));
+    navigate.commit({ undoable: false });
+    expect(app.history.peekUndo()?.label).toBe('Unlock Camera');
+    app.history.undo();
+    expect(app.store.get('cameras', camera.id)).toMatchObject({ locked: true, target: [1, 1, 0] });
   });
 
   it('extends a step when the store coalesces, and forgets it when coalesced edits cancel out', () => {

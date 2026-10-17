@@ -13,17 +13,23 @@ export interface KernelInternals {
   readonly capture: DocCapture | null;
   /** The app's ID source (null: doc's default source). */
   readonly idSource: IdSource | null;
+  /** Channel-edit gestures in progress (`edit.escape` cancels them). */
+  readonly gestures: Set<{ cancel(): void }>;
 }
 
 const registry = new WeakMap<EditorApp, KernelInternals>();
-const FOREIGN: KernelInternals = { deps: DEFAULT_DEPS, capture: null, idSource: null };
 
-export function bindInternals(app: EditorApp, internals: KernelInternals): void {
-  registry.set(app, internals);
+export function bindInternals(app: EditorApp, internals: Omit<KernelInternals, 'gestures'>): void {
+  registry.set(app, { ...internals, gestures: new Set() });
 }
 
 export function internalsOf(app: EditorApp): KernelInternals {
-  return registry.get(app) ?? FOREIGN;
+  let internals = registry.get(app);
+  if (internals === undefined) {
+    internals = { deps: DEFAULT_DEPS, capture: null, idSource: null, gestures: new Set() };
+    registry.set(app, internals);
+  }
+  return internals;
 }
 
 /** A new record ID from the app's ID source (seeded in tests and `?e2e=1`). */

@@ -165,10 +165,12 @@ export function beginChannelEditGesture(
   const selectionBefore = selectionSnapshot(start.selection);
   const where = activeLocation(app);
   const skipped = new Set<string>();
+  const gestures = internalsOf(app).gestures;
   let active = true;
 
   const finish = (): void => {
     active = false;
+    gestures.delete(gesture);
     unsubscribe();
   };
   const abandon = (): void => {
@@ -180,7 +182,7 @@ export function beginChannelEditGesture(
     if (active && !preview.active) abandon();
   });
 
-  return {
+  const gesture: ChannelEditGesture = {
     get active() {
       return active && preview.active;
     },
@@ -237,6 +239,15 @@ export function beginChannelEditGesture(
       app.session.setState({ overrides: startOverrides });
     },
   };
+  gestures.add(gesture);
+  return gesture;
+}
+
+/** Cancels every channel-edit gesture in progress (Esc, `edit.escape`); true when there was one. */
+export function cancelChannelEditGestures(app: EditorApp): boolean {
+  const gestures = [...internalsOf(app).gestures];
+  for (const gesture of gestures) gesture.cancel();
+  return gestures.length > 0;
 }
 
 function recordGestureStep(

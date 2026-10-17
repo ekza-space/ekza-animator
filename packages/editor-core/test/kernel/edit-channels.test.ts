@@ -2,6 +2,7 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { ChannelId, ControlId, Tx } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, beginChannelEditGesture, type ChannelEditResult, type KeyPolicy } from '../../src';
+import { cancelChannelEditGestures } from '../../src/edit/channels';
 import type { EditorApp } from '../../src/types';
 import {
   addOperator,
@@ -284,6 +285,19 @@ describe('beginChannelEditGesture', () => {
     expect(app.session.getState().overrides.size).toBe(0);
     gesture.commit();
     expect(app.history.canUndo()).toBe(false);
+  });
+
+  it('is cancelled by cancelChannelEditGestures (edit.escape), also when it only changed overrides', () => {
+    const app = waveApp();
+    setFrame(app, 5);
+    expect(cancelChannelEditGestures(app)).toBe(false);
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.4 }]); // override only: the preview is empty
+    expect(cancelChannelEditGestures(app)).toBe(true);
+    expect(gesture.active).toBe(false);
+    expect(app.store.preview).toBeNull();
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(cancelChannelEditGestures(app)).toBe(false);
   });
 
   it('blocks operators while active and refuses a second preview', async () => {

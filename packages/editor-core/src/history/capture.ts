@@ -129,11 +129,19 @@ export function classify(
   return { kind: 'none' };
 }
 
-/** True when the entry has a change for every record the batch changed (a coalesced write lands in the entry). */
+/**
+ * True when every change of the batch lands in the entry: the same record and, for field updates, only fields the
+ * entry already covers (a coalesced write). A commit that bypassed the undo stack touches other records or fields.
+ */
 function entryTouches(entry: UndoEntry, changes: readonly AnyChange[]): boolean {
   if (changes.length === 0) return false;
-  const touched = new Set(entry.changes.map((change) => `${change.table}\u0000${change.id}`));
-  return changes.every((change) => touched.has(`${change.table}\u0000${change.id}`));
+  const byRecord = new Map(entry.changes.map((change) => [`${change.table}\u0000${change.id}`, change] as const));
+  return changes.every((change) => {
+    const covered = byRecord.get(`${change.table}\u0000${change.id}`);
+    if (covered === undefined) return false;
+    if (change.fields === undefined || covered.fields === undefined) return true;
+    return change.fields.every((field) => covered.fields?.includes(field) === true);
+  });
 }
 
 function topTxId(store: DocumentStore): string | null {

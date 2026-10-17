@@ -159,7 +159,9 @@ describe('character registry', () => {
     // Edits outside the rig tables do not recompile.
     edit(app, 'Key', (tx) => tx.patch('keys', W.keys[0], { v: 0 }));
     edit(app, 'Clip', (tx) => tx.patch('clips', W.clip, { name: 'x' }));
+    edit(app, 'Character', (tx) => tx.patch('characters', W.character, { name: 'Renamed' }));
     expect(events).toHaveLength(1);
+    expect(app.characters.get(W.character)).toBe(runtime);
   });
 
   it('waits for missing rig records and builds when they appear', () => {

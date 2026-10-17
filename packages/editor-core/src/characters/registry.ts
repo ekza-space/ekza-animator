@@ -6,7 +6,7 @@
 // - A structural rig change (rigs, controls, constraints, solvers) recompiles the program in place ('recompiled').
 // - Display models load after `setRenderer` (see `characters/models.ts`), then 'display' is emitted.
 // - Characters deleted while loading never get a runtime; undoing the deletion re-creates it from the parse cache.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-animator/anim-core';
 import type {
   AnyChange,
   AssetId,
@@ -179,7 +179,7 @@ export function createCharacterRegistry(ctx: {
     track(loading);
   };
 
-  /** Builds the runtime of a live character from its parsed model; false when its rig records are missing. */
+  /** Builds the runtime of a live character from its parsed model (idle while its rig records are missing). */
   const build = (character: CharacterRecord, source: ModelSource): void => {
     const def = deps.rig.readRigDefinition(store, character.rig);
     if (def === undefined) {
@@ -300,16 +300,23 @@ export function createCharacterRegistry(ctx: {
     reorder();
   };
 
-  /** Characters whose runtime a batch changes structurally. */
-  const structurallyTouched = (changes: readonly AnyChange[]): Set<CharacterId> => {
+  /**
+   * Characters whose rig program a batch changes: any rig, control, constraint or solver change of their rig, or a
+   * character pointing at another rig. Other character fields (name, placement, order, deletion) only need a sync.
+   */
+  const recompileTargets = (changes: readonly AnyChange[]): Set<CharacterId> => {
     const ids = new Set<CharacterId>();
     for (const change of changes) {
       if (!STRUCTURAL_TABLES.has(change.table)) continue;
       const row = (change.after ?? change.before) as Readonly<Record<string, unknown>> | undefined;
       if (row === undefined) continue;
-      if (change.table === 'characters') ids.add(change.id);
-      else if (change.table === 'rigs') ids.add(row['character'] as CharacterId);
-      else {
+      if (change.table === 'characters') {
+        if (change.before !== undefined && change.after !== undefined && change.before.rig !== change.after.rig) {
+          ids.add(change.id);
+        }
+      } else if (change.table === 'rigs') {
+        ids.add(row['character'] as CharacterId);
+      } else {
         const rig = store.getIncludingDeleted('rigs', row['rig'] as CharacterRecord['rig']);
         if (rig !== undefined) ids.add(rig.character);
       }
@@ -339,8 +346,7 @@ export function createCharacterRegistry(ctx: {
       return;
     }
     dropSamplers(batch.changes);
-    const touched = structurallyTouched(batch.changes);
-    if (touched.size > 0) sync(touched);
+    if (batch.changes.some((change) => STRUCTURAL_TABLES.has(change.table))) sync(recompileTargets(batch.changes));
   };
 
   sync('all');
@@ -371,9 +377,4 @@ export function createCharacterRegistry(ctx: {
       listeners.clear();
     },
   };
-}
-
-/** Thrown for reads of a character without runtime by kernel helpers. */
-export function noRuntime(character: CharacterId): EkzaError {
-  return new EkzaError('unsupported', `Character ${character} has no runtime`);
 }

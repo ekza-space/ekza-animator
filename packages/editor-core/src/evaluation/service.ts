@@ -47,7 +47,10 @@ export function createEvaluationService(ctx: {
   const dirty = new Set<CharacterId>();
   let allDirty = true;
   /** Clip and frame each runtime's pose was last evaluated at; a runtime re-evaluates when they change. */
-  const evaluatedAt = new Map<CharacterRuntime, { clip: ClipId | null; frame: Frame | null; program: RigProgram }>();
+  const evaluatedAt = new WeakMap<
+    CharacterRuntime,
+    { clip: ClipId | null; frame: Frame | null; program: RigProgram }
+  >();
   /** Reused per tick (listeners must not keep it). */
   const evaluated: CharacterId[] = [];
   /** Scratch channel buffers for `evaluateAt`, per program. */
@@ -194,7 +197,6 @@ export function createEvaluationService(ctx: {
     curveValue,
     dispose(): void {
       listeners.clear();
-      evaluatedAt.clear();
     },
   };
   return service;
