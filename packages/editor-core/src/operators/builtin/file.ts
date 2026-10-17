@@ -6,7 +6,7 @@ import { emptySnapshot } from '@ekza-animator/doc';
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
 import type { EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
-import { blockingLints, requestProblem } from '../../workflows/export';
+import { blockingLints, requestProblem, withReadBackLint } from '../../workflows/export';
 import type { Progress } from '../../workflows/host';
 import {
   animationTargetProblem,
@@ -274,7 +274,8 @@ const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
   prepare({ app }, args: ExportRequest) {
     const exporter = app.exporters.get(args.kind);
     if (exporter === undefined) throw new EkzaError('unsupported', `Unknown export kind '${args.kind}'`);
-    return busy(app, `Exporting ${exporter.label}…`, () => exporter.run(app, args));
+    // Custom exporters get the same read-back rule as the built-in ones.
+    return busy(app, `Exporting ${exporter.label}…`, async () => (await exporter.run(app, args)).map(withReadBackLint));
   },
   apply({ app }, _args, artifacts) {
     let blocked = 0;

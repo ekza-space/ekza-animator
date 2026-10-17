@@ -15,7 +15,8 @@ const setRotateOrder = defineOperator({
   description: "Change a control's rotate order; its curves are converted so the motion stays the same.",
   category: 'rig',
   scope: GLOBAL_SCOPE,
-  flags: { undo: true, internal: true },
+  // Rewrites the rx/ry/rz keys of every clip and layer of the character.
+  flags: { undo: true, structural: true, internal: true },
   undoLabel: () => 'Rotate Order',
   poll({ app }, raw) {
     const args: unknown = raw;

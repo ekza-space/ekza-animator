@@ -23,6 +23,19 @@ export function isMixamo(names: Iterable<string>): boolean {
   return false;
 }
 
+/** Names of every animation and node of a glTF file (the Mixamo rule looks at both). */
+export function animationAndNodeNames(container: GlbContainer): readonly string[] {
+  const names: string[] = [];
+  for (const key of ['animations', 'nodes'] as const) {
+    const list = container.json[key];
+    if (!Array.isArray(list)) continue;
+    for (const entry of list as readonly unknown[]) {
+      if (isRecord(entry) && typeof entry['name'] === 'string') names.push(entry['name']);
+    }
+  }
+  return names;
+}
+
 /** Text that is really a value: VRM converters write the literal 'undefined' into empty meta fields. */
 function meaningful(text: string | null | undefined): string | null {
   if (text === null || text === undefined) return null;

@@ -1,9 +1,10 @@
 // ops.* (WP-7b): model import through `file.importModel` / `file.loadSample` on the three licensed fixtures
 // (MVP-SPEC §4.11.6): records and counts, the auto-rig, the shot camera, frame rate and key reduction of embedded
 // clips, accuracy against the source samplers, provenance, undo/redo, and the rejections (not a GLB, no skin).
+import { existsSync } from 'node:fs';
 import { quatAngle } from '@ekza-animator/anim-core';
 import type { ClipId, ClipRecord, KeyRecord } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
+import { fixturePath, readFixture } from '@ekza-animator/doc/testing';
 import type { CharacterRuntime, ImportResult } from '@ekza-animator/editor-core';
 import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
 import type { RawClip } from '@ekza-animator/rig';
@@ -180,6 +181,31 @@ describe.skipIf(!SIBLINGS_READY)(`file.importModel on the fixtures ${BLOCKED}`, 
     expect(two.clips.map((id) => clipOf(app, id).name)).toEqual(['Idle_Loop', 'Walk_Loop']);
     expect(two.warnings.some((w) => w.includes('already in the project'))).toBe(true);
   });
+
+  it.skipIf(!existsSync(fixturePath('quaternius-idle-meshopt.glb')))(
+    'imports a model with compressed animation without clips; refuses a compressed clip picked by index (B7-3) [fixture: WP-4]',
+    async () => {
+      const { app, services } = realApp();
+      const bytes = readFixture('quaternius-idle-meshopt.glb');
+      const result = (await runOk(app, 'file.importModel', {
+        name: 'quaternius-idle-meshopt.glb',
+        bytes,
+      })) as ImportResult;
+      expect(result.clips.map((id) => clipOf(app, id).name)).toEqual(['clip1']);
+      expect(result.warnings.some((w) => w.includes('compressed'))).toBe(true);
+      expect(services.toasts.some((toast) => toast.kind === 'warning' && toast.text.includes('compressed'))).toBe(true);
+      await runtimeOf(app, result.character);
+
+      const characters = app.store.list('characters').length;
+      const picked = await app.runUntyped('file.importModel', {
+        name: 'quaternius-idle-meshopt.glb',
+        bytes,
+        options: { clips: [0] },
+      });
+      expect(picked).toMatchObject({ status: 'failed', error: { code: 'compressed-animation' } });
+      expect(app.store.list('characters')).toHaveLength(characters);
+    },
+  );
 
   it('places a new character beside the right-most one, also after a deletion', async () => {
     const { app } = realApp();

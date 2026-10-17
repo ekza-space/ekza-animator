@@ -14,7 +14,7 @@ import type {
   Tx,
 } from '@ekza-animator/doc';
 import { newRecordId } from '../../app/internals';
-import { type EditorApp, GLOBAL_SCOPE } from '../../types';
+import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
 import { planEmptyClip, writeClipPlan } from '../../workflows/clipWrite';
 import { clipNameTaken } from '../../workflows/importModel';
 import {
@@ -26,7 +26,7 @@ import {
   uniqueName,
 } from '../../workflows/names';
 import { DEFAULT_CLIP_RANGE, orderAfter, orderBetween } from '../../workflows/records';
-import { activateClip, clipFrameOfScene, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
+import { activateClip, clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
@@ -262,12 +262,28 @@ const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId 
     }
     const state = app.session.getState();
     if (next !== undefined && state.activeClip[clip.character] === clip.id) {
-      app.session.setState({ activeClip: { ...state.activeClip, [clip.character]: next.id } });
+      const activeClip = { ...state.activeClip, [clip.character]: next.id };
+      // The timeline and Graph Editor show the active character's clip: keep the frame inside the new clip's range
+      // and drop the key selection (keys of the deleted clip). Another character's switch changes nothing on screen.
+      app.session.setState(
+        clip.character === state.activeCharacter
+          ? {
+              activeClip,
+              time: { ...state.time, sceneFrame: clampedSceneFrame(app, next), band: null },
+              selection: withoutKeys(state.selection),
+            }
+          : { activeClip },
+      );
     }
   },
 });
 
 // ---------- set active ----------
+
+/** The selection without keys (they belong to the curves of the previously active clip). */
+function withoutKeys(selection: Selection): Selection {
+  return selection.keys.size === 0 ? selection : { ...selection, keys: new Map() };
+}
 
 /** Scene frame that shows `clip` inside its range: the current one when it does, else the nearest range end. */
 function clampedSceneFrame(app: EditorApp, clip: ClipRecord): Frame {
@@ -294,10 +310,19 @@ const clipSetActive = defineOperator({
     if (clip === undefined) throw new EkzaError('invalid-record', `Clip ${args.clip} does not exist`);
     const state = app.session.getState();
     const sceneFrame = clampedSceneFrame(app, clip);
+    // The selection holds one character's controls and the active clip's keys (select.ts): another character
+    // starts with an empty selection, another clip of the same character keeps the controls but not the keys.
+    const selection =
+      clip.character !== state.activeCharacter
+        ? EMPTY_SELECTION
+        : state.activeClip[clip.character] !== clip.id
+          ? withoutKeys(state.selection)
+          : state.selection;
     app.session.setState({
       activeCharacter: clip.character,
       activeClip: { ...state.activeClip, [clip.character]: clip.id },
       time: { ...state.time, sceneFrame, band: null },
+      selection,
     });
   },
 });

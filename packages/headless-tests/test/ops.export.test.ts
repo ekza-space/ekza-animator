@@ -311,6 +311,61 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     });
     expect(await app.runUntyped('file.export', { kind: 'vrma' })).toMatchObject({ status: 'cancelled' });
   });
+
+  it('imports a Mixamo-named VRMA as non-redistributable, which the Ekza VRMA profile refuses (ADR 0010 §3)', async () => {
+    const { app } = realApp();
+    const bot = await importFixture(app, 'polybot.vrm');
+    const wave = await waveClip(app, bot.character);
+    const [vrma] = await exportOk(app, request(bot.character, [wave], { kind: 'vrma' }));
+    if (vrma === undefined) throw new Error('no artifact');
+    const source = await parseGlb(vrma.bytes);
+    /** The VRMA without the Animator's provenance, so the import judges it by its names. */
+    const foreign = (edit: (json: Record<string, unknown>) => void) =>
+      withJson(source, (json) => {
+        const asset = json['asset'] as { extras?: Record<string, unknown> };
+        delete asset.extras;
+        edit(json);
+      });
+    const importAs = async (name: string, bytes: Uint8Array) => {
+      const result = (await runOk(app, 'file.importAnimation', { name, bytes, character: bot.character })) as {
+        clips: ClipId[];
+      };
+      const id = result.clips[0] as ClipId;
+      await runOk(app, 'clip.setSettings', { clip: id, slot: 'idle' });
+      return id;
+    };
+    const plain = await importAs(
+      'plain.vrma',
+      foreign(() => {}),
+    );
+    const byClip = await importAs(
+      'mixamo-clip.vrma',
+      foreign((json) => {
+        (json['animations'] as { name?: string }[])[0] = {
+          ...(json['animations'] as Record<string, unknown>[])[0],
+          name: 'Armature|mixamo.com|Layer0',
+        };
+      }),
+    );
+    const byNode = await importAs(
+      'mixamo-node.vrma',
+      foreign((json) => {
+        const nodes = json['nodes'] as { name?: string }[];
+        nodes[0] = { ...nodes[0], name: 'mixamorig:Hips' };
+      }),
+    );
+    expect(app.store.get('clips', plain)?.provenance.redistributable).toBe('unknown');
+    expect(app.store.get('clips', byClip)?.provenance.redistributable).toBe('no');
+    expect(app.store.get('clips', byNode)?.provenance.redistributable).toBe('no');
+
+    const profile = 'ekza/vrma-humanoid-v1';
+    expect(await exportOk(app, request(bot.character, [plain], { kind: 'vrma', profile }))).toHaveLength(1);
+    for (const clip of [byClip, byNode]) {
+      const refused = await app.runUntyped('file.export', request(bot.character, [clip], { kind: 'vrma', profile }));
+      expect(refused).toMatchObject({ status: 'cancelled' });
+      expect(refused.status === 'cancelled' ? refused.reason : '').toMatch(/not redistributable/);
+    }
+  });
 });
 
 /** LINEAR rotation sampler value at `t` seconds (slerp between the surrounding keys). */

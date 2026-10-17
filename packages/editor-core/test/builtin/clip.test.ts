@@ -2,7 +2,10 @@
 // a replacement active clip, switching, and clip settings incl. the keep-seconds frame-rate change; undo/redo.
 import type { ClipId, ClipRecord, KeyRecord } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
-import { expectUndoRedoExact, opsApp, READY, runOk, runResult, setSceneFrame, WAVE } from './support';
+import { registerBuiltinOperators } from '../../src';
+import { createFakeEditorApp } from '../../src/testing';
+import { SECOND, twoCharacterDoc } from '../kernel/support';
+import { expectUndoRedoExact, humanoidSkeleton, opsApp, READY, runOk, runResult, setSceneFrame, WAVE } from './support';
 
 type App = ReturnType<typeof opsApp>;
 
@@ -133,6 +136,71 @@ describe.skipIf(!READY.wp2)('clip.duplicate / clip.delete / clip.setActive [need
     expect(app.session.getState().time.sceneFrame).toBe(10);
     expect(app.session.getState().overrides.size).toBe(0);
     expect(app.history.peekUndo()?.id).toBe(steps);
+  });
+
+  it("keeps the selected controls but drops the previous clip's keys when switching clips", async () => {
+    const app = opsApp();
+    const other = ((await runOk(app, 'clip.new', { name: 'idle' })) as { clip: ClipId }).clip;
+    await runOk(app, 'clip.setActive', { clip: WAVE.clip });
+    await runOk(app, 'select.controls', { ids: [WAVE.lowerArmL], mode: 'replace' });
+    await runOk(app, 'select.keys', { items: [{ key: WAVE.keys[1] }], mode: 'replace' });
+    // Re-activating the active clip changes nothing.
+    await runOk(app, 'clip.setActive', { clip: WAVE.clip });
+    expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
+    await runOk(app, 'clip.setActive', { clip: other });
+    expect(app.session.getState().selection.controls).toEqual([WAVE.lowerArmL]);
+    expect(app.session.getState().selection.keys.size).toBe(0);
+  });
+
+  it('keeps the frame inside the range of the clip that replaces a deleted active clip', async () => {
+    const app = opsApp();
+    const short = ((await runOk(app, 'clip.new', { name: 'short', range: { start: 0, end: 10 } })) as { clip: ClipId })
+      .clip;
+    await runOk(app, 'clip.setActive', { clip: WAVE.clip });
+    setSceneFrame(app, 25);
+    await runOk(app, 'select.controls', { ids: [WAVE.lowerArmL], mode: 'replace' });
+    await runOk(app, 'select.keys', { items: [{ key: WAVE.keys[1] }], mode: 'replace' });
+    await runOk(app, 'clip.delete', { clip: WAVE.clip });
+    const state = app.session.getState();
+    expect(state.activeClip[WAVE.character]).toBe(short);
+    expect(state.time.sceneFrame).toBe(10);
+    expect(state.selection.keys.size).toBe(0);
+    expect(state.selection.controls).toEqual([WAVE.lowerArmL]);
+    // Undo restores the clip and the selection the step started with.
+    await runOk(app, 'edit.undo');
+    expect(app.store.get('clips', WAVE.clip)).toBeDefined();
+    expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
+  });
+
+  it('replaces a deleted last clip with clip1 at its start when the frame is past its end', async () => {
+    const app = opsApp();
+    const long = ((await runOk(app, 'clip.new', { name: 'long', range: { start: 0, end: 100 } })) as { clip: ClipId })
+      .clip;
+    await runOk(app, 'clip.delete', { clip: WAVE.clip });
+    setSceneFrame(app, 90);
+    await runOk(app, 'clip.delete', { clip: long });
+    const [replacement] = app.store.query.clipsOfCharacter(WAVE.character);
+    expect(replacement).toMatchObject({ name: 'clip1', range: { start: 0, end: 60 } });
+    expect(app.session.getState().activeClip[WAVE.character]).toBe(replacement?.id);
+    expect(app.session.getState().time.sceneFrame).toBe(60);
+  });
+});
+
+describe('clip.setActive across characters', () => {
+  it("makes the clip's character active with an empty selection, so keying cannot touch the other one", async () => {
+    const app = createFakeEditorApp({ snapshot: twoCharacterDoc(), skeleton: humanoidSkeleton() });
+    registerBuiltinOperators(app);
+    await runOk(app, 'select.controls', { ids: [WAVE.lowerArmL], mode: 'replace' });
+    await runOk(app, 'select.keys', { items: [{ key: WAVE.keys[0] }], mode: 'replace' });
+    const firstKeys = clipKeys(app, WAVE.clip).length;
+    await runOk(app, 'clip.setActive', { clip: SECOND.clip });
+    const state = app.session.getState();
+    expect(state.activeCharacter).toBe(SECOND.character);
+    expect(state.activeClip[SECOND.character]).toBe(SECOND.clip);
+    expect(state.selection).toEqual({ controls: [], keys: new Map(), channels: [] });
+    setSceneFrame(app, 7);
+    await app.runUntyped('key.set');
+    expect(clipKeys(app, WAVE.clip)).toHaveLength(firstKeys);
   });
 });
 

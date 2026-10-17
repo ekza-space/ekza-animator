@@ -27,7 +27,7 @@ import { type ClipWritePlan, planImportedClip, resolveClipOptions, writeClipPlan
 import { yieldToHost } from './host';
 import { assertWithinBudget } from './importModel';
 import { baseName, sanitizeClipName, uniqueName } from './names';
-import { clipProvenance, embeddedEkzaProvenance, sourceProvenance } from './provenance';
+import { animationAndNodeNames, clipProvenance, embeddedEkzaProvenance, sourceProvenance } from './provenance';
 import { orderAfter } from './records';
 import { activateClip, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';
@@ -108,10 +108,17 @@ function maxKeys(data: HumanoidClipData): number {
   return max;
 }
 
-/** The source's provenance: the Animator's own metadata when present, else unknown. */
-function fileProvenance(container: GlbContainer, title: string): ClipProvenance {
+/**
+ * A VRMA's provenance (§4.11.6 step 7, ADR 0010 §3): the Animator's own metadata when present, else unknown — forced
+ * to 'no' when the clip, any animation or any node of the file is named like Mixamo's (`mixamo.com`, `mixamorig:*`).
+ */
+function vrmaProvenance(container: GlbContainer, clipName: string, title: string): ClipProvenance {
   return (
-    embeddedEkzaProvenance(container) ?? sourceProvenance({ fileTitle: title, sha256: container.sha256, license: null })
+    embeddedEkzaProvenance(container) ??
+    clipProvenance(sourceProvenance({ fileTitle: title, sha256: container.sha256, license: null }), [
+      clipName,
+      ...animationAndNodeNames(container),
+    ])
   );
 }
 
@@ -153,7 +160,7 @@ export async function prepareVrmaImport(app: EditorApp, input: ImportInput): Pro
 
   const title = data.name !== '' ? data.name : baseName(input.fileName);
   const asset = await storeSource(app, input, 'vrma');
-  const clip = planImported(app, input, asset, title, fileProvenance(container, title), imported);
+  const clip = planImported(app, input, asset, title, vrmaProvenance(container, data.name, title), imported);
   await app.store.open(`clip:${clip.clip.id}`);
   return { character: input.character, asset, clips: [clip], warnings };
 }

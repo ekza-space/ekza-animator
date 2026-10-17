@@ -381,9 +381,32 @@ export async function runExport(
   }
 
   const withWarnings = artifacts.map((artifact) =>
-    warnings.length === 0 ? artifact : { ...artifact, lints: [...artifact.lints, ...warnings] },
+    withReadBackLint(warnings.length === 0 ? artifact : { ...artifact, lints: [...artifact.lints, ...warnings] }),
   );
   return validateArtifacts(app, withWarnings, kind === 'bake-into-model' ? runtime.container.bytes : null);
+}
+
+/** Lint code of a failed read-back check. */
+export const READ_BACK_LINT = 'export.read-back';
+
+/**
+ * §4.11.10 step 5, ADR 0005 §9: a failed read-back check (the written file does not reproduce the baked samples within
+ * 1e-4 rad / 1e-5 m) is an error lint, so it blocks the download like any other error. In the app the read-back is
+ * the only check of the written bytes (no validator worker in the MVP). Idempotent; applied to every artifact,
+ * whichever exporter wrote it.
+ */
+export function withReadBackLint(artifact: ExportArtifact): ExportArtifact {
+  const report = artifact.readBack;
+  if (report === null || report.ok || artifact.lints.some((lint) => lint.code === READ_BACK_LINT)) return artifact;
+  const lint: LintIssue = {
+    code: READ_BACK_LINT,
+    severity: 'error',
+    message:
+      `Read-back check failed: max rotation error ${report.maxRotationErrorRad.toPrecision(3)} rad, ` +
+      `max translation error ${report.maxTranslationErrorM.toPrecision(3)} m ` +
+      `(${report.animations} animation${report.animations === 1 ? '' : 's'}, ${report.channels} channels read)`,
+  };
+  return { ...artifact, lints: [...artifact.lints, lint] };
 }
 
 /**

@@ -1,12 +1,14 @@
 // Pure parts of the workflows: clip naming rules, provenance (§4.11.6 step 7), import clip options (§4.11.6 step 5),
-// clip selection defaults, shot-camera framing, project file names.
+// clip selection defaults, shot-camera framing, project file names; the export download gate (§4.11.10 step 5).
 import { quatRotateVec3 } from '@ekza-animator/anim-core';
 import type { CharacterId } from '@ekza-animator/doc';
-import type { GlbContainer, VrmLicenseInfo } from '@ekza-animator/io';
+import type { ExportArtifact, ExportRequest, GlbContainer, ReadBackReport, VrmLicenseInfo } from '@ekza-animator/io';
 import { DEFAULT_REDUCE } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
+import type { ExporterDef } from '../../src/types';
 import { frameShotCamera, lookAtQuaternion, SHOT_FOV_Y } from '../../src/workflows/camera';
 import { landsOnFrames, resolveClipOptions } from '../../src/workflows/clipWrite';
+import { blockingLints, READ_BACK_LINT, withReadBackLint } from '../../src/workflows/export';
 import { applyClipImport, type ClipImportPlan, isAnimationOnlyGlb } from '../../src/workflows/importAnimation';
 import { animationNames, selectClips } from '../../src/workflows/importModel';
 import {
@@ -21,6 +23,7 @@ import {
 } from '../../src/workflows/names';
 import { projectFileName } from '../../src/workflows/project';
 import {
+  animationAndNodeNames,
   clipProvenance,
   embeddedEkzaProvenance,
   isMixamo,
@@ -28,7 +31,7 @@ import {
   sourceProvenance,
 } from '../../src/workflows/provenance';
 import { SAMPLES } from '../../src/workflows/samples';
-import { glbOf, opsApp } from './support';
+import { glbOf, opsApp, opsAppWith, WAVE } from './support';
 
 const SHA = 'a'.repeat(64);
 
@@ -153,6 +156,19 @@ describe('provenance', () => {
     expect(isMixamo(['Idle'])).toBe(false);
     expect(clipProvenance(source, ['Walk', 'mixamorig:Spine']).redistributable).toBe('no');
     expect(clipProvenance(source, ['Walk'])).toBe(source);
+  });
+
+  it('lists every animation and node name of a file for the Mixamo rule (VRMA import)', () => {
+    const file = container({
+      animations: [{ name: 'Armature|mixamo.com|Layer0' }, {}],
+      nodes: [{ name: 'Hips' }, { name: 'mixamorig:Spine' }, { mesh: 0 }],
+    });
+    expect(animationAndNodeNames(file)).toEqual(['Armature|mixamo.com|Layer0', 'Hips', 'mixamorig:Spine']);
+    expect(animationAndNodeNames(container({ animations: 'bad', nodes: [null, 3] }))).toEqual([]);
+    const unknown = sourceProvenance({ fileTitle: 'clip', sha256: SHA, license: null });
+    expect(clipProvenance(unknown, ['clip', ...animationAndNodeNames(file)]).redistributable).toBe('no');
+    const clean = container({ animations: [{ name: 'wave' }], nodes: [{ name: 'Hips' }] });
+    expect(clipProvenance(unknown, ['wave', ...animationAndNodeNames(clean)]).redistributable).toBe('unknown');
   });
 
   it('gates baking for restricted VRM licences', () => {
@@ -310,5 +326,98 @@ describe('clip import apply', () => {
     expect(() => app.store.transact({ label: 'x' }, (tx) => applyClipImport(app, tx, plan))).toThrow(
       /removed while the file was being read/,
     );
+  });
+});
+
+describe('export download gate (§4.11.10 step 5)', () => {
+  const READ_BACK_OK: ReadBackReport = {
+    ok: true,
+    animations: 1,
+    channels: 3,
+    maxRotationErrorRad: 1e-7,
+    maxTranslationErrorM: 0,
+  };
+
+  function artifact(fileName: string, readBack: ReadBackReport | null): ExportArtifact {
+    return {
+      kind: 'animation-glb',
+      fileName,
+      mime: 'model/gltf-binary',
+      bytes: new Uint8Array([1, 2, 3, 4]),
+      sha256: SHA,
+      lints: [{ code: 'bake.large-rotation-step', severity: 'warning', message: 'large step' }],
+      readBack,
+      validation: null,
+      stats: { clips: 1, channels: 3, keys: 6 },
+    };
+  }
+
+  const REQUEST: ExportRequest = {
+    kind: 'animation-glb',
+    character: WAVE.character,
+    clips: [WAVE.clip],
+    fileNamePattern: '{character}_{clip}',
+    closeLoop: true,
+    includeConstantTracks: true,
+    acknowledgeLicense: false,
+    profile: null,
+  };
+
+  /** The fake app with a custom `animation-glb` exporter that returns the given artifacts. */
+  function appExporting(artifacts: readonly ExportArtifact[]) {
+    const { app, services } = opsAppWith();
+    const exporter: ExporterDef = {
+      id: 'animation-glb',
+      label: 'Test GLB',
+      extension: () => 'glb',
+      poll: () => true,
+      run: () => Promise.resolve(artifacts),
+    };
+    app.exporters.register(exporter);
+    return { app, services };
+  }
+
+  it('turns a failed read-back into an error lint, once', () => {
+    const failed = withReadBackLint(
+      artifact('broken.glb', { ...READ_BACK_OK, ok: false, maxRotationErrorRad: 0.25, maxTranslationErrorM: 0.002 }),
+    );
+    expect(blockingLints(failed)).toEqual([
+      {
+        code: READ_BACK_LINT,
+        severity: 'error',
+        message:
+          'Read-back check failed: max rotation error 0.250 rad, max translation error 0.00200 m (1 animation, 3 channels read)',
+      },
+    ]);
+    expect(withReadBackLint(failed)).toBe(failed);
+    const passed = artifact('fine.glb', READ_BACK_OK);
+    expect(withReadBackLint(passed)).toBe(passed);
+    const unchecked = artifact('unchecked.glb', null);
+    expect(withReadBackLint(unchecked)).toBe(unchecked);
+  });
+
+  it('does not download an artifact whose read-back failed, and says so', async () => {
+    const broken = artifact('broken.glb', { ...READ_BACK_OK, ok: false, maxRotationErrorRad: 0.25 });
+    const { app, services } = appExporting([broken]);
+    const result = await app.runUntyped('file.export', REQUEST);
+    expect(result.status).toBe('finished');
+    const returned = (result.status === 'finished' ? result.value : []) as readonly ExportArtifact[];
+    expect(returned).toHaveLength(1);
+    expect(returned[0]?.lints.map((lint) => lint.code)).toEqual(['bake.large-rotation-step', READ_BACK_LINT]);
+    expect(services.downloads).toEqual([]);
+    expect(services.toasts).toHaveLength(1);
+    expect(services.toasts[0]).toMatchObject({ kind: 'error' });
+    expect(services.toasts[0]?.text).toMatch(/^broken\.glb was not saved: Read-back check failed/);
+    expect(app.session.getState().busy).toBeNull();
+  });
+
+  it('downloads the artifacts that pass and reports their warnings', async () => {
+    const good = artifact('good.glb', READ_BACK_OK);
+    const broken = artifact('broken.glb', { ...READ_BACK_OK, ok: false });
+    const { app, services } = appExporting([good, broken]);
+    expect((await app.runUntyped('file.export', REQUEST)).status).toBe('finished');
+    expect(services.downloads.map((d) => d.fileName)).toEqual(['good.glb']);
+    expect(services.toasts.map((toast) => toast.kind)).toEqual(['error', 'warning']);
+    expect(services.toasts[1]?.text).toBe('Exported good.glb with 1 warning');
   });
 });
