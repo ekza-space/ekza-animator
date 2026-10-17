@@ -57,6 +57,15 @@ const SCROLLER_STYLE: CSSProperties = { position: 'relative', flex: '1 1 0', min
 const ROW_STYLE: CSSProperties = { position: 'absolute', top: 0, left: 0, width: '100%', height: 22 };
 const ROW_HEIGHT = 22;
 const INDENT = 12;
+/** Levels indented by a full INDENT; deeper levels step by DEEP_INDENT so finger chains stay readable at 240 px. */
+const FULL_INDENT_LEVELS = 4;
+const DEEP_INDENT = 5;
+
+/** Left padding of a row at `depth` (acceptance round 2: at depth 10 the chevron sat mid-row and names read "L …"). */
+export function rowIndentPx(depth: number): number {
+  const full = Math.min(depth, FULL_INDENT_LEVELS);
+  return 4 + full * INDENT + Math.max(0, depth - FULL_INDENT_LEVELS) * DEEP_INDENT;
+}
 const OUTLINER_TABLES = ['characters', 'rigs', 'controls', 'clips'] as const;
 const FORMAT_LABEL = { vrm0: 'VRM 0.x', vrm1: 'VRM 1.0', gltf: 'glTF' } as const;
 
@@ -541,7 +550,7 @@ function OutlinerRowView(props: RowViewProps): JSX.Element {
   const style: CSSProperties = {
     ...ROW_STYLE,
     transform: `translateY(${props.top}px)`,
-    paddingLeft: 4 + row.depth * INDENT,
+    paddingLeft: rowIndentPx(row.depth),
   };
   const selectable = row.kind === 'control';
   return (
@@ -594,10 +603,13 @@ function RowContent(props: {
 }): JSX.Element {
   const { row } = props;
   const label = (text: string, strong = false): JSX.Element => (
-    <span className={`truncate ${strong ? 'font-semibold' : ''} ${row.match ? 'text-accent-text' : ''}`}>{text}</span>
+    <span className={`min-w-0 truncate ${strong ? 'font-semibold' : ''} ${row.match ? 'text-accent-text' : ''}`}>
+      {text}
+    </span>
   );
+  // The secondary text (template key, humanoid name) gives way first, so the name stays readable.
   const secondary = (text: string | null): JSX.Element | null =>
-    text === null ? null : <span className="truncate text-fg-3">{text}</span>;
+    text === null ? null : <span className="min-w-0 shrink-[4] truncate text-fg-3">{text}</span>;
   switch (row.kind) {
     case 'character':
       return (

@@ -1,7 +1,7 @@
 import type { CharacterId, ControlId, ControlRecord } from '@ekza-animator/doc';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
-import { OutlinerPanel } from '../../src/panels/outliner/OutlinerPanel';
+import { OutlinerPanel, rowIndentPx } from '../../src/panels/outliner/OutlinerPanel';
 import { hoveredControl } from '../../src/panels/outliner/hover';
 import { buildOutlinerRows, controlHierarchy, readOutlinerDoc, revealKeys } from '../../src/panels/outliner/model';
 import {
@@ -347,6 +347,13 @@ describe('Outliner clips and keyboard', () => {
       window.removeEventListener('keydown', onKey);
     }
     await view.unmount();
+  });
+
+  it('indents deep rows less, so a finger chain at depth 10 keeps its chevron near the left (acceptance round 2)', () => {
+    const steps = Array.from({ length: 12 }, (_, depth) => rowIndentPx(depth));
+    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeGreaterThan(steps[i - 1] as number);
+    expect(rowIndentPx(2)).toBe(4 + 2 * 12);
+    expect(rowIndentPx(10)).toBeLessThanOrEqual(84);
   });
 
   it('virtualizes long rigs: only the rows in view are in the DOM', async () => {
