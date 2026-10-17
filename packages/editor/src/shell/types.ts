@@ -164,10 +164,13 @@ export interface Shell {
   readonly params: EditorParams;
   readonly ui: StoreApi<ShellUiState>;
   readonly frame: FrameHooks;
-  /** WebGL frames rendered so far (test API `renderedFrames()`, the idle-check of ARCHITECTURE §14). */
+  /**
+   * Frames the GL host's canvas has run so far (test API `renderedFrames()`, the idle check of ARCHITECTURE §14):
+   * every demand-loop frame counts, whether or not the ViewportManager found dirty panes to draw.
+   */
   renderedFrames(): number;
-  /** Called by the GL host for every frame it renders without a ViewportManager. */
-  countFallbackFrame(): void;
+  /** Called by the GL host for every frame of its canvas. */
+  countFrame(): void;
   /** Points `app.requestFrame` back at the rAF scheduler (the GL host went away or never started). */
   restoreFallbackFrames(): void;
   readonly probes: ProbeRegistry;

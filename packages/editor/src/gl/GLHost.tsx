@@ -22,13 +22,10 @@ function isNotImplemented(error: unknown): boolean {
 function FrameDriver(props: { readonly shell: Shell; readonly gate: FrameGate }): null {
   useFrame((state) => {
     props.gate.enter('render');
+    props.shell.countFrame();
     const vm = props.shell.ui.getState().viewport;
-    if (vm !== null) {
-      vm.render();
-    } else {
-      state.gl.render(state.scene, state.camera);
-      props.shell.countFallbackFrame();
-    }
+    if (vm !== null) vm.render();
+    else state.gl.render(state.scene, state.camera);
     // Requested during this frame (playback, a callback asking for more): keep the demand loop going.
     if (props.gate.takeContinuation()) state.invalidate();
   }, 1);
@@ -76,7 +73,15 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
   } catch (error) {
     if (!isNotImplemented(error)) console.error('Ekza Animator: the viewport could not start', error);
   }
-  const disposeContributions = vm === null ? () => {} : registerViewportContributions(app, vm);
+  let disposeContributions: () => void = () => {};
+  if (vm !== null) {
+    try {
+      disposeContributions = registerViewportContributions(app, vm);
+    } catch (error) {
+      // Another host already registered the viewport tools and operators; keep rendering with this manager.
+      console.error('Ekza Animator: the viewport contributions could not be registered', error);
+    }
+  }
   let unsubscribePrefs: (() => void) | null = null;
   if (vm !== null) {
     const manager = vm;

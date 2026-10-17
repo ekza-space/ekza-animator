@@ -1,5 +1,12 @@
 import { expect, test } from '@playwright/test';
-import { call, fixmeIfKernelUnavailable, fixmeIfPlaceholder, openEditor, waitForCount } from './helpers/test-api';
+import {
+  call,
+  fixmeIfKernelUnavailable,
+  fixmeIfPlaceholder,
+  openEditor,
+  requireOperator,
+  waitForCount,
+} from './helpers/test-api';
 
 // E2E-01 (MVP-SPEC §6.2): first run, then the Seed-san sample (VRM 1.0) from the empty viewport.
 const REQUIRED_KEYS = ['root', 'cog', 'fk.hips', 'fk.head', 'fk.upperArm.L', 'fk.upperArm.R'];
@@ -17,6 +24,7 @@ test('E2E-01: first run + sample VRM 1.0', async ({ page }) => {
   expect((await call(page, 'state')).dialog).toBeNull();
 
   await fixmeIfPlaceholder(page, 'viewport');
+  await requireOperator(page, 'file.loadSample', { sample: 'not-a-sample' });
   await page.getByTestId('sample-seed-san').click();
   await waitForCount(page, 'characters', 1);
 

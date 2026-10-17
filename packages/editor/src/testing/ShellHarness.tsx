@@ -10,6 +10,7 @@ import { EditorRoot } from '../shell/EditorRoot';
 import type { Shell } from '../shell/types';
 import type { Summarizer } from '../shell/summary';
 import { type EditorParams, parseEditorParams } from '../test-api/params';
+import { createSyntheticModelLoader } from './syntheticModels';
 
 declare global {
   interface Window {
@@ -48,7 +49,7 @@ export function ShellHarness(props: ShellHarnessProps): JSX.Element {
         createFakeEditorApp({
           ...(snapshot === undefined ? {} : { snapshot }),
           ...(skeleton === undefined ? {} : { skeleton }),
-          services,
+          services: { ...services, models: createSyntheticModelLoader() },
           platform,
         })
       }

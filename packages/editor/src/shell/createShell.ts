@@ -168,7 +168,7 @@ export function createShell(opts: CreateShellOptions): Shell {
   }
   disposers.push(registerShellMenuItems(app, extraPanels));
 
-  let fallbackFrames = 0;
+  let glFrames = 0;
 
   return {
     app,
@@ -178,9 +178,9 @@ export function createShell(opts: CreateShellOptions): Shell {
     params,
     ui,
     frame,
-    renderedFrames: () => fallbackFrames + (ui.getState().viewport?.renderedFrames ?? 0),
-    countFallbackFrame: () => {
-      fallbackFrames += 1;
+    renderedFrames: () => glFrames,
+    countFrame: () => {
+      glFrames += 1;
     },
     restoreFallbackFrames: () => app.setFrameRequester(() => fallback.request()),
     probes: createProbeRegistry(),

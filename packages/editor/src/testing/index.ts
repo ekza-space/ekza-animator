@@ -4,3 +4,4 @@
 export { DEV_STATE_PANEL } from './DevStatePanel';
 export { PanelHarness, type PanelHarnessProps } from './PanelHarness';
 export { ShellHarness, type ShellHarnessProps } from './ShellHarness';
+export { createSyntheticModelLoader } from './syntheticModels';

@@ -80,8 +80,15 @@ export async function fixmeIfKernelUnavailable(page: Page): Promise<void> {
   }
 }
 
-/** An error toast fails the test with its text; one caused by a stub ("not implemented in this build") is a fixme. */
-export async function failOnErrorToast(page: Page): Promise<void> {
+/**
+ * A failure the shell reported for a UI action ends a wait: an error toast fails the test with its text, unless a stub
+ * caused it ("not implemented in this build": fixme); an "unknown operator" in the help line is a fixme naming the
+ * operator's owner (a button whose operator has not landed).
+ */
+export async function failOnReportedError(page: Page): Promise<void> {
+  const help = ((await page.getByTestId('helpline-text').textContent()) ?? '').trim();
+  const unknown = /unknown operator '([^']+)'/.exec(help);
+  if (unknown !== null) test.fixme(true, `Blocked by ${operatorOwner(unknown[1] ?? '')}: ${help}`);
   const toast = page.locator('[data-testid="toast"][data-kind="error"]').first();
   if ((await toast.count()) === 0) return;
   const text = ((await toast.textContent()) ?? '').trim();
@@ -89,12 +96,22 @@ export async function failOnErrorToast(page: Page): Promise<void> {
   throw new Error(`Error toast: ${text}`);
 }
 
-/** Polls `counts()[table]` until it equals `count`; an error toast ends the wait (see failOnErrorToast). */
+/**
+ * Gate for UI buttons that run an operator without the shell (e.g. the viewport's sample buttons call `app.run`, so
+ * an unregistered operator leaves no trace): runs `op` with arguments it must refuse (`invalidArgs`), which only
+ * tells whether it is registered (fixme when not). Remove once every work package has landed (WP-10).
+ */
+export async function requireOperator(page: Page, op: string, invalidArgs: unknown): Promise<void> {
+  const result = await run(page, op, invalidArgs);
+  expect(result.status, `${op} must refuse the probe arguments`).not.toBe('finished');
+}
+
+/** Polls `counts()[table]` until it equals `count`; a reported failure ends the wait (see failOnReportedError). */
 export async function waitForCount(page: Page, table: string, count: number, timeout = 30_000): Promise<void> {
   await expect
     .poll(
       async () => {
-        await failOnErrorToast(page);
+        await failOnReportedError(page);
         return (await call(page, 'counts'))[table];
       },
       { timeout },

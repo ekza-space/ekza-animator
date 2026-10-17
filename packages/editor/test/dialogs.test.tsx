@@ -210,15 +210,25 @@ describe('shortcuts and preferences', () => {
       kind: 'keymap',
       bindings: [
         { chord: { code: 'Slash', shift: true }, op: 'ui.open', args: { dialog: 'shortcuts' }, scope: GLOBAL_SCOPE },
-        { chord: { code: 'KeyS' }, op: 'key.set', args: { channels: 'all' }, scope: 'viewport' },
+        { chord: { code: 'KeyJ', alt: true }, op: 'acme.notThere', args: { mode: 'all' }, scope: 'viewport' },
         { chord: { code: 'Space' }, op: 'view.toggleMaximize', scope: GLOBAL_SCOPE, trigger: 'tap' },
       ],
     });
-    expect(shortcutRows(app)).toEqual([
-      { scope: GLOBAL_SCOPE, keys: '⇧Slash', label: 'Open Dialog (shortcuts)', available: true },
-      { scope: 'viewport', keys: 'S', label: 'key.set (all)', available: false },
-      { scope: GLOBAL_SCOPE, keys: 'Space tap', label: 'Maximize Panel', available: true },
-    ]);
+    // The preset (MAYA_KEYMAP, once WP-7a/7b land) adds its own rows around these; key names are the keymap's.
+    const label = (chord: Parameters<typeof app.keymap.label>[0]): string => app.keymap.label(chord);
+    expect(label({ code: 'KeyJ', alt: true })).toContain('⌥');
+    expect(shortcutRows(app)).toEqual(
+      expect.arrayContaining([
+        {
+          scope: GLOBAL_SCOPE,
+          keys: label({ code: 'Slash', shift: true }),
+          label: 'Open Dialog (shortcuts)',
+          available: true,
+        },
+        { scope: 'viewport', keys: label({ code: 'KeyJ', alt: true }), label: 'acme.notThere (all)', available: false },
+        { scope: GLOBAL_SCOPE, keys: `${label({ code: 'Space' })} tap`, label: 'Maximize Panel', available: true },
+      ]),
+    );
   });
 
   it('writes preferences through prefs.set', async () => {

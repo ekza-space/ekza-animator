@@ -38,7 +38,8 @@ const kinds = (shell: ReturnType<typeof createTestShell>['shell']): string[] => 
 
 describe('Animate layout', () => {
   it('docks Outliner | Clips left, the viewport centre, Channel Box | Attributes right and the Graph Editor below', async () => {
-    const { shell } = createTestShell();
+    // No registered panels: every Animate slot shows the placeholder.
+    const { shell } = createTestShell({ panels: createPanelRegistry() });
     const view = await render(
       <ShellFrame shell={shell}>
         <WorkspaceHost />

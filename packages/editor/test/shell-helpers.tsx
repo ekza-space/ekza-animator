@@ -13,6 +13,7 @@ import { ShellProvider } from '../src/shell/context';
 import { createShell } from '../src/shell/createShell';
 import type { Summarizer } from '../src/shell/summary';
 import type { Shell } from '../src/shell/types';
+import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
 import { DEFAULT_PARAMS, type EditorParams } from '../src/test-api/params';
 import { readSynthetic } from './render';
 
@@ -47,7 +48,9 @@ export function createTestShell(
     ...(opts.snapshot === undefined ? {} : { snapshot: opts.snapshot }),
     ...(opts.skeleton === undefined ? {} : { skeleton: opts.skeleton }),
     ...(opts.platform === undefined ? {} : { platform: opts.platform }),
-    services: { notify: toasts, storage },
+    // Like the editor's services: a model loader means the shell's GL host owns the ViewportManager (WP-5's panel
+    // hosts its own canvas only for apps without one).
+    services: { notify: toasts, storage, models: createSyntheticModelLoader() },
   });
   const shell = createShell({
     app,

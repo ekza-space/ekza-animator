@@ -9,6 +9,7 @@ import type { SkeletonDesc } from '@ekza-animator/rig';
 import { Profiler } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EditorRoot } from '../src/shell/EditorRoot';
+import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
 import { DEFAULT_PARAMS, type EditorParams } from '../src/test-api/params';
 import { byTestId } from './render';
 import { liveEnvironment, mountLive, settle, waitFor, waveFixtures } from './shell-helpers';
@@ -41,9 +42,14 @@ const update = async (fn: () => unknown): Promise<void> => {
   await settle(0);
 };
 
-/** Registers stand-ins for operators other work packages own, so the shell's controls have something to call. */
+/**
+ * Registers stand-ins for operators other work packages own, so the shell's controls have something to call. Runs
+ * once the GL host has settled and skips operators that are already registered (WP-5's viewport contributions and,
+ * after integration, the real catalog).
+ */
 function stubOperators(app: EditorApp): void {
   const op = (id: string, apply: OperatorDef<Record<string, unknown> | undefined>['apply']): void => {
+    if (app.operators.get(id) !== undefined) return;
     app.contribute({
       kind: 'operator',
       def: { id: id as `${string}.${string}`, label: id, category: 'test', scope: GLOBAL_SCOPE, apply },
@@ -72,14 +78,20 @@ async function mount(params: Partial<EditorParams> = {}): Promise<{ view: Render
     <EditorRoot
       params={{ ...DEFAULT_PARAMS, e2e: true, ...params }}
       createApp={({ services, platform }) => {
-        app = createFakeEditorApp({ snapshot, skeleton, services, platform });
-        stubOperators(app);
+        app = createFakeEditorApp({
+          snapshot,
+          skeleton,
+          services: { ...services, models: createSyntheticModelLoader() },
+          platform,
+        });
         return app;
       }}
     />,
   );
   await waitFor(() => app !== null && document.querySelector('[data-testid="editor-shell"]') !== null);
   if (app === null) throw new Error('the editor did not create its app');
+  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  stubOperators(app);
   return { view, app };
 }
 
@@ -147,8 +159,8 @@ describe('editor shell', () => {
         { chord: { code: 'KeyV', alt: true }, op: 'time.togglePlay', scope: GLOBAL_SCOPE },
       ],
     });
-    await waitFor(() => document.querySelector('[data-ekza-panel="viewport"]') !== null);
-    const viewport = document.querySelector<HTMLElement>('[data-ekza-panel="viewport"] p') ?? document.body;
+    await waitFor(() => document.querySelector('[data-testid="panel-viewport"]') !== null);
+    const viewport = byTestId(document.body, 'panel-viewport');
     viewport.dispatchEvent(new PointerEvent('pointermove', { bubbles: true, clientX: 700, clientY: 300 }));
     await waitFor(() => app.session.getState().hoveredPanel?.kind === 'viewport');
     window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyS', key: 'ы', bubbles: true, cancelable: true }));
@@ -269,7 +281,12 @@ describe('editor shell', () => {
         <EditorRoot
           params={{ ...DEFAULT_PARAMS, e2e: true }}
           createApp={({ services, platform }) => {
-            app = createFakeEditorApp({ snapshot, skeleton, services, platform });
+            app = createFakeEditorApp({
+              snapshot,
+              skeleton,
+              services: { ...services, models: createSyntheticModelLoader() },
+              platform,
+            });
             return app;
           }}
         />
