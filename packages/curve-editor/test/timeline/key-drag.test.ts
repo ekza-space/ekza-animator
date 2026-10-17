@@ -184,14 +184,17 @@ describe('band drags through the edit kernel', () => {
     expect(app.history.canUndo()).toBe(false);
   });
 
-  it('a press on the band middle without moving keeps keys, band and frame', async () => {
+  it('a press on the band middle released in place moves no key: it is a click that sets the time (acceptance round 2)', async () => {
     const m = await setUp();
     const { app } = m;
     await app.run('time.selectBand', { band: { start: 15, end: 15 } });
     drag(m, 15, 15.2);
     await settle();
-    expect(app.session.getState().time.band).toEqual({ start: 15, end: 15 });
+    expect(app.session.getState().time.band).toBeNull();
     expect(keyTimes(app, WAVE.curve)).toEqual([0, 15, 30]);
-    expect(app.calls.map((call) => call.id)).toEqual(['time.selectBand']);
+    expect(app.calls.filter((call) => call.id === 'time.setFrame').map((call) => call.args)).toEqual([
+      { frame: 15, unit: 'clip' },
+    ]);
+    expect(app.history.peekUndo()).toBeNull();
   });
 });

@@ -163,24 +163,33 @@ describe('TimeSliderController: bands', () => {
     expect([...state.selection.keys.keys()]).toEqual([WAVE.keys[0]]);
   });
 
-  it('a plain click outside the band clears it and scrubs; a click inside keeps it', async () => {
+  it('a plain click clears the band and scrubs, inside it as well (no drag: acceptance round 2)', async () => {
     const { app, slider } = await setUp();
+    slider.pointerDown(pointer(slider.frameToX(10), { shift: true }));
+    slider.pointerMove(pointer(slider.frameToX(20), { shift: true }));
+    slider.pointerUp(pointer(slider.frameToX(20), { shift: true, buttons: 0 }));
+    await settle();
+    expect(app.session.getState().time.band).toEqual({ start: 10, end: 20 });
+    slider.pointerDown(pointer(slider.frameToX(14)));
+    slider.pointerUp(pointer(slider.frameToX(14), { buttons: 0 }));
+    await settle();
+    expect(app.session.getState().time.band).toBeNull();
+    expect(callsOf(app, 'time.setFrame')).toEqual([{ frame: 14, unit: 'clip' }]);
+
     slider.pointerDown(pointer(slider.frameToX(15), { shift: true }));
     slider.pointerUp(pointer(slider.frameToX(15), { shift: true, buttons: 0 }));
     await settle();
-    slider.pointerDown(pointer(slider.frameToX(15)));
-    slider.pointerUp(pointer(slider.frameToX(15), { buttons: 0 }));
-    await settle();
     expect(app.session.getState().time.band).toEqual({ start: 15, end: 15 });
-    expect(callsOf(app, 'time.setFrame')).toEqual([]);
-
     slider.pointerDown(pointer(slider.frameToX(25)));
     slider.pointerUp(pointer(slider.frameToX(25), { buttons: 0 }));
     await settle();
     const state = app.session.getState();
     expect(state.time.band).toBeNull();
     expect(state.selection.keys.size).toBe(0);
-    expect(callsOf(app, 'time.setFrame')).toEqual([{ frame: 25, unit: 'clip' }]);
+    expect(callsOf(app, 'time.setFrame')).toEqual([
+      { frame: 14, unit: 'clip' },
+      { frame: 25, unit: 'clip' },
+    ]);
   });
 
   it('hit-tests band ends before the band middle, the middle before ticks, ticks before the ruler', async () => {

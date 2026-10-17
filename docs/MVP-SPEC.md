@@ -2887,6 +2887,8 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   around the opposite end (`scaleKeys`); each drag is one history step and moves the band with the keys.
 - **RMB** on the slider opens a menu: Delete keys, Copy, Paste (at the current frame), Tangent ▸ (auto, spline,
   clamped, linear, flat, stepped), Select band keys in Graph Editor. Plain click outside the band clears it.
+  *v0.3 integration, acceptance round 2*: a press on the band middle released without moving the keys is a click
+  too: it clears the band and sets the time there (Maya; it read as a dead click). Moving needs a drag.
 - `Digit1…6`, `Delete`, `Mod+C/V` work in scope `T` on the band's keys.
 
 #### 4.11.18 Graph Editor interaction (`GraphEditorController`)

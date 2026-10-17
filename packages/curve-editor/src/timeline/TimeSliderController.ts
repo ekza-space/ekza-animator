@@ -70,6 +70,8 @@ type Gesture =
       readonly snap: boolean;
       readonly drag: KeyDrag;
       delta: number;
+      /** The keys moved at some point of the gesture (a press released in place is a click: it sets the time). */
+      moved: boolean;
     }
   | {
       readonly kind: 'scale';
@@ -215,6 +217,7 @@ export class TimeSliderController {
           snap,
           drag: new KeyDrag(this.app, MOVE_KEYS_LABEL),
           delta: 0,
+          moved: false,
         };
         return;
       }
@@ -261,6 +264,7 @@ export class TimeSliderController {
         const delta = bandMoveDelta(gesture.origin, frame, gesture.snap);
         if (delta === gesture.delta) return;
         gesture.delta = delta;
+        gesture.moved = true;
         const { keys, snap } = gesture;
         if (keys.length > 0) {
           const ok = gesture.drag.update((tx) => {
@@ -302,6 +306,12 @@ export class TimeSliderController {
         const { keys, snap, delta } = gesture;
         if (delta === 0) {
           gesture.drag.cancel();
+          if (!gesture.moved) {
+            // A click inside the band (no drag): Maya sets the time there and drops the band (acceptance round 2:
+            // it read as a dead click).
+            this.selectBand(null);
+            this.scrub({ kind: 'scrub', lastFrame: Number.NaN }, gesture.origin);
+          }
           break;
         }
         const committed =
