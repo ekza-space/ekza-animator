@@ -6,7 +6,8 @@ export function extensionMatch(name: string, extension: string): boolean {
   return name.toLowerCase().endsWith(`.${extension.toLowerCase()}`);
 }
 
-export function resolveImporter(importers: Registry<ImporterDef>, name: string, bytes: Uint8Array): ImporterDef | null {
+/** The importers whose longest matching extension claims `name` (several only when content sniffing decides). */
+export function importerCandidates(importers: Registry<ImporterDef>, name: string): ImporterDef[] {
   let bestLength = -1;
   let candidates: ImporterDef[] = [];
   for (const importer of importers.list()) {
@@ -20,6 +21,11 @@ export function resolveImporter(importers: Registry<ImporterDef>, name: string, 
       }
     }
   }
+  return candidates;
+}
+
+export function resolveImporter(importers: Registry<ImporterDef>, name: string, bytes: Uint8Array): ImporterDef | null {
+  const candidates = importerCandidates(importers, name);
   if (candidates.length <= 1) return candidates[0] ?? null;
   for (const importer of candidates) {
     try {
@@ -42,3 +48,16 @@ export function acceptAttribute(importers: Registry<ImporterDef>): string {
 /** The import options dialog is shown for model importers (glTF / VRM) unless the caller asks for an automatic import. */
 export const MODEL_IMPORT_OP = 'file.importModel';
 export const PROJECT_OPEN_OP = 'file.openProject';
+
+/**
+ * Where a dropped or picked file goes in the open order: projects first (they replace the document), then models,
+ * then everything else (animations need the character), then files no importer claims. Decided by name alone, so the
+ * files can be read one at a time; an extension several importers share ranks as its earliest claimant.
+ */
+export function openOrderRank(importers: Registry<ImporterDef>, name: string): number {
+  const candidates = importerCandidates(importers, name);
+  if (candidates.length === 0) return 3;
+  return Math.min(
+    ...candidates.map((importer) => (importer.op === PROJECT_OPEN_OP ? 0 : importer.op === MODEL_IMPORT_OP ? 1 : 2)),
+  );
+}

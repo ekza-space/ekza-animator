@@ -147,6 +147,7 @@ export function createShell(opts: CreateShellOptions): Shell {
     runFromUi: (op, args) => runFromUi(op, args),
     toastError: notifyError,
   });
+  disposers.push(() => files.dispose());
 
   const keyboard = new KeyboardAdapter({
     keymap: app.keymap,

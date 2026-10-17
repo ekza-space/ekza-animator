@@ -59,7 +59,11 @@ function Summary(props: { readonly pending: PendingImport; readonly summary: Mod
   return (
     <section className="flex flex-col gap-2" aria-label="Summary">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="truncate text-ui font-semibold text-fg" title={props.pending.name}>
+        <span
+          className="truncate text-ui font-semibold text-fg"
+          title={props.pending.name}
+          data-testid="import-file-name"
+        >
           {props.pending.name}
         </span>
         <span className="text-ui text-fg-3">{formatBytes(props.pending.bytes.byteLength)}</span>

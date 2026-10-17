@@ -215,6 +215,56 @@ describe('editor shell', () => {
     await view.unmount();
   });
 
+  it('opens several dropped files one after another, each model through its own import dialog', async () => {
+    const { view, app } = await mount();
+    const runs: { id: string; name: unknown }[] = [];
+    for (const id of ['file.importModel', 'file.importAnimation'] as const) {
+      app.contribute({
+        kind: 'operator',
+        def: {
+          id,
+          label: id,
+          category: 'file',
+          scope: GLOBAL_SCOPE,
+          apply: (_c, a) => runs.push({ id, name: (a as { readonly name?: unknown }).name }),
+        },
+      });
+    }
+    app.contribute({
+      kind: 'importer',
+      def: { id: 'gltf-model', label: 'glTF / VRM', extensions: ['glb', 'vrm'], op: 'file.importModel' },
+    });
+    app.contribute({
+      kind: 'importer',
+      def: { id: 'vrma', label: 'VRMA', extensions: ['vrma'], op: 'file.importAnimation' },
+    });
+    const fileName = (): string | null =>
+      document.querySelector('[data-testid="import-file-name"]')?.textContent ?? null;
+
+    const transfer = new DataTransfer();
+    for (const name of ['walk.vrma', 'polybot.vrm', 'seed-san.vrm'])
+      transfer.items.add(new File([new Uint8Array([1, 2, 3])], name));
+    window.dispatchEvent(new DragEvent('drop', { dataTransfer: transfer, bubbles: true, cancelable: true }));
+
+    // The model opens first (the animation needs it); nothing else runs while its dialog shows.
+    await waitFor(() => fileName() === 'polybot.vrm');
+    await settle(50);
+    expect(runs).toEqual([]);
+    await update(() => testId(view, 'import-confirm').click());
+    await waitFor(() => fileName() === 'seed-san.vrm');
+    expect(runs).toEqual([{ id: 'file.importModel', name: 'polybot.vrm' }]);
+    // Cancelling the second model moves on to the animation.
+    await update(() => testId(view, 'import-cancel').click());
+    await waitFor(() => runs.length === 2);
+    expect(runs).toEqual([
+      { id: 'file.importModel', name: 'polybot.vrm' },
+      { id: 'file.importAnimation', name: 'walk.vrma' },
+    ]);
+    expect(app.session.getState().dialog).toBeNull();
+    expect(document.querySelector('[data-testid="import-dialog"]')).toBeNull();
+    await view.unmount();
+  });
+
   it('opens dialogs from the menu bar and closes them with Escape', async () => {
     const { view, app } = await mount();
     await update(() =>

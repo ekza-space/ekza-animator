@@ -143,15 +143,28 @@ export interface OpenFileOptions {
   /** Skip the import dialog; run the importer with `importOptions` (or its defaults). */
   readonly auto?: boolean;
   readonly importOptions?: Readonly<Record<string, unknown>>;
+  /**
+   * A model's import dialog: resolve only once it has closed (the import ran, or the dialog was cancelled or
+   * replaced). Without it `openFile` resolves as soon as the dialog shows (the test API's `loadFile`).
+   */
+  readonly waitForDialog?: boolean;
 }
 
 export interface FilePipeline {
-  /** Drag-and-drop and the file picker: one file after another; errors become toasts. */
+  /**
+   * Drag-and-drop and the file picker: projects, then models, then animations (drop order otherwise), one after
+   * another; each model's import dialog closes before the next file opens, and later drops queue behind earlier
+   * ones. Errors become toasts; the promise never rejects.
+   */
   openFiles(files: readonly File[]): Promise<void>;
   /** The common path (also the test API's `loadFile`). Rejects with the failure message. */
   openFile(name: string, bytes: Uint8Array, opts?: OpenFileOptions): Promise<void>;
+  /** Imports the pending model with the dialog's options; the dialog closes first. */
   confirmImport(options: Readonly<Record<string, unknown>>): Promise<OperatorResult<unknown>>;
+  /** Drops the pending model (the import dialog closed without importing). */
   cancelImport(): void;
+  /** Stops queued files and releases every waiter (shell disposal). */
+  dispose(): void;
 }
 
 // ---------- the shell ----------

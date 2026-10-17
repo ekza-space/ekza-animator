@@ -12,9 +12,10 @@ import { createBrowserClipboard } from '../src/services/clipboard';
 import { createExportRecorder } from '../src/shell/exports';
 import { createToastNotifier, MAX_TOASTS } from '../src/services/notify';
 import { createLocalStorage, createMemoryStorage } from '../src/services/storage';
-import { acceptAttribute, resolveImporter } from '../src/shell/importers';
+import { acceptAttribute, openOrderRank, resolveImporter } from '../src/shell/importers';
 import { clipSummaries, isRestricted, licenseLabel, type ModelSummary } from '../src/shell/summary';
-import { createTestShell } from './shell-helpers';
+import type { Shell } from '../src/shell/types';
+import { createTestShell, settle, waitFor } from './shell-helpers';
 
 const MODEL: ImporterDef = {
   id: 'gltf-model',
@@ -192,6 +193,110 @@ describe('file pipeline', () => {
     ]);
     // The test API's loadFile path still rejects with the operator's message.
     await expect(shell.files.openFile('bad.vrma', new Uint8Array([1]))).rejects.toThrow('not a VRMA');
+  });
+});
+
+describe('several files', () => {
+  const VRMA: ImporterDef = { id: 'vrma', label: 'VRMA', extensions: ['vrma'], op: 'file.importAnimation' };
+  const file = (name: string, byte: number): File => new File([new Uint8Array([byte])], name);
+  /** Lets the pipeline read files, summarise them and open dialogs. */
+  const tick = (): Promise<void> => settle(20);
+  const pendingName = (shell: { readonly ui: Shell['ui'] }): string | undefined =>
+    shell.ui.getState().pendingImport?.name;
+
+  it('ranks projects, then models, then animations, then unknown files', () => {
+    const registry = createTestShell().app.importers;
+    for (const def of [MODEL, PROJECT, VRMA, ANIM_GLB]) registry.register(def);
+    expect(openOrderRank(registry, 'scene.ekzanim')).toBe(0);
+    expect(openOrderRank(registry, 'hero.vrm')).toBe(1);
+    // `.glb` is claimed by a model and an animation importer: it ranks as its earliest claimant.
+    expect(openOrderRank(registry, 'walk.glb')).toBe(1);
+    expect(openOrderRank(registry, 'walk.vrma')).toBe(2);
+    expect(openOrderRank(registry, 'notes.txt')).toBe(3);
+  });
+
+  it('opens each model only after the previous import dialog has closed, and animations after their model', async () => {
+    const { shell, app, runs } = withImporters(MODEL, VRMA);
+    let done = false;
+    const dropping = shell.files
+      .openFiles([file('walk.vrma', 1), file('polybot.vrm', 2), file('seed-san.vrm', 3)])
+      .then(() => {
+        done = true;
+      });
+    await waitFor(() => pendingName(shell) === 'polybot.vrm');
+    await tick();
+    // The model comes first although it was dropped second, and nothing else runs while its dialog shows.
+    expect(app.session.getState().dialog).toBe('import');
+    expect(pendingName(shell)).toBe('polybot.vrm');
+    expect(runs).toEqual([]);
+
+    await shell.files.confirmImport({});
+    await waitFor(() => pendingName(shell) === 'seed-san.vrm');
+    await tick();
+    expect(runs.map((r) => (r.args as { name: string }).name)).toEqual(['polybot.vrm']);
+    expect(app.session.getState().dialog).toBe('import');
+    expect(done).toBe(false);
+
+    await shell.files.confirmImport({ clips: 'none' });
+    await dropping;
+    expect(runs).toEqual([
+      { id: 'file.importModel', args: { name: 'polybot.vrm', bytes: new Uint8Array([2]), options: {} } },
+      {
+        id: 'file.importModel',
+        args: { name: 'seed-san.vrm', bytes: new Uint8Array([3]), options: { clips: 'none' } },
+      },
+      { id: 'file.importAnimation', args: { name: 'walk.vrma', bytes: new Uint8Array([1]) } },
+    ]);
+    expect(shell.ui.getState().pendingImport).toBeNull();
+  });
+
+  it('moves on when a dialog is cancelled or replaced by another dialog', async () => {
+    const { shell, app, runs } = withImporters(MODEL, VRMA);
+    const dropping = shell.files.openFiles([file('a.vrm', 1), file('b.glb', 2), file('walk.vrma', 3)]);
+    await waitFor(() => pendingName(shell) === 'a.vrm');
+    await tick();
+    await shell.runFromUi('ui.close'); // Cancel / Esc
+    await waitFor(() => pendingName(shell) === 'b.glb');
+    await tick();
+    app.session.setState({ dialog: 'shortcuts' }); // a dialog opened over it
+    await dropping;
+    expect(shell.ui.getState().pendingImport).toBeNull();
+    expect(runs.map((r) => r.id)).toEqual(['file.importAnimation']);
+  });
+
+  it('queues a second drop behind the first, and releases it on dispose', async () => {
+    const { shell, runs } = withImporters(MODEL, VRMA);
+    const first = shell.files.openFiles([file('a.vrm', 1)]);
+    const second = shell.files.openFiles([file('walk.vrma', 2), file('b.vrm', 3)]);
+    await waitFor(() => pendingName(shell) === 'a.vrm');
+    await tick();
+    expect(runs).toEqual([]);
+    await shell.files.confirmImport({});
+    await first;
+    await waitFor(() => pendingName(shell) === 'b.vrm');
+    await tick();
+    expect(runs.map((r) => r.id)).toEqual(['file.importModel']);
+    shell.dispose();
+    await second;
+    // The disposed shell neither imports the waiting model nor opens the animation queued behind it.
+    expect(runs.map((r) => r.id)).toEqual(['file.importModel']);
+  });
+
+  it('keeps loadFile resolving as soon as the dialog shows; a replaced model releases its waiter', async () => {
+    const { shell, app } = withImporters(MODEL);
+    await shell.files.openFile('a.vrm', new Uint8Array([1]));
+    expect(app.session.getState().dialog).toBe('import');
+    let released = false;
+    const waiting = shell.files.openFile('b.vrm', new Uint8Array([2]), { waitForDialog: true }).then(() => {
+      released = true;
+    });
+    await waitFor(() => pendingName(shell) === 'b.vrm');
+    await tick();
+    expect(released).toBe(false);
+    await shell.files.openFile('c.vrm', new Uint8Array([3]));
+    await waiting;
+    expect(released).toBe(true);
+    expect(shell.ui.getState().pendingImport?.name).toBe('c.vrm');
   });
 });
 

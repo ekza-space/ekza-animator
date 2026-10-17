@@ -37,6 +37,7 @@ export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): J
             type="file"
             className="sr-only"
             accept={acceptAttribute(app.importers)}
+            multiple={props.mode === 'import'}
             data-testid={`${props.mode}-file-input`}
             onChange={(event) => {
               const files = [...(event.currentTarget.files ?? [])];
