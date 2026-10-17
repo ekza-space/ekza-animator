@@ -65,8 +65,9 @@ packages): ~1 ms of commits; the channel list and the canvas do not re-render fo
    WP-8's `GraphProbe`; nothing publishes it yet at the base commit, so at integration either the shell registers
    it once per app (`shell.probes.set('graph', graphTestHooks(app))`; it always follows the focused Graph Editor) or
    `GraphPanel` calls `useTestProbe('graph', useMemo(() => graphTestHooks(app), [app]))` once that hook exists.
-   Without it `screenOfKey` & co. stay null and E2E-08…E2E-13 cannot run. `screenOfHandle` is null until the key has a selected part (handles are not shown otherwise).
-   `screenOf*` return null when the point is outside the canvas.
+   Without it `screenOfKey` & co. stay null and E2E-08…E2E-13 cannot run. `screenOfHandle` is null until the key
+   has a selected part (handles are not shown otherwise). `screenOf*` return null when the point is outside the
+   canvas.
 3. **History**: key and handle drags commit their preview and call `history.record({ label, docTxId })`.
    WP-7a's kernel also records every local commit by itself (its decision 3); `record` with the same `docTxId`
    merges into that step, so the explicit call is harmless there and keeps "one drag = one step" if the
@@ -92,8 +93,8 @@ packages): ~1 ms of commits; the channel list and the canvas do not re-render fo
   and skips a curve whose key count disagrees.
 - **WP-7a (edit kernel)**: the Graph Editor passes `dValue` in display units, `snap` already resolved (snapping
   off with Alt during an LMB drag) and, for handles, a handle whose angle follows the pointer (non-weighted and
-  weight-locked handles keep the resolved `dt`; free weighted handles have `dt` clamped to the span). A temporary,
-  uncommitted kernel built from §4.11.3/§4.11.4 made every gated test in `curve-editor/test/edits.test.ts` pass.
+  weight-locked handles keep the resolved `dt`; free weighted handles have `dt` clamped to the span). Every gated
+  test in `curve-editor/test/edits.test.ts` passes against `wp/wp-7a`.
 - **WP-7a (keymap)**: `MAYA_KEYMAP` must carry the scope-`graph` rows of §4.10 (`F`/`A` → `graph.frame`,
   `Q`/`W`/`I` → `view.tool {panel:'graph'}`, …). Done on `wp/wp-7a`.
 - **WP-7b (operators)**: with no key and no channel selection, curve-level operators (`graph.infinity.set`,
@@ -165,3 +166,9 @@ document untouched; the tangent fields show their fallback).
 Tangent marking menu (RMB), pen add-key off the curve and pen-drag tangents, scale (`R`) tool, normalized/stacked
 views, buffer curves, playhead scrubbing inside the graph view, cycle-aware auto tangents and plateau (WP-1
 stretch). E2E-07…E2E-13 belong to WP-10 and need the shell, the kernel and the operator catalog.
+
+## Gates (run in this worktree)
+
+`format:check`, `lint`, `typecheck`, `check:deps`, `test` (all packages: curve-editor 76 pass / 16 skip until
+WP-1/2/3/7a land, editor 33 pass / 2 skip), `build`, and `test:e2e` on port 3106 (00-webgl, dev-panels,
+tailwind-smoke): all pass. WP-6 owns no e2e spec of its own; E2E-07…E2E-13 are WP-10's.
