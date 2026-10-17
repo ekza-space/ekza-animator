@@ -5,8 +5,10 @@ import type { Fps } from '@ekza-animator/anim-core';
 import type { ClipRecord } from '@ekza-animator/doc';
 import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
 import { type JSX, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { fieldClass } from './fields';
 import { formatFps, parseFps, STANDARD_FPS, sameFps } from './input';
+import { useAnchoredPlacement } from './placement';
 
 export const selectClass =
   'h-[22px] min-w-0 rounded-[3px] border border-line bg-app px-1 text-xs text-fg outline-none focus:border-accent ' +
@@ -15,6 +17,8 @@ const buttonClass =
   'h-[22px] rounded-[3px] px-2 text-xs text-fg hover:bg-panel focus-visible:outline focus-visible:outline-1 ' +
   'focus-visible:outline-accent';
 const CUSTOM = 'custom';
+/** The dialog's start style; `useAnchoredPlacement` positions and reveals it before the first paint. */
+const HIDDEN_UNTIL_PLACED = { left: 0, top: 0, right: 'auto', bottom: 'auto', visibility: 'hidden' } as const;
 
 export function ClipSelect(props: {
   readonly app: EditorApp;
@@ -56,6 +60,8 @@ export function FpsMenu(props: { readonly app: EditorApp; readonly clip: ClipRec
   const customRef = useRef<HTMLInputElement>(null);
   const confirmRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLDialogElement>(null);
+  const selectRef = useRef<HTMLSelectElement>(null);
+  useAnchoredPlacement(selectRef, dialogRef, step);
   // Focus the popover's first control when it opens or changes step.
   useEffect(() => {
     if (step?.kind === 'custom') customRef.current?.select();
@@ -101,6 +107,7 @@ export function FpsMenu(props: { readonly app: EditorApp; readonly clip: ClipRec
   return (
     <div className="relative">
       <select
+        ref={selectRef}
         aria-label="Clip frame rate"
         title="Clip frame rate"
         data-testid="timeline-fps"
@@ -126,74 +133,78 @@ export function FpsMenu(props: { readonly app: EditorApp; readonly clip: ClipRec
         ))}
         <option value={CUSTOM}>Custom…</option>
       </select>
-      {step === null ? null : (
-        <dialog
-          ref={dialogRef}
-          open
-          aria-label="Change frame rate"
-          data-testid="timeline-fps-dialog"
-          className="absolute right-auto bottom-full left-0 z-40 m-0 mb-1 flex w-64 flex-col gap-2 rounded-md border border-line bg-header p-2 text-xs text-fg shadow-lg"
-        >
-          {step.kind === 'custom' ? (
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                const fps = parseFps(custom);
-                if (fps !== null) choose(fps);
-              }}
+      {step === null
+        ? null
+        : createPortal(
+            <dialog
+              ref={dialogRef}
+              open
+              aria-label="Change frame rate"
+              data-testid="timeline-fps-dialog"
+              className="fixed z-50 m-0 flex w-64 flex-col gap-2 rounded-md border border-line bg-header p-2 text-xs text-fg shadow-lg"
+              style={HIDDEN_UNTIL_PLACED}
             >
-              <label className="text-fg-2" htmlFor="timeline-fps-custom">
-                Frame rate
-              </label>
-              <input
-                id="timeline-fps-custom"
-                ref={customRef}
-                className={`${fieldClass} w-24 text-left`}
-                data-testid="timeline-fps-custom-input"
-                placeholder="29.97 or 30000/1001"
-                value={custom}
-                aria-invalid={custom.trim() !== '' && parseFps(custom) === null}
-                onChange={(e) => setCustom(e.currentTarget.value)}
-              />
-              <button type="submit" className={buttonClass} data-testid="timeline-fps-custom-ok">
-                OK
-              </button>
-            </form>
-          ) : (
-            <>
-              <p className="text-fg">
-                Change {clip?.name ?? 'the clip'} to {formatFps(step.fps)} fps
-              </p>
+              {step.kind === 'custom' ? (
+                <form
+                  className="flex items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const fps = parseFps(custom);
+                    if (fps !== null) choose(fps);
+                  }}
+                >
+                  <label className="text-fg-2" htmlFor="timeline-fps-custom">
+                    Frame rate
+                  </label>
+                  <input
+                    id="timeline-fps-custom"
+                    ref={customRef}
+                    className={`${fieldClass} w-24 text-left`}
+                    data-testid="timeline-fps-custom-input"
+                    placeholder="29.97 or 30000/1001"
+                    value={custom}
+                    aria-invalid={custom.trim() !== '' && parseFps(custom) === null}
+                    onChange={(e) => setCustom(e.currentTarget.value)}
+                  />
+                  <button type="submit" className={buttonClass} data-testid="timeline-fps-custom-ok">
+                    OK
+                  </button>
+                </form>
+              ) : (
+                <>
+                  <p className="text-fg">
+                    Change {clip?.name ?? 'the clip'} to {formatFps(step.fps)} fps
+                  </p>
+                  <button
+                    type="button"
+                    ref={confirmRef}
+                    className={`${buttonClass} bg-accent-fill text-left`}
+                    data-testid="timeline-fps-keep-seconds"
+                    onClick={() => apply('keep-seconds')}
+                  >
+                    Keep timing in seconds (re-time keys)
+                  </button>
+                  <button
+                    type="button"
+                    className={`${buttonClass} bg-panel text-left`}
+                    data-testid="timeline-fps-keep-frames"
+                    onClick={() => apply('keep-frames')}
+                  >
+                    Keep frame numbers
+                  </button>
+                </>
+              )}
               <button
                 type="button"
-                ref={confirmRef}
-                className={`${buttonClass} bg-accent-fill text-left`}
-                data-testid="timeline-fps-keep-seconds"
-                onClick={() => apply('keep-seconds')}
+                className={`${buttonClass} self-end text-fg-2`}
+                data-testid="timeline-fps-cancel"
+                onClick={() => setStep(null)}
               >
-                Keep timing in seconds (re-time keys)
+                Cancel
               </button>
-              <button
-                type="button"
-                className={`${buttonClass} bg-panel text-left`}
-                data-testid="timeline-fps-keep-frames"
-                onClick={() => apply('keep-frames')}
-              >
-                Keep frame numbers
-              </button>
-            </>
+            </dialog>,
+            document.body,
           )}
-          <button
-            type="button"
-            className={`${buttonClass} self-end text-fg-2`}
-            data-testid="timeline-fps-cancel"
-            onClick={() => setStep(null)}
-          >
-            Cancel
-          </button>
-        </dialog>
-      )}
     </div>
   );
 }

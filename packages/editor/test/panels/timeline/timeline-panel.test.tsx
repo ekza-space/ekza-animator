@@ -144,6 +144,12 @@ describe('time slider canvas', () => {
     expect((v.get('timeline-menu-copy') as HTMLButtonElement).disabled).toBe(true); // not registered here
     expect((v.get('timeline-menu-paste') as HTMLButtonElement).disabled).toBe(true); // poll fails
     expect(v.query('timeline-menu-tangent-linear')).toBeNull();
+    // ↓ walks the enabled items of the menu: Delete Keys (focused first) → Tangent → Select Band Keys.
+    expect(document.activeElement).toBe(v.get('timeline-menu-delete'));
+    await act(async () => {
+      v.get('timeline-menu-delete').dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+    expect(document.activeElement).toBe(v.get('timeline-menu-tangent'));
     await click(v.get('timeline-menu-tangent'));
     await click(v.get('timeline-menu-tangent-linear'));
     expect(v.query('timeline-menu')).toBeNull();
@@ -246,7 +252,13 @@ describe('clip and fps controls', () => {
     const fps = v.get('timeline-fps') as HTMLSelectElement;
     expect(fps.value).toBe('30');
     await chooseOption(fps, '24');
-    expect(v.get('timeline-fps-dialog').textContent).toContain('24 fps');
+    const dialog = v.get('timeline-fps-dialog');
+    expect(dialog.textContent).toContain('24 fps');
+    // Rendered on document.body (outside the clipping dock), placed inside the viewport, focus on the first choice.
+    expect(dialog.parentElement).toBe(document.body);
+    expect(getComputedStyle(dialog).visibility).toBe('visible');
+    expect(dialog.getBoundingClientRect().top).toBeGreaterThanOrEqual(0);
+    expect(document.activeElement).toBe(v.get('timeline-fps-keep-seconds'));
     await click(v.get('timeline-fps-keep-seconds'));
     expect(v.query('timeline-fps-dialog')).toBeNull();
 

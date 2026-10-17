@@ -5,6 +5,7 @@ import { TimeSliderController } from '@ekza-animator/curve-editor';
 import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-animator/editor-core';
 import { addAfterEffect } from '@react-three/fiber';
 import { type JSX, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { attachTimeSlider, focusTimeSlider } from './host';
 import { formatFrameValue } from './input';
 import { activeClipRange, currentFrameOf, subscribeToFrame } from './state';
@@ -181,7 +182,12 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
           void app.run('time.step', { delta: e.key === 'ArrowLeft' ? -1 : 1 }, { panel: PANEL.timeline });
         }}
       />
-      {menu === null ? null : <TimelineMenu app={app} x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />}
+      {menu === null
+        ? null
+        : createPortal(
+            <TimelineMenu app={app} x={menu.x} y={menu.y} items={menu.items} onClose={closeMenu} />,
+            document.body,
+          )}
     </>
   );
 }

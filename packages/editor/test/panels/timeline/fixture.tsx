@@ -35,7 +35,8 @@ export async function renderPanel(app: FakeEditorApp, width = 1200): Promise<Pan
   return {
     ...view,
     app,
-    get: (testId) => byTestId(view.container, testId),
+    // Menus and dialogs render in portals on document.body.
+    get: (testId) => byTestId(view.container.ownerDocument, testId),
     query: (testId) => view.container.ownerDocument.querySelector<HTMLElement>(`[data-testid="${testId}"]`),
   };
 }

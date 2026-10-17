@@ -2,7 +2,15 @@
 // group; the 'tangent' group is a submenu. Items whose operator polls false are disabled.
 import type { EditorApp } from '@ekza-animator/editor-core';
 import { PANEL } from '@ekza-animator/editor-core';
-import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import {
+  type JSX,
+  type KeyboardEvent as ReactKeyboardEvent,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from 'react';
+import { useNestedPlacement } from './placement';
 
 export interface MenuEntry {
   readonly id: string;
@@ -46,11 +54,66 @@ const itemClass =
   'flex w-full items-center justify-between gap-6 rounded px-2 py-1 text-left text-fg enabled:hover:bg-header ' +
   'disabled:text-fg-3 focus-visible:bg-header focus-visible:outline-none';
 
+/** ↑/↓ move the focus among the enabled items of the menu that handles the event (not of nested menus). */
+function moveFocus(e: ReactKeyboardEvent<HTMLDivElement>): void {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+  e.preventDefault();
+  e.stopPropagation();
+  const menu = e.currentTarget;
+  const buttons = [...menu.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:enabled')].filter(
+    (button) => button.closest('[role="menu"]') === menu,
+  );
+  const index = buttons.indexOf(e.target as HTMLButtonElement);
+  const from = index === -1 && e.key === 'ArrowUp' ? 0 : index;
+  buttons[(from + (e.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length]?.focus();
+}
+
+/**
+ * A nested menu beside its row: upwards and to the right unless that leaves the viewport. It touches the row, so
+ * the pointer can travel into it without leaving the row's hover area. ← or Esc returns to the row.
+ */
+function Submenu(props: {
+  readonly label: string;
+  readonly items: readonly MenuEntry[];
+  readonly render: (item: MenuEntry) => JSX.Element;
+  /** Opened from the keyboard: focus its first item. */
+  readonly focusFirst: boolean;
+  readonly onClose: () => void;
+}): JSX.Element {
+  const { focusFirst, onClose } = props;
+  const ref = useRef<HTMLDivElement>(null);
+  useNestedPlacement(ref);
+  useEffect(() => {
+    if (focusFirst) ref.current?.querySelector<HTMLButtonElement>('button:enabled')?.focus();
+  }, [focusFirst]);
+  return (
+    <div
+      ref={ref}
+      role="menu"
+      tabIndex={-1}
+      aria-label={props.label}
+      className="absolute bottom-0 left-full z-50 min-w-32 rounded-md border border-line bg-header p-1 shadow-lg"
+      onKeyDown={(e) => {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+          return;
+        }
+        moveFocus(e);
+      }}
+    >
+      {props.items.map(props.render)}
+    </div>
+  );
+}
+
 export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
   const { app, items, onClose } = props;
   const menuRef = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: props.x, top: props.y });
-  const [submenu, setSubmenu] = useState<string | null>(null);
+  const [submenu, setSubmenu] = useState<{ readonly group: string; readonly keyboard: boolean } | null>(null);
+  const tangentRow = useRef<HTMLButtonElement>(null);
 
   // Keep the menu inside the viewport (it usually opens upwards from the timeline at the bottom of the window).
   useLayoutEffect(() => {
@@ -121,15 +184,7 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
       className="fixed z-50 min-w-48 rounded-md border border-line bg-header p-1 text-xs shadow-lg"
       style={{ left: position.left, top: position.top }}
       onContextMenu={(e) => e.preventDefault()}
-      onKeyDown={(e) => {
-        if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-        e.preventDefault();
-        const buttons = [...e.currentTarget.querySelectorAll<HTMLButtonElement>('button[role="menuitem"]:enabled')];
-        const index = buttons.indexOf(e.target as HTMLButtonElement);
-        const from = index === -1 && e.key === 'ArrowUp' ? 0 : index;
-        const next = buttons[(from + (e.key === 'ArrowDown' ? 1 : buttons.length - 1)) % buttons.length];
-        next?.focus();
-      }}
+      onKeyDown={moveFocus}
     >
       {groupItems(app, items).map((group, index) => (
         <div key={`${group.name}:${index}`}>
@@ -137,28 +192,34 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
           {group.name === 'tangent' ? (
             <div className="relative" onPointerLeave={() => setSubmenu(null)}>
               <button
+                ref={tangentRow}
                 type="button"
                 role="menuitem"
                 aria-haspopup="menu"
-                aria-expanded={submenu === group.name}
+                aria-expanded={submenu?.group === group.name}
                 className={itemClass}
                 data-testid="timeline-menu-tangent"
-                onPointerEnter={() => setSubmenu(group.name)}
-                onClick={() => setSubmenu(submenu === group.name ? null : group.name)}
+                onPointerEnter={() => setSubmenu({ group: group.name, keyboard: false })}
+                onClick={() => setSubmenu(submenu === null ? { group: group.name, keyboard: false } : null)}
                 onKeyDown={(e) => {
-                  if (e.key === 'ArrowRight') setSubmenu(group.name);
+                  if (e.key !== 'ArrowRight' && e.key !== 'Enter' && e.key !== ' ') return;
+                  e.preventDefault();
+                  setSubmenu({ group: group.name, keyboard: true });
                 }}
               >
                 Tangent <span aria-hidden="true">▸</span>
               </button>
-              {submenu === group.name ? (
-                <div
-                  role="menu"
-                  aria-label="Tangent"
-                  className="absolute bottom-0 left-full z-50 ml-1 min-w-32 rounded-md border border-line bg-header p-1 shadow-lg"
-                >
-                  {group.items.map(button)}
-                </div>
+              {submenu?.group === group.name ? (
+                <Submenu
+                  label="Tangent"
+                  items={group.items}
+                  render={button}
+                  focusFirst={submenu.keyboard}
+                  onClose={() => {
+                    setSubmenu(null);
+                    tangentRow.current?.focus();
+                  }}
+                />
               ) : null}
             </div>
           ) : (

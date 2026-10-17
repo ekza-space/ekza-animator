@@ -7,10 +7,10 @@ import { usePrefs, useSession } from '../../hooks';
 import { selectClass } from './ClipControls';
 import { TimelineIcon, type TimelineIconName } from './icons';
 
-const iconButton =
-  'inline-grid size-6 shrink-0 place-items-center rounded-[4px] text-fg-2 hover:bg-header hover:text-fg ' +
-  'focus-visible:outline focus-visible:outline-1 focus-visible:outline-accent disabled:opacity-40 ' +
-  'aria-pressed:bg-header aria-pressed:text-fg';
+const buttonLook =
+  'shrink-0 rounded-[4px] text-fg-2 hover:bg-header hover:text-fg focus-visible:outline focus-visible:outline-1 ' +
+  'focus-visible:outline-accent disabled:opacity-40 aria-pressed:bg-header aria-pressed:text-fg';
+const iconButton = `inline-grid size-6 place-items-center ${buttonLook}`;
 
 /** The `--autokey` token (research 09 §8.2) with its tokens.json value as the fallback. */
 const AUTO_KEY_COLOR = 'var(--autokey, #e5484d)';
@@ -159,7 +159,7 @@ export function AutoKeyToggle(props: { readonly app: EditorApp }): JSX.Element {
   return (
     <button
       type="button"
-      className={`${iconButton} w-auto gap-1 px-1.5 text-xs`}
+      className={`inline-flex h-6 items-center gap-1 px-1.5 text-xs ${buttonLook}`}
       data-testid="timeline-autokey"
       aria-pressed={on}
       aria-label="Auto key"
