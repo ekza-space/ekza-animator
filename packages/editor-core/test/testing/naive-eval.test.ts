@@ -11,8 +11,11 @@ import type { ClipRecord, ControlId } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
 import { createFakeEditorApp, naiveCurveEngine } from '../../src/testing';
-import { clipFrameAt } from '../../src/testing/evaluation';
+import { naiveSceneToClipFrame, naiveWrapClipFrame } from '../../src/testing/naive';
 import { DEG, humanoidSkeleton, restPose, WAVE, waveDoc } from './fixtures';
+
+const clipFrameAt = (scene: { num: number; den: number }, clip: ClipRecord, sceneFrame: number): number =>
+  naiveWrapClipFrame(clip, naiveSceneToClipFrame(scene, clip, sceneFrame));
 
 function waveApp() {
   return createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });

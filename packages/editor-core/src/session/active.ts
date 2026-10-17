@@ -1,16 +1,22 @@
-// WP-7a stubs: final signatures (MVP-SPEC §7 WP-7a); bodies throw until the kernel lands.
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
+// Accessors for the active character's clip, runtime and clip frame (MVP-SPEC §4.11.8: the UI shows active-clip
+// frames).
+import type { Frame } from '@ekza-animator/anim-core';
 import type { ClipRecord } from '@ekza-animator/doc';
 import type { CharacterRuntime, EditorApp } from '../types';
 
-export function activeClip(_app: EditorApp): ClipRecord | null {
-  throw new EkzaError('not-implemented', 'editor-core.activeClip');
+export function activeClip(app: EditorApp): ClipRecord | null {
+  const state = app.session.getState();
+  if (state.activeCharacter === null) return null;
+  const clipId = state.activeClip[state.activeCharacter];
+  return clipId === undefined ? null : (app.store.get('clips', clipId) ?? null);
 }
 
-export function activeRuntime(_app: EditorApp): CharacterRuntime | null {
-  throw new EkzaError('not-implemented', 'editor-core.activeRuntime');
+export function activeRuntime(app: EditorApp): CharacterRuntime | null {
+  const character = app.session.getState().activeCharacter;
+  return character === null ? null : (app.characters.get(character) ?? null);
 }
 
-export function activeClipFrame(_app: EditorApp): Frame | null {
-  throw new EkzaError('not-implemented', 'editor-core.activeClipFrame');
+export function activeClipFrame(app: EditorApp): Frame | null {
+  const character = app.session.getState().activeCharacter;
+  return character === null ? null : app.evaluation.clipFrame(character);
 }
