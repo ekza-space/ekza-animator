@@ -1,6 +1,6 @@
 // Analytic screen-space picking of controls and joints (ADR 0006 §5, MVP-SPEC §4.11.16): scene-space polylines are
 // projected per pane (cached until the camera, pose or control set changes), hits are segments within 6 CSS px,
-// candidates are ordered by depth then control size, and the marquee uses the crossing test.
+// candidates are ordered by screen distance, then depth, then control size, and the marquee uses the crossing test.
 import type { CharacterId, ControlId } from '@ekza-animator/doc';
 import type { ControlEntry } from '../controls/ControlLayer';
 import { PICK } from '../theme';
@@ -29,6 +29,12 @@ export interface JointSet {
   readonly character: CharacterId;
   readonly positions: Float32Array;
 }
+
+/**
+ * Screen distances in the same bucket of this many CSS px count as equally under the pointer; the nearer control
+ * (depth) then wins (MVP-SPEC §4.11.16, v0.3 integration: acceptance round 2).
+ */
+export const DISTANCE_TIE_PX = 1;
 
 /** Depths closer than this (metres) count as a tie, decided by control size (MVP-SPEC §4.11.16). */
 const DEPTH_TIE = 0.01;
@@ -86,7 +92,7 @@ export class ControlPicker {
     return cache.projected;
   }
 
-  /** Controls within the pick tolerance of (x, y), nearest depth first, then the smaller control. */
+  /** Controls within the pick tolerance of (x, y), in {@link compareHits} order. */
   controlHits(
     projected: ReadonlyMap<ControlId, Float64Array>,
     entries: ReadonlyMap<ControlId, ControlEntry>,
@@ -231,8 +237,15 @@ function depthAt(segs: Float64Array, o: number, t: number): number {
   return d0 + ((segs[o + 5] as number) - d0) * t;
 }
 
-/** Depth buckets of DEPTH_TIE (transitive), then size, distance and id for a deterministic order. */
+/**
+ * Screen-distance buckets of DISTANCE_TIE_PX first (a click on a control's own curve picks it, even with another
+ * control nearer the camera a few pixels away), then depth buckets of DEPTH_TIE, then size, distance and id for a
+ * deterministic order. Buckets keep the order transitive.
+ */
 export function compareHits(a: ControlHit, b: ControlHit): number {
+  const pa = Math.floor(a.distancePx / DISTANCE_TIE_PX);
+  const pb = Math.floor(b.distancePx / DISTANCE_TIE_PX);
+  if (pa !== pb) return pa - pb;
   const da = Math.floor(a.depth / DEPTH_TIE);
   const db = Math.floor(b.depth / DEPTH_TIE);
   if (da !== db) return da - db;

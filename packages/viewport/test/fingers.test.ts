@@ -148,3 +148,30 @@ describe.runIf(READY)('finger pick separation (WP-1, WP-3, WP-4)', () => {
     },
   );
 });
+
+describe.runIf(READY)('picking at a control’s own pick point (acceptance round 2)', () => {
+  it.each(['seed-san.vrm', 'polybot.vrm'])(
+    '%s: at the default framing a click on a control’s pick point selects that control',
+    async (name) => {
+      const skeleton = skeletonFromGltf(await parseGlb(await fixtureBytes(name)));
+      const app = createFakeEditorApp({ snapshot: documentFor(skeleton), skeleton });
+      rig = await createRig({ app });
+      rig.layout('split');
+      rig.frame();
+      let tested = 0;
+      const misses: string[] = [];
+      for (const control of app.store.list('controls')) {
+        if (control.hiddenByDefault) continue;
+        const pick = rig.vm.controlPickPoint('pane-right', control.id);
+        // Another polyline within 1 px of the point is under the pointer equally: depth decides (and cycling).
+        if (pick === null || pick.separationPx < 1) continue;
+        tested++;
+        const hit = rig.vm.pick('pane-right', pick.point.x, pick.point.y);
+        const picked = hit?.kind === 'control' ? hit.control : null;
+        if (picked !== control.id) misses.push(`${control.key} → ${picked ?? 'nothing'}`);
+      }
+      expect(misses).toEqual([]);
+      expect(tested).toBeGreaterThanOrEqual(25);
+    },
+  );
+});

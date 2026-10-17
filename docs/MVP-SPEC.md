@@ -2829,9 +2829,12 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
 #### 4.11.16 Viewport: selection, manipulators, cameras, scene sync
 
 - **Picking** (manipulator > control > joint; mesh click is M1-stretch): control polylines projected per pane
-  (cached per pose version), point-to-segment distance ≤ 6 CSS px, ties by depth then smaller control.
-  `pickCandidates` returns all hits sorted; a repeated click within 3 px of the previous click with the same
-  candidate set selects the **next** candidate (cycling).
+  (cached per pose version), point-to-segment distance ≤ 6 CSS px; candidates sorted by screen distance in 1 px
+  buckets, ties by depth (1 cm buckets) then smaller control (*v0.3 integration, acceptance round 2*: depth used to
+  come first, so a click exactly on a control's curve lost to a near-camera ring up to 6 px away).
+  `pickCandidates` returns all hits sorted; a repeated **plain** click within 3 px of the previous click with the
+  same candidate set selects the **next** candidate, in the order of the cycle's first click (cycling). Modifier
+  clicks (toggle/add/remove) act on the first candidate and never cycle.
 - **Marquee** (select tool, LMB drag on empty space ≥ 4 px): a control is hit when any segment of its projected
   polyline intersects the rectangle or lies inside it (crossing test). Modifiers as for clicks: Shift toggle,
   Mod remove, Mod+Shift add.

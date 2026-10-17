@@ -42,6 +42,8 @@ export class SelectBehaviour {
     readonly x: number;
     readonly y: number;
     readonly key: string;
+    /** Candidates in the order of the cycle's first click. */
+    readonly order: readonly ControlId[];
     readonly index: number;
   } | null = null;
 
@@ -89,12 +91,21 @@ export class SelectBehaviour {
     this.press = null;
   }
 
-  /** A click: nearest candidate, or the next one when clicking again at the same spot over the same candidates. */
+  /**
+   * A click: the nearest candidate, or — for a plain click again at the same spot over the same candidates — the next
+   * one, in the order of the cycle's first click. Modifier clicks (toggle, add, remove) act on the nearest candidate
+   * and never cycle, so a second Shift+click toggles the same control back (acceptance round 2).
+   */
   click(paneId: string, x: number, y: number, mode: SelectMode): void {
     const ids = this.candidateControls(paneId, x, y);
     if (ids.length === 0) {
       this.last = null;
       if (mode === 'replace') this.select([], 'replace', paneId);
+      return;
+    }
+    if (mode !== 'replace') {
+      this.last = null;
+      this.select([ids[0] as ControlId], mode, paneId);
       return;
     }
     const key = [...ids].sort().join('|');
@@ -104,9 +115,10 @@ export class SelectBehaviour {
       last.paneId === paneId &&
       last.key === key &&
       Math.hypot(x - last.x, y - last.y) <= PICK.cycleRadiusPx;
-    const index = repeat ? (last.index + 1) % ids.length : 0;
-    this.last = { paneId, x, y, key, index };
-    this.select([ids[index] as ControlId], mode, paneId);
+    const order = repeat ? last.order : ids;
+    const index = repeat ? (last.index + 1) % order.length : 0;
+    this.last = { paneId, x, y, key, order, index };
+    this.select([order[index] as ControlId], mode, paneId);
   }
 
   private candidateControls(paneId: string, x: number, y: number): ControlId[] {

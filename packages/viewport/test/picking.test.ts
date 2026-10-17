@@ -93,8 +93,8 @@ describe('control picking', () => {
     expect(hit?.kind === 'control' ? hit.depth : 0).toBeCloseTo(point?.depth ?? -1, 3);
   });
 
-  it('orders candidates by depth, then by the smaller control', () => {
-    const hit = (control: string, depth: number, size: number, distancePx = 1) => ({
+  it('orders candidates by screen distance, then depth, then the smaller control (v0.3 integration)', () => {
+    const hit = (control: string, depth: number, size: number, distancePx = 0.5) => ({
       control: control as ControlId,
       character: 'chr_x' as never,
       depth,
@@ -104,8 +104,13 @@ describe('control picking', () => {
     const sorted = [hit('a', 2.5, 0.1), hit('b', 1.001, 0.5), hit('c', 1.002, 0.05), hit('d', 0.5, 1)].sort(
       compareHits,
     );
-    // b and c share the 1 cm depth bucket, so the smaller control (c) wins.
+    // Equally under the pointer (same 1 px bucket): nearest depth first; b and c share the 1 cm depth bucket, so the
+    // smaller control (c) wins.
     expect(sorted.map((h) => h.control)).toEqual(['d', 'c', 'b', 'a']);
+    // A click on a control's own curve beats a control nearer the camera a few pixels away (acceptance round 2).
+    const own = hit('own', 3, 0.3, 0);
+    const near = hit('near', 0.2, 0.05, 4.5);
+    expect([near, own].sort(compareHits).map((h) => h.control)).toEqual(['own', 'near']);
   });
 
   it('returns candidates in that order wherever several controls overlap', async () => {
@@ -122,7 +127,10 @@ describe('control picking', () => {
           const a = hits[i - 1];
           const b = hits[i];
           if (a?.kind !== 'control' || b?.kind !== 'control') continue;
-          expect(Math.floor(a.depth / 0.01)).toBeLessThanOrEqual(Math.floor(b.depth / 0.01));
+          expect(Math.floor(a.distancePx)).toBeLessThanOrEqual(Math.floor(b.distancePx));
+          if (Math.floor(a.distancePx) === Math.floor(b.distancePx)) {
+            expect(Math.floor(a.depth / 0.01)).toBeLessThanOrEqual(Math.floor(b.depth / 0.01));
+          }
           expect(a.distancePx).toBeLessThanOrEqual(6);
         }
       }
@@ -210,6 +218,37 @@ describe('select tool', () => {
     click(rig, far?.x ?? 0, far?.y ?? 0);
     click(rig, s.x, s.y);
     expect(selectCalls(rig).at(-1)?.ids[0]).toBe(s.ids[0]);
+  });
+
+  it('modifier clicks act on the nearest control and never cycle (acceptance round 2)', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    rig.frame();
+    let spot: { x: number; y: number; ids: string[] } | null = null;
+    for (let x = 150; x < 460 && spot === null; x += 2) {
+      for (let y = 120; y < 480 && spot === null; y += 2) {
+        const ids = controlsOf(rig.vm.pickCandidates(PANE, x, y));
+        if (ids.length >= 2) spot = { x, y, ids };
+      }
+    }
+    expect(spot).not.toBeNull();
+    const s = spot as { x: number; y: number; ids: string[] };
+    // Shift twice toggles the same control on and off; Mod+Shift twice adds the same control.
+    click(rig, s.x, s.y, { shiftKey: true });
+    click(rig, s.x, s.y, { shiftKey: true });
+    click(rig, s.x, s.y, { ctrlKey: true, shiftKey: true });
+    click(rig, s.x, s.y, { ctrlKey: true, shiftKey: true });
+    // A plain click after them starts a fresh cycle at the nearest control.
+    click(rig, s.x, s.y);
+    click(rig, s.x, s.y);
+    expect(selectCalls(rig)).toEqual([
+      { ids: [s.ids[0]], mode: 'toggle' },
+      { ids: [s.ids[0]], mode: 'toggle' },
+      { ids: [s.ids[0]], mode: 'add' },
+      { ids: [s.ids[0]], mode: 'add' },
+      { ids: [s.ids[0]], mode: 'replace' },
+      { ids: [s.ids[1]], mode: 'replace' },
+    ]);
   });
 
   it('marquee-selects every control whose polyline crosses the rectangle', async () => {

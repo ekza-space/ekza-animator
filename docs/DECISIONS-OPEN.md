@@ -207,6 +207,19 @@ UX notes **not changed** (owner may revisit):
 - *Bundled samples are fetched lazily, so they fail offline (with a clear toast)*: user files work fully offline;
   precaching samples (a service worker or bundling) is a V1 decision about download size.
 
+### Acceptance round 2 (2026-10-18)
+
+The tester re-ran the owner demo script in real Chrome: all 12 steps and every round-1 fix (INT-32…INT-38) held.
+The round failed on two major bugs, both keyboard focus stealing Maya hotkeys; five minor bugs and twelve UX notes
+were reported. Each fix has a unit test and a real-input e2e check in `apps/web/e2e/acceptance-round2.spec.ts`.
+
+| # | Report | Decision | Where |
+|---|---|---|---|
+| INT-39 | **Major**: after choosing a value in any dropdown (`<select>`: clip, fps, speed, rotate order, infinity, Simplify tolerance) the keymap was skipped while the dropdown kept focus, and Chrome's type-ahead changed its value (S switched the clip, Z the rotate order, 2 opened the fps dialog) | **Fixed, spec amended** (§4.10 "Keyboard focus"): a dropdown is no longer text entry. While it has focus it keeps type-ahead and navigation only when it is under the pointer; otherwise keys follow the hovered panel, Mod chords always reach the keymap, and printable keys never type ahead (default prevented). Arrow keys, PageUp/Down, Enter and Tab stay with it for keyboard users. A value chosen with the pointer hands the focus back (the dropdown blurs after `change`, outside dialogs). | `editor/src/input/{focus.ts,keyboard.ts}`, `shell/useWindowInput.ts`; `test/input.test.ts` |
+| INT-40 | **Major**: a Graph Editor key field kept focus after Enter, so Mod+Z ran the browser's text undo and a tangent digit typed into it was committed as an expression on blur (`4-10` → −6) | **Fixed**: like the Channel Box, Enter commits and blurs (an invalid entry keeps the focus and its red border); Esc reverts and blurs. Esc used to commit the draft, because the blur it caused ran the stale commit. | `editor/src/panels/graph/controls.tsx`; `test/panels/graph.test.tsx` |
+| INT-41 | After a click in the Outliner, F, Home and End pressed over the viewport or time slider were taken by the focused tree | **Fixed**: the tree handles its ARIA keys only while the Outliner is hovered (or the pointer is outside the window). | `editor/src/panels/outliner/OutlinerPanel.tsx`; `test/panels/outliner.test.tsx` |
+| INT-42 | A click exactly on a control's own pick point selected a neighbour in 11/33 (Polybot) and 32/53 (Seed-san) cases: depth was sorted before screen distance, so a near-camera ring up to 6 px away won; Shift/Mod+Shift clicks repeated at one spot cycled | **Changed, spec amended** (§4.11.16): candidates sort by screen distance (1 px buckets), then depth (1 cm buckets), then size. Cycling applies to repeated plain clicks only and keeps the order of the cycle's first click; modifier clicks act on the nearest control (a second Shift+click toggles it back). | `viewport/src/picking/picker.ts`, `tools/selectTool.ts`; `test/picking.test.ts`, `test/fingers.test.ts` |
+
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 
 Each work package recorded its interpretations in `docs/wp-notes/wp-*.md` (kept as history, with the reasoning and
