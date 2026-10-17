@@ -12,6 +12,7 @@ import { Popover } from '../channel-box/kit/popover';
 import { hasMod, runOperator } from '../channel-box/kit/run';
 import {
   BUTTON,
+  CHECK,
   EMPTY_STATE,
   MUTED_TEXT,
   PANEL_ROOT,
@@ -299,7 +300,7 @@ function ClipRow(props: ClipRowProps): JSX.Element {
           checked={active}
           aria-label={`Active clip: ${clip.name}`}
           data-testid={`clips-active-${clip.id}`}
-          className="accent-[var(--accent,#7c5cff)]"
+          className={CHECK}
           onChange={props.onActivate}
           onClick={(event) => event.stopPropagation()}
           onKeyDown={props.onKeyDown}

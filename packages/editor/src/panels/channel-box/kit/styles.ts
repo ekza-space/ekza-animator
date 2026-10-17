@@ -32,6 +32,9 @@ export const INVALID =
 
 export const SELECT = `${INPUT} pr-1`;
 
+/** Checkboxes and radios in the accent colour instead of the platform blue. */
+export const CHECK = 'accent-[var(--accent,#7c5cff)]';
+
 export const ROW_HOVER = 'hover:bg-[var(--bg-hover,#30323a)]';
 
 export const ROW_SELECTED = 'bg-[var(--bg-selected,#3b3270)] hover:bg-[var(--bg-selected,#3b3270)]';

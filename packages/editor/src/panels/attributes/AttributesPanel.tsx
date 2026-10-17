@@ -20,7 +20,7 @@ import { sameIds, selectedControls, useCharactersVersion } from '../channel-box/
 import { ChevronIcon, LockIcon } from '../channel-box/kit/icons';
 import { formatFixed, readVrmLicense } from '../channel-box/kit/kernel';
 import { canRun, runOperator, runUntypedOperator } from '../channel-box/kit/run';
-import { BUTTON, MUTED_TEXT, PANEL_ROOT, SELECT, SIDE_COLOR, SIDE_LABEL } from '../channel-box/kit/styles';
+import { BUTTON, CHECK, MUTED_TEXT, PANEL_ROOT, SELECT, SIDE_COLOR, SIDE_LABEL } from '../channel-box/kit/styles';
 import { ClipNameInput } from '../clips/ClipNameInput';
 import { ClipSettingsForm } from '../clips/ClipSettingsForm';
 import {
@@ -382,6 +382,7 @@ function CameraFields(props: { readonly app: EditorApp; readonly camera: CameraR
             <input
               id={`${id}-lock`}
               type="checkbox"
+              className={CHECK}
               checked={camera.locked}
               data-testid={`attr-camera-lock-${camera.id}`}
               onChange={() => void runOperator(app, PANEL_KIND, 'view.toggleCameraLock', { cameraId: camera.id })}

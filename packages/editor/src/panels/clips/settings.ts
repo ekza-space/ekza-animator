@@ -314,6 +314,25 @@ export function checkDraft(clip: ClipRecord, draft: ClipSettingsDraft): DraftChe
   return { errors, args: Object.keys(args).length > 1 ? args : null, fpsChanged };
 }
 
+/** Licences under which a derived clip is not obviously redistributable (no derivatives, unknown, proprietary). */
+function doubtfulLicence(license: string): boolean {
+  return license === 'unknown' || license === 'proprietary' || /-ND(?:-|$)/.test(license);
+}
+
+/**
+ * A soft check that never blocks Apply (FR-CLIP-09): the draft marks the clip redistributable while a source's
+ * licence does not obviously allow it. Export profiles judge provenance for real (ADR 0010 `non-redistributable`).
+ */
+export function redistributionHint(draft: ClipSettingsDraft): string | null {
+  if (draft.redistributable !== 'yes') return null;
+  const doubtful = draft.sources
+    .map((source, i) => ({ i, license: source.license === 'other' ? source.licenseOther.trim() : source.license }))
+    .filter(({ license }) => doubtfulLicence(license));
+  if (doubtful.length === 0) return null;
+  const list = doubtful.map(({ i, license }) => `source ${i + 1} is ${license}`).join(', ');
+  return `Marked redistributable, but ${list}: check that you may share clips made from it.`;
+}
+
 function sameList(a: readonly string[], b: readonly string[]): boolean {
   return a.length === b.length && a.every((value, i) => value === b[i]);
 }

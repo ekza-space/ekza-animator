@@ -5,7 +5,16 @@ import type { ClipRecord, Redistributable, RootMotionMode } from '@ekza-animator
 import type { EditorApp, PanelKind } from '@ekza-animator/editor-core';
 import { type JSX, type ReactNode, useId, useState } from 'react';
 import { runOperator } from '../channel-box/kit/run';
-import { BUTTON, ERROR_TEXT, INPUT, INVALID, MUTED_TEXT, PRIMARY_BUTTON, SELECT } from '../channel-box/kit/styles';
+import {
+  BUTTON,
+  CHECK,
+  ERROR_TEXT,
+  INPUT,
+  INVALID,
+  MUTED_TEXT,
+  PRIMARY_BUTTON,
+  SELECT,
+} from '../channel-box/kit/styles';
 import {
   type ClipSettingsDraft,
   checkDraft,
@@ -18,6 +27,7 @@ import {
   LICENSE_PRESETS,
   MAX_TAGS,
   REDISTRIBUTABLE_LABEL,
+  redistributionHint,
   ROOT_MOTION_LABEL,
   SLOT_VOCABULARY,
   type SourceDraft,
@@ -40,6 +50,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
   const [busy, setBusy] = useState(false);
   const draft = edited ?? draftFromClip(clip);
   const { errors, args, fpsChanged } = checkDraft(clip, draft);
+  const hint = redistributionHint(draft);
   const id = useId();
 
   const set = <K extends keyof ClipSettingsDraft>(key: K, value: ClipSettingsDraft[K]): void =>
@@ -114,6 +125,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           <label key={mode} className={`flex items-center gap-1 ${fpsChanged ? 'text-fg-2' : MUTED_TEXT}`}>
             <input
               type="radio"
+              className={CHECK}
               name={`${id}-fps-mode`}
               checked={draft.fpsMode === mode}
               data-testid={`clip-settings-fps-mode-${mode}`}
@@ -164,6 +176,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
         <input
           id={`${id}-loop`}
           type="checkbox"
+          className={CHECK}
           checked={draft.loop}
           data-testid="clip-settings-loop"
           onChange={(event) => set('loop', event.currentTarget.checked)}
@@ -248,6 +261,14 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
         </select>
         <RedistributableBadge state={draft.redistributable} />
       </Row>
+      {hint === null ? null : (
+        <p
+          className="col-span-2 col-start-2 text-[var(--warn,#e3b34a)]"
+          data-testid="clip-settings-redistribution-hint"
+        >
+          {hint}
+        </p>
+      )}
       {draft.sources.length === 0 ? (
         <p className={`col-span-3 ${MUTED_TEXT}`}>Authored from scratch: no sources.</p>
       ) : null}

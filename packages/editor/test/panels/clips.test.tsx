@@ -9,6 +9,7 @@ import {
   formatDuration,
   formatFps,
   parseTags,
+  redistributionHint,
   validateClipName,
 } from '../../src/panels/clips/settings';
 import {
@@ -119,13 +120,21 @@ describe('Clips panel (FR-CLIP-01…03)', () => {
     for (const bad of ['', 'wave/1', 'idle', 'x'.repeat(65)]) {
       await user.fill(field, bad);
       await user.keyboard('{Enter}');
-      rejected.push({ name: bad, invalid: field.dataset.invalid, why: field.title.length > 0 });
+      const message = maybe('clips-rename-message');
+      rejected.push({
+        name: bad,
+        invalid: field.dataset.invalid,
+        why: message !== null && message.textContent === field.title && field.title.length > 0,
+      });
     }
     expect(rejected).toEqual(
       ['', 'wave/1', 'idle', 'x'.repeat(65)].map((name) => ({ name, invalid: 'true', why: true })),
     );
+    expect(by('clips-rename-message').textContent).toBe('At most 64 characters (65)');
+    expect(field.getAttribute('aria-describedby')).toBe(by('clips-rename-message').id);
     expect(callsOf(app, 'clip.rename')).toEqual([]);
     await user.fill(field, '  wave_01 ');
+    expect(maybe('clips-rename-message')).toBeNull();
     await user.keyboard('{Enter}');
     expect(callsOf(app, 'clip.rename')).toEqual([{ clip: CLIP, name: 'wave_01' }]);
     expect(maybe('clips-rename-input')).toBeNull();
@@ -288,7 +297,14 @@ describe('Clip settings popover (FR-CLIP-04, FR-CLIP-09)', () => {
     await user.fill(by('clip-settings-source-0-sha'), 'abc');
     expect(by('clip-settings-source-0-error-sourceSha256').textContent).toContain('64 hex');
     await user.fill(by('clip-settings-source-0-sha'), 'A'.repeat(64));
+    expect(maybe('clip-settings-redistribution-hint')).toBeNull();
+    // A source whose licence does not obviously allow sharing makes 'yes' questionable (a hint, not an error).
+    await user.selectOptions(by('clip-settings-source-0-license'), 'proprietary');
+    expect(by('clip-settings-redistribution-hint').textContent).toContain('source 1 is proprietary');
+    expect((by('clip-settings-apply') as HTMLButtonElement).disabled).toBe(false);
+    await user.selectOptions(by('clip-settings-source-0-license'), 'other');
     await user.selectOptions(by('clip-settings-redistributable'), 'no');
+    expect(maybe('clip-settings-redistribution-hint')).toBeNull();
     expect(by('clip-redistributable-badge').dataset.state).toBe('no');
     await user.click(by('clip-settings-apply'));
     expect(callsOf(app, 'clip.setSettings')).toEqual([
@@ -363,5 +379,29 @@ describe('clip settings rules', () => {
     });
     expect(checkDraft(clip, { ...draft, slot: 'tpose' }).errors.slot).toContain('not an Ekza slot');
     expect(checkDraft({ ...clip, slot: 'wave' }, { ...draft, slot: '' }).args).toEqual({ clip: clip.id, slot: null });
+  });
+
+  it('hints when a redistributable clip has sources under unknown, proprietary or no-derivatives licences', () => {
+    const clip = waveApp().store.get('clips', CLIP) as ClipRecord;
+    const draft = draftFromClip(clip);
+    const source = (license: string, licenseOther = '') => ({
+      title: 'Source',
+      author: '',
+      license,
+      licenseOther,
+      sourceSha256: '',
+    });
+    expect(redistributionHint(draft)).toBeNull(); // authored from scratch
+    expect(redistributionHint({ ...draft, sources: [source('CC0-1.0'), source('CC-BY-4.0')] })).toBeNull();
+    expect(
+      redistributionHint({
+        ...draft,
+        sources: [source('CC0-1.0'), source('unknown'), source('other', 'CC-BY-ND-4.0')],
+      }),
+    ).toBe(
+      'Marked redistributable, but source 2 is unknown, source 3 is CC-BY-ND-4.0: check that you may share clips made from it.',
+    );
+    expect(redistributionHint({ ...draft, sources: [source('proprietary')], redistributable: 'no' })).toBeNull();
+    expect(redistributionHint({ ...draft, sources: [source('proprietary')], redistributable: 'unknown' })).toBeNull();
   });
 });
