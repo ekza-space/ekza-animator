@@ -98,7 +98,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-CB-03 | Numeric entry with relative expressions (`+=`, `-=`, `*`, `/`, `deg`/`rad` suffix), Tab navigation, ↑/↓ nudge. | MVP | M1 | US-11. |
 | FR-CB-04 | Context menu: key selected channels, reset to default, lock/unlock. | MVP | M1 | Locked channels reject edits with a toast. |
 | FR-CB-05 | Virtual slider (MMB drag / drag channel name) with Pointer Lock. | V1 | M2a | Drag changes value at the documented rate. |
-| FR-CB-06 | Rotate order shown (MVP); editable, pose-preserving (MVP-S). | MVP | M1 | Shown read-only; editing per FR-RIG-08 when the stretch item lands. |
+| FR-CB-06 | Rotate order shown (MVP); editable, pose-preserving (MVP-S). | MVP | M1 | Shown, and editable per FR-RIG-08 (the stretch item landed with WP-7b; MVP-SPEC §1.2 status). |
 
 ### FR-KEY — Keying
 

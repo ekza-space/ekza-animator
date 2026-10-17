@@ -91,6 +91,14 @@ runner rules (§4.11.0), the yaw-only facing check (§4.11.9), the surgeon gener
 | Bevy lints (`bevy.*`) | No Bevy consumer in M1 | — |
 | Static-export, offline, storage-blocked and context-loss e2e (NFR-09, NFR-12, NFR-13) | CI plumbing | Manual QA items in §8.3 |
 
+*Status at acceptance round 1 (2026-10-18)*: built and enabled — the pose-preserving rotate-order change (WP-7b
+`rig.setRotateOrder`; the rotate order is **editable** in Attributes and the Channel Box, so the "read-only"
+fallback above no longer applies), the plateau tangent (W1-5), mesh-click picking (WP-5 V-13), the camera radial
+and the one-button macOS profile (V-14, WP-5/WP-6 navigation), and the `bevy.*` lint rules. Not built: cycle-aware
+auto tangents (compile option, off by default), animation-only GLB import onto a character (a clear "No animation
+… fits the character" message), the in-app validator worker, and the static-export/offline/storage/context-loss
+e2e scenarios (checked manually in §8.3; acceptance round 1 passed them).
+
 ### 1.3 Out of scope (roadmap)
 
 Leg/arm IK controls, IK/FK switching and matching, constraints implementations (M2a/M2c, slots exist),
@@ -2606,7 +2614,8 @@ Tolerance per channel kind from `ReduceSpec` (rotation radians, translation metr
 10. Warnings (dropped channels, missing bones, licence meta, sub-frame keys) go to a toast and the import summary.
 
 Import dialog defaults: all embedded clips checked when ≤ 8, otherwise none (user picks); clip fps "Source";
-Euler filter on; reduce per preference; secondary controls on. Acceptance on UAL `Idle_Loop`: clip fps 24, keys
+Euler filter on; reduce per preference; secondary controls on. *Acceptance round 1 (INT-38)*: with embedded clips
+and none checked, the confirm button reads `Import without clips` and the count says the model gets an empty clip. Acceptance on UAL `Idle_Loop`: clip fps 24, keys
 on integer frames 0…60; at every source key time the imported values match three's `GLTFLoader` within
 1e-4 rad / 1e-5 m; with reduction on, curves with ≥ 20 source keys shrink ≥ 3× in total and the error at every
 source key time and integer frame is ≤ tolerance.
@@ -2701,6 +2710,9 @@ source key time and integer frame is ≤ tolerance.
    `validateGltf` (§4.11.13). Errors block the download; warnings are shown.
 6. File names: pattern tokens `{character}`, `{clip}`, `{fps}`; sanitized to `[A-Za-z0-9._-]`; extensions `.vrm`
    (VRM source) or `.glb` for bakes, `.glb` for animation-only, `.vrma`; MIME `model/gltf-binary`.
+7. *Acceptance round 1 (INT-38)*: the Export dialog checks every clip of the character for `bake-into-model` and
+   `animation-glb` (one file holds them all) and the active clip for `vrma` (one file per clip), until the user
+   changes the checkboxes.
 
 #### 4.11.11 Surgeon container rules (`bakeIntoModel`)
 

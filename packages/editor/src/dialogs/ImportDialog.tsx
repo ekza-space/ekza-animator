@@ -161,8 +161,9 @@ function PendingImportDialog(props: { readonly pending: PendingImport }): JSX.El
             <section className="flex flex-col gap-2" aria-label="Embedded clips">
               <div className="flex items-center gap-2">
                 <h3 className="text-ui font-semibold text-fg-2">Embedded clips</h3>
-                <span className="text-ui-dense text-fg-3">
+                <span className="text-ui-dense text-fg-3" data-testid="import-clips-count">
                   {selected.size} of {clips.length} selected
+                  {selected.size === 0 ? ' — check the clips to import, or import the model with an empty clip' : ''}
                 </span>
                 <Button
                   size="sm"
@@ -246,7 +247,7 @@ function PendingImportDialog(props: { readonly pending: PendingImport }): JSX.El
             Cancel
           </Button>
           <Button variant="primary" disabled={importing} data-testid="import-confirm" onClick={() => void confirm()}>
-            {importing ? 'Importing…' : 'Import'}
+            {importing ? 'Importing…' : clips.length > 0 && selected.size === 0 ? 'Import without clips' : 'Import'}
           </Button>
         </DialogFooter>
       </DialogContent>

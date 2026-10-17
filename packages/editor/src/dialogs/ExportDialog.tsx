@@ -128,6 +128,20 @@ function Results(props: { readonly artifacts: readonly ExportArtifact[] }): JSX.
   );
 }
 
+/**
+ * Clips checked when the dialog opens (until the user changes them): every clip of the character for the containers
+ * that hold several clips (bake into the model, animation-only GLB), the active clip for VRMA, which writes one file
+ * per clip (acceptance round 1: baking usually wants all clips).
+ */
+export function defaultExportClips(
+  kind: string,
+  clips: readonly { readonly id: ClipId }[],
+  active: ClipId | undefined,
+): ReadonlySet<ClipId> {
+  if (kind === 'vrma') return new Set(clips.filter((clip) => clip.id === active).map((clip) => clip.id));
+  return new Set(clips.map((clip) => clip.id));
+}
+
 export function ExportDialog(): JSX.Element {
   const shell = useShell();
   const { app } = shell;
@@ -153,7 +167,7 @@ export function ExportDialog(): JSX.Element {
   const ids = useId();
 
   const defaultClip = character === null ? undefined : activeClips[character];
-  const chosenClips = selectedClips ?? new Set(clips.filter((clip) => clip.id === defaultClip).map((clip) => clip.id));
+  const chosenClips = selectedClips ?? defaultExportClips(kind, clips, defaultClip);
   const chosen = clips.filter((clip) => chosenClips.has(clip.id));
   // §4.11.10: loop closure defaults on for loop clips.
   const closeLoop = closeLoopChoice ?? (chosen.length > 0 && chosen.every((clip) => clip.loop));

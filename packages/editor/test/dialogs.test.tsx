@@ -2,11 +2,13 @@
 // (kinds from the exporter registry, clips, profiles filtered by kind, poll reasons, results and lints), the
 // shortcut sheet and preferences; plus the frame gate that keeps demand rendering alive.
 import { GLOBAL_SCOPE, type ExporterDef } from '@ekza-animator/editor-core';
+import type { ClipId } from '@ekza-animator/doc';
 import type { ExportArtifact, ExportProfileDef, ExportRequest } from '@ekza-animator/io';
 import { NumberField } from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../src/dialogs/DialogHost';
+import { defaultExportClips } from '../src/dialogs/ExportDialog';
 import { shortcutRows } from '../src/dialogs/ShortcutsDialog';
 import { createFrameGate } from '../src/gl/frameGate';
 import type { ModelSummary } from '../src/shell/summary';
@@ -64,8 +66,14 @@ describe('import dialog', () => {
     expect(body('import-dialog').textContent).toContain('Compressed meshes');
     expect([0, 1, 2].map((i) => checkbox(`import-clip-${i}`).checked)).toEqual([true, true, true]);
 
+    expect(body('import-confirm').textContent).toBe('Import');
     await update(() => body('import-clips-none').click());
+    // Acceptance round 1: with nothing checked the model imports with an empty clip; the dialog says so.
+    expect(body('import-confirm').textContent).toBe('Import without clips');
+    expect(body('import-clips-count').textContent).toContain('0 of 3 selected');
+    expect(body('import-clips-count').textContent).toContain('empty clip');
     await update(() => checkbox('import-clip-0').click());
+    expect(body('import-confirm').textContent).toBe('Import');
     expect([0, 1, 2].map((i) => checkbox(`import-clip-${i}`).checked)).toEqual([true, false, false]);
     expect(checkbox('import-reduce').checked).toBe(true); // prefs.reduceOnImport 'auto'
     await update(() => checkbox('import-reduce').click());
@@ -201,6 +209,17 @@ describe('export dialog', () => {
     await waitFor(() => (body('export-lints').textContent ?? '').includes('vrma.non-hips-translation'));
     expect(body('export-lints').textContent).toContain('Read-back OK');
     await view.unmount();
+  });
+});
+
+describe('export clip defaults (acceptance round 1)', () => {
+  it('checks every clip for the multi-clip containers and the active clip for VRMA', () => {
+    const clips = [{ id: 'clp_a' }, { id: 'clp_b' }] as unknown as readonly { readonly id: ClipId }[];
+    const active = 'clp_b' as ClipId;
+    expect([...defaultExportClips('bake-into-model', clips, active)]).toEqual(['clp_a', 'clp_b']);
+    expect([...defaultExportClips('animation-glb', clips, active)]).toEqual(['clp_a', 'clp_b']);
+    expect([...defaultExportClips('vrma', clips, active)]).toEqual(['clp_b']);
+    expect([...defaultExportClips('vrma', clips, undefined)]).toEqual([]);
   });
 });
 

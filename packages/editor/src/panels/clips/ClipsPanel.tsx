@@ -174,17 +174,19 @@ export function ClipsPanel({ app, instanceId }: PanelProps): JSX.Element {
           No character yet. Clips belong to a character: open a model first.
         </div>
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto">
+        // A container: the duration and Source columns show only when the dock is wide enough for them
+        // (acceptance round 1: at the default width the header read "NameRange" and names were cut to "wa…").
+        <div className="@container min-h-0 flex-1 overflow-auto">
           <table className="w-full border-collapse text-left" aria-label="Clips">
             <thead className="sticky top-0 z-10 bg-header text-fg-3">
               <tr className="h-[22px]">
                 <th scope="col" className="w-6 font-normal">
                   <span className="sr-only">Active</span>
                 </th>
-                <th scope="col" className="font-normal">
+                <th scope="col" className="pr-2 pl-1 font-normal">
                   Name
                 </th>
-                <th scope="col" className="font-normal">
+                <th scope="col" className="pr-2 font-normal">
                   Range
                 </th>
                 <th scope="col" className="w-10 text-right font-normal">
@@ -193,7 +195,7 @@ export function ClipsPanel({ app, instanceId }: PanelProps): JSX.Element {
                 <th scope="col" className="w-6 font-normal">
                   <span className="sr-only">Loop</span>
                 </th>
-                <th scope="col" className="font-normal">
+                <th scope="col" className="hidden pr-1 font-normal @xs:table-cell">
                   Source
                 </th>
                 <th scope="col" className="w-7 font-normal">
@@ -306,7 +308,7 @@ function ClipRow(props: ClipRowProps): JSX.Element {
           onKeyDown={props.onKeyDown}
         />
       </td>
-      <td className="max-w-0 pr-1">
+      <td className="max-w-0 pr-2 pl-1">
         {props.renaming ? (
           <ClipNameInput app={app} panel={PANEL_KIND} clip={clip} onDone={props.onRenamed} className="h-5" />
         ) : (
@@ -315,15 +317,19 @@ function ClipRow(props: ClipRowProps): JSX.Element {
           </span>
         )}
       </td>
-      <td className="pr-2 whitespace-nowrap text-fg-2 tabular-nums">
-        {clip.range.start}–{clip.range.end} <span className={MUTED_TEXT}>· {formatDuration(clip.range, clip.fps)}</span>
+      <td
+        className="pr-2 whitespace-nowrap text-fg-2 tabular-nums"
+        title={`${clip.range.start}–${clip.range.end} · ${formatDuration(clip.range, clip.fps)}`}
+      >
+        {clip.range.start}–{clip.range.end}{' '}
+        <span className={`hidden @xs:inline ${MUTED_TEXT}`}>· {formatDuration(clip.range, clip.fps)}</span>
       </td>
       <td className="pr-2 text-right text-fg-2 tabular-nums">{formatFps(clip.fps)}</td>
       <td className="text-fg-2" title={clip.loop ? 'Loops' : 'Plays once'}>
         {clip.loop ? <LoopIcon /> : null}
         <span className="sr-only">{clip.loop ? 'loops' : 'once'}</span>
       </td>
-      <td className={`pr-1 ${MUTED_TEXT}`}>{SOURCE_LABEL[clip.source.kind]}</td>
+      <td className={`hidden pr-1 @xs:table-cell ${MUTED_TEXT}`}>{SOURCE_LABEL[clip.source.kind]}</td>
       <td>
         <button
           type="button"
