@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@source "../editor/src";
+@source "./src";
+
+/* Design tokens (research 09 §8.2). Hand-written subset until WP-8 generates this block from tokens.json and
+   wires the self-hosted Inter / JetBrains Mono fonts. */
+:root {
+  color-scheme: dark;
+  --bg-app: #1b1c1f;
+  --bg-panel: #232428;
+  --bg-header: #2a2b30;
+  --border: #3a3c44;
+  --text: #e6e7ea;
+  --text-2: #aeb2bb;
+  --text-3: #969ba6;
+  --accent: #7c5cff;
+  --accent-fill: #6c4ff0;
+  --accent-text: #a996ff;
+  --font-ui: "Inter Variable", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono Variable", ui-monospace, monospace;
+}
+
+@theme inline {
+  --color-app: var(--bg-app);
+  --color-panel: var(--bg-panel);
+  --color-header: var(--bg-header);
+  --color-line: var(--border);
+  --color-fg: var(--text);
+  --color-fg-2: var(--text-2);
+  --color-fg-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-text: var(--accent-text);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-mono);
+}
+
+html,
+body {
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: var(--font-ui);
+}
