@@ -128,7 +128,9 @@ export function solveBoneChannels(
 ): Map<ControlId, ChannelValues> {
   const internals = internalsOf(program);
   const targets = [...boneWorlds.keys()]
-    .filter((node) => Number.isInteger(node) && node >= 0 && node < internals.nodeCount && internals.driver[node] !== -1)
+    .filter(
+      (node) => Number.isInteger(node) && node >= 0 && node < internals.nodeCount && internals.driver[node] !== -1,
+    )
     .sort((a, b) => (internals.driver[a] as number) - (internals.driver[b] as number));
   const result = new Map<ControlId, ChannelValues>();
   if (targets.length === 0) return result;

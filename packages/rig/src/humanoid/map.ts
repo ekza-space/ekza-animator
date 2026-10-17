@@ -142,12 +142,7 @@ export function humanChainChildren(name: HumanBoneName): readonly HumanBoneName[
     case 'lowerArm':
       return [`${p}Hand` as HumanBoneName];
     case 'hand':
-      return [
-        `${p}MiddleProximal`,
-        `${p}IndexProximal`,
-        `${p}RingProximal`,
-        `${p}LittleProximal`,
-      ] as HumanBoneName[];
+      return [`${p}MiddleProximal`, `${p}IndexProximal`, `${p}RingProximal`, `${p}LittleProximal`] as HumanBoneName[];
     case 'upperLeg':
       return [`${p}LowerLeg` as HumanBoneName];
     case 'lowerLeg':

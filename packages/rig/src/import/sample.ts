@@ -58,7 +58,8 @@ export function sampleTrack(track: SampledTrack, components: number, t: number, 
       slerp(v, a, b, s, out);
       return;
     }
-    for (let c = 0; c < components; c++) out[c] = (v[a + c] as number) + ((v[b + c] as number) - (v[a + c] as number)) * s;
+    for (let c = 0; c < components; c++)
+      out[c] = (v[a + c] as number) + ((v[b + c] as number) - (v[a + c] as number)) * s;
     return;
   }
   // CUBICSPLINE: key k = [a_k (in), v_k, b_k (out)], each `components` long.

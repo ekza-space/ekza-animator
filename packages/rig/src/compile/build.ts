@@ -188,7 +188,9 @@ export function buildInternals(input: BuildInput, warnings: RigWarning[]): RigIn
 export function deriveInternals(program: RigProgram): RigInternals {
   const controls = program.controlIds.map((id, slot) => {
     const record = program.controls[slot];
-    return record !== undefined && record.id === id ? record : (program.controls.find((c) => c.id === id) as ControlRecord);
+    return record !== undefined && record.id === id
+      ? record
+      : (program.controls.find((c) => c.id === id) as ControlRecord);
   });
   const parents = controls.map((control, slot) => {
     if (control.parent === null) return -1;

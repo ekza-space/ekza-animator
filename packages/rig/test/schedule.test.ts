@@ -75,9 +75,9 @@ describe('computeStepSchedule (MVP-SPEC §4.11.10 step 3)', () => {
     const oscillating = infoSampler(
       new Map([[id('fk.lowerArm.L'), [info('rz', [0, 4, 10], true, { post: 'oscillate', pre: 'cycleOffset' })]]]),
     );
-    expect(computeStepSchedule(program, oscillating, { start: -10, end: 26 }, 'raw').get(`${lowerArm}/rotation`)).toEqual(
-      [-10, -6, 0, 4, 10, 16, 20, 24, 26],
-    );
+    expect(
+      computeStepSchedule(program, oscillating, { start: -10, end: 26 }, 'raw').get(`${lowerArm}/rotation`),
+    ).toEqual([-10, -6, 0, 4, 10, 16, 20, 24, 26]);
   });
 
   it('treats linear extrapolation beyond the keys as smooth', () => {

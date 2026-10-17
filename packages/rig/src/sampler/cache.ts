@@ -102,7 +102,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       const hit = compiled.get(curveId);
       if (hit !== undefined) return hit;
       const curve = store.get('curves', curveId);
-      if (curve === undefined) throw new EkzaError('invalid-record', `Curve ${curveId} does not exist`, { curve: curveId });
+      if (curve === undefined)
+        throw new EkzaError('invalid-record', `Curve ${curveId} does not exist`, { curve: curveId });
       const anim: AnimCurve = {
         keys: store.query.keysOfCurve(curveId),
         weighted: curve.weighted,

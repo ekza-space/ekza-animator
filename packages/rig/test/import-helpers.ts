@@ -32,7 +32,12 @@ export function keyValueAt(keys: readonly KeyData[], frame: number): number {
 }
 
 /** Channel buffer of the imported clip at `frame` (controls without curves at defaults). */
-export function channelsAt(program: RigProgram, clip: ImportedClipKeys, frame: number, out?: ChannelBuffer): ChannelBuffer {
+export function channelsAt(
+  program: RigProgram,
+  clip: ImportedClipKeys,
+  frame: number,
+  out?: ChannelBuffer,
+): ChannelBuffer {
   const ch = out ?? program.allocChannels();
   program.resetChannels(ch);
   for (const curve of clip.curves) {
@@ -59,7 +64,8 @@ export function randomFrames(program: RigProgram, frames: number, seed: number, 
       SLOTS.forEach((channel, k) => {
         const group = k < 3 ? control.keyable.t : k < 6 ? control.keyable.r : control.keyable.s;
         if (!group[k % 3]) return;
-        values[channel] = k < 3 ? next() * 0.2 * amplitude : k < 6 ? next() * 1.6 * amplitude : 1 + next() * 0.4 * amplitude;
+        values[channel] =
+          k < 3 ? next() * 0.2 * amplitude : k < 6 ? next() * 1.6 * amplitude : 1 + next() * 0.4 * amplitude;
       });
       writeControlChannels(program, ch, control.id, values);
     }
@@ -69,7 +75,12 @@ export function randomFrames(program: RigProgram, frames: number, seed: number, 
 }
 
 /** Bakes poses to a raw LINEAR clip of every node's local TRS at frames 0, 1, … (float32 like a glTF file). */
-export function bakeRaw(program: RigProgram, frames: readonly ChannelBuffer[], fps: Fps, name = 'baked'): {
+export function bakeRaw(
+  program: RigProgram,
+  frames: readonly ChannelBuffer[],
+  fps: Fps,
+  name = 'baked',
+): {
   readonly clip: RawClip;
   readonly poses: PoseBuffers[];
 } {
@@ -88,7 +99,8 @@ export function bakeRaw(program: RigProgram, frames: readonly ChannelBuffer[], f
     ] as const) {
       const values = new Float32Array(frames.length * components);
       poses.forEach((pose, f) => {
-        for (let c = 0; c < components; c++) values[f * components + c] = pose.boneLocal[node * 10 + offset + c] as number;
+        for (let c = 0; c < components; c++)
+          values[f * components + c] = pose.boneLocal[node * 10 + offset + c] as number;
       });
       channels.push({ node, path, interpolation: 'LINEAR', times, values });
     }

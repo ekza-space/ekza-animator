@@ -171,5 +171,9 @@ function handDorsal(ctx: RestContext, nodeOf: (name: HumanBoneName) => number, s
 }
 
 function sub(a: readonly number[], b: readonly number[]): Vec3 {
-  return [(a[0] as number) - (b[0] as number), (a[1] as number) - (b[1] as number), (a[2] as number) - (b[2] as number)];
+  return [
+    (a[0] as number) - (b[0] as number),
+    (a[1] as number) - (b[1] as number),
+    (a[2] as number) - (b[2] as number),
+  ];
 }

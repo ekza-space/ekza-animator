@@ -162,19 +162,29 @@ describe('autoRig: humanoid template (MVP-SPEC §4.11.15)', () => {
     // Hair radius unknown → generic fallback max(0.15·ℓ, 0.02·H), clamped at ≥ 0.01·H.
     expect(controls.get('sec.hair_L')?.shape.size).toBeCloseTo(0.02 * H, 12);
     // Every control respects its group minimum.
-    const minimum: Record<string, number> = { torso: 0.05, shoulder: 0.025, limb: 0.025, extremity: 0.03, finger: 0.006 };
+    const minimum: Record<string, number> = {
+      torso: 0.05,
+      shoulder: 0.025,
+      limb: 0.025,
+      extremity: 0.03,
+      finger: 0.006,
+    };
     const groupOf = (key: string): string | null => {
       if (/^fk\.(hips|spine|chest|upperChest|neck|head)$/.test(key)) return 'torso';
-      if (/^fk\.shoulder\./.test(key)) return 'shoulder';
+      if (key.startsWith('fk.shoulder.')) return 'shoulder';
       if (/^fk\.(upperArm|lowerArm|upperLeg|lowerLeg)\./.test(key)) return 'limb';
       if (/^fk\.(hand|foot|toes)\./.test(key)) return 'extremity';
       if (/^fk\.(thumb|index|middle|ring|little)/.test(key)) return 'finger';
       return null;
     };
-    for (const control of def.controls) {
+    const sized = def.controls.flatMap((control) => {
       const group = groupOf(control.key);
-      if (group !== null) expect(control.shape.size).toBeGreaterThanOrEqual((minimum[group] as number) * H - 1e-12);
-    }
+      return group === null
+        ? []
+        : [{ key: control.key, size: control.shape.size, min: (minimum[group] as number) * H }];
+    });
+    expect(sized.length).toBeGreaterThan(0);
+    for (const { size, min } of sized) expect(size).toBeGreaterThanOrEqual(min - 1e-12);
   });
 
   it('draws fingers as lollipops along the dorsal normal with per-joint stick lengths', () => {

@@ -13,7 +13,11 @@ export interface XfArrays {
 }
 
 export function allocXfArrays(count: number): XfArrays {
-  const xf: XfArrays = { t: new Float64Array(count * 3), q: new Float64Array(count * 4), s: new Float64Array(count * 3) };
+  const xf: XfArrays = {
+    t: new Float64Array(count * 3),
+    q: new Float64Array(count * 4),
+    s: new Float64Array(count * 3),
+  };
   for (let i = 0; i < count; i++) {
     xf.q[i * 4 + 3] = 1;
     xf.s[i * 3] = 1;

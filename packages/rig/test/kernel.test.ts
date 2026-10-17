@@ -142,8 +142,9 @@ describe('kernel: forward evaluation', () => {
     // Rotate-bound bones keep rest local translations.
     for (const name of ['leftLowerArm', 'leftHand', 'spine', 'head'] as const) {
       const node = skeleton.humanoid?.[name] as number;
-      expect(maxAbsDiff(pose.boneLocal.subarray(node * 10, node * 10 + 3), skeleton.nodes[node]?.restLocal.t ?? []))
-        .toBeLessThan(1e-12);
+      expect(
+        maxAbsDiff(pose.boneLocal.subarray(node * 10, node * 10 + 3), skeleton.nodes[node]?.restLocal.t ?? []),
+      ).toBeLessThan(1e-12);
     }
     // N_hips = D_hips includes the cog yaw.
     expect(quatAngleBetween(quatAt(pose.humanLocal, 0), eulerToQuat([0, 0.7, 0], 'zxy'))).toBeLessThan(1e-12);
@@ -214,15 +215,17 @@ describe('kernel: forward evaluation', () => {
     expect(quatAngleBetween(quatAt(local, 3), expectedQ)).toBeLessThan(1e-12);
     expect(maxAbsDiff(local.subarray(7, 10), [2, 2, 2])).toBeLessThan(1e-12);
     const shift = quatRotateVec3(rest.q, [0.01, 0, 0]);
-    expect(maxAbsDiff(local.subarray(0, 3), [rest.t[0] + shift[0], rest.t[1] + shift[1], rest.t[2] + shift[2]]))
-      .toBeLessThan(1e-12);
+    expect(
+      maxAbsDiff(local.subarray(0, 3), [rest.t[0] + shift[0], rest.t[1] + shift[1], rest.t[2] + shift[2]]),
+    ).toBeLessThan(1e-12);
   });
 
   it('is deterministic and allocation-free in shape (same buffers, same values)', () => {
     const skeleton = richHumanoid();
     const program = rigFor(skeleton);
     const ch = program.allocChannels();
-    for (let i = 0; i < ch.values.length; i++) if (i % CHANNELS_PER_CONTROL >= 3 && i % 9 < 6) ch.values[i] = Math.sin(i) * 0.5;
+    for (let i = 0; i < ch.values.length; i++)
+      if (i % CHANNELS_PER_CONTROL >= 3 && i % 9 < 6) ch.values[i] = Math.sin(i) * 0.5;
     const a = program.allocPose();
     const b = program.allocPose();
     program.evaluate(ch, a);
@@ -277,6 +280,7 @@ describe('channel buffers', () => {
       'fk.foot.R': 'yzx',
       'fk.toes.L': 'yzx',
     };
-    for (const [key, order] of Object.entries(expected)) expect({ key, order: orders.get(key) }).toEqual({ key, order });
+    for (const [key, order] of Object.entries(expected))
+      expect({ key, order: orders.get(key) }).toEqual({ key, order });
   });
 });

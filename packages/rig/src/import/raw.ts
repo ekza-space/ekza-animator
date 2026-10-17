@@ -237,7 +237,12 @@ function movesAwayFromRest(internals: RigInternals, node: number, entry: NodeTra
     const track = entry[path];
     if (track === undefined) continue;
     const components = COMPONENTS[path];
-    const rest = path === 'translation' ? internals.restLocal.t : path === 'rotation' ? internals.restLocal.q : internals.restLocal.s;
+    const rest =
+      path === 'translation'
+        ? internals.restLocal.t
+        : path === 'rotation'
+          ? internals.restLocal.q
+          : internals.restLocal.s;
     const cubic = track.interpolation === 'CUBICSPLINE';
     for (let k = 0; k < track.times.length; k++) {
       const base = cubic ? (3 * k + 1) * components : k * components;

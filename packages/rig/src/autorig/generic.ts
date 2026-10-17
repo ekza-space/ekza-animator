@@ -105,7 +105,8 @@ function boneAlignedSpec(
     parentKey,
     restWorld: { t: position(ctx, node), q, s: UNIT_S },
     rotateOrder: 'xyz',
-    keyable: kind === 'secondary' ? { t: AXES_NONE, r: AXES_ALL, s: AXES_NONE } : { t: AXES_ALL, r: AXES_ALL, s: AXES_ALL },
+    keyable:
+      kind === 'secondary' ? { t: AXES_NONE, r: AXES_ALL, s: AXES_NONE } : { t: AXES_ALL, r: AXES_ALL, s: AXES_ALL },
     drives: { bone: nameBoneRef(ctx.skeleton, node), mode: kind === 'secondary' ? 'rotate' : 'full' },
     mirrorKey: sided.mirrorKey,
     shape: boneShape('circle', 'generic', size, toLocalDirection(q, axis.dir), axis.length),

@@ -89,7 +89,7 @@ describe('mirrorPose (MVP-SPEC §4.11.20)', () => {
           for (const [control, values] of pose) {
             const back = twice.get(control) ?? {};
             for (const [channel, value] of Object.entries(values)) {
-              expect(Math.abs((back[channel as 'rx'] as number) - value)).toBeLessThan(1e-9);
+              expect(Math.abs((back[channel as 'rx'] as number) - (value as number))).toBeLessThan(1e-9);
             }
           }
         }),
@@ -186,12 +186,22 @@ describe('pose clipboard (research 07 §17)', () => {
 
   it('pastes across humanoid characters and converts differing rotate orders', () => {
     const synthetic = syntheticSkeleton();
-    const other = compileRig(autoRig(synthetic, { character: IDS.character, rig: 'rig_OtherRigRecord001' as never }), synthetic);
+    const other = compileRig(
+      autoRig(synthetic, { character: IDS.character, rig: 'rig_OtherRigRecord001' as never }),
+      synthetic,
+    );
     const clip = makePoseClipboard(program, def.rig, values);
     const pasted = applyPoseClipboard(clip, other, 'local');
-    expect(pasted.get(controlId('rig_OtherRigRecord001' as never, 'fk.upperArm.L'))).toEqual({ rx: 0.3, ry: -0.2, rz: 0.9 });
+    expect(pasted.get(controlId('rig_OtherRigRecord001' as never, 'fk.upperArm.L'))).toEqual({
+      rx: 0.3,
+      ry: -0.2,
+      rz: 0.9,
+    });
     // A clipboard written in another order is converted to the same rotation.
-    const foreign = { ...clip, controls: { 'fk.head': { values: { rx: 0.3, ry: 0.2, rz: -0.1 }, order: 'xyz' as const } } };
+    const foreign = {
+      ...clip,
+      controls: { 'fk.head': { values: { rx: 0.3, ry: 0.2, rz: -0.1 }, order: 'xyz' as const } },
+    };
     const converted = applyPoseClipboard(foreign, program, 'local').get(id('fk.head')) as Required<
       Pick<ChannelValues, 'rx' | 'ry' | 'rz'>
     >;
@@ -229,10 +239,22 @@ function rotationOf(e: Vec3, order: 'xyz' | 'zxy'): number[] {
     return out;
   };
   const mul = (a: number[], b: number[]): number[] => [
-    (a[3] as number) * (b[0] as number) + (a[0] as number) * (b[3] as number) + (a[1] as number) * (b[2] as number) - (a[2] as number) * (b[1] as number),
-    (a[3] as number) * (b[1] as number) - (a[0] as number) * (b[2] as number) + (a[1] as number) * (b[3] as number) + (a[2] as number) * (b[0] as number),
-    (a[3] as number) * (b[2] as number) + (a[0] as number) * (b[1] as number) - (a[1] as number) * (b[0] as number) + (a[2] as number) * (b[3] as number),
-    (a[3] as number) * (b[3] as number) - (a[0] as number) * (b[0] as number) - (a[1] as number) * (b[1] as number) - (a[2] as number) * (b[2] as number),
+    (a[3] as number) * (b[0] as number) +
+      (a[0] as number) * (b[3] as number) +
+      (a[1] as number) * (b[2] as number) -
+      (a[2] as number) * (b[1] as number),
+    (a[3] as number) * (b[1] as number) -
+      (a[0] as number) * (b[2] as number) +
+      (a[1] as number) * (b[3] as number) +
+      (a[2] as number) * (b[0] as number),
+    (a[3] as number) * (b[2] as number) +
+      (a[0] as number) * (b[1] as number) -
+      (a[1] as number) * (b[0] as number) +
+      (a[2] as number) * (b[3] as number),
+    (a[3] as number) * (b[3] as number) -
+      (a[0] as number) * (b[0] as number) -
+      (a[1] as number) * (b[1] as number) -
+      (a[2] as number) * (b[2] as number),
   ];
   const axes: [0 | 1 | 2, 0 | 1 | 2, 0 | 1 | 2] = order === 'xyz' ? [0, 1, 2] : [2, 0, 1];
   // DCC order: the first letter is applied first.

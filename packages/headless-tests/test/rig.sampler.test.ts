@@ -46,7 +46,12 @@ function setup() {
   return { store, program, cache, sampler, skeleton };
 }
 
-function curveRecord(id: string, control: ControlId, channel: CurveRecord['channel'], fields: Partial<CurveRecord> = {}): CurveRecord {
+function curveRecord(
+  id: string,
+  control: ControlId,
+  channel: CurveRecord['channel'],
+  fields: Partial<CurveRecord> = {},
+): CurveRecord {
   return {
     id: id as CurveId,
     clip: CLIP,
@@ -89,13 +94,26 @@ afterEach(() => {
 describe('rig: curve cache and clip sampler (shared test kit store)', () => {
   it('samples base-layer curves into the channel buffer (defaults elsewhere)', () => {
     const { program, sampler, cache } = setup();
-    disposers.push(() => sampler.dispose(), () => cache.dispose());
+    disposers.push(
+      () => sampler.dispose(),
+      () => cache.dispose(),
+    );
     const ch = program.allocChannels();
     sampler.sample(0, ch);
     expect(readControlChannels(program, ch, ARM).rz).toBeCloseTo(30 * DEG, 12);
     sampler.sample(15, ch);
     expect(readControlChannels(program, ch, ARM).rz).toBeCloseTo(-30 * DEG, 12);
-    expect(readControlChannels(program, ch, HEAD)).toEqual({ tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1 });
+    expect(readControlChannels(program, ch, HEAD)).toEqual({
+      tx: 0,
+      ty: 0,
+      tz: 0,
+      rx: 0,
+      ry: 0,
+      rz: 0,
+      sx: 1,
+      sy: 1,
+      sz: 1,
+    });
     expect(sampler.value(ARM, 'rz', 30)).toBeCloseTo(30 * DEG, 12);
     expect(sampler.value(ARM, 'rx', 30)).toBeUndefined();
     expect(sampler.keyTimes(null)).toEqual([0, 15, 30]);
@@ -122,13 +140,17 @@ describe('rig: curve cache and clip sampler (shared test kit store)', () => {
     const { store, program, sampler, cache } = setup();
     const ch = program.allocChannels();
     const before = cache.version;
-    store.transact({ label: 'Edit' }, (tx) => tx.put('keys', { ...(tx.get('keys', 'k_SynthWave002' as KeyId) as KeyRecord), v: 10 * DEG }));
+    store.transact({ label: 'Edit' }, (tx) =>
+      tx.put('keys', { ...(tx.get('keys', 'k_SynthWave002' as KeyId) as KeyRecord), v: 10 * DEG }),
+    );
     expect(cache.version).toBeGreaterThan(before);
     sampler.sample(15, ch);
     expect(readControlChannels(program, ch, ARM).rz).toBeCloseTo(10 * DEG, 12);
 
     const preview = store.beginPreview('Drag');
-    preview.update((tx) => tx.put('keys', { ...(tx.get('keys', 'k_SynthWave002' as KeyId) as KeyRecord), v: 50 * DEG }));
+    preview.update((tx) =>
+      tx.put('keys', { ...(tx.get('keys', 'k_SynthWave002' as KeyId) as KeyRecord), v: 50 * DEG }),
+    );
     sampler.sample(15, ch);
     expect(readControlChannels(program, ch, ARM).rz).toBeCloseTo(50 * DEG, 12);
     preview.cancel();
@@ -159,7 +181,9 @@ describe('rig: curve cache and clip sampler (shared test kit store)', () => {
     });
     expect(sampler.keyTimes([ARM])).toEqual([0, 7, 15, 30]);
     const v = cache.version;
-    store.transact({ label: 'Move' }, (tx) => tx.put('keys', keyRecord('k_DuplicateK01', 'crv_ZDuplicateWave01', 7, 1)));
+    store.transact({ label: 'Move' }, (tx) =>
+      tx.put('keys', keyRecord('k_DuplicateK01', 'crv_ZDuplicateWave01', 7, 1)),
+    );
     expect(cache.version).toBeGreaterThan(v);
     expect(sampler.value(ARM, 'rz', 7)).toBe(1);
     const ch = program.allocChannels();
@@ -200,9 +224,13 @@ describe('rig: curve cache and clip sampler (shared test kit store)', () => {
     expect(cache.version).toBe(v + 1);
     sampler.dispose();
     cache.dispose();
-    store.transact({ label: 'Edit' }, (tx) => tx.put('keys', { ...(tx.get('keys', 'k_SynthWave001' as KeyId) as KeyRecord), v: 0 }));
+    store.transact({ label: 'Edit' }, (tx) =>
+      tx.put('keys', { ...(tx.get('keys', 'k_SynthWave001' as KeyId) as KeyRecord), v: 0 }),
+    );
     expect(cache.version).toBe(v + 1);
-    expect(() => createCurveCache(store, naiveCurveEngine).get('crv_Missing0000000001' as CurveId)).toThrow(/does not exist/);
+    expect(() => createCurveCache(store, naiveCurveEngine).get('crv_Missing0000000001' as CurveId)).toThrow(
+      /does not exist/,
+    );
   });
 });
 

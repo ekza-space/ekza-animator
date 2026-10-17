@@ -24,14 +24,27 @@ import {
   type TwoBoneIkOutput,
   writeControlChannels,
 } from '../src';
-import { genericSkeleton, IDS, quatAngleBetween, richHumanoid, subarray16, syntheticSkeleton, worldPos, worldQuat } from './helpers';
+import {
+  genericSkeleton,
+  IDS,
+  quatAngleBetween,
+  richHumanoid,
+  subarray16,
+  syntheticSkeleton,
+  worldPos,
+  worldQuat,
+} from './helpers';
 
 const id = (key: string): ControlId => controlId(IDS.rig, key);
 const sub = (a: Vec3, b: Vec3): Vec3 => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
 const add = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
 const scale = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
 const dot = (a: Vec3, b: Vec3): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const cross = (a: Vec3, b: Vec3): Vec3 => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const cross = (a: Vec3, b: Vec3): Vec3 => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
 const len = (a: Vec3): number => Math.hypot(a[0], a[1], a[2]);
 const unit = (a: Vec3): Vec3 => scale(a, 1 / len(a));
 
@@ -53,21 +66,40 @@ function chainFk(input: TwoBoneIkInput, out: TwoBoneIkOutput) {
 }
 
 const unitVec = fc
-  .tuple(fc.double({ min: -1, max: 1, noNaN: true }), fc.double({ min: -1, max: 1, noNaN: true }), fc.double({ min: -1, max: 1, noNaN: true }))
+  .tuple(
+    fc.double({ min: -1, max: 1, noNaN: true }),
+    fc.double({ min: -1, max: 1, noNaN: true }),
+    fc.double({ min: -1, max: 1, noNaN: true }),
+  )
   .filter((v) => Math.hypot(...v) > 0.2)
-  .map((v) => unit(v as Vec3));
+  .map((v) => unit(v));
 const quat = fc
   .tuple(unitVec, fc.double({ min: -Math.PI, max: Math.PI, noNaN: true }))
-  .map(([axis, angle]): Quat => [axis[0] * Math.sin(angle / 2), axis[1] * Math.sin(angle / 2), axis[2] * Math.sin(angle / 2), Math.cos(angle / 2)]);
+  .map(
+    ([axis, angle]): Quat => [
+      axis[0] * Math.sin(angle / 2),
+      axis[1] * Math.sin(angle / 2),
+      axis[2] * Math.sin(angle / 2),
+      Math.cos(angle / 2),
+    ],
+  );
 
 /** A random chain whose hinge is perpendicular to both segments, with a target inside the reachable band. */
 const chainCase = fc
   .record({
     parentQ: quat,
-    parentT: fc.tuple(fc.double({ min: -1, max: 1, noNaN: true }), fc.double({ min: 0, max: 2, noNaN: true }), fc.double({ min: -1, max: 1, noNaN: true })),
+    parentT: fc.tuple(
+      fc.double({ min: -1, max: 1, noNaN: true }),
+      fc.double({ min: 0, max: 2, noNaN: true }),
+      fc.double({ min: -1, max: 1, noNaN: true }),
+    ),
     parentS: fc.double({ min: 0.5, max: 2, noNaN: true }),
     upperQ: quat,
-    upperT: fc.tuple(fc.double({ min: -0.2, max: 0.2, noNaN: true }), fc.double({ min: -0.2, max: 0.2, noNaN: true }), fc.double({ min: -0.2, max: 0.2, noNaN: true })),
+    upperT: fc.tuple(
+      fc.double({ min: -0.2, max: 0.2, noNaN: true }),
+      fc.double({ min: -0.2, max: 0.2, noNaN: true }),
+      fc.double({ min: -0.2, max: 0.2, noNaN: true }),
+    ),
     midQ: quat,
     endQ: quat,
     hinge: unitVec,
@@ -136,7 +168,8 @@ describe('solveTwoBoneIk (research 07 §9.2, §21.3)', () => {
         // Mid local delta from rest is a rotation about the hinge axis.
         const delta = quatMultiply(quatInvert(quatNormalize(input.midRest.q)), out.midLocal);
         const v: Vec3 = [delta[0], delta[1], delta[2]];
-        if (len(v) > 1e-12) expect(len(cross(unit(v), [...input.hingeLocal] as Vec3))).toBeLessThan(1e-9);
+        const offHinge = len(v) > 1e-12 ? len(cross(unit(v), [...input.hingeLocal] as Vec3)) : 0;
+        expect(offHinge).toBeLessThan(1e-9);
         // Mid joint in the (a, target, pole) plane, on the pole side.
         const n = unit(cross(sub([...input.target] as Vec3, fk.a), sub([...input.pole] as Vec3, fk.a)));
         const ab = sub(fk.b, fk.a);
@@ -145,7 +178,7 @@ describe('solveTwoBoneIk (research 07 §9.2, §21.3)', () => {
         const m = sub(ab, scale(axis, dot(ab, axis)));
         const toPole = sub([...input.pole] as Vec3, fk.a);
         const pp = sub(toPole, scale(axis, dot(toPole, axis)));
-        if (len(m) > 1e-6) expect(dot(m, pp)).toBeGreaterThan(0);
+        expect(len(m) > 1e-6 ? dot(m, pp) : 1).toBeGreaterThan(0);
         // Bone lengths are preserved by construction; the end keeps its rest local rotation.
         expect(quatAngleBetween(out.endLocal, quatNormalize(input.endRest.q))).toBeLessThan(1e-12);
       }),
@@ -195,10 +228,8 @@ describe('solveTwoBoneIk (research 07 §9.2, §21.3)', () => {
         const axis = unit(sub(p.c, p.a));
         const m0 = sub(sub(p.b, p.a), scale(axis, dot(sub(p.b, p.a), axis)));
         const m1 = sub(sub(t.b, t.a), scale(axis, dot(sub(t.b, t.a), axis)));
-        if (len(m0) > 1e-6) {
-          const angle = Math.atan2(dot(axis, cross(m0, m1)), dot(m0, m1));
-          expect(Math.abs(Math.atan2(Math.sin(angle - twist), Math.cos(angle - twist)))).toBeLessThan(1e-9);
-        }
+        const angle = len(m0) > 1e-6 ? Math.atan2(dot(axis, cross(m0, m1)), dot(m0, m1)) : twist;
+        expect(Math.abs(Math.atan2(Math.sin(angle - twist), Math.cos(angle - twist)))).toBeLessThan(1e-9);
       }),
       { numRuns: 50, seed: 8 },
     );
@@ -312,4 +343,3 @@ describe('plantFeetChannels (MVP-SPEC §4.11.19)', () => {
     expect(result).toEqual({ values: new Map(), reached: false, warnings: ['Plant Feet needs a humanoid rig'] });
   });
 });
-

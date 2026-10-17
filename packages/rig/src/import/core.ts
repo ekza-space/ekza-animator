@@ -288,7 +288,8 @@ export function buildImportedCurves(
       if (out === null) return;
       const n = out.length / 9;
       const triples: Vec3[] = [];
-      for (let k = 0; k < n; k++) triples.push([out[k * 9 + 3] as number, out[k * 9 + 4] as number, out[k * 9 + 5] as number]);
+      for (let k = 0; k < n; k++)
+        triples.push([out[k * 9 + 3] as number, out[k * 9 + 4] as number, out[k * 9 + 5] as number]);
       eulerFilter(triples, internals.rotateOrders[slot] ?? 'xyz');
       triples.forEach((triple, k) => {
         out[k * 9 + 3] = triple[0];
@@ -325,7 +326,10 @@ export function buildImportedCurves(
       let finalKeys: readonly KeyData[] = keyData;
       let maxReduceError = 0;
       if (opts.reduce !== null && keyData.length > 2) {
-        const reduced = reduceKeys({ keys: keyData, weighted: false, pre: 'constant', post: 'constant' }, { tolerance });
+        const reduced = reduceKeys(
+          { keys: keyData, weighted: false, pre: 'constant', post: 'constant' },
+          { tolerance },
+        );
         finalKeys = reduced.keys;
         maxReduceError = reduced.maxError;
       }

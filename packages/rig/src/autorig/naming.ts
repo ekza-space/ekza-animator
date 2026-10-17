@@ -39,40 +39,42 @@ interface SideMatch {
   readonly mirrored: string;
 }
 
-const SIDE_PATTERNS: readonly { readonly re: RegExp; readonly swap: (m: RegExpMatchArray, name: string) => SideMatch }[] =
-  [
-    // Suffixes `.L`, `_L`, `-L`, ` L` (case-insensitive: `_l`, `.r`, …).
-    {
-      re: /([._ -])([LlRr])$/,
-      swap: (m, name) => {
-        const token = m[2] as string;
-        const side = token.toUpperCase() === 'L' ? 'L' : 'R';
-        const other = swapCase(token, side === 'L' ? 'R' : 'L');
-        return { side, mirrored: `${name.slice(0, name.length - 1)}${other}` };
-      },
+const SIDE_PATTERNS: readonly {
+  readonly re: RegExp;
+  readonly swap: (m: RegExpMatchArray, name: string) => SideMatch;
+}[] = [
+  // Suffixes `.L`, `_L`, `-L`, ` L` (case-insensitive: `_l`, `.r`, …).
+  {
+    re: /([._ -])([LlRr])$/,
+    swap: (m, name) => {
+      const token = m[2] as string;
+      const side = token.toUpperCase() === 'L' ? 'L' : 'R';
+      const other = swapCase(token, side === 'L' ? 'R' : 'L');
+      return { side, mirrored: `${name.slice(0, name.length - 1)}${other}` };
     },
-    // Prefixes `L_`, `L.`, `L-`, `l_`, …
-    {
-      re: /^([LlRr])([._-])/,
-      swap: (m, name) => {
-        const token = m[1] as string;
-        const side = token.toUpperCase() === 'L' ? 'L' : 'R';
-        return { side, mirrored: `${swapCase(token, side === 'L' ? 'R' : 'L')}${name.slice(1)}` };
-      },
+  },
+  // Prefixes `L_`, `L.`, `L-`, `l_`, …
+  {
+    re: /^([LlRr])([._-])/,
+    swap: (m, name) => {
+      const token = m[1] as string;
+      const side = token.toUpperCase() === 'L' ? 'L' : 'R';
+      return { side, mirrored: `${swapCase(token, side === 'L' ? 'R' : 'L')}${name.slice(1)}` };
     },
-    // The words Left / Right anywhere (`mixamorig:LeftArm`, `hand_left`).
-    {
-      re: /(left|right)/i,
-      swap: (m, name) => {
-        const token = m[1] as string;
-        const index = m.index ?? 0;
-        const side = token.toLowerCase() === 'left' ? 'L' : 'R';
-        const other = side === 'L' ? 'right' : 'left';
-        const replaced = matchCase(token, other);
-        return { side, mirrored: name.slice(0, index) + replaced + name.slice(index + token.length) };
-      },
+  },
+  // The words Left / Right anywhere (`mixamorig:LeftArm`, `hand_left`).
+  {
+    re: /(left|right)/i,
+    swap: (m, name) => {
+      const token = m[1] as string;
+      const index = m.index ?? 0;
+      const side = token.toLowerCase() === 'left' ? 'L' : 'R';
+      const other = side === 'L' ? 'right' : 'left';
+      const replaced = matchCase(token, other);
+      return { side, mirrored: name.slice(0, index) + replaced + name.slice(index + token.length) };
     },
-  ];
+  },
+];
 
 /** Side and mirrored name of a node name, or null when the name carries no side. */
 export function sideFromName(name: string): SideMatch | null {

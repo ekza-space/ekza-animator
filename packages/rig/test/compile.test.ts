@@ -66,7 +66,8 @@ describe('compileRig: schedule determinism', () => {
     const program = compileRig(def, skeleton);
     const slot = new Map(program.controlIds.map((cid, i) => [cid, i]));
     for (const control of program.controls) {
-      if (control.parent !== null) expect(slot.get(control.parent) as number).toBeLessThan(slot.get(control.id) as number);
+      const parentSlot = control.parent === null ? -1 : (slot.get(control.parent) as number);
+      expect(parentSlot).toBeLessThan(slot.get(control.id) as number);
     }
     expect(program.controlIds[0]).toBe(id('root'));
     expect(program.controls).toHaveLength(def.controls.length);
@@ -112,7 +113,10 @@ describe('compileRig: repair, never throw', () => {
   });
 
   it('reports missing bones and duplicate bindings and keeps evaluating', () => {
-    const missing = compileRig(patch('fk.jaw', { drives: { bone: { humanoid: 'leftEye' }, mode: 'rotate' } }), skeleton);
+    const missing = compileRig(
+      patch('fk.jaw', { drives: { bone: { humanoid: 'leftEye' }, mode: 'rotate' } }),
+      skeleton,
+    );
     expect(missing.warnings.map((w) => w.code)).toContain('missing-bone');
     const named = compileRig(
       patch('fk.jaw', { drives: { bone: { name: 'nope', parentName: 'head' }, mode: 'rotate' } }),
@@ -120,7 +124,10 @@ describe('compileRig: repair, never throw', () => {
     );
     expect(named.warnings.map((w) => w.code)).toContain('missing-bone');
 
-    const duplicate = compileRig(patch('fk.neck', { drives: { bone: { humanoid: 'head' }, mode: 'rotate' } }), skeleton);
+    const duplicate = compileRig(
+      patch('fk.neck', { drives: { bone: { humanoid: 'head' }, mode: 'rotate' } }),
+      skeleton,
+    );
     const warning = duplicate.warnings.find((w) => w.code === 'duplicate-binding');
     // The smaller control id wins: rig:fk.head < rig:fk.neck.
     expect(warning?.ids).toEqual([id('fk.neck'), id('fk.head')]);
@@ -186,7 +193,14 @@ describe('compileRig: constraint and solver slots', () => {
   });
 
   it('compiles MVP records to disabled ops with an unsupported-op warning', () => {
-    const program = compileRig({ ...base, constraints: [constraint], solvers: [solver, { ...solver, id: 'slv_Off' as SolverId, enabled: false }] }, skeleton);
+    const program = compileRig(
+      {
+        ...base,
+        constraints: [constraint],
+        solvers: [solver, { ...solver, id: 'slv_Off' as SolverId, enabled: false }],
+      },
+      skeleton,
+    );
     const unsupported = program.warnings.filter((w) => w.code === 'unsupported-op');
     expect(unsupported.map((w) => w.ids[0])).toEqual([constraint.id, solver.id]);
     const plain = compileRig(base, skeleton);

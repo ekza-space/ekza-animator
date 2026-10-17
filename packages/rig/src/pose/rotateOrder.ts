@@ -36,7 +36,8 @@ export function convertRotateOrderKeysWith(
   for (const curve of curves) for (const key of curve.keys) times.push(key.t);
   times.sort((a, b) => a - b);
   const union: number[] = [];
-  for (const t of times) if (union.length === 0 || t - (union[union.length - 1] as number) > TIME_EPSILON) union.push(t);
+  for (const t of times)
+    if (union.length === 0 || t - (union[union.length - 1] as number) > TIME_EPSILON) union.push(t);
   if (union.length === 0) return [[], [], []];
 
   // Compile lazily: synchronized curves (every key at every union time) never need the engine.
@@ -52,7 +53,9 @@ export function convertRotateOrderKeysWith(
   const samples: Vec3[] = [];
   let previous: Vec3 | null = null;
   for (const t of union) {
-    const old: Vec3 = [0, 1, 2].map((axis) => valueAt(curves[axis] as AnimCurve, () => compiledOf(axis), engine, t)) as Vec3;
+    const old: Vec3 = [0, 1, 2].map((axis) =>
+      valueAt(curves[axis] as AnimCurve, () => compiledOf(axis), engine, t),
+    ) as Vec3;
     const converted = eulerNear(eulerToQuat(old, from), to, previous ?? old);
     samples.push(converted);
     previous = converted;

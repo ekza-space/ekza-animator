@@ -33,7 +33,12 @@ describe('rig: write/read rig definitions', () => {
       deleted: null,
     };
     store.transact({ label: 'Import' }, (tx) =>
-      writeRigDefinition(tx, { ...def, controls: [...def.controls].reverse(), constraints: [constraint], solvers: [solver] }),
+      writeRigDefinition(tx, {
+        ...def,
+        controls: [...def.controls].reverse(),
+        constraints: [constraint],
+        solvers: [solver],
+      }),
     );
     const read = readRigDefinition(store, IDS.rig);
     expect(read?.rig).toEqual(def.rig);

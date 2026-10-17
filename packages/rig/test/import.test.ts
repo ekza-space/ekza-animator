@@ -1,4 +1,11 @@
-import { EkzaError, type Fps, type KeyData, mat4Decompose, quatFromAxisAngle, reduceKeys } from '@ekza-animator/anim-core';
+import {
+  EkzaError,
+  type Fps,
+  type KeyData,
+  mat4Decompose,
+  quatFromAxisAngle,
+  reduceKeys,
+} from '@ekza-animator/anim-core';
 import { type ControlId, controlId, type HumanBoneName } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
 import {
@@ -17,7 +24,16 @@ import {
   remapRawClipByName,
   type SkeletonDesc,
 } from '../src';
-import { genericSkeleton, IDS, maxAbsDiff, pendingStub, quatAngleBetween, quatAt, richHumanoid, syntheticSkeleton } from './helpers';
+import {
+  genericSkeleton,
+  IDS,
+  maxAbsDiff,
+  pendingStub,
+  quatAngleBetween,
+  quatAt,
+  richHumanoid,
+  syntheticSkeleton,
+} from './helpers';
 import { bakeHumanoid, bakeRaw, channelsAt, randomFrames } from './import-helpers';
 
 const id = (key: string): ControlId => controlId(IDS.rig, key);
@@ -62,7 +78,15 @@ function localError(program: RigProgram, a: Float64Array, b: Float64Array): { ro
 
 describe('detectClipFps (MVP-SPEC §4.11.6 step 5)', () => {
   const raw = (times: number[]): RawClip =>
-    clipOf([{ node: 0, path: 'rotation', interpolation: 'LINEAR', times: Float32Array.from(times), values: new Float32Array(times.length * 4) }]);
+    clipOf([
+      {
+        node: 0,
+        path: 'rotation',
+        interpolation: 'LINEAR',
+        times: Float32Array.from(times),
+        values: new Float32Array(times.length * 4),
+      },
+    ]);
 
   it('returns the lowest standard rate on whose frames every time lies (1e-4 s)', () => {
     expect(detectClipFps(raw([0, 1 / 24, 2 / 24, 2.5]))).toEqual({ num: 24, den: 1 });
@@ -157,13 +181,17 @@ describe('importRawClip: interpolation mapping (MVP-SPEC §4.11.6 table)', () =>
     const node = generic.nodes.findIndex((n) => n.name === 'root');
     const rest = generic.nodes[node]?.restLocal.t as readonly number[];
     // Translation along the node's local X with tangents 0.3 / −0.6 / 0.9 m/s (in) and 0.6 / 0.3 / 0.9 (out).
-    const values = Float32Array.from([
-      ...[0, 0, 0, rest[0] as number, rest[1] as number, rest[2] as number, 0.6, 0, 0],
-      ...[-0.6, 0, 0, (rest[0] as number) + 0.1, rest[1] as number, rest[2] as number, 0.3, 0, 0],
-      ...[0.9, 0, 0, (rest[0] as number) - 0.05, rest[1] as number, rest[2] as number, 0.9, 0, 0],
-    ]);
+    const values = Float32Array.from(
+      [
+        [0, 0, 0, rest[0] as number, rest[1] as number, rest[2] as number, 0.6, 0, 0],
+        [-0.6, 0, 0, (rest[0] as number) + 0.1, rest[1] as number, rest[2] as number, 0.3, 0, 0],
+        [0.9, 0, 0, (rest[0] as number) - 0.05, rest[1] as number, rest[2] as number, 0.9, 0, 0],
+      ].flat(),
+    );
     const imported = importRawClip(
-      clipOf([{ node, path: 'translation', interpolation: 'CUBICSPLINE', times: Float32Array.from([0, 0.5, 1]), values }]),
+      clipOf([
+        { node, path: 'translation', interpolation: 'CUBICSPLINE', times: Float32Array.from([0, 0.5, 1]), values },
+      ]),
       gp,
       opts(FPS24),
     );
@@ -210,34 +238,32 @@ describe('importRawClip: interpolation mapping (MVP-SPEC §4.11.6 table)', () =>
 });
 
 describe('importRawClip: round trip import(bake(curves)) ≤ 1e-5 rad / 1e-6 m', () => {
-  for (const [label, skeleton] of [
-    ['synthetic humanoid', syntheticSkeleton()],
-    ['rich humanoid (VRM 0.x facing, twist joints)', richHumanoid({ vrm0: true })],
-    ['generic', genericSkeleton()],
-  ] as const) {
-    it(label, () => {
-      const program = rig(skeleton);
-      const frames = randomFrames(program, 12, 17);
-      const { clip, poses } = bakeRaw(program, frames, FPS30);
-      expect(detectClipFps(clip)).toEqual(FPS30);
-      const imported = importRawClip(clip, program, opts(FPS30));
-      expect(imported.range).toEqual({ start: 0, end: 11 });
-      const pose = program.allocPose();
-      const ch = program.allocChannels();
-      poses.forEach((expected, frame) => {
-        program.evaluate(channelsAt(program, imported, frame, ch), pose);
-        const error = localError(program, pose.boneLocal, expected.boneLocal);
-        expect(error.rotation).toBeLessThan(1e-5);
-        expect(error.translation).toBeLessThan(1e-6);
-      });
-      // Every key on an integer frame; reduction off keeps every source key.
-      for (const c of imported.curves) {
-        expect(c.keys.every((k) => Number.isInteger(k.t))).toBe(true);
-        expect(c.stats.sourceKeys).toBe(c.keys.length);
-        expect(c.stats.maxReduceError).toBe(0);
-      }
+  it.each([
+    { label: 'synthetic humanoid', skeleton: syntheticSkeleton() },
+    { label: 'rich humanoid (VRM 0.x facing, twist joints)', skeleton: richHumanoid({ vrm0: true }) },
+    { label: 'generic', skeleton: genericSkeleton() },
+  ])('$label', ({ skeleton }) => {
+    const program = rig(skeleton);
+    const frames = randomFrames(program, 12, 17);
+    const { clip, poses } = bakeRaw(program, frames, FPS30);
+    expect(detectClipFps(clip)).toEqual(FPS30);
+    const imported = importRawClip(clip, program, opts(FPS30));
+    expect(imported.range).toEqual({ start: 0, end: 11 });
+    const pose = program.allocPose();
+    const ch = program.allocChannels();
+    poses.forEach((expected, frame) => {
+      program.evaluate(channelsAt(program, imported, frame, ch), pose);
+      const error = localError(program, pose.boneLocal, expected.boneLocal);
+      expect(error.rotation).toBeLessThan(1e-5);
+      expect(error.translation).toBeLessThan(1e-6);
     });
-  }
+    // Every key on an integer frame; reduction off keeps every source key.
+    for (const c of imported.curves) {
+      expect(c.keys.every((k) => Number.isInteger(k.t))).toBe(true);
+      expect(c.stats.sourceKeys).toBe(c.keys.length);
+      expect(c.stats.maxReduceError).toBe(0);
+    }
+  });
 
   it('puts hips motion on cog and leaves fk.hips and root at rest (humanoid)', () => {
     const skeleton = syntheticSkeleton();
@@ -269,10 +295,15 @@ describe('importRawClip: rotations, dropped curves and warnings', () => {
     }
     expect(rest).toEqual([0, 0, 0, 1]);
     const times = Float32Array.from({ length: frames }, (_, f) => f / 30);
-    const imported = importRawClip(clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]), program, opts(FPS30));
+    const imported = importRawClip(
+      clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]),
+      program,
+      opts(FPS30),
+    );
     const ry = curve(imported, 'fk.head', 'ry') ?? [];
     expect(ry).toHaveLength(frames);
-    for (let i = 1; i < ry.length; i++) expect(Math.abs((ry[i] as KeyData).v - (ry[i - 1] as KeyData).v)).toBeLessThan(0.5);
+    for (let i = 1; i < ry.length; i++)
+      expect(Math.abs((ry[i] as KeyData).v - (ry[i - 1] as KeyData).v)).toBeLessThan(0.5);
     expect((ry[ry.length - 1] as KeyData).v).toBeCloseTo(3 * Math.PI, 5);
     // rx and rz stay at their default and get no curves.
     expect(curve(imported, 'fk.head', 'rx')).toBeUndefined();
@@ -283,16 +314,29 @@ describe('importRawClip: rotations, dropped curves and warnings', () => {
     const ponytail = skeleton.nodes.findIndex((n) => n.name === 'ponytail');
     const arm = skeleton.humanoid?.leftUpperArm as number;
     const times = Float32Array.from([0, 1]);
-    const moving = (q: number[]): Float32Array => Float32Array.from([...q, ...(quatFromAxisAngle([1, 0, 0], 0.5) as number[])]);
+    const moving = (q: number[]): Float32Array =>
+      Float32Array.from([...q, ...(quatFromAxisAngle([1, 0, 0], 0.5) as number[])]);
     const clip: RawClip = {
       index: 3,
       name: 'mixed',
       duration: 1,
       channels: [
         { node: ponytail, path: 'rotation', interpolation: 'LINEAR', times, values: moving([0, 0, 0, 1]) },
-        { node: arm, path: 'translation', interpolation: 'LINEAR', times, values: Float32Array.from([0, 0.1, 0, 0.5, 0.5, 0.5]) },
+        {
+          node: arm,
+          path: 'translation',
+          interpolation: 'LINEAR',
+          times,
+          values: Float32Array.from([0, 0.1, 0, 0.5, 0.5, 0.5]),
+        },
         { node: arm, path: 'weights', interpolation: 'LINEAR', times, values: Float32Array.from([0, 1]) },
-        { node: arm, path: 'rotation', interpolation: 'LINEAR', times: Float32Array.from([1, 0]), values: new Float32Array(8) },
+        {
+          node: arm,
+          path: 'rotation',
+          interpolation: 'LINEAR',
+          times: Float32Array.from([1, 0]),
+          values: new Float32Array(8),
+        },
         { node: 9999, path: 'rotation', interpolation: 'LINEAR', times, values: new Float32Array(8) },
       ],
       skipped: [{ reason: 'pointer', channel: 7 }],
@@ -309,30 +353,29 @@ describe('importRawClip: rotations, dropped curves and warnings', () => {
   });
 });
 
-describe.skipIf(pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 })))(
-  'importRawClip: reduction (needs WP-1 reduceKeys)',
-  () => {
-    it('reduces dense curves within tolerance and reports the stats', () => {
-      const skeleton = syntheticSkeleton();
-      const program = rig(skeleton);
-      const node = skeleton.humanoid?.leftLowerArm as number;
-      const frames = 61;
-      const values = new Float32Array(frames * 4);
-      for (let f = 0; f < frames; f++) values.set(quatFromAxisAngle([0, 0, 1], Math.sin(f / 10) * 0.8) as number[], f * 4);
-      const times = Float32Array.from({ length: frames }, (_, f) => f / 24);
-      const imported = importRawClip(
-        clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]),
-        program,
-        opts(FPS24, { reduce: DEFAULT_REDUCE }),
-      );
-      for (const c of imported.curves) {
-        expect(c.stats.sourceKeys).toBe(frames);
-        expect(c.keys.length).toBeLessThan(frames / 3);
-        expect(c.stats.maxReduceError).toBeLessThanOrEqual(DEFAULT_REDUCE.rotationRad);
-      }
-    });
-  },
-);
+describe.skipIf(
+  pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 })),
+)('importRawClip: reduction (needs WP-1 reduceKeys)', () => {
+  it('reduces dense curves within tolerance and reports the stats', () => {
+    const skeleton = syntheticSkeleton();
+    const program = rig(skeleton);
+    const node = skeleton.humanoid?.leftLowerArm as number;
+    const frames = 61;
+    const values = new Float32Array(frames * 4);
+    for (let f = 0; f < frames; f++) values.set(quatFromAxisAngle([0, 0, 1], Math.sin(f / 10) * 0.8), f * 4);
+    const times = Float32Array.from({ length: frames }, (_, f) => f / 24);
+    const imported = importRawClip(
+      clipOf([{ node, path: 'rotation', interpolation: 'LINEAR', times, values }]),
+      program,
+      opts(FPS24, { reduce: DEFAULT_REDUCE }),
+    );
+    for (const c of imported.curves) {
+      expect(c.stats.sourceKeys).toBe(frames);
+      expect(c.keys.length).toBeLessThan(frames / 3);
+      expect(c.stats.maxReduceError).toBeLessThanOrEqual(DEFAULT_REDUCE.rotationRad);
+    }
+  });
+});
 
 describe('importHumanoidClip (MVP-SPEC §4.11.7)', () => {
   it('round-trips a clip baked to N_b and the hips position (bake to N, ≤ 1e-5)', () => {
@@ -394,7 +437,9 @@ describe('importHumanoidClip (MVP-SPEC §4.11.7)', () => {
     poses.forEach((expected, frame) => {
       program.evaluate(channelsAt(program, imported, frame), pose);
       // chest takes the spine's delta (identity normalized rotation); everything else keeps its world delta.
-      expect(quatAngleBetween(deltaOf(program, pose, 'chest') as never, D(expected, 'spine') as never)).toBeLessThan(1e-5);
+      expect(quatAngleBetween(deltaOf(program, pose, 'chest') as never, D(expected, 'spine') as never)).toBeLessThan(
+        1e-5,
+      );
       for (const name of ['upperChest', 'neck', 'head', 'leftHand', 'rightFoot'] as const) {
         expect(quatAngleBetween(deltaOf(program, pose, name) as never, D(expected, name) as never)).toBeLessThan(1e-5);
       }
@@ -443,7 +488,15 @@ describe('importHumanoidClip (MVP-SPEC §4.11.7)', () => {
     let error: unknown;
     try {
       importHumanoidClip(
-        { name: 'x', duration: 0, presentBones: [], rotations: {}, hips: null, restHipsPosition: [0, 1, 0], interpolation: {} },
+        {
+          name: 'x',
+          duration: 0,
+          presentBones: [],
+          rotations: {},
+          hips: null,
+          restHipsPosition: [0, 1, 0],
+          interpolation: {},
+        },
         rig(generic),
         { ...opts(FPS30), hipsScale: 'auto' },
       );
@@ -458,10 +511,19 @@ describe('importHumanoidClip (MVP-SPEC §4.11.7)', () => {
 describe('remapRawClipByName', () => {
   it('moves channels to the nodes with the same names and reports the rest', () => {
     const from = genericSkeleton();
-    const to: SkeletonDesc = { ...from, nodes: [...from.nodes].reverse().map((n, i) => ({ ...n, index: i, parent: -1 })) };
+    const to: SkeletonDesc = {
+      ...from,
+      nodes: [...from.nodes].reverse().map((n, i) => ({ ...n, index: i, parent: -1 })),
+    };
     const times = Float32Array.from([0]);
     const raw = clipOf([
-      { node: from.nodes.findIndex((n) => n.name === 'spine'), path: 'rotation', interpolation: 'LINEAR', times, values: new Float32Array(4) },
+      {
+        node: from.nodes.findIndex((n) => n.name === 'spine'),
+        path: 'rotation',
+        interpolation: 'LINEAR',
+        times,
+        values: new Float32Array(4),
+      },
       { node: 9999, path: 'rotation', interpolation: 'LINEAR', times, values: new Float32Array(4) },
     ]);
     const target: SkeletonDesc = { ...to, nodes: to.nodes.filter((n) => n.name !== 'neck') };

@@ -66,7 +66,12 @@ export function subarray16(buffer: Float64Array, index: number): Mat4 {
 }
 
 export function quatAt(buffer: Float64Array, offset: number): Quat {
-  return [buffer[offset] as number, buffer[offset + 1] as number, buffer[offset + 2] as number, buffer[offset + 3] as number];
+  return [
+    buffer[offset] as number,
+    buffer[offset + 1] as number,
+    buffer[offset + 2] as number,
+    buffer[offset + 3] as number,
+  ];
 }
 
 export function vecAt(buffer: Float64Array, offset: number): Vec3 {
@@ -235,11 +240,39 @@ function armSpecs(side: SideName): BoneSpec[] {
   finger('Little', ['Proximal', 'Intermediate', 'Distal'], [0.71, 1.388, -0.036], [0.027, -0.002, 0], n('Hand'));
   const twist = `${side}ForeArmTwist`;
   return [
-    { name: n('Shoulder'), humanoid: n('Shoulder'), parent: 'upperChest', t: [s * 0.04, 1.39, -0.01], aim: n('UpperArm'), radius: 0.05 },
-    { name: n('UpperArm'), humanoid: n('UpperArm'), parent: n('Shoulder'), t: [s * 0.14, 1.39, -0.01], aim: n('LowerArm'), radius: 0.05 },
-    { name: n('LowerArm'), humanoid: n('LowerArm'), parent: n('UpperArm'), t: [s * 0.4, 1.39, -0.01], aim: twist, radius: 0.04 },
+    {
+      name: n('Shoulder'),
+      humanoid: n('Shoulder'),
+      parent: 'upperChest',
+      t: [s * 0.04, 1.39, -0.01],
+      aim: n('UpperArm'),
+      radius: 0.05,
+    },
+    {
+      name: n('UpperArm'),
+      humanoid: n('UpperArm'),
+      parent: n('Shoulder'),
+      t: [s * 0.14, 1.39, -0.01],
+      aim: n('LowerArm'),
+      radius: 0.05,
+    },
+    {
+      name: n('LowerArm'),
+      humanoid: n('LowerArm'),
+      parent: n('UpperArm'),
+      t: [s * 0.4, 1.39, -0.01],
+      aim: twist,
+      radius: 0.04,
+    },
     { name: twist, parent: n('LowerArm'), t: [s * 0.52, 1.39, -0.01], aim: n('Hand'), radius: 0.035 },
-    { name: n('Hand'), humanoid: n('Hand'), parent: twist, t: [s * 0.64, 1.39, -0.01], aim: n('MiddleProximal'), radius: 0.035 },
+    {
+      name: n('Hand'),
+      humanoid: n('Hand'),
+      parent: twist,
+      t: [s * 0.64, 1.39, -0.01],
+      aim: n('MiddleProximal'),
+      radius: 0.035,
+    },
     ...fingers,
   ];
 }
@@ -248,11 +281,33 @@ function legSpecs(side: SideName, opts: { readonly toes: boolean }): BoneSpec[] 
   const s = side === 'left' ? 1 : -1;
   const n = (bone: string): HumanBoneName => `${side}${bone}` as HumanBoneName;
   const specs: BoneSpec[] = [
-    { name: n('UpperLeg'), humanoid: n('UpperLeg'), parent: 'hips', t: [s * 0.09, 0.9, 0], aim: n('LowerLeg'), radius: 0.08 },
-    { name: n('LowerLeg'), humanoid: n('LowerLeg'), parent: n('UpperLeg'), t: [s * 0.09, 0.49, 0.012], aim: n('Foot'), radius: 0.06 },
-    { name: n('Foot'), humanoid: n('Foot'), parent: n('LowerLeg'), t: [s * 0.09, 0.08, 0], ...(opts.toes ? { aim: n('Toes') } : { q: [0, 0, 0, 1] }), radius: 0.045 },
+    {
+      name: n('UpperLeg'),
+      humanoid: n('UpperLeg'),
+      parent: 'hips',
+      t: [s * 0.09, 0.9, 0],
+      aim: n('LowerLeg'),
+      radius: 0.08,
+    },
+    {
+      name: n('LowerLeg'),
+      humanoid: n('LowerLeg'),
+      parent: n('UpperLeg'),
+      t: [s * 0.09, 0.49, 0.012],
+      aim: n('Foot'),
+      radius: 0.06,
+    },
+    {
+      name: n('Foot'),
+      humanoid: n('Foot'),
+      parent: n('LowerLeg'),
+      t: [s * 0.09, 0.08, 0],
+      ...(opts.toes ? { aim: n('Toes') } : { q: [0, 0, 0, 1] }),
+      radius: 0.045,
+    },
   ];
-  if (opts.toes) specs.push({ name: n('Toes'), humanoid: n('Toes'), parent: n('Foot'), t: [s * 0.09, 0.02, 0.12], radius: 0.035 });
+  if (opts.toes)
+    specs.push({ name: n('Toes'), humanoid: n('Toes'), parent: n('Foot'), t: [s * 0.09, 0.02, 0.12], radius: 0.035 });
   return specs;
 }
 

@@ -190,7 +190,8 @@ export function importHumanoidClip(
     present[slot] = 1;
   }
   const hipsTrack = track(data.hips, data.interpolation.hipsPosition, 3);
-  if (data.hips !== null && hipsTrack === null) warnings.push(`Malformed hips position track in "${data.name}"; dropped`);
+  if (data.hips !== null && hipsTrack === null)
+    warnings.push(`Malformed hips position track in "${data.name}"; dropped`);
 
   const sourceParent = new Int32Array(HUMAN_COUNT).fill(-1);
   const sourceOf = new Int32Array(HUMAN_COUNT).fill(-1);
@@ -223,12 +224,14 @@ export function importHumanoidClip(
   }
 
   let maxTime = 0;
-  for (const t of [...rotation, hipsTrack]) if (t !== null && t !== undefined) maxTime = Math.max(maxTime, t.times[t.times.length - 1] as number);
+  for (const t of [...rotation, hipsTrack])
+    if (t !== null && t !== undefined) maxTime = Math.max(maxTime, t.times[t.times.length - 1] as number);
   const range = clipRange(Math.max(maxTime, Number.isFinite(data.duration) ? data.duration : 0), opts.fps);
   const resample = opts.keyMode === 'resample';
   const mapper = createFrameMapper(opts.fps);
   const table = new FrameTable(mapper);
-  if (!resample) for (const t of [...rotation, hipsTrack]) if (t !== null && t !== undefined) for (const s of t.times) table.add(s);
+  if (!resample)
+    for (const t of [...rotation, hipsTrack]) if (t !== null && t !== undefined) for (const s of t.times) table.add(s);
 
   const slots = keySlots(internals, plan, rotation, hipsTrack, sourceOf, present, table, range, opts.fps, resample);
   if (mapper.subFrame) {
@@ -305,7 +308,8 @@ function keySlots(
       parent = internals.controlParent[parent] as number;
     }
     const contributing = sourceChain(sourceOf[h] as number, present);
-    if (anchor !== -1) for (const slotBone of sourceChain(sourceOf[anchor] as number, present)) contributing.delete(slotBone);
+    if (anchor !== -1)
+      for (const slotBone of sourceChain(sourceOf[anchor] as number, present)) contributing.delete(slotBone);
     const rotationInterps = new Set<string>();
     const seconds: number[] = [];
     for (const bone of contributing) {

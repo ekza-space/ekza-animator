@@ -48,19 +48,27 @@ function pendingStub(probe: () => unknown): boolean {
 
 /** Blocked by WP-4 (io readers) until they land. */
 const WP4_PENDING =
-  pendingStub(() => skeletonFromGltf({} as GlbContainer)) || pendingStub(() => readAnimations({} as GlbContainer, {} as SkeletonDesc));
+  pendingStub(() => skeletonFromGltf({} as GlbContainer)) ||
+  pendingStub(() => readAnimations({} as GlbContainer, {} as SkeletonDesc));
 /** Blocked by WP-1 (anim-core reduceKeys) until it lands. */
-const WP1_PENDING = pendingStub(() => reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 }));
+const WP1_PENDING = pendingStub(() =>
+  reduceKeys({ keys: [], weighted: false, pre: 'constant', post: 'constant' }, { tolerance: 1 }),
+);
 
 const IDS = { character: 'chr_FixtureGates0001' as never, rig: 'rig_FixtureGates0001' as never };
 
-async function loadSkeleton(name: LicensedFixture): Promise<{ readonly bytes: Uint8Array; readonly skeleton: SkeletonDesc; readonly container: GlbContainer }> {
+async function loadSkeleton(
+  name: LicensedFixture,
+): Promise<{ readonly bytes: Uint8Array; readonly skeleton: SkeletonDesc; readonly container: GlbContainer }> {
   const bytes = readFixture(name);
   const container = await parseGlb(bytes);
   return { bytes, container, skeleton: skeletonFromGltf(container) };
 }
 
-async function loadClip(name: LicensedFixture, clip: string): Promise<{ readonly skeleton: SkeletonDesc; readonly raw: RawClip; readonly bytes: Uint8Array }> {
+async function loadClip(
+  name: LicensedFixture,
+  clip: string,
+): Promise<{ readonly skeleton: SkeletonDesc; readonly raw: RawClip; readonly bytes: Uint8Array }> {
   const { bytes, container, skeleton } = await loadSkeleton(name);
   const raw = readAnimations(container, skeleton).find((c) => c.name === clip);
   if (raw === undefined) throw new Error(`clip ${clip} missing`);
@@ -72,39 +80,58 @@ function rig(skeleton: SkeletonDesc): RigProgram {
 }
 
 function quatAt(buffer: Float64Array, offset: number): Quat {
-  return [buffer[offset] as number, buffer[offset + 1] as number, buffer[offset + 2] as number, buffer[offset + 3] as number];
+  return [
+    buffer[offset] as number,
+    buffer[offset + 1] as number,
+    buffer[offset + 2] as number,
+    buffer[offset + 3] as number,
+  ];
 }
 
 /** Imported curves at a frame, evaluated with the test kit engine (exact for the LINEAR/STEP keys used here). */
-function channelsAt(program: RigProgram, clip: ImportedClipKeys, frame: number): ReturnType<RigProgram['allocChannels']> {
+function channelsAt(
+  program: RigProgram,
+  clip: ImportedClipKeys,
+  frame: number,
+): ReturnType<RigProgram['allocChannels']> {
   const ch = program.allocChannels();
   const slots = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'];
   for (const curve of clip.curves) {
     const anim: AnimCurve = { keys: curve.keys, weighted: false, pre: 'constant', post: 'constant' };
     const slot = program.controlIndex.get(curve.control) as number;
-    ch.values[slot * CHANNELS_PER_CONTROL + slots.indexOf(curve.channel)] = naiveCurveEngine.evaluate(naiveCurveEngine.compile(anim), frame);
+    ch.values[slot * CHANNELS_PER_CONTROL + slots.indexOf(curve.channel)] = naiveCurveEngine.evaluate(
+      naiveCurveEngine.compile(anim),
+      frame,
+    );
   }
   return ch;
 }
 
 describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers until merged)', () => {
-  it.each(['seed-san.vrm', 'polybot.vrm', 'quaternius-ual.glb'] as const)('zero pose = rest on %s (1e-9)', async (name) => {
-    const { skeleton } = await loadSkeleton(name);
-    const program = rig(skeleton);
-    const pose = program.allocPose();
-    program.evaluate(program.allocChannels(), pose);
-    let error = 0;
-    skeleton.nodes.forEach((node, i) => {
-      const q = node.restLocal.q;
-      const n = Math.hypot(q[0], q[1], q[2], q[3]);
-      for (let k = 0; k < 3; k++) {
-        error = Math.max(error, Math.abs((pose.boneLocal[i * 10 + k] as number) - (node.restLocal.t[k] as number)));
-        error = Math.max(error, Math.abs((pose.boneLocal[i * 10 + 7 + k] as number) - (node.restLocal.s[k] as number)));
-      }
-      for (let k = 0; k < 4; k++) error = Math.max(error, Math.abs((pose.boneLocal[i * 10 + 3 + k] as number) - (q[k] as number) / n));
-    });
-    expect(error).toBeLessThan(1e-9);
-  });
+  it.each(['seed-san.vrm', 'polybot.vrm', 'quaternius-ual.glb'] as const)(
+    'zero pose = rest on %s (1e-9)',
+    async (name) => {
+      const { skeleton } = await loadSkeleton(name);
+      const program = rig(skeleton);
+      const pose = program.allocPose();
+      program.evaluate(program.allocChannels(), pose);
+      let error = 0;
+      skeleton.nodes.forEach((node, i) => {
+        const q = node.restLocal.q;
+        const n = Math.hypot(q[0], q[1], q[2], q[3]);
+        for (let k = 0; k < 3; k++) {
+          error = Math.max(error, Math.abs((pose.boneLocal[i * 10 + k] as number) - (node.restLocal.t[k] as number)));
+          error = Math.max(
+            error,
+            Math.abs((pose.boneLocal[i * 10 + 7 + k] as number) - (node.restLocal.s[k] as number)),
+          );
+        }
+        for (let k = 0; k < 4; k++)
+          error = Math.max(error, Math.abs((pose.boneLocal[i * 10 + 3 + k] as number) - (q[k] as number) / n));
+      });
+      expect(error).toBeLessThan(1e-9);
+    },
+  );
 
   it.each(['seed-san.vrm', 'polybot.vrm'] as const)(
     'matches three-vrm raw bones from the same normalized pose on %s (1e-6, vrm0 → flipYaw)',
@@ -140,11 +167,16 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
       HUMAN_BONE_NAMES.forEach((bone, h) => {
         const node = vrm.humanoid.getNormalizedBoneNode(bone);
         if (node === null) return;
-        node.quaternion.set(normalized[h * 4] as number, normalized[h * 4 + 1] as number, normalized[h * 4 + 2] as number, normalized[h * 4 + 3] as number);
+        node.quaternion.set(
+          normalized[h * 4] as number,
+          normalized[h * 4 + 1] as number,
+          normalized[h * 4 + 2] as number,
+          normalized[h * 4 + 3] as number,
+        );
         if (bone === 'hips') {
           const p = pose.hipsPosition;
           if (vrm0) node.position.set(-(p[0] as number), p[1] as number, -(p[2] as number));
-          else node.position.set(p[0] as number, p[1] as number, p[2] as number);
+          else node.position.set(p[0] as number, p[1] as number, p[2]);
         }
       });
       vrm.humanoid.update();
@@ -189,7 +221,8 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     // Every non-humanoid, non-spring, non-constrained skin joint below the hips has a control.
     const hips = skeleton.humanoid?.hips as number;
     const belowHips = (node: number): boolean => {
-      for (let n = skeleton.nodes[node]?.parent ?? -1; n !== -1; n = skeleton.nodes[n]?.parent ?? -1) if (n === hips) return true;
+      for (let n = skeleton.nodes[node]?.parent ?? -1; n !== -1; n = skeleton.nodes[n]?.parent ?? -1)
+        if (n === hips) return true;
       return false;
     };
     skeleton.nodes.forEach((node, i) => {
@@ -256,7 +289,12 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     const program = rig(skeleton);
     const fps = detectClipFps(raw) as Fps;
     const dense = importRawClip(raw, program, { fps, keyMode: 'source-times', eulerFilter: true, reduce: null });
-    const reduced = importRawClip(raw, program, { fps, keyMode: 'source-times', eulerFilter: true, reduce: DEFAULT_REDUCE });
+    const reduced = importRawClip(raw, program, {
+      fps,
+      keyMode: 'source-times',
+      eulerFilter: true,
+      reduce: DEFAULT_REDUCE,
+    });
     const big = reduced.curves.filter((c) => c.stats.sourceKeys >= 20);
     const before = big.reduce((sum, c) => sum + c.stats.sourceKeys, 0);
     const after = big.reduce((sum, c) => sum + c.keys.length, 0);
@@ -265,7 +303,11 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
       const original = dense.curves.find((c) => c.control === curve.control && c.channel === curve.channel);
       expect(original).toBeDefined();
       expect(curve.stats.maxReduceError).toBeLessThanOrEqual(
-        curve.channel.startsWith('r') ? DEFAULT_REDUCE.rotationRad : curve.channel.startsWith('t') ? DEFAULT_REDUCE.translationM : DEFAULT_REDUCE.scale,
+        curve.channel.startsWith('r')
+          ? DEFAULT_REDUCE.rotationRad
+          : curve.channel.startsWith('t')
+            ? DEFAULT_REDUCE.translationM
+            : DEFAULT_REDUCE.scale,
       );
     }
   });
@@ -276,7 +318,8 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     const ch = program.allocChannels();
     const pose = program.allocPose();
     program.evaluate(ch, pose);
-    const footNode = (side: 'L' | 'R'): number => skeleton.humanoid?.[side === 'L' ? 'leftFoot' : 'rightFoot'] as number;
+    const footNode = (side: 'L' | 'R'): number =>
+      skeleton.humanoid?.[side === 'L' ? 'leftFoot' : 'rightFoot'] as number;
     const pins = (['L', 'R'] as const).map((side) => ({
       side,
       footWorld: pose.boneWorld.slice(footNode(side) * 16, footNode(side) * 16 + 16),
@@ -284,7 +327,9 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     const cog = program.controls.find((c) => c.key === 'cog')?.id as ControlId;
     writeControlChannels(program, ch, cog, { ty: -0.05 });
     program.evaluate(ch, pose);
-    const reference = new Map(program.controlIds.map((control) => [control, readControlChannels(program, ch, control)]));
+    const reference = new Map(
+      program.controlIds.map((control) => [control, readControlChannels(program, ch, control)]),
+    );
     const result = plantFeetChannels(program, pose, pins, reference);
     expect(result.reached).toBe(true);
     for (const [control, values] of result.values) writeControlChannels(program, ch, control, values);
@@ -310,7 +355,9 @@ describe.skipIf(WP4_PENDING)('rig fixture gates (blocked by WP-4 io readers unti
     const start = performance.now();
     for (let i = 0; i < runs; i++) program.evaluate(ch, pose);
     const ms = (performance.now() - start) / runs;
-    await annotate(`Seed-san evaluate: ${ms.toFixed(4)} ms/pose (${program.controls.length} controls, ${program.nodeCount} nodes)`);
+    await annotate(
+      `Seed-san evaluate: ${ms.toFixed(4)} ms/pose (${program.controls.length} controls, ${program.nodeCount} nodes)`,
+    );
     expect(pose.version).toBe(runs + 100);
   });
 });

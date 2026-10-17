@@ -17,7 +17,9 @@ import type { ControlShape } from '@ekza-animator/doc';
 export type SizeGroup = 'torso' | 'jaw' | 'shoulder' | 'limb' | 'extremity' | 'finger' | 'generic';
 
 /** fallback, min and max per group, as multiples of the character height H (fallback also from ℓ_b). */
-const SIZE_RULES: Readonly<Record<SizeGroup, { readonly bone: number; readonly h: number; readonly min: number; readonly max: number }>> = {
+const SIZE_RULES: Readonly<
+  Record<SizeGroup, { readonly bone: number; readonly h: number; readonly min: number; readonly max: number }>
+> = {
   torso: { bone: 0.15, h: 0.09, min: 0.05, max: 0.25 },
   // The jaw is not in the §4.11.15 table; it gets the hand/foot rule so it stays inside the head circle.
   jaw: { bone: 0.15, h: 0.04, min: 0.03, max: 0.1 },

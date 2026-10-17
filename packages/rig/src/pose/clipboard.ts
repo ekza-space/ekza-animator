@@ -65,11 +65,11 @@ export function applyPoseClipboard(
     const values = { ...trsValues(entry.values) };
     const order = internals.rotateOrders[slot] ?? 'xyz';
     if (ROTATE_ORDERS.has(entry.order) && entry.order !== order) {
-      const e = eulerNear(
-        eulerToQuat([values.rx ?? 0, values.ry ?? 0, values.rz ?? 0], entry.order),
-        order,
-        [values.rx ?? 0, values.ry ?? 0, values.rz ?? 0],
-      );
+      const e = eulerNear(eulerToQuat([values.rx ?? 0, values.ry ?? 0, values.rz ?? 0], entry.order), order, [
+        values.rx ?? 0,
+        values.ry ?? 0,
+        values.rz ?? 0,
+      ]);
       values.rx = e[0];
       values.ry = e[1];
       values.rz = e[2];
@@ -81,7 +81,10 @@ export function applyPoseClipboard(
     const control = internals.controls[slot] as ControlRecord;
     const target = control.side === 'C' ? slot : (internals.mirror[slot] as number);
     if (target === -1) continue;
-    result.set((internals.controls[target] as ControlRecord).id, mirrorChannels(internals, slot, target, values, undefined));
+    result.set(
+      (internals.controls[target] as ControlRecord).id,
+      mirrorChannels(internals, slot, target, values, undefined),
+    );
   }
   return result;
 }

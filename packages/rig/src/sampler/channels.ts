@@ -53,7 +53,11 @@ export function controlSlotOf(program: RigProgram, control: ControlId): number {
   return index;
 }
 
-export function readControlChannels(program: RigProgram, ch: ChannelBuffer, control: ControlId): Record<TrsChannel, number> {
+export function readControlChannels(
+  program: RigProgram,
+  ch: ChannelBuffer,
+  control: ControlId,
+): Record<TrsChannel, number> {
   const o = controlSlotOf(program, control) * CHANNELS_PER_CONTROL;
   const v = ch.values;
   return {
@@ -70,7 +74,12 @@ export function readControlChannels(program: RigProgram, ch: ChannelBuffer, cont
 }
 
 /** Writes the given TRS channels (others keep their values); custom attributes and non-finite values are ignored. */
-export function writeControlChannels(program: RigProgram, ch: ChannelBuffer, control: ControlId, values: ChannelValues): void {
+export function writeControlChannels(
+  program: RigProgram,
+  ch: ChannelBuffer,
+  control: ControlId,
+  values: ChannelValues,
+): void {
   const o = controlSlotOf(program, control) * CHANNELS_PER_CONTROL;
   writeSlots(ch, o, values);
 }

@@ -6,7 +6,16 @@ import { pendingStub, quatAngleBetween } from './helpers';
 const ORDERS: readonly RotateOrder[] = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'];
 
 function key(t: number, v: number, type: KeyData['inType'] = 'linear'): KeyData {
-  return { t, v, inType: type, outType: type, inHandle: { dt: 0, dv: 0 }, outHandle: { dt: 0, dv: 0 }, broken: false, weightLocked: true };
+  return {
+    t,
+    v,
+    inType: type,
+    outType: type,
+    inHandle: { dt: 0, dv: 0 },
+    outHandle: { dt: 0, dv: 0 },
+    broken: false,
+    weightLocked: true,
+  };
 }
 
 function curve(keys: KeyData[]): AnimCurve {

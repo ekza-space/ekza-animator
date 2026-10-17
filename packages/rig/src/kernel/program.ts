@@ -1,22 +1,8 @@
 import { eulerToQuat, type Quat, type Vec3 } from '@ekza-animator/anim-core';
 import type { ControlId, RigId } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES } from '../humanoid/bones';
-import {
-  allocXfArrays,
-  type XfArrays,
-  xfaAlignQuat,
-  xfaFromMat4,
-  xfaInvMul,
-  xfaMul,
-  xfaToMat4,
-} from '../math/xfa';
-import {
-  CHANNELS_PER_CONTROL,
-  type ChannelBuffer,
-  type PoseBuffers,
-  type RigProgram,
-  type RigWarning,
-} from '../types';
+import { allocXfArrays, type XfArrays, xfaAlignQuat, xfaFromMat4, xfaInvMul, xfaMul, xfaToMat4 } from '../math/xfa';
+import { CHANNELS_PER_CONTROL, type ChannelBuffer, type PoseBuffers, type RigProgram, type RigWarning } from '../types';
 import { BIND_FULL, BIND_NONE, BIND_ROTATE, BIND_TRANSLATE_ROTATE, OP_BONE, OP_CONTROL } from './constants';
 import { type RigInternals, registerInternals } from './internals';
 

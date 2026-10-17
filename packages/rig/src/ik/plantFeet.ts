@@ -29,7 +29,11 @@ function worldOf(pose: PoseBuffers, node: number): Xf {
 }
 
 function sub(a: readonly number[], b: readonly number[]): Vec3 {
-  return [(a[0] as number) - (b[0] as number), (a[1] as number) - (b[1] as number), (a[2] as number) - (b[2] as number)];
+  return [
+    (a[0] as number) - (b[0] as number),
+    (a[1] as number) - (b[1] as number),
+    (a[2] as number) - (b[2] as number),
+  ];
 }
 
 function nodeOf(internals: RigInternals, bone: HumanBoneName): number {
@@ -57,7 +61,12 @@ export function plantFeetChannels(
   const internals = internalsOf(program);
   const targets = new Map<number, Mat4>();
   let reached = true;
-  const out: TwoBoneIkOutput = { upperLocal: [0, 0, 0, 1], midLocal: [0, 0, 0, 1], endLocal: [0, 0, 0, 1], reached: false };
+  const out: TwoBoneIkOutput = {
+    upperLocal: [0, 0, 0, 1],
+    midLocal: [0, 0, 0, 1],
+    endLocal: [0, 0, 0, 1],
+    reached: false,
+  };
 
   for (const pin of pins) {
     const prefix = pin.side === 'L' ? 'left' : 'right';
@@ -143,7 +152,8 @@ export function plantFeetChannels(
     targets.set(end, withRotation(foot, qEnd));
   }
   if (targets.size > 0) {
-    for (const [control, channels] of solveBoneChannels(program, pose, targets, reference)) values.set(control, channels);
+    for (const [control, channels] of solveBoneChannels(program, pose, targets, reference))
+      values.set(control, channels);
   }
   return { values, reached, warnings };
 }

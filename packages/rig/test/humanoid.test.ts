@@ -18,8 +18,8 @@ describe('humanoid tables', () => {
     expect(new Set(HUMAN_BONE_NAMES).size).toBe(55);
     HUMAN_BONE_NAMES.forEach((name, i) => {
       const parent = HUMAN_BONE_PARENT[name];
-      if (parent === null) expect(name).toBe('hips');
-      else expect(HUMAN_BONE_NAMES.indexOf(parent)).toBeLessThan(i);
+      expect(parent === null ? name : 'hips').toBe('hips');
+      expect(parent === null ? -1 : HUMAN_BONE_NAMES.indexOf(parent)).toBeLessThan(i);
     });
     expect(VRM_REQUIRED_BONES).toHaveLength(15);
     expect(VRM0_BONE_ALIASES['leftThumbProximal']).toBe('leftThumbMetacarpal');

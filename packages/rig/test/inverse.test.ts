@@ -53,7 +53,13 @@ describe('solveControlChannels', () => {
         program.evaluate(ch, pose);
         // Desired world: an arbitrary transform reachable by t+r channels of cog.
         const desired = mat4Compose({ t: [t[0], 0.9 + t[1], t[2]], q: quatNormalize(euler(e)), s: [1, 1, 1] });
-        const values = solveControlChannels(program, pose, id('cog'), desired, readControlChannels(program, ch, id('cog')));
+        const values = solveControlChannels(
+          program,
+          pose,
+          id('cog'),
+          desired,
+          readControlChannels(program, ch, id('cog')),
+        );
         writeControlChannels(program, ch, id('cog'), values);
         program.evaluate(ch, pose);
         expect(maxAbsDiff(controlWorld(program, pose, id('cog')), desired)).toBeLessThan(1e-9);
@@ -90,7 +96,11 @@ describe('solveControlChannels', () => {
     expect(near.rx).toBeCloseTo(0.2, 9);
     expect(near.ry).toBeCloseTo(3.0, 9);
     expect(near.rz).toBeCloseTo(-0.1, 9);
-    const wrapped = solveControlChannels(program, pose, id('fk.head'), world, { rx: 0.2, ry: 3.0 + 2 * Math.PI, rz: -0.1 });
+    const wrapped = solveControlChannels(program, pose, id('fk.head'), world, {
+      rx: 0.2,
+      ry: 3.0 + 2 * Math.PI,
+      rz: -0.1,
+    });
     expect(wrapped.ry).toBeCloseTo(3.0 + 2 * Math.PI, 9);
   });
 
@@ -128,8 +138,9 @@ describe('solveBoneChannels', () => {
     const pose = program.allocPose();
     program.evaluate(ch, pose);
     for (const node of program.drivenNodes) {
-      expect(quatAngleBetween(worldQuat(subarray16(pose.boneWorld, node)), worldQuat(subarray16(target.boneWorld, node))))
-        .toBeLessThan(1e-9);
+      expect(
+        quatAngleBetween(worldQuat(subarray16(pose.boneWorld, node)), worldQuat(subarray16(target.boneWorld, node))),
+      ).toBeLessThan(1e-9);
     }
     expect(solved.has(id('cog'))).toBe(false);
   });
@@ -193,4 +204,3 @@ function euler(e: readonly [number, number, number]): Quat {
   const qz: Quat = [0, 0, Math.sin(e[2] / 2), Math.cos(e[2] / 2)];
   return quatMultiply(qz, quatMultiply(qy, qx));
 }
-
