@@ -111,7 +111,9 @@ export function OutlinerPanel({ app, instanceId }: PanelProps): JSX.Element {
     getScrollElement: () => scrollRef.current,
     estimateSize: () => ROW_HEIGHT,
     getItemKey: (index) => rows[index]?.key ?? index,
-    overscan: 16,
+    // Generous: rows just outside the view stay in the DOM (cheap for rigs of a few hundred rows), so a pointer or
+    // an e2e locator can scroll them in without a round trip through the virtualizer.
+    overscan: 40,
     useFlushSync: false,
   });
 

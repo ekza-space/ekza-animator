@@ -56,6 +56,9 @@ export function ClipsPanel({ app, instanceId }: PanelProps): JSX.Element {
       ? undefined
       : view.characters.flatMap((entry) => entry.clips).find((clip) => clip.id === settings.clip);
 
+  // The clip went away (deleted, or undo of its creation): close its popover rather than float it unanchored later.
+  if (settings !== null && settingsClip === undefined) setSettings(null);
+
   const activate = useCallback(
     (clip: ClipRecord) => {
       if (activeClip[clip.character] !== clip.id)

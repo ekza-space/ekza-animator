@@ -216,6 +216,19 @@ describe('Clip settings popover (FR-CLIP-04, FR-CLIP-09)', () => {
     await view.unmount();
   });
 
+  it('closes when its clip goes away and stays closed when it comes back', async () => {
+    const app = waveApp();
+    const view = await panel(app);
+    await user.click(by(`clips-settings-${CLIP}`));
+    expect(maybe('clips-settings-popover')).not.toBeNull();
+    await transact(app, (tx) => tx.softDelete('clips', CLIP));
+    expect(maybe('clips-settings-popover')).toBeNull();
+    await transact(app, (tx) => tx.restore('clips', CLIP));
+    expect(by(`clips-row-${CLIP}`)).toBeTruthy();
+    expect(maybe('clips-settings-popover')).toBeNull();
+    await view.unmount();
+  });
+
   it('validates as you type and keeps Apply disabled while anything is invalid', async () => {
     const app = waveApp();
     const view = await panel(app);
