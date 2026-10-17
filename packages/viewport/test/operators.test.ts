@@ -163,17 +163,21 @@ describe('viewport operators', () => {
     rig = await createRig();
     rig.layout('split');
     rig.frame();
-    const hand = rig.app.store.list('controls').find((c) => c.key === 'fk.hand.L');
-    if (hand === undefined) throw new Error('no hand control');
-    rig.app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [] } });
+    // A control frames with the visible controls below it (fingers-test covers that); a leaf frames alone.
+    const controls = rig.app.store.list('controls');
+    const leaf = controls.find(
+      (c) => c.shape.kind === 'circle' && !c.hiddenByDefault && !controls.some((other) => other.parent === c.id),
+    );
+    if (leaf === undefined) throw new Error('no leaf circle control');
+    rig.app.session.setState({ selection: { controls: [leaf.id], keys: new Map(), channels: [] } });
     const before = rig.vm.camera('pane-right');
     await rig.app.run('view.frame', { what: 'selection', paneId: 'pane-right' });
     const after = rig.vm.camera('pane-right');
-    // The hand circle's centre (pose position + shape offset) is the framing pivot, at the pane centre.
+    // The control shape's centre (pose position + shape offset) is the framing pivot, at the pane centre.
     const runtime = rig.app.characters.list()[0];
-    const slot = runtime?.program.controlIndex.get(hand.id) ?? -1;
+    const slot = runtime?.program.controlIndex.get(leaf.id) ?? -1;
     const m = runtime?.pose.controlWorld ?? new Float64Array(16);
-    const o = hand.shape.offset.t;
+    const o = leaf.shape.offset.t;
     const at = (row: number): number =>
       (m[slot * 16 + row] ?? 0) * o[0] +
       (m[slot * 16 + 4 + row] ?? 0) * o[1] +

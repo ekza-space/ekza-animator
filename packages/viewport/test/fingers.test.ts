@@ -91,6 +91,25 @@ function documentFor(skeleton: SkeletonDesc): DocSnapshot {
   };
 }
 
+describe.runIf(READY)('framing a selected control (acceptance round 1)', () => {
+  it.each(['seed-san.vrm', 'polybot.vrm'])('%s: F on the hand alone shows every finger', async (name) => {
+    const skeleton = skeletonFromGltf(await parseGlb(await fixtureBytes(name)));
+    const app = createFakeEditorApp({ snapshot: documentFor(skeleton), skeleton });
+    rig = await createRig({ app });
+    rig.layout('split');
+    const controls = app.store.list('controls');
+    const fingers = controls.filter((c) => c.group === 'fingers' && c.side === 'L' && !c.hiddenByDefault);
+    const hand = controls.find((c) => c.key === 'fk.hand.L');
+    if (hand === undefined) throw new Error('no fk.hand.L');
+    app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [] } });
+    rig.frame();
+    rig.vm.frame('pane-right', 'selection');
+    rig.frame();
+    const offScreen = fingers.filter((finger) => rig?.vm.controlPickPoint('pane-right', finger.id) === null);
+    expect(offScreen.map((finger) => finger.key)).toEqual([]);
+  });
+});
+
 describe.runIf(READY)('finger pick separation (WP-1, WP-3, WP-4)', () => {
   it.each(['seed-san.vrm', 'polybot.vrm'])(
     '%s: every left-hand finger has a pick point ≥ 6 px from other controls',

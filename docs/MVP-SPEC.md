@@ -2282,7 +2282,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `clip.setSettings` | U | 7b | `fpsMode: 'keep-seconds'` rescales key `t`, handle `dt`, range and contact by `newFps/oldFps` (`flags.structural`). |
 | `view.layout` | — | 5 | Single / split / quad. |
 | `view.toggleMaximize` | — | 8 | Space tap: viewport → maximize/restore the pane under the pointer (`session.maximizedPane`); other panels → maximize/restore the dockview group. |
-| `view.frame` | — | 5 | `F`/`A` in the hovered pane. |
+| `view.frame` | — | 5 | `F`/`A` in the hovered pane. *Acceptance round 1 (INT-37)*: `selection` frames the selected controls' shapes with the visible controls below them (Maya transform bounds: `F` on a hand shows its fingers). |
 | `view.display.toggle` | — | 5 | Per-pane display flag. |
 | `view.lookThrough` | — | 5 | Pane camera binding (U state). |
 | `view.copyViewToShot` | U | 5 | Creates/updates a shot camera from the pane's view camera. |

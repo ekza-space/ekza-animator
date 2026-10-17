@@ -724,9 +724,23 @@ export class ViewportManager {
   private boundsFor(what: 'selection' | 'all'): SpatialBounds {
     const selection = this.app.session.getState().selection.controls;
     if (what === 'selection' && selection.length > 0) {
+      // Like a Maya transform's bounding box, a selected control frames with the visible controls below it: F on a
+      // hand shows its fingers (acceptance round 1: the distal fingers ended up off-screen).
       const selected = new Set(selection);
+      const below = new Map<ControlId, boolean>();
+      const underSelection = (id: ControlId): boolean => {
+        const known = below.get(id);
+        if (known !== undefined) return known;
+        below.set(id, false); // guards a parent cycle in a damaged document
+        const parent = this.app.store.get('controls', id)?.parent ?? null;
+        const result = parent !== null && (selected.has(parent) || underSelection(parent));
+        below.set(id, result);
+        return result;
+      };
       const worlds: Float32Array[] = [];
-      for (const entry of this.controls.entries()) if (selected.has(entry.id)) worlds.push(entry.world);
+      for (const entry of this.controls.entries()) {
+        if (selected.has(entry.id) || (entry.visible && underSelection(entry.id))) worlds.push(entry.world);
+      }
       const bounds = pointBounds(worlds);
       if (bounds !== null) return bounds;
     }
