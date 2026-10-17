@@ -12,6 +12,8 @@ const NAV_HINT = {
   mayaOneButton: 'Option+drag tumble · Option+Cmd+drag track · Option+Ctrl+drag dolly',
 } as const;
 
+export const GL_LOST_TEXT = 'Graphics context lost — restoring the 3D view…';
+
 const TOOL_HINT: Readonly<Record<string, string>> = {
   select: 'Click or drag a marquee to select controls · S set key',
   move: 'Drag an arrow or plane to move · S set key',
@@ -34,6 +36,9 @@ export function HelpLine(): JSX.Element {
       ? `${NAV_HINT[navProfile]}${TOOL_HINT[tool] === undefined ? '' : ` · ${TOOL_HINT[tool]}`}`
       : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
   const busyLabel = busy?.label ?? shellBusy;
+  // A lost context is a state, not a hint: it takes the help line's text until the context is back (acceptance
+  // round 1: /editor kept showing the hover hints while the 3D view was gone).
+  const lost = glStatus === 'lost' ? GL_LOST_TEXT : null;
 
   return (
     <footer
@@ -43,15 +48,14 @@ export function HelpLine(): JSX.Element {
       <span
         className={cn(
           'min-w-0 flex-1 truncate',
-          message?.tone === 'warning' && 'text-warn',
-          message?.tone === 'error' && 'text-danger',
+          (lost !== null || message?.tone === 'warning') && 'text-warn',
+          lost === null && message?.tone === 'error' && 'text-danger',
         )}
         data-testid="helpline-text"
         aria-live="polite"
       >
-        {message?.text ?? hint}
+        {lost ?? message?.text ?? hint}
       </span>
-      {glStatus === 'lost' ? <span className="text-warn">Graphics context lost — restoring…</span> : null}
       {glStatus === 'unavailable' ? <span className="text-warn">WebGL unavailable — 3D view disabled</span> : null}
       {busyLabel === null || busyLabel === undefined ? null : (
         <span className="flex items-center gap-1.5 text-fg-2" data-testid="helpline-busy">

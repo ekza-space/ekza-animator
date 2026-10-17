@@ -383,11 +383,18 @@ describe('editor shell', () => {
     const lose = gl?.getExtension('WEBGL_lose_context');
     if (lose === undefined || lose === null) throw new Error('WEBGL_lose_context is not available');
     lose.loseContext();
-    await waitFor(() => (testId(view, 'helpline').textContent ?? '').includes('Graphics context lost'));
+    // The lost state is the help line's text (not a side note next to the hover hints).
+    await waitFor(() => (testId(view, 'helpline-text').textContent ?? '').includes('Graphics context lost'));
     await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="warning"]') !== null);
     lose.restoreContext();
     await waitFor(() => !(testId(view, 'helpline').textContent ?? '').includes('Graphics context lost'), 3000);
     expect(window.__EKZA_ANIMATOR_TEST__?.webgl.ok).toBe(true);
+    // Acceptance round 1: the "restoring…" warning stayed after the restore; it is replaced by a confirmation.
+    await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="warning"]') === null);
+    await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="success"]') !== null);
+    expect(document.querySelector('[data-testid="toast"][data-kind="success"]')?.textContent).toContain(
+      'The 3D view was restored.',
+    );
     await view.unmount();
   });
 

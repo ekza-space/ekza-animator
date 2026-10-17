@@ -13,6 +13,9 @@ import { createFrameGate, type FrameGate } from './frameGate';
 import { probeWebGl, rendererName } from './webgl';
 
 const CLEAR_COLOR = '#1b1c1f';
+/** Toast while the WebGL context is lost; dismissed when it comes back (acceptance round 1). */
+export const CONTEXT_LOST_TEXT = 'The graphics context was lost; restoring the 3D view…';
+export const CONTEXT_RESTORED_TEXT = 'The 3D view was restored.';
 
 function isNotImplemented(error: unknown): boolean {
   return error instanceof EkzaError && error.code === 'not-implemented';
@@ -102,10 +105,13 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
   const onLost = (event: Event): void => {
     event.preventDefault();
     ui.setState({ gl: { status: 'lost', renderer } });
-    app.services.notify.toast({ kind: 'warning', text: 'The graphics context was lost; restoring the 3D view…' });
+    app.services.notify.toast({ kind: 'warning', text: CONTEXT_LOST_TEXT });
   };
   const onRestored = (): void => {
     ui.setState({ gl: { status: 'ready', renderer } });
+    // The "restoring…" warning no longer holds: replace it with a short confirmation.
+    shell.toasts?.dismissWhere((toast) => toast.text === CONTEXT_LOST_TEXT);
+    app.services.notify.toast({ kind: 'success', text: CONTEXT_RESTORED_TEXT });
     vm?.invalidate();
     state.invalidate();
   };

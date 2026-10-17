@@ -14,6 +14,8 @@ export interface ToastItem {
 export interface ToastNotifier extends Notifier {
   readonly store: StoreApi<{ readonly toasts: readonly ToastItem[] }>;
   dismiss(id: number): void;
+  /** Dismisses every toast `match` accepts (a state message that no longer holds, e.g. a restored context). */
+  dismissWhere(match: (toast: ToastItem) => boolean): void;
   clear(): void;
 }
 
@@ -39,6 +41,10 @@ export function createToastNotifier(): ToastNotifier {
       const toasts = store.getState().toasts;
       if (toasts.some((toast) => toast.id === id))
         store.setState({ toasts: toasts.filter((toast) => toast.id !== id) });
+    },
+    dismissWhere(match: (toast: ToastItem) => boolean): void {
+      const toasts = store.getState().toasts;
+      if (toasts.some(match)) store.setState({ toasts: toasts.filter((toast) => !match(toast)) });
     },
     clear(): void {
       store.setState({ toasts: [] });
