@@ -459,7 +459,12 @@ export class ManipulatorKit {
         material.color.copy(c);
         material.opacity =
           opacity * (visual.handle === 'txy' || visual.handle === 'tyz' || visual.handle === 'txz' ? 0.35 : 1);
-        material.transparent = material.opacity < 1;
+        const transparent = material.opacity < 1;
+        // Mesh materials bake `transparent` into the shader (three's OPAQUE define): switch variants explicitly.
+        if (material.transparent !== transparent) {
+          material.transparent = transparent;
+          material.needsUpdate = true;
+        }
       }
     }
     this.version++;

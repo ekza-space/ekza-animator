@@ -13,10 +13,12 @@ import {
 import type { ControlId, ControlRecord } from '@ekza-animator/doc';
 import { beginChannelEditGesture, type ChannelEdit, type ChannelEditGesture } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
+import { OrthographicCamera, WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
-import { VIEW_RING_RADIUS } from '../src/manipulators/ManipulatorKit';
+import { ManipulatorKit, type ManipTarget, VIEW_RING_RADIUS } from '../src/manipulators/ManipulatorKit';
+import { PaneProjector } from '../src/picking/geometry';
 import { type GestureFactory, moveToolDef, rotateToolDef } from '../src/tools/transformTool';
-import { createRig, drag, pointer, type Rig } from './helpers';
+import { createRig, drag, pointer, type Rig, wheel } from './helpers';
 
 /** The edit kernel (WP-7a) is stubbed until it lands; gesture-level tests run once it exists. */
 const KERNEL = (() => {
@@ -225,6 +227,75 @@ describe('rotate and translate drags', () => {
     setup(rig, control(rig, 'fk.lowerArm.L').id, 'move', 'world');
     expect(rig.vm.manipulatorScreenPoint('pane-right', 'tx')).toBeNull();
     expect(rig.vm.toolHost.beginManipulatorDrag('pane-right', 'tx', 0, 0)).toBeNull();
+  });
+});
+
+describe('manipulator drawing', () => {
+  it('keeps a constant pixel size in perspective at any distance and follows manipulatorSize', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    const arm = control(rig, 'fk.lowerArm.L');
+    setup(rig, arm.id, 'rotate', 'object');
+    const element = rig.panes.get('pane-right') as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const radius = (): number => {
+      const p = rig?.vm.manipulatorScreenPoint('pane-right', 'rview');
+      const c = rig?.vm.project('pane-right', pivotOf(rig, arm.id));
+      return Math.hypot((p?.x ?? 0) - (c?.x ?? 0), (p?.y ?? 0) - (c?.y ?? 0));
+    };
+    const size = rig.app.session.getState().tools.manipulatorSize;
+    expect(radius()).toBeCloseTo(VIEW_RING_RADIUS * size, 6);
+    const before = rig.vm.camera('pane-right');
+    for (let i = 0; i < 4; i++) wheel(element, rect.left + 100, rect.top + 100, { deltaY: 200 });
+    const after = rig.vm.camera('pane-right');
+    expect(Math.hypot(...after.position.map((v, i) => v - (after.target[i] ?? 0)))).toBeGreaterThan(
+      1.5 * Math.hypot(...before.position.map((v, i) => v - (before.target[i] ?? 0))),
+    );
+    expect(radius()).toBeCloseTo(VIEW_RING_RADIUS * size, 6);
+    rig.app.session.setState({ tools: { ...rig.app.session.getState().tools, manipulatorSize: 140 } });
+    rig.frame();
+    expect(radius()).toBeCloseTo(VIEW_RING_RADIUS * 140, 6);
+  });
+
+  it('draws dimmed handle meshes translucent (shader variant follows the opacity)', () => {
+    const kit = new ManipulatorKit();
+    const renderer = new WebGLRenderer({ canvas: document.createElement('canvas'), antialias: false });
+    try {
+      renderer.setPixelRatio(1);
+      renderer.setSize(200, 200, false);
+      renderer.setClearColor(0x000000, 1);
+      const camera = new OrthographicCamera(-100, 100, 100, -100, 0.1, 100);
+      camera.position.set(0, 0, 10);
+      camera.updateMatrixWorld();
+      const projector = new PaneProjector().set(camera, 200, 200, camera.near);
+      const target = (keyable: boolean): ManipTarget => ({
+        pivot: [0, 0, 0],
+        worldQ: [0, 0, 0, 1],
+        parentQ: [0, 0, 0, 1],
+        r: [0, 0, 0],
+        order: 'xyz',
+        keyable: { t: [keyable, keyable, keyable], r: [true, true, true] },
+      });
+      // 1 manipulator unit = 90 px = 90 scene units here; the tx cone spans 0.84–1 units along +X, 0.045 wide at
+      // its base: sample just off the axis line, inside the cone base.
+      const coneRed = (keyable: boolean): number => {
+        kit.configure('translate', 'world', 90);
+        kit.setTarget(target(keyable));
+        kit.prepare(camera, 200, 200, projector);
+        renderer.clear();
+        renderer.render(kit.scene, camera);
+        const gl = renderer.getContext();
+        const pixel = new Uint8Array(4);
+        gl.readPixels(100 + 77, 100 + 3, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixel);
+        return pixel[0] ?? 0;
+      };
+      expect(coneRed(true)).toBe(255); // axis X colour #ff5f69 at full opacity
+      expect(coneRed(false)).toBeLessThan(96); // dimmed to 25 % over black
+      expect(coneRed(true)).toBe(255);
+    } finally {
+      renderer.dispose();
+      kit.dispose();
+    }
   });
 });
 
