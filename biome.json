@@ -16,7 +16,8 @@
       "!apps/web/public",
       "!apps/web/next-env.d.ts",
       "!pnpm-lock.yaml",
-      "!docs/research"
+      "!docs/research",
+      "!fixtures/synthetic"
     ]
   },
   "formatter": {
