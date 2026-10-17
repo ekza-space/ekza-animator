@@ -136,16 +136,37 @@ describe('file pipeline', () => {
     await test.shell.runFromUi('ui.close');
     const coded = createTestShell({
       summarize: async () => {
-        throw new EkzaError('not-glb', 'Not a binary glTF file');
+        throw new EkzaError('unsupported', 'Buffer 0 references an external file');
       },
     });
     coded.app.contribute({ kind: 'importer', def: MODEL });
     await coded.shell.files.openFile('hero.glb', new Uint8Array([1]));
     expect(coded.shell.ui.getState().pendingImport?.summaryError).toEqual({
-      code: 'not-glb',
-      message: 'Not a binary glTF file',
+      code: 'unsupported',
+      message: 'Buffer 0 references an external file',
     });
   });
+
+  // Acceptance round 1: a corrupt .glb opened the import summary with an enabled Import button that could only fail.
+  it.each(['not-glb', 'malformed-gltf', 'vrm-both', 'budget-exceeded'] as const)(
+    'refuses a file the summary cannot read (%s) with an error toast and no dialog',
+    async (code) => {
+      const test = createTestShell({
+        summarize: async () => {
+          throw new EkzaError(code, 'Unsupported GLB version 2021161080 (only glTF 2.0 is supported)');
+        },
+      });
+      test.app.contribute({ kind: 'importer', def: MODEL });
+      const file = new File([new Uint8Array([1, 2, 3])], 'broken.glb');
+      await test.shell.files.openFiles([file]);
+      expect(test.shell.ui.getState().pendingImport).toBeNull();
+      expect(test.app.session.getState().dialog).toBeNull();
+      expect(test.toasts.store.getState().toasts.map((toast) => [toast.kind, toast.text])).toEqual([
+        ['error', 'Cannot import broken.glb: Unsupported GLB version 2021161080 (only glTF 2.0 is supported)'],
+      ]);
+      expect(test.app.calls.filter((call) => call.id === 'file.importModel')).toEqual([]);
+    },
+  );
 
   it('asks before a project replaces unsaved work, and cancels on "no"', async () => {
     const { shell, app, runs } = withImporters(PROJECT);

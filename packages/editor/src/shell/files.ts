@@ -37,6 +37,18 @@ class ReportedFailure extends Error {
   override readonly name = 'ReportedFailure';
 }
 
+/**
+ * Summary errors that mean the model cannot be imported at all (the import operator reads the file the same way and
+ * would fail with the same error): the file is refused with an error toast instead of an import dialog whose Import
+ * button can only fail (acceptance round 1).
+ */
+export const UNREADABLE_MODEL_CODES: ReadonlySet<string> = new Set([
+  'not-glb',
+  'malformed-gltf',
+  'vrm-both',
+  'budget-exceeded',
+]);
+
 export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
   const { app, ui } = deps;
   /** Resolves the waiter of each pending import once its dialog has closed (imported, cancelled or replaced). */
@@ -117,6 +129,12 @@ export function createFilePipeline(deps: FilePipelineDeps): FilePipeline {
       summaryError = { code: errorCode(error), message: errorText(error) };
     } finally {
       ui.setState({ busy: null });
+    }
+    const code = summaryError?.code ?? null;
+    if (summaryError !== null && code !== null && UNREADABLE_MODEL_CODES.has(code)) {
+      const text = `Cannot import ${name}: ${summaryError.message}`;
+      deps.toastError(text);
+      throw new ReportedFailure(text);
     }
     const pending: PendingImport = { name, bytes, importer, summary, summaryError };
     const closed = new Promise<void>((resolve) => settlers.set(pending, resolve));
