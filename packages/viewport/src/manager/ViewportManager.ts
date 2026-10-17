@@ -53,7 +53,7 @@ import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
 import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
-import type { NavigationController } from '../navigation/NavigationController';
+import type { NavigationController, NavState } from '../navigation/NavigationController';
 import { type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
 import { MarqueeBox } from '../overlays/marquee';
@@ -129,6 +129,8 @@ interface NavDrag {
   /** The gesture hit a locked camera (or could not start): moves are swallowed. */
   readonly swallowed: boolean;
   readonly shot: ShotNav | null;
+  /** View camera and its state at the start, restored when the gesture is cancelled (Esc, blur). */
+  readonly view: { readonly nav: NavigationController; readonly state: NavState } | null;
 }
 
 interface ShotNav {
@@ -863,7 +865,7 @@ export class ViewportManager {
       this.invalidate();
     }
     this.removeDragListeners();
-    if (this.nav !== null) this.endNav(false);
+    if (this.nav !== null) this.endNav(true);
   }
 
   private removeDragListeners(): void {
@@ -934,6 +936,7 @@ export class ViewportManager {
     const resolved = this.resolve(pane);
     let swallowed = false;
     let shot: ShotNav | null = null;
+    let view: NavDrag['view'] = null;
     if (resolved.kind === 'shot') {
       if (resolved.shot.record.locked) {
         swallowed = true;
@@ -944,6 +947,7 @@ export class ViewportManager {
       }
     } else {
       resolved.view.touched = true;
+      view = { nav: resolved.nav, state: resolved.nav.saveState() };
     }
     this.nav = {
       paneId: pane.id,
@@ -955,6 +959,7 @@ export class ViewportManager {
       lastY: e.clientY,
       swallowed,
       shot,
+      view,
     };
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('blur', this.onBlur);
@@ -987,6 +992,11 @@ export class ViewportManager {
     this.nav = null;
     this.removeDragListeners();
     if (nav.shot !== null) this.finishShotNav(nav.shot, cancelled);
+    if (cancelled && nav.view !== null) {
+      nav.view.nav.restoreState(nav.view.state);
+      this.picker.forget(nav.paneId);
+      this.invalidate();
+    }
   }
 
   private wheelInput(pane: PaneRuntime, e: WheelEvent): void {

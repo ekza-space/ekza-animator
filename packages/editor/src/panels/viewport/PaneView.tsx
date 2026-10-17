@@ -30,6 +30,7 @@ const DISPLAY_TOGGLES: readonly {
   { flag: 'xray', label: 'X-ray', title: 'X-ray meshes (Alt+X)' },
   { flag: 'grid', label: 'Grid', title: 'Show grid' },
   { flag: 'hud', label: 'HUD', title: 'Heads-up display' },
+  { flag: 'springBones', label: 'Springs', title: 'Preview VRM spring bones during playback' },
 ];
 
 export function PaneView(props: {

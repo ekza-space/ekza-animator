@@ -6,6 +6,18 @@ import { defineConfig } from 'vitest/config';
 const ci = process.env['CI'] === 'true' || process.env['CI'] === '1';
 
 export default defineConfig({
+  // Pre-bundled together up front: discovering them mid-run reloads the page, and bundling a three addon on its own
+  // would give it a second copy of three.
+  optimizeDeps: {
+    include: [
+      'three',
+      'three/examples/jsm/lines/LineMaterial.js',
+      'three/examples/jsm/lines/LineSegments2.js',
+      'three/examples/jsm/lines/LineSegmentsGeometry.js',
+      'three/examples/jsm/loaders/GLTFLoader.js',
+      'camera-controls',
+    ],
+  },
   test: {
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,

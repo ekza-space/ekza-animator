@@ -34,6 +34,13 @@ const MAX_DISTANCE = 5000;
 
 export type NavCamera = PerspectiveCamera | OrthographicCamera;
 
+/** Enough to put a camera back where a cancelled gesture found it. */
+export interface NavState {
+  readonly position: readonly [number, number, number];
+  readonly target: readonly [number, number, number];
+  readonly zoom: number;
+}
+
 const v1 = new Vector3();
 const v2 = new Vector3();
 const v3 = new Vector3();
@@ -63,6 +70,17 @@ export class NavigationController {
   lookAt(position: readonly [number, number, number], target: readonly [number, number, number]): void {
     void this.controls.setLookAt(position[0], position[1], position[2], target[0], target[1], target[2], false);
     this.apply();
+  }
+
+  saveState(): NavState {
+    const p = this.camera.position;
+    const t = this.target(new Vector3());
+    return { position: [p.x, p.y, p.z], target: [t.x, t.y, t.z], zoom: this.camera.zoom };
+  }
+
+  restoreState(state: NavState): void {
+    void this.controls.zoomTo(state.zoom, false);
+    this.lookAt(state.position, state.target);
   }
 
   /** Orbit pivot. */

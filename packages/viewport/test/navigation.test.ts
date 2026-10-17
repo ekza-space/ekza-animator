@@ -2,7 +2,7 @@ import type { CameraId } from '@ekza-animator/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type CameraSnapshot, WHEEL_BURST_MS } from '../src';
 import { pointerGesture, wheelAction } from '../src/navigation/profiles';
-import { addCamera, createRig, drag, type Rig, shotCamera, wheel } from './helpers';
+import { addCamera, createRig, drag, pointer, type Rig, shotCamera, wheel } from './helpers';
 
 let rig: Rig | null = null;
 afterEach(() => {
@@ -244,6 +244,32 @@ describe('shot cameras', () => {
     expect(rig.app.store.preview).toBe(preview);
     same(rig.vm.camera('pane-left'), start, 12);
     preview.cancel();
+  });
+
+  it('Esc during navigation puts the camera back (view camera and unlocked shot camera)', async () => {
+    rig = await createRig();
+    addCamera(rig.app, shotCamera({ locked: false }));
+    rig.layout('split');
+    rig.frame();
+    const local: number[] = [];
+    rig.app.store.subscribe((batch) => {
+      if (batch.origin === 'local') local.push(batch.version);
+    });
+    for (const pane of ['pane-right', 'pane-left']) {
+      const element = rig.panes.get(pane) as HTMLElement;
+      const start = rig.vm.camera(pane);
+      const c = centre(rig, pane);
+      pointer(element, 'pointerdown', c.x, c.y, { altKey: true });
+      pointer(element, 'pointermove', c.x + 80, c.y + 10, { altKey: true, buttons: 1 });
+      expect(changed(rig.vm.camera(pane), start)).toBe(true);
+      window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+      pointer(element, 'pointermove', c.x + 120, c.y + 10, { altKey: true, buttons: 1 });
+      pointer(element, 'pointerup', c.x + 120, c.y + 10, { altKey: true });
+      same(rig.vm.camera(pane), start);
+    }
+    expect(local).toEqual([]);
+    expect(rig.app.store.preview).toBeNull();
+    expect(rig.app.store.get('cameras', SHOT)?.transform.t).toEqual([0, 1.2, 4]);
   });
 
   it('follows document changes to the shot camera (another pane, undo, load)', async () => {

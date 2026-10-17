@@ -251,6 +251,21 @@ describe('manipulator press routing', () => {
     },
   );
 
+  it('a click on a handle without moving edits nothing and opens no gesture', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    const arm = control(rig, 'fk.upperArm.L');
+    setup(rig, arm.id, 'rotate', 'object');
+    const p = rig.vm.manipulatorScreenPoint('pane-right', 'rz');
+    const element = rig.panes.get('pane-right') as HTMLElement;
+    const rect = element.getBoundingClientRect();
+    const at = { x: rect.left + (p?.x ?? 0), y: rect.top + (p?.y ?? 0) };
+    drag(element, at, { x: at.x + 1, y: at.y }, undefined, 1);
+    expect(rig.app.store.preview).toBeNull();
+    expect((rig.app.services as FakeServices).toasts).toEqual([]);
+    expect(rig.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
+  });
+
   it('a press off the manipulator selects like the select tool', async () => {
     rig = await createRig();
     rig.layout('split');

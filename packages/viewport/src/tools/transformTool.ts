@@ -21,9 +21,17 @@ export type GestureFactory = (app: EditorApp, label: string) => ChannelEditGestu
 
 const defaultGesture: GestureFactory = (app, label) => beginChannelEditGesture(app, label, { key: 'auto' });
 
+/** Pointer travel (CSS px) before a press on a handle becomes a drag; a shorter press is a click and edits nothing. */
+const DRAG_THRESHOLD_PX = 2;
+
 interface Drag {
   readonly session: DragSession;
-  readonly gesture: ChannelEditGesture;
+  readonly startX: number;
+  readonly startY: number;
+  /** Opened lazily on the first real movement, so a click on a handle leaves no preview and no history step. */
+  gesture: ChannelEditGesture | null;
+  moved: boolean;
+  failed: boolean;
 }
 
 class TransformTool implements ToolInstance {
@@ -45,14 +53,7 @@ class TransformTool implements ToolInstance {
     if (handle === null) return this.select.pointerDown(e);
     const session = this.host.beginManipulatorDrag(e.paneId, handle, e.x, e.y);
     if (session === null) return this.select.pointerDown(e);
-    let gesture: ChannelEditGesture;
-    try {
-      gesture = this.gestureFactory(this.app, this.label);
-    } catch (error) {
-      this.app.services.notify.toast({ kind: 'error', text: gestureError(error) });
-      return true;
-    }
-    this.drag = { session, gesture };
+    this.drag = { session, startX: e.x, startY: e.y, gesture: null, moved: false, failed: false };
     this.host.setActiveHandle(handle);
     return true;
   }
@@ -60,29 +61,34 @@ class TransformTool implements ToolInstance {
   pointerMove(e: ToolPointerEvent): boolean {
     const drag = this.drag;
     if (drag === null) return this.select.pointerMove(e);
-    if (!drag.gesture.active) {
+    if (!drag.moved && Math.hypot(e.x - drag.startX, e.y - drag.startY) < DRAG_THRESHOLD_PX) return true;
+    drag.moved = true;
+    const gesture = this.gestureOf(drag);
+    if (gesture === null) return true;
+    if (!gesture.active) {
       // The preview was cancelled elsewhere (Esc through edit.escape): end the drag.
       this.finish();
       return true;
     }
-    drag.gesture.update(drag.session.update(e.x, e.y));
+    gesture.update(drag.session.update(e.x, e.y));
     return true;
   }
 
   pointerUp(e: ToolPointerEvent): boolean {
     const drag = this.drag;
     if (drag === null) return this.select.pointerUp(e);
-    if (drag.gesture.active) {
-      drag.gesture.update(drag.session.update(e.x, e.y));
-      drag.gesture.commit();
+    const gesture = drag.gesture;
+    if (gesture?.active === true) {
+      gesture.update(drag.session.update(e.x, e.y));
+      gesture.commit();
     }
     this.finish();
     return true;
   }
 
   cancel(): void {
-    const drag = this.drag;
-    if (drag !== null && drag.gesture.active) drag.gesture.cancel();
+    const gesture = this.drag?.gesture ?? null;
+    if (gesture?.active === true) gesture.cancel();
     this.finish();
     this.select.cancel();
   }
@@ -93,6 +99,17 @@ class TransformTool implements ToolInstance {
 
   cursor(): string | null {
     return this.drag === null ? null : 'grabbing';
+  }
+
+  private gestureOf(drag: Drag): ChannelEditGesture | null {
+    if (drag.gesture !== null || drag.failed) return drag.gesture;
+    try {
+      drag.gesture = this.gestureFactory(this.app, this.label);
+    } catch (error) {
+      drag.failed = true;
+      this.app.services.notify.toast({ kind: 'error', text: gestureError(error) });
+    }
+    return drag.gesture;
   }
 
   private finish(): void {

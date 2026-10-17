@@ -1,6 +1,6 @@
 // Adapted from ekza-avatar-renderer/src/previewFraming.ts @ 33c417c (MIT, © Wotori / Ekza). Changes: TypeScript
-// strict style, bounds type from ./bounds, radians-free API kept, orthographic fit added, no Ekza preview height
-// helpers.
+// strict style, bounds type from ./bounds, near/far tuned for an editor camera, an orthographic fit added, the Ekza
+// preview height helpers and orbit distance limits dropped.
 import type { SpatialBounds } from './bounds';
 
 export const DEFAULT_FRAME_PADDING = 1.12;
