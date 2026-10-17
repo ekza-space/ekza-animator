@@ -5,7 +5,7 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId } from '@ekza-animator/doc';
 import type { ImporterDef } from '@ekza-animator/editor-core';
 import { DEFAULT_REDUCE } from '@ekza-animator/rig';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { CHECK_ALL_CLIPS_MAX, defaultClipSelection, importOptions } from '../src/dialogs/ImportDialog';
 import { createBrowserAssetStore, sha256Hex } from '../src/services/assets';
 import { createBrowserClipboard } from '../src/services/clipboard';
@@ -412,6 +412,25 @@ describe('browser services', () => {
     expect(localStorage.getItem('ekza-test:x')).toBe('1');
     expect(local.getItem('x')).toBe('1');
     localStorage.removeItem('ekza-test:x');
+  });
+
+  it('reads a key whose write failed from memory until a write succeeds again', () => {
+    const local = createLocalStorage('ekza-test:');
+    local.setItem('layout', 'old');
+    const quota = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('full', 'QuotaExceededError');
+    });
+    try {
+      local.setItem('layout', 'new');
+      expect(local.getItem('layout')).toBe('new');
+      expect(localStorage.getItem('ekza-test:layout')).toBe('old');
+    } finally {
+      quota.mockRestore();
+    }
+    local.setItem('layout', 'newer');
+    expect(local.getItem('layout')).toBe('newer');
+    expect(localStorage.getItem('ekza-test:layout')).toBe('newer');
+    localStorage.removeItem('ekza-test:layout');
   });
 
   it('keeps an in-app clipboard copy when the system clipboard is unavailable', async () => {

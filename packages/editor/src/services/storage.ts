@@ -9,8 +9,12 @@ export function createLocalStorage(namespace = ''): PrefsStorage {
   const memory = createMemoryStorage();
   const local = probeLocalStorage();
   if (local === null) return memory;
+  // Keys whose last write failed (quota, storage revoked) live in memory until a write succeeds again: reading
+  // localStorage first would return the older stored value.
+  const inMemory = new Set<string>();
   return {
     getItem(key: string): string | null {
+      if (inMemory.has(key)) return memory.getItem(key);
       try {
         return local.getItem(`${namespace}${key}`);
       } catch {
@@ -20,8 +24,10 @@ export function createLocalStorage(namespace = ''): PrefsStorage {
     setItem(key: string, value: string): void {
       try {
         local.setItem(`${namespace}${key}`, value);
+        if (inMemory.delete(key)) memory.removeItem(key);
       } catch {
         memory.setItem(key, value);
+        inMemory.add(key);
       }
     },
   };
