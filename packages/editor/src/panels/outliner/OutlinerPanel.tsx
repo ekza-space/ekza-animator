@@ -323,6 +323,10 @@ export function OutlinerPanel({ app, instanceId }: PanelProps): JSX.Element {
   const focusIndex = focusKey === null ? -1 : (indexByKey.get(focusKey) ?? -1);
   const onTreeKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
     if (event.target instanceof HTMLInputElement) return; // inline rename
+    // Hotkeys follow the hovered panel (§4.10 "Keyboard focus", acceptance round 2): with the pointer over another
+    // panel, F, Home, End and the arrows belong to that panel even though the tree still has the DOM focus.
+    const hovered = app.session.getState().hoveredPanel;
+    if (hovered !== null && hovered.kind !== PANEL.outliner) return;
     const row = focusIndex === -1 ? undefined : rows[focusIndex];
     const page = Math.max(1, Math.floor((scrollRef.current?.clientHeight ?? ROW_HEIGHT * 10) / ROW_HEIGHT) - 1);
     switch (event.key) {

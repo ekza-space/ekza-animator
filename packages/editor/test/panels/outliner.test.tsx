@@ -321,6 +321,34 @@ describe('Outliner clips and keyboard', () => {
     await view.unmount();
   });
 
+  it('leaves its keys to the hovered panel: F, Home and End over the viewport are not tree keys (acceptance round 2)', async () => {
+    const app = waveApp();
+    const view = await panel(app);
+    await user.click(row(ROOT));
+    const tree = by('outliner-tree');
+    expect(document.activeElement).toBe(tree);
+    const reached: string[] = [];
+    const onKey = (event: KeyboardEvent): void => {
+      if (!event.defaultPrevented) reached.push(event.key);
+    };
+    window.addEventListener('keydown', onKey);
+    try {
+      await setSession(app, { hoveredPanel: { kind: 'viewport', paneId: 'pane-right' } });
+      const before = tree.getAttribute('aria-activedescendant');
+      await user.keyboard('{End}f{Home}');
+      expect(reached).toEqual(['End', 'f', 'Home']);
+      expect(tree.getAttribute('aria-activedescendant')).toBe(before);
+      // Over the Outliner itself they are tree keys again.
+      await setSession(app, { hoveredPanel: { kind: 'outliner', paneId: null } });
+      await user.keyboard('{End}');
+      expect(reached).toEqual(['End', 'f', 'Home']);
+      expect(tree.getAttribute('aria-activedescendant')).not.toBe(before);
+    } finally {
+      window.removeEventListener('keydown', onKey);
+    }
+    await view.unmount();
+  });
+
   it('virtualizes long rigs: only the rows in view are in the DOM', async () => {
     const app = waveApp();
     const extra: ControlRecord[] = Array.from({ length: 2000 }, (_, i) =>
