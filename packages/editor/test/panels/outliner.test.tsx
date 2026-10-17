@@ -305,6 +305,17 @@ describe('Outliner clips and keyboard', () => {
     expect(active()).toBe(`outliner-row-${control('fk.hips')}`);
     await user.keyboard('{Enter}');
     expect(callsOf(app, 'select.controls').at(-1)).toEqual({ ids: [control('fk.hips')], mode: 'replace' });
+    // Space is left to the global keymap (maximize the hovered panel, Maya): the tree neither selects nor consumes it.
+    const selections = callsOf(app, 'select.controls').length;
+    let spaceReachedWindow = false;
+    const onSpace = (event: KeyboardEvent): void => {
+      if (event.key === ' ' && !event.defaultPrevented) spaceReachedWindow = true;
+    };
+    window.addEventListener('keydown', onSpace);
+    await user.keyboard(' ');
+    window.removeEventListener('keydown', onSpace);
+    expect(spaceReachedWindow).toBe(true);
+    expect(callsOf(app, 'select.controls')).toHaveLength(selections);
     await user.keyboard('/');
     expect(document.activeElement).toBe(input('outliner-filter'));
     await view.unmount();
@@ -358,6 +369,14 @@ describe('Outliner model', () => {
       control('fk.hand.L'),
       control('fk.indexProximal.L'),
     ]);
+    // A hidden secondary control is skipped but walked through: its shown children still belong to the hierarchy.
+    const head = controls.find((c) => c.key === 'fk.head');
+    if (head === undefined) throw new Error('no fk.head');
+    const hat = { ...head, id: control('sec.hat'), key: 'sec.hat', group: 'secondary' as const, parent: head.id };
+    const feather = { ...head, id: control('acc.feather'), key: 'acc.feather', parent: hat.id };
+    const withHat = [...controls, hat, feather];
+    expect(controlHierarchy(withHat, [head.id], false)).toEqual([head.id, control('fk.jaw'), feather.id]);
+    expect(controlHierarchy(withHat, [head.id], true)).toEqual([head.id, control('fk.jaw'), hat.id, feather.id]);
     expect(revealKeys(doc, control('fk.hand.L'))).toEqual([
       `chr:${CHARACTER}`,
       `grp:${CHARACTER}:rig`,

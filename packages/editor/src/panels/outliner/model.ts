@@ -384,7 +384,10 @@ export function buildOutlinerRows(doc: OutlinerDoc, view: OutlinerView): Outline
   return rows;
 }
 
-/** The control and its shown descendants, parents first ("Select Hierarchy"). */
+/**
+ * The control and its shown descendants, parents first ("Select Hierarchy"). Hidden secondary controls are skipped
+ * but walked through: the tree shows their shown descendants under the nearest shown ancestor, and so does this.
+ */
 export function controlHierarchy(
   controls: readonly ControlRecord[],
   roots: readonly ControlId[],
@@ -398,15 +401,13 @@ export function controlHierarchy(
   }
   const out: ControlId[] = [];
   const seen = new Set<ControlId>();
-  const visit = (id: ControlId): void => {
+  const visit = (id: ControlId, shown: boolean): void => {
     if (seen.has(id)) return;
     seen.add(id);
-    out.push(id);
-    for (const child of children.get(id) ?? []) {
-      if (showSecondary || !isSecondary(child)) visit(child.id);
-    }
+    if (shown) out.push(id);
+    for (const child of children.get(id) ?? []) visit(child.id, showSecondary || !isSecondary(child));
   };
-  for (const id of roots) visit(id);
+  for (const id of roots) visit(id, true);
   return out;
 }
 
