@@ -76,6 +76,9 @@ interface PendingPress {
   readonly click: (() => void) | null;
 }
 
+/** PointerEvent.buttons bit of each PointerEvent.button (left, middle, right). */
+const BUTTON_BITS: readonly number[] = [1, 4, 2];
+
 const toGesturePointer = (e: ToolPointerEvent): GesturePointer => ({
   x: e.x,
   y: e.y,
@@ -112,7 +115,10 @@ export class GraphEditorController {
   private pending: PendingPress | null = null;
   private toolCapture = false;
   private pointer: GesturePointer | null = null;
+  private pressButton = 0;
   private hover: OverlayState['hover'] = null;
+  /** The document changed under a resting pointer: the hover target is recomputed before the next overlay. */
+  private hoverStale = false;
   private tool: { readonly id: string; readonly def: ToolDef; readonly instance: ToolInstance } | null = null;
 
   private readonly hitScratch = new HitScratch();
@@ -330,8 +336,14 @@ export class GraphEditorController {
 
   pointerDown(e: ToolPointerEvent): void {
     if (this.disposed) return;
+    if (this.busy) {
+      // One gesture at a time; a press whose button is no longer down lost its release (outside the window
+      // without capture), so its gesture is cancelled and the new press starts fresh.
+      if ((e.buttons & (BUTTON_BITS[this.pressButton] ?? 0)) !== 0) return;
+      this.cancel();
+    }
     this.pointer = toGesturePointer(e);
-    if (this.busy) return; // one gesture at a time
+    this.pressButton = e.button;
     this.setHover(null);
     const navigation = this.navigationGesture(e);
     if (navigation !== null) {
@@ -457,6 +469,7 @@ export class GraphEditorController {
 
   /** The pointer left the canvas: drop the hover highlight. */
   pointerLeave(): void {
+    if (!this.busy) this.pointer = null;
     this.setHover(null);
   }
 
@@ -481,6 +494,11 @@ export class GraphEditorController {
       this.renderer.renderBase(scene);
     }
     if (drawOverlay) {
+      if (this.hoverStale) {
+        this.hoverStale = false;
+        const pointer = this.pointer;
+        if (pointer !== null && !this.busy) this.updateHover(pointer);
+      }
       this.overlayDirty = false;
       this.overlayRedraws++;
       this.renderer.renderOverlay(scene, {
@@ -512,8 +530,9 @@ export class GraphEditorController {
   private invalidateBase(): void {
     this.sceneCache = null;
     this.baseDirty = true;
-    // Keys move under a resting pointer: the hover highlight must follow, so the overlay redraws too.
+    // Keys may have moved under a resting pointer: the overlay redraws with a recomputed hover target.
     this.overlayDirty = true;
+    if (this.hover !== null) this.hoverStale = true;
     this.schedule();
   }
 

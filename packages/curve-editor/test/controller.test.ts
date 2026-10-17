@@ -307,13 +307,34 @@ describe('selection gestures', () => {
     const { controller } = mounted;
     controller.pointerDown(pointer({ x: 5, y: 5 }));
     expect(controller.busy).toBe(true);
-    controller.pointerDown(pointer({ x: 50, y: 50, button: 1, alt: true }));
+    const view = controller.view;
+    // A second button while the first is still down (buttons = LMB | MMB) is ignored.
+    controller.pointerDown(pointer({ x: 50, y: 50, button: 1, buttons: 5, alt: true }));
+    controller.pointerMove(pointer({ x: 90, y: 50, button: 1, buttons: 5, alt: true }));
+    expect(controller.view).toEqual(view);
     expect(controller.key(keyEvent({ code: 'Escape' }))).toBe(true);
     expect(controller.busy).toBe(false);
     controller.pointerUp(pointer({ x: 5, y: 5, buttons: 0 }));
     await settle();
     expect(callsOf(app, 'select.keys')).toEqual([]);
     expect(controller.key(keyEvent({ code: 'Escape' }))).toBe(false);
+  });
+});
+
+describe('lost releases', () => {
+  it('a press whose earlier button is no longer down cancels the stale gesture and starts fresh', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    controller.pointerDown(pointer({ x: 5, y: 5 })); // LMB press whose release never arrives
+    const view = controller.view;
+    controller.pointerDown(pointer({ x: 50, y: 50, button: 1, buttons: 4, alt: true }));
+    controller.pointerMove(pointer({ x: 90, y: 50, button: 1, buttons: 4, alt: true }));
+    controller.pointerUp(pointer({ x: 90, y: 50, button: 1, buttons: 0, alt: true }));
+    expect(frameToX(controller.view, 10)).toBeCloseTo(frameToX(view, 10) + 40, 6);
+    expect(controller.busy).toBe(false);
+    await settle();
+    expect(callsOf(app, 'select.keys')).toEqual([]);
   });
 });
 
