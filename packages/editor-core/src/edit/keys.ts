@@ -129,8 +129,12 @@ function place(
     const lower = i > 0 ? (placements[i - 1] as Placement).t + margin : -Infinity;
     const upper = j < placements.length ? (placements[j] as Placement).t - margin : Infinity;
     const run = placements.slice(i, j);
-    const min = Math.min(...run.map((p) => p.t));
-    const max = Math.max(...run.map((p) => p.t));
+    let min = Infinity;
+    let max = -Infinity;
+    for (const p of run) {
+      if (p.t < min) min = p.t;
+      if (p.t > max) max = p.t;
+    }
     if (clampAs === 'block' && max - min <= upper - lower) {
       const shift = min < lower ? lower - min : max > upper ? upper - max : 0;
       for (const p of run) p.t += shift;
@@ -142,13 +146,11 @@ function place(
   if (!opts.resolveCollisions) return { placements, deleted: [] };
 
   const deleted = new Set<KeyId>();
-  const movingPlacements = placements.filter((p) => p.moving);
+  const sorted = placements.filter((p) => p.moving).sort((a, b) => a.t - b.t);
+  const times = sorted.map((p) => p.t);
   // Non-moving keys under a moving key are deleted.
-  for (const p of placements) {
-    if (!p.moving && movingPlacements.some((m) => Math.abs(m.t - p.t) < SAME_FRAME_EPS)) deleted.add(p.key.id);
-  }
+  for (const p of placements) if (!p.moving && hasTimeNear(times, p.t)) deleted.add(p.key.id);
   // Moving keys on one frame: one survives.
-  const sorted = [...movingPlacements].sort((a, b) => a.t - b.t);
   for (let i = 0; i < sorted.length; ) {
     let j = i + 1;
     while (j < sorted.length && Math.abs((sorted[j] as Placement).t - (sorted[i] as Placement).t) < SAME_FRAME_EPS) j++;
@@ -161,6 +163,18 @@ function place(
     i = j;
   }
   return { placements, deleted: [...deleted] };
+}
+
+/** True when the ascending `times` hold a value within `SAME_FRAME_EPS` of `t` (binary search). */
+function hasTimeNear(times: readonly number[], t: number): boolean {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((times[mid] as number) <= t - SAME_FRAME_EPS) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo < times.length && Math.abs((times[lo] as number) - t) < SAME_FRAME_EPS;
 }
 
 /** Key ids grouped by curve (missing keys skipped), preserving first-seen curve order. */

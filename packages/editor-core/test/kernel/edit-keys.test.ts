@@ -188,6 +188,90 @@ describe('scaleKeys (§4.11.3)', () => {
   });
 });
 
+describe('move and scale invariants (property)', () => {
+  /** The wave curve with keys at the given distinct times; ids ascend with time. */
+  function curveWithKeys(times: readonly number[]): { readonly app: EditorApp; readonly ids: KeyId[] } {
+    const app = waveApp();
+    edit(app, 'Clear', (tx) => {
+      for (const key of W.keys) tx.remove('keys', key);
+    });
+    const sorted = [...times].sort((a, b) => a - b);
+    return {
+      app,
+      ids: addKeys(
+        app,
+        sorted.map((t, i) => [t, i * 0.1] as [number, number]),
+      ),
+    };
+  }
+
+  /** Every key record of the wave curve, hidden duplicates included, in the original order of `ids`. */
+  function survivors(app: EditorApp, ids: readonly KeyId[]): KeyRecord[] {
+    return ids.flatMap((id) => {
+      const key = app.store.get('keys', id);
+      return key === undefined ? [] : [key];
+    });
+  }
+
+  const input = fc.uniqueArray(fc.integer({ min: 0, max: 40 }), { minLength: 1, maxLength: 8 }).chain((times) =>
+    fc.record({
+      times: fc.constant(times),
+      moving: fc.array(fc.boolean(), { minLength: times.length, maxLength: times.length }),
+      snap: fc.boolean(),
+      resolve: fc.boolean(),
+    }),
+  );
+
+  it('moveKeys keeps every curve ordered: no crossing while dragging, unique times after the final update', () => {
+    fc.assert(
+      fc.property(input, fc.double({ min: -50, max: 50, noNaN: true }), ({ times, moving, snap, resolve }, d) => {
+        const { app, ids } = curveWithKeys(times);
+        const selected = ids.filter((_, i) => moving[i] === true);
+        const result = edit(app, 'Move', (tx) =>
+          moveKeys(app, tx, selected, d, 0, { snap, resolveCollisions: resolve }),
+        );
+        const after = survivors(app, ids);
+        expect(after.length + result.deleted.length).toBe(ids.length);
+        expect(result.deleted.length === 0 || resolve).toBe(true);
+        expect(result.deleted.every((id) => ids.includes(id))).toBe(true);
+        // Original order, strictly increasing times (no duplicates, hidden or not).
+        const gaps = after.slice(1).map((key, i) => key.t - (after[i] as KeyRecord).t);
+        expect(gaps.every((gap) => gap >= 1e-6)).toBe(true);
+        const sorted = [...times].sort((a, b) => a - b);
+        const stayed = after.filter((key) => !selected.includes(key.id));
+        expect(stayed.map((key) => key.t)).toEqual(stayed.map((key) => sorted[ids.indexOf(key.id)]));
+        const landed = after.filter((key) => selected.includes(key.id) && snap && resolve);
+        expect(landed.every((key) => Number.isInteger(key.t))).toBe(true);
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it('scaleKeys keeps every curve ordered and leaves unique times after the final update', () => {
+    fc.assert(
+      fc.property(
+        input,
+        fc.double({ min: -10, max: 50, noNaN: true }),
+        fc.double({ min: 0, max: 3, noNaN: true }),
+        ({ times, moving, snap, resolve }, pivot, factor) => {
+          const { app, ids } = curveWithKeys(times);
+          const selected = ids.filter((_, i) => moving[i] === true);
+          const result = edit(app, 'Scale', (tx) =>
+            scaleKeys(app, tx, selected, pivot, factor, { snap, resolveCollisions: resolve }),
+          );
+          const after = survivors(app, ids);
+          expect(after.length + result.deleted.length).toBe(ids.length);
+          expect(result.deleted.length === 0 || resolve).toBe(true);
+          // While dragging, snapped or clamped moving keys may share a frame; they never swap.
+          const gaps = after.slice(1).map((key, i) => key.t - (after[i] as KeyRecord).t);
+          expect(gaps.every((gap) => gap >= (resolve ? 1e-6 : 0))).toBe(true);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+});
+
 describe('setTangentTypes (§4.11.4)', () => {
   it('linear on all keys: the span is linear; stepped sets the out side only', () => {
     const app = waveApp();
