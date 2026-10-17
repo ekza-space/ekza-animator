@@ -27,11 +27,12 @@ export function HelpLine(): JSX.Element {
   const tool = useSession((s) => s.tools.viewport);
   const selected = useSession((s) => s.selection.controls.length);
   const navProfile = usePrefs((p) => p.navProfile);
+  const spaceBehaviour = usePrefs((p) => p.spaceBehaviour);
 
   const hint =
     hoverKind === PANEL.viewport || hoverKind === null || hoverKind === GLOBAL_SCOPE
       ? `${NAV_HINT[navProfile]}${TOOL_HINT[tool] === undefined ? '' : ` · ${TOOL_HINT[tool]}`}`
-      : `Space: maximize panel · ? shortcuts`;
+      : `Space: ${spaceBehaviour === 'play' ? 'play / stop' : 'maximize panel'} · ? shortcuts`;
   const busyLabel = busy?.label ?? shellBusy;
 
   return (

@@ -125,5 +125,8 @@ summary badges and all `/dev/shell` specs pass; E2E-01/03/19/20 are fixme on WP-
   during playback/scrubbing**), `dialogs.test.tsx`, `files.test.ts`, `commands.test.ts`, `test-api.test.ts`,
   `hooks.test.tsx`, `panel-harness.test.tsx`.
 - `packages/ui/test/tokens.test.ts`: generated CSS is current, contrast table (research 09 §8.3), dockview CSS.
+- `packages/editor/test/ui-primitives.test.tsx`: ContextMenu, DropdownMenu, Popover, Tabs, Select, IconButton and the
+  icon set in a real browser (the ui package's own Vitest runs in Node).
 - e2e (`EKZA_E2E_PORT=3109 pnpm --filter web e2e`): `00-webgl` (2), `01`, `03`, `19`, `20`, `dev-shell` (9),
-  `tailwind-smoke`, `dev-panels`.
+  `resilience` (NFR-12 storage blocked, NFR-13 forced context loss; M1-stretch automation of the manual QA items, on
+  `/dev/shell`), `tailwind-smoke`, `dev-panels`.
