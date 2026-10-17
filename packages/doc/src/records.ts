@@ -284,13 +284,21 @@ export const MERGE_UNIT: Readonly<Record<BuiltinTableName, MergeUnit>> = {
   keys: 'record',
 };
 
+/** WP-2 addition (docs/wp-notes/wp-2.md): resolves what a record alone cannot tell — rig-scoped records (controls,
+ *  constraints, solvers) reference only their rig, and their partition is `char:<the rig's character>`. Stores pass
+ *  a lookup over their own state; an unknown rig yields `undefined` (the record then belongs to `scene`). */
+export interface PartitionLookup {
+  rigCharacter(rig: RigId): CharacterId | undefined;
+}
+
 /** Runtime description of a table: built-ins are registered by `doc`, extensions call registerTable(). */
 export interface TableDef {
   readonly name: string;                       // built-ins unprefixed; extensions namespaced 'vendor.table'
   readonly version: number;                    // per-table schema version (DocSnapshot.tableVersions)
   readonly mergeUnit: MergeUnit;               // nested objects (shape, keyable, range, placement, …) are atomic values
   readonly softDelete: boolean;
-  partition(record: { readonly id: string }): Partition;
+  /** `lookup` (WP-2 addition) is passed by stores; the built-in rig-scoped tables require it. */
+  partition(record: { readonly id: string }, lookup?: PartitionLookup): Partition;
   /** [] when valid; otherwise human-readable problems. */
   validate(record: unknown): readonly string[];
   /** Pure, idempotent migrations; index i migrates version i+1 → i+2. New IDs derive as hash(oldId + ':' + purpose). */

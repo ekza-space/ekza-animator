@@ -1,12 +1,12 @@
-// WP-2 stubs: final signatures (MVP-SPEC §7 WP-2); bodies throw until record helpers land.
-import { EkzaError } from '@ekza-animator/anim-core';
+// Channel helpers (MVP-SPEC §4.2 `ChannelId`, §4.11.8 defaults).
 import type { ChannelId } from '../records';
 
-/** 0, or 1 for sx/sy/sz. */
-export function defaultChannelValue(_channel: ChannelId): number {
-  throw new EkzaError('not-implemented', 'doc.defaultChannelValue');
+/** Rest value of a channel: 1 for sx/sy/sz, 0 otherwise (custom `@attr` channels default to 0 here). */
+export function defaultChannelValue(channel: ChannelId): number {
+  return channel === 'sx' || channel === 'sy' || channel === 'sz' ? 1 : 0;
 }
 
-export function isRotationChannel(_channel: ChannelId): boolean {
-  throw new EkzaError('not-implemented', 'doc.isRotationChannel');
+/** True for the Euler rotation channels rx, ry, rz (radians internally, degrees in the UI). */
+export function isRotationChannel(channel: ChannelId): boolean {
+  return channel === 'rx' || channel === 'ry' || channel === 'rz';
 }

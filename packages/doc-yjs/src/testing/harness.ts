@@ -1,6 +1,11 @@
-// WP-2 stub: final signature (MVP-SPEC §7 WP-2); throws until the replica harness lands.
-import { EkzaError, type ReplicaHarness } from '@ekza-animator/doc';
+// Replica harness for the conformance suite: N Yjs stores, one user each, on the shared test network.
+import type { ReplicaHarness, UserId } from '@ekza-animator/doc';
+import { createTestNetwork } from '@ekza-animator/doc/testing';
+import { createYjsStore } from '../store';
 
 export function yjsHarness(): ReplicaHarness {
-  throw new EkzaError('not-implemented', 'doc-yjs.yjsHarness');
+  return {
+    create: (n, opts) =>
+      createTestNetwork(n, (replicaId) => createYjsStore({ replicaId, user: `user-${replicaId}` as UserId }), opts),
+  };
 }
