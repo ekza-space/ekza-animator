@@ -257,3 +257,34 @@ test('integration smoke: samples, posing, keys, Graph Editor, playback, exports,
 
   expect(problems).toEqual([]);
 });
+
+// The ordinary production path (no ?e2e=1): no test API, real localStorage, random IDs, the first-run dialog with the
+// "Getting started" card, then a sample from the empty viewport.
+test('integration smoke: the production editor without e2e mode', async ({ page }) => {
+  const problems: string[] = [];
+  page.on('pageerror', (error) => problems.push(`pageerror: ${error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') problems.push(`console.error: ${message.text()}`);
+  });
+  await page.goto('/editor');
+  const firstRun = page.getByTestId('firstrun-dialog');
+  await expect(firstRun).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('firstrun-getting-started')).toContainText('Plant Feet');
+  expect(await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__ === undefined)).toBe(true);
+  await shot(page, '20-production-first-run');
+  await page.getByTestId('firstrun-nav-maya').click();
+  await page.getByTestId('firstrun-done').click();
+  await expect(firstRun).toBeHidden();
+
+  await page.getByTestId('sample-polybot').click();
+  await expect(page.locator('[data-testid^="outliner-character-"]')).toHaveCount(1, { timeout: 30_000 });
+  await expect(page.getByTestId('dropzone')).toBeHidden();
+  await page.waitForTimeout(500);
+  await shot(page, '21-production-polybot');
+
+  // The choices persist: a reload does not ask again.
+  await page.reload();
+  await expect(page.getByTestId('dropzone')).toBeVisible({ timeout: 30_000 });
+  await expect(firstRun).toBeHidden();
+  expect(problems).toEqual([]);
+});
