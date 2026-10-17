@@ -43,7 +43,9 @@ const FIELD =
 
 /**
  * Numeric field with expression entry (research 09 §6.4): Enter or blur commits, Esc reverts. `value` '' shows the
- * mixed placeholder '—'. `onCommit` returns an error message to mark the input invalid, or null.
+ * mixed placeholder '—'. `onCommit` returns an error message to mark the input invalid, or null. Like the Channel
+ * Box, Enter (when the value is valid) and Esc give the keyboard back to the editor, so Mod+Z and the tangent digits
+ * work at once (acceptance round 2); an invalid entry keeps the focus and its red border.
  */
 export function NumberField(props: {
   readonly testId: string;
@@ -56,32 +58,51 @@ export function NumberField(props: {
   const [text, setText] = useState(props.value);
   const [error, setError] = useState<string | null>(null);
   const editing = useRef(false);
+  /** Enter or Esc already settled the draft before the blur they cause. */
+  const settled = useRef(false);
   useEffect(() => {
     if (!editing.current) setText(props.value);
   }, [props.value]);
 
-  const commit = (): void => {
+  /** Commits the draft; false when `onCommit` rejected it. */
+  const commit = (): boolean => {
     editing.current = false;
     if (text === props.value) {
       setError(null);
-      return;
+      return true;
     }
     const failure = props.onCommit(text);
     setError(failure);
     if (failure === null) setText(props.value);
+    return failure === null;
   };
   const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      commit();
-      e.currentTarget.select();
+      e.stopPropagation();
+      if (!commit()) {
+        editing.current = true;
+        e.currentTarget.select();
+        return;
+      }
+      settled.current = true;
+      e.currentTarget.blur();
     } else if (e.key === 'Escape') {
       e.preventDefault();
+      e.stopPropagation();
       editing.current = false;
+      settled.current = true;
       setText(props.value);
       setError(null);
       e.currentTarget.blur();
     }
+  };
+  const onBlur = (): void => {
+    if (settled.current) {
+      settled.current = false;
+      return;
+    }
+    commit();
   };
   return (
     <label className="flex shrink-0 items-center gap-1 text-[11px] text-fg-3">
@@ -106,7 +127,7 @@ export function NumberField(props: {
           setText(e.currentTarget.value);
           setError(null);
         }}
-        onBlur={commit}
+        onBlur={onBlur}
         onKeyDown={onKeyDown}
       />
     </label>

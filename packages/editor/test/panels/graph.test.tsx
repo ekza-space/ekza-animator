@@ -320,6 +320,34 @@ describe('GraphPanel', () => {
     },
   );
 
+  it('Enter commits a key field and gives the keyboard back; Esc reverts without committing (acceptance round 2)', async () => {
+    const container = await mountPanel();
+    await select([[KEYS[1], { key: true }]]);
+    await settle();
+    const value = input(container, 'ge-field-value');
+    await inAct(() => userEvent.fill(value, '-10'));
+    await inAct(() => userEvent.keyboard('{Enter}'));
+    // Focus left the field: hotkeys (Mod+Z, the tangent digits) reach the editor and nothing types into it.
+    expect(document.activeElement).not.toBe(value);
+    await inAct(() => userEvent.keyboard('4'));
+    await settle();
+    expect(value.value).not.toContain('4');
+    expect(callsOf('graph.keys.setFields')).toEqual([{ value: -10 }]);
+
+    await inAct(() => userEvent.fill(value, '55'));
+    await inAct(() => userEvent.keyboard('{Escape}'));
+    await settle();
+    expect(document.activeElement).not.toBe(value);
+    expect(callsOf('graph.keys.setFields')).toEqual([{ value: -10 }]);
+
+    // An invalid entry keeps the focus (and the red border) so it can be fixed.
+    await inAct(() => userEvent.fill(value, 'abc'));
+    await inAct(() => userEvent.keyboard('{Enter}'));
+    expect(document.activeElement).toBe(value);
+    expect(value.getAttribute('aria-invalid')).toBe('true');
+    expect(callsOf('graph.keys.setFields')).toEqual([{ value: -10 }]);
+  });
+
   it.skipIf(!TANGENT_FIELDS_READY)('[needs WP-1] shows the in/out angles of the selected key', async () => {
     const container = await mountPanel();
     await select([[KEYS[1], { key: true }]]);
