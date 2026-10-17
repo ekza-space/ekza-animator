@@ -1,10 +1,9 @@
 // Recording operator registry and runner of the fake app (MVP-SPEC §4.11.0 operator runner): every run is recorded,
 // registered operators run through poll → prepare → poll → apply (one transaction when flags.undo) → history.
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, ChannelValues, ControlId, DocumentStore } from '@ekza-animator/doc';
+import type { CharacterId, ChannelValues, ControlId, DocumentStore, UndoEntry } from '@ekza-animator/doc';
 import type {
   EditorApp,
-  EditorHistory,
   OperatorContext,
   OperatorDef,
   OperatorRegistry,
@@ -15,6 +14,7 @@ import type {
   SessionState,
   SessionStore,
 } from '../types';
+import type { FakeEditorHistory } from './history';
 import { snapshotSelection } from './session';
 
 type AnyOperator = OperatorDef<unknown, unknown, unknown>;
@@ -35,7 +35,7 @@ export function createFakeOperators(deps: {
   readonly app: () => EditorApp;
   readonly store: DocumentStore;
   readonly session: SessionStore;
-  readonly history: EditorHistory;
+  readonly history: FakeEditorHistory;
   /** Active clip and clip frame of a character, for override deltas. */
   readonly clipFrameOf: (
     character: CharacterId,
@@ -86,7 +86,12 @@ export function createFakeOperators(deps: {
 
       rollback = deps.session.getState();
       const undoTop = deps.store.undo.peekUndo();
+      const navigations = deps.history.navigations;
       const label = def.undoLabel?.(args) ?? def.label;
+      const localTxIds = new Set<string>();
+      const unsubscribe = deps.store.subscribe((batch) => {
+        if (batch.origin === 'local') localTxIds.add(batch.txId);
+      });
       applying++;
       let value: unknown;
       try {
@@ -101,12 +106,16 @@ export function createFakeOperators(deps: {
         }
       } finally {
         applying--;
+        unsubscribe();
       }
 
-      const top = deps.store.undo.peekUndo();
-      const docTxId = top !== null && top !== undoTop ? top.txId : null;
-      const overrides = overrideDelta(rollback, deps.session.getState(), deps.clipFrameOf);
-      if (docTxId !== null || overrides !== null) deps.history.record({ label, docTxId, overrides });
+      // An operator that navigated the editor history (edit.undo/redo) adds no step of its own: the restored
+      // overrides and the doc undo/redo would otherwise be recorded as a new step and clear the redo stack.
+      if (deps.history.navigations === navigations) {
+        const docTxId = newDocEntry(undoTop, deps.store.undo.peekUndo(), localTxIds);
+        const overrides = overrideDelta(rollback, deps.session.getState(), deps.clipFrameOf);
+        if (docTxId !== null || overrides !== null) deps.history.record({ label, docTxId, overrides });
+      }
       return { status: 'finished', value };
     } catch (error) {
       if (rollback !== null) deps.session.setState(rollback, true);
@@ -131,6 +140,21 @@ export function createFakeOperators(deps: {
       return execute(def, args, ctx);
     },
   };
+}
+
+/**
+ * The txId of the doc undo entry that `apply` created or extended: the top entry after apply, if a local batch
+ * committed during apply produced it or was coalesced into it in place (same txId, new entry object). Undo/redo
+ * batches and `undoable: false` commits never qualify.
+ */
+function newDocEntry(
+  before: UndoEntry | null,
+  after: UndoEntry | null,
+  localTxIds: ReadonlySet<string>,
+): string | null {
+  if (after === null || localTxIds.size === 0) return null;
+  if (localTxIds.has(after.txId)) return after.txId;
+  return after !== before && after.txId === before?.txId ? after.txId : null;
 }
 
 /** Override changes between two session states, for the active character's clip frame; null when unchanged. */

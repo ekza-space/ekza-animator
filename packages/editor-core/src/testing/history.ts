@@ -15,11 +15,17 @@ export interface HistoryContext {
   ) => { readonly clip: ClipId; readonly frame: Frame } | null;
 }
 
-export function createFakeHistory(ctx: HistoryContext): EditorHistory {
+/** The fake history plus a count of `undo`/`redo` calls, which the operator runner reads (see `operators.ts`). */
+export interface FakeEditorHistory extends EditorHistory {
+  readonly navigations: number;
+}
+
+export function createFakeHistory(ctx: HistoryContext): FakeEditorHistory {
   const undoSteps: HistoryStep[] = [];
   const redoSteps: HistoryStep[] = [];
   const listeners = new Set<() => void>();
   let nextId = 1;
+  let navigations = 0;
   const notify = (): void => {
     for (const listener of listeners) listener();
   };
@@ -61,6 +67,9 @@ export function createFakeHistory(ctx: HistoryContext): EditorHistory {
   };
 
   return {
+    get navigations() {
+      return navigations;
+    },
     canUndo: () => undoSteps.length > 0,
     canRedo: () => redoSteps.length > 0,
     peekUndo: () => undoSteps.at(-1) ?? null,
@@ -68,6 +77,7 @@ export function createFakeHistory(ctx: HistoryContext): EditorHistory {
     undo(): HistoryResult | null {
       const step = undoSteps.pop();
       if (step === undefined) return null;
+      navigations++;
       const result = apply(step, 'undo');
       redoSteps.push(step);
       notify();
@@ -76,6 +86,7 @@ export function createFakeHistory(ctx: HistoryContext): EditorHistory {
     redo(): HistoryResult | null {
       const step = redoSteps.pop();
       if (step === undefined) return null;
+      navigations++;
       const result = apply(step, 'redo');
       undoSteps.push(step);
       notify();

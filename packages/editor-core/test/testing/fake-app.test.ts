@@ -180,6 +180,100 @@ describe('createFakeEditorApp (test kit)', () => {
       preview.cancel();
     });
 
+    it('adds no step for an operator that navigates the history, so redo survives', async () => {
+      const app = waveApp();
+      app.contribute({ kind: 'operator', def: rename('x') as unknown as OperatorDef<unknown, unknown, unknown> });
+      app.operators.register({
+        id: 'test.setPose',
+        label: 'Edit Pose',
+        category: 'test',
+        scope: 'global',
+        apply: (ctx) => ctx.app.session.setState({ overrides: new Map([[WAVE.lowerArmL, { rz: 0.5 }]]) }),
+      });
+      const navigate = (direction: 'undo' | 'redo'): OperatorDef<unknown, unknown, unknown> => ({
+        id: `test.${direction}`,
+        label: direction,
+        category: 'edit',
+        scope: 'global',
+        apply: (ctx) => (direction === 'undo' ? ctx.app.history.undo() : ctx.app.history.redo()),
+      });
+      app.contribute({ kind: 'operator', def: navigate('undo') });
+      app.contribute({ kind: 'operator', def: navigate('redo') });
+
+      await app.runUntyped('test.rename', { name: 'hello' });
+      await app.runUntyped('test.setPose');
+      await app.runUntyped('test.undo');
+      expect(app.session.getState().overrides.has(WAVE.lowerArmL)).toBe(false);
+      await app.runUntyped('test.undo');
+      expect(app.store.get('clips', WAVE.clip)?.name).toBe('wave');
+      expect(app.history.canUndo()).toBe(false);
+      expect(app.store.undo.canRedo()).toBe(true);
+      expect(app.history.peekRedo()?.label).toBe('Rename Clip');
+
+      await app.runUntyped('test.redo');
+      expect(app.store.get('clips', WAVE.clip)?.name).toBe('hello');
+      expect(app.history.peekUndo()?.docTxId).toBe(app.store.undo.peekUndo()?.txId);
+      await app.runUntyped('test.redo');
+      expect(app.session.getState().overrides.get(WAVE.lowerArmL)).toEqual({ rz: 0.5 });
+      expect(app.history.canRedo()).toBe(false);
+      expect(app.history.peekUndo()?.label).toBe('Edit Pose');
+    });
+
+    it('owns a doc entry only when apply committed it: undoable: false commits and doc undos add none', async () => {
+      const app = waveApp();
+      app.contribute({ kind: 'operator', def: rename('x') as unknown as OperatorDef<unknown, unknown, unknown> });
+      app.operators.register({
+        id: 'test.navigateCamera',
+        label: 'Navigate',
+        category: 'test',
+        scope: 'global',
+        apply: (ctx) => {
+          const preview = ctx.app.store.beginPreview('Navigate');
+          preview.update((tx) => tx.patch('project', 'project', { name: 'moved' }));
+          preview.commit({ undoable: false });
+        },
+      });
+      app.operators.register({
+        id: 'test.storeUndo',
+        label: 'Store undo',
+        category: 'test',
+        scope: 'global',
+        apply: (ctx) => ctx.app.store.undo.undo(),
+      });
+      await app.runUntyped('test.rename', { name: 'first' });
+      await app.runUntyped('test.rename', { name: 'second' });
+      const step = app.history.peekUndo();
+      await app.runUntyped('test.navigateCamera');
+      expect(app.store.get('project', 'project')?.name).toBe('moved');
+      expect(app.history.peekUndo()).toBe(step);
+      // The doc undo stack's top is now the older 'first' entry, which apply did not create.
+      await app.runUntyped('test.storeUndo');
+      expect(app.store.get('clips', WAVE.clip)?.name).toBe('first');
+      expect(app.history.peekUndo()).toBe(step);
+      expect(app.store.undo.canRedo()).toBe(true);
+    });
+
+    it('extends the previous step when the store coalesces the transaction into its entry', async () => {
+      const app = waveApp();
+      app.operators.register<{ readonly v: number }, void, void>({
+        id: 'test.nudge',
+        label: 'Nudge',
+        category: 'test',
+        scope: 'global',
+        apply: (ctx, args) =>
+          ctx.app.store.transact({ label: 'Nudge', coalesceKey: 'nudge', coalesceMs: 60_000 }, (tx) =>
+            tx.patch('keys', WAVE.keys[0], { v: args.v }),
+          ),
+      });
+      await app.runUntyped('test.nudge', { v: 1 });
+      await app.runUntyped('test.nudge', { v: 2 });
+      expect(app.history.peekUndo()?.docTxId).toBe(app.store.undo.peekUndo()?.txId);
+      app.history.undo();
+      expect(app.history.canUndo()).toBe(false);
+      expect(app.store.undo.canUndo()).toBe(false);
+      expect(app.store.get('keys', WAVE.keys[0])?.v).toBeCloseTo(Math.PI / 6, 15);
+    });
+
     it('records override edits as history steps that undo on the same frame only', async () => {
       const app = waveApp();
       const edit = (values: ChannelValues) =>
