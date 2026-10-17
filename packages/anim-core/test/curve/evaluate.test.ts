@@ -232,9 +232,7 @@ describe('queries', () => {
           const t1 = compiled.t[i + 1] as number;
           expect(p[0]).toBe(t0);
           expect(p[6]).toBe(t1);
-          // Bézier: the drawn x(u) is the evaluated time up to AnimX's "equally spaced" shortcut (handles within 1e-6
-          // of the thirds evaluate with linear time)
-          const tolerance = kind === Segment.Bezier ? 1e-6 : kind === Segment.Hermite ? 1e-9 : 1e-12;
+          const tolerance = kind === Segment.Bezier || kind === Segment.Hermite ? 1e-9 : 1e-12;
           for (let j = 1; j < 10; j++) {
             const u = j / 10;
             const tu = bezierAt(p, u, 0);
@@ -244,6 +242,24 @@ describe('queries', () => {
       }),
       { numRuns: 300 },
     );
+    // AnimX evaluates a weighted span whose handle times are within 1e-6 of the thirds linear in time; the control
+    // points then carry the thirds, so the drawn cubic is still the evaluated one
+    const nearThirds = compileAnimCurve(
+      curve(
+        [
+          { ...key(0, 0, 'flat', 'fixed'), outHandle: { dt: 10 * (1 / 3 + 9e-7), dv: 2 } },
+          { ...key(10, 1, 'fixed', 'flat'), inHandle: { dt: -10 * (1 / 3 - 9e-7), dv: 3 } },
+        ],
+        { weighted: true },
+      ),
+    );
+    const q = new Float64Array(8);
+    segmentControlPoints(nearThirds, 0, q);
+    expect([q[2], q[4]]).toEqual([10 / 3, 10 - 10 / 3]);
+    for (let j = 1; j < 10; j++) {
+      const tu = bezierAt(q, j / 10, 0);
+      expect(Math.abs(bezierAt(q, j / 10, 1) - evaluateAnimCurve(nearThirds, tu))).toBeLessThan(1e-12);
+    }
     expect(() => segmentControlPoints(c, 3, new Float64Array(8))).toThrow(
       expect.objectContaining({ code: 'unsupported' }),
     );

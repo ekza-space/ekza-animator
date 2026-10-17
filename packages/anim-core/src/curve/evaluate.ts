@@ -179,9 +179,9 @@ export function sampleAnimCurve(
 /**
  * Bézier control points of segment i in (frame, value): [t0, v0, t1, v1, t2, v2, t3, v3]. Curve segments give the
  * exact cubic that is evaluated (Hermite: from its polynomial, including AnimX's straight-line short-circuit;
- * Bézier: the monotonic-X corrected handles). Linear spans give the straight line. Step spans give their
- * horizontal run (step: at v_i ending at t_{i+1}; step-next: at v_{i+1} starting at t_i); the vertical jump is
- * at t_{i+1} (step) or t_i (step-next).
+ * Bézier: the monotonic-X corrected handles, with the handle times at the thirds where AnimX evaluates the span
+ * linear in time). Linear spans give the straight line. Step spans give their horizontal run (step: at v_i ending at
+ * t_{i+1}; step-next: at v_{i+1} starting at t_i); the vertical jump is at t_{i+1} (step) or t_i (step-next).
  */
 export function segmentControlPoints(c: CompiledAnimCurve, i: number, out: Float64Array): void {
   if (!Number.isInteger(i) || i < 0 || i >= c.keyCount - 1 || out.length < 8) {
@@ -217,11 +217,14 @@ export function segmentControlPoints(c: CompiledAnimCurve, i: number, out: Float
       return;
     case Segment.Bezier:
       out[1] = v0;
-      out[2] = t0 + c.outDt[i]!;
       out[3] = v0 + c.outDv[i]!;
-      out[4] = t1 + c.inDt[i + 1]!;
       out[5] = v1 + c.inDv[i + 1]!;
       out[7] = v1;
+      // handle times within 1e-6 of the thirds are evaluated linear in time (AnimX `fLinear`): keep the thirds
+      if (coefficientsOf(c)[i * COEF_STRIDE + 7] !== 1) {
+        out[2] = t0 + c.outDt[i]!;
+        out[4] = t1 + c.inDt[i + 1]!;
+      }
       return;
     case Segment.Hermite:
     default: {
