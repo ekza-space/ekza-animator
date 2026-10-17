@@ -103,6 +103,12 @@ export function keyInputOf(event: KeyboardEvent): KeyInput {
   };
 }
 
+/**
+ * Chords whose browser default a dialog or menu needs (copy the licence text, select all, undo in a field): the
+ * adapter leaves them alone while the keyboard is blocked even when the editor binds them.
+ */
+const TEXT_EDITING_CODES: ReadonlySet<string> = new Set(['KeyA', 'KeyC', 'KeyV', 'KeyX', 'KeyY', 'KeyZ']);
+
 /** Mod+S / Mod+Shift+S still save while a text field has focus (browser "Save page" otherwise). */
 function isSaveChord(input: KeyInput, platform: 'mac' | 'other'): boolean {
   const mod = platform === 'mac' ? input.metaKey : input.ctrlKey;
@@ -123,8 +129,13 @@ export class KeyboardAdapter {
   keyDown(event: KeyboardEvent): boolean {
     if (event.isComposing || event.key === 'Process' || event.key === 'Dead') return false;
     if (MODIFIER_CODES.has(event.code) || event.code === '') return false;
-    if (this.#deps.blocked() || isInOverlay(event.target)) return false;
     const input = keyInputOf(event);
+    if (this.#deps.blocked() || isInOverlay(event.target)) {
+      // A dialog or menu owns the keyboard: nothing dispatches, but the editor's own chords keep their browser
+      // defaults suppressed (Mod+S would open "Save page", Mod+O the browser's file picker).
+      if (this.#boundChordWhileBlocked(event, input)) event.preventDefault();
+      return false;
+    }
     if (isTextEntry(event.target) && !isSaveChord(input, this.#deps.keymap.platform)) return false;
 
     const pending = this.#pending;
@@ -164,7 +175,8 @@ export class KeyboardAdapter {
       this.#timers.clear(pending.timer);
       this.#pending = null;
       event.preventDefault();
-      if (!pending.held && !pending.interrupted) {
+      // A dialog or menu that opened while the key was down owns the release: no tap behind it.
+      if (!pending.held && !pending.interrupted && !this.#deps.blocked() && !isInOverlay(event.target)) {
         const binding = this.#deps.keymap.resolve(pending.input, pending.chain.scopes, 'tap');
         if (binding !== null) this.#dispatch(binding, pending.chain, 'tap');
       }
@@ -198,6 +210,15 @@ export class KeyboardAdapter {
     return this.#pending !== null;
   }
 
+  /** A Mod chord the keymap binds, outside text editing (see TEXT_EDITING_CODES and text fields). */
+  #boundChordWhileBlocked(event: KeyboardEvent, input: KeyInput): boolean {
+    if (!input.ctrlKey && !input.metaKey) return false;
+    if (TEXT_EDITING_CODES.has(input.code)) return false;
+    if (isTextEntry(event.target) && !isSaveChord(input, this.#deps.keymap.platform)) return false;
+    const { scopes } = this.#deps.scopeChain();
+    return this.#deps.keymap.resolve({ ...input, repeat: false }, scopes, 'press') !== null;
+  }
+
   #interrupt(pending: PendingTapHold): void {
     this.#timers.clear(pending.timer);
     pending.interrupted = true;
@@ -206,6 +227,7 @@ export class KeyboardAdapter {
   #hold(pending: PendingTapHold): void {
     if (this.#pending !== pending || pending.held || pending.interrupted) return;
     pending.held = true;
+    if (this.#deps.blocked()) return;
     const binding = this.#deps.keymap.resolve(pending.input, pending.chain.scopes, 'hold');
     if (binding !== null) this.#dispatch(binding, pending.chain, 'hold');
   }

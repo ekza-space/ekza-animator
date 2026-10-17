@@ -11,6 +11,8 @@ const BINDINGS: readonly KeyBinding[] = [
   { chord: { code: 'KeyS' }, op: 'graph.keys.keyCurves', scope: 'graph' },
   { chord: { code: 'KeyZ', mod: true }, op: 'edit.undo', scope: GLOBAL_SCOPE },
   { chord: { code: 'KeyS', mod: true }, op: 'file.save', scope: GLOBAL_SCOPE },
+  { chord: { code: 'KeyO', mod: true }, op: 'file.open', scope: GLOBAL_SCOPE },
+  { chord: { code: 'KeyC', mod: true }, op: 'edit.copy', scope: GLOBAL_SCOPE },
   { chord: { code: 'KeyK', shift: true }, op: 'key.toggleAutoKey', scope: GLOBAL_SCOPE },
   { chord: { code: 'KeyV', alt: true }, op: 'time.togglePlay', scope: GLOBAL_SCOPE },
   { chord: { code: 'Period', alt: true }, op: 'time.step', args: { delta: 1 }, scope: GLOBAL_SCOPE },
@@ -179,6 +181,33 @@ describe('KeyboardAdapter', () => {
     expect(s.dispatched).toEqual([]);
   });
 
+  it("keeps the editor's chords from reaching the browser while a dialog is open, without running them", () => {
+    const s = setup();
+    s.block(true);
+    const save = key('keydown', { code: 'KeyS', key: 's', ctrlKey: true });
+    const open = key('keydown', { code: 'KeyO', key: 'o', ctrlKey: true });
+    const copy = key('keydown', { code: 'KeyC', key: 'c', ctrlKey: true });
+    const unbound = key('keydown', { code: 'KeyL', key: 'l', ctrlKey: true });
+    const plain = key('keydown', { code: 'KeyS', key: 's' });
+    for (const event of [save, open, copy, unbound, plain]) expect(s.adapter.keyDown(event)).toBe(false);
+    expect([save, open].map((event) => event.defaultPrevented)).toEqual([true, true]);
+    // Copy (licence text), unbound chords and plain keys (the dialog's own typing and buttons) keep their defaults.
+    expect([copy, unbound, plain].map((event) => event.defaultPrevented)).toEqual([false, false, false]);
+
+    // In a dialog's text field only the save chord is held back, as outside dialogs.
+    const field = document.createElement('input');
+    document.body.append(field);
+    cleanup.push(field);
+    const fieldSave = key('keydown', { code: 'KeyS', key: 's', ctrlKey: true });
+    const fieldOpen = key('keydown', { code: 'KeyO', key: 'o', ctrlKey: true });
+    field.dispatchEvent(fieldSave);
+    field.dispatchEvent(fieldOpen);
+    s.adapter.keyDown(fieldSave);
+    s.adapter.keyDown(fieldOpen);
+    expect([fieldSave.defaultPrevented, fieldOpen.defaultPrevented]).toEqual([true, false]);
+    expect(s.dispatched).toEqual([]);
+  });
+
   it('keeps suppressing the browser default of a held chord whose repeats the keymap refuses (Mod+S)', () => {
     const app = createFakeEditorApp();
     app.contribute({ kind: 'keymap', bindings: BINDINGS });
@@ -274,6 +303,25 @@ describe('KeyboardAdapter', () => {
       s.adapter.keyDown(key('keydown', { code: 'Space', key: ' ' }));
       s.adapter.keyUp(key('keyup', { code: 'Space', key: ' ' }));
       expect(s.dispatched.map((d) => d.op)).toEqual(['time.togglePlay']);
+    });
+
+    it('a dialog opened while Space is down swallows the tap and the hold', () => {
+      const s = setup();
+      s.hover(VIEWPORT);
+      s.adapter.keyDown(key('keydown', { code: 'Space', key: ' ' }));
+      s.block(true);
+      const up = key('keyup', { code: 'Space', key: ' ' });
+      expect(s.adapter.keyUp(up)).toBe(true);
+      expect(up.defaultPrevented).toBe(true);
+      s.adapter.keyDown(key('keydown', { code: 'Space', key: ' ' })); // ignored: the dialog owns Space
+      s.block(false);
+      s.adapter.keyDown(key('keydown', { code: 'Space', key: ' ' }));
+      s.block(true);
+      s.timers.advance(300);
+      s.block(false);
+      s.adapter.keyUp(key('keyup', { code: 'Space', key: ' ' }));
+      expect(s.dispatched).toEqual([]);
+      expect(s.adapter.holding).toBe(false);
     });
 
     it('reset() on blur forgets a held key', () => {
