@@ -7,9 +7,11 @@ slider, shape the motion in a Graph Editor with Maya's tangent model, then bake 
 file — every original JSON value and every byte of its binary buffer preserved — or export VRMA and animation-only
 GLB. Part of the Ekza ecosystem; usable on its own.
 
-> **Status: pre-alpha — design complete (reviewed), implementation starting.** This repository currently contains
-> the research, architecture and build specification. Code arrives with milestone M0 (scaffold) and M1 (MVP,
-> tagged as the public alpha `v0.1.0`). See [docs/ROADMAP.md](docs/ROADMAP.md) for live status.
+> **Status: pre-alpha — the M1 feature set is implemented and integrated on `dev`.** `pnpm dev` opens the full
+> editor at `/editor`: bundled samples or your own `.vrm`/`.glb`, circle controls in a split view, keying, the time
+> slider, the Graph Editor, exports (bake into the model, VRMA, animation-only GLB) and `.ekzanim` projects. The
+> end-to-end scenario suite (E2E-02…E2E-27), budgets and the public alpha tag `v0.1.0` are still to come (WP-10).
+> See [docs/ROADMAP.md](docs/ROADMAP.md) for live status.
 
 <!-- Screenshots / GIF: added with the M1 release (split view with locked shot camera + Graph Editor). -->
 
@@ -48,7 +50,7 @@ does range moves and scales), no animation layers and no facial expressions in V
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
-## Quickstart (from milestone M0)
+## Quickstart
 
 Requirements: Node.js 24 LTS (Node 25 works with engine warnings), pnpm 10.32.1, Chrome for end-to-end tests.
 
