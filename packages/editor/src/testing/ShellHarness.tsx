@@ -3,12 +3,20 @@
 // synthetic wave document, so the shell can be exercised before the real kernel (WP-7a/7b) is merged. Browser only.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { DocSnapshot } from '@ekza-animator/doc';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import type { JSX } from 'react';
+import { type JSX, useCallback } from 'react';
 import { EditorRoot } from '../shell/EditorRoot';
+import type { Shell } from '../shell/types';
 import type { Summarizer } from '../shell/summary';
 import { type EditorParams, parseEditorParams } from '../test-api/params';
+
+declare global {
+  interface Window {
+    /** Set while /dev/shell is mounted: specs register stand-in operators and inspect the fake app. */
+    __EKZA_DEV_SHELL__?: { readonly app: FakeEditorApp; readonly shell: Shell };
+  }
+}
 
 export interface ShellHarnessProps {
   /** A DocSnapshot, e.g. fixtures/synthetic/wave-doc.json (checked at runtime); null starts empty. */
@@ -23,9 +31,17 @@ export interface ShellHarnessProps {
 export function ShellHarness(props: ShellHarnessProps): JSX.Element {
   const snapshot = props.snapshot === null ? undefined : asSnapshot(props.snapshot);
   const skeleton = props.skeleton === null ? undefined : asSkeleton(props.skeleton);
+  const expose = useCallback((shell: Shell) => {
+    const exposed = { app: shell.app as FakeEditorApp, shell };
+    window.__EKZA_DEV_SHELL__ = exposed;
+    return () => {
+      if (window.__EKZA_DEV_SHELL__ === exposed) delete window.__EKZA_DEV_SHELL__;
+    };
+  }, []);
   return (
     <EditorRoot
       e2e
+      onShell={expose}
       params={props.params ?? parseEditorParams(window.location.search, true)}
       {...(props.summarize === undefined ? {} : { summarize: props.summarize })}
       createApp={({ services, platform }) =>

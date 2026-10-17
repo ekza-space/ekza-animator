@@ -37,6 +37,8 @@ export interface EditorRootProps {
   readonly panels?: PanelRegistry;
   readonly summarize?: Summarizer;
   readonly createValidatorWorker?: () => Worker;
+  /** Called once the shell is mounted, with its disposer-free handle (harnesses expose it to specs). */
+  readonly onShell?: (shell: Shell) => (() => void) | undefined;
 }
 
 type Boot =
@@ -78,8 +80,12 @@ function boot(props: EditorRootProps): Boot {
   return { kind: 'ready', shell, toasts };
 }
 
-function ReadyEditor(props: { readonly shell: Shell; readonly toasts: ToastNotifier }): JSX.Element {
-  const { shell } = props;
+function ReadyEditor(props: {
+  readonly shell: Shell;
+  readonly toasts: ToastNotifier;
+  readonly onShell: EditorRootProps['onShell'];
+}): JSX.Element {
+  const { shell, onShell } = props;
   const root = useRef<HTMLDivElement>(null);
   useWindowInput(shell, root);
 
@@ -112,6 +118,8 @@ function ReadyEditor(props: { readonly shell: Shell; readonly toasts: ToastNotif
     };
   }, [shell]);
 
+  useEffect(() => onShell?.(shell), [shell, onShell]);
+
   useEffect(() => {
     if (!shell.app.prefs.getState().firstRunDone && shell.app.session.getState().dialog === null) {
       void shell.runFromUi('ui.open', { dialog: 'firstRun' });
@@ -143,7 +151,8 @@ const disposals = new Map<Shell, ReturnType<typeof setTimeout>>();
 
 export function EditorRoot(props: EditorRootProps): JSX.Element {
   const [booted] = useState(() => boot(props));
-  if (booted.kind === 'ready') return <ReadyEditor shell={booted.shell} toasts={booted.toasts} />;
+  if (booted.kind === 'ready')
+    return <ReadyEditor shell={booted.shell} toasts={booted.toasts} onShell={props.onShell} />;
   return (
     <div
       className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
