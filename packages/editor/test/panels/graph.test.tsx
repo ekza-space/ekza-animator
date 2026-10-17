@@ -293,6 +293,54 @@ describe('GraphPanel', () => {
     expect(graphTestHooks(app).graph()?.view.sx).toBeGreaterThan(before?.sx ?? Number.POSITIVE_INFINITY);
   });
 
+  it('maps DOM pointer drags to a marquee, and Esc on the window cancels a navigation drag', async () => {
+    const container = await mountPanel();
+    const canvas = byTestId(container, 'ge-canvas');
+    const hooks = graphTestHooks(app);
+    const k0 = hooks.screenOfKey(KEYS[0]);
+    const k15 = hooks.screenOfKey(KEYS[1]);
+    if (k0 === null || k15 === null) throw new Error('keys not on screen');
+    const fire = (type: string, x: number, y: number, init: PointerEventInit = {}): void => {
+      canvas.dispatchEvent(
+        new PointerEvent(type, {
+          clientX: x,
+          clientY: y,
+          button: 0,
+          buttons: type === 'pointerup' ? 0 : 1,
+          pointerId: 7,
+          bubbles: true,
+          ...init,
+        }),
+      );
+    };
+    const top = Math.min(k0.y, k15.y) - 12;
+    const bottom = Math.max(k0.y, k15.y) + 12;
+    await inAct(async () => {
+      fire('pointerdown', k0.x - 12, top);
+      fire('pointermove', (k0.x + k15.x) / 2, (top + bottom) / 2);
+      fire('pointermove', k15.x + 12, bottom);
+      fire('pointerup', k15.x + 12, bottom);
+    });
+    await settle();
+    expect(callsOf('select.keys').at(-1)).toEqual({
+      items: [
+        { key: KEYS[0], parts: { key: true, in: false, out: false } },
+        { key: KEYS[1], parts: { key: true, in: false, out: false } },
+      ],
+      mode: 'replace',
+    });
+
+    const before = hooks.graph()?.view;
+    fire('pointerdown', 300, 200, { button: 1, buttons: 4, altKey: true });
+    fire('pointermove', 360, 230, { button: 1, buttons: 4, altKey: true });
+    expect(hooks.graph()?.view).not.toEqual(before);
+    const escape = new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape', bubbles: true, cancelable: true });
+    window.dispatchEvent(escape);
+    expect(escape.defaultPrevented).toBe(true);
+    expect(hooks.graph()?.view).toEqual(before);
+    fire('pointerup', 360, 230, { button: 1, buttons: 0 });
+  });
+
   it('frames from the toolbar and removes its contributions when the last Graph Editor unmounts', async () => {
     const container = await mountPanel();
     const framed = graphTestHooks(app).graph()?.view;

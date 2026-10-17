@@ -1,4 +1,14 @@
-import { type CompiledAnimCurve, type InfinityMode, Segment } from '@ekza-animator/anim-core';
+import {
+  type AnimCurve,
+  type CompiledAnimCurve,
+  compileAnimCurve,
+  EkzaError,
+  evaluateAnimCurve,
+  type InfinityMode,
+  type KeyData,
+  Segment,
+  segmentControlPoints,
+} from '@ekza-animator/anim-core';
 import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import {
@@ -112,5 +122,64 @@ describe('drawn-curve geometry', () => {
     const mapping = newInfinityMapping();
     expect(drawnValueAt(curve([]), 3, scratch, mapping)).toBeNaN();
     expect(drawnValueAt(curve([key(4, 2)], 'cycle', 'oscillate'), -30, scratch, mapping)).toBe(2);
+  });
+});
+
+/** WP-1's AnimX engine is implemented (until then anim-core's curve functions are stubs). */
+const ENGINE_READY = (() => {
+  try {
+    compileAnimCurve({ keys: [], weighted: false, pre: 'constant', post: 'constant' });
+    return true;
+  } catch (error) {
+    return !(error instanceof EkzaError && error.code === 'not-implemented');
+  }
+})();
+
+describe.skipIf(!ENGINE_READY)('[needs WP-1] drawn geometry equals the anim-core engine', () => {
+  const fixed = (t: number, v: number, inDv: number, outDv: number, weightLocked = false): KeyData => ({
+    ...key(t, v, 'fixed'),
+    inHandle: { dt: -2, dv: inDv },
+    outHandle: { dt: 3, dv: outDv },
+    broken: true,
+    weightLocked,
+  });
+  const curves: AnimCurve[] = [
+    { keys: [key(0, 0.5), key(15, -0.5), key(30, 0.5)], weighted: false, pre: 'cycle', post: 'oscillate' },
+    {
+      keys: [key(0, 0, 'spline'), key(4, 2, 'clamped'), key(9, 2, 'linear'), key(20, -1, 'flat', 'step'), key(25, 3)],
+      weighted: false,
+      pre: 'linear',
+      post: 'cycleOffset',
+    },
+    {
+      keys: [fixed(0, 0, 0.4, 1.2), fixed(10, 1, -0.5, 0.3), fixed(14, -2, 0.9, -0.1)],
+      weighted: true,
+      pre: 'constant',
+      post: 'linear',
+    },
+  ];
+
+  it('segment control points match segmentControlPoints', () => {
+    const ours = new Float64Array(8);
+    const theirs = new Float64Array(8);
+    for (const source of curves) {
+      const c = compileAnimCurve(source);
+      for (let i = 0; i + 1 < c.keyCount; i++) {
+        if (c.segment[i] !== Segment.Hermite && c.segment[i] !== Segment.Bezier) continue;
+        segmentBezier(c, i, ours);
+        segmentControlPoints(c, i, theirs);
+        for (let j = 0; j < 8; j++) expect(ours[j]).toBeCloseTo(theirs[j] as number, 12);
+      }
+    }
+  });
+
+  it('values on the drawn curve (key range and infinity) match evaluateAnimCurve', () => {
+    const mapping = newInfinityMapping();
+    for (const source of curves) {
+      const c = compileAnimCurve(source);
+      for (let f = -40; f <= 70; f += 0.37) {
+        expect(drawnValueAt(c, f, scratch, mapping)).toBeCloseTo(evaluateAnimCurve(c, f), 9);
+      }
+    }
   });
 });
