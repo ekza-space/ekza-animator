@@ -4,7 +4,7 @@
 import { seededIdSource, type IdSource } from '@ekza-animator/doc';
 import type { EditorApp, EditorServices } from '@ekza-animator/editor-core';
 import { ToastProvider, TooltipProvider } from '@ekza-animator/ui';
-import { type JSX, useEffect, useRef, useState } from 'react';
+import { type JSX, useEffect, useRef } from 'react';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
 import type { PanelRegistry } from '../panels/types';
@@ -18,6 +18,7 @@ import { EditorShell } from './EditorShell';
 import { KernelUnavailable } from './KernelUnavailable';
 import type { Summarizer } from './summary';
 import type { Shell } from './types';
+import { useConstant } from './useConstant';
 import { useWindowInput } from './useWindowInput';
 
 export interface CreateAppArgs {
@@ -120,6 +121,9 @@ function ReadyEditor(props: {
 
   useEffect(() => onShell?.(shell), [shell, onShell]);
 
+  // `?e2e=1` turns UI transitions off everywhere, including the dialogs, menus and tooltips Radix portals to <body>.
+  useDocumentAttribute('data-ekza-motion', shell.params.e2e ? 'off' : null);
+
   useEffect(() => {
     if (!shell.app.prefs.getState().firstRunDone && shell.app.session.getState().dialog === null) {
       void shell.runFromUi('ui.open', { dialog: 'firstRun' });
@@ -149,8 +153,20 @@ function ReadyEditor(props: {
 
 const disposals = new Map<Shell, ReturnType<typeof setTimeout>>();
 
+/** Sets an attribute on <html> while mounted (null: leaves it alone), for styles that must reach portalled content. */
+function useDocumentAttribute(name: string, value: string | null): void {
+  useEffect(() => {
+    if (value === null) return undefined;
+    const html = document.documentElement;
+    html.setAttribute(name, value);
+    return () => html.removeAttribute(name);
+  }, [name, value]);
+}
+
 export function EditorRoot(props: EditorRootProps): JSX.Element {
-  const [booted] = useState(() => boot(props));
+  const booted = useConstant(() => boot(props));
+  // The editor's scrollbar and reduced-motion styles also apply to what it portals to <body>.
+  useDocumentAttribute('data-ekza-editor', '');
   if (booted.kind === 'ready')
     return <ReadyEditor shell={booted.shell} toasts={booted.toasts} onShell={props.onShell} />;
   return (

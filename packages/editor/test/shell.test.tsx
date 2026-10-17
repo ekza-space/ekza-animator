@@ -6,7 +6,7 @@ import type { DocSnapshot } from '@ekza-animator/doc';
 import { GLOBAL_SCOPE, type EditorApp, type OperatorDef } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import { Profiler } from 'react';
+import { Profiler, StrictMode } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { EditorRoot } from '../src/shell/EditorRoot';
 import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
@@ -114,6 +114,37 @@ describe('editor shell', () => {
     expect(api?.renderedFrames()).toBe(idle);
     await view.unmount();
     expect(window.__EKZA_ANIMATOR_TEST__).toBeUndefined();
+  });
+
+  it('boots one editor under StrictMode, and marks <html> for portalled styles while mounted', async () => {
+    const created: FakeEditorApp[] = [];
+    const view = mountLive(
+      <StrictMode>
+        <EditorRoot
+          params={{ ...DEFAULT_PARAMS, e2e: true }}
+          createApp={({ services, platform }) => {
+            const app = createFakeEditorApp({
+              snapshot,
+              skeleton,
+              services: { ...services, models: createSyntheticModelLoader() },
+              platform,
+            });
+            created.push(app);
+            return app;
+          }}
+        />
+      </StrictMode>,
+    );
+    await waitFor(() => document.querySelector('[data-testid="editor-shell"]') !== null);
+    await window.__EKZA_ANIMATOR_TEST__?.ready;
+    expect(created).toHaveLength(1);
+    // `?e2e=1` turns transitions off for content Radix portals to <body> too (dialogs, menus, tooltips).
+    const html = document.documentElement;
+    expect(html.getAttribute('data-ekza-motion')).toBe('off');
+    expect(html.hasAttribute('data-ekza-editor')).toBe(true);
+    await view.unmount();
+    expect(html.hasAttribute('data-ekza-motion')).toBe(false);
+    expect(html.hasAttribute('data-ekza-editor')).toBe(false);
   });
 
   it('status line: tools, rotate space (gimbal also picks the rotate tool), mask, auto-key and layout', async () => {

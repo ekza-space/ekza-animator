@@ -127,23 +127,25 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
-.ekza-editor ::-webkit-scrollbar {
+/* The editor and what it portals to <body> (dialogs, menus, popovers): <html data-ekza-editor> while it is mounted. */
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-.ekza-editor ::-webkit-scrollbar-thumb {
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar-thumb {
   background: var(--border-strong);
   border: 2px solid transparent;
   border-radius: 6px;
   background-clip: padding-box;
 }
 
-.ekza-editor ::-webkit-scrollbar-track {
+:is(.ekza-editor, :root[data-ekza-editor]) ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-/* `?e2e=1` and reduced motion: no UI transitions or animations (MVP-SPEC §4.8). */
+/* `?e2e=1` (set on <html> as well, for portalled content) and reduced motion: no UI transitions or animations
+   (MVP-SPEC §4.8). */
 [data-ekza-motion="off"] *,
 [data-ekza-motion="off"] *::before,
 [data-ekza-motion="off"] *::after {
@@ -152,9 +154,9 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .ekza-editor *,
-  .ekza-editor *::before,
-  .ekza-editor *::after {
+  :is(.ekza-editor, :root[data-ekza-editor]) *,
+  :is(.ekza-editor, :root[data-ekza-editor]) *::before,
+  :is(.ekza-editor, :root[data-ekza-editor]) *::after {
     transition-duration: 0ms !important;
     animation-duration: 0ms !important;
   }

@@ -7,7 +7,7 @@ import type { DocSnapshot } from '@ekza-animator/doc';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import { PANEL } from '@ekza-animator/editor-core';
-import { type JSX, useEffect, useState } from 'react';
+import { type JSX, useEffect } from 'react';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
 import { registerBuiltinPanels } from '../panels';
@@ -17,6 +17,7 @@ import { ShellProvider } from '../shell/context';
 import { createShell } from '../shell/createShell';
 import { RegisteredPanel } from '../shell/PanelFrame';
 import type { Shell } from '../shell/types';
+import { useConstant } from '../shell/useConstant';
 import { DEFAULT_PARAMS } from '../test-api/params';
 import { DEV_STATE_PANEL } from './DevStatePanel';
 import { createSyntheticModelLoader } from './syntheticModels';
@@ -46,8 +47,8 @@ interface Harness {
 
 /** Built-in panels plus the harness's `dev.state` panel. The props are read once, when the harness mounts. */
 export function PanelHarness(props: PanelHarnessProps): JSX.Element {
-  // The fake app only subscribes to its own stores, so an instance StrictMode discards needs no disposal.
-  const [harness] = useState(() => createHarness(props));
+  // Lives as long as the page (the harness is a whole route); created once, also under StrictMode.
+  const harness = useConstant(() => createHarness(props));
   const panelId = props.panel === undefined ? new URLSearchParams(window.location.search).get('panel') : props.panel;
 
   useEffect(() => {
@@ -67,10 +68,14 @@ export function PanelHarness(props: PanelHarnessProps): JSX.Element {
         {viewport ? <GLHost /> : null}
         <div className="relative flex h-dvh flex-col text-fg" data-testid="dev-panels">
           <header className="flex items-center gap-3 border-b border-line bg-header px-3 py-1 text-xs text-fg-2">
-            {/* oxlint-disable-next-line nextjs/no-html-link-for-pages -- the editor package does not depend on Next.js. */}
-            <a className="text-accent-text" href="?" data-testid="dev-panels-home">
+            <button
+              type="button"
+              className="text-accent-text hover:underline"
+              data-testid="dev-panels-home"
+              onClick={() => window.location.assign(window.location.pathname)}
+            >
               Panels
-            </a>
+            </button>
             <span data-testid="dev-panels-title">{def.title}</span>
             <span className="text-fg-3">
               {def.id} · kind {def.kind} · scope {def.keyScope}
