@@ -139,6 +139,12 @@ all `/dev/shell` and resilience specs pass; E2E-01/03/19/20 are fixme on WP-7b (
 `/editor`, `/dev/shell` and `/dev/panels?panel=viewport` render the real panels over the shell's single canvas with
 no console errors.
 
+Fix-round trial (2026-10-18, `git clone --shared` in a scratch directory, deleted afterwards): `wp/wp-8` at 9eeaeef
+merged with `wp/wp-1, 2, 3, 4, 7b (incl. 7a), 5, 6, 6t, 9` without conflicts; typecheck clean; editor tests 251 passed
+/ 2 skipped; e2e (chrome) 19 passed — including the new `drop-several` (two models, one drop, both imported), E2E-19
+and E2E-20 — E2E-01 fixme on the unwired viewport probe (contract item 5), and E2E-03 failing only on the R-4
+threshold (`0.9988237539 > 0.999`).
+
 ## Tests
 
 - `packages/editor/test/` (Vitest browser mode, real Chrome): `input.test.ts` (scope chain from the hovered panel,
