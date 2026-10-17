@@ -48,34 +48,47 @@ export interface ModelSource {
 
 export interface KernelDeps {
   /** The store used when the host passes none. */
-  createStore(): DocumentStore;
+  readonly createStore: () => DocumentStore;
   /** Scene clock mapping (§4.11.8). */
   readonly time: {
-    sceneToClipFrame(sceneFps: Fps, clip: Pick<ClipRecord, 'fps' | 'sceneStart'>, sceneFrame: Frame): Frame;
-    clipToSceneFrame(sceneFps: Fps, clip: Pick<ClipRecord, 'fps' | 'sceneStart'>, clipFrame: Frame): Frame;
-    wrapClipFrame(clip: Pick<ClipRecord, 'range' | 'loop'>, clipFrame: Frame): Frame;
+    readonly sceneToClipFrame: (
+      sceneFps: Fps,
+      clip: Pick<ClipRecord, 'fps' | 'sceneStart'>,
+      sceneFrame: Frame,
+    ) => Frame;
+    readonly clipToSceneFrame: (sceneFps: Fps, clip: Pick<ClipRecord, 'fps' | 'sceneStart'>, clipFrame: Frame) => Frame;
+    readonly wrapClipFrame: (clip: Pick<ClipRecord, 'range' | 'loop'>, clipFrame: Frame) => Frame;
   };
   readonly curves: {
     /** Compiles and evaluates curves for the evaluation service and the edit kernel. */
     readonly engine: CurveEngine;
     /** §4.11.4 shape-preserving insert. */
-    insertKeyPreservingShape(
+    readonly insertKeyPreservingShape: (
       curve: AnimCurve,
       frame: Frame,
-    ): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
+    ) => { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
   };
   readonly rig: {
-    readRigDefinition(view: ReadView, rig: RigId): RigDefinition | undefined;
-    compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgram;
-    createCurveCache(store: DocumentStore, engine: CurveEngine): CurveCache;
-    createClipSampler(store: DocumentStore, cache: CurveCache, clip: ClipId, program: RigProgram): ClipSampler;
-    applyOverrides(program: RigProgram, ch: ChannelBuffer, overrides: ReadonlyMap<ControlId, ChannelValues>): void;
+    readonly readRigDefinition: (view: ReadView, rig: RigId) => RigDefinition | undefined;
+    readonly compileRig: (def: RigDefinition, skeleton: SkeletonDesc) => RigProgram;
+    readonly createCurveCache: (store: DocumentStore, engine: CurveEngine) => CurveCache;
+    readonly createClipSampler: (
+      store: DocumentStore,
+      cache: CurveCache,
+      clip: ClipId,
+      program: RigProgram,
+    ) => ClipSampler;
+    readonly applyOverrides: (
+      program: RigProgram,
+      ch: ChannelBuffer,
+      overrides: ReadonlyMap<ControlId, ChannelValues>,
+    ) => void;
   };
   /**
    * Parses the model a character was imported from. A promise for real files (the asset store is async); a value
    * when the source is known synchronously (tests); `null` when the character gets no runtime.
    */
-  loadModel(character: CharacterRecord, assets: AssetStore): Promise<ModelSource> | ModelSource | null;
+  readonly loadModel: (character: CharacterRecord, assets: AssetStore) => Promise<ModelSource> | ModelSource | null;
 }
 
 /** The production bindings: every function comes from its owning package. */
@@ -84,7 +97,7 @@ export const DEFAULT_DEPS: KernelDeps = {
   time: { sceneToClipFrame, clipToSceneFrame, wrapClipFrame },
   curves: { engine: curveEngine, insertKeyPreservingShape },
   rig: { readRigDefinition, compileRig, createCurveCache, createClipSampler, applyOverrides },
-  async loadModel(character: CharacterRecord, assets: AssetStore): Promise<ModelSource> {
+  loadModel: async (character: CharacterRecord, assets: AssetStore): Promise<ModelSource> => {
     const bytes = await assets.get(character.asset);
     const container = await parseGlb(bytes);
     return { container, skeleton: skeletonFromGltf(container) };

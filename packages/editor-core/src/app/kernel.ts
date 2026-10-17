@@ -162,7 +162,8 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
         const owner = byClip.get(row['clip'] as string);
         if (owner !== undefined) ids.add(owner);
       } else if (change.table === 'clips') {
-        ids.add(row['character'] as CharacterId);
+        const owner = byClip.get(change.id);
+        if (owner !== undefined) ids.add(owner);
       }
     }
     return ids;

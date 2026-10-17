@@ -81,54 +81,64 @@ export function createPlaybackClock(ctx: {
         return false;
       }
       const line = timeline();
-      const span = line.end - line.start;
+      let first = false;
       if (lastMs === null || lastWritten === null || time.sceneFrame !== lastWritten) {
-        // (Re)start at the current frame. Pressing play at the end of a 'once' range starts over.
+        // (Re)start at the current frame, brought into the range. Pressing play at the end of a 'once' range
+        // starts over.
+        first = lastMs === null;
         position = line.toClip(time.sceneFrame);
         if (time.loop === 'once') {
           if (time.direction === 1 && position >= line.end) position = line.start;
           if (time.direction === -1 && position <= line.start) position = line.end;
         }
-        const first = lastMs === null;
+        position = fold(position, time.direction, time.loop, line).position;
         lastMs = nowMs;
-        lastWritten = time.sceneFrame;
-        ctx.requestFrame();
-        if (first) return false;
       }
       const elapsed = Math.max(0, nowMs - lastMs);
       lastMs = nowMs;
-      const step = time.speed === 'every-frame' ? 1 : (elapsed / 1000) * line.fps * SPEED_FACTOR[time.speed];
-      let raw = position + step * time.direction;
-      let direction = time.direction;
-      let playing = true;
-      if (span <= 0) {
-        raw = line.start;
-        playing = time.loop !== 'once';
-      } else if (time.loop === 'loop') {
-        raw = line.start + mod(raw - line.start, span);
-      } else if (time.loop === 'once') {
-        if (raw >= line.end || raw <= line.start) {
-          raw = Math.min(Math.max(raw, line.start), line.end);
-          playing = !(direction === 1 ? raw >= line.end : raw <= line.start);
-        }
-      } else {
-        // Oscillate: a triangle wave over [start, end]; on a falling stretch the motion runs against `direction`.
-        const m = mod(raw - line.start, 2 * span);
-        if (m > span) direction = direction === 1 ? -1 : 1;
-        raw = m <= span ? line.start + m : line.start + 2 * span - m;
-      }
-      position = raw;
-      const shown = time.snapToFrames ? snap(raw, direction, line) : raw;
+      // The first tick only starts the clock (and moves an out-of-range frame into the range).
+      const step = first
+        ? 0
+        : time.speed === 'every-frame'
+          ? 1
+          : (elapsed / 1000) * line.fps * SPEED_FACTOR[time.speed];
+      const next = fold(position + step * time.direction, time.direction, time.loop, line);
+      position = next.position;
+      const shown = time.snapToFrames ? snap(next.position, next.direction, line) : next.position;
       const sceneFrame = line.toScene(shown);
       const frameChanged = sceneFrame !== time.sceneFrame;
-      if (frameChanged || direction !== time.direction || playing !== time.playing) {
-        lastWritten = sceneFrame;
-        session.setState({ time: { ...time, sceneFrame, direction, playing } });
+      lastWritten = sceneFrame;
+      if (frameChanged || next.direction !== time.direction || next.playing !== time.playing) {
+        session.setState({ time: { ...time, sceneFrame, direction: next.direction, playing: next.playing } });
       }
-      if (playing) ctx.requestFrame();
+      if (next.playing) ctx.requestFrame();
       else lastMs = null;
       return frameChanged;
     },
+  };
+}
+
+/** Applies the loop mode to a raw position (active-clip frames). */
+function fold(
+  raw: Frame,
+  direction: 1 | -1,
+  loop: TimeState['loop'],
+  line: Timeline,
+): { readonly position: Frame; readonly direction: 1 | -1; readonly playing: boolean } {
+  const span = line.end - line.start;
+  if (span <= 0) return { position: line.start, direction, playing: loop !== 'once' };
+  if (loop === 'loop') return { position: line.start + mod(raw - line.start, span), direction, playing: true };
+  if (loop === 'once') {
+    if (raw < line.end && raw > line.start) return { position: raw, direction, playing: true };
+    const position = Math.min(Math.max(raw, line.start), line.end);
+    return { position, direction, playing: !(direction === 1 ? position >= line.end : position <= line.start) };
+  }
+  // Oscillate: a triangle wave over [start, end]; on a falling stretch the motion runs against `direction`.
+  const m = mod(raw - line.start, 2 * span);
+  return {
+    position: m <= span ? line.start + m : line.start + 2 * span - m,
+    direction: m > span ? (direction === 1 ? -1 : 1) : direction,
+    playing: true,
   };
 }
 
