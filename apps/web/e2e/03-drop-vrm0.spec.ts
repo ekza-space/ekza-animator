@@ -56,8 +56,9 @@ test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
       { timeout: 30_000 },
     )
     .toBe(true);
-  // The §4.11.9 threshold as specified. Polybot's rest pose (head 1.35 cm ahead of the hips) tilts f by ~2.8°, so the
-  // formula gives 0.99882 and this fails once the kernel lands: contract request R-4 (docs/wp-notes/wp-8.md). The
-  // spec and this assertion change together once R-4 is decided.
-  expect(facing[2]).toBeGreaterThan(0.999);
+  // §4.11.9 facing check (v0.3 integration, DECISIONS-OPEN E-INT-2): the yaw of f. Polybot's head sits 1.35 cm ahead
+  // of its hips, which pitches f by ~2.8° (f·z = 0.99882); the horizontal part measures the facing alone and is
+  // still −1 for a missing π-yaw and 0 for a quarter turn.
+  const [fx = Number.NaN, , fz = Number.NaN] = facing;
+  expect(fz / Math.hypot(fx, fz)).toBeGreaterThan(0.999);
 });

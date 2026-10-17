@@ -2599,7 +2599,9 @@ source key time and integer frame is ≤ tolerance.
   (vrm0) or `humanLocal` (vrm1) with all secondary controls at default, calls `vrm.humanoid.update()`, and
   compares raw bone locals (file space) with the kernel's `boneLocal` (≤ 1e-6) on Polybot and Seed-san.
 - **Facing check** (tests, E2E-03): `f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips)))`
-  at rest in canonical space; `f · (0, 0, 1) > 0.999`.
+  at rest in canonical space; its yaw is checked: `f.z / hypot(f.x, f.z) > 0.999` (*v0.3 integration*: the full
+  `f · (0, 0, 1)` also measures how far the head leans ahead of the hips — 0.99882 on Polybot — so only the
+  horizontal part is bounded; a missing π-yaw still gives −1, a quarter turn 0).
 - **Secondary controls**: parent = the control that drives the nearest driven ancestor bone. Humanoid bones
   below a posed secondary keep their control-defined world rotation (rotate binding) and follow in position.
   VRMA drops secondary motion; GLB bakes include it.
@@ -2831,7 +2833,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | ID | Story | Acceptance criteria |
 |---|---|---|
 | US-01 | As an animator I open a VRM 1.0 avatar and immediately see circle controls on it. | (E) Loading Seed-san via the sample picker shows the character in both panes (target ≤ 3 s, reported); the outliner lists `root`, `cog`, `fk.hips`, FK spine…fingers; left controls blue, right red, centre yellow; bones hidden. (U) zero pose = rest for every control (1e-9). FR-IO-01, FR-RIG-01..05 |
-| US-02 | As an animator I drop a VRM 0.x avatar and it faces the camera like VRM 1.0 avatars do. | (E) Polybot drag-and-drop → canonical facing `f·(0,0,1) > 0.999` (§4.11.9); FK controls created for the bones present. FR-IO-02, FR-RIG-06 |
+| US-02 | As an animator I drop a VRM 0.x avatar and it faces the camera like VRM 1.0 avatars do. | (E) Polybot drag-and-drop → canonical facing yaw `f.z / hypot(f.x, f.z) > 0.999` (§4.11.9); FK controls created for the bones present. FR-IO-02, FR-RIG-06 |
 | US-03 | As an animator I open a generic rigged GLB with clips and edit one of its animations. | (E) Quaternius UAL with `Idle_Loop` selected → 1:1 FK rig, clip `Idle_Loop` active at 24 fps, keys on integer frames, reduced; scrubbing changes the pose; (H) values at every source key time match three's `GLTFLoader` within 1e-4 rad / 1e-5 m. FR-IO-03, FR-IO-06, FR-RIG-07, FR-GE-21 |
 | US-04 | As an animator I work in a split view with a locked shot camera and a free camera. | (E) Default layout `split`: left pane looks through `shotCam` (locked badge), right pane persp; Alt+LMB drag in the left pane leaves its camera unchanged; in the right pane it orbits; unlocking the shot camera and orbiting persists the shot without an undo entry; `view.layout quad` shows 4 panes; Space tap maximizes the hovered pane and restores. FR-VP-01..06, FR-VP-18 |
 | US-05 | As an animator I select controls by clicking them, by marquee, or in the outliner. | (E) Click on `screenOfControl(fk.upperArm.L)` selects it; Shift-click toggles; a marquee over the left hand selects its finger controls; a repeated click on overlapping controls cycles; outliner selection syncs both ways. FR-VP-08, FR-VP-16, FR-OUT-01..03 |
@@ -2890,7 +2892,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | E2E-00 | WebGL available | open `/editor?e2e=1` | `webgl.ok`; `dropzone` visible; `renderedFrames()` stops increasing within 1 s of idle (0 frames over the next 1 s) |
 | E2E-01 | First run + sample VRM 1.0 | `/editor?e2e=1&firstRun=1`; `firstrun-nav-maya`, `firstrun-space-maya`, `firstrun-done`; `sample-seed-san` | `counts().characters === 1`; ≥ 50 visible controls incl. `root`, `cog`, `fk.hips`, `fk.head`, `fk.upperArm.L/R`; secondary controls hidden; `panes()` = 2 with the left camera `shot` and locked |
 | E2E-02 | Rest pose integrity | seed Seed-san | `channelValues` all 0 (t, r); `boneWorld(hips)` equals the glTF rest world of hips (1e-6) |
-| E2E-03 | Drag-and-drop VRM 0.x | drop `polybot.vrm` on the window | `import-format-badge` "VRM 0.x", `import-license-badge` CC0; after `import-confirm`: humanoid controls; `facing(polybot)·(0,0,1) > 0.999` |
+| E2E-03 | Drag-and-drop VRM 0.x | drop `polybot.vrm` on the window | `import-format-badge` "VRM 0.x", `import-license-badge` CC0; after `import-confirm`: humanoid controls; facing yaw of `facing(polybot)` > 0.999 (§4.11.9) |
 | E2E-04 | Generic GLB + embedded clip | `loadFile('quaternius-ual.glb')`, check only `import-clip-<Idle_Loop index>`, `import-confirm` | clip `Idle_Loop` active with fps 24; every key `t` is an integer; total keys < 1/3 of the source sample count of curves with ≥ 20 source keys; `channelValues` at frame 10 differ from rest; scrubbing to `screenOfFrame(20)` sets clip frame 20 |
 | E2E-05 | Layouts and cameras | seed Polybot; Alt+LMB drag 100 px in the left pane; same in the right pane; click `pane-lock-pane-left` (unlock), Alt+LMB drag in the left pane, `Mod+Z`; `view.layout quad`; hover a pane, press Space; press Space again | left camera unchanged while locked (1e-9); right camera changed; after unlock + drag the shot camera changed, and `Mod+Z` did **not** revert the camera transform but re-locked it (it undid the lock toggle; the drag made no history step); quad → 4 panes; Space → `maximizedPane` = hovered pane, then null |
 | E2E-06 | Pick and key | seed Polybot; click `screenOfControl(fk.lowerArm.L, 'pane-right')`; press `E`; drag from `screenOfManipulator('pane-right','rz')` 60 px; press `S` | selection = [fk.lowerArm.L]; rz ≠ 0; 3 rotation curves with 1 key each at frame 0; `screenOfTick(0)` not null |

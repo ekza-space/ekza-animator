@@ -4,7 +4,7 @@
 // and evaluation, `useFrame(…, 1)` renders the dirty panes, `addAfterEffect` redraws the 2D canvases. Context
 // loss is reported and recovered; without WebGL the editor keeps running on the fallback frame scheduler.
 import { EkzaError } from '@ekza-animator/anim-core';
-import { registerViewportContributions, ViewportManager } from '@ekza-animator/viewport';
+import { registerViewportContributions, ViewportManager, viewportTestApi } from '@ekza-animator/viewport';
 import { addAfterEffect, addEffect, Canvas, type RootState, useFrame } from '@react-three/fiber';
 import { Component, type ErrorInfo, type JSX, type ReactNode, useEffect, useRef, useState } from 'react';
 import { useShell } from '../shell/context';
@@ -82,6 +82,8 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
       console.error('Ekza Animator: the viewport contributions could not be registered', error);
     }
   }
+  // The viewport slice of the e2e test API (MVP-SPEC §4.8): panes, cameras and screen points from this manager.
+  const disposeProbe = vm === null ? () => {} : shell.probes.set('viewport', viewportTestApi(vm));
   let unsubscribePrefs: (() => void) | null = null;
   if (vm !== null) {
     const manager = vm;
@@ -115,6 +117,7 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
     canvas.removeEventListener('webglcontextlost', onLost);
     canvas.removeEventListener('webglcontextrestored', onRestored);
     unsubscribePrefs?.();
+    disposeProbe();
     disposeContributions();
     gate.bind(null);
     shell.restoreFallbackFrames();

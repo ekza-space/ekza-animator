@@ -7,6 +7,8 @@ import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter } from '../input/keyboard';
 import { scopeChainOf } from '../input/pointer';
 import { registerBuiltinPanels } from '../panels';
+import { graphTestHooks } from '../panels/graph/testHooks';
+import { screenOfTimelineFrame, screenOfTimelineTick } from '../panels/timeline/host';
 import { createPanelRegistry } from '../panels/registry';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
@@ -171,6 +173,17 @@ export function createShell(opts: CreateShellOptions): Shell {
 
   let glFrames = 0;
 
+  // The Graph Editor and time-slider slices of the e2e test API (MVP-SPEC §4.8) follow the focused panel of each
+  // kind, so one registration per shell serves every mounted instance (null while none is mounted).
+  const probes = createProbeRegistry();
+  disposers.push(probes.set('graph', graphTestHooks(app)));
+  disposers.push(
+    probes.set('timeline', {
+      screenOfFrame: (frame) => screenOfTimelineFrame(app, frame),
+      screenOfTick: (frame) => screenOfTimelineTick(app, frame),
+    }),
+  );
+
   return {
     app,
     panels: registry,
@@ -184,7 +197,7 @@ export function createShell(opts: CreateShellOptions): Shell {
       glFrames += 1;
     },
     restoreFallbackFrames: () => app.setFrameRequester(() => fallback.request()),
-    probes: createProbeRegistry(),
+    probes,
     workspace,
     files,
     exports,
