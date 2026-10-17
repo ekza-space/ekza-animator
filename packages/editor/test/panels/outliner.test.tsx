@@ -392,6 +392,108 @@ describe('Outliner model', () => {
     expect(revealKeys(doc, 'rig_X:nothing' as ControlId)).toEqual([]);
   });
 
+  it('keeps its invariants under random filters, expansion states and secondary visibility (seeded)', async () => {
+    const { skeleton } = await loadFixtures();
+    const app = waveApp();
+    // A secondary chain under the head (hidden by default) and a second clip make the trees less regular.
+    const hat = newControl(app, 'sec.hat', { group: 'secondary', hiddenByDefault: true, parent: control('fk.head') });
+    const feather = newControl(app, 'acc.feather', { parent: hat.id, side: 'L' });
+    await transact(app, (tx) => {
+      tx.put('controls', hat);
+      tx.put('controls', feather);
+      tx.put('clips', newClip(app, 'clp_SyntheticIdle0001', { name: 'Idle Loop' }));
+    });
+    const doc = readOutlinerDoc(app.store);
+    const controls = doc.characters[0]?.controls ?? [];
+    const names = [
+      ...controls.flatMap((c) => [
+        c.name,
+        c.key,
+        c.drives !== null && 'humanoid' in c.drives.bone ? c.drives.bone.humanoid : '',
+      ]),
+      ...skeleton.nodes.map((n) => n.name),
+      'wave',
+      'Idle',
+      'Synthetic',
+    ].filter((text) => text !== '');
+    const random = mulberry32(0x5eed);
+    const pick = <T,>(list: readonly T[]): T => list[Math.floor(random() * list.length)] as T;
+
+    // Violations are collected and asserted once, so a failure lists every broken run.
+    const problems: string[] = [];
+    const check = (ok: boolean, what: string): void => {
+      if (!ok) problems.push(what);
+    };
+    let filteredRuns = 0;
+    for (let run = 0; run < 300; run++) {
+      const source = pick(names);
+      const from = Math.floor(random() * source.length);
+      const query =
+        random() < 0.15 ? '' : random() < 0.1 ? 'zzz-none' : source.slice(from, from + 1 + Math.floor(random() * 6));
+      const filter = random() < 0.5 ? query.toUpperCase() : `  ${query} `;
+      const expanded = new Map<string, boolean>();
+      for (const c of controls) if (random() < 0.2) expanded.set(`ctl:${c.id}`, random() < 0.5);
+      if (random() < 0.5) expanded.set(`grp:${CHARACTER}:skeleton`, true);
+      if (random() < 0.1) expanded.set(`chr:${CHARACTER}`, false);
+      const showSecondary = random() < 0.5;
+      const rows = buildOutlinerRows(doc, {
+        filter,
+        showSecondary,
+        hiddenControls: new Set(),
+        expanded,
+        skeletons: new Map([[CHARACTER, skeleton]]),
+        activeCharacter: CHARACTER,
+        activeClip: { [CHARACTER]: CLIP },
+      });
+      const context = `run ${run} (filter '${filter}', secondary ${showSecondary})`;
+      const at = new Map(rows.map((r, i) => [r.key, i]));
+      check(at.size === rows.length, `${context}: duplicate row keys`);
+      rows.forEach((r, i) => {
+        if (r.parent === null) {
+          check(r.depth === 0, `${context}: root ${r.key} at depth ${r.depth}`);
+          return;
+        }
+        const parent = at.get(r.parent);
+        const parentRow = parent === undefined ? undefined : rows[parent];
+        check(parent !== undefined && parent < i, `${context}: ${r.key} before or without its parent`);
+        check(parentRow?.expanded === true, `${context}: ${r.key} under a collapsed parent`);
+        check(r.depth > (parentRow?.depth ?? Infinity), `${context}: ${r.key} not deeper than its parent`);
+      });
+      const shownControls = new Set(rows.flatMap((r) => (r.kind === 'control' ? [r.control.id] : [])));
+      const q = filter.trim().toLowerCase();
+      check(showSecondary || !shownControls.has(hat.id), `${context}: hidden secondary control shown`);
+      if (q === '' && ![...expanded.values()].includes(false)) {
+        // Unfiltered and fully expanded: every shown control is listed once (none lost by re-parenting).
+        check(
+          shownControls.size === controls.length - (showSecondary ? 0 : 1),
+          `${context}: ${shownControls.size} control rows`,
+        );
+      }
+      if (q === '' || 'synthetic humanoid'.includes(q)) continue; // a matching character shows everything
+      filteredRuns++;
+      // Filtered: every control whose name, key or humanoid name contains the query is shown and marked …
+      for (const c of controls) {
+        if (!showSecondary && c.id === hat.id) continue;
+        const humanoid = c.drives !== null && 'humanoid' in c.drives.bone ? c.drives.bone.humanoid : '';
+        const hit = [c.name, c.key, humanoid].some((t) => t.toLowerCase().includes(q));
+        const shown = rows.find((r) => r.kind === 'control' && r.control.id === c.id);
+        check((shown?.match ?? false) === hit, `${context}: ${c.key} match ${shown?.match ?? false}, expected ${hit}`);
+      }
+      // … and a control row that does not match is shown only as the ancestor of a match.
+      rows.forEach((r, i) => {
+        if (r.kind !== 'control' || r.match) return;
+        const next = rows.slice(i + 1).findIndex((x) => x.depth <= r.depth);
+        const subtree = rows.slice(i + 1, next === -1 ? undefined : i + 1 + next);
+        check(
+          subtree.some((x) => x.match),
+          `${context}: ${r.key} shown without a match below`,
+        );
+      });
+    }
+    expect(problems).toEqual([]);
+    expect(filteredRuns).toBeGreaterThan(150);
+  });
+
   it('honours explicit collapse state and the default (skeleton collapsed)', () => {
     const view = {
       filter: '',
@@ -413,3 +515,15 @@ describe('Outliner model', () => {
     expect(rows.find((r) => r.kind === 'clip')).toMatchObject({ active: true });
   });
 });
+
+/** A small deterministic PRNG (mulberry32) for the seeded model test. */
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
