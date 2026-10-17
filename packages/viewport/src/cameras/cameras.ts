@@ -105,6 +105,8 @@ export function applyShotRecord(shot: ShotCamera, record: CameraRecord): void {
   camera.near = record.near;
   camera.far = record.far;
   camera.updateProjectionMatrix();
+  // The record's orthoHeight is the visible height: navigation zoom is folded into it (shotTransformOf).
+  if (camera instanceof OrthographicCamera && camera.zoom !== 1) shot.nav.setZoom(1);
   shot.nav.lookAt(record.transform.t, record.target);
   // setLookAt goes through spherical coordinates and derives the orientation from position and pivot; keep the
   // record's exact position and rotation (roll included).
@@ -115,8 +117,13 @@ export function applyShotRecord(shot: ShotCamera, record: CameraRecord): void {
   camera.updateMatrixWorld();
 }
 
-/** The record fields a navigation gesture writes: world transform (s = 1) and orbit pivot. */
-export function shotTransformOf(nav: NavigationController): Pick<CameraRecord, 'transform' | 'target'> {
+/**
+ * The record fields a navigation gesture writes: world transform (s = 1), orbit pivot and, for an orthographic
+ * camera, the visible height with the zoom folded in.
+ */
+export function shotTransformOf(
+  nav: NavigationController,
+): Pick<CameraRecord, 'transform' | 'target'> & Partial<Pick<CameraRecord, 'orthoHeight'>> {
   const camera = nav.camera;
   const target = nav.target(new Vector3());
   const transform: ReadonlyXf = {
@@ -124,7 +131,10 @@ export function shotTransformOf(nav: NavigationController): Pick<CameraRecord, '
     q: [camera.quaternion.x, camera.quaternion.y, camera.quaternion.z, camera.quaternion.w],
     s: [1, 1, 1],
   };
-  return { transform, target: [target.x, target.y, target.z] };
+  const fields = { transform, target: [target.x, target.y, target.z] as [number, number, number] };
+  return camera instanceof OrthographicCamera
+    ? { ...fields, orthoHeight: (camera.top - camera.bottom) / camera.zoom }
+    : fields;
 }
 
 /** Projection-independent description of a navigated camera (CameraSnapshot, MVP-SPEC §4.6). */

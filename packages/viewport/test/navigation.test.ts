@@ -233,6 +233,32 @@ describe('shot cameras', () => {
     expect(rig.app.store.undo.canUndo()).toBe(false);
   });
 
+  it('an orthographic shot camera persists its zoom as orthoHeight (wheel and framing)', async () => {
+    rig = await createRig();
+    addCamera(rig.app, shotCamera({ locked: false, projection: 'orthographic', orthoHeight: 3 }));
+    rig.layout('split');
+    rig.frame();
+    expect(rig.vm.camera('pane-left')).toMatchObject({ projection: 'orthographic', orthoHeight: 3 });
+    const left = rig.panes.get('pane-left') as HTMLElement;
+    const c = centre(rig, 'pane-left');
+    for (let i = 0; i < 3; i++) wheel(left, c.x, c.y, { deltaY: -100 });
+    const zoomed = rig.vm.camera('pane-left');
+    expect(zoomed.orthoHeight).toBeLessThan(3);
+    await new Promise((resolve) => setTimeout(resolve, WHEEL_BURST_MS + 60));
+    const record = rig.app.store.get('cameras', SHOT);
+    expect(record?.orthoHeight).toBeCloseTo(zoomed.orthoHeight, 9);
+    // The committed record is re-applied (zoom folded into the height): the view does not jump.
+    same(rig.vm.camera('pane-left'), zoomed, 9);
+    expect(rig.vm.camera('pane-left').orthoHeight).toBeCloseTo(zoomed.orthoHeight, 9);
+    // Framing writes the fitted height too.
+    await rig.app.run('view.frame', { what: 'all', paneId: 'pane-left' });
+    const framed = rig.vm.camera('pane-left');
+    expect(rig.app.store.get('cameras', SHOT)?.orthoHeight).toBeCloseTo(framed.orthoHeight, 9);
+    rig.frame();
+    same(rig.vm.camera('pane-left'), framed, 9);
+    expect(rig.vm.camera('pane-left').orthoHeight).toBeCloseTo(framed.orthoHeight, 9);
+  });
+
   it('does not navigate a shot camera while another gesture holds the document', async () => {
     rig = await createRig();
     addCamera(rig.app, shotCamera({ locked: false }));
