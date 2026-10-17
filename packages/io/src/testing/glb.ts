@@ -226,11 +226,7 @@ export function makeHostileGlb(kinds: readonly HostileKind[]): Uint8Array {
   json['meshes'] = [
     { primitives: [{ attributes: { POSITION: positions, JOINTS_0: joints, WEIGHTS_0: weights }, indices }] },
   ];
-  json['nodes'] = [
-    { name: 'a', children: [1] },
-    { name: 'b', children: [] as number[] },
-    { name: 'mesh', mesh: 0, skin: 0 },
-  ];
+  json['nodes'] = [{ name: 'a', children: [1] }, { name: 'b' }, { name: 'mesh', mesh: 0, skin: 0 }];
   json['skins'] = [{ joints: [0, 1] }];
   json['scenes'] = [{ nodes: [0, 2] }];
   if (kinds.includes('view-out-of-range')) {
@@ -242,7 +238,7 @@ export function makeHostileGlb(kinds: readonly HostileKind[]): Uint8Array {
     b.json.accessors.push({ bufferView: 0, componentType: 5126, count: 2 ** 31, type: 'VEC3' });
   }
   if (kinds.includes('cyclic-nodes')) {
-    (((json['nodes'] as Json[])[1] as Json)['children'] as number[]).push(0);
+    ((json['nodes'] as Json[])[1] as Json)['children'] = [0];
     json['scenes'] = [{ nodes: [2] }];
   }
   return b.build();

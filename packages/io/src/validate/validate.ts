@@ -53,6 +53,15 @@ export async function validateGltf(
       "No glTF-Validator installed: call setGltfValidator(await import('gltf-validator'))",
     );
   }
+  return validateWith(validator, bytes, opts);
+}
+
+/** `validateGltf` with an explicit validator module (the in-app validator worker, `io/worker`). */
+export async function validateWith(
+  validator: GltfValidatorModule,
+  bytes: Uint8Array,
+  opts?: { readonly maxIssues?: number },
+): Promise<ValidationReport> {
   const report = await validator.validateBytes(bytes, {
     format: 'glb',
     maxIssues: opts?.maxIssues ?? 0,

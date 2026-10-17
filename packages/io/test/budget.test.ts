@@ -2,8 +2,9 @@ import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { checkInputBudget, MAX_BUDGET_ISSUES } from '../src/budget/check';
 import { parseGlb } from '../src/glb/parse';
-import { GltfBuilder, makeBudgetStressGlb, makeGlb, makeHostileGlb } from '../src/testing/glb';
+import { GltfBuilder, type HostileKind, makeBudgetStressGlb, makeGlb, makeHostileGlb } from '../src/testing/glb';
 import { DEFAULT_INPUT_BUDGET, type LintIssue } from '../src/types';
+import { validateGltf } from '../src/validate/validate';
 
 const errors = (issues: readonly LintIssue[]): LintIssue[] => issues.filter((i) => i.severity === 'error');
 
@@ -46,6 +47,12 @@ describe('checkInputBudget', () => {
 
   it('accepts the hostile template without hostile parts and rejects out-of-range index and joint values', async () => {
     expect(checkInputBudget(await parseGlb(makeHostileGlb([])))).toEqual([]);
+    expect((await validateGltf(makeHostileGlb([]))).errors).toBe(0);
+    // The Khronos validator agrees on the planted value errors.
+    const khronos = async (kind: HostileKind) =>
+      (await validateGltf(makeHostileGlb([kind]))).issues.filter((i) => i.severity === 0).map((i) => i.code);
+    expect(await khronos('index-out-of-range')).toContain('ACCESSOR_INDEX_OOB');
+    expect(await khronos('joint-out-of-range')).toContain('ACCESSOR_JOINTS_INDEX_OOB');
 
     const index = errors(checkInputBudget(await parseGlb(makeHostileGlb(['index-out-of-range']))));
     expect(index).toEqual([
