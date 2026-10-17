@@ -350,6 +350,22 @@ std::vector<Curve> handPicked(Rng &rng) {
 
 double gridValue(Rng &rng) { return (double)rng.range(-128, 128) / 16; }
 
+// Fixed handles for every key, multiples of 1/64; weighted handles may exceed their span (monotonic correction).
+void randomHandles(Curve &c, Rng &rng) {
+  const int n = (int)c.keys.size();
+  for (int i = 0; i < n; i++) {
+    Key &k = c.keys[(size_t)i];
+    const double spanIn = i > 0 ? k.t - c.keys[(size_t)i - 1].t : 4;
+    const double spanOut = i < n - 1 ? c.keys[(size_t)i + 1].t - k.t : 4;
+    const double inMax = c.weighted ? 1.6 * spanIn : spanIn;
+    const double outMax = c.weighted ? 1.6 * spanOut : spanOut;
+    k.inDt = -(double)rng.range(1, std::max(1, (int)(inMax * 64))) / 64;
+    k.outDt = (double)rng.range(1, std::max(1, (int)(outMax * 64))) / 64;
+    k.inDv = (double)rng.range(-256, 256) / 64;
+    k.outDv = (double)rng.range(-256, 256) / 64;
+  }
+}
+
 std::vector<Curve> randomCurves(Rng &rng, int count) {
   std::vector<Curve> out;
   for (int ci = 0; ci < count; ci++) {
@@ -372,19 +388,74 @@ std::vector<Curve> randomCurves(Rng &rng, int count) {
       Key k = makeKey(t, v, (TT)rng.range(0, TT_COUNT - 1), (TT)rng.range(0, TT_COUNT - 1));
       c.keys.push_back(k);
     }
-    for (int i = 0; i < n; i++) {
-      Key &k = c.keys[(size_t)i];
-      const double spanIn = i > 0 ? k.t - c.keys[(size_t)i - 1].t : 4;
-      const double spanOut = i < n - 1 ? c.keys[(size_t)i + 1].t - k.t : 4;
-      // multiples of 1/64; weighted handles may exceed their span (monotonic correction)
-      const double inMax = c.weighted ? 1.6 * spanIn : spanIn;
-      const double outMax = c.weighted ? 1.6 * spanOut : spanOut;
-      k.inDt = -(double)rng.range(1, std::max(1, (int)(inMax * 64))) / 64;
-      k.outDt = (double)rng.range(1, std::max(1, (int)(outMax * 64))) / 64;
-      k.inDv = (double)rng.range(-256, 256) / 64;
-      k.outDv = (double)rng.range(-256, 256) / 64;
-    }
+    randomHandles(c, rng);
     addSamples(c, rng, 28, 2.6);
+    out.push_back(c);
+  }
+  return out;
+}
+
+// Times whose cyclic mapping lands exactly on a key: t_k + n·R (cycle; oscillate for even n) and
+// first + last − t_k + n·R (oscillate's mirrored copies), for |n| ≤ cycles. Plus every whole frame in
+// [first − margin·R − 1, last + margin·R + 1] when `wholeFrames` is set.
+void addKeyHits(Curve &c, int cycles, bool wholeFrames, double margin) {
+  const double first = c.keys.front().t, last = c.keys.back().t, range = last - first;
+  for (const Key &k : c.keys) {
+    for (int n = -cycles; n <= cycles; n++) {
+      c.times.push_back(k.t + n * range);
+      c.times.push_back(first + last - k.t + n * range);
+    }
+  }
+  if (wholeFrames) {
+    const int64_t a = (int64_t)std::ceil(first - margin * range - 1);
+    const int64_t b = (int64_t)std::floor(last + margin * range + 1);
+    for (int64_t f = a; f <= b; f++) c.times.push_back((double)f);
+  }
+  std::sort(c.times.begin(), c.times.end());
+  c.times.erase(std::unique(c.times.begin(), c.times.end()), c.times.end());
+}
+
+// Step / step-next spans under cyclic infinities, sampled where the mapped time hits a key. A step-next span jumps
+// right after its start key, so a mapped time a rounding error past a key flips the value; AnimX rounds the mapped
+// time to ticks (`toTickDoubleTime`), which puts it back on the key. Appended after the random set with its own
+// random stream, so the curves above do not change.
+std::vector<Curve> steppedCyclic(uint64_t seed) {
+  Rng rng{seed ^ 0x5354455050454443ULL};
+  std::vector<Curve> out;
+  const Inf cyclic[] = {Inf::Cycle, Inf::CycleOffset, Inf::Oscillate};
+  for (TT outType : {TT::StepNext, TT::Step}) {
+    for (Inf inf : cyclic) {
+      Curve c;
+      c.name = std::string("stepped-cyclic-") + TT_NAMES[(int)outType] + "-" + INF_NAMES[(int)inf];
+      c.weighted = false;
+      c.pre = inf;
+      c.post = inf;
+      c.keys = {makeKey(3, -4, TT::Flat, outType), makeKey(10, 6, TT::Flat, outType),
+                makeKey(19, -8, TT::Flat, outType), makeKey(27, -9, TT::Flat, outType)};
+      addKeyHits(c, 4, true, 3.5);
+      out.push_back(c);
+    }
+  }
+  for (int ci = 0; ci < 36; ci++) {
+    Curve c;
+    char name[40];
+    std::snprintf(name, sizeof name, "stepped-cyclic-random-%02d", ci);
+    c.name = name;
+    c.weighted = rng.chance(30);
+    const int n = rng.range(2, 6);
+    c.pre = cyclic[rng.range(0, 2)];
+    c.post = cyclic[rng.range(0, 2)];
+    // half on whole frames (sampled at every whole frame), half on the 1/8 grid
+    const bool integral = ci % 2 == 0;
+    double t = rng.range(-30, 30);
+    for (int i = 0; i < n; i++) {
+      if (i > 0) t += integral ? rng.range(1, 12) : (double)rng.range(1, 96) / 8;
+      const int r = rng.range(0, 9);
+      const TT out = r < 5 ? TT::StepNext : r < 7 ? TT::Step : (TT)rng.range(0, TT_COUNT - 1);
+      c.keys.push_back(makeKey(t, gridValue(rng), (TT)rng.range(0, TT_COUNT - 1), out));
+    }
+    randomHandles(c, rng);
+    addKeyHits(c, 3, integral, 2.6);
     out.push_back(c);
   }
   return out;
@@ -468,6 +539,8 @@ int main(int argc, char **argv) {
   std::vector<Curve> curves = handPicked(rng);
   std::vector<Curve> random = randomCurves(rng, count);
   curves.insert(curves.end(), random.begin(), random.end());
+  std::vector<Curve> stepped = steppedCyclic(seed);
+  curves.insert(curves.end(), stepped.begin(), stepped.end());
   std::printf("{\"source\":\"https://github.com/Autodesk/animx\",\"commit\":\"%s\",\"seed\":%" PRIu64
               ",\"keyFormat\":[\"t\",\"v\",\"inType\",\"outType\",\"inDt\",\"inDv\",\"outDt\",\"outDv\"],\"curves\":[\n",
               ANIMX_COMMIT, seed);

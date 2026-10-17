@@ -1,19 +1,9 @@
 import { EkzaError } from '../errors';
 import type { CompiledAnimCurve, Frame, InfinityMode, SegmentKind } from '../types';
 import { Segment } from '../types';
-import {
-  bezierParameter,
-  bezierSlopeAt,
-  evaluateBezierSegment,
-  hermiteSlope,
-  INFINITY_MAP,
-  mapCyclicInfinity,
-} from './animx';
+import { bezierParameter, bezierSlopeAt, evaluateCurveInRange, hermiteSlope, INFINITY_MAP, mapInfinity } from './animx';
 import { COEF_STRIDE, type CompiledCurve, coefficientsOf } from './compile';
 import { KEY_TIME_EPSILON, lowerBound, upperBound } from './keys';
-
-/** AnimX `equivalent()` tolerance: a time this close to a key returns the key's value. */
-const KEY_SNAP_EPSILON = 1e-10;
 
 function isCyclicMode(mode: InfinityMode): mode is 'cycle' | 'cycleOffset' | 'oscillate' {
   return mode === 'cycle' || mode === 'cycleOffset' || mode === 'oscillate';
@@ -44,45 +34,6 @@ function coefficientsFast(c: CompiledAnimCurve): Float64Array {
   return (c as Partial<CompiledCurve>).coef ?? coefficientsOf(c);
 }
 
-/** AnimX `evaluateCurve` inside [first, last] (and constant infinities outside). */
-function evaluateInRange(c: CompiledAnimCurve, frame: number): number {
-  const t = c.t;
-  const n = c.keyCount;
-  // first key at or after `frame` (AnimX `keyframe(time)`)
-  let lo = 0;
-  let hi = n;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    if (t[mid]! < frame) lo = mid + 1;
-    else hi = mid;
-  }
-  if (lo === n) return c.v[n - 1]!;
-  if (Math.abs(t[lo]! - frame) <= KEY_SNAP_EPSILON || lo === 0) return c.v[lo]!;
-  const k = lo - 1;
-  switch (c.segment[k] as SegmentKind) {
-    case Segment.Linear: {
-      const t0 = t[k]!;
-      const t1 = t[lo]!;
-      const v0 = c.v[k]!;
-      return t0 === t1 ? v0 : v0 + ((frame - t0) / (t1 - t0)) * (c.v[lo]! - v0);
-    }
-    case Segment.Step:
-      return c.v[k]!;
-    case Segment.StepNext:
-      return c.v[lo]!;
-    case Segment.Bezier:
-      return evaluateBezierSegment(coefficientsFast(c), k * COEF_STRIDE, t[k]!, t[lo]!, frame);
-    case Segment.Hermite:
-    default: {
-      // AnimX `hermite`: t·(t·(t·c0 + c1) + c2) + c3 with t frames after the start key
-      const coef = coefficientsFast(c);
-      const o = k * COEF_STRIDE;
-      const s = frame - t[k]!;
-      return s * (s * (s * coef[o]! + coef[o + 1]!) + coef[o + 2]!) + coef[o + 3]!;
-    }
-  }
-}
-
 /** Segment whose slope applies at `frame` ∈ [first, last]: the one starting there (the last one at the last key). */
 function slopeSegmentAt(c: CompiledAnimCurve, frame: number): number {
   return Math.min(Math.max(upperBound(c.t, c.keyCount, frame) - 1, 0), c.keyCount - 2);
@@ -91,35 +42,6 @@ function slopeSegmentAt(c: CompiledAnimCurve, frame: number): number {
 function slopeInRange(c: CompiledAnimCurve, coef: Float64Array, frame: number): number {
   if (c.keyCount < 2) return 0;
   return segmentSlope(c, coef, slopeSegmentAt(c, frame), frame);
-}
-
-/**
- * Writes the infinity mapping of `frame` into INFINITY_MAP ([in-range frame, value offset, mirrored]); returns
- * false when `frame` is inside the key range (or the curve is empty).
- */
-function mapInfinity(c: CompiledAnimCurve, frame: number): boolean {
-  const n = c.keyCount;
-  if (n === 0) return false;
-  const first = c.t[0]!;
-  const last = c.t[n - 1]!;
-  const pre = frame < first;
-  if (!pre && !(frame > last)) return false;
-  const mode = pre ? c.pre : c.post;
-  const boundary = pre ? first : last;
-  if (mode === 'linear') {
-    INFINITY_MAP[0] = boundary;
-    INFINITY_MAP[1] = pre ? -(first - frame) * c.inSlope[0]! : (frame - last) * c.outSlope[n - 1]!;
-    INFINITY_MAP[2] = 0;
-  } else if (isCyclicMode(mode) && last > first) {
-    mapCyclicInfinity(frame, first, last, mode, pre);
-    INFINITY_MAP[1] = INFINITY_MAP[1]! * (c.v[n - 1]! - c.v[0]!);
-  } else {
-    // constant, or a cyclic mode on a single key (AnimX returns 0 there; the key value is the sane limit)
-    INFINITY_MAP[0] = boundary;
-    INFINITY_MAP[1] = 0;
-    INFINITY_MAP[2] = 0;
-  }
-  return true;
 }
 
 /**
@@ -135,11 +57,11 @@ export function evaluateAnimCurve(c: CompiledAnimCurve, frame: Frame): number {
   } else if (frame > t[n - 1]!) {
     if (c.post === 'constant') return c.v[n - 1]!;
   } else {
-    return evaluateInRange(c, frame);
+    return evaluateCurveInRange(c, coefficientsFast(c), frame);
   }
   mapInfinity(c, frame);
   const offset = INFINITY_MAP[1]!;
-  return evaluateInRange(c, INFINITY_MAP[0]!) + offset;
+  return evaluateCurveInRange(c, coefficientsFast(c), INFINITY_MAP[0]!) + offset;
 }
 
 /**

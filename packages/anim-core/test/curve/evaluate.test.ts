@@ -167,6 +167,70 @@ describe('infinity (research 01 §5.6, AnimX evaluateInfinity)', () => {
     expect(infinityMap(lin, -5)).toEqual({ frame: 0, valueOffset: 0, mirrored: false });
   });
 
+  it('a cyclic time that maps onto a step-next key gives that key value (mapping rounding error is snapped)', () => {
+    // regression: 58 used to map to 10.000000000000002, just past key 10, so the step-next span gave the next key
+    const keys = [
+      key(3, -4, 'flat', 'stepNext'),
+      key(10, 6, 'flat', 'stepNext'),
+      key(19, -8, 'flat', 'stepNext'),
+      key(27, -9, 'flat', 'stepNext'),
+    ];
+    const cycle = compileAnimCurve(curve(keys, { pre: 'cycle', post: 'cycle' }));
+    const osc = compileAnimCurve(curve(keys, { pre: 'oscillate', post: 'oscillate' }));
+    const offset = compileAnimCurve(curve(keys, { pre: 'cycleOffset', post: 'cycleOffset' }));
+    for (const f of [34, 58, 82, -14, -38, 10 + 24 * 50_000, 10 - 24 * 50_000]) {
+      expect(evaluateAnimCurve(cycle, f)).toBe(6);
+      expect(infinityMap(cycle, f).frame).toBe(10);
+    }
+    expect(evaluateAnimCurve(osc, 58)).toBe(6);
+    expect(evaluateAnimCurve(osc, 44)).toBe(6); // first reflection: 27 + (27 − 10)
+    expect(evaluateAnimCurve(osc, -4)).toBe(6); // first reflection before the start: 3 − (10 − 3)
+    expect(evaluateAnimCurve(offset, 58)).toBe(6 + 2 * (-9 - -4));
+    // a genuine offset past the key is not snapped: the step-next span holds the next key there, as in range
+    expect(evaluateAnimCurve(cycle, 10 + 1e-6)).toBe(-8);
+    expect(evaluateAnimCurve(cycle, 58 + 1e-6)).toBe(-8);
+  });
+
+  it('property: stepped spans under cyclic infinities repeat the in-range values exactly at whole frames', () => {
+    // integer keys, so the mapped whole frames are exact: post T → first + (T − last) mod R (cycle; oscillate
+    // alternates last − …), pre T → last − (first − T) mod R; cycle-with-offset adds numCycles · Δv
+    const stepped = fc.record({
+      start: fc.integer({ min: -30, max: 30 }),
+      gaps: fc.array(fc.integer({ min: 1, max: 12 }), { minLength: 1, maxLength: 5 }),
+      values: fc.array(fc.integer({ min: -64, max: 64 }), { minLength: 6, maxLength: 6 }),
+      outTypes: fc.array(fc.constantFrom('step' as const, 'stepNext' as const), { minLength: 6, maxLength: 6 }),
+      pre: fc.constantFrom('cycle' as const, 'cycleOffset' as const, 'oscillate' as const),
+      post: fc.constantFrom('cycle' as const, 'cycleOffset' as const, 'oscillate' as const),
+    });
+    fc.assert(
+      fc.property(stepped, ({ start, gaps, values, outTypes, pre, post }) => {
+        const times = [start];
+        for (const g of gaps) times.push((times[times.length - 1] as number) + g);
+        const keys = times.map((t, i) => key(t, (values[i] as number) / 8, 'flat', outTypes[i]));
+        const c = compileAnimCurve(curve(keys, { pre, post }));
+        const first = times[0] as number;
+        const last = times[times.length - 1] as number;
+        const range = last - first;
+        const dv = (c.v[c.keyCount - 1] as number) - (c.v[0] as number);
+        for (let f = first - 4 * range - 1; f <= last + 4 * range + 1; f++) {
+          if (f >= first && f <= last) continue;
+          const isPre = f < first;
+          const d = isPre ? first - f : f - last;
+          const integral = Math.trunc(d / range);
+          const rem = d - integral * range;
+          const cycles = integral + 1;
+          const mode = isPre ? pre : post;
+          let mapped: number;
+          if (mode === 'oscillate') mapped = (cycles % 2 === 1) === isPre ? first + rem : last - rem;
+          else mapped = isPre ? last - rem : first + rem;
+          const offset = mode === 'cycleOffset' ? (isPre ? -cycles : cycles) * dv : 0;
+          expect(evaluateAnimCurve(c, f)).toBe(evaluateAnimCurve(c, mapped) + offset);
+        }
+      }),
+      { numRuns: 300 },
+    );
+  });
+
   it('property: evaluate = evaluate(infinityMap.frame) + valueOffset everywhere', () => {
     fc.assert(
       fc.property(curveArbitrary(), fc.double({ min: -200, max: 200, noNaN: true }), (anim, f) => {
