@@ -2358,6 +2358,19 @@ specific scope wins over `*`.
 | `KeyB` / `KeyU` | `graph.tangent.break` / `graph.tangent.unify` | G |
 | `Shift+Slash` (`?`) | `ui.open {dialog:'shortcuts'}` | * |
 
+**Keyboard focus** (*v0.3 integration, acceptance round 2*). Hotkeys follow the hovered panel, whatever has the DOM
+focus, with these exceptions:
+- A **text field** (text inputs, textareas, contenteditable, ARIA textbox/combobox/spinbutton) owns the keyboard
+  except `Mod+S`/`Mod+Shift+S`. Numeric fields (Channel Box, Graph Editor key fields, Attributes) commit on Enter
+  and give the focus back (an invalid entry keeps it); Esc reverts and gives it back.
+- A focused **dropdown** (`<select>`) keeps type-ahead and its navigation only while it is under the pointer.
+  Otherwise Arrow keys, PageUp/PageDown, Enter and Tab stay with it, every other key goes to the hovered panel's
+  keymap, and printable keys never type ahead into it. `Mod` chords always reach the keymap. A value chosen with
+  the pointer hands the focus back to the editor (outside dialogs).
+- A focused **tree** (Outliner) handles its ARIA keys (arrows, Home/End, PageUp/PageDown, Enter, F2, `/`, F) only
+  while the Outliner is hovered or the pointer is outside the window.
+- An open dialog or menu owns the keyboard (the editor's `Mod` chords keep their browser defaults suppressed).
+
 Unbound in the MVP (menu or status line only): Gimbal/Object/World rotate space (status line toggle group),
 `pose.pinFeet`, `pose.plantFeet`, `graph.curves.simplify`, `graph.eulerFilter`, `select.mirror`.
 Never bound (browser/OS reserved): `Mod+W/T/N/Q/H/M`, `Mod+1…9`, `Mod+Tab`, `Alt+←/→`, `F1`–`F12`,
