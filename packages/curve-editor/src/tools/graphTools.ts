@@ -47,15 +47,15 @@ export const GRAPH_SELECT_TOOL: ToolDef<GraphToolHost> = {
 };
 
 /**
- * Move tool: like Select, but an LMB drag on empty space moves the current selection (Maya's MMB drag), which gives
- * one-button mice and trackpads the "drag anywhere" move.
+ * Move tool: Maya's Move Keys tool behaves like Select in the Graph Editor (MVP-SPEC §4.11.18: LMB drag on a
+ * selected key or handle moves, on empty space draws a marquee); it differs by its cursor.
  */
 export const GRAPH_MOVE_TOOL: ToolDef<GraphToolHost> = {
   id: GRAPH_TOOL.move,
   panel: PANEL.graph,
   label: 'Move Keys',
   icon: 'move',
-  create: (_app: EditorApp, host: GraphToolHost) => pressTool('move', host, 'move'),
+  create: (_app: EditorApp, host: GraphToolHost) => pressTool('marquee', host, 'move'),
 };
 
 /** Insert tool: click on a curve inserts a shape-preserving key; elsewhere it selects like the Select tool. */

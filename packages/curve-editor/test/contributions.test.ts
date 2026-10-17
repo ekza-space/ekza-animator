@@ -1,8 +1,10 @@
 import type { CurveId } from '@ekza-animator/doc';
+import type { ToolDef } from '@ekza-animator/editor-core';
+import type { FakeServices } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
-import { GRAPH_TOOLS, type GraphEditorController, registerGraphContributions } from '../src';
+import { GRAPH_TOOLS, type GraphEditorController, type GraphToolHost, registerGraphContributions } from '../src';
 import { xToFrame } from '../src/view/transform';
-import { type Mounted, mount, WAVE, waveApp } from './support/app';
+import { callsOf, drag, KERNEL_READY, type Mounted, mount, selectKeys, settle, WAVE, waveApp } from './support/app';
 
 let mounted: Mounted | null = null;
 afterEach(() => {
@@ -55,5 +57,75 @@ describe('registerGraphContributions', () => {
     expect(app.tools.list('graph')).toHaveLength(3);
     again();
     app.dispose();
+  });
+});
+
+describe('extension tools', () => {
+  const sweepTool: ToolDef<GraphToolHost> = {
+    id: 'acme.sweep',
+    panel: 'graph',
+    label: 'Sweep',
+    create: (_app, host) => ({
+      pointerDown(e) {
+        host.press(e, { empty: 'move' });
+        return true;
+      },
+      cursor: () => 'ew-resize',
+    }),
+  };
+
+  it('a registered graph tool gets the host; the Move tool behaves like Select with its own cursor', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const dispose = registerGraphContributions(app, () => controller);
+    const disposeTool = app.contribute({ kind: 'tool', def: sweepTool });
+    try {
+      app.session.setState({ tools: { ...app.session.getState().tools, graph: 'move' } });
+      expect(controller.cursor()).toBe('move');
+      // A drag on empty space is a marquee (nothing inside: an empty replace), not a move.
+      drag(controller, { x: 5, y: 150 }, { x: 30, y: 200 });
+      await settle();
+      expect(callsOf(app, 'select.keys')).toEqual([{ items: [], mode: 'replace' }]);
+
+      app.session.setState({ tools: { ...app.session.getState().tools, graph: 'acme.sweep' } });
+      expect(controller.cursor()).toBe('ew-resize');
+    } finally {
+      disposeTool();
+      dispose();
+    }
+  });
+
+  it.skipIf(KERNEL_READY)(
+    'host.press with empty: "move" drags the current selection (stubbed kernel: reported)',
+    async () => {
+      const app = await waveApp();
+      mounted = mount(app);
+      const { controller } = mounted;
+      const disposeTool = app.contribute({ kind: 'tool', def: sweepTool });
+      try {
+        app.session.setState({ tools: { ...app.session.getState().tools, graph: 'acme.sweep' } });
+        selectKeys(app, [[WAVE.keys[1], { key: true }]]);
+        drag(controller, { x: 5, y: 5 }, { x: 60, y: 5 });
+        expect((app.services as FakeServices).toasts.at(-1)?.text).toContain('Move Keys');
+      } finally {
+        disposeTool();
+      }
+    },
+  );
+
+  it.skipIf(!KERNEL_READY)('[needs WP-7a] host.press with empty: "move" drags the current selection', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const disposeTool = app.contribute({ kind: 'tool', def: sweepTool });
+    try {
+      app.session.setState({ tools: { ...app.session.getState().tools, graph: 'acme.sweep' } });
+      selectKeys(app, [[WAVE.keys[1], { key: true }]]);
+      drag(controller, { x: 5, y: 5 }, { x: 5 + 2 * controller.view.sx, y: 5 });
+      expect(app.store.get('keys', WAVE.keys[1])?.t).toBe(17);
+    } finally {
+      disposeTool();
+    }
   });
 });
