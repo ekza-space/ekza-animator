@@ -4,7 +4,15 @@
 import type { ControlId, KeyId, UserId } from '../../ids';
 import { newId } from '../../ids/generate';
 import { migrateSnapshot } from '../../migrations/migrate';
-import type { ControlRecord, CurveRecord, KeyRecord, Partition, TableName } from '../../records';
+import type {
+  ClipRecord,
+  ControlRecord,
+  CurveRecord,
+  KeyRecord,
+  LayerRecord,
+  Partition,
+  TableName,
+} from '../../records';
 import { makeKey } from '../../records/factories';
 import { SCHEMA_VERSION } from '../../snapshot/version';
 import type { AnyChange, Change, ChangeBatch, DocSnapshot, DocumentStore } from '../../store';
@@ -651,6 +659,58 @@ export function registerCoreCases(r: SuiteRunner, factory: Factory): void {
       equal(read(store, 'keys', extra.id)?.v, 42, 'theirs kept');
     });
 
+    r.it('undo never hard-deletes a record that a record outside the entry still references', async () => {
+      const store = factory();
+      const scene = await seedScene(store);
+      const control = scene.controls[1];
+      const curve = curveOf(scene, control, 'ry');
+      store.transact({ label: 'New curve' }, (tx) => tx.put('curves', curve));
+      // Another writer keys into the new curve: undoing its creation must not orphan their key.
+      const theirs = keyAt(scene, curve.id, 4, 0.5);
+      external(store, { table: 'keys', id: theirs.id, after: theirs });
+      const result = store.undo.undo();
+      equal(
+        result?.skipped.map((s) => [s.change.table, s.change.id, s.fields, s.reason]),
+        [['curves', curve.id, null, 'changed-by-other']],
+        'the curve delete is skipped and reported',
+      );
+      check(read(store, 'curves', curve.id) !== undefined, 'the curve stays');
+      equal(
+        store.query.keysOfCurve(curve.id).map((k) => k.id),
+        [theirs.id],
+        'their key keeps its curve',
+      );
+      // A plan that removes the reference in the same step may delete: undoing "move the curve to a new control"
+      // re-points the curve before deleting the control.
+      const moved = keyAt(scene, scene.curve, 33, 0.1);
+      store.transact({ label: 'Key' }, (tx) => tx.put('keys', moved));
+      const extra = { ...read(store, 'controls', control), id: `${scene.rig}:extra`, key: 'extra' } as ControlRecord;
+      store.transact({ label: 'Retarget' }, (tx) => {
+        tx.put('controls', extra);
+        tx.patch('curves', curve.id, { control: extra.id });
+      });
+      const retarget = store.undo.undo();
+      equal(retarget?.skipped, [], 'nothing outside the entry references the new control');
+      equal(read(store, 'controls', extra.id), undefined, 'the control is deleted');
+      equal(read(store, 'curves', curve.id)?.control, control, 'after the curve was re-pointed');
+      // Skipping one delete keeps its own references alive: the layer and clip under a kept curve stay too.
+      const clip = newScene(scene.seed + 500);
+      store.transact({ label: 'New clip' }, (tx) => {
+        tx.put('clips', { ...(read(store, 'clips', scene.clip) as ClipRecord), id: clip.clip, order: 'b0' });
+        tx.put('layers', { ...(read(store, 'layers', scene.layer) as LayerRecord), id: clip.layer, clip: clip.clip });
+        tx.put('curves', { ...curve, id: clip.curve, clip: clip.clip, layer: clip.layer });
+      });
+      const late = keyAt(scene, clip.curve, 1, 1);
+      external(store, { table: 'keys', id: late.id, after: { ...late, clip: clip.clip } });
+      const cascade = store.undo.undo();
+      equal(
+        cascade?.skipped.map((s) => s.change.table).sort(compareStrings),
+        ['clips', 'curves', 'layers'],
+        'the whole chain is kept',
+      );
+      checkProjections(store, 'after skipped deletes');
+    });
+
     r.it('changes in closed partitions are skipped with missing-partition', async () => {
       const store = factory();
       const scene = await seedScene(store);
@@ -731,6 +791,21 @@ export function registerCoreCases(r: SuiteRunner, factory: Factory): void {
         [`char:${scene.character}`],
         'the clip record is hidden with its character',
       );
+    });
+
+    r.it('a new character or clip opens the partition it owns, even before anything is written there', async () => {
+      const store = factory();
+      const scene = await seedScene(store);
+      const clip = newScene(scene.seed + 1).clip;
+      store.transact({ label: 'Empty clip' }, (tx) =>
+        tx.put('clips', { ...(read(store, 'clips', scene.clip) as ClipRecord), id: clip, order: 'b0' }),
+      );
+      check(store.isOpen(`clip:${clip}`), 'the clip partition is open');
+      equal(store.query.missingPartitions(), [], 'nothing missing');
+      const reloaded = factory();
+      reloaded.load(store.snapshot());
+      check(reloaded.isOpen(`clip:${clip}`), 'load opens the partitions of every character and clip');
+      equal(reloaded.query.missingPartitions(), [], 'nothing missing after load');
     });
 
     r.it('writes into a partition that is not open yet open it (new characters and clips)', async () => {

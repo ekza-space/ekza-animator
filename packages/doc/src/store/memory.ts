@@ -44,12 +44,14 @@ import {
   isRigScoped,
   isSoftDeletable,
   mergeUnitOf,
+  ownedPartition,
   partitionOfAny,
   validateAny,
 } from '../tables/registry';
 import { DEFAULT_UNDO_LIMIT, PatchUndoManager, type UndoWrite } from '../undo/patchUndo';
 import { compareStrings, deepEqual } from './diff';
 import { Journal, type Savepoint } from './journal';
+import { ReferenceIndex } from './references';
 import { type Entry, hasTombstone, makeChange, normalizeRow, type Row, type RowChange, rowKey } from './rows';
 import { Storage } from './storage';
 
@@ -105,50 +107,6 @@ class TxContext {
   }
 }
 
-/** Records referencing another record: hard-deleting the referenced one is refused while any exists. */
-const DEPENDANTS: Readonly<
-  Record<string, readonly (readonly [table: string, references: (row: Row, id: string) => boolean])[]>
-> = {
-  assets: [
-    ['characters', (row, id) => row['asset'] === id],
-    ['clips', (row, id) => isObject(row['source']) && row['source']['asset'] === id],
-  ],
-  characters: [
-    ['rigs', (row, id) => row['character'] === id],
-    ['clips', (row, id) => row['character'] === id],
-  ],
-  rigs: [
-    ['controls', (row, id) => row['rig'] === id],
-    ['constraints', (row, id) => row['rig'] === id],
-    ['solvers', (row, id) => row['rig'] === id],
-    ['characters', (row, id) => row['rig'] === id],
-  ],
-  controls: [
-    ['controls', (row, id) => row['parent'] === id || row['mirror'] === id],
-    ['curves', (row, id) => row['control'] === id],
-    ['constraints', (row, id) => constraintReferences(row, id)],
-  ],
-  clips: [
-    ['layers', (row, id) => row['clip'] === id],
-    ['curves', (row, id) => row['clip'] === id],
-    ['keys', (row, id) => row['clip'] === id],
-  ],
-  layers: [['curves', (row, id) => row['layer'] === id]],
-  curves: [['keys', (row, id) => row['curve'] === id]],
-};
-
-/** A constraint references a control as its driven control or as a control-space target. */
-function constraintReferences(row: Row, id: string): boolean {
-  const driven = row['driven'];
-  if (isObject(driven) && driven['control'] === id) return true;
-  const targets = row['targets'];
-  if (!isObject(targets)) return false;
-  return Object.values(targets).some(
-    (slot) =>
-      isObject(slot) && isObject(slot['target']) && slot['target']['kind'] === 'control' && slot['target']['id'] === id,
-  );
-}
-
 function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
@@ -181,6 +139,7 @@ export class MemoryDocumentStore implements DocumentStore {
   private readonly listeners = new Set<(batch: ChangeBatch) => void>();
   private readonly observers = new Set<CommitObserver>();
   private readonly listCache = new Map<string, readonly Row[]>();
+  private readonly references = new ReferenceIndex();
   private readonly lookup: PartitionLookup;
   private current: TxContext | null = null;
   private previewSession: StorePreview | null = null;
@@ -211,6 +170,8 @@ export class MemoryDocumentStore implements DocumentStore {
         isOpen: (table, id, record) =>
           this.openSet.has(this.storage.get(table, id)?.partition ?? this.partitionFor(table, record)),
         assertWritable: () => this.assertWritable('undo'),
+        dependantOf: (table, id, planned) =>
+          this.references.dependantOf(table, id, (t, i) => this.storage.get(t, i)?.record, planned),
         commit: (origin, label, writes) => this.commitUndo(origin, label, writes),
       },
       { limit: opts.undoLimit ?? DEFAULT_UNDO_LIMIT },
@@ -593,13 +554,11 @@ export class MemoryDocumentStore implements DocumentStore {
   /** @internal */
   txRemove(context: TxContext, table: string, id: string): void {
     this.require(table, id, 'remove');
-    if (table !== 'keys') {
-      const dependant = this.findDependant(table, id);
-      if (dependant !== null) {
-        throw new EkzaError('invalid-record', `remove(${table}, ${id}): ${dependant} still references it`, {
-          dependant,
-        });
-      }
+    const dependant = this.references.dependantOf(table, id, (t, i) => this.storage.get(t, i)?.record);
+    if (dependant !== null) {
+      throw new EkzaError('invalid-record', `remove(${table}, ${id}): ${dependant} still references it`, {
+        dependant,
+      });
     }
     this.journalWrite(context.journal, table, id, undefined, true);
   }
@@ -635,17 +594,6 @@ export class MemoryDocumentStore implements DocumentStore {
     });
   }
 
-  /** First record (soft-deleted and hidden ones included) that references `table/id`, as 'table/id'. */
-  private findDependant(table: string, id: string): string | null {
-    for (const [dependantTable, references] of DEPENDANTS[table] ?? []) {
-      for (const [otherId, entry] of this.storage.entries(dependantTable)) {
-        if (dependantTable === table && otherId === id) continue;
-        if (references(entry.record, id)) return `${dependantTable}/${otherId}`;
-      }
-    }
-    return null;
-  }
-
   // ---------- journal mechanics ----------
 
   private journalWrite(
@@ -661,11 +609,19 @@ export class MemoryDocumentStore implements DocumentStore {
     if (first) journal.originals.set(key, { table, id, original: prev });
     journal.ops.push({ table, id, prev, first });
     this.storage.set(table, id, next);
-    if (implicitOpen && next !== undefined && !this.openSet.has(next.partition)) {
-      this.openSet.add(next.partition);
-      journal.opened.push(next.partition);
-      this.afterVisibilityChange();
-    }
+    if (!implicitOpen || next === undefined) return;
+    this.openImplicitly(journal, next.partition);
+    // A new character or clip owns a partition that has nothing to load yet: open it too, so nothing it implies is
+    // reported missing (`missingPartitions` stays [] in the MVP).
+    const owned = prev === undefined ? ownedPartition(table, id) : null;
+    if (owned !== null) this.openImplicitly(journal, owned);
+  }
+
+  private openImplicitly(journal: Journal, partition: Partition): void {
+    if (this.openSet.has(partition)) return;
+    this.openSet.add(partition);
+    journal.opened.push(partition);
+    this.afterVisibilityChange();
   }
 
   /** Rolls a journal back to a savepoint (nested transactions). Implicitly opened partitions stay open. */
@@ -860,6 +816,7 @@ export class MemoryDocumentStore implements DocumentStore {
 
   private onStorageWrite(table: string, id: string, prev: Entry | undefined, next: Entry | undefined): void {
     this.listCache.delete(table);
+    if (prev?.record !== next?.record) this.references.onWrite(table, id, prev?.record, next?.record);
     this.query.onWrite(table, id, prev, next);
   }
 
@@ -920,6 +877,7 @@ export class MemoryDocumentStore implements DocumentStore {
     }
 
     this.storage.clear();
+    this.references.clear();
     this.query.reset();
     this.listCache.clear();
     this.openSet.clear();
@@ -943,6 +901,9 @@ export class MemoryDocumentStore implements DocumentStore {
     }
     this.openSet.add('scene');
     for (const partition of this.storage.partitions()) this.openSet.add(partition);
+    for (const table of ['characters', 'clips']) {
+      for (const [id] of this.storage.entries(table)) this.openSet.add(ownedPartition(table, id) as Partition);
+    }
 
     this.minWriterVersion = snapshot.minWriterVersion;
     this.loadedTableVersions = { ...snapshot.tableVersions };

@@ -304,6 +304,32 @@ describe('partitions (memory store details)', () => {
     expect(batches[1]?.changes.map((c) => c.id)).toEqual([`${scene.rig}:new`]);
   });
 
+  it('import batches open the partitions of new characters and clips; undo of an asset an import uses is skipped', async () => {
+    const store = createMemoryStore();
+    await store.open('scene');
+    const scene = newScene(41);
+    store.transact({ label: 'Asset' }, (tx) => writeScene(tx, scene));
+    const extra = newScene(42);
+    const source = createMemoryStore();
+    await seedScene(source, 42);
+    const imported: AnyChange[] = [];
+    for (const [table, rows] of Object.entries(source.snapshot().tables)) {
+      if (table === 'project' || table === 'assets') continue;
+      for (const record of Object.values(rows as Record<string, { id: string }>)) {
+        const after = table === 'characters' ? { ...record, asset: scene.asset } : record;
+        imported.push({ table, id: record.id, before: undefined, after } as AnyChange);
+      }
+    }
+    store.applyChanges(imported, { origin: 'import', label: 'Import' });
+    for (const partition of extra.partitions) expect(store.isOpen(partition)).toBe(true);
+    expect(store.query.missingPartitions()).toEqual([]);
+    // Undoing the first transaction would delete the asset the imported character uses: that delete is skipped.
+    const result = store.undo.undo();
+    expect(result?.skipped.map((s) => [s.change.table, s.reason])).toEqual([['assets', 'changed-by-other']]);
+    expect(store.get('assets', scene.asset)).toBeDefined();
+    expect(store.get('characters', scene.character)).toBeUndefined();
+  });
+
   it('remote batches never open partitions', async () => {
     const store = createMemoryStore();
     await store.open('scene');

@@ -6,10 +6,14 @@
 // - Undo/redo compare before restore, per merge unit: keys/assets and inserts/hard deletes as whole records; updates
 //   of field-merge tables per field, reverting only the fields whose current value still equals what this entry
 //   wrote. Skips are reported (`changed-by-other`, or `missing-partition` when the record's partition is closed).
+// - Undo/redo never hard-deletes a record that a record outside the step still references (another writer keyed into
+//   a curve this entry created, an import added clips to its character): that delete is skipped as
+//   `changed-by-other`, so undo cannot orphan someone else's records (research 06 R4, H2).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { AnyChange, TxMeta, UndoEntry, UndoManager, UndoResult, UndoSkipReason } from '../store';
 import { deepEqual } from '../store/diff';
-import { type Row, makeChange, type RowChange } from '../store/rows';
+import type { PlannedWrites } from '../store/references';
+import { makeChange, type Row, type RowChange, rowKey } from '../store/rows';
 import { mergeUnitOf } from '../tables/registry';
 
 /** One whole-record write produced by undo/redo (`after === undefined`: hard delete). */
@@ -29,6 +33,11 @@ export interface UndoHost {
   isOpen(table: string, id: string, record: Row): boolean;
   /** Throws when the store cannot be written now (preview active, read-only, inside a transaction). */
   assertWritable(): void;
+  /**
+   * A record ('table/id') other than `table/id` itself that references it once `planned` is applied, or null. Hidden
+   * and soft-deleted referrers count.
+   */
+  dependantOf(table: string, id: string, planned: PlannedWrites): string | null;
   /** Applies the writes as one committed batch of the given origin (never recorded on the undo stack). */
   commit(origin: 'undo' | 'redo', label: string, writes: readonly UndoWrite[]): void;
 }
@@ -161,15 +170,34 @@ export class PatchUndoManager implements UndoManager {
     if (item === undefined) return null;
     this.host.assertWritable();
     const changes = item.entry.changes as readonly RowChange[];
-    const writes: UndoWrite[] = [];
     const skipped: Skip[] = [];
+    const planned = new Map<string, { readonly table: string; readonly after: Row | undefined }>();
+    const outcomes: { readonly change: RowChange; write: UndoWrite | null }[] = [];
     // Undo walks the changes newest first, redo oldest first.
     for (let n = 0; n < changes.length; n++) {
       const change = changes[direction === 'undo' ? changes.length - 1 - n : n] as RowChange;
       const outcome = this.restore(change, direction);
-      if (outcome.write !== null) writes.push(outcome.write);
       if (outcome.skip !== null) skipped.push({ change: change as unknown as AnyChange, ...outcome.skip });
+      if (outcome.write === null) continue;
+      planned.set(rowKey(change.table, change.id), { table: change.table, after: outcome.write.after });
+      outcomes.push({ change, write: outcome.write });
     }
+    // Hard deletes of records something else still references are skipped; skipping one keeps its own references
+    // alive, so repeat until no planned delete has a dependant.
+    for (let changed = true; changed; ) {
+      changed = false;
+      for (const outcome of outcomes) {
+        const write = outcome.write;
+        if (write === null || write.after !== undefined) continue;
+        if (this.host.dependantOf(write.table, write.id, planned) === null) continue;
+        planned.delete(rowKey(write.table, write.id));
+        outcome.write = null;
+        skipped.push({ change: outcome.change as unknown as AnyChange, fields: null, reason: 'changed-by-other' });
+        changed = true;
+      }
+    }
+    const writes: UndoWrite[] = [];
+    for (const outcome of outcomes) if (outcome.write !== null) writes.push(outcome.write);
     // Stacks first, then the batch: listeners of the undo/redo batch see the updated stacks.
     from.pop();
     to.push(item);

@@ -132,6 +132,13 @@ export function partitionOfAny(table: string, record: { readonly id: string }, l
   return def === undefined ? 'scene' : def.partition(record, lookup);
 }
 
+/** The partition a record owns (§4.11.21): a character owns `char:<id>`, a clip owns `clip:<id>`; others none. */
+export function ownedPartition(table: string, id: string): Partition | null {
+  if (table === 'characters') return `char:${id}`;
+  if (table === 'clips') return `clip:${id}`;
+  return null;
+}
+
 /** True when the table's records reference only their rig (see `PartitionLookup`). */
 export function isRigScoped(table: string): boolean {
   return RIG_SCOPED.has(table);
