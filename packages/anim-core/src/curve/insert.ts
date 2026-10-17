@@ -4,7 +4,15 @@ import { Segment } from '../types';
 import { bezierParameter, bezierValueAt } from './animx';
 import { COEF_STRIDE, compileAnimCurve } from './compile';
 import { evaluateAnimCurve, evaluateAnimCurveSlope, keyIndexAt } from './evaluate';
-import { infinityModeOf, makeKeyData, normalizeKeys, ONE_THIRD, tangentTypeOf, upperBound } from './keys';
+import {
+  infinityModeOf,
+  MIN_HANDLE_DT,
+  makeKeyData,
+  normalizeKeys,
+  ONE_THIRD,
+  tangentTypeOf,
+  upperBound,
+} from './keys';
 import { type CurveOptions, isCurveSegment, resolveTangents, segmentKindOf } from './resolve';
 
 type Side = 'in' | 'out';
@@ -17,6 +25,15 @@ function withFixedSide(key: KeyData, side: Side, handle: Handle): KeyData {
 
 function fixedKey(t: Frame, v: number, inHandle: Handle, outHandle: Handle): KeyData {
   return { t, v, inType: 'fixed', outType: 'fixed', inHandle, outHandle, broken: false, weightLocked: true };
+}
+
+/**
+ * A non-weighted fixed handle along `slope`, `length` frames long but at least MIN_HANDLE_DT: only its direction
+ * matters, and the engine resolves a shorter handle with |dt| clamped to 1e-6, which would change the slope.
+ */
+function slopeHandle(side: Side, length: number, slope: number): Handle {
+  const dt = Math.max(length, MIN_HANDLE_DT);
+  return side === 'in' ? { dt: -dt, dv: -slope * dt } : { dt, dv: slope * dt };
 }
 
 function sideType(key: KeyData, side: Side): TangentType {
@@ -126,9 +143,9 @@ export function insertKeyPreservingShape(
       default: {
         const value = evaluateAnimCurve(compiled, frame);
         const slope = evaluateAnimCurveSlope(compiled, frame);
-        const dtIn = (frame - t0) * ONE_THIRD;
-        const dtOut = (t1 - frame) * ONE_THIRD;
-        inserted = fixedKey(frame, value, { dt: -dtIn, dv: -slope * dtIn }, { dt: dtOut, dv: slope * dtOut });
+        const inHandle = slopeHandle('in', (frame - t0) * ONE_THIRD, slope);
+        const outHandle = slopeHandle('out', (t1 - frame) * ONE_THIRD, slope);
+        inserted = fixedKey(frame, value, inHandle, outHandle);
       }
     }
   } else {
@@ -136,12 +153,15 @@ export function insertKeyPreservingShape(
     const slope = evaluateAnimCurveSlope(compiled, frame);
     const before = p === 0;
     const gap = (before ? compiled.t[0]! - frame : frame - compiled.t[n - 1]!) * ONE_THIRD;
-    inserted = fixedKey(frame, value, { dt: -gap, dv: -slope * gap }, { dt: gap, dv: slope * gap });
+    // weighted handles keep the thirds (their length shapes the span); non-weighted ones only need the direction
+    const handle = (side: Side, s: number): Handle =>
+      weighted ? (side === 'in' ? { dt: -gap, dv: -s * gap } : { dt: gap, dv: s * gap }) : slopeHandle(side, gap, s);
+    inserted = fixedKey(frame, value, handle('in', slope), handle('out', slope));
     const mode = before ? pre : post;
     if (mode === 'constant' || mode === 'linear') {
       const endSlope = mode === 'constant' ? 0 : before ? compiled.inSlope[0]! : compiled.outSlope[n - 1]!;
-      if (before) setSide(0, 'in', { dt: -gap, dv: -endSlope * gap });
-      else setSide(n - 1, 'out', { dt: gap, dv: endSlope * gap });
+      if (before) setSide(0, 'in', handle('in', endSlope));
+      else setSide(n - 1, 'out', handle('out', endSlope));
     }
   }
 
@@ -165,10 +185,10 @@ export function insertKeyPreservingShape(
       const beforeSlope = side === 'in' ? beforeTangents.inSlope[j] : beforeTangents.outSlope[j];
       const afterSlope = side === 'in' ? afterTangents.inSlope[jj] : afterTangents.outSlope[jj];
       if (beforeSlope === afterSlope) continue;
-      const handle: Handle =
-        side === 'in'
-          ? { dt: beforeTangents.inDt[j]!, dv: beforeTangents.inDv[j]! }
-          : { dt: beforeTangents.outDt[j]!, dv: beforeTangents.outDv[j]! };
+      const dt = side === 'in' ? beforeTangents.inDt[j]! : beforeTangents.outDt[j]!;
+      const handle: Handle = weighted
+        ? { dt, dv: side === 'in' ? beforeTangents.inDv[j]! : beforeTangents.outDv[j]! }
+        : slopeHandle(side, Math.abs(dt), beforeSlope!);
       out[jj] = withFixedSide(out[jj]!, side, handle);
       modified.add(j);
     }

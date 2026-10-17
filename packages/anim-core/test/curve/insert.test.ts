@@ -4,6 +4,7 @@ import {
   type AnimCurve,
   type CompiledAnimCurve,
   type Handle,
+  type KeyData,
   compileAnimCurve,
   evaluateAnimCurve,
   insertKeyPreservingShape,
@@ -138,6 +139,43 @@ describe('insertKeyPreservingShape (MVP-SPEC §4.11.4)', () => {
     // the new key's handles are collinear (unified)
     expect(m!.inHandle.dv / m!.inHandle.dt).toBeCloseTo(m!.outHandle.dv / m!.outHandle.dt, 10);
     expect(insertAndCompare(c, 3)).toBeLessThanOrEqual(1e-12);
+  });
+
+  it('inserts within a few micro-frames of a key stay exact (non-weighted handles keep |dt| ≥ 1e-6)', () => {
+    // regression: the new key's thirds (|dt| < 1e-6) were resolved with dt clamped to 1e-6, halving the slope
+    const window = (c: AnimCurve, keys: readonly KeyData[], lo: number, hi: number): number => {
+      const before = compileAnimCurve(c);
+      const after = compileAnimCurve({ ...c, keys });
+      let max = 0;
+      for (let i = 0; i <= 2000; i++) {
+        const f = lo + ((hi - lo) * i) / 2000;
+        max = Math.max(max, Math.abs(evaluateAnimCurve(before, f) - evaluateAnimCurve(after, f)));
+      }
+      return max;
+    };
+    const spline = curve([key(0, 0, 'spline'), key(10, 3, 'spline'), key(20, -1, 'spline')]);
+    for (const offset of [1.5e-6, -1.5e-6, 2e-6, -2e-6, 2.9e-6]) {
+      const result = insertKeyPreservingShape(spline, 10 + offset);
+      expect(window(spline, result.keys, 10 - 1e-5, 10 + 1e-5), `at 10 + ${offset}`).toBeLessThanOrEqual(1e-12);
+      expect(insertAndCompare(spline, 10 + offset)).toBeLessThanOrEqual(1e-12);
+    }
+    // a frozen neighbour side whose old span is shorter than 3e-6 frames
+    const close = curve([
+      key(0, 0, 'spline'),
+      key(10, 3, 'spline'),
+      key(10 + 2.5e-6, 3.5, 'spline'),
+      key(20, -1, 'spline'),
+    ]);
+    const frozen = insertKeyPreservingShape(close, 15);
+    expect(frozen.frozen).toContain(2);
+    expect(window(close, frozen.keys, 10, 10 + 2.5e-6)).toBeLessThanOrEqual(1e-12);
+    // outside the key range, just past the end key, under linear infinity
+    const linear = curve([key(0, 0, 'spline'), key(10, 3, 'spline')], { pre: 'linear', post: 'linear' });
+    for (const frame of [10 + 1.5e-6, -1.5e-6]) {
+      const result = insertKeyPreservingShape(linear, frame);
+      expect(window(linear, result.keys, frame - 1e-5, frame + 1e-5)).toBeLessThanOrEqual(1e-12);
+      expect(insertAndCompare(linear, frame)).toBeLessThanOrEqual(1e-12);
+    }
   });
 
   it('a key already at the frame (within 1e-6) is returned unchanged', () => {
