@@ -17,7 +17,7 @@ import {
   type ToolPointerEvent,
   type ToolWheelEvent,
 } from '@ekza-animator/editor-core';
-import { handlesInRect, HitScratch, hitTestScene, keysInRect } from '../hit/hitTest';
+import { HitScratch, hitTestScene } from '../hit/hitTest';
 import { sizeBackingStore } from '../painters/canvas';
 import type { OverlayState } from '../painters/overlay';
 import { Canvas2DCurveRenderer, type CurveRenderer } from '../painters/renderer';
@@ -43,22 +43,12 @@ import {
   type Gesture,
   type GestureHost,
   type GesturePointer,
-  HandleDragGesture,
-  type HandleTarget,
-  KeyMoveGesture,
-  MarqueeGesture,
   PanGesture,
   ZoomGesture,
 } from './gestures';
+import { defaultPress, insertPress, middlePress, type PendingPress, type PressContext } from './press';
 import { type GraphScene, handlePosition, handlesShown, keyX, keyY, type Point } from './scene';
-import {
-  applyKeySelection,
-  KEY_PART,
-  selectedHandleParts,
-  selectedKeyParts,
-  selectModeFor,
-  sameKeySelection,
-} from './selection';
+import { KEY_PART, sameKeySelection } from './selection';
 
 /** Wheel zoom rates per pixel of wheel delta: mouse wheels and pinch (Ctrl+wheel) gestures. */
 const WHEEL_ZOOM_RATE = 0.0015;
@@ -67,14 +57,6 @@ const PINCH_ZOOM_RATE = 0.01;
 const FRAME_PADDING = 0.08;
 /** Tables whose changes can alter what the Graph Editor draws. */
 const WATCHED_TABLES = new Set(['curves', 'keys', 'controls', 'clips', 'project', 'layers']);
-
-interface PendingPress {
-  readonly start: GesturePointer;
-  /** Creates the drag gesture once the pointer travels DRAG_THRESHOLD_PX; null: the press has no drag. */
-  readonly drag: (() => Gesture | null) | null;
-  /** Runs on release below the threshold. */
-  readonly click: (() => void) | null;
-}
 
 /** PointerEvent.buttons bit of each PointerEvent.button (left, middle, right). */
 const BUTTON_BITS: readonly number[] = [1, 4, 2];
@@ -131,6 +113,7 @@ export class GraphEditorController {
   /** The interface tools use (GraphToolHost). */
   readonly host: GraphToolHost;
   private readonly gestureHost: GestureHost;
+  private readonly pressContext: PressContext;
 
   constructor(opts: {
     readonly app: EditorApp;
@@ -164,6 +147,16 @@ export class GraphEditorController {
       report: (label, error) => this.report(label, error),
       selectKeys: (items, mode) => this.selectKeys(items, mode),
       forgetKeys: (keys) => this.forgetKeys(keys),
+    };
+    this.pressContext = {
+      app: this.app,
+      gestures: this.gestureHost,
+      hitScratch: this.hitScratch,
+      scene: () => this.scene(),
+      hitTest: (x, y) => this.hitTest(x, y),
+      selectKeys: (items, mode) => this.selectKeys(items, mode),
+      selectCurveKeys: (curve, mode) => this.run('select.curveKeys', { curve, mode }),
+      insertKey: (curve, frame) => this.insertKey(curve, frame),
     };
     this.disposers.push(
       this.app.store.subscribe((batch) => {
@@ -352,11 +345,7 @@ export class GraphEditorController {
     }
     if (e.button === 1) {
       // Maya: MMB drag anywhere moves the current key/handle selection.
-      this.pending = {
-        start: toGesturePointer(e),
-        drag: () => this.moveSelectionGesture(toGesturePointer(e)),
-        click: null,
-      };
+      this.pending = middlePress(this.pressContext, toGesturePointer(e));
       return;
     }
     if (e.button !== 0) return;
@@ -655,136 +644,21 @@ export class GraphEditorController {
     return null;
   }
 
-  private visibleSelectedKeys(selection: ReadonlyMap<KeyId, KeyPartSelection>): KeyId[] {
-    const set = this.curveSet();
-    return selectedKeyParts(selection).filter((key) => {
-      const found = set.byKey.get(key);
-      return found !== undefined && !found.entry.locked;
-    });
-  }
-
-  private handleTargets(handles: readonly { readonly key: KeyId; readonly side: 'in' | 'out' }[]): HandleTarget[] {
-    const scene = this.scene();
-    const targets: HandleTarget[] = [];
-    for (const { key, side } of handles) {
-      const found = scene.curves.byKey.get(key);
-      if (found === undefined || found.entry.locked) continue;
-      const { entry, index } = found;
-      const c = entry.compiled;
-      const record = entry.keys[index];
-      if (record === undefined) continue;
-      const p = handlePosition(scene, entry, index, side, { x: 0, y: 0 });
-      const neighbour = side === 'in' ? index - 1 : index + 1;
-      const span =
-        neighbour >= 0 && neighbour < c.keyCount ? Math.abs((c.t[neighbour] as number) - (c.t[index] as number)) : null;
-      targets.push({
-        key,
-        curve: entry.id,
-        side,
-        keyX: keyX(scene, entry, index),
-        keyY: keyY(scene, entry, index),
-        handleX: p.x,
-        handleY: p.y,
-        scale: entry.scale,
-        weighted: c.weighted,
-        weightLocked: record.weightLocked,
-        dt: (side === 'in' ? c.inDt[index] : c.outDt[index]) as number,
-        span,
-      });
-    }
-    return targets;
-  }
-
-  /** MMB / move-tool drag: moves the selected keys, or the selected handles when no key part is selected. */
-  private moveSelectionGesture(start: GesturePointer): Gesture | null {
-    const selection = this.app.session.getState().selection.keys;
-    const keys = this.visibleSelectedKeys(selection);
-    if (keys.length > 0) return new KeyMoveGesture(this.gestureHost, start, keys);
-    const targets = this.handleTargets(selectedHandleParts(selection));
-    return targets.length > 0 ? new HandleDragGesture(this.gestureHost, start, targets) : null;
-  }
-
   /** GraphToolHost.press: the Select/Move tool press. */
   private pressDefault(e: ToolPointerEvent, empty: 'marquee' | 'move'): void {
-    const start = toGesturePointer(e);
-    const hit = this.hitTest(e.x, e.y);
-    const mode = selectModeFor(e);
-    const current = this.app.session.getState().selection.keys;
-    if (e.detail >= 2 && (hit.kind === 'curve' || hit.kind === 'key')) {
-      this.run('select.curveKeys', { curve: hit.curve, mode });
-      this.pending = { start, drag: null, click: null };
-      return;
-    }
-    if (hit.kind === 'key' || hit.kind === 'handle') {
-      const parts: KeyPartSelection =
-        hit.kind === 'key' ? KEY_PART : { key: false, in: hit.side === 'in', out: hit.side === 'out' };
-      const already =
-        hit.kind === 'key' ? current.get(hit.key)?.key === true : current.get(hit.key)?.[hit.side] === true;
-      // Pressing an already selected part keeps the selection so it can be dragged; a click without a drag then
-      // reduces the selection to that part (Maya).
-      const deferred = mode === 'replace' && already;
-      const predicted = deferred ? current : applyKeySelection(current, [{ key: hit.key, parts }], mode);
-      if (!deferred) this.selectKeys([{ key: hit.key, parts }], mode);
-      const stillSelected =
-        hit.kind === 'key' ? predicted.get(hit.key)?.key === true : predicted.get(hit.key)?.[hit.side] === true;
-      const drag = !stillSelected
-        ? null
-        : hit.kind === 'key'
-          ? () => {
-              const keys = this.visibleSelectedKeys(predicted);
-              return keys.length > 0 ? new KeyMoveGesture(this.gestureHost, start, keys) : null;
-            }
-          : () => {
-              const targets = this.handleTargets(selectedHandleParts(predicted));
-              return targets.length > 0 ? new HandleDragGesture(this.gestureHost, start, targets) : null;
-            };
-      const click = deferred ? () => this.selectKeys([{ key: hit.key, parts }], 'replace') : null;
-      this.pending = { start, drag, click };
-      return;
-    }
-    const clear = mode === 'replace' ? () => this.selectKeys([], 'replace') : null;
-    if (empty === 'move' && current.size > 0) {
-      this.pending = { start, drag: () => this.moveSelectionGesture(start), click: clear };
-      return;
-    }
-    this.pending = {
-      start,
-      drag: () => new MarqueeGesture(this.gestureHost, start, mode, (rect) => this.marqueeItems(rect)),
-      click: clear,
-    };
+    this.pending = defaultPress(this.pressContext, toGesturePointer(e), e.detail, empty);
   }
 
   /** GraphToolHost.pressInsert: click inserts a key on the curve (Insert tool). */
   private pressInsert(e: ToolPointerEvent, hit: Extract<GraphHit, { readonly kind: 'curve' }>): void {
-    const start = toGesturePointer(e);
-    this.pending = {
-      start,
-      drag: null,
-      click: () => {
-        void this.app
-          .run('graph.key.insert', { curve: hit.curve, frame: hit.frame }, { panel: PANEL.graph })
-          .then((result) => {
-            this.reportResult('Insert Key', result);
-            if (result.status === 'finished') this.selectKeys([{ key: result.value.key, parts: KEY_PART }], 'replace');
-          });
-      },
-    };
+    this.pending = insertPress(this.pressContext, toGesturePointer(e), hit);
   }
 
-  private marqueeItems(rect: {
-    readonly x0: number;
-    readonly y0: number;
-    readonly x1: number;
-    readonly y1: number;
-  }): { key: KeyId; parts: KeyPartSelection }[] {
-    const scene = this.scene();
-    const keys = keysInRect(scene, rect);
-    if (keys.length > 0) return keys.map((key) => ({ key, parts: KEY_PART }));
-    // Maya: a marquee that holds only tangent handles selects those handles.
-    return handlesInRect(scene, rect, this.hitScratch).map(({ key, side }) => ({
-      key,
-      parts: { key: false, in: side === 'in', out: side === 'out' },
-    }));
+  private insertKey(curve: CurveId, frame: number): void {
+    void this.app.run('graph.key.insert', { curve, frame }, { panel: PANEL.graph }).then((result) => {
+      this.reportResult('Insert Key', result);
+      if (result.status === 'finished') this.selectKeys([{ key: result.value.key, parts: KEY_PART }], 'replace');
+    });
   }
 
   private selectKeys(
