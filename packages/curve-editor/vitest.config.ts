@@ -9,8 +9,6 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
-    // Remove once the work package adds its first test.
-    passWithNoTests: true,
     browser: {
       enabled: true,
       headless: true,
