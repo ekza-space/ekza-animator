@@ -233,16 +233,56 @@ describe('solveTwoBoneIk (research 07 §9.2, §21.3)', () => {
       }),
       { numRuns: 50, seed: 8 },
     );
-    // Softness shortens the reach near full extension only.
+    // Softness shortens the reach near full extension only; targets short of l1 + l2 − soft are still reached.
     const out = output();
+    /** `input` with the target moved along its ray to `distance(L)` from the chain root (L = l1 + l2). */
+    const atDistance = (input: TwoBoneIkInput, distance: (L: number, lo: number) => number): TwoBoneIkInput => {
+      const pa = mat4Decompose(input.parentWorld);
+      const a = add(pa.t, quatRotateVec3(pa.q, scale([...input.upperRest.t], pa.s[0])));
+      const l1 = len([...input.midRest.t] as Vec3) * pa.s[0];
+      const l2 = len([...input.endRest.t] as Vec3) * pa.s[0];
+      const dir = unit(sub([...input.target] as Vec3, a));
+      return { ...input, target: add(a, scale(dir, distance(l1 + l2, Math.abs(l1 - l2)))) };
+    };
     fc.assert(
-      fc.property(chainCase, (input) => {
-        const soft = { ...input, soft: 0.05 };
-        solveTwoBoneIk(soft, out);
-        const fk = chainFk(soft, out);
-        expect(len(sub(fk.c, fk.a))).toBeLessThanOrEqual(len(sub([...input.target] as Vec3, fk.a)) + 1e-9);
-      }),
-      { numRuns: 50, seed: 10 },
+      fc.property(
+        chainCase,
+        fc.double({ min: 0.01, max: 0.3, noNaN: true }),
+        fc.double({ min: 0.05, max: 0.95, noNaN: true }),
+        (base, softFraction, u) => {
+          let soft = 0;
+          const input = atDistance(base, (L, lo) => {
+            soft = softFraction * (L - lo);
+            return lo + (L - soft - lo) * u;
+          });
+          solveTwoBoneIk({ ...input, soft }, out);
+          const fk = chainFk(input, out);
+          expect(out.reached).toBe(true);
+          expect(len(sub(fk.c, [...input.target] as Vec3))).toBeLessThan(1e-6 * (fk.l1 + fk.l2));
+        },
+      ),
+      { numRuns: 100, seed: 10 },
+    );
+    fc.assert(
+      fc.property(
+        chainCase,
+        fc.double({ min: 0.01, max: 0.3, noNaN: true }),
+        fc.double({ min: 0.2, max: 3, noNaN: true }),
+        (base, softFraction, u) => {
+          let soft = 0;
+          const input = atDistance(base, (L, lo) => {
+            soft = softFraction * (L - lo);
+            return L - soft + soft * u;
+          });
+          solveTwoBoneIk({ ...input, soft }, out);
+          const fk = chainFk(input, out);
+          const dTarget = len(sub([...input.target] as Vec3, fk.a));
+          expect(out.reached).toBe(false);
+          expect(len(sub(fk.c, fk.a))).toBeLessThan(dTarget);
+          expect(len(sub(fk.c, fk.a))).toBeLessThanOrEqual(fk.l1 + fk.l2);
+        },
+      ),
+      { numRuns: 100, seed: 11 },
     );
   });
 });

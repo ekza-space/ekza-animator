@@ -82,7 +82,8 @@ function bendAngle(u: Vec3, v: Vec3, k: Vec3, d: number): number {
  * Solves the chain for `input` into `out` (local rotations relative to the respective parents). The mid bone only
  * rotates about `hingeLocal`; the end reaches `target` exactly when it is within reach (|l1 − l2| + ε .. l1 + l2 − ε,
  * ε = 1e-5·(l1 + l2)), else the chain straightens towards it and `reached` is false. `soft` > 0 eases the reach
- * near full extension; `twist` adds a roll about the chain axis.
+ * near full extension: targets closer than l1 + l2 − soft are still reached exactly, farther ones fall short and are
+ * reported as not reached. `twist` adds a roll about the chain axis.
  */
 export function solveTwoBoneIk(input: TwoBoneIkInput, out: TwoBoneIkOutput): void {
   const pa = mat4Decompose(input.parentWorld);
@@ -115,7 +116,8 @@ export function solveTwoBoneIk(input: TwoBoneIkInput, out: TwoBoneIkOutput): voi
   const epsilon = 1e-5 * total;
   const lo = Math.abs(l1 - l2) + epsilon;
   const hi = total - epsilon;
-  const reachable = dRaw >= lo - 1e-12 && dRaw <= hi + 1e-12 && soft === 0;
+  // Inside the band; softening shortens `d` past l1 + l2 − soft, which the end-to-target check below reports.
+  const reachable = dRaw >= lo - 1e-12 && dRaw <= hi + 1e-12;
   d = Math.min(Math.max(d, lo), hi);
 
   // 3. Bend the mid bone about its hinge only.
