@@ -128,6 +128,33 @@ describe('createFakeEditorApp (test kit)', () => {
       expect(await app.runUntyped('test.crash')).toMatchObject({ status: 'failed', error: { code: 'internal' } });
     });
 
+    it('reports a throwing poll or prepare as failed', async () => {
+      const app = waveApp();
+      app.operators.register({
+        id: 'test.badPoll',
+        label: 'Bad poll',
+        category: 'test',
+        scope: 'global',
+        poll: () => {
+          throw new EkzaError('unsupported', 'poll exploded');
+        },
+        apply: () => undefined,
+      });
+      app.operators.register({
+        id: 'test.badPrepare',
+        label: 'Bad prepare',
+        category: 'test',
+        scope: 'global',
+        prepare: () => Promise.reject(new EkzaError('asset-missing', 'gone')),
+        apply: () => undefined,
+      });
+      expect(await app.runUntyped('test.badPoll')).toMatchObject({ status: 'failed', error: { code: 'unsupported' } });
+      expect(await app.runUntyped('test.badPrepare')).toMatchObject({
+        status: 'failed',
+        error: { code: 'asset-missing' },
+      });
+    });
+
     it('throws nested-run when apply calls app.run', async () => {
       const app = waveApp();
       app.operators.register({

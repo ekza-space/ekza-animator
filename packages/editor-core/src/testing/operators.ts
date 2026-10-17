@@ -75,10 +75,10 @@ export function createFakeOperators(deps: {
     ctx: RunContext | undefined,
   ): Promise<OperatorResult<unknown>> => {
     const opCtx = contextOf(ctx);
-    const first = def.poll?.(opCtx, args) ?? true;
-    if (first !== true) return { status: 'cancelled', reason: first.reason };
     let rollback: SessionState | null = null;
     try {
+      const first = def.poll?.(opCtx, args) ?? true;
+      if (first !== true) return { status: 'cancelled', reason: first.reason };
       const prepared = await def.prepare?.(opCtx, args);
       const second = def.poll?.(opCtx, args) ?? true;
       if (second !== true) return { status: 'cancelled', reason: second.reason };

@@ -74,17 +74,24 @@ export class NaiveUndoManager implements UndoManager {
     if (meta.undoable === false || changes.length === 0) return;
     const now = this.host.now();
     const top = this.undoStack.at(-1);
+    const coalesceMs = meta.coalesceMs ?? 0; // 0: no coalescing
     const coalesce =
       this.capturing &&
       top !== undefined &&
       meta.coalesceKey !== undefined &&
       top.coalesceKey === meta.coalesceKey &&
-      now - top.lastAt <= (meta.coalesceMs ?? 0);
+      coalesceMs > 0 &&
+      now - top.lastAt <= coalesceMs;
     this.capturing = true;
     if (coalesce) {
       const merged = mergeChanges(asRowChanges(top.entry.changes), changes);
-      top.entry = { ...top.entry, changes: asAnyChanges(merged), ...selectionAfter(meta) };
-      top.lastAt = now;
+      if (merged.length === 0) {
+        // Edits that cancel out (a nudge and its reverse) leave nothing to undo.
+        this.undoStack.pop();
+      } else {
+        top.entry = { ...top.entry, changes: asAnyChanges(merged), ...selectionAfter(meta) };
+        top.lastAt = now;
+      }
     } else {
       const entry: UndoEntry = {
         txId,

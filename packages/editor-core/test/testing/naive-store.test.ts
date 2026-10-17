@@ -299,6 +299,28 @@ describe('naive DocumentStore (test kit)', () => {
       expect(clocked.undo.canUndo()).toBe(false);
     });
 
+    it('does not coalesce without a window, and drops an entry whose edits cancel out', () => {
+      let now = 0;
+      const clocked = createNaiveStore({ now: () => now });
+      clocked.load(waveDoc());
+      const original = clocked.get('keys', WAVE.keys[0])?.v as number;
+      const set = (v: number, coalesceMs?: number): void =>
+        clocked.transact(
+          { label: 'Set', coalesceKey: 'k', ...(coalesceMs === undefined ? {} : { coalesceMs }) },
+          (tx) => tx.patch('keys', WAVE.keys[0], { v }),
+        );
+      set(1);
+      set(2);
+      clocked.undo.undo();
+      expect(clocked.get('keys', WAVE.keys[0])?.v).toBe(1);
+      clocked.undo.undo();
+      expect(clocked.undo.canUndo()).toBe(false);
+      set(5, 500);
+      now += 10;
+      set(original, 500);
+      expect(clocked.undo.canUndo()).toBe(false);
+    });
+
     it('never records remote, import or undoable: false writes', () => {
       store.transact({ label: 'Hidden', undoable: false }, (tx) => tx.patch('clips', WAVE.clip, { loop: false }));
       const clip = store.get('clips', WAVE.clip) as ClipRecord;
