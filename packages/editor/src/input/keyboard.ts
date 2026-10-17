@@ -11,7 +11,7 @@ import type {
   PanelKind,
   RunContext,
 } from '@ekza-animator/editor-core';
-import { isInOverlay, isTextEntry } from './focus';
+import { dropdownKeyRoute, isDropdown, isInOverlay, isTextEntry } from './focus';
 
 /** Tap vs hold threshold (research 09 §7.1 rule 3). */
 export const TAP_HOLD_MS = 200;
@@ -137,6 +137,13 @@ export class KeyboardAdapter {
       return false;
     }
     if (isTextEntry(event.target) && !isSaveChord(input, this.#deps.keymap.platform)) return false;
+    // A focused dropdown keeps type-ahead and navigation only while it is under the pointer; otherwise the key
+    // follows the hovered panel and must not change the dropdown's value (acceptance round 2, §4.10).
+    let fromDropdown = false;
+    if (isDropdown(event.target)) {
+      if (dropdownKeyRoute(event.target, input) === 'dropdown') return false;
+      fromDropdown = true;
+    }
 
     const pending = this.#pending;
     if (pending !== null && pending.code !== event.code) this.#interrupt(pending);
@@ -157,7 +164,11 @@ export class KeyboardAdapter {
     const bound = event.repeat
       ? this.#deps.keymap.resolve({ ...input, repeat: false }, chain.scopes, 'press')
       : this.#deps.keymap.resolve(input, chain.scopes, 'press');
-    if (bound === null) return false;
+    if (bound === null) {
+      // No hotkey, but a printable key would still type ahead into the dropdown the pointer is not on.
+      if (fromDropdown && event.key.length === 1) event.preventDefault();
+      return false;
+    }
     event.preventDefault();
     if (event.repeat) {
       const binding = this.#deps.keymap.resolve(input, chain.scopes, 'press');

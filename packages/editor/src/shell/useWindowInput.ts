@@ -2,7 +2,7 @@
 // Space tap/hold, blur/visibility reset, browser-default suppression (MMB autoscroll and paste, context menu,
 // pinch-zoom), global drag-and-drop of files and the unsaved-changes guard.
 import { type RefObject, useEffect } from 'react';
-import { isTextEntry } from '../input/focus';
+import { isDropdown, isInOverlay, isTextEntry } from '../input/focus';
 import { hoverTargetOf, sameHover } from '../input/pointer';
 import type { Shell } from './types';
 
@@ -27,7 +27,19 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
         app.session.setState({ hoveredPanel: next });
     };
 
+    // The dropdown the pointer last pressed: a value chosen with the pointer hands the keyboard back to the editor
+    // (acceptance round 2, §4.10 "Keyboard focus"); keyboard use of the dropdown keeps its focus.
+    let pointerDropdown: HTMLSelectElement | null = null;
+    const onChange = (event: Event): void => {
+      const target = event.target;
+      if (!isDropdown(target) || target !== pointerDropdown) return;
+      pointerDropdown = null;
+      if (!inEditor(target) || isInOverlay(target) || document.activeElement !== target) return;
+      target.blur();
+    };
+
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.target === pointerDropdown) pointerDropdown = null;
       if (event.defaultPrevented) return;
       keyboard.keyDown(event);
     };
@@ -36,6 +48,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     };
     const onPointerMove = (event: PointerEvent): void => setHover(event.target, event.clientX, event.clientY);
     const onPointerDown = (event: PointerEvent): void => {
+      pointerDropdown = isDropdown(event.target) ? event.target : null;
       setHover(event.target, event.clientX, event.clientY);
       keyboard.pointerActivity();
       // Middle button: no autoscroll (Windows) and no primary-selection paste (Linux) inside the editor.
@@ -103,6 +116,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     const rootElement = root.current;
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('change', onChange);
     window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true });
     window.addEventListener('pointerdown', onPointerDown, { capture: true });
     window.addEventListener('mousedown', onMouseDown, { capture: true });
@@ -120,6 +134,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('change', onChange);
       window.removeEventListener('pointermove', onPointerMove, { capture: true });
       window.removeEventListener('pointerdown', onPointerDown, { capture: true });
       window.removeEventListener('mousedown', onMouseDown, { capture: true });

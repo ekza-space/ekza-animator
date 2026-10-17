@@ -3,6 +3,7 @@
 import { GLOBAL_SCOPE, type KeyBinding, type KeymapManager } from '@ekza-animator/editor-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { type KeyDispatch, KeyboardAdapter, type KeyScopeChain, type TimerApi } from '../src/input/keyboard';
 import { hoverTargetOf, scopeChainOf } from '../src/input/pointer';
 
@@ -168,6 +169,50 @@ describe('KeyboardAdapter', () => {
     checkbox.addEventListener('keydown', (event) => s.adapter.keyDown(event));
     checkbox.dispatchEvent(key('keydown', { code: 'KeyS', key: 's' }));
     expect(s.dispatched.map((d) => d.op)).toEqual(['key.set']);
+  });
+
+  it('a focused dropdown keeps type-ahead only while hovered; elsewhere keys follow the hovered panel (acceptance round 2)', async () => {
+    const s = setup();
+    s.hover(VIEWPORT);
+    const select = document.createElement('select');
+    for (const name of ['clip1', 'swing', 'hold', 'idle']) {
+      const option = document.createElement('option');
+      option.value = name;
+      option.textContent = name;
+      select.append(option);
+    }
+    const away = document.createElement('div');
+    away.style.cssText = 'width: 240px; height: 120px;';
+    document.body.append(select, away);
+    cleanup.push(select, away);
+    const consumed: boolean[] = [];
+    const onKeyDown = (event: KeyboardEvent): void => {
+      consumed.push(s.adapter.keyDown(event));
+    };
+    window.addEventListener('keydown', onKeyDown);
+    try {
+      select.focus();
+      // Real (trusted) keys: Chrome's type-ahead would pick 'swing' for S and 'hold' for the unbound H.
+      await userEvent.hover(away);
+      await userEvent.keyboard('s');
+      await userEvent.keyboard('h');
+      await userEvent.keyboard('{Control>}z{/Control}');
+      expect(select.value).toBe('clip1');
+      expect(document.activeElement).toBe(select);
+      expect(s.dispatched.map((d) => d.op)).toEqual(['key.set', 'edit.undo']);
+      expect(consumed).toEqual([true, false, false, true]); // S, H, the Control press, Control+Z
+      // Arrow keys stay with the dropdown (keyboard navigation of its options; on macOS ArrowDown opens it).
+      const arrow = key('keydown', { code: 'ArrowDown', key: 'ArrowDown' });
+      select.dispatchEvent(arrow);
+      expect(arrow.defaultPrevented).toBe(false);
+      // Pointing at the dropdown gives it the keyboard back: I types ahead and keys nothing.
+      await userEvent.hover(select);
+      await userEvent.keyboard('i');
+      expect(select.value).toBe('idle');
+      expect(s.dispatched.map((d) => d.op)).toEqual(['key.set', 'edit.undo']);
+    } finally {
+      window.removeEventListener('keydown', onKeyDown);
+    }
   });
 
   it('ignores keys while a dialog is open, composition and bare modifiers', () => {
