@@ -100,6 +100,8 @@ describe('ui primitives', () => {
     );
     await update(() => body('pop-trigger').click());
     await waitFor(() => present('pop-content'));
+    expect(body('pop-content').textContent).toBe('fps');
+    expect(body('pop-trigger').getAttribute('aria-expanded')).toBe('true');
     await update(() =>
       body('pop-content').dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
@@ -178,8 +180,7 @@ describe('ui primitives', () => {
     expect(Object.keys(icons).length).toBeGreaterThan(20);
     for (const name of Object.keys(icons)) {
       const svg = body(`icon-${name}`).querySelector('svg');
-      expect(svg, name).not.toBeNull();
-      expect(svg?.getAttribute('width')).toBe('14');
+      expect(svg?.getAttribute('width') ?? `no SVG for ${name}`).toBe('14');
     }
     await view.unmount();
   });
