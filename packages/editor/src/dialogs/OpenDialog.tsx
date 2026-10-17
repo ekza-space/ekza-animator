@@ -29,7 +29,8 @@ export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): J
             ? 'Open a project (.ekzanim) or a model (.glb, .vrm). You can also drop files anywhere on the window.'
             : 'Import a model (.glb, .vrm) or a VRM animation (.vrma) into the scene.'
         }
-        data-testid={`${props.mode}-dialog`}
+        // Not `import-dialog`: that id is the model import summary's (MVP-SPEC §4.8).
+        data-testid={`${props.mode}-picker`}
       >
         <div className="flex flex-col gap-4">
           <input

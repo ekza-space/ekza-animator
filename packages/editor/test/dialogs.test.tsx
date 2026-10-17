@@ -101,7 +101,8 @@ describe('import dialog', () => {
       </ShellFrame>,
     );
     await update(() => test.shell.runFromUi('ui.open', { dialog: 'import' }));
-    await waitFor(() => document.querySelector('[data-testid="import-dialog"]') !== null);
+    await waitFor(() => document.querySelector('[data-testid="import-picker"]') !== null);
+    expect(document.querySelector('[data-testid="import-dialog"]')).toBeNull();
     expect(body('import-choose')).toBeTruthy();
     expect((body('import-sample-polybot') as HTMLButtonElement).disabled).toBe(true); // no file.loadSample here
     await view.unmount();

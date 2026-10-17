@@ -218,9 +218,13 @@ test('integration smoke: samples, posing, keys, Graph Editor, playback, exports,
   await pointOf(page, () => call(page, 'screenOfControl', 'fk.lowerArm.L', 'pane-right'), 'reopened rig');
   await shot(page, '09-project-reopened');
 
-  // ---------- the user's own files: UAL through the import dialog, Polybot by drag-and-drop ----------
-  const ual = new Uint8Array(readFileSync(new URL('../public/samples/quaternius-ual.glb', import.meta.url)));
-  await loadFile(page, 'quaternius-ual.glb', ual);
+  // ---------- the user's own files: UAL through the file picker (Mod+I), Polybot by drag-and-drop ----------
+  await page.mouse.move(overViewport.x, overViewport.y);
+  await page.keyboard.press('Meta+KeyI');
+  await expect(page.getByTestId('import-picker')).toBeVisible();
+  const chooser = page.waitForEvent('filechooser');
+  await page.getByTestId('import-choose').click();
+  await (await chooser).setFiles(new URL('../public/samples/quaternius-ual.glb', import.meta.url).pathname);
   const importDialog = page.getByTestId('import-dialog');
   await expect(importDialog).toBeVisible();
   await page.getByTestId('import-clips-none').click();
