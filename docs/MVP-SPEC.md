@@ -1,6 +1,7 @@
 # Ekza Animator — MVP build specification (milestone M1)
 
-Status: v0.2 (2026-10-17, design review revision). Audience: the integration agent (WP-0, WP-8, WP-10), seven
+Status: v0.2 (2026-10-17, design review revision) with the **v0.3 integration** changes of 2026-10-18 marked
+inline. Audience: the integration agent (WP-0, WP-8, WP-10), seven
 parallel implementation agents (WP-1…WP-9) and reviewers. Read [ARCHITECTURE.md](../ARCHITECTURE.md) first;
 decisions are in [adr/](adr/README.md); numbered requirements are in [REQUIREMENTS.md](REQUIREMENTS.md).
 
@@ -37,6 +38,17 @@ recorded in [DECISIONS-OPEN §D](DECISIONS-OPEN.md#d-design-review-outcomes-2026
   scene clock, a replicating conformance suite running against a test-only Yjs store **in M1** (ADR 0002).
 - Ecosystem: clip provenance/contact/tags, registry-aligned lint codes, export profiles as data,
   importer/exporter/menu/table registries, licence and DCO checks in CI.
+
+### What changed in the v0.3 integration
+
+WP-1…WP-9 were merged into `dev` and their cross-package requests decided (DECISIONS-OPEN §E "Integration
+decisions", INT-1…INT-30). Contract changes, each marked *v0.3 integration* where it lands: six operators join
+`OperatorMap` (`select.channels`, `view.camera.setSettings`, `view.selectionMask`, `prefs.set`, `workspace.reset`,
+`workspace.showPanel`); `OperatorDef.coalesce`; `SessionState.hoverControl`; `EditorServices.samplesPath`;
+`PartitionLookup`; `RigWarning` `'unpaired-mirror'`; `EkzaBakeMarkerV1.generatorAdded`; anim-core `opts` on
+`resolveKeyHandles`/`insertKeyPreservingShape`; `TimeSliderController.cancel()`. Behaviour clarifications: store and
+runner rules (§4.11.0), the yaw-only facing check (§4.11.9), the surgeon generator rule (§4.11.11), lint severities
+(§4.11.13), test-API probes (§4.8), the shell's `file.new` confirmation (§4.9).
 
 ---
 
@@ -2134,6 +2146,11 @@ records the last export artifact. Overrides: `firstRun=1` (show the first-run di
 
 Every function that takes a `control` accepts a `ControlId` or a template key of the active character.
 
+*v0.3 integration*: the panel-owned slices come from probes the shell registers: the GL host registers
+`viewportTestApi(vm)` (WP-5) for its ViewportManager, the shell registers `graphTestHooks(app)` (WP-6) and the
+time-slider helpers `screenOfTimelineFrame/Tick` (WP-6t), which follow the focused panel of each kind. In e2e mode
+the IDs are seeded per page load, so new records skip IDs a reopened project already uses.
+
 ```ts
 import type { ChannelId } from '@ekza-animator/doc';
 import type { ManipHandle } from '@ekza-animator/editor-core';
@@ -2163,7 +2180,7 @@ export interface EkzaAnimatorTestApi {
   boneWorld(character: string, humanBoneOrNodeName: string, clipFrame?: number): { t: [number, number, number]; q: [number, number, number, number] };
   /** Canonical facing f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips))) at rest. */
   facing(character: string): [number, number, number];
-  panes(): { id: string; camera: string; locked: boolean; rect: { x: number; y: number; w: number; h: number } }[];
+  panes(): { id: string; camera: string; locked: boolean; rect: { x: number; y: number; w: number; h: number } }[];   // camera: 'shot' | preset; 'unknown' only without the viewport probe
   cameraOf(paneId: string): { position: [number, number, number]; quaternion: [number, number, number, number] };
   screenOfControl(control: string, paneId: string): { x: number; y: number } | null;   // page CSS px, a point ON the shape polyline
   screenOfManipulator(paneId: string, handle: ManipHandle): { x: number; y: number } | null;   // a grab point on the handle
@@ -2174,7 +2191,7 @@ export interface EkzaAnimatorTestApi {
   screenOfFrame(frame: number): { x: number; y: number } | null;                      // time slider (clip frames)
   screenOfTick(frame: number): { x: number; y: number } | null;                       // key tick, null if none at frame
   lastExport(): { fileName: string; mime: string; bytes: Uint8Array; sha256: string; lints: unknown[]; readBack: unknown } | null;
-  renderedFrames(): number;                                                          // WebGL frames rendered so far (idle check)
+  renderedFrames(): number;                                                          // WebGL frames of the editor's canvas so far, dirty panes or not (idle check; v0.3 integration, WP-8 R-3)
 }
 ```
 
@@ -2204,10 +2221,10 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 
 | ID | U | Owner | Behaviour |
 |---|---|---|---|
-| `file.new` | — | 7b | Confirm if dirty; empty document; clear session, history and undo. |
+| `file.new` | — | 7b | Empty document; clear session, history and undo. *v0.3 integration*: the operator is headless and discards without asking; the shell confirms over unsaved work on every UI path (menu, keymap, palette), like opening a project. |
 | `file.open` | — | 7b | Importer registry dispatch by extension/sniff (`.ekzanim`/`.ekzanim.json` → `file.openProject`; `.glb`/`.vrm` → `file.importModel`; `.vrma` → `file.importAnimation`). `app.run` happens in `prepare`. |
 | `file.openProject` | — | 7b | `readProjectArchive` → asset hash checks → `store.load` (read-only when newer). Never merges (ADR 0011). |
-| `file.importModel` | U | 7b | §4.11.6. `prepare` parses, hashes, rigs and converts clips; `apply` writes all records in one transaction. |
+| `file.importModel` | U | 7b | §4.11.6. `prepare` parses, hashes, rigs and converts clips; `apply` writes all records in one transaction. *v0.3 integration*: a model already in the project imports as another character (`… 2`) with a warning (WP-7b B7-2); compressed animation data imports the model without clips and warns unless clips were picked by index (B7-3). |
 | `file.importAnimation` | U | 7b | VRMA → new clip on the target humanoid (§4.11.7). Animation-only GLB onto a character: M1-stretch (`remapRawClipByName`). |
 | `file.loadSample` | U | 7b | Fetches `<services.samplesPath ?? '/samples/'><file>` in `prepare` (*v0.3 integration*: base URL from `EditorProps.samplesPath`), then the `file.importModel` pipeline with sample provenance (quaternius: `clips: [index of 'Idle_Loop']`). |
 | `file.save` / `file.saveAs` | — | 7b | `writeProjectArchive(store.snapshot(), assets)` → `services.files.download('<name>.ekzanim')`; clears `dirty`. |

@@ -1,6 +1,7 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-17, design review revision (rev. 2). Every item below has a **default chosen** so that work can
+Status: 2026-10-18, v0.3 integration (rev. 3; section E gained the integration decisions and the consolidated
+build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
 start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
 cheap. Items marked **override** are cases where a coordinator default was replaced on evidence. Research
 references: `R01`…`R09` = [`research/0N-*.md`](research/). Section D records how the design review was resolved,
@@ -130,3 +131,158 @@ silently). Each is reversible by the integration agent.
 | B-22 | The Turborepo `test` task hashes `fixtures/**` as an input. | Tests in `doc`, `io`, `editor-core`, `editor` and `headless-tests` read fixtures outside their package; without the input a fixture change would replay stale cached results. | `turbo.json` |
 | B-23 | The fake operator runner (§4.11.0 rule 7) attributes a doc undo entry to a run only if a `local` batch committed during `apply` created it or was coalesced into it in place (same `txId`, new entry object); undo/redo batches and `undoable: false` commits never count. A run whose `apply` called `history.undo()`/`redo()` records no step at all (the fake history counts navigations). **For WP-7a**: rule 7 as written ("a new top entry, or `session.overrides` changed") would make `edit.undo`/`edit.redo` record a step, attaching an older doc entry or the restored overrides, and clear the redo stack; the spec should state this exception for the real runner. | Without it, redo is lost after any history-navigating operator, while the doc `UndoManager` still has redo. | `packages/editor-core/src/testing/operators.ts`, `packages/editor-core/src/testing/history.ts` |
 | B-24 | `NodeGltf` (the `loadGltfInNode` result) gains `animations: readonly AnimationClip[]` (three's `gltf.animations`). Additive to the §7 WP-4 signature. | The §6.3 io gate "`readAnimations` vs three `GLTFLoader` in Node on UAL (1e-6)" needs three's clips from this harness, and GLTFLoader does not attach them to `scene`. | `packages/io/src/testing/loadGltf.ts` |
+
+### Integration decisions (WP-10 part 1, v0.3 integration, 2026-10-18)
+
+Every cross-package request in `docs/wp-notes/wp-*.md` was decided when WP-1…WP-9 were merged into `dev`. Accepted
+contract changes are in the contract files **and** in MVP-SPEC (marked *v0.3 integration*). "Source" names the
+work package and the item in its notes.
+
+| # | Request (source) | Decision | Where |
+|---|---|---|---|
+| INT-1 | Facing check threshold fails on Polybot (WP-8 R-4, WP-3 request 5) | **Accepted, yaw-only**: `f.z / hypot(f.x, f.z) > 0.999`. The full `f·(0,0,1)` also measures the head leaning 2.8° ahead of the hips (0.99882); the yaw still gives −1 for a missing π-yaw and 0 for a quarter turn. | MVP-SPEC §4.11.9, E2E-03 row, US-02; REQUIREMENTS FR-IO-02; `e2e/03-drop-vrm0.spec.ts` |
+| INT-2 | Test-API probes not wired (WP-6 note 2, WP-6t notes, WP-8 contract item 5) | **Done**: the GL host registers `viewportTestApi(vm)` and disposes it with the manager; `createShell` registers `graphTestHooks(app)` and the time-slider helpers once per shell (they follow the focused panel). | `editor/src/gl/GLHost.tsx`, `editor/src/shell/createShell.ts`, §4.8 |
+| INT-3 | `prefs.set`, `workspace.reset`, `workspace.showPanel`, `view.selectionMask` (WP-8 R-1/W-1) | **Accepted** into `OperatorMap` and §4.9 (owner 8); declaration merging removed. | `editor-core/src/operators/args.ts`, §4.5, §4.9 |
+| INT-4 | `select.channels`, `view.camera.setSettings` (WP-9 R-1, R-3; registered by WP-7b) | **Accepted** into `OperatorMap` and §4.9 (owner 7b). The Channel Box and Graph channel list keep writing `selection.channels` directly (WP-9 D-5, WP-6 G-9): it is per-user U state that never enters undo, panel tests run on the fake app without operators, and a drag-range selection needs synchronous feedback. | `args.ts`, §4.9 |
+| INT-5 | `SessionState.hoverControl` (WP-9 R-2) | **Accepted**: default `null`, repaired when the control disappears; the viewport draws it with the hover style while the pointer hovers no control in a pane. | `editor-core/src/types.ts`, `viewport/src/manager/ViewportManager.ts`, `panels/outliner/hover.ts`, §4.5 |
+| INT-6 | Channel Box and panel tokens (WP-9 R-4, WP-6, WP-6t) | **Already done** by WP-8 (`ui/css/tokens.css`). Swapping the panels' local stand-ins (WP-6 `panels/graph/controls.tsx`, WP-9 D-3 menu/popover/fields/icons) for `ui` primitives is **deferred** (cosmetic, no behaviour change). | — |
+| INT-7 | Input adapter ignores `keydown` with `defaultPrevented` (WP-9 R-5) | **Already done** by WP-8 (`shell/useWindowInput.ts`). | — |
+| INT-8 | Samples base URL (WP-8 R-2) | **Accepted**: optional `EditorServices.samplesPath` (default `/samples/`), set from `EditorProps.samplesPath`; `file.loadSample` fetches from it. | §4.5, §4.9, §7 WP-8 |
+| INT-9 | `renderedFrames()` counts the editor canvas; `panes()[].camera` may be `'unknown'` (WP-8 R-3) | **Accepted** as §4.8 wording. | §4.8 |
+| INT-10 | `file.new` must confirm over unsaved work (WP-7b B7-1 request to WP-8) | **Done in the shell**: `runFromUi` asks before `file.new` when `session.dirty` (menu, keymap, palette); the operator stays headless. B7-2 and B7-3 are stated in §4.9. | `editor/src/shell/createShell.ts`, `commands.test.ts`, §4.9 |
+| INT-11 | `setKeyHandle` clamps a free weighted handle by scaling it (WP-6 G-21) | **Accepted**: only `dt` is clamped to `(0, span]`, `dv` kept (§4.11.4 wording, the Graph Editor's drag rule). The kernel test expected the scaled handle and was corrected. | `editor-core/src/edit/keys.ts`, `test/kernel/edit-keys.test.ts` |
+| INT-12 | Per-key scale (`*`, `/`) for mixed Graph Editor field values (WP-6 G-14) | **Rejected for M1**: `KeyFieldsArgs` keeps set/add; the panel refuses ×/÷ on mixed values with a message. Revisit with the Graph Editor scale tool (V1). | — |
+| INT-13 | WP-7a runner/history clarifications, `OperatorDef.coalesce`, load-origin batches (WP-7a requests) | **Accepted**: rule 3 exempts `edit.escape`; rule 7 skips history-navigating runs and records override deltas only at an unchanged location; direct local commits become steps; `OperatorDef.coalesce` is part of the contract (`CoalescingOperatorDef` stays as an alias); partition visibility batches use origin `'load'`. | §4.11.0, §4.5, `types.ts`, `runner.ts` |
+| INT-14 | `PartitionLookup`, "undo never orphans", canonical-curve queries, `missingPartitions` (WP-2 requests 1–3; WP-3 request 1) | **Accepted** (contract files already had them). | §4.2, §4.11.0 store rules 4 and 6, §7 WP-2 |
+| INT-15 | `strictPut` in production builds (WP-2 D2-11, WP-8 W-14) | **Keep `strictPut: true`** (the `createEditorApp` default): a buggy `put` over an existing record fails its operator (rolled back, toast) instead of silently merging. Revisit with collaboration (M3). | — |
+| INT-16 | Finger lollipops as `custom` shapes (WP-3 R-1/request 2) | **Accepted**, and the head now **faces along the finger** (plane of the dorsal normal and the hand's lateral axis): with heads facing sideways the §4.11.15 acceptance (6 px pick separation in a framed three-quarter hand view) failed on Seed-san (5.1 px); now every finger has ≥ 6.5 px on both fixtures. The browser test also stopped assuming ten fingers per hand (Polybot has five one-segment fingers); it requires a control per finger bone. | `rig/src/autorig/shapes.ts`, `viewport/test/fingers.test.ts` |
+| INT-17 | `RigWarning.code` for unpaired sided controls (WP-3 R-5/request 3) | **Accepted**: `'unpaired-mirror'`. | §4.3, `rig/src/types.ts` |
+| INT-18 | ADR 0004 says 4×4 matrices; the kernel composes similarity transforms (WP-3 R-4/request 4) | **Accepted**: ADR 0004 "Consequences" amended. | `docs/adr/0004-rig-model.md` |
+| INT-19 | `EkzaBakeMarkerV1.generatorAdded` (WP-4 contract addition) | **Accepted**. | §4.4, §4.11.11 rules 8–9 |
+| INT-20 | `ekza.unique-names` local severity, single `source_too_large` code (WP-4 W4-1, W4-2) | **Accepted**; ADR 0010 table updated. | ADR 0010 §4, §4.11.13 |
+| INT-21 | `opts` on `resolveKeyHandles`/`insertKeyPreservingShape`; `frozen` superset (WP-1 W1-1, W1-2) | **Accepted**. | §7 WP-1 |
+| INT-22 | Insert exactness at AnimX's snapping thresholds (WP-1 W1-22) | **Accepted as a documented deviation** from the 1e-12 insert gate: in three narrow bands (Hermite straight-line short-circuit, Bézier handles near the thirds, the monotonic-X margin) a split half re-snaps; measured ≤ 5e-8 relative, invisible (E2E-11 checks 1e-6). Exactness there would need a deviation from AnimX, which the goldens forbid. | — |
+| INT-23 | `TimeSliderController.cancel()`, `dragging`, menu items in `registerTimelineContributions` (WP-6t) | **Accepted**. | §7 WP-6t |
+| INT-24 | Stub fallbacks left from the parallel build (WP-9 D-1, WP-5 shape stand-in) | **Removed**: the panels call the kernel helpers directly; the deferred nudge path is gone. Inert "stubbed dependency" tests elsewhere (curve-editor edit plumbing, the Graph panel's tangent-field notice, a viewport press-routing case) stay: they skip themselves and document the failure path. | `panels/channel-box/kit/kernel.ts`, `nudge.ts`, `viewport/src/controls/shapes.ts` |
+| INT-25 | Two numeric grammars: editor-core accepted only `45`, `+=10`, `*2`, units; WP-9's fallback had research 09 §6.4 expressions (and WP-6 G-14 assumed a leading `=`) | **One grammar** in editor-core `parseNumericInput`: `[=]expr` with `+ - * / ( )`, one sign per operand, units after numbers or groups, relative `+=`/`-=`/`*=`/`/=` and short `*x`/`/x`, decimal comma, U+2212; a scale takes no unit. Used by the Channel Box, the Graph Editor fields and the other numeric fields. | `editor-core/src/edit/numeric.ts` |
+| INT-26 | Escape in a dialog while a toast is shown closed the toast, not the dialog (smoke run) | **Fixed in `ui`**: a Radix toast is a dismissable layer above the dialog; the `Toast` primitive hands Escape to the topmost open dialog's close button (same semantics as its ×) and keeps the toast. | `ui/src/primitives/{toast,dialog}.tsx`, `editor/test/ui-primitives.test.tsx` |
+| INT-27 | Importing after reopening a project in `?e2e=1` failed with `use-patch` (smoke run) | **Fixed**: a seeded ID source replays its sequence per page load; new record IDs (kernel and the viewport's shot camera) skip IDs the document already uses (O(1) check, bounded retries). | `editor-core/src/app/internals.ts`, `viewport/src/manager/contributions.ts`, `test/kernel/ids.test.ts` |
+| INT-28 | A constant-track VRMA from Seed-san on Polybot raised 21 "no control" warnings in a toast (smoke run) | **Fixed**: one warning lists the dropped bones, and only tracks that leave the rest pose count. | `rig/src/import/humanoid.ts` |
+| INT-29 | Time-slider key-drag tests failed once WP-7a landed | **Test fixed**: the fixture's setup commits are `undoable: false`; since WP-7a decision 3 every local commit is a history step, so "no undo step after a cancelled drag" saw the setup. | `curve-editor/test/timeline/fixture.ts` |
+| INT-30 | Graph Editor framing | **Kept as built** (WP-6): a curve set that shares no curve with the previous one is framed once; afterwards the view stays where the user put it (Maya), `F`/`A` frame. Auto-frame on every key edit is not adopted. | — |
+
+### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
+
+Each work package recorded its interpretations in `docs/wp-notes/wp-*.md` (kept as history, with the reasoning and
+tests). All are **accepted as built** unless the status column says otherwise; IDs are the notes' own.
+
+**WP-1 anim-core** — W1-1/W1-2 optional `cycleAwareAuto` and the `frozen` superset (INT-21); W1-3 linear/step
+inserts still freeze shaping neighbours; W1-4 inserts outside the key range take the infinity value and slope, an
+empty curve throws (`insertKeyOnCurve` keys the static value); W1-5 plateau = AnimX legacy auto; W1-6 cycle-aware
+auto behind a compile option (off by default); W1-7 spline/clamped approximations (Q-ANIM-4); W1-8 linear end
+sides continue into linear infinity; W1-9 non-weighted fixed handles keep \|dt\| ≥ 1e-6; W1-10 single-key curves
+evaluate to the key under any infinity; W1-11 cyclic times snap onto keys within the rounding bound instead of
+Maya ticks; W1-12 document content is repaired, never rejected; W1-13 extra fields on `CompiledAnimCurve`; W1-14
+slopes are right derivatives, limited near vertical; W1-15 `segmentControlPoints` for every span kind; W1-16
+`visibleKeyRange`/`keyIndexAt` semantics; W1-17 numeric tangent field clamps; W1-18 `reduceKeys` keeps a subset of
+keys and their tangent types; W1-19 Euler filter negates middle-axis fixed handles on the flipped branch; W1-20
+error codes; W1-21 straight-line short-circuit spans export with the chord slope; W1-22 insert exactness bands
+(INT-22).
+
+**WP-2 doc, doc-yjs** — requests 1–3 accepted (INT-14); D2-1 extra exports (`MemoryDocumentStore`,
+`PatchUndoManager`, testing helpers); D2-2 local writes open their partition, remote ones never; D2-3 reentrancy
+guards; D2-4 validation of introduced problems only, `remove` refuses referenced targets; D2-5 sliding coalescing
+window; D2-6 fully skipped undo still moves the entry; D2-7 listener errors never interrupt a commit, undo entry
+recorded before subscribers run; D2-8 no-op `applyChanges` emits nothing; D2-9 per-store `txId` counters; D2-10
+read-only rules; D2-11 `strictPut: true` default (INT-15); D2-12 query tie-breaks; D2-13 JSON semantics for
+`undefined`/`NaN`; D2-14 snapshot text format; D2-15 migrations repair; D2-16 `deriveMigratedId` shapes; D2-17
+extra validation rules; D2-18 conformance suite without fast-check; D2-19 per-merge-unit value-based foreign-write
+check; D2-20 `doc-yjs` design (one `Y.Doc` per partition, remote batches as `user: 'remote'`); D2-21 "keep
+seconds" fps change vs a concurrent key edit keeps one side's key (structural edits need a claim, M3).
+
+**WP-3 rig** — R-1 `custom` finger lollipops, R-2 root `arrow4 + circle` as one custom shape (INT-16); R-3 jaw
+sized like hands; R-4 similarity transforms (INT-18); R-5 unpaired sided controls (now `unpaired-mirror`, INT-17);
+R-6 the sampler keeps the canonical curve; R-7 rig functions accept any `RigProgram`; R-8 registered rig-op slot
+semantics; R-9 CUBICSPLINE translation tangents from solved channels; R-10 constant-at-default detection
+tolerances; R-11 caller errors throw `unsupported`; R-12 eyes, constraint destinations, springs and unreachable
+joints are not rigged (motion dropped with a warning); R-13 mirror semantics for centre and bone-aligned controls;
+R-14 humanoid step schedule over the normalized parent chain; R-15 Plant Feet treats twist bones as rigid; R-16
+`reached` in soft IK.
+
+**WP-4 io** — `generatorAdded` (INT-19); W4-1/W4-2 lint severity and code (INT-20); W4-3 JSON-chunk and provenance
+lint details; W4-4 lint scope (slot names on our clips, uniqueness on all); W4-5 structural index/joint range checks;
+W4-6 `parseGlb` limits and tolerances; W4-7 format detection by root extension objects; W4-8 VRM licence mapping;
+W4-9 bone radii fallbacks; W4-10 `readAnimations` repairs; W4-11 VRMA reader versions and ignored channels;
+W4-12 bake thresholds; W4-13 surgeon details (rollback-only re-bake, `replaced` kept); W4-14 `ExportArtifact.bytes`
+is one `Uint8Array` (a `Blob` is V1); W4-15 VRMA writer root and skipped tracks; W4-16 `validation` is null from
+writers (the stretch worker validates); W4-17 `.ekzanim` zip layout and limits; W4-18 `CompressedDataError`; W4-19
+meshopt decoder imported statically. Extra exports (`importProvenance`, `inspectVrma`, `setGltfValidator`, lint rule
+table, `io/worker`) accepted.
+
+**WP-5 viewport** — V-1 every visible pane redraws when anything is dirty; V-2 extra public API; V-3 stable pane
+ids; V-4 shot-binding fallback; V-5 pick-candidate ordering (depth buckets); V-6 ring-drag mapping; V-7 programmatic
+camera-controls, pinch dollies, orthographic views do not tumble; V-8 untouched views re-frame when characters
+change; V-9 the panel hosts its own canvas only without a model loader (fake app); V-10 test pre-bundling; V-11
+x-ray via per-pane material flips; V-12 no safe-frame masks or bookmarks yet; V-13 mesh-pick candidate rules
+(stretch, done); V-14 camera radial (stretch, done); V-15 orthographic shot zoom stored as `orthoHeight`; V-16
+self-enabling gated tests. The unit-circle stand-in for a stubbed shape library is removed (INT-24).
+
+**WP-6 Graph Editor** — G-1 painters read compiled handle arrays (cross-checked against `segmentControlPoints`);
+G-2 display scale from `channelDisplayScale`; G-3 local scene→clip mapping for the range shading (same formula as
+doc's); G-4 with no selection the channel list shows the active character's animated controls; G-5 Move tool =
+Select; G-6 single click on a curve clears, double-click selects its keys; G-7 empty marquee selects handles; G-8
+locked curves dashed and inert; G-9 channel rows write `selection.channels` (INT-4); G-10 dense unselected keys are
+not drawn; G-11 Alt+MMB/RMB in every profile; G-12 hit values in display units; G-13 null points outside the
+canvas; G-14 field grammar (INT-25) and the mixed-value ×/÷ refusal (INT-12); G-15/G-16 test config; G-17 overlap
+resolution to the curve drawn on top; G-18 near-thirds weighted spans drawn with the thirds; G-19 per-curve set
+updates; G-20 Shift axis lock on handle drags; G-21 free weighted handle clamp (INT-11); G-22 handle hit candidates
+near the pointer.
+
+**WP-6t time slider** — band cells `[start − ½, end + ½)`; target keys = selected controls (all when none); the
+drag recomputes band keys at press; one drag = one step, the band stays; scale pivots at the opposite end (factor ≥
+0.01); `time.selectBand {band: null}` clears; scrub snapping and clamping; slider spans clip ∪ playback range with
+drawn-only range brackets; RMB menu without a band offers only Paste; frame-field grammar; transport cycling Once →
+Loop → Oscillate; ←/→ on the focused slider step. `cancel()`/`dragging` accepted (INT-23).
+
+**WP-7a kernel** — 1 `KernelDeps` seam; 2 the fake app runs the real kernel; 3 every local undoable commit is a
+history step (INT-13); 4 override lifetime is a kernel invariant; 5 runner rule 7 clarifications (INT-13); 6
+session repair after every batch; 7 playback details (floor in the play direction, loop wraps into `[start, end)`);
+8 keymap precedence and auto-repeat set; 9 `services.models` waits for `setRenderer`; 10 edit-kernel
+interpretations (no toasts from `applyChannelEdits`, Maya weight lengths, block moves, locked curves skipped —
+the free-weighted clamp changed by INT-11); 11 numeric display units (grammar widened by INT-25); 12 the app's ID
+source seeds doc's default while it lives (collisions with loaded documents avoided by INT-27); 13 local channel
+facts; 14 platform default `'other'`; 15 document loads vs partition batches; 16 `coalesce` (now in the contract,
+INT-13); 17 coalescing recognised by entry identity; 18 `edit.escape` during gestures; 19 step label = final entry
+label; 20 a throwing gesture commit ends like a cancel; 21 override deltas hold the active character's controls only.
+
+**WP-7b operators and workflows** — B7-1 confirmations are the shell's (INT-10); B7-2 a model already in the
+project imports as another character; B7-3 compressed animation data imports the model without clips by default;
+B7-4 embedded-clip default = the dialog's (all when ≤ 8); B7-5 `loop` from the clip name; B7-6 the first character
+sets the scene clock; B7-7 placement along +X and the locked `shotCam`; B7-8 reduction and key-time defaults; B7-9
+display names from VRM meta; B7-10 pose tools write only changed channels; B7-11 curve-level operators' target
+rule; B7-12 unify keeps computed sides computed; B7-13 numeric-field semantics; B7-14 `time.setFrame` units and key
+jumps; B7-15 `channel.setValues` does not coalesce; B7-16 duplicate/delete details; B7-17 fps rescale rounding and
+clip-settings validation; B7-18 `clip.new` becomes active; B7-19 export licence gate, preflight, unions,
+`{clip}` token; B7-20 host validation turns violations into error lints; B7-21 samples relative to the page origin
+(base URL now `samplesPath`, INT-8); B7-22 JSON projects open without their model bytes; B7-23 `edit.*` and
+`file.open` dispatch rules; B7-24 `edit.escape` order; B7-25 selection operators record no step; B7-26 `view.tool`
+without registered tools; B7-27 animation-only GLB import by content sniffing; B7-28 technical rig notes stay out
+of the import toast; B7-29 saving opens every partition first; B7-30 only wanted animations are decoded; B7-31 locks
+respected everywhere; B7-32 a failed read-back blocks the download; B7-33 Mixamo rule for VRMA provenance; B7-34
+clip switch keeps selection consistent; B7-35 `rig.setRotateOrder` is structural. `select.channels` and
+`view.camera.setSettings` moved into the contract (INT-4).
+
+**WP-8 shell, ui, web** — W-1 shell operators (INT-3); W-2 versioned layout storage; W-3 `renderedFrames` counts
+canvas frames (INT-9); W-4 "editor could not start" fallback; W-5 `/dev/shell` harness and synthetic model loader;
+W-6/W-7 extra dialog controls and defaults; W-8 `runFromUi` reporting; W-9 held-chord defaults; W-10 Space tap
+under `spaceBehaviour: 'play'`; W-11 ordered, sequential, dialog-waiting file pipeline; W-12 fonts self-hosted,
+vendored dockview CSS; W-13 `samplesPath` (now used, INT-8) and the stretch validator worker not wired; W-14
+`strictPut` (INT-15); W-15 e2e fixme gates (inert now that every package landed); W-16 keyboard while dialogs own
+it; W-17 `data-ekza-motion` on `<html>`. R-4 decided by INT-1.
+
+**WP-9 data panels** — D-1 adapters removed (INT-24); D-2 inline virtualizer geometry; D-3 local menu, popover,
+fields and icons (swap deferred, INT-6); D-4 shared kit under `channel-box/kit/`; D-5 direct channel-selection and
+hover writes (selection kept, hover now typed: INT-4, INT-5); D-6 lens fields enabled by polling
+`view.camera.setSettings`; D-7 nudge bursts end on key release; D-8 lead state colours, `—` for mixed values; D-9
+custom attributes not listed; D-10 panels report refused runs; D-11 the Outliner leaves Space to the keymap; D-12
+state colours hidden while drafting.
