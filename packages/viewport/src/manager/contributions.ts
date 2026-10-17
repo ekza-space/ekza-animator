@@ -130,7 +130,11 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
       }
       const cameras = tx.list('cameras');
       const last = cameras.reduce<string | null>((max, c) => (max === null || c.order > max ? c.order : max), null);
-      const id = newId('camera');
+      // A seeded ID source (?e2e=1) replays its sequence per session: skip IDs a reopened project already uses.
+      let id = newId('camera');
+      for (let attempt = 0; attempt < 64 && tx.getIncludingDeleted('cameras', id) !== undefined; attempt++) {
+        id = newId('camera');
+      }
       const record: CameraRecord = {
         id,
         name: 'shotCam',

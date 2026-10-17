@@ -55,6 +55,7 @@ export function DialogContent({
           {hideClose ? null : (
             <DialogPrimitive.Close
               aria-label="Close"
+              data-ekza-dialog-close=""
               className="inline-flex size-[var(--size-hit)] items-center justify-center rounded-button text-fg-2 hover:bg-hover hover:text-fg"
             >
               <X size={16} />

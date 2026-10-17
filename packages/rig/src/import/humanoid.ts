@@ -20,6 +20,18 @@ import { clipRange } from './raw';
 import { type Interpolation, type SampledTrack, sampleTrack, trackKeyCount } from './sample';
 
 const HUMAN_COUNT = HUMAN_BONE_NAMES.length;
+/** Bone names listed in the "no control" warning before "and N more". */
+const DROPPED_SHOWN = 6;
+
+/** True when a normalized rotation track leaves the rest pose (identity) anywhere, beyond float32 rounding of w. */
+function leavesRest(track: SampledTrack): boolean {
+  const cubic = track.interpolation === 'CUBICSPLINE';
+  const stride = cubic ? 12 : 4; // CUBICSPLINE: in-tangent, value, out-tangent per key
+  for (let o = cubic ? 4 : 0; o + 4 <= track.values.length; o += stride) {
+    if (Math.abs(track.values[o + 3] as number) < 1 - 1e-11) return true;
+  }
+  return false;
+}
 
 interface HumanTracks {
   readonly rotation: readonly (SampledTrack | null)[];
@@ -207,11 +219,24 @@ export function importHumanoidClip(
     const h = node === -1 ? -1 : internals.humanNode.indexOf(node);
     if (h !== -1 && (sourceOf[h] as number) !== -1) carried[sourceOf[h] as number] = 1;
   }
+  // One warning for all of them, and only for tracks that move: a VRMA written with constant tracks (every bone at
+  // rest) loses nothing on a character without fingers or toes.
+  const dropped: string[] = [];
   HUMAN_BONE_NAMES.forEach((name, h) => {
-    if (rotation[h] !== null && carried[h] === 0 && !hasCarriedDescendant(h, carried, present)) {
-      warnings.push(`Animation of humanoid bone "${name}" has no control on this character; dropped`);
+    const source = rotation[h] ?? null;
+    if (source !== null && carried[h] === 0 && !hasCarriedDescendant(h, carried, present) && leavesRest(source)) {
+      dropped.push(name);
     }
   });
+  if (dropped.length > 0) {
+    const shown = dropped.slice(0, DROPPED_SHOWN).join(', ');
+    const more = dropped.length > DROPPED_SHOWN ? ` and ${dropped.length - DROPPED_SHOWN} more` : '';
+    warnings.push(
+      dropped.length === 1
+        ? `Animation of humanoid bone "${shown}" has no control on this character; dropped`
+        : `Animation of ${dropped.length} humanoid bones has no control on this character; dropped: ${shown}${more}`,
+    );
+  }
 
   const plan = makeSolvePlan(internals, true);
   const targetRestHipsY = internals.hipsNode === -1 ? 0 : (internals.restWorld.t[internals.hipsNode * 3 + 1] as number);

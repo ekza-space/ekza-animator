@@ -35,9 +35,26 @@ export interface ToastProps extends ComponentPropsWithRef<typeof ToastPrimitive.
   readonly kind?: ToastKind;
 }
 
-export function Toast({ kind = 'info', className, children, ...props }: ToastProps): JSX.Element {
+/**
+ * A Radix toast is a dismissable layer that mounts above an open modal dialog, so Escape would close the toast and
+ * leave the dialog open. Escape belongs to the dialog: the toast stays and the topmost open dialog closes through its
+ * own close button (same path as the ×, so each dialog keeps its close semantics). Dialogs without one ignore it.
+ */
+function escapeToOpenDialog(event: KeyboardEvent): void {
+  const dialogs = document.querySelectorAll<HTMLElement>('[role="dialog"][data-state="open"]');
+  const top = dialogs[dialogs.length - 1];
+  if (top === undefined) return;
+  event.preventDefault();
+  top.querySelector<HTMLButtonElement>('[data-ekza-dialog-close]')?.click();
+}
+
+export function Toast({ kind = 'info', className, children, onEscapeKeyDown, ...props }: ToastProps): JSX.Element {
   return (
     <ToastPrimitive.Root
+      onEscapeKeyDown={(event) => {
+        onEscapeKeyDown?.(event);
+        if (!event.defaultPrevented) escapeToOpenDialog(event);
+      }}
       className={cn(
         'flex items-start gap-2.5 rounded-popover border border-line-strong bg-popover px-3 py-2.5 text-ui text-fg',
         'shadow-popover data-[swipe=move]:translate-x-(--radix-toast-swipe-move-x)',

@@ -6,6 +6,8 @@ import {
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuTrigger,
+  Dialog,
+  DialogContent,
   DISPLAY_ICONS,
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -25,6 +27,10 @@ import {
   TabsContent,
   TabsList,
   TabsTrigger,
+  Toast,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
 } from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -108,6 +114,39 @@ describe('ui primitives', () => {
       ),
     );
     await waitFor(() => !present('pop-content'));
+    await view.unmount();
+  });
+
+  it('Escape closes the open dialog, not a toast shown above it', async () => {
+    function DialogWithToast(): JSX.Element {
+      const [dialog, setDialog] = useState(true);
+      const [toast, setToast] = useState(true);
+      return (
+        <ToastProvider>
+          <Dialog open={dialog} onOpenChange={setDialog}>
+            <DialogContent title="Export" data-testid="dlg">
+              <button type="button" data-testid="dlg-button">
+                Export
+              </button>
+            </DialogContent>
+          </Dialog>
+          <Toast open={toast} onOpenChange={setToast} data-testid="toast-item">
+            <ToastTitle>Exported model.vrm</ToastTitle>
+          </Toast>
+          <ToastViewport />
+        </ToastProvider>
+      );
+    }
+    const view = await render(<DialogWithToast />);
+    await waitFor(() => present('dlg') && present('toast-item'));
+    body('dlg-button').focus();
+    await update(() =>
+      body('dlg-button').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      ),
+    );
+    await waitFor(() => !present('dlg'));
+    expect(present('toast-item')).toBe(true);
     await view.unmount();
   });
 

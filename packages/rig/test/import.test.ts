@@ -519,6 +519,20 @@ describe('importHumanoidClip (MVP-SPEC §4.11.7)', () => {
     const imported = importHumanoidClip(data, rig(synthetic), { ...opts(FPS30), hipsScale: 'auto' });
     expect(imported.warnings.some((w) => w.includes('leftThumbDistal'))).toBe(true);
     expect(imported.warnings.some((w) => w.includes('"leftUpperArm"'))).toBe(false);
+    // One warning names them all (a VRMA lists every finger of the source).
+    expect(imported.warnings.filter((w) => w.includes('no control on this character'))).toHaveLength(1);
+
+    // Tracks that stay at rest (a VRMA written with constant tracks) lose nothing: no warning.
+    const rotations = Object.fromEntries(
+      Object.entries(data.rotations).map(([bone, track]) => {
+        if (!/Thumb|Index|Middle|Ring|Little/.test(bone) || track === undefined) return [bone, track];
+        const values = new Float32Array(track.values.length);
+        for (let o = 0; o < values.length; o += 4) values[o + 3] = 1;
+        return [bone, { times: track.times, values }];
+      }),
+    ) as typeof data.rotations;
+    const atRest = importHumanoidClip({ ...data, rotations }, rig(synthetic), { ...opts(FPS30), hipsScale: 'auto' });
+    expect(atRest.warnings.some((w) => /Thumb|Index|Middle|Ring|Little/.test(w))).toBe(false);
   });
 
   it("scales the hips position: 'auto' by the rest hips heights, or by a number", () => {
