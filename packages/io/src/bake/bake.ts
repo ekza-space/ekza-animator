@@ -43,8 +43,6 @@ export const CONSTANT_EPSILON = 1e-7;
 /** `bake.large-rotation-step` fires above this angle between consecutive samples. */
 export const LARGE_STEP_RAD = Math.PI / 2;
 
-export const TOOL_VERSION = '0.1.0';
-
 export function clipFramesToSeconds(frames: Frame, fps: { readonly num: number; readonly den: number }): number {
   return (frames * fps.den) / fps.num;
 }
