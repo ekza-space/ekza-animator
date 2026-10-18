@@ -99,9 +99,13 @@ export const SLOT_VOCABULARY = [
   'celebrate',
 ] as const;
 
+/** Tooltip of the root-motion select (MVP-SPEC §4.11.10 step 3 as amended by M2a fix round 1). */
+export const ROOT_MOTION_HINT =
+  "Hips keeps the hips' motion. In place removes the clip's travel on export (the hips' X/Z displacement from the first to the last frame, spread over the clip); sway and bob stay.";
+
 export const ROOT_MOTION_LABEL: Readonly<Record<RootMotionMode, string>> = {
   hips: 'Hips (keep motion)',
-  'in-place': 'In place',
+  'in-place': 'In place (remove travel)',
 };
 
 export const REDISTRIBUTABLE_LABEL: Readonly<Record<Redistributable, string>> = {

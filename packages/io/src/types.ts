@@ -56,7 +56,7 @@ export interface BakeOptions {
   readonly closeLoop: boolean;
   readonly loop: boolean;
   readonly rootMotion: RootMotionMode;
-  /** Node whose X/Z is locked for rootMotion 'in-place' (humanoid: hips; generic: topmost driven joint with
+  /** Node whose X/Z travel rootMotion 'in-place' removes (humanoid: hips; generic: topmost driven joint with
    *  translation); null makes 'in-place' unavailable. */
   readonly inPlaceNode: number | null;
   /** Fully stepped tracks → STEP sampler at these clip frames (rig.computeStepSchedule). Others: LINEAR. */

@@ -28,6 +28,7 @@ import {
   MAX_TAGS,
   REDISTRIBUTABLE_LABEL,
   redistributionHint,
+  ROOT_MOTION_HINT,
   ROOT_MOTION_LABEL,
   SLOT_VOCABULARY,
   type SourceDraft,
@@ -188,6 +189,7 @@ export function ClipSettingsForm(props: ClipSettingsFormProps): JSX.Element {
           id={`${id}-root-motion`}
           className={`${SELECT} w-40`}
           value={draft.rootMotion}
+          title={ROOT_MOTION_HINT}
           data-testid="clip-settings-root-motion"
           onChange={(event) => set('rootMotion', event.currentTarget.value as RootMotionMode)}
         >

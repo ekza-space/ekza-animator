@@ -115,7 +115,7 @@ describe('bakeClip (raw target)', () => {
     expect(quatAngle(Array.from(arm?.values.subarray(4, 8) ?? []) as Quat, expected)).toBeLessThan(1e-6);
   });
 
-  it("locks the in-place node's canonical X/Z to rest and keeps Y", () => {
+  it("removes the in-place node's canonical X/Z travel and keeps Y", () => {
     const rest = skeleton.nodes[HIPS]?.restLocal as ReadonlyXf;
     const walk = (node: number, frame: number): ReadonlyXf | null =>
       node === HIPS
@@ -132,6 +132,30 @@ describe('bakeClip (raw target)', () => {
       expect(p[f * 3 + 2]).toBeCloseTo(rest.t[2], 6);
     }
     expect(inPlace.meta.rootMotion).toBe('in-place');
+  });
+
+  // Acceptance fix round 1, bug 1: 'in-place' locked X/Z to rest, which deleted the hips' sway relative to IK-planted
+  // feet (the acceptance walk's feet slid 1.5 cm sideways in its file). It removes only the travel now.
+  it("keeps the in-place node's sway: only the travel from the first to the last frame is removed", () => {
+    const rest = skeleton.nodes[HIPS]?.restLocal as ReadonlyXf;
+    const sway = (frame: number) => 0.015 * Math.sin((2 * Math.PI * frame) / 30);
+    const swaying =
+      (travel: number) =>
+      (node: number, frame: number): ReadonlyXf | null =>
+        node === HIPS
+          ? { t: [rest.t[0] + sway(frame), rest.t[1], rest.t[2] + frame * travel], q: rest.q, s: rest.s }
+          : null;
+    // A clip that does not travel exports the same bytes under 'in-place' as under 'hips'.
+    const still = bakeClip(waveSource(swaying(0)), bakeOptions());
+    const stillInPlace = bakeClip(waveSource(swaying(0)), bakeOptions({ rootMotion: 'in-place', inPlaceNode: HIPS }));
+    expect(track(stillInPlace, HIPS, 'translation')?.values).toEqual(track(still, HIPS, 'translation')?.values);
+    // A travelling clip keeps its sway and loses its travel.
+    const walking = bakeClip(waveSource(swaying(0.02)), bakeOptions({ rootMotion: 'in-place', inPlaceNode: HIPS }));
+    const p = track(walking, HIPS, 'translation')?.values ?? new Float32Array();
+    for (let f = 0; f <= 30; f++) {
+      expect(p[f * 3]).toBeCloseTo(rest.t[0] + sway(f), 6);
+      expect(p[f * 3 + 2]).toBeCloseTo(rest.t[2], 6);
+    }
   });
 
   it('writes required tracks (constant ones as 2 keys) and translation/scale only where they leave rest', () => {
@@ -222,6 +246,16 @@ describe('bakeClip (humanoid target)', () => {
     const locked = track(inPlace, hipsIndex, 'translation');
     expect(Array.from(locked?.times ?? [])).toEqual([0, 1]);
     expect(locked?.values[0]).toBeCloseTo(restWorld[0], 6);
+
+    // Sway without travel: 'in-place' equals 'hips' (fix round 1, bug 1).
+    const swaying = waveSource((node, frame) =>
+      node === HIPS
+        ? { t: [rest.t[0] + 0.015 * Math.sin((2 * Math.PI * frame) / 30), rest.t[1], rest.t[2]], q: rest.q, s: rest.s }
+        : null,
+    );
+    const hips = bakeClip(swaying, bakeOptions({ target: 'humanoid' }));
+    const swayInPlace = bakeClip(swaying, bakeOptions({ target: 'humanoid', rootMotion: 'in-place' }));
+    expect(track(swayInPlace, hipsIndex, 'translation')?.values).toEqual(track(hips, hipsIndex, 'translation')?.values);
   });
 
   it('never writes eye tracks and refuses skeletons without hips', () => {

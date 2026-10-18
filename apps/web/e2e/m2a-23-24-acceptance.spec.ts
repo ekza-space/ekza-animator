@@ -195,6 +195,25 @@ async function expectWithinReduceTolerances(
   }
 }
 
+/** The VRMA's hips translation equals the editor's hips world position (1e-5 m) at every integer frame. */
+async function expectHipsFollowEditor(page: Page, character: string, bytes: Uint8Array, frames: number): Promise<void> {
+  const skeleton = skeletonFromGltf(await parseGlb(bytes));
+  const hipsName = skeleton.nodes[skeleton.humanoid?.hips ?? -1]?.name;
+  const tracks = await tracksOf(bytes);
+  const hips = tracks.find((track) => track.bone === hipsName && track.path === 'translation');
+  if (hips === undefined) throw new Error('no hips translation track');
+  const xs: number[] = [];
+  for (let frame = 0; frame <= frames; frame++) {
+    const editor = (await boneWorlds(page, character, ['hips'], frame)).hips as World;
+    const file = sampleTrack(hips, Math.fround(frame / 30));
+    expect(Math.hypot(...editor.t.map((v, c) => v - (file[c] as number))), `hips at ${frame}`).toBeLessThanOrEqual(
+      1e-5,
+    );
+    xs.push(editor.t[0]);
+  }
+  expect(Math.max(...xs) - Math.min(...xs), 'the hips sway').toBeGreaterThan(0.01);
+}
+
 /** Exports the active clip through the Export dialog as VRMA, "Reduce keys" as given (§5.16, E2E-M2A-21 method). */
 async function exportVrmaThroughDialog(page: Page, reduce: boolean): Promise<Uint8Array> {
   await runOk(page, 'ui.open', { dialog: 'export' });
@@ -434,6 +453,10 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
     plain.map((track) => `${track.bone}.${track.path}`),
   );
   await expectWithinReduceTolerances(reduced, plain, 'polybot.vrm', 24);
+  // Root motion 'in-place' keeps the hips' sway against the planted feet: the walk does not travel, so the file's
+  // hips follow the editor's at every frame (acceptance fix round 1, bug 1: X/Z were locked to rest, which slid the
+  // file's planted feet 1.5 cm sideways). Every other humanoid track is a rotation, so the feet stay planted.
+  await expectHipsFollowEditor(page, character, plainBytes, 24);
 
   // Authored without Plant Feet: no history step of the scenario is one (undo walk back to the clip setup, redo).
   const curvesBefore = await clipCurves(page, clip);

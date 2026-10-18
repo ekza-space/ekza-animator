@@ -266,8 +266,9 @@ function depthOf(program: RigProgram, node: number): number {
 }
 
 /**
- * Node whose X/Z root motion 'in-place' locks (§4.11.10 step 3): hips on humanoids; on generic rigs the topmost
- * driven joint whose control has translation keys in the clip; null when there is none (the option is unavailable).
+ * Node whose X/Z travel root motion 'in-place' removes (§4.11.10 step 3): hips on humanoids; on generic rigs the
+ * topmost driven joint whose control has translation keys in the clip; null when there is none (the option is
+ * unavailable).
  */
 export function inPlaceNode(view: ReadView, program: RigProgram, clip: ClipRecord): number | null {
   const hips = program.skeleton.humanoid?.hips;
