@@ -1,12 +1,21 @@
 // Time operators (MVP-SPEC §4.9 `time.*`, §4.11.8): frames are active-clip frames unless `unit: 'scene'`; the
 // session keeps the scene clock. Frame changes discard pose overrides (the kernel does it for every writer).
 import type { Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
-import { type EditorApp, GLOBAL_SCOPE, type LoopMode, type PlaybackSpeed, type TimeState } from '../../types';
+import type { ChannelId, ChannelValues, ClipRecord, ControlId, CurveId, KeyId, ReadView } from '@ekza-animator/doc';
+import { insertTime, keysInRemovedTime } from '../../edit/keys';
+import { defaultRippleControls, rippleCurves } from '../../edit/ripple';
+import {
+  type EditorApp,
+  GLOBAL_SCOPE,
+  type LoopMode,
+  type PlaybackSpeed,
+  type PollResult,
+  type TimeState,
+} from '../../types';
 import { clipFrameOfScene, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
-import { activeClipRecord, keyTimes, selectedControls } from '../../workflows/targets';
+import { activeClipRecord, controlsOfCharacter, keyTimes, selectedControls } from '../../workflows/targets';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
-import { stubOperator } from './stub';
+import { pollClipEdit } from './polls';
 
 const LOOP_MODES: readonly LoopMode[] = ['once', 'loop', 'oscillate'];
 const SPEEDS: readonly PlaybackSpeed[] = ['realtime', 'every-frame', 'half', 'double'];
@@ -44,24 +53,85 @@ function currentFrame(app: EditorApp): Frame {
   return frame ?? app.session.getState().time.sceneFrame;
 }
 
+/** Channel values held by a carry (§5.9): TRS and attribute channels. */
+type HeldPose = Map<ControlId, ChannelValues>;
+
+/** Two values a carry tells apart (§5.9: ≥ 1e-12). */
+const CARRY_EPSILON = 1e-12;
+/** History label of a carried pose (§5.9 MMB carry). */
+export const CARRY_LABEL = 'Carry Pose';
+
+/** The pose a carry holds: every channel value (curves ⊕ overrides) of the active character's controls. */
+function holdPose(app: EditorApp): HeldPose {
+  const held: HeldPose = new Map();
+  const character = app.session.getState().activeCharacter;
+  if (character === null) return held;
+  for (const control of controlsOfCharacter(app.store, character)) {
+    const values: ChannelValues = { ...app.evaluation.channelValues(control.id) };
+    for (const [name, value] of Object.entries(app.evaluation.attrValues(control.id))) {
+      values[`@${name}` as ChannelId] = value;
+    }
+    held.set(control.id, values);
+  }
+  return held;
+}
+
+/**
+ * §5.9 carry: after a frame change, every control whose values differ from the held ones gets the held values of
+ * the differing channels as session overrides, and one editor-history step records them at the new frame (before:
+ * none). The frame change dropped earlier override steps of the character, so a drag that carries frame by frame
+ * leaves exactly the step of its release frame; `Mod+Z` drops the carried pose and keeps the frame.
+ */
+function carryPose(app: EditorApp, held: HeldPose): void {
+  const state = app.session.getState();
+  const character = state.activeCharacter;
+  const clip = activeClipRecord(app);
+  const clipFrame = character === null ? null : app.evaluation.clipFrame(character);
+  if (character === null || clip === undefined || clipFrame === null) return;
+  const carried = new Map<ControlId, ChannelValues>();
+  for (const [control, values] of held) {
+    let diff: ChannelValues | null = null;
+    for (const [channel, value] of Object.entries(values) as [ChannelId, number][]) {
+      const now = app.evaluation.channelValue(control, channel);
+      if (Math.abs(now - value) < CARRY_EPSILON) continue;
+      diff ??= {};
+      diff[channel] = value;
+    }
+    if (diff !== null) carried.set(control, diff);
+  }
+  if (carried.size === 0) return;
+  const overrides = new Map(app.session.getState().overrides);
+  for (const [control, values] of carried) overrides.set(control, { ...overrides.get(control), ...values });
+  app.session.setState({ overrides });
+  app.history.record({
+    label: CARRY_LABEL,
+    docTxId: null,
+    overrides: { character, clip: clip.id, clipFrame, before: new Map(), after: carried },
+  });
+}
+
 const setFrame = defineOperator({
   id: 'time.setFrame',
   label: 'Go to Frame',
-  description: 'Set the current frame (active-clip frames, or scene frames with unit "scene").',
+  description: 'Set the current frame (active-clip frames, or scene frames with unit "scene"); carry keeps the pose.',
   category: 'time',
   scope: GLOBAL_SCOPE,
   flags: { internal: true },
   poll(_ctx, args) {
-    if (!isRecord(args) || !isFiniteNumber(args['frame'])) return fail('expects { frame, unit? }');
+    if (!isRecord(args) || !isFiniteNumber(args['frame'])) return fail('expects { frame, unit?, carry? }');
     const unit = args['unit'];
+    if (args['carry'] !== undefined && typeof args['carry'] !== 'boolean') return fail('carry must be a boolean');
     return unit === undefined || unit === 'clip' || unit === 'scene' ? OK : fail("unit is 'clip' or 'scene'");
   },
   apply({ app }, args) {
+    const held = args.carry === true ? holdPose(app) : null;
+    const before = app.session.getState().time.sceneFrame;
     if (args.unit === 'scene') {
-      if (args.frame !== app.session.getState().time.sceneFrame) setTime(app, { sceneFrame: args.frame });
-      return;
+      if (args.frame !== before) setTime(app, { sceneFrame: args.frame });
+    } else {
+      goToClipFrame(app, args.frame, true);
     }
-    goToClipFrame(app, args.frame, true);
+    if (held !== null && app.session.getState().time.sceneFrame !== before) carryPose(app, held);
   },
 });
 
@@ -241,22 +311,166 @@ const setSpeed = defineOperator({
   apply: ({ app }, args) => setTime(app, { speed: args.speed }),
 });
 
+// ---------- M2a: ripple, insert/remove/delete time (M2A-SPEC §5.9, §5.11; A3) ----------
+
+const toggleRipple = defineOperator({
+  id: 'key.toggleRipple',
+  label: 'Ripple Edit',
+  description: 'Moving or scaling keys in the Dope Sheet and time slider shifts the later keys with them.',
+  category: 'key',
+  scope: GLOBAL_SCOPE,
+  poll(_ctx, args) {
+    const options = optionalArgs(args);
+    if (options === null) return fail('expects { ripple?: boolean }');
+    const ripple = options['ripple'];
+    return ripple === undefined || typeof ripple === 'boolean' ? OK : fail('ripple must be a boolean');
+  },
+  apply({ app }, args) {
+    const tools = app.session.getState().tools;
+    const ripple = optionalArgs(args)?.['ripple'];
+    const next = typeof ripple === 'boolean' ? ripple : !tools.ripple;
+    if (next !== tools.ripple) app.session.setState({ tools: { ...tools, ripple: next } });
+  },
+});
+
+type TimeTarget = 'selected' | 'character';
+const TIME_TARGETS: readonly TimeTarget[] = ['selected', 'character'];
+
+/**
+ * The curves Insert/Remove/Delete Time act on (§5.9): the target controls' base-layer curves in the active clip.
+ * `'selected'` (default) is the time slider's rule (the selected controls, all of the character's when none);
+ * `'character'` every control of the active character.
+ */
+function timeCurves(app: EditorApp, view: ReadView, target: TimeTarget | undefined): CurveId[] {
+  const clip = activeClipRecord(app, view);
+  const character = app.session.getState().activeCharacter;
+  if (clip === undefined || character === null) return [];
+  const controls =
+    target === 'character'
+      ? controlsOfCharacter(view, character).map((control) => control.id)
+      : defaultRippleControls(app, view, clip.id);
+  return rippleCurves(view, clip.id, controls).filter((id) => view.get('curves', id)?.locked !== true);
+}
+
+/** The active character's current clip frame, rounded like the slider shows it (whole frames when snapping). */
+function insertFrame(app: EditorApp): Frame {
+  const frame = currentFrame(app);
+  return app.session.getState().time.snapToFrames ? Math.round(frame) : frame;
+}
+
+function frameText(frame: Frame): string {
+  const whole = Math.round(frame);
+  return Math.abs(frame - whole) < 1e-6 ? String(whole) : frame.toFixed(2);
+}
+
+function pollTimeArgs(app: EditorApp, args: Readonly<Record<string, unknown>>): PollResult {
+  const target = args['target'];
+  if (target !== undefined && !TIME_TARGETS.includes(target as TimeTarget)) {
+    return fail("target is 'selected' or 'character'");
+  }
+  const clip = pollClipEdit(app);
+  if (clip !== true) return clip;
+  return timeCurves(app, app.store, target as TimeTarget | undefined).length > 0 ? OK : fail('No animated controls');
+}
+
+/** Drops keys that no longer exist from the key selection. */
+function forgetKeys(app: EditorApp, deleted: readonly KeyId[]): void {
+  if (deleted.length === 0) return;
+  const selection = app.session.getState().selection;
+  if (!deleted.some((id) => selection.keys.has(id))) return;
+  const keys = new Map(selection.keys);
+  for (const id of deleted) keys.delete(id);
+  app.session.setState({ selection: { ...selection, keys } });
+}
+
+function insertLabel(frames: number): string {
+  const count = Math.abs(frames);
+  if (frames > 0) return count === 1 ? 'Insert Frame' : `Insert ${frameText(count)} Frames`;
+  return count === 1 ? 'Remove Frame' : `Remove ${frameText(count)} Frames`;
+}
+
+const insertTimeOp = defineOperator({
+  id: 'time.insertTime',
+  label: 'Insert Time',
+  description: 'Insert or remove frames after a frame (default: the current frame), shifting the later keys.',
+  category: 'time',
+  scope: GLOBAL_SCOPE,
+  flags: { undo: true },
+  undoLabel: (args) => insertLabel(args.frames),
+  poll({ app }, raw) {
+    const args: unknown = raw;
+    if (!isRecord(args) || !isFiniteNumber(args['frames']) || args['frames'] === 0) {
+      return fail('expects { frames ≠ 0, at?, target?, removeKeys? }');
+    }
+    if (args['at'] !== undefined && !isFiniteNumber(args['at'])) return fail('at must be a finite frame');
+    if (args['removeKeys'] !== undefined && typeof args['removeKeys'] !== 'boolean') {
+      return fail('removeKeys must be a boolean');
+    }
+    const ready = pollTimeArgs(app, args);
+    if (ready !== true) return ready;
+    const frames = args['frames'];
+    if (frames < 0 && args['removeKeys'] !== true) {
+      const at = isFiniteNumber(args['at']) ? args['at'] : insertFrame(app);
+      const doomed = keysInRemovedTime(app.store, timeCurves(app, app.store, args['target'] as TimeTarget), at, frames);
+      const first = doomed[0];
+      if (first !== undefined) return fail(`A key at frame ${frameText(first.t)} would be deleted: use Delete Time`);
+    }
+    return OK;
+  },
+  apply({ app, tx }, args) {
+    if (tx === null) return { count: 0 };
+    const at = args.at ?? insertFrame(app);
+    const result = insertTime(app, tx, timeCurves(app, tx, args.target), at, args.frames);
+    forgetKeys(app, result.deleted);
+    return { count: result.moved + result.deleted.length };
+  },
+});
+
+const deleteTimeOp = defineOperator({
+  id: 'time.deleteTime',
+  label: 'Delete Time',
+  description: 'Remove the frames of the time-slider range (or the current frame) and their keys.',
+  category: 'time',
+  scope: GLOBAL_SCOPE,
+  flags: { undo: true },
+  undoLabel: () => 'Delete Time',
+  poll({ app }, raw) {
+    const args = optionalArgs(raw);
+    if (args === null) return fail('expects { range?, target? }');
+    const range = args['range'];
+    if (range !== undefined && !(isRecord(range) && isFiniteNumber(range['start']) && isFiniteNumber(range['end']))) {
+      return fail('range is { start, end }');
+    }
+    return pollTimeArgs(app, args);
+  },
+  apply({ app, tx }, raw) {
+    if (tx === null) return { count: 0 };
+    const args = optionalArgs(raw) ?? {};
+    const given = args['range'] as { readonly start: Frame; readonly end: Frame } | undefined;
+    const band = app.session.getState().time.band;
+    const frame = insertFrame(app);
+    const range = given ?? band ?? { start: frame, end: frame };
+    const start = Math.min(range.start, range.end);
+    const end = Math.max(range.start, range.end);
+    const result = insertTime(
+      app,
+      tx,
+      timeCurves(app, tx, args['target'] as TimeTarget | undefined),
+      start - 1,
+      -(end - start + 1),
+    );
+    forgetKeys(app, result.deleted);
+    // The band's frames are gone: the band goes with them.
+    if (given === undefined && band !== null) setTime(app, { band: null });
+    return { count: result.moved + result.deleted.length };
+  },
+});
+
 export const TIME_OPERATORS: readonly AnyOperator[] = [
-  // M2a (M2A-SPEC §5.9, §5.11; A3 implements them)
-  stubOperator('key.toggleRipple', 'Ripple Edit', {
-    category: 'key',
-    description: 'Moving or scaling keys in the Dope Sheet and time slider shifts the later keys with them.',
-  }),
-  stubOperator('time.insertTime', 'Insert Time', {
-    category: 'time',
-    description: 'Insert or remove frames after a frame (default: the current frame), shifting the later keys.',
-    undo: true,
-  }),
-  stubOperator('time.deleteTime', 'Delete Time', {
-    category: 'time',
-    description: 'Remove the frames of the time-slider range (or the current frame) and their keys.',
-    undo: true,
-  }),
+  // M2a (M2A-SPEC §5.9, §5.11; A3)
+  toggleRipple,
+  insertTimeOp,
+  deleteTimeOp,
   setFrame,
   step,
   keyJump(1),

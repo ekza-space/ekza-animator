@@ -2,10 +2,20 @@
 // operators, Graph Editor and time-slider drags, manipulators — goes through these, inside the caller's transaction
 // or preview update (`tx`). Keys of curves locked in the Graph Editor (`CurveRecord.locked`) are never edited.
 import { EkzaError, type Frame, type Handle, type KeyData, RAD2DEG, type TangentType } from '@ekza-animator/anim-core';
-import type { ChannelId, ClipId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
+import type {
+  ChannelId,
+  ClipId,
+  ControlId,
+  CurveId,
+  CurveRecord,
+  KeyId,
+  KeyRecord,
+  ReadView,
+  Tx,
+} from '@ekza-animator/doc';
 import { internalsOf, newRecordId } from '../app/internals';
 import type { EditorApp, KeyEditOptions, KeyEditResult } from '../types';
-import { channelDefaultOf, isRotation } from './channelMeta';
+import { channelDefaultOf, channelUnit, isRotation } from './channelMeta';
 import {
   animCurve,
   compileInTx,
@@ -18,6 +28,7 @@ import {
   sameKeyData,
 } from './context';
 import { fromDisplayValue } from './numeric';
+import { type RippleScope, rippleScopeOf } from './ripple';
 
 /** While dragging, a moved key stops this far (frames) from a non-moved neighbour (§4.11.3). */
 const DRAG_MARGIN = 1e-3;
@@ -113,13 +124,25 @@ export function writeKeyAt(
   return key.id;
 }
 
-// ---------- moving and scaling (§4.11.3) ----------
+// ---------- moving and scaling (§4.11.3; M2a ripple §5.11 and breakdown retiming §5.12) ----------
 
 interface Placement {
   readonly key: KeyRecord;
-  readonly moving: boolean;
+  /** Moved by the edit (edited, rippled) or retimed. */
+  moving: boolean;
   /** Target time (moving keys) or the current time. */
   t: number;
+  /** A non-edited breakdown moved by its anchors (§5.12). */
+  retimed: boolean;
+}
+
+/** What `place` moves on one curve: the keys and their targets, and the keys the caller edited. */
+interface PlaceRequest {
+  readonly keys: readonly KeyRecord[];
+  readonly moving: ReadonlySet<KeyId>;
+  readonly target: (key: KeyRecord) => number;
+  /** Keys the caller passed (retiming moves the other breakdowns, §5.12). */
+  readonly edited: ReadonlySet<KeyId>;
 }
 
 /**
@@ -128,21 +151,27 @@ interface Placement {
  * (as a block for moves, key by key for scales); on the final update a key that lands exactly on it deletes it. With
  * snapping, a key dragged **past** the neighbour stops on the last whole frame before it instead, so an overshoot
  * never deletes a key (acceptance round 2). Two moving keys landing on one frame keep the `preferred` one (final
- * update only).
+ * update only). M2a: breakdown retiming (§5.12) runs between the clamp and the collision rules.
  */
 function place(
-  keys: readonly KeyRecord[],
-  moving: ReadonlySet<KeyId>,
-  target: (key: KeyRecord) => number,
+  request: PlaceRequest,
   opts: KeyEditOptions,
   clampAs: 'block' | 'each',
   preferred: (a: KeyRecord, b: KeyRecord, at: number) => KeyRecord,
 ): { readonly placements: readonly Placement[]; readonly deleted: readonly KeyId[] } {
-  const placements: Placement[] = keys.map((key) => {
-    if (!moving.has(key.id)) return { key, moving: false, t: key.t };
-    const t = target(key);
-    return { key, moving: true, t: opts.snap ? Math.round(t) : t };
+  const placements: Placement[] = request.keys.map((key) => {
+    if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
+    const t = request.target(key);
+    return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
   });
+  clampRuns(placements, opts, clampAs);
+  if (opts.retimeBreakdowns !== false) retimeBreakdowns(placements, request.edited, opts);
+  if (!opts.resolveCollisions) return { placements, deleted: [] };
+  return { placements, deleted: collisions(placements, preferred) };
+}
+
+/** The §4.11.3 clamp of runs of moving keys against their non-moving neighbours (in place). */
+function clampRuns(placements: Placement[], opts: KeyEditOptions, clampAs: 'block' | 'each'): void {
   const margin = opts.resolveCollisions ? 0 : DRAG_MARGIN;
   for (let i = 0; i < placements.length; ) {
     if (!(placements[i] as Placement).moving) {
@@ -166,25 +195,33 @@ function place(
       if (t < lower) return lower;
       return t;
     };
-    const run = placements.slice(i, j);
     let min = Infinity;
     let max = -Infinity;
-    for (const p of run) {
-      if (p.t < min) min = p.t;
-      if (p.t > max) max = p.t;
+    for (let k = i; k < j; k++) {
+      const t = (placements[k] as Placement).t;
+      if (t < min) min = t;
+      if (t > max) max = t;
     }
     if (clampAs === 'block' && max - min <= upper - lower) {
       let shift = min < lower ? clampOne(min) - min : max > upper ? clampOne(max) - max : 0;
       // The whole-frame stop leaves no room for the block: stop at the neighbour as before.
       if (min + shift < lower || max + shift > upper) shift = min < lower ? lower - min : upper - max;
-      for (const p of run) p.t += shift;
+      if (shift !== 0) for (let k = i; k < j; k++) (placements[k] as Placement).t += shift;
     } else {
-      for (const p of run) p.t = clampOne(p.t);
+      for (let k = i; k < j; k++) {
+        const p = placements[k] as Placement;
+        p.t = clampOne(p.t);
+      }
     }
     i = j;
   }
-  if (!opts.resolveCollisions) return { placements, deleted: [] };
+}
 
+/** The final-update collision rules of §4.11.3: the keys to delete. */
+function collisions(
+  placements: readonly Placement[],
+  preferred: (a: KeyRecord, b: KeyRecord, at: number) => KeyRecord,
+): KeyId[] {
   const deleted = new Set<KeyId>();
   const sorted = placements.filter((p) => p.moving).sort((a, b) => a.t - b.t);
   const times = sorted.map((p) => p.t);
@@ -202,7 +239,101 @@ function place(
     }
     i = j;
   }
-  return { placements, deleted: [...deleted] };
+  return [...deleted];
+}
+
+/**
+ * §5.12 proportional retiming (in place): every non-edited breakdown whose nearest non-breakdown anchors (pre-edit
+ * key order) moved keeps its time ratio between them. With snapping it lands on the nearest whole frame inside
+ * `[t_a' + 1, t_c' − 1]`, or keeps the exact time when no whole frame fits. A breakdown with one anchor moves by that
+ * anchor's offset. Values and tangents never change. When rounding would put two retimed breakdowns of one span on
+ * one frame, the span keeps exact times; when retiming would break the key order (an edited breakdown moved across a
+ * retimed one), the curve keeps its unretimed placement.
+ */
+function retimeBreakdowns(placements: Placement[], edited: ReadonlySet<KeyId>, opts: KeyEditOptions): void {
+  let any = false;
+  for (const p of placements) {
+    if (p.key.breakdown === true && !edited.has(p.key.id)) {
+      any = true;
+      break;
+    }
+  }
+  if (!any) return;
+  const moved = (p: Placement | undefined): boolean => p !== undefined && p.t !== p.key.t;
+  const before = placements.map((p) => ({ moving: p.moving, t: p.t }));
+  let changed = false;
+  // Spans between consecutive anchors (non-breakdown keys); -1 / length stand for "no anchor".
+  let anchor = -1;
+  for (let i = 0; i <= placements.length; i++) {
+    const p = placements[i];
+    if (p !== undefined && p.key.breakdown === true) continue;
+    // [anchor + 1, i) are breakdowns between anchor `anchor` and anchor `i`.
+    if (i - anchor > 1) {
+      const a = anchor >= 0 ? placements[anchor] : undefined;
+      const c = p;
+      if (moved(a) || moved(c)) {
+        const exact: number[] = [];
+        const rounded: number[] = [];
+        const targets: Placement[] = [];
+        for (let k = anchor + 1; k < i; k++) {
+          const b = placements[k] as Placement;
+          if (edited.has(b.key.id)) continue;
+          let t: number;
+          if (a !== undefined && c !== undefined) {
+            const span = c.key.t - a.key.t;
+            const r = span !== 0 ? (b.key.t - a.key.t) / span : 0;
+            t = a.t + r * (c.t - a.t);
+          } else if (a !== undefined) t = b.key.t + (a.t - a.key.t);
+          else t = b.key.t + ((c as Placement).t - (c as Placement).key.t);
+          exact.push(t);
+          rounded.push(snapInside(t, a, c, opts.snap));
+          targets.push(b);
+        }
+        // Rounding must not put two breakdowns of the span on one frame.
+        let distinct = true;
+        for (let k = 1; k < rounded.length; k++) {
+          if ((rounded[k] as number) - (rounded[k - 1] as number) < SAME_FRAME_EPS) distinct = false;
+        }
+        const times = distinct ? rounded : exact;
+        targets.forEach((b, k) => {
+          const t = times[k] as number;
+          if (t === b.t && !b.moving) return;
+          b.t = t;
+          b.moving = true;
+          b.retimed = true;
+          changed = true;
+        });
+      }
+    }
+    anchor = i;
+  }
+  if (!changed) return;
+  // Retiming must keep the key order (§5.12 "order is preserved"); a crossing with an edited breakdown reverts it.
+  for (let i = 1; i < placements.length; i++) {
+    const a = placements[i - 1] as Placement;
+    const b = placements[i] as Placement;
+    const crossed = b.t < a.t - SAME_FRAME_EPS || (Math.abs(b.t - a.t) < SAME_FRAME_EPS && (a.retimed || b.retimed));
+    if (!crossed) continue;
+    placements.forEach((p, k) => {
+      const original = before[k] as { readonly moving: boolean; readonly t: number };
+      p.moving = original.moving;
+      p.t = original.t;
+      p.retimed = false;
+    });
+    return;
+  }
+}
+
+/** §5.12 snapping of a retimed breakdown: the nearest whole frame in [t_a' + 1, t_c' − 1], else the exact time. */
+function snapInside(t: number, a: Placement | undefined, c: Placement | undefined, snap: boolean): number {
+  if (!snap) return t;
+  let rounded = Math.floor(t + 0.5);
+  const lo = a === undefined ? -Infinity : Math.ceil(a.t + 1 - SAME_FRAME_EPS);
+  const hi = c === undefined ? Infinity : Math.floor(c.t - 1 + SAME_FRAME_EPS);
+  if (lo > hi) return t;
+  if (rounded < lo) rounded = lo;
+  if (rounded > hi) rounded = hi;
+  return rounded;
 }
 
 /** True when the ascending `times` hold a value within `SAME_FRAME_EPS` of `t` (binary search). */
@@ -218,7 +349,7 @@ function hasTimeNear(times: readonly number[], t: number): boolean {
 }
 
 /** Key ids grouped by curve (missing keys skipped), preserving first-seen curve order. */
-function byCurve(tx: Tx, keys: readonly KeyId[]): Map<CurveId, Set<KeyId>> {
+function byCurve(tx: ReadView, keys: readonly KeyId[]): Map<CurveId, Set<KeyId>> {
   const groups = new Map<CurveId, Set<KeyId>>();
   for (const id of keys) {
     const key = tx.get('keys', id);
@@ -234,64 +365,253 @@ function byCurve(tx: Tx, keys: readonly KeyId[]): Map<CurveId, Set<KeyId>> {
 }
 
 /** Editable curve of a key group, or undefined for missing and Graph-Editor-locked curves. */
-function editableCurve(tx: Tx, curve: CurveId): CurveRecord | undefined {
+function editableCurve(tx: ReadView, curve: CurveId): CurveRecord | undefined {
   const record = tx.get('curves', curve);
   return record === undefined || record.locked ? undefined : record;
 }
 
-/** Moves keys by `dFrames` (time) and `dValue` (display units: degrees for rotation curves), §4.11.3. */
+/** Min and max time of the edited keys. */
+function editedRange(tx: ReadView, groups: ReadonlyMap<CurveId, ReadonlySet<KeyId>>): { min: number; max: number } {
+  let min = Infinity;
+  let max = -Infinity;
+  for (const ids of groups.values()) {
+    for (const id of ids) {
+      const t = (tx.get('keys', id) as KeyRecord).t;
+      if (t < min) min = t;
+      if (t > max) max = t;
+    }
+  }
+  return { min, max };
+}
+
+/** The scope curves of a ripple edit that take edits (scope ∪ edited curves are both scanned by the callers). */
+function scopeCurves(tx: ReadView, scope: RippleScope): CurveRecord[] {
+  const out: CurveRecord[] = [];
+  const seen = new Set<CurveId>();
+  for (const id of scope.curves) {
+    if (seen.has(id)) continue;
+    seen.add(id);
+    const curve = editableCurve(tx, id);
+    if (curve !== undefined) out.push(curve);
+  }
+  return out;
+}
+
+function addTo(groups: Map<CurveId, Set<KeyId>>, curve: CurveId, key: KeyId): void {
+  let group = groups.get(curve);
+  if (group === undefined) {
+    group = new Set();
+    groups.set(curve, group);
+  }
+  group.add(key);
+}
+
+/** A ripple move (§5.11): the one effective offset of the block and the keys it carries per curve. */
+interface RippleMovePlan {
+  readonly shift: number;
+  /** Edited keys plus every key of the scope curves at or after the region start. */
+  readonly moving: Map<CurveId, Set<KeyId>>;
+}
+
+function rippleMovePlan(
+  tx: ReadView,
+  edited: ReadonlyMap<CurveId, ReadonlySet<KeyId>>,
+  scope: RippleScope,
+  dFrames: number,
+  opts: KeyEditOptions,
+): RippleMovePlan {
+  const moving = new Map<CurveId, Set<KeyId>>();
+  for (const [curve, ids] of edited) moving.set(curve, new Set(ids));
+  const range = editedRange(tx, edited);
+  if (!Number.isFinite(range.min)) return { shift: dFrames, moving };
+  const a = Math.min(scope.region?.start ?? range.min, range.min);
+  let blockMin = range.min;
+  /** The latest key before the region over all scope (and edited) curves: the block's stop going back. */
+  let stop = -Infinity;
+  const scoped = new Set<CurveId>();
+  for (const curve of scopeCurves(tx, scope)) {
+    scoped.add(curve.id);
+    for (const key of tx.query.keysOfCurve(curve.id)) {
+      if (key.t >= a - SAME_FRAME_EPS) {
+        addTo(moving, curve.id, key.id);
+        if (key.t < blockMin) blockMin = key.t;
+      } else if (key.t > stop) stop = key.t;
+    }
+  }
+  for (const [curveId, ids] of edited) {
+    if (scoped.has(curveId) || editableCurve(tx, curveId) === undefined) continue;
+    for (const key of tx.query.keysOfCurve(curveId)) if (!ids.has(key.id) && key.t < a && key.t > stop) stop = key.t;
+  }
+  let shift = opts.snap ? Math.round(blockMin + dFrames) - blockMin : dFrames;
+  if (shift < 0 && Number.isFinite(stop)) {
+    // §4.11.3 applied to the block as a whole: one stop for every curve.
+    const margin = opts.resolveCollisions ? 0 : DRAG_MARGIN;
+    const lower = stop + margin;
+    const wholeLower = opts.snap ? Math.max(Math.floor(stop) + 1, lower) : lower;
+    let target = blockMin + shift;
+    if (target < stop - SAME_FRAME_EPS) target = wholeLower <= blockMin ? wholeLower : lower;
+    else if (target < lower) target = lower;
+    shift = Math.min(0, Math.max(shift, target - blockMin));
+  }
+  return { shift: shift + 0, moving };
+}
+
+/** A ripple scale (§5.11): keys in the region scale, keys after it shift by one amount. */
+interface RippleScalePlan {
+  readonly moving: Map<CurveId, Set<KeyId>>;
+  /** Keys after the region: shifted by `shiftAfter` instead of scaled. */
+  readonly shifted: ReadonlySet<KeyId>;
+  readonly shiftAfter: number;
+}
+
+function rippleScalePlan(
+  tx: ReadView,
+  edited: ReadonlyMap<CurveId, ReadonlySet<KeyId>>,
+  scope: RippleScope,
+  pivot: number,
+  factor: number,
+  opts: KeyEditOptions,
+): RippleScalePlan {
+  const moving = new Map<CurveId, Set<KeyId>>();
+  for (const [curve, ids] of edited) moving.set(curve, new Set(ids));
+  const shifted = new Set<KeyId>();
+  const range = editedRange(tx, edited);
+  if (!Number.isFinite(range.min)) return { moving, shifted, shiftAfter: 0 };
+  const a = Math.min(scope.region?.start ?? range.min, range.min);
+  const b = Math.max(scope.region?.end ?? range.max, range.max);
+  const end = pivot + (b - pivot) * factor;
+  const shiftAfter = (opts.snap ? Math.round(end) : end) - b;
+  for (const curve of scopeCurves(tx, scope)) {
+    const own = edited.get(curve.id);
+    for (const key of tx.query.keysOfCurve(curve.id)) {
+      if (key.t < a - SAME_FRAME_EPS) continue;
+      addTo(moving, curve.id, key.id);
+      if (key.t > b + SAME_FRAME_EPS && own?.has(key.id) !== true) shifted.add(key.id);
+    }
+  }
+  return { moving, shifted, shiftAfter: shiftAfter + 0 };
+}
+
+/**
+ * The time offset a move of `keys` by `dFrames` really applies to its block (§5.11): `dFrames` (snapped like the
+ * keys) without ripple, else the one offset every rippled key gets after the Δ < 0 stop. Panels use it to move a band
+ * or a region bar with the keys.
+ */
+export function rippleMoveShift(
+  app: EditorApp,
+  view: ReadView,
+  keys: readonly KeyId[],
+  dFrames: number,
+  opts: KeyEditOptions,
+  scope?: RippleScope,
+): number {
+  if (opts.ripple !== true) return dFrames;
+  const edited = byCurve(view, keys);
+  const ripple = scope ?? defaultScope(app, view, keys);
+  return rippleMovePlan(view, edited, ripple, dFrames, opts).shift;
+}
+
+function defaultScope(app: EditorApp, view: ReadView, keys: readonly KeyId[]): RippleScope {
+  return rippleScopeOf(app, view, keys, null);
+}
+
+/**
+ * Moves keys by `dFrames` (time) and `dValue` (display units: degrees for angles), §4.11.3. M2a: with `ripple`
+ * (§5.11) every key of the scope curves at or after the region start moves too, by the same offset; non-edited
+ * breakdowns retime (§5.12) unless `retimeBreakdowns: false`. Only the edited keys change value. `scope` defaults to
+ * the edited keys' clip with the default control set (`rippleScopeOf`).
+ */
 export function moveKeys(
-  _app: EditorApp,
+  app: EditorApp,
   tx: Tx,
   keys: readonly KeyId[],
   dFrames: number,
   dValue: number,
   opts: KeyEditOptions,
+  scope?: RippleScope,
 ): KeyEditResult {
   if (!Number.isFinite(dFrames) || !Number.isFinite(dValue)) {
     throw new EkzaError('invalid-record', 'moveKeys: offsets must be finite');
   }
+  const edited = byCurve(tx, keys);
+  let groups: Map<CurveId, Set<KeyId>> = edited;
+  let shift = dFrames;
+  if (opts.ripple === true && edited.size > 0) {
+    const plan = rippleMovePlan(tx, edited, scope ?? defaultScope(app, tx, keys), dFrames, opts);
+    groups = plan.moving;
+    shift = plan.shift;
+  }
   let moved = 0;
   const deleted: KeyId[] = [];
-  for (const [curveId, ids] of byCurve(tx, keys)) {
+  for (const [curveId, ids] of groups) {
     const curve = editableCurve(tx, curveId);
     if (curve === undefined) continue;
-    const dv = fromDisplayValue(curve.channel, dValue);
+    const own = edited.get(curveId) ?? EMPTY_IDS;
+    const dv =
+      dValue === 0
+        ? 0
+        : fromDisplayValue(
+            curve.channel,
+            dValue,
+            channelUnit(tx.get('controls', curve.control) ?? null, curve.channel),
+          );
     const nearest = (a: KeyRecord, b: KeyRecord, at: number): KeyRecord => {
-      const da = Math.abs(a.t + dFrames - at);
-      const db = Math.abs(b.t + dFrames - at);
+      const da = Math.abs(a.t + shift - at);
+      const db = Math.abs(b.t + shift - at);
       return da < db || (da === db && a.id > b.id) ? a : b;
     };
-    const plan = place(tx.query.keysOfCurve(curveId), ids, (key) => key.t + dFrames, opts, 'block', nearest);
+    const plan = place(
+      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: (key) => key.t + shift, edited: own },
+      opts,
+      'block',
+      nearest,
+    );
     const removed = new Set(plan.deleted);
     for (const id of plan.deleted) tx.remove('keys', id);
     deleted.push(...plan.deleted);
     for (const p of plan.placements) {
       if (!p.moving || removed.has(p.key.id)) continue;
-      if (p.t === p.key.t && dv === 0) continue;
-      tx.put('keys', { ...p.key, t: p.t, v: p.key.v + dv });
+      const change = own.has(p.key.id) ? dv : 0;
+      if (p.t === p.key.t && change === 0) continue;
+      tx.put('keys', { ...p.key, t: p.t, v: p.key.v + change });
       moved++;
     }
   }
   return { moved, deleted };
 }
 
+const EMPTY_IDS: ReadonlySet<KeyId> = new Set();
+
 /**
  * Scales key times around `pivot` (`t' = pivot + (t − pivot)·factor`, factor ≥ 0.01), §4.11.3. Fixed handles of
- * weighted curves scale their `dt` with the keys; non-weighted handles keep their direction.
+ * weighted curves scale their `dt` with the keys; non-weighted handles keep their direction. M2a: with `ripple`
+ * (§5.11) the scope keys inside the region scale too and every scope key after it shifts by
+ * `(pivot + (b − pivot)·factor) − b`; non-edited breakdowns retime (§5.12) unless `retimeBreakdowns: false`.
  */
 export function scaleKeys(
-  _app: EditorApp,
+  app: EditorApp,
   tx: Tx,
   keys: readonly KeyId[],
   pivot: Frame,
   factor: number,
   opts: KeyEditOptions,
+  scope?: RippleScope,
 ): KeyEditResult {
   if (!Number.isFinite(pivot) || !Number.isFinite(factor)) {
     throw new EkzaError('invalid-record', 'scaleKeys: pivot and factor must be finite');
   }
   const f = Math.max(factor, MIN_SCALE);
+  const edited = byCurve(tx, keys);
+  let groups: Map<CurveId, Set<KeyId>> = edited;
+  let shifted: ReadonlySet<KeyId> = EMPTY_IDS;
+  let shiftAfter = 0;
+  if (opts.ripple === true && edited.size > 0) {
+    const plan = rippleScalePlan(tx, edited, scope ?? defaultScope(app, tx, keys), pivot, f, opts);
+    groups = plan.moving;
+    shifted = plan.shifted;
+    shiftAfter = plan.shiftAfter;
+  }
+  const targetOf = (key: KeyRecord): number => (shifted.has(key.id) ? key.t + shiftAfter : pivot + (key.t - pivot) * f);
   let moved = 0;
   const deleted: KeyId[] = [];
   const fartherFromPivot = (a: KeyRecord, b: KeyRecord): KeyRecord => {
@@ -299,13 +619,12 @@ export function scaleKeys(
     const db = Math.abs(b.t - pivot);
     return da > db || (da === db && a.id > b.id) ? a : b;
   };
-  for (const [curveId, ids] of byCurve(tx, keys)) {
+  for (const [curveId, ids] of groups) {
     const curve = editableCurve(tx, curveId);
     if (curve === undefined) continue;
+    const own = edited.get(curveId) ?? EMPTY_IDS;
     const plan = place(
-      tx.query.keysOfCurve(curveId),
-      ids,
-      (key) => pivot + (key.t - pivot) * f,
+      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: targetOf, edited: own },
       opts,
       'each',
       fartherFromPivot,
@@ -316,8 +635,10 @@ export function scaleKeys(
     for (const p of plan.placements) {
       if (!p.moving || removed.has(p.key.id)) continue;
       const key = p.key;
-      const scaleIn = curve.weighted && key.inType === 'fixed' && f !== 1;
-      const scaleOut = curve.weighted && key.outType === 'fixed' && f !== 1;
+      // Scaled keys scale their weighted fixed handles; shifted (ripple) and retimed keys keep their tangents.
+      const scaled = !p.retimed && !shifted.has(key.id) && f !== 1 && curve.weighted;
+      const scaleIn = scaled && key.inType === 'fixed';
+      const scaleOut = scaled && key.outType === 'fixed';
       if (p.t === key.t && !scaleIn && !scaleOut) continue;
       tx.put('keys', {
         ...key,
@@ -535,26 +856,98 @@ export function deleteKeys(app: EditorApp, tx: Tx, keys: readonly KeyId[]): numb
   return count;
 }
 
-// ---------- M2a contract stubs (M2A-SPEC §4.5; A3 implements) ----------
+// ---------- copying and inserting time (M2A-SPEC §5.9) ----------
 
-/** M2a: copies of `keys` at t + dFrames (same curves); colliding non-copied keys are replaced (A3). */
+/**
+ * M2a: copies of `keys` at `t + dFrames` on the same curves (whole frames when `opts.snap`), with the originals'
+ * values, tangents and breakdown flags; the originals are unchanged. A copy landing on a non-copied key's time
+ * replaces that key (during a drag too, so the preview shows the result); a copy landing on a copied key's time is
+ * not made (the original stays). Keys of locked curves are not copied.
+ */
 export function copyKeys(
-  _app: EditorApp,
-  _tx: Tx,
-  _keys: readonly KeyId[],
-  _dFrames: number,
-  _opts: KeyEditOptions,
+  app: EditorApp,
+  tx: Tx,
+  keys: readonly KeyId[],
+  dFrames: number,
+  opts: KeyEditOptions,
 ): { readonly created: readonly KeyId[]; readonly deleted: readonly KeyId[] } {
-  throw new EkzaError('not-implemented', 'editor-core.copyKeys');
+  if (!Number.isFinite(dFrames)) throw new EkzaError('invalid-record', 'copyKeys: the offset must be finite');
+  const created: KeyId[] = [];
+  const deleted: KeyId[] = [];
+  for (const [curveId, ids] of byCurve(tx, keys)) {
+    if (editableCurve(tx, curveId) === undefined) continue;
+    const existing = tx.query.keysOfCurve(curveId);
+    const originals = existing.filter((key) => ids.has(key.id));
+    const originalTimes = originals.map((key) => key.t).sort((a, b) => a - b);
+    const removed = new Set<KeyId>();
+    for (const key of originals) {
+      const t = opts.snap ? Math.round(key.t + dFrames) : key.t + dFrames;
+      if (hasTimeNear(originalTimes, t)) continue;
+      for (const other of existing) {
+        if (ids.has(other.id) || removed.has(other.id) || Math.abs(other.t - t) >= SAME_FRAME_EPS) continue;
+        tx.remove('keys', other.id);
+        removed.add(other.id);
+        deleted.push(other.id);
+      }
+      const id = newRecordId(app, 'key');
+      tx.put('keys', { ...key, id, t });
+      created.push(id);
+    }
+  }
+  return { created, deleted };
 }
 
-/** M2a §5.9: insert (frames > 0) or remove (frames < 0) time after `at` on the curves (A3). */
+/**
+ * M2a §5.9: a uniform time warp of `curves` after `at`. `frames > 0` inserts time: every key with `t > at`
+ * (breakdowns included) moves by `frames`. `frames < 0` removes time: keys in `(at, at + |frames|]` are deleted (a
+ * curve losing its last key keeps its value as `staticValue`, `deleteKeys`) and the later keys move back by
+ * `|frames|`. Nothing at or before `at` changes; breakdowns are never retimed. Locked curves are skipped. The
+ * operators decide whether a deletion is allowed (`time.insertTime {removeKeys}`).
+ */
 export function insertTime(
-  _app: EditorApp,
-  _tx: Tx,
-  _curves: readonly CurveId[],
-  _at: Frame,
-  _frames: number,
+  app: EditorApp,
+  tx: Tx,
+  curves: readonly CurveId[],
+  at: Frame,
+  frames: number,
 ): KeyEditResult {
-  throw new EkzaError('not-implemented', 'editor-core.insertTime');
+  if (!Number.isFinite(at) || !Number.isFinite(frames)) {
+    throw new EkzaError('invalid-record', 'insertTime: at and frames must be finite');
+  }
+  if (frames === 0) return { moved: 0, deleted: [] };
+  const removeUntil = frames < 0 ? at - frames : at;
+  let moved = 0;
+  const deleted: KeyId[] = [];
+  const seen = new Set<CurveId>();
+  for (const curveId of curves) {
+    if (seen.has(curveId)) continue;
+    seen.add(curveId);
+    if (editableCurve(tx, curveId) === undefined) continue;
+    const keys = tx.query.keysOfCurve(curveId);
+    const doomed = keys.filter((key) => key.t > at + SAME_FRAME_EPS && key.t <= removeUntil + SAME_FRAME_EPS);
+    if (doomed.length > 0) {
+      const ids = doomed.map((key) => key.id);
+      deleteKeys(app, tx, ids);
+      deleted.push(...ids);
+    }
+    for (const key of keys) {
+      if (key.t <= removeUntil + SAME_FRAME_EPS) continue;
+      tx.put('keys', { ...key, t: key.t + frames });
+      moved++;
+    }
+  }
+  return { moved, deleted };
+}
+
+/** Keys of `curves` in `(at, at + |frames|]` that removing `frames < 0` frames after `at` would delete (§5.9 poll). */
+export function keysInRemovedTime(view: ReadView, curves: readonly CurveId[], at: Frame, frames: number): KeyRecord[] {
+  if (!(frames < 0)) return [];
+  const out: KeyRecord[] = [];
+  for (const curveId of new Set(curves)) {
+    if (editableCurve(view, curveId) === undefined) continue;
+    for (const key of view.query.keysOfCurve(curveId)) {
+      if (key.t > at + SAME_FRAME_EPS && key.t <= at - frames + SAME_FRAME_EPS) out.push(key);
+    }
+  }
+  return out.sort((a, b) => a.t - b.t);
 }

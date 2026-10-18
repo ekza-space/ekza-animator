@@ -21,9 +21,26 @@ import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
 import { EDITOR_CURVE_OPTIONS } from '../../app/deps';
 import { isRotation } from '../../edit/channelMeta';
 import { animCurve, compileInTx, currentClipFrame, keyDataOf } from '../../edit/context';
-import { deleteKeys, insertKeyOnCurve, moveKeys, scaleKeys, setKeyHandle, setTangentTypes } from '../../edit/keys';
+import {
+  copyKeys as copyKeysInTime,
+  deleteKeys,
+  insertKeyOnCurve,
+  moveKeys,
+  scaleKeys,
+  setKeyHandle,
+  setTangentTypes,
+} from '../../edit/keys';
+import { type RippleScope, rippleControls, rippleCurves, rippleScopeOf } from '../../edit/ripple';
 import { toDisplayValue } from '../../edit/numeric';
-import { type EditorApp, GLOBAL_SCOPE, type KeyPartSelection } from '../../types';
+import {
+  type EditorApp,
+  GLOBAL_SCOPE,
+  type KeyEditOptions,
+  type KeyPartSelection,
+  type OperatorContext,
+  PANEL,
+  type PanelKind,
+} from '../../types';
 import { copyKeys, pasteKeys } from '../../workflows/keyClipboard';
 import { keyRecord } from '../../workflows/records';
 import {
@@ -38,8 +55,17 @@ import {
 } from '../../workflows/targets';
 import { constantCurve } from '../../workflows/util';
 import type { KeyFieldsArgs } from '../args';
-import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
-import { stubOperator } from './stub';
+import {
+  type AnyOperator,
+  all,
+  defineOperator,
+  fail,
+  isFiniteNumber,
+  isRecord,
+  OK,
+  optionalArgs,
+  panelOf,
+} from './define';
 import { pollClipEdit, pollEditable } from './polls';
 
 const TANGENT_TYPES: readonly TangentType[] = [
@@ -413,20 +439,52 @@ const setFields = defineOperator({
 
 // ---------- moving, scaling, deleting, inserting ----------
 
+// ---------- M2a ripple (M2A-SPEC §5.11) ----------
+
+/** Panels whose key edits ripple when `session.tools.ripple` is on (the Graph Editor never ripples, M2A-D9). */
+const RIPPLE_PANELS: ReadonlySet<PanelKind> = new Set([PANEL.dopeSheet, PANEL.timeline]);
+
+/** `ripple` of a key edit: the argument, else `tools.ripple` when the edit comes from the Dope Sheet or the slider. */
+function rippleOf(ctx: OperatorContext, ripple: boolean | undefined): boolean {
+  if (ripple !== undefined) return ripple;
+  const panel = panelOf(ctx);
+  return panel !== null && RIPPLE_PANELS.has(panel) && ctx.app.session.getState().tools.ripple;
+}
+
+/** The ripple scope of an edit of `keys` from the run's panel; the time slider's region is its band (§5.11). */
+function scopeOf(ctx: OperatorContext, tx: Tx, keys: readonly KeyId[]): RippleScope {
+  const panel = panelOf(ctx);
+  const band = panel === PANEL.timeline ? ctx.app.session.getState().time.band : null;
+  return rippleScopeOf(ctx.app, tx, keys, panel, band);
+}
+
+/**
+ * Value scaling of the selected keys (§5.15.3, A4's `scaleKeyValues`): until A4 lands it, `graph.keys.scale` with a
+ * `valueFactor` other than 1 poll-fails (M2A-SPEC §8 A3). Integration turns this on with A4's kernel.
+ */
+const VALUE_SCALE_AVAILABLE = false;
+
 const keysMove = defineOperator({
   id: 'graph.keys.move',
   label: 'Move Keys',
-  description: 'Move the selected keys in time (frames) and value (display units).',
+  description: 'Move the selected keys in time (frames) and value (display units); ripple shifts the later keys.',
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
-  poll: ({ app }, args) =>
-    isRecord(args) && isFiniteNumber(args['dFrames']) && isFiniteNumber(args['dValue'])
-      ? all(pollEditable(app), pollSelectedKeys(app, true))
-      : fail('expects { dFrames, dValue }'),
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.keys.move');
-    const result = moveKeys(app, t, selectedKeyIds(app, t), args.dFrames, args.dValue, keyEdit(app));
+  poll({ app }, args) {
+    if (!isRecord(args) || !isFiniteNumber(args['dFrames']) || !isFiniteNumber(args['dValue'])) {
+      return fail('expects { dFrames, dValue, ripple? }');
+    }
+    if (args['ripple'] !== undefined && typeof args['ripple'] !== 'boolean') return fail('ripple must be a boolean');
+    return all(pollEditable(app), pollSelectedKeys(app, true));
+  },
+  apply(ctx, args) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.keys.move');
+    const keys = selectedKeyIds(app, t);
+    const ripple = rippleOf(ctx, args.ripple);
+    const opts: KeyEditOptions = { ...keyEdit(app), ripple };
+    const result = moveKeys(app, t, keys, args.dFrames, args.dValue, opts, ripple ? scopeOf(ctx, t, keys) : undefined);
     forgetKeys(app, result.deleted);
     return { count: result.moved };
   },
@@ -435,19 +493,54 @@ const keysMove = defineOperator({
 const keysScale = defineOperator({
   id: 'graph.keys.scale',
   label: 'Scale Keys',
-  description: 'Scale the selected keys in time around a pivot frame.',
+  description: 'Scale the selected keys in time around a pivot frame; ripple shifts the later keys.',
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
-  poll: ({ app }, args) =>
-    isRecord(args) && isFiniteNumber(args['pivot']) && isFiniteNumber(args['factor']) && args['factor'] > 0
-      ? all(pollEditable(app), pollSelectedKeys(app, true))
-      : fail('expects { pivot, factor > 0 }'),
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.keys.scale');
-    const result = scaleKeys(app, t, selectedKeyIds(app, t), args.pivot, args.factor, keyEdit(app));
+  poll({ app }, args) {
+    if (!isRecord(args) || !isFiniteNumber(args['pivot']) || !isFiniteNumber(args['factor']) || args['factor'] <= 0) {
+      return fail('expects { pivot, factor > 0, ripple?, valuePivot?, valueFactor? }');
+    }
+    if (args['ripple'] !== undefined && typeof args['ripple'] !== 'boolean') return fail('ripple must be a boolean');
+    const valueFactor = args['valueFactor'];
+    const valuePivot = args['valuePivot'];
+    if (valueFactor !== undefined && !isFiniteNumber(valueFactor)) return fail('valueFactor must be finite');
+    if (valuePivot !== undefined && !isFiniteNumber(valuePivot)) return fail('valuePivot must be finite');
+    if (valueFactor !== undefined && valueFactor !== 1 && !VALUE_SCALE_AVAILABLE) {
+      return fail('Scaling key values is not available yet');
+    }
+    return all(pollEditable(app), pollSelectedKeys(app, true));
+  },
+  apply(ctx, args) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.keys.scale');
+    const keys = selectedKeyIds(app, t);
+    const ripple = rippleOf(ctx, args.ripple);
+    const opts: KeyEditOptions = { ...keyEdit(app), ripple };
+    const result = scaleKeys(app, t, keys, args.pivot, args.factor, opts, ripple ? scopeOf(ctx, t, keys) : undefined);
     forgetKeys(app, result.deleted);
     return { count: result.moved };
+  },
+});
+
+const keysCopyTo = defineOperator({
+  id: 'graph.keys.copyTo',
+  label: 'Copy Keys',
+  description: 'Copy the selected keys by a number of frames (keys already there are replaced).',
+  category: 'graph',
+  scope: GLOBAL_SCOPE,
+  flags: { undo: true },
+  undoLabel: () => 'Copy Keys',
+  poll({ app }, args) {
+    if (!isRecord(args) || !isFiniteNumber(args['dFrames'])) return fail('expects { dFrames }');
+    return all(pollEditable(app), pollSelectedKeys(app, true));
+  },
+  apply({ app, tx }, args) {
+    const t = txOf(tx, 'graph.keys.copyTo');
+    const result = copyKeysInTime(app, t, selectedKeyIds(app, t), args.dFrames, keyEdit(app));
+    forgetKeys(app, result.deleted);
+    if (result.created.length > 0) selectOnly(app, result.created);
+    return { count: result.created.length };
   },
 });
 
@@ -537,10 +630,13 @@ const keysCopy = defineOperator({
   },
 });
 
+const PASTE_MODES = ['merge', 'replace', 'insert'] as const;
+
 const keysPaste = defineOperator({
   id: 'graph.keys.paste',
   label: 'Paste Keys',
-  description: 'Paste copied keys at the current frame onto the same controls and channels.',
+  description:
+    'Paste copied keys at the current frame onto the same controls and channels (insert: later keys make room).',
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
@@ -548,19 +644,30 @@ const keysPaste = defineOperator({
   poll({ app }, args) {
     const options = optionalArgs(args);
     const mode = options?.['mode'];
-    if (options === null || (mode !== undefined && mode !== 'merge' && mode !== 'replace')) {
-      return fail("expects { mode?: 'merge' | 'replace' }");
+    if (options === null || (mode !== undefined && !PASTE_MODES.includes(mode as (typeof PASTE_MODES)[number]))) {
+      return fail("expects { mode?: 'merge' | 'replace' | 'insert' }");
     }
     if (app.session.getState().clipboard.keys === null) return fail('There are no copied keys');
     return pollClipEdit(app);
   },
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.keys.paste');
+  apply(ctx, args) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.keys.paste');
     const clip = activeClipRecord(app, t);
     const clipboard = app.session.getState().clipboard.keys;
     if (clip === undefined || clipboard === null) return { count: 0 };
-    const mode = optionalArgs(args)?.['mode'] === 'replace' ? 'replace' : 'merge';
-    const result = pasteKeys(app, t, clip, clipboard, currentClipFrame(app, t, clip), mode);
+    const given = optionalArgs(args)?.['mode'] as (typeof PASTE_MODES)[number] | undefined;
+    // §5.10: with ripple on, a paste from the Dope Sheet or the time slider inserts.
+    const mode = given ?? (rippleOf(ctx, undefined) ? 'insert' : 'merge');
+    const frame = currentClipFrame(app, t, clip);
+    if (mode === 'insert') {
+      // Every key of the §5.11 scope curves at or after the paste frame first moves by the clipboard's span.
+      let last = 0;
+      for (const curve of clipboard.curves) for (const key of curve.keys) last = Math.max(last, key.dt);
+      const curves = rippleCurves(t, clip.id, rippleControls(app, t, clip.id, panelOf(ctx)));
+      shiftKeysFrom(t, curves, frame, last + 1);
+    }
+    const result = pasteKeys(app, t, clip, clipboard, frame, mode === 'replace' ? 'replace' : 'merge');
     if (result.skipped > 0) {
       app.services.notify.toast({ kind: 'warning', text: `${result.skipped} key(s) had no matching channel` });
     }
@@ -568,6 +675,16 @@ const keysPaste = defineOperator({
     return { count: result.keys.length };
   },
 });
+
+/** Moves every key of `curves` at or after `from` by `frames` (paste insert, §5.10). Locked curves are skipped. */
+function shiftKeysFrom(tx: Tx, curves: readonly CurveId[], from: number, frames: number): void {
+  for (const curveId of new Set(curves)) {
+    if (tx.get('curves', curveId)?.locked !== false) continue;
+    // Later keys first, so no key passes over one that has not moved yet.
+    const keys = [...tx.query.keysOfCurve(curveId)].reverse();
+    for (const key of keys) if (key.t >= from - 1e-6) tx.put('keys', { ...key, t: key.t + frames });
+  }
+}
 
 // ---------- Euler filter and Simplify ----------
 
@@ -705,12 +822,8 @@ const simplify = defineOperator({
 });
 
 export const GRAPH_OPERATORS: readonly AnyOperator[] = [
-  // M2a (M2A-SPEC §5.9; A3 implements it)
-  stubOperator('graph.keys.copyTo', 'Copy Keys', {
-    category: 'graph',
-    description: 'Copy the selected keys by a number of frames.',
-    undo: true,
-  }),
+  // M2a (M2A-SPEC §5.9; A3)
+  keysCopyTo,
   tangentSet,
   tangentBreak,
   tangentUnify,
