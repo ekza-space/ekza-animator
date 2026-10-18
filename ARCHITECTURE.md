@@ -368,10 +368,13 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   gestures, key moves/scales, handles, tangent types, insert, delete).
 - **Workspace**: dockview 8 (MIT core) behind a `WorkspaceHost` adapter so FlexLayout can replace it. MVP Animate
   workspace: menu bar; status line (tools Q/W/E, move/rotate space incl. gimbal, selection mask, auto-key, layout
-  preset); left dock Outliner | Clips; centre Viewport panel (pane grid); right dock Channel Box | Attributes;
-  bottom dock Graph Editor; fixed time slider + range/playback row; help line. Layout JSON persisted per user in
-  `localStorage` with a schema version. Panels register explicitly.
-- **Frame loop**: R3F's single rAF. `addEffect` runs input drain → playback clock → `evaluation.tick()`;
+  preset; M2a: key target and the Tween bar); left dock Outliner | Clips; centre Viewport panel (pane grid); right
+  dock Channel Box | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
+  row; help line. Layout JSON persisted per user in `localStorage` with a schema version (v2 since M2a; the v1
+  layout migrates once). Panels register explicitly.
+- **Frame loop**: R3F's single rAF. `addEffect` runs the tasks scheduled before the frame
+  (`app.flushScheduled()`: drag updates coalesced to one per frame, M2a) → input drain → playback clock →
+  `evaluation.tick()`;
   `useFrame(…, 1)` runs `viewportManager.render()`; `addAfterEffect` redraws dirty 2D canvases. Playback and drags
   call `invalidate()`; idle renders nothing.
 - **Hotkeys**: DOM adapter maps `KeyboardEvent` → `{code, mods}` → `keymap.resolve(scopeChain)` where the scope

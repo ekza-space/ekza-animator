@@ -77,7 +77,8 @@ describe('applyChannelEdits (§4.11.2 table)', () => {
       setFrame(app, 9);
       const result = apply(app, [{ control: W.lowerArmL, channel: 'rx', value: 0.25 }], policy);
       const curve = curveOf(app, W.lowerArmL, 'rx');
-      expect(curve).toMatchObject({ weighted: false, pre: 'constant', post: 'constant', locked: false, muted: false });
+      // The wave clip loops: a new curve cycles (M2A-SPEC §5.23; literal update, §3 rule 8).
+      expect(curve).toMatchObject({ weighted: false, pre: 'cycle', post: 'cycle', locked: false, muted: false });
       const keyed = outcome === 'key';
       expect({
         keyed: result.keyed,

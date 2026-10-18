@@ -70,9 +70,42 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
   const idSource = opts.idSource ?? null;
   if (idSource !== null) setDefaultIdSource(idSource);
   const disposers: Disposer[] = [];
+  // M2A-SPEC §5.3: the built-in rig ops (ik2, A1) are registered before the first rig compiles.
+  const disposeRigOps = deps.rig.registerBuiltinRigOps?.() ?? null;
 
   let frameRequester: () => void = () => {};
+  /** False until a host installs a frame requester: then `scheduleBeforeFrame` runs tasks synchronously (Node). */
+  let hasFrameRequester = false;
   const requestFrame = (): void => frameRequester();
+
+  // ---------- tasks before the next frame (M2A-SPEC §4.5, M-1 mechanism 1) ----------
+  // Keyed: a later task with the same key replaces the pending one (keeps its place in the order). The frame loop
+  // runs them first (`flushScheduled`), so pointer moves coalesce to one preview update per animation frame.
+  const scheduled = new Map<string, () => void>();
+  const flushScheduled = (): void => {
+    let failure: { readonly error: unknown } | null = null;
+    // Tasks may schedule further tasks; those run in the same flush (bounded, so a task that reschedules itself
+    // forever cannot hang the frame).
+    for (let guard = 0; scheduled.size > 0 && guard < 10_000; guard++) {
+      const [key, task] = scheduled.entries().next().value as [string, () => void];
+      scheduled.delete(key);
+      try {
+        task();
+      } catch (error) {
+        failure ??= { error };
+      }
+    }
+    if (failure !== null) throw failure.error;
+  };
+  const scheduleBeforeFrame = (key: string, task: () => void): void => {
+    if (!hasFrameRequester) {
+      scheduled.delete(key);
+      task();
+      return;
+    }
+    scheduled.set(key, task);
+    requestFrame();
+  };
 
   // ---------- state ----------
   const initial = defaultSession(store.user);
@@ -253,17 +286,23 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     requestFrame,
     setFrameRequester(fn: () => void): void {
       frameRequester = fn;
+      hasFrameRequester = true;
     },
+    scheduleBeforeFrame,
+    flushScheduled,
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      scheduled.clear();
       for (const dispose of disposers.splice(0).reverse()) dispose();
       keeper.dispose();
       capture?.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();
+      disposeRigOps?.();
       frameRequester = () => {};
+      hasFrameRequester = false;
       if (idSource !== null) setDefaultIdSource(null);
     },
   };

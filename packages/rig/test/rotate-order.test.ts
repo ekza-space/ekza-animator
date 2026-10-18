@@ -1,7 +1,15 @@
-import { type AnimCurve, curveEngine, eulerToQuat, type KeyData, type RotateOrder } from '@ekza-animator/anim-core';
+import {
+  type AnimCurve,
+  type CurveEngine,
+  compileAnimCurve,
+  curveEngine,
+  eulerToQuat,
+  type KeyData,
+  type RotateOrder,
+} from '@ekza-animator/anim-core';
 import { Euler, Quaternion } from 'three';
 import { describe, expect, it } from 'vitest';
-import { convertRotateOrderKeys } from '../src';
+import { convertRotateOrderKeys, convertRotateOrderKeysWith } from '../src';
 import { pendingStub, quatAngleBetween } from './helpers';
 
 const ORDERS: readonly RotateOrder[] = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'];
@@ -100,5 +108,32 @@ describe('convertRotateOrderKeys (M1-stretch, MVP-SPEC §4.11.5)', () => {
 
   it('returns empty curves for empty input', () => {
     expect(convertRotateOrderKeys([curve([]), curve([]), curve([])], 'xyz', 'zyx')).toEqual([[], [], []]);
+  });
+
+  it('convertRotateOrderKeysWith samples between keys with the given engine (cyclic curves, M2A-SPEC §5.23)', () => {
+    const cycleAware: CurveEngine = {
+      compile: (c) => compileAnimCurve(c, { cycleAwareAuto: true }),
+      evaluate: (c, frame) => curveEngine.evaluate(c, frame),
+    };
+    const cyclic = (keys: KeyData[]): AnimCurve => ({ keys, weighted: false, pre: 'cycle', post: 'cycle' });
+    const rx = cyclic([0, 6, 12, 18, 24].map((t, i) => key(t, [0, 0.6, 0, -0.6, 0][i] as number, 'auto')));
+    const ry = cyclic([key(0, 0, 'auto')]);
+    const rz = cyclic([key(3, 0.8, 'auto'), key(21, 0.8, 'auto')]);
+    const engines = [curveEngine, cycleAware];
+    // The two engines disagree on rx between its keys (the seam slope), so the engines must reach the conversion.
+    const at3 = engines.map((engine) => engine.evaluate(engine.compile(rx), 3));
+    expect(Math.abs((at3[0] as number) - (at3[1] as number))).toBeGreaterThan(1e-3);
+    for (const engine of engines) {
+      const out = convertRotateOrderKeysWith(engine, [rx, ry, rz], 'xyz', 'zyx');
+      const compiled = [rx, ry, rz].map((c) => engine.compile(c));
+      out[0].forEach((k, i) => {
+        const before = eulerToQuat(compiled.map((c) => engine.evaluate(c, k.t)) as [number, number, number], 'xyz');
+        const after = eulerToQuat([k.v, out[1][i]?.v as number, out[2][i]?.v as number], 'zyx');
+        expect([k.t, quatAngleBetween(before, after) < 1e-9]).toEqual([k.t, true]);
+      });
+    }
+    expect(convertRotateOrderKeys([rx, ry, rz], 'xyz', 'zyx')).toEqual(
+      convertRotateOrderKeysWith(curveEngine, [rx, ry, rz], 'xyz', 'zyx'),
+    );
   });
 });

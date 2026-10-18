@@ -1,6 +1,14 @@
 export { buildChannelTree, CHANNEL_COLORS, channelNodes } from './channel-tree/buildChannelTree';
 export { channelColor, channelLabel } from './channel-tree/colors';
 export {
+  buildDopeSheetRows,
+  DopeSheetController,
+  dopeSheetFrameOperator,
+  holdIntervals,
+  registerDopeSheetContributions,
+} from './dopesheet/DopeSheetController';
+export {
+  GRAPH_VIEW_MODE_OPERATOR,
   graphFrameOperator,
   registerGraphContributions,
   SELECT_CURVE_KEYS_OPERATOR,

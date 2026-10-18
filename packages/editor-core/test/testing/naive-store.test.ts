@@ -1,5 +1,14 @@
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { ChangeBatch, ClipRecord, DocSnapshot, DocumentStore, KeyId, KeyRecord } from '@ekza-animator/doc';
+import {
+  type ChangeBatch,
+  type ClipRecord,
+  type DocSnapshot,
+  type DocumentStore,
+  type KeyId,
+  type KeyRecord,
+  SCHEMA_VERSION,
+  solverId,
+} from '@ekza-animator/doc';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNaiveStore } from '../../src/testing';
 import { WAVE, waveDoc } from './fixtures';
@@ -420,5 +429,29 @@ describe('naive DocumentStore (test kit)', () => {
     readOnly.load(waveDoc(), { readOnly: true });
     expect(readOnly.readOnly).toBe(true);
     expect(codeOf(() => readOnly.transact({ label: 'x' }, () => undefined))).toBe('read-only');
+  });
+
+  it('writes minWriterVersion by the M2A-SPEC §4.2 snapshot rule', () => {
+    expect(createNaiveStore().snapshot().minWriterVersion).toBe(1);
+    expect(store.snapshot().minWriterVersion).toBe(1);
+    const solver = {
+      id: solverId(WAVE.rig, 'ik2.leg.L'),
+      rig: WAVE.rig,
+      type: 'ik2' as const,
+      params: { v: 1 },
+      enabled: true,
+      deleted: null,
+    };
+    store.transact({ label: 'Add Limb IK' }, (tx) => tx.put('solvers', solver));
+    expect(store.snapshot().minWriterVersion).toBe(2);
+    store.transact({ label: 'Disable' }, (tx) => tx.patch('solvers', solver.id, { enabled: false }));
+    expect(store.snapshot().minWriterVersion).toBe(1);
+    const future = createNaiveStore();
+    future.load({ ...waveDoc(), minWriterVersion: SCHEMA_VERSION + 1 });
+    expect(future.snapshot().minWriterVersion).toBe(SCHEMA_VERSION + 1);
+    const current = createNaiveStore();
+    current.load({ ...waveDoc(), minWriterVersion: 2 });
+    expect(current.snapshot().minWriterVersion).toBe(1);
+    expect(current.snapshot().schemaVersion).toBe(SCHEMA_VERSION);
   });
 });

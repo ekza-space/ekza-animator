@@ -22,7 +22,8 @@ interface DevShellWindow {
   };
 }
 
-const LAYOUT_KEY = 'ekza-animator:layout:v1:animate';
+// M2A-SPEC §4.8: the layout key carries the layout schema version (2 since M2a; literal update, §3 rule 8).
+const LAYOUT_KEY = 'ekza-animator:layout:v2:animate';
 
 async function openShell(page: Page, query = '?e2e=1'): Promise<void> {
   await page.goto(`/dev/shell${query}`);
@@ -48,8 +49,9 @@ test('the Animate workspace: docks around the viewport, chrome above and below',
   for (const id of ['menubar', 'statusline', 'workspace', 'timeline-region', 'helpline']) {
     await expect(page.getByTestId(id)).toBeVisible();
   }
+  // M2a: the Dope Sheet is an inactive tab beside the Graph Editor (literal update, M2A-SPEC §3 rule 8).
   expect(new Set(await kinds(page))).toEqual(
-    new Set(['viewport', 'outliner', 'clips', 'channelBox', 'attributes', 'graph']),
+    new Set(['viewport', 'outliner', 'clips', 'channelBox', 'attributes', 'graph', 'dopeSheet']),
   );
   const viewport = await boxOf(page, 'panel-viewport');
   const left = await boxOf(page, 'panel-outliner');
@@ -231,7 +233,7 @@ test('the layout survives a reload; Reset Workspace restores the default', async
   await expect.poll(() => kinds(page)).not.toContain('graph');
   await expect
     .poll(() => page.evaluate((key) => localStorage.getItem(key) ?? '', LAYOUT_KEY))
-    .toContain('"schemaVersion":1');
+    .toContain('"schemaVersion":2');
   await expect.poll(() => page.evaluate((key) => localStorage.getItem(key) ?? '', LAYOUT_KEY)).not.toContain('"graph"');
 
   await page.reload();

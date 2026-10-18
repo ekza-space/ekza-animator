@@ -1,15 +1,22 @@
 export { createEditorApp } from './app/createEditorApp';
+export { channelDefaultOf, channelUnit } from './edit/channelMeta';
 export { applyChannelEdits, beginChannelEditGesture } from './edit/channels';
+export { beginKeyEditGesture } from './edit/gesture';
 export {
+  copyKeys,
   deleteKeys,
   ensureCurve,
   insertKeyOnCurve,
+  insertTime,
   moveKeys,
   scaleKeys,
   setKeyHandle,
   setTangentTypes,
+  writeKeyAt,
 } from './edit/keys';
 export { formatChannelValue, fromDisplayValue, parseNumericInput, toDisplayValue } from './edit/numeric';
+export { tweenEdits } from './edit/tween';
+export { scaleKeyValues } from './edit/valueScale';
 export { MAYA_KEYMAP } from './keymap/maya';
 export type * from './operators/args';
 export type { CoalescingOperatorDef, OperatorCoalescing } from './operators/runner';
@@ -26,3 +33,6 @@ export { activeClip, activeClipFrame, activeRuntime } from './session/active';
 export { defaultSession } from './session/defaults';
 export { restoreSelection, selectionSnapshot } from './session/selection';
 export * from './types';
+export { bodyPartOf } from './workflows/bodyParts';
+export { keyTargetControls } from './workflows/targets';
+export { controlVisibility } from './workflows/visibility';

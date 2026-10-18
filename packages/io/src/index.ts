@@ -1,5 +1,6 @@
 export { readAnimations } from './animation/read';
 export { bakeClip, clipFramesToSeconds, ekzaAnimationMeta } from './bake/bake';
+export { reduceBakedClip, trackLeverArms } from './bake/reduce';
 export { checkInputBudget } from './budget/check';
 export { parseGlb, sha256Hex } from './glb/parse';
 export { detectModelFormat, readVrmLicense } from './gltf/format';

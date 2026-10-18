@@ -27,7 +27,7 @@ import {
   type TableName,
 } from '../records';
 import { QueryEngine } from '../queries/engine';
-import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
+import { requiredWriterVersion, SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type {
   AnyChange,
   ChangeBatch,
@@ -146,7 +146,8 @@ export class MemoryDocumentStore implements DocumentStore {
   private versionCounter = 0;
   private txCounter = 0;
   private readOnlyFlag = false;
-  private minWriterVersion: number = SCHEMA_VERSION;
+  /** `minWriterVersion` of the last `load()` (1 for a store that never loaded); see `snapshot()`. */
+  private loadedMinWriterVersion = 1;
   private loadedTableVersions: Readonly<Record<string, number>> = {};
   private readonly emitQueue: ChangeBatch[] = [];
   private emitting = false;
@@ -850,10 +851,17 @@ export class MemoryDocumentStore implements DocumentStore {
       tables[table] = rows;
       tableVersions[table] = getTableDef(table)?.version ?? this.loadedTableVersions[table] ?? 1;
     }
+    // M2A-SPEC §4.2 snapshot rule: the content decides (2 with an enabled ik2 solver), and a loaded future document
+    // keeps its own, newer value (it stays read-only in this build).
+    const loaded = this.loadedMinWriterVersion;
+    const minWriterVersion = Math.max(
+      requiredWriterVersion(tables as unknown as SnapshotTables),
+      loaded > SCHEMA_VERSION ? loaded : 1,
+    );
     return {
       format: SNAPSHOT_FORMAT,
       schemaVersion: SCHEMA_VERSION,
-      minWriterVersion: this.minWriterVersion,
+      minWriterVersion,
       tableVersions,
       tables: tables as unknown as SnapshotTables,
     };
@@ -905,7 +913,7 @@ export class MemoryDocumentStore implements DocumentStore {
       for (const [id] of this.storage.entries(table)) this.openSet.add(ownedPartition(table, id) as Partition);
     }
 
-    this.minWriterVersion = snapshot.minWriterVersion;
+    this.loadedMinWriterVersion = snapshot.minWriterVersion;
     this.loadedTableVersions = { ...snapshot.tableVersions };
     const newerTable = Object.entries(snapshot.tableVersions).some(([table, version]) => {
       const def = getTableDef(table);
