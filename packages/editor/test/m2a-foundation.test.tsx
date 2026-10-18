@@ -2,7 +2,7 @@
 // and storage switches, layout v1 → v2 migration (the v1 key is kept), the Dope Sheet placeholder panel, the status
 // line key-target toggle and Tween bar slot, and the frame loop's first step.
 import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { AttrDef, ControlId, CurveId, DocSnapshot } from '@ekza-animator/doc';
+import type { AttrDef, ClipId, ControlId, CurveId, DocSnapshot } from '@ekza-animator/doc';
 import { PANEL, registerBuiltinOperators } from '@ekza-animator/editor-core';
 import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
@@ -243,6 +243,56 @@ describe('test API: kernel-level M2a functions (§4.8)', () => {
     expect(api.screenOfRegionHandle('top')).toEqual({ x: 1, y: 2 });
   });
 
+  it('a panel whose canvas is off screen (an inactive dock tab) reads null, its Tween bar too', () => {
+    const { api, shell } = setup();
+    let graphRect = { x: 0, y: 0, w: 0, h: 0 };
+    let dopeRect = { x: 0, y: 0, w: 0, h: 0 };
+    shell.probes.set('graph', {
+      graph: () => ({ visibleCurves: [CURVE], view: { f0: 0, v0: 0, sx: 1, sy: 1 }, canvasRect: graphRect }),
+      screenOfKey: () => ({ x: 1, y: 1 }),
+      screenOfHandle: () => ({ x: 2, y: 2 }),
+      screenOfCurve: () => ({ x: 3, y: 3 }),
+      screenOfRegionHandle: () => ({ x: 4, y: 4 }),
+    });
+    shell.probes.set('dopeSheet', {
+      dopeSheet: () => ({ rows: [], view: { f0: 0, sx: 4, scrollY: 0 }, canvasRect: dopeRect }),
+      screenOfDopeKey: () => ({ x: 5, y: 5 }),
+      screenOfDopeRegion: () => ({ x: 6, y: 6 }),
+    });
+    for (const panel of ['graph', 'dopeSheet'] as const) {
+      shell.probes.set(tweenProbeKey(panel), {
+        screenOfTween: (amount) => ({ x: amount, y: 0 }),
+        tweenTarget: () => ({ kind: 'keys', label: '2 keys' }),
+      });
+    }
+    const reads = () => [
+      api.graph(),
+      api.screenOfKey('key_x'),
+      api.screenOfHandle('key_x', 'in'),
+      api.screenOfCurve(CURVE, 1),
+      api.screenOfRegionHandle('top'),
+      api.screenOfTween('graph', 10),
+      api.tweenTarget('graph'),
+      api.dopeSheet(),
+      api.screenOfDopeKey('summary', 1),
+      api.screenOfDopeRegion('start'),
+      api.screenOfTween('dopeSheet', 10),
+      api.tweenTarget('dopeSheet'),
+    ];
+    expect(reads()).toEqual(Array.from({ length: 12 }, () => null));
+    graphRect = { x: 0, y: 0, w: 300, h: 0 }; // still no area
+    expect(api.graph()).toBeNull();
+    graphRect = { x: 0, y: 0, w: 300, h: 200 };
+    const shown = (graph: boolean, dope: boolean): boolean[] => [
+      ...Array.from({ length: 7 }, () => graph),
+      ...Array.from({ length: 5 }, () => dope),
+    ];
+    expect(reads().map((read) => read !== null)).toEqual(shown(true, false));
+    dopeRect = { x: 0, y: 0, w: 300, h: 200 };
+    graphRect = { x: 0, y: 0, w: 0, h: 0 };
+    expect(reads().map((read) => read !== null)).toEqual(shown(false, true));
+  });
+
   it('graph().buffers lists the session buffer curves', () => {
     const { api, app, shell } = setup();
     shell.probes.set('graph', {
@@ -280,6 +330,29 @@ describe('test API: kernel-level M2a functions (§4.8)', () => {
       app.session.setState({ overrides: new Map([[HAND, { rz: 0.25 }]]) });
     });
     expect(api.overrides(HAND)).toEqual({ rz: 0.25 });
+  });
+
+  it('document reads (curveValue, counts, controls, clips, characters) apply pending updates first', () => {
+    const { api, app } = setup();
+    app.setFrameRequester(() => undefined);
+    const key = app.store.query.keysOfCurve(CURVE)[0];
+    if (key === undefined) throw new Error('no key');
+    const schedule = (fn: () => void) => app.scheduleBeforeFrame('test', fn);
+    schedule(() => app.store.transact({ label: 'Key' }, (tx) => tx.patch('keys', key.id, { v: 0.75 })));
+    expect(api.curveValue(CURVE, key.t)).toBe(0.75);
+    const keys = app.store.list('keys').length;
+    schedule(() => app.store.transact({ label: 'Delete' }, (tx) => tx.remove('keys', key.id)));
+    expect(api.counts()['keys']).toBe(keys - 1);
+    schedule(() => app.store.transact({ label: 'Rename' }, (tx) => tx.patch('controls', HAND, { name: 'Left hand' })));
+    expect(api.controls().find((control) => control.id === HAND)?.name).toBe('Left hand');
+    schedule(() => app.store.transact({ label: 'Clip' }, (tx) => tx.patch('clips', CLIP as ClipId, { name: 'cycle' })));
+    expect(api.clips().map((clip) => clip.name)).toContain('cycle');
+    const character = app.store.list('characters')[0];
+    if (character === undefined) throw new Error('no character');
+    schedule(() =>
+      app.store.transact({ label: 'Name' }, (tx) => tx.patch('characters', character.id, { name: 'Bot' })),
+    );
+    expect(api.characters().map((c) => c.name)).toEqual(['Bot']);
   });
 });
 

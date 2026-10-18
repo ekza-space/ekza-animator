@@ -34,7 +34,7 @@ import {
 } from '@ekza-animator/editor-core';
 import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-animator/rig';
 import { asArtifacts } from '../shell/exports';
-import { type Shell, tweenProbeKey } from '../shell/types';
+import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
 import type { EkzaAnimatorTestApi } from './types';
 
 export interface TestApiHandle {
@@ -214,6 +214,27 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
   };
   const vec3Of = (point: Float64Array): number[] => [point[0] ?? 0, point[1] ?? 0, point[2] ?? 0];
 
+  // ---------- panel probes on screen (§4.8) ----------
+  // A probe of a panel that is not visible answers null. A panel in an inactive dock tab stays mounted (its probe
+  // stays registered) but its canvas is off screen: a zero-size canvas rect means "not visible".
+  const onScreen = (rect: { readonly w: number; readonly h: number }): boolean => rect.w > 0 && rect.h > 0;
+  const visibleGraph = () => {
+    const probe = shell.probes.get('graph');
+    const state = probe?.graph() ?? null;
+    return probe === null || state === null || !onScreen(state.canvasRect) ? null : { probe, state };
+  };
+  const visibleDopeSheet = () => {
+    const probe = shell.probes.get('dopeSheet');
+    const state = probe?.dopeSheet() ?? null;
+    return probe === null || state === null || !onScreen(state.canvasRect) ? null : { probe, state };
+  };
+  /** The Tween bar of `panel`, while that panel is visible (the status-line bar always is). */
+  const visibleTween = (panel: TweenPanel) => {
+    if (panel === 'graph' && visibleGraph() === null) return null;
+    if (panel === 'dopeSheet' && visibleDopeSheet() === null) return null;
+    return shell.probes.get(tweenProbeKey(panel));
+  };
+
   // ---------- viewport fallback (no WP-5 probe registered): the ViewportManager's public API ----------
   const viewport = () => {
     const vm = ui.getState().viewport;
@@ -299,14 +320,17 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       };
     },
     counts() {
+      sync();
       const counts: Record<string, number> = {};
       for (const table of BUILTIN_TABLES) counts[table] = store.list(table).length;
       return counts;
     },
     characters() {
+      sync();
       return store.list('characters').map((c) => ({ id: c.id, name: c.name, format: c.format }));
     },
     controls(ref) {
+      sync();
       const record = character(ref);
       const rig = store.query.rigOfCharacter(record.id);
       if (rig === undefined) return [];
@@ -321,6 +345,7 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       }));
     },
     clips(ref) {
+      sync();
       const record = character(ref);
       return store.query.clipsOfCharacter(record.id).map((c) => ({
         id: c.id,
@@ -360,6 +385,7 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
         }));
     },
     curveValue(curve, frame) {
+      sync();
       if (store.get('curves', curve as CurveId) === undefined)
         throw new EkzaError('invalid-record', `Unknown curve '${curve}'`);
       return curveValueAt(curve as CurveId, frame);
@@ -460,15 +486,15 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       return onPane(paneId, viewport().manipulatorScreenPoint(paneId, handle));
     },
     graph: () => {
-      const state = shell.probes.get('graph')?.graph() ?? null;
+      const state = visibleGraph()?.state ?? null;
       if (state === null) return null;
       // M2a: the view mode comes from A4's probe ('absolute' before it); buffers are per-user session state.
       const buffers = [...app.session.getState().curveBuffers.keys()];
       return { ...state, viewMode: state.viewMode ?? 'absolute', buffers };
     },
-    screenOfKey: (key) => shell.probes.get('graph')?.screenOfKey(key) ?? null,
-    screenOfHandle: (key, side) => shell.probes.get('graph')?.screenOfHandle(key, side) ?? null,
-    screenOfCurve: (curve, frame) => shell.probes.get('graph')?.screenOfCurve(curve, frame) ?? null,
+    screenOfKey: (key) => visibleGraph()?.probe.screenOfKey(key) ?? null,
+    screenOfHandle: (key, side) => visibleGraph()?.probe.screenOfHandle(key, side) ?? null,
+    screenOfCurve: (curve, frame) => visibleGraph()?.probe.screenOfCurve(curve, frame) ?? null,
     screenOfFrame: (frame) => shell.probes.get('timeline')?.screenOfFrame(frame) ?? null,
     screenOfTick: (frame) => shell.probes.get('timeline')?.screenOfTick(frame) ?? null,
     lastExport() {
@@ -558,14 +584,14 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
         outer: vec3Of(pivots.outer),
       };
     },
-    dopeSheet: () => shell.probes.get('dopeSheet')?.dopeSheet() ?? null,
-    screenOfDopeKey: (row, frame) => shell.probes.get('dopeSheet')?.screenOfDopeKey(row, frame) ?? null,
-    screenOfDopeRegion: (part) => shell.probes.get('dopeSheet')?.screenOfDopeRegion(part) ?? null,
+    dopeSheet: () => visibleDopeSheet()?.state ?? null,
+    screenOfDopeKey: (row, frame) => visibleDopeSheet()?.probe.screenOfDopeKey(row, frame) ?? null,
+    screenOfDopeRegion: (part) => visibleDopeSheet()?.probe.screenOfDopeRegion(part) ?? null,
     timelineTicks: () => shell.probes.get('timeline')?.timelineTicks?.() ?? [],
     screenOfBand: (part) => shell.probes.get('timeline')?.screenOfBand?.(part) ?? null,
-    screenOfRegionHandle: (handle) => shell.probes.get('graph')?.screenOfRegionHandle?.(handle) ?? null,
-    screenOfTween: (panel, amount) => shell.probes.get(tweenProbeKey(panel))?.screenOfTween(amount) ?? null,
-    tweenTarget: (panel) => shell.probes.get(tweenProbeKey(panel))?.tweenTarget() ?? null,
+    screenOfRegionHandle: (handle) => visibleGraph()?.probe.screenOfRegionHandle?.(handle) ?? null,
+    screenOfTween: (panel, amount) => visibleTween(panel)?.screenOfTween(amount) ?? null,
+    tweenTarget: (panel) => visibleTween(panel)?.tweenTarget() ?? null,
     autosave() {
       const status = app.session.getState().autosave;
       return {

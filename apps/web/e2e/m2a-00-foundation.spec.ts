@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { controlId, seedSample } from './helpers/seed';
+import { controlId, seedSample, seedWaveClip } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, run, runOk, waitForTestApi } from './helpers/test-api';
 
 // M2A-SPEC §8 A0 in the production editor: the M2a kernel-level test API, the operator stubs, layout v2 with the
@@ -51,15 +51,30 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   await expect(page.getByTestId('status-tween-slot')).toHaveCount(1);
 });
 
-test('the Dope Sheet is a tab beside the Graph Editor (layout v2)', async ({ page }) => {
+test('the Dope Sheet is a tab beside the Graph Editor (layout v2); a hidden tab’s probe reads null', async ({
+  page,
+}) => {
   await openEditor(page);
   await expectKernelStarted(page);
+  const { clip, control, rz } = await seedWaveClip(page);
+  await runOk(page, 'select.controls', { ids: [control], mode: 'replace' });
+  const key15 = (await call(page, 'curves', clip, control)).find((curve) => curve.id === rz)?.keys[1]?.id ?? '';
+  expect(key15).not.toBe('');
   await expect(page.getByTestId('panel-graph')).toBeVisible();
+  await expect.poll(async () => (await call(page, 'graph'))?.canvasRect.w ?? 0).toBeGreaterThan(0);
+  await expect.poll(() => call(page, 'screenOfKey', key15)).not.toBeNull();
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
   await expect(page.getByTestId('ds-placeholder')).toBeVisible();
   await expect(page.getByTestId('panel-graph')).toBeHidden();
+  // §4.8: the Graph Editor is an inactive dock tab, so its probe reads answer null.
+  expect(await call(page, 'graph')).toBeNull();
+  expect(await call(page, 'screenOfKey', key15)).toBeNull();
+  expect(await call(page, 'screenOfCurve', rz, 15)).toBeNull();
+  expect(await call(page, 'screenOfTween', 'graph', 0)).toBeNull();
   await runOk(page, 'workspace.showPanel', { panel: 'graph' });
   await expect(page.getByTestId('panel-graph')).toBeVisible();
+  await expect.poll(async () => (await call(page, 'graph'))?.canvasRect.w ?? 0).toBeGreaterThan(0);
+  await expect.poll(() => call(page, 'screenOfKey', key15)).not.toBeNull();
 });
 
 test('a stored M1 layout migrates to v2 with the Dope Sheet tab; the v1 key is kept', async ({ page }) => {
