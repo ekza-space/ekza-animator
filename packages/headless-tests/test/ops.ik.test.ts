@@ -319,6 +319,59 @@ describe.skipIf(!SIBLINGS_READY || !READY_A1)(
       expect(warning).toMatch(/L Leg: the knee is hyperextended by \d+(\.\d)?°; IK bends it forward, the knee moves/);
     });
 
+    it('a switch to the mode the limb is in is refused: the IK foot stays, the FK pose stays (§5.6)', async () => {
+      const { app, services } = realApp();
+      const san = await importFixture(app, 'seed-san.vrm');
+      await runOk(app, 'clip.new', { name: 'same' });
+      const c = (key: string) => controlOf(app, san.character, key);
+      // The IK foot raised 0.2 m: the FK chain is at rest, so an IK match would drop the foot back to it.
+      await runOk(app, 'channel.setValues', { edits: [{ control: c('ik.leg.L'), channel: 'ty', value: 0.2 }] });
+      await runOk(app, 'channel.setValues', { edits: [{ control: c('fk.lowerArm.L'), channel: 'ry', value: -0.5 }] });
+      const doc = docJson(app);
+      const overrides = app.session.getState().overrides;
+      const leg = LEG.map((bone) => boneWorld(app, san.character, bone));
+      const arm = ['leftUpperArm', 'leftLowerArm', 'leftHand'].map((bone) => boneWorld(app, san.character, bone));
+      expect(await app.runUntyped('rig.ikFk.switch', { limb: 'leg.L', to: 'ik' })).toEqual({
+        status: 'cancelled',
+        reason: 'L Leg is IK already',
+      });
+      expect(await app.runUntyped('rig.ikFk.switch', { limb: 'arm.L', to: 'fk', key: 'key' })).toEqual({
+        status: 'cancelled',
+        reason: 'L Arm is FK already',
+      });
+      expect(docJson(app)).toEqual(doc);
+      expect(app.session.getState().overrides).toBe(overrides);
+      LEG.forEach((bone, i) => expectSameWorld(boneWorld(app, san.character, bone), leg[i] as never, 0, bone));
+      ['leftUpperArm', 'leftLowerArm', 'leftHand'].forEach((bone, i) =>
+        expectSameWorld(boneWorld(app, san.character, bone), arm[i] as never, 0, bone),
+      );
+      expect(services.toasts.filter((toast) => toast.kind === 'warning')).toEqual([]);
+    });
+
+    it('a seamless switch on a loop clip holds the new mode after f (the curves it starts are constant)', async () => {
+      const { app } = realApp();
+      const san = await importFixture(app, 'seed-san.vrm');
+      const { clip } = (await runOk(app, 'clip.new', { name: 'walk', range: { start: 0, end: 24 } })) as {
+        clip: string;
+      };
+      await runOk(app, 'clip.setSettings', { clip, loop: true });
+      const ik = controlOf(app, san.character, 'ik.leg.L');
+      setSceneFrame(app, 10);
+      await runOk(app, 'channel.setValues', { edits: [{ control: ik, channel: 'tz', value: 0.15 }] });
+      const atF = LEG.slice(0, 3).map((bone) => boneWorld(app, san.character, bone));
+      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+      for (const frame of [11, 12, 17, 24]) {
+        setSceneFrame(app, frame);
+        expect([frame, app.evaluation.ikFk(san.character, 'leg.L')]).toEqual([frame, 0]);
+        // The FK chain holds the matched pose (the IK foot at tz 0.15) to the clip's end.
+        LEG.slice(0, 3).forEach((bone, i) =>
+          expectSameWorld(boneWorld(app, san.character, bone), atF[i] as never, 1e-6, `${bone} @${frame}`),
+        );
+      }
+      setSceneFrame(app, 9);
+      expect(app.evaluation.ikFk(san.character, 'leg.L')).toBe(1);
+    });
+
     it('matchRange to FK keys the FK chain at every frame of the range, matching the IK pose (1e-5)', async () => {
       const { app } = realApp();
       const san = await importFixture(app, 'seed-san.vrm');
