@@ -12,7 +12,8 @@
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc -b",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "bench:budgets": "playwright test -c e2e/bench/playwright.config.ts"
   },
   "dependencies": {
     "@ekza-animator/editor": "workspace:*",
