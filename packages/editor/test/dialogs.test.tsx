@@ -1,14 +1,14 @@
 // Dialogs with the fake app: import summary (format and licence badges, clip checklist, reduce, options), export
 // (kinds from the exporter registry, clips, profiles filtered by kind, poll reasons, results and lints), the
 // shortcut sheet and preferences; plus the frame gate that keeps demand rendering alive.
-import { GLOBAL_SCOPE, type ExporterDef } from '@ekza-animator/editor-core';
-import type { ClipId } from '@ekza-animator/doc';
+import { type EditorApp, GLOBAL_SCOPE, type ExporterDef } from '@ekza-animator/editor-core';
+import type { CharacterId, ClipId } from '@ekza-animator/doc';
 import type { ExportArtifact, ExportProfileDef, ExportRequest } from '@ekza-animator/io';
 import { NumberField } from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../src/dialogs/DialogHost';
-import { defaultExportClips } from '../src/dialogs/ExportDialog';
+import { count, defaultExportClips, exportWarnings, statsLine } from '../src/dialogs/ExportDialog';
 import { shortcutRows } from '../src/dialogs/ShortcutsDialog';
 import { createFrameGate } from '../src/gl/frameGate';
 import type { ModelSummary } from '../src/shell/summary';
@@ -208,7 +208,34 @@ describe('export dialog', () => {
     });
     await waitFor(() => (body('export-lints').textContent ?? '').includes('vrma.non-hips-translation'));
     expect(body('export-lints').textContent).toContain('Read-back OK');
+    expect(body('export-stats').textContent).toBe('1 clip · 3 channels · 3 keys'); // acceptance: not "1 clips"
     await view.unmount();
+  });
+
+  it('puts every count of the results in the right number (acceptance: "1 clips")', () => {
+    expect([count(0, 'clip'), count(1, 'clip'), count(2, 'clip')]).toEqual(['0 clips', '1 clip', '2 clips']);
+    expect(statsLine({ clips: 1, channels: 1, keys: 1 })).toBe('1 clip · 1 channel · 1 key');
+    expect(statsLine({ clips: 2, channels: 0, keys: 12 })).toBe('2 clips · 0 channels · 12 keys');
+    // The node-constraint warning agrees with its count too.
+    const appWith = (constraints: number): EditorApp =>
+      ({
+        store: { get: () => ({ format: 'vrm' }) },
+        characters: {
+          get: () => ({
+            skeleton: { nodeConstraints: Array.from({ length: constraints }, () => ({})), springJoints: [] },
+          }),
+        },
+      }) as unknown as EditorApp;
+    const character = 'chr_x' as CharacterId;
+    expect(exportWarnings(appWith(1), character, 'bake-into-model')).toEqual([
+      '1 VRMC_node_constraint target follows its source in the preview; it is not baked (VRM apps evaluate it).',
+    ]);
+    expect(exportWarnings(appWith(2), character, 'animation-glb')).toEqual([
+      '2 constrained nodes follow their sources only in the preview and are not exported.',
+    ]);
+    expect(exportWarnings(appWith(1), character, 'animation-glb')).toEqual([
+      '1 constrained node follows its source only in the preview and is not exported.',
+    ]);
   });
 });
 

@@ -394,6 +394,11 @@ describe('export download gate (§4.11.10 step 5)', () => {
     expect(withReadBackLint(passed)).toBe(passed);
     const unchecked = artifact('unchecked.glb', null);
     expect(withReadBackLint(unchecked)).toBe(unchecked);
+    // Counts take the right number (acceptance: "1 clips"): one channel reads "1 channel", not "1 channels".
+    const single = withReadBackLint(
+      artifact('one.glb', { ...READ_BACK_OK, ok: false, animations: 2, channels: 1, maxRotationErrorRad: 0.25 }),
+    );
+    expect(blockingLints(single)[0]?.message).toMatch(/\(2 animations, 1 channel read\)$/);
   });
 
   it('does not download an artifact whose read-back failed, and says so', async () => {

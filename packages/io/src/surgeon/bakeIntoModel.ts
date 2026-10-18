@@ -344,7 +344,7 @@ function lintMissingPreexisting(
       out.push({
         code: 'surgeon.preexisting-missing-track',
         severity: 'warning',
-        message: `Existing clip '${name}' does not animate ${missing} track(s) the new clips animate; switching to it may leave a stale pose`,
+        message: `Existing clip '${name}' does not animate ${missing} track${missing === 1 ? '' : 's'} the new clips animate; switching to it may leave a stale pose`,
         pointer: `/animations/${index}`,
       });
     }

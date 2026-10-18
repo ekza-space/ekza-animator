@@ -60,6 +60,16 @@ function clipOptions(store: DocumentStore, character: CharacterId | null) {
   }));
 }
 
+/** A count with its noun in the right number: `1 clip`, `0 clips`, `3 clips`. */
+export function count(n: number, noun: string, plural = `${noun}s`): string {
+  return `${n} ${n === 1 ? noun : plural}`;
+}
+
+/** The result line of an exported file: `1 clip · 3 channels · 1 key`. */
+export function statsLine(stats: ExportArtifact['stats']): string {
+  return [count(stats.clips, 'clip'), count(stats.channels, 'channel'), count(stats.keys, 'key')].join(' · ');
+}
+
 /** Warnings shown before export (research 09 §10.4, ADR 0010): interop limits and preview-only rig features. */
 export function exportWarnings(app: EditorApp, character: CharacterId | null, kind: string): string[] {
   if (character === null) return [];
@@ -74,10 +84,12 @@ export function exportWarnings(app: EditorApp, character: CharacterId | null, ki
   }
   const constraints = runtime?.skeleton.nodeConstraints.length ?? 0;
   if (constraints > 0) {
+    const one = constraints === 1;
+    const follow = one ? 'follows its source' : 'follow their sources';
     warnings.push(
       kind === 'bake-into-model'
-        ? `${constraints} VRMC_node_constraint target(s) follow their sources in the preview; they are not baked (VRM apps evaluate them).`
-        : `${constraints} constrained node(s) follow their sources only in the preview and are not exported.`,
+        ? `${count(constraints, 'VRMC_node_constraint target')} ${follow} in the preview; ${one ? 'it is' : 'they are'} not baked (VRM apps evaluate ${one ? 'it' : 'them'}).`
+        : `${count(constraints, 'constrained node')} ${follow} only in the preview and ${one ? 'is' : 'are'} not exported.`,
     );
   }
   if ((runtime?.skeleton.springJoints.length ?? 0) > 0) {
@@ -105,8 +117,8 @@ function Results(props: { readonly artifacts: readonly ExportArtifact[] }): JSX.
           <div className="flex flex-wrap items-center gap-2 text-ui">
             <CircleCheck size={14} className="text-ok" />
             <span className="font-semibold text-fg">{artifact.fileName}</span>
-            <span className="text-fg-3">
-              {artifact.stats.clips} clips · {artifact.stats.channels} channels · {artifact.stats.keys} keys
+            <span className="text-fg-3" data-testid="export-stats">
+              {statsLine(artifact.stats)}
             </span>
             {artifact.readBack === null ? null : (
               <Badge tone={artifact.readBack.ok ? 'ok' : 'danger'}>

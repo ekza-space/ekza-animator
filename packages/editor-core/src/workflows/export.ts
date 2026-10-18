@@ -430,7 +430,8 @@ export function withReadBackLint(artifact: ExportArtifact): ExportArtifact {
     message:
       `Read-back check failed: max rotation error ${report.maxRotationErrorRad.toPrecision(3)} rad, ` +
       `max translation error ${report.maxTranslationErrorM.toPrecision(3)} m ` +
-      `(${report.animations} animation${report.animations === 1 ? '' : 's'}, ${report.channels} channels read)`,
+      `(${report.animations} animation${report.animations === 1 ? '' : 's'}, ` +
+      `${report.channels} channel${report.channels === 1 ? '' : 's'} read)`,
   };
   return { ...artifact, lints: [...artifact.lints, lint] };
 }
