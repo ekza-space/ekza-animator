@@ -621,9 +621,10 @@
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
                   "!@ekza-animator/io/write",
+                  "!@ekza-animator/io/project",
                   "!zustand/vanilla"
                 ],
-                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, zustand/vanilla (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, zustand/vanilla (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -646,6 +647,11 @@
                   "trackLeverArms"
                 ],
                 "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/io",
+                "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
+                "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
               }
             ]
           }
@@ -697,11 +703,12 @@
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
                   "!@ekza-animator/io/write",
+                  "!@ekza-animator/io/project",
                   "!@ekza-animator/io/testing",
                   "!zustand/vanilla",
                   "!node:*"
                 ],
-                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -724,6 +731,11 @@
                   "trackLeverArms"
                 ],
                 "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/io",
+                "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
+                "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
               }
             ]
           }
@@ -1017,6 +1029,7 @@
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
                   "!@ekza-animator/io/write",
+                  "!@ekza-animator/io/project",
                   "!@ekza-animator/io/three",
                   "!@ekza-animator/editor-core",
                   "!@ekza-animator/viewport",
@@ -1035,7 +1048,7 @@
                   "!three",
                   "!three/**"
                 ],
-                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1058,6 +1071,11 @@
                   "trackLeverArms"
                 ],
                 "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/io",
+                "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
+                "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
               }
             ]
           }
@@ -1081,6 +1099,7 @@
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
                   "!@ekza-animator/io/write",
+                  "!@ekza-animator/io/project",
                   "!@ekza-animator/io/three",
                   "!@ekza-animator/editor-core",
                   "!@ekza-animator/viewport",
@@ -1100,7 +1119,7 @@
                   "!three/**",
                   "!@ekza-animator/editor-core/testing"
                 ],
-                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1123,6 +1142,11 @@
                   "trackLeverArms"
                 ],
                 "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/io",
+                "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
+                "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
               }
             ]
           }

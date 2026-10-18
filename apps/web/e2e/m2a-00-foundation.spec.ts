@@ -41,7 +41,7 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
     ['time.deleteTime', undefined],
     ['graph.keys.copyTo', { dFrames: 1 }],
     ['graph.buffer.snapshot', undefined],
-    ['file.autosaveNow', undefined],
+    // file.autosaveNow: implemented by A5 (E2E-M2A-20, m2a-20-autosave-recovery.spec.ts).
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
   }

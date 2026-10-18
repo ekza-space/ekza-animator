@@ -27,8 +27,8 @@ export const UI_DIALOGS: readonly UiDialog[] = [
   'recovery',
 ];
 
-/** Dialogs whose implementation has not landed yet (M2a: the Recovery dialog is A5's). */
-const PENDING_DIALOGS: ReadonlySet<UiDialog> = new Set(['recovery']);
+/** Dialogs whose implementation has not landed yet (none since M2a's Recovery dialog). */
+const PENDING_DIALOGS: ReadonlySet<UiDialog> = new Set();
 
 const PREF_KEYS: ReadonlySet<string> = new Set([
   'firstRunDone',
@@ -68,6 +68,14 @@ function pollDialog(app: EditorApp, dialog: UiDialog): PollResult {
   if (!UI_DIALOGS.includes(dialog)) return fail(`Unknown dialog '${String(dialog)}'`);
   if (PENDING_DIALOGS.has(dialog)) return fail('not available yet');
   if (dialog === 'export' && app.store.list('characters').length === 0) return fail('Load a character to export');
+  // M2A-SPEC §5.20: File › Recover… needs the autosave store (the dialog lists its orphaned slots).
+  if (
+    dialog === 'recovery' &&
+    !app.session.getState().autosave.enabled &&
+    app.session.getState().recovery.length === 0
+  ) {
+    return fail('Autosave is off in this editor');
+  }
   return ok;
 }
 

@@ -12,7 +12,6 @@ import {
   type BakeOptions,
   clipExportName,
   clipFramesToSeconds,
-  compareValidation,
   type EkzaAnimationV1,
   type EkzaClipMetaV1,
   type ExportArtifact,
@@ -482,7 +481,7 @@ export async function runExport(
   const withWarnings = artifacts.map((artifact) =>
     withReadBackLint(warnings.length === 0 ? artifact : { ...artifact, lints: [...artifact.lints, ...warnings] }),
   );
-  return validateArtifacts(app, withWarnings, kind === 'bake-into-model' ? runtime.container.bytes : null);
+  return validateArtifacts(app, io, withWarnings, kind === 'bake-into-model' ? runtime.container.bytes : null);
 }
 
 /** Lint code of a failed read-back check. */
@@ -516,6 +515,7 @@ export function withReadBackLint(artifact: ExportArtifact): ExportArtifact {
  */
 async function validateArtifacts(
   app: EditorApp,
+  io: WritePath,
   artifacts: readonly ExportArtifact[],
   source: Uint8Array | null,
 ): Promise<readonly ExportArtifact[]> {
@@ -528,7 +528,7 @@ async function validateArtifacts(
     const issues =
       sourceReport === null
         ? report.issues.filter((issue) => issue.severity === 0)
-        : compareValidation(sourceReport, report);
+        : io.compareValidation(sourceReport, report);
     const lints: LintIssue[] = issues.map((issue) => ({
       code: `validator.${issue.code}`,
       severity: 'error',

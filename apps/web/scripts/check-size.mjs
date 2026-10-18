@@ -1,76 +1,140 @@
 #!/usr/bin/env node
-// Editor route JS size report (M2A-SPEC §5.21.2, M-2). A0 lands this as a report-only stub: it never fails the build.
-// A5 turns it into the CI gate (fail above 900,000 B gzip -9) with the initial script set taken from the same
-// definition as the budget bench, and prints every lazy chunk group.
+// Editor route JS size gate (M2A-SPEC §5.21.2, M-2; CI step after `pnpm build`). Measures the scripts `/editor`
+// requests until its empty state shows — the definition the budget bench records from the network
+// (`e2e/bench/budgets.bench.ts`, test `editor route JS`), read here from the build: the prerendered HTML's scripts
+// and script preloads (not `noModule`), plus the route's `next/dynamic` files (`lib/route-scripts.mjs`) — gzip -9,
+// decimal bytes. Fails above 900,000 B, or when a required lazy boundary's code is in the initial set; prints every
+// lazy chunk group with its size.
 //
-// Today's approximation of the initial set: the scripts the prerendered `/editor` page references
-// (`.next/server/app/editor.html`: `<script src>` and `<link rel="preload" as="script">`), measured gzip -9.
-
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
-import { dirname, join, relative, resolve } from 'node:path';
+// Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>]
+import { existsSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { gzipSync } from 'node:zlib';
+import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 
-const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const nextDir = join(appDir, '.next');
-const BUDGET = 900_000;
+/** CI gate: the §14 budget (decimal bytes, gzip -9). */
+export const GATE_BYTES = 900_000;
+/** M2a target for the initial route (≥ 100 kB headroom under the budget); see docs/wp-notes for the record. */
+export const TARGET_BYTES = 800_000;
 
-const kb = (bytes) => `${(bytes / 1000).toFixed(1)} kB`;
-const gzip9 = (path) => gzipSync(readFileSync(path), { level: 9 }).byteLength;
+/**
+ * Required lazy boundaries (M2A-SPEC §5.21.2), each recognised by strings only its code contains. A marker in an
+ * initial script is a violation; `label` names the lazy chunk group that holds it.
+ */
+export const BOUNDARIES = [
+  {
+    id: 'model-loader',
+    label: 'model loader (io/three, three-vrm, GLTF/Draco/KTX2/meshopt loaders)',
+    markers: ['VRMC_materials_mtoon', 'THREE.GLTFLoader'],
+  },
+  { id: 'export-path', label: 'export path (io/write, glTF Transform)', markers: ['glTF-Transform'] },
+  { id: 'project-archive', label: 'project archive (io/project, fflate)', markers: ['invalid zip data'] },
+  { id: 'dope-sheet', label: 'Dope Sheet panel', markers: ['ds-canvas'] },
+  { id: 'dialog-export', label: 'dialog: Export', markers: ['export-dialog'] },
+  { id: 'dialog-import', label: 'dialog: Import', markers: ['import-dialog'] },
+  { id: 'dialog-recovery', label: 'dialog: Recovery', markers: ['recovery-dialog'] },
+  { id: 'dialog-first-run', label: 'dialog: First run', markers: ['firstrun-dialog'] },
+  { id: 'dialog-about', label: 'dialog: About', markers: ['about-dialog'] },
+  { id: 'dialog-shortcuts', label: 'dialog: Shortcuts', markers: ['shortcuts-dialog'] },
+  { id: 'dialog-preferences', label: 'dialog: Preferences', markers: ['preferences-dialog'] },
+  { id: 'dialog-confirm', label: 'dialog: Confirm', markers: ['confirm-dialog'] },
+  { id: 'dialog-open', label: 'dialog: Open', markers: ['-file-input'] },
+  { id: 'test-api', label: 'e2e test API', markers: ['flushAutosave: '] },
+];
 
-function walk(dir) {
-  const out = [];
-  if (!existsSync(dir)) return out;
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (statSync(path).isDirectory()) out.push(...walk(path));
-    else out.push(path);
-  }
-  return out;
+const has = (source, markers) => markers.some((marker) => source.includes(marker));
+
+/**
+ * The size report of a build: the initial set, its gzip -9 total, the lazy groups (labelled by boundary where a
+ * marker identifies them) and the boundaries whose code is in the initial set. `ok` is the gate verdict.
+ */
+export function checkSize(nextDir, opts = {}) {
+  const gate = opts.gate ?? GATE_BYTES;
+  const target = opts.target ?? TARGET_BYTES;
+  const route = readRouteScripts(nextDir, opts.route ?? 'editor');
+  const initial = route.initial.map((file) => ({ file, bytes: route.sizes.get(file) ?? 0 }));
+  const total = initial.reduce((sum, { bytes }) => sum + bytes, 0);
+  const initialSource = route.initial.map((file) => route.sources.get(file) ?? '').join('\n');
+  const violations = BOUNDARIES.filter((boundary) => has(initialSource, boundary.markers)).map((b) => b.id);
+  const lazy = route.lazy.map((group) => {
+    const source = group.files.map((file) => route.sources.get(file) ?? '').join('\n');
+    const boundary = BOUNDARIES.find((candidate) => has(source, candidate.markers));
+    return {
+      id: group.id,
+      label: boundary?.label ?? `lazy chunk group ${group.id}`,
+      boundary: boundary?.id ?? null,
+      files: group.files,
+      bytes: group.files.reduce((sum, file) => sum + (route.sizes.get(file) ?? 0), 0),
+    };
+  });
+  const problems = [];
+  if (route.missing.length > 0) problems.push(`initial scripts missing from the build: ${route.missing.join(', ')}`);
+  if (total > gate)
+    problems.push(`initial route ${total.toLocaleString('en')} B > gate ${gate.toLocaleString('en')} B`);
+  for (const id of violations)
+    problems.push(`lazy boundary broken: ${BOUNDARIES.find((b) => b.id === id)?.label} is in the initial route`);
+  return {
+    e2eBuild: route.e2eBuild,
+    initial,
+    total,
+    gate,
+    target,
+    lazy,
+    violations,
+    present: BOUNDARIES.filter((boundary) => lazy.some((group) => group.boundary === boundary.id)).map((b) => b.id),
+    problems,
+    ok: problems.length === 0,
+  };
 }
 
-function initialScripts() {
-  const html = join(nextDir, 'server', 'app', 'editor.html');
-  if (!existsSync(html)) return null;
-  const text = readFileSync(html, 'utf8');
-  const urls = new Set();
-  for (const match of text.matchAll(/<script[^>]*\ssrc="([^"]+)"/g)) urls.add(match[1]);
-  for (const match of text.matchAll(/<link[^>]*rel="preload"[^>]*as="script"[^>]*href="([^"]+)"/g)) urls.add(match[1]);
-  for (const match of text.matchAll(/<link[^>]*href="([^"]+)"[^>]*rel="preload"[^>]*as="script"/g)) urls.add(match[1]);
-  const files = [];
-  for (const url of urls) {
-    const path = url.replace(/^\/_next\//, '').split('?')[0];
-    const file = join(nextDir, path);
-    if (path.endsWith('.js') && existsSync(file)) files.push(file);
+function print(report) {
+  const out = (line) => process.stdout.write(`${line}\n`);
+  const bytes = (n) => `${n.toLocaleString('en')} B`;
+  out(
+    `check:size — /editor initial route (${report.e2eBuild ? 'e2e build: includes the test routes' : 'production build'}): ` +
+      `${report.initial.length} scripts, ${bytes(report.total)} gzip -9 (gate ${bytes(report.gate)}, target ≤ ${bytes(report.target)})`,
+  );
+  for (const { file, bytes: size } of [...report.initial].sort((a, b) => b.bytes - a.bytes)) {
+    out(`  ${kB(size).padStart(10)}  ${file}`);
   }
-  return files;
+  const lazyTotal = report.lazy.reduce((sum, group) => sum + group.bytes, 0);
+  out(`lazy chunk groups (loaded on demand): ${report.lazy.length}, ${kB(lazyTotal)} gzip -9`);
+  for (const group of [...report.lazy].sort((a, b) => b.bytes - a.bytes)) {
+    out(`  ${kB(group.bytes).padStart(10)}  ${group.label}  [${group.files.join(', ')}]`);
+  }
+  const absent = BOUNDARIES.filter((b) => !report.present.includes(b.id) && !report.violations.includes(b.id));
+  if (absent.length > 0)
+    out(`boundaries not in this build (no marker anywhere): ${absent.map((b) => b.id).join(', ')}`);
+  if (report.ok) {
+    const headroom = report.gate - report.total;
+    const verdict =
+      report.total <= report.target ? 'target met' : `above the target by ${bytes(report.total - report.target)}`;
+    out(`OK: ${bytes(report.total)} ≤ ${bytes(report.gate)} (headroom ${bytes(headroom)}); ${verdict}`);
+  } else {
+    for (const problem of report.problems) out(`FAIL: ${problem}`);
+  }
 }
 
 function main() {
+  const args = process.argv.slice(2);
+  const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+  const nextDir = args.includes('--next') ? resolve(args[args.indexOf('--next') + 1]) : join(appDir, '.next');
   if (!existsSync(nextDir)) {
-    console.warn(
-      'check:size: no production build found (.next is missing); run `pnpm build` first. Nothing to report.',
-    );
-    return;
+    process.stderr.write(`check:size: no production build at ${nextDir}; run \`pnpm build\` first.\n`);
+    process.exit(1);
   }
-  const all = walk(join(nextDir, 'static', 'chunks')).filter((path) => path.endsWith('.js'));
-  const allBytes = all.reduce((sum, path) => sum + gzip9(path), 0);
-  const initial = initialScripts();
-  if (initial === null) {
-    console.warn('check:size: .next/server/app/editor.html not found; reporting every chunk only.');
-  } else {
-    const sizes = initial.map((path) => ({ path, bytes: gzip9(path) })).sort((a, b) => b.bytes - a.bytes);
-    const total = sizes.reduce((sum, { bytes }) => sum + bytes, 0);
-    process.stdout.write(
-      `check:size (report only): scripts referenced by the prerendered /editor HTML: ${initial.length}, ` +
-        `${kb(total)} gzip -9 (the client island's chunks are not attributed yet: A5 measures the bench's set)\n`,
-    );
-    for (const { path, bytes } of sizes.slice(0, 12)) {
-      process.stdout.write(`  ${kb(bytes).padStart(10)}  ${relative(nextDir, path)}\n`);
-    }
-    process.stdout.write(`  budget ${kb(BUDGET)} (M-2 target ≤ 800.0 kB): not gated yet (A5)\n`);
+  let report;
+  try {
+    report = checkSize(nextDir);
+  } catch (error) {
+    process.stderr.write(`check:size: ${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
   }
-  process.stdout.write(`  all client chunks: ${all.length}, ${kb(allBytes)} gzip -9\n`);
+  print(report);
+  if (args.includes('--json')) {
+    writeFileSync(args[args.indexOf('--json') + 1], `${JSON.stringify(report, null, 2)}\n`);
+  }
+  if (!report.ok) process.exit(1);
 }
 
-main();
+if (process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

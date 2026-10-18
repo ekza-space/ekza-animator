@@ -1,9 +1,10 @@
 // Export dialog (research 09 §10.4; MVP-SPEC §4.11.10, §7 WP-8): kind (bake into the model, animation-only GLB,
-// VRMA), clips, export profile, licence acknowledgement, interop and node-constraint warnings, then `file.export`
-// and its lints and read-back results.
+// VRMA), clips, export profile, licence acknowledgement, interop and node-constraint warnings, key reduction
+// (M2A-SPEC §5.16), then `file.export` and its lints, read-back results and sample counts. Opening the dialog starts
+// loading the export path (`@ekza-animator/io/write`, M2A-SPEC §5.21.2) so the first export does not wait for it.
 import type { CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
-import type { EditorApp, ExporterDef } from '@ekza-animator/editor-core';
-import { type ExportArtifact, type ExportRequest, readVrmLicense } from '@ekza-animator/io';
+import { type EditorApp, type ExporterDef, loadWritePath } from '@ekza-animator/editor-core';
+import { type ExportArtifact, type ExportReduceSpec, type ExportRequest, readVrmLicense } from '@ekza-animator/io';
 import {
   Badge,
   Button,
@@ -18,12 +19,15 @@ import {
   TextInput,
   TriangleAlert,
 } from '@ekza-animator/ui';
-import { type JSX, useId, useMemo, useState } from 'react';
-import { useDocQuery, useSession } from '../hooks';
+import { type JSX, useEffect, useId, useMemo, useState } from 'react';
+import { useDocQuery, usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from '../shell/context';
 import { asArtifacts } from '../shell/exports';
 import { isRestricted } from '../shell/summary';
+import { count } from './format';
+
+export { count };
 
 const KIND_HINT: Readonly<Record<string, string>> = {
   'bake-into-model': 'Writes a copy of your .vrm/.glb with the clips appended; every original byte is kept.',
@@ -60,14 +64,12 @@ function clipOptions(store: DocumentStore, character: CharacterId | null) {
   }));
 }
 
-/** A count with its noun in the right number: `1 clip`, `0 clips`, `3 clips`. */
-export function count(n: number, noun: string, plural = `${noun}s`): string {
-  return `${n} ${n === 1 ? noun : plural}`;
-}
-
-/** The result line of an exported file: `1 clip · 3 channels · 1 key`. */
+/** The result line of an exported file: `1 clip · 3 channels · 1 key`, plus `120 → 40 samples` when reduced. */
 export function statsLine(stats: ExportArtifact['stats']): string {
-  return [count(stats.clips, 'clip'), count(stats.channels, 'channel'), count(stats.keys, 'key')].join(' · ');
+  const parts = [count(stats.clips, 'clip'), count(stats.channels, 'channel'), count(stats.keys, 'key')];
+  const reduction = stats.reduction;
+  if (reduction !== undefined) parts.push(`${reduction.samplesBefore} → ${reduction.samplesAfter} samples`);
+  return parts.join(' · ');
 }
 
 /** Warnings shown before export (research 09 §10.4, ADR 0010): interop limits and preview-only rig features. */
@@ -182,11 +184,18 @@ export function ExportDialog(): JSX.Element {
   const [profile, setProfile] = useState<string>('');
   const [closeLoopChoice, setCloseLoop] = useState<boolean | null>(null);
   const [includeConstantTracks, setIncludeConstantTracks] = useState(true);
+  const reducePrefs = usePrefs((p) => p.exportReduce);
+  const [reduceChoice, setReduce] = useState<boolean | null>(null);
   const [acknowledged, setAcknowledged] = useState(false);
   const [running, setRunning] = useState(false);
   const [artifacts, setArtifacts] = useState<readonly ExportArtifact[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ids = useId();
+
+  // Intent prefetch (M2A-SPEC §5.21.2): the export path loads while the user picks the options.
+  useEffect(() => {
+    void loadWritePath().catch(() => {});
+  }, []);
 
   const defaultClip = character === null ? undefined : activeClips[character];
   const chosenClips = selectedClips ?? defaultExportClips(kind, clips, defaultClip);
@@ -208,6 +217,14 @@ export function ExportDialog(): JSX.Element {
     }
   }, [app, character]);
   const needsAck = restricted && kind === 'bake-into-model';
+  // §5.16: on by default from the preference; the tolerances are the preference's (R02 §6.4 defaults).
+  const reduce = reduceChoice ?? reducePrefs.enabled;
+  const reduceSpec: ExportReduceSpec = {
+    positionM: reducePrefs.positionM,
+    rotationCapRad: reducePrefs.rotationCapRad,
+    minLeverM: reducePrefs.minLeverM,
+    scaleRel: reducePrefs.scaleRel,
+  };
 
   const request: ExportRequest | null =
     character === null
@@ -221,6 +238,7 @@ export function ExportDialog(): JSX.Element {
           includeConstantTracks,
           acknowledgeLicense: acknowledged,
           profile: kindProfiles.some((candidate) => candidate.id === profile) ? profile : null,
+          reduce: reduce ? reduceSpec : null,
         };
   const blocked =
     request === null
@@ -354,6 +372,12 @@ export function ExportDialog(): JSX.Element {
               onChange={(event) => setIncludeConstantTracks(event.currentTarget.checked)}
               data-testid="export-constant-tracks"
               label="Include constant tracks"
+            />
+            <Checkbox
+              checked={reduce}
+              onChange={(event) => setReduce(event.currentTarget.checked)}
+              data-testid="export-reduce"
+              label="Reduce keys"
             />
           </div>
           {needsAck ? (

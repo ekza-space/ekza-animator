@@ -1,3 +1,13 @@
+export {
+  AUTOSAVE_BLOCKED_TOAST,
+  AUTOSAVE_QUOTA_TOAST,
+  type AutosaveClock,
+  type AutosaveController,
+  autosaveOf,
+  MAX_ORPHANS,
+  ORPHAN_MAX_AGE_MS,
+  startAutosave,
+} from './app/autosave';
 export { createEditorApp } from './app/createEditorApp';
 export { channelDefaultOf, channelUnit } from './edit/channelMeta';
 export { applyChannelEdits, beginChannelEditGesture } from './edit/channels';
@@ -34,5 +44,7 @@ export { defaultSession } from './session/defaults';
 export { restoreSelection, selectionSnapshot } from './session/selection';
 export * from './types';
 export { bodyPartOf } from './workflows/bodyParts';
+export { loadWritePath } from './workflows/export';
+export { loadProjectArchive } from './workflows/project';
 export { keyTargetControls } from './workflows/targets';
 export { controlVisibility } from './workflows/visibility';

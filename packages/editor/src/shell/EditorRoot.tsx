@@ -10,7 +10,6 @@ import { EditorAppProvider } from '../hooks';
 import type { PanelRegistry } from '../panels/types';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
-import { createTestApi } from '../test-api/createTestApi';
 import { detectPlatform, type EditorParams, parseEditorParams } from '../test-api/params';
 import { ShellProvider } from './context';
 import { createShell } from './createShell';
@@ -116,13 +115,23 @@ function ReadyEditor(props: {
     };
   }, [shell]);
 
+  // The e2e test API is a lazy chunk (M2A-SPEC §5.21.2): production pages never load it. Specs wait for the global.
   useEffect(() => {
     if (!shell.params.e2e) return undefined;
-    const handle = createTestApi(shell);
-    window.__EKZA_ANIMATOR_TEST__ = handle.api;
+    let cancelled = false;
+    let uninstall: (() => void) | null = null;
+    void import('../test-api/createTestApi').then(({ createTestApi }) => {
+      if (cancelled) return;
+      const handle = createTestApi(shell);
+      window.__EKZA_ANIMATOR_TEST__ = handle.api;
+      uninstall = () => {
+        if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
+        handle.dispose();
+      };
+    });
     return () => {
-      if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
-      handle.dispose();
+      cancelled = true;
+      uninstall?.();
     };
   }, [shell]);
 

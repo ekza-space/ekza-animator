@@ -6,5 +6,6 @@ export { bakeClip, ekzaAnimationMeta } from './bake/bake';
 export { reduceBakedClip, trackLeverArms } from './bake/reduce';
 export { lintExport } from './lint/lintExport';
 export { bakeIntoModel, preexistingTracks } from './surgeon/bakeIntoModel';
-export { readBackCheck } from './validate/validate';
+export { readBackCheck } from './validate/readBack';
+export { compareValidation } from './validate/validate';
 export { writeAnimationGlb, writeVrma } from './writers/write';

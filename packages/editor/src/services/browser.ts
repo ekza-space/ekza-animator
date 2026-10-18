@@ -1,7 +1,9 @@
 // Browser implementations of the EditorServices (MVP-SPEC §4.5, §7 WP-8): in-memory asset store with async
-// verification, file download, clipboard, toasts, the three.js model loader and localStorage preferences.
+// verification, file download, clipboard, toasts, the three.js model loader, localStorage preferences and the
+// IndexedDB autosave store (M2A-SPEC §5.20).
 import type { EditorServices } from '@ekza-animator/editor-core';
 import { createBrowserAssetStore } from './assets';
+import { createIndexedDbAutosaveStore, newSlotId } from './autosave';
 import { createBrowserClipboard } from './clipboard';
 import { createDownloadService, type DownloadRecord } from './files';
 import { createBrowserModelLoader } from './models';
@@ -37,6 +39,17 @@ export interface ShellServices {
   readonly toasts: ToastNotifier;
 }
 
+/**
+ * The autosave store for the storage options (M2A-SPEC §4.8, §5.20): none when storage is blocked or off; a fresh
+ * database per page load for in-memory (e2e) storage; the namespace's database for `storageNamespace`; else the
+ * default database.
+ */
+function autosaveStore(opts: ShellServicesOptions, storageKind: 'local' | 'memory' | null) {
+  if (opts.storageBlocked === true || storageKind === null) return null;
+  if (storageKind === 'memory') return createIndexedDbAutosaveStore({ namespace: `page-${newSlotId().slice(3)}` });
+  return createIndexedDbAutosaveStore(opts.storageNamespace === undefined ? {} : { namespace: opts.storageNamespace });
+}
+
 export function createShellServices(opts: ShellServicesOptions): ShellServices {
   const toasts = createToastNotifier();
   const storageKind = opts.storage === undefined ? 'local' : opts.storage;
@@ -57,6 +70,7 @@ export function createShellServices(opts: ShellServicesOptions): ShellServices {
             ? createMemoryStorage()
             : null,
     samplesPath: opts.samplesPath ?? '/samples/',
+    autosave: autosaveStore(opts, storageKind),
   };
   return { services, toasts };
 }

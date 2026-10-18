@@ -1,20 +1,130 @@
-// Autosave and crash recovery (M2A-SPEC §4.9 `file.recover`, `file.discardRecovery`, `file.autosaveNow`, §5.20; A5
-// implements them). A0 lands them as stubs.
-import type { AnyOperator } from './define';
-import { stubOperator } from './stub';
+// Autosave and crash recovery (M2A-SPEC §4.9 `file.recover`, `file.discardRecovery`, `file.autosaveNow`, §5.20).
+// The host starts the autosave controller (`startAutosave`, browser shell); without one these operators poll-fail.
+import { EkzaError } from '@ekza-animator/anim-core';
+import { migrateSnapshot } from '@ekza-animator/doc';
+import { autosaveOf } from '../../app/autosave';
+import { GLOBAL_SCOPE } from '../../types';
+import { loadProject, type OpenedProject } from '../../workflows/project';
+import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
 
-export const AUTOSAVE_OPERATORS: readonly AnyOperator[] = [
-  stubOperator('file.recover', 'Recover…', {
-    category: 'file',
-    description: 'Open an autosaved project that was not saved before its page closed.',
-  }),
-  stubOperator('file.discardRecovery', 'Discard Recovery', {
-    category: 'file',
-    description: 'Delete an autosaved recovery slot.',
-  }),
-  stubOperator('file.autosaveNow', 'Save Recovery Point', {
-    category: 'file',
-    description: 'Write the autosave slot now.',
-    internal: true,
-  }),
-];
+const OFF = 'Autosave is off in this editor';
+
+function pollSlot(args: unknown) {
+  return isRecord(args) && typeof args['slot'] === 'string' && args['slot'] !== '' ? OK : fail('expects { slot }');
+}
+
+/** "18 Oct, 14:32" (another day) or "14:32" (today), in the browser's locale. */
+export function formatSavedAt(savedAt: number, now: number = Date.now()): string {
+  const date = new Date(savedAt);
+  const time = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  if (new Date(now).toDateString() === date.toDateString()) return time;
+  return `${date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}, ${time}`;
+}
+
+interface Recovered extends OpenedProject {
+  readonly slot: string;
+  readonly projectName: string;
+  readonly savedAt: number | null;
+}
+
+const fileRecover = defineOperator<'file.recover', Recovered>({
+  id: 'file.recover',
+  label: 'Recover…',
+  description: 'Open an autosaved project that was not saved before its page closed.',
+  category: 'file',
+  scope: GLOBAL_SCOPE,
+  poll({ app }, args) {
+    if ((autosaveOf(app)?.store ?? null) === null) return fail(OFF);
+    return pollSlot(args);
+  },
+  async prepare({ app }, args) {
+    const store = autosaveOf(app)?.store ?? null;
+    if (store === null) throw new EkzaError('unsupported', OFF);
+    const read = await store.read(args.slot);
+    if (read === null) throw new EkzaError('not-found', 'That recovery point no longer exists');
+    // The file.openProject path (§5.20): assets into the asset store (ids are their SHA-256), then the migrations
+    // and the read-only rule of the snapshot.
+    const warnings: string[] = [];
+    for (const [id, { record, bytes }] of read.assets) {
+      const stored = await app.services.assets.put(bytes, { name: record.name, ext: record.ext, role: record.role });
+      if (stored.id !== id) {
+        throw new EkzaError('asset-corrupt', `The recovered asset ${record.name} does not match its SHA-256 ${id}`);
+      }
+    }
+    const migrated = migrateSnapshot(read.snapshot);
+    for (const record of Object.values(migrated.snapshot.tables.assets ?? {})) {
+      if (read.assets.has(record.id) || (await app.services.assets.has(record.id))) continue;
+      warnings.push(`${record.name} was not part of the recovery point; add the model to see its characters`);
+    }
+    if (migrated.readOnly) warnings.push('This project was written by a newer version and opens read-only');
+    const info = app.session.getState().recovery.find((entry) => entry.id === args.slot);
+    return {
+      slot: args.slot,
+      snapshot: migrated.snapshot,
+      readOnly: migrated.readOnly,
+      migratedFrom: migrated.migratedFrom,
+      warnings,
+      projectName: migrated.snapshot.tables.project?.['project']?.name ?? info?.projectName ?? 'Untitled',
+      savedAt: info?.savedAt ?? null,
+    };
+  },
+  apply({ app }, _args, recovered) {
+    loadProject(app, recovered);
+    // Recovered work is unsaved work: dirty, history empty (loadProject), the dialog closed.
+    app.session.setState({ dirty: true, dialog: null });
+    autosaveOf(app)?.markRecovered(recovered.slot);
+    const when = recovered.savedAt === null ? '' : ` from ${formatSavedAt(recovered.savedAt)}`;
+    app.services.notify.toast({
+      kind: 'success',
+      text: `Recovered '${recovered.projectName}'${when}. Save it to keep it.`,
+    });
+    for (const warning of recovered.warnings) app.services.notify.toast({ kind: 'warning', text: warning });
+    return { readOnly: app.store.readOnly };
+  },
+});
+
+const fileDiscardRecovery = defineOperator<'file.discardRecovery', void>({
+  id: 'file.discardRecovery',
+  label: 'Discard Recovery',
+  description: 'Delete an autosaved recovery point.',
+  category: 'file',
+  scope: GLOBAL_SCOPE,
+  poll({ app }, args) {
+    if ((autosaveOf(app)?.store ?? null) === null) return fail(OFF);
+    return pollSlot(args);
+  },
+  async prepare({ app }, args) {
+    const store = autosaveOf(app)?.store ?? null;
+    if (store === null) throw new EkzaError('unsupported', OFF);
+    await store.remove(args.slot);
+  },
+  apply({ app }, args) {
+    const recovery = app.session.getState().recovery;
+    if (recovery.some((entry) => entry.id === args.slot)) {
+      app.session.setState({ recovery: recovery.filter((entry) => entry.id !== args.slot) });
+    }
+  },
+});
+
+type Written = { readonly slot: string; readonly bytes: number } | null;
+
+const fileAutosaveNow = defineOperator<'file.autosaveNow', Written>({
+  id: 'file.autosaveNow',
+  label: 'Save Recovery Point',
+  description: 'Write the autosave slot now.',
+  category: 'file',
+  scope: GLOBAL_SCOPE,
+  flags: { internal: true },
+  poll({ app }) {
+    const status = app.session.getState().autosave;
+    if (autosaveOf(app) === null || !status.enabled || status.slot === null) return fail(OFF);
+    if (status.error === 'quota') return fail('Autosave is paused: the storage is full');
+    return OK;
+  },
+  async prepare({ app }) {
+    return (await autosaveOf(app)?.writeNow()) ?? null;
+  },
+  apply: (_ctx, _args, written) => written,
+});
+
+export const AUTOSAVE_OPERATORS: readonly AnyOperator[] = [fileRecover, fileDiscardRecovery, fileAutosaveNow];
