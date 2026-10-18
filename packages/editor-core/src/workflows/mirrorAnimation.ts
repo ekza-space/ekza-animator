@@ -164,13 +164,14 @@ function handleReaders(
       const key = keys[i] as KeyData;
       if (key.inType === 'fixed') return { dt: finiteOr(key.inHandle.dt, 0), dv: finiteOr(key.inHandle.dv, 0) };
       const span = spans(i).before;
-      return { dt: -(span * ONE_THIRD), dv: -((compiled.inSlope[i] as number) * span * ONE_THIRD) };
+      // `0 −`: a flat side stays at +0 (a −0 frozen into the document would not survive a JSON round trip).
+      return { dt: -(span * ONE_THIRD), dv: 0 - (compiled.inSlope[i] as number) * span * ONE_THIRD };
     },
     out: (i) => {
       const key = keys[i] as KeyData;
       if (key.outType === 'fixed') return { dt: finiteOr(key.outHandle.dt, 0), dv: finiteOr(key.outHandle.dv, 0) };
       const span = spans(i).after;
-      return { dt: span * ONE_THIRD, dv: (compiled.outSlope[i] as number) * span * ONE_THIRD };
+      return { dt: span * ONE_THIRD, dv: 0 + (compiled.outSlope[i] as number) * span * ONE_THIRD };
     },
   };
 }

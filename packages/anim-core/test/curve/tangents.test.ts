@@ -123,13 +123,29 @@ describe('resolveKeyHandles', () => {
     );
   });
 
+  it('property: no resolved handle dv is −0 (weighted and not, every tangent type)', () => {
+    fc.assert(
+      fc.property(curveArbitrary({ types: TANGENT_TYPES }), (anim) => {
+        const compiled = compileAnimCurve(anim);
+        for (let i = 0; i < compiled.keyCount; i++) {
+          const fixedIn = anim.keys[i]?.inType === 'fixed' && anim.weighted;
+          const fixedOut = anim.keys[i]?.outType === 'fixed' && anim.weighted;
+          if (!fixedIn) expect([i, 'in', Object.is(compiled.inDv[i], -0)]).toEqual([i, 'in', false]);
+          if (!fixedOut) expect([i, 'out', Object.is(compiled.outDv[i], -0)]).toEqual([i, 'out', false]);
+        }
+      }),
+      { numRuns: 300 },
+    );
+  });
+
   it('weighted fixed sides return the stored handle; computed sides a third of the span', () => {
     const k0 = { ...key(0, 0, 'flat', 'fixed'), outHandle: { dt: 4.5, dv: 2 } };
     const c = curve([k0, key(9, 3, 'auto')], { weighted: true });
     expect(resolveKeyHandles(c, 0).outHandle).toEqual({ dt: 4.5, dv: 2 });
     const h = resolveKeyHandles(c, 1);
     expect(h.inHandle.dt).toBeCloseTo(-3, 15);
-    expect(h.inHandle.dv).toBe(-0); // auto end key: flat
+    // Auto end key: flat, at +0 (never −0: frozen into a document it must survive a JSON round trip, M2A-INT-16).
+    expect(Object.is(h.inHandle.dv, 0)).toBe(true);
     expect(() => resolveKeyHandles(c, 2)).toThrow(expect.objectContaining({ code: 'unsupported' }));
   });
 });
