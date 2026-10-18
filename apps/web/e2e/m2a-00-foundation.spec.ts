@@ -23,7 +23,10 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   const world = await call(page, 'controlWorld', hand);
   const bone = await call(page, 'boneWorld', character, 'leftHand');
   expect(Math.hypot(world.t[0] - bone.t[0], world.t[1] - bone.t[1], world.t[2] - bone.t[2])).toBeLessThan(1e-6);
-  expect(await call(page, 'autosave')).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
+  // Autosave (A5, §5.20): every e2e page load has a fresh storage namespace and claims a slot in it.
+  await expect
+    .poll(() => call(page, 'autosave'))
+    .toMatchObject({ enabled: true, slot: expect.stringMatching(/^as_[0-9A-Za-z]{16}$/) as unknown as string });
   expect(await call(page, 'timelineTicks')).toEqual([]);
   expect(await call(page, 'dopeSheet')).toBeNull();
   expect(await call(page, 'screenOfTween', 'status', 0)).toBeNull();
