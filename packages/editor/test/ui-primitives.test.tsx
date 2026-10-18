@@ -18,6 +18,11 @@ import {
   INFINITY_ICONS,
   LAYOUT_ICONS,
   LOOP_ICONS,
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -36,7 +41,7 @@ import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { byTestId, render, update } from './render';
-import { waitFor } from './shell-helpers';
+import { liveEnvironment, waitFor } from './shell-helpers';
 
 const body = (id: string): HTMLElement => byTestId(document.body, id);
 const present = (id: string): boolean => document.querySelector(`[data-testid="${id}"]`) !== null;
@@ -93,6 +98,97 @@ describe('ui primitives', () => {
     await update(() => body('dd-xray').click());
     expect(body('dd-state').textContent).toBe('on');
     await view.unmount();
+  });
+
+  // Acceptance round 3: the trigger kept the focus after its menu closed, so Space over the viewport reopened the
+  // menu and a second Space ran its first item (MVP-SPEC §4.10 "Keyboard focus").
+  it('Menubar and DropdownMenu used with the pointer leave no focus on the trigger; keyboard use returns it', async () => {
+    const chosen: string[] = [];
+    const restoreAct = liveEnvironment(); // real input from Playwright, outside act()
+    const view = await render(
+      <div>
+        <Menubar>
+          <MenubarMenu value="pose">
+            <MenubarTrigger data-testid="mb-pose">Pose</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem data-testid="mb-pin" onSelect={() => chosen.push('pin')}>
+                Pin Feet
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" data-testid="dd-more">
+              More
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem data-testid="dd-fixed" onSelect={() => chosen.push('fixed')}>
+              Fixed
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div data-testid="elsewhere" style={{ width: 200, height: 80 }} />
+      </div>,
+    );
+    const settled = async (): Promise<void> => {
+      await waitFor(() => !present('mb-pin') && !present('dd-fixed'));
+      await new Promise((resolve) => setTimeout(resolve, 50)); // Radix restores focus in a timeout after closing
+    };
+    const focusedTrigger = (): boolean =>
+      document.activeElement === body('mb-pose') || document.activeElement === body('dd-more');
+    try {
+      // A choice with the pointer.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.click(body('mb-pin'));
+      await settled();
+      expect(chosen).toEqual(['pin']);
+      expect(focusedTrigger()).toBe(false);
+      // Opened and closed again with the trigger.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.click(body('mb-pose'));
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+      // Opened with the pointer, closed with Esc.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+
+      // The same for a dropdown menu (modal: an outside click used to send the focus to the trigger too).
+      await userEvent.click(body('dd-more'));
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.click(body('dd-fixed'));
+      await settled();
+      expect(chosen).toEqual(['pin', 'fixed']);
+      expect(focusedTrigger()).toBe(false);
+      await userEvent.click(body('dd-more'));
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.click(body('elsewhere'), { force: true }); // the modal menu blocks pointer events outside
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+
+      // Opened from the keyboard: Esc returns the focus to the trigger (WAI-ARIA menu button).
+      body('mb-pose').focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => present('mb-pin'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(document.activeElement).toBe(body('mb-pose'));
+      body('dd-more').focus();
+      await userEvent.keyboard('{ArrowDown}');
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(document.activeElement).toBe(body('dd-more'));
+    } finally {
+      await view.unmount();
+      restoreAct();
+    }
   });
 
   it('Popover opens from its trigger and closes on Escape', async () => {

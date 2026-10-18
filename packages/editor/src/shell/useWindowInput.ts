@@ -2,7 +2,8 @@
 // Space tap/hold, blur/visibility reset, browser-default suppression (MMB autoscroll and paste, context menu,
 // pinch-zoom), global drag-and-drop of files and the unsaved-changes guard.
 import { type RefObject, useEffect } from 'react';
-import { isDropdown, isInOverlay, isTextEntry } from '../input/focus';
+import { isClosedMenuTrigger, isDropdown, isInOverlay, isTextEntry, menuTriggerKeyRoute } from '../input/focus';
+import { keyInputOf } from '../input/keyboard';
 import { hoverTargetOf, sameHover } from '../input/pointer';
 import type { Shell } from './types';
 
@@ -42,6 +43,16 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
       if (event.target === pointerDropdown) pointerDropdown = null;
       if (event.defaultPrevented) return;
       keyboard.keyDown(event);
+    };
+    // A focused trigger of a closed menu does not own the keyboard (§4.10, acceptance round 3): the keys it leaves
+    // to the editor must not reach its own handler (Radix reopens the menu on Space, Enter and ArrowDown), so they are
+    // taken on the document in the capture phase, after the panels' window-level capture listeners (a drag's Esc).
+    const onKeyDownCapture = (event: KeyboardEvent): void => {
+      const target = event.target;
+      if (event.defaultPrevented || !isClosedMenuTrigger(target) || !inEditor(target)) return;
+      if (menuTriggerKeyRoute(target, keyInputOf(event)) !== 'editor') return;
+      event.stopPropagation();
+      onKeyDown(event);
     };
     const onKeyUp = (event: KeyboardEvent): void => {
       keyboard.keyUp(event);
@@ -115,6 +126,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
 
     const rootElement = root.current;
     window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('keydown', onKeyDownCapture, { capture: true });
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('change', onChange);
     window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true });
@@ -133,6 +145,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('keydown', onKeyDownCapture, { capture: true });
       window.removeEventListener('keyup', onKeyUp);
       window.removeEventListener('change', onChange);
       window.removeEventListener('pointermove', onPointerMove, { capture: true });

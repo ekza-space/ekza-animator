@@ -67,6 +67,43 @@ export function dropdownKeyRoute(
   return isHovered(dropdown) ? 'dropdown' : 'editor';
 }
 
+/**
+ * A menu button whose menu is closed (a menu bar title, the Graph Editor's "More ▾", a pane header menu). After
+ * pointer use the `ui` menus leave no focus on their trigger; one reached with the keyboard keeps it.
+ */
+export function isClosedMenuTrigger(target: EventTarget | null): target is HTMLElement {
+  if (!(target instanceof HTMLElement)) return false;
+  const popup = target.getAttribute('aria-haspopup');
+  if (popup !== 'menu' && popup !== 'true') return false;
+  return target.getAttribute('aria-expanded') !== 'true';
+}
+
+/** Keys a focused menu trigger keeps even when the pointer is elsewhere: opening its menu and menu bar navigation. */
+const MENU_TRIGGER_NAVIGATION_CODES: ReadonlySet<string> = new Set([
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'Enter',
+  'NumpadEnter',
+  'Tab',
+]);
+
+/**
+ * How a key pressed while a closed menu's trigger has focus is routed (MVP-SPEC §4.10 "Keyboard focus", acceptance
+ * round 3): 'trigger' leaves it to the trigger, 'editor' sends it to the keymap of the hovered panel and never lets
+ * the trigger see it (Space would reopen the menu and a second Space run its first item). Like a dropdown, the
+ * trigger keeps every key while it is under the pointer; otherwise only Enter, the arrows and Tab stay with it.
+ */
+export function menuTriggerKeyRoute(
+  trigger: HTMLElement,
+  input: { readonly code: string; readonly ctrlKey: boolean; readonly metaKey: boolean },
+): 'trigger' | 'editor' {
+  if (input.ctrlKey || input.metaKey) return 'editor';
+  if (MENU_TRIGGER_NAVIGATION_CODES.has(input.code)) return 'trigger';
+  return isHovered(trigger) ? 'trigger' : 'editor';
+}
+
 function isHovered(element: Element): boolean {
   try {
     return element.matches(':hover');

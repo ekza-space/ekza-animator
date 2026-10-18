@@ -4,6 +4,7 @@ import { GLOBAL_SCOPE, type KeyBinding, type KeymapManager } from '@ekza-animato
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
+import { isClosedMenuTrigger, menuTriggerKeyRoute } from '../src/input/focus';
 import { type KeyDispatch, KeyboardAdapter, type KeyScopeChain, type TimerApi } from '../src/input/keyboard';
 import { hoverTargetOf, scopeChainOf } from '../src/input/pointer';
 
@@ -213,6 +214,46 @@ describe('KeyboardAdapter', () => {
     } finally {
       window.removeEventListener('keydown', onKeyDown);
     }
+  });
+
+  // Acceptance round 3: a menu bar title kept the focus after its menu closed and took Space from the viewport.
+  it('a focused trigger of a closed menu keeps only Enter, arrows and Tab unless it is under the pointer', async () => {
+    const trigger = document.createElement('button');
+    trigger.textContent = 'Pose';
+    trigger.setAttribute('aria-haspopup', 'menu');
+    trigger.setAttribute('aria-expanded', 'false');
+    const away = document.createElement('div');
+    away.style.cssText = 'width: 240px; height: 120px;';
+    const plain = document.createElement('button');
+    document.body.append(trigger, away, plain);
+    cleanup.push(trigger, away, plain);
+    const route = (code: string, mod = false) => menuTriggerKeyRoute(trigger, { code, ctrlKey: mod, metaKey: false });
+
+    expect(isClosedMenuTrigger(trigger)).toBe(true);
+    expect(isClosedMenuTrigger(plain)).toBe(false);
+    trigger.setAttribute('aria-expanded', 'true');
+    expect(isClosedMenuTrigger(trigger)).toBe(false); // an open menu owns the keyboard (isInOverlay)
+    trigger.setAttribute('aria-expanded', 'false');
+
+    await userEvent.hover(away);
+    expect(['Space', 'KeyS', 'Digit4', 'Escape', 'Home'].map((code) => route(code))).toEqual([
+      'editor',
+      'editor',
+      'editor',
+      'editor',
+      'editor',
+    ]);
+    expect(['Enter', 'NumpadEnter', 'ArrowDown', 'ArrowRight', 'Tab'].map((code) => route(code))).toEqual([
+      'trigger',
+      'trigger',
+      'trigger',
+      'trigger',
+      'trigger',
+    ]);
+    expect(route('KeyZ', true)).toBe('editor');
+    await userEvent.hover(trigger);
+    expect(route('Space')).toBe('trigger');
+    expect(route('KeyZ', true)).toBe('editor');
   });
 
   it('ignores keys while a dialog is open, composition and bare modifiers', () => {

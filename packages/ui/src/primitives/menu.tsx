@@ -1,9 +1,91 @@
 // Menubar, DropdownMenu and ContextMenu (Radix) with one shared look: dense rows, shortcut column, check marks,
 // sub-menus. Props follow Radix; each styled part accepts `className`.
+//
+// Focus after a menu closes (acceptance round 3; MVP-SPEC §4.10 "Keyboard focus"): a Menubar or DropdownMenu opened
+// with the pointer hands the keyboard back to the page when it closes (a choice, Esc or an outside click), and a
+// click on its trigger never focuses the trigger, so an app's hotkeys keep following the pointer. A menu opened from
+// the keyboard (Enter, Space or ArrowDown on its focused trigger) returns the focus to its trigger, as WAI-ARIA
+// expects.
 import { ContextMenu as CM, DropdownMenu as DM, Menubar as MB } from 'radix-ui';
-import type { ComponentPropsWithRef, JSX, ReactNode } from 'react';
+import {
+  type ComponentPropsWithRef,
+  createContext,
+  type JSX,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type MouseEvent as ReactMouseEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  useContext,
+  useMemo,
+  useRef,
+} from 'react';
 import { cn } from '../cn';
 import { Check, ChevronRight } from '../icons/lucide';
+
+/** How the open menu of a Menubar or DropdownMenu was opened. */
+type MenuOpener = 'pointer' | 'keyboard';
+interface MenuOpenerRecord {
+  set(opener: MenuOpener): void;
+  get(): MenuOpener;
+}
+const MenuOpenerContext = createContext<MenuOpenerRecord | null>(null);
+
+/** Keys that open a menu from its focused trigger (Radix). */
+const MENU_OPEN_KEYS: ReadonlySet<string> = new Set(['Enter', ' ', 'ArrowDown']);
+
+/** Trigger handlers: record how the menu is opened; a primary click never focuses the trigger. */
+function useOpenerHandlers<T extends HTMLElement>(props: {
+  readonly onPointerDown?: ((event: ReactPointerEvent<T>) => void) | undefined;
+  readonly onMouseDown?: ((event: ReactMouseEvent<T>) => void) | undefined;
+  readonly onKeyDown?: ((event: ReactKeyboardEvent<T>) => void) | undefined;
+}): {
+  onPointerDown: (event: ReactPointerEvent<T>) => void;
+  onMouseDown: (event: ReactMouseEvent<T>) => void;
+  onKeyDown: (event: ReactKeyboardEvent<T>) => void;
+} {
+  const opener = useContext(MenuOpenerContext);
+  return {
+    onPointerDown: (event) => {
+      props.onPointerDown?.(event);
+      if (event.button === 0) opener?.set('pointer');
+    },
+    // Radix opens on pointerdown (and then cancels the mouse events); the closing click would focus the trigger.
+    onMouseDown: (event) => {
+      props.onMouseDown?.(event);
+      if (!event.defaultPrevented && event.button === 0) event.preventDefault();
+    },
+    onKeyDown: (event) => {
+      props.onKeyDown?.(event);
+      if (!event.defaultPrevented && MENU_OPEN_KEYS.has(event.key)) opener?.set('keyboard');
+    },
+  };
+}
+
+/** Content handler: after a pointer-opened menu closes, the focus stays with the page instead of the trigger. */
+function useCloseAutoFocus(onCloseAutoFocus: ((event: Event) => void) | undefined): (event: Event) => void {
+  const opener = useContext(MenuOpenerContext);
+  return (event) => {
+    onCloseAutoFocus?.(event);
+    // Prevented: Radix neither focuses the trigger nor restores an earlier focus; the content unmounts, so the
+    // focus falls back to the document body.
+    if (!event.defaultPrevented && opener?.get() === 'pointer') event.preventDefault();
+  };
+}
+
+/** Provides the opener record to a menu's trigger and content. */
+function OpenerScope(props: { readonly children: ReactNode }): JSX.Element {
+  const opener = useRef<MenuOpener>('pointer');
+  const record = useMemo<MenuOpenerRecord>(
+    () => ({
+      set: (value) => {
+        opener.current = value;
+      },
+      get: () => opener.current,
+    }),
+    [],
+  );
+  return <MenuOpenerContext value={record}>{props.children}</MenuOpenerContext>;
+}
 
 export const menuContentClass = cn(
   'z-(--z-popover) min-w-48 overflow-hidden rounded-popover border border-line-strong bg-popover p-1 text-ui text-fg',
@@ -27,33 +109,56 @@ function CheckMark(props: { readonly children: ReactNode }): JSX.Element {
 }
 
 // ---------- Menubar ----------
+/** One opener record per menu bar: Arrow Left/Right moves between its menus within one pointer or keyboard use. */
 export const Menubar = ({ className, ...props }: ComponentPropsWithRef<typeof MB.Root>): JSX.Element => (
-  <MB.Root className={cn('flex h-full items-center gap-0.5', className)} {...props} />
+  <OpenerScope>
+    <MB.Root className={cn('flex h-full items-center gap-0.5', className)} {...props} />
+  </OpenerScope>
 );
 export const MenubarMenu: typeof MB.Menu = MB.Menu;
 export const MenubarSub: typeof MB.Sub = MB.Sub;
 export const MenubarGroup: typeof MB.Group = MB.Group;
 export const MenubarRadioGroup: typeof MB.RadioGroup = MB.RadioGroup;
-export const MenubarTrigger = ({ className, ...props }: ComponentPropsWithRef<typeof MB.Trigger>): JSX.Element => (
-  <MB.Trigger
-    className={cn(
-      'flex h-6 select-none items-center rounded-button px-2 text-ui text-fg-2 outline-none',
-      'data-[highlighted]:bg-hover data-[highlighted]:text-fg data-[state=open]:bg-pressed data-[state=open]:text-fg',
-      className,
-    )}
-    {...props}
-  />
-);
+export const MenubarTrigger = ({
+  className,
+  onPointerDown,
+  onMouseDown,
+  onKeyDown,
+  ...props
+}: ComponentPropsWithRef<typeof MB.Trigger>): JSX.Element => {
+  const handlers = useOpenerHandlers<HTMLButtonElement>({ onPointerDown, onMouseDown, onKeyDown });
+  return (
+    <MB.Trigger
+      className={cn(
+        'flex h-6 select-none items-center rounded-button px-2 text-ui text-fg-2 outline-none',
+        'data-[highlighted]:bg-hover data-[highlighted]:text-fg data-[state=open]:bg-pressed data-[state=open]:text-fg',
+        className,
+      )}
+      {...props}
+      {...handlers}
+    />
+  );
+};
 export const MenubarContent = ({
   className,
   align = 'start',
   sideOffset = 4,
+  onCloseAutoFocus,
   ...props
-}: ComponentPropsWithRef<typeof MB.Content>): JSX.Element => (
-  <MB.Portal>
-    <MB.Content align={align} sideOffset={sideOffset} className={cn(menuContentClass, className)} {...props} />
-  </MB.Portal>
-);
+}: ComponentPropsWithRef<typeof MB.Content>): JSX.Element => {
+  const closeAutoFocus = useCloseAutoFocus(onCloseAutoFocus);
+  return (
+    <MB.Portal>
+      <MB.Content
+        align={align}
+        sideOffset={sideOffset}
+        className={cn(menuContentClass, className)}
+        onCloseAutoFocus={closeAutoFocus}
+        {...props}
+      />
+    </MB.Portal>
+  );
+};
 export const MenubarItem = ({ className, ...props }: ComponentPropsWithRef<typeof MB.Item>): JSX.Element => (
   <MB.Item className={cn(menuItemClass, className)} {...props} />
 );
@@ -111,20 +216,41 @@ export const MenubarSubContent = ({
 );
 
 // ---------- DropdownMenu ----------
-export const DropdownMenu: typeof DM.Root = DM.Root;
-export const DropdownMenuTrigger: typeof DM.Trigger = DM.Trigger;
+export const DropdownMenu = (props: ComponentPropsWithRef<typeof DM.Root>): JSX.Element => (
+  <OpenerScope>
+    <DM.Root {...props} />
+  </OpenerScope>
+);
+export const DropdownMenuTrigger = ({
+  onPointerDown,
+  onMouseDown,
+  onKeyDown,
+  ...props
+}: ComponentPropsWithRef<typeof DM.Trigger>): JSX.Element => {
+  const handlers = useOpenerHandlers<HTMLButtonElement>({ onPointerDown, onMouseDown, onKeyDown });
+  return <DM.Trigger {...props} {...handlers} />;
+};
 export const DropdownMenuGroup: typeof DM.Group = DM.Group;
 export const DropdownMenuSub: typeof DM.Sub = DM.Sub;
 export const DropdownMenuRadioGroup: typeof DM.RadioGroup = DM.RadioGroup;
 export const DropdownMenuContent = ({
   className,
   sideOffset = 4,
+  onCloseAutoFocus,
   ...props
-}: ComponentPropsWithRef<typeof DM.Content>): JSX.Element => (
-  <DM.Portal>
-    <DM.Content sideOffset={sideOffset} className={cn(menuContentClass, className)} {...props} />
-  </DM.Portal>
-);
+}: ComponentPropsWithRef<typeof DM.Content>): JSX.Element => {
+  const closeAutoFocus = useCloseAutoFocus(onCloseAutoFocus);
+  return (
+    <DM.Portal>
+      <DM.Content
+        sideOffset={sideOffset}
+        className={cn(menuContentClass, className)}
+        onCloseAutoFocus={closeAutoFocus}
+        {...props}
+      />
+    </DM.Portal>
+  );
+};
 export const DropdownMenuItem = ({ className, ...props }: ComponentPropsWithRef<typeof DM.Item>): JSX.Element => (
   <DM.Item className={cn(menuItemClass, className)} {...props} />
 );

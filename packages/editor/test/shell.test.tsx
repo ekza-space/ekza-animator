@@ -8,6 +8,7 @@ import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-c
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import { Profiler, StrictMode } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { EditorRoot } from '../src/shell/EditorRoot';
 import type { Summarizer } from '../src/shell/summary';
 import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
@@ -206,6 +207,51 @@ describe('editor shell', () => {
     await waitFor(() => app.calls.some((call) => call.id === 'time.togglePlay'));
     expect(app.calls.find((call) => call.id === 'key.set')?.args).toEqual({ channels: 'all' });
     expect(app.session.getState().time.playing).toBe(true);
+    await view.unmount();
+  });
+
+  // Acceptance round 3: after a menu was used, its menu bar title kept the focus; Space over the viewport reopened
+  // the menu and a second Space ran its first item.
+  it('menu bar titles leave Space to the hovered panel after pointer or keyboard use of a menu', async () => {
+    const { view, app } = await mount();
+    await waitFor(() => document.querySelector('[data-testid="panel-viewport"]') !== null);
+    const viewport = byTestId(document.body, 'panel-viewport');
+    const help = testId(view, 'menu-help');
+    const maximizes = (): number => app.calls.filter((call) => call.id === 'view.toggleMaximize').length;
+    const menuOpen = (): boolean => document.querySelector('[data-testid="menu-item-shell.help.about"]') !== null;
+    const tapSpaceOverViewport = async (): Promise<void> => {
+      await userEvent.hover(viewport);
+      await waitFor(() => app.session.getState().hoveredPanel?.kind === 'viewport');
+      await userEvent.keyboard(' ');
+    };
+
+    // Pointer: open the menu and close it with its title; the title does not keep the focus.
+    await userEvent.click(help);
+    await waitFor(menuOpen);
+    await userEvent.click(help);
+    await waitFor(() => !menuOpen());
+    await settle(50);
+    expect(document.activeElement).not.toBe(help);
+    await tapSpaceOverViewport();
+    await waitFor(() => maximizes() === 1);
+    expect(menuOpen()).toBe(false);
+
+    // Keyboard: Enter opens the menu from its focused title and Esc returns the focus there; Space over the
+    // viewport still maximizes instead of reopening the menu, and nothing in the menu runs.
+    help.focus();
+    await userEvent.keyboard('{Enter}');
+    await waitFor(menuOpen);
+    await userEvent.keyboard('{Escape}');
+    await waitFor(() => !menuOpen());
+    await settle(50);
+    expect(document.activeElement).toBe(help);
+    await tapSpaceOverViewport();
+    await waitFor(() => maximizes() === 2);
+    await tapSpaceOverViewport();
+    await waitFor(() => maximizes() === 3);
+    expect(menuOpen()).toBe(false);
+    expect(app.session.getState().dialog).toBeNull();
+    expect(document.activeElement).toBe(help);
     await view.unmount();
   });
 
