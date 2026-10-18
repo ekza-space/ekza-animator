@@ -55,6 +55,7 @@ test('fix round 1: the arrow nudge on the time slider moves the band with the ke
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { arm, clip } = await seedArmKeys(page);
+  await runOk(page, 'select.controls', { ids: arm, mode: 'replace' });
   await shiftClickTick(page, 10);
   // Over the slider (it has the keyboard focus after the click): two nudges to the right.
   const over = await sliderPoint(page, 5);
