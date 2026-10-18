@@ -31,20 +31,22 @@ export type ViewportProbe = Pick<
   'panes' | 'cameraOf' | 'screenOfControl' | 'screenOfManipulator' | 'renderedFrames'
 >;
 
-/** The M1 fields of `graph()`; the M2a fields (`viewMode`, A4) are optional in a probe. */
+/** The M1 fields of `graph()`; the M2a field `viewMode` is optional in a probe. */
 type GraphState = NonNullable<ReturnType<EkzaAnimatorTestApi['graph']>>;
 
 /**
  * Graph Editor slice (WP-6 `graphTestHooks(app)`); without one `graph()` and `screenOf{Key,Handle,Curve}` are null.
- * M2a (A4): `graph().viewMode` and `screenOfRegionHandle` are optional until A4's probe provides them (the test API
- * answers 'absolute' and null); `graph().buffers` comes from the session.
+ * M2a: `graph().viewMode` and `screenOfRegionHandle` are optional in a probe. The Graph Editor's probe provides both
+ * (A4); for a probe without them (test fakes) the test API answers 'absolute' and null. `graph().buffers` comes from
+ * the session.
  */
 export type GraphProbe = Pick<EkzaAnimatorTestApi, 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'> & {
   graph(): (Omit<GraphState, 'viewMode' | 'buffers'> & Partial<Pick<GraphState, 'viewMode'>>) | null;
 } & Partial<Pick<EkzaAnimatorTestApi, 'screenOfRegionHandle'>>;
 
-/** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. M2a (A3): `timelineTicks` and
- *  `screenOfBand` are optional until A3's probe provides them (without them: no ticks, no band point). */
+/** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. M2a: `timelineTicks` and
+ *  `screenOfBand` are optional in a probe; the time slider's probe provides both (A3), a probe without them (test
+ *  fakes) gives no ticks and no band point. */
 export type TimelineProbe = Pick<EkzaAnimatorTestApi, 'screenOfFrame' | 'screenOfTick'> &
   Partial<Pick<EkzaAnimatorTestApi, 'timelineTicks' | 'screenOfBand'>>;
 

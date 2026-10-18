@@ -95,7 +95,8 @@ const availability = new WeakMap<object, boolean>();
 
 /**
  * Whether limb IK can be added to this character: the rig package implements `limbIkRecords` (probed once per
- * program and kit with no limbs). False before A1 merges, so the IK commands poll-fail "not available yet".
+ * program and kit with no limbs). False when the limb kit is the `not-implemented` stub (tests script one through
+ * `setLimbKit`), so the IK commands poll-fail "not available yet"; true with the rig package's kit.
  */
 export function limbIkAvailable(app: EditorApp, runtime: CharacterRuntime): boolean {
   const kit = limbKitOf(app);
