@@ -830,7 +830,10 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
    shows degrees (typed values are degrees, so `30` on `@roll` is 30°), `'distance'` metres, otherwise 3 decimals;
    `bool` shows 0/1; `enum` shows `enumLabels`. The Graph Editor channel list shows attribute curves after TRS with
    the `other` colour; its value axis, numeric fields and value drags use the same units. The Channel Box hides the
-   raw `@ikFk` row of an IK control: the IK/FK proxy row (§5.6) shows and edits that channel instead.
+   raw `@ikFk` row of an IK control: the IK/FK proxy row (§5.6) shows and edits that channel instead. The Graph
+   Editor and the Dope Sheet name and order channels like the Channel Box (`channelDisplayLabel`,
+   `sortChannelsForDisplay`): TRS, attributes in `attrs` order, `@ikFk` ('IK/FK') after them (fix round 2,
+   M2A-INT-35).
 6. **Defaults**: wherever M1 uses a channel's default (key-less curves, `toDefault` tweens, `pose.resetToRest`,
    overrides cleared to default) the value is `channelDefaultOf(control, channel)` = `AttrDef.default` for
    attributes. `pose.resetToRest` resets pose attributes and leaves `keyAll: false` attributes alone, so a reset never
@@ -2238,6 +2241,10 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
   slot's active clips), §5.14 (warning summary; no key-less curves), §5.16 (bytes rule), §5.18 (LMB start), §4.9
   (nudge band); MVP-SPEC §4.11.10 step 3 (`in-place` removes the travel). Owner items: M2A-INT-21 (in-place
   semantics), M2A-INT-33 (version).
+- **Acceptance fix round 2** (2026-10-19, on `dev`, M2A-INT-34, -35): the final acceptance passed with one major
+  defect (a Space-maximized or Single-layout pane filled ~40 % of the Viewport panel; present since M1) and one minor
+  one (the Graph Editor and the Dope Sheet named attribute channels by raw id, alphabetically); both fixed with
+  regression tests. Amended here: §5.1 rule 5 (channel names and order shared with the Channel Box).
 - Open for the release: the owner's review of §F (FR-EXP-12's "3–10×" criterion among them, M2A-A5-3/INT-3), the
   owner's run of the demo script; `v0.2.0` is the owner's call.
 

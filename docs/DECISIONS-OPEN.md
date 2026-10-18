@@ -517,6 +517,16 @@ that fail without the fix. Details, numbers and tests:
 New e2e spec `apps/web/e2e/m2a-r1-fixes.spec.ts` (toast focus ring, nudge band, Channel Box names); assertions added
 to E2E-M2A-03, -04, -21, -23 and the owner demo walkthrough.
 
+### Acceptance fix round 2 (M2a final acceptance on `dev`, 2026-10-19)
+
+The final M2a acceptance passed and reported one major and one minor defect; both are fixed with regression tests
+that fail without the fix (checked against the unfixed build: both e2e tests and the two browser tests fail).
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M2A-INT-34 | **Major**: a one-pane viewport (a Space-maximized pane, the Single layout) filled about 40 % of the Viewport panel — at 1440 × 900 a maximized pane ended at x = 626 px, the panel at 1160 px — and the GL viewport and input surface with it. The one-pane grid is a row flex container, where the pane's `<section>` (no width) took its header's content width; split and quad panes sit in block boxes and filled them. **Not an M2a regression**: the grid and pane markup are unchanged since the viewport panel was built (WP-5, `f5a0b0d`, in `v0.1.0`); E2E-05 checked only the maximize state, and the browser panel tests run without Tailwind | **Fixed**: the pane fills the box its layout gives it (`w-full`); split and quad unchanged | `editor/src/panels/viewport/PaneView.tsx`; e2e `m2a-r2-fixes.spec.ts` (DOM boxes and the manager's pane rectangle in split, a maximized split pane, quad, a maximized quad pane and Single) |
+| M2A-INT-35 | Minor: the Graph Editor and the Dope Sheet listed attribute channels by raw id in alphabetical order ('bank', 'heelTwist', 'ikFk', …), unlike the Channel Box | **Fixed**: one helper pair in editor-core's `channelMeta` — `channelDisplayLabel` (TRS names, `AttrDef.label`, else the title-cased name) and `sortChannelsForDisplay` (TRS in Maya order, attributes in `attrs` order, `@ikFk` after them where the Channel Box shows the IK/FK row, attributes the control does not define last by id) — used by the Channel Box, the Graph Editor's channel list and stacked lanes, the Dope Sheet's rows and the virtual slider's step label (the three TRS name tables became one); curve-editor's `channelLabel(channel, control?)` delegates | `editor-core/src/edit/channelMeta.ts`; `curve-editor/src/channel-tree/`, `dopesheet/rows.ts`, `graph/GraphEditorController.ts`; `editor/src/panels/channel-box/ChannelBoxPanel.tsx`; M2A-SPEC §5.1 rule 5; tests `curve-editor/test/channel-tree.test.ts`, `dopesheet/rows-holds.test.ts` (browser), e2e `m2a-r2-fixes.spec.ts` (Channel Box, Graph Editor and Dope Sheet show the same names in the same order) |
+
 ### Build deviations of A0 … A5 (consolidated)
 
 **A0 contracts and foundation** — A0-1 `time.insertTime {at?}` and `time.deleteTime` (menu items without a frame);
