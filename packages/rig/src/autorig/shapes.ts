@@ -193,8 +193,9 @@ function makeShape(
     size: clean(size),
     offset: {
       t: [clean(t[0]), clean(t[1]), clean(t[2])],
-      // Rotations stay unrounded so they remain unit quaternions.
-      q: [q[0], q[1], q[2], q[3]],
+      // Rotations stay unrounded so they remain unit quaternions; `0 + x` turns −0 into +0, which a JSON round trip
+      // (autosave and recovery, save and open) would do anyway (acceptance fix round 1).
+      q: [0 + q[0], 0 + q[1], 0 + q[2], 0 + q[3]],
       s: [1, 1, 1],
     },
     custom,

@@ -182,6 +182,45 @@ describe('insertKeyPreservingShape (MVP-SPEC §4.11.4)', () => {
     }
   });
 
+  // Acceptance fix round 1, bug 4: on a flat span the inserted key's in-handle was `−slope·dt` = −0, which a JSON
+  // round trip (autosave and recovery, save and open) turns into +0, so the recovered document differed from the
+  // saved one (the class of M2A-INT-16). Every handle the insert writes is +0 where it is zero.
+  it('never writes −0 into a handle (flat spans, flat infinities, every tangent type)', () => {
+    const negativeZeros = (keys: readonly KeyData[]): string[] =>
+      keys.flatMap((k) =>
+        (['inHandle', 'outHandle'] as const).flatMap((side) =>
+          (['dt', 'dv'] as const).filter((f) => Object.is(k[side][f], -0)).map((f) => `${k.t} ${side}.${f}`),
+        ),
+      );
+    for (const weighted of [false, true]) {
+      for (const type of TANGENT_TYPES) {
+        for (const mode of ['constant', 'linear', 'cycle'] as const) {
+          // A hold (equal values) and a flat end: the slope at the insert is 0.
+          const c = curve([key(0, 0.5, type), key(10, 0.5, type), key(20, 0.5, type)], {
+            weighted,
+            pre: mode,
+            post: mode,
+          });
+          for (const frame of [-4, 3, 10.5, 17, 26]) {
+            const result = insertKeyPreservingShape(c, frame);
+            expect(negativeZeros(result.keys), `${type} ${mode} weighted=${weighted} @${frame}`).toEqual([]);
+            expect(JSON.parse(JSON.stringify(result.keys))).toEqual(result.keys);
+          }
+        }
+      }
+    }
+    fc.assert(
+      fc.property(curveArbitrary(), fc.double({ min: -0.5, max: 1.5, noNaN: true }), (c, where) => {
+        const first = c.keys[0]!.t;
+        const last = c.keys[c.keys.length - 1]!.t;
+        const result = insertKeyPreservingShape(c, first + (last - first) * where);
+        const created = result.keys.filter((k) => !c.keys.includes(k));
+        expect(negativeZeros(created)).toEqual([]);
+      }),
+      { numRuns: 1000 },
+    );
+  });
+
   it('a key already at the frame (within 1e-6) is returned unchanged', () => {
     const c = waveCurve();
     const result = insertKeyPreservingShape(c, 15 + 5e-7);

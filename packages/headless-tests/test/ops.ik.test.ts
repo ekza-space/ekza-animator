@@ -142,6 +142,51 @@ describe.skipIf(!SIBLINGS_READY)(`IK editor operators on the fixtures ${BLOCKED}
     expect(services.toasts.filter((toast) => toast.kind === 'error')).toEqual([]);
   });
 
+  // Acceptance fix round 1, bug 4: the seamless switch inserts its f − 1 hold keys shape-preserving; on flat spans
+  // their in-handles were −0, which a JSON round trip (autosave and recovery, save and open) turns into +0.
+  it('seamless switches on flat curves write no −0: the document survives a JSON round trip', async () => {
+    const { app } = realApp();
+    const bot = await importFixture(app, 'polybot.vrm');
+    const { clip } = (await runOk(app, 'clip.new', { name: 'walk' })) as { clip: string };
+    // A loop clip, as the acceptance walk: its curves cycle (cycle-aware auto tangents, M2A-SPEC §5.23).
+    await runOk(app, 'clip.setSettings', { clip, range: { start: 0, end: 24 }, loop: true });
+    const ik = controlOf(app, bot.character, 'ik.leg.L');
+    const pole = controlOf(app, bot.character, 'pole.leg.L');
+    select(app, [ik, pole]);
+    // tz and pole tx move; every other channel keyed by S holds its value, so its curve is flat where the switch at
+    // 21 inserts its hold keys (slope 0).
+    for (const [frame, tz, tx] of [
+      [0, 0.1, 0],
+      [12, 0.05, 0.03],
+      [24, 0.1, 0],
+    ] as const) {
+      setSceneFrame(app, frame);
+      await runOk(app, 'channel.setValues', {
+        edits: [
+          { control: ik, channel: 'tz', value: tz },
+          { control: pole, channel: 'tx', value: tx },
+        ],
+      });
+      await runOk(app, 'key.set');
+    }
+    setSceneFrame(app, 18);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+    setSceneFrame(app, 21);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'seamless' });
+    // The store's own snapshot (docJson goes through JSON, which would hide a −0).
+    const json = app.store.snapshot() as unknown;
+    const negative: string[] = [];
+    const walk = (value: unknown, path: string): void => {
+      if (Object.is(value, -0)) negative.push(path);
+      else if (Array.isArray(value)) value.forEach((v, i) => walk(v, `${path}[${i}]`));
+      else if (value !== null && typeof value === 'object')
+        for (const [k, v] of Object.entries(value)) walk(v, `${path}.${k}`);
+    };
+    walk(json, 'doc');
+    expect(negative).toEqual([]);
+    expect(JSON.parse(JSON.stringify(json))).toEqual(json);
+  });
+
   it('seamless IK → FK at 10: @ikFk {9: 1, 10: 0} stepped; the pose at 9 and 10 kept (1e-6); one undo', async () => {
     const { app } = realApp();
     const san = await importFixture(app, 'seed-san.vrm');
