@@ -9,13 +9,19 @@
 //   kind and gesture and nothing was recorded or navigated since. A selection step clears redo in the history and in
 //   the doc (`UndoManager.clearRedo()`). Undo restores the part's `before`, redo its `after` (through the context).
 // - A step with only a selection part is not empty: `isEmpty` and pruning keep it.
-// - Drops: steps leaving the history for good are reported to `onDrop` listeners (oldest first) with the reason —
-//   'limit' (the step limit), 'clear', 'budget' (`dropOldest`, the undo byte budget) and 'redo-cleared' (a new step
-//   cleared redo). Dropping undo steps that own doc entries evicts the doc entries up to the newest of them
-//   (`UndoManager.evictOldest`), so no doc entry outlives its step; doc entries evicted by the doc itself (its own
-//   limit, `clear`, a load) take the doc part away from the steps that owned them.
+// - Drops: steps leaving the history for good are reported to `onDrop` listeners (undo steps oldest first, then redo
+//   steps next redo first; one call per event) with the reason — 'limit' (the step limit), 'clear', 'budget'
+//   (`dropOldest`, the undo byte budget) and 'redo-cleared' (a new step cleared redo). Dropping undo steps that own
+//   doc entries evicts the doc entries up to the newest of them (`UndoManager.evictOldest`), so no doc entry outlives
+//   its step. Doc entries the doc evicts on its own (`onEvict`: its limit, `evictOldest`, `clear`, a load, a new
+//   transaction or `clearRedo` clearing redo) take the doc part away from the steps that owned them; a step left
+//   without any part leaves and is reported with the mapped reason (`DROP_REASON`). A doc 'redo-cleared' means a new
+//   change was made: the whole history redo goes with it, as `record` would clear it next.
+// - Pruning is not a drop: a step that loses its last part to pruning outside a doc eviction (its doc entry taken
+//   over by a later step, cancelled out by coalescing, `forgetDocEntries`, `dropOverrides`) disappears without
+//   `onDrop`; it holds nothing a drop listener releases (M6A-B0A-25).
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, DocumentStore, UndoEntry, UndoResult } from '@ekza-animator/doc';
+import type { CharacterId, DocumentStore, UndoEntry, UndoEvictReason, UndoResult } from '@ekza-animator/doc';
 import type {
   EditorHistory,
   HistoryDropReason,
@@ -41,6 +47,8 @@ export interface KernelHistory extends EditorHistory {
   owns(docTxId: string): boolean;
   /** Id of the top undo step without reconciling first (the runner's LastRun hook), null when empty. */
   topId(): number | null;
+  /** The steps, oldest first (undo: the next undo last; redo: the next redo first). */
+  steps(): { readonly undo: readonly HistoryStep[]; readonly redo: readonly HistoryStep[] };
   /** Step labels, oldest first (undo: the next undo last; redo: the next redo first); the e2e `history()` read. */
   labels(): { readonly undo: readonly string[]; readonly redo: readonly string[] };
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
@@ -69,6 +77,15 @@ export interface HistoryContext {
 }
 
 type DropListener = (steps: readonly HistoryStep[], reason: HistoryDropReason) => void;
+
+/** How a doc eviction is reported for the steps it empties (a document load clears like `clear`). */
+const DROP_REASON: Readonly<Record<UndoEvictReason, HistoryDropReason>> = {
+  limit: 'limit',
+  budget: 'budget',
+  'redo-cleared': 'redo-cleared',
+  clear: 'clear',
+  load: 'clear',
+};
 
 function isSelectionPart(part: unknown): part is SelectionPart {
   if (typeof part !== 'object' || part === null) return false;
@@ -109,11 +126,20 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     if (last >= 0) ctx.store.undo.evictOldest(last + 1);
   };
 
+  /** While the history evicts doc entries itself: steps the doc eviction empties, reported with the history's drop. */
+  let collecting: HistoryStep[] | null = null;
+
   /** Drops the `n` oldest undo steps (and their doc entries) for `reason`. */
   const dropOldestSteps = (n: number, reason: 'limit' | 'budget'): void => {
     if (n <= 0 || undoSteps.length === 0) return;
     const removed = undoSteps.splice(0, Math.min(n, undoSteps.length));
-    evictDocEntriesOf(removed);
+    const outer = collecting;
+    collecting = removed;
+    try {
+      evictDocEntriesOf(removed);
+    } finally {
+      collecting = outer;
+    }
     dropped(removed, reason);
   };
 
@@ -202,9 +228,44 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     if (changedUndo || changedRedo) notify();
   };
 
-  // Doc entries that leave the doc undo manager take the doc part away from the steps that owned them.
-  const disposeEvict = ctx.store.undo.onEvict((entries) => {
-    for (const entry of entries) forgetDocEntry(entry.txId);
+  // Doc entries that leave the doc undo manager take the doc part away from the steps that owned them; steps left
+  // without any part leave the history and are reported (one `onDrop` call per doc event).
+  const disposeEvict = ctx.store.undo.onEvict((entries, reason) => {
+    const txIds = new Set<string>();
+    for (const entry of entries) txIds.add(entry.txId);
+    const removed: HistoryStep[] = [];
+    let changed = false;
+    /** Strips the evicted doc parts from `steps[i]`; true when the step was left empty and removed. */
+    const strip = (steps: HistoryStep[], i: number): boolean => {
+      const step = steps[i] as HistoryStep;
+      if (step.docTxId === null || !txIds.has(step.docTxId)) return false;
+      changed = true;
+      const next: HistoryStep = { ...step, docTxId: null };
+      if (!isEmpty(next)) {
+        steps[i] = next;
+        return false;
+      }
+      steps.splice(i, 1);
+      removed.push(step);
+      return true;
+    };
+    // Undo steps oldest first.
+    for (let i = 0; i < undoSteps.length; ) if (!strip(undoSteps, i)) i++;
+    if (reason === 'redo-cleared') {
+      // The doc redo is gone because a new change was made: the history redo goes with it (next redo first).
+      if (redoSteps.length > 0) {
+        changed = true;
+        removed.push(...[...redoSteps].reverse());
+        redoSteps.length = 0;
+      }
+    } else {
+      // Redo steps next redo first (the end of the array).
+      for (let i = redoSteps.length - 1; i >= 0; i--) strip(redoSteps, i);
+    }
+    if (!changed) return;
+    if (collecting !== null) collecting.push(...removed);
+    else dropped(removed, DROP_REASON[reason]);
+    notify();
   });
 
   const history: KernelHistory = {
@@ -332,9 +393,13 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       };
     },
     topId: () => undoSteps.at(-1)?.id ?? null,
-    labels() {
+    steps() {
       ctx.reconcile();
-      return { undo: undoSteps.map((step) => step.label), redo: [...redoSteps].reverse().map((step) => step.label) };
+      return { undo: [...undoSteps], redo: [...redoSteps].reverse() };
+    },
+    labels() {
+      const { undo, redo } = history.steps();
+      return { undo: undo.map((step) => step.label), redo: redo.map((step) => step.label) };
     },
     owns: (docTxId: string) =>
       undoSteps.some((step) => step.docTxId === docTxId) || redoSteps.some((step) => step.docTxId === docTxId),

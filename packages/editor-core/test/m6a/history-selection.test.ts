@@ -240,38 +240,181 @@ describe('history drops (onDrop, dropOldest, the step limit)', () => {
     h.docStep('B');
     h.docStep('C'); // the doc keeps 2 entries: A's leaves, the step 'A' is now empty and disappears
     expect(labels(h)).toEqual(['Select', 'B', 'C']);
+    expect(h.drops).toEqual([{ labels: ['A'], reason: 'limit' }]);
     h.store.undo.clear();
     expect(labels(h)).toEqual(['Select']);
+    expect(h.drops.at(-1)).toEqual({ labels: ['B', 'C'], reason: 'clear' });
+    expect(h.drops).toHaveLength(2);
   });
 
-  it('property: steps and doc entries stay paired under random record/select/undo/redo/drop sequences', () => {
-    type Op = 'doc' | 'select' | 'repeat' | 'undo' | 'redo' | 'drop';
-    const ops = fc.constantFrom<Op>('doc', 'select', 'repeat', 'undo', 'redo', 'drop');
+  it('reports the redo steps a new doc transaction clears (doc step after undo)', () => {
+    const h = harness();
+    h.docStep('A');
+    h.history.undo();
+    h.docStep('B');
+    expect(h.drops).toEqual([{ labels: ['A'], reason: 'redo-cleared' }]);
+    expect(h.history.steps().redo).toEqual([]);
+    expect(labels(h)).toEqual(['B']);
+  });
+
+  it('clears the whole history redo in one call when the doc clears its redo, next redo first', () => {
+    const h = harness();
+    h.docStep('A');
+    h.history.recordSelection(select('replace', [], ['x']), 'Select');
+    h.docStep('C');
+    h.history.undo();
+    h.history.undo();
+    h.history.undo();
+    expect(h.history.steps().redo.map((s) => s.label)).toEqual(['A', 'Select', 'C']);
+    h.docStep('D');
+    expect(h.drops).toEqual([{ labels: ['A', 'Select', 'C'], reason: 'redo-cleared' }]);
+    expect(labels(h)).toEqual(['D']);
+    // `UndoManager.clearRedo()` called by someone else: the same.
+    h.history.recordSelection(select('replace', ['x'], ['y']), 'Select');
+    h.history.undo();
+    h.history.undo();
+    h.store.undo.clearRedo();
+    expect(h.drops.at(-1)).toEqual({ labels: ['D', 'Select'], reason: 'redo-cleared' });
+    expect(h.history.canRedo()).toBe(false);
+  });
+
+  it('keeps redo steps whose doc entries survive (a selection step after undo reports once)', () => {
+    const h = harness();
+    h.docStep('A');
+    h.docStep('B');
+    h.history.undo();
+    h.history.recordSelection(select('replace', [], ['x']), 'Select');
+    // The history clears its redo first; the doc's own redo-cleared event then finds nothing left to report.
+    expect(h.drops).toEqual([{ labels: ['B'], reason: 'redo-cleared' }]);
+    expect(labels(h)).toEqual(['A', 'Select']);
+  });
+
+  it('reports steps emptied by the doc limit with reason limit (doc limit below the history limit)', () => {
+    const h = harness({ undoLimit: 1 });
+    h.docStep('A');
+    h.docStep('B');
+    expect(labels(h)).toEqual(['B']);
+    expect(h.drops).toEqual([{ labels: ['A'], reason: 'limit' }]);
+  });
+
+  it('reports steps emptied by a direct evictOldest with reason budget; override parts keep a step', () => {
+    const h = harness();
+    h.docStep('A');
+    h.history.record({ label: 'Pose', docTxId: null, overrides: null, selection: select('replace', [], ['p']) });
+    h.docStep('B');
+    // A step that owns a doc entry and a selection part loses only the doc part.
+    h.store.transact({ label: 'C' }, (tx) => tx.put('meshes', makeTestMesh('msh_C', { name: 'C' })));
+    const c = h.store.undo.peekUndo()?.txId as string;
+    h.history.record({ label: 'C', docTxId: c, overrides: null, selection: select('replace', ['p'], ['q']) });
+    h.store.undo.evictOldest(3);
+    expect(h.drops).toEqual([{ labels: ['A', 'B'], reason: 'budget' }]);
+    expect(h.history.steps().undo.map((s) => [s.label, s.docTxId])).toEqual([
+      ['Pose', null],
+      ['C', null],
+    ]);
+  });
+
+  it('reports every step on a document load with reason clear (undo first, then redo next first)', () => {
+    const h = harness();
+    const snapshot = h.store.snapshot();
+    h.docStep('A');
+    h.history.recordSelection(select('replace', [], ['x']), 'Select');
+    h.docStep('B');
+    h.docStep('C');
+    h.history.undo();
+    h.history.undo();
+    h.store.load(snapshot);
+    // Doc-only steps are emptied; the selection-only step keeps its part (the kernel's capture clears it on load).
+    expect(h.drops).toEqual([{ labels: ['A', 'B', 'C'], reason: 'clear' }]);
+    expect(h.history.steps().undo.map((s) => s.label)).toEqual(['Select']);
+  });
+
+  it('collects steps a history drop empties through evictOldest into the same onDrop call', () => {
+    const h = harness({ limit: 1 });
+    const evicted: string[] = [];
+    h.store.undo.onEvict((entries, reason) => evicted.push(...entries.map((e) => `${e.label}:${reason}`)));
+    h.store.transact({ label: 'one' }, (tx) => tx.put('meshes', makeTestMesh('msh_one')));
+    const one = h.store.undo.peekUndo()?.txId as string;
+    h.store.transact({ label: 'two' }, (tx) => tx.put('meshes', makeTestMesh('msh_two', { name: 'Two' })));
+    const two = h.store.undo.peekUndo()?.txId as string;
+    // Steps out of the doc order (not something the runner records, but the history must stay paired): X owns the
+    // newer entry, Y the older one. The limit drops X, which evicts both entries, so Y is left empty too.
+    h.history.record({ label: 'X', docTxId: two, overrides: null });
+    h.history.record({ label: 'Y', docTxId: one, overrides: null });
+    expect(h.drops).toEqual([{ labels: ['X', 'Y'], reason: 'limit' }]);
+    expect(evicted).toEqual(['one:budget', 'two:budget']);
+    expect(h.history.canUndo()).toBe(false);
+  });
+
+  it('property: steps and doc entries stay paired and every step leaving is reported once', () => {
+    type Op =
+      | 'doc'
+      | 'select'
+      | 'repeat'
+      | 'undo'
+      | 'redo'
+      | 'drop'
+      | 'clear'
+      | 'docClear'
+      | 'docEvict'
+      | 'docClearRedo';
+    const ops = fc.constantFrom<Op>(
+      'doc',
+      'doc',
+      'select',
+      'repeat',
+      'repeat',
+      'undo',
+      'undo',
+      'redo',
+      'drop',
+      'clear',
+      'docClear',
+      'docEvict',
+      'docClearRedo',
+    );
     fc.assert(
       fc.property(fc.array(ops, { maxLength: 60 }), (sequence) => {
-        const h = harness({ limit: 6, undoLimit: 8 });
+        const h = harness({ limit: 6, undoLimit: 4 });
+        const reported: { readonly id: number; readonly reason: HistoryDropReason }[] = [];
+        h.history.onDrop((steps, reason) => reported.push(...steps.map((s) => ({ id: s.id, reason }))));
+        const ids = (): Set<number> => {
+          const { undo, redo } = h.history.steps();
+          return new Set([...undo, ...redo].map((s) => s.id));
+        };
         let n = 0;
         for (const op of sequence) {
+          const before = ids();
+          reported.length = 0;
           if (op === 'doc') h.docStep(`D${n++}`);
           else if (op === 'select') h.history.recordSelection(select('grow', [], [`o${n++}`]), 'Select');
           else if (op === 'repeat') {
             h.history.recordSelection(select('grow', [], [`o${n++}`]), 'Select', { repeat: true });
           } else if (op === 'undo') h.history.undo();
           else if (op === 'redo') h.history.redo();
-          else h.history.dropOldest(1);
-          // Every undo step that owns a doc entry finds it on the doc undo stack, and the limit holds.
+          else if (op === 'drop') h.history.dropOldest(1);
+          else if (op === 'clear') h.history.clear();
+          else if (op === 'docClear') h.store.undo.clear();
+          else if (op === 'docEvict') h.store.undo.evictOldest(1);
+          else h.store.undo.clearRedo();
+          const after = ids();
+          // Every step that disappeared was reported, exactly once, and nothing still present was.
+          const gone = [...before].filter((id) => !after.has(id)).sort((a, b) => a - b);
+          const reportedIds = reported.map((r) => r.id);
+          expect([...reportedIds].sort((a, b) => a - b)).toEqual(gone);
+          expect(new Set(reportedIds).size).toBe(reportedIds.length);
+          // Every step that owns a doc entry finds it in the doc (undo steps on the undo stack): no step outlives its
+          // entry, and no doc entry outlives its step through a history drop. The limits hold.
           const docUndo = new Set(h.store.undo.entries().undo.map((e) => e.txId));
-          const steps: HistoryStep[] = [];
-          for (let step = h.history.peekUndo(); step !== null; step = h.history.peekUndo()) {
-            steps.push(step);
-            h.history.undo();
-          }
-          for (let i = 0; i < steps.length; i++) h.history.redo();
-          expect(steps.filter((step) => step.docTxId !== null && !docUndo.has(step.docTxId))).toEqual([]);
-          expect(steps.length).toBeLessThanOrEqual(6);
+          const docAll = new Set([...docUndo, ...h.store.undo.entries().redo.map((e) => e.txId)]);
+          const { undo, redo } = h.history.steps();
+          expect(undo.filter((step) => step.docTxId !== null && !docUndo.has(step.docTxId))).toEqual([]);
+          expect(redo.filter((step) => step.docTxId !== null && !docAll.has(step.docTxId))).toEqual([]);
+          expect(undo.length).toBeLessThanOrEqual(6);
+          expect(h.store.undo.entries().undo.length).toBeLessThanOrEqual(4);
         }
       }),
-      { numRuns: 200 },
+      { numRuns: 300 },
     );
   });
 });
