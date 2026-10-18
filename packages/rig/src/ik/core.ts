@@ -31,9 +31,9 @@ import {
 //                  The band takes the bend continuously (C¹ at its far end) from the rest's −T through straight to
 //                  the flexion branch while the target comes closer than d⁰ by about 8·(R_max − d⁰) (R_max the
 //                  greatest reach). Its bends are less than s in size, so inside the band the end overshoots the
-//                  target along the reach ray by at most about 2.2·(R_max − d⁰) (Polybot's arms 0.6 mm, Seed-san's
-//                  0.03 mm); matching places the IK control so the end lands exactly (`distanceForBend`). Rests that
-//                  are not hyperextended (T = 0) keep the M1 rule t = s.
+//                  target along the reach ray by at most about 2.2·(R_max − d⁰) (Polybot's arms: band 2.1 mm,
+//                  overshoot ≤ 0.56 mm; Seed-san's: 0.28 mm and 0.07 mm); matching places the IK control so the end
+//                  lands exactly (`distanceForBend`). Rests that are not hyperextended (T = 0) keep the M1 rule t = s.
 //
 // With these, default channels reproduce the rest pose exactly (§5.3 rest exactness) on every fixture limb.
 

@@ -39,6 +39,9 @@ import {
   writeControlChannels,
 } from '@ekza-animator/rig';
 import { type Object3D, type SkinnedMesh, Vector3 } from 'three';
+import { PerformanceObserver, performance } from 'node:perf_hooks';
+import { getHeapSpaceStatistics, setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const IDS = { character: 'chr_IkFixtureGates01' as never, rig: 'rig_IkFixtureGates01' as never };
@@ -557,6 +560,330 @@ describe('IK/FK matching on the fixtures (§5.6 gates)', { timeout: 60_000 }, ()
   });
 });
 
+/**
+ * The hinge geometry of a limb's rest (canonical; M2A-SPEC §5.3 amendment C), derived here from the rest positions:
+ * the chain bent by t from its greatest reach reaches √(2·(c0 + r·cos t)); the rest lies at t = −T (T > 0: the rest
+ * is hyperextended about its hinge).
+ */
+function hingeGeometry(program: RigProgram, desc: LimbDesc): { T: number; reach: (t: number) => number } {
+  const rest = evaluate(program, channelsOf(program, {}, {}));
+  const a = pos(rest, desc.nodes.upper);
+  const b = pos(rest, desc.nodes.mid);
+  const c = pos(rest, desc.nodes.end);
+  const u: Vec3 = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+  const v: Vec3 = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+  const k: Vec3 = [desc.params.hinge[0], desc.params.hinge[1], desc.params.hinge[2]];
+  const d = (x: Vec3, y: Vec3): number => x[0] * y[0] + x[1] * y[1] + x[2] * y[2];
+  const vk = d(v, k);
+  const w: Vec3 = [v[0] - vk * k[0], v[1] - vk * k[1], v[2] - vk * k[2]];
+  const n: Vec3 = [k[1] * w[2] - k[2] * w[1], k[2] * w[0] - k[0] * w[2], k[0] * w[1] - k[1] * w[0]];
+  const r = Math.hypot(d(u, w), d(u, n));
+  const c0 = (d(u, u) + d(v, v)) / 2 + d(u, k) * vk;
+  return { T: Math.max(0, Math.atan2(d(u, n), d(u, w))), reach: (t) => Math.sqrt(2 * (c0 + r * Math.cos(t))) };
+}
+
+describe('limb IK across a hyperextended rest (§5.3 amendment C) on the fixtures', { timeout: 60_000 }, () => {
+  it.for([
+    ['seed-san.vrm', 1.3, 1.5],
+    ['polybot.vrm', 4.8, 4.95],
+  ] as const)(
+    'moves the elbows continuously when the IK hands cross the rest reach on %s (T in [%f°, %f°])',
+    async ([name, low, high], { annotate }) => {
+      const skeleton = await loadSkeleton(name);
+      const program = ikProgram(skeleton);
+      const rest = evaluate(program, channelsOf(program));
+      const report: string[] = [];
+      for (const limb of ['arm.L', 'arm.R'] as const) {
+        const desc = limbOf(program, limb);
+        const { T, reach } = hingeGeometry(program, desc);
+        expect([limb, T > low * DEG && T < high * DEG]).toEqual([limb, true]);
+        const a = pos(rest, desc.nodes.upper);
+        const c0 = pos(rest, desc.nodes.end);
+        const d0 = dist(a, c0);
+        const ray: Vec3 = [(c0[0] - a[0]) / d0, (c0[1] - a[1]) / d0, (c0[2] - a[2]) / d0];
+        const e = reach(0) - d0;
+        const band = d0 - reach(3 * T);
+        const at = (inward: number): PoseBuffers =>
+          evaluate(
+            program,
+            channelsOf(program, {
+              [`ik.${limb}`]: { tx: -ray[0] * inward, ty: -ray[1] * inward, tz: -ray[2] * inward },
+            }),
+          );
+        const from = -0.9 * e;
+        const to = 1.5 * band;
+        const largestStep = (count: number): number => {
+          let largest = 0;
+          let previous = pos(at(from), desc.nodes.mid);
+          for (let i = 1; i <= count; i++) {
+            const elbow = pos(at(from + ((to - from) * i) / count), desc.nodes.mid);
+            largest = Math.max(largest, dist(elbow, previous));
+            previous = elbow;
+          }
+          return largest;
+        };
+        const coarse = largestStep(200);
+        const fine = largestStep(2000);
+        // A jump (5.7 mm on Seed-san, 12.4 mm on Polybot before amendment C was made continuous) would not shrink.
+        expect([limb, fine < 0.15 * coarse, fine < 1e-3]).toEqual([limb, true, true]);
+        // Exact outside the band; inside it the hand passes its target along the ray by at most 2.2·(R_max − d⁰).
+        let overshoot = 0;
+        for (const inward of [-0.5 * e, 0, 0.25 * band, 0.5 * band, 0.75 * band, 1.2 * band, 0.03]) {
+          const target: Vec3 = [c0[0] - ray[0] * inward, c0[1] - ray[1] * inward, c0[2] - ray[2] * inward];
+          const hand = pos(at(inward), desc.nodes.end);
+          const inBand = inward > 0 && inward < band;
+          overshoot = Math.max(overshoot, inBand ? dist(hand, a) - dist(target, a) : 0);
+          expect([limb, inward, inBand || dist(hand, target) < 1e-9]).toEqual([limb, inward, true]);
+        }
+        expect([limb, overshoot > 0, overshoot <= 2.2 * e]).toEqual([limb, true, true]);
+        report.push(
+          `${limb} T ${(T / DEG).toFixed(2)}°, band ${(band * 1e3).toFixed(3)} mm, overshoot ≤ ${(overshoot * 1e3).toFixed(3)} mm, largest elbow step ${(fine * 1e3).toFixed(4)} mm per ${(((to - from) / 2000) * 1e6).toFixed(2)} µm of hand travel`,
+        );
+      }
+      await annotate(`${name}: ${report.join('; ')}`);
+    },
+  );
+
+  it.each([
+    ['leg.L', -2],
+    ['leg.R', -5],
+    ['arm.L', -5],
+    ['arm.R', -10],
+  ] as const)('Polybot %s hyperextended by %i°: end equal, no flip, mid error reported', async (limb, degrees) => {
+    // Polybot's elbows rest at −4.9°: −5° and −10° lie beyond the rest's hyperextension, so the IK flexes (its −5°
+    // flexion lies in the band, where the IK control sits inside the hand).
+    const skeleton = await loadSkeleton('polybot.vrm');
+    const program = ikProgram(skeleton);
+    const desc = limbOf(program, limb);
+    const theta = degrees * DEG;
+    let state = 9;
+    const next = (): number => {
+      state = (state * 16807) % 2147483647;
+      return state / 2147483647 - 0.5;
+    };
+    const values = hingeValues(program, desc, theta, next);
+    const fkCh = channelsFrom(program, values, 0);
+    const fkPose = evaluate(program, fkCh);
+    const result = matchIkToFk(program, fkPose, fkCh, limb, new Map());
+    expect(result.endErrorM).toBeLessThan(1e-6);
+    expect(result.midErrorM).toBeGreaterThan(1e-4);
+    expect(result.maxRotationErrorRad).toBeLessThan(2 * Math.abs(theta) + 1e-3);
+    const ikCh = channelsFrom(program, values, 1);
+    for (const [control, v] of result.values) writeControlChannels(program, ikCh, control, v);
+    const ikPose = evaluate(program, ikCh);
+    expect(dist(pos(ikPose, desc.nodes.end), pos(fkPose, desc.nodes.end))).toBeLessThan(1e-6);
+    expect(quatAngle(rot(ikPose, desc.nodes.end), rot(fkPose, desc.nodes.end))).toBeLessThan(1e-6);
+    for (const node of [desc.nodes.upper, desc.nodes.mid]) {
+      expect(quatAngle(rot(ikPose, node), rot(fkPose, node))).toBeLessThan(2 * Math.abs(theta) + 1e-3);
+    }
+  });
+});
+
+/** The matched pole's direction from the upper → end line, and the matched IK control's position, for FK `values`. */
+function matched(
+  program: RigProgram,
+  desc: LimbDesc,
+  values: ReadonlyMap<ControlId, ChannelValues>,
+): { readonly pole: Vec3; readonly ik: Vec3 } {
+  const fkCh = channelsFrom(program, values, 0);
+  const fkPose = evaluate(program, fkCh);
+  const result = matchIkToFk(program, fkPose, fkCh, desc.id, new Map());
+  const ikCh = channelsFrom(program, values, 1);
+  for (const [control, v] of result.values) writeControlChannels(program, ikCh, control, v);
+  const ikPose = evaluate(program, ikCh);
+  const a = pos(fkPose, desc.nodes.upper);
+  const c = pos(fkPose, desc.nodes.end);
+  const l = dist(c, a);
+  const x: Vec3 = [(c[0] - a[0]) / l, (c[1] - a[1]) / l, (c[2] - a[2]) / l];
+  const at = (control: ControlId): Vec3 => {
+    const slot = program.controlIndex.get(control) as number;
+    return [
+      ikPose.controlWorld[slot * 16 + 12] as number,
+      ikPose.controlWorld[slot * 16 + 13] as number,
+      ikPose.controlWorld[slot * 16 + 14] as number,
+    ];
+  };
+  const pole = at(desc.params.pole);
+  const off: Vec3 = [pole[0] - a[0], pole[1] - a[1], pole[2] - a[2]];
+  const along = off[0] * x[0] + off[1] * x[1] + off[2] * x[2];
+  const perpendicular: Vec3 = [off[0] - along * x[0], off[1] - along * x[1], off[2] - along * x[2]];
+  const p = Math.hypot(...perpendicular);
+  return { pole: [perpendicular[0] / p, perpendicular[1] / p, perpendicular[2] / p], ik: at(desc.params.ikControl) };
+}
+
+const angleBetween = (a: Vec3, b: Vec3): number =>
+  Math.acos(Math.min(1, Math.max(-1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2])));
+
+/** FK channels of fk.mid: `abduction` about canonical z (world) after the hinge turn `bend` (absolute, rad) from rest. */
+function midTurn(program: RigProgram, desc: LimbDesc, bend: number, abduction: number): ChannelValues {
+  const q = quatMultiply(
+    quatFromAxisAngle([0, 0, 1], abduction),
+    quatFromAxisAngle(
+      [desc.params.hinge[0], desc.params.hinge[1], desc.params.hinge[2]],
+      bend - restBend(program, desc),
+    ),
+  );
+  const e = quatToEuler(q, orderOf(program, desc.params.fk.mid));
+  return { rx: e[0], ry: e[1], rz: e[2] };
+}
+
+describe('match pole continuity on the fixtures (§5.6 gate)', { timeout: 120_000 }, () => {
+  it.for(FIXTURES)(
+    'turns the pole by ≤ 1e-3 rad for 1e-4 rad input changes on random non-hinge poses on %s (legs and arms)',
+    async (name, { annotate }) => {
+      const skeleton = await loadSkeleton(name);
+      const program = ikProgram(skeleton);
+      const rest = evaluate(program, channelsOf(program, {}, {}));
+      const report: string[] = [];
+      for (const limb of LIMBS) {
+        const desc = limbOf(program, limb);
+        let state = 31;
+        const next = (): number => {
+          state = (state * 16807) % 2147483647;
+          return state / 2147483647 - 0.5;
+        };
+        // Ab/adduction about the axis normal to the hinge and the lower bone, twist about the lower bone.
+        const b = pos(rest, desc.nodes.mid);
+        const c = pos(rest, desc.nodes.end);
+        const lower = (() => {
+          const l = dist(c, b);
+          return [(c[0] - b[0]) / l, (c[1] - b[1]) / l, (c[2] - b[2]) / l] as Vec3;
+        })();
+        const h = desc.params.hinge;
+        const ab: Vec3 = [
+          h[1] * lower[2] - h[2] * lower[1],
+          h[2] * lower[0] - h[0] * lower[2],
+          h[0] * lower[1] - h[1] * lower[0],
+        ];
+        const abLength = Math.hypot(...ab);
+        const abAxis: Vec3 = [ab[0] / abLength, ab[1] / abLength, ab[2] / abLength];
+        let worst = 0;
+        for (let trial = 0; trial < 100; trial++) {
+          const bend = (5 + (next() + 0.5) * 95) * DEG;
+          const q = quatMultiply(
+            quatMultiply(
+              quatFromAxisAngle([h[0], h[1], h[2]], bend - restBend(program, desc)),
+              quatFromAxisAngle(abAxis, next() * 20 * DEG),
+            ),
+            quatFromAxisAngle(lower, next() * 20 * DEG),
+          );
+          const e = quatToEuler(q, orderOf(program, desc.params.fk.mid));
+          const upper: ChannelValues = { rx: next() * 0.8, ry: next() * 0.8, rz: next() * 0.8 };
+          const mid: ChannelValues = { rx: e[0], ry: e[1], rz: e[2] };
+          const base = matched(
+            program,
+            desc,
+            new Map([
+              [desc.params.fk.upper, upper],
+              [desc.params.fk.mid, mid],
+            ]),
+          );
+          for (const [which, channel] of [
+            ['mid', 'rx'],
+            ['mid', 'ry'],
+            ['mid', 'rz'],
+            ['upper', 'rx'],
+            ['upper', 'rz'],
+          ] as const) {
+            const u = { ...upper };
+            const m = { ...mid };
+            const target = which === 'mid' ? m : u;
+            target[channel] = (target[channel] ?? 0) + 1e-4;
+            const moved = matched(
+              program,
+              desc,
+              new Map([
+                [desc.params.fk.upper, u],
+                [desc.params.fk.mid, m],
+              ]),
+            );
+            worst = Math.max(worst, angleBetween(base.pole, moved.pole));
+          }
+        }
+        report.push(`${limb} ${worst.toExponential(2)}`);
+        expect([limb, worst < 1e-3]).toEqual([limb, true]);
+      }
+      await annotate(
+        `${name}: worst pole turn per 1e-4 rad input (100 poses × 5 inputs per limb): ${report.join(', ')}`,
+      );
+    },
+  );
+
+  it.each(FIXTURES)(
+    'sweeps the knee and elbow ab/adduction in 0.002° steps without a jump (≤ 10× the step) on %s',
+    async (name) => {
+      // The review's case: Polybot's left elbow bent 15° from rest with 4.391° of ab/adduction, where the pole rule
+      // swung by 0.83 rad for a 0.002° input change.
+      const skeleton = await loadSkeleton(name);
+      const program = ikProgram(skeleton);
+      const step = 0.002 * DEG;
+      for (const limb of LIMBS) {
+        const desc = limbOf(program, limb);
+        const bend = restBend(program, desc) + 15 * DEG;
+        const at = (abduction: number) =>
+          matched(program, desc, new Map([[desc.params.fk.mid, midTurn(program, desc, bend, abduction)]]));
+        let previous = at(3.391 * DEG);
+        let largest = 0;
+        for (let i = 1; i <= 1000; i++) {
+          const current = at((3.391 + i * 0.002) * DEG);
+          largest = Math.max(largest, angleBetween(previous.pole, current.pole));
+          previous = current;
+        }
+        expect([limb, largest <= 10 * step]).toEqual([limb, true]);
+      }
+    },
+  );
+
+  it.each(['seed-san.vrm', 'polybot.vrm'] as const)(
+    'sweeps the elbow bend across the amendment C band with ab/adduction: no jump of the pole or the IK control on %s',
+    async (name) => {
+      const skeleton = await loadSkeleton(name);
+      const program = ikProgram(skeleton);
+      for (const limb of ['arm.L', 'arm.R'] as const) {
+        const desc = limbOf(program, limb);
+        const { T } = hingeGeometry(program, desc);
+        const at = (bend: number) =>
+          matched(program, desc, new Map([[desc.params.fk.mid, midTurn(program, desc, bend, 4.391 * DEG)]]));
+        // From the rest's hyperextension to past the band (3T), in 0.01° steps; then the largest step refined tenfold.
+        const from = -T - 1 * DEG;
+        const to = 3 * T + 3 * DEG;
+        const step = 0.01 * DEG;
+        let previous = at(from);
+        let largestPole = { change: 0, at: from };
+        let largestIk = { change: 0, at: from };
+        for (let bend = from + step; bend <= to; bend += step) {
+          const current = at(bend);
+          const pole = angleBetween(previous.pole, current.pole);
+          const ik = dist(previous.ik, current.ik);
+          if (pole > largestPole.change) largestPole = { change: pole, at: bend };
+          if (ik > largestIk.change) largestIk = { change: ik, at: bend };
+          previous = current;
+        }
+        const refined = (
+          where: number,
+          measure: (x: ReturnType<typeof at>, y: ReturnType<typeof at>) => number,
+        ): number => {
+          let largest = 0;
+          let last = at(where - step);
+          for (let i = 1; i <= 10; i++) {
+            const current = at(where - step + (i * step) / 10);
+            largest = Math.max(largest, measure(last, current));
+            last = current;
+          }
+          return largest;
+        };
+        const finePole = refined(largestPole.at, (x, y) => angleBetween(x.pole, y.pole));
+        const fineIk = refined(largestIk.at, (x, y) => dist(x.ik, y.ik));
+        expect([limb, finePole < 0.2 * largestPole.change, fineIk < 0.2 * largestIk.change]).toEqual([
+          limb,
+          true,
+          true,
+        ]);
+      }
+    },
+  );
+});
+
 describe('Plant Feet on IK legs (§5.8, US-25 numbers)', { timeout: 60_000 }, () => {
   it.each(FIXTURES)('returns the IK feet to their pins (1e-4) on %s', async (name) => {
     const skeleton = await loadSkeleton(name);
@@ -588,6 +915,99 @@ describe('Plant Feet on IK legs (§5.8, US-25 numbers)', { timeout: 60_000 }, ()
       expect(dist(pos(planted, node), target.t)).toBeLessThan(1e-4);
       expect(quatAngle(rot(planted, node), target.q)).toBeLessThan(1e-4);
     }
+  });
+});
+
+/** Bytes in use in V8's young generation (new space). */
+function newSpaceUsed(): number {
+  return getHeapSpaceStatistics().find((space) => space.space_name === 'new_space')?.space_used_size ?? Number.NaN;
+}
+
+/**
+ * Bytes V8 allocates per call of `run`, counted in the young generation: the least growth over three runs of `calls`
+ * calls (after one uncounted round), less that of as many calls of an empty function (the reading's own allocation).
+ * Exact while no collection runs, which `collectionsDuring` checks.
+ */
+function allocatedBytesPerCall(run: () => void, calls: number): number {
+  const empty = (): void => undefined;
+  let least = Number.POSITIVE_INFINITY;
+  let overhead = Number.POSITIVE_INFINITY;
+  for (let round = -1; round < 3; round++) {
+    for (const [fn, isRun] of [
+      [empty, false],
+      [run, true],
+    ] as const) {
+      const before = newSpaceUsed();
+      for (let i = 0; i < calls; i++) fn();
+      const delta = newSpaceUsed() - before;
+      if (round < 0) continue;
+      if (isRun) least = Math.min(least, delta);
+      else overhead = Math.min(overhead, delta);
+    }
+  }
+  return (least - overhead) / calls;
+}
+
+/** Garbage collections V8 reports while `run` executes (after a full collection that empties the young generation). */
+async function collectionsDuring(run: () => void): Promise<number> {
+  setFlagsFromString('--expose-gc');
+  const gc = runInNewContext('gc') as () => void;
+  const starts: number[] = [];
+  const observer = new PerformanceObserver((list) => {
+    for (const entry of list.getEntries()) starts.push(entry.startTime);
+  });
+  observer.observe({ entryTypes: ['gc'] });
+  try {
+    gc();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const t0 = performance.now();
+    run();
+    const t1 = performance.now();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    return starts.filter((t) => t >= t0 && t <= t1).length;
+  } finally {
+    observer.disconnect();
+  }
+}
+
+describe('ik2 allocates nothing per evaluation on Seed-san with four IK limbs (§8 A1 DoD)', { timeout: 60_000 }, () => {
+  it('counts 0 bytes per evaluation in the young generation, with the arms in the amendment C band too', async () => {
+    const skeleton = await loadSkeleton('seed-san.vrm');
+    const program = ikProgram(skeleton);
+    // The cog lowered, a rolled and banked left foot, a twisted right foot, and the hands 0.1 mm towards the
+    // shoulders (inside Seed-san's 0.28 mm band) and 8 cm forward-in.
+    const cases = [
+      channelsOf(program, {
+        cog: { ty: -0.05 },
+        'ik.leg.L': { '@roll': 20 * DEG, '@bank': -0.1, '@soft': 0.05 },
+        'ik.leg.R': { '@twist': 0.2, '@toeTwist': 0.1 },
+        'ik.arm.L': { tx: -1e-4 },
+        'ik.arm.R': { tx: 1e-4 },
+      }),
+      channelsOf(
+        program,
+        { 'ik.arm.L': { tx: -0.08, tz: 0.05 }, 'ik.arm.R': { tx: 0.08 }, 'ik.leg.L': { '@roll': -15 * DEG } },
+        { 'leg.L': 0.5, 'leg.R': 1, 'arm.L': 0.7, 'arm.R': 1 },
+      ),
+    ];
+    let sink: unknown = null;
+    for (const [index, ch] of cases.entries()) {
+      const pose = program.allocPose();
+      for (let i = 0; i < 30000; i++) program.evaluate(ch, pose);
+      let perEvaluation = Number.NaN;
+      let leaky = Number.NaN;
+      const collections = await collectionsDuring(() => {
+        perEvaluation = allocatedBytesPerCall(() => program.evaluate(ch, pose), 5000);
+        leaky = allocatedBytesPerCall(() => {
+          program.evaluate(ch, pose);
+          sink = { index };
+        }, 1000);
+      });
+      // Below one 16-byte object per 1 600 evaluations (a one-off allocation of the optimizing compiler installing
+      // code may land in a round; any allocation per evaluation counts ≥ 16 bytes).
+      expect([index, collections, perEvaluation < 0.01, leaky >= 16]).toEqual([index, 0, true, true]);
+    }
+    expect(sink).not.toBeNull();
   });
 });
 
