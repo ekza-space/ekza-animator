@@ -1,8 +1,9 @@
 # Ekza Animator — Roadmap
 
-Status: v0.3 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag is pending). Keep the
-[status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
-[REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md). Sizes are rough
+Status: v0.4 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag is pending; the M2a build spec is
+written). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+[REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
+[M2A-SPEC.md](M2A-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
 
 ## Status
@@ -12,7 +13,7 @@ Status: v0.3 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag 
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
-| M2a | Game-clip daily driver | Planned | — | — | leg IK first |
+| M2a | Game-clip daily driver | **Spec ready** | 2026-10-18 | — | [M2A-SPEC](M2A-SPEC.md) v0.1: packages A0…A5 + integration ([status](#m2a-work-package-status)); leg IK first; fixes budget misses M-1…M-3 |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -39,6 +40,22 @@ Status: v0.3 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag 
 | WP-8 | `editor` shell, `ui`, `apps/web` | Integration | Done (on `dev`) | — | [notes](wp-notes/wp-8.md) |
 | WP-9 | data panels | A1 | Done (on `dev`) | — | [notes](wp-notes/wp-9.md) |
 | WP-10 | integration + e2e | Integration | Done (on `dev`) | — | v0.3 integration (INT-1…INT-31), acceptance rounds 1–3 (INT-32…INT-52), E2E-02…E2E-27 in four groups and the §14 budget bench (INT-53…INT-58, [budgets](wp-notes/wp-10-budgets.md)) |
+
+### M2a work-package status
+
+Packages and ownership: [M2A-SPEC §8](M2A-SPEC.md#8-work-packages). A0 lands first; A1…A5 build in parallel in their
+own worktrees (branches `m2a/<slug>`); IK tests of A2 turn on when A1 merges; merge order in
+[M2A-SPEC §10.1](M2A-SPEC.md#101-merge-order).
+
+| WP | Slug | Scope | Owner | Size | Status | Notes |
+|---|---|---|---|---|---|---|
+| A0 | `contracts-foundation` | §4 contracts, stubs, attribute channels in the kernel, frame scheduler, key gesture, layout v2, keymap, menus, test API | Integration | 2.5 | Planned | first |
+| A1 | `rig-ik` | `ik2` op with foot roll, limb IK records, matching, import to IK, Plant Feet on IK legs, schema v2 | A1 | 6 | Planned | FR-RIG-11 |
+| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes, viewport), visibility, pick-walk, virtual slider, body-part keying | A2 | 5.5 | Planned | IK e2e after A1 |
+| A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry, insert/remove time, breakdown retiming | A3 | 5 | Planned | FR-DS-01..02, FR-TIME-10 |
+| A4 | `graph-posing` | Tween family, breakdown display, mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 | A4 | 5 | Planned | FR-KEY-08..09, FR-GE-18..20 |
+| A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Planned | FR-PROJ-05, FR-EXP-12 |
+| INT | — | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS | Integration | 3 | Planned | after A1…A5 |
 
 ---
 
@@ -120,14 +137,19 @@ the repository is published, tracked here until then.
 
 Not measured: the Apple M1 reference laptop, Safari and Firefox (V1), and the SwiftShader CI project (not a gate there).
 
+M2a fixes the three misses with stated targets and mechanisms: M-1 in package A4 (M2A-SPEC §5.21.1), M-2 and M-3 in
+package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B).
+
 **What M1 is not** (said in the README and the app): no leg IK — feet are planted per key with Plant Feet; no Dope
 Sheet; no animation layers; no facial expressions in VRMA.
 
 **Depends on**: M0.
 
-## M2a — Game-clip daily driver (≈ 20–25 agent-days)
+## M2a — Game-clip daily driver (≈ 32 agent-days with the budget fixes; ~12 working days on the critical path)
 
-Ordered; each item ships when done.
+Build spec: [M2A-SPEC.md](M2A-SPEC.md) (contract deltas, normative behaviours, E2E-M2A-01…25, packages A0…A5). The
+items below were planned in order; the spec builds them in parallel packages and adds the fixes for the M1 budget
+misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
 
 1. **Two-bone leg IK** with pole vectors on the existing solver slot (`ik.leg.L/R`, `pole.leg.L/R`, `ik2` op from
    the M1 solver), IK/FK visibility, **IK/FK match and seamless switch**, import writing IK controls from sampled
@@ -138,10 +160,11 @@ Ordered; each item ships when done.
 5. Buffer curves, normalized/stacked views, Graph Editor scale/region (FR-GE-18..20); export-side key reduction
    (FR-EXP-12); pick-walk; Channel Box virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
 
-**Acceptance**: a walk cycle and an attack clip with planted feet and contact are authored without Plant Feet;
-public README with GIFs; `v0.2.x`.
+**Acceptance**: a walk cycle and an attack clip with planted feet and contact are authored without Plant Feet
+(E2E-M2A-23, -24); M-1, M-2 and M-3 met; public README with GIFs; `v0.2.x`.
 
-**Depends on**: M1. Leg IK uses the M1 solver and the constraint/solver slots (no schema change).
+**Depends on**: M1. Leg IK uses the M1 solver and the existing solver slot; the records and tables are unchanged, but
+`SCHEMA_VERSION` becomes 2 so that M1 apps open projects with enabled IK read-only (M2A-SPEC §5.7).
 
 ## M2b — Adoption: FBX/BVH/Mixamo retarget (≈ 10–15 agent-days)
 

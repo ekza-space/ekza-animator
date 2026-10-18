@@ -48,7 +48,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-RIG-09 | Stateless compiled rig kernel with constraint and solver slots (disabled in the MVP). | MVP | M1 | A constraint record compiles to a disabled op with a warning; evaluation unchanged. |
 | FR-RIG-10 | Constraints: parent, point, orient, aim with weights, maintain offset and blend. | V1 | M2c | R07 §7 formulas; prop follows hand. |
 | FR-RIG-11 | Two-bone IK controls with pole vector, soft IK, IK/FK blend, match and seamless switch (legs first). | V1 | M2a | R07 §21.3 IK tests; translating `cog` −5 cm leaves the IK foot world unchanged (1e-6). |
-| FR-RIG-12 | Foot roll and space switching with matching. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
+| FR-RIG-12 | Foot roll and space switching with matching. The simple foot roll (heel/ball/toe pivots, bank, heel and toe twist on the leg IK control) moves to M2a ([M2A-SPEC §5.3.1](M2A-SPEC.md#531-foot-roll-simple-variant-r07-12)); space switching stays M5. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
 | FR-RIG-13 | Control shape editing (shape picker, size, colour, offset) in a Rig workspace; rig edits never create keys. | V1 | M2c | Shape change undoable; no keys created. |
 | FR-RIG-14 | VRM spring-bone preview during playback (never baked). | V1 | M2c | Toggle per pane; export unchanged by the toggle. |
 | FR-RIG-15 | VRM expressions and lookAt as keyable channels on a face control. | V1 | M2c | Blink keyed and exported to VRMA expressions. |

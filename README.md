@@ -94,6 +94,9 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
   conflicts were resolved.
 - [docs/MVP-SPEC.md](docs/MVP-SPEC.md) — exact MVP scope, pinned dependencies, shared TypeScript contracts,
   operator catalog, keymap, normative behaviours, user stories, e2e scenarios, work packages.
+- [docs/M2A-SPEC.md](docs/M2A-SPEC.md) — build spec of the next milestone (M2a): limb IK, Dope Sheet, tween and
+  breakdowns, Graph Editor tools, autosave, and the fixes for the M1 budget misses, as contract deltas and work
+  packages.
 - [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md) — numbered functional and non-functional requirements.
 - [docs/ROADMAP.md](docs/ROADMAP.md) — milestones M0–M6 and status.
 - [docs/adr/](docs/adr/README.md) — architecture decision records.
