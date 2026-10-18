@@ -20,4 +20,5 @@ export {
   validateGltf,
 } from './validate/validate';
 export { inspectVrma, readVrma, type VrmaReadResult } from './vrma/read';
-export { clipExportName, exportFileName, writeAnimationGlb, writeVrma } from './writers/write';
+export { clipExportName, exportFileName } from './writers/names';
+export { writeAnimationGlb, writeVrma } from './writers/write';

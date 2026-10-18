@@ -259,6 +259,21 @@ const fileSaveJson = defineOperator<'file.saveJson', SaveArtifact>({
   apply: ({ app }, _args, artifact) => download(app, artifact),
 });
 
+/** M2A-SPEC §5.16: " (N → M samples)" over the reduced artifacts, '' when none was reduced. */
+export function reductionSummary(artifacts: readonly ExportArtifact[]): string {
+  let before = 0;
+  let after = 0;
+  let any = false;
+  for (const artifact of artifacts) {
+    const reduction = artifact.stats.reduction;
+    if (reduction === undefined) continue;
+    any = true;
+    before += reduction.samplesBefore;
+    after += reduction.samplesAfter;
+  }
+  return any ? ` (${before} → ${after} samples)` : '';
+}
+
 const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
   id: 'file.export',
   label: 'Export',
@@ -297,9 +312,10 @@ const fileExport = defineOperator<'file.export', readonly ExportArtifact[]>({
     if (saved > 0) {
       const names =
         saved === 1 ? (artifacts.find((a) => blockingLints(a).length === 0)?.fileName ?? '') : `${saved} files`;
+      const reduction = reductionSummary(artifacts.filter((a) => blockingLints(a).length === 0));
       app.services.notify.toast({
         kind: warnings > 0 ? 'warning' : 'success',
-        text: `Exported ${names}${warnings > 0 ? ` with ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`,
+        text: `Exported ${names}${reduction}${warnings > 0 ? ` with ${warnings} warning${warnings === 1 ? '' : 's'}` : ''}`,
       });
     }
     return artifacts;

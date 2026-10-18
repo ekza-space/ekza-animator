@@ -1,14 +1,15 @@
 // Export pipeline (MVP-SPEC §4.11.10, ADR 0005): per clip a `PoseSource` over the character's runtime evaluates the
-// clip without session overrides; io bakes integer frames (step schedule from rig), writes the file (surgeon,
-// animation-only GLB or one VRMA per clip) with `ekza_animation_v1` metadata, lints it and reads it back. Async, no
-// document writes; yields between clips.
+// clip without session overrides; io bakes integer frames (step schedule from rig), optionally reduces the sampled
+// tracks (M2A-SPEC §5.16), writes the file (surgeon, animation-only GLB or one VRMA per clip) with
+// `ekza_animation_v1` metadata, lints it and reads it back. Async, no document writes; yields between clips.
+//
+// The bake, writers, surgeon, lints and read-back come from `@ekza-animator/io/write`, loaded by a dynamic import
+// the first time an export runs (M2A-SPEC §4.4, §5.21.2: glTF Transform stays off the editor's initial route).
 import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type { CharacterRecord, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
 import {
   type BakedClip,
   type BakeOptions,
-  bakeClip,
-  bakeIntoModel,
   clipExportName,
   clipFramesToSeconds,
   compareValidation,
@@ -16,20 +17,20 @@ import {
   type EkzaClipMetaV1,
   type ExportArtifact,
   type ExportProfileDef,
+  type ExportReduceSpec,
   type ExportRequest,
-  ekzaAnimationMeta,
   exportFileName,
   type GlbContainer,
   type LintIssue,
   type LintSeverity,
-  preexistingTracks,
   readVrmLicense,
   type ValidationReport,
   type VrmLicenseInfo,
-  writeAnimationGlb,
-  writeVrma,
 } from '@ekza-animator/io';
+import type * as WriteModule from '@ekza-animator/io/write';
 import {
+  type ClipSampler,
+  computeInfluenceKeyTimes,
   computeStepSchedule,
   humanoidRestWorldPositions,
   isHumanoidProgram,
@@ -73,6 +74,25 @@ function licenseOf(container: GlbContainer): VrmLicenseInfo | null {
   return license;
 }
 
+/** The export path module (`@ekza-animator/io/write`), imported once on first use. */
+export type WritePath = typeof WriteModule;
+let writePath: Promise<WritePath> | null = null;
+
+/**
+ * Loads `@ekza-animator/io/write` (bake, writers, surgeon, lints, read-back; M2A-SPEC §4.4). The first call starts
+ * the dynamic import, later calls share it; a failed load is retried by the next call. Hosts call it on intent (the
+ * Export dialog opening) so the first export does not wait for the chunk.
+ */
+export function loadWritePath(): Promise<WritePath> {
+  if (writePath === null) {
+    writePath = import('@ekza-animator/io/write');
+    writePath.catch(() => {
+      writePath = null;
+    });
+  }
+  return writePath;
+}
+
 /** Shape check of an untyped request (keymaps, menus and the test API call operators untyped). */
 export function requestProblem(req: unknown): string | null {
   if (!isRecord(req)) return 'expects an export request';
@@ -86,7 +106,41 @@ export function requestProblem(req: unknown): string | null {
     if (typeof req[flag] !== 'boolean') return `expects ${flag}`;
   }
   if (req['profile'] !== null && typeof req['profile'] !== 'string') return 'expects a profile id or null';
+  if (req['reduce'] !== undefined && req['reduce'] !== null && reduceSpecProblem(req['reduce']) !== null) {
+    return reduceSpecProblem(req['reduce']);
+  }
   return null;
+}
+
+/** Shape check of `ExportRequest.reduce` (M2A-SPEC §4.4): four finite tolerances, none negative. */
+export function reduceSpecProblem(spec: unknown): string | null {
+  if (!isRecord(spec)) return 'expects reduce: { positionM, rotationCapRad, minLeverM, scaleRel } or null';
+  for (const field of ['positionM', 'rotationCapRad', 'minLeverM', 'scaleRel'] as const) {
+    const value = spec[field];
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+      return `reduce.${field} must be a finite number ≥ 0`;
+    }
+  }
+  return null;
+}
+
+/**
+ * Per-track keep frames of the §5.16 keep set from the influencing curves' key times (`computeInfluenceKeyTimes`,
+ * rig A1). Until rig implements it (it throws `not-implemented`) the term is empty: the first, last, loop-closure,
+ * contact and step-discontinuity samples are kept by the reducer itself (M2A-SPEC §8 A5, `READY.a1`).
+ */
+export function influenceKeepFrames(
+  program: RigProgram,
+  sampler: ClipSampler,
+  range: { readonly start: Frame; readonly end: Frame },
+  target: 'raw' | 'humanoid',
+): ReadonlyMap<TrackKey, readonly Frame[]> {
+  try {
+    return computeInfluenceKeyTimes(program, sampler, range, target);
+  } catch (error) {
+    if (error instanceof EkzaError && error.code === 'not-implemented') return new Map();
+    throw error;
+  }
 }
 
 /** Resolves a request against the document, or says why it cannot be exported. */
@@ -294,11 +348,14 @@ export async function runExport(
   const subject = resolveExport(app, req, kind);
   if ('problem' in subject) throw new EkzaError(subject.code, subject.problem);
   const { character, runtime, clips, profile } = subject;
+  const io = await loadWritePath();
   for (const clip of clips) await app.store.open(`clip:${clip.id}`);
   const program = runtime.program;
   const skeleton = runtime.skeleton;
   const target = kind === 'vrma' ? 'humanoid' : 'raw';
   const warnings: LintIssue[] = [];
+  const reduceSpec: ExportReduceSpec | null = req.reduce ?? null;
+  const leverArm = reduceSpec === null ? null : io.trackLeverArms(skeleton, target);
 
   const bakes: ClipBake[] = clips.map((clip, index) => {
     const name = exportNameOf(clip, kind, character, runtime.container);
@@ -313,6 +370,7 @@ export async function runExport(
         message: `${clip.name}: no joint with translation keys, so root motion 'in-place' was exported as 'hips'`,
       });
     }
+    const sampler = runtime.sampler(clip.id);
     return {
       clip,
       options: {
@@ -324,14 +382,24 @@ export async function runExport(
         loop: clip.loop,
         rootMotion,
         inPlaceNode: node,
-        stepSchedule: computeStepSchedule(program, runtime.sampler(clip.id), range, target),
+        stepSchedule: computeStepSchedule(program, sampler, range, target),
         meta: clipMeta(clip, index, name),
+        ...(reduceSpec === null || leverArm === null
+          ? {}
+          : {
+              reduce: {
+                spec: reduceSpec,
+                height: skeleton.height,
+                leverArm,
+                keep: influenceKeepFrames(program, sampler, range, target),
+              },
+            }),
       },
     };
   });
 
   const bake = (job: ClipBake, requiredTracks: ReadonlySet<TrackKey>): BakedClip => {
-    return bakeClip(
+    return io.bakeClip(
       {
         program,
         evaluate: (frame, out) =>
@@ -343,7 +411,7 @@ export async function runExport(
 
   const artifacts: ExportArtifact[] = [];
   const meta = (baked: readonly BakedClip[], rig: EkzaAnimationV1['rig']): EkzaAnimationV1 =>
-    ekzaAnimationMeta(baked, rig, {
+    io.ekzaAnimationMeta(baked, rig, {
       toolVersion: EDITOR_VERSION,
       projectSha256: null,
       baseSha256: runtime.container.sha256,
@@ -362,14 +430,19 @@ export async function runExport(
         'vrma',
       );
       artifacts.push(
-        await writeVrma(skeleton, baked, { meta: meta([baked], 'vrm-humanoid'), fileName, profile, humanoidRestWorld }),
+        await io.writeVrma(skeleton, baked, {
+          meta: meta([baked], 'vrm-humanoid'),
+          fileName,
+          profile,
+          humanoidRestWorld,
+        }),
       );
     }
   } else {
     const base: Set<TrackKey> =
       kind === 'bake-into-model' && req.includeConstantTracks
         ? new Set(
-            preexistingTracks(
+            io.preexistingTracks(
               runtime.container,
               skeleton,
               bakes.map((job) => job.options.name),
@@ -401,8 +474,8 @@ export async function runExport(
     const opts = { meta: meta(baked, rig), fileName, profile };
     artifacts.push(
       kind === 'bake-into-model'
-        ? await bakeIntoModel(runtime.container, skeleton, baked, opts)
-        : await writeAnimationGlb(skeleton, baked, opts),
+        ? await io.bakeIntoModel(runtime.container, skeleton, baked, opts)
+        : await io.writeAnimationGlb(skeleton, baked, opts),
     );
   }
 

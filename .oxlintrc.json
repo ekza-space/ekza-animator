@@ -620,13 +620,32 @@
                   "!@ekza-animator/doc",
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
+                  "!@ekza-animator/io/write",
                   "!zustand/vanilla"
                 ],
-                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, zustand/vanilla (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, zustand/vanilla (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/io",
+                "importNames": [
+                  "bakeClip",
+                  "bakeIntoModel",
+                  "writeAnimationGlb",
+                  "writeVrma",
+                  "lintExport",
+                  "readBackCheck",
+                  "ekzaAnimationMeta",
+                  "preexistingTracks",
+                  "reduceBakedClip",
+                  "trackLeverArms"
+                ],
+                "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
               }
             ]
           }
@@ -677,15 +696,34 @@
                   "!@ekza-animator/doc/testing",
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
+                  "!@ekza-animator/io/write",
                   "!@ekza-animator/io/testing",
                   "!zustand/vanilla",
                   "!node:*"
                 ],
-                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/io",
+                "importNames": [
+                  "bakeClip",
+                  "bakeIntoModel",
+                  "writeAnimationGlb",
+                  "writeVrma",
+                  "lintExport",
+                  "readBackCheck",
+                  "ekzaAnimationMeta",
+                  "preexistingTracks",
+                  "reduceBakedClip",
+                  "trackLeverArms"
+                ],
+                "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
               }
             ]
           }
@@ -978,6 +1016,7 @@
                   "!@ekza-animator/doc",
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
+                  "!@ekza-animator/io/write",
                   "!@ekza-animator/io/three",
                   "!@ekza-animator/editor-core",
                   "!@ekza-animator/viewport",
@@ -996,11 +1035,29 @@
                   "!three",
                   "!three/**"
                 ],
-                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/io",
+                "importNames": [
+                  "bakeClip",
+                  "bakeIntoModel",
+                  "writeAnimationGlb",
+                  "writeVrma",
+                  "lintExport",
+                  "readBackCheck",
+                  "ekzaAnimationMeta",
+                  "preexistingTracks",
+                  "reduceBakedClip",
+                  "trackLeverArms"
+                ],
+                "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
               }
             ]
           }
@@ -1023,6 +1080,7 @@
                   "!@ekza-animator/doc",
                   "!@ekza-animator/rig",
                   "!@ekza-animator/io",
+                  "!@ekza-animator/io/write",
                   "!@ekza-animator/io/three",
                   "!@ekza-animator/editor-core",
                   "!@ekza-animator/viewport",
@@ -1042,11 +1100,29 @@
                   "!three/**",
                   "!@ekza-animator/editor-core/testing"
                 ],
-                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/io",
+                "importNames": [
+                  "bakeClip",
+                  "bakeIntoModel",
+                  "writeAnimationGlb",
+                  "writeVrma",
+                  "lintExport",
+                  "readBackCheck",
+                  "ekzaAnimationMeta",
+                  "preexistingTracks",
+                  "reduceBakedClip",
+                  "trackLeverArms"
+                ],
+                "message": "The export path loads lazily: import it with a dynamic import('@ekza-animator/io/write') (M2A-SPEC \u00a74.4, \u00a75.21.2)."
               }
             ]
           }
