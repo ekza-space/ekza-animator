@@ -613,7 +613,7 @@ test('autosave write, Seed-san × 10 clips (main thread)', async ({ page }) => {
   for (const key of keyed) ids.push(await controlId(page, key, character));
   await runOk(page, 'select.controls', { ids, mode: 'replace' });
   for (let c = 0; c < 10; c++) {
-    const { clip } = await runOk<{ clip: string }>(page, 'clip.new', { name: `clip${c}` });
+    const { clip } = await runOk<{ clip: string }>(page, 'clip.new', { name: `bench${c}` });
     await runOk(page, 'clip.setSettings', { clip, range: { start: 0, end: 120 } });
     for (const [i, frame] of [0, 30, 60, 90, 120].entries()) {
       await runOk(page, 'time.setFrame', { frame });
