@@ -56,17 +56,28 @@ export function createEvaluationService(ctx: {
    * whose sampled channels (curves ⊕ overrides) are bit-identical keeps the pose and reports no pose change, so the
    * frame loop renders no viewport frame for it (a drag of keys that leaves the current frame's values unchanged).
    */
-  const lastChannels = new WeakMap<CharacterRuntime, { program: RigProgram; values: Float64Array; attrs: Float64Array }>();
+  const lastChannels = new WeakMap<
+    CharacterRuntime,
+    { program: RigProgram; values: Float64Array; attrs: Float64Array }
+  >();
 
   /** True when `channels` equal the last evaluated ones of `runtime` (same program); else remembers them. */
   const sameAsLast = (runtime: CharacterRuntime, program: RigProgram, channels: ChannelBuffer): boolean => {
     const last = lastChannels.get(runtime);
-    if (last !== undefined && last.program === program && equalArrays(last.values, channels.values) &&
-      equalArrays(last.attrs, channels.attrs)) {
+    if (
+      last !== undefined &&
+      last.program === program &&
+      equalArrays(last.values, channels.values) &&
+      equalArrays(last.attrs, channels.attrs)
+    ) {
       return true;
     }
-    if (last === undefined || last.program !== program || last.values.length !== channels.values.length ||
-      last.attrs.length !== channels.attrs.length) {
+    if (
+      last === undefined ||
+      last.program !== program ||
+      last.values.length !== channels.values.length ||
+      last.attrs.length !== channels.attrs.length
+    ) {
       lastChannels.set(runtime, { program, values: channels.values.slice(), attrs: channels.attrs.slice() });
     } else {
       last.values.set(channels.values);

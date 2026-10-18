@@ -4,7 +4,7 @@
 // drops (queries inside a transaction see its writes, also after a curve changes channel) and the partition fast
 // path of clip-partitioned records.
 import { describe, expect, it } from 'vitest';
-import { type ChangeBatch, createMemoryStore, type KeyRecord, MemoryDocumentStore } from '../src';
+import { type ChangeBatch, createMemoryStore, type KeyRecord, type MemoryDocumentStore } from '../src';
 import { seedScene } from '../src/testing';
 import { curveOf, keyAt } from '../src/testing/conformance/harness';
 

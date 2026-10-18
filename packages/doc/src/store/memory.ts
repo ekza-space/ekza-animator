@@ -570,7 +570,7 @@ export class MemoryDocumentStore implements DocumentStore {
     merged['id'] = id;
     let next: Row = merged as Row;
     for (const key in fields) {
-      if ((fields as Readonly<Record<string, unknown>>)[key] === undefined) {
+      if (fields[key] === undefined) {
         next = dropUndefined(merged);
         break;
       }
