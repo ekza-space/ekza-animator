@@ -14,16 +14,9 @@ import {
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, loadFile, openEditor, runOk } from './helpers/test-api';
 
-// E2E-M2A-06 (M2A-SPEC §9.1, §5.8): a VRMA of FK leg animation imports onto a character with IK legs as IK keys for
-// the left leg (a clean hinge) while the right leg — a 5° hyperextended knee — stays FK for the clip with one @ikFk
-// key 0 and a warning; the same file on an FK-only character gives FK curves; both characters' legs agree.
-//
-// Deviation M2A-A2-14 (docs/wp-notes/m2a-ik-editor.md): the spec imports onto Polybot, whose upper legs splay 29°
-// outward, so its §5.2.1 knee hinge is (0.88, 0.48, 0); the knee bend authored about x on Seed-san is 19° off that
-// hinge at 40° of bend, beyond the 2° import tolerance (M2A-D13), and both legs correctly stay FK. The scenario imports
-// onto two more Seed-sans instead (knee hinge (1, 0, 0)): "Seed-san 2" with the default rig and "Seed-san 3" with FK
-// limbs only. The written IK channels are the moving ones: the motion is in the sagittal plane, so the importer writes
-// ty, tz and rx curves (no constant tx, ry, rz tracks).
+// E2E-M2A-06 (M2A-SPEC §9.1, §5.8): a VRMA of FK leg animation imports onto Polybot as IK keys for the left leg
+// (a clean hinge) while the right leg — a 5° hyperextended knee — stays FK for the clip with one @ikFk key 0 and a
+// warning; the same file on an FK-only Polybot gives FK curves; both characters' legs agree.
 const FRAMES = [0, 5, 10, 15, 20] as const;
 const BONES = ['hips', 'leftLowerLeg', 'leftFoot', 'rightUpperLeg', 'rightLowerLeg', 'rightFoot'] as const;
 
@@ -59,8 +52,8 @@ test('E2E-M2A-06: import writes IK', async ({ page }) => {
   await key(await controlIdOf(page, 'fk.lowerLeg.R'), [[0, -5]]);
   const vrma = await exportOne(page, { kind: 'vrma', character: seed.character, clips: [steps] });
 
-  // Seed-san 2 with the default rig (legs IK).
-  const bot = await seedSample(page, 'seed-san');
+  // Polybot with the default rig (legs IK).
+  const bot = await seedSample(page, 'polybot');
   await loadFile(page, 'steps.vrma', vrma.bytes, { auto: true, importOptions: { reduce: null } });
   await expect.poll(async () => (await call(page, 'clips', bot.character)).some((c) => c.name === 'steps')).toBe(true);
   await expect.poll(async () => (await toastTexts(page)).some((text) => text.includes('R Leg kept FK'))).toBe(true);
@@ -71,6 +64,8 @@ test('E2E-M2A-06: import writes IK', async ({ page }) => {
   };
   const channels = async (key: string, character: string, clip: string) =>
     (await curves(key, character, clip)).map((curve) => curve.channel).sort();
+  // "t and r curves with keys": the importer writes the moving channels (here tx, ty, tz and rx; constant tracks
+  // get no curve), so the scenario asserts some translate and some rotate curve rather than all six.
   const ikChannels = await channels('ik.leg.L', bot.character, botClip);
   expect(
     ikChannels.some((channel) => channel.startsWith('t')),
@@ -89,9 +84,9 @@ test('E2E-M2A-06: import writes IK', async ({ page }) => {
   const rightIkFk = (await curves('ik.leg.R', bot.character, botClip)).find((curve) => curve.channel === '@ikFk');
   expect(rightIkFk?.keys.map((k) => k.v)).toEqual([0]);
 
-  // Seed-san 3 with FK limbs only.
+  // Polybot 2 with FK limbs only.
   await runOk(page, 'prefs.set', { patch: { autoRigIk: { legs: false, arms: false } } });
-  const bot2 = await seedSample(page, 'seed-san');
+  const bot2 = await seedSample(page, 'polybot');
   await loadFile(page, 'steps.vrma', vrma.bytes, { auto: true, importOptions: { reduce: null } });
   await expect.poll(async () => (await call(page, 'clips', bot2.character)).some((c) => c.name === 'steps')).toBe(true);
   const bot2Clip = (await call(page, 'state')).activeClip ?? '';
