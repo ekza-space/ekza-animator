@@ -28,6 +28,15 @@ export const CONTROL_WIDTH = { normal: 2, highlight: 3 } as const;
 /** Opacity of control segments hidden behind geometry (pass A, `GreaterDepth`). */
 export const OCCLUDED_ALPHA = 0.35;
 
+/** Opacity of a ghost control (M2A-SPEC §5.5 rules 2–3: a selected control the IK/FK rule hides). */
+export const GHOST_ALPHA = 0.25;
+
+/**
+ * Pole annotation line (M2A-SPEC §5.5 rule 4): token `--rig-pole-line` = rgba(200, 204, 212, 0.6) (ui tokens; the
+ * viewport may not import the ui package), 1 px.
+ */
+export const POLE_LINE = { color: '#c8ccd4', alpha: 0.6, width: 1 } as const;
+
 /** Hover lightens the side colour by this fraction of the remaining lightness (HSL). */
 export const HOVER_LIGHTEN = 0.2;
 

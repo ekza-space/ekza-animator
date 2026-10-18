@@ -2,13 +2,18 @@
 // scene space on pose changes, drawn as two batches per character (2 px side colours; 3 px hover/selected/lead), each
 // in two passes (occluded at 35 % alpha with `GreaterDepth`, visible at 100 %). The scene-space segments are also
 // what picking and the marquee test (ADR 0006 §5).
+//
+// M2a (M2A-SPEC §5.5, A2): a control is 'visible', 'ghost' or 'hidden' (`controlVisibility`). Ghosts (a selected
+// control the IK/FK rule hides) draw in a third batch at 25 % alpha and are never pickable; poles draw a dashed
+// annotation line from the limb's mid bone to the pole control (`--rig-pole-line`, 1 px, 60 % alpha) in both passes.
 import type { Mat4 } from '@ekza-animator/anim-core';
 import type { CharacterId, ControlId, ControlRecord, Side } from '@ekza-animator/doc';
+import type { ControlVisibility } from '@ekza-animator/editor-core';
 import { Color, Group } from 'three';
 import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LAYER } from '../layers';
 import { LineBatch, lineMaterial } from '../overlays/lineBatch';
-import { CONTROL_WIDTH, HOVER_LIGHTEN, OCCLUDED_ALPHA, VIEWPORT_THEME } from '../theme';
+import { CONTROL_WIDTH, GHOST_ALPHA, HOVER_LIGHTEN, OCCLUDED_ALPHA, POLE_LINE, VIEWPORT_THEME } from '../theme';
 import { shapeLocalSegments } from './shapes';
 
 export type ControlStyle = 'normal' | 'hover' | 'selected' | 'lead';
@@ -24,9 +29,22 @@ export interface ControlEntry {
   readonly size: number;
   readonly segments: number;
   readonly world: Float32Array;
+  /** Drawn normally and pickable (§5.5 'visible'). */
   visible: boolean;
+  /** Drawn at 25 % alpha, never pickable (§5.5 'ghost'). */
+  ghost: boolean;
   style: ControlStyle;
 }
+
+/** A pole annotation (§5.5 rule 4): the pole control and the limb's mid bone node. */
+export interface PoleLink {
+  readonly pole: ControlId;
+  readonly midNode: number;
+}
+
+/** World-space dash period of the pole line (metres); dashes are half of it, 4…64 per line. */
+const POLE_DASH_PERIOD = 0.03;
+const POLE_MAX_DASHES = 64;
 
 interface InternalEntry extends ControlEntry {
   readonly local: Float32Array;
@@ -39,8 +57,19 @@ interface CharacterControls {
   readonly byId: Map<ControlId, InternalEntry>;
   readonly normal: LineBatch;
   readonly highlight: LineBatch;
+  readonly ghost: LineBatch;
+  readonly poleLines: LineBatch;
+  /** Pole links with their scene-space end points (mid bone, pole) for the current pose: 6 floats each. */
+  poles: readonly PoleLink[];
+  poleEnds: Float32Array;
   segments: number;
 }
+
+/** A `setCharacter`/`updateVisibility` answer: a §5.5 visibility, or the M1 boolean (true = visible). */
+export type VisibilityAnswer = ControlVisibility | boolean;
+
+const asVisibility = (answer: VisibilityAnswer): ControlVisibility =>
+  answer === true ? 'visible' : answer === false ? 'hidden' : answer;
 
 const STYLE_INDEX: Readonly<Record<ControlStyle, number>> = { normal: 0, hover: 1, selected: 2, lead: 3 };
 
@@ -55,9 +84,14 @@ export class ControlLayer {
     readonly normalVisible: LineMaterial;
     readonly highlightOccluded: LineMaterial;
     readonly highlightVisible: LineMaterial;
+    readonly ghostOccluded: LineMaterial;
+    readonly ghostVisible: LineMaterial;
+    readonly poleOccluded: LineMaterial;
+    readonly poleVisible: LineMaterial;
   };
   private stylesDirty = true;
   private readonly matrix = new Float64Array(16);
+  private readonly dash = new Float32Array(6);
 
   constructor() {
     this.root.name = 'ekza.controls';
@@ -67,42 +101,69 @@ export class ControlLayer {
       normalVisible: lineMaterial({ width: CONTROL_WIDTH.normal }),
       highlightOccluded: lineMaterial({ width: CONTROL_WIDTH.highlight, opacity: OCCLUDED_ALPHA, occluded: true }),
       highlightVisible: lineMaterial({ width: CONTROL_WIDTH.highlight }),
+      ghostOccluded: lineMaterial({
+        width: CONTROL_WIDTH.highlight,
+        opacity: GHOST_ALPHA * OCCLUDED_ALPHA,
+        occluded: true,
+      }),
+      ghostVisible: lineMaterial({ width: CONTROL_WIDTH.highlight, opacity: GHOST_ALPHA }),
+      poleOccluded: lineMaterial({
+        width: POLE_LINE.width,
+        opacity: POLE_LINE.alpha * OCCLUDED_ALPHA,
+        occluded: true,
+        vertexColors: false,
+        color: POLE_LINE.color,
+      }),
+      poleVisible: lineMaterial({
+        width: POLE_LINE.width,
+        opacity: POLE_LINE.alpha,
+        vertexColors: false,
+        color: POLE_LINE.color,
+      }),
     };
   }
 
   /** Line materials whose `resolution` must be set to the pane size (CSS px) before drawing a pane. */
   allMaterials(): readonly LineMaterial[] {
     const m = this.materials;
-    return [m.normalOccluded, m.normalVisible, m.highlightOccluded, m.highlightVisible];
+    return [
+      m.normalOccluded,
+      m.normalVisible,
+      m.highlightOccluded,
+      m.highlightVisible,
+      m.ghostOccluded,
+      m.ghostVisible,
+      m.poleOccluded,
+      m.poleVisible,
+    ];
   }
 
   /**
-   * (Re)builds a character's controls from its records in program slot order. `visible(record)` decides
-   * per-user visibility (hidden-by-default secondaries, hidden controls).
+   * (Re)builds a character's controls from its records in program slot order. `visible(record)` decides the
+   * per-user visibility (§5.5: 'visible', 'ghost', 'hidden'; the M1 boolean is accepted). `poles` are the limbs'
+   * pole annotations (none by default).
    */
   setCharacter(
     character: CharacterId,
     controls: readonly ControlRecord[],
-    visible: (c: ControlRecord) => boolean,
+    visible: (c: ControlRecord) => VisibilityAnswer,
+    poles: readonly PoleLink[] = [],
   ): void {
     this.removeCharacter(character);
     const m = this.materials;
-    const normal = new LineBatch(
-      [
-        { material: m.normalOccluded, layer: LAYER.controlsOccluded },
-        { material: m.normalVisible, layer: LAYER.controlsVisible },
-      ],
-      `ekza.controls.${character}.normal`,
-    );
-    const highlight = new LineBatch(
-      [
-        { material: m.highlightOccluded, layer: LAYER.controlsOccluded },
-        { material: m.highlightVisible, layer: LAYER.controlsVisible },
-      ],
-      `ekza.controls.${character}.highlight`,
-    );
-    normal.addTo(this.root);
-    highlight.addTo(this.root);
+    const batch = (occluded: LineMaterial, visibleMaterial: LineMaterial, name: string): LineBatch =>
+      new LineBatch(
+        [
+          { material: occluded, layer: LAYER.controlsOccluded },
+          { material: visibleMaterial, layer: LAYER.controlsVisible },
+        ],
+        `ekza.controls.${character}.${name}`,
+      );
+    const normal = batch(m.normalOccluded, m.normalVisible, 'normal');
+    const highlight = batch(m.highlightOccluded, m.highlightVisible, 'highlight');
+    const ghost = batch(m.ghostOccluded, m.ghostVisible, 'ghost');
+    const poleLines = batch(m.poleOccluded, m.poleVisible, 'poles');
+    for (const b of [normal, highlight, ghost, poleLines]) b.addTo(this.root);
     const entries: InternalEntry[] = [];
     let segments = 0;
     controls.forEach((record, slot) => {
@@ -110,6 +171,7 @@ export class ControlLayer {
       const local = shapeLocalSegments(record.shape);
       const count = local.length / 6;
       segments += count;
+      const visibility = asVisibility(visible(record));
       entries.push({
         id: record.id,
         character,
@@ -119,16 +181,23 @@ export class ControlLayer {
         segments: count,
         local,
         world: new Float32Array(local.length),
-        visible: visible(record),
+        visible: visibility === 'visible',
+        ghost: visibility === 'ghost',
         style: 'normal',
         rgb: styleColors(record),
       });
     });
+    const byId = new Map(entries.map((entry) => [entry.id, entry]));
+    const links = poles.filter((link) => byId.has(link.pole) && link.midNode >= 0);
     this.characters.set(character, {
       entries,
-      byId: new Map(entries.map((entry) => [entry.id, entry])),
+      byId,
       normal,
       highlight,
+      ghost,
+      poleLines,
+      poles: links,
+      poleEnds: new Float32Array(links.length * 6).fill(Number.NaN),
       segments,
     });
     this.stylesDirty = true;
@@ -140,6 +209,8 @@ export class ControlLayer {
     if (existing === undefined) return;
     existing.normal.dispose();
     existing.highlight.dispose();
+    existing.ghost.dispose();
+    existing.poleLines.dispose();
     this.characters.delete(character);
     this.version++;
   }
@@ -148,22 +219,28 @@ export class ControlLayer {
     return this.characters.has(character);
   }
 
-  /** Re-evaluates visibility of every control; returns true when anything changed. */
-  updateVisibility(visible: (id: ControlId) => boolean): boolean {
+  /**
+   * Re-evaluates the visibility of every control (§5.5: 'visible', 'ghost', 'hidden'; the M1 boolean is accepted);
+   * returns true when anything changed. Only a change of pickable controls bumps `version` (picking caches).
+   */
+  updateVisibility(visible: (id: ControlId) => VisibilityAnswer): boolean {
     let changed = false;
+    let pickable = false;
     for (const set of this.characters.values()) {
       for (const entry of set.entries) {
-        const next = visible(entry.id);
-        if (next !== entry.visible) {
-          entry.visible = next;
+        const next = asVisibility(visible(entry.id));
+        const isVisible = next === 'visible';
+        const isGhost = next === 'ghost';
+        if (isVisible !== entry.visible) pickable = true;
+        if (isVisible !== entry.visible || isGhost !== entry.ghost) {
+          entry.visible = isVisible;
+          entry.ghost = isGhost;
           changed = true;
         }
       }
     }
-    if (changed) {
-      this.stylesDirty = true;
-      this.version++;
-    }
+    if (changed) this.stylesDirty = true;
+    if (pickable) this.version++;
     return changed;
   }
 
@@ -182,6 +259,61 @@ export class ControlLayer {
     }
     this.stylesDirty = true;
     this.version++;
+  }
+
+  /**
+   * Places a character's pole annotations for a pose (§5.5 rule 4): from the mid bone's world position
+   * (`PoseBuffers.boneWorld`) to the pole control's world position, both in scene space. No allocation.
+   */
+  updatePoles(character: CharacterId, placement: Mat4, boneWorld: Float64Array, controlWorld: Float64Array): void {
+    const set = this.characters.get(character);
+    if (set === undefined || set.poles.length === 0) return;
+    const m = this.matrix;
+    const poles = set.poles;
+    // Indexed loop: this runs per evaluated pose, so no per-call closure (MVP-SPEC §3 rule 5).
+    for (let i = 0; i < poles.length; i++) {
+      const link = poles[i];
+      const entry = link === undefined ? undefined : set.byId.get(link.pole);
+      const o = i * 6;
+      if (
+        link === undefined ||
+        entry === undefined ||
+        link.midNode * 16 + 16 > boneWorld.length ||
+        entry.slot * 16 + 16 > controlWorld.length
+      ) {
+        set.poleEnds.fill(Number.NaN, o, o + 6);
+        continue;
+      }
+      multiplyAt(placement, boneWorld, link.midNode * 16, m);
+      set.poleEnds[o] = m[12] as number;
+      set.poleEnds[o + 1] = m[13] as number;
+      set.poleEnds[o + 2] = m[14] as number;
+      multiplyAt(placement, controlWorld, entry.slot * 16, m);
+      set.poleEnds[o + 3] = m[12] as number;
+      set.poleEnds[o + 4] = m[13] as number;
+      set.poleEnds[o + 5] = m[14] as number;
+    }
+    this.stylesDirty = true;
+  }
+
+  /** Scene-space end points (mid bone, pole) of a character's drawn pole lines (tests, probes). */
+  poleLines(
+    character: CharacterId,
+  ): readonly { readonly pole: ControlId; readonly from: readonly number[]; readonly to: readonly number[] }[] {
+    const set = this.characters.get(character);
+    if (set === undefined) return [];
+    const out: { pole: ControlId; from: number[]; to: number[] }[] = [];
+    set.poles.forEach((link, i) => {
+      const entry = set.byId.get(link.pole);
+      const e = set.poleEnds;
+      if (entry === undefined || !entry.visible || Number.isNaN(e[i * 6])) return;
+      out.push({
+        pole: link.pole,
+        from: [e[i * 6] as number, e[i * 6 + 1] as number, e[i * 6 + 2] as number],
+        to: [e[i * 6 + 3] as number, e[i * 6 + 4] as number, e[i * 6 + 5] as number],
+      });
+    });
+    return out;
   }
 
   /** Sets hover/selected/lead styles; `selection` is ordered with the lead last. Returns true when anything changed. */
@@ -210,9 +342,10 @@ export class ControlLayer {
     for (const set of this.characters.values()) {
       set.normal.begin(set.segments);
       set.highlight.begin(set.segments);
+      set.ghost.begin(set.segments);
       for (const entry of set.entries) {
-        if (!entry.visible) continue;
-        const batch = entry.style === 'normal' ? set.normal : set.highlight;
+        if (!entry.visible && !entry.ghost) continue;
+        const batch = entry.ghost ? set.ghost : entry.style === 'normal' ? set.normal : set.highlight;
         const c = STYLE_INDEX[entry.style] * 3;
         batch.push(
           entry.world,
@@ -225,7 +358,45 @@ export class ControlLayer {
       }
       set.normal.end();
       set.highlight.end();
+      set.ghost.end();
+      this.writePoleLines(set);
     }
+  }
+
+  /** Dashed pole lines of the visible poles (world-space dashes: half of each period drawn). */
+  private writePoleLines(set: CharacterControls): void {
+    set.poleLines.begin(set.poles.length * POLE_MAX_DASHES);
+    const e = set.poleEnds;
+    const dash = this.dash;
+    const poles = set.poles;
+    // Indexed loop: this runs on every flush after a pose, so no per-call closure (MVP-SPEC §3 rule 5).
+    for (let i = 0; i < poles.length; i++) {
+      const link = poles[i];
+      if (link === undefined || set.byId.get(link.pole)?.visible !== true) continue;
+      const o = i * 6;
+      const x0 = e[o] as number;
+      if (Number.isNaN(x0)) continue;
+      const y0 = e[o + 1] as number;
+      const z0 = e[o + 2] as number;
+      const dx = (e[o + 3] as number) - x0;
+      const dy = (e[o + 4] as number) - y0;
+      const dz = (e[o + 5] as number) - z0;
+      const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+      if (!(length > 1e-6)) continue;
+      const n = Math.min(POLE_MAX_DASHES, Math.max(4, Math.round(length / POLE_DASH_PERIOD)));
+      for (let k = 0; k < n; k++) {
+        const a = k / n;
+        const b = (k + 0.5) / n;
+        dash[0] = x0 + dx * a;
+        dash[1] = y0 + dy * a;
+        dash[2] = z0 + dz * a;
+        dash[3] = x0 + dx * b;
+        dash[4] = y0 + dy * b;
+        dash[5] = z0 + dz * b;
+        set.poleLines.push(dash, 0, 1, 1, 1, 1);
+      }
+    }
+    set.poleLines.end();
   }
 
   entry(id: ControlId): ControlEntry | undefined {

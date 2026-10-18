@@ -41,6 +41,11 @@ function expectedPart(key: string): BodyPart | null {
   return null;
 }
 
+/** M1 rigs: no limb IK on import (M2A-SPEC §5.2; a no-op until A1's autoRig honours the option). */
+function fkLimbsOnly(app: EditorApp): void {
+  app.prefs.setState({ autoRigIk: { legs: false, arms: false } });
+}
+
 function controlsOf(app: EditorApp): readonly ControlRecord[] {
   const character = app.session.getState().activeCharacter;
   const rig = character === null ? undefined : app.store.query.rigOfCharacter(character);
@@ -78,6 +83,8 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
 
   it('the body-part key target of fk.hand.L is exactly the visible arm.L controls (Seed-san)', async () => {
     const { app } = realApp();
+    // An M1 rig (FK limbs only): with limb IK the part also holds ik.arm.L and pole.arm.L (A2: ops.ik.test.ts).
+    fkLimbsOnly(app);
     await importFixture(app, 'seed-san.vrm');
     const controls = controlsOf(app);
     const id = (key: string): ControlId => {
@@ -101,6 +108,7 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
 
   it('visibility rule 1 on an M1 rig: secondary controls hidden until shown, user-hidden controls hidden', async () => {
     const { app } = realApp();
+    fkLimbsOnly(app);
     await importFixture(app, 'seed-san.vrm');
     const controls = controlsOf(app);
     for (const control of controls) {
@@ -166,6 +174,7 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
 
   it('an M1 project opens writable and saves schemaVersion 2 / minWriterVersion 1; an enabled ik2 solver saves 2', async () => {
     const { app } = realApp();
+    fkLimbsOnly(app);
     const bot = await importFixture(app, 'polybot.vrm');
     // The same document as an M1 app wrote it: schema 1 everywhere.
     const current = app.store.snapshot();

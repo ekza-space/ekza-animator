@@ -5,3 +5,11 @@ export { createFakeEditorApp, type FakeEditorApp } from './app';
 export { naiveCurveEngine, naiveCycleAwareCurveEngine } from './curves';
 export { createFakeServices, type FakeServices } from './services';
 export { createNaiveStore, type NaiveStoreOptions } from './store/naiveStore';
+// M2a A2: limb IK fixtures (records shaped like the rig's limbIkRecords, programs listing their limbs).
+export {
+  createFakeIkEditorApp,
+  FIXTURE_FOOT,
+  fixtureControl,
+  fixtureLimbs,
+  withLimbIkRecords,
+} from './limbs';

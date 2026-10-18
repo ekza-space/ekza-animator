@@ -1,6 +1,6 @@
 // Shortcut sheet (`?`, research 09 §7.1 rule 5): generated from the keymap's binding table, grouped by scope, with
 // the platform's labels. Operators that are not registered in this build are listed as unavailable.
-import { GLOBAL_SCOPE, type EditorApp, type KeyBinding } from '@ekza-animator/editor-core';
+import { GLOBAL_SCOPE, type EditorApp, type KeyBinding, pickWalkDispatch } from '@ekza-animator/editor-core';
 import { Dialog, DialogContent, Kbd, Search, TextInput } from '@ekza-animator/ui';
 import { type JSX, useMemo, useState } from 'react';
 import { useShell } from '../shell/context';
@@ -41,11 +41,15 @@ function chordText(app: EditorApp, binding: KeyBinding): string {
 /** One row per binding, grouped by scope (global first), in binding order. */
 export function shortcutRows(app: EditorApp): ShortcutRow[] {
   return app.keymap.bindings().map((binding) => {
-    const def = app.operators.get(binding.op);
+    // M2A-SPEC §5.17: the arrows run select.pickWalk, which runs a time operator with prefs.arrowKeys 'frames'; the
+    // sheet shows the behaviour that is active.
+    const target = binding.op === 'select.pickWalk' ? pickWalkDispatch(app, binding.args) : null;
+    const op = target?.op ?? binding.op;
+    const def = app.operators.get(op);
     return {
       scope: binding.scope,
       keys: chordText(app, binding),
-      label: `${def?.label ?? binding.op}${argsText(binding.args)}`,
+      label: `${def?.label ?? op}${argsText(target === null ? binding.args : target.args)}`,
       available: def !== undefined,
     };
   });

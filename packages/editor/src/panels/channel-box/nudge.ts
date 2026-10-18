@@ -1,21 +1,32 @@
 // ↑/↓ value nudges in a Channel Box field (FR-CB-03, research 09 §4.5): ±step (Shift ×10, Alt ×0.1) on every
 // selected control, relative to each control's own value. A burst — key presses and auto-repeat until the arrow is
 // released, Enter, Tab, blur or Esc — is ONE interactive edit: a `beginChannelEditGesture` (live preview, one
-// history step, auto-key on commit).
-import type { ControlId, TrsChannel } from '@ekza-animator/doc';
-import type { ChannelEditGesture, EditorApp, PanelKind } from '@ekza-animator/editor-core';
+// history step, auto-key on commit). M2a: attribute rows nudge in their display unit (1° on `angle` attributes).
+import type { ChannelId, ControlId } from '@ekza-animator/doc';
+import {
+  type ChannelEditGesture,
+  type ChannelUnit,
+  channelUnit,
+  clampChannelValue,
+  type EditorApp,
+  type PanelKind,
+} from '@ekza-animator/editor-core';
 import { fromDisplayValue, isRotationChannel, startChannelEditGesture, toDisplayValue } from './kit/kernel';
 import { type ChannelReadout, readoutValueKey } from './readout';
 
-/** Display units per press: 1° for rotations, 0.01 for translations (metres) and scales. */
-export function nudgeStep(channel: TrsChannel, modifiers: { readonly shift: boolean; readonly alt: boolean }): number {
-  const base = isRotationChannel(channel) ? 1 : 0.01;
+/** Display units per press: 1° for rotations and angle attributes, 0.01 for translations (metres), scales and others. */
+export function nudgeStep(
+  channel: ChannelId,
+  modifiers: { readonly shift: boolean; readonly alt: boolean },
+  unit?: ChannelUnit,
+): number {
+  const base = (unit === undefined ? isRotationChannel(channel) : unit === 'angle') ? 1 : 0.01;
   return base * (modifiers.shift ? 10 : modifiers.alt ? 0.1 : 1);
 }
 
 interface NudgeEdit {
   readonly control: ControlId;
-  readonly channel: TrsChannel;
+  readonly channel: ChannelId;
   readonly value: number;
 }
 
@@ -24,10 +35,10 @@ interface Burst {
   /** `${control}/${channel}` → value when the burst started (internal units). */
   readonly base: ReadonlyMap<
     string,
-    { readonly control: ControlId; readonly channel: TrsChannel; readonly value: number }
+    { readonly control: ControlId; readonly channel: ChannelId; readonly value: number }
   >;
   readonly signature: string;
-  readonly offset: Map<TrsChannel, number>;
+  readonly offset: Map<ChannelId, number>;
   readonly gesture: ChannelEditGesture;
   edits: readonly NudgeEdit[];
 }
@@ -51,12 +62,12 @@ export class ChannelNudge {
    * Adds `delta` (display units) to each channel of `targets` on its controls. A press on other channels or
    * controls than the running burst first ends that burst.
    */
-  press(targets: ReadonlyMap<TrsChannel, readonly ControlId[]>, delta: number, label: string): void {
+  press(targets: ReadonlyMap<ChannelId, readonly ControlId[]>, delta: number, label: string): void {
     const signature = [...targets].map(([channel, ids]) => `${channel}:${ids.join(',')}`).join(';');
     if (this.#burst !== null && this.#burst.signature !== signature) this.end(false);
     let burst = this.#burst;
     if (burst === null) {
-      const base = new Map<string, { control: ControlId; channel: TrsChannel; value: number }>();
+      const base = new Map<string, { control: ControlId; channel: ChannelId; value: number }>();
       for (const [channel, controls] of targets) {
         for (const control of controls) {
           base.set(readoutValueKey(control, channel), {
@@ -77,11 +88,12 @@ export class ChannelNudge {
       this.#burst = burst;
     }
     for (const channel of targets.keys()) burst.offset.set(channel, (burst.offset.get(channel) ?? 0) + delta);
-    burst.edits = [...burst.base.values()].map(({ control, channel, value }) => ({
-      control,
-      channel,
-      value: fromDisplayValue(channel, toDisplayValue(channel, value) + (burst.offset.get(channel) ?? 0)),
-    }));
+    burst.edits = [...burst.base.values()].map(({ control, channel, value }) => {
+      const record = this.#app.store.get('controls', control);
+      const unit = channelUnit(record ?? null, channel);
+      const shown = toDisplayValue(channel, value, unit) + (burst.offset.get(channel) ?? 0);
+      return { control, channel, value: clampChannelValue(record, channel, fromDisplayValue(channel, shown, unit)) };
+    });
     burst.gesture.update(burst.edits);
   }
 
