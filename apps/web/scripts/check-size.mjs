@@ -61,13 +61,14 @@ function main() {
   } else {
     const sizes = initial.map((path) => ({ path, bytes: gzip9(path) })).sort((a, b) => b.bytes - a.bytes);
     const total = sizes.reduce((sum, { bytes }) => sum + bytes, 0);
-    process.stdout.write(`check:size (report only): /editor initial scripts ${initial.length}, ${kb(total)} gzip -9\n`);
+    process.stdout.write(
+      `check:size (report only): scripts referenced by the prerendered /editor HTML: ${initial.length}, ` +
+        `${kb(total)} gzip -9 (the client island's chunks are not attributed yet: A5 measures the bench's set)\n`,
+    );
     for (const { path, bytes } of sizes.slice(0, 12)) {
       process.stdout.write(`  ${kb(bytes).padStart(10)}  ${relative(nextDir, path)}\n`);
     }
-    process.stdout.write(
-      `  budget ${kb(BUDGET)} (M-2 target ≤ 800.0 kB): ${total <= BUDGET ? 'within' : 'OVER'} — not gated yet (A5)\n`,
-    );
+    process.stdout.write(`  budget ${kb(BUDGET)} (M-2 target ≤ 800.0 kB): not gated yet (A5)\n`);
   }
   process.stdout.write(`  all client chunks: ${all.length}, ${kb(allBytes)} gzip -9\n`);
 }
