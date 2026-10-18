@@ -9,7 +9,7 @@
 // Run: `EKZA_E2E_PORT=<port> pnpm --filter web exec playwright test -c e2e/bench/playwright.config.ts m2a-a4`.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { type CDPSession, expect, type Page, test } from '@playwright/test';
-import { controlId, seedSample } from '../helpers/seed';
+import { seedSample } from '../helpers/seed';
 import { call, openEditor, runOk } from '../helpers/test-api';
 
 const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
@@ -349,30 +349,12 @@ test('tween slider drag on 60 channels (status-line bar)', async ({ page }) => {
   await openEditor(page);
   const { character } = await seedSample(page, 'seed-san');
   await runOk(page, 'clip.new', { name: 'tween60' });
-  const keys = [
-    'fk.upperArm.L',
-    'fk.lowerArm.L',
-    'fk.hand.L',
-    'fk.upperArm.R',
-    'fk.lowerArm.R',
-    'fk.hand.R',
-    'fk.spine',
-    'fk.chest',
-    'fk.neck',
-    'fk.head',
-    'fk.upperLeg.L',
-    'fk.lowerLeg.L',
-    'fk.upperLeg.R',
-    'fk.lowerLeg.R',
-    'fk.shoulder.L',
-    'fk.shoulder.R',
-    'fk.foot.L',
-    'fk.foot.R',
-    'fk.upperChest',
-    'fk.hips',
-  ];
-  const controls: string[] = [];
-  for (const key of keys) controls.push(await controlId(page, key, character));
+  // 20 FK controls × rx/ry/rz = 60 channels.
+  const controls = (await call(page, 'controls', character))
+    .filter((control) => control.visible && control.key.startsWith('fk.'))
+    .slice(0, 20)
+    .map((control) => control.id);
+  expect(controls).toHaveLength(20);
   await runOk(page, 'select.controls', { ids: controls, mode: 'replace' });
   for (const [frame, sign] of [
     [0, 1],
