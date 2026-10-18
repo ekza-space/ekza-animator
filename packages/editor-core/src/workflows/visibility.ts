@@ -16,6 +16,16 @@ import type { ControlVisibility, EditorApp } from '../types';
 export const FK_HIDDEN_AT = 0.999;
 export const IK_HIDDEN_AT = 0.001;
 
+/**
+ * Rule 2's state of a limb at `ikFk = w`: 2 = IK (its FK chain hidden), 0 = FK (its IK control and pole hidden),
+ * 1 = between (both shown). Per-frame callers compare these to skip work while no limb crosses a threshold.
+ */
+export function limbVisibilityState(w: number): 0 | 1 | 2 {
+  return w >= FK_HIDDEN_AT ? 2 : w <= IK_HIDDEN_AT ? 0 : 1;
+}
+
+const NO_CONTROLS: ReadonlySet<ControlId> = new Set();
+
 /** Rule 1 on a record and the session (no IK/FK rule). */
 function hiddenByRule1(app: EditorApp, record: ControlRecord | undefined): boolean {
   if (record === undefined || record.deleted !== null) return true;
@@ -26,41 +36,46 @@ function hiddenByRule1(app: EditorApp, record: ControlRecord | undefined): boole
 
 /**
  * The controls of a character that rule 2 hides at the current frame (FK chains of IK limbs, IK controls and poles
- * of FK limbs). Empty without a runtime or without limbs.
+ * of FK limbs). A shared empty set without a runtime, without limbs or when no limb hides anything (no allocation).
  */
 export function limbHiddenControls(app: EditorApp, character: CharacterId): ReadonlySet<ControlId> {
   const program = app.characters.get(character)?.program;
-  const out = new Set<ControlId>();
-  if (program === undefined || program.limbs.length === 0) return out;
+  if (program === undefined || program.limbs.length === 0) return NO_CONTROLS;
+  let out: Set<ControlId> | null = null;
   for (const limb of program.limbs) {
-    const w = app.evaluation.ikFk(character, limb.id) ?? 0;
-    if (w >= FK_HIDDEN_AT) for (const id of limb.fkControls) out.add(id);
-    if (w <= IK_HIDDEN_AT) for (const id of limb.ikControls) out.add(id);
+    const state = limbVisibilityState(app.evaluation.ikFk(character, limb.id) ?? 0);
+    const hidden = state === 2 ? limb.fkControls : state === 0 ? limb.ikControls : null;
+    if (hidden === null || hidden.length === 0) continue;
+    out ??= new Set();
+    for (const id of hidden) out.add(id);
   }
-  return out;
+  return out ?? NO_CONTROLS;
 }
 
 /**
- * A resolver for many controls at once (the viewport recomputes every control per pose version): rule 2 is
- * evaluated once per character and then looked up. Valid until the session, preferences, document or pose change.
+ * A resolver for many controls at once (the viewport recomputes every control when the visible set may change):
+ * rule 2 is evaluated once per character with limbs and then looked up; characters without limbs cost nothing.
+ * Valid until the session, preferences, document or pose change.
  */
 export function controlVisibilityResolver(app: EditorApp): (control: ControlId) => ControlVisibility {
-  const byCharacter = new Map<CharacterId, ReadonlySet<ControlId>>();
+  let byCharacter: Map<CharacterId, ReadonlySet<ControlId>> | null = null;
   const state = app.session.getState();
-  const selected = new Set(state.selection.controls);
   const ghostPref = app.prefs.getState().ikFkVisibility === 'ghost';
   return (control: ControlId): ControlVisibility => {
     const record = app.store.get('controls', control);
     if (hiddenByRule1(app, record) || record === undefined) return 'hidden';
     const character = app.store.get('rigs', record.rig)?.character;
     if (character === undefined) return 'visible';
-    let hidden = byCharacter.get(character);
+    const program = app.characters.get(character)?.program;
+    if (program === undefined || program.limbs.length === 0) return 'visible';
+    let hidden = byCharacter?.get(character);
     if (hidden === undefined) {
       hidden = limbHiddenControls(app, character);
-      byCharacter.set(character, hidden);
+      (byCharacter ??= new Map()).set(character, hidden);
     }
     if (!hidden.has(control)) return 'visible';
-    return ghostPref || selected.has(control) ? 'ghost' : 'hidden';
+    // Rule 3 (and the 'ghost' preference): hidden by the IK/FK rule but selected — a ghost.
+    return ghostPref || state.selection.controls.includes(control) ? 'ghost' : 'hidden';
   };
 }
 

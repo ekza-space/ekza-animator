@@ -1,9 +1,9 @@
 // M2A-SPEC §5.5 (A2): controlVisibility rules 2–3 over evaluated ikFk, for ikFk 0, 0.5 and 1, the selected-ghost
 // rule, the 'ghost' preference (stretch), and the per-character resolver.
 import { describe, expect, it } from 'vitest';
-import { controlVisibility, controlVisibilityResolver, limbHiddenControls } from '../../src';
+import { controlVisibility, controlVisibilityResolver, limbHiddenControls, limbVisibilityState } from '../../src';
 import { cid, ikApp } from '../builtin/ikFixture';
-import { WAVE } from '../builtin/support';
+import { WAVE, waveDoc } from '../builtin/support';
 
 function setIkFk(app: ReturnType<typeof ikApp>['app'], key: string, value: number): void {
   const overrides = new Map(app.session.getState().overrides);
@@ -83,5 +83,23 @@ describe('controlVisibility rules 2–3 (§5.5)', () => {
       ].sort(),
     );
     expect(controlVisibility(app, 'nope' as never)).toBe('hidden');
+  });
+});
+
+describe('per-frame cost of the rule (§5.5 rule 5, MVP-SPEC §3 rule 5)', () => {
+  it('limbVisibilityState is the rule-2 state: IK at ≥ 0.999, FK at ≤ 0.001, else between', () => {
+    expect([1, 0.999, 0.9989, 0.5, 0.0011, 0.001, 0].map(limbVisibilityState)).toEqual([2, 2, 1, 1, 1, 0, 0]);
+  });
+
+  it('limbHiddenControls shares one empty set for characters without limbs or with every limb between', () => {
+    const { app: plain } = ikApp({ snapshot: waveDoc() });
+    const none = limbHiddenControls(plain, WAVE.character);
+    expect(none.size).toBe(0);
+    expect(limbHiddenControls(plain, WAVE.character)).toBe(none);
+    const { app } = ikApp();
+    for (const key of ['ik.leg.L', 'ik.leg.R', 'ik.arm.L', 'ik.arm.R']) setIkFk(app, key, 0.5);
+    expect(limbHiddenControls(app, WAVE.character)).toBe(none);
+    // A character without limbs resolves 'visible' without reading any limb.
+    expect(controlVisibilityResolver(plain)(cid('fk.upperLeg.L'))).toBe('visible');
   });
 });

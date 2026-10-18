@@ -5,6 +5,7 @@ import type { EditorApp } from '@ekza-animator/editor-core';
 import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { readLimbStates } from '../../src/panels/outliner/limbHidden';
 import { OutlinerPanel } from '../../src/panels/outliner/OutlinerPanel';
 import { by, cleanup, control, loadFixtures, mount, setSession } from './helpers';
 
@@ -38,5 +39,27 @@ describe('Outliner dimming by the IK/FK rule (§5.5)', () => {
     expect(row(control('fk.upperLeg.L')).dataset.ikfkHidden).toBeUndefined();
     expect(row(control('ik.leg.L')).dataset.ikfkHidden).toBe('true');
     await view.unmount();
+  });
+});
+
+describe('Outliner limb states (no per-frame rebuild)', () => {
+  it('readLimbStates reports a change only when a limb crosses a threshold, reusing its array', async () => {
+    const app = createFakeIkEditorApp({ snapshot: withLimbIkRecords(fixtures.snapshot), skeleton: fixtures.skeleton });
+    const states: number[] = [];
+    // One entry per limb in program order: legs IK (2), arms FK (0).
+    const order = app.characters.list().flatMap((runtime) => runtime.program.limbs.map((limb) => limb.id));
+    const expected = (patch: Record<string, number> = {}) =>
+      order.map((id) => patch[id] ?? (id.startsWith('leg') ? 2 : 0));
+    expect(readLimbStates(app, states)).toBe(true);
+    expect(states).toEqual(expected());
+    expect(readLimbStates(app, states)).toBe(false);
+    const ik = control('ik.leg.L');
+    await setSession(app, { overrides: new Map([[ik, { '@ikFk': 0.9995 }]]) });
+    await tick(app);
+    expect(readLimbStates(app, states)).toBe(false);
+    await setSession(app, { overrides: new Map([[ik, { '@ikFk': 0.5 }]]) });
+    await tick(app);
+    expect(readLimbStates(app, states)).toBe(true);
+    expect(states).toEqual(expected({ 'leg.L': 1 }));
   });
 });

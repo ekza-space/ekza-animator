@@ -2,8 +2,9 @@
 // evaluated poses, imperatively and without per-frame allocation. Per evaluated frame, in this order:
 //   kernel bone locals → one updateMatrixWorld → VRMC_node_constraint update → constraint destination subtrees →
 //   spring bones (preview, only while enabled and playing) → control and skeleton lines.
-// M2a (M2A-SPEC §5.5, A2): control visibility is `controlVisibility` (rules 1–3, recomputed per evaluated pose and
-// on selection, hidden-control and preference changes); limbs' poles get their annotation lines.
+// M2a (M2A-SPEC §5.5, A2): control visibility is `controlVisibility` (rules 1–3), recomputed on selection,
+// hidden-control and preference changes and, per evaluated pose, only when a limb's ikFk crossed a rule-2 threshold
+// (a per-slot state array, compared without allocating); limbs' poles get their annotation lines.
 import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
 import type { CharacterId, CharacterRecord, ControlId, ControlRecord } from '@ekza-animator/doc';
 import {
@@ -11,6 +12,7 @@ import {
   type ControlVisibility,
   controlVisibilityResolver,
   type EditorApp,
+  limbVisibilityState,
 } from '@ekza-animator/editor-core';
 import type { LoadedModel } from '@ekza-animator/io/three';
 import { Group, type Material, type Mesh, type Object3D, type Scene } from 'three';
@@ -39,7 +41,11 @@ interface CharacterSlot {
   poseDirty: boolean;
   /** Rig program the control and skeleton lines were built from (rebuild when it changes). */
   builtFrom: CharacterRuntime['program'] | null;
+  /** §5.5 rule-2 state per limb of the program (`limbVisibilityState`; 255 = not read yet). */
+  limbStates: Uint8Array;
 }
+
+const UNKNOWN_LIMB_STATE = 255;
 
 export interface SceneSyncOptions {
   readonly app: EditorApp;
@@ -192,10 +198,11 @@ export class SceneSync {
       for (const slot of this.slots.values()) slot.model?.springBones?.reset();
     }
 
-    let posed = false;
     for (const slot of this.slots.values()) {
       if (!slot.poseDirty) continue;
       slot.poseDirty = false;
+      // §5.5 rule 5: an animated ikFk can switch the visible set; only a crossed threshold re-runs the rule.
+      if (this.limbStatesChanged(slot)) this.visibilityDirty = true;
       this.opts.controls.updatePose(slot.id, slot.placement, slot.runtime.pose.controlWorld);
       this.opts.controls.updatePoles(
         slot.id,
@@ -205,10 +212,8 @@ export class SceneSync {
       );
       this.opts.skeleton.updatePose(slot.id, slot.placement, slot.runtime.pose.boneWorld);
       changed = true;
-      posed = true;
     }
-    // §5.5 rule 5: visibility per evaluated pose (an animated ikFk switches the visible set).
-    if ((posed || this.visibilityDirty) && this.refreshVisibility()) changed = true;
+    if (this.visibilityDirty && this.refreshVisibility()) changed = true;
     if (changed || anyPose) this.stamp++;
     return changed;
   }
@@ -257,6 +262,28 @@ export class SceneSync {
     return controlVisibilityResolver(this.opts.app)(id);
   }
 
+  /**
+   * Reads each limb's rule-2 state (IK, between, FK) from the evaluated ikFk into the slot; true when one changed.
+   * Allocation-free per frame (the state array is replaced only when the program's limb count changes).
+   */
+  private limbStatesChanged(slot: CharacterSlot): boolean {
+    const limbs = slot.runtime.program.limbs;
+    if (slot.limbStates.length !== limbs.length) {
+      slot.limbStates = new Uint8Array(limbs.length).fill(UNKNOWN_LIMB_STATE);
+    }
+    let changed = false;
+    for (let i = 0; i < limbs.length; i++) {
+      const limb = limbs[i];
+      if (limb === undefined) continue;
+      const state = limbVisibilityState(this.opts.app.evaluation.ikFk(slot.id, limb.id) ?? 0);
+      if (state !== slot.limbStates[i]) {
+        slot.limbStates[i] = state;
+        changed = true;
+      }
+    }
+    return changed;
+  }
+
   /** Re-applies the visibility rule to every control; true when anything visible changed. */
   private refreshVisibility(): boolean {
     this.visibilityDirty = false;
@@ -291,6 +318,7 @@ export class SceneSync {
         placement: new Float64Array(16),
         poseDirty: true,
         builtFrom: null,
+        limbStates: new Uint8Array(0),
       };
       this.slots.set(id, slot);
       this.readPlacement(slot);
@@ -342,6 +370,7 @@ export class SceneSync {
     );
     this.opts.skeleton.setCharacter(slot.id, slot.runtime.skeleton);
     slot.builtFrom = slot.runtime.program;
+    slot.limbStates = new Uint8Array(slot.runtime.program.limbs.length).fill(UNKNOWN_LIMB_STATE);
     slot.poseDirty = true;
   }
 

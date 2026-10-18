@@ -11,8 +11,9 @@ import {
   fixtureControl,
   withLimbIkRecords,
 } from '@ekza-animator/editor-core/testing';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startVirtualSliderDrag } from '../src';
+import { ControlLayer } from '../src/controls/ControlLayer';
 import { createRig, fixtures, pointer, type Rig } from './helpers';
 
 const RIG = 'rig_SyntheticWave001' as RigId;
@@ -78,6 +79,44 @@ describe('controls drawn by the visibility rule (§5.5)', () => {
     r.frame();
     expect(r.vm.controlDrawState(c('fk.upperLeg.L'))).toBe('visible');
     expect(r.vm.controlDrawState(c('ik.leg.L'))).toBe('visible');
+  });
+
+  it('per evaluated frame the rule re-runs only when a limb crosses a threshold (playback, §5.5 rule 5)', async () => {
+    const r = await ikRig();
+    // ikFk of the left leg keyed 1 at 0 and 0 at 10 and 20 (stepped; the wave clip loops, so the curve cycles):
+    // IK on 0…9, FK on 10…20.
+    for (const [frame, value] of [
+      [0, 1],
+      [10, 0],
+      [20, 0],
+    ] as const) {
+      r.app.session.setState({ time: { ...r.app.session.getState().time, sceneFrame: frame } });
+      const result = await r.app.runUntyped('channel.setValues', {
+        edits: [{ control: c('ik.leg.L'), channel: '@ikFk', value }],
+        key: 'force',
+      });
+      expect(result.status).toBe('finished');
+    }
+    const at = (frame: number) => {
+      r.app.session.setState({ time: { ...r.app.session.getState().time, sceneFrame: frame } });
+      r.frame();
+    };
+    at(0);
+    const spy = vi.spyOn(ControlLayer.prototype, 'updateVisibility');
+    try {
+      for (let frame = 1; frame <= 9; frame++) at(frame);
+      // Nine evaluated poses, no limb crossed 0.001 or 0.999: the visible set is not recomputed.
+      expect(spy).not.toHaveBeenCalled();
+      expect(r.vm.controlDrawState(c('fk.upperLeg.L'))).toBe('hidden');
+      at(10);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(r.vm.controlDrawState(c('fk.upperLeg.L'))).toBe('visible');
+      expect(r.vm.controlDrawState(c('ik.leg.L'))).toBe('hidden');
+      for (let frame = 11; frame <= 15; frame++) at(frame);
+      expect(spy).toHaveBeenCalledTimes(1);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('a selected control the rule hides is a ghost: drawn, never pickable, not marquee-selected', async () => {
