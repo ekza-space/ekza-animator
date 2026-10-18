@@ -1,0 +1,11 @@
+{
+  "name": "@ekza-animator/rig",
+  "private": true,
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*"
+  },
+  "devDependencies": {
+    "@ekza-animator/doc-yjs": "workspace:*"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@ekza-animator/doc-yjs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Private, test-only ReplicatingStore over Yjs that runs the full store conformance suite. Never a dependency of the app.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/doc": "workspace:*",
+    "yjs": "13.6.33"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "fast-check": "4.10.2",
+    "vitest": "catalog:"
+  }
+}

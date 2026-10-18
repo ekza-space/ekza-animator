@@ -7,9 +7,12 @@ slider, shape the motion in a Graph Editor with Maya's tangent model, then bake 
 file — every original JSON value and every byte of its binary buffer preserved — or export VRMA and animation-only
 GLB. Part of the Ekza ecosystem; usable on its own.
 
-> **Status: pre-alpha — design complete (reviewed), implementation starting.** This repository currently contains
-> the research, architecture and build specification. Code arrives with milestone M0 (scaffold) and M1 (MVP,
-> tagged as the public alpha `v0.1.0`). See [docs/ROADMAP.md](docs/ROADMAP.md) for live status.
+> **Status: alpha candidate — milestone M1 is complete on `dev`.** `pnpm dev` opens the full editor at `/editor`:
+> bundled samples or your own `.vrm`/`.glb`, circle controls in a split view, keying, the time slider, the Graph
+> Editor, exports (bake into the model, VRMA, animation-only GLB) and `.ekzanim` projects. The end-to-end scenarios
+> E2E-00…E2E-27 pass in Chrome and in the SwiftShader CI project, the owner demo script passes, and the performance
+> budgets are measured (one miss and two at the limit, each with an owner). The tag `v0.1.0` follows the owner's
+> review of [docs/DECISIONS-OPEN.md](docs/DECISIONS-OPEN.md). See [docs/ROADMAP.md](docs/ROADMAP.md) for live status.
 
 <!-- Screenshots / GIF: added with the M1 release (split view with locked shot camera + Graph Editor). -->
 
@@ -23,24 +26,27 @@ collaboration, plugins and spline modeling can be added without rewriting the co
 
 ## What the first alpha (M1) is for
 
-In-place loops, idles, gestures, upper-body emotes and full-body blocking. Legs are FK in M1: when you move the
-centre of gravity, **Pose → Plant Feet** puts the feet back where you pinned them (one click per key); feet can
-still slide between keys. Leg IK is the first item after the alpha (M2a). There is no Dope Sheet (the time slider
-does range moves and scales), no animation layers and no facial expressions in VRMA yet.
+The alpha (`v0.1.0`) is credible for **in-place loops, idles, gestures, upper-body emotes and full-body blocking
+with planted feet**. Legs are FK in M1: moving the centre of gravity moves the feet, so for weight shifts and
+crouches **Pose → Plant Feet** puts them back where you pinned them (one click per key, one undo step); feet can
+still slide between keys. Leg IK with pole vectors is the first item after the alpha (M2a). Not in M1: a Dope Sheet
+(the time slider moves, scales, copies and deletes key ranges), animation layers, facial expressions in VRMA, and
+importing an animation-only GLB onto a character (VRMA clips import). Chrome and Edge are the supported browsers;
+Firefox and Safari follow in V1.
 
 ## Features
 
 | Area | MVP (M1) | Planned |
 |---|---|---|
-| Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b) |
-| Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview | Two-bone leg/arm IK with pole + IK/FK switch (M2a); constraints (M2c); foot roll, space switching (M5) |
-| Viewports | One canvas, single / split (locked shot camera + free camera) / quad, Maya and trackpad navigation, F/A framing, display toggles, marquee and click-cycling selection, W/E manipulators (object/world/**gimbal**) | Scale manipulator, onion skin, motion trails, camera bookmarks (M2) |
+| Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
+| Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview; pose-preserving rotate-order change | Two-bone leg/arm IK with pole + IK/FK switch (M2a); constraints (M2c); foot roll, space switching (M5) |
+| Viewports | One canvas, single / split (locked shot camera + free camera) / quad, Maya, trackpad and one-button navigation, Space-hold camera radial, F/A framing, display toggles, marquee, click-cycling and mesh-click selection, W/E manipulators (object/world/**gimbal**) | Scale manipulator, onion skin, motion trails, camera bookmarks (M2) |
 | Keying | `S`, `Shift+W/E/R`, key selected channels, auto-key, delete keys, static values, undoable unkeyed tweaks | Breakdowns, tween slider, keying by body part (M2a) |
 | Time | Time slider with key ticks, scrub, **Shift-drag range move/scale/delete/copy/paste**, playback range, loop/once/oscillate, real-time or every frame, per-clip fps, shared scene clock for several characters | Dope Sheet, ripple, bookmarks → clips, audio (M2) |
-| Graph Editor | Canvas2D, exact curves, select keys and handles (click, box, double-click curve), move with axis lock (LMB or MMB), auto/spline/clamped/linear/flat/stepped, break/unify, weighted with lock/free weight, pen-like handles, shape-preserving insert, numeric fields, pre/post infinity, Euler filter, Simplify | Buffer curves, normalized/stacked views, scale/region tools (M2a); smoothing filters, quaternion curves (M5) |
+| Graph Editor | Canvas2D, exact curves, select keys and handles (click, box, double-click curve), move with axis lock (LMB or MMB), auto/spline/clamped/plateau/linear/flat/stepped, break/unify, weighted with lock/free weight, pen-like handles, shape-preserving insert, numeric fields, pre/post infinity, Euler filter, Simplify | Buffer curves, normalized/stacked views, scale/region tools (M2a); smoothing filters, quaternion curves (M5) |
 | Clips and poses | Multiple clips per character with Ekza slot, contact frame, tags and provenance; copy/paste/mirror pose; reset to rest | Animation layers, clip sequencing, pose library (M5) |
 | Undo | Transactions, one gesture = one step (including unkeyed tweaks), per-user stack | History panel (M2c) |
-| Export | Bake into the original GLB/VRM (append-only, safe re-bake), animation-only GLB, VRMA (one clip per file), read-back check, Ekza Tier-0 metadata, export profiles and lints | Export key reduction (M2a), VRMA expressions/lookAt (M2c), BVH/FBX (M5) |
+| Export | Bake into the original GLB/VRM (append-only, safe re-bake), animation-only GLB, VRMA (one clip per file), read-back check, Ekza Tier-0 metadata, export profiles and lints (Ekza, Bevy) | Export key reduction (M2a), VRMA expressions/lookAt (M2c), BVH/FBX (M5) |
 | Projects | `.ekzanim` (zip with source models by SHA-256), JSON debug variant | Autosave (M2a), merge-on-open (M3) |
 | Collaboration | Data model, store boundary and conformance suite — verified in CI against a test-only Yjs store | Live sessions with presence and claims (M3), accounts and permissions (M4b) |
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
@@ -48,7 +54,7 @@ does range moves and scales), no animation layers and no facial expressions in V
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 
-## Quickstart (from milestone M0)
+## Quickstart
 
 Requirements: Node.js 24 LTS (Node 25 works with engine warnings), pnpm 10.32.1, Chrome for end-to-end tests.
 
@@ -59,7 +65,7 @@ pnpm install
 pnpm dev            # http://localhost:3000/editor
 pnpm test           # unit + headless tests
 pnpm test:e2e       # Playwright (real Chrome; install a browser with `pnpm exec playwright install chromium` on CI)
-pnpm ci             # format, lint, typecheck, layering, fixtures, licences, tests, build, e2e
+pnpm run ci         # format, lint, typecheck, layering, fixtures, licences, tests, build, e2e (`pnpm ci` is reserved by pnpm)
 ```
 
 ## Repository layout
@@ -101,12 +107,12 @@ docs/                    research, ADRs, requirements, roadmap, MVP spec, glossa
 
 Contributions are welcome under the [Developer Certificate of Origin](https://developercertificate.org/): sign off
 every commit (`git commit -s`; checked in CI). Feature branches merge into `dev`; releases go from `dev` to `main`.
-Do not copy code from GPL/AGPL or unlicensed projects; implement features clean-room. Details arrive in
-`CONTRIBUTING.md` with milestone M0.
+Do not copy code from GPL/AGPL or unlicensed projects; implement features clean-room. Details:
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-The code is MIT (see `LICENSE`, added in M0). Exceptions:
+The code is MIT (see [LICENSE](LICENSE)). Exceptions:
 
 - `packages/anim-core/src/curve/animx/` is a TypeScript port of [Autodesk AnimX](https://github.com/Autodesk/animx)
   and remains under the Apache License 2.0 with its original notices.
@@ -120,7 +126,8 @@ example "Maya-style hotkeys") are used descriptively only.
 ## Credits
 
 - "Seed-san" VRM 1.0 model by VirtualCast, Inc., [VRM Public License 1.0](https://vrm.dev/en/licenses/1.0/).
-- "Polybot" VRM 0.x model by Polygonal Mind (100Avatars), CC0 1.0.
+- "Polybot" VRM 0.x model by Polygonal Mind (100Avatars), CC0 1.0. It rests in an A-pose, so a VRMA clip from a
+  T-pose avatar plays with its arms about 38° lower (three-vrm-animation gives the same result).
 - Universal Animation Library by Quaternius, CC0 1.0.
 - Curve evaluation based on Autodesk AnimX (Apache-2.0).
 - Built on three.js, React Three Fiber, @pixiv/three-vrm, glTF Transform, dockview and camera-controls (MIT), and

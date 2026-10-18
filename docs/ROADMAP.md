@@ -1,17 +1,17 @@
 # Ekza Animator — Roadmap
 
-Status: v0.2 (2026-10-17, design review revision). Keep the [status table](#status) current: every merged
-milestone task updates it. Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is
-[MVP-SPEC.md](MVP-SPEC.md). Sizes are rough **agent-days** (one implementation agent working full time); calendar
-time depends on parallelism.
+Status: v0.3 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag is pending). Keep the
+[status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+[REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md). Sizes are rough
+**agent-days** (one implementation agent working full time); calendar time depends on parallelism.
 
 ## Status
 
 | Milestone | Scope | Status | Started | Done | Notes |
 |---|---|---|---|---|---|
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
-| M0 | Scaffold, contracts, stubs, math, toolchain, test kit | Ready | — | — | WP-0a, WP-0b |
-| M1 | MVP → public alpha `v0.1.0` | Planned | — | — | WP-1…WP-10 |
+| M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
+| M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
 | M2a | Game-clip daily driver | Planned | — | — | leg IK first |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | |
@@ -25,20 +25,20 @@ time depends on parallelism.
 
 | WP | Package(s) | Owner | Status | PR | Notes |
 |---|---|---|---|---|---|
-| WP-0a | scaffold, contracts, stubs, `anim-core/math`, toolchain, CI | Integration | Ready | — | blocks all |
-| WP-0b | shared test kit | Integration | Waiting for WP-0a | — | unblocks UI WPs |
-| WP-1 | `anim-core` curves, reduction, shapes, AnimX goldens | A1 | Waiting for WP-0a | — | |
-| WP-2 | `doc` + `doc-yjs` + conformance suite | A2 | Waiting for WP-0a | — | contract checkpoint after merge |
-| WP-3 | `rig` | A3 | Waiting for WP-0a | — | |
-| WP-4 | `io` | A4 | Waiting for WP-0a | — | adds the meshopt fixture |
-| WP-5 | `viewport` + viewport panel | A5 | Waiting for WP-0b | — | |
-| WP-6 | Graph Editor + graph panel | A6 | Waiting for WP-0b | — | |
-| WP-6t | time slider + timeline panel | A2 | Waiting for WP-2 | — | |
-| WP-7a | `editor-core` kernel | A7 | Waiting for WP-0a | — | |
-| WP-7b | operator catalog + workflows | A7 | Waiting for WP-7a | — | operator freeze at merge |
-| WP-8 | `editor` shell, `ui`, `apps/web` | Integration | Waiting for WP-0b | — | |
-| WP-9 | data panels | A1 | Waiting for WP-1 | — | |
-| WP-10 | integration + e2e | Integration | Waiting | — | |
+| WP-0a | scaffold, contracts, stubs, `anim-core/math`, toolchain, CI | Integration | Done (on `dev`) | — | build deviations: DECISIONS-OPEN §E |
+| WP-0b | shared test kit | Integration | Done (on `dev`) | — | build deviations: DECISIONS-OPEN §E (B-14…) |
+| WP-1 | `anim-core` curves, reduction, shapes, AnimX goldens | A1 | Done (on `dev`) | — | [notes](wp-notes/wp-1.md); deviations W1-* in DECISIONS-OPEN §E |
+| WP-2 | `doc` + `doc-yjs` + conformance suite | A2 | Done (on `dev`) | — | [notes](wp-notes/wp-2.md); conformance suite green on memory and `doc-yjs` |
+| WP-3 | `rig` | A3 | Done (on `dev`) | — | [notes](wp-notes/wp-3.md) |
+| WP-4 | `io` | A4 | Done (on `dev`) | — | [notes](wp-notes/wp-4.md); meshopt fixture added |
+| WP-5 | `viewport` + viewport panel | A5 | Done (on `dev`) | — | [notes](wp-notes/wp-5.md) |
+| WP-6 | Graph Editor + graph panel | A6 | Done (on `dev`) | — | [notes](wp-notes/wp-6.md) |
+| WP-6t | time slider + timeline panel | A2 | Done (on `dev`) | — | [notes](wp-notes/wp-6t.md) |
+| WP-7a | `editor-core` kernel | A7 | Done (on `dev`) | — | [notes](wp-notes/wp-7a.md) |
+| WP-7b | operator catalog + workflows | A7 | Done (on `dev`) | — | [notes](wp-notes/wp-7b.md); operator catalog frozen at the v0.3 integration |
+| WP-8 | `editor` shell, `ui`, `apps/web` | Integration | Done (on `dev`) | — | [notes](wp-notes/wp-8.md) |
+| WP-9 | data panels | A1 | Done (on `dev`) | — | [notes](wp-notes/wp-9.md) |
+| WP-10 | integration + e2e | Integration | Done (on `dev`) | — | v0.3 integration (INT-1…INT-31), acceptance rounds 1–3 (INT-32…INT-52), E2E-02…E2E-27 in four groups and the §14 budget bench (INT-53…INT-58, [budgets](wp-notes/wp-10-budgets.md)) |
 
 ---
 
@@ -78,6 +78,47 @@ evaluation bench (all reported, not gating).
 **Acceptance**: [MVP-SPEC §8.2](MVP-SPEC.md#82-m1-definition-of-done): all unit/headless gates, E2E-00…E2E-27,
 export policy §4.11.13, conformance suite on memory and `doc-yjs` stores, budgets recorded, owner demo script
 (§8.3), tag `v0.1.0`.
+
+**Status (2026-10-18)**: integrated and accepted on `dev`. All WP-1…WP-10 are merged; `pnpm run ci` is green with
+E2E-00…E2E-27 (plus the acceptance-round, smoke and resilience specs) in real Chrome and in the `chromium-swiftshader`
+CI project; the M1-stretch items that were not built are `test.fixme` in `apps/web/e2e/stretch.spec.ts`
+(MVP-SPEC §1.2). The owner demo script (§8.3) passed in acceptance round 3. Open for the release: the owner's review
+of [DECISIONS-OPEN](DECISIONS-OPEN.md) (§E lists every deviation and decision taken during the build), then the
+`v0.1.0` tag, which is the owner's call.
+
+### M1 budgets (ARCHITECTURE §14)
+
+Measured 2026-10-18 on the integrated editor (production e2e build, real Chrome 155 with the GPU, 1440×900 at DPR 2)
+on an Apple M4 Pro under shared load; method, raw numbers and caveats in
+[wp-notes/wp-10-budgets.md](wp-notes/wp-10-budgets.md); rerun with `pnpm --filter web bench:budgets`. The §14
+reference is an Apple M1-class laptop, roughly 1.5–2× slower per core, so a "Met" needs that headroom to hold there.
+Report only: no budget gates CI except the idle check (E2E-00).
+
+| §14 scenario | Budget | Measured | Verdict |
+|---|---|---|---|
+| Idle editor | 0 WebGL frames, 0 canvas redraws | 0 / 0 over 2 s (empty; Seed-san + wave in split and quad) | Met (gated by E2E-00) |
+| Pose evaluation, 1 humanoid | ≤ 0.5 ms | 0.029 ms full pose in the app (Seed-san, 159 keyed curves); rig 0.016–0.028 ms | Met |
+| Scrub: pointer move → pose visible | same animation frame | 40 / 40 moves in the same frame | Met |
+| 1 VRM, 4 panes, shaded, playback at 30 fps | ≤ 8 ms CPU/frame | rAF work mean 0.95 ms, p95 2.0 ms; main-thread task time 1.73 ms per frame | Met |
+| Graph Editor 50k keys / 10k visible, pan/zoom | ≤ 8 ms redraw | median 1.00 ms | Met |
+| Graph Editor 50 curves × 200 keys, full redraw | ≤ 4 ms | median 1.30 ms | Met |
+| Drag 1,000 selected keys | ≤ 4 ms per pointer frame | median 5.1 ms, p95 7.3 ms (≈ 2.9 ms pointermove handler + 2.5 ms frame) | **Miss** (M-1) |
+| Undo/redo one gesture | ≤ 5 ms | 2.4 / 2.2 ms for the 1,000-key drag; 0.3 / 0.2 ms for a key step | Met (thin on the reference for 1,000 keys) |
+| Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | 109 ms median from the sample click; ≈ 0.5 s including the page load | Met |
+| Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | median 15.6 ms incl. lints and the read-back check | Met |
+| Editor route JS (gzip, no fixtures) | ≤ 900 kB | 917.2 kB = 895.7 KiB (gzip -9, production build) | **At the limit** (M-2) |
+| anim-core: 2,200 curves at one frame (MVP-SPEC §6.3 bench) | ≤ 0.3 ms | mean 0.32–0.35 ms, min 0.22 ms (loaded machine) | **Marginal miss** (M-3) |
+
+Misses and owners. The repository has no public issue tracker yet; each miss is an issue to open with that ID when
+the repository is published, tracked here until then.
+
+| Issue | Budget | Owner | Next step |
+|---|---|---|---|
+| M-1 | Drag 1,000 selected keys ≤ 4 ms | WP-6 Graph Editor drag path, with WP-2 (store preview update) | Profile shows `previewUpdate` / `journalWrite` / `dropKeyGroupOfCurve` on top. Coalesce pointer moves to one preview update per animation frame; cheaper preview journaling for a uniform move; check what the frame re-evaluates for untouched curves. Fix before M2a's Dope Sheet, which drags more keys. |
+| M-2 | Editor route JS ≤ 900 kB gzip | WP-8 shell and bundling | No headroom left for M2. Lazy-load the dialogs (export, import, about, preferences) and the Graph Editor menus; check that `three/examples` loaders and `@pixiv/three-vrm` are not duplicated across chunks. The M2 size gate must state its unit (kB = 1,000 B is the stricter reading). |
+| M-3 | anim-core 2,200 curves ≤ 0.3 ms | WP-1 | Within noise on a loaded machine; one humanoid pose (~160–500 curves) costs 0.03–0.08 ms, so §14's pose budget is safe. Re-measure on an idle reference machine before acting. |
+
+Not measured: the Apple M1 reference laptop, Safari and Firefox (V1), and the SwiftShader CI project (not a gate there).
 
 **What M1 is not** (said in the README and the app): no leg IK — feet are planted per key with Plant Feet; no Dope
 Sheet; no animation layers; no facial expressions in VRMA.

@@ -1,0 +1,7 @@
+{
+  "name": "@ekza-animator/anim-core",
+  "private": true,
+  "dependencies": {
+    "three": "catalog:"
+  }
+}

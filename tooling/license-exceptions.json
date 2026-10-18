@@ -1,0 +1,20 @@
+{
+  "$comment": "Production dependencies whose licence is outside the allow-list in tooling/check-licenses.mjs. Every entry needs a reviewed rationale (ADR 0009). `name` may end in `*` to cover platform packages.",
+  "exceptions": [
+    {
+      "name": "caniuse-lite",
+      "license": "CC-BY-4.0",
+      "rationale": "Browserslist data used by Next.js at build time only; never shipped in the client bundle. Attribution is kept in THIRD_PARTY_NOTICES.txt."
+    },
+    {
+      "name": "lightningcss",
+      "license": "MPL-2.0",
+      "rationale": "CSS transformer inside Tailwind 4, used unmodified at build time; MPL-2.0 is file-level copyleft and imposes nothing on our code."
+    },
+    {
+      "name": "lightningcss-*",
+      "license": "MPL-2.0",
+      "rationale": "Platform binaries of lightningcss (see above), installed per OS/CPU."
+    }
+  ]
+}

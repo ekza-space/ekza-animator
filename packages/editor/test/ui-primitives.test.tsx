@@ -1,0 +1,322 @@
+// @ekza-animator/ui primitives the shell does not mount itself (ContextMenu, DropdownMenu, Popover, Tabs, Select,
+// IconButton, the icon set): they open, select and close in a real browser with Radix props. The ui package's own
+// Vitest runs in Node, so the browser checks live here.
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  Dialog,
+  DialogContent,
+  DISPLAY_ICONS,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  IconButton,
+  INFINITY_ICONS,
+  LAYOUT_ICONS,
+  LOOP_ICONS,
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  SimpleSelect,
+  TANGENT_ICONS,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Toast,
+  ToastProvider,
+  ToastTitle,
+  ToastViewport,
+} from '@ekza-animator/ui';
+import { type JSX, useState } from 'react';
+import { describe, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
+import { byTestId, render, update } from './render';
+import { liveEnvironment, waitFor } from './shell-helpers';
+
+const body = (id: string): HTMLElement => byTestId(document.body, id);
+const present = (id: string): boolean => document.querySelector(`[data-testid="${id}"]`) !== null;
+const pointer = (type: string): PointerEvent =>
+  new PointerEvent(type, { bubbles: true, cancelable: true, button: 0, pointerType: 'mouse' });
+
+describe('ui primitives', () => {
+  it('ContextMenu opens on a context click and runs the chosen item', async () => {
+    const chosen: string[] = [];
+    const view = await render(
+      <ContextMenu>
+        <ContextMenuTrigger data-testid="cm-trigger">target</ContextMenuTrigger>
+        <ContextMenuContent>
+          <ContextMenuItem data-testid="cm-copy" onSelect={() => chosen.push('copy')}>
+            Copy
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>,
+    );
+    await update(() =>
+      body('cm-trigger').dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 10, clientY: 10 }),
+      ),
+    );
+    await waitFor(() => present('cm-copy'));
+    await update(() => body('cm-copy').click());
+    expect(chosen).toEqual(['copy']);
+    await waitFor(() => !present('cm-copy'));
+    await view.unmount();
+  });
+
+  it('DropdownMenu opens on press; checkbox items report their state', async () => {
+    function Menu(): JSX.Element {
+      const [on, setOn] = useState(false);
+      return (
+        <DropdownMenu>
+          <DropdownMenuTrigger data-testid="dd-trigger">Display</DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuCheckboxItem checked={on} onCheckedChange={setOn} data-testid="dd-xray">
+              X-ray
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuItem disabled data-testid="dd-disabled">
+              Not now
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+          <output data-testid="dd-state">{on ? 'on' : 'off'}</output>
+        </DropdownMenu>
+      );
+    }
+    const view = await render(<Menu />);
+    await update(() => body('dd-trigger').dispatchEvent(pointer('pointerdown')));
+    await waitFor(() => present('dd-xray'));
+    expect(body('dd-disabled').getAttribute('data-disabled')).toBe('');
+    await update(() => body('dd-xray').click());
+    expect(body('dd-state').textContent).toBe('on');
+    await view.unmount();
+  });
+
+  // Acceptance round 3: the trigger kept the focus after its menu closed, so Space over the viewport reopened the
+  // menu and a second Space ran its first item (MVP-SPEC §4.10 "Keyboard focus").
+  it('Menubar and DropdownMenu used with the pointer leave no focus on the trigger; keyboard use returns it', async () => {
+    const chosen: string[] = [];
+    const restoreAct = liveEnvironment(); // real input from Playwright, outside act()
+    const view = await render(
+      <div>
+        <Menubar>
+          <MenubarMenu value="pose">
+            <MenubarTrigger data-testid="mb-pose">Pose</MenubarTrigger>
+            <MenubarContent>
+              <MenubarItem data-testid="mb-pin" onSelect={() => chosen.push('pin')}>
+                Pin Feet
+              </MenubarItem>
+            </MenubarContent>
+          </MenubarMenu>
+        </Menubar>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button type="button" data-testid="dd-more">
+              More
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem data-testid="dd-fixed" onSelect={() => chosen.push('fixed')}>
+              Fixed
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <div data-testid="elsewhere" style={{ width: 200, height: 80 }} />
+      </div>,
+    );
+    const settled = async (): Promise<void> => {
+      await waitFor(() => !present('mb-pin') && !present('dd-fixed'));
+      await new Promise((resolve) => setTimeout(resolve, 50)); // Radix restores focus in a timeout after closing
+    };
+    const focusedTrigger = (): boolean =>
+      document.activeElement === body('mb-pose') || document.activeElement === body('dd-more');
+    try {
+      // A choice with the pointer.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.click(body('mb-pin'));
+      await settled();
+      expect(chosen).toEqual(['pin']);
+      expect(focusedTrigger()).toBe(false);
+      // Opened and closed again with the trigger.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.click(body('mb-pose'));
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+      // Opened with the pointer, closed with Esc.
+      await userEvent.click(body('mb-pose'));
+      await waitFor(() => present('mb-pin'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+
+      // The same for a dropdown menu (modal: an outside click used to send the focus to the trigger too).
+      await userEvent.click(body('dd-more'));
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.click(body('dd-fixed'));
+      await settled();
+      expect(chosen).toEqual(['pin', 'fixed']);
+      expect(focusedTrigger()).toBe(false);
+      await userEvent.click(body('dd-more'));
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.click(body('elsewhere'), { force: true }); // the modal menu blocks pointer events outside
+      await settled();
+      expect(focusedTrigger()).toBe(false);
+
+      // Opened from the keyboard: Esc returns the focus to the trigger (WAI-ARIA menu button).
+      body('mb-pose').focus();
+      await userEvent.keyboard('{Enter}');
+      await waitFor(() => present('mb-pin'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(document.activeElement).toBe(body('mb-pose'));
+      body('dd-more').focus();
+      await userEvent.keyboard('{ArrowDown}');
+      await waitFor(() => present('dd-fixed'));
+      await userEvent.keyboard('{Escape}');
+      await settled();
+      expect(document.activeElement).toBe(body('dd-more'));
+    } finally {
+      await view.unmount();
+      restoreAct();
+    }
+  });
+
+  it('Popover opens from its trigger and closes on Escape', async () => {
+    const view = await render(
+      <Popover>
+        <PopoverTrigger data-testid="pop-trigger">Settings</PopoverTrigger>
+        <PopoverContent data-testid="pop-content">
+          <p>fps</p>
+        </PopoverContent>
+      </Popover>,
+    );
+    await update(() => body('pop-trigger').click());
+    await waitFor(() => present('pop-content'));
+    expect(body('pop-content').textContent).toBe('fps');
+    expect(body('pop-trigger').getAttribute('aria-expanded')).toBe('true');
+    await update(() =>
+      body('pop-content').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      ),
+    );
+    await waitFor(() => !present('pop-content'));
+    await view.unmount();
+  });
+
+  it('Escape closes the open dialog, not a toast shown above it', async () => {
+    function DialogWithToast(): JSX.Element {
+      const [dialog, setDialog] = useState(true);
+      const [toast, setToast] = useState(true);
+      return (
+        <ToastProvider>
+          <Dialog open={dialog} onOpenChange={setDialog}>
+            <DialogContent title="Export" data-testid="dlg">
+              <button type="button" data-testid="dlg-button">
+                Export
+              </button>
+            </DialogContent>
+          </Dialog>
+          <Toast open={toast} onOpenChange={setToast} data-testid="toast-item">
+            <ToastTitle>Exported model.vrm</ToastTitle>
+          </Toast>
+          <ToastViewport />
+        </ToastProvider>
+      );
+    }
+    const view = await render(<DialogWithToast />);
+    await waitFor(() => present('dlg') && present('toast-item'));
+    body('dlg-button').focus();
+    await update(() =>
+      body('dlg-button').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+      ),
+    );
+    await waitFor(() => !present('dlg'));
+    expect(present('toast-item')).toBe(true);
+    await view.unmount();
+  });
+
+  it('Tabs switch content; Select picks an option', async () => {
+    function Panel(): JSX.Element {
+      const [fps, setFps] = useState('30');
+      return (
+        <>
+          <Tabs defaultValue="a">
+            <TabsList>
+              <TabsTrigger value="a" data-testid="tab-a">
+                A
+              </TabsTrigger>
+              <TabsTrigger value="b" data-testid="tab-b">
+                B
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="a" data-testid="content-a">
+              first
+            </TabsContent>
+            <TabsContent value="b" data-testid="content-b">
+              second
+            </TabsContent>
+          </Tabs>
+          <SimpleSelect
+            value={fps}
+            onValueChange={setFps}
+            aria-label="Frame rate"
+            data-testid="fps"
+            options={[
+              { value: '24', label: '24 fps' },
+              { value: '30', label: '30 fps' },
+            ]}
+          />
+          <output data-testid="fps-value">{fps}</output>
+        </>
+      );
+    }
+    const view = await render(<Panel />);
+    const state = (id: string) => body(id).getAttribute('data-state');
+    expect([state('content-a'), state('content-b')]).toEqual(['active', 'inactive']);
+    await update(() => body('tab-b').dispatchEvent(new MouseEvent('mousedown', { bubbles: true, button: 0 })));
+    await waitFor(() => state('content-b') === 'active');
+    expect(state('content-a')).toBe('inactive');
+    expect(body('content-b').textContent).toBe('second');
+
+    expect(body('fps').textContent).toContain('30 fps');
+    await userEvent.click(body('fps'));
+    await waitFor(() => present('fps-24'));
+    await userEvent.click(body('fps-24'));
+    await waitFor(() => body('fps-value').textContent === '24');
+    expect(body('fps').textContent).toContain('24 fps');
+    await view.unmount();
+  });
+
+  it('IconButton names itself; every icon of the set renders an SVG', async () => {
+    const icons = { ...TANGENT_ICONS, ...INFINITY_ICONS, ...DISPLAY_ICONS, ...LAYOUT_ICONS, ...LOOP_ICONS };
+    const view = await render(
+      <div>
+        <IconButton label="Frame all" icon={null} pressed data-testid="icon-button" />
+        {Object.entries(icons).map(([name, Icon]) => (
+          <span key={name} data-testid={`icon-${name}`}>
+            <Icon size={14} />
+          </span>
+        ))}
+      </div>,
+    );
+    expect(body('icon-button').getAttribute('aria-label')).toBe('Frame all');
+    expect(body('icon-button').getAttribute('aria-pressed')).toBe('true');
+    expect(Object.keys(icons).length).toBeGreaterThan(20);
+    for (const name of Object.keys(icons)) {
+      const svg = body(`icon-${name}`).querySelector('svg');
+      expect(svg?.getAttribute('width') ?? `no SVG for ${name}`).toBe('14');
+    }
+    await view.unmount();
+  });
+});

@@ -31,8 +31,11 @@ covered by the conformance suite. Overrides are U state and must never enter the
    with a warning. The override part restores `before` (`after` on redo) when the active clip and clip frame still
    match. Selection snapshots are restored as before.
 4. **Lifetime**: override parts are dropped (`dropOverrides`) when their overrides are cleared — clip-frame change,
-   clip switch, `file.new/open` — and consumed when keying writes keys for those controls. A step left with neither
-   part is removed. Override steps therefore never resurrect stale state at another frame.
+   clip switch, `file.new/open`. A step left with neither part is removed. Override steps therefore never resurrect
+   stale state at another frame. Keying consumes overrides: the key step records that in its own override part
+   (override → none), and the earlier steps keep theirs, so undo removes the key, then the edit that made the
+   override (amended 2026-10-18 after acceptance round 1: dropping the earlier parts left the typed value as an
+   override no step owned, and the next undo skipped it).
 5. The doc `UndoManager`, its compare-before-restore rules and the conformance suite are unchanged. Remote and
    import batches never create steps.
 

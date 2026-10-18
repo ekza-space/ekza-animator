@@ -1,0 +1,8 @@
+{
+  "name": "@ekza-animator/doc-yjs",
+  "private": true,
+  "dependencies": {
+    "@ekza-animator/doc": "1.0.0",
+    "yjs": "^13.6.33"
+  }
+}

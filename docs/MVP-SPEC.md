@@ -1,6 +1,7 @@
 # Ekza Animator — MVP build specification (milestone M1)
 
-Status: v0.2 (2026-10-17, design review revision). Audience: the integration agent (WP-0, WP-8, WP-10), seven
+Status: v0.2 (2026-10-17, design review revision) with the **v0.3 integration** changes of 2026-10-18 marked
+inline. Audience: the integration agent (WP-0, WP-8, WP-10), seven
 parallel implementation agents (WP-1…WP-9) and reviewers. Read [ARCHITECTURE.md](../ARCHITECTURE.md) first;
 decisions are in [adr/](adr/README.md); numbered requirements are in [REQUIREMENTS.md](REQUIREMENTS.md).
 
@@ -37,6 +38,41 @@ recorded in [DECISIONS-OPEN §D](DECISIONS-OPEN.md#d-design-review-outcomes-2026
   scene clock, a replicating conformance suite running against a test-only Yjs store **in M1** (ADR 0002).
 - Ecosystem: clip provenance/contact/tags, registry-aligned lint codes, export profiles as data,
   importer/exporter/menu/table registries, licence and DCO checks in CI.
+
+### What changed in the v0.3 integration
+
+WP-1…WP-9 were merged into `dev` and their cross-package requests decided (DECISIONS-OPEN §E "Integration
+decisions", INT-1…INT-31). Contract changes, each marked *v0.3 integration* where it lands: six operators join
+`OperatorMap` (`select.channels`, `view.camera.setSettings`, `view.selectionMask`, `prefs.set`, `workspace.reset`,
+`workspace.showPanel`); `OperatorDef.coalesce`; `SessionState.hoverControl`; `EditorServices.samplesPath`;
+`PartitionLookup`; `RigWarning` `'unpaired-mirror'`; `EkzaBakeMarkerV1.generatorAdded`; anim-core `opts` on
+`resolveKeyHandles`/`insertKeyPreservingShape`; `TimeSliderController.cancel()`. Behaviour clarifications: store and
+runner rules (§4.11.0), the yaw-only facing check (§4.11.9), the surgeon generator rule (§4.11.11), lint severities
+(§4.11.13), test-API probes (§4.8), the shell's `file.new` confirmation (§4.9).
+
+**Acceptance round 1** (2026-10-18, DECISIONS-OPEN §E INT-32…INT-38): keying an unkeyed edit keeps that edit's undo
+step (§4.11.0 rule 7, §4.11.1 rule 5, ADR 0013); Graph Editor press rules for Shift on a selected key and
+double-clicks across tools (§4.11.18); `F` frames a control with the controls below it (§4.9 `view.frame`); import
+and export dialog defaults (§4.11.6, §4.11.10 rule 7); the built stretch items (§1.2). Regression specs:
+`apps/web/e2e/acceptance-round1.spec.ts`.
+
+**Acceptance round 2** (DECISIONS-OPEN §E INT-39…INT-49): keyboard focus rules for dropdowns, Graph Editor fields
+and the Outliner (§4.10 "Keyboard focus"); pick candidates ordered by screen distance (§4.11.16); a snapped key drag
+stops a frame short of a neighbour (§4.11.3); a click inside the time-slider band sets the time (§4.11.17); bake
+names and empty clips (§4.11.10 steps 7–8); the rotate-order note (§4.11.5). Regression specs:
+`apps/web/e2e/acceptance-round2.spec.ts`.
+
+**Acceptance round 3** (DECISIONS-OPEN §E INT-50…INT-52): menu triggers hand the keyboard back (§4.10 "Keyboard
+focus"); the second press of a Graph Editor double-click can drag (§4.11.18); the time slider's menu without a band
+acts on the current frame (§4.11.17). Regression specs: `apps/web/e2e/acceptance-round3.spec.ts`.
+
+**WP-10 final** (DECISIONS-OPEN §E INT-53…INT-58): E2E-02…E2E-27 written and green; E2E-25 presses `E` before the
+gimbal toggle (§6.2). The pre-integration fixme gates now fail a scenario; unbuilt §1.2 stretch items are `test.fixme`
+in `apps/web/e2e/stretch.spec.ts`. ARCHITECTURE §14 budgets are recorded in ROADMAP "M1 budgets".
+
+**Final acceptance** (DECISIONS-OPEN §E INT-59…INT-61): a drag on a manipulator handle whose channel is locked
+changes nothing and says so (§4.11.16); counts in the Export dialog take the right number; Graph Editor value labels
+and frame numbers keep out of each other's area.
 
 ---
 
@@ -78,6 +114,14 @@ recorded in [DECISIONS-OPEN §D](DECISIONS-OPEN.md#d-design-review-outcomes-2026
 | In-app glTF-Validator worker | Bundle size, worker plumbing | Read-back check in the app; validator in tests |
 | Bevy lints (`bevy.*`) | No Bevy consumer in M1 | — |
 | Static-export, offline, storage-blocked and context-loss e2e (NFR-09, NFR-12, NFR-13) | CI plumbing | Manual QA items in §8.3 |
+
+*Status at acceptance round 1 (2026-10-18)*: built and enabled — the pose-preserving rotate-order change (WP-7b
+`rig.setRotateOrder`; the rotate order is **editable** in Attributes and the Channel Box, so the "read-only"
+fallback above no longer applies), the plateau tangent (W1-5), mesh-click picking (WP-5 V-13), the camera radial
+and the one-button macOS profile (V-14, WP-5/WP-6 navigation), and the `bevy.*` lint rules. Not built: cycle-aware
+auto tangents (compile option, off by default), animation-only GLB import onto a character (a clear "No animation
+… fits the character" message), the in-app validator worker, and the static-export/offline/storage/context-loss
+e2e scenarios (checked manually in §8.3; acceptance round 1 passed them).
 
 ### 1.3 Out of scope (roadmap)
 
@@ -742,13 +786,21 @@ export const MERGE_UNIT: Readonly<Record<BuiltinTableName, MergeUnit>> = {
   keys: 'record',
 };
 
+/** v0.3 integration (WP-2): resolves what a record alone cannot tell — rig-scoped records (controls, constraints,
+ *  solvers) reference only their rig, and their partition is `char:<the rig's character>`. Stores pass a lookup over
+ *  their own state; an unknown rig yields `undefined` (the record then belongs to `scene`). */
+export interface PartitionLookup {
+  rigCharacter(rig: RigId): CharacterId | undefined;
+}
+
 /** Runtime description of a table: built-ins are registered by `doc`, extensions call registerTable(). */
 export interface TableDef {
   readonly name: string;                       // built-ins unprefixed; extensions namespaced 'vendor.table'
   readonly version: number;                    // per-table schema version (DocSnapshot.tableVersions)
   readonly mergeUnit: MergeUnit;               // nested objects (shape, keyable, range, placement, …) are atomic values
   readonly softDelete: boolean;
-  partition(record: { readonly id: string }): Partition;
+  /** `lookup` (v0.3 integration) is passed by stores; the built-in rig-scoped tables require it. */
+  partition(record: { readonly id: string }, lookup?: PartitionLookup): Partition;
   /** [] when valid; otherwise human-readable problems. */
   validate(record: unknown): readonly string[];
   /** Pure, idempotent migrations; index i migrates version i+1 → i+2. New IDs derive as hash(oldId + ':' + purpose). */
@@ -1008,7 +1060,7 @@ export interface RigDefinition {
 }
 
 export interface RigWarning {
-  readonly code: 'dangling-ref' | 'cycle' | 'unsupported-op' | 'non-uniform-scale' | 'missing-bone' | 'duplicate-binding' | 'shear' | 'asymmetric-rest';
+  readonly code: 'dangling-ref' | 'cycle' | 'unsupported-op' | 'non-uniform-scale' | 'missing-bone' | 'duplicate-binding' | 'shear' | 'asymmetric-rest' | 'unpaired-mirror';   // unpaired-mirror: v0.3 integration (WP-3 R-5)
   readonly message: string;
   readonly ids: readonly string[];
 }
@@ -1295,6 +1347,9 @@ export interface EkzaBakeMarkerV1 {
   readonly baseSha256: string;                 // sha256 of the pre-bake file — provenance only
   /** Original JSON of every pre-baseline animation replaced in place, keyed by its index; written once. */
   readonly replaced: Readonly<Record<string, unknown>>;
+  /** v0.3 integration (WP-4): present (true) only when the pre-bake file had no `asset.generator`: the surgeon
+   *  wrote its own, and a rollback removes it again. */
+  readonly generatorAdded?: true;
 }
 
 export type LintSeverity = 'error' | 'warning' | 'info';
@@ -1501,6 +1556,7 @@ export interface SessionState {
   readonly viewportLayout: ViewportLayout;                        // default 'split'
   readonly maximizedPane: string | null;
   readonly hoveredPanel: { readonly kind: PanelKind; readonly paneId: string | null } | null;
+  readonly hoverControl: ControlId | null;                        // Outliner hover → viewport pre-highlight (v0.3 integration, WP-9 R-2)
   readonly clipboard: { readonly pose: PoseClipboard | null; readonly keys: KeyClipboard | null };
   readonly feetPins: FeetPins | null;
   readonly dialog: UiDialog | null;
@@ -1559,6 +1615,8 @@ export interface OperatorDef<A = void, R = void, P = void> {
     readonly structural?: boolean;                                // rewrites many records (fps change); M3: needs an exclusive claim
   };
   undoLabel?(args: A): string;
+  /** v0.3 integration (WP-7a): consecutive runs with the same key within `ms` merge into one step (§4.11.0 rule 7). */
+  coalesce?(args: A): { readonly key: string; readonly ms: number } | null;
   poll?(ctx: OperatorContext, args: A): PollResult;
   prepare?(ctx: OperatorContext, args: A): Promise<P> | P;
   apply(ctx: ApplyContext, args: A, prepared: P): R;
@@ -1740,6 +1798,7 @@ export interface EditorServices {
   readonly models: ModelLoader | null;                            // null in Node tests
   readonly validate: ((bytes: Uint8Array) => Promise<ValidationReport>) | null;
   readonly storage: PrefsStorage | null;                          // null: preferences are not persisted
+  readonly samplesPath?: string;                                  // base URL of the bundled samples, default '/samples/' (v0.3 integration, WP-8 R-2)
 }
 
 // ---------- characters and evaluation ----------
@@ -1814,7 +1873,7 @@ export interface EditorHistory {
   redo(): HistoryResult | null;
   /** Called by the operator runner and the gesture helpers; clears the redo stack. */
   record(step: Omit<HistoryStep, 'id' | 'at'>): void;
-  /** Drop override parts (frame change, clip switch, keying); steps left empty are removed. */
+  /** Drop override parts (frame change, clip switch, file.new/open); steps left empty are removed. */
   dropOverrides(where: { readonly character?: CharacterId; readonly clip?: ClipId; readonly controls?: readonly ControlId[] }): void;
   clear(): void;
   subscribe(listener: () => void): Disposer;
@@ -1884,8 +1943,8 @@ import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, Deri
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
 import type { MirrorMode, ReduceSpec } from '@ekza-animator/rig';
 import type { ChannelEditResult, ChannelRef, DisplayFlags, HistoryResult, KeyPartSelection, KeyPolicy,
-  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, SelectMode, ToolId, UiDialog,
-  ViewportLayout } from '../types';
+  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, Prefs, SelectionMask, SelectMode, ToolId,
+  UiDialog, ViewportLayout } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -1957,6 +2016,7 @@ export interface OperatorMap {
   'select.mirror': { args: void; result: void };
   'select.keys': { args: { readonly items: readonly { readonly key: KeyId; readonly parts?: Partial<KeyPartSelection> }[]; readonly mode: SelectMode }; result: void };
   'select.curveKeys': { args: { readonly curve: CurveId; readonly mode: SelectMode }; result: void };
+  'select.channels': { args: { readonly refs: readonly ChannelRef[]; readonly mode: SelectMode }; result: void };   // v0.3 integration (WP-9 R-1)
   // key
   'key.set': { args: { readonly channels?: KeyChannels; readonly target?: 'selected' | 'character' } | void; result: CountResult };
   'key.deleteAtFrame': { args: void; result: CountResult };
@@ -2024,6 +2084,8 @@ export interface OperatorMap {
   'view.setManipSpace': { args: { readonly tool: 'move' | 'rotate'; readonly space: ManipSpace }; result: void };
   'view.setNavProfile': { args: { readonly profile: NavProfile }; result: void };
   'view.cameraRadial': { args: { readonly paneId?: string } | void; result: void };   // M1-stretch
+  'view.camera.setSettings': { args: { readonly camera: CameraId; readonly fovY?: number; readonly near?: number; readonly far?: number; readonly aspect?: number | null }; result: void };   // v0.3 integration (WP-9 R-3), U
+  'view.selectionMask': { args: { readonly mask: Partial<SelectionMask> }; result: void };   // v0.3 integration (WP-8 R-1)
   // rig
   'rig.setRotateOrder': { args: { readonly control: ControlId; readonly order: RotateOrder }; result: void };   // M1-stretch
   'rig.setControlSize': { args: { readonly control: ControlId; readonly size: number }; result: void };
@@ -2031,6 +2093,10 @@ export interface OperatorMap {
   // ui
   'ui.open': { args: { readonly dialog: UiDialog }; result: void };
   'ui.close': { args: void; result: void };
+  // prefs and workspace (shell, v0.3 integration: WP-8 R-1)
+  'prefs.set': { args: { readonly patch: Partial<Omit<Prefs, 'version'>> }; result: void };
+  'workspace.reset': { args: void; result: void };
+  'workspace.showPanel': { args: { readonly panel: PanelKind }; result: void };
 }
 ```
 
@@ -2112,6 +2178,11 @@ records the last export artifact. Overrides: `firstRun=1` (show the first-run di
 
 Every function that takes a `control` accepts a `ControlId` or a template key of the active character.
 
+*v0.3 integration*: the panel-owned slices come from probes the shell registers: the GL host registers
+`viewportTestApi(vm)` (WP-5) for its ViewportManager, the shell registers `graphTestHooks(app)` (WP-6) and the
+time-slider helpers `screenOfTimelineFrame/Tick` (WP-6t), which follow the focused panel of each kind. In e2e mode
+the IDs are seeded per page load, so new records skip IDs a reopened project already uses.
+
 ```ts
 import type { ChannelId } from '@ekza-animator/doc';
 import type { ManipHandle } from '@ekza-animator/editor-core';
@@ -2141,7 +2212,7 @@ export interface EkzaAnimatorTestApi {
   boneWorld(character: string, humanBoneOrNodeName: string, clipFrame?: number): { t: [number, number, number]; q: [number, number, number, number] };
   /** Canonical facing f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips))) at rest. */
   facing(character: string): [number, number, number];
-  panes(): { id: string; camera: string; locked: boolean; rect: { x: number; y: number; w: number; h: number } }[];
+  panes(): { id: string; camera: string; locked: boolean; rect: { x: number; y: number; w: number; h: number } }[];   // camera: 'shot' | preset; 'unknown' only without the viewport probe
   cameraOf(paneId: string): { position: [number, number, number]; quaternion: [number, number, number, number] };
   screenOfControl(control: string, paneId: string): { x: number; y: number } | null;   // page CSS px, a point ON the shape polyline
   screenOfManipulator(paneId: string, handle: ManipHandle): { x: number; y: number } | null;   // a grab point on the handle
@@ -2152,7 +2223,7 @@ export interface EkzaAnimatorTestApi {
   screenOfFrame(frame: number): { x: number; y: number } | null;                      // time slider (clip frames)
   screenOfTick(frame: number): { x: number; y: number } | null;                       // key tick, null if none at frame
   lastExport(): { fileName: string; mime: string; bytes: Uint8Array; sha256: string; lints: unknown[]; readBack: unknown } | null;
-  renderedFrames(): number;                                                          // WebGL frames rendered so far (idle check)
+  renderedFrames(): number;                                                          // WebGL frames of the editor's canvas so far, dirty panes or not (idle check; v0.3 integration, WP-8 R-3)
 }
 ```
 
@@ -2167,7 +2238,7 @@ Stable `data-testid` values (owners in brackets). Specs use only these selectors
 | Channel Box | `cb-field-<channel>` (e.g. `cb-field-rz`), `cb-name-<channel>`, `cb-menu-key-selected`, `cb-menu-reset`, `cb-menu-lock` | WP-9 |
 | Outliner | `outliner-filter`, `outliner-row-<controlId>` | WP-9 |
 | Clips panel | `clips-new`, `clips-row-<clipId>`, `clips-rename-input`, `clips-settings-<clipId>` | WP-9 |
-| Graph Editor | `ge-field-frame`, `ge-field-value`, `ge-field-in-angle`, `ge-field-out-angle`, `ge-field-in-weight`, `ge-field-out-weight`, `ge-tangent-<type>`, `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre`, `graph-infinity-post`, `ge-euler-filter`, `ge-simplify`, `ge-canvas` | WP-6 |
+| Graph Editor | `ge-field-frame`, `ge-field-value`, `ge-field-in-angle`, `ge-field-out-angle`, `ge-field-in-weight`, `ge-field-out-weight`, `ge-tangent-<type>` (menu-only types inside `ge-tangent-more` → `ge-tangent-more-menu`, acceptance round 1), `ge-break`, `ge-unify`, `ge-weighted`, `ge-lock-weight`, `graph-infinity-pre`, `graph-infinity-post`, `ge-euler-filter`, `ge-simplify`, `ge-simplify-tolerance`, `ge-canvas` | WP-6 |
 | Time slider and playback row | `timeline-canvas`, `timeline-frame-field`, `timeline-clip-select`, `timeline-fps`, `timeline-play`, `timeline-loop`, `timeline-autokey`, `timeline-menu-<action>` | WP-6t |
 | Status line | `status-tool-<id>`, `status-rotate-space-<space>`, `status-autokey`, `status-layout-<layout>` | WP-8 |
 | Viewport panes | `pane-<paneId>`, `pane-lock-<paneId>`, `pane-camera-menu-<paneId>`, `pane-display-<flag>-<paneId>` | WP-5 |
@@ -2182,12 +2253,12 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 
 | ID | U | Owner | Behaviour |
 |---|---|---|---|
-| `file.new` | — | 7b | Confirm if dirty; empty document; clear session, history and undo. |
+| `file.new` | — | 7b | Empty document; clear session, history and undo. *v0.3 integration*: the operator is headless and discards without asking; the shell confirms over unsaved work on every UI path (menu, keymap, palette), like opening a project. |
 | `file.open` | — | 7b | Importer registry dispatch by extension/sniff (`.ekzanim`/`.ekzanim.json` → `file.openProject`; `.glb`/`.vrm` → `file.importModel`; `.vrma` → `file.importAnimation`). `app.run` happens in `prepare`. |
 | `file.openProject` | — | 7b | `readProjectArchive` → asset hash checks → `store.load` (read-only when newer). Never merges (ADR 0011). |
-| `file.importModel` | U | 7b | §4.11.6. `prepare` parses, hashes, rigs and converts clips; `apply` writes all records in one transaction. |
+| `file.importModel` | U | 7b | §4.11.6. `prepare` parses, hashes, rigs and converts clips; `apply` writes all records in one transaction. *v0.3 integration*: a model already in the project imports as another character (`… 2`) with a warning (WP-7b B7-2); compressed animation data imports the model without clips and warns unless clips were picked by index (B7-3). |
 | `file.importAnimation` | U | 7b | VRMA → new clip on the target humanoid (§4.11.7). Animation-only GLB onto a character: M1-stretch (`remapRawClipByName`). |
-| `file.loadSample` | U | 7b | Fetches `/samples/<file>` in `prepare`, then the `file.importModel` pipeline with sample provenance (quaternius: `clips: [index of 'Idle_Loop']`). |
+| `file.loadSample` | U | 7b | Fetches `<services.samplesPath ?? '/samples/'><file>` in `prepare` (*v0.3 integration*: base URL from `EditorProps.samplesPath`), then the `file.importModel` pipeline with sample provenance (quaternius: `clips: [index of 'Idle_Loop']`). |
 | `file.save` / `file.saveAs` | — | 7b | `writeProjectArchive(store.snapshot(), assets)` → `services.files.download('<name>.ekzanim')`; clears `dirty`. |
 | `file.saveJson` | — | 7b | Debug `.ekzanim.json` download. |
 | `file.export` | — | 7b | §4.11.10 via the exporter registry. Returns `ExportArtifact[]`; downloads each; toast with lint summary. |
@@ -2200,6 +2271,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `select.mirror` | — | 7b | Replace selection with mirror counterparts (centre and unpaired controls stay). |
 | `select.keys` | — | 7b | Graph/time-slider key selection. |
 | `select.curveKeys` | — | 6 | Double-click on a curve: all keys of that curve. |
+| `select.channels` | — | 7b | *v0.3 integration* (WP-9 R-1): replaces/toggles/adds/removes `selection.channels` (Channel Box channel names, Graph Editor channel list); internal (no menu entry). |
 | `key.set` | U | 7b | §4.11.1. `S` = all, `Shift+W/E/R` = translate/rotate/scale, Channel Box "Key selected" = `selected`. |
 | `key.deleteAtFrame` | U | 7b | Delete keys at the current clip frame on the selected controls' curves (active clip, base layer). |
 | `key.toggleAutoKey` | — | 7b | Toggle `prefs.autoKey`. |
@@ -2232,7 +2304,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `graph.keys.keyCurves` | U | 7b | `S` in the Graph Editor: shape-preserving key at the current frame on the visible/selected curves. |
 | `graph.keys.copy` / `graph.keys.paste` | —/U | 7b | `KeyClipboard` v2 (§4.11.4); paste at the current frame onto the same template key + channel of the active character. |
 | `graph.eulerFilter` | U | 7b | §4.11.5 on rotation curves of the selected controls (active clip). |
-| `graph.curves.simplify` | U | 7b | `reduceKeys` per selected curve with `ReduceSpec` (default `DEFAULT_REDUCE`). |
+| `graph.curves.simplify` | U | 7b | `reduceKeys` per selected curve with `ReduceSpec` (default `DEFAULT_REDUCE`). *Acceptance round 1 (INT-33)*: the Graph Editor passes the toolbar's tolerance (`DEFAULT_REDUCE` × 1…20) and every UI path reports the result (`N → M keys` or "nothing to remove"). |
 | `graph.frame` | — | 6 | Graph view only. |
 | `clip.new` | U | 7b | Defaults: scene fps, range 0–60, `sceneStart` 0, base layer, provenance `{derivedFrom: [], redistributable: 'yes'}`; becomes active. |
 | `clip.rename` | U | 7b | Validates name rules (ADR 0010). |
@@ -2242,7 +2314,7 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `clip.setSettings` | U | 7b | `fpsMode: 'keep-seconds'` rescales key `t`, handle `dt`, range and contact by `newFps/oldFps` (`flags.structural`). |
 | `view.layout` | — | 5 | Single / split / quad. |
 | `view.toggleMaximize` | — | 8 | Space tap: viewport → maximize/restore the pane under the pointer (`session.maximizedPane`); other panels → maximize/restore the dockview group. |
-| `view.frame` | — | 5 | `F`/`A` in the hovered pane. |
+| `view.frame` | — | 5 | `F`/`A` in the hovered pane. *Acceptance round 1 (INT-37)*: `selection` frames the selected controls' shapes with the visible controls below them (Maya transform bounds: `F` on a hand shows its fingers). |
 | `view.display.toggle` | — | 5 | Per-pane display flag. |
 | `view.lookThrough` | — | 5 | Pane camera binding (U state). |
 | `view.copyViewToShot` | U | 5 | Creates/updates a shot camera from the pane's view camera. |
@@ -2252,10 +2324,14 @@ runner rules of §4.11.0; behaviour details live in the referenced subsection.
 | `view.setManipSpace` | — | 7b | Writes `prefs.moveSpace`/`prefs.rotateSpace` (gimbal only for rotate). |
 | `view.setNavProfile` | — | 7b | Writes `prefs.navProfile`. |
 | `view.cameraRadial` | — | 5 | M1-stretch: Space-hold pane camera radial. |
+| `view.camera.setSettings` | U | 7b | *v0.3 integration* (WP-9 R-3): patches a shot camera's `fovY`/`near`/`far`/`aspect` (0 < fovY < π, near > 0, far > near); the Attributes lens fields. |
+| `view.selectionMask` | — | 8 | *v0.3 integration* (WP-8 R-1): writes `session.tools.selectionMask` (status line Pick toggles; `meshes` enables mesh-click picking). |
 | `rig.setRotateOrder` | U | 7b | M1-stretch: pose-preserving conversion (§4.11.5). |
 | `rig.setControlSize` | U | 7b | `shape.size`. |
 | `rig.toggleSecondary` | — | 7b | Session `showSecondary`. |
 | `ui.open` / `ui.close` | — | 8 | Session `dialog` (open/import/export/shortcuts/about/firstRun/preferences). |
+| `prefs.set` | — | 8 | *v0.3 integration* (WP-8 R-1): patches preference fields (Preferences dialog, status line, first run). |
+| `workspace.reset` / `workspace.showPanel` | — | 8 | *v0.3 integration* (WP-8 R-1): rebuilds the default Animate layout / shows (re-opens) a dock panel (Windows menu). |
 
 ### 4.10 Default keymap (preset `maya`)
 
@@ -2300,6 +2376,25 @@ specific scope wins over `*`.
 | `KeyB` / `KeyU` | `graph.tangent.break` / `graph.tangent.unify` | G |
 | `Shift+Slash` (`?`) | `ui.open {dialog:'shortcuts'}` | * |
 
+**Keyboard focus** (*v0.3 integration, acceptance round 2*). Hotkeys follow the hovered panel, whatever has the DOM
+focus, with these exceptions:
+- A **text field** (text inputs, textareas, contenteditable, ARIA textbox/combobox/spinbutton) owns the keyboard
+  except `Mod+S`/`Mod+Shift+S`. Numeric fields (Channel Box, Graph Editor key fields, Attributes) commit on Enter
+  and give the focus back (an invalid entry keeps it); Esc reverts and gives it back.
+- A focused **dropdown** (`<select>`) keeps type-ahead and its navigation only while it is under the pointer.
+  Otherwise Arrow keys, PageUp/PageDown, Enter and Tab stay with it, every other key goes to the hovered panel's
+  keymap, and printable keys never type ahead into it. `Mod` chords always reach the keymap. A value chosen with
+  the pointer hands the focus back to the editor (outside dialogs).
+- A focused **tree** (Outliner) handles its ARIA keys (arrows, Home/End, PageUp/PageDown, Enter, F2, `/`, F) only
+  while the Outliner is hovered or the pointer is outside the window.
+- An open dialog or menu owns the keyboard (the editor's `Mod` chords keep their browser defaults suppressed).
+- A **menu trigger** (a menu bar title, the Graph Editor's "More ▾", a pane header menu) owns the keyboard only
+  while its menu is open (*v0.3 integration, acceptance round 3*). A menu used with the pointer hands the focus back
+  to the page when it closes (a choice, Esc or an outside click), and a click on a trigger never focuses it; a menu
+  opened from the keyboard returns the focus to its trigger (WAI-ARIA). A focused trigger of a closed menu keeps
+  Enter, the arrows and Tab unless it is under the pointer, where it keeps every key; every other key goes to the
+  hovered panel's keymap before the trigger sees it, so Space never reopens the menu.
+
 Unbound in the MVP (menu or status line only): Gimbal/Object/World rotate space (status line toggle group),
 `pose.pinFeet`, `pose.plantFeet`, `graph.curves.simplify`, `graph.eulerFilter`, `select.mirror`.
 Never bound (browser/OS reserved): `Mod+W/T/N/Q/H/M`, `Mod+1…9`, `Mod+Tab`, `Alt+←/→`, `F1`–`F12`,
@@ -2323,15 +2418,27 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
    record deep-equals `change.after`. For field-merge tables each field in `change.fields` (all top-level fields
    when absent) is reverted only if the current value deep-equals `after[field]`; skipped fields are reported.
    Inserts and hard deletes are whole-record. Changes in unopened partitions are skipped with
-   `missing-partition`. Redo is symmetric.
+   `missing-partition`. Redo is symmetric. *v0.3 integration (WP-2)*: undo/redo never hard-deletes a record that
+   a record outside the step still references (hidden and soft-deleted referrers included); that change is
+   skipped with `changed-by-other` (checked to a fixpoint, so a clip, its layer and a curve all stay while a
+   foreign key uses the curve).
 5. Only `origin: 'local'` batches with `undoable !== false` enter the undo stack.
+6. *v0.3 integration (WP-2)*: `ChangeBatch` origin `'load'` comes from `store.load` **and** from partition
+   visibility changes (`open`, `close`, records revealed when a write opened their partition; labels `Load`,
+   `Open <partition>`, `Close <partition>`, `Open partitions`). Only `store.load` clears the undo stacks; the kernel
+   treats a `'load'` batch as a document load only when both doc undo stacks are empty afterwards.
+   `DocQueries.curvesOfClip`/`curvesOfControl` list only canonical curves (smallest `CurveId` per
+   `(clip, layer, control, channel)`); `missingPartitions()` is `[]` in the MVP (local writes open the partitions
+   they write; `load` opens every character and clip partition).
 
 **Operator runner** (WP-7a), for `app.run(id, args, ctx)`:
 
 1. Resolve the operator; `poll(ctx, args)`; a failed poll returns `cancelled` with the reason.
 2. `await prepare(ctx, args)` when defined. `prepare` may do I/O, parsing, hashing, `store.open`, and call
    `app.run` (dispatchers such as `file.open`, `edit.copy`). It MUST NOT write the document.
-3. Re-run `poll`; if a preview (gesture) is active return `cancelled: 'gesture in progress'`.
+3. Re-run `poll`; if a preview (gesture) is active return `cancelled: 'gesture in progress'`. *v0.3 integration
+   (WP-7a)*: `edit.escape` is exempt (it must cancel the gesture) and a run that started during a gesture records
+   no history step.
 4. Snapshot `session.overrides`, the selection and the session (for rollback).
 5. `flags.undo`: `store.transact({ label: undoLabel?.(args) ?? label, selectionBefore }, tx => apply({…ctx, tx}, args, prepared))`;
    before returning, the runner calls `tx.annotate({ selectionAfter })`. Otherwise `apply({…ctx, tx: null}, …)`.
@@ -2340,7 +2447,11 @@ handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
    `failed` (`EkzaError.code`, else `'internal'`).
 7. History: if the doc undo stack has a new top entry, or `session.overrides` changed, the runner calls
    `history.record({ label, docTxId, overrides })` (override delta for the active character's clip).
-   Coalesced transactions (same `coalesceKey` within `coalesceMs`) merge into the previous step.
+   Coalesced transactions (same `coalesceKey` within `coalesceMs`, from `OperatorDef.coalesce`) merge into the
+   previous step. *v0.3 integration (WP-7a)*: an operator that navigated the history (`edit.undo`/`edit.redo`)
+   records no step; the override delta is recorded only when the active character, clip and clip frame are the
+   same before and after `apply`. *Acceptance round 1 (INT-32)*: a step that keys overridden controls records
+   their removal in its own override delta and leaves earlier steps' override parts alone (§4.11.1 rule 5).
 8. Operators may run their `prepare` phases concurrently; `apply` phases are atomic by construction.
 
 **Edit kernel** (WP-7a; stubs with final types in WP-0). Every writer of channels or keys uses these:
@@ -2366,9 +2477,14 @@ commit passes `resolveCollisions: true`. Navigating an unlocked shot camera uses
 **Editor history** (WP-7a, ADR 0013): `edit.undo` pops the newest `HistoryStep`. A step with `docTxId` undoes
 the document entry only if it is still the top of the doc undo stack (else it reports a warning and skips the
 doc part). A step with `overrides` restores `before` when the active clip and clip frame still match.
-`history.dropOverrides` runs on every clip-frame change, clip switch, `file.new/open` and when keying writes
-keys for overridden controls (the override is consumed). Redo is symmetric; any new step clears the redo stack.
-The doc `UndoManager` and the conformance suite are unaffected.
+`history.dropOverrides` runs on every clip-frame change, clip switch and `file.new/open`. *Acceptance round 1
+(INT-32)*: keying an overridden channel does not drop override parts; the key step's delta (override → none)
+restores the override on undo, and the earlier step that made it stays undoable. Redo is symmetric; any new step
+clears the redo stack.
+The doc `UndoManager` and the conformance suite are unaffected. *v0.3 integration (WP-7a)*: every other local
+undoable commit (a panel's `store.transact`, a Graph Editor or time-slider `beginPreview(…).commit()`) becomes a
+step of its own, labelled by its batch, so `Mod+Z` never skips a doc entry no step owns; `undoable: false` commits
+add nothing and keep the redo stack.
 
 **Error codes** (`EkzaError.code`): `not-implemented`, `invalid-record`, `use-patch`, `preview-active`,
 `read-only`, `nested-run`, `asset-missing`, `asset-corrupt`, `not-glb`, `vrm-both`, `budget-exceeded`,
@@ -2385,8 +2501,11 @@ The doc `UndoManager` and the conformance suite are unaffected.
 3. Value = `evaluation.channelValues(control)[channel]` (curve ⊕ static ⊕ override) at the active clip frame.
 4. For each channel: `ensureCurve`; if a key exists with `|t − frame| < 1e-6` patch its `v`; else insert a key
    with `prefs.defaultTangents`, handles `{dt: 0, dv: 0}`, `broken: false`, `weightLocked: true`.
-5. Keyed channels leave `session.overrides` and their history override parts. One transaction labelled
-   `Set Key` (`Key Translate`, `Key Rotate`, `Key Scale`).
+5. Keyed channels leave `session.overrides`; one transaction labelled `Set Key` (`Key Translate`,
+   `Key Rotate`, `Key Scale`). *Acceptance round 1 (INT-32)*: the step records the consumed overrides in its
+   override delta and earlier steps keep theirs, so undo follows Maya: the first `Mod+Z` removes the key and shows
+   the unkeyed (pink) value again, the next one reverts the edit that set it. Undoing N actions returns to the
+   starting state.
 
 #### 4.11.2 Value edits — Channel Box, manipulators, reset, paste, mirror, plant feet
 
@@ -2417,6 +2536,10 @@ For each edit (locked or non-keyable channels are skipped with a toast):
 - Keys of one curve keep their relative order; while dragging, a moved key may not cross a non-moved neighbour
   (clamped to `neighbour ± 1e-3` frames). With `resolveCollisions: true` (final update before commit), a moved
   key that lands on a non-moved key's time (`|Δt| < 1e-6`) deletes the non-moved key in the same transaction.
+  *v0.3 integration, acceptance round 2*: with snapping on, a key whose target is **past** a non-moved neighbour
+  (by more than 1e-6) stops on the last whole frame before it (`ceil(t_n) − 1`, or `floor(t_p) + 1` going back),
+  while dragging and on release, so an overshoot never deletes a key; only a key that lands exactly on the
+  neighbour's frame replaces it. When no whole frame fits, the `± 1e-3` rule applies.
 - Handles of moved keys keep their offsets; computed tangents are recomputed by the engine.
 - **Scale** (`scaleKeys`, time only): `t' = pivot + (t − pivot)·factor`, `factor ≥ 0.01`, snapped when
   snapping is on; fixed-handle `dt` is multiplied by `factor` (weighted curves) and kept (non-weighted). If two
@@ -2496,6 +2619,8 @@ Tolerance per channel kind from `ReduceSpec` (rotation radians, translation metr
   times; convert each sample with `eulerNear` against the previously converted sample; Euler-filter; write keys
   on **all three** curves at the union (synchronizing them), keeping each source key's tangent types (new keys
   `auto`). Test with unsynchronized `rx`/`ry` key times: bone worlds equal at every union time (1e-6).
+  *Acceptance round 2*: the result is exact at key times only; when a converted rotation curve has two or more
+  keys the operator shows an info toast saying so ("key more frames first for an exact result").
 
 #### 4.11.6 Model import (`file.importModel`)
 
@@ -2538,7 +2663,8 @@ Tolerance per channel kind from `ReduceSpec` (rotation radians, translation metr
 10. Warnings (dropped channels, missing bones, licence meta, sub-frame keys) go to a toast and the import summary.
 
 Import dialog defaults: all embedded clips checked when ≤ 8, otherwise none (user picks); clip fps "Source";
-Euler filter on; reduce per preference; secondary controls on. Acceptance on UAL `Idle_Loop`: clip fps 24, keys
+Euler filter on; reduce per preference; secondary controls on. *Acceptance round 1 (INT-38)*: with embedded clips
+and none checked, the confirm button reads `Import without clips` and the count says the model gets an empty clip. Acceptance on UAL `Idle_Loop`: clip fps 24, keys
 on integer frames 0…60; at every source key time the imported values match three's `GLTFLoader` within
 1e-4 rad / 1e-5 m; with reduction on, curves with ≥ 20 source keys shrink ≥ 3× in total and the error at every
 source key time and integer frame is ≤ tolerance.
@@ -2599,7 +2725,9 @@ source key time and integer frame is ≤ tolerance.
   (vrm0) or `humanLocal` (vrm1) with all secondary controls at default, calls `vrm.humanoid.update()`, and
   compares raw bone locals (file space) with the kernel's `boneLocal` (≤ 1e-6) on Polybot and Seed-san.
 - **Facing check** (tests, E2E-03): `f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips)))`
-  at rest in canonical space; `f · (0, 0, 1) > 0.999`.
+  at rest in canonical space; its yaw is checked: `f.z / hypot(f.x, f.z) > 0.999` (*v0.3 integration*: the full
+  `f · (0, 0, 1)` also measures how far the head leans ahead of the hips — 0.99882 on Polybot — so only the
+  horizontal part is bounded; a missing π-yaw still gives −1, a quarter turn 0).
 - **Secondary controls**: parent = the control that drives the nearest driven ancestor bone. Humanoid bones
   below a posed secondary keep their control-defined world rotation (rotate binding) and follow in position.
   VRMA drops secondary motion; GLB bakes include it.
@@ -2631,6 +2759,15 @@ source key time and integer frame is ≤ tolerance.
    `validateGltf` (§4.11.13). Errors block the download; warnings are shown.
 6. File names: pattern tokens `{character}`, `{clip}`, `{fps}`; sanitized to `[A-Za-z0-9._-]`; extensions `.vrm`
    (VRM source) or `.glb` for bakes, `.glb` for animation-only, `.vrma`; MIME `model/gltf-binary`.
+7. *Acceptance round 1 (INT-38)*: the Export dialog checks every clip of the character for `bake-into-model` and
+   `animation-glb` (one file holds them all) and the active clip for `vrma` (one file per clip), until the user
+   changes the checkboxes. *Acceptance round 2 (INT-43)*: clips without a single key (they would write only the
+   rest pose) start unchecked for the multi-clip containers, unless every clip is empty.
+8. *Acceptance round 2 (INT-43)*: animation names are `clipExportName` (slot, else the sanitized clip name), except
+   in `bake-into-model`: a clip imported from one of the model's own animations (`source.kind = 'embedded'`, same
+   asset) that has neither been renamed nor given a slot since is written under that animation's **original**
+   name (`exportNameOf`), so §4.11.11 rule 6 replaces it in place even when import had to sanitize the name
+   (`a:b|Take 001` → `a_b_Take 001`).
 
 #### 4.11.11 Surgeon container rules (`bakeIntoModel`)
 
@@ -2654,11 +2791,13 @@ source key time and integer frame is ≤ tolerance.
    Rollback restores every `replaced` entry first, then truncates `animations`, `accessors`, `bufferViews` and the
    BIN to the baseline, then re-appends. Otherwise the bake appends on top (no rollback) and lints a warning.
 8. Never rename nodes, never touch `extensionsUsed/Required`, never prune, never re-serialize the original BIN;
-   `asset.generator` is set only if absent. Output is a `Blob`-style concatenation (no copy of large originals).
+   `asset.generator` is set only if absent (the marker then records `generatorAdded: true`, and a rollback removes
+   the generator again — v0.3 integration, WP-4). Output is one `Uint8Array` into which the original BIN prefix is
+   copied exactly once (`ExportArtifact.bytes`; a `Blob` output is V1).
 9. Tests: all three fixtures; re-bake with identical input is byte-identical; on UAL, bake `{Idle_Loop}` then
    re-bake `{Walk_Loop}` → no new validator errors and `animations[index of Idle_Loop]` deep-equals the source
-   entry; bake then rollback only → JSON value equal to the source except `asset.extras`; the marker contains no
-   `uri` key.
+   entry; bake then rollback only → JSON value equal to the source except `asset.extras` (and the generator the
+   surgeon added); the marker contains no `uri` key.
 
 #### 4.11.12 VRMA writer rules (`writeVrma`)
 
@@ -2683,7 +2822,9 @@ source key time and integer frame is ≤ tolerance.
   identical prefix bytes for the BIN. Byte identity of JSON text is not a goal.
 - Lint codes, severities and their registry mapping are the table in ADR 0010 §4. The lowercase slot-name and
   uniqueness lints are errors only under Ekza profiles (`ExportProfileDef.ekza`), warnings otherwise; uniqueness
-  is case-insensitive. `provenance-unknown` is a warning; `non-redistributable` is an error under Ekza profiles
+  is case-insensitive (ADR 0010's table lists `ekza.unique-names` as an error locally; this text wins, WP-4 W4-1:
+  the writers already refuse duplicate names among exported clips, so a local hit can only come from the model's own
+  animations). `provenance-unknown` is a warning; `non-redistributable` is an error under Ekza profiles
   and a warning for local export; `height-scale-range` warns outside 0.5..2.
 
 #### 4.11.14 Input budgets and structural checks (`checkInputBudget`)
@@ -2737,9 +2878,12 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
 #### 4.11.16 Viewport: selection, manipulators, cameras, scene sync
 
 - **Picking** (manipulator > control > joint; mesh click is M1-stretch): control polylines projected per pane
-  (cached per pose version), point-to-segment distance ≤ 6 CSS px, ties by depth then smaller control.
-  `pickCandidates` returns all hits sorted; a repeated click within 3 px of the previous click with the same
-  candidate set selects the **next** candidate (cycling).
+  (cached per pose version), point-to-segment distance ≤ 6 CSS px; candidates sorted by screen distance in 1 px
+  buckets, ties by depth (1 cm buckets) then smaller control (*v0.3 integration, acceptance round 2*: depth used to
+  come first, so a click exactly on a control's curve lost to a near-camera ring up to 6 px away).
+  `pickCandidates` returns all hits sorted; a repeated **plain** click within 3 px of the previous click with the
+  same candidate set selects the **next** candidate, in the order of the cycle's first click (cycling). Modifier
+  clicks (toggle/add/remove) act on the first candidate and never cycle.
 - **Marquee** (select tool, LMB drag on empty space ≥ 4 px): a control is hit when any segment of its projected
   polyline intersects the rectangle or lies inside it (crossing test). Modifiers as for clicks: Shift toggle,
   Mod remove, Mod+Shift add.
@@ -2750,6 +2894,10 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   ring adds the screen-space angle to that channel only (`r[axis] += Δ`), with no quaternion → Euler step, so
   exactly one curve changes. A ring within 10° of gimbal lock turns `--danger`. The space is remembered in
   `prefs.rotateSpace` and shown in the status line.
+  *Final acceptance (INT-59)*: an axis handle (rotate ring, translate arrow) whose channel is locked on the lead
+  control is drawn dimmed but stays pickable; a drag on it changes nothing in any space (no gesture, no history
+  step, no selection change) and shows a warning toast naming the locked channel. In a multi-selection a ring leaves
+  every control whose channel of that ring is locked untouched, rather than turning it about the other axes.
 - **Shot camera navigation**: navigating a pane that looks through an **unlocked** shot camera writes the
   `CameraRecord` (`transform`, `target`) through a preview session committed once per gesture with
   `{ label: 'Move Shot Camera', undoable: false }`; wheel bursts end after 120 ms idle. Lock, unlock and
@@ -2769,6 +2917,11 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   around the opposite end (`scaleKeys`); each drag is one history step and moves the band with the keys.
 - **RMB** on the slider opens a menu: Delete keys, Copy, Paste (at the current frame), Tangent ▸ (auto, spline,
   clamped, linear, flat, stepped), Select band keys in Graph Editor. Plain click outside the band clears it.
+  *v0.3 integration, acceptance round 2*: a press on the band middle released without moving the keys is a click
+  too: it clears the band and sets the time there (Maya; it read as a dead click). Moving needs a drag.
+  *Acceptance round 3*: without a band the menu acts on the current frame (Maya): opening it selects the current
+  frame as a 1-frame band (what Shift+click there does), so Delete, Copy and Tangent act on the keys at the
+  playhead. Without an active clip it offers Paste only.
 - `Digit1…6`, `Delete`, `Mod+C/V` work in scope `T` on the band's keys.
 
 #### 4.11.18 Graph Editor interaction (`GraphEditorController`)
@@ -2777,6 +2930,13 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
 - LMB click selects (Shift toggle, Mod remove, Mod+Shift add); LMB drag on empty = marquee; **double-click a
   curve** selects all its keys (`select.curveKeys`); LMB drag on a selected key/handle or **MMB drag anywhere**
   moves the selection (§4.11.3); Insert tool: click on a curve inserts a shape-preserving key.
+  *Acceptance round 1 (INT-34)*: a press on a selected key/handle changes the selection only on release, without
+  a drag — with Shift too, so Shift+LMB drag moves the selection axis-locked and Shift+click toggles it off. Two
+  presses count as a double-click only when both use the same tool (an Insert click, `Q`, then a click on the new
+  key selects that key).
+  *Acceptance round 3 (INT-51)*: the second press of a double-click can still drag. On a key it is a key press (a
+  drag moves the selection, so a quick click-then-drag on a key moves it, as in Maya) and only its release without
+  a drag selects the curve; on a curve segment it selects the curve's keys at once and a drag moves them.
 - Navigation per profile (no keymap): **Maya** — wheel zoom around the cursor (Shift: value axis, Alt: time
   axis), Alt+MMB pan, Alt+RMB zoom; **Trackpad** — two-finger scroll pans, Ctrl+wheel (pinch) zooms (Alt: time
   axis, Shift: value axis). `F`/`A` frame selection/all with 8 % padding.
@@ -2831,7 +2991,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | ID | Story | Acceptance criteria |
 |---|---|---|
 | US-01 | As an animator I open a VRM 1.0 avatar and immediately see circle controls on it. | (E) Loading Seed-san via the sample picker shows the character in both panes (target ≤ 3 s, reported); the outliner lists `root`, `cog`, `fk.hips`, FK spine…fingers; left controls blue, right red, centre yellow; bones hidden. (U) zero pose = rest for every control (1e-9). FR-IO-01, FR-RIG-01..05 |
-| US-02 | As an animator I drop a VRM 0.x avatar and it faces the camera like VRM 1.0 avatars do. | (E) Polybot drag-and-drop → canonical facing `f·(0,0,1) > 0.999` (§4.11.9); FK controls created for the bones present. FR-IO-02, FR-RIG-06 |
+| US-02 | As an animator I drop a VRM 0.x avatar and it faces the camera like VRM 1.0 avatars do. | (E) Polybot drag-and-drop → canonical facing yaw `f.z / hypot(f.x, f.z) > 0.999` (§4.11.9); FK controls created for the bones present. FR-IO-02, FR-RIG-06 |
 | US-03 | As an animator I open a generic rigged GLB with clips and edit one of its animations. | (E) Quaternius UAL with `Idle_Loop` selected → 1:1 FK rig, clip `Idle_Loop` active at 24 fps, keys on integer frames, reduced; scrubbing changes the pose; (H) values at every source key time match three's `GLTFLoader` within 1e-4 rad / 1e-5 m. FR-IO-03, FR-IO-06, FR-RIG-07, FR-GE-21 |
 | US-04 | As an animator I work in a split view with a locked shot camera and a free camera. | (E) Default layout `split`: left pane looks through `shotCam` (locked badge), right pane persp; Alt+LMB drag in the left pane leaves its camera unchanged; in the right pane it orbits; unlocking the shot camera and orbiting persists the shot without an undo entry; `view.layout quad` shows 4 panes; Space tap maximizes the hovered pane and restores. FR-VP-01..06, FR-VP-18 |
 | US-05 | As an animator I select controls by clicking them, by marquee, or in the outliner. | (E) Click on `screenOfControl(fk.upperArm.L)` selects it; Shift-click toggles; a marquee over the left hand selects its finger controls; a repeated click on overlapping controls cycles; outliner selection syncs both ways. FR-VP-08, FR-VP-16, FR-OUT-01..03 |
@@ -2890,7 +3050,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | E2E-00 | WebGL available | open `/editor?e2e=1` | `webgl.ok`; `dropzone` visible; `renderedFrames()` stops increasing within 1 s of idle (0 frames over the next 1 s) |
 | E2E-01 | First run + sample VRM 1.0 | `/editor?e2e=1&firstRun=1`; `firstrun-nav-maya`, `firstrun-space-maya`, `firstrun-done`; `sample-seed-san` | `counts().characters === 1`; ≥ 50 visible controls incl. `root`, `cog`, `fk.hips`, `fk.head`, `fk.upperArm.L/R`; secondary controls hidden; `panes()` = 2 with the left camera `shot` and locked |
 | E2E-02 | Rest pose integrity | seed Seed-san | `channelValues` all 0 (t, r); `boneWorld(hips)` equals the glTF rest world of hips (1e-6) |
-| E2E-03 | Drag-and-drop VRM 0.x | drop `polybot.vrm` on the window | `import-format-badge` "VRM 0.x", `import-license-badge` CC0; after `import-confirm`: humanoid controls; `facing(polybot)·(0,0,1) > 0.999` |
+| E2E-03 | Drag-and-drop VRM 0.x | drop `polybot.vrm` on the window | `import-format-badge` "VRM 0.x", `import-license-badge` CC0; after `import-confirm`: humanoid controls; facing yaw of `facing(polybot)` > 0.999 (§4.11.9) |
 | E2E-04 | Generic GLB + embedded clip | `loadFile('quaternius-ual.glb')`, check only `import-clip-<Idle_Loop index>`, `import-confirm` | clip `Idle_Loop` active with fps 24; every key `t` is an integer; total keys < 1/3 of the source sample count of curves with ≥ 20 source keys; `channelValues` at frame 10 differ from rest; scrubbing to `screenOfFrame(20)` sets clip frame 20 |
 | E2E-05 | Layouts and cameras | seed Polybot; Alt+LMB drag 100 px in the left pane; same in the right pane; click `pane-lock-pane-left` (unlock), Alt+LMB drag in the left pane, `Mod+Z`; `view.layout quad`; hover a pane, press Space; press Space again | left camera unchanged while locked (1e-9); right camera changed; after unlock + drag the shot camera changed, and `Mod+Z` did **not** revert the camera transform but re-locked it (it undid the lock toggle; the drag made no history step); quad → 4 panes; Space → `maximizedPane` = hovered pane, then null |
 | E2E-06 | Pick and key | seed Polybot; click `screenOfControl(fk.lowerArm.L, 'pane-right')`; press `E`; drag from `screenOfManipulator('pane-right','rz')` 60 px; press `S` | selection = [fk.lowerArm.L]; rz ≠ 0; 3 rotation curves with 1 key each at frame 0; `screenOfTick(0)` not null |
@@ -2912,7 +3072,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 | E2E-22 | Trackpad profile | `?e2e=1&nav=trackpad`; seed Polybot; `page.mouse.wheel(0, 120)` over the right pane; `wheel` with Ctrl over it; same over the locked pane | right camera orbited then dollied; locked camera unchanged |
 | E2E-23 | Time-slider retime | seed Polybot; key `fk.upperArm.L`, `fk.lowerArm.L`, `fk.hand.L` at 0/10/20; select the three; Shift+click `screenOfTick(10)`; drag the band from `screenOfFrame(10)` to `screenOfFrame(14)`; `Mod+Z` | all three controls' keys at 10 moved to 14; others unchanged; one `Mod+Z` restores all (deep-equal) |
 | E2E-24 | Undo an unkeyed edit | `seedWaveClip`; auto-key off; frame 5; rotate `fk.lowerArm.L` with the manipulator; `Mod+Z` | `overrides(fk.lowerArm.L)` empty; `channelValues` at 5 equal the pre-drag values; curves deep-equal |
-| E2E-25 | Gimbal rotate | seed Polybot; select `fk.upperArm.L` (order `yxz`); `status-rotate-space-gimbal`; drag the middle ring (`screenOfManipulator('pane-right','rx')`) 40 px; `S` | only `rx` changed (ry, rz equal before/after within 1e-12) |
+| E2E-25 | Gimbal rotate | seed Polybot; select `fk.upperArm.L` (order `yxz`); `E` (*WP-10, INT-53*: the ring manipulator belongs to the rotate tool, and the status line's space toggle does not switch tools); `status-rotate-space-gimbal`; drag the middle ring (`screenOfManipulator('pane-right','rx')`) 40 px; `S` | only `rx` changed (ry, rz equal before/after within 1e-12) |
 | E2E-26 | Marquee + cycling | seed Seed-san; frame the left hand (`view.frame`); marquee over the hand in the right pane; then two clicks at the same point where two controls overlap | marquee selected ≥ 10 finger controls and no non-hand control; second click selects a different control than the first |
 | E2E-27 | Scene clock, two characters | load Seed-san and Polybot; Seed-san clip fps 24, Polybot clip `sceneStart` 6; key each at clip frame 24; `time.setFrame {frame: 30, unit: 'scene'}` | `clipFrame` of both = 24; switching the active character keeps `sceneFrame` = 30 |
 
@@ -3120,9 +3280,10 @@ export function spanKindAt(c: CompiledAnimCurve, frame: Frame): SegmentKind | nu
 export function infinityMap(c: CompiledAnimCurve, frame: Frame): { readonly frame: Frame; readonly valueOffset: number; readonly mirrored: boolean };
 export function keyIndexAt(c: CompiledAnimCurve, frame: Frame, epsilon?: number): number;           // −1 if none
 export function visibleKeyRange(c: CompiledAnimCurve, f0: Frame, f1: Frame): readonly [lo: number, hi: number];
-export function resolveKeyHandles(curve: AnimCurve, index: number): { readonly inHandle: Handle; readonly outHandle: Handle };
-/** §4.11.4 insert rule; `frozen` = indices (in the result) of keys whose computed sides became 'fixed'. */
-export function insertKeyPreservingShape(curve: AnimCurve, frame: Frame): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
+export function resolveKeyHandles(curve: AnimCurve, index: number, opts?: { readonly cycleAwareAuto?: boolean }): { readonly inHandle: Handle; readonly outHandle: Handle };   // opts: v0.3 integration (WP-1 W1-1)
+/** §4.11.4 insert rule; `frozen` = indices (in the result) of every pre-existing key whose data changed (computed sides
+ *  frozen as 'fixed', resized weighted sub-handles, an end key fixed to the infinity slope; v0.3 integration, WP-1 W1-2). */
+export function insertKeyPreservingShape(curve: AnimCurve, frame: Frame, opts?: { readonly cycleAwareAuto?: boolean }): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
 export function tangentFields(h: Handle, side: 'in' | 'out', fps: Fps, displayScale: number): TangentFields;
 export function handleFromFields(fields: Partial<TangentFields>, current: Handle, side: 'in' | 'out', fps: Fps, displayScale: number): Handle;
 export function makeKeyData(t: Frame, v: number, tangents?: { readonly in: TangentType; readonly out: TangentType }): KeyData;
@@ -3178,7 +3339,7 @@ export function createMemoryStore(opts?: { readonly user?: UserId; readonly undo
 export function registerTable(def: TableDef): Disposer;
 export function getTableDef(name: string): TableDef | undefined;
 export function fractionalIndex(before: string | null, after: string | null): string;
-export function partitionOf<T extends TableName>(table: T, record: RecordOf<T>): Partition;
+export function partitionOf<T extends TableName>(table: T, record: RecordOf<T>, lookup?: PartitionLookup): Partition;   // lookup: v0.3 integration; throws 'unsupported' for rig-scoped tables without it
 export function validateRecord<T extends TableName>(table: T, record: unknown): readonly string[];   // [] = valid
 export function defaultChannelValue(channel: ChannelId): number;                       // 0, or 1 for sx/sy/sz
 export function isRotationChannel(channel: ChannelId): boolean;
@@ -3552,9 +3713,11 @@ export class TimeSliderController {
   pointerUp(e: ToolPointerEvent): void;
   contextMenu(x: number, y: number): readonly { readonly id: string; readonly label: string; readonly op: string; readonly args?: unknown }[];
   redraw(force?: boolean): void;
+  cancel(): void;                                                            // v0.3 integration (WP-6t): pointer cancel drops a key drag
+  readonly dragging: boolean;                                                // v0.3 integration (WP-6t)
   dispose(): void;
 }
-/** Registers time.selectBand (acting on the focused controller). */
+/** Registers time.selectBand (acting on the focused controller) and the `timeline.context` menu items. */
 export function registerTimelineContributions(app: EditorApp, focused: () => TimeSliderController | null): Disposer;
 ```
 
@@ -3695,7 +3858,7 @@ export interface EditorProps {
   readonly e2e?: boolean;
 }
 export function Editor(props: EditorProps): JSX.Element;
-export function createBrowserServices(opts: { readonly decoderPath: string; readonly createValidatorWorker?: () => Worker }): EditorServices;
+export function createBrowserServices(opts: { readonly decoderPath: string; readonly samplesPath?: string; readonly createValidatorWorker?: () => Worker }): EditorServices;   // samplesPath: v0.3 integration
 export interface PanelProps { readonly app: EditorApp; readonly instanceId: string }
 export interface PanelDef {
   readonly id: string;

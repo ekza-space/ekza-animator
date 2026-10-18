@@ -1,0 +1,178 @@
+// Playback clock (MVP-SPEC §4.11.8): called once per animation frame with the rAF timestamp, it advances the scene
+// clock while `time.playing`.
+//
+// - Speeds: 'realtime' (frame dropping: the elapsed wall time decides the frame), 'half', 'double', and
+//   'every-frame' (exactly one active-clip frame per tick).
+// - The position runs in active-clip frames over the playback range (scene frames, converted) or the active
+//   clip's range: 'loop' wraps into [start, end), 'once' stops at the end, 'oscillate' bounces and flips
+//   `time.direction`.
+// - With `snapToFrames` the displayed frame is an integer active-clip frame; the clock keeps the fractional position
+//   internally so real-time playback does not drift.
+// - A frame change made by someone else (scrubbing during playback) moves the clock to that frame.
+import type { Fps, Frame } from '@ekza-animator/anim-core';
+import type { ClipRecord, DocumentStore } from '@ekza-animator/doc';
+import type { KernelDeps } from '../app/deps';
+import { activeClipOf, sceneFpsOf } from '../evaluation/time';
+import type { PlaybackClock, SessionStore, TimeState } from '../types';
+
+const SPEED_FACTOR: Readonly<Record<TimeState['speed'], number>> = {
+  realtime: 1,
+  'every-frame': 1,
+  half: 0.5,
+  double: 2,
+};
+
+/** Clip frames used while the active character has no clip: the scene clock itself. */
+interface Timeline {
+  /** Identity of the mapping (active clip, rates, range): the position is re-derived when it changes. */
+  readonly key: string;
+  /** Active-clip frames per second. */
+  readonly fps: number;
+  readonly start: Frame;
+  readonly end: Frame;
+  toClip(sceneFrame: Frame): Frame;
+  toScene(clipFrame: Frame): Frame;
+}
+
+export interface KernelPlayback extends PlaybackClock {
+  /** Forgets the timing state (the next `advance` re-anchors at the current frame). */
+  reset(): void;
+}
+
+export function createPlaybackClock(ctx: {
+  readonly store: DocumentStore;
+  readonly session: SessionStore;
+  readonly deps: KernelDeps;
+  readonly requestFrame: () => void;
+}): KernelPlayback {
+  const { store, session, deps } = ctx;
+  let lastMs: number | null = null;
+  /** Fractional position in active-clip frames, valid while `lastWritten` is the session's scene frame. */
+  let position = 0;
+  let lastWritten: Frame | null = null;
+  let lastKey: string | null = null;
+
+  const timeline = (): Timeline => {
+    const state = session.getState();
+    const sceneFps = sceneFpsOf(store);
+    const clip: ClipRecord | undefined =
+      state.activeCharacter === null ? undefined : activeClipOf(store, state, state.activeCharacter);
+    const range = state.time.playbackRange;
+    if (clip === undefined) {
+      const scene = range ?? store.get('project', 'project')?.sceneRange ?? { start: 0, end: 60 };
+      return {
+        key: `scene|${sceneFps.num}/${sceneFps.den}|${scene.start}|${scene.end}`,
+        fps: fpsValue(sceneFps),
+        start: scene.start,
+        end: scene.end,
+        toClip: (f) => f,
+        toScene: (f) => f,
+      };
+    }
+    const toClip = (f: Frame): Frame => deps.time.sceneToClipFrame(sceneFps, clip, f);
+    const toScene = (f: Frame): Frame => deps.time.clipToSceneFrame(sceneFps, clip, f);
+    const start = range === null ? clip.range.start : toClip(range.start);
+    const end = range === null ? clip.range.end : toClip(range.end);
+    return {
+      key: `${clip.id}|${clip.fps.num}/${clip.fps.den}|${clip.sceneStart}|${sceneFps.num}/${sceneFps.den}|${start}|${end}`,
+      fps: fpsValue(clip.fps),
+      start: Math.min(start, end),
+      end: Math.max(start, end),
+      toClip,
+      toScene,
+    };
+  };
+
+  return {
+    get running() {
+      return session.getState().time.playing;
+    },
+    reset(): void {
+      lastMs = null;
+      lastWritten = null;
+      lastKey = null;
+    },
+    advance(nowMs: number): boolean {
+      const time = session.getState().time;
+      if (!time.playing) {
+        lastMs = null;
+        return false;
+      }
+      const line = timeline();
+      let first = false;
+      if (lastMs === null || time.sceneFrame !== lastWritten || line.key !== lastKey) {
+        // (Re)derive the position from the current frame — at the start, after a frame set by someone else, or
+        // when the active clip or its mapping changed — and bring it into the range. Pressing play at the end of a
+        // 'once' range starts over.
+        first = lastMs === null;
+        position = line.toClip(time.sceneFrame);
+        if (time.loop === 'once') {
+          if (time.direction === 1 && position >= line.end) position = line.start;
+          if (time.direction === -1 && position <= line.start) position = line.end;
+        }
+        position = fold(position, time.direction, time.loop, line).position;
+        lastKey = line.key;
+      }
+      if (lastMs === null) lastMs = nowMs;
+      const elapsed = Math.max(0, nowMs - lastMs);
+      lastMs = nowMs;
+      // The first tick only starts the clock (and moves an out-of-range frame into the range).
+      const step = first
+        ? 0
+        : time.speed === 'every-frame'
+          ? 1
+          : (elapsed / 1000) * line.fps * SPEED_FACTOR[time.speed];
+      const next = fold(position + step * time.direction, time.direction, time.loop, line);
+      position = next.position;
+      const shown = time.snapToFrames ? snap(next.position, next.direction, line) : next.position;
+      const sceneFrame = line.toScene(shown);
+      const frameChanged = sceneFrame !== time.sceneFrame;
+      lastWritten = sceneFrame;
+      if (frameChanged || next.direction !== time.direction || next.playing !== time.playing) {
+        session.setState({ time: { ...time, sceneFrame, direction: next.direction, playing: next.playing } });
+      }
+      if (next.playing) ctx.requestFrame();
+      else lastMs = null;
+      return frameChanged;
+    },
+  };
+}
+
+/** Applies the loop mode to a raw position (active-clip frames). */
+function fold(
+  raw: Frame,
+  direction: 1 | -1,
+  loop: TimeState['loop'],
+  line: Timeline,
+): { readonly position: Frame; readonly direction: 1 | -1; readonly playing: boolean } {
+  const span = line.end - line.start;
+  if (span <= 0) return { position: line.start, direction, playing: loop !== 'once' };
+  if (loop === 'loop') return { position: line.start + mod(raw - line.start, span), direction, playing: true };
+  if (loop === 'once') {
+    if (raw < line.end && raw > line.start) return { position: raw, direction, playing: true };
+    const position = Math.min(Math.max(raw, line.start), line.end);
+    return { position, direction, playing: !(direction === 1 ? position >= line.end : position <= line.start) };
+  }
+  // Oscillate: a triangle wave over [start, end]; on a falling stretch the motion runs against `direction`.
+  const m = mod(raw - line.start, 2 * span);
+  return {
+    position: m <= span ? line.start + m : line.start + 2 * span - m,
+    direction: m > span ? (direction === 1 ? -1 : 1) : direction,
+    playing: true,
+  };
+}
+
+/** Integer frame shown for a fractional position: the frame most recently passed in the play direction. */
+function snap(position: Frame, direction: 1 | -1, line: Timeline): Frame {
+  const eps = 1e-9;
+  const frame = direction === 1 ? Math.floor(position + eps) : Math.ceil(position - eps);
+  return Math.min(Math.max(frame, Math.ceil(line.start - eps)), Math.floor(line.end + eps));
+}
+
+function mod(a: number, n: number): number {
+  return ((a % n) + n) % n;
+}
+
+function fpsValue(fps: Fps): number {
+  return fps.num / fps.den;
+}

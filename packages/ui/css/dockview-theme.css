@@ -1,0 +1,97 @@
+/* dockview theme of the editor shell (research 09 §8, §9.1): dockview's variables mapped onto the design tokens.
+   The class name is the `className` of the shell's DockviewTheme ('dockview-theme-ekza'). */
+.dockview-theme-ekza {
+  color-scheme: dark;
+  --dv-group-view-background-color: var(--bg-panel);
+  --dv-tabs-and-actions-container-background-color: var(--bg-header);
+  --dv-tabs-and-actions-container-height: var(--size-tab);
+  --dv-tabs-and-actions-container-font-size: var(--type-ui-size);
+  --dv-activegroup-visiblepanel-tab-background-color: var(--bg-panel);
+  --dv-activegroup-hiddenpanel-tab-background-color: var(--bg-header);
+  --dv-inactivegroup-visiblepanel-tab-background-color: var(--bg-panel);
+  --dv-inactivegroup-hiddenpanel-tab-background-color: var(--bg-header);
+  --dv-activegroup-visiblepanel-tab-color: var(--text);
+  --dv-activegroup-hiddenpanel-tab-color: var(--text-3);
+  --dv-inactivegroup-visiblepanel-tab-color: var(--text-2);
+  --dv-inactivegroup-hiddenpanel-tab-color: var(--text-3);
+  --dv-tab-divider-color: var(--border);
+  --dv-separator-border: var(--border);
+  --dv-paneview-header-border-color: var(--border);
+  --dv-paneview-active-outline-color: var(--accent);
+  --dv-drag-over-background-color: var(--drop-overlay);
+  --dv-drag-over-border-color: var(--accent);
+  --dv-drag-over-border: 1px solid var(--accent);
+  --dv-edge-dock-indicator-color: var(--accent);
+  --dv-dnd-compass-color: var(--accent);
+  --dv-dnd-compass-cell-color: var(--drop-overlay);
+  --dv-dnd-compass-edge-cell-color: var(--drop-overlay);
+  --dv-dnd-compass-active-cell-color: var(--bg-selected);
+  --dv-icon-hover-background-color: var(--bg-hover);
+  --dv-tabs-container-scrollbar-color: var(--border-strong);
+  --dv-scrollbar-background-color: var(--border-strong);
+  --dv-context-menu-background-color: var(--bg-popover);
+  --dv-context-menu-color: var(--text);
+  --dv-floating-box-shadow: var(--elevation-popover);
+  --dv-floating-border: 1px solid var(--border-strong);
+  --dv-floating-group-border: 1px solid var(--border-strong);
+  --dv-floating-titlebar-height: var(--size-header);
+  --dv-floating-titlebar-background-color: var(--bg-header);
+  --dv-floating-titlebar-border-bottom: 1px solid var(--border);
+  --dv-floating-group-dragging-opacity: 0.6;
+  --dv-overlay-z-index: var(--z-floating);
+  --dv-sash-color: transparent;
+  --dv-active-sash-color: var(--border-strong);
+  --dv-active-sash-transition-duration: var(--motion-hover);
+  --dv-active-sash-transition-delay: 0.25s;
+  --dv-border-radius: 0px;
+  --dv-sash-border-radius: 0px;
+  --dv-tab-border-radius: 0px;
+  --dv-dropdown-border-radius: var(--r-popover);
+  --dv-spacing-padding: 0px;
+  --dv-tab-margin: 0;
+  --dv-tab-font-size: inherit;
+  --dv-tab-close-icon-size: inherit;
+  --dv-smart-guides-color: var(--accent);
+  --dv-smart-guides-preview-color: var(--drop-overlay);
+  --dv-tab-group-color-grey: var(--text-3);
+  --dv-tab-group-color-blue: var(--info);
+  --dv-tab-group-color-red: var(--danger);
+  --dv-tab-group-color-yellow: var(--warn);
+  --dv-tab-group-color-green: var(--ok);
+  --dv-tab-group-color-pink: var(--cb-altered);
+  --dv-tab-group-color-purple: var(--accent);
+  --dv-tab-group-color-cyan: var(--axis-w);
+  --dv-tab-group-color-orange: var(--playhead);
+  --dv-tab-group-chip-padding: 2px 6px;
+  --dv-tab-group-chip-border-radius: var(--r-button);
+  --dv-tab-group-chip-font-size: var(--type-ui-dense-size);
+  --dv-tab-group-line-height: 2px;
+  --dv-tab-group-line-opacity: 0.6;
+  font-family: var(--font-ui);
+}
+
+/* Active tab of the active group: accent underline (research 09 §8.7 "toggled on"). */
+.dockview-theme-ekza .dv-groupview.dv-active-group > .dv-tabs-and-actions-container .dv-tab.dv-active-tab {
+  box-shadow: inset 0 -2px 0 var(--accent);
+}
+
+.dockview-theme-ekza .dv-tab {
+  padding: 0 var(--s3);
+}
+
+.dockview-theme-ekza .dv-tab:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: -2px;
+}
+
+/* The WebGL canvas sits behind the workspace (ADR 0006 §1): the dock root and the viewport's group are see-through,
+   every other group paints its own panel background. */
+.dockview-theme-ekza.dv-dockview,
+.dockview-theme-ekza .dv-dockview {
+  background-color: transparent;
+}
+
+.dockview-theme-ekza .dv-groupview:has(.ekza-panel--transparent),
+.dockview-theme-ekza .dv-groupview:has(.ekza-panel--transparent) .dv-content-container {
+  background-color: transparent;
+}

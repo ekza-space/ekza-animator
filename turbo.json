@@ -1,0 +1,44 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "agentGuidance": false,
+  "ui": "stream",
+  "globalDependencies": ["tsconfig.base.json", "tooling/tsconfig/**", "pnpm-workspace.yaml"],
+  "globalPassThroughEnv": ["CI", "PLAYWRIGHT_BROWSERS_PATH", "HOME"],
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "build": {
+      "dependsOn": ["^build", "transit"],
+      "env": ["NEXT_PUBLIC_*", "ANIMATOR_STATIC_EXPORT"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/fixtures/**",
+        "!.next/**",
+        "!public/samples/**",
+        "!public/decoders/**"
+      ],
+      "outputs": [
+        ".next/**",
+        "!.next/cache/**",
+        "out/**",
+        "public/samples/**",
+        "public/decoders/**",
+        "public/THIRD_PARTY_NOTICES.txt"
+      ]
+    },
+    "test": {
+      "dependsOn": ["transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/**"],
+      "outputs": []
+    },
+    "//#test:tooling": {
+      "inputs": ["tooling/**", "fixtures/**", "packages/*/package.json", "apps/*/package.json", "package.json"],
+      "outputs": []
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

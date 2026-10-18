@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../../tooling/tsconfig/headless.json",
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../.tsbuild/e2e",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["./**/*", "../playwright.config.ts", "../next.config.ts", "../vitest.config.ts"],
+  "references": [
+    { "path": "../../../packages/anim-core/src" },
+    { "path": "../../../packages/doc/src" },
+    { "path": "../../../packages/io/src" },
+    { "path": "../../../packages/editor/src" }
+  ]
+}

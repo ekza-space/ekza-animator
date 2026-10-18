@@ -1,0 +1,25 @@
+{
+  "name": "@ekza-animator/doc",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Document records, partitions, store, transactions, preview sessions, patch undo, snapshots and the store conformance suite.",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "fast-check": "4.10.2",
+    "vitest": "catalog:"
+  }
+}

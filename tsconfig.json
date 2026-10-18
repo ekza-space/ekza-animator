@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "files": [],
+  "references": [
+    {
+      "path": "./packages/anim-core"
+    },
+    {
+      "path": "./packages/doc"
+    },
+    {
+      "path": "./packages/doc-yjs"
+    },
+    {
+      "path": "./packages/rig"
+    },
+    {
+      "path": "./packages/io"
+    },
+    {
+      "path": "./packages/editor-core"
+    },
+    {
+      "path": "./packages/viewport"
+    },
+    {
+      "path": "./packages/curve-editor"
+    },
+    {
+      "path": "./packages/ui"
+    },
+    {
+      "path": "./packages/editor"
+    },
+    {
+      "path": "./packages/headless-tests"
+    },
+    {
+      "path": "./apps/web"
+    },
+    {
+      "path": "./apps/web/e2e"
+    }
+  ]
+}

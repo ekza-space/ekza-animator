@@ -18,7 +18,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
 | FR-IO-01 | Open VRM 1.0 avatars (`.vrm`). | MVP | M1 | Seed-san opens; humanoid map with all present bones; viewport shows the mesh (load time reported, target < 3 s). |
-| FR-IO-02 | Open VRM 0.x avatars with facing normalized to +Z (π yaw on the character root only; never `VRMUtils.rotateVRM0`) and thumb aliases mapped to VRM 1.0 names. | MVP | M1 | Polybot canonical facing `f·(0,0,1) > 0.999` with `f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips)))`; `leftThumbMetacarpal` present in the humanoid map. |
+| FR-IO-02 | Open VRM 0.x avatars with facing normalized to +Z (π yaw on the character root only; never `VRMUtils.rotateVRM0`) and thumb aliases mapped to VRM 1.0 names. | MVP | M1 | Polybot canonical facing yaw `f.z / hypot(f.x, f.z) > 0.999` with `f = normalize((W(leftUpperLeg) − W(rightUpperLeg)) × (W(head) − W(hips)))` (MVP-SPEC §4.11.9); `leftThumbMetacarpal` present in the humanoid map. |
 | FR-IO-03 | Open generic skinned `.glb` files. | MVP | M1 | Quaternius UAL opens; skeleton = skin joints; 1:1 rig created. |
 | FR-IO-04 | Open via file picker, drag-and-drop anywhere, and bundled samples (Seed-san, Polybot, Quaternius UAL). | MVP | M1 | Each path reaches the import dialog; samples show credits. |
 | FR-IO-05 | The three.js loader displays Draco/meshopt/KTX2-compressed assets with self-hosted decoders (no third-party CDN); the headless reader rejects compressed animation data with `EkzaError('compressed-animation')`. | MVP | M1 | `quaternius-idle-meshopt.glb` displays; its animation import is rejected with that code; no decoder request leaves the origin. |
@@ -98,7 +98,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-CB-03 | Numeric entry with relative expressions (`+=`, `-=`, `*`, `/`, `deg`/`rad` suffix), Tab navigation, ↑/↓ nudge. | MVP | M1 | US-11. |
 | FR-CB-04 | Context menu: key selected channels, reset to default, lock/unlock. | MVP | M1 | Locked channels reject edits with a toast. |
 | FR-CB-05 | Virtual slider (MMB drag / drag channel name) with Pointer Lock. | V1 | M2a | Drag changes value at the documented rate. |
-| FR-CB-06 | Rotate order shown (MVP); editable, pose-preserving (MVP-S). | MVP | M1 | Shown read-only; editing per FR-RIG-08 when the stretch item lands. |
+| FR-CB-06 | Rotate order shown (MVP); editable, pose-preserving (MVP-S). | MVP | M1 | Shown, and editable per FR-RIG-08 (the stretch item landed with WP-7b; MVP-SPEC §1.2 status). |
 
 ### FR-KEY — Keying
 
