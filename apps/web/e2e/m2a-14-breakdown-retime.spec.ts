@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { dragBy, hoverGraph } from './helpers/g2-graph';
-import { keysOf, pressOverPane } from './helpers/g3-input';
+import { keysOf, pointOf, pressOverPane } from './helpers/g3-input';
 import { keyRotation } from './helpers/m2a-timing';
 import { controlId, seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
@@ -9,12 +9,17 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // moves; a key converted back no longer follows. `Alt+S` is `key.set {breakdown: true}`, A2's (M2A-SPEC §8: this
 // was `test.fixme('A2')` until A2 merged; `key.convert` is A4's).
 
+/**
+ * Presses the key in the Graph Editor and drags it by `frames`: the press selects the key and the drag moves it
+ * (MVP-SPEC §4.11.3). No separate click first: the steps of this scenario put keys at the same pixel within the
+ * panel's 400 ms multi-click window, where a click would be the second press of a double-click and select the whole
+ * curve (curve-editor `press.ts`); a press-drag on an unselected key moves that key alone either way.
+ */
 async function graphDrag(page: Parameters<typeof dragBy>[0], key: string, frames: number): Promise<void> {
   const graph = await call(page, 'graph');
   if (graph === null) throw new Error('the Graph Editor is hidden');
-  const at = await call(page, 'screenOfKey', key);
-  if (at === null) throw new Error('no key point');
-  await page.mouse.click(at.x, at.y);
+  // The panel draws the key on its next frame after the keying (MVP-SPEC §6.1: poll the probe until it answers).
+  const at = await pointOf(page, () => call(page, 'screenOfKey', key), `key ${key} in the Graph Editor`);
   await dragBy(page, at, frames * graph.view.sx, 0);
 }
 
@@ -58,6 +63,9 @@ test('E2E-M2A-14: breakdowns retime', async ({ page }) => {
   await runOk(page, 'select.keys', { items: [{ key: at11 }], mode: 'replace' });
   await runOk(page, 'key.convert', { to: 'key' });
   const at30 = (await keysOf(page, arm, 'rz')).find((key) => key.t === 30)?.id ?? '';
+  // The drag left the key at 30 beyond the view: frame all (`A` over the Graph Editor, as E2E-12 does).
+  await hoverGraph(page);
+  await page.keyboard.press('KeyA');
   await graphDrag(page, at30, 10);
   await expect.poll(async () => (await keysOf(page, arm, 'rz')).map((key) => key.t)).toEqual([0, 11, 40]);
 });
