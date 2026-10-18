@@ -245,7 +245,7 @@ describe('influencing curves of IK limbs (M2A-SPEC §5.8)', () => {
         control === id('ik.leg.L') && channel === '@ikFk' ? (t === 0 ? first : t === 20 ? last : undefined) : undefined,
       curveInfo: (control) =>
         control === id('ik.leg.L')
-          ? [{ channel: '@ikFk' as ChannelId, keyTimes: [0, 20], steppedThroughout: true, pre, post }]
+          ? [{ channel: '@ikFk', keyTimes: [0, 20], steppedThroughout: true, pre, post }]
           : control === id('pole.leg.L')
             ? [info('tx', [6], false)]
             : control === id('fk.upperLeg.L')

@@ -1,3 +1,4 @@
+import { getHeapSpaceStatistics } from 'node:v8';
 import { mat4Decompose, type Quat, quatAngle, type Vec3 } from '@ekza-animator/anim-core';
 import { type ChannelValues, type ControlId, controlId } from '@ekza-animator/doc';
 import {
@@ -194,4 +195,36 @@ export function random(seed: number): () => number {
     state = (state * 16807) % 2147483647;
     return state / 2147483647 - 0.5;
   };
+}
+
+/** Bytes in use in V8's young generation (new space). */
+function newSpaceUsed(): number {
+  return getHeapSpaceStatistics().find((space) => space.space_name === 'new_space')?.space_used_size ?? Number.NaN;
+}
+
+/**
+ * Bytes V8 allocates per call of `run`, counted: the least growth of the young generation over `rounds` runs of
+ * `calls` calls (after one uncounted round that lets the optimizer settle the measuring loop), less the least growth
+ * over as many calls of an empty function (the reading's own allocation, a few kB), divided by `calls`. Exact to the
+ * byte while no collection runs in between, so run it inside `collectionsDuring` and expect 0 collections (every V8
+ * heap object takes ≥ 16 bytes, so an allocation per call shows up as ≥ 16).
+ */
+export function allocatedBytesPerCall(run: () => void, calls: number, rounds = 3): number {
+  const empty = (): void => undefined;
+  let least = Number.POSITIVE_INFINITY;
+  let overhead = Number.POSITIVE_INFINITY;
+  for (let round = -1; round < rounds; round++) {
+    for (const [fn, isRun] of [
+      [empty, false],
+      [run, true],
+    ] as const) {
+      const before = newSpaceUsed();
+      for (let i = 0; i < calls; i++) fn();
+      const delta = newSpaceUsed() - before;
+      if (round < 0) continue;
+      if (isRun) least = Math.min(least, delta);
+      else overhead = Math.min(overhead, delta);
+    }
+  }
+  return (least - overhead) / calls;
 }

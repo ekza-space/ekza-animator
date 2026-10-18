@@ -28,7 +28,7 @@ import {
   type SkeletonDesc,
   writeControlChannels,
 } from '../src';
-import { matchPoleBasis } from '../src/limb/match';
+import { limbCore, matchPoleBasis } from '../src/limb/match';
 import { richHumanoid } from './helpers';
 import {
   bonePos,
@@ -180,6 +180,71 @@ describe('FK → IK → FK round trip (§5.6 gate)', () => {
   });
 });
 
+describe('matching a limb whose rest is hyperextended (§5.3 amendment C band)', () => {
+  it('reproduces FK hinge poses across the band exactly; the IK control sits inside the hand only there', () => {
+    // Elbows 9.2° against the hinge at rest: FK bends from the rest's hyperextension −T up to 3T fall in the band.
+    const program = ikRig(limbHumanoid({ hyperElbow: 0.02 }));
+    const desc = program.limbs.find((l) => l.id === 'arm.L');
+    if (desc === undefined) throw new Error('arm.L');
+    const rest = evaluate(program, channels(program, new Map(), 0));
+    const core = limbCore(program, desc, rest);
+    const { hyper, width } = core.transitionBand();
+    const next = random(8);
+    const offsets: number[] = [];
+    // t = the bend from greatest reach (> 0 flexion); the FK hinge turn from rest is t + T.
+    for (const t of [-hyper, -0.5 * hyper, -1e-4, 0, 1e-4, 0.5 * hyper, hyper, 2 * hyper, 2.9 * hyper, 3.2 * hyper]) {
+      const fkValues = hingePose(program, 'arm.L', t + hyper, next);
+      const fkCh = channels(program, fkValues, 0);
+      const fkPose = evaluate(program, fkCh);
+      const ik = matchIkToFk(program, fkPose, fkCh, 'arm.L', new Map());
+      expect([t, ik.endErrorM < 1e-9, ik.midErrorM < 1e-9, ik.maxRotationErrorRad < 1e-9]).toEqual([
+        t,
+        true,
+        true,
+        true,
+      ]);
+      const ikPose = evaluate(program, withValues(program, fkValues, ik.values, 1));
+      const error = worldError(ikPose, fkPose, chainNodes(program, 'arm.L'));
+      expect([t, error.position < 1e-9, error.rotation < 1e-9]).toEqual([t, true, true]);
+      const back = evaluate(program, withValues(program, fkValues, matchFkToIk(program, ikPose, 'arm.L', fkValues), 0));
+      const roundTrip = worldError(back, fkPose, chainNodes(program, 'arm.L'));
+      expect([t, roundTrip.position < 1e-9, roundTrip.rotation < 1e-9]).toEqual([t, true, true]);
+      // The IK control lies on the shoulder → hand ray, inside the hand by the band's offset (0 outside the band).
+      const a = bonePos(fkPose, desc.nodes.upper);
+      const hand = bonePos(fkPose, desc.nodes.end);
+      const control = controlPos(program, ikPose, desc.params.ikControl);
+      const inside = distance(hand, a) - distance(control, a);
+      expect(distance(control, hand) - Math.abs(inside)).toBeLessThan(1e-12);
+      const inBand = t > -hyper && t < hyper + width;
+      expect([t, inBand ? inside > 1e-7 : Math.abs(inside) < 1e-12]).toEqual([t, true]);
+      offsets.push(inside);
+    }
+    // The offset vanishes at both ends of the band (continuous with the exact branches).
+    expect(Math.max(...offsets)).toBeLessThan(2 * (core.reachOfBend(0) - core.reachOfBend(hyper + width)));
+  });
+
+  it('switches at the rest pose without a pop: the matched IK reproduces the rest exactly', () => {
+    const program = ikRig(limbHumanoid({ hyperElbow: 0.02 }));
+    const fkCh = channels(program, new Map(), 0);
+    const fkPose = evaluate(program, fkCh);
+    for (const limb of ['arm.L', 'arm.R'] as const) {
+      const ik = matchIkToFk(program, fkPose, fkCh, limb, new Map());
+      expect([limb, ik.endErrorM < 1e-12, ik.midErrorM < 1e-12, ik.maxRotationErrorRad < 1e-9]).toEqual([
+        limb,
+        true,
+        true,
+        true,
+      ]);
+      const desc = program.limbs.find((l) => l.id === limb);
+      if (desc === undefined) throw new Error(limb);
+      const ikPose = evaluate(program, withValues(program, new Map(), ik.values, 1));
+      expect(
+        distance(controlPos(program, ikPose, desc.params.ikControl), bonePos(fkPose, desc.nodes.end)),
+      ).toBeLessThan(1e-12);
+    }
+  });
+});
+
 describe('hyperextended FK poses (§5.6 gate)', () => {
   const cases: readonly [LimbId, number][] = [
     ['leg.L', -2 * DEG],
@@ -230,50 +295,76 @@ const unit = (a: Vec3): Vec3 => {
 };
 
 describe('match pole rule (§5.6)', () => {
-  it('moves the pole direction continuously on non-hinge poses (≤ 1e-3 rad for a 1e-4 rad input change)', () => {
-    const skeleton = richHumanoid();
-    const program = ikRig(skeleton);
-    const desc = program.limbs.find((l) => l.id === 'leg.L');
-    if (desc === undefined) throw new Error('leg');
-    const next = random(99);
-    const direction = (values: ReadonlyMap<ControlId, ChannelValues>): Vec3 => {
-      const ch = channels(program, values, 0);
-      const pose = evaluate(program, ch);
-      const result = matchIkToFk(program, pose, ch, 'leg.L', new Map());
-      const ikPose = evaluate(program, withValues(program, values, result.values, 1));
-      return unit(sub(controlPos(program, ikPose, id('pole.leg.L')), bonePos(pose, desc.nodes.mid)));
-    };
-    let worst = 0;
-    for (let trial = 0; trial < 40; trial++) {
-      const bend = (2 + (next() + 0.5) * 100) * DEG;
-      const base = hingePose(program, 'leg.L', bend, next);
-      // Non-hinge: ±10° of ab/adduction and twist on the knee on top of the hinge bend.
-      const knee = base.get(desc.params.fk.mid) as ChannelValues;
-      const offAxis = quatMultiply(
-        quatFromAxisAngle([0, 0, 1], next() * 20 * DEG),
-        quatMultiply(
-          quatFromAxisAngle([0, 1, 0], next() * 20 * DEG),
-          toQuat(knee, controlOrder(program, desc.params.fk.mid)),
-        ),
-      );
-      const e = quatToEuler(offAxis, controlOrder(program, desc.params.fk.mid));
-      base.set(desc.params.fk.mid, { rx: e[0], ry: e[1], rz: e[2] });
-      const d0 = direction(base);
-      for (const [control, channel] of [
-        [desc.params.fk.mid, 'ry'],
-        [desc.params.fk.mid, 'rx'],
-        [desc.params.fk.upper, 'rz'],
-      ] as const) {
-        const moved = new Map(base);
-        const v = { ...moved.get(control) };
-        v[channel] = (v[channel] ?? 0) + 1e-4;
-        moved.set(control, v);
-        const d1 = direction(moved);
-        worst = Math.max(worst, Math.acos(Math.min(1, dot(d0, d1))));
+  const continuityRigs: readonly [string, () => SkeletonDesc, LimbId, number, Vec3, Vec3][] = [
+    // name, rig, limb, least bend, ab/adduction axis, twist axis (canonical)
+    ['knee, rest bent about the hinge', () => richHumanoid(), 'leg.L', 2 * DEG, [0, 0, 1], [0, 1, 0]],
+    [
+      'knee, rest bent off the hinge (Polybot-like)',
+      () => limbHumanoid({ splayedLegs: true }),
+      'leg.L',
+      5 * DEG,
+      [0, 0, 1],
+      [0, 1, 0],
+    ],
+    [
+      'elbow, rest hyperextended 9.2°',
+      () => limbHumanoid({ hyperElbow: 0.02 }),
+      'arm.L',
+      5 * DEG,
+      [0, 0, 1],
+      [1, 0, 0],
+    ],
+  ];
+
+  it.each(continuityRigs)(
+    'moves the pole direction continuously on non-hinge poses (≤ 1e-3 rad for a 1e-4 rad input change): %s',
+    (_, make, limb, least, abduction, twist) => {
+      const skeleton = make();
+      const program = ikRig(skeleton);
+      const desc = program.limbs.find((l) => l.id === limb);
+      if (desc === undefined) throw new Error(limb);
+      const next = random(99);
+      const direction = (values: ReadonlyMap<ControlId, ChannelValues>): Vec3 => {
+        const ch = channels(program, values, 0);
+        const pose = evaluate(program, ch);
+        const result = matchIkToFk(program, pose, ch, limb, new Map());
+        const ikPose = evaluate(program, withValues(program, values, result.values, 1));
+        return unit(sub(controlPos(program, ikPose, desc.params.pole), bonePos(pose, desc.nodes.mid)));
+      };
+      let worst = 0;
+      for (let trial = 0; trial < 40; trial++) {
+        const bend = least + (next() + 0.5) * 100 * DEG;
+        const base = hingePose(program, limb, bend, next);
+        // Non-hinge: ±10° of ab/adduction and twist on the knee or elbow on top of the hinge bend.
+        const mid = base.get(desc.params.fk.mid) as ChannelValues;
+        const offAxis = quatMultiply(
+          quatFromAxisAngle(abduction, next() * 20 * DEG),
+          quatMultiply(
+            quatFromAxisAngle(twist, next() * 20 * DEG),
+            toQuat(mid, controlOrder(program, desc.params.fk.mid)),
+          ),
+        );
+        const e = quatToEuler(offAxis, controlOrder(program, desc.params.fk.mid));
+        base.set(desc.params.fk.mid, { rx: e[0], ry: e[1], rz: e[2] });
+        const d0 = direction(base);
+        for (const [control, channel] of [
+          [desc.params.fk.mid, 'ry'],
+          [desc.params.fk.mid, 'rx'],
+          [desc.params.fk.mid, 'rz'],
+          [desc.params.fk.upper, 'rz'],
+          [desc.params.fk.upper, 'rx'],
+        ] as const) {
+          const moved = new Map(base);
+          const v = { ...moved.get(control) };
+          v[channel] = (v[channel] ?? 0) + 1e-4;
+          moved.set(control, v);
+          const d1 = direction(moved);
+          worst = Math.max(worst, Math.acos(Math.min(1, dot(d0, d1))));
+        }
       }
-    }
-    expect(worst).toBeLessThan(1e-3);
-  });
+      expect(worst).toBeLessThan(1e-3);
+    },
+  );
 
   it('uses h near straight limbs and for hyperextended or degenerate ones, and blends in with the bend', () => {
     const a: Vec3 = [0, 1, 0];

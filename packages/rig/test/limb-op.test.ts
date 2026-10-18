@@ -21,6 +21,7 @@ import {
   compileRig,
   footPivotWorlds,
   type Ik2Params,
+  type LimbDesc,
   mirrorPose,
   type PoseBuffers,
   registerBuiltinRigOps,
@@ -29,8 +30,11 @@ import {
   solveTwoBoneIk,
   writeAttr,
 } from '../src';
+import type { TwoBoneCore } from '../src/ik/core';
+import { limbCore } from '../src/limb/match';
 import { IDS, richHumanoid } from './helpers';
 import {
+  allocatedBytesPerCall,
   bonePos,
   boneQuat,
   channels,
@@ -135,6 +139,143 @@ describe('ik2 op: rest exactness and FK fallback (§5.3, §5.7)', () => {
       }),
       { numRuns: 20 },
     );
+  });
+});
+
+describe('ik2 op: a rest hyperextended about its hinge (§5.3 amendment C)', () => {
+  // The elbows sit 2 cm in front of the shoulder–hand line: 9.2° against the hinge at rest.
+  const skeleton = limbHumanoid({ hyperElbow: 0.02 });
+  let program: RigProgram;
+  let desc: LimbDesc;
+  let rest: PoseBuffers;
+  let a: Vec3;
+  let c0: Vec3;
+  let d0: number;
+  let ray: Vec3;
+  let hyper: number;
+  let width: number;
+  let rMax: number;
+  let bandEnd: number;
+  let core: TwoBoneCore;
+  // Compiled after registerBuiltinRigOps (the file's beforeAll).
+  beforeAll(() => {
+    program = ikRig(skeleton);
+    desc = program.limbs.find((l) => l.id === 'arm.L') as LimbDesc;
+    rest = evaluate(program, channels(program));
+    a = bonePos(rest, desc.nodes.upper);
+    c0 = bonePos(rest, desc.nodes.end);
+    d0 = distance(a, c0);
+    ray = unit(sub(c0, a));
+    core = limbCore(program, desc, rest);
+    ({ hyper, width } = core.transitionBand());
+    rMax = core.reachOfBend(0);
+    bandEnd = core.reachOfBend(hyper + width);
+  });
+  /** Pose with the IK hand moved by `inward` metres along the reach ray towards the shoulder. */
+  const at = (inward: number): PoseBuffers =>
+    evaluate(
+      program,
+      channels(
+        program,
+        new Map([[desc.params.ikControl, { tx: -ray[0] * inward, ty: -ray[1] * inward, tz: -ray[2] * inward }]]),
+      ),
+    );
+  const side = (pose: PoseBuffers): number => {
+    const x = unit(sub(bonePos(pose, desc.nodes.end), a));
+    const m = perp(sub(bonePos(pose, desc.nodes.mid), a), x);
+    const k = quatRotateVec3(
+      quatMultiply(boneQuat(pose, desc.nodes.mid), quatInvert(boneQuat(rest, desc.nodes.mid))),
+      desc.params.hinge,
+    );
+    return dot(m, cross(x, k));
+  };
+
+  it('has the band of the notes: T = the rest hyperextension, W = 2T, and d⁰ between its ends', () => {
+    expect(hyper).toBeGreaterThan(8 * DEG);
+    expect(hyper).toBeLessThan(10 * DEG);
+    expect(width).toBeCloseTo(2 * hyper, 12);
+    expect(core.reachOfBend(-hyper)).toBeCloseTo(d0, 12);
+    expect(rMax).toBeGreaterThan(d0);
+    expect(bandEnd).toBeLessThan(d0);
+  });
+
+  it('moves the elbow continuously when the IK hand crosses the rest reach (a jump would not shrink with the step)', () => {
+    const from = -(rMax - d0) * 0.9;
+    const to = (d0 - bandEnd) * 1.5;
+    const largestStep = (count: number): number => {
+      let largest = 0;
+      let previous = bonePos(at(from), desc.nodes.mid);
+      for (let i = 1; i <= count; i++) {
+        const elbow = bonePos(at(from + ((to - from) * i) / count), desc.nodes.mid);
+        largest = Math.max(largest, distance(elbow, previous));
+        previous = elbow;
+      }
+      return largest;
+    };
+    const coarse = largestStep(200);
+    const fine = largestStep(2000);
+    expect(fine).toBeLessThan(0.15 * coarse);
+    // Within a few times the ordinary straight-limb rate (the elbow moves ~1/θ times the hand near straight).
+    expect(fine / ((to - from) / 2000)).toBeLessThan(4 / hyper);
+  });
+
+  it('reaches targets exactly outside the band; inside it the end overshoots along the ray by ≤ 2.2·(R_max − d⁰)', () => {
+    const e = rMax - d0;
+    const band = d0 - bandEnd;
+    const rows = [-0.9 * e, -0.5 * e, 0, 0.1 * band, 0.5 * band, 0.99 * band, 1.01 * band, 2 * band, 0.05].map(
+      (inward) => {
+        const pose = at(inward);
+        const target: Vec3 = [c0[0] - ray[0] * inward, c0[1] - ray[1] * inward, c0[2] - ray[2] * inward];
+        const end = bonePos(pose, desc.nodes.end);
+        return {
+          inward,
+          inBand: inward > 1e-12 && inward < band,
+          miss: distance(end, target),
+          offRay: len(cross(unit(sub(end, a)), ray)),
+          past: distance(end, a) - distance(target, a),
+          side: side(pose),
+        };
+      },
+    );
+    const outside = rows.filter((r) => !r.inBand);
+    const inside = rows.filter((r) => r.inBand);
+    expect(inside).toHaveLength(3);
+    expect(outside.map((r) => [r.inward, r.miss < 1e-9])).toEqual(outside.map((r) => [r.inward, true]));
+    // Inside the band the end lies on the ray, past the target.
+    expect(inside.map((r) => [r.inward, r.offRay < 1e-9, r.past > 0])).toEqual(
+      inside.map((r) => [r.inward, true, true]),
+    );
+    // Hyperextended between the rest reach and full reach, flexed past the band.
+    const hyperextended = rows.filter((r) => r.inward <= 0);
+    const flexed = rows.filter((r) => r.inward >= band);
+    expect(hyperextended.map((r) => [r.inward, r.side < 0])).toEqual(hyperextended.map((r) => [r.inward, true]));
+    expect(flexed.map((r) => [r.inward, r.side > 0])).toEqual(flexed.map((r) => [r.inward, true]));
+    const overshoot = Math.max(...inside.map((r) => r.past));
+    expect(overshoot).toBeGreaterThan(0.5 * e);
+    expect(overshoot).toBeLessThan(2.2 * e);
+  });
+
+  it('allocates nothing per evaluation inside the band either', async () => {
+    const ch = channels(
+      program,
+      new Map([
+        [
+          desc.params.ikControl,
+          {
+            tx: -ray[0] * 0.5 * (d0 - bandEnd),
+            ty: -ray[1] * 0.5 * (d0 - bandEnd),
+            tz: -ray[2] * 0.5 * (d0 - bandEnd),
+          },
+        ],
+      ]),
+    );
+    const pose = program.allocPose();
+    for (let i = 0; i < 20000; i++) program.evaluate(ch, pose);
+    let perEvaluation = Number.NaN;
+    const collections = await collectionsDuring(() => {
+      perEvaluation = allocatedBytesPerCall(() => program.evaluate(ch, pose), 10000);
+    });
+    expect([collections, perEvaluation]).toEqual([0, 0]);
   });
 });
 
@@ -617,6 +758,35 @@ describe('ik2 op allocates nothing per evaluation (§8 A1 DoD)', () => {
       const fk = evaluate(program, channels(program, values, 0));
       expect(localDifference(pose, fk)).toBeGreaterThan(1e-3);
     }
+  });
+
+  it('allocates no bytes per evaluation, counted in the young generation (and the count sees one small object)', async () => {
+    const program = ikRig(richHumanoid());
+    const values = new Map<ControlId, ChannelValues>([
+      [id('cog'), { ty: -0.03 }],
+      [id('ik.leg.L'), { ty: 0.05, '@roll': 40 * DEG, '@bank': -5 * DEG, '@soft': 0.05 }],
+      [id('ik.leg.R'), { '@roll': 10 * DEG, '@twist': 0.2, '@heelTwist': 0.1 }],
+      [id('ik.arm.L'), { ty: -0.2, '@twist': -0.3 }],
+      [id('ik.arm.R'), { tz: 0.1 }],
+    ]);
+    let sink: unknown = null;
+    for (const ikFk of [1, 0.6]) {
+      const ch = channels(program, values, ikFk);
+      const pose = program.allocPose();
+      for (let i = 0; i < 20000; i++) program.evaluate(ch, pose);
+      let perEvaluation = Number.NaN;
+      let leaky = Number.NaN;
+      const collections = await collectionsDuring(() => {
+        perEvaluation = allocatedBytesPerCall(() => program.evaluate(ch, pose), 10000);
+        // The count is live: one small object per evaluation shows up.
+        leaky = allocatedBytesPerCall(() => {
+          program.evaluate(ch, pose);
+          sink = { ikFk };
+        }, 1000);
+      });
+      expect([ikFk, collections, perEvaluation, leaky >= 16]).toEqual([ikFk, 0, 0, true]);
+    }
+    expect(sink).not.toBeNull();
   });
 });
 

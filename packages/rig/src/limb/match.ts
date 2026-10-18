@@ -266,7 +266,7 @@ function ikWorldFor(
 }
 
 /** The limb's two-bone solver (the op's rest data) under the parent world of its upper bone in `pose`. */
-function limbCore(program: RigProgram, desc: LimbDesc, pose: PoseBuffers): TwoBoneCore {
+export function limbCore(program: RigProgram, desc: LimbDesc, pose: PoseBuffers): TwoBoneCore {
   const internals = internalsOf(program);
   const core = new TwoBoneCore();
   configureLimbCore(core, program, desc);
