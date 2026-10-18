@@ -70,6 +70,10 @@ acts on the current frame (§4.11.17). Regression specs: `apps/web/e2e/acceptanc
 gimbal toggle (§6.2). The pre-integration fixme gates now fail a scenario; unbuilt §1.2 stretch items are `test.fixme`
 in `apps/web/e2e/stretch.spec.ts`. ARCHITECTURE §14 budgets are recorded in ROADMAP "M1 budgets".
 
+**Final acceptance** (DECISIONS-OPEN §E INT-59…INT-61): a drag on a manipulator handle whose channel is locked
+changes nothing and says so (§4.11.16); counts in the Export dialog take the right number; Graph Editor value labels
+and frame numbers keep out of each other's area.
+
 ---
 
 ## 1. Scope
@@ -2890,6 +2894,10 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   ring adds the screen-space angle to that channel only (`r[axis] += Δ`), with no quaternion → Euler step, so
   exactly one curve changes. A ring within 10° of gimbal lock turns `--danger`. The space is remembered in
   `prefs.rotateSpace` and shown in the status line.
+  *Final acceptance (INT-59)*: an axis handle (rotate ring, translate arrow) whose channel is locked on the lead
+  control is drawn dimmed but stays pickable; a drag on it changes nothing in any space (no gesture, no history
+  step, no selection change) and shows a warning toast naming the locked channel. In a multi-selection a ring leaves
+  every control whose channel of that ring is locked untouched, rather than turning it about the other axes.
 - **Shot camera navigation**: navigating a pane that looks through an **unlocked** shot camera writes the
   `CameraRecord` (`transform`, `target`) through a preview session committed once per gesture with
   `{ label: 'Move Shot Camera', undoable: false }`; wheel bursts end after 120 ms idle. Lock, unlock and

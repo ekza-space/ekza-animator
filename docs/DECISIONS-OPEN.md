@@ -301,6 +301,17 @@ Scenario readings **accepted as built** (no §6.2 change; each is the row's inte
 - E2E-26: the cycling spot is the midpoint of the two closest drawn controls of the framed hand; they must be under
   11 px apart so both are inside the 6 px pick tolerance (6.5 px apart on Seed-san).
 
+### Final acceptance (2026-10-18)
+
+The independent final acceptance test passed and reported three minor bugs. Each fix has a unit or browser-mode
+regression test.
+
+| # | Report | Decision | Where |
+|---|---|---|---|
+| INT-59 | A rotate drag on a ring whose channel is locked gave no feedback, added an empty history step in object space and, in world space, turned the control with the two unlocked channels | **Fixed, spec amended** (§4.11.16, Maya): an axis handle whose channel is locked on the lead control (rotate ring, translate arrow) is drawn dimmed but stays pickable; a drag on it opens no gesture (no change, no history step, no selection) and shows a warning toast "Rotate X is locked. Unlock it in the Channel Box to drag this handle." once the pointer moves (a click stays silent). In a multi-selection a ring leaves every control whose channel of that ring is locked untouched, in every space. | `viewport/src/manipulators/{ManipulatorKit,drag}.ts` (`lockedHandles`, `rotateEdits`), `tools/{host,transformTool}.ts` (`lockedChannel`), `manager/ViewportManager.ts`; `viewport/test/manipulators.test.ts` |
+| INT-60 | The Export dialog result read "1 clips" | **Fixed**: the result line counts with the right number ("1 clip · 3 channels · 1 key"); the node-constraint warnings, the read-back lint ("1 channel read") and the bake lint "does not animate N track(s)" agree with their counts too. The `file.export` toast already did. | `editor/src/dialogs/ExportDialog.tsx` (`count`, `statsLine`), `editor-core/src/workflows/export.ts`, `io/src/surgeon/bakeIntoModel.ts`; `editor/test/dialogs.test.tsx`, `editor-core/test/builtin/workflows.test.ts` |
+| INT-61 | Graph Editor: the bottom value label looked cut by the frame-number strip ("-2" instead of "-20") | **Fixed**: the "-2" was the frame number at the left edge, sitting where value labels go. Each axis now keeps out of the other's labels: a value label is drawn only when its glyphs clear the frame-number strip by 3 px (measured from the font, not a fixed 12 px), and frame numbers that would reach into the value-label column are skipped, so the bottom-left corner stays empty. | `curve-editor/src/painters/grid.ts`; `curve-editor/test/painters.test.ts` |
+
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 
 Each work package recorded its interpretations in `docs/wp-notes/wp-*.md` (kept as history, with the reasoning and
