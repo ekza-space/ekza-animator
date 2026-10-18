@@ -159,19 +159,44 @@ function place(
   clampAs: 'block' | 'each',
   preferred: (a: KeyRecord, b: KeyRecord, at: number) => KeyRecord,
 ): { readonly placements: readonly Placement[]; readonly deleted: readonly KeyId[] } {
-  const placements: Placement[] = request.keys.map((key) => {
-    if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
-    const t = request.target(key);
-    return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
-  });
-  clampRuns(placements, opts, clampAs);
-  if (opts.retimeBreakdowns !== false) retimeBreakdowns(placements, request.edited, opts);
+  const initial = (): Placement[] =>
+    request.keys.map((key) => {
+      if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
+      const t = request.target(key);
+      return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
+    });
+  let placements = initial();
+  const retime =
+    opts.retimeBreakdowns !== false &&
+    request.keys.some((key) => key.breakdown === true && !request.edited.has(key.id));
+  if (!retime) {
+    clampRuns(placements, opts, clampAs, null);
+  } else {
+    // §5.12: non-edited breakdowns follow their anchors, so they do not stop the keys moving past them; retiming
+    // places them afterwards. Should that cross an edited breakdown, the M1 clamp (breakdowns as neighbours) runs.
+    const floating = (p: Placement): boolean => p.key.breakdown === true && !request.edited.has(p.key.id);
+    clampRuns(placements, opts, clampAs, floating);
+    if (!retimeBreakdowns(placements, request.edited, opts)) {
+      placements = initial();
+      clampRuns(placements, opts, clampAs, null);
+      retimeBreakdowns(placements, request.edited, opts);
+    }
+  }
   if (!opts.resolveCollisions) return { placements, deleted: [] };
   return { placements, deleted: collisions(placements, preferred) };
 }
 
-/** The §4.11.3 clamp of runs of moving keys against their non-moving neighbours (in place). */
-function clampRuns(placements: Placement[], opts: KeyEditOptions, clampAs: 'block' | 'each'): void {
+/**
+ * The §4.11.3 clamp of runs of moving keys against their non-moving neighbours (in place). Placements `floating`
+ * selects are left out: they neither move with a run nor stop one (retimed breakdowns, §5.12).
+ */
+function clampRuns(
+  all: Placement[],
+  opts: KeyEditOptions,
+  clampAs: 'block' | 'each',
+  floating: ((p: Placement) => boolean) | null,
+): void {
+  const placements = floating === null ? all : all.filter((p) => !floating(p));
   const margin = opts.resolveCollisions ? 0 : DRAG_MARGIN;
   for (let i = 0; i < placements.length; ) {
     if (!(placements[i] as Placement).moving) {
@@ -208,9 +233,16 @@ function clampRuns(placements: Placement[], opts: KeyEditOptions, clampAs: 'bloc
       if (min + shift < lower || max + shift > upper) shift = min < lower ? lower - min : upper - max;
       if (shift !== 0) for (let k = i; k < j; k++) (placements[k] as Placement).t += shift;
     } else {
+      // Key by key (scales): when some key of the run overshoots a neighbour, the keys that would land exactly on it
+      // stop on the same whole frame, so the run keeps its order (a key landing on 18 while the next one, past it,
+      // stops on 17 would swap them) and an overshoot still never deletes the neighbour.
+      const overUp = max > next + SAME_FRAME_EPS && roomy;
+      const overDown = min < prev - SAME_FRAME_EPS && roomy;
       for (let k = i; k < j; k++) {
         const p = placements[k] as Placement;
-        p.t = clampOne(p.t);
+        if (overUp && p.t > wholeUpper) p.t = wholeUpper;
+        else if (overDown && p.t < wholeLower) p.t = wholeLower;
+        else p.t = clampOne(p.t);
       }
     }
     i = j;
@@ -250,15 +282,7 @@ function collisions(
  * one frame, the span keeps exact times; when retiming would break the key order (an edited breakdown moved across a
  * retimed one), the curve keeps its unretimed placement.
  */
-function retimeBreakdowns(placements: Placement[], edited: ReadonlySet<KeyId>, opts: KeyEditOptions): void {
-  let any = false;
-  for (const p of placements) {
-    if (p.key.breakdown === true && !edited.has(p.key.id)) {
-      any = true;
-      break;
-    }
-  }
-  if (!any) return;
+function retimeBreakdowns(placements: Placement[], edited: ReadonlySet<KeyId>, opts: KeyEditOptions): boolean {
   const moved = (p: Placement | undefined): boolean => p !== undefined && p.t !== p.key.t;
   const before = placements.map((p) => ({ moving: p.moving, t: p.t }));
   let changed = false;
@@ -307,7 +331,7 @@ function retimeBreakdowns(placements: Placement[], edited: ReadonlySet<KeyId>, o
     }
     anchor = i;
   }
-  if (!changed) return;
+  if (!changed) return orderedPlacements(placements);
   // Retiming must keep the key order (§5.12 "order is preserved"); a crossing with an edited breakdown reverts it.
   for (let i = 1; i < placements.length; i++) {
     const a = placements[i - 1] as Placement;
@@ -320,8 +344,17 @@ function retimeBreakdowns(placements: Placement[], edited: ReadonlySet<KeyId>, o
       p.t = original.t;
       p.retimed = false;
     });
-    return;
+    return false;
   }
+  return true;
+}
+
+/** True when no placement is before its predecessor (pre-edit order). */
+function orderedPlacements(placements: readonly Placement[]): boolean {
+  for (let i = 1; i < placements.length; i++) {
+    if ((placements[i] as Placement).t < (placements[i - 1] as Placement).t - SAME_FRAME_EPS) return false;
+  }
+  return true;
 }
 
 /** §5.12 snapping of a retimed breakdown: the nearest whole frame in [t_a' + 1, t_c' − 1], else the exact time. */
