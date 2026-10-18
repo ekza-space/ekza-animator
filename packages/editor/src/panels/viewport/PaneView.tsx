@@ -56,9 +56,12 @@ export function PaneView(props: {
     return () => vm.unregisterPane(paneId);
   }, [vm, paneId]);
 
+  // `w-full`: the pane fills the box its layout gives it. In the one-pane layouts (Single, a Space-maximized pane) that
+  // box is a row flex container, where a section sized by its content took only its header's width — about 40 % of
+  // the panel (fix round 2, M2A-INT-34); the split and quad panes sit in block boxes and always filled them.
   return (
     <section
-      className="flex h-full min-h-0 min-w-0 flex-col"
+      className="flex h-full w-full min-h-0 min-w-0 flex-col"
       aria-label={`Viewport pane ${state?.cameraName ?? paneId}`}
     >
       <PaneHeader app={app} paneId={paneId} state={state} />
