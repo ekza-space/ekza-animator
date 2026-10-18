@@ -44,6 +44,13 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
   }
+  // The mounted Graph Editor registers the M1 tools; its M2a scale tool (A4) is not there yet (§3 rule 1).
+  await expect(page.getByTestId('panel-graph')).toBeVisible();
+  await expect
+    .poll(() => run(page, 'view.tool', { panel: 'graph', tool: 'scale' }))
+    .toEqual({ status: 'cancelled', reason: 'not available yet' });
+  expect(await run(page, 'view.tool', { panel: 'graph', tool: 'insert' })).toMatchObject({ status: 'finished' });
+  expect(await run(page, 'view.tool', { panel: 'graph', tool: 'select' })).toMatchObject({ status: 'finished' });
   // The status line's key-target toggle and the Tween bar slot are in place.
   for (const target of ['selected', 'bodyPart', 'character']) {
     await expect(page.getByTestId(`status-keytarget-${target}`)).toBeVisible();

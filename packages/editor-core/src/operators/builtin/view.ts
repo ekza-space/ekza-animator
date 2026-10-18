@@ -2,9 +2,18 @@
 // settings (WP-9 R-3). The pane, camera navigation and framing operators belong to the viewport (WP-5).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { CameraId } from '@ekza-animator/doc';
-import { DOPE_TOOL, type EditorApp, GLOBAL_SCOPE, type ManipSpace, type NavProfile, PANEL } from '../../types';
+import {
+  DOPE_TOOL,
+  type EditorApp,
+  GLOBAL_SCOPE,
+  GRAPH_TOOL,
+  type ManipSpace,
+  type NavProfile,
+  PANEL,
+} from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
+import { NOT_AVAILABLE_YET } from './stub';
 
 /** Manipulator size limits in CSS px (§4.9 `view.manipulatorSize`). */
 export const MANIPULATOR_SIZE = { min: 40, max: 200 } as const;
@@ -18,6 +27,11 @@ const TOOL_FIELD = {
   [PANEL.dopeSheet]: 'dopeSheet',
 } as const satisfies Readonly<Record<string, 'viewport' | 'graph' | 'dopeSheet'>>;
 const DOPE_TOOLS: ReadonlySet<string> = new Set(Object.values(DOPE_TOOL));
+/** The built-in tool ids of the panels whose tools grow in M2a (§4.5 `GRAPH_TOOL`, `DOPE_TOOL`). */
+const BUILTIN_TOOLS: Readonly<Record<string, ReadonlySet<string>>> = {
+  [PANEL.graph]: new Set(Object.values(GRAPH_TOOL)),
+  [PANEL.dopeSheet]: DOPE_TOOLS,
+};
 
 const viewTool = defineOperator({
   id: 'view.tool',
@@ -39,7 +53,10 @@ const viewTool = defineOperator({
     if (tools.length === 0) {
       return panel !== PANEL.dopeSheet || DOPE_TOOLS.has(tool) ? OK : fail(`Unknown ${panel} tool '${tool}'`);
     }
-    return app.tools.get(panel, tool) !== undefined ? OK : fail(`Unknown ${panel} tool '${tool}'`);
+    if (app.tools.get(panel, tool) !== undefined) return OK;
+    // A built-in tool whose owner has not registered it yet (the Graph Editor's M2a scale tool, A4; a Dope Sheet tool,
+    // A3) is an M2a feature that is not there yet (§3 rule 1), not an unknown id: `R` over the Graph Editor says so.
+    return BUILTIN_TOOLS[panel]?.has(tool) === true ? fail(NOT_AVAILABLE_YET) : fail(`Unknown ${panel} tool '${tool}'`);
   },
   apply({ app }, args) {
     const tools = app.session.getState().tools;

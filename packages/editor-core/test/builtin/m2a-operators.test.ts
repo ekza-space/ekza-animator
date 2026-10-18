@@ -74,6 +74,36 @@ describe('view.tool widening (§4.5)', () => {
     expect((await runResult(app, 'view.tool', { panel: 'dopeSheet', tool: 'move' })).status).toBe('cancelled');
     expect((await runResult(app, 'view.tool', { panel: 'dopeSheet', tool: 'select' })).status).toBe('finished');
   });
+
+  it('with the M1 Graph Editor tools registered, the unregistered scale tool is "not available yet" (§3 rule 1)', async () => {
+    const app = opsApp();
+    for (const id of ['select', 'move', 'insert']) {
+      app.tools.register({ id, panel: 'graph', label: id, create: () => ({}) });
+    }
+    expect(await runResult(app, 'view.tool', { panel: 'graph', tool: 'scale' })).toEqual({
+      status: 'cancelled',
+      reason: NOT_AVAILABLE_YET,
+    });
+    expect(await runResult(app, 'view.tool', { panel: 'graph', tool: 'lasso' })).toEqual({
+      status: 'cancelled',
+      reason: "Unknown graph tool 'lasso'",
+    });
+    await runOk(app, 'view.tool', { panel: 'graph', tool: 'insert' });
+    expect(app.session.getState().tools.graph).toBe('insert');
+    // The owner registers it (A4): the same chord then switches the tool.
+    app.tools.register({ id: 'scale', panel: 'graph', label: 'Scale', create: () => ({}) });
+    await runOk(app, 'view.tool', { panel: 'graph', tool: 'scale' });
+    expect(app.session.getState().tools.graph).toBe('scale');
+    // The Dope Sheet's tools follow the same rule once any of them registers.
+    app.tools.register({ id: 'select', panel: 'dopeSheet', label: 'Select', create: () => ({}) });
+    expect(await runResult(app, 'view.tool', { panel: 'dopeSheet', tool: 'scale' })).toEqual({
+      status: 'cancelled',
+      reason: NOT_AVAILABLE_YET,
+    });
+    // The viewport has no M2a tools: an unregistered id stays unknown.
+    app.tools.register({ id: 'select', panel: 'viewport', label: 'Select', create: () => ({}) });
+    expect((await runResult(app, 'view.tool', { panel: 'viewport', tool: 'scale' })).status).toBe('cancelled');
+  });
 });
 
 describe('the Dope Sheet is a key panel of select and edit (§5.10)', () => {
