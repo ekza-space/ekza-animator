@@ -2897,7 +2897,6 @@ package's **Dirs** below.
 | `editor-core/src/session/**` | defaults for `workspace`, `lastRun`, `model` | B10 | other packages write their `session.model` fields only through their own operators (no edits in this tree) |
 | `editor-core/src/app/{createEditorApp.ts,kernel.ts,deps.ts}` | wiring of `workspaces`, `markingMenus`, `meshes`, `components`, `extrude`, `capture`, `blobs` (stubs) | B7 (`meshes`, `blobs`), B10 (`components`), B11 (`capture`), B12b (`extrude`) each replace only their stub factory call | — |
 | `editor-core/src/characters/registry.ts` | skips `source.kind === 'model'` characters | B8 (display rebuild hook) | — |
-| `editor-core/src/operators/builtin/exporters.ts` | — | B8 (static exporter registration) | — |
 | `viewport/src/layers.ts`, `viewport/src/manager/**`, `editor/src/shell/**` (except the menu files), `editor/src/overlays/**` | layer constants | B9 | B6 registers mesh layers through `addMeshLayer`; B10–B13 register overlays through slots |
 | `editor/src/panels/viewport/{PaneView,ViewportPanel,PaneMenu}.tsx` | — | B9 (overlay slots) | B10 HUD, B11 Last-op card, B12a readout, B13 empty state and getting started register into slots |
 | `viewport/src/tools/{transformTool.ts,virtualSliderDrag.ts,selectTool.ts,host.ts}` | — | B12a (`transformTool`, `virtualSliderDrag`: MMB rule), B10 (`selectTool` component picking), `host.ts` B9 | — |
@@ -2917,7 +2916,7 @@ package's **Dirs** below.
 - **Dirs**: every file of §9.1 in its B0a role; `packages/mesh-core/{package.json,src/index.ts,src/registry.ts,
   src/ops/*/index.ts (stubs),src/reference/**}`; `packages/mesh-view/{package.json,src/index.ts}` (skeleton);
   `editor-core/src/operators/builtin/{mesh/**,selectMesh.ts,hide.ts,mode.ts,softSelect.ts,symmetry.ts,
-  pivot.ts,snap.ts,extrudeSession.ts,lastop.ts,palette.ts,imagePlane.ts,create.ts,scene.ts,makeEditable.ts,
+  pivot.ts,snap.ts,extrudeSession.ts,lastop.ts,palette.ts,imagePlane.ts,create.ts,scene.ts,makeEditable.ts,exportModel.ts,
   workspace.ts}` as **stub files** handed to their owners (§9 per package); `editor-core/src/{mesh,selection,
   services/blobs}/index.ts` stubs; `editor/src/test-api/**`; `apps/web/e2e/helpers/m6a-model.ts`,
   `apps/web/e2e/m6a-00-foundation.spec.ts`; `tooling/**` entries; `docs/wp-notes/m6a-contracts-foundation.md`.
@@ -3097,15 +3096,17 @@ package's **Dirs** below.
 
 - **Dirs**: `io/src/{mesh,png,provenance}/**`, `io/src/export/author/**`, `io/src/surgeon/{replacePrimitives.ts,
   bakeIntoModel.ts,marker.ts}`, `io/src/lint/**`, `io/src/profiles/**`, `editor-core/src/workflows/{exportModel.ts,
-  meshDisplay.ts}`, `editor-core/src/operators/builtin/exporters.ts`, `editor-core/src/characters/registry.ts`
-  (display hook), `packages/headless-tests/test/mesh.io.*`, `fixtures/synthetic/prohibited-modification.vrm` (generated
+  meshDisplay.ts}`, `editor-core/src/operators/builtin/exportModel.ts` (`file.exportModel`),
+  `editor-core/src/characters/registry.ts` (display hook), `packages/headless-tests/test/mesh.io.*`, `fixtures/synthetic/prohibited-modification.vrm` (generated
   by an extension of `tooling/make-synthetic-fixtures.mjs`, handed through the integration agent),
   `apps/web/e2e/m6a-12-make-editable-polybot.spec.ts`, `docs/wp-notes/m6a-mesh-io.md`.
 - **Responsibilities**: research 13 K-2 + 12 §10: §5.21 make editable (licence gate, weld key, layers, hard edges,
   report, size limit, decode hook), `meshToPrimitives` with derived morph `NORMAL` deltas and the tangent refusal,
   §5.19 palette PNG writer and colour outputs A/C/D, §5.22 surgeon step + marker v2 + re-bake, §5.23 in-memory rebuild
   and the display hook, author static writer, handheld profile, lints of §4.5, `ekza_model_v1`, `file.exportModel`
-  with the lazy validator and read-back (three `GLTFLoader` in the browser, the `io/testing` harness in Node).
+  with the lazy validator and read-back (three `GLTFLoader` in the browser, the `io/testing` harness in Node); the
+  handheld profile joins `BUILTIN_EXPORT_PROFILES` (`io/src/profiles/builtin.ts`), which `registerBuiltins` already
+  registers.
 - **Tests**: authored GLBs 0 validator errors; surgeon keeps every untouched JSON value and the BIN prefix
   byte-identical (Polybot, Seed-san, UAL); export → re-import → re-bake keeps 0 errors and every primitive resolving;
   morph targets keep `NORMAL` (count = primitive vertex count, finite); palette round trip within 1/255; `COLOR_0`
