@@ -415,7 +415,9 @@ describe('curve properties (MVP-SPEC §7 WP-1 tests)', () => {
           const t0 = c.t[i] as number;
           const t1 = c.t[i + 1] as number;
           for (let j = 0; j <= 50; j++) {
-            const v = evaluateAnimCurve(c, t0 + ((t1 - t0) * j) / 50);
+            // Clamped to t1: t0 + (t1 − t0) can round one ulp past t1, which on the last span of a curve with a cyclic
+            // post infinity is the next cycle (the first key's value), not this span (seed −160331587, below).
+            const v = evaluateAnimCurve(c, Math.min(t1, t0 + ((t1 - t0) * j) / 50));
             expect(v).toBeGreaterThanOrEqual(lo - 1e-12 * Math.max(1, Math.abs(lo)));
             expect(v).toBeLessThanOrEqual(hi + 1e-12 * Math.max(1, Math.abs(hi)));
           }
@@ -434,12 +436,54 @@ describe('curve properties (MVP-SPEC §7 WP-1 tests)', () => {
           const t0 = c.t[i] as number;
           const t1 = c.t[i + 1] as number;
           for (let j = 0; j <= 20; j++) {
-            expect(Math.abs(evaluateAnimCurve(c, t0 + ((t1 - t0) * j) / 20) - (c.v[i] as number))).toBeLessThan(1e-12);
+            // Clamped to t1 like the overshoot property (seed 1584343940, below).
+            const t = Math.min(t1, t0 + ((t1 - t0) * j) / 20);
+            expect(Math.abs(evaluateAnimCurve(c, t) - (c.v[i] as number))).toBeLessThan(1e-12);
           }
         }
       }),
       { numRuns: 500 },
     );
+  });
+});
+
+describe('the last key of a curve with a cyclic post infinity (integration: the two property seeds pinned)', () => {
+  // fast-check counterexamples of the properties above (A2 notes, open issue 3): five keys whose last span ends at
+  // t1 with the first key's value differing by 1e-12.
+  const lastSpan = (type: 'auto' | 'clamped', t: readonly number[], v: readonly number[]): AnimCurve =>
+    curve(
+      t.map((time, i) => key(time, v[i] as number, type, type)),
+      { post: 'cycle' },
+    );
+  // [curve, the property's sample count n]: the property sampled t0 + (t1 − t0)·n/n.
+  const cases: readonly (readonly [AnimCurve, number])[] = [
+    [
+      lastSpan(
+        'auto',
+        [0, 0.25, 0.5, 0.75, 7.767877633356686],
+        [0, 0, 0, -1.0000000000000002e-12, -1.0000000000000002e-12],
+      ),
+      50,
+    ],
+    [lastSpan('clamped', [0, 0.25, 0.5, 1.5191503347374793, 9.10301953012267], [0, 0, 0, -1e-12, -1e-12]), 20],
+  ];
+
+  it('t exactly at the last key belongs to the last span (its value), one ulp past it to the next cycle', () => {
+    for (const [anim, n] of cases) {
+      const c = compileAnimCurve(anim);
+      const t0 = c.t[c.keyCount - 2] as number;
+      const t1 = c.t[c.keyCount - 1] as number;
+      const last = c.v[c.keyCount - 1] as number;
+      expect(evaluateAnimCurve(c, t1)).toBe(last);
+      // The rounding the properties hit: one ulp past t1 is the next cycle, which starts at the first key's value.
+      const past = t0 + ((t1 - t0) * n) / n;
+      expect(past).toBeGreaterThan(t1);
+      expect(evaluateAnimCurve(c, past)).toBeCloseTo(c.v[0] as number, 9);
+      // Inside the span the curve stays between its (equal) end values.
+      for (let j = 0; j <= 50; j++) {
+        expect(Math.abs(evaluateAnimCurve(c, Math.min(t1, t0 + ((t1 - t0) * j) / 50)) - last)).toBeLessThan(1e-12);
+      }
+    }
   });
 });
 
