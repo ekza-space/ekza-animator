@@ -97,20 +97,28 @@ export default function DopeSheetView(props: PanelProps): JSX.Element {
   useTestProbe('dopeSheet', probe);
 
   return (
-    <div className="flex h-full min-h-0 flex-col bg-panel text-fg" data-testid="dopesheet-panel">
+    <div
+      className="bg-panel text-fg"
+      style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', minHeight: 0 }}
+      data-testid="dopesheet-panel"
+    >
       <Toolbar app={app} controller={controller} onPersist={persist} />
-      <div className="flex min-h-0 flex-1">
+      <div style={{ display: 'flex', flex: '1 1 0', minHeight: 0 }}>
         <div
-          className="relative h-full shrink-0 overflow-hidden border-r border-line"
-          style={{ width: LABEL_WIDTH }}
+          className="border-r border-line"
+          style={{ position: 'relative', width: LABEL_WIDTH, flexShrink: 0, overflow: 'hidden' }}
           data-testid="ds-labels"
         >
           {controller === null ? null : <RowLabels app={app} controller={controller} onPersist={persist} />}
         </div>
-        <div className="relative h-full min-h-0 min-w-0 flex-1 overflow-hidden" data-testid="ds-view">
+        <div
+          style={{ position: 'relative', flex: '1 1 0', minWidth: 0, minHeight: 0, overflow: 'hidden' }}
+          data-testid="ds-view"
+        >
           <canvas
             ref={canvasRef}
-            className="absolute inset-0 block h-full w-full touch-none select-none"
+            className="touch-none select-none"
+            style={{ position: 'absolute', inset: 0, display: 'block', width: '100%', height: '100%' }}
             data-testid="ds-canvas"
             aria-label="Dope Sheet keys"
           />
@@ -271,10 +279,17 @@ function RowLabels(props: {
         key={row.id}
         data-testid={`ds-row-${row.id}`}
         data-kind={row.kind}
-        className={`absolute right-0 left-0 flex items-center gap-1 truncate pr-1 text-[11px] select-none hover:bg-[var(--bg-hover,#30323a)] ${
+        className={`flex items-center gap-1 truncate pr-1 text-[11px] select-none hover:bg-[var(--bg-hover,#30323a)] ${
           row.kind === 'summary' ? 'bg-[var(--bg-header,#2a2b30)] font-semibold text-fg' : 'text-fg-2'
         } ${row.dimmed ? 'opacity-50' : ''}`}
-        style={{ top, height: DOPE_SHEET_ROW_HEIGHT, paddingLeft: 4 + row.depth * INDENT_PX }}
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top,
+          height: DOPE_SHEET_ROW_HEIGHT,
+          paddingLeft: 4 + row.depth * INDENT_PX,
+        }}
         title={row.label}
         onClick={(e) => selectLabel(i, e)}
         onDoubleClick={(e) => controller.selectRowKeys(row.id, selectModeFor(modifiers(e)))}
@@ -306,7 +321,7 @@ function RowLabels(props: {
   return (
     <div
       ref={box}
-      className="absolute inset-0 overflow-hidden"
+      style={{ position: 'absolute', inset: 0, overflow: 'hidden' }}
       onWheel={(e) => {
         controller.setView({ ...controller.view, scrollY: controller.view.scrollY + e.deltaY });
       }}
@@ -314,8 +329,8 @@ function RowLabels(props: {
       {labels}
       {/* Covers the rows scrolled above the first one, beside the canvas's ruler and region strips. */}
       <div
-        className="absolute top-0 right-0 left-0 z-10 border-b border-line bg-header"
-        style={{ height: DOPE_SHEET_ROWS_TOP }}
+        className="border-b border-line bg-header"
+        style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, height: DOPE_SHEET_ROWS_TOP }}
       />
     </div>
   );

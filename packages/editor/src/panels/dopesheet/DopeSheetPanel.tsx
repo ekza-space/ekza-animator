@@ -10,6 +10,9 @@ import { focusedDopeSheet } from './focus';
 
 const DopeSheetView = lazy(() => import('./DopeSheetView'));
 
+/** Layout-critical sizes are inline styles: they hold without the Tailwind stylesheet too. */
+const FILL = { width: '100%', height: '100%' } as const;
+
 export function DopeSheetPanel(props: PanelProps): JSX.Element {
   const { app, instanceId } = props;
   const box = useRef<HTMLDivElement>(null);
@@ -34,7 +37,7 @@ export function DopeSheetPanel(props: PanelProps): JSX.Element {
   }, [shown]);
 
   return (
-    <div ref={box} className="h-full w-full" data-testid="ds-panel">
+    <div ref={box} style={FILL} data-testid="ds-panel">
       {shown ? (
         <Suspense
           fallback={
