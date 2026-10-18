@@ -1,6 +1,8 @@
 # Ekza Animator — M2a build specification ("game-clip daily driver")
 
-Status: v0.2 (2026-10-18, review revision: every blocker and major review item applied, the cheap minors too; items
+Status: v0.3 (2026-10-18, integration revision: A0…A5 merged; the packages' contract PRs ratified into this file and
+[DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended
+for the fixtures' leg reach, [§10.4](#104-integration-record) records the result; v0.2 was the review revision, items
 not applied are listed with reasons in [§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
 Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
 `time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
@@ -310,7 +312,8 @@ export interface RigOpCompileContext {
    * Per node: the horizontal support function of the rest-pose vertices whose dominant skin weight is that node,
    * relative to the node's rest position p, in character space: 32 values h_k = max over those vertices of
    * ((v − p).x·sin θ_k + (v − p).z·cos θ_k), θ_k = k·11.25°, then 2 values min (v − p).y and max (v − p).y. null for
-   * nodes without such vertices; the array is absent without mesh data (§5.2.3).
+   * nodes without such vertices; the array is absent without mesh data (§5.2.3). A humanoid lower leg's vertices
+   * below its foot's rest position count for the foot (rigs often skin the heel to the shin; A1 notes).
    */
   readonly boneSupport?: readonly (Float32Array | null)[];
 ```
@@ -318,7 +321,7 @@ export interface RigOpCompileContext {
 `TwoBoneIkInput` gains (additive)
 
 ```ts
-  /** ik2 op only: enables the rest-exact amendments A and B of §5.3. Absent = M1 behaviour (Plant Feet). */
+  /** ik2 op only: enables the rest-exact amendments A, B and C of §5.3. Absent = M1 behaviour (Plant Feet). */
   readonly restReach?: number;
 ```
 
@@ -863,9 +866,11 @@ every keyable attribute too), on an IK hand one (`twist`).
 
 #### 5.2.1 Hinge axis
 
-`x̂⁰_U` = unit rest direction of the upper bone (upper → mid, canonical space). Distal swing direction `s`: legs
-(0, 0, −1) (the shin swings back), arms (0, 0, 1) (the forearm swings forward).
-`hinge = normalize(x̂⁰_U × s)`; if `|x̂⁰_U × s| < 0.1`, use the R07 §5.2 table (knees (1, 0, 0), left elbow
+`x̂⁰` = unit rest direction of the bone that swings: the **lower** leg (mid → end) for legs, the upper arm (upper →
+mid) for arms, in canonical space (ratified M2A-A1-1: Polybot's thighs splay 28.6° outward over vertical shins, and
+the upper-bone hinge tilted its knee hinge by as much, so knee flexion about x was no hinge motion). Distal swing
+direction `s`: legs (0, 0, −1) (the shin swings back), arms (0, 0, 1) (the forearm swings forward).
+`hinge = normalize(x̂⁰ × s)`; if `|x̂⁰ × s| < 0.1`, use the R07 §5.2 table (knees (1, 0, 0), left elbow
 (0, −1, 0), right elbow (0, 1, 0)). T-pose results equal the table. The compiler converts `hinge` into the mid bone's
 rest frame (`hingeLocal = q(W⁰_mid)⁻¹ ⊗ hinge`). A rest bend > 2° that opposes the hinge (hyperextended rest) warns
 (`RigWarning 'asymmetric-rest'` reused with a limb message) and keeps the hinge.
@@ -873,9 +878,11 @@ rest frame (`hingeLocal = q(W⁰_mid)⁻¹ ⊗ hinge`). A rest bend > 2° that o
 #### 5.2.2 Rest pole
 
 `a⁰, b⁰, c⁰` = rest positions of upper, mid, end; `x̂⁰ = normalize(c⁰ − a⁰)`; `m⁰ = (b⁰ − a⁰) − ((b⁰ − a⁰)·x̂⁰)x̂⁰`;
-`k⁰ = hinge`. Pole direction `p̂⁰ = normalize(m⁰)` when `|m⁰| > 1e-3·(l1 + l2)` and `m⁰·(x̂⁰ × k⁰) > 0`, else
-`p̂⁰ = normalize(x̂⁰ × k⁰)` (the direction the mid joint moves under flexion: knees forward, elbows back). Rest pole
-position = `b⁰ + p̂⁰·(l1 + l2)`. This makes the pole twist at rest exactly zero (§5.3 B).
+`k⁰ = hinge`, `h⁰ = normalize(x̂⁰ × k⁰)` (the direction the mid joint moves under flexion: knees forward, elbows
+back), `m⁰_off` = the part of `m⁰` outside the hinge plane (`m⁰ − (m⁰·h⁰)h⁰`). Rest pole position =
+`b⁰ + h⁰·(l1 + l2) − m⁰_off` (ratified M2A-A1-4). For rests bent about the hinge, or straight, this equals the v0.2
+rule `b⁰ + p̂⁰·(l1 + l2)`; for off-hinge rests (Polybot) it keeps the pole in front of the knee, not beside it. Either
+way the pole twist at rest is exactly zero (§5.3 B).
 
 #### 5.2.3 Foot pivots (legs)
 
@@ -885,8 +892,10 @@ In character space, then expressed in the IK control's rest frame. Ankle `A` = f
 position when it exists, else (0, 0, 1); `yaw = atan2(f.x, f.z)`; lateral `l = side·(cos yaw, 0, −sin yaw)`
 (outward: `l·(1, 0, 0) > 0` on the left foot). `ballFront` = `(toes − A_g)·f` when toes exist, else `1.5·r_f`.
 
-**From the mesh** (R07 §12; preferred whenever `SkeletonDesc.boneSupport` has the foot or toes node): `s(d)` = the
-support of the union of the foot and toes nodes' vertices in horizontal direction `d`, in character space (each
+**From the mesh** (R07 §12; preferred whenever `SkeletonDesc.boneSupport` has the foot or toes node; a humanoid
+lower leg's vertices below its foot's rest position count for the foot, and the foot's support covers its whole
+subtree, helper joints such as Seed-san's `heel.L` included: Polybot skins its heel to the shin, ratified
+M2A-A1-5): `s(d)` = the support of the union of the foot and toes nodes' vertices in horizontal direction `d`, in character space (each
 node's samples plus `p·d`, the larger of the two nodes), read from the 32-sample support function (linear
 interpolation between the two nearest samples; error ≤ 0.5 % of the foot length):
 `heelBack = s(−f) + A_g·f`, `toeFront = s(f) − A_g·f − ballFront`, `outerWidth = s(l) − ball·l`,
@@ -950,10 +959,25 @@ reachable.
 - **A (reach)**: the upper clamp is `hi = max(L − ε, restReach)` (ε = 1e-5·L), so a limb that is straight at rest is
   reached at rest without bending; soft IK uses `hi` in place of `L` (`d = (hi − s) + s·(1 − e^{−(d_raw − (hi − s))/s})`
   for `d_raw > hi − s`).
-- **B (bend plane)**: in step 5, when `|m| ≤ 1e-3·L`, `m` is replaced by `x̂ × k` (the hinge-implied bend
-  direction, `k` the world hinge after step 4); the pole twist then aligns that direction with the pole.
+- **B (bend plane)**: in step 5, `m` is replaced by `x̂ × k` (the hinge-implied bend direction, `k` the world hinge
+  after step 4; `m` only when `x̂ ∥ k`); the pole twist then aligns that direction with the pole. (v0.2 replaced it
+  only when `|m| ≤ 1e-3·L`; rests that bend off the hinge, Polybot's, would then swing the knee sideways as the leg
+  flexes. Ratified M2A-A1-3.)
+- **C (hyperextended rests, continuous)**: measure the bend by `t`, the angle about the hinge from the bend of
+  greatest reach (a reach has the two solutions `t = ±s`), and let `T ≥ 0` be the rest's hyperextension (`t⁰ = −T`).
+  M1 takes `t = s`; with `T > 0` the solver takes `t = −s` for `s ≤ T` (targets between the rest reach `d⁰` and full
+  reach: the hyperextended branch, exact, the rest itself at `s = T`), `t = s − 2T·(1 − y)²` with `y = (s − T)/W`,
+  `W = min(2T, π − T)` inside the band `T < s < T + W`, and `t = s` beyond (the flexion branch, exact). Inside the band
+  the end passes its target along the reach ray by a little (≤ 0.57 mm on Polybot's arms within 2.1 mm below the rest
+  reach, ≤ 0.07 mm within 0.28 mm on Seed-san's); matching places the IK control at the distance for which the solver
+  takes the FK bend (`distanceForBend`), so switches, matching and import stay exact; the `asymmetric-rest` warning
+  states the band. Rest exactness (1e-7 on every hyperextended rest arm of both fixtures) and "flexion only" cannot
+  both hold with a continuous solution; the alternative (flexion only) popped the elbow by 5.7 mm (Seed-san) and
+  12.4 mm (Polybot) when an IK hand crossed the rest reach. Ratified M2A-A1-3 (owner-visible trade-off, DECISIONS-OPEN
+  §F).
 
 Without `restReach` the function is bit-for-bit the M1 solver (Plant Feet and the M1 IK tests are unaffected).
+The `TwoBoneIkInput.restReach` contract comment in rig `types.ts` names amendments A, B and C.
 
 **Rest exactness**: at default channels (IK control, pole and attributes at rest, `ikFk` 1) every bone local equals
 the rest local within **1e-7** (rotations in radians, translations in metres) on Seed-san and Polybot, legs and arms.
@@ -1043,11 +1067,17 @@ All matching is at the current clip frame of the active clip, evaluated with ove
   ```
   m̂ = normalize(m) when |m| > 1e-3·L, else none
   β  = m̂ ? smoothstep(2°, 10°, θ) · smoothstep(0, 0.5, m̂·h) : 0
-  p̂  = normalize((1 − β)·h + β·m̂)                  // never degenerate: both lie in the same half-space
-  pole = b + p̂·D,  D = the current pole distance from b when ≥ 0.25·L, else L
+  ω  = the angle about x̂ (from h) of the mid-joint offset the IK itself produces for a chain bent by t, from the
+       rest geometry: t = the FK pose's own hinge bend for IK bends up to 10°, the IK's bend for the FK reach from
+       20°, smoothstep between
+  ψ  = the signed angle about x̂ from R_x̂(ω)·h to m
+  p̂  = R_x̂(β·ψ)·h
+  pole = b + p̂·D − (m − (m·p̂)p̂),  D = the current pole distance from b when ≥ 0.25·L, else L
   ```
 
-  A clean hinge pose has `m̂ = h`, so the result is the exact M1-style pole. Near-straight limbs (`θ` < 2°, where `m`
+  (Ratified M2A-A1-2. v0.2's `p̂ = normalize((1 − β)·h + β·m̂)` assumed `m̂ = h` for every hinge pose, which holds
+  only when the rest bend lies exactly in the hinge plane: Seed-san's knees are 0.7° off it, Polybot's legs and arms
+  far off it. ψ cannot wrap while β > 0.) Every hinge pose gives ψ = 0, the exact M1-style pole. Near-straight limbs (`θ` < 2°, where `m`
   is noise) use `h`, and the pole moves continuously with the pose, so imported pole curves do not swing from frame
   to frame. A **hyperextended** knee or elbow (`m̂·h ≤ 0`, the mid joint behind the hip→ankle line) also uses `h`:
   the IK chain bends the normal way by the same amount instead of twisting 180° about the hip→ankle axis to reach a
@@ -1059,15 +1089,25 @@ All matching is at the current clip frame of the active clip, evaluated with ove
 - Gates (A1): FK → IK → FK leaves the chain bones unchanged within 1e-6 for random hinge poses with a mid bend ≥ 5°;
   on FK poses with the knee hyperextended by −2° and −5° (Seed-san legs) and the elbow by −5°, `matchIkToFk` gives an
   end world equal to FK (1e-6), no chain bone whose world rotation differs from FK by more than `2·|θ| + 1e-3` rad
-  (no 180° flip), `midErrorM` > 0, and the operators warn; random non-hinge poses (±10° knee ab/adduction and twist)
-  give pole directions that change by ≤ 1e-3 rad for a 1e-4 rad change of any input rotation (continuity).
+  (no 180° flip), `midErrorM` > 0, and the operators warn; random non-hinge poses (±10° knee ab/adduction and twist) with a mid bend ≥ 5° give pole directions that change by
+  ≤ 1e-3 rad for a 1e-4 rad change of any input rotation (continuity; the bend bound ratified with M2A-A1-2: below 5°
+  of bend against 10° of ab/adduction even v0.2's blend turns faster than that).
 - **Switch** `rig.ikFk.switch {limb, to, match = true, key}` with `key` resolved from `prefs.ikFkSwitchKey` when
   absent (`'auto'` → `'seamless'` if the `ikFk` curve has keys or auto-key is on, else `'none'`):
   - `'none'`: matched channels and `ikFk` through `applyChannelEdits(key: 'auto')`.
   - `'key'`: force keys at frame `f` on the matched channels and on `ikFk` (step tangent).
   - `'seamless'`: as `'key'`, plus a key on `ikFk` at `f − 1` with its value before the switch (step tangent),
-    unless a key exists there. The pose at `f − 1` and the pose at `f` are unchanged (1e-6) whenever the match is
-    exact (not for a hyperextended FK pose; see the warning above).
+    unless a key exists there, and a key at `f − 1` on every matched channel holding its curve value there (inserted
+    shape-preserving, step out tangent; none where a key exists), so the key at `f` cannot reach back (ratified
+    M2A-A2-19). The curves a seamless switch puts their first keys on get `constant` infinities, also on loop clips
+    (§5.23 would make their two keys cycle with period 1; ratified M2A-A2-24). The pose at `f − 1` and the pose at `f`
+    are unchanged (1e-6) whenever the match is exact (not for a hyperextended FK pose; see the warning above). **Ball
+    roll exception** (ratified, open issue 1 of A2): with `@roll` inside the ball range the ik2 toes rule keeps the
+    toes planted about the ball pivot, which FK cannot reproduce; the match then keeps the chain exact and warns with
+    the measured toes difference ("L Leg: IK bends the toes by 20° (foot roll); set Roll to 0 to keep the FK toes",
+    "… FK moves the toes by 5.4 mm …", M2A-A2-20), and `f − 1` stays exact.
+  - A switch to the mode the limb is already in (evaluated `ikFk` ≥ 0.999 for `to: 'ik'`, ≤ 0.001 for `to: 'fk'`)
+    poll-fails "L Leg is IK already" (ratified M2A-A2-23).
   - One transaction, one history step; label `Switch L Leg to IK` / `… to FK`.
 - **Match range**: `rig.ikFk.matchRange` matches at every integer frame of the range by default for side `'fk'`
   (matching only at IK key times would leave FK Euler interpolation between them and planted feet would slide) and
@@ -1301,7 +1341,10 @@ silently doing nothing; `flip` keeps the selected scope.
      key at `e` is not written as a key of its own, and keys outside `[s, e]` are not written. The key landing at `m` (from the source key at `s`) takes its value and out-handle from the
      source key at `s` and its in-handle from the source key at `e`; the key landing at `s` (from the source key at
      `m`) gets a copy at `e` with the source key's value and in-handle.
-  3. Freeze: the keys landed at `s`, `m` and `e` get their resolved handles as `fixed` (`broken` where the in and
+  3. Freeze: the keys landed at `s`, `m` and `e` get their resolved handles as `fixed` (a `step`/`stepNext` out type
+     stays: it is the interpolation flag of the span the key starts, which maps with the key, ratified M2A-A4-13;
+     weighted curves freeze the handles the engine started from and cyclic infinities reaching into `[s, e]` are
+     written out as copies first, M2A-A4-14; `broken` where the in and
      out slopes differ), because their neighbours changed; every other key keeps its tangent types, since its
      neighbours map with it.
   4. Write the mapped curves per curve in time order. A source curve whose working-copy values at `s` and `e` differ
@@ -1368,11 +1411,13 @@ Implemented on baked tracks after hemisphere continuity and root-motion handling
   `export-reduce` (checked by default from `prefs.exportReduce.enabled`) and passes `DEFAULT_EXPORT_REDUCE`.
 - The read-back check compares the written file with the **reduced** clip (M1 tolerances); `stats.reduction` reports
   the sample counts and the max errors against the unreduced samples; the export toast shows "N → M samples".
-- Gate: on Seed-san's hand-keyed `wave` clip (0…30) the total sample count shrinks ≥ 3×, and sampling the written
-  tracks at every integer frame stays within the per-node tolerances of the unreduced bake. **Pending owner decision
-  M2A-A5-3** (`docs/wp-notes/m2a-platform-perf.md`): ≥ 3× is out of reach on that file (51 of its 52 tracks are
-  2-sample constant tracks, 102 of 133 samples, which are not reduced: at best 104 samples, 1.28×); the build asserts
-  "never more samples" and the tolerance bound on the wave, and ≥ 3× on a linear-blocking clip.
+- Gate (ratified M2A-A5-3 at integration; the owner may still move it): on Seed-san's hand-keyed `wave` clip (0…30)
+  the reduced file never has more samples than the unreduced one and sampling its tracks at every integer frame stays
+  within the per-node tolerances of the unreduced bake; on a clip keyed with linear tangents (blocking: holds and
+  linear spans keep only their ends) the total sample count shrinks ≥ 3×. ≥ 3× is out of reach on the wave file (51
+  of its 52 tracks are 2-sample constant tracks, 102 of 133 samples, which are not reduced: at best 104 samples,
+  1.28×), and smooth hand-keyed motion at 30 fps keeps its samples at R02's tolerances (the wave; E2E-M2A-23's walk,
+  where dropping any one sample moves a track by ≥ 2.6e-4 m or 1e-3 rad against Polybot's 9.4e-5 m / ≤ 9e-4 rad).
 
 ### 5.17 Pick-walk (A2, FR-OUT-05)
 
@@ -1500,7 +1545,10 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
 - **Target**: the scripts loaded by `/editor` until the empty state is visible and the network is idle total
   ≤ **800,000 B** gzip -9 (decimal kB, the stricter unit). The 800,000 B figure is provisional until the attribution:
   A5 may set it to the attributed reachable value with the reason recorded (contract PR to this file), but never
-  above 850,000 B (≥ 50 kB headroom under the budget). **CI gate** `pnpm --filter web check:size` fails above
+  above 850,000 B (≥ 50 kB headroom under the budget). **Set at integration to 850,000 B for M2a**: A5's branch
+  measured 785,248 B, the merged route 843,224 B (A1…A4 add ≈ 58 kB of eager code: IK rig, IK, tween, mirror and
+  ripple operators, Dope Sheet contributions, Channel Box attribute rows, the Tween bar); attribution and the next
+  cuts in `docs/wp-notes/m2a-integration.md` (M2A-INT-4). **CI gate** `pnpm --filter web check:size` fails above
   900,000 B and prints every lazy chunk group with its size.
 - **One measurement**: `check:size` derives the initial script set from the same definition as the bench (the
   scripts the `/editor` route requests until the empty state, read from the Next build manifest and the route's
@@ -1801,8 +1849,10 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   chain writes, schedule determinism under shuffled records, dangling refs disable with warnings; import to IK:
   `importHumanoidClip(bake)` with IK legs reproduces bone worlds ≤ 1e-5 rad / 1e-6 m at key times on Seed-san; a
   synthetic source with a −5° knee and `quaternius-ual.glb` `Walk_Loop` either stay IK within `ikTolerance` or fall
-  back to FK per limb with the reported errors (`ImportedClipKeys.limbs`), and the pole curves of IK limbs move by
-  ≤ 0.05·L between consecutive frames; Plant Feet on IK legs (US-25 numbers); the step schedule and influence key
+  back to FK per limb with the reported errors (`ImportedClipKeys.limbs`), and per frame the pole's direction
+  from the mid joint turns by no more than the upper and lower bones do, + 0.05 rad (ratified M2A-A1-13: the v0.2
+  gate "the pole moves ≤ 0.05·L per frame" cannot hold with the pole L in front of the knee on a 24 fps walk; UAL
+  `Walk_Loop` moves it 0.16·L per frame, smoothly; the synthetic 30 fps unit walk keeps 0.05·L); Plant Feet on IK legs (US-25 numbers); the step schedule and influence key
   times include IK control, attribute and `cog` curves (a STEP key on `cog` is a leg-track discontinuity); M1 rig
   gates unchanged (they call `autoRig` without `ik`); bench with IK (report).
 - **DoD**: all gates green; no allocation in `run` after `compile` (bench asserts zero growth with `--expose-gc` heap
@@ -2015,17 +2065,25 @@ means the M1 `seed.ts` helpers (`loadSample`). Angles in steps are degrees; tole
 | E2E-M2A-14 | Breakdowns retime (FR-KEY-08) | seed Polybot; key rz 0 at 0, 60 at 20; frame 10, `Alt+S` over the viewport (breakdown with the current value); select the key at 20 in the Graph Editor and drag it to frame 30 | `timelineTicks()` frame 10 `breakdown: true`; after the drag the rz curve's breakdown is at 15 with its value unchanged (the rx/ry breakdowns stay at 10: their anchors did not move); in a fresh setup a breakdown at 7 between keys at 0 and 20, with 20 dragged to 30, lands at 11 (10.5 rounded half up); after `key.convert {to: 'key'}` the key no longer moves with its neighbours |
 | E2E-M2A-15 | Mirror animation, half cycle (FR-POSE-05) | seed Seed-san; `clip.setSettings {range: 0…24, loop: true}`; key `ik.leg.L` tz 0.1/0/−0.1/0/0.1 and tx 0.02/0/−0.02/0/0.02 at 0/6/12/18/24 (linear); menu Pose › Mirror Animation › Left → Right (half cycle) | `ik.leg.R` tz keys {12: 0.1, 18: 0, 0: −0.1, 6: 0, 24: −0.1}, tx negated; `channelValues(ik.leg.R, (t + 12) mod 24)` equals the mirror of `ik.leg.L` at t (1e-9) for t = 0…23; right foot world at t + 12 = mirror of the left foot at t (1e-3 m, rest asymmetry) |
 | E2E-M2A-16 | Buffer curves and views (FR-GE-18, -19) | `seedWaveClip` (Polybot); `ge-buffer-snapshot`; `ge-field-value` `-45` on key@15; `ge-buffer-swap`; `ge-buffer-swap`; `ge-view-normalized`; `ge-view-stacked`; `ge-view-absolute` | after the edit `graph().buffers` has the rz curve; first swap: curve deep-equals the snapshot (values and tangents); second swap: the edited curve; view switches leave `curves()` deep-equal; in stacked mode `screenOfKey` of every key lies inside the canvas |
-| E2E-M2A-17 | Scale tool and region (FR-GE-20) | `seedWaveClip`; double-click the curve (all keys); `R`; drag `screenOfRegionHandle('right')` to the x of frame 60; then drag `screenOfRegionHandle('top')` down by half the box height | first drag: times 0, 30, 60 with values unchanged (one step); second drag: times unchanged, values `v' = v_bottom + (v − v_bottom)·0.5` (−30° stays, 30° becomes 0°; 1e-9), one step |
+| E2E-M2A-17 | Scale tool and region (FR-GE-20) | `seedWaveClip`; double-click the curve (all keys); `R`; drag `screenOfRegionHandle('right')` to the x of frame 60; then drag `screenOfRegionHandle('top')` down by half the box height | first drag: times 0, 30, 60 with values unchanged (one step); second drag: times unchanged, values `v' = v_bottom + (v − v_bottom)·f` with `f` from the delivered pointer coordinates (Chrome delivers float32; `f` = 0.5 to ~1e-7): every value equals the formula at 1e-9, −30° stays (1e-9), 30° becomes 0° to the float32 pointer precision (1e-5; ratified M2A-A4-10), one step |
 | E2E-M2A-18 | Pick-walk and body-part keying (FR-OUT-05, FR-KEY-10) | seed Seed-san; select `fk.lowerArm.L`; `ArrowUp`, `ArrowDown`, `ArrowRight`; select `fk.hand.L`; click `status-keytarget-bodyPart`; `S` | ↑ → `fk.upperArm.L`; ↓ → `fk.lowerArm.L`; → with no sibling → `fk.lowerArm.R`; `S` keys exactly `fk.shoulder.L`, `fk.upperArm.L`, `fk.lowerArm.L`, `fk.hand.L`, `ik.arm.L`, `pole.arm.L` (curves with a key at the frame) and no finger or other control |
 | E2E-M2A-19 | Virtual slider (FR-CB-05) | `/editor?e2e=1&pointerLock=off`; seed Polybot; select `fk.lowerArm.L`; MMB-drag on `cb-name-rz` 40 px right; `Mod+Z`; Shift+MMB-drag 40 px; `Mod+Z`; click `cb-name-rz` (selects the channel); MMB-drag 40 px right in `pane-right`, starting 80 px left of `screenOfControl(fk.lowerArm.L, 'pane-right')` (away from every manipulator handle) | rz = +20° (1e-9) after the drag; one history step; with Shift +2°; the viewport MMB drag gives +20° (1e-9) in one history step and changes no other channel |
 | E2E-M2A-20 | Autosave and recovery (FR-PROJ-05) | `/editor?e2e=1&ns=r1`; `seedWaveClip`; `flushAutosave()`; `page.reload()` (same URL); click `recovery-recover-<slot>`; then `/editor?e2e=1&ns=r2&storage=blocked` | after reload `recovery-dialog` lists one slot; after Recover: `counts()` and `curves()` deep-equal the pre-reload ones, `state().dialog` null, dirty; blocked storage: no dialog, one info toast, `autosave().enabled` false, seeding still works |
-| E2E-M2A-21 | Export key reduction (FR-EXP-12) | seed Seed-san; clip `wave` (E2E-16 keys); Export dialog: VRMA, `export-reduce` checked; confirm; then the same export unchecked | 0 validator errors for both; reduced file total samples ≤ 1/3 of the unreduced (pending M2A-A5-3: built as "never more samples" on the wave, ≥ 3× on linear blocking); sampling both files' tracks in Node at every integer frame differs by ≤ the per-node tolerances (§5.16) |
+| E2E-M2A-21 | Export key reduction (FR-EXP-12) | seed Seed-san; clip `wave` (E2E-16 keys); Export dialog: VRMA, `export-reduce` checked; confirm; then the same export unchecked | 0 validator errors for both; reduced file total samples ≤ the unreduced (§5.16 gate, M2A-A5-3; ≥ 3× on linear blocking: E2E-M2A-21b); sampling both files' tracks in Node at every integer frame differs by ≤ the per-node tolerances (§5.16) |
 | E2E-M2A-22 | Lazy loading | fresh production-like e2e page: record script responses until `ready` and the empty state; then click `sample-polybot` | no `three-vrm`/GLTFLoader chunk before the click; the sample loads and `controls()` is non-empty; (size gate runs separately in CI) |
-| E2E-M2A-23 | **Acceptance: walk cycle with leg IK** | seed Polybot; `clip.new {name: 'walk'}`; `clip.setSettings {range: 0…24, loop: true, slot: 'walk', rootMotion: 'in-place'}`; select `ik.leg.L` by clicking it in the viewport; with Channel Box typing and `S` key it at 0 (tz 0.15, ty 0), 12 (tz −0.15, ty 0), 18 (tz 0, ty 0.06), 24 (tz 0.15, ty 0); Shift-drag a time-slider band over 0…12 and press `4` (linear tangents on the keys at 0 and 12); select `cog` and key ty 0/−0.03/0/−0.03/0 and tx 0/0.02/0/−0.02/0 at 0/6/12/18/24; select `ik.leg.L` (Outliner row); Pose › Mirror Animation › Left → Right (half cycle); select `cog`; in the Dope Sheet (`workspace.showPanel {panel: 'dopeSheet'}`) Shift-select the `cog` row glyphs at 6 and 18 and drag them to 5 and 17; click an empty area of the Dope Sheet canvas (clears the key selection); select `ik.leg.L`, click `cb-name-ty`; frame 21; status-line Tween bar: check `tweenTarget('status')` and drag `screenOfTween('status', 0)` to `screenOfTween('status', 50)`; export VRMA with `export-reduce` checked | left foot during 0…12 and right foot during 12…24: world x and y vary ≤ 1e-6 m and z changes linearly (second differences ≤ 1e-6 m) — the planted foot slides only with the treadmill; the `ik.leg.R` keys are the half-cycle mirror (E2E-M2A-15 rule) and `ik.leg.L`'s curves are unchanged by the mirror; the tween target reads "Pose @ f21" before the drag; `ik.leg.L` ty at 21 = 0.015 (breakdown) and no other curve gained a key at 21; `curves()` of every new curve has `pre` and `post` `cycle` (§5.23) and `curveSlope(cog tx, 24, 'left')` = `curveSlope(cog tx, 0, 'right')` (1e-9, C¹ at the seam); pose at 24 equals pose at 0 (1e-6); the history labels contain no `Plant Feet`; the VRMA has 0 validator errors and fewer samples than an unreduced export |
-| E2E-M2A-24 | **Acceptance: attack clip with planted feet** | seed Seed-san; `clip.new {name: 'attack'}`; `clip.setSettings {range: 0…20, slot: 'attack', contact: 12}`; key `ik.leg.L` at 0 with tz 0.2 and `ik.leg.R` at 0 with tz −0.1 (Channel Box typing, `S`); key `cog` at 0 (rest), 12 (ty −0.08, tz 0.12, ry 25) and 20 (rest); key `fk.upperArm.R` and `fk.lowerArm.R` rotations at 0/8/12/20 (windup at 8, strike at 12); in the Dope Sheet drag the arm keys at 8 to 9; export VRMA and bake into the model | both foot bone worlds identical at every integer frame 0…20 (1e-6) while the hips move; `contactSeconds` = 12/30 in `ekza_animation_v1`; VRMA 0 validator errors, bake no new validator errors; the history labels contain no `Plant Feet` |
+| E2E-M2A-23 | **Acceptance: walk cycle with leg IK** | seed Polybot; `clip.new {name: 'walk'}`; `clip.setSettings {range: 0…24, loop: true, slot: 'walk', rootMotion: 'in-place'}`; select `ik.leg.L` by clicking it in the viewport; with Channel Box typing and `S` key it at 0 (tz 0.15, ty 0), 12 (tz −0.15, ty 0), 18 (tz 0, ty 0.06), 24 (tz 0.15, ty 0); Shift-drag a time-slider band over 0…12 and press `4` (linear tangents on the keys at 0 and 12); select `cog` (Outliner row) and key ty −0.05/−0.02/−0.05/−0.02/−0.05 and tx 0/0.02/0/−0.02/0 at 0/6/12/18/24 (Channel Box typing and `S`); select `ik.leg.L` (Outliner row); Pose › Mirror Animation › Left → Right (half cycle); select `cog`; in the Dope Sheet (`workspace.showPanel {panel: 'dopeSheet'}`) Shift-select the `cog` row glyphs at 6 and 18 and drag them to 5 and 17; click an empty area of the Dope Sheet canvas (clears the key selection); select `ik.leg.L`, click `cb-name-ty`; frame 21; status-line Tween bar: check `tweenTarget('status')` and drag `screenOfTween('status', 0)` to `screenOfTween('status', 50)`; export VRMA with `export-reduce` checked | left foot during 0…12 and right foot during 12…24: world x and y vary ≤ 1e-6 m and z changes linearly (second differences ≤ 1e-6 m) — the planted foot slides only with the treadmill; the `ik.leg.R` keys are the half-cycle mirror (E2E-M2A-15 rule) and `ik.leg.L`'s curves are unchanged by the mirror; the tween target reads "Pose @ f21" before the drag; `ik.leg.L` ty at 21 = 0.015 (breakdown) and no other curve gained a key at 21; `curves()` of every new curve has `pre` and `post` `cycle` (§5.23) and `curveSlope(cog tx, 24, 'left')` = `curveSlope(cog tx, 0, 'right')` (1e-9, C¹ at the seam); pose at 24 equals pose at 0 (1e-6); the history labels contain no `Plant Feet` (an undo walk back to the clip setup, then redo); the VRMA has 0 validator errors, no more samples than an unreduced export and stays within its §5.16 per-node tolerances |
+| E2E-M2A-24 | **Acceptance: attack clip with planted feet** | seed Seed-san; `clip.new {name: 'attack'}`; `clip.setSettings {range: 0…20, slot: 'attack', contact: 12}`; key `ik.leg.L` at 0 with tz 0.2 and `ik.leg.R` at 0 with tz −0.1 (Channel Box typing, `S`); key `cog` at 0 (ready stance: ty −0.05), 12 (ty −0.08, tz 0.12, ry 25) and 20 (ready stance); key `fk.upperArm.R` and `fk.lowerArm.R` rotations at 0/8/12/20 (windup at 8, strike at 12); in the Dope Sheet drag the arm keys at 8 to 9; export VRMA and bake into the model | both foot bone worlds identical at every integer frame 0…20 (1e-6) while the hips move; `contactSeconds` = 12/30 in `ekza_animation_v1`; VRMA 0 validator errors, bake no new validator errors; the history labels contain no `Plant Feet` |
 | E2E-M2A-25 | Upgrade an M1 rig | `prefs.set {patch: {autoRigIk: {legs: false, arms: false}}}`; seed Polybot; key `fk.upperLeg.L` rx 0/30 at 0/10; record leg worlds at 0, 5, 10; `prefs.set` back to defaults; click `attr-add-limb-ik` (select `fk.upperLeg.L` first); `Mod+Z`; `Shift+Z` | before: `limbs()` empty and a "FK limbs only" toast once; after Add: four limbs with `ikFk` 0, worlds at 0/5/10 unchanged (1e-9), FK controls visible; undo removes the limbs (`counts().controls` and `solvers` back), redo restores |
 
-E2E-M2A-02, -05 (amended with A2, 2026-10-18, fixture geometry; A2 notes M2A-A2-12, -13): Polybot's rest knee sits
+E2E-M2A-23, -24 (amended at integration, 2026-10-18, fixture geometry; M2A-INT-1…3): Polybot's legs are 0.32 m long
+and nearly straight at rest, so with the hips at rest an IK foot 0.15 m forward or back is 3 cm out of reach and
+lifts off its target; v0.2's `cog` ty 0 at the contacts (and the dip at the passing poses) could not plant the feet,
+so the hips are lowest at the contacts and higher at the passing poses (a walk's usual down/up). Seed-san's legs are
+straight at rest, so the attack's front foot 0.2 m forward is out of reach with the hips at rest: the clip starts and
+ends in a ready stance 5 cm lower. A smooth 30 fps walk keeps its samples at R02's tolerances, so the reduced VRMA
+cannot have fewer samples (§5.16 gate, M2A-A5-3); it is asserted never larger and within the tolerances.
+
+E2E-M2A-02, -05 (amended with A2, 2026-10-18, fixture geometry; A2 notes M2A-A2-12, -13; ratified at integration): Polybot's rest knee sits
 3.7 cm outward of its hip→foot line, so a pole moved +x turns that offset backwards and the knee's world x can drop;
 the pole step asserts the turn instead. Seed-san's arms are straight in the rest T-pose, so the IK hand would be 3 mm
 out of reach after the cog edit; the elbow is bent first.
@@ -2036,7 +2094,8 @@ is linear because both keys at 0 and 12 have linear tangents (MVP-SPEC §4.11.4)
 handles of the keys it lands at 0, 12 and 24 with those linear slopes (§5.14), so the right foot's contact span
 12…24 is linear too. The mirror step selects `ik.leg.L` first because a mirror with only `cog` selected would act on
 the whole character by the side-C rule of §5.14, which is also correct but not what this step tests. E2E-M2A-15 and
-the IK scenarios use `test.fixme('A1,A2')` until those packages merge (§8).
+the IK scenarios used `test.fixme('A1,A2')` until those packages merged (§8); since integration every gate is a
+failure and the only `test.fixme` tests are the stretch items of `stretch.spec.ts`.
 
 ### 9.2 Unit and headless gates (additions)
 
