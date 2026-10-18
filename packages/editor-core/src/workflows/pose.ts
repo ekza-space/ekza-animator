@@ -4,9 +4,9 @@
 // key or override channels it did not move.
 //
 // M2a (M2A-SPEC §5.1 rules 4 and 6, §5.8; A2): attribute channels ('@name') take part like TRS channels, except
-// `keyAll: false` ones (`ikFk`, `soft`: modes and settings) unless they are selected Channel Box channels: reset
-// leaves them alone and the pose clipboard does not carry them. Mirroring maps attributes by `AttrDef.mirror`
-// ('copy' or 'negate'), so a mirrored pose carries the limb mode with it.
+// `keyAll: false` ones (`ikFk`, `soft`: modes and settings): reset always leaves them alone (rule 6), and the pose
+// clipboard carries and pastes them only when they are selected Channel Box channels (rule 4). Mirroring maps
+// attributes by `AttrDef.mirror` ('copy' or 'negate'), so a mirrored pose carries the limb mode with it.
 import {
   type ChannelId,
   type ChannelValues,
@@ -21,6 +21,7 @@ import type { ChannelEdit, EditorApp } from '../types';
 
 /** A change below this (radians, metres, unitless) is no change. */
 const SAME_VALUE = 1e-12;
+const NO_CHANNELS: ReadonlySet<ChannelId> = new Set();
 
 /** Current TRS values of each control (`evaluation.channelValues`). */
 export function currentValues(app: EditorApp, controls: Iterable<ControlId>): Map<ControlId, ChannelValues> {
@@ -110,8 +111,9 @@ export function editsFromValues(
 
 /**
  * The rest values of the given controls: 0 for translate/rotate and 1 for scale on every keyable TRS channel, and
- * `AttrDef.default` on the pose tools' attribute channels (`keyAll: false` attributes are left alone unless they are
- * selected Channel Box channels, so a reset never flips a limb between IK and FK, §5.1 rule 6).
+ * `AttrDef.default` on the keyable pose attributes. `keyAll: false` attributes are always left alone, selected
+ * Channel Box channels included, so a reset never flips a limb between IK and FK (§5.1 rule 6; the selected-channel
+ * exception of rule 4 is for keying and the clipboard).
  */
 export function restValues(app: EditorApp, controls: Iterable<ControlId>): Map<ControlId, ChannelValues> {
   const values = new Map<ControlId, ChannelValues>();
@@ -122,7 +124,11 @@ export function restValues(app: EditorApp, controls: Iterable<ControlId>): Map<C
     for (const channel of TRS_CHANNELS) {
       if (isKeyable(control, channel)) rest[channel] = channel.startsWith('s') ? 1 : 0;
     }
-    for (const channel of poseAttrChannels(app, control)) rest[channel] = channelDefaultOf(control, channel);
+    for (const channel of attrChannelsOf(control)) {
+      if (isKeyable(control, channel) && isKeyAllChannel(control, channel)) {
+        rest[channel] = channelDefaultOf(control, channel);
+      }
+    }
     values.set(id, rest);
   }
   return values;
@@ -205,14 +211,16 @@ export function withClipboardAttrs(
 
 /**
  * Attribute values to paste from a pose clipboard onto the controls of `controls` (by template key; `mirrored`
- * pastes the counterpart's entry mapped by `AttrDef.mirror`), keyable attributes only and without `keyAll: false`
- * ones (a clipboard written elsewhere may carry them).
+ * pastes the counterpart's entry mapped by `AttrDef.mirror`), keyable attributes only. A `keyAll: false` value is
+ * pasted only when that channel is a selected Channel Box channel of the target control (`explicit`), the same rule
+ * as the copy (§5.1 rule 4); otherwise it is dropped (a clipboard written elsewhere may carry it).
  */
 export function clipboardAttrValues(
   view: ReadView,
   clipboard: PoseClipboard,
   controls: readonly ControlRecord[],
   mirrored: boolean,
+  explicit: (control: ControlId) => ReadonlySet<ChannelId> = () => NO_CHANNELS,
 ): Map<ControlId, ChannelValues> {
   const out = new Map<ControlId, ChannelValues>();
   const byId = new Map(controls.map((control) => [control.id, control]));
@@ -230,10 +238,11 @@ export function clipboardAttrValues(
     const entry = clipboard.controls[sourceKey];
     if (entry === undefined || entry === null || typeof entry.values !== 'object') continue;
     const values: ChannelValues = {};
+    let selected: ReadonlySet<ChannelId> | undefined;
     for (const channel of attrChannelsOf(target)) {
       const value = (entry.values as Record<string, unknown>)[channel];
-      if (typeof value !== 'number' || !Number.isFinite(value)) continue;
-      if (!isKeyable(target, channel) || !isKeyAllChannel(target, channel)) continue;
+      if (typeof value !== 'number' || !Number.isFinite(value) || !isKeyable(target, channel)) continue;
+      if (!isKeyAllChannel(target, channel) && !(selected ??= explicit(target.id)).has(channel)) continue;
       values[channel] = mirrored ? mirrorAttrValue(source, channel, value) : value;
     }
     if (Object.keys(values).length > 0) out.set(target.id, values);

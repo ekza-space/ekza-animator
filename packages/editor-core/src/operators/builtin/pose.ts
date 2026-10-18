@@ -26,6 +26,7 @@ import {
   mergeChannelValues,
   mirrorAttrValues,
   restValues,
+  selectedChannelsOf,
   withClipboardAttrs,
 } from '../../workflows/pose';
 import { activeClipRecord, controlsOfCharacter, selectedControls } from '../../workflows/targets';
@@ -167,7 +168,9 @@ const posePaste = defineOperator<'pose.paste', PoseClipboard>({
     const mirrored = optionalArgs(args)?.['mirrored'] === true;
     const values = mergeChannelValues(
       applyPoseClipboard(clipboard, runtime.program, mirrored ? 'mirrored' : 'local'),
-      clipboardAttrValues(tx, clipboard, controlsOfCharacter(tx, runtime.id), mirrored),
+      clipboardAttrValues(tx, clipboard, controlsOfCharacter(tx, runtime.id), mirrored, (id) =>
+        selectedChannelsOf(app, id),
+      ),
     );
     // With a selection that shares controls with the pasted pose, paste onto the selected controls only.
     const selected = new Set(selectedControls(app, tx).map((control) => control.id));

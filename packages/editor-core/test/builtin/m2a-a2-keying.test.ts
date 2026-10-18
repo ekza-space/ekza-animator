@@ -248,10 +248,20 @@ describe('pose tools with attributes (§5.1 rule 6, §5.8)', () => {
     await expectUndoRedoExact(app, 'pose.resetToRest');
     expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0, twist: 0, ikFk: 0.25, soft: 0.1 });
     expect(app.evaluation.channelValues(ik).ty).toBe(0);
-    // Named explicitly as a selected Channel Box channel, ikFk resets too.
-    select(app, ['ik.leg.L'], [['ik.leg.L', '@ikFk']]);
+    // Selected Channel Box channels do not change that (rule 6: a reset never flips a limb between IK and FK; the
+    // selected-channel exception of rule 4 is for keying and the clipboard).
+    await runOk(app, 'channel.setValues', { edits: [{ control: ik, channel: '@roll', value: 0.2 }] });
+    select(
+      app,
+      ['ik.leg.L'],
+      [
+        ['ik.leg.L', '@ikFk'],
+        ['ik.leg.L', '@soft'],
+        ['ik.leg.L', '@roll'],
+      ],
+    );
     await runOk(app, 'pose.resetToRest');
-    expect(app.evaluation.attrValues(ik)).toMatchObject({ ikFk: 1, soft: 0.1 });
+    expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0, ikFk: 0.25, soft: 0.1 });
   });
 
   it('the pose clipboard carries attributes except keyAll: false ones; paste writes them', async () => {
@@ -274,6 +284,43 @@ describe('pose tools with attributes (§5.1 rule 6, §5.8)', () => {
     await runOk(app, 'pose.paste');
     expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0.3, ikFk: 1 });
     expect(app.evaluation.channelValues(ik).tx).toBeCloseTo(0.1, 12);
+  });
+
+  it('a selected keyAll: false channel rides the clipboard both ways (copy and paste, §5.1 rule 4)', async () => {
+    const { app } = ikApp();
+    const ik = cid('ik.leg.L');
+    await runOk(app, 'channel.setValues', {
+      edits: [
+        { control: ik, channel: '@roll', value: 0.3 },
+        { control: ik, channel: '@ikFk', value: 0.4 },
+        { control: ik, channel: '@soft', value: 0.05 },
+      ],
+    });
+    select(app, ['ik.leg.L'], [['ik.leg.L', '@ikFk']]);
+    await runOk(app, 'pose.copy');
+    const entry = app.session.getState().clipboard.pose?.controls['ik.leg.L'];
+    expect(entry?.values).toMatchObject({ '@roll': 0.3, '@ikFk': 0.4 });
+    expect(entry?.values).not.toHaveProperty('@soft');
+    await runOk(app, 'channel.setValues', {
+      edits: [
+        { control: ik, channel: '@roll', value: 0 },
+        { control: ik, channel: '@ikFk', value: 1 },
+        { control: ik, channel: '@soft', value: 0.2 },
+      ],
+    });
+    // Still selected on the target control: the paste writes it back.
+    await expectUndoRedoExact(app, 'pose.paste');
+    expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0.3, ikFk: 0.4, soft: 0.2 });
+    // Not selected any more: the paste leaves the limb mode alone.
+    await runOk(app, 'channel.setValues', {
+      edits: [
+        { control: ik, channel: '@roll', value: 0 },
+        { control: ik, channel: '@ikFk', value: 1 },
+      ],
+    });
+    select(app, ['ik.leg.L']);
+    await runOk(app, 'pose.paste');
+    expect(app.evaluation.attrValues(ik)).toMatchObject({ roll: 0.3, ikFk: 1 });
   });
 
   it('mirror maps attributes by AttrDef.mirror and carries ikFk (copy)', async () => {
