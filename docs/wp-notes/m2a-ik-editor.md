@@ -56,7 +56,7 @@ change": A4's branch has not changed `viewport/src/manager` yet, so there was no
 
 ## Against A1 (scratch merge)
 
-A scratch worktree (`m2a-ik-editor-probe`, detached) merges `m2a/ik-editor` with `m2a/rig-ik` at `13c7abf`. There:
+A scratch worktree (`m2a-ik-editor-probe`, detached; removed after the runs) merged `m2a/ik-editor` with `m2a/rig-ik` at `13c7abf`. There:
 
 - Unit tests: every A2 unit test passes (editor-core 590 + 2 skipped before-A1 cases, editor 305, viewport 97) except
   **`headless-tests/ops.ik.test.ts` "IK → FK → IK keeps the chain (1e-6)"**: the upper leg comes back turned by
