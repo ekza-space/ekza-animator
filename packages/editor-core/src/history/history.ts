@@ -41,6 +41,8 @@ export interface KernelHistory extends EditorHistory {
   owns(docTxId: string): boolean;
   /** Id of the top undo step without reconciling first (the runner's LastRun hook), null when empty. */
   topId(): number | null;
+  /** Step labels, oldest first (undo: the next undo last; redo: the next redo first); the e2e `history()` read. */
+  labels(): { readonly undo: readonly string[]; readonly redo: readonly string[] };
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
   forgetDocEntry(docTxId: string): void;
   /** The doc undo stacks were emptied: every step loses its doc part; steps left empty disappear. */
@@ -330,6 +332,10 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       };
     },
     topId: () => undoSteps.at(-1)?.id ?? null,
+    labels() {
+      ctx.reconcile();
+      return { undo: undoSteps.map((step) => step.label), redo: [...redoSteps].reverse().map((step) => step.label) };
+    },
     owns: (docTxId: string) =>
       undoSteps.some((step) => step.docTxId === docTxId) || redoSteps.some((step) => step.docTxId === docTxId),
     forgetDocEntry,
@@ -345,4 +351,11 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     },
   };
   return history;
+}
+
+/** The labels of an app's history steps, oldest first (an `EditorApp` built by `createKernelApp`). */
+export function historyLabels(history: EditorHistory): { readonly undo: readonly string[]; readonly redo: readonly string[] } {
+  const labels = (history as Partial<KernelHistory>).labels;
+  if (labels === undefined) throw new EkzaError('unsupported', 'historyLabels: not a kernel history');
+  return labels.call(history);
 }

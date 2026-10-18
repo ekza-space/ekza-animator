@@ -95,6 +95,7 @@ export { controlVisibilityResolver, limbHiddenControls, limbVisibilityState } fr
 // selection service and the stubs of the services B10–B12b land.
 export { createCapture } from './app/factories/capture';
 export { createExtrude } from './app/factories/extrude';
+export { historyLabels } from './history/history';
 export { type KernelMeshRuntimes, loadMeshKernel, type MeshKernel, meshKernel } from './mesh';
 export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator';
 export { MESH_OPERATORS } from './operators/builtin/mesh';
