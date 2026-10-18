@@ -28,7 +28,7 @@ export {
 } from './limb/stubs';
 export { mirrorPose } from './mirror/mirrorPose';
 export { applyPoseClipboard, makePoseClipboard } from './pose/clipboard';
-export { convertRotateOrderKeys } from './pose/rotateOrder';
+export { convertRotateOrderKeys, convertRotateOrderKeysWith } from './pose/rotateOrder';
 export { type CurveCache, createClipSampler, createCurveCache } from './sampler/cache';
 export {
   applyOverrides,

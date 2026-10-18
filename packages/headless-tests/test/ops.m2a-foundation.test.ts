@@ -1,7 +1,16 @@
 // M2A-SPEC §8 A0 on the licensed fixtures through the production kernel: body parts (the complete §5.19 table) on
-// Seed-san and Polybot, the body-part key target, visibility rule 1 on M1 rigs, and the schema rule end to end (an
-// M1 project opens writable and saves schemaVersion 2 / minWriterVersion 1; an enabled ik2 solver saves 2).
-import { type ControlId, type ControlRecord, type DocSnapshot, SCHEMA_VERSION, solverId } from '@ekza-animator/doc';
+// Seed-san and Polybot, the body-part key target, visibility rule 1 on M1 rigs, the schema rule end to end (an M1
+// project opens writable and saves schemaVersion 2 / minWriterVersion 1; an enabled ik2 solver saves 2), and the
+// rotate-order change on a loop clip, whose cyclic curves the editor evaluates cycle-aware (§5.23).
+import { mat4Decompose, type Quat, quatAngle } from '@ekza-animator/anim-core';
+import {
+  type ClipId,
+  type ControlId,
+  type ControlRecord,
+  type DocSnapshot,
+  SCHEMA_VERSION,
+  solverId,
+} from '@ekza-animator/doc';
 import { readFixture } from '@ekza-animator/doc/testing';
 import {
   type BodyPart,
@@ -12,7 +21,7 @@ import {
 } from '@ekza-animator/editor-core';
 import { readProjectArchive, writeProjectArchive } from '@ekza-animator/io';
 import { describe, expect, it } from 'vitest';
-import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY } from './ops.support';
+import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 
 /** The §5.19 table for a template key, written out independently of the implementation's table. */
 function expectedPart(key: string): BodyPart | null {
@@ -104,6 +113,55 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
     if (head === undefined) throw new Error('no head');
     app.session.setState({ hiddenControls: new Set([head.id]) });
     expect(controlVisibility(app, head.id)).toBe('hidden');
+  });
+
+  it('rig.setRotateOrder on a loop clip keeps the bone world at every key (Polybot, cyclic curves, 1e-9)', async () => {
+    const { app } = realApp();
+    const bot = await importFixture(app, 'polybot.vrm');
+    const clip = (
+      (await runOk(app, 'clip.new', { character: bot.character, name: 'cycle', range: { start: 0, end: 24 } })) as {
+        clip: ClipId;
+      }
+    ).clip;
+    await runOk(app, 'clip.setSettings', { clip, loop: true });
+    expect(app.session.getState().activeClip[bot.character]).toBe(clip);
+    const rig = app.store.query.rigOfCharacter(bot.character);
+    const arm = rig === undefined ? undefined : app.store.query.controlByKey(rig.id, 'fk.lowerArm.L');
+    if (arm === undefined) throw new Error('no fk.lowerArm.L');
+    const key = async (frame: number, channel: 'rx' | 'rz', value: number) => {
+      setSceneFrame(app, frame);
+      await runOk(app, 'channel.setValues', { edits: [{ control: arm.id, channel, value }], key: 'force' });
+    };
+    for (const [frame, value] of [
+      [0, 0],
+      [6, 0.6],
+      [12, 0],
+      [18, -0.6],
+      [24, 0],
+    ] as const) {
+      await key(frame, 'rx', value);
+    }
+    await key(3, 'rz', 0.8);
+    await key(21, 'rz', 0.8);
+    const base = app.store.query.baseLayer(clip)?.id;
+    if (base === undefined) throw new Error('no base layer');
+    const rx = app.store.query.curveFor(clip, base, arm.id, 'rx');
+    expect([rx?.pre, rx?.post]).toEqual(['cycle', 'cycle']);
+    const node = bot.runtime.skeleton.humanoid?.leftLowerArm as number;
+    const boneRotation = (frame: number): Quat => {
+      const pose = bot.runtime.program.allocPose();
+      app.evaluation.evaluateAt(bot.character, clip, frame, pose, { withOverrides: false });
+      return mat4Decompose(pose.boneWorld.slice(node * 16, node * 16 + 16)).q;
+    };
+    const union = [0, 3, 6, 12, 18, 21, 24];
+    const before = union.map(boneRotation);
+    const to = arm.rotateOrder === 'zyx' ? 'xyz' : 'zyx';
+    await runOk(app, 'rig.setRotateOrder', { control: arm.id, order: to });
+    expect(app.store.get('controls', arm.id)?.rotateOrder).toBe(to);
+    union.forEach((frame, i) => {
+      const error = quatAngle(boneRotation(frame), before[i] as Quat);
+      expect([frame, error < 1e-9]).toEqual([frame, true]);
+    });
   });
 
   it('an M1 project opens writable and saves schemaVersion 2 / minWriterVersion 1; an enabled ik2 solver saves 2', async () => {
