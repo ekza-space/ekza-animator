@@ -31,6 +31,9 @@ function CurrentDialog(): JSX.Element | null {
       return <ShortcutsDialog />;
     case 'preferences':
       return <PreferencesDialog />;
+    case 'recovery':
+      // M2A-SPEC §5.20: the Recovery dialog is A5's (a React.lazy dialog); nothing is shown before it lands.
+      return null;
   }
 }
 

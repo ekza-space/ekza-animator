@@ -1,5 +1,5 @@
-// The `maya` keymap preset: MVP-SPEC §4.10 as data. Chords use `KeyboardEvent.code`; `mod` is Cmd on macOS and Ctrl
-// elsewhere. A more specific scope wins over 'global' (KeymapManager.resolve).
+// The `maya` keymap preset: MVP-SPEC §4.10 and the M2A-SPEC §6 additions as data. Chords use `KeyboardEvent.code`;
+// `mod` is Cmd on macOS and Ctrl elsewhere. A more specific scope wins over 'global' (KeymapManager.resolve).
 import type { Chord, KeyBinding, KeyScope, KeyTrigger, OperatorId } from '../types';
 
 const V = 'viewport';
@@ -7,6 +7,7 @@ const G = 'graph';
 const T = 'timeline';
 const O = 'outliner';
 const C = 'channelBox';
+const D = 'dopeSheet';
 const ANY = 'global';
 
 const bindings: KeyBinding[] = [];
@@ -103,5 +104,36 @@ TANGENT_DIGITS.forEach((type, i) => bind([key(`Digit${i + 1}`)], 'graph.tangent.
 bind([key('KeyB')], 'graph.tangent.break', [G]);
 bind([key('KeyU')], 'graph.tangent.unify', [G]);
 
-/** The `maya` preset (MVP-SPEC §4.10), registered by `registerBuiltins` through a keymap contribution. */
+// ---------- M2a additions (M2A-SPEC §6; D = Dope Sheet) ----------
+// Arrows: pick-walk in the viewport and Channel Box (select.pickWalk itself runs the time operators when
+// prefs.arrowKeys is 'frames', §5.17); key nudge in the Graph Editor, Dope Sheet and time slider.
+const ARROWS = [
+  ['ArrowUp', 'up'],
+  ['ArrowDown', 'down'],
+  ['ArrowLeft', 'left'],
+  ['ArrowRight', 'right'],
+] as const;
+for (const [code, direction] of ARROWS) {
+  bind([key(code)], 'select.pickWalk', [V, C], { direction });
+  bind([key(code, { shift: true })], 'select.pickWalk', [V, C], { direction, add: true });
+}
+bind([key('ArrowLeft')], 'graph.keys.move', [G, D, T], { dFrames: -1, dValue: 0 });
+bind([key('ArrowRight')], 'graph.keys.move', [G, D, T], { dFrames: 1, dValue: 0 });
+bind([key('KeyS', { alt: true })], 'key.set', [V, O, C, T, D], { breakdown: true });
+bind([key('KeyQ')], 'view.tool', [D], { panel: 'dopeSheet', tool: 'select' });
+bind([key('KeyW')], 'view.tool', [D], { panel: 'dopeSheet', tool: 'move' });
+bind([key('KeyR')], 'view.tool', [D], { panel: 'dopeSheet', tool: 'scale' });
+bind([key('KeyR')], 'view.tool', [G], { panel: 'graph', tool: 'scale' });
+bind([key('KeyN')], 'graph.view.setMode', [G], { mode: 'toggleNormalized' });
+bind([key('KeyN', { shift: true })], 'graph.view.setMode', [G], { mode: 'toggleStacked' });
+bind([key('KeyS')], 'key.set', [D], { channels: 'all' });
+bind([key('Delete'), key('Backspace')], 'graph.keys.delete', [D]);
+bind([key('KeyC', { mod: true })], 'graph.keys.copy', [D]);
+bind([key('KeyV', { mod: true })], 'graph.keys.paste', [D]);
+bind([key('KeyA', { mod: true })], 'select.all', [D]);
+TANGENT_DIGITS.forEach((type, i) => bind([key(`Digit${i + 1}`)], 'graph.tangent.set', [D], { type }));
+bind([key('KeyF')], 'dopeSheet.frame', [D], { what: 'selection' });
+bind([key('KeyA')], 'dopeSheet.frame', [D], { what: 'all' });
+
+/** The `maya` preset (MVP-SPEC §4.10 + M2A-SPEC §6), registered by `registerBuiltins` through a keymap contribution. */
 export const MAYA_KEYMAP: readonly KeyBinding[] = Object.freeze(bindings.map((binding) => Object.freeze(binding)));

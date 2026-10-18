@@ -21,7 +21,12 @@ import {
   zipProject,
 } from '../src/project/archive';
 
-const waveDoc = (): DocSnapshot => readSyntheticFixture('wave-doc.json') as DocSnapshot;
+// The fixture is an M1 (schema 1) document; the tests below use it as a current snapshot (M2A-SPEC §3 rule 8: the
+// schema 1 → 2 migration is the identity on records).
+const waveDoc = (): DocSnapshot => ({
+  ...(readSyntheticFixture('wave-doc.json') as DocSnapshot),
+  schemaVersion: SCHEMA_VERSION,
+});
 
 function polybotAsset(): { readonly id: AssetId; readonly record: AssetRecord; readonly bytes: Uint8Array } {
   const bytes = readFixture('polybot.vrm');
@@ -72,7 +77,7 @@ describe('.ekzanim container', () => {
     const manifest = JSON.parse(new TextDecoder().decode(unzipSync(a)['manifest.json'])) as Record<string, unknown>;
     expect(manifest).toEqual({
       format: PROJECT_FORMAT,
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
       minWriterVersion: 1,
       app: { name: 'Ekza Animator', version: '0.1.0' },
       assets: [

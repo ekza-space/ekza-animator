@@ -18,6 +18,7 @@ import {
 } from '@ekza-animator/anim-core';
 import type { ChannelId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
 import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
+import { EDITOR_CURVE_OPTIONS } from '../../app/deps';
 import { isRotation } from '../../edit/channelMeta';
 import { animCurve, compileInTx, currentClipFrame, keyDataOf } from '../../edit/context';
 import { deleteKeys, insertKeyOnCurve, moveKeys, scaleKeys, setKeyHandle, setTangentTypes } from '../../edit/keys';
@@ -38,6 +39,7 @@ import {
 import { constantCurve } from '../../workflows/util';
 import type { KeyFieldsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import { stubOperator } from './stub';
 import { pollClipEdit, pollEditable } from './polls';
 
 const TANGENT_TYPES: readonly TangentType[] = [
@@ -679,9 +681,11 @@ const simplify = defineOperator({
       }
       const clip = t.get('clips', curve.clip);
       const keep = clip?.contact === null || clip?.contact === undefined ? [] : [clip.contact];
+      // Measured on the shape the editor draws: cycle-aware auto tangents on cyclic curves (§5.23).
       const result = reduceKeys(animCurve(curve, keys.map(keyDataOf)), {
         tolerance: toleranceFor(curve.channel, spec),
         keep,
+        cycleAwareAuto: EDITOR_CURVE_OPTIONS.cycleAwareAuto,
       });
       // reduceKeys returns the kept keys unchanged: every other key goes.
       const kept = new Set(result.keys.map((key) => key.t));
@@ -701,6 +705,12 @@ const simplify = defineOperator({
 });
 
 export const GRAPH_OPERATORS: readonly AnyOperator[] = [
+  // M2a (M2A-SPEC §5.9; A3 implements it)
+  stubOperator('graph.keys.copyTo', 'Copy Keys', {
+    category: 'graph',
+    description: 'Copy the selected keys by a number of frames.',
+    undo: true,
+  }),
   tangentSet,
   tangentBreak,
   tangentUnify,

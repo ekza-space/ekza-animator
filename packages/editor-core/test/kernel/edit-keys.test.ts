@@ -42,19 +42,32 @@ describe('ensureCurve', () => {
       ensureCurve(app, tx, W.clip, W.lowerArmL, 'ry'),
     ]);
     expect(existing).toBe(W.curve);
+    // The wave clip loops: new curves cycle (M2A-SPEC §5.23; literal update, §3 rule 8).
+    expect(app.store.get('clips', W.clip)?.loop).toBe(true);
     expect(app.store.get('curves', created)).toMatchObject({
       clip: W.clip,
       layer: 'lay_SyntheticWave001',
       control: W.lowerArmL,
       channel: 'ry',
       weighted: false,
-      pre: 'constant',
-      post: 'constant',
+      pre: 'cycle',
+      post: 'cycle',
       staticValue: null,
       locked: false,
       muted: false,
       deleted: null,
     });
+  });
+
+  it('creates constant infinities on clips that do not loop and never rewrites existing curves (§5.23)', () => {
+    const app = waveApp();
+    edit(app, 'Once', (tx) => tx.patch('clips', W.clip, { loop: false }));
+    const created = edit(app, 'Curve', (tx) => ensureCurve(app, tx, W.clip, W.lowerArmL, 'ry'));
+    expect(app.store.get('curves', created)).toMatchObject({ pre: 'constant', post: 'constant' });
+    edit(app, 'Loop', (tx) => tx.patch('clips', W.clip, { loop: true }));
+    expect(edit(app, 'Again', (tx) => ensureCurve(app, tx, W.clip, W.lowerArmL, 'ry'))).toBe(created);
+    expect(app.store.get('curves', created)).toMatchObject({ pre: 'constant', post: 'constant' });
+    expect(app.store.get('curves', W.curve)).toMatchObject({ pre: 'constant', post: 'constant' });
   });
 
   it('repairs a clip without base layer and rejects unknown clips and controls', () => {

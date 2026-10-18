@@ -56,6 +56,9 @@ const titleCase = (id: string): string =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 
+/** Sub-menu labels that title-casing the id would get wrong (M2a). */
+const SUBMENU_LABELS: Readonly<Record<string, string>> = { 'rig.ik-fk': 'IK/FK' };
+
 /** Context menus ('timeline.context') are panel-owned and never shown in the menu bar. */
 const isContextMenu = (menu: string): boolean => menu.endsWith('.context') || menu === 'context';
 
@@ -185,7 +188,7 @@ export function menuContents(
     sections: sectionsOf(app, own, ctx),
     submenus: subIds.map((id) => ({
       id,
-      label: titleCase(id.slice(id.indexOf('.') + 1)),
+      label: SUBMENU_LABELS[id] ?? titleCase(id.slice(id.indexOf('.') + 1)),
       sections: sectionsOf(
         app,
         all.filter((item) => item.menu === id),

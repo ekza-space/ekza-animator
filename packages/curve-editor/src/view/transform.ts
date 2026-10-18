@@ -2,6 +2,7 @@
 // Frames are active-clip frames; display values are degrees for rotation channels and curve units otherwise.
 import { RAD2DEG } from '@ekza-animator/anim-core';
 import type { ChannelId } from '@ekza-animator/doc';
+import type { ChannelUnit } from '@ekza-animator/editor-core';
 import type { GraphViewState } from '../types';
 
 /** Zoom limits: px per frame and px per display unit. */
@@ -10,8 +11,13 @@ export const VIEW_LIMITS = { minSx: 1e-3, maxSx: 2e4, minSy: 1e-6, maxSy: 1e7 } 
 /** The view a controller starts with before it has curves to frame: frames 0…60, values −90…90. */
 export const DEFAULT_VIEW: GraphViewState = { f0: -2, v0: -100, sx: 8, sy: 1.2 };
 
-/** Display units per curve unit: degrees for `rx`/`ry`/`rz`, 1 for translation, scale and custom channels. */
-export function channelDisplayScale(channel: ChannelId): number {
+/**
+ * Display units per curve unit: degrees for angles, 1 otherwise. A given `unit` (M2A-SPEC §4.5: callers that know the
+ * control pass `channelUnit(control, channel)`) wins; without it the M1 rule: degrees for `rx`/`ry`/`rz`, 1 for
+ * translation, scale and custom channels.
+ */
+export function channelDisplayScale(channel: ChannelId, unit?: ChannelUnit): number {
+  if (unit !== undefined) return unit === 'angle' ? RAD2DEG : 1;
   return channel === 'rx' || channel === 'ry' || channel === 'rz' ? RAD2DEG : 1;
 }
 

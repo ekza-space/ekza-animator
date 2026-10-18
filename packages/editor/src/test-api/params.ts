@@ -10,9 +10,30 @@ export interface EditorParams {
   readonly nav: Extract<NavProfile, 'maya' | 'trackpad'> | null;
   readonly space: 'maya' | 'play' | null;
   readonly platform: 'mac' | 'other' | null;
+  /**
+   * M2a `ns=<string>`: the storage namespace (localStorage prefix and IndexedDB database suffix), so a reload of the
+   * same URL sees the same storage; null = a fresh namespace per page load (M1).
+   */
+  readonly ns: string | null;
+  /** M2a `storage=blocked`: every storage access throws (NFR-12 e2e). */
+  readonly storageBlocked: boolean;
+  /** M2a `pointerLock=off`: the virtual slider uses pointer capture instead of Pointer Lock (§5.18). */
+  readonly pointerLock: boolean;
 }
 
-export const DEFAULT_PARAMS: EditorParams = { e2e: false, firstRun: false, nav: null, space: null, platform: null };
+export const DEFAULT_PARAMS: EditorParams = {
+  e2e: false,
+  firstRun: false,
+  nav: null,
+  space: null,
+  platform: null,
+  ns: null,
+  storageBlocked: false,
+  pointerLock: true,
+};
+
+/** A storage namespace from the URL: 1–64 characters of [A-Za-z0-9_-]; anything else is ignored. */
+const NAMESPACE = /^[A-Za-z0-9_-]{1,64}$/;
 
 export function parseEditorParams(search: string, buildAllowsE2e: boolean): EditorParams {
   const query = new URLSearchParams(search);
@@ -20,12 +41,16 @@ export function parseEditorParams(search: string, buildAllowsE2e: boolean): Edit
   const nav = query.get('nav');
   const space = query.get('space');
   const platform = query.get('platform');
+  const ns = query.get('ns');
   return {
     e2e: true,
     firstRun: query.get('firstRun') === '1',
     nav: nav === 'maya' || nav === 'trackpad' ? nav : null,
     space: space === 'maya' || space === 'play' ? space : null,
     platform: platform === 'mac' || platform === 'other' ? platform : null,
+    ns: ns !== null && NAMESPACE.test(ns) ? ns : null,
+    storageBlocked: query.get('storage') === 'blocked',
+    pointerLock: query.get('pointerLock') !== 'off',
   };
 }
 
