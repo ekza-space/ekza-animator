@@ -390,6 +390,59 @@ describe('breakdown retiming (§5.12)', () => {
   });
 });
 
+describe('the edited slice of a long curve (place works on the keys an edit can change)', () => {
+  /** 0, ◇5, 10, ◇15, 20, ◇25, 30, then plain keys every 10 frames up to 200. */
+  const long = (): Point[] => [
+    [0, 0],
+    [5, 0.1, true],
+    [10, 0.2],
+    [15, 0.3, true],
+    [20, 0.4],
+    [25, 0.5, true],
+    [30, 0.6],
+    ...Array.from({ length: 17 }, (_, i): Point => [40 + i * 10, 1 + i]),
+  ];
+
+  it('a sparse move retimes only the breakdowns next to the moved key; far keys never change', () => {
+    const app = bareApp();
+    const c = curveWith(app, W.cog, 'rz', long());
+    const before = app.store.query.keysOfCurve(c.curve);
+    edit(app, 'Move', (tx) => moveKeys(app, tx, [c.keys[4]] as KeyId[], 2, 0, FINAL));
+    const after = times(app, c.curve);
+    expect(after.slice(0, 7)).toEqual([0, 5, 10, 16, 22, 26, 30]);
+    expect(after.slice(7)).toEqual(before.slice(7).map((key) => key.t));
+    expect(values(app, c.curve)).toEqual(before.map((key) => key.v));
+  });
+
+  it('a run stops at its neighbour on a long curve (drag margin, snapped overshoot, landing deletes it)', () => {
+    const app = bareApp();
+    const c = curveWith(app, W.cog, 'rz', long());
+    const last = c.keys.length - 1;
+    // 190 and 200 dragged back by 25: the block stops 1e-3 after 180 while dragging…
+    edit(app, 'Drag', (tx) => moveKeys(app, tx, [c.keys[last - 1], c.keys[last]] as KeyId[], -25, 0, DRAG));
+    expect(times(app, c.curve).slice(-3)).toEqual([180, 180.001, 190.001]);
+    // …on whole frames after it with snapping, and lands on it (deleting it) when moved exactly there.
+    const snapped = bareApp();
+    const d = curveWith(snapped, W.cog, 'rz', long());
+    edit(snapped, 'Move', (tx) => moveKeys(snapped, tx, [d.keys[last]] as KeyId[], -25, 0, FINAL));
+    expect(times(snapped, d.curve).slice(-2)).toEqual([190, 191]);
+    const landing = bareApp();
+    const e = curveWith(landing, W.cog, 'rz', long());
+    const result = edit(landing, 'Move', (tx) => moveKeys(landing, tx, [e.keys[last]] as KeyId[], -10, 0, FINAL));
+    expect(result.deleted).toEqual([e.keys[last - 1]]);
+    expect(times(landing, e.curve).slice(-2)).toEqual([180, 190]);
+  });
+
+  it('a scale of the first keys leaves the rest of the curve alone and keeps its order', () => {
+    const app = bareApp();
+    const c = curveWith(app, W.cog, 'rz', long());
+    edit(app, 'Scale', (tx) => scaleKeys(app, tx, [c.keys[2], c.keys[4]] as KeyId[], 0, 1.4, FINAL));
+    // 10 → 14, 20 → 28; ◇5 follows 10 (one anchor side moved: r = 0.5 between 0 and 14 → 7), ◇15 sits midway
+    // between 14 and 28 (21), ◇25 between 28 and 30 (29).
+    expect(times(app, c.curve).slice(0, 8)).toEqual([0, 7, 14, 21, 28, 29, 30, 40]);
+  });
+});
+
 describe('retiming and ripple invariants (property)', () => {
   const curveInput = fc.uniqueArray(fc.integer({ min: 0, max: 40 }), { minLength: 2, maxLength: 9 }).chain((ts) =>
     fc.record({

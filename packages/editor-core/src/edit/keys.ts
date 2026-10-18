@@ -138,11 +138,53 @@ interface Placement {
 
 /** What `place` moves on one curve: the keys and their targets, and the keys the caller edited. */
 interface PlaceRequest {
+  /** The curve's keys in time order. */
   readonly keys: readonly KeyRecord[];
   readonly moving: ReadonlySet<KeyId>;
   readonly target: (key: KeyRecord) => number;
   /** Keys the caller passed (retiming moves the other breakdowns, §5.12). */
   readonly edited: ReadonlySet<KeyId>;
+  /** Current time of a key (the moving keys' times bound the slice of `keys` the edit can change). */
+  readonly timeOf: (id: KeyId) => number | undefined;
+}
+
+/** Index of the first key with `t ≥ time` in time-ordered keys. */
+function firstKeyAtOrAfter(keys: readonly KeyRecord[], time: number): number {
+  let lo = 0;
+  let hi = keys.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((keys[mid] as KeyRecord).t < time) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * The slice of a curve's keys an edit can change: the moving keys' time span, widened over the breakdowns next to it
+ * to the first non-breakdown key on each side (or the curve's end). Every key outside it stays where it is: moving
+ * runs stop at their nearest non-moving neighbour, a breakdown retimes only when one of its anchors moved, and both
+ * lie inside (§4.11.3, §5.12). Working on the slice makes a drag cost follow the moved keys, not the curves' key
+ * counts (a Dope Sheet drag of a few keys on hundreds of dense curves, §5.22).
+ */
+function editWindow(request: PlaceRequest): readonly KeyRecord[] {
+  const keys = request.keys;
+  let min = Infinity;
+  let max = -Infinity;
+  for (const id of request.moving) {
+    const t = request.timeOf(id);
+    if (t === undefined) continue;
+    if (t < min) min = t;
+    if (t > max) max = t;
+  }
+  if (!(min <= max)) return [];
+  let lo = firstKeyAtOrAfter(keys, min - SAME_FRAME_EPS);
+  let hi = firstKeyAtOrAfter(keys, max + SAME_FRAME_EPS);
+  while (lo > 0 && (keys[lo - 1] as KeyRecord).breakdown === true) lo--;
+  if (lo > 0) lo--;
+  while (hi < keys.length && (keys[hi] as KeyRecord).breakdown === true) hi++;
+  if (hi < keys.length) hi++;
+  return lo === 0 && hi === keys.length ? keys : keys.slice(lo, hi);
 }
 
 /**
@@ -151,7 +193,8 @@ interface PlaceRequest {
  * (as a block for moves, key by key for scales); on the final update a key that lands exactly on it deletes it. With
  * snapping, a key dragged **past** the neighbour stops on the last whole frame before it instead, so an overshoot
  * never deletes a key (acceptance round 2). Two moving keys landing on one frame keep the `preferred` one (final
- * update only). M2a: breakdown retiming (§5.12) runs between the clamp and the collision rules.
+ * update only). M2a: breakdown retiming (§5.12) runs between the clamp and the collision rules. The placements
+ * cover the slice of keys the edit can change (`editWindow`).
  */
 function place(
   request: PlaceRequest,
@@ -159,16 +202,16 @@ function place(
   clampAs: 'block' | 'each',
   preferred: (a: KeyRecord, b: KeyRecord, at: number) => KeyRecord,
 ): { readonly placements: readonly Placement[]; readonly deleted: readonly KeyId[] } {
+  const keys = editWindow(request);
   const initial = (): Placement[] =>
-    request.keys.map((key) => {
+    keys.map((key) => {
       if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
       const t = request.target(key);
       return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
     });
   let placements = initial();
   const retime =
-    opts.retimeBreakdowns !== false &&
-    request.keys.some((key) => key.breakdown === true && !request.edited.has(key.id));
+    opts.retimeBreakdowns !== false && keys.some((key) => key.breakdown === true && !request.edited.has(key.id));
   if (!retime) {
     clampRuns(placements, opts, clampAs, null);
   } else {
@@ -576,6 +619,7 @@ export function moveKeys(
   }
   let moved = 0;
   const deleted: KeyId[] = [];
+  const timeOf = (id: KeyId): number | undefined => tx.get('keys', id)?.t;
   for (const [curveId, ids] of groups) {
     const curve = editableCurve(tx, curveId);
     if (curve === undefined) continue;
@@ -594,7 +638,7 @@ export function moveKeys(
       return da < db || (da === db && a.id > b.id) ? a : b;
     };
     const plan = place(
-      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: (key) => key.t + shift, edited: own },
+      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: (key) => key.t + shift, edited: own, timeOf },
       opts,
       'block',
       nearest,
@@ -647,6 +691,7 @@ export function scaleKeys(
   const targetOf = (key: KeyRecord): number => (shifted.has(key.id) ? key.t + shiftAfter : pivot + (key.t - pivot) * f);
   let moved = 0;
   const deleted: KeyId[] = [];
+  const timeOf = (id: KeyId): number | undefined => tx.get('keys', id)?.t;
   const fartherFromPivot = (a: KeyRecord, b: KeyRecord): KeyRecord => {
     const da = Math.abs(a.t - pivot);
     const db = Math.abs(b.t - pivot);
@@ -657,7 +702,7 @@ export function scaleKeys(
     if (curve === undefined) continue;
     const own = edited.get(curveId) ?? EMPTY_IDS;
     const plan = place(
-      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: targetOf, edited: own },
+      { keys: tx.query.keysOfCurve(curveId), moving: ids, target: targetOf, edited: own, timeOf },
       opts,
       'each',
       fartherFromPivot,
