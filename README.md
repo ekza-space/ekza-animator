@@ -7,7 +7,8 @@ a Dope Sheet and on the time slider, tween breakdowns, shape the motion in a Gra
 then bake the clips back into the original file — every original JSON value and every byte of its binary buffer
 preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem; usable on its own.
 
-> **Status: alpha — milestone M2a ("game-clip daily driver") is integrated** on top of the accepted M1 alpha.
+> **Status: alpha — milestone M2a ("game-clip daily driver") is integrated and merged into `dev`** on top of the
+> accepted M1 alpha.
 > `pnpm dev` opens the full editor at `/editor`: bundled samples or your own `.vrm`/`.glb`, circle controls with IK
 > legs in a split view, keying, the time slider, the Dope Sheet, the Graph Editor with tweens and buffer curves,
 > exports (bake into the model, VRMA, animation-only GLB, with optional key reduction), `.ekzanim` projects and

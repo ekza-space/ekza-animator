@@ -169,3 +169,38 @@ Fix round 1, final run on the branch head after the last code change (`b68f05d`)
 | anim-core `vitest bench` (**M-3**) | 2,200 curves at one frame: mean 0.152 ms, p75 0.159 ms (met) |
 
 The first run (`b5856ea`, before fix round 1) is recorded in the git history of this file.
+
+## Merge into `dev` (M2A-INT-19)
+
+2026-10-18, on `dev` at `eea476c`: each branch merged `--no-ff -s ort`, signed off, in the order A0, A1, A2, A3, A4,
+A5, then `m2a/integration` (`9a8e3d0`). Every package's worktree was clean and every package head was already in the
+integration branch (no package commit after the integration's merges). The merge commits say what each conflict
+was and how it was resolved.
+
+| Merge into `dev` | Conflicts | Resolution |
+|---|---|---|
+| A0 `m2a/contracts-foundation` (`0357037`) | — | — |
+| A1 `m2a/rig-ik` (`0a48807`) | — | — |
+| A2 `m2a/ik-editor` (`f8126af`) | `docs/ROADMAP.md` (adjacent A1/A2 rows) | A1's row from `dev`, A2's from the branch (A2's merge notes); the merge note for A1's `rig.ik.export.test.ts` arrives with the integration branch (`7c94ffb`) |
+| A3 `m2a/dopesheet-timing` (`d064b59`) | A0's stub lists (`m2a-00-foundation.spec.ts`, `m2a-operators.test.ts`), ROADMAP | both packages' removals kept; each package's own row |
+| A4 `m2a/graph-posing` (`271e242`) | the stub lists, ROADMAP, `TimeSliderController.ts`, `SceneSync.ts`, `m2a-foundation.test.ts` | A4's removals added; the three source/test files taken from the integration branch, where A3 + A4 were resolved with M2A-INT-6 (neither A5 nor the integration's later commits touch them) |
+| A5 `m2a/platform-perf` (`09f1944`) | `importModel.ts` imports, the stub lists, ROADMAP | as the integration resolved them (`ccdab84`); the merged tree is identical to `ccdab84` |
+| INT `m2a/integration` (`9a8e3d0`) | `docs/ROADMAP.md`, `m2a-operators.test.ts` (from the criss-cross merge bases) | taken from the branch: `dev`'s tree was `ccdab84`, an ancestor of the branch; the merged tree equals `9a8e3d0` byte for byte |
+
+A2's last review round reported that a switch to the limb's current mode re-matched and moved the pose (§5.6). A2
+fixed it on its branch before this merge (`8cbf7f3`, M2A-A2-23: the switch is refused with "L Leg is IK already",
+the pressed Attributes segment does nothing, the Rig › IK/FK item is disabled with that reason). It is covered by
+`editor-core/test/builtin/m2a-a2-ik.test.ts`, `headless-tests/test/ops.ik.test.ts` and E2E-M2A-03, all green on `dev`.
+
+Gates on `dev` (2026-10-18, load average 7–41 from the host and these runs):
+
+| Gate | Result |
+|---|---|
+| `pnpm install --frozen-lockfile --prefer-offline` | lockfile up to date (no package changed a dependency) |
+| `EKZA_E2E_PORT=3100 pnpm run ci` | green: format, lint, typecheck, `check:deps`/`fixtures`/`licenses`, test, build, `check:size`, e2e in real Chrome (100 passed, 9 skipped: the 3 M1-stretch and 6 M2a-stretch `test.fixme`) |
+| `turbo run test test:tooling --force` (uncached; `ci`'s run replayed turbo's cache of the identical tree) | 13/13 tasks: anim-core 649, doc 189, doc-yjs 69, rig 202, io 163, editor-core 744, viewport 100 (+1 skipped), curve-editor 207 (+3 skipped), editor 349 (+1 skipped), ui 73, headless-tests 164, web 9, tooling 14 |
+| e2e `--project=chromium-swiftshader` | 100 passed, 9 skipped |
+| clean production `build`, `check:size` | 843,565 B first visit (gate 900,000 B, target 850,000 B) |
+| `pnpm --filter web bench:budgets` (twice) and the package benches | every verdict as on the branch: M-1, M-2, M-3 met, M-4 missed (report only); numbers in ROADMAP [M2a budgets (on `dev`)](../ROADMAP.md#m2a-budgets-on-dev) |
+
+The merged packages' worktrees were removed after the merge; their branches are kept.

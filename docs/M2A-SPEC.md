@@ -1,6 +1,6 @@
 # Ekza Animator — M2a build specification ("game-clip daily driver")
 
-Status: v0.3 (2026-10-18, integration revision: A0…A5 merged; the packages' contract PRs ratified into this file and
+Status: v0.3 (2026-10-18, integration revision: A0…A5 merged, and with the integration merged into `dev`; the packages' contract PRs ratified into this file and
 [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended
 for the fixtures' leg reach, [§10.4](#104-integration-record) records the result, including the integration's fix
 round 1; v0.2 was the review revision, items not applied are listed with reasons in
@@ -2191,8 +2191,11 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
   missed (M-4, report only). Re-measured after fix round 1: see the notes.
 - **Contract PRs ratified** in this revision (v0.3); deviations and owner review items in
   [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18).
-- Open for the release: the merge into `dev`, the owner's review of §F (FR-EXP-12's "3–10×" criterion among them,
-  M2A-A5-3/INT-3), the owner's run of the demo script; `v0.2.0` is the owner's call.
+- **Merged into `dev`** (2026-10-18, M2A-INT-19): A0, A1, A2, A3, A4, A5, then `m2a/integration`, each `--no-ff` and
+  signed off; the result is the integration branch's tree byte for byte. `pnpm run ci`, the e2e suite in
+  `chromium-swiftshader` and the budget bench re-run on `dev` (ROADMAP "M2a budgets").
+- Open for the release: the owner's review of §F (FR-EXP-12's "3–10×" criterion among them, M2A-A5-3/INT-3), the
+  owner's run of the demo script; `v0.2.0` is the owner's call.
 
 ---
 

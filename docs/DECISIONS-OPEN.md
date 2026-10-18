@@ -1,6 +1,6 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-18, M2a integrated (rev. 5; new section F: the M2a build deviations, the integration decisions and
+Status: 2026-10-18, M2a merged into `dev` (rev. 6; rev. 5 added section F: the M2a build deviations, the integration decisions and
 the owner review items of M2a; section E holds M1's integration decisions, acceptance rounds, WP-10 e2e and budget
 decisions and the consolidated build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
 start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
@@ -433,7 +433,8 @@ state colours hidden while drafting.
 ## F. M2a build deviations (2026-10-18)
 
 M2a was built in six packages (A0 contracts and foundation, A1 rig IK, A2 IK editor, A3 Dope Sheet and timing, A4
-Graph Editor and posing, A5 platform) and integrated on `m2a/integration` ([M2A-SPEC](M2A-SPEC.md) v0.3). Each
+Graph Editor and posing, A5 platform), integrated on `m2a/integration` ([M2A-SPEC](M2A-SPEC.md) v0.3) and merged into
+`dev` (M2A-INT-19). Each
 package recorded its interpretations in `docs/wp-notes/m2a-*.md` with the reasoning and tests; the integration's are
 in [`wp-notes/m2a-integration.md`](wp-notes/m2a-integration.md). IDs are `M2A-<package>-<n>`. All are **accepted as
 built** (and the contract changes among them ratified into M2A-SPEC v0.3) unless the status says otherwise; the owner
@@ -475,6 +476,7 @@ described; the alternative is named.
 | M2A-INT-16 | The walkthrough's recovery step: frozen tangent handles carried −0 into the document (a half-cycle mirror freezes the seam keys' resolved handles; a flat side resolved to `0 × (−dt)` = −0), and recovery (JSON) brought them back as +0, so the recovered document differed from the autosaved one by the sign of zero | **Fixed** at the source: anim-core's resolved (computed) handles write `0 + x`, A4's weighted handle reader likewise; the anim-core test that pinned −0 for a flat end key now pins +0; a property over every tangent type, and the mirrored keys' JSON round trip | `anim-core/src/curve/resolve.ts`; `test/curve/tangents.test.ts`; `editor-core/test/kernel/m2a-integration.test.ts` |
 | M2A-INT-17 | Fix round 1 (verifier): the hand-offs of M2A-A4-12 | **Resolved**: (a) `graph.keys.scale {valuePivot, valueFactor}` scales values through `scaleKeyValues` in the time scale's step — the package gate `VALUE_SCALE_AVAILABLE` (A3) had survived the integration and is removed, and the "no stub" test now runs the changed key operators with their M2a arguments and fails on any "not available yet" wording; (b) the Dope Sheet's Tween bar mount — done by A3; (c) the Graph Editor's key fields, `graph.keys.setFields` and the handle metrics use the channel's unit (§5.1 rule 5): an `@roll` key at 20° read 0.349 and typing 30 wrote 49.65°, now 20.000 and 30°, the angle fields match the drawn slopes; (d) the time slider's per-batch tick set — value-only batches and breakdown flags handled (M2A-A4-16, M2A-INT-6), batches that move keys in time still rebuild it (part of M-4, M2b) | `editor-core/src/operators/builtin/graph.ts`, `edit/keys.ts`; `editor/src/panels/graph/model.ts`; tests `m2a-timing-operators`, `m2a-operators`, `m2a-angle-units` (Node), `m2a-graph-angle-units` (browser) |
 | M2A-INT-18 | M2a-stretch (§1.2) and its fallbacks | The six items are `test.fixme` in `e2e/stretch.spec.ts` with an `M2a-stretch` annotation (item, fallback, acceptance); a test there checks the fallbacks the test API reaches. The mesh-pick fallback hint was not built and now is: a mesh pick of an FK control on a limb in IK says "IK limb: pick the IK control" — as an info toast, because viewport tools reach the notifier, not the shell's help line (§1.2 amended); §1.2's stepped-tangent key is `6`, not `Digit5` | `viewport/src/tools/selectTool.ts`; `viewport/test/m2a-mesh-pick-hint.test.ts`; M2A-SPEC §1.2 |
+| M2A-INT-19 | Merge into `dev` (2026-10-18) | Each branch merged `--no-ff`, signed off, in the order A0, A1, A2, A3, A4, A5, then `m2a/integration` (the integration branch had merged them in the §10.1 order A0, A4, A5, A1, A2, A3). Conflicts only in the files the packages' merge notes name: the adjacent ROADMAP status rows (each package's own row), A0's stub lists (every package's removals kept; with A5 they become "no M2a operator is a stub" checks), `importModel.ts` imports (A2's `importLimbWarnings`, A5's names import), and — in the A4 merge — `TimeSliderController.ts` (with M2A-INT-6), `SceneSync.ts` and `m2a-foundation.test.ts`, taken from the integration branch because neither A5 nor its later commits touch them. After A5 the tree equals the integration's all-packages merge (`ccdab84`) byte for byte, and after `m2a/integration` it equals the branch head (`9a8e3d0`). A2's review finding (a switch to the limb's current mode re-matched and moved the pose) was fixed on A2's branch before the merge (M2A-A2-23) and is covered by `m2a-a2-ik.test.ts`, `ops.ik.test.ts` and E2E-M2A-03. Gates and budgets re-run on `dev` | `docs/wp-notes/m2a-integration.md` "Merge into `dev`"; ROADMAP M2a budgets |
 
 Turned into failures (§3 rule 4, as INT-55 did for M1): every `READY` flag (`editor-core/test/ready.ts` removed,
 `READY_A1` in the headless tests), the e2e A1 gate (`expectLimbIk`), the `test.fixme` of E2E-M2A-10b, -14, -15,
@@ -526,7 +528,7 @@ narrow bars; A3-9 the Dope Sheet's lazy boundary and persisted Show/expansion; A
 step; A3-11 key edits place only the slice they can change (differential fuzz); A3-12 cached row data and cheap
 glyphs.
 
-**A4 Graph Editor and posing** — A4-2 the tween plans once and evaluates per amount, `key.tween` clamps the amount;
+**A4 Graph Editor and posing** — A4-1 the notes file is `m2a-graph-posing.md`; A4-2 the tween plans once and evaluates per amount, `key.tween` clamps the amount;
 A4-3 the `'frame'` target's channels; A4-4 runs use visible keys; A4-5 the Tween bar's target toggle and DOM-written
 label (idle rule); A4-6 buffer curve targets and swap; A4-7 mirror animation details; A4-8 view mapping details; A4-9
 Scale tool details; A4-10 E2E-M2A-17 at the float32 pointer precision (ratified); A4-11 additive exports; A4-12
