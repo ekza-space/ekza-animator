@@ -154,24 +154,26 @@ export function resolveTangents(
       out.inDt[i] = finiteOr(key.inHandle.dt, 0);
       out.inDv[i] = finiteOr(key.inHandle.dv, 0);
     } else if (weighted) {
-      // AnimX: tangent (x, y) = (span, slope·span); the control point sits at a third of it.
+      // AnimX: tangent (x, y) = (span, slope·span); the control point sits at a third of it. `0 −` and `0 +` keep a
+      // flat side's dv at +0: callers freeze resolved handles into documents (fixed tangents, mirror copies), and a
+      // −0 there would not survive a JSON round trip (autosave, projects) unchanged.
       out.inDt[i] = -(spanIn * ONE_THIRD);
-      out.inDv[i] = -(inSlope * spanIn * ONE_THIRD);
+      out.inDv[i] = 0 - inSlope * spanIn * ONE_THIRD;
     } else {
       const dt = -(spanIn * ONE_THIRD);
       out.inDt[i] = dt;
-      out.inDv[i] = inSlope * dt;
+      out.inDv[i] = 0 + inSlope * dt;
     }
     if (weighted && outType === 'fixed') {
       out.outDt[i] = finiteOr(key.outHandle.dt, 0);
       out.outDv[i] = finiteOr(key.outHandle.dv, 0);
     } else if (weighted) {
       out.outDt[i] = spanOut * ONE_THIRD;
-      out.outDv[i] = outSlope * spanOut * ONE_THIRD;
+      out.outDv[i] = 0 + outSlope * spanOut * ONE_THIRD;
     } else {
       const dt = spanOut * ONE_THIRD;
       out.outDt[i] = dt;
-      out.outDv[i] = outSlope * dt;
+      out.outDv[i] = 0 + outSlope * dt;
     }
   }
   return out;

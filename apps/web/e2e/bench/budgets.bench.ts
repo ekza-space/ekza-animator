@@ -744,6 +744,6 @@ test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
     `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}), first visit: ${first.files.length} scripts, ` +
       `${kb(first.raw)} raw, ${kb(first.gzip)} gzip -9, ${kb(first.gzip6)} gzip -6${verdict(firstCheck)}; later ` +
       `visit: ${again.files.length} scripts, ${kb(again.gzip)} gzip -9${verdict(againCheck)} (budget ≤ 900 kB gzip; ` +
-      `M2a target ≤ 800 kB for the first visit)`,
+      `M2a target ≤ 850 kB for the first visit, M2A-SPEC §5.21.2)`,
   );
 });

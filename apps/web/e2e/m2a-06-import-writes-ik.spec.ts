@@ -5,7 +5,7 @@ import {
   controlIdOf,
   DEG,
   distance,
-  gateOnA1,
+  expectLimbIk,
   quatAngle,
   sub,
   toastTexts,
@@ -25,7 +25,7 @@ test('E2E-M2A-06: import writes IK', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const seed = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   await runOk(page, 'clip.new', { name: 'steps' });
   const steps = (await call(page, 'state')).activeClip ?? '';
   for (const limb of ['leg.L', 'leg.R']) await runOk(page, 'rig.ikFk.switch', { limb, to: 'fk', key: 'none' });

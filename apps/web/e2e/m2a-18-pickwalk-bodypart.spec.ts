@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { hoverPane } from './helpers/g3-input';
-import { controlIdOf, gateOnA1, selectIds } from './helpers/m2a-a2';
+import { controlIdOf, expectLimbIk, selectIds } from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
@@ -47,7 +47,7 @@ test('E2E-M2A-18: S by body part keys the arm.L controls and nothing else', asyn
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   await selectIds(page, [await controlIdOf(page, 'fk.hand.L')]);
   await page.getByTestId('status-keytarget-bodyPart').click();
   await expect.poll(async () => (await call(page, 'state')).keyTarget).toBe('bodyPart');

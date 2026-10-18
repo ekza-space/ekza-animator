@@ -19,7 +19,7 @@ import {
 import type { ChannelId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
 import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
 import { EDITOR_CURVE_OPTIONS } from '../../app/deps';
-import { isRotation } from '../../edit/channelMeta';
+import { channelUnit, isRotation } from '../../edit/channelMeta';
 import { animCurve, compileInTx, currentClipFrame, keyDataOf } from '../../edit/context';
 import {
   copyKeys as copyKeysInTime,
@@ -30,6 +30,7 @@ import {
   setKeyHandle,
   setTangentTypes,
 } from '../../edit/keys';
+import { scaleKeyValues } from '../../edit/valueScale';
 import { type RippleScope, rippleControls, rippleCurves, rippleScopeOf } from '../../edit/ripple';
 import { toDisplayValue } from '../../edit/numeric';
 import {
@@ -328,7 +329,9 @@ function applyTangentField(
     const curve = key === undefined ? undefined : tx.get('curves', key.curve);
     const clip = curve === undefined ? undefined : tx.get('clips', curve.clip);
     if (curve === undefined || clip === undefined || curve.locked) return null;
-    return { curve, fps: clip.fps, k: isRotation(curve.channel) ? RAD2DEG : 1 };
+    // Display units per curve unit (M2A-SPEC §5.1 rule 5): degrees for rotations and `unit: 'angle'` attributes.
+    const unit = channelUnit(tx.get('controls', curve.control) ?? null, curve.channel);
+    return { curve, fps: clip.fps, k: unit === 'angle' ? RAD2DEG : 1 };
   };
   const target = curveOfKey();
   if (target === null) return;
@@ -421,7 +424,9 @@ const setFields = defineOperator({
           const key = t.get('keys', id);
           const curve = key === undefined ? undefined : t.get('curves', key.curve);
           if (key === undefined || curve === undefined) continue;
-          const dValue = args.value - toDisplayValue(curve.channel, key.v);
+          // The typed value and `moveKeys`' delta are display units of the channel's unit (§5.1 rule 5).
+          const unit = channelUnit(t.get('controls', curve.control) ?? null, curve.channel);
+          const dValue = args.value - toDisplayValue(curve.channel, key.v, unit);
           if (dValue !== 0) moveKeys(app, t, [id], 0, dValue, typed);
         }
       }
@@ -458,12 +463,6 @@ function scopeOf(ctx: OperatorContext, tx: Tx, keys: readonly KeyId[]): RippleSc
   return rippleScopeOf(ctx.app, tx, keys, panel, band);
 }
 
-/**
- * Value scaling of the selected keys (§5.15.3, A4's `scaleKeyValues`): until A4 lands it, `graph.keys.scale` with a
- * `valueFactor` other than 1 poll-fails (M2A-SPEC §8 A3). Integration turns this on with A4's kernel.
- */
-const VALUE_SCALE_AVAILABLE = false;
-
 const keysMove = defineOperator({
   id: 'graph.keys.move',
   label: 'Move Keys',
@@ -493,7 +492,9 @@ const keysMove = defineOperator({
 const keysScale = defineOperator({
   id: 'graph.keys.scale',
   label: 'Scale Keys',
-  description: 'Scale the selected keys in time around a pivot frame; ripple shifts the later keys.',
+  description:
+    'Scale the selected keys in time around a pivot frame and in value around a value pivot (display units); ' +
+    'ripple shifts the later keys.',
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
@@ -506,9 +507,6 @@ const keysScale = defineOperator({
     const valuePivot = args['valuePivot'];
     if (valueFactor !== undefined && !isFiniteNumber(valueFactor)) return fail('valueFactor must be finite');
     if (valuePivot !== undefined && !isFiniteNumber(valuePivot)) return fail('valuePivot must be finite');
-    if (valueFactor !== undefined && valueFactor !== 1 && !VALUE_SCALE_AVAILABLE) {
-      return fail('Scaling key values is not available yet');
-    }
     return all(pollEditable(app), pollSelectedKeys(app, true));
   },
   apply(ctx, args) {
@@ -519,7 +517,15 @@ const keysScale = defineOperator({
     const opts: KeyEditOptions = { ...keyEdit(app), ripple };
     const result = scaleKeys(app, t, keys, args.pivot, args.factor, opts, ripple ? scopeOf(ctx, t, keys) : undefined);
     forgetKeys(app, result.deleted);
-    return { count: result.moved };
+    // §5.15.3: the value scale of the same keys in the same step; `valuePivot` is in display units and converts per
+    // curve (degrees for rotations and angle attributes, `scaleKeyValues`); a negative factor flips. Keys the time
+    // scale merged away are gone and skipped.
+    const valueFactor = args.valueFactor ?? 1;
+    if (valueFactor === 1) return { count: result.moved };
+    const removed = new Set(result.deleted);
+    const kept = removed.size === 0 ? keys : keys.filter((id) => !removed.has(id));
+    const values = scaleKeyValues(app, t, kept, args.valuePivot ?? 0, valueFactor);
+    return { count: Math.max(result.moved, values.moved) };
   },
 });
 

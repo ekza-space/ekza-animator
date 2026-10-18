@@ -293,7 +293,7 @@ export interface TwoBoneIkInput {
   readonly twist: number;                      // radians about the chain axis, added to the pole twist
   readonly soft: number;                       // metres; 0 = off
   readonly endWorldRotation: ReadonlyQuat | null;   // null: end bone keeps its rest local rotation
-  /** ik2 op only: enables the rest-exact amendments A and B of §5.3. Absent = M1 behaviour (Plant Feet). */
+  /** ik2 op only: enables the rest-exact amendments A, B and C of §5.3. Absent = M1 behaviour (Plant Feet). */
   readonly restReach?: number;
 }
 export interface TwoBoneIkOutput {

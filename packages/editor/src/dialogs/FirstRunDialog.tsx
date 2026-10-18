@@ -89,13 +89,13 @@ export function FirstRunDialog(): JSX.Element {
             </ol>
             <h3 className="mt-1 text-ui font-semibold text-fg">What this alpha is for</h3>
             <p>
-              In-place loops, upper-body emotes, idles, gestures and full-body blocking with planted feet. Facial
-              expressions are not keyable yet.
+              Game clips: walk and run cycles, attacks, hits and emotes with planted feet, retimed in the Dope Sheet and
+              polished with tweens and breakdowns. Facial expressions are not keyable yet.
             </p>
             <p>
-              Legs are FK: moving the <span className="font-mono text-fg">cog</span> moves the feet. For weight shifts
-              and crouches, pin the feet and run <span className="text-fg">Pose › Plant Feet</span> on each key; feet
-              can still slide between keys. Leg IK is the first item of the next milestone.
+              Legs are IK by default; arms are FK with IK one click away (Attributes › Limb or Rig › IK/FK). Moving the{' '}
+              <span className="font-mono text-fg">cog</span> leaves IK feet where they are; for FK legs,{' '}
+              <span className="text-fg">Pose › Plant Feet</span> still puts pinned feet back on each key.
             </p>
           </section>
         </div>

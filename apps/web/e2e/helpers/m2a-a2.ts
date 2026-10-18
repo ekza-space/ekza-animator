@@ -1,7 +1,7 @@
 // Helpers of the A2 scenarios (M2A-SPEC §9.1 E2E-M2A-01…07, 18, 19, 25): the A1 gate, world reads, Channel Box
 // typing, viewport picks and MMB drags at test-API coordinates (MVP-SPEC §6.1: real input, assertions through the
 // test API).
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { pointOf } from './g1-viewport';
 import { call, runOk } from './test-api';
 
@@ -12,13 +12,13 @@ export type Quat = readonly [number, number, number, number];
 export type World = { readonly t: Vec3; readonly q: Quat };
 
 /**
- * M2A-SPEC §3 rule 4 / §8: the IK scenarios need A1 (limb IK records and the ik2 op). Until A1 merges, a character
- * loaded with the default preferences has no limbs: the scenario is `test.fixme('A1')`. The integration agent turns
- * this gate into a failure (MVP-SPEC INT-55).
+ * M2A-SPEC §3 rule 4 / §8: the IK scenarios need A1 (limb IK records and the ik2 op). Before A1 merged this was a
+ * `test.fixme('A1')` gate; since integration a character loaded with the default preferences and no limbs fails the
+ * scenario, naming the piece and its owner (MVP-SPEC INT-55).
  */
-export async function gateOnA1(page: Page, character?: string): Promise<void> {
+export async function expectLimbIk(page: Page, character?: string): Promise<void> {
   const limbs = character === undefined ? await call(page, 'limbs') : await call(page, 'limbs', character);
-  test.fixme(limbs.length === 0, 'A1: limb IK (limbIkRecords, the ik2 op) has not merged');
+  expect(limbs.length, 'A1: limb IK (limbIkRecords, the ik2 op) gives the default rig its limbs').toBeGreaterThan(0);
 }
 
 /** The ControlId of a template key on a character (the active one by default). */

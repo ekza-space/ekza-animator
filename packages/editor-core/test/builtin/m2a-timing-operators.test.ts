@@ -1,6 +1,7 @@
 // M2A-SPEC §4.9, §5.9–§5.12 (A3): key.toggleRipple, time.insertTime / time.deleteTime, the time.setFrame carry,
-// graph.keys.move / scale ripple defaults by panel, graph.keys.paste 'insert' and graph.keys.copyTo. Every undoable
-// operator reverts and redoes exactly in one step (§9.2).
+// graph.keys.move / scale ripple defaults by panel, the value scale of graph.keys.scale (§5.15.3, enabled at
+// integration), graph.keys.paste 'insert' and graph.keys.copyTo. Every undoable operator reverts and redoes exactly in
+// one step (§9.2).
 import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
 import { ensureCurve, registerRippleControls } from '../../src';
@@ -43,6 +44,8 @@ function curveWith(
 }
 
 const times = (app: EditorApp, curve: CurveId): number[] => app.store.query.keysOfCurve(curve).map((key) => key.t);
+/** Values of a curve's keys in key order. */
+const values = (app: EditorApp, curve: CurveId): number[] => app.store.query.keysOfCurve(curve).map((key) => key.v);
 
 function selectKeys(app: EditorApp, keys: readonly KeyId[]): void {
   const selection = app.session.getState().selection;
@@ -276,16 +279,102 @@ describe('graph.keys.move / graph.keys.scale ripple (§5.11, §6)', () => {
     expect(times(app, arm.curve)).toEqual([0, 9, 22]);
   });
 
-  it('valueFactor ≠ 1 poll-fails until A4 lands scaleKeyValues; valueFactor 1 scales time only', async () => {
+  it('valueFactor 1 (or absent) scales time only; a bad ripple argument is refused', async () => {
     const { app, cog } = setup();
     selectKeys(app, [cog.keys[1] as KeyId, cog.keys[2] as KeyId]);
-    expect(app.operators.poll('graph.keys.scale', {}, { pivot: 0, factor: 1, valueFactor: 2, valuePivot: 0 })).toEqual({
-      ok: false,
-      reason: 'Scaling key values is not available yet',
-    });
     await runOk(app, 'graph.keys.scale', { pivot: 10, factor: 2, valueFactor: 1 });
     expect(times(app, cog.curve)).toEqual([0, 10, 30]);
+    expect(values(app, cog.curve)).toEqual([0, 1, 2]);
     expect((await runResult(app, 'graph.keys.move', { dFrames: 1, dValue: 0, ripple: 1 })).status).toBe('cancelled');
+    expect((await runResult(app, 'graph.keys.scale', { pivot: 0, factor: 1, valueFactor: Number.NaN })).status).toBe(
+      'cancelled',
+    );
+  });
+});
+
+describe('graph.keys.scale value scale (§5.15.3, integration: A4 scaleKeyValues behind the operator)', () => {
+  it('scales the selected values about valuePivot; the unselected key stays; one exact undo step', async () => {
+    const { app, cog } = setup();
+    selectKeys(app, [cog.keys[1] as KeyId, cog.keys[2] as KeyId]);
+    const { value } = await expectUndoRedoExact(app, 'graph.keys.scale', {
+      pivot: 0,
+      factor: 1,
+      valuePivot: 1,
+      valueFactor: 2,
+    });
+    expect(value).toEqual({ count: 2 });
+    expect(times(app, cog.curve)).toEqual([0, 10, 20]);
+    expect(values(app, cog.curve)).toEqual([0, 1, 3]);
+    expect(app.history.peekUndo()?.label).toBe('Scale Keys');
+  });
+
+  it('a negative factor flips the values about the pivot; an absent pivot is 0', async () => {
+    const { app, cog } = setup();
+    selectKeys(app, [cog.keys[1] as KeyId, cog.keys[2] as KeyId]);
+    await runOk(app, 'graph.keys.scale', { pivot: 0, factor: 1, valuePivot: 1.5, valueFactor: -1 });
+    expect(values(app, cog.curve)).toEqual([0, 2, 1]);
+    await runOk(app, 'graph.keys.scale', { pivot: 0, factor: 1, valueFactor: -1 });
+    expect(values(app, cog.curve)).toEqual([0, -2, -1]);
+  });
+
+  it('rotations and angle attributes take the pivot in degrees; plain attributes in their own units', async () => {
+    const app = opsApp();
+    app.store.transact({ label: 'Attributes' }, (tx) =>
+      tx.patch('controls', WAVE.handL, {
+        attrs: {
+          roll: { type: 'float', default: 0, keyable: true, unit: 'angle' },
+          blend: { type: 'float', default: 0, keyable: true },
+        },
+      }),
+    );
+    const rz = curveWith(app, WAVE.handL, 'rz', [
+      [0, 10 * DEG],
+      [10, 30 * DEG],
+    ]);
+    const roll = curveWith(app, WAVE.handL, '@roll', [
+      [0, 10 * DEG],
+      [10, 30 * DEG],
+    ]);
+    const blend = curveWith(app, WAVE.handL, '@blend', [
+      [0, 10],
+      [10, 30],
+    ]);
+    selectKeys(app, [...rz.keys, ...roll.keys, ...blend.keys]);
+    await expectUndoRedoExact(app, 'graph.keys.scale', { pivot: 0, factor: 1, valuePivot: 20, valueFactor: 0.5 });
+    for (const curve of [rz.curve, roll.curve]) {
+      const [a, b] = values(app, curve);
+      expect((a ?? 0) / DEG).toBeCloseTo(15, 9);
+      expect((b ?? 0) / DEG).toBeCloseTo(25, 9);
+    }
+    expect(values(app, blend.curve)).toEqual([15, 25]);
+  });
+
+  it('time and value scale in one call are one step; undo and redo are exact; locked curves keep their values', async () => {
+    const { app, cog, arm } = setup();
+    app.store.transact({ label: 'Lock' }, (tx) => tx.patch('curves', arm.curve, { locked: true }));
+    selectKeys(app, [cog.keys[1], cog.keys[2], arm.keys[2]] as KeyId[]);
+    const { value } = await expectUndoRedoExact(app, 'graph.keys.scale', {
+      pivot: 10,
+      factor: 2,
+      valuePivot: 0,
+      valueFactor: 3,
+    });
+    expect(value).toEqual({ count: 2 });
+    expect(times(app, cog.curve)).toEqual([0, 10, 30]);
+    expect(values(app, cog.curve)).toEqual([0, 3, 6]);
+    expect(times(app, arm.curve)).toEqual([0, 6, 16]);
+    expect(values(app, arm.curve)).toEqual([0, 1, 2]);
+  });
+
+  it('keys the time scale merges away are skipped by the value scale', async () => {
+    const { app, cog } = setup();
+    selectKeys(app, [cog.keys[1], cog.keys[2]] as KeyId[]);
+    // Factor 0.01 about 0 lands both keys on frame 0 (with the unselected key): collisions resolve to one key.
+    const result = await runResult(app, 'graph.keys.scale', { pivot: 0, factor: 0.01, valuePivot: 0, valueFactor: 2 });
+    expect(result.status).toBe('finished');
+    const keys = app.store.query.keysOfCurve(cog.curve);
+    expect(keys.map((key) => key.t)).toEqual([0]);
+    expect([0, 2, 4]).toContain(keys[0]?.v);
   });
 });
 

@@ -1,7 +1,7 @@
 # Ekza Animator — Roadmap
 
-Status: v0.4 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag is pending; the M2a build spec is
-written and revised after review, v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+Status: v0.5 (2026-10-18, M1 integrated and accepted on `dev`, the `v0.1.0` tag pending; **M2a integrated** on
+`m2a/integration` (M2A-SPEC v0.3), its `v0.2.x` tag the owner's call). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
 [M2A-SPEC.md](M2A-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
@@ -13,7 +13,7 @@ written and revised after review, v0.2). Keep the [status table](#status) curren
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
-| M2a | Game-clip daily driver | **Spec ready** | 2026-10-18 | — | [M2A-SPEC](M2A-SPEC.md) v0.2 (review revision): packages A0…A5 + integration ([status](#m2a-work-package-status)); leg IK first; fixes budget misses M-1…M-3 |
+| M2a | Game-clip daily driver | **Done** (integrated on `m2a/integration`, to merge into `dev`); tag `v0.2.x` pending | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met](#m2a-budgets-integrated); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -50,13 +50,13 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 
 | WP | Slug | Scope | Owner | Size | Status | Notes |
 |---|---|---|---|---|---|---|
-| A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Built (branch `m2a/contracts-foundation`, to merge first) | [notes](wp-notes/m2a-contracts-foundation.md) |
-| A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Built (branch `m2a/rig-ik`) | FR-RIG-11; [notes](wp-notes/m2a-rig-ik.md) |
-| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Built, review fix round 2 (branch `m2a/ik-editor`; IK tests and e2e gated on A1, green on a trial merge with A1 at `9767a7a`) | [notes](wp-notes/m2a-ik-editor.md); IK e2e after A1; A1's `rig.ik.export` test needs the M1-rig pref on merge |
-| A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Built (branch `m2a/dopesheet-timing`; E2E-M2A-14 waits for A2, value scale and the Tween bar for A4) | FR-DS-01..02, FR-TIME-10; [notes](wp-notes/m2a-dopesheet-timing.md) |
-| A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Built, review fix round 1 done (branch `m2a/graph-posing`; M-1 met on `budgets.bench.ts`, p95 3.2–3.7 ms; E2E-M2A-15 fixme until A1, A2) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
-| A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Built (branch `m2a/platform-perf`) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
-| INT | — | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS | Integration | 3 | Planned | after A1…A5 |
+| A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Done (merged into `m2a/integration` first) | [notes](wp-notes/m2a-contracts-foundation.md) |
+| A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Done (merged; contract PR C-1…C-7 ratified) | FR-RIG-11; [notes](wp-notes/m2a-rig-ik.md) |
+| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Done (merged; IK tests and E2E-M2A-01…07, 25 run ungated) | [notes](wp-notes/m2a-ik-editor.md) |
+| A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Done (merged; E2E-M2A-10b and -14 run ungated) | FR-DS-01..02, FR-TIME-10; [notes](wp-notes/m2a-dopesheet-timing.md) |
+| A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (merged; M-1 met on the merged build, p95 3.1–3.4 ms; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
+| A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (merged; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
+| INT | `integration` | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS, owner demo script | Integration | 3 | Done (branch `m2a/integration`, fix round 1 included) | [notes](wp-notes/m2a-integration.md); gates turned into failures, M2A-INT-1…14; fix round 1 M2A-INT-15…18 (value scale, unit-aware Graph Editor fields, M2a-stretch fixmes and the mesh-pick hint, the demo walkthrough and the −0 handles it found) |
 
 ---
 
@@ -139,9 +139,46 @@ the repository is published, tracked here until then.
 Not measured: the Apple M1 reference laptop, Safari and Firefox (V1), and the SwiftShader CI project (not a gate there).
 
 M2a fixes the three misses with stated targets and mechanisms: M-1 in package A4 (M2A-SPEC §5.21.1), M-2 and M-3 in
-package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B).
+package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B). **All three
+are met on the integrated M2a build** ([M2a budgets](#m2a-budgets-integrated)).
 
-### M2a budget re-measurement (package A5, branch `m2a/platform-perf`)
+### M2a budgets (integrated)
+
+Measured 2026-10-18 on the integrated branch `m2a/integration` (all six packages merged): `pnpm --filter web
+bench:budgets` on the e2e build (real Chrome 155 with the GPU, 1440×900 at DPR 2), the A3/A4 benches and the package
+benches, on the same Apple M4 Pro at load average 5.8–10.8 (the host's own services; no other agent build ran).
+Method and raw numbers in [wp-notes/m2a-integration.md](wp-notes/m2a-integration.md). Report only, except the CI size
+gate (`check:size`, 900,000 B) and the idle check (E2E-00). Re-run after the integration's fix round 1 (load 15–30):
+every verdict unchanged — M-1 cold p95 3.4 ms, warm 2.5 ms; M-2 843,565 B; M-3 mean 0.152 ms, p75 0.159 ms; M-4 21.2 /
+26.5 ms.
+
+| Scenario | Budget | Measured | Verdict |
+|---|---|---|---|
+| Idle editor | 0 WebGL frames, 0 canvas redraws | 0 / 0 over 2 s (empty; Seed-san + wave in split and quad) | Met (gated by E2E-00) |
+| Pose evaluation, 1 humanoid | ≤ 0.5 ms | 0.035 ms full pose in the app (51 controls, 147 curves) | Met |
+| Pose evaluation, 1 humanoid with 4 IK limbs (M2a) | ≤ 0.5 ms (target ≤ 0.06 ms) | 0.042 ms (Seed-san; the same rig at ikFk 0 0.028 ms, the M1 rig 0.027 ms) | Met |
+| Scrub: pointer move → pose visible | same animation frame | 40 / 40 | Met |
+| 1 VRM, 4 panes, shaded, playback at 30 fps | ≤ 8 ms CPU/frame | rAF work mean 0.75 ms, p95 2.4 ms; task time 1.94 ms per frame | Met |
+| Graph Editor 50k keys / 10k visible, pan/zoom | ≤ 8 ms redraw | median 0.80 ms | Met |
+| Graph Editor 50 curves × 200 keys, full redraw | ≤ 4 ms | median 1.10 ms | Met |
+| **M-1** Drag 1,000 selected keys (gate p95 ≤ 4.0 ms) | ≤ 4 ms per pointer frame | median 2.5 ms; p95 3.1, 3.2, 3.4, 3.3 ms in four runs (M1: 5.1 / 7.3 ms); doc preview update 0.69 ms (≤ 1.0) | **Met** |
+| Undo/redo one gesture | ≤ 5 ms | 2.1 / 1.8 ms for the 1,000-key drag; 0.3 / 0.3 ms for a key step | Met |
+| Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | median 116 ms from the sample click; page ready 410 ms after navigation | Met |
+| Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | median 16.3 ms; the first export loads its chunk (+24 ms) | Met |
+| Autosave write, Seed-san × 10 clips (M2a) | ≤ 50 ms main thread | median 11.5 ms, max 12.6 ms | Met |
+| Dope Sheet redraw (M2a) | ≤ 4 ms | 450 × 200 keys: 0.2–1.0 ms; in the editor (213 curves): zoom 0.4 ms, selection change 2.7 ms (p95 3.9) | Met |
+| Dope Sheet drag, 1,000 selected keys (M2a) | ≤ 4 ms per pointer frame | 21.2 ms median, p95 26.1 ms (213 curves); unit bench 19.0 ms (450 curves) | **Miss** (M-4) |
+| Tween slider drag on 60 channels (M2a) | ≤ 4 ms per pointer frame | median 2.7 ms, p95 3.2 ms | Met |
+| **M-2** Editor route JS (gzip -9, first visit) | ≤ 900 kB; M2a target 850 kB | 843,270 B production (eager 836,738 B); the bench's network capture equals `check:size` (0.00 %) | **Met** (target set to 850 kB with the attribution: A1…A4 add ≈ 58 kB eager; M2A-INT-4) |
+| **M-3** anim-core: 2,200 curves at one frame | ≤ 0.3 ms (target mean ≤ 0.20, p75 ≤ 0.25) | mean 0.154 ms, p75 0.159 ms (M1: 0.32–0.35 ms) | **Met** |
+
+New miss and owner (no public tracker yet; the ID becomes an issue when the repository is published):
+
+| Issue | Budget | Owner | Next step |
+|---|---|---|---|
+| M-4 | Dope Sheet drag of 1,000 keys ≤ 4 ms (M2A-SPEC §5.22, report only) | The shared drag path (store preview, curve cache, evaluation), with the Dope Sheet | The Graph Editor's M-1 drag moves 1,000 keys on 30 curves; the Dope Sheet drags them across 200+ curves, where recompiling every moved curve (≈ 11 ms) and the store preview (≈ 5 ms) dominate; the Dope Sheet's own redraw is 3.4 ms. M2b: recompile only the moved span of a curve, defer re-evaluating curves whose current-frame segment did not change. |
+
+### M2a budget re-measurement (package A5, branch `m2a/platform-perf`, before the merge)
 
 Measured 2026-10-18 with `pnpm --filter web bench:budgets` (e2e build, real Chrome 155 with the GPU, 1440×900 at DPR 2)
 and the package benches, on the same Apple M4 Pro under heavier shared load than M1's record (load average 26–66 from
@@ -191,6 +228,21 @@ misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
 
 **Acceptance**: a walk cycle and an attack clip with planted feet and contact are authored without Plant Feet
 (E2E-M2A-23, -24); M-1, M-2 and M-3 met; public README with GIFs; `v0.2.x`.
+
+**Status (2026-10-18)**: integrated on `m2a/integration` (A0, A4, A5, A1, A2, A3 in the M2A-SPEC §10.1 order, then
+the integration and its fix round 1): every `READY`/`test.fixme` gate and package gate is a failure (the last one,
+`graph.keys.scale`'s value scale, was turned on in fix round 1); E2E-00…27, E2E-M2A-01…25, the owner demo script as a
+scripted walkthrough and the M1 acceptance-round specs pass in real Chrome and in the `chromium-swiftshader` CI project
+(the three M1-stretch and six M2a-stretch items stay `test.fixme`, each with its fallback); the acceptance clips are
+authored with real input and leg IK, and their undo history holds no Plant Feet; M-1, M-2 and M-3 are met
+([budgets](#m2a-budgets-integrated)); FR-EXP-12 is partial (≥ 3× only on linear blocking, owner item); README carries
+the M2a scope, its known gaps and three GIFs. The contract PRs of A1…A5 are ratified in M2A-SPEC v0.3; deviations,
+integration decisions and the owner review items are in
+[DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18). Open for the release: merge into `dev`, the
+owner's review of §F and the owner's own run of the demo script (M2A-SPEC §10.3); the `v0.2.0` tag is the owner's
+call. **M2a-stretch, not built** (M2A-SPEC §1.2, `test.fixme` in `e2e/stretch.spec.ts`; fallbacks built): ghost IK/FK
+display, Dope Sheet "show all keyable channels", mesh pick → IK control, key hold and stepped preview, ankle/wrist
+motion trails, `rig.ikFk.matchRange` with an automatic Simplify.
 
 **Depends on**: M1. Leg IK uses the M1 solver and the existing solver slot; the records and tables are unchanged, but
 `SCHEMA_VERSION` becomes 2 so that M1 apps open projects with enabled IK read-only (M2A-SPEC §5.7).

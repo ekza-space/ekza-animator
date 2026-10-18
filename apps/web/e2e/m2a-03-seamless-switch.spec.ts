@@ -6,7 +6,7 @@ import {
   DEG,
   distance,
   expectWorldClose,
-  gateOnA1,
+  expectLimbIk,
   keysOn,
   quatAngle,
   selectIds,
@@ -29,7 +29,7 @@ test('E2E-M2A-03: seamless IK → FK switch', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   // A fresh clip, so the sample's own clips do not take part.
   await runOk(page, 'clip.new', { name: 'switch' });
   const clip = (await call(page, 'state')).activeClip ?? '';
@@ -129,7 +129,7 @@ test('E2E-M2A-03: a seamless switch with a ball roll and animated toes keeps eve
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   await runOk(page, 'clip.new', { name: 'roll' });
   const ikLeg = await controlIdOf(page, 'ik.leg.L');
   const toes = await controlIdOf(page, 'fk.toes.L');

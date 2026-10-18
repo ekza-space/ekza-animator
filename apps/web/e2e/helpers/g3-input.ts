@@ -69,6 +69,10 @@ export async function typeChannel(page: Page, channel: string, value: number): P
 export async function clickOutlinerRow(page: Page, control: string, modifiers: ('Shift' | 'Meta')[] = []) {
   const row = page.getByTestId(`outliner-row-${control}`);
   const tree = page.getByTestId('outliner-tree');
+  // The Outliner scrolls the selection's lead into view after a selection change, over a few frames (the
+  // virtualizer measures as it goes; slow under SwiftShader): let it settle, or the rows found below can be swapped
+  // out mid-scroll ("Element is not attached to the DOM").
+  await settleScroll(tree);
   const box = await tree.boundingBox();
   if (box === null) throw new Error('the Outliner is not visible');
   for (const direction of [-1, 1]) {
@@ -86,8 +90,37 @@ export async function clickOutlinerRow(page: Page, control: string, modifiers: (
       if (!moved) break; // the end of the tree in this direction
     }
   }
-  await row.scrollIntoViewIfNeeded();
+  // A row swapped out by a late reveal scroll is found again (the click itself never repeats: it is the last step).
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await row.scrollIntoViewIfNeeded({ timeout: 5_000 });
+      break;
+    } catch (error) {
+      if (attempt >= 2 || !String(error).includes('not attached')) throw error;
+      await settleScroll(tree);
+    }
+  }
   await row.click({ modifiers });
+}
+
+/** Waits until an element's scroll position has not changed for three consecutive animation frames. */
+async function settleScroll(element: ReturnType<Page['getByTestId']>): Promise<void> {
+  await element.evaluate(
+    (node) =>
+      new Promise<void>((resolve) => {
+        let last = node.scrollTop;
+        let still = 0;
+        let frames = 0;
+        const tick = () => {
+          frames++;
+          still = node.scrollTop === last ? still + 1 : 0;
+          last = node.scrollTop;
+          if (still >= 3 || frames > 120) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
 }
 
 /**

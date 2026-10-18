@@ -2,15 +2,16 @@
 // auto), the seamless @ikFk keys at f − 1 and f, match and match range keying, match warnings, Add Limb IK on an
 // FK-only rig, foot pivots, Plant Feet on IK legs, and the "FK limbs only" notice. The rig math is A1's: these tests
 // script it through the workflow's limb seam (`setLimbKit`), so the policies are checked independently of the solver.
-// The same operators on real rigs with A1's math run in headless-tests (ops.ik.test.ts, READY.a1).
-import type { Mat4, SplineSet } from '@ekza-animator/anim-core';
+// The same operators on real rigs with A1's math run in headless-tests (ops.ik.test.ts). The cases that held only
+// before A1 merged (§3 rule 4) script the rig's `not-implemented` stub through the seam since integration, so the
+// "not available yet" fallback stays covered.
+import { EkzaError, type Mat4, type SplineSet } from '@ekza-animator/anim-core';
 import type { ChannelId, ChannelValues, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
 import type { ChannelBuffer, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src/types';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import { importLimbWarnings, type LimbKit, matchWarnings, setLimbKit, watchFkOnlyRigs } from '../../src/workflows/ik';
-import { READY } from '../ready';
 import { cid, FOOT, ikApp, ikWaveDoc } from './ikFixture';
 import { DEG, docJson, expectUndoRedoExact, runOk, runResult, setSceneFrame, WAVE, waveDoc } from './support';
 
@@ -20,6 +21,15 @@ function keys(app: EditorApp, key: string, channel: ChannelId) {
   return curve === undefined
     ? []
     : app.store.query.keysOfCurve(curve.id).map((k) => ({ t: k.t, v: k.v, outType: k.outType }));
+}
+
+/** A limb kit whose `limbIkRecords` is the rig's pre-A1 stub (throws `not-implemented`, §3 rule 1). */
+function stubRecordsKit(): Partial<LimbKit> {
+  return {
+    limbIkRecords: () => {
+      throw new EkzaError('not-implemented', 'rig.limbIkRecords');
+    },
+  };
 }
 
 /** A limb kit with scripted matches: FK side gets fixed rotations, IK side fixed positions, errors as given. */
@@ -631,8 +641,9 @@ describe('rig.addLimbIk (§5.7)', () => {
     };
   }
 
-  it.skipIf(READY.a1)('is "not available yet" until the rig implements limb records (before A1)', async () => {
+  it('is "not available yet" while the rig does not implement limb records (a stub rig)', async () => {
     const { app } = ikApp({ snapshot: waveDoc() });
+    setLimbKit(app, stubRecordsKit());
     expect(await runResult(app, 'rig.addLimbIk')).toEqual({ status: 'cancelled', reason: NOT_AVAILABLE_YET });
   });
 
@@ -785,13 +796,14 @@ describe('the "FK limbs only" notice (§5.7)', () => {
     expect(withIk.services.toasts).toHaveLength(0);
   });
 
-  it.skipIf(READY.a1)('says nothing without the rig limb records (before A1)', () => {
+  it('says nothing without the rig limb records (a stub rig)', () => {
     const early = ikApp({ snapshot: waveDoc() });
+    setLimbKit(early.app, stubRecordsKit());
     watchFkOnlyRigs(early.app)();
     expect(early.services.toasts).toHaveLength(0);
   });
 
-  it.runIf(READY.a1)("with A1, Add Limb IK on the synthetic humanoid uses the rig's records (ikFk 0)", async () => {
+  it("with A1, Add Limb IK on the synthetic humanoid uses the rig's records (ikFk 0)", async () => {
     const { app } = ikApp({ snapshot: waveDoc() });
     const value = (await runOk(app, 'rig.addLimbIk')) as { added: string[] };
     expect([...value.added].sort()).toEqual(['arm.L', 'arm.R', 'leg.L', 'leg.R']);

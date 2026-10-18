@@ -7,7 +7,7 @@
 // `exportRun.ts`, and the bake, writers, surgeon, lints and read-back come from `@ekza-animator/io/write`. Both load
 // by a dynamic import the first time an export runs (M2A-SPEC §4.4, §5.21.2: glTF Transform and the pipeline stay
 // off the editor's initial route).
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-animator/anim-core';
 import type { CharacterRecord, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
 import {
   clipExportName,
@@ -125,8 +125,8 @@ export function reduceSpecProblem(spec: unknown): string | null {
 
 /**
  * Per-track keep frames of the §5.16 keep set from the influencing curves' key times (`computeInfluenceKeyTimes`,
- * rig A1). Until rig implements it (it throws `not-implemented`) the term is empty: the first, last, loop-closure,
- * contact and step-discontinuity samples are kept by the reducer itself (M2A-SPEC §8 A5, `READY.a1`).
+ * rig A1); the first, last, loop-closure, contact and step-discontinuity samples are kept by the reducer itself
+ * (M2A-SPEC §8 A5). Since integration a rig without the function is an error, not an empty term (§3 rule 4).
  */
 export function influenceKeepFrames(
   program: RigProgram,
@@ -134,12 +134,7 @@ export function influenceKeepFrames(
   range: { readonly start: Frame; readonly end: Frame },
   target: 'raw' | 'humanoid',
 ): ReadonlyMap<TrackKey, readonly Frame[]> {
-  try {
-    return computeInfluenceKeyTimes(program, sampler, range, target);
-  } catch (error) {
-    if (error instanceof EkzaError && error.code === 'not-implemented') return new Map();
-    throw error;
-  }
+  return computeInfluenceKeyTimes(program, sampler, range, target);
 }
 
 /** Resolves a request against the document, or says why it cannot be exported. */

@@ -313,7 +313,7 @@ describe('test API: kernel-level M2a functions (§4.8)', () => {
     expect(api.graph()).toMatchObject({ viewMode: 'absolute', buffers: [CURVE] });
   });
 
-  it('autosave() mirrors session.autosave; flushAutosave() rejects until A5 lands the store', async () => {
+  it('autosave() mirrors session.autosave; flushAutosave() rejects when file.autosaveNow cannot run (no store)', async () => {
     const { api, app } = setup();
     expect(api.autosave()).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
     app.session.setState({

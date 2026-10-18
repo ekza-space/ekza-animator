@@ -15,7 +15,7 @@ import type {
 } from '@ekza-animator/doc';
 import { internalsOf, newRecordId } from '../app/internals';
 import type { EditorApp, KeyEditOptions, KeyEditResult } from '../types';
-import { channelDefaultOf, channelUnit, isRotation } from './channelMeta';
+import { channelDefaultOf, channelUnit } from './channelMeta';
 import {
   animCurve,
   compileInTx,
@@ -207,7 +207,9 @@ function place(
     keys.map((key) => {
       if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
       const t = request.target(key);
-      return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
+      // `+ 0` turns a −0 (a snapped sub-half-frame move left of 0) into 0: no key is written at −0, as in M1, where the
+      // block clamp always added its shift (integration fix; the clamp skips a zero shift since A3).
+      return { key, moving: true, t: (opts.snap ? Math.round(t) : t) + 0, retimed: false };
     });
   let placements = initial();
   const retime =
@@ -732,10 +734,14 @@ export function scaleKeys(
 
 // ---------- tangents (§4.11.4) ----------
 
-/** Display metrics of a curve's handles: frames per second and the value display scale. */
+/**
+ * Display metrics of a curve's handles: frames per second and the value display scale (degrees for rotations and
+ * `unit: 'angle'` attributes, M2A-SPEC §5.1 rule 5 — the units the Graph Editor draws and its fields show).
+ */
 function handleMetrics(tx: Tx, curve: CurveRecord): { readonly fps: number; readonly k: number } {
   const clip = requireClip(tx, curve.clip);
-  return { fps: clip.fps.num / clip.fps.den, k: isRotation(curve.channel) ? RAD2DEG : 1 };
+  const unit = channelUnit(tx.get('controls', curve.control) ?? null, curve.channel);
+  return { fps: clip.fps.num / clip.fps.den, k: unit === 'angle' ? RAD2DEG : 1 };
 }
 
 /** Maya tangent weight: 3·hypot(|dt| seconds, dv display units). */

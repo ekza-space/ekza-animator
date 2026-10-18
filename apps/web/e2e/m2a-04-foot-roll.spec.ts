@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { pressOverPane } from './helpers/g3-input';
-import { boneWorlds, controlIdOf, DEG, distance, gateOnA1, quatAngle, selectIds, typeCb } from './helpers/m2a-a2';
+import { boneWorlds, controlIdOf, DEG, distance, expectLimbIk, quatAngle, selectIds, typeCb } from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
@@ -18,7 +18,7 @@ test('E2E-M2A-04: foot roll', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   const left = await controlIdOf(page, 'ik.leg.L');
   const right = await controlIdOf(page, 'ik.leg.R');
   const pivots = async (limb: 'leg.L' | 'leg.R'): Promise<Pivots> => {
