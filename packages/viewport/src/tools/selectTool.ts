@@ -1,9 +1,10 @@
 // The viewport select tool (`Q`; MVP-SPEC §4.11.16): click picks the nearest control (manipulator > control >
 // joint), a repeated click within 3 px over the same candidates cycles to the next one, and an LMB drag of ≥ 4 px on
 // empty space draws a marquee (crossing test). Modifiers: Shift toggle, Mod remove, Mod+Shift add.
-import type { ControlId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId } from '@ekza-animator/doc';
 import {
   type EditorApp,
+  limbOfControlApp,
   PANEL,
   type SelectMode,
   type ToolDef,
@@ -22,6 +23,12 @@ export function selectModeOf(e: { readonly shift: boolean; readonly mod: boolean
   if (e.mod) return 'remove';
   return 'replace';
 }
+
+/**
+ * M2A-SPEC §1.2 fallback of the M2a-stretch mesh-pick → IK control mapping: a mesh click on a limb that is in IK
+ * (`ikFk > 0.5`) still selects the FK control the bone maps to, and says how to reach the IK control.
+ */
+export const MESH_PICK_IK_HINT = 'IK limb: pick the IK control';
 
 interface Press {
   readonly paneId: string;
@@ -97,7 +104,8 @@ export class SelectBehaviour {
    * and never cycle, so a second Shift+click toggles the same control back (acceptance round 2).
    */
   click(paneId: string, x: number, y: number, mode: SelectMode): void {
-    const ids = this.candidateControls(paneId, x, y);
+    const meshPicks = new Map<ControlId, CharacterId>();
+    const ids = this.candidateControls(paneId, x, y, meshPicks);
     if (ids.length === 0) {
       this.last = null;
       if (mode === 'replace') this.select([], 'replace', paneId);
@@ -106,6 +114,7 @@ export class SelectBehaviour {
     if (mode !== 'replace') {
       this.last = null;
       this.select([ids[0] as ControlId], mode, paneId);
+      this.hintMeshPick(ids[0] as ControlId, meshPicks);
       return;
     }
     const key = [...ids].sort().join('|');
@@ -119,18 +128,32 @@ export class SelectBehaviour {
     const index = repeat ? (last.index + 1) % order.length : 0;
     this.last = { paneId, x, y, key, order, index };
     this.select([order[index] as ControlId], mode, paneId);
+    this.hintMeshPick(order[index] as ControlId, meshPicks);
   }
 
-  private candidateControls(paneId: string, x: number, y: number): ControlId[] {
+  /** Candidate controls in pick order; `meshPicks` gets the controls only a mesh hit named, with its character. */
+  private candidateControls(paneId: string, x: number, y: number, meshPicks: Map<ControlId, CharacterId>): ControlId[] {
     const ids: ControlId[] = [];
     for (const hit of this.host.pickCandidates(paneId, x, y)) {
       let id: ControlId | null = null;
       if (hit.kind === 'control') id = hit.control;
       else if (hit.kind === 'joint') id = this.host.controlForJoint(hit.character, hit.node);
       else if (hit.kind === 'mesh') id = hit.control;
-      if (id !== null && !ids.includes(id)) ids.push(id);
+      if (id === null || ids.includes(id)) continue;
+      ids.push(id);
+      if (hit.kind === 'mesh') meshPicks.set(id, hit.character);
     }
     return ids;
+  }
+
+  /** The §1.2 hint when the selected control came from a mesh hit on an FK control of a limb in IK. */
+  private hintMeshPick(id: ControlId, meshPicks: ReadonlyMap<ControlId, CharacterId>): void {
+    const character = meshPicks.get(id);
+    if (character === undefined) return;
+    const limb = limbOfControlApp(this.app, id);
+    if (limb === null || !limb.fkControls.includes(id)) return;
+    if ((this.app.evaluation.ikFk(character, limb.id) ?? 0) <= 0.5) return;
+    this.app.services.notify.toast({ kind: 'info', text: MESH_PICK_IK_HINT });
   }
 
   private select(ids: readonly ControlId[], mode: SelectMode, paneId: string): void {
