@@ -69,7 +69,8 @@ A scratch worktree (`m2a-ik-editor-probe`, detached) merges `m2a/ik-editor` with
   and the M1 test **`ops.export.test.ts` "exports VRMA … round trip < 1e-4 rad"** (1.6e-3 rad: the VRMA import now
   writes IK legs on Seed-san, §5.8). A1's uncommitted `match.ts` change at the time (the pole offset projected onto
   p̂) does not change these numbers (p̂ = m̂ there).
-- E2E (whole suite, real Chrome, port 3142): 74 passed, 3 skipped (stretch), 4 failed. E2E-00…27, the acceptance
+- E2E (whole suite, real Chrome, port 3142): 74 passed, 3 skipped (stretch), 4 failed; A2's scenarios in
+  `chromium-swiftshader` give the same result (9 passed, E2E-M2A-03 and 06 failed). E2E-00…27, the acceptance
   rounds and E2E-M2A-01, 02, 04, 05, 07, 18 (both cases), 19 and 25 pass; E2E-M2A-03 and 06 fail as above; A0's
   `m2a-00-foundation.spec.ts` "M1 rig" cases assert `limbs()` empty and `minWriterVersion` 1 on a default Polybot,
   which A1's default rig changes (A1's merge updates them).
@@ -113,9 +114,12 @@ Every assertion kept; each commit message names the test and the contract row.
 
 ## Gates
 
-On `m2a/ik-editor`: `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `test` (all packages, browser mode
-included), `build` and the whole e2e suite on port 3142 (`EKZA_E2E_PORT=3142 pnpm run test:e2e`, real Chrome) green;
-M1's E2E-00…27 unchanged.
+On `m2a/ik-editor`: `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`,
+`test` (all packages, uncached, browser mode included), `build` and the whole e2e suite on port 3142
+(`EKZA_E2E_PORT=3142 pnpm run test:e2e`, real Chrome: 69 passed, 12 skipped — the A1-gated A2 scenarios and the
+stretch entries) green; M1's E2E-00…27 unchanged. A second full run under load average 58 from other builds failed
+`acceptance-round1` "Insert+Q is no double-click" once (its two key presses 467 ms apart against a 400 ms window, a
+timing check); the spec passes alone. A2's scenarios also pass in `chromium-swiftshader` (E2E-M2A-18 pick-walk, 19).
 
 ## Merge notes
 
