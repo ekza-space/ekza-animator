@@ -72,7 +72,13 @@ export async function clickComponent(
   opts: { readonly paneId?: string; readonly modifiers?: readonly ('Shift' | 'Control')[] } = {},
 ): Promise<void> {
   const point = await screenOf(page, mesh, kind, index, opts.paneId ?? MODEL_PANE);
-  await page.mouse.click(point.x, point.y, { modifiers: [...(opts.modifiers ?? [])] });
+  const modifiers = opts.modifiers ?? [];
+  for (const key of modifiers) await page.keyboard.down(key);
+  try {
+    await page.mouse.click(point.x, point.y);
+  } finally {
+    for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
+  }
 }
 
 /** The stored component selection of a mesh in the current mode's kind. */

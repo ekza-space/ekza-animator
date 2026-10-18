@@ -354,7 +354,10 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
 }
 
 /** The labels of an app's history steps, oldest first (an `EditorApp` built by `createKernelApp`). */
-export function historyLabels(history: EditorHistory): { readonly undo: readonly string[]; readonly redo: readonly string[] } {
+export function historyLabels(history: EditorHistory): {
+  readonly undo: readonly string[];
+  readonly redo: readonly string[];
+} {
   const labels = (history as Partial<KernelHistory>).labels;
   if (labels === undefined) throw new EkzaError('unsupported', 'historyLabels: not a kernel history');
   return labels.call(history);
