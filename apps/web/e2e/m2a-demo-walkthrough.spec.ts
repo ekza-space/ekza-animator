@@ -419,5 +419,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
     await expect.poll(() => call(page, 'counts')).toEqual(counts);
     expect(await call(page, 'curves', clip)).toEqual(curves);
     expect((await call(page, 'state')).dirty).toBe(true);
+    // Back in the clip being edited, not the character's first clip (acceptance fix round 1, bug 5).
+    expect((await call(page, 'state')).activeClip).toBe(clip);
   });
 });

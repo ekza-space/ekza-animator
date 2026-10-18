@@ -169,14 +169,20 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     schedule();
   };
 
-  const info = (): Omit<AutosaveSlotInfo, 'id' | 'bytes'> => ({
-    projectName: app.session.getState().projectName,
-    savedAt: clock.now(),
-    characters: app.store.list('characters').length,
-    clips: app.store.list('clips').length,
-    appVersion: EDITOR_VERSION,
-    schemaVersion: SCHEMA_VERSION,
-  });
+  const info = (): Omit<AutosaveSlotInfo, 'id' | 'bytes'> => {
+    const state = app.session.getState();
+    return {
+      projectName: state.projectName,
+      savedAt: clock.now(),
+      characters: app.store.list('characters').length,
+      clips: app.store.list('clips').length,
+      appVersion: EDITOR_VERSION,
+      schemaVersion: SCHEMA_VERSION,
+      // Recovery returns to the clips being edited (fix round 1; the session is not part of the document).
+      activeCharacter: state.activeCharacter,
+      activeClip: { ...state.activeClip },
+    };
+  };
 
   /**
    * One write of the slot. A `queued` write (the cadence's, not `writeNow`) runs an idle callback or a write later

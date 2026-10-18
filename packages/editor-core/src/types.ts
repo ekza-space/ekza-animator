@@ -126,6 +126,10 @@ export interface AutosaveSlotInfo {
   readonly bytes: number;                                         // snapshot JSON + new asset bytes
   readonly appVersion: string;
   readonly schemaVersion: number;
+  /** Fix round 1: the session's active character and clips at the write; recovery returns to them. Older slots
+   *  lack them (recovery then opens each character's first clip). */
+  readonly activeCharacter?: CharacterId | null;
+  readonly activeClip?: Readonly<Record<CharacterId, ClipId>>;
 }
 export interface AutosaveStatus {
   readonly enabled: boolean;                                      // false: storage unavailable or prefs off

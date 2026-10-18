@@ -1,10 +1,11 @@
 // Autosave and crash recovery (M2A-SPEC §4.9 `file.recover`, `file.discardRecovery`, `file.autosaveNow`, §5.20).
 // The host starts the autosave controller (`startAutosave`, browser shell); without one these operators poll-fail.
 import { EkzaError } from '@ekza-animator/anim-core';
-import { migrateSnapshot } from '@ekza-animator/doc';
+import { type CharacterId, type ClipId, migrateSnapshot } from '@ekza-animator/doc';
 import { autosaveOf } from '../../app/autosave';
-import { GLOBAL_SCOPE } from '../../types';
+import { type EditorApp, GLOBAL_SCOPE } from '../../types';
 import { loadProject, type OpenedProject } from '../../workflows/project';
+import { activateClip } from '../../workflows/session';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
 
 const OFF = 'Autosave is off in this editor';
@@ -25,6 +26,30 @@ interface Recovered extends OpenedProject {
   readonly slot: string;
   readonly projectName: string;
   readonly savedAt: number | null;
+  /** The session's active character and clips when the slot was written (absent in older slots). */
+  readonly activeCharacter: CharacterId | null;
+  readonly activeClip: Readonly<Record<CharacterId, ClipId>>;
+}
+
+/**
+ * Returns the session to the character and clips that were active when the slot was written, where they exist
+ * (after `loadProject`, whose session repair opened each character's first clip): the other characters' clips as
+ * recorded, then the active character's clip at its start frame (`activateClip`, as `clip.setActive`).
+ */
+function restoreActiveClips(app: EditorApp, recovered: Recovered): void {
+  const state = app.session.getState();
+  const activeClip: Record<CharacterId, ClipId> = { ...state.activeClip };
+  let changed = false;
+  for (const [character, clip] of Object.entries(recovered.activeClip) as [CharacterId, ClipId][]) {
+    if (app.store.get('clips', clip)?.character !== character || activeClip[character] === clip) continue;
+    activeClip[character] = clip;
+    changed = true;
+  }
+  if (changed) app.session.setState({ activeClip });
+  const character = recovered.activeCharacter;
+  const clipId = character === null ? undefined : activeClip[character];
+  const clip = clipId === undefined ? undefined : app.store.get('clips', clipId);
+  if (clip !== undefined) activateClip(app, app.store, clip);
 }
 
 const fileRecover = defineOperator<'file.recover', Recovered>({
@@ -66,10 +91,13 @@ const fileRecover = defineOperator<'file.recover', Recovered>({
       warnings,
       projectName: migrated.snapshot.tables.project?.['project']?.name ?? info?.projectName ?? 'Untitled',
       savedAt: info?.savedAt ?? null,
+      activeCharacter: info?.activeCharacter ?? null,
+      activeClip: info?.activeClip ?? {},
     };
   },
   apply({ app }, _args, recovered) {
     loadProject(app, recovered);
+    restoreActiveClips(app, recovered);
     // Recovered work is unsaved work: dirty, history empty (loadProject), the dialog closed.
     app.session.setState({ dirty: true, dialog: null });
     autosaveOf(app)?.markRecovered(recovered.slot);

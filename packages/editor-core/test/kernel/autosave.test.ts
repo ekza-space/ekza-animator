@@ -500,6 +500,37 @@ describe('file.autosaveNow, file.recover, file.discardRecovery', () => {
     expect(memory.slots.has(orphan)).toBe(false);
   });
 
+  // Acceptance fix round 1, bug 5: recovery reopened each character's first clip, not the clip being edited.
+  it('recovers into the clip that was active when the slot was written; older slots open the first clip', async () => {
+    const first = setup();
+    await first.controller.ready;
+    const { clip: walk } = (await runOk(first.app, 'clip.new', { name: 'walk' })) as { clip: string };
+    edit(first.app, 0.42);
+    await first.controller.writeNow();
+    const written = first.memory?.writes.at(-1);
+    expect(written?.info).toMatchObject({ activeCharacter: WAVE.character, activeClip: { [WAVE.character]: walk } });
+
+    for (const withSession of [true, false]) {
+      const memory = memoryStore();
+      const { activeCharacter, activeClip, ...older } = written?.info ?? ({} as never);
+      const orphan = memory.addOrphan(
+        withSession ? { ...(written?.info ?? { savedAt: 1 }) } : { ...older },
+        written?.snapshotJson ?? '',
+      );
+      const { app, controller } = setup({ memory, snapshot: { ...waveDoc(), tables: {} } as DocSnapshot });
+      await controller.ready;
+      await runOk(app, 'file.recover', { slot: orphan });
+      const state = app.session.getState();
+      expect([withSession, state.activeCharacter, state.activeClip[WAVE.character]]).toEqual([
+        withSession,
+        WAVE.character,
+        withSession ? walk : WAVE.clip,
+      ]);
+      expect(activeCharacter).toBe(WAVE.character);
+      expect(activeClip).toEqual({ [WAVE.character]: walk });
+    }
+  });
+
   it('recover refuses a slot that is gone; discard removes a slot and its row', async () => {
     const memory = memoryStore();
     const a = memory.addOrphan({ savedAt: 999_000 }, JSON.stringify(waveDoc()));

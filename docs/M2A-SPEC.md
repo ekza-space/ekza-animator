@@ -444,6 +444,10 @@ export interface AutosaveSlotInfo {
   readonly bytes: number;                                         // snapshot JSON + new asset bytes
   readonly appVersion: string;
   readonly schemaVersion: number;
+  /** Fix round 1: the session's active character and clips at the write; recovery returns to them. Older slots
+   *  lack them (recovery then opens each character's first clip). */
+  readonly activeCharacter?: CharacterId | null;
+  readonly activeClip?: Readonly<Record<CharacterId, ClipId>>;
 }
 export interface AutosaveStatus {
   readonly enabled: boolean;                                      // false: storage unavailable or prefs off
@@ -1516,7 +1520,9 @@ selected controls and the help line says so. Gate: `S` with `fk.hand.L` selected
   Later (keeps them; no prompt again in this page load). Recover runs `file.recover`: the `file.openProject` path on
   the slot's snapshot and assets (migrations, read-only rule), then `dirty: true`, history empty, toast "Recovered
   '<name>' from <time>. Save it to keep it." The recovered slot is removed after this page's first successful
-  autosave.
+  autosave. The slot info records the active character and clips of each write (fix round 1, M2A-INT-23), and
+  `file.recover` returns to them when they exist (the active character's clip at its start frame, as `clip.setActive`);
+  otherwise, and for older slots, each character opens its first clip.
 - **Housekeeping**: orphans older than 14 days are removed at start; at most 5 orphans are kept (oldest removed);
   unreferenced assets are deleted. A quota error pauses autosave until the next save and shows one warning toast.
 - **Storage unavailable** (private mode, blocked, `storage=blocked`): autosave is off, one info toast "Autosave is
