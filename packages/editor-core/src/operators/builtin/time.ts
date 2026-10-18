@@ -249,7 +249,12 @@ export const TIME_OPERATORS: readonly AnyOperator[] = [
   }),
   stubOperator('time.insertTime', 'Insert Time', {
     category: 'time',
-    description: 'Insert or remove frames after a frame, shifting the later keys.',
+    description: 'Insert or remove frames after a frame (default: the current frame), shifting the later keys.',
+    undo: true,
+  }),
+  stubOperator('time.deleteTime', 'Delete Time', {
+    category: 'time',
+    description: 'Remove the frames of the time-slider range (or the current frame) and their keys.',
     undo: true,
   }),
   setFrame,

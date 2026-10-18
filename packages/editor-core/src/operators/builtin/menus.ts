@@ -138,12 +138,12 @@ const M2A_MENU_ITEMS: readonly MenuItemDef[] = [
   ...items('rig', 'ik', [{ name: 'addLimbIk', op: 'rig.addLimbIk', label: 'Add Limb IK' }]),
   ...IK_FK_ITEMS,
 
-  // Time › Insert Frame / Remove Frame / Delete Time act at the current frame (Delete Time: on the band); the
-  // menu-bar items pass no `at` (A3 resolves it, see docs/wp-notes/m2a-contracts-foundation.md).
+  // Time › Insert Frame / Remove Frame act at the current frame (`time.insertTime` without `at`); Delete Time removes
+  // the band's frames, or the current frame without a band (`time.deleteTime` without `range`), M2A-SPEC §5.9.
   ...items('time', 'insert', [
     { name: 'insertFrame', op: 'time.insertTime', args: { frames: 1 }, label: 'Insert Frame' },
     { name: 'removeFrame', op: 'time.insertTime', args: { frames: -1 }, label: 'Remove Frame' },
-    { name: 'deleteTime', op: 'time.insertTime', args: { frames: -1, removeKeys: true }, label: 'Delete Time' },
+    { name: 'deleteTime', op: 'time.deleteTime', label: 'Delete Time' },
   ]),
 
   ...items('graph.buffer', 'buffer', [

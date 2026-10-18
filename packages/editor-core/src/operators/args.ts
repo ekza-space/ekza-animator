@@ -191,9 +191,18 @@ export interface OperatorMap {
   'pose.mirrorAnimation': { args: { readonly mode: MirrorMode; readonly offset?: 'none' | 'halfCycle';
     readonly controls?: readonly ControlId[] }; result: CountResult };
   // time
-  /** `removeKeys` (default false): with frames < 0, delete keys in (at, at + |frames|] instead of poll-failing (§5.9). */
-  'time.insertTime': { args: { readonly at: Frame; readonly frames: number; readonly target?: 'selected' | 'character';
+  /**
+   * `at` (default: the active character's current clip frame; the menu-bar items pass none). `removeKeys` (default
+   * false): with frames < 0, delete keys in (at, at + |frames|] instead of poll-failing (§5.9).
+   */
+  'time.insertTime': { args: { readonly at?: Frame; readonly frames: number; readonly target?: 'selected' | 'character';
     readonly removeKeys?: boolean }; result: CountResult };
+  /**
+   * Delete Time (§5.9): removes the frames of `range` (default: the time-slider band, else the current clip frame) and
+   * their keys, as `time.insertTime {at: start − 1, frames: −(end − start + 1), removeKeys: true}`.
+   */
+  'time.deleteTime': { args: { readonly range?: { readonly start: Frame; readonly end: Frame };
+    readonly target?: 'selected' | 'character' } | void; result: CountResult };
   // graph and dope sheet
   'graph.keys.copyTo': { args: { readonly dFrames: number }; result: CountResult };
   'graph.buffer.snapshot': { args: { readonly curves?: readonly CurveId[] } | void; result: CountResult };

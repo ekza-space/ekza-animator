@@ -22,6 +22,9 @@ const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['key.convert', { to: 'breakdown' }],
   ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
   ['time.insertTime', { at: 10, frames: 1 }],
+  ['time.insertTime', { frames: -1 }],
+  ['time.deleteTime', undefined],
+  ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
   ['graph.keys.copyTo', { dFrames: 4 }],
   ['graph.buffer.snapshot', undefined],
   ['graph.buffer.swap', undefined],
@@ -242,7 +245,14 @@ describe('menus (§7)', () => {
     }
     expect(find('time', 'time.insertTime', { frames: 1 })?.label).toBe('Insert Frame');
     expect(find('time', 'time.insertTime', { frames: -1 })?.label).toBe('Remove Frame');
-    expect(find('time', 'time.insertTime', { frames: -1, removeKeys: true })?.label).toBe('Delete Time');
+    expect(find('time', 'time.deleteTime')?.label).toBe('Delete Time');
+    // The menu-bar items carry no frame: `at` and `range` default to the current frame and the band (§5.9).
+    for (const item of BUILTIN_MENU_ITEMS.filter((candidate) => candidate.menu === 'time')) {
+      expect([item.label, item.args !== undefined && Object.hasOwn(item.args as object, 'at')]).toEqual([
+        item.label,
+        false,
+      ]);
+    }
     for (const op of ['graph.buffer.snapshot', 'graph.buffer.swap', 'graph.buffer.clear']) {
       expect(find('graph.buffer', op)).toBeDefined();
     }

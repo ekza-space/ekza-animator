@@ -122,6 +122,7 @@ const M2A_OPERATORS: Readonly<Record<string, boolean>> = {
   'key.convert': true,
   'pose.mirrorAnimation': true,
   'time.insertTime': true,
+  'time.deleteTime': true,
   'graph.keys.copyTo': true,
   'graph.buffer.snapshot': false,
   'graph.buffer.swap': true,

@@ -38,6 +38,7 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
     ['key.convert', { to: 'breakdown' }],
     ['pose.mirrorAnimation', { mode: 'flip' }],
     ['time.insertTime', { at: 0, frames: 1 }],
+    ['time.deleteTime', undefined],
     ['graph.keys.copyTo', { dFrames: 1 }],
     ['graph.buffer.snapshot', undefined],
     ['file.autosaveNow', undefined],
