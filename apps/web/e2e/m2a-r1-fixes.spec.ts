@@ -67,3 +67,23 @@ test('fix round 1: the arrow nudge on the time slider moves the band with the ke
   // The band followed (it stayed at 10 before the fix, so a later band drag or scale found no keys there).
   await expect.poll(async () => (await call(page, 'state')).band).toEqual({ start: 12, end: 12 });
 });
+
+test('fix round 1: the Channel Box shows whole channel names with the IK/FK row', async ({ page }) => {
+  await openEditor(page, '&platform=mac');
+  await expectKernelStarted(page);
+  await seedSample(page, 'polybot');
+  await selectIds(page, [await controlIdOf(page, 'ik.leg.L')]);
+  await expect(page.getByTestId('cb-ikfk-row')).toBeVisible();
+  // The switch button's cell had no column of its own: the fixed table split the free width between it and the
+  // names on every row, and 'Translate X/Y/Z' all read 'Translat...' in the default layout at 1440 px.
+  for (const channel of ['tx', 'ty', 'tz', 'rx', '@heelTwist']) {
+    const name = page.getByTestId(`cb-name-${channel}`);
+    const fit = await name.evaluate((element) => ({
+      text: element.textContent,
+      clipped: element.scrollWidth > element.clientWidth,
+    }));
+    expect(fit, channel).toEqual({ text: fit.text, clipped: false });
+  }
+  const switchCell = await page.getByTestId('cb-ikfk-switch').evaluate((b) => b.closest('td')?.getBoundingClientRect());
+  expect(switchCell?.width ?? 0).toBeLessThanOrEqual(32);
+});

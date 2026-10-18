@@ -464,6 +464,9 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
             <colgroup>
               <col />
               <col className="w-[7.5rem]" />
+              {/* The IK/FK row's switch button: a sized column, else the fixed table splits the free width between
+                  it and the names on every row ('Translat...', acceptance fix round 1). */}
+              {limb !== null && proxyRef !== null ? <col className="w-6" /> : null}
             </colgroup>
             <tbody>
               {rows.map((channel) => (
