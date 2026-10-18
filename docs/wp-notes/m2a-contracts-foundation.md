@@ -41,6 +41,16 @@ so the notes live here. Decision IDs below are `M2A-A0-<n>` for DECISIONS-OPEN �
 | M2A-A0-16 | **`--rig-pole-line`** is `rgba(200, 204, 212, 0.6)` (the light foreground at 60 % alpha), added to `packages/ui/tokens.json` and generated into `css/tokens.css` (`node packages/ui/scripts/build-tokens.mjs`). | `tokens.css` is generated; its test checks the source. |
 | M2A-A0-17 | The FR-GE-17 entry of `apps/web/e2e/stretch.spec.ts` is a passing test (§5.23): C¹ at the seam on the wave clip with cyclic infinities, and with a key that gives the seam velocity (non-zero slope). | §5.23 "the stretch.spec.ts FR-GE-17 entry becomes a passing test". |
 
+## Minimal edits in files other packages own after A0
+
+Each is additive and small, so the owners rebase without conflicts: `editor/src/dialogs/DialogHost.tsx` (the
+`'recovery'` case renders nothing until A5's dialog), `editor/src/panels/viewport/StandaloneHost.tsx` (its frame
+loop calls `app.flushScheduled()` first, A2), `editor-core/src/operators/builtin/key.ts` (the `key.setTarget` stub
+and the `key.set` refusals of M2A-A0-4, A2), `rig/src/sampler/cache.ts` (M2A-A0-10, A4), `rig/src/autorig/autoRig.ts`
+(the `ik` option in the signature, A1), `curve-editor/src/graph/{contributions,GraphEditorController}.ts` (the
+`graph.view.setMode` stub and the controller's view-mode stubs, A4), `io/src/testing/poseSource.ts` (the new
+`RigProgram` fields).
+
 ## Literal updates (§3 rule 8)
 
 Every assertion kept; each commit message names the test and the contract row.
