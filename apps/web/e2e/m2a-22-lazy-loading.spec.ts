@@ -2,7 +2,8 @@
 // every script response until the test API is ready and the empty state shows: none carries the model loader
 // (three-vrm, GLTFLoader), the import pipelines, the export path (glTF Transform), the project archive (fflate) or a
 // dialog. Then the Polybot sample button loads the model loader, the import pipelines and the sample. The size gate
-// itself runs in CI (`check:size`).
+// itself runs in CI (`check:size`). A chunk that cannot arrive (offline after load, a redeploy) closes its dialog with
+// a toast and leaves the editor running (M2A-A5-10).
 import { expect, type Page, test } from '@playwright/test';
 import { controlId } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
