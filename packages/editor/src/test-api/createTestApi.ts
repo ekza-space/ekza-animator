@@ -583,6 +583,15 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     },
   };
 
+  // Every probe-backed read sees the pending once-per-frame updates too (the kernel-level reads call `sync` above).
+  for (const name of SYNCED_PROBE_READS) {
+    const read = api[name] as (...args: unknown[]) => unknown;
+    (api as unknown as Record<string, unknown>)[name] = (...args: unknown[]): unknown => {
+      sync();
+      return read(...args);
+    };
+  }
+
   return {
     api,
     dispose(): void {
@@ -590,3 +599,25 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     },
   };
 }
+
+/** Test API reads answered by panel probes or the ViewportManager (screen positions, panel state). */
+const SYNCED_PROBE_READS = [
+  'panes',
+  'cameraOf',
+  'screenOfControl',
+  'screenOfManipulator',
+  'graph',
+  'screenOfKey',
+  'screenOfHandle',
+  'screenOfCurve',
+  'screenOfFrame',
+  'screenOfTick',
+  'dopeSheet',
+  'screenOfDopeKey',
+  'screenOfDopeRegion',
+  'timelineTicks',
+  'screenOfBand',
+  'screenOfRegionHandle',
+  'screenOfTween',
+  'tweenTarget',
+] as const satisfies readonly (keyof EkzaAnimatorTestApi)[];

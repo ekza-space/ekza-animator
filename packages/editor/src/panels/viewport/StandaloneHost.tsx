@@ -38,6 +38,8 @@ export function StandaloneHost(props: { readonly app: EditorApp }): JSX.Element 
     let frame = 0;
     const draw = (): void => {
       frame = 0;
+      // The frame loop's first step (M2A-SPEC §4.5): coalesced gesture updates scheduled before this frame.
+      app.flushScheduled();
       app.evaluation.tick();
       vm.render();
     };
