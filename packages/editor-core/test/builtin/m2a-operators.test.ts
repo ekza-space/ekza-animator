@@ -48,7 +48,7 @@ describe('M2a operator stubs (§3 rule 1)', () => {
     for (const [id] of M2A_STUB_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
-  it('key.set keys body-part targets and breakdown keys (A2 landed them; details in key-m2a.test.ts)', async () => {
+  it('key.set keys body-part targets and breakdown keys (A2 landed them; details in m2a-a2-keying.test.ts)', async () => {
     const app = opsApp();
     app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.handL] } });
     const breakdown = await runResult(app, 'key.set', { breakdown: true });
