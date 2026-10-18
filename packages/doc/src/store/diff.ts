@@ -25,7 +25,12 @@ export function deepEqual(a: unknown, b: unknown): boolean {
     const value = left[key];
     if (value === undefined) continue;
     definedLeft++;
-    if (!Object.hasOwn(right, key) || !deepEqual(value, right[key])) return false;
+    if (!Object.hasOwn(right, key)) return false;
+    const other = right[key];
+    // M-1: equal primitives (the common case for record fields) without a recursive call.
+    if (value === other) continue;
+    if (typeof value !== 'object' && typeof value !== 'number') return false;
+    if (!deepEqual(value, other)) return false;
   }
   let definedRight = 0;
   for (const key in right) {

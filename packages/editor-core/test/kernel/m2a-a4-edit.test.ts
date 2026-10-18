@@ -478,3 +478,33 @@ describe('tween modes list', () => {
     for (const mode of modes) expect(Number.isFinite(tweenValue(mode, 30, entry()))).toBe(true);
   });
 });
+
+describe('M-1 mechanism 6: no pose change, no re-evaluation event (§5.21.1)', () => {
+  it('a key edit that leaves the current frame’s values unchanged reports no pose change', () => {
+    const app = waveApp();
+    setFrame(app, 0);
+    app.evaluation.tick();
+    const events: (readonly string[])[] = [];
+    const off = app.evaluation.subscribe((event) => events.push(event.characters));
+    const version = app.evaluation.poseVersion;
+    // The key at 30 changes; frame 0 sits on the first key (value unchanged).
+    edit(app, 'far key', (tx) => {
+      const key = tx.get('keys', WAVE.keys[2]);
+      if (key !== undefined) tx.put('keys', { ...key, v: key.v + 0.5 });
+    });
+    expect(app.evaluation.tick()).toBe(false);
+    expect(app.evaluation.poseVersion).toBe(version);
+    expect(events).toEqual([]);
+    // The key at 0 changes: the pose changes and is reported.
+    edit(app, 'near key', (tx) => {
+      const key = tx.get('keys', WAVE.keys[0]);
+      if (key !== undefined) tx.put('keys', { ...key, v: key.v + 0.5 });
+    });
+    expect(app.evaluation.tick()).toBe(true);
+    expect(events).toEqual([[WAVE.character]]);
+    // An override at the frame is a change too.
+    app.session.setState({ overrides: new Map([[ARM, { rx: 0.25 }]]) });
+    expect(app.evaluation.tick()).toBe(true);
+    off();
+  });
+});

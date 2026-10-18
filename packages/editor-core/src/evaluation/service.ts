@@ -51,6 +51,29 @@ export function createEvaluationService(ctx: {
     CharacterRuntime,
     { clip: ClipId | null; frame: Frame | null; program: RigProgram }
   >();
+  /**
+   * M-1 mechanism 6 (M2A-SPEC §5.21.1): the channels each runtime's pose was last evaluated from. A re-evaluation
+   * whose sampled channels (curves ⊕ overrides) are bit-identical keeps the pose and reports no pose change, so the
+   * frame loop renders no viewport frame for it (a drag of keys that leaves the current frame's values unchanged).
+   */
+  const lastChannels = new WeakMap<CharacterRuntime, { program: RigProgram; values: Float64Array; attrs: Float64Array }>();
+
+  /** True when `channels` equal the last evaluated ones of `runtime` (same program); else remembers them. */
+  const sameAsLast = (runtime: CharacterRuntime, program: RigProgram, channels: ChannelBuffer): boolean => {
+    const last = lastChannels.get(runtime);
+    if (last !== undefined && last.program === program && equalArrays(last.values, channels.values) &&
+      equalArrays(last.attrs, channels.attrs)) {
+      return true;
+    }
+    if (last === undefined || last.program !== program || last.values.length !== channels.values.length ||
+      last.attrs.length !== channels.attrs.length) {
+      lastChannels.set(runtime, { program, values: channels.values.slice(), attrs: channels.attrs.slice() });
+    } else {
+      last.values.set(channels.values);
+      last.attrs.set(channels.attrs);
+    }
+    return false;
+  };
   /** Reused per tick (listeners must not keep it). */
   const evaluated: CharacterId[] = [];
   /** Scratch channel buffers for `evaluateAt`, per program. */
@@ -100,7 +123,8 @@ export function createEvaluationService(ctx: {
     return { curve, frame: clipFrame(character) };
   };
 
-  const evaluateRuntime = (runtime: CharacterRuntime): void => {
+  /** Samples and evaluates a runtime; false when its channels did not change (the pose is kept, M-1). */
+  const evaluateRuntime = (runtime: CharacterRuntime): boolean => {
     const state = session.getState();
     const clip = activeClipOf(store, state, runtime.id);
     const frame = clip === undefined ? null : clipFrameAt(deps, sceneFpsOf(store), clip, state.time.sceneFrame);
@@ -108,7 +132,6 @@ export function createEvaluationService(ctx: {
     if (clip === undefined || frame === null) program.resetChannels(runtime.channels);
     else runtime.sampler(clip.id).sample(frame, runtime.channels);
     if (state.overrides.size > 0) deps.rig.applyOverrides(program, runtime.channels, state.overrides);
-    program.evaluate(runtime.channels, runtime.pose);
     const last = evaluatedAt.get(runtime);
     if (last === undefined) evaluatedAt.set(runtime, { clip: clip?.id ?? null, frame, program });
     else {
@@ -116,6 +139,9 @@ export function createEvaluationService(ctx: {
       last.frame = frame;
       last.program = program;
     }
+    if (sameAsLast(runtime, program, runtime.channels)) return false;
+    program.evaluate(runtime.channels, runtime.pose);
+    return true;
   };
 
   /** True when the runtime's clip, clip frame or program differ from its last evaluation. */
@@ -137,8 +163,7 @@ export function createEvaluationService(ctx: {
       evaluated.length = 0;
       for (const runtime of characters.list()) {
         if (!allDirty && !dirty.has(runtime.id) && !stale(runtime)) continue;
-        evaluateRuntime(runtime);
-        evaluated.push(runtime.id);
+        if (evaluateRuntime(runtime)) evaluated.push(runtime.id);
       }
       allDirty = false;
       dirty.clear();
@@ -230,4 +255,17 @@ export function createEvaluationService(ctx: {
     },
   };
   return service;
+}
+
+/** Bit-identical Float64Arrays (NaN equals NaN, +0 differs from −0: the pose may differ by a sign). */
+function equalArrays(a: Float64Array, b: Float64Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] as number;
+    const y = b[i] as number;
+    if (x !== y || (x === 0 && 1 / x !== 1 / y)) {
+      if (!(Number.isNaN(x) && Number.isNaN(y))) return false;
+    }
+  }
+  return true;
 }

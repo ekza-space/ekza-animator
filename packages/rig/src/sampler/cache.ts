@@ -66,6 +66,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
   };
   const curveRecordOf = (id: CurveId): CurveRecord | undefined => store.getIncludingDeleted('curves', id);
 
+  /** Curves whose keys changed in the batch being processed (each forgotten once, M-1 mechanism 4). */
+  const keyed = new Set<CurveId>();
   const onChange = (change: AnyChange): boolean => {
     if (change.table === 'curves') {
       forget(change.id);
@@ -74,11 +76,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return true;
     }
     if (change.table === 'keys') {
-      for (const key of [change.before, change.after]) {
-        if (key === undefined) continue;
-        forget(key.curve);
-        forgetChannel(curveRecordOf(key.curve));
-      }
+      if (change.before !== undefined) keyed.add(change.before.curve);
+      if (change.after !== undefined) keyed.add(change.after.curve);
       return true;
     }
     return false;
@@ -94,6 +93,12 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
     }
     let touched = false;
     for (const change of batch.changes) touched = onChange(change) || touched;
+    // Only the curves the batch touched recompile (on their next read); a 1,000-key drag of 30 curves forgets 30.
+    for (const curve of keyed) {
+      forget(curve);
+      forgetChannel(curveRecordOf(curve));
+    }
+    keyed.clear();
     if (touched) version++;
   });
 

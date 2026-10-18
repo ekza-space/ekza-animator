@@ -46,11 +46,17 @@ export function hasTombstone(record: Row): boolean {
 
 /** A shallow copy without top-level `undefined` values: stored records never alias the caller's object. */
 export function normalizeRow(record: object): Row {
-  const out: Record<string, unknown> = {};
-  for (const key in record) {
-    if (!Object.hasOwn(record, key)) continue;
-    const value = (record as Readonly<Record<string, unknown>>)[key];
-    if (value !== undefined) out[key] = value;
+  // M-1: a spread copy (fast for the plain records the store sees), then the rare `undefined` fields removed.
+  return dropUndefined({ ...(record as Readonly<Record<string, unknown>>) });
+}
+
+/** `copy` itself when no top-level value is `undefined`, else a copy without them (`copy` is the caller's own). */
+export function dropUndefined(copy: Record<string, unknown>): Row {
+  for (const key in copy) {
+    if (copy[key] !== undefined) continue;
+    const defined: Record<string, unknown> = {};
+    for (const field in copy) if (copy[field] !== undefined) defined[field] = copy[field];
+    return defined as Row;
   }
-  return out as Row;
+  return copy as Row;
 }

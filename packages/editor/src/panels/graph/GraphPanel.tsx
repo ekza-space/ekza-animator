@@ -8,6 +8,7 @@ import { type JSX, useCallback, useEffect, useMemo, useState, useSyncExternalSto
 import { useOptionalShell } from '../../shell/context';
 import { Group, Panel, Separator as SplitSeparator } from 'react-resizable-panels';
 import { useDocQuery, useSession } from '../../hooks';
+import { useCommittedDocQuery } from './committedQuery';
 import type { PanelProps } from '../types';
 import { ChannelList, channelLockState, type ModifierEvent, modifiers } from './ChannelList';
 import { GraphCanvas } from './GraphCanvas';
@@ -84,7 +85,7 @@ export function GraphPanel({ app, instanceId }: PanelProps): JSX.Element {
     },
     [app, character, clipId, selectedControls, filter, onlyAnimated],
   );
-  const { controls, tree: readTreeResult } = useDocQuery(readTree, DOC_TABLES);
+  const { controls, tree: readTreeResult } = useCommittedDocQuery(readTree, DOC_TABLES);
   // Key edits (every drag update) re-read the tree; keep the previous one while it shows the same rows, so the
   // channel list and the curve view are not re-rendered for them.
   const [tree, setTree] = useState(readTreeResult);
@@ -95,13 +96,13 @@ export function GraphPanel({ app, instanceId }: PanelProps): JSX.Element {
   if (!sameIds(visible, visibleRaw)) setVisible(visibleRaw);
 
   const readKeys = useCallback((store: DocumentStore) => selectedKeys(store, keySelection), [keySelection]);
-  const keys = useDocQuery(readKeys, ['keys', 'curves', 'clips']);
+  const keys = useCommittedDocQuery(readKeys, ['keys', 'curves', 'clips']);
   const fields = useMemo(() => keyFieldValues(app, keys), [app, keys]);
   const readToolbar = useCallback(
     (store: DocumentStore) => toolbarState(store, keys, channelSelection, visible),
     [keys, channelSelection, visible],
   );
-  const toolbar = useDocQuery(readToolbar, ['curves', 'keys']);
+  const toolbar = useCommittedDocQuery(readToolbar, ['curves', 'keys']);
   const readLocks = useCallback(
     (store: DocumentStore) => (node: Parameters<typeof channelLockState>[1]) => channelLockState(store, node),
     [],
