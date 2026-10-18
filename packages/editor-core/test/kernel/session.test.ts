@@ -36,7 +36,7 @@ describe('defaultSession', () => {
         viewport: 'select',
         graph: 'select',
         manipulatorSize: 90,
-        selectionMask: { controls: true, joints: false, meshes: false },
+        selectionMask: { controls: true, joints: false, meshes: false, groups: false },
         keyTarget: 'selected',
       },
       showSecondary: false,
