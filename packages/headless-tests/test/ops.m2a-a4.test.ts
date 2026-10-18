@@ -118,3 +118,39 @@ describe.skipIf(!SIBLINGS_READY)(`mirror animation on Seed-san ${BLOCKED}`, { ti
     }
   });
 });
+
+// Acceptance fix round 1, bug 6: Polybot's secondary controls pair badly (sec.mixamorig_* against Right*), and a
+// whole-character mirror listed every unpaired control in one toast of ~1,000 characters over the panels. Unpaired
+// controls are summarised in one short line (count and at most three names), for Mirror Animation and Mirror Pose.
+describe.skipIf(!SIBLINGS_READY)(`mirror warnings on Polybot ${BLOCKED}`, { timeout: 120_000 }, () => {
+  it('a whole-character mirror warns in one short line', async () => {
+    const { app, services } = realApp();
+    await importFixture(app, 'polybot.vrm');
+    const { clip } = (await runOk(app, 'clip.new', { name: 'walk' })) as { clip: string };
+    await runOk(app, 'clip.setSettings', { clip, range: { start: 0, end: 24 }, loop: true });
+    const controls = controlsOf(app);
+    const unpaired = controls.filter((control) => control.side !== 'C' && control.mirror === null);
+    expect(unpaired.length).toBeGreaterThan(3);
+    const upper = controls.find((control) => control.key === 'fk.upperArm.L');
+    if (upper === undefined) throw new Error('no fk.upperArm.L');
+    await key(app, upper.id, 'rx', [
+      [0, 0.3],
+      [12, -0.3],
+      [24, 0.3],
+    ]);
+    await runOk(app, 'select.controls', { ids: [], mode: 'replace' });
+    for (const [operator, args] of [
+      ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
+      ['pose.mirrorAnimation', { mode: 'flip' }],
+      ['pose.mirror', { mode: 'flip' }],
+    ] as const) {
+      const before = services.toasts.length;
+      await runOk(app, operator, args);
+      const warnings = services.toasts.slice(before).filter((toast) => toast.kind === 'warning');
+      expect(warnings, operator).toHaveLength(1);
+      const text = warnings[0]?.text ?? '';
+      expect(text, operator).toMatch(/^\d+ controls have no mirror counterpart and were left unchanged \(/);
+      expect(text.length, `${operator}: ${text}`).toBeLessThanOrEqual(240);
+    }
+  });
+});

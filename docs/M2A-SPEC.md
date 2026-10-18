@@ -1343,7 +1343,10 @@ silently doing nothing; `flip` keeps the selected scope.
   tangent types, `dt`, `broken`, `weightLocked`, `breakdown`, `weighted` and infinities are copied. Controls whose
   rest frame is not world-aligned (humanoid secondary controls) cannot be mirrored per key and per curve (M1
   `mirrorPose` composes them non-linearly with the rest frames): they are skipped and the result warns "3 secondary
-  controls were not mirrored" (A4 test on Seed-san's secondary controls).
+  controls were not mirrored" (A4 test on Seed-san's secondary controls). Controls without a counterpart are
+  summarised in one line, first: "14 controls have no mirror counterpart and were left unchanged (R Toes,
+  sec.RightHandIndex2, sec.RightHandIndex3 and 11 more)" (one control keeps its own line); Mirror Pose likewise (fix
+  round 1, M2A-INT-24: a whole-character mirror of Polybot listed every one in a ~1,000-character toast).
 - `flip`: each pair swaps mirrored curves; side `C` controls get their own mirrored curves. `leftToRight` /
   `rightToLeft`: the target side's curves are replaced by the source side's mirrored curves; side `C` controls are
   unchanged.

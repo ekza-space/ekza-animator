@@ -8,7 +8,7 @@ import { internalsOf } from '../../src/app/internals';
 import { ensureCurve } from '../../src/edit/keys';
 import { beginTweenGesture } from '../../src/edit/tween';
 import type { EditorApp } from '../../src/types';
-import { halfCycleKeys, mirrorSign } from '../../src/workflows/mirrorAnimation';
+import { halfCycleKeys, mirrorSign, summarizeMirrorWarnings } from '../../src/workflows/mirrorAnimation';
 import {
   DEG,
   docJson,
@@ -646,5 +646,26 @@ describe('halfCycleKeys with the AnimX engine (anim-core, cycle-aware)', () => {
     };
     expect(gate(weighted, { start: 0, end: 24 }).worst).toBeCloseTo(0, 9);
     expect(curveEngine).toBeDefined();
+  });
+});
+
+describe('summarizeMirrorWarnings (acceptance fix round 1)', () => {
+  const unpaired = (name: string) => `${name} has no mirror counterpart and was left unchanged`;
+  it('collapses unpaired controls into one line first: the count and at most three names', () => {
+    expect(summarizeMirrorWarnings([])).toEqual([]);
+    expect(summarizeMirrorWarnings([unpaired('R Toes'), '2 locked channels were not changed'])).toEqual([
+      unpaired('R Toes'),
+      '2 locked channels were not changed',
+    ]);
+    expect(summarizeMirrorWarnings(['5 secondary controls were not mirrored', unpaired('A'), unpaired('B')])).toEqual([
+      '2 controls have no mirror counterpart and were left unchanged (A and B)',
+      '5 secondary controls were not mirrored',
+    ]);
+    expect(summarizeMirrorWarnings(['A', 'B', 'C', 'D', 'E'].map(unpaired))).toEqual([
+      '5 controls have no mirror counterpart and were left unchanged (A, B, C and 2 more)',
+    ]);
+    expect(summarizeMirrorWarnings(['A', 'B', 'C'].map(unpaired))).toEqual([
+      '3 controls have no mirror counterpart and were left unchanged (A, B and C)',
+    ]);
   });
 });

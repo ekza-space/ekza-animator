@@ -16,6 +16,7 @@ import {
 } from '@ekza-animator/rig';
 import { applyChannelEdits } from '../../edit/channels';
 import { channelsAt, limbContext, plantIkLeg } from '../../workflows/ik';
+import { summarizeMirrorWarnings } from '../../workflows/mirrorAnimation';
 import type { ChannelEditResult, CharacterRuntime, EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import {
@@ -224,7 +225,8 @@ const poseMirror = defineOperator({
     const attrSnapshot = currentAttrValues(app, ids, 'keyable');
     const snapshot = mergeChannelValues(currentValues(app, ids), attrSnapshot);
     const scope = mirrorScope(app);
-    const { values, warnings } = mirrorPose(runtime.program, snapshot, args.mode, scope);
+    const { values, warnings: raw } = mirrorPose(runtime.program, snapshot, args.mode, scope);
+    const warnings = summarizeMirrorWarnings(raw);
     if (warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: warnings.join('; ') });
     // M2a §5.8: attributes map by AttrDef.mirror (ikFk copies, so the mirrored pose carries the limb mode); the
     // same mapping as the rig's, for a rig whose mirror leaves attributes out.
