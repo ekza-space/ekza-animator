@@ -14,15 +14,9 @@ import { opsApp, runOk, runResult, WAVE } from './support';
  * m2a-a2-*.test.ts).
  */
 const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
-  ['key.toggleRipple', undefined],
   ['key.tween', { mode: 'tween', amount: 50 }],
   ['key.convert', { to: 'breakdown' }],
   ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
-  ['time.insertTime', { at: 10, frames: 1 }],
-  ['time.insertTime', { frames: -1 }],
-  ['time.deleteTime', undefined],
-  ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
-  ['graph.keys.copyTo', { dFrames: 4 }],
   ['graph.buffer.snapshot', undefined],
   ['graph.buffer.swap', undefined],
   ['graph.buffer.clear', undefined],
@@ -30,6 +24,9 @@ const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['file.discardRecovery', { slot: 'as_0000000000000000' }],
   ['file.autosaveNow', undefined],
 ];
+
+/** M2a operators A3 implemented (behaviour in m2a-timing-operators.test.ts): registered, no longer stubs. */
+const A3_OPERATORS: readonly string[] = ['key.toggleRipple', 'time.insertTime', 'time.deleteTime', 'graph.keys.copyTo'];
 
 describe('M2a operator stubs (§3 rule 1)', () => {
   it('resolve and poll-fail with "not available yet"', async () => {
@@ -46,6 +43,7 @@ describe('M2a operator stubs (§3 rule 1)', () => {
   it('are listed with the other built-ins', () => {
     const ids = new Set<string>(BUILTIN_OPERATORS.map((def) => def.id));
     for (const [id] of M2A_STUB_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
+    for (const id of A3_OPERATORS) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
   it('key.set keys body-part targets and breakdown keys (A2 landed them; details in m2a-a2-keying.test.ts)', async () => {

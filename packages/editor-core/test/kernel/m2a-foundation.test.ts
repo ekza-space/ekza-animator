@@ -554,10 +554,12 @@ describe('contract stubs (§3 rule 1)', () => {
     };
     edit(app, 'Stubs', (tx) => {
       expect(code(() => scaleKeyValues(app, tx, [], 0, 1))).toBe('not-implemented:editor-core.scaleKeyValues');
-      expect(code(() => copyKeys(app, tx, [] as KeyId[], 1, { snap: true, resolveCollisions: true }))).toBe(
-        'not-implemented:editor-core.copyKeys',
-      );
-      expect(code(() => insertTime(app, tx, [], 0, 1))).toBe('not-implemented:editor-core.insertTime');
+      // A3 implemented copyKeys and insertTime (m2a-timing.test.ts): no longer stubs.
+      expect(copyKeys(app, tx, [] as KeyId[], 1, { snap: true, resolveCollisions: true })).toEqual({
+        created: [],
+        deleted: [],
+      });
+      expect(insertTime(app, tx, [], 0, 1)).toEqual({ moved: 0, deleted: [] });
     });
     expect(code(() => tweenEdits(app, 'tween', 0, { kind: 'keys', keys: [] }))).toBe(
       'not-implemented:editor-core.tweenEdits',

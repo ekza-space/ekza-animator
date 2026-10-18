@@ -4,7 +4,13 @@ import { PANEL } from '@ekza-animator/editor-core';
 import type { PanelRegistry } from '../types';
 import { TimelinePanel } from './TimelinePanel';
 
-export { focusedTimeSlider, screenOfTimelineFrame, screenOfTimelineTick } from './host';
+export {
+  focusedTimeSlider,
+  screenOfTimelineBand,
+  screenOfTimelineFrame,
+  screenOfTimelineTick,
+  timelineTicksOf,
+} from './host';
 
 export const TIMELINE_PANEL_ID = 'timeline';
 

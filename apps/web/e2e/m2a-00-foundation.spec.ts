@@ -32,18 +32,25 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
 
   // A2's operators (rig IK, pick-walk, key target) left this list when they landed (m2a-18, m2a-19, m2a-25).
   for (const [op, args] of [
-    ['key.toggleRipple', undefined],
     ['key.tween', { mode: 'tween', amount: 50 }],
     ['key.convert', { to: 'breakdown' }],
     ['pose.mirrorAnimation', { mode: 'flip' }],
-    ['time.insertTime', { at: 0, frames: 1 }],
-    ['time.deleteTime', undefined],
-    ['graph.keys.copyTo', { dFrames: 1 }],
     ['graph.buffer.snapshot', undefined],
     ['file.autosaveNow', undefined],
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
   }
+  // A3 implemented its operators (m2a-08…12): on a rig without keys they refuse with their own reasons.
+  expect(await run(page, 'time.insertTime', { at: 0, frames: 1 })).toEqual({
+    status: 'cancelled',
+    reason: 'No animated controls',
+  });
+  expect(await run(page, 'time.deleteTime')).toEqual({ status: 'cancelled', reason: 'No animated controls' });
+  expect(await run(page, 'graph.keys.copyTo', { dFrames: 1 })).toEqual({
+    status: 'cancelled',
+    reason: 'No keys are selected',
+  });
+  expect(await run(page, 'key.toggleRipple', { ripple: false })).toMatchObject({ status: 'finished' });
   // The mounted Graph Editor registers the M1 tools; its M2a scale tool (A4) is not there yet (§3 rule 1).
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await expect
@@ -71,7 +78,7 @@ test('the Dope Sheet is a tab beside the Graph Editor (layout v2); a hidden tab�
   await expect.poll(async () => (await call(page, 'graph'))?.canvasRect.w ?? 0).toBeGreaterThan(0);
   await expect.poll(() => call(page, 'screenOfKey', key15)).not.toBeNull();
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
-  await expect(page.getByTestId('ds-placeholder')).toBeVisible();
+  await expect(page.getByTestId('ds-canvas')).toBeVisible(); // A3's panel replaced the A0 placeholder
   await expect(page.getByTestId('panel-graph')).toBeHidden();
   // §4.8: the Graph Editor is an inactive dock tab, so its probe reads answer null.
   expect(await call(page, 'graph')).toBeNull();
@@ -128,7 +135,7 @@ test('a stored M1 layout migrates to v2 with the Dope Sheet tab; the v1 key is k
   expect(await page.evaluate((key) => localStorage.getItem(key), v1Key)).toBe(v1);
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
-  await expect(page.getByTestId('ds-placeholder')).toBeVisible();
+  await expect(page.getByTestId('ds-canvas')).toBeVisible(); // A3's panel replaced the A0 placeholder
   await page.evaluate((p) => {
     for (const key of Object.keys(localStorage)) if (key.startsWith(p)) localStorage.removeItem(key);
   }, prefix);

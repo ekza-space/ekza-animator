@@ -72,3 +72,21 @@ export function screenOfTimelineTick(app: EditorApp, frame: Frame): { readonly x
   const rect = surface.canvas.getBoundingClientRect();
   return { x: rect.left + point.x, y: rect.top + point.y };
 }
+
+/** M2a (§4.8 `timelineTicks`): the focused slider's key ticks; empty without a mounted slider. */
+export function timelineTicksOf(app: EditorApp): { frame: number; breakdown: boolean; selected: boolean }[] {
+  const surface = focusedTimeSlider(app);
+  return surface === null ? [] : surface.slider.keyTicks().map((tick) => ({ ...tick }));
+}
+
+/** M2a (§4.8 `screenOfBand`): viewport CSS px of a band grab point; null without a slider or a band. */
+export function screenOfTimelineBand(
+  app: EditorApp,
+  part: 'start' | 'middle' | 'end',
+): { readonly x: number; readonly y: number } | null {
+  const surface = focusedTimeSlider(app);
+  const point = surface?.slider.bandPoint(part) ?? null;
+  if (surface === null || point === null) return null;
+  const rect = surface.canvas.getBoundingClientRect();
+  return { x: rect.left + point.x, y: rect.top + point.y };
+}
