@@ -151,7 +151,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-GE-14 | Pre/post infinity: constant, linear, cycle, cycle with offset, oscillate. | MVP | M1 | Values at negative and multi-cycle times match the oracle. |
 | FR-GE-15 | Euler filter on selected rotation curves (also run on import). | MVP | M1 | No jumps > π after filtering a flipped clip. |
 | FR-GE-16 | Copy/paste keys at the current frame (merge/replace) with handles, broken/weight state and weighted-curve conversion. | MVP | M1 | Relative timing and curve shape preserved. |
-| FR-GE-17 | Cycle-aware auto tangents when both infinities cycle. | MVP-S | M1 | C¹ continuity at the seam (1e-9). |
+| FR-GE-17 | Cycle-aware auto tangents when both infinities cycle. Not built in M1 (stretch); M2a core, with cyclic infinities by default for curves keyed in loop clips ([M2A-SPEC §5.23](M2A-SPEC.md#523-loop-clips-cyclic-curves-and-cycle-aware-auto-tangents-a0-fr-ge-17)). | MVP-S | M2a | C¹ continuity at the seam (1e-9). |
 | FR-GE-18 | Normalized and stacked views. | V1 | M2a | Display-only, data unchanged. |
 | FR-GE-19 | Buffer curve snapshot/swap. | V1 | M2a | Ghost curve shown; swap restores. |
 | FR-GE-20 | Scale keys and region/lattice tools. | V1 | M2a | Scale around the pivot. |

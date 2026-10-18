@@ -1,7 +1,7 @@
 # Ekza Animator — Roadmap
 
 Status: v0.4 (2026-10-18, M1 integrated and accepted on `dev`; the `v0.1.0` tag is pending; the M2a build spec is
-written). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+written and revised after review, v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
 [M2A-SPEC.md](M2A-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
@@ -13,7 +13,7 @@ written). Keep the [status table](#status) current: every merged milestone task 
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
-| M2a | Game-clip daily driver | **Spec ready** | 2026-10-18 | — | [M2A-SPEC](M2A-SPEC.md) v0.1: packages A0…A5 + integration ([status](#m2a-work-package-status)); leg IK first; fixes budget misses M-1…M-3 |
+| M2a | Game-clip daily driver | **Spec ready** | 2026-10-18 | — | [M2A-SPEC](M2A-SPEC.md) v0.2 (review revision): packages A0…A5 + integration ([status](#m2a-work-package-status)); leg IK first; fixes budget misses M-1…M-3 |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -43,17 +43,18 @@ written). Keep the [status table](#status) current: every merged milestone task 
 
 ### M2a work-package status
 
-Packages and ownership: [M2A-SPEC §8](M2A-SPEC.md#8-work-packages). A0 lands first; A1…A5 build in parallel in their
-own worktrees (branches `m2a/<slug>`); IK tests of A2 turn on when A1 merges; merge order in
+Packages and ownership: [M2A-SPEC §8](M2A-SPEC.md#8-work-packages) (shared files in §8.1). A0 lands first; A1…A5
+start together and build in parallel in their own worktrees (branches `m2a/<slug>`); cross-package tests are
+`READY`/`test.fixme` gates that turn on when the package they need merges; preferred merge order in
 [M2A-SPEC §10.1](M2A-SPEC.md#101-merge-order).
 
 | WP | Slug | Scope | Owner | Size | Status | Notes |
 |---|---|---|---|---|---|---|
-| A0 | `contracts-foundation` | §4 contracts, stubs, attribute channels in the kernel, frame scheduler, key gesture, layout v2, keymap, menus, test API | Integration | 2.5 | Planned | first |
-| A1 | `rig-ik` | `ik2` op with foot roll, limb IK records, matching, import to IK, Plant Feet on IK legs, schema v2 | A1 | 6 | Planned | FR-RIG-11 |
-| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes, viewport), visibility, pick-walk, virtual slider, body-part keying | A2 | 5.5 | Planned | IK e2e after A1 |
-| A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry, insert/remove time, breakdown retiming | A3 | 5 | Planned | FR-DS-01..02, FR-TIME-10 |
-| A4 | `graph-posing` | Tween family, breakdown display, mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 | A4 | 5 | Planned | FR-KEY-08..09, FR-GE-18..20 |
+| A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Planned | first |
+| A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Planned | FR-RIG-11 |
+| A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Planned | IK e2e after A1 |
+| A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Planned | FR-DS-01..02, FR-TIME-10 |
+| A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Planned | FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Planned | FR-PROJ-05, FR-EXP-12 |
 | INT | — | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS | Integration | 3 | Planned | after A1…A5 |
 
@@ -145,7 +146,7 @@ Sheet; no animation layers; no facial expressions in VRMA.
 
 **Depends on**: M0.
 
-## M2a — Game-clip daily driver (≈ 32 agent-days with the budget fixes; ~12 working days on the critical path)
+## M2a — Game-clip daily driver (≈ 35 agent-days with the budget fixes; ~14 working days on the critical path)
 
 Build spec: [M2A-SPEC.md](M2A-SPEC.md) (contract deltas, normative behaviours, E2E-M2A-01…25, packages A0…A5). The
 items below were planned in order; the spec builds them in parallel packages and adds the fixes for the M1 budget
@@ -156,7 +157,8 @@ misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
    feet (R07 §15.4); then arm IK (FR-RIG-11). Acceptance: translating `cog` −5 cm leaves the IK foot unchanged.
 2. Time-slider extras: Mod+drag copy, ripple; MMB time carry (FR-TIME-10).
 3. **Dope Sheet** with summary/character/control rows, move/scale, hold bars, ripple (FR-DS-01..02).
-4. Tween slider family, breakdown keys, mirror animation with half-cycle offset (FR-KEY-08..09, FR-POSE-05).
+4. Tween slider family, breakdown keys, mirror animation with half-cycle offset, cycle-aware auto tangents on loop
+   clips (FR-KEY-08..09, FR-POSE-05, FR-GE-17).
 5. Buffer curves, normalized/stacked views, Graph Editor scale/region (FR-GE-18..20); export-side key reduction
    (FR-EXP-12); pick-walk; Channel Box virtual slider; keying by body part; autosave + recovery (FR-PROJ-05).
 
