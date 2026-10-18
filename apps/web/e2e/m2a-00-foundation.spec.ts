@@ -23,7 +23,10 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   const world = await call(page, 'controlWorld', hand);
   const bone = await call(page, 'boneWorld', character, 'leftHand');
   expect(Math.hypot(world.t[0] - bone.t[0], world.t[1] - bone.t[1], world.t[2] - bone.t[2])).toBeLessThan(1e-6);
-  expect(await call(page, 'autosave')).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
+  // Autosave (A5, §5.20): every e2e page load has a fresh storage namespace and claims a slot in it.
+  await expect
+    .poll(() => call(page, 'autosave'))
+    .toMatchObject({ enabled: true, slot: expect.stringMatching(/^as_[0-9A-Za-z]{16}$/) as unknown as string });
   expect(await call(page, 'timelineTicks')).toEqual([]);
   expect(await call(page, 'dopeSheet')).toBeNull();
   // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
@@ -38,7 +41,8 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
     ['time.insertTime', { at: 0, frames: 1 }],
     ['time.deleteTime', undefined],
     ['graph.keys.copyTo', { dFrames: 1 }],
-    ['file.autosaveNow', undefined],
+    // graph.buffer.snapshot: implemented by A4 (E2E-M2A-16).
+    // file.autosaveNow: implemented by A5 (E2E-M2A-20, m2a-20-autosave-recovery.spec.ts).
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
   }

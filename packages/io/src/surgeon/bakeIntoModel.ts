@@ -4,7 +4,8 @@
 // animations are appended. A baseline marker in asset.extras lets a later bake roll back to the original first.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { SkeletonDesc, TrackKey } from '@ekza-animator/rig';
-import { normalizeClipMeta, parseTrackKey, trackKey } from '../bake/bake';
+import { parseTrackKey, trackKey } from '../bake/bake';
+import { normalizeClipMeta } from '../bake/meta';
 import { align4, assembleGlb } from '../glb/write';
 import { animationsOf, isIndex, isRecord, listField, textOf, unknownList } from '../gltf/schema';
 import { sha256Hex, sha256HexSync } from '../hash/sha256';

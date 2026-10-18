@@ -27,9 +27,8 @@ const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['time.deleteTime', undefined],
   ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
   ['graph.keys.copyTo', { dFrames: 4 }],
-  ['file.recover', { slot: 'as_0000000000000000' }],
-  ['file.discardRecovery', { slot: 'as_0000000000000000' }],
-  ['file.autosaveNow', undefined],
+  // graph.buffer.*: implemented by A4.
+  // file.recover, file.discardRecovery and file.autosaveNow: implemented by A5 (test/kernel/autosave.test.ts).
 ];
 
 describe('M2a operator stubs (§3 rule 1)', () => {

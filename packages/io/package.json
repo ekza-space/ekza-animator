@@ -11,6 +11,7 @@
     "./three": "./src/three/index.ts",
     "./worker": "./src/worker/index.ts",
     "./write": "./src/write.ts",
+    "./project": "./src/project.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {

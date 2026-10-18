@@ -2,7 +2,7 @@
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import { sha256Hex } from '../hash/sha256';
 import { type LintContext, lintExportWithContext } from '../lint/lintExport';
-import type { BakedClip, ExportArtifact, ExportKind, ExportProfileDef, LintIssue } from '../types';
+import type { BakedClip, ExportArtifact, ExportKind, ExportProfileDef, LintIssue, ReductionStats } from '../types';
 import { readBackCheck } from '../validate/readBack';
 
 export interface ArtifactInput {
@@ -18,7 +18,27 @@ export interface ArtifactInput {
   readonly context?: LintContext;
 }
 
+/** The export-side reduction of the clips of one file (M2a §5.16): summed counts, worst errors; undefined if none. */
+export function reductionOf(clips: readonly BakedClip[]): ReductionStats | undefined {
+  let found = false;
+  let samplesBefore = 0;
+  let samplesAfter = 0;
+  let maxRotationErrorRad = 0;
+  let maxTranslationErrorM = 0;
+  for (const clip of clips) {
+    const r = clip.reduction;
+    if (r === undefined) continue;
+    found = true;
+    samplesBefore += r.samplesBefore;
+    samplesAfter += r.samplesAfter;
+    maxRotationErrorRad = Math.max(maxRotationErrorRad, r.maxRotationErrorRad);
+    maxTranslationErrorM = Math.max(maxTranslationErrorM, r.maxTranslationErrorM);
+  }
+  return found ? { samplesBefore, samplesAfter, maxRotationErrorRad, maxTranslationErrorM } : undefined;
+}
+
 export async function finalizeArtifact(input: ArtifactInput): Promise<ExportArtifact> {
+  const reduction = reductionOf(input.clips);
   const lints = [
     ...input.clips.flatMap((clip) => clip.warnings),
     ...input.writerLints,
@@ -33,6 +53,6 @@ export async function finalizeArtifact(input: ArtifactInput): Promise<ExportArti
     lints,
     readBack: await readBackCheck(input.kind, input.bytes, input.clips, input.skeleton),
     validation: null,
-    stats: input.stats,
+    stats: reduction === undefined ? input.stats : { ...input.stats, reduction },
   };
 }

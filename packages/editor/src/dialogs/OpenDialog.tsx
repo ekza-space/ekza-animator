@@ -1,10 +1,11 @@
 // Open / Import dialogs without a pending file: a file picker (accepting every registered importer's extensions)
 // and the bundled samples. The chosen file goes through the same pipeline as drag-and-drop.
 import { Button, Dialog, DialogContent, FolderOpen } from '@ekza-animator/ui';
-import { type JSX, useRef } from 'react';
+import { type JSX, useEffect, useRef } from 'react';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from '../shell/context';
 import { acceptAttribute } from '../shell/importers';
+import { prefetchModelLoading } from '../shell/prefetch';
 import { SAMPLES } from './samples';
 
 export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): JSX.Element {
@@ -14,6 +15,8 @@ export function FilePickerDialog(props: { readonly mode: 'open' | 'import' }): J
   const input = useRef<HTMLInputElement>(null);
   const close = (): void => void shell.runFromUi('ui.close');
   const sampleAvailable = app.operators.get('file.loadSample') !== undefined;
+  // Intent prefetch (M2A-SPEC §5.21.2): a model or a project is about to be chosen.
+  useEffect(() => prefetchModelLoading(), []);
 
   return (
     <Dialog

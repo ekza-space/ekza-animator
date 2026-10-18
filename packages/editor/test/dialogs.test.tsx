@@ -3,7 +3,12 @@
 // shortcut sheet and preferences; plus the frame gate that keeps demand rendering alive.
 import { type EditorApp, GLOBAL_SCOPE, type ExporterDef } from '@ekza-animator/editor-core';
 import type { CharacterId, ClipId } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportProfileDef, ExportRequest } from '@ekza-animator/io';
+import {
+  DEFAULT_EXPORT_REDUCE,
+  type ExportArtifact,
+  type ExportProfileDef,
+  type ExportRequest,
+} from '@ekza-animator/io';
 import { NumberField } from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -205,6 +210,8 @@ describe('export dialog', () => {
       includeConstantTracks: true,
       acknowledgeLicense: false,
       profile: 'ekza/space-avatar-v1',
+      // M2A-SPEC §5.16: "Reduce keys" is checked by default (prefs.exportReduce) with the R02 tolerances.
+      reduce: DEFAULT_EXPORT_REDUCE,
     });
     await waitFor(() => (body('export-lints').textContent ?? '').includes('vrma.non-hips-translation'));
     expect(body('export-lints').textContent).toContain('Read-back OK');
@@ -397,5 +404,77 @@ describe('frame gate (R3F demand loop)', () => {
     expect(invalidations).toBe(1);
     await settle(0);
     expect(invalidations).toBe(2);
+  });
+});
+
+describe('export dialog: key reduction (M2A-SPEC §5.16)', () => {
+  it('"Reduce keys" follows prefs.exportReduce, unchecks to reduce: null and shows N → M samples', async () => {
+    const { snapshot, skeleton } = await waveFixtures();
+    const test = createTestShell({ snapshot, skeleton });
+    const requests: ExportRequest[] = [];
+    const artifact: ExportArtifact = {
+      kind: 'vrma',
+      fileName: 'Synthetic_wave.vrma',
+      mime: 'model/gltf-binary',
+      bytes: new Uint8Array([1]),
+      sha256: 'f00',
+      lints: [],
+      readBack: { ok: true, animations: 1, channels: 3, maxRotationErrorRad: 0, maxTranslationErrorM: 0 },
+      validation: null,
+      stats: {
+        clips: 1,
+        channels: 3,
+        keys: 40,
+        reduction: { samplesBefore: 120, samplesAfter: 40, maxRotationErrorRad: 1e-4, maxTranslationErrorM: 0 },
+      },
+    };
+    test.app.contribute({
+      kind: 'exporter',
+      def: { id: 'vrma', label: 'VRMA', extension: () => 'vrma', poll: () => true, run: async () => [artifact] },
+    });
+    test.app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'file.export',
+        label: 'Export',
+        category: 'file',
+        scope: GLOBAL_SCOPE,
+        apply: (_ctx, args) => {
+          requests.push(args as ExportRequest);
+          return [artifact];
+        },
+      },
+    });
+    test.app.prefs.setState({ exportReduce: { ...test.app.prefs.getState().exportReduce, positionM: 0.0005 } });
+    const view = await render(
+      <ShellFrame shell={test.shell}>
+        <DialogHost />
+      </ShellFrame>,
+    );
+    await update(() => test.shell.runFromUi('ui.open', { dialog: 'export' }));
+    await waitFor(() => document.querySelector('[data-testid="export-dialog"]') !== null);
+    expect(checkbox('export-reduce').checked).toBe(true);
+    await update(() => body('export-confirm').click());
+    await waitFor(() => requests.length === 1);
+    expect(requests[0]?.reduce).toEqual({ ...DEFAULT_EXPORT_REDUCE, positionM: 0.0005 });
+    await waitFor(() => (body('export-stats').textContent ?? '').includes('samples'));
+    expect(body('export-stats').textContent).toBe('1 clip · 3 channels · 40 keys · 120 → 40 samples');
+    await update(() => checkbox('export-reduce').click());
+    expect(checkbox('export-reduce').checked).toBe(false);
+    await update(() => body('export-confirm').click());
+    await waitFor(() => requests.length === 2);
+    expect(requests[1]?.reduce).toBeNull();
+    await view.unmount();
+    // the preference decides the default
+    test.app.prefs.setState({ exportReduce: { ...test.app.prefs.getState().exportReduce, enabled: false } });
+    const again = await render(
+      <ShellFrame shell={test.shell}>
+        <DialogHost />
+      </ShellFrame>,
+    );
+    await update(() => test.shell.runFromUi('ui.open', { dialog: 'export' }));
+    await waitFor(() => document.querySelector('[data-testid="export-reduce"]') !== null);
+    expect(checkbox('export-reduce').checked).toBe(false);
+    await again.unmount();
   });
 });

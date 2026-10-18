@@ -1,11 +1,15 @@
 // ARCHITECTURE §14 budgets measured in the production editor (e2e build, real Chrome): idle frames, open-to-
 // interactive, scrub latency, playback CPU per frame with 4 panes, a 1,000-key Graph Editor drag, undo/redo of a
-// gesture, bake + VRMA write of 10 s at 30 fps, and the editor route's JS. Report-only (see playwright.config.ts
-// here); results go to annotations, stdout and `.acceptance/budgets/<name>.json`. The package benches (vitest) cover
-// the rest of §14; docs/wp-notes/wp-10-budgets.md records both.
-import { mkdirSync, writeFileSync } from 'node:fs';
+// gesture, bake + VRMA write of 10 s at 30 fps (with the first export's lazy chunk), an autosave write of Seed-san with
+// 10 clips (M2A-SPEC §5.22), and the editor route's JS of a first and a later visit (cross-checked with `check:size`).
+// Report-only (see playwright.config.ts here); results go to annotations, stdout and `.acceptance/budgets/<name>.json`.
+// The package benches (vitest) cover the rest of §14; docs/wp-notes/wp-10-budgets.md and m2a-platform-perf.md record
+// both.
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
 import { type CDPSession, expect, type Page, test } from '@playwright/test';
+import { checkSize } from '../../scripts/check-size.mjs';
 import { controlId, seedSample, seedWaveClip } from '../helpers/seed';
 import { call, openEditor, runOk } from '../helpers/test-api';
 
@@ -587,18 +591,74 @@ test('bake + write VRMA, 1 humanoid × 10 s @ 30 fps', async ({ page }) => {
     return out;
   }, request);
   expect(runs.every((r) => r.status === 'finished')).toBe(true);
-  const s = stats(runs.map((r) => r.ms));
+  // M-2: the first export loads the export path's chunk (@ekza-animator/io/write) unless the Export dialog prefetched
+  // it; the later runs are the bake + write itself.
+  const s = stats(runs.slice(1).map((r) => r.ms));
+  const firstExtra = (runs[0]?.ms ?? Number.NaN) - s.median;
   record(
     'bake-vrma-10s',
-    { runs, ...s, frames: 301, controlsKeyed: keyed.length },
+    { runs, ...s, firstRunMs: runs[0]?.ms, firstRunExtraMs: firstExtra, frames: 301, controlsKeyed: keyed.length },
     `file.export vrma, Seed-san clip 0–300 @ 30 fps (${keyed.length} controls keyed; bake + write + lints + read-back, ` +
-      `${Math.round((runs[0]?.bytes ?? 0) / 1024)} KiB): runs ${runs.map((r) => ms(r.ms)).join(', ')}; median ` +
-      `${ms(s.median)} (budget ≤ 200 ms for bake + write)`,
+      `${Math.round((runs[0]?.bytes ?? 0) / 1024)} KiB): runs ${runs.map((r) => ms(r.ms)).join(', ')}; median of runs ` +
+      `2–5 ${ms(s.median)} (budget ≤ 200 ms for bake + write); the first run loads the export chunk: +${ms(firstExtra)}`,
   );
 });
 
-test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
-  const origin = new URL(baseURL ?? 'http://localhost').origin;
+test('autosave write, Seed-san × 10 clips (main thread)', async ({ page }) => {
+  await openEditor(page);
+  const { character } = await seedSample(page, 'seed-san');
+  const keyed = ['fk.spine', 'fk.chest', 'fk.neck', 'fk.head', 'fk.upperArm.L', 'fk.upperArm.R', 'fk.lowerArm.L'];
+  keyed.push('fk.lowerArm.R', 'fk.upperLeg.L', 'fk.upperLeg.R', 'fk.lowerLeg.L', 'fk.lowerLeg.R');
+  const ids: string[] = [];
+  for (const key of keyed) ids.push(await controlId(page, key, character));
+  await runOk(page, 'select.controls', { ids, mode: 'replace' });
+  for (let c = 0; c < 10; c++) {
+    const { clip } = await runOk<{ clip: string }>(page, 'clip.new', { name: `bench${c}` });
+    await runOk(page, 'clip.setSettings', { clip, range: { start: 0, end: 120 } });
+    for (const [i, frame] of [0, 30, 60, 90, 120].entries()) {
+      await runOk(page, 'time.setFrame', { frame });
+      const edits = ids.flatMap((control, k) => [
+        { control, channel: 'rx', value: Math.sin(i + k + c) * 20 * DEG },
+        { control, channel: 'rz', value: Math.cos(i * 1.3 + k + c) * 25 * DEG },
+      ]);
+      await runOk(page, 'channel.setValues', { edits });
+      await runOk(page, 'key.set', { channels: 'rotate' });
+    }
+  }
+  const counts = await call(page, 'counts');
+  // The first write stores the 10.9 MB model once (content-addressed); later writes rewrite the snapshot only.
+  await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.flushAutosave());
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send('Performance.enable');
+  const writes: { taskMs: number; wallMs: number }[] = [];
+  for (let i = 0; i < 5; i++) {
+    await runOk(page, 'channel.setValues', { edits: [{ control: ids[0], channel: 'ry', value: i * 0.01 }] });
+    await page.waitForTimeout(100);
+    const task0 = await taskMs(cdp);
+    const wall = await page.evaluate(async () => {
+      const start = performance.now();
+      await window.__EKZA_ANIMATOR_TEST__?.flushAutosave();
+      return performance.now() - start;
+    });
+    const task1 = await taskMs(cdp);
+    writes.push({ taskMs: task1 - task0, wallMs: wall });
+  }
+  const task = stats(writes.map((w) => w.taskMs));
+  const wall = stats(writes.map((w) => w.wallMs));
+  record(
+    'autosave-write',
+    { counts, writes, taskMs: task, wallMs: wall },
+    `autosave write (Seed-san, 10 clips × 12 controls keyed, ${counts['keys']} keys; flushAutosave after one edit): ` +
+      `main-thread task time median ${ms(task.median)}, max ${ms(task.max)} (incl. the harness call); wall time ` +
+      `median ${ms(wall.median)} (budget ≤ 50 ms main thread)`,
+  );
+});
+
+/** Script responses of one page load until the empty state shows and the network is idle (gzip -9 per file). */
+async function captureRouteScripts(
+  page: Page,
+  origin: string,
+): Promise<{ files: string[]; raw: number; gzip: number; gzip6: number }> {
   const scripts = new Map<string, Buffer>();
   page.on('response', async (response) => {
     if (response.request().resourceType() !== 'script' || !response.url().startsWith(origin)) return;
@@ -619,13 +679,71 @@ test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
     gzip += gzipSync(body, { level: 9 }).byteLength;
     gzip6 += gzipSync(body).byteLength;
   }
+  const files = [...scripts.keys()].map((url) => new URL(url).pathname.replace(/^\/_next\//, '')).sort();
+  return { files, raw, gzip, gzip6 };
+}
+
+test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
+  const origin = new URL(baseURL ?? 'http://localhost').origin;
+  // First visit (fresh profile): the editor opens the First-run dialog, a lazy chunk, at start.
+  const first = await captureRouteScripts(page, origin);
+  await expect(page.getByTestId('firstrun-dialog')).toBeVisible();
   const isE2eBuild = await page.evaluate(() =>
     fetch('/e2e/vrma-check', { method: 'HEAD' }).then((response) => response.ok),
   );
+  // A later visit: the welcome choices are stored, so the dialog stays closed; a new page of the same profile with
+  // the HTTP cache off loads the eager scripts only.
+  await page.getByTestId('firstrun-done').click();
+  await expect(page.getByTestId('firstrun-dialog')).toBeHidden();
+  const later = await page.context().newPage();
+  const cdp = await page.context().newCDPSession(later);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+  const again = await captureRouteScripts(later, origin);
+  await expect(later.getByTestId('firstrun-dialog')).toHaveCount(0);
+  await later.close();
+  // One measurement (M2A-SPEC §5.21.2): `check:size` reads the same sets from the build the server serves.
+  const nextDir = fileURLToPath(new URL('../../.next', import.meta.url));
+  const gate = existsSync(nextDir) ? checkSize(nextDir) : null;
+  const eagerFiles = (gate?.initial.map((entry) => entry.file) ?? []).sort();
+  const firstFiles = [...eagerFiles, ...(gate?.firstVisit.flatMap((group) => group.files) ?? [])].sort();
+  const cross = (captured: { files: string[]; gzip: number }, files: string[], total: number) => ({
+    total,
+    files,
+    sameFiles: captured.files.join() === files.join(),
+    difference: (captured.gzip - total) / total,
+  });
+  const firstCheck = gate === null ? null : cross(first, firstFiles, gate.total);
+  const againCheck = gate === null ? null : cross(again, eagerFiles, gate.eager);
+  const verdict = (check: ReturnType<typeof cross> | null) =>
+    check === null
+      ? ''
+      : ` (check:size ${kb(check.total)}, ${(check.difference * 100).toFixed(2)} %, ` +
+        `${check.sameFiles ? 'same scripts' : 'different scripts'})`;
   record(
     'route-js',
-    { scripts: scripts.size, rawBytes: raw, gzipBytes: gzip, gzipDefaultLevelBytes: gzip6, e2eBuild: isE2eBuild },
-    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}): ${scripts.size} scripts, ${kb(raw)} raw, ` +
-      `${kb(gzip)} gzip -9, ${kb(gzip6)} gzip -6 (budget ≤ 900 kB gzip)`,
+    {
+      e2eBuild: isE2eBuild,
+      firstVisit: {
+        scripts: first.files.length,
+        rawBytes: first.raw,
+        gzipBytes: first.gzip,
+        gzipDefaultLevelBytes: first.gzip6,
+        files: first.files,
+        checkSize: firstCheck,
+      },
+      laterVisit: {
+        scripts: again.files.length,
+        rawBytes: again.raw,
+        gzipBytes: again.gzip,
+        gzipDefaultLevelBytes: again.gzip6,
+        files: again.files,
+        checkSize: againCheck,
+      },
+    },
+    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}), first visit: ${first.files.length} scripts, ` +
+      `${kb(first.raw)} raw, ${kb(first.gzip)} gzip -9, ${kb(first.gzip6)} gzip -6${verdict(firstCheck)}; later ` +
+      `visit: ${again.files.length} scripts, ${kb(again.gzip)} gzip -9${verdict(againCheck)} (budget ≤ 900 kB gzip; ` +
+      `M2a target ≤ 800 kB for the first visit)`,
   );
 });

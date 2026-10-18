@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": ["../../../tooling/tsconfig/headless.json", "../../../tooling/tsconfig/test.json"],
+  "compilerOptions": {
+    "rootDir": "..",
+    "outDir": "../.tsbuild/test"
+  },
+  "include": ["./**/*", "../scripts/**/*.d.mts"]
+}

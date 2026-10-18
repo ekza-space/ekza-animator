@@ -5,6 +5,7 @@ import { type RefObject, useEffect } from 'react';
 import { isClosedMenuTrigger, isDropdown, isInOverlay, isTextEntry, menuTriggerKeyRoute } from '../input/focus';
 import { keyInputOf } from '../input/keyboard';
 import { hoverTargetOf, sameHover } from '../input/pointer';
+import { prefetchForFileDrag, prefetchModelLoading, SAMPLE_SELECTOR } from './prefetch';
 import type { Shell } from './types';
 
 const hasFiles = (event: DragEvent): boolean => event.dataTransfer?.types.includes('Files') === true;
@@ -58,7 +59,17 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
       keyboard.keyUp(event);
     };
     const onPointerMove = (event: PointerEvent): void => setHover(event.target, event.clientX, event.clientY);
+    // Intent prefetch (M2A-SPEC §5.21.2): hovering or pressing a sample button starts loading the model loader.
+    let samplePrefetched = false;
+    const onPointerOver = (event: PointerEvent): void => {
+      if (samplePrefetched || !(event.target instanceof Element) || event.target.closest(SAMPLE_SELECTOR) === null) {
+        return;
+      }
+      samplePrefetched = true;
+      prefetchModelLoading();
+    };
     const onPointerDown = (event: PointerEvent): void => {
+      onPointerOver(event);
       pointerDropdown = isDropdown(event.target) ? event.target : null;
       setHover(event.target, event.clientX, event.clientY);
       keyboard.pointerActivity();
@@ -92,6 +103,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     const onDragEnter = (event: DragEvent): void => {
       if (!hasFiles(event)) return;
       event.preventDefault();
+      if (dragDepth === 0) prefetchForFileDrag();
       dragDepth += 1;
       if (!ui.getState().dragOver) ui.setState({ dragOver: true });
     };
@@ -131,6 +143,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
     window.addEventListener('change', onChange);
     window.addEventListener('pointermove', onPointerMove, { capture: true, passive: true });
     window.addEventListener('pointerdown', onPointerDown, { capture: true });
+    window.addEventListener('pointerover', onPointerOver, { capture: true, passive: true });
     window.addEventListener('mousedown', onMouseDown, { capture: true });
     window.addEventListener('auxclick', onAuxClick, { capture: true });
     window.addEventListener('contextmenu', onContextMenu);
@@ -150,6 +163,7 @@ export function useWindowInput(shell: Shell, root: RefObject<HTMLElement | null>
       window.removeEventListener('change', onChange);
       window.removeEventListener('pointermove', onPointerMove, { capture: true });
       window.removeEventListener('pointerdown', onPointerDown, { capture: true });
+      window.removeEventListener('pointerover', onPointerOver, { capture: true });
       window.removeEventListener('mousedown', onMouseDown, { capture: true });
       window.removeEventListener('auxclick', onAuxClick, { capture: true });
       window.removeEventListener('contextmenu', onContextMenu);
