@@ -54,6 +54,6 @@ export {
   virtualSliderLabel,
   virtualSliderRate,
 } from './edit/virtualSlider';
-export { pickWalkTarget } from './operators/builtin/select';
+export { pickWalkDispatch, pickWalkTarget } from './operators/builtin/select';
 export { LIMB_NAME, limbOfControlApp, limbOfControlIn, limbsOf, watchFkOnlyRigs } from './workflows/ik';
 export { controlVisibilityResolver, limbHiddenControls } from './workflows/visibility';

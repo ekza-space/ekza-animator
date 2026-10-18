@@ -357,6 +357,20 @@ const FRAME_KEYS: Readonly<Record<WalkDirection, { readonly op: string; readonly
   right: { op: 'time.step', args: { delta: 1 } },
 };
 
+/**
+ * §5.17: the time operator a `select.pickWalk` binding runs instead of walking (`prefs.arrowKeys: 'frames'`), or
+ * null when it walks (or the arguments name no direction). The shortcut sheet labels the arrows with it, so it shows
+ * the active behaviour.
+ */
+export function pickWalkDispatch(
+  app: EditorApp,
+  args: unknown,
+): { readonly op: string; readonly args?: unknown } | null {
+  if (app.prefs.getState().arrowKeys !== 'frames' || !isRecord(args)) return null;
+  const direction = args['direction'];
+  return (WALK_DIRECTIONS as readonly unknown[]).includes(direction) ? FRAME_KEYS[direction as WalkDirection] : null;
+}
+
 const selectPickWalk = defineOperator<'select.pickWalk', 'walk' | 'frames'>({
   id: 'select.pickWalk',
   label: 'Pick Walk',
