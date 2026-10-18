@@ -30,6 +30,7 @@ test('E2E-M2A-18: pick-walk with the arrows (↑ ↓ →)', async ({ page }) => 
   await expectKernelStarted(page);
   await seedSample(page, 'seed-san');
   await selectIds(page, [await controlIdOf(page, 'fk.lowerArm.L')]);
+  const history = (await call(page, 'state')).history;
   await hoverPane(page);
   await page.keyboard.press('ArrowUp');
   await expect.poll(() => selectedKey(page)).toEqual(['fk.upperArm.L']);
@@ -39,7 +40,7 @@ test('E2E-M2A-18: pick-walk with the arrows (↑ ↓ →)', async ({ page }) => 
   // No sibling to the right: the visible mirror counterpart.
   await expect.poll(() => selectedKey(page)).toEqual(['fk.lowerArm.R']);
   // Not a history step (selection rule of M1).
-  expect((await call(page, 'state')).history.canUndo).toBe(false);
+  expect((await call(page, 'state')).history).toEqual(history);
 });
 
 test('E2E-M2A-18: S by body part keys the arm.L controls and nothing else', async ({ page }) => {

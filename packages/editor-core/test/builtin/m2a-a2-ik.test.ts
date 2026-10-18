@@ -10,6 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src/types';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import { importLimbWarnings, type LimbKit, matchWarnings, setLimbKit, watchFkOnlyRigs } from '../../src/workflows/ik';
+import { READY } from '../ready';
 import { cid, FOOT, ikApp, ikWaveDoc } from './ikFixture';
 import { DEG, expectUndoRedoExact, runOk, runResult, setSceneFrame, WAVE, waveDoc } from './support';
 
@@ -321,7 +322,7 @@ describe('rig.addLimbIk (§5.7)', () => {
     };
   }
 
-  it('is "not available yet" until the rig implements limb records', async () => {
+  it.skipIf(READY.a1)('is "not available yet" until the rig implements limb records (before A1)', async () => {
     const { app } = ikApp({ snapshot: waveDoc() });
     expect(await runResult(app, 'rig.addLimbIk')).toEqual({ status: 'cancelled', reason: NOT_AVAILABLE_YET });
   });
@@ -473,10 +474,20 @@ describe('the "FK limbs only" notice (§5.7)', () => {
     setLimbKit(withIk.app, { limbIkRecords: () => ({ controls: [], solvers: [], warnings: [] }) });
     watchFkOnlyRigs(withIk.app)();
     expect(withIk.services.toasts).toHaveLength(0);
+  });
 
-    // Without the rig's limb records (before A1) nothing is said.
+  it.skipIf(READY.a1)('says nothing without the rig limb records (before A1)', () => {
     const early = ikApp({ snapshot: waveDoc() });
     watchFkOnlyRigs(early.app)();
     expect(early.services.toasts).toHaveLength(0);
+  });
+
+  it.runIf(READY.a1)("with A1, Add Limb IK on the synthetic humanoid uses the rig's records (ikFk 0)", async () => {
+    const { app } = ikApp({ snapshot: waveDoc() });
+    const value = (await runOk(app, 'rig.addLimbIk')) as { added: string[] };
+    expect([...value.added].sort()).toEqual(['arm.L', 'arm.R', 'leg.L', 'leg.R']);
+    for (const limb of ['leg.L', 'leg.R', 'arm.L', 'arm.R'] as const) {
+      expect(app.evaluation.ikFk(WAVE.character, limb)).toBe(0);
+    }
   });
 });

@@ -18,6 +18,8 @@ test('E2E-M2A-19: virtual slider on a Channel Box row and through MMB in the vie
   const rz = async () => (await call(page, 'channelValues', elbow)).rz ?? Number.NaN;
   const start = await rz();
   const others = await call(page, 'channelValues', elbow);
+  // The sample load is a history step of its own: each drag must add exactly one on top of it.
+  const history = (await call(page, 'state')).history;
 
   // MMB drag on the name: 40 px → +20°, one history step.
   await horizontalDrag(page, await centreOfTestId(page, 'cb-name-rz'), 40, { button: 'middle' });
@@ -26,7 +28,7 @@ test('E2E-M2A-19: virtual slider on a Channel Box row and through MMB in the vie
   await page.getByTestId('cb-name-rx').hover();
   await page.keyboard.press('Meta+KeyZ');
   await expect.poll(rz).toBe(start);
-  expect((await call(page, 'state')).history.canUndo).toBe(false);
+  expect((await call(page, 'state')).history.undoLabel).toBe(history.undoLabel);
 
   // Shift ×0.1: +2°.
   await horizontalDrag(page, await centreOfTestId(page, 'cb-name-rz'), 40, { button: 'middle', modifiers: ['Shift'] });
@@ -45,8 +47,8 @@ test('E2E-M2A-19: virtual slider on a Channel Box row and through MMB in the vie
   for (const channel of ['tx', 'ty', 'tz', 'rx', 'ry', 'sx', 'sy', 'sz']) {
     expect([channel, after[channel]]).toEqual([channel, others[channel]]);
   }
-  // One step: a single undo restores the value and empties the history.
+  // One step: a single undo restores the value and the history before the drag.
   await page.keyboard.press('Meta+KeyZ');
   await expect.poll(rz).toBe(start);
-  expect((await call(page, 'state')).history.canUndo).toBe(false);
+  expect((await call(page, 'state')).history.undoLabel).toBe(history.undoLabel);
 });

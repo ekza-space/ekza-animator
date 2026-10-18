@@ -23,6 +23,7 @@ test('E2E-M2A-01: leg IK holds the feet', async ({ page }) => {
   expect(visible['ik.arm.L']).toBe(false);
 
   const rest = await boneWorlds(page, character, ['leftFoot', 'leftLowerLeg', 'hips']);
+  const history = (await call(page, 'state')).history;
   const cog = await controlIdOf(page, 'cog');
   await clickOutlinerRow(page, cog);
   await expect.poll(async () => (await call(page, 'state')).selection.controls).toEqual([cog]);
@@ -50,7 +51,7 @@ test('E2E-M2A-01: leg IK holds the feet', async ({ page }) => {
   // Two undos: the drag, then the cog edit. The rest pose comes back exactly (§5.3 rest exactness).
   await pressOverPane(page, 'Meta+KeyZ');
   await pressOverPane(page, 'Meta+KeyZ');
-  await expect.poll(async () => (await call(page, 'state')).history.canUndo).toBe(false);
+  await expect.poll(async () => (await call(page, 'state')).history.undoLabel).toBe(history.undoLabel);
   const back = await boneWorlds(page, character, ['leftFoot', 'leftLowerLeg', 'hips']);
   for (const bone of ['leftFoot', 'leftLowerLeg', 'hips'] as const) {
     expectWorldClose(back[bone] as never, rest[bone] as never, 1e-7, `${bone} after undo`);

@@ -29,9 +29,11 @@ interface Scene {
   control(key: string): ControlId;
 }
 
-/** Polybot with a 'wave' clip: fk.lowerArm.L rz keyed 30/−30/30° at 0/15/30; the arm selected; frame 7. */
+/** FK-only Polybot with a 'wave' clip: fk.lowerArm.L rz keyed 30/−30/30° at 0/15/30; the arm selected; frame 7. */
 async function scene(): Promise<Scene> {
   const { app } = realApp();
+  // The M1 operators on an M1 rig (FK limbs: Plant Feet re-solves the legs). IK rigs: ops.ik.test.ts (A2).
+  app.prefs.setState({ autoRigIk: { legs: false, arms: false } });
   const bot = await importFixture(app, 'polybot.vrm');
   const rig = app.store.query.rigOfCharacter(bot.character);
   const control = (key: string): ControlId => {

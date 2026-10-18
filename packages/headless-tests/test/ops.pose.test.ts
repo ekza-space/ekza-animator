@@ -20,6 +20,8 @@ function select(app: EditorApp, ids: readonly ControlId[]): void {
 describe.skipIf(!SIBLINGS_READY)(`pose operators on the fixtures ${BLOCKED}`, { timeout: 60_000 }, () => {
   it('plants Polybot’s feet back on their pins after lowering the hips (US-25)', async () => {
     const { app } = realApp();
+    // FK legs (an M1 rig): lowering the hips sinks the feet. IK legs hold them already (A2: ops.ik.test.ts).
+    app.prefs.setState({ autoRigIk: { legs: false, arms: false } });
     const bot = await importFixture(app, 'polybot.vrm');
     await runOk(app, 'pose.pinFeet');
     const pins = app.session.getState().feetPins?.pins ?? [];
