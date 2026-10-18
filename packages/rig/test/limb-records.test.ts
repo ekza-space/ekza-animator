@@ -215,8 +215,9 @@ describe('autoRig ik option and limbIkRecords (M2A-SPEC §5.2)', () => {
     const added = limbIkRecords(m1, skeleton, { limbs: ['arm.R', 'leg.L'], ikFkDefault: 0 });
     expect(added.warnings).toEqual([]);
     expect(added.solvers.map((s) => (s.params as unknown as Ik2Params).limb)).toEqual(['leg.L', 'arm.R']);
-    for (const control of added.controls)
-      if (control.key.startsWith('ik.')) expect(control.attrs['ikFk']?.default).toBe(0);
+    for (const control of added.controls.filter((c) => c.key.startsWith('ik.'))) {
+      expect(control.attrs['ikFk']?.default).toBe(0);
+    }
     // No counterpart yet: no mirror pair.
     expect(controlOf(added.controls, 'ik.leg.L').mirror).toBeNull();
     // The same records as autoRig gives (apart from the ikFk default and the mirror).
@@ -396,7 +397,7 @@ describe('foot parameters (§5.2.3)', () => {
     );
     expect(warned.warnings).toHaveLength(1);
     expect(warned.warnings[0]).toMatch(/^L Leg: the foot mesh gives heelBack .* the bone guess .* is used$/);
-    const fallback = (warned.solvers[0]?.params as unknown as Ik2Params).foot as FootRollParams;
+    const fallback = (warned.solvers[0]?.params as unknown as Ik2Params | undefined)?.foot as FootRollParams;
     const r = controlOf(autoRig(base, IDS).controls, 'fk.foot.L').shape.size;
     expect(fallback.heelBack).toBeCloseTo(r, 12);
   });

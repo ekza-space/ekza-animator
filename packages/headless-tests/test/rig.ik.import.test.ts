@@ -314,19 +314,23 @@ describe('import to IK on the fixtures (M2A-SPEC §5.8)', { timeout: 120_000 }, 
     const tolerance = { rotationRad: 2 * DEG, positionM: 0.002 };
     const frames = [...new Set(fkOnly.curves.flatMap((c) => c.keys.map((k) => k.t)))].sort((a, b) => a - b);
     expect(frames.length).toBeGreaterThan(10);
-    for (const row of rows) {
-      const desc = program.limbs.find((l) => l.id === row.limb);
-      if (desc === undefined) throw new Error(row.limb);
+    const curvesOf = (control: string) => imported.curves.filter((c) => c.control === control);
+    const descOf = (limb: string) => {
+      const desc = program.limbs.find((l) => l.id === limb);
+      if (desc === undefined) throw new Error(limb);
+      return desc;
+    };
+    for (const row of rows.filter((r) => r.mode === 'fk')) {
+      // Kept FK: over the tolerance, FK chain curves, one stepped @ikFk 0 key and a warning naming the clip.
+      const p = descOf(row.limb).params;
+      expect(row.maxRotationErrorRad > tolerance.rotationRad || row.maxMidErrorM > tolerance.positionM).toBe(true);
+      expect(curvesOf(p.fk.mid).length).toBeGreaterThan(0);
+      expect(curvesOf(p.ikControl).map((c) => c.channel)).toEqual(['@ikFk']);
+      expect(imported.warnings.some((w) => w.includes("kept FK in 'Walk_Loop'"))).toBe(true);
+    }
+    for (const row of rows.filter((r) => r.mode === 'ik')) {
+      const desc = descOf(row.limb);
       const p = desc.params;
-      const curvesOf = (control: string) => imported.curves.filter((c) => c.control === control);
-      if (row.mode === 'fk') {
-        // Kept FK: over the tolerance, FK chain curves, one stepped @ikFk 0 key and a warning naming the clip.
-        expect(row.maxRotationErrorRad > tolerance.rotationRad || row.maxMidErrorM > tolerance.positionM).toBe(true);
-        expect(curvesOf(p.fk.mid).length).toBeGreaterThan(0);
-        expect(curvesOf(p.ikControl).map((c) => c.channel)).toEqual(['@ikFk']);
-        expect(imported.warnings.some((w) => w.includes("kept FK in 'Walk_Loop'"))).toBe(true);
-        continue;
-      }
       expect(row.maxRotationErrorRad).toBeLessThanOrEqual(tolerance.rotationRad);
       expect(row.maxMidErrorM).toBeLessThanOrEqual(tolerance.positionM);
       expect(curvesOf(p.fk.mid)).toEqual([]);

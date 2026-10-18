@@ -283,7 +283,7 @@ async function footVertices(name: LicensedFixture, skeleton: SkeletonDesc, side:
   const lowerLeg = gltf.nodeByIndex[humanNode(skeleton, `${side}LowerLeg`)];
   if (foot === null || foot === undefined || lowerLeg === null || lowerLeg === undefined) throw new Error('no leg');
   const ankle = foot.getWorldPosition(new Vector3());
-  const ankleY = quatRotateVec3(skeleton.facing as Quat, [ankle.x, ankle.y, ankle.z])[1];
+  const ankleY = quatRotateVec3(skeleton.facing, [ankle.x, ankle.y, ankle.z])[1];
   const belowFoot = (bone: Object3D): boolean => {
     for (let current: Object3D | null = bone; current !== null; current = current.parent)
       if (current === foot) return true;
@@ -306,7 +306,7 @@ async function footVertices(name: LicensedFixture, skeleton: SkeletonDesc, side:
       v.fromBufferAttribute(position, i);
       mesh.applyBoneTransform(i, v);
       v.applyMatrix4(mesh.matrixWorld);
-      const canonical = quatRotateVec3(skeleton.facing as Quat, [v.x, v.y, v.z]);
+      const canonical = quatRotateVec3(skeleton.facing, [v.x, v.y, v.z]);
       if (bone === lowerLeg && !(canonical[1] < ankleY)) continue;
       out.push(canonical);
     }

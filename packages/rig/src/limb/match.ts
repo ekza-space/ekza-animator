@@ -64,7 +64,7 @@ function position(pose: PoseBuffers, node: number): V3 {
 }
 
 function boneRotation(pose: PoseBuffers, node: number): Quat {
-  return mat4Decompose(pose.boneWorld.subarray(node * 16, node * 16 + 16) as Mat4).q;
+  return mat4Decompose(pose.boneWorld.subarray(node * 16, node * 16 + 16)).q;
 }
 
 /**

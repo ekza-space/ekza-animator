@@ -28,7 +28,6 @@ import {
   type SkeletonDesc,
   solveTwoBoneIk,
   writeAttr,
-  writeControlChannels,
 } from '../src';
 import { IDS, richHumanoid } from './helpers';
 import {
@@ -174,14 +173,18 @@ describe('ik2 op: reach, pole, twist, soft and the end rotation (§5.3)', () => 
       const hard = evaluate(program, channels(program, values));
       const target = controlPos(program, hard, id('ik.leg.L'));
       const reach = distance(bonePos(hard, hip), target);
-      if (reach < L * (1 - 1e-5)) expect(distance(bonePos(hard, foot), target)).toBeLessThan(1e-9);
+      // Reachable targets are reached exactly (a miss of 0 stands for the unreachable ones).
+      const hardMiss = reach < L * (1 - 1e-5) ? distance(bonePos(hard, foot), target) : 0;
+      expect(hardMiss).toBeLessThan(1e-9);
       const ch = channels(program, values);
       writeAttr(program, ch, id('ik.leg.L'), 'soft', 0.1);
       const soft = evaluate(program, ch);
       const d = distance(bonePos(soft, hip), bonePos(soft, foot));
       expect(d).toBeGreaterThanOrEqual(previous - 1e-12);
       expect(d).toBeLessThan(L);
-      if (reach > L - 0.1 * L) expect(distance(bonePos(soft, foot), target)).toBeGreaterThan(1e-6);
+      // Inside the soft zone the foot misses the target (1 stands for targets outside it).
+      const softMiss = reach > L - 0.1 * L ? distance(bonePos(soft, foot), target) : 1;
+      expect(softMiss).toBeGreaterThan(1e-6);
       previous = d;
     }
     // soft is clamped to 0.25 where it is consumed.

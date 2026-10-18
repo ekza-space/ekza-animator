@@ -340,14 +340,14 @@ function setCoreXf(
   }
 }
 
-/** Attribute order in `Ik2State.values`. */
+/**
+ * Attribute order in `Ik2State.values`: ikFk, soft, twist, then roll, bank, heelTwist and toeTwist at A_ROLL … A_ROLL
+ * + 3 (the order `FootRoll.computeFrom` reads them in).
+ */
 const A_IKFK = 0;
 const A_SOFT = 1;
 const A_TWIST = 2;
 const A_ROLL = 3;
-const A_BANK = 4;
-const A_HEEL_TWIST = 5;
-const A_TOE_TWIST = 6;
 /** The clamped ikFk weight w of the current run. */
 const A_W = 7;
 

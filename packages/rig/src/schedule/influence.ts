@@ -41,7 +41,6 @@ export type OpActivity = (op: ScheduledRigOp) => boolean;
  * linearly and whose every key value is ≤ 0. Every other op (and any ikFk curve that may rise above 0) is active.
  */
 export function clipOpActivity(program: RigProgram, sampler: ClipSampler): OpActivity {
-  const internals = internalsOf(program);
   const inactive = new Set<string>();
   for (const limb of program.limbs) {
     const slot = limb.attrSlots.ikFk;
