@@ -724,6 +724,9 @@ export class GraphEditorController {
     // M-1 mechanism 5: a drag's own preview batches change only its dynamic curves; the static layer stays.
     const dynamic = this.gesture?.dynamic;
     let staticTouched = dynamic === undefined;
+    // M-1: a drag batch is 1,000 key updates in runs of one curve; an update on the curve of the update before it
+    // changes nothing below (one comparison instead of the set work per key).
+    let lastCurve: CurveId | undefined;
     for (const change of batch.changes) {
       if (full) break;
       if (!WATCHED_TABLES.has(change.table)) continue;
@@ -731,6 +734,8 @@ export class GraphEditorController {
       if (change.table === 'keys') {
         const before = change.before?.curve;
         const after = change.after?.curve;
+        if (before === after && before === lastCurve) continue;
+        lastCurve = before === after ? before : undefined;
         if (before !== undefined) this.editedCurves.add(before);
         if (after !== undefined) this.editedCurves.add(after);
         if (before !== after) this.selectedCurvesCache = null;

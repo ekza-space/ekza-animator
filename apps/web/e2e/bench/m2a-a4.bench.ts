@@ -1,5 +1,5 @@
-// M2A-SPEC §5.21.1 (M-1, A4) and §5.22: the Graph Editor drag of 1,000 selected keys with its frame split, and the
-// tween slider drag on 60 channels. Report-only like `budgets.bench.ts` (A5's file): results go to annotations,
+// M2A-SPEC §5.21.1 (M-1, A4) and §5.22: the Graph Editor drag of 1,000 selected keys (the gate's first, cold drag,
+// then warm drags) with its frame split, and the tween slider drag on 60 channels. Report-only like `budgets.bench.ts` (A5's file): results go to annotations,
 // stdout and `.acceptance/budgets/<name>.json`. The M-1 gate (p95 ≤ 4.0 ms on the measuring machine) is recorded in
 // docs/wp-notes/m2a-graph-posing.md from these numbers.
 //
@@ -251,15 +251,23 @@ async function setupThousandKeys(page: Page): Promise<DragSetup> {
   throw new Error('no selected key on screen');
 }
 
-/** One vertical drag of `moves` pointer moves, one per animation frame; per-move handler + frame times (ms). */
-async function drag(page: Page, grab: { readonly x: number; readonly y: number }, moves: number): Promise<number[]> {
+/**
+ * One vertical drag of `moves` pointer moves (`stepPx` up each), one per animation frame; per-move handler + frame
+ * times (ms).
+ */
+async function drag(
+  page: Page,
+  grab: { readonly x: number; readonly y: number },
+  moves: number,
+  stepPx = 2,
+): Promise<number[]> {
   await page.mouse.move(grab.x, grab.y);
   await page.mouse.down();
   await nextFrame(page);
   await setMeasuring(page, true);
   const perMove: number[] = [];
   for (let step = 1; step <= moves; step++) {
-    await page.mouse.move(grab.x, grab.y - step * 2);
+    await page.mouse.move(grab.x, grab.y - step * stepPx);
     await nextFrame(page);
     perMove.push(await takeBusy(page));
   }
@@ -301,7 +309,11 @@ test('M-1: Graph Editor drag of 1,000 selected keys, with the frame split', asyn
   const valueBefore = new Map(before.flatMap((c) => c.keys).map((k) => [k.id, k.v] as const));
   const load = await loadAverage();
 
-  // Warm-up drag (JIT, caches), undone; then the timed drags.
+  // The gate's procedure (budgets.bench.ts `Graph Editor drag`): the first drag of the fresh editor, 30 moves of
+  // 3 px, cold JIT included; the gate (p95 ≤ 4.0 ms) is read on it. Undone.
+  const cold = stats(await drag(page, setup.grab, 30, 3));
+  await runOk(page, 'edit.undo');
+  // Warm-up drag (JIT, caches), undone; then the timed (warm) drags.
   await drag(page, setup.grab, 10);
   await runOk(page, 'edit.undo');
   const timed: number[] = [];
@@ -332,13 +344,15 @@ test('M-1: Graph Editor drag of 1,000 selected keys, with the frame split', asyn
       keys: setup.keys.length,
       curves: setup.curves,
       loadAverage: load,
+      coldPointerFrameMs: cold,
       pointerFrameMs: move,
       profiledPointerFrameMs: stats(profiledMoves),
       splitMsPerMove: perMoveSplit,
       topSelfMs: split.topSelf,
     },
-    `M-1 Graph Editor drag of 1,000 selected keys (UAL, ${setup.curves} curves, ${timed.length} moves, load ${load}): ` +
-      `handlers + rendered frame per move median ${ms(move.median)}, p95 ${ms(move.p95)} (gate p95 ≤ 4.0 ms); ` +
+    `M-1 Graph Editor drag of 1,000 selected keys (UAL, ${setup.curves} curves, load ${load}): handlers + ` +
+      `rendered frame per move, first (cold) drag of 30 moves median ${ms(cold.median)}, p95 ${ms(cold.p95)} ` +
+      `(gate p95 ≤ 4.0 ms); warm drags (${timed.length} moves) median ${ms(move.median)}, p95 ${ms(move.p95)}; ` +
       `split per move (profiled): ${Object.entries(perMoveSplit)
         .map(([k, v]) => `${k} ${ms(v)}`)
         .join(', ')}`,

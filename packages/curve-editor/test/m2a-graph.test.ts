@@ -350,6 +350,73 @@ describe('the Scale tool and its region box (§5.15.3)', () => {
 });
 
 describe('M-1: coalesced drag updates and the cached static layer (§5.21.1)', () => {
+  /** Device pixels within `radius` of a CSS point close to `hex` (each channel within 40). */
+  function lit(canvas: HTMLCanvasElement, point: { readonly x: number; readonly y: number }, hex: string): number {
+    const ctx = canvas.getContext('2d');
+    if (ctx === null) throw new Error('no 2d context');
+    const target = [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+    const data = ctx.getImageData(Math.round(point.x) - 1, Math.round(point.y) - 1, 3, 3).data;
+    let count = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if ([0, 1, 2].every((k) => Math.abs((data[i + k] as number) - (target[k] as number)) <= 40)) count++;
+    }
+    return count;
+  }
+
+  it('handle ends are painted where hit-testing puts them (weighted and not), also in a drag’s dynamic layer', async () => {
+    const app = await waveApp();
+    const fixed = (t: number, v: number, out: { dt: number; dv: number }, into: { dt: number; dv: number }) => ({
+      ...key(t, v, 'fixed'),
+      inHandle: into,
+      outHandle: out,
+      broken: true,
+    });
+    const weighted = addCurve(app, {
+      channel: 'rx',
+      weighted: true,
+      keys: [
+        fixed(0, 0, { dt: 4, dv: 0.3 }, { dt: -2, dv: 0 }),
+        fixed(20, 0.2, { dt: 3, dv: 0 }, { dt: -5, dv: -0.2 }),
+      ],
+    });
+    mounted = mount(app, { curves: [WAVE.curve, weighted.curve] });
+    const { controller, base } = mounted;
+    controller.frame('all');
+    const keys = [WAVE.keys[1], ...weighted.keys];
+    // The key parts only: every handle is drawn unselected, in the tangent colour (broken ones as squares).
+    selectKeys(
+      app,
+      keys.map((id) => [id, { key: true }]),
+    );
+    const check = () => {
+      controller.redraw();
+      const unlit: string[] = [];
+      let checked = 0;
+      for (const id of keys) {
+        for (const side of ['in', 'out'] as const) {
+          const end = controller.handlePoint(id, side);
+          if (end === null) continue; // off the canvas
+          checked++;
+          const broken = app.store.get('keys', id)?.broken === true;
+          if (lit(base, end, broken ? DEFAULT_GRAPH_THEME.tangentBroken : DEFAULT_GRAPH_THEME.tangent) === 0) {
+            unlit.push(`${id} ${side}`);
+          }
+        }
+      }
+      expect(unlit).toEqual([]);
+      expect(checked).toBeGreaterThanOrEqual(4);
+    };
+    controller.redraw(true);
+    check();
+    const start = at(controller.keyPoint(WAVE.keys[1]));
+    controller.pointerDown(pointer(start));
+    controller.pointerMove(pointer({ x: start.x, y: start.y - 12 }));
+    check();
+    controller.pointerMove(pointer({ x: start.x, y: start.y - 24 }));
+    check();
+    controller.pointerUp(pointer({ x: start.x, y: start.y - 24, buttons: 0 }));
+  });
+
   it('with a frame requester, pointer moves apply at the next redraw (one preview update per frame)', async () => {
     const app = await waveApp();
     mounted = mount(app);

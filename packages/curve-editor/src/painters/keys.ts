@@ -2,7 +2,7 @@
 // only for keys with a selected part unless prefs.graphHandles is 'all'. One Path2D per state (ADR 0007 §4).
 import type { CurveEntry } from '../graph/curveSet';
 import { visibleRange } from '../graph/geometry';
-import { type GraphScene, handlePositionAt, keyX, type Point } from '../graph/scene';
+import { type GraphScene, keyX, type Point } from '../graph/scene';
 import { xToFrame } from '../view/transform';
 import { GRAPH_METRICS, type GraphTheme } from './theme';
 
@@ -10,7 +10,7 @@ export function paintHandles(
   ctx: CanvasRenderingContext2D,
   scene: GraphScene,
   theme: GraphTheme,
-  p: Point,
+  _point: Point,
   include: ((entry: CurveEntry) => boolean) | null = null,
 ): void {
   const lines = new Path2D();
@@ -19,6 +19,7 @@ export function paintHandles(
   const selectedEnds = new Path2D();
   const brokenEnds = new Path2D();
   const r = GRAPH_METRICS.handleRadius;
+  const handleLength = GRAPH_METRICS.handleLength;
   const f0 = xToFrame(scene.view, -GRAPH_METRICS.handleLength);
   const f1 = xToFrame(scene.view, scene.width + GRAPH_METRICS.handleLength);
   const all = scene.handles === 'all';
@@ -27,6 +28,7 @@ export function paintHandles(
   for (const entry of scene.curves.entries) {
     if (entry.locked || (include !== null && !include(entry))) continue;
     const c = entry.compiled;
+    const weighted = c.weighted;
     const k = entry.scale;
     const o = entry.offset;
     const [lo, hi] = visibleRange(c, f0, f1);
@@ -41,13 +43,43 @@ export function paintHandles(
       const ky = height - ((c.v[i] as number) * k + o - viewV0) * sy;
       for (let s = 0; s < 2; s++) {
         const side = s === 0 ? 'in' : 'out';
-        handlePositionAt(scene, entry, i, side, kx, ky, p);
+        // `handlePositionAt` written out (same operations), as the view transform above.
+        let hx = Number.NaN;
+        let hy = Number.NaN;
+        if (weighted) {
+          const dx = ((s === 0 ? c.inDt[i] : c.outDt[i]) as number) * sx;
+          const dy = -((s === 0 ? c.inDv[i] : c.outDv[i]) as number) * k * sy;
+          if (Math.hypot(dx, dy) > 1e-9) {
+            hx = kx + dx;
+            hy = ky + dy;
+          }
+        }
+        if (Number.isNaN(hx)) {
+          const sign = s === 0 ? -1 : 1;
+          const slope = (s === 0 ? c.inSlope[i] : c.outSlope[i]) as number;
+          const dx = sign * sx;
+          const dy = -sign * slope * k * sy;
+          const length = Math.hypot(dx, dy);
+          if (!(length > 0) || !Number.isFinite(length)) {
+            hx = kx;
+            hy = ky - Math.sign(sign * slope || 1) * handleLength;
+          } else {
+            hx = kx + (dx / length) * handleLength;
+            hy = ky + (dy / length) * handleLength;
+          }
+        }
         const selected = parts?.[side] === true;
         const line = selected ? selectedLines : lines;
         line.moveTo(kx, ky);
-        line.lineTo(p.x, p.y);
-        if (key.broken && !selected) brokenEnds.rect(p.x - r, p.y - r, 2 * r, 2 * r);
-        else dot(selected ? selectedEnds : ends, p.x, p.y);
+        line.lineTo(hx, hy);
+        if (key.broken && !selected) brokenEnds.rect(hx - r, hy - r, 2 * r, 2 * r);
+        else {
+          // a round dot: a 1/1000 px segment of the round-capped stroke below (a zero-length one draws nothing in
+          // Chrome), so the stroke width is the dot's diameter
+          const path = selected ? selectedEnds : ends;
+          path.moveTo(hx, hy);
+          path.lineTo(hx + 0.001, hy);
+        }
       }
     }
   }
@@ -69,15 +101,6 @@ export function paintHandles(
   ctx.stroke(selectedEnds);
   ctx.lineCap = 'butt';
   ctx.lineWidth = 1;
-}
-
-/**
- * A round dot centred on (x, y) for a round-capped stroke: a segment of 1/1000 px (a zero-length one draws nothing
- * in Chrome), so the stroke width is the diameter.
- */
-function dot(path: Path2D, x: number, y: number): void {
-  path.moveTo(x, y);
-  path.lineTo(x + 0.001, y);
 }
 
 /** Average screen distance between keys below which unselected keys are not drawn (CSS px). */

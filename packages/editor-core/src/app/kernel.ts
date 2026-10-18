@@ -189,12 +189,17 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       byClip.set(clip, character as CharacterId);
     }
     const ids = new Set<CharacterId>();
+    // M-1: a drag batch is 1,000 key changes of one clip; each clip is looked up once per run.
+    let lastClip: unknown = null;
     for (const change of batch.changes) {
       const row = (change.after ?? change.before) as Readonly<Record<string, unknown>> | undefined;
       if (row === undefined) continue;
       if (change.table === 'project') return null;
       if (change.table === 'keys' || change.table === 'curves' || change.table === 'layers') {
-        const owner = byClip.get(row['clip'] as string);
+        const clip = row['clip'];
+        if (clip === lastClip) continue;
+        lastClip = clip;
+        const owner = byClip.get(clip as string);
         if (owner !== undefined) ids.add(owner);
       } else if (change.table === 'clips') {
         const owner = byClip.get(change.id);

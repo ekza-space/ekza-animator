@@ -93,7 +93,18 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return;
     }
     let touched = false;
-    for (const change of batch.changes) touched = onChange(change) || touched;
+    // M-1: a drag batch is 1,000 key updates in runs of one curve; a key update that stays on the curve of the change
+    // before it adds nothing (one check instead of two set insertions per key, in a fresh editor's interpreted frames).
+    let lastCurve: CurveId | null = null;
+    for (const change of batch.changes) {
+      if (change.table === 'keys' && change.before !== undefined && change.after !== undefined) {
+        const curve = change.before.curve;
+        touched = true;
+        if (curve === lastCurve && change.after.curve === curve) continue;
+        lastCurve = change.after.curve === curve ? curve : null;
+      }
+      touched = onChange(change) || touched;
+    }
     // Only the curves the batch touched recompile (on their next read); a 1,000-key drag of 30 curves forgets 30.
     for (const curve of keyed) {
       forget(curve);
