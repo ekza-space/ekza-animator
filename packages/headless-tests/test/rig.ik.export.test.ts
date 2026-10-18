@@ -56,6 +56,8 @@ async function keyAt(
 describe.skipIf(!SIBLINGS_READY)(`upgraded M1 rig exports ${BLOCKED}`, { timeout: 180_000 }, () => {
   it('exports byte-identical files after limb IK is added at ikFk 0 (§5.7)', async () => {
     const { app } = realApp();
+    // An M1 rig: the import rigs FK limbs only (A2's import passes prefs.autoRigIk, §5.7, M2A-D1).
+    app.prefs.setState({ autoRigIk: { legs: false, arms: false } });
     const seed = await importFixture(app, 'seed-san.vrm');
     const character = seed.character;
     const { clip } = (await runOk(app, 'clip.new', { character, name: 'steps', range: { start: 0, end: 20 } })) as {
