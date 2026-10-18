@@ -3,8 +3,10 @@
 // tests run against the same kernel code whatever state the sibling packages are in. Nothing here is public API.
 import {
   type AnimCurve,
+  compileAnimCurve,
   type CurveEngine,
   curveEngine,
+  type Disposer,
   type Fps,
   type Frame,
   insertKeyPreservingShape,
@@ -36,6 +38,7 @@ import {
   type RigDefinition,
   type RigProgram,
   readRigDefinition,
+  registerBuiltinRigOps,
   type SkeletonDesc,
 } from '@ekza-animator/rig';
 import type { AssetStore } from '../types';
@@ -69,6 +72,8 @@ export interface KernelDeps {
     ) => { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] };
   };
   readonly rig: {
+    /** Registers the built-in rig ops (M2a `solver:ik2`) for the app's lifetime; absent for the naive kit. */
+    readonly registerBuiltinRigOps?: () => Disposer;
     readonly readRigDefinition: (view: ReadView, rig: RigId) => RigDefinition | undefined;
     readonly compileRig: (def: RigDefinition, skeleton: SkeletonDesc) => RigProgram;
     readonly createCurveCache: (store: DocumentStore, engine: CurveEngine) => CurveCache;
@@ -91,12 +96,36 @@ export interface KernelDeps {
   readonly loadModel: (character: CharacterRecord, assets: AssetStore) => Promise<ModelSource> | ModelSource | null;
 }
 
+/**
+ * The editor's curve engine (M2A-SPEC §5.23, FR-GE-17): anim-core's AnimX engine with cycle-aware auto tangents.
+ * The engine applies the option only to curves whose pre and post infinities both cycle (`cycle`/`cycleOffset`), so
+ * curves with a constant infinity — every curve M1 created — compile exactly as with `curveEngine`. The kernel hands
+ * this engine to the rig's curve cache, which evaluation, the Graph Editor painters, handle resolution, Plant Feet
+ * and the export bake share, so drawn, evaluated and exported curves agree. anim-core's `curveEngine` and the rig's
+ * default cache engine stay non-cycle-aware.
+ */
+export const EDITOR_CURVE_ENGINE: CurveEngine = {
+  compile: (curve) => compileAnimCurve(curve, { cycleAwareAuto: true }),
+  evaluate: (curve, frame) => curveEngine.evaluate(curve, frame),
+};
+
 /** The production bindings: every function comes from its owning package. */
 export const DEFAULT_DEPS: KernelDeps = {
   createStore: () => createMemoryStore(),
   time: { sceneToClipFrame, clipToSceneFrame, wrapClipFrame },
-  curves: { engine: curveEngine, insertKeyPreservingShape },
-  rig: { readRigDefinition, compileRig, createCurveCache, createClipSampler, applyOverrides },
+  curves: {
+    engine: EDITOR_CURVE_ENGINE,
+    // The insert preserves the shape the editor's engine evaluates (cycle-aware tangents on cyclic curves).
+    insertKeyPreservingShape: (curve, frame) => insertKeyPreservingShape(curve, frame, { cycleAwareAuto: true }),
+  },
+  rig: {
+    registerBuiltinRigOps,
+    readRigDefinition,
+    compileRig,
+    createCurveCache,
+    createClipSampler,
+    applyOverrides,
+  },
   loadModel: async (character: CharacterRecord, assets: AssetStore): Promise<ModelSource> => {
     const bytes = await assets.get(character.asset);
     const container = await parseGlb(bytes);

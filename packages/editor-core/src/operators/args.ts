@@ -1,13 +1,13 @@
-// Contract file: MVP-SPEC §4.5, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, InfinityMode, RotateOrder, TangentType } from '@ekza-animator/anim-core';
 import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, KeyId, Redistributable,
   RootMotionMode } from '@ekza-animator/doc';
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
-import type { MirrorMode, ReduceSpec } from '@ekza-animator/rig';
-import type { ChannelEditResult, ChannelRef, DisplayFlags, HistoryResult, KeyPartSelection, KeyPolicy,
-  LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, Prefs, SelectionMask, SelectMode, ToolId,
-  UiDialog, ViewportLayout } from '../types';
+import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-animator/rig';
+import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMode, HistoryResult, IkFkKeyMode,
+  KeyPartSelection, KeyPolicy, KeyTarget, LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed,
+  Prefs, SelectionMask, SelectMode, ToolId, TweenMode, UiDialog, ViewportLayout } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -29,7 +29,9 @@ export interface ImportAnimationOptions {
 export interface ImportResult { readonly character: CharacterId; readonly clips: readonly ClipId[]; readonly warnings: readonly string[] }
 export interface ClipsResult { readonly clips: readonly ClipId[]; readonly warnings: readonly string[] }
 export interface CountResult { readonly count: number }
-export type KeyChannels = 'all' | 'translate' | 'rotate' | 'scale' | 'selected';
+export type KeyChannels = 'all' | 'translate' | 'rotate' | 'scale' | 'attributes' | 'selected';   // changed: + 'attributes'
+/** M2a §5.19: the body parts a 'bodyPart' key target groups controls into (re-exported for operator authors). */
+export type { BodyPart };
 export interface ClipSettingsArgs {
   readonly clip: ClipId;
   readonly fps?: Fps;
@@ -81,7 +83,7 @@ export interface OperatorMap {
   'select.curveKeys': { args: { readonly curve: CurveId; readonly mode: SelectMode }; result: void };
   'select.channels': { args: { readonly refs: readonly ChannelRef[]; readonly mode: SelectMode }; result: void };   // v0.3 integration (WP-9 R-1)
   // key
-  'key.set': { args: { readonly channels?: KeyChannels; readonly target?: 'selected' | 'character' } | void; result: CountResult };
+  'key.set': { args: { readonly channels?: KeyChannels; readonly target?: KeyTarget; readonly breakdown?: boolean } | void; result: CountResult };   // changed (M2a)
   'key.deleteAtFrame': { args: void; result: CountResult };
   'key.toggleAutoKey': { args: void; result: void };
   // channel
@@ -96,7 +98,7 @@ export interface OperatorMap {
   'pose.unpinFeet': { args: void; result: void };
   'pose.plantFeet': { args: { readonly sides?: readonly ('L' | 'R')[] } | void; result: ChannelEditResult };
   // time (frames are active-clip frames unless unit is 'scene')
-  'time.setFrame': { args: { readonly frame: Frame; readonly unit?: 'clip' | 'scene' }; result: void };
+  'time.setFrame': { args: { readonly frame: Frame; readonly unit?: 'clip' | 'scene'; readonly carry?: boolean }; result: void };   // changed (M2a)
   'time.step': { args: { readonly delta: number }; result: void };
   'time.nextKey': { args: void; result: void };
   'time.prevKey': { args: void; result: void };
@@ -117,13 +119,16 @@ export interface OperatorMap {
   'graph.tangent.lockWeight': { args: { readonly locked: boolean }; result: void };
   'graph.infinity.set': { args: { readonly pre?: InfinityMode; readonly post?: InfinityMode }; result: void };
   'graph.keys.setFields': { args: KeyFieldsArgs; result: void };
-  'graph.keys.move': { args: { readonly dFrames: number; readonly dValue: number }; result: CountResult };
-  'graph.keys.scale': { args: { readonly pivot: Frame; readonly factor: number }; result: CountResult };
+  /** `ripple` absent: `session.tools.ripple` when the focused panel is the Dope Sheet or the time slider, else false. */
+  'graph.keys.move': { args: { readonly dFrames: number; readonly dValue: number; readonly ripple?: boolean }; result: CountResult };   // changed (M2a)
+  'graph.keys.scale': { args: { readonly pivot: Frame; readonly factor: number; readonly ripple?: boolean;
+    readonly valuePivot?: number; readonly valueFactor?: number }; result: CountResult };   // changed (M2a)
   'graph.keys.delete': { args: void; result: CountResult };
   'graph.key.insert': { args: { readonly curve: CurveId; readonly frame: Frame }; result: { readonly key: KeyId } };
   'graph.keys.keyCurves': { args: void; result: CountResult };
   'graph.keys.copy': { args: void; result: CountResult };
-  'graph.keys.paste': { args: { readonly mode?: 'merge' | 'replace' } | void; result: CountResult };
+  /** `mode` absent: 'insert' when ripple is on and the focused panel is the Dope Sheet or the time slider, else 'merge' (§5.10). */
+  'graph.keys.paste': { args: { readonly mode?: 'merge' | 'replace' | 'insert' } | void; result: CountResult };   // changed (M2a)
   'graph.eulerFilter': { args: void; result: CountResult };
   'graph.curves.simplify': { args: { readonly tolerance?: ReduceSpec } | void; result: { readonly before: number; readonly after: number; readonly maxError: number } };
   'graph.frame': { args: { readonly what: 'selection' | 'all' }; result: void };
@@ -160,4 +165,44 @@ export interface OperatorMap {
   'prefs.set': { args: { readonly patch: Partial<Omit<Prefs, 'version'>> }; result: void };
   'workspace.reset': { args: void; result: void };
   'workspace.showPanel': { args: { readonly panel: PanelKind }; result: void };
+
+  // ---------- M2a additions (M2A-SPEC §4.5, §4.9) ----------
+  // rig
+  'rig.addLimbIk': { args: { readonly character?: CharacterId; readonly limbs?: readonly LimbId[] } | void;
+    result: { readonly added: readonly LimbId[]; readonly warnings: readonly string[] } };
+  'rig.ikFk.switch': { args: { readonly limb: LimbId; readonly to: 'ik' | 'fk'; readonly match?: boolean;
+    readonly key?: IkFkKeyMode; readonly character?: CharacterId }; result: ChannelEditResult };
+  'rig.ikFk.match': { args: { readonly limb: LimbId; readonly side: 'ik' | 'fk'; readonly key?: boolean;
+    readonly character?: CharacterId }; result: ChannelEditResult };
+  /** `step` default: 'frames' for side 'fk', 'keys' for side 'ik' (§5.6). */
+  'rig.ikFk.matchRange': { args: { readonly limb: LimbId; readonly side: 'ik' | 'fk';
+    readonly range?: { readonly start: Frame; readonly end: Frame }; readonly step?: 'keys' | 'frames';
+    readonly character?: CharacterId }; result: CountResult };
+  'rig.setFootParams': { args: { readonly limb: 'leg.L' | 'leg.R'; readonly character?: CharacterId;
+    readonly params: Partial<Pick<FootRollParams, 'heelBack' | 'ballFront' | 'toeFront' | 'innerWidth' | 'outerWidth' | 'breakAngle'>> };
+    result: void };
+  // select / key / pose
+  'select.pickWalk': { args: { readonly direction: 'up' | 'down' | 'left' | 'right'; readonly add?: boolean }; result: void };
+  'key.setTarget': { args: { readonly target: KeyTarget }; result: void };
+  'key.toggleRipple': { args: { readonly ripple?: boolean } | void; result: void };
+  'key.tween': { args: { readonly mode: TweenMode; readonly amount: number; readonly target?: 'frame' | 'keys';
+    readonly breakdown?: boolean }; result: CountResult };
+  'key.convert': { args: { readonly to: 'breakdown' | 'key' }; result: CountResult };
+  'pose.mirrorAnimation': { args: { readonly mode: MirrorMode; readonly offset?: 'none' | 'halfCycle';
+    readonly controls?: readonly ControlId[] }; result: CountResult };
+  // time
+  /** `removeKeys` (default false): with frames < 0, delete keys in (at, at + |frames|] instead of poll-failing (§5.9). */
+  'time.insertTime': { args: { readonly at: Frame; readonly frames: number; readonly target?: 'selected' | 'character';
+    readonly removeKeys?: boolean }; result: CountResult };
+  // graph and dope sheet
+  'graph.keys.copyTo': { args: { readonly dFrames: number }; result: CountResult };
+  'graph.buffer.snapshot': { args: { readonly curves?: readonly CurveId[] } | void; result: CountResult };
+  'graph.buffer.swap': { args: { readonly curves?: readonly CurveId[] } | void; result: CountResult };
+  'graph.buffer.clear': { args: void; result: void };
+  'graph.view.setMode': { args: { readonly mode: GraphViewMode | 'toggleNormalized' | 'toggleStacked' }; result: void };
+  'dopeSheet.frame': { args: { readonly what: 'selection' | 'all' }; result: void };
+  // file
+  'file.recover': { args: { readonly slot: string }; result: { readonly readOnly: boolean } };
+  'file.discardRecovery': { args: { readonly slot: string }; result: void };
+  'file.autosaveNow': { args: void; result: { readonly slot: string; readonly bytes: number } | null };   // internal
 }

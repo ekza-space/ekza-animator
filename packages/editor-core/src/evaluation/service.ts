@@ -14,9 +14,9 @@ import {
   TRS_CHANNELS,
   type TrsChannel,
 } from '@ekza-animator/doc';
-import type { ChannelBuffer, CurveCache, PoseBuffers, RigProgram } from '@ekza-animator/rig';
+import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
 import type { KernelDeps } from '../app/deps';
-import { channelDefault, isKeyable, isLocked, trsSlot } from '../edit/channelMeta';
+import { channelDefault, channelDefaultOf, isKeyable, isLocked, trsSlot } from '../edit/channelMeta';
 import type { CharacterRegistry, CharacterRuntime, ChannelState, EvaluationService, SessionStore } from '../types';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from './time';
 
@@ -70,9 +70,21 @@ export function createEvaluationService(ctx: {
 
   const curveValue = (curve: CurveRecord, frame: Frame): number => {
     const compiled = cache.get(curve.id);
-    return compiled.keyCount > 0
-      ? engine.evaluate(compiled, frame)
-      : (curve.staticValue ?? channelDefault(curve.channel));
+    if (compiled.keyCount > 0) return engine.evaluate(compiled, frame);
+    if (curve.staticValue !== null) return curve.staticValue;
+    // Attribute curves fall back to their AttrDef.default (M2A-SPEC §5.1 rules 3 and 6).
+    return curve.channel.startsWith('@')
+      ? channelDefaultOf(store.get('controls', curve.control) ?? null, curve.channel)
+      : channelDefault(curve.channel);
+  };
+
+  /** M2a: any channel (TRS or '@attr') at the control's clip frame: curve (else its default), then the override. */
+  const channelValue = (control: ControlId, channel: ChannelId): number => {
+    const override = session.getState().overrides.get(control)?.[channel];
+    if (override !== undefined) return override;
+    const { curve, frame } = curveAt(control, channel);
+    if (curve !== undefined && frame !== null) return curveValue(curve, frame);
+    return channelDefaultOf(store.get('controls', control) ?? null, channel);
   };
 
   /** The base-layer curve of a control's channel in its character's active clip, with the clip frame. */
@@ -182,6 +194,21 @@ export function createEvaluationService(ctx: {
       return frame !== null && keys.some((key) => Math.abs(key.t - frame) < 1e-6) ? 'keyed-on-frame' : 'keyed';
     },
     compiledCurve: (curve: CurveId): CompiledAnimCurve => cache.get(curve),
+    channelValue,
+    attrValues(control: ControlId): Readonly<Record<string, number>> {
+      const record = store.get('controls', control);
+      const out: Record<string, number> = {};
+      if (record === undefined) return out;
+      for (const name of Object.keys(record.attrs ?? {})) out[name] = channelValue(control, `@${name}`);
+      return out;
+    },
+    ikFk(character: CharacterId, limb: LimbId): number | null {
+      // The limb's IK control owns '@ikFk' (M2A-SPEC §4.3); the op clamps it to [0, 1] where it is consumed.
+      const desc = characters.get(character)?.program.limbs.find((candidate) => candidate.id === limb);
+      if (desc === undefined) return null;
+      const value = channelValue(desc.params.ikControl, '@ikFk');
+      return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+    },
     subscribe(listener: PoseListener): Disposer {
       listeners.add(listener);
       return () => {

@@ -5,6 +5,7 @@
 import {
   type AnimCurve,
   type CompiledAnimCurve,
+  type CurveEngine,
   EkzaError,
   type Fps,
   type Frame,
@@ -67,7 +68,9 @@ export function naiveWrapClipFrame(clip: Pick<ClipRecord, 'range' | 'loop'>, fra
 // ---------- curve cache and clip sampler (rig) ----------
 
 /** Compiled curves per CurveId; a batch drops the curves it touches (curves, their keys), a load drops all. */
-export function createNaiveCurveCache(store: DocumentStore): CurveCache {
+export function createNaiveCurveCache(store: DocumentStore, engine?: CurveEngine): CurveCache {
+  const compile = (curve: AnimCurve): CompiledAnimCurve =>
+    engine === undefined ? compileNaiveCurve(curve) : engine.compile(curve);
   const compiled = new Map<CurveId, CompiledAnimCurve>();
   let version = 0;
   const unsubscribe = store.subscribe((batch) => {
@@ -93,7 +96,7 @@ export function createNaiveCurveCache(store: DocumentStore): CurveCache {
       if (cached !== undefined) return cached;
       const record = store.get('curves', curve);
       if (record === undefined) throw new EkzaError('invalid-record', `Curve ${curve} does not exist`);
-      const result = compileNaiveCurve({
+      const result = compile({
         keys: store.query.keysOfCurve(curve),
         weighted: record.weighted,
         pre: record.pre,
@@ -263,7 +266,7 @@ export function naiveInsertKeyPreservingShape(
   frame: Frame,
 ): { readonly keys: KeyData[]; readonly index: number; readonly frozen: readonly number[] } {
   const keys = curve.keys;
-  const before = compileNaiveCurve(curve);
+  const before = compileNaiveCurve(curve, { cycleAwareAuto: true });
   let index = keys.findIndex((key) => key.t > frame);
   if (index === -1) index = keys.length;
   const value = evaluateNaiveCurve(before, frame);
@@ -290,7 +293,7 @@ export function naiveInsertKeyPreservingShape(
     };
   }
   const next: KeyData[] = [...keys.slice(0, index), inserted, ...keys.slice(index)];
-  const after = compileNaiveCurve({ ...curve, keys: next });
+  const after = compileNaiveCurve({ ...curve, keys: next }, { cycleAwareAuto: true });
   const frozen: number[] = [];
   for (let i = 0; i < next.length; i++) {
     if (i === index) continue;

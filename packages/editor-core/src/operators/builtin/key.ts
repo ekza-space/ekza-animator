@@ -38,7 +38,10 @@ function keySetArgs(app: EditorApp, args: unknown): KeySetArgs | string {
   const channels = options['channels'] ?? 'all';
   const target = options['target'] ?? app.session.getState().tools.keyTarget;
   if (!KEY_CHANNELS.includes(channels as KeyChannels)) return `unknown channels ${JSON.stringify(channels)}`;
+  // M2a (A0 contract, A2 implements): body-part targets, 'attributes' and breakdown keys.
+  if (target === 'bodyPart') return 'Keying by body part is not available yet';
   if (target !== 'selected' && target !== 'character') return `unknown target ${JSON.stringify(target)}`;
+  if (options['breakdown'] === true) return 'Breakdown keys are not available yet';
   return { channels: channels as KeyChannels, target };
 }
 
@@ -63,6 +66,10 @@ export function keyChannelsOf(app: EditorApp, control: ControlRecord, which: Key
     case 'scale':
       channels = ['sx', 'sy', 'sz'];
       break;
+    case 'attributes':
+      // M2a §5.1 rule 4 (A2): attribute channels are keyed by A2's key.set; no TRS channel here.
+      channels = [];
+      break;
     case 'selected':
       channels = app.session
         .getState()
@@ -82,6 +89,7 @@ const KEY_LABEL: Readonly<Record<KeyChannels, string>> = {
   translate: 'Key Translate',
   rotate: 'Key Rotate',
   scale: 'Key Scale',
+  attributes: 'Key Attributes',
 };
 
 const keySet = defineOperator({
