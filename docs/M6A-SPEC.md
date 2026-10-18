@@ -2403,7 +2403,7 @@ Property **P9**: the vertex map is an involution (`p(p(v)) = v` for matched vert
 in the table, a symmetric mesh with a symmetric selection and symmetric pointer args yields a symmetric mesh
 (positions within 1e-6 m, partners found for every new vertex).
 
-**Overrun rule** (Q-MOD-UI-9): at B12b's midpoint review (day 2.5 of 5), if the table is projected to overrun B12b by
+**Overrun rule** (Q-MOD-UI-9): at B12b's midpoint review (day 3 of 6), if the table is projected to overrun B12b by
 more than two agent-days, INT records an owner decision: Live Mirror (one half plus an evaluated mirror clipped at the
 seam, baked at export) moves from stretch to core as the character path, and Symmetry mode narrows to transforms and
 soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision.
@@ -3235,7 +3235,8 @@ glyph and overlay line draws a 1 px `--comp-halo` outline; the tokens CI contras
 
 Parallel build in separate git worktrees (branches `m6a/<slug>` from `dev`), the M2a pattern: B0a lands contracts,
 stubs, the schema change and the shared foundation first — including **mesh-core's public interfaces and a reference
-`editMeshFrom` for static meshes**, so B6, B7 and B8 start right after B0a instead of waiting for the kernel. Every
+`editMeshFrom` for static meshes, with reference triangulation, normals, validation, stats and the cube/plane/cylinder
+primitives**, so B6, B7 and B8 do real work right after B0a instead of waiting for the kernel. Every
 package starts when its **dependsOn** packages have merged into `dev`; everything else it needs from unmerged
 packages goes through `READY` / `test.fixme` gates (§3 rule 4) that INT turns into failures. Package owners write and
 land the E2E-MOD scenarios of their scope (§10.1). Sizes are agent-days. "Dirs" are binding: every path belongs to
@@ -3256,134 +3257,165 @@ flowchart LR
   B5 -. READY diagnostics .-> B10 & B8
   B3 & B4 & B5 -. READY ops .-> B11
   B12a -. READY W/E/R absorption .-> B12b
-  B10 & B11 -. READY .-> B13
+  B10 & B11 & B12a -. READY .-> B13
+  B4 -. READY applyTransform .-> B12a
   B0b & B12a & B12b & B13 & B5 & B8 --> INT["INT: E2E-MOD, AS-LP-A/B, budgets, docs (+ fix round)"]
 ```
 
-| ID | Slug (`m6a/<slug>`) | Owner | Size | dependsOn (start after merge of) | READY / `test.fixme` gates (turn on when the named package merges) |
+| ID | Slug (`m6a/<slug>`) | Owner | Size | dependsOn (start after merge of) | Unit `READY` gates (E2E gates: §10.1 **Gates** column) |
 |---|---|---|---|---|---|
-| B0a | `contracts-foundation` | Integration agent | 3.5 | — (M2a released) | — |
-| B0b | `keymap-menus` | Agent K | 2 | B0a | every operator's behaviour (rows bind to stubs); E2E-MOD-03's extrude counts: B3 |
+| B0a | `contracts-foundation` | Integration agent | 4.5 | — (M2a released) | — |
+| B0b | `keymap-menus` | Agent K | 2.5 | B0a | every operator's behaviour (rows bind to stubs) |
 | B1 | `mesh-kernel` | Agent 1 | 7 | B0a | — |
-| B2 | `mesh-select` | Agent 2 | 4 | B1 | — |
-| B3 | `mesh-ops-core` | Agent 3 | 8 | B1 | B2 (symmetric expansion tests, P10) |
-| B4 | `mesh-ops-shape` | Agent 4 | 10 | B1 | B2 (symmetric cut/slide tests, P10) |
-| B5 | `mesh-bevel-check-uv` | Agent 5 | 8.5 | B1 | B2 (symmetric bevel, P10) |
-| B6 | `mesh-view` | Agent 6 | 6.5 | B0a | B1 (real kernel instead of the reference stub) |
-| B7 | `mesh-runtime-doc` | Agent 7 | 7 | B0a | B1 (topology ops in runtime tests; the reference stub serves until then) |
-| B8 | `mesh-io` | Agent 8 | 10 | B0a | B1 (topology edits before export), B5 (diagnostics for lints) |
-| B9 | `shell-workspaces` | Agent 9 | 5.5 | B0a | — |
-| B10 | `model-select-ui` | Agent 10 | 6.5 | B9, B6, B0b | B2 (loop table, grow/shrink/convert), B5 (Mesh Check panel and overlay), B7 (selection snapshots across commits) |
-| B11 | `model-ops-ui` | Agent 11 | 5.5 | B9, B7 | B3, B4, B5 (each op's behaviour in UI tests and E2E-MOD-07, -09, -32), B10 (component selection in E2E) |
-| B12a | `model-transform-tools` | Agent 12 | 5 | B10, B11, B2 | B12b (extrude-session absorption of W/E/R) |
-| B12b | `model-topology-tools` | Agent 13 | 5 | B10, B11, B2, B3, B4 | B12a (W/E/R absorption in E2E-MOD-17), B5 (bevel handle), B13 (the humanoid body template used by E2E-MOD-04, -20, -21, -22) |
-| B13 | `model-content` | Agent 14 | 7.5 | B1, B7, B8, B9 | B10 (Outliner hilite, select by swatch), B11 (Last-op card for primitives) |
+| B2 | `mesh-select` | Agent 2 | 4.5 | B1 | — |
+| B3 | `mesh-ops-core` | Agent 3 | 8.5 | B1 | B2 (symmetric expansion tests, P10) |
+| B4 | `mesh-ops-shape` | Agent 4 | 10 | B1 | B2 (symmetric cut/slide tests, P10), B3 (Combine + Merge by Distance oracle) |
+| B5 | `mesh-bevel-check-uv` | Agent 5 | 9 | B1 | B2 (symmetric bevel, P10) |
+| B6 | `mesh-view` | Agent 6 | 7 | B0a | B1 (real kernel instead of the reference) |
+| B7 | `mesh-runtime-doc` | Agent 7 | 8.5 | B0a | B1 (topology ops in runtime tests and the sphere/cone/torus primitives; the reference serves until then) |
+| B8 | `mesh-io` | Agent 8 | 10.5 | B0a | B1 (topology edits before export), B5 (diagnostics for lints) |
+| B9 | `shell-workspaces` | Agent 9 | 6.5 | B0a | — |
+| B10 | `model-select-ui` | Agent 10 | 7 | B9, B6, B0b | B2 (loop table, grow/shrink/convert, partner maps), B5 (Mesh Check panel and overlay), B7 (selection snapshots across commits) |
+| B11 | `model-ops-ui` | Agent 11 | 6.5 | B9, B7 | B3, B4, B5 (each op's behaviour in UI tests), B10 (component selection) |
+| B12a | `model-transform-tools` | Agent 12 | 5.5 | B10, B11, B2 | B12b (extrude-session absorption of W/E/R), B4 (`mesh.applyTransform` behind Freeze) |
+| B12b | `model-topology-tools` | Agent 13 | 6 | B10, B11, B2, B3, B4 | B12a (W/E/R absorption), B5 (bevel handle), B13 (humanoid body template) |
+| B13 | `model-content` | Agent 14 | 7 | B1, B7, B8, B9 | B10 (Outliner hilite, select by swatch), B11 (Last-op card and INPUTS primitive entry) |
 | INT | `integration` | Integration agent | 6 (+ fix round ≈ 4) | B0b, B1…B13 (all) | turns every gate into a failure |
 
-**Total ≈ 108 agent-days** plus the budgeted fix round (≈ 4). About six agents run right after B0a (B0b, B1, B6, B7,
-B8, B9), up to ten once B1 merges. **Schedule** (working days from the start of B0a, one agent per package): B0a
-0–3.5; B0b 3.5–5.5, B9 3.5–9, B6 3.5–10, B1 and B7 3.5–10.5, B8 3.5–13.5; B2 10.5–14.5, B3 10.5–18.5, B5 10.5–19, B4
-10.5–20.5; B10 10–16.5, B11 10.5–16, B13 13.5–21; B12a 16.5–21.5; B12b 20.5–25.5; INT 25.5–31.5; fix round ≈ 35.5.
-**Critical path**: B0a → B1 → B4 → B12b → INT ≈ 31.5 working days (≈ 35.5 with the fix round). This is four days
-longer than the plan's 27.5 because B12b now waits for B3 and B4 (its symmetric pointer tools are built and tested
-against the real Multi-Cut, Slide, Bridge and Target Weld ops instead of READY gates). If B4 slips, the coordinator
-MAY start B12b after B10 and B11 with its kernel cases behind READY gates (plan v0.2 behaviour); the next path is
-B0a → B6 → B10 → B12a → INT ≈ 27.5.
+**Total ≈ 116.5 agent-days** plus the budgeted fix round (≈ 4); review round 1 added ≈ 8.5 (§12.3: reference
+derived-data baselines and the descriptor split in B0a, the tool-key route in B0b, primitive creation and archive
+images in B7, symmetric loop and unmatched-partner rules in B2/B3, face bevel in B5, the extrude-session args stack
+in B12b, per-workspace pane state and pointer rules in B9). About six agents run right after B0a (B0b, B1, B6, B7, B8,
+B9), up to ten once B1 merges. **Schedule** (working days from the start of B0a, one agent per package): B0a 0–4.5;
+B0b 4.5–7, B9 4.5–11, B6 4.5–11.5, B1 4.5–11.5, B7 4.5–13, B8 4.5–15; B2 11.5–16, B3 11.5–20, B5 11.5–20.5, B4
+11.5–21.5; B10 11.5–18.5, B11 13–19.5, B13 15–22; B12a 19.5–25; B12b 21.5–27.5; INT 27.5–33.5; fix round ≈ 37.5.
+**Critical path**: B0a → B1 → B4 → B12b → INT ≈ 33.5 working days (≈ 37.5 with the fix round). This is six days
+longer than the plan's 27.5 because B12b waits for B3 and B4 (its symmetric pointer tools are built and tested against
+the real Multi-Cut, Slide, Bridge and Target Weld ops instead of READY gates) and B0a grew by one day. If B4 slips, the
+coordinator MAY start B12b after B10 and B11 with its kernel cases behind READY gates (plan v0.2 behaviour); the next
+path is B0a → B7 → B11 → B12a → INT ≈ 31.
 
 ### 9.1 Shared files (binding)
 
 One owner per file at a time; B0a first (it merges before anyone else starts), then the listed owner. Another package
 that needs a change sends a contract PR to this table or asks the owner. Every other path belongs to exactly one
-package's **Dirs** below.
+package's **Dirs** below; where two globs could overlap, the narrower one in this table wins.
 
 | File or tree | B0a lands | Then owned by | Others |
 |---|---|---|---|
-| `doc/src/{records.ts,ids.ts,store.ts}`, `doc/src/records/**`, `doc/src/tables/**`, `doc/src/snapshot/**`, `doc/src/migrations/**`, `doc/src/store/{references.ts,memory.ts,…}`, `doc/src/undo/**`, `doc/src/queries/**` | schema v3, new tables with validation and queries, `entries()`/`onEvict`/`evictOldest` | **closed** after B0a | contract PRs reviewed by the integration agent |
-| `doc-yjs/src/**` | `entries()`/`onEvict` and the new tables on the Yjs store | closed after B0a | B7 adds conformance cases only through `doc/src/testing/mesh*` |
-| `anim-core/src/params/**`, `anim-core/src/hash/**`, `anim-core/src/index.ts` | `ParamDef` helpers, SHA-256 | closed after B0a | — |
-| `editor-core/src/types.ts`, `editor-core/src/operators/args.ts`, `editor-core/src/history/**` | §4.6 types, `OperatorMap` rows, selection parts, `onDrop`, `dropOldest`, `recordSelection` (coalescing included) | closed after B0a | B10 calls `recordSelection` |
-| `mesh-core/src/index.ts` (barrel), `mesh-core/src/ops/*/index.ts` stub objects, `mesh-core/src/registry.ts` (`MESH_OPS`) | stub exports, every op stub with final params | barrel: only stub lines change; each `ops/<name>/` belongs to its kernel owner (§6.1) | — |
-| `mesh-core/src/reference/**` | reference `editMeshFrom` and revision codec (static meshes, no Euler ops) | B1 (switches the barrel lines to `core`/`revision` and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
-| `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/menus.ts`, `editor/src/shell/{menuItems.ts,menus.ts}` | — | **B0b**, then **B9** after B0b merges | B10…B13 add rows and menu items through contract PRs to §7/§8.3 |
-| `editor/src/input/keyboard.ts` | — | B0b (scope chain, capture hook), then B9 | B11 registers the capture handler through the hook |
-| `editor-core/src/operators/builtin/index.ts`, `edit.ts`, `operators/runner.ts`, `operators/registry.ts` | registration of every new operator file; stubs of `edit.adjustLast`/`edit.repeatLast`; a no-op `LastRun` recorder | **B11** | B7 provides `MeshRuntime` hooks |
-| `editor-core/src/session/**` | defaults for `workspace`, `lastRun`, `model` | B10 | other packages write their `session.model` fields only through their own operators (no edits in this tree) |
-| `editor-core/src/app/{createEditorApp.ts,kernel.ts,deps.ts}` | wiring of `workspaces`, `markingMenus`, `meshes`, `components`, `extrude`, `capture`, `blobs` (stubs) | B7 (`meshes`, `blobs`), B10 (`components`), B11 (`capture`), B12b (`extrude`) each replace only their stub factory call | — |
-| `editor-core/src/characters/registry.ts` | skips `source.kind === 'model'` characters | B8 (display rebuild hook) | — |
-| `viewport/src/layers.ts`, `viewport/src/manager/**`, `editor/src/shell/**` (except the menu files), `editor/src/overlays/**` | layer constants | B9 | B6 registers mesh layers through `addMeshLayer`; B10–B13 register overlays through slots |
+| `doc/src/{records.ts,ids.ts,store.ts}`, `doc/src/records/**`, `doc/src/tables/**`, `doc/src/snapshot/**`, `doc/src/migrations/**`, `doc/src/store/{references.ts,memory.ts,…}`, `doc/src/undo/**`, `doc/src/queries/**` | schema v3, new tables with validation and queries, `entries()`/`onEvict`/`evictOldest`/`clearRedo` | **closed** after B0a | contract PRs reviewed by the integration agent |
+| `doc-yjs/src/**` | `entries()`/`onEvict`/`evictOldest`/`clearRedo` and the new tables on the Yjs store | closed after B0a | B7 adds conformance cases that keep `data` opaque through `doc/src/testing/mesh*` |
+| `anim-core/src/params/**`, `anim-core/src/hash/**`, `anim-core/src/index.ts`; `io/src/hash/**`, `doc/src/migrations/sha256.ts` (wrappers, §4.1) | `ParamDef` helpers, streaming SHA-256 and the unchanged io/doc wrappers | closed after B0a | — |
+| `editor-core/src/types.ts`, `editor-core/src/operators/args.ts`, `editor-core/src/history/**` | §4.6 types, `OperatorMap` rows, selection parts, `onDrop`, `dropOldest`, `recordSelection` (per-gesture steps, repeat coalescing, selection-aware `isEmpty`/pruning, limit drops paired with `evictOldest`, `clearRedo`) | closed after B0a | B10 calls `recordSelection` |
+| `mesh-core/src/{index.ts,descriptors.ts}` (barrels), `mesh-core/src/ops/*/{index.ts,descriptor.ts}` stubs, `mesh-core/src/registry.ts` (`MESH_OPS`), `mesh-core/src/kernel.ts` (`KERNEL_MARKER`) | stub exports, every op stub and descriptor with final params | barrels: only stub lines change; each `ops/<dir>/` belongs to its kernel owner (§6.1 Kernel column) | — |
+| `mesh-core/src/reference/**` | reference `editMeshFrom`, revision codec, `triangulate` (fan for convex faces, earcut for the rest), `computeNormals` (face + angle-weighted corner normals split at hard edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' \| 'plane' \| 'cylinder')` — static meshes, no Euler ops | B1 (switches the barrel lines to its modules and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
+| `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/{menus.ts,keymapShadows.ts}`, `editor/src/shell/{menuItems.ts,menus.ts}` | `keymapShadows.ts` stub (`model.animateOnly`) | **B0b**, then **B9** after B0b merges | B10…B13 add rows and menu items through contract PRs to §7/§8.3 |
+| `editor/src/input/keyboard.ts` | — | B0b (scope chain, capture hook, active-tool key route, tap/hold contract), then B9 | B11 registers the capture handler through the hook |
+| `editor-core/src/operators/builtin/index.ts`, `edit.ts`, `operators/runner.ts`, `operators/registry.ts` | registration of every new operator file; stubs of `edit.adjustLast`/`edit.repeatLast`; a no-op `LastRun` recorder | **B11** (incl. the `edit.undo`/`edit.redo` session hook) | B7 provides `MeshRuntime` hooks; B12b provides `app.extrude.stepBack/stepForward` |
+| `editor-core/src/session/**` | defaults for `workspace`, `workspaceViews`, `lastRun`, `model` | B10 | other packages write their `session.model` fields only through their own operators (no edits in this tree) |
+| `editor-core/src/app/{createEditorApp.ts,kernel.ts,deps.ts}` | wiring of `workspaces`, `markingMenus`, `meshes`, `components`, `extrude`, `capture`, `blobs` through one factory file each, `editor-core/src/app/factories/{meshes,components,capture,extrude}.ts` (stubs); the nullable-asset narrowing in `deps.ts` | **closed** after B0a; each factory file belongs to its owner: B7 `meshes` (and `blobs`), B10 `components`, B11 `capture`, B12b `extrude` | — |
+| `editor-core/src/app/autosave.ts`, `editor-core/src/operators/builtin/autosave.ts`, `editor-core/src/workflows/project.ts` | — | **B7** (blob closure, recovery, `.ekzanim` blobs and images) | — |
+| `editor-core/src/characters/registry.ts`, `editor-core/src/workflows/{importModel.ts,export.ts}` | skips `source.kind === 'model'` characters; narrows the nullable `asset` reads (§4) | B8 (display rebuild hook in `registry.ts`); the workflows return to their M2a owners' rules | — |
+| `viewport/src/layers.ts`, `viewport/src/manager/**`, `viewport/src/navigation/**` (pointer platform rules), `editor/src/shell/**` (except the menu files), `editor/src/overlays/{MarkingMenu,CommandPalette,slots}/**` | layer constants | B9 | B6 registers mesh layers through `addMeshLayer`; B10–B13 register overlays through slots; menu data lives in `editor/src/overlays/menus/<file>` of its owner (§8.4; B11's option box is `overlays/menus/optionBox.tsx`) |
+| `viewport/src/manipulators/{ManipulatorKit.ts,drag.ts,scale/**}` | — | B9 | B12a owns `manipulators/component/**`, B12b `manipulators/extrude/**` |
 | `editor/src/panels/viewport/{PaneView,ViewportPanel,PaneMenu}.tsx` | — | B9 (overlay slots) | B10 HUD, B11 Last-op card, B12a readout, B13 empty state and getting started register into slots |
 | `viewport/src/tools/{transformTool.ts,virtualSliderDrag.ts,selectTool.ts,host.ts}` | — | B12a (`transformTool`, `virtualSliderDrag`: MMB rule), B10 (`selectTool` component picking), `host.ts` B9 | — |
-| `editor/src/panels/channel-box/**` | — | B11 (INPUTS and mesh object rows) | — |
-| `editor/src/panels/outliner/**`, `editor/src/panels/attributes/**`, `editor/src/dialogs/{ExportDialog.tsx,FirstRunDialog.tsx}` | — | B13 | — |
-| `editor/src/test-api/**` | types, kernel-level functions, stubs | B0a keeps `index.ts`/`createTestApi.ts`; probe owners fill their slices (§4.8 comments) | — |
-| `io/src/types.ts` | §4.5 types | closed after B0a | — |
-| `io/src/{lint,surgeon,profiles}/**`, `io/src/project/**` | — | B8 (`lint`, `surgeon`, `profiles`); B7 (`project`: `.ekzanim` blobs) | B5 supplies diagnostics through `mesh-core/src/check` |
+| `editor/src/panels/channel-box/**` | — | B11 (INPUTS entries and mesh object rows) | — |
+| `editor/src/panels/outliner/**`, `editor/src/panels/attributes/**`, `editor/src/dialogs/{ExportDialog.tsx,FirstRunDialog.tsx}` | the nullable-asset narrowing in `AttributesPanel.tsx` | B13 | — |
+| `editor/src/test-api/{index.ts,createTestApi.ts,types.ts}` | types, the spread of the owner files, kernel-level functions over stubs | **closed** after B0a | each owner fills only `editor/src/test-api/m6a/<package-slug>.ts` (§4.8 group comments) |
+| `apps/web/e2e/helpers/m6a-model.ts` | enter Model, create primitives, screen points of components | closed after B0a | content helpers (`buildSword`) live in `helpers/m6a-model-content.ts` (B13) |
+| `io/src/types.ts` | §4.5 types (`ProjectArchive.blobs`, the writer's `blobs` parameter) | closed after B0a | — |
+| `io/src/{lint,surgeon,profiles,mesh}/**`, `io/src/project/**` | — | B8 (`lint`, `surgeon`, `profiles`, the lazy `mesh` entry); B7 (`project`: `.ekzanim` blobs, `images`, limits) | B5 supplies diagnostics through `mesh-core/src/check` |
 | `editor/src/services/{autosave.ts,browser.ts,blobs.ts}` | `blobs` option in `createBrowserServices` | B7 | — |
 | `packages/ui/css/tokens.css` | §8.9 tokens | closed after B0a | — |
-| package manifests, `pnpm-lock.yaml`, `apps/web/next.config.ts`, `tooling/{check-deps.mjs,license-exceptions.json}` | new packages, dependencies, exception entry | **integration agent** (B0a, INT) | packages request entries |
-| `apps/web/scripts/{check-size.mjs,size-baseline.json,attribute-chunks.mjs}` | — | B9 | INT re-records the baseline only with an owner decision |
+| package manifests, `pnpm-lock.yaml`, `apps/web/next.config.ts`, `tooling/{check-deps.mjs,license-exceptions.json}` | new packages, subpath exports, dependencies, exception entry | **integration agent** (B0a, INT) | packages request entries |
+| `apps/web/scripts/{check-size.mjs,size-baseline.json,attribute-chunks.mjs}` | the `mesh-kernel` and `mesh-view` BOUNDARIES (§2) | B9 | INT re-records the baseline only with an owner decision |
 | `docs/{ROADMAP,REQUIREMENTS,DECISIONS-OPEN}.md`, `README.md`, this spec | — | INT (status), contract PRs (this spec) | packages write only `docs/wp-notes/m6a-<slug>.md` |
 
-### B0a — Contracts, schema v3, mesh-core interfaces + stub, undo eviction (integration agent; first)
+### B0a — Contracts, schema v3, mesh-core interfaces + reference, undo eviction (integration agent; first)
 
-- **Dirs**: every file of §9.1 in its B0a role; `packages/mesh-core/{package.json,src/index.ts,src/registry.ts,
-  src/ops/*/index.ts (stubs),src/reference/**}`; `packages/mesh-view/{package.json,src/index.ts}` (skeleton);
-  `editor-core/src/operators/builtin/{mesh/**,selectMesh.ts,hide.ts,mode.ts,softSelect.ts,symmetry.ts,
-  pivot.ts,snap.ts,extrudeSession.ts,lastop.ts,palette.ts,imagePlane.ts,create.ts,scene.ts,makeEditable.ts,exportModel.ts,
-  workspace.ts}` as **stub files** handed to their owners (§9 per package); `editor-core/src/{mesh,selection,
-  services/blobs}/index.ts` stubs; `editor/src/test-api/**`; `apps/web/e2e/helpers/m6a-model.ts`,
-  `apps/web/e2e/m6a-00-foundation.spec.ts`; `tooling/**` entries; `docs/wp-notes/m6a-contracts-foundation.md`.
-- **Responsibilities**: (1) every §4 type verbatim and a stub for every new symbol; (2) schema v3 atomically
-  (§4.2: ids, records, seven tables with partition, merge unit, validation, `referencesOf`, queries, migration 2 → 3,
-  `requiredWriterVersion`, `minWriterVersion` written by the stores, the `characters` change and the `skeletonCharacter`
-  lookup) on the memory store **and** `doc-yjs`; (3) `UndoManager.entries()`/`onEvict`/`evictOldest` on
-  `PatchUndoManager` and the Yjs store; `EditorHistory` selection parts, `recordSelection` with the §5.6 coalescing,
+- **Dirs**: every file of §9.1 in its B0a role; `packages/mesh-core/{package.json,src/index.ts,src/descriptors.ts,
+  src/registry.ts,src/kernel.ts,src/ops/*/{index.ts,descriptor.ts} (stubs),src/reference/**}`;
+  `packages/mesh-view/{package.json,src/index.ts}` (skeleton); `editor-core/src/operators/builtin/{mesh/**,
+  selectMesh.ts,hide.ts,mode.ts,softSelect.ts,symmetry.ts,pivot.ts,snap.ts,extrudeSession.ts,lastop.ts,palette.ts,
+  imagePlane.ts,create.ts,templates.ts,scene.ts,makeEditable.ts,exportModel.ts,workspace.ts,keymapShadows.ts}` as
+  **stub files** handed to their owners (§9 per package); `editor-core/src/{mesh,selection,services/blobs}/index.ts`
+  and `editor-core/src/app/factories/*.ts` stubs; `editor/src/test-api/{index.ts,createTestApi.ts,types.ts}` and the
+  owner stub files `editor/src/test-api/m6a/*.ts`; `apps/web/e2e/helpers/m6a-model.ts`,
+  `apps/web/e2e/m6a-00-foundation.spec.ts`; the two `check-size` BOUNDARIES; `tooling/**` entries;
+  `docs/wp-notes/m6a-contracts-foundation.md`.
+- **Responsibilities**: (1) every §4 type verbatim and a stub for every new symbol, each in the file §4's placement
+  rule names; (2) schema v3 atomically (§4.2: ids, records, seven tables with partition, merge unit, validation,
+  `referencesOf`, queries, migration 2 → 3, `requiredWriterVersion`, `minWriterVersion` written by the stores, the
+  `characters` change with every shipped `asset` read narrowed (§4), and the `skeletonCharacter` lookup) on the memory
+  store **and** `doc-yjs`; (3) `UndoManager.entries()`/`onEvict`/`evictOldest`/`clearRedo` on `PatchUndoManager` and
+  the Yjs store; `EditorHistory` selection parts, `recordSelection` with the §5.6 rules (one step per gesture, repeat
+  coalescing, doc redo cleared), selection-aware `isEmpty` and pruning, limit drops paired with `evictOldest`,
   `onDrop`, `dropOldest`; `TxMeta.selectionBefore/After` as `SelectionSnapshot` (the shipped snapshot shape is a
-  subset: `controls` only, read compatibly); (4) `ParamDef` helpers and SHA-256 in anim-core; (5) mesh-core: the
-  public types of §4.3, `BitSet` (complete), `selectionOf`, `refuse`/`isRefusal`, **a working reference
-  `editMeshFrom`/`emptyMesh`** for static meshes (traversal, value writes, layers, write log with exact `apply`;
-  Euler operators throw `not-implemented`), `writeRevision`/`readRevision`/`parseManifest` for that reference, the
-  `MESH_OPS` registry with every §6.1 op as a stub object (final `id`, `label`, `kinds`, `params`, `flags`,
-  `symmetry`; `poll` true, `run` → `refuse('not-implemented', …)`), `PRIMITIVE_PARAMS` and `primitive('cube')`
-  (needed by stubs and e2e helpers); (6) editor-core: workspace registry with the Animate workspace (Model registered
-  by B9), `markingMenus` registry, `meshes` registry stub (runtimes stay `asset`/`loading`), `components` stub, memory
-  `BlobStore` (complete), `LastRun` no-op recorder, `extrude`/`capture` stubs, `RunContext.source` set by the keyboard
-  adapter, menus and palette; (7) every §6 operator registered from its stub file, poll-failing "not available yet";
-  (8) test API types, the kernel-level functions over stubs (`meshes`, `meshInfo` via reference, `history`, `blobs`,
-  `workspaces`, `resolveKey`), `ws=` URL parameter; (9) dependencies and the licence exception (§2); tokens (§8.9).
+  subset: `controls` only, read compatibly); (4) `ParamDef` helpers (with `passThrough`) and the streaming SHA-256 in
+  anim-core, io/doc wrappers keeping their signatures; (5) mesh-core: the public types of §4.3, `BitSet` (complete,
+  tagged encoding), `selectionOf`, `refuse`/`isRefusal`, **a working reference** `editMeshFrom`/`emptyMesh` for static
+  meshes (traversal, value writes, layers, write log with exact `apply`; Euler operators throw `not-implemented`),
+  `writeRevision`/`readRevision`/`parseManifest` with canonical tails, reference `triangulate` (fan for convex faces,
+  earcut otherwise), `computeNormals` (face normals by Newell, angle-weighted corner normals split at hard, border and
+  non-manifold edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' | 'plane' | 'cylinder')`
+  (§6.3 parameters, faceted, all hard; no UVs needed); the descriptors barrel with every §6.1 descriptor (final `id`,
+  `label`, `kinds`, `params`, `flags`, `symmetry`) and `PRIMITIVE_PARAMS`, and the `MESH_OPS` registry with every op
+  as a stub object (`poll` true, `run` → `refuse('not-implemented', …)`), behind the lazy kernel entry with
+  `KERNEL_MARKER`; (6) editor-core: workspace registry with the Animate workspace (Model registered by B9),
+  `markingMenus` registry, `meshes` registry stub over the reference (runtimes reach `ready` for revisions it can
+  read), `components` stub, memory `BlobStore` (complete, with `fresh` and `closure`), `LastRun` no-op recorder,
+  `extrude`/`capture` stubs, `RunContext.source` set by the keyboard adapter, menus and palette; one factory file per
+  editor service (§9.1); (7) every §6 operator registered from its stub file, poll-failing "not available yet"; (8)
+  test API types, the owner stub files, the kernel-level functions (`meshes`, `meshInfo` and `meshNormals` via the
+  reference, `history`, `blobs`, `workspaces`, `resolveKey`), `ws=` and `platform=` URL parameters; (9) dependencies,
+  the `./descriptors` subpath export and the licence exception (§2); tokens (§8.9); the `mesh-kernel` and `mesh-view`
+  size BOUNDARIES.
 - **Working baselines (never throwing stubs)**: the migration and `requiredWriterVersion`; `referencesOf`; queries;
-  `entries()`/`onEvict`; history selection parts; the reference `editMeshFrom` and revision codec; memory `BlobStore`;
-  the Animate workspace definition; the keyboard scope chain for Animate (B0b extends it); `LastRun` recording as a
-  no-op; `CharacterRegistry` ignoring model characters.
+  `entries()`/`onEvict`/`clearRedo`; history selection parts; the reference `editMeshFrom`, revision codec,
+  triangulation, normals, `validateMesh`, `topologyStats` and three primitives (so `setKernelDebug(true)` in every test
+  setup runs a real validator, and B6/B7/B8 have real derived data from day one); memory `BlobStore`; the Animate
+  workspace definition; the keyboard scope chain for Animate (B0b extends it); `LastRun` recording as a no-op;
+  `CharacterRegistry` ignoring model characters.
 - **Tests**: schema: a v2 snapshot migrates (characters gain `source`, assets `provenance: null`), reopens writable,
-  saves with `schemaVersion: 3` and `minWriterVersion` 2 when it has no v3-only records and 3 with a mesh record; an
-  M2a reader double opens a mesh project read-only; migration idempotent; validation repairs (each table row of §4.2);
-  conformance suite green on memory and `doc-yjs` with the new tables; `entries()` order and `onEvict` reasons
-  (`limit`, `clear`, `redo-cleared`, `budget`, `load`) on both stores; history: selection steps, coalescing rules
-  (additive within 1 s merge; replace, clear, marquee, loop never merge), `onDrop`, `dropOldest` pairing with
-  `evictOldest`; ParamDef helpers (defaults, schema, coercion, strip, primary); SHA-256 vectors; mesh-core reference
-  (write log exact undo P5 on value writes, revision round trip P8 with implicit tails); every `MESH_OPS` entry passes
-  `assertParams` and its params match §6.1 (a table-driven test reads §6.1's names from a fixture); E2E-00…27 and
-  E2E-M2A-01…25 unchanged except §3 rule 9 literals; `m6a-00-foundation.spec.ts`: Model tab present, every new
-  operator resolves and poll-fails cleanly.
+  saves with `schemaVersion: 3` and `minWriterVersion` 2 when it has no v3-only records and 3 with a mesh record;
+  importing a character writes no `meshes` record (`minWriterVersion` stays ≤ 2); an M2a reader double opens a mesh
+  project read-only; migration idempotent; validation repairs (each table row of §4.2); conformance suite green on
+  memory and `doc-yjs` with the new tables; `entries()` order and `onEvict` reasons (`limit`, `clear`,
+  `redo-cleared`, `budget`, `load`) and `clearRedo` on both stores; history: one step per selection gesture,
+  auto-repeat coalescing, a selection step clears the doc redo, selection-only steps survive pruning, `onDrop`,
+  `dropOldest` and limit drops pairing with `evictOldest`; ParamDef helpers (defaults, schema, coercion, `passThrough`,
+  strip, primary); SHA-256 vectors (anim-core, io sync and async, doc text agree) and the throughput bench (report);
+  mesh-core reference (write log exact undo P5 on value writes, revision round trip P8 with implicit and canonical
+  tails, reference triangulation/normals goldens on the three primitives, `validateMesh` on a broken fixture);
+  `BitSet.encode` picks the smaller encoding; every descriptor passes `assertParams` and its params match §6.1 (a
+  table-driven test reads §6.1's names from a fixture); E2E-00…27 and E2E-M2A-01…25 unchanged except §3 rule 9
+  literals; `check:size` fails on a fixture that imports the kernel eagerly; `m6a-00-foundation.spec.ts`: Model tab
+  present, every new operator resolves and poll-fails cleanly.
 - **DoD**: `pnpm run ci` green; the §4 blocks compile together; an M2a project opens writable and round-trips; the eager
-  route grows by ≤ its share of the +20 kB budget (recorded in the notes); `docs/wp-notes/m6a-contracts-foundation.md`
-  lists every baseline and deviation.
+  route grows by ≤ its share of the +20 kB budget and holds no kernel or view code (recorded in the notes);
+  `docs/wp-notes/m6a-contracts-foundation.md` lists every baseline and deviation.
 
 ### B0b — Keymap rows, scope chain, menus
 
-- **Dirs**: `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/menus.ts`,
+- **Dirs**: `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/{menus.ts,keymapShadows.ts}`,
   `editor/src/shell/{menuItems.ts,menus.ts}`, `editor/src/input/keyboard.ts`, `editor-core/test/keymap*.test.ts`,
-  `apps/web/e2e/m6a-03-mod-e-scopes.spec.ts`, `docs/wp-notes/m6a-keymap-menus.md`.
-- **Responsibilities**: hierarchical scope chain (§5.17) in `scopeChain()`; the capture hook (`app.capture.key` first,
-  §5.10) and the tap/hold set; `KeymapManager.preset: string`; **every §7 row** and the tool-modifier documentation in
-  the cheat sheet; every §8.3 menu item with `workspaces`/`modes`; menu-bar menu sets per workspace (data for B9's
-  shell); the help-line resolution under the pointer; `preventDefault` for the QA-matrix chords; the conformance test
-  of §7.
-- **Tests**: keymap table test with every §7 row; conformance (§7); scope-chain unit tests (Model face mode over a
-  pane, Model over the Outliner, Animate unchanged); the cheat sheet lists every new binding; E2E-MOD-03.
-- **DoD**: CI green; Animate's shipped bindings resolve exactly as before (snapshot of `resolve` over the M2a table);
-  hands `keymap/**`, the menu files and `keyboard.ts` to B9 (noted in the wp-notes).
+  `editor/test/input/**`, `apps/web/e2e/m6a-03-mod-e-scopes.spec.ts`, `docs/wp-notes/m6a-keymap-menus.md`.
+- **Responsibilities**: hierarchical scope chain (§5.17) in `scopeChain()`; the **adapter order** (capture hook →
+  active viewport tool `key()` → keymap, §5.17) with the reserved modal keys and `ToolDef.keys`, i.e. the
+  viewport tool-key bridge (`ToolKeyEvent` with `ctrl` and `repeat`, keydown and keyup); the tap/hold contract
+  `isTapHoldKey(code, scopes, mods)` (`Space` unchanged, `KeyB` only unmodified in `model.viewport`);
+  `KeymapManager.preset: string`; **every §7 row** (the Animate shadows through `model.animateOnly`) and the
+  tool-modifier documentation in the cheat sheet; every §8.3 menu item with `workspaces`/`modes`; menu-bar menu sets
+  per workspace (data for B9's shell); the help-line resolution under the pointer (labels through
+  `KeymapManager.label`); `preventDefault` for the QA-matrix chords; the conformance test of §7.
+- **Tests**: keymap table test with every §7 row; conformance (§7), including the **DOM-adapter** cases (`Mod+V`,
+  `Mod+I`, `Mod+D`, `Alt+V`, `Alt+X`, `Alt+J`, Graph `B`/`I` resolve as on M2a through real key events; a fake tool in
+  `placing` consumes `Backspace` and `mesh.delete` never runs; a `B` tap toggles soft select, `B` with a pointer-down in
+  between does not; `X` held reaches the tool as down/up); scope-chain unit tests (Model face mode over a pane, Model
+  over the Outliner, Animate unchanged); the cheat sheet lists every new binding; E2E-MOD-03.
+- **DoD**: CI green; Animate's shipped bindings resolve exactly as before (snapshot of `resolve` over the M2a table
+  **and** the DOM-adapter cases); hands `keymap/**`, the menu files and `keyboard.ts` to B9 (noted in the wp-notes).
 
 ### B1 — Mesh kernel
 
@@ -3394,12 +3426,14 @@ package's **Dirs** below.
 - **Responsibilities**: research 13 K-1: SoA arrays with capacity growth (amortized doubling, `Math.fround` writes),
   edit links, attribute layers with the §5.2 rules applied inside Euler operators, the write log and `MeshDelta`
   (coalesced per slot; copy-on-write snapshots above P/4 slots; exact `apply` both ways), Euler operators,
-  `validateMesh` (§5.1), `topologyStats`, revision writer/reader with implicit default tails and incremental
-  re-hashing (§5.20), the one triangulation and normals (§5.4), the hard-flag helpers and `resolveSmoothingAngle`
+  `validateMesh` (§5.1), `topologyStats`, revision writer/reader with implicit default tails, canonical tail trimming
+  and incremental re-hashing (§5.20), the one triangulation and normals (§5.4), the hard-flag helpers and `resolveSmoothingAngle`
   (§5.3), the six primitives with both default sets (§6.3) and UVs (§5.16), fast-check arbitraries and the golden
   runner (`mesh-core/testing`), the `robust-predicates` wrapper (or the port); first benches. Replaces B0a's reference
-  `editMeshFrom` (same contract) and its stub lines in the barrel.
-- **Tests**: P1, P4, P5, P6 (Node + Vitest browser mode, Chromium), P7 propagation per Euler operator, P8; primitive
+  (`editMeshFrom`, codec, triangulation, normals, validation, stats, three primitives; same contracts) and its stub
+  lines in the barrel. Every kernel entry module references `KERNEL_MARKER`.
+- **Tests**: P1, P4, P5, P6 (Node + Vitest browser mode, Chromium), P7 propagation per Euler operator, P8 (incl. full
+  vs incremental write of identical content → same manifest id); primitive
   goldens (§5.29 row); triangulation goldens (quad diagonal ties, concave quad, earcut n-gon, flip flag); normals
   (smooth fans bounded by hard/border/non-manifold edges; faceted cube = face normals); invariants on a synthetic
   non-manifold corpus (bow-tie, 3-face edge, flipped face, duplicate faces, zero-area).
@@ -3415,12 +3449,17 @@ package's **Dirs** below.
   semantics as pure functions (`loopGesture(m, sel, kind, component, gesture) → ComponentSelection`), grow/shrink,
   convert (touching/contained/perimeter/border/shell/loop/ring), hidden components honoured everywhere; soft weights
   (Volume, Surface Dijkstra, presets) from the expanded selection (§5.15); symmetry: vertex/edge/face partner maps with
-  mutual matching and orientation, pointer mapping (`t`/`1 − t`, seam snapping), `expandSelection`, seam helpers
-  (in-plane projection, symmetrize-a-region helper used by B3/B4/B5); `mesh.transformComponents` with soft weights
-  and symmetry (§5.14 first row).
+  mutual matching and orientation, `edgeSelf` (crossing vs in-seam), the pointer rule `mirrorEdgePoint` (`t`/`1 − t`;
+  crossing edges snap a near-plane point to `t*`; in-seam edges map `t ↦ t` and never snap), `expandSelection` (one
+  side for unmatched components), an unmatched-partner helper that every op uses to emit
+  `symmetry.unmatched-partner`, seam helpers (in-plane projection, symmetrize-a-region helper used by B3/B4/B5);
+  `mesh.transformComponents` with soft weights and symmetry (§5.14 first row; `space` world/object/component).
 - **Tests**: walker goldens (cube, cylinder with loops, torus loops and rings, partial loops on vertices/edges/faces,
-  pole and border stops, hidden stops); P9; P10 for transforms and soft; soft weights match the presets at sample
-  distances (1e-9); bench: soft weights over 10k vertices ≤ 2 ms.
+  pole and border stops, hidden stops); `Mod`-double gesture; symmetry map goldens: a cube X-ring edge (crossing:
+  `t ↦ 1 − t`, a point near x = 0 snaps to `t*`), an off-centre plane cut so the plane does not bisect a crossing
+  edge (`t* ≠ 0.5`), a centre-line edge of the humanoid body (in-seam: `t ↦ t`, no snap), an unmatched vertex; P9;
+  P10 for transforms and soft; soft weights match the presets at sample distances (1e-9); bench: soft weights over 10k
+  vertices ≤ 2 ms.
 - **DoD**: CI green; READY flag `b2`.
 
 ### B3 — Core topology ops and extrude
@@ -3431,12 +3470,16 @@ package's **Dirs** below.
 - **Responsibilities**: research 13 K-4 with the normative rules of §5.8 (geometry, region frame, arg order, edges,
   zero args left in — the zero-drop is the session's), §5.9 (inset), §5.11 (insert/offset loop, connect), §5.12
   (bridge, fill hole, merge family, delete family); hard-flag rule per op (§5.3); §5.14 behaviour for these ops
-  (expanded selections, self-mirrored regions, Insert Edge Loop partner rings and the one-loop seam rule, Target Weld
-  seam cases, Bridge mirrored pairs); `OpResult.frame` for extrude/inset; `OpResult.adjust` fast paths for extrude
+  (expanded selections, self-mirrored regions, Insert Edge Loop decided by the mapped seed point, Target Weld seam
+  cases, Bridge mirrored pairs, unmatched partners processed on one side with the warning); `OpResult.frame` for
+  extrude/inset; `OpResult.adjust` fast paths for extrude
   offsets (positions only, no topology change) and loop weight.
 - **Tests**: P1–P7 and P10 on every op; the §5.29 count oracles of these ops; extrude: typed 0.5 moves the cap along
   the normal with unchanged area (1e-6); arg order; individual vs together; border-edge extrude; refusals; symmetric
-  Insert Edge Loop on a symmetric arm (two loops) and a waist ring (one loop, partners for all); Target Weld seam table;
+  Insert Edge Loop goldens: a symmetric arm (two loops), a waist ring (one loop, partners for all), a cube X-ring at
+  weight 0.3 (two loops at x = ±0.2, 16/28/14) and 0.5 (one loop at x = 0, 12/20/10), `multiple` on an X-ring (the
+  mirrored set coincides: inserted once); Target Weld seam table and an unpaired weld (`symmetry.unmatched-partner`);
+  plain Delete on a corner vertex refuses `delete.not-winged`, Delete Edge/Vertex gives 7/9/4;
   bench: extrude 100 faces and a loop on a 200-quad ring ≤ 16 ms incl. caches (Node share recorded).
 - **DoD**: CI green; READY flag `b3`.
 
@@ -3446,11 +3489,13 @@ package's **Dirs** below.
   combine,separate,extract,duplicate}/**`, `mesh-core/src/subset/**` (`copySubset`, `appendMesh`), matching tests,
   `docs/wp-notes/m6a-mesh-ops-shape.md`.
 - **Responsibilities**: research 13 K-5/K-6 base with §5.12 (spin/flip, slide, average), §5.13 (MeshSetOps with
-  remaps and refusals, Mirror, Symmetrize, Triangulate/Quadrangulate, Freeze), normals ops (harden/soften/set angle/
+  remaps and refusals, `appendMesh` reversing winding for `det < 0`, Mirror, Symmetrize, Triangulate/Quadrangulate,
+  the kernel op `mesh.applyTransform` behind Freeze and Bake Pivot), normals ops (harden/soften/set angle/
   reverse/conform), §5.11 Multi-Cut (exact chord tests with `robust-predicates`, vertex points, seam-crossing clip),
-  §5.14 rows for these ops.
-- **Tests**: P1–P7, P10; oracles (half cube mirror, triangulate, spin, combine + merge by distance through B3 when
-  `READY.b3`, separate shells); Multi-Cut fuzz: random edge/vertex paths on random meshes never produce invalid
+  §5.14 rows for these ops (unmatched partners included).
+- **Tests**: P1–P7, P10; oracles (half cube mirror, the mirrored-duplicate Combine golden with reversed winding,
+  triangulate, spin, combine + merge by distance through B3 when `READY.b3`, separate shells); `mesh.applyTransform`
+  with a negative determinant keeps outward winding; Multi-Cut fuzz: random edge/vertex paths on random meshes never produce invalid
   topology; chord tests on concave n-gons (L-shape); slide keeps every vertex on its rail (1e-9) and on the
   pre-slide surface (1e-4 m); average pins borders and seam; MeshSetOp remaps (materials by identity, palettes,
   morph union, joint palettes, refusals).
@@ -3460,9 +3505,13 @@ package's **Dirs** below.
 
 - **Dirs**: `mesh-core/src/ops/{bevel,cleanup,uv}/**`, `mesh-core/src/check/**`, `mesh-core/src/uv/project/**`,
   matching tests, `docs/wp-notes/m6a-mesh-bevel-check-uv.md`.
-- **Responsibilities**: §5.9 bevel (fraction/absolute, 1–3 segments, chamfer/roundness, clamp, harden borders, fan
-  corners, refusals), §5.25 `checkMesh` with every code and the `mesh.cleanup` fixes, §5.28 projections.
-- **Tests**: bevel oracles (one edge 1/2/3 segments, all edges), clamp property (no inverted faces for any fraction),
+- **Responsibilities**: §5.9 bevel (Maya fraction semantics, absolute, 1–3 segments, chamfer/roundness, clamp, harden
+  borders, fan corners, face mode through the faces' edges, refusals), §5.25 `checkMesh` with every code and the
+  `mesh.cleanup` fixes, §5.28 projections.
+- **Tests**: bevel oracles (one edge 1/2/3 segments, all edges at the default fraction 0.5 → 24/48/26 with no
+  coincident vertices, one cube face in face mode = its four edges), fraction 0.3 on a 1 m cube edge puts the new
+  vertices 0.15 m along the adjacent edges, clamp property (no inverted faces and no coincident points for any
+  fraction in 0…1),
   P1–P7, P10; Mesh Check on the synthetic corpus (one fixture per code); projections: planar/box/cylindrical UV
   goldens, seam flags, `fit` in 0–1, deterministic.
 - **DoD**: CI green; READY flag `b5`.
@@ -3476,45 +3525,61 @@ package's **Dirs** below.
   orientation, triangulation, hard edges, lint markers, symmetry plane, soft ramp), x-ray two-pass, halo rule,
   incremental uploads (`addUpdateRange`), per-pane `applyPane`, hidden and isolated elements skipped, "Dim
   unhilited"; `MeshSurface` for props and non-component display; `ComponentPicker` (hover, click, marquee with
-  occlusion, back faces, BVH refit/rebuild deferred), tokens → theme. Built on B0a's reference mesh, switched to B1 by
-  `READY.b1`.
-- **Tests** (Vitest browser mode, Chromium): pixel probes (selected vertex colour with halo, x-ray pass, hidden faces
-  absent), picking on fixed cameras (vertex/edge/face, occlusion, back faces), marquee counts; benches: enter component
+  occlusion, back faces, BVH refit/rebuild deferred), tokens → theme; mirrored partners at 60 % of `--comp-selected`
+  and the hover partner (§5.6); the lazy loading of mesh-view and `three-mesh-bvh` from `viewport/src/mesh/**` with the
+  `ekza-mesh-view` marker (§2). Built on B0a's reference mesh and derived data, switched to B1 by `READY.b1`.
+- **Tests** (Vitest browser mode, Chromium): pixel probes (selected vertex colour with halo, a mirrored partner at
+  60 %, x-ray pass, hidden faces absent), picking on fixed cameras (vertex/edge/face, occlusion, back faces), marquee counts; benches: enter component
   mode 50k ≤ 40 ms, hover ≤ 0.5 ms, marquee 10k ≤ 16 ms, idle 0 frames.
 - **DoD**: CI green; budgets recorded; READY flag `b6`.
 
 ### B7 — Mesh runtime, document tables in use, BlobStore, undo budget, autosave, `.ekzanim`
 
 - **Dirs**: `editor-core/src/mesh/**` (`MeshRuntimeRegistry`, `meshOperator`, `meshSetOperator`, the MeshSetOp runner,
-  journal, budget), `editor-core/src/services/blobs/**`, `editor/src/services/{blobs.ts,autosave.ts,browser.ts}`,
-  `io/src/project/**`, `doc/src/testing/mesh*`, `apps/web/e2e/m6a-14-autosave-mesh.spec.ts`,
-  `packages/editor-core/bench/mesh-runtime.bench.ts`, `docs/wp-notes/m6a-mesh-runtime-doc.md`.
+  journal, budget, refcounts, kernel loader), `editor-core/src/app/factories/meshes.ts`,
+  `editor-core/src/services/blobs/**`, `editor-core/src/app/autosave.ts`,
+  `editor-core/src/operators/builtin/{autosave.ts,create.ts}`, `editor-core/src/workflows/project.ts`,
+  `editor-core/test/mesh/**`, `editor/src/services/{blobs.ts,autosave.ts,browser.ts}`, `io/src/project/**`,
+  `doc/src/testing/mesh*`, `editor/src/test-api/m6a/mesh-runtime-doc.ts`,
+  `apps/web/e2e/m6a-14-autosave-mesh.spec.ts`, `packages/editor-core/bench/mesh-runtime.bench.ts`,
+  `docs/wp-notes/m6a-mesh-runtime-doc.md`.
 - **Responsibilities**: §5.5 (sessions, commit, two-phase, journal fast path, rebuild fallback, `loading`/`error`,
-  remote changes), §5.13 runner (N refs, creations, deletions, derived ids, adjust-last record-set rule), §5.20 (GC
-  roots, sweep triggers, undo byte budget, journal cap, IndexedDB upgrade with the `blobs` store and per-slot roots,
-  recovery, `.ekzanim` `blobs/`), hooks for B11 (`base: 'before-last'` preview across the undo of its own step) and
-  B12b (session hooks), symmetry-expanded runs (context from the recorded `LastRun.context`), selection snapshots
-  through `components` (B10) with a local fallback until `READY.b10`.
-- **Tests**: conformance additions on memory and `doc-yjs` (`doc/src/testing/mesh*`): mesh-ref undo with
-  compare-before-restore, unknown layers survive, the dangling-joint fold reader rule (a peer undoes "add joint" after
-  another wrote weights on it: weights fold to the nearest ancestor from the manifest, `skin.dangling-joint`), morph
-  names from the manifest only, the `data.base` fork case (two peers commit offline on the same base: both refs carry
-  the same `base`; detection helper reports the fork); runtime: undo ≤ 5 ms (journal) and rebuild ≤ 40 ms at 50k,
-  two-phase on an aborting transaction, `loading` poll failures; GC: evicted steps free their chunks, nothing reachable
-  is freed (fuzz); budget bench 50 morph layers × 200 commits within 256 MB; autosave store against real IndexedDB
-  (namespaced), multi-tab recovery; `.ekzanim` round trip byte-identical twice.
-- **DoD**: CI green; E2E-MOD-14; READY flag `b7`.
+  remote changes, the **lifecycle** of rule 8 with `data()` for closed meshes, the component-edit rule 9), the lazy
+  kernel load (§2), §5.13 runner (N refs, creations, deletions, derived ids, pre-op MeshData of the last set-op,
+  adjust-last record-set rule), §5.20 (GC roots incl. `fresh` and in-flight autosave blobs, **deferred sweeps**,
+  incremental chunk refcounts, undo byte budget with selection-snapshot bytes, journal cap, IndexedDB upgrade with the
+  autosave-owned `blobs` store and per-slot blob sets from `BlobStore.closure`, recovery, `.ekzanim` `blobs/` and
+  `images/`, `PROJECT_LIMITS`, the JSON variant warning), the **`mesh.create.<kind>` operators** (§5.16: B1's
+  primitives, B0a's reference cube/plane/cylinder until `READY.b1`; derived ids; creation into a selected template
+  group), hooks for B11 (`base: 'before-last'` preview across the undo of its own step) and B12b (session hooks),
+  symmetry-expanded runs (context from the recorded `LastRun.context`), selection snapshots through `components`
+  (B10) with a local fallback until `READY.b10`.
+- **Tests**: conformance additions on memory and `doc-yjs` (`doc/src/testing/mesh*`, `data` opaque): mesh-ref undo
+  with compare-before-restore, unknown fields survive, the `data.base` fork case (two peers commit offline on the same
+  base: both refs carry the same `base`; detection helper reports the fork); editor-core (`editor-core/test/mesh/**`,
+  where manifests can be read): the dangling-joint fold reader rule for `skin.skeleton` meshes only (a peer undoes "add
+  joint" after another wrote weights on it: weights fold to the nearest ancestor from the manifest,
+  `skin.dangling-joint`; an imported skin with `data.joints: []` never folds), morph names from the manifest only,
+  unknown layers survive; runtime: undo ≤ 5 ms (journal) and rebuild ≤ 40 ms at 50k, two-phase on an aborting
+  transaction, `loading` poll failures, `close` keeps the journal and adjust-last stays synchronous, `data()` of a
+  closed mesh; GC: evicted steps free their chunks, nothing reachable is freed (fuzz), **budget eviction during
+  commit** never leaves a ref to a missing blob, an autosave write in flight keeps its blobs; budget bench 50 morph
+  layers × 200 commits within 256 MB; autosave store against real IndexedDB (namespaced), multi-tab recovery;
+  `.ekzanim` round trip byte-identical twice; an M2a-reader double (the shipped `readProjectArchive`) opens a project
+  with a mesh and an image plane read-only; runner: `meshes` and `kind` survive `coerceArgs`.
+- **DoD**: CI green; E2E-MOD-14 green; READY flag `b7`.
 
 ### B8 — Mesh IO: make editable, writers, surgeon step, marker v2, display rebuild, lints
 
 - **Dirs**: `io/src/{mesh,png,provenance}/**`, `io/src/export/author/**`, `io/src/surgeon/{replacePrimitives.ts,
   bakeIntoModel.ts,marker.ts}`, `io/src/lint/**`, `io/src/profiles/**`, `editor-core/src/workflows/{exportModel.ts,
-  meshDisplay.ts}`, `editor-core/src/operators/builtin/exportModel.ts` (`file.exportModel`),
-  `editor-core/src/characters/registry.ts` (display hook), `packages/headless-tests/test/mesh.io.*`, `fixtures/synthetic/prohibited-modification.vrm` (generated
+  meshDisplay.ts}`, `editor-core/src/operators/builtin/{exportModel.ts,makeEditable.ts}` (`file.exportModel`,
+  `mesh.makeEditable`), `editor-core/src/characters/registry.ts` (display hook), `packages/headless-tests/test/mesh.io.*`, `fixtures/synthetic/prohibited-modification.vrm` (generated
   by an extension of `tooling/make-synthetic-fixtures.mjs`, handed through the integration agent),
   `apps/web/e2e/m6a-12-make-editable-polybot.spec.ts`, `docs/wp-notes/m6a-mesh-io.md`.
-- **Responsibilities**: research 13 K-2 + 12 §10: §5.21 make editable (licence gate, weld key, layers, hard edges,
-  report, size limit, decode hook), `meshToPrimitives` with derived morph `NORMAL` deltas and the tangent refusal,
+- **Responsibilities**: research 13 K-2 + 12 §10: §5.21 make editable (the `mesh.makeEditable {character,
+  meshIndex}` operator creating the record lazily with its derived id, licence gate, weld key, layers, hard edges,
+  report, size limit, decode hook; all in the lazy `io/mesh` entry), `meshToPrimitives` with derived morph `NORMAL` deltas and the tangent refusal,
   §5.19 palette PNG writer and colour outputs A/C/D, §5.22 surgeon step + marker v2 + re-bake, §5.23 in-memory rebuild
   and the display hook, author static writer, handheld profile, lints of §4.5, `ekza_model_v1`, `file.exportModel`
   with the lazy validator and read-back (three `GLTFLoader` in the browser, the `io/testing` harness in Node); the
@@ -3526,26 +3591,33 @@ package's **Dirs** below.
   linear within 1e-6 of the EOTF; deterministic bytes (export twice, after reopening `.ekzanim`); handheld profile
   violations each raise their code; weld keeps lip/eyelid vertices apart in a synthetic morph fixture; benches make
   editable ≤ 150 ms, export ≤ 50 ms, rebuild ≤ 300 ms.
-- **DoD**: CI green; E2E-MOD-12; READY flag `b8`.
+- **DoD**: CI green; E2E-MOD-12 landed (green, or `test.fixme('b3')` on its loop-and-export part until B3 merges; the
+  licence refusal part is green); READY flag `b8`.
 
 ### B9 — Shell: workspaces, marking menus, command palette, Scale tool, shading, overlay slots, size gate
 
 - **Dirs**: `editor/src/shell/**` (incl. `workspace.ts`, `layout.ts`, status-line group registry; the menu files after
-  B0b), `editor/src/overlays/**` (`MarkingMenu`, `CommandPalette`, slot registry), `editor/src/panels/viewport/
-  {PaneView,ViewportPanel,PaneMenu}.tsx`, `viewport/src/{tools/scaleTool.ts,manipulators/**,layers.ts,manager/**,
-  tools/host.ts}`, `editor-core/src/operators/builtin/{view.ts,workspace.ts}`, `editor-core/src/keymap/**` and
+  B0b), `editor/src/overlays/{MarkingMenu,CommandPalette,slots}/**`, `editor/src/panels/viewport/
+  {PaneView,ViewportPanel,PaneMenu}.tsx`, `viewport/src/{tools/scaleTool.ts,manipulators/{ManipulatorKit.ts,drag.ts,
+  scale/**},layers.ts,manager/**,navigation/**,tools/host.ts}`, `editor-core/src/operators/builtin/{view.ts,
+  workspace.ts}`, `editor/src/test-api/m6a/shell-workspaces.ts`, `editor-core/src/keymap/**` and
   `editor/src/input/keyboard.ts` after B0b, `apps/web/scripts/{check-size.mjs,size-baseline.json,
-  attribute-chunks.mjs}`, `apps/web/e2e/m6a-shell.spec.ts` (shell checks; not an E2E-MOD id),
-  `docs/wp-notes/m6a-shell-workspaces.md`.
+  attribute-chunks.mjs}` (after B0a's two BOUNDARIES), `apps/web/e2e/m6a-shell.spec.ts` (shell checks; not an
+  E2E-MOD id), `docs/wp-notes/m6a-shell-workspaces.md`.
 - **Responsibilities**: research 16 U-0: workspace tabs with glyphs and disabled tabs, per-workspace layouts (Model
-  layout §8.2 with placeholders), menus, status-line groups, timeline visibility, switching rules (§5.17); generic
-  `MarkingMenu` (§5.18 geometry, flick, accessibility); command palette with aliases (lazy list); viewport Scale tool
-  (object mode, controls in Animate); shading modes `4`–`7` and the new `DisplayFlags` with per-pane header toggles;
-  camera layers 6–9 and `addMeshLayer`; overlay slots; image-plane drawing support on layer 9 for B13 (a slot that
+  layout §8.2 with placeholders), **per-workspace `viewportLayout`/`maximizedPane` (`session.workspaceViews`) and pane
+  display memory keyed by workspace**, menus, status-line groups, timeline visibility, switching rules (§5.17); generic
+  `MarkingMenu` (§5.18 geometry, flick, key-triggered hold/tap, accessibility); command palette with aliases (lazy
+  list); viewport Scale tool (object mode, controls in Animate); shading modes `4`–`7` and the new `DisplayFlags` with
+  per-pane header toggles; the **pointer platform rules** (§5.17: `contextmenu` never RMB in a pane, the MMB stand-in in
+  the trackpad and one-button profiles, Model only); camera layers 6–9 and `addMeshLayer`; overlay slots; the `pixel`
+  probe; image-plane drawing support on layer 9 for B13 (a slot that
   draws textured quads per ortho pane); `check:size` with the chunk attribution report, the +20,480 B eager-delta gate
   and the Model chunk warning.
 - **Tests**: workspace switching keeps document, selection, time, pane cameras; layouts persist per workspace and
-  Animate's v2 layout is untouched; marking menu flick/drag/click selection and disabled reasons (component tests);
+  Animate's v2 layout is untouched; Model's `colours` shading and quad layout never show in Animate after a round trip;
+  a `contextmenu` event alone opens no marking menu; `Alt+Shift`+LMB in a Model pane on the trackpad profile reaches the
+  tool as `button 1`, while it still tumbles in Animate and on the `maya` profile; marking menu flick/drag/click selection and disabled reasons (component tests);
   palette search and aliases; Scale tool on a mesh object and a control (undo); shading per pane (pixel probes);
   `check:size` fixture tests; shell e2e in Chrome.
 - **DoD**: CI green; `check:size` passes with both gates; READY flag `b9`.
@@ -3555,34 +3627,47 @@ package's **Dirs** below.
 - **Dirs**: `editor-core/src/selection/component/**` (`ComponentSelectionService`), `editor-core/src/operators/builtin/
   {mode.ts,selectMesh.ts,hide.ts}`, `editor-core/src/session/**` (component fields), `viewport/src/tools/
   {selectTool.ts,model/select/**}`, `editor/src/panels/viewport/hud/**`, `editor/src/panels/meshcheck/**`,
-  `editor/src/overlays/menus/{modes.ts,convert.ts}`, `apps/web/e2e/m6a-{02,25,26}-*.spec.ts`,
+  `editor/src/overlays/menus/{modes.ts,convert.ts}`, `editor-core/src/app/factories/components.ts`,
+  `editor/src/test-api/m6a/model-select-ui.ts`, `apps/web/e2e/m6a-{02,25,26}-*.spec.ts`,
   `docs/wp-notes/m6a-model-select-ui.md`.
-- **Responsibilities**: research 16 U-1 and §5.6: modes and hilite (opaque others, Dim unhilited), per-mode memory,
-  picking wiring (hover pre-selection with partner highlight, click, marquee, Maya modifiers, camera-based selection,
-  back faces), the loop table gestures, grow/shrink/convert/border/shell operators, **selection undo** through
-  `recordSelection` with the workspace preference, hide/show/isolate (components and objects, per-pane isolate),
+- **Responsibilities**: research 16 U-1 and §5.6: modes and hilite (opaque others, Dim unhilited; digits toggle back
+  to object mode, `F9`/`F10` idempotent; returning to object mode selects the hilited meshes; component tools hilite in
+  object mode; the runtime `open`/`close` calls of §5.5 rule 8), per-mode memory, picking wiring (hover pre-selection
+  with partner highlight, click, marquee with the both-endpoints edge rule, Maya modifiers, camera-based selection,
+  back faces), the **mirrored selection** (expanded set for walkers and ops, partners at 60 %, removal of both sides,
+  HUD `(+N sym)`), the loop table gestures (`Mod`+double-click), grow/shrink/convert/border/shell operators,
+  **selection undo** through `recordSelection` with the workspace preference (one step per gesture), hide/show/isolate (components and objects, per-pane isolate),
   the RMB mode menu and Ctrl+RMB convert menu data, the Poly Count HUD with budget bar (§5.24), the Mesh Check panel and
   overlay (§5.25), status-line mode switcher body, framing (`F`/`A`) on component selections.
 - **Tests**: selection service (apply modes, remap after topology commits, snapshot/restore skipping changed
-  revisions); coalescing through real gestures; hide semantics in walkers and ops (with `READY.b2`/`b3`); HUD counts
+  revisions, restore never changes the mode); one step per click and repeat coalescing through real gestures; a
+  `Mod`-click on a mirrored partner removes both sides; hide semantics in walkers and ops (with `READY.b2`/`b3`); HUD counts
   equal `meshInfo` counts and triangulation; Mesh Check panel select/fix; E2E-MOD-02, -25, -26.
 - **DoD**: CI green; READY flag `b10`.
 
 ### B11 — Operators UI: registration, Toolkit, Last-op card, INPUTS, adjust/repeat, capture
 
 - **Dirs**: `editor-core/src/operators/builtin/{index.ts,edit.ts,mesh/**,lastop.ts}`, `editor-core/src/operators/
-  {runner.ts,registry.ts}`, `editor-core/src/edit/capture.ts`, `editor/src/panels/{toolkit/**,channel-box/**}`,
-  `editor/src/panels/viewport/LastOpCard.tsx`, `editor/src/overlays/menus/{tools.ts,primitives.ts,merge.ts,
-  optionBox.tsx}`, `apps/web/e2e/m6a-{07,09,19,32}-*.spec.ts`, `docs/wp-notes/m6a-model-ops-ui.md`.
+  {runner.ts,registry.ts}`, `editor-core/src/edit/{capture.ts,paramInput.ts}`, `editor-core/src/app/factories/
+  capture.ts`, `editor/src/panels/{toolkit/**,channel-box/**}`, `editor/src/panels/viewport/LastOpCard.tsx`,
+  `editor/src/overlays/menus/{tools.ts,primitives.ts,merge.ts,optionBox.tsx}`, `editor/src/test-api/m6a/
+  model-ops-ui.ts`, `apps/web/e2e/m6a-{07,09,19,32}-*.spec.ts`, `docs/wp-notes/m6a-model-ops-ui.md`.
 - **Responsibilities**: research 16 U-2: registration of every `mesh.*` operator of §6.1 through `meshOperator` /
-  `meshSetOperator` with labels, aliases, tools and menus; `coerceArgs` in the runner; **LastRun recording**, the card
-  closing rules, `edit.adjustLast`, `edit.repeatLast`, `tool.last`, `view.lastOpCard` (§5.7); the **numeric capture
-  window** (§5.10) through the keyboard hook; Shift+RMB tool menus, primitives and merge menus (§8.4); the Modeling
-  Toolkit with option boxes (§8.5); the Last-op card and Channel Box INPUTS plus mesh object TRS rows (§8.6).
-- **Tests**: LastRun lifecycle (each closing event of §5.7, the mode-switch exception); adjust-last keeps history
-  length and is bit-identical to a fresh run with the same args; repeat drops pointer/selection args and re-resolves
-  seeds; `G` re-activates tools; capture window (armed/disarmed transitions, `4` after a drag changes shading not
-  args); card generation from params (every §6.1 op renders a card or none); E2E-MOD-07, -09, -19, -32.
+  `meshSetOperator` from the **descriptors** (no kernel in the eager route) with labels, aliases, tools and menus;
+  `coerceArgs` with `passThrough` in the runner; **LastRun recording** (params or adjustable/repeatable flags; `kind`),
+  the card closing rules, `edit.adjustLast` (explicit `meshes` and `kind`), `edit.repeatLast` (the source rule),
+  `tool.last`, `view.lastOpCard` (with the extrude reopen), the `edit.undo`/`edit.redo` session hook (§5.7, §5.8); the
+  **numeric capture window** (§5.10: apply on Enter/Tab only, discard on disarm, Enter without entry) through the
+  keyboard hook and `parseParamInput` (fractions); Shift+RMB tool menus, primitives and merge menus (§8.4); the Modeling
+  Toolkit with option boxes (§8.5); the Last-op card and Channel Box INPUTS (last-op and primitive entries) plus mesh
+  object TRS rows (§8.6).
+- **Tests**: LastRun lifecycle (each closing event of §5.7, the mode-switch exception, paramless repeatable ops
+  recorded); adjust-last keeps history length and is bit-identical to a fresh run with the same args; **adjust after
+  `3` (object mode) re-runs on the restored face selection with the recorded targets**; repeat drops pointer/selection
+  args and re-resolves seeds; `G` after a tool run re-activates the tool, after a menu run repeats; capture window
+  (armed/disarmed transitions, `4` after a drag changes shading not args, an unfinished entry is discarded on a pointer
+  move, `Enter` without entry keeps the session, `30%` and `0.3` give the same fraction); card generation from params
+  (every §6.1 op renders a card or none); E2E-MOD-07, -09, -19, -32.
 - **DoD**: CI green; READY flag `b11`.
 
 ### B12a — Transform tools, MMB-drag, Tweak, snapping, pivots, soft select, symmetry UI (owner feel check)
@@ -3590,60 +3675,76 @@ package's **Dirs** below.
 - **Dirs**: `viewport/src/tools/{transformTool.ts,virtualSliderDrag.ts,model/transform/**}`, `viewport/src/
   {manipulators/component/**,snap/**,pivot/**}`, `editor/src/panels/viewport/ModalReadout.tsx`,
   `editor-core/src/operators/builtin/{softSelect.ts,symmetry.ts,pivot.ts,snap.ts}`, `editor/src/overlays/menus/
-  options.ts`, `apps/web/e2e/m6a-{10,23}-*.spec.ts`, `apps/web/e2e/bench/m6a-transform.bench.ts`,
-  `docs/wp-notes/m6a-model-transform-tools.md`.
+  options.ts`, `editor/src/test-api/m6a/model-transform-tools.ts`, `apps/web/e2e/m6a-{10,23}-*.spec.ts`,
+  `apps/web/e2e/bench/m6a-transform.bench.ts`, `docs/wp-notes/m6a-model-transform-tools.md`.
 - **Responsibilities**: research 16 U-3 (transforms) and §5.15: the modal tool contract for transforms, component
-  W/E/R in World/Object/Normal (Move and Rotate space menus gain Normal), MMB rule (Animate included), Tweak, snapping
-  `X`/`V`/`J` with cross-mesh vertex targets, pivot editing and the pivot menu, soft select (`B`, `B`+drag, ring,
-  ramp), symmetry dropdown, plane overlay, transforms under symmetry with seam rules, the modal readout chip, the
-  Ctrl+Shift+RMB options menu; extrude-session absorption calls (`app.extrude.beginAbsorb`) behind `READY.b12b`.
+  W/E/R in World/Object/**Component** (Move and Rotate space menus gain Component; `ToolDef.keys` X, V, J, D, B), MMB
+  rule (Animate included; the trackpad stand-in arrives from B9), Tweak and its `` ` `` toggle, snapping `X`/`V`/`J`
+  with cross-mesh vertex targets, pivot editing and the pivot menu (Bake Pivot and **Freeze Transformations** through
+  B4's `mesh.applyTransform`, `READY.b4`), soft select (`B`, `B`+drag, ring, ramp), symmetry dropdown, plane overlay,
+  transforms under symmetry with seam rules, the modal readout chip, the Ctrl+Shift+RMB options menu; extrude-session
+  absorption calls (`app.extrude.beginAbsorb(tool, space)`) behind `READY.b12b`.
 - **Tests**: transforms under symmetry (P10 through the UI path), MMB rule matrix (channels selected / INPUTS field
   selected / last-picked axis / none), Tweak one-step gesture, snapping exactness, pivot edits undo, soft drag bench
   (1,000 vertices ≤ 4 ms, 10k soft ≤ 8 ms per frame); E2E-MOD-10, -23.
-- **Owner feel check**: when B12a merges, the owner gets a 30-minute Chrome session script (component W/E/R, MMB-drag,
-  snapping, pivot, soft select, symmetry); findings become a B12a follow-up or INT items.
+- **Owner feel check**: when B12a merges, the owner gets a 30-minute Chrome session script (component W/E/R with
+  Component orientation compared against Maya 2026's Normal, MMB-drag, snapping, pivot, soft select, symmetry,
+  "`Ctrl+E`, then `2`" for the capture window of §5.10, `Ctrl+E` then `W` in World on a tilted face); findings and the
+  two owner choices become a B12a follow-up or INT items (DECISIONS-OPEN §H).
 - **DoD**: CI green; READY flag `b12a`.
 
 ### B12b — Topology tools: extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge
 
 - **Dirs**: `viewport/src/tools/model/{extrude,multicut,loop,weld,slide}/**`, `viewport/src/manipulators/extrude/**`,
-  `editor-core/src/operators/builtin/extrudeSession.ts` (`ExtrudeSessionApi`), `apps/web/e2e/m6a-{04,05,06,08,17,18,
-  20,21,22,24,28}-*.spec.ts`, `docs/wp-notes/m6a-model-topology-tools.md`.
-- **Responsibilities**: research 16 U-3 (topology) and §5.8 session (open/end/zero-drop/absorption, the extrude
-  manipulator), smart extrude, inset and bevel interactive handles, Multi-Cut tool (§5.11 gestures), Insert Edge Loop
-  tool (hover preview of the whole loop, slide before release), Target Weld tool (drag source onto target, MMB =
-  centre), Slide Edge tool (MMB/LMB drag picks the rail side, percent readout), Bridge from pick order; symmetric
-  pointer arguments (§5.14) in every tool; midpoint review against the §5.14 overrun rule (day 2.5) recorded in the
-  notes.
-- **Tests**: tool state machines (RMB never cancels; Esc leaves no step; RMB completes Multi-Cut), session end
-  triggers and zero-drop, absorption maps W/E/R deltas onto `local*` args exactly (rotation composition test),
-  E2E-MOD-04, -05, -06, -08, -17, -18, -20, -21, -22, -24, -28.
+  `editor-core/src/operators/builtin/extrudeSession.ts` (`ExtrudeSessionApi`), `editor-core/src/app/factories/
+  extrude.ts`, `apps/web/e2e/m6a-{04,05,06,08,17,18,20,21,22,24,28}-*.spec.ts`,
+  `docs/wp-notes/m6a-model-topology-tools.md`.
+- **Responsibilities**: research 16 U-3 (topology) and §5.8 session (open, the end-trigger table, zero-drop with its
+  toast, the **args undo stack** with `stepBack`/`stepForward`, `reopen` for `T`, absorption honouring World/Object
+  for W/E and the session frame for R, the extrude manipulator with its local/world toggle), smart extrude (Shift at
+  drag start always a new extrude), inset and bevel interactive handles, Multi-Cut tool (§5.11 gestures; reserved
+  modal keys through `key()`), Insert Edge Loop tool (hover preview of the whole loop, slide before release), Target
+  Weld tool (drag source onto target, MMB or stand-in = centre), Slide Edge tool (MMB/LMB drag picks the rail side,
+  percent readout), Bridge from pick order; symmetric pointer arguments (§5.14, unmatched partners included) in every
+  tool; midpoint review against the §5.14 overrun rule (day 3 of 6) recorded in the notes.
+- **Tests**: tool state machines (RMB never cancels; Esc leaves no step; RMB completes Multi-Cut; a `contextmenu` event
+  alone does not), session end triggers and zero-drop per row of the §5.8 table (a mode switch keeps a zero extrude),
+  the args stack (undo steps back through absorbed drags without changing history length; undo at index 0 removes the
+  extrude), absorption maps W/E/R deltas onto `local*` args exactly (rotation composition test; **a 30°-tilted face
+  extruded and dragged on `ty` with W in World moves the cap exactly along world Y**, 1e-6), three Shift+drags give
+  three extrudes, E2E-MOD-04, -05, -06, -08, -17, -18, -20, -21, -22, -24, -28.
 - **DoD**: CI green; READY flag `b12b`.
 
 ### B13 — Content: Outliner, palette, Paint Colour, primitives UI, templates, image planes, Make editable UI, export UI
 
 - **Dirs**: `editor/src/panels/{outliner,palette,attributes}/**`, `editor/src/panels/viewport/{ModelEmptyState,
   GettingStarted}.tsx`, `editor/src/dialogs/{ExportDialog.tsx,FirstRunDialog.tsx,MakeEditableReport.tsx,
-  ImagePlaneImport.tsx}`, `editor-core/src/operators/builtin/{palette.ts,imagePlane.ts,create.ts,scene.ts,
-  makeEditable.ts}`, `mesh-core/src/{templates,ops/paint}/**`, `viewport/src/{imageplanes,guides}/**`,
-  `viewport/src/tools/model/paint/**`, `fixtures/images/reference-{front,side}.png` (generated, CC0, through the
-  integration agent), `apps/web/e2e/m6a-{11,13,27,29}-*.spec.ts`, `docs/wp-notes/m6a-model-content.md`.
-- **Responsibilities**: research 16 U-4 + 12 §4: Model Outliner (badges, Make editable inline with the licence gate and
-  the report dialog, reparent in Model, hilite on click), Palette panel and `palette.*` ops, Paint Colour tool,
-  select by swatch, replace swatch, palette variants (§5.19), primitive creation and live parameters (§5.16, Attributes
-  › Primitive), templates and the humanoid body generator (`mesh-core/src/templates`), image planes (§5.26) with their
+  ImagePlaneImport.tsx}`, `editor-core/src/operators/builtin/{palette.ts,imagePlane.ts,templates.ts,scene.ts}`,
+  `mesh-core/src/{templates,ops/paint}/**`, `viewport/src/{imageplanes,guides}/**`,
+  `viewport/src/tools/model/paint/**`, `editor/src/test-api/m6a/model-content.ts`,
+  `apps/web/e2e/helpers/m6a-model-content.ts` (`buildSword`), `fixtures/images/reference-{front,side}.png` (generated,
+  CC0, through the integration agent), `apps/web/e2e/m6a-{11,13,27,29}-*.spec.ts`, `docs/wp-notes/m6a-model-content.md`.
+- **Responsibilities**: research 16 U-4 + 12 §4: Model Outliner (badges, glTF meshes without a record listed from the
+  container, the inline Make editable button running B8's `mesh.makeEditable` and the report dialog, reparent in
+  Model, hilite on click), Palette panel and `palette.*` ops (`palette.replaceSwatch` over `mesh.paint.remap`), Paint
+  Colour tool (`ToolDef.keys` `KeyI`, `Enter`), select by swatch, palette variants (§5.19), the primitive UI over B7's
+  `mesh.create.*` (menus, start card) and live parameters (`mesh.primitive.set`, Attributes › Primitive),
+  `mesh.create.template` and the humanoid body generator (`mesh-core/src/templates`), image planes (§5.26) with their
   Attributes section and drawing, guides drawing, the Model start card and Getting started card, the Export dialog's
   Static model section, the First-run question.
 - **Tests**: palette ops (slot never reused, swatch edit recolours, replace, duplicate variant), paint tool gestures,
-  primitive freeze rule, templates (humanoid body: 400–900 tris, closed, manifold, X-symmetric with every off-seam
-  vertex partnered, T-pose, grounded), image planes never picked or exported; E2E-MOD-11, -13, -27, -29.
+  primitive freeze rule (component edits as defined in §5.5 rule 9; renames and pivot edits keep the generator),
+  templates (humanoid body: 400–900 tris, closed, manifold, X-symmetric with every off-seam vertex partnered, T-pose,
+  grounded, n-gon hand and foot caps; a cube created with the Humanoid group selected is its child with Object X
+  symmetry), image planes never picked or exported; E2E-MOD-11, -13, -27, -29.
 - **DoD**: CI green; READY flag `b13`.
 
 ### INT — Integration (after every package)
 
 - **Dirs**: `apps/web/e2e/m6a-{01,15,16,30,31}-*.spec.ts`, `apps/web/e2e/m6a-aslp-{a,b}.spec.ts` (AS-LP-S scripted
   twin, static parts), `apps/web/app/e2e/model-check/**` (e2e-only route that loads a GLB with three's `GLTFLoader` and
-  reports triangle counts, like `/e2e/vrma-check`), `apps/web/e2e/helpers/m6a-humanoid-script.ts`, `apps/web/e2e/m6a-stretch.spec.ts`,
+  reports triangle counts, like `/e2e/vrma-check`), `apps/web/e2e/helpers/m6a-humanoid-script.ts`,
+  `editor/src/test-api/m6a/integration.ts`, `apps/web/e2e/m6a-stretch.spec.ts`,
   `apps/web/e2e/bench/m6a-budgets.bench.ts`, `README.md`, `docs/{ROADMAP,REQUIREMENTS,DECISIONS-OPEN}.md`, this spec
   (integration record), manifests and `next.config.ts`, `docs/wp-notes/m6a-integration.md`.
 - **Responsibilities**: merge in the §11.1 order; turn every READY/`test.fixme` gate into a failure (stretch fixmes
