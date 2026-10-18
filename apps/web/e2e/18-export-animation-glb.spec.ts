@@ -80,7 +80,9 @@ test('E2E-18: export, animation-only GLB', async ({ page }) => {
   let worst = '';
   let moving = 0;
   for (const { channel, node, parent } of pairs) {
-    const editorLocal = qmul(qinv(worlds[parent] ?? [0, 0, 0, 1]), worlds[node] ?? [0, 0, 0, 1]);
+    const [parentWorld, nodeWorld] = [worlds[parent], worlds[node]];
+    if (parentWorld === undefined || nodeWorld === undefined) throw new Error(`no boneWorld of ${node} or ${parent}`);
+    const editorLocal = qmul(qinv(parentWorld), nodeWorld);
     const fileLocal = sampleRotation(channel.interpolation, channel.times, channel.values, time);
     const error = qangle(fileLocal, editorLocal);
     if (error > maxError) [maxError, worst] = [error, node];

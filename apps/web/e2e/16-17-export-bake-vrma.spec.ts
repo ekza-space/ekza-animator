@@ -116,6 +116,10 @@ test('E2E-17: export, VRMA', async ({ browser }, testInfo) => {
     (json.extensions?.['VRMC_vrm_animation'] as { humanoid?: { humanBones?: object } } | undefined)?.humanoid
       ?.humanBones ?? {},
   );
+  expect(Object.entries(played).map(([model, result]) => [model, result.metaVersion])).toEqual([
+    ['seed-san', '1'],
+    ['polybot', '0'],
+  ]);
   for (const [model, result] of Object.entries(played)) {
     const shared = vrmaBones.filter((bone) => result.bones.includes(bone));
     expect(shared.length, `${model}: bones in both`).toBeGreaterThan(20);
