@@ -35,10 +35,13 @@ export interface DragControl {
   readonly parentQ: Quat;
   /** Rotation of the control's scene-space world matrix W (= parentQ · q(r0)). */
   readonly worldQ: Quat;
+  /** Channels the drag may write: keyable and not locked. */
   readonly keyable: {
     readonly t: readonly [boolean, boolean, boolean];
     readonly r: readonly [boolean, boolean, boolean];
   };
+  /** Locked rotate channels: a ring whose channel is locked leaves the control alone (see `rotateEdits`). */
+  readonly lockedR: readonly [boolean, boolean, boolean];
 }
 
 /** Builds a DragControl from the control's scene-space world matrix and its current channel values. */
@@ -50,6 +53,8 @@ export function dragControl(args: {
   readonly r: ReadonlyVec3;
   readonly s: ReadonlyVec3;
   readonly keyable: DragControl['keyable'];
+  /** Locked rotate channels; default none. */
+  readonly lockedR?: DragControl['lockedR'];
 }): DragControl {
   const qr = eulerToQuat(args.r, args.order);
   const local = mat4Compose({ t: [...args.t] as Vec3, q: qr, s: [...args.s] as Vec3 });
@@ -65,6 +70,7 @@ export function dragControl(args: {
     parentQ,
     worldQ: quatMultiply(parentQ, qr),
     keyable: args.keyable,
+    lockedR: args.lockedR ?? [false, false, false],
   };
 }
 
@@ -201,7 +207,8 @@ export function rotateDrag(args: {
 
 /**
  * Edits for rotating every control by `angle` about the handle's axis. `references` (per control, updated in place)
- * keeps the Euler solution continuous across updates.
+ * keeps the Euler solution continuous across updates. Controls whose channel of the dragged ring is locked get no
+ * edits at all.
  */
 export function rotateEdits(
   handle: ManipHandle,
@@ -216,6 +223,9 @@ export function rotateEdits(
   const axisIndex = AXIS_OF[handle];
   controls.forEach((c, i) => {
     const reference = references[i] ?? ([...c.r0] as Vec3);
+    // Maya: dragging a ring whose channel is locked leaves the control alone in every space; it never turns the
+    // control about the other two axes instead (object/world rings would otherwise write the unlocked channels).
+    if (handle !== 'rview' && axisIndex !== undefined && c.lockedR[axisIndex]) return;
     if (space === 'gimbal' && handle !== 'rview' && axisIndex !== undefined) {
       if (!(c.keyable.r[axisIndex] ?? false)) return;
       edits.push({

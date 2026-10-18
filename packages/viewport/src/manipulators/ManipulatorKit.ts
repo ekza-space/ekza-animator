@@ -50,7 +50,16 @@ export interface ManipTarget {
   readonly parentQ: Quat;
   readonly r: ReadonlyVec3;
   readonly order: RotateOrder;
+  /** Channels a drag may edit: keyable and not locked. */
   readonly keyable: {
+    readonly t: readonly [boolean, boolean, boolean];
+    readonly r: readonly [boolean, boolean, boolean];
+  };
+  /**
+   * Keyable channels that are locked. Their axis handles (translate arrows, rotate rings) are drawn dimmed and never
+   * drag, but stay pickable so a press on one can say why nothing moves (Maya). Absent: nothing is locked.
+   */
+  readonly locked?: {
     readonly t: readonly [boolean, boolean, boolean];
     readonly r: readonly [boolean, boolean, boolean];
   };
@@ -72,6 +81,12 @@ const GIMBAL_DANGER_COS = Math.cos((80 * Math.PI) / 180);
 
 export const TRANSLATE_HANDLES: readonly ManipHandle[] = ['tx', 'ty', 'tz', 'txy', 'tyz', 'txz', 'tview'];
 export const ROTATE_HANDLES: readonly ManipHandle[] = ['rx', 'ry', 'rz', 'rview'];
+/** Handles that stand for exactly one channel each; the channel has the handle's name. */
+export type AxisHandle = 'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz';
+const AXIS_HANDLES: { readonly t: readonly AxisHandle[]; readonly r: readonly AxisHandle[] } = {
+  t: ['tx', 'ty', 'tz'],
+  r: ['rx', 'ry', 'rz'],
+};
 const PLANE_AXES: Readonly<Record<'txy' | 'tyz' | 'txz', readonly [0 | 1 | 2, 0 | 1 | 2, 0 | 1 | 2]>> = {
   txy: [0, 1, 2],
   tyz: [1, 2, 0],
@@ -191,7 +206,10 @@ export class ManipulatorKit {
     return this.axesCache;
   }
 
-  /** Handles of the current mode that can be dragged (non-keyable channels are dimmed and not pickable). */
+  /**
+   * Handles of the current mode that can be dragged. Handles of non-keyable channels are dimmed and not pickable;
+   * those of locked channels are dimmed too (see `lockedHandles`).
+   */
   handles(): readonly ManipHandle[] {
     if (!this.visible) return [];
     const target = this.target as ManipTarget;
@@ -205,10 +223,37 @@ export class ManipulatorKit {
       });
     }
     const r = target.keyable.r;
+    const locked = target.locked?.r;
     return ROTATE_HANDLES.filter((h) => {
-      if (h === 'rview' || this.space !== 'gimbal') return r.some(Boolean);
-      return r[axisIndex(h)];
+      if (h === 'rview') return r.some(Boolean);
+      // A ring whose own channel is locked never turns the control, in any space (not even about the other axes).
+      if (locked?.[axisIndex(h)] === true) return false;
+      return this.space !== 'gimbal' ? r.some(Boolean) : r[axisIndex(h)];
     });
+  }
+
+  /**
+   * Axis handles of the current mode whose channel is locked on the target (translate arrows, rotate rings): dimmed
+   * like the disabled handles and never dragged, but pickable, so the tool can report the lock instead of selecting
+   * through the handle.
+   */
+  lockedHandles(): readonly AxisHandle[] {
+    if (!this.visible) return [];
+    const locked = (this.target as ManipTarget).locked;
+    if (locked === undefined) return [];
+    const axes: readonly AxisHandle[] = this.mode === 'translate' ? AXIS_HANDLES.t : AXIS_HANDLES.r;
+    const flags = this.mode === 'translate' ? locked.t : locked.r;
+    return axes.filter((h) => flags[axisIndex(h)]);
+  }
+
+  /** The channel a locked axis handle stands for (see `lockedHandles`; named like the handle), or null. */
+  lockedChannel(handle: ManipHandle): AxisHandle | null {
+    return this.lockedHandles().find((h) => h === handle) ?? null;
+  }
+
+  /** Handles a press can land on: the draggable ones and the locked axis handles. */
+  private pickable(): readonly ManipHandle[] {
+    return [...this.handles(), ...this.lockedHandles()];
   }
 
   /** Scene-space units per manipulator unit in a pane (constant pixel size). */
@@ -249,7 +294,7 @@ export class ManipulatorKit {
     const s = this.worldScale(camera, heightPx, projector);
     let best: ManipHandle | null = null;
     let bestDistance: number = PICK.manipulatorPx;
-    for (const handle of this.handles()) {
+    for (const handle of this.pickable()) {
       const d = this.handleDistance(handle, camera, projector, s, x, y);
       if (handle === 'tview' && d === 0) return 'tview';
       if (d <= bestDistance) {
@@ -266,7 +311,7 @@ export class ManipulatorKit {
    * it), the view ring at its top.
    */
   grabPoint(handle: ManipHandle, camera: Camera, projector: PaneProjector, heightPx: number): ScreenPoint | null {
-    if (!this.handles().includes(handle)) return null;
+    if (!this.pickable().includes(handle)) return null;
     const target = this.target as ManipTarget;
     const s = this.worldScale(camera, heightPx, projector);
     const out = [0, 0, 0];
@@ -286,7 +331,7 @@ export class ManipulatorKit {
       return project(add(add(pivot, scale(this.axesCache[a], mid)), scale(this.axesCache[b], mid)));
     }
     const ring = this.ringPoints(handle, camera, s);
-    const others = this.handles()
+    const others = this.pickable()
       .filter((h) => h !== handle)
       .map((h) => this.screenPolyline(h, camera, projector, s));
     let best: { point: ScreenPoint; score: number } | null = null;

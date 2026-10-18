@@ -14,7 +14,7 @@ import {
   type ReadonlyVec3,
   type Vec3,
 } from '@ekza-animator/anim-core';
-import type { CameraId, CameraRecord, CharacterId, ControlId, PreviewSession } from '@ekza-animator/doc';
+import type { CameraId, CameraRecord, CharacterId, ControlId, ControlRecord, PreviewSession } from '@ekza-animator/doc';
 import {
   type EditorApp,
   type NavProfile,
@@ -609,18 +609,15 @@ export class ViewportManager {
     const values = this.app.evaluation.channelValues(lead);
     const r: Vec3 = [values.rx, values.ry, values.rz];
     const parentQ: Quat = quatMultiply(xf.q, quatInvert(eulerToQuat(r, record.rotateOrder)));
-    const free = (keyable: readonly boolean[], locked: readonly boolean[]): [boolean, boolean, boolean] => [
-      (keyable[0] ?? false) && !(locked[0] ?? false),
-      (keyable[1] ?? false) && !(locked[1] ?? false),
-      (keyable[2] ?? false) && !(locked[2] ?? false),
-    ];
+    const flags = dragFlags(record);
     return {
       pivot: [xf.t[0], xf.t[1], xf.t[2]],
       worldQ: xf.q,
       parentQ,
       r,
       order: record.rotateOrder,
-      keyable: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
+      keyable: flags.free,
+      locked: flags.locked,
     };
   }
 
@@ -1271,6 +1268,7 @@ export class ViewportManager {
       marquee: (paneId, rect) => this.marquee(paneId, rect),
       setMarquee: (paneId, rect) => this.panes.get(paneId)?.marquee.show(rect),
       beginManipulatorDrag: (paneId, handle, x, y) => this.beginManipulatorDrag(paneId, handle, x, y),
+      lockedChannel: (handle) => this.kit.lockedChannel(handle),
       setActiveHandle: (handle) => {
         this.kit.setActive(handle);
         this.invalidate();
@@ -1305,11 +1303,7 @@ export class ViewportManager {
       const world = new Float64Array(16);
       multiplyAt(placement, runtime.pose.controlWorld, entry.slot * 16, world);
       const v = this.app.evaluation.channelValues(id);
-      const free = (keyable: readonly boolean[], locked: readonly boolean[]): [boolean, boolean, boolean] => [
-        (keyable[0] ?? false) && !(locked[0] ?? false),
-        (keyable[1] ?? false) && !(locked[1] ?? false),
-        (keyable[2] ?? false) && !(locked[2] ?? false),
-      ];
+      const flags = dragFlags(record);
       controls.push(
         dragControl({
           control: id,
@@ -1318,7 +1312,8 @@ export class ViewportManager {
           t: [v.tx, v.ty, v.tz],
           r: [v.rx, v.ry, v.rz],
           s: [v.sx, v.sy, v.sz],
-          keyable: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
+          keyable: flags.free,
+          lockedR: flags.locked.r,
         }),
       );
     }
@@ -1349,6 +1344,27 @@ export class ViewportManager {
       start: { x, y },
     });
   }
+}
+
+type Axes = [boolean, boolean, boolean];
+
+/**
+ * Per-axis translate/rotate flags of a control for the manipulator: `free` channels (keyable and unlocked) are the
+ * ones a drag writes; `locked` ones (keyable but locked) make their axis handle report the lock (§4.11.16).
+ */
+function dragFlags(record: ControlRecord): {
+  readonly free: { readonly t: Axes; readonly r: Axes };
+  readonly locked: { readonly t: Axes; readonly r: Axes };
+} {
+  const axes = (test: (k: 0 | 1 | 2) => boolean): Axes => [test(0), test(1), test(2)];
+  const free = (keyable: readonly boolean[], locked: readonly boolean[]): Axes =>
+    axes((k) => (keyable[k] ?? false) && !(locked[k] ?? false));
+  const locked = (keyable: readonly boolean[], lock: readonly boolean[]): Axes =>
+    axes((k) => (keyable[k] ?? false) && (lock[k] ?? false));
+  return {
+    free: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
+    locked: { t: locked(record.keyable.t, record.locked.t), r: locked(record.keyable.r, record.locked.r) },
+  };
 }
 
 function sameState(a: PaneState, b: PaneState | undefined): boolean {

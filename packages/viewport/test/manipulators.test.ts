@@ -15,6 +15,7 @@ import { beginChannelEditGesture, type ChannelEdit, type ChannelEditGesture } fr
 import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
 import { OrthographicCamera, WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
+import { dragControl, rotateEdits } from '../src/manipulators/drag';
 import { ManipulatorKit, type ManipTarget, VIEW_RING_RADIUS } from '../src/manipulators/ManipulatorKit';
 import { PaneProjector } from '../src/picking/geometry';
 import { type GestureFactory, moveToolDef, rotateToolDef } from '../src/tools/transformTool';
@@ -597,6 +598,126 @@ describe.runIf(KERNEL)('manipulator gestures (edit kernel, WP-7a)', () => {
     rig.frame();
     expect(rig.app.evaluation.channelValues(arm.id)).toEqual(before);
     expect(rig.app.history.peekUndo()?.id ?? null).toBe(top);
+  });
+});
+
+/** Locks the given translate/rotate axes of a control (a document write, like `channel.toggleLock`). */
+function lockAxes(r: Rig, id: ControlId, lock: { readonly t?: Axes3; readonly r?: Axes3 }): void {
+  r.app.store.transact({ label: 'Lock', undoable: false }, (tx) => {
+    const record = tx.get('controls', id);
+    if (record === undefined) throw new Error(`no control ${id}`);
+    tx.patch('controls', id, {
+      locked: { ...record.locked, t: lock.t ?? record.locked.t, r: lock.r ?? record.locked.r },
+    });
+  });
+  r.frame();
+}
+
+type Axes3 = readonly [boolean, boolean, boolean];
+
+describe('locked channels (acceptance: locked ring drags)', () => {
+  it('rotateEdits leaves a control alone when the dragged ring’s channel is locked, in every space', () => {
+    const identity = new Float64Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
+    const make = (id: string, lockedR: Axes3) =>
+      dragControl({
+        control: id as ControlId,
+        order: 'xyz',
+        world: identity,
+        t: [0, 0, 0],
+        r: [0.3, -0.2, 0.5],
+        s: [1, 1, 1],
+        keyable: { t: [true, true, true], r: [!lockedR[0], !lockedR[1], !lockedR[2]] },
+        lockedR,
+      });
+    const locked = make('ctl_locked', [true, false, false]);
+    const free = make('ctl_free', [false, false, false]);
+    for (const space of ['object', 'world', 'gimbal'] as const) {
+      const references = [[...locked.r0] as Vec3, [...free.r0] as Vec3];
+      const edits = rotateEdits('rx', space, [locked, free], [1, 0, 0], 0.4, references);
+      expect({ space, locked: edits.filter((e) => e.control === locked.control) }).toEqual({ space, locked: [] });
+      expect(edits.some((e) => e.control === free.control && e.channel === 'rx')).toBe(true);
+      // Another ring still turns the control with the locked channel, writing only its unlocked channels.
+      const other = rotateEdits('ry', space, [locked], [0, 1, 0], 0.4, [[...locked.r0] as Vec3]);
+      expect(other.length).toBeGreaterThan(0);
+      expect(other.every((e) => e.channel !== 'rx')).toBe(true);
+    }
+  });
+
+  it('draws a locked ring dimmed but keeps it pickable; the other rings still drag', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    const arm = control(rig, 'fk.upperArm.L');
+    lockAxes(rig, arm.id, { r: [true, false, false] });
+    for (const space of ['object', 'world', 'gimbal'] as const) {
+      setup(rig, arm.id, 'rotate', space);
+      const p = rig.vm.manipulatorScreenPoint('pane-right', 'rx');
+      expect(p).not.toBeNull();
+      expect(rig.vm.toolHost.pickManipulator('pane-right', p?.x ?? 0, p?.y ?? 0)).toBe('rx');
+      expect(rig.vm.toolHost.lockedChannel('rx')).toBe('rx');
+      expect(rig.vm.toolHost.beginManipulatorDrag('pane-right', 'rx', p?.x ?? 0, p?.y ?? 0)).toBeNull();
+      expect(rig.vm.toolHost.lockedChannel('ry')).toBeNull();
+      const q = rig.vm.manipulatorScreenPoint('pane-right', 'ry');
+      expect(rig.vm.toolHost.beginManipulatorDrag('pane-right', 'ry', q?.x ?? 0, q?.y ?? 0)).not.toBeNull();
+    }
+  });
+
+  it.runIf(KERNEL)(
+    'a drag on a locked ring changes nothing, records no history step and says the channel is locked',
+    async () => {
+      rig = await createRig();
+      rig.layout('split');
+      const arm = control(rig, 'fk.upperArm.L');
+      lockAxes(rig, arm.id, { r: [true, false, false] });
+      const element = rig.panes.get('pane-right') as HTMLElement;
+      const toasts = (rig.app.services as FakeServices).toasts;
+      for (const space of ['object', 'world', 'gimbal'] as const) {
+        setup(rig, arm.id, 'rotate', space);
+        setRotation(rig, arm.id, [0.2, -0.4, 0.6]);
+        const before = rig.app.evaluation.channelValues(arm.id);
+        const top = rig.app.history.peekUndo()?.id ?? null;
+        const toastCount = toasts.length;
+        const at = handlePage(rig, 'rx');
+        drag(element, at, { x: at.x + 60, y: at.y + 20 }, undefined, 4);
+        rig.frame();
+        expect({ space, values: rig.app.evaluation.channelValues(arm.id) }).toEqual({ space, values: before });
+        expect({ space, top: rig.app.history.peekUndo()?.id ?? null }).toEqual({ space, top });
+        expect(rig.app.store.preview).toBeNull();
+        expect(toasts.slice(toastCount)).toEqual([
+          { kind: 'warning', text: 'Rotate X is locked. Unlock it in the Channel Box to drag this handle.' },
+        ]);
+        expect(rig.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
+        expect(rig.app.session.getState().selection.controls).toEqual([arm.id]);
+
+        // A click on the locked ring (no movement) is silent; an unlocked ring still turns the control.
+        drag(element, at, { x: at.x + 1, y: at.y }, undefined, 1);
+        expect(toasts.length).toBe(toastCount + 1);
+        const ry = handlePage(rig, 'ry');
+        drag(element, ry, { x: ry.x + 60, y: ry.y + 20 }, undefined, 4);
+        rig.frame();
+        expect(rig.app.history.peekUndo()?.id ?? null).not.toBe(top);
+        expect(rig.app.evaluation.channelValues(arm.id).rx).toBe(before.rx);
+        rig.app.history.undo();
+        rig.frame();
+      }
+    },
+  );
+
+  it('a drag on a locked translate arrow only says so', async () => {
+    const { rig: r, rec } = await recordingRig();
+    rig = r;
+    r.layout('split');
+    const cog = control(r, 'cog');
+    lockAxes(r, cog.id, { t: [true, false, false] });
+    setup(r, cog.id, 'move', 'world');
+    const element = r.panes.get('pane-right') as HTMLElement;
+    const at = handlePage(r, 'tx');
+    drag(element, at, { x: at.x + 40, y: at.y }, undefined, 3);
+    expect([rec.labels, rec.updates.length, rec.commits]).toEqual([[], 0, 0]);
+    expect((r.app.services as FakeServices).toasts.at(-1)).toEqual({
+      kind: 'warning',
+      text: 'Translate X is locked. Unlock it in the Channel Box to drag this handle.',
+    });
+    expect(r.app.calls.filter((c) => c.id === 'select.controls')).toEqual([]);
   });
 });
 

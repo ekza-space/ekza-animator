@@ -2,6 +2,7 @@
 // extension tools use the same host.
 import type { CharacterId, ControlId } from '@ekza-animator/doc';
 import type { DragSession } from '../manipulators/drag';
+import type { AxisHandle } from '../manipulators/ManipulatorKit';
 import type { ManipHandle, MarqueeRect, PickResult } from '../types';
 
 export interface ViewportToolHost {
@@ -15,6 +16,11 @@ export interface ViewportToolHost {
   setMarquee(paneId: string, rect: MarqueeRect | null): void;
   /** Starts a manipulator drag on the selected controls; null when nothing can be dragged. */
   beginManipulatorDrag(paneId: string, handle: ManipHandle, x: number, y: number): DragSession | null;
+  /**
+   * The channel behind an axis handle (translate arrow, rotate ring) that is locked on the lead control, or null.
+   * Such a handle is pickable but never drags: a press on it should only say why nothing moves (§4.11.16).
+   */
+  lockedChannel(handle: ManipHandle): AxisHandle | null;
   /** Highlights the dragged handle (null when the drag ends). */
   setActiveHandle(handle: ManipHandle | null): void;
   /** Maps a joint to the control that drives it (nearest driven ancestor), or null. */

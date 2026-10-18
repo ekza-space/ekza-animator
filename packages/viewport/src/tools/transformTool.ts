@@ -1,6 +1,7 @@
 // The move (`W`) and rotate (`E`) tools (MVP-SPEC §4.11.16): an LMB press on a manipulator handle starts a drag whose
 // channel edits go through `beginChannelEditGesture` (preview, overrides, auto-key on commit, exactly one history
-// step; Esc cancels). A press anywhere else selects like the select tool.
+// step; Esc cancels). A drag on a handle whose channel is locked edits nothing and says so (Maya). A press anywhere
+// else selects like the select tool.
 import { EkzaError } from '@ekza-animator/anim-core';
 import {
   beginChannelEditGesture,
@@ -13,6 +14,7 @@ import {
   VIEWPORT_TOOL,
 } from '@ekza-animator/editor-core';
 import type { DragSession } from '../manipulators/drag';
+import type { AxisHandle } from '../manipulators/ManipulatorKit';
 import type { ViewportToolHost } from './host';
 import { SelectBehaviour } from './selectTool';
 
@@ -23,6 +25,29 @@ const defaultGesture: GestureFactory = (app, label) => beginChannelEditGesture(a
 
 /** Pointer travel (CSS px) before a press on a handle becomes a drag; a shorter press is a click and edits nothing. */
 const DRAG_THRESHOLD_PX = 2;
+
+/** Channel names for the locked-handle hint (the Channel Box labels). */
+const CHANNEL_LABEL: Readonly<Record<AxisHandle, string>> = {
+  tx: 'Translate X',
+  ty: 'Translate Y',
+  tz: 'Translate Z',
+  rx: 'Rotate X',
+  ry: 'Rotate Y',
+  rz: 'Rotate Z',
+};
+
+/** The hint shown when a drag starts on a handle whose channel is locked. */
+function lockedHandleHint(channel: AxisHandle): string {
+  return `${CHANNEL_LABEL[channel]} is locked. Unlock it in the Channel Box to drag this handle.`;
+}
+
+/** A press on a locked axis handle: swallowed until release; the hint shows once the pointer really moves. */
+interface LockedPress {
+  readonly channel: AxisHandle;
+  readonly startX: number;
+  readonly startY: number;
+  hinted: boolean;
+}
 
 interface Drag {
   readonly session: DragSession;
@@ -37,6 +62,7 @@ interface Drag {
 class TransformTool implements ToolInstance {
   private readonly select: SelectBehaviour;
   private drag: Drag | null = null;
+  private locked: LockedPress | null = null;
 
   constructor(
     private readonly app: EditorApp,
@@ -51,6 +77,13 @@ class TransformTool implements ToolInstance {
     if (e.button !== 0 || e.paneId === null) return false;
     const handle = this.host.pickManipulator(e.paneId, e.x, e.y);
     if (handle === null) return this.select.pointerDown(e);
+    const channel = this.host.lockedChannel(handle);
+    if (channel !== null) {
+      // The press stays the manipulator's (it neither selects nor starts a marquee) but opens no gesture: nothing
+      // changes and no history step is recorded.
+      this.locked = { channel, startX: e.x, startY: e.y, hinted: false };
+      return true;
+    }
     const session = this.host.beginManipulatorDrag(e.paneId, handle, e.x, e.y);
     if (session === null) return this.select.pointerDown(e);
     this.drag = { session, startX: e.x, startY: e.y, gesture: null, moved: false, failed: false };
@@ -59,6 +92,14 @@ class TransformTool implements ToolInstance {
   }
 
   pointerMove(e: ToolPointerEvent): boolean {
+    const locked = this.locked;
+    if (locked !== null) {
+      if (!locked.hinted && Math.hypot(e.x - locked.startX, e.y - locked.startY) >= DRAG_THRESHOLD_PX) {
+        locked.hinted = true;
+        this.app.services.notify.toast({ kind: 'warning', text: lockedHandleHint(locked.channel) });
+      }
+      return true;
+    }
     const drag = this.drag;
     if (drag === null) return this.select.pointerMove(e);
     if (!drag.moved && Math.hypot(e.x - drag.startX, e.y - drag.startY) < DRAG_THRESHOLD_PX) return true;
@@ -75,6 +116,10 @@ class TransformTool implements ToolInstance {
   }
 
   pointerUp(e: ToolPointerEvent): boolean {
+    if (this.locked !== null) {
+      this.locked = null;
+      return true;
+    }
     const drag = this.drag;
     if (drag === null) return this.select.pointerUp(e);
     const gesture = drag.gesture;
@@ -87,6 +132,7 @@ class TransformTool implements ToolInstance {
   }
 
   cancel(): void {
+    this.locked = null;
     const gesture = this.drag?.gesture ?? null;
     if (gesture?.active === true) gesture.cancel();
     this.finish();
