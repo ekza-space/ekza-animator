@@ -73,13 +73,13 @@ test('the Animate workspace: docks around the viewport, chrome above and below',
   }
 });
 
-test('first run: the choices are saved and the Getting started card states the M1 scope (E2E-01, shell part)', async ({
+test('first run: the choices are saved and the Getting started card states the release scope (E2E-01, shell part)', async ({
   page,
 }) => {
   await openShell(page, '?e2e=1&firstRun=1');
   const dialog = page.getByTestId('firstrun-dialog');
   await expect(dialog).toBeVisible();
-  await expect(page.getByTestId('firstrun-getting-started')).toContainText('Leg IK');
+  await expect(page.getByTestId('firstrun-getting-started')).toContainText('Legs are IK by default');
   await page.getByTestId('firstrun-nav-trackpad').click();
   await page.getByTestId('firstrun-nav-maya').click();
   await page.getByTestId('firstrun-space-play').click();
