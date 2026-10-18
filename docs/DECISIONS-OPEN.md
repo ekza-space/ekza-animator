@@ -1,6 +1,9 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-18, M2a merged into `dev` (rev. 6; rev. 5 added section F: the M2a build deviations, the integration decisions and
+Status: 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
+(MODELING-PLAN v0.2 §12); rev. 7 added section G: the owner decisions of the modeling
+iteration M6a–M7 planned in [MODELING-PLAN](MODELING-PLAN.md), with defaults; rev. 5 added section F: the M2a build
+deviations, the integration decisions and
 the owner review items of M2a; section E holds M1's integration decisions, acceptance rounds, WP-10 e2e and budget
 decisions and the consolidated build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
 start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
@@ -18,7 +21,7 @@ including the points that were rejected or only partly accepted.
 | Q-PROJ-1 | Project file | **`.ekzanim`** zip (`manifest.json`, `project.json`, `assets/<sha256>`) plus a plain JSON debug variant `.ekzanim.json`; exports are derived artifacts (ADR 0011). | Switching to an "authoring GLB" container needs a registered `EKZA_` vendor prefix. | M2a |
 | Q-HK-1 | Default keymap and Space | **Maya-style preset** with a trackpad navigation profile; **Space tap = maximize the pane or panel under the pointer**, first-run toggle "Space plays" (R09 §15 Q1). Space-hold radial and the one-button macOS profile are M1-stretch. | Presets are data; changing defaults is trivial. | M2a |
 | Q-COL-1 | Collaboration in the MVP | **Not implemented.** The MVP ships the store boundary (transactions with per-field changes, preview sessions, stable IDs, D/U/P split, partitions with `open/close`, async assets, scene clock, per-user undo per merge unit) and the conformance suite. The production store is the plain in-house store; a **private, test-only Yjs store (`packages/doc-yjs`, yjs 13.6.33) runs the full suite in CI from M1** (ADR 0002). | A Yjs production store from day one would add async `open` and Yjs debugging to the MVP for no user value; the evidence it would provide is gathered by `doc-yjs` anyway. | M3 |
-| Q-MOD-1 | Modeling | **Not in the MVP.** Cheap path kept: `SplineSet` shared by control shapes and future splines, `TableDef` and tool registries, component-capable selection (ADR 0004, ADR 0008). | — | M6 |
+| Q-MOD-1 | Modeling | **Not in the MVP.** Cheap path kept: `SplineSet` shared by control shapes and future splines, `TableDef` and tool registries, component-capable selection (ADR 0004, ADR 0008). **2026-10-18: planned as M6a–M7, polygons first; decisions in [§G](#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18).** | — | M6 |
 | Q-EKZA-1 | Ekza upload | **Not in the MVP.** Integration contract defined: typed kind `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1`, tiers T0–T3, `ekza_animation_v1` metadata with provenance, export profiles as data, Studio deep link and embed protocol; MVP = Tier 0 export compatibility (ADR 0010). | Upload needs registry/SDK/game changes in other repos (M4a). | M4a |
 | Q-EKZA-2 | Reuse of `@ekza/avatar-renderer` | **No runtime dependency** (peer `three <0.186`, not on npm, CDN Draco). Small MIT helpers are copy-adapted with attribution headers (ARCHITECTURE §13). | A "Preview as Ekza Space" panel first emulates Space; using the real renderer needs decoder injection, npm publication and peer `<0.187` upstream. | M2c |
 | Q-ASSET-1 | Bundled sample avatars | **override.** Coordinator default: NeonGlitch86 VRM 1.0 fixture from `ekza-avatar-renderer` + 100Avatars "Polybot". The NeonGlitch86 file's own VRM meta says `allowRedistribution: false`, `modification: prohibited`, `commercialUsage: personalNonProfit`, and it embeds a Mixamo clip, so it **cannot** ship in an MIT repository. **Chosen**: Seed-san (VRM 1.0, VRM Public License 1.0: redistribution, modification and commercial use allowed, credit required) + Polybot (VRM 0.x, CC0) + Quaternius UAL (generic GLB, CC0), credited in [`fixtures/LICENSES.md`](../fixtures/LICENSES.md) and the About dialog (ADR 0012, with an erratum to research 03). | The owner may provide a CC0 VRM 1.0 avatar to replace Seed-san as the default sample. | M1 |
@@ -52,7 +55,7 @@ including the points that were rejected or only partly accepted.
 | Q-RIG-2 | IK defaults (M2a) | Legs IK, arms FK; arm IK space `root` (R07 Q1). | — | M2a |
 | Q-RIG-3 | Right-side control frames | **World-aligned** (consistent axes; mirroring via the mirror tool), not Maya "behaviour-mirrored" (R07 Q3). | Behaviour mirroring changes the meaning of right-side channels; decide before many projects exist. | M2a |
 | Q-RIG-4 | Secondary controls | Generated for non-humanoid skin joints except spring-bone joints and node-constraint destinations; **hidden by default**; parented to the control driving the nearest driven ancestor. | — | any time |
-| Q-UI-1 | Model workspace tab | **Hidden** in the MVP (R09 suggested visible-but-disabled). | Cosmetic. | M2c |
+| Q-UI-1 | Model workspace tab | **Hidden** in the MVP (R09 suggested visible-but-disabled). **Closes when M6a package B9 lands the workspace tabs (Q-MOD-UI-5, §G).** | Cosmetic. | M2c |
 | Q-UI-2 | Arrow keys | Pick-walk (M2a, Maya); frame stepping stays on `Alt+,`/`Alt+.` (R09 §15 Q2). | Preference. | M2a |
 | Q-UI-3 | Brand accent | Violet accent for chrome only; never for semantic animation colours (R09 §15 Q7). | Cosmetic. | any time |
 | Q-DEPLOY-1 | Hosted demo | Vercel (dynamic) for the demo, with `sharp` never installed; static export also supported for GitHub Pages / IPFS (R04 Q2), verified manually in M1. | Hosting choice only. | M2a |
@@ -541,3 +544,105 @@ are a lazy chunk; A5-3 the reduction gate (owner item above); A5-4 the keep set 
 failure since integration); A5-5 autosave details; A5-6 sibling check on trial merges; A5-7 M-3 mechanisms (segment
 hint, once-bound imports); A5-8 the export pipeline is its own lazy chunk; A5-9 M1 bytes without `reduce`; A5-10
 offline lazy chunks (owner item above); A5-11 the Export dialog passes `prefs.exportReduce`'s tolerances.
+
+## G. Modeling iteration (M6a–M7), defaults chosen (2026-10-18)
+
+The modeling iteration is planned in [MODELING-PLAN.md](MODELING-PLAN.md) on research
+[10](research/10-maya-poly-modeling.md)–[16](research/16-model-workspace-ui.md) (`R10`…`R16`), with ADRs
+[0014](adr/0014-mesh-kernel.md)–[0017](adr/0017-ai-generation-boundary.md) (proposed). Every item has a **default
+chosen** so that the M6a spec can be written and B0a can start; **the owner may override any of them**. Items marked
+**override** replace a research note's recommendation on evidence (MODELING-PLAN §11 lists all twenty-six research
+conflicts and their resolutions; §12 lists the forty design-review findings of 2026-10-19 and what was done with
+each, including the rejected and partly applied ones). IDs from the research notes are kept where they exist.
+
+### G.1 Direction, scope and order
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-MOD-DIR-1 | **Maya or Blender** for modeling? | **Maya's interaction model** (component modes, marking menus, Maya keys and names) with **Blender's semantics** (adjust last operation, typed numbers in tools, live preview with clean cancel, symmetry remembered per mesh) and a **BMesh-style kernel**; a complete Blender keymap later as a data pack (ADR 0016, MODELING-PLAN §1) | A Blender paradigm would redefine `S`/`R`/`G`/RMB inside a product whose Animate side is Maya; cheap to change only before marking menus and the `model.*` keymap ship | M6a spec |
+| Q-MOD-DIR-2 | Order of the next iterations | **M2a release → M6a → M6b (overlapping) → turnkey release → "Publish avatar" (M4a T3 slice) ‖ M7 G1 → M7 G2 ‖ M6c → M2b + rest of M2c → V1 → M4a T1 → M3 → M4b → M5 → M8** (MODELING-PLAN §9). Estimate (2026-10-19): M6a ≈ 108 agent-days + a fix round, critical path ≈ 28 working days (≈ 31 with the fix round); turnkey release ≈ 40–45 working days after B0a starts with 8–10 agents in parallel | Collaboration first delays the turnkey tool and would build sync before mesh storage settles; AI before M6b yields unrigged, uncleanable generations | before M6a starts |
+| Q-MOD-DIR-3 | What the base leaves out | NURBS surfaces, sculpting, construction history, booleans, subdivision/smooth preview, UV editor and unwrap (M6c), texture painting, normal/AO bakes, LODs, retopology/Quad Draw, decimation (M7) (MODELING-PLAN §2.3) | Each item is roughly a milestone package of its own | M6a spec |
+| Q-MOD-DIR-4 | M6c (UV editor, unwrap, image textures, decals, ramps) | **Optional, by demand**, in parallel with M7 | Skipping it keeps the palette-only workflow (enough for the OMOBA/Space low-poly style) | after M6b |
+| Q-MOD-DIR-5 | Shell items planned for M2c | **Marking menus, command palette and workspaces move into M6a** (packages B0b and B9); the hotkey editor stays in M2c | Leaving them in M2c blocks every modeling surface | M6a spec |
+| Q-MOD-DIR-6 | Release tags | `v0.3.0` = modeling base (M6a), `v0.4.0` = turnkey (M6b) | Naming only | each release |
+
+### G.2 Interaction and keymap (ADR 0016, R10, R11, R16)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-MOD-UI-1 | Compass positions of the RMB mode menu and Shift+RMB tool menus (Autodesk documents the items, not the positions) | **The owner checks once on Maya 2026/2027**; until then R16 §5.4/§6.1 as **provisional** slots (S Extrude, W Multi-Cut, SW Delete = Maya's plain Delete with Delete Edge/Vertex in the list) | Changing positions after release breaks gesture memory | M6a spec freeze |
+| Q-MOD-UI-2 | Component-mode keys | `F8`; `F9`/`1` vertex; `F10`/`2` edge; `3` face; the active digit again returns to object mode; **F11 and F12 never bound in web builds** (R10 Q-MOD-10-3, R11 Q1, R16 Q-MOD-UI-2/-12) | F-keys only: unusable on Mac laptops and in browsers for F11/F12 | M6a |
+| Q-MOD-UI-3 | `Ctrl+E` | **Extrude** in `model.viewport.component`; Export keeps `Mod+E` elsewhere and gains `Mod+Shift+E` everywhere (R10 Q-MOD-10-2, R11 Q2, R16 Q-MOD-UI-3) | Extrude only by menu and Shift+drag | M6a |
+| Q-MOD-UI-4 | Bevel, Multi-Cut and merge keys (Maya has no defaults) | `Mod+B`, `K`, `M` (Blender Industry Compatible habits; R11 Q3) | Menu-only like Maya | any time (keymap data) |
+| Q-MOD-UI-5 | Workspaces | Tabs `Model › Rig & Skin › Animate › Review` with status glyphs; no default switch hotkey; Model layout four-view with persp maximized; timeline hidden in Model (R16 Q-MOD-UI-5/-7/-8/-11) | Cosmetic; closes Q-UI-1 | M6a |
+| Q-MOD-UI-6 | `Delete` on edges | **override of R16 Q-MOD-UI-6** (dissolve): **Maya behaviour** — `Delete` merges the edge's faces and keeps the end vertices; `Mod+Delete`/`Mod+Backspace` = Delete Edge/Vertex (clean); the Shift+RMB SW slot runs plain Delete with Delete Edge/Vertex in its list; R16 §6.1, §19.3 and §19.4 are marked superseded; a stray-vertex lint offers a one-click fix (R10 Q-MOD-10-5) | Dissolve by default: breaks the owner's Maya habit and can change shapes (a cube edge → a prism) | M6a |
+| Q-MOD-UI-7 | Parameters after an operation | **Last operation only** (card + Channel Box INPUTS, `T`), `G` repeat; no per-mesh history list (R16 Q-MOD-UI-4). **Extrude session**: after `Ctrl+E` the manipulator's own drags and `W`/`E`/`R` drags on the cap stay inside the same adjustable extrude (Maya `polyExtrudeFace` local translate/rotate/scale) until the selection changes or another operator runs; `localTranslateZ` is the primary field. `G` on tool-only operations (Multi-Cut, Target Weld, Slide) re-activates the tool | A history list needs construction history (ADR 0014 §8); without the session `Ctrl+E` then `R` would scale the original faces | M6a |
+| Q-MOD-UI-8 | Numeric capture | **Narrow window** (`numericCapture: 'auto'`): armed during a drag, and right after a keyboard-invoked operator until the first pointer move, click or non-numeric key; **`T`** opens the card with the primary field focused at any time; outside the window `1`–`7` keep mode/shading meanings; preference `explicit` = `T` only (design review over R11 Q6's "armed while the manipulator is live") | A wide window turns `3` (leave face mode) into "3 m of thickness" while a manipulator stays up | any time |
+| Q-MOD-UI-9 | Live Mirror (Blender Mirror-modifier semantics) | **M6a-stretch**; Symmetry mode + Mirror (cut, merge) are base, and **every base tool mirrors** under Symmetry (MODELING-PLAN §3.14: edge/face partner maps, `t`/`1−t`, seam rules). If the per-tool table overruns B12b by more than two agent-days at its midpoint, Live Mirror moves to base as the character path and Symmetry mode narrows to transforms and soft select (R10 Q-MOD-10-6, R11 Q4) | In base now: +2–3 agent-days and an evaluated-mesh layer in picking and export | M6a spec (fallback at B12b midpoint) |
+| Q-MOD-UI-10 | Blender keymap preset | **V1 or later**, as a complete data pack, tested by a Blender user (R11 Q7) | Earlier: +1 modal transform operator and a second QA matrix during M6 | V1 |
+| Q-MOD-UI-11 | Primitive defaults | **Low poly** (sphere 12×8 = 168 tris, cylinder and cone 8 sides, torus 12×6, plane 1×1) with a "Maya defaults" preference (R10 Q-MOD-10-4; R16's 8×6 sphere not taken) | — | any time |
+| Q-MOD-UI-12 | Faceted or smooth new meshes | **Faceted** (all edges hard; record flag `faceted`); every op follows one hard-flag rule: edges inside a former all-hard face stay hard, side/strip edges use the op's `smoothingAngle`, default 0° on faceted meshes and 30° otherwise; Set Normal Angle is a one-shot operator, not a live modifier (R11 Q5, R12 §5.1) | 30° smoothing by default; without the rule, gentle extrudes would leave smooth patches in flat-shaded models | any time |
+| Q-MOD-UI-13 | Undoable selection | **On in Model, off in Animate** (preference per workspace): consecutive selection gestures coalesce into one "Select" step in `EditorHistory`, session-only, never in the document or CRDT (Maya records selection in its undo queue by default; corrects R09 §6.3) | Off: a stray click on empty space loses a hand-built loop selection with no way back | M6a |
+| Q-MOD-UI-14 | MMB-drag in the viewport | **Maya rule**: with W/E/R active, MMB-drag anywhere moves/rotates/scales the selection (last-picked handle axis, or the view plane); when Channel Box channels or an INPUTS field are selected it stays the virtual slider (shipped M2a condition) | Without it there is no fast way to push components without grabbing a handle | M6a |
+| Q-MOD-UI-15 | Meshes outside the hilite set in component mode | **Opaque and unpickable**; "Dim unhilited" as a per-pane option (R16 §5.3 proposed 70 % opacity) | Fading hides fitting problems (helmet on head, eyes in sockets) and adds sorting artefacts | any time |
+| Q-MOD-UI-16 | Hide and isolate | `H` hide selected, `Shift+H` show all, `Alt+H` hide unselected (components and objects), `Shift+L` isolate per pane; Maya's `Ctrl+H`/`Ctrl+1` unbound (browser); hiding is session state, not saved | Keymap data | any time |
+| Q-MOD-UI-17 | When primitive parameters freeze | At the **first component edit of any kind** (a vertex nudge included); object transforms keep them live | Freezing only at topology edits loses or misplaces vertex tweaks when segments change | M6a |
+| Q-MOD-UI-18 | Tweak selection style and reference image planes | **Both in the M6a base**; Tweak is a Move tool option, off by default as in Maya | Stretch: no fast vertex pushing; freehand blockout without front/side concept art | M6a spec |
+
+### G.3 Kernel and storage (ADR 0014, ADR 0015, R13)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-MOD-K-1 | Construction history | **None**: destructive modeling, adjust last operation, primitive parameters live until the first topology edit; history only for M8 curve generators (R13 Q4) | Maya-style history needs per-op dirty propagation, per-node undo and a finer collaboration model | M6a spec |
+| Q-MOD-K-2 | Partition of mesh records | **override of R13 K7/Q1**: the **owner's partition** (`char:<id>` for character meshes, `scene` for props); mesh claims are record-scoped; no `mesh:<id>` partition | A per-mesh partition changes the closed `Partition` union, opens one document per prop and splits joint-delete + weight-move across documents; it can come later by migrating one table if per-document modeler ACLs are needed | M3 (M4b for ACLs) |
+| Q-MOD-K-3 | Where skin weights live | **override of R14 D8**: **layers in the mesh revision** (`skin.joints` u16×4, `skin.weights` f32×4, joint palette in the manifest and copied into `data.joints` of the same field value for `referencesOf`; weights on a vanished joint fold to its nearest ancestor with `skin.dangling-joint`), the binding a mesh-record field; morph names only in the manifest; `ekza.skin.v1` survives as the layer encoding and export codec (R13 Q9) | A separate skin blob: two refs that drift, two undo steps or stale checks after topology edits | M6a spec (B0a) |
+| Q-MOD-K-4 | Adjust-last mechanism | **Undo + re-run** (`edit.adjustLast` dispatcher); no amend option in the store or `EditorHistory` (R11 §6.2 over R13 §9.4 and R16 §8.3) | An amend option is a store/ADR 0013 contract change for the same behaviour | M6a spec |
+| Q-MOD-K-5 | Skin influences | **4, always normalized** (three.js and Bevy read one set of four) (R13 Q2, R14 Q-SKIN-4) | 8 internally with export pruning: not WYSIWYG | M6a |
+| Q-MOD-K-6 | `robust-predicates` (Unlicense, outside `ALLOWED_LICENSES`) | **Reviewed entry in `tooling/license-exceptions.json`** (public-domain dedication, OSI-approved) (R13 Q8) | Port Shewchuk's four predicates ourselves (~1 agent-day) | M6a B0a |
+| Q-MOD-K-7 | Booleans | **After M7**, `manifold-3d` (Apache-2.0) in a lazy worker (R10 §3.7, R13 Q5) | In base: +3 agent-days, ~205 kB gz WASM, needs closed manifolds | after M7 |
+| Q-MOD-K-8 | Bevel in M6a | Edges, **1–3 segments**, corners of ≥ 3 beveled edges filled with a fan + warning; vertex bevel and patch corners later (R10 §4.3 over R13 §5.3's 1–8) | 1–8 segments with patch corners: more days and risk | M6a spec |
+| Q-MOD-K-9 | Quad recovery on Make editable | **On request** (Quadrangulate); automatic only in M7's AI intake preset (R13 Q3) | Automatic: silently changes imported topology | M6a |
+| Q-MOD-K-10 | Chunk size of mesh revisions | **~32 KiB**, confirmed after B7's benchmarks with real modeling sessions (R13 Q10) | Manifest size vs upload size per commit | M6a B7 |
+| Q-MOD-K-11 | Imports above 200k triangles | **Read-only in component mode** until Reduce (M7 G-a) decimates them | — | M7 |
+| Q-MOD-K-12 | Undo memory for meshes | **Byte budget**: chunks and journals reachable only from history ≤ 256 MB (journals ≤ 64 MB) by default, oldest steps dropped with a toast; GC roots derived from undo/redo entries, never pinned | Unbounded: hundreds of MB on morph-heavy imports (Seed-san head: 129 targets) | M6a B7 |
+| Q-MOD-K-13 | Edited primitives whose original had `TANGENT` | **Refused at export with the reason**, unless the user ticks "Drop tangents" (renderers derive MikkTSpace); a generator arrives with mesh-wasm in M7 | Generate in M6a: a MikkTSpace WASM dependency for a case neither fixture has | M6a |
+| Q-MOD-K-14 | Concurrent offline modeling of one mesh (M3) | `data.base` in schema v3 now; in M3 a forked peer keeps its head as a **conflicted copy** and notifies | Plain last-writer-wins: hours of work lost without a trace | M3 (field: M6a B0a) |
+
+### G.4 Low-poly content, colour and export (R12)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-LP-0 | Colour truth and default export | **Per-face palette slot**; export as a palette PNG with collapsed UVs by default, **forced for VRM** (MToon ignores vertex colours); `COLOR_0` and one-material-per-colour as options (R12 L2–L3, R16 Q-MOD-UI-9) | Vertex colours by default would vanish on Space avatars | M6a |
+| Q-LP-1 | Default material preset | **Unlit palette** (props, OMOBA heroes); **toon palette** (MToon) for Space avatars once the MToon writer exists (M6b-stretch), unlit until then | — | M6b |
+| Q-LP-2 | Budget presets | R12 §2.2 (hero 1,500–3,000 tris, warn > 5,000; NPC 300–1,000; handheld 100–600; small prop 50–300), **advisory** warnings, never export blockers; runtime limits (> 4 influences, > 256 joints) stay errors | Blocking budgets would fight imports and AI drafts | any time |
+| Q-LP-7 | Ramp swatches and the decal region | **M6a-stretch**, otherwise M6c | — | M6a spec |
+| Q-LP-11 | `COLOR_0` encoding | **float32 linear** (exact sRGB EOTF conversion) | unorm8 linear loses dark colours (≈ 2.7/255 error at sRGB 10), failing the 1/255 round-trip test | M6a |
+| Q-LP-12 | Mitten hands mapped to which finger chain | **override of R14** (index): the **middle**-finger bones (R12 §8.1); pointing gestures then curl the mitten into a fist | Index chain: mittens stay open during pointing gestures | M6b spec |
+| Q-LP-4 | OMOBA runtime palette swap (team colours) | Ask the OMOBA owner; exports stay one file per variant meanwhile | Game-side work | later |
+| Q-LP-6 | Advisory mobile budgets in registry profiles | Propose upstream after AS-LP data | Registry change | after M6b |
+
+### G.5 Characters from own models (M6b, R14)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-SKIN-1 | Native character format and rest pose | **VRM 1.0**, bind = rest = VRM T-pose for humanoids, Apply Pose as Rest for A-pose models; **no VRM 0.x export** (R12 Q-LP-5) | VRM 0.x export: a second writer and humanoid map | M6b spec |
+| Q-SKIN-2 | Licence gate on VRMs with `modification: prohibited` | **Block** Make editable, weight edits and Apply Pose as Rest, with the reason; animation-only exports stay allowed (R16 Q-MOD-UI-10) | Allow with acknowledgement for private use | M6a (Make editable) |
+| Q-SKIN-3 | Licence preset for the user's own models in the export dialog | **Explicit choice required**, "Open — CC0" listed first | Pre-selected CC0: users publish without noticing | M6b |
+| Q-SKIN-5 | Rigid/segmented skinning as a first-class style | **Yes**: "Auto (low-poly)" binds fitting islands rigidly; stiffness and rigidify cover smoother styles | — | M6b |
+| Q-SKIN-6 | "Publish avatar to Ekza" (T3) before the animation kind (T1) | **Yes**: needs only the `studio-upload` scope (Q-EKZA-8) | T1 first needs a registry migration | after M6b |
+| Q-SKIN-7 | Default skeleton preset | **Standard 33** (mitten hands); Lite 17, Core 21 and Full 52 offered (R12 Q-LP-3) | Full fingers by default: more joints to fit and weight | M6b spec |
+
+### G.6 AI generation (M7, R15, ADR 0017)
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-GEN-1 | Who pays for generation | **Self-hosted (operator's env keys) and BYO key** until Ekza accounts exist (M4b); a hosted platform key only with M4b and written provider consent to their resale terms (R15 Q1) | Platform key earlier: Ekza pays per call and risks breaching Meshy's resale clauses | M7 spec |
+| Q-GEN-2 | Default providers | **Tripo for characters** (native low-poly, VRM-named rig, no training on paid users' data), **Meshy for props** (cheapest clean low-poly) (R15 Q2) | One provider: simpler, but the contract is tested against one API only | M7 spec |
+| Q-GEN-3 | Hunyuan3D | Open weights **off by default**, operator opt-in with a territory gate and the licence NOTICE; the cloud API as a later adapter (R15 Q3) | Default-on would exclude EU, UK and South Korea users | M7 G2 |
+| Q-GEN-4 | Provider confirmations in writing | Ask Meshy and Tripo before any platform-key mode **and before BYO keys on a hosted Ekza gateway** (Tripo: keys may not be transferred); ask Meshy whether reduce/palette bake may alter its invisible AI marks (provenance records `aiMarksMayBeAltered` meanwhile) (R15 Q4, design review) | — | before G3 |
+| Q-GEN-5 | Prompt text in exported provenance | **Hash only**; text on the user's opt-in (R15 Q5) | Text by default leaks prompts into published files | M7 |
+| Q-GEN-6 | Registry changes | Propose a `prop` kind and AI-provenance fields with a Studio badge upstream after G1 (R15 Q6) | Ecosystem work in the registry repository | after G1 |
+| Q-GEN-7 | Self-hosted GPU worker | Decided at G2 (Ekza infrastructure, rented GPU or the owner's machine); none before (R15 Q7) | — | G2 |
+| Q-GEN-8 | Rig for generated humanoids | **Provider rig when it uses VRM bone naming** (Tripo rig `v3.0-20260909`, `spec: "vrm"`, verified 2026-10-18), otherwise Quick Rig + Auto (low-poly); geodesic voxel binding in G2 (R15 Q8, R14 Q-SKIN-8) | Own rig always: weaker on polygon soup until voxel binding exists | M7 spec |
+| Q-GEN-9 | Provider tier of a generation | The user **attests paid tier** in the Generate panel (the API cannot tell); `ekza.provenance-free-tier` is an error for a T3 publish without the attestation | Warning only: free-tier outputs (owned by Tripo, CC BY at Meshy) could be published as the user's own | M7 spec |
+| Q-GEN-10 | Gateway exposure | **Default deny**: mounted only with `GEN_GATEWAY_ENABLED=1` and an auth or a loopback-only bind; refuses to start with keys and no auth; server-side daily/monthly caps from env; the app's first CSP lands in G-b before BYO keys | Optional auth: any reachable server build with a key set spends the operator's credits | M7 spec |

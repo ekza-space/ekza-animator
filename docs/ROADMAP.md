@@ -1,7 +1,10 @@
 # Ekza Animator — Roadmap
 
-Status: v0.6 (2026-10-18, M1 integrated and accepted on `dev`, the `v0.1.0` tag pending; **M2a integrated and merged
-into `dev`** (M2A-SPEC v0.3), its `v0.2.x` tag the owner's call). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
+Status: v0.8 (2026-10-19, M1 integrated and accepted on `dev`, the `v0.1.0` tag pending; **M2a integrated and merged
+into `dev`** (M2A-SPEC v0.3), its `v0.2.x` tag the owner's call; **the modeling iteration is planned**: the old M6
+"splines first" is replaced by M6a/M6b/M6c/M7 in [MODELING-PLAN.md](MODELING-PLAN.md), splines move to M8, and the
+[recommended order](#recommended-order) puts modeling before collaboration; v0.8 applies the plan's design review,
+MODELING-PLAN v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
 [M2A-SPEC.md](M2A-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
@@ -20,7 +23,11 @@ into `dev`** (M2A-SPEC v0.3), its `v0.2.x` tag the owner's call). Keep the [stat
 | M4a | Ekza T1/T3 (typed animation assets, publish, open from Ekza) | Planned | — | — | depends on M1 + other repos |
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
-| M6 | Modeling: splines first | Planned | — | — | |
+| M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | Planned (plan v0.2) | — | — | [MODELING-PLAN §4](MODELING-PLAN.md#4-m6a--modeling-base); ≈ 108 agent-days + a fix round, critical path ≈ 28 working days (≈ 31 with the fix round); ADRs 0014–0016 proposed; next after the M2a release |
+| M6b | Characters from own models: skeleton, auto-skin, weights, VRM 1.0/GLB writer (turnkey) | Planned (plan v0.2) | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey); ≈ 43.5 (turnkey minimum ≈ 36); overlaps M6a; turnkey release ≈ 40–45 working days after M6a's B0a starts |
+| M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
+| M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
+| M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
 
 ### M1 work-package status
 
@@ -57,6 +64,24 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (on `dev`; M-1 met, p95 3.2 ms on `dev`; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (on `dev`; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
 | INT | `integration` | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS, owner demo script | Integration | 3 | Done (on `dev`; branch `m2a/integration` with its fix round 1, merged last, M2A-INT-19) | [notes](wp-notes/m2a-integration.md); gates turned into failures, M2A-INT-1…14; fix round 1 M2A-INT-15…18 (value scale, unit-aware Graph Editor fields, M2a-stretch fixmes and the mesh-pick hint, the demo walkthrough and the −0 handles it found) |
+
+## Recommended order
+
+Set 2026-10-18 with the modeling plan; reasons per step in [MODELING-PLAN §9](MODELING-PLAN.md#9-ordering-relative-to-m2b-m2c-m3-and-m4).
+The queue of next actions is [TODO.md](../TODO.md).
+
+1. **M2a release**: owner review of [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), demo
+   script, tag `v0.2.0`.
+2. **M6a modeling base**, with the M2c shell prerequisites (marking menus, command palette, workspaces, viewport Scale
+   tool) pulled into its packages B0b and B9.
+3. **M6b characters from own models**, overlapping M6a from its package C0; then the **turnkey release** (`v0.4.0`),
+   estimated ≈ 40–45 working days after M6a's package B0a starts (8–10 agents in parallel, one fix round per
+   integration).
+4. **"Publish avatar to Ekza"** (the T3 slice of M4a: only the `studio-upload` scope is needed, the avatar kind exists)
+   in parallel with **M7 G1**; then **M7 G2**, with **M6c** in parallel if wanted.
+5. **M2b** and the rest of **M2c** → **V1** release.
+6. **M4a T1** (typed animation assets), then **M3** collaboration (it now also carries mesh-chunk transport and mesh
+   claims, ADR 0015), **M4b**, **M5**, **M8**.
 
 ---
 
@@ -267,16 +292,20 @@ Mixamo-derived clips are marked non-redistributable and cannot be published unde
 Constraints (parent/point/orient/aim) (FR-RIG-10), control shape editing in a Rig workspace (FR-RIG-13), spring-bone
 preview polish (FR-RIG-14), VRMA expressions and lookAt (FR-RIG-15, FR-EXP-07), onion skin and motion trails
 (FR-VP-14..15), view history and camera bookmarks (FR-VP-13), playblast (WebCodecs), audio (FR-TIME-09), time
-bookmarks → clips (FR-TIME-08), marking menus (FR-SHELL-09), command palette (FR-SHELL-08), hotkey editor
-(FR-SHELL-10), Rig/Review workspaces (FR-SHELL-11), selection sets and humanoid picker (FR-POSE-07), History panel
-(FR-UNDO-06), data packs and trusted extensions (FR-EXT-03..04), "Preview as Ekza Space" emulation (FR-EKZA-05),
-IO worker with an op-stream document replica, quality items (Firefox/WebKit smoke, screenshot baselines, size
-budget gate, static/offline/storage/context-loss e2e, token contrast check, i18n string table, Vite playground,
-docs site, Maya fixture calibration if a licence is available).
+bookmarks → clips (FR-TIME-08), hotkey editor (FR-SHELL-10), Review workspace layout, selection sets and humanoid
+picker (FR-POSE-07), History panel (FR-UNDO-06), data packs and trusted extensions (FR-EXT-03..04), "Preview as Ekza
+Space" emulation (FR-EKZA-05), IO worker with an op-stream document replica, quality items (Firefox/WebKit smoke,
+screenshot baselines, size budget gate, static/offline/storage/context-loss e2e, token contrast check, i18n string
+table, Vite playground, docs site, Maya fixture calibration if a licence is available).
+
+**Moved to M6a** (2026-10-18, package B9 of [MODELING-PLAN](MODELING-PLAN.md#42-work-packages)): marking menus
+(FR-SHELL-09), command palette (FR-SHELL-08) and workspaces (FR-SHELL-11), which every modeling surface needs; the
+Rig & Skin workspace is built in M6b. M2c is scheduled after M7 G1 ([recommended order](#recommended-order)), so its
+polish covers the Model workspace too.
 
 **Acceptance**: research 01's V1 exit criterion (daily-driver quality for game clips); V1 tagged release.
 
-**Depends on**: M2a (IK), M1.
+**Depends on**: M2a (IK), M1; M6a for the shell items above.
 
 ## M3 — Collaboration P1 (≈ 20–30 agent-days)
 
@@ -296,6 +325,11 @@ killing the server loses no committed edits; 30 min offline then reconnect merge
 **Depends on**: M1 (store boundary, IDs, partitions, merge units, scene clock); M2 not required. Owner decisions:
 hosting, anonymous share links ([DECISIONS-OPEN](DECISIONS-OPEN.md) Q-COL-2, Q-COL-3).
 
+**From the modeling plan** (ADR 0015): `HttpAssetStore` also transports mesh revision chunks (`BlobStore`, upload
+dirty chunks before writing the ref, fetch by hash); entering a component mode takes an exclusive mesh claim on the
+mesh record; skeleton and skin edits take the exclusive `rig` claim. No CRDT schema work for meshes. Scheduled after
+M6/M7 so the sync transport covers mesh blobs once.
+
 ## M4a — Ekza T1/T3 (≈ 15–20 agent-days in this repo + ecosystem work)
 
 **Deliverables**: Tier 1 typed asset `ekza:animation:<uuid>` with profile `universal / vrma-humanoid-v1` (registry
@@ -309,6 +343,11 @@ played as an emote in Ekza Space.
 
 **Depends on**: M1 exports and metadata only; ecosystem changes in registry/SDKs/games; owner decisions
 (Q-EKZA-3…Q-EKZA-10). Independent of collaboration.
+
+**Early slice (modeling plan)**: T3 "Publish avatar to Ekza" for characters made in the editor (device-code login,
+`POST /v1/studio/assets { assetKind: 'avatar' }`, source `.vrm`, thumbnail, submit) needs only the `studio-upload`
+scope, because the registry's `avatar` kind already exists; it can ship right after M6b, in parallel with M7 G1
+(≈ 2 agent-days here + the registry scope). T1 (`ekza:animation`) stays in this milestone.
 
 ## M4b — Collaboration auth and permissions (≈ 8–12 agent-days)
 
@@ -327,17 +366,98 @@ constraints in collaboration.
 
 **Depends on**: M2a/M2c (rig ops), M3 (collaboration for per-user layers).
 
-## M6 — Modeling, splines first (size TBD after M5)
+## M6 — Modeling (replaced 2026-10-18: polygons first)
+
+The old M6 ("Modeling, splines first") is replaced by a polygon-first sequence planned in
+[MODELING-PLAN.md](MODELING-PLAN.md) on research 10–16, with ADRs 0014–0017 (proposed) and the owner decisions of
+[DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18). The owner's goal is a
+turnkey tool: model a low-poly character and a prop → rig and skin → animate → export to Ekza, with AI generation
+feeding the same pipeline later. Interaction model: Maya's (component modes, marking menus, Maya keys and names) with
+Blender's semantics (adjust last operation, typed numbers in tools, live preview, symmetry remembered per mesh) and
+a BMesh-style kernel; no construction history (ADR 0016, ADR 0014).
+
+### M6a — Modeling base (≈ 108 agent-days + a fix round)
+
+**Deliverables**: Model workspace tab (Model › Rig & Skin › Animate › Review) with marking menus, command palette,
+viewport Scale tool and shading modes (pulled from M2c); `mesh-core` kernel (radial-edge structure of arrays, write
+log, Euler operators, deterministic ops, attribute layers that keep UVs, colours, skin weights and morph deltas valid)
+and `mesh-view` (overlays, CPU picking); component modes and selection (loops, rings, grow/shrink, convert, soft
+selection, symmetry for every base tool, undoable selection, hide/isolate); six low-poly primitives with live
+parameters; extrude as a Maya-style session (`Ctrl+E`, then the manipulator or `W`/`R` on the cap, then Divisions),
+inset, bevel (≤ 3 segments), insert and offset edge loops, Multi-Cut, connect, Slide Edge/Vertex, Average Vertices,
+bridge (divisions, twist, offset), fill hole, merge/Target Weld/collapse, delete and Delete Edge/Vertex, spin/flip
+edge, mirror, symmetrize, combine/separate/extract, triangulate/quadrangulate, freeze transforms, MMB-drag and Tweak
+moves, pivot editing and snapping; reference image planes in the ortho views; hard/soft edges with WYSIWYG normals
+and one hard-flag propagation rule; per-face palette colour with palette-texture, `COLOR_0` and per-colour-material
+exports; planar/box/cylindrical UV projections; Poly Count HUD with budgets and Mesh Check; Adjust Last Operation,
+`G` repeat, numeric input in a narrow window; mesh storage as revision refs over content-addressed chunks with a
+byte-bounded undo (ADR 0015, schema v3); "Make editable" for imported meshes, the surgeon's "replace primitives"
+step with bake marker v2, edited characters re-displayed through the normal loader, an author GLB writer and the
+`ekza/omoba-handheld-v1` profile.
+
+**Packages**: B0a contracts, schema v3 and mesh-core interfaces → B0b keymap rows ‖ B1 kernel ‖ B6 mesh-view ‖ B7
+runtime + blobs ‖ B8 io ‖ B9 shell → B2…B5 (selection, core ops, shape ops + Multi-Cut + slide, bevel + Mesh Check +
+UV) and B10…B13 (selection UI, operators UI, B12a transform tools ‖ B12b topology tools, content) → INT → fix round
+([MODELING-PLAN §4.2](MODELING-PLAN.md#42-work-packages)); critical path ≈ 28 working days, ≈ 31 with the fix round.
+
+**Acceptance**: kernel property tests (validity, Euler characteristic, manifoldness, bit-exact undo, cross-runtime
+determinism, attribute propagation, all-hard preservation, symmetric tools) and the count oracles; E2E-MOD-01…32 in
+Chrome and SwiftShader; an owner feel check after B12a; AS-LP-A/B (a character from a cube against reference images
+using every base tool, and a sword; static) by the owner; budgets recorded; tag `v0.3.0` (owner's call).
+
+**Depends on**: the M2a release; M1 registries, selection, history and IO.
+
+### M6b — Characters from own models (≈ 43.5 agent-days; turnkey minimum ≈ 36)
+
+**Deliverables**: Rig & Skin workspace; VRM 1.0 humanoid skeleton templates (Lite 17, Core 21, Standard 33 with
+mitten hands, Full 52), Joint tool with Snap to Projected Center, Quick Rig wizard, Apply Pose as Rest; auto-skin
+"Auto (low-poly)" (rigid islands + bone heat, worker); weight table, assign, Paint Skin Weights, mirror, hammer,
+transfer; `rig.autoRig.update`, ROM clip; VRM 1.0 and plain GLB character writer with meta, licence presets and
+thumbnail; `char.makeEditable` and the skin surgeon for imported characters; exporter-agnostic
+`ekza/space-avatar-v1`; T0 docs. A character made in the editor becomes the same records an imported VRM produces, so
+the M1/M2a animation tools work unchanged.
+
+**Acceptance**: Polybot without weights auto-skins within one joint on ≥ 98 % of vertices (exact ≥ 85 %, calibrated);
+validators 0 errors; byte-identical re-export; E2E-SKIN-01…08 including the turnkey walkthrough; AS-LP-C/D/E;
+turnkey release `v0.4.0` (owner's call).
+
+**Depends on**: M6a packages B1, B7, B8, B9 (starts while M6a is in flight); weight painting (C3) also on B6, B10,
+B12a/B12b.
+
+### M6c — UV editor and texturing basics (optional, ≈ 18 agent-days)
+
+Seams → LSCM unwrap → skyline packing (xatlas as an optional adapter), UV Editor pane on Canvas2D, image textures per
+material, decal region, ramp swatches, vertex-colour painting. By demand; can run in parallel with M7.
+**Depends on**: M6a.
+
+## M7 — AI 3D generation (G1 ≈ 22, G2 ≈ 14 agent-days; G3 with M4a/M4b)
+
+**Deliverables**: server-side gateway behind the provider-agnostic `ekza-gen/v1` contract (no keys or provider origins
+in the browser; off unless enabled, auth required, server-side spend caps; the app's first CSP; self-hosted, BYO-key
+and later hosted modes); Tripo (characters, VRM-named rig) and Meshy (props)
+adapters with a mock provider server; Generate panel and job tray; intake operators (normalize, reduce with
+meshoptimizer, cleanup, palette bake) on the modeling kernel; provider rig or own rig; provenance recorded at import
+and exported in `ekza_model_v1` (ADR 0017). G2: self-hosted GPU worker (TRELLIS.2, TripoSG, UniRig), fal.ai and
+Hunyuan cloud adapters, multiview, OBJ import, geodesic voxel binding. G3: hosted platform key with quotas, registry
+AI fields.
+
+**Acceptance (G1)**: from one reference image, a rigged ≤ 3,000-triangle, ≤ 16-colour humanoid is animated with the
+M2a tools and exported as a VRM 1.0 that passes `ekza/space-avatar-v1` with provenance; green against the mock server;
+no provider key or origin in the client bundle.
+
+**Depends on**: M6b (rig/skin), M6a (cleanup operators, provenance contracts).
+
+## M8 — Splines and generators (the old M6; size TBD)
 
 **Deliverables**: renderable `curve` records registered through `TableDef` using the shared `SplineSet`
-(poly/Bézier, then NURBS), viewport CV/EP/pen tools reusing the Graph Editor's Bézier editing kernel, component
-selection mode, generators (sweep, loft, revolve, extrude, tube) with construction history and per-op dirty
-propagation, `EKZA_curves` glTF extension (vendor prefix registered first) with a `LINE_STRIP` fallback, Model
-workspace; later mesh editing and weight painting; sandboxed third-party plugins.
+(poly/Bézier, then NURBS), viewport CV/EP/pen tools reusing the Graph Editor's Bézier editing kernel, curve component
+selection, generators (sweep, loft, revolve, extrude, tube) with construction history and per-op dirty propagation
+whose output is an M6 mesh, `EKZA_curves` glTF extension (vendor prefix registered first) with a `LINE_STRIP`
+fallback; sandboxed third-party plugins.
 
 **Acceptance**: a user draws a spline, sweeps a tube along it, exports a GLB that loads in three.js and Bevy.
 
-**Depends on**: M1 registries and selection model; M5 not required for splines.
+**Depends on**: M6a (mesh kernel, Model workspace, component selection), M1 registries.
 
 ---
 
@@ -352,5 +472,13 @@ workspace; later mesh editing and weight painting; sandboxed third-party plugins
 | M1 scope (63 agent-days) slips | M1 | M1-stretch list; WP-7 split; test kit from day 1; integration agent owns lockfile and shell |
 | Registry/game changes slip | M4a | Tier 0 already works in Space; Tier 1 tracked in owning repos from M2 |
 | R3F 9 pins React minors; three.js focus on WebGPU | ongoing | Renovate groups; renderer swap isolated in `viewport` |
-| Scope creep from Maya breadth | all | Requirements carry priorities; MVP-SPEC is the contract |
+| Scope creep from Maya breadth | all | Requirements carry priorities; MVP-SPEC is the contract; modeling: BASE/stretch tags, bevel ≤ 3 segments, bounded Multi-Cut (MODELING-PLAN §4.5) |
 | Name conflict for "Ekza Animator" | before M1 alpha | Trademark search (Q-NAME-3) |
+| Mesh kernel emits invalid topology or non-deterministic results | M6a | Refusal policy, `validateMesh` after every commit in debug builds, property tests P1–P9 incl. Node vs Chromium hashes (ADR 0014) |
+| Modeling edits silently break skin weights or VRM expressions | M6a/M6b | Attribute layers with propagation rules inside one revision, stable morph order, licence gate, surgeon read-back tests (ADR 0015) |
+| Shared-contract ripple into shipped animation code (operators, selection, keymap scopes, schema v3) | M6a | One atomic contracts package (B0a, keymap rows in B0b); M1/M2a e2e stay green at every merge |
+| Auto-skin quality on single-piece organic low-poly bodies | M6b | Bone heat with stiffness and rigidify; weight tools in the first release; gates on segmented and single-piece fixtures |
+| AI provider churn, terms and cost | M7 | Pinned model versions, contract tests, mock server in CI, BYO/self-host first, quotes and caps (ADR 0017) |
+| Mesh undo history pins hundreds of MB (morph-heavy imports, whole-layer ops) | M6a | Derived GC roots, undo byte budget with eviction, journal cap, implicit default tail in chunks (ADR 0015) |
+| Tool feel found wrong only at the final owner run | M6a | Transform and topology tools in separate packages (B12a/B12b), owner feel check after B12a, AS-LP-A requires every base tool |
+| An exposed generation gateway spends the operator's credits | M7 | Off unless enabled, auth required, server-side spend caps, CSP before BYO keys (ADR 0017) |

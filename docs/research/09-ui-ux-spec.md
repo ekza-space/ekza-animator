@@ -577,7 +577,7 @@ Per-pane flags use **camera layers** (`Object3D.layers`, `camera.layers`), so on
 
 ### 6.3 Undo granularity
 
-One user gesture = one undo step: a manipulator drag, a marquee move of N keys, a typed value applied to M channels, a tween-slider release. Selection changes are **not** undoable by default (Maya has an option for it); camera moves use the per-pane view history instead. With collaboration, undo only reverts **your** operations (§12).
+One user gesture = one undo step: a manipulator drag, a marquee move of N keys, a typed value applied to M channels, a tween-slider release. Selection changes are **not** undoable by default in the Animate workspace; camera moves use the per-pane view history instead. With collaboration, undo only reverts **your** operations (§12). *Corrected 2026-10-19 (MODELING-PLAN v0.2 §3.5): Maya records selection changes in its undo queue **by default** (users ask Autodesk to consolidate them: https://forums.autodesk.com/t5/maya-ideas/consolidate-undo-steps-for-selection/m-p/13331011), and Blender records edit-mode selection; the Model workspace therefore makes component selection undoable (coalesced "Select" steps, session-only), with a per-workspace preference.*
 
 ### 6.4 Numeric entry
 
