@@ -137,7 +137,9 @@ describe('rows (§5.10)', () => {
     expect(buildDopeSheetRows(m.app, { clip: null, controls: [], expanded, show: 'selected' })).toEqual([]);
     const rig = m.app.store.get('rigs', 'rig_SyntheticWave001' as never);
     m.app.store.transact({ label: 'Generic', undoable: false }, (tx) =>
-      tx.patch('rigs', 'rig_SyntheticWave001' as never, { generator: { ...rig!.generator, name: 'ekza-autorig-generic' } }),
+      tx.patch('rigs', 'rig_SyntheticWave001' as never, {
+        generator: { ...rig!.generator, name: 'ekza-autorig-generic' },
+      }),
     );
     const generic = buildDopeSheetRows(m.app, {
       clip: WAVE.clip,
@@ -180,6 +182,45 @@ describe('glyphs (§5.10)', () => {
       [7.3, 1],
     ]);
     expect(m.sheet.rowState(m.sheet.rows()[0]!).keys).toEqual([2.5, 7.25, 7.3]);
+  });
+});
+
+describe('row data caching', () => {
+  it('a key move keeps the rows (labels do not re-render) and moves the glyphs; a new keyed curve adds rows', async () => {
+    const m = await setUp();
+    const { upper } = armKeys(m);
+    const rows = m.sheet.rows();
+    const key = m.app.store.get('keys', upper.keys[1]!)!;
+    m.app.store.transact({ label: 'Move', undoable: false }, (tx) => tx.put('keys', { ...key, t: 12 }));
+    expect(m.sheet.rows()).toBe(rows);
+    expect(m.sheet.rowState(rows[0]!).keys).toEqual([0, 10, 12, 20]);
+    const upperRow = rows.find((row) => row.id === CONTROLS.upperArmL)!;
+    expect(m.sheet.rowState(upperRow).keys).toEqual([0, 12, 20]);
+    keyCurve(m.app, CONTROLS.upperArmL, 'rx', [[5, 0]]);
+    expect(m.sheet.rows()).not.toBe(rows);
+    expect(m.sheet.rowState(m.sheet.rows()[0]!).keys).toEqual([0, 5, 10, 12, 20]);
+  });
+
+  it('selected counts follow the selection and the selected keys’ moves, merged fractional times included', async () => {
+    const m = await setUp();
+    const hand = keyCurve(m.app, CONTROLS.handL, 'rz', [
+      [2.5, 0],
+      [7.25, 1],
+    ]);
+    const upper = keyCurve(m.app, CONTROLS.upperArmL, 'rz', [
+      [2.5000001, 0],
+      [7.3, 1],
+    ]);
+    const summary = () => m.sheet.rowState(m.sheet.rows()[0]!);
+    setKeySelection(m.app, [upper.keys[0]!]);
+    expect(summary().selected).toEqual([]); // one of the two keys at 2.5
+    setKeySelection(m.app, [upper.keys[0]!, hand.keys[0]!]);
+    expect(summary().selected).toEqual([2.5]);
+    const key = m.app.store.get('keys', upper.keys[0]!)!;
+    m.app.store.transact({ label: 'Move', undoable: false }, (tx) => tx.put('keys', { ...key, t: 4 }));
+    expect(summary()).toMatchObject({ keys: [2.5, 4, 7.25, 7.3], selected: [2.5, 4] });
+    setKeySelection(m.app, []);
+    expect(summary().selected).toEqual([]);
   });
 });
 

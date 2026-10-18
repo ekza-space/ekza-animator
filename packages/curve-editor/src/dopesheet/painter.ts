@@ -1,7 +1,7 @@
 // Canvas2D painter of the Dope Sheet (M2A-SPEC §5.10, research 09 §4.8): rows with glyphs (◆ key, ◇ breakdown,
 // yellow when selected, a yellow outline when partly selected), hold bars, stepped hatching, the ruler, the region
 // bar, the playhead, playback-range shading and the marquee. Only visible rows and visible frames are drawn; glyphs
-// of one style share one path.
+// of one style share one path (of rects in a rotated frame, see `diamond`).
 import type { Frame } from '@ekza-animator/anim-core';
 import { rulerSteps } from '../timeline/layout';
 import type { DopeSheetRow, DopeSheetViewState } from '../types';
@@ -51,12 +51,20 @@ function lowerBound(times: Float64Array, frame: number): number {
   return lo;
 }
 
+/**
+ * Adds a diamond of radius `r` (corner distance) centred on (x, y) to a glyph path. Glyph paths are built in a frame
+ * rotated by −45° and drawn with `GLYPH_FRAME`, so each diamond is one `rect`: Chrome builds a few thousand rects in
+ * well under a millisecond, while the same diamonds as four-line polygons took ~5 µs each (§5.22 redraw budget).
+ */
 function diamond(path: Path2D, x: number, y: number, r: number): void {
-  path.moveTo(x, y - r);
-  path.lineTo(x + r, y);
-  path.lineTo(x, y + r);
-  path.lineTo(x - r, y);
-  path.closePath();
+  const half = r * Math.SQRT1_2;
+  path.rect((x + y) * Math.SQRT1_2 - half, (y - x) * Math.SQRT1_2 - half, 2 * half, 2 * half);
+}
+
+/** Sets the transform glyph paths are drawn with: CSS px at `dpr`, rotated by 45° (see `diamond`). */
+function glyphFrame(ctx: CanvasRenderingContext2D, dpr: number): void {
+  const c = dpr * Math.SQRT1_2;
+  ctx.setTransform(c, c, -c, c, 0, 0);
 }
 
 export function paintDopeSheet(
@@ -135,6 +143,7 @@ export function paintDopeSheet(
   ctx.strokeStyle = theme.hatch;
   ctx.lineWidth = 1;
   ctx.stroke(hatch);
+  glyphFrame(ctx, dpr);
   ctx.fillStyle = theme.key;
   ctx.fill(keyFill);
   ctx.fillStyle = theme.keySelected;
@@ -150,6 +159,7 @@ export function paintDopeSheet(
   ctx.stroke(breakdownSelected);
   ctx.lineWidth = 1;
   ctx.stroke(partial);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   // Rows that are dimmed (controls hidden by the IK/FK rule) get a veil.
   for (let i = first; i <= last; i++) {
     if (!(scene.rows[i] as DopeSheetRow).dimmed) continue;

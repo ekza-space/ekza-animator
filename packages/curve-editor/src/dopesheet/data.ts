@@ -1,7 +1,9 @@
 // What a Dope Sheet row shows (M2A-SPEC §5.10): glyphs at the key times of its curves (|Δt| < 1e-6) with how many
 // keys there are breakdowns and selected, hold bars by the channel rule and the aggregate rule, and stepped spans.
-// `DopeSheetData` caches per curve (rebuilt only for curves a batch touched) and per row (rebuilt when any curve
-// or, for glyphs, the key selection changed), so a redraw that changed nothing recomputes nothing.
+// `DopeSheetData` caches per curve (rebuilt only for curves a batch touched) and per list of row curves (the summary
+// and character rows share theirs): glyph times and counts and the holds are rebuilt only when one of the row's
+// curves changed, and the selected counts — from the selected keys alone, not a scan of every key — when the key
+// selection changed. A redraw that changed nothing recomputes nothing (§5.22 budgets).
 import {
   type CompiledAnimCurve,
   type Frame,
@@ -22,6 +24,9 @@ export interface CurveData {
   readonly id: CurveId;
   /** Keys in time order (the store's). */
   readonly keys: readonly KeyRecord[];
+  /** The keys' times and breakdown flags (1 = breakdown), as typed arrays for the row aggregation. */
+  readonly keyTimes: Float64Array;
+  readonly breakdown: Uint8Array;
   /** Every key time is a whole frame. */
   readonly integral: boolean;
   /** Compiled key times (what the engine evaluates; duplicates projected out). */
@@ -63,12 +68,13 @@ function isConstant(mode: InfinityMode, keyCount: number): boolean {
  * 1e-9·max(1, |v_i|).
  */
 export function spanHolds(compiled: CompiledAnimCurve, i: number): boolean {
-  segmentControlPoints(compiled, i, scratch);
   const v = compiled.v[i] as number;
   const tolerance = 1e-9 * Math.max(1, Math.abs(v));
   const next = compiled.v[i + 1] as number;
+  // Most spans move: reject on the end values before computing the Bézier ordinates.
+  if (!(Math.abs(next - v) <= tolerance)) return false;
+  segmentControlPoints(compiled, i, scratch);
   return (
-    Math.abs(next - v) <= tolerance &&
     Math.abs((scratch[1] as number) - v) <= tolerance &&
     Math.abs((scratch[3] as number) - v) <= tolerance &&
     Math.abs((scratch[5] as number) - v) <= tolerance &&
@@ -79,18 +85,22 @@ export function spanHolds(compiled: CompiledAnimCurve, i: number): boolean {
 /** The cached facts of one curve (recomputed by `DopeSheetData` when a batch touches it). */
 export function curveDataOf(app: EditorApp, id: CurveId): CurveData {
   const keys = app.store.query.keysOfCurve(id);
+  const keyTimes = new Float64Array(keys.length);
+  const breakdown = new Uint8Array(keys.length);
   let integral = true;
-  for (const key of keys) {
-    if (!Number.isInteger(key.t)) {
-      integral = false;
-      break;
-    }
+  for (let i = 0; i < keys.length; i++) {
+    const key = keys[i] as KeyRecord;
+    keyTimes[i] = key.t;
+    if (key.breakdown === true) breakdown[i] = 1;
+    if (integral && !Number.isInteger(key.t)) integral = false;
   }
   const record = app.store.get('curves', id);
   if (record === undefined || keys.length === 0) {
     return {
       id,
       keys,
+      keyTimes,
+      breakdown,
       integral,
       times: new Float64Array(0),
       hold: new Uint8Array(0),
@@ -111,6 +121,8 @@ export function curveDataOf(app: EditorApp, id: CurveId): CurveData {
   return {
     id,
     keys,
+    keyTimes,
+    breakdown,
     integral,
     times: compiled.t.slice(0, n),
     hold,
@@ -120,39 +132,47 @@ export function curveDataOf(app: EditorApp, id: CurveId): CurveData {
   };
 }
 
-const isSelected = (selection: ReadonlyMap<KeyId, KeyPartSelection>, id: KeyId): boolean =>
-  selection.get(id)?.key === true;
+/** Times and key and breakdown counts of a row's glyphs: what does not depend on the key selection. */
+export interface GlyphShape {
+  /** Distinct key times, ascending. */
+  readonly times: Float64Array;
+  readonly total: Uint32Array;
+  readonly breakdowns: Uint32Array;
+}
 
-/** The glyphs of a row: distinct key times of its curves with key, breakdown and selection counts. */
-export function aggregateGlyphs(
-  curves: readonly CurveData[],
-  selection: ReadonlyMap<KeyId, KeyPartSelection>,
-): RowGlyphs {
+const EMPTY_SHAPE: GlyphShape = {
+  times: EMPTY_GLYPHS.times,
+  total: EMPTY_GLYPHS.total,
+  breakdowns: EMPTY_GLYPHS.breakdowns,
+};
+
+/** The distinct key times of `curves` with key and breakdown counts. */
+export function aggregateShape(curves: readonly CurveData[]): GlyphShape {
   let count = 0;
   let integral = true;
   let min = Infinity;
   let max = -Infinity;
   for (const curve of curves) {
-    const n = curve.keys.length;
+    const n = curve.keyTimes.length;
     if (n === 0) continue;
     count += n;
     integral &&= curve.integral;
-    min = Math.min(min, (curve.keys[0] as KeyRecord).t);
-    max = Math.max(max, (curve.keys[n - 1] as KeyRecord).t);
+    min = Math.min(min, curve.keyTimes[0] as number);
+    max = Math.max(max, curve.keyTimes[n - 1] as number);
   }
-  if (count === 0) return EMPTY_GLYPHS;
+  if (count === 0) return EMPTY_SHAPE;
   if (integral && max - min < DENSE_SPAN) {
-    // Whole-frame keys (the common case): dense counters, one pass, no sort.
+    // Whole-frame keys (the common case): dense counters, one pass over typed arrays, no sort.
     const span = max - min + 1;
     const total = new Uint32Array(span);
     const breakdowns = new Uint32Array(span);
-    const selected = new Uint32Array(span);
     for (const curve of curves) {
-      for (const key of curve.keys) {
-        const i = key.t - min;
+      const keyTimes = curve.keyTimes;
+      const flags = curve.breakdown;
+      for (let k = 0; k < keyTimes.length; k++) {
+        const i = (keyTimes[k] as number) - min;
         total[i] = (total[i] as number) + 1;
-        if (key.breakdown === true) breakdowns[i] = (breakdowns[i] as number) + 1;
-        if (isSelected(selection, key.id)) selected[i] = (selected[i] as number) + 1;
+        breakdowns[i] = (breakdowns[i] as number) + (flags[k] as number);
       }
     }
     let distinct = 0;
@@ -161,7 +181,6 @@ export function aggregateGlyphs(
       times: new Float64Array(distinct),
       total: new Uint32Array(distinct),
       breakdowns: new Uint32Array(distinct),
-      selected: new Uint32Array(distinct),
     };
     let j = 0;
     for (let i = 0; i < span; i++) {
@@ -169,7 +188,6 @@ export function aggregateGlyphs(
       out.times[j] = min + i;
       out.total[j] = total[i] as number;
       out.breakdowns[j] = breakdowns[i] as number;
-      out.selected[j] = selected[i] as number;
       j++;
     }
     return out;
@@ -179,11 +197,9 @@ export function aggregateGlyphs(
   const flags = new Uint8Array(count);
   let k = 0;
   for (const curve of curves) {
-    for (const key of curve.keys) {
-      times[k] = key.t;
-      flags[k] = (key.breakdown === true ? 1 : 0) | (isSelected(selection, key.id) ? 2 : 0);
-      k++;
-    }
+    times.set(curve.keyTimes, k);
+    flags.set(curve.breakdown, k);
+    k += curve.keyTimes.length;
   }
   const order = new Uint32Array(count);
   for (let i = 0; i < count; i++) order[i] = i;
@@ -191,29 +207,99 @@ export function aggregateGlyphs(
   const outTimes: number[] = [];
   const outTotal: number[] = [];
   const outBreakdowns: number[] = [];
-  const outSelected: number[] = [];
   for (let i = 0; i < count; i++) {
     const index = order[i] as number;
     const t = times[index] as number;
-    const flag = flags[index] as number;
     const last = outTimes.length - 1;
     if (last < 0 || t - (outTimes[last] as number) >= SAME_TIME) {
       outTimes.push(t);
       outTotal.push(0);
       outBreakdowns.push(0);
-      outSelected.push(0);
     }
     const at = outTimes.length - 1;
     outTotal[at] = (outTotal[at] as number) + 1;
-    if ((flag & 1) !== 0) outBreakdowns[at] = (outBreakdowns[at] as number) + 1;
-    if ((flag & 2) !== 0) outSelected[at] = (outSelected[at] as number) + 1;
+    if ((flags[index] as number) !== 0) outBreakdowns[at] = (outBreakdowns[at] as number) + 1;
   }
   return {
     times: Float64Array.from(outTimes),
     total: Uint32Array.from(outTotal),
     breakdowns: Uint32Array.from(outBreakdowns),
-    selected: Uint32Array.from(outSelected),
   };
+}
+
+/**
+ * The index of the glyph a key time belongs to: the time of ascending `times` it was merged into (within
+ * SAME_TIME; a time merged into an earlier glyph is less than SAME_TIME after it), or -1.
+ */
+export function glyphIndexOf(times: Float64Array, t: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((times[mid] as number) <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  // lo − 1: the last glyph time ≤ t (the glyph the key was merged into); else the first one after t.
+  if (lo > 0 && t - (times[lo - 1] as number) < SAME_TIME) return lo - 1;
+  if (lo < times.length && (times[lo] as number) - t < SAME_TIME) return lo;
+  return -1;
+}
+
+/** True when `id` (a key at time `t`) is one of the curve's shown keys (hidden duplicates have no glyph). */
+function shownKey(curve: CurveData, id: KeyId, t: number): boolean {
+  const keys = curve.keys;
+  let lo = 0;
+  let hi = keys.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if ((keys[mid] as KeyRecord).t < t - SAME_TIME) lo = mid + 1;
+    else hi = mid;
+  }
+  for (let i = lo; i < keys.length && (keys[i] as KeyRecord).t < t + SAME_TIME; i++) {
+    if ((keys[i] as KeyRecord).id === id) return true;
+  }
+  return false;
+}
+
+/**
+ * Selected keys per glyph of a row: `selected(curve)` lists the selected keys of a curve (current records), so the
+ * cost follows the selection, not the row's key count.
+ */
+export function selectedCounts(
+  curves: readonly CurveData[],
+  times: Float64Array,
+  selected: (curve: CurveId) => readonly KeyRecord[] | undefined,
+): Uint32Array {
+  const out = new Uint32Array(times.length);
+  for (const curve of curves) {
+    const keys = selected(curve.id);
+    if (keys === undefined) continue;
+    for (const key of keys) {
+      if (!shownKey(curve, key.id, key.t)) continue;
+      const at = glyphIndexOf(times, key.t);
+      if (at >= 0) out[at] = (out[at] as number) + 1;
+    }
+  }
+  return out;
+}
+
+/** The glyphs of a row: distinct key times of its curves with key, breakdown and selection counts. */
+export function aggregateGlyphs(
+  curves: readonly CurveData[],
+  selection: ReadonlyMap<KeyId, KeyPartSelection>,
+): RowGlyphs {
+  const shape = aggregateShape(curves);
+  if (shape.times.length === 0) return EMPTY_GLYPHS;
+  const byCurve = new Map<CurveId, KeyRecord[]>();
+  for (const curve of curves) {
+    for (const key of curve.keys) {
+      if (selection.get(key.id)?.key !== true) continue;
+      const list = byCurve.get(curve.id);
+      if (list === undefined) byCurve.set(curve.id, [key]);
+      else list.push(key);
+    }
+  }
+  return { ...shape, selected: selectedCounts(curves, shape.times, (id) => byCurve.get(id)) };
 }
 
 /** Index of the time in ascending `times` within SAME_TIME of `t` at or after `from`, or -1. */
@@ -300,26 +386,41 @@ export function holdIntervals(
   return aggregateHolds(data, Float64Array.from([...keyTimes].sort((a, b) => a - b)));
 }
 
+interface ShapeEntry {
+  /** The curve data the shape was built from (the entry is fresh while every curve still has it). */
+  readonly parts: readonly CurveData[];
+  generation: number;
+  readonly shape: GlyphShape;
+}
+
 interface GlyphEntry {
-  readonly curves: readonly CurveId[];
-  readonly generation: number;
+  readonly shape: GlyphShape;
   readonly selection: number;
   readonly glyphs: RowGlyphs;
 }
 
 interface HoldEntry {
-  readonly curves: readonly CurveId[];
-  readonly generation: number;
+  readonly shape: GlyphShape;
   readonly holds: readonly (readonly [Frame, Frame])[];
 }
 
-/** Per-curve and per-row caches of what rows show; invalidated by the controller from batches and selection. */
+/**
+ * Per-curve and per-row caches of what rows show; invalidated by the controller from batches and selection. Row
+ * entries are keyed by the row's `curves` array (rows that list the same array share them).
+ */
 export class DopeSheetData {
   private readonly curveCache = new Map<CurveId, CurveData>();
-  private readonly glyphCache = new Map<string, GlyphEntry>();
-  private readonly holdCache = new Map<string, HoldEntry>();
+  private readonly shapeCache = new WeakMap<readonly CurveId[], ShapeEntry>();
+  private readonly glyphCache = new WeakMap<readonly CurveId[], GlyphEntry>();
+  private readonly holdCache = new WeakMap<readonly CurveId[], HoldEntry>();
   private generation = 0;
   private selectionGeneration = 0;
+  /** Selected keys (key part) per curve, built once per (selection, data) generation. */
+  private selectionIndex: {
+    readonly selection: number;
+    readonly generation: number;
+    readonly keys: ReadonlyMap<CurveId, readonly KeyRecord[]>;
+  } | null = null;
 
   constructor(private readonly app: EditorApp) {}
 
@@ -344,39 +445,76 @@ export class DopeSheetData {
     return data;
   }
 
+  /** Times and key/breakdown counts of the row's curves, rebuilt only when one of them changed. */
+  private shape(curves: readonly CurveId[]): GlyphShape {
+    const cached = this.shapeCache.get(curves);
+    if (cached !== undefined) {
+      if (cached.generation === this.generation) return cached.shape;
+      let fresh = cached.parts.length === curves.length;
+      for (let i = 0; fresh && i < curves.length; i++) {
+        fresh = this.curve(curves[i] as CurveId) === cached.parts[i];
+      }
+      if (fresh) {
+        cached.generation = this.generation;
+        return cached.shape;
+      }
+    }
+    const parts = curves.map((curve) => this.curve(curve));
+    const shape = aggregateShape(parts);
+    this.shapeCache.set(curves, { parts, generation: this.generation, shape });
+    return shape;
+  }
+
+  private selectedKeys(): ReadonlyMap<CurveId, readonly KeyRecord[]> {
+    const index = this.selectionIndex;
+    if (index !== null && index.selection === this.selectionGeneration && index.generation === this.generation) {
+      return index.keys;
+    }
+    const keys = new Map<CurveId, KeyRecord[]>();
+    for (const [id, parts] of this.app.session.getState().selection.keys) {
+      if (!parts.key) continue;
+      const key = this.app.store.get('keys', id);
+      if (key === undefined) continue;
+      const list = keys.get(key.curve);
+      if (list === undefined) keys.set(key.curve, [key]);
+      else list.push(key);
+    }
+    this.selectionIndex = { selection: this.selectionGeneration, generation: this.generation, keys };
+    return keys;
+  }
+
   glyphs(row: DopeSheetRow): RowGlyphs {
-    const cached = this.glyphCache.get(row.id);
-    if (
-      cached !== undefined &&
-      cached.curves === row.curves &&
-      cached.generation === this.generation &&
-      cached.selection === this.selectionGeneration
-    ) {
+    const shape = this.shape(row.curves);
+    const cached = this.glyphCache.get(row.curves);
+    if (cached !== undefined && cached.shape === shape && cached.selection === this.selectionGeneration) {
       return cached.glyphs;
     }
-    const glyphs = aggregateGlyphs(
-      row.curves.map((curve) => this.curve(curve)),
-      this.app.session.getState().selection.keys,
-    );
-    this.glyphCache.set(row.id, {
-      curves: row.curves,
-      generation: this.generation,
-      selection: this.selectionGeneration,
-      glyphs,
-    });
+    let glyphs: RowGlyphs = EMPTY_GLYPHS;
+    if (shape.times.length > 0) {
+      const selected = this.selectedKeys();
+      const counts =
+        selected.size === 0
+          ? new Uint32Array(shape.times.length)
+          : selectedCounts(
+              row.curves.map((curve) => this.curve(curve)),
+              shape.times,
+              (curve) => selected.get(curve),
+            );
+      glyphs = { ...shape, selected: counts };
+    }
+    this.glyphCache.set(row.curves, { shape, selection: this.selectionGeneration, glyphs });
     return glyphs;
   }
 
   holds(row: DopeSheetRow): readonly (readonly [Frame, Frame])[] {
-    const cached = this.holdCache.get(row.id);
-    if (cached !== undefined && cached.curves === row.curves && cached.generation === this.generation) {
-      return cached.holds;
-    }
+    const shape = this.shape(row.curves);
+    const cached = this.holdCache.get(row.curves);
+    if (cached !== undefined && cached.shape === shape) return cached.holds;
     const holds = aggregateHolds(
       row.curves.map((curve) => this.curve(curve)),
-      this.glyphs(row).times,
+      shape.times,
     );
-    this.holdCache.set(row.id, { curves: row.curves, generation: this.generation, holds });
+    this.holdCache.set(row.curves, { shape, holds });
     return holds;
   }
 

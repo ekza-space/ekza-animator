@@ -93,6 +93,24 @@ describe('probes and hit-testing', () => {
   });
 });
 
+describe('the region bar when narrow', () => {
+  it('keeps its middle grabbable: the handles reach a quarter of the bar inside (the time slider’s band rule)', async () => {
+    const m = await setUp();
+    const [upper] = armKeys(m);
+    setKeySelection(m.app, [upper!.keys[0]!, upper!.keys[1]!]); // 0…10
+    m.sheet.setView({ ...m.sheet.view, f0: -5, sx: 0.4 }); // the bar is 4 px wide
+    const x0 = xOf(m.sheet, 0);
+    const x1 = xOf(m.sheet, 10);
+    const y = m.sheet.regionPoint('middle')!.y;
+    expect(m.sheet.hitTest((x0 + x1) / 2, y).kind).toBe('region-middle');
+    expect(m.sheet.hitTest(x0 - 5, y).kind).toBe('region-start');
+    expect(m.sheet.hitTest(x0 + 0.5, y).kind).toBe('region-start');
+    expect(m.sheet.hitTest(x1 + 5, y).kind).toBe('region-end');
+    expect(m.sheet.hitTest(x1 - 0.5, y).kind).toBe('region-end');
+    expect(m.sheet.hitTest(x1 + 8, y).kind).toBe('none');
+  });
+});
+
 describe('selection (§5.10)', () => {
   it('a glyph click selects every key under the row there; Shift toggles, Mod removes, Mod+Shift adds', async () => {
     const m = await setUp();

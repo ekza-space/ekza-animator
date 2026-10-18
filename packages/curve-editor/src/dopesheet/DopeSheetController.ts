@@ -279,8 +279,11 @@ export class DopeSheetController {
         const x0 = frameToX(view, region.start);
         const x1 = frameToX(view, region.end);
         const span = region.end - region.start > SAME_TIME;
-        if (span && Math.abs(x - x0) <= REGION_HANDLE_PX && x <= (x0 + x1) / 2) return { kind: 'region-start', frame };
-        if (span && Math.abs(x - x1) <= REGION_HANDLE_PX) return { kind: 'region-end', frame };
+        // The handles reach REGION_HANDLE_PX outside the bar and at most a quarter of it inside, so the middle of a
+        // narrow bar can still be grabbed (the time slider's band rule).
+        const inside = Math.min(REGION_HANDLE_PX, (x1 - x0) / 4);
+        if (span && x >= x0 - REGION_HANDLE_PX && x <= x0 + inside) return { kind: 'region-start', frame };
+        if (span && x >= x1 - inside && x <= x1 + REGION_HANDLE_PX) return { kind: 'region-end', frame };
         if (x >= x0 - REGION_HANDLE_PX && x <= x1 + REGION_HANDLE_PX) return { kind: 'region-middle', frame };
       }
       return { kind: 'none', row: null, frame };
@@ -889,13 +892,17 @@ export class DopeSheetController {
       if (change.table === 'keys') {
         if (change.before !== undefined) curves.add(change.before.curve);
         if (change.after !== undefined) curves.add(change.after.curve);
-        rows = true;
+        // Only an added, removed or re-parented key can make a curve keyed or unkeyed; moves (drags) keep the rows.
+        if (change.before?.curve !== change.after?.curve) rows = true;
       } else if (change.table === 'curves') {
         curves.add(change.id);
         rows = true;
       } else if (ROW_TABLES.has(change.table)) rows = true;
     }
-    if (curves.size > 0) this.data.invalidate(curves);
+    if (curves.size > 0) {
+      this.data.invalidate(curves);
+      this.invalidate(true);
+    }
     if (rows) this.rowsChanged();
   }
 
