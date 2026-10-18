@@ -6,6 +6,7 @@ import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-anim
 import { describe, expect, it } from 'vitest';
 import { internalsOf } from '../../src/app/internals';
 import { ensureCurve } from '../../src/edit/keys';
+import { beginTweenGesture } from '../../src/edit/tween';
 import type { EditorApp } from '../../src/types';
 import { halfCycleKeys, mirrorSign } from '../../src/workflows/mirrorAnimation';
 import {
@@ -179,6 +180,41 @@ describe('key.tween (§5.13, E2E-M2A-13 numbers)', () => {
     await runOk(app, 'key.tween', { mode: 'tween', amount: 0, target: 'frame', breakdown: false });
     expect(keyAt(app, c.curve, 10)?.breakdown).toBeUndefined();
     expect(app.session.getState().overrides.get(HAND)).toBeUndefined();
+  });
+
+  it('a slider drag that keys an overridden channel: undo brings the override and the pose back, redo drops it', async () => {
+    for (const form of ['slider', 'operator'] as const) {
+      const { app, c } = setup();
+      await runOk(app, 'channel.setValues', {
+        edits: [{ control: HAND, channel: 'rz', value: 40 * DEG }],
+        key: 'none',
+      });
+      expect(app.evaluation.channelValue(HAND, 'rz') / DEG).toBeCloseTo(40, 9);
+      let written: unknown;
+      if (form === 'slider') {
+        const gesture = beginTweenGesture(app, { mode: 'neighbor' });
+        gesture.update(0);
+        written = gesture.commit(0);
+      } else {
+        written = ((await runOk(app, 'key.tween', { mode: 'neighbor', amount: 0 })) as { count: number }).count;
+      }
+      expect(written).toBe(1);
+      expect([form, (keyAt(app, c.curve, 10)?.v ?? 0) / DEG]).toEqual([form, expect.closeTo(40, 9)]);
+      expect(app.session.getState().overrides.get(HAND)).toBeUndefined();
+      const doc = docJson(app);
+      const label = form === 'slider' ? 'Tween' : 'Blend to Neighbour';
+      expect(app.history.undo()?.label).toBe(label);
+      expect(keyAt(app, c.curve, 10)).toBeUndefined();
+      expect([form, app.session.getState().overrides.get(HAND)?.rz]).toEqual([form, 40 * DEG]);
+      expect([form, app.evaluation.channelValue(HAND, 'rz') / DEG]).toEqual([form, expect.closeTo(40, 9)]);
+      expect(app.history.redo()?.label).toBe(label);
+      expect(docJson(app)).toEqual(doc);
+      expect(app.session.getState().overrides.get(HAND)).toBeUndefined();
+      // The step before it is the typed edit: undoing both returns to the curve's 30°.
+      app.history.undo();
+      expect(app.history.undo()).not.toBeNull();
+      expect([form, app.evaluation.channelValue(HAND, 'rz') / DEG]).toEqual([form, expect.closeTo(30, 9)]);
+    }
   });
 
   it('poll: argument shapes, read-only and nothing to tween', async () => {
