@@ -4,8 +4,12 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { SampleId } from '../operators/args';
 import type { KnownLicense } from './provenance';
 
-/** Version written into project manifests and export metadata. */
-export const EDITOR_VERSION = '0.1.0';
+/**
+ * Version written into project manifests, autosave slots and export metadata (`provenance.toolVersion`, the
+ * `asset.generator` 'Ekza Animator <version>'). The M2a line is 0.2.x: files with schema-2 IK features must not
+ * claim the M1 alpha (acceptance fix round 1). The release tag stays the owner's call.
+ */
+export const EDITOR_VERSION = '0.2.0';
 
 export interface SampleDef {
   readonly id: SampleId;

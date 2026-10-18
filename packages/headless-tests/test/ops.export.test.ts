@@ -134,8 +134,14 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
       (source.json['extensions'] as Record<string, unknown>)['VRMC_vrm'],
     );
     expect(animationNames(output)).toEqual(['wave']);
-    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as { clips: { name: string; fps: number }[] };
+    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as {
+      clips: { name: string; fps: number }[];
+      provenance: { toolVersion: string };
+    };
     expect(meta.clips.map((c) => [c.name, c.fps])).toEqual([['wave', 30]]);
+    // The M2a line, not the M1 alpha's 0.1.0 (acceptance fix round 1).
+    expect(meta.provenance.toolVersion).toMatch(/^0\.2\.\d+$/);
+    expect(output.json.asset.generator ?? '').not.toContain('0.1.0');
 
     // Reload the file in the editor: the clip comes back with rz(15) = −30°.
     const again = realApp().app;

@@ -41,5 +41,8 @@ export const SAMPLES: readonly SampleInfo[] = [
   },
 ];
 
-/** Version shown in About; the integration agent sets it when tagging (v0.1.0 = M1 alpha). */
-export const EDITOR_VERSION = '0.1.0-dev';
+/**
+ * Version shown in About: the M2a line (editor-core's EDITOR_VERSION, which exports write) with `-dev` until the
+ * owner tags it (v0.1.0 = M1 alpha, v0.2.x = M2a); the tag step drops the suffix.
+ */
+export const EDITOR_VERSION = '0.2.0-dev';
