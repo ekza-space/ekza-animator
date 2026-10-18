@@ -143,12 +143,14 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     dropped(removed, reason);
   };
 
-  const clearRedoSteps = (): void => {
-    if (redoSteps.length === 0) return;
+  /** Drops every redo step ('redo-cleared'); true when there was any. */
+  const clearRedoSteps = (): boolean => {
+    if (redoSteps.length === 0) return false;
     // Next redo first, like the doc's `entries().redo`.
     const removed = [...redoSteps].reverse();
     redoSteps.length = 0;
     dropped(removed, 'redo-cleared');
+    return true;
   };
 
   const push = (step: HistoryStep): void => {
@@ -312,7 +314,10 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         if (step.docTxId !== null) history.forgetDocEntry(step.docTxId);
         push({ ...step, id: nextId++, at: now });
       }
-      clearRedoSteps();
+      // A redo drop pairs with the doc's redo (§12 S20), so no doc redo entry outlives its step (an override-only
+      // step after undoing a doc step). The doc redo is non-empty only right after navigation, when the doc is not
+      // capturing, so this never changes coalescing.
+      if (clearRedoSteps() && ctx.store.undo.canRedo()) ctx.store.undo.clearRedo();
       notify();
     },
     recordSelection(

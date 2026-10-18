@@ -278,6 +278,33 @@ describe('history drops (onDrop, dropOldest, the step limit)', () => {
     expect(h.history.canRedo()).toBe(false);
   });
 
+  it('pairs a redo drop by a step without a doc part with the doc redo (no doc entry outlives its step)', () => {
+    const h = harness();
+    const evicted: string[] = [];
+    h.store.undo.onEvict((entries, reason) => evicted.push(...entries.map((e) => `${e.label}:${reason}`)));
+    h.docStep('A');
+    h.history.undo();
+    // What the runner records for an override-only edit (here a part-only step through record()).
+    h.history.record({ label: 'Pose', docTxId: null, overrides: null, selection: select('replace', [], ['p']) });
+    expect(h.drops).toEqual([{ labels: ['A'], reason: 'redo-cleared' }]);
+    expect(h.store.undo.canRedo()).toBe(false);
+    expect(evicted).toEqual(['A:redo-cleared']);
+    // With the doc redo empty, recording never calls clearRedo, so coalescing doc steps still merge.
+    h.store.transact({ label: 'Make' }, (tx) => tx.put('meshes', makeTestMesh('msh_N', { name: 'N' })));
+    h.history.record({ label: 'Make', docTxId: h.store.undo.peekUndo()?.txId as string, overrides: null });
+    const nudge = (name: string): string => {
+      h.store.transact({ label: 'Nudge', coalesceKey: 'nudge', coalesceMs: 60_000 }, (tx) =>
+        tx.patch('meshes', 'msh_N' as MeshId, { name }),
+      );
+      const txId = h.store.undo.peekUndo()?.txId as string;
+      h.history.record({ label: 'Nudge', docTxId: txId, overrides: null });
+      return txId;
+    };
+    expect(nudge('N1')).toBe(nudge('N2'));
+    expect(labels(h)).toEqual(['Pose', 'Make', 'Nudge']);
+    expect(h.drops).toHaveLength(1);
+  });
+
   it('keeps redo steps whose doc entries survive (a selection step after undo reports once)', () => {
     const h = harness();
     h.docStep('A');
