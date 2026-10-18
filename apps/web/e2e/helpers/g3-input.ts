@@ -62,9 +62,30 @@ export async function typeChannel(page: Page, channel: string, value: number): P
   await field.press('Enter');
 }
 
-/** Clicks a control's Outliner row (plain click: replace; Shift: toggle, §4.10 selection modifiers). */
+/**
+ * Clicks a control's Outliner row (plain click: replace; Shift: toggle, §4.10 selection modifiers). The tree is
+ * virtualized: a row far from the view is not rendered, so the wheel scrolls the tree (up, then down) until it is.
+ */
 export async function clickOutlinerRow(page: Page, control: string, modifiers: ('Shift' | 'Meta')[] = []) {
   const row = page.getByTestId(`outliner-row-${control}`);
+  const tree = page.getByTestId('outliner-tree');
+  const box = await tree.boundingBox();
+  if (box === null) throw new Error('the Outliner is not visible');
+  for (const direction of [-1, 1]) {
+    for (let turn = 0; turn < 100 && (await row.count()) === 0; turn++) {
+      const top = await tree.evaluate((element) => element.scrollTop);
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.wheel(0, direction * box.height * 0.8);
+      const moved = await expect
+        .poll(() => tree.evaluate((element) => element.scrollTop), { timeout: 1_000 })
+        .not.toBe(top)
+        .then(
+          () => true,
+          () => false,
+        );
+      if (!moved) break; // the end of the tree in this direction
+    }
+  }
   await row.scrollIntoViewIfNeeded();
   await row.click({ modifiers });
 }
