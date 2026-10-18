@@ -56,6 +56,16 @@ double-clicks across tools (§4.11.18); `F` frames a control with the controls b
 and export dialog defaults (§4.11.6, §4.11.10 rule 7); the built stretch items (§1.2). Regression specs:
 `apps/web/e2e/acceptance-round1.spec.ts`.
 
+**Acceptance round 2** (DECISIONS-OPEN §E INT-39…INT-49): keyboard focus rules for dropdowns, Graph Editor fields
+and the Outliner (§4.10 "Keyboard focus"); pick candidates ordered by screen distance (§4.11.16); a snapped key drag
+stops a frame short of a neighbour (§4.11.3); a click inside the time-slider band sets the time (§4.11.17); bake
+names and empty clips (§4.11.10 steps 7–8); the rotate-order note (§4.11.5). Regression specs:
+`apps/web/e2e/acceptance-round2.spec.ts`.
+
+**Acceptance round 3** (DECISIONS-OPEN §E INT-50…INT-52): menu triggers hand the keyboard back (§4.10 "Keyboard
+focus"); the second press of a Graph Editor double-click can drag (§4.11.18); the time slider's menu without a band
+acts on the current frame (§4.11.17). Regression specs: `apps/web/e2e/acceptance-round3.spec.ts`.
+
 ---
 
 ## 1. Scope
@@ -2370,6 +2380,12 @@ focus, with these exceptions:
 - A focused **tree** (Outliner) handles its ARIA keys (arrows, Home/End, PageUp/PageDown, Enter, F2, `/`, F) only
   while the Outliner is hovered or the pointer is outside the window.
 - An open dialog or menu owns the keyboard (the editor's `Mod` chords keep their browser defaults suppressed).
+- A **menu trigger** (a menu bar title, the Graph Editor's "More ▾", a pane header menu) owns the keyboard only
+  while its menu is open (*v0.3 integration, acceptance round 3*). A menu used with the pointer hands the focus back
+  to the page when it closes (a choice, Esc or an outside click), and a click on a trigger never focuses it; a menu
+  opened from the keyboard returns the focus to its trigger (WAI-ARIA). A focused trigger of a closed menu keeps
+  Enter, the arrows and Tab unless it is under the pointer, where it keeps every key; every other key goes to the
+  hovered panel's keymap before the trigger sees it, so Space never reopens the menu.
 
 Unbound in the MVP (menu or status line only): Gimbal/Object/World rotate space (status line toggle group),
 `pose.pinFeet`, `pose.plantFeet`, `graph.curves.simplify`, `graph.eulerFilter`, `select.mirror`.
@@ -2891,6 +2907,9 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   clamped, linear, flat, stepped), Select band keys in Graph Editor. Plain click outside the band clears it.
   *v0.3 integration, acceptance round 2*: a press on the band middle released without moving the keys is a click
   too: it clears the band and sets the time there (Maya; it read as a dead click). Moving needs a drag.
+  *Acceptance round 3*: without a band the menu acts on the current frame (Maya): opening it selects the current
+  frame as a 1-frame band (what Shift+click there does), so Delete, Copy and Tangent act on the keys at the
+  playhead. Without an active clip it offers Paste only.
 - `Digit1…6`, `Delete`, `Mod+C/V` work in scope `T` on the band's keys.
 
 #### 4.11.18 Graph Editor interaction (`GraphEditorController`)
@@ -2903,6 +2922,9 @@ Errors (`budget-exceeded` / `malformed-gltf`) abort the import before any large 
   a drag — with Shift too, so Shift+LMB drag moves the selection axis-locked and Shift+click toggles it off. Two
   presses count as a double-click only when both use the same tool (an Insert click, `Q`, then a click on the new
   key selects that key).
+  *Acceptance round 3 (INT-51)*: the second press of a double-click can still drag. On a key it is a key press (a
+  drag moves the selection, so a quick click-then-drag on a key moves it, as in Maya) and only its release without
+  a drag selects the curve; on a curve segment it selects the curve's keys at once and a drag moves them.
 - Navigation per profile (no keymap): **Maya** — wheel zoom around the cursor (Shift: value axis, Alt: time
   axis), Alt+MMB pan, Alt+RMB zoom; **Trackpad** — two-finger scroll pans, Ctrl+wheel (pinch) zooms (Alt: time
   axis, Shift: value axis). `F`/`A` frame selection/all with 8 % padding.

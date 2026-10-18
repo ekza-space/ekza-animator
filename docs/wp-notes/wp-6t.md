@@ -84,7 +84,8 @@ Status: implemented on `wp/wp-6t` (2026-10-17). Scope: MVP-SPEC §7 WP-6t, §4.1
    the playback range are shaded and its ends get bracket markers ("playback-range handles"). `TimeSliderHit` has no
    kind for them, so they are drawn only; the range slider edits the playback range (ends, middle, double-click =
    whole clip) and keeps it inside the clip range.
-9. **RMB menu without a band** offers only Paste: Delete/Copy/Tangent would act on key selections the slider does not
+9. **RMB menu without a band** (*superseded at acceptance round 3, DECISIONS-OPEN INT-52: it selects the current
+   frame as a 1-frame band and acts on its keys*) offers only Paste: Delete/Copy/Tangent would act on key selections the slider does not
    show. With a band: Delete Keys, Copy Keys, Paste Keys, Tangent ▸ (auto, spline, clamped, linear, flat, stepped),
    Select Band Keys in Graph Editor (`time.selectBand` with the current band). Items contributed to
    `timeline.context` by other packages follow the built-in groups.

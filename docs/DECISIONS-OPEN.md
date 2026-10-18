@@ -235,6 +235,37 @@ UX notes of round 2 **not changed** (owner may revisit):
   shot (Alt+L) and frame, or Copy view to shot camera. Recommendation: V1 option "frame the scene".
 - *Positive notes and the known `THREE.Clock` console warning*: nothing to change (see round 1).
 
+### Acceptance round 3 (2026-10-18)
+
+The tester re-ran the owner demo script in real Chrome: all 12 steps, every round-1 fix (INT-32…INT-38) and every
+round-2 fix (INT-39…INT-49) held, and the e2e suite passed 34/34. The round failed on one major bug, keyboard focus
+again (a menu trigger kept the focus after its menu closed); one minor bug and eight UX notes were reported. Each
+fix has a unit or browser test and a real-input e2e check in `apps/web/e2e/acceptance-round3.spec.ts`.
+
+| # | Report | Decision | Where |
+|---|---|---|---|
+| INT-50 | **Major**: after a menu bar menu or the Graph Editor's More ▾ menu was used (a choice, or just opened and closed), its trigger kept the focus; Space over the viewport reopened that menu and a second Space ran its first item (Undo, New Clip, Select All, New Project, Stepped Next); Enter and ArrowDown reopened it too | **Fixed, spec amended** (§4.10 "Keyboard focus"): the `ui` Menubar and DropdownMenu hand the focus back to the page when a menu opened with the pointer closes (choice, Esc, outside click), and a click on a trigger never focuses it; a keyboard-opened menu still returns the focus to its trigger (WAI-ARIA). A focused trigger of a closed menu keeps Enter, the arrows and Tab unless it is under the pointer (where it keeps every key); every other key is taken on the document in the capture phase and goes to the hovered panel's keymap before the trigger's own handler. | `ui/src/primitives/menu.tsx`, `editor/src/input/focus.ts` (`isClosedMenuTrigger`, `menuTriggerKeyRoute`), `editor/src/shell/useWindowInput.ts`; `editor/test/{ui-primitives.test.tsx,shell.test.tsx,input.test.ts}` |
+| INT-51 | Graph Editor: a click on a key and a press-drag on it within the double-click time selected the whole curve on press, and the drag did nothing | **Fixed, spec amended** (§4.11.18): the second press of a double-click on a key is a key press (a drag moves the selection, as in Maya) whose release without a drag selects the curve; on a curve segment it selects the curve's keys at once and a drag moves them. | `curve-editor/src/graph/press.ts`; `test/edits.test.ts` |
+| INT-52 | UX: the time slider's RMB menu without a band offered Paste only (WP-6t note 9); Maya acts on the current frame | **Changed, spec amended** (§4.11.17): without a band, opening the menu selects the current frame as a 1-frame band (what Shift+click there does) and offers Delete, Copy, Paste, Tangent and Select; without an active clip it offers Paste only. The band stays visible, so the target of the menu is shown. | `curve-editor/src/timeline/TimeSliderController.ts` (`contextMenu`); `test/timeline/time-slider.test.ts` |
+
+UX notes of round 3 **not changed** (owner may revisit):
+
+- *Outliner arrow keys move the focused row only; Enter selects* (ARIA tree, WP-9): kept. The tree walks
+  character, group, bone and clip rows too, and selection following the focus would switch the active clip while
+  walking past the clips. Recommendation: V1 option "arrows select control rows" together with Maya's pickwalk
+  in the viewport.
+- *At the default full-body framing, 15 of Seed-san's 53 controls (all fingers) select a neighbour on the first
+  click*: their pick points are under 1 px apart (INT-42); repeated plain clicks cycle, and after `F` on the hand
+  every finger picks first time. Not changed for M1; a picker for overlapping controls (a hand inset or a pick
+  list under the pointer) is a V1 candidate.
+- *A quad pane switched to the shot camera crops the character compared with the split view*: the shot camera
+  keeps its aspect from the pane. A resolution or film gate overlay is V1.
+- *The Polybot bake writes `-0` translations as `0`*: `JSON.stringify` drops the sign of zero; the values are
+  equal and the file validates. Byte-identical JSON outside the appended arrays would need a custom serializer
+  for one sign bit; not worth it in the MVP.
+- *Known and accepted*: the `THREE.Clock` warning (round 1), bundled samples offline (round 1), Polybot's A-pose
+  (INT-49).
+
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 
 Each work package recorded its interpretations in `docs/wp-notes/wp-*.md` (kept as history, with the reasoning and
@@ -305,7 +336,8 @@ near the pointer.
 **WP-6t time slider** — band cells `[start − ½, end + ½)`; target keys = selected controls (all when none); the
 drag recomputes band keys at press; one drag = one step, the band stays; scale pivots at the opposite end (factor ≥
 0.01); `time.selectBand {band: null}` clears; scrub snapping and clamping; slider spans clip ∪ playback range with
-drawn-only range brackets; RMB menu without a band offers only Paste; frame-field grammar; transport cycling Once →
+drawn-only range brackets; RMB menu without a band offers only Paste (superseded by INT-52: it acts on the current
+frame); frame-field grammar; transport cycling Once →
 Loop → Oscillate; ←/→ on the focused slider step. `cancel()`/`dragging` accepted (INT-23).
 
 **WP-7a kernel** — 1 `KernelDeps` seam; 2 the fake app runs the real kernel; 3 every local undoable commit is a
