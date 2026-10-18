@@ -34,6 +34,7 @@ test('E2E-M2A-05: arm IK with fingers', async ({ page }) => {
   const fingerBefore = relative(switched.leftHand as World, await call(page, 'controlWorld', finger));
 
   await selectIds(page, [await controlIdOf(page, 'cog')]);
+  await runOk(page, 'workspace.showPanel', { panel: 'channelBox' });
   await typeCb(page, 'cb-field-ty', '-0.05');
   const lowered = await boneWorlds(page, character, ['leftHand']);
   expectWorldClose(lowered.leftHand as World, switched.leftHand as World, 1e-6, 'hand after the cog edit');

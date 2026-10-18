@@ -7,7 +7,8 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // E2E-M2A-25 (M2A-SPEC §9.1, §5.7): an FK-only Polybot (autoRigIk off, like an M1 rig) says once that Add Limb IK
 // exists; Attributes › Add Limb IK adds four limbs in FK (ikFk 0), the animation stays bit for bit; undo removes the
 // records, redo restores them.
-const LEG = ['hips', 'leftUpperLeg', 'leftLowerLeg', 'leftFoot', 'leftToes'] as const;
+// Polybot has no toe bones.
+const LEG = ['hips', 'leftUpperLeg', 'leftLowerLeg', 'leftFoot'] as const;
 const FK_ONLY = 'This rig has FK limbs only';
 
 test('E2E-M2A-25: upgrade an M1 rig', async ({ page }) => {
