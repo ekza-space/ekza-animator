@@ -10,6 +10,7 @@
     "dev": "node scripts/copy-assets.mjs && next dev",
     "build": "node scripts/copy-assets.mjs && node scripts/third-party-notices.mjs && next build",
     "check:size": "node scripts/check-size.mjs",
+    "size:attribute": "node scripts/attribute-chunks.mjs",
     "start": "next start",
     "test": "vitest run",
     "typecheck": "tsc -b",

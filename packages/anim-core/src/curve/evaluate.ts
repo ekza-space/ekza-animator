@@ -5,6 +5,13 @@ import { bezierParameter, bezierSlopeAt, evaluateCurveInRange, hermiteSlope, INF
 import { COEF_STRIDE, type CompiledCurve, coefficientsOf } from './compile';
 import { KEY_TIME_EPSILON, lowerBound, upperBound } from './keys';
 
+// Hot-path bindings of `evaluateAnimCurve` (M2A-SPEC §5.21.3, M-3): module wrappers (the test runner's, the app
+// bundler's) can turn each access to an imported binding into a property getter; these never change, so they are
+// read once.
+const inRange = evaluateCurveInRange;
+const mapToRange = mapInfinity;
+const MAP = INFINITY_MAP;
+
 function isCyclicMode(mode: InfinityMode): mode is 'cycle' | 'cycleOffset' | 'oscillate' {
   return mode === 'cycle' || mode === 'cycleOffset' || mode === 'oscillate';
 }
@@ -57,11 +64,11 @@ export function evaluateAnimCurve(c: CompiledAnimCurve, frame: Frame): number {
   } else if (frame > t[n - 1]!) {
     if (c.post === 'constant') return c.v[n - 1]!;
   } else {
-    return evaluateCurveInRange(c, coefficientsFast(c), frame, 0);
+    return inRange(c, coefficientsFast(c), frame, 0);
   }
-  mapInfinity(c, frame, false);
-  const offset = INFINITY_MAP[1]!;
-  return evaluateCurveInRange(c, coefficientsFast(c), INFINITY_MAP[0]!, INFINITY_MAP[3]!) + offset;
+  mapToRange(c, frame, false);
+  const offset = MAP[1]!;
+  return inRange(c, coefficientsFast(c), MAP[0]!, MAP[3]!) + offset;
 }
 
 /**

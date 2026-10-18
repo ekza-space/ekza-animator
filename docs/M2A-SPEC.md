@@ -1369,7 +1369,10 @@ Implemented on baked tracks after hemisphere continuity and root-motion handling
 - The read-back check compares the written file with the **reduced** clip (M1 tolerances); `stats.reduction` reports
   the sample counts and the max errors against the unreduced samples; the export toast shows "N → M samples".
 - Gate: on Seed-san's hand-keyed `wave` clip (0…30) the total sample count shrinks ≥ 3×, and sampling the written
-  tracks at every integer frame stays within the per-node tolerances of the unreduced bake.
+  tracks at every integer frame stays within the per-node tolerances of the unreduced bake. **Pending owner decision
+  M2A-A5-3** (`docs/wp-notes/m2a-platform-perf.md`): ≥ 3× is out of reach on that file (51 of its 52 tracks are
+  2-sample constant tracks, 102 of 133 samples, which are not reduced: at best 104 samples, 1.28×); the build asserts
+  "never more samples" and the tolerance bound on the wave, and ≥ 3× on a linear-blocking clip.
 
 ### 5.17 Pick-walk (A2, FR-OUT-05)
 
@@ -1491,9 +1494,9 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
 
 #### 5.21.2 M-2: editor route JS ≤ 900 kB gzip with headroom (A5)
 
-- **First deliverable** (A5, recorded in `docs/wp-notes/m2a-a5.md`): a chunk attribution report of the current
-  initial route from the production build's source maps (bytes per package and per top-level module, gzip -9), so
-  every cut is planned against measured numbers; no attribution exists in wp-10-budgets.md.
+- **First deliverable** (A5, recorded in `docs/wp-notes/m2a-platform-perf.md`): a chunk attribution report of the
+  current initial route from the production build's source maps (bytes per package and per top-level module, gzip
+  -9), so every cut is planned against measured numbers; no attribution exists in wp-10-budgets.md.
 - **Target**: the scripts loaded by `/editor` until the empty state is visible and the network is idle total
   ≤ **800,000 B** gzip -9 (decimal kB, the stricter unit). The 800,000 B figure is provisional until the attribution:
   A5 may set it to the attributed reachable value with the reason recorded (contract PR to this file), but never
@@ -1944,7 +1947,7 @@ export function registerDopeSheetContributions(app: EditorApp, focused: () => Do
   `editor-core/src/workflows/{export.ts,project.ts,autosave.ts}`, `editor-core/src/operators/builtin/{file.ts,
   autosave.ts}`, `editor-core/src/app/autosave.ts`; `packages/editor/src/{shell,dialogs,services,gl}/**` and
   `Editor.tsx` (after A0; §8.1); `apps/web/{scripts,app}/**`; bench `e2e/bench/budgets.bench.ts`; e2e `m2a-20…22`;
-  `docs/wp-notes/m2a-a5.md`.
+  `docs/wp-notes/m2a-platform-perf.md`.
 - **Responsibilities**: §5.21.2 chunk attribution first, then lazy boundaries, intent prefetch and the `check:size`
   gate measuring the bench's script set; §5.21.3 anim-core fast paths; §5.20 autosave store (IndexedDB, Web
   Locks/heartbeat), scheduler, recovery dialog, `file.recover`, `file.discardRecovery`, `file.autosaveNow`,
@@ -2016,7 +2019,7 @@ means the M1 `seed.ts` helpers (`loadSample`). Angles in steps are degrees; tole
 | E2E-M2A-18 | Pick-walk and body-part keying (FR-OUT-05, FR-KEY-10) | seed Seed-san; select `fk.lowerArm.L`; `ArrowUp`, `ArrowDown`, `ArrowRight`; select `fk.hand.L`; click `status-keytarget-bodyPart`; `S` | ↑ → `fk.upperArm.L`; ↓ → `fk.lowerArm.L`; → with no sibling → `fk.lowerArm.R`; `S` keys exactly `fk.shoulder.L`, `fk.upperArm.L`, `fk.lowerArm.L`, `fk.hand.L`, `ik.arm.L`, `pole.arm.L` (curves with a key at the frame) and no finger or other control |
 | E2E-M2A-19 | Virtual slider (FR-CB-05) | `/editor?e2e=1&pointerLock=off`; seed Polybot; select `fk.lowerArm.L`; MMB-drag on `cb-name-rz` 40 px right; `Mod+Z`; Shift+MMB-drag 40 px; `Mod+Z`; click `cb-name-rz` (selects the channel); MMB-drag 40 px right in `pane-right`, starting 80 px left of `screenOfControl(fk.lowerArm.L, 'pane-right')` (away from every manipulator handle) | rz = +20° (1e-9) after the drag; one history step; with Shift +2°; the viewport MMB drag gives +20° (1e-9) in one history step and changes no other channel |
 | E2E-M2A-20 | Autosave and recovery (FR-PROJ-05) | `/editor?e2e=1&ns=r1`; `seedWaveClip`; `flushAutosave()`; `page.reload()` (same URL); click `recovery-recover-<slot>`; then `/editor?e2e=1&ns=r2&storage=blocked` | after reload `recovery-dialog` lists one slot; after Recover: `counts()` and `curves()` deep-equal the pre-reload ones, `state().dialog` null, dirty; blocked storage: no dialog, one info toast, `autosave().enabled` false, seeding still works |
-| E2E-M2A-21 | Export key reduction (FR-EXP-12) | seed Seed-san; clip `wave` (E2E-16 keys); Export dialog: VRMA, `export-reduce` checked; confirm; then the same export unchecked | 0 validator errors for both; reduced file total samples ≤ 1/3 of the unreduced; sampling both files' tracks in Node at every integer frame differs by ≤ the per-node tolerances (§5.16) |
+| E2E-M2A-21 | Export key reduction (FR-EXP-12) | seed Seed-san; clip `wave` (E2E-16 keys); Export dialog: VRMA, `export-reduce` checked; confirm; then the same export unchecked | 0 validator errors for both; reduced file total samples ≤ 1/3 of the unreduced (pending M2A-A5-3: built as "never more samples" on the wave, ≥ 3× on linear blocking); sampling both files' tracks in Node at every integer frame differs by ≤ the per-node tolerances (§5.16) |
 | E2E-M2A-22 | Lazy loading | fresh production-like e2e page: record script responses until `ready` and the empty state; then click `sample-polybot` | no `three-vrm`/GLTFLoader chunk before the click; the sample loads and `controls()` is non-empty; (size gate runs separately in CI) |
 | E2E-M2A-23 | **Acceptance: walk cycle with leg IK** | seed Polybot; `clip.new {name: 'walk'}`; `clip.setSettings {range: 0…24, loop: true, slot: 'walk', rootMotion: 'in-place'}`; select `ik.leg.L` by clicking it in the viewport; with Channel Box typing and `S` key it at 0 (tz 0.15, ty 0), 12 (tz −0.15, ty 0), 18 (tz 0, ty 0.06), 24 (tz 0.15, ty 0); Shift-drag a time-slider band over 0…12 and press `4` (linear tangents on the keys at 0 and 12); select `cog` and key ty 0/−0.03/0/−0.03/0 and tx 0/0.02/0/−0.02/0 at 0/6/12/18/24; select `ik.leg.L` (Outliner row); Pose › Mirror Animation › Left → Right (half cycle); select `cog`; in the Dope Sheet (`workspace.showPanel {panel: 'dopeSheet'}`) Shift-select the `cog` row glyphs at 6 and 18 and drag them to 5 and 17; click an empty area of the Dope Sheet canvas (clears the key selection); select `ik.leg.L`, click `cb-name-ty`; frame 21; status-line Tween bar: check `tweenTarget('status')` and drag `screenOfTween('status', 0)` to `screenOfTween('status', 50)`; export VRMA with `export-reduce` checked | left foot during 0…12 and right foot during 12…24: world x and y vary ≤ 1e-6 m and z changes linearly (second differences ≤ 1e-6 m) — the planted foot slides only with the treadmill; the `ik.leg.R` keys are the half-cycle mirror (E2E-M2A-15 rule) and `ik.leg.L`'s curves are unchanged by the mirror; the tween target reads "Pose @ f21" before the drag; `ik.leg.L` ty at 21 = 0.015 (breakdown) and no other curve gained a key at 21; `curves()` of every new curve has `pre` and `post` `cycle` (§5.23) and `curveSlope(cog tx, 24, 'left')` = `curveSlope(cog tx, 0, 'right')` (1e-9, C¹ at the seam); pose at 24 equals pose at 0 (1e-6); the history labels contain no `Plant Feet`; the VRMA has 0 validator errors and fewer samples than an unreduced export |
 | E2E-M2A-24 | **Acceptance: attack clip with planted feet** | seed Seed-san; `clip.new {name: 'attack'}`; `clip.setSettings {range: 0…20, slot: 'attack', contact: 12}`; key `ik.leg.L` at 0 with tz 0.2 and `ik.leg.R` at 0 with tz −0.1 (Channel Box typing, `S`); key `cog` at 0 (rest), 12 (ty −0.08, tz 0.12, ry 25) and 20 (rest); key `fk.upperArm.R` and `fk.lowerArm.R` rotations at 0/8/12/20 (windup at 8, strike at 12); in the Dope Sheet drag the arm keys at 8 to 9; export VRMA and bake into the model | both foot bone worlds identical at every integer frame 0…20 (1e-6) while the hips move; `contactSeconds` = 12/30 in `ekza_animation_v1`; VRMA 0 validator errors, bake no new validator errors; the history labels contain no `Plant Feet` |

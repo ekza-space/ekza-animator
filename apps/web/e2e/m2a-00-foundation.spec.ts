@@ -6,7 +6,7 @@ import { call, expectKernelStarted, openEditor, run, runOk, waitForTestApi } fro
 // Dope Sheet tab (and the v1 → v2 migration of a stored M1 layout), the schema rule on save, loop-clip curves (§5.23)
 // and the `ns` / `storage=blocked` URL switches. No E2E-M2A scenario belongs to A0; this file guards its foundation.
 
-test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', async ({ page }) => {
+test('the M2a test API answers on an M1 rig; the M2a operators refuse cleanly without keys', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   // An M1 rig: the import rigs FK limbs only (with A1 the default rig gives the legs IK, §5.7, M2A-D1).
@@ -25,20 +25,17 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   const world = await call(page, 'controlWorld', hand);
   const bone = await call(page, 'boneWorld', character, 'leftHand');
   expect(Math.hypot(world.t[0] - bone.t[0], world.t[1] - bone.t[1], world.t[2] - bone.t[2])).toBeLessThan(1e-6);
-  expect(await call(page, 'autosave')).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
+  // Autosave (A5, §5.20): every e2e page load has a fresh storage namespace and claims a slot in it.
+  await expect
+    .poll(() => call(page, 'autosave'))
+    .toMatchObject({ enabled: true, slot: expect.stringMatching(/^as_[0-9A-Za-z]{16}$/) as unknown as string });
   expect(await call(page, 'timelineTicks')).toEqual([]);
   expect(await call(page, 'dopeSheet')).toBeNull();
   // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
   expect(await call(page, 'screenOfTween', 'status', 0)).not.toBeNull();
 
-  // A2's operators (rig IK, pick-walk, key target: m2a-18, m2a-19, m2a-25), A3's (m2a-08…12) and A4's (m2a-13…17)
-  // left this list when they landed.
-  for (const [op, args] of [
-    ['file.autosaveNow', undefined],
-  ] as const) {
-    expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
-  }
-  // A3 implemented its operators (m2a-08…12): on a rig without keys they refuse with their own reasons.
+  // Every M2a operator landed (A2: m2a-18, m2a-19, m2a-25; A4: m2a-13…17; A5: m2a-20; A3: m2a-08…12), so no stub is
+  // left to poll-fail. A3's operators refuse with their own reasons on a rig without keys.
   expect(await run(page, 'time.insertTime', { at: 0, frames: 1 })).toEqual({
     status: 'cancelled',
     reason: 'No animated controls',

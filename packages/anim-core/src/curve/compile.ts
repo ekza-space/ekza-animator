@@ -15,6 +15,11 @@ export interface CompiledCurve extends CompiledAnimCurve {
   /** Segment i at `coef[8i …]`: Hermite [c0, c1, c2, c3]; Bézier [x3, x2, x1, y3, y2, y1, y0, linear]. */
   readonly coef: Float64Array;
   readonly cycleAwareAuto: boolean;
+  /**
+   * Segment of the last key lookup (M2A-SPEC §5.21.3, M-3): `keyAtOrAfter` tries it and the next segment before a
+   * binary search. A cache, not state: values never depend on it.
+   */
+  segmentHint: number;
 }
 
 /**
@@ -61,6 +66,7 @@ export function compileAnimCurve(curve: AnimCurve, opts?: CurveOptions): Compile
     post,
     coef,
     cycleAwareAuto: opts?.cycleAwareAuto === true,
+    segmentHint: 0,
   };
 }
 

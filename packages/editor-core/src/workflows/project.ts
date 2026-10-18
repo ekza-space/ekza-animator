@@ -1,9 +1,10 @@
 // Project files (ADR 0011): `.ekzanim` (zip: manifest, project.json, source models by SHA-256) and the
 // `.ekzanim.json` debug variant. Saving reads every referenced asset through the verifying asset store; opening
-// checks the assets, puts them into the asset store and replaces the document (never merges).
+// checks the assets, puts them into the asset store and replaces the document (never merges). The archive code and
+// fflate load with a dynamic `import('@ekza-animator/io/project')` on the first save or open (M2A-SPEC §5.21.2).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
-import { readProjectArchive, writeProjectArchive, writeProjectJson } from '@ekza-animator/io';
+import type * as ProjectModule from '@ekza-animator/io/project';
 import type { EditorApp } from '../types';
 import { EDITOR_VERSION } from './samples';
 import { resetDocumentSession } from './session';
@@ -12,6 +13,22 @@ export const PROJECT_EXTENSION = 'ekzanim';
 export const PROJECT_JSON_EXTENSION = 'ekzanim.json';
 export const PROJECT_MIME = 'application/zip';
 export const PROJECT_JSON_MIME = 'application/json';
+
+let projectModule: Promise<typeof ProjectModule> | null = null;
+
+/**
+ * Loads `@ekza-animator/io/project` (the `.ekzanim` archive code with fflate) once; a failed load is retried by the
+ * next call. Hosts call it on intent (the File menu opening) so the first save or open does not wait for it.
+ */
+export function loadProjectArchive(): Promise<typeof ProjectModule> {
+  if (projectModule === null) {
+    projectModule = import('@ekza-animator/io/project');
+    projectModule.catch(() => {
+      projectModule = null;
+    });
+  }
+  return projectModule;
+}
 
 export interface SaveArtifact {
   readonly fileName: string;
@@ -68,12 +85,14 @@ export async function prepareProjectArchive(app: EditorApp, name: string): Promi
     }
     assets.set(record.id, { record, bytes: await app.services.assets.get(record.id) });
   }
+  const { writeProjectArchive } = await loadProjectArchive();
   const bytes = writeProjectArchive(snapshot, assets, { version: EDITOR_VERSION });
   return { fileName: projectFileName(name, PROJECT_EXTENSION), bytes, mime: PROJECT_MIME, version, warnings };
 }
 
 /** The `.ekzanim.json` debug variant (document + asset descriptions, no bytes). */
 export async function prepareProjectJson(app: EditorApp, name: string): Promise<SaveArtifact> {
+  const { writeProjectJson } = await loadProjectArchive();
   await openAllPartitions(app);
   const version = app.store.version;
   const snapshot = app.store.snapshot();
@@ -100,6 +119,7 @@ export interface OpenedProject {
  * warning and those characters stay without a model.
  */
 export async function prepareProjectOpen(app: EditorApp, bytes: Uint8Array): Promise<OpenedProject> {
+  const { readProjectArchive } = await loadProjectArchive();
   const archive = await readProjectArchive(bytes);
   const warnings: string[] = [];
   for (const [id, { record, bytes: assetBytes }] of archive.assets) {

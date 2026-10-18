@@ -96,6 +96,8 @@ async function mount(
   );
   await waitFor(() => app !== null && document.querySelector('[data-testid="editor-shell"]') !== null);
   if (app === null) throw new Error('the editor did not create its app');
+  // The test API is a lazy chunk (M2A-SPEC §5.21.2): e2e pages install it once that chunk has loaded.
+  if (params.e2e !== false) await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
   await window.__EKZA_ANIMATOR_TEST__?.ready;
   stubOperators(app);
   return { view, app };
@@ -142,6 +144,7 @@ describe('editor shell', () => {
       </StrictMode>,
     );
     await waitFor(() => document.querySelector('[data-testid="editor-shell"]') !== null);
+    await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
     await window.__EKZA_ANIMATOR_TEST__?.ready;
     expect(created).toHaveLength(1);
     // `?e2e=1` turns transitions off for content Radix portals to <body> too (dialogs, menus, tooltips).
@@ -370,6 +373,8 @@ describe('editor shell', () => {
     await waitFor(() => document.querySelector('[data-testid="menu-item-shell.help.about"]') !== null);
     await update(() => testId(view, 'menu-item-shell.help.about').click());
     await waitFor(() => app.session.getState().dialog === 'about');
+    // Dialogs are lazy chunks (M2A-SPEC §5.21.2): the dialog shows once its chunk has loaded.
+    await waitFor(() => document.querySelector('[data-testid="about-dialog"]') !== null);
     expect(testId(view, 'about-credits').textContent).toContain('Seed-san');
     expect(testId(view, 'about-notices').getAttribute('href')).toBe('/THIRD_PARTY_NOTICES.txt');
     const dialog = testId(view, 'about-dialog');

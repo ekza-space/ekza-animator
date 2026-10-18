@@ -68,6 +68,8 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+      # M2A-SPEC §5.21.2 (M-2): the editor route's initial JS ≤ 900,000 B gzip -9, lazy boundaries intact.
+      - run: pnpm --filter web check:size
 
   e2e:
     name: e2e (chromium-swiftshader)

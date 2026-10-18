@@ -16,7 +16,7 @@ import type {
 import { newRecordId } from '../../app/internals';
 import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
 import { planEmptyClip, writeClipPlan } from '../../workflows/clipWrite';
-import { clipNameTaken } from '../../workflows/importModel';
+import { clipNameTaken } from '../../workflows/importChecks';
 import {
   CLIP_NAME_MAX,
   clipNameProblem,

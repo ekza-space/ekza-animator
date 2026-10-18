@@ -9,6 +9,8 @@
 //   hemisphere continuity; loop closure copies the first pose to the last sample; constant tracks collapse to 2 keys.
 // - rootMotion 'in-place' locks X/Z of `inPlaceNode` to its rest position in canonical space before the conversion to
 //   a raw local (humanoid target: the hips position).
+// - M2a §5.16: with `reduce`, the finished tracks go through the error-bounded export reduction (`reduceBakedClip`)
+//   and the clip carries its `reduction` stats; without it the output is the M1 bake, byte for byte.
 import {
   EkzaError,
   type Frame,
@@ -21,15 +23,11 @@ import {
 import type { DerivedFrom } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES, type PoseBuffers, type RigProgram, type TrackKey } from '@ekza-animator/rig';
 import { restWorlds } from '../skeleton/rest';
-import type {
-  BakedClip,
-  BakedTrack,
-  BakeOptions,
-  EkzaAnimationV1,
-  EkzaClipMetaV1,
-  LintIssue,
-  PoseSource,
-} from '../types';
+import { clipFramesToSeconds, normalizeClipMeta } from './meta';
+import { reduceBakedClip } from './reduce';
+
+export { clipFramesToSeconds, normalizeClipMeta } from './meta';
+import type { BakedClip, BakedTrack, BakeOptions, EkzaAnimationV1, LintIssue, PoseSource } from '../types';
 
 type TrackPath = BakedTrack['path'];
 const PATHS: readonly TrackPath[] = ['translation', 'rotation', 'scale'];
@@ -42,10 +40,6 @@ export const REST_EPSILON = 1e-6;
 export const CONSTANT_EPSILON = 1e-7;
 /** `bake.large-rotation-step` fires above this angle between consecutive samples. */
 export const LARGE_STEP_RAD = Math.PI / 2;
-
-export function clipFramesToSeconds(frames: Frame, fps: { readonly num: number; readonly den: number }): number {
-  return (frames * fps.den) / fps.num;
-}
 
 /** `${node}/${path}` (rig TrackKey). */
 export function trackKey(node: number, path: TrackPath): TrackKey {
@@ -131,7 +125,7 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
   );
   tracks.sort((a, b) => a.node - b.node || PATH_ORDER[a.path] - PATH_ORDER[b.path]);
 
-  return {
+  const baked: BakedClip = {
     name: opts.name,
     target: opts.target,
     fps: opts.fps,
@@ -149,6 +143,17 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
     }),
     warnings,
   };
+  const reduce = opts.reduce;
+  if (reduce === undefined || reduce === null) return baked;
+  // The keep frames are clip frames; the reducer counts frames from the clip's first sample.
+  const keep = new Map<TrackKey, readonly Frame[]>();
+  for (const [key, frames] of reduce.keep) {
+    keep.set(
+      key,
+      frames.filter((frame) => frame >= start && frame <= end).map((frame) => frame - start),
+    );
+  }
+  return reduceBakedClip(baked, { spec: reduce.spec, height: reduce.height, leverArm: reduce.leverArm, keep }).clip;
 }
 
 function validate(opts: BakeOptions, program: RigProgram): void {
@@ -409,32 +414,6 @@ function strictlyIncreasing(times: readonly number[]): number[] {
     keep.push(i);
   }
   return keep;
-}
-
-/** Clip metadata with a fixed key order (deterministic JSON) and lowercase-hex hashes. */
-export function normalizeClipMeta(meta: EkzaClipMetaV1): EkzaClipMetaV1 {
-  return {
-    index: meta.index,
-    name: meta.name,
-    slot: meta.slot,
-    loop: meta.loop,
-    fps: meta.fps,
-    durationSeconds: meta.durationSeconds,
-    rootMotion: meta.rootMotion,
-    contactSeconds: meta.contactSeconds,
-    tags: [...meta.tags],
-    derivedFrom: meta.derivedFrom.map(normalizeDerivedFrom),
-    redistributable: meta.redistributable,
-  };
-}
-
-function normalizeDerivedFrom(d: DerivedFrom): DerivedFrom {
-  return {
-    title: d.title,
-    author: d.author,
-    license: d.license,
-    sourceSha256: d.sourceSha256 === null ? null : d.sourceSha256.toLowerCase(),
-  };
 }
 
 /** `asset.extras.ekza_animation_v1` for the given clips (ADR 0010 §2); clip indices follow the array order. */
