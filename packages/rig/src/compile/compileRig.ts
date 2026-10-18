@@ -1,6 +1,6 @@
 import type { BoneRef, ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
 import { restWorlds } from '../humanoid/rest';
-import { bendOf } from '../ik/core';
+import { bendOf, restBand } from '../ik/core';
 import { OP_BONE, OP_CONTROL, OP_CUSTOM } from '../kernel/constants';
 import type { ScheduledRigOp } from '../kernel/internals';
 import { lookupRigOp, type RigOpImpl, type RigOpKind } from '../kernel/ops';
@@ -443,17 +443,17 @@ function buildLimbs(
     const a = at(upper);
     const b = at(mid);
     const c = at(end);
-    const bend = bendOf(
-      [b[0] - a[0], b[1] - a[1], b[2] - a[2]],
-      [c[0] - b[0], c[1] - b[1], c[2] - b[2]],
-      [limb.params.hinge[0], limb.params.hinge[1], limb.params.hinge[2]],
-      [0, 0, 0],
-    );
+    const u: [number, number, number] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v: [number, number, number] = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+    const k: [number, number, number] = [limb.params.hinge[0], limb.params.hinge[1], limb.params.hinge[2]];
+    const bend = bendOf(u, v, k, [0, 0, 0]);
     if (bend < -HYPEREXTENDED_REST) {
       const t = LIMB_TEMPLATES[limb.id];
+      const band = restBand(u, v, k);
+      const mm = (m: number): string => (m * 1000).toFixed(m < 1e-3 ? 2 : 1);
       warnings.push({
         code: 'asymmetric-rest',
-        message: `${t.label}: the rest pose bends the ${t.joint} ${((-bend * 180) / Math.PI).toFixed(1)}° against its hinge (hyperextended); IK bends it the normal way for targets closer than the rest`,
+        message: `${t.label}: the rest pose bends the ${t.joint} ${((-bend * 180) / Math.PI).toFixed(1)}° against its hinge (hyperextended); IK straightens it towards full reach and passes to the normal bend over the first ${mm(band.depth)} mm closer than the rest, where the ${t.joint === 'knee' ? 'foot' : 'hand'} may pass its target by up to ${mm(band.overshoot)} mm`,
         ids: [record.id],
       });
     }

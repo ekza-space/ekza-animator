@@ -108,6 +108,17 @@ describe('ik2 op: rest exactness and FK fallback (§5.3, §5.7)', () => {
       'L Arm: the rest pose bends the elbow 9.2',
       'R Arm: the rest pose bends the elbow 9.2',
     ]);
+    // The message gives the amendment C band (§5.3) of the rest: its depth and the end's largest overshoot.
+    const desc = program.limbs.find((l) => l.id === 'arm.L') as LimbDesc;
+    const core = limbCore(program, desc, evaluate(program, channels(program)));
+    const { hyper, width } = core.transitionBand();
+    const depth = core.reachOfBend(-hyper) - core.reachOfBend(hyper + width);
+    expect(warnings[0]?.message).toBe(
+      `L Arm: the rest pose bends the elbow 9.2° against its hinge (hyperextended); IK straightens it towards full reach and passes to the normal bend over the first ${(depth * 1000).toFixed(1)} mm closer than the rest, where the hand may pass its target by up to ${warnings[0]?.message.match(/up to ([0-9.]+) mm/)?.[1]} mm`,
+    );
+    const overshoot = Number(warnings[0]?.message.match(/up to ([0-9.]+) mm/)?.[1]) / 1000;
+    expect(overshoot).toBeGreaterThan(0.3 * (core.reachOfBend(0) - core.reachOfBend(-hyper)));
+    expect(overshoot).toBeLessThan(2.2 * (core.reachOfBend(0) - core.reachOfBend(-hyper)));
   });
 
   it('writes nothing at ikFk 0: bone locals bit-identical to the M1 rig for random FK poses (property)', () => {

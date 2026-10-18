@@ -640,6 +640,17 @@ describe('limb IK across a hyperextended rest (§5.3 amendment C) on the fixture
           `${limb} T ${(T / DEG).toFixed(2)}°, band ${(band * 1e3).toFixed(3)} mm, overshoot ≤ ${(overshoot * 1e3).toFixed(3)} mm, largest elbow step ${(fine * 1e3).toFixed(4)} mm per ${(((to - from) / 2000) * 1e6).toFixed(2)} µm of hand travel`,
         );
       }
+      // The asymmetric-rest warning (> 2° against the hinge) states the band: Polybot's elbows, not Seed-san's.
+      const warned = program.warnings
+        .filter((w) => w.code === 'asymmetric-rest' && w.message.includes('elbow'))
+        .map((w) => w.message.replace(/^. Arm: /, ''));
+      expect(warned).toEqual(
+        name === 'polybot.vrm'
+          ? Array(2).fill(
+              'the rest pose bends the elbow 4.9° against its hinge (hyperextended); IK straightens it towards full reach and passes to the normal bend over the first 2.1 mm closer than the rest, where the hand may pass its target by up to 0.57 mm',
+            )
+          : [],
+      );
       await annotate(`${name}: ${report.join('; ')}`);
     },
   );

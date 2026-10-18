@@ -412,6 +412,38 @@ export class TwoBoneCore {
   }
 }
 
+/**
+ * The amendment C band of a rest chain (bone vectors u = b − a, v = c − b, unit hinge k, one frame): T, the rest's
+ * hyperextension about the hinge from the bend of greatest reach (0 when the rest is not hyperextended), how much
+ * closer than the rest reach the band reaches (`depth`, metres) and the largest distance by which the end passes its
+ * target inside it (`overshoot`, metres). For warnings and notes; the solver computes the same per evaluation.
+ */
+export function restBand(
+  u: Vec3,
+  v: Vec3,
+  k: Vec3,
+): { readonly hyper: number; readonly depth: number; readonly overshoot: number } {
+  const vk = dot(v, k);
+  const w: Vec3 = [v[0] - vk * k[0], v[1] - vk * k[1], v[2] - vk * k[2]];
+  const n: Vec3 = [0, 0, 0];
+  cross(k, w, n);
+  const pa = dot(u, w);
+  const pb = dot(u, n);
+  const r = Math.sqrt(pa * pa + pb * pb);
+  const hyper = r < 1e-15 ? 0 : Math.max(0, Math.atan2(pb, pa));
+  if (!(hyper > 0)) return { hyper: 0, depth: 0, overshoot: 0 };
+  const c0 = (dot(u, u) + dot(v, v)) / 2 + dot(u, k) * vk;
+  const reach = (t: number): number => Math.sqrt(Math.max(0, 2 * (c0 + r * Math.cos(t))));
+  const width = Math.min(2 * hyper, Math.PI - hyper);
+  let overshoot = 0;
+  for (let i = 1; i < 64; i++) {
+    const s = hyper + (width * i) / 64;
+    const left = 1 - (s - hyper) / width;
+    overshoot = Math.max(overshoot, reach(s - 2 * hyper * left * left) - reach(s));
+  }
+  return { hyper, depth: reach(-hyper) - reach(hyper + width), overshoot };
+}
+
 /** Signed bend from u to v about k: atan2(k·(u × v), u·v). `scratch` receives u × v. */
 export function bendOf(u: Vec3, v: Vec3, k: Vec3, scratch: Vec3): number {
   cross(u, v, scratch);
