@@ -14,14 +14,14 @@ import {
   type World,
 } from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
-import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/test-api';
 
 // E2E-M2A-03 (M2A-SPEC §9.1, §5.6): Seed-san's left leg is keyed in IK at 0 and 10; a seamless IK → FK switch at 10
 // from the Attributes Limb section keys @ikFk at 9 (1) and 10 (0), both stepped, and keeps the pose at 9 and 10;
 // a keyed FK → IK switch at 15 adds {15: 1} and keeps the pose; one undo per switch restores the curves.
 // The second case adds a ball roll and an animated fk.toes (A2 fix round: the switch holds the matched channels at
-// f − 1, so every earlier frame keeps its pose; at f the toes joint cannot follow the planted toes in FK, and the
-// switch says by how much).
+// f − 1, so every earlier frame keeps its pose; at f the chain and the toes' rotation match, and a toes joint that
+// FK cannot keep is reported with its move). The first case also clicks the pressed IK segment: nothing changes.
 
 const CHAIN = ['leftUpperLeg', 'leftLowerLeg', 'leftFoot', 'leftToes'] as const;
 
@@ -53,10 +53,35 @@ test('E2E-M2A-03: seamless IK → FK switch', async ({ page }) => {
   const at9 = await boneWorlds(page, character, CHAIN, 9);
   const at10 = await boneWorlds(page, character, CHAIN, 10);
   const curvesBefore = await call(page, 'curves', clip);
+  const same = (actual: Record<string, World>, expected: Record<string, World>, what: string) => {
+    for (const bone of CHAIN)
+      expectWorldClose(actual[bone] as World, expected[bone] as World, 1e-6, `${what}: ${bone}`);
+  };
 
   await runOk(page, 'workspace.showPanel', { panel: 'attributes' });
   await expect(page.getByTestId('attr-limb-leg.L')).toBeVisible();
   await page.getByTestId('attr-limb-key-mode').selectOption('seamless');
+  // The leg is IK: the pressed IK segment does nothing (a switch to the current mode would match the IK foot to
+  // the rest FK chain and move it), and Rig › IK/FK › Switch L Leg to IK is disabled with the reason.
+  const undoBefore = (await call(page, 'state')).history.undoLabel;
+  await expect(page.getByTestId('attr-limb-mode-ik-leg.L')).toHaveAttribute('aria-pressed', 'true');
+  await page.getByTestId('attr-limb-mode-ik-leg.L').click();
+  expect((await call(page, 'state')).history.undoLabel).toBe(undoBefore);
+  expect(await call(page, 'curves', clip)).toEqual(curvesBefore);
+  same(await boneWorlds(page, character, CHAIN, 10), at10, 'frame 10 after a click on the pressed IK segment');
+  expect(await run(page, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik' })).toEqual({
+    status: 'cancelled',
+    reason: 'L Leg is IK already',
+  });
+  await page.getByTestId('menu-rig').click();
+  await page.getByTestId('menu-sub-rig.ik-fk').click();
+  const toIk = page.getByTestId('menu-item-builtin.rig.ik-fk.leg.L.toIk');
+  await expect(toIk).toHaveAttribute('aria-disabled', 'true');
+  await expect(toIk).toHaveAttribute('title', 'L Leg is IK already');
+  await expect(page.getByTestId('menu-item-builtin.rig.ik-fk.leg.L.toFk')).not.toHaveAttribute('aria-disabled', 'true');
+  await page.keyboard.press('Escape');
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('menu-sub-rig.ik-fk')).toHaveCount(0);
   await page.getByTestId('attr-limb-mode-fk-leg.L').click();
   await expect.poll(async () => (await call(page, 'state')).history.undoLabel).toBe('Switch L Leg to FK');
 
@@ -66,10 +91,6 @@ test('E2E-M2A-03: seamless IK → FK switch', async ({ page }) => {
     { t: 9, v: 1, outType: 'step' },
     { t: 10, v: 0, outType: 'step' },
   ]);
-  const same = (actual: Record<string, World>, expected: Record<string, World>, what: string) => {
-    for (const bone of CHAIN)
-      expectWorldClose(actual[bone] as World, expected[bone] as World, 1e-6, `${what}: ${bone}`);
-  };
   same(await boneWorlds(page, character, CHAIN, 9), at9, 'frame 9 after the switch');
   same(await boneWorlds(page, character, CHAIN, 10), at10, 'frame 10 after the switch');
   const visible = async () =>
@@ -159,9 +180,16 @@ test('E2E-M2A-03: a seamless switch with a ball roll and animated toes keeps eve
   const toesBefore = at10['leftToes'] as World;
   const toesAfter = after10['leftToes'] as World;
   expect(quatAngle(toesAfter.q, toesBefore.q), 'frame 10: leftToes rotation').toBeLessThanOrEqual(1e-6);
+  // Whether the toes joint can stay under a ball roll is open (A2 notes, open issue 1: the ball pivot lies off the
+  // toes joint on Seed-san, 5.4 mm at 20° with A1's toes rule). Either way the switch reports a move above 0.1 mm
+  // with its size and says nothing when the joint stays.
   const moved = distance(toesAfter.t, toesBefore.t);
-  expect(moved).toBeGreaterThan(1e-4);
-  await expect
-    .poll(async () => (await toastTexts(page)).join('\n'))
-    .toContain(`L Leg: FK moves the toes by ${(moved * 1000).toFixed(1)} mm (foot roll)`);
+  const toesWarning = 'L Leg: FK moves the toes by';
+  if (moved > 1e-4) {
+    await expect
+      .poll(async () => (await toastTexts(page)).join('\n'))
+      .toContain(`${toesWarning} ${(moved * 1000).toFixed(1)} mm (foot roll)`);
+  } else {
+    expect((await toastTexts(page)).join('\n')).not.toContain(toesWarning);
+  }
 });
