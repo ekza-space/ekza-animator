@@ -541,8 +541,8 @@ describe('loop clips: cycle-aware engine (§5.23)', () => {
   });
 });
 
-describe('contract stubs (§3 rule 1)', () => {
-  it('throw EkzaError("not-implemented") naming the symbol', () => {
+describe('former contract stubs (§3 rule 1)', () => {
+  it('are implemented at integration: none throws EkzaError("not-implemented")', () => {
     const app = waveApp();
     const code = (fn: () => unknown): string | null => {
       try {
@@ -553,12 +553,13 @@ describe('contract stubs (§3 rule 1)', () => {
       }
     };
     edit(app, 'Stubs', (tx) => {
-      // A4 landed scaleKeyValues and tweenEdits (m2a-a4-edit.test.ts); A3's stubs remain.
+      // A4 landed scaleKeyValues and tweenEdits (m2a-a4-edit.test.ts); A3 copyKeys and insertTime (m2a-timing.test.ts).
       expect(code(() => scaleKeyValues(app, tx, [], 0, 1))).toBeNull();
-      expect(code(() => copyKeys(app, tx, [] as KeyId[], 1, { snap: true, resolveCollisions: true }))).toBe(
-        'not-implemented:editor-core.copyKeys',
-      );
-      expect(code(() => insertTime(app, tx, [], 0, 1))).toBe('not-implemented:editor-core.insertTime');
+      expect(copyKeys(app, tx, [] as KeyId[], 1, { snap: true, resolveCollisions: true })).toEqual({
+        created: [],
+        deleted: [],
+      });
+      expect(insertTime(app, tx, [], 0, 1)).toEqual({ moved: 0, deleted: [] });
     });
     expect(code(() => tweenEdits(app, 'tween', 0, { kind: 'keys', keys: [] }))).toBeNull();
   });

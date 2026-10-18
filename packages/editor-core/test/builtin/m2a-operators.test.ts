@@ -1,4 +1,5 @@
-// M2A-SPEC §3 rule 1–2, §4.9, §6, §7 (A0): every new operator resolves and poll-fails cleanly, the keymap carries
+// M2A-SPEC §3 rule 1–2, §4.9, §6, §7 (A0, updated at integration): every new operator resolves and none is a stub
+// any more, the keymap carries
 // every §6 row, the menus the §7 items, `view.tool` accepts the Dope Sheet and the Graph scale tool, and the key
 // panels of select/edit include the Dope Sheet.
 import { describe, expect, it } from 'vitest';
@@ -9,36 +10,50 @@ import type { Chord, KeyBinding } from '../../src/types';
 import { opsApp, runOk, runResult, WAVE } from './support';
 
 /**
- * Every M2a operator the built-ins register as a stub, with arguments that would be valid once implemented. Rows leave
- * this list when their owner lands them (A4: `key.tween`, `key.convert`, `pose.mirrorAnimation` and `graph.buffer.*`,
- * m2a-a4-operators.test.ts; A2: the rig IK operators, select.pickWalk and key.setTarget, m2a-a2-*.test.ts).
+ * Every M2a operator of §4.9 with arguments that are valid now that its owner landed it (A2: the rig IK operators,
+ * select.pickWalk and key.setTarget, m2a-a2-*.test.ts; A3: ripple, insert/delete time and copyTo,
+ * m2a-timing-operators.test.ts; A4: tween, convert, mirror animation and the buffer, m2a-a4-operators.test.ts; A5:
+ * recovery and autosave, test/kernel/autosave.test.ts). At integration no stub is left (§3 rule 4: the gates turn
+ * into failures): none of them may poll-fail with "not available yet".
  */
-const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
+const M2A_OPERATOR_RUNS: readonly (readonly [string, unknown])[] = [
+  ['rig.addLimbIk', undefined],
+  ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
+  ['rig.ikFk.match', { limb: 'arm.R', side: 'ik' }],
+  ['rig.ikFk.matchRange', { limb: 'leg.R', side: 'fk' }],
+  ['rig.setFootParams', { limb: 'leg.L', params: { heelBack: 0.05 } }],
+  ['select.pickWalk', { direction: 'up' }],
+  ['key.setTarget', { target: 'bodyPart' }],
   ['key.toggleRipple', undefined],
+  ['key.tween', { mode: 'tween', amount: 50 }],
+  ['key.convert', { to: 'breakdown' }],
+  ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
   ['time.insertTime', { at: 10, frames: 1 }],
   ['time.insertTime', { frames: -1 }],
   ['time.deleteTime', undefined],
   ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
   ['graph.keys.copyTo', { dFrames: 4 }],
-  // graph.buffer.*: implemented by A4.
-  // file.recover, file.discardRecovery and file.autosaveNow: implemented by A5 (test/kernel/autosave.test.ts).
+  ['graph.buffer.snapshot', undefined],
+  ['graph.buffer.swap', undefined],
+  ['graph.buffer.clear', undefined],
+  ['file.recover', { slot: 'as_0000000000000000' }],
+  ['file.discardRecovery', { slot: 'as_0000000000000000' }],
+  ['file.autosaveNow', undefined],
 ];
 
-describe('M2a operator stubs (§3 rule 1)', () => {
-  it('resolve and poll-fail with "not available yet"', async () => {
+describe('M2a operators after integration (§3 rules 1 and 4)', () => {
+  it('resolve, and none poll-fails with "not available yet"', () => {
     const app = opsApp();
-    for (const [id, args] of M2A_STUB_RUNS) {
+    for (const [id, args] of M2A_OPERATOR_RUNS) {
       expect([id, app.operators.get(id) !== undefined]).toEqual([id, true]);
-      expect([id, app.operators.poll(id, {}, args)]).toEqual([id, { ok: false, reason: NOT_AVAILABLE_YET }]);
-      const result = await runResult(app, id, args);
-      expect([id, result]).toEqual([id, { status: 'cancelled', reason: NOT_AVAILABLE_YET }]);
+      const poll = app.operators.poll(id, {}, args);
+      expect([id, poll.ok === false ? poll.reason : 'ok']).not.toEqual([id, NOT_AVAILABLE_YET]);
     }
-    expect(app.history.canUndo()).toBe(false);
   });
 
   it('are listed with the other built-ins', () => {
     const ids = new Set<string>(BUILTIN_OPERATORS.map((def) => def.id));
-    for (const [id] of M2A_STUB_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
+    for (const [id] of M2A_OPERATOR_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
   it('key.set keys body-part targets and breakdown keys (A2 landed them; details in m2a-a2-keying.test.ts)', async () => {

@@ -19,11 +19,21 @@ export {
   insertKeyOnCurve,
   insertTime,
   moveKeys,
+  rippleMoveShift,
   scaleKeys,
   setKeyHandle,
   setTangentTypes,
   writeKeyAt,
 } from './edit/keys';
+// M2a (A3): the ripple scope of an edit (M2A-SPEC §5.11)
+export {
+  type RippleControlsProvider,
+  type RippleScope,
+  registerRippleControls,
+  rippleControls,
+  rippleCurves,
+  rippleScopeOf,
+} from './edit/ripple';
 export { formatChannelValue, fromDisplayValue, parseNumericInput, toDisplayValue } from './edit/numeric';
 export {
   beginTweenGesture,

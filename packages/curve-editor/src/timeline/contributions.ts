@@ -117,7 +117,45 @@ export const TIMELINE_MENU_ITEMS: readonly MenuItemDef[] = [
     order: 10,
     label: 'Select Band Keys in Graph Editor',
   },
+  // M2a (M2A-SPEC §5.9, §7): Ripple ✓, Insert Frame, Remove Frame, Delete Time.
+  {
+    id: 'timeline.context.ripple',
+    menu: TIMELINE_CONTEXT_MENU,
+    op: 'key.toggleRipple',
+    group: 'time',
+    order: 10,
+    label: 'Ripple Edit',
+  },
+  {
+    id: 'timeline.context.insert-frame',
+    menu: TIMELINE_CONTEXT_MENU,
+    op: 'time.insertTime',
+    args: { frames: 1 },
+    group: 'time',
+    order: 20,
+    label: 'Insert Frame',
+  },
+  {
+    id: 'timeline.context.remove-frame',
+    menu: TIMELINE_CONTEXT_MENU,
+    op: 'time.insertTime',
+    args: { frames: -1 },
+    group: 'time',
+    order: 30,
+    label: 'Remove Frame',
+  },
+  {
+    id: 'timeline.context.delete-time',
+    menu: TIMELINE_CONTEXT_MENU,
+    op: 'time.deleteTime',
+    group: 'time',
+    order: 40,
+    label: 'Delete Time',
+  },
 ];
+
+/** Menu items whose operator toggles a session flag: the menu shows them checked while it is on. */
+export const TIMELINE_CHECKED_OPS: ReadonlySet<string> = new Set(['key.toggleRipple']);
 
 /** Registers `time.selectBand` and the slider's menu items; the disposer removes them again. */
 export function registerContributions(app: EditorApp, focused: FocusedSlider): Disposer {

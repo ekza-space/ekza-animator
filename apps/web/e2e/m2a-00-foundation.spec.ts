@@ -6,7 +6,7 @@ import { call, expectKernelStarted, openEditor, run, runOk, waitForTestApi } fro
 // Dope Sheet tab (and the v1 → v2 migration of a stored M1 layout), the schema rule on save, loop-clip curves (§5.23)
 // and the `ns` / `storage=blocked` URL switches. No E2E-M2A scenario belongs to A0; this file guards its foundation.
 
-test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', async ({ page }) => {
+test('the M2a test API answers on an M1 rig; the M2a operators refuse cleanly without keys', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   // An M1 rig: the import rigs FK limbs only (with A1 the default rig gives the legs IK, §5.7, M2A-D1).
@@ -34,17 +34,18 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
   expect(await call(page, 'screenOfTween', 'status', 0)).not.toBeNull();
 
-  // A2's operators (rig IK, pick-walk, key target) left this list when they landed (m2a-18, m2a-19, m2a-25).
-  for (const [op, args] of [
-    ['key.toggleRipple', undefined],
-    ['time.insertTime', { at: 0, frames: 1 }],
-    ['time.deleteTime', undefined],
-    ['graph.keys.copyTo', { dFrames: 1 }],
-    // graph.buffer.snapshot: implemented by A4 (E2E-M2A-16).
-    // file.autosaveNow: implemented by A5 (E2E-M2A-20, m2a-20-autosave-recovery.spec.ts).
-  ] as const) {
-    expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
-  }
+  // Every M2a operator landed (A2: m2a-18, m2a-19, m2a-25; A4: m2a-13…17; A5: m2a-20; A3: m2a-08…12), so no stub is
+  // left to poll-fail. A3's operators refuse with their own reasons on a rig without keys.
+  expect(await run(page, 'time.insertTime', { at: 0, frames: 1 })).toEqual({
+    status: 'cancelled',
+    reason: 'No animated controls',
+  });
+  expect(await run(page, 'time.deleteTime')).toEqual({ status: 'cancelled', reason: 'No animated controls' });
+  expect(await run(page, 'graph.keys.copyTo', { dFrames: 1 })).toEqual({
+    status: 'cancelled',
+    reason: 'No keys are selected',
+  });
+  expect(await run(page, 'key.toggleRipple', { ripple: false })).toMatchObject({ status: 'finished' });
   // The mounted Graph Editor registers its tools; A4 landed the M2a Scale tool (literal update, M2A-SPEC §3 rule 8).
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await expect
@@ -72,7 +73,7 @@ test('the Dope Sheet is a tab beside the Graph Editor (layout v2); a hidden tab�
   await expect.poll(async () => (await call(page, 'graph'))?.canvasRect.w ?? 0).toBeGreaterThan(0);
   await expect.poll(() => call(page, 'screenOfKey', key15)).not.toBeNull();
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
-  await expect(page.getByTestId('ds-placeholder')).toBeVisible();
+  await expect(page.getByTestId('ds-canvas')).toBeVisible(); // A3's panel replaced the A0 placeholder
   await expect(page.getByTestId('panel-graph')).toBeHidden();
   // §4.8: the Graph Editor is an inactive dock tab, so its probe reads answer null.
   expect(await call(page, 'graph')).toBeNull();
@@ -129,7 +130,7 @@ test('a stored M1 layout migrates to v2 with the Dope Sheet tab; the v1 key is k
   expect(await page.evaluate((key) => localStorage.getItem(key), v1Key)).toBe(v1);
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
-  await expect(page.getByTestId('ds-placeholder')).toBeVisible();
+  await expect(page.getByTestId('ds-canvas')).toBeVisible(); // A3's panel replaced the A0 placeholder
   await page.evaluate((p) => {
     for (const key of Object.keys(localStorage)) if (key.startsWith(p)) localStorage.removeItem(key);
   }, prefix);

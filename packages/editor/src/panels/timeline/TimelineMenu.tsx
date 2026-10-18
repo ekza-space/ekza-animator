@@ -17,6 +17,8 @@ export interface MenuEntry {
   readonly label: string;
   readonly op: string;
   readonly args?: unknown;
+  /** A toggle item (M2a: Ripple Edit) and whether it is on. */
+  readonly checked?: boolean;
 }
 
 export interface TimelineMenuProps {
@@ -160,19 +162,36 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
     onClose();
     void app.runUntyped(item.op, item.args, { panel: PANEL.timeline });
   };
-  const button = (item: MenuEntry): JSX.Element => (
-    <button
-      key={item.id}
-      type="button"
-      role="menuitem"
-      className={itemClass}
-      data-testid={`timeline-menu-${menuAction(item.id)}`}
-      disabled={!enabled(item)}
-      onClick={() => run(item)}
-    >
-      {item.label}
-    </button>
-  );
+  const button = (item: MenuEntry): JSX.Element =>
+    item.checked === undefined ? (
+      <button
+        key={item.id}
+        type="button"
+        role="menuitem"
+        className={itemClass}
+        data-testid={`timeline-menu-${menuAction(item.id)}`}
+        disabled={!enabled(item)}
+        onClick={() => run(item)}
+      >
+        {item.label}
+      </button>
+    ) : (
+      <button
+        key={item.id}
+        type="button"
+        role="menuitemcheckbox"
+        aria-checked={item.checked}
+        className={itemClass}
+        data-testid={`timeline-menu-${menuAction(item.id)}`}
+        disabled={!enabled(item)}
+        onClick={() => run(item)}
+      >
+        {item.label}
+        <span aria-hidden="true" className="text-fg-2">
+          {item.checked ? '✓' : ''}
+        </span>
+      </button>
+    );
 
   return (
     <div
