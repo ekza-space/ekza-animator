@@ -133,7 +133,7 @@ describe.skipIf(!SIBLINGS_READY)(`IK editor operators on the fixtures ${BLOCKED}
         ...frames.flatMap((frame, f) =>
           (['leftLowerLeg', 'leftFoot'] as const).map((bone) => {
             const a = boneWorld(app, san.character, bone, frame).t;
-            const b = (fk[f]?.[LEG.indexOf(bone)] as ReturnType<typeof boneWorld>).t;
+            const b = (fk[f] as ReturnType<typeof boneWorld>[])[LEG.indexOf(bone)]?.t ?? [Number.NaN, 0, 0];
             return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
           }),
         ),

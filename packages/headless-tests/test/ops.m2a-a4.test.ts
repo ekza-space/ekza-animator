@@ -147,10 +147,12 @@ describe.skipIf(!SIBLINGS_READY)(`mirror warnings on Polybot ${BLOCKED}`, { time
       const before = services.toasts.length;
       await runOk(app, operator, args);
       const warnings = services.toasts.slice(before).filter((toast) => toast.kind === 'warning');
-      expect(warnings, operator).toHaveLength(1);
       const text = warnings[0]?.text ?? '';
-      expect(text, operator).toMatch(/^\d+ controls have no mirror counterpart and were left unchanged \(/);
-      expect(text.length, `${operator}: ${text}`).toBeLessThanOrEqual(240);
+      expect([operator, warnings.length]).toEqual([operator, 1]);
+      expect(`${operator}: ${text}`).toMatch(
+        /^[a-zA-Z.]+: \d+ controls have no mirror counterpart and were left unchanged \(/,
+      );
+      expect([operator, text, text.length <= 240]).toEqual([operator, text, true]);
     }
   });
 });

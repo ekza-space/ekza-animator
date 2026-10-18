@@ -319,7 +319,7 @@ export function limbFootRoll(program: RigProgram, limb: LimbDesc): FootRoll | nu
   const internals = internalsOf(program);
   const scratch = allocXfArrays(1);
   xfaInvMul(internals.controlRest, ikSlot, internals.restWorld, toes, scratch, 0);
-  return new FootRoll(foot, scratch.t[1] as number);
+  return new FootRoll(foot, scratch.t[1] ?? null);
 }
 
 /**

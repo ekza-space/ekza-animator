@@ -516,11 +516,13 @@ describe('writers with reduced clips', () => {
             return [glb.bytes, bake.bytes];
           };
           const [plainFiles, reducedFiles] = [await write(plain), await write(reduced)];
-          plainFiles.forEach((file, i) => {
-            const smaller = (reducedFiles[i] as Uint8Array).byteLength;
-            expect(smaller, `${motion} ${target} file ${i}`).toBeLessThanOrEqual(file.byteLength);
-            if (shrinks) expect(smaller, `${motion} ${target} file ${i} shrinks`).toBeLessThan(file.byteLength);
-          });
+          // Never larger; on blocking strictly smaller.
+          const sizes = plainFiles.map((file, i) => ({
+            file: `${motion} ${target} file ${i}`,
+            notLarger: (reducedFiles[i] as Uint8Array).byteLength <= file.byteLength,
+            smaller: (reducedFiles[i] as Uint8Array).byteLength < file.byteLength,
+          }));
+          expect(sizes).toEqual(sizes.map((size) => ({ ...size, notLarger: true, smaller: shrinks || size.smaller })));
           expect(reduced.reduction?.samplesAfter).toBeLessThanOrEqual(reduced.reduction?.samplesBefore ?? 0);
         }
       }
