@@ -790,7 +790,7 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 | `time.setFrame` (changed) | — | A3 | `carry: true` keeps the pose (§5.9). |
 | `time.insertTime` | U | A3 | §5.9; `at` defaults to the current clip frame; never retimes breakdowns; poll-fails instead of deleting keys unless `removeKeys`. |
 | `time.deleteTime` | U | A3 | §5.9; the band's frames (or `range`, else the current frame) and their keys, through the `time.insertTime` kernel; one step. Label `Delete Time`. |
-| `graph.keys.move` / `graph.keys.scale` (changed) | U | A3 | `ripple` (§5.11; default from the focused panel); value scale via `valuePivot`/`valueFactor` (§5.15.3; `valuePivot` in display units, default 0; time and value scale are one step). The arrow-key nudge (§6) is `graph.keys.move {dFrames: ±1, dValue: 0}`. |
+| `graph.keys.move` / `graph.keys.scale` (changed) | U | A3 | `ripple` (§5.11; default from the focused panel); value scale via `valuePivot`/`valueFactor` (§5.15.3; `valuePivot` in display units, default 0; time and value scale are one step). The arrow-key nudge (§6) is `graph.keys.move {dFrames: ±1, dValue: 0}`; from the time slider (panel `timeline`) the band follows the keys by the offset they really got, as after a band drag (fix round 1, M2A-INT-26). |
 | `graph.keys.paste` (changed) | U | A3 | `mode: 'insert'` (§5.10): keys after the paste frame shift to make room. |
 | `graph.keys.copyTo` | U | A3 | `copyKeys` on the selected keys (time-slider Mod+drag commit uses the kernel helper directly). |
 | `graph.buffer.snapshot` / `.swap` / `.clear` | —/U/— | A4 | §5.15.1. |

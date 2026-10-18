@@ -483,8 +483,18 @@ const keysMove = defineOperator({
     const keys = selectedKeyIds(app, t);
     const ripple = rippleOf(ctx, args.ripple);
     const opts: KeyEditOptions = { ...keyEdit(app), ripple };
+    const probe = panelOf(ctx) === PANEL.timeline ? keys.find((key) => t.get('keys', key) !== undefined) : undefined;
+    const before = probe === undefined ? undefined : t.get('keys', probe)?.t;
     const result = moveKeys(app, t, keys, args.dFrames, args.dValue, opts, ripple ? scopeOf(ctx, t, keys) : undefined);
     forgetKeys(app, result.deleted);
+    // A nudge on the time slider (arrows): the band follows the keys by the offset they really got, as after a band
+    // drag (acceptance fix round 1: it stayed behind, so a later band drag or scale targeted an empty range).
+    const after = probe === undefined ? undefined : t.get('keys', probe)?.t;
+    const time = app.session.getState().time;
+    if (time.band !== null && before !== undefined && after !== undefined && after !== before) {
+      const shift = after - before;
+      app.session.setState({ time: { ...time, band: { start: time.band.start + shift, end: time.band.end + shift } } });
+    }
     return { count: result.moved };
   },
 });

@@ -268,6 +268,26 @@ describe('graph.keys.move / graph.keys.scale ripple (§5.11, §6)', () => {
     dispose();
   });
 
+  // Acceptance fix round 1, bug 9: the arrows over the time slider (keymap `graph.keys.move` in the timeline scope)
+  // moved the band's keys, but the band stayed, so a later band drag or scale targeted an empty range.
+  it('a nudge from the time slider moves its band by the offset the keys got; elsewhere the band stays', async () => {
+    const { app, cog } = setup();
+    const setBand = (start: number, end: number) =>
+      app.session.setState({ time: { ...app.session.getState().time, band: { start, end } } });
+    setBand(10, 10);
+    selectKeys(app, [cog.keys[1] as KeyId]);
+    for (let i = 0; i < 2; i++)
+      await app.runUntyped('graph.keys.move', { dFrames: 1, dValue: 0 }, { panel: 'timeline' });
+    expect(times(app, cog.curve)).toEqual([0, 12, 20]);
+    expect(app.session.getState().time.band).toEqual({ start: 12, end: 12 });
+    await app.runUntyped('graph.keys.move', { dFrames: -1, dValue: 0 }, { panel: 'timeline' });
+    expect(app.session.getState().time.band).toEqual({ start: 11, end: 11 });
+    // From the Graph Editor the band is not the edit's region: it stays.
+    await app.runUntyped('graph.keys.move', { dFrames: 1, dValue: 0 }, { panel: 'graph' });
+    expect(times(app, cog.curve)).toEqual([0, 12, 20]);
+    expect(app.session.getState().time.band).toEqual({ start: 11, end: 11 });
+  });
+
   it('the time slider’s band is the region of a ripple scale', async () => {
     const { app, cog, arm } = setup();
     selectControls(app, [WAVE.cog, WAVE.upperArmL]);

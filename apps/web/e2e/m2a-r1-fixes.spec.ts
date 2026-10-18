@@ -3,7 +3,7 @@
 // mirror) have their own Node and headless tests and assertions in E2E-M2A-03, -04, -21, -23 and the walkthrough.
 import { expect, test } from '@playwright/test';
 import { controlIdOf, selectIds } from './helpers/m2a-a2';
-import { showDopeSheet } from './helpers/m2a-timing';
+import { keyTimes, seedArmKeys, shiftClickTick, showDopeSheet, sliderPoint } from './helpers/m2a-timing';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
@@ -49,4 +49,20 @@ test('fix round 1: closing a toast leaves no focus ring over the Dope Sheet', as
     };
   });
   expect(ring).toEqual({ found: true, focusInside: false, outline: 'none' });
+});
+
+test('fix round 1: the arrow nudge on the time slider moves the band with the keys', async ({ page }) => {
+  await openEditor(page, '&platform=mac');
+  await expectKernelStarted(page);
+  const { arm, clip } = await seedArmKeys(page);
+  await shiftClickTick(page, 10);
+  // Over the slider (it has the keyboard focus after the click): two nudges to the right.
+  const over = await sliderPoint(page, 5);
+  await page.mouse.move(over.x, over.y);
+  await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('ArrowRight');
+  await expect.poll(async () => (await keyTimes(page, clip, arm))[arm[0] as string]).toEqual([0, 12, 20]);
+  expect((await call(page, 'state')).history.undoLabel).toBe('Move Keys');
+  // The band followed (it stayed at 10 before the fix, so a later band drag or scale found no keys there).
+  await expect.poll(async () => (await call(page, 'state')).band).toEqual({ start: 12, end: 12 });
 });
