@@ -45,8 +45,9 @@ Same bench, same machine, after the six mechanisms (commits `5763657`, `f684f8d`
 | | median | p95 | verdict |
 |---|---|---|---|
 | Graph Editor drag, 1,000 keys (gate p95 ≤ 4.0 ms) | 3.30 ms | 3.60 ms | **Met** (load 5.9) |
+| same, after the doc second pass (below) | 3.00 ms | 3.50 ms | **Met** (load 6.8; at load 31: 3.50 / 4.30) |
 | doc bench preview update, 1,000 keys (≤ 1.0 ms) | 0.76–0.88 ms (5 runs, load 7–10) | — | **Met** (second pass, below) |
-| Tween slider drag, 60 channels (§5.22, ≤ 4 ms) | 2.90 ms | 3.30 ms | Met (load 10) |
+| Tween slider drag, 60 channels (§5.22, ≤ 4 ms) | 2.90 ms | 3.30 ms | Met (load 10; 2.90 / 3.40 at load 7.5) |
 
 Frame split per move after the mechanisms (profiled): store preview update 0.86 ms (was 1.95), Graph Editor redraw
 0.69 ms (1.03; the bench drags 30 curves, all of them dynamic, so the static layer saves the grid, labels and the
@@ -142,4 +143,20 @@ every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the f
 
 ## Gates
 
-Recorded at the end of the package (see the final section).
+At `dbdab85` on `m2a/graph-posing` (A0 merged; `m2a/contracts-foundation` has nothing newer), 2026-10-18:
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | clean (794 files) |
+| `pnpm run lint` | clean (no diagnostics) |
+| `pnpm run typecheck` | clean |
+| `pnpm run check:deps` | 13 packages follow the rules |
+| `pnpm run test` | 13/13 tasks: anim-core 642, rig 124, doc 185, doc-yjs 69, editor-core 574, viewport 86 (+1 skipped, M1), io 142, curve-editor 153 (+3 skipped, M1), editor 296 (+1 skipped, M1), ui 73, headless-tests 108, tooling 14 |
+| `pnpm run build` | green |
+| `EKZA_E2E_PORT=3144 pnpm run test:e2e` | 70 passed, 4 skipped: E2E-M2A-15 (`test.fixme('A1,A2')`) and the three M1 stretch skips; E2E-M2A-13, 16, 17 green; E2E-08…13 unchanged and green |
+| Bench `m2a-a4.bench.ts` (DPR 2, real Chrome) | M-1 median 3.00 ms, p95 3.50 ms at load 6.8 (gate ≤ 4.0: **Met**); Tween slider 2.90 / 3.40 ms |
+| Doc bench preview update (1,000 keys) | 0.76–0.88 ms (target ≤ 1.0: **Met**) |
+
+The measuring machine was shared with five other agents' builds and e2e runs (load averages up to 66); the bench
+waited for a 1-minute load below 7. Scratch logs of parallel agents share one scratchpad, so the gate logs of this
+package were written to a directory of its own.
