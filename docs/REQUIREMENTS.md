@@ -6,8 +6,9 @@ IDs are stable: a removed requirement is marked *withdrawn*, never renumbered.
 **Priority**: `MVP` (milestone M1 core) · `MVP-S` (M1-stretch: built if time remains, MVP-SPEC §1.2) · `V1`
 (first public release line, M2a–M2c) · `V2` (power features and ecosystem, M3–M5) · `LATER` (research or large
 scope, M6+). The milestone column points to [ROADMAP.md](ROADMAP.md); **✓** marks a requirement of a milestone after
-M1 that has shipped (M2a, integrated 2026-10-18, [M2A-SPEC](M2A-SPEC.md)); M1 items shipped with the alpha, M1-stretch
-items as their rows say.
+M1 that has shipped (M2a, integrated 2026-10-18, [M2A-SPEC](M2A-SPEC.md)), **(partial)** one that shipped without
+meeting its whole acceptance criterion, pending an owner decision; M1 items shipped with the alpha, M1-stretch items as
+their rows say.
 Acceptance criteria are the minimum test; MVP items are also covered by the user stories and e2e scenarios in
 [MVP-SPEC §5–6](MVP-SPEC.md#5-user-stories). Research references: `R01`…`R09` = `research/0N-*.md`.
 
@@ -220,7 +221,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-EXP-09 | Read-back check in the app and glTF-Validator in tests (MVP); validator in an app worker (MVP-S). | MVP | M1 | Errors block the download. |
 | FR-EXP-10 | Integer-frame LINEAR sampling with hemisphere continuity, STEP only for fully stepped tracks, loop closure option and root-motion modes (in-place in canonical space; generic rigs on the topmost driven translating joint). | MVP | M1 | `dot(q_i, q_{i−1}) ≥ 0` for all samples; > 90° steps produce a warning lint. |
 | FR-EXP-11 | Licence gate for baking avatars whose VRM meta forbids modification or redistribution. | MVP | M1 | Export blocked until acknowledged; VRMA always allowed. |
-| FR-EXP-12 | Error-bounded reduction of sampled export tracks. | V1 | M2a ✓ | Every sample within the per-node tolerances (R02 §6.4) and never more samples; hand-keyed linear blocking shrinks ≥ 3× (smooth 30 fps motion keeps its samples at these tolerances: owner item M2A-A5-3 in DECISIONS-OPEN §F). |
+| FR-EXP-12 | Error-bounded reduction of sampled export tracks. | V1 | M2a (partial) | Hand-keyed clips shrink 3–10× within tolerances (R02 §6.4). *M2a (partial):* every sample within the per-node tolerances and never more samples; ≥ 3× only on linear blocking — smooth 30 fps motion keeps (nearly) every sample at these tolerances. Owner item M2A-A5-3 / M2A-INT-3 in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18): accept, or change the tolerances or the criterion. |
 | FR-EXP-13 | BVH and FBX export behind an exporter interface. | V2 | M5 | Blender/Maya round-trip tests. |
 | FR-EXP-14 | CUBICSPLINE "compact" GLB mode. | LATER | M6+ | Exact for non-weighted, non-rotation channels. |
 | FR-EXP-15 | Optional embedded editable curve source in exported GLBs (`extras.ekza_animator_curves_v1`). | V1 | M2c | Re-import restores curves when hashes match. |

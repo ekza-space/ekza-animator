@@ -34,9 +34,10 @@ export test imports with `prefs.autoRigIk` off, M2A-A2-18).
 | e2e `gateOnA1` (`helpers/m2a-a2.ts`, 8 specs) | `expectLimbIk`: an assertion naming A1 |
 | e2e `test.fixme`: E2E-M2A-10b, -14, -15, -22b, -25 | ordinary tests (22b and 25 assert the piece and its owner) |
 | `apps/web/e2e/m2a-00-foundation.spec.ts` stub loop | A3's operators refuse with their own reasons on a rig without keys; no stub is left |
+| `editor-core/src/operators/builtin/graph.ts` `VALUE_SCALE_AVAILABLE` (A3's gate of `graph.keys.scale {valueFactor ≠ 1}`) | **missed at first, removed in fix round 1** (M2A-INT-17): the operator scales values through A4's `scaleKeyValues` in the time scale's step; the gated unit test became real cases; the "no stub" test runs `graph.keys.move`/`scale` with their M2a arguments and fails on any "not available yet" wording |
 
-The only `test.fixme` tests left are the stretch items of `apps/web/e2e/stretch.spec.ts` (MVP-SPEC §1.2 and
-M2A-SPEC §1.2), as at M1.
+The only `test.fixme` tests left are the stretch items of `apps/web/e2e/stretch.spec.ts`: the three M1-stretch
+entries (MVP-SPEC §1.2) and, since fix round 1, the six M2a-stretch items of M2A-SPEC §1.2 (M2A-INT-18).
 
 ## Interpretations and decisions
 
@@ -58,8 +59,15 @@ Cuts for M2b, by size: the IK operator and workflow bodies behind `prepare` like
 | M2A-INT-12 | **Cyclic curves that already had keys and the switch (A2 open issue 4)**: left as §5.23's keying rule (an `@ikFk` curve keyed once at 0 on a loop clip cycles over its key range after a switch at 10). Owner item: make `@ikFk` curves never cycle, or cycle over the clip range. | Changing it is a §5.23 contract change; no scenario depends on it. |
 | M2A-INT-13 | **Dope Sheet drag of 1,000 keys: Miss (§5.22, report only), recorded as M-4.** On 213 curves (Seed-san, e2e bench) a drag frame costs median 21.2 ms, p95 26.1 ms (unit bench, 450 curves: 19.0 ms = store preview 4.6 + compiling the moved curves 10.9 + the Dope Sheet's own redraw 3.4 ms). The Graph Editor's M-1 gate drags 1,000 keys on 30 curves (2.5 / 3.1–3.4 ms); spread over 200+ curves the per-curve recompile and re-evaluation dominate. Owner: the shared M-1 path (store, curve cache, evaluation), next step for M2b: recompile only the moved span of a curve and defer pose re-evaluation of curves outside the current frame's segment. | §5.22 rows are recorded, not gated (§10.2). |
 | M2A-INT-14 | **README GIFs** are recorded from the e2e build by `apps/web/scripts/record-readme-media.mjs` (test-API setup, real pointer input for the action, ffmpeg palette GIFs, 800 px, 12 fps) into `docs/media/`: the IK walk (E2E-M2A-23's clip played), a Dope Sheet ripple retime and the status-line Tween bar, all on Polybot (CC0). Not part of any gate. | §8 Integration "GIFs … recorded from the e2e build". |
+| M2A-INT-15 | **The owner demo script ran once, scripted, in sequence** (fix round 1): `apps/web/e2e/m2a-demo-walkthrough.spec.ts`, one page, Polybot, real Chrome; kept in the suite (≈ 11 s in Chrome, 33 s in SwiftShader). Results and readings below. | The verifier: the script had only been mapped to scenarios, never played in sequence. |
+| M2A-INT-16 | **Frozen tangent handles are never −0** (`anim-core/src/curve/resolve.ts`; A4's weighted handle reader in `mirrorAnimation.ts`). The walkthrough's recovery step failed: the half-cycle mirror freezes the seam keys' resolved handles as `fixed`, a flat computed side resolved to `slope 0 × (−dt)` = −0, and recovery (JSON) returned +0, so the recovered document differed from the autosaved one by the sign of zero (`toEqual` tells them apart; the values are equal). Computed sides now write `0 + x`. anim-core's `tangents.test.ts` pinned the old −0 of a flat end key and now pins +0; a property over every tangent type and an integration test of the mirrored keys' JSON round trip were added (both fail without the fix). | Same rule as M2A-INT-5 (no −0 in documents); found by M2A-INT-15. |
+| M2A-INT-17 | **A4-12's hand-offs resolved** (fix round 1): (a) the value scale of `graph.keys.scale` (above); (b) the Dope Sheet's Tween bar mount — A3 had done it (`DopeSheetView.tsx`); (c) **unit-aware Graph Editor key fields**: `panels/graph/model.ts` `selectedKeys` (the display scale, once per curve), `graph.keys.setFields`' absolute value and tangent angle/weight fields, and `setKeyHandle`'s metrics take `channelUnit` (§5.1 rule 5). Before: an `@roll` key at 20° read 0.349 in `ge-field-value` (20.000 in the Channel Box) and typing 30 wrote 0.8666 rad = 49.65°; the tangent angles of `@angle` curves disagreed with the drawn slopes. Tests: `editor-core/test/builtin/m2a-angle-units.test.ts` (every field edit on `@roll` equals the same edit on `rz`; a plain attribute keeps its units) and `editor/test/panels/m2a-graph-angle-units.test.tsx` (browser: 20.000 in both panels, typing 30 writes 30° within 1e-9, the in/out angle fields match the slopes measured on the canvas); (d) the time slider's per-batch tick set: value-only batches and breakdown flags are handled (M2A-A4-16, M2A-INT-6); batches that move keys in time still rebuild it, which belongs to M-4 (M2b). | Verifier problems 1 and 2. |
+| M2A-INT-18 | **M2a-stretch declared**: six `test.fixme` entries in `apps/web/e2e/stretch.spec.ts`, each with an `M2a-stretch` annotation naming the item, the M2a-core fallback and an acceptance line; an ordinary test checks the fallbacks the test API reaches (`prefs.set {ikFkVisibility: 'ghost'}` is refused "not available yet"; Simplify runs). The mesh-pick fallback of §1.2 had not been built: `viewport/src/tools/selectTool.ts` now says "IK limb: pick the IK control" when the selected control came from a mesh hit on an FK control of a limb in IK (`ikFk > 0.5`) — as an info toast, since viewport tools reach the notifier and not the shell's help line (§1.2 amended; `viewport/test/m2a-mesh-pick-hint.test.ts`). §1.2's stepped-tangent key is `6` (the spec said `Digit5`). | §10.2 DoD; verifier problem 3. |
 
 ## Open items not changed here (owners named)
+
+- FR-EXP-12's criterion "hand-keyed clips shrink 3–10×" is kept in REQUIREMENTS and the row marked partial
+  (≥ 3× only on linear blocking) until the owner decides M2A-A5-3/INT-3; fix round 1 reverted the rewording.
 
 - A2 open issue 5 (A1's counted allocation test failed once under parallel load): not reproduced in the full runs here.
 - A5's M2A-A5-10 (lazy chunks offline): owner decision, unchanged.
@@ -92,26 +100,35 @@ Both pass in real Chrome (3 × 2 repeats) and in `chromium-swiftshader`.
 
 ## Owner demo script (M2A-SPEC §10.3)
 
-The script is the owner's to run; every step is exercised by an e2e scenario on this branch, so it should play as
-written:
+Played once by the integration (fix round 1, M2A-INT-15) in sequence on one page, Polybot, real Chrome (also
+SwiftShader), as `apps/web/e2e/m2a-demo-walkthrough.spec.ts`. Each step uses the input a user would; the check after
+it is what the step should show. The owner's own run stays open for the release.
 
-| Step | Covered by |
-|---|---|
-| 1. Polybot: IK feet and knee poles, FK leg circles hidden | E2E-M2A-01 (`limbs()`, `controls()` visibility) |
-| 2. Lower `cog` with `W`, feet stay; drag the IK foot; move the pole; roll 20° and −15° | E2E-M2A-01, -02, -04 |
-| 3. Seamless FK switch at 10 and back; arm to IK, lower `cog`, the hand stays | E2E-M2A-03, -05 |
-| 4. Block a 24-frame walk with IK feet and `cog`; mirror half a cycle; play | E2E-M2A-23 (and the walk GIF) |
-| 5. Dope Sheet retime with ripple, undo, region-bar scale | E2E-M2A-10, -11 (and the Dope Sheet GIF) |
-| 6. Tween a breakdown with the slider; `Alt+S`, move a neighbour, the breakdown keeps its ratio | E2E-M2A-13, -14, -23 (and the tween GIF) |
-| 7. Buffer snapshot/edit/swap; normalized and stacked views; `R` scale | E2E-M2A-16, -17 |
-| 8. MMB carry and `S`; Shift-drag a band, Mod-drag to copy | E2E-M2A-09, -08 |
-| 9. Pick-walk; key a hand by body part; MMB scrub in the Channel Box | E2E-M2A-18, -19 |
-| 10. Export VRMA with reduction (size shown); reload with unsaved work and recover | E2E-M2A-21, -23, -20 |
+| Step | Input | Result |
+|---|---|---|
+| 1. Polybot: IK feet and knee poles, FK leg circles hidden | sample load | legs IK (ikFk 1), arms FK; `ik.leg.L`, `pole.leg.L` visible, `fk.upperLeg.L` hidden — **pass** |
+| 2. Lower `cog` with `W`, feet stay; drag the IK foot; move the pole; roll 20° and −15° | Outliner pick, `W`, ty arrow drag; viewport pick of the IK foot, ty drag; viewport pick of the pole, tx drag; Outliner pick, `cb-field-@roll` 20, `S`, −15 | hips down, left foot unchanged (1e-6); foot up; knee moves, foot unchanged (1e-6); roll 20° then −15° (1e-9); **the Graph Editor shows the keyed roll as 20.000 like the Channel Box** — pass (after the M2A-INT-17 fix) |
+| 3. Seamless FK switch at 10 and back; arm to IK, lower `cog`, the hand stays | Attributes › Limb (key mode seamless) at 10, back to IK at 15; `fk.hand.L` selected, IK segment; `cb-field-ty` `-=0.02` on `cog` | leg chain at 9, 10 and 15 unchanged (1e-6); hand unchanged after the switch and after lowering `cog` (1e-6) — **pass** |
+| 4. Block a 24-frame walk with IK feet and `cog`; mirror half a cycle; play | new clip (loop 0…24); E2E-M2A-23's keys by Channel Box and `S`, band + `4`; Pose › Mirror Animation › Left → Right (half); `timeline-play` twice | right foot = half-cycle mirror (1e-9); left foot planted 0…12 (1e-6); playback renders and stops — **pass** |
+| 5. Dope Sheet retime with ripple, undo, region-bar scale | Outliner multi-select, `ds-ripple`, summary glyph 6 → 7; `Mod+Z`; glyphs 0 and 6, region end 6 → 8 | later keys +1, undo exact; later keys +2, one `Scale Keys` step — **pass** (both undone to keep the loop) |
+| 6. Tween a breakdown at 3; `Alt+S`; move a neighbour, the breakdown keeps its ratio | empty Dope Sheet click, frame 3, status Tween bar 0 → 50; frame 9, `Alt+S`; `cog` row glyph 12 → 14 | "Pose @ f3", a breakdown at 3; the breakdown at 9 lands at 10 — **pass** (move undone) |
+| 7. Buffer snapshot/edit/swap; normalized and stacked views; `R` scale | `cog/ty` channel row, `ge-buffer-snapshot`, `ge-field-value` −0.08, `ge-buffer-swap`; the three view buttons; double-click the curve, `R`, top edge down by half | swap restores the keys; views leave the document deep-equal; values ×0.5 about the bottom, undo exact — **pass** |
+| 8. MMB carry and `S`; Shift-drag a band, Mod-drag to copy | MMB drag 12 → 15 on the slider, `S`; Shift+click tick 15, `Meta`-drag to 21 | key at 15 = pose at 12 (1e-9); `Copy Keys`, key at 21 = key at 15 — **pass** |
+| 9. Pick-walk; key a hand by body part; MMB scrub in the Channel Box | arrows over the viewport; `status-keytarget-bodyPart`, `S`; MMB drag on `cb-name-rz` (`pointerLock=off`) | ↑/↓ walk; the arm keyed at 8, `cog` not; +20° in one `Drag Rotate Z` step — **pass** |
+| 10. Export VRMA with reduction (size shown); reload with unsaved work and recover | Export dialog (VRMA, reduce on); `flushAutosave`, reload, Recover | "N → M samples" in the dialog and the toast; the recovered document equals the autosaved one (counts, every curve of the walk), unsaved — **failed on the first run** (−0 handles, M2A-INT-16), **pass** after the fix |
+
+Readings of the script's wording: step 2 picks the IK foot in the Outliner after moving the pole (in the viewport the
+selected pole's move manipulator wins the click, MVP-SPEC §4.11.16); step 3's frame for the switch back (15) and the
+2 cm `cog` drop are the walkthrough's choices (the script names neither); steps 5 and 6 undo their retimes so the loop
+stays 24 frames; step 10's "size" is the sample count the dialog and the toast show (§5.16).
 
 ## Budgets (re-measured on the merged branch)
 
 2026-10-18, Apple M4 Pro, real Chrome 155 with the GPU, the e2e build at DPR 2 (`pnpm --filter web bench:budgets`
 and the package benches), load average 5.8–10.8 from the host (a VM and other services; no other agent build ran).
+Re-run after fix round 1 under load 15–30 (the [Gates](#gates) table): every verdict unchanged — M-1 cold p95 3.4 ms,
+warm 2.5 ms; M-2 843,565 B (+295 B: the unit-aware fields and the mesh-pick hint); M-3 mean 0.152 ms; M-4 21.2 /
+26.5 ms.
 
 | Scenario | Budget | Measured | Verdict |
 |---|---|---|---|
@@ -136,15 +153,19 @@ and the package benches), load average 5.8–10.8 from the host (a VM and other 
 
 ## Gates
 
-Final run on the branch head after the last code change (`b5856ea`), 2026-10-18, load average 6–10:
+Fix round 1, final run on the branch head after the last code change (`b68f05d`), 2026-10-18, load average 15–30
+(other agents' builds on the host):
 
 | Gate | Result |
 |---|---|
 | `pnpm run format:check`, `lint` (oxlint --type-aware), `typecheck` (tsc -b) | clean |
 | `check:deps`, `check:fixtures`, `check:licenses` | 13 packages follow the rules; 4 fixtures match; 173 production packages allowed |
-| `turbo run test test:tooling --force` (uncached) | 13/13 tasks: anim-core 648, doc 189, doc-yjs 69, rig 202, io 163, editor-core 733, viewport 98 (+1 skipped, M1), curve-editor 207 (+3 skipped, M1), editor 348 (+1 skipped, M1), ui 73, headless-tests 164, web 9, tooling 14 |
-| `pnpm run build`, `pnpm --filter web check:size` | green; 843,270 B first visit (gate 900,000 B, target 850,000 B met) |
-| `EKZA_E2E_PORT=3146 pnpm run test:e2e` (real Chrome) | 98 passed, 3 skipped (the M1-stretch `test.fixme`) |
-| the same suite with `--project=chromium-swiftshader` (CI's) | 98 passed, 3 skipped |
-| E2E-M2A-23/24, -14 and E2E-27 repeated (5 × each, 7 workers) | 20 / 20 |
-| `pnpm --filter web bench:budgets` and the A3/A4/package benches | see Budgets |
+| `turbo run test test:tooling --force` (uncached) | 13/13 tasks: anim-core 649, doc 189, doc-yjs 69, rig 202, io 163, editor-core 744, viewport 100 (+1 skipped, M1), curve-editor 207 (+3 skipped, M1), editor 349 (+1 skipped, M1), ui 73, headless-tests 164, web 9, tooling |
+| `pnpm run build`, `pnpm --filter web check:size` | green; 843,565 B first visit (gate 900,000 B, target 850,000 B met) |
+| `EKZA_E2E_PORT=3146 pnpm run test:e2e` (real Chrome) | 100 passed, 9 skipped (the 3 M1-stretch and 6 M2a-stretch `test.fixme`) |
+| the same suite with `--project=chromium-swiftshader` (both projects) | 200 passed, 18 skipped |
+| E2E-M2A-23/24, -14 and the walkthrough, `--repeat-each=3` (Chrome) | 12 / 12 |
+| `pnpm --filter web bench:budgets` (14 benches) | idle 0/0; open Seed-san 134.6 ms; scrub 40/40; playback p95 2.5 ms; Graph Editor drag 1,000 keys p95 3.1 ms, undo/redo 2.1/1.8 ms; **M-1** cold p95 3.4 ms, warm p95 2.5 ms (met); key step undo/redo 0.4/0.4 ms; pose evaluation 0.037 ms; VRMA bake 16.1 ms; autosave 11.4 ms; route JS 845.0 kB on the e2e build (= `check:size` of that build); Dope Sheet redraw p95 3.9 ms; Dope Sheet drag 21.2 / 26.5 ms (M-4 miss, unchanged); tween bar p95 3.2 ms |
+| anim-core `vitest bench` (**M-3**) | 2,200 curves at one frame: mean 0.152 ms, p75 0.159 ms (met) |
+
+The first run (`b5856ea`, before fix round 1) is recorded in the git history of this file.

@@ -13,7 +13,7 @@ Status: v0.5 (2026-10-18, M1 integrated and accepted on `dev`, the `v0.1.0` tag 
 | D | Research + architecture + MVP spec + design review | **Done** | 2026-10-17 | 2026-10-17 | `docs/research`, `ARCHITECTURE.md`, ADRs 0001–0013, `MVP-SPEC.md` v0.2 |
 | M0 | Scaffold, contracts, stubs, math, toolchain, test kit | **Done** (on `dev`) | 2026-10-17 | 2026-10-17 | WP-0a + WP-0b; local gates green, CI runs on the first push |
 | M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
-| M2a | Game-clip daily driver | **Done** (integrated on `m2a/integration`, to merge into `dev`); tag `v0.2.x` pending | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration ([status](#m2a-work-package-status)); E2E-00…27 and E2E-M2A-01…25 green in Chrome and SwiftShader, the acceptance walk and attack authored without Plant Feet; M-1, M-2, M-3 [met](#m2a-budgets-integrated); one new report-only miss (M-4, Dope Sheet drag); owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
+| M2a | Game-clip daily driver | **Done** (integrated on `m2a/integration`, to merge into `dev`); tag `v0.2.x` pending | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met](#m2a-budgets-integrated); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
 | M2c | Breadth and polish → V1 release | Planned | — | — | |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
@@ -56,7 +56,7 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 | A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Done (merged; E2E-M2A-10b and -14 run ungated) | FR-DS-01..02, FR-TIME-10; [notes](wp-notes/m2a-dopesheet-timing.md) |
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (merged; M-1 met on the merged build, p95 3.1–3.4 ms; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (merged; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
-| INT | `integration` | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS | Integration | 3 | Done (branch `m2a/integration`) | [notes](wp-notes/m2a-integration.md); gates turned into failures, M2A-INT-1…14 |
+| INT | `integration` | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS, owner demo script | Integration | 3 | Done (branch `m2a/integration`, fix round 1 included) | [notes](wp-notes/m2a-integration.md); gates turned into failures, M2A-INT-1…14; fix round 1 M2A-INT-15…18 (value scale, unit-aware Graph Editor fields, M2a-stretch fixmes and the mesh-pick hint, the demo walkthrough and the −0 handles it found) |
 
 ---
 
@@ -148,7 +148,9 @@ Measured 2026-10-18 on the integrated branch `m2a/integration` (all six packages
 bench:budgets` on the e2e build (real Chrome 155 with the GPU, 1440×900 at DPR 2), the A3/A4 benches and the package
 benches, on the same Apple M4 Pro at load average 5.8–10.8 (the host's own services; no other agent build ran).
 Method and raw numbers in [wp-notes/m2a-integration.md](wp-notes/m2a-integration.md). Report only, except the CI size
-gate (`check:size`, 900,000 B) and the idle check (E2E-00).
+gate (`check:size`, 900,000 B) and the idle check (E2E-00). Re-run after the integration's fix round 1 (load 15–30):
+every verdict unchanged — M-1 cold p95 3.4 ms, warm 2.5 ms; M-2 843,565 B; M-3 mean 0.152 ms, p75 0.159 ms; M-4 21.2 /
+26.5 ms.
 
 | Scenario | Budget | Measured | Verdict |
 |---|---|---|---|
@@ -228,13 +230,19 @@ misses M-1, M-2 and M-3 (M2A-SPEC §5.21).
 (E2E-M2A-23, -24); M-1, M-2 and M-3 met; public README with GIFs; `v0.2.x`.
 
 **Status (2026-10-18)**: integrated on `m2a/integration` (A0, A4, A5, A1, A2, A3 in the M2A-SPEC §10.1 order, then
-the integration): every `READY`/`test.fixme` gate is a failure; E2E-00…27, E2E-M2A-01…25 and the M1 acceptance-round
-specs pass in real Chrome and in the `chromium-swiftshader` CI project (the stretch items stay `test.fixme`); the
-acceptance clips are authored with real input and leg IK, and their undo history holds no Plant Feet; M-1, M-2 and
-M-3 are met ([budgets](#m2a-budgets-integrated)); README carries the M2a scope, its known gaps and three GIFs. The
-contract PRs of A1…A5 are ratified in M2A-SPEC v0.3; deviations, integration decisions and the owner review items
-are in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18). Open for the release: merge into
-`dev`, the owner's review of §F and the owner demo script (M2A-SPEC §10.3); the `v0.2.0` tag is the owner's call.
+the integration and its fix round 1): every `READY`/`test.fixme` gate and package gate is a failure (the last one,
+`graph.keys.scale`'s value scale, was turned on in fix round 1); E2E-00…27, E2E-M2A-01…25, the owner demo script as a
+scripted walkthrough and the M1 acceptance-round specs pass in real Chrome and in the `chromium-swiftshader` CI project
+(the three M1-stretch and six M2a-stretch items stay `test.fixme`, each with its fallback); the acceptance clips are
+authored with real input and leg IK, and their undo history holds no Plant Feet; M-1, M-2 and M-3 are met
+([budgets](#m2a-budgets-integrated)); FR-EXP-12 is partial (≥ 3× only on linear blocking, owner item); README carries
+the M2a scope, its known gaps and three GIFs. The contract PRs of A1…A5 are ratified in M2A-SPEC v0.3; deviations,
+integration decisions and the owner review items are in
+[DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18). Open for the release: merge into `dev`, the
+owner's review of §F and the owner's own run of the demo script (M2A-SPEC §10.3); the `v0.2.0` tag is the owner's
+call. **M2a-stretch, not built** (M2A-SPEC §1.2, `test.fixme` in `e2e/stretch.spec.ts`; fallbacks built): ghost IK/FK
+display, Dope Sheet "show all keyable channels", mesh pick → IK control, key hold and stepped preview, ankle/wrist
+motion trails, `rig.ikFk.matchRange` with an automatic Simplify.
 
 **Depends on**: M1. Leg IK uses the M1 solver and the existing solver slot; the records and tables are unchanged, but
 `SCHEMA_VERSION` becomes 2 so that M1 apps open projects with enabled IK read-only (M2A-SPEC §5.7).

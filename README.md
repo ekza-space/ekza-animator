@@ -12,8 +12,9 @@ preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem;
 > legs in a split view, keying, the time slider, the Dope Sheet, the Graph Editor with tweens and buffer curves,
 > exports (bake into the model, VRMA, animation-only GLB, with optional key reduction), `.ekzanim` projects and
 > autosave. The end-to-end scenarios E2E-00…27 and E2E-M2A-01…25 — including the two acceptance clips, a walk cycle
-> and an attack authored with leg IK and without Plant Feet — pass in Chrome and in the SwiftShader CI project, and
-> the budgets are re-measured (the three M1 misses are fixed). Releases are tagged by the owner (`v0.1.0`, then
+> and an attack authored with leg IK and without Plant Feet — and the owner demo script, played as one scripted
+> walkthrough, pass in Chrome and in the SwiftShader CI project, and the budgets are re-measured (the three M1 misses
+> are fixed). Releases are tagged by the owner (`v0.1.0`, then
 > `v0.2.x`) after the review of [docs/DECISIONS-OPEN.md](docs/DECISIONS-OPEN.md). Live status:
 > [docs/ROADMAP.md](docs/ROADMAP.md).
 
@@ -48,7 +49,12 @@ Known gaps, said plainly:
 - **An imported limb whose knee or elbow is not a clean hinge stays FK for that clip**, and the import says so.
 
 Also not in M2a: animation layers, facial expressions in VRMA, FBX/BVH/Mixamo import (M2b), and importing an
-animation-only GLB onto a character (VRMA clips import). Chrome and Edge are the supported browsers; Firefox and
+animation-only GLB onto a character (VRMA clips import). The M2a-stretch items were not built either (listed in the
+e2e report as `test.fixme`): a ghost display of the inactive IK/FK controls, Dope Sheet rows for un-keyed channels,
+mesh picks that select the IK control (a mesh pick on an IK limb selects the FK control and says "IK limb: pick the IK
+control"), key hold and a stepped preview, ankle and wrist motion trails, and an automatic Simplify after Match Range
+(run Graph › Simplify). Export key reduction stays within tight per-node tolerances: it shrinks linear blocking 3× and
+more, but smooth 30 fps splines keep nearly every sample (an owner decision is open on the tolerances). Chrome and Edge are the supported browsers; Firefox and
 Safari follow in V1. The first alpha (M1, `v0.1.0`) targeted in-place loops, emotes and blocking with FK legs and
 Pose › Plant Feet, which still works for FK legs.
 

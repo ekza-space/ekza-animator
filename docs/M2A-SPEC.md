@@ -2,8 +2,9 @@
 
 Status: v0.3 (2026-10-18, integration revision: A0…A5 merged; the packages' contract PRs ratified into this file and
 [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended
-for the fixtures' leg reach, [§10.4](#104-integration-record) records the result; v0.2 was the review revision, items
-not applied are listed with reasons in [§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
+for the fixtures' leg reach, [§10.4](#104-integration-record) records the result, including the integration's fix
+round 1; v0.2 was the review revision, items not applied are listed with reasons in
+[§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
 Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
 `time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
 (§4.1, §5.23).
@@ -45,8 +46,8 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 |---|---|
 | "Ghost" display of the inactive IK/FK set (25 % alpha) | `prefs.ikFkVisibility` accepts only `'hide'`; `'ghost'` poll-fails in Preferences with "not available yet" |
 | Dope Sheet "show all keyable channels" (rows for channels without curves) | Only animated channels get rows |
-| Mesh-pick → IK control mapping when `ikFk > 0.5` (R07 §6) | Mesh picks keep returning the FK control; the help line says "IK limb: pick the IK control" |
-| Key hold (R01 KY-08: copy the previous key's value to the current frame) and a stepped preview toggle for blocking | Set a key with the same value; set stepped tangents (`Digit5`…) |
+| Mesh-pick → IK control mapping when `ikFk > 0.5` (R07 §6) | Mesh picks keep returning the FK control and say "IK limb: pick the IK control" (an info toast: viewport tools reach the notifier, not the shell's help line; M2A-INT-18) |
+| Key hold (R01 KY-08: copy the previous key's value to the current frame) and a stepped preview toggle for blocking | Set a key with the same value; set stepped tangents (`6` in the Graph Editor and on the time slider) |
 | Ankle and wrist motion trail (positions sampled once per committed edit, drawn as a polyline with frame ticks) | Judge arcs by scrubbing; onion skin and full motion trails are M2c |
 | `rig.ikFk.matchRange` followed by an automatic Simplify of the written curves | Run Graph › Simplify on the written curves |
 
@@ -785,7 +786,7 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 | `time.setFrame` (changed) | — | A3 | `carry: true` keeps the pose (§5.9). |
 | `time.insertTime` | U | A3 | §5.9; `at` defaults to the current clip frame; never retimes breakdowns; poll-fails instead of deleting keys unless `removeKeys`. |
 | `time.deleteTime` | U | A3 | §5.9; the band's frames (or `range`, else the current frame) and their keys, through the `time.insertTime` kernel; one step. Label `Delete Time`. |
-| `graph.keys.move` / `graph.keys.scale` (changed) | U | A3 | `ripple` (§5.11; default from the focused panel); value scale via `valuePivot`/`valueFactor` (§5.15.3). The arrow-key nudge (§6) is `graph.keys.move {dFrames: ±1, dValue: 0}`. |
+| `graph.keys.move` / `graph.keys.scale` (changed) | U | A3 | `ripple` (§5.11; default from the focused panel); value scale via `valuePivot`/`valueFactor` (§5.15.3; `valuePivot` in display units, default 0; time and value scale are one step). The arrow-key nudge (§6) is `graph.keys.move {dFrames: ±1, dValue: 0}`. |
 | `graph.keys.paste` (changed) | U | A3 | `mode: 'insert'` (§5.10): keys after the paste frame shift to make room. |
 | `graph.keys.copyTo` | U | A3 | `copyKeys` on the selected keys (time-slider Mod+drag commit uses the kernel helper directly). |
 | `graph.buffer.snapshot` / `.swap` / `.clear` | —/U/— | A4 | §5.15.1. |
@@ -1390,7 +1391,8 @@ bounds. Dragging an edge scales that axis around the opposite edge; a corner sca
 inside moves; outside the box scales around the press point (horizontal = time, vertical = value; Shift locks the
 dominant axis after 4 px). Time scaling uses `scaleKeys` (factor ≥ 0.01, snapping, breakdown retiming); value
 scaling uses `scaleKeyValues` (fixed handles' `dv` scale with the factor, factor may be negative: a flip). One drag =
-one step (`Scale Keys`). `graph.keys.scale {valuePivot, valueFactor}` is the operator form. Lattice deform is V2.
+one step (`Scale Keys`). `graph.keys.scale {valuePivot, valueFactor}` is the operator form (`valuePivot` in display
+units per curve, default 0; with `pivot`/`factor` the time scale runs first in the same step). Lattice deform is V2.
 
 ### 5.16 Export-side key reduction (A5, FR-EXP-12)
 
@@ -1702,7 +1704,7 @@ Solid edges are start dependencies; dotted edges are test or feature gates that 
 | A0 | `contracts-foundation` | Integration agent | 3.5 | — | — |
 | A1 | `rig-ik` | Agent 1 | 6.5 | A0 | — |
 | A2 | `ik-editor` | Agent 2 | 6 | A0 | A1: IK unit tests, E2E-M2A-01…07, 25 |
-| A3 | `dopesheet-timing` | Agent 3 | 5.5 | A0 | A2: E2E-M2A-14 (`Alt+S` is `key.set {breakdown}`), the dimmed-row test (IK rule 2); A4: `valueFactor ≠ 1` (poll-fails until `scaleKeyValues` lands), Tween bar mount |
+| A3 | `dopesheet-timing` | Agent 3 | 5.5 | A0 | A2: E2E-M2A-14 (`Alt+S` is `key.set {breakdown}`), the dimmed-row test (IK rule 2); A4: `valueFactor ≠ 1` (poll-fails until `scaleKeyValues` lands; turned on at integration, M2A-INT-17), Tween bar mount |
 | A4 | `graph-posing` | Agent 4 | 5.5 | A0 | A1 + A2: E2E-M2A-15 (`ik.leg.*` controls on imported characters) |
 | A5 | `platform-perf` | Agent 5 | 5 | A0 | A1: the keep set's influence key times (unit gate only; E2E-M2A-21 does not need them) |
 | INT | `integration` | Integration agent | 3 | A1…A5 | — |
@@ -1899,7 +1901,8 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   ripple and §5.12 retiming inside `moveKeys`/`scaleKeys`; `copyKeys`, `insertTime` (`time.insertTime`,
   `time.deleteTime`); `graph.keys.move`/`scale`
   arguments (`ripple` and its panel default, value scale via A4's `scaleKeyValues` once merged — until then
-  `valueFactor` ≠ 1 poll-fails); `graph.keys.paste` `'insert'`; `graph.keys.copyTo`.
+  `valueFactor` ≠ 1 poll-fails; turned on at integration, M2A-INT-17); `graph.keys.paste` `'insert'`;
+  `graph.keys.copyTo`.
 - **Public API** (`@ekza-animator/curve-editor`, additions):
 
 ```ts
@@ -2161,21 +2164,35 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 
 2026-10-18, branch `m2a/integration` ([notes](wp-notes/m2a-integration.md)):
 
-- **Merge**: A0, A4, A5, A1, A2, A3 in the §10.1 order, then the integration. Every `READY` flag and every
-  package `test.fixme` is a failure now; the only `test.fixme` tests are the stretch items of `stretch.spec.ts`.
+- **Merge**: A0, A4, A5, A1, A2, A3 in the §10.1 order, then the integration. Every `READY` flag, every package
+  `test.fixme` and every package gate is a failure now; the integration's fix round 1 turned on the last one it had
+  missed (`graph.keys.scale` with `valueFactor` ≠ 1, §5.15.3, through A4's `scaleKeyValues`). The only `test.fixme`
+  tests are the stretch items of `apps/web/e2e/stretch.spec.ts`: three M1-stretch entries and the six M2a-stretch
+  items of §1.2, each with its fallback and acceptance line; an ordinary test there checks the fallbacks the test
+  API reaches.
+- **Hand-offs** (M2A-A4-12, resolved in fix round 1): the value scale above; the Graph Editor's key fields,
+  `graph.keys.setFields` and the handle metrics in the channel's unit (§5.1 rule 5: an angle attribute such as `@roll`
+  reads and takes degrees like the Channel Box and the curve axis); the Dope Sheet's Tween bar mount (A3, done); the
+  time slider's per-batch tick set (value-only batches and breakdown flags handled, M2A-A4-16 and M2A-INT-6; batches
+  that move keys in time still rebuild it, part of M-4). The §1.2 mesh-pick fallback hint was built (M2A-INT-18).
 - **Acceptance**: E2E-M2A-23 (walk) and -24 (attack) in `apps/web/e2e/m2a-23-24-acceptance.spec.ts`, authored with
   real input and leg IK; their undo history holds no Plant Feet. The rows were amended for the fixtures' leg reach and
   for what reduction can do on smooth motion (M2A-INT-1…3, §9.1 note).
-- **Gates**: E2E-00…27, E2E-M2A-01…25 and the M1 acceptance-round specs green in real Chrome and in
+- **Owner demo script** (§10.3): run once by the integration in sequence on one page in real Chrome as a scripted
+  walkthrough (`apps/web/e2e/m2a-demo-walkthrough.spec.ts`, kept in the suite); all ten steps pass. It found one
+  defect, fixed: frozen tangent handles carried −0 into documents, which recovery (JSON) returned as +0
+  (M2A-INT-16). Deviations from the script's wording are listed in the notes (M2A-INT-15). The owner's own run stays
+  open for the release.
+- **Gates**: E2E-00…27, E2E-M2A-01…25, the walkthrough and the M1 acceptance-round specs green in real Chrome and in
   `chromium-swiftshader`; unit, browser-mode and headless tests green; the conformance suites (memory, `doc-yjs`)
   unchanged and green; export policy (MVP-SPEC §4.11.13) asserted for every exported file of the scenarios.
 - **Budgets** (ROADMAP "M2a budgets"): M-1 met (p95 3.1–3.4 ms), M-2 met under the gate with the target set to
   850,000 B (843,270 B, §5.21.2), M-3 met (mean 0.154 ms); §5.22 rows recorded, the Dope Sheet drag of 1,000 keys
-  missed (M-4, report only).
+  missed (M-4, report only). Re-measured after fix round 1: see the notes.
 - **Contract PRs ratified** in this revision (v0.3); deviations and owner review items in
   [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18).
-- Open for the release: the merge into `dev`, the owner's review of §F, the owner demo script (§10.3); `v0.2.0` is
-  the owner's call.
+- Open for the release: the merge into `dev`, the owner's review of §F (FR-EXP-12's "3–10×" criterion among them,
+  M2A-A5-3/INT-3), the owner's run of the demo script; `v0.2.0` is the owner's call.
 
 ---
 
