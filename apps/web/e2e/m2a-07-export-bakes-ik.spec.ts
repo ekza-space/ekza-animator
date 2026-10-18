@@ -62,9 +62,16 @@ test('E2E-M2A-07: export bakes IK', async ({ page }) => {
   if (animation === undefined) throw new Error('the GLB has no animation');
   const crouch = (await call(page, 'clips', character)).find((candidate) => candidate.id === clip);
   const time = (FRAME - (crouch?.start ?? 0)) / (crouch?.fps ?? 30);
-  const humanoid = skeleton.humanoid ?? {};
+  // The animation-only GLB keeps the source's node names but has no humanoid map: name the leg nodes from the VRM.
+  const source = readGlb(sampleBytes('seed-san.vrm')).json;
+  const humanBones =
+    (source.extensions?.['VRMC_vrm'] as { humanoid?: { humanBones?: Record<string, { node?: number }> } } | undefined)
+      ?.humanoid?.humanBones ?? {};
   const pairs = LEG_BONES.flatMap((bone) => {
-    const node = (humanoid as Record<string, number>)[bone];
+    const sourceNode = humanBones[bone]?.node;
+    const sourceName = sourceNode === undefined ? undefined : source.nodes?.[sourceNode]?.name;
+    const found = sourceName === undefined ? -1 : skeleton.nodes.findIndex((n) => n.name === sourceName);
+    const node = found === -1 ? undefined : found;
     const channel = animation.channels.find((candidate) => candidate.node === node && candidate.path === 'rotation');
     const parent = node === undefined ? undefined : skeleton.nodes[skeleton.nodes[node]?.parent ?? -1];
     const name = node === undefined ? undefined : skeleton.nodes[node]?.name;
