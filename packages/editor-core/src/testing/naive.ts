@@ -109,11 +109,17 @@ export function createNaiveCurveCache(store: DocumentStore): CurveCache {
   };
 }
 
-function naiveCurveValue(cache: CurveCache, curve: CurveRecord, frame: Frame): number {
+function naiveCurveValue(cache: CurveCache, curve: CurveRecord, frame: Frame, program?: RigProgram): number {
   const compiled = cache.get(curve.id);
-  return compiled.keyCount > 0
-    ? evaluateNaiveCurve(compiled, frame)
-    : (curve.staticValue ?? channelDefault(curve.channel));
+  if (compiled.keyCount > 0) return evaluateNaiveCurve(compiled, frame);
+  const attr = program === undefined ? -1 : naiveAttrSlot(program, curve.control, curve.channel);
+  return curve.staticValue ?? channelDefault(curve.channel, program?.attrSlots[attr]?.def);
+}
+
+/** `ChannelBuffer.attrs` slot of an attribute channel ('@name'), −1 for TRS channels and unknown attributes. */
+function naiveAttrSlot(program: RigProgram, control: ControlId, channel: string): number {
+  if (!channel.startsWith('@')) return -1;
+  return program.attrIndex.get(`${control}/@${channel.slice(1)}`) ?? -1;
 }
 
 export function createNaiveClipSampler(
@@ -132,14 +138,19 @@ export function createNaiveClipSampler(
       program.resetChannels(out);
       for (const curve of baseCurves()) {
         const index = program.controlIndex.get(curve.control);
+        if (index === undefined) continue;
         const slot = channelSlot(curve.channel);
-        if (index === undefined || slot === -1) continue;
-        out.values[index * CHANNELS_PER_CONTROL + slot] = naiveCurveValue(cache, curve, frame);
+        if (slot !== -1) {
+          out.values[index * CHANNELS_PER_CONTROL + slot] = naiveCurveValue(cache, curve, frame, program);
+          continue;
+        }
+        const attr = naiveAttrSlot(program, curve.control, curve.channel);
+        if (attr !== -1 && attr < out.attrs.length) out.attrs[attr] = naiveCurveValue(cache, curve, frame, program);
       }
     },
     value(control: ControlId, channel: ChannelId, frame: Frame): number | undefined {
       const curve = baseCurves().find((c) => c.control === control && c.channel === channel);
-      return curve === undefined ? undefined : naiveCurveValue(cache, curve, frame);
+      return curve === undefined ? undefined : naiveCurveValue(cache, curve, frame, program);
     },
     keyTimes(controls: readonly ControlId[] | null): readonly Frame[] {
       const wanted = controls === null ? null : new Set(controls);
@@ -178,8 +189,14 @@ export function naiveApplyOverrides(
     const index = program.controlIndex.get(control);
     if (index === undefined) continue;
     for (const [channel, value] of Object.entries(values)) {
+      if (value === undefined) continue;
       const slot = channelSlot(channel);
-      if (slot !== -1 && value !== undefined) ch.values[index * CHANNELS_PER_CONTROL + slot] = value;
+      if (slot !== -1) {
+        ch.values[index * CHANNELS_PER_CONTROL + slot] = value;
+        continue;
+      }
+      const attr = naiveAttrSlot(program, control, channel);
+      if (attr !== -1 && attr < ch.attrs.length) ch.attrs[attr] = value;
     }
   }
 }

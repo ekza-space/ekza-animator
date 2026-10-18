@@ -2,7 +2,7 @@ import type { RotateOrder } from '@ekza-animator/anim-core';
 import type { ConstraintRecord, ControlRecord, SolverRecord } from '@ekza-animator/doc';
 import { deriveInternals } from '../compile/build';
 import type { XfArrays } from '../math/xfa';
-import type { RigProgram, SkeletonDesc } from '../types';
+import type { AttrKey, AttrSlot, LimbDesc, RigProgram, SkeletonDesc } from '../types';
 import type { RigOpImpl } from './ops';
 
 export interface ScheduledRigOp {
@@ -11,6 +11,13 @@ export interface ScheduledRigOp {
   /** Control slots and node indices the op overwrites (re-read into the kernel's transforms after it runs). */
   readonly writesControls: Int32Array;
   readonly writesNodes: Int32Array;
+  /**
+   * The op's `compile` result (M2A-SPEC §4.3), handed to `run`; `undefined` without `compile`. Set once by the
+   * compiler after `createProgram`.
+   */
+  state: unknown;
+  /** True when `compile` threw: the op is skipped at run time (the compiler warned). */
+  skipped: boolean;
 }
 
 /**
@@ -57,6 +64,13 @@ export interface RigInternals {
   readonly opKind: Uint8Array;
   readonly opIndex: Int32Array;
   readonly customOps: readonly ScheduledRigOp[];
+  /** Attribute slots by (control id, name) (M2A-SPEC §5.1 rule 2) and their index. */
+  readonly attrSlots: readonly AttrSlot[];
+  readonly attrIndex: ReadonlyMap<AttrKey, number>;
+  /** `AttrDef.default` per attribute slot (resetChannels / allocChannels). */
+  readonly attrDefaults: Float64Array;
+  /** Enabled ik2 solvers that compiled (§5.4 rule 4); built by the compiler (A1), empty before. */
+  readonly limbs: readonly LimbDesc[];
 }
 
 const registry = new WeakMap<RigProgram, RigInternals>();
