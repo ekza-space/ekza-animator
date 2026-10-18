@@ -105,7 +105,18 @@ spec through a contract PR; until then the spec text and the code disagree on ex
   limbs, the bench), `rig.ik.import` (Seed-san humanoid clip ≤ 1e-5 rad / 1e-6 m, E2E-M2A-06's clip on Polybot, UAL
   `Walk_Loop` on a humanoid-mapped UAL), `rig.ik.export` (upgraded M1 rig exports byte-identical, a switched limb
   changes the bake). The M1 rig gates are unchanged (they call `autoRig` without `ik`).
-- Bench (report, best of 8 interleaved rounds; parallel test run): see the gate log of the latest round below.
+- Bench (report, best of 8 interleaved rounds, run alone under a load average of ~14): Seed-san with four IK limbs
+  0.0435 ms per evaluation (target ≤ 0.06 ms), the same rig at ikFk 0 0.028 ms, the M1 rig 0.028 ms.
+
+## Gate log (fix round 1)
+
+On the branch head after the fix-round commits, clean tree: `format:check`, `lint` (oxlint --type-aware),
+`typecheck` (tsc -b), `check:deps` (13 packages), `check:fixtures` and `check:licenses` exit 0; `turbo run test
+test:tooling --force --continue` 13/13 tasks (rig 202, headless 147, io 146, editor-core 532, anim-core 642, doc 175,
+doc-yjs 69, ui 73, curve-editor 137 + 3 skipped, viewport 86 + 1 skipped, editor 290 + 1 skipped, tooling 14; the
+skips are M1's); `build` ok; `EKZA_E2E_PORT=3141 pnpm run test:e2e` with a fresh Next build: 67 passed, 3 skipped
+(stretch). The counted allocation tests and the fixture gates also passed twice more run concurrently with each
+other.
 
 No e2e scenario belongs to A1 (§8: E2E-M2A-01…07 and 25 are A2's, E2E-M2A-15 A4's); they stay `test.fixme` until
 A2 merges.
