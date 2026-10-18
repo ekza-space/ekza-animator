@@ -2,7 +2,7 @@
 // tree, the selected keys' numeric fields and the toolbar state — re-read after committed changes only. Preview batches
 // (each coalesced drag update) are skipped: during a drag the fields keep their pre-drag values (the canvas readout
 // shows the offsets), the commit re-reads them, and a cancel restores exactly what they show.
-import type { DocumentStore, TableName } from '@ekza-animator/doc';
+import { batchTouches, type DocumentStore, type TableName } from '@ekza-animator/doc';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useEditorApp } from '../../hooks';
 
@@ -24,13 +24,13 @@ function committedSource(
   store: DocumentStore,
   tables: readonly string[],
 ): { readonly subscribe: (notify: () => void) => () => void; readonly getSnapshot: () => Snapshot } {
-  const watched = new Set(tables);
+  const watched = [...new Set(tables)] as TableName[];
   let snapshot: Snapshot = { store, version: 0 };
   return {
     subscribe: (notify) =>
       store.subscribe((batch) => {
         if (batch.origin === 'preview' && store.preview !== null) return;
-        if (batch.origin !== 'load' && !batch.changes.some((change) => watched.has(change.table))) return;
+        if (batch.origin !== 'load' && !batchTouches(batch, watched)) return;
         snapshot = { store, version: snapshot.version + 1 };
         notify();
       }),

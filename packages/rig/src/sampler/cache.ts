@@ -8,6 +8,7 @@ import {
 } from '@ekza-animator/anim-core';
 import {
   type AnyChange,
+  batchTables,
   type ChangeBatch,
   type ChannelId,
   type ClipId,
@@ -188,13 +189,12 @@ export function createClipSampler(
       byControl = null;
       return;
     }
-    for (const change of batch.changes) {
-      // Keys do not change the plan: key counts and values come from the compiled curves.
-      if (change.table === 'curves' || change.table === 'layers') {
-        plan = null;
-        byControl = null;
-        return;
-      }
+    // Keys do not change the plan: key counts and values come from the compiled curves. M-1: the batch's table set
+    // (one scan per batch for every listener) instead of a scan of a 1,000-key drag batch here.
+    const tables = batchTables(batch);
+    if (tables.has('curves') || tables.has('layers')) {
+      plan = null;
+      byControl = null;
     }
   });
 

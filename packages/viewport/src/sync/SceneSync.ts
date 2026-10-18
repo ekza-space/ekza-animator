@@ -3,7 +3,13 @@
 //   kernel bone locals → one updateMatrixWorld → VRMC_node_constraint update → constraint destination subtrees →
 //   spring bones (preview, only while enabled and playing) → control and skeleton lines.
 import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
-import type { CharacterId, CharacterRecord, ControlId, ControlRecord } from '@ekza-animator/doc';
+import {
+  batchTables,
+  type CharacterId,
+  type CharacterRecord,
+  type ControlId,
+  type ControlRecord,
+} from '@ekza-animator/doc';
 import type { CharacterRuntime, EditorApp } from '@ekza-animator/editor-core';
 import type { LoadedModel } from '@ekza-animator/io/three';
 import { Group, type Material, type Mesh, type Object3D, type Scene } from 'three';
@@ -78,11 +84,10 @@ export class SceneSync {
         }
       }),
       app.store.subscribe((batch) => {
-        let touched = batch.origin === 'load';
-        for (const change of batch.changes) {
-          if (change.table === 'characters') this.placementDirty = true;
-          if (change.table === 'controls') touched = true;
-        }
+        // M-1: the batch's table set (`batchTables`, one scan per batch for every listener).
+        const tables = batchTables(batch);
+        if (tables.has('characters')) this.placementDirty = true;
+        const touched = batch.origin === 'load' || tables.has('controls');
         if (touched) this.structureDirty = true;
         if (touched || this.placementDirty) this.opts.onChange();
       }),

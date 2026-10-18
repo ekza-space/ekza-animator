@@ -1,12 +1,13 @@
 // React-side reads of the timeline panel: the active character's clips and clock (human-speed state only; per-frame
 // values are written imperatively by the components that show them).
 import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId, ClipRecord, DocumentStore } from '@ekza-animator/doc';
+import { batchTouches, type CharacterId, type ClipId, type ClipRecord, type DocumentStore } from '@ekza-animator/doc';
 import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
 import { useCallback } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 
 export const DEFAULT_SCENE_FPS: Fps = { num: 30, den: 1 };
+const CLIP_TABLES = ['clips', 'project'] as const;
 
 export interface ActiveClipState {
   readonly character: CharacterId | null;
@@ -55,7 +56,7 @@ export function subscribeToFrame(app: EditorApp, onChange: () => void): () => vo
     }
   });
   const offStore = app.store.subscribe((batch) => {
-    if (batch.origin === 'load' || batch.changes.some((c) => c.table === 'clips' || c.table === 'project')) onChange();
+    if (batch.origin === 'load' || batchTouches(batch, CLIP_TABLES)) onChange();
   });
   return () => {
     offSession();

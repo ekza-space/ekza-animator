@@ -59,9 +59,20 @@ export function handlesShown(scene: GraphScene, entry: CurveEntry, i: number): b
  * weighted curves at the true handle offset (degenerate zero-length handles fall back to 40 px).
  */
 export function handlePosition(scene: GraphScene, entry: CurveEntry, i: number, side: 'in' | 'out', out: Point): Point {
+  return handlePositionAt(scene, entry, i, side, keyX(scene, entry, i), keyY(scene, entry, i), out);
+}
+
+/** `handlePosition` for a key already at screen point (kx, ky) (painters: the key's point is computed once). */
+export function handlePositionAt(
+  scene: GraphScene,
+  entry: CurveEntry,
+  i: number,
+  side: 'in' | 'out',
+  kx: number,
+  ky: number,
+  out: Point,
+): Point {
   const c = entry.compiled;
-  const kx = keyX(scene, entry, i);
-  const ky = keyY(scene, entry, i);
   const sign = side === 'in' ? -1 : 1;
   if (c.weighted) {
     const dt = (side === 'in' ? c.inDt[i] : c.outDt[i]) as number;

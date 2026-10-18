@@ -105,6 +105,15 @@ export class GraphEditorController {
   /** `setCurves` changed the list since `curveSetCache` was built (entries of curves still shown are reused). */
   private curveListChanged = false;
   private sceneCache: GraphScene | null = null;
+  /**
+   * The curves of the selected keys, per key selection (M-1: a drag rebuilds the scene every frame, and finding the
+   * curve of each of 1,000 selected keys is a store read per key). Dropped by batches that add or remove keys or
+   * move one to another curve.
+   */
+  private selectedCurvesCache: {
+    readonly keys: ReadonlyMap<KeyId, unknown>;
+    readonly curves: ReadonlySet<CurveId>;
+  } | null = null;
   private pendingFrame: 'all' | 'selection' | null = null;
   /**
    * The view follows the shown curves until the user works in the Graph Editor (v0.3 integration): a newly shown set
@@ -724,6 +733,7 @@ export class GraphEditorController {
         const after = change.after?.curve;
         if (before !== undefined) this.editedCurves.add(before);
         if (after !== undefined) this.editedCurves.add(after);
+        if (before !== after) this.selectedCurvesCache = null;
         if (
           !staticTouched &&
           ((before !== undefined && !dynamic?.has(before)) || (after !== undefined && !dynamic?.has(after)))
@@ -738,6 +748,7 @@ export class GraphEditorController {
       }
     }
     if (!touched) return;
+    if (full) this.selectedCurvesCache = null;
     this.autoFrameDirty = true;
     if (full || this.editedCurves.size > MAX_INCREMENTAL_CURVES) this.dropCurveSet();
     // A preview that just ended (commit, cancel) unfreezes the mapped views' ranges.
@@ -826,10 +837,7 @@ export class GraphEditorController {
     const state = this.app.session.getState();
     const selection = state.selection;
     const focus = new Set<CurveId>();
-    for (const key of selection.keys.keys()) {
-      const found = curves.byKey.get(key);
-      if (found !== undefined) focus.add(found.entry.id);
-    }
+    for (const curve of this.selectedCurves(selection.keys)) if (curves.byCurve.has(curve)) focus.add(curve);
     if (selection.channels.length > 0) {
       for (const entry of curves.entries) {
         if (selection.channels.some((ref) => ref.control === entry.record.control && ref.channel === entry.channel)) {
@@ -865,6 +873,19 @@ export class GraphEditorController {
     };
     this.sceneCache = { ...base, region: state.tools.graph === GRAPH_TOOL.scale ? regionOf(base) : null };
     return this.sceneCache;
+  }
+
+  /** The curves the selected keys belong to (cached per selection, see `selectedCurvesCache`). */
+  private selectedCurves(keys: ReadonlyMap<KeyId, unknown>): ReadonlySet<CurveId> {
+    const cached = this.selectedCurvesCache;
+    if (cached !== null && cached.keys === keys) return cached.curves;
+    const curves = new Set<CurveId>();
+    for (const key of keys.keys()) {
+      const curve = this.app.store.get('keys', key)?.curve;
+      if (curve !== undefined) curves.add(curve);
+    }
+    this.selectedCurvesCache = { keys, curves };
+    return curves;
   }
 
   /** §5.15.1: compiled buffers of the shown curves (compiled once per buffer with the app's curve engine). */

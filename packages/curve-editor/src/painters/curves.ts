@@ -1,7 +1,7 @@
 // Curve painter (ADR 0007 §3–4): exact cubic Béziers via bezierCurveTo from the compiled handles, lineTo for linear
 // and stepped spans, a per-pixel sampled polyline for curves with more than one key per pixel, and dotted infinity
 // regions drawn by repeating (cycle, cycle-offset, oscillate) or extending (constant, linear) the key range.
-import { Segment } from '@ekza-animator/anim-core';
+import { Segment, type SegmentKind } from '@ekza-animator/anim-core';
 import { type CurveEntry, drawnOf } from '../graph/curveSet';
 import {
   drawnValueAt,
@@ -35,7 +35,11 @@ const IDENTITY: CopyMap = { shift: 0, flip: false, mirrorSum: 0, offset: 0 };
 
 const mapFrame = (copy: CopyMap, t: number): number => (copy.flip ? copy.mirrorSum - t + copy.shift : t + copy.shift);
 
-/** Appends segments [lo, hi) of the key range, mapped by `copy`, to `path` (which must already be at key lo). */
+/**
+ * Appends segments [lo, hi) of the key range, mapped by `copy`, to `path` (which must already be at key lo). The view
+ * transform is written out inline, with the operations of `frameToX` and `valueToY` in their order (same numbers):
+ * these loops run for every dragged curve on every frame of a drag (M-1), where calls are what costs.
+ */
 function traceSegments(
   path: Path2D,
   scene: GraphScene,
@@ -46,40 +50,57 @@ function traceSegments(
   b: Float64Array,
 ): void {
   const c = entry.compiled;
-  const { view, height } = scene;
+  const { f0, v0: view0, sx, sy } = scene.view;
+  const height = scene.height;
   const k = entry.scale;
   const o = entry.offset;
-  const x = (t: number) => frameToX(view, mapFrame(copy, t));
-  const y = (v: number) => valueToY(view, height, (v + copy.offset) * k + o);
+  const flip = copy.flip;
+  const shift = copy.shift;
+  const mirrorSum = copy.mirrorSum;
+  const offset = copy.offset;
+  const ct = c.t;
+  const cv = c.v;
+  const segment = c.segment;
   for (let i = lo; i < hi; i++) {
-    const t0 = c.t[i] as number;
-    const v0 = c.v[i] as number;
-    const t1 = c.t[i + 1] as number;
-    const v1 = c.v[i + 1] as number;
-    switch (segmentKind(c, i)) {
-      case Segment.Step:
-        path.lineTo(x(t1), y(v0));
-        path.lineTo(x(t1), y(v1));
+    const t0 = ct[i] as number;
+    const v0 = cv[i] as number;
+    const t1 = ct[i + 1] as number;
+    const v1 = cv[i + 1] as number;
+    switch (segment[i] as SegmentKind) {
+      case Segment.Step: {
+        const x1 = ((flip ? mirrorSum - t1 + shift : t1 + shift) - f0) * sx;
+        path.lineTo(x1, height - ((v0 + offset) * k + o - view0) * sy);
+        path.lineTo(x1, height - ((v1 + offset) * k + o - view0) * sy);
         break;
-      case Segment.StepNext:
-        path.lineTo(x(t0), y(v1));
-        path.lineTo(x(t1), y(v1));
+      }
+      case Segment.StepNext: {
+        const y1 = height - ((v1 + offset) * k + o - view0) * sy;
+        path.lineTo(((flip ? mirrorSum - t0 + shift : t0 + shift) - f0) * sx, y1);
+        path.lineTo(((flip ? mirrorSum - t1 + shift : t1 + shift) - f0) * sx, y1);
         break;
+      }
       case Segment.Linear:
-        path.lineTo(x(t1), y(v1));
-        break;
-      case Segment.Hermite:
-      case Segment.Bezier:
-        segmentBezier(c, i, b);
-        path.bezierCurveTo(
-          x(b[2] as number),
-          y(b[3] as number),
-          x(b[4] as number),
-          y(b[5] as number),
-          x(b[6] as number),
-          y(b[7] as number),
+        path.lineTo(
+          ((flip ? mirrorSum - t1 + shift : t1 + shift) - f0) * sx,
+          height - ((v1 + offset) * k + o - view0) * sy,
         );
         break;
+      case Segment.Hermite:
+      case Segment.Bezier: {
+        segmentBezier(c, i, b);
+        const bx1 = b[2] as number;
+        const bx2 = b[4] as number;
+        const bx3 = b[6] as number;
+        path.bezierCurveTo(
+          ((flip ? mirrorSum - bx1 + shift : bx1 + shift) - f0) * sx,
+          height - (((b[3] as number) + offset) * k + o - view0) * sy,
+          ((flip ? mirrorSum - bx2 + shift : bx2 + shift) - f0) * sx,
+          height - (((b[5] as number) + offset) * k + o - view0) * sy,
+          ((flip ? mirrorSum - bx3 + shift : bx3 + shift) - f0) * sx,
+          height - (((b[7] as number) + offset) * k + o - view0) * sy,
+        );
+        break;
+      }
     }
   }
 }
@@ -319,29 +340,38 @@ export function selectedSegmentsPath(
   const f0 = xToFrame(scene.view, 0);
   const f1 = xToFrame(scene.view, scene.width);
   const [lo, hi] = visibleRange(c, f0, f1);
+  const selection = scene.selection;
+  const isSelected = (i: number): boolean => {
+    const key = entry.keys[i];
+    return key !== undefined && selection.get(key.id)?.key === true;
+  };
   let path: Path2D | null = null;
-  let open = false;
-  for (let i = lo; i < hi; i++) {
-    const a = entry.keys[i];
-    const b = entry.keys[i + 1];
-    const both =
-      a !== undefined &&
-      b !== undefined &&
-      scene.selection.get(a.id)?.key === true &&
-      scene.selection.get(b.id)?.key === true;
-    if (!both) {
-      open = false;
+  // Runs of segments whose keys are all selected, each traced in one go (one key lookup per key).
+  let i = lo;
+  let previous = i < hi && isSelected(i);
+  while (i < hi) {
+    if (!previous) {
+      i++;
+      previous = isSelected(i);
       continue;
     }
-    path ??= new Path2D();
-    if (!open) {
+    let j = i;
+    let next = isSelected(j + 1);
+    while (next && j < hi) {
+      j++;
+      next = j < hi && isSelected(j + 1);
+    }
+    if (j > i) {
+      path ??= new Path2D();
       path.moveTo(
         frameToX(scene.view, c.t[i] as number),
         valueToY(scene.view, scene.height, drawnOf(entry, c.v[i] as number)),
       );
-      open = true;
+      traceSegments(path, scene, entry, i, j, IDENTITY, scratch.bezier);
     }
-    traceSegments(path, scene, entry, i, i + 1, IDENTITY, scratch.bezier);
+    // key j is the last selected key of the run; key j + 1 (if any) is not selected
+    i = j + 1;
+    previous = false;
   }
   return path;
 }
