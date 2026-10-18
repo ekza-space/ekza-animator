@@ -11,8 +11,8 @@ import {
   PANEL,
   type Prefs,
 } from '@ekza-animator/editor-core';
-import type { FootRollParams, LimbDesc } from '@ekza-animator/rig';
-import { type JSX, useCallback, useEffect, useId, useMemo, useState } from 'react';
+import type { FootRollParams, LimbDesc, LimbId } from '@ekza-animator/rig';
+import { type JSX, useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import { useDocQuery, usePrefs } from '../../hooks';
 import { NumberField } from '../channel-box/kit/fields';
 import { useCharactersVersion } from '../channel-box/kit/hooks';
@@ -60,11 +60,55 @@ function characterOfControl(app: EditorApp, control: ControlId): CharacterId | n
   return record === undefined ? null : (app.store.get('rigs', record.rig)?.character ?? null);
 }
 
-/** Re-renders on every evaluated pose (the IK/FK mode follows animated `ikFk`). */
-function usePoseVersion(app: EditorApp): number {
-  const [version, setVersion] = useState(app.evaluation.poseVersion);
-  useEffect(() => app.evaluation.subscribe((event) => setVersion(event.poseVersion)), [app]);
-  return version;
+type LimbMode = 'ik' | 'fk' | 'blend';
+
+/**
+ * What the section shows of a limb's evaluated `ikFk`, packed in one number so the per-pose read allocates nothing:
+ * the value at 3 decimals (thousandths) × 4 + the mode (0 FK at ≤ 0.001, 1 blend, 2 IK at ≥ 0.999, §5.5 rule 2).
+ */
+function limbDisplayCode(app: EditorApp, character: CharacterId | null, limb: LimbId): number {
+  const w = character === null ? 0 : (app.evaluation.ikFk(character, limb) ?? 0);
+  return Math.round(w * 1000) * 4 + (w >= 0.999 ? 2 : w <= 0.001 ? 0 : 1);
+}
+
+/**
+ * The limb's IK/FK mode and value, read per evaluated pose through `useSyncExternalStore` with a primitive snapshot:
+ * the section commits only when what it shows changes, never per frame during playback (§5.5 rule 5, MVP-SPEC WP-9
+ * "no per-frame React renders"), also while the Attributes tab is mounted but hidden.
+ */
+function useLimbDisplay(
+  app: EditorApp,
+  character: CharacterId | null,
+  limb: LimbId,
+): { readonly mode: LimbMode; readonly w: number } {
+  const subscribe = useCallback(
+    (notify: () => void) => {
+      // Evaluated poses, plus what changes the value before the next evaluation (time, overrides, the active clip,
+      // the curves, recompiled rigs): each only re-reads the snapshot.
+      const disposers = [
+        app.evaluation.subscribe(() => notify()),
+        app.characters.subscribe(() => notify()),
+        app.store.subscribe(() => notify()),
+        app.session.subscribe((state, previous) => {
+          if (
+            state.time !== previous.time ||
+            state.overrides !== previous.overrides ||
+            state.activeClip !== previous.activeClip
+          ) {
+            notify();
+          }
+        }),
+      ];
+      return () => {
+        for (const dispose of disposers) dispose();
+      };
+    },
+    [app],
+  );
+  const read = useCallback(() => limbDisplayCode(app, character, limb), [app, character, limb]);
+  const code = useSyncExternalStore(subscribe, read, read);
+  const mode = code % 4;
+  return { mode: mode === 2 ? 'ik' : mode === 0 ? 'fk' : 'blend', w: Math.floor(code / 4) / 1000 };
 }
 
 export function LimbSection(props: {
@@ -102,11 +146,9 @@ export function LimbSection(props: {
 function LimbFields(props: { readonly app: EditorApp; readonly limb: LimbDesc }): JSX.Element {
   const { app, limb } = props;
   const id = useId();
-  usePoseVersion(app);
   const keyMode = usePrefs(selectKeyMode);
-  const character = characterOfControl(app, limb.params.ikControl);
-  const w = character === null ? 0 : (app.evaluation.ikFk(character, limb.id) ?? 0);
-  const mode: 'ik' | 'fk' | 'blend' = w >= 0.999 ? 'ik' : w <= 0.001 ? 'fk' : 'blend';
+  const character = useMemo(() => characterOfControl(app, limb.params.ikControl), [app, limb]);
+  const { mode, w } = useLimbDisplay(app, character, limb.id);
   const name = LIMB_NAME[limb.id];
   const switchTo = (to: 'ik' | 'fk'): void =>
     void runOperator(app, PANEL_KIND, 'rig.ikFk.switch', { limb: limb.id, to, match: true });

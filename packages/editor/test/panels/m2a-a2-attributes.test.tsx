@@ -4,9 +4,22 @@
 import { DEG2RAD } from '@ekza-animator/anim-core';
 import { type EditorApp, registerBuiltinOperators } from '@ekza-animator/editor-core';
 import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AttributesPanel } from '../../src/panels/attributes/AttributesPanel';
-import { by, cleanup, control, input, loadFixtures, maybe, mount, select, user } from './helpers';
+import {
+  by,
+  cleanup,
+  control,
+  input,
+  loadFixtures,
+  maybe,
+  mount,
+  nextFrame,
+  select,
+  setClipFrame,
+  user,
+} from './helpers';
 
 afterEach(cleanup);
 let fixtures: Awaited<ReturnType<typeof loadFixtures>>;
@@ -116,6 +129,60 @@ describe('Attributes: Limb section (§5.6)', () => {
     const poll = a.operators.poll('rig.addLimbIk', {}, {});
     expect(button.disabled).toBe(poll !== true);
     expect(button.title).toBe(poll === true ? 'Add IK controls to every limb (they start in FK)' : poll.reason);
+    await view.unmount();
+  });
+});
+
+describe('Attributes: Limb section updates (§5.5 rule 5, MVP-SPEC WP-9)', () => {
+  it('commits only when the shown IK/FK mode or value changes, never per frame during playback', async () => {
+    const { app: a } = app();
+    // An animated limb mode: ikFk 1 at 0, 0 at 10 and 0.5 at 14 (stepped), so leg.L is IK on 0…9 and FK on 10…13.
+    const ik = control('ik.leg.L');
+    for (const [frame, value] of [
+      [0, 1],
+      [10, 0],
+      [14, 0.5],
+    ] as const) {
+      await setClipFrame(a, frame);
+      await act(async () => {
+        await a.runUntyped('channel.setValues', { edits: [{ control: ik, channel: '@ikFk', value }], key: 'force' });
+      });
+    }
+    await setClipFrame(a, 0);
+    let commits = 0;
+    const view = await mount(
+      a,
+      <Profiler id="attributes" onRender={() => commits++}>
+        <AttributesPanel app={a} instanceId="attributes#1" />
+      </Profiler>,
+      { width: 360, height: 1200 },
+    );
+    // One frame of the editor loop: the clip frame changes, the evaluation ticks (a pose event per frame, as in
+    // playback) and the browser paints.
+    const frameTo = async (frame: number) => {
+      await setClipFrame(a, frame);
+      await act(async () => {
+        a.evaluation.tick();
+      });
+      await nextFrame();
+    };
+    await select(a, [ik]);
+    await frameTo(0);
+    expect(by('attr-limb-leg.L').dataset.mode).toBe('ik');
+    // Playback through 1…9: every frame evaluates a new pose, the section shows the same IK 1.000: no commit.
+    commits = 0;
+    for (let frame = 1; frame <= 9; frame++) await frameTo(frame);
+    expect(commits).toBe(0);
+    // At 10 the mode changes: the section commits and shows FK; 11…13 stay FK without commits.
+    await frameTo(10);
+    expect(by('attr-limb-leg.L').dataset.mode).toBe('fk');
+    expect(commits).toBeGreaterThan(0);
+    commits = 0;
+    for (let frame = 11; frame <= 13; frame++) await frameTo(frame);
+    expect(commits).toBe(0);
+    await frameTo(14);
+    expect(by('attr-limb-leg.L').dataset.mode).toBe('blend');
+    expect(by('attr-limb-leg.L').textContent).toContain('0.500');
     await view.unmount();
   });
 });
