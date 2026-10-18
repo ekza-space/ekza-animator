@@ -269,16 +269,20 @@ export class ControlLayer {
     const set = this.characters.get(character);
     if (set === undefined || set.poles.length === 0) return;
     const m = this.matrix;
-    set.poles.forEach((link, i) => {
-      const entry = set.byId.get(link.pole);
+    const poles = set.poles;
+    // Indexed loop: this runs per evaluated pose, so no per-call closure (MVP-SPEC §3 rule 5).
+    for (let i = 0; i < poles.length; i++) {
+      const link = poles[i];
+      const entry = link === undefined ? undefined : set.byId.get(link.pole);
       const o = i * 6;
       if (
+        link === undefined ||
         entry === undefined ||
         link.midNode * 16 + 16 > boneWorld.length ||
         entry.slot * 16 + 16 > controlWorld.length
       ) {
         set.poleEnds.fill(Number.NaN, o, o + 6);
-        return;
+        continue;
       }
       multiplyAt(placement, boneWorld, link.midNode * 16, m);
       set.poleEnds[o] = m[12] as number;
@@ -288,7 +292,7 @@ export class ControlLayer {
       set.poleEnds[o + 3] = m[12] as number;
       set.poleEnds[o + 4] = m[13] as number;
       set.poleEnds[o + 5] = m[14] as number;
-    });
+    }
     this.stylesDirty = true;
   }
 
@@ -364,18 +368,21 @@ export class ControlLayer {
     set.poleLines.begin(set.poles.length * POLE_MAX_DASHES);
     const e = set.poleEnds;
     const dash = this.dash;
-    set.poles.forEach((link, i) => {
-      if (set.byId.get(link.pole)?.visible !== true) return;
+    const poles = set.poles;
+    // Indexed loop: this runs on every flush after a pose, so no per-call closure (MVP-SPEC §3 rule 5).
+    for (let i = 0; i < poles.length; i++) {
+      const link = poles[i];
+      if (link === undefined || set.byId.get(link.pole)?.visible !== true) continue;
       const o = i * 6;
       const x0 = e[o] as number;
-      if (Number.isNaN(x0)) return;
+      if (Number.isNaN(x0)) continue;
       const y0 = e[o + 1] as number;
       const z0 = e[o + 2] as number;
       const dx = (e[o + 3] as number) - x0;
       const dy = (e[o + 4] as number) - y0;
       const dz = (e[o + 5] as number) - z0;
       const length = Math.sqrt(dx * dx + dy * dy + dz * dz);
-      if (!(length > 1e-6)) return;
+      if (!(length > 1e-6)) continue;
       const n = Math.min(POLE_MAX_DASHES, Math.max(4, Math.round(length / POLE_DASH_PERIOD)));
       for (let k = 0; k < n; k++) {
         const a = k / n;
@@ -388,7 +395,7 @@ export class ControlLayer {
         dash[5] = z0 + dz * b;
         set.poleLines.push(dash, 0, 1, 1, 1, 1);
       }
-    });
+    }
     set.poleLines.end();
   }
 
