@@ -139,6 +139,8 @@ function stats(samples: readonly number[]): { n: number; mean: number; median: n
 }
 
 const ms = (value: number) => `${value.toFixed(2)} ms`;
+/** Bytes as decimal kB and KiB (the budget's "kB" is ambiguous at the margin). */
+const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} kB / ${(bytes / 1024).toFixed(1)} KiB`;
 
 async function counters(page: Page): Promise<{ gl: number; canvas2d: number }> {
   return page.evaluate(() => ({
@@ -179,8 +181,11 @@ async function taskMs(cdp: CDPSession): Promise<number> {
   return (metrics.find((metric) => metric.name === 'TaskDuration')?.value ?? Number.NaN) * 1000;
 }
 
-async function renderer(page: Page): Promise<string | null> {
-  return page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.webgl.renderer ?? null);
+/** The WebGL renderer string and the device pixel ratio the page runs at. */
+async function renderer(page: Page): Promise<string> {
+  return page.evaluate(
+    () => `${window.__EKZA_ANIMATOR_TEST__?.webgl.renderer ?? 'no WebGL'} at DPR ${window.devicePixelRatio}`,
+  );
 }
 
 test.beforeEach(async ({ page }) => {
@@ -562,17 +567,19 @@ test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
   await page.waitForLoadState('networkidle');
   let raw = 0;
   let gzip = 0;
+  let gzip6 = 0;
   for (const body of scripts.values()) {
     raw += body.byteLength;
     gzip += gzipSync(body, { level: 9 }).byteLength;
+    gzip6 += gzipSync(body).byteLength;
   }
   const isE2eBuild = await page.evaluate(() =>
     fetch('/e2e/vrma-check', { method: 'HEAD' }).then((response) => response.ok),
   );
   record(
     'route-js',
-    { scripts: scripts.size, rawBytes: raw, gzipBytes: gzip, e2eBuild: isE2eBuild },
-    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}): ${scripts.size} scripts, ` +
-      `${(raw / 1024).toFixed(0)} kB raw, ${(gzip / 1024).toFixed(0)} kB gzip -9 (budget ≤ 900 kB gzip)`,
+    { scripts: scripts.size, rawBytes: raw, gzipBytes: gzip, gzipDefaultLevelBytes: gzip6, e2eBuild: isE2eBuild },
+    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}): ${scripts.size} scripts, ${kb(raw)} raw, ` +
+      `${kb(gzip)} gzip -9, ${kb(gzip6)} gzip -6 (budget ≤ 900 kB gzip)`,
   );
 });
