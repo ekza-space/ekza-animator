@@ -179,6 +179,21 @@ Every assertion kept; each commit message names the test and the contract row.
 
 ## Gates
 
+Fix round 2, on `m2a/ik-editor` (HEAD at the time of the runs: `18c91af`): `pnpm run format:check`, `lint`,
+`typecheck`, `check:deps`, `check:fixtures`, `check:licenses` exit 0; `pnpm run test --force --continue` 13 of 13
+tasks green (editor-core 601 + 1 skipped, editor 308 + 1, viewport 98 + 1, curve-editor 137 + 3, headless-tests 107
++ 10 skipped `ops.ik` cases (READY.a1), io 142, rig 124, anim-core 642, doc 175, doc-yjs 69, ui 73); `pnpm run
+build` exit 0; the whole e2e suite on port 3142 (`EKZA_E2E_PORT=3142 pnpm run test:e2e`, real Chrome): 69 passed,
+13 skipped (the A1-gated A2 scenarios and the stretch entries), 0 failed.
+
+On the trial merge with A1 at `9767a7a` (see [Against A1](#against-a1-scratch-merge)), with the `rig.ik.export`
+line of the merge notes: `typecheck` exit 0; `pnpm run test --continue`: every package green (headless-tests 142 of
+142, editor-core 600 + 2 skipped by `skipIf(READY.a1)`, anim-core 642) except one case outside A2's code, A1's rig
+allocation count under load (open issue 5; the rig package passes alone, 202 of 202); the two new `ops.ik` cases
+added afterwards: `ops.ik.test.ts` 10 of 10; `pnpm run build` exit 0; the whole e2e suite in real Chrome: 79
+passed, 3 skipped (stretch), 0 failed, among them E2E-M2A-01…07, 18 (both cases), 19, 25 and m2a-00; A2's
+scenarios and m2a-00 in `chromium-swiftshader`: 17 of 17 passed.
+
 Fix round 1, on `m2a/ik-editor` (HEAD at the time of the runs: `8e66419`): `pnpm run format:check`, `lint`,
 `typecheck`, `check:deps`, `check:fixtures`, `check:licenses` exit 0; `pnpm run test --force --continue` 13 of 13
 tasks green (editor-core 598 + 1 skipped, editor 307 + 1, viewport 98 + 1, curve-editor 137 + 3, headless-tests 107 +
