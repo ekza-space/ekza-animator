@@ -18,8 +18,11 @@ import { docJson, opsAppWith, runOk, runResult, WAVE, waveDoc } from '../builtin
 
 const DAY = 24 * 60 * 60 * 1000;
 
-/** A manual clock: timers and idle callbacks run when `advance` passes their time. */
-function manualClock(start = 1_000_000) {
+/**
+ * A manual clock: timers and idle callbacks run when `advance` passes their time. Idle callbacks run `idleMs` after
+ * they were requested (0: at once), like a busy main thread that gets idle a little later.
+ */
+function manualClock(start = 1_000_000, idleMs = 0) {
   let now = start;
   let seq = 0;
   const tasks = new Map<number, { at: number; fn: () => void }>();
@@ -35,7 +38,7 @@ function manualClock(start = 1_000_000) {
     },
     idle: (fn) => {
       const id = ++seq;
-      tasks.set(id, { at: now, fn });
+      tasks.set(id, { at: now + idleMs, fn });
     },
   };
   /** Runs every task due within `ms` in time order (tasks scheduled meanwhile too), then settles promises. */
@@ -176,14 +179,16 @@ function memoryStore(opts: { readonly openFails?: boolean } = {}) {
 
 type Memory = ReturnType<typeof memoryStore>;
 
-function setup(opts: { readonly memory?: Memory | null; readonly snapshot?: DocSnapshot } = {}) {
+function setup(
+  opts: { readonly memory?: Memory | null; readonly snapshot?: DocSnapshot; readonly idleMs?: number } = {},
+) {
   const memory = opts.memory === undefined ? memoryStore() : opts.memory;
   const services: FakeServices & { autosave: AutosaveStore | null } = {
     ...createFakeServices(),
     autosave: memory?.store ?? null,
   };
   const { app } = opsAppWith({ services, ...(opts.snapshot === undefined ? {} : { snapshot: opts.snapshot }) });
-  const { clock, advance, pending } = manualClock();
+  const { clock, advance, pending } = manualClock(undefined, opts.idleMs);
   const controller = startAutosave(app, { clock });
   return { app, services, memory, clock, advance, pending, controller };
 }
@@ -317,6 +322,50 @@ describe('autosave cadence', () => {
     await advance(0);
     expect(memory?.writes).toHaveLength(2);
     expect(JSON.parse(memory?.writes[1]?.snapshotJson ?? '')).toEqual(docJson(app));
+  });
+
+  it('a write that came due just before a gesture began waits for the gesture (its idle callback looks again)', async () => {
+    const { app, controller, memory, advance } = setup({ idleMs: 50 });
+    await controller.ready;
+    edit(app);
+    await advance(2000); // the debounce is over: the write waits for an idle moment
+    expect(memory?.writes).toHaveLength(0);
+    const preview = app.store.beginPreview('Drag');
+    preview.update((tx) => tx.patch('keys', WAVE.keys[1], { v: 0.5 }));
+    await advance(5000);
+    expect(memory?.started()).toBe(0);
+    preview.commit({ label: 'Drag' });
+    await advance(100);
+    expect(memory?.writes).toHaveLength(1);
+    expect(JSON.parse(memory?.writes[0]?.snapshotJson ?? '')).toEqual(docJson(app));
+    // the same with a cancelled gesture
+    edit(app, 0.6);
+    await advance(2000);
+    const second = app.store.beginPreview('Drag');
+    second.update((tx) => tx.patch('keys', WAVE.keys[1], { v: 0.9 }));
+    await advance(5000);
+    expect(memory?.started()).toBe(1);
+    second.cancel();
+    await advance(100);
+    expect(memory?.writes).toHaveLength(2);
+    expect(JSON.parse(memory?.writes[1]?.snapshotJson ?? '')).toEqual(docJson(app));
+  });
+
+  it('a write queued just before a clean end is dropped: a saved document leaves no snapshot behind', async () => {
+    const { app, controller, memory, advance } = setup({ idleMs: 50 });
+    await controller.ready;
+    edit(app);
+    await advance(2000); // queued for the next idle moment
+    app.session.setState({ dirty: true });
+    app.session.setState({ dirty: false }); // the save finished first
+    await advance(1000);
+    expect(memory?.started()).toBe(0);
+    expect(memory?.slots.get('as_0000000000000001')?.snapshot).toBeNull();
+    expect(app.session.getState().autosave.pending).toBe(false);
+    // the next edit is autosaved as usual
+    edit(app, 0.3);
+    await advance(2100);
+    expect(memory?.writes).toHaveLength(1);
   });
 
   it('ignores preview and load batches', async () => {

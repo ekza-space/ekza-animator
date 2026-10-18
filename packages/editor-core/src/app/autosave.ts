@@ -6,7 +6,8 @@
 //   the orphan list into `session.recovery`. A missing store or a failed claim turns autosave off with one info toast.
 // - Cadence: every committed batch but 'preview' and 'load' marks the document unsaved; the write runs `delayMs` after
 //   the last such batch but at most `maxIntervalMs` after the first unsaved one, never while a preview (gesture) is
-//   active (it waits for the commit or the cancel), in an idle callback, one write at a time.
+//   active (it waits for the commit or the cancel), in an idle callback, one write at a time. The idle callback looks
+//   again before it writes: a gesture that began meanwhile defers it, a clean end meanwhile drops it.
 // - Clean ends: when the document stops being dirty (a save, a new or opened project) the slot's snapshot is removed
 //   and pending writes are dropped; a quota error pauses autosave until then, with one warning toast.
 import { SCHEMA_VERSION, serializeSnapshot } from '@ekza-animator/doc';
@@ -145,12 +146,17 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
           waitingForCommit = true;
           return;
         }
-        clock.idle(() => {
-          void write().catch(() => {});
-        });
+        queueWrite();
       },
       Math.max(0, due - clock.now()),
     );
+  };
+
+  /** Queues a cadence write for the next idle moment; it re-checks what held when it was queued (`writeOnce`). */
+  const queueWrite = (): void => {
+    clock.idle(() => {
+      void write(true).catch(() => {});
+    });
   };
 
   const markUnsaved = (): void => {
@@ -172,8 +178,21 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     schemaVersion: SCHEMA_VERSION,
   });
 
-  const writeOnce = async (): Promise<{ readonly slot: string; readonly bytes: number } | null> => {
+  /**
+   * One write of the slot. A `queued` write (the cadence's, not `writeNow`) runs an idle callback or a write later
+   * than it was asked for: when the document ended cleanly since (saved, new, opened) there is nothing to keep, and
+   * when a gesture began since it waits for that gesture's commit or cancel (§5.20: never while a preview is active).
+   */
+  const writeOnce = async (queued: boolean): Promise<{ readonly slot: string; readonly bytes: number } | null> => {
     if (!active() || store === null || slot === null) return null;
+    if (queued) {
+      if (firstUnsavedAt === null) return null;
+      if (app.store.preview !== null) {
+        cancelTimer();
+        waitingForCommit = true;
+        return null;
+      }
+    }
     const seq = unsavedSeq;
     cancelTimer();
     await openAllPartitions(app);
@@ -215,8 +234,9 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
   };
 
   /** Serialized writes: a write waits for the one in flight. */
-  const write = (): Promise<{ readonly slot: string; readonly bytes: number } | null> => {
-    const run = chain.then(writeOnce, writeOnce);
+  const write = (queued = false): Promise<{ readonly slot: string; readonly bytes: number } | null> => {
+    const once = (): Promise<{ readonly slot: string; readonly bytes: number } | null> => writeOnce(queued);
+    const run = chain.then(once, once);
     chain = run.catch(() => {});
     return run;
   };
@@ -232,9 +252,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
       // A cancelled gesture restores committed state: a write that waited for it can run now.
       if (waitingForCommit && app.store.preview === null && active()) {
         waitingForCommit = false;
-        clock.idle(() => {
-          void write().catch(() => {});
-        });
+        queueWrite();
       }
       return;
     }
@@ -244,9 +262,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
       // The write that came due during the gesture runs at its commit.
       waitingForCommit = false;
       cancelTimer();
-      clock.idle(() => {
-        void write().catch(() => {});
-      });
+      queueWrite();
     }
   };
 
