@@ -120,15 +120,18 @@ function ReadyEditor(props: {
     if (!shell.params.e2e) return undefined;
     let cancelled = false;
     let uninstall: (() => void) | null = null;
-    void import('../test-api/createTestApi').then(({ createTestApi }) => {
-      if (cancelled) return;
-      const handle = createTestApi(shell);
-      window.__EKZA_ANIMATOR_TEST__ = handle.api;
-      uninstall = () => {
-        if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
-        handle.dispose();
-      };
-    });
+    import('../test-api/createTestApi')
+      .then(({ createTestApi }) => {
+        if (cancelled) return;
+        const handle = createTestApi(shell);
+        window.__EKZA_ANIMATOR_TEST__ = handle.api;
+        uninstall = () => {
+          if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
+          handle.dispose();
+        };
+      })
+      // The editor keeps working without it; the spec waiting for the global fails with this message in its log.
+      .catch((error: unknown) => console.error('Ekza Animator: the e2e test API could not be loaded', error));
     return () => {
       cancelled = true;
       uninstall?.();

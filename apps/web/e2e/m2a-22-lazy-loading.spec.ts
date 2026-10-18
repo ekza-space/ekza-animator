@@ -87,3 +87,30 @@ test('E2E-M2A-22b: the Dope Sheet panel loads its chunk when its tab is first sh
   await expect(page.getByTestId('ds-canvas')).toBeVisible();
   expect(loaded(scripts.bodies, MARKERS.dopeSheet)).toBe(true);
 });
+
+test('E2E-M2A-22 (M2A-A5-10): a dialog chunk that fails to load closes with a toast; the next open loads it', async ({
+  page,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await openEditor(page);
+  await expectKernelStarted(page);
+  await page.waitForLoadState('networkidle');
+  // From here no script arrives (offline after load, or a redeploy that replaced the chunk hashes).
+  const chunks = '**/_next/static/**/*.js';
+  await page.route(chunks, (route) => route.abort('internetdisconnected'));
+  await runOk(page, 'ui.open', { dialog: 'about' });
+  await expect(page.getByTestId('toast').filter({ hasText: "Couldn't load the About dialog" })).toBeVisible();
+  await expect.poll(async () => (await call(page, 'state')).dialog).toBeNull();
+  // The editor is still there and still works.
+  for (const id of ['editor-root', 'menubar', 'statusline', 'timeline-region']) {
+    await expect(page.getByTestId(id)).toBeVisible();
+  }
+  await expect(page.getByTestId('about-dialog')).toHaveCount(0);
+  expect(errors).toEqual([]);
+
+  await page.unroute(chunks);
+  await runOk(page, 'ui.open', { dialog: 'about' });
+  await expect(page.getByTestId('about-dialog')).toBeVisible();
+  expect(errors).toEqual([]);
+});
