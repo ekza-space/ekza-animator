@@ -286,7 +286,7 @@ describe('ik2 op: a rest hyperextended about its hinge (§5.3 amendment C)', () 
     const collections = await collectionsDuring(() => {
       perEvaluation = allocatedBytesPerCall(() => program.evaluate(ch, pose), 10000);
     });
-    expect([collections, perEvaluation < 0.016]).toEqual([0, true]);
+    expect([collections, perEvaluation < 1]).toEqual([0, true]);
   });
 });
 
@@ -795,9 +795,10 @@ describe('ik2 op allocates nothing per evaluation (§8 A1 DoD)', () => {
           sink = { ikFk };
         }, 1000);
       });
-      // Below one 16-byte object per 1 000 evaluations (a one-off allocation of the optimizing compiler installing
-      // code may land in a round; any allocation per evaluation counts ≥ 16 bytes).
-      expect([ikFk, collections, perEvaluation < 0.016, leaky >= 16]).toEqual([ikFk, 0, true, true]);
+      // Below 1 byte per evaluation: any allocation made per evaluation (or every few) counts ≥ 16 bytes per
+      // evaluation, while one-off allocations of the optimizing compiler installing code under load may land in a
+      // round (seen: ~200 bytes per 10 000 evaluations in a parallel run, 0 when run alone).
+      expect([ikFk, collections, perEvaluation < 1, leaky >= 16]).toEqual([ikFk, 0, true, true]);
     }
     expect(sink).not.toBeNull();
   });

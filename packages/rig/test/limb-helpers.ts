@@ -207,7 +207,8 @@ function newSpaceUsed(): number {
  * `calls` calls (after one uncounted round that lets the optimizer settle the measuring loop), less the least growth
  * over as many calls of an empty function (the reading's own allocation, a few kB), divided by `calls`. Exact to the
  * byte while no collection runs in between, so run it inside `collectionsDuring` and expect 0 collections (every V8
- * heap object takes ≥ 16 bytes, so an allocation per call shows up as ≥ 16).
+ * heap object takes ≥ 16 bytes, so an allocation per call shows up as ≥ 16; one-off allocations of the runtime,
+ * such as the optimizing compiler installing code, add a few hundred bytes per round at most).
  */
 export function allocatedBytesPerCall(run: () => void, calls: number, rounds = 3): number {
   const empty = (): void => undefined;

@@ -1014,9 +1014,10 @@ describe('ik2 allocates nothing per evaluation on Seed-san with four IK limbs (�
           sink = { index };
         }, 1000);
       });
-      // Below one 16-byte object per 1 600 evaluations (a one-off allocation of the optimizing compiler installing
-      // code may land in a round; any allocation per evaluation counts ≥ 16 bytes).
-      expect([index, collections, perEvaluation < 0.01, leaky >= 16]).toEqual([index, 0, true, true]);
+      // Below 1 byte per evaluation: any allocation made per evaluation (or every few) counts ≥ 16 bytes per
+      // evaluation, while one-off allocations of the optimizing compiler installing code under load may land in a
+      // round.
+      expect([index, collections, perEvaluation < 1, leaky >= 16]).toEqual([index, 0, true, true]);
     }
     expect(sink).not.toBeNull();
   });
