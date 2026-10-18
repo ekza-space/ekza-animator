@@ -1,11 +1,13 @@
 import { EkzaError, type Mat4, mat4Decompose, quatAngle, type Quat } from '@ekza-animator/anim-core';
 import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import { TwoBoneCore } from '../ik/core';
 import { solveBoneChannels, solveControlChannels } from '../inverse/solve';
 import { internalsOf } from '../kernel/internals';
-import { allocXfArrays, type XfArrays, xfaFromMat4, xfaInvMul, xfaMulInv, xfaToMat4 } from '../math/xfa';
+import { allocXfArrays, type XfArrays, xfaCopy, xfaFromMat4, xfaInvMul, xfaMulInv, xfaToMat4 } from '../math/xfa';
 import { readControlChannels, writeControlChannels } from '../sampler/channels';
 import type { ChannelBuffer, LimbDesc, LimbId, PoseBuffers, RigProgram } from '../types';
 import { FOOT_F, FOOT_G, FootRoll } from './foot';
+import { configureLimbCore } from './ik2';
 
 // IK/FK matching (M2A-SPEC §5.6), Plant Feet on IK legs (§5.8) and the foot-roll pivots (§5.3.1). These run on
 // user actions and imports, not per frame, so they may allocate.
@@ -98,6 +100,14 @@ export function matchFkToIk(
 }
 
 const DEG = Math.PI / 180;
+/**
+ * The IK's mid-joint offset ω of the match pole rule is taken at the FK pose's own hinge bend below OMEGA_IK_FROM of
+ * IK bend and at the IK's bend for the FK reach above OMEGA_IK_TO (smoothstep between): both agree for hinge poses;
+ * the second puts the IK mid joint exactly in the FK bend plane of an off-hinge pose (β = 1), but near straight it
+ * amplifies small reach changes (the IK bend changes like 1/sin t with the reach).
+ */
+const OMEGA_IK_FROM = 10 * DEG;
+const OMEGA_IK_TO = 20 * DEG;
 
 function smoothstep(e0: number, e1: number, x: number): number {
   const t = Math.min(1, Math.max(0, (x - e0) / (e1 - e0)));
@@ -233,13 +243,14 @@ function footRollAt(desc: LimbDesc, ch: ChannelBuffer): FootRoll | null {
   return roll;
 }
 
-/** W_ik = endWorld · K_end⁻¹ · F⁻¹ as a matrix. */
+/** W_ik = endWorld · K_end⁻¹ · F⁻¹ as a matrix, its translation moved by `shift` (the amendment C band). */
 function ikWorldFor(
   program: RigProgram,
   desc: LimbDesc,
   ch: ChannelBuffer,
   endWorld: Mat4 | Float64Array,
   offset: number,
+  shift: V3,
 ): Mat4 {
   const xf = allocXfArrays(2);
   xfaFromMat4(endWorld, offset, xf, 0);
@@ -248,7 +259,70 @@ function ikWorldFor(
   if (roll !== null) xfaMulInv(xf, 1, roll.xf, FOOT_F, xf, 1);
   const out = new Float64Array(16);
   xfaToMat4(xf, 1, out, 0);
+  out[12] = (out[12] as number) + shift[0];
+  out[13] = (out[13] as number) + shift[1];
+  out[14] = (out[14] as number) + shift[2];
   return out;
+}
+
+/** The limb's two-bone solver (the op's rest data) under the parent world of its upper bone in `pose`. */
+function limbCore(program: RigProgram, desc: LimbDesc, pose: PoseBuffers): TwoBoneCore {
+  const internals = internalsOf(program);
+  const core = new TwoBoneCore();
+  configureLimbCore(core, program, desc);
+  const parent = internals.nodeParent[desc.nodes.upper] as number;
+  const xf = allocXfArrays(1);
+  if (parent === -1) xfaCopy(internals.facing, 0, xf, 0);
+  else xfaFromMat4(pose.boneWorld, parent * 16, xf, 0);
+  for (let i = 0; i < 3; i++) {
+    core.parentT[i] = xf.t[i] as number;
+    core.parentS[i] = xf.s[i] as number;
+  }
+  for (let i = 0; i < 4; i++) core.parentQ[i] = xf.q[i] as number;
+  return core;
+}
+
+/**
+ * Where the IK target must sit for the ik2 solver to land the end at `end` with the mid joint on the side `flexed`
+ * (§5.3 amendment C): the translation that moves the IK control from `end` along the reach ray. Zero for limbs whose
+ * rest is not hyperextended and for bends outside the transition band, where the solver lands the end on its target.
+ * Inside the band (the bends from the rest's −T to T + W) the solver takes each bend at a distance shorter than its
+ * reach, so the control sits that much closer to the upper bone than the end. A hyperextended side beyond the rest's
+ * hyperextension cannot be reproduced; it is answered with the flexion of the same reach.
+ */
+function bandShift(core: TwoBoneCore, end: V3, flexed: boolean): V3 {
+  const { hyper, width } = core.transitionBand();
+  if (!(hyper > 0)) return [0, 0, 0];
+  const a = core.upperPosition([0, 0, 0]);
+  const ray = sub(end, a);
+  const d = len(ray);
+  if (!(d > 1e-12)) return [0, 0, 0];
+  const t = ikBendFor(core, d, flexed);
+  if (!(t > -hyper && t < hyper + width)) return [0, 0, 0];
+  return scale(ray, (core.distanceForBend(t) - d) / d);
+}
+
+/**
+ * The bend t (from greatest reach) the matched IK takes for an end at distance `d` from the upper bone, with the mid
+ * joint on the side `flexed`: the flexion of that reach, or on the hyperextended side the hyperextension of that
+ * reach while it does not exceed the rest's (a further hyperextension cannot be reproduced and flexes instead).
+ */
+function ikBendFor(core: TwoBoneCore, d: number, flexed: boolean): number {
+  const { hyper } = core.transitionBand();
+  const { spread } = core.bendAt(d);
+  if (flexed || !(hyper > 0)) return spread;
+  // The rest itself lies at spread T on the hyperextended side; rounding may put it a hair beyond.
+  return spread <= hyper + 1e-9 ? -Math.min(spread, hyper) : spread;
+}
+
+/** Whether the mid joint of `pose` lies on the flexion side of the limb's hinge (m · (x̂ × k) > 0, §5.6). */
+function flexedIn(program: RigProgram, desc: LimbDesc, pose: PoseBuffers): boolean {
+  const a = position(pose, desc.nodes.upper);
+  const b = position(pose, desc.nodes.mid);
+  const c = position(pose, desc.nodes.end);
+  const ac = sub(c, a);
+  const x: V3 = len(ac) > 1e-12 ? scale(ac, 1 / len(ac)) : [0, -1, 0];
+  return dot(perpendicular(sub(b, a), x), cross(x, worldHinge(program, desc, pose))) > 0;
 }
 
 /**
@@ -265,13 +339,39 @@ export function ikControlForEndWorld(
   reference: ChannelValues,
 ): ChannelValues {
   const desc = limbDesc(program, limb);
+  const end: V3 = [endWorld[12] as number, endWorld[13] as number, endWorld[14] as number];
+  const shift = bandShift(limbCore(program, desc, pose), end, flexedIn(program, desc, pose));
   return solveControlChannels(
     program,
     pose,
     desc.params.ikControl,
-    ikWorldFor(program, desc, ch, endWorld, 0),
+    ikWorldFor(program, desc, ch, endWorld, 0, shift),
     reference,
   );
+}
+
+/**
+ * The FK pose's bend about the limb's hinge, measured like the solver's bend t (from the chain's greatest reach,
+ * > 0 flexion): the hinge part (swing-twist about the hinge) of the mid bone's rotation relative to the upper bone,
+ * taken against their rest relation, less the rest's offset from greatest reach. Equals the IK's bend for every
+ * hinge pose; a smooth function of the FK rotations (no reach singularity near straight, no branch switch).
+ */
+function hingeBendOf(program: RigProgram, desc: LimbDesc, pose: PoseBuffers, core: TwoBoneCore): number {
+  const internals = internalsOf(program);
+  const { upper, mid } = desc.nodes;
+  const restQ = (node: number): Quat => [
+    internals.restWorld.q[node * 4] as number,
+    internals.restWorld.q[node * 4 + 1] as number,
+    internals.restWorld.q[node * 4 + 2] as number,
+    internals.restWorld.q[node * 4 + 3] as number,
+  ];
+  const relative = quatMul(conj(boneRotation(pose, upper)), boneRotation(pose, mid));
+  const restRelative = quatMul(conj(restQ(upper)), restQ(mid));
+  const delta = quatMul(conj(restRelative), relative);
+  const hingeLocal = rotate(conj(restQ(mid)), [desc.params.hinge[0], desc.params.hinge[1], desc.params.hinge[2]]);
+  const gamma = 2 * Math.atan2(dot([delta[0], delta[1], delta[2]], hingeLocal), delta[3]);
+  const t = gamma - core.transitionBand().base;
+  return Math.atan2(Math.sin(t), Math.cos(t));
 }
 
 /**
@@ -279,14 +379,22 @@ export function ikControlForEndWorld(
  * foot-roll attributes), `twist` 0 and the pole by the match pole rule, at distance D from b (the current pole
  * distance when ≥ 0.25·L, else L).
  *
- * The rule's blend towards the actual bend offset m̂ is taken relative to the IK's own knee (a deviation that keeps
- * the rule's intent exact on real rests, docs/wp-notes/m2a-rig-ik.md): with the pole along h the IK puts the mid
- * joint at an offset m₀ (= m for every hinge pose, also when the rest bend leaves the hinge plane by a little, as
- * on Seed-san's knees, or a lot, as on Polybot's splayed legs); the pole direction is then h turned about x̂ by β·ψ,
- * ψ the signed angle from m₀ to m. A hinge pose gives ψ = 0 and the exact M1-style pole; an off-hinge knee (mocap ab-
- * duction or twist) turns the IK bend plane towards the actual knee; near-straight and hyperextended limbs (β = 0)
- * use h. The pole is placed so that its offset from the a → c line points along p̂ (the ik2 twist aligns the hinge-
- * implied direction with that offset, §5.3 B).
+ * The rule's blend towards the actual bend offset m̂ is taken relative to the IK's own mid joint (a refinement that
+ * keeps the rule exact on real rests, docs/wp-notes/m2a-rig-ik.md M2A-A1-2): the pole direction is h turned about x̂
+ * by β·ψ, ψ the signed angle from ω to the FK offset m, where ω is the direction (about x̂, from h) of the offset the
+ * IK gives the mid joint with the pole along h. ω comes from the rest geometry (`TwoBoneCore.offsetAngleAt`) at the
+ * FK pose's own hinge bend (`hingeBendOf`, on the flexion side) for IK bends up to 10° and at the IK's bend for the
+ * FK reach from 20° (`OMEGA_IK_FROM`/`TO`). A hinge pose gives ψ = 0 and the exact M1-style pole, also when the rest
+ * bend leaves the hinge plane by a little (Seed-san's knees) or a lot (Polybot's splayed legs); an off-hinge knee
+ * (mocap ab-duction or twist) turns the IK bend plane towards the actual knee (into the FK bend plane at β = 1 from
+ * 20° of bend); near-straight and hyperextended limbs (β = 0) use h. No IK evaluation and no solver branch enters ω,
+ * and ψ never wraps while β > 0 (|ω| < π/2 on the flexion side and m̂·h > 0), so the pole moves continuously with
+ * the FK pose. The pole is placed so that its offset from the a → c line points along p̂ (the ik2 twist aligns the
+ * hinge-implied direction with that offset, §5.3 B).
+ *
+ * The IK control sits at the FK end, except on a limb whose rest is hyperextended when the FK bend lies in the
+ * solver's transition band (§5.3 amendment C, `bandShift`): it then sits on the reach ray at the distance for which
+ * the solver takes the FK bend, so the end still lands on the FK end.
  *
  * Only the IK and pole controls are matched (`fk.toes` keeps its channels): with a ball roll the toes rule keeps
  * the IK toes planted, so they differ from the FK toes (§5.3 step 6). The errors compare the IK result (evaluated
@@ -319,6 +427,7 @@ export function matchIkToFk(
     fkPose.controlWorld[poleSlot * 16 + 14] as number,
   ];
   const { x, h, beta } = matchPoleBasis(a, b, c, worldHinge(program, desc, fkPose), currentPole, reach);
+  const core = limbCore(program, desc, fkPose);
   const currentDistance = len(sub(currentPole, b));
   const distance = currentDistance >= 0.25 * reach ? currentDistance : reach;
   const m = perpendicular(sub(b, a), x);
@@ -338,31 +447,33 @@ export function matchIkToFk(
       program,
       fkPose,
       p.ikControl,
-      ikWorldFor(program, desc, ch, fkPose.boneWorld, end * 16),
+      ikWorldFor(program, desc, ch, fkPose.boneWorld, end * 16, bandShift(core, c, flexedIn(program, desc, fkPose))),
       ikReference,
     ),
   };
   if (desc.attrSlots.twist >= 0) ikValues['@twist'] = 0;
 
-  // The IK pose with the given pole channels (ikFk 1, the other channels of `ch`).
+  // The pole: h turned about x̂ by β·ψ, ψ the angle from the IK's own mid-joint offset ω (with the pole along h) to
+  // the FK offset m. A hinge pose gives ψ = 0 (the exact M1-style pole).
+  let poleValues = poleValuesAlong(h);
+  if (beta > 0) {
+    const omegaFk = core.offsetAngleAt(Math.abs(hingeBendOf(program, desc, fkPose, core)));
+    const tIk = ikBendFor(core, len(sub(c, a)), dot(m, h) > 0);
+    const lambda = smoothstep(OMEGA_IK_FROM, OMEGA_IK_TO, tIk);
+    const omega = lambda > 0 ? omegaFk + lambda * (core.offsetAngleAt(tIk) - omegaFk) : omegaFk;
+    const psi = angleAbout(rotateAbout(h, x, omega), m, x);
+    if (psi !== 0) poleValues = poleValuesAlong(rotateAbout(h, x, beta * psi));
+  }
+
+  // The IK pose with these channels (ikFk 1, the other channels of `ch`) for the errors.
   const scratch = program.allocChannels();
   scratch.values.set(ch.values.subarray(0, scratch.values.length));
   scratch.attrs.set(ch.attrs.subarray(0, scratch.attrs.length));
   writeControlChannels(program, scratch, p.ikControl, ikValues);
+  writeControlChannels(program, scratch, p.pole, poleValues);
   if (desc.attrSlots.ikFk >= 0) scratch.attrs[desc.attrSlots.ikFk] = 1;
   const ikPose = program.allocPose();
-  const evaluateWithPole = (values: ChannelValues): void => {
-    writeControlChannels(program, scratch, p.pole, values);
-    program.evaluate(scratch, ikPose);
-  };
-
-  let poleValues = poleValuesAlong(h);
-  if (beta > 0) {
-    evaluateWithPole(poleValues);
-    const psi = angleAbout(sub(position(ikPose, mid), a), m, x);
-    if (psi !== 0) poleValues = poleValuesAlong(rotateAbout(h, x, beta * psi));
-  }
-  evaluateWithPole(poleValues);
+  program.evaluate(scratch, ikPose);
 
   const values = new Map<ControlId, ChannelValues>([
     [p.ikControl, ikValues],

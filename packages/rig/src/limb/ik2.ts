@@ -247,28 +247,8 @@ function compileState(
   const restLocal = allocXfArrays(nodeList.length);
   nodeList.forEach((node, i) => xfaCopy(internals.restLocal, node, restLocal, i));
   const core = new TwoBoneCore();
+  configureLimbCore(core, program, limb);
   const rest = internals.restWorld;
-  const scratch = allocXfArrays(2);
-  xfaCopy(internals.restLocal, upper, scratch, 0);
-  setCoreXf(scratch, 0, core.upperT, core.upperQ, core.upperS);
-  xfaInvMul(rest, upper, rest, mid, scratch, 0);
-  setCoreXf(scratch, 0, core.midT, core.midQ, core.midS);
-  xfaInvMul(rest, mid, rest, end, scratch, 0);
-  setCoreXf(scratch, 0, core.endT, core.endQ, null);
-  // hingeLocal = q(W⁰_mid)⁻¹ ⊗ hinge
-  const qx = -(rest.q[mid * 4] as number);
-  const qy = -(rest.q[mid * 4 + 1] as number);
-  const qz = -(rest.q[mid * 4 + 2] as number);
-  const qw = rest.q[mid * 4 + 3] as number;
-  const [hx, hy, hz] = p.hinge;
-  const tx = 2 * (qy * hz - qz * hy);
-  const ty = 2 * (qz * hx - qx * hz);
-  const tz = 2 * (qx * hy - qy * hx);
-  core.hingeLocal[0] = hx + qw * tx + (qy * tz - qz * ty);
-  core.hingeLocal[1] = hy + qw * ty + (qz * tx - qx * tz);
-  core.hingeLocal[2] = hz + qw * tz + (qx * ty - qy * tx);
-  core.restReach = limb.lengths.restReach;
-  core.useEndRotation = true;
 
   const ikSlot = program.controlIndex.get(p.ikControl) as number;
   const poleSlot = program.controlIndex.get(p.pole) as number;
@@ -317,6 +297,38 @@ function compileState(
     qa: [0, 0, 0, 1],
     qb: [0, 0, 0, 1],
   };
+}
+
+/**
+ * Sets the rest data of a limb's two-bone solver (upper rest local, mid and end rest relative to their chain parents
+ * with intermediate nodes rigid at rest, the hinge in the mid bone's rest frame, the rest reach d⁰). The op's state
+ * and the matching functions (§5.6) configure their solvers the same way.
+ */
+export function configureLimbCore(core: TwoBoneCore, program: RigProgram, limb: LimbDesc): void {
+  const internals = internalsOf(program);
+  const { upper, mid, end } = limb.nodes;
+  const rest = internals.restWorld;
+  const scratch = allocXfArrays(1);
+  xfaCopy(internals.restLocal, upper, scratch, 0);
+  setCoreXf(scratch, 0, core.upperT, core.upperQ, core.upperS);
+  xfaInvMul(rest, upper, rest, mid, scratch, 0);
+  setCoreXf(scratch, 0, core.midT, core.midQ, core.midS);
+  xfaInvMul(rest, mid, rest, end, scratch, 0);
+  setCoreXf(scratch, 0, core.endT, core.endQ, null);
+  // hingeLocal = q(W⁰_mid)⁻¹ ⊗ hinge
+  const qx = -(rest.q[mid * 4] as number);
+  const qy = -(rest.q[mid * 4 + 1] as number);
+  const qz = -(rest.q[mid * 4 + 2] as number);
+  const qw = rest.q[mid * 4 + 3] as number;
+  const [hx, hy, hz] = limb.params.hinge;
+  const tx = 2 * (qy * hz - qz * hy);
+  const ty = 2 * (qz * hx - qx * hz);
+  const tz = 2 * (qx * hy - qy * hx);
+  core.hingeLocal[0] = hx + qw * tx + (qy * tz - qz * ty);
+  core.hingeLocal[1] = hy + qw * ty + (qz * tx - qx * tz);
+  core.hingeLocal[2] = hz + qw * tz + (qx * ty - qy * tx);
+  core.restReach = limb.lengths.restReach;
+  core.useEndRotation = true;
 }
 
 function setCoreXf(

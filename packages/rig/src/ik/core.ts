@@ -18,9 +18,22 @@ import {
 //                  vertical shins, so the knee sits 9 cm outside the hip–ankle line and does not bend about its x
 //                  hinge at all): there m keeps the rest's sideways part, and aligning it with the pole would swing
 //                  the knee sideways as the leg flexes. Falls back to m when x̂ ∥ k.
-// C (flexion side) the bend about the hinge may go below 0 down to the rest's own bend (min(0, β⁰)): a rest that
-//                  is hyperextended about its hinge (Seed-san's elbows −1.4°, Polybot's −4.9°) is reached at rest
-//                  without flipping; closer targets flex the normal way.
+// C (flexion side) a rest that is hyperextended about its hinge (Seed-san's elbows −1.4°, Polybot's −4.9°) is
+//                  reproduced exactly, and the solution stays continuous in the target. Measure the bend by t, the
+//                  angle about the hinge from the bend of greatest reach (t > 0 flexion, t < 0 hyperextension; a
+//                  reach d has the two solutions t = ±s, s = spread(d)), and let T ≥ 0 be the rest's hyperextension
+//                  (t⁰ = −T). M1 takes t = s. With T > 0:
+//                    s ≤ T            t = −s                        (targets between the rest reach d⁰ and full
+//                                                                    reach: the hyperextended branch, exact; the
+//                                                                    rest itself at s = T)
+//                    T < s < T + W    t = s − 2T·(1 − x)², x = (s − T)/W   (the transition band, W = min(2T, π − T))
+//                    s ≥ T + W        t = s                         (the normal flexion, exact)
+//                  The band takes the bend continuously (C¹ at its far end) from the rest's −T through straight to
+//                  the flexion branch while the target comes closer than d⁰ by about 8·(R_max − d⁰) (R_max the
+//                  greatest reach). Its bends are less than s in size, so inside the band the end overshoots the
+//                  target along the reach ray by at most about 2.2·(R_max − d⁰) (Polybot's arms 0.6 mm, Seed-san's
+//                  0.03 mm); matching places the IK control so the end lands exactly (`distanceForBend`). Rests that
+//                  are not hyperextended (T = 0) keep the M1 rule t = s.
 //
 // With these, default channels reproduce the rest pose exactly (§5.3 rest exactness) on every fixture limb.
 
@@ -77,6 +90,19 @@ export class TwoBoneCore {
   private d = 0;
   /** Angle handed to `axisAngle`. */
   private angle = 0;
+  /**
+   * Hinge geometry of the seeded chain (`seedChain`): the chain bent by t from its greatest reach reaches
+   * √(2·(c0 + r·cos t)); the rest lies at t⁰ = −base.
+   */
+  private gBase = 0;
+  private gR = 0;
+  private gC0 = 0;
+  /** T (the rest's hyperextension about the hinge, ≥ 0) and W (the transition band, amendment C). */
+  private gT = 0;
+  private gW = 0;
+  /** Spread s handed to / bend t returned from `bendFromSpread`. */
+  private s = 0;
+  private t = 0;
 
   // Scratch.
   private readonly sU: Vec3 = [1, 1, 1];
@@ -98,25 +124,10 @@ export class TwoBoneCore {
   private readonly qM: Quat = [0, 0, 0, 1];
 
   solve(): void {
-    const { a, b, c, tM0, tE0, x, k, u, v, w, ref, n, qa, qb, qU, qM, sU } = this;
-    const sPa = this.parentS;
-    mulInto(sPa, this.upperS, sU);
-    mulInto(sU, this.midT, tM0);
-    mulInto(sU, this.midS, w);
-    mulInto(w, this.endT, tE0);
+    const { a, b, c, tM0, tE0, x, k, w, ref, n, qa, qb, qU, qM } = this;
 
-    // 1. Seed from rest under the current parent.
-    quatNormalize(this.upperQ, qa);
-    quatMultiply(this.parentQ, qa, qU);
-    mulInto(sPa, this.upperT, w);
-    quatRotateVec3(this.parentQ, w, w);
-    addInto(this.parentT, w, a);
-    quatNormalize(this.midQ, qa);
-    quatMultiply(qU, qa, qM);
-    quatRotateVec3(qU, tM0, w);
-    addInto(a, w, b);
-    quatRotateVec3(qM, tE0, w);
-    addInto(b, w, c);
+    // 1. Seed from rest under the current parent; the hinge geometry of the seeded chain.
+    this.seedChain();
     const l1 = Math.sqrt(tM0[0] * tM0[0] + tM0[1] * tM0[1] + tM0[2] * tM0[2]);
     const l2 = Math.sqrt(tE0[0] * tE0[0] + tE0[1] * tE0[1] + tE0[2] * tE0[2]);
     const total = l1 + l2;
@@ -141,13 +152,9 @@ export class TwoBoneCore {
     const reachable = dRaw >= lo - 1e-12 && dRaw <= hi + 1e-12;
     d = Math.min(Math.max(d, lo), hi);
 
-    // 3. Bend the mid bone about its hinge only; the flexion side starts at the rest's own bend (amendment C).
-    quatRotateVec3(qM, this.hingeLocal, k);
-    normalizeOr(k, 1, 0, 0);
-    subInto(b, a, u);
-    subInto(c, b, v);
+    // 3. Bend the mid bone about its hinge only, on the branch of amendment C.
     this.d = d;
-    this.bendAngle(u, v, k);
+    this.bendAngle();
     this.angle = this.gamma;
     this.axisAngle(k, qa);
     quatMultiply(qa, qM, qM);
@@ -220,6 +227,53 @@ export class TwoBoneCore {
     this.reached = reachable && missSq <= allowed * allowed;
   }
 
+  /**
+   * Step 1 of `solve`: the chain at rest under the current parent (a, b, c, qU, qM), the seeded world hinge k, the
+   * bone vectors u = b − a and v = c − b, and the hinge geometry of amendment C (base, r, c0, T, W).
+   */
+  private seedChain(): void {
+    const { a, b, c, tM0, tE0, k, u, v, w, n, qa, qU, qM, sU } = this;
+    const sPa = this.parentS;
+    mulInto(sPa, this.upperS, sU);
+    mulInto(sU, this.midT, tM0);
+    mulInto(sU, this.midS, w);
+    mulInto(w, this.endT, tE0);
+    quatNormalize(this.upperQ, qa);
+    quatMultiply(this.parentQ, qa, qU);
+    mulInto(sPa, this.upperT, w);
+    quatRotateVec3(this.parentQ, w, w);
+    addInto(this.parentT, w, a);
+    quatNormalize(this.midQ, qa);
+    quatMultiply(qU, qa, qM);
+    quatRotateVec3(qU, tM0, w);
+    addInto(a, w, b);
+    quatRotateVec3(qM, tE0, w);
+    addInto(b, w, c);
+    quatRotateVec3(qM, this.hingeLocal, k);
+    normalizeOr(k, 1, 0, 0);
+    subInto(b, a, u);
+    subInto(c, b, v);
+
+    // Rotating v about k by γ gives |u + v'|² = uu + vv + 2·(uk·vk + r·cos(γ − base)), with r = |u⊥|·|v⊥| and base
+    // the γ of greatest reach. The rest is γ = 0, so its bend from greatest reach is t⁰ = −base.
+    const vk = v[0] * k[0] + v[1] * k[1] + v[2] * k[2];
+    w[0] = v[0] - vk * k[0];
+    w[1] = v[1] - vk * k[1];
+    w[2] = v[2] - vk * k[2];
+    cross(k, w, n);
+    const pa = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+    const pb = u[0] * n[0] + u[1] * n[1] + u[2] * n[2];
+    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    const uk = u[0] * k[0] + u[1] * k[1] + u[2] * k[2];
+    this.gR = Math.sqrt(pa * pa + pb * pb);
+    this.gBase = this.gR < 1e-15 ? 0 : Math.atan2(pb, pa);
+    this.gC0 = (uu + vv) / 2 + uk * vk;
+    const hyper = this.gBase > 0 ? this.gBase : 0;
+    this.gT = hyper;
+    this.gW = Math.min(2 * hyper, Math.PI - hyper);
+  }
+
   /** Rotation by `this.angle` about the unit `axis` (anim-core's quatFromAxisAngle normalizes with Math.hypot). */
   private axisAngle(axis: Vec3, out: Quat): void {
     const half = this.angle * 0.5;
@@ -230,63 +284,131 @@ export class TwoBoneCore {
     out[3] = Math.cos(half);
   }
 
-  /**
-   * Angle γ about unit `k` that brings |u + R_k(γ)·v| to `d`. Of the two solutions the one with the smaller |γ| wins
-   * unless its bend (signed angle from u to v' about k) lies below min(0, rest bend): the rest bend of a
-   * hyperextended rest is allowed, anything beyond it is not (amendment C; M1 allows bends ≥ 0 only). The result goes
-   * to `this.gamma` (a returned double would be boxed by a call the optimizer does not inline).
-   */
-  private bendAngle(u: Vec3, v: Vec3, k: Vec3): void {
-    const { w, n } = this;
-    const d = this.d;
-    const vk = v[0] * k[0] + v[1] * k[1] + v[2] * k[2];
-    // v⊥ into w, k × v⊥ into n.
-    w[0] = v[0] - vk * k[0];
-    w[1] = v[1] - vk * k[1];
-    w[2] = v[2] - vk * k[2];
-    cross(k, w, n);
-    const pa = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
-    const pb = u[0] * n[0] + u[1] * n[1] + u[2] * n[2];
-    const r = Math.sqrt(pa * pa + pb * pb);
+  /** s = spread(this.d): the size of the bend from greatest reach that reaches `this.d`, into `this.s`. */
+  private spreadOf(): void {
+    const r = this.gR;
     if (r < 1e-15) {
+      this.s = 0;
+      return;
+    }
+    const cosine = (this.d * this.d) / 2 - this.gC0;
+    this.s = Math.acos(Math.min(1, Math.max(-1, cosine / r)));
+  }
+
+  /** Amendment C: the bend t (from greatest reach) taken for the spread `this.s`, into `this.t`. */
+  private bendFromSpread(): void {
+    const s = this.s;
+    const hyper = this.gT;
+    const band = this.gW;
+    if (!(hyper > 0)) this.t = s;
+    else if (s <= hyper) this.t = -s;
+    else if (band > 1e-12 && s < hyper + band) {
+      const left = 1 - (s - hyper) / band;
+      this.t = s - 2 * hyper * left * left;
+    } else this.t = s;
+  }
+
+  /**
+   * Angle γ about k (from the seeded rest) that bends the chain to the reach `this.d`, on the branch of amendment C,
+   * into `this.gamma` (a returned double would be boxed by a call the optimizer does not inline).
+   */
+  private bendAngle(): void {
+    if (this.gR < 1e-15) {
       this.gamma = 0;
       return;
     }
-    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
-    const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
-    const uk = u[0] * k[0] + u[1] * k[1] + u[2] * k[2];
-    const c = (d * d - uu - vv) / 2 - uk * vk;
-    const base = Math.atan2(pb, pa);
-    const spread = Math.acos(Math.min(1, Math.max(-1, c / r)));
-    // The rest bend: atan2(k·(u × v), u·v).
-    const ux = u[1] * v[2] - u[2] * v[1];
-    const uy = u[2] * v[0] - u[0] * v[2];
-    const uz = u[0] * v[1] - u[1] * v[0];
-    const restBend = Math.atan2(k[0] * ux + k[1] * uy + k[2] * uz, u[0] * v[0] + u[1] * v[1] + u[2] * v[2]);
-    // A hair below the rest bend still counts as the rest (rounding of a target placed exactly at the rest reach).
-    const floor = Math.min(0, restBend - 1e-7);
-    let best = 0;
-    let bestScore = Number.POSITIVE_INFINITY;
-    for (let i = 0; i < 2; i++) {
-      const gamma = i === 0 ? base + spread : base - spread;
-      const cg = Math.cos(gamma);
-      const sg = Math.sin(gamma);
-      // v' = v∥ + v⊥·cos γ + (k × v⊥)·sin γ
-      const rx = vk * k[0] + w[0] * cg + n[0] * sg;
-      const ry = vk * k[1] + w[1] * cg + n[1] * sg;
-      const rz = vk * k[2] + w[2] * cg + n[2] * sg;
-      const cx = u[1] * rz - u[2] * ry;
-      const cy = u[2] * rx - u[0] * rz;
-      const cz = u[0] * ry - u[1] * rx;
-      const bend = Math.atan2(k[0] * cx + k[1] * cy + k[2] * cz, u[0] * rx + u[1] * ry + u[2] * rz);
-      const wrapped = Math.atan2(sg, cg);
-      const score = (bend < floor ? 10 : 0) + Math.abs(wrapped);
-      if (score < bestScore) {
-        bestScore = score;
-        best = wrapped;
-      }
-    }
-    this.gamma = best;
+    this.spreadOf();
+    this.bendFromSpread();
+    const gamma = this.gBase + this.t;
+    this.gamma = Math.atan2(Math.sin(gamma), Math.cos(gamma));
+  }
+
+  // Matching helpers (M2A-SPEC §5.6; user actions and imports, not per frame). Each seeds the chain from the
+  // current inputs (parent and rest data), so set those first.
+
+  /** The upper bone's position under the current parent (the chain's root `a`), into `out`. */
+  upperPosition(out: Vec3): Vec3 {
+    this.seedChain();
+    out[0] = this.a[0];
+    out[1] = this.a[1];
+    out[2] = this.a[2];
+    return out;
+  }
+
+  /**
+   * The rest's hyperextension T about the hinge (rad, ≥ 0; 0 for a rest bent the normal way or straight) and the
+   * width W of the amendment C band: the solver takes the bends from −T to T + W at distances other than their reach.
+   */
+  transitionBand(): { readonly hyper: number; readonly width: number; readonly base: number } {
+    this.seedChain();
+    return { hyper: this.gT, width: this.gT > 0 ? this.gW : 0, base: this.gBase };
+  }
+
+  /**
+   * The bend t (from greatest reach; > 0 flexion) that `solve` takes for a reach distance `distance` (after soft IK
+   * and the clamps), and its two exact candidates ±s.
+   */
+  bendAt(distance: number): { readonly t: number; readonly spread: number } {
+    this.seedChain();
+    this.d = distance;
+    this.spreadOf();
+    this.bendFromSpread();
+    return { t: this.t, spread: this.s };
+  }
+
+  /**
+   * The reach distance (before soft IK) for which `solve` bends the chain by `t` (from greatest reach). Bends the
+   * solver takes for some distance are t ≥ −T; a smaller t is answered for −T (the rest reach). Inside the
+   * amendment C band a bend is taken at a distance other than its own reach: the end then lands at the reach of t,
+   * past the target.
+   */
+  distanceForBend(t: number): number {
+    this.seedChain();
+    const hyper = this.gT;
+    const band = this.gW;
+    let s: number;
+    if (!(hyper > 0)) s = Math.abs(t);
+    else if (t <= -hyper) s = hyper;
+    else if (band > 1e-12 && t < hyper + band) {
+      // t = s − 2T·(1 − y)² with s = T + W·y, solved for y ∈ [0, 1): 2T·y² − (W + 4T)·y + (t + T) = 0, the root in
+      // [0, 1] (written without cancellation).
+      const p = band + 4 * hyper;
+      const y = (2 * (t + hyper)) / (p + Math.sqrt(Math.max(0, p * p - 8 * hyper * (t + hyper))));
+      s = hyper + band * y;
+    } else s = Math.abs(t);
+    return Math.sqrt(Math.max(0, 2 * (this.gR * Math.cos(s) + this.gC0)));
+  }
+
+  /** The reach |c − a| of the chain bent by t (from greatest reach). */
+  reachOfBend(t: number): number {
+    this.seedChain();
+    return Math.sqrt(Math.max(0, 2 * (this.gR * Math.cos(t) + this.gC0)));
+  }
+
+  /**
+   * The direction of the mid joint's offset from the upper → end line, for the chain bent by t, measured about that
+   * line from the hinge-implied bend direction x̂ × k (the direction `solve` turns towards the pole): 0 when the
+   * offset lies along it (a rest bent about its hinge, flexed), π when opposite (hyperextended), other values when
+   * the rest bend leaves the hinge plane. 0 for a chain without offset.
+   */
+  offsetAngleAt(t: number): number {
+    this.seedChain();
+    const { u, v, k, w, n, x, qa } = this;
+    this.angle = this.gBase + t;
+    this.axisAngle(k, qa);
+    quatRotateVec3(qa, v, w);
+    addInto(u, w, x);
+    normalizeOr(x, 0, -1, 0);
+    const along = u[0] * x[0] + u[1] * x[1] + u[2] * x[2];
+    w[0] = u[0] - along * x[0];
+    w[1] = u[1] - along * x[1];
+    w[2] = u[2] - along * x[2];
+    cross(x, k, n);
+    if (n[0] * n[0] + n[1] * n[1] + n[2] * n[2] < 1e-24 || w[0] * w[0] + w[1] * w[1] + w[2] * w[2] < 1e-24) return 0;
+    const cx = n[1] * w[2] - n[2] * w[1];
+    const cy = n[2] * w[0] - n[0] * w[2];
+    const cz = n[0] * w[1] - n[1] * w[0];
+    return Math.atan2(x[0] * cx + x[1] * cy + x[2] * cz, n[0] * w[0] + n[1] * w[1] + n[2] * w[2]);
   }
 }
 
