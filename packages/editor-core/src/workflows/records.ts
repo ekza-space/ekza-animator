@@ -54,7 +54,7 @@ export function projectRecord(name: string, sceneFps: Fps = DEFAULT_SCENE_FPS): 
     id: 'project',
     name,
     schemaVersion: SCHEMA_VERSION,
-    minWriterVersion: SCHEMA_VERSION,
+    minWriterVersion: 1, // M2A-SPEC §4.2 item 3: fresh documents; snapshot() raises it with an enabled ik2 solver
     sceneFps,
     sceneRange: DEFAULT_CLIP_RANGE,
     units: 'm',

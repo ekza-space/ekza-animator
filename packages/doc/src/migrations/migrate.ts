@@ -1,6 +1,7 @@
 // Snapshot migrations (MVP-SPEC §7 WP-2, ADR 0002 §4, ADR 0011 §4, research 06 R11): pure, idempotent functions.
-// - Core migrations rewrite a whole snapshot from schema v(n) to v(n+1). SCHEMA_VERSION 1 is the baseline, so the
-//   list is empty; the framework is exercised by tests with registered extension tables.
+// - Core migrations rewrite a whole snapshot from schema v(n) to v(n+1). SCHEMA_VERSION 1 is the baseline; 1 → 2
+//   (M2A-SPEC §4.2) is the identity on records: schema 1 documents contain no `ik2` solvers, no attribute curves and
+//   no breakdown keys, and every M2a field is optional.
 // - Per-table migrations come from `TableDef.migrations` and move each record from the snapshot's
 //   `tableVersions[table]` to the registered `TableDef.version`.
 // New IDs are derived, never random, so two clients migrating the same document write identical records.
@@ -10,7 +11,7 @@ import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type { DocSnapshot, SnapshotTables } from '../store';
 import { compareStrings } from '../store/diff';
 import { getTableDef } from '../tables/registry';
-import { sha256 } from './sha256';
+import { digestBase62 as base62, sha256 } from './sha256';
 
 type MutableTables = Record<string, Record<string, unknown>>;
 
@@ -22,10 +23,12 @@ export interface MigratableSnapshot {
   tables: MutableTables;
 }
 
-/** Core migrations: index i migrates schema version i+1 → i+2. Empty at the v1 baseline. */
-export const CORE_MIGRATIONS: readonly ((snapshot: MigratableSnapshot) => MigratableSnapshot)[] = [];
+/** Core migrations: index i migrates schema version i+1 → i+2. */
+export const CORE_MIGRATIONS: readonly ((snapshot: MigratableSnapshot) => MigratableSnapshot)[] = [
+  // 1 → 2 (M2A-SPEC §4.2 item 1): the identity on records. The loop below writes schemaVersion 2.
+  (snapshot) => snapshot,
+];
 
-const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const GENERATED_ID = /^([a-z]+_)([0-9A-Za-z]+)$/;
 const SHA256_ID = /^[0-9a-f]{64}$/;
 
@@ -46,20 +49,6 @@ export function deriveMigratedId(oldId: string, purpose: string): string {
   const colon = oldId.lastIndexOf(':');
   if (colon > 0) return `${oldId.slice(0, colon + 1)}${base62(digest, 16)}`;
   return base62(digest, 16);
-}
-
-/** Unbiased base62 characters drawn from a digest, re-hashing when its bytes run out. */
-function base62(digest: Uint8Array, length: number): string {
-  let out = '';
-  let bytes = digest;
-  for (;;) {
-    for (const byte of bytes) {
-      if (byte >= 248) continue;
-      out += BASE62.charAt(byte % 62);
-      if (out.length === length) return out;
-    }
-    bytes = sha256(bytes);
-  }
 }
 
 /**
@@ -100,8 +89,8 @@ export function migrateSnapshot(raw: unknown): {
     snapshot.tables[name] = repairTable(table);
   }
 
-  // Core migrations (none at the v1 baseline). A newer core version cannot be migrated down: it is kept as is and
-  // the project is writable only if its minWriterVersion allows this build.
+  // Core migrations. A newer core version cannot be migrated down: it is kept as is and the project is writable only
+  // if its minWriterVersion allows this build.
   for (let version = schemaVersion; version < SCHEMA_VERSION; version++) {
     const migration = CORE_MIGRATIONS[version - 1];
     if (migration === undefined) throw invalid(`no core migration from schema version ${version}`);

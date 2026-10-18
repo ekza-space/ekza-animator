@@ -18,7 +18,8 @@ import type {
   ReadView,
 } from '@ekza-animator/doc';
 import { activeClipOf } from '../evaluation/time';
-import type { EditorApp, KeyPartSelection, SessionState } from '../types';
+import type { BodyPart, EditorApp, KeyPartSelection, KeyTarget, SessionState } from '../types';
+import { bodyPartIn } from './bodyParts';
 
 export interface SelectedKey {
   readonly key: KeyRecord;
@@ -139,4 +140,48 @@ export function curveOf(
 ): CurveRecord | undefined {
   const base = view.query.baseLayer(clip.id);
   return base === undefined ? undefined : view.query.curveFor(clip.id, base.id, control, channel);
+}
+
+/**
+ * M2A-SPEC §5.19 (A0 baseline): the controls a key target addresses, in rig order for the character targets.
+ *
+ * - `'selected'`: the selected controls (selection order).
+ * - `'character'`: the active character's controls that §5.5 rule 1 does not hide.
+ * - `'bodyPart'`: every control of the body parts of the selected controls that rule 1 does not hide (controls
+ *   hidden only by the IK/FK rule are included, so a later switch finds keys on both sets); a selected control
+ *   without a part (generic rigs) stands for itself.
+ */
+export function keyTargetControls(app: EditorApp, target: KeyTarget, view: ReadView = app.store): readonly ControlId[] {
+  switch (target) {
+    case 'selected':
+      return selectedControls(app, view).map((control) => control.id);
+    case 'character':
+      return visibleControls(app, view).map((control) => control.id);
+    case 'bodyPart': {
+      const state = app.session.getState();
+      const selected = selectedControls(app, view);
+      const parts = new Set<BodyPart>();
+      const themselves = new Set<ControlId>();
+      const characters: CharacterId[] = [];
+      for (const control of selected) {
+        const part = bodyPartIn(view, control.id);
+        if (part === null) themselves.add(control.id);
+        else parts.add(part);
+        const character = view.get('rigs', control.rig)?.character;
+        if (character !== undefined && !characters.includes(character)) characters.push(character);
+      }
+      const out: ControlId[] = [];
+      for (const character of characters) {
+        for (const control of controlsOfCharacter(view, character)) {
+          if (!isControlVisible(state, control)) continue;
+          if (themselves.has(control.id)) out.push(control.id);
+          else {
+            const part = bodyPartIn(view, control.id);
+            if (part !== null && parts.has(part)) out.push(control.id);
+          }
+        }
+      }
+      return out;
+    }
+  }
 }

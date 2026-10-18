@@ -2,7 +2,7 @@
 // handles; overlay: playhead, hover, marquee, drag readout), a CurveSet of the visible curves, hit-testing, the
 // interaction state machine (idle → pressed → drag → commit | cancel) and navigation per profile. Edits run through
 // document previews and the editor-core edit kernel; selection changes go through operators.
-import type { Disposer, Fps, Frame } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError, type Fps, type Frame } from '@ekza-animator/anim-core';
 import type { ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
 import {
   type EditorApp,
@@ -23,7 +23,7 @@ import type { OverlayState } from '../painters/overlay';
 import { Canvas2DCurveRenderer, type CurveRenderer } from '../painters/renderer';
 import { type GraphTheme, readGraphTheme } from '../painters/theme';
 import { builtinGraphTool, GRAPH_SELECT_TOOL, type GraphToolHost } from '../tools/graphTools';
-import type { GraphHit, GraphViewState } from '../types';
+import type { GraphHit, GraphViewMode, GraphViewState, RegionHandle } from '../types';
 import {
   DEFAULT_VIEW,
   fitView,
@@ -189,6 +189,21 @@ export class GraphEditorController {
 
   // ---------------------------------------------------------------------------------------------------------------
   // View and curves
+
+  /** M2a §5.15.2 (A4): the curve display mode; 'absolute' until A4 lands normalized and stacked views. */
+  get viewMode(): GraphViewMode {
+    return 'absolute';
+  }
+
+  /** M2a §5.15.2 (A4): A0 stub. */
+  setViewMode(_mode: GraphViewMode): void {
+    throw new EkzaError('not-implemented', 'curve-editor.GraphEditorController.setViewMode');
+  }
+
+  /** M2a §5.15.3 (A4): a grab point of the scale tool's region box; A0 stub (no region box yet). */
+  regionHandlePoint(_handle: RegionHandle): { readonly x: number; readonly y: number } | null {
+    throw new EkzaError('not-implemented', 'curve-editor.GraphEditorController.regionHandlePoint');
+  }
 
   get view(): GraphViewState {
     return this.viewState;

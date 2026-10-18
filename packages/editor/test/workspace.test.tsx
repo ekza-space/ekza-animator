@@ -37,7 +37,7 @@ const dock = (shell: ReturnType<typeof createTestShell>['shell']): DockviewApi =
 const kinds = (shell: ReturnType<typeof createTestShell>['shell']): string[] => [...shell.workspace.kinds()].sort();
 
 describe('Animate layout', () => {
-  it('docks Outliner | Clips left, the viewport centre, Channel Box | Attributes right and the Graph Editor below', async () => {
+  it('docks Outliner | Clips left, the viewport centre, Channel Box | Attributes right and the Graph Editor | Dope Sheet below', async () => {
     // No registered panels: every Animate slot shows the placeholder.
     const { shell } = createTestShell({ panels: createPanelRegistry() });
     const view = await render(
@@ -46,12 +46,18 @@ describe('Animate layout', () => {
       </ShellFrame>,
     );
     await waitFor(() => shell.workspace.kinds().length > 0);
-    expect(kinds(shell)).toEqual(['attributes', 'channelBox', 'clips', 'graph', 'outliner', 'viewport'].sort());
+    // M2a: the Dope Sheet is an inactive tab of the Graph Editor's group (literal update, M2A-SPEC §3 rule 8).
+    expect(kinds(shell)).toEqual(
+      ['attributes', 'channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'].sort(),
+    );
     const api = dock(shell);
     expect(api.groups).toHaveLength(4);
     const groupOf = (kind: string) => api.getPanel(kind)?.group.id;
     expect(groupOf('outliner')).toBe(groupOf('clips'));
     expect(groupOf('channelBox')).toBe(groupOf('attributes'));
+    expect(groupOf('dopeSheet')).toBe(groupOf('graph'));
+    expect(api.getPanel('graph')?.api.isVisible).toBe(true);
+    expect(api.getPanel('dopeSheet')?.api.isVisible).toBe(false);
     expect(api.getPanel('outliner')?.api.isVisible).toBe(true);
     expect(api.getPanel('clips')?.api.isVisible).toBe(false);
     expect(api.getPanel('channelBox')?.api.isVisible).toBe(true);
@@ -89,16 +95,16 @@ describe('layout persistence', () => {
         <WorkspaceHost />
       </ShellFrame>,
     );
-    await waitFor(() => first.shell.workspace.kinds().length === 6);
+    await waitFor(() => first.shell.workspace.kinds().length === 7);
     const api = dock(first.shell);
     await update(() => {
       const attributes = api.getPanel('attributes');
       if (attributes !== undefined) api.removePanel(attributes);
     });
-    await waitFor(() => (storage.getItem(layoutStorageKey()) ?? '').includes('"schemaVersion":1'), 3000);
+    await waitFor(() => (storage.getItem(layoutStorageKey()) ?? '').includes('"schemaVersion":2'), 3000);
     const stored = readStoredLayout(storage);
     expect(stored.kind === 'ok' ? Object.keys(stored.layout.panels).sort() : stored).toEqual(
-      ['channelBox', 'clips', 'graph', 'outliner', 'viewport'].sort(),
+      ['channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'].sort(),
     );
     await view.unmount();
 
@@ -109,7 +115,7 @@ describe('layout persistence', () => {
       </ShellFrame>,
     );
     await waitFor(() => second.shell.workspace.kinds().length > 0);
-    expect(kinds(second.shell)).toEqual(['channelBox', 'clips', 'graph', 'outliner', 'viewport'].sort());
+    expect(kinds(second.shell)).toEqual(['channelBox', 'clips', 'dopeSheet', 'graph', 'outliner', 'viewport'].sort());
 
     // Reset Workspace restores the default and stores it.
     await update(async () => {
@@ -137,7 +143,7 @@ describe('layout persistence', () => {
           <WorkspaceHost />
         </ShellFrame>,
       );
-      await waitFor(() => shell.workspace.kinds().length === 6);
+      await waitFor(() => shell.workspace.kinds().length === 7);
       expect(toasts.store.getState().toasts.map((t) => t.text)).toContain(notice);
       await view.unmount();
     }
@@ -197,7 +203,7 @@ describe('workspace commands', () => {
         <WorkspaceHost />
       </ShellFrame>,
     );
-    await waitFor(() => shell.workspace.kinds().length === 6);
+    await waitFor(() => shell.workspace.kinds().length === 7);
     await update(async () => {
       await shell.runFromUi('view.toggleMaximize', { panel: 'graph' });
     });
@@ -228,7 +234,7 @@ describe('workspace commands', () => {
         <WorkspaceHost />
       </ShellFrame>,
     );
-    await waitFor(() => shell.workspace.kinds().length === 6);
+    await waitFor(() => shell.workspace.kinds().length === 7);
     const api = dock(shell);
     await update(() => {
       const clips = api.getPanel('clips');

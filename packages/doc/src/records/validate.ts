@@ -190,6 +190,10 @@ const attrDef = shape({
   enumLabels: optional(array(str)),
   keyable: bool,
   stepped: optional(bool),
+  label: optional(str),
+  unit: optional(oneOf(['angle', 'distance'])),
+  mirror: optional(oneOf(['copy', 'negate'])),
+  keyAll: optional(bool),
 });
 const spaceTarget: Check = (v, p, out) => {
   if (!isObj(v)) {

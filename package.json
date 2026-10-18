@@ -22,7 +22,7 @@
     "check:deps": "node tooling/check-deps.mjs",
     "check:fixtures": "node tooling/check-fixtures.mjs",
     "check:licenses": "node tooling/check-licenses.mjs",
-    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:deps && pnpm run check:fixtures && pnpm run check:licenses && pnpm run test && pnpm run build && pnpm run test:e2e"
+    "ci": "pnpm run format:check && pnpm run lint && pnpm run typecheck && pnpm run check:deps && pnpm run check:fixtures && pnpm run check:licenses && pnpm run test && pnpm run build && pnpm --filter web check:size && pnpm run test:e2e"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

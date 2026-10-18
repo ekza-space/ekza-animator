@@ -31,16 +31,45 @@ export type ViewportProbe = Pick<
   'panes' | 'cameraOf' | 'screenOfControl' | 'screenOfManipulator' | 'renderedFrames'
 >;
 
-/** Graph Editor slice (WP-6 `graphTestHooks(app)`); without one `graph()` and `screenOf{Key,Handle,Curve}` are null. */
-export type GraphProbe = Pick<EkzaAnimatorTestApi, 'graph' | 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'>;
+/** The M1 fields of `graph()`; the M2a fields (`viewMode`, A4) are optional in a probe. */
+type GraphState = NonNullable<ReturnType<EkzaAnimatorTestApi['graph']>>;
 
-/** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. */
-export type TimelineProbe = Pick<EkzaAnimatorTestApi, 'screenOfFrame' | 'screenOfTick'>;
+/**
+ * Graph Editor slice (WP-6 `graphTestHooks(app)`); without one `graph()` and `screenOf{Key,Handle,Curve}` are null.
+ * M2a (A4): `graph().viewMode` and `screenOfRegionHandle` are optional until A4's probe provides them (the test API
+ * answers 'absolute' and null); `graph().buffers` comes from the session.
+ */
+export type GraphProbe = Pick<EkzaAnimatorTestApi, 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'> & {
+  graph(): (Omit<GraphState, 'viewMode' | 'buffers'> & Partial<Pick<GraphState, 'viewMode'>>) | null;
+} & Partial<Pick<EkzaAnimatorTestApi, 'screenOfRegionHandle'>>;
+
+/** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. M2a (A3): `timelineTicks` and
+ *  `screenOfBand` are optional until A3's probe provides them (without them: no ticks, no band point). */
+export type TimelineProbe = Pick<EkzaAnimatorTestApi, 'screenOfFrame' | 'screenOfTick'> &
+  Partial<Pick<EkzaAnimatorTestApi, 'timelineTicks' | 'screenOfBand'>>;
+
+/** M2a (A3): the Dope Sheet slice; null answers while its dock tab is inactive (like M1's `graph()`). */
+export type DopeSheetProbe = Pick<EkzaAnimatorTestApi, 'dopeSheet' | 'screenOfDopeKey' | 'screenOfDopeRegion'>;
+
+/** Panels that mount the shared Tween bar (M2A-SPEC §5.13). */
+export type TweenPanel = 'graph' | 'dopeSheet' | 'status';
+/** M2a (A4): one mounted Tween bar, registered under `tweenProbeKey(panel)`. */
+export interface TweenProbe {
+  screenOfTween(amount: number): { x: number; y: number } | null;
+  tweenTarget(): { kind: 'frame' | 'keys'; label: string } | null;
+}
+/** The probe key of the Tween bar mounted in `panel` (probes are keyed by the bar's panel). */
+export const tweenProbeKey = (panel: TweenPanel): `tween.${TweenPanel}` => `tween.${panel}`;
 
 export interface ProbeMap {
   readonly viewport: ViewportProbe;
   readonly graph: GraphProbe;
   readonly timeline: TimelineProbe;
+  // M2a (M2A-SPEC §4.8; A0 adds the keys, the owners register them)
+  readonly dopeSheet: DopeSheetProbe;
+  readonly 'tween.graph': TweenProbe;
+  readonly 'tween.dopeSheet': TweenProbe;
+  readonly 'tween.status': TweenProbe;
 }
 
 export interface ProbeRegistry {
