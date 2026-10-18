@@ -26,6 +26,11 @@ export function convertRotateOrderKeys(
   return convertRotateOrderKeysWith(curveEngine, curves, from, to);
 }
 
+/**
+ * `convertRotateOrderKeys` with the curve engine that evaluates the curves between their keys. The editor passes its
+ * own engine (cycle-aware auto tangents on cyclic curves, M2A-SPEC §5.23), so the values it converts are the values
+ * it shows.
+ */
 export function convertRotateOrderKeysWith(
   engine: CurveEngine,
   curves: readonly [AnimCurve, AnimCurve, AnimCurve],

@@ -14,6 +14,7 @@ import {
   type Partition,
   type PreviewSession,
   type RecordOf,
+  requiredWriterVersion,
   SCHEMA_VERSION,
   type SnapshotTables,
   type SoftDeletableTable,
@@ -67,7 +68,8 @@ class NaiveStore implements DocumentStore {
   private versionCounter = 0;
   private txCounter = 0;
   private readOnlyFlag = false;
-  private minWriter = SCHEMA_VERSION;
+  /** `minWriterVersion` of the last `load()` (1 before any load): M2A-SPEC §4.2 snapshot rule. */
+  private loadedMinWriter = 1;
   private loadedTableVersions: Readonly<Record<string, number>> = {};
 
   constructor(opts: NaiveStoreOptions) {
@@ -272,7 +274,10 @@ class NaiveStore implements DocumentStore {
     return {
       format: 'ekza-animator-doc',
       schemaVersion: SCHEMA_VERSION,
-      minWriterVersion: this.minWriter,
+      minWriterVersion: Math.max(
+        requiredWriterVersion(tables as unknown as SnapshotTables),
+        this.loadedMinWriter > SCHEMA_VERSION ? this.loadedMinWriter : 1,
+      ),
       tableVersions,
       tables: tables as unknown as SnapshotTables,
     };
@@ -297,7 +302,7 @@ class NaiveStore implements DocumentStore {
       for (const row of Object.values(rows)) this.openFor(this.committed, table, row as Row);
     }
     this.readOnlyFlag = opts?.readOnly ?? false;
-    this.minWriter = snapshot.minWriterVersion;
+    this.loadedMinWriter = snapshot.minWriterVersion;
     this.loadedTableVersions = { ...snapshot.tableVersions };
     this.undo.clear();
     const changes: RowChange[] = [];

@@ -77,7 +77,57 @@ export function sanitizePrefs(raw: unknown, defaults: Prefs): Prefs {
     rotateSpace: pick('rotateSpace', oneOf(['object', 'world', 'gimbal'] as const), defaults.rotateSpace),
     reduceOnImport: pick('reduceOnImport', oneOf(['auto', 'always', 'never'] as const), defaults.reduceOnImport),
     uiScale: pick('uiScale', isUiScale, defaults.uiScale),
+    // M2a fields: the version stays 1; a missing or invalid field takes its default (M2A-SPEC §4.5).
+    autoRigIk: pickShape(raw['autoRigIk'], defaults.autoRigIk, { legs: isBoolean, arms: isBoolean }),
+    ikFkVisibility: pick('ikFkVisibility', oneOf(['hide', 'ghost'] as const), defaults.ikFkVisibility),
+    ikFkSwitchKey: pick('ikFkSwitchKey', oneOf(['auto', 'none', 'key', 'seamless'] as const), defaults.ikFkSwitchKey),
+    tweenOvershoot: pick('tweenOvershoot', isBoolean, defaults.tweenOvershoot),
+    arrowKeys: pick('arrowKeys', oneOf(['pickWalk', 'frames'] as const), defaults.arrowKeys),
+    virtualSlider: pickShape(raw['virtualSlider'], defaults.virtualSlider, {
+      degPerPx: isPositive,
+      metresPerPx: isPositive,
+      unitsPerPx: isPositive,
+      viewportMmb: isBoolean,
+    }),
+    exportReduce: pickShape(raw['exportReduce'], defaults.exportReduce, {
+      enabled: isBoolean,
+      positionM: isPositive,
+      rotationCapRad: isPositive,
+      minLeverM: isPositive,
+      scaleRel: isPositive,
+    }),
+    autosave: pickShape(raw['autosave'], defaults.autosave, {
+      enabled: isBoolean,
+      delayMs: isNonNegative,
+      maxIntervalMs: isNonNegative,
+    }),
   };
+}
+
+/**
+ * A nested preferences object field by field: every field the validator accepts is taken from `raw`, the others
+ * keep their defaults (a non-object keeps the whole default).
+ */
+function pickShape<T extends object>(
+  raw: unknown,
+  defaults: T,
+  validators: { readonly [K in keyof T]: (value: unknown) => boolean },
+): T {
+  if (!isRecord(raw)) return defaults;
+  const out = { ...defaults } as Record<string, unknown>;
+  for (const field of Object.keys(validators) as (keyof T & string)[]) {
+    const value = raw[field];
+    if (validators[field](value)) out[field] = value;
+  }
+  return out as T;
+}
+
+function isPositive(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0;
+}
+
+function isNonNegative(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
 }
 
 export function isKeyBinding(value: unknown): value is KeyBinding {

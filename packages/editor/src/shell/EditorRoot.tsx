@@ -55,7 +55,11 @@ function boot(props: EditorRootProps): Boot {
   const { services, toasts } = createShellServices({
     decoderPath: props.decoderPath ?? '/decoders/',
     samplesPath: props.samplesPath ?? '/samples/',
-    storage: params.e2e ? 'memory' : 'local',
+    // e2e: a fresh in-memory namespace per page load (M1), or a named one that survives reloads (M2a `ns=`).
+    storage: params.e2e && params.ns === null ? 'memory' : 'local',
+    ...(params.ns === null ? {} : { storageNamespace: params.ns }),
+    ...(params.storageBlocked ? { storageBlocked: true } : {}),
+    pointerLock: params.pointerLock,
     onDownload: (record) => shell?.exports.recordDownload(record),
     ...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker }),
   });

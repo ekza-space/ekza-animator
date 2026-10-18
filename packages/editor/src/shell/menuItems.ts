@@ -33,6 +33,16 @@ export function shellMenuItems(
       label: 'Import…',
     },
     {
+      // M2A-SPEC §7 File › Recover… (the Recovery dialog lists the orphaned autosave slots; A5).
+      id: 'shell.file.recover',
+      menu: 'file',
+      op: 'ui.open',
+      args: { dialog: 'recovery' },
+      group: 'recovery',
+      order: 70,
+      label: 'Recover…',
+    },
+    {
       id: 'shell.file.export',
       menu: 'file',
       op: 'ui.open',

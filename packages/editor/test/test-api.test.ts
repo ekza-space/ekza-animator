@@ -35,12 +35,16 @@ function setup() {
 
 describe('URL parameters (e2e builds only)', () => {
   it('honours ?e2e=1 and its overrides only when the build allows e2e mode', () => {
+    // M2a storage switches at their defaults (literal update, M2A-SPEC §3 rule 8).
     expect(parseEditorParams('?e2e=1&firstRun=1&nav=trackpad&space=play&platform=mac', true)).toEqual({
       e2e: true,
       firstRun: true,
       nav: 'trackpad',
       space: 'play',
       platform: 'mac',
+      ns: null,
+      storageBlocked: false,
+      pointerLock: true,
     });
     expect(parseEditorParams('?e2e=1&nav=blender&platform=amiga', true)).toEqual({ ...DEFAULT_PARAMS, e2e: true });
     expect(parseEditorParams('?e2e=1&firstRun=1', false)).toEqual(DEFAULT_PARAMS);
@@ -145,7 +149,8 @@ describe('createTestApi', () => {
       screenOfHandle: (_key, side) => (side === 'out' ? { x: 107, y: 208 } : null),
       screenOfCurve: (_curve, frame) => ({ x: 100 + frame * 10, y: 250 }),
     });
-    expect(api.graph()).toEqual(graph);
+    // M2a: the view mode defaults to 'absolute' before A4's probe; buffers come from the session.
+    expect(api.graph()).toEqual({ ...graph, viewMode: 'absolute', buffers: [] });
     expect(api.screenOfKey('k_SynthWave001')).toEqual({ x: 105, y: 206 });
     expect(api.screenOfKey('k_other')).toBeNull();
     expect(api.screenOfHandle('k_SynthWave001', 'out')).toEqual({ x: 107, y: 208 });
@@ -159,7 +164,7 @@ describe('createTestApi', () => {
     });
     expect(api.graph()).toBeNull();
     disposeOther();
-    expect(api.graph()).toEqual(graph);
+    expect(api.graph()).toEqual({ ...graph, viewMode: 'absolute', buffers: [] });
     disposeGraph();
     expect(api.graph()).toBeNull();
 

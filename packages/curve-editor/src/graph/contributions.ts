@@ -1,5 +1,6 @@
-// WP-6 contributions (MVP-SPEC §4.9 owner 6): the Graph Editor tools, `graph.frame` and `select.curveKeys`.
-import type { Disposer } from '@ekza-animator/anim-core';
+// WP-6 contributions (MVP-SPEC §4.9 owner 6): the Graph Editor tools, `graph.frame` and `select.curveKeys`; M2a:
+// `graph.view.setMode` (M2A-SPEC §5.15.2, A4), registered here as a stub that poll-fails until A4 lands it.
+import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import { type EditorApp, type OperatorArgs, type OperatorDef, PANEL } from '@ekza-animator/editor-core';
 import { GRAPH_TOOLS } from '../tools/graphTools';
 import type { GraphEditorController } from './GraphEditorController';
@@ -44,9 +45,23 @@ export const SELECT_CURVE_KEYS_OPERATOR: OperatorDef<OperatorArgs<'select.curveK
   },
 };
 
+/** `graph.view.setMode` (N / Shift+N, M2A-SPEC §5.15.2): A0 stub, poll-fails until A4 lands the view modes. */
+export const GRAPH_VIEW_MODE_OPERATOR: OperatorDef<OperatorArgs<'graph.view.setMode'>, void, void> = {
+  id: 'graph.view.setMode',
+  label: 'Graph View',
+  description: 'Absolute, normalized or stacked curves in the focused Graph Editor',
+  category: 'graph',
+  scope: PANEL.graph,
+  poll: () => ({ ok: false, reason: 'not available yet' }),
+  apply: () => {
+    throw new EkzaError('not-implemented', 'operator graph.view.setMode');
+  },
+};
+
 /**
- * Registers the graph tools (select, move, insert), `graph.frame` and `select.curveKeys`; `focused` returns the
- * Graph Editor that `graph.frame` acts on. Call once per app (the Graph panel does, while one is mounted).
+ * Registers the graph tools (select, move, insert), `graph.frame`, `select.curveKeys` and `graph.view.setMode`;
+ * `focused` returns the Graph Editor that `graph.frame` acts on. Call once per app (the Graph panel does, while one
+ * is mounted).
  */
 export function registerGraphContributions(app: EditorApp, focused: () => GraphEditorController | null): Disposer {
   const disposers: Disposer[] = [];
@@ -55,6 +70,7 @@ export function registerGraphContributions(app: EditorApp, focused: () => GraphE
     disposers.push(
       app.contribute({ kind: 'operator', def: graphFrameOperator(focused) }),
       app.contribute({ kind: 'operator', def: SELECT_CURVE_KEYS_OPERATOR }),
+      app.contribute({ kind: 'operator', def: GRAPH_VIEW_MODE_OPERATOR }),
     );
   } catch (error) {
     for (const dispose of disposers.reverse()) dispose();

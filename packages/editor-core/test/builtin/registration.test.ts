@@ -105,6 +105,33 @@ const MENUS = /^(file|edit|select|key|pose|clip|graph|time|rig|view)$/;
 /** Operators beyond §4.9 requested by other work packages (WP-9 R-1, R-3), with their undo flag. */
 const ADDITIONS: Readonly<Record<string, boolean>> = { 'select.channels': false, 'view.camera.setSettings': true };
 
+/**
+ * M2A-SPEC §4.9 operators registered by the built-ins from A0 on (stubs until their owners land them), with the U
+ * column (literal update, M2A-SPEC §3 rule 8).
+ */
+const M2A_OPERATORS: Readonly<Record<string, boolean>> = {
+  'rig.addLimbIk': true,
+  'rig.ikFk.switch': true,
+  'rig.ikFk.match': true,
+  'rig.ikFk.matchRange': true,
+  'rig.setFootParams': true,
+  'select.pickWalk': false,
+  'key.setTarget': false,
+  'key.toggleRipple': false,
+  'key.tween': true,
+  'key.convert': true,
+  'pose.mirrorAnimation': true,
+  'time.insertTime': true,
+  'time.deleteTime': true,
+  'graph.keys.copyTo': true,
+  'graph.buffer.snapshot': false,
+  'graph.buffer.swap': true,
+  'graph.buffer.clear': false,
+  'file.recover': false,
+  'file.discardRecovery': false,
+  'file.autosaveNow': false,
+};
+
 /** §4.9 operators registered by other work packages (menus and keymaps may name them). */
 const OTHERS: ReadonlySet<string> = new Set([
   'select.curveKeys',
@@ -120,6 +147,9 @@ const OTHERS: ReadonlySet<string> = new Set([
   'view.cameraRadial',
   'ui.open',
   'ui.close',
+  // M2a: registered by the curve-editor contribution functions (M2A-SPEC §3 rule 2)
+  'dopeSheet.frame',
+  'graph.view.setMode',
 ]);
 
 describe('built-in operators', () => {
@@ -127,8 +157,10 @@ describe('built-in operators', () => {
     const app = createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });
     const dispose = registerBuiltinOperators(app);
     const ids = app.operators.list().map((def) => def.id);
-    expect([...ids].sort()).toEqual([...Object.keys(CATALOG), ...Object.keys(ADDITIONS)].sort());
-    for (const [id, undo] of Object.entries(ADDITIONS)) {
+    expect([...ids].sort()).toEqual(
+      [...Object.keys(CATALOG), ...Object.keys(ADDITIONS), ...Object.keys(M2A_OPERATORS)].sort(),
+    );
+    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS })) {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }
     for (const [id, undo] of Object.entries(CATALOG)) {
