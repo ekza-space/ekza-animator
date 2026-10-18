@@ -1,11 +1,13 @@
 // The viewport dock panel (MVP-SPEC §7 WP-5, ADR 0006 §2): its own pane grid (single, split, quad; resizable
 // splitters; Space-maximized pane), pane headers, HUD and the empty-state drop zone. The 3D view is drawn by the
 // shared canvas behind the workspace; panes register their surfaces with the app's ViewportManager.
-import type { EditorApp } from '@ekza-animator/editor-core';
+// M2a (A2): the panel passes the Pointer Lock switch to the manager and runs the "FK limbs only" notice (§5.7).
+import { type EditorApp, watchFkOnlyRigs } from '@ekza-animator/editor-core';
 import { LAYOUT_PANES, type ViewportManager } from '@ekza-animator/viewport';
-import type { JSX } from 'react';
+import { type JSX, useEffect } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useDocQuery, useSession } from '../../hooks';
+import { useOptionalShell } from '../../shell/context';
 import type { PanelProps } from '../types';
 import { EmptyState } from './EmptyState';
 import { useViewportManager } from './hooks';
@@ -18,6 +20,11 @@ export function ViewportPanel({ app }: PanelProps): JSX.Element {
   const maximized = useSession((s) => s.maximizedPane);
   const empty = useDocQuery(hasNoCharacters, ['characters']);
   const panes = LAYOUT_PANES[layout] ?? LAYOUT_PANES.split;
+  // M2a §5.18: the e2e switch `pointerLock=off` makes the viewport's virtual slider use pointer capture.
+  const pointerLock = useOptionalShell()?.params.pointerLock ?? true;
+  useEffect(() => vm?.setPointerLockAllowed(pointerLock), [vm, pointerLock]);
+  // M2a §5.7: a humanoid rig with FK limbs only says once that Rig › Add Limb IK exists.
+  useEffect(() => watchFkOnlyRigs(app), [app]);
   const shown = maximized !== null && panes.includes(maximized) ? [maximized] : panes;
 
   return (

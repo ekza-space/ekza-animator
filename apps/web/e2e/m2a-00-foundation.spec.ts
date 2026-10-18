@@ -9,6 +9,8 @@ import { call, expectKernelStarted, openEditor, run, runOk, waitForTestApi } fro
 test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
+  // An M1 rig: the import rigs FK limbs only (with A1 the default rig gives the legs IK, §5.7, M2A-D1).
+  await runOk(page, 'prefs.set', { patch: { autoRigIk: { legs: false, arms: false } } });
   const { character } = await seedSample(page, 'polybot');
   const hand = await controlId(page, 'fk.hand.L', character);
 
@@ -16,7 +18,7 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   // Visibility rule 1: no secondary control is visible by default; every FK control is.
   const controls = await call(page, 'controls');
   expect(controls.find((control) => control.id === hand)?.visible).toBe(true);
-  // Limbs appear with A1's ik2 op; M1 rigs (and this build) have none.
+  // Limbs appear with A1's ik2 op; an M1 rig has none.
   expect(await call(page, 'limbs')).toEqual([]);
   expect(await call(page, 'limbPivots', character, 'leg.L')).toBeNull();
   expect(await call(page, 'attrs', hand)).toEqual({});
@@ -32,11 +34,8 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
   expect(await call(page, 'screenOfTween', 'status', 0)).not.toBeNull();
 
+  // A2's operators (rig IK, pick-walk, key target) left this list when they landed (m2a-18, m2a-19, m2a-25).
   for (const [op, args] of [
-    ['rig.addLimbIk', undefined],
-    ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
-    ['select.pickWalk', { direction: 'up' }],
-    ['key.setTarget', { target: 'bodyPart' }],
     ['key.toggleRipple', undefined],
     ['time.insertTime', { at: 0, frames: 1 }],
     ['time.deleteTime', undefined],
@@ -141,6 +140,8 @@ test('saving writes schema 2 / minWriterVersion 1; keying a loop clip creates cy
 }) => {
   await openEditor(page);
   await expectKernelStarted(page);
+  // An FK-only rig (no enabled ik2 solver), so minWriterVersion stays 1 (§4.2 snapshot rule, §5.7).
+  await runOk(page, 'prefs.set', { patch: { autoRigIk: { legs: false, arms: false } } });
   const { character } = await seedSample(page, 'polybot');
   const { clip } = await runOk<{ clip: string }>(page, 'clip.new', { name: 'walk' });
   await runOk(page, 'clip.setSettings', { clip, range: { start: 0, end: 24 }, loop: true });

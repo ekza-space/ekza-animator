@@ -1,6 +1,7 @@
 // Facts about channels used across the kernel: buffer slots (rig CHANNELS_PER_CONTROL layout), rotation channels
 // (degrees in the UI), defaults (0, or 1 for scale) and the keyable/locked flags of a control; M2a: display units and
 // defaults of custom attribute channels ('@name', M2A-SPEC §5.1 rules 5–6).
+import type { TangentType } from '@ekza-animator/anim-core';
 import type { AttrDef, ChannelId, ControlRecord, TrsChannel } from '@ekza-animator/doc';
 import type { ChannelUnit } from '../types';
 
@@ -39,7 +40,7 @@ export function channelDefault(channel: ChannelId): number {
   return channel === 'sx' || channel === 'sy' || channel === 'sz' ? 1 : 0;
 }
 
-/** Flag lookup for `ControlRecord.keyable` / `.locked`; custom attributes (`@name`) are neither in the MVP. */
+/** Flag lookup for `ControlRecord.keyable` / `.locked` of a TRS channel (false for anything else). */
 function axisFlag(flags: ControlRecord['keyable'], channel: ChannelId): boolean {
   const slot = trsSlot(channel);
   if (slot === -1) return false;
@@ -47,12 +48,23 @@ function axisFlag(flags: ControlRecord['keyable'], channel: ChannelId): boolean 
   return group[slot % 3] === true;
 }
 
+/**
+ * Keyable channel: a TRS channel by `ControlRecord.keyable`, a '@name' attribute by `AttrDef.keyable` (M2A-SPEC
+ * §5.1 rule 1: attribute curves, keys, statics and overrides work like TRS channels); unknown attributes are not.
+ */
 export function isKeyable(control: ControlRecord, channel: ChannelId): boolean {
+  if (channel.startsWith('@')) return attrDefOf(control, channel)?.keyable === true;
   return axisFlag(control.keyable, channel);
 }
 
+/** Locked channel (`ControlRecord.locked`); attributes cannot be locked in M2a (M2A-SPEC §5.1 rule 1). */
 export function isLocked(control: ControlRecord, channel: ChannelId): boolean {
   return axisFlag(control.locked, channel);
+}
+
+/** Whether a channel id names a custom attribute ('@name'). */
+export function isAttrChannel(channel: ChannelId): channel is `@${string}` {
+  return channel.startsWith('@');
 }
 
 /** The attribute definition behind a '@name' channel of `control` (undefined for TRS channels and unknown names). */
@@ -85,3 +97,79 @@ export function channelDefaultOf(control: ControlRecord | null, channel: Channel
   const value = attrDefOf(control, channel)?.default;
   return typeof value === 'number' && Number.isFinite(value) ? value : 0;
 }
+
+/** The '@name' channels of a control's attributes, in `attrs` key order (the Channel Box row order, §5.1 rule 5). */
+export function attrChannelsOf(control: ControlRecord | null | undefined): readonly `@${string}`[] {
+  const attrs: Readonly<Record<string, AttrDef>> | undefined = control?.attrs;
+  if (typeof attrs !== 'object' || attrs === null) return [];
+  const out: `@${string}`[] = [];
+  for (const name of Object.keys(attrs)) {
+    const def = attrs[name];
+    if (typeof def === 'object' && def !== null) out.push(`@${name}`);
+  }
+  return out;
+}
+
+/**
+ * M2A-SPEC §5.1 rule 4: `false` for a `keyAll: false` attribute (a mode or setting such as `ikFk` or `soft`), which
+ * `S` with 'all' or 'attributes', body-part keying, the tween 'frame' target, the pose clipboard and
+ * `pose.resetToRest` skip unless it is a selected Channel Box channel; `true` for TRS channels and other attributes.
+ */
+export function isKeyAllChannel(control: ControlRecord | null | undefined, channel: ChannelId): boolean {
+  if (!isAttrChannel(channel)) return true;
+  return attrDefOf(control, channel)?.keyAll !== false;
+}
+
+/** Title case of an attribute name: 'heelTwist' → 'Heel Twist', 'ikFk' → 'Ik Fk'. */
+export function titleCaseAttr(name: string): string {
+  const words = name
+    .replace(/[_-]+/g, ' ')
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .trim()
+    .split(/\s+/)
+    .filter((word) => word !== '');
+  return words.map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+}
+
+/** Channel Box / Graph Editor label of an attribute channel: `AttrDef.label`, else the title-cased name (§5.1 rule 5). */
+export function attrLabel(control: ControlRecord | null | undefined, channel: ChannelId): string {
+  const def = attrDefOf(control, channel);
+  const label = def?.label;
+  if (typeof label === 'string' && label.trim() !== '') return label;
+  return titleCaseAttr(channel.startsWith('@') ? channel.slice(1) : channel);
+}
+
+/**
+ * The value an attribute accepts: clamped to `AttrDef.min`/`max` (the ones that are finite numbers); unchanged for
+ * TRS channels and attributes without a range. Used where a value is produced for an attribute (virtual slider,
+ * tween), never on curves (§5.1 rule 3).
+ */
+export function clampChannelValue(
+  control: ControlRecord | null | undefined,
+  channel: ChannelId,
+  value: number,
+): number {
+  const def = attrDefOf(control, channel);
+  if (def === undefined) return value;
+  let out = value;
+  if (typeof def.min === 'number' && Number.isFinite(def.min) && out < def.min) out = def.min;
+  if (typeof def.max === 'number' && Number.isFinite(def.max) && out > def.max) out = def.max;
+  return out;
+}
+
+/**
+ * Tangents of a NEW key on a channel (§5.1 rule 4): an attribute with `stepped: true` gets in 'flat', out 'step'
+ * (a mode switch holds until the next key); everything else the preference's default tangents.
+ */
+export function newKeyTangents(
+  control: ControlRecord | null | undefined,
+  channel: ChannelId,
+  defaults: { readonly in: TangentType; readonly out: TangentType },
+): { readonly in: TangentType; readonly out: TangentType } {
+  return attrDefOf(control, channel)?.stepped === true ? STEPPED_TANGENTS : defaults;
+}
+
+const STEPPED_TANGENTS = { in: 'flat', out: 'step' } as const satisfies {
+  readonly in: TangentType;
+  readonly out: TangentType;
+};

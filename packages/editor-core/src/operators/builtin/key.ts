@@ -1,4 +1,6 @@
 // Keying and channel operators (MVP-SPEC §4.9 `key.*`, `channel.*`; §4.11.1 keying, §4.11.2 value edits).
+// M2a (M2A-SPEC §5.1 rule 4, §5.12, §5.19; A2): `key.set` keys attribute channels by the `keyAll` rule, keys body
+// parts and sets breakdown keys; `key.setTarget` writes the status line's key target.
 import { EkzaError } from '@ekza-animator/anim-core';
 import {
   type Axes,
@@ -6,23 +8,34 @@ import {
   type ChannelValues,
   type ControlId,
   type ControlRecord,
+  type ReadView,
   TRS_CHANNELS,
   type TrsChannel,
 } from '@ekza-animator/doc';
-import { isKeyable, isLocked, trsSlot } from '../../edit/channelMeta';
+import {
+  attrChannelsOf,
+  isAttrChannel,
+  isKeyAllChannel,
+  isKeyable,
+  isLocked,
+  newKeyTangents,
+  trsSlot,
+} from '../../edit/channelMeta';
 import { applyChannelEdits } from '../../edit/channels';
 import { currentClipFrame } from '../../edit/context';
 import { deleteKeys, ensureCurve, writeKeyAt } from '../../edit/keys';
 import { activeClipOf } from '../../evaluation/time';
 import { ownerOfControl } from '../../session/location';
-import { type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type KeyPolicy } from '../../types';
-import { activeClipRecord, curveOf, selectedControls, visibleControls } from '../../workflows/targets';
+import { type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type KeyPolicy, type KeyTarget } from '../../types';
+import { isHumanoidRigOf } from '../../workflows/bodyParts';
+import { limbOfControlApp } from '../../workflows/ik';
+import { activeClipRecord, curveOf, keyTargetControls, selectedControls } from '../../workflows/targets';
 import type { CountResult, KeyChannels } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
 import { pollActiveClip, pollClipEdit, pollEditable } from './polls';
-import { stubOperator } from './stub';
 
-const KEY_CHANNELS: readonly KeyChannels[] = ['all', 'translate', 'rotate', 'scale', 'selected'];
+const KEY_CHANNELS: readonly KeyChannels[] = ['all', 'translate', 'rotate', 'scale', 'attributes', 'selected'];
+const KEY_TARGETS: readonly KeyTarget[] = ['selected', 'bodyPart', 'character'];
 const KEY_POLICIES: readonly KeyPolicy[] = ['auto', 'force', 'none'];
 const ROTATIONS: readonly TrsChannel[] = ['rx', 'ry', 'rz'];
 /** Two keys this close (frames) share a frame (§4.11.1). */
@@ -30,58 +43,118 @@ const SAME_FRAME = 1e-6;
 
 interface KeySetArgs {
   readonly channels: KeyChannels;
-  readonly target: 'selected' | 'character';
+  readonly target: KeyTarget;
+  readonly breakdown: boolean;
 }
 
 function keySetArgs(app: EditorApp, args: unknown): KeySetArgs | string {
   const options = optionalArgs(args);
-  if (options === null) return 'expects { channels?, target? }';
+  if (options === null) return 'expects { channels?, target?, breakdown? }';
   const channels = options['channels'] ?? 'all';
   const target = options['target'] ?? app.session.getState().tools.keyTarget;
+  const breakdown = options['breakdown'] ?? false;
   if (!KEY_CHANNELS.includes(channels as KeyChannels)) return `unknown channels ${JSON.stringify(channels)}`;
-  // M2a (A0 contract, A2 implements): body-part targets, 'attributes' and breakdown keys.
-  if (target === 'bodyPart') return 'Keying by body part is not available yet';
-  if (target !== 'selected' && target !== 'character') return `unknown target ${JSON.stringify(target)}`;
-  if (options['breakdown'] === true) return 'Breakdown keys are not available yet';
-  return { channels: channels as KeyChannels, target };
+  if (!KEY_TARGETS.includes(target as KeyTarget)) return `unknown target ${JSON.stringify(target)}`;
+  if (typeof breakdown !== 'boolean') return 'breakdown must be a boolean';
+  return { channels: channels as KeyChannels, target: target as KeyTarget, breakdown };
 }
 
-function keyTargets(app: EditorApp, args: KeySetArgs): readonly ControlRecord[] {
-  return args.target === 'character' ? visibleControls(app) : selectedControls(app);
+/** The selected Channel Box channels per control (explicit channel choices, §5.1 rule 4). */
+function selectedChannelsByControl(app: EditorApp): ReadonlyMap<ControlId, ReadonlySet<ChannelId>> {
+  const out = new Map<ControlId, Set<ChannelId>>();
+  for (const ref of app.session.getState().selection.channels) {
+    let set = out.get(ref.control);
+    if (set === undefined) {
+      set = new Set();
+      out.set(ref.control, set);
+    }
+    set.add(ref.channel);
+  }
+  return out;
 }
 
-/** Channels `key.set` keys on a control (§4.11.1 rule 2): keyable, unlocked; rotations always as a triple. */
-export function keyChannelsOf(app: EditorApp, control: ControlRecord, which: KeyChannels): readonly TrsChannel[] {
-  const usable = (channel: TrsChannel): boolean => isKeyable(control, channel) && !isLocked(control, channel);
-  let channels: TrsChannel[];
+/**
+ * Channels `key.set` keys on a control (§4.11.1 rule 2, M2A-SPEC §5.1 rule 4): keyable, unlocked TRS channels of the
+ * group (rotations always as a triple); for 'all' and 'attributes' every keyable attribute except `keyAll: false`
+ * ones that are not `explicit` (selected Channel Box channels); for 'selected' the explicit channels; translate,
+ * rotate and scale never key attributes. TRS channels first (tx…sz), then attributes in `attrs` order.
+ */
+export function keyChannelsOf(
+  app: EditorApp,
+  control: ControlRecord,
+  which: KeyChannels,
+  explicit: ReadonlySet<ChannelId> = selectedChannelsByControl(app).get(control.id) ?? new Set(),
+): readonly ChannelId[] {
+  const usable = (channel: ChannelId): boolean => isKeyable(control, channel) && !isLocked(control, channel);
+  let trs: TrsChannel[];
   switch (which) {
     case 'all':
-      channels = [...TRS_CHANNELS];
+      trs = [...TRS_CHANNELS];
       break;
     case 'translate':
-      channels = ['tx', 'ty', 'tz'];
+      trs = ['tx', 'ty', 'tz'];
       break;
     case 'rotate':
-      channels = [...ROTATIONS];
+      trs = [...ROTATIONS];
       break;
     case 'scale':
-      channels = ['sx', 'sy', 'sz'];
+      trs = ['sx', 'sy', 'sz'];
       break;
     case 'attributes':
-      // M2a §5.1 rule 4 (A2): attribute channels are keyed by A2's key.set; no TRS channel here.
-      channels = [];
+      trs = [];
       break;
     case 'selected':
-      channels = app.session
-        .getState()
-        .selection.channels.filter((ref) => ref.control === control.id && trsSlot(ref.channel) !== -1)
-        .map((ref) => ref.channel as TrsChannel);
+      trs = TRS_CHANNELS.filter((channel) => explicit.has(channel));
       break;
   }
-  const picked = new Set(channels.filter(usable));
+  const picked = new Set<TrsChannel>(trs.filter(usable));
   if (ROTATIONS.some((channel) => picked.has(channel)))
     for (const channel of ROTATIONS) if (usable(channel)) picked.add(channel);
-  return TRS_CHANNELS.filter((channel) => picked.has(channel));
+  const out: ChannelId[] = TRS_CHANNELS.filter((channel) => picked.has(channel));
+  if (which === 'all' || which === 'attributes' || which === 'selected') {
+    for (const channel of attrChannelsOf(control)) {
+      if (!usable(channel)) continue;
+      const wanted =
+        which === 'selected' ? explicit.has(channel) : isKeyAllChannel(control, channel) || explicit.has(channel);
+      if (wanted) out.push(channel);
+    }
+  }
+  return out;
+}
+
+/**
+ * What one `key.set` keys: per control, its channels. Besides the key target's controls, a selected attribute
+ * channel of a limb's IK control counts when a control of that limb is a target (the Channel Box IK/FK proxy row
+ * selects `<ikControl>/@ikFk` while an FK control is selected, §5.6).
+ */
+function keyPlan(app: EditorApp, view: ReadView, args: KeySetArgs): Map<ControlRecord, readonly ChannelId[]> {
+  const explicit = selectedChannelsByControl(app);
+  const plan = new Map<ControlRecord, readonly ChannelId[]>();
+  const targets = new Set<ControlId>();
+  for (const id of keyTargetControls(app, args.target, view)) {
+    const control = view.get('controls', id);
+    if (control === undefined) continue;
+    targets.add(id);
+    const channels = keyChannelsOf(app, control, args.channels, explicit.get(id) ?? new Set());
+    if (channels.length > 0) plan.set(control, channels);
+  }
+  if (args.channels === 'all' || args.channels === 'attributes' || args.channels === 'selected') {
+    for (const [id, channels] of explicit) {
+      if (targets.has(id)) continue;
+      const control = view.get('controls', id);
+      if (control === undefined) continue;
+      const limb = limbOfControlApp(app, id);
+      if (limb === null || limb.params.ikControl !== id) continue;
+      const { fk, pole } = limb.params;
+      const limbControls = [fk.upper, fk.mid, fk.end, fk.toes, pole];
+      if (!limbControls.some((member) => member !== null && targets.has(member))) continue;
+      const proxied = [...channels].filter(
+        (channel) => isAttrChannel(channel) && isKeyable(control, channel) && !isLocked(control, channel),
+      );
+      if (proxied.length > 0) plan.set(control, proxied);
+    }
+  }
+  return plan;
 }
 
 const KEY_LABEL: Readonly<Record<KeyChannels, string>> = {
@@ -96,12 +169,15 @@ const KEY_LABEL: Readonly<Record<KeyChannels, string>> = {
 const keySet = defineOperator({
   id: 'key.set',
   label: 'Set Key',
-  description: 'Key the channels of the selected controls (or the whole character) at the current frame.',
+  description:
+    'Key the channels of the selected controls (their body parts, or the whole character) at the current frame.',
   category: 'key',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel(args) {
-    const channels = (optionalArgs(args)?.['channels'] ?? 'all') as KeyChannels;
+    const options = optionalArgs(args);
+    if (options?.['breakdown'] === true) return 'Set Breakdown';
+    const channels = (options?.['channels'] ?? 'all') as KeyChannels;
     return KEY_LABEL[channels] ?? 'Set Key';
   },
   poll({ app }, args) {
@@ -109,9 +185,9 @@ const keySet = defineOperator({
     if (typeof parsed === 'string') return fail(parsed);
     const base = all(pollEditable(app), pollActiveClip(app));
     if (base !== true) return base;
-    const targets = keyTargets(app, parsed);
-    if (targets.length === 0) return fail('nothing selected');
-    if (parsed.channels === 'selected' && targets.every((c) => keyChannelsOf(app, c, 'selected').length === 0)) {
+    if (selectedControls(app).length === 0 && parsed.target !== 'character') return fail('nothing selected');
+    if (keyTargetControls(app, parsed.target).length === 0) return fail('nothing selected');
+    if (parsed.channels === 'selected' && keyPlan(app, app.store, parsed).size === 0) {
       return fail('No keyable channels are selected');
     }
     return OK;
@@ -124,21 +200,29 @@ const keySet = defineOperator({
     const prefs = app.prefs.getState();
     let count = 0;
     const keyed = new Map<ControlId, Set<ChannelId>>();
-    for (const control of keyTargets(app, parsed)) {
-      const channels = keyChannelsOf(app, control, parsed.channels);
-      if (channels.length === 0) continue;
+    for (const [control, channels] of keyPlan(app, tx, parsed)) {
       const owner = ownerOfControl(tx, control.id);
       const clip = owner === null ? undefined : activeClipOf(tx, state, owner);
       if (clip === undefined) continue;
       const frame = currentClipFrame(app, tx, clip);
-      const values = app.evaluation.channelValues(control.id);
       for (const channel of channels) {
         const curve = ensureCurve(app, tx, clip.id, control.id, channel);
-        writeKeyAt(app, tx, curve, frame, values[channel], prefs.defaultTangents);
+        const value = app.evaluation.channelValue(control.id, channel);
+        const tangents = newKeyTangents(control, channel, prefs.defaultTangents);
+        writeKeyAt(
+          app,
+          tx,
+          curve,
+          frame,
+          value,
+          tangents,
+          parsed.breakdown ? { breakdown: true, existing: 'set' } : {},
+        );
         count++;
       }
       keyed.set(control.id, new Set(channels));
     }
+    if (parsed.target === 'bodyPart') noteGenericBodyPart(app, tx);
     // Keyed channels leave the overrides (§4.11.1 rule 5); the runner drops their history parts.
     const overrides = new Map(state.overrides);
     let changed = false;
@@ -159,6 +243,44 @@ const keySet = defineOperator({
   },
 });
 
+/** §5.19: on a generic rig, body-part keying keys the selected controls; say so (once per character). */
+const toldGeneric = new WeakMap<EditorApp, Set<string>>();
+function noteGenericBodyPart(app: EditorApp, view: ReadView): void {
+  const generic = selectedControls(app, view).filter((control) => !isHumanoidRigOf(view, control));
+  if (generic.length === 0) return;
+  const rig = generic[0]?.rig ?? '';
+  let told = toldGeneric.get(app);
+  if (told === undefined) {
+    told = new Set();
+    toldGeneric.set(app, told);
+  }
+  if (told.has(rig)) return;
+  told.add(rig);
+  app.services.notify.toast({
+    kind: 'info',
+    text: 'This rig has no body parts: Key › Body Part keyed the selected controls.',
+  });
+}
+
+const keySetTarget = defineOperator({
+  id: 'key.setTarget',
+  label: 'Key Target',
+  description: 'Key the selected controls, their body parts or the whole character.',
+  category: 'key',
+  scope: GLOBAL_SCOPE,
+  poll(_ctx, args) {
+    if (!isRecord(args) || !(KEY_TARGETS as readonly unknown[]).includes(args['target'])) {
+      return fail(`expects { target: ${KEY_TARGETS.join(' | ')} }`);
+    }
+    return OK;
+  },
+  apply({ app }, args) {
+    const state = app.session.getState();
+    if (state.tools.keyTarget === args.target) return;
+    app.session.setState({ tools: { ...state.tools, keyTarget: args.target } });
+  },
+});
+
 const keyDeleteAtFrame = defineOperator({
   id: 'key.deleteAtFrame',
   label: 'Delete Keys at Frame',
@@ -174,8 +296,15 @@ const keyDeleteAtFrame = defineOperator({
     if (clip === undefined) return { count: 0 };
     const frame = currentClipFrame(app, tx, clip);
     const keys = [];
+    const explicit = selectedChannelsByControl(app);
     for (const control of selectedControls(app, tx)) {
-      for (const channel of TRS_CHANNELS) {
+      // M2a: attribute keys too, except `keyAll: false` ones that are not selected channels (§5.1 rule 4: a
+      // Delete on the IK foot never removes the limb's mode keys).
+      const chosen = explicit.get(control.id);
+      const attrs = attrChannelsOf(control).filter(
+        (channel) => isKeyAllChannel(control, channel) || chosen?.has(channel) === true,
+      );
+      for (const channel of [...TRS_CHANNELS, ...attrs]) {
         // Locked channels (Channel Box) and locked curves (Graph Editor) keep their keys.
         if (isLocked(control, channel)) continue;
         const curve = curveOf(tx, clip, control.id, channel);
@@ -271,23 +400,29 @@ const channelToggleLock = defineOperator({
       if (!isRecord(ref) || typeof ref['control'] !== 'string' || typeof ref['channel'] !== 'string') {
         return fail('refs must be { control, channel }');
       }
-      if (trsSlot(ref['channel'] as ChannelId) === -1) return fail(`'${ref['channel']}' cannot be locked`);
+      // M2a §5.1 rule 1: attributes cannot be locked; they are skipped (a selection may mix them with TRS rows).
+      const channel = ref['channel'] as ChannelId;
+      if (trsSlot(channel) === -1 && !isAttrChannel(channel)) return fail(`'${channel}' cannot be locked`);
       if (app.store.get('controls', ref['control'] as ControlId) === undefined) {
         return fail(`Control ${ref['control']} does not exist`);
       }
+    }
+    if (refs.every((ref) => isAttrChannel((ref as { channel: ChannelId }).channel))) {
+      return fail('Attributes cannot be locked');
     }
     return pollEditable(app);
   },
   apply({ tx }, args) {
     if (tx === null) throw new EkzaError('internal', 'channel.toggleLock runs in a transaction');
+    const refs = args.refs.filter((ref) => trsSlot(ref.channel) !== -1);
     const lock =
       args.locked ??
-      !args.refs.every((ref) => {
+      !refs.every((ref) => {
         const control = tx.get('controls', ref.control);
         return control !== undefined && isLocked(control, ref.channel);
       });
     const byControl = new Map<ControlId, ChannelId[]>();
-    for (const ref of args.refs) byControl.set(ref.control, [...(byControl.get(ref.control) ?? []), ref.channel]);
+    for (const ref of refs) byControl.set(ref.control, [...(byControl.get(ref.control) ?? []), ref.channel]);
     for (const [id, channels] of byControl) {
       const control = tx.get('controls', id);
       if (control === undefined) continue;
@@ -309,9 +444,6 @@ export const KEY_OPERATORS: readonly AnyOperator[] = [
   keyToggleAutoKey,
   channelSetValues,
   channelToggleLock,
-  // M2a (M2A-SPEC §5.19; A2 implements it)
-  stubOperator('key.setTarget', 'Key Target', {
-    category: 'key',
-    description: 'Key the selected controls, their body parts or the whole character.',
-  }),
+  // M2a (M2A-SPEC §5.19)
+  keySetTarget,
 ];

@@ -8,6 +8,9 @@
 // | no keys          | curve + key  | 'all' → curve + key, else static value    | static value         | static   |
 //
 // Locked and non-keyable channels are skipped and reported (callers show one toast; the gesture helper does).
+// M2a (M2A-SPEC §5.1): '@name' attribute channels follow the same table (keyable by `AttrDef.keyable`, never
+// locked); a new key on a `stepped` attribute gets in 'flat', out 'step'. Values are written as given: attribute
+// ranges are clamped where values are produced (virtual slider, tween) or consumed (the ik2 op), never here.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza-animator/doc';
 import { internalsOf } from '../app/internals';
@@ -17,7 +20,7 @@ import { type OverrideLocation, overrideDelta, sameLocation } from '../history/o
 import { activeLocation, ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type { ChannelEdit, ChannelEditGesture, ChannelEditResult, EditorApp, KeyPolicy, OverrideDelta } from '../types';
-import { isKeyable, isLocked } from './channelMeta';
+import { isKeyable, isLocked, newKeyTangents } from './channelMeta';
 import { currentClipFrame, ensureBaseLayer } from './context';
 import { ensureCurve, writeKeyAt } from './keys';
 
@@ -87,7 +90,7 @@ export function applyChannelEdits(
     switch (outcomeFor(hasKeys, opts.key, prefs.autoKey, prefs.autoKeyMode)) {
       case 'key': {
         const curveId = curve?.id ?? ensureCurve(app, tx, clip.id, control.id, edit.channel);
-        writeKeyAt(app, tx, curveId, frame, edit.value, prefs.defaultTangents);
+        writeKeyAt(app, tx, curveId, frame, edit.value, newKeyTangents(control, edit.channel, prefs.defaultTangents));
         keyed++;
         clear(control.id, edit.channel);
         break;

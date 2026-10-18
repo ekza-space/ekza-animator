@@ -72,6 +72,7 @@ import { MeshPicker } from '../picking/meshPicker';
 import { ControlPicker } from '../picking/picker';
 import { SceneSync } from '../sync/SceneSync';
 import type { ViewportToolHost } from '../tools/host';
+import { startVirtualSliderDrag, type VirtualSliderDrag } from '../tools/virtualSliderDrag';
 import type {
   CameraSnapshot,
   DisplayFlags,
@@ -190,6 +191,10 @@ export class ViewportManager {
   private nav: NavDrag | null = null;
   private wheel: WheelBurst | null = null;
   private toolPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
+  /** M2a §5.18: a plain MMB drag running the Channel Box virtual slider on the selected channels. */
+  private virtualDrag: VirtualSliderDrag | null = null;
+  /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
+  private pointerLockAllowed = true;
   private hoverControl: ControlId | null = null;
   private stylesDirty = true;
   private manipulatorDirty = true;
@@ -539,6 +544,35 @@ export class ViewportManager {
     this.profile = profile;
   }
 
+  /**
+   * M2a §5.5: how a control is drawn after the frame preparation: 'visible' (pickable), 'ghost' (25 % alpha, never
+   * pickable) or 'hidden'; null for a control the viewport does not know.
+   */
+  controlDrawState(control: ControlId): 'visible' | 'ghost' | 'hidden' | null {
+    this.prepareForQuery();
+    const entry = this.controls.entry(control);
+    if (entry === undefined) return null;
+    return entry.visible ? 'visible' : entry.ghost ? 'ghost' : 'hidden';
+  }
+
+  /** M2a §5.5 rule 4: the pole annotation lines drawn for a character (scene space: mid bone → pole). */
+  poleLines(
+    character: CharacterId,
+  ): readonly { readonly pole: ControlId; readonly from: readonly number[]; readonly to: readonly number[] }[] {
+    this.prepareForQuery();
+    return this.controls.poleLines(character);
+  }
+
+  /** M2a §5.18: whether the viewport's virtual slider may use Pointer Lock (else pointer capture). */
+  setPointerLockAllowed(allowed: boolean): void {
+    this.pointerLockAllowed = allowed;
+  }
+
+  /** True while a plain-MMB virtual slider drag runs in a pane. */
+  get virtualSliderActive(): boolean {
+    return this.virtualDrag?.active === true;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.cancelInteraction();
@@ -881,7 +915,10 @@ export class ViewportManager {
     this.lastPointerPane = pane.id;
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
-    if (this.nav !== null || this.toolPointer !== null) return;
+    if (this.nav !== null || this.toolPointer !== null || this.virtualSliderActive) return;
+    // M2a §5.18: a plain MMB drag (no Alt) with Channel Box channels selected runs the virtual slider; Alt+MMB stays
+    // navigation, and without selected channels a plain MMB drag does nothing (M1).
+    if (e.button === 1 && !e.altKey && this.startVirtualSlider(pane, e)) return;
     const gesture = pointerGesture(this.profile, e);
     if (gesture !== null) {
       e.preventDefault();
@@ -900,8 +937,26 @@ export class ViewportManager {
     }
   }
 
+  private startVirtualSlider(pane: PaneRuntime, e: PointerEvent): boolean {
+    if (!this.app.prefs.getState().virtualSlider.viewportMmb) return false;
+    const refs = this.app.session.getState().selection.channels;
+    if (refs.length === 0) return false;
+    const drag = startVirtualSliderDrag(this.app, refs, pane.element, e, {
+      pointerLock: this.pointerLockAllowed,
+      onEnd: () => {
+        this.virtualDrag = null;
+        this.invalidate();
+      },
+    });
+    if (drag === null) return false;
+    this.virtualDrag = drag;
+    this.setHover(null, null);
+    return true;
+  }
+
   private pointerMove(pane: PaneRuntime, e: PointerEvent): void {
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
+    if (this.virtualSliderActive) return;
     const nav = this.nav;
     if (nav !== null) {
       if (nav.pointerId === e.pointerId) this.moveNav(pane, e, nav);
@@ -940,6 +995,7 @@ export class ViewportManager {
 
   /** Esc or window blur during a drag: cancel the tool gesture and any navigation in progress. */
   private cancelInteraction(): void {
+    this.virtualDrag?.end(false);
     if (this.toolPointer !== null) {
       this.toolPointer = null;
       this.tool()?.cancel?.();

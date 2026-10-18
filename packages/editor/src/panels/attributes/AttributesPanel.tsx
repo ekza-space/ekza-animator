@@ -1,6 +1,9 @@
 // Attributes (research 09 §4.6, MVP-SPEC §7 WP-9): collapsible sections for the lead control (name, side, rotate
 // order, shape size), the active clip's settings, the active character (format, licence, credits, height) and the
 // shot cameras (lock, focal length ↔ FOV). Every edit runs an operator.
+// M2a (M2A-SPEC §5.6, §5.2.3, §5.7; A2): the Limb section of the lead control's limb — IK/FK (switch with match),
+// Match FK to IK / IK to FK, the switch key mode (`prefs.ikFkSwitchKey`), the foot pivots of legs (cm, break angle in
+// degrees; `rig.setFootParams`) — and "Add Limb IK" on humanoid rigs without limb IK.
 import type {
   AssetRecord,
   CameraRecord,
@@ -12,12 +15,12 @@ import type {
   DocumentStore,
 } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
-import { type JSX, type ReactNode, useCallback, useId, useMemo, useState } from 'react';
+import { type JSX, useCallback, useId, useMemo, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';
 import { NumberField } from '../channel-box/kit/fields';
 import { sameIds, selectedControls, useCharactersVersion } from '../channel-box/kit/hooks';
-import { ChevronIcon, LockIcon } from '../channel-box/kit/icons';
+import { LockIcon } from '../channel-box/kit/icons';
 import { formatFixed, readVrmLicense } from '../channel-box/kit/kernel';
 import { canRun, runOperator, runUntypedOperator } from '../channel-box/kit/run';
 import { BUTTON, CHECK, MUTED_TEXT, PANEL_ROOT, SELECT, SIDE_COLOR, SIDE_LABEL } from '../channel-box/kit/styles';
@@ -32,6 +35,8 @@ import {
   validateFovDegrees,
 } from './lens';
 import { licenceSummary } from './licence';
+import { Field, Fields, Section } from './layout';
+import { LimbSection } from './LimbSection';
 
 const PANEL_KIND = PANEL.attributes;
 
@@ -92,6 +97,7 @@ export function AttributesPanel({ app, instanceId }: PanelProps): JSX.Element {
           <ControlFields app={app} control={view.control} mirror={view.mirror} />
         )}
       </Section>
+      <LimbSection app={app} control={view.control} />
       <Section title="Clip" testId="attr-section-clip">
         {view.clip === null ? (
           <p className={MUTED_TEXT}>No active clip.</p>
@@ -114,55 +120,6 @@ export function AttributesPanel({ app, instanceId }: PanelProps): JSX.Element {
         )}
       </Section>
     </div>
-  );
-}
-
-function Section(props: {
-  readonly title: string;
-  readonly testId: string;
-  readonly children: ReactNode;
-}): JSX.Element {
-  const [open, setOpen] = useState(true);
-  const bodyId = useId();
-  return (
-    <section className="border-b border-line" data-testid={props.testId}>
-      <h2>
-        <button
-          type="button"
-          className="flex h-7 w-full items-center gap-1 bg-header px-1.5 text-left font-semibold text-fg-2 hover:text-fg"
-          aria-expanded={open}
-          aria-controls={bodyId}
-          onClick={() => setOpen(!open)}
-        >
-          <ChevronIcon open={open} />
-          {props.title}
-        </button>
-      </h2>
-      {open ? (
-        <div id={bodyId} className="px-2 py-2">
-          {props.children}
-        </div>
-      ) : null}
-    </section>
-  );
-}
-
-function Fields(props: { readonly children: ReactNode }): JSX.Element {
-  return <dl className="grid grid-cols-[7.5rem_1fr] items-center gap-x-2 gap-y-1.5">{props.children}</dl>;
-}
-
-function Field(props: {
-  readonly label: string;
-  readonly htmlFor?: string | undefined;
-  readonly children: ReactNode;
-}): JSX.Element {
-  return (
-    <>
-      <dt className="text-fg-2">
-        {props.htmlFor === undefined ? props.label : <label htmlFor={props.htmlFor}>{props.label}</label>}
-      </dt>
-      <dd className="min-w-0">{props.children}</dd>
-    </>
   );
 }
 

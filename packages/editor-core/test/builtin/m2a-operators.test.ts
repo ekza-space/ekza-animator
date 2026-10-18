@@ -9,18 +9,11 @@ import type { Chord, KeyBinding } from '../../src/types';
 import { opsApp, runOk, runResult, WAVE } from './support';
 
 /**
- * Every M2a operator the built-ins register as a stub, with arguments that would be valid once implemented. A4's
- * `key.tween`, `key.convert`, `pose.mirrorAnimation` and `graph.buffer.*` left this list when they landed
- * (m2a-a4-operators.test.ts).
+ * Every M2a operator the built-ins register as a stub, with arguments that would be valid once implemented. Rows leave
+ * this list when their owner lands them (A4: `key.tween`, `key.convert`, `pose.mirrorAnimation` and `graph.buffer.*`,
+ * m2a-a4-operators.test.ts; A2: the rig IK operators, select.pickWalk and key.setTarget, m2a-a2-*.test.ts).
  */
 const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
-  ['rig.addLimbIk', undefined],
-  ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
-  ['rig.ikFk.match', { limb: 'arm.R', side: 'ik' }],
-  ['rig.ikFk.matchRange', { limb: 'leg.R', side: 'fk' }],
-  ['rig.setFootParams', { limb: 'leg.L', params: { heelBack: 0.05 } }],
-  ['select.pickWalk', { direction: 'up' }],
-  ['key.setTarget', { target: 'bodyPart' }],
   ['key.toggleRipple', undefined],
   ['time.insertTime', { at: 10, frames: 1 }],
   ['time.insertTime', { frames: -1 }],
@@ -48,13 +41,14 @@ describe('M2a operator stubs (§3 rule 1)', () => {
     for (const [id] of M2A_STUB_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
-  it('key.set refuses body-part targets and breakdown keys until A2 lands them', async () => {
+  it('key.set keys body-part targets and breakdown keys (A2 landed them; details in m2a-a2-keying.test.ts)', async () => {
     const app = opsApp();
     app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.handL] } });
     const breakdown = await runResult(app, 'key.set', { breakdown: true });
-    expect(breakdown).toEqual({ status: 'cancelled', reason: 'Breakdown keys are not available yet' });
+    expect(breakdown.status).toBe('finished');
+    expect(app.history.peekUndo()?.label).toBe('Set Breakdown');
     const part = await runResult(app, 'key.set', { target: 'bodyPart' });
-    expect(part).toEqual({ status: 'cancelled', reason: 'Keying by body part is not available yet' });
+    expect(part.status).toBe('finished');
     expect((await runResult(app, 'key.set', { channels: 'rotate' })).status).toBe('finished');
   });
 });

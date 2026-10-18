@@ -16,7 +16,7 @@ import {
 } from '@ekza-animator/doc';
 import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
 import type { KernelDeps } from '../app/deps';
-import { channelDefault, channelDefaultOf, isKeyable, isLocked, trsSlot } from '../edit/channelMeta';
+import { channelDefault, channelDefaultOf, isKeyable, isLocked } from '../edit/channelMeta';
 import type { CharacterRegistry, CharacterRuntime, ChannelState, EvaluationService, SessionStore } from '../types';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from './time';
 
@@ -221,7 +221,8 @@ export function createEvaluationService(ctx: {
     },
     channelState(control: ControlId, channel: ChannelId): ChannelState {
       const record = store.get('controls', control);
-      if (record === undefined || trsSlot(channel) === -1 || !isKeyable(record, channel)) return 'non-keyable';
+      // M2a (A2): '@name' attributes are keyable by their AttrDef (M2A-SPEC §5.1 rule 1); unknown channels are not.
+      if (record === undefined || !isKeyable(record, channel)) return 'non-keyable';
       if (isLocked(record, channel)) return 'locked';
       if (session.getState().overrides.get(control)?.[channel] !== undefined) return 'changed';
       const { curve, frame } = curveAt(control, channel);

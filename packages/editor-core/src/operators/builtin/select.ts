@@ -1,7 +1,7 @@
 // Selection operators (MVP-SPEC §4.9 `select.*`, ADR 0008 §8). Selection is per-user session state: not undoable
 // itself, restored by undo/redo through the snapshots history steps carry. It is limited to one character: selecting
 // another character's controls makes that character active and replaces the selection.
-import type { CharacterId, ControlId, KeyId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ControlRecord, KeyId } from '@ekza-animator/doc';
 import { ownerOfControl } from '../../session/location';
 import {
   type ChannelRef,
@@ -12,9 +12,16 @@ import {
   type Selection,
   type SelectMode,
 } from '../../types';
-import { activeClipRecord, baseCurves, keysOfCurves, selectedControls, visibleControls } from '../../workflows/targets';
-import { type AnyOperator, defineOperator, fail, isRecord, OK, panelOf } from './define';
-import { stubOperator } from './stub';
+import {
+  activeClipRecord,
+  baseCurves,
+  controlsOfCharacter,
+  keysOfCurves,
+  selectedControls,
+  visibleControls,
+} from '../../workflows/targets';
+import { controlVisibilityResolver } from '../../workflows/visibility';
+import { type AnyOperator, defineOperator, fail, forward, isRecord, OK, panelOf, runContextOf } from './define';
 
 const SELECT_MODES: readonly SelectMode[] = ['replace', 'toggle', 'add', 'remove'];
 // M2a: the Dope Sheet shares the key selection (M2A-SPEC §5.10).
@@ -271,6 +278,139 @@ const selectChannels = defineOperator({
   },
 });
 
+type WalkDirection = 'up' | 'down' | 'left' | 'right';
+const WALK_DIRECTIONS: readonly WalkDirection[] = ['up', 'down', 'left', 'right'];
+
+/** Order of siblings: `order`, then id (code units), the rig's own child order. */
+function byOrder(a: ControlRecord, b: ControlRecord): number {
+  if (a.order !== b.order) return a.order < b.order ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+/**
+ * M2A-SPEC §5.17: where one control walks to over its character's control hierarchy, skipping controls that are
+ * not `visible` (§5.5): `up` the nearest visible ancestor; `down` the first visible child by order (a hidden child
+ * is passed through to its own first visible descendant); `left`/`right` the previous/next visible sibling (no wrap),
+ * else the visible mirror counterpart; otherwise the control itself.
+ */
+export function pickWalkTarget(
+  controls: readonly ControlRecord[],
+  from: ControlRecord,
+  direction: WalkDirection,
+  visible: (id: ControlId) => boolean,
+): ControlId {
+  const byId = new Map(controls.map((control) => [control.id, control]));
+  const children = new Map<ControlId | null, ControlRecord[]>();
+  for (const control of controls) {
+    const parent = control.parent !== null && byId.has(control.parent) ? control.parent : null;
+    const list = children.get(parent);
+    if (list === undefined) children.set(parent, [control]);
+    else list.push(control);
+  }
+  for (const list of children.values()) list.sort(byOrder);
+  switch (direction) {
+    case 'up': {
+      const seen = new Set<ControlId>([from.id]);
+      for (let parent = from.parent; parent !== null && !seen.has(parent); ) {
+        seen.add(parent);
+        const record = byId.get(parent);
+        if (record === undefined) break;
+        if (visible(record.id)) return record.id;
+        parent = record.parent;
+      }
+      return from.id;
+    }
+    case 'down': {
+      const seen = new Set<ControlId>([from.id]);
+      const firstVisible = (id: ControlId): ControlId | null => {
+        for (const child of children.get(id) ?? []) {
+          if (seen.has(child.id)) continue;
+          seen.add(child.id);
+          if (visible(child.id)) return child.id;
+          const below = firstVisible(child.id);
+          if (below !== null) return below;
+        }
+        return null;
+      };
+      return firstVisible(from.id) ?? from.id;
+    }
+    case 'left':
+    case 'right': {
+      const parent = from.parent !== null && byId.has(from.parent) ? from.parent : null;
+      const siblings = (children.get(parent) ?? []).filter((c) => c.id === from.id || visible(c.id));
+      const at = siblings.findIndex((c) => c.id === from.id);
+      const next = at === -1 ? undefined : siblings[direction === 'left' ? at - 1 : at + 1];
+      if (next !== undefined) return next.id;
+      if (from.mirror !== null && from.mirror !== from.id && byId.has(from.mirror) && visible(from.mirror)) {
+        return from.mirror;
+      }
+      return from.id;
+    }
+  }
+}
+
+/** §5.17 with `prefs.arrowKeys: 'frames'`: the time operator an arrow runs instead of walking. */
+const FRAME_KEYS: Readonly<Record<WalkDirection, { readonly op: string; readonly args?: unknown }>> = {
+  up: { op: 'time.nextKey' },
+  down: { op: 'time.prevKey' },
+  left: { op: 'time.step', args: { delta: -1 } },
+  right: { op: 'time.step', args: { delta: 1 } },
+};
+
+/**
+ * §5.17: the time operator a `select.pickWalk` binding runs instead of walking (`prefs.arrowKeys: 'frames'`), or
+ * null when it walks (or the arguments name no direction). The shortcut sheet labels the arrows with it, so it shows
+ * the active behaviour.
+ */
+export function pickWalkDispatch(
+  app: EditorApp,
+  args: unknown,
+): { readonly op: string; readonly args?: unknown } | null {
+  if (app.prefs.getState().arrowKeys !== 'frames' || !isRecord(args)) return null;
+  const direction = args['direction'];
+  return (WALK_DIRECTIONS as readonly unknown[]).includes(direction) ? FRAME_KEYS[direction as WalkDirection] : null;
+}
+
+const selectPickWalk = defineOperator<'select.pickWalk', 'walk' | 'frames'>({
+  id: 'select.pickWalk',
+  label: 'Pick Walk',
+  description: 'Walk the selection up, down or sideways in the control hierarchy (the arrow keys).',
+  category: 'select',
+  scope: GLOBAL_SCOPE,
+  poll(ctx, args) {
+    const app = ctx.app;
+    if (!isRecord(args) || !(WALK_DIRECTIONS as readonly unknown[]).includes(args['direction'])) {
+      return fail(`expects { direction: ${WALK_DIRECTIONS.join(' | ')}, add? }`);
+    }
+    if (args['add'] !== undefined && typeof args['add'] !== 'boolean') return fail('add must be a boolean');
+    if (app.prefs.getState().arrowKeys === 'frames') {
+      const target = FRAME_KEYS[args['direction'] as WalkDirection];
+      return app.operators.poll(target.op, runContextOf(ctx), target.args);
+    }
+    return app.session.getState().selection.controls.length > 0 ? OK : fail('Nothing is selected');
+  },
+  async prepare(ctx, args) {
+    // The keymap has no pref-conditional bindings: the arrows always run pick-walk, which dispatches (§5.17).
+    if (ctx.app.prefs.getState().arrowKeys !== 'frames') return 'walk';
+    const target = FRAME_KEYS[args.direction];
+    await forward(ctx, target.op, target.args);
+    return 'frames';
+  },
+  apply({ app }, args, mode) {
+    if (mode === 'frames') return;
+    const selected = selectedControls(app);
+    if (selected.length === 0) return;
+    const character = app.session.getState().activeCharacter;
+    if (character === null) return;
+    const controls = controlsOfCharacter(app.store, character);
+    const resolve = controlVisibilityResolver(app);
+    const visible = (id: ControlId): boolean => resolve(id) === 'visible';
+    // Every selected control walks; the lead's result is added last, so it stays the lead.
+    const results = selected.map((control) => pickWalkTarget(controls, control, args.direction, visible));
+    selectControls(app, results, args.add === true ? 'add' : 'replace');
+  },
+});
+
 export const SELECT_OPERATORS: readonly AnyOperator[] = [
   selectControlsOp,
   selectAll,
@@ -278,9 +418,6 @@ export const SELECT_OPERATORS: readonly AnyOperator[] = [
   selectMirror,
   selectKeys,
   selectChannels,
-  // M2a (M2A-SPEC §5.17; A2 implements it)
-  stubOperator('select.pickWalk', 'Pick Walk', {
-    category: 'select',
-    description: 'Walk the selection up, down or sideways in the control hierarchy.',
-  }),
+  // M2a (M2A-SPEC §5.17)
+  selectPickWalk,
 ];

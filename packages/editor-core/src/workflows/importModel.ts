@@ -30,6 +30,7 @@ import type { EditorApp } from '../types';
 import { frameShotCamera, SHOT_FOV_Y } from './camera';
 import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
 import { type Progress, yieldToHost } from './host';
+import { importLimbWarnings } from './ik';
 import { baseName, extensionOf, numberedName, sanitizeClipName, uniqueName } from './names';
 import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
@@ -179,10 +180,12 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
 
   const characterId = newRecordId(app, 'character');
   const rigId: RigId = newRecordId(app, 'rig');
+  // M2a §5.2: limb IK per the user's preference (legs IK, arms FK with IK one click away by default).
+  const autoRigIk = app.prefs.getState().autoRigIk;
   const rig = autoRig(
     skeleton,
     { character: characterId, rig: rigId },
-    { kind: 'auto', secondary: options.secondaryControls ?? true },
+    { kind: 'auto', secondary: options.secondaryControls ?? true, ik: { legs: autoRigIk.legs, arms: autoRigIk.arms } },
   );
   const program = compileRig(rig, skeleton);
   for (const warning of program.warnings) {
@@ -232,8 +235,11 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
       keyMode: resolved.keyMode,
       eulerFilter: resolved.eulerFilter,
       reduce: resolved.reduce,
+      ik: 'auto',
     });
     warnings.push(...imported.warnings.map((warning) => `${raw.name}: ${warning}`));
+    // M2a §5.8: limbs kept FK say so, first (the import toast shows the first three warnings).
+    warnings.unshift(...importLimbWarnings(raw.name, imported));
     const nodeNames = raw.channels.map((channel) => skeleton.nodes[channel.node]?.name ?? '');
     const name = uniqueName(sanitizeClipName(raw.name), takenNames);
     takenNames.push(name);
