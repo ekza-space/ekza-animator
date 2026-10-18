@@ -63,8 +63,12 @@ export function drawnOf(entry: CurveEntry, v: number): number {
   return v * entry.scale + entry.offset;
 }
 
-/** The entry of one curve; null when it is gone or cannot be drawn yet. */
-function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
+/**
+ * The entry of one curve; null when it is gone or cannot be drawn yet. `previous` (the curve's entry before an edit)
+ * lends its key index when the keys are the same ids in the same order (M-1: a value drag rebuilds the dragged curves'
+ * entries every frame; their key order never changes).
+ */
+function buildEntry(app: EditorApp, id: CurveId, previous?: CurveEntry): CurveEntry | null {
   const record = app.store.get('curves', id);
   if (record === undefined) return null;
   let compiled: CompiledAnimCurve;
@@ -76,8 +80,7 @@ function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
   const keys = app.store.query.keysOfCurve(id);
   // Compiled arrays and records must align index by index; a stale compiled curve is not drawn.
   if (keys.length !== compiled.keyCount) return null;
-  const index = new Map<KeyId, number>();
-  keys.forEach((key, i) => index.set(key.id, i));
+  const index = sameKeyOrder(previous?.keys, keys) ? (previous as CurveEntry).index : indexOf(keys);
   const control = app.store.get('controls', record.control);
   const unitScale = channelDisplayScale(record.channel, channelUnit(control ?? null, record.channel));
   return {
@@ -93,6 +96,18 @@ function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
     keys,
     index,
   };
+}
+
+function indexOf(keys: readonly KeyRecord[]): Map<KeyId, number> {
+  const index = new Map<KeyId, number>();
+  for (let i = 0; i < keys.length; i++) index.set((keys[i] as KeyRecord).id, i);
+  return index;
+}
+
+function sameKeyOrder(a: readonly KeyRecord[] | undefined, b: readonly KeyRecord[]): boolean {
+  if (a === undefined || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) if ((a[i] as KeyRecord).id !== (b[i] as KeyRecord).id) return false;
+  return true;
 }
 
 function assemble(app: EditorApp, curves: readonly CurveId[], entryOf: (id: CurveId) => CurveEntry | null): CurveSet {
@@ -130,5 +145,8 @@ export function updateCurveSet(
   curves: readonly CurveId[],
   changed: ReadonlySet<CurveId>,
 ): CurveSet {
-  return assemble(app, curves, (id) => (changed.has(id) ? null : set.byCurve.get(id)) ?? buildEntry(app, id));
+  return assemble(app, curves, (id) => {
+    const previous = set.byCurve.get(id);
+    return (changed.has(id) ? null : previous) ?? buildEntry(app, id, previous);
+  });
 }

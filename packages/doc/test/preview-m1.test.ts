@@ -209,3 +209,29 @@ describe('partition fast path', () => {
     ).toThrow(/no such record/);
   });
 });
+
+describe('key validation fast path (M-1)', () => {
+  it('a key rewritten with a new finite time or value is accepted; anything else is still validated', async () => {
+    const { store, a } = await scene();
+    store.transact({ label: 'move' }, (tx) => tx.put('keys', { ...a, t: 11, v: 1.5 }));
+    expect(store.get('keys', a.id)).toMatchObject({ t: 11, v: 1.5 });
+    const moved = store.get('keys', a.id) as KeyRecord;
+    for (const bad of [
+      { ...moved, v: Number.NaN },
+      { ...moved, t: Number.POSITIVE_INFINITY },
+      { ...moved, v: 2, inType: 'sideways' },
+      { ...moved, v: 2, outHandle: { dt: -1, dv: 0 } },
+      { ...moved, v: 2, broken: 'yes' },
+    ]) {
+      expect(() => store.transact({ label: 'bad' }, (tx) => tx.put('keys', bad as unknown as KeyRecord))).toThrow(
+        /Invalid keys/,
+      );
+    }
+    // A field added or dropped is a change the fast path leaves to the full check.
+    const { weightLocked: _dropped, ...withoutField } = moved;
+    expect(() =>
+      store.transact({ label: 'drop' }, (tx) => tx.put('keys', withoutField as unknown as KeyRecord)),
+    ).toThrow(/weightLocked/);
+    expect(store.get('keys', a.id)).toEqual(moved);
+  });
+});

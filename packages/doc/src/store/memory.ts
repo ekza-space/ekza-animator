@@ -122,6 +122,22 @@ function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+/** True when `next` has the fields of `previous` with the same values, except finite numbers in `t` and `v`. */
+function onlyNewTimeOrValue(previous: Row, next: Row): boolean {
+  let fields = 0;
+  for (const field in next) {
+    fields++;
+    const value = next[field];
+    if (field === 't' || field === 'v') {
+      if (!Number.isFinite(value)) return false;
+    } else if (value !== previous[field]) {
+      return false;
+    }
+  }
+  for (const _ in previous) fields--;
+  return fields === 0;
+}
+
 function isThenable(value: unknown): boolean {
   return (
     (typeof value === 'object' || typeof value === 'function') &&
@@ -630,6 +646,9 @@ export class MemoryDocumentStore implements DocumentStore {
 
   /** Throws for problems the write introduces; problems the stored record already had are tolerated. */
   private checkValid(table: string, next: Row, previous: Row | undefined): void {
+    // M-1: a key rewritten with only a new finite time or value (every key of a drag, every frame) introduces no
+    // problem: key fields are checked one by one, so its other fields have exactly the problems they had.
+    if (table === 'keys' && previous !== undefined && onlyNewTimeOrValue(previous, next)) return;
     const problems = validateAny(table, next);
     if (problems.length === 0) return;
     const known = previous === undefined ? new Set<string>() : new Set(validateAny(table, previous));
