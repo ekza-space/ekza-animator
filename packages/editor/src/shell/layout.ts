@@ -4,18 +4,22 @@ import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-animator/editor-
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
 
 export const WORKSPACE_ID = 'animate';
-export const LAYOUT_SCHEMA_VERSION = 1;
-/** research 09 §9.2: `ekza-animator:layout:v1:<workspace>`. */
-export const layoutStorageKey = (workspace: string = WORKSPACE_ID): string =>
-  `ekza-animator:layout:v${LAYOUT_SCHEMA_VERSION}:${workspace}`;
+/** 2 since M2a: the Animate layout has a Dope Sheet tab beside the Graph Editor (M2A-SPEC §4.8). */
+export const LAYOUT_SCHEMA_VERSION = 2;
+/** research 09 §9.2: `ekza-animator:layout:v<version>:<workspace>`; the key carries the version. */
+export const layoutStorageKey = (workspace: string = WORKSPACE_ID, version: number = LAYOUT_SCHEMA_VERSION): string =>
+  `ekza-animator:layout:v${version}:${workspace}`;
+/** The M1 key (`ekza-animator:layout:v1:<workspace>`), read once by the v1 → v2 migration and never written. */
+export const layoutStorageKeyV1 = (workspace: string = WORKSPACE_ID): string => layoutStorageKey(workspace, 1);
 
 /** Content component used for a panel kind that is not registered in this build. */
 export const PLACEHOLDER_COMPONENT = 'ekza.placeholder';
 
 export type DockSlot = 'left' | 'center' | 'right' | 'bottom';
 
-/** Dock slots of the Animate workspace (MVP-SPEC §7 WP-8): left Outliner | Clips, centre Viewport, right Channel Box
- *  | Attributes, bottom Graph Editor. The timeline is fixed chrome below the docks, not a dock panel. */
+/** Dock slots of the Animate workspace (MVP-SPEC §7 WP-8, M2A-SPEC §4.8): left Outliner | Clips, centre Viewport,
+ *  right Channel Box | Attributes, bottom Graph Editor | Dope Sheet (an inactive tab). The timeline is fixed chrome
+ *  below the docks, not a dock panel. */
 export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: DockSlot; readonly title: string }[] = [
   { kind: PANEL.viewport, slot: 'center', title: 'Viewport' },
   { kind: PANEL.outliner, slot: 'left', title: 'Outliner' },
@@ -23,6 +27,7 @@ export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: 
   { kind: PANEL.channelBox, slot: 'right', title: 'Channel Box' },
   { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
   { kind: PANEL.graph, slot: 'bottom', title: 'Graph Editor' },
+  { kind: PANEL.dopeSheet, slot: 'bottom', title: 'Dope Sheet' },
 ];
 
 /** Panel kinds rendered outside dockview (fixed regions). */
@@ -95,16 +100,46 @@ export function buildAnimateLayout(
   dock([PANEL.outliner, PANEL.clips], 'left', DOCK_SIZES.left);
   dock([PANEL.channelBox, PANEL.attributes], 'right', DOCK_SIZES.right);
 
-  const graph = entry(PANEL.graph);
-  if (graph !== null) {
-    api.addPanel(
-      addOptions(graph, {
-        position: { direction: 'below' },
-        initialHeight: Math.max(DOCK_SIZES.bottomMin, Math.round(height * DOCK_SIZES.bottomFraction)),
-      }),
-    );
+  // Bottom dock: the Graph Editor with the Dope Sheet as an inactive tab of its group (M2A-SPEC §4.8).
+  let bottom: IDockviewPanel | null = null;
+  for (const kind of [PANEL.graph, PANEL.dopeSheet]) {
+    const e = entry(kind);
+    if (e === null) continue;
+    if (bottom === null) {
+      bottom = api.addPanel(
+        addOptions(e, {
+          position: { direction: 'below' },
+          initialHeight: Math.max(DOCK_SIZES.bottomMin, Math.round(height * DOCK_SIZES.bottomFraction)),
+        }),
+      );
+    } else {
+      api.addPanel(addOptions(e, { position: { referencePanel: bottom, direction: 'within' }, inactive: true }));
+    }
   }
   center?.api.setActive();
+}
+
+/**
+ * Layout v1 → v2 (M2A-SPEC §4.8) on a restored M1 layout: the Dope Sheet joins the group that holds the Graph Editor
+ * as an inactive tab (or a new bottom group when the Graph Editor was closed); the rest of the layout is kept.
+ * Nothing happens when the layout already has a Dope Sheet or this build cannot show one.
+ */
+export function addDopeSheetTab(api: DockviewApi, resolve: (kind: PanelKind) => PanelComponent | null): void {
+  if (api.panels.some((panel) => kindOfPanel(panel) === PANEL.dopeSheet)) return;
+  const entry = resolve(PANEL.dopeSheet);
+  if (entry === null) return;
+  const graph = api.panels.find((panel) => kindOfPanel(panel) === PANEL.graph);
+  if (graph !== undefined) {
+    const id = api.getPanel(entry.kind) === undefined ? entry.kind : `${entry.kind}#${api.panels.length + 1}`;
+    api.addPanel({
+      ...addOptions(entry),
+      id,
+      position: { referencePanel: graph, direction: 'within' },
+      inactive: true,
+    } as AddPanelOptions<PanelParams>);
+    return;
+  }
+  addPanelToDefaultDock(api, entry);
 }
 
 /** Adds a closed panel back into its default dock (next to a sibling of the same slot when one is open). */
@@ -138,17 +173,25 @@ interface StoredLayout {
 export type StoredLayoutResult =
   | { readonly kind: 'none' }
   | { readonly kind: 'ok'; readonly layout: SerializedDockview }
+  /** M2a: no v2 layout, but a valid M1 (v1) layout under the v1 key: restore it, add the Dope Sheet, store as v2. */
+  | { readonly kind: 'migrate'; readonly from: 1; readonly layout: SerializedDockview }
   | { readonly kind: 'reset'; readonly reason: 'newer' | 'invalid' };
 
-/** Reads and validates the stored layout. Any parse or shape problem is 'invalid' (the default layout is used). */
-export function readStoredLayout(storage: PrefsStorage | null, workspace: string = WORKSPACE_ID): StoredLayoutResult {
-  let raw: string | null = null;
+/** Reads one stored layout text: `text` null when nothing is stored, `failed` when the storage threw. */
+function readText(
+  storage: PrefsStorage | null,
+  key: string,
+): { readonly text: string | null; readonly failed: boolean } {
   try {
-    raw = storage?.getItem(layoutStorageKey(workspace)) ?? null;
+    const raw = storage?.getItem(key) ?? null;
+    return { text: raw === '' ? null : raw, failed: false };
   } catch {
-    return { kind: 'none' };
+    return { text: null, failed: true };
   }
-  if (raw === null || raw === '') return { kind: 'none' };
+}
+
+/** Validates a stored layout of the expected version. */
+function parseStored(raw: string, workspace: string, version: number): StoredLayoutResult {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -160,14 +203,25 @@ export function readStoredLayout(storage: PrefsStorage | null, workspace: string
     return { kind: 'reset', reason: 'invalid' };
   }
   if (stored.schemaVersion > LAYOUT_SCHEMA_VERSION) return { kind: 'reset', reason: 'newer' };
-  if (
-    stored.schemaVersion !== LAYOUT_SCHEMA_VERSION ||
-    stored.workspace !== workspace ||
-    !isSerializedDockview(stored.dockview)
-  ) {
+  if (stored.schemaVersion !== version || stored.workspace !== workspace || !isSerializedDockview(stored.dockview)) {
     return { kind: 'reset', reason: 'invalid' };
   }
   return { kind: 'ok', layout: stored.dockview };
+}
+
+/**
+ * Reads and validates the stored layout. Any parse or shape problem is 'invalid' (the default layout is used).
+ * Without a v2 layout, a valid M1 layout under the v1 key is returned as 'migrate' (M2A-SPEC §4.8); the v1 key is
+ * only read, never changed, so M1 apps keep their layout. Any other v1 problem resets (M1 rule).
+ */
+export function readStoredLayout(storage: PrefsStorage | null, workspace: string = WORKSPACE_ID): StoredLayoutResult {
+  const current = readText(storage, layoutStorageKey(workspace));
+  if (current.failed) return { kind: 'none' };
+  if (current.text !== null) return parseStored(current.text, workspace, LAYOUT_SCHEMA_VERSION);
+  const v1 = readText(storage, layoutStorageKeyV1(workspace));
+  if (v1.failed || v1.text === null) return { kind: 'none' };
+  const old = parseStored(v1.text, workspace, 1);
+  return old.kind === 'ok' ? { kind: 'migrate', from: 1, layout: old.layout } : old;
 }
 
 export function writeStoredLayout(

@@ -1,7 +1,9 @@
 // Numeric entry and display (Channel Box, Graph Editor fields): internal units are radians and metres, the UI shows
-// degrees for rotation channels (MVP-SPEC §3 convention 4).
+// degrees for rotation channels (MVP-SPEC §3 convention 4) and for attributes with `unit: 'angle'` (M2A-SPEC §5.1
+// rule 5: callers that know the control pass `channelUnit(control, channel)`).
 import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
 import type { ChannelId } from '@ekza-animator/doc';
+import type { ChannelUnit } from '../types';
 import { isRotation } from './channelMeta';
 
 /**
@@ -147,19 +149,24 @@ function evaluateExpression(text: string): { readonly value: number; readonly ha
   return value !== null && at === tokens.length ? { value, hasUnit } : null;
 }
 
-/** Display value of a channel: degrees for rotations, else unchanged. */
-export function toDisplayValue(channel: ChannelId, value: number): number {
-  return isRotation(channel) ? value * RAD2DEG : value;
+/** Degrees in the UI: a given unit wins ('angle'), else the M1 rule (rotation channels). */
+function shownInDegrees(channel: ChannelId, unit: ChannelUnit | undefined): boolean {
+  return unit === undefined ? isRotation(channel) : unit === 'angle';
 }
 
-/** Inverse of `toDisplayValue`. */
-export function fromDisplayValue(channel: ChannelId, display: number): number {
-  return isRotation(channel) ? display * DEG2RAD : display;
+/** Display value of a channel: degrees for angles (rotations, or `unit: 'angle'`), else unchanged. */
+export function toDisplayValue(channel: ChannelId, value: number, unit?: ChannelUnit): number {
+  return shownInDegrees(channel, unit) ? value * RAD2DEG : value;
 }
 
-/** Display text with 3 decimals (degrees for rotations); never `-0.000`. */
-export function formatChannelValue(channel: ChannelId, value: number): string {
-  const display = toDisplayValue(channel, value);
+/** Inverse of `toDisplayValue` (typed values are display units: `30` on an angle attribute is 30°). */
+export function fromDisplayValue(channel: ChannelId, display: number, unit?: ChannelUnit): number {
+  return shownInDegrees(channel, unit) ? display * DEG2RAD : display;
+}
+
+/** Display text with 3 decimals (degrees for angles); never `-0.000`. */
+export function formatChannelValue(channel: ChannelId, value: number, unit?: ChannelUnit): string {
+  const display = toDisplayValue(channel, value, unit);
   if (!Number.isFinite(display)) return String(display);
   const text = display.toFixed(3);
   return /^-0\.0+$/.test(text) ? text.slice(1) : text;

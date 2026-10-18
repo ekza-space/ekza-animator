@@ -1,9 +1,10 @@
 // Graph Editor operators (MVP-SPEC §4.9 `graph.*`, §4.11.3–§4.11.5) on the wave fixture: targets (selected keys and
 // handles, else the shown curves), tangent rules, weights, infinity, numeric fields, moving/scaling/deleting/
 // inserting keys, the key clipboard, Euler filter and Simplify; undo/redo exactness.
-import { type KeyData, RAD2DEG } from '@ekza-animator/anim-core';
+import { type AnimCurve, type KeyData, RAD2DEG } from '@ekza-animator/anim-core';
 import type { CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
+import { EDITOR_CURVE_ENGINE } from '../../src/app/deps';
 import {
   DEG,
   docJson,
@@ -460,5 +461,52 @@ describe.skipIf(!READY.wp1)('graph.eulerFilter / graph.curves.simplify [needs WP
     expect((await runResult(app, 'graph.curves.simplify', { tolerance: { rotationRad: -1 } })).status).toBe(
       'cancelled',
     );
+  });
+
+  it('measures a cyclic curve on the cycle-aware shape the editor draws (M2A-SPEC §5.23)', async () => {
+    const app = opsApp();
+    // A loop whose plain (non-cycle-aware) reduction drops the key at 10 and so changes the seam tangents.
+    setKeys(
+      app,
+      WAVE.curve,
+      [
+        [0, 0.65],
+        [2, -0.65],
+        [6, 0.92],
+        [7, 0.64],
+        [10, 0.15],
+        [14, -0.29],
+      ].map(([t, v]) => ({ t: t as number, v: v as number })),
+    );
+    app.store.transact({ label: 'cycle' }, (tx) => tx.patch('curves', WAVE.curve, { pre: 'cycle', post: 'cycle' }));
+    app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.lowerArmL] } });
+    const shape = (): AnimCurve => ({
+      keys: keys(app).map((k) => ({ ...k })),
+      weighted: false,
+      pre: 'cycle',
+      post: 'cycle',
+    });
+    const before = EDITOR_CURVE_ENGINE.compile(shape());
+    /** Max drawn deviation from the original shape at every integer frame (all key times are integers here). */
+    const drawnError = (): number => {
+      const now = EDITOR_CURVE_ENGINE.compile(shape());
+      let max = 0;
+      for (let f = 0; f <= 14; f++) {
+        max = Math.max(max, Math.abs(EDITOR_CURVE_ENGINE.evaluate(now, f) - EDITOR_CURVE_ENGINE.evaluate(before, f)));
+      }
+      return max;
+    };
+    const run = (rotationRad: number) =>
+      runOk(app, 'graph.curves.simplify', { tolerance: { rotationRad, translationM: 1, scale: 1 } });
+    // Within 0.05 rad no key can go: dropping the key at 10 moves the drawn seam by 0.081 rad (a plain-engine
+    // reduction drops it and reports 0.042).
+    expect(await run(0.05)).toEqual({ before: 6, after: 6, maxError: 0 });
+    expect(keys(app).map((k) => k.t)).toEqual([0, 2, 6, 7, 10, 14]);
+    // Within 0.2 rad the key at 7 goes, and the reported error is the drawn one.
+    const result = (await run(0.2)) as { before: number; after: number; maxError: number };
+    expect(keys(app).map((k) => k.t)).toEqual([0, 2, 6, 10, 14]);
+    expect(result).toMatchObject({ before: 6, after: 5 });
+    expect(drawnError()).toBeLessThanOrEqual(0.2);
+    expect(result.maxError).toBeCloseTo(drawnError(), 12);
   });
 });

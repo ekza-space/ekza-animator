@@ -33,6 +33,23 @@ export function createLocalStorage(namespace = ''): PrefsStorage {
   };
 }
 
+/** The localStorage key prefix of a storage namespace (M2A-SPEC §4.8 `ns=<string>`). */
+export function namespacePrefix(namespace: string): string {
+  return `${STORAGE_PREFIX}ns:${namespace}:`;
+}
+
+/**
+ * Storage that refuses every access, like a browser that blocks site data (M2A-SPEC §4.8 `storage=blocked`): reads
+ * and writes throw a SecurityError. Every consumer wraps storage access in try/catch, so the editor keeps working
+ * with in-memory state.
+ */
+export function createBlockedStorage(): PrefsStorage {
+  const blocked = (): never => {
+    throw new DOMException('Storage is blocked', 'SecurityError');
+  };
+  return { getItem: blocked, setItem: blocked };
+}
+
 /** In-memory storage: e2e runs (a fresh namespace per page load, MVP-SPEC §4.8) and storage-blocked browsers. */
 export function createMemoryStorage(): PrefsStorage & { removeItem(key: string): void } {
   const items = new Map<string, string>();

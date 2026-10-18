@@ -1,6 +1,7 @@
-// Status line / tool strip (research 09 §4.2): viewport tools, move and rotate manipulator spaces (incl. gimbal),
-// selection mask, auto-key and the viewport layout preset. Every control runs an operator.
-import { PANEL, VIEWPORT_TOOL, type ManipSpace, type ViewportLayout } from '@ekza-animator/editor-core';
+// Status line / tool strip (research 09 §4.2, M2A-SPEC §7): viewport tools, move and rotate manipulator spaces
+// (incl. gimbal), selection mask, key target (M2a), the Tween bar slot (M2a, A4 mounts the bar), auto-key and the
+// viewport layout preset. Every control runs an operator.
+import { type KeyTarget, PANEL, VIEWPORT_TOOL, type ManipSpace, type ViewportLayout } from '@ekza-animator/editor-core';
 import {
   AutoKeyIcon,
   Bone,
@@ -21,6 +22,7 @@ import {
 } from '@ekza-animator/ui';
 import type { JSX, ReactNode } from 'react';
 import { usePrefs, useSession } from '../hooks';
+import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { shortcutFor } from './menus';
 
@@ -41,6 +43,13 @@ const SPACE_ICONS: Readonly<Record<ManipSpace, IconComponent>> = {
   gimbal: SpaceGimbalIcon,
 };
 const SPACE_LABELS: Readonly<Record<ManipSpace, string>> = { object: 'Object', world: 'World', gimbal: 'Gimbal' };
+/** M2A-SPEC §5.19 key targets: `S` keys the selected controls, their body parts or the whole character. */
+const KEY_TARGETS: readonly { readonly target: KeyTarget; readonly short: string; readonly label: string }[] = [
+  { target: 'selected', short: 'Sel', label: 'Key the selected controls' },
+  { target: 'bodyPart', short: 'Part', label: 'Key the body parts of the selected controls' },
+  { target: 'character', short: 'Char', label: 'Key the whole character' },
+];
+
 const LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: string }[] = [
   { layout: 'single', label: 'Single view' },
   { layout: 'split', label: 'Shot camera | free camera' },
@@ -79,6 +88,7 @@ export function StatusLine(): JSX.Element {
   const moveSpace = usePrefs((p) => p.moveSpace);
   const rotateSpace = usePrefs((p) => p.rotateSpace);
   const autoKey = usePrefs((p) => p.autoKey);
+  const keyTarget = useSession((s) => s.tools.keyTarget);
 
   const registered = app.tools.list(PANEL.viewport).map((def) => ({ id: def.id, label: def.label }));
   const tools = registered.length > 0 ? registered : DEFAULT_TOOLS;
@@ -189,6 +199,37 @@ export function StatusLine(): JSX.Element {
           </Tip>
         ))}
       </Group>
+      <Group label="Key target">
+        <span className="text-ui-dense text-fg-3">Key</span>
+        <ToggleGroup
+          type="single"
+          value={keyTarget}
+          onValueChange={(value) => {
+            if (value !== '') run('key.setTarget', { target: value });
+          }}
+        >
+          {KEY_TARGETS.map((entry) => {
+            const poll = app.operators.poll('key.setTarget', { panel: PANEL.viewport }, { target: entry.target });
+            const reason = poll === true ? null : poll.reason;
+            return (
+              <Tip key={entry.target} text={reason === null ? entry.label : `${entry.label} (${reason})`}>
+                <ToggleGroupItem
+                  value={entry.target}
+                  aria-label={entry.label}
+                  data-testid={`status-keytarget-${entry.target}`}
+                  disabled={reason !== null && entry.target !== keyTarget}
+                >
+                  <span className="text-ui">{entry.short}</span>
+                </ToggleGroupItem>
+              </Tip>
+            );
+          })}
+        </ToggleGroup>
+      </Group>
+      {/* M2a Tween bar slot (M2A-SPEC §7): A4 mounts the compact bar here. */}
+      <div className="contents" data-testid="status-tween-slot">
+        <TweenBar panel="status" />
+      </div>
       <Group label="Keying">
         <Tip text="Auto key" shortcut={shortcutFor(app.keymap, 'key.toggleAutoKey', undefined)}>
           <Toggle

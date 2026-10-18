@@ -74,15 +74,19 @@ describe('emptySnapshot', () => {
 });
 
 describe('the synthetic wave document', () => {
+  // M2A-SPEC §3 rule 8: the fixture stays an M1 (schema 1) document; it migrates to SCHEMA_VERSION 2 by the
+  // identity, so the reloaded snapshot equals it except for the schema version it is written with.
   it('migrates, loads and snapshots back to the same content', () => {
-    const raw = readSyntheticFixture('wave-doc.json');
+    const raw = readSyntheticFixture('wave-doc.json') as DocSnapshot;
+    expect(raw.schemaVersion).toBe(1);
     const { snapshot, readOnly, migratedFrom } = migrateSnapshot(raw);
     expect(readOnly).toBe(false);
     expect(migratedFrom).toBe(1);
     const store = createMemoryStore();
     store.load(snapshot);
-    expect(store.snapshot()).toEqual(raw);
-    expect(serializeSnapshot(store.snapshot())).toBe(serializeSnapshot(raw as DocSnapshot));
+    const written = { ...raw, schemaVersion: SCHEMA_VERSION };
+    expect(store.snapshot()).toEqual(written);
+    expect(serializeSnapshot(store.snapshot())).toBe(serializeSnapshot(written));
   });
 });
 

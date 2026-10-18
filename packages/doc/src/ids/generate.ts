@@ -1,5 +1,6 @@
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { ControlId, IdKind, IdOfKind, IdSource, RigId } from '../ids';
+import type { ControlId, IdKind, IdOfKind, IdSource, RigId, SolverId } from '../ids';
+import { digestBase62, sha256 } from '../migrations/sha256';
 
 // IDs are `<prefix>_<base62>`: 16 characters for every kind except keys (12). Characters come from an injectable
 // randomness source with rejection sampling, so the alphabet is uniform for any source.
@@ -56,6 +57,17 @@ export function controlId(rig: RigId, templateKey: string): ControlId {
     throw new EkzaError('invalid-record', 'A control template key must not be empty');
   }
   return `${rig}:${templateKey}` as ControlId;
+}
+
+/**
+ * Deterministic auto-rig solver ID (M2A-SPEC §3 rule 3): 'slv_' + 16 base62 of sha256(`${rig}:${templateKey}`), the
+ * derivation of `deriveMigratedId`. Two peers adding limb IK to the same rig create identical records.
+ */
+export function solverId(rig: RigId, templateKey: string): SolverId {
+  if (typeof templateKey !== 'string' || templateKey.length === 0) {
+    throw new EkzaError('invalid-record', 'A solver template key must not be empty');
+  }
+  return `slv_${digestBase62(sha256(new TextEncoder().encode(`${rig}:${templateKey}`)), 16)}` as SolverId;
 }
 
 /**

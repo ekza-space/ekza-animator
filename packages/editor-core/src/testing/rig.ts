@@ -1,6 +1,7 @@
 // Naive FK rig program of the shared test kit (MVP-SPEC §7 WP-0b): the evaluation formulas of ARCHITECTURE §5 and
 // MVP-SPEC §4.11.9 (control worlds, rotate / translateRotate / full bindings, raw bone locals, normalized humanoid
-// rotations) evaluated op by op over a SkeletonDesc. No schedule compilation, no constraint or solver slots.
+// rotations) evaluated op by op over a SkeletonDesc. No schedule compilation, no constraint or solver slots (so no
+// limbs); custom attribute slots (M2A-SPEC §5.1 rule 2) in the canonical (control id, name) order.
 import {
   type Mat4,
   mat4Compose,
@@ -17,8 +18,10 @@ import {
   eulerToQuat,
   xfIdentity,
 } from '@ekza-animator/anim-core';
-import type { BoneRef, ControlId, ControlRecord, HumanBoneName, RigRecord } from '@ekza-animator/doc';
+import type { AttrDef, BoneRef, ControlId, ControlRecord, HumanBoneName, RigRecord } from '@ekza-animator/doc';
 import {
+  type AttrKey,
+  type AttrSlot,
   CHANNELS_PER_CONTROL,
   type ChannelBuffer,
   HUMAN_BONE_NAMES,
@@ -35,9 +38,29 @@ export function channelSlot(channel: string): number {
 }
 const TRS_SLOTS: Readonly<Record<string, number>> = { tx: 0, ty: 1, tz: 2, rx: 3, ry: 4, rz: 5, sx: 6, sy: 7, sz: 8 };
 
-/** 0, or 1 for scale channels (doc `defaultChannelValue`). */
-export function channelDefault(channel: string): number {
+/** 0, or 1 for scale channels (doc `defaultChannelValue`); an attribute ('@name') takes `def.default` when given. */
+export function channelDefault(channel: string, def?: AttrDef): number {
+  if (channel.startsWith('@')) return def !== undefined && Number.isFinite(def.default) ? def.default : 0;
   return channel === 'sx' || channel === 'sy' || channel === 'sz' ? 1 : 0;
+}
+
+/** Attribute slots of `controls` ordered by (control id, attribute name), code-unit order (M2A-SPEC §5.1 rule 2). */
+export function naiveAttrSlots(controls: readonly ControlRecord[]): {
+  readonly slots: readonly AttrSlot[];
+  readonly index: ReadonlyMap<AttrKey, number>;
+} {
+  const byCodeUnits = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+  const slots: AttrSlot[] = [];
+  const index = new Map<AttrKey, number>();
+  for (const control of [...controls].sort((a, b) => byCodeUnits(a.id, b.id))) {
+    for (const name of Object.keys(control.attrs ?? {}).sort(byCodeUnits)) {
+      const def = control.attrs[name];
+      if (def === undefined) continue;
+      index.set(`${control.id}/@${name}`, slots.length);
+      slots.push({ control: control.id, name, def });
+    }
+  }
+  return { slots, index };
 }
 
 /** Resolves a semantic bone reference to a SkeletonDesc node index (-1 when absent). */
@@ -137,6 +160,7 @@ export function createNaiveRigProgram(
   const euler: Vec3 = [0, 0, 0];
   const rotation: Quat = [0, 0, 0, 1];
   const deltas = HUMAN_BONE_NAMES.map((): Quat => [0, 0, 0, 1]);
+  const attrs = naiveAttrSlots(controls);
 
   const program: RigProgram = {
     rigId: rig.id,
@@ -147,10 +171,13 @@ export function createNaiveRigProgram(
     nodeCount,
     drivenNodes: [...bindings.keys()].sort((a, b) => a - b),
     warnings,
+    attrSlots: attrs.slots,
+    attrIndex: attrs.index,
+    limbs: [],
     allocChannels(): ChannelBuffer {
       const ch: ChannelBuffer = {
         values: new Float64Array(controls.length * CHANNELS_PER_CONTROL),
-        attrs: new Float64Array(0),
+        attrs: new Float64Array(attrs.slots.length),
       };
       program.resetChannels(ch);
       return ch;
@@ -171,6 +198,9 @@ export function createNaiveRigProgram(
         ch.values.fill(0, o, o + 6);
         ch.values.fill(1, o + 6, o + 9);
       }
+      attrs.slots.forEach((slot, i) => {
+        if (i < ch.attrs.length) ch.attrs[i] = channelDefault(`@${slot.name}`, slot.def);
+      });
     },
     evaluate(ch: ChannelBuffer, out: PoseBuffers): void {
       // Control worlds: W_c = W_parent · O_c · T(t) · R(r; order) · S(s).

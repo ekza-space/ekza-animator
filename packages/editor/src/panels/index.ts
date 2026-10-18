@@ -2,6 +2,7 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import { registerAttributesPanel } from './attributes';
 import { registerChannelBoxPanel } from './channel-box';
 import { registerClipsPanel } from './clips';
+import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
 import { registerOutlinerPanel } from './outliner';
 import { registerTimelinePanel } from './timeline';
@@ -21,6 +22,7 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerClipsPanel(registry),
     registerChannelBoxPanel(registry),
     registerAttributesPanel(registry),
+    registerDopeSheetPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

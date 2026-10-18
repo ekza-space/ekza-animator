@@ -18,7 +18,7 @@ import {
   TRS_CHANNELS,
 } from '@ekza-animator/doc';
 import { CHANNELS_PER_CONTROL, type ChannelBuffer, type ClipSampler, type CurveInfo, type RigProgram } from '../types';
-import { channelDefaultValue, channelSlot } from './channels';
+import { attrChannelSlot, channelDefaultValue, channelSlot } from './channels';
 
 export interface CurveCache {
   get(curve: CurveId): CompiledAnimCurve;
@@ -156,7 +156,9 @@ interface PlanEntry {
   readonly channel: ChannelId;
   /** Offset into ChannelBuffer.values, −1 when the program has no such control or the channel has no slot. */
   readonly offset: number;
-  /** Value without keys: staticValue ?? channel default. */
+  /** M2a: ChannelBuffer.attrs slot of an attribute channel ('@name'), −1 otherwise (M2A-SPEC §5.1 rule 3). */
+  readonly attr: number;
+  /** Value without keys: staticValue ?? channel default (AttrDef.default for attributes). */
   readonly rest: number;
 }
 
@@ -209,12 +211,14 @@ export function createClipSampler(
       .map((curve): PlanEntry => {
         const index = program.controlIndex.get(curve.control);
         const slot = channelSlot(curve.channel);
+        const attr = index === undefined ? -1 : attrChannelSlot(program, curve.control, curve.channel);
         return {
           curve: curve.id,
           control: curve.control,
           channel: curve.channel,
           offset: index === undefined || slot === -1 ? -1 : index * CHANNELS_PER_CONTROL + slot,
-          rest: curve.staticValue ?? channelDefaultValue(curve.channel),
+          attr,
+          rest: curve.staticValue ?? channelDefaultValue(curve.channel, program.attrSlots[attr]?.def),
         };
       })
       .sort((a, b) => (a.control < b.control ? -1 : a.control > b.control ? 1 : compareChannels(a.channel, b.channel)));
@@ -241,8 +245,8 @@ export function createClipSampler(
       const entries = resolve();
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i] as PlanEntry;
-        if (entry.offset === -1) continue;
-        out.values[entry.offset] = valueOf(entry, frame);
+        if (entry.offset !== -1) out.values[entry.offset] = valueOf(entry, frame);
+        else if (entry.attr !== -1 && entry.attr < out.attrs.length) out.attrs[entry.attr] = valueOf(entry, frame);
       }
     },
     value(control: ControlId, channel: ChannelId, frame: Frame): number | undefined {

@@ -23,11 +23,18 @@ export function hasRequiredHumanoid(skeleton: SkeletonDesc): boolean {
  * Generates a rig for a skeleton (MVP-SPEC §4.11.15). `kind: 'auto'` (default) builds the humanoid FK rig when the
  * skeleton maps the 15 VRM-required bones and the generic 1:1 FK rig otherwise; `secondary` (default true) adds
  * hidden secondary controls to humanoid rigs. Deterministic: control IDs are `${rig}:${templateKey}`.
+ *
+ * M2a (M2A-SPEC §8 A1): `ik` asks for limb IK records (`limbIkRecords`); absent = the M1 output. A0 lands the option
+ * in the signature only: until A1 implements limb IK the output is the M1 rig whatever `ik` says.
  */
 export function autoRig(
   skeleton: SkeletonDesc,
   ids: { readonly character: CharacterId; readonly rig: RigId },
-  opts?: { readonly kind?: 'auto' | 'humanoid' | 'generic'; readonly secondary?: boolean },
+  opts?: {
+    readonly kind?: 'auto' | 'humanoid' | 'generic';
+    readonly secondary?: boolean;
+    readonly ik?: { readonly legs: boolean; readonly arms: boolean };
+  },
 ): RigDefinition {
   const requested = opts?.kind ?? 'auto';
   const humanoid = requested === 'humanoid' || (requested === 'auto' && hasRequiredHumanoid(skeleton));
