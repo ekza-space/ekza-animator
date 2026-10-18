@@ -2920,9 +2920,9 @@ honours the unmatched-partner rule of §5.14.
 | `ui.commandPalette` | — | B9 | opens the palette (`Mod+K`) |
 | `ui.markingMenu {menu}` | — | B9 | opens a registered marking menu at the pointer (`M` → `model.merge`) |
 | `select.mode {mode}` | — | B10 | §5.6 (`'object' \| 'vertex' \| 'edge' \| 'face' \| 'toggle'`; the active **digit** again → object; `F9`/`F10` idempotent) |
-| `model.hilite {meshes, mode}` | — | B10 | `'add' \| 'replace' \| 'remove'`; refuses asset-backed meshes |
+| `model.hilite {meshes, mode}` | — | B10 | `'add' \| 'replace' \| 'remove'`; refuses a glTF mesh without a record ("Make editable first") |
 | `select.components {mesh, kind, indices, mode}` | sel | B10 | flags.selection; the picker's click/marquee path |
-| `select.mesh.loop {mesh, kind, component, gesture}` | sel | B10 (B2 walkers) | §5.6 loop table; `gesture: 'double' \| 'shift-double' \| 'ctrl-double'` |
+| `select.mesh.loop {mesh, kind, component, gesture}` | sel | B10 (B2 walkers) | §5.6 loop table; `gesture: 'double' \| 'shift-double' \| 'mod-double'` |
 | `select.mesh.ring`, `.grow`, `.shrink`, `.border`, `.shell`, `.all`, `.invert`, `.none` | sel | B10 | §5.6 |
 | `select.mesh.convert {to, mode}` | sel | B10 | `mode: 'touching' \| 'contained' \| 'perimeter' \| 'border' \| 'shell' \| 'loop' \| 'ring'` |
 | `select.mesh.matching {mesh, code}` | sel | B10 | Mesh Check "select matching" |
@@ -3880,10 +3880,12 @@ unmerged packages as `test.fixme` naming them.
 
 ### 11.3 Owner demo script (10 minutes)
 
-1. `/editor` → Model tab → Shift+RMB → Cube → `3` → click the top face → `Ctrl+E` → `0.5` `Enter` → card Divisions 2
-   → `Mod+Z`.
-2. `Ctrl+E` again → `R` drag on the cap → `W` drag → Divisions 2 → one `Mod+Z` removes the whole session.
-3. Humanoid body → Symmetry Object X → `K` cut across the chest → Insert Edge Loop on an arm (two loops appear).
+1. `/editor` → Model tab → Shift+RMB → Cube → `3` → click the top face → `⌘E` → `0.5` `Enter` → card Divisions 2
+   → `⌘Z`.
+2. `⌘E` again → `R` drag on the cap → `W` drag in World → Divisions 2 → `⌘Z` steps back one drag at a time (the
+   extrude stays) → `⌘Z` at the first args removes it; then three `Shift`+drags build a three-segment chain.
+3. Humanoid body → Symmetry Object X (mirrored selection drawn, HUD `+1 sym`) → `K` cut across the chest → Insert Edge
+   Loop on an arm (two loops appear); a cube with Object X: a loop at 0.3 on an X-ring gives two support loops.
 4. Soft select `B`, `B`+drag radius, MMB-drag the selection; `X`/`V` snapping; `D` pivot.
 5. Paint faces from the palette; edit a swatch; export a static GLB; open the Export dialog's lints.
 6. Load Polybot → Make editable → add a loop → Animate tab: the character still animates with its materials.
@@ -3899,8 +3901,8 @@ check and AS-LP results.
 
 ### 12.1 Owner defaults applied (DECISIONS-OPEN §G; the owner may override any)
 
-Maya interaction model with Blender semantics (Q-MOD-DIR-1); `Mod+E` = Extrude in `model.viewport.component`, Export
-gains `Mod+Shift+E` everywhere (Q-MOD-UI-3); `1`/`2`/`3` component modes, `F11`/`F12` never bound, smooth preview
+Maya interaction model with Blender semantics (Q-MOD-DIR-1); `Mod+E` = Extrude **in the whole Model workspace**,
+Export gains `Mod+Shift+E` everywhere and keeps `Mod+E` in Animate (Q-MOD-UI-3 as presented to the owner; S17); `1`/`2`/`3` component modes, `F11`/`F12` never bound, smooth preview
 reserved on `Shift+1/2/3` (Q-MOD-UI-2); `Mod+B`, `K`, `M` (Q-MOD-UI-4); workspaces as pipeline tabs without a switch
 hotkey (Q-MOD-UI-5); Maya plain Delete + `Mod+Delete` clean (Q-MOD-UI-6); last operation only + extrude session +
 `G`/`T`/`Y` (Q-MOD-UI-7); narrow numeric capture with `T` (Q-MOD-UI-8); Live Mirror stretch with the overrun rule
@@ -3908,13 +3910,15 @@ hotkey (Q-MOD-UI-5); Maya plain Delete + `Mod+Delete` clean (Q-MOD-UI-6); last o
 hard-flag rule (Q-MOD-UI-12); **selection undoable in Model**, off in Animate (Q-MOD-UI-13); **MMB-drag moves the
 selection** (Q-MOD-UI-14); opaque non-hilited meshes (Q-MOD-UI-15); `H`/`Shift+H`/`Alt+H`/`Shift+L` (Q-MOD-UI-16);
 primitives freeze at the first component edit (Q-MOD-UI-17); Tweak and reference image planes in core (Q-MOD-UI-18);
-no construction history, adjust-last by undo + re-run (Q-MOD-K-1, -4); owner's partition for meshes (Q-MOD-K-2); skin
+**one step per selection gesture** (S3); no construction history, adjust-last by undo + re-run (Q-MOD-K-1, -4); owner's partition for meshes (Q-MOD-K-2); skin
 weights as layers in the revision (Q-MOD-K-3); 4 normalized influences (Q-MOD-K-5); `robust-predicates` through a
 reviewed exception (Q-MOD-K-6); bevel ≤ 3 segments (Q-MOD-K-8); quad recovery on request (Q-MOD-K-9); ~32 KiB chunks
 (Q-MOD-K-10); > 200k-tri imports refused for editing (Q-MOD-K-11); undo byte budget (Q-MOD-K-12); tangents refused
 unless dropped (Q-MOD-K-13); `data.base` in v3 (Q-MOD-K-14); palette slot as colour truth and palette texture by
 default (Q-LP-0); advisory budgets (Q-LP-2); `COLOR_0` float32 linear (Q-LP-11). **Compass positions of every marking
-menu are provisional until the owner's calibration on a real Maya (Q-MOD-UI-1).**
+menu are provisional until the owner's calibration on a real Maya (Q-MOD-UI-1).** Two more choices wait for the B12a
+feel check: whether capture case (b) keeps a digit typed right after `⌘E`/`Ctrl+E` (§5.10), and whether Component
+orientation is enough or Maya's per-component Normal moves into core (§1.2).
 
 ### 12.2 Refinements of MODELING-PLAN v0.2 made by this spec
 
@@ -3922,17 +3926,97 @@ menu are provisional until the owner's calibration on a real Maya (Q-MOD-UI-1).*
 |---|---|---|---|
 | S1 | Extrude args "`localTranslate` XYZ" | flattened per component (`localTranslateX/Y/Z`, …), Maya's child attribute names | every `ParamDef` is a scalar; the primary field is one of them; card, INPUTS and typed digits need no vector kind |
 | S2 | `ComponentSelection` "service" | kernel value object `ComponentSelection` (mesh-core) + editor-core `ComponentSelectionService` (`app.components`) | mesh-core cannot import editor-core; ops take a value |
-| S3 | "consecutive selection gestures coalesce" | only consecutive **additive** toggles within 1 s coalesce; replace, clear, marquee, loop, convert start new steps | otherwise "build a loop, click empty space, `Mod+Z`" (E2E-MOD-26) would undo the loop together with the stray click |
-| S4 | ADR 0016 D7: a mode change closes the Last-op card | a component-mode switch on the same hilited meshes keeps it (the extrude session still ends) | Maya's INPUTS stay with the object; E2E-MOD-19 presses `3` and then `T` |
-| S5 | Zero-commit drop "when the session ends" | the session ends **at the start** of the ending gesture, before it reads the mesh; the drop is an undo (its redo entry is cleared by the next step) | a pick made on the extruded mesh would refer to vertices the drop removes |
-| S6 | W/E/R absorbed into `local*` args | while a session is open the manipulators on the cap use the session frame | a world-axis scale of a rotated cap is a shear in the local frame and cannot be represented |
+| S3 | "consecutive selection gestures coalesce" (ADR 0016 D12, Q-MOD-UI-13) | **every discrete gesture is its own step**; only auto-repeated grow/shrink keys and continuous drags coalesce (v1.1; v1.0 merged additive clicks within 1 s) | Maya records each selection click; "build a loop, click empty space, `Mod+Z`" restores the loop, and a misclick in a fast `Shift`-click burst is undone alone (E2E-MOD-26) |
+| S4 | ADR 0016 D7: a mode change closes the Last-op card | a component-mode switch on the same hilited meshes keeps it (the extrude session ends without a zero-drop); returning to object mode keeps the hilite list for the comparison; Adjust Last re-runs on the recorded kind and targets | Maya's INPUTS stay with the object; E2E-MOD-19 presses `3` and then `T` |
+| S5 | Zero-commit drop "when the session ends" | the session ends **at the start** of the ending gesture, before it reads the mesh; the drop is an undo (its redo entry is cleared by the next step) with a toast offering Undo; **a component-mode switch or a pivot edit ends the session without a drop** | a pick made on the extruded mesh would refer to vertices the drop removes; Maya users press `1` after `Ctrl+E` to pull cap vertices |
+| S6 | W/E/R absorbed into `local*` args | W and E honour the tool's World/Object/Component space (exact conversion); only R uses the session frame; the extrude manipulator gets Maya's local/world toggle (v1.1; v1.0 forced the session frame for all three) | a world-axis scale of a rotated cap is a shear the args cannot represent, but translation and rotation convert exactly, and pulling a leg straight down world Y from a tilted face is a daily move |
 | S7 | Dead BIN ranges of replaced primitives "dropped" | kept (unused accessors, validator infos) | marker v2's rollback re-points the original primitives at them; dropping would also shift untouched `byteOffset` values |
 | S8 | `CharacterRecord.source` replaces `asset` (research 14) | `asset` kept, nullable only for model characters | projects without v3-only content stay usable by M2a apps (`minWriterVersion` 2); M6a never creates model characters |
 | S9 | Image plane `scale` | `size` = displayed height in metres | unambiguous across image aspect ratios |
 | S10 | B3 owns duplicate/extract faces; B4 owns the remap helpers | every MeshSetOp (Combine, Separate, Extract, Duplicate Faces) and `copySubset`/`appendMesh` in B4 (B3 8.5 → 8, B4 9.5 → 10) | one package owns the helpers and their users; no cross-package READY gate inside the kernel |
-| S11 | B12b starts after B10, B11 with B3/B4 behind READY gates | B12b **depends on** B2, B3, B4 (and B10, B11); B12a on B2, B10, B11 | symmetric pointer tools are built against real ops; critical path ≈ 31.5 (+ fix ≈ 35.5) instead of 27.5 (§9 schedule; the coordinator may revert to READY gates) |
-| S12 | `sha256` "in-repo" | moved to anim-core (`io`, `doc` re-export) | mesh-core may import only anim-core |
+| S11 | B12b starts after B10, B11 with B3/B4 behind READY gates | B12b **depends on** B2, B3, B4 (and B10, B11); B12a on B2, B10, B11 | symmetric pointer tools are built against real ops; critical path ≈ 33.5 (+ fix ≈ 37.5) instead of 27.5 (§9 schedule, v1.1 sizes; the coordinator may revert to READY gates) |
+| S12 | `sha256` "in-repo" | the digest core moved to anim-core (streaming); `io` and `doc` keep their names and signatures as wrappers | mesh-core may import only anim-core; shipped callers stay unchanged |
 | S13 | Static exports through the export registry | `file.exportModel` with a `StaticExportRequest` | `ExportRequest` is character-and-clip shaped; the shipped `local/generic` profile (kind `*`) still applies |
 | S14 | Bevel on border edges unspecified | refused in M6a (`bevel.border-edge`) | bounded v1 scope (risk table, MODELING-PLAN §4.7) |
 | S15 | Painting imported meshes unspecified | refused in M6a | the surgeon writes no new materials; asset materials stay intact |
-| S16 | Primitive placement "at the origin or under the pointer" (research 16) | at the origin, centred (Maya); interactive placement stretch | deterministic e2e and AS-LP-S |
+| S16 | Primitive placement "at the origin or under the pointer" (research 16) | at the origin, centred (Maya); interactive placement stretch; a primitive created with a template group selected goes into the group with its symmetry | deterministic e2e and AS-LP-S; the template's budget and export root then apply |
+| S17 | Q-MOD-UI-3: `Ctrl+E` = Extrude in `model.viewport.component` | `Mod+E` = Extrude in the **whole Model workspace** (`model` scope; poll-fails in object mode and over other panels); Export is `Mod+Shift+E` in Model and keeps `Mod+E` in Animate | the default as presented to the owner ("Ctrl+E in the Model tab is Extrude; export moves to Ctrl+Shift+E there"); a Maya user pressing `Ctrl+E` before entering face mode no longer gets the Export dialog |
+| S18 | ADR 0016 D7: the extrude session is one undo step | still one **history** step, plus an **args undo stack** inside the session: `Mod+Z`/redo step through absorbed drags and card edits; only `Mod+Z` at the first args undoes the extrude | Maya undoes one manipulator drag on `polyExtrudeFace` at a time; losing the whole extrude to correct one drag would happen many times a day |
+| S19 | ADR 0016 D6: `G` re-activates tools "when not repeatable" | `G` decides by the **run source**: a tool run re-activates the tool, a menu/keyboard run with a selection seed repeats; paramless repeatable ops are recorded | a tool-placed Insert Edge Loop's selection is its own new loop, so a re-run would cut a perpendicular loop; Maya re-enters the tool |
+| S20 | ADR 0016 §Consequences: the doc `UndoManager` stays untouched | `UndoManager.clearRedo()` (a selection step clears doc redo) and the existing `evictOldest` pair with every EditorHistory drop | otherwise redo-only chunks stay pinned and doc entries outlive their steps |
+| S21 | ADR 0016 D1: a Normal space for component manipulators | the averaged frame is named **Component** (Maya's name); Maya's per-component Normal is stretch | Maya's Normal moves each component along its own normal; the averaged frame would surprise a Maya hand under that name |
+| S22 | Research 16 §12.1 partner highlight on hover only (v1.0) | selected partners drawn at 60 % and counted (`+N sym`); removal acts on both sides; walkers read the expanded set | the user must see what an op will touch (research 16 §12.1 already said so) |
+| S23 | Bevel `fraction × length`, clamped at 0.5 (v1.0) | Maya semantics: `fraction × ½ × the shortest adjacent edge` (1 = bevels meet; clamped to 0.98 where both ends bevel); face mode bevels the faces' edges | the v1.0 default 0.5 sat exactly on the clamp (zero-width strips on the default run); low-poly props are softened by face bevels |
+| S24 | Plain Delete on vertices dissolves into an n-gon (v1.0) | plain Delete deletes winged (valence-2) vertices only and refuses others; Delete Edge/Vertex dissolves | Maya's plain Delete; a cube corner would become a non-planar hexagon |
+| S25 | Make editable "from the Outliner badge" (records implied at import) | records are created lazily by `mesh.makeEditable {character, meshIndex}` with a derived id; import writes none | Animate's import stays byte-for-byte (rule 10), animation-only projects stay writable in M2a, M3 peers never duplicate records |
+| S26 | Reference images as plain assets in `.ekzanim` | stored under the manifest key `images` (`images/<sha256>.<ext>`), not `assets` | the M2a reader rejects any `assets` entry that is not glb/vrm/vrma; with `images` it opens the project read-only as §4.2 promises |
+| S27 | ADR 0015 §3 `BlobStore.persist` to IndexedDB | no persistence on `BlobStore`; the autosave store is the single owner of the IndexedDB `blobs` store and receives the chunk closure | one GC owner per store; the browser store never parses manifests |
+| S28 | `mesh.freezeTransforms` as a kernel MeshOp "that also patches placement" | an editor operator over the kernel op `mesh.applyTransform`; `palette.replaceSwatch` over `mesh.paint.remap` | a MeshOp writes only the EditMesh; record patches need the operator's transaction |
+| S29 | One modifier rule per surface (v1.0: card "Ctrl slower, Shift faster", viewport "Shift ×0.1") | one rule everywhere: the shipped M2a virtual-slider rule, `Shift` ×0.1, `Mod` ×10; `Shift` at drag start = smart extrude | the shipped Channel Box already uses Shift fine / Mod coarse and Animate must not change (rule 10) |
+| S30 | Trackpad users: MMB features unspecified; ADR 0016 D1 loop-table deselect on `Ctrl`+double-click | the MMB stand-in (`Alt+Shift`+LMB in Model panes, trackpad and one-button profiles); `contextmenu` never counts as RMB; the loop-table deselect is `Mod`+double-click (Multi-Cut's loop stays literal `Ctrl`) | the owner works on macOS where the default profile is trackpad and Ctrl-click fires `contextmenu` |
+| S31 | Research 16 §8: primitive parameters in Channel Box INPUTS (dropped in v1.0) | restored: a persistent primitive entry while `generator` is non-null | Maya modelers change `polyCube1` subdivisions in INPUTS |
+
+### 12.3 Design review round 1 (v1.0 → v1.1)
+
+Two reviewers (a Maya-workflow review and a code-contract review against the shipped tree) raised 2 blockers, 30
+majors and 29 minors; duplicates are merged below. Every item was applied unless the Resolution says otherwise.
+
+| Area | Issue (severity) | Resolution |
+|---|---|---|
+| Symmetry | Insert Edge Loop on a crossing ring inserted one loop (blocker) | decided by the mapped seed point; goldens and E2E-MOD-21 (b)/(c): 16/28/14 at 0.3, 12/20/10 at 0.5 (§5.14) |
+| Keys | tap/hold growth to B/D/X/V/J/I broke `Mod+V`, `Mod+I`, `Alt+V`, Graph `B`/`I` (blocker) | `isTapHoldKey(code, scopes, mods)`: only unmodified `B` in `model.viewport`; the others are plain tool holds; DOM-adapter conformance cases (§5.17, §7) |
+| Symmetry | selected partners not drawn or counted (major) | partners at 60 %, HUD `+N sym`, removal on both sides, walkers on the expanded set; E2E-MOD-04 (§5.6) |
+| Symmetry | no rule for partner −1 (major) | one side only + `symmetry.unmatched-partner`; E2E-MOD-22 (b) (§5.14) |
+| Symmetry | pointer rule wrong for in-seam edges (major) | crossing vs in-seam (`edgeSelf`), `t*` snapping; B2 goldens (§4.3, §5.14) |
+| Workflow | `G` after a tool-placed loop cut a perpendicular loop; paramless ops never recorded (major + minor) | source rule; LastRun for params or adjustable/repeatable flags; E2E-MOD-06 rewritten (§5.7) |
+| Keys | keymap before the active tool: Multi-Cut `Backspace` deleted faces; no tool-key route owner (major ×2) | normative order capture → tool `key()` → keymap, reserved modal keys, `ToolDef.keys`; B0b owns the bridge (§5.17) |
+| Extrude | whole session one undo (major) | args undo stack; E2E-MOD-17 (§5.8, S18) |
+| Extrude | W/E forced to the session frame (major) | W/E honour the tool space, R uses the frame, manipulator local/world toggle; tilted-face test (S6) |
+| Extrude | mode switch zero-dropped the extrude (major) | ends without drop; toast with Undo; E2E-MOD-17 (b) (S5) |
+| Extrude | Shift+drag ambiguous with absorption and fine adjustment (major) | Shift at start = new extrude, Shift during = fine; E2E-MOD-18 (b) chain |
+| Capture | unfinished entry, `Enter` without entry, swallowed digit undefined (major) | apply on Enter/Tab only, discard on disarm, Enter no-op; "`Ctrl+E`, then `2`" on the feel check (owner decision pending) (§5.10) |
+| Transforms | "Normal" was Maya's Component (major) | renamed Component; Maya Normal → stretch (S21) |
+| macOS | Ctrl-click = `contextmenu`; no MMB on a trackpad; Ctrl vs Mod mixed (major) | `contextmenu` never RMB; MMB stand-in `Alt+Shift`+LMB in Model; loop deselect on `Mod`; the `platform=mac` Ctrl-click case lives in **E2E-MOD-05** (its owner B12b), not E2E-MOD-02 as suggested, so B10's scenario does not wait for Multi-Cut (S30) |
+| INPUTS | primitive parameters only in Attributes (major) | persistent primitive entry; ids `cb-prim-*` rather than the suggested `cb-inputs-field-*`, so the two INPUTS entries never share an id; E2E-MOD-27 (§8.6, S31) |
+| AS-LP | cube outside the group, no 8-edge hole, no mirror step (major) | cube created into the template group; 2 × 2 patch; delete −X half + Mirror; mirrored in `m6a-aslp-a.spec.ts` (§10.3) |
+| E2E | E2E-MOD-05 counts and y vs z (major ×2) | +3/+5/+2 (12/17/6), z = 0 |
+| Contracts | `coerceArgs` dropped `meshes` (major) | `passThrough` + `OperatorDef.extraArgs` (chosen over `{args, rest}`: the operator declares its keys once) |
+| Contracts | adjust after `3` lost its targets and kind (major) | `LastRun.kind`, explicit `meshes`/`kind`, restore never changes mode; B11 unit test |
+| Contracts | M2a reader rejects png/jpg assets (major) | reference images under the manifest key `images` (chosen over `blobs/`, which would have needed a second image path in the doc); B7 owns `io/src/project`; M2a-reader-double test (S26) |
+| Packages | B6/B7/B8 had no derived data until B1 (major) | B0a reference triangulation, normals, `validateMesh`, stats, three primitives (B0a 3.5 → 4.5) |
+| Size | kernel would land in the eager route late (major) | descriptor/kernel split, lazy `io/mesh`, `mesh-kernel`/`mesh-view` BOUNDARIES in B0a (§2) |
+| Storage | sweeps inside a commit freed fresh chunks; in-flight autosave (major) | deferred sweeps, `fresh` roots, in-flight roots, incremental refcounts; fuzz case (§5.20) |
+| Runtime | lifecycle, `close`, closed-mesh data undefined (major) | §5.5 rule 8, `data()`, journal survives `close`, set-op pre-op data; owners named |
+| Skin | imported palettes looked dangling; fold tests in doc (major) | `data.joints: []` for imported skins; fold only for `skin.skeleton`; tests moved to editor-core (§4.2, §9 B7) |
+| Records | who creates asset-backed records (major) | lazy creation in `mesh.makeEditable {character, meshIndex}` with a derived id (option (a)); B8 owns the operator, which also breaks the B8 ↔ B13 DoD cycle (S25) |
+| IO | no blobs in `ProjectArchive`; callers unowned; two IndexedDB GC owners (major) | `ProjectArchive.blobs`, writer `blobs`, B7 owns project/autosave/recovery, `closure()`, `persist` removed (S27) |
+| Gates | almost no package could show its scenarios (major) | B7 lands `mesh.create.*`; §10.1 **Gates** column audited row by row; B8 DoD gated; E2E-MOD-14 needs no kernel op |
+| Hashing | re-export changed io/doc signatures; copying digest (major) | only the core moves, wrappers keep names and signatures, streaming core, B0a bench (§4.1) |
+| Freeze | a MeshOp cannot patch records; replace-swatch twice (major) | editor operator over `mesh.applyTransform`; `palette.replaceSwatch` over `mesh.paint.remap` (S28) |
+| Minor | F9/F10 toggled back to object mode | digits only toggle; F-keys idempotent |
+| Minor | 1 s click coalescing | one step per discrete gesture (S3) |
+| Minor | which operators end the session; `G` re-session | end-trigger table; a repeated extrude opens a new session |
+| Minor | `T` could not bring the manipulator back | `T` reopens a live extrude session |
+| Minor | `Mod+E` still Export in Model object mode | `model` scope (S17); DECISIONS-OPEN Q-MOD-UI-3 annotated |
+| Minor | Animate rows leaking into Model | `model.animateOnly` shadows; `Mod+A` rows; time keys deliberately kept (harmless navigation) |
+| Minor | Shift meant slower and faster | **applied differently**: one rule, the shipped M2a `Shift` ×0.1 / `Mod` ×10, not Maya's `Ctrl` fine / `Shift` coarse, because changing the shipped Channel Box would break rule 10 (S29) |
+| Minor | percent display and parsing | kind renamed `fraction`, shown as fractions, `parseParamInput` wrapper |
+| Minor | Multi-Cut across non-adjacent faces | stretch with the hint "Click on each face the cut crosses" |
+| Minor | face-mode bevel poll-failed | core: bevels the faces' edges (S23) |
+| Minor | E2E-MOD-04 edge-on cap, quad assumption, HUD version | `pane-side`, growth from `faceLen`, `hud().version` removed |
+| Minor | E2E-MOD-27 marquee instead of move; E2E-MOD-11 tint over the sample; E2E-MOD-32 probe; E2E-MOD-24 path; `pixel` owner | click + handle drag; `F8` before sampling; `meshNormals` probe; Edit Mesh path; `pixel` → B9 |
+| Minor | marquee edge rule contradictory | both endpoints inside; E2E-MOD-25 |
+| Minor | mirrored duplicate combined with flipped normals | `appendMesh` reverses winding for `det < 0`; golden |
+| Minor | key-triggered marking menus | tap leaves open, hold-move-release runs, `Esc` closes |
+| Minor | hilite on return to object mode; component tools in object mode | specified (§5.6) |
+| Minor | plain Delete on a corner vertex | refuses non-winged vertices (S24); Delete Edge/Vertex dissolves |
+| Minor | Retain component spacing; `` ` `` Tweak toggle | `` ` `` in core; Retain spacing off → stretch |
+| Minor | menus inconsistent; hard-coded `Ctrl+E` | lists aligned (Display, UV), Fill Hole → Mesh, Offset Edge Loop and Slide Edge → Mesh Tools, labels via `KeymapManager.label` |
+| Minor | "component edit" by id prefix | commits of kernel ops only (§5.5 rule 9) |
+| Minor | Dirs overlaps, test-API slices, `buildSword`, op directories, `mesh.setFaceted` | narrowed globs, `test-api/m6a/<slug>.ts`, factory files, `helpers/m6a-model-content.ts`, §6.1 Kernel column, `mesh.setAttributes {faceted}` |
+| Minor | canonical tails, blob deflate level, limits, JSON variant | trailing default chunks never stored; level 6; `maxBlobBytes`/`maxImageBytes`; the JSON variant warns and carries no bytes |
+| Minor | selection snapshot cost and history interplay | tagged `BitSet.encode`, budgeted, selection-aware pruning, `clearRedo`, refcounts (S20) |
+| Minor | "additive" contracts that were not | call sites listed, `ToolDef.modes` metadata, per-workspace view state, `AttrLayer.data` capacity, §4 placement rule |
+| Minor | bevel default on the clamp | Maya fraction semantics (S23) |
+
+Rejected outright: none. Sizes grew by ≈ 8.5 agent-days (§9).
