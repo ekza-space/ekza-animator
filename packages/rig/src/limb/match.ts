@@ -295,8 +295,11 @@ export function ikControlForEndWorld(
 /**
  * Match IK to FK (§5.6): IK control channels from the FK end world (W_ik = W_end,fk · K_end⁻¹ · F⁻¹ at the current
  * foot-roll attributes), `twist` 0 and the pole by the match pole rule, at distance D from b (the current pole
- * distance when ≥ 0.25·L, else L). The errors compare the IK result (evaluated with ikFk 1 and the other channels of
- * `ch`) with `fkPose`: end and mid joint positions and the largest world-rotation difference of the chain bones.
+ * distance when ≥ 0.25·L, else L), placed so that its offset from the a → c line points along p̂ (the bend offset's
+ * part outside the p̂ plane is taken off: the ik2 twist aligns the hinge-implied direction with the pole, §5.3 B).
+ * Only the IK and pole controls are matched (`fk.toes` keeps its channels): with a ball roll the toes rule keeps
+ * the IK toes planted, so they differ from the FK toes (§5.3 step 6). The errors compare the IK result (evaluated with ikFk 1 and the other channels of `ch`) with `fkPose`: end
+ * and mid joint positions and the largest world-rotation difference of the chain bones.
  */
 export function matchIkToFk(
   program: RigProgram,
@@ -334,7 +337,15 @@ export function matchIkToFk(
   );
   const currentDistance = len(sub(currentPole, b));
   const distance = currentDistance >= 0.25 * reach ? currentDistance : reach;
-  const pole: V3 = [b[0] + direction[0] * distance, b[1] + direction[1] * distance, b[2] + direction[2] * distance];
+  const ac = sub(c, a);
+  const x: V3 = len(ac) > 1e-12 ? scale(ac, 1 / len(ac)) : [0, -1, 0];
+  const m = perpendicular(sub(b, a), x);
+  const off = sub(m, scale(direction, dot(m, direction)));
+  const pole: V3 = [
+    b[0] + direction[0] * distance - off[0],
+    b[1] + direction[1] * distance - off[1],
+    b[2] + direction[2] * distance - off[2],
+  ];
 
   const ikReference = reference.get(p.ikControl) ?? readControlChannels(program, ch, p.ikControl);
   const ikValues: ChannelValues = {
