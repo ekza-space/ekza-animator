@@ -496,6 +496,47 @@ test('undo/redo one manipulator gesture', async ({ page }) => {
   );
 });
 
+test('pose evaluation in the app, 1 humanoid with every control keyed', async ({ page }) => {
+  await openEditor(page);
+  const { character } = await seedSample(page, 'seed-san');
+  await runOk(page, 'clip.new', { name: 'everything' });
+  const controls = (await call(page, 'controls', character)).filter((control) => control.visible);
+  await runOk(page, 'select.controls', { ids: controls.map((control) => control.id), mode: 'replace' });
+  for (const [i, frame] of [0, 10, 20, 30].entries()) {
+    await runOk(page, 'time.setFrame', { frame });
+    const edits = controls.flatMap((control, c) =>
+      (['rx', 'ry', 'rz'] as const).map((channel, a) => ({
+        control: control.id,
+        channel,
+        value: Math.sin(i * 1.7 + c + a) * 10 * DEG,
+      })),
+    );
+    await runOk(page, 'channel.setValues', { edits });
+    await runOk(page, 'key.set', { channels: 'rotate' });
+  }
+  const curves = (await call(page, 'curves', (await call(page, 'state')).activeClip ?? '')).length;
+  // boneWorld() evaluates the whole pose (curves → channels → rig → bone worlds) into a freshly allocated pose and
+  // decomposes one matrix: an upper bound of the per-frame evaluation the editor does into its reused buffers.
+  const perCall = await page.evaluate(
+    ([id]) => {
+      const api = window.__EKZA_ANIMATOR_TEST__;
+      if (api === undefined) throw new Error('no test API');
+      for (let i = 0; i < 100; i++) api.boneWorld(id, 'hips', (i * 0.37) % 30);
+      const runs = 500;
+      const start = performance.now();
+      for (let i = 0; i < runs; i++) api.boneWorld(id, 'hips', (i * 0.37) % 30);
+      return (performance.now() - start) / runs;
+    },
+    [character] as const,
+  );
+  record(
+    'pose-evaluation-app',
+    { controls: controls.length, curves, msPerEvaluation: perCall },
+    `pose evaluation in the app (Seed-san, ${controls.length} controls, ${curves} rotation curves keyed): ` +
+      `${perCall.toFixed(3)} ms per boneWorld() (full pose incl. curve sampling and a pose allocation) (budget ≤ 0.5 ms)`,
+  );
+});
+
 test('bake + write VRMA, 1 humanoid × 10 s @ 30 fps', async ({ page }) => {
   await openEditor(page);
   const { character } = await seedSample(page, 'seed-san');
