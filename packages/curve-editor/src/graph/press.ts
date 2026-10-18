@@ -114,6 +114,10 @@ export function middlePress(ctx: PressContext, start: GesturePointer): PendingPr
  * segment clears the selection), a double-click on a curve or key selects all keys of its curve, a drag on a
  * selected or just-selected key/handle moves the selection, a drag elsewhere draws a marquee (`empty: 'marquee'`)
  * or moves the current selection (`empty: 'move'`).
+ *
+ * The second press of a double-click can still drag (acceptance round 3): on a key it is a key press whose release
+ * without a drag selects the curve (a click and a quick press-drag on a key moves the key, as in Maya); on a curve
+ * segment it selects the curve's keys at once and a drag moves them.
  */
 export function defaultPress(
   ctx: PressContext,
@@ -124,10 +128,16 @@ export function defaultPress(
   const hit = ctx.hitTest(start.x, start.y);
   const mode = selectModeFor(start);
   const current = ctx.app.session.getState().selection.keys;
-  if (clicks >= 2 && (hit.kind === 'curve' || hit.kind === 'key')) {
+  if (clicks >= 2 && hit.kind === 'curve') {
     ctx.selectCurveKeys(hit.curve, mode);
-    return { start, drag: null, click: null };
+    const predicted = applyKeySelection(current, curveKeyItems(ctx.scene(), hit.curve), mode, { group: true });
+    return {
+      start,
+      drag: selectedKeyParts(predicted).length > 0 ? () => selectionGesture(ctx, start, predicted) : null,
+      click: null,
+    };
   }
+  const curveClick = clicks >= 2 && hit.kind === 'key' ? hit.curve : null;
   if (hit.kind === 'key' || hit.kind === 'handle') {
     const parts = hit.kind === 'key' ? KEY_PART : handlePart(hit.side);
     const isSelected = (selection: ReadonlyMap<KeyId, KeyPartSelection>): boolean =>
@@ -139,10 +149,16 @@ export function defaultPress(
     const predicted = deferred ? current : applyKeySelection(current, [{ key: hit.key, parts }], mode);
     if (!deferred) ctx.selectKeys([{ key: hit.key, parts }], mode);
     const item = [{ key: hit.key, parts }];
+    const click =
+      curveClick !== null
+        ? () => ctx.selectCurveKeys(curveClick, mode)
+        : deferred
+          ? () => ctx.selectKeys(item, mode)
+          : null;
     return {
       start,
       drag: isSelected(predicted) ? () => selectionGesture(ctx, start, keyOrHandleParts(predicted, hit.kind)) : null,
-      click: deferred ? () => ctx.selectKeys(item, mode) : null,
+      click,
     };
   }
   const clear = mode === 'replace' ? () => ctx.selectKeys([], 'replace') : null;
@@ -155,6 +171,11 @@ export function defaultPress(
       new MarqueeGesture(ctx.gestures, start, mode, (rect) => marqueeItems(ctx.scene(), rect, ctx.hitScratch)),
     click: clear,
   };
+}
+
+/** Every key of a shown curve as key-part selection items (`select.curveKeys` predicted at press time). */
+function curveKeyItems(scene: GraphScene, curve: CurveId): KeySelectItems {
+  return (scene.curves.byCurve.get(curve)?.keys ?? []).map((key) => ({ key: key.id, parts: KEY_PART }));
 }
 
 /** A press on a key drags the selected keys; a press on a handle drags the selected handles only. */

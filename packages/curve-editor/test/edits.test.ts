@@ -128,6 +128,65 @@ describe.skipIf(!KERNEL_READY)('[needs WP-7a] key moves (MVP-SPEC §4.11.3)', ()
     }
   });
 
+  // Acceptance round 3: a click on a key and a press-drag on it within the double-click time selected the whole
+  // curve on press and the drag did nothing.
+  it('a click and a quick press-drag on a key moves the key; the double-click release still selects the curve', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const dispose = registerGraphContributions(app, () => controller);
+    try {
+      const { sx } = controller.view;
+      const k15 = at(controller.keyPoint(WAVE.keys[1]));
+      // The first click selected the key (the fake app records select.keys without running it).
+      controller.pointerDown(pointer({ ...k15, detail: 1 }));
+      controller.pointerUp(pointer({ ...k15, detail: 1, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'select.keys')).toEqual([
+        { items: [{ key: WAVE.keys[1], parts: { key: true, in: false, out: false } }], mode: 'replace' },
+      ]);
+      selectKeys(app, [[WAVE.keys[1], { key: true }]]);
+      dragBy(mounted, k15, 3 * sx, 0, { detail: 2 });
+      await settle();
+      expect(keysOf(app).map((record) => record.t)).toEqual([0, 18, 30]);
+      expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
+      expect(app.history.peekUndo()?.label).toBe('Move Keys');
+      expect(callsOf(app, 'select.curveKeys')).toEqual([]);
+
+      // Without a drag the second press is a double-click: the release selects the whole curve.
+      const k18 = at(controller.keyPoint(WAVE.keys[1]));
+      controller.pointerDown(pointer({ ...k18, detail: 2 }));
+      await settle();
+      expect(app.session.getState().selection.keys.size).toBe(1);
+      controller.pointerUp(pointer({ ...k18, detail: 2, buttons: 0 }));
+      await settle();
+      expect(callsOf(app, 'select.curveKeys')).toEqual([{ curve: WAVE.curve, mode: 'replace' }]);
+      expect([...app.session.getState().selection.keys.keys()]).toEqual([...WAVE.keys]);
+    } finally {
+      dispose();
+    }
+  });
+
+  it('a double-click press-drag on a curve segment selects the curve and moves all its keys', async () => {
+    const app = await waveApp();
+    mounted = mount(app);
+    const { controller } = mounted;
+    const dispose = registerGraphContributions(app, () => controller);
+    try {
+      const { sx } = controller.view;
+      const mid = at(controller.curvePoint(WAVE.curve, 7.5));
+      controller.pointerDown(pointer({ ...mid, detail: 1 }));
+      controller.pointerUp(pointer({ ...mid, detail: 1, buttons: 0 }));
+      dragBy(mounted, mid, 2 * sx, 0, { detail: 2 });
+      await settle();
+      expect(keysOf(app).map((record) => record.t)).toEqual([2, 17, 32]);
+      expect([...app.session.getState().selection.keys.keys()]).toEqual([...WAVE.keys]);
+      expect(app.history.peekUndo()?.label).toBe('Move Keys');
+    } finally {
+      dispose();
+    }
+  });
+
   it('commits a landing on a non-moved key by deleting that key (resolveCollisions)', async () => {
     const app = await waveApp();
     mounted = mount(app);
