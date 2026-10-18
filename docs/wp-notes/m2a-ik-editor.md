@@ -7,11 +7,17 @@ IDs below are `M2A-A2-<n>` for DECISIONS-OPEN §F.
 
 ## Status
 
-Built, review fix round 1 applied. Every A2 operator, panel and viewport feature is implemented and tested on this
-branch. A1 (`m2a/rig-ik`) has not merged, so on this branch the IK unit tests are skipped (`READY.a1`) and
+Built, review fix rounds 1 and 2 applied. Every A2 operator, panel and viewport feature is implemented and tested
+on this branch. A1 (`m2a/rig-ik`) has not merged, so on this branch the IK unit tests are skipped (`READY.a1`) and
 E2E-M2A-01…07, 25 and the body-part case of E2E-M2A-18 are `test.fixme('A1')` (§3 rule 4). They were run against A1
-in a scratch merge with `m2a/rig-ik` at `9955177` (which includes the knee-hinge fix `3e0aec3`): all of them pass
-there, see [Against A1](#against-a1-scratch-merge). "Rebases on A4's viewport render-skip change": A4's branch has
+in a scratch merge with `m2a/rig-ik` at `9767a7a` (fix round 2; round 1 used `9955177`): all of them pass there, see
+[Against A1](#against-a1-scratch-merge).
+
+Fix round 2: a switch to the mode the limb is already in is refused (M2A-A2-23; before, the pressed IK/FK segment in
+Attributes and the always-enabled Rig › IK/FK items re-matched the visible side to the hidden one and moved the
+pose), and a seamless switch on a loop clip no longer flips back after f (M2A-A2-24, found while fixing the first:
+§5.23's cyclic infinities on the switch's new two-key curves); pole lines loop by index in the per-pose paths;
+E2E-M2A-03's ball-roll case no longer locks in open issue 1; notes, merge notes and open issues updated. "Rebases on A4's viewport render-skip change": A4's branch has
 not changed `viewport/src/manager` yet, so there was nothing to rebase on.
 
 ## What landed (by spec responsibility)
@@ -57,9 +63,26 @@ not changed `viewport/src/manager` yet, so there was nothing to rebase on.
 | M2A-A2-17 | **Channel Box attribute rows** after TRS in `attrs` order: angle attributes in degrees (typed values are degrees), distance in metres, others 3 decimals, `bool` 0/1, `enum` labels; Lock is disabled on attribute rows; Reset to Default writes `AttrDef.default`; ↑/↓ nudges are unit-aware. The raw `@ikFk` row is hidden; the proxy row shows the limb's value for any control of the limb and writes the IK control's curve; its button switches with match. | §5.1 rules 1 and 5, §5.6. |
 | M2A-A2-18 | **M1-rig tests import with `prefs.autoRigIk` off** (headless `ops.m2a-foundation`, `ops.pose` US-25, `ops.undo`; e2e `m2a-00-foundation` "M1 rig" and "minWriterVersion 1"): with A1's default rig the legs are IK and those tests would describe a different rig; the IK cases live in `ops.ik.test.ts` and the IK e2e files. | M2A-D1/§5.7: an M1 rig is an FK-only rig. |
 | M2A-A2-21 | **Reset and the pose clipboard with `keyAll: false` attributes** (fix round 1): `pose.resetToRest` never resets `@ikFk` or `@soft`, also when they are selected Channel Box channels (rule 6; rule 4's selected-channel exception is for keying and the clipboard). `pose.copy` carries them when selected and `pose.paste` writes them when that channel is selected on the target control; otherwise both leave them out. | §5.1 rules 4 and 6. |
+| M2A-A2-23 | **A switch to the limb's current mode is refused** (fix round 2): `rig.ikFk.switch` poll-fails "L Leg is IK already" / "… is FK already" when the limb's evaluated `ikFk` at the current frame is ≥ 0.999 for `to: 'ik'` or ≤ 0.001 for `to: 'fk'` (§5.5 rule 2's thresholds, the ones the Attributes segments and the viewport use; `switchAlreadyReason` in `workflows/ik.ts`), whatever `match` and `key` say. The Rig › IK/FK › Switch items are disabled with that reason (the menu shows poll reasons), the pressed Attributes segment does nothing, and the Channel Box's ⇄ always targets the other mode. A blend between the thresholds switches both ways. | §5.6 "the pose at f … unchanged": the match of a same-mode switch snaps the visible side onto the hidden one (Seed-san's raised IK foot dropped 0.2 m, an FK elbow reset to rest). Keying the current `@ikFk` is `S` on the proxy row (M2A-A2-3). |
+| M2A-A2-24 | **Seamless switch curves on loop clips** (fix round 2): the curves a `'seamless'` switch puts their first keys on (the `@ikFk` curve and matched channels that had no keys, fresh or static) get `constant` pre and post infinities. Curves that had keys keep theirs; `'key'` and `'none'` change no infinity (a single key reads the same under any infinity). | §5.23 makes every new curve on a loop clip cycle over its key range; the switch's keys at f − 1 and f then cycled with period 1, so on every integer frame after f the limb read the old mode again and the matched channels their hold values (Seed-san on a 0…24 loop clip: IK again on frame 11). The residual case, a cyclic curve that already had keys, is open issue 4. |
 | M2A-A2-22 | **No per-frame work for the IK/FK display** (fix round 1): the Attributes Limb section reads the mode and the 3-decimal `ikFk` as one primitive `useSyncExternalStore` snapshot (commits only when that changes); the viewport keeps each limb's rule-2 state (`limbVisibilityState`: IK, between, FK) per character and re-runs `controlVisibility` per pose only when one changed; the Outliner compares the states in place before rebuilding its dimmed set; `limbHiddenControls` returns one shared empty set when nothing is hidden. | §5.5 rule 5; MVP-SPEC §3 rule 5 and WP-9 "no per-frame React renders". |
 
 ## Against A1 (scratch merge)
+
+Fix round 2: a fresh `git clone --shared` in the scratchpad (deleted afterwards) merged `m2a/ik-editor` with
+`m2a/rig-ik` at `9767a7a` (A1's head, after `46c5af0`, `76440c5` and `9767a7a`). Conflicts and the one-line literal
+update as in [Merge notes](#merge-notes). There:
+
+- Headless `ops.ik.test.ts`: 10 of 10, among them the two new cases: a same-mode switch is cancelled and leaves the
+  document, the overrides and the leg and arm worlds exactly (0) as they were; a seamless IK → FK switch on a 0…24
+  loop clip keeps the leg FK and in the matched pose on 11, 12, 17 and 24 (1e-6). With the infinity fix disabled the
+  loop case fails on frame 11 (`ikFk` 1), so it reproduces the defect on A1's rig.
+- E2E-M2A-03 in real Chrome with the new first-case steps: the pressed IK segment leaves the undo label, the curves
+  and the pose at 10, the run is cancelled with "L Leg is IK already", and Rig › IK/FK › Switch L Leg to IK is
+  `aria-disabled` with that title while "… to FK" is enabled. The ball-roll case passes with its neutral toes check;
+  on `9767a7a` the toes joint still moves at f (the headless ball-roll case, which requires both toes warnings,
+  passes there too).
+- Unit tests, e2e: see [Gates](#gates).
 
 Fix round 1: an independent `git clone --shared` in the scratchpad (deleted afterwards; the repository and the other
 worktrees were not touched) merged `m2a/ik-editor` with `m2a/rig-ik` at `9955177` (A1's head, including
@@ -88,14 +111,36 @@ rows are adjacent): keep A1's A1 row and A2's A2 row. There:
    seamless switch keeps f − 1 and earlier exact (M2A-A2-19). A contract decision is needed: the IK-side match could
    also set `fk.toes` (or zero the roll), and the toes rule could pivot the toes about their own joint, or §5.6
    could state the exception.
-2. **E2E-M2A-02 and -05 amendments** (M2A-A2-12, -13) still need the integration agent's review as contract changes
-   (§3 rule 1). Both hold against A1 at `9955177`: Polybot's knee world x drops 8.25 mm for a +x pole, and Seed-san's
-   straight rest arm cannot reach after the cog edit.
-3. **anim-core flake (outside A2):** `anim-core/test/curve/evaluate.test.ts` "auto types never overshoot their
-   neighbours" failed once on a fast-check counterexample (seed −160331587, a curve with post 'cycle'): its last
-   sample `t0 + (t1 − t0)·50/50` can land on or a rounding step past the last key, where cyclic post-infinity
-   evaluates the first key's value (0 instead of −1e-12). A rerun is green. Pin the seed as a regression case and
-   decide whether `t = last key` belongs to the last span or the next cycle (or clamp the sample to `t1`).
+   E2E-M2A-03's ball-roll case no longer asserts that the toes joint moves (fix round 2): it requires the toes
+   warning with the measured distance when the joint moves more than 0.1 mm and no warning otherwise, so it holds
+   under either decision. The headless ball-roll case in `ops.ik.test.ts` still asserts today's A1 behaviour (both
+   toes warnings, the IK side "bends the toes by 20°"), as a regression check of the warnings; it follows the
+   decision when one is made.
+2. **Contract items awaiting the integration agent's sign-off** (§3 rule 1; A2 cannot approve its own):
+   - the E2E-M2A-02 and -05 rows and the amendment note in M2A-SPEC §9.1, which A2 edited itself (M2A-A2-12, -13).
+     Both hold against A1 at `9767a7a`: Polybot's knee world x drops for a +x pole, and Seed-san's straight rest arm
+     cannot reach after the cog edit;
+   - the package exports beyond §4 (M2A-A2-11; §8 A2 lists none);
+   - `'seamless'` also keying the matched channels at f − 1 (M2A-A2-19), beyond §5.6's literal definition;
+   - fix round 2: the same-mode refusal (M2A-A2-23) and the constant infinities of the curves a seamless switch
+     starts (M2A-A2-24), both of which §5.6 leaves unsaid.
+3. **anim-core flakes (outside A2):** two fast-check properties in `anim-core/test/curve/evaluate.test.ts` fail
+   now and then on curves with post 'cycle', where a sample at (or a rounding step past) the last key evaluates the
+   first key's value through the cycle: "auto types never overshoot their neighbours" (seed −160331587, 0 instead of
+   −1e-12; fix round 1) and "clamped is flat between equal keys (no foot slide)" (seed 1584343940, last key −1e-12,
+   "expected 1e-12 to be less than 1e-12"; the round 1 review's trial merge). Reruns are green. For A0/A5 or the
+   integration agent: pin both seeds as regression cases and decide whether `t = last key` belongs to the last span
+   or the next cycle (or clamp the samples to `t1`).
+4. **Cyclic curves with keys and the switch (fix round 2, §5.23 vs §5.6).** M2A-A2-24 covers curves the seamless
+   switch starts. A curve that already had keys keeps its infinities, and on a loop clip it cycles over its key
+   range, not the clip's: a user who keyed the IK/FK proxy row once at 0 (`S`, a cyclic `@ikFk` curve) and then
+   switches to FK at 10 gets keys {0, 9, 10} cycling with period 10, so 11…19 read IK again; the same holds for a
+   matched channel whose keys all lie before f. That is §5.23's keying rule (any `S` beyond the last key does the
+   same), so A2 leaves it; a contract decision could make `@ikFk` curves never cycle, or cycle over the clip range.
+5. **A1's allocation test under load (outside A2):** on the round 2 trial merge `rig/test/limb-op.test.ts` "allocates
+   no bytes per evaluation, counted in the young generation" (added in A1's `9767a7a`) failed once in the parallel
+   `pnpm run test` (`[0.6, 0, 0.0216, true]` against `[0.6, 0, 0, true]`); the file and the rig package pass alone.
+   A load-dependent count for A1.
 
 ## Edits in files other packages own
 
@@ -124,13 +169,13 @@ Every assertion kept; each commit message names the test and the contract row.
 | Package | File | What |
 |---|---|---|
 | editor-core | `test/builtin/m2a-a2-keying.test.ts` | attribute channels in `applyChannelEdits`, stepped tangents, lock skips; `key.set` keyAll rules (`S` on the IK foot keys t, r and five attributes, never `@ikFk`/`@soft`; the selected proxy channel keys `@ikFk`), breakdown keys; body-part keying and `key.setTarget`; reset, clipboard and mirror with attributes; `key.deleteAtFrame`; fix round 1: reset leaves selected `@ikFk`/`@soft` alone, a selected `@ikFk` rides the clipboard both ways |
-| editor-core | `test/builtin/m2a-a2-ik.test.ts` | switch key policies (seamless keys at f − 1 and f, `'key'`, `'auto'`, `'none'`), polls, match and warnings (hyperextension text), `matchRange` frames and keys, `rig.addLimbIk` (structural, undo exact), `rig.setFootParams` (footprint rewritten, validation), Plant Feet on IK legs, the FK-only notice; fix round 1: seamless hold keys at f − 1 (both directions, an animated `fk.toes` keeps frames 0…9, a user key at f − 1 stays), the toes warnings on both sides, the Euler filter after `matchRange` (±2π jumps removed) |
+| editor-core | `test/builtin/m2a-a2-ik.test.ts` | switch key policies (seamless keys at f − 1 and f, `'key'`, `'auto'`, `'none'`), polls, match and warnings (hyperextension text), `matchRange` frames and keys, `rig.addLimbIk` (structural, undo exact), `rig.setFootParams` (footprint rewritten, validation), Plant Feet on IK legs, the FK-only notice; fix round 1: seamless hold keys at f − 1 (both directions, an animated `fk.toes` keeps frames 0…9, a user key at f − 1 stays), the toes warnings on both sides, the Euler filter after `matchRange` (±2π jumps removed); fix round 2: a same-mode switch is cancelled with its reason (every key mode, match on and off, IK and FK) and leaves the document, overrides, history, pose and toasts unchanged, the menu poll gives the reason; the mode thresholds at the current frame (1, 0.9995, 0.99, 0.5, 0.01, 0.0005, 0, out-of-range values clamped, an animated mode); a seamless switch on the loop clip gives the curves it starts constant infinities (a user's cyclic curve keeps its own, `'key'` keeps §5.23's) and holds FK on 11…30 |
 | editor-core | `test/builtin/m2a-a2-pickwalk.test.ts` | walk order, siblings and mirror, several selected, hidden controls, `'frames'` dispatch, keymap rows |
 | editor-core | `test/kernel/m2a-a2-visibility.test.ts`, `m2a-a2-virtual-slider.test.ts` | rules 2–3 at `ikFk` 0, 0.5, 1, ghosts, the `'ghost'` preference; slider rates, modifiers per move, relative values, auto-key, ranges and clamping, cancel, Esc; fix round 1: `limbVisibilityState`, the shared empty set |
-| headless-tests | `test/ops.ik.test.ts` (READY.a1) | Seed-san's four limbs, visibility and body parts; Add Limb IK on an M1 rig (bone locals bit-identical at every frame, undo exact); seamless switch (pose at 9 and 10, 1e-6); round trips and the hyperextension warning; match range; Plant Feet on IK legs; reset and foot pivots; fix round 1: seamless switch with a 20° ball roll and an animated `fk.toes` (frames 0…9 to 1e-6, chain and toes rotation at 10, both toes warnings) |
+| headless-tests | `test/ops.ik.test.ts` (READY.a1) | Seed-san's four limbs, visibility and body parts; Add Limb IK on an M1 rig (bone locals bit-identical at every frame, undo exact); seamless switch (pose at 9 and 10, 1e-6); round trips and the hyperextension warning; match range; Plant Feet on IK legs; reset and foot pivots; fix round 1: seamless switch with a 20° ball roll and an animated `fk.toes` (frames 0…9 to 1e-6, chain and toes rotation at 10, both toes warnings); fix round 2: a same-mode switch on Seed-san leaves the raised IK foot, an FK elbow and the document exactly; a seamless switch on a 0…24 loop clip holds FK and the matched pose on 11…24 |
 | viewport | `test/m2a-a2.test.ts` (browser) | drawn set by the rule, animated/overridden `ikFk`, ghosts not pickable and not marquee-selected, pole lines, plain-MMB slider (+20°, one step, no other channel), pref off and Alt+MMB, Shift/Mod, Pointer Lock rules (cancel on `pointerlockchange`, commit, refused lock → capture); fix round 1: no visibility refresh over steady frames, one at a crossed threshold |
-| editor | `test/panels/m2a-a2-channel-box.test.tsx`, `m2a-a2-attributes.test.tsx`, `m2a-a2-outliner.test.tsx`, `test/m2a-a2-shortcuts.test.tsx` (browser) | attribute rows and units, no raw `@ikFk` row, Lock/Reset, proxy row and switch, row slider (MMB, LMB drag, several names, clamps); Limb section, Match buttons, key mode, foot fields in cm/degrees, Add Limb IK; Outliner dimming; shortcut sheet arrows; fix round 1: the Limb section commits only when its display changes (pose events per frame), the Outliner's limb-state reader |
-| apps/web | `e2e/m2a-01…07, 18, 19, 25` | §9.1 scenarios (IK ones `test.fixme('A1')` until A1 merges); fix round 1: E2E-M2A-03's file adds the ball-roll and animated-toes case; E2E-M2A-06 back on Polybot |
+| editor | `test/panels/m2a-a2-channel-box.test.tsx`, `m2a-a2-attributes.test.tsx`, `m2a-a2-outliner.test.tsx`, `test/m2a-a2-shortcuts.test.tsx` (browser) | attribute rows and units, no raw `@ikFk` row, Lock/Reset, proxy row and switch, row slider (MMB, LMB drag, several names, clamps); Limb section, Match buttons, key mode, foot fields in cm/degrees, Add Limb IK; Outliner dimming; shortcut sheet arrows; fix round 1: the Limb section commits only when its display changes (pose events per frame), the Outliner's limb-state reader; fix round 2: the pressed Attributes segment (IK on an IK leg, FK on an FK arm) runs nothing and changes nothing, a blend at 0.5 switches both ways |
+| apps/web | `e2e/m2a-01…07, 18, 19, 25` | §9.1 scenarios (IK ones `test.fixme('A1')` until A1 merges); fix round 1: E2E-M2A-03's file adds the ball-roll and animated-toes case; E2E-M2A-06 back on Polybot; fix round 2: E2E-M2A-03's first case clicks the pressed IK segment (nothing changes, the run is cancelled, the Rig › IK/FK item is disabled with the reason), the ball-roll case's toes check is neutral on open issue 1 |
 
 ## Gates
 
@@ -155,17 +200,28 @@ two key presses 467 ms apart against a 400 ms window, a timing check); the spec 
 
 ## Merge notes
 
-A trial merge (`git merge-tree`) against the sibling branches at the time: `m2a/rig-ik` and `m2a/platform-perf` merge
-cleanly; `m2a/graph-posing` and `m2a/dopesheet-timing` conflict only in A0's stub lists
-(`editor-core/test/builtin/m2a-operators.test.ts`, and for A3 `apps/web/e2e/m2a-00-foundation.spec.ts`), where each
-package removed its own operators: keep both removals.
+Fix round 2, `git merge-tree` of `m2a/ik-editor` against the sibling heads of 2026-10-18 (`m2a/rig-ik` `9767a7a`,
+`m2a/platform-perf` `09f1944`, `m2a/graph-posing` `440ab06`, `m2a/dopesheet-timing` `d064b59`,
+`m2a/contracts-foundation` `0357037`):
 
-Fix round 1, against `m2a/rig-ik` at `9955177`:
-
-- `docs/ROADMAP.md` conflicts (the A1 and A2 status rows are adjacent): keep A1's A1 row and A2's A2 row.
-- **A1's `headless-tests/test/rig.ik.export.test.ts`** ("exports byte-identical files after limb IK is added at
-  ikFk 0", added in A1's `7806f2f`) imports Seed-san as an M1 rig and asserts `def.solvers` empty. With A2's import
-  passing `prefs.autoRigIk` the default rig already has IK legs, so it fails on the merge. It needs the same literal
-  update as the other M1-rig tests (M2A-A2-18): `app.prefs.setState({ autoRigIk: { legs: false, arms: false } })`
-  before `importFixture` (one line; verified green on the trial merge). The file exists only on A1's branch, so A1
-  adds the line there (harmless before A2) or the A2 merge commit does.
+- **`m2a/rig-ik`**: `docs/ROADMAP.md` only (the A1 and A2 status rows are adjacent): keep A1's A1 row and A2's A2
+  row. Then the one-line literal update in **A1's `headless-tests/test/rig.ik.export.test.ts`** ("exports
+  byte-identical files after limb IK is added at ikFk 0", added in A1's `7806f2f`): it imports Seed-san as an M1 rig
+  and asserts `def.solvers` empty, but with A2's import passing `prefs.autoRigIk` the default rig has IK legs. Add
+  `app.prefs.setState({ autoRigIk: { legs: false, arms: false } })` before `importFixture` (as M2A-A2-18 did for
+  the other M1-rig tests; verified green on both trial merges). The file exists only on A1's branch, so A1 adds the
+  line there (harmless before A2) or the A1 + A2 merge commit does.
+- **`m2a/platform-perf`** (no longer clean): A5's `f58454f` ("the import pipelines are a lazy chunk") moved
+  `clipNameTaken` and `clipNamesOf` to `workflows/importChecks.ts`, so `packages/editor-core/src/workflows/importModel.ts`
+  conflicts in its import lines next to A2's `importLimbWarnings` import. Keep A2's `import { importLimbWarnings }
+  from './ik';`, A5's names import without `nameKey`, and A5's re-export `export { clipNamesOf, clipNameTaken } from
+  './importChecks';` (the function body A5 removed stays removed; A2's `importLimbWarnings` call in the import
+  warnings is untouched). Everything else auto-merges (M2A-SPEC, ROADMAP, `index.ts`, `importAnimation.ts`, the
+  stub lists, `shell.test.tsx`).
+- **`m2a/graph-posing`**: `packages/editor-core/test/builtin/m2a-operators.test.ts`, the doc comment of A0's stub
+  list (each side names the operators it removed): keep both sentences; the list itself auto-merges.
+- **`m2a/dopesheet-timing`**: A0's stub lists in `packages/editor-core/test/builtin/m2a-operators.test.ts` and
+  `apps/web/e2e/m2a-00-foundation.spec.ts` (A3 removed `key.toggleRipple`, A2 the rig IK operators,
+  `select.pickWalk` and `key.setTarget`: keep both removals), and the ROADMAP A2/A3 rows (keep each package's own
+  row).
+- **`m2a/contracts-foundation`**: merged already (no conflicts).
