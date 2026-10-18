@@ -1,8 +1,9 @@
 // GLHost (ADR 0006 §1, ARCHITECTURE §10): one R3F <Canvas frameloop="demand"> fixed behind the workspace. On
 // creation it hands the renderer to the model loader (before any load), creates the ViewportManager, registers the
-// viewport contributions and wires `app.requestFrame` to R3F's invalidate. Each frame: `addEffect` runs the clock
-// and evaluation, `useFrame(…, 1)` renders the dirty panes, `addAfterEffect` redraws the 2D canvases. Context
-// loss is reported and recovered; without WebGL the editor keeps running on the fallback frame scheduler.
+// viewport contributions and wires `app.requestFrame` to R3F's invalidate. Each frame: `addEffect` runs the
+// scheduled tasks first (`app.flushScheduled`, M2A-SPEC §4.5), then the clock and evaluation, `useFrame(…, 1)`
+// renders the dirty panes, `addAfterEffect` redraws the 2D canvases. Context loss is reported and recovered; without
+// WebGL the editor keeps running on the fallback frame scheduler.
 import { EkzaError } from '@ekza-animator/anim-core';
 import { registerViewportContributions, ViewportManager, viewportTestApi } from '@ekza-animator/viewport';
 import { addAfterEffect, addEffect, Canvas, type RootState, useFrame } from '@react-three/fiber';

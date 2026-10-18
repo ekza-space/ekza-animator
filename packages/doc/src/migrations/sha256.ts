@@ -83,3 +83,22 @@ export function sha256Hex(text: string): string {
   for (const byte of sha256(new TextEncoder().encode(text))) hex += byte.toString(16).padStart(2, '0');
   return hex;
 }
+
+const BASE62 = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+
+/**
+ * `length` unbiased base62 characters drawn from a digest (bytes ≥ 248 are skipped), re-hashing when its bytes run
+ * out. Shared by `deriveMigratedId` and the deterministic auto-rig IDs (`solverId`).
+ */
+export function digestBase62(digest: Uint8Array, length: number): string {
+  let out = '';
+  let bytes = digest;
+  for (;;) {
+    for (const byte of bytes) {
+      if (byte >= 248) continue;
+      out += BASE62.charAt(byte % 62);
+      if (out.length === length) return out;
+    }
+    bytes = sha256(bytes);
+  }
+}

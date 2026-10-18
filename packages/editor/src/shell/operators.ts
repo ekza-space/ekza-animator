@@ -24,7 +24,11 @@ export const UI_DIALOGS: readonly UiDialog[] = [
   'about',
   'firstRun',
   'preferences',
+  'recovery',
 ];
+
+/** Dialogs whose implementation has not landed yet (M2a: the Recovery dialog is A5's). */
+const PENDING_DIALOGS: ReadonlySet<UiDialog> = new Set(['recovery']);
 
 const PREF_KEYS: ReadonlySet<string> = new Set([
   'firstRunDone',
@@ -39,6 +43,15 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   'rotateSpace',
   'reduceOnImport',
   'uiScale',
+  // M2a (M2A-SPEC §4.5)
+  'autoRigIk',
+  'ikFkVisibility',
+  'ikFkSwitchKey',
+  'tweenOvershoot',
+  'arrowKeys',
+  'virtualSlider',
+  'exportReduce',
+  'autosave',
 ]);
 
 export interface ShellOperatorDeps {
@@ -53,6 +66,7 @@ const fail = (reason: string): PollResult => ({ ok: false, reason });
 /** The `ui.open` poll: dialogs that need a character fail politely in an empty document. */
 function pollDialog(app: EditorApp, dialog: UiDialog): PollResult {
   if (!UI_DIALOGS.includes(dialog)) return fail(`Unknown dialog '${String(dialog)}'`);
+  if (PENDING_DIALOGS.has(dialog)) return fail('not available yet');
   if (dialog === 'export' && app.store.list('characters').length === 0) return fail('Load a character to export');
   return ok;
 }
@@ -119,7 +133,10 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     flags: { internal: true },
     poll(_ctx, args) {
       const unknown = Object.keys(args.patch).filter((key) => !PREF_KEYS.has(key));
-      return unknown.length === 0 ? ok : fail(`Unknown preference ${unknown.join(', ')}`);
+      if (unknown.length > 0) return fail(`Unknown preference ${unknown.join(', ')}`);
+      // M2A-SPEC §1.2: the 'ghost' IK/FK display is M2a-stretch.
+      if (args.patch.ikFkVisibility === 'ghost') return fail('not available yet');
+      return ok;
     },
     apply(_ctx, args) {
       app.prefs.setState({ ...args.patch });

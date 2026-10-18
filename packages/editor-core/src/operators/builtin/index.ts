@@ -5,19 +5,25 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-animator/io';
 import { MAYA_KEYMAP } from '../../keymap/maya';
 import type { EditorApp } from '../../types';
+import { AUTOSAVE_OPERATORS } from './autosave';
+import { BREAKDOWN_OPERATORS } from './breakdown';
 import { CLIP_OPERATORS } from './clip';
 import type { AnyOperator } from './define';
 import { EDIT_OPERATORS } from './edit';
 import { BUILTIN_EXPORTERS } from './exporters';
 import { FILE_OPERATORS } from './file';
 import { GRAPH_OPERATORS } from './graph';
+import { GRAPH_BUFFER_OPERATORS } from './graphBuffer';
+import { IK_OPERATORS } from './ik';
 import { BUILTIN_IMPORTERS } from './importers';
 import { KEY_OPERATORS } from './key';
 import { BUILTIN_MENU_ITEMS } from './menus';
+import { MIRROR_ANIMATION_OPERATORS } from './mirrorAnimation';
 import { POSE_OPERATORS } from './pose';
 import { RIG_OPERATORS } from './rig';
 import { SELECT_OPERATORS } from './select';
 import { TIME_OPERATORS } from './time';
+import { TWEEN_OPERATORS } from './tween';
 import { VIEW_OPERATORS } from './view';
 
 export { BUILTIN_EXPORTERS, BUILTIN_IMPORTERS, BUILTIN_MENU_ITEMS };
@@ -34,6 +40,13 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...CLIP_OPERATORS,
   ...VIEW_OPERATORS,
   ...RIG_OPERATORS,
+  // M2a (M2A-SPEC §3 rule 2: new operators live in new files; A0 registers their stubs here)
+  ...IK_OPERATORS,
+  ...TWEEN_OPERATORS,
+  ...BREAKDOWN_OPERATORS,
+  ...GRAPH_BUFFER_OPERATORS,
+  ...MIRROR_ANIMATION_OPERATORS,
+  ...AUTOSAVE_OPERATORS,
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {

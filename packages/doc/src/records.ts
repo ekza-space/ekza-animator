@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.2, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.2 with the M2A-SPEC §4.2 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, KeyData, ReadonlyQuat, ReadonlyXf,
   RotateOrder, SplineSet } from '@ekza-animator/anim-core';
@@ -106,7 +106,20 @@ export interface AttrDef {
   readonly max?: number;
   readonly enumLabels?: readonly string[];
   readonly keyable: boolean;
+  /** M2a: new keys on this attribute get in 'flat', out 'step' (MVP: stored, unused). */
   readonly stepped?: boolean;
+  /** M2a: Channel Box and Graph Editor label; default: the name title-cased ('heelTwist' → 'Heel Twist'). */
+  readonly label?: string;
+  /** M2a: stored radians or metres, shown in degrees or metres; absent = a plain number (3 decimals). */
+  readonly unit?: 'angle' | 'distance';
+  /** M2a: how pose and animation mirroring map the value (§5.14); default 'copy'. */
+  readonly mirror?: 'copy' | 'negate';
+  /**
+   * M2a: false = a mode or setting, keyed and reset only when named explicitly (§5.1 rule 4): `S` with 'all' or
+   * 'attributes', body-part keying, the tween 'frame' target, the pose clipboard and `pose.resetToRest` skip it unless
+   * it is a selected Channel Box channel. Default true.
+   */
+  readonly keyAll?: boolean;
 }
 
 export interface ControlRecord {
@@ -124,7 +137,7 @@ export interface ControlRecord {
   readonly locked: { readonly t: Axes; readonly r: Axes; readonly s: Axes };
   readonly drives: Binding | null;             // null: pure space control (root, cog)
   readonly mirror: ControlId | null;           // counterpart; null for side 'C' and for unpaired L/R controls
-  readonly attrs: Readonly<Record<string, AttrDef>>;   // empty in the MVP
+  readonly attrs: Readonly<Record<string, AttrDef>>;   // custom keyable attributes, channel '@name' (M2a: IK controls)
   readonly shape: ControlShape;
   readonly hiddenByDefault: boolean;           // secondary controls: true
   readonly deleted: Tombstone;

@@ -14,9 +14,11 @@ import {
 } from '../../types';
 import { activeClipRecord, baseCurves, keysOfCurves, selectedControls, visibleControls } from '../../workflows/targets';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, panelOf } from './define';
+import { stubOperator } from './stub';
 
 const SELECT_MODES: readonly SelectMode[] = ['replace', 'toggle', 'add', 'remove'];
-const KEY_PANELS: ReadonlySet<string> = new Set([PANEL.graph, PANEL.timeline]);
+// M2a: the Dope Sheet shares the key selection (M2A-SPEC §5.10).
+const KEY_PANELS: ReadonlySet<string> = new Set([PANEL.graph, PANEL.timeline, PANEL.dopeSheet]);
 
 function isMode(value: unknown): value is SelectMode {
   return typeof value === 'string' && (SELECT_MODES as readonly string[]).includes(value);
@@ -276,4 +278,9 @@ export const SELECT_OPERATORS: readonly AnyOperator[] = [
   selectMirror,
   selectKeys,
   selectChannels,
+  // M2a (M2A-SPEC §5.17; A2 implements it)
+  stubOperator('select.pickWalk', 'Pick Walk', {
+    category: 'select',
+    description: 'Walk the selection up, down or sideways in the control hierarchy.',
+  }),
 ];

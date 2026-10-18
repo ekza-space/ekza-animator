@@ -1,12 +1,12 @@
-// Contract file: MVP-SPEC §4.5, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { StoreApi } from 'zustand/vanilla';
-import type { CompiledAnimCurve, Disposer, Frame, Handle, TangentType } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord, CameraId, ChannelId, ChannelValues, CharacterId, ClipId, ControlId, CurveId,
-  DocumentStore, KeyId, Tx, UndoResult, UserId } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportKind, ExportProfileDef, ExportRequest, GlbContainer,
+import type { AnimCurve, CompiledAnimCurve, Disposer, Frame, Handle, TangentType } from '@ekza-animator/anim-core';
+import type { AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ControlId,
+  CurveId, DocumentStore, KeyId, Tx, UndoResult, UserId } from '@ekza-animator/doc';
+import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer,
   ValidationReport } from '@ekza-animator/io';
-import type { ChannelBuffer, ClipSampler, FootPin, PoseBuffers, PoseClipboard, RigProgram,
+import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, RigProgram,
   SkeletonDesc } from '@ekza-animator/rig';
 import type { OperatorMap } from './operators/args';
 
@@ -15,7 +15,7 @@ import type { OperatorMap } from './operators/args';
 export type PanelKind = string;
 export const PANEL = {
   viewport: 'viewport', graph: 'graph', timeline: 'timeline', outliner: 'outliner', clips: 'clips',
-  channelBox: 'channelBox', attributes: 'attributes',
+  channelBox: 'channelBox', attributes: 'attributes', dopeSheet: 'dopeSheet',   // M2a: dopeSheet
 } as const;
 /** 'global' or a PanelKind. */
 export type KeyScope = string;
@@ -68,14 +68,31 @@ export interface TimeState {
 // ---------- tools (U state) ----------
 export type ToolId = string;
 export const VIEWPORT_TOOL = { select: 'select', move: 'move', rotate: 'rotate' } as const;
-export const GRAPH_TOOL = { select: 'select', move: 'move', insert: 'insert' } as const;
+export const GRAPH_TOOL = { select: 'select', move: 'move', insert: 'insert', scale: 'scale' } as const;   // M2a: scale
+export const DOPE_TOOL = { select: 'select', move: 'move', scale: 'scale' } as const;
 export type ManipSpace = 'object' | 'world' | 'gimbal';      // gimbal: rotate tool only
+
+// ---------- M2a vocabulary (M2A-SPEC §4.5) ----------
+export type KeyTarget = 'selected' | 'bodyPart' | 'character';
+export type BodyPart = 'root' | 'torso' | 'head' | 'arm.L' | 'arm.R' | 'fingers.L' | 'fingers.R' | 'leg.L' | 'leg.R';
+export type GraphViewMode = 'absolute' | 'normalized' | 'stacked';
+export type TweenMode = 'tween' | 'neighbor' | 'ease' | 'pushPull' | 'toDefault';
+/** 'auto': 'seamless' when the ikFk curve has keys or auto-key is on, else 'none' (§5.6). */
+export type IkFkKeyMode = 'auto' | 'none' | 'key' | 'seamless';
+export type ControlVisibility = 'visible' | 'ghost' | 'hidden';
+/** M2a §5.1 rule 5 (A0): display unit of a TRS channel or a '@name' attribute. */
+export type ChannelUnit = 'angle' | 'distance' | 'none';
+
 export interface ToolState {
   readonly viewport: ToolId;
   readonly graph: ToolId;
+  readonly dopeSheet: ToolId;                                     // M2a, default 'select'
   readonly manipulatorSize: number;                               // px, default 90
   readonly selectionMask: SelectionMask;                          // default controls only
-  readonly keyTarget: 'selected' | 'character';
+  readonly keyTarget: KeyTarget;                                  // changed: + 'bodyPart'
+  readonly ripple: boolean;                                       // M2a, default false (Dope Sheet + time slider)
+  /** M2a §5.13: 'auto' = 'keys' when keys are selected, else 'frame'; 'frame' forces the pose target. Default 'auto'. */
+  readonly tweenTarget: 'auto' | 'frame';
 }
 
 // ---------- clipboards ----------
@@ -96,8 +113,32 @@ export interface KeyClipboard {
   }[];
 }
 
+// ---------- M2a: buffer curves and autosave (M2A-SPEC §4.5) ----------
+/** Graph Editor buffer curve (per user, never in the document). */
+export interface CurveBuffer { readonly curve: AnimCurve; readonly capturedAt: number }
+
+export interface AutosaveSlotInfo {
+  readonly id: string;                                            // 'as_' + 16 base62, one per page load
+  readonly projectName: string;
+  readonly savedAt: number;                                       // ms since epoch
+  readonly characters: number;
+  readonly clips: number;
+  readonly bytes: number;                                         // snapshot JSON + new asset bytes
+  readonly appVersion: string;
+  readonly schemaVersion: number;
+}
+export interface AutosaveStatus {
+  readonly enabled: boolean;                                      // false: storage unavailable or prefs off
+  readonly slot: string | null;
+  readonly lastSavedAt: number | null;
+  readonly pending: boolean;
+  readonly error: string | null;
+}
+
 // ---------- session (U state) ----------
-export type UiDialog = 'open' | 'import' | 'export' | 'shortcuts' | 'about' | 'firstRun' | 'preferences';
+export type UiDialog = 'open' | 'import' | 'export' | 'shortcuts' | 'about' | 'firstRun' | 'preferences'
+  | 'recovery';                                                   // M2a
+
 export interface FeetPins { readonly character: CharacterId; readonly pins: readonly FootPin[] }
 export interface SessionState {
   readonly user: UserId;
@@ -120,6 +161,9 @@ export interface SessionState {
   readonly feetPins: FeetPins | null;
   readonly dialog: UiDialog | null;
   readonly busy: { readonly label: string; readonly progress: number | null } | null;
+  readonly curveBuffers: ReadonlyMap<CurveId, CurveBuffer>;       // M2a
+  readonly autosave: AutosaveStatus;                              // M2a
+  readonly recovery: readonly AutosaveSlotInfo[];                 // M2a: orphaned slots found at start
 }
 export type SessionStore = StoreApi<SessionState>;
 
@@ -139,6 +183,16 @@ export interface Prefs {
   readonly rotateSpace: ManipSpace;                               // default 'object'; remembered per user
   readonly reduceOnImport: 'auto' | 'always' | 'never';           // default 'auto' (> 0.5 keys/frame)
   readonly uiScale: number;                                       // 1
+  // M2a (version stays 1; missing fields take defaults on load)
+  readonly autoRigIk: { readonly legs: boolean; readonly arms: boolean };          // default { legs: true, arms: true }
+  readonly ikFkVisibility: 'hide' | 'ghost';                                      // default 'hide' ('ghost' is stretch)
+  readonly ikFkSwitchKey: IkFkKeyMode;                                            // default 'auto'
+  readonly tweenOvershoot: boolean;                                               // default false
+  readonly arrowKeys: 'pickWalk' | 'frames';                                       // default 'pickWalk' (Q-UI-2)
+  readonly virtualSlider: { readonly degPerPx: number; readonly metresPerPx: number; readonly unitsPerPx: number;
+    readonly viewportMmb: boolean };                                                // 0.5, 0.01, 0.01, true (§5.18)
+  readonly exportReduce: { readonly enabled: boolean } & ExportReduceSpec;          // dialog default; enabled true
+  readonly autosave: { readonly enabled: boolean; readonly delayMs: number; readonly maxIntervalMs: number };       // true, 2000, 30000
 }
 export type PrefsStore = StoreApi<Prefs>;
 
@@ -358,6 +412,19 @@ export interface EditorServices {
   readonly validate: ((bytes: Uint8Array) => Promise<ValidationReport>) | null;
   readonly storage: PrefsStorage | null;                          // null: preferences are not persisted
   readonly samplesPath?: string;                                  // base URL of the bundled samples, default '/samples/' (v0.3 integration, WP-8 R-2)
+  readonly autosave?: AutosaveStore | null;                       // M2a: null or absent = autosave off (Node, blocked storage)
+}
+
+/** M2a: content-addressed autosave slots (IndexedDB in the browser; null in Node). */
+export interface AutosaveStore {
+  /** Claims a slot for this page (Web Lock held until unload); returns its id. */
+  open(): Promise<string>;
+  write(slot: string, data: { readonly snapshotJson: string; readonly assets: readonly AssetRecord[];
+    readonly info: Omit<AutosaveSlotInfo, 'id' | 'bytes'> }, readAsset: (id: AssetId) => Promise<Uint8Array>): Promise<{ readonly bytes: number }>;
+  /** Slots whose page is gone (lock not held, or heartbeat older than 20 s without Web Locks). */
+  listOrphans(): Promise<readonly AutosaveSlotInfo[]>;
+  read(slot: string): Promise<{ readonly snapshot: unknown; readonly assets: ReadonlyMap<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }> } | null>;
+  remove(slot: string): Promise<void>;
 }
 
 // ---------- characters and evaluation ----------
@@ -393,6 +460,12 @@ export interface EvaluationService {
   channelState(control: ControlId, channel: ChannelId): ChannelState;
   compiledCurve(curve: CurveId): CompiledAnimCurve;
   subscribe(listener: (e: { readonly poseVersion: number; readonly characters: readonly CharacterId[] }) => void): Disposer;
+  /** M2a: value of any channel (TRS or '@attr') at the control's current clip frame, curves ⊕ overrides. */
+  channelValue(control: ControlId, channel: ChannelId): number;
+  /** M2a: every custom attribute of the control by name (without '@'). */
+  attrValues(control: ControlId): Readonly<Record<string, number>>;
+  /** M2a: evaluated ikFk of a limb of the character (null without that limb). */
+  ikFk(character: CharacterId, limb: LimbId): number | null;
 }
 
 export interface PlaybackClock {
@@ -459,6 +532,17 @@ export interface KeyEditOptions {
   readonly snap: boolean;                                         // integer frames
   /** false while dragging (clamp before neighbours); true for the final update before commit (delete collided keys). */
   readonly resolveCollisions: boolean;
+  readonly ripple?: boolean;                                      // M2a §5.11; default false
+  readonly retimeBreakdowns?: boolean;                            // M2a §5.12; default true
+}
+/** M2a: one key-editing drag (Graph Editor, Dope Sheet, time slider): preview, once-per-frame updates, one history step. */
+export interface KeyEditGesture {
+  readonly active: boolean;
+  /** Replaces the pending edit; applied at the next `flushScheduled` on top of committed state. */
+  update(edit: (tx: Tx) => void): void;
+  /** Applies `final` immediately (callers pass resolveCollisions: true), commits ONE transaction, records ONE step. */
+  commit(final: (tx: Tx) => void, meta?: { readonly label?: string }): ChangeBatch | null;
+  cancel(): void;
 }
 export interface KeyEditResult { readonly moved: number; readonly deleted: readonly KeyId[] }
 
@@ -488,5 +572,12 @@ export interface EditorApp {
   /** Request one animation frame (wired by the editor to R3F `invalidate`). */
   requestFrame(): void;
   setFrameRequester(fn: () => void): void;
+  /**
+   * M2a (M-1): run `task` once before the next frame's evaluation; a later call with the same key replaces the
+   * pending task. Without a frame requester (Node) the task runs synchronously.
+   */
+  scheduleBeforeFrame(key: string, task: () => void): void;
+  /** Runs every pending task now, in scheduling order (the frame loop's first step; pointerup; tests). */
+  flushScheduled(): void;
   dispose(): void;
 }

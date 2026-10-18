@@ -1,12 +1,20 @@
 import type { RotateOrder } from '@ekza-animator/anim-core';
-import type { ControlId, ControlRecord } from '@ekza-animator/doc';
+import type { AttrDef, ControlId, ControlRecord } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES } from '../humanoid/bones';
 import { humanNodeIndices, nearestHumanAncestor } from '../humanoid/map';
 import { facingXf, nodeParents, restLocals, restWorlds } from '../humanoid/rest';
 import { allocXfArrays, xfaInvMul, xfaSet } from '../math/xfa';
 import { BIND_FULL, BIND_ROTATE, BIND_TRANSLATE_ROTATE, OP_BONE, OP_CONTROL } from '../kernel/constants';
 import type { RigInternals, ScheduledRigOp } from '../kernel/internals';
-import { CHANNELS_PER_CONTROL, type RigProgram, type RigWarning, type SkeletonDesc } from '../types';
+import {
+  type AttrKey,
+  type AttrSlot,
+  CHANNELS_PER_CONTROL,
+  type LimbDesc,
+  type RigProgram,
+  type RigWarning,
+  type SkeletonDesc,
+} from '../types';
 import { boneRefLabel, createBoneResolver } from './bones';
 
 const ROTATE_ORDERS: ReadonlySet<string> = new Set(['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx']);
@@ -20,6 +28,10 @@ export interface BuildInput {
   /** Schedule entries; when omitted: every control in slot order, then every node in index order. */
   readonly schedule?: { readonly kind: Uint8Array; readonly index: Int32Array };
   readonly customOps?: readonly ScheduledRigOp[];
+  /** Attribute slots; when omitted: `buildAttrSlots(controls)`. */
+  readonly attrs?: { readonly slots: readonly AttrSlot[]; readonly index: ReadonlyMap<AttrKey, number> };
+  /** Compiled limbs (§5.4 rule 4); default none. */
+  readonly limbs?: readonly LimbDesc[];
 }
 
 /**
@@ -136,6 +148,7 @@ export function buildInternals(input: BuildInput, warnings: RigWarning[]): RigIn
     humanParent[h] = parent === null ? -1 : HUMAN_BONE_NAMES.indexOf(parent);
   });
   const hipsNode = humanNode[0] as number;
+  const attrs = input.attrs ?? buildAttrSlots(controls);
 
   let opKind: Uint8Array;
   let opIndex: Int32Array;
@@ -181,6 +194,10 @@ export function buildInternals(input: BuildInput, warnings: RigWarning[]): RigIn
     opKind,
     opIndex,
     customOps: input.customOps ?? [],
+    attrSlots: attrs.slots,
+    attrIndex: attrs.index,
+    attrDefaults: Float64Array.from(attrs.slots, (slot) => slot.def.default),
+    limbs: input.limbs ?? [],
   };
 }
 
@@ -197,7 +214,21 @@ export function deriveInternals(program: RigProgram): RigInternals {
     const parent = program.controlIndex.get(control.parent);
     return parent === undefined || parent >= slot ? -1 : parent;
   });
-  return buildInternals({ skeleton: program.skeleton, controls, parents }, []);
+  // Programs of the RigProgram contract carry their attribute slots (M2a); older stand-ins get the canonical order.
+  const attrs =
+    program.attrSlots !== undefined && program.attrIndex !== undefined
+      ? { slots: program.attrSlots, index: program.attrIndex }
+      : undefined;
+  return buildInternals(
+    {
+      skeleton: program.skeleton,
+      controls,
+      parents,
+      ...(attrs === undefined ? {} : { attrs }),
+      limbs: program.limbs ?? [],
+    },
+    [],
+  );
 }
 
 function compareIds(a: string | undefined, b: string | undefined): number {
@@ -219,3 +250,36 @@ function safeXf(xf: ControlRecord['restWorld'] | undefined): ControlRecord['rest
 }
 
 const IDENTITY_XF: ControlRecord['restWorld'] = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
+
+/** Code-unit order (never locale order), so slot numbers agree on every machine. */
+function compareCodeUnits(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
+}
+
+/**
+ * Attribute slots of a rig (M2A-SPEC §5.1 rule 2, §5.4 rule 1): every attribute of every control, ordered by
+ * (control id, attribute name) in code-unit order. Independent of the schedule and of constraint and solver records,
+ * so adding or removing an op never renumbers a slot. Damaged definitions are repaired, never rejected: a non-object
+ * definition is skipped and a non-finite default reads 0.
+ */
+export function buildAttrSlots(controls: readonly ControlRecord[]): {
+  readonly slots: readonly AttrSlot[];
+  readonly index: ReadonlyMap<AttrKey, number>;
+} {
+  const slots: AttrSlot[] = [];
+  const index = new Map<AttrKey, number>();
+  const sorted = [...controls].sort((a, b) => compareCodeUnits(a.id, b.id));
+  for (const control of sorted) {
+    const attrs = control.attrs as Readonly<Record<string, AttrDef>> | null | undefined;
+    if (typeof attrs !== 'object' || attrs === null) continue;
+    for (const name of Object.keys(attrs).sort(compareCodeUnits)) {
+      const def = attrs[name];
+      if (typeof def !== 'object' || def === null || name.length === 0) continue;
+      const key: AttrKey = `${control.id}/@${name}`;
+      if (index.has(key)) continue;
+      index.set(key, slots.length);
+      slots.push({ control: control.id, name, def: Number.isFinite(def.default) ? def : { ...def, default: 0 } });
+    }
+  }
+  return { slots, index };
+}

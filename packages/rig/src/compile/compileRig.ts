@@ -1,11 +1,11 @@
-import type { ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import type { BoneRef, ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
 import { OP_BONE, OP_CONTROL, OP_CUSTOM } from '../kernel/constants';
 import type { ScheduledRigOp } from '../kernel/internals';
 import { lookupRigOp, type RigOpImpl, type RigOpKind } from '../kernel/ops';
 import { createProgram } from '../kernel/program';
-import type { RigDefinition, RigProgram, RigWarning, SkeletonDesc } from '../types';
+import type { RigDefinition, RigOpCompileContext, RigProgram, RigWarning, SkeletonDesc } from '../types';
 import { createBoneResolver } from './bones';
-import { buildInternals } from './build';
+import { buildAttrSlots, buildInternals } from './build';
 import { type SortNode, topologicalSort } from './schedule';
 import { checkRig } from './warnings';
 
@@ -35,6 +35,10 @@ interface PendingOp {
  * cycles, schedules `controlWorld`, constraint/solver and bone ops by a Kahn sort with a `(opKindPriority, id)`
  * tie-break, and precomputes offsets and bind offsets. The schedule never depends on record order, and the
  * compiler never throws on document content: every repair is reported in `program.warnings`.
+ *
+ * Order (M2A-SPEC §5.4 rule 1): attribute slots first (schedule-independent), then the ops' `reads`/`writes` with a
+ * `RigOpCompileContext`, the schedule, `createProgram`, and last each op's optional `compile` with the finished
+ * program (its result is the op's run-time `state`; a throw skips the op and warns).
  */
 export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgram {
   const warnings: RigWarning[] = [];
@@ -42,6 +46,7 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
 
   const controls = liveRecords(def.controls, rigId, 'control', warnings);
   const byId = new Map<ControlId, ControlRecord>(controls.map((control) => [control.id, control]));
+  const attrs = buildAttrSlots(controls);
 
   const entries: GraphEntry[] = [];
   const nodes: SortNode[] = [];
@@ -103,9 +108,17 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
   }
   const drivenBy = new Map<ControlId, number>();
   for (const [node, control] of driverOf) drivenBy.set(control.id, node);
+  const context = compileContext(skeleton, byId, children, resolve, attrs.index);
   const pending: PendingOp[] = [
-    ...collectOps('constraint', liveRecords(def.constraints, rigId, 'constraint', warnings), byId, skeleton, warnings),
-    ...collectOps('solver', liveRecords(def.solvers, rigId, 'solver', warnings), byId, skeleton, warnings),
+    ...collectOps(
+      'constraint',
+      liveRecords(def.constraints, rigId, 'constraint', warnings),
+      byId,
+      skeleton,
+      warnings,
+      context,
+    ),
+    ...collectOps('solver', liveRecords(def.solvers, rigId, 'solver', warnings), byId, skeleton, warnings, context),
   ];
   const opEntries: number[] = [];
   for (const op of pending) {
@@ -197,6 +210,8 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
         impl: entry.op.impl,
         writesControls: Int32Array.from(entry.op.writesControls.map((id) => slotOf.get(id) as number)),
         writesNodes: Int32Array.from(entry.op.writesNodes),
+        state: undefined,
+        skipped: false,
       });
     }
   }
@@ -208,11 +223,69 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
       parents,
       schedule: { kind: Uint8Array.from(kinds), index: Int32Array.from(indices) },
       customOps,
+      attrs,
+      // RigProgram.limbs (§5.4 rule 4) is built here from the scheduled ik2 ops by A1; none before.
+      limbs: [],
     },
     warnings,
   );
   checkRig(internals, warnings);
-  return createProgram(rigId, internals, warnings);
+  const program = createProgram(rigId, internals, warnings);
+
+  // §5.4 rule 1, last step: each op's optional compile with the finished program.
+  for (const op of customOps) {
+    if (op.impl.compile === undefined) continue;
+    try {
+      op.state = op.impl.compile(op.record, { ...context, program });
+    } catch (error) {
+      op.skipped = true;
+      warnings.push({
+        code: 'unsupported-op',
+        message: `${op.record.id} (${op.record.type}) failed to compile: ${String(error)}; it is skipped`,
+        ids: [op.record.id],
+      });
+    }
+  }
+  return program;
+}
+
+/**
+ * The compile-time view handed to op implementations (M2A-SPEC §4.3): known before scheduling, so `reads`/`writes`
+ * may already use attribute slots. Control children are ordered by `order`, then id; node children by index.
+ */
+function compileContext(
+  skeleton: SkeletonDesc,
+  controls: ReadonlyMap<ControlId, ControlRecord>,
+  children: ReadonlyMap<ControlId, readonly ControlId[]>,
+  resolveBone: (ref: BoneRef) => number,
+  attrIndex: ReadonlyMap<string, number>,
+): RigOpCompileContext {
+  const sortedChildren = new Map<ControlId, readonly ControlId[]>();
+  for (const [parent, list] of children) {
+    sortedChildren.set(
+      parent,
+      [...list].sort((a, b) => {
+        const oa = controls.get(a)?.order ?? '';
+        const ob = controls.get(b)?.order ?? '';
+        if (oa !== ob) return oa < ob ? -1 : 1;
+        return a < b ? -1 : a > b ? 1 : 0;
+      }),
+    );
+  }
+  const nodeChildren: number[][] = skeleton.nodes.map(() => []);
+  skeleton.nodes.forEach((node, index) => {
+    const parent = node.parent;
+    if (Number.isInteger(parent) && parent >= 0 && parent < index) nodeChildren[parent]?.push(index);
+  });
+  const none: readonly never[] = [];
+  return {
+    skeleton,
+    controls,
+    resolveBone,
+    attrSlot: (control: ControlId, name: string): number => attrIndex.get(`${control}/@${name}`) ?? -1,
+    controlChildren: (control: ControlId): readonly ControlId[] => sortedChildren.get(control) ?? none,
+    nodeChildren: (node: number): readonly number[] => nodeChildren[node] ?? none,
+  };
 }
 
 function entryId(entry: GraphEntry): string {
@@ -258,6 +331,7 @@ function collectOps(
   controls: ReadonlyMap<ControlId, ControlRecord>,
   skeleton: SkeletonDesc,
   warnings: RigWarning[],
+  context: RigOpCompileContext,
 ): PendingOp[] {
   const ops: PendingOp[] = [];
   for (const record of records) {
@@ -274,8 +348,8 @@ function collectOps(
     let reads: ReturnType<RigOpImpl['reads']>;
     let writes: ReturnType<RigOpImpl['writes']>;
     try {
-      reads = impl.reads(record);
-      writes = impl.writes(record);
+      reads = impl.reads(record, context);
+      writes = impl.writes(record, context);
     } catch (error) {
       warnings.push({
         code: 'unsupported-op',
