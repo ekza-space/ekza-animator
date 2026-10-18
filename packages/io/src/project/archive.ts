@@ -128,6 +128,7 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
       mime: asset.mime,
       size: asset.size,
       role: asset.ext === 'vrma' ? 'animation-source' : 'model',
+      provenance: null,
     };
     assets.set(asset.sha256 as AssetId, { record, bytes: asset.bytes });
   }

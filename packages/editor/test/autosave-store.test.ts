@@ -46,7 +46,15 @@ const INFO: Omit<AutosaveSlotInfo, 'id' | 'bytes'> = {
 };
 
 function asset(id: string, size: number): AssetRecord {
-  return { id: id as AssetId, name: `${id}.vrm`, ext: 'vrm', mime: 'model/gltf-binary', size, role: 'model' };
+  return {
+    id: id as AssetId,
+    name: `${id}.vrm`,
+    ext: 'vrm',
+    mime: 'model/gltf-binary',
+    size,
+    role: 'model',
+    provenance: null,
+  };
 }
 
 /** Bytes per asset id, counting the reads (assets must be read once per database). */

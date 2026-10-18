@@ -21,6 +21,14 @@ const FORMAT: Readonly<Record<IdKind, RegExp>> = {
   curve: /^crv_[0-9A-Za-z]{16}$/,
   key: /^k_[0-9A-Za-z]{12}$/,
   tx: /^tx_[0-9A-Za-z]{16}$/,
+  // M6a (M6A-SPEC §3 rule 3)
+  mesh: /^msh_[0-9A-Za-z]{16}$/,
+  group: /^grp_[0-9A-Za-z]{16}$/,
+  palette: /^pal_[0-9A-Za-z]{16}$/,
+  swatch: /^sw_[0-9A-Za-z]{16}$/,
+  imagePlane: /^img_[0-9A-Za-z]{16}$/,
+  skeleton: /^skl_[0-9A-Za-z]{16}$/,
+  joint: /^jnt_[0-9A-Za-z]{16}$/,
 };
 
 afterEach(() => setDefaultIdSource(null));

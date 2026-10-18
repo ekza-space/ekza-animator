@@ -4,6 +4,7 @@
 // model-import case also needs WP-4 (io parse, skeleton, format).
 import { type AnimCurve, curveEngine, EkzaError } from '@ekza-animator/anim-core';
 import {
+  type AssetId,
   type CameraId,
   type CameraRecord,
   createMemoryStore,
@@ -103,7 +104,10 @@ describe.skipIf(!READY)(
       const skeleton = humanoidSkeleton();
       return createKernelApp(
         { services: createFakeServices(), store, builtins: false },
-        { ...DEFAULT_DEPS, loadModel: (character) => ({ container: placeholderContainer(character.asset), skeleton }) },
+        {
+          ...DEFAULT_DEPS,
+          loadModel: (character) => ({ container: placeholderContainer(character.asset as AssetId), skeleton }),
+        },
       );
     }
 
@@ -233,6 +237,7 @@ describe.skipIf(!READY)(
             id: character,
             name: 'Seed-san',
             asset: asset.id,
+            source: { kind: 'asset', asset: asset.id },
             format: detectModelFormat(container.json),
             rig,
             placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },

@@ -24,4 +24,17 @@ export {
   type SyntheticFixture,
 } from './fixtures';
 export { createTestNetwork, TestNetwork } from './network';
+// M6a (M6A-SPEC §4.2): complete records of the seven modeling tables.
+export {
+  makeTestGroup,
+  makeTestImageAsset,
+  makeTestImagePlane,
+  makeTestJoint,
+  makeTestMesh,
+  makeTestPalette,
+  makeTestSkeleton,
+  makeTestSwatch,
+  testHash,
+  withSchemaV3,
+} from './records-v3';
 export { checkSteps, type PropertyOptions, Rng } from './random';

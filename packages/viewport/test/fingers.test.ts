@@ -64,13 +64,22 @@ function documentFor(skeleton: SkeletonDesc): DocSnapshot {
         },
       },
       assets: {
-        [asset]: { id: asset, name: 'model.vrm', ext: 'vrm', mime: 'model/gltf-binary', size: 0, role: 'model' },
+        [asset]: {
+          id: asset,
+          name: 'model.vrm',
+          ext: 'vrm',
+          mime: 'model/gltf-binary',
+          size: 0,
+          role: 'model',
+          provenance: null,
+        },
       },
       characters: {
         [character]: {
           id: character,
           name: 'Model',
           asset,
+          source: { kind: 'asset', asset },
           format: skeleton.format,
           rig: rigId,
           placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
@@ -87,6 +96,14 @@ function documentFor(skeleton: SkeletonDesc): DocSnapshot {
       layers: {},
       curves: {},
       keys: {},
+      // M6a schema 3 tables (empty)
+      meshes: {},
+      groups: {},
+      palettes: {},
+      swatches: {},
+      imagePlanes: {},
+      skeletons: {},
+      joints: {},
     },
   };
 }

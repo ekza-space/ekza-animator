@@ -6,7 +6,7 @@ import {
   SCHEMA_VERSION,
   serializeSnapshot,
 } from '@ekza-animator/doc';
-import { readFixture, readSyntheticFixture } from '@ekza-animator/doc/testing';
+import { readFixture, readSyntheticFixture, withSchemaV3 } from '@ekza-animator/doc/testing';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { canonicalJson } from '../src/gltf/json';
@@ -22,11 +22,9 @@ import {
 } from '../src/project/archive';
 
 // The fixture is an M1 (schema 1) document; the tests below use it as a current snapshot (M2A-SPEC §3 rule 8: the
-// schema 1 → 2 migration is the identity on records).
-const waveDoc = (): DocSnapshot => ({
-  ...(readSyntheticFixture('wave-doc.json') as DocSnapshot),
-  schemaVersion: SCHEMA_VERSION,
-});
+// schema 1 → 2 migration is the identity on records; M6A-SPEC §3 rule 9 literal update: the schema 3 form adds
+// `source`, `provenance: null` and the empty M6a tables, `withSchemaV3`).
+const waveDoc = (): DocSnapshot => withSchemaV3(readSyntheticFixture('wave-doc.json') as DocSnapshot);
 
 function polybotAsset(): { readonly id: AssetId; readonly record: AssetRecord; readonly bytes: Uint8Array } {
   const bytes = readFixture('polybot.vrm');
@@ -34,7 +32,15 @@ function polybotAsset(): { readonly id: AssetId; readonly record: AssetRecord; r
   return {
     id,
     bytes,
-    record: { id, name: 'polybot.vrm', ext: 'vrm', mime: 'model/gltf-binary', size: bytes.byteLength, role: 'model' },
+    record: {
+      id,
+      name: 'polybot.vrm',
+      ext: 'vrm',
+      mime: 'model/gltf-binary',
+      size: bytes.byteLength,
+      role: 'model',
+      provenance: null,
+    },
   };
 }
 

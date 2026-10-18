@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.2, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.2 with the M6A-SPEC §4.2 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 declare const __brand: unique symbol;
 export type Brand<T, B extends string> = T & { readonly [__brand]: B };
@@ -18,11 +18,22 @@ export type KeyId = Brand<string, 'KeyId'>;               // 'k_' + 12
 export type UserId = Brand<string, 'UserId'>;             // 'local' in the MVP
 export type ProjectId = 'project';
 
+// ---------- M6a (M6A-SPEC §4.2) ----------
+export type MeshId = Brand<string, 'MeshId'>;               // 'msh_' + 16 base62
+export type GroupId = Brand<string, 'GroupId'>;             // 'grp_' + 16
+export type PaletteId = Brand<string, 'PaletteId'>;         // 'pal_' + 16
+export type SwatchId = Brand<string, 'SwatchId'>;           // 'sw_' + 16
+export type ImagePlaneId = Brand<string, 'ImagePlaneId'>;   // 'img_' + 16
+export type SkeletonId = Brand<string, 'SkeletonId'>;       // 'skl_' + 16 (M6b creates them)
+/** Template joints: `${SkeletonId}:${HumanBoneName}` (deterministic); user joints 'jnt_' + 16 (M6b). */
+export type JointId = Brand<string, 'JointId'>;
+
 /** ID type per kind, for the typed `newId(kind)` (WP-0). */
 export interface IdOfKind {
   character: CharacterId; rig: RigId; constraint: ConstraintId; solver: SolverId; camera: CameraId; clip: ClipId;
   layer: LayerId; curve: CurveId; key: KeyId; tx: string;
-}
+  mesh: MeshId; group: GroupId; palette: PaletteId; swatch: SwatchId;
+  imagePlane: ImagePlaneId; skeleton: SkeletonId; joint: JointId }                       // changed (additive, M6a)
 export type IdKind = keyof IdOfKind;
 /** Randomness source; tests and `?e2e=1` inject a seeded one. */
 export interface IdSource { randomBytes(n: number): Uint8Array }

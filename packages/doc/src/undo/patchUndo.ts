@@ -9,8 +9,13 @@
 // - Undo/redo never hard-deletes a record that a record outside the step still references (another writer keyed into
 //   a curve this entry created, an import added clips to its character): that delete is skipped as
 //   `changed-by-other`, so undo cannot orphan someone else's records (research 06 R4, H2).
+// - M6a eviction (M6A-SPEC §4.2): `entries()` exposes both stacks; entries leaving for good (the limit, `clear`, a new
+//   transaction clearing redo, `evictOldest`, `clearRedo`, a document load) are reported to `onEvict` listeners
+//   synchronously after the change, in eviction order. Coalescing replaces the top entry by a merged one with the same
+//   txId (and drops it when the edits cancel out): that is not an eviction, the entry's records are re-read from
+//   `entries()` by whoever counts references (B7).
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { AnyChange, TxMeta, UndoEntry, UndoManager, UndoResult, UndoSkipReason } from '../store';
+import type { AnyChange, TxMeta, UndoEntry, UndoEvictReason, UndoManager, UndoResult, UndoSkipReason } from '../store';
 import { deepEqual } from '../store/diff';
 import type { PlannedWrites } from '../store/references';
 import { makeChange, type Row, type RowChange, rowKey } from '../store/rows';
@@ -49,6 +54,8 @@ interface StackItem {
 }
 
 type Skip = { readonly change: AnyChange; readonly fields: readonly string[] | null; readonly reason: UndoSkipReason };
+type EvictListener = (entries: readonly UndoEntry[], reason: UndoEvictReason) => void;
+const NO_ENTRIES: readonly UndoEntry[] = Object.freeze([]);
 
 export const DEFAULT_UNDO_LIMIT = 500;
 
@@ -57,6 +64,9 @@ export class PatchUndoManager implements UndoManager {
   private readonly undoStack: StackItem[] = [];
   private readonly redoStack: StackItem[] = [];
   private readonly listeners = new Set<() => void>();
+  private readonly evictListeners = new Set<EvictListener>();
+  /** `entries()` views, rebuilt on the first read after a stack change. */
+  private entriesCache: { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] } | null = null;
   /** False after stopCapturing/breakCoalescing: the next record starts a new entry. */
   private capturing = false;
 
@@ -77,6 +87,7 @@ export class PatchUndoManager implements UndoManager {
       this.capturing = false;
       return;
     }
+    let limited: readonly UndoEntry[] = NO_ENTRIES;
     const now = this.host.now();
     const top = this.undoStack.at(-1);
     const coalesceMs = meta.coalesceMs ?? 0;
@@ -89,6 +100,7 @@ export class PatchUndoManager implements UndoManager {
       now - top.lastAt <= coalesceMs;
     if (coalesce) {
       const merged = mergeChanges(top.entry.changes as readonly RowChange[], changes as readonly RowChange[]);
+      this.entriesCache = null;
       if (merged.length === 0) {
         // Edits that cancel out (a nudge and its reverse) leave nothing to undo.
         this.undoStack.pop();
@@ -108,10 +120,15 @@ export class PatchUndoManager implements UndoManager {
         meta,
       );
       this.undoStack.push({ entry, coalesceKey: meta.coalesceKey, lastAt: now });
-      if (this.undoStack.length > this.limit) this.undoStack.splice(0, this.undoStack.length - this.limit);
+      if (this.undoStack.length > this.limit) {
+        limited = this.undoStack.splice(0, this.undoStack.length - this.limit).map((item) => item.entry);
+      }
       this.capturing = true;
     }
-    this.redoStack.length = 0;
+    const redone = this.takeRedo();
+    this.entriesCache = null;
+    this.evicted(limited, 'limit');
+    this.evicted(redone, 'redo-cleared');
     this.notify();
   }
 
@@ -149,11 +166,19 @@ export class PatchUndoManager implements UndoManager {
   }
 
   clear(): void {
-    const had = this.undoStack.length > 0 || this.redoStack.length > 0;
+    this.reset('clear');
+  }
+
+  /** Empties both stacks; `load` is the store's document load (reported as `onEvict(…, 'load')`). */
+  reset(reason: 'clear' | 'load'): void {
+    const undone = this.undoStack.map((item) => item.entry);
+    const redone = this.takeRedo();
     this.undoStack.length = 0;
-    this.redoStack.length = 0;
     this.capturing = false;
-    if (had) this.notify();
+    if (undone.length === 0 && redone.length === 0) return;
+    this.entriesCache = null;
+    this.evicted([...undone, ...redone], reason);
+    this.notify();
   }
 
   subscribe(listener: () => void): () => void {
@@ -161,6 +186,56 @@ export class PatchUndoManager implements UndoManager {
     return () => {
       this.listeners.delete(listener);
     };
+  }
+
+  entries(): { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] } {
+    this.entriesCache ??= Object.freeze({
+      undo: Object.freeze(this.undoStack.map((item) => item.entry)),
+      redo: Object.freeze(this.redoStack.map((item) => item.entry).reverse()),
+    });
+    return this.entriesCache;
+  }
+
+  onEvict(listener: EvictListener): () => void {
+    this.evictListeners.add(listener);
+    return () => {
+      this.evictListeners.delete(listener);
+    };
+  }
+
+  evictOldest(n: number): void {
+    if (!Number.isSafeInteger(n) || n < 0) {
+      throw new EkzaError('unsupported', `evictOldest: n must be an integer ≥ 0, got ${n}`);
+    }
+    if (n === 0 || this.undoStack.length === 0) return;
+    const evicted = this.undoStack.splice(0, Math.min(n, this.undoStack.length)).map((item) => item.entry);
+    this.entriesCache = null;
+    this.evicted(evicted, 'budget');
+    this.notify();
+  }
+
+  clearRedo(): void {
+    // A selection-only step sits between two transactions: they must not coalesce across it.
+    this.capturing = false;
+    const redone = this.takeRedo();
+    if (redone.length === 0) return;
+    this.entriesCache = null;
+    this.evicted(redone, 'redo-cleared');
+    this.notify();
+  }
+
+  /** Empties the redo stack; its entries from the next redo to the last. */
+  private takeRedo(): readonly UndoEntry[] {
+    if (this.redoStack.length === 0) return NO_ENTRIES;
+    const redone = this.redoStack.map((item) => item.entry).reverse();
+    this.redoStack.length = 0;
+    return redone;
+  }
+
+  private evicted(entries: readonly UndoEntry[], reason: UndoEvictReason): void {
+    if (entries.length === 0) return;
+    const frozen = Object.freeze([...entries]);
+    for (const listener of Array.from(this.evictListeners)) listener(frozen, reason);
   }
 
   private step(direction: 'undo' | 'redo'): UndoResult | null {
@@ -201,6 +276,7 @@ export class PatchUndoManager implements UndoManager {
     // Stacks first, then the batch: listeners of the undo/redo batch see the updated stacks.
     from.pop();
     to.push(item);
+    this.entriesCache = null;
     this.capturing = false;
     if (writes.length > 0) this.host.commit(direction, item.entry.label, writes);
     this.notify();

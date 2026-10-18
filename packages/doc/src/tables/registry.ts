@@ -15,16 +15,36 @@ import {
   type TableName,
 } from '../records';
 import { validateBuiltin } from '../records/validate';
-import type { RigId } from '../ids';
+import type { RigId, SkeletonId } from '../ids';
 
 const BUILTIN_SET: ReadonlySet<string> = new Set(BUILTIN_TABLES);
 /** Tables whose records reference only their rig: their partition is the rig's character partition. */
 const RIG_SCOPED: ReadonlySet<string> = new Set(['controls', 'constraints', 'solvers']);
+/**
+ * Tables whose partition is resolved through a `PartitionLookup` from one field of the record (M6a: joints reference
+ * only their skeleton, whose partition is `char:<the skeleton's character>`).
+ */
+const SCOPE_FIELD: Readonly<Record<string, string>> = {
+  controls: 'rig',
+  constraints: 'rig',
+  solvers: 'rig',
+  joints: 'skeleton',
+};
 /** Version of every built-in table in this build (SCHEMA_VERSION 1 baseline: no migrations yet). */
 export const BUILTIN_TABLE_VERSION = 1;
 
 function field(record: { readonly id: string }, name: string): string {
   return String((record as Readonly<Record<string, unknown>>)[name]);
+}
+
+/** M6a `MeshOwner`: `{character}` → `char:<id>`, anything else (`{scene: true}`, damaged) → `scene`. */
+function ownerPartition(record: { readonly id: string }): Partition {
+  const owner = (record as Readonly<Record<string, unknown>>)['owner'];
+  if (typeof owner === 'object' && owner !== null) {
+    const character = (owner as Readonly<Record<string, unknown>>)['character'];
+    if (typeof character === 'string' && character.length > 0) return `char:${character}`;
+  }
+  return 'scene';
 }
 
 function builtinPartition(
@@ -37,10 +57,27 @@ function builtinPartition(
     case 'assets':
     case 'characters':
     case 'cameras':
+    case 'palettes':
+    case 'swatches':
+    case 'imagePlanes':
       return 'scene';
     case 'rigs':
     case 'clips':
+    case 'skeletons':
       return `char:${field(record, 'character')}`;
+    case 'meshes':
+    case 'groups':
+      return ownerPartition(record);
+    case 'joints': {
+      if (lookup === undefined) {
+        throw new EkzaError(
+          'unsupported',
+          'partitionOf(joints): the partition of a joint needs a skeleton lookup (PartitionLookup)',
+        );
+      }
+      const character = lookup.skeletonCharacter(field(record, 'skeleton') as SkeletonId);
+      return character === undefined ? 'scene' : `char:${character}`;
+    }
     case 'controls':
     case 'constraints':
     case 'solvers': {
@@ -112,15 +149,16 @@ export function getTableDef(name: string): TableDef | undefined {
   return BUILTIN_DEFS.get(name) ?? registered.get(name);
 }
 
-/** True for the twelve built-in tables. */
+/** True for the built-in tables (twelve until M2a, nineteen with the M6a tables). */
 export function isBuiltinTable(name: string): name is BuiltinTableName {
   return BUILTIN_SET.has(name);
 }
 
 /**
- * Partition of a record (§4.11.21): `scene` ← project, assets, characters, cameras and opaque tables;
- * `char:<characterId>` ← rigs, clips and the rig-scoped controls, constraints, solvers (resolved through `lookup`;
- * required for those three); `clip:<clipId>` ← layers, curves, keys. Extension tables use their `TableDef`.
+ * Partition of a record (§4.11.21): `scene` ← project, assets, characters, cameras, palettes, swatches, image planes
+ * and opaque tables; `char:<characterId>` ← rigs, clips, skeletons and the rig-scoped controls, constraints, solvers
+ * and skeleton-scoped joints (resolved through `lookup`; required for those four); meshes and groups ← their owner
+ * (`char:<id>` or `scene`); `clip:<clipId>` ← layers, curves, keys. Extension tables use their `TableDef`.
  */
 export function partitionOf<T extends TableName>(table: T, record: RecordOf<T>, lookup?: PartitionLookup): Partition {
   return partitionOfAny(table, record, lookup);
@@ -142,6 +180,14 @@ export function ownedPartition(table: string, id: string): Partition | null {
 /** True when the table's records reference only their rig (see `PartitionLookup`). */
 export function isRigScoped(table: string): boolean {
   return RIG_SCOPED.has(table);
+}
+
+/**
+ * The field through which a lookup-scoped record's partition is resolved ('rig' for controls, constraints and
+ * solvers; 'skeleton' for joints), or null for tables whose records carry their partition themselves.
+ */
+export function scopeFieldOf(table: string): string | null {
+  return SCOPE_FIELD[table] ?? null;
 }
 
 /** Problems of a record for its table ([] = valid). Opaque tables only require an object with a string `id`. */
