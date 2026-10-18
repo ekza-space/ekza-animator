@@ -210,7 +210,8 @@ RigProgram.evaluate(channels, out):                        (rig, compiled schedu
    for op in schedule:
      controlWorld  W_c = W_parent · O_c · T(t)·R(r; order)·S(s)
      constraint    (slot; MVP: disabled)                   → writes W_space(c) or W_b
-     solver        (slot; MVP: disabled; V1 ik2)           → writes chain W_b
+     solver        (slot; M2a: ik2 limb IK)                → writes the limb's subtree W_b and the controls
+                                                             below its FK chain; nothing at ikFk 0
      bindBone      rotate: q_b = q(W_c)·q(K_cb), rest local translation under the current parent
                    translateRotate / full: W_b = W_c · K_cb
      boneLocal     L_b = W_parentBone⁻¹ · W_b   (uncontrolled bones: W_b = W_parentBone · L_b⁰)
@@ -241,15 +242,20 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
 ([ADR 0004](docs/adr/0004-rig-model.md), R07)
 
 - **Inputs**: `SkeletonDesc` (pure data from glTF JSON and BIN: nodes, parents, rest TRS, skin-joint flags, VRM
-  humanoid map, VRM version, `facing`, spring-bone joints, node constraints, per-bone mesh radii, height,
-  fingerprint) and a `RigDefinition` assembled from document records.
+  humanoid map, VRM version, `facing`, spring-bone joints, node constraints, per-bone mesh radii, per-bone
+  horizontal mesh support functions (M2a: the foot-roll pivots), height, fingerprint) and a `RigDefinition`
+  assembled from document records.
 - **Compile** (on structural change only): resolve bone references (humanoid name first, then name + parent name;
   never glTF indices in the document), derive `O_c`, `K_cb`, rest lengths, mirror pairs; build ops with declared
   reads/writes; Kahn sort with `(opKindPriority, id)` tie-break; repair dangling refs and cycles with warnings.
 - **Op registry**: `controlWorld`, `bindBone`, `boneLocal` in the MVP. `constraint` (`parent | point | orient |
   aim`) and `solver` (`ik2 | footRoll | chain`) are schema-defined slots whose implementations register in V1/V2
   (`registerRigOp(kind, impl)`), without a schema change. The `ik2` math (`solveTwoBoneIk`, R07 §9.2) already
-  ships in M1 for *Plant Feet*.
+  ships in M1 for *Plant Feet*. M2a registers `solver:ik2` (`registerBuiltinRigOps`; M2A-SPEC §5.3): two-bone limb
+  IK with pole, twist, soft IK and (legs) foot roll in the foot frame, blended with FK by the IK control's `@ikFk`
+  attribute in chain-relative space, rest-exact, allocation-free; at ikFk 0 it writes nothing, so bone locals stay
+  bit-identical to an FK-only rig. Matching (FK ↔ IK), import to IK and Plant Feet on IK legs build on the inverse
+  path below ([A1 notes](docs/wp-notes/m2a-rig-ik.md)).
 - **Humanoid output**: the kernel writes raw bone locals itself, so the viewport loads VRMs with
   `autoUpdateHumanBones: false` and three-vrm never double-applies. Parity is tested against
   `VRMHumanoidRig.update()` fed with `flipYaw(N_b)` for VRM 0.x and `N_b` for VRM 1.0.
