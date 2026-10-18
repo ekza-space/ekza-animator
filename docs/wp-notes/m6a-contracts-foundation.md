@@ -131,7 +131,8 @@ keyboard `RunContext.source` (editor input test), `EditorParams.ws` (editor test
 ## Gates (local, real Chrome; port 3160)
 
 Fix round 1 (after the commits of this round): `format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`,
-`check:licenses` green; `test` green with `turbo run test test:tooling --force` (15 tasks, 0 cached: anim-core 671,
+`check:licenses` green; `test` green (all 15 tasks forced once in the round, the 6 affected tasks again after the last
+code commit; anim-core 671,
 doc 231, doc-yjs 77, mesh-core 134, mesh-view 2, io 170, rig 202, editor-core 793, curve-editor 207 + 3 skipped,
 viewport 100 + 1 skipped, editor 359 + 1 skipped, headless-tests 173, ui 87, web 10, tooling 14); `build` and
 `check:size` green (864,421 B); `m6a-00-foundation.spec.ts` 3 passed + the declared `b9` fixme; the full e2e suite
