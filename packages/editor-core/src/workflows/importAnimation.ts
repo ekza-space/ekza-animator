@@ -161,8 +161,8 @@ export async function prepareVrmaImport(app: EditorApp, input: ImportInput): Pro
   warnings.push(...imported.warnings);
 
   const title = data.name !== '' ? data.name : baseName(input.fileName);
-  // M2a §5.8: limbs kept FK for this clip say so.
-  warnings.push(...importLimbWarnings(title, imported));
+  // M2a §5.8: limbs kept FK for this clip say so, first (the import toast shows the first three warnings).
+  warnings.unshift(...importLimbWarnings(title, imported));
   const asset = await storeSource(app, input, 'vrma');
   const clip = planImported(app, input, asset, title, vrmaProvenance(container, data.name, title), imported);
   await app.store.open(`clip:${clip.clip.id}`);
@@ -238,7 +238,8 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
       ik: 'auto',
     });
     warnings.push(...imported.warnings.map((warning) => `${raw.name}: ${warning}`));
-    warnings.push(...importLimbWarnings(raw.name, imported));
+    // M2a §5.8: limbs kept FK say so, first (the import toast shows the first three warnings).
+    warnings.unshift(...importLimbWarnings(raw.name, imported));
     const names = [raw.name, ...raw.channels.map((channel) => source.nodes[channel.node]?.name ?? '')];
     const name = uniqueName(sanitizeClipName(raw.name), taken);
     taken.push(name);

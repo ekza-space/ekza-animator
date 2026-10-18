@@ -236,7 +236,8 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
       ik: 'auto',
     });
     warnings.push(...imported.warnings.map((warning) => `${raw.name}: ${warning}`));
-    warnings.push(...importLimbWarnings(raw.name, imported));
+    // M2a §5.8: limbs kept FK say so, first (the import toast shows the first three warnings).
+    warnings.unshift(...importLimbWarnings(raw.name, imported));
     const nodeNames = raw.channels.map((channel) => skeleton.nodes[channel.node]?.name ?? '');
     const name = uniqueName(sanitizeClipName(raw.name), takenNames);
     takenNames.push(name);

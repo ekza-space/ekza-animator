@@ -28,11 +28,8 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   expect(await call(page, 'dopeSheet')).toBeNull();
   expect(await call(page, 'screenOfTween', 'status', 0)).toBeNull();
 
+  // A2's operators (rig IK, pick-walk, key target) left this list when they landed (m2a-18, m2a-19, m2a-25).
   for (const [op, args] of [
-    ['rig.addLimbIk', undefined],
-    ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
-    ['select.pickWalk', { direction: 'up' }],
-    ['key.setTarget', { target: 'bodyPart' }],
     ['key.toggleRipple', undefined],
     ['key.tween', { mode: 'tween', amount: 50 }],
     ['key.convert', { to: 'breakdown' }],
