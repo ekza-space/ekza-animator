@@ -85,7 +85,8 @@ describe('time slider canvas', () => {
     expect(canvas.width).toBe(Math.round(rect.width * devicePixelRatio));
     expect(canvas.height).toBe(Math.round(rect.height * devicePixelRatio));
     expect(v.app.operators.get('time.selectBand')).toBeDefined();
-    expect(v.app.menus.list()).toHaveLength(10);
+    // 10 M1 items + Ripple Edit, Insert Frame, Remove Frame, Delete Time (M2a; literal update, M2A-SPEC §3 rule 8).
+    expect(v.app.menus.list()).toHaveLength(14);
 
     const { slider } = sliderOf(v);
     const x = rect.left + slider.frameToX(15);

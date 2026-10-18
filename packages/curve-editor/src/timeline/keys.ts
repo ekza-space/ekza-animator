@@ -28,36 +28,47 @@ export function targetCurves(app: EditorApp, ctx: TimelineContext, targets: Read
     .filter((curve) => curve.layer === base.id && targets.has(curve.control));
 }
 
-/** Distinct key times (ascending) with a flag per time: 1 when a key at that time is in `Selection.keys`. */
+/**
+ * Distinct key times (ascending) with flags per time: `selected` 1 when a key at that time is in `Selection.keys`;
+ * `breakdown` 1 when every key at that time is a breakdown (M2A-SPEC §5.9: a tick with both kinds draws as a key).
+ */
 export interface TickSet {
   readonly times: Float64Array;
   readonly selected: Uint8Array;
+  readonly breakdown: Uint8Array;
 }
 
-export const EMPTY_TICKS: TickSet = { times: new Float64Array(0), selected: new Uint8Array(0) };
+export const EMPTY_TICKS: TickSet = {
+  times: new Float64Array(0),
+  selected: new Uint8Array(0),
+  breakdown: new Uint8Array(0),
+};
 
 export function collectTicks(app: EditorApp, ctx: TimelineContext | null): TickSet {
   if (ctx === null) return EMPTY_TICKS;
   const selection = app.session.getState().selection.keys;
-  const keys: { readonly t: Frame; readonly selected: boolean }[] = [];
+  const keys: { readonly t: Frame; readonly selected: boolean; readonly breakdown: boolean }[] = [];
   for (const curve of targetCurves(app, ctx, timelineTargets(app, ctx))) {
     for (const key of app.store.query.keysOfCurve(curve.id)) {
-      keys.push({ t: key.t, selected: selection.get(key.id)?.key === true });
+      keys.push({ t: key.t, selected: selection.get(key.id)?.key === true, breakdown: key.breakdown === true });
     }
   }
   keys.sort((a, b) => a.t - b.t);
   const times: number[] = [];
   const flags: number[] = [];
+  const breakdowns: number[] = [];
   for (const key of keys) {
     const last = times.length - 1;
     if (last >= 0 && key.t - times[last]! < TICK_EPSILON) {
       if (key.selected) flags[last] = 1;
+      if (!key.breakdown) breakdowns[last] = 0;
       continue;
     }
     times.push(key.t);
     flags.push(key.selected ? 1 : 0);
+    breakdowns.push(key.breakdown ? 1 : 0);
   }
-  return { times: Float64Array.from(times), selected: Uint8Array.from(flags) };
+  return { times: Float64Array.from(times), selected: Uint8Array.from(flags), breakdown: Uint8Array.from(breakdowns) };
 }
 
 /** Index of the tick nearest to `frame`, or -1 when there are no ticks. */

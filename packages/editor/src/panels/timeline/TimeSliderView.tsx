@@ -4,9 +4,26 @@
 import { TimeSliderController } from '@ekza-animator/curve-editor';
 import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-animator/editor-core';
 import { addAfterEffect } from '@react-three/fiber';
-import { type JSX, type PointerEvent as ReactPointerEvent, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type JSX,
+  type PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
-import { attachTimeSlider, focusTimeSlider } from './host';
+import { useTestProbe } from '../../hooks';
+import type { TimelineProbe } from '../../shell/types';
+import {
+  attachTimeSlider,
+  focusTimeSlider,
+  screenOfTimelineBand,
+  screenOfTimelineFrame,
+  screenOfTimelineTick,
+  timelineTicksOf,
+} from './host';
 import { formatFrameValue } from './input';
 import { activeClipRange, currentFrameOf, subscribeToFrame } from './state';
 import { type MenuEntry, TimelineMenu } from './TimelineMenu';
@@ -64,6 +81,18 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
   const sliderRef = useRef<TimeSliderController | null>(null);
   const [menu, setMenu] = useState<OpenMenu | null>(null);
   const closeMenu = useCallback(() => setMenu(null), []);
+  // The time slider's slice of the e2e test API with the M2a members (M2A-SPEC §4.8): it stacks over the shell's
+  // M1 registration while a slider is mounted.
+  const probe = useMemo<TimelineProbe>(
+    () => ({
+      screenOfFrame: (frame) => screenOfTimelineFrame(app, frame),
+      screenOfTick: (frame) => screenOfTimelineTick(app, frame),
+      timelineTicks: () => timelineTicksOf(app),
+      screenOfBand: (part) => screenOfTimelineBand(app, part),
+    }),
+    [app],
+  );
+  useTestProbe('timeline', probe);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -110,7 +139,8 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
 
   const onPointerDown = (e: ReactPointerEvent<HTMLCanvasElement>): void => {
     const slider = sliderRef.current;
-    if (slider === null || e.button !== 0) return;
+    // LMB scrubs and edits bands; MMB scrubs carrying the pose (M2A-SPEC §5.9).
+    if (slider === null || (e.button !== 0 && e.button !== 1)) return;
     e.preventDefault();
     e.currentTarget.focus({ preventScroll: true });
     try {
@@ -120,9 +150,9 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
     }
     focusTimeSlider(app, slider);
     const event = toolEvent(app, e);
-    const hit = event.shift ? 'ruler' : slider.hitTest(event.x, event.y).kind;
+    const hit = event.shift || e.button === 1 ? 'ruler' : slider.hitTest(event.x, event.y).kind;
     slider.pointerDown(event);
-    e.currentTarget.style.cursor = hit === 'band-middle' ? 'grabbing' : (CURSORS[hit] ?? '');
+    e.currentTarget.style.cursor = hit === 'band-middle' ? (event.mod ? 'copy' : 'grabbing') : (CURSORS[hit] ?? '');
   };
 
   const onPointerMove = (e: ReactPointerEvent<HTMLCanvasElement>): void => {
@@ -179,7 +209,15 @@ export function TimeSliderView(props: { readonly app: EditorApp }): JSX.Element 
         onKeyDown={(e) => {
           if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
           e.preventDefault();
-          void app.run('time.step', { delta: e.key === 'ArrowLeft' ? -1 : 1 }, { panel: PANEL.timeline });
+          const delta = e.key === 'ArrowLeft' ? -1 : 1;
+          // M2A-SPEC §5.9, §6: with keys selected the arrows nudge them (ripple when on); else they step the time
+          // (the slider's ARIA behaviour).
+          const nudge = { dFrames: delta, dValue: 0 };
+          if (app.operators.poll('graph.keys.move', { panel: PANEL.timeline }, nudge) === true) {
+            void app.run('graph.keys.move', nudge, { panel: PANEL.timeline });
+            return;
+          }
+          void app.run('time.step', { delta }, { panel: PANEL.timeline });
         }}
       />
       {menu === null

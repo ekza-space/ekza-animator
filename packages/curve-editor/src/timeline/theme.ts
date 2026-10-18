@@ -9,6 +9,8 @@ export interface TimelineTheme {
   readonly label: string;
   readonly keyTick: string;
   readonly keySelected: string;
+  /** M2a §5.9: breakdown ticks. */
+  readonly keyBreakdown: string;
   readonly band: string;
   readonly bandEdge: string;
   readonly playhead: string;
@@ -27,6 +29,7 @@ const TOKENS: Readonly<Record<keyof TimelineTheme, readonly [string, string]>> =
   label: ['--text-3', '#969ba6'],
   keyTick: ['--key-tick', '#e5484d'],
   keySelected: ['--sel', '#ffffff'],
+  keyBreakdown: ['--key-breakdown', '#3fcf8e'],
   band: ['--range-select', 'rgba(229,72,77,0.22)'],
   bandEdge: ['--range-select-edge', '#e5484d'],
   playhead: ['--playhead', '#ff8a3d'],
