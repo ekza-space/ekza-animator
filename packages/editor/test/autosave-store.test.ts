@@ -136,6 +136,45 @@ describe('IndexedDB autosave store', () => {
     expect(source.reads.sort()).toEqual(['a', 'b']);
   });
 
+  it('a shared asset collected while a write reads its other assets is written again, never left missing', async () => {
+    const ns = namespace();
+    const locks = fakeLocks();
+    const bytes = { a: new Uint8Array([1, 2, 3, 4]), b: new Uint8Array([9, 9]) };
+    const page1 = createIndexedDbAutosaveStore({ namespace: ns, locks });
+    const page2 = createIndexedDbAutosaveStore({ namespace: ns, locks });
+    if (page1 === null || page2 === null) throw new Error('IndexedDB is unavailable');
+    const one = await page1.open();
+    const two = await page2.open();
+    // page 1 stored model 'a'
+    await page1.write(one, { snapshotJson: '{"n":1}', assets: [asset('a', 4)], info: INFO }, assetSource(bytes).read);
+    // page 2 references 'a' (stored, so not read) and 'b' (new): while page 2 reads 'b', page 1's slot is discarded
+    // and 'a', referenced by no slot yet, is collected
+    const reads: string[] = [];
+    let discarded = false;
+    const read = async (id: AssetId): Promise<Uint8Array> => {
+      reads.push(id);
+      if (!discarded) {
+        discarded = true;
+        locks.release(`${LOCK_PREFIX}${one}`);
+        await page1.remove(one);
+      }
+      const data = bytes[id as 'a' | 'b'];
+      if (data === undefined) throw new Error(`no asset ${id}`);
+      return data;
+    };
+    const written = await page2.write(
+      two,
+      { snapshotJson: '{"n":2}', assets: [asset('a', 4), asset('b', 2)], info: INFO },
+      read,
+    );
+    // the first attempt found 'a' gone inside its transaction and started over, reading 'a' this time
+    expect(reads).toEqual(['b', 'a']);
+    expect(written.bytes).toBe(7 + 4 + 2);
+    const slot = await page2.read(two);
+    expect([...(slot?.assets.keys() ?? [])].sort()).toEqual(['a', 'b']);
+    expect(Array.from(slot?.assets.get('a' as AssetId)?.bytes ?? [])).toEqual([1, 2, 3, 4]);
+  });
+
   it('lists the slots of closed pages (Web Locks) with their info, newest first, never its own or live ones', async () => {
     const ns = namespace();
     const locks = fakeLocks();

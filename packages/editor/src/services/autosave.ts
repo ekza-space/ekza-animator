@@ -3,7 +3,9 @@
 // references) and `assets` (model bytes by SHA-256, shared by every slot and written once). A slot belongs to one page
 // load: a Web Lock `ekza-animator:autosave:<slot>` held until the page unloads marks it live; without Web Locks the
 // page writes a heartbeat every 5 s and a slot whose heartbeat is older than 20 s is an orphan. Every IndexedDB and
-// Web Locks call is feature-detected; failures reject, and the autosave controller turns itself off.
+// Web Locks call is feature-detected; failures reject, and the autosave controller turns itself off. A write checks,
+// inside its transaction, that every stored asset it relies on is still there (another page may have collected it
+// meanwhile) and starts over when one is gone.
 import type { AssetId, AssetRecord } from '@ekza-animator/doc';
 import type { AutosaveSlotInfo, AutosaveStore } from '@ekza-animator/editor-core';
 
@@ -12,6 +14,9 @@ export const AUTOSAVE_DB_VERSION = 1;
 export const LOCK_PREFIX = 'ekza-animator:autosave:';
 export const HEARTBEAT_MS = 5000;
 export const HEARTBEAT_STALE_MS = 20_000;
+
+/** A write starts over when an asset it relies on was collected meanwhile; it gives up after this many tries. */
+const MAX_WRITE_ATTEMPTS = 3;
 
 const SLOTS = 'slots';
 const ASSETS = 'assets';
@@ -218,38 +223,65 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
 
     async write(slot, data, readAsset): Promise<{ readonly bytes: number }> {
       const handle = await db();
-      const known = new Set(
-        (await promised(handle.transaction(ASSETS, 'readonly').objectStore(ASSETS).getAllKeys())).filter(
-          (key): key is string => typeof key === 'string',
-        ),
-      );
-      // Bytes of assets this database has not seen yet (read outside the transaction: it must not wait on them).
-      const fresh: AssetRow[] = [];
-      for (const record of data.assets) {
-        if (known.has(record.id) || fresh.some((row) => row.id === record.id)) continue;
-        const bytes = await readAsset(record.id);
-        // Structured cloning a view stores its whole buffer: keep exactly the asset's bytes.
-        const own = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
-        fresh.push({ id: record.id, record, bytes: own });
+      /** Bytes read so far (a write that starts over does not read them again). */
+      const read = new Map<AssetId, Uint8Array>();
+      for (let attempt = 1; ; attempt++) {
+        const known = new Set(
+          (await promised(handle.transaction(ASSETS, 'readonly').objectStore(ASSETS).getAllKeys())).filter(
+            (key): key is string => typeof key === 'string',
+          ),
+        );
+        // Bytes of assets this database has not seen yet (read outside the transaction: it must not wait on them).
+        const fresh = new Map<AssetId, AssetRow>();
+        for (const record of data.assets) {
+          if (known.has(record.id) || fresh.has(record.id)) continue;
+          const bytes = read.get(record.id) ?? (await readAsset(record.id));
+          read.set(record.id, bytes);
+          // Structured cloning a view stores its whole buffer: keep exactly the asset's bytes.
+          const own = bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength ? bytes : bytes.slice();
+          fresh.set(record.id, { id: record.id, record, bytes: own });
+        }
+        const bytes =
+          utf8Length(data.snapshotJson) + [...fresh.values()].reduce((sum, row) => sum + row.bytes.byteLength, 0);
+        const row: SlotRow = {
+          id: slot,
+          info: { ...data.info, bytes },
+          snapshot: data.snapshotJson,
+          assets: data.assets.map((record) => record.id),
+          heartbeatAt: locks === null ? now() : null,
+        };
+        const tx = handle.transaction([SLOTS, ASSETS], 'readwrite');
+        const assets = tx.objectStore(ASSETS);
+        for (const asset of fresh.values()) assets.put(asset);
+        // An asset listed above may have been collected since (another page's removal, a discard, housekeeping):
+        // check each one inside this transaction, and start over when one is gone, so that a slot never points at
+        // bytes the database no longer has.
+        let missing = false;
+        for (const record of data.assets) {
+          if (fresh.has(record.id)) continue;
+          const check = assets.count(record.id);
+          check.onsuccess = () => {
+            if (check.result > 0 || missing) return;
+            missing = true;
+            tx.abort();
+          };
+        }
+        tx.objectStore(SLOTS).put(row);
+        const others = tx.objectStore(SLOTS).getAll();
+        others.onsuccess = () => {
+          const rows = (others.result as SlotRow[]).map((other) => (other.id === slot ? row : other));
+          collectAssets(tx, rows);
+        };
+        try {
+          await completed(tx);
+          return { bytes };
+        } catch (error) {
+          if (!missing) throw error;
+          if (attempt >= MAX_WRITE_ATTEMPTS) {
+            throw new DOMException('The autosave assets kept changing during the write', 'AbortError');
+          }
+        }
       }
-      const bytes = utf8Length(data.snapshotJson) + fresh.reduce((sum, row) => sum + row.bytes.byteLength, 0);
-      const row: SlotRow = {
-        id: slot,
-        info: { ...data.info, bytes },
-        snapshot: data.snapshotJson,
-        assets: data.assets.map((record) => record.id),
-        heartbeatAt: locks === null ? now() : null,
-      };
-      const tx = handle.transaction([SLOTS, ASSETS], 'readwrite');
-      for (const asset of fresh) tx.objectStore(ASSETS).put(asset);
-      tx.objectStore(SLOTS).put(row);
-      const others = tx.objectStore(SLOTS).getAll();
-      others.onsuccess = () => {
-        const rows = (others.result as SlotRow[]).map((other) => (other.id === slot ? row : other));
-        collectAssets(tx, rows);
-      };
-      await completed(tx);
-      return { bytes };
     },
 
     async listOrphans(): Promise<readonly AutosaveSlotInfo[]> {
