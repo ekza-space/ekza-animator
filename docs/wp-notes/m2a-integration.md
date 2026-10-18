@@ -136,7 +136,15 @@ and the package benches), load average 5.8–10.8 from the host (a VM and other 
 
 ## Gates
 
-Final run on the branch head (see the commit after these notes for the exact hash in the ROADMAP):
-`pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`, `test` (13/13 tasks,
-uncached), `build`, `pnpm --filter web check:size` (843,270 B) and the whole e2e suite on port 3146 in real Chrome
-and in `chromium-swiftshader`: green. Numbers in the ROADMAP status.
+Final run on the branch head after the last code change (`b5856ea`), 2026-10-18, load average 6–10:
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check`, `lint` (oxlint --type-aware), `typecheck` (tsc -b) | clean |
+| `check:deps`, `check:fixtures`, `check:licenses` | 13 packages follow the rules; 4 fixtures match; 173 production packages allowed |
+| `turbo run test test:tooling --force` (uncached) | 13/13 tasks: anim-core 648, doc 189, doc-yjs 69, rig 202, io 163, editor-core 733, viewport 98 (+1 skipped, M1), curve-editor 207 (+3 skipped, M1), editor 348 (+1 skipped, M1), ui 73, headless-tests 164, web 9, tooling 14 |
+| `pnpm run build`, `pnpm --filter web check:size` | green; 843,270 B first visit (gate 900,000 B, target 850,000 B met) |
+| `EKZA_E2E_PORT=3146 pnpm run test:e2e` (real Chrome) | 98 passed, 3 skipped (the M1-stretch `test.fixme`) |
+| the same suite with `--project=chromium-swiftshader` (CI's) | 98 passed, 3 skipped |
+| E2E-M2A-23/24, -14 and E2E-27 repeated (5 × each, 7 workers) | 20 / 20 |
+| `pnpm --filter web bench:budgets` and the A3/A4/package benches | see Budgets |
