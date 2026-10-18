@@ -10,6 +10,7 @@
     ".": "./src/index.ts",
     "./three": "./src/three/index.ts",
     "./worker": "./src/worker/index.ts",
+    "./write": "./src/write.ts",
     "./testing": "./src/testing/index.ts"
   },
   "scripts": {
