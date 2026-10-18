@@ -97,6 +97,8 @@ export function skeletonFromGltf(c: GlbContainer): SkeletonDesc {
     fingerprint: skeletonFingerprint(nodes),
     ekzaHeightScale: readEmbeddedAvatarHeightScale(json),
     warnings,
+    // M2A-SPEC §4.3: absent without mesh data (compressed or unskinned meshes).
+    ...(measure.boneSupport === null ? {} : { boneSupport: measure.boneSupport }),
   };
 }
 

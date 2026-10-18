@@ -14,6 +14,7 @@ import {
   type SolvePlan,
   type SourceWorlds,
 } from './core';
+import { createImportIk } from './ik';
 import { type SampledTrack, sampleTrack, trackKeyCount } from './sample';
 
 type TrsPath = 'translation' | 'rotation' | 'scale';
@@ -227,8 +228,16 @@ export function importRawClip(raw: RawClip, program: RigProgram, opts: ImportRaw
       `Source times of "${raw.name}" are not on whole frames at ${opts.fps.num}/${opts.fps.den} fps; sub-frame keys were created`,
     );
   }
-  const curves = buildImportedCurves(internals, plan, new RawSource(internals, tracks), slots, opts);
-  return { fps: opts.fps, range, curves, warnings };
+  const ik = createImportIk(program, slots, opts, raw.name, range);
+  const built = buildImportedCurves(internals, plan, new RawSource(internals, tracks), slots, opts, ik);
+  warnings.push(...built.warnings);
+  return {
+    fps: opts.fps,
+    range,
+    curves: built.curves,
+    warnings,
+    ...(built.limbs === undefined ? {} : { limbs: built.limbs }),
+  };
 }
 
 /** Whether any track of `node` leaves its rest local value (1e-6; rotations compared up to sign). */

@@ -15,14 +15,23 @@ import {
 import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-animator/doc';
 import { HUMAN_BONE_INDEX } from '../humanoid/map';
 import { isHumanoidProgram, solveBoneChannels } from '../inverse/solve';
-import { internalsOf, type RigInternals } from '../kernel/internals';
+import { internalsOf, isRigOpSkipped, type RigInternals } from '../kernel/internals';
+import { ikControlForEndWorld } from '../limb/match';
 import { xfaGet } from '../math/xfa';
-import type { FootPin, PoseBuffers, RigProgram, TwoBoneIkOutput } from '../types';
+import { readControlChannels, writeControlChannels } from '../sampler/channels';
+import type { ChannelBuffer, FootPin, LimbDesc, PoseBuffers, RigProgram, TwoBoneIkOutput } from '../types';
 import { solveTwoBoneIk } from './twoBone';
 
-// Plant Feet for FK legs (MVP-SPEC §4.11.19, ADR 0004 §12): per pinned side, the upper leg / lower leg / foot are
-// re-solved with the two-bone IK so the foot bone returns to its pinned world, and the result is converted to the
-// FK leg controls' channels.
+// Plant Feet (MVP-SPEC §4.11.19, ADR 0004 §12; M2A-SPEC §5.8 for IK legs): per pinned side, a leg whose `ikFk` is
+// ≥ 0.5 gets IK control channels that put the foot bone on the pin with the current foot-roll attributes; an FK leg
+// is re-solved with the two-bone IK (upper leg / lower leg / foot) and the result is converted to the FK leg
+// controls' channels.
+
+/** The enabled, compiled ik2 limb of a leg (null when the leg has none or its op is skipped). */
+function legLimb(program: RigProgram, side: 'L' | 'R'): LimbDesc | null {
+  const limb = program.limbs.find((candidate) => candidate.id === (side === 'L' ? 'leg.L' : 'leg.R'));
+  return limb === undefined || isRigOpSkipped(program, limb.solver) ? null : limb;
+}
 
 function worldOf(pose: PoseBuffers, node: number): Xf {
   return mat4Decompose(pose.boneWorld.slice(node * 16, node * 16 + 16));
@@ -41,17 +50,27 @@ function nodeOf(internals: RigInternals, bone: HumanBoneName): number {
 }
 
 /**
- * Channels of the FK leg controls that put each pinned foot back on its pin (§4.11.19): parent world = the upper
- * leg's parent bone, target = pinned foot position, pole = knee + normalize(m)·(l1 + l2) with m the knee offset
- * perpendicular to hip → foot (straight legs: the rest pole side, in front of the knee), hinge = the knee hinge (+X in
- * character space at rest, in the lower leg's frame), end rotation = the pinned foot rotation, soft = 0.
- * Unreachable pins straighten the leg towards them and warn.
+ * Channels that put each pinned foot back on its pin.
+ *
+ * - **IK legs** (an enabled `ik2` limb whose `ikFk` is ≥ 0.5, M2A-SPEC §5.8): the IK control gets channels for
+ *   W_ik = Pin · K_end⁻¹ · F⁻¹ (F = the foot roll at the current attributes), solved against the parents in `pose`;
+ *   the pole, the attributes and the FK leg controls are left alone. A pin farther from the hip than the leg reaches
+ *   warns like the FK path (the leg straightens towards it).
+ * - **FK legs** (§4.11.19): channels of the FK leg controls: parent world = the upper leg's parent bone, target =
+ *   pinned foot position, pole = knee + normalize(m)·(l1 + l2) with m the knee offset perpendicular to hip → foot
+ *   (straight legs: the rest pole side, in front of the knee), hinge = the knee hinge (+X in character space at
+ *   rest, in the lower leg's frame), end rotation = the pinned foot rotation, soft = 0. Unreachable pins straighten
+ *   the leg towards them and warn.
+ *
+ * `channels` gives the current attribute values (`ikFk`, `roll`, `bank`, …); without it they come from the '@name'
+ * entries of `reference` (missing ones at their defaults). `pose` must be the pose evaluated from those channels.
  */
 export function plantFeetChannels(
   program: RigProgram,
   pose: PoseBuffers,
   pins: readonly FootPin[],
   reference: ReadonlyMap<ControlId, ChannelValues>,
+  channels?: ChannelBuffer,
 ): { readonly values: Map<ControlId, ChannelValues>; readonly reached: boolean; readonly warnings: readonly string[] } {
   const warnings: string[] = [];
   const values = new Map<ControlId, ChannelValues>();
@@ -67,8 +86,43 @@ export function plantFeetChannels(
     endLocal: [0, 0, 0, 1],
     reached: false,
   };
+  let attributes: ChannelBuffer | null = channels ?? null;
+  const attributesOf = (): ChannelBuffer => {
+    if (attributes === null) {
+      attributes = program.allocChannels();
+      for (const [control, v] of reference) {
+        if (program.controlIndex.has(control)) writeControlChannels(program, attributes, control, v);
+      }
+    }
+    return attributes;
+  };
 
   for (const pin of pins) {
+    const limb = legLimb(program, pin.side);
+    if (limb !== null) {
+      const ch = attributesOf();
+      const slot = limb.attrSlots.ikFk;
+      const w = slot >= 0 && slot < ch.attrs.length ? (ch.attrs[slot] as number) : 0;
+      if (w >= 0.5) {
+        const control = limb.params.ikControl;
+        values.set(
+          control,
+          ikControlForEndWorld(
+            program,
+            pose,
+            ch,
+            limb.id,
+            pin.footWorld,
+            reference.get(control) ?? readControlChannels(program, ch, control),
+          ),
+        );
+        if (!ikPinReachable(pose, limb, pin.footWorld)) {
+          reached = false;
+          warnings.push(`Plant Feet: the ${pin.side} foot cannot reach its pin; the leg was straightened towards it`);
+        }
+        continue;
+      }
+    }
     const prefix = pin.side === 'L' ? 'left' : 'right';
     const upper = nodeOf(internals, `${prefix}UpperLeg` as HumanBoneName);
     const mid = nodeOf(internals, `${prefix}LowerLeg` as HumanBoneName);
@@ -156,6 +210,22 @@ export function plantFeetChannels(
       values.set(control, channels);
   }
   return { values, reached, warnings };
+}
+
+/**
+ * Whether the ik2 solver reaches a foot pin: the hip-to-pin distance lies within its reachable band
+ * [|l1 − l2|, max(l1 + l2, d⁰)] (§5.3 amendment A), with the same 1e-6·L slack as the solver's `reached`.
+ */
+function ikPinReachable(pose: PoseBuffers, limb: LimbDesc, pin: Mat4): boolean {
+  const o = limb.nodes.upper * 16;
+  const d = Math.hypot(
+    (pin[12] as number) - (pose.boneWorld[o + 12] as number),
+    (pin[13] as number) - (pose.boneWorld[o + 13] as number),
+    (pin[14] as number) - (pose.boneWorld[o + 14] as number),
+  );
+  const { upper, lower, restReach } = limb.lengths;
+  const slack = 1e-6 * (upper + lower);
+  return d <= Math.max(upper + lower, restReach) + slack && d >= Math.abs(upper - lower) - slack;
 }
 
 function withRotation(xf: Xf, q: Quat): Mat4 {

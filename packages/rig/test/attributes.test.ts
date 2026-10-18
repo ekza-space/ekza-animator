@@ -474,14 +474,28 @@ describe('op compile context and run (§4.3, §5.4 rule 1)', () => {
     expect(evaluate(withOp).local).not.toEqual(reference.local);
   });
 
-  it('registerBuiltinRigOps is reference-counted and registers nothing before A1', () => {
+  it('registerBuiltinRigOps is reference-counted and registers the ik2 solver (A1)', () => {
+    const unregistered = compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton);
+    expect(unregistered.warnings.find((w) => w.ids[0] === solver.id)?.message).toMatch(/has no implementation/);
     const first = registerBuiltinRigOps();
     const second = registerBuiltinRigOps();
+    // Registered: the op now parses its (empty) params, refuses them and is disabled with a warning.
     const program = compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton);
-    expect(program.warnings.some((w) => w.code === 'unsupported-op' && w.ids[0] === solver.id)).toBe(true);
+    const warning = program.warnings.find((w) => w.code === 'unsupported-op' && w.ids[0] === solver.id);
+    expect(warning?.message).toMatch(/could not declare its dependencies/);
+    expect(program.limbs).toEqual([]);
     first();
     first();
+    // Still registered while the second user holds it.
+    expect(
+      compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton).warnings.find((w) => w.ids[0] === solver.id)
+        ?.message,
+    ).toMatch(/could not declare/);
     second();
+    expect(
+      compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton).warnings.find((w) => w.ids[0] === solver.id)
+        ?.message,
+    ).toMatch(/has no implementation/);
     // A host op of the same type can still register afterwards.
     dispose.push(
       registerRigOp('solver', 'ik2', {

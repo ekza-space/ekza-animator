@@ -51,7 +51,7 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 | WP | Slug | Scope | Owner | Size | Status | Notes |
 |---|---|---|---|---|---|---|
 | A0 | `contracts-foundation` | §4 contracts, stubs and working baselines, schema v2 (atomic), attribute channels in the compiler and kernel, frame scheduler, key gesture, cycle-aware loop clips, layout v2, keymap, menus, test API | Integration | 3.5 | Built (branch `m2a/contracts-foundation`, to merge first) | [notes](wp-notes/m2a-contracts-foundation.md) |
-| A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Planned | FR-RIG-11 |
+| A1 | `rig-ik` | `ik2` op with foot roll in the foot frame, mesh-based foot pivots, limb IK records, hyperextension-safe matching, import to IK with fidelity fallback, Plant Feet on IK legs | A1 | 6.5 | Built (branch `m2a/rig-ik`) | FR-RIG-11; [notes](wp-notes/m2a-rig-ik.md) |
 | A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Planned | IK e2e after A1 |
 | A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Planned | FR-DS-01..02, FR-TIME-10 |
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Planned | FR-KEY-08..09, FR-GE-18..20 |
