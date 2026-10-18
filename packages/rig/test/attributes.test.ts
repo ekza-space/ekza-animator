@@ -38,6 +38,7 @@ import {
   writeAttr,
   writeControlChannels,
 } from '../src';
+import { isRigOpSkipped } from '../src/kernel/internals';
 import { attrChannelSlot } from '../src/sampler/channels';
 import { IDS, syntheticSkeleton } from './helpers';
 
@@ -415,6 +416,7 @@ describe('op compile context and run (§4.3, §5.4 rule 1)', () => {
     const program = compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton);
     program.evaluate(program.allocChannels(), program.allocPose());
     expect(states).toEqual([undefined]);
+    expect(isRigOpSkipped(program, solver.id)).toBe(false);
     dispose.splice(0).forEach((d) => d());
 
     dispose.push(
@@ -432,6 +434,10 @@ describe('op compile context and run (§4.3, §5.4 rule 1)', () => {
     const skipped = compileRig({ ...rigWithAttrs(), solvers: [solver] }, skeleton);
     expect(skipped.warnings.some((w) => w.code === 'unsupported-op' && w.ids[0] === solver.id)).toBe(true);
     expect(() => skipped.evaluate(skipped.allocChannels(), skipped.allocPose())).not.toThrow();
+    // §5.4 rule 4: the op stays scheduled and says it is skipped (evaluation.ikFk reads its limb as 0).
+    expect(isRigOpSkipped(skipped, solver.id)).toBe(true);
+    expect(isRigOpSkipped(skipped, 'slv_unknown')).toBe(false);
+    expect(isRigOpSkipped(compileRig(rigWithAttrs(), skeleton), solver.id)).toBe(false);
   });
 
   it('run returning false leaves every bone local bit-identical to the program without the op', () => {

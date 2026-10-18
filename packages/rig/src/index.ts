@@ -13,6 +13,7 @@ export {
   solveControlChannels,
 } from './inverse/solve';
 export { type RigOpImpl, registerBuiltinRigOps, registerRigOp } from './kernel/ops';
+export { isRigOpSkipped } from './kernel/internals';
 export { controlWorld } from './kernel/pose';
 export {
   computeInfluenceKeyTimes,

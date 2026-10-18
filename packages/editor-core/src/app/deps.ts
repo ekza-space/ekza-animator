@@ -35,6 +35,7 @@ import {
   compileRig,
   createClipSampler,
   createCurveCache,
+  isRigOpSkipped,
   type RigDefinition,
   type RigProgram,
   readRigDefinition,
@@ -74,6 +75,11 @@ export interface KernelDeps {
   readonly rig: {
     /** Registers the built-in rig ops (M2a `solver:ik2`) for the app's lifetime; absent for the naive kit. */
     readonly registerBuiltinRigOps?: () => Disposer;
+    /**
+     * Whether a scheduled rig op is skipped at run time (its `compile` threw, M2A-SPEC §5.4 rule 4); absent for the
+     * naive kit, whose programs run no custom ops.
+     */
+    readonly isRigOpSkipped?: (program: RigProgram, id: string) => boolean;
     readonly readRigDefinition: (view: ReadView, rig: RigId) => RigDefinition | undefined;
     readonly compileRig: (def: RigDefinition, skeleton: SkeletonDesc) => RigProgram;
     readonly createCurveCache: (store: DocumentStore, engine: CurveEngine) => CurveCache;
@@ -127,6 +133,7 @@ export const DEFAULT_DEPS: KernelDeps = {
   },
   rig: {
     registerBuiltinRigOps,
+    isRigOpSkipped,
     readRigDefinition,
     compileRig,
     createCurveCache,

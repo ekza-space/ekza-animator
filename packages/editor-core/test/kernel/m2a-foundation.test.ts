@@ -11,7 +11,8 @@ import {
   type KeyData,
   segmentControlPoints,
 } from '@ekza-animator/anim-core';
-import type { AttrDef, ChangeBatch, ControlId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
+import type { AttrDef, ChangeBatch, ControlId, CurveId, KeyId, SolverId, Tx } from '@ekza-animator/doc';
+import type { LimbDesc, RigProgram } from '@ekza-animator/rig';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { EDITOR_CURVE_ENGINE } from '../../src/app/deps';
@@ -37,7 +38,7 @@ import {
 } from '../../src';
 import { naiveCurveEngine, naiveCycleAwareCurveEngine } from '../../src/testing';
 import { naiveAttrSlots } from '../../src/testing/rig';
-import { edit, keysOf, select, WAVE, waveApp } from './support';
+import { edit, kernelApp, keysOf, select, WAVE, waveApp, waveDoc } from './support';
 
 const IK_ATTRS: Readonly<Record<string, AttrDef>> = {
   ikFk: { type: 'float', default: 1, min: 0, max: 1, keyable: true, keyAll: false, stepped: true },
@@ -292,6 +293,46 @@ describe('evaluation of attributes (§4.5)', () => {
   it('ikFk is null without that limb (no ik2 solver compiled)', () => {
     const { app } = attrApp();
     expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBeNull();
+  });
+
+  it('ikFk reads the IK control’s @ikFk clamped to [0, 1], and 0 for a limb whose op is skipped (§5.4 rule 4)', () => {
+    const foot = `${WAVE.rig}:fk.foot.L` as ControlId;
+    const SOLVER = 'slv_LegL0000000000' as SolverId;
+    let skipped = false;
+    const asked: string[] = [];
+    // A1 builds RigProgram.limbs; here the naive program gets one leg limb whose IK control is the left foot.
+    const app = kernelApp({
+      snapshot: waveDoc(),
+      deps: (base) => ({
+        ...base,
+        rig: {
+          ...base.rig,
+          compileRig: (def, skeleton) => {
+            const program = base.rig.compileRig(def, skeleton);
+            const limb = { id: 'leg.L', solver: SOLVER, params: { ikControl: foot } } as unknown as LimbDesc;
+            return Object.assign(Object.create(Object.getPrototypeOf(program) as object) as RigProgram, program, {
+              limbs: [limb],
+            });
+          },
+          isRigOpSkipped: (_program, id) => {
+            asked.push(id);
+            return skipped;
+          },
+        },
+      }),
+    });
+    edit(app, 'Attributes', (tx) => tx.patch('controls', foot, { attrs: IK_ATTRS }));
+    expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(1);
+    expect(app.evaluation.ikFk(WAVE.character, 'arm.L')).toBeNull();
+    app.session.setState({ overrides: new Map([[foot, { '@ikFk': 1.7 }]]) });
+    expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(1);
+    app.session.setState({ overrides: new Map([[foot, { '@ikFk': -0.2 }]]) });
+    expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(0);
+    app.session.setState({ overrides: new Map([[foot, { '@ikFk': 0.4 }]]) });
+    expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(0.4);
+    skipped = true;
+    expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(0);
+    expect(asked.at(-1)).toBe(SOLVER);
   });
 });
 

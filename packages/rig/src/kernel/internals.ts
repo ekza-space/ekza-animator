@@ -91,3 +91,13 @@ export function internalsOf(program: RigProgram): RigInternals {
   registry.set(program, derived);
   return derived;
 }
+
+/**
+ * Whether the rig op `id` (a constraint or solver record id) is scheduled in `program` but skipped at run time
+ * because its `compile` threw (M2A-SPEC §5.4 rule 4: such an `ik2` op stays in `RigProgram.limbs` and
+ * `evaluation.ikFk` reads its limb as 0). False for ops that run and for ids the program does not schedule.
+ */
+export function isRigOpSkipped(program: RigProgram, id: string): boolean {
+  for (const op of internalsOf(program).customOps) if (op.record.id === id) return op.skipped;
+  return false;
+}

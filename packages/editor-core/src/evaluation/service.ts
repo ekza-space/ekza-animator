@@ -204,8 +204,11 @@ export function createEvaluationService(ctx: {
     },
     ikFk(character: CharacterId, limb: LimbId): number | null {
       // The limb's IK control owns '@ikFk' (M2A-SPEC §4.3); the op clamps it to [0, 1] where it is consumed.
-      const desc = characters.get(character)?.program.limbs.find((candidate) => candidate.id === limb);
-      if (desc === undefined) return null;
+      const program = characters.get(character)?.program;
+      const desc = program?.limbs.find((candidate) => candidate.id === limb);
+      if (program === undefined || desc === undefined) return null;
+      // §5.4 rule 4: an ik2 op whose compile threw stays in `limbs` but is skipped at run time: the limb is FK.
+      if (deps.rig.isRigOpSkipped?.(program, desc.solver) === true) return 0;
       const value = channelValue(desc.params.ikControl, '@ikFk');
       return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
     },
