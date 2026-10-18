@@ -447,7 +447,7 @@ export function matchIkToFk(
       program,
       fkPose,
       p.ikControl,
-      ikWorldFor(program, desc, ch, fkPose.boneWorld, end * 16, bandShift(core, c, flexedIn(program, desc, fkPose))),
+      ikWorldFor(program, desc, ch, fkPose.boneWorld, end * 16, bandShift(core, c, dot(m, h) > 0)),
       ikReference,
     ),
   };
