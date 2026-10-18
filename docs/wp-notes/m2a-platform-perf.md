@@ -212,8 +212,10 @@ On the final commit, load average 18–34 from other agents' runs: `pnpm run for
 `pnpm --filter web check:size` (784,325 B, target met), and the whole e2e suite in real Chrome on port 3145
 (`EKZA_E2E_PORT=3145 pnpm run test:e2e`: 71 passed, 4 skipped: E2E-M2A-22b until A3's panel is on the branch and the
 three M1-stretch `test.fixme`): green. E2E-M2A-20…22 and `m2a-00-foundation.spec.ts` also pass in the
-`chromium-swiftshader` project (CI's). The budget bench (`pnpm --filter web bench:budgets`) runs green (report only).
+`chromium-swiftshader` project (CI's). The budget bench (`pnpm --filter web bench:budgets`) runs green (report only; a second full run at load 24–38 gave
+open Seed-san median 126.6 ms, playback 1.07 / 2.30 ms, drag 5.70 / 8.70 ms, bake + write median 22.8 ms, autosave
+write 13.3 ms, the same route JS: all verdicts as in the table above).
 
-Two of my own tests were wrong on the way and are fixed: E2E-M2A-22 read `controls()` before the sample's import
+Two A5 tests were wrong on the way and are fixed: E2E-M2A-22 read `controls()` before the sample's import
 committed (`expect.poll` does not retry a callback that throws; the lazy import pipelines made the race visible),
 and the autosave write bench named its first clip `clip0`, which the seeded page already has.
