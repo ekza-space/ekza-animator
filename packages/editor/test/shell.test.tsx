@@ -260,10 +260,17 @@ describe('editor shell', () => {
     await update(() =>
       app.services.notify.toast({ kind: 'success', text: 'Deleted 9 keys', action: { label: 'Undo', op: 'key.set' } }),
     );
-    await waitFor(() => document.querySelector('[data-testid="toast"]') !== null);
-    expect(testId(view, 'toast').textContent).toContain('Deleted 9 keys');
+    // Another toast may show beside it (M2A-SPEC §5.7: "This rig has FK limbs only" for this FK-only humanoid once
+    // limb IK is available): find this one by its text.
+    const toast = (): HTMLElement | undefined =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="toast"]')].find((element) =>
+        (element.textContent ?? '').includes('Deleted 9 keys'),
+      );
+    await waitFor(() => toast() !== undefined);
+    const action = toast()?.querySelector<HTMLElement>('[data-testid="toast-action"]');
+    expect(action?.textContent).toBe('Undo');
     const before = app.calls.length;
-    await update(() => testId(view, 'toast-action').click());
+    await update(() => action?.click());
     await waitFor(() => app.calls.length > before);
     expect(app.calls.at(-1)?.id).toBe('key.set');
     await view.unmount();
