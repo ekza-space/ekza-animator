@@ -167,7 +167,7 @@ gate (`check:size`, 900,000 B) and the idle check (E2E-00).
 | Dope Sheet redraw (M2a) | ≤ 4 ms | 450 × 200 keys: 0.2–1.0 ms; in the editor (213 curves): zoom 0.4 ms, selection change 2.7 ms (p95 3.9) | Met |
 | Dope Sheet drag, 1,000 selected keys (M2a) | ≤ 4 ms per pointer frame | 21.2 ms median, p95 26.1 ms (213 curves); unit bench 19.0 ms (450 curves) | **Miss** (M-4) |
 | Tween slider drag on 60 channels (M2a) | ≤ 4 ms per pointer frame | median 2.7 ms, p95 3.2 ms | Met |
-| **M-2** Editor route JS (gzip -9, first visit) | ≤ 900 kB; M2a target 850 kB | 843,224 B production (eager 836,737 B); the bench's network capture equals `check:size` (0.00 %) | **Met** (target set to 850 kB with the attribution: A1…A4 add ≈ 58 kB eager; M2A-INT-4) |
+| **M-2** Editor route JS (gzip -9, first visit) | ≤ 900 kB; M2a target 850 kB | 843,270 B production (eager 836,738 B); the bench's network capture equals `check:size` (0.00 %) | **Met** (target set to 850 kB with the attribution: A1…A4 add ≈ 58 kB eager; M2A-INT-4) |
 | **M-3** anim-core: 2,200 curves at one frame | ≤ 0.3 ms (target mean ≤ 0.20, p75 ≤ 0.25) | mean 0.154 ms, p75 0.159 ms (M1: 0.32–0.35 ms) | **Met** |
 
 New miss and owner (no public tracker yet; the ID becomes an issue when the repository is published):

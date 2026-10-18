@@ -327,7 +327,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | NFR-11 | Quality gates: format, type-aware lint, typecheck, dependency layering, unit, browser and e2e tests in CI. | MVP | Required checks on `dev`. |
 | NFR-12 | Storage resilience: the app works with `localStorage`/IndexedDB unavailable. | MVP | All storage access in try/catch (unit tests); e2e with storage blocked: E2E-M2A-20 (`storage=blocked`, M2a ✓). |
 | NFR-13 | WebGL context loss recovers from the document. | MVP | Handlers implemented; forced `WEBGL_lose_context` e2e is V1 (M1: manual QA). |
-| NFR-14 | Editor route JS ≤ 900 kB gzip (landing ≤ 100 kB). | V1 | size check in CI (`check:size`, 900,000 B, M2a ✓; 843,224 B at the M2a integration). |
+| NFR-14 | Editor route JS ≤ 900 kB gzip (landing ≤ 100 kB). | V1 | size check in CI (`check:size`, 900,000 B, M2a ✓; 843,270 B at the M2a integration). |
 | NFR-15 | UI strings centralized for i18n (English only in the MVP). | V1 | No inline user-facing strings outside the string table (lint). |
 | NFR-16 | Documentation: every public API documented; one ADR per architectural decision; README status table current. | MVP | Review checklist. |
 | NFR-17 | Collaboration readiness: per-user undo per merge unit, preview-then-commit drags, partitions with a lifecycle, async assets, shared scene clock, no U state in the document. | MVP | FR-COL-01…03, FR-TIME-11. |

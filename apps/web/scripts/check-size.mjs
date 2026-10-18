@@ -16,10 +16,12 @@ import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 /** CI gate: the §14 budget (decimal bytes, gzip -9). */
 export const GATE_BYTES = 900_000;
 /**
- * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: ≥ 100 kB headroom under the budget; the chunk
- * attribution and the measurements are in docs/wp-notes/m2a-platform-perf.md).
+ * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: 800,000 B provisional, set at the M2a
+ * integration to the spec's ceiling of 850,000 B with the attribution recorded: A1…A4 added ≈ 58 kB of eager code;
+ * docs/wp-notes/m2a-integration.md M2A-INT-4, A5's measurements in docs/wp-notes/m2a-platform-perf.md). Report only;
+ * the gate is GATE_BYTES.
  */
-export const TARGET_BYTES = 800_000;
+export const TARGET_BYTES = 850_000;
 
 /**
  * Required lazy boundaries (M2A-SPEC §5.21.2), each recognised by strings only its code contains. A marker in an

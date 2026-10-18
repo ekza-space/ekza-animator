@@ -45,7 +45,7 @@ M2A-SPEC §1.2), as at M1.
 | M2A-INT-1 | **E2E-M2A-23: the hips are lowest at the contacts** (`cog` ty −0.05/−0.02/−0.05/−0.02/−0.05 at 0/6/12/18/24; v0.2: 0/−0.03/0/−0.03/0). Every assertion of §9.1 is kept. | Polybot's legs are 0.32 m long and nearly straight at rest (hip→foot 0.314 m of 0.324 m). With the hips at rest an IK foot 0.15 m forward is 3 cm out of reach: the foot lifts 3 cm off its target (measured y 0.085 vs 0.054), so no planted-foot assertion can hold. Lowering the hips by ≥ 2.8 cm at the contacts brings the targets inside the reach; down at contact and up at passing is also the usual walk. |
 | M2A-INT-2 | **E2E-M2A-24: the attack starts and ends in a ready stance** (`cog` ty −0.05 at 0 and 20; v0.2: rest). | Seed-san's legs are straight at rest (reach 0.730 m = the hip height above the foot), so the front foot 0.2 m forward is out of reach with the hips at rest: frames 0–2 and 18–20 missed by up to 23 mm (measured). |
 | M2A-INT-3 | **E2E-M2A-23's reduced VRMA: never more samples, within the per-node tolerances** (v0.2: "fewer samples than an unreduced export"). | A smooth 30 fps walk keeps every sample at R02's tolerances on Polybot: dropping any one interior sample moves the hips translation by ≥ 2.6e-4 m (tolerance 9.4e-5 m = 0.2 mm × 0.795/1.7) and the leg rotations by 1.0e-3–3.7e-3 rad (tolerances ≤ 9e-4 rad). Constant tracks are already 2 samples in the M1 writer. Same finding as M2A-A5-3 on the wave; the ≥ 3× gate stays on linear blocking (E2E-M2A-21b). The scenario also checks the dialog's "N → M samples" toast and the read-back tolerances. Owner item with M2A-A5-3. |
-| M2A-INT-4 | **M-2 target 850,000 B for M2a** (§5.21.2 allows it with the reason). Production build of the merged branch: first visit **843,224 B** (6 scripts; eager 836,737 B + First-run dialog 6,487 B), gate 900,000 B: 56,776 B headroom. The bench's network capture of the e2e build matches `check:size` to the byte (844.6 / 838.1 kB, 0.00 %). | A5's branch measured 785,248 B; A1…A4 add ≈ 58 kB of eager code. Attribution of the merged route (gzip -9): three 174.4 kB, next 127.4 kB, dockview 82.9 kB, **editor-core 75.4 kB**, editor 74.8 kB, R3F 52.7 kB, **rig 39.4 kB** (the IK rig, ik2, matching, influence), **curve-editor 28.7 kB** (Dope Sheet contributions and controller, Graph Editor views and the Scale tool), viewport 28.5 kB, doc 19.7 kB, io 13.5 kB, anim-core 13.2 kB, camera-controls 9.5 kB; top modules editor-core `operators` 30.9 kB and `workflows` 16.4 kB (IK, tween, mirror, ripple, buffer operators), editor `panels` 48.9 kB (Channel Box attribute rows, Limb section, Tween bar); A5's attribution of the merge base before its own cuts had
+| M2A-INT-4 | **M-2 target 850,000 B for M2a** (§5.21.2 allows it with the reason). Production build of the merged branch: first visit **843,270 B** (6 scripts; eager 836,738 B + First-run dialog 6,487 B), gate 900,000 B: 56,730 B headroom. The bench's network capture of the e2e build matches `check:size` to the byte (844.6 / 838.1 kB, 0.00 %). `check-size.mjs` `TARGET_BYTES` (report only) and the bench's report line follow the new target. | A5's branch measured 785,248 B; A1…A4 add ≈ 58 kB of eager code. Attribution of the merged route (gzip -9): three 174.4 kB, next 127.4 kB, dockview 82.9 kB, **editor-core 75.4 kB**, editor 74.8 kB, R3F 52.7 kB, **rig 39.4 kB** (the IK rig, ik2, matching, influence), **curve-editor 28.7 kB** (Dope Sheet contributions and controller, Graph Editor views and the Scale tool), viewport 28.5 kB, doc 19.7 kB, io 13.5 kB, anim-core 13.2 kB, camera-controls 9.5 kB; top modules editor-core `operators` 30.9 kB and `workflows` 16.4 kB (IK, tween, mirror, ripple, buffer operators), editor `panels` 48.9 kB (Channel Box attribute rows, Limb section, Tween bar); A5's attribution of the merge base before its own cuts had
 editor-core 52.4, rig 28.0 and curve-editor 22.1 kB, which A5's lazy import pipelines and export path then reduced.
 Cuts for M2b, by size: the IK operator and workflow bodies behind `prepare` like the import pipelines (≈ 18 kB raw), the Dope Sheet controller behind its panel's lazy boundary, Next's client navigation (≈ 47 kB raw, one route), `camera-controls` until the first tumble (9.5 kB). |
 | M2A-INT-5 | **`moveKeys` writes no key at −0** (`editor-core/src/edit/keys.ts`, A3's placement): a snapped move of a key at 0 by less than half a frame to the left gave `Math.round` −0, and A3's clamp skips a zero block shift, so the key was written at −0 when its value changed. M1 always added the shift (−0 + 0 = 0); A4's value-only drag path writes +0, so `curve-editor/test/m2a-graph.test.ts` "a key drag writes exactly what moveKeys writes" failed on the merge. Placements normalise −0 at creation. | Found by A4's differential test. Test: `editor-core/test/kernel/m2a-integration.test.ts` (fast-check over sub-half-frame moves with and without ripple and breakdowns; fails without the fix). |
@@ -90,6 +90,24 @@ assertions through the test API:
 
 Both pass in real Chrome (3 × 2 repeats) and in `chromium-swiftshader`.
 
+## Owner demo script (M2A-SPEC §10.3)
+
+The script is the owner's to run; every step is exercised by an e2e scenario on this branch, so it should play as
+written:
+
+| Step | Covered by |
+|---|---|
+| 1. Polybot: IK feet and knee poles, FK leg circles hidden | E2E-M2A-01 (`limbs()`, `controls()` visibility) |
+| 2. Lower `cog` with `W`, feet stay; drag the IK foot; move the pole; roll 20° and −15° | E2E-M2A-01, -02, -04 |
+| 3. Seamless FK switch at 10 and back; arm to IK, lower `cog`, the hand stays | E2E-M2A-03, -05 |
+| 4. Block a 24-frame walk with IK feet and `cog`; mirror half a cycle; play | E2E-M2A-23 (and the walk GIF) |
+| 5. Dope Sheet retime with ripple, undo, region-bar scale | E2E-M2A-10, -11 (and the Dope Sheet GIF) |
+| 6. Tween a breakdown with the slider; `Alt+S`, move a neighbour, the breakdown keeps its ratio | E2E-M2A-13, -14, -23 (and the tween GIF) |
+| 7. Buffer snapshot/edit/swap; normalized and stacked views; `R` scale | E2E-M2A-16, -17 |
+| 8. MMB carry and `S`; Shift-drag a band, Mod-drag to copy | E2E-M2A-09, -08 |
+| 9. Pick-walk; key a hand by body part; MMB scrub in the Channel Box | E2E-M2A-18, -19 |
+| 10. Export VRMA with reduction (size shown); reload with unsaved work and recover | E2E-M2A-21, -23, -20 |
+
 ## Budgets (re-measured on the merged branch)
 
 2026-10-18, Apple M4 Pro, real Chrome 155 with the GPU, the e2e build at DPR 2 (`pnpm --filter web bench:budgets`
@@ -113,12 +131,12 @@ and the package benches), load average 5.8–10.8 from the host (a VM and other 
 | Dope Sheet redraw (§5.22) | ≤ 4 ms | unit 450 × 200: view 0.20, selection 0.40, one edited key 1.00 ms; editor (213 curves, 42,600 keys): zoom 0.40 / 0.60 ms, selection change 2.70 / 3.90 ms | Met |
 | Dope Sheet drag, 1,000 keys (§5.22) | ≤ 4 ms | editor 21.2 / 26.1 ms (213 curves); unit 19.0 ms (450 curves) | **Miss** (M-4, M2A-INT-13) |
 | Tween slider drag, 60 channels (§5.22) | ≤ 4 ms | median 2.70 ms, p95 3.20 ms | Met |
-| **M-2** Editor route JS (first visit) | ≤ 900 kB, target 850 kB (M2A-INT-4) | 843,224 B (production); e2e build 844.6 kB, bench = `check:size` (0.00 %) | **Met** (gate), target met at 850 kB |
+| **M-2** Editor route JS (first visit) | ≤ 900 kB, target 850 kB (M2A-INT-4) | 843,270 B (production); e2e build 844.6 kB, bench = `check:size` (0.00 %) | **Met** (gate), target met at 850 kB |
 | **M-3** anim-core 2,200 curves at one frame | mean ≤ 0.20, p75 ≤ 0.25 ms | mean 0.154 ms, p75 0.159 ms (load 6) | **Met** |
 
 ## Gates
 
 Final run on the branch head (see the commit after these notes for the exact hash in the ROADMAP):
 `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`, `test` (13/13 tasks,
-uncached), `build`, `pnpm --filter web check:size` (843,224 B) and the whole e2e suite on port 3146 in real Chrome
+uncached), `build`, `pnpm --filter web check:size` (843,270 B) and the whole e2e suite on port 3146 in real Chrome
 and in `chromium-swiftshader`: green. Numbers in the ROADMAP status.

@@ -1546,7 +1546,7 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
   ≤ **800,000 B** gzip -9 (decimal kB, the stricter unit). The 800,000 B figure is provisional until the attribution:
   A5 may set it to the attributed reachable value with the reason recorded (contract PR to this file), but never
   above 850,000 B (≥ 50 kB headroom under the budget). **Set at integration to 850,000 B for M2a**: A5's branch
-  measured 785,248 B, the merged route 843,224 B (A1…A4 add ≈ 58 kB of eager code: IK rig, IK, tween, mirror and
+  measured 785,248 B, the merged route 843,270 B (A1…A4 add ≈ 58 kB of eager code: IK rig, IK, tween, mirror and
   ripple operators, Dope Sheet contributions, Channel Box attribute rows, the Tween bar); attribution and the next
   cuts in `docs/wp-notes/m2a-integration.md` (M2A-INT-4). **CI gate** `pnpm --filter web check:size` fails above
   900,000 B and prints every lazy chunk group with its size.
@@ -2170,7 +2170,7 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
   `chromium-swiftshader`; unit, browser-mode and headless tests green; the conformance suites (memory, `doc-yjs`)
   unchanged and green; export policy (MVP-SPEC §4.11.13) asserted for every exported file of the scenarios.
 - **Budgets** (ROADMAP "M2a budgets"): M-1 met (p95 3.1–3.4 ms), M-2 met under the gate with the target set to
-  850,000 B (843,224 B, §5.21.2), M-3 met (mean 0.154 ms); §5.22 rows recorded, the Dope Sheet drag of 1,000 keys
+  850,000 B (843,270 B, §5.21.2), M-3 met (mean 0.154 ms); §5.22 rows recorded, the Dope Sheet drag of 1,000 keys
   missed (M-4, report only).
 - **Contract PRs ratified** in this revision (v0.3); deviations and owner review items in
   [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18).
