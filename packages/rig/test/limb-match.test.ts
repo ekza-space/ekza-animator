@@ -20,6 +20,7 @@ import {
   limbOfControl,
   matchFkToIk,
   matchIkToFk,
+  plantFeetChannels,
   type PoseBuffers,
   readAttr,
   registerBuiltinRigOps,
@@ -349,5 +350,74 @@ describe('matching helpers and Plant Feet on IK legs (§5.8)', () => {
     expect(distance(bonePos(planted, foot), bonePos(pinned, foot))).toBeLessThan(1e-9);
     expect(quatAngle(boneQuat(planted, foot), boneQuat(pinned, foot))).toBeLessThan(1e-9);
     expect(readAttr(program, ch, id('ik.leg.L'), 'roll')).toBeCloseTo(20 * DEG, 12);
+  });
+
+  it('plants IK legs through their IK controls and FK legs through the FK chain (plantFeetChannels)', () => {
+    const skeleton = richHumanoid();
+    const program = ikRig(skeleton);
+    const footL = nodeOf(skeleton, 'leftFoot');
+    const footR = nodeOf(skeleton, 'rightFoot');
+    // leg.L in IK (with roll and bank), leg.R in FK.
+    const start = new Map<ControlId, ChannelValues>([
+      [id('ik.leg.L'), { tz: 0.05, ry: 0.3, '@roll': 15 * DEG, '@bank': 0.05 }],
+      [id('ik.leg.R'), { '@ikFk': 0 }],
+      [id('fk.upperLeg.R'), { rx: -0.3 }],
+      [id('fk.lowerLeg.R'), { rx: 0.5 }],
+    ]);
+    const startCh = channels(program, start);
+    const startPose = evaluate(program, startCh);
+    const pins = [
+      { side: 'L' as const, footWorld: startPose.boneWorld.slice(footL * 16, footL * 16 + 16) },
+      { side: 'R' as const, footWorld: startPose.boneWorld.slice(footR * 16, footR * 16 + 16) },
+    ];
+    // Lower the cog (the IK foot stays), then move the IK foot and its roll away from the pin.
+    const moved = new Map(start);
+    moved.set(id('cog'), { ty: -0.05, tx: 0.02 });
+    moved.set(id('ik.leg.L'), { tz: 0.12, ty: 0.03, ry: 0.1, '@roll': 25 * DEG, '@bank': -0.08 });
+    const ch = channels(program, moved);
+    const pose = evaluate(program, ch);
+    expect(distance(bonePos(pose, footL), bonePos(startPose, footL))).toBeGreaterThan(0.01);
+    expect(distance(bonePos(pose, footR), bonePos(startPose, footR))).toBeGreaterThan(0.01);
+    const reference = new Map(program.controlIds.map((c) => [c, { ...moved.get(c) }] as const));
+
+    const check = (result: ReturnType<typeof plantFeetChannels>) => {
+      expect(result.warnings).toEqual([]);
+      expect(result.reached).toBe(true);
+      expect([...result.values.keys()].sort()).toEqual(
+        ['ik.leg.L', 'fk.upperLeg.R', 'fk.lowerLeg.R', 'fk.foot.R'].map(id).sort(),
+      );
+      expect(Object.keys(result.values.get(id('ik.leg.L')) ?? {}).sort()).toEqual(['rx', 'ry', 'rz', 'tx', 'ty', 'tz']);
+      const planted = channels(program, moved);
+      for (const [control, v] of result.values) writeControlChannels(program, planted, control, v);
+      const after = evaluate(program, planted);
+      for (const [node, pin] of [
+        [footL, pins[0]],
+        [footR, pins[1]],
+      ] as const) {
+        const target = pin?.footWorld as Float64Array;
+        expect(distance(bonePos(after, node), [target[12], target[13], target[14]] as number[])).toBeLessThan(1e-4);
+      }
+      // The IK foot lands exactly; the roll and bank stay.
+      expect(distance(bonePos(after, footL), bonePos(startPose, footL))).toBeLessThan(1e-9);
+      expect(quatAngle(boneQuat(after, footL), boneQuat(startPose, footL))).toBeLessThan(1e-9);
+      expect(readAttr(program, planted, id('ik.leg.L'), 'roll')).toBeCloseTo(25 * DEG, 12);
+    };
+    // With the channel buffer, and with the attributes in the reference ('@name' entries).
+    check(plantFeetChannels(program, pose, pins, reference, ch));
+    check(plantFeetChannels(program, pose, pins, reference));
+  });
+
+  it('warns when an IK foot cannot reach its pin and uses the default ikFk without attribute values', () => {
+    const skeleton = richHumanoid();
+    const program = ikRig(skeleton, { legs: true, arms: false });
+    const footL = nodeOf(skeleton, 'leftFoot');
+    const far = evaluate(program, channels(program)).boneWorld.slice(footL * 16, footL * 16 + 16);
+    far[13] = (far[13] as number) - 0.4;
+    const pose = evaluate(program, channels(program));
+    // No '@ikFk' in the reference: the leg's default (1) applies, so the IK control is planted.
+    const result = plantFeetChannels(program, pose, [{ side: 'L', footWorld: far }], new Map());
+    expect([...result.values.keys()]).toEqual([id('ik.leg.L')]);
+    expect(result.reached).toBe(false);
+    expect(result.warnings).toEqual(['Plant Feet: the L foot cannot reach its pin; the leg was straightened towards it']);
   });
 });

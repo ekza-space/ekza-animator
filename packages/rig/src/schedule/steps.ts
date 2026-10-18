@@ -1,7 +1,7 @@
 import type { Frame } from '@ekza-animator/anim-core';
 import { internalsOf } from '../kernel/internals';
 import type { ClipSampler, CurveInfo, RigProgram, TrackKey } from '../types';
-import { keyedCurves, mappedKeyTimes, trackInfluence } from './influence';
+import { clipOpActivity, keyedCurves, mappedKeyTimes, trackInfluence } from './influence';
 
 /** Whether a curve holds its value between key times over the whole range (MVP-SPEC §4.11.10 step 3). */
 function steppedOver(info: CurveInfo, start: Frame, end: Frame): boolean {
@@ -19,8 +19,9 @@ function steppedOver(info: CurveInfo, start: Frame, end: Frame): boolean {
  * §4.11.10 step 3) — the influencing curves of M2A-SPEC §5.8: the track's driving control and its control ancestors,
  * plus the parent bone's (humanoid tracks: the bone's and its normalized parent's), plus, for nodes written by rig
  * ops (limb IK), every control the op reads and the influence of the nodes it reads (a STEP key on `cog` is a step
- * of the IK leg tracks too). Times are `{start} ∪ influencing key times (after infinity mapping, inside the range)
- * ∪ {end}`. Tracks with a smooth influence (LINEAR) or no keyed influence at all (constant) are absent from the map.
+ * of the IK leg tracks too; ops inactive throughout the clip, such as an ik2 limb at ikFk 0, do not count). Times
+ * are `{start} ∪ influencing key times (after infinity mapping, inside the range) ∪ {end}`. Tracks with a smooth
+ * influence (LINEAR) or no keyed influence at all (constant) are absent from the map.
  */
 export function computeStepSchedule(
   program: RigProgram,
@@ -47,7 +48,7 @@ export function computeStepSchedule(
     return result;
   };
   const result = new Map<TrackKey, readonly Frame[]>();
-  for (const [track, slots] of trackInfluence(program, target)) {
+  for (const [track, slots] of trackInfluence(program, target, clipOpActivity(program, sampler))) {
     const times = schedule(slots);
     if (times !== null) result.set(track, times);
   }

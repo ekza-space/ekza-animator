@@ -10,6 +10,10 @@ import type { ClipSampler, CurveInfo, RigProgram, TrackKey } from '../types';
 // writes the node, the curves of every control the op reads (with their control ancestors; attribute curves are
 // curves of their control) and, recursively, the curves influencing every node the op reads (for ik2 the upper
 // bone's parent: `cog`, `fk.hips` and the spine keys count for the leg tracks). A track adds its parent node's set.
+//
+// An op writes nothing in a clip where it is inactive throughout (an ik2 limb whose `ikFk` is ≤ 0 over the whole
+// clip: `run` returns false), so its reads do not influence that clip's tracks: an M1 rig upgraded with
+// `rig.addLimbIk` (ikFk 0) keeps the M1 sets, and its exports stay byte-identical (§5.7) until a limb is switched.
 
 /** Slots of a control and all its control ancestors. */
 export function controlChain(internals: RigInternals, slot: number, out: Set<number>): void {
@@ -28,22 +32,58 @@ export function drivingSlot(internals: RigInternals, node: number): number {
   return -1;
 }
 
+/** Whether an op may write in the clip being scheduled (default: every op that is not skipped). */
+export type OpActivity = (op: ScheduledRigOp) => boolean;
+
+/**
+ * Activity of the ops in one clip: an ik2 limb is inactive when its `ikFk` stays ≤ 0 over the whole clip — no keyed
+ * `@ikFk` curve and a static value (or the attribute default) ≤ 0, or a stepped curve that never extrapolates
+ * linearly and whose every key value is ≤ 0. Every other op (and any ikFk curve that may rise above 0) is active.
+ */
+export function clipOpActivity(program: RigProgram, sampler: ClipSampler): OpActivity {
+  const internals = internalsOf(program);
+  const inactive = new Set<string>();
+  for (const limb of program.limbs) {
+    const slot = limb.attrSlots.ikFk;
+    if (slot < 0) continue;
+    const control = limb.params.ikControl;
+    const curve = sampler.curveInfo(control).find((info) => info.channel === '@ikFk');
+    const def = program.attrSlots[slot]?.def;
+    let atMostZero: boolean;
+    if (curve === undefined || curve.keyTimes.length === 0) {
+      const value = sampler.value(control, '@ikFk', 0) ?? def?.default ?? 0;
+      atMostZero = !(value > 0);
+    } else {
+      atMostZero =
+        curve.steppedThroughout &&
+        curve.pre !== 'linear' &&
+        curve.post !== 'linear' &&
+        curve.keyTimes.every((t) => !((sampler.value(control, '@ikFk', t) ?? 0) > 0));
+    }
+    if (atMostZero) inactive.add(limb.solver);
+  }
+  return (op) => !op.skipped && !inactive.has(op.record.id);
+}
+
 /** Op-related influence of nodes (§5.8): memoized per program. */
 class OpInfluence {
   private readonly writers: ScheduledRigOp[][];
   private readonly extraMemo = new Map<number, ReadonlySet<number>>();
   private readonly worldMemo = new Map<number, ReadonlySet<number>>();
+  readonly hasOps: boolean;
 
-  constructor(private readonly internals: RigInternals) {
+  constructor(
+    private readonly internals: RigInternals,
+    active: OpActivity,
+  ) {
     this.writers = Array.from({ length: internals.nodeCount }, () => []);
+    let any = false;
     for (const op of internals.customOps) {
-      if (op.skipped) continue;
+      if (!active(op)) continue;
+      any = true;
       for (const node of op.writesNodes) this.writers[node]?.push(op);
     }
-  }
-
-  get hasOps(): boolean {
-    return this.internals.customOps.some((op) => !op.skipped);
+    this.hasOps = any;
   }
 
   /** Slots influencing `node` through the ops that write it (empty without such ops). */
@@ -77,14 +117,16 @@ class OpInfluence {
 /**
  * Influencing control slots per bake track (§5.8): raw targets every driven node (rotation, translation, scale);
  * humanoid targets every present humanoid bone except the eyes (rotation) and the hips (translation). Programs
- * without custom ops give exactly the M1 sets.
+ * without active custom ops give exactly the M1 sets; `active` (default: every op not skipped) leaves out the ops
+ * that write nothing in the clip (`clipOpActivity`).
  */
 export function trackInfluence(
   program: RigProgram,
   target: 'raw' | 'humanoid',
+  active: OpActivity = (op) => !op.skipped,
 ): ReadonlyMap<TrackKey, ReadonlySet<number>> {
   const internals = internalsOf(program);
-  const ops = new OpInfluence(internals);
+  const ops = new OpInfluence(internals, active);
   const withOps = (slots: Set<number>, nodes: readonly number[]): Set<number> => {
     if (!ops.hasOps) return slots;
     for (const node of nodes) if (node !== -1) for (const slot of ops.extra(node)) slots.add(slot);
@@ -171,7 +213,8 @@ export function keyedCurves(internals: RigInternals, sampler: ClipSampler): (slo
  * Key times of every bake track's influencing curves (§5.8) inside `range`, after infinity mapping (cyclic curves
  * repeat their keys), sorted and unique; a track without keyed influence maps to []. Tracks are those of
  * `trackInfluence` (raw: every driven node's rotation, translation and scale; humanoid: the bones' rotations and the
- * hips translation). The export keep set (§5.16) and `rig.ikFk.matchRange {step: 'keys'}` use it.
+ * hips translation). Ops inactive throughout the clip do not count (`clipOpActivity`). The export keep set (§5.16)
+ * and `rig.ikFk.matchRange {step: 'keys'}` use it.
  */
 export function computeInfluenceKeyTimes(
   program: RigProgram,
@@ -183,7 +226,7 @@ export function computeInfluenceKeyTimes(
   const curves = keyedCurves(internals, sampler);
   const bySet = new Map<ReadonlySet<number>, readonly Frame[]>();
   const result = new Map<TrackKey, readonly Frame[]>();
-  for (const [track, slots] of trackInfluence(program, target)) {
+  for (const [track, slots] of trackInfluence(program, target, clipOpActivity(program, sampler))) {
     let times = bySet.get(slots);
     if (times === undefined) {
       const set = new Set<Frame>();
