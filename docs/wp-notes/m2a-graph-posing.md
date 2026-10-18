@@ -45,7 +45,7 @@ Same bench, same machine, after the six mechanisms (commits `5763657`, `f684f8d`
 | | median | p95 | verdict |
 |---|---|---|---|
 | Graph Editor drag, 1,000 keys (gate p95 ≤ 4.0 ms) | 3.30 ms | 3.60 ms | **Met** (load 5.9) |
-| doc bench preview update, 1,000 keys (≤ 1.0 ms) | 1.03–1.19 ms at load 15–21 | — | see below |
+| doc bench preview update, 1,000 keys (≤ 1.0 ms) | 0.76–0.88 ms (5 runs, load 7–10) | — | **Met** (second pass, below) |
 | Tween slider drag, 60 channels (§5.22, ≤ 4 ms) | 2.90 ms | 3.30 ms | Met (load 10) |
 
 Frame split per move after the mechanisms (profiled): store preview update 0.86 ms (was 1.95), Graph Editor redraw
@@ -57,9 +57,19 @@ file — an incremental tick set or one that skips preview batches would remove 
 (0.29 ms, layout reads of the panes).
 
 The doc bench (`packages/doc/test/bench.test.ts`, unchanged: median of 10 updates of a fresh preview, patch path)
-measured 2.09 ms before and 1.03–1.19 ms after at load averages 15–21 (other agents' builds); a Node CPU profile of
-600 updates puts the update at ≈ 1.1 ms with the profiler. The ≤ 1.0 ms target is for an idle measuring machine
-(load < 8); re-measure there (`pnpm --filter @ekza-animator/doc exec vitest run test/bench.test.ts`).
+measured 2.09 ms before the mechanisms and 1.05–1.15 ms after them at load 3–4, still above the target. A Node CPU
+profile of 600 updates showed what was left: storage lookups (18 %: a patch looked its 30k-entry table up four times,
+the revert and the preview batch twice more), the preview batch's `deepEqual` (17 %, own-property checks per
+field) and the revert. Second pass (commit `e594951`): a patch reads its stored entry once and hands it to the
+partition, the journal and a `Storage.write` that skips the lookup; each journal original tracks what storage holds
+for it (`JournalOriginal.current`, kept in step by the journal's writes, rollbacks and reverts; a preview's
+conflicts change `original` only), so the revert and the batch look nothing up; `deepEqual` walks plain records
+without own-property checks and falls back to the exact walk on an `undefined` field or differing key counts; the
+query engine skips the stale-curve `Set` add for consecutive keys of one curve. Result: **0.76–0.88 ms** in five
+runs at load 7–10 (commit 0.31–0.43 ms). Tests: `doc/test/preview-m1.test.ts` (a remote write under a record the
+last update left committed; a failing update then a good one report what readers saw; a curve written again after
+a query drops again; patch, soft delete and restore), `doc/test/diff.test.ts` (undefined fields and key counts,
+property-based against JSON text); conformance suites unchanged and green.
 
 Mechanisms as built (M2A-SPEC §5.21.1):
 
