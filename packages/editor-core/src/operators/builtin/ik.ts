@@ -262,7 +262,7 @@ const switchLimb = defineOperator({
     if (args.match !== false) {
       // Switching to FK matches the FK chain to the IK pose; to IK matches the IK control and pole to FK.
       matched = matchAt(app, ctx, args.to === 'fk' ? 'fk' : 'ik', channelsAt(app, ctx, ctx.frame, true));
-      if (args.to === 'ik') warn(app, matchWarnings(args.limb, matched));
+      warn(app, matchWarnings(args.limb, matched));
     }
     return writeSwitch(app, tx, ctx, matched?.values ?? null, args.to === 'ik' ? 1 : 0, mode);
   },
@@ -290,7 +290,7 @@ const matchLimb = defineOperator({
     if (tx === null) throw new EkzaError('internal', 'rig.ikFk.match runs in a transaction');
     const ctx = requireContext(app, args.limb, args.character);
     const matched = matchAt(app, ctx, args.side, channelsAt(app, ctx, ctx.frame, true));
-    if (args.side === 'ik') warn(app, matchWarnings(args.limb, matched));
+    warn(app, matchWarnings(args.limb, matched));
     return writeSwitch(app, tx, ctx, matched.values, null, args.key === true ? 'key' : 'none');
   },
 });
@@ -334,7 +334,7 @@ const matchRange = defineOperator({
     // values are the eulerNear reference of the next, so the written rotations are continuous.
     const perFrame: { readonly frame: Frame; readonly values: ReadonlyMap<ControlId, ChannelValues> }[] = [];
     let reference: ReadonlyMap<ControlId, ChannelValues> | undefined;
-    let worst = { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0 };
+    let worst = { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0, toesErrorM: 0 };
     for (const frame of frames) {
       const result = matchAt(app, ctx, args.side, channelsAt(app, ctx, frame, false), reference);
       perFrame.push({ frame, values: result.values });
@@ -344,6 +344,7 @@ const matchRange = defineOperator({
         midErrorM: Math.max(worst.midErrorM, result.midErrorM),
         hyperextensionRad: Math.max(worst.hyperextensionRad, result.hyperextensionRad),
         toesErrorRad: Math.max(worst.toesErrorRad, result.toesErrorRad),
+        toesErrorM: Math.max(worst.toesErrorM, result.toesErrorM),
       };
     }
     let count = 0;
@@ -359,7 +360,7 @@ const matchRange = defineOperator({
       }
     }
     eulerFilterWritten(tx, ctx, [...written]);
-    if (args.side === 'ik') warn(app, matchWarnings(args.limb, worst));
+    warn(app, matchWarnings(args.limb, worst));
     return { count } satisfies CountResult;
   },
 });

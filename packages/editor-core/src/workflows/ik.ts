@@ -241,6 +241,12 @@ export interface MatchResult {
    * while the foot itself matches; 0 for FK matches and limbs without toes.
    */
   readonly toesErrorRad: number;
+  /**
+   * FK match of a leg with toes: how far the toes joint of the matched FK pose is from the IK pose's (metres). Under
+   * a ball roll the ik2 toes rule keeps the toes planted by turning them about the ball pivot, which can lie off the
+   * toes joint; FK keeps that joint on the foot, so only the rotation can match. 0 for IK matches.
+   */
+  readonly toesErrorM: number;
 }
 
 /**
@@ -260,24 +266,30 @@ export function matchAt(
   const scratch = program.allocChannels();
   const pose = program.allocPose();
   const ref = reference ?? bufferValues(app, program, ch, sideControls(limb, side));
+  const { upper, mid, end, toes } = limb.nodes;
+  /** The pose of `ch` with `values` written, evaluated with the limb at `ikFk`. */
+  const matchedPose = (values: ReadonlyMap<ControlId, ChannelValues>, ikFk: number): PoseBuffers => {
+    const matched: ChannelBuffer = { values: ch.values.slice(), attrs: ch.attrs.slice() };
+    for (const [control, channels] of values) writeControlChannels(program, matched, control, channels);
+    const out = program.allocPose();
+    kit.evaluateWithLimbMode(program, matched, limb.id, ikFk, scratch, out);
+    return out;
+  };
   if (side === 'fk') {
     kit.evaluateWithLimbMode(program, ch, limb.id, 1, scratch, pose);
     const values = kit.matchFkToIk(program, pose, limb.id, ref);
-    return { values, endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0 };
+    const toesErrorM =
+      toes >= 0 ? len3(sub3(position(matchedPose(values, 0).boneWorld, toes), position(pose.boneWorld, toes))) : 0;
+    return { values, endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0, toesErrorM };
   }
   kit.evaluateWithLimbMode(program, ch, limb.id, 0, scratch, pose);
   const result = kit.matchIkToFk(program, pose, ch, limb.id, ref);
-  const { upper, mid, end, toes } = limb.nodes;
   const chain = upper >= 0 && mid >= 0 && end >= 0;
   const midMoves = result.midErrorM > MID_ERROR_WARN_M;
   let hyperextensionRad = 0;
   let toesErrorRad = 0;
   if (chain && (midMoves || toes >= 0)) {
-    // The matched IK pose: the FK channels with the matched values written, evaluated with ikFk 1.
-    const matched: ChannelBuffer = { values: ch.values.slice(), attrs: ch.attrs.slice() };
-    for (const [control, channels] of result.values) writeControlChannels(program, matched, control, channels);
-    const ikPose = program.allocPose();
-    kit.evaluateWithLimbMode(program, matched, limb.id, 1, scratch, ikPose);
+    const ikPose = matchedPose(result.values, 1);
     if (midMoves) hyperextensionRad = hyperextension(limb, pose, ikPose);
     if (toes >= 0) toesErrorRad = relativeTurn(pose.boneWorld, ikPose.boneWorld, end, toes);
   }
@@ -287,6 +299,7 @@ export function matchAt(
     midErrorM: result.midErrorM,
     hyperextensionRad,
     toesErrorRad,
+    toesErrorM: 0,
   };
 }
 
@@ -369,12 +382,15 @@ function hyperextension(limb: LimbDesc, fkPose: PoseBuffers, ikPose: PoseBuffers
 }
 
 /**
- * The warnings of an IK match (§5.6): hyperextension or a non-hinge mid joint, an end that misses (soft IK), and
- * toes that the foot roll bends (`toesErrorRad`, see `MatchResult`).
+ * The warnings of a match (§5.6): for IK, hyperextension or a non-hinge mid joint, an end that misses (soft IK), and
+ * toes that the foot roll bends (`toesErrorRad`); for FK, toes the foot roll moved off the foot (`toesErrorM`).
  */
 export function matchWarnings(
   limb: LimbId,
-  result: Pick<MatchResult, 'endErrorM' | 'midErrorM' | 'hyperextensionRad'> & { readonly toesErrorRad?: number },
+  result: Pick<MatchResult, 'endErrorM' | 'midErrorM' | 'hyperextensionRad'> & {
+    readonly toesErrorRad?: number;
+    readonly toesErrorM?: number;
+  },
 ): string[] {
   const out: string[] = [];
   const name = LIMB_NAME[limb] ?? limb;
@@ -401,6 +417,11 @@ export function matchWarnings(
     const degrees = (toes * 180) / Math.PI;
     out.push(
       `${name}: IK bends the toes by ${degrees.toFixed(degrees < 10 ? 1 : 0)}° (foot roll); set Roll to 0 to keep the FK toes`,
+    );
+  }
+  if ((result.toesErrorM ?? 0) > END_ERROR_WARN_M) {
+    out.push(
+      `${name}: FK moves the toes by ${mm(result.toesErrorM ?? 0)} mm (foot roll); set Roll to 0 to keep the IK toes`,
     );
   }
   return out;

@@ -318,7 +318,7 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     expect(services.toasts.length).toBe(before);
   });
 
-  it('warns when the matched IK pose bends the toes (a foot roll inside the ball range), on switch and range', async () => {
+  it('warns when a match cannot keep the toes (a foot roll inside the ball range), on switch and range', async () => {
     const { app, services } = ikApp({ snapshot: ikWaveDoc({ ikFkDefault: 0 }) });
     const base = scriptedKit();
     // Like the ik2 toes rule under a ball roll: with ikFk 1 the toes turn 20° about the foot's x axis.
@@ -352,6 +352,29 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     // Arms have no toes: no toes warning there.
     await runOk(app, 'rig.ikFk.match', { limb: 'arm.L', side: 'ik' });
     expect(services.toasts.length).toBe(before + 1);
+    // FK keeps the toes joint on the foot: when the IK pose turned the toes about a ball pivot off that joint, the
+    // FK match moves them. Here the FK match keeps the current FK channels (the naive program's pose is the IK
+    // pose) and the IK pose shifts the toes 5 mm (ikFk 1 only); switching to FK warns.
+    setLimbKit(app, {
+      ...base,
+      matchFkToIk: (_program, _pose, _limb, reference) =>
+        new Map([...reference].map(([control, values]) => [control, { ...values }] as const)),
+      evaluateWithLimbMode(program, ch, limb, ikFk, scratch, out) {
+        base.evaluateWithLimbMode?.(program, ch, limb, ikFk, scratch, out);
+        const toes = program.limbs.find((desc) => desc.id === limb)?.nodes.toes ?? -1;
+        if (ikFk >= 1 && toes >= 0) out.boneWorld[toes * 16 + 13] = (out.boneWorld[toes * 16 + 13] ?? 0) + 0.005;
+      },
+    });
+    const count = services.toasts.length;
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'key' });
+    expect(services.toasts.length).toBe(count + 1);
+    expect(services.toasts.at(-1)).toMatchObject({
+      kind: 'warning',
+      text: 'L Leg: FK moves the toes by 5.0 mm (foot roll); set Roll to 0 to keep the IK toes',
+    });
+    await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'fk', range: { start: 0, end: 2 } });
+    expect(services.toasts.at(-1)?.text).toContain('FK moves the toes by 5.0 mm');
+    expect(matchWarnings('leg.R', { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorM: 1e-4 })).toEqual([]);
     expect(matchWarnings('leg.R', { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 5e-4 })).toEqual(
       [],
     );

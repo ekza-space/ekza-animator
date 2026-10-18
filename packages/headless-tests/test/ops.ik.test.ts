@@ -207,6 +207,81 @@ describe.skipIf(!SIBLINGS_READY || !READY_A1)(
       expect(docJson(app)).toEqual(before);
     });
 
+    it('seamless IK → FK with a ball roll and animated toes keeps frames 0…9 (1e-6); the toes warn both ways', async () => {
+      const { app, services } = realApp();
+      const san = await importFixture(app, 'seed-san.vrm');
+      await runOk(app, 'clip.new', { name: 'roll' });
+      const c = (key: string) => controlOf(app, san.character, key);
+      const ik = c('ik.leg.L');
+      const toes = c('fk.toes.L');
+      // fk.toes.L rx 0° / 30° at 0 / 20 (auto tangents): under IK the toes rule reads it, so it shapes frames 0…9.
+      for (const [frame, degrees] of [
+        [0, 0],
+        [20, 30],
+      ] as const) {
+        setSceneFrame(app, frame);
+        await runOk(app, 'channel.setValues', {
+          edits: [{ control: toes, channel: 'rx', value: degrees * DEG }],
+          key: 'force',
+        });
+      }
+      // The IK foot: rest at 0; at 10 raised, forward and rolled 20° over the ball (inside the ball range).
+      select(app, [ik]);
+      setSceneFrame(app, 0);
+      await runOk(app, 'key.set');
+      setSceneFrame(app, 10);
+      await runOk(app, 'channel.setValues', {
+        edits: [
+          { control: ik, channel: 'ty', value: 0.05 },
+          { control: ik, channel: 'tz', value: 0.1 },
+          { control: ik, channel: '@roll', value: 20 * DEG },
+        ],
+      });
+      await runOk(app, 'key.set');
+      const frames = [0, 3, 6, 9, 10];
+      const before = frames.map((frame) => LEG.map((bone) => boneWorld(app, san.character, bone, frame)));
+      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+      // Up to f − 1 the pose is unchanged: the switch held the FK chain (toes included) at 9.
+      frames
+        .slice(0, -1)
+        .forEach((frame, f) =>
+          LEG.forEach((bone, i) =>
+            expectSameWorld(
+              boneWorld(app, san.character, bone, frame),
+              before[f]?.[i] as never,
+              1e-6,
+              `${bone} @${frame}`,
+            ),
+          ),
+        );
+      expect(keysOf(app, toes, 'rx').map((key) => [key.t, key.outType])).toEqual([
+        [0, expect.any(String)],
+        [9, 'step'],
+        [10, expect.any(String)],
+        [20, expect.any(String)],
+      ]);
+      // At f the chain and the toes' rotation match; the toes joint does not: the IK toes rule turned the planted
+      // toes about the ball pivot, which lies off the toes joint, and FK keeps that joint on the foot. The switch
+      // says by how much.
+      const at10 = before[4] ?? [];
+      LEG.slice(0, 3).forEach((bone, i) =>
+        expectSameWorld(boneWorld(app, san.character, bone, 10), at10[i] as never, 1e-6, `${bone} @10`),
+      );
+      const toes10 = boneWorld(app, san.character, 'leftToes', 10);
+      const ikToes10 = at10[3] as ReturnType<typeof boneWorld>;
+      expect(quatAngle(toes10.q, ikToes10.q), 'leftToes @10 rotation').toBeLessThanOrEqual(1e-6);
+      const moved = Math.hypot(toes10.t[0] - ikToes10.t[0], toes10.t[1] - ikToes10.t[1], toes10.t[2] - ikToes10.t[2]);
+      const fkWarning = services.toasts.filter((toast) => toast.kind === 'warning').at(-1)?.text ?? '';
+      expect(fkWarning).toContain(`L Leg: FK moves the toes by ${(moved * 1000).toFixed(1)} mm (foot roll)`);
+
+      // Back to IK at 15 with the roll still 20°: the foot matches, but the toes rule bends the toes by the ball
+      // roll, and the switch says so.
+      setSceneFrame(app, 15);
+      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'key' });
+      const ikWarning = services.toasts.filter((toast) => toast.kind === 'warning').at(-1)?.text ?? '';
+      expect(ikWarning).toMatch(/L Leg: IK bends the toes by 20° \(foot roll\)/);
+    });
+
     it('IK → FK → IK keeps the chain (1e-6) on a clean hinge; a hyperextended knee warns with its angle', async () => {
       const { app, services } = realApp();
       const san = await importFixture(app, 'seed-san.vrm');
