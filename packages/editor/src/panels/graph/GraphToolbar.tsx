@@ -1,11 +1,20 @@
 // Graph Editor toolbar (research 09 §4.7): tools, tangent types, break/unify, weighted, lock weight, pre/post
-// infinity, Euler filter, Simplify and framing. Every button runs an operator (MVP-SPEC §4.9).
+// infinity, Euler filter, Simplify and framing; M2a (M2A-SPEC §7, A4): the Scale tool, the view mode (absolute,
+// normalized, stacked), buffer curves (snapshot, swap), breakdown conversion (in "More ▾") and the Tween bar. Every
+// button runs an operator (MVP-SPEC §4.9).
 import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
 import type { GraphEditorController } from '@ekza-animator/curve-editor';
-import { type EditorApp, GRAPH_TOOL, PANEL } from '@ekza-animator/editor-core';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@ekza-animator/ui';
+import { type EditorApp, GRAPH_TOOL, type GraphViewMode, PANEL } from '@ekza-animator/editor-core';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { useSession } from '../../hooks';
+import { TweenBar } from '../shared/TweenBar';
 import { BUTTON_CLASS, SelectField, Separator, ToolButton } from './controls';
 import type { ToolbarState } from './model';
 import { runGraphOperator } from './run';
@@ -15,7 +24,15 @@ const TOOLS = [
   { id: GRAPH_TOOL.select, label: 'Select', key: 'Q' },
   { id: GRAPH_TOOL.move, label: 'Move', key: 'W' },
   { id: GRAPH_TOOL.insert, label: 'Insert', key: 'I' },
+  { id: GRAPH_TOOL.scale, label: 'Scale', key: 'R' },
 ] as const;
+
+/** M2a §5.15.2 view modes (N toggles normalized, Shift+N stacked). */
+const VIEW_MODES: readonly { readonly mode: GraphViewMode; readonly label: string; readonly title: string }[] = [
+  { mode: 'absolute', label: 'Abs', title: 'Absolute values' },
+  { mode: 'normalized', label: 'Norm', title: 'Normalized: every curve in −1…1 (N)' },
+  { mode: 'stacked', label: 'Stack', title: 'Stacked: one lane per curve (Shift+N)' },
+];
 
 /** The tangent types of the keymap (1…6) and, in "More", the menu-only ones (MVP-SPEC §4.10). */
 const TANGENTS: readonly { readonly type: TangentType; readonly label: string; readonly key: string }[] = [
@@ -47,8 +64,13 @@ export function GraphToolbar(props: {
   readonly state: ToolbarState;
   readonly controller: GraphEditorController | null;
   readonly hasControls: boolean;
+  /** M2a: the controller's view mode (the panel follows it and persists it with the layout). */
+  readonly viewMode: GraphViewMode;
 }): JSX.Element {
   const { app, state, controller } = props;
+  const buffered = useSession((s) => s.curveBuffers);
+  const hasBuffers = state.curves.some((curve) => buffered.has(curve.id));
+  const targetCurves = state.curves.map((curve) => curve.id);
   const tool = useSession((s) => s.tools.graph);
   const noCurves = state.curves.length === 0;
   const tangentTarget = state.hasKeys || !noCurves;
@@ -104,6 +126,24 @@ export function GraphToolbar(props: {
               {label}
             </DropdownMenuItem>
           ))}
+          {/* M2a §5.12: breakdown conversion of the selected keys (or the keys at the current frame). */}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            data-testid="ge-convert-breakdown"
+            title="Turn the selected keys into breakdowns"
+            onSelect={() => runGraphOperator(app, 'key.convert', { to: 'breakdown' })}
+          >
+            Convert to Breakdown
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className="whitespace-nowrap"
+            data-testid="ge-convert-key"
+            title="Turn the selected breakdowns back into keys"
+            onSelect={() => runGraphOperator(app, 'key.convert', { to: 'key' })}
+          >
+            Convert to Key
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <Separator />
@@ -178,6 +218,33 @@ export function GraphToolbar(props: {
         onChange={setSimplifyFactor}
       />
       <Separator />
+      {VIEW_MODES.map(({ mode, label, title }) => (
+        <ToolButton
+          key={mode}
+          testId={`ge-view-${mode}`}
+          label={label}
+          title={title}
+          pressed={props.viewMode === mode}
+          disabled={controller === null}
+          onClick={() => controller?.setViewMode(mode)}
+        />
+      ))}
+      <Separator />
+      <ToolButton
+        testId="ge-buffer-snapshot"
+        label="Snapshot"
+        title="Snapshot buffer curves: keep a copy of the curves to compare with or swap back"
+        disabled={noCurves}
+        onClick={run('graph.buffer.snapshot', { curves: targetCurves })}
+      />
+      <ToolButton
+        testId="ge-buffer-swap"
+        label="Swap"
+        title="Swap the curves with their buffer curves"
+        disabled={!hasBuffers}
+        onClick={run('graph.buffer.swap', { curves: targetCurves })}
+      />
+      <Separator />
       <ToolButton
         testId="ge-frame-all"
         label="Frame All"
@@ -192,6 +259,8 @@ export function GraphToolbar(props: {
         disabled={controller === null}
         onClick={() => controller?.frame('selection')}
       />
+      <Separator />
+      <TweenBar panel="graph" />
     </div>
   );
 }
