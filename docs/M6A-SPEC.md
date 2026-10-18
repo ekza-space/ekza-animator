@@ -2132,7 +2132,7 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   visible, unlocked mesh (its own moved vertices excluded), so a separate arm or head can be aligned before Combine;
   `J` — increments (0.1 m, 15°, 0.1). A ring marks the candidate and the readout names it ("→ vertex 128 · Torso").
   Edge snap `C` is stretch.
-- **Pivot editing**: `D` held or `Insert` (Windows/Linux) / `Home` (macOS; shadows `time.goToStart` only in
+- **Pivot editing**: `D` held, or `Insert` / `Home` (both on every platform; `Home` shadows `time.goToStart` only in
   `model.viewport`) toggles pivot edit: the manipulator draws dashed and drags move the pivot (`X`/`V` snap it). In
   object mode it writes `MeshRecord.pivot`/`GroupRecord.pivot` (`mesh.pivot.set`, undoable); in component mode it pins
   `componentPivot` (U). Menu Modify › Pivot: Center Pivot (bounds centre), Pivot to Bottom Center (bounds bottom
@@ -2627,7 +2627,7 @@ table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Ble
 | `Mod+KeyD` | `mesh.duplicateFaces` | mvf | M~ | |
 | `Mod+KeyG` | `scene.group` | mv, mo | M | `preventDefault` (find next) |
 | `KeyP` / `Shift+KeyP` | `scene.parent` / `scene.unparent` | mv, mo | M | |
-| `Insert` (Windows/Linux), `Home` (macOS) | `model.pivot.editToggle` | mv | M | `Home` keeps `time.goToStart` everywhere else |
+| `Insert`, `Home` | `model.pivot.editToggle` | mv | M | both on every platform (Maya: `Insert`, `Home` on macOS keyboards without `Insert`); `Home` keeps `time.goToStart` outside the Model viewport |
 | `KeyB` (tap) | `model.softSelect.toggle` | mv | M | `B`+drag radius is a tool modifier |
 | `Mod+KeyK` | `ui.commandPalette` | G | E | |
 
@@ -2716,7 +2716,7 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 
 | Menu id (trigger) | Slots | List |
 |---|---|---|
-| `model.modes` (RMB on a mesh) | N Edge · W Vertex · S Face · NE Object Mode · E UV (disabled, "UV editor arrives later") · NW Multi (disabled, stretch) · SE Select Shell | Select All · Hide Selected · Show All · Isolate · Assign Colour ▸ · Pivot ▸ · Rename… · Attributes |
+| `model.modes` (RMB on a mesh) | N Edge · W Vertex · S Face · NE Object Mode · E UV (disabled, "UV editor arrives later") · NW Multi (disabled, stretch) · SE Select ▸ (All, Shell, Border, Invert) · SW — (Vertex Face, not offered) | Select All · Select Shell · Hide Selected · Show All · Isolate · Assign Colour ▸ · Pivot ▸ · Rename… · Attributes |
 | `model.primitives` (Shift+RMB, nothing selected or over empty space) | N Cube · NE Cylinder · E Sphere · SE Plane · S Cone · SW Torus · W Humanoid Body… · NW Primitive Options… | Templates ▸ · Reference Image ▸ · Import mesh… |
 | `model.tools.object` (Shift+RMB, mesh object) | N Insert Edge Loop · NE Mirror… · E Combine · SE Separate · S Center Pivot · SW Delete · W Multi-Cut · NW Mesh Check | Freeze · Reset · Triangulate · Conform · Cleanup… · Make Editable |
 | `model.tools.vertex` (Shift+RMB, vertex mode) | N Merge to Center · NE Target Weld · E Connect · SE Chamfer Vertex (disabled, stretch) · **S Extrude** (poll: vertex extrude arrives later) · **SW Delete** · **W Multi-Cut** · NW Average Vertices | Delete Edge/Vertex · Merge · Slide · Snap to Grid |
