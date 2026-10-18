@@ -2,9 +2,10 @@
 // Editor route JS size gate (M2A-SPEC §5.21.2, M-2; CI step after `pnpm build`). Measures the scripts `/editor`
 // requests until its empty state shows — the definition the budget bench records from the network
 // (`e2e/bench/budgets.bench.ts`, test `editor route JS`), read here from the build: the prerendered HTML's scripts
-// and script preloads (not `noModule`), plus the route's `next/dynamic` files (`lib/route-scripts.mjs`) — gzip -9,
-// decimal bytes. Fails above 900,000 B, or when a required lazy boundary's code is in the initial set; prints every
-// lazy chunk group with its size.
+// and script preloads (not `noModule`), plus the route's `next/dynamic` files (`lib/route-scripts.mjs`), plus the
+// lazy groups a browser's first visit opens before the empty state can be used (the First-run dialog) — gzip -9,
+// decimal bytes. Fails above 900,000 B, or when a required lazy boundary's code is in the eager scripts; prints
+// every lazy chunk group with its size.
 //
 // Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>]
 import { existsSync, writeFileSync } from 'node:fs';
@@ -14,8 +15,11 @@ import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 
 /** CI gate: the §14 budget (decimal bytes, gzip -9). */
 export const GATE_BYTES = 900_000;
-/** M2a target for the initial route (≥ 100 kB headroom under the budget); see docs/wp-notes for the record. */
-export const TARGET_BYTES = 800_000;
+/**
+ * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: set from the chunk attribution, ≥ 95 kB
+ * headroom under the budget; the reason is recorded in docs/wp-notes/m2a-a5.md).
+ */
+export const TARGET_BYTES = 805_000;
 
 /**
  * Required lazy boundaries (M2A-SPEC §5.21.2), each recognised by strings only its code contains. A marker in an
@@ -41,20 +45,30 @@ export const BOUNDARIES = [
   { id: 'dialog-confirm', label: 'dialog: Confirm', markers: ['confirm-dialog'] },
   { id: 'dialog-open', label: 'dialog: Open', markers: ['-file-input'] },
   { id: 'test-api', label: 'e2e test API', markers: ['flushAutosave: '] },
+  { id: 'path-browserify', label: 'path-browserify (loaded by the export path)', markers: ['Path must be a string.'] },
 ];
+
+/**
+ * Lazy boundaries a browser's first visit loads before the empty state can be used: the editor opens the First-run
+ * dialog while `prefs.firstRunDone` is false (a fresh profile). They stay lazy for every later visit, and they count
+ * in the measured initial route, which is the first visit's (the bench measures a fresh profile).
+ */
+export const FIRST_VISIT = ['dialog-first-run'];
 
 const has = (source, markers) => markers.some((marker) => source.includes(marker));
 
 /**
- * The size report of a build: the initial set, its gzip -9 total, the lazy groups (labelled by boundary where a
- * marker identifies them) and the boundaries whose code is in the initial set. `ok` is the gate verdict.
+ * The size report of a build: the eager scripts and their gzip -9 total (`eager`), the first-visit groups and the
+ * measured total (`total` = eager + first visit, the number the gate and the target apply to), the lazy groups
+ * (labelled by boundary where a marker identifies them) and the boundaries whose code is in the eager scripts.
+ * `ok` is the gate verdict.
  */
 export function checkSize(nextDir, opts = {}) {
   const gate = opts.gate ?? GATE_BYTES;
   const target = opts.target ?? TARGET_BYTES;
   const route = readRouteScripts(nextDir, opts.route ?? 'editor');
   const initial = route.initial.map((file) => ({ file, bytes: route.sizes.get(file) ?? 0 }));
-  const total = initial.reduce((sum, { bytes }) => sum + bytes, 0);
+  const eager = initial.reduce((sum, { bytes }) => sum + bytes, 0);
   const initialSource = route.initial.map((file) => route.sources.get(file) ?? '').join('\n');
   const violations = BOUNDARIES.filter((boundary) => has(initialSource, boundary.markers)).map((b) => b.id);
   const lazy = route.lazy.map((group) => {
@@ -68,6 +82,8 @@ export function checkSize(nextDir, opts = {}) {
       bytes: group.files.reduce((sum, file) => sum + (route.sizes.get(file) ?? 0), 0),
     };
   });
+  const firstVisit = lazy.filter((group) => group.boundary !== null && FIRST_VISIT.includes(group.boundary));
+  const total = eager + firstVisit.reduce((sum, group) => sum + group.bytes, 0);
   const problems = [];
   if (route.missing.length > 0) problems.push(`initial scripts missing from the build: ${route.missing.join(', ')}`);
   if (total > gate)
@@ -77,6 +93,8 @@ export function checkSize(nextDir, opts = {}) {
   return {
     e2eBuild: route.e2eBuild,
     initial,
+    eager,
+    firstVisit,
     total,
     gate,
     target,
@@ -91,13 +109,20 @@ export function checkSize(nextDir, opts = {}) {
 function print(report) {
   const out = (line) => process.stdout.write(`${line}\n`);
   const bytes = (n) => `${n.toLocaleString('en')} B`;
+  const firstVisitFiles = report.firstVisit.reduce((sum, group) => sum + group.files.length, 0);
   out(
-    `check:size — /editor initial route (${report.e2eBuild ? 'e2e build: includes the test routes' : 'production build'}): ` +
-      `${report.initial.length} scripts, ${bytes(report.total)} gzip -9 (gate ${bytes(report.gate)}, target ≤ ${bytes(report.target)})`,
+    `check:size — /editor initial route, first visit (${report.e2eBuild ? 'e2e build: includes the test routes' : 'production build'}): ` +
+      `${report.initial.length + firstVisitFiles} scripts, ${bytes(report.total)} gzip -9 (gate ${bytes(report.gate)}, target ≤ ${bytes(report.target)})`,
   );
+  out(`eager scripts (every visit): ${report.initial.length}, ${bytes(report.eager)}`);
   for (const { file, bytes: size } of [...report.initial].sort((a, b) => b.bytes - a.bytes)) {
     out(`  ${kB(size).padStart(10)}  ${file}`);
   }
+  out(
+    `first visit only (lazy; a fresh profile opens them at start): ${firstVisitFiles}, ${bytes(report.total - report.eager)}`,
+  );
+  for (const group of report.firstVisit)
+    out(`  ${kB(group.bytes).padStart(10)}  ${group.label}  [${group.files.join(', ')}]`);
   const lazyTotal = report.lazy.reduce((sum, group) => sum + group.bytes, 0);
   out(`lazy chunk groups (loaded on demand): ${report.lazy.length}, ${kB(lazyTotal)} gzip -9`);
   for (const group of [...report.lazy].sort((a, b) => b.bytes - a.bytes)) {

@@ -1,13 +1,14 @@
-// M2A-SPEC §5.21.2 (M-2): the size gate on a fixture build — the initial set is the prerendered route's scripts and
+// M2A-SPEC §5.21.2 (M-2): the size gate on a fixture build — the eager set is the prerendered route's scripts and
 // script preloads (never `noModule`) plus the route's `next/dynamic` files; every other Turbopack chunk-list loader
-// is a lazy group, labelled by the boundary its code belongs to; the gate fails above the budget, when an initial
-// script is missing, or when a lazy boundary's code is in the initial set.
+// is a lazy group, labelled by the boundary its code belongs to; the measured initial route is the first visit's
+// (eager plus the First-run dialog group); the gate fails above the budget, when an initial script is missing, or
+// when a lazy boundary's code is in the eager set.
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
-import { checkSize, GATE_BYTES, TARGET_BYTES } from '../scripts/check-size.mjs';
+import { checkSize, FIRST_VISIT, GATE_BYTES, TARGET_BYTES } from '../scripts/check-size.mjs';
 import { chunkLoaders, htmlScripts } from '../scripts/lib/route-scripts.mjs';
 
 const dirs: string[] = [];
@@ -53,10 +54,11 @@ const CHUNKS = {
   'polyfill.js': 'polyfill'.repeat(1000),
   'main.js': `${loader(1, ['static/chunks/editor-a.js', 'static/chunks/editor-b.js'], 7)}main();`,
   'editor-a.js': `${loader(2, ['static/chunks/models.js'], 20)}${loader(3, ['static/chunks/writer.js'], 30)}editorA();`,
-  'editor-b.js': `${loader(4, ['static/chunks/about.js', 'static/chunks/editor-b.js'], 40)}editorB();`,
+  'editor-b.js': `${loader(4, ['static/chunks/about.js', 'static/chunks/editor-b.js'], 40)}${loader(5, ['static/chunks/welcome.js'], 50)}editorB();`,
   'models.js': push(20, 'e=>{"VRMC_materials_mtoon";"THREE.GLTFLoader"}'),
   'writer.js': push(30, 'e=>{"glTF-Transform"}'),
   'about.js': push(40, 'e=>{"data-testid","about-dialog"}'),
+  'welcome.js': push(50, `e=>{"data-testid","firstrun-dialog";"${'Welcome to Ekza Animator. '.repeat(20)}"}`),
 };
 
 describe('route scripts', () => {
@@ -83,7 +85,7 @@ describe('route scripts', () => {
 });
 
 describe('check:size', () => {
-  it('measures the initial set (HTML + next/dynamic files) and labels the lazy groups', () => {
+  it('measures the eager set (HTML + next/dynamic files) plus the first visit and labels the lazy groups', () => {
     const report = checkSize(fixtureBuild(CHUNKS));
     // script tags in document order, then preloads not already listed, then the next/dynamic files
     expect(report.initial.map((entry) => entry.file)).toEqual([
@@ -96,15 +98,22 @@ describe('check:size', () => {
       (sum, name) => sum + gz(CHUNKS[name as keyof typeof CHUNKS]),
       0,
     );
-    expect(report.total).toBe(expected);
+    expect(report.eager).toBe(expected);
+    // a fresh profile opens the First-run dialog at start: its group counts in the measured route, not in `eager`
+    expect(FIRST_VISIT).toEqual(['dialog-first-run']);
+    expect(report.firstVisit.map((group) => [group.id, group.boundary, group.files])).toEqual([
+      [5, 'dialog-first-run', ['static/chunks/welcome.js']],
+    ]);
+    expect(report.total).toBe(expected + gz(CHUNKS['welcome.js']));
     expect(report.lazy.map((group) => [group.id, group.boundary, group.files])).toEqual([
       [2, 'model-loader', ['static/chunks/models.js']],
       [3, 'export-path', ['static/chunks/writer.js']],
       // a loader's files that are already initial are not part of its lazy group
       [4, 'dialog-about', ['static/chunks/about.js']],
+      [5, 'dialog-first-run', ['static/chunks/welcome.js']],
     ]);
     expect(report.lazy[0]?.bytes).toBe(gz(CHUNKS['models.js']));
-    expect(report.present).toEqual(['model-loader', 'export-path', 'dialog-about']);
+    expect(report.present).toEqual(['model-loader', 'export-path', 'dialog-first-run', 'dialog-about']);
     expect(report.ok).toBe(true);
     expect(report.e2eBuild).toBe(false);
     expect([report.gate, report.target]).toEqual([GATE_BYTES, TARGET_BYTES]);
@@ -115,6 +124,27 @@ describe('check:size', () => {
     const report = checkSize(fixtureBuild(CHUNKS), { gate: 50 });
     expect(report.ok).toBe(false);
     expect(report.problems[0]).toMatch(/^initial route \d[\d,]* B > gate 50 B$/);
+  });
+
+  it('gates the first visit: the First-run dialog group can push the route over the gate', () => {
+    const base = checkSize(fixtureBuild(CHUNKS));
+    const report = checkSize(fixtureBuild(CHUNKS), { gate: base.eager });
+    expect(base.total).toBeGreaterThan(base.eager);
+    expect(report.ok).toBe(false);
+    expect(report.problems).toEqual([
+      `initial route ${base.total.toLocaleString('en')} B > gate ${base.eager.toLocaleString('en')} B`,
+    ]);
+  });
+
+  it('counts no first-visit group when the build has no First-run dialog boundary', () => {
+    const { 'welcome.js': _gone, ...rest } = CHUNKS;
+    const report = checkSize(
+      fixtureBuild({ ...rest, 'editor-b.js': CHUNKS['editor-b.js'].replace(/,\d+,e=>\{[^}]*welcome[^}]*\}/, '') }),
+    );
+    expect(report.lazy.map((group) => group.id)).toEqual([2, 3, 4]);
+    expect(report.firstVisit).toEqual([]);
+    expect(report.total).toBe(report.eager);
+    expect(report.ok).toBe(true);
   });
 
   it('fails when a lazy boundary is in the initial set (e.g. three-vrm imported statically)', () => {

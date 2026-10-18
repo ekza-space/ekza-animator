@@ -1,9 +1,9 @@
 // ARCHITECTURE §14 budgets measured in the production editor (e2e build, real Chrome): idle frames, open-to-
 // interactive, scrub latency, playback CPU per frame with 4 panes, a 1,000-key Graph Editor drag, undo/redo of a
 // gesture, bake + VRMA write of 10 s at 30 fps (with the first export's lazy chunk), an autosave write of Seed-san with
-// 10 clips (M2A-SPEC §5.22), and the editor route's JS (cross-checked with `check:size`). Report-only (see
-// playwright.config.ts here); results go to annotations, stdout and `.acceptance/budgets/<name>.json`. The package
-// benches (vitest) cover the rest of §14; docs/wp-notes/wp-10-budgets.md and m2a-platform-perf.md record both.
+// 10 clips (M2A-SPEC §5.22), and the editor route's JS of a first and a later visit (cross-checked with `check:size`).
+// Report-only (see playwright.config.ts here); results go to annotations, stdout and `.acceptance/budgets/<name>.json`.
+// The package benches (vitest) cover the rest of §14; docs/wp-notes/wp-10-budgets.md and m2a-a5.md record both.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -653,8 +653,11 @@ test('autosave write, Seed-san × 10 clips (main thread)', async ({ page }) => {
   );
 });
 
-test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
-  const origin = new URL(baseURL ?? 'http://localhost').origin;
+/** Script responses of one page load until the empty state shows and the network is idle (gzip -9 per file). */
+async function captureRouteScripts(
+  page: Page,
+  origin: string,
+): Promise<{ files: string[]; raw: number; gzip: number; gzip6: number }> {
   const scripts = new Map<string, Buffer>();
   page.on('response', async (response) => {
     if (response.request().resourceType() !== 'script' || !response.url().startsWith(origin)) return;
@@ -675,32 +678,71 @@ test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
     gzip += gzipSync(body, { level: 9 }).byteLength;
     gzip6 += gzipSync(body).byteLength;
   }
+  const files = [...scripts.keys()].map((url) => new URL(url).pathname.replace(/^\/_next\//, '')).sort();
+  return { files, raw, gzip, gzip6 };
+}
+
+test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
+  const origin = new URL(baseURL ?? 'http://localhost').origin;
+  // First visit (fresh profile): the editor opens the First-run dialog, a lazy chunk, at start.
+  const first = await captureRouteScripts(page, origin);
+  await expect(page.getByTestId('firstrun-dialog')).toBeVisible();
   const isE2eBuild = await page.evaluate(() =>
     fetch('/e2e/vrma-check', { method: 'HEAD' }).then((response) => response.ok),
   );
-  // One measurement (M2A-SPEC §5.21.2): `check:size` reads the same set from the build the server serves.
+  // A later visit: the welcome choices are stored, so the dialog stays closed; a new page of the same profile with
+  // the HTTP cache off loads the eager scripts only.
+  await page.getByTestId('firstrun-done').click();
+  await expect(page.getByTestId('firstrun-dialog')).toBeHidden();
+  const later = await page.context().newPage();
+  const cdp = await page.context().newCDPSession(later);
+  await cdp.send('Network.enable');
+  await cdp.send('Network.setCacheDisabled', { cacheDisabled: true });
+  const again = await captureRouteScripts(later, origin);
+  await expect(later.getByTestId('firstrun-dialog')).toHaveCount(0);
+  await later.close();
+  // One measurement (M2A-SPEC §5.21.2): `check:size` reads the same sets from the build the server serves.
   const nextDir = fileURLToPath(new URL('../../.next', import.meta.url));
   const gate = existsSync(nextDir) ? checkSize(nextDir) : null;
-  const paths = [...scripts.keys()].map((url) => new URL(url).pathname.replace(/^\/_next\//, '')).sort();
-  const gateFiles = (gate?.initial.map((entry) => entry.file) ?? []).sort();
-  const sameFiles = paths.join() === gateFiles.join();
-  const difference = gate === null ? null : (gzip - gate.total) / gate.total;
+  const eagerFiles = (gate?.initial.map((entry) => entry.file) ?? []).sort();
+  const firstFiles = [...eagerFiles, ...(gate?.firstVisit.flatMap((group) => group.files) ?? [])].sort();
+  const cross = (captured: { files: string[]; gzip: number }, files: string[], total: number) => ({
+    total,
+    files,
+    sameFiles: captured.files.join() === files.join(),
+    difference: (captured.gzip - total) / total,
+  });
+  const firstCheck = gate === null ? null : cross(first, firstFiles, gate.total);
+  const againCheck = gate === null ? null : cross(again, eagerFiles, gate.eager);
+  const verdict = (check: ReturnType<typeof cross> | null) =>
+    check === null
+      ? ''
+      : ` (check:size ${kb(check.total)}, ${(check.difference * 100).toFixed(2)} %, ` +
+        `${check.sameFiles ? 'same scripts' : 'different scripts'})`;
   record(
     'route-js',
     {
-      scripts: scripts.size,
-      rawBytes: raw,
-      gzipBytes: gzip,
-      gzipDefaultLevelBytes: gzip6,
       e2eBuild: isE2eBuild,
-      files: paths,
-      checkSize: gate === null ? null : { total: gate.total, files: gateFiles, sameFiles, difference },
+      firstVisit: {
+        scripts: first.files.length,
+        rawBytes: first.raw,
+        gzipBytes: first.gzip,
+        gzipDefaultLevelBytes: first.gzip6,
+        files: first.files,
+        checkSize: firstCheck,
+      },
+      laterVisit: {
+        scripts: again.files.length,
+        rawBytes: again.raw,
+        gzipBytes: again.gzip,
+        gzipDefaultLevelBytes: again.gzip6,
+        files: again.files,
+        checkSize: againCheck,
+      },
     },
-    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}): ${scripts.size} scripts, ${kb(raw)} raw, ` +
-      `${kb(gzip)} gzip -9, ${kb(gzip6)} gzip -6 (budget ≤ 900 kB gzip; M2a target ≤ 800 kB)` +
-      (gate === null
-        ? ''
-        : `; check:size on the served build: ${kb(gate.total)} (${((difference ?? 0) * 100).toFixed(2)} %, ` +
-          `${sameFiles ? 'same scripts' : 'different scripts'})`),
+    `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}), first visit: ${first.files.length} scripts, ` +
+      `${kb(first.raw)} raw, ${kb(first.gzip)} gzip -9, ${kb(first.gzip6)} gzip -6${verdict(firstCheck)}; later ` +
+      `visit: ${again.files.length} scripts, ${kb(again.gzip)} gzip -9${verdict(againCheck)} (budget ≤ 900 kB gzip; ` +
+      `M2a target ≤ 805 kB for the first visit)`,
   );
 });
