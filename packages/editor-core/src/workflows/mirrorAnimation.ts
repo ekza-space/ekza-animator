@@ -8,8 +8,17 @@
 // - Half cycle (s = start, e = end, T = e − s, m = s + T/2): on a working copy of each source curve, keys are inserted
 //   at s, m and e without changing the shape; keys in [s, e) land at s + ((t − s + T/2) mod T); the key landing at m
 //   takes value and out-handle from s and its in-handle from e, the key landing at s (from m) gets a copy at e; the
-//   three seam keys are frozen with their resolved handles as `fixed`. Exact at every frame for periodic curves.
-import { type AnimCurve, EkzaError, type Handle, type KeyData } from '@ekza-animator/anim-core';
+//   three seam keys are frozen with their resolved handles as `fixed` (a `step`/`stepNext` out flag is kept: it
+//   belongs to the span the key starts, which maps with it). Exact at every frame for periodic curves.
+import {
+  type AnimCurve,
+  type CompiledAnimCurve,
+  type CurveEngine,
+  EkzaError,
+  type Handle,
+  type KeyData,
+  type TangentType,
+} from '@ekza-animator/anim-core';
 import type {
   AttrDef,
   ChannelId,
@@ -115,9 +124,189 @@ function writable(control: ControlRecord, channel: ChannelId): 'yes' | 'locked' 
 
 const slopeOf = (h: Handle): number => (h.dt === 0 ? (h.dv === 0 ? 0 : Math.sign(h.dv) * Infinity) : h.dv / h.dt);
 
+/** Slopes this close count as one (a seam key whose in and out slopes differ is `broken`). */
+const differentSlopes = (a: Handle, b: Handle): boolean => {
+  const x = slopeOf(a);
+  const y = slopeOf(b);
+  return !(Math.abs(x - y) <= 1e-12 * Math.max(1, Math.abs(x), Math.abs(y)));
+};
+
+/** AnimX's 1/3 (handles of computed sides are a third of the span, computed as `span * ONE_THIRD`). */
+const ONE_THIRD = 1.0 / 3.0;
+const finiteOr = (x: number, fallback: number): number => (Number.isFinite(x) ? x : fallback);
+
 /**
- * The half-cycle remap of §5.14 on a working copy of `curve` (keys at s, m and e inserted without changing its
- * shape); returns the remapped keys in time order and whether the curve is periodic over [s, e].
+ * Handle readers for frozen copies of a curve's keys: the resolved handles of `compiled`, except on weighted curves,
+ * whose compiled handles carry AnimX's monotonic-X correction of overlong handles. That correction is not idempotent
+ * (a corrected handle sits just inside the bound, where a second correction may take the other branch), so a frozen
+ * key gets the handle the engine started from: the stored one of a `fixed` side, a third of the span along the
+ * resolved slope otherwise (anim-core `resolveTangents`). The engine then corrects the copy exactly as the source.
+ */
+function handleReaders(
+  curve: AnimCurve,
+  compiled: CompiledAnimCurve,
+): { readonly in: (i: number) => Handle; readonly out: (i: number) => Handle } {
+  const compiledIn = (i: number): Handle => ({ dt: compiled.inDt[i] as number, dv: compiled.inDv[i] as number });
+  const compiledOut = (i: number): Handle => ({ dt: compiled.outDt[i] as number, dv: compiled.outDv[i] as number });
+  if (!curve.weighted) return { in: compiledIn, out: compiledOut };
+  const keys = curve.keys;
+  const spans = (i: number): { readonly before: number; readonly after: number } => {
+    const key = keys[i] as KeyData;
+    const prev = keys[i - 1];
+    const next = keys[i + 1];
+    return {
+      before: prev !== undefined ? key.t - prev.t : next !== undefined ? next.t - key.t : 1,
+      after: next !== undefined ? next.t - key.t : prev !== undefined ? key.t - prev.t : 1,
+    };
+  };
+  return {
+    in: (i) => {
+      const key = keys[i] as KeyData;
+      if (key.inType === 'fixed') return { dt: finiteOr(key.inHandle.dt, 0), dv: finiteOr(key.inHandle.dv, 0) };
+      const span = spans(i).before;
+      return { dt: -(span * ONE_THIRD), dv: -((compiled.inSlope[i] as number) * span * ONE_THIRD) };
+    },
+    out: (i) => {
+      const key = keys[i] as KeyData;
+      if (key.outType === 'fixed') return { dt: finiteOr(key.outHandle.dt, 0), dv: finiteOr(key.outHandle.dv, 0) };
+      const span = spans(i).after;
+      return { dt: span * ONE_THIRD, dv: (compiled.outSlope[i] as number) * span * ONE_THIRD };
+    },
+  };
+}
+
+const isCyclic = (mode: AnimCurve['pre']): boolean =>
+  mode === 'cycle' || mode === 'cycleOffset' || mode === 'oscillate';
+const isStepFlag = (type: TangentType): boolean => type === 'step' || type === 'stepNext';
+/** More keys than this from unrolling a cyclic infinity: the working copy falls back to the plain inserts. */
+const MAX_UNROLLED_KEYS = 20_000;
+
+/**
+ * The working copy's first step for cyclic infinities (§5.14 step 1, "without changing the shape"): a key inserted
+ * outside the key range takes the infinity's value and slope, but a cyclic infinity cannot survive it (the cycle
+ * range changes), so where the clip range [s, e] reaches past the keys into a `cycle`, `cycleOffset` or `oscillate`
+ * infinity, that side is first written out as copies of the key range (AnimX mapping: forward copies, every odd
+ * oscillation reversed). Copied keys take their values from the source curve's evaluation at their time (AnimX's
+ * junction values included), their resolved handles as `fixed` (reversed copies swap and mirror the two sides) and
+ * the step flag of the span they start (a reversed copy turns `step` into `stepNext` and back). The original end keys
+ * are frozen the same way, because their neighbourhood (and with it any auto or cycle-aware tangent) changes. A
+ * single key or an empty key range under a cyclic infinity behaves as constant (AnimX) and is treated as such.
+ */
+function unrollCycles(engine: CurveEngine, curve: AnimCurve, s: number, e: number): AnimCurve {
+  const keys = curve.keys;
+  const n = keys.length;
+  if (n === 0) return curve;
+  const first = (keys[0] as KeyData).t;
+  const last = (keys[n - 1] as KeyData).t;
+  const P = last - first;
+  if (!(P > 0)) {
+    if (!isCyclic(curve.pre) && !isCyclic(curve.post)) return curve;
+    return {
+      ...curve,
+      pre: isCyclic(curve.pre) ? 'constant' : curve.pre,
+      post: isCyclic(curve.post) ? 'constant' : curve.post,
+    };
+  }
+  const before = isCyclic(curve.pre) && s < first - SAME_FRAME ? Math.ceil((first - s) / P - 1e-12) : 0;
+  const after = isCyclic(curve.post) && e > last + SAME_FRAME ? Math.ceil((e - last) / P - 1e-12) : 0;
+  if (before + after === 0 || (before + after + 1) * n > MAX_UNROLLED_KEYS) return curve;
+  const compiled = engine.compile(curve);
+  // Forward copies repeat the source spans: the uncorrected handles make the engine correct them the same way.
+  // Reversed copies take the corrected (monotonic) ones mirrored: AnimX corrects a span keeping its first handle,
+  // which a reversed span cannot reproduce, so a weighted span the correction changed is not exact under oscillate.
+  const { in: inOf, out: outOf } = handleReaders(curve, compiled);
+  const correctedIn = (i: number): Handle => ({ dt: compiled.inDt[i] as number, dv: compiled.inDv[i] as number });
+  const correctedOut = (i: number): Handle => ({ dt: compiled.outDt[i] as number, dv: compiled.outDv[i] as number });
+  /** The out type of a key starting a copy of source span k (`fixed` unless the span steps). */
+  const flagOf = (k: number, reversed: boolean): TangentType => {
+    const type = (keys[k] as KeyData).outType;
+    if (!isStepFlag(type)) return 'fixed';
+    if (!reversed) return type;
+    return type === 'step' ? 'stepNext' : 'step';
+  };
+  interface Image {
+    readonly t: number;
+    readonly source: KeyData;
+    readonly inHandle: Handle;
+    readonly outHandle: Handle;
+    /** Out type of the span this key starts (null at a copy's last key: the next copy decides). */
+    readonly outType: TangentType | null;
+  }
+  /** Copy j of the key range in time order: forward, or reversed for odd oscillations. */
+  const copy = (j: number): Image[] => {
+    const reversed = (j < 0 ? curve.pre : curve.post) === 'oscillate' && Math.abs(j) % 2 === 1;
+    const out: Image[] = [];
+    for (let idx = 0; idx < n; idx++) {
+      if (!reversed) {
+        out.push({
+          t: (keys[idx] as KeyData).t + j * P,
+          source: keys[idx] as KeyData,
+          inHandle: inOf(idx),
+          outHandle: outOf(idx),
+          outType: idx < n - 1 ? flagOf(idx, false) : null,
+        });
+        continue;
+      }
+      const i = n - 1 - idx;
+      const o = correctedOut(i);
+      const h = correctedIn(i);
+      out.push({
+        t: first + last - (keys[i] as KeyData).t + j * P,
+        source: keys[i] as KeyData,
+        inHandle: { dt: 0 - o.dt, dv: o.dv },
+        outHandle: { dt: 0 - h.dt, dv: h.dv },
+        outType: i > 0 ? flagOf(i - 1, true) : null,
+      });
+    }
+    return out;
+  };
+  const original = (): Image[] =>
+    keys.map((key, i) => ({
+      t: key.t,
+      source: key,
+      inHandle: inOf(i),
+      outHandle: outOf(i),
+      outType: i < n - 1 ? flagOf(i, false) : null,
+    }));
+  // Copies −before … after joined at their shared end keys: the left copy gives the in side, the right one the out
+  // side and its step flag.
+  const images: Image[] = [];
+  for (let j = -before; j <= after; j++) {
+    const piece = j === 0 ? original() : copy(j);
+    const left = images.pop();
+    const head = piece[0] as Image;
+    images.push(left === undefined ? head : { ...head, inHandle: left.inHandle }, ...piece.slice(1));
+  }
+  const firstIndex = before * (n - 1);
+  const lastIndex = firstIndex + n - 1;
+  const frozen = (image: Image, index: number): KeyData => {
+    const outType = image.outType ?? 'fixed';
+    // The original end keys keep their own data and value; copied keys take the source's value at their time.
+    const own = index === firstIndex || index === lastIndex ? (keys[index - firstIndex] as KeyData) : null;
+    const base = own ?? image.source;
+    return {
+      ...base,
+      t: image.t,
+      v: own?.v ?? engine.evaluate(compiled, image.t),
+      inType: 'fixed',
+      outType,
+      inHandle: image.inHandle,
+      outHandle: image.outHandle,
+      broken: base.broken || (!isStepFlag(outType) && differentSlopes(image.inHandle, image.outHandle)),
+    };
+  };
+  return {
+    ...curve,
+    keys: images.map((image, index) =>
+      index > firstIndex && index < lastIndex ? (keys[index - firstIndex] as KeyData) : frozen(image, index),
+    ),
+  };
+}
+
+/**
+ * The half-cycle remap of §5.14 on a working copy of `curve` (cyclic infinities over the clip range written out as
+ * keys, then keys at s, m and e inserted, both without changing its shape); returns the remapped keys in time order
+ * and whether the curve is periodic over [s, e].
  */
 export function halfCycleKeys(
   app: EditorApp,
@@ -130,7 +319,7 @@ export function halfCycleKeys(
   const T = e - s;
   const m = s + T / 2;
   if (!(T > 0)) throw new EkzaError('invalid-record', 'halfCycleKeys: the clip range is empty');
-  let work: AnimCurve = curve;
+  let work: AnimCurve = unrollCycles(deps.curves.engine, curve, s, e);
   for (const frame of [s, m, e]) {
     if (work.keys.some((key) => Math.abs(key.t - frame) < SAME_FRAME)) continue;
     work = { ...work, keys: deps.curves.insertKeyPreservingShape(work, frame).keys };
@@ -142,18 +331,21 @@ export function halfCycleKeys(
   const im = indexAt(m);
   const ie = indexAt(e);
   if (is === -1 || im === -1 || ie === -1) throw new EkzaError('internal', 'halfCycleKeys: seam keys missing');
-  const resolvedIn = (i: number): Handle => ({ dt: compiled.inDt[i] as number, dv: compiled.inDv[i] as number });
-  const resolvedOut = (i: number): Handle => ({ dt: compiled.outDt[i] as number, dv: compiled.outDv[i] as number });
-  /** A seam key: frozen with resolved handles, broken where its two slopes differ. */
+  const { in: resolvedIn, out: resolvedOut } = handleReaders(work, compiled);
+  /**
+   * A seam key: frozen with resolved handles, broken where its two slopes differ. A `step`/`stepNext` out type is an
+   * interpolation flag of the span the key starts, not a handle: that span maps with the key (the key landing at m
+   * starts the span that followed s, the keys at s and e the one that followed m), so the flag is kept, or the span
+   * would turn into a ramp (also when the seam key was inserted inside a step span, which gives it the span's flag).
+   */
   const seam = (from: KeyData, t: number, inHandle: Handle, outHandle: Handle): KeyData => {
-    const a = slopeOf(inHandle);
-    const b = slopeOf(outHandle);
-    const differ = !(Math.abs(a - b) <= 1e-12 * Math.max(1, Math.abs(a), Math.abs(b)));
+    const stepped = isStepFlag(from.outType);
+    const differ = !stepped && differentSlopes(inHandle, outHandle);
     return {
       ...from,
       t,
       inType: 'fixed',
-      outType: 'fixed',
+      outType: stepped ? from.outType : 'fixed',
       inHandle,
       outHandle,
       broken: from.broken || differ,
