@@ -11,6 +11,11 @@
 //   (slerp for rotations, lerp for translations and scales, at its time); the sample with the largest error (ties:
 //   the smallest index) is kept while that error exceeds the tolerance. Deterministic: pure float64 arithmetic in a
 //   fixed order on the float32 samples.
+// - Bytes (acceptance fix round 1): a reduced track needs its own time accessor unless another track keeps the same
+//   times. Reduced tracks are grouped by their times, and a group is kept only if it saves bytes counting that
+//   accessor (TIME_ACCESSOR_BYTES + 4 B per time) against the full samples on the shared full time array; otherwise
+//   its tracks keep every sample. So a reduced file is never larger than the unreduced one (smooth 30 fps clips keep
+//   nearly every sample at R02's tolerances, and the extra time accessors made them larger).
 import type { Frame } from '@ekza-animator/anim-core';
 import { HUMAN_BONE_NAMES, type SkeletonDesc, type TrackKey } from '@ekza-animator/rig';
 import { restWorlds } from '../skeleton/rest';
@@ -262,6 +267,60 @@ function reduceTrack(
   };
 }
 
+/**
+ * Bytes one more time (input) accessor costs a written file besides its float32 times: the accessor's JSON with its
+ * min/max and, in the surgeon, its own bufferView, plus alignment (measured 120–150 B; rounded up so that the
+ * estimate errs towards keeping full tracks).
+ */
+export const TIME_ACCESSOR_BYTES = 192;
+
+/** Key of a time array (float32 bit patterns). */
+function timesKey(times: Float32Array): string {
+  return Array.from(new Uint32Array(times.buffer, times.byteOffset, times.length)).join(',');
+}
+
+/**
+ * Keeps the reduction of a group of tracks that share their reduced times only where it saves bytes (§5.16 bytes
+ * rule): the group costs TIME_ACCESSOR_BYTES + 4·n for its times plus its samples, against the full samples of its
+ * tracks on the full time array, which the file holds anyway while any track keeps it (charged once otherwise).
+ */
+function keepPayingReductions(original: readonly BakedTrack[], reduced: ReducedTrack[]): void {
+  const sampleBytes = (track: BakedTrack, n: number): number => n * 4 * COMPONENTS[track.path];
+  const groups = new Map<string, number[]>();
+  let fullUsers = 0;
+  reduced.forEach((r, i) => {
+    if (r.after < r.before) {
+      const key = timesKey(r.track.times);
+      const group = groups.get(key);
+      if (group === undefined) groups.set(key, [i]);
+      else group.push(i);
+    } else if (r.before > 2 && r.track.interpolation === 'LINEAR') fullUsers++;
+  });
+  const fullTimes = Math.max(0, ...original.map((track) => track.times.length));
+  const reverted: number[] = [];
+  let revertedSaving = 0;
+  for (const members of groups.values()) {
+    const first = reduced[members[0] as number] as ReducedTrack;
+    let asReduced = TIME_ACCESSOR_BYTES + 4 * first.after;
+    let asFull = 0;
+    for (const i of members) {
+      const r = reduced[i] as ReducedTrack;
+      asReduced += sampleBytes(r.track, r.after);
+      asFull += sampleBytes(r.track, r.before);
+    }
+    if (asReduced >= asFull) {
+      reverted.push(...members);
+      revertedSaving += asReduced - asFull;
+    }
+  }
+  // With no other track on the full time array, reverting adds that array once: revert only if it still pays.
+  if (reverted.length > 0 && fullUsers === 0 && revertedSaving <= TIME_ACCESSOR_BYTES + 4 * fullTimes) return;
+  for (const i of reverted) {
+    const track = original[i] as BakedTrack;
+    reduced[i] = { track, before: track.times.length, after: track.times.length, maxError: 0 };
+  }
+}
+
 /** §5.16: error-bounded reduction of a baked clip's sampled tracks. Pure and deterministic. */
 export function reduceBakedClip(
   clip: BakedClip,
@@ -272,15 +331,19 @@ export function reduceBakedClip(
   let samplesAfter = 0;
   let maxRotationErrorRad = 0;
   let maxTranslationErrorM = 0;
-  const tracks = clip.tracks.map((track) => {
+  const reduced = clip.tracks.map((track) => {
     const key: TrackKey = `${track.node}/${track.path}`;
     const tolerance = trackTolerance(track, opts.spec, opts.height, opts.leverArm);
-    const reduced = reduceTrack(track, tolerance, opts.keep.get(key), clip.meta.contactSeconds, secondsPerFrame);
-    samplesBefore += reduced.before;
-    samplesAfter += reduced.after;
-    if (track.path === 'rotation') maxRotationErrorRad = Math.max(maxRotationErrorRad, reduced.maxError);
-    else if (track.path === 'translation') maxTranslationErrorM = Math.max(maxTranslationErrorM, reduced.maxError);
-    return reduced.track;
+    return reduceTrack(track, tolerance, opts.keep.get(key), clip.meta.contactSeconds, secondsPerFrame);
+  });
+  keepPayingReductions(clip.tracks, reduced);
+  const tracks = reduced.map((r, i) => {
+    const path = (clip.tracks[i] as BakedTrack).path;
+    samplesBefore += r.before;
+    samplesAfter += r.after;
+    if (path === 'rotation') maxRotationErrorRad = Math.max(maxRotationErrorRad, r.maxError);
+    else if (path === 'translation') maxTranslationErrorM = Math.max(maxTranslationErrorM, r.maxError);
+    return r.track;
   });
   const stats: ReductionStats = { samplesBefore, samplesAfter, maxRotationErrorRad, maxTranslationErrorM };
   return { clip: { ...clip, tracks, reduction: stats }, stats };

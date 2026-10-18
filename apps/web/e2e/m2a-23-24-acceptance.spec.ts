@@ -449,6 +449,7 @@ test('E2E-M2A-23: acceptance — walk cycle with leg IK', async ({ page }) => {
     description: `${totalSamples(plain)} → ${totalSamples(reduced)} samples`,
   });
   expect(totalSamples(reduced)).toBeLessThanOrEqual(totalSamples(plain));
+  expect(reducedBytes.byteLength, 'reduced file bytes').toBeLessThanOrEqual(plainBytes.byteLength);
   expect(reduced.map((track) => `${track.bone}.${track.path}`)).toEqual(
     plain.map((track) => `${track.bone}.${track.path}`),
   );

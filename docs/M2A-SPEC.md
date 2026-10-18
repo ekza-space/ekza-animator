@@ -1420,12 +1420,18 @@ Implemented on baked tracks after hemisphere continuity and root-motion handling
   (rotation) or lerp (translation, scale) at its time; error `2·acos(min(1, |q̂·q|))`, `|p̂ − p|`,
   `max_c |ŝ_c − s_c|/|s_c|`; keep the sample with the largest error (ties: smallest index) while it exceeds the
   tolerance. Deterministic.
+- **Bytes** (acceptance fix round 1, M2A-INT-22): writers share one input accessor per identical time array, so a
+  reduced track costs its own times unless another track keeps the same ones. Reduced tracks are grouped by their
+  times; a group is kept only if `TIME_ACCESSOR_BYTES` (192) + 4·n for its times plus its samples is below its tracks'
+  full samples on the shared full time array (charged once when no other track keeps that array); otherwise its
+  tracks keep every sample (error 0). The reduced file is therefore never larger than the unreduced one: v0.3 wrote a
+  time accessor per reduced track, and a smooth walk's VRMA grew 16,384 → 16,996 B while dropping 40 samples.
 - `ExportRequest.reduce` absent or null → no reduction (M1 bytes; E2E-16…18 unchanged). The Export dialog has
   `export-reduce` (checked by default from `prefs.exportReduce.enabled`) and passes `DEFAULT_EXPORT_REDUCE`.
 - The read-back check compares the written file with the **reduced** clip (M1 tolerances); `stats.reduction` reports
   the sample counts and the max errors against the unreduced samples; the export toast shows "N → M samples".
 - Gate (ratified M2A-A5-3 at integration; the owner may still move it): on Seed-san's hand-keyed `wave` clip (0…30)
-  the reduced file never has more samples than the unreduced one and sampling its tracks at every integer frame stays
+  the reduced file never has more samples or bytes than the unreduced one and sampling its tracks at every integer frame stays
   within the per-node tolerances of the unreduced bake; on a clip keyed with linear tangents (blocking: holds and
   linear spans keep only their ends) the total sample count shrinks ≥ 3×. ≥ 3× is out of reach on the wave file (51
   of its 52 tracks are 2-sample constant tracks, 102 of 133 samples, which are not reduced: at best 104 samples,
@@ -2095,7 +2101,9 @@ lifts off its target; v0.2's `cog` ty 0 at the contacts (and the dip at the pass
 so the hips are lowest at the contacts and higher at the passing poses (a walk's usual down/up). Seed-san's legs are
 straight at rest, so the attack's front foot 0.2 m forward is out of reach with the hips at rest: the clip starts and
 ends in a ready stance 5 cm lower. A smooth 30 fps walk keeps its samples at R02's tolerances, so the reduced VRMA
-cannot have fewer samples (§5.16 gate, M2A-A5-3); it is asserted never larger and within the tolerances.
+cannot have fewer samples (§5.16 gate, M2A-A5-3); it is asserted never larger (samples and bytes) and within the
+tolerances. With root motion `in-place` the walk does not travel, so the file's hips follow the editor's at every
+frame (fix round 1, M2A-INT-21).
 
 E2E-M2A-02, -05 (amended with A2, 2026-10-18, fixture geometry; A2 notes M2A-A2-12, -13; ratified at integration): Polybot's rest knee sits
 3.7 cm outward of its hip→foot line, so a pole moved +x turns that offset backwards and the knee's world x can drop;

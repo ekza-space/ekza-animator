@@ -1,6 +1,6 @@
 // E2E-M2A-21 (FR-EXP-12, M2A-SPEC §5.16): export-side key reduction through the Export dialog. Seed-san with the wave
 // clip (E2E-16's keys) is exported as VRMA with "Reduce keys" checked and then unchecked: both files validate, the
-// reduced one never has more samples, and sampling both files' tracks in Node at every integer frame differs by no
+// reduced one never has more samples or bytes, and sampling both files' tracks in Node at every integer frame differs by no
 // more than the per-node tolerances. The ≥ 3× shrink is asserted on linear blocking keys (M2A-A5-3 in
 // docs/wp-notes/m2a-platform-perf.md: at R02's 0.2 mm tolerances the wave's 60° swing in 15 frames keeps its samples).
 import { readFileSync } from 'node:fs';
@@ -102,6 +102,8 @@ test('E2E-M2A-21: export key reduction', async ({ page }) => {
   const reduced = await tracksOf(reducedBytes);
   const plain = await tracksOf(plainBytes);
   expect(total(reduced)).toBeLessThanOrEqual(total(plain));
+  // Never larger in bytes either (fix round 1, bug 3: per-track time accessors made reduced files larger).
+  expect(reducedBytes.byteLength).toBeLessThanOrEqual(plainBytes.byteLength);
   test.info().annotations.push({ type: 'reduction', description: `${total(plain)} → ${total(reduced)} samples` });
 
   // Per-node tolerances of §5.16 from Seed-san's rest skeleton (H, L_j).
@@ -162,5 +164,6 @@ test('E2E-M2A-21b: linear blocking keys shrink ≥ 3× within the tolerances', a
   const after = total(await tracksOf(reduced.bytes));
   test.info().annotations.push({ type: 'reduction', description: `${before} → ${after} samples` });
   expect(after * 3).toBeLessThanOrEqual(before);
+  expect(reduced.bytes.byteLength).toBeLessThan(plain.bytes.byteLength);
   expect((await call(page, 'counts'))['characters']).toBe(1);
 });

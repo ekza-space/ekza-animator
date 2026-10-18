@@ -13,6 +13,7 @@ import {
   trackTolerance,
 } from '../src/bake/reduce';
 import { parseGlb } from '../src/glb/parse';
+import { bakeIntoModel } from '../src/surgeon/bakeIntoModel';
 import { skeletonFromGltf } from '../src/skeleton/read';
 import { humanoidRestPositions, restWorlds } from '../src/skeleton/rest';
 import { createFkPoseSource } from '../src/testing';
@@ -295,6 +296,13 @@ describe('reduceBakedClip', () => {
         'translation',
         Array.from({ length: 90 }, (_, i) => [Math.sin(i / 11) * 0.1, 0.9, i * 0.004]),
       ),
+      // A slow track whose reduction pays for its own time accessor (the two above keep too many samples to, so the
+      // bytes rule gives them back every sample).
+      vectorTrack(
+        2,
+        'translation',
+        Array.from({ length: 90 }, (_, i) => [Math.sin(i / 40) * 0.05, 0.9, 0]),
+      ),
     ];
     const input = { spec: SPEC, height: 1.6, leverArm: new Map([[0, 0.4]]), keep: NO_KEEP };
     const a = reduceBakedClip(clipOf(tracks), input);
@@ -429,6 +437,91 @@ describe('writers with reduced clips', () => {
           if (reduced === undefined) throw new Error('track lost');
           const tol = trackTolerance(original, SPEC, skeleton.height, reduce.leverArm);
           expect(maxError(original, reduced)).toBeLessThanOrEqual(tol * (1 + 1e-6) + 2e-7);
+        }
+      }
+    },
+  );
+
+  // Acceptance fix round 1, bug 3: a smooth 24-frame walk keeps nearly every sample at R02's tolerances, and each
+  // reduced track wrote its own time accessor, so "Reduce keys" made every file larger (walk VRMA 16,384 → 16,996 B).
+  // A reduction is taken only where it saves bytes, time accessor included: never larger, smaller on blocking.
+  it.each<LicensedFixture>(['seed-san.vrm', 'polybot.vrm'])(
+    '%s: a reduced file is never larger than the unreduced one (VRMA, animation GLB, bake into the model)',
+    async (name) => {
+      const bytes = readFixture(name);
+      const container = await parseGlb(bytes);
+      const skeleton = skeletonFromGltf(container);
+      const humanoid = skeleton.humanoid ?? {};
+      const animated = [
+        humanoid.hips,
+        humanoid.spine,
+        humanoid.leftUpperLeg,
+        humanoid.leftLowerLeg,
+        humanoid.rightUpperLeg,
+        humanoid.rightLowerLeg,
+        humanoid.leftUpperArm,
+        humanoid.rightUpperArm,
+      ].filter((node): node is number => node !== undefined);
+      const walk = (node: number, frame: number): ReadonlyXf | null => {
+        const index = animated.indexOf(node);
+        if (index === -1) return null;
+        const rest = skeleton.nodes[node]?.restLocal as ReadonlyXf;
+        const r = rotated(rest, [1, 0.2 * index, 0.1], 0.4 * Math.sin((2 * Math.PI * (frame + 3 * index)) / 24));
+        return node === humanoid.hips
+          ? { ...r, t: [rest.t[0] + 0.015 * Math.sin((2 * Math.PI * frame) / 24), rest.t[1], rest.t[2]] }
+          : r;
+      };
+      // Blocking: linear between keys every 6 frames (the reduction keeps the keys).
+      const blocking = (node: number, frame: number): ReadonlyXf | null => {
+        const index = animated.indexOf(node);
+        if (index === -1) return null;
+        const rest = skeleton.nodes[node]?.restLocal as ReadonlyXf;
+        const key = (k: number) => 0.3 * (((k + index) % 3) - 1);
+        const k = Math.floor(frame / 6);
+        const angle = key(k) + (key(k + 1) - key(k)) * ((frame % 6) / 6);
+        return rotated(rest, [1, 0, 0.2 * index], angle);
+      };
+      const range = { start: 0, end: 24 };
+      for (const [motion, pose, shrinks] of [
+        ['walk', walk, false],
+        ['blocking', blocking, true],
+      ] as const) {
+        const source = createFkPoseSource(skeleton, { pose });
+        for (const target of ['humanoid', 'raw'] as const) {
+          const reduce = {
+            spec: SPEC,
+            height: skeleton.height,
+            leverArm: trackLeverArms(skeleton, target),
+            keep: NO_KEEP,
+          };
+          const plain = bakeClip(source, bakeOptions({ range, target, loop: true, closeLoop: true }));
+          const reduced = bakeClip(source, bakeOptions({ range, target, loop: true, closeLoop: true, reduce }));
+          const write = async (clip: BakedClip): Promise<Uint8Array[]> => {
+            const meta = ekzaAnimationMeta([clip], target === 'humanoid' ? 'vrm-humanoid' : 'gltf-nodes', {
+              toolVersion: '0.2.0',
+              projectSha256: null,
+              baseSha256: null,
+            });
+            if (target === 'humanoid') {
+              const vrma = await writeVrma(skeleton, clip, {
+                meta,
+                fileName: 'x.vrma',
+                profile: null,
+                humanoidRestWorld: humanoidRestPositions(skeleton),
+              });
+              return [vrma.bytes];
+            }
+            const glb = await writeAnimationGlb(skeleton, [clip], { meta, fileName: 'x.glb', profile: null });
+            const bake = await bakeIntoModel(container, skeleton, [clip], { meta, fileName: 'x.vrm', profile: null });
+            return [glb.bytes, bake.bytes];
+          };
+          const [plainFiles, reducedFiles] = [await write(plain), await write(reduced)];
+          plainFiles.forEach((file, i) => {
+            const smaller = (reducedFiles[i] as Uint8Array).byteLength;
+            expect(smaller, `${motion} ${target} file ${i}`).toBeLessThanOrEqual(file.byteLength);
+            if (shrinks) expect(smaller, `${motion} ${target} file ${i} shrinks`).toBeLessThan(file.byteLength);
+          });
+          expect(reduced.reduction?.samplesAfter).toBeLessThanOrEqual(reduced.reduction?.samplesBefore ?? 0);
         }
       }
     },
