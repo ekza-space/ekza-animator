@@ -229,7 +229,9 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   batch, so a 1,000-key drag of 30 curves recompiles 30); a structural rig change recompiles the program; preview
   overlays emit `origin: 'preview'` batches and go through the same path. M2a M-1: a re-evaluation whose sampled
   channels (curves ⊕ overrides) are bit-identical to the last ones keeps the pose and publishes no `poseVersion`, so
-  a drag that leaves the current frame's values unchanged costs no viewport frame.
+  a drag that leaves the current frame's values unchanged costs no viewport frame. Batch listeners that only ask
+  which tables a batch touches read `batchTables(batch)` (doc; one scan per batch for all of them), and listeners
+  that walk the changes skip the bookkeeping of a change on the same curve or clip as the one before it.
 - **Determinism**: same document + frame → identical buffers on every run; schedules are independent of record
   insertion order.
 - **Normalized output is computed from world deltas**, never assumed equal to a control's local rotation: `fk.spine`
@@ -349,7 +351,9 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   while a document preview runs; buffer curves (per-user copies in the session) draw dashed behind the curves; the
   Scale tool's region box scales times (`scaleKeys`) and values (`scaleKeyValues`); breakdown keys draw as diamonds.
   M-1: during a drag the curves it does not touch come from a cached static layer and only the dragged curves are
-  repainted; a redraw first runs the scheduled (coalesced) drag update.
+  repainted; a redraw first runs the scheduled (coalesced) drag update. A key drag that moves no key in time writes
+  the values of curves whose shown keys are all dragged directly (the writes `moveKeys` makes for them then, without
+  its time placement); the time slider repaints only when a key's time, a key set or a curve changes.
 - Painters: grid + labels, infinity (dotted), curves (exact Bézier), keys, handles (selected keys only; non-weighted
   at fixed 40 px screen length, weighted at true length), playhead, marquee.
 - Handle drag ("pen-like"): non-weighted → angle only; weighted + locked weight → angle only; weighted + free →

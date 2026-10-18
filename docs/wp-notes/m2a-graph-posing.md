@@ -38,9 +38,11 @@ time slider; the viewport and the evaluation are small because only one characte
 follows: store and query fast paths (mechanisms 2–3), the cached static-curve layer (5), the curve cache's
 once-per-batch invalidation (4), and no Graph panel re-render for a preview batch that changes nothing it shows.
 
-## M-1 after the mechanisms
+## M-1 after the mechanisms (build round)
 
-Same bench, same machine, after the six mechanisms (commits `5763657`, `f684f8d`), load average 6–12:
+Same bench, same machine, after the six mechanisms (commits `5763657`, `f684f8d`), load average 6–12. These are the
+A4 bench's **warm** drags (after a warm-up drag); the bench of record measures the first drag, see "M-1 on the bench
+of record" below, which supersedes the "Met" verdicts here:
 
 | | median | p95 | verdict |
 |---|---|---|---|
@@ -72,6 +74,58 @@ last update left committed; a failing update then a good one report what readers
 a query drops again; patch, soft delete and restore), `doc/test/diff.test.ts` (undefined fields and key counts,
 property-based against JSON text); conformance suites unchanged and green.
 
+## M-1 on the bench of record (fix round 1)
+
+The gate is read on `budgets.bench.ts` `Graph Editor: drag 1,000 selected keys` (A5's file, the §14 table): the
+**first** drag of a freshly opened editor, 30 moves of 3 px, p95 = the second-slowest move. After the build round it
+measured p95 5.0–5.8 ms at load 6.4–10 (review): Miss. A per-move copy of that procedure with CPU profiles and traces
+showed why the first drag differs from the warm drags the A4 bench timed:
+
+- **Unoptimized code.** A fresh editor has run the drag path's per-frame code a handful of times, so the first moves
+  execute in V8's interpreter and baseline tiers (`--always-sparkplug` alone took move 2 from 4.2 to 3.1 ms). Every
+  loop over 1,000 keys or changes, every call and every boxed double costs several times its optimized price there;
+  a `for…of` over an array or Map even allocates an iterator result per step.
+- **Scavenges.** ≈ 1.5 MB allocated per move filled the young generation every 4–5 moves; a 0.6–1.0 ms scavenge
+  landed on move 2 in every trace, on top of the coldest move after the first.
+- **Waste per frame**: the viewport HUD rewrote its (unchanged) frame text on every batch, which replaced the text
+  node and made the viewport's `getBoundingClientRect` force a layout mid-frame (0.26–0.29 ms); the time slider
+  rebuilt its tick set and repainted on every value-only batch (0.46 ms); a dozen listeners each scanned the 1,000
+  changes for their tables; the drag's `moveKeys` rebuilt every dragged curve's key projection on the reverted
+  preview and allocated a placement per key, although a vertical drag moves no key in time; every put re-validated
+  the whole key record (whose handle checker also deoptimized at the sixth move).
+
+Changes (commits `70f63a7`, `fcccf3c`, `81f5695`, `f100176`, `954551e`; all behaviour-preserving, each with a test):
+
+| Change | Where | Test |
+|---|---|---|
+| HUD writes text only when it changes | `editor/src/panels/viewport/PaneView.tsx` (A2's dir, 6 lines) | `editor/test/m2a-m1-hud.test.tsx` |
+| Time slider ignores key updates that keep time and curve | `curve-editor/src/timeline/TimeSliderController.ts` (A3's dir, `onBatch` only) | `curve-editor/test/timeline/m2a-m1-ticks.test.ts` |
+| `batchTables(batch)` / `batchTouches(batch, tables)`: one table scan per batch, cached per batch object (doc export, additive) | `doc/src/store/batchTables.ts`; used by `useDocQuery`, `committedQuery`, timeline `state.ts`, `ViewportManager`, `SceneSync`, rig clip sampler, character registry, time slider | `doc/test/batch-tables.test.ts` (property + one emit) |
+| Listeners that walk changes skip same-curve/same-clip repeats and use indexed loops | Graph Editor `onBatch`, rig curve cache, kernel `affectedCharacters` | existing suites |
+| Journal originals iterated by index (`Journal.ordered`, kept in step with the map) | `doc/src/store/{journal,memory}.ts` | `doc/test/journal-order.test.ts` (property), conformance (memory, doc-yjs) |
+| References index: keys compare clip and curve directly | `doc/src/store/references.ts` | conformance |
+| No re-validation of a key rewritten with only a new finite `t`/`v` | `doc/src/store/memory.ts` `checkValid` | `doc/test/preview-m1.test.ts` |
+| Value-only drag path: curves whose shown keys are all dragged and whose keys stay in time get their values written directly (the writes `moveKeys` makes then) | `curve-editor/src/graph/gestures.ts` `KeyMoveGesture` | `m2a-graph.test.ts`: seven drags compared with `moveKeys` applied directly (whole and partial curves, −0 time, snapping and fractional keys, close keys, a time move) |
+| Scene focus from the selected keys' curves cached per selection; curve-set entries reuse the key index when ids and order are unchanged | `curve-editor/src/graph/{GraphEditorController,curveSet}.ts` | existing suites |
+| Painters: inline view transform and handle ends, one selection lookup per key, round handle ends as round-capped dots (not 2,000 arcs), runs of selected segments traced in one call | `curve-editor/src/painters/{keys,curves}.ts` | `m2a-graph.test.ts` (handle ends painted where hit-testing finds them, weighted and not, during a drag), `painters.test.ts` |
+
+Results (Apple M4 Pro, real Chrome, DPR 2; the bench of record unchanged):
+
+| Bench | Load (1 min) | median | p95 | Gate |
+|---|---|---|---|---|
+| `budgets.bench.ts` Graph Editor drag (first drag), 8 runs | 5.0–7.9 | 2.4–2.7 ms | 3.2, 3.5, 3.7, 3.6, 3.4, 3.4, 3.4, 3.4 ms | **Met** (≤ 4.0) |
+| same, full `budgets.bench.ts` run | 6.9 | 2.50 ms | 3.30 ms | Met; undo 2.20 / redo 1.80 ms |
+| same, at load > 8 (for reference, outside the gate's condition) | 8.0–8.6 | 2.1–2.7 ms | 3.2–4.3 ms | — |
+| `m2a-a4.bench.ts` first (cold) drag, same procedure | 6.1–6.8 | 2.0–2.5 ms | 3.4 ms | Met |
+| `m2a-a4.bench.ts` warm drags (120 moves) | 6.1–6.8 | 1.7–1.9 ms | 2.3–2.4 ms | — |
+| Tween slider drag, 60 channels (§5.22) | 6.2–6.4 | 2.3–2.4 ms | 2.9–3.0 ms | Met (≤ 4) |
+| doc bench preview update, 1,000 keys | 5.5 | 0.67–0.74 ms | — | Met (≤ 1.0) |
+
+Frame split per warm move (profiled, A4 bench): Graph Editor redraw 0.50, store preview update 0.50, pose evaluation
+0.22, viewport GL 0.17, pose sync 0.09, Graph Editor curve set 0.03, other 0.25 ms. What is left of the first drag's
+extra cost is the engine's warm-up and the scavenges; the largest remaining allocator is anim-core's tangent
+resolution (closures per key in `resolveTangents`), A5's file (§5.21.3 fast paths).
+
 Mechanisms as built (M2A-SPEC §5.21.1):
 
 1. **Coalescing**: the Graph Editor's key, handle and scale drags run on `beginKeyEditGesture`; the controller's
@@ -99,16 +153,18 @@ Mechanisms as built (M2A-SPEC §5.21.1):
    already renders only on pose events.
 
 Beyond the six: the Graph panel's channel tree, key fields and toolbar re-read after committed changes only, not on
-every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the fields keep their pre-drag values.
+every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the fields keep their pre-drag values. The
+fix-round changes above (value-only drag path, per-batch table sets, HUD and time-slider repaints, store fast paths)
+complete the set.
 
 ## What landed
 
 | Spec | Where | Tests |
 |---|---|---|
-| §5.13 tween family | `editor-core/src/edit/tween.ts` (`tweenEdits`, plan/evaluate split, `beginTweenGesture`, `resolveTweenTarget`), `operators/builtin/tween.ts` (`key.tween`) | `test/kernel/m2a-a4-edit.test.ts`, `test/builtin/m2a-a4-operators.test.ts`, `editor/test/panels/tween-bar.test.tsx`, E2E-M2A-13 |
+| §5.13 tween family | `editor-core/src/edit/tween.ts` (`tweenEdits`, plan/evaluate split, `beginTweenGesture`, `resolveTweenTarget`), `operators/builtin/tween.ts` (`key.tween`); key-edit gestures record the override change in their step (`edit/gesture.ts`) | `test/kernel/m2a-a4-edit.test.ts`, `test/builtin/m2a-a4-operators.test.ts` (incl. a slider drag that keys an overridden channel: undo restores override and pose, redo drops it, same as `key.tween`), `editor/test/panels/tween-bar.test.tsx`, E2E-M2A-13 |
 | §5.12 breakdowns | `operators/builtin/breakdown.ts` (`key.convert`), Graph Editor ◇ glyphs (`painters/keys.ts`) | operators, `curve-editor/test/m2a-graph.test.ts` |
 | Tween bar | `editor/src/panels/shared/TweenBar.tsx` (status line: compact, presets and overshoot in "⋯"; Graph Editor toolbar: full) with the `tween.<panel>` probe | `tween-bar.test.tsx`, E2E-M2A-13, the status-line slot in E2E-M2A-00 |
-| §5.14 mirror animation | `editor-core/src/workflows/mirrorAnimation.ts`, `operators/builtin/mirrorAnimation.ts` | operators (channel rule, flip involution, side-C scope, secondary controls, locked channels, the half-cycle cases incl. 0/9/15/24 auto keys, cyclic infinities, odd ranges, weighted and spline curves with the AnimX engine, non-periodic warning), `headless-tests/test/ops.m2a-a4.test.ts` (Seed-san), E2E-M2A-15 (fixme A1,A2) |
+| §5.14 mirror animation | `editor-core/src/workflows/mirrorAnimation.ts`, `operators/builtin/mirrorAnimation.ts` | operators (channel rule, flip involution, side-C scope, secondary controls, locked channels, the half-cycle cases incl. 0/9/15/24 auto keys, cyclic infinities, odd ranges, weighted and spline curves with the AnimX engine, non-periodic warning), `test/builtin/m2a-a4-mirror-properties.test.ts` (§9.2 fast-check: the FR-POSE-05 gate on random periodic curves of every tangent type incl. step/stepNext, weighted, every infinity and range; cyclic infinities reaching into the clip; time order and in-range keys; the non-periodic flag; the remap applied twice; flip ∘ flip = id through the operator; stepped unit cases), `headless-tests/test/ops.m2a-a4.test.ts` (Seed-san), E2E-M2A-15 (fixme A1,A2) |
 | §5.15.1 buffer curves | `operators/builtin/graphBuffer.ts`, the kernel's prune of deleted curves (`app/kernel.ts`), dashed painting (`painters/curves.ts`), toolbar Snapshot/Swap | operators, `m2a-graph.test.ts`, E2E-M2A-16 |
 | §5.15.2 views | `curve-editor/src/graph/viewMode.ts`, mapping in `curveSet.ts`, `GraphEditorController` (`setViewMode`, `viewMode`, `onViewModeChange`), `graph.view.setMode` (`contributions.ts`), lanes in `painters/grid.ts`, persistence in `panels/graph/GraphPanel.tsx` | `m2a-graph.test.ts`, E2E-M2A-16 |
 | §5.15.3 Scale tool | `curve-editor/src/graph/region.ts`, `tools/graphTools.ts` (`GRAPH_SCALE_TOOL`), `editor-core/src/edit/valueScale.ts` (`scaleKeyValues`), probe `screenOfRegionHandle` | `m2a-a4-edit.test.ts`, `m2a-graph.test.ts`, E2E-M2A-17 |
@@ -127,9 +183,14 @@ every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the f
 | M2A-A4-7 | **Mirror animation details**: the channels written are the union of the source's and the target's curves; a target channel whose source has no curve gets the mirrored default as a static value (its keys removed), so the target equals the source mirrored; locked target channels and curves are skipped and counted in the warning; handle `dv` of every stored handle maps (not only fixed ones: the stored handle of a computed side becomes the fixed handle when the type changes later); zeros stay +0. The count returned is the target channels written. The seam keys' `broken` is set where their two resolved slopes differ (relative 1e-12) or the source key was broken. | §5.14. |
 | M2A-A4-8 | **Views**: a flat curve (range < 1e-9 in display units) draws at 0 in its own display units, so it stays editable; a stacked lane is 3 value units (the curve's −1…1 plus margins), at least 40 px; the stacked view keeps its lane height (the wheel and zoom drags change time only, the vertical scroll is clamped to the lanes); switching modes keeps the time axis and refits the value axis; F/A frame time and −1…1 (normalized) or time only (stacked). Ranges are frozen while any document preview runs (a drag here or in another panel) and recomputed afterwards. Value drags in mapped views (and on attribute curves whose display unit is not M1's) move time through `moveKeys` and apply the value delta in curve units per curve (Δv = Δy′/scale). The view mode persists per Graph Editor in its dockview panel parameters (`graphViewMode`). | §5.15.2. |
 | M2A-A4-9 | **Scale tool**: edges and corners hit within 6 px; presses on keys, handles and curves select like the Select tool (inside or outside the box); inside the box off the keys a drag moves the keys (`Move Keys`); outside with keys selected a drag scales around the press point by `1 + dx/100 px` in time (≥ 0.01) and `1 − dy/100 px` in value, and a click clears the key selection; Shift locks the dominant axis after 4 px for corners and outside drags. A degenerate axis (one key time or one value) does not scale. Time scaling snaps with the time slider's setting (Alt off). | §5.15.3 leaves the outside rate open. |
-| M2A-A4-10 | **E2E-M2A-17 factor**: Chrome delivers pointer coordinates as float32, so the value factor of a drag released at the exact midpoint is 0.5 only to ~1e-7. The scenario computes the factor from the delivered coordinates (`Math.fround`) as §9 says ("the spec computes the expected values from the pre-drag keys"), checks every value against it at 1e-9, −30° unchanged at 1e-9 and 30° → 0° at 1e-5. | Exactness at 1e-9 is not reachable with float32 events. |
+| M2A-A4-10 | **E2E-M2A-17 factor**: Chrome delivers pointer coordinates as float32, so the value factor of a drag released at the exact midpoint is 0.5 only to ~1e-7. The scenario computes the factor from the delivered coordinates (`Math.fround`) as §9 says ("the spec computes the expected values from the pre-drag keys"), checks every value against it at 1e-9, −30° unchanged at 1e-9 and 30° → 0° at 1e-5. Choosing float32-exact press and release points does not help: the factor is `(60° + Δv)/60°` with `Δv = −Δy/sy`, and the view's `sy` (from framing) makes `30·sy` a non-float32 distance. **Open for the integration agent**: a contract PR to the E2E-M2A-17 row ("30° becomes 0° to the float32 pointer precision, 1e-5; every value equals the formula with the delivered factor at 1e-9"). | Exactness at 1e-9 is not reachable with float32 events. |
 | M2A-A4-11 | **Contract additions (additive)**: editor-core exports `beginTweenGesture`, `resolveTweenTarget`, `clampTweenAmount`, `TWEEN_MODES`, `TWEEN_LIMIT`, `TWEEN_OVERSHOOT_LIMIT`, types `TweenGesture`, `ResolvedTweenTarget`, and `compileWithAppEngine` (buffer curves draw with the app's engine); curve-editor exports `GRAPH_SCALE_TOOL`, `graphViewModeOperator(focused)`, `nextViewMode`, `GraphEditorController.onViewModeChange` and `staticRenders`, an optional `layers` argument of `CurveRenderer.renderBase`, and `GraphToolHost.pressScale`; the editor's Graph test hooks gain `viewMode` and `screenOfRegionHandle`. A0's `GRAPH_VIEW_MODE_OPERATOR` stub constant is replaced by `graphViewModeOperator(focused)`: the operator acts on the focused controller, like `graph.frame`. | The contract PR to M2A-SPEC §8 A4 is the integration agent's. |
-| M2A-A4-12 | **Not done here (owners)**: `graph.keys.scale {valuePivot, valueFactor}` (A3's `graph.ts`, through `scaleKeyValues`); the Dope Sheet's Tween bar mount (A3); unit-aware Graph Editor key fields for `@attr` angle channels (display in `panels/graph/model.ts` and commit through `graph.keys.setFields`/`moveKeys` must change together: A2/A3); the time slider's per-batch `tickSet` (A3, 0.32 ms of the M-1 frame). | §8.1 ownership. |
+| M2A-A4-13 | **Half-cycle seam keys keep step flags.** §5.14 step 3 freezes the keys landed at s, m and e as `fixed`; a `step`/`stepNext` out type is not a handle but the interpolation flag of the span the key starts, and that span maps with the key (m's from s's, s's and e's from m's), so the flag is kept (also on a seam key inserted inside a step span, which takes the span's flag). Freezing it turned the spans after the seams into ramps (0.93–0.98 off on stepped curves). The in side and Bézier out sides are frozen as specified. Proposed spec wording for the integration agent: "…get their resolved handles as `fixed` (a `step`/`stepNext` out type stays)". | §5.14 "tangent types are copied"; FR-POSE-05 gate on stepped `@ikFk` and blocked walk cycles. |
+| M2A-A4-14 | **Half-cycle working copy, two refinements of step 1.** (a) Weighted curves: frozen handles are the ones the engine started from (stored for `fixed` sides, a third of the span along the resolved slope otherwise), not the compiled ones, which carry AnimX's monotonic-X correction of overlong handles; that correction is not idempotent (a corrected handle sits ε inside the bound, where a second correction may take the other branch: 7.9e-6 off). (b) A `cycle`/`cycleOffset`/`oscillate` infinity that reaches into [s, e] is written out as copies of the key range before the seam inserts (values from the source curve's evaluation, resolved handles, step flags per span, reversed copies for odd oscillations; the original end keys frozen), because the shape-preserving insert cannot keep a cycle (its range changes). Known limits, documented in the code and the property tests: a `cycle` whose end values differ jumps at every cycle boundary (no keys can follow it); a reversed (oscillate) copy of a weighted span AnimX corrected is approximate (AnimX keeps a span's first handle); on corrected weighted spans anim-core's split and cycle mapping are accurate to a few 1e-9 (worst 6.2e-9 in 10⁵ random curves), so the property allows 1e-7 there and 1e-9 everywhere else (worst seen 1.6e-13). | FR-POSE-05 exactness for the curves §5.14 calls periodic. |
+| M2A-A4-15 | **Key-edit gestures record override changes.** `beginKeyEditGesture` notes the session overrides and the active location when it begins; its commit records the override delta (when the location is unchanged) in the same history step, like the operator runner. So a Tween slider drag that keys overridden channels undoes to the override and the pose, and redo drops it again (MVP-SPEC §4.11.1 rule 5). | §4.11.1 rule 5, undo exactness. |
+| M2A-A4-16 | **M-1 changes outside A4's directories** (all small, behaviour-preserving, tested; for the integration agent's merge order): `editor/src/panels/viewport/PaneView.tsx` (HUD text, A2), `curve-editor/src/timeline/TimeSliderController.ts` (`onBatch`, A3), `editor/src/panels/timeline/state.ts` (A3), `editor/src/hooks/useDocQuery.ts`, `viewport/src/manager/ViewportManager.ts` and `viewport/src/sync/SceneSync.ts` (store listeners, A2), `editor-core/src/characters/registry.ts` (store listener); `doc` exports `batchTables`/`batchTouches` (additive). | M2A-SPEC §5.21.1 gate; §8.1 ownership. |
+| M2A-A4-17 | **Value-only key drags.** `KeyMoveGesture` writes `v + Δv` (and the key's own `t + 0`) on curves whose shown keys are all dragged, no two closer than 2e-3 frames, when the snapped time delta moves none of them; `moveKeys` writes exactly that there (no fixed neighbour to stop at, no keys to merge, its block shift turns −0 into +0). Other curves take `moveKeys` as before. | M-1; a test compares the document with `moveKeys` applied directly. |
+| M2A-A4-12 | **Not done here (owners)**: `graph.keys.scale {valuePivot, valueFactor}` (A3's `graph.ts`, through `scaleKeyValues`); the Dope Sheet's Tween bar mount (A3); unit-aware Graph Editor key fields for `@attr` angle channels (display in `panels/graph/model.ts` and commit through `graph.keys.setFields`/`moveKeys` must change together: A2/A3); the time slider's per-batch `tickSet` (A3; fix round 1 made it skip value-only batches, M2A-A4-16). | §8.1 ownership. |
 
 ## Literal updates (§3 rule 8)
 
@@ -141,7 +202,38 @@ every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the f
 | `apps/web/e2e/acceptance-round1.spec.ts` ("More menu closes …") | "More ▾" holds 7 one-line items (was 5): the two Convert items | §7 Graph Editor toolbar, §4.8 `ge-convert-*` |
 | `apps/web/e2e/m2a-00-foundation.spec.ts` | the four A4 operators left the stub list; `view.tool {graph, scale}` finishes; the status-line Tween bar's probe answers | §4.9, §4.5, §4.8 |
 
-## Gates
+## Fix round 1
+
+Review of `06a880e` found one blocker and three majors; all fixed:
+
+| Finding | Fix | Commit |
+|---|---|---|
+| Blocker: M-1 gate missed on the bench of record (first drag p95 5.0–5.8 ms) | First-drag frame cuts above; `budgets.bench.ts` p95 3.2–3.7 ms in 8 runs at load 5.0–7.9 | `70f63a7`, `fcccf3c`, `81f5695`, `f100176`, `954551e` |
+| Half-cycle mirroring broke stepped curves (0.93–0.98 off) | Seam keys keep `step`/`stepNext` out flags (M2A-A4-13); found by the new properties too: corrected weighted handles and cyclic infinities (M2A-A4-14) | `36af8bc` |
+| Undoing a Tween slider drag lost the overrides it consumed | Key-edit gestures record the override delta in their step (M2A-A4-15) | `440ab06` |
+| §9.2 fast-check properties for the mirror kernel missing | `m2a-a4-mirror-properties.test.ts`: gate on random periodic curves (400 runs; stressed with 6,000 ×3), cyclic infinities, order, non-periodic flag, twice = identity, flip ∘ flip = id through the operator | `36af8bc` |
+| Minor: E2E-M2A-17 checks 30° → 0° at 1e-5 | Unchanged; why float32-exact pointer points cannot make the factor exact, and the contract PR left to the integration agent: M2A-A4-10 | — |
+
+The A4 bench now also reports the gate's first (cold) drag next to the warm drags (`m2a-a4.bench.ts`).
+
+## Gates (fix round 1)
+
+At `954551e` plus these notes, 2026-10-18, worktree clean before the runs:
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | clean (800 files) |
+| `pnpm run lint` | clean (no diagnostics) |
+| `pnpm run typecheck` | clean |
+| `pnpm run check:deps` | 13 packages follow the rules |
+| `pnpm exec turbo run test test:tooling --force` | 13/13 tasks: anim-core 642, rig 124, doc 189, doc-yjs 69, editor-core 586, viewport 86 (+1 skipped, M1), io 142, curve-editor 156 (+3 skipped, M1), editor 297 (+1 skipped, M1), ui 73, headless-tests 108, tooling 14 |
+| `pnpm exec turbo run build --force` | green |
+| `EKZA_E2E_PORT=3144 pnpm run test:e2e` | 70 passed, 4 skipped: E2E-M2A-15 (`test.fixme('A1,A2')`) and the three M1 stretch skips; E2E-M2A-13, 16, 17 and every M1 spec green |
+| `budgets.bench.ts` (DPR 2, real Chrome), all 9 benches | green; Graph Editor drag 2.50 / 3.30 ms at load 6.9 (gate ≤ 4.0: **Met**; 8 single runs at load 5.0–7.9: p95 3.2–3.7 ms); idle 0 GL frames / 0 2D calls |
+| `m2a-a4.bench.ts` | first drag 2.0–2.5 / 3.4 ms; warm 1.7–1.9 / 2.3–2.4 ms; Tween slider 2.3–2.4 / 2.9–3.0 ms (load 6.1–6.8) |
+| Doc bench preview update (1,000 keys) | 0.67–0.74 ms (target ≤ 1.0: **Met**) |
+
+## Gates (build round)
 
 At `dbdab85` on `m2a/graph-posing` (A0 merged; `m2a/contracts-foundation` has nothing newer), 2026-10-18:
 
@@ -154,7 +246,7 @@ At `dbdab85` on `m2a/graph-posing` (A0 merged; `m2a/contracts-foundation` has no
 | `pnpm run test` | 13/13 tasks: anim-core 642, rig 124, doc 185, doc-yjs 69, editor-core 574, viewport 86 (+1 skipped, M1), io 142, curve-editor 153 (+3 skipped, M1), editor 296 (+1 skipped, M1), ui 73, headless-tests 108, tooling 14 |
 | `pnpm run build` | green |
 | `EKZA_E2E_PORT=3144 pnpm run test:e2e` | 70 passed, 4 skipped: E2E-M2A-15 (`test.fixme('A1,A2')`) and the three M1 stretch skips; E2E-M2A-13, 16, 17 green; E2E-08…13 unchanged and green |
-| Bench `m2a-a4.bench.ts` (DPR 2, real Chrome) | M-1 median 3.00 ms, p95 3.50 ms at load 6.8 (gate ≤ 4.0: **Met**); Tween slider 2.90 / 3.40 ms |
+| Bench `m2a-a4.bench.ts` (DPR 2, real Chrome) | M-1 warm drags median 3.00 ms, p95 3.50 ms at load 6.8 (the bench of record's first drag missed: fix round 1); Tween slider 2.90 / 3.40 ms |
 | Doc bench preview update (1,000 keys) | 0.76–0.88 ms (target ≤ 1.0: **Met**) |
 
 The measuring machine was shared with five other agents' builds and e2e runs (load averages up to 66); the bench
