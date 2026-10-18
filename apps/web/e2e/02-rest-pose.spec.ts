@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { glbJson, humanoidNode, quaternionDelta, readFixture, restWorld } from './helpers/g1-viewport';
 import { seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-02 (MVP-SPEC §6.2): a freshly loaded Seed-san is at its rest pose: every control's translate and rotate
 // channel is 0, and the evaluated hips sit exactly where the glTF scene graph puts them (§4.11.9, rig zero pose).
@@ -9,7 +9,7 @@ const TR_CHANNELS = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz'] as const;
 
 test('E2E-02: rest pose integrity', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
 
   const controls = await call(page, 'controls');

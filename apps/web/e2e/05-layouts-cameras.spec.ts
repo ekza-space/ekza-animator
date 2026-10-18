@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { type CameraSnapshot, cameraDelta, centreOf, drag, paneRect, settle } from './helpers/g1-viewport';
 import { seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-05 (MVP-SPEC §6.2, §4.11.16): Maya navigation (Alt+LMB tumble) is swallowed by the locked shot camera and
 // moves the free one; an unlocked shot camera moves and persists outside undo (Mod+Z undoes the unlock, not the
@@ -21,7 +21,7 @@ const moved = (a: CameraSnapshot, b: CameraSnapshot): number => {
 
 test('E2E-05: layouts and cameras', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const locked = async () => (await call(page, 'panes')).find((pane) => pane.id === 'pane-left')?.locked;
   expect(await locked()).toBe(true);

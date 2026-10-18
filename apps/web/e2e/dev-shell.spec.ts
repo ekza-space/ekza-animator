@@ -214,11 +214,7 @@ test('the import summary shows the VRM version and licence badges (E2E-03, summa
   });
   await page.dispatchEvent('[data-testid="workspace"]', 'drop', { dataTransfer });
   await expect(page.getByTestId('import-dialog')).toBeVisible();
-  const summaryError = page.getByTestId('import-summary-error');
-  if ((await summaryError.count()) > 0) {
-    const code = await summaryError.getAttribute('data-error-code');
-    test.fixme(code === 'not-implemented', 'Blocked by WP-4: the GLB/VRM summary readers are stubs');
-  }
+  await expect(page.getByTestId('import-summary-error')).toHaveCount(0);
   await expect(page.getByTestId('import-format-badge')).toHaveText('VRM 0.x');
   await expect(page.getByTestId('import-license-badge')).toContainText('CC0');
 });

@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { clickFrame, DEG, keysOf, pressOverPane, typeChannel } from './helpers/g3-input';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk, type TestApi } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk, type TestApi } from './helpers/test-api';
 
 // E2E-15 (MVP-SPEC §6.2; §4.9 `clip.*`): a new clip `wave` with keys of its own, back to `clip1`, rename `wave` to
 // `wave_01` and duplicate it in the Clips panel. Keys belong to one clip: `clip1` has none, the copy has its own.
 
 test('E2E-15: clips', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const { character } = await seedSample(page, 'polybot');
   const clip1 = (await call(page, 'clips')).find((clip) => clip.name === 'clip1')?.id ?? '';
   expect(clip1).not.toBe('');

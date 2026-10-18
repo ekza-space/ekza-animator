@@ -1,5 +1,5 @@
 import type { EkzaAnimatorTestApi } from '@ekza-animator/editor';
-import { expect, type Page, test } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 
 declare global {
   interface Window {
@@ -28,10 +28,11 @@ export function renderedFrames(page: Page): Promise<number> {
   return page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.renderedFrames() ?? Number.NaN);
 }
 
-// ---------- pre-integration gating (MVP-SPEC §8.1) ----------
-// Until every work package is merged, parts of the editor are stubs (EkzaError 'not-implemented'), operators are not
-// registered yet (the runner answers "unknown operator '<id>'") and panels are placeholders. A spec that reaches one
-// of them is marked fixme with the blocking work package instead of failing; it runs unchanged once the piece lands.
+// ---------- integration gates (MVP-SPEC §8.1, §8.2) ----------
+// During the parallel build these gates marked a spec fixme while a piece had not landed (a stub answering EkzaError
+// 'not-implemented', an operator not registered yet, a placeholder panel). Every work package has landed (WP-10), so
+// each of them now fails the test with the piece and its owner: a regression can never turn into a skipped scenario.
+// Unbuilt M1-stretch items are `test.fixme` with a reason in `stretch.spec.ts` instead (MVP-SPEC §1.2).
 
 const OPERATOR_OWNERS: readonly (readonly [RegExp, string])[] = [
   [/^view\.(layout|frame|display\.toggle|lookThrough|copyViewToShot|toggleCameraLock|cameraRadial)$/, 'WP-5'],
@@ -55,51 +56,50 @@ const PANEL_OWNERS: Readonly<Record<string, string>> = {
   attributes: 'WP-9',
 };
 
-/** Marks the running test fixme when an operator result shows a piece that has not landed. */
-export function fixmeIfBlocked(what: string, result: RunResult): void {
+/** Fails when an operator result shows an unregistered operator or a stub ('not-implemented'). */
+export function failIfBlocked(what: string, result: RunResult): void {
   if (result.status === 'cancelled' && (result.reason ?? '').startsWith('unknown operator')) {
-    test.fixme(true, `Blocked by ${operatorOwner(what)}: ${result.reason ?? ''}`);
+    throw new Error(`${what} is not registered (owner ${operatorOwner(what)}): ${result.reason ?? ''}`);
   }
   if (result.status === 'failed' && result.error?.code === 'not-implemented') {
-    test.fixme(true, `Blocked by an unimplemented stub (${result.error.message}) in ${what}`);
+    throw new Error(`${what} reached an unimplemented stub: ${result.error.message}`);
   }
 }
 
-/** Marks the running test fixme while the panel of `kind` is still the shell's placeholder. */
-export async function fixmeIfPlaceholder(page: Page, kind: string): Promise<void> {
-  if ((await page.getByTestId(`placeholder-${kind}`).count()) > 0) {
-    test.fixme(true, `Blocked by ${PANEL_OWNERS[kind] ?? 'its owner'}: the ${kind} panel is not registered yet`);
-  }
+/** Fails while the panel of `kind` is the shell's placeholder (its panel is not registered). */
+export async function expectPanelRegistered(page: Page, kind: string): Promise<void> {
+  await expect(
+    page.getByTestId(`placeholder-${kind}`),
+    `the ${kind} panel is registered (owner ${PANEL_OWNERS[kind] ?? 'unknown'})`,
+  ).toHaveCount(0);
 }
 
-/** Marks the running test fixme while /editor shows "The editor could not start" (a stubbed kernel). */
-export async function fixmeIfKernelUnavailable(page: Page): Promise<void> {
+/** Fails when /editor shows "The editor could not start" instead of the editor. */
+export async function expectKernelStarted(page: Page): Promise<void> {
   if ((await page.getByTestId('kernel-unavailable').count()) > 0) {
     const reason = (await page.getByTestId('kernel-unavailable-message').textContent()) ?? '';
-    test.fixme(true, `Blocked by WP-7a: the editor kernel did not start (${reason.trim()})`);
+    throw new Error(`The editor kernel did not start: ${reason.trim()}`);
   }
 }
 
 /**
- * A failure the shell reported for a UI action ends a wait: an error toast fails the test with its text, unless a stub
- * caused it ("not implemented in this build": fixme); an "unknown operator" in the help line is a fixme naming the
- * operator's owner (a button whose operator has not landed).
+ * A failure the shell reported for a UI action ends a wait: an error toast or an "unknown operator" in the help line
+ * (a button whose operator is not registered) fails the test with its text.
  */
 export async function failOnReportedError(page: Page): Promise<void> {
   const help = ((await page.getByTestId('helpline-text').textContent()) ?? '').trim();
   const unknown = /unknown operator '([^']+)'/.exec(help);
-  if (unknown !== null) test.fixme(true, `Blocked by ${operatorOwner(unknown[1] ?? '')}: ${help}`);
+  if (unknown !== null) {
+    throw new Error(`${unknown[1] ?? ''} is not registered (owner ${operatorOwner(unknown[1] ?? '')}): ${help}`);
+  }
   const toast = page.locator('[data-testid="toast"][data-kind="error"]').first();
   if ((await toast.count()) === 0) return;
-  const text = ((await toast.textContent()) ?? '').trim();
-  test.fixme(text.includes('not implemented in this build'), `Blocked by an unimplemented stub: ${text}`);
-  throw new Error(`Error toast: ${text}`);
+  throw new Error(`Error toast: ${((await toast.textContent()) ?? '').trim()}`);
 }
 
 /**
- * Gate for UI buttons that run an operator without the shell (e.g. the viewport's sample buttons call `app.run`, so
- * an unregistered operator leaves no trace): runs `op` with arguments it must refuse (`invalidArgs`), which only
- * tells whether it is registered (fixme when not). Remove once every work package has landed (WP-10).
+ * Registration check for UI buttons that run an operator without the shell (e.g. the viewport's sample buttons call
+ * `app.run`, so an unregistered operator leaves no trace): runs `op` with arguments it must refuse (`invalidArgs`).
  */
 export async function requireOperator(page: Page, op: string, invalidArgs: unknown): Promise<void> {
   const result = await run(page, op, invalidArgs);
@@ -125,7 +125,7 @@ type Failure = { readonly __failure: { readonly code: string | null; readonly me
 const isFailure = (value: unknown): value is Failure =>
   typeof value === 'object' && value !== null && '__failure' in value;
 
-/** Calls a read function of the test API; a stub ('not-implemented') marks the test fixme. */
+/** Calls a read function of the test API; a throwing function fails the test with its message. */
 export async function call<K extends Exclude<keyof TestApi, 'ready' | 'webgl' | 'run' | 'loadFile'>>(
   page: Page,
   name: K,
@@ -149,16 +149,11 @@ export async function call<K extends Exclude<keyof TestApi, 'ready' | 'webgl' | 
     },
     [name, args] as const,
   );
-  if (isFailure(value)) {
-    if (value.__failure.code === 'not-implemented') {
-      test.fixme(true, `Blocked by an unimplemented stub (${value.__failure.message}) in ${name}()`);
-    }
-    throw new Error(`${name}() failed: ${value.__failure.message}`);
-  }
+  if (isFailure(value)) throw new Error(`${name}() failed: ${value.__failure.message}`);
   return value as ReturnType<TestApi[K]>;
 }
 
-/** `run()` through the test API; missing operators and stubs mark the test fixme (see above). */
+/** `run()` through the test API; unregistered operators and stubs fail the test (see above). */
 export async function run(page: Page, op: string, args?: unknown, ctx?: { panel?: string; paneId?: string }) {
   const result: RunResult = await page.evaluate(
     async ([id, runArgs, runCtx]) => {
@@ -179,7 +174,7 @@ export async function run(page: Page, op: string, args?: unknown, ctx?: { panel?
     },
     [op, args, ctx ?? null] as const,
   );
-  fixmeIfBlocked(op, result);
+  failIfBlocked(op, result);
   return result;
 }
 
@@ -195,7 +190,7 @@ export async function runOk<T = unknown>(
   return result.value as T;
 }
 
-/** `loadFile()` with bytes from Node (sent base64-encoded); stubs and missing importers mark the test fixme. */
+/** `loadFile()` with bytes from Node (sent base64-encoded); a failed load fails the test with its message. */
 export async function loadFile(
   page: Page,
   name: string,
@@ -222,10 +217,6 @@ export async function loadFile(
     [name, base64, opts ?? null] as const,
   );
   if (error === null) return;
-  if (error.code === 'not-implemented' || error.message.startsWith('No importer for')) {
-    test.fixme(true, `Blocked (loading ${name}): ${error.message}`);
-  }
-  if (error.message.startsWith('unknown operator')) test.fixme(true, `Blocked by WP-7b: ${error.message}`);
   throw new Error(`loadFile('${name}') failed: ${error.message}`);
 }
 

@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { cameraDelta, centreOf, paneRect, settle } from './helpers/g1-viewport';
 import { seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-22 (MVP-SPEC §6.2, US-20, §4.11.16): with the trackpad navigation profile a two-finger scroll (`wheel`)
 // orbits the free camera and a pinch (`wheel` + Ctrl) dollies it; the locked shot camera ignores both.
@@ -16,7 +16,7 @@ async function scroll(page: Page, pane: 'pane-left' | 'pane-right', ctrl: boolea
 
 test('E2E-22: trackpad profile', async ({ page }) => {
   await openEditor(page, '&nav=trackpad');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   expect((await call(page, 'panes')).find((pane) => pane.id === 'pane-left')?.locked).toBe(true);
 

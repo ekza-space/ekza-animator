@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, fixmeIfPlaceholder, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, expectPanelRegistered, openEditor, runOk } from './helpers/test-api';
 
 // E2E-20 (MVP-SPEC §6.2; §4.10): hotkeys match KeyboardEvent.code, so a Cyrillic layout (`key: 'ы'`) and macOS
 // Option characters (`key: '√'` for Alt+V) still run S = key.set and Alt+V = time.togglePlay.
@@ -21,8 +21,8 @@ async function dispatchKey(page: Page, init: KeyInit): Promise<void> {
 
 test('E2E-20: layout-independent hotkeys', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
-  await fixmeIfPlaceholder(page, 'viewport');
+  await expectKernelStarted(page);
+  await expectPanelRegistered(page, 'viewport');
   await seedSample(page, 'polybot');
   const control = await controlId(page, 'fk.lowerArm.L');
   await runOk(page, 'select.controls', { ids: [control], mode: 'replace' });

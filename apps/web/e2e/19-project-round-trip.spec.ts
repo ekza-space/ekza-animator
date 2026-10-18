@@ -2,15 +2,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { seedWaveClip } from './helpers/seed';
-import {
-  call,
-  fixmeIfKernelUnavailable,
-  lastExport,
-  loadFile,
-  openEditor,
-  runOk,
-  waitForTestApi,
-} from './helpers/test-api';
+import { call, expectKernelStarted, lastExport, loadFile, openEditor, runOk, waitForTestApi } from './helpers/test-api';
 
 // E2E-19 (MVP-SPEC §6.2): save the wave project, reload the page, open the saved .ekzanim; records, curves and
 // evaluated values come back unchanged.
@@ -18,7 +10,7 @@ const FRAMES = [0, 7, 15, 22, 30] as const;
 
 test('E2E-19: project round trip', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
 
   const valuesAt = async () => {

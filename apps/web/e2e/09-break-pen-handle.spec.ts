@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { breakAndPenDrag, readRz, sampleCurve } from './helpers/g2-graph';
 import { seedWaveClip } from './helpers/seed';
-import { fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-09 (MVP-SPEC §6.2, §4.11.4 handle drag): click key@15, break its tangents (B), drag its out handle 40 px up.
 // Only the dragged side becomes fixed; the span before the key keeps its shape, the span after it changes.
 test('E2E-09: break + pen handle', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   const before = await readRz(page, seed);
   const valuesBefore = await sampleCurve(page, seed.rz, 0, 30, 0.25);

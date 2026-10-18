@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { fixmeIfKernelUnavailable, fixmeIfPlaceholder, openEditor, renderedFrames } from './helpers/test-api';
+import { expectKernelStarted, expectPanelRegistered, openEditor, renderedFrames } from './helpers/test-api';
 
 // E2E-00 (MVP-SPEC §6.2). The drop-zone check is its own test: the drop zone belongs to the viewport panel (WP-5).
 test('E2E-00: WebGL is available and an idle editor renders no frames', async ({ page }) => {
@@ -35,7 +35,7 @@ test('E2E-00: WebGL is available and an idle editor renders no frames', async ({
 
 test('E2E-00: the empty editor shows the drop zone', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
-  await fixmeIfPlaceholder(page, 'viewport');
+  await expectKernelStarted(page);
+  await expectPanelRegistered(page, 'viewport');
   await expect(page.getByTestId('dropzone')).toBeVisible();
 });

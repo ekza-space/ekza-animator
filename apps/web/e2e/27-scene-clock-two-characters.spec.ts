@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickOutlinerRow, DEG, keysOf } from './helpers/g3-input';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-27 (MVP-SPEC §6.2; §4.11.8): one scene clock (30 fps), two characters with their own clips — Seed-san's at
 // 24 fps, Polybot's starting at scene frame 6. Scene frame 30 is clip frame 24 of both; switching the active
@@ -28,7 +28,7 @@ async function keyLowerArm(page: Page, character: string, rz24: number): Promise
 
 test('E2E-27: scene clock, two characters', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seedSan = (await seedSample(page, 'seed-san')).character;
   const polybot = (await seedSample(page, 'polybot')).character;
   expect((await call(page, 'counts'))['characters']).toBe(2);

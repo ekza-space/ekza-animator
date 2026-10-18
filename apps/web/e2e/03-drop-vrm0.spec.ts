@@ -1,11 +1,11 @@
 import { expect, test } from '@playwright/test';
-import { call, fixmeIfKernelUnavailable, openEditor, waitForCount } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, waitForCount } from './helpers/test-api';
 
 // E2E-03 (MVP-SPEC §6.2): a real DataTransfer drop of Polybot (VRM 0.x) on the window, the import dialog's badges,
 // then the humanoid rig facing +Z (§4.11.9).
 test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
 
   const dataTransfer = await page.evaluateHandle(async () => {
     const bytes = await (await fetch('/samples/polybot.vrm')).arrayBuffer();
@@ -20,14 +20,8 @@ test('E2E-03: drag-and-drop VRM 0.x', async ({ page }) => {
   const dialog = page.getByTestId('import-dialog');
   const noImporter = page.getByTestId('toast').filter({ hasText: 'No importer' });
   await expect(dialog.or(noImporter)).toBeVisible();
-  test.fixme((await noImporter.count()) > 0, 'Blocked by WP-7b: no importer is registered for .vrm');
-  const summaryError = page.getByTestId('import-summary-error');
-  if ((await summaryError.count()) > 0) {
-    test.fixme(
-      (await summaryError.getAttribute('data-error-code')) === 'not-implemented',
-      'Blocked by WP-4: the GLB/VRM summary readers are stubs',
-    );
-  }
+  await expect(noImporter, 'an importer is registered for .vrm').toHaveCount(0);
+  await expect(page.getByTestId('import-summary-error')).toHaveCount(0);
   await expect(page.getByTestId('import-format-badge')).toHaveText('VRM 0.x');
   await expect(page.getByTestId('import-license-badge')).toContainText('CC0');
 

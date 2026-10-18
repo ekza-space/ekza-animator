@@ -1,10 +1,10 @@
 import { expect, test } from '@playwright/test';
-import { fixmeIfKernelUnavailable, openEditor, waitForCount } from './helpers/test-api';
+import { expectKernelStarted, openEditor, waitForCount } from './helpers/test-api';
 
 // One drop of two models (W-11): each opens its own import dialog after the previous one closed, and both import.
 test('dropping two models imports both, one dialog after the other', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
 
   const dataTransfer = await page.evaluateHandle(async () => {
     const transfer = new DataTransfer();
@@ -20,7 +20,7 @@ test('dropping two models imports both, one dialog after the other', async ({ pa
   const dialog = page.getByTestId('import-dialog');
   const noImporter = page.getByTestId('toast').filter({ hasText: 'No importer' });
   await expect(dialog.or(noImporter.first())).toBeVisible();
-  test.fixme((await noImporter.count()) > 0, 'Blocked by WP-7b: no importer is registered for .vrm');
+  await expect(noImporter, 'an importer is registered for .vrm').toHaveCount(0);
 
   const fileName = page.getByTestId('import-file-name');
   await expect(fileName).toHaveText('polybot.vrm');

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { glbJson, pointOf, readFixture } from './helpers/g1-viewport';
-import { call, fixmeIfKernelUnavailable, loadFile, openEditor, waitForCount } from './helpers/test-api';
+import { call, expectKernelStarted, loadFile, openEditor, waitForCount } from './helpers/test-api';
 
 // E2E-04 (MVP-SPEC §6.2, §4.11.6): the Quaternius UAL GLB (generic skeleton, 46 embedded clips) through the import
 // dialog with only Idle_Loop checked: a 24 fps clip with keys on whole frames, reduced on import (`reduceOnImport`
@@ -18,7 +18,7 @@ const controlKeyOf = (nodeName: string): string =>
 
 test('E2E-04: generic GLB + embedded clip', async ({ page }) => {
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
 
   const bytes = readFixture('animations/quaternius-ual.glb');
   const source = glbJson(bytes);

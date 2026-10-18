@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { drag, pointOf } from './helpers/g1-viewport';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-06 (MVP-SPEC §6.2, §4.11.16, §4.11.1): pick the left elbow in the free pane, rotate it with the manipulator's
 // Z ring, key it with S: one key per rotation curve at frame 0 and a tick on the time slider.
 test('E2E-06: pick and key', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const elbow = await controlId(page, 'fk.lowerArm.L');
 

@@ -16,14 +16,14 @@ import {
   validatorErrors,
 } from './helpers/g4-export';
 import { seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 const FRAME = 10;
 
 test('E2E-18: export, animation-only GLB', async ({ page }) => {
   test.setTimeout(120_000);
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const { character } = await seedSample(page, 'quaternius-ual');
   const idle = (await call(page, 'clips', character)).find((clip) => clip.name === 'Idle_Loop');
   if (idle === undefined) throw new Error('UAL was seeded without Idle_Loop');

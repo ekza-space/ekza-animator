@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { centreOf, drag, paneRect, pointOf } from './helpers/g1-viewport';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-25 (MVP-SPEC §6.2, §4.11.16): in gimbal space a ring drag adds to its own Euler channel only. The left upper
 // arm rotates in order yxz, so its middle ring is X; dragging it and keying with S changes rx and leaves ry and rz
 // bit-for-bit alone (no quaternion → Euler step).
 test('E2E-25: gimbal rotate', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const arm = await controlId(page, 'fk.upperArm.L');
 
@@ -50,7 +50,7 @@ test('E2E-25: gimbal rotate', async ({ page }) => {
 // (its X axis is no longer the gimbal's middle axis), gimbal space still changes rx alone.
 test('E2E-25: gimbal rotate on a posed arm changes rx only', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const arm = await controlId(page, 'fk.upperArm.L');
   await runOk(page, 'select.controls', { ids: [arm], mode: 'replace' });

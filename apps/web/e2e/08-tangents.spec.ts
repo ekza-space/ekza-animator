@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { DEG, pointOf, readRz, slopesAt } from './helpers/g2-graph';
 import { seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-08 (MVP-SPEC §6.2, §4.11.4): double-click the wave's rz curve in the Graph Editor (all three keys), then the
 // tangent hotkeys 4 (linear), 6 (step) and 1 (auto) over it; the evaluated curve follows the AnimX span rules.
 test('E2E-08: tangents', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   const before = await readRz(page, seed);
   const [v0, v15, v30] = before.keys.map((key) => key.v);

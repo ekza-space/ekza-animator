@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test';
 import { clickFrame, dragManipulator, pressOverPane } from './helpers/g3-input';
 import { seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-24 (MVP-SPEC §6.2; §4.11.2, ADR 0013): with auto-key off a manipulator drag on a keyed control leaves an
 // unkeyed (pink) override; one Mod+Z removes it, so the pose, the overrides and the curves are as before the drag.
 
 test('E2E-24: undo an unkeyed edit', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   expect((await call(page, 'state')).autoKey).toBe(false);
 

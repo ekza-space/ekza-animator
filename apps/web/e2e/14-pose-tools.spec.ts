@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { clickFrame, clickOutlinerRow, DEG, expectChannelsClose, pressOverPane } from './helpers/g3-input';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-14 (MVP-SPEC §6.2; §4.11.2, §4.11.20): copy the left arm's pose at frame 15, paste it at frame 40, flip it
 // with Alt+M (the selection expands to the mirror pairs) and reset the upper arm to rest.
@@ -34,7 +34,7 @@ const POSE_40: Pose = {
 
 test('E2E-14: pose tools', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const id: Record<string, string> = {};
   for (const key of ARM_KEYS) id[key] = await controlId(page, key);

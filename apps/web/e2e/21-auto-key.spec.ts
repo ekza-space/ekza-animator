@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { clickFrame, dragManipulator, keysOf, pointOf, pressOverPane } from './helpers/g3-input';
 import { controlId, seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-21 (MVP-SPEC §6.2; §4.11.2 auto-key column): with auto-key on, a manipulator drag at frame 20 keys the
 // animated control's rotation curves there; a control without keys gets static values (mode `keyed-only`).
@@ -10,7 +10,7 @@ const ROTATION = ['rx', 'ry', 'rz'] as const;
 
 test('E2E-21: auto-key', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   expect((await call(page, 'state')).autoKey).toBe(false);
   await runOk(page, 'key.toggleAutoKey');

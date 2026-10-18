@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { clickKey, dragBy, pointOf, readRz, rzKeyAt, weightOf } from './helpers/g2-graph';
 import { seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-10 (MVP-SPEC §6.2, §4.11.4 handle drag): on a weighted curve with free weights a handle drag changes the angle
 // and the length; with the weight locked a drag changes only the angle (the Maya weight keeps).
 test('E2E-10: weighted handles', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   const fps = (await call(page, 'clips')).find((clip) => clip.id === seed.clip)?.fps ?? Number.NaN;
   await runOk(page, 'graph.curve.setWeighted', { weighted: true });

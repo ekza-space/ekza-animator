@@ -1,8 +1,8 @@
 import { expect, test } from '@playwright/test';
 import {
   call,
-  fixmeIfKernelUnavailable,
-  fixmeIfPlaceholder,
+  expectKernelStarted,
+  expectPanelRegistered,
   openEditor,
   requireOperator,
   waitForCount,
@@ -13,7 +13,7 @@ const REQUIRED_KEYS = ['root', 'cog', 'fk.hips', 'fk.head', 'fk.upperArm.L', 'fk
 
 test('E2E-01: first run + sample VRM 1.0', async ({ page }) => {
   await openEditor(page, '&firstRun=1');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
 
   const dialog = page.getByTestId('firstrun-dialog');
   await expect(dialog).toBeVisible();
@@ -23,7 +23,7 @@ test('E2E-01: first run + sample VRM 1.0', async ({ page }) => {
   await expect(dialog).toBeHidden();
   expect((await call(page, 'state')).dialog).toBeNull();
 
-  await fixmeIfPlaceholder(page, 'viewport');
+  await expectPanelRegistered(page, 'viewport');
   await requireOperator(page, 'file.loadSample', { sample: 'not-a-sample' });
   await page.getByTestId('sample-seed-san').click();
   await waitForCount(page, 'characters', 1);
@@ -42,10 +42,6 @@ test('E2E-01: first run + sample VRM 1.0', async ({ page }) => {
 
   await expect.poll(async () => (await call(page, 'panes')).length).toBe(2);
   const panes = [...(await call(page, 'panes'))].sort((a, b) => a.rect.x - b.rect.x);
-  test.fixme(
-    panes.some((pane) => pane.camera === 'unknown'),
-    "Blocked by WP-10: the viewport probe (WP-5's viewportTestApi) is not wired into the test API",
-  );
   expect(panes[0]?.camera).toBe('shot');
   expect(panes[0]?.locked).toBe(true);
 });

@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import type { HumanBoneName } from '@ekza-animator/doc';
 import { compareValidation, setGltfValidator, type ValidationReport, validateGltf } from '@ekza-animator/io';
 import { expect, type Page } from '@playwright/test';
-import { fixmeIfBlocked, lastExport, type RunResult } from './test-api';
+import { failIfBlocked, lastExport, type RunResult } from './test-api';
 
 export type Quat = readonly [number, number, number, number];
 
@@ -86,7 +86,7 @@ export async function exportOne(page: Page, request: ExportRequestArgs): Promise
       : ran.value;
     return { ...ran, value: artifacts };
   }, args);
-  fixmeIfBlocked('file.export', result);
+  failIfBlocked('file.export', result);
   expect(result.status, `file.export: ${result.reason ?? result.error?.message ?? ''}`).toBe('finished');
   const artifacts = result.value as ArtifactSummary[];
   expect(artifacts).toHaveLength(1);

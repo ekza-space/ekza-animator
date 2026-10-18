@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { clickKey, DEG, hoverGraph, K_ROT, readRz, rzKeyAt, typeField } from './helpers/g2-graph';
 import { seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-12 (MVP-SPEC §6.2, §4.11.4 numeric fields): the Graph Editor's key fields set a key's value, frame and tangent
 // angles in display units (degrees, Maya's angle convention with time in seconds).
 test('E2E-12: numeric fields', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   const fps = (await call(page, 'clips')).find((clip) => clip.id === seed.clip)?.fps;
   expect(fps).toBe(30);

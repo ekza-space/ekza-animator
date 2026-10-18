@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { clickOutlinerRow, DEG, pointOf, pressOverPane } from './helpers/g3-input';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-23 (MVP-SPEC §6.2; §4.11.3, §4.11.17): Shift+click a key tick selects a 1-frame band with the selected
 // controls' keys; dragging the band moves them in time (one history step) and Mod+Z restores every curve.
@@ -12,7 +12,7 @@ const OTHER = 'fk.upperArm.R';
 
 test('E2E-23: time-slider retime', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const ids = await Promise.all([...ARM, OTHER].map((key) => controlId(page, key)));
   const arm = ids.slice(0, 3);

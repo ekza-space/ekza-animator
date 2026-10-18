@@ -19,7 +19,7 @@ import {
   validatorErrors,
 } from './helpers/g4-export';
 import { controlId, seedWaveClip, type WaveSeed } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, loadFile, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, loadFile, openEditor, runOk } from './helpers/test-api';
 
 const DEG = Math.PI / 180;
 /** E2E-17 plays the VRMA at 10 frames over the wave (incl. the extreme at 15). */
@@ -52,7 +52,7 @@ test.afterAll(async () => {
 test('E2E-16: export, bake into model', async ({ browser }, testInfo) => {
   test.setTimeout(180_000);
   await openEditor(page);
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   seed = await seedWaveClip(page, 'seed-san');
 
   const baked = await exportOne(page, { kind: 'bake-into-model', character: seed.character, clips: [seed.clip] });

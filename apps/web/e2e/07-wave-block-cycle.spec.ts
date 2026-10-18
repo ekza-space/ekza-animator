@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickFrame, clickOutlinerRow, DEG, keysOf, pointOf, pressOverPane, typeChannel } from './helpers/g3-input';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-07 (MVP-SPEC §6.2): block a wave with the Outliner, the Channel Box and S, cycle it with the Graph Editor's
 // post-infinity, then play it: frame 45 repeats frame 15, playback advances and wraps at the end of the loop.
@@ -27,7 +27,7 @@ function sampleFrames(page: Page, ms: number): Promise<number[]> {
 
 test('E2E-07: wave block + cycle', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'polybot');
   const lowerArm = await controlId(page, 'fk.lowerArm.L');
 

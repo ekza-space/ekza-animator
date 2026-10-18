@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { type Point, paneRect, settle } from './helpers/g1-viewport';
 import { controlId, seedSample } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-26 (MVP-SPEC §6.2, §4.11.16): with the left hand framed in the free pane, a marquee over the hand selects its
 // finger controls (crossing test) and nothing else; two plain clicks at one spot where two controls overlap cycle
@@ -14,7 +14,7 @@ const PAD_PX = 3;
 
 test('E2E-26: marquee + cycling', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   await seedSample(page, 'seed-san');
   const controls = await call(page, 'controls');
   const keyOf = new Map(controls.map((control) => [control.id, control.key]));

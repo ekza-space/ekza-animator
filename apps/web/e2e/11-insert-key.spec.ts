@@ -1,13 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { pointOf, readRz, sampleCurve } from './helpers/g2-graph';
 import { seedWaveClip } from './helpers/seed';
-import { call, fixmeIfKernelUnavailable, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 // E2E-11 (MVP-SPEC §6.2, §4.11.4 shape-preserving insert): the Graph Editor's Insert tool (I) and a click on the
 // wave's rz curve at frame 22 add a key there without changing the curve's shape.
 test('E2E-11: insert key', async ({ page }) => {
   await openEditor(page, '&platform=mac');
-  await fixmeIfKernelUnavailable(page);
+  await expectKernelStarted(page);
   const seed = await seedWaveClip(page);
   const before = await readRz(page, seed);
   const valuesBefore = await sampleCurve(page, seed.rz, 0, 30, 0.25);
