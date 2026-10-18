@@ -14,9 +14,10 @@ import {
 // B (bend plane)   step 5 aligns the hinge-implied flexion direction x̂ × k (k = the world hinge after the swing)
 //                  with the pole, not the mid-joint offset m. For a rest bend about the hinge both agree (m ∥ x̂ × k
 //                  whenever the limb is flexed); they differ near straight (where m is noise: the spec's amendment
-//                  B) and for rests that bend off the hinge (Polybot's legs bend 28.6° in the frontal plane and 1.3°
-//                  about the knee hinge): there m keeps the rest's sideways part, and aligning it with the pole would
-//                  swing the knee sideways as the leg flexes. Falls back to m when x̂ ∥ k.
+//                  B) and for rests that bend off the hinge (Polybot's thighs splay 28.6° in the frontal plane over
+//                  vertical shins, so the knee sits 9 cm outside the hip–ankle line and does not bend about its x
+//                  hinge at all): there m keeps the rest's sideways part, and aligning it with the pole would swing
+//                  the knee sideways as the leg flexes. Falls back to m when x̂ ∥ k.
 // C (flexion side) the bend about the hinge may go below 0 down to the rest's own bend (min(0, β⁰)): a rest that
 //                  is hyperextended about its hinge (Seed-san's elbows −1.4°, Polybot's −4.9°) is reached at rest
 //                  without flipping; closer targets flex the normal way.
