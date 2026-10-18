@@ -6,7 +6,13 @@
 // hidden-control and preference changes and, per evaluated pose, only when a limb's ikFk crossed a rule-2 threshold
 // (a per-slot state array, compared without allocating); limbs' poles get their annotation lines.
 import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
-import type { CharacterId, CharacterRecord, ControlId, ControlRecord } from '@ekza-animator/doc';
+import {
+  batchTables,
+  type CharacterId,
+  type CharacterRecord,
+  type ControlId,
+  type ControlRecord,
+} from '@ekza-animator/doc';
 import {
   type CharacterRuntime,
   type ControlVisibility,
@@ -93,11 +99,10 @@ export class SceneSync {
         }
       }),
       app.store.subscribe((batch) => {
-        let touched = batch.origin === 'load';
-        for (const change of batch.changes) {
-          if (change.table === 'characters') this.placementDirty = true;
-          if (change.table === 'controls') touched = true;
-        }
+        // M-1: the batch's table set (`batchTables`, one scan per batch for every listener).
+        const tables = batchTables(batch);
+        if (tables.has('characters')) this.placementDirty = true;
+        const touched = batch.origin === 'load' || tables.has('controls');
         if (touched) this.structureDirty = true;
         if (touched || this.placementDirty) this.opts.onChange();
       }),

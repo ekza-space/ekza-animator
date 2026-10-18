@@ -5,7 +5,15 @@
 // M2a (M2A-SPEC §5.9, §5.11): Mod+drag on the band middle copies its keys, band moves and scales ripple when
 // `tools.ripple` is on (one global region: the band), an MMB drag scrubs carrying the pose, breakdown ticks are green.
 import { type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
-import type { ChangeBatch, CurveId, KeyId, Tx } from '@ekza-animator/doc';
+import {
+  type AnyChange,
+  batchTables,
+  type ChangeBatch,
+  type CurveId,
+  type KeyId,
+  type TableName,
+  type Tx,
+} from '@ekza-animator/doc';
 import {
   copyKeys,
   type EditorApp,
@@ -56,8 +64,12 @@ const BAND_OPS: ReadonlySet<string> = new Set([
 ]);
 const GROUP_ORDER: readonly string[] = ['edit', 'tangent', 'select', 'time'];
 /** Tables whose changes move the slider's frames (clip range, fps, scene clock) or its ticks. */
-const VIEW_TABLES: ReadonlySet<string> = new Set(['clips', 'project', 'characters']);
-const TICK_TABLES: ReadonlySet<string> = new Set(['keys', 'curves', 'layers', 'controls', 'rigs']);
+const VIEW_TABLES: readonly TableName[] = ['clips', 'project', 'characters'];
+/**
+ * Tables whose changes rebuild the ticks; `keys` only when a key's time, curve or breakdown flag changes (see
+ * `onBatch`; the flag colours the tick, M2A-SPEC §5.9).
+ */
+const TICK_TABLES: readonly TableName[] = ['curves', 'layers', 'controls', 'rigs'];
 
 export interface TimelineMenuItem {
   readonly id: string;
@@ -602,9 +614,29 @@ export class TimeSliderController {
   private onBatch(batch: ChangeBatch): void {
     let ticks = batch.origin === 'load';
     let view = ticks;
-    for (const change of batch.changes) {
-      if (VIEW_TABLES.has(change.table)) view = ticks = true;
-      else if (TICK_TABLES.has(change.table)) ticks = true;
+    // M-1 (M2A-SPEC §5.21.1): the batch's table set (one scan per batch for every listener); key updates that keep
+    // their time, curve and breakdown flag (a Graph Editor value drag of 1,000 keys) leave the ticks alone, so the slider neither
+    // rebuilds its tick set nor repaints on every preview batch of such a drag.
+    const tables = batchTables(batch);
+    if (VIEW_TABLES.some((table) => tables.has(table))) view = ticks = true;
+    if (!ticks && TICK_TABLES.some((table) => tables.has(table))) ticks = true;
+    if (!ticks && tables.has('keys')) {
+      const changes = batch.changes;
+      for (let i = 0; i < changes.length; i++) {
+        const change = changes[i] as AnyChange;
+        if (change.table !== 'keys') continue;
+        const { before, after } = change;
+        if (
+          before === undefined ||
+          after === undefined ||
+          before.t !== after.t ||
+          before.curve !== after.curve ||
+          before.breakdown !== after.breakdown
+        ) {
+          ticks = true;
+          break;
+        }
+      }
     }
     if (view) this.view = null;
     if (ticks) {

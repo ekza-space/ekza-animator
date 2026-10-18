@@ -287,10 +287,10 @@ function Hud(props: { readonly app: EditorApp; readonly state: PaneState | null 
       const character = session.activeCharacter;
       const frame = character === null ? null : app.evaluation.clipFrame(character);
       const fps = app.store.get('project', 'project')?.sceneFps ?? { num: 30, den: 1 };
-      if (frameRef.current !== null) frameRef.current.textContent = frame === null ? '' : `f ${formatFrame(frame)}`;
-      if (secondsRef.current !== null) {
-        secondsRef.current.textContent = `${((session.time.sceneFrame * fps.den) / fps.num).toFixed(2)} s`;
-      }
+      // Only real changes touch the DOM: the store calls this for every batch (drag previews included), and an
+      // unchanged text written again still replaces the text node, which invalidates layout for the frame (M-1).
+      setText(frameRef.current, frame === null ? '' : `f ${formatFrame(frame)}`);
+      setText(secondsRef.current, `${((session.time.sceneFrame * fps.den) / fps.num).toFixed(2)} s`);
     };
     write();
     const unsubscribeSession = app.session.subscribe((next, previous) => {
@@ -335,6 +335,10 @@ function Hud(props: { readonly app: EditorApp; readonly state: PaneState | null 
       </div>
     </div>
   );
+}
+
+function setText(element: HTMLElement | null, text: string): void {
+  if (element !== null && element.textContent !== text) element.textContent = text;
 }
 
 /** True for 300 ms after `counter` changes (a locked camera swallowed navigation). */

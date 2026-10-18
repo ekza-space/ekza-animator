@@ -17,6 +17,7 @@ export { fractionalIndex, isFractionalIndex } from './records/order';
 export { emptySnapshot, parseSnapshot, SCHEMA_VERSION, serializeSnapshot } from './snapshot/serialize';
 export { requiredWriterVersion } from './snapshot/version';
 export * from './store';
+export { batchTables, batchTouches } from './store/batchTables';
 export { compareStrings, deepEqual, diffFields } from './store/diff';
 export {
   type ApplyChangesOptions,

@@ -1,5 +1,5 @@
-// Graph Editor tools (MVP-SPEC §4.11.18, keymap Q/W/I): registered through the tool registry so extensions can add
-// more. The controller owns the press/drag state machine; a tool decides what an LMB press means through the host.
+// Graph Editor tools (MVP-SPEC §4.11.18, keymap Q/W/I; M2A-SPEC §5.15.3 R = Scale): registered through the tool
+// registry so extensions can add more. The controller owns the press/drag state machine; a tool decides what an LMB press means through the host.
 // Navigation (Alt+MMB/RMB, wheel) and MMB moves are tool-independent and never reach a tool.
 import {
   type EditorApp,
@@ -25,6 +25,8 @@ export interface GraphToolHost {
   press(e: ToolPointerEvent, opts: { readonly empty: 'marquee' | 'move' }): void;
   /** Click (no drag) inserts a shape-preserving key on `curve` at the hit frame (`graph.key.insert`). */
   pressInsert(e: ToolPointerEvent, hit: Extract<GraphHit, { readonly kind: 'curve' }>): void;
+  /** M2a §5.15.3: the Scale tool's press (region box edges and corners, inside moves, outside scales). */
+  pressScale(e: ToolPointerEvent): void;
 }
 
 function pressTool(empty: 'marquee' | 'move', host: GraphToolHost, cursor: string): ToolInstance {
@@ -76,7 +78,31 @@ export const GRAPH_INSERT_TOOL: ToolDef<GraphToolHost> = {
   }),
 };
 
-export const GRAPH_TOOLS: readonly ToolDef<GraphToolHost>[] = [GRAPH_SELECT_TOOL, GRAPH_MOVE_TOOL, GRAPH_INSERT_TOOL];
+/**
+ * M2a Scale tool (R, `ge-tool-scale`): with keys selected a region box spans their time and value bounds; dragging an
+ * edge or corner scales around the opposite one, the inside moves, outside scales around the press point.
+ */
+export const GRAPH_SCALE_TOOL: ToolDef<GraphToolHost> = {
+  id: GRAPH_TOOL.scale,
+  panel: PANEL.graph,
+  label: 'Scale Keys',
+  icon: 'scale',
+  create: (_app: EditorApp, host: GraphToolHost): ToolInstance => ({
+    pointerDown(e) {
+      if (e.button !== 0) return false;
+      host.pressScale(e);
+      return true;
+    },
+    cursor: () => 'ew-resize',
+  }),
+};
+
+export const GRAPH_TOOLS: readonly ToolDef<GraphToolHost>[] = [
+  GRAPH_SELECT_TOOL,
+  GRAPH_MOVE_TOOL,
+  GRAPH_INSERT_TOOL,
+  GRAPH_SCALE_TOOL,
+];
 
 export function builtinGraphTool(id: string): ToolDef<GraphToolHost> | undefined {
   return GRAPH_TOOLS.find((tool) => tool.id === id);

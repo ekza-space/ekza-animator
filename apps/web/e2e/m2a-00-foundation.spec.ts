@@ -28,14 +28,12 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   expect(await call(page, 'autosave')).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
   expect(await call(page, 'timelineTicks')).toEqual([]);
   expect(await call(page, 'dopeSheet')).toBeNull();
-  expect(await call(page, 'screenOfTween', 'status', 0)).toBeNull();
+  // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
+  expect(await call(page, 'screenOfTween', 'status', 0)).not.toBeNull();
 
-  // A2's operators (rig IK, pick-walk, key target) left this list when they landed (m2a-18, m2a-19, m2a-25).
+  // A2's operators (rig IK, pick-walk, key target: m2a-18, m2a-19, m2a-25), A3's (m2a-08…12) and A4's (m2a-13…17)
+  // left this list when they landed.
   for (const [op, args] of [
-    ['key.tween', { mode: 'tween', amount: 50 }],
-    ['key.convert', { to: 'breakdown' }],
-    ['pose.mirrorAnimation', { mode: 'flip' }],
-    ['graph.buffer.snapshot', undefined],
     ['file.autosaveNow', undefined],
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
@@ -51,11 +49,11 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
     reason: 'No keys are selected',
   });
   expect(await run(page, 'key.toggleRipple', { ripple: false })).toMatchObject({ status: 'finished' });
-  // The mounted Graph Editor registers the M1 tools; its M2a scale tool (A4) is not there yet (§3 rule 1).
+  // The mounted Graph Editor registers its tools; A4 landed the M2a Scale tool (literal update, M2A-SPEC §3 rule 8).
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await expect
     .poll(() => run(page, 'view.tool', { panel: 'graph', tool: 'scale' }))
-    .toEqual({ status: 'cancelled', reason: 'not available yet' });
+    .toMatchObject({ status: 'finished' });
   expect(await run(page, 'view.tool', { panel: 'graph', tool: 'insert' })).toMatchObject({ status: 'finished' });
   expect(await run(page, 'view.tool', { panel: 'graph', tool: 'select' })).toMatchObject({ status: 'finished' });
   // The status line's key-target toggle and the Tween bar slot are in place.

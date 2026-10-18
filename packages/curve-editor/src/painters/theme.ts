@@ -9,6 +9,10 @@ export interface GraphTheme {
   readonly label: string;
   readonly key: string;
   readonly keySelected: string;
+  /** M2a: breakdown keys (◇, §5.12). */
+  readonly keyBreakdown: string;
+  /** M2a: buffer curves (dashed, §5.15.1). */
+  readonly curveBuffer: string;
   readonly tangent: string;
   readonly tangentSelected: string;
   readonly tangentBroken: string;
@@ -27,6 +31,8 @@ export const DEFAULT_GRAPH_THEME: GraphTheme = {
   label: '#969ba6',
   key: '#c8ccd4',
   keySelected: '#ffd84d',
+  keyBreakdown: '#3fcf8e',
+  curveBuffer: '#7d828d',
   tangent: '#9aa0ab',
   tangentSelected: '#ff9f43',
   tangentBroken: '#3fd1d9',
@@ -61,6 +67,8 @@ const TOKENS: readonly (readonly [keyof GraphTheme, string])[] = [
   ['label', '--text-3'],
   ['key', '--key-default'],
   ['keySelected', '--key-selected'],
+  ['keyBreakdown', '--key-breakdown'],
+  ['curveBuffer', '--curve-buffer'],
   ['tangent', '--tangent'],
   ['tangentSelected', '--tangent-selected'],
   ['tangentBroken', '--tangent-broken'],

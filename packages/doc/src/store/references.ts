@@ -90,9 +90,14 @@ const REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
 
 /** Fast path of the index: true when a rewrite of a record cannot have changed its references. */
 function sameReferenceFields(table: string, prev: Row, next: Row): boolean {
+  // M-1: keys first and an indexed loop (no iterator per call: a drag frame rewrites 1,000 keys twice).
+  if (table === 'keys') return prev['clip'] === next['clip'] && prev['curve'] === next['curve'];
   const fields = REFERENCE_FIELDS[table];
   if (fields === undefined) return true;
-  for (const field of fields) if (prev[field] !== next[field]) return false;
+  for (let i = 0; i < fields.length; i++) {
+    const field = fields[i] as string;
+    if (prev[field] !== next[field]) return false;
+  }
   return true;
 }
 

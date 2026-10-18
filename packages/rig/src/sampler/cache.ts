@@ -8,6 +8,7 @@ import {
 } from '@ekza-animator/anim-core';
 import {
   type AnyChange,
+  batchTables,
   type ChangeBatch,
   type ChannelId,
   type ClipId,
@@ -66,6 +67,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
   };
   const curveRecordOf = (id: CurveId): CurveRecord | undefined => store.getIncludingDeleted('curves', id);
 
+  /** Curves whose keys changed in the batch being processed (each forgotten once, M-1 mechanism 4). */
+  const keyed = new Set<CurveId>();
   const onChange = (change: AnyChange): boolean => {
     if (change.table === 'curves') {
       forget(change.id);
@@ -74,11 +77,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return true;
     }
     if (change.table === 'keys') {
-      for (const key of [change.before, change.after]) {
-        if (key === undefined) continue;
-        forget(key.curve);
-        forgetChannel(curveRecordOf(key.curve));
-      }
+      if (change.before !== undefined) keyed.add(change.before.curve);
+      if (change.after !== undefined) keyed.add(change.after.curve);
       return true;
     }
     return false;
@@ -93,7 +93,26 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return;
     }
     let touched = false;
-    for (const change of batch.changes) touched = onChange(change) || touched;
+    // M-1: a drag batch is 1,000 key updates in runs of one curve; a key update that stays on the curve of the change
+    // before it adds nothing (one check instead of two set insertions per key, in a fresh editor's interpreted frames).
+    let lastCurve: CurveId | null = null;
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
+      if (change.table === 'keys' && change.before !== undefined && change.after !== undefined) {
+        const curve = change.before.curve;
+        touched = true;
+        if (curve === lastCurve && change.after.curve === curve) continue;
+        lastCurve = change.after.curve === curve ? curve : null;
+      }
+      touched = onChange(change) || touched;
+    }
+    // Only the curves the batch touched recompile (on their next read); a 1,000-key drag of 30 curves forgets 30.
+    for (const curve of keyed) {
+      forget(curve);
+      forgetChannel(curveRecordOf(curve));
+    }
+    keyed.clear();
     if (touched) version++;
   });
 
@@ -183,13 +202,12 @@ export function createClipSampler(
       byControl = null;
       return;
     }
-    for (const change of batch.changes) {
-      // Keys do not change the plan: key counts and values come from the compiled curves.
-      if (change.table === 'curves' || change.table === 'layers') {
-        plan = null;
-        byControl = null;
-        return;
-      }
+    // Keys do not change the plan: key counts and values come from the compiled curves. M-1: the batch's table set
+    // (one scan per batch for every listener) instead of a scan of a 1,000-key drag batch here.
+    const tables = batchTables(batch);
+    if (tables.has('curves') || tables.has('layers')) {
+      plan = null;
+      byControl = null;
     }
   });
 

@@ -25,8 +25,19 @@ export {
   rippleScopeOf,
 } from './edit/ripple';
 export { formatChannelValue, fromDisplayValue, parseNumericInput, toDisplayValue } from './edit/numeric';
-export { tweenEdits } from './edit/tween';
+export {
+  beginTweenGesture,
+  clampTweenAmount,
+  type ResolvedTweenTarget,
+  resolveTweenTarget,
+  TWEEN_LIMIT,
+  TWEEN_MODES,
+  TWEEN_OVERSHOOT_LIMIT,
+  type TweenGesture,
+  tweenEdits,
+} from './edit/tween';
 export { scaleKeyValues } from './edit/valueScale';
+export { compileWithAppEngine } from './evaluation/compile';
 export { MAYA_KEYMAP } from './keymap/maya';
 export type * from './operators/args';
 export type { CoalescingOperatorDef, OperatorCoalescing } from './operators/runner';

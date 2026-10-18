@@ -1,4 +1,4 @@
-import type { DocumentStore, TableName } from '@ekza-animator/doc';
+import { batchTouches, type DocumentStore, type TableName } from '@ekza-animator/doc';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useEditorApp } from './context';
 
@@ -25,12 +25,13 @@ function tableSource(
   store: DocumentStore,
   tables: readonly string[],
 ): { readonly subscribe: (notify: () => void) => () => void; readonly getSnapshot: () => TableSnapshot } {
-  const watched = new Set(tables);
+  const watched = [...new Set(tables)] as TableName[];
   let snapshot: TableSnapshot = { store, version: 0 };
   return {
     subscribe: (notify) =>
       store.subscribe((batch) => {
-        if (batch.origin !== 'load' && !batch.changes.some((change) => watched.has(change.table))) return;
+        // M-1: the batch's table set is computed once for every listener (a drag batch holds 1,000 changes).
+        if (batch.origin !== 'load' && !batchTouches(batch, watched)) return;
         snapshot = { store, version: snapshot.version + 1 };
         notify();
       }),

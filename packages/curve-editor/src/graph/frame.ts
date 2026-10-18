@@ -2,7 +2,7 @@
 // frame all = every visible curve's keys plus the drawn curve between them (overshooting spline segments included).
 import { Segment } from '@ekza-animator/anim-core';
 import type { ViewBounds } from '../view/transform';
-import type { CurveEntry } from './curveSet';
+import { type CurveEntry, drawnOf } from './curveSet';
 import { segmentKind, segmentValueAt } from './geometry';
 
 /** Samples per Hermite/Bézier segment when measuring a curve's value range. */
@@ -34,7 +34,7 @@ export function curvesBounds(entries: readonly CurveEntry[]): ViewBounds | null 
   for (const entry of entries) {
     const c = entry.compiled;
     for (let i = 0; i < c.keyCount; i++) {
-      acc.add(c.t[i] as number, (c.v[i] as number) * entry.scale);
+      acc.add(c.t[i] as number, drawnOf(entry, c.v[i] as number));
       if (i + 1 >= c.keyCount) continue;
       const kind = segmentKind(c, i);
       if (kind !== Segment.Hermite && kind !== Segment.Bezier) continue;
@@ -42,7 +42,7 @@ export function curvesBounds(entries: readonly CurveEntry[]): ViewBounds | null 
       const t1 = c.t[i + 1] as number;
       for (let s = 1; s < SAMPLES; s++) {
         const frame = t0 + ((t1 - t0) * s) / SAMPLES;
-        acc.add(frame, segmentValueAt(c, i, frame, scratch) * entry.scale);
+        acc.add(frame, drawnOf(entry, segmentValueAt(c, i, frame, scratch)));
       }
     }
   }
@@ -53,7 +53,7 @@ export function curvesBounds(entries: readonly CurveEntry[]): ViewBounds | null 
 export function keysBounds(keys: readonly { readonly entry: CurveEntry; readonly index: number }[]): ViewBounds | null {
   const acc = new Accumulator();
   for (const { entry, index } of keys) {
-    acc.add(entry.compiled.t[index] as number, (entry.compiled.v[index] as number) * entry.scale);
+    acc.add(entry.compiled.t[index] as number, drawnOf(entry, entry.compiled.v[index] as number));
   }
   return acc.result();
 }

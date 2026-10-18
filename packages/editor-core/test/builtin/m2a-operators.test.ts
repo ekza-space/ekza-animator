@@ -9,17 +9,12 @@ import type { Chord, KeyBinding } from '../../src/types';
 import { opsApp, runOk, runResult, WAVE } from './support';
 
 /**
- * Every M2a operator the built-ins register, with arguments that would be valid once implemented. Rows leave this
- * list when their owner lands them (A2: the rig IK operators, select.pickWalk and key.setTarget, tested in
- * m2a-a2-*.test.ts).
+ * Every M2a operator the built-ins register as a stub, with arguments that would be valid once implemented. Rows leave
+ * this list when their owner lands them (A2: the rig IK operators, select.pickWalk and key.setTarget, tested in
+ * m2a-a2-*.test.ts; A3: A3_OPERATORS below; A4: `key.tween`, `key.convert`, `pose.mirrorAnimation` and
+ * `graph.buffer.*`, tested in m2a-a4-operators.test.ts).
  */
 const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
-  ['key.tween', { mode: 'tween', amount: 50 }],
-  ['key.convert', { to: 'breakdown' }],
-  ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
-  ['graph.buffer.snapshot', undefined],
-  ['graph.buffer.swap', undefined],
-  ['graph.buffer.clear', undefined],
   ['file.recover', { slot: 'as_0000000000000000' }],
   ['file.discardRecovery', { slot: 'as_0000000000000000' }],
   ['file.autosaveNow', undefined],

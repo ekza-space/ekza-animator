@@ -17,9 +17,16 @@ export class Storage {
 
   /** Writes (`undefined` deletes) and keeps partition membership in step. */
   set(table: string, id: string, next: Entry | undefined): void {
-    let rows = this.tables.get(table);
-    const prev = rows?.get(id);
+    this.write(table, id, this.tables.get(table)?.get(id), next);
+  }
+
+  /**
+   * `set` for a caller that knows the stored entry (M-1: a patch looks its record up once; a preview journal tracks
+   * what it wrote). `prev` must be that entry.
+   */
+  write(table: string, id: string, prev: Entry | undefined, next: Entry | undefined): void {
     if (prev === next) return;
+    let rows = this.tables.get(table);
     if (next === undefined) {
       rows?.delete(id);
     } else {

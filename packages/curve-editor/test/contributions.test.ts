@@ -17,7 +17,8 @@ describe('registerGraphContributions', () => {
     const app = await waveApp();
     let focused: GraphEditorController | null = null;
     const dispose = registerGraphContributions(app, () => focused);
-    expect(app.tools.list('graph').map((tool) => tool.id)).toEqual(['select', 'move', 'insert']);
+    // M2a (A4, §4.5 GRAPH_TOOL): the Scale tool joins the M1 tools.
+    expect(app.tools.list('graph').map((tool) => tool.id)).toEqual(['select', 'move', 'insert', 'scale']);
     expect(app.tools.get('graph', 'insert')).toBe(GRAPH_TOOLS[2]);
     expect(app.operators.get('graph.frame')?.scope).toBe('graph');
     expect(app.operators.get('select.curveKeys')).toBeDefined();
@@ -54,7 +55,7 @@ describe('registerGraphContributions', () => {
     dispose();
     expect(app.tools.list('graph')).toEqual([]);
     const again = registerGraphContributions(app, () => null);
-    expect(app.tools.list('graph')).toHaveLength(3);
+    expect(app.tools.list('graph')).toHaveLength(4);
     again();
     app.dispose();
   });

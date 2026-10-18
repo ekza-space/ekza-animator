@@ -14,7 +14,15 @@ import {
   type ReadonlyVec3,
   type Vec3,
 } from '@ekza-animator/anim-core';
-import type { CameraId, CameraRecord, CharacterId, ControlId, ControlRecord, PreviewSession } from '@ekza-animator/doc';
+import {
+  batchTables,
+  type CameraId,
+  type CameraRecord,
+  type CharacterId,
+  type ControlId,
+  type ControlRecord,
+  type PreviewSession,
+} from '@ekza-animator/doc';
 import {
   type EditorApp,
   type NavProfile,
@@ -1229,13 +1237,15 @@ export class ViewportManager {
         this.invalidate();
       }),
       app.store.subscribe((batch) => {
-        if (batch.origin === 'load' || batch.changes.some((change) => change.table === 'cameras')) {
+        // M-1: one table scan per batch for every listener (`batchTables`), not two scans of a 1,000-key drag here.
+        const tables = batchTables(batch);
+        if (batch.origin === 'load' || tables.has('cameras')) {
           this.syncShots();
           this.refreshPaneStates();
           for (const pane of this.panes.values()) this.picker.forget(pane.id);
           this.invalidate();
         }
-        if (batch.changes.some((change) => change.table === 'controls')) this.manipulatorDirty = true;
+        if (tables.has('controls')) this.manipulatorDirty = true;
       }),
       app.session.subscribe((state, previous) => {
         if (state.selection.controls !== previous.selection.controls) {
