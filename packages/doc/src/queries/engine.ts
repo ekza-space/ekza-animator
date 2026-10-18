@@ -85,6 +85,8 @@ export class QueryEngine implements DocQueries {
    * drop their channel's projection at once, so a deferred drop always finds the curve's current group.
    */
   private readonly staleKeyCurves = new Set<string>();
+  /** The curve last added to `staleKeyCurves` (a batch writes runs of keys of one curve: one Set add per run). */
+  private lastStaleCurve: string | undefined = undefined;
   private readonly clipCurvesCache = new Map<string, readonly CurveRecord[]>();
   private readonly controlCurvesCache = new Map<string, readonly CurveRecord[]>();
   private readonly layersCache = new Map<string, readonly LayerRecord[]>();
@@ -108,8 +110,8 @@ export class QueryEngine implements DocQueries {
         const from = str(before, 'curve');
         const to = str(after, 'curve');
         this.relink(this.keysByCurve, from, to, id);
-        if (from !== undefined) this.staleKeyCurves.add(from);
-        if (to !== undefined && to !== from) this.staleKeyCurves.add(to);
+        if (from !== undefined && from !== this.lastStaleCurve) this.markStale(from);
+        if (to !== undefined && to !== from && to !== this.lastStaleCurve) this.markStale(to);
         break;
       }
       case 'curves':
@@ -155,6 +157,7 @@ export class QueryEngine implements DocQueries {
   /** Drops every cached result (partition visibility changed). Indexes stay valid. */
   invalidateAll(): void {
     this.staleKeyCurves.clear();
+    this.lastStaleCurve = undefined;
     this.keyCache.clear();
     this.clipCurvesCache.clear();
     this.controlCurvesCache.clear();
@@ -193,6 +196,11 @@ export class QueryEngine implements DocQueries {
     if (b !== undefined) cache.delete(b);
   }
 
+  private markStale(curve: string): void {
+    this.staleKeyCurves.add(curve);
+    this.lastStaleCurve = curve;
+  }
+
   /** Applies the deferred key-projection drops (see `staleKeyCurves`). */
   private dropStaleKeyGroups(): void {
     if (this.staleKeyCurves.size === 0) return;
@@ -201,6 +209,7 @@ export class QueryEngine implements DocQueries {
       if (record !== undefined) this.keyCache.delete(groupOf(record));
     }
     this.staleKeyCurves.clear();
+    this.lastStaleCurve = undefined;
   }
 
   // ---------- visibility ----------

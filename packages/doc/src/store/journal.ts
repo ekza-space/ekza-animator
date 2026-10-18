@@ -25,6 +25,12 @@ export interface JournalOriginal {
    * readers saw of the record before the running update, or NOT_SHOWN for a record first written by it.
    */
   shown: Entry | undefined | typeof NOT_SHOWN;
+  /**
+   * What storage holds for the record now. The journal's own writes, rollbacks and reverts keep it in step, and
+   * nothing else writes a journaled record's storage while the journal is open (a preview's conflicts change
+   * `original` only), so a preview update reverts and reports without looking the record up (M-1).
+   */
+  current: Entry | undefined;
 }
 
 export class Journal {

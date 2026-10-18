@@ -76,8 +76,13 @@ describe('preview journal kept in place (M-1 mechanism 2)', () => {
     expect(store.get('keys', b.id)?.v).toBe(2);
     expect(store.get('keys', fresh.id)).toBeUndefined();
     expect(store.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([10, 2, 3]);
+    const batches = previewBatches(store);
     preview.update((tx) => tx.put('keys', { ...b, v: 21 }));
     expect([store.get('keys', a.id)?.v, store.get('keys', b.id)?.v]).toEqual([1, 21]);
+    expect(batches.at(-1)?.changes.map((c) => [c.id, (c.before as KeyRecord).v, (c.after as KeyRecord).v])).toEqual([
+      [a.id, 10, 1],
+      [b.id, 2, 21],
+    ]);
     preview.cancel();
     expect(store.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([1, 2, 3]);
   });
@@ -100,6 +105,32 @@ describe('preview journal kept in place (M-1 mechanism 2)', () => {
     preview.cancel();
     expect(store.get('keys', a.id)).toMatchObject({ t: 12, v: 1 });
   });
+
+  it('a remote write of a record the last update left committed shows with the next update', async () => {
+    const { store, a, b } = await scene();
+    const batches = previewBatches(store);
+    const preview = store.beginPreview('Drag');
+    preview.update((tx) => {
+      tx.put('keys', { ...a, v: 10 });
+      tx.put('keys', { ...b, v: 20 });
+    });
+    preview.update((tx) => tx.put('keys', { ...a, v: 11 }));
+    store.applyChanges([{ table: 'keys', id: b.id, before: b, after: { ...b, v: 5 } }], {
+      origin: 'remote',
+      label: 'peer',
+    });
+    // b is journaled at its committed value; the conflict moves the committed value only.
+    expect(store.get('keys', b.id)?.v).toBe(2);
+    preview.update((tx) => tx.put('keys', { ...a, v: 12 }));
+    expect(store.get('keys', b.id)?.v).toBe(5);
+    expect(batches.at(-1)?.changes.map((c) => [c.id, (c.before as KeyRecord).v, (c.after as KeyRecord).v])).toEqual([
+      [a.id, 11, 12],
+      [b.id, 2, 5],
+    ]);
+    expect(store.query.keysOfCurve(a.curve).map((k) => k.v)).toEqual([12, 5, 3]);
+    preview.cancel();
+    expect(store.query.keysOfCurve(a.curve).map((k) => k.v)).toEqual([1, 5, 3]);
+  });
 });
 
 describe('deferred key-projection drops (M-1 mechanism 3)', () => {
@@ -116,6 +147,26 @@ describe('deferred key-projection drops (M-1 mechanism 3)', () => {
     expect(store.query.keysOfCurve(s.curve).map((k) => k.t)).toEqual([20, 30, 35]);
     store.undo.undo();
     expect(store.query.keysOfCurve(s.curve).map((k) => k.t)).toEqual([10, 20, 30]);
+  });
+
+  it('a curve written again after a query is dropped again (the last-marked curve resets with the drops)', async () => {
+    const { store, s, a, b } = await scene();
+    store.transact({ label: 'edit' }, (tx) => {
+      tx.patch('keys', a.id, { v: 4 });
+      expect(tx.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([4, 2, 3]);
+      tx.patch('keys', a.id, { v: 5 });
+      expect(tx.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([5, 2, 3]);
+      tx.patch('keys', b.id, { v: 6 });
+      tx.patch('keys', a.id, { v: 7 });
+      expect(tx.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([7, 6, 3]);
+    });
+    const preview = store.beginPreview('Drag');
+    for (const v of [8, 9]) {
+      preview.update((tx) => tx.patch('keys', a.id, { v }));
+      expect(store.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([v, 6, 3]);
+    }
+    preview.cancel();
+    expect(store.query.keysOfCurve(s.curve).map((k) => k.v)).toEqual([7, 6, 3]);
   });
 
   it('a key moved to a duplicate curve of its channel shows in the projection', async () => {
@@ -138,5 +189,23 @@ describe('partition fast path', () => {
     store.transact({ label: 'move' }, (tx) => tx.put('keys', { ...a, v: 5 }));
     expect(memory.entryOf('keys', a.id)?.partition).toBe(before);
     expect(before).toBe(`clip:${a.clip}`);
+  });
+
+  it('patch, soft delete and restore write over the entry they read once', async () => {
+    const { store, s, a } = await scene();
+    const memory = store as MemoryDocumentStore;
+    store.transact({ label: 'patch' }, (tx) => tx.patch('keys', a.id, { v: 9 }));
+    expect(memory.entryOf('keys', a.id)).toMatchObject({ record: { v: 9 }, partition: `clip:${a.clip}` });
+    store.transact({ label: 'delete' }, (tx) => tx.softDelete('characters', s.character));
+    expect(store.get('characters', s.character)).toBeUndefined();
+    store.transact({ label: 'restore' }, (tx) => tx.restore('characters', s.character));
+    expect(store.get('characters', s.character)?.deleted).toBeNull();
+    store.undo.undo();
+    store.undo.undo();
+    store.undo.undo();
+    expect(store.get('keys', a.id)?.v).toBe(1);
+    expect(() =>
+      store.transact({ label: 'x' }, (tx) => tx.patch('keys', 'key_missing' as typeof a.id, { v: 1 })),
+    ).toThrow(/no such record/);
   });
 });

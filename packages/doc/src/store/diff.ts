@@ -19,6 +19,26 @@ export function deepEqual(a: unknown, b: unknown): boolean {
   }
   const left = a as Readonly<Record<string, unknown>>;
   const right = b as Readonly<Record<string, unknown>>;
+  // M-1 fast path: stored records are plain objects without `undefined` fields, so equal values field by field plus
+  // equal key counts decide without the own-property checks; an `undefined` value or differing counts take the exact
+  // walk below.
+  let countLeft = 0;
+  for (const key in left) {
+    countLeft++;
+    const value = left[key];
+    if (value === undefined) return objectsEqual(left, right);
+    const other = right[key];
+    if (value === other) continue;
+    if (typeof value !== 'object' && typeof value !== 'number') return false;
+    if (!deepEqual(value, other)) return false;
+  }
+  let countRight = 0;
+  for (const _key in right) countRight++;
+  return countLeft === countRight || objectsEqual(left, right);
+}
+
+/** Object equality with JSON semantics: own enumerable fields, `undefined` = absent. */
+function objectsEqual(left: Readonly<Record<string, unknown>>, right: Readonly<Record<string, unknown>>): boolean {
   let definedLeft = 0;
   for (const key in left) {
     if (!Object.hasOwn(left, key)) continue;
