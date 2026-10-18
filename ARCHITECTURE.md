@@ -464,7 +464,7 @@ named P0–P3 (R06), distinct from Ekza tiers T0–T3 and plugin trust levels.
 
 Reference: 2020-class laptop (Apple M1 or GTX 1650 class), Chrome stable, 1440×900 at DPR 2 (R04 §1). Budgets are
 **measured and recorded** (benches and the `chrome` e2e project report them); they are not CI pass/fail gates on
-shared runners or SwiftShader.
+shared runners or SwiftShader, except the two deterministic ones: idle frames and the route's JS size.
 
 | Scenario | Budget | How measured |
 |---|---|---|
@@ -478,7 +478,8 @@ shared runners or SwiftShader.
 | Undo/redo one gesture | ≤ 5 ms | bench |
 | Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | e2e (report) |
 | Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | bench |
-| Editor route JS (gzip, no fixtures) | ≤ 900 kB | size check (M2 CI gate) |
+| Editor route JS (gzip, no fixtures) | ≤ 900 kB | `check:size` (CI gate since M2a): a first visit's scripts until the empty state, gzip -9, decimal kB |
+| Autosave write, Seed-san × 10 clips (M2a) | ≤ 50 ms main thread | bench (report) |
 
 ---
 

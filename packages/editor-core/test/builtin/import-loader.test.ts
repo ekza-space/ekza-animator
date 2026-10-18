@@ -55,7 +55,7 @@ describe('import pipelines loader', () => {
       const statics = source(path)
         .split('\n')
         .filter((line) => pipeline.test(line) && !line.startsWith('import type') && !line.includes('import type '));
-      expect(statics, path).toEqual([]);
+      expect({ path, statics }).toEqual({ path, statics: [] });
     }
   });
 });
