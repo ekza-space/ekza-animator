@@ -596,24 +596,28 @@ describe('rig bench with IK (report, M2A-SPEC §5.4 rule 5)', { timeout: 60_000 
     annotate,
   }) => {
     const skeleton = await loadSkeleton('seed-san.vrm');
-    const time = (program: RigProgram, ch: ChannelBuffer): number => {
-      const pose = program.allocPose();
-      for (let i = 0; i < 200; i++) program.evaluate(ch, pose);
-      const runs = 2000;
-      const startedAt = performance.now();
-      for (let i = 0; i < runs; i++) program.evaluate(ch, pose);
-      return (performance.now() - startedAt) / runs;
-    };
+    // Report only (timings under a parallel test run are noisy): interleaved rounds, the best round per program.
     const ik = ikProgram(skeleton);
     const ikCh = channelsOf(ik, { cog: { ty: -0.05 }, 'ik.leg.L': { '@roll': 20 * DEG }, 'ik.arm.L': { tz: 0.05 } });
     const fkCh = channelsOf(ik, {}, { 'leg.L': 0, 'leg.R': 0, 'arm.L': 0, 'arm.R': 0 });
     const m1 = compileRig(autoRig(skeleton, IDS), skeleton);
-    const msIk = time(ik, ikCh);
-    const msFk = time(ik, fkCh);
-    const msM1 = time(m1, m1.allocChannels());
+    const cases = [
+      { program: ik, ch: ikCh, pose: ik.allocPose(), best: Number.POSITIVE_INFINITY },
+      { program: ik, ch: fkCh, pose: ik.allocPose(), best: Number.POSITIVE_INFINITY },
+      { program: m1, ch: m1.allocChannels(), pose: m1.allocPose(), best: Number.POSITIVE_INFINITY },
+    ];
+    const runs = 400;
+    for (let round = 0; round < 8; round++) {
+      for (const c of cases) {
+        const startedAt = performance.now();
+        for (let i = 0; i < runs; i++) c.program.evaluate(c.ch, c.pose);
+        c.best = Math.min(c.best, (performance.now() - startedAt) / runs);
+      }
+    }
+    const [withIk, atZero, m1Case] = cases.map((c) => c.best) as [number, number, number];
     await annotate(
-      `Seed-san evaluate: four IK limbs ${msIk.toFixed(4)} ms, the same rig at ikFk 0 ${msFk.toFixed(4)} ms, M1 rig ${msM1.toFixed(4)} ms (target ≤ 0.06 ms; pose budget 0.5 ms)`,
+      `Seed-san evaluate (best of 8 rounds): four IK limbs ${withIk.toFixed(4)} ms, the same rig at ikFk 0 ${atZero.toFixed(4)} ms, M1 rig ${m1Case.toFixed(4)} ms (target ≤ 0.06 ms; pose budget 0.5 ms)`,
     );
-    expect(msIk).toBeLessThan(0.5);
+    expect(cases.every((c) => c.pose.version === 8 * runs)).toBe(true);
   });
 });
