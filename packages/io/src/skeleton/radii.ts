@@ -8,6 +8,7 @@ import type { HumanBoneName } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
 import type { GltfReader } from '../gltf/accessor';
 import { DRACO_EXTENSION, isIndex, isRecord, listField, meshesOf, nodesOf, skinsOf } from '../gltf/schema';
+import { boneSupportOf } from './support';
 
 export const RADIUS_P90_FACTOR = 1.25;
 const DOMINANT_WEIGHT = 0.5;
@@ -17,6 +18,8 @@ export interface MeshMeasure {
   readonly boneRadii: (number | null)[];
   /** Skinned bind-pose bounds height (canonical Y), or null when no skinned vertex could be read. */
   readonly meshHeight: number | null;
+  /** M2a: per-node horizontal support function (`SkeletonDesc.boneSupport`); null without readable skinned meshes. */
+  readonly boneSupport: (Float32Array | null)[] | null;
 }
 
 interface MeasureNode {
@@ -79,7 +82,7 @@ export function measureMeshes(
   childrenOf: readonly (readonly number[])[],
   humanoid: Partial<Record<HumanBoneName, number>> | null,
 ): MeshMeasure {
-  const unknown: MeshMeasure = { boneRadii: nodes.map(() => null), meshHeight: null };
+  const unknown: MeshMeasure = { boneRadii: nodes.map(() => null), meshHeight: null, boneSupport: null };
   const primitives = readSkinnedPrimitives(reader, nodes, worlds, indexOfGltf);
   if (primitives === null || primitives.length === 0) return unknown;
 
@@ -115,7 +118,12 @@ export function measureMeshes(
     while (a !== -1 && radii[a] === null) a = nodes[a]?.parent ?? -1;
     if (a !== -1) radii[i] = radii[a] ?? null;
   }
-  return { boneRadii: radii, meshHeight: Number.isFinite(maxY - minY) ? maxY - minY : null };
+  const origins = worlds.map((m): [number, number, number] => [m[12] as number, m[13] as number, m[14] as number]);
+  return {
+    boneRadii: radii,
+    meshHeight: Number.isFinite(maxY - minY) ? maxY - minY : null,
+    boneSupport: boneSupportOf(primitives, nodes.length, origins),
+  };
 }
 
 /** Skinned primitives with their placed vertices; null when any of them is compressed (unreadable here). */

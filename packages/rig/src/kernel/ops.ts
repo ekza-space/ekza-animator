@@ -4,6 +4,7 @@
 // without a schema change. Registration is explicit (nothing registers on import).
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-animator/doc';
+import { ik2Op } from '../limb/ik2';
 import type { ChannelBuffer, PoseBuffers, RigOpCompileContext, RigProgram } from '../types';
 
 export interface RigOpImpl {
@@ -73,11 +74,10 @@ export function lookupRigOp(kind: RigOpKind, type: string): RigOpImpl | undefine
   return registry.get(registryKey(kind, type));
 }
 
-/**
- * The built-in op implementations `registerBuiltinRigOps` registers (M2A-SPEC §5.3). Empty until A1 adds
- * `['solver', 'ik2', ik2Op]`; the registration function works from A0 on, so `createEditorApp` and tests call it.
- */
-export const BUILTIN_RIG_OPS: readonly (readonly [kind: RigOpKind, type: string, impl: RigOpImpl])[] = [];
+/** The built-in op implementations `registerBuiltinRigOps` registers (M2A-SPEC §5.3): the limb IK solver. */
+export const BUILTIN_RIG_OPS: readonly (readonly [kind: RigOpKind, type: string, impl: RigOpImpl])[] = [
+  ['solver', 'ik2', ik2Op],
+];
 
 let builtinUsers = 0;
 let builtinDisposers: Disposer[] = [];
