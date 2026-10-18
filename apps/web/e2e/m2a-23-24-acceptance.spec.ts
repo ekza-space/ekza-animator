@@ -197,10 +197,9 @@ async function expectWithinReduceTolerances(
 
 /** The VRMA's hips translation equals the editor's hips world position (1e-5 m) at every integer frame. */
 async function expectHipsFollowEditor(page: Page, character: string, bytes: Uint8Array, frames: number): Promise<void> {
-  const skeleton = skeletonFromGltf(await parseGlb(bytes));
-  const hipsName = skeleton.nodes[skeleton.humanoid?.hips ?? -1]?.name;
+  // The VRMA's nodes are named after the humanoid bones (E2E-M2A-21).
   const tracks = await tracksOf(bytes);
-  const hips = tracks.find((track) => track.bone === hipsName && track.path === 'translation');
+  const hips = tracks.find((track) => track.bone === 'hips' && track.path === 'translation');
   if (hips === undefined) throw new Error('no hips translation track');
   const xs: number[] = [];
   for (let frame = 0; frame <= frames; frame++) {
