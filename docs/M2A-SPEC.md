@@ -1478,7 +1478,9 @@ not `visible` (§5.5):
   `min` and `max`: `(max − min)/200`; other attributes `unitsPerPx`. Shift ×0.1, Mod ×10, read at each move (the
   value integrates increments). Values are relative per control and clamped to an attribute's range.
 - Pointer Lock when available (no edge stop), else pointer capture; both modes integrate `PointerEvent.movementX`
-  (never `clientX` differences), so the values are identical in both. Chrome uses Esc to leave Pointer Lock and
+  (never `clientX` differences), so the values are identical in both. The LMB start's first increment is the
+  `movementX` integrated since the press (fix round 1, M2A-INT-27: the fractional `clientX` distance of the threshold
+  move made a 20 px drag in six moves +10.1667° instead of +10°). Chrome uses Esc to leave Pointer Lock and
   does not deliver that keydown to the page, and refuses a new lock for a moment after the user left one, so:
   a `pointerlockchange` to unlocked during an active gesture **cancels** it and restores the values (that is the
   Esc path under lock); a rejected `requestPointerLock()` promise or a `pointerlockerror` falls back to pointer

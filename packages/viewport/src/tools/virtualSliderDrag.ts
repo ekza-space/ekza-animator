@@ -25,8 +25,9 @@ export interface VirtualSliderDragOptions {
   /** Called once when the gesture ends (committed or cancelled). */
   readonly onEnd?: (committed: boolean) => void;
   /**
-   * Motion already made before the slider started (the Channel Box's LMB drag starts after 3 px): applied as the
-   * first increment, with the press's modifiers.
+   * Motion already made before the slider started (the Channel Box's LMB drag starts after 3 px; the `movementX`
+   * integrated since the press, never a clientX distance): applied as the first increment, with the press's
+   * modifiers.
    */
   readonly initialDx?: number;
 }

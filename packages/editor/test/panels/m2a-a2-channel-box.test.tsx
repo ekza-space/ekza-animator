@@ -264,4 +264,35 @@ describe('virtual slider on rows (§5.18)', () => {
       restore();
     }
   });
+
+  // Acceptance fix round 1, bug 10: the LMB start added the fractional clientX distance of the threshold move, then
+  // integrated movementX (whole pixels): 20 px in six moves of 3.33 px gave +10.1667° instead of +10°.
+  it('an LMB drag integrates movementX only: fractional clientX steps give the MMB result', async () => {
+    const restore = refuseLocks();
+    try {
+      const { app } = ikApp();
+      const view = await panel(app);
+      const hand = control('fk.hand.L');
+      await select(app, [hand]);
+      const name = by('cb-name-rz');
+      const rect = name.getBoundingClientRect();
+      const x = rect.left + 20;
+      const y = rect.top + rect.height / 2;
+      const row = name.closest('tr') as HTMLElement;
+      await dispatch(name, 'pointerdown', { button: 0, buttons: 1, clientX: x, clientY: y });
+      // Six moves of 20/6 px: the browser reports whole-pixel movementX (3, 4, 3, 3, 4, 3 = 20).
+      const steps = [3, 4, 3, 3, 4, 3];
+      let at = x;
+      for (const [i, movementX] of steps.entries()) {
+        at = x + ((i + 1) * 20) / 6;
+        const target = i === 0 ? window : row;
+        await dispatch(target, 'pointermove', { buttons: 1, clientX: at, clientY: y, movementX });
+      }
+      await dispatch(row, 'pointerup', { button: 0 });
+      expect(app.evaluation.channelValues(hand).rz).toBeCloseTo(10 * DEG2RAD, 12);
+      await view.unmount();
+    } finally {
+      restore();
+    }
+  });
 });

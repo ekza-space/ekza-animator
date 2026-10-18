@@ -314,6 +314,8 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
     readonly base: ReadonlySet<RowKey>;
     readonly key: RowKey;
     readonly x: number;
+    /** `movementX` integrated since the press: the slider's first increment (§5.18: never clientX differences). */
+    mx: number;
     readonly row: HTMLElement | null;
   } | null>(null);
   useEffect(() => {
@@ -323,11 +325,13 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
     const move = (event: globalThis.PointerEvent): void => {
       const state = drag.current;
       if (state === null || (event.buttons & 1) === 0 || state.row === null) return;
-      const dx = event.clientX - state.x;
-      if (Math.abs(dx) < LMB_SLIDER_PX) return;
-      // An LMB drag of ≥ 3 px sideways from a name is the virtual slider (§5.18); the click already selected it.
+      state.mx += event.movementX;
+      if (Math.abs(event.clientX - state.x) < LMB_SLIDER_PX) return;
+      // An LMB drag of ≥ 3 px sideways from a name is the virtual slider (§5.18); the click already selected it. Its
+      // first increment is the movementX so far, not the clientX distance: clientX is fractional where movementX is
+      // whole pixels, and mixing them gave 10.1667° for a 20 px drag in 6 moves (acceptance fix round 1).
       drag.current = null;
-      startSlider(state.key, state.row, event, dx);
+      startSlider(state.key, state.row, event, state.mx);
     };
     window.addEventListener('pointerup', stop);
     window.addEventListener('pointercancel', stop);
@@ -354,6 +358,7 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
             base: new Set(mode === 'replace' ? [] : selectedNames),
             key,
             x: event.clientX,
+            mx: 0,
             row: event.currentTarget.closest('tr'),
           };
     writeNames(names);
