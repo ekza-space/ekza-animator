@@ -207,7 +207,9 @@ function place(
     keys.map((key) => {
       if (!request.moving.has(key.id)) return { key, moving: false, t: key.t, retimed: false };
       const t = request.target(key);
-      return { key, moving: true, t: opts.snap ? Math.round(t) : t, retimed: false };
+      // `+ 0` turns a −0 (a snapped sub-half-frame move left of 0) into 0: no key is written at −0, as in M1, where the
+      // block clamp always added its shift (integration fix; the clamp skips a zero shift since A3).
+      return { key, moving: true, t: (opts.snap ? Math.round(t) : t) + 0, retimed: false };
     });
   let placements = initial();
   const retime =
