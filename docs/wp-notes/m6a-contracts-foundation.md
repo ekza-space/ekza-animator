@@ -64,9 +64,9 @@ Beyond the list: `MeshRuntimeRegistry` runtimes reach `ready` for revisions in r
 
 ## Eager route (DoD: "grows by ≤ its share of the +20 kB budget and holds no kernel or view code")
 
-Production builds, `check:size` (gzip -9, first visit): base `ec541b4` **845,267 B** → this branch **864,407 B**
-(**+19,140 B**, of which fix round 1 added +243 B for the history's doc-eviction reporting; gate 900,000 B, headroom
-35,593 B). The kernel and the view are lazy: the `mesh-kernel` boundary is an 18.8 kB lazy group and neither marker is
+Production builds, `check:size` (gzip -9, first visit): base `ec541b4` **845,267 B** → this branch **864,421 B**
+(**+19,154 B**, of which fix round 1 added +257 B for the history's drop reporting and redo pairing; gate 900,000 B,
+headroom 35,579 B). The kernel and the view are lazy: the `mesh-kernel` boundary is an 18.8 kB lazy group and neither marker is
 in the initial scripts (`mesh-view` has no code in the route yet). **The "no kernel or view code" half of the DoD is
 met; the "≤ its share" half is not decided** (below).
 
@@ -81,7 +81,7 @@ stub +0.5, app wiring +0.5, workspaces +0.4, prefs +0.4), doc +4.6 kB (validatio
 ### Decision requested (INT / owner): the M6a eager allowance
 
 §5.27 allows every M6a package together **+20,480 B** over the M2a baseline (MODELING-PLAN R38: for B0a, B0b and B9),
-and §9 B0a's DoD asks for "≤ its share", which neither document quantifies. B0a alone adds **+19,140 B (93 %)**.
+and §9 B0a's DoD asks for "≤ its share", which neither document quantifies. B0a alone adds **+19,154 B (94 %)**.
 About 13 kB of it is code §2 and §5.27 place on the eager side by design — descriptors and registrations (≈ 8.6 kB)
 and schema v3 (≈ 4.6 kB; `store.load` is synchronous, so validation and repairs cannot load lazily) — and most of the
 rest is contract plumbing that B7 and B10 replace (runtime registry, blob store and selection stubs ≈ 2.4 kB). No
@@ -92,7 +92,7 @@ request here for INT to decide and copy into DECISIONS-OPEN §H:
 | Option | What changes | Cost |
 |---|---|---|
 | A (recommended) | Raise the M6a eager allowance to **+40,960 B** over the M2a baseline (route ≤ 886,227 B, still under the 900,000 B gate) by a contract PR to §5.27, with an attribution report per package that adds eager code | Spends ≈ 75 % of the M2a headroom under the gate (54,733 B); M2b's planned cuts (M2A-INT-4: IK operator bodies, Dope Sheet controller, camera-controls) restore part of it |
-| B | Keep +20,480 B, but count it from the B0a merge (baseline re-recorded at 864,407 B) as B0a's contract cost | The same total as A for B0b, B9 and later packages, without a number for the contract layer |
+| B | Keep +20,480 B, but count it from the B0a merge (baseline re-recorded at 864,421 B) as B0a's contract cost | The same total as A for B0b, B9 and later packages, without a number for the contract layer |
 | C | Keep +20,480 B over M2a and move Model-only registrations and the descriptors to the first Model entry (a §2 change: `ws=model`, the palette, keymap rows and menus wait for the registration) | Saves ≈ 8 kB; touches B0b, B9, B11 and the foundation e2e, and is a contract PR during parallel builds |
 
 Until INT decides, the 900,000 B gate and the two lazy BOUNDARIES are the hard gates and both are green.
@@ -132,9 +132,9 @@ keyboard `RunContext.source` (editor input test), `EditorParams.ws` (editor test
 
 Fix round 1 (after the commits of this round): `format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`,
 `check:licenses` green; `test` green with `turbo run test test:tooling --force` (15 tasks, 0 cached: anim-core 671,
-doc 231, doc-yjs 77, mesh-core 134, mesh-view 2, io 170, rig 202, editor-core 792, curve-editor 207 + 3 skipped,
+doc 231, doc-yjs 77, mesh-core 134, mesh-view 2, io 170, rig 202, editor-core 793, curve-editor 207 + 3 skipped,
 viewport 100 + 1 skipped, editor 359 + 1 skipped, headless-tests 173, ui 87, web 10, tooling 14); `build` and
-`check:size` green (864,407 B); `m6a-00-foundation.spec.ts` 3 passed + the declared `b9` fixme; the full e2e suite
+`check:size` green (864,421 B); `m6a-00-foundation.spec.ts` 3 passed + the declared `b9` fixme; the full e2e suite
 106 passed, 10 skipped (the stretch `test.fixme` entries and the `b9` fixme), `--workers=4`.
 
 ## Benchmarks (report only)
