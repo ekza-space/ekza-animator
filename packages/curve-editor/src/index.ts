@@ -8,8 +8,9 @@ export {
   registerDopeSheetContributions,
 } from './dopesheet/DopeSheetController';
 export {
-  GRAPH_VIEW_MODE_OPERATOR,
   graphFrameOperator,
+  graphViewModeOperator,
+  nextViewMode,
   registerGraphContributions,
   SELECT_CURVE_KEYS_OPERATOR,
 } from './graph/contributions';
@@ -22,6 +23,7 @@ export {
   builtinGraphTool,
   GRAPH_INSERT_TOOL,
   GRAPH_MOVE_TOOL,
+  GRAPH_SCALE_TOOL,
   GRAPH_SELECT_TOOL,
   GRAPH_TOOLS,
   type GraphToolHost,

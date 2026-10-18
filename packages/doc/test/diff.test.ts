@@ -29,6 +29,20 @@ describe('deepEqual', () => {
       }),
     );
   });
+
+  it('records with undefined fields or different field counts take the exact comparison', () => {
+    const value = fc.oneof(fc.constant(undefined), fc.integer({ min: 0, max: 2 }), fc.constant('x'));
+    const record = fc.dictionary(fc.constantFrom('a', 'b', 'c', 'id'), value);
+    fc.assert(
+      fc.property(record, record, (a, b) => {
+        expect(deepEqual(a, b)).toBe(canonical(a) === canonical(b));
+        expect(deepEqual({ nested: a }, { nested: b })).toBe(canonical(a) === canonical(b));
+      }),
+    );
+    expect(deepEqual({ a: 1, b: 2 }, { a: 1 })).toBe(false);
+    expect(deepEqual({ a: 1 }, { a: 1, b: 2 })).toBe(false);
+    expect(deepEqual({ a: 1, b: undefined }, { a: 1, c: undefined })).toBe(true);
+  });
 });
 
 describe('diffFields', () => {

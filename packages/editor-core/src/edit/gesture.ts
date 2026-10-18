@@ -1,10 +1,14 @@
 // Key-editing drags (M2A-SPEC §4.5 `beginKeyEditGesture`, §5.21.1 M-1 mechanism 1): the Graph Editor, the Dope Sheet
 // and the time slider drag keys in ONE document preview whose updates are coalesced to one per animation frame
 // (`app.scheduleBeforeFrame`), committed as ONE transaction and recorded as ONE editor-history step. Esc (or a
-// preview cancelled from outside, `edit.escape`) leaves no trace.
+// preview cancelled from outside, `edit.escape`) leaves no trace. Session overrides the drag consumed (a Tween bar
+// drag on the pose keys channels whose overrides then leave the session) go into the same step, as the operator
+// runner records them, so undo brings them back (MVP-SPEC §4.11.1 rule 5).
 import type { ChangeBatch, Tx } from '@ekza-animator/doc';
 import { internalsOf } from '../app/internals';
 import type { CaptureOutcome } from '../history/capture';
+import { overrideDelta, sameLocation } from '../history/overrides';
+import { activeLocation, ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type { EditorApp, KeyEditGesture } from '../types';
 
@@ -14,13 +18,16 @@ let nextGesture = 0;
  * Starts a key-editing drag. `update(edit)` replaces the pending edit; the edit is applied at the next
  * `flushScheduled` (the frame loop's first step; synchronously in Node, where no frame requester is installed) on
  * top of committed state. `commit(final)` drops a pending update, applies `final` at once (callers pass
- * `resolveCollisions: true`), commits one transaction and records one step labelled `meta.label ?? label`.
+ * `resolveCollisions: true`), commits one transaction and records one step labelled `meta.label ?? label`; the step
+ * also carries the change of the session overrides since the gesture began (when the active clip frame is the same).
  * Throws `EkzaError('preview-active')` while another preview runs and `EkzaError('read-only')` on a read-only store.
  */
 export function beginKeyEditGesture(app: EditorApp, label: string): KeyEditGesture {
   const preview = app.store.beginPreview(label);
   const key = `keyEditGesture:${nextGesture++}`;
   const selectionBefore = selectionSnapshot(app.session.getState().selection);
+  const overridesBefore = app.session.getState().overrides;
+  const where = activeLocation(app);
   const gestures = internalsOf(app).gestures;
   let active = true;
   let pending: ((tx: Tx) => void) | null = null;
@@ -85,9 +92,15 @@ export function beginKeyEditGesture(app: EditorApp, label: string): KeyEditGestu
       } finally {
         if (capture !== null && scope !== null) outcome = capture.end(scope);
       }
-      if (outcome.kind === 'new' || outcome.kind === 'coalesced') {
-        app.history.record({ label: stepLabel, docTxId: outcome.txId, overrides: null });
-      }
+      const docTxId = outcome.kind === 'new' || outcome.kind === 'coalesced' ? outcome.txId : null;
+      const whereAfter = activeLocation(app);
+      const overrides =
+        whereAfter !== null && sameLocation(where, whereAfter)
+          ? overrideDelta(overridesBefore, app.session.getState().overrides, whereAfter, (control) =>
+              ownerOfControl(app.store, control),
+            )
+          : null;
+      if (docTxId !== null || overrides !== null) app.history.record({ label: stepLabel, docTxId, overrides });
       return batch;
     },
     cancel(): void {

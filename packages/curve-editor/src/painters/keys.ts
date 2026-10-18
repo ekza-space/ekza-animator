@@ -1,73 +1,145 @@
 // Keys and tangent handles (research 09 §4.7): squares 5/7 px (selected yellow), handles as lines with 4 px ends,
 // only for keys with a selected part unless prefs.graphHandles is 'all'. One Path2D per state (ADR 0007 §4).
+import type { CurveEntry } from '../graph/curveSet';
 import { visibleRange } from '../graph/geometry';
-import { type GraphScene, handlePosition, handlesShown, keyX, keyY, type Point } from '../graph/scene';
+import { type GraphScene, keyX, type Point } from '../graph/scene';
 import { xToFrame } from '../view/transform';
 import { GRAPH_METRICS, type GraphTheme } from './theme';
 
-export function paintHandles(ctx: CanvasRenderingContext2D, scene: GraphScene, theme: GraphTheme, p: Point): void {
+export function paintHandles(
+  ctx: CanvasRenderingContext2D,
+  scene: GraphScene,
+  theme: GraphTheme,
+  _point: Point,
+  include: ((entry: CurveEntry) => boolean) | null = null,
+): void {
   const lines = new Path2D();
   const selectedLines = new Path2D();
   const ends = new Path2D();
   const selectedEnds = new Path2D();
   const brokenEnds = new Path2D();
   const r = GRAPH_METRICS.handleRadius;
+  const handleLength = GRAPH_METRICS.handleLength;
   const f0 = xToFrame(scene.view, -GRAPH_METRICS.handleLength);
   const f1 = xToFrame(scene.view, scene.width + GRAPH_METRICS.handleLength);
+  const all = scene.handles === 'all';
+  const { f0: viewF0, v0: viewV0, sx, sy } = scene.view;
+  const height = scene.height;
   for (const entry of scene.curves.entries) {
-    if (entry.locked) continue;
-    const [lo, hi] = visibleRange(entry.compiled, f0, f1);
+    if (entry.locked || (include !== null && !include(entry))) continue;
+    const c = entry.compiled;
+    const weighted = c.weighted;
+    const k = entry.scale;
+    const o = entry.offset;
+    const [lo, hi] = visibleRange(c, f0, f1);
     for (let i = lo; i <= hi; i++) {
-      if (!handlesShown(scene, entry, i)) continue;
       const key = entry.keys[i];
       if (key === undefined) continue;
+      // One selection lookup per key: it decides whether the handles show (handlesShown) and which parts are lit.
       const parts = scene.selection.get(key.id);
-      const kx = keyX(scene, entry, i);
-      const ky = keyY(scene, entry, i);
-      for (const side of ['in', 'out'] as const) {
-        handlePosition(scene, entry, i, side, p);
+      if (!all && parts === undefined) continue;
+      // keyX / keyY written out (same operations): this loop runs for every dragged key on every frame (M-1).
+      const kx = ((c.t[i] as number) - viewF0) * sx;
+      const ky = height - ((c.v[i] as number) * k + o - viewV0) * sy;
+      for (let s = 0; s < 2; s++) {
+        const side = s === 0 ? 'in' : 'out';
+        // `handlePositionAt` written out (same operations), as the view transform above.
+        let hx = Number.NaN;
+        let hy = Number.NaN;
+        if (weighted) {
+          const dx = ((s === 0 ? c.inDt[i] : c.outDt[i]) as number) * sx;
+          const dy = -((s === 0 ? c.inDv[i] : c.outDv[i]) as number) * k * sy;
+          if (Math.hypot(dx, dy) > 1e-9) {
+            hx = kx + dx;
+            hy = ky + dy;
+          }
+        }
+        if (Number.isNaN(hx)) {
+          const sign = s === 0 ? -1 : 1;
+          const slope = (s === 0 ? c.inSlope[i] : c.outSlope[i]) as number;
+          const dx = sign * sx;
+          const dy = -sign * slope * k * sy;
+          const length = Math.hypot(dx, dy);
+          if (!(length > 0) || !Number.isFinite(length)) {
+            hx = kx;
+            hy = ky - Math.sign(sign * slope || 1) * handleLength;
+          } else {
+            hx = kx + (dx / length) * handleLength;
+            hy = ky + (dy / length) * handleLength;
+          }
+        }
         const selected = parts?.[side] === true;
         const line = selected ? selectedLines : lines;
         line.moveTo(kx, ky);
-        line.lineTo(p.x, p.y);
-        if (selected) {
-          selectedEnds.moveTo(p.x + r + 1, p.y);
-          selectedEnds.arc(p.x, p.y, r + 1, 0, Math.PI * 2);
-        } else if (key.broken) {
-          brokenEnds.rect(p.x - r, p.y - r, 2 * r, 2 * r);
-        } else {
-          ends.moveTo(p.x + r, p.y);
-          ends.arc(p.x, p.y, r, 0, Math.PI * 2);
+        line.lineTo(hx, hy);
+        if (key.broken && !selected) brokenEnds.rect(hx - r, hy - r, 2 * r, 2 * r);
+        else {
+          // a round dot: a 1/1000 px segment of the round-capped stroke below (a zero-length one draws nothing in
+          // Chrome), so the stroke width is the dot's diameter
+          const path = selected ? selectedEnds : ends;
+          path.moveTo(hx, hy);
+          path.lineTo(hx + 0.001, hy);
         }
       }
     }
   }
+  // Round ends are round-capped dots (one stroke per state; 2,000 arcs cost about twice as much to record, M-1).
   ctx.lineWidth = 1;
   ctx.strokeStyle = theme.tangent;
   ctx.stroke(lines);
-  ctx.fillStyle = theme.tangent;
-  ctx.fill(ends);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 2 * r;
+  ctx.stroke(ends);
+  ctx.lineCap = 'butt';
   ctx.fillStyle = theme.tangentBroken;
   ctx.fill(brokenEnds);
+  ctx.lineWidth = 1;
   ctx.strokeStyle = theme.tangentSelected;
   ctx.stroke(selectedLines);
-  ctx.fillStyle = theme.tangentSelected;
-  ctx.fill(selectedEnds);
+  ctx.lineCap = 'round';
+  ctx.lineWidth = 2 * (r + 1);
+  ctx.stroke(selectedEnds);
+  ctx.lineCap = 'butt';
+  ctx.lineWidth = 1;
 }
 
 /** Average screen distance between keys below which unselected keys are not drawn (CSS px). */
 export const MIN_KEY_SPACING = 3;
 
-export function paintKeys(ctx: CanvasRenderingContext2D, scene: GraphScene, theme: GraphTheme): void {
+/** A diamond (◇ glyph of breakdown keys, M2A-SPEC §5.12) centred on (x, y) with half-diagonal r. */
+function diamond(path: Path2D, x: number, y: number, r: number): void {
+  path.moveTo(x, y - r);
+  path.lineTo(x + r, y);
+  path.lineTo(x, y + r);
+  path.lineTo(x - r, y);
+  path.closePath();
+}
+
+export function paintKeys(
+  ctx: CanvasRenderingContext2D,
+  scene: GraphScene,
+  theme: GraphTheme,
+  include: ((entry: CurveEntry) => boolean) | null = null,
+): void {
   const plain = new Path2D();
   const selected = new Path2D();
   const locked = new Path2D();
+  const breakdowns = new Path2D();
+  const selectedBreakdowns = new Path2D();
   const half = GRAPH_METRICS.key / 2;
   const halfSelected = GRAPH_METRICS.keySelected / 2;
+  // Diamonds of the same area as the squares (half-diagonal = half side · √2).
+  const rd = half * Math.SQRT2;
+  const rdSelected = halfSelected * Math.SQRT2;
   const f0 = xToFrame(scene.view, -GRAPH_METRICS.keySelected);
   const f1 = xToFrame(scene.view, scene.width + GRAPH_METRICS.keySelected);
+  const { f0: viewF0, v0: viewV0, sx, sy } = scene.view;
+  const height = scene.height;
   for (const entry of scene.curves.entries) {
+    if (include !== null && !include(entry)) continue;
     const c = entry.compiled;
+    const k = entry.scale;
+    const o = entry.offset;
     const [lo, hi] = visibleRange(c, f0, f1);
     if (hi < lo) continue;
     // Keys closer than MIN_KEY_SPACING px on average would bury the curve: only selected keys are drawn then.
@@ -78,10 +150,14 @@ export function paintKeys(ctx: CanvasRenderingContext2D, scene: GraphScene, them
       if (key === undefined) continue;
       const isSelected = !entry.locked && scene.selection.get(key.id)?.key === true;
       if (crowded && !isSelected) continue;
-      const x = keyX(scene, entry, i);
-      const y = keyY(scene, entry, i);
+      // keyX / keyY written out (same operations), as in paintHandles.
+      const x = ((c.t[i] as number) - viewF0) * sx;
+      const y = height - ((c.v[i] as number) * k + o - viewV0) * sy;
       if (entry.locked) locked.rect(x - half, y - half, 2 * half, 2 * half);
-      else if (isSelected) selected.rect(x - halfSelected, y - halfSelected, 2 * halfSelected, 2 * halfSelected);
+      else if (key.breakdown === true) {
+        if (isSelected) diamond(selectedBreakdowns, x, y, rdSelected);
+        else diamond(breakdowns, x, y, rd);
+      } else if (isSelected) selected.rect(x - halfSelected, y - halfSelected, 2 * halfSelected, 2 * halfSelected);
       else plain.rect(x - half, y - half, 2 * half, 2 * half);
     }
   }
@@ -90,6 +166,9 @@ export function paintKeys(ctx: CanvasRenderingContext2D, scene: GraphScene, them
   ctx.fill(locked);
   ctx.globalAlpha = 1;
   ctx.fill(plain);
+  ctx.fillStyle = theme.keyBreakdown;
+  ctx.fill(breakdowns);
   ctx.fillStyle = theme.keySelected;
   ctx.fill(selected);
+  ctx.fill(selectedBreakdowns);
 }

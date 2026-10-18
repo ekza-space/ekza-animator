@@ -225,8 +225,13 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   frame (`sceneStart`, fps ratio; loop wraps, once holds).
 - **Once per frame**: the `EvaluationService` evaluates each visible character once, after input and clock and
   before any viewport renders (R04 §4.3). Budget ≤ 1 ms for two humanoids.
-- **Invalidation**: change batches mark compiled curves dirty by curve ID; a structural rig change recompiles the
-  program; preview overlays emit `origin: 'preview'` batches and go through the same path.
+- **Invalidation**: change batches mark compiled curves dirty by curve ID (M2a M-1: each touched curve once per
+  batch, so a 1,000-key drag of 30 curves recompiles 30); a structural rig change recompiles the program; preview
+  overlays emit `origin: 'preview'` batches and go through the same path. M2a M-1: a re-evaluation whose sampled
+  channels (curves ⊕ overrides) are bit-identical to the last ones keeps the pose and publishes no `poseVersion`, so
+  a drag that leaves the current frame's values unchanged costs no viewport frame. Batch listeners that only ask
+  which tables a batch touches read `batchTables(batch)` (doc; one scan per batch for all of them), and listeners
+  that walk the changes skip the bookkeeping of a change on the same curve or clip as the one before it.
 - **Determinism**: same document + frame → identical buffers on every run; schedules are independent of record
   insertion order.
 - **Normalized output is computed from world deltas**, never assumed equal to a control's local rotation: `fk.spine`
@@ -339,7 +344,16 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   channels, metres for translation; x axis in active-clip frames.
 - `GraphEditorController` owns two canvases, a `CurveSet` (visible channels → compiled curves via the evaluation
   service), the selection of keys/handles (session store), and the interaction state machine. Edits run through the
-  editor-core edit kernel inside preview sessions.
+  editor-core edit kernel inside preview sessions; key, handle and scale drags are key-edit gestures
+  (`beginKeyEditGesture`: one preview update per frame, one history step).
+- M2a (M2A-SPEC §5.15): each curve is drawn through an affine mapping `drawn = v·scale + offset` — absolute display
+  units, normalized to −1…1 from the curve's key-range min/max, or stacked one lane per curve — with ranges frozen
+  while a document preview runs; buffer curves (per-user copies in the session) draw dashed behind the curves; the
+  Scale tool's region box scales times (`scaleKeys`) and values (`scaleKeyValues`); breakdown keys draw as diamonds.
+  M-1: during a drag the curves it does not touch come from a cached static layer and only the dragged curves are
+  repainted; a redraw first runs the scheduled (coalesced) drag update. A key drag that moves no key in time writes
+  the values of curves whose shown keys are all dragged directly (the writes `moveKeys` makes for them then, without
+  its time placement); the time slider repaints only when a key's time, a key set or a curve changes.
 - Painters: grid + labels, infinity (dotted), curves (exact Bézier), keys, handles (selected keys only; non-weighted
   at fixed 40 px screen length, weighted at true length), playhead, marquee.
 - Handle drag ("pen-like"): non-weighted → angle only; weighted + locked weight → angle only; weighted + free →

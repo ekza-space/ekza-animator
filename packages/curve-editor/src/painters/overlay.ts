@@ -1,5 +1,6 @@
 // Overlay layer (ADR 0007 §2): playhead, hover highlight, marquee and drag readout. Redrawn on pointer moves and
 // playback without touching the base layer.
+import { type RegionBox, regionHandlePointOf } from '../graph/region';
 import type { GraphScene } from '../graph/scene';
 import { frameToX } from '../view/transform';
 import { crisp } from './canvas';
@@ -30,6 +31,8 @@ export function paintOverlay(
       ctx.stroke();
     }
   }
+  const region = scene.region;
+  if (region !== null) paintRegion(ctx, region, theme);
   const hover = state.hover;
   if (hover !== null) {
     ctx.strokeStyle = theme.hover;
@@ -61,5 +64,28 @@ export function paintOverlay(
     ctx.textBaseline = 'bottom';
     ctx.fillStyle = theme.hover;
     ctx.fillText(readout.text, readout.x + 12, readout.y - 6);
+  }
+}
+
+/** Handle squares of the region box (CSS px). */
+const REGION_HANDLE = 6;
+
+/** M2a §5.15.3: the scale tool's region box with its edge and corner handles. */
+function paintRegion(ctx: CanvasRenderingContext2D, region: RegionBox, theme: GraphTheme): void {
+  // A box of a single key time or value still shows: at least 2 px wide and tall.
+  const x = Math.min(region.x0, (region.x0 + region.x1) / 2 - 1);
+  const y = Math.min(region.y0, (region.y0 + region.y1) / 2 - 1);
+  const w = Math.max(region.x1 - region.x0, 2);
+  const h = Math.max(region.y1 - region.y0, 2);
+  ctx.strokeStyle = theme.marqueeStroke;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(crisp(x), crisp(y), Math.round(w), Math.round(h));
+  ctx.setLineDash([]);
+  ctx.fillStyle = theme.keySelected;
+  const r = REGION_HANDLE / 2;
+  for (const handle of ['left', 'right', 'top', 'bottom', 'tl', 'tr', 'bl', 'br'] as const) {
+    const p = regionHandlePointOf(region, handle);
+    ctx.fillRect(Math.round(p.x - r), Math.round(p.y - r), REGION_HANDLE, REGION_HANDLE);
   }
 }

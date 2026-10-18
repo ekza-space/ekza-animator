@@ -105,7 +105,8 @@ describe('GraphPanel', () => {
     expect(byTestId(container, `ge-row-${LOWER_ARM}`).textContent).toContain('L Lower Arm');
     expect(byTestId(container, `ge-row-${LOWER_ARM}/rz`).textContent).toContain('Rotate Z');
     expect(container.querySelector(`[data-testid="ge-row-${UPPER_ARM}"]`)).toBeNull();
-    expect(app.tools.list('graph').map((tool) => tool.id)).toEqual(['select', 'move', 'insert']);
+    // M2a (A4, M2A-SPEC §4.5 GRAPH_TOOL): the Scale tool joins the M1 tools.
+    expect(app.tools.list('graph').map((tool) => tool.id)).toEqual(['select', 'move', 'insert', 'scale']);
     expect(app.operators.get('graph.frame')).toBeDefined();
     const hooks = graphTestHooks(app);
     const graph = hooks.graph();
@@ -207,7 +208,8 @@ describe('GraphPanel', () => {
     expect(menu()).not.toBeNull();
     const item = byTestId(document.body, 'ge-tangent-autoEase');
     // Labels stay on one line (the panel tests run without Tailwind's CSS; the e2e acceptance spec measures it).
-    expect(menu()?.querySelectorAll('[role="menuitem"]')).toHaveLength(5);
+    // Five tangent types, then M2a's Convert to Breakdown / Convert to Key (A4, M2A-SPEC §7 "More ▾").
+    expect(menu()?.querySelectorAll('[role="menuitem"]')).toHaveLength(7);
     expect(item.className).toContain('whitespace-nowrap');
     await inAct(() => userEvent.click(item));
     await settle();

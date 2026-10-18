@@ -8,7 +8,11 @@ import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import type { Chord, KeyBinding } from '../../src/types';
 import { opsApp, runOk, runResult, WAVE } from './support';
 
-/** Every M2a operator the built-ins register, with arguments that would be valid once implemented. */
+/**
+ * Every M2a operator the built-ins register as a stub, with arguments that would be valid once implemented. A4's
+ * `key.tween`, `key.convert`, `pose.mirrorAnimation` and `graph.buffer.*` left this list when they landed
+ * (m2a-a4-operators.test.ts).
+ */
 const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['rig.addLimbIk', undefined],
   ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
@@ -18,17 +22,11 @@ const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['select.pickWalk', { direction: 'up' }],
   ['key.setTarget', { target: 'bodyPart' }],
   ['key.toggleRipple', undefined],
-  ['key.tween', { mode: 'tween', amount: 50 }],
-  ['key.convert', { to: 'breakdown' }],
-  ['pose.mirrorAnimation', { mode: 'leftToRight', offset: 'halfCycle' }],
   ['time.insertTime', { at: 10, frames: 1 }],
   ['time.insertTime', { frames: -1 }],
   ['time.deleteTime', undefined],
   ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
   ['graph.keys.copyTo', { dFrames: 4 }],
-  ['graph.buffer.snapshot', undefined],
-  ['graph.buffer.swap', undefined],
-  ['graph.buffer.clear', undefined],
   ['file.recover', { slot: 'as_0000000000000000' }],
   ['file.discardRecovery', { slot: 'as_0000000000000000' }],
   ['file.autosaveNow', undefined],
