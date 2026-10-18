@@ -4,7 +4,8 @@ Status: v0.3 (2026-10-18, integration revision: A0…A5 merged, and with the int
 [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended
 for the fixtures' leg reach, [§10.4](#104-integration-record) records the result, including the integration's fix
 round 1; v0.2 was the review revision, items not applied are listed with reasons in
-[§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
+[§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a. Amended 2026-10-19 by the acceptance
+fix round 1 on `dev` (M2A-INT-20…33, [§10.4](#104-integration-record)).
 Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
 `time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
 (§4.1, §5.23).
@@ -2230,6 +2231,13 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 - **Merged into `dev`** (2026-10-18, M2A-INT-19): A0, A1, A2, A3, A4, A5, then `m2a/integration`, each `--no-ff` and
   signed off; the result is the integration branch's tree byte for byte. `pnpm run ci`, the e2e suite in
   `chromium-swiftshader` and the budget bench re-run on `dev` (ROADMAP "M2a budgets").
+- **Acceptance fix round 1** (2026-10-19, on `dev`, M2A-INT-20…33): the M2a acceptance round found two major defects
+  (the ball roll pulled the toes joint off the foot; root motion `in-place` slid planted IK feet in the file) and
+  twelve minor ones; all are fixed with regression tests. Amended here: §5.2.3 (ball joint), §5.3 step 6, §5.3.1,
+  §5.6 (ball roll exception narrowed; Match Range deviation warning and the Every Frame item), §4.5 and §5.20 (the
+  slot's active clips), §5.14 (warning summary; no key-less curves), §5.16 (bytes rule), §5.18 (LMB start), §4.9
+  (nudge band); MVP-SPEC §4.11.10 step 3 (`in-place` removes the travel). Owner items: M2A-INT-21 (in-place
+  semantics), M2A-INT-33 (version).
 - Open for the release: the owner's review of §F (FR-EXP-12's "3–10×" criterion among them, M2A-A5-3/INT-3), the
   owner's run of the demo script; `v0.2.0` is the owner's call.
 

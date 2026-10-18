@@ -448,11 +448,13 @@ described; the alternative is named.
 | ID | Item | Built | Alternative |
 |---|---|---|---|
 | M2A-A1-3 | **Hyperextended rest limbs** (both fixtures' arms: Seed-san −1.4°, Polybot −4.9°) cannot be rest-exact (1e-7) and bend in flexion only with a continuous solution | Continuous amendment C: below the rest reach the bend passes to the flexion branch through a C¹ band in which the hand passes its IK target by ≤ 0.57 mm (Polybot, within 2.1 mm of the rest reach; Seed-san ≤ 0.07 mm within 0.28 mm); matching places the IK control so switches stay exact; the rig warns with the band | Flexion only: the elbow pops by 2T (5.7 mm Seed-san, 12.4 mm Polybot) when an IK hand crosses the rest reach, and rest exactness fails on those arms |
-| M2A-A5-3, M2A-INT-3 | **Export reduction gate** "hand-keyed clips shrink 3–10×" (FR-EXP-12; the requirement keeps that criterion and is marked partial until this is decided) | ≥ 3× asserted on linear blocking (E2E-M2A-21b); on smooth hand-keyed clips (the wave, the acceptance walk) the reduced file is never larger and within the per-node tolerances, but keeps (nearly) every sample: R02's tolerances (0.2 mm × H/1.7) are below what dropping one 30 fps sample of smooth motion costs | Loosen the tolerances (breaks the bound the reduction promises), or count constant tracks differently (they are already 2 samples) |
+| M2A-A5-3, M2A-INT-3 | **Export reduction gate** "hand-keyed clips shrink 3–10×" (FR-EXP-12; the requirement keeps that criterion and is marked partial until this is decided) | ≥ 3× asserted on linear blocking (E2E-M2A-21b); on smooth hand-keyed clips (the wave, the acceptance walk) the reduced file is within the per-node tolerances and never larger — in samples, and since fix round 1 in bytes (a reduction is kept only where it pays for its own time accessor, M2A-INT-22) — but keeps (nearly) every sample: R02's tolerances (0.2 mm × H/1.7) are below what dropping one 30 fps sample of smooth motion costs | Loosen the tolerances (breaks the bound the reduction promises), or count constant tracks differently (they are already 2 samples) |
 | M2A-A5-10 | **Lazy chunks offline** (M-2) | A dialog or pipeline whose chunk cannot load closes with a toast; the next open retries. Offline after page load, import/export/save/open and unloaded dialogs fail gracefully | Static export only: prefetch the lazy groups at idle (≈ 216 kB); or a service worker precache |
 | M2A-INT-4 | **M-2 target** | 850,000 B for M2a (the spec's ceiling for a recorded reason): the merged route is 843,270 B (A5 alone 785,248 B; A1…A4 add ≈ 58 kB eager); gate 900,000 B in CI | Cut to 800,000 B in M2b: IK operator bodies behind `prepare`, the Dope Sheet controller behind its lazy panel, Next client navigation, `camera-controls` until the first tumble |
 | M2A-INT-13 (M-4) | **Dope Sheet drag of 1,000 keys** (§5.22, report only) | Miss: 21.2 / 26.1 ms on 213 curves (the Graph Editor's M-1 gate, 30 curves, is met at p95 3.1–3.4 ms); per-curve recompile and re-evaluation dominate | M2b: recompile only the moved span, defer re-evaluating curves whose current-frame segment did not change |
-| M2A-INT-11 | **Ball roll and the seamless switch** (A2 open issue 1) | §5.6 states the exception: with `@roll` in the ball range the match keeps the chain exact and warns with the measured toes difference; `f − 1` stays exact | The IK-side match also sets `fk.toes` (or zeroes the roll); or the toes rule pivots the toes about their own joint |
+| M2A-INT-11 | **Ball roll and the seamless switch** (A2 open issue 1; narrowed by fix round 1, M2A-INT-20) | The ball roll pivots at the toes joint now, so IK → FK matches the toes exactly; FK → IK with `@roll` in the ball range keeps the chain exact and warns with the toes' turn (the toes rule counter-rotates the ball roll); `f − 1` stays exact | The IK-side match also sets `fk.toes` (or zeroes the roll) |
+| M2A-INT-21 | **Root motion "In place" removes the travel, not the hips' X/Z** (fix round 1; MVP-SPEC §4.11.10 step 3 amended) | The in-place node's X/Z displacement from the first to the last frame is removed linearly; sway and bob stay, so planted IK feet stay planted in the file and a clip that ends where it starts exports the editor's motion (M1 locked X/Z to rest: the acceptance walk's feet slid 1.5 cm sideways in its VRMA) | Lock X/Z to rest as M1 (feet slide by the sway), or remove the mean velocity by a least-squares fit, or a third mode next to both |
+| M2A-INT-33 | **Version of M2a files** (fix round 1) | Exports, projects and autosave write `0.2.0`; About shows `0.2.0-dev` | The tag step sets the released number and drops `-dev` |
 | M2A-INT-12 | **Cyclic `@ikFk` curves with keys** (A2 open issue 4) | §5.23 unchanged: a curve keyed once at 0 on a loop clip cycles over its key range after a switch at 10 (frames 11…19 read the old mode) | `@ikFk` curves never cycle, or cycle over the clip range (a §5.23 contract change) |
 | M2A-INT-1, -2 | **Acceptance fixtures**: E2E-M2A-23's hips are lowest at the contacts, E2E-M2A-24 starts and ends in a ready stance 5 cm down | Polybot's and Seed-san's legs are (nearly) straight at rest, so with the hips at rest the specified IK feet are out of reach and lift off their targets | — (geometry); every assertion of §9.1 is kept |
 | M2A-A2-12, -13 | **E2E-M2A-02, -05 rows** (fixture geometry) | The pole step asserts the knee offset's turn (Polybot's rest knee sits outward of its hip→foot line); the arm is bent 30° before the IK switch (Seed-san's T-pose arm is straight) | — |
@@ -484,6 +486,33 @@ Turned into failures (§3 rule 4, as INT-55 did for M1): every `READY` flag (`ed
 verifier found it still on — A3's `VALUE_SCALE_AVAILABLE` gate of `graph.keys.scale` (M2A-INT-17). The only
 `test.fixme` tests left are the stretch items in `apps/web/e2e/stretch.spec.ts`: three M1-stretch and six
 M2a-stretch entries (M2A-INT-18).
+
+### Acceptance fix round 1 (M2a on `dev`, 2026-10-19)
+
+The M2a acceptance round on `dev` (`f4ddcf5`: a Polybot walk and a Seed-san attack authored through the UI in real
+Chrome, exported and sampled in Node) found two major and twelve minor defects; all are fixed with regression tests
+that fail without the fix. Details, numbers and tests:
+[`wp-notes/m2a-integration.md`](wp-notes/m2a-integration.md#acceptance-fix-round-1-on-dev-m2a-int-2033).
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M2A-INT-20 | Ball roll pulled the toes joint off the foot (8 mm at 30° on Seed-san; bakes wrote a toes translation and linted `ekza.hips-only-translation`) | **Fixed**: the ball roll pivots at the toes joint (the ground ball at the toes joint's rest height); IK → FK now exact (owner item M2A-INT-11 narrowed) | `rig/src/limb/foot.ts`, `ik2.ts` (`limbFootRoll`), `match.ts`; M2A-SPEC §5.2.3, §5.3, §5.3.1, §5.6 |
+| M2A-INT-21 | "In place" deleted the hip sway: planted IK feet slid 1.5 cm in the exported walk | **Fixed** by removing only the travel (owner item above) | `io/src/bake/bake.ts`; MVP-SPEC §4.11.10, FR-EXP-10 |
+| M2A-INT-22 | "Reduce keys" made files larger (per-track time accessors) | **Fixed**: a reduction is kept only where it saves bytes, time accessor included | `io/src/bake/reduce.ts`; M2A-SPEC §5.16 |
+| M2A-INT-23 | Recovery reopened the first clip | **Fixed**: slot info records the active character and clips; recovery returns to them | `editor-core/src/app/autosave.ts`, `operators/builtin/autosave.ts`; M2A-SPEC §4.5, §5.20 |
+| M2A-INT-24 | Whole-character mirror: a ~1,000-character warning toast | **Fixed**: unpaired controls summarised in one line (count, three names) | `editor-core/src/workflows/mirrorAnimation.ts`, `operators/builtin/pose.ts`; M2A-SPEC §5.14 |
+| M2A-INT-25 | Mirror flip left key-less curves; flip twice ≠ identity | **Fixed**: no source curve removes the target curve | `mirrorAnimation.ts`; M2A-SPEC §5.14 |
+| M2A-INT-26 | Time-slider arrow nudge left the band behind | **Fixed**: the band follows the keys' real offset | `editor-core/src/operators/builtin/graph.ts`; M2A-SPEC §4.9 |
+| M2A-INT-27 | Channel Box LMB slider: fractional clientX in the first increment (+10.1667° for +10°) | **Fixed**: movementX only | `editor/src/panels/channel-box/ChannelBoxPanel.tsx`; M2A-SPEC §5.18 |
+| M2A-INT-28 | Match Range to IK at key times changed in-betweens silently (3.5 cm) | **Fixed**: the operator measures the in-betweens and warns above 1 mm; menu item "… to IK (Every Frame)" | `editor-core/src/workflows/ik.ts`, `operators/builtin/ik.ts`, `menus.ts`; M2A-SPEC §5.6 |
+| M2A-INT-29 | Seamless switch hold keys with −0 handles (lost by JSON); −0 in auto-rig shape quaternions | **Fixed**: `0 ± x` | `anim-core/src/curve/insert.ts`, `rig/src/autorig/shapes.ts` |
+| M2A-INT-30 | "Stray marquee" over the Dope Sheet after closing a toast: the empty toast viewport's focus ring | **Fixed**: no ring on an empty viewport; focus returns to the page | `ui/src/primitives/toast.tsx`, `ui/styles.css`, `editor/src/shell/Toaster.tsx` |
+| M2A-INT-31 | Remove Frame disabled without a reason | **Fixed**: disabled time-slider menu items show the poll reason as their tooltip | `editor/src/panels/timeline/TimelineMenu.tsx` |
+| M2A-INT-32 | Channel Box labels "Translat..." with the IK/FK row | **Fixed**: the switch button gets a sized column | `ChannelBoxPanel.tsx` |
+| M2A-INT-33 | Exports said 0.1.0 | **Fixed**: `0.2.0` (owner item above for the tag) | `editor-core/src/workflows/samples.ts`, `editor/src/dialogs/samples.ts` |
+
+New e2e spec `apps/web/e2e/m2a-r1-fixes.spec.ts` (toast focus ring, nudge band, Channel Box names); assertions added
+to E2E-M2A-03, -04, -21, -23 and the owner demo walkthrough.
 
 ### Build deviations of A0 … A5 (consolidated)
 
