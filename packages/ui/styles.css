@@ -108,6 +108,12 @@ body {
   outline-offset: 1px;
 }
 
+/* Radix focuses the toast viewport when a focused toast closes: an empty viewport has nothing to ring (M2a fix
+   round 1: the next key drew a purple box over the Dope Sheet). With toasts in it (F8) the ring stays. */
+.ekza-editor [data-ekza-toast-viewport]:focus-visible:not(:has(li)) {
+  outline: none;
+}
+
 .ekza-editor {
   font-size: var(--type-ui-size);
   line-height: var(--type-ui-line);
