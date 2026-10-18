@@ -16,10 +16,10 @@ import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 /** CI gate: the §14 budget (decimal bytes, gzip -9). */
 export const GATE_BYTES = 900_000;
 /**
- * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: set from the chunk attribution, ≥ 95 kB
- * headroom under the budget; the reason is recorded in docs/wp-notes/m2a-a5.md).
+ * M2a target for the initial route of a first visit (M2A-SPEC §5.21.2: ≥ 100 kB headroom under the budget; the chunk
+ * attribution and the measurements are in docs/wp-notes/m2a-platform-perf.md).
  */
-export const TARGET_BYTES = 805_000;
+export const TARGET_BYTES = 800_000;
 
 /**
  * Required lazy boundaries (M2A-SPEC §5.21.2), each recognised by strings only its code contains. A marker in an
@@ -30,6 +30,11 @@ export const BOUNDARIES = [
     id: 'model-loader',
     label: 'model loader (io/three, three-vrm, GLTF/Draco/KTX2/meshopt loaders)',
     markers: ['VRMC_materials_mtoon', 'THREE.GLTFLoader'],
+  },
+  {
+    id: 'import-path',
+    label: 'import pipelines (editor-core importModel/importAnimation, rig import, io readers)',
+    markers: [' has no skinned skeleton to animate'],
   },
   { id: 'export-path', label: 'export path (io/write, glTF Transform)', markers: ['glTF-Transform'] },
   { id: 'export-pipeline', label: 'export pipeline (editor-core exportRun)', markers: ['export.in-place-unavailable'] },

@@ -4,8 +4,7 @@ Status: v0.2 (2026-10-18, review revision: every blocker and major review item a
 not applied are listed with reasons in [§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
 Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
 `time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
-(§4.1, §5.23). Contract amendment with A5 (2026-10-18): the M-2 target is set from the chunk attribution to
-805,000 B for a browser's first visit (§5.21.2).
+(§4.1, §5.23).
 Audience: the integration agent (A0 and the final integration), five parallel implementation agents (A1…A5) and
 reviewers. Read [MVP-SPEC.md](MVP-SPEC.md) (v0.3) first: it stays the base contract. This file lists **deltas**;
 where the two disagree for M2a work, this file wins.
@@ -1492,17 +1491,14 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
 
 #### 5.21.2 M-2: editor route JS ≤ 900 kB gzip with headroom (A5)
 
-- **First deliverable** (A5, recorded in `docs/wp-notes/m2a-a5.md`): a chunk attribution report of the current
-  initial route from the production build's source maps (bytes per package and per top-level module, gzip -9), so
-  every cut is planned against measured numbers; no attribution exists in wp-10-budgets.md.
+- **First deliverable** (A5, recorded in `docs/wp-notes/m2a-platform-perf.md`): a chunk attribution report of the
+  current initial route from the production build's source maps (bytes per package and per top-level module, gzip
+  -9), so every cut is planned against measured numbers; no attribution exists in wp-10-budgets.md.
 - **Target**: the scripts loaded by `/editor` until the empty state is visible and the network is idle total
   ≤ **800,000 B** gzip -9 (decimal kB, the stricter unit). The 800,000 B figure is provisional until the attribution:
   A5 may set it to the attributed reachable value with the reason recorded (contract PR to this file), but never
-  above 850,000 B (≥ 50 kB headroom under the budget). **Set by A5** (attribution and reason in
-  [wp-notes/m2a-a5.md](wp-notes/m2a-a5.md)): ≤ **805,000 B** for a browser's first visit, which also loads the
-  First-run dialog's lazy chunk (≈ 6.5 kB) at start; the eager scripts every visit loads stay ≤ 800,000 B. **CI
-  gate** `pnpm --filter web check:size` fails above 900,000 B (first visit) and prints every lazy chunk group with
-  its size.
+  above 850,000 B (≥ 50 kB headroom under the budget). **CI gate** `pnpm --filter web check:size` fails above
+  900,000 B and prints every lazy chunk group with its size.
 - **One measurement**: `check:size` derives the initial script set from the same definition as the bench (the
   scripts the `/editor` route requests until the empty state, read from the Next build manifest and the route's
   `<script>` and preload tags, not from a static guess), and A5 cross-checks it once against the bench's network
@@ -1948,7 +1944,7 @@ export function registerDopeSheetContributions(app: EditorApp, focused: () => Do
   `editor-core/src/workflows/{export.ts,project.ts,autosave.ts}`, `editor-core/src/operators/builtin/{file.ts,
   autosave.ts}`, `editor-core/src/app/autosave.ts`; `packages/editor/src/{shell,dialogs,services,gl}/**` and
   `Editor.tsx` (after A0; §8.1); `apps/web/{scripts,app}/**`; bench `e2e/bench/budgets.bench.ts`; e2e `m2a-20…22`;
-  `docs/wp-notes/m2a-a5.md`.
+  `docs/wp-notes/m2a-platform-perf.md`.
 - **Responsibilities**: §5.21.2 chunk attribution first, then lazy boundaries, intent prefetch and the `check:size`
   gate measuring the bench's script set; §5.21.3 anim-core fast paths; §5.20 autosave store (IndexedDB, Web
   Locks/heartbeat), scheduler, recovery dialog, `file.recover`, `file.discardRecovery`, `file.autosaveNow`,

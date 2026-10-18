@@ -1,7 +1,7 @@
 // Intent prefetch of the editor route's lazy chunks (M2A-SPEC §5.21.2: "prefetched on intent, never at idle"). Each
 // helper starts a dynamic import that the later use shares, so the first drop, export, save or dialog does not wait
 // for its chunk; nothing here runs unless the user shows the intent.
-import { loadProjectArchive, preloadExportPath, type UiDialog } from '@ekza-animator/editor-core';
+import { loadProjectArchive, preloadExportPath, preloadImportPath, type UiDialog } from '@ekza-animator/editor-core';
 import { preloadDialog } from '../dialogs/DialogHost';
 import { preloadModelLoader } from '../services/models';
 
@@ -9,8 +9,12 @@ const swallow = (promise: Promise<unknown>): void => {
   promise.catch(() => {});
 };
 
-/** A model is about to arrive: a file dragged over the window, a sample hovered or pressed, the Open dialog. */
+/**
+ * A model or clip is about to arrive: a file dragged over the window, a sample hovered or pressed, the Open dialog.
+ * Loads the import pipelines and the three.js model loader.
+ */
 export function prefetchModelLoading(): void {
+  swallow(preloadImportPath());
   swallow(preloadModelLoader());
 }
 
@@ -34,7 +38,7 @@ export function prefetchForMenuItems(items: readonly { readonly op: string; read
     } else if (item.op === 'file.openProject' || item.op === 'file.open') {
       swallow(loadProjectArchive());
       prefetchModelLoading();
-    } else if (item.op === 'file.loadSample' || item.op === 'file.importModel') {
+    } else if (item.op === 'file.loadSample' || item.op === 'file.importModel' || item.op === 'file.importAnimation') {
       prefetchModelLoading();
     }
   }

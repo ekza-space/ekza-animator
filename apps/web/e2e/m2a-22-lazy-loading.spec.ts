@@ -1,7 +1,8 @@
 // E2E-M2A-22 (M2A-SPEC §5.21.2, M-2): the editor route loads no lazy chunk until it is needed. A fresh page records
 // every script response until the test API is ready and the empty state shows: none carries the model loader
-// (three-vrm, GLTFLoader), the export path (glTF Transform), the project archive (fflate) or a dialog. Then the
-// Polybot sample button loads the model loader and the sample. The size gate itself runs in CI (`check:size`).
+// (three-vrm, GLTFLoader), the import pipelines, the export path (glTF Transform), the project archive (fflate) or a
+// dialog. Then the Polybot sample button loads the model loader, the import pipelines and the sample. The size gate
+// itself runs in CI (`check:size`).
 import { expect, type Page, test } from '@playwright/test';
 import { controlId } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
@@ -9,6 +10,7 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 /** Strings only each lazy chunk's code contains (the markers `scripts/check-size.mjs` uses). */
 const MARKERS = {
   modelLoader: ['VRMC_materials_mtoon', 'THREE.GLTFLoader'],
+  importPath: [' has no skinned skeleton to animate'],
   exportPath: ['glTF-Transform'],
   projectArchive: ['invalid zip data'],
   dialogs: ['export-dialog', 'import-dialog', 'recovery-dialog', 'about-dialog', 'preferences-dialog'],
@@ -43,6 +45,7 @@ test('E2E-M2A-22: lazy loading of the editor route', async ({ page }) => {
   const initial = scripts.bodies.length;
   expect(initial).toBeGreaterThan(0);
   expect(loaded(scripts.bodies, MARKERS.modelLoader), 'model loader on the initial route').toBe(false);
+  expect(loaded(scripts.bodies, MARKERS.importPath), 'import pipelines on the initial route').toBe(false);
   expect(loaded(scripts.bodies, MARKERS.exportPath), 'export path on the initial route').toBe(false);
   expect(loaded(scripts.bodies, MARKERS.projectArchive), 'project archive on the initial route').toBe(false);
   expect(loaded(scripts.bodies, MARKERS.dialogs), 'a dialog on the initial route').toBe(false);
@@ -53,6 +56,10 @@ test('E2E-M2A-22: lazy loading of the editor route', async ({ page }) => {
   expect(loaded(scripts.bodies.slice(initial), MARKERS.modelLoader), 'the model loader arrived with the sample').toBe(
     true,
   );
+  expect(
+    loaded(scripts.bodies.slice(initial), MARKERS.importPath),
+    'the import pipelines arrived with the sample',
+  ).toBe(true);
   // The display model is on screen: the rig's head control projects into the right pane.
   const head = await controlId(page, 'fk.head');
   await expect.poll(() => call(page, 'screenOfControl', head, 'pane-right'), { timeout: 30_000 }).not.toBeNull();

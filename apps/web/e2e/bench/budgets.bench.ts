@@ -3,7 +3,8 @@
 // gesture, bake + VRMA write of 10 s at 30 fps (with the first export's lazy chunk), an autosave write of Seed-san with
 // 10 clips (M2A-SPEC §5.22), and the editor route's JS of a first and a later visit (cross-checked with `check:size`).
 // Report-only (see playwright.config.ts here); results go to annotations, stdout and `.acceptance/budgets/<name>.json`.
-// The package benches (vitest) cover the rest of §14; docs/wp-notes/wp-10-budgets.md and m2a-a5.md record both.
+// The package benches (vitest) cover the rest of §14; docs/wp-notes/wp-10-budgets.md and m2a-platform-perf.md record
+// both.
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { gzipSync } from 'node:zlib';
@@ -743,6 +744,6 @@ test('editor route JS (gzip, no fixtures)', async ({ page, baseURL }) => {
     `/editor JS (${isE2eBuild ? 'e2e build' : 'production build'}), first visit: ${first.files.length} scripts, ` +
       `${kb(first.raw)} raw, ${kb(first.gzip)} gzip -9, ${kb(first.gzip6)} gzip -6${verdict(firstCheck)}; later ` +
       `visit: ${again.files.length} scripts, ${kb(again.gzip)} gzip -9${verdict(againCheck)} (budget ≤ 900 kB gzip; ` +
-      `M2a target ≤ 805 kB for the first visit)`,
+      `M2a target ≤ 800 kB for the first visit)`,
   );
 });

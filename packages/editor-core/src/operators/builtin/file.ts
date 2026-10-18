@@ -1,6 +1,7 @@
 // File operators (MVP-SPEC §4.9 `file.*`): new, open (importer dispatch), projects, model / animation / sample
 // import, save and export. Everything asynchronous (parsing, hashing, the asset store, baking) happens in `prepare`; `apply`
-// writes the document in one transaction (imports) or replaces it (new, open project), and downloads.
+// writes the document in one transaction (imports) or replaces it (new, open project), and downloads. The import
+// pipelines are a lazy chunk (`workflows/importLoader.ts`, M2A-SPEC §5.21.2): `prepare` loads them, `apply` uses them.
 import { EkzaError } from '@ekza-animator/anim-core';
 import { emptySnapshot } from '@ekza-animator/doc';
 import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
@@ -8,15 +9,9 @@ import type { EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import { blockingLints, requestProblem, withReadBackLint } from '../../workflows/export';
 import type { Progress } from '../../workflows/host';
-import {
-  animationTargetProblem,
-  applyClipImport,
-  type ClipImportPlan,
-  importTarget,
-  prepareGlbAnimationImport,
-  prepareVrmaImport,
-} from '../../workflows/importAnimation';
-import { applyModelImport, type ModelImportPlan, prepareModelImport } from '../../workflows/importModel';
+import { animationTargetProblem, importTarget } from '../../workflows/importChecks';
+import { importPathLoaded, loadImportPath } from '../../workflows/importLoader';
+import type { ClipImportPlan, ModelImportPlan } from '../../workflows/importPath';
 import { extensionOf } from '../../workflows/names';
 import {
   loadProject,
@@ -126,12 +121,17 @@ const fileImportModel = defineOperator<'file.importModel', ModelImportPlan>({
   undoLabel: (args) => `Import ${args.name}`,
   poll: ({ app }, args) => all(pollFile(args), pollEditable(app)),
   prepare: ({ app }, args) =>
-    busy(app, `Importing ${args.name}…`, (progress) =>
-      prepareModelImport(app, { fileName: args.name, bytes: args.bytes, options: args.options, progress }),
+    busy(app, `Importing ${args.name}…`, async (progress) =>
+      (await loadImportPath()).prepareModelImport(app, {
+        fileName: args.name,
+        bytes: args.bytes,
+        options: args.options,
+        progress,
+      }),
     ),
   apply({ app, tx }, _args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importModel runs in a transaction');
-    const result = applyModelImport(app, tx, plan);
+    const result = importPathLoaded().applyModelImport(app, tx, plan);
     toastWarnings(app, `Imported ${plan.fileName}`, plan.warnings);
     return result;
   },
@@ -164,13 +164,16 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
     const target = importTarget(app.store, args.character, app.session.getState().activeCharacter);
     if (target === null) throw new EkzaError('unsupported', 'Load a character first');
     const input = { fileName: args.name, bytes: args.bytes, character: target, options: args.options };
-    return busy(app, `Importing ${args.name}…`, () =>
-      animationKind(args.name) === 'vrma' ? prepareVrmaImport(app, input) : prepareGlbAnimationImport(app, input),
-    );
+    return busy(app, `Importing ${args.name}…`, async () => {
+      const pipelines = await loadImportPath();
+      return animationKind(args.name) === 'vrma'
+        ? pipelines.prepareVrmaImport(app, input)
+        : pipelines.prepareGlbAnimationImport(app, input);
+    });
   },
   apply({ app, tx }, args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.importAnimation runs in a transaction');
-    const result = applyClipImport(app, tx, plan);
+    const result = importPathLoaded().applyClipImport(app, tx, plan);
     toastWarnings(app, `Imported ${args.name}`, result.warnings);
     return result;
   },
@@ -193,7 +196,7 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
   prepare({ app }, args) {
     const sample = SAMPLES[args.sample];
     return busy(app, `Loading ${sample.file}…`, async (progress) =>
-      prepareModelImport(app, {
+      (await loadImportPath()).prepareModelImport(app, {
         fileName: sample.file,
         bytes: await fetchSample(sample, app.services.samplesPath),
         options: args.options,
@@ -205,7 +208,7 @@ const fileLoadSample = defineOperator<'file.loadSample', ModelImportPlan>({
   },
   apply({ app, tx }, _args, plan) {
     if (tx === null) throw new EkzaError('internal', 'file.loadSample runs in a transaction');
-    const result = applyModelImport(app, tx, plan);
+    const result = importPathLoaded().applyModelImport(app, tx, plan);
     toastWarnings(app, `Loaded ${plan.fileName}`, plan.warnings);
     return result;
   },
