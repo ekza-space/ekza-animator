@@ -202,7 +202,7 @@ function attribute(profile: CpuProfile): {
   const deltas = profile.timeDeltas ?? [];
   for (let i = 0; i < samples.length; i++) {
     const id = samples[i] as number;
-    const dt = ((deltas[i + 1] ?? deltas[i] ?? 0) as number) / 1000;
+    const dt = (deltas[i + 1] ?? deltas[i] ?? 0) / 1000;
     const category = resolve(id);
     if (category === null) continue;
     totalMs += dt;

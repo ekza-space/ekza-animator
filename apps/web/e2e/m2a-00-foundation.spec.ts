@@ -26,7 +26,8 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
   expect(await call(page, 'autosave')).toEqual({ enabled: false, slot: null, lastSavedAt: null, pending: false });
   expect(await call(page, 'timelineTicks')).toEqual([]);
   expect(await call(page, 'dopeSheet')).toBeNull();
-  expect(await call(page, 'screenOfTween', 'status', 0)).toBeNull();
+  // A4 mounted the status-line Tween bar (literal update, M2A-SPEC §3 rule 8): its probe answers.
+  expect(await call(page, 'screenOfTween', 'status', 0)).not.toBeNull();
 
   for (const [op, args] of [
     ['rig.addLimbIk', undefined],
@@ -34,22 +35,18 @@ test('the M2a test API answers on an M1 rig; new operators poll-fail cleanly', a
     ['select.pickWalk', { direction: 'up' }],
     ['key.setTarget', { target: 'bodyPart' }],
     ['key.toggleRipple', undefined],
-    ['key.tween', { mode: 'tween', amount: 50 }],
-    ['key.convert', { to: 'breakdown' }],
-    ['pose.mirrorAnimation', { mode: 'flip' }],
     ['time.insertTime', { at: 0, frames: 1 }],
     ['time.deleteTime', undefined],
     ['graph.keys.copyTo', { dFrames: 1 }],
-    ['graph.buffer.snapshot', undefined],
     ['file.autosaveNow', undefined],
   ] as const) {
     expect([op, await run(page, op, args)]).toEqual([op, { status: 'cancelled', reason: 'not available yet' }]);
   }
-  // The mounted Graph Editor registers the M1 tools; its M2a scale tool (A4) is not there yet (§3 rule 1).
+  // The mounted Graph Editor registers its tools; A4 landed the M2a Scale tool (literal update, M2A-SPEC §3 rule 8).
   await expect(page.getByTestId('panel-graph')).toBeVisible();
   await expect
     .poll(() => run(page, 'view.tool', { panel: 'graph', tool: 'scale' }))
-    .toEqual({ status: 'cancelled', reason: 'not available yet' });
+    .toMatchObject({ status: 'finished' });
   expect(await run(page, 'view.tool', { panel: 'graph', tool: 'insert' })).toMatchObject({ status: 'finished' });
   expect(await run(page, 'view.tool', { panel: 'graph', tool: 'select' })).toMatchObject({ status: 'finished' });
   // The status line's key-target toggle and the Tween bar slot are in place.
