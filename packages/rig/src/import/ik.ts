@@ -3,14 +3,15 @@ import type { ChannelValues, ControlId } from '@ekza-animator/doc';
 import { internalsOf, isRigOpSkipped, type RigInternals } from '../kernel/internals';
 import { matchIkToFk } from '../limb/match';
 import { LIMB_TEMPLATES } from '../limb/template';
-import type {
-  ChannelBuffer,
-  ImportedClipKeys,
-  ImportedCurve,
-  ImportRawOptions,
-  LimbDesc,
-  PoseBuffers,
-  RigProgram,
+import {
+  type ChannelBuffer,
+  type ImportedClipKeys,
+  type ImportedCurve,
+  type ImportRawOptions,
+  LIMB_IDS,
+  type LimbDesc,
+  type PoseBuffers,
+  type RigProgram,
 } from '../types';
 import type { ControlSolver, GroupMode, SlotKeys } from './core';
 
@@ -248,12 +249,15 @@ export function createImportIk(
   range: { readonly start: Frame; readonly end: Frame },
 ): ImportIk | null {
   if (opts.ik === 'none') return null;
-  const limbs = program.limbs.filter((limb) => {
-    if (isRigOpSkipped(program, limb.solver)) return false;
-    const slot = limb.attrSlots.ikFk;
-    const def = slot >= 0 ? program.attrSlots[slot]?.def : undefined;
-    return def !== undefined && def.default >= 0.5;
-  });
+  // Rows and warnings in LIMB_IDS order (legs before arms, left before right), whatever the solver ids.
+  const limbs = program.limbs
+    .filter((limb) => {
+      if (isRigOpSkipped(program, limb.solver)) return false;
+      const slot = limb.attrSlots.ikFk;
+      const def = slot >= 0 ? program.attrSlots[slot]?.def : undefined;
+      return def !== undefined && def.default >= 0.5;
+    })
+    .sort((a, b) => LIMB_IDS.indexOf(a.id) - LIMB_IDS.indexOf(b.id));
   if (limbs.length === 0) return null;
   const tolerance = opts.ikTolerance ?? DEFAULT_IK_TOLERANCE;
   return new ImportIk(program, internalsOf(program), limbs, slots, tolerance, clipName, range);
