@@ -1,7 +1,8 @@
-// One frame of the editor (ARCHITECTURE §10 "Frame loop"): before the GL render the playback clock advances and the
-// evaluation service evaluates dirty characters once; after it the 2D canvases redraw. R3F's single rAF drives it
-// (`addEffect` / `addAfterEffect`); without WebGL a plain rAF scheduler drives the same hooks, so the Graph Editor
-// and time slider still work.
+// One frame of the editor (ARCHITECTURE §10 "Frame loop"): first the tasks scheduled before this frame run
+// (`app.flushScheduled`: coalesced gesture updates, M2A-SPEC §4.5 / M-1), then the playback clock advances and the
+// evaluation service evaluates dirty characters once; after the GL render the 2D canvases redraw. R3F's single rAF
+// drives it (`addEffect` / `addAfterEffect`); without WebGL a plain rAF scheduler drives the same hooks, so the Graph
+// Editor and time slider still work.
 import type { EditorApp } from '@ekza-animator/editor-core';
 import type { FrameCallback, FrameHooks } from '../shell/types';
 
@@ -21,6 +22,11 @@ export function createFrameHooks(app: EditorApp, onError: (error: unknown) => vo
     before,
     after,
     runBefore(timestamp: number): void {
+      try {
+        app.flushScheduled();
+      } catch (error) {
+        onError(error);
+      }
       try {
         app.playback.advance(timestamp);
         app.evaluation.tick();
