@@ -246,7 +246,7 @@ describe('autoRig ik option and limbIkRecords (M2A-SPEC §5.2)', () => {
 });
 
 describe('limb placement (§5.2.1 hinge, §5.2.2 rest pole)', () => {
-  it('uses normalize(x̂⁰_U × s) and the R07 table when the upper bone is parallel to s', () => {
+  it('uses normalize(x̂⁰ × s) and the R07 table when the bone is parallel to s', () => {
     const t = LIMB_TEMPLATES;
     const h = limbHinge(t['arm.L'], [0.1, 1.4, 0], [0.3, 1.2, 0]);
     expect(h[0]).toBeCloseTo(-Math.SQRT1_2, 12);
@@ -256,6 +256,20 @@ describe('limb placement (§5.2.1 hinge, §5.2.2 rest pole)', () => {
     expect(limbHinge(t['leg.R'], [0, 1, 0], [0, 1, -0.4])).toEqual([1, 0, 0]);
     const knee = limbHinge(t['leg.L'], [0.09, 0.9, 0], [0.15, 0.5, 0]);
     expect(Math.hypot(...knee)).toBeCloseTo(1, 12);
+  });
+
+  it('takes the knee hinge from the lower leg: (1, 0, 0) under a splayed thigh over a vertical shin', () => {
+    const splayed = ikDef(limbHumanoid({ splayedLegs: true }));
+    for (const limb of ['leg.L', 'leg.R']) {
+      const params = splayed.solvers.find((s) => (s.params as { limb?: string }).limb === limb)?.params;
+      const hinge = (params as { hinge?: readonly [number, number, number] } | undefined)?.hinge ?? [0, 0, 0];
+      expect([hinge[0], Math.abs(hinge[1]) < 1e-12, Math.abs(hinge[2]) < 1e-12]).toEqual([1, true, true]);
+    }
+    // A straight leg splayed as a whole tilts its hinge with it (thigh and shin agree).
+    const t = LIMB_TEMPLATES;
+    const tilted = limbHinge(t['leg.L'], [0.1, 0.5, 0], [0.2, 0.1, 0]);
+    expect(tilted[0]).toBeCloseTo(0.4 / Math.hypot(0.4, 0.1), 12);
+    expect(tilted[1]).toBeCloseTo(0.1 / Math.hypot(0.4, 0.1), 12);
   });
 
   it('puts the rest pole at b⁰ + p̂⁰·(l1 + l2) for rests bent about the hinge and straight rests', () => {

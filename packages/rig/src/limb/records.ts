@@ -82,9 +82,16 @@ const scaled = (a: readonly number[], s: number): V3 => [
   (a[2] as number) * s,
 ];
 
-/** §5.2.1 hinge: normalize(x̂⁰_U × s), legs s = (0, 0, −1), arms (0, 0, 1); the R07 table when |x̂⁰_U × s| < 0.1. */
-export function limbHinge(t: LimbTemplate, upper: readonly number[], mid: readonly number[]): V3 {
-  const dir = sub(mid, upper);
+/**
+ * §5.2.1 hinge: normalize(x̂⁰ × s), legs s = (0, 0, −1), arms (0, 0, 1); the R07 table when |x̂⁰ × s| < 0.1. x̂⁰ is
+ * the rest direction `from` → `to`: the upper arm for arms (§5.2.1 as written), the LOWER leg for legs (the bone that
+ * swings back; a deviation recorded in docs/wp-notes/m2a-rig-ik.md). Both agree on straight limbs; on Polybot, whose
+ * thighs splay 28.6° outward over vertical shins, the thigh would tilt the knee hinge by 28.6° in the frontal plane,
+ * so knee flexion about x (the FK controls' and the normalized humanoid convention) would not be a hinge motion and
+ * imported clips would keep the legs FK.
+ */
+export function limbHinge(t: LimbTemplate, from: readonly number[], to: readonly number[]): V3 {
+  const dir = sub(to, from);
   const len = norm(dir);
   const swingDir: V3 = t.kind === 'leg' ? [0, 0, -1] : [0, 0, 1];
   const c = len > 1e-12 ? cross(scaled(dir, 1 / len), swingDir) : ([0, 0, 0] as V3);
@@ -236,7 +243,7 @@ export function limbIkRecords(
     const c = position(end);
     const l1 = norm(sub(b, a));
     const l2 = norm(sub(c, b));
-    const hinge = limbHinge(t, a, b);
+    const hinge = t.kind === 'leg' ? limbHinge(t, b, c) : limbHinge(t, a, b);
     const restBend = bendOf(sub(b, a), sub(c, b), hinge, [0, 0, 0]);
     if (restBend < -HYPEREXTENDED_REST) {
       warnings.push(
