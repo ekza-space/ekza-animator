@@ -22,6 +22,8 @@ test('E2E-11: insert key', async ({ page }) => {
   const after = await readRz(page, seed);
   const inserted = after.keys[2];
   expect(before.keys.map((key) => key.id)).not.toContain(inserted?.id);
+  // §4.11.4 insert rule 2: a key on a Hermite span takes the curve's value and slope there as fixed handles.
+  expect([inserted?.inType, inserted?.outType, inserted?.broken]).toEqual(['fixed', 'fixed', false]);
   expect(after.keys.filter((key) => key.id !== inserted?.id).map((key) => [key.id, key.t, key.v])).toEqual(
     before.keys.map((key) => [key.id, key.t, key.v]),
   );

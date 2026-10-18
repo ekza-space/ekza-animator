@@ -31,8 +31,8 @@ test('E2E-08: tangents', async ({ page }) => {
   // 6 = step (out sides only): each span holds its start key's value until the next key.
   await page.keyboard.press('Digit6');
   await expect
-    .poll(async () => (await readRz(page, seed)).keys.map((key) => key.outType))
-    .toEqual(before.keys.map(() => 'step'));
+    .poll(async () => (await readRz(page, seed)).keys.map((key) => [key.inType, key.outType]))
+    .toEqual(before.keys.map(() => ['linear', 'step']));
   expect(await call(page, 'curveValue', seed.rz, 14)).toBeCloseTo(v0 ?? Number.NaN, 9);
   expect(await call(page, 'curveValue', seed.rz, 14)).toBeCloseTo(30 * DEG, 9);
   expect(await call(page, 'curveValue', seed.rz, 29)).toBeCloseTo(v15 ?? Number.NaN, 9);
