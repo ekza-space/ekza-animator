@@ -235,6 +235,12 @@ export interface MatchResult {
   readonly midErrorM: number;
   /** Bend angle of a hyperextended FK mid joint (radians), 0 when the FK pose bends the normal way. */
   readonly hyperextensionRad: number;
+  /**
+   * IK match of a leg with toes: how far the matched IK pose turns the toes relative to the foot (radians). The
+   * ik2 toes rule counter-rotates the ball roll, so a `@roll` inside the ball range bends the toes by that amount
+   * while the foot itself matches; 0 for FK matches and limbs without toes.
+   */
+  readonly toesErrorRad: number;
 }
 
 /**
@@ -256,23 +262,39 @@ export function matchAt(
   const ref = reference ?? bufferValues(app, program, ch, sideControls(limb, side));
   if (side === 'fk') {
     kit.evaluateWithLimbMode(program, ch, limb.id, 1, scratch, pose);
-    return { values: kit.matchFkToIk(program, pose, limb.id, ref), endErrorM: 0, midErrorM: 0, hyperextensionRad: 0 };
+    const values = kit.matchFkToIk(program, pose, limb.id, ref);
+    return { values, endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0 };
   }
   kit.evaluateWithLimbMode(program, ch, limb.id, 0, scratch, pose);
   const result = kit.matchIkToFk(program, pose, ch, limb.id, ref);
+  const { upper, mid, end, toes } = limb.nodes;
+  const chain = upper >= 0 && mid >= 0 && end >= 0;
+  const midMoves = result.midErrorM > MID_ERROR_WARN_M;
   let hyperextensionRad = 0;
-  if (result.midErrorM > MID_ERROR_WARN_M) hyperextensionRad = hyperextension(app, ctx, ch, pose, result.values);
+  let toesErrorRad = 0;
+  if (chain && (midMoves || toes >= 0)) {
+    // The matched IK pose: the FK channels with the matched values written, evaluated with ikFk 1.
+    const matched: ChannelBuffer = { values: ch.values.slice(), attrs: ch.attrs.slice() };
+    for (const [control, channels] of result.values) writeControlChannels(program, matched, control, channels);
+    const ikPose = program.allocPose();
+    kit.evaluateWithLimbMode(program, matched, limb.id, 1, scratch, ikPose);
+    if (midMoves) hyperextensionRad = hyperextension(limb, pose, ikPose);
+    if (toes >= 0) toesErrorRad = relativeTurn(pose.boneWorld, ikPose.boneWorld, end, toes);
+  }
   return {
     values: result.values,
     endErrorM: result.endErrorM,
     midErrorM: result.midErrorM,
     hyperextensionRad,
+    toesErrorRad,
   };
 }
 
 /** Warning thresholds of a match (§5.6): the end misses by more than 0.1 mm, the mid joint by more than 1 mm. */
 export const END_ERROR_WARN_M = 1e-4;
 export const MID_ERROR_WARN_M = 1e-3;
+/** An IK match that turns the toes (relative to the foot) by more than this warns (radians). */
+export const TOES_ERROR_WARN_RAD = 1e-3;
 
 const position = (world: Float64Array, node: number): [number, number, number] => [
   world[node * 16 + 12] ?? 0,
@@ -301,24 +323,39 @@ function bendOffset(world: Float64Array, limb: LimbDesc): [number, number, numbe
   return [ab[0] - axis[0] * along, ab[1] - axis[1] * along, ab[2] - axis[2] * along];
 }
 
+/** Column `c` (0–2) of a world matrix's rotation part, normalized (worlds may carry scale). */
+function axisOf(world: Float64Array, node: number, c: number): [number, number, number] {
+  const o = node * 16 + c * 4;
+  const v: [number, number, number] = [world[o] ?? 0, world[o + 1] ?? 0, world[o + 2] ?? 0];
+  const length = len3(v);
+  return length < 1e-12 ? v : [v[0] / length, v[1] / length, v[2] / length];
+}
+
+/**
+ * The angle between the rotations of `child` relative to `parent` in two poses (radians): with R = Rp⁻¹·Rc in each
+ * pose, the angle of Ra⁻¹·Rb from its trace. Used for the toes relative to the foot.
+ */
+function relativeTurn(a: Float64Array, b: Float64Array, parent: number, child: number): number {
+  // (Rp⁻¹·Rc)[i][j] = p_i · c_j for orthonormal columns p_i, c_j; trace(Ra⁻¹·Rb) = Σ_ij Ra[i][j]·Rb[i][j].
+  const relative = (world: Float64Array): number[] => {
+    const p = [axisOf(world, parent, 0), axisOf(world, parent, 1), axisOf(world, parent, 2)];
+    const c = [axisOf(world, child, 0), axisOf(world, child, 1), axisOf(world, child, 2)];
+    const out: number[] = [];
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) out.push(dot3(p[i] ?? [], c[j] ?? []));
+    return out;
+  };
+  const ra = relative(a);
+  const rb = relative(b);
+  let trace = 0;
+  for (let k = 0; k < 9; k++) trace += (ra[k] ?? 0) * (rb[k] ?? 0);
+  return Math.acos(Math.min(1, Math.max(-1, (trace - 1) / 2)));
+}
+
 /**
  * The FK bend angle when the FK pose bends the mid joint the other way than the matched IK pose does (a
- * hyperextended knee or elbow, §5.6), else 0. Needs the nodes of the chain (absent: 0).
+ * hyperextended knee or elbow, §5.6), else 0.
  */
-function hyperextension(
-  app: EditorApp,
-  ctx: LimbContext,
-  ch: ChannelBuffer,
-  fkPose: PoseBuffers,
-  values: ReadonlyMap<ControlId, ChannelValues>,
-): number {
-  const { program, limb } = ctx;
-  if (limb.nodes.upper < 0 || limb.nodes.mid < 0 || limb.nodes.end < 0) return 0;
-  const matched: ChannelBuffer = { values: ch.values.slice(), attrs: ch.attrs.slice() };
-  for (const [control, channels] of values) writeControlChannels(program, matched, control, channels);
-  const scratch = program.allocChannels();
-  const ikPose = program.allocPose();
-  limbKitOf(app).evaluateWithLimbMode(program, matched, limb.id, 1, scratch, ikPose);
+function hyperextension(limb: LimbDesc, fkPose: PoseBuffers, ikPose: PoseBuffers): number {
   const fk = bendOffset(fkPose.boneWorld, limb);
   const ik = bendOffset(ikPose.boneWorld, limb);
   if (dot3(fk, ik) >= 0) return 0;
@@ -331,10 +368,13 @@ function hyperextension(
   return denominator < 1e-12 ? 0 : Math.acos(Math.min(1, Math.max(-1, dot3(u, v) / denominator)));
 }
 
-/** The warnings of an IK match (§5.6): hyperextension or a non-hinge mid joint, and an end that misses (soft IK). */
+/**
+ * The warnings of an IK match (§5.6): hyperextension or a non-hinge mid joint, an end that misses (soft IK), and
+ * toes that the foot roll bends (`toesErrorRad`, see `MatchResult`).
+ */
 export function matchWarnings(
   limb: LimbId,
-  result: Pick<MatchResult, 'endErrorM' | 'midErrorM' | 'hyperextensionRad'>,
+  result: Pick<MatchResult, 'endErrorM' | 'midErrorM' | 'hyperextensionRad'> & { readonly toesErrorRad?: number },
 ): string[] {
   const out: string[] = [];
   const name = LIMB_NAME[limb] ?? limb;
@@ -355,6 +395,13 @@ export function matchWarnings(
   }
   if (result.endErrorM > END_ERROR_WARN_M) {
     out.push(`${name}: IK misses the FK ${endName(limb)} by ${mm(result.endErrorM)} mm (soft IK)`);
+  }
+  const toes = result.toesErrorRad ?? 0;
+  if (toes > TOES_ERROR_WARN_RAD) {
+    const degrees = (toes * 180) / Math.PI;
+    out.push(
+      `${name}: IK bends the toes by ${degrees.toFixed(degrees < 10 ? 1 : 0)}° (foot roll); set Roll to 0 to keep the FK toes`,
+    );
   }
   return out;
 }

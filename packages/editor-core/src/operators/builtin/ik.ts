@@ -13,8 +13,8 @@ import {
 import { newKeyTangents } from '../../edit/channelMeta';
 import { applyChannelEdits } from '../../edit/channels';
 import { animCurve } from '../../edit/context';
-import { ensureCurve, writeKeyAt } from '../../edit/keys';
-import { type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type IkFkKeyMode } from '../../types';
+import { ensureCurve, insertKeyOnCurve, writeKeyAt } from '../../edit/keys';
+import { type ChannelEdit, type ChannelEditResult, type EditorApp, GLOBAL_SCOPE, type IkFkKeyMode } from '../../types';
 import {
   channelsAt,
   LIMB_NAME,
@@ -99,10 +99,28 @@ function ikFkCurveValue(app: EditorApp, ctx: LimbContext, frame: Frame): number 
 }
 
 /**
+ * 'seamless' (§5.6 "the pose at f − 1 … unchanged"): before the switch keys the matched channels at f, each of them
+ * gets a key at f − 1 holding its curve value there, unless a key exists at f − 1. The new key keeps the curve's
+ * shape (`insertKeyOnCurve`, so no other frame moves) and steps out like the `@ikFk` key. Without it the key at f
+ * would reach back to f − 1: `fk.toes` drives the toes under IK too (the ik2 toes rule), and an `@ikFk` between 0
+ * and 1 at f − 1 reads the whole FK chain. Locked curves are left alone (the switch skips them too).
+ */
+function holdBeforeSwitch(app: EditorApp, tx: Tx, ctx: LimbContext, edits: readonly ChannelEdit[]): void {
+  const at = ctx.frame - 1;
+  for (const edit of edits) {
+    const curve = ensureCurve(app, tx, ctx.clip.id, edit.control, edit.channel);
+    if (tx.get('curves', curve)?.locked === true) continue;
+    if (tx.query.keysOfCurve(curve).some((key) => Math.abs(key.t - at) < SAME_FRAME)) continue;
+    insertKeyOnCurve(app, tx, curve, at);
+    stepKeyAt(tx, curve, at);
+  }
+}
+
+/**
  * Writes a switch or match (§5.6) at the current frame: the matched channels and, for a switch, the new `@ikFk`
  * value, with the key policy: 'none' through `applyChannelEdits(key: 'auto')` (changed channels only); 'key' forces
  * keys at f on the matched channels and on `@ikFk` (step); 'seamless' also keys `@ikFk` at f − 1 with its value
- * before the switch, unless a key exists there.
+ * before the switch and holds the matched channels at f − 1 (`holdBeforeSwitch`), unless keys exist there.
  */
 function writeSwitch(
   app: EditorApp,
@@ -122,6 +140,7 @@ function writeSwitch(
       if (edits.length > 0) results.push(applyChannelEdits(app, tx, edits, { key: 'auto' }));
     } else {
       const edits = matchEdits(app, matched);
+      if (mode === 'seamless') holdBeforeSwitch(app, tx, ctx, edits);
       if (edits.length > 0) results.push(applyChannelEdits(app, tx, edits, { key: 'force' }));
     }
   }
@@ -315,7 +334,7 @@ const matchRange = defineOperator({
     // values are the eulerNear reference of the next, so the written rotations are continuous.
     const perFrame: { readonly frame: Frame; readonly values: ReadonlyMap<ControlId, ChannelValues> }[] = [];
     let reference: ReadonlyMap<ControlId, ChannelValues> | undefined;
-    let worst = { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0 };
+    let worst = { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 0 };
     for (const frame of frames) {
       const result = matchAt(app, ctx, args.side, channelsAt(app, ctx, frame, false), reference);
       perFrame.push({ frame, values: result.values });
@@ -324,6 +343,7 @@ const matchRange = defineOperator({
         endErrorM: Math.max(worst.endErrorM, result.endErrorM),
         midErrorM: Math.max(worst.midErrorM, result.midErrorM),
         hyperextensionRad: Math.max(worst.hyperextensionRad, result.hyperextensionRad),
+        toesErrorRad: Math.max(worst.toesErrorRad, result.toesErrorRad),
       };
     }
     let count = 0;

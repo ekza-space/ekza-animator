@@ -88,10 +88,20 @@ describe('rig.ikFk.switch key policies (§5.6)', () => {
       { t: 9, v: 1, outType: 'step' },
       { t: 10, v: 0, outType: 'step' },
     ]);
-    expect(keys(app, 'fk.upperLeg.L', 'rx')).toEqual([{ t: 10, v: 0.3, outType: 'auto' }]);
-    expect(keys(app, 'fk.lowerLeg.L', 'rx')).toEqual([{ t: 10, v: 0.6, outType: 'auto' }]);
+    // The matched FK chain is held at 9 with its value before the switch (stepped), then keyed at 10.
+    expect(keys(app, 'fk.upperLeg.L', 'rx')).toEqual([
+      { t: 9, v: 0, outType: 'step' },
+      { t: 10, v: 0.3, outType: 'auto' },
+    ]);
+    expect(keys(app, 'fk.lowerLeg.L', 'rx')).toEqual([
+      { t: 9, v: 0, outType: 'step' },
+      { t: 10, v: 0.6, outType: 'auto' },
+    ]);
     // Every matched channel is keyed (also unchanged ones): the switch holds across frames.
-    expect(keys(app, 'fk.toes.L', 'ry')).toEqual([{ t: 10, v: 0, outType: 'auto' }]);
+    expect(keys(app, 'fk.toes.L', 'ry')).toEqual([
+      { t: 9, v: 0, outType: 'step' },
+      { t: 10, v: 0, outType: 'auto' },
+    ]);
     expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(0);
     setSceneFrame(app, 9);
     expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(1);
@@ -113,6 +123,82 @@ describe('rig.ikFk.switch key policies (§5.6)', () => {
     expect(keys(app, 'ik.leg.L', 'tz')).toEqual([{ t: 15, v: 0.15, outType: 'auto' }]);
     expect(keys(app, 'ik.leg.L', '@twist')).toEqual([{ t: 15, v: 0, outType: 'auto' }]);
     expect(keys(app, 'pole.leg.L', 'ty')).toEqual([{ t: 15, v: 0.5, outType: 'auto' }]);
+  });
+
+  it('seamless holds animated matched channels at f − 1 without moving any earlier frame (fk.toes under IK)', async () => {
+    const { app } = ikApp();
+    setLimbKit(app, scriptedKit());
+    const toes = cid('fk.toes.L');
+    const foot = cid('fk.foot.L');
+    // fk.toes.L rx 0° / 30° at 0 / 20 (auto tangents): under IK the toes rule reads this curve, so its value at 9
+    // is part of the pose at 9. fk.foot.L has its own key at 9, which the switch must leave alone.
+    for (const [frame, value] of [
+      [0, 0],
+      [20, 30 * DEG],
+    ] as const) {
+      setSceneFrame(app, frame);
+      await runOk(app, 'channel.setValues', { edits: [{ control: toes, channel: 'rx', value }], key: 'force' });
+    }
+    setSceneFrame(app, 9);
+    await runOk(app, 'channel.setValues', { edits: [{ control: foot, channel: 'rx', value: 0.1 }], key: 'force' });
+    const footKeys = keys(app, 'fk.foot.L', 'rx');
+    const sample = (control: ControlId) => {
+      const out: number[] = [];
+      for (let frame = 0; frame <= 10; frame++) {
+        setSceneFrame(app, frame);
+        out.push(app.evaluation.channelValue(control, 'rx'));
+      }
+      return out;
+    };
+    const toesBefore = sample(toes);
+    const footBefore = sample(foot);
+    setSceneFrame(app, 10);
+    await expectUndoRedoExact(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+    const toesAfter = sample(toes);
+    const footAfter = sample(foot);
+    for (let frame = 0; frame <= 9; frame++) {
+      expect(Math.abs((toesAfter[frame] ?? 0) - (toesBefore[frame] ?? 0)), `toes rx at ${frame}`).toBeLessThan(1e-12);
+      expect(Math.abs((footAfter[frame] ?? 0) - (footBefore[frame] ?? 0)), `foot rx at ${frame}`).toBeLessThan(1e-12);
+    }
+    // At 10 the FK chain takes the matched pose.
+    expect(toesAfter[10]).toBe(0);
+    expect(footAfter[10]).toBeCloseTo(-0.3, 12);
+    expect(keys(app, 'fk.toes.L', 'rx').map((k) => [k.t, k.outType])).toEqual([
+      [0, expect.any(String)],
+      [9, 'step'],
+      [10, 'auto'],
+      [20, expect.any(String)],
+    ]);
+    // The key the user set at 9 stays as it was (value and tangent); the switch only adds the one at 10.
+    expect(keys(app, 'fk.foot.L', 'rx')).toEqual([...footKeys, { t: 10, v: -0.3, outType: 'auto' }]);
+  });
+
+  it('seamless FK → IK holds the IK control and pole at f − 1; key and none add no hold keys', async () => {
+    const { app } = ikApp({ snapshot: ikWaveDoc({ ikFkDefault: 0 }) });
+    setLimbKit(app, scriptedKit());
+    setSceneFrame(app, 10);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'seamless' });
+    expect(keys(app, 'ik.leg.L', '@ikFk')).toEqual([
+      { t: 9, v: 0, outType: 'step' },
+      { t: 10, v: 1, outType: 'step' },
+    ]);
+    expect(keys(app, 'ik.leg.L', 'tz')).toEqual([
+      { t: 9, v: 0, outType: 'step' },
+      { t: 10, v: 0.15, outType: 'auto' },
+    ]);
+    expect(keys(app, 'ik.leg.L', '@twist').map((k) => k.t)).toEqual([9, 10]);
+    expect(keys(app, 'pole.leg.L', 'ty').map((k) => [k.t, k.outType])).toEqual([
+      [9, 'step'],
+      [10, 'auto'],
+    ]);
+    for (const mode of ['key', 'none'] as const) {
+      const { app: other } = ikApp({ snapshot: ikWaveDoc({ ikFkDefault: 0 }) });
+      setLimbKit(other, scriptedKit());
+      setSceneFrame(other, 10);
+      await runOk(other, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: mode });
+      const tz = keys(other, 'ik.leg.L', 'tz');
+      expect([mode, tz.map((k) => k.t)]).toEqual([mode, mode === 'key' ? [10] : []]);
+    }
   });
 
   it('seamless does not overwrite a key at f − 1; an existing key at f is patched and made stepped', async () => {
@@ -232,6 +318,48 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     expect(services.toasts.length).toBe(before);
   });
 
+  it('warns when the matched IK pose bends the toes (a foot roll inside the ball range), on switch and range', async () => {
+    const { app, services } = ikApp({ snapshot: ikWaveDoc({ ikFkDefault: 0 }) });
+    const base = scriptedKit();
+    // Like the ik2 toes rule under a ball roll: with ikFk 1 the toes turn 20° about the foot's x axis.
+    const turn = 20 * DEG;
+    setLimbKit(app, {
+      ...base,
+      evaluateWithLimbMode(program, ch, limb, ikFk, scratch, out) {
+        base.evaluateWithLimbMode?.(program, ch, limb, ikFk, scratch, out);
+        const toes = program.limbs.find((desc) => desc.id === limb)?.nodes.toes ?? -1;
+        if (ikFk < 1 || toes < 0) return;
+        const w = out.boneWorld;
+        const o = toes * 16;
+        for (let r = 0; r < 3; r++) {
+          const c1 = w[o + 4 + r] ?? 0;
+          const c2 = w[o + 8 + r] ?? 0;
+          w[o + 4 + r] = c1 * Math.cos(turn) + c2 * Math.sin(turn);
+          w[o + 8 + r] = -c1 * Math.sin(turn) + c2 * Math.cos(turn);
+        }
+      },
+    });
+    setSceneFrame(app, 10);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'key' });
+    expect(services.toasts.at(-1)).toMatchObject({
+      kind: 'warning',
+      text: 'L Leg: IK bends the toes by 20° (foot roll); set Roll to 0 to keep the FK toes',
+    });
+    const before = services.toasts.length;
+    await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik', range: { start: 0, end: 4 }, step: 'frames' });
+    expect(services.toasts.length).toBe(before + 1);
+    expect(services.toasts.at(-1)?.text).toContain('IK bends the toes by 20°');
+    // Arms have no toes: no toes warning there.
+    await runOk(app, 'rig.ikFk.match', { limb: 'arm.L', side: 'ik' });
+    expect(services.toasts.length).toBe(before + 1);
+    expect(matchWarnings('leg.R', { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 5e-4 })).toEqual(
+      [],
+    );
+    expect(matchWarnings('leg.R', { endErrorM: 0, midErrorM: 0, hyperextensionRad: 0, toesErrorRad: 5 * DEG })).toEqual(
+      ['R Leg: IK bends the toes by 5.0° (foot roll); set Roll to 0 to keep the FK toes'],
+    );
+  });
+
   it('names a hyperextension with its angle; elbows bend "the normal way"; import rows of limbs kept FK', () => {
     expect(matchWarnings('leg.L', { endErrorM: 0, midErrorM: 0.012, hyperextensionRad: 5 * DEG })).toEqual([
       'L Leg: the knee is hyperextended by 5.0°; IK bends it forward, the knee moves 12 mm',
@@ -268,6 +396,37 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     expect(value).toEqual({ count: 4 * 3 * 4 });
     expect(keys(app, 'fk.upperLeg.L', 'rx').map((k) => k.t)).toEqual([2, 3, 4, 5]);
     expect(calls.filter((call) => call.startsWith('matchFkToIk'))).toHaveLength(4);
+  });
+
+  it('matchRange runs the Euler filter on the written rotation curves: no ±2π jump between frames', async () => {
+    const { app } = ikApp();
+    // The scripted matches turn fk.upperLeg.L about x through ±π: 3.0, 3.1, 3.2, … rad, each wrapped into (−π, π]
+    // (3.2 comes back as 3.2 − 2π), as a per-frame solve without continuity would return them.
+    const angles = [3.0, 3.1, 3.2, 3.3, 3.4, 3.5];
+    const wrap = (a: number) => (a > Math.PI ? a - 2 * Math.PI : a);
+    let call = 0;
+    const base = scriptedKit();
+    setLimbKit(app, {
+      ...base,
+      matchFkToIk(program, pose, limb, reference) {
+        const out = base.matchFkToIk?.(program, pose, limb, reference) ?? new Map();
+        out.set(cid('fk.upperLeg.L'), { rx: wrap(angles[call] ?? 0), ry: 0, rz: 0 });
+        call++;
+        return out;
+      },
+    });
+    await expectUndoRedoExact(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'fk', range: { start: 0, end: 5 } });
+    expect(call).toBe(angles.length);
+    const rx = keys(app, 'fk.upperLeg.L', 'rx');
+    expect(rx.map((k) => k.t)).toEqual([0, 1, 2, 3, 4, 5]);
+    // Before the filter the keys would jump by 2π − 0.1 between 1 and 2; after it they follow the turn.
+    rx.forEach((k, i) => expect(Math.abs(k.v - (angles[i] ?? 0)), `rx at ${k.t}`).toBeLessThan(1e-9));
+    for (let i = 1; i < rx.length; i++) {
+      expect(Math.abs((rx[i]?.v ?? 0) - (rx[i - 1]?.v ?? 0))).toBeLessThan(Math.PI);
+    }
+    // The other axes stay 0 and the other controls' curves are untouched by the filter.
+    expect(keys(app, 'fk.upperLeg.L', 'ry').every((k) => k.v === 0)).toBe(true);
+    expect(keys(app, 'fk.lowerLeg.L', 'rx').every((k) => k.v === 0.6)).toBe(true);
   });
 
   it("matchRange 'keys' (default for side 'ik') matches at the influence key times of the chain's tracks", async () => {
