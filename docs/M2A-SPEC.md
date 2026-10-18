@@ -1349,7 +1349,8 @@ silently doing nothing; `flip` keeps the selected scope.
   round 1, M2A-INT-24: a whole-character mirror of Polybot listed every one in a ~1,000-character toast).
 - `flip`: each pair swaps mirrored curves; side `C` controls get their own mirrored curves. `leftToRight` /
   `rightToLeft`: the target side's curves are replaced by the source side's mirrored curves; side `C` controls are
-  unchanged.
+  unchanged. A channel whose source has no curve loses its target curve (it reads the channel default, as the source
+  does), so `flip ∘ flip` is the identity on the curve set too (fix round 1, M2A-INT-25: v0.3 left key-less curves).
 - `offset: 'halfCycle'` (poll: `clip.loop`): with `s = start`, `e = end`, `T = e − s`, `m = s + T/2`. Moving keys
   one by one is exact only when every curve has keys at `s`, `m` and `e` and only for tangents that do not depend on
   neighbours, so the operator works on a **working copy** of each source curve (the source curves are not changed):

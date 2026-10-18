@@ -358,7 +358,7 @@ describe('pose.mirrorAnimation channel rule and scope (§5.14)', () => {
     curveWith(app, UPPER_R, 'rz', [
       [0, 1],
       [20, 2],
-    ]); // replaced by L's (no curve): the default, mirrored
+    ]); // replaced by L's (no curve): removed, so the channel reads its default
     select(app, [UPPER_L]);
     const { value } = await expectUndoRedoExact(app, 'pose.mirrorAnimation', { mode: 'leftToRight' });
     expect(value).toEqual({ count: 4 });
@@ -370,7 +370,8 @@ describe('pose.mirrorAnimation channel rule and scope (§5.14)', () => {
     ]);
     expect(contentOf(app, UPPER_R, 'ry')?.keys.map((k) => k.v)).toEqual([-0.2, -0.4]);
     expect(contentOf(app, UPPER_R, 'tx')?.keys.map((k) => k.v)).toEqual([-0.05, 0.05]);
-    expect(contentOf(app, UPPER_R, 'rz')).toMatchObject({ keys: [], staticValue: 0 });
+    // No source curve, no target curve (fix round 1, bug 7: it was left as an empty curve).
+    expect(contentOf(app, UPPER_R, 'rz')).toBeNull();
     // The source side is unchanged.
     expect(contentOf(app, UPPER_L, 'ry')?.keys.map((k) => k.v)).toEqual([0.2, 0.4]);
   });
@@ -400,14 +401,21 @@ describe('pose.mirrorAnimation channel rule and scope (§5.14)', () => {
     expect(contentOf(app, WAVE.cog, 'tx')?.keys.map((k) => k.v)).toEqual([-0.02, 0.03]);
     expect(contentOf(app, UPPER_L, 'rx')?.keys.map((k) => k.v)).toEqual([0.3, 0.1]);
     expect(contentOf(app, UPPER_R, 'ry')?.keys.map((k) => k.v)).toEqual([-0.2, 0.1, -0.4]);
+    // A side without a curve gives the other side none: no key-less curve is left behind (fix round 1, bug 7).
+    expect(contentOf(app, UPPER_L, 'ry')).toBeNull();
+    expect(contentOf(app, UPPER_R, 'rx')).toBeNull();
     await runOk(app, 'pose.mirrorAnimation', { mode: 'flip' });
-    const after = content().map((c) =>
-      c === null ? null : { ...c, staticValue: c.keys.length > 0 ? null : c.staticValue },
-    );
-    // Curves the first flip created hold the mirrored default as static value (0): equal to having none.
-    const normalized = (list: typeof before) =>
-      list.map((c) => (c === null || (c.keys.length === 0 && (c.staticValue ?? 0) === 0) ? null : c));
-    expect(normalized(after)).toEqual(normalized(before));
+    // flip ∘ flip = id: the same curves (channels) with the same content, exactly.
+    expect(content()).toEqual(before);
+    const channels = () =>
+      app.store.query
+        .curvesOfClip(WAVE.clip)
+        .map((curve) => `${curve.control}:${curve.channel}`)
+        .sort();
+    const set = channels();
+    await runOk(app, 'pose.mirrorAnimation', { mode: 'flip' });
+    await runOk(app, 'pose.mirrorAnimation', { mode: 'flip' });
+    expect(channels()).toEqual(set);
   });
 
   it('only centre controls selected: leftToRight acts on the whole character; flip keeps the scope', async () => {

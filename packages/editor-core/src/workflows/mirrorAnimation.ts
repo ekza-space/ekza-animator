@@ -25,6 +25,7 @@ import type {
   ClipRecord,
   ControlId,
   ControlRecord,
+  CurveId,
   CurveRecord,
   KeyRecord,
   ReadView,
@@ -87,6 +88,8 @@ interface ChannelContent {
   readonly post: CurveRecord['post'];
   /** `staticValue` of the curve, or the channel default when there is no curve. */
   readonly staticValue: number | null;
+  /** The source has no curve on the channel: the target's curve is removed (the channel reads its default). */
+  readonly absent: boolean;
 }
 
 function contentOf(
@@ -102,6 +105,7 @@ function contentOf(
       pre: 'constant',
       post: 'constant',
       staticValue: channelDefaultOf(control, channel),
+      absent: true,
     };
   }
   return {
@@ -110,6 +114,7 @@ function contentOf(
     pre: curve.pre,
     post: curve.post,
     staticValue: curve.staticValue,
+    absent: false,
   };
 }
 
@@ -374,6 +379,12 @@ export function halfCycleKeys(
 }
 
 /** Replaces a target channel's curve with mirrored content (new key IDs). */
+/** Removes every key of a curve, the hidden duplicates too. */
+function removeKeys(tx: Tx, curve: CurveId): void {
+  for (const key of tx.query.keysOfCurve(curve)) tx.remove('keys', key.id);
+  for (const key of tx.query.hiddenKeys(curve)) if (tx.get('keys', key.id) !== undefined) tx.remove('keys', key.id);
+}
+
 function writeChannel(
   app: EditorApp,
   tx: Tx,
@@ -384,10 +395,18 @@ function writeChannel(
   content: ChannelContent,
   sign: 1 | -1,
 ): boolean {
+  if (content.absent) {
+    // No source curve: no target curve either, so the target reads the channel default like the source (a key-less
+    // curve left behind made flip ∘ flip differ from the identity, fix round 1). The mirrored default is the default
+    // for every built-in channel (0 or 1; negating 0 gives 0).
+    if (existing === undefined) return false;
+    removeKeys(tx, existing.id);
+    tx.remove('curves', existing.id);
+    return true;
+  }
   if (existing === undefined && content.keys.length === 0 && content.staticValue === null) return false;
   const curveId = existing?.id ?? ensureCurve(app, tx, clip.id, target.id, channel);
-  for (const key of tx.query.keysOfCurve(curveId)) tx.remove('keys', key.id);
-  for (const key of tx.query.hiddenKeys(curveId)) if (tx.get('keys', key.id) !== undefined) tx.remove('keys', key.id);
+  removeKeys(tx, curveId);
   for (const data of content.keys) {
     const key: KeyRecord = {
       ...keyDataOf({
