@@ -263,29 +263,53 @@ describe('TimeSliderController: scrubbing', () => {
 });
 
 describe('TimeSliderController: RMB menu', () => {
+  const BAND_MENU = [
+    ['Delete Keys', 'graph.keys.delete'],
+    ['Copy Keys', 'graph.keys.copy'],
+    ['Paste Keys', 'graph.keys.paste'],
+    ['Auto', 'graph.tangent.set'],
+    ['Spline', 'graph.tangent.set'],
+    ['Clamped', 'graph.tangent.set'],
+    ['Linear', 'graph.tangent.set'],
+    ['Flat', 'graph.tangent.set'],
+    ['Stepped', 'graph.tangent.set'],
+    ['Select Band Keys in Graph Editor', 'time.selectBand'],
+  ];
+
   it('offers delete, copy, paste, tangent types and graph selection for the band', async () => {
     const { app, slider } = await setUp();
-    expect(slider.contextMenu(100, 20).map((item) => item.id)).toEqual(['timeline.context.paste']);
-
     await app.run('time.selectBand', { band: { start: 10, end: 20 } });
     const items = slider.contextMenu(100, 20);
-    expect(items.map((item) => [item.label, item.op])).toEqual([
-      ['Delete Keys', 'graph.keys.delete'],
-      ['Copy Keys', 'graph.keys.copy'],
-      ['Paste Keys', 'graph.keys.paste'],
-      ['Auto', 'graph.tangent.set'],
-      ['Spline', 'graph.tangent.set'],
-      ['Clamped', 'graph.tangent.set'],
-      ['Linear', 'graph.tangent.set'],
-      ['Flat', 'graph.tangent.set'],
-      ['Stepped', 'graph.tangent.set'],
-      ['Select Band Keys in Graph Editor', 'time.selectBand'],
-    ]);
+    expect(items.map((item) => [item.label, item.op])).toEqual(BAND_MENU);
     expect(items.filter((item) => item.op === 'graph.tangent.set').map((item) => item.args)).toEqual(
       ['auto', 'spline', 'clamped', 'linear', 'flat', 'step'].map((type) => ({ type })),
     );
     expect(items.at(-1)?.args).toEqual({ band: { start: 10, end: 20 }, mode: 'replace' });
     expect(items[0]).not.toHaveProperty('args');
+    await settle();
+    expect(app.session.getState().time.band).toEqual({ start: 10, end: 20 });
+  });
+
+  // Acceptance round 3: without a band the menu offered Paste only (Maya acts on the current frame).
+  it('without a band the menu selects the current frame as a 1-frame band and acts on its keys', async () => {
+    const { app, slider } = await setUp();
+    selectControls(app, [WAVE.lowerArmL]);
+    app.session.setState({ time: { ...app.session.getState().time, sceneFrame: 15 } });
+    const items = slider.contextMenu(100, 20);
+    expect(items.map((item) => [item.label, item.op])).toEqual(BAND_MENU);
+    expect(items.at(-1)?.args).toEqual({ band: { start: 15, end: 15 }, mode: 'replace' });
+    await settle();
+    expect(app.session.getState().time.band).toEqual({ start: 15, end: 15 });
+    expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
+    // The band now exists: opening the menu again keeps it.
+    expect(slider.contextMenu(100, 20)).toHaveLength(BAND_MENU.length);
+    expect(callsOf(app, 'time.selectBand')).toHaveLength(1);
+
+    // No active clip: no band to select, Paste only.
+    app.session.setState({ activeClip: {}, time: { ...app.session.getState().time, band: null } });
+    expect(slider.contextMenu(100, 20).map((item) => item.id)).toEqual(['timeline.context.paste']);
+    await settle();
+    expect(app.session.getState().time.band).toBeNull();
   });
 
   it('includes items other packages contribute to timeline.context, after the built-in groups', async () => {
@@ -298,12 +322,11 @@ describe('TimeSliderController: RMB menu', () => {
       kind: 'operator',
       def: { id: 'acme.bakeRange', label: 'Bake Range', category: 'acme', scope: 'timeline', apply: () => undefined },
     });
-    expect(slider.contextMenu(0, 0).map((item) => [item.id, item.label])).toEqual([
-      ['timeline.context.paste', 'Paste Keys'],
-      ['acme.bake', 'Bake Range'],
-    ]);
+    const ids = slider.contextMenu(0, 0).map((item) => [item.id, item.label]);
+    expect(ids.at(-1)).toEqual(['acme.bake', 'Bake Range']);
+    expect(ids.slice(0, -1).map(([, label]) => label)).toEqual(BAND_MENU.map(([label]) => label));
     dispose();
-    expect(slider.contextMenu(0, 0)).toHaveLength(1);
+    expect(slider.contextMenu(0, 0)).toHaveLength(BAND_MENU.length);
   });
 });
 

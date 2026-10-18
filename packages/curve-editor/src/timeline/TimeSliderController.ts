@@ -358,10 +358,22 @@ export class TimeSliderController {
 
   /**
    * RMB menu (§4.11.17) from the 'timeline.context' menu items, in group order (edit, tangent, select, then others).
-   * Items acting on the band's keys appear only while a band exists; `time.selectBand` gets the current band.
+   * Without a band the menu acts on the current frame, as in Maya (acceptance round 3): opening it selects the
+   * current frame as a 1-frame band (what Shift+click there does), so Delete, Copy and the tangent types act on the
+   * keys at the playhead. Items acting on the band's keys appear only while a band exists (no active clip: Paste
+   * only); `time.selectBand` gets the current band.
    */
   contextMenu(_x: number, _y: number): readonly TimelineMenuItem[] {
-    const band = this.app.session.getState().time.band;
+    let band = this.app.session.getState().time.band;
+    const ctx = activeTimelineContext(this.app);
+    if (band === null && ctx !== null && this.gesture === null) {
+      const frame = this.clampToSlider(
+        snapFrame(currentFrame(this.app, ctx), this.app.session.getState().time.snapToFrames),
+      );
+      band = makeBand(frame, frame);
+      this.selectBand(band);
+      this.invalidate(true);
+    }
     return this.app.menus
       .list()
       .filter((def) => def.menu === TIMELINE_CONTEXT_MENU && (band !== null || !BAND_OPS.has(def.op)))
