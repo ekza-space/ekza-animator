@@ -187,8 +187,8 @@ test('ws=<id> opens only registered, enabled workspaces (unknown ids keep Animat
   expect((await call(page, 'state')).workspace).toBe('animate');
 });
 
-test('the Model tab is present and ws=model opens it', async ({ page }) => {
-  test.fixme(true, 'B9 registers the Model workspace and the workspace tabs (READY.b9)');
+// Gate (M6A-SPEC §3 rule 4, §10.1): `test.fixme('b9…')` until B9 registers the Model workspace and the workspace tabs.
+test.fixme('b9: the Model tab is present and ws=model opens it', async ({ page }) => {
   await openModel(page);
   await expect(page.getByTestId('ws-tab-model')).toBeVisible();
   await expect(page.getByTestId('ws-tab-animate')).toBeVisible();
