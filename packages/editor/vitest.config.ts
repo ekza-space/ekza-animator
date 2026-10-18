@@ -21,6 +21,8 @@ export default defineConfig({
   test: {
     include: ['test/**/*.test.{ts,tsx}'],
     globals: true,
+    // property and browser tests take seconds on 2-core CI runners; the 5 s default is too tight there
+    testTimeout: 30_000,
     browser: {
       enabled: true,
       headless: true,
