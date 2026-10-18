@@ -499,13 +499,10 @@ describe('status line (§7)', () => {
   const item = (container: ParentNode, target: string) =>
     container.querySelector<HTMLButtonElement>(`[data-testid="status-keytarget-${target}"]`);
 
-  it('shows the key-target toggle, disabled while key.setTarget poll-fails, and the Tween bar slot', async () => {
+  it('shows the key-target toggle, enabled by the built-in key.setTarget (A2), and the Tween bar slot', async () => {
     const { shell } = createTestShell({ snapshot, skeleton });
     registerBuiltinOperators(shell.app);
-    expect(shell.app.operators.poll('key.setTarget', {}, { target: 'bodyPart' })).toEqual({
-      ok: false,
-      reason: 'not available yet',
-    });
+    expect(shell.app.operators.poll('key.setTarget', {}, { target: 'bodyPart' })).toBe(true);
     const view = await render(
       <ShellFrame shell={shell}>
         <StatusLine />
@@ -513,8 +510,8 @@ describe('status line (§7)', () => {
     );
     expect(item(view.container, 'selected')?.getAttribute('aria-checked')).toBe('true');
     expect(item(view.container, 'selected')?.disabled).toBe(false);
-    expect(item(view.container, 'bodyPart')?.disabled).toBe(true);
-    expect(item(view.container, 'character')?.disabled).toBe(true);
+    expect(item(view.container, 'bodyPart')?.disabled).toBe(false);
+    expect(item(view.container, 'character')?.disabled).toBe(false);
     expect(view.container.querySelector('[data-testid="status-tween-slot"]')).not.toBeNull();
     await view.unmount();
   });

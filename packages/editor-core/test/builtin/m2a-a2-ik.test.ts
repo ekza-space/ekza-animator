@@ -9,7 +9,7 @@ import type { ChannelBuffer, LimbId, PoseBuffers, RigProgram } from '@ekza-anima
 import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src/types';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
-import { type LimbKit, setLimbKit, watchFkOnlyRigs } from '../../src/workflows/ik';
+import { importLimbWarnings, type LimbKit, matchWarnings, setLimbKit, watchFkOnlyRigs } from '../../src/workflows/ik';
 import { cid, FOOT, ikApp, ikWaveDoc } from './ikFixture';
 import { DEG, expectUndoRedoExact, runOk, runResult, setSceneFrame, WAVE, waveDoc } from './support';
 
@@ -222,13 +222,35 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     await runOk(app, 'rig.ikFk.match', { limb: 'leg.L', side: 'ik' });
     const text = services.toasts.at(-1)?.text ?? '';
     expect(services.toasts.at(-1)?.kind).toBe('warning');
-    // The fixture's limbs have no chain nodes, so the hyperextension angle is not measured: a non-hinge message.
+    // The naive program runs no ik2 op: FK and the matched IK pose bend alike, so it is a non-hinge message.
     expect(text).toContain('L Leg: the knee is not a clean hinge; IK moves it 12 mm');
     expect(text).toContain('L Leg: IK misses the FK foot by 0.3 mm (soft IK)');
     const before = services.toasts.length;
     setLimbKit(app, scriptedKit({ midErrorM: 5e-4, endErrorM: 5e-5 }));
     await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'key' });
     expect(services.toasts.length).toBe(before);
+  });
+
+  it('names a hyperextension with its angle; elbows bend "the normal way"; import rows of limbs kept FK', () => {
+    expect(matchWarnings('leg.L', { endErrorM: 0, midErrorM: 0.012, hyperextensionRad: 5 * DEG })).toEqual([
+      'L Leg: the knee is hyperextended by 5.0°; IK bends it forward, the knee moves 12 mm',
+    ]);
+    expect(matchWarnings('arm.R', { endErrorM: 2e-4, midErrorM: 0.0034, hyperextensionRad: 12 * DEG })).toEqual([
+      'R Arm: the elbow is hyperextended by 12°; IK bends it the normal way, the elbow moves 3.4 mm',
+      'R Arm: IK misses the FK hand by 0.2 mm (soft IK)',
+    ]);
+    expect(matchWarnings('leg.R', { endErrorM: 1e-4, midErrorM: 1e-3, hyperextensionRad: 0 })).toEqual([]);
+    const rows = [
+      { limb: 'leg.L' as const, mode: 'ik' as const, maxRotationErrorRad: 0.001, maxMidErrorM: 0 },
+      { limb: 'leg.R' as const, mode: 'fk' as const, maxRotationErrorRad: 6.3 * DEG, maxMidErrorM: 0.004 },
+    ];
+    expect(importLimbWarnings('Walk_Loop', { warnings: [], limbs: rows })).toEqual([
+      "R Leg kept FK in 'Walk_Loop': the knee is not a clean hinge (max 6.3°, 4.0 mm). Rig › IK/FK › Match Range to " +
+        'IK converts it if you accept the difference.',
+    ]);
+    // A row the rig already reported is not repeated.
+    expect(importLimbWarnings('Walk_Loop', { warnings: ['R Leg kept FK in Walk_Loop'], limbs: rows })).toEqual([]);
+    expect(importLimbWarnings('x', { warnings: [] })).toEqual([]);
   });
 
   it("matchRange 'frames' keys the side controls at every integer frame of the range, one step", async () => {
@@ -247,19 +269,26 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
     expect(calls.filter((call) => call.startsWith('matchFkToIk'))).toHaveLength(4);
   });
 
-  it("matchRange 'keys' (default for side 'ik') matches at the limb's influence key times", async () => {
+  it("matchRange 'keys' (default for side 'ik') matches at the influence key times of the chain's tracks", async () => {
     const { app } = ikApp();
+    const leg = app.characters.get(WAVE.character)?.program.limbs.find((limb) => limb.id === 'leg.L');
+    const mid = leg?.nodes.mid ?? -1;
+    expect(mid).toBeGreaterThanOrEqual(0);
     setLimbKit(app, {
       ...scriptedKit(),
-      computeInfluenceKeyTimes: () =>
-        new Map([
-          ['-1/rotation', [1, 2]],
-          ['3/rotation', [0, 7, 40]],
-        ]) as never,
+      computeInfluenceKeyTimes: (_program, _sampler, range) => {
+        expect(range).toEqual({ start: 0, end: 30 });
+        return new Map([
+          [`${mid}/rotation`, [0, 7, 40]],
+          ['9999/rotation', [3]],
+        ]) as never;
+      },
     });
-    // The fixture limbs have no chain nodes, so no track names them: nothing to match.
-    expect(await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik' })).toEqual({ count: 0 });
-    expect(app.history.canUndo()).toBe(false);
+    // Frames 0 and 7 (40 is outside the clip range; node 9999 is not on the chain): the IK control (6 TRS + twist)
+    // and the pole (3) per frame.
+    expect(await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik' })).toEqual({ count: 2 * 10 });
+    expect(keys(app, 'ik.leg.L', 'tx').map((k) => k.t)).toEqual([0, 7]);
+    expect(app.history.peekUndo()?.label).toBe('Match Range L Leg to IK');
     expect(
       (await runResult(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik', range: { start: 5, end: 1 } })).status,
     ).toBe('cancelled');
@@ -361,7 +390,12 @@ describe('rig.setFootParams (§5.2.3)', () => {
     await expectUndoRedoExact(app, 'rig.setFootParams', { limb: 'leg.L', params: { heelBack: 0.08, breakAngle: 0.4 } });
     expect(app.history.peekUndo()?.label).toBe('Edit Foot Pivots');
     const solver = app.store.list('solvers').find((s) => (s.params as { limb: string }).limb === 'leg.L');
-    expect((solver?.params as { foot: unknown } | undefined)?.foot).toEqual({ ...FOOT, side: 1, heelBack: 0.08, breakAngle: 0.4 });
+    expect((solver?.params as { foot: unknown } | undefined)?.foot).toEqual({
+      ...FOOT,
+      side: 1,
+      heelBack: 0.08,
+      breakAngle: 0.4,
+    });
     const control = app.store.get('controls', cid('ik.leg.L'));
     expect(control?.shape.kind).toBe('custom');
     expect(control?.shape.custom?.splines[0]?.points).toEqual([

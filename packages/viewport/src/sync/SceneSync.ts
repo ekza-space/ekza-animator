@@ -2,12 +2,19 @@
 // evaluated poses, imperatively and without per-frame allocation. Per evaluated frame, in this order:
 //   kernel bone locals → one updateMatrixWorld → VRMC_node_constraint update → constraint destination subtrees →
 //   spring bones (preview, only while enabled and playing) → control and skeleton lines.
+// M2a (M2A-SPEC §5.5, A2): control visibility is `controlVisibility` (rules 1–3, recomputed per evaluated pose and
+// on selection, hidden-control and preference changes); limbs' poles get their annotation lines.
 import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
 import type { CharacterId, CharacterRecord, ControlId, ControlRecord } from '@ekza-animator/doc';
-import type { CharacterRuntime, EditorApp } from '@ekza-animator/editor-core';
+import {
+  type CharacterRuntime,
+  type ControlVisibility,
+  controlVisibilityResolver,
+  type EditorApp,
+} from '@ekza-animator/editor-core';
 import type { LoadedModel } from '@ekza-animator/io/three';
 import { Group, type Material, type Mesh, type Object3D, type Scene } from 'three';
-import type { ControlLayer } from '../controls/ControlLayer';
+import type { ControlLayer, PoleLink } from '../controls/ControlLayer';
 import { LAYER } from '../layers';
 import type { SkeletonLayer } from '../overlays/skeleton';
 import { type MeshPickTarget, nodeIndexOf } from '../picking/meshPicker';
@@ -58,6 +65,8 @@ export class SceneSync {
   private xray = false;
   private structureDirty = true;
   private placementDirty = true;
+  /** Visibility inputs changed (selection, hidden controls, preferences) since the last `update()`. */
+  private visibilityDirty = false;
   private lastSpringTime = -1;
   private stamp = 0;
 
@@ -87,9 +96,17 @@ export class SceneSync {
         if (touched || this.placementDirty) this.opts.onChange();
       }),
       app.session.subscribe((state, previous) => {
-        if (state.hiddenControls !== previous.hiddenControls || state.showSecondary !== previous.showSecondary) {
-          if (this.opts.controls.updateVisibility((id) => this.isControlVisible(id))) this.opts.onChange();
+        if (
+          state.hiddenControls !== previous.hiddenControls ||
+          state.showSecondary !== previous.showSecondary ||
+          state.selection.controls !== previous.selection.controls
+        ) {
+          // Rule 3: a selected control the IK/FK rule hides is a ghost (overrides re-evaluate the pose first).
+          if (this.refreshVisibility()) this.opts.onChange();
         }
+      }),
+      app.prefs.subscribe((prefs, previous) => {
+        if (prefs.ikFkVisibility !== previous.ikFkVisibility && this.refreshVisibility()) this.opts.onChange();
       }),
     );
     for (const runtime of app.characters.list()) this.syncSlot(runtime.id);
@@ -175,13 +192,23 @@ export class SceneSync {
       for (const slot of this.slots.values()) slot.model?.springBones?.reset();
     }
 
+    let posed = false;
     for (const slot of this.slots.values()) {
       if (!slot.poseDirty) continue;
       slot.poseDirty = false;
       this.opts.controls.updatePose(slot.id, slot.placement, slot.runtime.pose.controlWorld);
+      this.opts.controls.updatePoles(
+        slot.id,
+        slot.placement,
+        slot.runtime.pose.boneWorld,
+        slot.runtime.pose.controlWorld,
+      );
       this.opts.skeleton.updatePose(slot.id, slot.placement, slot.runtime.pose.boneWorld);
       changed = true;
+      posed = true;
     }
+    // §5.5 rule 5: visibility per evaluated pose (an animated ikFk switches the visible set).
+    if ((posed || this.visibilityDirty) && this.refreshVisibility()) changed = true;
     if (changed || anyPose) this.stamp++;
     return changed;
   }
@@ -219,10 +246,22 @@ export class SceneSync {
     this.opts.onChange();
   }
 
+  /** §5.5: visible (drawn and pickable); a ghost or hidden control is not. */
   isControlVisible(id: ControlId): boolean {
-    const record = this.opts.app.store.get('controls', id);
-    if (record === undefined) return false;
-    return controlVisible(record, this.opts.app.session.getState());
+    return this.visibilityOf(id) === 'visible';
+  }
+
+  /** The §5.5 visibility of a control (`controlVisibility`, rules 1–3). */
+  visibilityOf(id: ControlId): ControlVisibility {
+    if (this.opts.app.store.get('controls', id) === undefined) return 'hidden';
+    return controlVisibilityResolver(this.opts.app)(id);
+  }
+
+  /** Re-applies the visibility rule to every control; true when anything visible changed. */
+  private refreshVisibility(): boolean {
+    this.visibilityDirty = false;
+    const resolve = controlVisibilityResolver(this.opts.app);
+    return this.opts.controls.updateVisibility(resolve);
   }
 
   dispose(): void {
@@ -290,7 +329,17 @@ export class SceneSync {
     const records: ControlRecord[] = slot.runtime.program.controls.map(
       (record) => app.store.get('controls', record.id) ?? record,
     );
-    this.opts.controls.setCharacter(slot.id, records, (record) => controlVisible(record, session));
+    const resolve = controlVisibilityResolver(app);
+    const poles: PoleLink[] = slot.runtime.program.limbs.map((limb) => ({
+      pole: limb.params.pole,
+      midNode: limb.nodes.mid,
+    }));
+    this.opts.controls.setCharacter(
+      slot.id,
+      records,
+      (record) => (controlVisible(record, session) ? resolve(record.id) : 'hidden'),
+      poles,
+    );
     this.opts.skeleton.setCharacter(slot.id, slot.runtime.skeleton);
     slot.builtFrom = slot.runtime.program;
     slot.poseDirty = true;
