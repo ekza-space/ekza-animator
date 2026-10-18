@@ -29,6 +29,7 @@ import { attrChannelsOf, isKeyable, isLocked } from '../edit/channelMeta';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';
 import { internalsOf } from '../app/internals';
 import type { ChannelEdit, CharacterRuntime, EditorApp, IkFkKeyMode } from '../types';
+import { limbVisibilityState } from './visibility';
 
 /** Display names of the limbs ('L Leg'), used in labels, warnings and menus. */
 export const LIMB_NAME: Readonly<Record<LimbId, string>> = {
@@ -188,6 +189,18 @@ export function limbContext(app: EditorApp, limb: LimbId, character?: CharacterI
   if (clip === undefined) return 'The character has no active clip';
   const frame = clipFrameAt(internalsOf(app).deps, sceneFpsOf(app.store), clip, app.session.getState().time.sceneFrame);
   return { character: id, runtime, program: runtime.program, limb: desc, clip, frame };
+}
+
+/**
+ * Why a switch of the limb to `to` does not apply: the limb is in that mode already at the current frame (§5.5
+ * rule 2's thresholds, the ones the Attributes segments and the viewport use: IK at `ikFk ≥ 0.999`, FK at
+ * `≤ 0.001`). Such a switch would match the visible side to the hidden one and move the pose at f, which §5.6 keeps
+ * unchanged. Null when the switch applies (the other mode, or a blend between).
+ */
+export function switchAlreadyReason(app: EditorApp, ctx: LimbContext, to: 'ik' | 'fk'): string | null {
+  const state = limbVisibilityState(app.evaluation.ikFk(ctx.character, ctx.limb.id) ?? 0);
+  if (state !== (to === 'ik' ? 2 : 0)) return null;
+  return `${LIMB_NAME[ctx.limb.id] ?? ctx.limb.id} is ${to === 'ik' ? 'IK' : 'FK'} already`;
 }
 
 // ---------- matching ----------

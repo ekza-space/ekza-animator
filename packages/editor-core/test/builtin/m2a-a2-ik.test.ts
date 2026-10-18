@@ -12,7 +12,7 @@ import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import { importLimbWarnings, type LimbKit, matchWarnings, setLimbKit, watchFkOnlyRigs } from '../../src/workflows/ik';
 import { READY } from '../ready';
 import { cid, FOOT, ikApp, ikWaveDoc } from './ikFixture';
-import { DEG, expectUndoRedoExact, runOk, runResult, setSceneFrame, WAVE, waveDoc } from './support';
+import { DEG, docJson, expectUndoRedoExact, runOk, runResult, setSceneFrame, WAVE, waveDoc } from './support';
 
 /** Keys of a control channel in the wave clip, as { t, v, outType }. */
 function keys(app: EditorApp, key: string, channel: ChannelId) {
@@ -105,6 +105,59 @@ describe('rig.ikFk.switch key policies (§5.6)', () => {
     expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(0);
     setSceneFrame(app, 9);
     expect(app.evaluation.ikFk(WAVE.character, 'leg.L')).toBe(1);
+  });
+
+  it('seamless on a loop clip: the curves it starts get constant infinities, so the new mode holds after f', async () => {
+    const { app } = ikApp();
+    setLimbKit(app, scriptedKit());
+    expect(app.store.get('clips', WAVE.clip)?.loop).toBe(true);
+    // A curve the user keyed keeps its infinities (a cycle over 0…30 here).
+    setSceneFrame(app, 0);
+    await runOk(app, 'channel.setValues', {
+      edits: [{ control: cid('fk.lowerLeg.L'), channel: 'rx', value: 0.2 }],
+      key: 'force',
+    });
+    setSceneFrame(app, 30);
+    await runOk(app, 'channel.setValues', {
+      edits: [{ control: cid('fk.lowerLeg.L'), channel: 'rx', value: 0.2 }],
+      key: 'force',
+    });
+    const curve = (key: string, channel: ChannelId) =>
+      app.store.query.curveFor(WAVE.clip, WAVE.layer, cid(key), channel);
+    expect(curve('fk.lowerLeg.L', 'rx')).toMatchObject({ pre: 'cycle', post: 'cycle' });
+    setSceneFrame(app, 10);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+    for (const [key, channel] of [
+      ['ik.leg.L', '@ikFk'],
+      ['fk.upperLeg.L', 'rx'],
+      ['fk.foot.L', 'rx'],
+      ['fk.toes.L', 'ry'],
+    ] as const) {
+      expect([key, channel, curve(key, channel)]).toMatchObject([key, channel, { pre: 'constant', post: 'constant' }]);
+    }
+    expect(curve('fk.lowerLeg.L', 'rx')).toMatchObject({ pre: 'cycle', post: 'cycle' });
+    // IK up to 9, FK from 10 to the clip's end (a cycle over 9…10 would read IK again on 11, 12, …).
+    for (const [frame, w, upper] of [
+      [0, 1, 0],
+      [9, 1, 0],
+      [10, 0, 0.3],
+      [11, 0, 0.3],
+      [15, 0, 0.3],
+      [30, 0, 0.3],
+    ] as const) {
+      setSceneFrame(app, frame);
+      expect([frame, app.evaluation.ikFk(WAVE.character, 'leg.L')]).toEqual([frame, w]);
+      expect([frame, app.evaluation.channelValues(cid('fk.upperLeg.L')).rx]).toEqual([frame, upper]);
+    }
+    // 'key' writes one key per curve (a single key is constant under any infinity): §5.23's cycle stays.
+    const { app: keyed } = ikApp();
+    setLimbKit(keyed, scriptedKit());
+    setSceneFrame(keyed, 10);
+    await runOk(keyed, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'key' });
+    expect(keyed.store.query.curveFor(WAVE.clip, WAVE.layer, cid('ik.leg.L'), '@ikFk')).toMatchObject({
+      pre: 'cycle',
+      post: 'cycle',
+    });
   });
 
   it("then FK → IK at 15 with 'key' adds {15: 1 step} and keys the IK control and pole", async () => {
@@ -283,6 +336,79 @@ describe('rig.ikFk.switch key policies (§5.6)', () => {
     expect(await reason({ limb: 'arm.R', to: 'ik' })).toBe('The character has no R Arm IK (Rig › Add Limb IK)');
     expect(await reason({ limb: 'leg.L', to: 'fk', character: 'chr_nope' })).toBe('The character is still loading');
   });
+
+  it('a switch to the mode the limb is in is refused: no match, document, pose and history unchanged', async () => {
+    const { app, services } = ikApp();
+    const calls: string[] = [];
+    setLimbKit(app, scriptedKit({ calls }));
+    setSceneFrame(app, 10);
+    // An unkeyed IK leg posed by an override (the visible side), as a user leaves it before keying.
+    app.session.setState({ overrides: new Map([[cid('ik.leg.L'), { ty: 0.2 }]]) });
+    const before = { doc: docJson(app), overrides: app.session.getState().overrides, undo: app.history.peekUndo() };
+    const expectUnchanged = () => {
+      expect(calls).toEqual([]);
+      expect(docJson(app)).toEqual(before.doc);
+      expect(app.session.getState().overrides).toBe(before.overrides);
+      expect(app.history.peekUndo()).toBe(before.undo);
+      expect(app.evaluation.channelValues(cid('ik.leg.L')).ty).toBe(0.2);
+      expect(services.toasts).toEqual([]);
+    };
+    for (const key of ['none', 'key', 'seamless', undefined] as const) {
+      for (const match of [true, false]) {
+        const result = await runResult(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', match, key });
+        expect(result).toEqual({ status: 'cancelled', reason: 'L Leg is IK already' });
+      }
+    }
+    // The menu item reads the same poll (Rig › IK/FK › Switch L Leg to IK is disabled with the reason).
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to: 'ik' })).toEqual({
+      ok: false,
+      reason: 'L Leg is IK already',
+    });
+    expectUnchanged();
+    // FK → FK likewise (the arms start FK); the other direction still polls.
+    expect(await runResult(app, 'rig.ikFk.switch', { limb: 'arm.R', to: 'fk' })).toEqual({
+      status: 'cancelled',
+      reason: 'R Arm is FK already',
+    });
+    expectUnchanged();
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to: 'fk' })).toBe(true);
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'arm.R', to: 'ik' })).toBe(true);
+  });
+
+  it('the mode follows §5.5 rule 2 at the current frame: IK at ≥ 0.999, FK at ≤ 0.001, a blend switches both ways', async () => {
+    const { app } = ikApp();
+    setLimbKit(app, scriptedKit());
+    const ik = cid('ik.leg.L');
+    const polls = (value: number) => {
+      app.session.setState({ overrides: new Map([[ik, { '@ikFk': value }]]) });
+      return (['ik', 'fk'] as const).map((to) => {
+        const result = app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to });
+        return result === true ? true : result.reason;
+      });
+    };
+    expect(polls(1)).toEqual(['L Leg is IK already', true]);
+    expect(polls(0.9995)).toEqual(['L Leg is IK already', true]);
+    expect(polls(0.99)).toEqual([true, true]);
+    expect(polls(0.5)).toEqual([true, true]);
+    expect(polls(0.01)).toEqual([true, true]);
+    expect(polls(0.0005)).toEqual([true, 'L Leg is FK already']);
+    expect(polls(0)).toEqual([true, 'L Leg is FK already']);
+    // Out-of-range values clamp like the evaluation (§4.3).
+    expect(polls(1.5)).toEqual(['L Leg is IK already', true]);
+    expect(polls(-1)).toEqual([true, 'L Leg is FK already']);
+    // An animated mode: keyed FK at 10 (stepped from IK before), so the same limb switches to IK at 10 only.
+    app.session.setState({ overrides: new Map() });
+    setSceneFrame(app, 10);
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'seamless' });
+    setSceneFrame(app, 9);
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to: 'fk' })).toBe(true);
+    setSceneFrame(app, 10);
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to: 'ik' })).toBe(true);
+    expect(app.operators.poll('rig.ikFk.switch', {}, { limb: 'leg.L', to: 'fk' })).toEqual({
+      ok: false,
+      reason: 'L Leg is FK already',
+    });
+  });
 });
 
 describe('rig.ikFk.match and matchRange (§5.6)', () => {
@@ -304,7 +430,8 @@ describe('rig.ikFk.match and matchRange (§5.6)', () => {
   });
 
   it('warns when the mid joint moves (> 1 mm) or the end misses (> 0.1 mm)', async () => {
-    const { app, services } = ikApp();
+    // An FK leg (a switch to IK applies; on an IK leg it is refused as "IK already").
+    const { app, services } = ikApp({ snapshot: ikWaveDoc({ ikFkDefault: 0 }) });
     setLimbKit(app, scriptedKit({ midErrorM: 0.012, endErrorM: 3e-4 }));
     await runOk(app, 'rig.ikFk.match', { limb: 'leg.L', side: 'ik' });
     const text = services.toasts.at(-1)?.text ?? '';

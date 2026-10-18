@@ -3,7 +3,7 @@
 // "Add Limb IK" on rigs without limb IK.
 import { DEG2RAD } from '@ekza-animator/anim-core';
 import { type EditorApp, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import { createFakeIkEditorApp, type FakeServices, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AttributesPanel } from '../../src/panels/attributes/AttributesPanel';
@@ -67,6 +67,42 @@ describe('Attributes: Limb section (§5.6)', () => {
     expect(argsOf(runs, 'rig.ikFk.switch').at(-1)).toEqual({ limb: 'arm.R', to: 'ik', match: true });
     await select(a, [control('fk.hips')]);
     expect(maybe('attr-section-limb')).toBeNull();
+    await view.unmount();
+  });
+
+  it('the pressed segment is the limb mode: its click runs nothing and changes nothing; a blend switches both ways', async () => {
+    const { app: a, runs } = app();
+    const view = await panel(a);
+    await select(a, [control('fk.upperLeg.L')]);
+    const before = {
+      doc: JSON.stringify(a.store.snapshot()),
+      session: a.session.getState(),
+      undo: a.history.peekUndo(),
+    };
+    const toasts = (a.services as FakeServices).toasts;
+    await user.click(by('attr-limb-mode-ik-leg.L'));
+    // The FK limb's pressed FK segment likewise.
+    await select(a, [control('ik.arm.R')]);
+    expect(by('attr-limb-mode-fk-arm.R').getAttribute('aria-pressed')).toBe('true');
+    await user.click(by('attr-limb-mode-fk-arm.R'));
+    expect(argsOf(runs, 'rig.ikFk.switch')).toEqual([]);
+    expect(JSON.stringify(a.store.snapshot())).toBe(before.doc);
+    expect(a.session.getState().overrides).toBe(before.session.overrides);
+    expect(a.history.peekUndo()).toBe(before.undo);
+    expect(toasts).toEqual([]);
+    expect(by('attr-limb-arm.R').dataset.mode).toBe('fk');
+    // At ikFk 0.5 neither segment is pressed and both switch.
+    await act(async () => {
+      a.session.setState({ overrides: new Map([[control('ik.arm.R'), { '@ikFk': 0.5 }]]) });
+    });
+    await nextFrame();
+    expect(by('attr-limb-arm.R').dataset.mode).toBe('blend');
+    await user.click(by('attr-limb-mode-fk-arm.R'));
+    await user.click(by('attr-limb-mode-ik-arm.R'));
+    expect(argsOf(runs, 'rig.ikFk.switch')).toEqual([
+      { limb: 'arm.R', to: 'fk', match: true },
+      { limb: 'arm.R', to: 'ik', match: true },
+    ]);
     await view.unmount();
   });
 

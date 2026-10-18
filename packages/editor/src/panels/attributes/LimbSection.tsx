@@ -163,7 +163,9 @@ function LimbFields(props: { readonly app: EditorApp; readonly limb: LimbDesc })
         mode === to ? `${name} is ${to.toUpperCase()}` : `Switch ${name} to ${to.toUpperCase()} (matches the pose)`
       }
       data-testid={`attr-limb-mode-${to}-${limb.id}`}
-      onClick={() => switchTo(to)}
+      // The pressed segment is the limb's mode: a switch to it would re-match the visible side and move the pose
+      // (§5.6), so its click does nothing (`rig.ikFk.switch` refuses it too).
+      onClick={mode === to ? undefined : () => switchTo(to)}
     >
       {to.toUpperCase()}
     </button>

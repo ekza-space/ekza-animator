@@ -2,7 +2,7 @@
 // rig, switch a limb between IK and FK with the key policies, match one side to the other at the current frame or
 // over a range, and edit a leg's foot-roll pivots. Each undoable operator is one transaction and one history step.
 import { EkzaError, eulerFilterCurves, type Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ControlId, SolverId, Tx } from '@ekza-animator/doc';
+import type { ChannelId, ChannelValues, CharacterId, ControlId, CurveId, SolverId, Tx } from '@ekza-animator/doc';
 import {
   type FootRollParams,
   type Ik2Params,
@@ -30,6 +30,7 @@ import {
   matchWarnings,
   type MatchResult,
   resolveSwitchKey,
+  switchAlreadyReason,
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
@@ -47,8 +48,16 @@ const SAME_FRAME = 1e-6;
 const isLimb = (value: unknown): value is LimbId =>
   typeof value === 'string' && (LIMB_ORDER as readonly string[]).includes(value);
 
-/** Common poll of the limb operators: arguments, an editable document with an active clip, the limb's context. */
-function pollLimb(app: EditorApp, args: unknown, extra?: (args: Readonly<Record<string, unknown>>) => string | null) {
+/**
+ * Common poll of the limb operators: arguments, an editable document with an active clip, the limb's context, then
+ * the operator's own check of that context (`inContext`).
+ */
+function pollLimb(
+  app: EditorApp,
+  args: unknown,
+  extra?: (args: Readonly<Record<string, unknown>>) => string | null,
+  inContext?: (ctx: LimbContext, args: Readonly<Record<string, unknown>>) => string | null,
+) {
   if (!isRecord(args) || !isLimb(args['limb'])) return fail(`expects { limb: ${LIMB_ORDER.join(' | ')}, … }`);
   const character = args['character'];
   if (character !== undefined && typeof character !== 'string') return fail('character must be a character id');
@@ -57,7 +66,9 @@ function pollLimb(app: EditorApp, args: unknown, extra?: (args: Readonly<Record<
   const base = pollClipEdit(app);
   if (base !== true) return base;
   const ctx = limbContext(app, args['limb'], character as CharacterId | undefined);
-  return typeof ctx === 'string' ? fail(ctx) : OK;
+  if (typeof ctx === 'string') return fail(ctx);
+  const refused = inContext?.(ctx, args) ?? null;
+  return refused === null ? OK : fail(refused);
 }
 
 function requireContext(app: EditorApp, limb: LimbId, character: CharacterId | undefined): LimbContext {
@@ -103,16 +114,41 @@ function ikFkCurveValue(app: EditorApp, ctx: LimbContext, frame: Frame): number 
  * gets a key at f − 1 holding its curve value there, unless a key exists at f − 1. The new key keeps the curve's
  * shape (`insertKeyOnCurve`, so no other frame moves) and steps out like the `@ikFk` key. Without it the key at f
  * would reach back to f − 1: `fk.toes` drives the toes under IK too (the ik2 toes rule), and an `@ikFk` between 0
- * and 1 at f − 1 reads the whole FK chain. Locked curves are left alone (the switch skips them too).
+ * and 1 at f − 1 reads the whole FK chain. Locked curves are left alone (the switch skips them too). Curves that had
+ * no keys go to `firstKeys` (see `holdAfterSwitch`).
  */
-function holdBeforeSwitch(app: EditorApp, tx: Tx, ctx: LimbContext, edits: readonly ChannelEdit[]): void {
+function holdBeforeSwitch(
+  app: EditorApp,
+  tx: Tx,
+  ctx: LimbContext,
+  edits: readonly ChannelEdit[],
+  firstKeys: CurveId[],
+): void {
   const at = ctx.frame - 1;
   for (const edit of edits) {
     const curve = ensureCurve(app, tx, ctx.clip.id, edit.control, edit.channel);
     if (tx.get('curves', curve)?.locked === true) continue;
-    if (tx.query.keysOfCurve(curve).some((key) => Math.abs(key.t - at) < SAME_FRAME)) continue;
+    const keys = tx.query.keysOfCurve(curve);
+    if (keys.length === 0) firstKeys.push(curve);
+    if (keys.some((key) => Math.abs(key.t - at) < SAME_FRAME)) continue;
     insertKeyOnCurve(app, tx, curve, at);
     stepKeyAt(tx, curve, at);
+  }
+}
+
+/**
+ * 'seamless' on curves that had no keys before the switch (`firstKeys`): their two keys at f − 1 and f are a step in
+ * time, so they get `constant` infinities. On a loop clip a new curve cycles (§5.23), and a cycle over the one-frame
+ * span f − 1…f would flip the limb back to the old mode on every integer frame after f (and repeat the hold value of
+ * the matched channels there). Curves that had keys keep their infinities (the user's).
+ */
+function holdAfterSwitch(tx: Tx, firstKeys: readonly CurveId[]): void {
+  for (const id of firstKeys) {
+    const curve = tx.get('curves', id);
+    if (curve === undefined || curve.locked || tx.query.keysOfCurve(id).length === 0) continue;
+    if (curve.pre !== 'constant' || curve.post !== 'constant') {
+      tx.patch('curves', id, { pre: 'constant', post: 'constant' });
+    }
   }
 }
 
@@ -120,7 +156,8 @@ function holdBeforeSwitch(app: EditorApp, tx: Tx, ctx: LimbContext, edits: reado
  * Writes a switch or match (§5.6) at the current frame: the matched channels and, for a switch, the new `@ikFk`
  * value, with the key policy: 'none' through `applyChannelEdits(key: 'auto')` (changed channels only); 'key' forces
  * keys at f on the matched channels and on `@ikFk` (step); 'seamless' also keys `@ikFk` at f − 1 with its value
- * before the switch and holds the matched channels at f − 1 (`holdBeforeSwitch`), unless keys exist there.
+ * before the switch and holds the matched channels at f − 1 (`holdBeforeSwitch`), unless keys exist there, and
+ * gives the curves it put their first keys on `constant` infinities (`holdAfterSwitch`).
  */
 function writeSwitch(
   app: EditorApp,
@@ -134,13 +171,15 @@ function writeSwitch(
   const ikControl = ctx.limb.params.ikControl;
   // The value before the switch at f − 1 is read before anything is written.
   const before = mode === 'seamless' && ikFk !== null ? ikFkCurveValue(app, ctx, ctx.frame - 1) : null;
+  /** 'seamless': the curves this switch puts their first keys on (`holdAfterSwitch`). */
+  const firstKeys: CurveId[] = [];
   if (matched !== null) {
     if (mode === 'none') {
       const { edits } = editsFromValues(app, matched);
       if (edits.length > 0) results.push(applyChannelEdits(app, tx, edits, { key: 'auto' }));
     } else {
       const edits = matchEdits(app, matched);
-      if (mode === 'seamless') holdBeforeSwitch(app, tx, ctx, edits);
+      if (mode === 'seamless') holdBeforeSwitch(app, tx, ctx, edits, firstKeys);
       if (edits.length > 0) results.push(applyChannelEdits(app, tx, edits, { key: 'force' }));
     }
   }
@@ -151,8 +190,9 @@ function writeSwitch(
         results.push(applyChannelEdits(app, tx, [edit], { key: 'auto' }));
       }
     } else {
-      results.push(applyChannelEdits(app, tx, [edit], { key: 'force' }));
       const curve = ensureCurve(app, tx, ctx.clip.id, ikControl, '@ikFk');
+      if (before !== null && tx.query.keysOfCurve(curve).length === 0) firstKeys.push(curve);
+      results.push(applyChannelEdits(app, tx, [edit], { key: 'force' }));
       stepKeyAt(tx, curve, ctx.frame);
       if (before !== null) {
         const at = ctx.frame - 1;
@@ -165,6 +205,7 @@ function writeSwitch(
       }
     }
   }
+  if (mode === 'seamless') holdAfterSwitch(tx, firstKeys);
   return results.length === 0 ? NO_EDITS : mergeResults(results);
 }
 
@@ -245,14 +286,21 @@ const switchLimb = defineOperator({
   flags: { undo: true },
   undoLabel: (args) => `Switch ${LIMB_NAME[args.limb] ?? 'Limb'} to ${args.to === 'ik' ? 'IK' : 'FK'}`,
   poll({ app }, args) {
-    return pollLimb(app, args, (options) => {
-      if (options['to'] !== 'ik' && options['to'] !== 'fk') return "to must be 'ik' or 'fk'";
-      if (options['match'] !== undefined && typeof options['match'] !== 'boolean') return 'match must be a boolean';
-      if (options['key'] !== undefined && !KEY_MODES.includes(options['key'] as IkFkKeyMode)) {
-        return `key must be ${KEY_MODES.join(', ')}`;
-      }
-      return null;
-    });
+    return pollLimb(
+      app,
+      args,
+      (options) => {
+        if (options['to'] !== 'ik' && options['to'] !== 'fk') return "to must be 'ik' or 'fk'";
+        if (options['match'] !== undefined && typeof options['match'] !== 'boolean') return 'match must be a boolean';
+        if (options['key'] !== undefined && !KEY_MODES.includes(options['key'] as IkFkKeyMode)) {
+          return `key must be ${KEY_MODES.join(', ')}`;
+        }
+        return null;
+      },
+      // A switch to the limb's current mode would re-match the visible side to the hidden one (§5.6: the pose at f
+      // is unchanged), so it is refused: "L Leg is IK already" on the menu item, the Attributes segment does nothing.
+      (ctx, options) => switchAlreadyReason(app, ctx, options['to'] as 'ik' | 'fk'),
+    );
   },
   apply({ app, tx }, args) {
     if (tx === null) throw new EkzaError('internal', 'rig.ikFk.switch runs in a transaction');
