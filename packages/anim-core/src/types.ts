@@ -96,6 +96,12 @@ export interface ReduceOptions {
   readonly tolerance: number;
   /** Frames that must keep a key (step discontinuities, contact frames). First and last keys are always kept. */
   readonly keep?: readonly Frame[];
+  /**
+   * Compile the original and the reduced curve with cycle-aware auto tangents (`CurveOptions.cycleAwareAuto`,
+   * M2A-SPEC §4.1, §5.23), so an editor that evaluates cyclic curves that way measures the shape it draws. Default
+   * false (the M1 behaviour). It changes nothing for curves whose infinities do not both cycle.
+   */
+  readonly cycleAwareAuto?: boolean;
 }
 export interface ReduceResult { readonly keys: KeyData[]; readonly removed: number; readonly maxError: number }
 

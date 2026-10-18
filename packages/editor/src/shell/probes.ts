@@ -3,7 +3,15 @@ import type { ProbeMap, ProbeRegistry } from './types';
 
 /** Probes stack per kind: the newest registration wins; disposing it reveals the previous one. */
 export function createProbeRegistry(): ProbeRegistry {
-  const stacks: { [K in keyof ProbeMap]: ProbeMap[K][] } = { viewport: [], graph: [], timeline: [] };
+  const stacks: { [K in keyof ProbeMap]: ProbeMap[K][] } = {
+    viewport: [],
+    graph: [],
+    timeline: [],
+    dopeSheet: [],
+    'tween.graph': [],
+    'tween.dopeSheet': [],
+    'tween.status': [],
+  };
   return {
     get<K extends keyof ProbeMap>(kind: K): ProbeMap[K] | null {
       const stack = stacks[kind] as ProbeMap[K][];

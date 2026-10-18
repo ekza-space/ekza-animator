@@ -2,6 +2,9 @@
 
 Status: v0.2 (2026-10-18, review revision: every blocker and major review item applied, the cheap minors too; items
 not applied are listed with reasons in [§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
+Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
+`time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
+(§4.1, §5.23).
 Audience: the integration agent (A0 and the final integration), five parallel implementation agents (A1…A5) and
 reviewers. Read [MVP-SPEC.md](MVP-SPEC.md) (v0.3) first: it stays the base contract. This file lists **deltas**;
 where the two disagree for M2a work, this file wins.
@@ -128,8 +131,11 @@ compile and behave as before.
 
 ### 4.1 anim-core
 
-No contract change. M-3 work (§5.21.3) is internal: `evaluateAnimCurve` and `compileAnimCurve` keep their signatures
-and results (goldens ≤ 1e-9).
+One additive option (A0): `ReduceOptions.cycleAwareAuto?: boolean` (default false, the M1 behaviour) compiles the
+original and the reduced curve with `CurveOptions.cycleAwareAuto`, so the editor's Simplify (`graph.curves.simplify`)
+measures its tolerance on the shape the editor draws (§5.23); it changes nothing for curves whose infinities do not
+both cycle. Otherwise no contract change. M-3 work (§5.21.3) is internal: `evaluateAnimCurve` and `compileAnimCurve`
+keep their signatures and results (goldens ≤ 1e-9).
 
 ### 4.2 doc — attribute definitions, solver IDs, schema version 2
 
@@ -601,9 +607,18 @@ export interface OperatorMap {
   'pose.mirrorAnimation': { args: { readonly mode: MirrorMode; readonly offset?: 'none' | 'halfCycle';
     readonly controls?: readonly ControlId[] }; result: CountResult };
   // time (M2a)
-  /** `removeKeys` (default false): with frames < 0, delete keys in (at, at + |frames|] instead of poll-failing (§5.9). */
-  'time.insertTime': { args: { readonly at: Frame; readonly frames: number; readonly target?: 'selected' | 'character';
+  /**
+   * `at` (default: the active character's current clip frame; the menu-bar items pass none). `removeKeys` (default
+   * false): with frames < 0, delete keys in (at, at + |frames|] instead of poll-failing (§5.9).
+   */
+  'time.insertTime': { args: { readonly at?: Frame; readonly frames: number; readonly target?: 'selected' | 'character';
     readonly removeKeys?: boolean }; result: CountResult };
+  /**
+   * Delete Time (§5.9): removes the frames of `range` (default: the time-slider band, else the current clip frame) and
+   * their keys, as `time.insertTime {at: start − 1, frames: −(end − start + 1), removeKeys: true}`.
+   */
+  'time.deleteTime': { args: { readonly range?: { readonly start: Frame; readonly end: Frame };
+    readonly target?: 'selected' | 'character' } | void; result: CountResult };
   // graph and dope sheet (M2a)
   'graph.keys.copyTo': { args: { readonly dFrames: number }; result: CountResult };
   'graph.buffer.snapshot': { args: { readonly curves?: readonly CurveId[] } | void; result: CountResult };
@@ -765,7 +780,8 @@ implements their effect on the autosave store, A2 reads `pointerLock`).
 | `pose.resetToRest` (changed) | U | A2 | Also resets keyable attributes to `AttrDef.default`, except `keyAll: false` ones (`ikFk`, `soft`), which it leaves alone (§5.1 rule 6). |
 | `pose.plantFeet` (changed) | U | A2 | §5.8: IK legs get IK control channels, FK legs the M1 solve; one step. |
 | `time.setFrame` (changed) | — | A3 | `carry: true` keeps the pose (§5.9). |
-| `time.insertTime` | U | A3 | §5.9; never retimes breakdowns; poll-fails instead of deleting keys unless `removeKeys`. |
+| `time.insertTime` | U | A3 | §5.9; `at` defaults to the current clip frame; never retimes breakdowns; poll-fails instead of deleting keys unless `removeKeys`. |
+| `time.deleteTime` | U | A3 | §5.9; the band's frames (or `range`, else the current frame) and their keys, through the `time.insertTime` kernel; one step. Label `Delete Time`. |
 | `graph.keys.move` / `graph.keys.scale` (changed) | U | A3 | `ripple` (§5.11; default from the focused panel); value scale via `valuePivot`/`valueFactor` (§5.15.3). The arrow-key nudge (§6) is `graph.keys.move {dFrames: ±1, dValue: 0}`. |
 | `graph.keys.paste` (changed) | U | A3 | `mode: 'insert'` (§5.10): keys after the paste frame shift to make room. |
 | `graph.keys.copyTo` | U | A3 | `copyKeys` on the selected keys (time-slider Mod+drag commit uses the kernel helper directly). |
@@ -1130,11 +1146,13 @@ All matching is at the current clip frame of the active clip, evaluated with ove
 - **Insert / remove time** `time.insertTime {at, frames, removeKeys}` on the target controls' curves (selected, all
   when none) is a uniform time warp: every key with `t > at`, breakdowns included, shifts by `frames`, and nothing at
   or before `at` changes (it runs the kernel with `retimeBreakdowns: false`; §5.12 retiming would move a breakdown
-  before the playhead whose right anchor shifted, the opposite of what Maya's Add Inbetween is used for).
+  before the playhead whose right anchor shifted, the opposite of what Maya's Add Inbetween is used for). `at`
+  defaults to the active character's current clip frame `f`.
   `frames < 0`: when a key lies in `(at, at + |frames|]` the operator poll-fails ("A key at frame 11 would be
-  deleted: use Delete Time") unless `removeKeys: true`, which deletes those keys. Menu items: Insert Frame
-  (`{at: f, frames: 1}`, Maya "Add Inbetween"), Remove Frame (`{at: f, frames: −1}`: never deletes a one-frame hold
-  or contact key), Delete Time with a band `[a, b]` (`{at: a − 1, frames: −(b − a + 1), removeKeys: true}`). One step.
+  deleted: use Delete Time") unless `removeKeys: true`, which deletes those keys. Menu items (Time menu and the
+  time-slider context menu): Insert Frame (`{frames: 1}`, i.e. `at = f`, Maya "Add Inbetween"), Remove Frame
+  (`{frames: −1}`: never deletes a one-frame hold or contact key), Delete Time (`time.deleteTime`: the band `[a, b]`,
+  or `[f, f]` without a band, runs as `{at: a − 1, frames: −(b − a + 1), removeKeys: true}`). One step.
 - **Nudge**: `←`/`→` over the time slider (scope T) move the selected keys by ∓1 frame (§6), one step each, with
   ripple when it is on.
 - **Ticks**: breakdown keys draw in `--key-breakdown` (green); a tick with both kinds draws as a key.
@@ -1524,7 +1542,9 @@ arm swing, spine twist) eased in and out at the loop point every cycle. The engi
   anim-core contract change. The kernel already hands that engine to the rig sampler's curve cache
   (`createCurveCache(store, deps.curves.engine)`), which the evaluation, the Graph Editor painters (through
   `evaluation.compiledCurve`), graph handle resolution, Plant Feet and the export bake use, so drawn, evaluated and
-  exported curves agree; the test kit's naive evaluator uses the same option. The engine applies it only to curves
+  exported curves agree; the test kit's naive evaluator uses the same option. The shape-preserving insert, Simplify
+  (`reduceKeys` with `cycleAwareAuto`, §4.1) and the rotate-order conversion (rig `convertRotateOrderKeysWith` with the
+  editor's engine) work on the same shape. The engine applies it only to curves
   whose pre and post infinities are both cyclic (`cycle` or `cycleOffset`), so curves with a `constant` infinity,
   i.e. every curve M1 created (E2E-07 sets only the post infinity), evaluate exactly as before. anim-core's
   `curveEngine` and the rig's default cache engine stay non-cycle-aware (goldens and headless tests unchanged).
@@ -1560,7 +1580,7 @@ IK/FK switching; they stay menu/toolbar items except where noted.
 
 Not bound (menu or toolbar): `rig.*`, `key.tween` (bindable through `prefs.keymapOverrides`, e.g. a preset
 amount), `key.convert`, `key.setTarget`, `key.toggleRipple`, `pose.mirrorAnimation`, `time.insertTime`,
-`graph.buffer.*`, `file.recover`. The shortcut sheet lists every new binding.
+`time.deleteTime`, `graph.buffer.*`, `file.recover`. The shortcut sheet lists every new binding.
 
 ---
 
@@ -1823,7 +1843,8 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   rule, hit-testing, interactions (nudge, paste insert), panel with toolbar (mounting A4's Tween bar once it lands)
   and its `React.lazy` boundary, `dopeSheet.frame`, probes `dopeSheet` (null while hidden), `screenOfDopeKey`,
   `screenOfDopeRegion`, `timelineTicks`, `screenOfBand`; `key.toggleRipple` (in `time.ts`); §5.11 global-region
-  ripple and §5.12 retiming inside `moveKeys`/`scaleKeys`; `copyKeys`, `insertTime`; `graph.keys.move`/`scale`
+  ripple and §5.12 retiming inside `moveKeys`/`scaleKeys`; `copyKeys`, `insertTime` (`time.insertTime`,
+  `time.deleteTime`); `graph.keys.move`/`scale`
   arguments (`ripple` and its panel default, value scale via A4's `scaleKeyValues` once merged — until then
   `valueFactor` ≠ 1 poll-fails); `graph.keys.paste` `'insert'`; `graph.keys.copyTo`.
 - **Public API** (`@ekza-animator/curve-editor`, additions):

@@ -33,8 +33,80 @@ describe('defaultPrefs', () => {
       rotateSpace: 'object',
       reduceOnImport: 'auto',
       uiScale: 1,
+      // M2A-SPEC §4.5 (literal update, §3 rule 8)
+      autoRigIk: { legs: true, arms: true },
+      ikFkVisibility: 'hide',
+      ikFkSwitchKey: 'auto',
+      tweenOvershoot: false,
+      arrowKeys: 'pickWalk',
+      virtualSlider: { degPerPx: 0.5, metresPerPx: 0.01, unitsPerPx: 0.01, viewportMmb: true },
+      exportReduce: {
+        enabled: true,
+        positionM: 0.0002,
+        rotationCapRad: 0.004363323129985824,
+        minLeverM: 0.01,
+        scaleRel: 1e-4,
+      },
+      autosave: { enabled: true, delayMs: 2000, maxIntervalMs: 30000 },
     });
     expect(defaultPrefs('mac').navProfile).toBe('trackpad');
+  });
+});
+
+describe('M2a preferences (version stays 1)', () => {
+  it('an M1 preferences value loads with every M2a field at its default', () => {
+    const defaults = defaultPrefs('other');
+    const m1 = {
+      version: 1,
+      firstRunDone: true,
+      navProfile: 'trackpad',
+      spaceBehaviour: 'play',
+      keymapOverrides: [],
+      defaultTangents: { in: 'linear', out: 'linear' },
+      autoKey: true,
+      autoKeyMode: 'all',
+      graphHandles: 'all',
+      moveSpace: 'object',
+      rotateSpace: 'gimbal',
+      reduceOnImport: 'never',
+      uiScale: 1.25,
+    };
+    expect(sanitizePrefs(m1, defaults)).toEqual({
+      ...m1,
+      autoRigIk: defaults.autoRigIk,
+      ikFkVisibility: 'hide',
+      ikFkSwitchKey: 'auto',
+      tweenOvershoot: false,
+      arrowKeys: 'pickWalk',
+      virtualSlider: defaults.virtualSlider,
+      exportReduce: defaults.exportReduce,
+      autosave: defaults.autosave,
+    });
+  });
+
+  it('keeps valid M2a values and falls back field by field inside the nested ones', () => {
+    const defaults = defaultPrefs('other');
+    const stored = {
+      ...defaults,
+      autoRigIk: { legs: false, arms: 'no' },
+      ikFkVisibility: 'ghost',
+      ikFkSwitchKey: 'sometimes',
+      tweenOvershoot: true,
+      arrowKeys: 'frames',
+      virtualSlider: { degPerPx: 1, metresPerPx: -1, unitsPerPx: 0.02, viewportMmb: false },
+      exportReduce: { enabled: false, positionM: 0.001, rotationCapRad: 'x' },
+      autosave: 'off',
+    };
+    expect(sanitizePrefs(stored, defaults)).toMatchObject({
+      autoRigIk: { legs: false, arms: true },
+      ikFkVisibility: 'ghost',
+      ikFkSwitchKey: 'auto',
+      tweenOvershoot: true,
+      arrowKeys: 'frames',
+      virtualSlider: { degPerPx: 1, metresPerPx: 0.01, unitsPerPx: 0.02, viewportMmb: false },
+      exportReduce: { ...defaults.exportReduce, enabled: false, positionM: 0.001 },
+      autosave: defaults.autosave,
+    });
   });
 });
 

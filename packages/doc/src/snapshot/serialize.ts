@@ -27,7 +27,7 @@ export function emptySnapshot(projectName?: string): DocSnapshot {
   return {
     format: SNAPSHOT_FORMAT,
     schemaVersion: SCHEMA_VERSION,
-    minWriterVersion: SCHEMA_VERSION,
+    minWriterVersion: 1,
     tableVersions,
     tables: tables as unknown as SnapshotTables,
   };

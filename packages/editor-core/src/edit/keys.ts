@@ -5,7 +5,7 @@ import { EkzaError, type Frame, type Handle, type KeyData, RAD2DEG, type Tangent
 import type { ChannelId, ClipId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
 import { internalsOf, newRecordId } from '../app/internals';
 import type { EditorApp, KeyEditOptions, KeyEditResult } from '../types';
-import { channelDefault, isRotation } from './channelMeta';
+import { channelDefaultOf, isRotation } from './channelMeta';
 import {
   animCurve,
   compileInTx,
@@ -28,9 +28,14 @@ const MIN_SCALE = 0.01;
 
 // ---------- curves ----------
 
-/** The canonical base-layer curve of (clip, control, channel), created when missing (§4.11.0). */
+/**
+ * The canonical base-layer curve of (clip, control, channel), created when missing (§4.11.0). This is the shared
+ * curve-creation helper of keying (key.set, auto-key, tween keys, pastes): on a clip with `loop: true` a new curve
+ * gets `pre` and `post` 'cycle' (M2A-SPEC §5.23), so the editor's cycle-aware auto tangents make the seam C¹.
+ * Existing curves are never rewritten.
+ */
 export function ensureCurve(app: EditorApp, tx: Tx, clip: ClipId, control: ControlId, channel: ChannelId): CurveId {
-  requireClip(tx, clip);
+  const clipRecord = requireClip(tx, clip);
   if (tx.get('controls', control) === undefined) {
     throw new EkzaError('invalid-record', `Control ${control} does not exist`);
   }
@@ -44,8 +49,8 @@ export function ensureCurve(app: EditorApp, tx: Tx, clip: ClipId, control: Contr
     control,
     channel,
     weighted: false,
-    pre: 'constant',
-    post: 'constant',
+    pre: clipRecord.loop === true ? 'cycle' : 'constant',
+    post: clipRecord.loop === true ? 'cycle' : 'constant',
     staticValue: null,
     locked: false,
     muted: false,
@@ -58,6 +63,10 @@ export function ensureCurve(app: EditorApp, tx: Tx, clip: ClipId, control: Contr
 /**
  * Sets the key of `curve` at `frame` to `value`: patches the value of a key within 1e-6 frames, else inserts a key
  * with the given tangents, zero handles, unified and weight-locked (§4.11.1 rule 4).
+ *
+ * M2a (`opts`, M2A-SPEC §4.5): `breakdown` is the flag of a new key (a breakdown key, §5.12); with
+ * `existing: 'set'` it is also written on a key already at the frame; the default `'keep'` leaves that key's flag
+ * alone (tween patches keep it). A non-breakdown key carries no `breakdown` field (M1 records stay byte-identical).
  */
 export function writeKeyAt(
   app: EditorApp,
@@ -66,11 +75,24 @@ export function writeKeyAt(
   frame: Frame,
   value: number,
   tangents: { readonly in: TangentType; readonly out: TangentType },
+  opts?: { readonly breakdown?: boolean; readonly existing?: 'keep' | 'set' },
 ): KeyId {
   const record = requireCurve(tx, curve);
+  const breakdown = opts?.breakdown === true;
   const existing = tx.query.keysOfCurve(curve).find((key) => Math.abs(key.t - frame) < SAME_FRAME_EPS);
   if (existing !== undefined) {
-    if (existing.v !== value) tx.put('keys', { ...existing, v: value });
+    const setFlag = opts?.existing === 'set' && (existing.breakdown === true) !== breakdown;
+    if (existing.v !== value || setFlag) {
+      let next: KeyRecord = { ...existing, v: value };
+      if (setFlag) {
+        if (breakdown) next = { ...next, breakdown: true };
+        else {
+          const { breakdown: _flag, ...rest } = next;
+          next = rest;
+        }
+      }
+      tx.put('keys', next);
+    }
     return existing.id;
   }
   const key: KeyRecord = {
@@ -85,6 +107,7 @@ export function writeKeyAt(
     outHandle: { dt: 0, dv: 0 },
     broken: false,
     weightLocked: true,
+    ...(breakdown ? { breakdown: true } : {}),
   };
   tx.put('keys', key);
   return key.id;
@@ -470,7 +493,7 @@ export function insertKeyOnCurve(app: EditorApp, tx: Tx, curve: CurveId, frame: 
   const existing = keys.find((key) => Math.abs(key.t - frame) < SAME_FRAME_EPS);
   if (existing !== undefined) return existing.id;
   if (keys.length === 0) {
-    const value = record.staticValue ?? channelDefault(record.channel);
+    const value = record.staticValue ?? channelDefaultOf(tx.get('controls', record.control) ?? null, record.channel);
     return writeKeyAt(app, tx, curve, frame, value, app.prefs.getState().defaultTangents);
   }
   const result = internalsOf(app).deps.curves.insertKeyPreservingShape(animCurve(record, keys.map(keyDataOf)), frame);
@@ -510,4 +533,28 @@ export function deleteKeys(app: EditorApp, tx: Tx, keys: readonly KeyId[]): numb
     }
   }
   return count;
+}
+
+// ---------- M2a contract stubs (M2A-SPEC §4.5; A3 implements) ----------
+
+/** M2a: copies of `keys` at t + dFrames (same curves); colliding non-copied keys are replaced (A3). */
+export function copyKeys(
+  _app: EditorApp,
+  _tx: Tx,
+  _keys: readonly KeyId[],
+  _dFrames: number,
+  _opts: KeyEditOptions,
+): { readonly created: readonly KeyId[]; readonly deleted: readonly KeyId[] } {
+  throw new EkzaError('not-implemented', 'editor-core.copyKeys');
+}
+
+/** M2a §5.9: insert (frames > 0) or remove (frames < 0) time after `at` on the curves (A3). */
+export function insertTime(
+  _app: EditorApp,
+  _tx: Tx,
+  _curves: readonly CurveId[],
+  _at: Frame,
+  _frames: number,
+): KeyEditResult {
+  throw new EkzaError('not-implemented', 'editor-core.insertTime');
 }
