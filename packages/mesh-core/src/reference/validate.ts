@@ -1,6 +1,6 @@
 // `validateMesh` (M6A-SPEC §5.1 invariants 1–5 and the finite-float part of 7; reference implementation of B0a, B1
 // adds 6–7 for layers). Never throws: every problem is reported with a code, a sentence and its elements.
-//   1. Array lengths equal the counts; every index is in range; positions are finite.
+//   1. Array lengths (attribute layers included) equal the counts; every index is in range; positions are finite.
 //   2. Each face's cornerNext cycle has ≥ 3 corners (all owned by that face); no two consecutive corners share a vertex.
 //   3. Consecutive corners are joined by an edge (EditMesh: cornerEdge[c] connects cornerVert[c] and its next).
 //   4. At most one edge per unordered vertex pair, no loop edges (EditMesh: each radial cycle holds exactly the
@@ -10,6 +10,7 @@ import { kernelError } from '../kernel';
 import type { Domain, EditMesh, MeshData, MeshProblem } from '../types';
 import { isEditMesh } from './access';
 import { pairKey } from './build';
+import { domainCount } from './layers';
 
 type Sink = (code: string, message: string, domain: Domain, elements: Iterable<number>) => void;
 
@@ -48,6 +49,10 @@ export function validateMesh(m: MeshData | EditMesh): readonly MeshProblem[] {
       ['faceMaterial', m.faceMaterial.length, F],
       ['faceFlags', m.faceFlags.length, F],
     ];
+    // Attribute layers hold count × comps values of their domain.
+    for (const [name, layer] of m.layers) {
+      lengths.push([`layer ${name}`, layer.data.length, domainCount(m.counts, layer.def.domain) * layer.def.comps]);
+    }
     for (const [name, actual, expected] of lengths) {
       if (actual !== expected)
         problems.push({ code: 'counts.length', message: `${name} has ${actual} values, expected ${expected}` });

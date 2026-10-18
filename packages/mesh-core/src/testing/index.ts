@@ -2,6 +2,7 @@
 // below; B1 owns this directory after B0a and adds the fast-check arbitraries and the golden runner.
 import { EDGE_HARD } from '../constants';
 import { buildMeshData } from '../reference/build';
+import { BUILTIN_LAYERS } from '../reference/layers';
 
 export { buildMeshData, emptyMeshData, type MeshBuild } from '../reference/build';
 import type { MeshData } from '../types';
@@ -27,7 +28,7 @@ export function cubeData(opts: { readonly hard?: boolean } = {}): MeshData {
 
 /**
  * Stored forms that break one §5.1 invariant each (validateMesh must report them, editMeshFrom must refuse them):
- * the problem code `validateMesh` reports is the key.
+ * the problem code `validateMesh` reports is the key, before an optional parenthesised note.
  */
 export function brokenMeshes(): Readonly<Record<string, MeshData>> {
   const good = cubeData();
@@ -44,8 +45,11 @@ export function brokenMeshes(): Readonly<Record<string, MeshData>> {
   position[4] = Number.NaN;
   const loop = good.edgeVerts.slice();
   loop[1] = loop[0] as number;
+  // A face layer one value short (the primitives' paint layer).
+  const paint = { def: BUILTIN_LAYERS.paint, data: new Uint16Array(counts.faces * BUILTIN_LAYERS.paint.comps) };
   return {
     'counts.length': with_({ edgeFlags: new Uint8Array(counts.edges - 1) }),
+    'counts.length (layer)': with_({ layers: new Map([['paint', { def: paint.def, data: paint.data.subarray(1) }]]) }),
     'index.range': with_({ cornerVert: Uint32Array.from(good.cornerVert, (v, i) => (i === 0 ? 99 : v)) }),
     'face.shared-corner': with_({ cornerNext }),
     'face.repeated-vertex': with_({ cornerVert: repeatedVert }),

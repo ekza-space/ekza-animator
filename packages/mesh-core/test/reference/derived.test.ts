@@ -236,10 +236,19 @@ describe('validateMesh (§5.1 invariants 1–5)', () => {
     }
   });
 
-  it.each(Object.entries(brokenMeshes()))('reports %s on the broken fixture (and never throws)', (codeName, data) => {
+  it.each(Object.entries(brokenMeshes()))('reports %s on the broken fixture (and never throws)', (key, data) => {
     const problems = validateMesh(data);
-    expect(problems.map((problem) => problem.code)).toContain(codeName);
+    expect(problems.map((problem) => problem.code)).toContain(key.split(' ')[0]);
     for (const problem of problems) expect(problem.message.length).toBeGreaterThan(0);
+  });
+
+  it('checks attribute layer lengths against their domain counts (invariant 1)', () => {
+    const data = brokenMeshes()['counts.length (layer)'] as MeshData;
+    expect(validateMesh(data)).toEqual([{ code: 'counts.length', message: 'layer paint has 5 values, expected 6' }]);
+    expect(() => editMeshFrom(data)).toThrow(/layer paint/);
+    // A well-formed layer passes.
+    const good = { ...data, layers: new Map([['paint', { def: BUILTIN_LAYERS.paint, data: new Uint16Array(6) }]]) };
+    expect(validateMesh(good)).toEqual([]);
   });
 
   it('reports a corner that is in no face and a missing corner edge', () => {
