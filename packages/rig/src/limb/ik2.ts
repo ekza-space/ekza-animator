@@ -262,7 +262,7 @@ function compileState(
   return {
     limb,
     core,
-    foot: p.foot === null ? null : new FootRoll(p.foot),
+    foot: limbFootRoll(program, limb),
     parentNode: internals.nodeParent[upper] as number,
     facing: internals.facing,
     ikSlot,
@@ -301,6 +301,25 @@ function compileState(
     qa: [0, 0, 0, 1],
     qb: [0, 0, 0, 1],
   };
+}
+
+/**
+ * The foot roll of a compiled leg (null for arms and legs without foot parameters). With a toes bone the ball roll
+ * pivots at the toes joint's rest height in the IK control's rest frame (§5.3.1): the foot then turns about the toes
+ * joint, so the toes rule (§5.3 step 6) keeps the toes at their rest offset from the foot (a rigid ball joint, as in
+ * a reverse foot) instead of translating them by the pivot's offset (acceptance fix round 1: 8 mm at 30° on
+ * Seed-san). The op's state and the matching functions (§5.6) build their foot roll here.
+ */
+export function limbFootRoll(program: RigProgram, limb: LimbDesc): FootRoll | null {
+  const foot = limb.params.foot;
+  if (foot === null) return null;
+  const toes = limb.nodes.toes;
+  const ikSlot = program.controlIndex.get(limb.params.ikControl);
+  if (toes < 0 || ikSlot === undefined) return new FootRoll(foot);
+  const internals = internalsOf(program);
+  const scratch = allocXfArrays(1);
+  xfaInvMul(internals.controlRest, ikSlot, internals.restWorld, toes, scratch, 0);
+  return new FootRoll(foot, scratch.t[1] as number);
 }
 
 /**

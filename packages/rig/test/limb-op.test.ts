@@ -572,6 +572,9 @@ describe('foot roll in the foot frame (§5.3.1 gates)', () => {
     expect(distance(bonePos(ball.pose, toes), bonePos(zero.pose, toes))).toBeLessThan(1e-9);
     expect(quatAngle(boneQuat(ball.pose, toes), boneQuat(zero.pose, toes))).toBeLessThan(1e-9);
     expect(quatAngle(boneQuat(ball.pose, foot), boneQuat(zero.pose, foot))).toBeCloseTo(20 * DEG, 9);
+    // The ball roll turns the foot about the toes joint (a rigid ball joint): the toes keep their rest offset from
+    // the foot, so the toes bone only rotates (acceptance fix round 1, bug 2).
+    expect(distance(relative(ball.pose, foot, toes).t, relative(zero.pose, foot, toes).t)).toBeLessThan(1e-9);
     expect(vec(ball.pivots.heel)[1]).toBeGreaterThan(vec(zero.pivots.heel)[1] + 0.01);
     const heel = at(-15 * DEG);
     expect(distance(vec(heel.pivots.heel), vec(zero.pivots.heel))).toBeLessThan(1e-9);

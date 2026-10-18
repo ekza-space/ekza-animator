@@ -256,9 +256,10 @@ export interface MatchResult {
    */
   readonly toesErrorRad: number;
   /**
-   * FK match of a leg with toes: how far the toes joint of the matched FK pose is from the IK pose's (metres). Under
-   * a ball roll the ik2 toes rule keeps the toes planted by turning them about the ball pivot, which can lie off the
-   * toes joint; FK keeps that joint on the foot, so only the rotation can match. 0 for IK matches.
+   * FK match of a leg with toes: how far the toes joint of the matched FK pose is from the IK pose's (metres). The
+   * ball roll pivots at the toes joint (§5.3.1), so this is 0 unless the foot parameters moved the ball pivot off
+   * that joint (`ballFront` or `yaw` edited): the ik2 toes rule then keeps the toes planted by turning them about
+   * the pivot, and FK, which keeps the joint on the foot, can match only the rotation. 0 for IK matches.
    */
   readonly toesErrorM: number;
 }

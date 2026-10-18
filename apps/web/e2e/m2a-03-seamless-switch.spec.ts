@@ -20,8 +20,8 @@ import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/tes
 // from the Attributes Limb section keys @ikFk at 9 (1) and 10 (0), both stepped, and keeps the pose at 9 and 10;
 // a keyed FK → IK switch at 15 adds {15: 1} and keeps the pose; one undo per switch restores the curves.
 // The second case adds a ball roll and an animated fk.toes (A2 fix round: the switch holds the matched channels at
-// f − 1, so every earlier frame keeps its pose; at f the chain and the toes' rotation match, and a toes joint that
-// FK cannot keep is reported with its move). The first case also clicks the pressed IK segment: nothing changes.
+// f − 1, so every earlier frame keeps its pose; at f the chain and the toes match: the ball roll turns the foot
+// about the toes joint, acceptance fix round 1). The first case also clicks the pressed IK segment: nothing changes.
 
 const CHAIN = ['leftUpperLeg', 'leftLowerLeg', 'leftFoot', 'leftToes'] as const;
 
@@ -171,25 +171,16 @@ test('E2E-M2A-03: a seamless switch with a ball roll and animated toes keeps eve
       expectWorldClose(after[bone] as World, before[i]?.[bone] as World, 1e-6, `frame ${frame}: ${bone}`);
     }
   }
-  // At 10 the chain and the toes' rotation match; the toes joint stays on the foot in FK, so it moves by the
-  // offset of the ball pivot, which the switch reports.
+  // At 10 the chain and the toes match too: the ball roll turns the foot about the toes joint, so the IK toes keep
+  // their rest offset from the foot and FK reproduces them (acceptance fix round 1, bug 2; with the ball pivot on
+  // the ground below the joint FK missed them by 5.4 mm and the switch warned). No toes warning.
   const after10 = await boneWorlds(page, character, CHAIN, 10);
-  for (const bone of ['leftUpperLeg', 'leftLowerLeg', 'leftFoot'] as const) {
+  for (const bone of CHAIN) {
     expectWorldClose(after10[bone] as World, at10[bone] as World, 1e-6, `frame 10: ${bone}`);
   }
   const toesBefore = at10['leftToes'] as World;
   const toesAfter = after10['leftToes'] as World;
   expect(quatAngle(toesAfter.q, toesBefore.q), 'frame 10: leftToes rotation').toBeLessThanOrEqual(1e-6);
-  // Whether the toes joint can stay under a ball roll is open (A2 notes, open issue 1: the ball pivot lies off the
-  // toes joint on Seed-san, 5.4 mm at 20° with A1's toes rule). Either way the switch reports a move above 0.1 mm
-  // with its size and says nothing when the joint stays.
-  const moved = distance(toesAfter.t, toesBefore.t);
-  const toesWarning = 'L Leg: FK moves the toes by';
-  if (moved > 1e-4) {
-    await expect
-      .poll(async () => (await toastTexts(page)).join('\n'))
-      .toContain(`${toesWarning} ${(moved * 1000).toFixed(1)} mm (foot roll)`);
-  } else {
-    expect((await toastTexts(page)).join('\n')).not.toContain(toesWarning);
-  }
+  expect(distance(toesAfter.t, toesBefore.t), 'frame 10: leftToes position').toBeLessThanOrEqual(1e-6);
+  expect((await toastTexts(page)).join('\n')).not.toContain('L Leg: FK moves the toes by');
 });

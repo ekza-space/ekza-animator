@@ -905,6 +905,13 @@ when that is below `A.y`. A value outside `[0.2·r_f, 6·r_f]` falls back to its
 **Fallback** (no mesh data, or a value out of range): `heelBack = r_f`, `toeFront = 1.2·r_f`,
 `innerWidth = outerWidth = r_f`.
 
+**Ball joint** (acceptance fix round 1, M2A-INT-20): on a leg with a toes bone the ball roll's pivot is `ball` raised
+to the toes joint's rest height in the IK control's rest frame (`limbFootRoll`, derived at compile time, not a
+stored parameter), so with the measured `ballFront` and `yaw` it is the toes joint itself and the foot turns about it
+like a reverse foot's ball joint; heel, toe tip and the bank pivots stay on the ground. Without toes the ball pivot is
+the ground point `ball`. (v0.3 rolled the ball about the ground point, 3–4 cm below Seed-san's toes joint; the toes
+rule then pulled the toes joint 8 mm off the foot at 30°, and bakes wrote a toes translation track.)
+
 `breakAngle = π/6`; `side = +1` left, `−1` right. The parameters are data (`FootRollParams`); until the M2c pivot
 editor, the Attributes Limb section shows them as numeric fields (cm, and degrees for the break angle;
 `attr-limb-foot-<limb>-<field>`) that run `rig.setFootParams`, which also rewrites the footprint shape. Mirrored
@@ -945,7 +952,8 @@ W_tgt = W_ik · F · K_end                                             // K_end 
 //    chain-control ancestor
 // 6. Toes rule (legs with a toes bone): C = K_end⁻¹ · Ball⁻¹ · K_end (ball roll removed, §5.3.1), C_w = slerp(I, C, w)
 //    (same pivot); W_toes = W_end,new · C_w · (W_end,fk⁻¹ · W_toes,fk); the toes subtree and `fk.toes` with its
-//    descendant controls follow Δ_toes = W_toes,new · W_toes,fk⁻¹ instead of Δ_end
+//    descendant controls follow Δ_toes = W_toes,new · W_toes,fk⁻¹ instead of Δ_end. The ball pivot is the toes
+//    joint (§5.2.3 ball joint), so C fixes that joint: the toes keep their rest offset from the foot and only rotate
 // 7. Write every new world into pose.boneWorld / pose.controlWorld; return true
 ```
 
@@ -996,7 +1004,7 @@ heelRoll = min(roll, 0);   ballRoll = clamp(roll, 0, β);   toeRoll = max(roll �
 Bank = P(bank ≥ 0 ? inner : outer, R_z(side·bank))        // pivot by the sign of bank; the rotation sign by side
 Heel = P(heel, R_y(heelTwist) · R_x(heelRoll))
 Toe  = P(toe,  R_y(toeTwist)  · R_x(toeRoll))
-Ball = P(ball, R_x(ballRoll))
+Ball = P(ball_j, R_x(ballRoll))                          // ball_j: the ball joint (§5.2.3), else the ground ball
 F    = Bank · Heel · Toe · Ball
 ```
 
@@ -1004,7 +1012,8 @@ F    = Bank · Heel · Toe · Ball
 (toe-off), negative `roll` lifts the toes (heel strike); positive `bank` lifts the outer edge and negative `bank` the
 inner edge, on both feet (on the right foot the outer edge lies at −x of the foot frame, which the `side` factor of
 the rotation accounts for; the pivot choice does not depend on `side`). Gates (A1 unit + E2E-M2A-04), each within
-1e-6: `roll < 0` keeps the heel pivot's world position; `0 < roll ≤ β` keeps the ball pivot and the toes bone world;
+1e-6: `roll < 0` keeps the heel pivot's world position; `0 < roll ≤ β` keeps the ball pivot, the toes bone world and
+the toes' rest offset from the foot (Seed-san and Polybot, both feet with toes, 10/20/30°; fix round 1);
 `roll > β` keeps the toe pivot and turns the toes by `roll − β`; on **both feet** `bank > 0` keeps the inner pivot and
 raises the outer pivot's y, `bank < 0` keeps the outer pivot and raises the inner pivot's y; `pose.mirror` of a left
 bank (and roll) onto the right foot gives right pivots that mirror the left ones (1e-9 on the symmetric synthetic rig,
@@ -1103,10 +1112,12 @@ All matching is at the current clip frame of the active clip, evaluated with ove
     M2A-A2-19). The curves a seamless switch puts their first keys on get `constant` infinities, also on loop clips
     (§5.23 would make their two keys cycle with period 1; ratified M2A-A2-24). The pose at `f − 1` and the pose at `f`
     are unchanged (1e-6) whenever the match is exact (not for a hyperextended FK pose; see the warning above). **Ball
-    roll exception** (ratified, open issue 1 of A2): with `@roll` inside the ball range the ik2 toes rule keeps the
-    toes planted about the ball pivot, which FK cannot reproduce; the match then keeps the chain exact and warns with
-    the measured toes difference ("L Leg: IK bends the toes by 20° (foot roll); set Roll to 0 to keep the FK toes",
-    "… FK moves the toes by 5.4 mm …", M2A-A2-20), and `f − 1` stays exact.
+    roll exception** (ratified, open issue 1 of A2; narrowed by fix round 1, M2A-INT-20): with `@roll` inside the ball
+    range the ik2 toes rule keeps the toes planted, counter-rotating the ball roll. IK → FK is exact: the ball pivot
+    is the toes joint, so `fk.toes` reproduces the IK toes. FK → IK keeps the chain exact and warns with the toes'
+    turn ("L Leg: IK bends the toes by 20° (foot roll); set Roll to 0 to keep the FK toes", M2A-A2-20); "… FK moves
+    the toes by 5.4 mm …" remains only for foot parameters edited so that the ball pivot leaves the toes joint
+    (`ballFront`, `yaw`). `f − 1` stays exact.
   - A switch to the mode the limb is already in (evaluated `ikFk` ≥ 0.999 for `to: 'ik'`, ≤ 0.001 for `to: 'fk'`)
     poll-fails "L Leg is IK already" (ratified M2A-A2-23).
   - One transaction, one history step; label `Switch L Leg to IK` / `… to FK`.

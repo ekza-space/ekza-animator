@@ -6,8 +6,8 @@ import { internalsOf } from '../kernel/internals';
 import { allocXfArrays, type XfArrays, xfaCopy, xfaFromMat4, xfaInvMul, xfaMulInv, xfaToMat4 } from '../math/xfa';
 import { readControlChannels, writeControlChannels } from '../sampler/channels';
 import type { ChannelBuffer, LimbDesc, LimbId, PoseBuffers, RigProgram } from '../types';
-import { FOOT_F, FOOT_G, FootRoll } from './foot';
-import { configureLimbCore } from './ik2';
+import { FOOT_F, FOOT_G, type FootRoll } from './foot';
+import { configureLimbCore, limbFootRoll } from './ik2';
 
 // IK/FK matching (M2A-SPEC §5.6), Plant Feet on IK legs (§5.8) and the foot-roll pivots (§5.3.1). These run on
 // user actions and imports, not per frame, so they may allocate.
@@ -229,11 +229,10 @@ function attr(ch: ChannelBuffer, slot: number): number {
   return Number.isFinite(value) ? value : 0;
 }
 
-/** The leg's foot roll at the attribute values of `ch`; null for arms. */
-function footRollAt(desc: LimbDesc, ch: ChannelBuffer): FootRoll | null {
-  const foot = desc.params.foot;
-  if (foot === null) return null;
-  const roll = new FootRoll(foot);
+/** The leg's foot roll at the attribute values of `ch` (the op's pivots, `limbFootRoll`); null for arms. */
+function footRollAt(program: RigProgram, desc: LimbDesc, ch: ChannelBuffer): FootRoll | null {
+  const roll = limbFootRoll(program, desc);
+  if (roll === null) return null;
   roll.compute(
     attr(ch, desc.attrSlots.roll),
     attr(ch, desc.attrSlots.bank),
@@ -255,7 +254,7 @@ function ikWorldFor(
   const xf = allocXfArrays(2);
   xfaFromMat4(endWorld, offset, xf, 0);
   xfaMulInv(xf, 0, kEndOf(program, desc), 0, xf, 1);
-  const roll = footRollAt(desc, ch);
+  const roll = footRollAt(program, desc, ch);
   if (roll !== null) xfaMulInv(xf, 1, roll.xf, FOOT_F, xf, 1);
   const out = new Float64Array(16);
   xfaToMat4(xf, 1, out, 0);
@@ -496,8 +495,9 @@ export function matchIkToFk(
 
 /**
  * World positions of a leg's foot-roll pivots (§5.3.1) for the IK control world in `pose` and the attributes of
- * `ch`: heel, ball, inner and outer ride on F = Bank·Heel·Toe·Ball (the ball, inner and outer pivots lie on the ball
- * roll's axis), the toe tip on Bank·Heel·Toe. Null for arms, limbs without foot parameters and unknown limbs.
+ * `ch`: heel, ball, inner and outer ride on F = Bank·Heel·Toe·Ball (the ball pivot lies on the ball roll's axis, at
+ * the toes joint on legs with toes; inner and outer on the ground line below it), the toe tip on Bank·Heel·Toe. Null
+ * for arms, limbs without foot parameters and unknown limbs.
  */
 export function footPivotWorlds(
   program: RigProgram,
@@ -513,7 +513,7 @@ export function footPivotWorlds(
 } | null {
   const desc = program.limbs.find((candidate) => candidate.id === limb);
   if (desc === undefined || desc.params.foot === null) return null;
-  const roll = footRollAt(desc, ch) as FootRoll;
+  const roll = footRollAt(program, desc, ch) as FootRoll;
   const slot = program.controlIndex.get(desc.params.ikControl) as number;
   const xf = allocXfArrays(1);
   xfaFromMat4(pose.controlWorld, slot * 16, xf, 0);

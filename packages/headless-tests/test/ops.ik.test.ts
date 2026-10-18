@@ -177,7 +177,7 @@ describe.skipIf(!SIBLINGS_READY)(`IK editor operators on the fixtures ${BLOCKED}
     expect(docJson(app)).toEqual(before);
   });
 
-  it('seamless IK → FK with a ball roll and animated toes keeps frames 0…9 (1e-6); the toes warn both ways', async () => {
+  it('seamless IK → FK with a ball roll and animated toes keeps frames 0…10 (1e-6); IK → FK is exact, FK → IK warns', async () => {
     const { app, services } = realApp();
     const san = await importFixture(app, 'seed-san.vrm');
     await runOk(app, 'clip.new', { name: 'roll' });
@@ -230,19 +230,15 @@ describe.skipIf(!SIBLINGS_READY)(`IK editor operators on the fixtures ${BLOCKED}
       [10, expect.any(String)],
       [20, expect.any(String)],
     ]);
-    // At f the chain and the toes' rotation match; the toes joint does not: the IK toes rule turned the planted
-    // toes about the ball pivot, which lies off the toes joint, and FK keeps that joint on the foot. The switch
-    // says by how much.
+    // At f the chain and the toes match too: the ball roll turns the foot about the toes joint, so the IK toes keep
+    // their rest offset from the foot and FK reproduces them with fk.toes alone (acceptance fix round 1, bug 2;
+    // before, the ball pivot lay on the ground below the joint and FK missed the IK toes by 5.4 mm). No toes warning.
     const at10 = before[4] ?? [];
-    LEG.slice(0, 3).forEach((bone, i) =>
+    LEG.forEach((bone, i) =>
       expectSameWorld(boneWorld(app, san.character, bone, 10), at10[i] as never, 1e-6, `${bone} @10`),
     );
-    const toes10 = boneWorld(app, san.character, 'leftToes', 10);
-    const ikToes10 = at10[3] as ReturnType<typeof boneWorld>;
-    expect(quatAngle(toes10.q, ikToes10.q), 'leftToes @10 rotation').toBeLessThanOrEqual(1e-6);
-    const moved = Math.hypot(toes10.t[0] - ikToes10.t[0], toes10.t[1] - ikToes10.t[1], toes10.t[2] - ikToes10.t[2]);
-    const fkWarning = services.toasts.filter((toast) => toast.kind === 'warning').at(-1)?.text ?? '';
-    expect(fkWarning).toContain(`L Leg: FK moves the toes by ${(moved * 1000).toFixed(1)} mm (foot roll)`);
+    const warnings = services.toasts.filter((toast) => toast.kind === 'warning').map((toast) => toast.text);
+    expect(warnings.join('\n')).not.toContain('FK moves the toes');
 
     // Back to IK at 15 with the roll still 20°: the foot matches, but the toes rule bends the toes by the ball
     // roll, and the switch says so.

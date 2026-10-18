@@ -419,6 +419,50 @@ describe('foot roll on Seed-san (§5.3.1 gates, E2E-M2A-04 numbers)', { timeout:
     }
   });
 
+  // Acceptance fix round 1, bug 2: the ball roll turned the foot about a pivot on the ground below the toes joint,
+  // and the toes rule, which keeps the toes' world, then pulled the toes joint off the foot (Seed-san 2.7/5.4/8.0 mm
+  // at 10/20/30°, Polybot 1.1/2.2/3.3 mm), which the bake wrote as a toes translation track. The ball pivot is the
+  // toes joint now: the toes keep their rest offset from the foot (1e-6) while their world stays planted.
+  it.each(['seed-san.vrm', 'polybot.vrm'] as const)(
+    'keeps the toes joint on the foot under a ball roll on %s (both feet, 10/20/30°)',
+    async (fixture) => {
+      const skeleton = await loadSkeleton(fixture);
+      const program = ikProgram(skeleton);
+      const human = skeleton.humanoid as Record<string, number | undefined>;
+      // Polybot maps only its right toes (its left toes joint is not in the humanoid map).
+      const feet = (
+        [
+          ['leg.L', 'leftFoot', 'leftToes'],
+          ['leg.R', 'rightFoot', 'rightToes'],
+        ] as const
+      ).filter(([, , toes]) => human[toes] !== undefined);
+      expect(feet.length).toBeGreaterThan(0);
+      for (const [limb, foot, toes] of feet) {
+        const footNode = humanNode(skeleton, foot);
+        const toesNode = humanNode(skeleton, toes);
+        const offset = (pose: PoseBuffers): Vec3 =>
+          quatRotateVec3(quatInvert(rot(pose, footNode)), [
+            pos(pose, toesNode)[0] - pos(pose, footNode)[0],
+            pos(pose, toesNode)[1] - pos(pose, footNode)[1],
+            pos(pose, toesNode)[2] - pos(pose, footNode)[2],
+          ]);
+        const zero = at(program, {}, limb);
+        for (const degrees of [10, 20, 30]) {
+          const rolled = at(program, { [`ik.${limb}`]: { '@roll': degrees * DEG } }, limb);
+          expect(dist(offset(rolled.pose), offset(zero.pose)), `${limb} ${degrees}°: toes offset`).toBeLessThan(1e-6);
+          expect(dist(pos(rolled.pose, toesNode), pos(zero.pose, toesNode)), `${limb} ${degrees}°: toes`).toBeLessThan(
+            1e-6,
+          );
+          expect(dist(vec(rolled.pivots.ball), vec(zero.pivots.ball)), `${limb} ${degrees}°: ball`).toBeLessThan(1e-6);
+          expect(
+            Math.abs(quatAngle(rot(rolled.pose, footNode), rot(zero.pose, footNode)) - degrees * DEG),
+            `${limb} ${degrees}°: foot turn`,
+          ).toBeLessThan(1e-6);
+        }
+      }
+    },
+  );
+
   it('mirrors a left bank and roll onto the right foot (pivots mirrored within 1e-3 m)', async () => {
     const skeleton = await loadSkeleton('seed-san.vrm');
     const program = ikProgram(skeleton);

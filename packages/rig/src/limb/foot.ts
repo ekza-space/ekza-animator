@@ -16,6 +16,11 @@ export const DEFAULT_BREAK_ANGLE = Math.PI / 6;
 /** Pivot positions in the IK control's rest frame (§4.3 FootRollParams). */
 export interface FootPivots {
   readonly heel: Vec3;
+  /**
+   * The ball roll's pivot: on the ground (`ground + f·ballFront`), or, when `footPivots` is given the ball joint's
+   * height (legs with a toes bone), at that height above the same ground point, so the foot turns about the toes
+   * joint (§5.3.1, acceptance fix round 1).
+   */
   readonly ball: Vec3;
   readonly toe: Vec3;
   readonly inner: Vec3;
@@ -29,7 +34,12 @@ function footAxes(params: FootRollParams): { readonly f: Vec3; readonly l: Vec3 
   return { f: [s, 0, c], l: [params.side * c, 0, -params.side * s] };
 }
 
-export function footPivots(params: FootRollParams): FootPivots {
+/**
+ * The pivots of `params` in the IK control's rest frame. `ballJointY` (the toes joint's rest height in that frame,
+ * `limbFootRoll`) lifts the ball roll's pivot from the ground to the toes joint; the toe tip and the bank pivots stay
+ * on the ground line through the ball.
+ */
+export function footPivots(params: FootRollParams, ballJointY: number | null = null): FootPivots {
   const { f, l } = footAxes(params);
   const g = params.ground;
   const along = (base: ReadonlyVec3, dir: Vec3, k: number): Vec3 => [
@@ -37,13 +47,13 @@ export function footPivots(params: FootRollParams): FootPivots {
     base[1] + dir[1] * k,
     base[2] + dir[2] * k,
   ];
-  const ball = along(g, f, params.ballFront);
+  const ground = along(g, f, params.ballFront);
   return {
     heel: along(g, f, -params.heelBack),
-    ball,
-    toe: along(ball, f, params.toeFront),
-    inner: along(ball, l, -params.innerWidth),
-    outer: along(ball, l, params.outerWidth),
+    ball: ballJointY === null || !Number.isFinite(ballJointY) ? ground : [ground[0], ballJointY, ground[2]],
+    toe: along(ground, f, params.toeFront),
+    inner: along(ground, l, -params.innerWidth),
+    outer: along(ground, l, params.outerWidth),
   };
 }
 
@@ -148,6 +158,8 @@ const COUNT = 7;
  * Allocation-free foot-roll transforms (§5.3.1): with Q = R_y(yaw) and P(p, R) = T(p)·Q·R·Q⁻¹·T(−p),
  * Bank = P(bank ≥ 0 ? inner : outer, R_z(side·bank)), Heel = P(heel, R_y(heelTwist)·R_x(min(roll, 0))),
  * Toe = P(toe, R_y(toeTwist)·R_x(max(roll − β, 0))), Ball = P(ball, R_x(clamp(roll, 0, β))), F = Bank·Heel·Toe·Ball.
+ * `ballJointY` places the ball pivot at the toes joint's height (`footPivots`): the ik2 op and the match functions
+ * build their foot roll through `limbFootRoll`, which passes it for legs with a toes bone.
  */
 export class FootRoll {
   readonly xf: XfArrays = allocXfArrays(COUNT);
@@ -163,9 +175,9 @@ export class FootRoll {
   /** The ball roll of the last `compute` (radians). */
   ballRoll = 0;
 
-  constructor(params: FootRollParams) {
+  constructor(params: FootRollParams, ballJointY: number | null = null) {
     this.params = params;
-    this.pivots = footPivots(params);
+    this.pivots = footPivots(params, ballJointY);
     const half = params.yaw / 2;
     this.q = [0, Math.sin(half), 0, Math.cos(half)];
     this.qInv = [0, -Math.sin(half), 0, Math.cos(half)];

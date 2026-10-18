@@ -1,11 +1,23 @@
 import { expect, test } from '@playwright/test';
 import { pressOverPane } from './helpers/g3-input';
-import { boneWorlds, controlIdOf, DEG, distance, expectLimbIk, quatAngle, selectIds, typeCb } from './helpers/m2a-a2';
+import {
+  boneWorlds,
+  controlIdOf,
+  DEG,
+  distance,
+  expectLimbIk,
+  quatAngle,
+  relative,
+  selectIds,
+  typeCb,
+  type World,
+} from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-M2A-04 (M2A-SPEC §9.1, §5.3.1): the simple foot roll on Seed-san's IK feet, typed in degrees in the Channel
-// Box. Roll 20° turns the foot about the ball (toes and ball pivot stay), −15° about the heel, 50° (above the 30°
+// Box. Roll 20° turns the foot about the ball joint (toes, their offset from the foot and the ball pivot stay), −15°
+// about the heel, 50° (above the 30°
 // break) about the toe tip with the toes turned by 20°; bank pivots on the inner edge for + and the outer edge for −
 // on both feet; mirroring a left bank and roll onto the right foot mirrors the pivots.
 
@@ -44,6 +56,12 @@ test('E2E-M2A-04: foot roll', async ({ page }) => {
   expect(
     Math.abs(quatAngle(bones20.leftFoot?.q ?? [0, 0, 0, 1], restBones.leftFoot?.q ?? [0, 0, 0, 1]) - 20 * DEG),
   ).toBeLessThanOrEqual(1e-6);
+  // The ball pivot is the toes joint: the toes keep their rest offset from the foot (fix round 1; 5.4 mm before).
+  near(
+    relative(bones20.leftFoot as World, bones20.leftToes as World).t,
+    relative(restBones.leftFoot as World, restBones.leftToes as World).t,
+    'roll 20: toes offset from the foot',
+  );
 
   await typeCb(page, 'cb-field-@roll', '-15');
   near((await pivots('leg.L')).heel, rest.heel, 'roll −15: heel pivot');
