@@ -157,6 +157,9 @@ export class FootRoll {
   private readonly qInv: Quat;
   private readonly r: Quat = [0, 0, 0, 1];
   private readonly tmp: Quat = [0, 0, 0, 1];
+  /** Angles handed to `pivot` (numbers stay in buffers on the per-frame path) and `compute`'s inputs. */
+  private readonly angles = new Float64Array(3);
+  private readonly input = new Float64Array(4);
   /** The ball roll of the last `compute` (radians). */
   ballRoll = 0;
 
@@ -170,35 +173,67 @@ export class FootRoll {
 
   /** Fills Bank, Heel, Toe, Ball, G and F for the given attribute values (non-finite values read 0). */
   compute(roll: number, bank: number, heelTwist: number, toeTwist: number): void {
+    const values = this.input;
+    values[0] = roll;
+    values[1] = bank;
+    values[2] = heelTwist;
+    values[3] = toeTwist;
+    this.computeFrom(values, 0);
+  }
+
+  /**
+   * `compute` reading roll, bank, heelTwist and toeTwist from `values[offset … offset + 3]` (the op's per-frame
+   * path: numbers stay in buffers, so no call boxes them).
+   */
+  computeFrom(values: Float64Array, offset: number): void {
+    const roll = values[offset] as number;
+    const bank = values[offset + 1] as number;
+    const heelTwist = values[offset + 2] as number;
+    const toeTwist = values[offset + 3] as number;
     const r = Number.isFinite(roll) ? roll : 0;
     const b = Number.isFinite(bank) ? bank : 0;
     const beta = this.params.breakAngle;
-    const heelRoll = Math.min(r, 0);
-    const ballRoll = Math.min(Math.max(r, 0), beta);
-    const toeRoll = Math.max(r - beta, 0);
-    this.ballRoll = ballRoll;
+    const angles = this.angles;
     const p = this.pivots;
-    this.pivot(BANK, b >= 0 ? p.inner : p.outer, 0, 0, this.params.side * b, 0);
-    this.pivot(HEEL, p.heel, heelRoll, Number.isFinite(heelTwist) ? heelTwist : 0, 0, 1);
-    this.pivot(TOE, p.toe, toeRoll, Number.isFinite(toeTwist) ? toeTwist : 0, 0, 1);
-    this.pivot(BALL, p.ball, ballRoll, 0, 0, 0);
+    this.ballRoll = Math.min(Math.max(r, 0), beta);
+    angles[0] = 0;
+    angles[1] = 0;
+    angles[2] = this.params.side * b;
+    this.pivot(BANK, b >= 0 ? p.inner : p.outer, 0);
+    angles[0] = Math.min(r, 0);
+    angles[1] = Number.isFinite(heelTwist) ? heelTwist : 0;
+    angles[2] = 0;
+    this.pivot(HEEL, p.heel, 1);
+    angles[0] = Math.max(r - beta, 0);
+    angles[1] = Number.isFinite(toeTwist) ? toeTwist : 0;
+    this.pivot(TOE, p.toe, 1);
+    angles[0] = this.ballRoll;
+    angles[1] = 0;
+    this.pivot(BALL, p.ball, 0);
     xfaMul(this.xf, BANK, this.xf, HEEL, this.xf, FOOT_G);
     xfaMul(this.xf, FOOT_G, this.xf, TOE, this.xf, FOOT_G);
     xfaMul(this.xf, FOOT_G, this.xf, BALL, this.xf, FOOT_F);
   }
 
-  /** Ball at `scale` × the last ball roll into FOOT_BALL_W. */
-  computeBall(scale: number): void {
-    this.pivot(FOOT_BALL_W, this.pivots.ball, this.ballRoll * scale, 0, 0, 0);
+  /** Ball at `values[index]` × the last ball roll into FOOT_BALL_W. */
+  computeBall(values: Float64Array, index: number): void {
+    const angles = this.angles;
+    angles[0] = this.ballRoll * (values[index] as number);
+    angles[1] = 0;
+    angles[2] = 0;
+    this.pivot(FOOT_BALL_W, this.pivots.ball, 0);
   }
 
   /**
-   * Element `i` = T(p)·Q·R·Q⁻¹·T(−p) with R = R_y(twist)·R_x(rx) when `yFirst` is 1, else R_x(rx)·R_z(rz) (only one
-   * of rx, rz is non-zero then).
+   * Element `i` = T(p)·Q·R·Q⁻¹·T(−p) with the angles in `this.angles` = [rx, twist, rz]: R = R_y(twist)·R_x(rx) when
+   * `yFirst` is 1, else R_x(rx)·R_z(rz) (only one of rx, rz is non-zero then).
    */
-  private pivot(i: number, p: Vec3, rx: number, twist: number, rz: number, yFirst: number): void {
+  private pivot(i: number, p: Vec3, yFirst: number): void {
     const r = this.r;
     const tmp = this.tmp;
+    const rx = this.angles[0] as number;
+    const twist = this.angles[1] as number;
+    const rz = this.angles[2] as number;
     // R_x(rx)
     r[0] = Math.sin(rx / 2);
     r[1] = 0;

@@ -1,4 +1,4 @@
-import { EkzaError, type Quat, quatSlerp } from '@ekza-animator/anim-core';
+import { EkzaError, type Quat } from '@ekza-animator/anim-core';
 import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-animator/doc';
 import { TwoBoneCore } from '../ik/core';
 import { internalsOf } from '../kernel/internals';
@@ -60,7 +60,9 @@ interface Ik2State {
   readonly facing: XfArrays;
   readonly ikSlot: number;
   readonly poleSlot: number;
-  readonly attr: Readonly<Record<LimbAttr, number>>;
+  /** Attribute slots in A_* order and their values of the current run. */
+  readonly attrSlots: Int32Array;
+  readonly values: Float64Array;
   readonly reach: number;
   /** Written nodes in index order. */
   readonly nodes: Int32Array;
@@ -281,7 +283,19 @@ function compileState(
     facing: internals.facing,
     ikSlot,
     poleSlot,
-    attr: limb.attrSlots,
+    attrSlots: Int32Array.from(
+      [
+        LIMB_ATTR.ikFk,
+        LIMB_ATTR.soft,
+        LIMB_ATTR.twist,
+        LIMB_ATTR.roll,
+        LIMB_ATTR.bank,
+        LIMB_ATTR.heelTwist,
+        LIMB_ATTR.toeTwist,
+      ],
+      (name) => limb.attrSlots[name],
+    ),
+    values: new Float64Array(8),
     reach: limb.lengths.upper + limb.lengths.lower,
     nodes: Int32Array.from(nodeList),
     path,
@@ -326,10 +340,28 @@ function setCoreXf(
   }
 }
 
-function attrValue(channels: ChannelBuffer, slot: number, fallback: number): number {
-  if (slot < 0 || slot >= channels.attrs.length) return fallback;
-  const value = channels.attrs[slot] as number;
-  return Number.isFinite(value) ? value : fallback;
+/** Attribute order in `Ik2State.values`. */
+const A_IKFK = 0;
+const A_SOFT = 1;
+const A_TWIST = 2;
+const A_ROLL = 3;
+const A_BANK = 4;
+const A_HEEL_TWIST = 5;
+const A_TOE_TWIST = 6;
+/** The clamped ikFk weight w of the current run. */
+const A_W = 7;
+
+/**
+ * Reads the limb attributes into `out` (0 for a missing slot or a non-finite value). Writes into a buffer instead of
+ * returning numbers: a returned double is boxed when the optimizer does not inline the call (no allocation, §8 A1).
+ */
+function readAttrs(channels: ChannelBuffer, slots: Int32Array, out: Float64Array): void {
+  const attrs = channels.attrs;
+  for (let i = 0; i < slots.length; i++) {
+    const slot = slots[i] as number;
+    const value = slot >= 0 && slot < attrs.length ? (attrs[slot] as number) : 0;
+    out[i] = Number.isFinite(value) ? value : 0;
+  }
 }
 
 /** q(a[ai])⁻¹ · q(b[bi]) into `out`. */
@@ -396,8 +428,12 @@ function composeChainBone(
   o.s[oi * 3 + 2] = sz * (rest.s[restIndex * 3 + 2] as number);
 }
 
-/** q = slerp(q_fk, σ·q_ik, w); q_ik exactly at w = 1. */
-function blend(fk: Quat, ik: Quat, w: number, out: Quat): void {
+/**
+ * q = slerp(q_fk, σ·q_ik, w) with w = `values[A_W]` (σ = sign(q_fk·q_ik)); q_ik exactly at w = 1. The weight is read
+ * from the buffer, not passed: a double argument of a call that is not inlined would be boxed.
+ */
+function blend(fk: Quat, ik: Quat, values: Float64Array, out: Quat): void {
+  const w = values[A_W] as number;
   if (w >= 1) {
     out[0] = ik[0];
     out[1] = ik[1];
@@ -405,14 +441,45 @@ function blend(fk: Quat, ik: Quat, w: number, out: Quat): void {
     out[3] = ik[3];
     return;
   }
-  quatSlerp(fk, ik, w, out);
+  let bx = ik[0];
+  let by = ik[1];
+  let bz = ik[2];
+  let bw = ik[3];
+  let cos = fk[0] * bx + fk[1] * by + fk[2] * bz + fk[3] * bw;
+  if (cos < 0) {
+    bx = -bx;
+    by = -by;
+    bz = -bz;
+    bw = -bw;
+    cos = -cos;
+  }
+  let wa = 1 - w;
+  let wb = w;
+  const sinSq = 1 - cos * cos;
+  if (sinSq > Number.EPSILON) {
+    const sin = Math.sqrt(sinSq);
+    const angle = Math.atan2(sin, cos);
+    wa = Math.sin((1 - w) * angle) / sin;
+    wb = Math.sin(w * angle) / sin;
+  }
+  const x = wa * fk[0] + wb * bx;
+  const y = wa * fk[1] + wb * by;
+  const z = wa * fk[2] + wb * bz;
+  const s = wa * fk[3] + wb * bw;
+  const inv = 1 / Math.sqrt(x * x + y * y + z * z + s * s);
+  out[0] = x * inv;
+  out[1] = y * inv;
+  out[2] = z * inv;
+  out[3] = s * inv;
 }
 
 function runIk2(state: Ik2State | undefined, pose: PoseBuffers, channels: ChannelBuffer): boolean {
   if (state === undefined) return false;
-  const { attr, core, xf, fkN, newN, delta, nodes, path, role, restLocal, qa, qb } = state;
-  const w = Math.min(1, Math.max(0, attrValue(channels, attr.ikFk, 0)));
+  const { core, xf, fkN, newN, delta, nodes, path, role, restLocal, qa, qb, values } = state;
+  readAttrs(channels, state.attrSlots, values);
+  const w = Math.min(1, Math.max(0, values[A_IKFK] as number));
   if (!(w > 0)) return false;
+  values[A_W] = w;
 
   // FK worlds of everything the op writes, the parent of the chain and the IK and pole controls.
   for (let i = 0; i < nodes.length; i++) xfaFromMat4(pose.boneWorld, (nodes[i] as number) * 16, fkN, i);
@@ -427,12 +494,7 @@ function runIk2(state: Ik2State | undefined, pose: PoseBuffers, channels: Channe
   // 1. Effective end target: W_ik · F · K_end (legs: foot roll in the foot frame).
   const foot = state.foot;
   if (foot !== null) {
-    foot.compute(
-      attrValue(channels, attr.roll, 0),
-      attrValue(channels, attr.bank, 0),
-      attrValue(channels, attr.heelTwist, 0),
-      attrValue(channels, attr.toeTwist, 0),
-    );
+    foot.computeFrom(values, A_ROLL);
     xfaMul(xf, IK, foot.xf, FOOT_F, xf, TMP);
     xfaMul(xf, TMP, state.kEnd, 0, xf, TGT);
   } else {
@@ -461,8 +523,8 @@ function runIk2(state: Ik2State | undefined, pose: PoseBuffers, channels: Channe
   core.pole[0] = pose.controlWorld[pole + 12] as number;
   core.pole[1] = pose.controlWorld[pole + 13] as number;
   core.pole[2] = pose.controlWorld[pole + 14] as number;
-  core.twist = attrValue(channels, attr.twist, 0);
-  core.soft = Math.min(0.25, Math.max(0, attrValue(channels, attr.soft, 0))) * state.reach;
+  core.twist = values[A_TWIST] as number;
+  core.soft = Math.min(0.25, Math.max(0, values[A_SOFT] as number)) * state.reach;
   core.solve();
 
   // 3–4. Blend in chain-relative local space and compose the chain top-down.
@@ -477,14 +539,14 @@ function runIk2(state: Ik2State | undefined, pose: PoseBuffers, channels: Channe
     }
     if (r === ROLE_UPPER) {
       relativeQuat(xf, PA, fkN, i, qa);
-      blend(qa, core.upperLocal, w, qb);
+      blend(qa, core.upperLocal, values, qb);
       composeChainBone(xf, PA, xf, PA, qb, restLocal, i, newN, i);
       continue;
     }
     const chain = state.chainParent[k] as number;
     const prev = path[k - 1] as number;
     relativeQuat(fkN, chain, fkN, i, qa);
-    blend(qa, r === ROLE_MID ? core.midLocal : core.endLocal, w, qb);
+    blend(qa, r === ROLE_MID ? core.midLocal : core.endLocal, values, qb);
     composeChainBone(newN, prev, newN, chain, qb, restLocal, i, newN, i);
   }
   for (let k = 0; k < path.length; k++) {
@@ -499,7 +561,7 @@ function runIk2(state: Ik2State | undefined, pose: PoseBuffers, channels: Channe
     const end = state.endIndex;
     xfaInvMul(fkN, end, fkN, toes, xf, REL);
     if (foot !== null && foot.ballRoll !== 0) {
-      foot.computeBall(w);
+      foot.computeBall(values, A_W);
       xfaInvMul(foot.xf, FOOT_BALL_W, state.kEnd, 0, xf, TMP);
       xfaInvMul(state.kEnd, 0, xf, TMP, xf, CW);
       xfaMul(xf, CW, xf, REL, xf, REL);

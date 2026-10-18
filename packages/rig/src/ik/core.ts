@@ -1,6 +1,5 @@
 import {
   type Quat,
-  quatFromAxisAngle,
   quatInvert,
   quatMultiply,
   quatNormalize,
@@ -69,6 +68,14 @@ export class TwoBoneCore {
   readonly midWorldQ: Quat = [0, 0, 0, 1];
   readonly endWorldOutQ: Quat = [0, 0, 0, 1];
   reached = false;
+  // Numbers passed between methods through fields: a double argument or return value of a call the optimizer does
+  // not inline is boxed (allocated), and the op runs inside the kernel's large evaluate loop.
+  /** Result of `bendAngle`. */
+  private gamma = 0;
+  /** Reach distance handed to `bendAngle`. */
+  private d = 0;
+  /** Angle handed to `axisAngle`. */
+  private angle = 0;
 
   // Scratch.
   private readonly sU: Vec3 = [1, 1, 1];
@@ -109,15 +116,18 @@ export class TwoBoneCore {
     addInto(a, w, b);
     quatRotateVec3(qM, tE0, w);
     addInto(b, w, c);
-    const l1 = length(tM0);
-    const l2 = length(tE0);
+    const l1 = Math.sqrt(tM0[0] * tM0[0] + tM0[1] * tM0[1] + tM0[2] * tM0[2]);
+    const l2 = Math.sqrt(tE0[0] * tE0[0] + tE0[1] * tE0[1] + tE0[2] * tE0[2]);
     const total = l1 + l2;
 
     // 2. Reach distance (amendment A), optionally softened, clamped into the reachable band.
     subInto(this.target, a, w);
-    const dRaw = length(w);
-    if (dRaw > 1e-9) scaleInto(w, 1 / dRaw, x);
-    else {
+    const dRaw = Math.sqrt(w[0] * w[0] + w[1] * w[1] + w[2] * w[2]);
+    if (dRaw > 1e-9) {
+      x[0] = w[0] / dRaw;
+      x[1] = w[1] / dRaw;
+      x[2] = w[2] / dRaw;
+    } else {
       subInto(c, a, x);
       normalizeOr(x, 0, -1, 0);
     }
@@ -135,8 +145,10 @@ export class TwoBoneCore {
     normalizeOr(k, 1, 0, 0);
     subInto(b, a, u);
     subInto(c, b, v);
-    const gamma = this.bendAngle(u, v, k, d);
-    quatFromAxisAngle(k, gamma, qa);
+    this.d = d;
+    this.bendAngle(u, v, k);
+    this.angle = this.gamma;
+    this.axisAngle(k, qa);
     quatMultiply(qa, qM, qM);
     quatRotateVec3(qM, tE0, w);
     addInto(b, w, c);
@@ -153,24 +165,27 @@ export class TwoBoneCore {
     quatRotateVec3(qM, this.hingeLocal, k);
     normalizeOr(k, 1, 0, 0);
     cross(x, k, ref);
-    if (length(ref) <= 1e-6) {
+    if (ref[0] * ref[0] + ref[1] * ref[1] + ref[2] * ref[2] <= 1e-12) {
       subInto(b, a, ref);
-      const along = dot(ref, x);
+      const along = ref[0] * x[0] + ref[1] * x[1] + ref[2] * x[2];
       ref[0] -= along * x[0];
       ref[1] -= along * x[1];
       ref[2] -= along * x[2];
     }
     subInto(this.pole, a, n);
-    const alongPole = dot(n, x);
+    const alongPole = n[0] * x[0] + n[1] * x[1] + n[2] * x[2];
     n[0] -= alongPole * x[0];
     n[1] -= alongPole * x[1];
     n[2] -= alongPole * x[2];
     let phi = 0;
-    if (length(ref) > 1e-9 && length(n) > 1e-9) {
+    const refSq = ref[0] * ref[0] + ref[1] * ref[1] + ref[2] * ref[2];
+    const nSq = n[0] * n[0] + n[1] * n[1] + n[2] * n[2];
+    if (refSq > 1e-18 && nSq > 1e-18) {
       cross(ref, n, w);
-      phi = Math.atan2(dot(x, w), dot(ref, n));
+      phi = Math.atan2(x[0] * w[0] + x[1] * w[1] + x[2] * w[2], ref[0] * n[0] + ref[1] * n[1] + ref[2] * n[2]);
     }
-    quatFromAxisAngle(x, phi + this.twist, qa);
+    this.angle = phi + this.twist;
+    this.axisAngle(x, qa);
     quatMultiply(qa, qU, qU);
     quatMultiply(qa, qM, qM);
 
@@ -199,30 +214,54 @@ export class TwoBoneCore {
     quatRotateVec3(qM, tE0, w);
     addInto(c, w, c);
     subInto(c, this.target, w);
-    this.reached = reachable && length(w) <= 1e-6 * Math.max(total, 1e-9);
+    const missSq = w[0] * w[0] + w[1] * w[1] + w[2] * w[2];
+    const allowed = 1e-6 * Math.max(total, 1e-9);
+    this.reached = reachable && missSq <= allowed * allowed;
+  }
+
+  /** Rotation by `this.angle` about the unit `axis` (anim-core's quatFromAxisAngle normalizes with Math.hypot). */
+  private axisAngle(axis: Vec3, out: Quat): void {
+    const half = this.angle * 0.5;
+    const s = Math.sin(half);
+    out[0] = axis[0] * s;
+    out[1] = axis[1] * s;
+    out[2] = axis[2] * s;
+    out[3] = Math.cos(half);
   }
 
   /**
    * Angle γ about unit `k` that brings |u + R_k(γ)·v| to `d`. Of the two solutions the one with the smaller |γ| wins
    * unless its bend (signed angle from u to v' about k) lies below min(0, rest bend): the rest bend of a
-   * hyperextended rest is allowed, anything beyond it is not (amendment C; M1 allows bends ≥ 0 only).
+   * hyperextended rest is allowed, anything beyond it is not (amendment C; M1 allows bends ≥ 0 only). The result goes
+   * to `this.gamma` (a returned double would be boxed by a call the optimizer does not inline).
    */
-  private bendAngle(u: Vec3, v: Vec3, k: Vec3, d: number): number {
+  private bendAngle(u: Vec3, v: Vec3, k: Vec3): void {
     const { w, n } = this;
-    const vk = dot(v, k);
+    const d = this.d;
+    const vk = v[0] * k[0] + v[1] * k[1] + v[2] * k[2];
     // v⊥ into w, k × v⊥ into n.
     w[0] = v[0] - vk * k[0];
     w[1] = v[1] - vk * k[1];
     w[2] = v[2] - vk * k[2];
     cross(k, w, n);
-    const pa = dot(u, w);
-    const pb = dot(u, n);
+    const pa = u[0] * w[0] + u[1] * w[1] + u[2] * w[2];
+    const pb = u[0] * n[0] + u[1] * n[1] + u[2] * n[2];
     const r = Math.sqrt(pa * pa + pb * pb);
-    if (r < 1e-15) return 0;
-    const c = (d * d - dot(u, u) - dot(v, v)) / 2 - dot(u, k) * vk;
+    if (r < 1e-15) {
+      this.gamma = 0;
+      return;
+    }
+    const uu = u[0] * u[0] + u[1] * u[1] + u[2] * u[2];
+    const vv = v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+    const uk = u[0] * k[0] + u[1] * k[1] + u[2] * k[2];
+    const c = (d * d - uu - vv) / 2 - uk * vk;
     const base = Math.atan2(pb, pa);
     const spread = Math.acos(Math.min(1, Math.max(-1, c / r)));
-    const restBend = bendOf(u, v, k, this.ref);
+    // The rest bend: atan2(k·(u × v), u·v).
+    const ux = u[1] * v[2] - u[2] * v[1];
+    const uy = u[2] * v[0] - u[0] * v[2];
+    const uz = u[0] * v[1] - u[1] * v[0];
+    const restBend = Math.atan2(k[0] * ux + k[1] * uy + k[2] * uz, u[0] * v[0] + u[1] * v[1] + u[2] * v[2]);
     // A hair below the rest bend still counts as the rest (rounding of a target placed exactly at the rest reach).
     const floor = Math.min(0, restBend - 1e-7);
     let best = 0;
@@ -246,7 +285,7 @@ export class TwoBoneCore {
         best = wrapped;
       }
     }
-    return best;
+    this.gamma = best;
   }
 }
 
@@ -258,8 +297,8 @@ export function bendOf(u: Vec3, v: Vec3, k: Vec3, scratch: Vec3): number {
 
 /** Rotation taking direction `from` onto `to`; antiparallel inputs rotate by π about `fallbackAxis` (M1 `swing`). */
 function swingInto(from: Vec3, to: Vec3, fallbackAxis: Vec3, out: Quat): void {
-  const lf = length(from);
-  const lt = length(to);
+  const lf = Math.sqrt(from[0] * from[0] + from[1] * from[1] + from[2] * from[2]);
+  const lt = Math.sqrt(to[0] * to[0] + to[1] * to[1] + to[2] * to[2]);
   if (lf < 1e-12 || lt < 1e-12) {
     out[0] = 0;
     out[1] = 0;
@@ -267,7 +306,7 @@ function swingInto(from: Vec3, to: Vec3, fallbackAxis: Vec3, out: Quat): void {
     out[3] = 1;
     return;
   }
-  const fd = dot(from, to);
+  const fd = from[0] * to[0] + from[1] * to[1] + from[2] * to[2];
   const cosine = fd / (lf * lt);
   if (cosine < -1 + 1e-12) {
     const fx = from[0] / lf;
@@ -318,12 +357,6 @@ function mulInto(a: Vec3, b: Vec3, out: Vec3): void {
   out[2] = a[2] * b[2];
 }
 
-function scaleInto(a: Vec3, s: number, out: Vec3): void {
-  out[0] = a[0] * s;
-  out[1] = a[1] * s;
-  out[2] = a[2] * s;
-}
-
 function addInto(a: Vec3, b: Vec3, out: Vec3): void {
   out[0] = a[0] + b[0];
   out[1] = a[1] + b[1];
@@ -349,12 +382,8 @@ function cross(a: Vec3, b: Vec3, out: Vec3): void {
   out[2] = z;
 }
 
-function length(a: Vec3): number {
-  return Math.sqrt(a[0] * a[0] + a[1] * a[1] + a[2] * a[2]);
-}
-
 function normalizeOr(v: Vec3, fx: number, fy: number, fz: number): void {
-  const len = length(v);
+  const len = Math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]);
   if (len > 1e-12) {
     v[0] /= len;
     v[1] /= len;
