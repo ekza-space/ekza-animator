@@ -219,8 +219,11 @@ test('idle editor: 0 WebGL frames, 0 canvas redraws', async ({ page }) => {
 
 test('open Seed-san (10.9 MB VRM) to interactive', async ({ page }) => {
   const runs: number[] = [];
+  const ready: number[] = [];
   for (let run = 0; run < 3; run++) {
     await openEditor(page);
+    // Navigation start → editor ready (WebGL up, kernel started), polled per animation frame by openEditor.
+    ready.push(await page.evaluate(() => performance.now()));
     await page.evaluate(() => {
       const w = window as unknown as { __t0?: number };
       addEventListener('pointerdown', () => (w.__t0 = performance.now()), { capture: true, once: true });
@@ -244,10 +247,12 @@ test('open Seed-san (10.9 MB VRM) to interactive', async ({ page }) => {
     runs.push((await handle.jsonValue()) as number);
   }
   const s = stats(runs);
+  const r = stats(ready);
   record(
     'open-seed-san',
-    { runsMs: runs, ...s },
-    `open Seed-san (sample button → rig on screen): runs ${runs.map(ms).join(', ')}; median ${ms(s.median)} (budget 3,000 ms)`,
+    { runsMs: runs, ...s, editorReadyMs: ready },
+    `open Seed-san (sample button → rig on screen): runs ${runs.map(ms).join(', ')}; median ${ms(s.median)}; the ` +
+      `editor page itself is ready ${ms(r.median)} after navigation (median) (budget 3,000 ms)`,
   );
 });
 
