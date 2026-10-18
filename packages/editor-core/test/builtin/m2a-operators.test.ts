@@ -15,8 +15,6 @@ const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
   ['rig.ikFk.match', { limb: 'arm.R', side: 'ik' }],
   ['rig.ikFk.matchRange', { limb: 'leg.R', side: 'fk' }],
   ['rig.setFootParams', { limb: 'leg.L', params: { heelBack: 0.05 } }],
-  ['select.pickWalk', { direction: 'up' }],
-  ['key.setTarget', { target: 'bodyPart' }],
   ['key.toggleRipple', undefined],
   ['key.tween', { mode: 'tween', amount: 50 }],
   ['key.convert', { to: 'breakdown' }],
@@ -51,13 +49,14 @@ describe('M2a operator stubs (§3 rule 1)', () => {
     for (const [id] of M2A_STUB_RUNS) expect([id, ids.has(id)]).toEqual([id, true]);
   });
 
-  it('key.set refuses body-part targets and breakdown keys until A2 lands them', async () => {
+  it('key.set keys body-part targets and breakdown keys (A2 landed them; details in key-m2a.test.ts)', async () => {
     const app = opsApp();
     app.session.setState({ selection: { ...app.session.getState().selection, controls: [WAVE.handL] } });
     const breakdown = await runResult(app, 'key.set', { breakdown: true });
-    expect(breakdown).toEqual({ status: 'cancelled', reason: 'Breakdown keys are not available yet' });
+    expect(breakdown.status).toBe('finished');
+    expect(app.history.peekUndo()?.label).toBe('Set Breakdown');
     const part = await runResult(app, 'key.set', { target: 'bodyPart' });
-    expect(part).toEqual({ status: 'cancelled', reason: 'Keying by body part is not available yet' });
+    expect(part.status).toBe('finished');
     expect((await runResult(app, 'key.set', { channels: 'rotate' })).status).toBe('finished');
   });
 });

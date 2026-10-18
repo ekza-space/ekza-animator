@@ -17,7 +17,16 @@ import {
 import { applyChannelEdits } from '../../edit/channels';
 import type { ChannelEditResult, CharacterRuntime, EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
-import { currentValues, editsFromValues, restValues } from '../../workflows/pose';
+import {
+  clipboardAttrValues,
+  currentAttrValues,
+  currentValues,
+  editsFromValues,
+  mergeChannelValues,
+  mirrorAttrValues,
+  restValues,
+  withClipboardAttrs,
+} from '../../workflows/pose';
 import { activeClipRecord, controlsOfCharacter, selectedControls } from '../../workflows/targets';
 import { type AnyOperator, all, defineOperator, errorText, fail, isRecord, OK, optionalArgs } from './define';
 import { activeRuntimeOf, pollClipEdit, pollRuntime } from './polls';
@@ -109,7 +118,12 @@ const poseCopy = defineOperator({
     // The selected controls, or the whole character (secondary controls included) when nothing is selected.
     const selected = selectedControls(app);
     const controls = (selected.length > 0 ? selected : controlsOfCharacter(app.store, runtime.id)).map((c) => c.id);
-    const clipboard = makePoseClipboard(runtime.program, rig, currentValues(app, controls));
+    // M2a §5.8: attribute values ride along, except keyAll: false ones (ikFk, soft) unless selected channels.
+    const clipboard = withClipboardAttrs(
+      makePoseClipboard(runtime.program, rig, currentValues(app, controls)),
+      app.store,
+      currentAttrValues(app, controls),
+    );
     const state = app.session.getState();
     app.session.setState({ clipboard: { ...state.clipboard, pose: clipboard } });
     app.services.clipboard.writeText(JSON.stringify(clipboard)).catch((error: unknown) => {
@@ -150,7 +164,10 @@ const posePaste = defineOperator<'pose.paste', PoseClipboard>({
     if (tx === null) throw new EkzaError('internal', 'pose.paste runs in a transaction');
     const runtime = requireRuntime(app);
     const mirrored = optionalArgs(args)?.['mirrored'] === true;
-    const values = applyPoseClipboard(clipboard, runtime.program, mirrored ? 'mirrored' : 'local');
+    const values = mergeChannelValues(
+      applyPoseClipboard(clipboard, runtime.program, mirrored ? 'mirrored' : 'local'),
+      clipboardAttrValues(tx, clipboard, controlsOfCharacter(tx, runtime.id), mirrored),
+    );
     // With a selection that shares controls with the pasted pose, paste onto the selected controls only.
     const selected = new Set(selectedControls(app, tx).map((control) => control.id));
     let overlaps = false;
@@ -196,13 +213,15 @@ const poseMirror = defineOperator({
     const character = app.session.getState().activeCharacter;
     if (character === null) return NO_EDITS;
     // Snapshot every control first: the result never depends on the order of writes.
-    const snapshot = currentValues(
-      app,
-      controlsOfCharacter(tx, character).map((control) => control.id),
-    );
-    const { values, warnings } = mirrorPose(runtime.program, snapshot, args.mode, mirrorScope(app));
+    const controls = controlsOfCharacter(tx, character);
+    const ids = controls.map((control) => control.id);
+    const snapshot = currentValues(app, ids);
+    const scope = mirrorScope(app);
+    const { values, warnings } = mirrorPose(runtime.program, snapshot, args.mode, scope);
     if (warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: warnings.join('; ') });
-    return writePose(app, tx, values);
+    // M2a §5.8: attributes map by AttrDef.mirror (ikFk copies, so the mirrored pose carries the limb mode).
+    const attrs = mirrorAttrValues(tx, controls, currentAttrValues(app, ids, 'keyable'), args.mode, scope);
+    return writePose(app, tx, mergeChannelValues(values, attrs));
   },
 });
 

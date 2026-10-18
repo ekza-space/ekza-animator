@@ -36,3 +36,24 @@ export * from './types';
 export { bodyPartOf } from './workflows/bodyParts';
 export { keyTargetControls } from './workflows/targets';
 export { controlVisibility } from './workflows/visibility';
+// M2a A2 (M2A-SPEC §5.1, §5.5, §5.6, §5.17–§5.19): attribute channel facts, the visibility resolver, limbs, the
+// virtual slider and pick-walk, for the viewport and the panels.
+export {
+  attrChannelsOf,
+  attrDefOf,
+  attrLabel,
+  clampChannelValue,
+  isKeyAllChannel,
+  isKeyable,
+  isLocked,
+} from './edit/channelMeta';
+export {
+  beginVirtualSlider,
+  type VirtualSlider,
+  virtualSliderFactor,
+  virtualSliderLabel,
+  virtualSliderRate,
+} from './edit/virtualSlider';
+export { pickWalkTarget } from './operators/builtin/select';
+export { LIMB_NAME, limbOfControlApp, limbOfControlIn, limbsOf } from './workflows/ik';
+export { controlVisibilityResolver, limbHiddenControls } from './workflows/visibility';
