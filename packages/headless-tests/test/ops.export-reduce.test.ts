@@ -14,22 +14,11 @@ import {
   skeletonFromGltf,
   trackLeverArms,
 } from '@ekza-animator/io';
-import { EkzaError } from '@ekza-animator/anim-core';
-import { computeInfluenceKeyTimes, HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 
 const DEG = Math.PI / 180;
-
-/** rig A1 implements `computeInfluenceKeyTimes` (the §5.16 keep set's influence term; M2A-SPEC §8 `READY.a1`). */
-const READY_A1 = (() => {
-  try {
-    computeInfluenceKeyTimes(undefined as never, undefined as never, { start: 0, end: 0 }, 'raw');
-    return true;
-  } catch (error) {
-    return !(error instanceof EkzaError && error.code === 'not-implemented');
-  }
-})();
 
 function request(character: CharacterId, clips: readonly ClipId[], fields?: Partial<ExportRequest>): ExportRequest {
   return {
@@ -252,7 +241,7 @@ describe.skipIf(!SIBLINGS_READY)(`file.export with reduce ${BLOCKED}`, { timeout
     }
   });
 
-  it.skipIf(!READY_A1)('keeps the key times of the influencing curves (READY.a1)', async () => {
+  it('keeps the key times of the influencing curves (rig A1, the keep set of §5.16)', async () => {
     const { app } = realApp({ validator: false });
     const seed = await importFixture(app, 'seed-san.vrm');
     // a key at 7 that changes the pose by far less than the tolerance: only the keep set can hold its sample

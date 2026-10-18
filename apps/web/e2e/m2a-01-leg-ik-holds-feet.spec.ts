@@ -1,7 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { drag, pointOf } from './helpers/g1-viewport';
 import { clickOutlinerRow, pressOverPane } from './helpers/g3-input';
-import { boneWorlds, clickControl, controlIdOf, expectWorldClose, gateOnA1, quatAngle, typeCb } from './helpers/m2a-a2';
+import {
+  boneWorlds,
+  clickControl,
+  controlIdOf,
+  expectWorldClose,
+  expectLimbIk,
+  quatAngle,
+  typeCb,
+} from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
@@ -12,7 +20,7 @@ test('E2E-M2A-01: leg IK holds the feet', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'polybot');
-  await gateOnA1(page);
+  await expectLimbIk(page);
 
   const limbs = Object.fromEntries((await call(page, 'limbs')).map((limb) => [limb.id, limb.ikFk]));
   expect(limbs).toEqual({ 'leg.L': 1, 'leg.R': 1, 'arm.L': 0, 'arm.R': 0 });

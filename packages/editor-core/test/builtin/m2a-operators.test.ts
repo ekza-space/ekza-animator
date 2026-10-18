@@ -47,7 +47,7 @@ describe('M2a operators after integration (§3 rules 1 and 4)', () => {
     for (const [id, args] of M2A_OPERATOR_RUNS) {
       expect([id, app.operators.get(id) !== undefined]).toEqual([id, true]);
       const poll = app.operators.poll(id, {}, args);
-      expect([id, poll.ok === false ? poll.reason : 'ok']).not.toEqual([id, NOT_AVAILABLE_YET]);
+      expect([id, poll === true ? 'ok' : poll.reason]).not.toEqual([id, NOT_AVAILABLE_YET]);
     }
   });
 

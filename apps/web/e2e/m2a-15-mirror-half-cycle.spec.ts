@@ -5,9 +5,8 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 
 // E2E-M2A-15 (FR-POSE-05, M2A-SPEC §5.14): Pose › Mirror Animation › Left → Right (half cycle) on a loop clip writes
 // the right IK foot as the left one mirrored and half a cycle later. Needs the leg IK controls of A1 (rig) and A2
-// (editor integration): fixme until both merge (M2A-SPEC §8, §10.1).
+// (editor integration); this was a fixme until both merged (M2A-SPEC §8, §10.1).
 test('E2E-M2A-15: mirror animation, half cycle', async ({ page }) => {
-  test.fixme(true, 'A1,A2: the leg IK controls (ik.leg.L/R) land with A1 (rig) and A2 (editor integration)');
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');

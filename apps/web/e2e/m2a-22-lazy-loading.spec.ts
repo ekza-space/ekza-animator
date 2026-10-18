@@ -83,8 +83,7 @@ test('E2E-M2A-22b: the Dope Sheet panel loads its chunk when its tab is first sh
   await page.waitForLoadState('networkidle');
   await runOk(page, 'workspace.showPanel', { panel: 'dopeSheet' });
   // A3 replaces the A0 placeholder with the panel and its React.lazy boundary (M2A-SPEC §8.1, §5.21.2).
-  const placeholder = (await page.getByTestId('ds-placeholder').count()) > 0;
-  test.fixme(placeholder, 'A3: the Dope Sheet panel has not landed (placeholder shown)');
+  await expect(page.getByTestId('ds-placeholder'), 'A3: the Dope Sheet panel replaced the placeholder').toHaveCount(0);
   await expect(page.getByTestId('ds-canvas')).toBeVisible();
   expect(loaded(scripts.bodies, MARKERS.dopeSheet)).toBe(true);
 });

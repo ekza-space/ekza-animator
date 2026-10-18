@@ -89,9 +89,9 @@ test('E2E-M2A-10: Dope Sheet basics', async ({ page }) => {
   expect(after[0]?.holds).not.toContainEqual([40, 50]);
 });
 
-// §5.10: a control hidden by the IK/FK rule (§5.5 rule 2) is listed dimmed. Legs are IK by default once A1 and A2
-// land, which hides the FK leg controls (M2A-SPEC §8: `test.fixme('A2')` until A2 merges).
-test.fixme('E2E-M2A-10b (A2): a control hidden by the IK/FK rule is listed dimmed', async ({ page }) => {
+// §5.10: a control hidden by the IK/FK rule (§5.5 rule 2) is listed dimmed. Legs are IK by default (A1 and A2),
+// which hides the FK leg controls (M2A-SPEC §8: this was `test.fixme('A2')` until A2 merged).
+test('E2E-M2A-10b: a control hidden by the IK/FK rule is listed dimmed', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');

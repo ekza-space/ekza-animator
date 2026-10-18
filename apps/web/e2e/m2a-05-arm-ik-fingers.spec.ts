@@ -4,7 +4,7 @@ import {
   controlIdOf,
   DEG,
   expectWorldClose,
-  gateOnA1,
+  expectLimbIk,
   relative,
   selectIds,
   typeCb,
@@ -24,7 +24,7 @@ test('E2E-M2A-05: arm IK with fingers', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   const hand = await controlIdOf(page, 'fk.hand.L');
   const finger = await controlIdOf(page, 'fk.indexProximal.L');
   await runOk(page, 'channel.setValues', {

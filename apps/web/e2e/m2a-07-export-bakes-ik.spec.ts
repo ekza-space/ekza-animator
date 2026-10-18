@@ -13,7 +13,7 @@ import {
   sampleRotation,
   validatorErrors,
 } from './helpers/g4-export';
-import { controlIdOf, gateOnA1, playVrma } from './helpers/m2a-a2';
+import { controlIdOf, expectLimbIk, playVrma } from './helpers/m2a-a2';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
@@ -30,7 +30,7 @@ test('E2E-M2A-07: export bakes IK', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'seed-san');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   const restClip = (await call(page, 'state')).activeClip ?? '';
   const { clip } = await runOk<{ clip: string }>(page, 'clip.new', { name: 'crouch' });
   const cog = await controlIdOf(page, 'cog');

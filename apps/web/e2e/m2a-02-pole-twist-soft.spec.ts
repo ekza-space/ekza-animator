@@ -6,7 +6,7 @@ import {
   DEG,
   distance,
   dot,
-  gateOnA1,
+  expectLimbIk,
   normalize,
   selectIds,
   sub,
@@ -44,7 +44,7 @@ test('E2E-M2A-02: pole, twist, soft', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   const { character } = await seedSample(page, 'polybot');
-  await gateOnA1(page);
+  await expectLimbIk(page);
   const bones = ['leftUpperLeg', 'leftLowerLeg', 'leftFoot'] as const;
   const rest = await boneWorlds(page, character, bones);
   const hip = rest.leftUpperLeg?.t as Vec3;

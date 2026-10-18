@@ -6,8 +6,8 @@ import { controlId, seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-M2A-14 (M2A-SPEC §5.12, FR-KEY-08): breakdown keys keep their time ratio between their anchors when an anchor
-// moves; a key converted back no longer follows. `Alt+S` is `key.set {breakdown: true}`, A2's (M2A-SPEC §8:
-// `test.fixme('A2')` until A2 merges; `key.convert` is A4's).
+// moves; a key converted back no longer follows. `Alt+S` is `key.set {breakdown: true}`, A2's (M2A-SPEC §8: this
+// was `test.fixme('A2')` until A2 merged; `key.convert` is A4's).
 
 async function graphDrag(page: Parameters<typeof dragBy>[0], key: string, frames: number): Promise<void> {
   const graph = await call(page, 'graph');
@@ -18,7 +18,7 @@ async function graphDrag(page: Parameters<typeof dragBy>[0], key: string, frames
   await dragBy(page, at, frames * graph.view.sx, 0);
 }
 
-test.fixme('E2E-M2A-14 (A2): breakdowns retime', async ({ page }) => {
+test('E2E-M2A-14: breakdowns retime', async ({ page }) => {
   await openEditor(page, '&platform=mac');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');

@@ -22,7 +22,7 @@ test('E2E-M2A-25: upgrade an M1 rig', async ({ page }) => {
   await runOk(page, 'workspace.showPanel', { panel: 'attributes' });
   const add = page.getByTestId('attr-add-limb-ik');
   await expect(add).toBeVisible();
-  test.fixme(await add.isDisabled(), `A1: limb IK is not available (${(await add.getAttribute('title')) ?? ''})`);
+  await expect(add, 'A1: limb IK is available (rig.addLimbIk polls ok)').toBeEnabled();
   await expect.poll(async () => (await toastTexts(page)).filter((text) => text.includes(FK_ONLY)).length).toBe(1);
 
   for (const [frame, degrees] of [
