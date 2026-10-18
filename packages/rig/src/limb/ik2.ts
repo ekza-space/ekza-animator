@@ -112,12 +112,16 @@ function writtenControls(parsed: ParsedIk2, ctx: RigOpCompileContext): ControlId
 }
 
 export const ik2Op: RigOpImpl = {
+  // §5.3 declarations: the IK and pole controls (worlds and attribute slots) and the bone world of the upper bone's
+  // parent. The FK worlds of the chain are ordered by the bone(n) → op edges of the written nodes (§5.4 rule 2), so
+  // the FK chain controls are not reads: they would add their curves to the influencing set of every track the op
+  // writes (§5.8; fk.lowerLeg and fk.foot keys for the thigh track).
   reads(record, ctx) {
     const { parsed, nodes } = limbNodesOf(record, ctx);
     const p = parsed.params;
     const unresolved = [nodes.upper, nodes.mid, nodes.end].filter((node) => node < 0);
     return {
-      controls: [p.ikControl, p.pole, p.fk.upper, p.fk.mid, p.fk.end],
+      controls: [p.ikControl, p.pole],
       nodes: unresolved.length > 0 ? unresolved : nodes.parent >= 0 ? [nodes.parent] : [],
     };
   },

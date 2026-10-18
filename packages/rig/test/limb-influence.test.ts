@@ -190,9 +190,11 @@ describe('influencing curves of IK limbs (M2A-SPEC §5.8)', () => {
   });
 
   it('counts an ikFk curve that may rise above 0 and ignores one that is stepped at 0 throughout', () => {
+    // A smooth pole curve: it counts for the upper leg track only while the leg's op may write.
     const base = new Map([
       [id('fk.upperLeg.L'), [info('rx', [0, 12], true)]],
       [id('fk.lowerLeg.L'), [info('rx', [6], false)]],
+      [id('pole.leg.L'), [info('tx', [6], false)]],
     ]);
     const upperLegTrack = `${upperLeg}/rotation` as const;
     // leg.L at a static ikFk 0 (an FK clip): the upper leg's own stepped chain decides (STEP).
@@ -204,7 +206,7 @@ describe('influencing curves of IK limbs (M2A-SPEC §5.8)', () => {
       new Map([[`${id('ik.leg.L')}/@ikFk`, 0]]),
     );
     expect(computeStepSchedule(program, fallback, range, 'raw').get(upperLegTrack)).toEqual([0, 12, 40]);
-    // A key switching to IK at 20: the op reads fk.lowerLeg.L (smooth), so the upper leg track is LINEAR.
+    // A key switching to IK at 20: the op reads the pole (smooth), so the upper leg track is LINEAR.
     const switching = infoSampler(
       new Map([...base, [id('ik.leg.L'), [info('@ikFk' as ChannelId, [0, 20], true)]]]),
       new Map([[`${id('ik.leg.L')}/@ikFk`, 1]]),
@@ -212,5 +214,51 @@ describe('influencing curves of IK limbs (M2A-SPEC §5.8)', () => {
     expect(computeStepSchedule(program, switching, range, 'raw').has(upperLegTrack)).toBe(false);
     // The default (1 for legs) without a curve: IK.
     expect(computeStepSchedule(program, infoSampler(base, new Map()), range, 'raw').has(upperLegTrack)).toBe(false);
+  });
+
+  it('does not count the FK chain below a track: the op reads the IK side and the upper bone parent only', () => {
+    // §5.3 declarations: fk.lowerLeg and fk.foot move the shin and the foot, not the thigh, so a smooth fk.foot curve
+    // leaves an IK leg's stepped thigh track STEP (and adds no key times to it).
+    const sampler = infoSampler(
+      new Map([
+        [id('fk.upperLeg.L'), [info('rx', [0, 12], true)]],
+        [id('fk.lowerLeg.L'), [info('rx', [6, 30], false)]],
+        [id('fk.foot.L'), [info('rx', [9, 33], false)]],
+        [id('ik.leg.L'), [info('@ikFk' as ChannelId, [0, 20], true)]],
+      ]),
+      new Map([[`${id('ik.leg.L')}/@ikFk`, 1]]),
+    );
+    expect(computeStepSchedule(program, sampler, range, 'raw').get(`${upperLeg}/rotation`)).toEqual([0, 12, 20, 40]);
+    expect(computeInfluenceKeyTimes(program, sampler, range, 'raw').get(`${upperLeg}/rotation`)).toEqual([0, 12, 20]);
+    // The shin and the foot keep their own FK chains (M1 set): smooth, so LINEAR.
+    const schedule = computeStepSchedule(program, sampler, range, 'raw');
+    expect(schedule.has(`${lowerLeg}/rotation`)).toBe(false);
+    expect(schedule.has(`${foot}/rotation`)).toBe(false);
+  });
+
+  it('counts a stepped ikFk curve whose cycleOffset infinity rises above 0 in another cycle', () => {
+    const upperLegTrack = `${upperLeg}/rotation` as const;
+    // Keys −1 at 0 and 0 at 20: with cycleOffset after the last key the next cycle plays 0 … +1 (IK).
+    const sampler = (pre: CurveInfo['pre'], post: CurveInfo['post'], first: number, last: number): ClipSampler => ({
+      ...infoSampler(new Map()),
+      value: (control, channel, t) =>
+        control === id('ik.leg.L') && channel === '@ikFk' ? (t === 0 ? first : t === 20 ? last : undefined) : undefined,
+      curveInfo: (control) =>
+        control === id('ik.leg.L')
+          ? [{ channel: '@ikFk' as ChannelId, keyTimes: [0, 20], steppedThroughout: true, pre, post }]
+          : control === id('pole.leg.L')
+            ? [info('tx', [6], false)]
+            : control === id('fk.upperLeg.L')
+              ? [info('rx', [0, 12], true)]
+              : [],
+    });
+    const linear = (s: ClipSampler): boolean => !computeStepSchedule(program, s, range, 'raw').has(upperLegTrack);
+    expect(linear(sampler('constant', 'cycleOffset', -1, 0))).toBe(true);
+    expect(linear(sampler('cycleOffset', 'constant', 0, -1))).toBe(true);
+    // A cycleOffset that falls in the cycles it reaches stays ≤ 0; plain cycles repeat the keys.
+    expect(linear(sampler('constant', 'cycleOffset', 0, -1))).toBe(false);
+    expect(linear(sampler('cycleOffset', 'constant', -1, 0))).toBe(false);
+    expect(linear(sampler('cycle', 'cycle', -1, 0))).toBe(false);
+    expect(linear(sampler('constant', 'linear', -1, 0))).toBe(true);
   });
 });

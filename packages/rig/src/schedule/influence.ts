@@ -37,8 +37,9 @@ export type OpActivity = (op: ScheduledRigOp) => boolean;
 
 /**
  * Activity of the ops in one clip: an ik2 limb is inactive when its `ikFk` stays ≤ 0 over the whole clip — no keyed
- * `@ikFk` curve and a static value (or the attribute default) ≤ 0, or a stepped curve that never extrapolates
- * linearly and whose every key value is ≤ 0. Every other op (and any ikFk curve that may rise above 0) is active.
+ * `@ikFk` curve and a static value (or the attribute default) ≤ 0, or a stepped curve whose every key value is ≤ 0
+ * and whose infinities cannot rise above them (no linear extrapolation, no cycleOffset that adds a rise per cycle).
+ * Every other op (and any ikFk curve that may rise above 0) is active.
  */
 export function clipOpActivity(program: RigProgram, sampler: ClipSampler): OpActivity {
   const inactive = new Set<string>();
@@ -53,11 +54,17 @@ export function clipOpActivity(program: RigProgram, sampler: ClipSampler): OpAct
       const value = sampler.value(control, '@ikFk', 0) ?? def?.default ?? 0;
       atMostZero = !(value > 0);
     } else {
+      const values = curve.keyTimes.map((t) => sampler.value(control, '@ikFk', t) ?? 0);
+      const rise = (values[values.length - 1] as number) - (values[0] as number);
       atMostZero =
         curve.steppedThroughout &&
         curve.pre !== 'linear' &&
         curve.post !== 'linear' &&
-        curve.keyTimes.every((t) => !((sampler.value(control, '@ikFk', t) ?? 0) > 0));
+        // cycleOffset adds the last − first difference per cycle: later cycles rise when it is positive, earlier
+        // cycles when it is negative.
+        !(curve.post === 'cycleOffset' && rise > 0) &&
+        !(curve.pre === 'cycleOffset' && rise < 0) &&
+        values.every((value) => !(value > 0));
     }
     if (atMostZero) inactive.add(limb.solver);
   }
