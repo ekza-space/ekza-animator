@@ -3,7 +3,7 @@
 // its keys, dragging the band's middle moves them, dragging an end scales them (one history step per drag), RMB
 // opens the band menu. Everything is in active-clip frames (§4.11.8). Canvas2D, no React.
 import { type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
-import { batchTables, type ChangeBatch, type KeyId, type TableName } from '@ekza-animator/doc';
+import { type AnyChange, batchTables, type ChangeBatch, type KeyId, type TableName } from '@ekza-animator/doc';
 import {
   type EditorApp,
   type MenuItemDef,
@@ -523,7 +523,9 @@ export class TimeSliderController {
     if (VIEW_TABLES.some((table) => tables.has(table))) view = ticks = true;
     if (!ticks && TICK_TABLES.some((table) => tables.has(table))) ticks = true;
     if (!ticks && tables.has('keys')) {
-      for (const change of batch.changes) {
+      const changes = batch.changes;
+      for (let i = 0; i < changes.length; i++) {
+        const change = changes[i] as AnyChange;
         if (change.table !== 'keys') continue;
         const { before, after } = change;
         if (before === undefined || after === undefined || before.t !== after.t || before.curve !== after.curve) {

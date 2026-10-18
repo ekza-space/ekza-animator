@@ -96,7 +96,9 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
     // M-1: a drag batch is 1,000 key updates in runs of one curve; a key update that stays on the curve of the change
     // before it adds nothing (one check instead of two set insertions per key, in a fresh editor's interpreted frames).
     let lastCurve: CurveId | null = null;
-    for (const change of batch.changes) {
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
       if (change.table === 'keys' && change.before !== undefined && change.after !== undefined) {
         const curve = change.before.curve;
         touched = true;

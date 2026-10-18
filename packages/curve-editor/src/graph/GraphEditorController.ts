@@ -8,7 +8,7 @@
 // region box (§5.15.3); breakdown glyphs (§5.12). M-1: drags repaint only their curves over a cached static layer,
 // and the scheduled (coalesced) preview update runs before each redraw.
 import type { CompiledAnimCurve, Disposer, Fps, Frame } from '@ekza-animator/anim-core';
-import type { ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
+import type { AnyChange, ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
 import {
   compileWithAppEngine,
   type CurveBuffer,
@@ -727,7 +727,9 @@ export class GraphEditorController {
     // M-1: a drag batch is 1,000 key updates in runs of one curve; an update on the curve of the update before it
     // changes nothing below (one comparison instead of the set work per key).
     let lastCurve: CurveId | undefined;
-    for (const change of batch.changes) {
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
       if (full) break;
       if (!WATCHED_TABLES.has(change.table)) continue;
       touched = true;

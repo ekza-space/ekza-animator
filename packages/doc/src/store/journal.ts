@@ -37,6 +37,11 @@ export class Journal {
   readonly ops: JournalOp[] = [];
   /** First-touch order, by `rowKey`. Add and remove through `add`/`remove` (they keep the lookup index). */
   readonly originals = new Map<string, JournalOriginal>();
+  /**
+   * `originals` in the same first-touch order, for indexed loops (M-1: a preview update walks its 1,000 originals
+   * three times per frame, and a Map iterator allocates a result object per step until the engine optimizes it).
+   */
+  readonly ordered: JournalOriginal[] = [];
   /** Partitions opened implicitly by writes, in order. */
   readonly opened: Partition[] = [];
   /**
@@ -55,6 +60,7 @@ export class Journal {
 
   add(original: JournalOriginal): void {
     this.originals.set(rowKey(original.table, original.id), original);
+    this.ordered.push(original);
     let byId = this.index.get(original.table);
     if (byId === undefined) {
       byId = new Map();
@@ -64,8 +70,15 @@ export class Journal {
   }
 
   remove(table: string, id: string): void {
-    this.originals.delete(rowKey(table, id));
+    const key = rowKey(table, id);
+    const original = this.originals.get(key);
+    this.originals.delete(key);
     this.index.get(table)?.delete(id);
+    // Removals undo the latest first touches (rollbacks) or a failed preview update's: search from the end.
+    if (original !== undefined) {
+      const at = this.ordered.lastIndexOf(original);
+      if (at !== -1) this.ordered.splice(at, 1);
+    }
   }
 }
 

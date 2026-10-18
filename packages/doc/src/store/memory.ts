@@ -50,7 +50,7 @@ import {
 } from '../tables/registry';
 import { DEFAULT_UNDO_LIMIT, PatchUndoManager, type UndoWrite } from '../undo/patchUndo';
 import { compareStrings, deepEqual } from './diff';
-import { Journal, NOT_SHOWN, type Savepoint } from './journal';
+import { Journal, type JournalOriginal, NOT_SHOWN, type Savepoint } from './journal';
 import { ReferenceIndex } from './references';
 import {
   dropUndefined,
@@ -463,8 +463,10 @@ export class MemoryDocumentStore implements DocumentStore {
   previewUpdate(session: StorePreview, fn: (tx: Tx) => void): void {
     this.assertNotInTransaction('preview.update');
     const journal = session.journal;
+    const ordered = journal.ordered;
     // Note what readers see, and revert to committed state (a record already at its committed entry is not written).
-    for (const original of journal.originals.values()) {
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       const shown = original.current;
       original.shown = shown;
       this.storage.write(original.table, original.id, shown, original.original);
@@ -497,7 +499,8 @@ export class MemoryDocumentStore implements DocumentStore {
     if (context.label !== session.label) session.annotatedLabel = context.label;
     // Preview batch: what readers saw before this update → what they see now.
     const changes: RowChange[] = [];
-    for (const original of journal.originals.values()) {
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       const shown = original.shown;
       const before = shown === NOT_SHOWN ? original.original?.record : shown?.record;
       const after = original.current?.record;
@@ -688,7 +691,9 @@ export class MemoryDocumentStore implements DocumentStore {
 
   /** Restores every touched record to its committed state (preview conflicts included). */
   private revert(journal: Journal): void {
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       this.storage.set(original.table, original.id, original.original);
       original.current = original.original;
     }
@@ -699,7 +704,9 @@ export class MemoryDocumentStore implements DocumentStore {
    * before its rig in one transaction got `scene` provisionally). Records that kept their rig keep their partition.
    */
   private resolvePartitions(journal: Journal, implicitOpen = true): void {
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       if (!isRigScoped(original.table)) continue;
       const entry = this.storage.get(original.table, original.id);
       if (entry === undefined) continue;
@@ -714,7 +721,9 @@ export class MemoryDocumentStore implements DocumentStore {
   /** Net change of every touched record, in first-touch order. */
   private collect(journal: Journal): CommittedChange[] {
     const out: CommittedChange[] = [];
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       const current = this.storage.get(original.table, original.id);
       const before = original.original?.record;
       const after = current?.record;

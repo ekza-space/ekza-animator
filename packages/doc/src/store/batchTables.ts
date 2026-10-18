@@ -1,7 +1,7 @@
 // M-1 (M2A-SPEC §5.21.1): the tables a change batch touches, computed once per batch. A drag of 1,000 keys emits a
 // 1,000-change preview batch every frame, and a dozen listeners only ask "does it touch my tables?"; each used to
 // scan every change for that (a dozen scans per frame, interpreted in a fresh editor's first frames).
-import type { ChangeBatch } from '../store';
+import type { AnyChange, ChangeBatch } from '../store';
 import type { TableName } from '../records';
 
 const tablesOfBatch = new WeakMap<ChangeBatch, ReadonlySet<TableName>>();
@@ -12,11 +12,13 @@ export function batchTables(batch: ChangeBatch): ReadonlySet<TableName> {
   if (tables === undefined) {
     const set = new Set<TableName>();
     let last: TableName | null = null;
-    for (const change of batch.changes) {
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
       // Batches come in runs of one table (1,000 keys): add each run once.
-      if (change.table === last) continue;
-      last = change.table;
-      set.add(last);
+      const table = (changes[i] as AnyChange).table;
+      if (table === last) continue;
+      last = table;
+      set.add(table);
     }
     tables = set;
     tablesOfBatch.set(batch, tables);

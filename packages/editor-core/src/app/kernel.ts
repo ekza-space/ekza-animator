@@ -6,7 +6,7 @@
 //   session time  ──► keeper (drop overrides of moved characters) ─► evaluation ─► requestFrame
 //   prefs         ──► storage (persisted) ─► keymap (user overrides, Space behaviour)
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-animator/doc';
+import type { AnyChange, CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-animator/doc';
 import { setDefaultIdSource } from '@ekza-animator/doc';
 import type { ExportProfileDef } from '@ekza-animator/io';
 import { createStore } from 'zustand/vanilla';
@@ -191,7 +191,9 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     const ids = new Set<CharacterId>();
     // M-1: a drag batch is 1,000 key changes of one clip; each clip is looked up once per run.
     let lastClip: unknown = null;
-    for (const change of batch.changes) {
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
       const row = (change.after ?? change.before) as Readonly<Record<string, unknown>> | undefined;
       if (row === undefined) continue;
       if (change.table === 'project') return null;
