@@ -156,47 +156,19 @@ function rotate(q: Quat, v: V3): V3 {
 }
 
 /**
- * Whether the limb's rest bend lies in its hinge plane (the bend offset m⁰ along ±h⁰ within 18°, or negligible):
- * then the spec's match pole blend towards the actual mid-joint direction applies; a rest that bends off the hinge
- * (Polybot's legs and arms) matches with the hinge-implied direction only (see `matchPoleDirection`).
+ * The parts of the §5.6 match pole rule that depend on the FK positions a, b, c (upper, mid, end) only: x̂ =
+ * normalize(c − a), the hinge-implied flexion direction h = normalize(x̂ × k_fk) (a degenerate hinge, |x̂ × k_fk| <
+ * 1e-6: the current pole direction from b) and the blend weight β = smoothstep(2°, 10°, θ)·smoothstep(0, 0.5, m̂·h)
+ * (θ the bend between b − a and c − b, m̂ the normalized bend offset; β = 0 when |m| ≤ 1e-3·L).
  */
-export function limbRestIsPlanar(program: RigProgram, desc: LimbDesc): boolean {
-  const rest = internalsOf(program).restWorld;
-  const at = (node: number): V3 => [
-    rest.t[node * 3] as number,
-    rest.t[node * 3 + 1] as number,
-    rest.t[node * 3 + 2] as number,
-  ];
-  const a = at(desc.nodes.upper);
-  const b = at(desc.nodes.mid);
-  const c = at(desc.nodes.end);
-  const reach = desc.lengths.upper + desc.lengths.lower;
-  const ac = sub(c, a);
-  if (len(ac) < 1e-12) return true;
-  const x = scale(ac, 1 / len(ac));
-  const m = perpendicular(sub(b, a), x);
-  if (len(m) <= 1e-3 * reach) return true;
-  const h = cross(x, [desc.params.hinge[0], desc.params.hinge[1], desc.params.hinge[2]]);
-  if (len(h) < 1e-9) return false;
-  return Math.abs(dot(m, h)) / (len(m) * len(h)) >= Math.cos(18 * DEG);
-}
-
-/**
- * §5.6 match pole rule: the pole direction p̂ from the FK positions a, b, c (upper, mid, end) and the FK world
- * hinge. h = normalize(x̂ × k_fk) (degenerate hinge: the current pole direction from b). For a planar rest (see
- * `limbRestIsPlanar`), p̂ = normalize((1 − β)·h + β·m̂) with β = smoothstep(2°, 10°, θ)·smoothstep(0, 0.5, m̂·h)
- * (θ the bend between b − a and c − b, m̂ the normalized bend offset when |m| > 1e-3·L); otherwise p̂ = h, the
- * direction the ik2 op's twist aligns with the pole (§5.3 amendment B), which reproduces every hinge pose exactly.
- */
-export function matchPoleDirection(
+export function matchPoleBasis(
   a: V3,
   b: V3,
   c: V3,
   hingeWorld: V3,
   currentPole: V3,
   reach: number,
-  planar: boolean,
-): V3 {
+): { readonly x: V3; readonly h: V3; readonly beta: number } {
   const ac = sub(c, a);
   const x: V3 = len(ac) > 1e-12 ? scale(ac, 1 / len(ac)) : [0, -1, 0];
   let h = cross(x, hingeWorld);
@@ -205,21 +177,31 @@ export function matchPoleDirection(
     h = len(toPole) > 1e-12 ? toPole : sub(currentPole, b);
   }
   h = len(h) > 1e-12 ? scale(h, 1 / len(h)) : [0, 0, 1];
-  if (!planar) return h;
   const m = perpendicular(sub(b, a), x);
-  if (len(m) <= 1e-3 * reach) return h;
+  if (len(m) <= 1e-3 * reach) return { x, h, beta: 0 };
   const mHat = scale(m, 1 / len(m));
   const u = sub(b, a);
   const v = sub(c, b);
   const cosine = dot(u, v) / Math.max(1e-300, len(u) * len(v));
   const theta = Math.acos(Math.min(1, Math.max(-1, cosine)));
-  const beta = smoothstep(2 * DEG, 10 * DEG, theta) * smoothstep(0, 0.5, dot(mHat, h));
-  const p: V3 = [
-    (1 - beta) * h[0] + beta * mHat[0],
-    (1 - beta) * h[1] + beta * mHat[1],
-    (1 - beta) * h[2] + beta * mHat[2],
-  ];
-  return scale(p, 1 / len(p));
+  return { x, h, beta: smoothstep(2 * DEG, 10 * DEG, theta) * smoothstep(0, 0.5, dot(mHat, h)) };
+}
+
+/** `v` rotated about the unit axis `x` by `angle` (Rodrigues). */
+function rotateAbout(v: V3, x: V3, angle: number): V3 {
+  const c = Math.cos(angle);
+  const s = Math.sin(angle);
+  const k = cross(x, v);
+  const d = dot(x, v) * (1 - c);
+  return [v[0] * c + k[0] * s + x[0] * d, v[1] * c + k[1] * s + x[1] * d, v[2] * c + k[2] * s + x[2] * d];
+}
+
+/** Signed angle about the unit axis `x` from `from` to `to` (both taken perpendicular to `x`); 0 when degenerate. */
+function angleAbout(from: V3, to: V3, x: V3): number {
+  const f = perpendicular(from, x);
+  const t = perpendicular(to, x);
+  if (len(f) < 1e-12 || len(t) < 1e-12) return 0;
+  return Math.atan2(dot(x, cross(f, t)), dot(f, t));
 }
 
 /** K_end = (W⁰_ik)⁻¹ · W⁰_end into element 0 of a new XfArrays. */
@@ -295,11 +277,21 @@ export function ikControlForEndWorld(
 /**
  * Match IK to FK (§5.6): IK control channels from the FK end world (W_ik = W_end,fk · K_end⁻¹ · F⁻¹ at the current
  * foot-roll attributes), `twist` 0 and the pole by the match pole rule, at distance D from b (the current pole
- * distance when ≥ 0.25·L, else L), placed so that its offset from the a → c line points along p̂ (the bend offset's
- * part outside the p̂ plane is taken off: the ik2 twist aligns the hinge-implied direction with the pole, §5.3 B).
+ * distance when ≥ 0.25·L, else L).
+ *
+ * The rule's blend towards the actual bend offset m̂ is taken relative to the IK's own knee (a deviation that keeps
+ * the rule's intent exact on real rests, docs/wp-notes/m2a-rig-ik.md): with the pole along h the IK puts the mid
+ * joint at an offset m₀ (= m for every hinge pose, also when the rest bend leaves the hinge plane by a little, as
+ * on Seed-san's knees, or a lot, as on Polybot's splayed legs); the pole direction is then h turned about x̂ by β·ψ,
+ * ψ the signed angle from m₀ to m. A hinge pose gives ψ = 0 and the exact M1-style pole; an off-hinge knee (mocap ab-
+ * duction or twist) turns the IK bend plane towards the actual knee; near-straight and hyperextended limbs (β = 0)
+ * use h. The pole is placed so that its offset from the a → c line points along p̂ (the ik2 twist aligns the hinge-
+ * implied direction with that offset, §5.3 B).
+ *
  * Only the IK and pole controls are matched (`fk.toes` keeps its channels): with a ball roll the toes rule keeps
- * the IK toes planted, so they differ from the FK toes (§5.3 step 6). The errors compare the IK result (evaluated with ikFk 1 and the other channels of `ch`) with `fkPose`: end
- * and mid joint positions and the largest world-rotation difference of the chain bones.
+ * the IK toes planted, so they differ from the FK toes (§5.3 step 6). The errors compare the IK result (evaluated
+ * with ikFk 1 and the other channels of `ch`) with `fkPose`: end and mid joint positions and the largest
+ * world-rotation difference of the chain bones.
  */
 export function matchIkToFk(
   program: RigProgram,
@@ -326,26 +318,19 @@ export function matchIkToFk(
     fkPose.controlWorld[poleSlot * 16 + 13] as number,
     fkPose.controlWorld[poleSlot * 16 + 14] as number,
   ];
-  const direction = matchPoleDirection(
-    a,
-    b,
-    c,
-    worldHinge(program, desc, fkPose),
-    currentPole,
-    reach,
-    limbRestIsPlanar(program, desc),
-  );
+  const { x, h, beta } = matchPoleBasis(a, b, c, worldHinge(program, desc, fkPose), currentPole, reach);
   const currentDistance = len(sub(currentPole, b));
   const distance = currentDistance >= 0.25 * reach ? currentDistance : reach;
-  const ac = sub(c, a);
-  const x: V3 = len(ac) > 1e-12 ? scale(ac, 1 / len(ac)) : [0, -1, 0];
   const m = perpendicular(sub(b, a), x);
-  const off = sub(m, scale(direction, dot(m, direction)));
-  const pole: V3 = [
-    b[0] + direction[0] * distance - off[0],
-    b[1] + direction[1] * distance - off[1],
-    b[2] + direction[2] * distance - off[2],
-  ];
+  const poleReference = reference.get(p.pole) ?? readControlChannels(program, ch, p.pole);
+  const poleValuesAlong = (direction: V3): ChannelValues => {
+    const off = sub(m, scale(direction, dot(m, direction)));
+    const poleWorld = fkPose.controlWorld.slice(poleSlot * 16, poleSlot * 16 + 16);
+    poleWorld[12] = b[0] + direction[0] * distance - off[0];
+    poleWorld[13] = b[1] + direction[1] * distance - off[1];
+    poleWorld[14] = b[2] + direction[2] * distance - off[2];
+    return solveControlChannels(program, fkPose, p.pole, poleWorld, poleReference);
+  };
 
   const ikReference = reference.get(p.ikControl) ?? readControlChannels(program, ch, p.ikControl);
   const ikValues: ChannelValues = {
@@ -358,30 +343,31 @@ export function matchIkToFk(
     ),
   };
   if (desc.attrSlots.twist >= 0) ikValues['@twist'] = 0;
-  const poleWorld = fkPose.controlWorld.slice(poleSlot * 16, poleSlot * 16 + 16);
-  poleWorld[12] = pole[0];
-  poleWorld[13] = pole[1];
-  poleWorld[14] = pole[2];
-  const poleValues = solveControlChannels(
-    program,
-    fkPose,
-    p.pole,
-    poleWorld,
-    reference.get(p.pole) ?? readControlChannels(program, ch, p.pole),
-  );
+
+  // The IK pose with the given pole channels (ikFk 1, the other channels of `ch`).
+  const scratch = program.allocChannels();
+  scratch.values.set(ch.values.subarray(0, scratch.values.length));
+  scratch.attrs.set(ch.attrs.subarray(0, scratch.attrs.length));
+  writeControlChannels(program, scratch, p.ikControl, ikValues);
+  if (desc.attrSlots.ikFk >= 0) scratch.attrs[desc.attrSlots.ikFk] = 1;
+  const ikPose = program.allocPose();
+  const evaluateWithPole = (values: ChannelValues): void => {
+    writeControlChannels(program, scratch, p.pole, values);
+    program.evaluate(scratch, ikPose);
+  };
+
+  let poleValues = poleValuesAlong(h);
+  if (beta > 0) {
+    evaluateWithPole(poleValues);
+    const psi = angleAbout(sub(position(ikPose, mid), a), m, x);
+    if (psi !== 0) poleValues = poleValuesAlong(rotateAbout(h, x, beta * psi));
+  }
+  evaluateWithPole(poleValues);
+
   const values = new Map<ControlId, ChannelValues>([
     [p.ikControl, ikValues],
     [p.pole, poleValues],
   ]);
-
-  // Errors of the IK result against the FK pose.
-  const scratch = program.allocChannels();
-  scratch.values.set(ch.values.subarray(0, scratch.values.length));
-  scratch.attrs.set(ch.attrs.subarray(0, scratch.attrs.length));
-  for (const [control, channels] of values) writeControlChannels(program, scratch, control, channels);
-  if (desc.attrSlots.ikFk >= 0) scratch.attrs[desc.attrSlots.ikFk] = 1;
-  const ikPose = program.allocPose();
-  program.evaluate(scratch, ikPose);
   let maxRotationErrorRad = 0;
   for (const node of [upper, mid, end]) {
     maxRotationErrorRad = Math.max(

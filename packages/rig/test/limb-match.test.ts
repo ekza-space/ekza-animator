@@ -28,7 +28,7 @@ import {
   type SkeletonDesc,
   writeControlChannels,
 } from '../src';
-import { limbRestIsPlanar, matchPoleDirection } from '../src/limb/match';
+import { matchPoleBasis } from '../src/limb/match';
 import { richHumanoid } from './helpers';
 import {
   bonePos,
@@ -275,30 +275,59 @@ describe('match pole rule (§5.6)', () => {
     expect(worst).toBeLessThan(1e-3);
   });
 
-  it('uses h near straight limbs, blends to the bend offset with the bend, and h for off-hinge rests', () => {
+  it('uses h near straight limbs and for hyperextended or degenerate ones, and blends in with the bend', () => {
     const a: Vec3 = [0, 1, 0];
     const c: Vec3 = [0, 0.2, 0];
     const k: Vec3 = [1, 0, 0];
     const pole: Vec3 = [0, 0.6, 1];
-    // Knee bent forward and sideways: θ large, m̂·h ≈ 0.8.
-    const b: Vec3 = [0.12, 0.6, 0.16];
-    const blended = matchPoleDirection(a, b, c, k, pole, 0.8, true);
-    const mHat = unit([0.12, 0, 0.16]);
-    expect(dot(blended, mHat)).toBeCloseTo(1, 12);
-    // Off-hinge rest: always the hinge-implied direction.
-    const offHinge = matchPoleDirection(a, b, c, k, pole, 0.8, false);
-    expect(dot(offHinge, [0, 0, 1])).toBeCloseTo(1, 12);
-    // Nearly straight (θ < 2°): h.
-    const straight = matchPoleDirection(a, [0.0005, 0.6, 0.0005], c, k, pole, 0.8, true);
-    expect(dot(straight, [0, 0, 1])).toBeCloseTo(1, 12);
-    // Hyperextended (m̂·h ≤ 0): h, not the knee's side.
-    expect(dot(matchPoleDirection(a, [0, 0.6, -0.05], c, k, pole, 0.8, true), [0, 0, 1])).toBeCloseTo(1, 12);
-    // Degenerate hinge (along the chain): the current pole direction from b.
-    const degenerate = matchPoleDirection(a, [0, 0.6, 0.02], c, [0, 1, 0], [0.5, 0.6, 0.02], 0.8, true);
-    expect(degenerate[0]).toBeCloseTo(1, 12);
-    expect(limbRestIsPlanar(ikRig(richHumanoid()), ikRig(richHumanoid()).limbs[0] as never)).toBe(true);
-    const splayed = ikRig(limbHumanoid({ splayedLegs: true }));
-    expect(limbRestIsPlanar(splayed, splayed.limbs.find((l) => l.id === 'leg.L') as never)).toBe(false);
+    // Knee bent forward (θ ≫ 10°, m̂·h = 1): h = x̂ × k = +z, β = 1.
+    const forward = matchPoleBasis(a, [0, 0.6, 0.16], c, k, pole, 0.8);
+    expect(dot(forward.h, [0, 0, 1])).toBeCloseTo(1, 12);
+    expect(dot(forward.x, [0, -1, 0])).toBeCloseTo(1, 12);
+    expect(forward.beta).toBe(1);
+    // Knee bent forward and sideways: m̂·h = 0.25 → β = smoothstep(0, 0.5, 0.25) = 0.5.
+    const sideways = matchPoleBasis(a, [Math.sqrt(1 - 0.25 ** 2) * 0.16, 0.6, 0.25 * 0.16], c, k, pole, 0.8);
+    expect(sideways.beta).toBeCloseTo(0.5, 12);
+    // Nearly straight (|m| ≤ 1e-3·L, or θ < 2°): β = 0.
+    expect(matchPoleBasis(a, [0, 0.6, 0.0005], c, k, pole, 0.8).beta).toBe(0);
+    expect(matchPoleBasis(a, [0, 0.6, 0.006], c, k, pole, 0.8).beta).toBe(0);
+    // Hyperextended (m̂·h ≤ 0): β = 0, h still forward.
+    const hyper = matchPoleBasis(a, [0, 0.6, -0.05], c, k, pole, 0.8);
+    expect(hyper.beta).toBe(0);
+    expect(dot(hyper.h, [0, 0, 1])).toBeCloseTo(1, 12);
+    // Degenerate hinge (along the chain): h is the current pole direction from b.
+    const degenerate = matchPoleBasis(a, [0, 0.6, 0.02], c, [0, 1, 0], [0.5, 0.6, 0.02], 0.8);
+    expect(degenerate.h[0]).toBeCloseTo(1, 12);
+  });
+
+  it('turns the IK bend plane to an off-hinge knee (β = 1): the IK knee lies in the FK bend plane', () => {
+    for (const skeleton of [richHumanoid(), limbHumanoid({ splayedLegs: true })]) {
+      const program = ikRig(skeleton);
+      const desc = program.limbs.find((l) => l.id === 'leg.L');
+      if (desc === undefined) throw new Error('leg');
+      const next = random(41);
+      const values = hingePose(program, 'leg.L', 60 * DEG, next);
+      const knee = values.get(desc.params.fk.mid) as ChannelValues;
+      const order = controlOrder(program, desc.params.fk.mid);
+      // 8° of ab/adduction on top of the hinge bend.
+      const e = quatToEuler(quatMultiply(quatFromAxisAngle([0, 0, 1], 8 * DEG), toQuat(knee, order)), order);
+      values.set(desc.params.fk.mid, { rx: e[0], ry: e[1], rz: e[2] });
+      const fkCh = channels(program, values, 0);
+      const fkPose = evaluate(program, fkCh);
+      const result = matchIkToFk(program, fkPose, fkCh, 'leg.L', new Map());
+      const ikPose = evaluate(program, withValues(program, values, result.values, 1));
+      const at = (pose: PoseBuffers, node: number) => bonePos(pose, node);
+      const x = unit(sub(at(fkPose, desc.nodes.end), at(fkPose, desc.nodes.upper)));
+      const offset = (pose: PoseBuffers): Vec3 => {
+        const d = sub(at(pose, desc.nodes.mid), at(pose, desc.nodes.upper));
+        const along = dot(d, x);
+        return unit([d[0] - along * x[0], d[1] - along * x[1], d[2] - along * x[2]]);
+      };
+      expect(dot(offset(ikPose), offset(fkPose))).toBeGreaterThan(Math.cos(1e-6));
+      expect(result.endErrorM).toBeLessThan(1e-9);
+      // The knee cannot match exactly (IK bends about the hinge only), but it stays in the FK bend plane.
+      expect(result.midErrorM).toBeLessThan(0.01);
+    }
   });
 });
 
@@ -418,6 +447,8 @@ describe('matching helpers and Plant Feet on IK legs (§5.8)', () => {
     const result = plantFeetChannels(program, pose, [{ side: 'L', footWorld: far }], new Map());
     expect([...result.values.keys()]).toEqual([id('ik.leg.L')]);
     expect(result.reached).toBe(false);
-    expect(result.warnings).toEqual(['Plant Feet: the L foot cannot reach its pin; the leg was straightened towards it']);
+    expect(result.warnings).toEqual([
+      'Plant Feet: the L foot cannot reach its pin; the leg was straightened towards it',
+    ]);
   });
 });

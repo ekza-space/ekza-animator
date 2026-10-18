@@ -8,7 +8,7 @@ import type { HumanBoneName } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
 import type { GltfReader } from '../gltf/accessor';
 import { DRACO_EXTENSION, isIndex, isRecord, listField, meshesOf, nodesOf, skinsOf } from '../gltf/schema';
-import { boneSupportOf } from './support';
+import { boneSupportOf, type FootRegion } from './support';
 
 export const RADIUS_P90_FACTOR = 1.25;
 const DOMINANT_WEIGHT = 0.5;
@@ -119,10 +119,16 @@ export function measureMeshes(
     if (a !== -1) radii[i] = radii[a] ?? null;
   }
   const origins = worlds.map((m): [number, number, number] => [m[12] as number, m[13] as number, m[14] as number]);
+  const feet: FootRegion[] = [];
+  for (const side of ['left', 'right'] as const) {
+    const lowerLeg = humanoid?.[`${side}LowerLeg`];
+    const foot = humanoid?.[`${side}Foot`];
+    if (lowerLeg !== undefined && foot !== undefined) feet.push({ lowerLeg, foot });
+  }
   return {
     boneRadii: radii,
     meshHeight: Number.isFinite(maxY - minY) ? maxY - minY : null,
-    boneSupport: boneSupportOf(primitives, nodes.length, origins),
+    boneSupport: boneSupportOf(primitives, nodes.length, origins, feet),
   };
 }
 
