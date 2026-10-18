@@ -90,3 +90,11 @@ Every assertion kept; each commit message names the test and the contract row.
 `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`, `test` (all packages,
 browser mode included), `build`, `pnpm --filter web check:size` (report only) and the whole e2e suite on port 3140
 (`EKZA_E2E_PORT=3140 pnpm run test:e2e`, real Chrome): green; E2E-00…27 unchanged except the literals above.
+
+Fix round 1 (rotate order on loop clips, sibling infinities, hidden-tab probes, synced reads, `view.tool`, the Time
+menu contract, allocation-free overrides, cycle-aware Simplify, skipped limbs): the same gates green, the e2e suite in
+real Chrome and in `chromium-swiftshader` (67 passed, 3 skipped). Observed once more: under heavy machine load from
+other processes (load average 17–28), two uncached `turbo run test --force` runs failed `editor/test/shell.test.tsx`
+"mounts the chrome …" with one extra rendered frame in its 300 ms idle window (the six later tests of that file then
+fail because the first one never unmounts); the file passes alone, with its sibling packages in parallel, and in the
+next full uncached run. It is the M1 render-on-demand check racing a late frame, not an A0 change.
