@@ -26,6 +26,8 @@ import {
   limbsWithSolvers,
   matchAt,
   matchEdits,
+  matchRangeDeviation,
+  matchRangeDeviationWarning,
   matchRangeFrames,
   matchWarnings,
   type MatchResult,
@@ -408,7 +410,23 @@ const matchRange = defineOperator({
       }
     }
     eulerFilterWritten(tx, ctx, [...written]);
-    warn(app, matchWarnings(args.limb, worst));
+    const warnings = matchWarnings(args.limb, worst);
+    if (step === 'keys' && perFrame.length > 0) {
+      // Keys only at the key times leave the in-betweens to the curves' interpolation, which differs between IK
+      // and FK: say by how much (fix round 1: Match Range to IK moved an in-between knee 3.5 cm silently).
+      const channels = new Map<ControlId, ChannelId[]>();
+      for (const { values } of perFrame) {
+        for (const edit of matchEdits(app, values)) {
+          const list = channels.get(edit.control) ?? [];
+          if (!list.includes(edit.channel)) list.push(edit.channel);
+          channels.set(edit.control, list);
+        }
+      }
+      const deviation = matchRangeDeviation(app, tx, ctx, args.side, span, frames, channels);
+      const warning = matchRangeDeviationWarning(args.limb, args.side, frames.length, deviation);
+      if (warning !== null) warnings.push(warning);
+    }
+    warn(app, warnings);
     return { count } satisfies CountResult;
   },
 });

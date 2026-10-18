@@ -88,6 +88,14 @@ const IK_FK_ITEMS: readonly MenuItemDef[] = LIMBS.flatMap(([limb, name], l) =>
       args: { limb, side: 'ik' },
       label: `Match Range ${name} to IK`,
     },
+    // Fix round 1: matching to IK keys the key times only (§5.6 default) and warns when the in-betweens move; this
+    // item matches every frame instead.
+    {
+      name: `${limb}.rangeIkFrames`,
+      op: 'rig.ikFk.matchRange',
+      args: { limb, side: 'ik', step: 'frames' },
+      label: `Match Range ${name} to IK (Every Frame)`,
+    },
   ]).map((item) => ({ ...item, order: item.order + l * 100 })),
 );
 

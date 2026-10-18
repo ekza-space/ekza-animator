@@ -269,6 +269,10 @@ describe('menus (§7)', () => {
       expect(find('rig.ik-fk', 'rig.ikFk.match', { limb, side: 'ik' })).toBeDefined();
       expect(find('rig.ik-fk', 'rig.ikFk.matchRange', { limb, side: 'fk' })).toBeDefined();
       expect(find('rig.ik-fk', 'rig.ikFk.matchRange', { limb, side: 'ik' })).toBeDefined();
+      // Fix round 1: matching every frame is one menu item away (the 'keys' default warns when in-betweens move).
+      expect(find('rig.ik-fk', 'rig.ikFk.matchRange', { limb, side: 'ik', step: 'frames' })?.label).toMatch(
+        /^Match Range [LR] (Leg|Arm) to IK \(Every Frame\)$/,
+      );
     }
     expect(find('time', 'time.insertTime', { frames: 1 })?.label).toBe('Insert Frame');
     expect(find('time', 'time.insertTime', { frames: -1 })?.label).toBe('Remove Frame');

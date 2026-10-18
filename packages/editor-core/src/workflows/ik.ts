@@ -506,6 +506,114 @@ export function matchRangeFrames(
   return [...set].sort((a, b) => a - b);
 }
 
+/** Deviation of a key-time Match Range between its keys (§5.6, fix round 1). */
+export interface RangeDeviation {
+  /** The largest distance of the end bone (foot, hand) from the source side's motion (metres), and its frame. */
+  readonly endM: number;
+  readonly endFrame: Frame | null;
+  /** The same for the mid joint (knee, elbow). */
+  readonly midM: number;
+  readonly midFrame: Frame | null;
+}
+
+/**
+ * How far a Match Range written at `keyFrames` only (`step: 'keys'`) leaves the limb from the motion it matched, at
+ * the integer frames of `range` between those keys: the source side's pose from the committed curves (unchanged by
+ * the match, which writes only the other side) against the matched side's pose with the curves written in `tx`
+ * (evaluated with the app's curve engine). `written` are the matched controls' channels.
+ */
+export function matchRangeDeviation(
+  app: EditorApp,
+  tx: ReadView,
+  ctx: LimbContext,
+  side: 'ik' | 'fk',
+  range: { readonly start: Frame; readonly end: Frame },
+  keyFrames: readonly Frame[],
+  written: ReadonlyMap<ControlId, readonly ChannelId[]>,
+): RangeDeviation {
+  const engine = internalsOf(app).deps.curves.engine;
+  const kit = limbKitOf(app);
+  const { program, limb, clip } = ctx;
+  const layer = tx.query.baseLayer(clip.id);
+  const curves: { readonly control: ControlId; readonly channel: ChannelId; readonly compiled: unknown }[] = [];
+  for (const [control, channels] of written) {
+    for (const channel of channels) {
+      const curve = layer === undefined ? undefined : tx.query.curveFor(clip.id, layer.id, control, channel);
+      if (curve === undefined) continue;
+      const keys = tx.query.keysOfCurve(curve.id);
+      if (keys.length === 0) continue;
+      curves.push({
+        control,
+        channel,
+        compiled: engine.compile({ keys, weighted: curve.weighted, pre: curve.pre, post: curve.post }),
+      });
+    }
+  }
+  const scratch = program.allocChannels();
+  const source = program.allocPose();
+  const matched = program.allocPose();
+  const { mid, end } = limb.nodes;
+  let out: { endM: number; endFrame: Frame | null; midM: number; midFrame: Frame | null } = {
+    endM: 0,
+    endFrame: null,
+    midM: 0,
+    midFrame: null,
+  };
+  const isKey = (frame: Frame): boolean => keyFrames.some((key) => Math.abs(key - frame) < 1e-6);
+  for (let frame = Math.ceil(range.start - 1e-9) + 0; frame <= range.end + 1e-9; frame++) {
+    if (isKey(frame)) continue;
+    const ch = channelsAt(app, ctx, frame, false);
+    kit.evaluateWithLimbMode(program, ch, limb.id, side === 'ik' ? 0 : 1, scratch, source);
+    const values = new Map<ControlId, Record<string, number>>();
+    for (const curve of curves) {
+      const entry = values.get(curve.control) ?? {};
+      entry[curve.channel] = engine.evaluate(curve.compiled as never, frame);
+      values.set(curve.control, entry);
+    }
+    const edited: ChannelBuffer = { values: ch.values.slice(), attrs: ch.attrs.slice() };
+    for (const [control, channels] of values) writeControlChannels(program, edited, control, channels);
+    kit.evaluateWithLimbMode(program, edited, limb.id, side === 'ik' ? 1 : 0, scratch, matched);
+    const endM = end < 0 ? 0 : len3(sub3(position(matched.boneWorld, end), position(source.boneWorld, end)));
+    const midM = mid < 0 ? 0 : len3(sub3(position(matched.boneWorld, mid), position(source.boneWorld, mid)));
+    if (endM > out.endM) out = { ...out, endM, endFrame: frame };
+    if (midM > out.midM) out = { ...out, midM, midFrame: frame };
+  }
+  return out;
+}
+
+/** A key-time Match Range moves the end or mid joint by more than this between the keys: it warns (§5.6). */
+export const RANGE_DEVIATION_WARN_M = 1e-3;
+
+/**
+ * The warning of a key-time Match Range whose in-betweens leave the matched motion (§5.6, fix round 1): "L Leg:
+ * matched at 3 key times only; between them the foot moves up to 26 mm (frame 5) and the knee 35 mm (frame 15) from
+ * the FK motion. Rig › IK/FK › Match Range L Leg to IK (Every Frame) keeps it". Null below the threshold.
+ */
+export function matchRangeDeviationWarning(
+  limb: LimbId,
+  side: 'ik' | 'fk',
+  keyCount: number,
+  deviation: RangeDeviation,
+): string | null {
+  if (!(deviation.endM > RANGE_DEVIATION_WARN_M) && !(deviation.midM > RANGE_DEVIATION_WARN_M)) return null;
+  const name = LIMB_NAME[limb] ?? limb;
+  const mm = (metres: number): string => {
+    const value = metres * 1000;
+    return value >= 10 ? value.toFixed(0) : value.toFixed(1);
+  };
+  const parts: string[] = [];
+  if (deviation.endM > RANGE_DEVIATION_WARN_M) {
+    parts.push(`the ${endName(limb)} moves up to ${mm(deviation.endM)} mm (frame ${deviation.endFrame})`);
+  }
+  if (deviation.midM > RANGE_DEVIATION_WARN_M) {
+    const verb = parts.length === 0 ? 'moves up to ' : '';
+    parts.push(`the ${midName(limb)} ${verb}${mm(deviation.midM)} mm (frame ${deviation.midFrame})`);
+  }
+  const from = side === 'ik' ? 'FK' : 'IK';
+  const to = side === 'ik' ? 'IK' : 'FK';
+  return `${name}: matched at ${keyCount} key time${keyCount === 1 ? '' : 's'} only; between them ${parts.join(' and ')} from the ${from} motion. Rig › IK/FK › Match Range ${name} to ${to} (Every Frame) keeps it`;
+}
+
 /** Plant Feet on an IK leg (§5.8): the IK control channels that put the foot bone on its pin. */
 export function plantIkLeg(
   app: EditorApp,

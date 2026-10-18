@@ -101,6 +101,67 @@ describe.skipIf(!SIBLINGS_READY)(`IK editor operators on the fixtures ${BLOCKED}
     expect(keyed).toEqual(['@bank', '@heelTwist', '@roll', '@toeTwist', '@twist', 'rx', 'ry', 'rz', 'tx', 'ty', 'tz']);
   });
 
+  // Acceptance fix round 1, bug 13: Match Range to IK keys the key times only (§5.6 default), and IK interpolates
+  // between them differently from FK: on this clip the knee moved 3.5 cm and the foot 2.6 cm at frames 5 and 15,
+  // silently. The operator now measures the in-betweens and warns; the Every Frame item matches every frame.
+  it('Match Range to IK at key times warns with the in-between deviation; every frame keeps the motion', async () => {
+    const { app, services } = realApp();
+    app.prefs.setState({ autoRigIk: { legs: false, arms: false } });
+    const san = await importFixture(app, 'seed-san.vrm');
+    await runOk(app, 'clip.new', { name: 'kick' });
+    const upper = controlOf(app, san.character, 'fk.upperLeg.L');
+    const lower = controlOf(app, san.character, 'fk.lowerLeg.L');
+    for (const [frame, hip, knee] of [
+      [0, 0, 5],
+      [10, -60, 70],
+      [20, 0, 5],
+    ] as const) {
+      setSceneFrame(app, frame);
+      await runOk(app, 'channel.setValues', {
+        edits: [
+          { control: upper, channel: 'rx', value: hip * DEG },
+          { control: lower, channel: 'rx', value: knee * DEG },
+        ],
+        key: 'force',
+      });
+    }
+    const frames = [0, 5, 10, 15, 20];
+    const fk = frames.map((frame) => LEG.map((bone) => boneWorld(app, san.character, bone, frame)));
+    await runOk(app, 'rig.addLimbIk');
+    const deviation = () =>
+      Math.max(
+        ...frames.flatMap((frame, f) =>
+          (['leftLowerLeg', 'leftFoot'] as const).map((bone) => {
+            const a = boneWorld(app, san.character, bone, frame).t;
+            const b = (fk[f]?.[LEG.indexOf(bone)] as ReturnType<typeof boneWorld>).t;
+            return Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+          }),
+        ),
+      );
+    const toasts = services.toasts.length;
+    await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik' });
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', match: false, key: 'none' });
+    const keyed = deviation();
+    expect(keyed).toBeGreaterThan(5e-3);
+    const warning = services.toasts.slice(toasts).find((toast) => toast.kind === 'warning')?.text ?? '';
+    expect(warning).toMatch(
+      /^L Leg: matched at 3 key times only; between them the foot moves up to \d+ mm \(frame \d+\)/,
+    );
+    expect(warning).toContain('from the FK motion. Rig › IK/FK › Match Range L Leg to IK (Every Frame) keeps it');
+    // The reported size is the largest in-between move of the foot or knee (within the sampled frames' maximum).
+    const reported = Math.max(...[...warning.matchAll(/(\d+(?:\.\d)?) mm/g)].map((m) => Number(m[1]) / 1000));
+    expect(reported).toBeGreaterThanOrEqual(keyed - 1e-3);
+
+    // Every frame: back to FK, undo the range, match every frame — the motion is kept and nothing warns about it.
+    await runOk(app, 'edit.undo');
+    await runOk(app, 'edit.undo');
+    const before = services.toasts.length;
+    await runOk(app, 'rig.ikFk.matchRange', { limb: 'leg.L', side: 'ik', step: 'frames' });
+    await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', match: false, key: 'none' });
+    expect(deviation()).toBeLessThan(1e-4);
+    expect(services.toasts.slice(before).some((toast) => toast.text.includes('key times only'))).toBe(false);
+  });
+
   it('rig.addLimbIk on an M1 rig: four FK limbs, the pose unchanged bit for bit at every frame, undo exact', async () => {
     const { app, services } = realApp();
     app.prefs.setState({ autoRigIk: { legs: false, arms: false } });

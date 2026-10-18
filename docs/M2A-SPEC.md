@@ -1128,7 +1128,12 @@ All matching is at the current clip frame of the active clip, evaluated with ove
 - **Match range**: `rig.ikFk.matchRange` matches at every integer frame of the range by default for side `'fk'`
   (matching only at IK key times would leave FK Euler interpolation between them and planted feet would slide) and
   at the key times of the limb's influencing curves (§5.8) for side `'ik'`; it keys the `side` controls (and
-  nothing else), runs the Euler filter on the written rotation curves, and is one step.
+  nothing else), runs the Euler filter on the written rotation curves, and is one step. With `'keys'` the matched
+  side interpolates between the keys differently from the source side: the operator evaluates the integer frames
+  between them (the written curves against the unchanged source side) and warns when the end or mid joint moves by
+  more than 1 mm ("L Leg: matched at 3 key times only; between them the foot moves up to 26 mm (frame 5) and the
+  knee 35 mm (frame 15) from the FK motion. Rig › IK/FK › Match Range L Leg to IK (Every Frame) keeps it"); the
+  menu's Every Frame item passes `step: 'frames'` (fix round 1, M2A-INT-28).
 - **UI**: the Channel Box shows an `IK/FK` proxy row (`cb-ikfk-row`) for any selected control of a limb (FK chain,
   IK control, pole), editing `<ikControl>/@ikFk` (the IK control's own raw `@ikFk` row is hidden, §5.1 rule 5); its
   button `cb-ikfk-switch` runs the switch towards the other mode with `match: true`. Selecting the proxy row's name
@@ -1136,7 +1141,7 @@ All matching is at the current clip frame of the active clip, evaluated with ove
   Limb section (`attr-limb-<limb>`): IK/FK segmented buttons (switch with match), "Match FK to IK", "Match IK to
   FK", the key-mode select (writes `prefs.ikFkSwitchKey`), for legs the foot fields of §5.2.3, and
   `attr-add-limb-ik` when the humanoid rig has no `ik2` solver. Menu Rig › IK/FK: Switch, Match, Match Range to FK,
-  Match Range to IK, Add Limb IK.
+  Match Range to IK, Match Range to IK (Every Frame), Add Limb IK.
 
 ### 5.7 M1 rigs, schema version 2, read-only rule
 
