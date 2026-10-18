@@ -187,9 +187,16 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
           runContext.channels = ch;
           runContext.state = op.state;
           if (op.impl.run(op.record, runContext) === false) continue;
-          // Ops overwrite worlds in the pose buffers; read them back so that downstream steps see them.
-          for (const slot of op.writesControls) xfaFromMat4(out.controlWorld, slot * 16, controlWorlds, slot);
-          for (const node of op.writesNodes) {
+          // Ops overwrite worlds in the pose buffers; read them back so that downstream steps see them (indexed
+          // loops: a typed-array iterator is not always optimized away, and this runs every frame).
+          const writesControls = op.writesControls;
+          for (let i = 0; i < writesControls.length; i++) {
+            const slot = writesControls[i] as number;
+            xfaFromMat4(out.controlWorld, slot * 16, controlWorlds, slot);
+          }
+          const writesNodes = op.writesNodes;
+          for (let i = 0; i < writesNodes.length; i++) {
+            const node = writesNodes[i] as number;
             xfaFromMat4(out.boneWorld, node * 16, nodeWorlds, node);
             overridden[node] = 1;
           }

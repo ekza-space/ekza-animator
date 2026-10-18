@@ -11,6 +11,9 @@ export interface ScheduledRigOp {
   /** Control slots and node indices the op overwrites (re-read into the kernel's transforms after it runs). */
   readonly writesControls: Int32Array;
   readonly writesNodes: Int32Array;
+  /** Control slots and node indices the op reads (the §5.8 influencing-curve definition follows them). */
+  readonly readsControls: Int32Array;
+  readonly readsNodes: Int32Array;
   /**
    * The op's `compile` result (M2A-SPEC §4.3), handed to `run`; `undefined` without `compile`. Set once by the
    * compiler after `createProgram`.

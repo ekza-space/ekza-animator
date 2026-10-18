@@ -46,7 +46,8 @@ export interface SkeletonDesc {
    * Per node: the horizontal support function of the rest-pose vertices whose dominant skin weight is that node,
    * relative to the node's rest position p, in character space: 32 values h_k = max over those vertices of
    * ((v − p).x·sin θ_k + (v − p).z·cos θ_k), θ_k = k·11.25°, then 2 values min (v − p).y and max (v − p).y. null for
-   * nodes without such vertices; the array is absent without mesh data (§5.2.3).
+   * nodes without such vertices; the array is absent without mesh data (§5.2.3). A humanoid lower leg's vertices
+   * below its foot's rest position count for the foot (rigs often skin the heel to the shin; A1 notes).
    */
   readonly boneSupport?: readonly (Float32Array | null)[];
 }

@@ -281,9 +281,11 @@ export function xfaFromMat4(m: Mat4 | Float64Array, offset: number, o: XfArrays,
   const m02 = m[offset + 8] as number;
   const m12 = m[offset + 9] as number;
   const m22 = m[offset + 10] as number;
-  let sx = Math.hypot(m00, m10, m20);
-  const sy = Math.hypot(m01, m11, m21);
-  const sz = Math.hypot(m02, m12, m22);
+  // Math.sqrt rather than Math.hypot: hypot is not inlined everywhere and allocates per call, and this runs per frame
+  // in the kernel's read-back of rig ops (M2A-SPEC §8 A1: no allocation in `run`).
+  let sx = Math.sqrt(m00 * m00 + m10 * m10 + m20 * m20);
+  const sy = Math.sqrt(m01 * m01 + m11 * m11 + m21 * m21);
+  const sz = Math.sqrt(m02 * m02 + m12 * m12 + m22 * m22);
   const det = m00 * (m11 * m22 - m21 * m12) - m01 * (m10 * m22 - m20 * m12) + m02 * (m10 * m21 - m20 * m11);
   if (det < 0) sx = -sx;
   o.t[i * 3] = m[offset + 12] as number;
@@ -339,7 +341,7 @@ export function xfaFromMat4(m: Mat4 | Float64Array, offset: number, o: XfArrays,
     qy = (r12 + r21) / s;
     qz = 0.25 * s;
   }
-  const len = Math.hypot(qx, qy, qz, qw);
+  const len = Math.sqrt(qx * qx + qy * qy + qz * qz + qw * qw);
   o.q[q4] = qx / len;
   o.q[q4 + 1] = qy / len;
   o.q[q4 + 2] = qz / len;

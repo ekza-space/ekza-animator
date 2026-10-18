@@ -15,18 +15,16 @@ export {
 export { type RigOpImpl, registerBuiltinRigOps, registerRigOp } from './kernel/ops';
 export { isRigOpSkipped } from './kernel/internals';
 export { controlWorld } from './kernel/pose';
+export { footprintShape, validateFootParams } from './limb/foot';
 export {
-  computeInfluenceKeyTimes,
   evaluateWithLimbMode,
   footPivotWorlds,
-  footprintShape,
   ikControlForEndWorld,
-  limbIkRecords,
   limbOfControl,
   matchFkToIk,
   matchIkToFk,
-  validateFootParams,
-} from './limb/stubs';
+} from './limb/match';
+export { limbIkRecords } from './limb/records';
 export { mirrorPose } from './mirror/mirrorPose';
 export { applyPoseClipboard, makePoseClipboard } from './pose/clipboard';
 export { convertRotateOrderKeys, convertRotateOrderKeysWith } from './pose/rotateOrder';
@@ -39,5 +37,6 @@ export {
   writeAttr,
   writeControlChannels,
 } from './sampler/channels';
+export { computeInfluenceKeyTimes } from './schedule/influence';
 export { computeStepSchedule } from './schedule/steps';
 export * from './types';
