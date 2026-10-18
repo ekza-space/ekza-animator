@@ -32,7 +32,7 @@ live here and the spec's A5 references point here. Decision IDs below are `M2A-A
 | M2A-A5-7 | **M-3 mechanisms:** a per-compiled-curve segment hint (`segmentHint` on the compiled object; the key lookup tries the hinted segment and the next one before the binary search; a cache, not state: any frame order returns bit-identical values, tested); the hot-path imports are bound once at module load (module wrappers turn each imported-binding access into a getter call); span kinds compared as local literals. AnimX goldens and the property tests are unchanged. | §5.21.3 allowed mechanisms. The coefficients were already on the compiled object since M1. |
 | M2A-A5-8 | **The export pipeline is a lazy chunk of its own** (`workflows/exportRun.ts`, 2.6 kB), loaded with the io write path: the Export dialog and an open File menu prefetch both (`preloadExportPath`). `export.ts` keeps what polls need synchronously (request checks, `resolveExport`, names, the read-back lint). | Same boundary as (2); the pipeline only runs with the write path. |
 | M2A-A5-9 | **Without `reduce` the bytes are M1's:** `io/test/m1-bytes.test.ts` pins the SHA-256 of the three exporters' outputs on the three fixtures (recorded on the merge base before any A5 change), and the headless test checks `reduce` absent and `null` byte-identical on every exporter; an unreduced export's stats carry no `reduction` field. | §5.16, §9.2 io gate. |
-| M2A-A5-10 | **Lazy chunks offline: a failed chunk closes its dialog; the offline trade-off is the owner's.** Every dialog and the confirm prompt sit in an error boundary (`dialogs/DialogHost.tsx`): when a chunk does not arrive (a network blip, offline use after the page loaded, a redeploy that replaced the chunk hashes) the dialog closes (`ui.close`, which also drops a file waiting in the Import dialog; the prompt answers Cancel), a toast says "Couldn't load the <name>. Check the connection and try again." and the editor keeps running; a failed attempt's `React.lazy` component is replaced, so the next open loads the chunk again (React.lazy keeps a rejected load for good). A dialog that throws while it renders closes the same way ("The <name> failed: <message>"). The model loader, import pipelines, export path and archive already fail as operator errors and retry on the next call. **Consequence of "prefetched on intent, never at idle" (§5.21.2):** a user who goes offline after the page loaded can no longer import a model, export, save or open a project, or open a dialog whose chunk did not load yet; these now fail with a toast instead of crashing the editor. M1's offline static build check (MVP-SPEC §8.3 step 11, NFR-09, still a `test.fixme` stretch e2e) is affected the same way. Options for the owner: (a) keep as is (online use; failures are graceful), (b) in the static export only, prefetch the lazy groups at idle once the editor is ready (≈ 266 kB gzip, `check:size`'s lazy list), (c) precache the lazy groups with a service worker. | Before A5 every dialog was eager, so a chunk failure there is new with M-2; the spec forbids idle prefetch, so the offline behaviour needs a decision rather than a silent exception. Owner review item. |
+| M2A-A5-10 | **Lazy chunks offline: a failed chunk closes its dialog; the offline trade-off is the owner's.** Every dialog and the confirm prompt sit in an error boundary (`dialogs/DialogHost.tsx`): when a chunk does not arrive (a network blip, offline use after the page loaded, a redeploy that replaced the chunk hashes) the dialog closes (`ui.close`, which also drops a file waiting in the Import dialog; the prompt answers Cancel), a toast says "Couldn't load the <name>. Check the connection and try again." and the editor keeps running; a failed attempt's `React.lazy` component is replaced, so the next open loads the chunk again (React.lazy keeps a rejected load for good). A dialog that throws while it renders closes the same way ("The <name> failed: <message>"). The model loader, import pipelines, export path and archive already fail as operator errors and retry on the next call. **Consequence of "prefetched on intent, never at idle" (§5.21.2):** a user who goes offline after the page loaded can no longer import a model, export, save or open a project, or open a dialog whose chunk did not load yet; these now fail with a toast instead of crashing the editor. M1's offline static build check (MVP-SPEC §8.3 step 11, NFR-09, still a `test.fixme` stretch e2e) is affected the same way. Options for the owner: (a) keep as is (online use; failures are graceful), (b) in the static export only, prefetch the lazy groups at idle once the editor is ready (≈ 216 kB gzip -9 without the e2e test API, `check:size`'s lazy list), (c) precache the lazy groups with a service worker. | Before A5 every dialog was eager, so a chunk failure there is new with M-2; the spec forbids idle prefetch, so the offline behaviour needs a decision rather than a silent exception. Owner review item. |
 | M2A-A5-11 | **The Export dialog passes `prefs.exportReduce`'s tolerances**, not the `DEFAULT_EXPORT_REDUCE` constant §5.16 names. `prefs.exportReduce` defaults to `{ enabled: true, ...DEFAULT_EXPORT_REDUCE }` and no UI changes its tolerances, so the request is the same unless a user edits the stored preferences. | §4.5 declares `prefs.exportReduce` the "dialog default"; reading the tolerances from it keeps that field meaningful. Headless and e2e tests pass `DEFAULT_EXPORT_REDUCE` or the dialog default, which are equal. |
 
 ## M-2: chunk attribution and the cuts
@@ -74,8 +74,9 @@ helpers moved out of the bake (`io/src/bake/meta.ts`) so the bake stays off the 
 `turbopackRemoveUnusedExports`/`RemoveUnusedImports` (already the production default: no change) and
 `turbopackModuleFragments` (the build panics in `module_fragments/graph.rs` on this code).
 
-**After** (this branch): eager scripts **777,838 B** (5 scripts), first visit **784,325 B** (6 scripts, + the
-First-run dialog 6,487 B): target 800,000 B met with 15.7 kB to spare, 115.7 kB under the gate.
+**After** (this branch): eager scripts **778,761 B** (5 scripts), first visit **785,248 B** (6 scripts, + the
+First-run dialog 6,487 B): target 800,000 B met with 14.8 kB to spare, 114.8 kB under the gate. (Fix round 1 added
+923 B: the dialogs' error boundaries and retrying chunk loader, M2A-A5-10; before it 777,838 B / 784,325 B.)
 
 | Lazy chunk group (on demand) | gzip -9 |
 |---|---:|
@@ -89,16 +90,17 @@ First-run dialog 6,487 B): target 800,000 B met with 15.7 kB to spare, 115.7 kB 
 | path-browserify (loaded by the export path) | 1.9 kB |
 
 **One measurement** (§5.21.2): the bench's network capture (`editor route JS`) against `check:size` on the same
-production build, served by `next start`, 2026-10-18:
+production build, served by `next start`, 2026-10-18 (re-run after fix round 1):
 
 | Visit | Bench capture | `check:size` | Difference | Scripts |
 |---|---:|---:|---:|---|
-| First (fresh profile) | 784,325 B | 784,325 B | 0.00 % | the same 6 files |
-| Later (choices stored, HTTP cache off) | 777,838 B | 777,838 B | 0.00 % | the same 5 files |
+| First (fresh profile) | 785,248 B | 785,248 B | 0.00 % | the same 6 files |
+| Later (choices stored, HTTP cache off) | 778,761 B | 778,761 B | 0.00 % | the same 5 files |
 
 Before M2A-A5-2 the same check gave 802,372 B / 795,885 B (0.00 %, same files); before M2A-A5-1 the eager-only set
 (795,885 B) differed from the bench's first-visit capture (802,372 B) by 0.82 % with different files. The e2e build
-(`NEXT_PUBLIC_EKZA_E2E=1`, what the rest of the bench runs on) measures 789.0 kB / 782.5 kB, also 0.00 %.
+(`NEXT_PUBLIC_EKZA_E2E=1`, what the rest of the bench runs on) measured 789.0 kB / 782.5 kB, also 0.00 %; after fix
+round 1 `check:size` gives 789,808 B / 783,321 B on it.
 
 ## Autosave (§5.20) in short
 
@@ -205,7 +207,7 @@ ms; reduce a 1,000-key import 4.09 ms. AnimX goldens and the property tests are 
 | Open Seed-san to interactive | ≤ 3 s | runs 144.4, 130.9, 104.9 ms, median 130.9 ms (M1: 109 ms; the first run loads the model loader and the import pipelines); page ready 407 ms after navigation | bench | Met; +22 ms ≤ §5.21.2's 100 ms |
 | Bake + write VRMA, 10 s @ 30 fps | ≤ 200 ms | runs 35.5, 17.2, 14.8, 15.0, 13.6 ms; median of runs 2–5 15.0 ms; first run +20.5 ms (the export chunk) | bench | Met |
 | Autosave write, Seed-san × 10 clips | ≤ 50 ms main thread | task time median 11.8 ms, max 12.7 ms per `flushAutosave` after one edit (1,800 keys; the model was stored by the first write); wall 11.1 ms | bench `autosave write` | Met |
-| Editor route JS | ≤ 900 kB (target 800 kB) | first visit 784.3 kB, later 777.8 kB (production); e2e build 789.0 / 782.5 kB | bench + `check:size` | Met |
+| Editor route JS | ≤ 900 kB (target 800 kB) | first visit 785.2 kB, later 778.8 kB (production; fix round 1, +0.9 kB); e2e build 789.8 / 783.3 kB | bench + `check:size` | Met |
 
 **After the siblings merge.** A trial merge with A1…A4 (M2A-A5-6) puts the route's first visit at ≈ 836 kB. Cuts
 left for the integration, by raw size of what the empty editor does not need yet: the IK operators and workflows
@@ -224,6 +226,13 @@ three M1-stretch `test.fixme`): green. E2E-M2A-20…22 and `m2a-00-foundation.sp
 `chromium-swiftshader` project (CI's). The budget bench (`pnpm --filter web bench:budgets`) runs green (report only; a second full run at load 24–38 gave
 open Seed-san median 126.6 ms, playback 1.07 / 2.30 ms, drag 5.70 / 8.70 ms, bake + write median 22.8 ms, autosave
 write 13.3 ms, the same route JS: all verdicts as in the table above).
+
+**Fix round 1** (load 6–15): `format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses`,
+`test` (13/13 tasks; editor 313 + 1 skipped with the new `dialog-chunks` and store tests, editor-core's autosave
+file 21), a clean `build`, `check:size` (785,248 B, target met), the bench's route capture on that production build
+(0.00 %, same scripts, both visits), the whole e2e suite in real Chrome on port 3145 (72 passed, 4 skipped: the same
+four) and E2E-M2A-20…22 plus `m2a-00-foundation.spec.ts` in `chromium-swiftshader` (10 passed, 1 skipped: 22b):
+green. Each new unit test was checked against the code before its fix (they fail there).
 
 Two A5 tests were wrong on the way and are fixed: E2E-M2A-22 read `controls()` before the sample's import
 committed (`expect.poll` does not retry a callback that throws; the lazy import pipelines made the race visible),

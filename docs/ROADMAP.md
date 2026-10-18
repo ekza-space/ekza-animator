@@ -161,7 +161,7 @@ A5's branch before A1…A4 merge; the integration re-runs the table on the merge
 | Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | median 131 ms from the sample click (runs 144, 131, 105 ms; the first loads the model loader and the import pipelines); page ready 407 ms after navigation | Met (+22 ms vs M1, within §5.21.2's 100 ms) |
 | Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | median 15.0 ms (runs 2–5) incl. lints and the read-back; the first export loads its chunk: +20.5 ms | Met |
 | Autosave write, Seed-san × 10 clips (M2a) | ≤ 50 ms main thread | median 11.8 ms (max 12.7 ms) task time per write, 1,800 keys | Met |
-| Editor route JS (gzip, no fixtures) | ≤ 900 kB | first visit 784.3 kB (6 scripts), later visits 777.8 kB (gzip -9, production build; `check:size` equal to the byte) | **Met** (M-2: target 800 kB) |
+| Editor route JS (gzip, no fixtures) | ≤ 900 kB | first visit 785.2 kB (6 scripts), later visits 778.8 kB (gzip -9, production build; `check:size` equal to the byte) | **Met** (M-2: target 800 kB) |
 | anim-core: 2,200 curves at one frame (MVP-SPEC §6.3 bench) | ≤ 0.3 ms | mean 0.157–0.160 ms, p75 0.162–0.164 ms, min 0.134 ms (pre-M-3 code in the same run: mean 0.371 ms) | **Met** (M-3: mean ≤ 0.20, p75 ≤ 0.25 ms) |
 
 M-2 and M-3 are fixed on this branch. On an in-memory trial merge with A1…A4 the route's first visit measured
