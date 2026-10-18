@@ -405,7 +405,8 @@ export function matchRangeFrames(
 ): readonly Frame[] {
   if (step === 'frames') {
     const out: Frame[] = [];
-    for (let f = Math.ceil(range.start - 1e-9); f <= range.end + 1e-9; f++) out.push(f);
+    // `+ 0` turns −0 (Math.ceil of a tiny negative) into 0: key times are never −0.
+    for (let f = Math.ceil(range.start - 1e-9) + 0; f <= range.end + 1e-9; f++) out.push(f);
     return out;
   }
   // §5.8 influencing curves: the rig's one definition, read off the chain nodes' tracks.
