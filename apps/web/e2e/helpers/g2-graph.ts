@@ -69,9 +69,8 @@ export async function sampleCurve(page: Page, curve: string, from: number, to: n
  * (auto, spline, …) side's resolved slope is read off the evaluated curve.
  */
 export async function slopesAt(page: Page, curve: string, frame: number, h = 1e-4) {
-  const [m2, m1, c, p1, p2] = await Promise.all(
-    [-2 * h, -h, 0, h, 2 * h].map((d) => call(page, 'curveValue', curve, frame + d)),
-  );
+  const at = (d: number) => call(page, 'curveValue', curve, frame + d);
+  const [m2, m1, c, p1, p2] = [await at(-2 * h), await at(-h), await at(0), await at(h), await at(2 * h)];
   return {
     in: (3 * c - 4 * m1 + m2) / (2 * h),
     out: (-3 * c + 4 * p1 - p2) / (2 * h),
