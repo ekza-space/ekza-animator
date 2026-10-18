@@ -140,6 +140,9 @@ test('Graph Editor: More menu closes, Simplify reports, Shift-drags a selected k
   await expect(menu).toBeVisible();
   const graph = await call(page, 'graph');
   const canvas = graph?.canvasRect ?? { x: 0, y: 0, w: 0, h: 0 };
+  // Radix arms the outside-click listener in a 0 ms timer after the menu opens. Input runs ahead of timers, so on a busy
+  // main thread (SwiftShader) a synthetic click could land before the listener exists; let pending timers run first.
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 0)));
   await page.mouse.click(canvas.x + canvas.w - 20, canvas.y + 20);
   await expect(menu).toBeHidden();
   expect((await call(page, 'state')).selection.keys.length).toBe(3);
