@@ -154,8 +154,9 @@ of §5.27 (B9 writes it).
    workspace (identical to today's).
 2. **New files over shared files.** Each package's operators live in new files (§9 names them); B0a creates them
    with stubs and registers them from `operators/builtin/index.ts`, so no two packages edit the index. Each kernel op
-   lives in its own directory `mesh-core/src/ops/<dir>/` (the op-id → directory table is §6.1's **Dir** column) with a
-   `descriptor.ts` (eager, §2) and an `index.ts` exporting the op object; the barrels `mesh-core/src/index.ts` and
+   lives in the directory `mesh-core/src/ops/<dir>/` that §6.1's Kernel column names (the binding op-id → directory
+   map; related ops such as the merge family share one) with a `descriptor.ts` (eager, §2) and an `index.ts`
+   exporting the op objects; the barrels `mesh-core/src/index.ts` and
    `mesh-core/src/descriptors.ts` are created by B0a with stub exports and **only the stub lines change** afterwards.
 3. **Deterministic IDs.** New records created by operators get `newId(kind)` (random, seeded in `?e2e=1`), except:
    records created by a `MeshSetOp`, by `mesh.create.*` and by `mesh.create.template` get
@@ -2852,56 +2853,59 @@ Count oracles (V/E/F after; research 10 §9; JSON goldens in `mesh-core/test/gol
 `U` = undoable (one transaction, one history step). **A** = `adjustable`, **R** = `repeatable` (§5.7). Params:
 `name: kind = default` with `*` on the primary field; `(sel)` / `(ptr)` mark `selection`- and `pointer`-bound params,
 every other param is value-bound; `null` defaults are nullable "auto". Symmetry class (§5.14): `exp` = runs on the
-expanded selection, `ptr` = maps pointer/selection args, `—` = not mirrored. "Kernel" owns the `MeshOp`; "UI" owns the
-tool, menus and card wiring (B11 registers every `mesh.*` operator through `meshOperator`, §9). B0a lands every row as
-a stub. Labels are Maya's; Blender names are palette aliases.
+expanded selection, `ptr` = maps pointer/selection args, `—` = not mirrored. "Kernel" owns the `MeshOp` and names its
+directory `mesh-core/src/ops/<dir>/` (the binding op-id → directory map; related ops share a directory, each op's
+descriptor and object exported from it); "UI" owns the tool, menus and card wiring (B11 registers every `mesh.*`
+operator through `meshOperator`, §9; ops marked *internal* are registered `flags.internal` and run by the named
+editor operator). B0a lands every row as a stub. Labels are Maya's; Blender names are palette aliases. Every op
+honours the unmatched-partner rule of §5.14.
 
 ### 6.1 Kernel operations (`mesh.*`; `MeshOp` unless marked set-op)
 
-| ID (label) | Modes | Params | A | R | Sym | Kernel / UI | Notes (selection′, refusals) |
+| ID (label) | Modes | Params | A | R | Sym | Kernel (`ops/<dir>/`) / UI | Notes (selection′, refusals) |
 |---|---|---|---|---|---|---|---|
-| `mesh.transformComponents` (Move / Rotate / Scale) | v e f | `translateX/Y/Z: distance = 0`, `rotateX/Y/Z: angle = 0`, `scaleX/Y/Z: number = 1`, `pivot: data (sel)`, `orientation: data (sel)`, `space: enum world/object/normal = world` | ✓ | ✓ | exp + soft | B2 / B12a | label by the dominant part ("Move"); positions only (`topology: false`); first component edit freezes primitives |
-| `mesh.extrude` (Extrude) | f e | `localTranslateX/Y: distance = 0`, `localTranslateZ*: distance = 0`, `localRotateX/Y/Z: angle = 0`, `localScaleX/Y/Z: number = 1 (min 0)`, `offset: distance = 0 (min 0)`, `thickness: distance = 0`, `divisions: int = 1 (1–32)`, `keepFacesTogether: bool = true`, `space: enum local/world = local`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B3 / B12b | §5.8; cap faces / outer edges; `extrude.interior-edge`, vertex mode poll "not available yet" |
-| `mesh.inset` (Inset) | f | `offset*: distance = 0.05 (min 0)`, `depth: distance = 0`, `individual: bool = false`, `evenOffset: bool = true`, `clamp: bool = true`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B3 / B12b (handle) | §5.9; inner faces; `inset.non-manifold` |
-| `mesh.bevel` (Bevel) | e | `fraction*: percent = 0.5`, `offsetAsFraction: bool = true`, `offset: distance = 0.05`, `segments: int = 1 (1–3)`, `chamfer: bool = true`, `roundness: number = 0.5 (0–1)`, `clamp: bool = true`, `hardenBorders: bool = true`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B5 / B12b (handle) | §5.9; bevel faces; `bevel.non-manifold`, `bevel.border-edge`, `bevel.zero-width`; warning `bevel.fan-corner` |
-| `mesh.insertLoop` (Insert Edge Loop) | e (tool: any) | `seedEdge: int (sel)`, `mode: enum relative/equal/multiple = relative`, `weight*: percent = 0.5`, `divisions: int = 2 (1–16)` | ✓ | ✓ | ptr | B3 / B12b | §5.11; new loop edges; seed from the selected edge (the lowest-index selected edge when several); `insertLoop.no-ring` |
-| `mesh.offsetLoop` (Offset Edge Loop) | e | `offset*: percent = 0.25 (0.01–0.49)`, `deleteEnds: bool = true` | ✓ | ✓ | exp | B3 / B11 | §5.11; new edges |
-| `mesh.connect` (Connect) | v e | `weight*: percent = 0.5` | ✓ | ✓ | exp | B3 / B11 | §5.11; new edges |
-| `mesh.cut` (Multi-Cut) | v e f (tool) | `points: data (ptr)` (`{kind:'edge', edge, t} \| {kind:'vertex', vertex}`[]) | — | — | ptr | B4 / B12b | §5.11; tool `multiCut`; new edges; `cut.outside-face`, `cut.no-common-face` |
-| `mesh.slide` (Slide Edge) | v e | `percent*: number = 0 (−1…1)`, `reference: data (ptr)` | ✓ | — | ptr | B4 / B12b | §5.12; tool `slide`; selection kept |
-| `mesh.averageVertices` (Average Vertices) | v e f, object | `iterations*: int = 1 (1–20)`, `strength: percent = 0.5` | ✓ | ✓ | exp | B4 / B11 | §5.12; selection kept; positions only |
-| `mesh.bridge` (Bridge) | e f | `divisions*: int = 0 (0–32)`, `twist: int = 0`, `offset: int = 0`, `taper: number = 1 (0.01–10)`, `loops: data (sel)` | ✓ | ✓ | ptr | B3 / B11 | §5.12; new faces; `bridge.unequal-counts`, `bridge.one-mesh`, `bridge.needs-two` |
-| `mesh.fillHole` (Fill Hole) | v e f | — | — | ✓ | exp | B3 / B11 | §5.12; new faces; `fillHole.no-border` |
-| `mesh.merge` (Merge) | v e f | `distance*: distance = 0.001 (min 0)`, `alwaysMergeTwo: bool = true` | ✓ | ✓ | exp | B3 / B11 | §5.12; merged vertices |
-| `mesh.mergeToCenter` (Merge to Center) | v e f | — | — | ✓ | exp | B3 / B11 | §5.12; the new vertex |
-| `mesh.mergeByDistance` (Merge by Distance; alias of Maya Merge on a whole mesh) | object, any | `distance*: distance = 0.0001 (min 0)` | ✓ | ✓ | — | B3 / B11 | visible vertices of the whole mesh; warning with the merged count |
-| `mesh.targetWeld` (Target Weld) | v e (tool) | `pairs: data (ptr)`, `mode: enum target/center = target` | ✓ | — | ptr | B3 / B12b | §5.12; tool `targetWeld`; the target vertex |
-| `mesh.collapse` (Collapse) | e f | — | — | ✓ | exp | B3 / B11 | §5.12; resulting vertices |
-| `mesh.delete` (Delete) | v e f | — | — | ✓ | exp | B3 / B11 | §5.12 (Maya plain Delete); empty selection |
-| `mesh.deleteEdgeVertex` (Delete Edge/Vertex) | v e | — | — | ✓ | exp | B3 / B11 | §5.12; `delete.border-edge` |
-| `mesh.spinEdge` (Spin Edge Forward / Backward) | e | `direction: enum forward/back = forward` | — | ✓ | exp | B4 / B11 | §5.12; `spin.border-edge`, `spin.same-face` |
-| `mesh.flipTriangleEdge` (Flip Triangle Edge) | e f | — | — | ✓ | exp | B4 / B11 | §5.12 |
-| `mesh.triangulate` (Triangulate) | f, object | — | — | ✓ | exp | B4 / B11 | §5.13; new faces |
-| `mesh.quadrangulate` (Quadrangulate) | f, object | `angle*: angle = 30°`, `keepHardEdges: bool = true`, `keepSeams: bool = true`, `keepMaterials: bool = true` | ✓ | ✓ | exp | B4 / B11 | §5.13 |
-| `mesh.harden` (Harden Edge) | e, object | — | — | ✓ | exp | B4 / B11 | H5 |
-| `mesh.soften` (Soften Edge) | e, object | — | — | ✓ | exp | B4 / B11 | H5 |
-| `mesh.setNormalAngle` (Set Normal Angle) | e, object | `angle*: angle = 30° (0–180°)` | ✓ | ✓ | exp | B4 / B11 | hard iff dihedral > angle, on selected (or all) edges |
-| `mesh.reverse` (Reverse) | f, object | — | — | ✓ | exp | B4 / B11 | reverses winding and corner layers |
-| `mesh.conform` (Conform) | f, object | — | — | ✓ | — | B4 / B11 | BFS over manifold edges, then flip closed shells with negative signed volume (open shells: majority vote of normals vs centroid) |
-| `mesh.mirror` (Mirror) | object | `axis: axis = x`, `keep: enum positive/negative = positive`, `position: enum object/world = object`, `cutMesh: bool = true`, `mergeMode: enum merge/none = merge`, `mergeThreshold*: distance = 0.001`, `flipUVs: bool = false`, `smoothingAngle: angle = null` | ✓ | ✓ | — | B4 / B11 | §5.13; whole mesh selected in face memory |
-| `mesh.symmetrize` (Symmetrize) | object, v | `axis: axis = x`, `keep: enum positive/negative = positive`, `tolerance: distance = null` | ✓ | ✓ | — | B4 / B11 | §5.13; warning `symmetrize.unmatched` |
-| `mesh.freezeTransforms` (Freeze Transformations) | object | `translate: bool = true`, `rotate: bool = true`, `scale: bool = true` | ✓ | ✓ | — | B4 / B11 | §5.13; also patches `placement`/`pivot`; `freeze.skinned` |
-| `mesh.uv.planar` (Planar Mapping) | f, object | `axis: enum x/y/z/camera = y`, `fit: bool = true`, `camera: data = null` | ✓ | ✓ | exp | B5 / B11 | §5.28 |
-| `mesh.uv.box` (Automatic Mapping) | f, object | `fit: bool = true` | ✓ | ✓ | exp | B5 / B11 | §5.28 |
-| `mesh.uv.cylindrical` (Cylindrical Mapping) | f, object | `axis: axis = y`, `fit: bool = true` | ✓ | ✓ | exp | B5 / B11 | §5.28 |
-| `mesh.cleanup` (Cleanup) | object | `fix*: enum <Mesh Check fix codes> = select`, `selectOnly: bool = true` | — | ✓ | — | B5 / B10 | §5.25 |
-| `mesh.paint` (Paint Colour / Assign Colour) | f | `slot*: int = 0`, `faces: data (ptr) = null` (null = the selection) | — | ✓ | exp | B13 / B13 | §5.19; UI passes the active swatch's slot; refused on asset-backed meshes |
-| `mesh.paint.fillShell` (Fill Shell) | f (tool) | `slot: int = 0`, `face: data (ptr)` | — | — | ptr | B13 / B13 | connected faces of the clicked face |
-| `mesh.paint.replace` (Replace Swatch) | object | `from: int`, `to: int` | — | — | — | B13 / B13 | every face of slot `from` → `to` on the palette's meshes |
-| `mesh.combine` (Combine) — set-op | object (≥ 2) | `pivot: enum center/first/origin = center` | ✓ | — | — | B4 / B11 | §5.13 |
-| `mesh.separate` (Separate) — set-op | object | — | — | ✓ | — | B4 / B11 | §5.13 |
-| `mesh.extract` (Extract) — set-op | f | `separate: bool = true`, `offset*: distance = 0` | ✓ | ✓ | — | B4 / B11 | §5.13 |
-| `mesh.duplicateFaces` (Duplicate Face) — set-op | f | `separate: bool = true`, `offset*: distance = 0` | ✓ | ✓ | — | B4 / B11 | §5.13 |
+| `mesh.transformComponents` (Move / Rotate / Scale) | v e f | `translateX/Y/Z: distance = 0`, `rotateX/Y/Z: angle = 0`, `scaleX/Y/Z: number = 1`, `pivot: data (sel)`, `orientation: data (sel)`, `space: enum world/object/component = world` | ✓ | ✓ | exp + soft | B2 `transform` / B12a | label by the dominant part ("Move"); positions only (`topology: false`); first component edit freezes primitives |
+| `mesh.extrude` (Extrude) | f e | `localTranslateX/Y: distance = 0`, `localTranslateZ*: distance = 0`, `localRotateX/Y/Z: angle = 0`, `localScaleX/Y/Z: number = 1 (min 0)`, `offset: distance = 0 (min 0)`, `thickness: distance = 0`, `divisions: int = 1 (1–32)`, `keepFacesTogether: bool = true`, `space: enum local/world = local`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B3 `extrude` / B12b | §5.8; cap faces / outer edges; `extrude.interior-edge`, vertex mode poll "not available yet" |
+| `mesh.inset` (Inset) | f | `offset*: distance = 0.05 (min 0)`, `depth: distance = 0`, `individual: bool = false`, `evenOffset: bool = true`, `clamp: bool = true`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B3 `inset` / B12b (handle) | §5.9; inner faces; `inset.non-manifold` |
+| `mesh.bevel` (Bevel) | e f | `fraction*: fraction = 0.5 (0–1; × ½ the shortest adjacent edge)`, `offsetAsFraction: bool = true`, `offset: distance = 0.05`, `segments: int = 1 (1–3)`, `chamfer: bool = true`, `roundness: number = 0.5 (0–1)`, `clamp: bool = true`, `hardenBorders: bool = true`, `smoothingAngle: angle = null` | ✓ | ✓ | exp | B5 `bevel` / B12b (handle) | §5.9 (face mode: the faces' edges); bevel faces; `bevel.non-manifold`, `bevel.border-edge`, `bevel.zero-width`; warnings `bevel.fan-corner`, `bevel.clamped` |
+| `mesh.insertLoop` (Insert Edge Loop) | e (tool: any) | `seedEdge: int (sel)`, `mode: enum relative/equal/multiple = relative`, `weight*: fraction = 0.5`, `divisions: int = 2 (1–16)` | ✓ | ✓ | ptr | B3 `loop` / B12b | §5.11; new loop edges; seed from the selected edge (the lowest-index selected edge when several); `G` re-runs a menu run and re-activates the tool after a tool run (§5.7); `insertLoop.no-ring` |
+| `mesh.offsetLoop` (Offset Edge Loop) | e | `offset*: fraction = 0.25 (0.01–0.49)`, `deleteEnds: bool = true` | ✓ | ✓ | exp | B3 `offsetLoop` / B11 | §5.11; new edges |
+| `mesh.connect` (Connect) | v e | `weight*: fraction = 0.5` | ✓ | ✓ | exp | B3 `connect` / B11 | §5.11; new edges |
+| `mesh.cut` (Multi-Cut) | v e f (tool) | `points: data (ptr)` (`{kind:'edge', edge, t} \| {kind:'vertex', vertex}`[]) | — | — | ptr | B4 `cut` / B12b | §5.11; tool `multiCut` (`G` re-activates it); new edges; `cut.outside-face`, `cut.no-common-face` |
+| `mesh.slide` (Slide Edge) | v e | `percent*: number = 0 (−1…1)`, `reference: data (ptr)` | ✓ | — | ptr | B4 `slide` / B12b | §5.12; tool `slide`; selection kept |
+| `mesh.averageVertices` (Average Vertices) | v e f, object | `iterations*: int = 1 (1–20)`, `strength: fraction = 0.5` | ✓ | ✓ | exp | B4 `average` / B11 | §5.12; selection kept; positions only |
+| `mesh.bridge` (Bridge) | e f | `divisions*: int = 0 (0–32)`, `twist: int = 0`, `offset: int = 0`, `taper: number = 1 (0.01–10)`, `loops: data (sel)` | ✓ | ✓ | ptr | B3 `bridge` / B11 | §5.12; new faces; `bridge.unequal-counts`, `bridge.one-mesh`, `bridge.needs-two` |
+| `mesh.fillHole` (Fill Hole) | v e f | — | — | ✓ | exp | B3 `fill` / B11 | §5.12; new faces; `fillHole.no-border` |
+| `mesh.merge` (Merge) | v e f | `distance*: distance = 0.001 (min 0)`, `alwaysMergeTwo: bool = true` | ✓ | ✓ | exp | B3 `merge` / B11 | §5.12; merged vertices |
+| `mesh.mergeToCenter` (Merge to Center) | v e f | — | — | ✓ | exp | B3 `merge` / B11 | §5.12; the new vertex |
+| `mesh.mergeByDistance` (Merge by Distance; alias of Maya Merge on a whole mesh) | object, any | `distance*: distance = 0.0001 (min 0)` | ✓ | ✓ | — | B3 `merge` / B11 | visible vertices of the whole mesh; warning with the merged count |
+| `mesh.targetWeld` (Target Weld) | v e (tool) | `pairs: data (ptr)`, `mode: enum target/center = target` | ✓ | — | ptr | B3 `targetWeld` / B12b | §5.12; tool `targetWeld`; the target vertex |
+| `mesh.collapse` (Collapse) | e f | — | — | ✓ | exp | B3 `collapse` / B11 | §5.12; resulting vertices |
+| `mesh.delete` (Delete) | v e f | — | — | ✓ | exp | B3 `delete` / B11 | §5.12 (Maya plain Delete; vertices: winged only); empty selection; `delete.not-winged` |
+| `mesh.deleteEdgeVertex` (Delete Edge/Vertex) | v e | — | — | ✓ | exp | B3 `delete` / B11 | §5.12; `delete.border-edge` |
+| `mesh.spinEdge` (Spin Edge Forward / Backward) | e | `direction: enum forward/back = forward` | — | ✓ | exp | B4 `spin` / B11 | §5.12; `spin.border-edge`, `spin.same-face` |
+| `mesh.flipTriangleEdge` (Flip Triangle Edge) | e f | — | — | ✓ | exp | B4 `flip` / B11 | §5.12 |
+| `mesh.triangulate` (Triangulate) | f, object | — | — | ✓ | exp | B4 `triangulate` / B11 | §5.13; new faces |
+| `mesh.quadrangulate` (Quadrangulate) | f, object | `angle*: angle = 30°`, `keepHardEdges: bool = true`, `keepSeams: bool = true`, `keepMaterials: bool = true` | ✓ | ✓ | exp | B4 `quadrangulate` / B11 | §5.13 |
+| `mesh.harden` (Harden Edge) | e, object | — | — | ✓ | exp | B4 `normals` / B11 | H5 |
+| `mesh.soften` (Soften Edge) | e, object | — | — | ✓ | exp | B4 `normals` / B11 | H5 |
+| `mesh.setNormalAngle` (Set Normal Angle) | e, object | `angle*: angle = 30° (0–180°)` | ✓ | ✓ | exp | B4 `normals` / B11 | hard iff dihedral > angle, on selected (or all) edges |
+| `mesh.reverse` (Reverse) | f, object | — | — | ✓ | exp | B4 `normals` / B11 | reverses winding and corner layers |
+| `mesh.conform` (Conform) | f, object | — | — | ✓ | — | B4 `normals` / B11 | BFS over manifold edges, then flip closed shells with negative signed volume (open shells: majority vote of normals vs centroid) |
+| `mesh.mirror` (Mirror) | object | `axis: axis = x`, `keep: enum positive/negative = positive`, `position: enum object/world = object`, `cutMesh: bool = true`, `mergeMode: enum merge/none = merge`, `mergeThreshold*: distance = 0.001`, `flipUVs: bool = false`, `smoothingAngle: angle = null` | ✓ | ✓ | — | B4 `mirror` / B11 | §5.13; whole mesh selected in face memory |
+| `mesh.symmetrize` (Symmetrize) | object, v | `axis: axis = x`, `keep: enum positive/negative = positive`, `tolerance: distance = null` | ✓ | ✓ | — | B4 `symmetrize` / B11 | §5.13; warning `symmetrize.unmatched` |
+| `mesh.applyTransform` (internal: Freeze, Bake Pivot) | object | `matrix: data` (column-major 4×4, mesh-local) | — | — | — | B4 `freeze` / B12a | §5.13; positions, custom normals (inverse transpose), winding reversed when det < 0; `freeze.skinned`; not in menus (the editor operator `mesh.freezeTransforms`, §6.2, runs it) |
+| `mesh.uv.planar` (Planar Mapping) | f, object | `axis: enum x/y/z/camera = y`, `fit: bool = true`, `camera: data = null` | ✓ | ✓ | exp | B5 `uv` / B11 | §5.28 |
+| `mesh.uv.box` (Automatic Mapping) | f, object | `fit: bool = true` | ✓ | ✓ | exp | B5 `uv` / B11 | §5.28 |
+| `mesh.uv.cylindrical` (Cylindrical Mapping) | f, object | `axis: axis = y`, `fit: bool = true` | ✓ | ✓ | exp | B5 `uv` / B11 | §5.28 |
+| `mesh.cleanup` (Cleanup) | object | `fix*: enum <Mesh Check fix codes> = select`, `selectOnly: bool = true` | — | ✓ | — | B5 `cleanup` / B10 | §5.25 |
+| `mesh.paint` (Paint Colour / Assign Colour) | f | `slot*: int = 0`, `faces: data (ptr) = null` (null = the selection) | — | ✓ | exp | B13 `paint` / B13 | §5.19; UI passes the active swatch's slot; a Paint Colour tool stroke records `source: 'tool'` (`G` re-activates the tool), Assign Colour from a menu repeats; refused on asset-backed meshes |
+| `mesh.paint.fillShell` (Fill Shell) | f (tool) | `slot: int = 0`, `face: data (ptr)` | — | — | ptr | B13 `paint` / B13 | connected faces of the clicked face |
+| `mesh.paint.remap` (internal: Replace Swatch) | object | `from: int`, `to: int` | — | — | — | B13 `paint` / B13 | every face of slot `from` → `to` on one mesh; `palette.replaceSwatch` (§6.2) runs it on its targets |
+| `mesh.combine` (Combine) — set-op | object (≥ 2) | `pivot: enum center/first/origin = center` | ✓ | — | — | B4 `combine` / B11 | §5.13 |
+| `mesh.separate` (Separate) — set-op | object | — | — | ✓ | — | B4 `separate` / B11 | §5.13 |
+| `mesh.extract` (Extract) — set-op | f | `separate: bool = true`, `offset*: distance = 0` | ✓ | ✓ | — | B4 `extract` / B11 | §5.13 |
+| `mesh.duplicateFaces` (Duplicate Face) — set-op | f | `separate: bool = true`, `offset*: distance = 0` | ✓ | ✓ | — | B4 `duplicate` / B11 | §5.13 |
 
 ### 6.2 Editor operators (M6a)
 
@@ -2913,7 +2917,7 @@ a stub. Labels are Maya's; Blender names are palette aliases.
 | `view.tool` (changed) | — | B9 | accepts the new viewport tools of §4.6; records `session.model.lastTool` in Model |
 | `ui.commandPalette` | — | B9 | opens the palette (`Mod+K`) |
 | `ui.markingMenu {menu}` | — | B9 | opens a registered marking menu at the pointer (`M` → `model.merge`) |
-| `select.mode {mode}` | — | B10 | §5.6 (`'object' \| 'vertex' \| 'edge' \| 'face' \| 'toggle'`; the active digit again → object) |
+| `select.mode {mode}` | — | B10 | §5.6 (`'object' \| 'vertex' \| 'edge' \| 'face' \| 'toggle'`; the active **digit** again → object; `F9`/`F10` idempotent) |
 | `model.hilite {meshes, mode}` | — | B10 | `'add' \| 'replace' \| 'remove'`; refuses asset-backed meshes |
 | `select.components {mesh, kind, indices, mode}` | sel | B10 | flags.selection; the picker's click/marquee path |
 | `select.mesh.loop {mesh, kind, component, gesture}` | sel | B10 (B2 walkers) | §5.6 loop table; `gesture: 'double' \| 'shift-double' \| 'ctrl-double'` |
@@ -2921,28 +2925,32 @@ a stub. Labels are Maya's; Blender names are palette aliases.
 | `select.mesh.convert {to, mode}` | sel | B10 | `mode: 'touching' \| 'contained' \| 'perimeter' \| 'border' \| 'shell' \| 'loop' \| 'ring'` |
 | `select.mesh.matching {mesh, code}` | sel | B10 | Mesh Check "select matching" |
 | `select.mesh.bySwatch {slot?}` | sel | B13 | faces using the slot (default: the active swatch) |
-| `select.objects {ids, mode}` | sel | B10 | object selection in Model (Outliner, viewport) |
+| `select.objects {ids?, all?: 'meshes', mode}` | sel | B10 | object selection in Model (Outliner, viewport; `Mod+A` in `mv` = `{all: 'meshes'}`) |
 | `select.mesh.pickWalk {direction}` | — | B10 | stretch: poll "Component pick-walk arrives later" |
 | `view.hide {target}`, `view.showAll`, `view.isolate {paneId?}` | sel (hide part) | B10 | §5.6 |
 | `model.symmetry.set {meshes?, mode?, tolerance?, preserveSeam?}` | — | B12a | §5.14; default targets: hilited/selected meshes |
 | `model.softSelect.set {on?, radius?, falloff?, curve?}`, `model.softSelect.toggle` | — | B12a | §5.15 |
-| `model.selectionStyle.set {style}`, `model.cameraBased.set {value}`, `model.backfaces.toggle`, `model.constraint.set {constraint}` | — | B12a | U state; non-`off` constraints and `drag` style are stretch (poll) |
+| `model.selectionStyle.set {style}`, `model.cameraBased.set {value}`, `model.backfaces.toggle`, `model.constraint.set {constraint}` | — | B12a | U state; `style: 'toggle'` (`` ` `` tap) switches Marquee ↔ Tweak; non-`off` constraints and `drag` style are stretch (poll) |
 | `model.snap.toggle {kind}` | — | B12a | sticky grid/vertex/increment |
 | `model.pivot.editToggle` | — | B12a | §5.15 |
 | `mesh.pivot.set {id, pivot}`, `mesh.pivot.center`, `.bottomCenter`, `.reset`, `.bake` | U | B12a | §5.15 (records: meshes and groups) |
 | `mesh.resetTransforms {ids?}` | U | B12a | §5.13 |
+| `mesh.freezeTransforms {ids?, translate, rotate, scale}` (Freeze Transformations) | U, A, R | B12a (B4 kernel `mesh.applyTransform`) | §5.13: `commitOp(mesh.applyTransform)` per mesh plus the `placement`/`pivot` patch in one transaction; groups → child meshes; `freeze.skinned` |
 | `scene.object.transform {ids, placements}` | U | B12a | object W/E/R and MMB commits in Model ("Move" etc.) |
 | `edit.adjustLast {args}`, `edit.repeatLast` | (dispatch) | B11 | §5.7 |
+| `edit.undo`, `edit.redo` (changed) | (dispatch) | B11 | while an extrude session is open they step its args stack first (§5.8, `app.extrude.stepBack/stepForward`) |
+| `model.animateOnly` | — | B0b | always poll-fails "Keys and poses are set in Animate"; the target of the Animate rows shadowed in `model.viewport` (§5.17) |
 | `tool.last` | — | B11 | `Y`, §5.7 |
 | `view.lastOpCard {expand?, focusPrimary?}` | — | B11 | `T`, §5.7 |
-| `mesh.create.cube` / `.sphere` / `.cylinder` / `.cone` / `.plane` / `.torus {…§6.3 params}` | U, A, R | B13 (B1 kernel) | §5.16 |
+| `mesh.create.cube` / `.sphere` / `.cylinder` / `.cone` / `.plane` / `.torus {…§6.3 params}` | U, A, R | **B7** (B1 kernel; B0a reference cube/plane/cylinder until `READY.b1`); menus and start card B13 | §5.16; derived id; created into a selected template group |
 | `mesh.create.template {template: 'prop' \| 'handheld' \| 'humanoid' \| 'humanoidBody', …}` | U, A | B13 | §5.16 |
 | `mesh.primitive.set {mesh, params}` | U, A | B13 | §5.16; poll fails after freezing ("Primitive parameters were frozen by a component edit") |
-| `mesh.makeEditable {mesh}` | U | B13 (B8 bridge) | §5.21 |
+| `mesh.makeEditable {character, meshIndex}` | U | **B8** (Outliner button and report dialog B13) | §5.21: creates the record lazily (derived id) with its first revision |
 | `mesh.setAttributes {mesh, patch}` | U | B13 | `name`, `faceted`, `colourOutput`, `material`, `budget`, `handheld`, `palette` |
 | `palette.ensureDefault`, `palette.create {name}`, `palette.duplicate {palette}`, `palette.rename {palette, name}` | U | B13 | §5.19 |
 | `palette.addSwatch {palette, srgb, name?}`, `palette.setSwatch {swatch, srgb?, name?}`, `palette.removeSwatch {swatch}` | U | B13 | slots never reused |
 | `palette.assign {meshes?, palette}` | U | B13 | |
+| `palette.replaceSwatch {palette, from, to, meshes?}` | U | B13 | §5.19: `mesh.paint.remap` on every target (default: live authored meshes using `palette`) |
 | `palette.setActive {swatch}` | — | B13 | U state |
 | `imagePlane.import {camera, name, bytes}`, `imagePlane.set {id, patch}`, `imagePlane.delete {id}` | U | B13 | §5.26 |
 | `scene.group`, `scene.parent`, `scene.unparent`, `scene.duplicate`, `scene.delete`, `scene.rename {id, name}` | U | B13 | §5.13 |
@@ -2971,8 +2979,9 @@ Plane lies in XZ facing +Y; cylinder, cone and torus axes along +Y; all centred 
 
 ## 7. Keymap additions (preset `maya`)
 
-Scopes: `mv` = `model.viewport`, `mvc` = `model.viewport.component`, `mvv`/`mve`/`mvf` = `model.viewport.vertex /
-.edge / .face`, `V` = `viewport` (both workspaces), `G` = `global`, `mo` = `model.outliner`. Chords use
+Scopes: `m` = `model` (the whole Model workspace), `mv` = `model.viewport`, `mvc` = `model.viewport.component`,
+`mvv`/`mve`/`mvf` = `model.viewport.vertex / .edge / .face`, `V` = `viewport` (both workspaces), `G` = `global`, `mo` =
+`model.outliner`. Chords use
 `KeyboardEvent.code`; `Mod` = Cmd on macOS, Ctrl elsewhere; `Ctrl` is literal Ctrl on every platform. B0b lands every
 row (bound to stub operators that poll-fail until their owners land); later rows come through contract PRs to this
 table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Blender Industry Compatible habit.
@@ -2980,14 +2989,14 @@ table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Ble
 | Chord | Operator (args) | Scope | Origin | Notes |
 |---|---|---|---|---|
 | `F8` | `select.mode {mode: 'toggle'}` | mv | M | object ↔ last component mode |
-| `F9`, `Digit1` | `select.mode {mode: 'vertex'}` | mv | M, E-B | the active mode's key again returns to object mode |
-| `F10`, `Digit2` | `select.mode {mode: 'edge'}` | mv | M, E-B | `preventDefault`; F10 in the QA matrix |
-| `Digit3` | `select.mode {mode: 'face'}` | mv | E-B | **F11 and F12 are never bound** |
+| `F9`, `Digit1` | `select.mode {mode: 'vertex'}` | mv | M, E-B | `1` again returns to object mode; `F9` is idempotent (Maya) |
+| `F10`, `Digit2` | `select.mode {mode: 'edge'}` | mv | M, E-B | `2` again → object; `F10` idempotent; `preventDefault`; F10 in the QA matrix |
+| `Digit3` | `select.mode {mode: 'face'}` | mv | E-B | `3` again → object; **F11 and F12 are never bound** |
 | `Mod+F9` / `Mod+F10` / `Mod+F11` | `select.mesh.convert {to: 'vertex' / 'edge' / 'face', mode: 'touching'}` | mvc | M | also Ctrl+RMB |
 | `Digit4` … `Digit7` | `view.shading {mode: 'wire' / 'shaded' / 'colours' / 'lit'}` | V | M | Animate and Model; Graph/Dope Sheet/time slider digits unchanged (other scopes) |
-| `Mod+KeyE` | `mesh.extrude` | mvc | M | shadows Export only here (E2E-MOD-03) |
-| `Mod+KeyE` | `ui.open {dialog: 'export'}` | G | shipped | unchanged |
-| `Mod+Shift+KeyE` | `ui.open {dialog: 'export'}` | G | E | new universal Export chord (changelog); QA: Firefox Network Monitor |
+| `Mod+KeyE` | `mesh.extrude` | m | M | the whole Model workspace, as the default was presented to the owner ("Ctrl+E in the Model tab is Extrude; Export moves to Ctrl+Shift+E there"; §12.2 S17); in object mode or over other panels it poll-fails "Select faces or border edges" (E2E-MOD-03) |
+| `Mod+KeyE` | `ui.open {dialog: 'export'}` | G | shipped | unchanged; reached in Animate (and every non-Model workspace) |
+| `Mod+Shift+KeyE` | `ui.open {dialog: 'export'}` | G | E | new universal Export chord, the Export key in Model (changelog); QA: Firefox Network Monitor |
 | `Mod+KeyB` | `mesh.bevel` | mvc | E-B | `preventDefault` (Firefox bookmarks); QA |
 | `KeyK` | `view.tool {panel: 'viewport', tool: 'multiCut'}` | mv | E-B | Animate's `K`+drag time scrub (M2c) stays separate |
 | `KeyM` | `ui.markingMenu {menu: 'model.merge'}` | mvc | E-B | N Merge to Center · E Target Weld · S Merge · W Collapse; `Alt+M` stays Mirror Pose |
@@ -3010,23 +3019,32 @@ table. Origin: **M** Maya default, **M~** Maya-inspired, **E** Ekza, **E-B** Ble
 | `Mod+KeyG` | `scene.group` | mv, mo | M | `preventDefault` (find next) |
 | `KeyP` / `Shift+KeyP` | `scene.parent` / `scene.unparent` | mv, mo | M | |
 | `Insert`, `Home` | `model.pivot.editToggle` | mv | M | both on every platform (Maya: `Insert`, `Home` on macOS keyboards without `Insert`); `Home` keeps `time.goToStart` outside the Model viewport |
-| `KeyB` (tap) | `model.softSelect.toggle` | mv | M | `B`+drag radius is a tool modifier |
+| `KeyB` (tap) | `model.softSelect.toggle` | mv | M | tap/hold only here and only without modifiers (§5.17); `B`+drag radius is a tool modifier |
+| `Backquote` | `model.selectionStyle.set {style: 'toggle'}` | mv | M | Tweak ↔ Marquee (Maya's `` ` ``) |
+| `KeyS`, `Shift+KeyW/E/R`, `Alt+KeyS`, `Alt+KeyM`, `Mod+KeyC`, `Mod+KeyV`, `Mod+Shift+KeyV` | `model.animateOnly` | mv | E | shadow the Animate `viewport` rows (key.set, pose.mirror, pose copy/paste) so control selection carried over from Animate is never keyed or pasted unseen (§5.17) |
+| `Mod+KeyA` | `select.mesh.all` | mvc | M | components of the hilited meshes |
+| `Mod+KeyA` | `select.objects {all: 'meshes'}` | mv | M | every visible mesh object |
 | `Mod+KeyK` | `ui.commandPalette` | G | E | |
 
-**Tool modifiers** (read by tools through `ToolKeyEvent`, not keymap rows; B0b documents them in the cheat sheet and
-the conformance test reserves them in `mv`): `X` grid snap, `V` vertex snap, `J` increment snap (holds; the sticky
-toggles are status-line buttons); `D` pivot edit while held; `B`+LMB drag soft radius (relative), `B`+MMB drag (from
-zero); `I` eyedropper (Paint Colour); `Shift` smart extrude at drag start, `Shift` fine adjustment ×0.1 during drags;
+**Tool modifiers** (read by tools through `ToolKeyEvent` in step 2 of the adapter order, §5.17, not keymap rows; B0b
+documents them in the cheat sheet and the conformance test reserves them in `mv`): `X` grid snap, `V` vertex snap, `J`
+increment snap (holds; the sticky toggles are status-line buttons); `D` pivot edit while held; `B`+LMB drag soft radius
+(relative), `B`+MMB drag (from zero); `I` eyedropper (Paint Colour); `Shift` **held at drag start** = smart extrude
+(§5.8); **drag speed** (one rule everywhere, the shipped M2a virtual-slider rule): `Shift` pressed during a drag = fine
+×0.1, `Mod` = coarse ×10 — viewport manipulator drags, the Channel Box, INPUTS and Last-op card virtual sliders alike;
 Multi-Cut: `Ctrl`-click loop, `Ctrl`+MMB centred loop, `Shift` snap step, `Backspace` remove point, `Enter`/RMB
 complete; `PageUp`/`PageDown` step counts of the active tool; `Enter` (Paint Colour) applies the active swatch.
+`Backspace`, `Enter`, `NumpadEnter`, `PageUp`, `PageDown` and `Escape` are reserved for a tool that is placing or
+dragging (§5.10).
 
 **Modal / capture keys** (§5.10, only while armed): digits, `.`, `-` start entry; `Tab`/`Shift+Tab`; `Enter`; `Esc`;
 `Backspace`. Outside the window none of these is captured.
 
-**Pointer gestures (Model viewport)**: RMB on a mesh → mode menu; Shift+RMB → tools menu (by mode; nothing selected →
-primitives); Ctrl+RMB → convert; Ctrl+Shift+RMB and `Q`+LMB → selection options; `W`/`E`/`R`+LMB → space menus (Move
-and Rotate gain **Normal**); `Space` hold → camera radial (shipped); double-click / `Shift`/`Ctrl`+double-click →
-loop table; MMB-drag → §5.15. **RMB never maps to cancel**.
+**Pointer gestures (Model viewport)**: RMB (pointer-down button 2; `contextmenu` is suppressed and never counts, §5.17)
+on a mesh → mode menu; Shift+RMB → tools menu (by mode; nothing selected → primitives); Ctrl+RMB → convert;
+Ctrl+Shift+RMB and `Q`+LMB → selection options; `W`/`E`/`R`+LMB → space menus (Move and Rotate gain **Component**);
+`Space` hold → camera radial (shipped); double-click / `Shift`/`Mod`+double-click → loop table; MMB-drag → §5.15;
+trackpad and one-button profiles: `Alt+Shift`+LMB drag = the MMB stand-in (§5.17). **RMB never maps to cancel**.
 
 **Never bound** (conformance list, extended): `Mod+R`, `Ctrl+N`, `Ctrl+Tab`, `Mod+Shift+I`, `Mod+1…9`, `Ctrl+H`,
 `Ctrl+1`, `F11`, `F12`, `Tab` outside modal tools, `Alt+E`/`Alt+F` on Windows, `Ctrl+PageUp/PageDown`.
@@ -3034,8 +3052,11 @@ loop table; MMB-drag → §5.15. **RMB never maps to cancel**.
 **Conformance test** (B0b, `editor-core/test/keymap.conformance.test.ts`): every binding names a registered operator;
 no two bindings with the same chord, trigger and scope; no binding uses a never-bound chord; no binding, marking-menu
 item or pointer map entry runs `edit.escape` or a cancel from RMB; every M6a operator with a menu item is reachable
-from a menu bar menu or the command palette; the help-line resolution of `Mod+E` differs between `mvc` and the
-Outliner (E2E-MOD-03).
+from a menu bar menu or the command palette; `Mod+E` resolves to `mesh.extrude` everywhere in Model and to Export in
+Animate (E2E-MOD-03); **through the DOM adapter** (real `keydown`/`keyup`, not only `resolve()`): `Mod+V`, `Mod+I`,
+`Mod+D`, `Alt+V`, `Alt+X`, `Alt+J` and the Graph Editor's `B`/`I` resolve exactly as on M2a, and with a fake viewport
+tool in phase `placing` that consumes `Backspace`, a face selection and `mvc` active, `Backspace` never runs
+`mesh.delete`.
 
 ---
 
@@ -3044,10 +3065,11 @@ Outliner (E2E-MOD-03).
 ### 8.1 Menu bar and workspace tabs
 
 ```
-◆ File Edit Create Select Modify Mesh EditMesh MeshTools MeshDisplay Windows Help ┃ Model ● › Rig & Skin ○ › Animate ◐ › Review ┃ Project ✱ [Export]
+◆ File Edit Create Select Modify Display Mesh EditMesh MeshTools MeshDisplay UV Windows Help ┃ Model ● › Rig & Skin ○ › Animate ◐ › Review ┃ Project ✱ [Export]
 ```
 
-Model shows File, Edit, Create, Select, Modify, Display, Mesh, Edit Mesh, Mesh Tools, Mesh Display, Windows, Help;
+Model shows File, Edit, Create, Select, Modify, Display, Mesh, Edit Mesh, Mesh Tools, Mesh Display, UV, Windows, Help
+(the same list as §8.3 and the `WorkspaceDef.menus` of Model);
 Animate keeps its shipped menus (Key, Pose, Clip, Graph, Rig, …). The tab strip sits right of the menus (research 16
 §3.1; `ws-tab-<id>`); below 1280 px labels shorten.
 
@@ -3071,7 +3093,7 @@ Animate keeps its shipped menus (Key, Pose, Clip, Graph, Rig, …). The tab stri
 ├──────────────┴─────────────────────────────────────────────────────────────┴────────────────────────────┤
 │ Mesh Check │ (bottom dock, collapsed to its tab strip)                                                    │ 26
 ├──────────────────────────────────────────────────────────────────────────────────────────────────────────┤
-│ Help line: Face mode · Ctrl+E extrude · Shift+drag extrude · Shift+RMB tools · B soft select · 816 tris  │ 22
+│ Help line: Face mode · ⌘E/Ctrl+E extrude · Shift+drag extrude · Shift+RMB tools · B soft select · 816 tris│ 22
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -3088,9 +3110,9 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 | Select | Object Mode `F8` · Vertex `F9`/`1` · Edge `F10`/`2` · Face `3` · Convert Selection ▸ · Grow `>` · Shrink `<` · Edge Loop · Edge Ring · Border · Shell · All · Invert · None · By Swatch |
 | Modify | Center Pivot · Pivot ▸ (Bottom Center, Reset, Bake, Edit Pivot `D`) · Freeze Transformations · Reset Transformations · Snap ▸ (Grid `X`, Vertex `V`, Increment `J`) |
 | Display | Hide Selected `H` · Show All `Shift+H` · Hide Unselected `Alt+H` · Isolate `Shift+L` · Shading ▸ `4`–`7` |
-| Mesh | Combine · Separate · Mirror… · Symmetrize · Triangulate · Quadrangulate · Cleanup… · Mesh Check · Make Editable |
-| Edit Mesh | Extrude `Mod+E` · Inset · Bevel `Mod+B` · Bridge · Fill Hole · Merge ▸ (Merge, Merge to Center, Merge by Distance, Collapse) `M` · Target Weld · Connect · Insert Edge Loop · Offset Edge Loop · Slide Edge · Average Vertices · Extract · Duplicate Face · Delete Edge/Vertex `Mod+Delete` · Spin Edge ▸ · Flip Triangle Edge · Assign Colour ▸ |
-| Mesh Tools | Multi-Cut `K` · Insert Edge Loop · Target Weld · Slide Edge · Paint Colour |
+| Mesh | Combine · Separate · Fill Hole · Mirror… · Symmetrize · Triangulate · Quadrangulate · Cleanup… · Mesh Check · Make Editable |
+| Edit Mesh | Extrude `Mod+E` · Inset · Bevel `Mod+B` · Bridge · Merge ▸ (Merge, Merge to Center, Merge by Distance, Collapse) `M` · Connect · Insert Edge Loop (on the selected edge; Ekza) · Average Vertices · Extract · Duplicate Face · Delete Edge/Vertex `Mod+Delete` · Spin Edge ▸ · Flip Triangle Edge · Assign Colour ▸ |
+| Mesh Tools | Multi-Cut `K` · Insert Edge Loop (tool) · Offset Edge Loop · Slide Edge · Target Weld · Paint Colour |
 | Mesh Display | Soften Edge · Harden Edge · Set Normal Angle… · Reverse · Conform · Faceted ✓ · Show ▸ (Normals, Face Orientation, Triangulation, Hard Edges, Wire on Shaded, Backface Culling, Dim Unhilited) |
 | UV | Planar · Automatic · Cylindrical |
 
@@ -3103,7 +3125,7 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 | `model.tools.object` (Shift+RMB, mesh object) | N Insert Edge Loop · NE Mirror… · E Combine · SE Separate · S Center Pivot · SW Delete · W Multi-Cut · NW Mesh Check | Freeze · Reset · Triangulate · Conform · Cleanup… · Make Editable |
 | `model.tools.vertex` (Shift+RMB, vertex mode) | N Merge to Center · NE Target Weld · E Connect · SE Chamfer Vertex (disabled, stretch) · **S Extrude** (poll: vertex extrude arrives later) · **SW Delete** · **W Multi-Cut** · NW Average Vertices | Delete Edge/Vertex · Merge · Slide · Snap to Grid |
 | `model.tools.edge` (Shift+RMB, edge mode) | N Insert Edge Loop · NE Bevel · E Bridge · SE Collapse · **S Extrude** · **SW Delete** · **W Multi-Cut** · NW Soften/Harden ▸ | Delete Edge/Vertex · Fill Hole · Offset Edge Loop · Slide Edge · Connect · Spin ▸ · Flip Triangle Edge · Select Loop / Ring |
-| `model.tools.face` (Shift+RMB, face mode) | N Inset · NE Bevel (poll: face bevel arrives later) · E Duplicate Face · SE Extract · **S Extrude** · **SW Delete** · **W Multi-Cut** · NW Poke (disabled, stretch) | Bridge · Triangulate · Quadrangulate · Reverse · Assign Colour ▸ · Mirror |
+| `model.tools.face` (Shift+RMB, face mode) | N Inset · NE Bevel (the faces' edges, §5.9) · E Duplicate Face · SE Extract · **S Extrude** · **SW Delete** · **W Multi-Cut** · NW Poke (disabled, stretch) | Bridge · Triangulate · Quadrangulate · Reverse · Assign Colour ▸ · Mirror |
 | `model.convert` (Ctrl+RMB) | N To Edges · W To Vertices · S To Faces · E To UVs (disabled) · NE To Edge Loop · NW To Edge Ring · SE To Shell · SW To Border | Contained Edges · Contained Faces · Edge Perimeter · Vertex Perimeter · Grow · Shrink |
 | `model.options` (Ctrl+Shift+RMB, `Q`+LMB) | N Symmetry: Object X · NE Symmetry: Off · E Soft Select ✓ · SE Camera-based ✓ · S Constraint ▸ (stretch items disabled) · SW Backfaces ✓ · W Selection Style ▸ (Marquee, Tweak; Drag disabled) · NW Symmetry ▸ (World X/Y/Z, Object Y/Z) | Tolerance… · Preserve Seam ✓ |
 | `model.merge` (`M`) | N Merge to Center · E Target Weld · S Merge · W Collapse | Merge by Distance |
@@ -3130,24 +3152,32 @@ px): icon-only, two columns. Empty state: "Select a mesh, or create one" + primi
 
 - **Card**: bottom-left of the pane where `lastRun` ran, 8 px above the axis triad; collapsed pill
   (`⟲ Extrude · 0.500 m ▸`) that expands on click or `T`; fields generated from `params` (hidden and `data` params
-  omitted; primary first; groups as sections); number fields accept the §5.10 grammar; labels are virtual sliders
-  (MMB or LMB-drag on the label; `Ctrl` slower, `Shift` faster); bool → checkbox; enum/axis → segmented control;
+  omitted; primary first; groups as sections); number fields accept the §5.10 grammar; `fraction` fields show
+  fractions (`0.300`); labels are virtual sliders (MMB or LMB-drag on the label; `Shift` ×0.1 slower, `Mod` ×10 faster:
+  the shipped M2a rule, the same everywhere, §7); bool → checkbox; enum/axis → segmented control;
   `Reset ⟲` restores defaults; `✕` closes the card but keeps `lastRun` for `G`. Operations without params show no
   card. A closed card shows its reason in a tooltip of the pill for 3 s, then disappears.
 - **Channel Box › INPUTS**: under the selected mesh object's Translate/Rotate/Scale rows (B11 adds object TRS rows for
-  meshes and groups, editing `placement` through `scene.object.transform`) and SHAPES, one live entry named after the
-  operation ("extrude (last operation)") with the same fields; selecting a field (`cb-inputs-name-<param>`) makes the
-  viewport MMB-drag run its virtual slider (§5.15).
+  meshes and groups, editing `placement` through `scene.object.transform`) and SHAPES, up to two entries:
+  - the **primitive entry** while the mesh's `generator` is non-null ("cylinder (primitive)", Maya's `polyCylinder1`):
+    the §6.3 fields of its kind, persistent across selection changes, driving `mesh.primitive.set` (an edit right
+    after the creation run is an `edit.adjustLast` of `mesh.create.<kind>`, so the id and the step stay), with MMB
+    virtual sliders like any channel; `cb-prim-field-<param>`, `cb-prim-name-<param>`;
+  - the **last-op entry** ("extrude (last operation)") with the Last-op card's fields while `lastRun` is live and
+    targets this mesh; `cb-inputs-field-<param>`, `cb-inputs-name-<param>`. When the last op is this mesh's own
+    creation or `mesh.primitive.set`, only the primitive entry is shown.
+  Selecting a field name makes the viewport MMB-drag run its virtual slider (§5.15).
 
 ### 8.7 HUD, readout, badges (B10, B12a)
 
-Pane HUD top-left (§5.24); mode badge line above it; `BIND POSE` bottom-right for skinned meshes; modal readout chip
+Pane HUD top-left (§5.24; under symmetry the Selected column reads `40 (+40 sym)`, §5.6); mode badge line above it; `BIND POSE` bottom-right for skinned meshes; modal readout chip
 16 px right/below the pointer (B12a; flips at pane edges; z-order 20) during drags and captures; snap candidate chip.
 
 ### 8.8 Outliner, Palette, Attributes, Model start card, Export dialog (B13)
 
-- **Outliner** (Model variant): Scene › groups and meshes (props), characters › Meshes (each glTF mesh: `⊘ asset` with
-  an inline **Make editable** button, or `✎`), Reference (image planes). Badges with text and tooltip: triangles,
+- **Outliner** (Model variant): Scene › groups and meshes (props), characters › Meshes (each glTF mesh of the loaded
+  container: `⊘ asset` with an inline **Make editable** button while it has no record, §5.21, or `✎`), Reference
+  (image planes). Badges with text and tooltip: triangles,
   `prim` / `✎` / `⊘ asset`, `⇋X` (symmetry), lint dot, `skin` for skinned. Drag to reparent is allowed in Model
   (`scene.parent`), disabled in Animate. Clicking a mesh row in component mode adds it to the hilite set. RMB: Make
   editable · Rename (`F2`/`Enter`) · Duplicate · Group · Isolate · Center Pivot · Mesh Check · Export Selected….
@@ -3162,7 +3192,8 @@ Pane HUD top-left (§5.24); mode badge line above it; `BIND POSE` bottom-right f
   12×8, Plane, Cone 8), templates (Humanoid guides, Humanoid body ▾, Handheld, Prop), Import mesh…, "Edit a sample:
   Polybot (CC0)", "Generate with AI… · Coming later" (disabled), key hints.
 - **Getting started** (dismissible, top-right of the pane): ① Create a primitive ② Face mode (`3`) ③ Extrude
-  (`Ctrl+E`) and type a value ④ Symmetry › Object X ⑤ Colour faces ⑥ Export model.
+  (the `mesh.extrude` key label: `⌘E` on macOS, `Ctrl+E` elsewhere) and type a value ④ Symmetry › Object X ⑤ Colour
+  faces ⑥ Export model. Every key in it comes from `KeymapManager.label`.
 - **Export dialog**: a "Static model (GLB)" section (default in Model): roots, profile (`local/generic`,
   `ekza/omoba-handheld-v1`), colour output, material preset, Drop tangents (only when needed), lints, validator
   result, file size; runs `file.exportModel`. First-run dialog adds "What do you want to do first? (•) Animate an
@@ -3190,9 +3221,9 @@ glyph and overlay line draws a 1 px `--comp-halo` outline; the tokens CI contras
 | Toolkit | `mtk-panel`, `mtk-mode-<mode>`, `mtk-btn-<operatorId>`, `mtk-opt-<operatorId>`, `mtk-sym-mode`, `mtk-sym-tol`, `mtk-soft-on`, `mtk-soft-radius` | B11 |
 | Option box | `optbox-<operatorId>`, `optbox-field-<param>`, `optbox-apply` | B11 |
 | Last-op card | `lastop-card-<paneId>`, `lastop-title`, `lastop-field-<param>`, `lastop-name-<param>`, `lastop-reset`, `lastop-close` | B11 |
-| Channel Box INPUTS | `cb-inputs`, `cb-inputs-field-<param>`, `cb-inputs-name-<param>` | B11 |
+| Channel Box INPUTS | `cb-inputs`, `cb-inputs-field-<param>`, `cb-inputs-name-<param>` (last-op entry), `cb-prim-field-<param>`, `cb-prim-name-<param>` (primitive entry) | B11 |
 | Modal readout | `modal-readout` | B12a |
-| Outliner (Model) | `outliner-row-<id>`, `outliner-badge-<id>`, `outliner-make-editable-<meshId>` | B13 |
+| Outliner (Model) | `outliner-row-<id>`, `outliner-badge-<id>`, `outliner-make-editable-<meshId>` (the derived id the record will get, §5.21) | B13 |
 | Palette | `palette-panel`, `palette-select`, `palette-swatch-<slot>`, `palette-hex`, `palette-apply`, `palette-pick`, `palette-add`, `palette-output-<palette-texture or vertex-colour or material-per-colour>` | B13 |
 | Attributes | `attr-mesh-<field>`, `attr-prim-<param>`, `attr-pivot-<x or y or z>`, `attr-grip-<field>`, `attr-plane-<field>` | B13 |
 | Start card | `model-start-<cube…torus>`, `model-start-template-<id>`, `model-start-import`, `model-start-sample` | B13 |
