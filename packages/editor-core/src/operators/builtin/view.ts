@@ -2,7 +2,7 @@
 // settings (WP-9 R-3). The pane, camera navigation and framing operators belong to the viewport (WP-5).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { CameraId } from '@ekza-animator/doc';
-import { type EditorApp, GLOBAL_SCOPE, type ManipSpace, type NavProfile, PANEL } from '../../types';
+import { DOPE_TOOL, type EditorApp, GLOBAL_SCOPE, type ManipSpace, type NavProfile, PANEL } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
 
@@ -11,10 +11,20 @@ export const MANIPULATOR_SIZE = { min: 40, max: 200 } as const;
 const NAV_PROFILES: readonly NavProfile[] = ['maya', 'trackpad', 'mayaOneButton'];
 const SPACES: readonly ManipSpace[] = ['object', 'world', 'gimbal'];
 
+/** Panels with tools and the `ToolState` field each one writes (M2a: the Dope Sheet). */
+const TOOL_FIELD = {
+  [PANEL.viewport]: 'viewport',
+  [PANEL.graph]: 'graph',
+  [PANEL.dopeSheet]: 'dopeSheet',
+} as const satisfies Readonly<Record<string, 'viewport' | 'graph' | 'dopeSheet'>>;
+const DOPE_TOOLS: ReadonlySet<string> = new Set(Object.values(DOPE_TOOL));
+
 const viewTool = defineOperator({
   id: 'view.tool',
   label: 'Tool',
-  description: 'Choose the viewport tool (Q select, W move, E rotate) or the Graph Editor tool (Q, W, I insert).',
+  description:
+    'Choose the viewport tool (Q select, W move, E rotate), the Graph Editor tool (Q, W, I insert, R scale) or the ' +
+    'Dope Sheet tool (Q, W, R scale).',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll({ app }, args) {
@@ -22,16 +32,19 @@ const viewTool = defineOperator({
       return fail('expects { panel, tool }');
     }
     const { panel, tool } = args;
-    if (panel !== PANEL.viewport && panel !== PANEL.graph) return fail(`The ${panel} panel has no tools`);
-    // Tools register with their panels; before that (headless) any id is accepted.
+    if (!Object.hasOwn(TOOL_FIELD, panel)) return fail(`The ${panel} panel has no tools`);
+    // Tools register with their panels; before that (headless, or a Dope Sheet that has not mounted yet) any id of
+    // the panel's built-in set is accepted (M2A-SPEC §4.5 DOPE_TOOL; any id for the viewport and Graph Editor).
     const tools = app.tools.list(panel);
-    return tools.length === 0 || app.tools.get(panel, tool) !== undefined
-      ? OK
-      : fail(`Unknown ${panel} tool '${tool}'`);
+    if (tools.length === 0) {
+      return panel !== PANEL.dopeSheet || DOPE_TOOLS.has(tool) ? OK : fail(`Unknown ${panel} tool '${tool}'`);
+    }
+    return app.tools.get(panel, tool) !== undefined ? OK : fail(`Unknown ${panel} tool '${tool}'`);
   },
   apply({ app }, args) {
     const tools = app.session.getState().tools;
-    const key = args.panel === PANEL.graph ? 'graph' : 'viewport';
+    const key = TOOL_FIELD[args.panel as keyof typeof TOOL_FIELD];
+    if (key === undefined) throw new EkzaError('unsupported', `The ${args.panel} panel has no tools`);
     if (tools[key] !== args.tool) app.session.setState({ tools: { ...tools, [key]: args.tool } });
   },
 });

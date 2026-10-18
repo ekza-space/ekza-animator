@@ -6,6 +6,7 @@ import { type EditorApp, GLOBAL_SCOPE, type LoopMode, type PlaybackSpeed, type T
 import { clipFrameOfScene, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { activeClipRecord, keyTimes, selectedControls } from '../../workflows/targets';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import { stubOperator } from './stub';
 
 const LOOP_MODES: readonly LoopMode[] = ['once', 'loop', 'oscillate'];
 const SPEEDS: readonly PlaybackSpeed[] = ['realtime', 'every-frame', 'half', 'double'];
@@ -241,6 +242,16 @@ const setSpeed = defineOperator({
 });
 
 export const TIME_OPERATORS: readonly AnyOperator[] = [
+  // M2a (M2A-SPEC §5.9, §5.11; A3 implements them)
+  stubOperator('key.toggleRipple', 'Ripple Edit', {
+    category: 'key',
+    description: 'Moving or scaling keys in the Dope Sheet and time slider shifts the later keys with them.',
+  }),
+  stubOperator('time.insertTime', 'Insert Time', {
+    category: 'time',
+    description: 'Insert or remove frames after a frame, shifting the later keys.',
+    undo: true,
+  }),
   setFrame,
   step,
   keyJump(1),

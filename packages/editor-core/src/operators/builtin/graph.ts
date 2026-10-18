@@ -38,6 +38,7 @@ import {
 import { constantCurve } from '../../workflows/util';
 import type { KeyFieldsArgs } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import { stubOperator } from './stub';
 import { pollClipEdit, pollEditable } from './polls';
 
 const TANGENT_TYPES: readonly TangentType[] = [
@@ -701,6 +702,12 @@ const simplify = defineOperator({
 });
 
 export const GRAPH_OPERATORS: readonly AnyOperator[] = [
+  // M2a (M2A-SPEC §5.9; A3 implements it)
+  stubOperator('graph.keys.copyTo', 'Copy Keys', {
+    category: 'graph',
+    description: 'Copy the selected keys by a number of frames.',
+    undo: true,
+  }),
   tangentSet,
   tangentBreak,
   tangentUnify,

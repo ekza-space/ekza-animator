@@ -20,6 +20,7 @@ import { activeClipRecord, curveOf, selectedControls, visibleControls } from '..
 import type { CountResult, KeyChannels } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
 import { pollActiveClip, pollClipEdit, pollEditable } from './polls';
+import { stubOperator } from './stub';
 
 const KEY_CHANNELS: readonly KeyChannels[] = ['all', 'translate', 'rotate', 'scale', 'selected'];
 const KEY_POLICIES: readonly KeyPolicy[] = ['auto', 'force', 'none'];
@@ -308,4 +309,9 @@ export const KEY_OPERATORS: readonly AnyOperator[] = [
   keyToggleAutoKey,
   channelSetValues,
   channelToggleLock,
+  // M2a (M2A-SPEC §5.19; A2 implements it)
+  stubOperator('key.setTarget', 'Key Target', {
+    category: 'key',
+    description: 'Key the selected controls, their body parts or the whole character.',
+  }),
 ];
