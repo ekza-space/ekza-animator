@@ -18,6 +18,7 @@ import { createEditorHistory } from '../history/history';
 import { createKeymapManager, preferenceBindings } from '../keymap/manager';
 import type { OperatorMap } from '../operators/args';
 import { registerBuiltins } from '../operators/builtin';
+import { pruneCurveBuffers } from '../operators/builtin/graphBuffer';
 import { createOperatorRegistry } from '../operators/registry';
 import { createOperatorRunner } from '../operators/runner';
 import { createPlaybackClock } from '../playback/clock';
@@ -202,11 +203,21 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     }
     return ids;
   };
+  /** M2A-SPEC §5.15.1: deleting a curve drops its buffer (loads, undo and remote deletes included). */
+  const dropsCurves = (batch: ChangeBatch): boolean => {
+    if (batch.origin === 'load') return true;
+    for (const change of batch.changes) {
+      if (change.table !== 'curves') continue;
+      if (change.after === undefined || change.after.deleted !== null) return true;
+    }
+    return false;
+  };
   disposers.push(
     store.subscribe((batch) => {
       const ids = affectedCharacters(batch);
       if (ids === null) evaluation.invalidate();
       else if (ids.size > 0) evaluation.invalidate(ids);
+      if (session.getState().curveBuffers.size > 0 && dropsCurves(batch)) pruneCurveBuffers(app);
     }),
     session.subscribe((state, previous) => {
       if (state.overrides !== previous.overrides) {

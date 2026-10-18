@@ -553,14 +553,13 @@ describe('contract stubs (§3 rule 1)', () => {
       }
     };
     edit(app, 'Stubs', (tx) => {
-      expect(code(() => scaleKeyValues(app, tx, [], 0, 1))).toBe('not-implemented:editor-core.scaleKeyValues');
+      // A4 landed scaleKeyValues and tweenEdits (m2a-a4-edit.test.ts); A3's stubs remain.
+      expect(code(() => scaleKeyValues(app, tx, [], 0, 1))).toBeNull();
       expect(code(() => copyKeys(app, tx, [] as KeyId[], 1, { snap: true, resolveCollisions: true }))).toBe(
         'not-implemented:editor-core.copyKeys',
       );
       expect(code(() => insertTime(app, tx, [], 0, 1))).toBe('not-implemented:editor-core.insertTime');
     });
-    expect(code(() => tweenEdits(app, 'tween', 0, { kind: 'keys', keys: [] }))).toBe(
-      'not-implemented:editor-core.tweenEdits',
-    );
+    expect(code(() => tweenEdits(app, 'tween', 0, { kind: 'keys', keys: [] }))).toBeNull();
   });
 });
