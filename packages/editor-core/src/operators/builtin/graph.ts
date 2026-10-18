@@ -30,6 +30,7 @@ import {
   setKeyHandle,
   setTangentTypes,
 } from '../../edit/keys';
+import { scaleKeyValues } from '../../edit/valueScale';
 import { type RippleScope, rippleControls, rippleCurves, rippleScopeOf } from '../../edit/ripple';
 import { toDisplayValue } from '../../edit/numeric';
 import {
@@ -458,12 +459,6 @@ function scopeOf(ctx: OperatorContext, tx: Tx, keys: readonly KeyId[]): RippleSc
   return rippleScopeOf(ctx.app, tx, keys, panel, band);
 }
 
-/**
- * Value scaling of the selected keys (§5.15.3, A4's `scaleKeyValues`): until A4 lands it, `graph.keys.scale` with a
- * `valueFactor` other than 1 poll-fails (M2A-SPEC §8 A3). Integration turns this on with A4's kernel.
- */
-const VALUE_SCALE_AVAILABLE = false;
-
 const keysMove = defineOperator({
   id: 'graph.keys.move',
   label: 'Move Keys',
@@ -493,7 +488,9 @@ const keysMove = defineOperator({
 const keysScale = defineOperator({
   id: 'graph.keys.scale',
   label: 'Scale Keys',
-  description: 'Scale the selected keys in time around a pivot frame; ripple shifts the later keys.',
+  description:
+    'Scale the selected keys in time around a pivot frame and in value around a value pivot (display units); ' +
+    'ripple shifts the later keys.',
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
@@ -506,9 +503,6 @@ const keysScale = defineOperator({
     const valuePivot = args['valuePivot'];
     if (valueFactor !== undefined && !isFiniteNumber(valueFactor)) return fail('valueFactor must be finite');
     if (valuePivot !== undefined && !isFiniteNumber(valuePivot)) return fail('valuePivot must be finite');
-    if (valueFactor !== undefined && valueFactor !== 1 && !VALUE_SCALE_AVAILABLE) {
-      return fail('Scaling key values is not available yet');
-    }
     return all(pollEditable(app), pollSelectedKeys(app, true));
   },
   apply(ctx, args) {
@@ -519,7 +513,15 @@ const keysScale = defineOperator({
     const opts: KeyEditOptions = { ...keyEdit(app), ripple };
     const result = scaleKeys(app, t, keys, args.pivot, args.factor, opts, ripple ? scopeOf(ctx, t, keys) : undefined);
     forgetKeys(app, result.deleted);
-    return { count: result.moved };
+    // §5.15.3: the value scale of the same keys in the same step; `valuePivot` is in display units and converts per
+    // curve (degrees for rotations and angle attributes, `scaleKeyValues`); a negative factor flips. Keys the time
+    // scale merged away are gone and skipped.
+    const valueFactor = args.valueFactor ?? 1;
+    if (valueFactor === 1) return { count: result.moved };
+    const removed = new Set(result.deleted);
+    const kept = removed.size === 0 ? keys : keys.filter((id) => !removed.has(id));
+    const values = scaleKeyValues(app, t, kept, args.valuePivot ?? 0, valueFactor);
+    return { count: Math.max(result.moved, values.moved) };
   },
 });
 

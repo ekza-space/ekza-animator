@@ -7,7 +7,7 @@ import { BUILTIN_MENU_ITEMS, MAYA_KEYMAP } from '../../src';
 import { BUILTIN_OPERATORS } from '../../src/operators/builtin';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import type { Chord, KeyBinding } from '../../src/types';
-import { opsApp, runOk, runResult, WAVE } from './support';
+import { DEG, opsApp, runOk, runResult, WAVE } from './support';
 
 /**
  * Every M2a operator of §4.9 with arguments that are valid now that its owner landed it (A2: the rig IK operators,
@@ -33,6 +33,10 @@ const M2A_OPERATOR_RUNS: readonly (readonly [string, unknown])[] = [
   ['time.deleteTime', undefined],
   ['time.deleteTime', { range: { start: 4, end: 6 }, target: 'character' }],
   ['graph.keys.copyTo', { dFrames: 4 }],
+  // The changed M1 key operators with their M2a arguments (A3 ripple, §5.15.3 value scale via A4's scaleKeyValues).
+  ['graph.keys.move', { dFrames: 1, dValue: 0, ripple: true }],
+  ['graph.keys.scale', { pivot: 0, factor: 1, valuePivot: 0, valueFactor: 2 }],
+  ['graph.keys.scale', { pivot: 0, factor: 2, ripple: true, valuePivot: 1, valueFactor: -1 }],
   ['graph.buffer.snapshot', undefined],
   ['graph.buffer.swap', undefined],
   ['graph.buffer.clear', undefined],
@@ -42,13 +46,30 @@ const M2A_OPERATOR_RUNS: readonly (readonly [string, unknown])[] = [
 ];
 
 describe('M2a operators after integration (§3 rules 1 and 4)', () => {
-  it('resolve, and none poll-fails with "not available yet"', () => {
+  it('resolve, and none poll-fails with "not available yet" (in any wording)', () => {
     const app = opsApp();
     for (const [id, args] of M2A_OPERATOR_RUNS) {
       expect([id, app.operators.get(id) !== undefined]).toEqual([id, true]);
       const poll = app.operators.poll(id, {}, args);
-      expect([id, poll === true ? 'ok' : poll.reason]).not.toEqual([id, NOT_AVAILABLE_YET]);
+      const reason = poll === true ? '' : poll.reason;
+      expect([id, args, /not available yet/i.test(reason)]).toEqual([id, args, false]);
     }
+  });
+
+  it('the changed key operators finish with their M2a arguments on a selected key (no gate left)', async () => {
+    const app = opsApp();
+    const curve = app.store.query.keysOfCurve(WAVE.curve);
+    const key = curve[1];
+    if (key === undefined) throw new Error('the wave curve has keys');
+    const parts = { key: true, in: false, out: false };
+    app.session.setState({ selection: { ...app.session.getState().selection, keys: new Map([[key.id, parts]]) } });
+    for (const [id, args] of M2A_OPERATOR_RUNS.filter(
+      ([op]) => op === 'graph.keys.move' || op === 'graph.keys.scale',
+    )) {
+      expect([id, args, (await runResult(app, id, args)).status]).toEqual([id, args, 'finished']);
+    }
+    // valueFactor 2 about 0, then −1 about 1° (rz is a rotation: the pivot is in degrees): v → 2·v → 2° − 2·v.
+    expect(app.store.get('keys', key.id)?.v).toBeCloseTo(2 * DEG - 2 * key.v, 12);
   });
 
   it('are listed with the other built-ins', () => {
