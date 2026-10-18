@@ -216,12 +216,16 @@ const poseMirror = defineOperator({
     // Snapshot every control first: the result never depends on the order of writes.
     const controls = controlsOfCharacter(tx, character);
     const ids = controls.map((control) => control.id);
-    const snapshot = currentValues(app, ids);
+    // M2a §5.8: the snapshot carries the keyable attributes too, so a rig that mirrors attributes (A1's
+    // mirrorPose) reads their current values instead of their defaults.
+    const attrSnapshot = currentAttrValues(app, ids, 'keyable');
+    const snapshot = mergeChannelValues(currentValues(app, ids), attrSnapshot);
     const scope = mirrorScope(app);
     const { values, warnings } = mirrorPose(runtime.program, snapshot, args.mode, scope);
     if (warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: warnings.join('; ') });
-    // M2a §5.8: attributes map by AttrDef.mirror (ikFk copies, so the mirrored pose carries the limb mode).
-    const attrs = mirrorAttrValues(tx, controls, currentAttrValues(app, ids, 'keyable'), args.mode, scope);
+    // M2a §5.8: attributes map by AttrDef.mirror (ikFk copies, so the mirrored pose carries the limb mode); the
+    // same mapping as the rig's, for a rig whose mirror leaves attributes out.
+    const attrs = mirrorAttrValues(tx, controls, attrSnapshot, args.mode, scope);
     return writePose(app, tx, mergeChannelValues(values, attrs));
   },
 });
