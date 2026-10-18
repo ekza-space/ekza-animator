@@ -1,7 +1,8 @@
 # ADR 0015 — Mesh storage in the document: revision refs, content-addressed chunks, claims, undo
 
-- Status: Proposed (2026-10-18, revised 2026-10-19 after the design review, MODELING-PLAN §12); becomes Accepted
-  when the M6a spec freezes (package B0a)
+- Status: Accepted (2026-10-19, with [M6A-SPEC](../M6A-SPEC.md) v1.0; proposed 2026-10-18, revised 2026-10-19 after
+  the design review, MODELING-PLAN §12). The normative contracts are M6A-SPEC §4; where a sketch here differs,
+  the spec wins (its §12.2 lists the refinements).
 - Inputs: research [13](../research/13-mesh-kernel.md) §9 (Yjs measurements §9.6), [06](../research/06-collaboration.md)
   D6–D8, R1–R12, §8.2, §10.1, P3, [14](../research/14-skinning-own-models.md) §3, [12](../research/12-lowpoly-workflow.md)
   §4.2, [15](../research/15-ai-3d-generation.md) §5.10, [16](../research/16-model-workspace-ui.md) §21, §24;

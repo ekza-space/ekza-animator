@@ -1,8 +1,10 @@
 # Ekza Animator — Architecture
 
-Status: v0.2 (2026-10-17, design review revision), the design baseline for milestone M1 (MVP). Decisions are
-recorded as ADRs in [`docs/adr/`](docs/adr/README.md); the build spec with exact TypeScript contracts is
-[`docs/MVP-SPEC.md`](docs/MVP-SPEC.md); requirements are in [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md).
+Status: v0.2 (2026-10-17, design review revision), the design baseline for milestone M1 (MVP); amended 2026-10-19
+for the modeling base M6a (packages `mesh-core` and `mesh-view`, schema v3, selection undo in Model; ADRs 0014–0016,
+[`docs/M6A-SPEC.md`](docs/M6A-SPEC.md)). Decisions are recorded as ADRs in [`docs/adr/`](docs/adr/README.md); the
+build spec with exact TypeScript contracts is [`docs/MVP-SPEC.md`](docs/MVP-SPEC.md) (deltas: M2A-SPEC, M6A-SPEC);
+requirements are in [`docs/REQUIREMENTS.md`](docs/REQUIREMENTS.md).
 Research inputs live in [`docs/research/`](docs/research/) and are cited as `R01`…`R09`.
 
 ---
@@ -42,12 +44,14 @@ flowchart TB
   subgraph Interactive["Imperative, DOM/WebGL, no React"]
     VP["@ekza-animator/viewport<br/>ViewportManager, SceneSync, navigation, picking, manipulators"]
     CE["@ekza-animator/curve-editor<br/>Canvas2D Graph Editor + time slider"]
+    MV["@ekza-animator/mesh-view (M6a)<br/>edit-mode overlays, component picking (three-mesh-bvh)"]
   end
   subgraph Headless["Headless (Node-safe): no React, no DOM, no WebGL"]
     EC["@ekza-animator/editor-core<br/>session, operators + runner, edit kernel, history, registries, keymaps, playback, evaluation"]
     IO["@ekza-animator/io<br/>GLB container, budgets, skeleton/clip readers, bake, surgeon, VRMA/GLB writers, lints, profiles, project zip"]
     RIG["@ekza-animator/rig<br/>auto-rig, compiler, stateless kernel, sampler, import, mirror, two-bone IK, pose clipboard"]
     DOC["@ekza-animator/doc<br/>records, tables, partitions, DocumentStore, transactions, preview, patch undo, snapshots, conformance"]
+    MC["@ekza-animator/mesh-core (M6a)<br/>mesh kernel: SoA radial-edge mesh, write log, Euler ops, modeling ops, revisions"]
     AC["@ekza-animator/anim-core<br/>math, rotate orders, Euler filter, AnimX curve engine, reduction, control shapes"]
   end
   subgraph TestOnly["Private, test-only"]
@@ -69,6 +73,11 @@ flowchart TB
   IO --> AC
   YJS --> DOC
   HT --> EC
+  VP --> MV
+  MV --> MC
+  EC --> MC
+  IO --> MC
+  MC --> AC
 ```
 
 Runtime data flow:
@@ -97,12 +106,14 @@ Runtime data flow:
 | Package | Dir | Responsibility | May import | Must not import |
 |---|---|---|---|---|
 | `@ekza-animator/anim-core` | `packages/anim-core` | Vectors, quaternions, 4×4 float64 matrices, TRS; DCC rotate orders ↔ three orders; Euler↔quat, `eulerNear`, Euler filter, gimbal axes; `EkzaError`; AnimX curve engine (compile, evaluate, tangents, infinity, shape-preserving insert, numeric fields); `reduceKeys`; control-shape registry and `SplineSet` tessellation | nothing (zero runtime deps) | everything, incl. `three` |
+| `@ekza-animator/mesh-core` (M6a) | `packages/mesh-core` | Mesh kernel (ADR 0014): BMesh-style radial-edge structure of arrays, attribute layers with propagation and mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, revision manifest + content-addressed chunks, one triangulation and normal function, every modeling op (`MeshOp`/`MeshSetOp` with `ParamDef` params), selection walkers, soft selection, symmetry maps, primitives, templates; `/testing` (arbitraries, goldens) | anim-core, `earcut`, `robust-predicates` | three, React, DOM, doc, editor-core, WASM |
 | `@ekza-animator/doc` | `packages/doc` | IDs, record types, `TableDef` registry, `DocumentStore` (memory) with partitions, transactions, preview sessions, `PatchUndoManager` (per merge unit), queries, scene-time mapping, migrations, snapshots, conformance suite + test network (`/testing`) | anim-core | three, React, DOM, yjs |
 | `packages/doc-yjs` (private, test-only) | `packages/doc-yjs` | `ReplicatingStore` over one `Y.Doc` per partition; runs the full conformance suite in CI | doc, `yjs` | everything else; nothing may depend on it |
 | `@ekza-animator/rig` | `packages/rig` | `SkeletonDesc` types, humanoid tables, auto-rig (humanoid FK + secondary, generic 1:1, mesh-based sizes), rig compiler + kernel, `ClipSampler`, inverse solving, clip import (fps detection, interpolation mapping, VRMA rules, reduction), step schedule, mirror, pose clipboard, two-bone IK, plant feet | anim-core, doc | three, React, DOM, io |
-| `@ekza-animator/io` | `packages/io` | GLB container, input budgets + structural checks, accessor reader, `skeletonFromGltf` (incl. bone radii), `readAnimations`, VRMA reader, bake sampler, surgeon, animation-only GLB and VRMA writers (glTF Transform), lints + export profiles, validator wrapper, `.ekzanim` zip; subpaths `/three` (browser model loader), `/worker` (stretch), `/testing` (Node GLTFLoader harness) | anim-core, doc, rig, `@gltf-transform/*`, `fflate`; `/three` and `/testing` also `three`, `@pixiv/three-vrm*` | React; DOM outside `/three` |
-| `@ekza-animator/editor-core` | `packages/editor-core` | `EditorApp` kernel: session state (zustand vanilla), prefs, operator registry + runner, edit kernel, editor history, contribution registries (importers, exporters, export profiles, menus), keymaps, tools API, built-in operators and workflows, playback clock, evaluation service, character runtime registry, service interfaces; `/testing` fake app | anim-core, doc, rig, io (headless entry), `zustand/vanilla` | React, DOM, WebGL, `three`, `io/three` |
-| `@ekza-animator/viewport` | `packages/viewport` | `ViewportManager`, panes, view cameras, `NavigationController` (camera-controls), `SceneSync`, control/joint rendering, picking + marquee + cycling, `ManipulatorKit` (object/world/gimbal), viewport tools, HUD data | anim-core, doc, rig, editor-core, io/three, `three`, `camera-controls` | React, R3F |
+| `@ekza-animator/io` | `packages/io` | GLB container, input budgets + structural checks, accessor reader, `skeletonFromGltf` (incl. bone radii), `readAnimations`, VRMA reader, bake sampler, surgeon, animation-only GLB and VRMA writers (glTF Transform), lints + export profiles, validator wrapper, `.ekzanim` zip; subpaths `/three` (browser model loader), `/worker` (stretch), `/testing` (Node GLTFLoader harness) | anim-core, doc, rig, mesh-core (M6a), `@gltf-transform/*`, `fflate`; `/three` and `/testing` also `three`, `@pixiv/three-vrm*` | React; DOM outside `/three` |
+| `@ekza-animator/editor-core` | `packages/editor-core` | `EditorApp` kernel: session state (zustand vanilla), prefs, operator registry + runner, edit kernel, editor history, contribution registries (importers, exporters, export profiles, menus), keymaps, tools API, built-in operators and workflows, playback clock, evaluation service, character runtime registry, service interfaces; `/testing` fake app | anim-core, doc, rig, io (headless entry), mesh-core (M6a), `zustand/vanilla` | React, DOM, WebGL, `three`, `io/three` |
+| `@ekza-animator/mesh-view` (M6a) | `packages/mesh-view` | Edit-mode overlays (surface, edges, vertices, face dots, normals, lint, symmetry plane, soft ramp), static mesh display, `ComponentPicker` (CPU, BVH) | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
+| `@ekza-animator/viewport` | `packages/viewport` | `ViewportManager`, panes, view cameras, `NavigationController` (camera-controls), `SceneSync`, control/joint rendering, picking + marquee + cycling, `ManipulatorKit` (object/world/gimbal), viewport tools, HUD data | anim-core, doc, rig, editor-core, io/three, mesh-core, mesh-view (M6a), `three`, `camera-controls` | React, R3F |
 | `@ekza-animator/curve-editor` | `packages/curve-editor` | Graph view transform, painters, hit-testing, interaction controllers, time slider with range editing; Canvas2D only | anim-core, doc, rig, editor-core | React, three |
 | `@ekza-animator/ui` | `packages/ui` | Design tokens (`tokens.json` → CSS vars), Tailwind preset and `@source` setup, primitives (Radix-based, shadcn-style, owned), icon set | React, `radix-ui`, `lucide-react` | domain packages |
 | `@ekza-animator/editor` | `packages/editor` | React app: `EditorShell`, `WorkspaceHost` (dockview adapter), panel registry + panels, `GLHost` (R3F), dialogs, DOM input adapter (hotkeys, tap/hold), browser services, test API | everything above, React, R3F, dockview, zustand | Next.js |
@@ -114,7 +125,7 @@ devDependencies**) and oxlint `no-restricted-imports` / `no-restricted-globals`:
 
 1. The graph is acyclic and only points downwards in the table; no devDependency points up the graph either
    (cross-package fixture tests live in `headless-tests`).
-2. Headless packages (anim-core, doc, rig, io main entry, editor-core) never reference `window`, `document`,
+2. Headless packages (anim-core, doc, rig, io main entry, editor-core, mesh-core) never reference `window`, `document`,
    `process`, `Buffer`, WebGL or React; their tests run in Vitest's Node environment; `node:*` only in `testing`
    subpaths, tests and tooling.
 3. Only `editor` and `apps/web` import React; only `editor` imports R3F and dockview.
@@ -130,8 +141,8 @@ devDependencies**) and oxlint `no-restricted-imports` / `no-restricted-globals`:
 
 | Scope | Contents | Lives in | Undo | Collaboration |
 |---|---|---|---|---|
-| **D** document | project settings (scene clock), assets (by hash), characters, rigs, controls, constraint/solver slots, shot cameras, clips (with provenance), layers, curves, keys | `DocumentStore` | yes (per user, per merge unit) | synced (CRDT, M3) |
-| **U** user session | selection, scene time, playing, playback range, time-slider band, active character/clip, active tool, pose overrides (unkeyed edits), feet pins, view cameras, pane layout, graph view transforms, clipboards, open dialog | `editor-core` session store + panel instances | overrides through the editor history; selection restored with history steps | presence/awareness only |
+| **D** document | project settings (scene clock), assets (by hash), characters, rigs, controls, constraint/solver slots, shot cameras, clips (with provenance), layers, curves, keys; since M6a meshes (one record each, geometry as a revision ref to content-addressed chunks in the `BlobStore`), groups, palettes and swatches, reference image planes, skeletons and joints (M6b) | `DocumentStore` (+ `BlobStore` for mesh chunks) | yes (per user, per merge unit; mesh undo memory bounded in bytes) | synced (CRDT, M3; mesh chunks by hash, mesh claims) |
+| **U** user session | selection, scene time, playing, playback range, time-slider band, active character/clip, active tool, pose overrides (unkeyed edits), feet pins, view cameras, pane layout, graph view transforms, clipboards, open dialog | `editor-core` session store + panel instances | overrides through the editor history; selection restored with history steps; **in the Model workspace selection (components and objects) and hiding are undo steps of their own** (session-only selection parts of the editor history, ADR 0016 D12; off in Animate) | presence/awareness only |
 | **P** preferences | navigation profile, keymap overrides, Space behaviour, default tangents, auto-key toggle and mode, move/rotate manipulator space, import reduction, UI scale | `localStorage` (try/catch, works without storage) | no | never |
 
 Hard rule: no U or P value is ever written to the document (R01 COL-02, R06 R12).
@@ -159,9 +170,11 @@ clips (per character; metadata, provenance) ─► layers ─► curves (clip, l
 - **Soft delete** (`deleted: {by, at}`) for structural records, hard delete for keys (R06 R4).
 - **Intent only**: computed tangents, world matrices, caches and thumbnails are never stored (R06 R5); the
   shape-preserving key insert is the one documented exception (ADR 0003).
-- **Partitions** for the CRDT: `partitionOf(table, record)` → `scene` (project, assets, characters, cameras) |
-  `char:<characterId>` (rigs, controls, constraints, solvers, clip metadata) | `clip:<clipId>` (layers, curves,
-  keys). The store has an `open/close/isOpen` lifecycle; loaders await `open` (instant in the MVP).
+- **Partitions** for the CRDT: `partitionOf(table, record)` → `scene` (project, assets, characters, cameras; since
+  M6a scene meshes and groups, palettes, swatches, image planes) | `char:<characterId>` (rigs, controls, constraints,
+  solvers, clip metadata; since M6a the character's meshes, groups, skeletons and joints) | `clip:<clipId>` (layers,
+  curves, keys). Meshes are one record with one geometry field (a revision ref); their chunks live outside the
+  document in the `BlobStore` (ADR 0015). The store has an `open/close/isOpen` lifecycle; loaders await `open` (instant in the MVP).
   Cross-partition operations are written in dependency order and readers tolerate missing partitions (tested by
   applying batches partition by partition in random order).
 - **Projection invariants** resolved deterministically at read time: duplicate key times on a curve → the key with
@@ -443,7 +456,9 @@ named P0–P3 (R06), distinct from Ekza tiers T0–T3 and plugin trust levels.
   written back; per-table versions migrate independently.
 - **Curves are first-class**: control shapes are `SplineSet` (`poly | bezier`, later `nurbs`) in anim-core; the
   Graph Editor's Bézier editing kernel (anchor/handle selection, break/unify, weighted, shape-preserving insert) is
-  written so 3D spline editing can reuse it. Path to modeling (M6): a `curve` table registered through `TableDef`,
+  written so 3D spline editing can reuse it. **Polygon modeling** arrived first (M6a, ADRs 0014–0016,
+  [M6A-SPEC](docs/M6A-SPEC.md)): `mesh-core` operations are registry operators with `ParamDef` params, so menus,
+  hotkeys, tools, scripts and agents call the same `mesh.*` ids. Path to splines (now M8): a `curve` table registered through `TableDef`,
   CV/EP/pen tools in the viewport tool registry, component selection (`{control|curve, component}`), generator
   records with declared eval ops, and an `EKZA_curves` export extension (registered vendor prefix first). No core
   rewrite is required (R08 §9).
@@ -560,7 +575,7 @@ CI container.
 | 20 | Dope Sheet, marking menus, onion skin, normalize/stacked/buffer curves | R09 MVP | V1; the time slider gets Maya range editing (move/scale/delete/copy/paste/tangents) in M1 | Covers the retiming loop at ~2 agent-days |
 | 21 | Mirror pose | R01 V1 | MVP (humanoid), scope expanded to mirror pairs | Brief; trivial in normalized space |
 | 22 | Camera lock | R09 per pane; R01 document flag | Document flag on shot cameras; unlocked shot navigation commits without undo | A locked shot is locked for every collaborator; undo stays for animation |
-| 23 | Selection & undo | R04/R09 not undoable; R08 restore with undo | Not undo steps; snapshots restored by history steps | Maya feel without history noise |
+| 23 | Selection & undo | R04/R09 not undoable; R08 restore with undo; R10/R11 (2026-10-18): Maya and Blender record selection in modeling | Animate: not undo steps; snapshots restored by history steps. **Amended 2026-10-19 (ADR 0016 D12, M6A-SPEC §5.6): in the Model workspace selection changes are undo steps** — session-only selection parts of `EditorHistory`, consecutive additive picks coalesced into one "Select" step, never in the document or CRDT; preference `undoSelection` per workspace (on in Model, off in Animate) | Maya feel without history noise while animating; a stray click must not lose a hand-built loop selection while modeling (Maya's default undo queue records selection) |
 | 24 | TypeScript | R04 TS 7.0.2 | TS 6.0.3 with `types: []`-aware configs (ADR 0001) | TS 7 has no JS API (verified) |
 | 25 | Package manager / test runner | R04 pnpm 11, Vitest 5 | pnpm 10.32.1, Vitest 4.1.11 | Installed toolchain; Node 25 engine range |
 | 26 | Layering check | R04 dependency-cruiser; R06 ESLint rule | `check-deps.mjs` (deps and devDeps) + oxlint `no-restricted-imports` | Node 25 + TS API constraints |

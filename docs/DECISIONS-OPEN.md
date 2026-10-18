@@ -578,7 +578,9 @@ offline lazy chunks (owner item above); A5-11 the Export dialog passes `prefs.ex
 
 The modeling iteration is planned in [MODELING-PLAN.md](MODELING-PLAN.md) on research
 [10](research/10-maya-poly-modeling.md)–[16](research/16-model-workspace-ui.md) (`R10`…`R16`), with ADRs
-[0014](adr/0014-mesh-kernel.md)–[0017](adr/0017-ai-generation-boundary.md) (proposed). Every item has a **default
+[0014](adr/0014-mesh-kernel.md)–[0017](adr/0017-ai-generation-boundary.md) (0014–0016 accepted on 2026-10-19 with
+[M6A-SPEC](M6A-SPEC.md) v1.0, which applies these defaults and lists its refinements in §12.2; 0017 proposed, its
+provenance items accepted with M6a). Every item has a **default
 chosen** so that the M6a spec can be written and B0a can start; **the owner may override any of them**. Items marked
 **override** replace a research note's recommendation on evidence (MODELING-PLAN §11 lists all twenty-six research
 conflicts and their resolutions; §12 lists the forty design-review findings of 2026-10-19 and what was done with

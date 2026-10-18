@@ -13,9 +13,12 @@ spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md
   (AI generation), [16](research/16-model-workspace-ui.md) (Model workspace UI); earlier [03](research/03-ekza-reuse-audit.md),
   [06](research/06-collaboration.md), [08](research/08-extensibility-modeling.md), [09](research/09-ui-ux-spec.md).
 - Decisions: [ADR 0014](adr/0014-mesh-kernel.md) mesh kernel, [ADR 0015](adr/0015-mesh-storage-in-the-document.md)
-  mesh storage, [ADR 0016](adr/0016-modeling-interaction-paradigm.md) interaction paradigm,
-  [ADR 0017](adr/0017-ai-generation-boundary.md) AI generation boundary (all *Proposed*; accepted when the M6a spec
-  freezes, ADR 0017 at the M7 spec).
+  mesh storage, [ADR 0016](adr/0016-modeling-interaction-paradigm.md) interaction paradigm (all three **Accepted**
+  2026-10-19 with the M6a build spec), [ADR 0017](adr/0017-ai-generation-boundary.md) AI generation boundary
+  (*Proposed*; its provenance items accepted with M6a, the rest at the M7 spec).
+- Build spec: [M6A-SPEC](M6A-SPEC.md) v1.0 (2026-10-19) turns §2–§4 into contracts, normative behaviours and work
+  packages; where it refines this plan (flattened extrude args, selection coalescing, B12b dependencies and the
+  critical path, kept BIN ranges in the surgeon, …) its §12.2 is binding.
 - Owner decisions with the defaults chosen: [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18).
   Queue: [TODO.md](../TODO.md). Sizes are **agent-days** (ROADMAP convention).
 

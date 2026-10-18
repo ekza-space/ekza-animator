@@ -1,8 +1,9 @@
 # ADR 0017 — AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction
 
 - Status: Proposed (2026-10-18, revised 2026-10-19 after the design review, MODELING-PLAN §12). Items 7–8
-  (provenance record, export block, lints) are built in M6a and accepted with the M6a spec; the rest is accepted when
-  the M7 spec freezes.
+  (provenance record, export block, lints) are **Accepted** (2026-10-19, with [M6A-SPEC](../M6A-SPEC.md) v1.0, which
+  builds them in M6a: §4.2 `AssetProvenance`, §4.5 `ekza_model_v1` and the provenance lints); the rest is accepted
+  when the M7 spec freezes.
 - Inputs: research [15](../research/15-ai-3d-generation.md) (D1–D10, §5, §9), [14](../research/14-skinning-own-models.md)
   §9.5, §11, [13](../research/13-mesh-kernel.md) §5.17, [12](../research/12-lowpoly-workflow.md) L2–L3,
   [08](../research/08-extensibility-modeling.md) §8.2, [03](../research/03-ekza-reuse-audit.md); [MODELING-PLAN](../MODELING-PLAN.md)
