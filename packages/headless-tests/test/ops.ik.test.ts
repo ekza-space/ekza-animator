@@ -207,35 +207,37 @@ describe.skipIf(!SIBLINGS_READY || !READY_A1)(
       expect(docJson(app)).toEqual(before);
     });
 
-    it('match IK to FK then FK to IK keeps the chain (1e-6); a hyperextended knee warns with its angle', async () => {
+    it('IK → FK → IK keeps the chain (1e-6) on a clean hinge; a hyperextended knee warns with its angle', async () => {
       const { app, services } = realApp();
       const san = await importFixture(app, 'seed-san.vrm');
       await runOk(app, 'clip.new', { name: 'match' });
       const c = (key: string) => controlOf(app, san.character, key);
-      // Legs FK, a bent knee.
-      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'none' });
+      // An IK pose (the solver bends the knee about its hinge): the foot moved up and forward.
       await runOk(app, 'channel.setValues', {
         edits: [
-          { control: c('fk.upperLeg.L'), channel: 'rx', value: -30 * DEG },
-          { control: c('fk.lowerLeg.L'), channel: 'rx', value: 50 * DEG },
+          { control: c('ik.leg.L'), channel: 'ty', value: 0.2 },
+          { control: c('ik.leg.L'), channel: 'tz', value: 0.15 },
+          { control: c('ik.leg.L'), channel: 'rx', value: 15 * DEG },
         ],
       });
-      const fk = LEG.map((bone) => boneWorld(app, san.character, bone));
-      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'none' });
-      LEG.forEach((bone, i) =>
-        expectSameWorld(boneWorld(app, san.character, bone), fk[i] as never, 1e-6, `${bone} in IK`),
-      );
+      const ik = LEG.map((bone) => boneWorld(app, san.character, bone));
       await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'none' });
+      expect(app.evaluation.ikFk(san.character, 'leg.L')).toBe(0);
       LEG.forEach((bone, i) =>
-        expectSameWorld(boneWorld(app, san.character, bone), fk[i] as never, 1e-6, `${bone} back in FK`),
+        expectSameWorld(boneWorld(app, san.character, bone), ik[i] as never, 1e-6, `${bone} in FK`),
       );
+      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'ik', key: 'none' });
+      expect(app.evaluation.ikFk(san.character, 'leg.L')).toBe(1);
+      LEG.forEach((bone, i) =>
+        expectSameWorld(boneWorld(app, san.character, bone), ik[i] as never, 1e-6, `${bone} back in IK`),
+      );
+      expect(services.toasts.filter((toast) => toast.kind === 'warning')).toEqual([]);
 
-      // A knee hyperextended by 5° cannot be matched in IK: it bends forward instead, with a warning.
+      // A knee hyperextended by 5° (FK) cannot be matched in IK: it bends forward instead, with a warning.
+      await runOk(app, 'rig.ikFk.switch', { limb: 'leg.L', to: 'fk', key: 'none' });
+      await runOk(app, 'pose.resetToRest', { controls: [c('fk.upperLeg.L'), c('fk.lowerLeg.L'), c('fk.foot.L')] });
       await runOk(app, 'channel.setValues', {
-        edits: [
-          { control: c('fk.upperLeg.L'), channel: 'rx', value: 0 },
-          { control: c('fk.lowerLeg.L'), channel: 'rx', value: -5 * DEG },
-        ],
+        edits: [{ control: c('fk.lowerLeg.L'), channel: 'rx', value: -5 * DEG }],
       });
       await runOk(app, 'rig.ikFk.match', { limb: 'leg.L', side: 'ik' });
       const warning = services.toasts.filter((toast) => toast.kind === 'warning').at(-1)?.text ?? '';
@@ -284,13 +286,13 @@ describe.skipIf(!SIBLINGS_READY || !READY_A1)(
       const pins = app.session.getState().feetPins?.pins ?? [];
       setSceneFrame(app, 10);
       const ik = controlOf(app, bot.character, 'ik.leg.L');
+      // The hips keyed lower, the IK foot moved off its pin (a static value: Plant Feet then writes statics; keyed
+      // channels without auto-key would become overrides).
       await runOk(app, 'channel.setValues', {
-        edits: [
-          { control: ik, channel: 'tx', value: 0.1 },
-          { control: controlOf(app, bot.character, 'cog'), channel: 'ty', value: -0.05 },
-        ],
+        edits: [{ control: controlOf(app, bot.character, 'cog'), channel: 'ty', value: -0.05 }],
         key: 'force',
       });
+      await runOk(app, 'channel.setValues', { edits: [{ control: ik, channel: 'tx', value: 0.1 }] });
       const moved = boneWorld(app, bot.character, 'leftFoot');
       const pin = mat4Decompose((pins.find((p) => p.side === 'L')?.footWorld ?? new Float64Array(16)).slice());
       expect(Math.hypot(moved.t[0] - pin.t[0], moved.t[1] - pin.t[1], moved.t[2] - pin.t[2])).toBeGreaterThan(0.05);
@@ -299,9 +301,9 @@ describe.skipIf(!SIBLINGS_READY || !READY_A1)(
       const planted = boneWorld(app, bot.character, 'leftFoot');
       expect(Math.hypot(planted.t[0] - pin.t[0], planted.t[1] - pin.t[1], planted.t[2] - pin.t[2])).toBeLessThan(1e-4);
       expect(quatAngle(planted.q, pin.q)).toBeLessThan(1e-4);
-      // The IK foot moved; the FK leg chain stays untouched.
-      expect(keysOf(app, ik, 'tx').find((key) => key.t === 10)?.v).not.toBeCloseTo(0.1, 6);
-      expect(keysOf(app, controlOf(app, bot.character, 'fk.upperLeg.L'), 'rx')).toEqual([]);
+      // The IK foot moved back; the FK leg chain stays untouched.
+      expect(Math.abs((app.evaluation.channelValues(ik).tx ?? 0) - 0.1)).toBeGreaterThan(0.05);
+      expect(app.evaluation.channelValues(controlOf(app, bot.character, 'fk.upperLeg.L'))).toMatchObject({ rx: 0 });
     });
 
     it('pose.resetToRest leaves ikFk and soft; rig.setFootParams rewrites the footprint (undo exact)', async () => {
