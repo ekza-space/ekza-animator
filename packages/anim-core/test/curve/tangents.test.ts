@@ -127,12 +127,15 @@ describe('resolveKeyHandles', () => {
     fc.assert(
       fc.property(curveArbitrary({ types: TANGENT_TYPES }), (anim) => {
         const compiled = compileAnimCurve(anim);
+        // Stored weighted fixed sides are the document's own values: only computed sides are checked.
+        const negative: string[] = [];
         for (let i = 0; i < compiled.keyCount; i++) {
           const fixedIn = anim.keys[i]?.inType === 'fixed' && anim.weighted;
           const fixedOut = anim.keys[i]?.outType === 'fixed' && anim.weighted;
-          if (!fixedIn) expect([i, 'in', Object.is(compiled.inDv[i], -0)]).toEqual([i, 'in', false]);
-          if (!fixedOut) expect([i, 'out', Object.is(compiled.outDv[i], -0)]).toEqual([i, 'out', false]);
+          if (!fixedIn && Object.is(compiled.inDv[i], -0)) negative.push(`in ${i}`);
+          if (!fixedOut && Object.is(compiled.outDv[i], -0)) negative.push(`out ${i}`);
         }
+        expect(negative).toEqual([]);
       }),
       { numRuns: 300 },
     );
