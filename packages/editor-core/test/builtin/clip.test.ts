@@ -197,7 +197,7 @@ describe('clip.setActive across characters', () => {
     const state = app.session.getState();
     expect(state.activeCharacter).toBe(SECOND.character);
     expect(state.activeClip[SECOND.character]).toBe(SECOND.clip);
-    expect(state.selection).toEqual({ controls: [], keys: new Map(), channels: [] });
+    expect(state.selection).toEqual({ controls: [], keys: new Map(), channels: [], objects: [] });
     setSceneFrame(app, 7);
     await app.runUntyped('key.set');
     expect(clipKeys(app, WAVE.clip)).toHaveLength(firstKeys);

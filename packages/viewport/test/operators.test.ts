@@ -169,7 +169,7 @@ describe('viewport operators', () => {
       (c) => c.shape.kind === 'circle' && !c.hiddenByDefault && !controls.some((other) => other.parent === c.id),
     );
     if (leaf === undefined) throw new Error('no leaf circle control');
-    rig.app.session.setState({ selection: { controls: [leaf.id], keys: new Map(), channels: [] } });
+    rig.app.session.setState({ selection: { controls: [leaf.id], keys: new Map(), channels: [], objects: [] } });
     const before = rig.vm.camera('pane-right');
     await rig.app.run('view.frame', { what: 'selection', paneId: 'pane-right' });
     const after = rig.vm.camera('pane-right');

@@ -25,7 +25,7 @@ let nextGesture = 0;
 export function beginKeyEditGesture(app: EditorApp, label: string): KeyEditGesture {
   const preview = app.store.beginPreview(label);
   const key = `keyEditGesture:${nextGesture++}`;
-  const selectionBefore = selectionSnapshot(app.session.getState().selection);
+  const selectionBefore = selectionSnapshot(app.session.getState().selection, app.session.getState().model);
   const overridesBefore = app.session.getState().overrides;
   const where = activeLocation(app);
   const gestures = internalsOf(app).gestures;
@@ -77,7 +77,7 @@ export function beginKeyEditGesture(app: EditorApp, label: string): KeyEditGestu
         batch = preview.commit({
           label: stepLabel,
           selectionBefore,
-          selectionAfter: selectionSnapshot(app.session.getState().selection),
+          selectionAfter: selectionSnapshot(app.session.getState().selection, app.session.getState().model),
         });
         if (scope === null) {
           const top = app.store.undo.peekUndo();

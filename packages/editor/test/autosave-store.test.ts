@@ -36,6 +36,10 @@ afterEach(async () => {
   }
 });
 
+/** M6a: these cases write no mesh blobs (B7 tests the blob set). */
+const noBlob = (): Promise<Uint8Array> => Promise.reject(new Error('no blobs'));
+const none = (): Promise<Uint8Array> => Promise.reject(new Error('none'));
+
 const INFO: Omit<AutosaveSlotInfo, 'id' | 'bytes'> = {
   projectName: 'Wave',
   savedAt: 1_700_000_000_000,
@@ -112,15 +116,17 @@ describe('IndexedDB autosave store', () => {
     const snapshotJson = JSON.stringify({ format: 'ekza-animator-doc', tables: { x: 1 } });
     const first = await page1.write(
       one,
-      { snapshotJson, assets: [asset('a', 4), asset('b', 1000)], info: INFO },
+      { snapshotJson, assets: [asset('a', 4), asset('b', 1000)], info: INFO, blobs: [] },
       source.read,
+      noBlob,
     );
     expect(first.bytes).toBe(new TextEncoder().encode(snapshotJson).byteLength + 1004);
     // the second page references the same model: no read, no bytes counted
     const second = await page2.write(
       two,
-      { snapshotJson: '{"n":2}', assets: [asset('a', 4)], info: INFO },
+      { snapshotJson: '{"n":2}', assets: [asset('a', 4)], info: INFO, blobs: [] },
       source.read,
+      noBlob,
     );
     expect(second.bytes).toBe(7);
     expect(source.reads.sort()).toEqual(['a', 'b']);
@@ -138,7 +144,7 @@ describe('IndexedDB autosave store', () => {
     const kept = await page2.read(two);
     expect([...(kept?.assets.keys() ?? [])]).toEqual(['a']);
     // a rewrite that drops the model collects it as well
-    await page2.write(two, { snapshotJson: '{}', assets: [], info: INFO }, source.read);
+    await page2.write(two, { snapshotJson: '{}', assets: [], info: INFO, blobs: [] }, source.read, noBlob);
     const empty = await page2.read(two);
     expect(empty?.assets.size).toBe(0);
     expect(source.reads.sort()).toEqual(['a', 'b']);
@@ -154,7 +160,12 @@ describe('IndexedDB autosave store', () => {
     const one = await page1.open();
     const two = await page2.open();
     // page 1 stored model 'a'
-    await page1.write(one, { snapshotJson: '{"n":1}', assets: [asset('a', 4)], info: INFO }, assetSource(bytes).read);
+    await page1.write(
+      one,
+      { snapshotJson: '{"n":1}', assets: [asset('a', 4)], info: INFO, blobs: [] },
+      assetSource(bytes).read,
+      noBlob,
+    );
     // page 2 references 'a' (stored, so not read) and 'b' (new): while page 2 reads 'b', page 1's slot is discarded
     // and 'a', referenced by no slot yet, is collected
     const reads: string[] = [];
@@ -172,8 +183,9 @@ describe('IndexedDB autosave store', () => {
     };
     const written = await page2.write(
       two,
-      { snapshotJson: '{"n":2}', assets: [asset('a', 4), asset('b', 2)], info: INFO },
+      { snapshotJson: '{"n":2}', assets: [asset('a', 4), asset('b', 2)], info: INFO, blobs: [] },
       read,
+      noBlob,
     );
     // the first attempt found 'a' gone inside its transaction and started over, reading 'a' this time
     expect(reads).toEqual(['b', 'a']);
@@ -193,8 +205,14 @@ describe('IndexedDB autosave store', () => {
       slots.push(slot);
       await page?.write(
         slot,
-        { snapshotJson: `{"page":${i}}`, assets: [], info: { ...INFO, savedAt: 1000 + i, projectName: `P${i}` } },
+        {
+          snapshotJson: `{"page":${i}}`,
+          assets: [],
+          info: { ...INFO, savedAt: 1000 + i, projectName: `P${i}` },
+          blobs: [],
+        },
         () => Promise.reject(new Error('no assets')),
+        noBlob,
       );
     }
     const viewer = pages[2];
@@ -223,7 +241,7 @@ describe('IndexedDB autosave store', () => {
     const slot = (await store?.open()) ?? '';
     const held = (await navigator.locks.query()).held?.map((lock) => lock.name) ?? [];
     expect(held).toContain(`${LOCK_PREFIX}${slot}`);
-    await store?.write(slot, { snapshotJson: '{}', assets: [], info: INFO }, () => Promise.reject(new Error('none')));
+    await store?.write(slot, { snapshotJson: '{}', assets: [], info: INFO, blobs: [] }, none, noBlob);
     // another page sees a live slot, not an orphan
     const other = createIndexedDbAutosaveStore({ namespace: ns });
     await other?.open();
@@ -236,9 +254,7 @@ describe('IndexedDB autosave store', () => {
     const clock = () => now;
     const page1 = createIndexedDbAutosaveStore({ namespace: ns, locks: null, now: clock, heartbeatMs: 60_000_000 });
     const slot = (await page1?.open()) ?? '';
-    await page1?.write(slot, { snapshotJson: '{"a":1}', assets: [], info: INFO }, () =>
-      Promise.reject(new Error('none')),
-    );
+    await page1?.write(slot, { snapshotJson: '{"a":1}', assets: [], info: INFO, blobs: [] }, none, noBlob);
     const page2 = createIndexedDbAutosaveStore({ namespace: ns, locks: null, now: clock, heartbeatMs: 60_000_000 });
     await page2?.open();
     now += HEARTBEAT_STALE_MS;
@@ -256,7 +272,7 @@ describe('IndexedDB autosave store', () => {
     const locks = fakeLocks();
     const storeA = createIndexedDbAutosaveStore({ namespace: a, locks });
     const slot = (await storeA?.open()) ?? '';
-    await storeA?.write(slot, { snapshotJson: '{}', assets: [], info: INFO }, () => Promise.reject(new Error('none')));
+    await storeA?.write(slot, { snapshotJson: '{}', assets: [], info: INFO, blobs: [] }, none, noBlob);
     locks.release(`${LOCK_PREFIX}${slot}`);
     const storeB = createIndexedDbAutosaveStore({ namespace: b, locks });
     await storeB?.open();

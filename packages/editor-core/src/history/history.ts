@@ -1,9 +1,30 @@
 // Editor history (ADR 0013, MVP-SPEC §4.11.0): steps that own a document undo entry (`docTxId`) and/or a session
 // override delta. A step's document part is undone only while its entry is the top of the doc undo stack; its
 // override part only while the character still shows the same clip at the same clip frame.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { CharacterId, DocumentStore, UndoResult } from '@ekza-animator/doc';
-import type { EditorHistory, HistoryResult, HistoryStep, OverrideDelta, SessionStore } from '../types';
+//
+// M6a (M6A-SPEC §4.6, §5.6; ADR 0013 extended by ADR 0016 D12):
+// - Selection parts: `recordSelection` records a selection-only step ('Select', 'Hide', 'Show'). Every discrete
+//   gesture is its own step; only a part that continues the previous gesture (`opts.repeat`: an auto-repeated
+//   grow/shrink key, a continuous drag) merges into the top step when that step is a selection-only step of the same
+//   kind and gesture and nothing was recorded or navigated since. A selection step clears redo in the history and in
+//   the doc (`UndoManager.clearRedo()`). Undo restores the part's `before`, redo its `after` (through the context).
+// - A step with only a selection part is not empty: `isEmpty` and pruning keep it.
+// - Drops: steps leaving the history for good are reported to `onDrop` listeners (oldest first) with the reason —
+//   'limit' (the step limit), 'clear', 'budget' (`dropOldest`, the undo byte budget) and 'redo-cleared' (a new step
+//   cleared redo). Dropping undo steps that own doc entries evicts the doc entries up to the newest of them
+//   (`UndoManager.evictOldest`), so no doc entry outlives its step; doc entries evicted by the doc itself (its own
+//   limit, `clear`, a load) take the doc part away from the steps that owned them.
+import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import type { CharacterId, DocumentStore, UndoEntry, UndoResult } from '@ekza-animator/doc';
+import type {
+  EditorHistory,
+  HistoryDropReason,
+  HistoryResult,
+  HistoryStep,
+  OverrideDelta,
+  SelectionPart,
+  SessionStore,
+} from '../types';
 import { applyOverrideValues, mergeDeltas, type OverrideLocation, sameLocation, withoutControls } from './overrides';
 
 /** Default window in which override-only steps with the same coalesce key merge (doc steps follow the store's). */
@@ -18,10 +39,14 @@ export interface KernelHistory extends EditorHistory {
   record(step: Omit<HistoryStep, 'id' | 'at'>, coalesceMs?: number): void;
   /** True when a step owns the doc entry. */
   owns(docTxId: string): boolean;
+  /** Id of the top undo step without reconciling first (the runner's LastRun hook), null when empty. */
+  topId(): number | null;
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
   forgetDocEntry(docTxId: string): void;
   /** The doc undo stacks were emptied: every step loses its doc part; steps left empty disappear. */
   forgetDocEntries(): void;
+  /** Stops listening to the doc undo manager. */
+  dispose(): void;
 }
 
 export interface HistoryContext {
@@ -32,6 +57,8 @@ export interface HistoryContext {
   locate(character: CharacterId): OverrideLocation | null;
   /** Applies a doc entry's selection snapshot (undo: selectionBefore, redo: selectionAfter). */
   restoreSelection(snapshot: unknown): void;
+  /** M6a: applies one side of a selection part (undo: `before`, redo: `after`); never changes mode or hilite. */
+  restoreSelectionPart?(part: SelectionPart, side: 'before' | 'after'): readonly string[];
   /** Runs before every read or navigation, so pending direct commits are attributed first. */
   reconcile(): void;
   /** Runs after the doc undo stack was navigated (whether or not the store emitted a batch). */
@@ -39,16 +66,66 @@ export interface HistoryContext {
   readonly limit?: number;
 }
 
+type DropListener = (steps: readonly HistoryStep[], reason: HistoryDropReason) => void;
+
+function isSelectionPart(part: unknown): part is SelectionPart {
+  if (typeof part !== 'object' || part === null) return false;
+  const kind = (part as { readonly kind?: unknown }).kind;
+  const record = part as Readonly<Record<string, unknown>>;
+  return (kind === 'select' || kind === 'hide') && 'before' in record && 'after' in record;
+}
+
 export function createEditorHistory(ctx: HistoryContext): KernelHistory {
   const undoSteps: HistoryStep[] = [];
   const redoSteps: HistoryStep[] = [];
   const listeners = new Set<() => void>();
+  const dropListeners = new Set<DropListener>();
   const limit = ctx.limit ?? HISTORY_LIMIT;
   let nextId = 1;
   let navigations = 0;
+  /** Id of the step `recordSelection` may merge a continuing part into (reset by any other recording or navigation). */
+  let continuable: number | null = null;
 
   const notify = (): void => {
     for (const listener of listeners) listener();
+  };
+
+  const dropped = (steps: readonly HistoryStep[], reason: HistoryDropReason): void => {
+    if (steps.length === 0) return;
+    const frozen = Object.freeze([...steps]);
+    for (const listener of Array.from(dropListeners)) listener(frozen, reason);
+  };
+
+  /** Doc entries owned by `steps` leave the doc undo stack too: everything up to the newest of them. */
+  const evictDocEntriesOf = (steps: readonly HistoryStep[]): void => {
+    const owned = new Set<string>();
+    for (const step of steps) if (step.docTxId !== null) owned.add(step.docTxId);
+    if (owned.size === 0) return;
+    const entries: readonly UndoEntry[] = ctx.store.undo.entries().undo;
+    let last = -1;
+    for (let i = 0; i < entries.length; i++) if (owned.has((entries[i] as UndoEntry).txId)) last = i;
+    if (last >= 0) ctx.store.undo.evictOldest(last + 1);
+  };
+
+  /** Drops the `n` oldest undo steps (and their doc entries) for `reason`. */
+  const dropOldestSteps = (n: number, reason: 'limit' | 'budget'): void => {
+    if (n <= 0 || undoSteps.length === 0) return;
+    const removed = undoSteps.splice(0, Math.min(n, undoSteps.length));
+    evictDocEntriesOf(removed);
+    dropped(removed, reason);
+  };
+
+  const clearRedoSteps = (): void => {
+    if (redoSteps.length === 0) return;
+    // Next redo first, like the doc's `entries().redo`.
+    const removed = [...redoSteps].reverse();
+    redoSteps.length = 0;
+    dropped(removed, 'redo-cleared');
+  };
+
+  const push = (step: HistoryStep): void => {
+    undoSteps.push(step);
+    if (undoSteps.length > limit) dropOldestSteps(undoSteps.length - limit, 'limit');
   };
 
   const restoreOverrides = (delta: OverrideDelta, direction: 'undo' | 'redo'): boolean => {
@@ -81,6 +158,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     from.pop();
     to.push(step);
     navigations++;
+    continuable = null;
     if (doc !== null) {
       if (doc.selection !== undefined) ctx.restoreSelection(doc.selection);
       if (doc.skipped.length > 0) {
@@ -92,11 +170,15 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       overridesRestored = restoreOverrides(step.overrides, direction);
       if (!overridesRestored) warnings.push(`'${step.label}': the pose edit belongs to another frame or clip; skipped`);
     }
+    if (step.selection !== undefined && step.selection !== null && ctx.restoreSelectionPart !== undefined) {
+      warnings.push(...ctx.restoreSelectionPart(step.selection, direction === 'undo' ? 'before' : 'after'));
+    }
     notify();
     return { label: step.label, doc, overridesRestored, warnings };
   };
 
-  const isEmpty = (step: HistoryStep): boolean => step.docTxId === null && step.overrides === null;
+  const isEmpty = (step: HistoryStep): boolean =>
+    step.docTxId === null && step.overrides === null && (step.selection === undefined || step.selection === null);
 
   const prune = (steps: HistoryStep[], edit: (step: HistoryStep) => HistoryStep): boolean => {
     let changed = false;
@@ -110,6 +192,18 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     }
     return changed;
   };
+
+  const forgetDocEntry = (docTxId: string): void => {
+    const edit = (step: HistoryStep): HistoryStep => (step.docTxId === docTxId ? { ...step, docTxId: null } : step);
+    const changedUndo = prune(undoSteps, edit);
+    const changedRedo = prune(redoSteps, edit);
+    if (changedUndo || changedRedo) notify();
+  };
+
+  // Doc entries that leave the doc undo manager take the doc part away from the steps that owned them.
+  const disposeEvict = ctx.store.undo.onEvict((entries) => {
+    for (const entry of entries) forgetDocEntry(entry.txId);
+  });
 
   const history: KernelHistory = {
     get navigations() {
@@ -134,7 +228,8 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     undo: () => navigate('undo'),
     redo: () => navigate('redo'),
     record(step: Omit<HistoryStep, 'id' | 'at'>, coalesceMs: number = HISTORY_COALESCE_MS): void {
-      if (step.docTxId === null && step.overrides === null) return;
+      if (isEmpty(step as HistoryStep)) return;
+      continuable = null;
       const now = ctx.now();
       const top = undoSteps.at(-1);
       const sameDocEntry = step.docTxId !== null && top?.docTxId === step.docTxId;
@@ -142,6 +237,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         step.docTxId === null &&
         top !== undefined &&
         top.docTxId === null &&
+        (top.selection === undefined || top.selection === null) &&
         step.coalesceKey !== undefined &&
         top.coalesceKey === step.coalesceKey &&
         now - top.at <= coalesceMs;
@@ -151,11 +247,57 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         // A doc entry belongs to one step: a later step that extends it (store coalescing past an override-only
         // step) takes it over.
         if (step.docTxId !== null) history.forgetDocEntry(step.docTxId);
-        undoSteps.push({ ...step, id: nextId++, at: now });
-        if (undoSteps.length > limit) undoSteps.splice(0, undoSteps.length - limit);
+        push({ ...step, id: nextId++, at: now });
       }
-      redoSteps.length = 0;
+      clearRedoSteps();
       notify();
+    },
+    recordSelection(
+      part: SelectionPart,
+      label: 'Select' | 'Hide' | 'Show',
+      opts?: { readonly repeat?: boolean },
+    ): void {
+      if (!isSelectionPart(part)) throw new EkzaError('unsupported', 'recordSelection: not a selection part');
+      ctx.reconcile();
+      const now = ctx.now();
+      const top = undoSteps.at(-1);
+      const topPart = top?.selection;
+      const merge =
+        opts?.repeat === true &&
+        top !== undefined &&
+        top.id === continuable &&
+        redoSteps.length === 0 &&
+        top.docTxId === null &&
+        top.overrides === null &&
+        topPart !== undefined &&
+        topPart !== null &&
+        topPart.kind === part.kind &&
+        (part.kind === 'hide' || (topPart.kind === 'select' && topPart.gesture === part.gesture));
+      if (merge && top !== undefined && topPart !== undefined && topPart !== null) {
+        const merged = { ...part, before: topPart.before } as SelectionPart;
+        undoSteps[undoSteps.length - 1] = { ...top, selection: merged, at: now };
+      } else {
+        const id = nextId++;
+        push({ id, label, docTxId: null, overrides: null, selection: part, at: now });
+        continuable = id;
+      }
+      clearRedoSteps();
+      // A selection step clears the document's redo like a transaction does (§5.6).
+      ctx.store.undo.clearRedo();
+      notify();
+    },
+    onDrop(listener: DropListener): Disposer {
+      dropListeners.add(listener);
+      return () => {
+        dropListeners.delete(listener);
+      };
+    },
+    dropOldest(n: number): void {
+      if (!Number.isSafeInteger(n) || n < 0)
+        throw new EkzaError('unsupported', `dropOldest: n must be an integer ≥ 0, got ${n}`);
+      const before = undoSteps.length;
+      dropOldestSteps(n, 'budget');
+      if (undoSteps.length !== before) notify();
     },
     dropOverrides(where): void {
       const controls = where.controls === undefined ? null : new Set(where.controls);
@@ -174,8 +316,11 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     },
     clear(): void {
       if (undoSteps.length === 0 && redoSteps.length === 0) return;
+      const removed = [...undoSteps, ...[...redoSteps].reverse()];
       undoSteps.length = 0;
       redoSteps.length = 0;
+      continuable = null;
+      dropped(removed, 'clear');
       notify();
     },
     subscribe(listener: () => void): Disposer {
@@ -184,19 +329,19 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         listeners.delete(listener);
       };
     },
+    topId: () => undoSteps.at(-1)?.id ?? null,
     owns: (docTxId: string) =>
       undoSteps.some((step) => step.docTxId === docTxId) || redoSteps.some((step) => step.docTxId === docTxId),
-    forgetDocEntry(docTxId: string): void {
-      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === docTxId ? { ...step, docTxId: null } : step);
-      const changedUndo = prune(undoSteps, edit);
-      const changedRedo = prune(redoSteps, edit);
-      if (changedUndo || changedRedo) notify();
-    },
+    forgetDocEntry,
     forgetDocEntries(): void {
       const edit = (step: HistoryStep): HistoryStep => (step.docTxId === null ? step : { ...step, docTxId: null });
       const changedUndo = prune(undoSteps, edit);
       const changedRedo = prune(redoSteps, edit);
       if (changedUndo || changedRedo) notify();
+    },
+    dispose(): void {
+      disposeEvict();
+      dropListeners.clear();
     },
   };
   return history;

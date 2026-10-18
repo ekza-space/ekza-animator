@@ -118,7 +118,7 @@ describe.runIf(READY)('framing a selected control (acceptance round 1)', () => {
     const fingers = controls.filter((c) => c.group === 'fingers' && c.side === 'L' && !c.hiddenByDefault);
     const hand = controls.find((c) => c.key === 'fk.hand.L');
     if (hand === undefined) throw new Error('no fk.hand.L');
-    app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [] } });
+    app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [], objects: [] } });
     rig.frame();
     rig.vm.frame('pane-right', 'selection');
     rig.frame();
@@ -150,6 +150,7 @@ describe.runIf(READY)('finger pick separation (WP-1, WP-3, WP-4)', () => {
           controls: [...fingers.map((c) => c.id), ...(hand === undefined ? [] : [hand.id])],
           keys: new Map(),
           channels: [],
+          objects: [],
         },
       });
       rig.frame();
