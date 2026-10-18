@@ -18,22 +18,11 @@ import {
   validationReport,
   validatorErrors,
 } from './helpers/g4-export';
-import {
-  boneWorlds,
-  clickControl,
-  controlIdOf,
-  expectLimbIk,
-  quatAngle,
-  type Quat,
-  typeCb,
-  type World,
-} from './helpers/m2a-a2';
+import { boneWorlds, clickControl, controlIdOf, expectLimbIk, quatAngle, typeCb, type World } from './helpers/m2a-a2';
 import { dragTween } from './helpers/m2a-a4';
 import { dopeKey, dopeX, drag, showDopeSheet, sliderPoint } from './helpers/m2a-timing';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
-
-const DEG = Math.PI / 180;
 
 /** Humanoid bones compared between frames (the ones both fixtures have). */
 const BONES = [
@@ -100,7 +89,7 @@ function expectPoseClose(a: Record<string, World>, b: Record<string, World>, tol
     if (x === undefined || y === undefined) continue;
     const dt = Math.hypot(x.t[0] - y.t[0], x.t[1] - y.t[1], x.t[2] - y.t[2]);
     expect(dt, `${what}: ${bone} position`).toBeLessThanOrEqual(tolerance);
-    expect(quatAngle(x.q as Quat, y.q as Quat), `${what}: ${bone} rotation`).toBeLessThanOrEqual(tolerance);
+    expect(quatAngle(x.q, y.q), `${what}: ${bone} rotation`).toBeLessThanOrEqual(tolerance);
   }
 }
 
@@ -237,7 +226,7 @@ function secondDifferences(values: readonly number[]): number[] {
 async function expectPlanted(page: Page, character: string, bone: string, from: number, to: number): Promise<void> {
   const worlds: World[] = [];
   for (let frame = from; frame <= to; frame++) {
-    worlds.push(((await boneWorlds(page, character, [bone], frame)) as Record<string, World>)[bone] as World);
+    worlds.push((await boneWorlds(page, character, [bone], frame))[bone] as World);
   }
   for (const axis of [0, 1] as const) {
     const values = worlds.map((world) => world.t[axis]);
@@ -251,7 +240,7 @@ async function expectPlanted(page: Page, character: string, bone: string, from: 
   }
   // The planted foot does not turn either.
   for (const world of worlds) {
-    expect(quatAngle(world.q as Quat, worlds[0]?.q as Quat), `${bone} rotation`).toBeLessThanOrEqual(1e-6);
+    expect(quatAngle(world.q, (worlds[0] as World).q), `${bone} rotation`).toBeLessThanOrEqual(1e-6);
   }
 }
 
