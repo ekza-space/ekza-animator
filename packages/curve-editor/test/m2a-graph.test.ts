@@ -3,8 +3,9 @@
 // curves and breakdown glyphs on the canvas, the Scale tool's region box (edges, corners, inside, outside), and the
 // M-1 drag path (coalesced updates applied before a redraw, the cached static layer).
 import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
-import type { KeyId } from '@ekza-animator/doc';
-import { registerBuiltinOperators } from '@ekza-animator/editor-core';
+import type { KeyId, KeyRecord } from '@ekza-animator/doc';
+import { moveKeys, registerBuiltinOperators } from '@ekza-animator/editor-core';
+import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_GRAPH_THEME, nextViewMode, registerGraphContributions } from '../src';
 import { STACK_LANE, STACK_MIN_LANE_PX } from '../src/graph/viewMode';
@@ -362,6 +363,64 @@ describe('M-1: coalesced drag updates and the cached static layer (§5.21.1)', (
     }
     return count;
   }
+
+  it('a key drag writes exactly what moveKeys writes (value-only path on whole curves, moveKeys elsewhere)', async () => {
+    // [key times of curve A (rx), of curve B (ty)], selected key indexes (null: all), drag dx/dy (px), snapping
+    const cases: readonly {
+      readonly a: readonly number[];
+      readonly b: readonly number[];
+      readonly pick: readonly number[] | null;
+      readonly dx: number;
+      readonly dy: number;
+      readonly snap: boolean;
+    }[] = [
+      { a: [0, 6, 12, 20], b: [0, 5, 10], pick: null, dx: 0, dy: -30, snap: true }, // whole curves, vertical
+      { a: [0, 6, 12, 20], b: [0, 5, 10], pick: null, dx: -1, dy: 25, snap: true }, // jitter < ½ frame: −0 at 0
+      { a: [0, 6, 12, 20], b: [0, 5, 10], pick: [0, 2, 4], dx: 0, dy: -30, snap: true }, // partial curves
+      { a: [0, 6.5, 12, 20], b: [0, 5, 10], pick: null, dx: 0, dy: 18, snap: true }, // 6.5 snaps: moveKeys
+      { a: [0, 6, 6.0005, 20], b: [0, 5, 10], pick: null, dx: 0, dy: -12, snap: false }, // close keys: moveKeys
+      { a: [0, 6.5, 12, 20], b: [0, 5, 10], pick: null, dx: 0, dy: -22, snap: false }, // no snap, no time move
+      { a: [0, 6, 12, 20], b: [0, 5, 10], pick: null, dx: 40, dy: -22, snap: true }, // a time move: moveKeys
+    ];
+    for (const c of cases) {
+      const app = await waveApp();
+      const a = addCurve(app, { channel: 'rx', keys: c.a.map((t, i) => key(t, 0.1 * i - 0.2)) });
+      const b = addCurve(app, { channel: 'ty', keys: c.b.map((t, i) => key(t, 0.05 * i)) });
+      app.session.setState({ time: { ...app.session.getState().time, snapToFrames: c.snap } });
+      const all = [...a.keys, ...b.keys];
+      const picked = c.pick === null ? all : c.pick.map((i) => all[i] as KeyId);
+      const twin = createFakeEditorApp({ snapshot: app.store.snapshot() });
+      twin.session.setState({ time: { ...twin.session.getState().time, snapToFrames: c.snap } });
+
+      mounted = mount(app, { curves: [a.curve, b.curve], width: 600, height: 300 });
+      const { controller } = mounted;
+      controller.setView({ f0: -2, v0: -60, sx: 20, sy: 2 });
+      selectKeys(
+        app,
+        picked.map((id) => [id, { key: true }]),
+      );
+      controller.redraw(true);
+      const start = at(controller.keyPoint(picked[0] as KeyId));
+      const view = controller.view;
+      controller.pointerDown(pointer(start));
+      controller.pointerMove(pointer({ x: start.x + c.dx, y: start.y + c.dy }));
+      controller.redraw();
+      controller.pointerUp(pointer({ x: start.x + c.dx, y: start.y + c.dy, buttons: 0 }));
+      expect(app.history.peekUndo()?.label).toBe('Move Keys');
+
+      twin.store.transact({ label: 'Move Keys' }, (tx) =>
+        moveKeys(twin, tx, picked, c.dx / view.sx, -c.dy / view.sy, { snap: c.snap, resolveCollisions: true }),
+      );
+      const keys = (target: typeof app) =>
+        [a.curve, b.curve].flatMap((curve) =>
+          target.store.query.keysOfCurve(curve).map((k: KeyRecord) => [k.id, k.t, k.v, Object.is(k.t, -0)]),
+        );
+      expect([c, keys(app)]).toEqual([c, keys(twin)]);
+      mounted.dispose();
+      mounted = null;
+      twin.dispose();
+    }
+  });
 
   it('handle ends are painted where hit-testing puts them (weighted and not), also in a drag’s dynamic layer', async () => {
     const app = await waveApp();

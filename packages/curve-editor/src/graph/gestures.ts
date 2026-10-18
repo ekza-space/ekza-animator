@@ -7,6 +7,7 @@ import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
 import {
   beginKeyEditGesture,
   type EditorApp,
+  fromDisplayValue,
   type KeyEditGesture,
   type KeyPartSelection,
   moveKeys,
@@ -211,7 +212,19 @@ export interface DragCurve {
   readonly scale: number;
   /** True when the drawn units are the M1 display units `moveKeys` converts (degrees for rotations, else 1). */
   readonly m1Units: boolean;
+  /**
+   * The key times (index-aligned with `keys`) when every shown key of the curve is dragged and no two are closer than
+   * `VALUE_ONLY_MIN_GAP`; null otherwise. Such a curve has no fixed neighbour to stop at and no keys to merge, so
+   * when no key moves in time `moveKeys` changes only values on it (M-1 value-only path of `KeyMoveGesture`).
+   */
+  readonly wholeTimes: readonly number[] | null;
 }
+
+/**
+ * Smallest time gap between the keys of a curve the value-only path takes: wider than `moveKeys`' drag margin
+ * (1e-3 frames) and same-frame tolerance, so nothing it would clamp or merge is skipped.
+ */
+const VALUE_ONLY_MIN_GAP = 2e-3;
 
 /** The dragged keys grouped by curve, with the curve's current drawn mapping (null when a key is not shown). */
 export function dragCurves(scene: GraphScene, keys: readonly KeyId[]): DragCurve[] {
@@ -229,7 +242,24 @@ export function dragCurves(scene: GraphScene, keys: readonly KeyId[]): DragCurve
     channel: entry.channel,
     scale: entry.scale,
     m1Units: entry.offset === 0 && entry.scale === toDisplayValue(entry.channel, 1),
+    wholeTimes: wholeTimesOf(entry, ids),
   }));
+}
+
+/** `DragCurve.wholeTimes`: the times of `ids` when they are all of the entry's (distinct, well apart) keys. */
+function wholeTimesOf(entry: CurveEntry, ids: readonly KeyId[]): readonly number[] | null {
+  const t = entry.compiled.t;
+  if (ids.length !== entry.keys.length || new Set(ids).size !== ids.length) return null;
+  for (let i = 1; i < entry.compiled.keyCount; i++) {
+    if (!((t[i] as number) - (t[i - 1] as number) >= VALUE_ONLY_MIN_GAP)) return null;
+  }
+  const times: number[] = [];
+  for (const id of ids) {
+    const index = entry.index.get(id);
+    if (index === undefined) return null;
+    times.push(t[index] as number);
+  }
+  return times;
 }
 
 export class KeyMoveGesture extends EditGesture {
@@ -263,17 +293,48 @@ export class KeyMoveGesture extends EditGesture {
     const shownFrames = snap ? Math.round(dFrames) : dFrames;
     this.readout = { text: `Δt ${formatDelta(shownFrames)}  Δv ${formatDelta(dValue)}`, x: p.x, y: p.y };
     const opts = { snap, resolveCollisions: final };
+    // M-1 value-only path: curves whose keys are all dragged and that move no key in time get their values written
+    // directly, the writes `moveKeys` makes for them then (no time placement, no key projection of the reverted
+    // preview, no placement objects); the other curves take `moveKeys` as before.
+    const target = (t: number): number => (snap ? Math.round(t + dFrames) : t + dFrames);
+    const stays = (t: number): boolean => target(t) === t;
+    const valueOnly = this.curves.filter((curve) => curve.wholeTimes?.every(stays) === true);
+    const rest =
+      valueOnly.length === 0
+        ? this.keys
+        : valueOnly.length === this.curves.length
+          ? []
+          : this.curves.filter((curve) => !valueOnly.includes(curve)).flatMap((curve) => curve.keys);
     return (tx: Tx) => {
+      for (const curve of valueOnly) {
+        if (tx.get('curves', curve.curve)?.locked !== false) continue;
+        const dv = this.sameUnits
+          ? fromDisplayValue(curve.channel, dValue)
+          : curve.scale === 0
+            ? 0
+            : dValue / curve.scale;
+        if (dv === 0) continue;
+        for (const id of curve.keys) {
+          const key = tx.get('keys', id);
+          // `t` as `moveKeys` writes it: the key's own time, through its block shift of 0 (so a −0 becomes +0)
+          if (key !== undefined) tx.put('keys', { ...key, t: key.t + 0, v: key.v + dv });
+        }
+      }
+      if (rest.length === 0) {
+        if (final) this.deleted = [];
+        return;
+      }
       if (this.sameUnits) {
-        const result = moveKeys(app, tx, this.keys, dFrames, dValue, opts);
+        const result = moveKeys(app, tx, rest, dFrames, dValue, opts);
         if (final) this.deleted = result.deleted;
         return;
       }
       // Mapped views (§5.15.2) and attribute units: the drawn delta converts per curve (Δv = Δy' / scale) and is
       // applied in curve units after the time move, whatever units `moveKeys` reads its value delta in.
-      const deleted = moveKeys(app, tx, this.keys, dFrames, 0, opts).deleted;
+      const deleted = moveKeys(app, tx, rest, dFrames, 0, opts).deleted;
       const gone = new Set(deleted);
       for (const curve of this.curves) {
+        if (valueOnly.includes(curve)) continue;
         const dv = curve.scale === 0 ? 0 : dValue / curve.scale;
         if (dv === 0) continue;
         for (const id of curve.keys) {
