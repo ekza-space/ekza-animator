@@ -3,7 +3,7 @@
 // (M2A-SPEC §5.16), then `file.export` and its lints, read-back results and sample counts. Opening the dialog starts
 // loading the export path (`@ekza-animator/io/write`, M2A-SPEC §5.21.2) so the first export does not wait for it.
 import type { CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
-import { type EditorApp, type ExporterDef, loadWritePath } from '@ekza-animator/editor-core';
+import { type EditorApp, type ExporterDef, preloadExportPath } from '@ekza-animator/editor-core';
 import { type ExportArtifact, type ExportReduceSpec, type ExportRequest, readVrmLicense } from '@ekza-animator/io';
 import {
   Badge,
@@ -194,7 +194,7 @@ export function ExportDialog(): JSX.Element {
 
   // Intent prefetch (M2A-SPEC §5.21.2): the export path loads while the user picks the options.
   useEffect(() => {
-    void loadWritePath().catch(() => {});
+    void preloadExportPath().catch(() => {});
   }, []);
 
   const defaultClip = character === null ? undefined : activeClips[character];

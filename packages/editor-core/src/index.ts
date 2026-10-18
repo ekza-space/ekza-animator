@@ -44,7 +44,7 @@ export { defaultSession } from './session/defaults';
 export { restoreSelection, selectionSnapshot } from './session/selection';
 export * from './types';
 export { bodyPartOf } from './workflows/bodyParts';
-export { loadWritePath } from './workflows/export';
+export { loadWritePath, preloadExportPath } from './workflows/export';
 export { loadProjectArchive } from './workflows/project';
 export { keyTargetControls } from './workflows/targets';
 export { controlVisibility } from './workflows/visibility';

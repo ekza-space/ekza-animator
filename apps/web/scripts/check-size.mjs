@@ -28,6 +28,7 @@ export const BOUNDARIES = [
     markers: ['VRMC_materials_mtoon', 'THREE.GLTFLoader'],
   },
   { id: 'export-path', label: 'export path (io/write, glTF Transform)', markers: ['glTF-Transform'] },
+  { id: 'export-pipeline', label: 'export pipeline (editor-core exportRun)', markers: ['export.in-place-unavailable'] },
   { id: 'project-archive', label: 'project archive (io/project, fflate)', markers: ['invalid zip data'] },
   { id: 'dope-sheet', label: 'Dope Sheet panel', markers: ['ds-canvas'] },
   { id: 'dialog-export', label: 'dialog: Export', markers: ['export-dialog'] },

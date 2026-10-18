@@ -1,7 +1,7 @@
 // Intent prefetch of the editor route's lazy chunks (M2A-SPEC §5.21.2: "prefetched on intent, never at idle"). Each
 // helper starts a dynamic import that the later use shares, so the first drop, export, save or dialog does not wait
 // for its chunk; nothing here runs unless the user shows the intent.
-import { loadProjectArchive, loadWritePath, type UiDialog } from '@ekza-animator/editor-core';
+import { loadProjectArchive, preloadExportPath, type UiDialog } from '@ekza-animator/editor-core';
 import { preloadDialog } from '../dialogs/DialogHost';
 import { preloadModelLoader } from '../services/models';
 
@@ -28,7 +28,7 @@ export function prefetchForMenuItems(items: readonly { readonly op: string; read
       const dialog = (item.args as { readonly dialog?: unknown } | undefined)?.dialog;
       if (typeof dialog === 'string') swallow(preloadDialog(dialog as UiDialog));
     } else if (item.op === 'file.export') {
-      swallow(loadWritePath());
+      swallow(preloadExportPath());
     } else if (item.op === 'file.save' || item.op === 'file.saveAs' || item.op === 'file.saveJson') {
       swallow(loadProjectArchive());
     } else if (item.op === 'file.openProject' || item.op === 'file.open') {
