@@ -43,9 +43,34 @@ export function attrSlotOf(program: RigProgram, control: ControlId, name: string
   return program.attrIndex.get(attrKey(control, name)) ?? -1;
 }
 
+/**
+ * Attribute slots by control and channel id ('@name'), built once per program from `RigProgram.attrSlots` (which is
+ * fixed for the program's lifetime). Per-frame paths (overrides, `writeControlChannels`) look slots up here with the
+ * channel ids they already hold, so they build no key strings (MVP-SPEC §3 rule 7: no allocation per frame).
+ */
+const attrChannelSlots = new WeakMap<RigProgram, ReadonlyMap<ControlId, ReadonlyMap<string, number>>>();
+
+function attrChannelsOf(program: RigProgram): ReadonlyMap<ControlId, ReadonlyMap<string, number>> {
+  let byControl = attrChannelSlots.get(program);
+  if (byControl === undefined) {
+    const built = new Map<ControlId, Map<string, number>>();
+    program.attrSlots.forEach((slot, index) => {
+      let channels = built.get(slot.control);
+      if (channels === undefined) {
+        channels = new Map();
+        built.set(slot.control, channels);
+      }
+      channels.set(`@${slot.name}`, index);
+    });
+    byControl = built;
+    attrChannelSlots.set(program, byControl);
+  }
+  return byControl;
+}
+
 /** Slot of an attribute channel ('@name') of a control, −1 for TRS channels and unknown attributes. */
 export function attrChannelSlot(program: RigProgram, control: ControlId, channel: ChannelId): number {
-  return channel.startsWith('@') ? attrSlotOf(program, control, channel.slice(1)) : -1;
+  return attrChannelsOf(program).get(control)?.get(channel) ?? -1;
 }
 
 /** Value of a custom attribute in `ch` (M2A-SPEC §5.1); undefined when the control or attribute is unknown. */
@@ -158,9 +183,9 @@ function writeSlots(
     const slot = TRS_SLOT[key as TrsChannel];
     if (slot !== undefined) {
       ch.values[offset + slot] = value;
-    } else if (key.startsWith('@')) {
-      const attr = attrSlotOf(program, control, key.slice(1));
-      if (attr !== -1 && attr < ch.attrs.length) ch.attrs[attr] = value;
+    } else {
+      const attr = attrChannelsOf(program).get(control)?.get(key);
+      if (attr !== undefined && attr < ch.attrs.length) ch.attrs[attr] = value;
     }
   }
 }

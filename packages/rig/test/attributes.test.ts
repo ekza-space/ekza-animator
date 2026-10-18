@@ -19,7 +19,7 @@ import {
 } from '@ekza-animator/doc';
 import { makeTestDocument } from '@ekza-animator/doc/testing';
 import fc from 'fast-check';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   applyOverrides,
   autoRig,
@@ -38,6 +38,7 @@ import {
   writeAttr,
   writeControlChannels,
 } from '../src';
+import { attrChannelSlot } from '../src/sampler/channels';
 import { IDS, syntheticSkeleton } from './helpers';
 
 const id = (key: string): ControlId => controlId(IDS.rig, key);
@@ -176,6 +177,35 @@ describe('attribute slots (§5.1 rule 2)', () => {
     expect(ch.values[(program.controlIndex.get(id('fk.foot.L')) as number) * 9 + 3]).toBe(0.1);
     writeControlChannels(program, ch, id('cog'), { '@custom': 4, ty: -0.05 });
     expect(readAttr(program, ch, id('cog'), 'custom')).toBe(4);
+  });
+
+  it('per-frame attribute writes look slots up without building keys (MVP-SPEC §3 rule 7)', () => {
+    const program = compileRig(rigWithAttrs(), skeleton);
+    const ch = program.allocChannels();
+    const overrides = new Map([[id('fk.foot.L'), { '@roll': 0.25, '@missing': 3 }]]);
+    applyOverrides(program, ch, overrides); // builds the program's slot table once
+    const index = vi.spyOn(program.attrIndex, 'get');
+    const slice = vi.spyOn(String.prototype, 'slice');
+    try {
+      for (let frame = 0; frame < 3; frame++) {
+        applyOverrides(program, ch, new Map([[id('fk.foot.L'), { '@roll': frame, '@missing': 3 }]]));
+        writeControlChannels(program, ch, id('cog'), { '@custom': frame });
+      }
+      expect(index).not.toHaveBeenCalled();
+      expect(slice).not.toHaveBeenCalled();
+    } finally {
+      index.mockRestore();
+      slice.mockRestore();
+    }
+    expect(readAttr(program, ch, id('fk.foot.L'), 'roll')).toBe(2);
+    expect(readAttr(program, ch, id('cog'), 'custom')).toBe(2);
+    // Every slot is reachable by its channel id, and the table agrees with attrIndex.
+    program.attrSlots.forEach((slot, i) => {
+      expect(attrChannelSlot(program, slot.control, `@${slot.name}`)).toBe(i);
+      expect(program.attrIndex.get(`${slot.control}/@${slot.name}`)).toBe(i);
+    });
+    expect(attrChannelSlot(program, id('cog'), 'tx')).toBe(-1);
+    expect(attrChannelSlot(program, 'rig_X:gone' as ControlId, '@custom')).toBe(-1);
   });
 
   it('channelDefaultValue takes AttrDef.default for attribute channels', () => {
