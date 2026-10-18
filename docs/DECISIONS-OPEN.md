@@ -1,7 +1,7 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-18, v0.3 integration (rev. 3; section E gained the integration decisions and the consolidated
-build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
+Status: 2026-10-18, M1 integrated (rev. 4; section E gained the integration decisions, the acceptance rounds, the
+WP-10 e2e and budget decisions and the consolidated build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
 start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
 cheap. Items marked **override** are cases where a coordinator default was replaced on evidence. Research
 references: `R01`…`R09` = [`research/0N-*.md`](research/). Section D records how the design review was resolved,
@@ -265,6 +265,41 @@ UX notes of round 3 **not changed** (owner may revisit):
   for one sign bit; not worth it in the MVP.
 - *Known and accepted*: the `THREE.Clock` warning (round 1), bundled samples offline (round 1), Polybot's A-pose
   (INT-49).
+
+### WP-10 final: e2e scenarios and budgets (2026-10-18)
+
+E2E-02…E2E-27 were written in four parallel groups (branches `e2e-g1`…`e2e-g4`, merged into `dev`) against the
+integrated editor with real pointer and keyboard input at test-API coordinates; group helpers are
+`apps/web/e2e/helpers/g{1,2,3,4}-*.ts`. Every scenario passed as specified once written: no product bug surfaced and
+one §6.2 row changed (INT-53). The full gate `pnpm run ci` is green in real Chrome, and the suite is green in the
+`chromium-swiftshader` CI project after INT-58. Budgets: ROADMAP "M1 budgets", method in
+`docs/wp-notes/wp-10-budgets.md`.
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| INT-53 | E2E-25 selected the arm and clicked `status-rotate-space-gimbal`, but the ring manipulator belongs to the rotate tool and the status line's space toggle does not switch tools (e2e-g1) | **Spec amended**: the row presses `E` first. The scenario also runs on an arm posed in Y and Z, where object space would change every channel. | MVP-SPEC §6.2 E2E-25; `e2e/25-gimbal-rotate.spec.ts` |
+| INT-54 | `--project=<name>` (B-8) failed every test with "Project … not found in the worker process": workers load the config without the runner's argv (found by e2e-g1 and e2e-g3 independently) | **Fixed in the config**: the runner hands its choice to the workers in `EKZA_E2E_ALL_PROJECTS`. The two identical fixes merged into one. | `apps/web/playwright.config.ts` |
+| INT-55 | The pre-integration gates (WP-8 W-15) still turned a stub, an unregistered operator, a placeholder panel or a kernel that did not start into a **skipped** scenario | **Changed**: every work package has landed, so each gate now fails the test with the piece and its owner (`expectKernelStarted`, `expectPanelRegistered`, `failIfBlocked`); the inline gates in E2E-01/E2E-03 and the shell specs became assertions. The unbuilt M1-stretch items (FR-IO-10, FR-GE-17, the in-app validator worker, the NFR-09 static/offline e2e) are declared in `stretch.spec.ts` as `test.fixme` with the requirement and reason (MVP-SPEC §1.2), the only fixme tests in the suite. | `apps/web/e2e/helpers/test-api.ts`, `e2e/stretch.spec.ts` |
+| INT-56 | `/e2e/vrma-check` (§3) and how E2E-17 gets the editor's `humanLocal` | **Accepted as built** (e2e-g4): `app/e2e/vrma-check/page.dev.tsx` uses the B-15 mechanism (e2e and dev builds only, 404 in production) and plays a VRMA on Seed-san and Polybot with `@pixiv/three-vrm-animation`. The test API has no `humanLocal()`, so E2E-17 derives it from `boneWorld` per §4.11.9 (`D_b = q(W_b)·q(W⁰_b)⁻¹`, `N_b = D_hp⁻¹·D_b`), with the rest pose from the character's empty default clip; it requires both models with the expected `metaVersion`. Measured 5.2e-8 rad (limit 1e-3). | `apps/web/app/e2e/vrma-check/`, `e2e/16-17-export-bake-vrma.spec.ts`, `helpers/g4-export.ts` |
+| INT-57 | Where the §14 budgets are measured | **Accepted**: a report-only Playwright bench, `pnpm --filter web bench:budgets` (`e2e/bench/playwright.config.ts`: the e2e build at DPR 2, one worker, not part of `test:e2e`), plus the packages' existing Vitest benches. Three misses got owners in ROADMAP: M-1 the 1,000-key drag (5.1 ms vs 4 ms, WP-6 with WP-2), M-2 the editor route JS at the 900 kB limit (WP-8), M-3 the anim-core 2,200-curve bench (0.32–0.35 ms vs 0.3 ms, WP-1, re-measure first). No public tracker exists yet; the IDs become issues when the repository is published. | `apps/web/e2e/bench/`, `docs/ROADMAP.md` |
+| INT-58 | Under SwiftShader with parallel workers, the round-1 check "More ▾ closes on an outside click" failed 3 of 4 runs | **Test fixed, product unchanged**: Radix arms its outside-click listener in a 0 ms timer after a menu opens, and Chrome dispatches input ahead of timers on a busy main thread, so the synthetic click could arrive first (no person clicks that fast). The spec lets the page's pending timers run before the outside click; the assertion is unchanged (6 of 6 then). | `e2e/acceptance-round1.spec.ts` |
+
+Scenario readings **accepted as built** (no §6.2 change; each is the row's intent made concrete):
+
+- E2E-04: the generic GLB goes through the import dialog (`loadFile` without `auto`); the spec unchecks every clip and
+  checks only the Idle_Loop index read from the GLB. "Source sample count of curves with ≥ 20 source keys" counts the
+  samples of the source tracks those curves map to (532 keys vs 2,928 samples).
+- E2E-05: `Mod+Z` is `Meta+Z` with `platform=mac`. E2E-12: the clip fps is asserted to be 30, which the `k` in the
+  slope formula assumes. E2E-10: "keeps the handle length" is Maya's weight `3·hypot(|dt|/fps, dv·k)` (1e-6).
+- E2E-07: "loop wraps" samples playback started at frame 50 every animation frame and requires every frame in
+  `[0, 60)`. E2E-14: `mirror()` is the world-aligned rule (`rx`, −`ry`, −`rz`) of §4.11.20.
+- E2E-15: the rename uses the Clips row menu, because the first click of a double-click on a row makes that clip
+  active, which would undo the switch to `clip1` the row asks for first. UX note for the owner: double-clicking a
+  clip name to rename it also activates the clip (Maya-like; not changed).
+- E2E-21: "gets `staticValue`, not a key" is checked as rotation curves with 0 keys, no override and the same value
+  at every frame. E2E-27: each character is keyed at clip frames 0/24/48 so that frame 24 shows its own key.
+- E2E-26: the cycling spot is the midpoint of the two closest drawn controls of the framed hand; they must be under
+  11 px apart so both are inside the 6 px pick tolerance (6.5 px apart on Seed-san).
 
 ### Build deviations of WP-1 … WP-9 (consolidated at the v0.3 integration)
 
