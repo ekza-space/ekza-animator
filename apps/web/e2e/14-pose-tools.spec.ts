@@ -81,8 +81,8 @@ test('E2E-14: pose tools', async ({ page }) => {
   expect((await values('fk.upperArm.L'))['rz']).toBeCloseTo(60 * DEG, 12);
   await pressOverPane(page, 'Meta+KeyV');
   await expect.poll(async () => (await call(page, 'state')).history.undoLabel).toBe('Paste Pose');
-  expectChannelsClose(await values('fk.upperArm.L'), copied.upper, 1e-9, 'pasted upper arm');
-  expectChannelsClose(await values('fk.lowerArm.L'), copied.lower, 1e-9, 'pasted lower arm');
+  expectChannelsClose(await values('fk.upperArm.L'), copied.upper, 0, 'pasted upper arm');
+  expectChannelsClose(await values('fk.lowerArm.L'), copied.lower, 0, 'pasted lower arm');
   expect((await call(page, 'state')).clipFrame).toBe(40);
 
   // Alt+M flips the selected controls with their mirror pairs.
