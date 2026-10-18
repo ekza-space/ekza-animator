@@ -51,7 +51,7 @@ export function readLimbStates(app: EditorApp, states: number[]): boolean {
 export function useLimbHiddenControls(app: EditorApp): ReadonlySet<ControlId> {
   const current = useRef<ReadonlySet<ControlId>>(EMPTY);
   const states = useRef<number[]>([]);
-  /** The document or the characters changed: the limbs may be other ones even with the same states. */
+  /** The characters changed (added, removed, recompiled): the limbs may be other ones even with the same states. */
   const structure = useRef(true);
   const subscribe = useCallback(
     (notify: () => void) => {
@@ -61,8 +61,10 @@ export function useLimbHiddenControls(app: EditorApp): ReadonlySet<ControlId> {
       };
       const disposers = [
         app.evaluation.subscribe(notify),
+        // Structural edits (controls, solvers) recompile the rig and arrive as character events; other document
+        // changes (curves during a drag) only need the states compared.
         app.characters.subscribe(restructured),
-        app.store.subscribe(restructured),
+        app.store.subscribe(() => notify()),
         app.session.subscribe((state, previous) => {
           if (state.overrides !== previous.overrides || state.time !== previous.time) notify();
         }),
