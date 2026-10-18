@@ -1,6 +1,7 @@
 # Ekza Animator — M6a build specification ("modeling base")
 
-Status: v1.0 (2026-10-19), the binding build spec for milestone M6a, derived from
+Status: v1.1 (2026-10-19; v1.0 plus design-review round 1, recorded in §12.3), the binding build spec for milestone
+M6a, derived from
 [MODELING-PLAN](MODELING-PLAN.md) v0.2 §2–§4 and its design-review record (§12), research
 [10](research/10-maya-poly-modeling.md)–[16](research/16-model-workspace-ui.md), the owner defaults of
 [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18) and the shipped
@@ -18,8 +19,10 @@ Requirements: [REQUIREMENTS](REQUIREMENTS.md) FR-MOD-06…30 and FR-SHELL-08, -0
 
 Normative words: **MUST**, **SHOULD**, **MAY**. "Contract" means a type or signature in §4 or a package's *Public
 API* block in §9. "Kernel" means `@ekza-animator/mesh-core`. Counts are written **V/E/F** (vertices, edges, faces).
-Distances are metres, angles are stored in radians and shown in degrees, weights and percents are 0…1 and shown as
-percent where the UI says "%".
+Distances are metres, angles are stored in radians and shown in degrees. Fractions (param kind `fraction`: Maya's
+Fraction, Weight, Offset, Strength) are stored 0…1 and **shown as fractions** (`0.300`, as Maya shows them); typed
+input accepts `0.3` and `30%` for the same value, and a bare number is always a fraction (`30` is clamped to the
+field's maximum with a problem string), §5.10.
 
 Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-and-toolchain) ·
 [3 Conventions](#3-conventions-deltas-to-mvp-spec-3-and-m2a-spec-3) · [4 Contract deltas](#4-contract-deltas) ·
@@ -41,8 +44,8 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 | 2 | **Kernel** | `mesh-core`: BMesh-style radial-edge structure of arrays, attribute layers with interpolation and mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, `topologyStats`, revision manifest + ~32 KiB chunks, one deterministic triangulation, derived normals with one hard-flag rule, six primitives, refusal policy | FR-MOD-22, -28 |
 | 3 | **Storage** | Schema v3 (seven new tables, `CharacterRecord.source`, `AssetRecord.provenance`), `MeshRecord.data` revision refs, `BlobStore` (memory, IndexedDB autosave, `.ekzanim` `blobs/`), derived GC roots, undo byte budget and journal cap, `MeshRuntime` with two-phase commit and `loading` state, `MeshSetOp` runner | FR-MOD-28 |
 | 4 | **Selection** | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu), hilite (others opaque and unpickable; per-pane "Dim unhilited"), per-mode selection memory, click/marquee with Maya modifiers, hover pre-selection, camera-based selection, Maya's loop table, grow/shrink/convert/border/shell, **selection undo in Model**, hide/show/isolate | FR-MOD-07, -08, -09 |
-| 5 | **Precision** | Component W/E/R in World/Object/Normal space, MMB-drag (Maya rule), Tweak style, snapping `X`/`V`/`J`, pivot editing, soft select (Volume/Surface), symmetry Object/World X/Y/Z remembered per mesh with partner maps and **every base tool mirrored** (§5.14) | FR-MOD-10, -11, -13 |
-| 6 | **Topology tools** | Extrude (faces, border edges) with the **extrude session** and smart extrude; Inset; Bevel (edges, 1–3 segments); Insert Edge Loop (relative, equal, multiple); Offset Edge Loop; Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes); Connect; Slide Edge/Vertex; Average Vertices; Bridge (equal counts, two faces; divisions, twist, offset); Fill Hole; Merge, Merge to Center, Target Weld, Collapse, Merge by Distance; Delete (Maya plain) and Delete Edge/Vertex; Spin Edge, Flip Triangle Edge | FR-MOD-14…20 |
+| 5 | **Precision** | Component W/E/R in World/Object/Component space, MMB-drag (Maya rule; a trackpad stand-in, §5.15), Tweak style (`` ` `` toggles it), snapping `X`/`V`/`J`, pivot editing, soft select (Volume/Surface), symmetry Object/World X/Y/Z remembered per mesh with partner maps, mirrored selection drawn and counted, and **every base tool mirrored** (§5.14) | FR-MOD-10, -11, -13 |
+| 6 | **Topology tools** | Extrude (faces, border edges) with the **extrude session** (its own args undo stack) and smart extrude; Inset; Bevel (edges, or the edges of selected faces; 1–3 segments); Insert Edge Loop (relative, equal, multiple); Offset Edge Loop; Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes); Connect; Slide Edge/Vertex; Average Vertices; Bridge (equal counts, two faces; divisions, twist, offset); Fill Hole; Merge, Merge to Center, Target Weld, Collapse, Merge by Distance; Delete (Maya plain) and Delete Edge/Vertex; Spin Edge, Flip Triangle Edge | FR-MOD-14…20 |
 | 7 | **Mesh level** | Combine, Separate, Extract, Duplicate Faces (`MeshSetOp`s); Mirror (cut, merge, reversed winding); Symmetrize; Triangulate, Quadrangulate; Freeze / Reset Transformations; Group, Parent, Unparent, Duplicate | FR-MOD-21 |
 | 8 | **Normals and shading** | Per-edge hard flag, faceted new meshes, Soften/Harden, Set Normal Angle (one-shot), Reverse, Conform, WYSIWYG normals and triangulation, overlays (wire on shaded, flat, cull, normals, face orientation, triangulation) | FR-MOD-22 |
 | 9 | **Colour and UV** | Per-face palette slot as colour truth, project palettes, Palette panel, Paint Colour tool, fill shell, select by swatch, replace swatch, eyedropper, palette variants; export outputs palette PNG (default) / `COLOR_0` / one material per colour; planar, box and cylindrical UV projections | FR-MOD-23, -24 |
@@ -58,7 +61,8 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies and toolchain](#2-dependencies-
 | Extrude Manifold option; Auto-weld toggle | Extrude + Merge by Distance |
 | Select Similar; lasso and paint select; multi-component mode; component pick-walk (arrows in component mode) | Mesh Check "select matching", select by swatch, marquee; arrows poll-fail with "Component pick-walk arrives later" |
 | Selection constraints other than Off (Angle, Border, Edge Loop, Edge Ring, Shell) | Toolkit constraint dropdown shows them disabled; Ctrl+RMB convert and the walkers cover the same selections |
-| Multi-Cut points inside faces and slice plane | Points on edges and vertices only; a click inside a face is ignored with a help-line hint |
+| Multi-Cut points inside faces and slice plane; a cut between two clicks on faces that share no face (Maya cuts through the faces between them along the screen-space line) | Points on edges and vertices only; a click inside a face is ignored with a help-line hint; consecutive points must share a face ("Click on each face the cut crosses") |
+| Maya-style **Normal** axis orientation (each component moves along its own normal on the N handle); Move tool **Retain component spacing** off (every moved vertex snaps to the grid on its own) | **Component** orientation (one averaged frame, §5.15); snapping moves the pivot and keeps spacing |
 | Bridge with unequal counts or curve (Blend) interpolation | Refusal with "Bridge needs the same number of edges on both sides (12 vs 10)"; linear only |
 | Poke, Chamfer Vertex, vertex extrude, extrude of interior edges | Menu items present and poll-failing with "not available yet" |
 | Edge snapping `C`; interactive primitive placement; `Shift+D` duplicate with transform | Grid and vertex snap; creation at the origin; `Mod+D` then move |
@@ -109,12 +113,24 @@ the lockfile are the integration agent's, ARCHITECTURE §3 rule 6):
 
 | Package | Dir | May import | Must not import |
 |---|---|---|---|
-| `@ekza-animator/mesh-core` | `packages/mesh-core` (subpath `./testing`) | anim-core, `earcut`, `robust-predicates`; dev: `fast-check` | three, React, DOM, doc, editor-core, WASM |
+| `@ekza-animator/mesh-core` | `packages/mesh-core` (subpaths `./descriptors`, `./testing`) | anim-core, `earcut`, `robust-predicates`; dev: `fast-check` | three, React, DOM, doc, editor-core, WASM |
 | `@ekza-animator/mesh-view` | `packages/mesh-view` | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
 
-Dependency edges added: `io → mesh-core`; `editor-core → mesh-core`; `viewport → mesh-view, mesh-core`;
-`editor → mesh-core` (types and the palette PNG preview only); `headless-tests → mesh-core, mesh-view`. `mesh-core` is
-a headless package under ARCHITECTURE §3 rule 2 (Node-safe, no globals).
+Dependency edges added: `io → mesh-core` (only from the lazy `io/mesh` and `io/write` entries); `editor-core →
+mesh-core` (`./descriptors` statically; the kernel only through dynamic `import()`); `viewport → mesh-view, mesh-core`
+(both through dynamic `import()` from `viewport/src/mesh/**`); `editor → mesh-core` (types and the palette PNG preview
+only, lazy); `headless-tests → mesh-core, mesh-view`. `mesh-core` is a headless package under ARCHITECTURE §3 rule 2
+(Node-safe, no globals).
+
+**Eager/lazy split (binding, §5.27 gates).** `@ekza-animator/mesh-core/descriptors` holds the op **descriptors**
+(id, label, kinds, params, flags, symmetry class; no kernel code, no `earcut`, no predicates) and `PRIMITIVE_PARAMS`;
+menus, keymap rows, the command palette, option boxes and Last-op cards read only it. The kernel (`mesh-core` root:
+`MESH_OPS` with `poll`/`run`, `editMeshFrom`, triangulation, normals, revisions) is a lazy chunk loaded by
+`MeshRuntimeRegistry` on first need (a project with mesh records, entering Model, a `mesh.*` run); until it resolves,
+runtimes are `loading` and `mesh.*` polls fail with "Mesh tools are loading". mesh-view and `three-mesh-bvh` load the
+same way. B0a adds two `check-size` BOUNDARIES (`mesh-kernel`, marker `ekza-mesh-kernel`, a string constant every
+kernel entry module references; `mesh-view`, marker `ekza-mesh-view`), so any package that pulls kernel or view code
+into the eager route fails the size gate the day it does so.
 
 `package.json` script changes (B0a): `mesh-core` and `mesh-view` get `test`, `typecheck`, `lint` like the other
 packages; `mesh-core` adds `bench` (`vitest bench`, report-only); `apps/web` `check:size` gains the eager-delta check
@@ -132,17 +148,21 @@ of §5.27 (B9 writes it).
    **Exception (M2A-SPEC §3 rule 1 kept): a function that a shipped code path or another package's baseline calls is
    never a throwing stub.** B0a lists them in §9: the schema v3 migration, `requiredWriterVersion`, `referencesOf`,
    `UndoManager.entries()`/`onEvict`, `EditorHistory` step-drop event and selection parts, `editMeshFrom` (reference
-   implementation for static meshes), the memory `BlobStore`, `LastRun` recording (a no-op recorder until B11), the
-   workspace registry with the Animate workspace, and the keyboard adapter's scope chain for the `animate` workspace
-   (identical to today's).
+   implementation for static meshes) with reference `triangulate`, `computeNormals`, `validateMesh`, `topologyStats`
+   and `primitive('cube' | 'plane' | 'cylinder')`, the memory `BlobStore`, `LastRun` recording (a no-op recorder until
+   B11), the workspace registry with the Animate workspace, and the keyboard adapter's scope chain for the `animate`
+   workspace (identical to today's).
 2. **New files over shared files.** Each package's operators live in new files (§9 names them); B0a creates them
    with stubs and registers them from `operators/builtin/index.ts`, so no two packages edit the index. Each kernel op
-   lives in its own directory `mesh-core/src/ops/<name>/` with an `index.ts` exporting the op object; the barrel
-   `mesh-core/src/index.ts` is created by B0a with stub exports and **only the stub lines change** afterwards.
+   lives in its own directory `mesh-core/src/ops/<dir>/` (the op-id → directory table is §6.1's **Dir** column) with a
+   `descriptor.ts` (eager, §2) and an `index.ts` exporting the op object; the barrels `mesh-core/src/index.ts` and
+   `mesh-core/src/descriptors.ts` are created by B0a with stub exports and **only the stub lines change** afterwards.
 3. **Deterministic IDs.** New records created by operators get `newId(kind)` (random, seeded in `?e2e=1`), except:
-   records created by a `MeshSetOp` get `derivedId(kind, opId, inputIds, stepSeed, n)` = prefix + 16 base62 of
+   records created by a `MeshSetOp`, by `mesh.create.*` and by `mesh.create.template` get
+   `derivedId(kind, opId, inputIds, stepSeed, n)` = prefix + 16 base62 of
    `sha256(opId + ':' + inputIds.join(',') + ':' + stepSeed + ':' + n)`, where `stepSeed` is the `LastRun` seed of the
-   run being adjusted (a fresh `newId('tx')` on a first run), so an adjusted re-run reuses the ids; template joints
+   run being adjusted (a fresh `newId('tx')` on a first run), so an adjusted re-run reuses the ids; a mesh record made
+   editable from a character's glTF mesh is `derivedId('mesh', 'asset', [characterId], '', meshIndex)` (§5.21); template joints
    (M6b) use `<skeletonId>:<humanBone>`; the default palette is `derivedId('palette', 'palette.default', [], '', 0)` and
    its swatches `derivedId('swatch', 'palette.default', [paletteId], '', slot)`. Prefixes: `msh_`, `grp_`, `pal_`, `sw_`, `img_`, `skl_`, `jnt_`.
 4. **Test gates.** M2a pattern: `describe.skipIf(!READY.<id>)` in unit tests (`READY` flags in each package's
@@ -150,7 +170,8 @@ of §5.27 (B9 writes it).
    turned into failures at integration (INT). Every package lands the E2E-MOD scenarios it owns (§10.1) as gated tests.
 5. **Files.** E2E specs are `apps/web/e2e/m6a-NN-<slug>.spec.ts` (`NN` = the E2E-MOD number); helpers are
    `apps/web/e2e/helpers/m6a-<package-slug>.ts` plus the shared `helpers/m6a-model.ts` (B0a: enter Model, create
-   primitives, screen points of components); benches are `apps/web/e2e/bench/m6a-<slug>.bench.ts` (browser) and
+   primitives, screen points of components; closed after B0a; content helpers such as `buildSword` live in the owner's
+   `helpers/m6a-<package-slug>.ts`); benches are `apps/web/e2e/bench/m6a-<slug>.bench.ts` (browser) and
    `packages/mesh-core/bench/*.bench.ts` (Node). Kernel goldens are JSON files in `packages/mesh-core/test/goldens/`.
 6. **Notes.** Each package records interpretations in `docs/wp-notes/m6a-<slug>.md`; INT copies the decisions into
    a new DECISIONS-OPEN §H "M6a build deviations" (IDs `M6A-<id>-<n>`, e.g. `M6A-B3-4`).
@@ -181,6 +202,16 @@ of §5.27 (B9 writes it).
 Blocks below are additions to the named contract files unless marked *changed*. "Additive" means existing callers
 compile and behave as before. Contract files keep the header comment "copied verbatim from M6A-SPEC §4.x".
 
+**Where each symbol goes.** `interface`, `type` and literal-union declarations are copied verbatim into the block's
+contract file (`doc/src/records.ts`, `ids.ts`, `store.ts`; `mesh-core/src/types.ts`; `mesh-view/src/types.ts`;
+`io/src/types.ts`; `editor-core/src/types.ts`; `editor/src/test-api/types.ts`). `function`, `class` and `const` lines
+are **signatures of implementation modules**, never copied into a types file: B0a lands each as a stub (or a working
+baseline, §3 rule 1) in the module the block's lead sentence or the owner's **Dirs** (§9) name, and re-exports it from
+the package root. Two changes are not additive and B0a pays for them: `CharacterRecord.asset` becomes nullable (B0a
+narrows every shipped reader: `characters/registry.ts` (≈ 15 reads), `app/deps.ts:144`, `workflows/importModel.ts:209`,
+`workflows/export.ts:199`, `editor/src/panels/attributes/AttributesPanel.tsx:82`; each skips or refuses a `null` asset,
+which M6a never writes), and `KeymapManager.isTapHoldKey` gains parameters (§5.17).
+
 ### 4.1 anim-core — parameter descriptions and hashing
 
 New module `packages/anim-core/src/params/index.ts` (exported from the package root). One `ParamDef` list describes an
@@ -191,7 +222,8 @@ INPUTS, option boxes, command-palette prompts, numeric capture) and, later, scri
 ```ts
 /** Scalar kinds. Compound Maya attributes are flattened per component (`localTranslateX/Y/Z`), so every param is a
  *  scalar and can be the primary field; structured pointer/selection data uses kind 'data'. */
-export type ParamKind = 'number' | 'int' | 'distance' | 'angle' | 'percent' | 'bool' | 'enum' | 'axis' | 'data';
+export type ParamKind = 'number' | 'int' | 'distance' | 'angle' | 'fraction' | 'bool' | 'enum' | 'axis' | 'data';
+/** 'fraction': stored 0…1, shown as a fraction ('0.300'); typed '30%' and '0.3' are the same value (§1, §5.10). */
 /**
  * Where the value comes from (ADR 0016 D6):
  * - 'value': chosen by the user; kept by Adjust Last and Repeat Last.
@@ -239,10 +271,13 @@ export function paramDefaults(params: readonly ParamDef[]): ParamValues;
 export function paramSchema(params: readonly ParamDef[], opts?: { readonly title?: string }): JsonValue;
 /**
  * Fills defaults, clamps numbers into [min, max], rounds ints (half away from zero), checks enum/axis membership and
- * 'data' params against their schema; unknown keys are dropped. Never throws; `problems` lists what was changed or
- * dropped ('divisions clamped to 32'). Pure and deterministic.
+ * 'data' params against their schema. Keys named in `opts.passThrough` (an operator's declared non-param args: the
+ * target list `meshes`, the component `kind`, operator-specific ids such as `mesh`, `template`, `bytes`, `palette`)
+ * are copied into `args` untouched and unvalidated (the operator validates them); every other unknown key is dropped.
+ * Never throws; `problems` lists what was changed or dropped ('divisions clamped to 32'). Pure and deterministic.
  */
-export function coerceArgs(params: readonly ParamDef[], raw: unknown): { readonly args: ParamValues; readonly problems: readonly string[] };
+export function coerceArgs(params: readonly ParamDef[], raw: unknown,
+  opts?: { readonly passThrough?: readonly string[] }): { readonly args: ParamValues; readonly problems: readonly string[] };
 /** Copy of `args` without the params of the given bounds (Repeat Last: `['pointer', 'selection']`). */
 export function stripBound(params: readonly ParamDef[], args: ParamValues, bounds: readonly ParamBound[]): ParamValues;
 /** The primary param, or null. Lists with more than one `primary` are rejected by `assertParams` (tests). */
@@ -250,9 +285,11 @@ export function primaryParam(params: readonly ParamDef[]): ParamDef | null;
 export function assertParams(params: readonly ParamDef[]): void;   // EkzaError('invalid-params') on duplicates or 2 primaries
 ```
 
-New module `packages/anim-core/src/hash/sha256.ts` (exported from the root): the in-repo synchronous SHA-256 (FIPS
-180-4, the `io/src/hash` implementation moved down so the kernel can hash chunks without `doc` or `io`), ≥ 300 MB/s
-in Node 25 on the reference machine (a 64 KiB chunk in ≤ 0.25 ms):
+New module `packages/anim-core/src/hash/sha256.ts` (exported from the root): the in-repo synchronous SHA-256 digest
+core (FIPS 180-4) moved down so the kernel can hash chunks without `doc` or `io`. It is **streaming and
+non-copying**: it compresses 64-byte blocks straight from the input view and pads only the final partial block in a
+fixed 128-byte scratch buffer (the shipped `doc` copy, which allocates a padded copy of the whole input, is replaced).
+Throughput ≥ 300 MB/s in Node 25 on the reference machine (a 64 KiB chunk in ≤ 0.25 ms), benchmarked in B0a:
 
 ```ts
 export function sha256(bytes: Uint8Array): Uint8Array;             // 32 bytes
@@ -260,7 +297,10 @@ export function sha256Hex(bytes: Uint8Array): string;              // lowercase 
 export function toHex(bytes: Uint8Array): string;
 ```
 
-`io/src/hash` and `doc/src/migrations/sha256.ts` re-export it (byte-identical results; their tests stay).
+**Only the digest core moves; every shipped name keeps its signature.** `io` keeps `sha256HexSync(bytes): string`
+(now `toHex(anim-core sha256(bytes))`) and its async `sha256Hex(bytes): Promise<string>` (WebCrypto when present,
+else the sync path) exactly as exported today; `doc` keeps `sha256Hex(text: string): string` (UTF-8 encode, then
+anim-core) and `digestBase62`. Their callers and tests are unchanged; new vectors assert all three paths agree.
 
 ### 4.2 doc — schema v3, new tables, undo eviction
 
@@ -288,7 +328,7 @@ export function derivedId<K extends IdKind>(kind: K, opId: string, inputs: reado
 export interface AssetRecord {
   readonly id: AssetId;
   readonly name: string;
-  readonly ext: 'glb' | 'vrm' | 'vrma' | 'png' | 'jpg';                          // changed: + png, jpg (image planes)
+  readonly ext: 'glb' | 'vrm' | 'vrma' | 'png' | 'jpg';                          // changed: + png, jpg (image planes; archived under `images/`, §5.20)
   readonly mime: 'model/gltf-binary' | 'image/png' | 'image/jpeg';               // changed
   readonly size: number;
   readonly role: 'model' | 'animation-source' | 'reference-image';               // changed: + reference-image
@@ -337,7 +377,10 @@ export interface MeshRef {
   readonly manifest: string;                   // sha256 hex of the revision manifest = the revision id
   readonly rev: number;                        // 1 for the first revision, +1 per commit on this record
   readonly base: string | null;                // parent revision (M3 fork detection); null for the first
-  readonly joints: readonly JointId[];         // copy of the manifest's skin palette, in palette order; [] without skin
+  /** Copy of the manifest's skin palette for `skin.skeleton` meshes (M6b), in palette order. [] without a skin **and
+   *  [] for an imported skin** (`skin: {asset, skin}`): its palette is the glTF skin's joints, identified only in the
+   *  `skin.*` layer meta, never as JointIds (M6a creates no JointRecords, so they would all look dangling). */
+  readonly joints: readonly JointId[];
 }
 export interface AssetMaterialRef { readonly asset: AssetId; readonly material: number }   // glTF material index
 export type MeshMaterial =
@@ -361,7 +404,9 @@ export interface MeshRecord {
   readonly placement: ReadonlyXf;              // object transform relative to the parent (character root for owner.character)
   readonly pivot: ReadonlyVec3;                // rotate/scale pivot in object space (D), default [0,0,0]
   readonly source: { readonly asset: AssetId; readonly mesh: number } | null;   // glTF mesh it edits; null = authored
-  readonly data: MeshRef | null;               // null = asset-backed, not made editable yet
+  /** null is reserved (an asset-backed record without a revision): M6a never writes it. A glTF mesh that is not made
+   *  editable has **no record**; `mesh.makeEditable` creates the record and its first revision in one transaction. */
+  readonly data: MeshRef | null;
   readonly faceted: boolean;                   // true for meshes made in the editor; smoothingAngle default 0° (§5.3)
   readonly generator: { readonly kind: PrimitiveKind; readonly params: Readonly<Record<string, number | boolean | string>>;
     readonly version: 1 } | null;              // live primitive parameters; null after the first component edit
@@ -489,8 +534,12 @@ export interface DocQueries {
   `skeletons` or `joints`, any asset has `ext` `png`/`jpg` (an M2a validator rejects those values), or any live
   character has `source.kind === 'model'`; otherwise the M2a rule (2 with a live enabled `ik2` solver, else 1).
   Palettes, swatches and asset provenance alone do not raise it: older apps preserve them as unknown tables and
-  fields (FR-EXT-02) and evaluate the animation correctly. An M2a app therefore opens a modeling project read-only,
-  and opens an animation-only project written by M6a writable.
+  fields (FR-EXT-02) and evaluate the animation correctly. Importing or animating a character writes **no** `meshes`
+  record (records exist only after Make editable or for authored meshes, §5.21), so an animation-only project written
+  by M6a stays `minWriterVersion` ≤ 2 and opens writable in M2a, while a modeling project opens read-only there. This
+  holds for the archive too: the M2a `.ekzanim` reader accepts only `glb`/`vrm`/`vrma` entries in `manifest.assets`,
+  so M6a writes reference images under a separate manifest key (`images`, §5.20) that M2a ignores; mesh revisions go
+  to `blobs/`, which it ignores as well.
 - `ProjectRecord.schemaVersion` is written as 3 by the M6a app; `.ekzanim` `project.json` carries `schemaVersion: 3`
   and the `blobs/` entries of §5.20.
 
@@ -509,14 +558,18 @@ export interface UndoManager {
   onEvict(listener: (entries: readonly UndoEntry[], reason: UndoEvictReason) => void): () => void;
   /** M6a: drops the n oldest undo entries (the BlobStore byte budget, §5.20); fires onEvict(…, 'budget'). */
   evictOldest(n: number): void;
+  /** M6a: drops every redo entry (a selection-only step in Model clears redo like a transaction does, §5.6); fires
+   *  onEvict(…, 'redo-cleared') when there was any. */
+  clearRedo(): void;
 }
 ```
 
 ### 4.3 mesh-core — the kernel's public API
 
 `packages/mesh-core/src/index.ts` (barrel; B0a writes it with stub exports, owners replace only their stubs). Every
-name below is exported from the package root; `./testing` exports the fast-check arbitraries, fixtures and the
-golden runner.
+name below is exported from the package root (the lazy kernel chunk, §2) except the block marked
+*descriptors*, which `./descriptors` exports (eager; the root re-exports it too); `./testing` exports the fast-check
+arbitraries, fixtures and the golden runner.
 
 ```ts
 import type { ParamDef, ParamValues, ReadonlyVec3, ReadonlyQuat, ReadonlyXf, Vec3, AnimCurve, CurveEngine } from '@ekza-animator/anim-core';
@@ -556,7 +609,9 @@ export interface AttrLayer {
   get(index: number, comp?: number): number;
   set(index: number, comp: number, value: number): void;           // logged; float layers through Math.fround
   read(index: number, out: Float64Array, offset?: number): void;   // all comps
-  readonly data: Readonly<Float32Array | Uint8Array | Uint16Array | Uint32Array>;   // direct read access (length = count × comps)
+  /** Direct read access. The view may be longer than count × comps (capacity growth, research 13 K-1); only the
+   *  first count × comps values are meaningful, and a view taken before a write may be stale after it. */
+  readonly data: Readonly<Float32Array | Uint8Array | Uint16Array | Uint32Array>;
 }
 
 // ---------- stored form ----------
@@ -657,8 +712,10 @@ export class BitSet {
   forEach(fn: (i: number) => void): void;            // ascending
   toArray(): Uint32Array;
   equals(other: BitSet): boolean; clone(): BitSet;
-  encode(): Uint32Array;                             // run-length (start, length) pairs, ascending
-  static decode(runs: Uint32Array, size: number): BitSet;
+  /** The smaller of two encodings, element 0 the tag: 0 = run-length (start, length) pairs ascending, 1 = the raw
+   *  words. Scattered selections on large meshes therefore never cost more than size / 8 bytes (+4). */
+  encode(): Uint32Array;
+  static decode(encoded: Uint32Array, size: number): BitSet;
   readonly words: Uint32Array;
 }
 /** Kernel value object: the selection an op runs on. Bitsets per kind are kept for every kind (per-mode memory). */
@@ -675,6 +732,8 @@ export interface HiddenSet { readonly verts: BitSet; readonly edges: BitSet; rea
 export interface Refusal { readonly refused: true; readonly code: string; readonly reason: string }
 export function refuse(code: string, reason: string): Refusal;
 export function isRefusal(x: unknown): x is Refusal;
+/** Codes include `symmetry.unmatched-partner` (§5.14): components without a mirror partner were processed on their
+ *  own side only; `count` = how many. */
 export interface OpWarning { readonly code: string; readonly message: string; readonly count?: number; readonly elements?: Uint32Array }
 export interface OpFrame { readonly pivot: Vec3; readonly axes: readonly [Vec3, Vec3, Vec3] }   // manipulator placement (mesh-local)
 export interface SymmetryContext {
@@ -708,15 +767,27 @@ export interface OpFlags {
   readonly manifoldPreserving: boolean;              // P3 class (§5.29)
   readonly whole?: boolean;                          // acts on the whole mesh (object mode), ignores selection
 }
-/** One-mesh operation (ADR 0014 D7). Pure and deterministic; writes only through `m` inside begin/end, which the
- *  caller (MeshRuntime or a test) opens and closes. A refusal after writes is allowed: the caller aborts the log. */
-export interface MeshOp<A extends ParamValues = ParamValues> {
+/** *descriptors* (eager, `./descriptors`): everything menus, keymap, palette, option boxes and cards need. */
+export interface MeshOpDescriptor {
   readonly id: `mesh.${string}`;
   readonly label: string;                            // Maya name
   readonly kinds: readonly ComponentKind[] | 'object';
   readonly params: readonly ParamDef[];
   readonly flags: OpFlags;
   readonly symmetry: 'expand' | 'pointer' | 'none';  // §5.14 class
+}
+export interface MeshSetOpDescriptor {
+  readonly id: `mesh.${string}`;
+  readonly label: string;
+  readonly arity: 'one' | 'many';
+  readonly params: readonly ParamDef[];
+  readonly flags: OpFlags;
+}
+export const MESH_OP_DESCRIPTORS: Readonly<Record<string, MeshOpDescriptor>>;          // every §6.1 MeshOp row
+export const MESH_SET_OP_DESCRIPTORS: Readonly<Record<string, MeshSetOpDescriptor>>;   // every §6.1 set-op row
+/** One-mesh operation (ADR 0014 D7). Pure and deterministic; writes only through `m` inside begin/end, which the
+ *  caller (MeshRuntime or a test) opens and closes. A refusal after writes is allowed: the caller aborts the log. */
+export interface MeshOp<A extends ParamValues = ParamValues> extends MeshOpDescriptor {
   poll(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal;
   run(m: EditMesh, sel: ComponentSelection | null, args: A, ctx: OpContext): OpResult | Refusal;
 }
@@ -746,12 +817,9 @@ export interface MeshSetResult {
   readonly removed: readonly string[];               // input keys whose records are soft-deleted
   readonly warnings: readonly OpWarning[];
 }
-export interface MeshSetOp<A extends ParamValues = ParamValues> {
-  readonly id: `mesh.${string}`;
-  readonly label: string;
-  readonly arity: 'one' | 'many';                    // Separate/Extract/Duplicate Faces: one; Combine: ≥ 2
-  readonly params: readonly ParamDef[];
-  readonly flags: OpFlags;                           // adjustable only while the re-run yields the same record set
+/** arity: Separate/Extract/Duplicate Faces 'one'; Combine 'many' (≥ 2). flags.adjustable holds only while the re-run
+ *  yields the same record set. */
+export interface MeshSetOp<A extends ParamValues = ParamValues> extends MeshSetOpDescriptor {
   poll(inputs: readonly MeshSetInput[], args: A): true | Refusal;
   run(inputs: readonly MeshSetInput[], args: A, ctx: Omit<OpContext, 'placement' | 'symmetry' | 'soft'>): MeshSetResult | Refusal;
 }
@@ -767,7 +835,9 @@ export interface AppendResult {
   readonly morphLayers: readonly string[];           // union, a's manifest order first
   readonly jointPalette: readonly string[] | null;   // union, a's order first; b's joint indices remapped
 }
-/** Appends b (transformed by `xf`, b-local → a-local) into a inside a's open transaction. */
+/** Appends b (transformed by `xf`, b-local → a-local) into a inside a's open transaction. When det(xf) < 0 (a
+ *  mirrored duplicate: Mod+D, scale X −1, Combine) every appended face's corner order is reversed together with its
+ *  corner layers, and custom normals go through the inverse transpose, so the result is outward-facing (as Freeze). */
 export function appendMesh(a: EditMesh, b: MeshData, xf: ReadonlyXf, opts: { readonly materials: readonly [readonly string[], readonly string[]] }): AppendResult;
 
 // ---------- validation, stats ----------
@@ -840,16 +910,24 @@ export interface SymmetryMap {
   readonly vertex: Int32Array;                       // partner; −1 none; self = on the seam
   readonly edge: Int32Array;                         // partner edge; −1 none
   readonly edgeReversed: Uint8Array;                 // 1 when the partner runs the opposite direction (t ↦ 1 − t)
+  /** Edges that are their own partner: 1 = **crossing** (endpoints are each other's partners, edgeReversed 1),
+   *  2 = **in-seam** (both endpoints on the seam), 0 = otherwise (§5.14 pointer rule). */
+  readonly edgeSelf: Uint8Array;
   readonly face: Int32Array;                         // partner face; −1 none
   readonly unmatched: number;                        // off-seam vertices without a partner
 }
 export function buildSymmetryMap(m: EditMesh, opts: { readonly axis: SymmetryAxis; readonly space: 'object' | 'world';
   readonly placement: ReadonlyXf; readonly tolerance: number }): SymmetryMap;
+/** Adds every matched partner; components with partner −1 stay as they are (one side only, §5.14). */
 export function expandSelection(sel: ComponentSelection, map: SymmetryMap): ComponentSelection;
-export function mirrorEdgePoint(map: SymmetryMap, p: { readonly edge: number; readonly t: number }): { readonly edge: number; readonly t: number } | null;
+/** §5.14 pointer rule. `self: true` = the mapped point is the same point (an in-seam edge, or a crossing edge whose
+ *  point lies within tolerance of the plane; then `t` is the crossing parameter, snapped onto the plane). null = the
+ *  edge has no partner. */
+export function mirrorEdgePoint(m: EditMesh, map: SymmetryMap, p: { readonly edge: number; readonly t: number }):
+  { readonly edge: number; readonly t: number; readonly self: boolean } | null;
 
 // ---------- loop gestures (B2), Mesh Check (B5), region frames (B3) ----------
-export type LoopGesture = 'double' | 'shift-double' | 'ctrl-double';
+export type LoopGesture = 'double' | 'shift-double' | 'mod-double';   // mod = Cmd on macOS, Ctrl elsewhere (§5.6)
 /** Maya's loop table (§5.6) as a pure function: the selection after the gesture on `component` of `kind`. */
 export function loopGesture(m: EditMesh, sel: ComponentSelection, kind: ComponentKind, component: number,
   gesture: LoopGesture, hidden?: HiddenSet | null): ComponentSelection;
@@ -865,13 +943,15 @@ export function regionFrame(m: EditMesh, faces: ArrayLike<number>): OpFrame;
 // ---------- primitives, templates (B1, B13) ----------
 export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'cone' | 'plane' | 'torus' | 'humanoidBody';
 export function primitive(kind: PrimitiveKind, params: Readonly<Record<string, number | boolean | string>>): MeshData;
-export const PRIMITIVE_PARAMS: Readonly<Record<PrimitiveKind, readonly ParamDef[]>>;   // §6.3
-export const MAYA_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>>;
+export const PRIMITIVE_PARAMS: Readonly<Record<PrimitiveKind, readonly ParamDef[]>>;   // §6.3; *descriptors*
+export const MAYA_PRIMITIVE_DEFAULTS: Readonly<Record<PrimitiveKind, ParamValues>>;    // *descriptors*
 export function humanoidBody(params: { readonly style: 'smooth' | 'segmented'; readonly height: number }): MeshData;
 
 // ---------- the operation registry (every op of §6, stubs until its owner lands it) ----------
-export const MESH_OPS: Readonly<Record<string, MeshOp>>;
+export const MESH_OPS: Readonly<Record<string, MeshOp>>;            // kernel chunk; same keys as MESH_OP_DESCRIPTORS
 export const MESH_SET_OPS: Readonly<Record<string, MeshSetOp>>;
+/** `check-size` marker of the kernel chunk (§2); referenced by every kernel entry module. */
+export const KERNEL_MARKER: 'ekza-mesh-kernel';
 ```
 
 `PrimitiveKind` is redeclared in mesh-core (string union identical to doc's; a type test asserts equality, since
@@ -879,7 +959,8 @@ mesh-core must not import doc).
 
 ### 4.4 mesh-view — overlays and picking
 
-`packages/mesh-view/src/index.ts` (B0a skeleton, B6 body). Imperative three.js objects; no React, no editor-core.
+`packages/mesh-view/src/index.ts` (B0a skeleton, B6 body). Imperative three.js objects; no React, no editor-core. A
+lazy chunk (§2): `viewport/src/mesh/**` imports it dynamically; its entry references the marker `ekza-mesh-view`.
 
 ```ts
 import type { Camera, Object3D, Ray } from 'three';
@@ -911,7 +992,11 @@ export class EditMeshView {
   setMesh(mesh: EditMesh, tri: Triangulation, normals: Normals): void;          // full rebuild (topology commit)
   update(mesh: EditMesh, dirty: DirtySet, tri: Triangulation, normals: Normals): void;   // incremental ranges
   setWorld(matrix: Float64Array): void;                                         // column-major world-from-local
-  setState(sel: ComponentSelection, hidden: HiddenSet | null, hover: { readonly kind: ComponentKind; readonly index: number } | null): void;
+  /** `mirrored`: the partners the symmetry expansion adds (expanded minus stored, §5.6), drawn `--comp-selected` at
+   *  60 %; `hover.partner` is the hovered component's partner (−1 none), pre-highlighted with it. */
+  setState(sel: ComponentSelection, hidden: HiddenSet | null,
+    hover: { readonly kind: ComponentKind; readonly index: number; readonly partner: number } | null,
+    mirrored: ComponentSelection | null): void;
   setSoftWeights(weights: Float32Array | null): void;
   setPaint(colours: ReadonlyMap<number, readonly [number, number, number]> | null): void;   // slot → sRGB 8-bit
   setLints(problems: readonly MeshProblem[]): void;
@@ -956,16 +1041,30 @@ export class ComponentPicker {
 
 ### 4.5 io — mesh bridge, writers, marker v2, profiles
 
-`packages/io/src/types.ts` additions (B0a) and the B8 modules. Headless entry unless marked `/write` (lazy, M2a
-rule: glTF Transform loads only when an export runs).
+`packages/io/src/types.ts` additions (B0a) and the B8 modules. Every mesh function lives in a **lazy** entry:
+`io/mesh` (make editable, `meshToPrimitives`, the palette writer; it imports the mesh-core kernel) or `/write` (M2a
+rule: glTF Transform loads only when an export runs). The io main entry gains types only, so the eager route never
+pulls mesh-core through io (§2).
 
 ```ts
-import type { AssetMaterialRef, ColourOutput, DerivedFrom, GeneratorProvenance, HandheldGrip } from '@ekza-animator/doc';
+import type { AssetId, AssetMaterialRef, AssetRecord, ColourOutput, DerivedFrom, DocSnapshot, GeneratorProvenance,
+  HandheldGrip } from '@ekza-animator/doc';
 import type { MeshData } from '@ekza-animator/mesh-core';
 
 export const BUILTIN_EXPORT_KINDS = ['bake-into-model', 'animation-glb', 'vrma', 'static-glb'] as const;   // changed
 
-// ---------- make editable (io main entry) ----------
+// ---------- project archive (changed: mesh blobs and reference images, §5.20) ----------
+export interface ProjectArchive {
+  …M1/M2a…
+  /** Every `blobs/<sha256>` entry, hash-verified; a corrupt or missing blob is absent here (its mesh goes `error`). */
+  readonly blobs: ReadonlyMap<string, Uint8Array>;                                // changed (additive)
+}
+/** changed (additive): `assets` may now hold reference images (ext png/jpg), written under `images/` and the
+ *  manifest key `images`; `blobs` = the closure of mesh manifests and chunks to store under `blobs/`. */
+export function writeProjectArchive(snapshot: DocSnapshot, assets: ReadonlyMap<AssetId, { readonly record: AssetRecord;
+  readonly bytes: Uint8Array }>, app: { readonly version: string }, blobs?: ReadonlyMap<string, Uint8Array>): Uint8Array;
+
+// ---------- make editable (io/mesh, lazy) ----------
 export interface MakeEditableReport {
   readonly triangles: number;
   readonly pointsBefore: number; readonly pointsAfter: number;   // glTF vertices → welded points
@@ -986,7 +1085,7 @@ export function meshFromGltf(container: GlbContainer, meshIndex: number, opts?: 
 /** VRM meta gate (Q-SKIN-2): `modification: 'prohibited'` (VRM 1.0) or the VRM 0.x equivalent refuses. */
 export function editLicence(container: GlbContainer): { readonly ok: true } | { readonly ok: false; readonly reason: string };
 
-// ---------- primitives out (io/write) ----------
+// ---------- primitives out (io/mesh; the writers below call them from io/write) ----------
 export interface PaletteTexture {
   readonly png: Uint8Array;                    // ekza-palette-v1 (§5.19), deterministic bytes
   readonly width: number; readonly height: number;
@@ -1099,7 +1198,8 @@ Lint codes (`io/src/lint/rules.ts`, ADR 0010 table shape; severities `local / Ek
 import type { ParamDef, ParamValues, Quat, Vec3 } from '@ekza-animator/anim-core';
 import type { GroupId, MeshId, MeshRef } from '@ekza-animator/doc';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRemap, FalloffCurve, HiddenSet, MeshData,
-  MeshOp, MeshSetOp, Normals, OpFrame, OpResult, OpWarning, Refusal, SymmetryAxis, SymmetryMap, Triangulation } from '@ekza-animator/mesh-core';
+  MeshOp, MeshOpDescriptor, MeshSetOp, MeshSetOpDescriptor, Normals, OpFrame, OpResult, OpWarning, Refusal,
+  SymmetryAxis, SymmetryMap, Triangulation } from '@ekza-animator/mesh-core';   // type-only: no kernel code is bundled
 
 // ---------- workspaces ----------
 export type WorkspaceId = 'model' | 'rig' | 'animate' | 'review' | (string & {});
@@ -1139,25 +1239,37 @@ export type SelectionConstraint = 'off' | 'angle' | 'border' | 'loop' | 'ring' |
 export type RunSource = 'keyboard' | 'menu' | 'marking-menu' | 'toolkit' | 'palette' | 'tool' | 'card' | 'api';
 export interface RunContext { readonly panel?: PanelKind; readonly paneId?: string; readonly source?: RunSource }   // changed (additive)
 export interface ComponentCounts { readonly vertex: number; readonly edge: number; readonly face: number }
-/** The last undoable run of an operator that declares `params` (ADR 0016 D6). */
+/** The last undoable run of an operator that declares `params` (`[]` allowed) or is flagged adjustable or repeatable
+ *  (ADR 0016 D6; §5.7). */
 export interface LastRun {
   readonly id: OperatorId;
   readonly label: string;
   readonly params: readonly ParamDef[];
   readonly args: ParamValues;                  // resolved: defaults, coercion, selection-bound values, nullables
+  /** Component kind the run read its selection in (null: object-level). Adjust Last re-runs on the restored
+   *  selection of this kind whatever the current mode (§5.7). */
+  readonly kind: ComponentKind | null;
   readonly stepId: number;                     // the EditorHistory step the run recorded
   readonly docSeqAfter: number;                // store.version right after the run
   readonly paneId: string | null;
   readonly source: RunSource;
   readonly adjustable: boolean;
   readonly repeatable: boolean;
-  readonly tool: ToolId | null;                // re-activated by G when not repeatable (and by Y)
+  readonly tool: ToolId | null;                // re-activated by G after a tool run or when not repeatable (and by Y)
   readonly targets: readonly MeshId[];
   readonly seed: string;                       // stepSeed for derived MeshSetOp ids (§3 rule 3)
   readonly context: { readonly symmetry: Readonly<Record<string, SymmetrySettings>>; readonly soft: SoftSelectSettings | null };
   readonly closed: string | null;              // why the card closed; null = live (§5.7)
 }
-export interface ExtrudeSessionState { readonly stepId: number; readonly meshes: readonly MeshId[]; readonly frame: OpFrame }   // world frame
+export interface ExtrudeSessionState {
+  readonly stepId: number;
+  readonly meshes: readonly MeshId[];
+  readonly frame: OpFrame;                     // world frame of the first region
+  /** The session's args undo stack (§5.8): stack[0] = the extrude's first args; `index` = the args now applied. */
+  readonly stack: readonly ParamValues[];
+  readonly index: number;
+  readonly manipSpace: 'local' | 'world';      // the extrude manipulator's local/world toggle (Maya)
+}
 export interface NumericCaptureState {
   readonly armed: 'drag' | 'keyboard-op' | null;
   readonly field: string | null;               // param being edited
@@ -1166,8 +1278,11 @@ export interface NumericCaptureState {
 export interface ModelSessionState {
   readonly componentMode: ComponentMode;                 // 'object'
   readonly lastComponentMode: ComponentKind;             // F8 target; 'vertex'
+  /** Hilited meshes; kept (not drawn) while in object mode so the Last-op card can compare them at the next
+   *  component entry (§5.6). */
   readonly hilite: readonly MeshId[];
-  readonly components: { readonly version: number; readonly selected: ComponentCounts; readonly hidden: ComponentCounts };
+  readonly components: { readonly version: number; readonly selected: ComponentCounts; readonly mirrored: ComponentCounts;
+    readonly hidden: ComponentCounts };                  // mirrored = partners the symmetry expansion adds (HUD "+40 sym")
   readonly symmetry: ReadonlyMap<MeshId, SymmetrySettings>;   // remembered per mesh (absent = prefs default, 'off')
   readonly softSelect: SoftSelectSettings;               // { on: false, radius: 0.5, falloff: 'volume', curve: 'smooth' }
   readonly constraint: SelectionConstraint;              // 'off'
@@ -1186,7 +1301,11 @@ export interface ModelSessionState {
   readonly tweakHandle: ManipHandle | null;              // last-picked handle of the W/E/R tool (MMB rule, §5.15)
 }
 export interface SessionState { …M1/M2a…; readonly workspace: WorkspaceId; readonly lastRun: LastRun | null;
-  readonly model: ModelSessionState }                    // changed (additive)
+  readonly model: ModelSessionState;
+  /** Per-workspace viewport layout: `workspace.set` stores the leaving workspace's `viewportLayout`/`maximizedPane`
+   *  here and restores the entered one's (Model default: quad, `pane-persp` maximized), so Animate's are untouched. */
+  readonly workspaceViews: Readonly<Record<string, { readonly layout: ViewportLayout; readonly maximizedPane: string | null }>>;
+}                                                        // changed (additive)
 export type UiDialog = …M2a… | 'makeEditableReport' | 'imagePlaneImport';   // changed (additive)
 
 // ---------- preferences (P) ----------
@@ -1213,6 +1332,8 @@ export interface Prefs {
 
 // ---------- panes and display (changed) ----------
 export type Shading = 'wire' | 'shaded' | 'colours' | 'lit';
+/** Per-pane flags are remembered **per workspace** (B9: the ViewportManager's pane memory is keyed
+ *  `<workspace>:<paneId>`), so Model's 'colours' shading never shows in Animate's `pane-persp`. Defaults below. */
 export interface DisplayFlags {
   …M1…
   readonly shading: Shading;          // Animate 'lit' (= today's look), Model 'colours'
@@ -1240,6 +1361,9 @@ export interface OperatorDef<A = void, R = void, P = void> {
     readonly selection?: boolean };
   /** ADR 0016 D6: one source for the Last-op card, INPUTS, option boxes, palette prompts and the JSON schema. */
   readonly params?: readonly ParamDef[];
+  /** Declared non-param arg keys the runner passes through `coerceArgs` untouched (`meshOperator` adds `meshes` and
+   *  `kind`; `mesh.primitive.set` declares `mesh`; `imagePlane.import` declares `bytes`, …). Other unknown keys drop. */
+  readonly extraArgs?: readonly string[];
   readonly tool?: ToolId;                      // G (non-repeatable) and Y re-activate it
   readonly workspaces?: readonly WorkspaceId[];   // menus and palette list it only there; poll is unaffected
   readonly aliases?: readonly string[];        // command-palette aliases (Blender names: 'Loop Cut', 'Knife', …)
@@ -1277,7 +1401,17 @@ export interface NumericTarget {
   cancel(): void;                              // = Esc
 }
 export interface ToolInstance { …M1…; phase?(): ToolPhase; numeric?(): NumericTarget | null }
-export interface ToolDef<Host = unknown> { …M1…; readonly workspaces?: readonly WorkspaceId[]; readonly modes?: readonly ComponentMode[] }
+export interface ToolKeyEvent { …M1…; readonly ctrl: boolean; readonly repeat: boolean }   // changed (additive): literal Ctrl
+export interface ToolDef<Host = unknown> {
+  …M1…
+  readonly workspaces?: readonly WorkspaceId[];
+  /** Metadata only (where menus and the Toolkit offer the tool). One ToolDef per id: the shipped `move`/`rotate` and
+   *  the new `scale` branch on the component mode inside (B12a), never a second registration of the same id. */
+  readonly modes?: readonly ComponentMode[];
+  /** `KeyboardEvent.code`s the tool always receives first, idle or not (§5.17): transform tools X, V, J, D, B;
+   *  Paint Colour KeyI, Enter. Placing/dragging tools also receive the reserved modal keys. */
+  readonly keys?: readonly string[];
+}
 export const VIEWPORT_TOOL = { …M1…, scale: 'scale', multiCut: 'multiCut', insertLoop: 'insertLoop',
   targetWeld: 'targetWeld', slide: 'slide', paint: 'paint', extrude: 'extrude' } as const;   // changed
 
@@ -1285,7 +1419,7 @@ export const VIEWPORT_TOOL = { …M1…, scale: 'scale', multiCut: 'multiCut', i
 export interface MeshSelectionSnapshot {
   readonly manifest: string | null;            // revision the indices belong to
   readonly kind: ComponentKind;
-  readonly verts: Uint32Array; readonly edges: Uint32Array; readonly faces: Uint32Array;   // BitSet.encode() runs
+  readonly verts: Uint32Array; readonly edges: Uint32Array; readonly faces: Uint32Array;   // BitSet.encode() (tagged)
   readonly order: Uint32Array | null; readonly active: number;
 }
 export interface SelectionSnapshot {            // also the value of TxMeta.selectionBefore/After from M6a on
@@ -1308,7 +1442,10 @@ export interface HistoryStep { …M1…; readonly selection?: SelectionPart | nu
 export type HistoryDropReason = 'limit' | 'clear' | 'budget' | 'redo-cleared';
 export interface EditorHistory {
   …M1…
-  /** Records a selection-only step ('Select', 'Hide', 'Show'), coalescing by §5.6; clears redo. */
+  /** Records a selection-only step ('Select', 'Hide', 'Show'), coalescing by §5.6; clears redo in both EditorHistory
+   *  and the doc (`UndoManager.clearRedo()`). A step with only a selection part is not empty: `isEmpty` and pruning
+   *  keep it. Dropping a step that owns a doc entry (the 500-step limit included) evicts the doc entries up to it
+   *  (`evictOldest`), so no doc entry outlives its step. */
   recordSelection(part: SelectionPart, label: 'Select' | 'Hide' | 'Show'): void;
   /** Steps leaving the history for good, oldest first. */
   onDrop(listener: (steps: readonly HistoryStep[], reason: HistoryDropReason) => void): Disposer;
@@ -1323,18 +1460,25 @@ export interface BlobStore {
   put(bytes: Uint8Array): BlobId;              // sync: hashes, dedupes, keeps bytes resident
   get(id: BlobId): Promise<Uint8Array>;        // hash-verified; EkzaError('blob-missing' | 'blob-corrupt')
   peek(id: BlobId): Uint8Array | undefined;
-  has(id: BlobId): boolean;                    // resident, or known to the backing store
-  persist(ids: readonly BlobId[]): Promise<void>;   // memory: no-op; browser: IndexedDB `blobs` store
-  /** Frees resident blobs not in `reachable` (mark-and-sweep, §5.20); persisted copies are untouched. */
+  has(id: BlobId): boolean;                    // resident (the store has no other backing; autosave owns IndexedDB)
+  /** Frees resident blobs not in `reachable` (mark-and-sweep, §5.20). Never call it inside a transaction or an
+   *  emit loop (§5.20 sweep rule). */
   sweep(reachable: ReadonlySet<BlobId>): { readonly freed: number; readonly bytes: number };
   readonly residentBytes: number;
   ids(): readonly BlobId[];
+  /** Blobs `put` since the last completed sweep: roots until the next completed batch (§5.20). */
+  readonly fresh: ReadonlySet<BlobId>;
+  /** Chunk closure of revisions (manifests + their chunks), from resident manifests; editor-core computes it so the
+   *  browser autosave store never parses manifests. */
+  closure(manifests: readonly BlobId[]): readonly BlobId[];
 }
 export interface EditorServices { …M1/M2a…; readonly blobs?: BlobStore | null }   // absent: an in-memory store
-export interface AutosaveStore {                // changed: slots carry their mesh roots (§5.20)
+export interface AutosaveStore {                // changed: slots carry their mesh blob closure (§5.20)
   open(): Promise<string>;
+  /** The autosave store is the **single owner** of the IndexedDB `blobs` object store: it writes the blobs of
+   *  `blobs` that are missing, records them as the slot's set, and deletes blobs no slot lists in an idle pass. */
   write(slot: string, data: { readonly snapshotJson: string; readonly assets: readonly AssetRecord[];
-    readonly info: Omit<AutosaveSlotInfo, 'id' | 'bytes'>; readonly blobRoots: readonly BlobId[] },
+    readonly info: Omit<AutosaveSlotInfo, 'id' | 'bytes'>; readonly blobs: readonly BlobId[] },
     readAsset: (id: AssetId) => Promise<Uint8Array>, readBlob: (id: BlobId) => Promise<Uint8Array>): Promise<{ readonly bytes: number }>;
   listOrphans(): Promise<readonly AutosaveSlotInfo[]>;
   read(slot: string): Promise<{ readonly snapshot: unknown;
@@ -1349,14 +1493,20 @@ export type MeshRuntimeEvent =
   | { readonly type: 'changed'; readonly dirty: DirtySet; readonly preview: boolean }
   | { readonly type: 'state'; readonly state: MeshRuntimeState }
   | { readonly type: 'rebuilt' };
+/** The registry keeps one runtime for **every live mesh record with `data`** (§5.5 lifecycle). */
 export interface MeshRuntime {
   readonly id: MeshId;
-  readonly state: MeshRuntimeState;            // 'asset' = data null; 'loading' while chunks resolve
+  /** 'asset' = data null (reserved, never written in M6a); 'loading' while the kernel chunk or non-resident blobs
+   *  resolve; 'ready' = the revision's MeshData is resident; 'error' = a blob is missing or corrupt. */
+  readonly state: MeshRuntimeState;
   readonly error: string | null;
   readonly ref: MeshRef | null;                // revision the mesh equals when no session is open
-  readonly mesh: EditMesh | null;              // non-null only in 'ready'
+  /** Stored form of the current revision in 'ready' (open or closed): MeshSurface, export, HUD of closed meshes. */
+  data(): MeshData | null;
+  readonly isOpen: boolean;                    // edit links exist (open() … close())
+  readonly mesh: EditMesh | null;              // non-null only while 'ready' and open
   readonly version: number;                    // bumps on every content change, previews included
-  triangulation(): Triangulation;              // cached; incremental by dirty faces
+  triangulation(): Triangulation;              // cached; incremental by dirty faces; works open or closed
   normals(): Normals;
   symmetry(): SymmetryMap | null;              // for the mesh's current SymmetrySettings; rebuilt after topology commits
   subscribe(listener: (e: MeshRuntimeEvent) => void): Disposer;
@@ -1382,8 +1532,14 @@ export interface MeshSetCommitResult {
 }
 export interface MeshRuntimeRegistry {
   get(id: MeshId): MeshRuntime | undefined;
-  open(id: MeshId): MeshRuntime;               // idempotent; builds edit links when the revision is resident
-  close(id: MeshId): void;                     // drops edit links and caches (keeps nothing the document needs)
+  /** Idempotent; builds edit links. From resident chunks (`BlobStore.peek`) it is synchronous; 'loading' only when
+   *  chunks are not resident. Callers: B10 (entering a component mode, hilite changes), B7 (commitOp/commitSetOp open
+   *  their targets for the run and close the ones that were closed before). */
+  open(id: MeshId): MeshRuntime;
+  /** Drops edit links and their caches only. The runtime, its MeshData, its journal and the last-op edge survive, so
+   *  `edit.adjustLast` after leaving component mode stays synchronous. Callers: B10 (leaving component mode,
+   *  un-hiliting). */
+  close(id: MeshId): void;
   list(): readonly MeshRuntime[];
   /** Preview session (tools, card drags). `base: 'before-last'` previews an adjust-last re-run from the pre-op mesh. */
   beginOp(op: MeshOp, targets: readonly MeshId[], args: ParamValues, opts?: { readonly base?: 'current' | 'before-last';
@@ -1400,12 +1556,16 @@ export interface MeshRuntimeRegistry {
   readonly journalBytes: number;
   subscribe(listener: (id: MeshId, e: MeshRuntimeEvent) => void): Disposer;
 }
-/** Wraps a kernel op as a registry operator (poll from the kernel and the runtime's 'loading' state; apply through
- *  MeshRuntimeRegistry.commitOp); params, JSON schema and defaults derive from `op.params` (ADR 0016 D6). */
-export function meshOperator(op: MeshOp, opts?: { readonly category?: string; readonly scope?: KeyScope;
+/** Wraps a kernel op as a registry operator from its **descriptor** (eager; menus, cards and the palette need no
+ *  kernel). poll: the kernel op's poll once the kernel chunk is loaded (else "Mesh tools are loading") and the
+ *  runtime's 'loading' state; apply through MeshRuntimeRegistry.commitOp; params, JSON schema and defaults derive
+ *  from `desc.params` (ADR 0016 D6); `extraArgs` = ['meshes', 'kind']. */
+export function meshOperator(desc: MeshOpDescriptor, opts?: { readonly category?: string; readonly scope?: KeyScope;
   readonly tool?: ToolId; readonly aliases?: readonly string[] }): OperatorDef<MeshOpArgs, MeshOpOutcome, void>;
-export function meshSetOperator(op: MeshSetOp, opts?: { readonly category?: string }): OperatorDef<MeshOpArgs, MeshSetCommitResult, void>;
-export type MeshOpArgs = ParamValues & { readonly meshes?: readonly MeshId[] };   // default targets: hilited meshes with a selection
+export function meshSetOperator(desc: MeshSetOpDescriptor, opts?: { readonly category?: string }): OperatorDef<MeshOpArgs, MeshSetCommitResult, void>;
+/** Default targets: the hilited meshes with a selection of `kind`. `kind` defaults to the current component mode's
+ *  kind; Adjust Last passes the recorded one (§5.7), so a re-run in object mode reads the restored face selection. */
+export type MeshOpArgs = ParamValues & { readonly meshes?: readonly MeshId[]; readonly kind?: ComponentKind };
 export interface MeshOpOutcome { readonly meshes: readonly MeshId[]; readonly warnings: readonly OpWarning[] }
 
 // ---------- component selection service (B10) ----------
@@ -1434,10 +1594,19 @@ export interface AbsorbGesture {
 }
 export interface ExtrudeSessionApi {
   readonly state: ExtrudeSessionState | null;
-  /** W/E/R and MMB drags on the cap call this first; null = no session (transform the components normally). */
-  beginAbsorb(): AbsorbGesture | null;
-  /** Ends the session before the ending gesture reads the mesh (§5.8); applies the zero-drop rule. */
-  end(reason: string): void;
+  /** W/E/R and MMB drags on the cap call this first; null = no session (transform the components normally). The
+   *  gesture converts from the tool's space for translate and rotate, and always from the session frame for scale
+   *  (§5.8). */
+  beginAbsorb(tool: 'move' | 'rotate' | 'scale' | 'mmb', space: 'world' | 'object' | 'component'): AbsorbGesture | null;
+  /** Ends the session before the ending gesture reads the mesh (§5.8); `drop` applies the zero-drop rule. */
+  end(reason: string, opts: { readonly drop: boolean }): void;
+  /** `edit.undo`/`edit.redo` call these first while a session is open (§5.8 args stack): true = handled (one step
+   *  back/forward through `stack` by `edit.adjustLast`), false = at the stack's end (undo then removes the extrude). */
+  stepBack(): boolean;
+  stepForward(): boolean;
+  /** `T` (§5.7): reopens a session when `lastRun` is a live `mesh.extrude` whose result is still the selection. */
+  reopen(): boolean;
+  setManipSpace(space: 'local' | 'world'): void;
 }
 export interface NumericCaptureApi {
   readonly state: NumericCaptureState;
@@ -1466,8 +1635,10 @@ export interface EditorApp {
 in `editor-core/src/mesh/operator.ts` (B7; B0a lands them as working wrappers over the stub runtime). `OperatorMap`
 additions (`operators/args.ts`; B0a). Kernel ops (`mesh.*` of §6.1) are typed `MeshOpArgs` and return
 `MeshOpOutcome` (MeshSetOps return `MeshSetCommitResult`); the editor operators of §6.2 are typed individually there.
-`ParamValues` args are validated by `coerceArgs` in the runner before `poll`, so a script, a palette prompt and the
-card all pass the same checks.
+`ParamValues` args are validated by `coerceArgs(def.params, raw, { passThrough: def.extraArgs })` in the runner
+before `poll`, so a script, a palette prompt and the card all pass the same checks while target lists and
+operator-specific ids survive (a runner test asserts `meshes` and `kind` reach `apply` unchanged). Operators without
+`params` are not coerced (shipped behaviour).
 
 ### 4.7 viewport
 
@@ -1498,26 +1669,34 @@ card all pass the same checks.
 - Overlays (`editor/src/overlays/`, B9): `MarkingMenu` (generic; data from `app.markingMenus`), `CommandPalette`
   (`Mod+K`; list UI lazy), `OptionBoxPopover` (B11 fills it), `ModalReadout` slot (B12a), `LastOpCard` slot (B11),
   HUD slot (B10), `ModelEmptyState` and `GettingStarted` slots (B13). B9 creates the slots in `PaneView.tsx` /
-  `ViewportPanel.tsx`; owners register components into them (`registerPaneOverlay(id, component)`).
+  `ViewportPanel.tsx`; owners register components into them (`registerPaneOverlay(id, component)`). Key hints in
+  every overlay, card, help line and the Getting started card are rendered through `KeymapManager.label` (`⌘E` on
+  macOS, `Ctrl+E` elsewhere), never hard-coded.
 
-Test API additions (`packages/editor/src/test-api/types.ts`; B0a writes the types and stubs, the owners fill them):
+Test API additions (`packages/editor/src/test-api/types.ts`; B0a writes the types, `createTestApi.ts` and one stub
+file per owner, `editor/src/test-api/m6a/<package-slug>.ts`, which `createTestApi.ts` spreads in; each owner fills only
+its own file, named by the comment above each group):
 
 ```ts
 export interface EkzaAnimatorTestApi {
   …M1/M2a…
   state(): { …M1/M2a…; workspace: string; mode: string; hilite: string[]; capture: { armed: string | null;
     field: string | null; text: string | null }; extrudeSession: boolean };            // changed (additive)
-  /** B9 */
+  /** B9 (`m6a/shell-workspaces.ts`) */
   workspaces(): { id: string; label: string; enabled: boolean; active: boolean; glyph: string; reasons: string[] }[];
+  pixel(paneId: string, x: number, y: number): [number, number, number, number];   // page CSS px, after a render
   resolveKey(chord: { code: string; mod?: boolean; shift?: boolean; alt?: boolean; ctrl?: boolean },
     at: { panel: string; paneId?: string }): { op: string; args: unknown; scope: string } | null;
   markingMenu(): { id: string; slots: Record<string, { label: string; op: string | null; enabled: boolean }>;
     list: { label: string; op: string | null; enabled: boolean }[]; screenOfSlot: Record<string, { x: number; y: number }> } | null;
   commandPalette(): { open: boolean; query: string; items: { op: string; label: string; enabled: boolean }[] } | null;
-  /** B7 (records) + B1 (counts, stats) */
+  /** B7 (`m6a/mesh-runtime-doc.ts`; counts, stats and normals through the kernel). `meshes()` lists the records plus
+   *  one virtual row per loaded character glTF mesh without a record: badge 'asset', id = its derived MeshId (§5.21),
+   *  manifest null, runtime 'none'. */
   meshes(): { id: string; name: string; owner: string; parent: string | null; badge: 'prim' | 'edit' | 'asset';
     manifest: string | null; rev: number; faceted: boolean; generator: string | null; palette: string | null;
     counts: { v: number; e: number; f: number; c: number; tris: number } | null; runtime: string }[];
+  meshNormals(mesh: string): { face: number[][]; corner: number[][] } | null;   // computeNormals of the current revision
   meshInfo(mesh: string): { counts: { v: number; e: number; f: number; c: number; tris: number };
     stats: { shells: number; boundaryLoops: number; euler: number; nonManifoldEdges: number; nonManifoldVerts: number };
     problems: number; bounds: [number[], number[]]; manifest: string; layers: string[] } | null;
@@ -1525,30 +1704,31 @@ export interface EkzaAnimatorTestApi {
   meshFaces(mesh: string): number[][];                 // vertex indices per face, winding order
   meshEdges(mesh: string): { v: [number, number]; hard: boolean; seam: boolean; faces: number }[];
   meshLayer(mesh: string, layer: string, indices?: number[]): number[][];
-  shading(mesh: string): { hardEdges: number; softEdges: number; borderEdges: number };   // B1 (normals)
-  /** B10 */
+  shading(mesh: string): { hardEdges: number; softEdges: number; borderEdges: number };
+  /** B10 (`m6a/model-select-ui.ts`). `expanded` = the stored selection plus its symmetry partners (what ops run on). */
   model(): { mode: string; hilite: string[]; selected: Record<string, { vertex: number[]; edge: number[]; face: number[];
-    active: number; order: number[] }>; hidden: Record<string, { vertex: number[]; edge: number[]; face: number[] }>;
+    active: number; order: number[] }>; expanded: Record<string, { vertex: number[]; edge: number[]; face: number[] }>;
+    hidden: Record<string, { vertex: number[]; edge: number[]; face: number[] }>;
     hiddenObjects: string[]; isolate: Record<string, string[] | null>; style: string; cameraBased: string };
   screenOfVertex(mesh: string, v: number, paneId: string): { x: number; y: number } | null;   // null when occluded/off-screen
   screenOfEdge(mesh: string, e: number, paneId: string, t?: number): { x: number; y: number } | null;
   screenOfFace(mesh: string, f: number, paneId: string): { x: number; y: number } | null;     // a visible interior point
   hud(paneId: string): { mode: string; scene: Record<string, number>; object: Record<string, number>;
-    selected: Record<string, number>; budget: { tris: number; limit: number | null; state: 'ok' | 'warn' | 'danger' };
-    version: number } | null;
+    selected: Record<string, number>; selectedSym: Record<string, number>;   // "40 (+40 sym)": 40 and 40
+    budget: { tris: number; limit: number | null; state: 'ok' | 'warn' | 'danger' } } | null;
   meshCheck(mesh: string): { code: string; count: number; elements: number[] }[];
   paneObjects(paneId: string): string[];               // objects drawn in the pane (isolate, hide)
-  /** B2 via B12a */
+  /** B12a (`m6a/model-transform-tools.ts`; B2 maps) */
   symmetry(mesh: string): { mode: string; tolerance: number; preserveSeam: boolean; unmatched: number;
     vertexPartners: number[] } | null;
   softWeights(mesh: string): number[] | null;
-  /** B11 */
+  /** B11 (`m6a/model-ops-ui.ts`) */
   lastOp(): { id: string; label: string; args: Record<string, unknown>; adjustable: boolean; repeatable: boolean;
     closed: string | null } | null;
   lastOpCard(paneId?: string): { title: string; expanded: boolean; fields: { name: string; label: string;
     text: string; value: number | boolean | string }[]; focused: string | null } | null;
-  history(): { undo: string[]; redo: string[] };       // labels, oldest first
-  /** B13 */
+  history(): { undo: string[]; redo: string[] };       // labels, oldest first (B0a: kernel-level)
+  /** B13 (`m6a/model-content.ts`) */
   palettes(): { id: string; name: string; swatches: { id: string; slot: number; srgb: [number, number, number];
     name: string }[] }[];
   activeSwatch(): string | null;
@@ -1556,9 +1736,8 @@ export interface EkzaAnimatorTestApi {
     depth: string; locked: boolean; visible: boolean }[];
   /** B7 */
   blobs(): { resident: number; residentBytes: number; historyBytes: number; journalBytes: number };
-  /** INT (E2E-MOD-30) */
+  /** INT (`m6a/integration.ts`; E2E-MOD-30) */
   setExpression(character: string, name: string, weight: number): void;
-  pixel(paneId: string, x: number, y: number): [number, number, number, number];   // page CSS px, after a render
 }
 ```
 
