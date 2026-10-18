@@ -1,7 +1,7 @@
 // Keys the time slider shows and edits (MVP-SPEC §4.11.17): those of the selected controls of the active character,
 // or of all its controls when nothing is selected, on the base layer of the active clip.
 import type { Frame } from '@ekza-animator/anim-core';
-import type { ControlId, CurveRecord, KeyId } from '@ekza-animator/doc';
+import type { ControlId, CurveRecord, KeyId, KeyRecord } from '@ekza-animator/doc';
 import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-animator/editor-core';
 import { bandContains, type FrameRange, makeBand } from './band';
 import { activeTimelineContext, type TimelineContext } from './context';
@@ -44,31 +44,123 @@ export const EMPTY_TICKS: TickSet = {
   breakdown: new Uint8Array(0),
 };
 
+/** Whole-frame key times spanning at most this many frames are counted in dense arrays (no sort). */
+const DENSE_SPAN = 1 << 20;
+
+/** Index of the tick a key time belongs to (merged into the tick at most TICK_EPSILON before it), or -1. */
+function tickIndexOf(times: Float64Array, t: number): number {
+  let lo = 0;
+  let hi = times.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (times[mid]! <= t) lo = mid + 1;
+    else hi = mid;
+  }
+  if (lo > 0 && t - times[lo - 1]! < TICK_EPSILON) return lo - 1;
+  if (lo < times.length && times[lo]! - t < TICK_EPSILON) return lo;
+  return -1;
+}
+
+/** True when `key` is one of the visible keys of its curve (`keys`, time order): hidden duplicates get no tick. */
+function isVisibleKey(keys: readonly KeyRecord[], key: KeyRecord): boolean {
+  let lo = 0;
+  let hi = keys.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    if (keys[mid]!.t < key.t - TICK_EPSILON) lo = mid + 1;
+    else hi = mid;
+  }
+  for (let i = lo; i < keys.length && keys[i]!.t < key.t + TICK_EPSILON; i++) if (keys[i]!.id === key.id) return true;
+  return false;
+}
+
+/**
+ * The ticks of the target controls' keys. Whole-frame keys (the common case) are counted in dense arrays without a
+ * sort or an object per key; selected ticks come from the selected keys, not a selection lookup per key, so a redraw
+ * during a drag of dense curves stays well under a millisecond (M2A-SPEC §5.22).
+ */
 export function collectTicks(app: EditorApp, ctx: TimelineContext | null): TickSet {
   if (ctx === null) return EMPTY_TICKS;
+  const curves = targetCurves(app, ctx, timelineTargets(app, ctx));
+  const lists: (readonly KeyRecord[])[] = [];
+  let count = 0;
+  let min = Infinity;
+  let max = -Infinity;
+  let integral = true;
+  for (const curve of curves) {
+    const keys = app.store.query.keysOfCurve(curve.id);
+    if (keys.length === 0) continue;
+    lists.push(keys);
+    count += keys.length;
+    min = Math.min(min, keys[0]!.t);
+    max = Math.max(max, keys[keys.length - 1]!.t);
+    if (integral) for (const key of keys) if (!Number.isInteger(key.t)) integral = false;
+  }
+  if (count === 0) return EMPTY_TICKS;
+  let times: Float64Array;
+  let breakdown: Uint8Array;
+  if (integral && max - min < DENSE_SPAN) {
+    const span = max - min + 1;
+    // 1: a key there; 2: a key there that is not a breakdown.
+    const flags = new Uint8Array(span);
+    for (const keys of lists) {
+      for (const key of keys) flags[key.t - min]! |= key.breakdown === true ? 1 : 3;
+    }
+    let distinct = 0;
+    for (let i = 0; i < span; i++) if (flags[i] !== 0) distinct++;
+    times = new Float64Array(distinct);
+    breakdown = new Uint8Array(distinct);
+    for (let i = 0, j = 0; i < span; i++) {
+      const flag = flags[i]!;
+      if (flag === 0) continue;
+      times[j] = min + i;
+      breakdown[j] = flag === 1 ? 1 : 0;
+      j++;
+    }
+  } else {
+    const all = new Float64Array(count);
+    const plain = new Uint8Array(count);
+    let k = 0;
+    for (const keys of lists) {
+      for (const key of keys) {
+        all[k] = key.t;
+        plain[k] = key.breakdown === true ? 0 : 1;
+        k++;
+      }
+    }
+    const order = new Uint32Array(count);
+    for (let i = 0; i < count; i++) order[i] = i;
+    order.sort((a, b) => all[a]! - all[b]!);
+    const outTimes: number[] = [];
+    const outBreakdown: number[] = [];
+    for (let i = 0; i < count; i++) {
+      const index = order[i]!;
+      const t = all[index]!;
+      const last = outTimes.length - 1;
+      if (last >= 0 && t - outTimes[last]! < TICK_EPSILON) {
+        if (plain[index] === 1) outBreakdown[last] = 0;
+        continue;
+      }
+      outTimes.push(t);
+      outBreakdown.push(plain[index] === 1 ? 0 : 1);
+    }
+    times = Float64Array.from(outTimes);
+    breakdown = Uint8Array.from(outBreakdown);
+  }
+  const selected = new Uint8Array(times.length);
   const selection = app.session.getState().selection.keys;
-  const keys: { readonly t: Frame; readonly selected: boolean; readonly breakdown: boolean }[] = [];
-  for (const curve of targetCurves(app, ctx, timelineTargets(app, ctx))) {
-    for (const key of app.store.query.keysOfCurve(curve.id)) {
-      keys.push({ t: key.t, selected: selection.get(key.id)?.key === true, breakdown: key.breakdown === true });
+  if (selection.size > 0) {
+    const targets = new Set(curves.map((curve) => curve.id));
+    for (const [id, parts] of selection) {
+      if (!parts.key) continue;
+      const key = app.store.get('keys', id);
+      if (key === undefined || !targets.has(key.curve)) continue;
+      if (!isVisibleKey(app.store.query.keysOfCurve(key.curve), key)) continue;
+      const index = tickIndexOf(times, key.t);
+      if (index >= 0) selected[index] = 1;
     }
   }
-  keys.sort((a, b) => a.t - b.t);
-  const times: number[] = [];
-  const flags: number[] = [];
-  const breakdowns: number[] = [];
-  for (const key of keys) {
-    const last = times.length - 1;
-    if (last >= 0 && key.t - times[last]! < TICK_EPSILON) {
-      if (key.selected) flags[last] = 1;
-      if (!key.breakdown) breakdowns[last] = 0;
-      continue;
-    }
-    times.push(key.t);
-    flags.push(key.selected ? 1 : 0);
-    breakdowns.push(key.breakdown ? 1 : 0);
-  }
-  return { times: Float64Array.from(times), selected: Uint8Array.from(flags), breakdown: Uint8Array.from(breakdowns) };
+  return { times, selected, breakdown };
 }
 
 /** Index of the tick nearest to `frame`, or -1 when there are no ticks. */

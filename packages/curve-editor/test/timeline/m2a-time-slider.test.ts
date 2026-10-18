@@ -211,6 +211,43 @@ describe('ticks, band points and the menu (§4.8, §5.9)', () => {
     expect(near(at(30), hex(DEFAULT_TIMELINE_THEME.keySelected))).toBe(true);
   });
 
+  it('merges fractional key times within 1e-6; a mixed tick is a key; any selected key there selects it', async () => {
+    const m = await setUp();
+    const hand = addCurve(m.app, WAVE.handL, 'rx', [2.5, 7.25, 15]);
+    const upper = addCurve(m.app, WAVE.upperArmL, 'rx', [2.5000001, 7.25, 15.5]);
+    m.app.store.transact({ label: 'Breakdowns', undoable: false }, (tx) => {
+      for (const id of [hand.keys[0], upper.keys[0], hand.keys[1]]) tx.patch('keys', id!, { breakdown: true });
+    });
+    const state = m.app.session.getState();
+    m.app.session.setState({
+      selection: { ...state.selection, keys: new Map([[upper.keys[0]!, { key: true, in: false, out: false }]]) },
+    });
+    expect(m.slider.keyTicks()).toEqual([
+      { frame: 0, breakdown: false, selected: false },
+      { frame: 2.5, breakdown: true, selected: true },
+      { frame: 7.25, breakdown: false, selected: false },
+      { frame: 15, breakdown: false, selected: false },
+      { frame: 15.5, breakdown: false, selected: false },
+      { frame: 30, breakdown: false, selected: false },
+    ]);
+    // A key move refreshes the ticks (whole frames again: the dense path).
+    m.app.store.transact({ label: 'Whole', undoable: false }, (tx) => {
+      tx.patch('keys', hand.keys[0]!, { t: 3 });
+      tx.patch('keys', upper.keys[0]!, { t: 3 });
+      tx.patch('keys', hand.keys[1]!, { t: 7 });
+      tx.patch('keys', upper.keys[1]!, { t: 7 });
+      tx.patch('keys', upper.keys[2]!, { t: 16 });
+    });
+    expect(m.slider.keyTicks()).toEqual([
+      { frame: 0, breakdown: false, selected: false },
+      { frame: 3, breakdown: true, selected: true },
+      { frame: 7, breakdown: false, selected: false },
+      { frame: 15, breakdown: false, selected: false },
+      { frame: 16, breakdown: false, selected: false },
+      { frame: 30, breakdown: false, selected: false },
+    ]);
+  });
+
   it('band points hit the band handles; a 1-frame band has a middle only', async () => {
     const m = await setUp();
     expect(m.slider.bandPoint('middle')).toBeNull();
