@@ -55,7 +55,7 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 | A2 | `ik-editor` | IK operators and UI (Channel Box, Attributes with foot fields, viewport), visibility, pick-walk, virtual slider (rows and viewport MMB), body-part keying | A2 | 6 | Planned | IK e2e after A1 |
 | A3 | `dopesheet-timing` | Dope Sheet, time-slider copy/ripple/MMB carry/nudge, insert/remove time, global-region ripple, breakdown retiming | A3 | 5.5 | Planned | FR-DS-01..02, FR-TIME-10 |
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Planned | FR-KEY-08..09, FR-GE-18..20 |
-| A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Planned | FR-PROJ-05, FR-EXP-12 |
+| A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Built (branch `m2a/platform-perf`) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
 | INT | — | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS | Integration | 3 | Planned | after A1…A5 |
 
 ---
@@ -140,6 +140,33 @@ Not measured: the Apple M1 reference laptop, Safari and Firefox (V1), and the Sw
 
 M2a fixes the three misses with stated targets and mechanisms: M-1 in package A4 (M2A-SPEC §5.21.1), M-2 and M-3 in
 package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B).
+
+### M2a budget re-measurement (package A5, branch `m2a/platform-perf`)
+
+Measured 2026-10-18 with `pnpm --filter web bench:budgets` (e2e build, real Chrome 155 with the GPU, 1440×900 at DPR 2)
+and the package benches, on the same Apple M4 Pro under heavier shared load than M1's record (load average 26–66 from
+other agents' runs; method and raw numbers in [wp-notes/m2a-platform-perf.md](wp-notes/m2a-platform-perf.md)). This is
+A5's branch before A1…A4 merge; the integration re-runs the table on the merged build (M2A-SPEC §10).
+
+| §14 scenario | Budget | Measured | Verdict |
+|---|---|---|---|
+| Idle editor | 0 WebGL frames, 0 canvas redraws | 0 / 0 over 2 s (empty; Seed-san + wave in split and quad) | Met (gated by E2E-00) |
+| Pose evaluation, 1 humanoid | ≤ 0.5 ms | 0.029 ms full pose in the app; rig 0.033 ms (synthetic) / 0.038 ms (Seed-san) | Met |
+| Scrub: pointer move → pose visible | same animation frame | 40 / 40 moves in the same frame | Met |
+| 1 VRM, 4 panes, shaded, playback at 30 fps | ≤ 8 ms CPU/frame | rAF work mean 1.23 ms, p95 2.6 ms; main-thread task time 2.16 ms per frame; viewport bench 0.42 / 0.80 ms | Met |
+| Graph Editor 50k keys / 10k visible, pan/zoom | ≤ 8 ms redraw | median 1.10 ms | Met |
+| Graph Editor 50 curves × 200 keys, full redraw | ≤ 4 ms | median 1.50 ms | Met |
+| Drag 1,000 selected keys | ≤ 4 ms per pointer frame | median 5.1 ms, p95 7.1 ms (A5 does not touch this path) | **Miss** (M-1, package A4) |
+| Undo/redo one gesture | ≤ 5 ms | 2.6 / 2.4 ms for the 1,000-key drag; 0.2 / 0.2 ms for a key step | Met |
+| Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | median 131 ms from the sample click (runs 144, 131, 105 ms; the first loads the model loader and the import pipelines); page ready 407 ms after navigation | Met (+22 ms vs M1, within §5.21.2's 100 ms) |
+| Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | median 15.0 ms (runs 2–5) incl. lints and the read-back; the first export loads its chunk: +20.5 ms | Met |
+| Autosave write, Seed-san × 10 clips (M2a) | ≤ 50 ms main thread | median 11.8 ms (max 12.7 ms) task time per write, 1,800 keys | Met |
+| Editor route JS (gzip, no fixtures) | ≤ 900 kB | first visit 784.3 kB (6 scripts), later visits 777.8 kB (gzip -9, production build; `check:size` equal to the byte) | **Met** (M-2: target 800 kB) |
+| anim-core: 2,200 curves at one frame (MVP-SPEC §6.3 bench) | ≤ 0.3 ms | mean 0.157–0.160 ms, p75 0.162–0.164 ms, min 0.134 ms (pre-M-3 code in the same run: mean 0.371 ms) | **Met** (M-3: mean ≤ 0.20, p75 ≤ 0.25 ms) |
+
+M-2 and M-3 are fixed on this branch. On an in-memory trial merge with A1…A4 the route's first visit measured
+836.4 kB: under the gate, above the 800 kB target by the siblings' code (IK, Dope Sheet extras, tween); the
+integration records the merged number and the next cuts named in the notes.
 
 **What M1 is not** (said in the README and the app): no leg IK — feet are planted per key with Plant Feet; no Dope
 Sheet; no animation layers; no facial expressions in VRMA.
