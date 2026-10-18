@@ -137,6 +137,7 @@ every drag preview batch (`panels/graph/committedQuery.ts`); during a drag the f
 | `editor-core/test/builtin/m2a-operators.test.ts` | `key.tween`, `key.convert`, `pose.mirrorAnimation`, `graph.buffer.*` left the stub list | §4.9 |
 | `editor-core/test/kernel/m2a-foundation.test.ts` | `tweenEdits` and `scaleKeyValues` no longer throw `not-implemented` | §4.5 |
 | `curve-editor/test/contributions.test.ts`, `editor/test/panels/graph.test.tsx` | the Graph Editor tools include `scale`; "More ▾" has the two Convert items | §4.5 `GRAPH_TOOL`, §7 |
+| `apps/web/e2e/acceptance-round1.spec.ts` ("More menu closes …") | "More ▾" holds 7 one-line items (was 5): the two Convert items | §7 Graph Editor toolbar, §4.8 `ge-convert-*` |
 | `apps/web/e2e/m2a-00-foundation.spec.ts` | the four A4 operators left the stub list; `view.tool {graph, scale}` finishes; the status-line Tween bar's probe answers | §4.9, §4.5, §4.8 |
 
 ## Gates
