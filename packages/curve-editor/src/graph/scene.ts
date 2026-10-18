@@ -1,11 +1,13 @@
 // What one Graph Editor frame shows: view, size, curves, selection and time context. Painters and hit-testing read
 // the same scene, so what is hit is what is drawn.
+import type { CompiledAnimCurve } from '@ekza-animator/anim-core';
 import type { CurveId, KeyId } from '@ekza-animator/doc';
 import type { KeyPartSelection } from '@ekza-animator/editor-core';
 import { GRAPH_METRICS } from '../painters/theme';
-import type { GraphViewState } from '../types';
+import type { GraphViewMode, GraphViewState } from '../types';
 import { frameToX, valueToY } from '../view/transform';
-import type { CurveEntry, CurveSet } from './curveSet';
+import { type CurveEntry, type CurveSet, drawnOf } from './curveSet';
+import type { RegionBox } from './region';
 
 export interface GraphScene {
   readonly view: GraphViewState;
@@ -22,6 +24,14 @@ export interface GraphScene {
   readonly range: { readonly start: number; readonly end: number } | null;
   /** Current active-clip frame; null without an active clip. */
   readonly playhead: number | null;
+  /** M2a §5.15.2: how values are drawn (the entries carry the per-curve mapping). */
+  readonly mode: GraphViewMode;
+  /** M2a §5.15.1: compiled buffer curves of the shown curves that have one. */
+  readonly buffers: ReadonlyMap<CurveId, CompiledAnimCurve>;
+  /** M2a §5.15.2: stacked lanes in entry order (null in the other modes). */
+  readonly lanes: readonly { readonly curve: CurveId; readonly label: string; readonly color: string }[] | null;
+  /** M2a §5.15.3: the scale tool's region box (null without the tool or without selected keys). */
+  readonly region: RegionBox | null;
 }
 
 export interface Point {
@@ -34,7 +44,7 @@ export function keyX(scene: GraphScene, entry: CurveEntry, i: number): number {
 }
 
 export function keyY(scene: GraphScene, entry: CurveEntry, i: number): number {
-  return valueToY(scene.view, scene.height, (entry.compiled.v[i] as number) * entry.scale);
+  return valueToY(scene.view, scene.height, drawnOf(entry, entry.compiled.v[i] as number));
 }
 
 /** True when the key's handles are drawn (and hit-testable). */

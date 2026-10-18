@@ -1,5 +1,6 @@
 // Background, outside-range shading, grid lines and axis labels of the Graph Editor (research 09 §4.7).
 import type { GraphScene } from '../graph/scene';
+import { STACK_LANE } from '../graph/viewMode';
 import { frameStep, isMajor, stepDecimals, valueStep } from '../view/grid';
 import { frameToX, valueToY, xToFrame, yToValue } from '../view/transform';
 import { crisp } from './canvas';
@@ -46,7 +47,8 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
       path.lineTo(x, height);
     }
   }
-  if (vLast - vFirst < MAX_LINES) {
+  const stacked = scene.mode === 'stacked';
+  if (!stacked && vLast - vFirst < MAX_LINES) {
     for (let i = vFirst; i <= vLast; i++) {
       const y = crisp(valueToY(view, height, i * vStep));
       const path = isMajor(i) ? major : minor;
@@ -54,6 +56,7 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
       path.lineTo(width, y);
     }
   }
+  if (stacked) laneSeparators(scene, major);
   ctx.lineWidth = 1;
   ctx.strokeStyle = theme.gridMinor;
   ctx.stroke(minor);
@@ -75,7 +78,10 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
   ctx.textAlign = 'left';
   let column = 0; // right edge of the value-label column (0: no value label drawn)
   const decimals = stepDecimals(vStep);
-  if (vLast - vFirst < MAX_LINES) {
+  if (stacked) {
+    column = laneLabels(ctx, scene, stripTop - LABEL_GAP);
+    ctx.fillStyle = theme.label;
+  } else if (vLast - vFirst < MAX_LINES) {
     for (let i = vFirst; i <= vLast; i++) {
       const value = i * vStep;
       const baseline = valueToY(view, height, value) - 1;
@@ -99,6 +105,34 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
       ctx.fillText(text, x, height - FRAME_LABEL_INSET);
     }
   }
+}
+
+/** M2a §5.15.2 stacked view: a line between consecutive lanes. */
+function laneSeparators(scene: GraphScene, path: Path2D): void {
+  const lanes = scene.lanes ?? [];
+  for (let lane = 1; lane < lanes.length; lane++) {
+    const y = crisp(valueToY(scene.view, scene.height, STACK_LANE / 2 - lane * STACK_LANE));
+    if (y < 0 || y > scene.height) continue;
+    path.moveTo(0, y);
+    path.lineTo(scene.width, y);
+  }
+}
+
+/**
+ * M2a §5.15.2 stacked view: each lane's curve label at its top-left corner, above the frame-number strip. Returns 0:
+ * no value-label column for the frame numbers to keep clear of.
+ */
+function laneLabels(ctx: CanvasRenderingContext2D, scene: GraphScene, bottom: number): number {
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  (scene.lanes ?? []).forEach((lane, index) => {
+    const top = valueToY(scene.view, scene.height, STACK_LANE / 2 - index * STACK_LANE) + 2;
+    if (top < 0 || top > bottom - 10) return;
+    ctx.fillStyle = lane.color;
+    ctx.fillText(lane.label, VALUE_LABEL_X, top);
+  });
+  ctx.textBaseline = 'bottom';
+  return 0;
 }
 
 function finiteOr(value: number | undefined, fallback: number): number {

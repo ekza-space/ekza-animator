@@ -3,7 +3,7 @@
 // preview (a drag in progress) is what gets drawn.
 import type { CompiledAnimCurve } from '@ekza-animator/anim-core';
 import type { ChannelId, ControlRecord, CurveId, CurveRecord, KeyId, KeyRecord } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { channelUnit, type EditorApp } from '@ekza-animator/editor-core';
 import { channelColor } from '../channel-tree/colors';
 import { channelDisplayScale } from '../view/transform';
 
@@ -11,8 +11,15 @@ export interface CurveEntry {
   readonly id: CurveId;
   readonly record: CurveRecord;
   readonly channel: ChannelId;
-  /** Display units per curve unit (degrees for rotations). */
-  readonly scale: number;
+  /** Display units per curve unit in the absolute view (degrees for angles, `channelUnit`). */
+  readonly unitScale: number;
+  /**
+   * The drawn value of a curve value v is `v · scale + offset` (M2A-SPEC §5.15.2): in the absolute view `scale` is
+   * `unitScale` and `offset` 0; the normalized and stacked views map each curve into −1…1 (and its lane). Set by the
+   * controller's view mapping whenever the mode, the curve set or the frozen ranges change.
+   */
+  scale: number;
+  offset: number;
   readonly color: string;
   /** Curve lock or channel lock: drawn, never edited or selected. */
   readonly locked: boolean;
@@ -51,6 +58,11 @@ export function channelLocked(control: ControlRecord | undefined, channel: Chann
   return axis !== -1 && (channel[0] === 't' || channel[0] === 'r' || channel[0] === 's') && group[axis] === true;
 }
 
+/** The drawn value of curve value `v` (M2A-SPEC §5.15.2 view mapping). */
+export function drawnOf(entry: CurveEntry, v: number): number {
+  return v * entry.scale + entry.offset;
+}
+
 /** The entry of one curve; null when it is gone or cannot be drawn yet. */
 function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
   const record = app.store.get('curves', id);
@@ -67,11 +79,14 @@ function buildEntry(app: EditorApp, id: CurveId): CurveEntry | null {
   const index = new Map<KeyId, number>();
   keys.forEach((key, i) => index.set(key.id, i));
   const control = app.store.get('controls', record.control);
+  const unitScale = channelDisplayScale(record.channel, channelUnit(control ?? null, record.channel));
   return {
     id,
     record,
     channel: record.channel,
-    scale: channelDisplayScale(record.channel),
+    unitScale,
+    scale: unitScale,
+    offset: 0,
     color: channelColor(record.channel),
     locked: record.locked || channelLocked(control, record.channel),
     compiled,

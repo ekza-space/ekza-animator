@@ -1,19 +1,23 @@
 // Drag gestures of the Graph Editor (ADR 0007 §6: idle → pressed → dragKeys | dragHandle | marquee | pan | zoom →
-// commit | cancel). Key and handle drags run in ONE document preview through the edit kernel (moveKeys,
-// setKeyHandle), commit as one transaction and record one editor-history step; Esc cancels without a trace.
+// commit | cancel). Key and handle drags run as one key-edit gesture (`beginKeyEditGesture`, M2A-SPEC §4.5): pointer
+// moves coalesce to one document preview update per animation frame (M-1 mechanism 1), the release commits one
+// transaction and records one editor-history step; Esc cancels without a trace.
 import type { Handle } from '@ekza-animator/anim-core';
-import type { CurveId, KeyId, PreviewSession, Tx } from '@ekza-animator/doc';
+import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
 import {
+  beginKeyEditGesture,
   type EditorApp,
+  type KeyEditGesture,
   type KeyPartSelection,
   moveKeys,
   type SelectMode,
-  selectionSnapshot,
   setKeyHandle,
+  toDisplayValue,
 } from '@ekza-animator/editor-core';
 import type { OverlayState } from '../painters/overlay';
 import type { GraphViewState } from '../types';
 import { panView, zoomView } from '../view/transform';
+import type { CurveEntry } from './curveSet';
 import type { GraphScene } from './scene';
 
 /** Pointer position and modifiers a gesture reacts to. */
@@ -42,7 +46,9 @@ export interface GestureHost {
 }
 
 export interface Gesture {
-  readonly kind: 'keys' | 'handles' | 'marquee' | 'pan' | 'zoom';
+  readonly kind: 'keys' | 'handles' | 'scale' | 'marquee' | 'pan' | 'zoom';
+  /** Curves whose drawing the gesture changes (the rest stays in the cached static layer, M-1 mechanism 5). */
+  readonly dynamic?: ReadonlySet<CurveId>;
   update(p: GesturePointer): void;
   commit(p: GesturePointer): void;
   cancel(): void;
@@ -125,11 +131,13 @@ export function handleFromPointer(target: HandleTarget, view: GraphViewState, px
 // ---------------------------------------------------------------------------------------------------------------
 // Gestures
 
-/** Shared preview plumbing for key and handle drags. */
-abstract class PreviewGesture implements Gesture {
-  abstract readonly kind: 'keys' | 'handles';
-  protected preview: PreviewSession | null = null;
+/** Shared plumbing of key, handle and scale drags: one key-edit gesture per drag. */
+export abstract class EditGesture implements Gesture {
+  abstract readonly kind: 'keys' | 'handles' | 'scale';
+  abstract readonly dynamic: ReadonlySet<CurveId>;
+  private gesture: KeyEditGesture | null = null;
   private failed = false;
+  private done = false;
 
   constructor(
     protected readonly host: GestureHost,
@@ -143,19 +151,22 @@ abstract class PreviewGesture implements Gesture {
   /** Keys deleted by the final update (collisions), forgotten from the selection after commit. */
   protected deleted: readonly KeyId[] = [];
 
-  update(p: GesturePointer): void {
-    if (this.failed) return;
-    if (this.preview === null) {
+  private open(): KeyEditGesture | null {
+    if (this.gesture === null && !this.failed && !this.done) {
       try {
-        this.preview = this.host.app.store.beginPreview(this.label);
+        this.gesture = beginKeyEditGesture(this.host.app, this.label);
       } catch (error) {
         this.fail(error);
-        return;
       }
     }
-    if (!this.preview.active) return; // cancelled from outside (edit.escape)
+    return this.gesture;
+  }
+
+  update(p: GesturePointer): void {
+    const gesture = this.open();
+    if (gesture === null || !gesture.active) return; // failed, or cancelled from outside (edit.escape)
     try {
-      this.preview.update(this.edit(p, false));
+      gesture.update(this.edit(p, false));
     } catch (error) {
       this.fail(error);
     }
@@ -163,16 +174,11 @@ abstract class PreviewGesture implements Gesture {
   }
 
   commit(p: GesturePointer): void {
-    if (this.failed) return;
-    if (this.preview === null) this.update(p);
-    const preview = this.preview;
-    if (this.failed || preview === null || !preview.active) return;
+    const gesture = this.open();
+    this.done = true;
+    if (gesture === null || !gesture.active) return;
     try {
-      preview.update(this.edit(p, true));
-      const app = this.host.app;
-      const snapshot = selectionSnapshot(app.session.getState().selection);
-      const batch = preview.commit({ label: this.label, selectionBefore: snapshot, selectionAfter: snapshot });
-      if (batch !== null) app.history.record({ label: this.label, docTxId: batch.txId, overrides: null });
+      gesture.commit(this.edit(p, true), { label: this.label });
       if (this.deleted.length > 0) this.host.forgetKeys(this.deleted);
     } catch (error) {
       this.fail(error);
@@ -180,8 +186,9 @@ abstract class PreviewGesture implements Gesture {
   }
 
   cancel(): void {
-    this.preview?.cancel();
-    this.preview = null;
+    this.done = true;
+    this.gesture?.cancel();
+    this.gesture = null;
   }
 
   overlay(): Partial<OverlayState> {
@@ -195,10 +202,43 @@ abstract class PreviewGesture implements Gesture {
   }
 }
 
-export class KeyMoveGesture extends PreviewGesture {
+/** How a dragged curve converts a drawn-value delta (M2A-SPEC §5.15.2): its mapping scale and channel. */
+export interface DragCurve {
+  readonly curve: CurveId;
+  readonly keys: readonly KeyId[];
+  readonly channel: ChannelId;
+  /** Drawn units per curve unit (`CurveEntry.scale`). */
+  readonly scale: number;
+  /** True when the drawn units are the M1 display units `moveKeys` converts (degrees for rotations, else 1). */
+  readonly m1Units: boolean;
+}
+
+/** The dragged keys grouped by curve, with the curve's current drawn mapping (null when a key is not shown). */
+export function dragCurves(scene: GraphScene, keys: readonly KeyId[]): DragCurve[] {
+  const groups = new Map<CurveId, { entry: CurveEntry; keys: KeyId[] }>();
+  for (const key of keys) {
+    const found = scene.curves.byKey.get(key);
+    if (found === undefined) continue;
+    const group = groups.get(found.entry.id);
+    if (group === undefined) groups.set(found.entry.id, { entry: found.entry, keys: [key] });
+    else group.keys.push(key);
+  }
+  return [...groups.values()].map(({ entry, keys: ids }) => ({
+    curve: entry.id,
+    keys: ids,
+    channel: entry.channel,
+    scale: entry.scale,
+    m1Units: entry.offset === 0 && entry.scale === toDisplayValue(entry.channel, 1),
+  }));
+}
+
+export class KeyMoveGesture extends EditGesture {
   readonly kind = 'keys';
+  readonly dynamic: ReadonlySet<CurveId>;
   private axis: AxisLock = null;
   private readout: OverlayState['readout'] = null;
+  private readonly curves: readonly DragCurve[];
+  private readonly sameUnits: boolean;
 
   constructor(
     host: GestureHost,
@@ -206,6 +246,10 @@ export class KeyMoveGesture extends PreviewGesture {
     private readonly keys: readonly KeyId[],
   ) {
     super(host, 'Move Keys', start);
+    this.curves = dragCurves(host.scene(), keys);
+    // One drawn delta is one display delta on every curve (absolute view, M1 units): one `moveKeys` call (M1 path).
+    this.sameUnits = this.curves.every((curve) => curve.m1Units);
+    this.dynamic = new Set(this.curves.map((c) => c.curve));
   }
 
   protected edit(p: GesturePointer, final: boolean) {
@@ -218,9 +262,26 @@ export class KeyMoveGesture extends PreviewGesture {
     const snap = app.session.getState().time.snapToFrames && !(p.alt && this.start.button === 0);
     const shownFrames = snap ? Math.round(dFrames) : dFrames;
     this.readout = { text: `Δt ${formatDelta(shownFrames)}  Δv ${formatDelta(dValue)}`, x: p.x, y: p.y };
+    const opts = { snap, resolveCollisions: final };
     return (tx: Tx) => {
-      const result = moveKeys(app, tx, this.keys, dFrames, dValue, { snap, resolveCollisions: final });
-      if (final) this.deleted = result.deleted;
+      if (this.sameUnits) {
+        const result = moveKeys(app, tx, this.keys, dFrames, dValue, opts);
+        if (final) this.deleted = result.deleted;
+        return;
+      }
+      // Mapped views (§5.15.2) and attribute units: the drawn delta converts per curve (Δv = Δy' / scale) and is
+      // applied in curve units after the time move, whatever units `moveKeys` reads its value delta in.
+      const deleted = moveKeys(app, tx, this.keys, dFrames, 0, opts).deleted;
+      const gone = new Set(deleted);
+      for (const curve of this.curves) {
+        const dv = curve.scale === 0 ? 0 : dValue / curve.scale;
+        if (dv === 0) continue;
+        for (const id of curve.keys) {
+          const key = gone.has(id) ? undefined : tx.get('keys', id);
+          if (key !== undefined) tx.put('keys', { ...key, v: key.v + dv });
+        }
+      }
+      if (final) this.deleted = deleted;
     };
   }
 
@@ -229,8 +290,9 @@ export class KeyMoveGesture extends PreviewGesture {
   }
 }
 
-export class HandleDragGesture extends PreviewGesture {
+export class HandleDragGesture extends EditGesture {
   readonly kind = 'handles';
+  readonly dynamic: ReadonlySet<CurveId>;
   private axis: AxisLock = null;
 
   constructor(
@@ -239,6 +301,7 @@ export class HandleDragGesture extends PreviewGesture {
     private readonly targets: readonly HandleTarget[],
   ) {
     super(host, 'Edit Tangent', start);
+    this.dynamic = new Set(targets.map((target) => target.curve));
   }
 
   protected edit(p: GesturePointer, _final: boolean) {
