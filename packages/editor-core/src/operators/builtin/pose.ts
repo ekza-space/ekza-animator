@@ -15,6 +15,7 @@ import {
   plantFeetChannels,
 } from '@ekza-animator/rig';
 import { applyChannelEdits } from '../../edit/channels';
+import { channelsAt, limbContext, plantIkLeg } from '../../workflows/ik';
 import type { ChannelEditResult, CharacterRuntime, EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import {
@@ -302,7 +303,8 @@ const unpinFeet = defineOperator({
 const plantFeet = defineOperator({
   id: 'pose.plantFeet',
   label: 'Plant Feet',
-  description: 'Re-solve the FK legs so the feet return to their pins at this frame (keys per auto-key).',
+  description:
+    'Put the feet back on their pins at this frame: IK legs move their IK foot, FK legs re-solve (keys per auto-key).',
   category: 'pose',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
@@ -326,9 +328,28 @@ const plantFeet = defineOperator({
       (pin) => typeof sides !== 'string' && sides.includes(pin.side),
     );
     const reference = currentValues(app, runtime.program.controlIds);
-    const solved = plantFeetChannels(runtime.program, currentPose(app, runtime), pins, reference);
-    if (solved.warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: solved.warnings.join('; ') });
-    return writePose(app, tx, solved.values);
+    const pose = currentPose(app, runtime);
+    // M2a §5.8: a leg with ikFk ≥ 0.5 at this frame gets IK control channels (foot bone on the pin with the current
+    // foot-roll attributes); an FK leg the M1 solve. One step.
+    const fkPins: FootPin[] = [];
+    const values = new Map<ControlId, ChannelValues>();
+    for (const pin of pins) {
+      const limb = pin.side === 'L' ? 'leg.L' : 'leg.R';
+      const ctx = limbContext(app, limb, runtime.id);
+      const w = app.evaluation.ikFk(runtime.id, limb);
+      if (typeof ctx === 'string' || w === null || w < 0.5) {
+        fkPins.push(pin);
+        continue;
+      }
+      const ch = channelsAt(app, ctx, ctx.frame, true);
+      values.set(ctx.limb.params.ikControl, plantIkLeg(app, ctx, pose, ch, pin.footWorld));
+    }
+    if (fkPins.length > 0) {
+      const solved = plantFeetChannels(runtime.program, pose, fkPins, reference);
+      if (solved.warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: solved.warnings.join('; ') });
+      for (const [control, channels] of solved.values) values.set(control, channels);
+    }
+    return writePose(app, tx, values);
   },
 });
 

@@ -8,13 +8,12 @@ import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';
 import type { Chord, KeyBinding } from '../../src/types';
 import { opsApp, runOk, runResult, WAVE } from './support';
 
-/** Every M2a operator the built-ins register, with arguments that would be valid once implemented. */
+/**
+ * Every M2a operator the built-ins register, with arguments that would be valid once implemented. Rows leave this
+ * list when their owner lands them (A2: the rig IK operators, select.pickWalk and key.setTarget, tested in
+ * m2a-a2-*.test.ts).
+ */
 const M2A_STUB_RUNS: readonly (readonly [string, unknown])[] = [
-  ['rig.addLimbIk', undefined],
-  ['rig.ikFk.switch', { limb: 'leg.L', to: 'fk' }],
-  ['rig.ikFk.match', { limb: 'arm.R', side: 'ik' }],
-  ['rig.ikFk.matchRange', { limb: 'leg.R', side: 'fk' }],
-  ['rig.setFootParams', { limb: 'leg.L', params: { heelBack: 0.05 } }],
   ['key.toggleRipple', undefined],
   ['key.tween', { mode: 'tween', amount: 50 }],
   ['key.convert', { to: 'breakdown' }],

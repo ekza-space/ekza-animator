@@ -4,7 +4,7 @@
 // these tests cover the editor side: visibility, keying, Channel Box rows, key policies and pick-walk.
 import type { AttrDef, ControlId, ControlRecord, DocSnapshot, RigId, SolverRecord } from '@ekza-animator/doc';
 import { solverId } from '@ekza-animator/doc';
-import type { Ik2Params, LimbDesc, LimbId, RigDefinition, RigProgram } from '@ekza-animator/rig';
+import type { FootRollParams, Ik2Params, LimbDesc, LimbId, RigDefinition, RigProgram } from '@ekza-animator/rig';
 import { registerBuiltinOperators } from '../../src';
 import { createKernelApp } from '../../src/app/kernel';
 import { MAYA_KEYMAP } from '../../src/keymap/maya';
@@ -34,6 +34,19 @@ const ATTR = {
   bank: { type: 'float', default: 0, keyable: true, unit: 'angle' } as AttrDef,
   heelTwist: { type: 'float', default: 0, keyable: true, unit: 'angle', mirror: 'negate' } as AttrDef,
   toeTwist: { type: 'float', default: 0, keyable: true, unit: 'angle', mirror: 'negate' } as AttrDef,
+};
+
+/** Foot pivots of the fixture legs (§4.3 FootRollParams; the side is set per leg). */
+export const FOOT: FootRollParams = {
+  side: 1,
+  ground: [0, 0, 0],
+  yaw: 0,
+  heelBack: 0.05,
+  ballFront: 0.1,
+  toeFront: 0.06,
+  innerWidth: 0.04,
+  outerWidth: 0.04,
+  breakAngle: Math.PI / 6,
 };
 
 const AXES_ON = [true, true, true] as const;
@@ -125,7 +138,7 @@ export function ikWaveDoc(opts?: { readonly limbs?: readonly LimbId[]; readonly 
       ikControl: cid(ik),
       pole: cid(pole),
       hinge: [1, 0, 0],
-      foot: null,
+      foot: leg ? { ...FOOT, side: side === 'L' ? 1 : -1 } : null,
     };
     const id = solverId(RIG, `ik2.${limb}`);
     solvers[id] = {
