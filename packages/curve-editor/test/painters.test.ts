@@ -47,6 +47,80 @@ function matches(canvas: HTMLCanvasElement, dpr: number, x: number, y: number, h
   return count;
 }
 
+interface LabelBox {
+  readonly text: string;
+  readonly left: number;
+  readonly right: number;
+  readonly top: number;
+  readonly bottom: number;
+}
+
+/** Records the glyph box of every label the base layer draws during one forced redraw (CSS px). */
+function paintedLabels(mounted: Mounted): LabelBox[] {
+  const ctx = mounted.base.getContext('2d');
+  if (ctx === null) throw new Error('no 2d context');
+  const labels: LabelBox[] = [];
+  const fillText = ctx.fillText.bind(ctx);
+  ctx.fillText = (text: string, x: number, y: number, maxWidth?: number) => {
+    const m = ctx.measureText(text);
+    labels.push({
+      text,
+      left: x - m.actualBoundingBoxLeft,
+      right: x + m.actualBoundingBoxRight,
+      top: y - m.actualBoundingBoxAscent,
+      bottom: y + m.actualBoundingBoxDescent,
+    });
+    fillText(text, x, y, maxWidth);
+  };
+  try {
+    mounted.controller.redraw(true);
+  } finally {
+    delete (ctx as { fillText?: unknown }).fillText;
+  }
+  return labels;
+}
+
+describe('axis labels (acceptance: "-20" read as "-2" over the frame strip)', () => {
+  it('keeps value labels out of the frame-number strip and frame numbers out of the value-label column', async () => {
+    mounted = mount(await waveApp());
+    const { controller } = mounted;
+    const height = 300;
+    const sy = 1.6; // value step 20
+    let drawnNearStrip = 0;
+    // Sweep the −20 grid line from 40 px above the bottom edge down to the edge, one pixel at a time.
+    for (let offset = 40; offset >= 0; offset--) {
+      controller.setView({ f0: -2, sx: 8, sy, v0: -20 - offset / sy });
+      const labels = paintedLabels(mounted);
+      const frames = labels.filter((l) => l.bottom > height - 4); // frame numbers sit 2 px above the bottom edge
+      const values = labels.filter((l) => l.bottom <= height - 4);
+      expect(frames.length).toBeGreaterThan(0);
+      const stripTop = Math.min(...frames.map((l) => l.top));
+      // The bottom-left corner belongs to neither axis: no frame number there reads as a cut value label.
+      const column = Math.max(0, ...values.map((l) => l.right));
+      for (const frame of frames) {
+        expect({ offset, text: frame.text, clear: frame.left >= column + 2 }).toEqual({
+          offset,
+          text: frame.text,
+          clear: true,
+        });
+      }
+      for (const value of values) {
+        // At least 2 px clear of every frame number (the strip spans the canvas width) and inside the canvas.
+        expect({ offset, text: value.text, bottom: value.bottom <= stripTop - 2 }).toEqual({
+          offset,
+          text: value.text,
+          bottom: true,
+        });
+        expect(value.top).toBeGreaterThanOrEqual(0);
+      }
+      if (values.some((l) => l.text === '-20')) drawnNearStrip = Math.min(drawnNearStrip || offset, offset);
+    }
+    // The label is only skipped close to the strip: well above it, −20 is labelled.
+    expect(drawnNearStrip).toBeGreaterThan(0);
+    expect(drawnNearStrip).toBeLessThanOrEqual(24);
+  });
+});
+
 describe('exact Bézier painting (ADR 0007 §3)', () => {
   for (const dpr of [1, 2]) {
     it(`draws the curve through its exact mid-segment values at DPR ${dpr}`, async () => {

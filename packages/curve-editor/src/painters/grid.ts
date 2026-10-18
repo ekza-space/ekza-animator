@@ -7,6 +7,11 @@ import type { GraphTheme } from './theme';
 
 /** Upper bound of grid lines per axis (a guard against degenerate scales). */
 const MAX_LINES = 2000;
+/** Frame numbers sit this far above the bottom edge; value labels sit this far right of the left edge (CSS px). */
+const FRAME_LABEL_INSET = 2;
+const VALUE_LABEL_X = 3;
+/** Clear space kept between the value labels and the frame-number strip, and right of the value-label column. */
+const LABEL_GAP = 3;
 
 export function paintBackground(ctx: CanvasRenderingContext2D, scene: GraphScene, theme: GraphTheme): void {
   const { width, height } = scene;
@@ -55,27 +60,49 @@ export function paintGrid(ctx: CanvasRenderingContext2D, scene: GraphScene, them
   ctx.strokeStyle = theme.gridMajor;
   ctx.stroke(major);
 
+  // Labels: values along the left edge, frame numbers in a strip along the bottom edge. Neither axis labels the
+  // other's area, so the bottom-left corner stays empty (acceptance: a frame number there read as a cut value label,
+  // and a value label next to the strip collided with it).
   ctx.fillStyle = theme.label;
   ctx.font = theme.font;
   ctx.textBaseline = 'bottom';
-  ctx.textAlign = 'center';
-  if (fLast - fFirst < MAX_LINES) {
-    for (let i = fFirst; i <= fLast; i++) {
-      const frame = i * fStep;
-      ctx.fillText(String(frame), frameToX(view, frame), height - 2);
-    }
-  }
+  // Glyph extent of a label line above and below its 'bottom' baseline, for the current font.
+  const digits = ctx.measureText('-0123456789.');
+  const ascent = finiteOr(digits.actualBoundingBoxAscent, 10);
+  const descent = finiteOr(digits.actualBoundingBoxDescent, 0);
+  const stripTop = height - FRAME_LABEL_INSET - ascent;
+
   ctx.textAlign = 'left';
-  ctx.textBaseline = 'bottom';
+  let column = 0; // right edge of the value-label column (0: no value label drawn)
   const decimals = stepDecimals(vStep);
   if (vLast - vFirst < MAX_LINES) {
     for (let i = vFirst; i <= vLast; i++) {
       const value = i * vStep;
-      const y = valueToY(view, height, value);
-      if (y < 12 || y > height - 12) continue;
-      ctx.fillText(formatValue(value, decimals), 3, y - 1);
+      const baseline = valueToY(view, height, value) - 1;
+      if (baseline - ascent < 1 || baseline + descent > stripTop - LABEL_GAP) continue;
+      const text = formatValue(value, decimals);
+      ctx.fillText(text, VALUE_LABEL_X, baseline);
+      column = Math.max(column, VALUE_LABEL_X + ctx.measureText(text).width);
     }
   }
+  ctx.textAlign = 'center';
+  if (fLast - fFirst < MAX_LINES) {
+    let clear = column === 0; // frames run left to right: once one clears the column, the rest do
+    for (let i = fFirst; i <= fLast; i++) {
+      const frame = i * fStep;
+      const x = frameToX(view, frame);
+      const text = String(frame);
+      if (!clear) {
+        if (x - ctx.measureText(text).width / 2 < column + LABEL_GAP) continue;
+        clear = true;
+      }
+      ctx.fillText(text, x, height - FRAME_LABEL_INSET);
+    }
+  }
+}
+
+function finiteOr(value: number | undefined, fallback: number): number {
+  return value !== undefined && Number.isFinite(value) ? value : fallback;
 }
 
 function formatValue(value: number, decimals: number): string {
