@@ -11,9 +11,9 @@ import {
 import { curve, curveArbitrary, key } from '../curve/arbitraries';
 
 /** Max |reduced − original| at every original key time and every integer frame in range. */
-function measuredError(original: AnimCurve, keys: readonly KeyData[]): number {
-  const a = compileAnimCurve(original);
-  const b = compileAnimCurve({ ...original, keys });
+function measuredError(original: AnimCurve, keys: readonly KeyData[], opts?: { cycleAwareAuto?: boolean }): number {
+  const a = compileAnimCurve(original, opts);
+  const b = compileAnimCurve({ ...original, keys }, opts);
   const first = original.keys[0]!.t;
   const last = original.keys[original.keys.length - 1]!.t;
   let max = 0;
@@ -107,5 +107,60 @@ describe('reduceKeys (MVP-SPEC §4.11.4 Simplify)', () => {
     const result = reduceKeys(dense, { tolerance: 0.005 });
     expect(measuredError(dense, result.keys)).toBeLessThanOrEqual(0.005);
     expect(result.keys.length).toBeLessThan(dense.keys.length);
+  });
+});
+
+describe('reduceKeys with cycleAwareAuto (M2A-SPEC §4.1, §5.23: the editor simplifies the shape it draws)', () => {
+  const CYCLE = { cycleAwareAuto: true } as const;
+
+  it('property: on cyclic curves the cycle-aware error ≤ tolerance and the reported max error is exact', () => {
+    fc.assert(
+      fc.property(
+        curveArbitrary({ minKeys: 3, maxKeys: 12, modes: ['cycle', 'cycleOffset'] }),
+        fc.constantFrom(1e-4, 1e-2, 0.1, 1),
+        (anim, tolerance) => {
+          const result = reduceKeys(anim, { tolerance, cycleAwareAuto: true });
+          const error = measuredError(anim, result.keys, CYCLE);
+          expect(error).toBeLessThanOrEqual(tolerance);
+          expect(error).toBe(result.maxError);
+          expect(result.keys[0]).toBe(anim.keys[0]);
+          expect(result.keys[result.keys.length - 1]).toBe(anim.keys[anim.keys.length - 1]);
+        },
+      ),
+      { numRuns: 300 },
+    );
+  });
+
+  it('changes nothing unless both infinities cycle', () => {
+    fc.assert(
+      fc.property(curveArbitrary({ minKeys: 3, maxKeys: 10 }), fc.constantFrom(1e-3, 0.1), (anim, tolerance) => {
+        fc.pre(!(['cycle', 'cycleOffset'].includes(anim.pre) && ['cycle', 'cycleOffset'].includes(anim.post)));
+        expect(reduceKeys(anim, { tolerance, cycleAwareAuto: true })).toEqual(reduceKeys(anim, { tolerance }));
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it('a loop the plain reduction leaves out of tolerance under the cycle-aware engine; the option keeps it within', () => {
+    const tolerance = 0.05;
+    const loop = curve(
+      [
+        [0, 0.65],
+        [2, -0.65],
+        [6, 0.92],
+        [7, 0.64],
+        [10, 0.15],
+        [14, -0.29],
+      ].map(([t, v]) => key(t as number, v as number, 'auto')),
+      { pre: 'cycle', post: 'cycle' },
+    );
+    const plain = reduceKeys(loop, { tolerance });
+    expect(measuredError(loop, plain.keys)).toBeLessThanOrEqual(tolerance);
+    // The key at 10 goes; the first key's wrapped neighbour changes, so the seam tangents the editor draws change.
+    expect(plain.keys.map((k) => k.t)).toEqual([0, 2, 6, 7, 14]);
+    expect(measuredError(loop, plain.keys, CYCLE)).toBeGreaterThan(tolerance);
+    const aware = reduceKeys(loop, { tolerance, cycleAwareAuto: true });
+    expect(measuredError(loop, aware.keys, CYCLE)).toBeLessThanOrEqual(tolerance);
+    expect(measuredError(loop, aware.keys, CYCLE)).toBe(aware.maxError);
   });
 });

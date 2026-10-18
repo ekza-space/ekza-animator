@@ -41,6 +41,7 @@ so the notes live here. Decision IDs below are `M2A-A0-<n>` for DECISIONS-OPEN �
 | M2A-A0-16 | **`--rig-pole-line`** is `rgba(200, 204, 212, 0.6)` (the light foreground at 60 % alpha), added to `packages/ui/tokens.json` and generated into `css/tokens.css` (`node packages/ui/scripts/build-tokens.mjs`). | `tokens.css` is generated; its test checks the source. |
 | M2A-A0-17 | The FR-GE-17 entry of `apps/web/e2e/stretch.spec.ts` is a passing test (§5.23): C¹ at the seam on the wave clip with cyclic infinities, and with a key that gives the seam velocity (non-zero slope). | §5.23 "the stretch.spec.ts FR-GE-17 entry becomes a passing test". |
 | M2A-A0-18 | **`view.tool` with a built-in tool nobody registered yet poll-fails "not available yet"**: once a panel's tools are registered, an id of that panel's built-in set (`GRAPH_TOOL`, `DOPE_TOOL`) that is not registered — the Graph Editor's M2a `scale` (A4), a Dope Sheet tool (A3) — cancels with `not available yet` (§3 rule 1), so `R` over the Graph Editor says that in the help line; any other id stays `Unknown <panel> tool '<id>'`. Without registered tools (headless) the M1 rule holds: any id for the viewport and the Graph Editor, the `DOPE_TOOL` set for the Dope Sheet. | Accepting `scale` with the M1 tools mounted would switch the Graph Editor to a tool it does not have; the owner's registration enables the chord without touching `view.ts`. |
+| M2A-A0-19 | **Simplify measures cyclic curves cycle-aware** (contract amendment, M2A-SPEC §4.1): anim-core `ReduceOptions.cycleAwareAuto?` (default false) compiles the original and the reduced curve with the option, and re-measures every sample after each insertion when both infinities cycle (the seam couples the first and last keys, so the M1 local window would miss changes at the other end). `graph.curves.simplify` passes it through `EDITOR_CURVE_OPTIONS` (`app/deps.ts`), the options the editor's engine and shape-preserving insert use. Import and export reductions keep the default (imported curves are `constant`; the export reduces baked samples). | §5.23: drawn, evaluated and simplified shapes agree. A plain reduction of a cyclic curve can drop a key that moves the drawn seam by more than the tolerance and report a smaller error (anim-core and kernel tests). Additive for A5 (owner of anim-core): two compile calls and the window rule in `reduce/index.ts`, one optional field in `types.ts`. |
 
 ## Minimal edits in files other packages own after A0
 
@@ -48,7 +49,9 @@ Each is additive and small, so the owners rebase without conflicts: `editor/src/
 `'recovery'` case renders nothing until A5's dialog), `editor/src/panels/viewport/StandaloneHost.tsx` (its frame
 loop calls `app.flushScheduled()` first, A2), `editor-core/src/operators/builtin/key.ts` (the `key.setTarget` stub
 and the `key.set` refusals of M2A-A0-4, A2), `rig/src/sampler/cache.ts` (M2A-A0-10, A4), `rig/src/autorig/autoRig.ts`
-(the `ik` option in the signature, A1), `curve-editor/src/graph/{contributions,GraphEditorController}.ts` (the
+(the `ik` option in the signature, A1), `anim-core/src/{types.ts,reduce/index.ts}` (`ReduceOptions.cycleAwareAuto`,
+M2A-A0-19, A5), `rig/src/pose/rotateOrder.ts` and `rig/src/index.ts` (`convertRotateOrderKeysWith` exported, A1),
+`curve-editor/src/graph/{contributions,GraphEditorController}.ts` (the
 `graph.view.setMode` stub and the controller's view-mode stubs, A4), `io/src/testing/poseSource.ts` (the new
 `RigProgram` fields).
 

@@ -18,6 +18,7 @@ import {
 } from '@ekza-animator/anim-core';
 import type { ChannelId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
 import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
+import { EDITOR_CURVE_OPTIONS } from '../../app/deps';
 import { isRotation } from '../../edit/channelMeta';
 import { animCurve, compileInTx, currentClipFrame, keyDataOf } from '../../edit/context';
 import { deleteKeys, insertKeyOnCurve, moveKeys, scaleKeys, setKeyHandle, setTangentTypes } from '../../edit/keys';
@@ -680,9 +681,11 @@ const simplify = defineOperator({
       }
       const clip = t.get('clips', curve.clip);
       const keep = clip?.contact === null || clip?.contact === undefined ? [] : [clip.contact];
+      // Measured on the shape the editor draws: cycle-aware auto tangents on cyclic curves (§5.23).
       const result = reduceKeys(animCurve(curve, keys.map(keyDataOf)), {
         tolerance: toleranceFor(curve.channel, spec),
         keep,
+        cycleAwareAuto: EDITOR_CURVE_OPTIONS.cycleAwareAuto,
       });
       // reduceKeys returns the kept keys unchanged: every other key goes.
       const kept = new Set(result.keys.map((key) => key.t));

@@ -2,8 +2,9 @@
 
 Status: v0.2 (2026-10-18, review revision: every blocker and major review item applied, the cheap minors too; items
 not applied are listed with reasons in [§11.1](#111-review-items-not-applied-v02)), the build spec for milestone M2a.
-Contract amendment with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
-`time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument.
+Contract amendments with A0 (2026-10-18): `time.insertTime` takes an optional `at` and Delete Time is its own operator
+`time.deleteTime` (§4.5, §4.9, §5.9), so the menu-bar Time items need no frame argument; `ReduceOptions.cycleAwareAuto`
+(§4.1, §5.23).
 Audience: the integration agent (A0 and the final integration), five parallel implementation agents (A1…A5) and
 reviewers. Read [MVP-SPEC.md](MVP-SPEC.md) (v0.3) first: it stays the base contract. This file lists **deltas**;
 where the two disagree for M2a work, this file wins.
@@ -130,8 +131,11 @@ compile and behave as before.
 
 ### 4.1 anim-core
 
-No contract change. M-3 work (§5.21.3) is internal: `evaluateAnimCurve` and `compileAnimCurve` keep their signatures
-and results (goldens ≤ 1e-9).
+One additive option (A0): `ReduceOptions.cycleAwareAuto?: boolean` (default false, the M1 behaviour) compiles the
+original and the reduced curve with `CurveOptions.cycleAwareAuto`, so the editor's Simplify (`graph.curves.simplify`)
+measures its tolerance on the shape the editor draws (§5.23); it changes nothing for curves whose infinities do not
+both cycle. Otherwise no contract change. M-3 work (§5.21.3) is internal: `evaluateAnimCurve` and `compileAnimCurve`
+keep their signatures and results (goldens ≤ 1e-9).
 
 ### 4.2 doc — attribute definitions, solver IDs, schema version 2
 
@@ -1538,7 +1542,9 @@ arm swing, spine twist) eased in and out at the loop point every cycle. The engi
   anim-core contract change. The kernel already hands that engine to the rig sampler's curve cache
   (`createCurveCache(store, deps.curves.engine)`), which the evaluation, the Graph Editor painters (through
   `evaluation.compiledCurve`), graph handle resolution, Plant Feet and the export bake use, so drawn, evaluated and
-  exported curves agree; the test kit's naive evaluator uses the same option. The engine applies it only to curves
+  exported curves agree; the test kit's naive evaluator uses the same option. The shape-preserving insert, Simplify
+  (`reduceKeys` with `cycleAwareAuto`, §4.1) and the rotate-order conversion (rig `convertRotateOrderKeysWith` with the
+  editor's engine) work on the same shape. The engine applies it only to curves
   whose pre and post infinities are both cyclic (`cycle` or `cycleOffset`), so curves with a `constant` infinity,
   i.e. every curve M1 created (E2E-07 sets only the post infinity), evaluate exactly as before. anim-core's
   `curveEngine` and the rig's default cache engine stay non-cycle-aware (goldens and headless tests unchanged).

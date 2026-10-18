@@ -97,6 +97,13 @@ export interface KernelDeps {
 }
 
 /**
+ * The anim-core curve options of every editor-side computation on curves (M2A-SPEC §5.23): compile, the
+ * shape-preserving insert and Simplify's reduction (`reduceKeys`), so drawn, evaluated, inserted and simplified shapes
+ * are the same shape.
+ */
+export const EDITOR_CURVE_OPTIONS = { cycleAwareAuto: true } as const;
+
+/**
  * The editor's curve engine (M2A-SPEC §5.23, FR-GE-17): anim-core's AnimX engine with cycle-aware auto tangents.
  * The engine applies the option only to curves whose pre and post infinities both cycle (`cycle`/`cycleOffset`), so
  * curves with a constant infinity — every curve M1 created — compile exactly as with `curveEngine`. The kernel hands
@@ -105,7 +112,7 @@ export interface KernelDeps {
  * default cache engine stay non-cycle-aware.
  */
 export const EDITOR_CURVE_ENGINE: CurveEngine = {
-  compile: (curve) => compileAnimCurve(curve, { cycleAwareAuto: true }),
+  compile: (curve) => compileAnimCurve(curve, EDITOR_CURVE_OPTIONS),
   evaluate: (curve, frame) => curveEngine.evaluate(curve, frame),
 };
 
@@ -116,7 +123,7 @@ export const DEFAULT_DEPS: KernelDeps = {
   curves: {
     engine: EDITOR_CURVE_ENGINE,
     // The insert preserves the shape the editor's engine evaluates (cycle-aware tangents on cyclic curves).
-    insertKeyPreservingShape: (curve, frame) => insertKeyPreservingShape(curve, frame, { cycleAwareAuto: true }),
+    insertKeyPreservingShape: (curve, frame) => insertKeyPreservingShape(curve, frame, EDITOR_CURVE_OPTIONS),
   },
   rig: {
     registerBuiltinRigOps,

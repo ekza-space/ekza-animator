@@ -1,6 +1,7 @@
 import { compileAnimCurve } from '../curve/compile';
 import { evaluateAnimCurve } from '../curve/evaluate';
 import { infinityModeOf, KEY_TIME_EPSILON, lowerBound, normalizeKeys, upperBound } from '../curve/keys';
+import { type CurveOptions, isCyclic } from '../curve/resolve';
 import { EkzaError } from '../errors';
 import type { AnimCurve, KeyData, ReduceOptions, ReduceResult } from '../types';
 
@@ -11,7 +12,8 @@ import type { AnimCurve, KeyData, ReduceOptions, ReduceResult } from '../types';
  * original key nearest to the time of the largest error (ties: the earlier sample, then the earlier key), and
  * repeats until the largest error ≤ `tolerance`. Kept keys are returned unchanged (same objects, original tangent
  * types and handles; computed tangents are re-resolved from their new neighbours by the engine). Deterministic.
- * Terminates because keeping every key reproduces the original exactly.
+ * Terminates because keeping every key reproduces the original exactly. With `cycleAwareAuto` (M2A-SPEC §5.23) both
+ * curves compile with cycle-aware auto tangents, so the error is measured on the shape a cycle-aware editor draws.
  */
 export function reduceKeys(curve: AnimCurve, opts: ReduceOptions): ReduceResult {
   const tolerance = opts.tolerance;
@@ -24,7 +26,11 @@ export function reduceKeys(curve: AnimCurve, opts: ReduceOptions): ReduceResult 
   const weighted = curve.weighted === true;
   const pre = infinityModeOf(curve.pre);
   const post = infinityModeOf(curve.post);
-  const original = compileAnimCurve({ keys, weighted, pre, post });
+  const compileOpts: CurveOptions = { cycleAwareAuto: opts.cycleAwareAuto === true };
+  // With cycle-aware tangents the first and last keys see each other's neighbours across the seam, so a key added
+  // near one end changes the curve near the other: every sample is re-measured after each insertion.
+  const wraps = opts.cycleAwareAuto === true && isCyclic(pre) && isCyclic(post);
+  const original = compileAnimCurve({ keys, weighted, pre, post }, compileOpts);
   const keyTimes = original.t;
   const first = keyTimes[0]!;
   const last = keyTimes[n - 1]!;
@@ -54,7 +60,7 @@ export function reduceKeys(curve: AnimCurve, opts: ReduceOptions): ReduceResult 
   let windowHi = samples;
   let maxError = 0;
   for (;;) {
-    const reduced = compileAnimCurve({ keys: keptIndices.map((i) => keys[i]!), weighted, pre, post });
+    const reduced = compileAnimCurve({ keys: keptIndices.map((i) => keys[i]!), weighted, pre, post }, compileOpts);
     for (let s = windowLo; s < windowHi; s++) error[s] = Math.abs(evaluateAnimCurve(reduced, times[s]!) - target[s]!);
     let worst = 0;
     maxError = 0;
@@ -73,7 +79,7 @@ export function reduceKeys(curve: AnimCurve, opts: ReduceOptions): ReduceResult 
     keptIndices.splice(at, 0, add);
 
     const nextRangeKey = rangeSensitive ? valueRangeKey(keys, keptIndices) : rangeKey;
-    if (nextRangeKey !== rangeKey) {
+    if (nextRangeKey !== rangeKey || wraps) {
       rangeKey = nextRangeKey;
       windowLo = 0;
       windowHi = samples;
