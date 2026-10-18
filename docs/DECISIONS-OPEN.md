@@ -1,7 +1,8 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-18, M1 integrated (rev. 4; section E gained the integration decisions, the acceptance rounds, the
-WP-10 e2e and budget decisions and the consolidated build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
+Status: 2026-10-18, M2a integrated (rev. 5; new section F: the M2a build deviations, the integration decisions and
+the owner review items of M2a; section E holds M1's integration decisions, acceptance rounds, WP-10 e2e and budget
+decisions and the consolidated build deviations of WP-1…WP-9). Every item below has a **default chosen** so that work can
 start; **the owner may override any of them**. "Decide by" is the latest milestone at which a change is still
 cheap. Items marked **override** are cases where a coordinator default was replaced on evidence. Research
 references: `R01`…`R09` = [`research/0N-*.md`](research/). Section D records how the design review was resolved,
@@ -428,3 +429,107 @@ hover writes (selection kept, hover now typed: INT-4, INT-5); D-6 lens fields en
 `view.camera.setSettings`; D-7 nudge bursts end on key release; D-8 lead state colours, `—` for mixed values; D-9
 custom attributes not listed; D-10 panels report refused runs; D-11 the Outliner leaves Space to the keymap; D-12
 state colours hidden while drafting.
+
+## F. M2a build deviations (2026-10-18)
+
+M2a was built in six packages (A0 contracts and foundation, A1 rig IK, A2 IK editor, A3 Dope Sheet and timing, A4
+Graph Editor and posing, A5 platform) and integrated on `m2a/integration` ([M2A-SPEC](M2A-SPEC.md) v0.3). Each
+package recorded its interpretations in `docs/wp-notes/m2a-*.md` with the reasoning and tests; the integration's are
+in [`wp-notes/m2a-integration.md`](wp-notes/m2a-integration.md). IDs are `M2A-<package>-<n>`. All are **accepted as
+built** (and the contract changes among them ratified into M2A-SPEC v0.3) unless the status says otherwise; the owner
+may override any of them.
+
+### Owner review items
+
+These trade a stated M2a promise for something measured, or need a product call. Each is built and tested as
+described; the alternative is named.
+
+| ID | Item | Built | Alternative |
+|---|---|---|---|
+| M2A-A1-3 | **Hyperextended rest limbs** (both fixtures' arms: Seed-san −1.4°, Polybot −4.9°) cannot be rest-exact (1e-7) and bend in flexion only with a continuous solution | Continuous amendment C: below the rest reach the bend passes to the flexion branch through a C¹ band in which the hand passes its IK target by ≤ 0.57 mm (Polybot, within 2.1 mm of the rest reach; Seed-san ≤ 0.07 mm within 0.28 mm); matching places the IK control so switches stay exact; the rig warns with the band | Flexion only: the elbow pops by 2T (5.7 mm Seed-san, 12.4 mm Polybot) when an IK hand crosses the rest reach, and rest exactness fails on those arms |
+| M2A-A5-3, M2A-INT-3 | **Export reduction gate** "hand-keyed clips shrink ≥ 3×" | ≥ 3× asserted on linear blocking (E2E-M2A-21b); on smooth hand-keyed clips (the wave, the acceptance walk) the reduced file is never larger and within the per-node tolerances, but keeps (nearly) every sample: R02's tolerances (0.2 mm × H/1.7) are below what dropping one 30 fps sample of smooth motion costs | Loosen the tolerances (breaks the bound the reduction promises), or count constant tracks differently (they are already 2 samples) |
+| M2A-A5-10 | **Lazy chunks offline** (M-2) | A dialog or pipeline whose chunk cannot load closes with a toast; the next open retries. Offline after page load, import/export/save/open and unloaded dialogs fail gracefully | Static export only: prefetch the lazy groups at idle (≈ 216 kB); or a service worker precache |
+| M2A-INT-4 | **M-2 target** | 850,000 B for M2a (the spec's ceiling for a recorded reason): the merged route is 843,224 B (A5 alone 785,248 B; A1…A4 add ≈ 58 kB eager); gate 900,000 B in CI | Cut to 800,000 B in M2b: IK operator bodies behind `prepare`, the Dope Sheet controller behind its lazy panel, Next client navigation, `camera-controls` until the first tumble |
+| M2A-INT-13 (M-4) | **Dope Sheet drag of 1,000 keys** (§5.22, report only) | Miss: 21.2 / 26.1 ms on 213 curves (the Graph Editor's M-1 gate, 30 curves, is met at p95 3.1–3.4 ms); per-curve recompile and re-evaluation dominate | M2b: recompile only the moved span, defer re-evaluating curves whose current-frame segment did not change |
+| M2A-INT-11 | **Ball roll and the seamless switch** (A2 open issue 1) | §5.6 states the exception: with `@roll` in the ball range the match keeps the chain exact and warns with the measured toes difference; `f − 1` stays exact | The IK-side match also sets `fk.toes` (or zeroes the roll); or the toes rule pivots the toes about their own joint |
+| M2A-INT-12 | **Cyclic `@ikFk` curves with keys** (A2 open issue 4) | §5.23 unchanged: a curve keyed once at 0 on a loop clip cycles over its key range after a switch at 10 (frames 11…19 read the old mode) | `@ikFk` curves never cycle, or cycle over the clip range (a §5.23 contract change) |
+| M2A-INT-1, -2 | **Acceptance fixtures**: E2E-M2A-23's hips are lowest at the contacts, E2E-M2A-24 starts and ends in a ready stance 5 cm down | Polybot's and Seed-san's legs are (nearly) straight at rest, so with the hips at rest the specified IK feet are out of reach and lift off their targets | — (geometry); every assertion of §9.1 is kept |
+| M2A-A2-12, -13 | **E2E-M2A-02, -05 rows** (fixture geometry) | The pole step asserts the knee offset's turn (Polybot's rest knee sits outward of its hip→foot line); the arm is bent 30° before the IK switch (Seed-san's T-pose arm is straight) | — |
+
+### Integration decisions (M2a)
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M2A-INT-1…3 | Acceptance scenario readings | Above (owner items); `apps/web/e2e/m2a-23-24-acceptance.spec.ts` authors both clips with real input (viewport and Outliner picks, Channel Box typing with `S`, a time-slider band with `4`, the Pose menu, Dope Sheet drags, the status-line Tween bar, the Export dialog) and proves "no Plant Feet" with an undo walk back to the clip setup and a redo | M2A-SPEC §9.1 |
+| M2A-INT-4 | M-2 | Above | M2A-SPEC §5.21.2 |
+| M2A-INT-5 | `moveKeys` wrote a key at −0 after a snapped sub-half-frame move left of 0 (A3's clamp skips a zero shift; M1 always added it) | **Fixed**: placements normalise −0; A4's drag-equals-`moveKeys` test passes again; property test added | `editor-core/src/edit/keys.ts`; `test/kernel/m2a-integration.test.ts` |
+| M2A-INT-6 | A4's M-1 cut (the time slider skips key updates that keep time and curve) vs A3's green breakdown ticks | **Fixed in the merge**: a changed breakdown flag rebuilds the ticks | `curve-editor/src/timeline/TimeSliderController.ts`; `test/timeline/m2a-integration-ticks.test.ts` |
+| M2A-INT-7 | E2E-M2A-14 (first run at integration) clicked then pressed keys, which the Graph Editor's 400 ms multi-click window turned into a curve selection when two scenario steps hit one pixel | **Test fixed**: one press-drag per key, polled key points, frame all before a key beyond the view; assertions unchanged | `e2e/m2a-14-breakdown-retime.spec.ts` |
+| M2A-INT-8 | E2E-27 failed every run in `chromium-swiftshader` on the merged build: the Outliner's reveal scroll swapped the found row out | **Test fixed**: `clickOutlinerRow` waits for the scroll to settle and finds a swapped-out row again | `e2e/helpers/g3-input.ts` |
+| M2A-INT-9 | anim-core properties failed now and then (A2 open issue 3) | **Test fixed**: samples rounded one ulp past the last key into the next cycle; clamped to the key, the two seeds pinned as explicit cases; the engine is unchanged | `anim-core/test/curve/evaluate.test.ts` |
+| M2A-INT-10 | Contract PRs of A1…A5 | **Ratified** into M2A-SPEC v0.3 (A1 C-1…C-7, A2's rows and switch rules, A4-10/13/14, A5-3) and here | M2A-SPEC §5.2, §5.3, §5.6, §5.14, §5.16, §8 A1, §9.1 |
+| M2A-INT-11, -12 | A2 open issues 1 and 4 | Above (owner items) | M2A-SPEC §5.6 |
+| M2A-INT-13 | Dope Sheet drag | Above (M-4) | ROADMAP M2a budgets |
+| M2A-INT-14 | README GIFs | Recorded from the e2e build by `apps/web/scripts/record-readme-media.mjs` into `docs/media/` (Polybot, CC0) | README |
+
+Turned into failures (§3 rule 4, as INT-55 did for M1): every `READY` flag (`editor-core/test/ready.ts` removed,
+`READY_A1` in the headless tests), the e2e A1 gate (`expectLimbIk`), the `test.fixme` of E2E-M2A-10b, -14, -15,
+-22b and -25, the A0 stub lists, and the export path's tolerance of a stubbed rig. The only `test.fixme` tests left are
+the stretch items in `apps/web/e2e/stretch.spec.ts`.
+
+### Build deviations of A0 … A5 (consolidated)
+
+**A0 contracts and foundation** — A0-1 `time.insertTime {at?}` and `time.deleteTime` (menu items without a frame);
+A0-2 Rig › IK/FK as one sub-menu with a group per limb; A0-3 no stub implemented early; A0-4 `key.set` refused
+body-part and breakdown keys until A2; A0-5 probe-map keys and the hidden-tab rule (a panel in an inactive dock tab
+reads null); A0-6 test-API reads flush the scheduler first, `curveSlope` exact one-sided slopes; A0-7 scheduler
+replacement, nesting and error rules; A0-8 attribute slots repair, never reject; A0-9 a throwing `compile` skips the
+op (`isRigOpSkipped`, `ikFk` reads 0); A0-10 attribute sampling in the curve cache; A0-11 `ensureCurve` is the one
+loop-clip curve creator, rotate-order conversion keeps sibling infinities; A0-12 `ns` and `storage=blocked`; A0-13
+layout v1 → v2 through the dockview API; A0-14 M2a prefs load field by field, `'ghost'` and the Recovery dialog
+poll-failed until built; A0-15 owners of what A0 left; A0-16 `--rig-pole-line`; A0-17 the FR-GE-17 stretch entry
+passes; A0-18 `view.tool` with an unregistered built-in tool says "not available yet"; A0-19 cycle-aware Simplify
+(`ReduceOptions.cycleAwareAuto`).
+
+**A1 rig IK** — A1-1 the knee hinge from the lower leg (C-1); A1-2 the match pole rule relative to the IK's own mid
+joint (C-4, C-5); A1-3 amendment B always and the continuous amendment C (C-3, owner item above); A1-4 the off-hinge
+rest pole (C-2); A1-5 the foot region of the mesh (C-6); A1-6 `matchIkToFk` matches the IK side only; A1-7
+influencing curves skip limbs inactive over the clip (M1 rigs export byte-identical); A1-8 Plant Feet on IK legs
+(attributes from the channel buffer); A1-9 import-to-IK key times and tangents; A1-10 duplicate-binding and
+asymmetric-rest warnings; A1-11 the toes rule at `0 < w < 1` without a slerp; A1-12 no allocation per evaluation,
+checked by count; A1-13 the pole-travel gate replaced (C-7); A1-14 `ik2` reads the IK control, pole and parent node
+only.
+
+**A2 IK editor** — A2-1 one seam to the rig's limb math (`setLimbKit`, test-only); A2-2 limb fixtures in the test kit;
+A2-3 the keyAll rule's explicit channels are the selected Channel Box channels (the IK/FK proxy row); A2-4 body part
+on a generic rig keys the selection and says so once; A2-5 pick-walk through hidden controls, arrow labels follow
+`prefs.arrowKeys`; A2-6 switch key policies never overwrite a key at `f − 1`; A2-7 match warning texts; A2-8
+`matchRange` frames; A2-9 import limb warnings first; A2-10 virtual slider details; A2-11 additive exports; A2-12/13
+E2E rows (owner items above); A2-14 withdrawn; A2-15 E2E-M2A-07 names nodes from the source VRM; A2-16 `pose.mirror`
+hands the rig the attribute values; A2-17 Channel Box attribute rows; A2-18 M1-rig tests import with `autoRigIk` off;
+A2-19 seamless hold keys at `f − 1` (ratified); A2-20 toes warnings on both sides; A2-21 reset and the pose clipboard
+never touch `keyAll: false` attributes unless selected; A2-22 no per-frame work for the IK/FK display; A2-23 a switch
+to the current mode is refused (ratified); A2-24 the curves a seamless switch starts get constant infinities
+(ratified).
+
+**A3 Dope Sheet and timing** — A3-1 ripple control sets registered per panel kind; A3-2 paste inserts with ripple on;
+A3-3 insert/delete time targets and refusals; A3-4 retiming details (floating breakdowns, exact times on rounding
+collisions, the M1 clamp when retiming would cross an edited breakdown); A3-5 the key-by-key scale clamp keeps order;
+A3-6 `copyKeys` collisions; A3-7 pressing a fully selected glyph keeps the selection; A3-8 region-bar handles on
+narrow bars; A3-9 the Dope Sheet's lazy boundary and persisted Show/expansion; A3-10 MMB carry is one `Carry Pose`
+step; A3-11 key edits place only the slice they can change (differential fuzz); A3-12 cached row data and cheap
+glyphs.
+
+**A4 Graph Editor and posing** — A4-2 the tween plans once and evaluates per amount, `key.tween` clamps the amount;
+A4-3 the `'frame'` target's channels; A4-4 runs use visible keys; A4-5 the Tween bar's target toggle and DOM-written
+label (idle rule); A4-6 buffer curve targets and swap; A4-7 mirror animation details; A4-8 view mapping details; A4-9
+Scale tool details; A4-10 E2E-M2A-17 at the float32 pointer precision (ratified); A4-11 additive exports; A4-12
+owners of what A4 left; A4-13 half-cycle seam keys keep step flags (ratified); A4-14 working-copy refinements
+(ratified); A4-15 key-edit gestures record override changes; A4-16 M-1 changes outside A4's directories; A4-17 the
+value-only drag path (M-1).
+
+**A5 platform** — A5-1 the measured route is a first visit (the First-run dialog counts); A5-2 the import pipelines
+are a lazy chunk; A5-3 the reduction gate (owner item above); A5-4 the keep set without A1 (superseded: the gate is a
+failure since integration); A5-5 autosave details; A5-6 sibling check on trial merges; A5-7 M-3 mechanisms (segment
+hint, once-bound imports); A5-8 the export pipeline is its own lazy chunk; A5-9 M1 bytes without `reduce`; A5-10
+offline lazy chunks (owner item above); A5-11 the Export dialog passes `prefs.exportReduce`'s tolerances.

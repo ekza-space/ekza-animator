@@ -2157,6 +2157,26 @@ Each merge: `pnpm run ci` green, with scenarios that depend on unmerged packages
 9. Pick-walk with the arrows; key a hand by body part; scrub a channel with MMB in the Channel Box.
 10. Export VRMA with key reduction (size shown); reload the page with unsaved work and recover it.
 
+### 10.4 Integration record
+
+2026-10-18, branch `m2a/integration` ([notes](wp-notes/m2a-integration.md)):
+
+- **Merge**: A0, A4, A5, A1, A2, A3 in the §10.1 order, then the integration. Every `READY` flag and every
+  package `test.fixme` is a failure now; the only `test.fixme` tests are the stretch items of `stretch.spec.ts`.
+- **Acceptance**: E2E-M2A-23 (walk) and -24 (attack) in `apps/web/e2e/m2a-23-24-acceptance.spec.ts`, authored with
+  real input and leg IK; their undo history holds no Plant Feet. The rows were amended for the fixtures' leg reach and
+  for what reduction can do on smooth motion (M2A-INT-1…3, §9.1 note).
+- **Gates**: E2E-00…27, E2E-M2A-01…25 and the M1 acceptance-round specs green in real Chrome and in
+  `chromium-swiftshader`; unit, browser-mode and headless tests green; the conformance suites (memory, `doc-yjs`)
+  unchanged and green; export policy (MVP-SPEC §4.11.13) asserted for every exported file of the scenarios.
+- **Budgets** (ROADMAP "M2a budgets"): M-1 met (p95 3.1–3.4 ms), M-2 met under the gate with the target set to
+  850,000 B (843,224 B, §5.21.2), M-3 met (mean 0.154 ms); §5.22 rows recorded, the Dope Sheet drag of 1,000 keys
+  missed (M-4, report only).
+- **Contract PRs ratified** in this revision (v0.3); deviations and owner review items in
+  [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18).
+- Open for the release: the merge into `dev`, the owner's review of §F, the owner demo script (§10.3); `v0.2.0` is
+  the owner's call.
+
 ---
 
 ## 11. Defaults chosen (owner may override)
