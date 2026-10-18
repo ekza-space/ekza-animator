@@ -23,7 +23,11 @@ const swiftshader: Project = {
 
 // Default project: real Chrome (GPU) locally, bundled Chromium + SwiftShader on CI. `--project=<name>` selects
 // either explicitly (the SwiftShader project needs `pnpm exec playwright install chromium` once).
-const projectSelected = process.argv.some((arg) => arg === '--project' || arg.startsWith('--project='));
+// Workers load this config without the CLI arguments, so the runner hands the choice down in the environment.
+const projectSelected =
+  process.env['EKZA_E2E_ALL_PROJECTS'] === '1' ||
+  process.argv.some((arg) => arg === '--project' || arg.startsWith('--project='));
+if (projectSelected) process.env['EKZA_E2E_ALL_PROJECTS'] = '1';
 
 export default defineConfig({
   testDir: './e2e',
