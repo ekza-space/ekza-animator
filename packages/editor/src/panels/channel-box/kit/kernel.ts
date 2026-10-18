@@ -9,6 +9,7 @@ import {
 import {
   beginChannelEditGesture,
   type ChannelEditGesture,
+  type ChannelUnit,
   formatChannelValue as coreFormatChannelValue,
   fromDisplayValue as coreFromDisplayValue,
   type EditorApp,
@@ -24,14 +25,19 @@ export const isRotationChannel: (channel: ChannelId) => boolean = docIsRotationC
 /** 1 for `sx`/`sy`/`sz`, else 0 (the value a reset writes). */
 export const defaultChannelValue: (channel: ChannelId) => number = docDefaultChannelValue;
 
-/** Internal units (radians, metres) → display units (degrees for rotations). */
-export const toDisplayValue: (channel: ChannelId, value: number) => number = coreToDisplayValue;
+/**
+ * Internal units (radians, metres) → display units (degrees for rotations; M2a: a given unit wins, so an
+ * `angle` attribute shows degrees, M2A-SPEC §5.1 rule 5).
+ */
+export const toDisplayValue: (channel: ChannelId, value: number, unit?: ChannelUnit) => number = coreToDisplayValue;
 
-/** Display units → internal units. */
-export const fromDisplayValue: (channel: ChannelId, display: number) => number = coreFromDisplayValue;
+/** Display units → internal units (typed values are display units: `30` on `@roll` is 30°). */
+export const fromDisplayValue: (channel: ChannelId, display: number, unit?: ChannelUnit) => number =
+  coreFromDisplayValue;
 
-/** Degrees for rotations, three decimals; never `-0.000`. */
-export const formatChannelValue: (channel: ChannelId, value: number) => string = coreFormatChannelValue;
+/** Degrees for rotations (and `angle` attributes), three decimals; never `-0.000`. */
+export const formatChannelValue: (channel: ChannelId, value: number, unit?: ChannelUnit) => string =
+  coreFormatChannelValue;
 
 /** `toFixed` without a negative zero. */
 export function formatFixed(value: number, digits: number): string {

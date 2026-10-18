@@ -24,6 +24,11 @@ export interface VirtualSliderDragOptions {
   readonly label?: string;
   /** Called once when the gesture ends (committed or cancelled). */
   readonly onEnd?: (committed: boolean) => void;
+  /**
+   * Motion already made before the slider started (the Channel Box's LMB drag starts after 3 px): applied as the
+   * first increment, with the press's modifiers.
+   */
+  readonly initialDx?: number;
 }
 
 /**
@@ -130,6 +135,9 @@ export function startVirtualSliderDrag(
 
   // Capture first: moves arriving before the lock is granted still reach the element.
   capture();
+  if (opts.initialDx !== undefined && opts.initialDx !== 0) {
+    slider.move(opts.initialDx, { shift: press.shiftKey, mod: mac ? press.metaKey : press.ctrlKey });
+  }
   const lockable = opts.pointerLock !== false && typeof element.requestPointerLock === 'function';
   if (lockable) {
     try {

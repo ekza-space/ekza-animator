@@ -217,7 +217,7 @@ describe('startVirtualSliderDrag: Pointer Lock rules (§5.18)', () => {
     const original = Object.getOwnPropertyDescriptor(Document.prototype, 'pointerLockElement');
     Object.defineProperty(document, 'pointerLockElement', { configurable: true, get: () => locked });
     let requests = 0;
-    element.requestPointerLock = (() => {
+    element.requestPointerLock = () => {
       requests++;
       if (behaviour === 'grant') {
         locked = element;
@@ -229,7 +229,7 @@ describe('startVirtualSliderDrag: Pointer Lock rules (§5.18)', () => {
         return Promise.resolve();
       }
       return Promise.reject(new DOMException('The user has exited the lock before this request was completed.'));
-    });
+    };
     document.exitPointerLock = () => {
       locked = null;
       document.dispatchEvent(new Event('pointerlockchange'));
