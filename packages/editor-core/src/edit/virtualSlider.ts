@@ -11,24 +11,20 @@
 import { DEG2RAD } from '@ekza-animator/anim-core';
 import type { ChannelId, ControlRecord } from '@ekza-animator/doc';
 import type { ChannelEdit, ChannelEditGesture, ChannelRef, EditorApp, Prefs } from '../types';
-import { attrDefOf, attrLabel, channelUnit, clampChannelValue, isKeyable, isLocked, isRotation } from './channelMeta';
+import {
+  attrDefOf,
+  channelDisplayLabel,
+  channelUnit,
+  clampChannelValue,
+  isKeyable,
+  isLocked,
+  isRotation,
+} from './channelMeta';
 import { beginChannelEditGesture } from './channels';
 
 /** Modifier factors of the virtual slider (§5.18): Shift slows down, Mod speeds up. */
 export const VIRTUAL_SLIDER_SHIFT = 0.1;
 export const VIRTUAL_SLIDER_MOD = 10;
-
-const TRS_LABEL: Readonly<Record<string, string>> = {
-  tx: 'Translate X',
-  ty: 'Translate Y',
-  tz: 'Translate Z',
-  rx: 'Rotate X',
-  ry: 'Rotate Y',
-  rz: 'Rotate Z',
-  sx: 'Scale X',
-  sy: 'Scale Y',
-  sz: 'Scale Z',
-};
 
 /** Rate of a channel in internal units (radians, metres, plain) per pixel at no modifier. */
 export function virtualSliderRate(
@@ -66,7 +62,7 @@ export function virtualSliderLabel(app: EditorApp, refs: readonly ChannelRef[]):
   if (channels.length !== 1) return `Drag ${channels.length} Channels`;
   const channel = channels[0] as ChannelId;
   const control = refs[0] === undefined ? undefined : app.store.get('controls', refs[0].control);
-  return `Drag ${channel.startsWith('@') ? attrLabel(control, channel) : (TRS_LABEL[channel] ?? channel)}`;
+  return `Drag ${channelDisplayLabel(control, channel)}`;
 }
 
 export interface VirtualSlider {

@@ -16,6 +16,7 @@ const SLOTS: Readonly<Record<TrsChannel, number>> = {
   sy: 7,
   sz: 8,
 };
+const TRS_CHANNELS_COUNT = Object.keys(SLOTS).length;
 
 export const TRANSLATE_CHANNELS = ['tx', 'ty', 'tz'] as const;
 export const ROTATE_CHANNELS = ['rx', 'ry', 'rz'] as const;
@@ -137,6 +138,56 @@ export function attrLabel(control: ControlRecord | null | undefined, channel: Ch
   const label = def?.label;
   if (typeof label === 'string' && label.trim() !== '') return label;
   return titleCaseAttr(channel.startsWith('@') ? channel.slice(1) : channel);
+}
+
+/** Names of the TRS channels (FR-CB-01: the Channel Box's row names). */
+export const TRS_CHANNEL_LABEL: Readonly<Record<TrsChannel, string>> = {
+  tx: 'Translate X',
+  ty: 'Translate Y',
+  tz: 'Translate Z',
+  rx: 'Rotate X',
+  ry: 'Rotate Y',
+  rz: 'Rotate Z',
+  sx: 'Scale X',
+  sy: 'Scale Y',
+  sz: 'Scale Z',
+};
+
+/** The limb IK/FK switch attribute (§5.2): the Channel Box shows it as the limb's IK/FK row, below the attributes. */
+const IK_FK: ChannelId = '@ikFk';
+
+/**
+ * The name of a channel of `control` wherever channels are listed — Channel Box, Graph Editor, Dope Sheet, virtual
+ * slider (§5.1 rule 5): the TRS names, an attribute's `AttrDef.label`, else its title-cased name ('@heelTwist' →
+ * 'Heel Twist'; `@ikFk` → 'IK/FK' by its label).
+ */
+export function channelDisplayLabel(control: ControlRecord | null | undefined, channel: ChannelId): string {
+  if (isAttrChannel(channel)) return attrLabel(control, channel);
+  return isTrsChannel(channel) ? TRS_CHANNEL_LABEL[channel] : channel;
+}
+
+/**
+ * `channels` of `control` in the Channel Box's row order, for every panel that lists channels (§5.1 rule 5;
+ * acceptance fix round 2, M2A-INT-35): TRS in Maya order, then the control's attributes in `attrs` key order with
+ * `@ikFk` after them (where the Channel Box shows the limb's IK/FK row), then attribute channels the control does not
+ * define (a curve left by a removed attribute) by id.
+ */
+export function sortChannelsForDisplay(
+  control: ControlRecord | null | undefined,
+  channels: Iterable<ChannelId>,
+): ChannelId[] {
+  const attrs = attrChannelsOf(control);
+  const rank = (channel: ChannelId): number => {
+    const slot = trsSlot(channel);
+    if (slot !== -1) return slot;
+    const index = (attrs as readonly ChannelId[]).indexOf(channel);
+    if (index === -1) return TRS_CHANNELS_COUNT + attrs.length + 1;
+    return TRS_CHANNELS_COUNT + (channel === IK_FK ? attrs.length : index);
+  };
+  return [...channels]
+    .map((channel) => ({ channel, rank: rank(channel) }))
+    .sort((a, b) => a.rank - b.rank || (a.channel < b.channel ? -1 : a.channel > b.channel ? 1 : 0))
+    .map((entry) => entry.channel);
 }
 
 /**

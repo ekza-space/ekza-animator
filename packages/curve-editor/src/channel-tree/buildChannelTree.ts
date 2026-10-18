@@ -1,5 +1,6 @@
 // Graph Editor channel list (research 09 §4.7): character › control › channel, with X/Y/Z swatches, the curve of
-// each channel in the clip's base layer, a name filter and "only animated".
+// each channel in the clip's base layer, a name filter and "only animated". Channels are named and ordered like the
+// Channel Box's rows (§5.1 rule 5).
 import {
   type ChannelId,
   type CharacterId,
@@ -9,7 +10,7 @@ import {
   type CurveRecord,
   TRS_CHANNELS,
 } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { type EditorApp, sortChannelsForDisplay } from '@ekza-animator/editor-core';
 import type { ChannelTreeNode } from '../types';
 import { CHANNEL_COLORS, channelColor, channelLabel } from './colors';
 
@@ -25,12 +26,6 @@ function keyableChannels(control: ControlRecord): ChannelId[] {
     if (group[axis] === true) channels.push(channel);
   }
   return channels;
-}
-
-/** Channel order: TRS in Maya order, then custom attributes by name. */
-function channelRank(channel: ChannelId): number {
-  const index = (TRS_CHANNELS as readonly string[]).indexOf(channel);
-  return index === -1 ? TRS_CHANNELS.length : index;
 }
 
 export function buildChannelTree(
@@ -64,9 +59,8 @@ export function buildChannelTree(
         if (canonical !== undefined) curves.set(curve.channel, canonical);
       }
     }
-    const channels = [...new Set([...keyableChannels(control), ...curves.keys()])].sort(
-      (a, b) => channelRank(a) - channelRank(b) || (a < b ? -1 : a > b ? 1 : 0),
-    );
+    // The Channel Box's order and names (§5.1 rule 5, M2A-INT-35): TRS, then attributes in `attrs` order, IK/FK last.
+    const channels = sortChannelsForDisplay(control, new Set([...keyableChannels(control), ...curves.keys()]));
     const controlMatches =
       filter === '' || control.name.toLowerCase().includes(filter) || control.key.toLowerCase().includes(filter);
     const children: ChannelTreeNode[] = [];
@@ -75,7 +69,7 @@ export function buildChannelTree(
       if (opts.onlyAnimated === true && (curve === undefined || store.query.keysOfCurve(curve.id).length === 0)) {
         continue;
       }
-      const label = channelLabel(channel);
+      const label = channelLabel(channel, control);
       if (!controlMatches && !label.toLowerCase().includes(filter) && !channel.toLowerCase().includes(filter)) {
         continue;
       }

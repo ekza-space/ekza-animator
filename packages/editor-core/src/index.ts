@@ -76,10 +76,13 @@ export {
   attrChannelsOf,
   attrDefOf,
   attrLabel,
+  channelDisplayLabel,
   clampChannelValue,
   isKeyAllChannel,
   isKeyable,
   isLocked,
+  sortChannelsForDisplay,
+  TRS_CHANNEL_LABEL,
 } from './edit/channelMeta';
 export {
   beginVirtualSlider,

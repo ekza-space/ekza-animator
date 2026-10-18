@@ -12,10 +12,10 @@ import type { CharacterId, ChannelId, ControlId, ControlRecord, DocumentStore } 
 import { TRS_CHANNELS, type TrsChannel } from '@ekza-animator/doc';
 import {
   attrChannelsOf,
-  attrLabel,
   type ChannelEdit,
   type ChannelRef,
   channelDefaultOf,
+  channelDisplayLabel,
   channelUnit,
   type EditorApp,
   isKeyable,
@@ -24,6 +24,7 @@ import {
   limbOfControlApp,
   PANEL,
   type SessionState,
+  sortChannelsForDisplay,
 } from '@ekza-animator/editor-core';
 import type { LimbDesc } from '@ekza-animator/rig';
 import { startVirtualSliderDrag, type VirtualSliderDrag } from '@ekza-animator/viewport';
@@ -56,18 +57,6 @@ import { CHANNEL_STATE_STYLE, channelStateTitle, type StateBar } from './states'
 
 const PANEL_KIND = PANEL.channelBox;
 
-export const CHANNEL_LABEL: Readonly<Record<TrsChannel, string>> = {
-  tx: 'Translate X',
-  ty: 'Translate Y',
-  tz: 'Translate Z',
-  rx: 'Rotate X',
-  ry: 'Rotate Y',
-  rz: 'Rotate Z',
-  sx: 'Scale X',
-  sy: 'Scale Y',
-  sz: 'Scale Z',
-};
-
 const AXIS = { x: 0, y: 1, z: 2 } as const;
 
 function channelFlag(record: ControlRecord, field: 'keyable' | 'locked', channel: TrsChannel): boolean {
@@ -96,9 +85,12 @@ interface SelectionView {
   readonly character: CharacterId | null;
 }
 
-/** Label of a channel row: TRS names, `AttrDef.label` or the title-cased attribute name. */
+/**
+ * Label of a channel row: TRS names, `AttrDef.label` or the title-cased attribute name — `channelDisplayLabel`, which
+ * the Graph Editor and the Dope Sheet use too (M2A-INT-35).
+ */
 export function channelRowLabel(record: ControlRecord | null, channel: ChannelId): string {
-  return channel.startsWith('@') ? attrLabel(record, channel) : (CHANNEL_LABEL[channel as TrsChannel] ?? channel);
+  return channelDisplayLabel(record, channel);
 }
 
 /** The lead's limb for the IK/FK proxy row (§5.6): any FK chain control, IK control or pole of a limb. */
@@ -131,14 +123,17 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
   const limb = useLimbOf(app, lead?.id ?? null);
   const ikControl = limb?.params.ikControl ?? null;
 
-  /** TRS rows, then attribute rows (§5.1 rule 5); the IK control's raw @ikFk row is hidden (the proxy shows it). */
+  /**
+   * TRS rows, then attribute rows (§5.1 rule 5) in the order every channel list shares (`sortChannelsForDisplay`);
+   * the IK control's raw @ikFk row is hidden (the proxy shows it, as the last row).
+   */
   const rows = useMemo((): readonly ChannelId[] => {
     if (lead === null) return [];
     const trs = TRS_CHANNELS.filter((channel) => isChannelKeyable(lead, channel));
     const attrs = attrChannelsOf(lead).filter(
       (channel) => isKeyable(lead, channel) && !(channel === '@ikFk' && lead.id === ikControl),
     );
-    return [...trs, ...attrs];
+    return sortChannelsForDisplay(lead, [...trs, ...attrs]);
   }, [lead, ikControl]);
   /** Per shown channel: the selected controls on which it is keyable. */
   const targets = useMemo(

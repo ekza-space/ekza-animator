@@ -2,7 +2,13 @@
 // controls with at least one keyed curve in the clip get rows; channel rows exist for keyed channels. Every row lists
 // the keyed base-layer curves under it.
 import type { ChannelId, CharacterId, ClipId, ControlId, ControlRecord, CurveId } from '@ekza-animator/doc';
-import { type BodyPart, bodyPartOf, controlVisibility, type EditorApp } from '@ekza-animator/editor-core';
+import {
+  type BodyPart,
+  bodyPartOf,
+  controlVisibility,
+  type EditorApp,
+  sortChannelsForDisplay,
+} from '@ekza-animator/editor-core';
 import { channelLabel } from '../channel-tree/colors';
 import type { DopeSheetRow, DopeSheetRowKind } from '../types';
 
@@ -23,8 +29,6 @@ const GROUPS: readonly { readonly part: BodyPart | null; readonly label: string 
   { part: null, label: 'Other' },
 ];
 
-const CHANNEL_ORDER: readonly string[] = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'];
-
 export const SUMMARY_ROW = 'summary';
 export const characterRowId = (character: CharacterId): string => `chr:${character}`;
 export const groupRowId = (character: CharacterId, part: BodyPart | null): string =>
@@ -36,28 +40,26 @@ export function expandedByDefault(kind: DopeSheetRowKind): boolean {
   return kind === 'summary' || kind === 'character' || kind === 'group';
 }
 
-function channelRank(channel: ChannelId): number {
-  const index = CHANNEL_ORDER.indexOf(channel);
-  return index === -1 ? CHANNEL_ORDER.length : index;
-}
-
-/** Keyed channels of a control in the clip's base layer, in channel order (TRS, then attributes by name). */
+/**
+ * Keyed channels of a control in the clip's base layer, in the Channel Box's row order (§5.1 rule 5, M2A-INT-35:
+ * TRS, then attributes in `attrs` order, IK/FK last).
+ */
 function keyedChannels(
   app: EditorApp,
   clip: ClipId,
   layer: string,
-  control: ControlId,
+  control: ControlRecord,
 ): { readonly channel: ChannelId; readonly curve: CurveId }[] {
   const out: { channel: ChannelId; curve: CurveId }[] = [];
-  for (const curve of app.store.query.curvesOfControl(clip, control)) {
+  for (const curve of app.store.query.curvesOfControl(clip, control.id)) {
     if (curve.layer !== layer) continue;
     if (app.store.query.keysOfCurve(curve.id).length === 0) continue;
     out.push({ channel: curve.channel, curve: curve.id });
   }
-  return out.sort(
-    (a, b) =>
-      channelRank(a.channel) - channelRank(b.channel) || (a.channel < b.channel ? -1 : a.channel > b.channel ? 1 : 0),
+  const order = new Map(
+    sortChannelsForDisplay(control, new Set(out.map((entry) => entry.channel))).map((channel, i) => [channel, i]),
   );
+  return out.sort((a, b) => (order.get(a.channel) ?? 0) - (order.get(b.channel) ?? 0));
 }
 
 export interface RowsOptions {
@@ -90,7 +92,7 @@ export function buildRows(
   const shown: ControlRows[] = [];
   for (const control of app.store.query.controlsOfRig(rig.id)) {
     if (!wanted.has(control.id)) continue;
-    const channels = keyedChannels(app, clip.id, base.id, control.id);
+    const channels = keyedChannels(app, clip.id, base.id, control);
     if (channels.length === 0) continue;
     shown.push({ control, channels, part: humanoid ? bodyPartOf(app, control.id) : null });
   }
@@ -138,7 +140,7 @@ export function buildRows(
         {
           id: channelRowId(control.id, channel),
           kind: 'channel',
-          label: channelLabel(channel),
+          label: channelLabel(channel, control),
           depth: depth + 1,
           control: control.id,
           channel,

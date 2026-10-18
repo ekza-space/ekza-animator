@@ -1,6 +1,8 @@
-// M2a acceptance fix round 2 (DECISIONS-OPEN §F, M2A-INT-34): the defects the final acceptance found, in the real
-// build in real Chrome (the panels' Tailwind layout and the dock exist only here).
+// M2a acceptance fix round 2 (DECISIONS-OPEN §F, M2A-INT-34, -35): the two defects the final acceptance found, in
+// the real build in real Chrome (the panels' Tailwind layout and the dock exist only here).
 import { expect, type Page, test } from '@playwright/test';
+import { controlIdOf, selectIds } from './helpers/m2a-a2';
+import { showDopeSheet } from './helpers/m2a-timing';
 import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
@@ -110,4 +112,87 @@ test('fix round 2: a single or Space-maximized pane fills the Viewport panel', a
   await runOk(page, 'view.layout', { layout: 'single' });
   await expect.poll(async () => (await call(page, 'panes')).length).toBe(1);
   await expectFillsPanel(page, 'pane-single');
+});
+
+test('fix round 2: the Graph Editor and the Dope Sheet name and order IK attributes like the Channel Box', async ({
+  page,
+}) => {
+  await openEditor(page, '&platform=mac');
+  await expectKernelStarted(page);
+  await seedSample(page, 'polybot');
+  await runOk(page, 'clip.new', { name: 'w' });
+  const leg = await controlIdOf(page, 'ik.leg.L');
+  await selectIds(page, [leg]);
+  // Key the leg IK control's seven attributes and two of its TRS channels at frame 0.
+  const values: Readonly<Record<string, number>> = {
+    tz: 0.05,
+    rx: 0.1,
+    '@ikFk': 1,
+    '@soft': 0.05,
+    '@twist': 0.1,
+    '@roll': 0.2,
+    '@bank': 0.1,
+    '@heelTwist': 0.1,
+    '@toeTwist': 0.1,
+  };
+  await runOk(page, 'time.setFrame', { frame: 0 });
+  await runOk(page, 'channel.setValues', {
+    edits: Object.entries(values).map(([channel, value]) => ({ control: leg, channel, value })),
+    key: 'force',
+  });
+
+  // The Channel Box's rows of those channels, in its order (the IK/FK proxy row shows `@ikFk`).
+  await expect(page.getByTestId('cb-ikfk-row')).toBeVisible();
+  const channelBox = (
+    await page
+      .locator('[data-testid="channel-box-panel"] tr[data-channel]')
+      .evaluateAll((rows) =>
+        rows.map((row) => [row.getAttribute('data-channel') ?? '', row.querySelector('th')?.textContent?.trim() ?? '']),
+      )
+  ).filter(([channel]) => Object.hasOwn(values, channel as string));
+  expect(channelBox).toEqual([
+    ['tz', 'Translate Z'],
+    ['rx', 'Rotate X'],
+    ['@soft', 'Soft'],
+    ['@twist', 'Twist'],
+    ['@roll', 'Roll'],
+    ['@bank', 'Bank'],
+    ['@heelTwist', 'Heel Twist'],
+    ['@toeTwist', 'Toe Twist'],
+    ['@ikFk', 'IK/FK'],
+  ]);
+
+  // Graph Editor channel list, only animated channels: the same names in the same order (before the fix: 'bank',
+  // 'heelTwist', 'ikFk', 'roll', 'soft', 'toeTwist', 'twist').
+  await runOk(page, 'workspace.showPanel', { panel: 'graph' });
+  await expect(page.getByTestId('ge-channel-list')).toBeVisible();
+  await page.getByTestId('ge-only-animated').check();
+  const prefix = `ge-row-${leg}/`;
+  await expect(page.locator(`[data-testid^="${prefix}"]`)).toHaveCount(channelBox.length);
+  const graph = await page.locator(`[data-testid^="${prefix}"]`).evaluateAll(
+    (rows, cut) =>
+      rows
+        .map((row) => ({
+          top: row.getBoundingClientRect().top,
+          channel: (row.getAttribute('data-testid') ?? '').slice(cut),
+          label: (row.textContent ?? '').replace(/[▸▾]/g, '').trim(), // without the expand arrow
+        }))
+        .sort((a, b) => a.top - b.top)
+        .map((row) => [row.channel, row.label]),
+    prefix.length,
+  );
+  expect(graph).toEqual(channelBox);
+
+  // Dope Sheet channel rows of the expanded control: the same again.
+  await showDopeSheet(page);
+  await page.getByTestId(`ds-expand-${leg}`).click();
+  await expect
+    .poll(async () => ((await call(page, 'dopeSheet'))?.rows ?? []).filter((row) => row.kind === 'channel').length)
+    .toBe(channelBox.length);
+  const dope = ((await call(page, 'dopeSheet'))?.rows ?? [])
+    .filter((row) => row.kind === 'channel')
+    .map((row) => [row.id.slice(`${leg}/`.length), row.label]);
+  expect(dope).toEqual(channelBox);
+  // The row labels on screen say the same.
+  await expect(page.getByTestId(`ds-row-${leg}/@soft`)).toHaveText('Soft');
 });

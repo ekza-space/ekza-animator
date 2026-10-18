@@ -921,7 +921,7 @@ export class GraphEditorController {
       const control = this.app.store.get('controls', entry.record.control);
       return {
         curve: entry.id,
-        label: `${control?.name ?? ''} ${channelLabel(entry.channel)}`.trim(),
+        label: `${control?.name ?? ''} ${channelLabel(entry.channel, control)}`.trim(),
         color: entry.color,
       };
     });

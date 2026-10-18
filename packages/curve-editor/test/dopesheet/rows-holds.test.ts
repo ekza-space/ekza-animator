@@ -1,9 +1,11 @@
 // Dope Sheet rows and row data (M2A-SPEC §5.10, A3): Summary › Character › Body part › Control › Channel on the
 // humanoid wave rig, expansion, Show, dimmed rows, glyph aggregation (key / breakdown / selected), the channel hold
 // rule and the aggregate hold rule's cases.
-import type { CurveId } from '@ekza-animator/doc';
+import type { ChannelId, ControlId, CurveId } from '@ekza-animator/doc';
+import { createFakeEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildDopeSheetRows, holdIntervals } from '../../src';
+import { waveSnapshot } from '../timeline/fixture';
 import {
   CONTROLS,
   dopeApp,
@@ -152,6 +154,37 @@ describe('rows (§5.10)', () => {
       ['character', 1],
       ['control', 2],
       ['control', 2],
+    ]);
+  });
+});
+
+describe('channel rows like the Channel Box (M2A-INT-35)', () => {
+  it('names IK attribute channels by their Channel Box label, in its row order', async () => {
+    // A leg IK control: `attrs` in the rig's order ikFk, soft, twist, roll, bank, heelTwist, toeTwist (§5.2).
+    const app = createFakeEditorApp({ snapshot: withLimbIkRecords(await waveSnapshot(), { limbs: ['leg.L'] }) });
+    mounted = mountSheet(app);
+    const ik = 'rig_SyntheticWave001:ik.leg.L' as ControlId;
+    for (const channel of ['@toeTwist', '@roll', '@ikFk', '@bank', '@soft', '@heelTwist', '@twist', 'rz', 'tx']) {
+      keyCurve(app, ik, channel as ChannelId, [[0, 0]]);
+    }
+    const groups = ['root', 'torso', 'head', 'arm.L', 'fingers.L', 'arm.R', 'fingers.R', 'leg.L', 'leg.R', 'other'];
+    const rows = buildDopeSheetRows(app, {
+      clip: WAVE.clip,
+      controls: [ik],
+      expanded: new Set(['summary', `chr:${WAVE.character}`, ...groups.map((g) => `grp:${WAVE.character}:${g}`), ik]),
+      show: 'selected',
+    });
+    // Before the fix: 'bank', 'heelTwist', 'ikFk', 'roll', 'soft', 'toeTwist', 'twist' (raw ids, alphabetical).
+    expect(rows.filter((row) => row.kind === 'channel').map((row) => [row.channel, row.label])).toEqual([
+      ['tx', 'Translate X'],
+      ['rz', 'Rotate Z'],
+      ['@soft', 'Soft'],
+      ['@twist', 'Twist'],
+      ['@roll', 'Roll'],
+      ['@bank', 'Bank'],
+      ['@heelTwist', 'Heel Twist'],
+      ['@toeTwist', 'Toe Twist'],
+      ['@ikFk', 'IK/FK'],
     ]);
   });
 });
