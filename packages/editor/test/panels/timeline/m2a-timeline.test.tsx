@@ -92,6 +92,39 @@ describe('time slider canvas (M2a)', () => {
     expect(v.get('timeline-menu-ripple').getAttribute('aria-checked')).toBe('true');
   });
 
+  // Acceptance fix round 1, bug 11: a refused item (Remove Frame with a key on the next frame) was only disabled;
+  // the poll's reason is its tooltip now, as in the menu bar.
+  it('a disabled item says why in its tooltip; enabled items have none', async () => {
+    const v = await mountPanel();
+    v.app.contribute({
+      kind: 'operator',
+      def: {
+        id: 'time.insertTime',
+        label: 'Insert Time',
+        category: 'test',
+        scope: 'global',
+        // Remove Frame is time.insertTime {frames: −1}: refused with the key it would delete.
+        poll: (_ctx, args) =>
+          (args as { frames?: number } | undefined)?.frames === -1
+            ? { ok: false, reason: 'A key at frame 11 would be deleted: use Delete Time' }
+            : true,
+        apply: () => undefined,
+      },
+    });
+    const point = screenOfTimelineFrame(v.app, 15)!;
+    await act(async () => {
+      v.get('timeline-canvas').dispatchEvent(
+        new MouseEvent('contextmenu', { bubbles: true, clientX: point.x, clientY: point.y }),
+      );
+    });
+    const remove = v.get('timeline-menu-remove-frame') as HTMLButtonElement;
+    expect(remove.disabled).toBe(true);
+    expect(remove.title).toBe('A key at frame 11 would be deleted: use Delete Time');
+    const insert = v.get('timeline-menu-insert-frame') as HTMLButtonElement;
+    expect(insert.disabled).toBe(false);
+    expect(insert.hasAttribute('title')).toBe(false);
+  });
+
   it('exposes key ticks and band grab points for the test API', async () => {
     const v = await mountPanel();
     expect(timelineTicksOf(v.app)).toEqual([

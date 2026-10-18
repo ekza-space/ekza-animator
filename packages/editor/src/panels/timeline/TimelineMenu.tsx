@@ -1,5 +1,6 @@
 // The time slider's RMB menu (§4.11.17): items from `TimeSliderController.contextMenu`, grouped by their menu
-// group; the 'tangent' group is a submenu. Items whose operator polls false are disabled.
+// group; the 'tangent' group is a submenu. Items whose operator polls false are disabled, with the poll's reason as
+// their tooltip.
 import type { EditorApp } from '@ekza-animator/editor-core';
 import { PANEL } from '@ekza-animator/editor-core';
 import {
@@ -156,21 +157,33 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
     };
   }, [onClose]);
 
-  const enabled = (item: MenuEntry): boolean =>
-    app.operators.poll(item.op, { panel: PANEL.timeline }, item.args) === true;
+  /**
+   * Why an item is disabled (its operator's poll reason), null when enabled. Shown as the item's tooltip, as in the
+   * menu bar (acceptance fix round 1: Remove Frame was disabled with no word on the key that would be deleted).
+   */
+  const disabledReason = (item: MenuEntry): string | null => {
+    try {
+      const result = app.operators.poll(item.op, { panel: PANEL.timeline }, item.args);
+      return result === true ? null : result.reason;
+    } catch (error) {
+      return error instanceof Error ? error.message : 'Not available';
+    }
+  };
   const run = (item: MenuEntry): void => {
     onClose();
     void app.runUntyped(item.op, item.args, { panel: PANEL.timeline });
   };
-  const button = (item: MenuEntry): JSX.Element =>
-    item.checked === undefined ? (
+  const button = (item: MenuEntry): JSX.Element => {
+    const reason = disabledReason(item);
+    return item.checked === undefined ? (
       <button
         key={item.id}
         type="button"
         role="menuitem"
         className={itemClass}
         data-testid={`timeline-menu-${menuAction(item.id)}`}
-        disabled={!enabled(item)}
+        disabled={reason !== null}
+        title={reason ?? undefined}
         onClick={() => run(item)}
       >
         {item.label}
@@ -183,7 +196,8 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
         aria-checked={item.checked}
         className={itemClass}
         data-testid={`timeline-menu-${menuAction(item.id)}`}
-        disabled={!enabled(item)}
+        disabled={reason !== null}
+        title={reason ?? undefined}
         onClick={() => run(item)}
       >
         {item.label}
@@ -192,6 +206,7 @@ export function TimelineMenu(props: TimelineMenuProps): JSX.Element {
         </span>
       </button>
     );
+  };
 
   return (
     <div
