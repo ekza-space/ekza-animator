@@ -1789,7 +1789,8 @@ survive load and save; an op that cannot propagate an unknown layer's rule (`int
 
 - **Faceted default.** Every mesh created in the editor (primitives, templates, MeshSetOp outputs of faceted inputs)
   has `MeshRecord.faceted = true` and **all edges hard**. Made-editable meshes have `faceted = false` and their hard
-  edges recovered from split normals (§5.21). `faceted` changes only through `mesh.setFaceted` (Attributes).
+  edges recovered from split normals (§5.21). `faceted` changes only through `mesh.setAttributes {mesh, patch:
+  {faceted}}` (Attributes, Mesh Display › Faceted).
 - **`smoothingAngle`** is a nullable `angle` param of every op that creates side or strip edges; `null` resolves at
   invoke time to **0 on faceted meshes and 30° (π/6) otherwise** (`resolveSmoothingAngle`), and LastRun records the
   resolved value, so an adjusted re-run uses the same angle.
@@ -1840,24 +1841,45 @@ survive load and save; an op that cannot propagate an unknown layer's rule (`int
    loading chunks and rebuilding (≤ 40 ms at 50k triangles). While chunks load (`BlobStore.get` is async) the runtime
    is `loading`: every `mesh.*` poll on that mesh fails with "Mesh is loading", overlays show the last state dimmed.
    A missing chunk puts the runtime in `error` ("Mesh data is missing (blob …)") and offers File › Open recovery.
-5. **The journal edge to the last op is never evicted**, so `edit.adjustLast` always takes the synchronous path.
+5. **The journal edge to the last op is never evicted** (not by the journal cap, not by `close`), so `edit.adjustLast`
+   always takes the synchronous path. For a MeshSetOp the runner keeps the pre-op `MeshData` of every input of the
+   last op instead (set-ops produce whole outputs, no `MeshDelta`).
 6. Remote and import batches that change `data` close any open session on that mesh ("Changed by another user") and
    are followed like undo.
 7. `validateMesh` runs after every commit in debug builds and tests (§3 rule 8).
+8. **Lifecycle.** The registry holds one runtime per live mesh record with `data` (created when the record appears,
+   disposed when it is deleted), in every workspace: closed runtimes serve `data()`, triangulation and normals to
+   `MeshSurface`, the HUD, export and the display rebuild. `open` builds edit links (B10 calls it on entering a
+   component mode and on hilite changes, and `close` on leaving); `commitOp`/`commitSetOp` open their targets for the
+   run and close the ones that were closed before (object-mode ops such as Mirror, Combine, Freeze). Closing never
+   drops the journal; reopening from resident chunks is synchronous.
+9. **Component edit** (the primitive freeze rule of §5.16, the Outliner `prim` → `✎` badge): any commit through
+   `commitOp`/`commitSetOp` of a `MESH_OPS`/`MESH_SET_OPS` entry, `mesh.applyTransform` (Freeze, Bake Pivot) included.
+   Editor operators that only patch records (`mesh.setAttributes`, `mesh.pivot.set`, `mesh.resetTransforms`, renames,
+   `palette.*`, `scene.*`) are not component edits, whatever their id prefix.
 
 ### 5.6 Selection (B2 walkers; B10 UI and history)
 
 **Modes and hilite.**
 
 - `select.mode {mode}`: `'vertex' | 'edge' | 'face'` enters that mode on the **hilite set**; pressing the active
-  mode's key again (`1`, `2`, `3`, `F9`, `F10`) returns to object mode; `'toggle'` (`F8`) switches between object mode
-  and `lastComponentMode`; `'object'` returns to object mode. Mode switches are U state and **not** undo steps.
+  mode's **digit** again (`1`, `2`, `3`, the Industry Compatible habit) returns to object mode, while `F9` and `F10`
+  are idempotent (Maya: tapping `F9` again keeps vertex mode); `'toggle'` (`F8`) switches between object mode and
+  `lastComponentMode`; `'object'` returns to object mode. Mode switches are U state and **not** undo steps.
 - Entering a component mode hilites the selected mesh objects; with none selected it hilites the mesh under the
   pointer, else the help line says "Select a mesh first". RMB on another mesh in component mode opens the mode menu
   for that mesh and adds it to the hilite set; clicking a mesh row in the Outliner adds it too.
+- **Returning to object mode** (Maya `F8`): the hilited meshes become the object selection; if that changes the object
+  selection it is recorded as an `objects` selection step (and closes the Last-op card, §5.7), otherwise nothing is
+  recorded. `session.model.hilite` keeps the list while in object mode (not drawn); the next component entry
+  recomputes it from the object selection, and the Last-op card compares the two lists (§5.7).
+- **Component tools in object mode**: activating Multi-Cut, Insert Edge Loop, Target Weld, Slide or Paint Colour
+  while in object mode hilites the selected mesh objects (else the mesh under the pointer at the first pointer-down)
+  without changing the mode badge, as Maya does; the tool works on the hilited meshes' components and the hilite
+  ends with the tool.
 - Meshes outside the hilite set are drawn **opaque** and are not pickable for components; a pane's "Dim unhilited"
-  flag fades them to 35 % (Q-MOD-UI-15). Asset-backed meshes (`data: null`) cannot be hilited: "Make editable first"
-  with the Outliner action.
+  flag fades them to 35 % (Q-MOD-UI-15). A character's glTF mesh that is not made editable (no record, §5.21) cannot
+  be hilited: "Make editable first" with the Outliner action.
 - **Per-mode memory**: each mesh keeps its vertex, edge and face bitsets across mode switches; conversion is explicit
   (Ctrl+RMB, `Mod+F9/F10/F11`, Select › Convert), unless `prefs.modeling.convertOnModeSwitch`.
 - Leaving Model drops to object mode, keeps the bitsets in memory and cancels a running modal tool (Esc semantics).
@@ -1870,9 +1892,18 @@ pre-selection highlights the candidate (`--comp-hover`) and, under symmetry, its
 
 **Click and marquee modifiers** (09 §6.1, unchanged from Animate): click replaces; `Shift` toggles; `Mod` removes;
 `Mod+Shift` adds; a click on empty space clears the current mode's selection on the hilited meshes. Marquee uses the
-same modifiers and selects every visible candidate inside the rectangle (vertices and face dots by projected point,
-edges when both projected endpoints are inside or the segment crosses a fully contained pixel run — Maya's
-"edge inside" rule: both endpoints inside).
+same modifiers and selects every visible candidate inside the rectangle: vertices and face dots by their projected
+point, edges when **both projected endpoints are inside** (Maya's rule; E2E-MOD-25 asserts an edge with one endpoint
+outside is not selected).
+
+**Mirrored selection** (symmetry on; research 16 §12.1). The stored selection holds what the user picked; ops,
+walkers and the HUD use the **expanded** set (`expandSelection`: the picks plus their partners). The partners the
+expansion adds are drawn `--comp-selected` at **60 %** (`EditMeshView.setState(…, mirrored)`), and the HUD's
+Selected column reads `40 (+40 sym)`. A removal gesture (`Mod`-click, `Mod`-marquee, a `Shift` toggle that turns a
+component off) on **either** side removes the pick and its partner; additive gestures store the picked side only (the
+partner is derived). Grow, shrink, convert, loop, ring, border and shell read the expanded set and store their result.
+Components without a partner (`unmatched`, or a deliberately one-sided part) are selected and drawn on their own side
+only.
 
 **Maya's loop table** (research 10 §4.1, Maya help; B2 walkers, B10 gestures). "The reference" is the active
 component of the current mode (last picked).
@@ -1883,7 +1914,7 @@ component of the current mode (last picked).
 | `Shift`+double-click on a component **adjacent** to the reference | **full vertex loop** along the edge joining them | **full edge loop** when the clicked edge continues the reference's loop | **full face loop** across the shared edge |
 | `Shift`+double-click on a **non-adjacent** component on the same loop | **partial vertex loop** (shorter arc between them) | **partial edge loop** (shorter arc) | **partial face loop** (shorter arc) |
 | `Shift`+double-click on a **parallel** edge (same ring as the reference) | — | **edge ring** (full) | — |
-| `Ctrl`+double-click | deselect the contiguous selected run along the loop through the clicked vertex | the same for edges (a full selected loop is removed entirely, a partial one up to its ends) | the same for faces |
+| `Mod`+double-click (Cmd on macOS, Ctrl elsewhere; consistent with `Mod`-click remove) | deselect the contiguous selected run along the loop through the clicked vertex | the same for edges (a full selected loop is removed entirely, a partial one up to its ends) | the same for faces |
 
 Loops follow research 10 §4.1: an edge loop continues through interior valence-4 vertices whose four faces are quads,
 follows the border through vertices with exactly two border edges, stops at poles, triangles, n-gons, non-manifold
@@ -1899,14 +1930,18 @@ All honour hidden components.
 **Selection undo in Model (ADR 0016 D12; Q-MOD-UI-13).** With `prefs.modeling.undoSelection[workspace]` true (Model
 default) every selection change of components or objects records a `SelectionPart` through
 `history.recordSelection` (label "Select"); operators with `flags.selection` do this instead of a doc step. Hide and
-show record `kind: 'hide'` parts ("Hide", "Show"). **Coalescing**: a new selection step merges into the top step when
-(1) the top step is a selection-only step of the same kind, (2) nothing else was recorded in between, (3) **both**
-gestures are `additive` toggles (`Shift`/`Mod`/`Mod+Shift` clicks, grow, shrink) and (4) the new one comes within
-1,000 ms of the top step's last gesture. A replacing click, a click on empty space (`clear`), a marquee, a loop or
-ring pick, a convert and an object selection always start a new step, so "build a loop, click empty space, `Mod+Z`"
-restores the loop (E2E-MOD-26). Undo restores `before`; redo restores `after`; a mesh whose revision changed since the
-snapshot is skipped with the warning "Selection of <mesh> no longer matches its topology". Nothing enters the document
-or the CRDT. In Animate (default off) selection stays as shipped: snapshots ride only on doc steps.
+show record `kind: 'hide'` parts ("Hide", "Show"). **Every discrete gesture is its own step** (Maya records each
+selection click): a click, a `Shift`/`Mod`/`Mod+Shift` click, a marquee, a loop or ring pick, a convert, an object
+selection. **Coalescing** applies only to **auto-repeated** grow/shrink keys (`KeyboardEvent.repeat`, the same
+gesture, nothing recorded in between) and to continuous drags (a paint-select stroke, stretch): they merge into one
+step. So "build a loop, click empty space, `Mod+Z`" restores the loop, and three quick `Shift`-clicks followed by
+`Mod+Z` remove only the last one (E2E-MOD-26). A selection step clears redo in EditorHistory and the doc
+(`UndoManager.clearRedo()`). Undo restores `before`; redo restores `after`; restoring **never changes
+`componentMode` or the hilite set** (mode is U state; the bitsets of every kind are restored per mesh); a mesh whose
+revision changed since the snapshot is skipped with the warning "Selection of <mesh> no longer matches its
+topology". Nothing enters the document or the CRDT. In Animate (default off) selection stays as shipped: snapshots
+ride only on doc steps. Snapshot bytes (tagged `BitSet.encode`, never more than size / 8 bytes per bitset) count
+against the undo byte budget (§5.20).
 
 **Hide, show, isolate** (Q-MOD-UI-16): `view.hide {target: 'selected' | 'unselected'}` hides selected (or unselected)
 components of hilited meshes in component mode, objects in object mode; `view.showAll` clears both on the targets.
@@ -1918,11 +1953,14 @@ isolate set: in object mode the selected objects, in face mode the hilited meshe
 
 ### 5.7 Adjust Last Operation, Repeat Last, last tool (B11; B7 hooks)
 
-**LastRun recording** (the operator runner, `operators/runner.ts`): after an undoable run of an operator that
-declares `params` and finishes, the runner stores `session.lastRun` with the **resolved** args (`OpResult.resolvedArgs`
-for kernel ops, `coerceArgs` output otherwise), the history step id, `store.version`, the pane, the run source, the
-flags, the target meshes, the step seed and the symmetry/soft context. A run that is not undoable, fails or is
-cancelled leaves `lastRun` unchanged. Selection-only operators never become `lastRun`.
+**LastRun recording** (the operator runner, `operators/runner.ts`): after an undoable run that finishes, of an
+operator that declares `params` (`[]` allowed) **or** whose flags mark it `adjustable` or `repeatable` (so the
+paramless Delete, Fill Hole, Merge to Center, Collapse, Triangulate, Harden/Soften, Reverse, Spin … are repeatable by
+`G`; a paramless run shows no card), the runner stores `session.lastRun` with the **resolved** args
+(`OpResult.resolvedArgs` for kernel ops, `coerceArgs` output otherwise), the component `kind` it read (null for
+object-level runs), the history step id, `store.version`, the pane, the run source, the flags, the target meshes,
+the step seed and the symmetry/soft context. A run that is not undoable, fails or is cancelled leaves `lastRun`
+unchanged. Selection-only operators never become `lastRun`.
 
 **When the card closes** (`lastRun.closed` gets the reason; the Last-op card and INPUTS entry disappear):
 
@@ -1934,33 +1972,44 @@ cancelled leaves `lastRun` unchanged. Selection-only operators never become `las
 | workspace switch | yes |
 | a remote or import batch touching a target mesh | yes ("Changed by another user") |
 | symmetry or soft-select settings change for a target mesh | yes ("Settings changed") |
-| a **component-mode switch** with the same hilited meshes (`1`/`2`/`3`, `F8`, RMB menu) | **no**: Maya's INPUTS stay with the object (E2E-MOD-19) |
+| a **component-mode switch** with the same hilited meshes (`1`/`2`/`3`, `F8`, RMB menu; returning to object mode keeps the hilite list for this comparison, §5.6) | **no**: Maya's INPUTS stay with the object (E2E-MOD-19) |
 | shading (`4`–`7`), display toggles, camera navigation, panel changes, `T`, opening menus | no |
 
 **`edit.adjustLast {args}`** (dispatcher, no `flags.undo`; its `prepare` does the work, ADR 0008 §1):
 - poll: `lastRun` live, `adjustable`, `history.peekUndo()?.id === lastRun.stepId`, `store.version ===
   lastRun.docSeqAfter`, no target runtime `loading`;
-- prepare: `edit.undo`, then `app.run(lastRun.id, { ...lastRun.args, ...coerce(args) }, { source: 'card', paneId })`
-  with the recorded context; the new run's label is "<label> (adjusted)"; history length is unchanged (undo moved the
-  step to redo, the re-run cleared redo; ADR 0013 holds as written). A refusal of the re-run redoes the original step
-  and reports the reason ("Bevel: the width overlaps (clamped)" style messages come back as warnings, not refusals).
+- prepare: `edit.undo`, then `app.run(lastRun.id, { ...lastRun.args, ...coerce(args), meshes: lastRun.targets, kind:
+  lastRun.kind }, { source: 'card', paneId })` with the recorded context: the re-run targets the recorded meshes and
+  reads the selection of the recorded kind that the undo just restored, **whatever the current mode** (after `3` back
+  to object mode it still re-runs on the restored face selection; the undo's selection restore changes neither the
+  mode nor the hilite set, §5.6). The new run's label is "<label> (adjusted)"; history length is unchanged (undo moved
+  the step to redo, the re-run cleared redo; ADR 0013 holds as written). A refusal of the re-run redoes the original
+  step and reports the reason ("Bevel: the width overlaps (clamped)" style messages come back as warnings, not
+  refusals). B11 unit test: adjust after `3` re-runs on the face selection with the same targets.
 - **Card drags**: dragging a card field's virtual slider or a manipulator that edits args opens
   `meshes.beginOp(op, targets, args', { base: 'before-last' })`, which previews from the pre-op mesh through the
   journal (no doc writes, ≤ 1 re-run per frame; above 50 ms per re-run the card switches to "update on release");
   release runs `edit.adjustLast` once, which finds and commits the matching session.
 
-**`edit.repeatLast`** (`G`, dispatcher): poll: `lastRun` exists (closed or not) and its operator still polls true on
-the current selection. If `lastRun.repeatable`: `app.run(lastRun.id, stripBound(params, lastRun.args, ['pointer',
-'selection']))` on the current selection (selection-bound args re-resolve: Insert Edge Loop seeds from the selected
-edge with the same divisions and weight). Otherwise, when `lastRun.tool` is set (Multi-Cut, Target Weld, Slide,
-Insert Edge Loop placed by the tool, Paint), `G` activates that tool, like `Y`. File, view, UI and selection
-operators are never repeatable.
+**`edit.repeatLast`** (`G`, dispatcher) decides by the **run source**, as Maya's `G` does:
+1. `lastRun.source === 'tool'` and `lastRun.tool` set (a Multi-Cut cut, an Insert Edge Loop placed by its tool, a
+   Target Weld, a Slide, a Paint Colour stroke): `G` **activates that tool**, like `Y` (Maya re-enters the tool; a
+   re-run would seed from the new loop's own edges and cut a perpendicular loop). Smart extrude and extrude-session
+   runs record `source: 'tool'` but `mesh.extrude` declares no `tool`, so rule 2 applies.
+2. Otherwise, if `lastRun.repeatable`: `app.run(lastRun.id, stripBound(params, lastRun.args, ['pointer',
+   'selection']))` on the current selection (selection-bound args re-resolve: a menu-run Insert Edge Loop seeds from
+   the selected edge with the same mode, divisions and weight). A repeated `mesh.extrude` opens a new session (§5.8).
+3. Otherwise, when `lastRun.tool` is set (an operator with a required pointer-bound param run through `app.run`),
+   `G` activates the tool.
+Poll: `lastRun` exists (closed or not) and, for rule 2, its operator still polls true on the current selection.
+File, view, UI and selection operators are never repeatable.
 
 **`tool.last`** (`Y`): activates `session.model.lastTool` (the last non-Select tool used in the Model viewport).
 
 **`view.lastOpCard {expand?, focusPrimary?}`** (`T`): expands the card of the pane where `lastRun` ran (or the
-pane under the pointer) and focuses the primary field; with no live `lastRun` the help line says "No operation to
-adjust".
+pane under the pointer) and focuses the primary field; when `lastRun` is a live `mesh.extrude` and the current
+selection still equals its result, `T` also **reopens the extrude session and its manipulator** (`app.extrude.reopen`,
+Maya's `T` on the extrude node). With no live `lastRun` the help line says "No operation to adjust".
 
 ### 5.8 Extrude and the extrude session (B3 geometry; B12b session and manipulator)
 
@@ -1997,30 +2046,56 @@ adjust".
 **Extrude session** (ADR 0016 D7, Q-MOD-UI-7):
 
 - Opens after a finished `mesh.extrude` run from any source except Multi-Cut and the card (keyboard `Mod+E`,
-  menus, marking menus, Toolkit, smart extrude): `session.model.extrudeSession = { stepId, meshes, frame }` (world
-  frame of the first region), and the **extrude manipulator** (translate arrows X/Y/Z, rotate rings, scale handles
-  and a centre handle, in the session frame) is shown on the cap; the Last-op card is live.
+  menus, marking menus, Toolkit, smart extrude, `G`), and again on `T` (§5.7):
+  `session.model.extrudeSession = { stepId, meshes, frame, stack: [args], index: 0, manipSpace: 'local' }` (world
+  frame of the first region), and the **extrude manipulator** (translate arrows X/Y/Z, rotate rings, scale handles,
+  a centre handle and Maya's **local/world toggle**) is shown on the cap; the Last-op card is live.
 - While the session is open, every drag on the extrude manipulator **and every `W`/`E`/`R` or MMB drag on the cap**
-  goes through `app.extrude.beginAbsorb()`: the drag delta (world, about the frame pivot) is converted into the
-  extrude's `local*` args (`localTranslate += Fᵀ·Δt`; `localRotate` = Euler xyz of `Fᵀ·ΔR·F·R(localRotate)`;
-  `localScale *= Fᵀ`-aligned scale factors) and committed with **one `edit.adjustLast` per drag** — one undo step for
-  the whole session, Divisions still editable. While a session is open the W/E/R manipulators on the cap use the
-  session frame whatever the tool's space setting (the status line shows "Extrude (local)").
-- The session survives the `edit.adjustLast` re-runs it causes (typed values, card edits, absorbed drags): its
-  `stepId` follows each re-run's step, and the undo inside `edit.adjustLast` does not end it.
-- **The session ends** when the selection changes, a non-transform operator runs, the component mode or workspace
-  changes, a user undo or redo runs, `Esc` is pressed with no drag active, a pivot edit starts, or a remote change hits
-  a target mesh. It ends **at the start of the ending gesture** (pointer-down of a selection click, keydown of a mode
-  key, invocation of the other operator), before that gesture reads the mesh.
-- **Zero-drop**: when a session ends with every `local*`, `offset` and `thickness` arg at its identity value (0, 0,
-  1), the extrude step is undone (`edit.undo`, leaving a redo entry that the next step clears) and the help line
-  says "Extrude removed: it did not move" — no coincident duplicate faces are left (research 10 §4.2). A zero
-  extrude is **not** dropped while the session is open (Divisions may still change).
-- `Esc` during the first drag after `Mod+E` cancels that drag and ends the session, which then zero-drops.
-- **Smart extrude**: `Shift` held at the start of a drag on a W/E/R handle with faces (or border edges) selected runs
-  `mesh.extrude` with the drag recorded as `localTranslate`/`localRotate`/`localScale` (one step, card titled
-  "Extrude", Divisions editable) and opens a session. In object mode `Shift`+drag is reserved (Maya smart duplicate,
-  M6a-stretch; it moves normally).
+  goes through `app.extrude.beginAbsorb(tool, space)`: the drag delta (about the frame pivot) is converted into the
+  extrude's `local*` args and committed with **one `edit.adjustLast` per drag** (one history step for the whole
+  session, Divisions still editable). Conversion uses the args frame `A` (the session frame `F` when the op's `space`
+  arg is `local`, world axes when it is `world`): `localTranslate += Aᵀ·Δt_world`, `localRotate` = Euler xyz of
+  `Aᵀ·ΔR_world·A·R(localRotate)` — both exact from **any** manipulator space, so `W` and `E` (and the extrude
+  manipulator's translate/rotate handles) **honour World/Object/Component as the tool's space setting says**: a leg
+  extruded from a tilted hip face is pulled straight down world Y with `W` in World. **Scale** (`R`, the scale handles)
+  always uses the session frame (a world-axis scale of a rotated cap is a shear the args cannot represent);
+  `localScale *= ` the frame-aligned factors. The status line shows "Extrude · W World" etc.; the manipulator's
+  local/world toggle sets `manipSpace` for its own translate/rotate handles.
+- **Args undo stack** (Maya: each manipulator drag on `polyExtrudeFace` is its own undo chunk). Every absorbed drag,
+  typed value and card edit pushes its args onto `stack` (dropping entries above `index`, like redo). While the
+  session is open, `edit.undo` and `edit.redo` first ask `app.extrude.stepBack()` / `stepForward()`: they move `index`
+  and re-run through `edit.adjustLast` with `stack[index]`, the session stays open and the history length is
+  unchanged. Only `edit.undo` at `index` 0 undoes the extrude itself (and ends the session; no zero-drop is needed,
+  the step is gone).
+- The session survives the `edit.adjustLast` re-runs it causes (typed values, card edits, absorbed drags, stack
+  steps): its `stepId` follows each re-run's step, and the undo inside `edit.adjustLast` does not end it.
+- **What ends the session** — at the **start** of the ending gesture (pointer-down of a selection click, keydown of a
+  mode key, invocation of the other operator), before that gesture reads the mesh:
+
+  | Event | Ends? | Zero-drop? |
+  |---|---|---|
+  | `Esc` with no drag active; `Esc` during the first drag after `Mod+E` (cancels that drag, then ends) | yes | yes |
+  | a selection change in the same component mode | yes | yes |
+  | any other undoable operator (another extrude, `G`, Bevel, Inset, Delete …), except `edit.adjustLast` and the absorb path | yes | yes |
+  | `Shift` held at the start of a W/E/R handle drag (smart extrude: the old session ends, a new extrude runs) | yes | yes |
+  | workspace switch; a remote change hitting a target mesh | yes | yes |
+  | a **component-mode switch** (`1`/`2`/`3`, `F8`, `F9`/`F10`, RMB mode menu) | yes | **no**: Maya users press `1` to pull single cap vertices; Mesh Check still reports zero-area faces |
+  | a pivot edit starts | yes | no |
+  | `edit.undo` at stack index 0 | yes (the extrude is undone) | — |
+  | `view.*`, `ui.*`, camera navigation, shading `4`–`7`, tool switches (`Q`/`W`/`E`/`R`/`Y`), `T`, typed values, card edits, `edit.undo`/`edit.redo` inside the stack | **no** | — |
+
+- **Zero-drop**: when a session ends by a dropping event with every `local*`, `offset` and `thickness` arg at its
+  identity value (0, 0, 1), the extrude step is undone (`edit.undo`, leaving a redo entry that the next recorded step
+  clears) — no coincident duplicate faces are left (research 10 §4.2) — and a **toast** says "Extrude removed: it did
+  not move" with an **Undo** action that runs `edit.redo` while that redo entry still exists (the help line mirrors
+  it). The cap keeps the original face indices, so the ending gesture (another op on the same faces) reads the same
+  selection after the drop. A zero extrude is **not** dropped while the session is open (Divisions may still change).
+- **Smart extrude**: `Shift` held **at the start** of a drag on a W/E/R handle with faces (or border edges) selected
+  always ends the current session (if any) and runs a **new** `mesh.extrude` with the drag recorded as
+  `localTranslate`/`localRotate`/`localScale` (one step, card titled "Extrude", Divisions editable), opening a new
+  session — so Shift+drag, Shift+drag, Shift+drag builds a three-segment chain (spine, tail, sword fuller) in three
+  steps. `Shift` pressed **after** a drag has started is the fine adjustment (×0.1, §7). In object mode `Shift`+drag
+  is reserved (Maya smart duplicate, M6a-stretch; it moves normally).
 
 ### 5.9 Inset and Bevel (B3 inset; B5 bevel)
 
@@ -2031,11 +2106,15 @@ extrude with zero thickness (rim quads between the old boundary and the inset bo
 (coplanar rim edges on a faceted mesh are hard because `smoothingAngle` resolves to 0). `selection′` = the inner
 faces. Requires a manifold region boundary (`inset.non-manifold`).
 
-**Bevel** (`mesh.bevel`, edges only; research 10 §4.3, 13 §5.3 bounded to M6a):
+**Bevel** (`mesh.bevel`; research 10 §4.3, 13 §5.3 bounded to M6a): edge mode bevels the selected edges; **face
+mode bevels every edge of the selected faces** (Maya; the selection is converted to the faces' edges inside the op,
+so the card, `G` and symmetry are the same).
 
-- Width: `offsetAsFraction` (default) → each new vertex slides along its adjacent unselected edge by `fraction ×
-  length`, clamped to 0.5 of the shortest adjacent edge so bevels from both ends never cross; absolute → `offset`
-  metres, clamped the same way with the warning `bevel.clamped`.
+- Width (Maya semantics): `offsetAsFraction` (default) → each new vertex slides along its adjacent unselected edge by
+  `fraction × ½ × L`, where `L` is the shortest edge adjacent to that end, so `fraction` 1 means bevels from both ends
+  of an edge meet; the default 0.5 is a quarter of `L` and never meets. Where both ends of an adjacent edge are
+  bevelled, the effective fraction is clamped to 0.98 with the warning `bevel.clamped` (no coincident points, no
+  zero-width strips); absolute → `offset` metres, clamped to the same distance with the same warning.
 - **Endpoint valence** (selected edges meeting at an endpoint `v`):
   - 1: `v` splits into two vertices on the two neighbouring edges; the face opposite the strip gains a corner
     (quad → pentagon). One cube edge, 1 segment: 10/15/7; 2 segments: 12/18/8; 3 segments: 14/21/9.
@@ -2050,8 +2129,9 @@ faces. Requires a manifold region boundary (`inset.non-manifold`).
   Maya `depth`).
 - Hardness: strip interior edges follow H2; with `hardenBorders` (default on) the strip's border edges are hard.
 - Refusals: non-manifold or border edges (`bevel.non-manifold`, `bevel.border-edge` "Bevel needs edges with two
-  faces"); an empty result after clamping (`bevel.zero-width`).
-- `selection′` = the new bevel faces.
+  faces"; in face mode a selected face's border edge refuses the same way); an empty result after clamping
+  (`bevel.zero-width`, unreachable through the fraction path).
+- `selection′` = the new bevel faces (face mode: the bevel faces plus the shrunk original faces, Maya).
 
 ### 5.10 Numeric capture and the modal tool contract (B11 capture; B12a/B12b tools)
 
@@ -2059,7 +2139,10 @@ faces. Requires a manifold region boundary (`inset.non-manifold`).
 `MeshOpSession`; confirm is one `app.run(op, finalArgs, { source: 'tool' })`; `Esc` cancels with **no history step**;
 **RMB never cancels** — it is ignored during a drag, completes Multi-Cut, and opens marking menus otherwise (the keymap
 conformance test and each tool's unit test assert it); the wheel stays dolly; `PageUp`/`PageDown` step counts
-(divisions, segments) of the active tool. A drag starts after 3 CSS px.
+(divisions, segments) of the active tool. A drag starts after 3 CSS px. **Keys reach the tool before the keymap**
+(§5.17 order): while the tool is `placing` or `dragging` it receives `Backspace`, `Enter`, `NumpadEnter`, `PageUp`,
+`PageDown` and `Escape` first (these are **reserved**: a Multi-Cut `Backspace` removes a point and can never run
+`mesh.delete` on the selection), plus its declared `ToolDef.keys` in any phase.
 
 **Capture window** (Q-MOD-UI-8; `prefs.modeling.numericCapture: 'auto'`):
 
@@ -2068,14 +2151,23 @@ conformance test and each tool's unit test assert it); the wheel stays dolly; `P
   (`RunContext.source === 'keyboard'`) finishes with a `lastRun` that has a primary param (target: the Last-op card,
   active field = the primary). Case (b) disarms at the first pointer move beyond 3 CSS px, any click, or any
   non-numeric key that is not part of an entry.
-- **While armed**, the keyboard adapter offers keys to `app.capture.key` before the keymap: a digit, `.` or `-`
-  starts an entry for the active field (from then on the pointer no longer changes that field); `Backspace` edits;
-  `Tab`/`Shift+Tab` move between the target's fields; `Enter` applies (case (a): confirms the drag with the typed
-  value; case (b): `edit.adjustLast {[field]: value}`); `Esc` cancels the entry (case (a): cancels the drag). Grammar
-  and units are research 09 §6.4 via `parseNumericInput` (`0.5`, `50cm`, `+=0.1`, `30deg`, `=2*0.25`).
+- **While armed**, the keyboard adapter offers keys to `app.capture.key` before anything else: a digit, `.` or `-`
+  starts an entry for the active field (from then on the pointer no longer changes that field); a digit consumed this
+  way **does not also** switch mode or shading; `Backspace` edits; `Tab`/`Shift+Tab` apply the entry and move between
+  the target's fields; `Enter` applies (case (a): confirms the drag with the typed value; case (b):
+  `edit.adjustLast {[field]: value}`); `Esc` cancels the entry (case (a): cancels the drag).
+- **An entry applies only on `Enter` or `Tab`.** When case (b) disarms with an unfinished entry (pointer move, click,
+  another key), the entry is **discarded** and the help line says "Entry discarded". `Enter` with no entry is a no-op
+  that disarms case (b): the extrude session stays open and nothing is dropped. The readout chip appears with the
+  first typed digit.
+- Grammar and units are research 09 §6.4 via the shipped `parseNumericInput` (`0.5`, `50cm`, `+=0.1`, `30deg`,
+  `=2*0.25`), wrapped by B11's `parseParamInput(text, current, def)`, which adds the `fraction` rule (§1: `30%` and
+  `0.3` are 0.3; a bare number is a fraction) and leaves the shipped parser and its callers unchanged.
 - **Outside the window** digits keep their meanings (`1`–`3` modes, `4`–`7` shading) and `-`/`=` keep manipulator
   size. `T` is the explicit opener at any time (§5.7). With `numericCapture: 'explicit'` only `T` and card fields
-  take numbers.
+  take numbers. Case (b) takes a digit pressed right after `Mod+E` (a mode key for a Maya hand): "`Ctrl+E`, then `2`"
+  is on the B12a owner feel-check script, and INT records the owner's choice (keep, or exempt `1`–`7` from case (b))
+  in DECISIONS-OPEN §H.
 - The modal readout chip (B12a) shows the active field, the entry text and the keys ("Enter ✓ · Esc ✕ · Tab next");
   the help line mirrors it; a polite live region announces committed values ("Extrude local translate Z 0.5 metres").
 
@@ -2089,6 +2181,10 @@ conformance test and each tool's unit test assert it); the wheel stays dolly; `P
 - Placement: `relative` = the same `weight` (from `edgeVert(e₀, 0)`) on every ring edge; `equal` = the distance
   `weight × length(e₀)` from the same side, clamped to each edge; `multiple` = `divisions` loops at `i / (divisions +
   1)`. `selection′` = the new loop edges. Cross edges follow H1.
+- Entry points: **Edit Mesh › Insert Edge Loop** (and `run`) inserts on the selected edge's ring at once (seed = the
+  lowest-index selected edge; `source: 'menu'`, so `G` repeats it on the next selected edge); **Mesh Tools › Insert
+  Edge Loop**, Shift+RMB edge `N` and the Toolkit button activate the **tool** (hover previews the whole loop, click
+  places it; `source: 'tool'`, so `G` re-activates the tool, §5.7).
 - Counts: around a cube's four sides 12/20/10; on an 8-sided cylinder with `multiple`, 3 loops: 40/72/34.
 
 **Offset Edge Loop** (`mesh.offsetLoop`): for each selected edge loop, insert two loops on the two adjacent rings at
@@ -2105,16 +2201,20 @@ skipped with a warning.
 - Points are `{kind: 'edge', edge, t}` or `{kind: 'vertex', vertex}` (pointer-bound `points`). Clicking near an edge
   places a point at the projected `t`; `Shift` snaps `t` to multiples of `prefs.modeling.multiCutSnapStep` (25 %);
   within 8 px of a vertex the point snaps to the vertex. Points inside faces are M6a-stretch (ignored with a hint).
-- Consecutive points must share a face; the face is split along the chord: split the edges, then
-  `splitFaceMakeEdge`. A chord in an n-gon is valid when it lies inside the polygon: projected to the Newell plane,
+- Consecutive points must share a face (a click on a face that shares none with the previous point is not added and
+  the help line says "Click on each face the cut crosses"; Maya's cut through the faces in between is M6a-stretch,
+  §1.2); the face is split along the chord: split the edges, then `splitFaceMakeEdge`. A chord in an n-gon is valid when it lies inside the polygon: projected to the Newell plane,
   the open segment crosses no face edge (`orient2d`, exact) and its midpoint is inside (exact point-in-polygon); an
   invalid chord is refused with "That cut would leave the face" and the point is not added.
 - Splitting an edge inserts the vertex into both adjacent faces (a neighbour of the cut becomes an n+1-gon; no
   automatic fix).
-- Gestures: LMB places points; **RMB or `Enter` completes** (one `mesh.cut` run); `Backspace` removes the last point;
-  `Esc` cancels (no step); `Ctrl`-click on an edge = `mesh.insertLoop {seedEdge, weight: t}` at the cursor (one step,
-  tool stays active); `Ctrl`+MMB on an edge = loop at `t = 0.5`; `Ctrl+Shift`-click = loop at the nearest snap step.
-- `selection′` = the new edges. Cut edges follow H1. `G` after a cut re-activates the Multi-Cut tool.
+- Gestures: LMB places points; **RMB (pointer-down button 2) or `Enter` completes** (one `mesh.cut` run);
+  `Backspace` removes the last point; `Esc` cancels (no step); `Ctrl`-click on an edge = `mesh.insertLoop {seedEdge,
+  weight: t}` at the cursor (one step, tool stays active); `Ctrl`+MMB on an edge (trackpad: `Ctrl` + the MMB stand-in,
+  §5.17) = loop at `t = 0.5`; `Ctrl+Shift`-click = loop at the nearest snap step. `Ctrl` is literal Ctrl on every
+  platform: on macOS a Ctrl-click arrives as pointer-down button 0 with `ctrlKey` and is a Ctrl-click; its
+  `contextmenu` event is suppressed and never completes the cut (§5.17).
+- `selection′` = the new edges. Cut edges follow H1. `G` after a cut re-activates the Multi-Cut tool (§5.7 rule 1).
 
 ### 5.12 Slide, Average, Bridge, Fill Hole, Merge, Delete, Spin (B3, B4; tools B12b)
 
@@ -2155,20 +2255,24 @@ caps) → 16/24/8 → two fills → 16/24/10.
   mesh) — two coplanar planes side by side after Combine: 8/8/2 → 6/7/2.
 - `mesh.targetWeld {pairs, mode}`: each pair `{source, target}` (pointer-bound, vertices; edges weld endpoint to
   endpoint by proximity) merges `source` into `target` at the target (`mode: 'target'`, default) or at their midpoint
-  (`'center'`, MMB in Maya). Same mesh only. A cube's adjacent pair → 7/11/6.
+  (`'center'`: an MMB drag in Maya, the MMB stand-in on a trackpad, or the Toolkit's Active tool mode). Same mesh only.
+  A cube's adjacent pair → 7/11/6.
 - `mesh.collapse`: each selected edge → its midpoint; each selected face → its centroid (one cube edge → 7/11/6).
 - After any merge: drop repeated consecutive corners, kill faces with < 3 distinct corners, kill unused edges and
   vertices, merge exactly coincident duplicate faces (lamina: the face with the larger index is killed), report
   non-manifold results (`merge.non-manifold`), merged edges by H3. Symmetry: §5.14.
 
 **Delete family** (research 10 §4.11; Q-MOD-UI-6):
-- `mesh.delete` — vertex mode: an interior vertex's incident faces merge into one n-gon (a border vertex with two
-  edges joins its edges); edge mode (**Maya plain Delete**): each selected edge is removed and its two faces merge
-  into one polygon; end vertices stay (cube edge → 8/11/5); a border edge goes with its face; face mode: the faces
-  are removed with their now-unused edges and vertices.
-- `mesh.deleteEdgeVertex` (`Mod+Delete`, "Delete Edge/Vertex"): as plain Delete, then every vertex left with valence
-  2 by this deletion is dissolved (cube edge → 6/9/5; the shape changes, a prism). Border edges refuse
-  (`delete.border-edge`).
+- `mesh.delete` — vertex mode (**Maya plain Delete**): only **winged** vertices (valence 2) are deleted, each
+  dissolved into the edge joining its two neighbours; a selection with any vertex of valence > 2 refuses with
+  `delete.not-winged` "Use Delete Edge/Vertex (Mod+Delete)" (a cube corner would otherwise become a non-planar
+  hexagon); edge mode: each selected edge is removed and its two faces merge into one polygon; end vertices stay (cube
+  edge → 8/11/5); a border edge goes with its face; face mode: the faces are removed with their now-unused edges and
+  vertices.
+- `mesh.deleteEdgeVertex` (`Mod+Delete`, "Delete Edge/Vertex"): edge mode as plain Delete, then every vertex left
+  with valence 2 by this deletion is dissolved (cube edge → 6/9/5; the shape changes, a prism); vertex mode: each
+  selected vertex is removed with its edges and its incident faces merge into one n-gon (a border vertex with two
+  edges joins them; Maya `polyDelVertex`). Border edges refuse (`delete.border-edge`).
 - Stray-vertex lint: valence-2 vertices whose edges are collinear within 1° are flagged by Mesh Check with a
   one-click fix (`mesh.cleanup {fix: 'stray-vertices'}`).
 
@@ -2192,7 +2296,10 @@ triangles = one spin; on a selected quad face it toggles `FACE_FLIP_DIAGONAL`. C
   one input has none (else refusal "Combine needs one palette: assign it first" with the action `palette.assign`);
   morph layers united in the first mesh's manifest order, missing deltas zero; skin layers need the same skeleton
   (`combine.skeleton-mismatch`), joint palettes united and remapped. Inputs other than the first are removed.
-  `faceted` = true only if every input is faceted.
+  `faceted` = true only if every input is faceted. An input whose world transform relative to the first has
+  `det < 0` (Maya's mirror route: `Mod+D`, scale X −1, Combine) is appended with reversed winding (`appendMesh`), so
+  the combined half faces outward; golden: a half cube duplicated with scale X −1 and combined is 12/20/10 after Merge
+  by Distance, closed, with consistent winding.
 - **Separate**: one output per shell (flood fill over shared vertices), each keeping the original placement; the
   first shell (lowest face index) stays in the input record, the others become new records named "<name> 2", "3"…
 - **Extract** (`separate`, default true; `offset`): detaches the selected faces (duplicating boundary vertices so they
@@ -2222,11 +2329,13 @@ faces as faces (cube → 8/18/12); new edges follow H1. Quadrangulate pairs tria
 (the pair's dihedral angle < `angle`, default 30°; not across hard edges, seams or material/paint borders unless the
 `keep*` options are off; best rectangularity; ties to the smaller face index) and removes the shared edge.
 
-**Freeze / Reset Transformations** (`mesh.freezeTransforms {translate, rotate, scale}` kernel + record patch,
-research 10 §4.19): bakes the selected parts of `placement` into positions (`p ← M·p`), custom normals by the inverse
-transpose, reverses every face when `det(M) < 0`, transforms `pivot` by `M`, and sets the frozen parts of
-`placement` to identity; refuses for meshes with a skin layer ("Freezing would move a skinned mesh off its bones").
-Groups: freezing a group applies to its child meshes. `mesh.resetTransforms` sets `placement` to identity without
+**Freeze / Reset Transformations** (research 10 §4.19). A `MeshOp` cannot patch records, so Freeze is an **editor
+operator** `mesh.freezeTransforms {ids?, translate, rotate, scale}` (B12a, with Bake Pivot in `pivot.ts`) over the
+kernel op `mesh.applyTransform {matrix}` (B4; object-level, internal, not in menus): in **one transaction** it runs
+`commitOp(mesh.applyTransform)` on each target mesh — positions `p ← M·p`, custom normals by the inverse transpose,
+every face reversed when `det(M) < 0` — then patches `pivot` (transformed by `M`) and sets the frozen parts of
+`placement` to identity. Refuses for meshes with a skin layer (`freeze.skinned`, "Freezing would move a skinned mesh
+off its bones"). Groups: freezing a group applies to its child meshes. Freeze is a component edit (§5.5 rule 9). `mesh.resetTransforms` sets `placement` to identity without
 touching positions (an ordinary record patch).
 
 **Group / Parent / Unparent / Duplicate / Delete objects** (`scene.*`, B13): `scene.group` (`Mod+G`) creates a group
@@ -2253,9 +2362,21 @@ Seam is on by default (MODELING-PLAN §3.14, ADR 0016 D13; this section is the n
 - Face partner: the face over the partner vertex set (matched by sorted vertex tuple); −1 if absent.
 - An edge or face that is its own partner lies on or across the seam.
 
-**Pointer arguments**: a point `{edge, t}` maps to `{p(edge), t}` (same orientation) or `{p(edge), 1 − t}`
-(reversed); on a self-partner edge it maps to `{edge, 1 − t}`; a point within `tolerance` of the plane is **one**
-point, snapped onto the plane (on a self-partner edge: `t = 0.5`). Vertex picks map to partner vertices.
+**Pointer arguments** (`mirrorEdgePoint`): a point `{edge, t}` on an ordinary edge maps to `{p(edge), t}` (same
+orientation) or `{p(edge), 1 − t}` (reversed). Self-partner edges split in two kinds (`edgeSelf`):
+- a **crossing** edge (its endpoints are each other's partners, `edgeReversed` 1) maps `t ↦ 1 − t`; a point within
+  `tolerance` of the plane is **one** point, snapped onto the plane at the edge's **crossing parameter** `t*` (where the
+  plane cuts the edge; `t* = 0.5` only when the plane bisects it);
+- an **in-seam** edge (both endpoints on the seam) maps `t ↦ t`: every point on it is already on the plane, so it is
+  one point and is **never** snapped.
+Vertex picks map to partner vertices. B2's walker goldens cover both kinds (a cube X-ring edge; a centre-line edge of
+the humanoid body).
+
+**Unmatched partners.** A picked or selected component whose partner is −1 (`unmatched` > 0, or a deliberately
+one-sided part such as an arm cylinder Combined onto one side) is processed **on its own side only**: the run carries
+the warning `symmetry.unmatched-partner` with the count, and the help line says "No mirror partner: applied to one
+side". This holds for every row below (an unpaired Bridge loop bridges once, an unpaired Target Weld pair welds once,
+a cut point without a partner edge is not mirrored). Seam refusals (`symmetry.seam`) stay refusals.
 
 **Seam rules**: one symmetric result, never two overlapping ones; with Preserve Seam, seam vertices stay on the plane
 (their delta's normal-to-plane component is zeroed); an op that would move a seam vertex off the plane under Preserve
@@ -2270,10 +2391,10 @@ positive side of the plane (`keep: 'positive'` convention); its partner uses the
 | Soft select | weights computed from the **expanded** selection; each vertex takes its own side's delta scaled by its weight | vertices within tolerance of the plane: in-plane part only |
 | Extrude, Inset, Bevel, Offset Edge Loop, Delete, Delete Edge/Vertex, Merge, Merge to Center, Collapse, Soften/Harden, Average Vertices, Paint Colour, Connect, Fill Hole, Triangulate | run on the **expanded selection**; scalar args apply to both halves; extrude `local*` args act in mirror-consistent frames (`S·F`), so the numbers are identical | a region or merge group that is its own mirror is processed **once** with its own frame, then its vertices are symmetrized (each vertex and its partner set to the mean of `p` and `S·p(partner)`); its merge centre is snapped onto the plane; Average keeps seam vertices on the plane |
 | Multi-Cut | every cut point mapped as above; the mirrored path is a second cut in the same run | a path that crosses the seam is clipped at the first crossing, the crossing point snaps onto the plane, and the kept half (from the first point) is mirrored: **one symmetric cut** |
-| Insert Edge Loop | the seed edge's ring and the partner ring (weight mapped by `edgeReversed`); Multiple/equal-distance identical | a ring that is its own partner (a waist loop) inserts **one** loop; every new vertex gets a partner (the map is rebuilt after the commit and checked: `unmatched` must not grow) |
+| Insert Edge Loop | the seed's loops (one for `relative`/`equal`, `divisions` for `multiple`) **and their mirror images**: the seed point `{e₀, t}` is mapped by the pointer rule and the partner ring's loops are placed at the mapped weights | decided per loop by the **mapped seed point**: when the mapped point lies on the **same loop** (a waist ring whose partner edges are in the ring with the same walked weight; or a crossing ring with the weight within tolerance of `t*`, then snapped onto the plane) that loop is inserted **once**; otherwise both loops are inserted. Cube, Object X, an X-ring at weight 0.3: two loops at x = ±0.2, 16/28/14; at 0.5: one loop at x = 0, 12/20/10. Every new vertex gets a partner (the map is rebuilt after the commit and checked: `unmatched` must not grow) |
 | Slide Edge/Vertex | partner edges slide by the same percent along mirrored rails | seam vertices slide only along rails in the plane |
-| Target Weld | `s → g` also welds `p(s) → p(g)` | `g` on the seam: both `s` and `p(s)` weld onto `g`; `g = p(s)`: Merge to Center onto the plane; `s` on the seam and `g` off it: refused with Preserve Seam |
-| Bridge | the picked pair and its mirrored pair; `twist` and `offset` mirrored (sign flipped) | a pair of loops that is its own mirror (a neck) bridges once |
+| Target Weld | `s → g` also welds `p(s) → p(g)` | `g` on the seam: both `s` and `p(s)` weld onto `g`; `g = p(s)`: Merge to Center onto the plane; `s` on the seam and `g` off it: refused with Preserve Seam; `p(s)` or `p(g)` = −1: one weld, `symmetry.unmatched-partner` |
+| Bridge | the picked pair and its mirrored pair; `twist` and `offset` mirrored (sign flipped) | a pair of loops that is its own mirror (a neck) bridges once; a pair with an unpaired loop (a one-sided arm) bridges once, `symmetry.unmatched-partner` |
 | Mirror, Symmetrize | not affected by the mode (they are the explicit symmetry ops) | — |
 | Combine/Separate/Extract/Duplicate (`MeshSetOp`) | not mirrored (object level); symmetry re-detected on the result | — |
 
@@ -2289,12 +2410,13 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
 ### 5.15 Component transforms, MMB-drag, Tweak, snapping, pivots, soft select (B12a; B2 kernel)
 
 - **Component W/E/R** (`move`, `rotate`, `scale` tools in component mode): pivot = the bounding-box centre of the
-  selected vertices in world space (Maya), or the pinned `componentPivot`; orientation World / Object / **Normal**
-  (Normal: Z = the area-weighted average of the selected faces' normals, or of the selected vertices' corner normals;
-  X/Y by the region-frame rule of §5.8). A drag previews through a `MeshOpSession` of `mesh.transformComponents` and
-  commits one step labelled "Move", "Rotate" or "Scale". `mesh.transformComponents` args: `translateX/Y/Z`,
-  `rotateX/Y/Z`, `scaleX/Y/Z`, `pivot` and `orientation` (selection-bound, 'data'); soft and symmetry come from the
-  recorded context.
+  selected vertices in world space (Maya), or the pinned `componentPivot`; orientation World / Object /
+  **Component** (Maya's name for one averaged frame: Z = the area-weighted average of the selected faces' normals, or
+  of the selected vertices' corner normals; X/Y by the region-frame rule of §5.8). Maya's **Normal** orientation, where
+  each component moves along its own normal on the N handle, is M6a-stretch (§1.2); the B12a feel check compares
+  Component against Maya 2026. A drag previews through a `MeshOpSession` of `mesh.transformComponents` and commits one
+  step labelled "Move", "Rotate" or "Scale". `mesh.transformComponents` args: `translateX/Y/Z`, `rotateX/Y/Z`,
+  `scaleX/Y/Z`, `pivot` and `orientation` (selection-bound, 'data'); soft and symmetry come from the recorded context.
 - **Scale tool** (B9, `R`, all workspaces): in object mode it scales mesh objects (placement scale) and, in Animate,
   controls with keyable scale; axis handles `sx`/`sy`/`sz` and the centre handle `suniform`.
 - **MMB-drag** (Maya rule, Q-MOD-UI-14), with W, E or R active in a viewport pane: if Channel Box channels or an
@@ -2302,23 +2424,27 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   selection — along/about/along the **last-picked handle axis** (`session.model.tweakHandle`, set by a LMB press on a
   handle, cleared on tool switch), or in the view plane through the pivot / about the view axis / uniformly when the
   last pick was the centre handle or none. It works in object and component mode, in Model and **in Animate**
-  (controls move through the channel-edit gesture; additive: MMB without channels did nothing before).
-- **Tweak** (`selectionStyle: 'tweak'`, a Move tool option, off by default as in Maya): LMB-drag that starts on an
-  unselected component replaces the selection with it and moves it in the view plane in one gesture (one step "Move"
-  whose `selectionBefore/After` carry the change; no separate "Select" step).
+  (controls move through the channel-edit gesture; additive: MMB without channels did nothing before). On a trackpad
+  every MMB gesture of the Model viewport goes through the **MMB stand-in** (§5.17).
+- **Tweak** (`selectionStyle: 'tweak'`, a Move tool option, off by default as in Maya; a tap of `` ` ``
+  (`Backquote`) toggles it, Maya's key): LMB-drag that starts on an unselected component replaces the selection with
+  it and moves it in the view plane in one gesture (one step "Move" whose `selectionBefore/After` carry the change; no
+  separate "Select" step).
 - **Snapping** (holds and sticky toggles): `X` — the moved pivot snaps per moved axis to the grid
   (`prefs.modeling.gridStep`, 0.1 m); `V` — the pivot snaps to the nearest **visible** vertex within 12 px on **any**
   visible, unlocked mesh (its own moved vertices excluded), so a separate arm or head can be aligned before Combine;
   `J` — increments (0.1 m, 15°, 0.1). A ring marks the candidate and the readout names it ("→ vertex 128 · Torso").
-  Edge snap `C` is stretch.
+  Snapping moves the pivot and the selection keeps its spacing (Maya's **Retain component spacing** on); turning it
+  off, so that every moved vertex snaps on its own (many vertices onto one grid line), is M6a-stretch. Edge snap `C`
+  is stretch.
 - **Pivot editing**: `D` held, or `Insert` / `Home` (both on every platform; `Home` shadows `time.goToStart` only in
   `model.viewport`) toggles pivot edit: the manipulator draws dashed and drags move the pivot (`X`/`V` snap it). In
   object mode it writes `MeshRecord.pivot`/`GroupRecord.pivot` (`mesh.pivot.set`, undoable); in component mode it pins
   `componentPivot` (U). Menu Modify › Pivot: Center Pivot (bounds centre), Pivot to Bottom Center (bounds bottom
   centre: props stand on the ground), Reset Pivot (origin), Bake Pivot (moves the geometry so the pivot becomes the
   object origin and compensates `placement`; one step).
-- **Soft select** (`B` tap toggles; `B`+LMB drag scales the radius relative to its value, `B`+MMB drag sets it from
-  zero): weights `w = f(d / r)` with `d` the world-space Euclidean distance to the nearest (expanded) selected vertex
+- **Soft select** (`B` tap toggles; `B`+LMB drag scales the radius relative to its value, `B`+MMB drag (trackpad:
+  `B` + the MMB stand-in) sets it from zero; a pointer-down while `B` is held makes the release not a tap): weights `w = f(d / r)` with `d` the world-space Euclidean distance to the nearest (expanded) selected vertex
   (Volume) or the geodesic distance along visible edges, Dijkstra cut at `r` (Surface); presets `smooth` (default,
   `1 − (3x² − 2x³)`), `linear` (`1 − x`), `sharp` (`(1 − x)²`), `root` (`√(1 − x)`), `sphere` (`√(1 − x²)`), `constant`
   (1); `x` clamped to [0, 1]; hidden vertices weigh 0. The overlay tints by weight (`--soft-1…4`) and shows the radius
@@ -2326,17 +2452,22 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
 
 ### 5.16 Primitives and templates (B1 primitives; B13 UI, templates, generator)
 
-- `mesh.create.<kind>` creates an authored scene mesh (`owner: { scene: true }`, `faceted: true`, all edges hard,
-  default palette assigned when the project has one) **at the world origin, centred** (Maya), selected, in object
-  mode; its parameters are the §6.3 table with the `prefs.modeling.primitiveDefaults` set (`low-poly` or `maya`). The
-  Last-op card shows the parameters; `G` creates another.
+- `mesh.create.<kind>` (B7: the operator and record creation; B13: menus, start card, Attributes) creates an
+  authored scene mesh (`owner: { scene: true }`, `faceted: true`, all edges hard, default palette assigned when the
+  project has one, id `derivedId('mesh', 'mesh.create.<kind>', [], seed, 0)` so an adjusted re-run keeps the id)
+  **at the world origin, centred** (Maya), selected, in object mode; its parameters are the §6.3 table with the
+  `prefs.modeling.primitiveDefaults` set (`low-poly` or `maya`). The Last-op card shows the parameters; `G` creates
+  another. **Into a template group**: when exactly one group with a non-null `template` is the selected object (or
+  the lead of the selection), the new mesh is created as its child (same owner) at the group's origin, centred, and
+  takes the template's symmetry (humanoid: Object X), so the template's budget and export root apply (AS-LP-A).
 - Winding CCW seen from outside; UVs generated per primitive (cube: per-face 0–1; sphere/cylinder/cone: cylindrical
   with the seam on −Z, split corners at the wrap; plane: 0–1; torus: two angles); `paint` = slot 0 everywhere.
-- **Live parameters** (Q-MOD-UI-17): while `generator` is non-null, Attributes › Primitive and `mesh.primitive.set
-  {mesh, params}` regenerate the whole mesh (one step, `rev + 1`; selection cleared). The **first component edit of
-  any kind** — any `mesh.*` operator other than `mesh.primitive.set`, including `mesh.transformComponents` and
-  `mesh.paint` — sets `generator: null` in the same transaction; the Outliner badge turns `prim` → `✎`. Object
-  transforms, renames, palette and material changes keep the parameters.
+- **Live parameters** (Q-MOD-UI-17): while `generator` is non-null, Attributes › Primitive, the Channel Box
+  **INPUTS primitive entry** (§8.6) and `mesh.primitive.set {mesh, params}` regenerate the whole mesh (one step,
+  `rev + 1`; selection cleared). The **first component edit of any kind** — any commit through
+  `commitOp`/`commitSetOp` of a kernel op (§5.5 rule 9), `mesh.transformComponents`, `mesh.paint` and Freeze included —
+  sets `generator: null` in the same transaction; the Outliner badge turns `prim` → `✎`. Object transforms, renames,
+  palette and material changes (`mesh.setAttributes`, `scene.*`, `mesh.pivot.*`) keep the parameters.
 - **Templates** (`mesh.create.template {template, …}`, B13 in `mesh-core/src/templates`):
   - `prop`: a group "Prop" (`template.kind 'prop'`, budget `small-prop`) with a cube child whose pivot is at its
     bottom centre on the ground.
@@ -2345,13 +2476,15 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
     layer: a ring at the origin and a +Y arrow for the shaft, +Z for the fingertips), and a cube child 0.04 × 0.3 ×
     0.04 m above the grip; export defaults to the `ekza/omoba-handheld-v1` profile.
   - `humanoid` guides: a group "Humanoid" (`template.kind 'humanoid'`, params `height` 1.6 m, `preset`
-    `stylized | chibi | blocky`), budget `hero`, symmetry Object X set on its meshes, and **proportion guides**
-    drawn on the helpers layer (never picked or exported): ground line, height line, head/chin/shoulder/hip/knee/
-    ankle lines and the +Z facing arrow, from the preset's proportions. No mesh (AS-LP-A starts from a cube).
+    `stylized | chibi | blocky`), budget `hero`, symmetry Object X on the meshes created into it (above), and
+    **proportion guides** drawn on the helpers layer (never picked or exported): ground line, height line,
+    head/chin/shoulder/hip/knee/ankle lines and the +Z facing arrow, from the preset's proportions. No mesh: AS-LP-A
+    selects the group and creates its cube into it.
   - `humanoidBody` (`style: 'smooth' | 'segmented'`, `height`): one mesh generated by `humanoidBody()`: T-pose, facing
     +Z, grounded at Y = 0, X-symmetric topology with seam vertices exactly on x = 0, 6–8-sided limbs, ≥ 2 loops at
-    elbows and knees, shoulder ring and armpit loop, 400–900 triangles, closed and manifold; `segmented` produces
-    separate closed shells per body part (rigid-island style) in the same mesh.
+    elbows and knees, shoulder ring and armpit loop, 400–900 triangles, closed and manifold; each hand and foot ends
+    in **one n-gon cap with the limb's side count** (tests compute extrude growth from `faceLen`, never assume quads);
+    `segmented` produces separate closed shells per body part (rigid-island style) in the same mesh.
 
 ### 5.17 Workspaces, key scopes and the shell (B9; B0b scopes)
 
@@ -2359,10 +2492,12 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   never colour alone): **Model** ● when every editable mesh passes Mesh Check (§5.25) and is within its budget, ◐ with
   the failing reasons, ○ with no editable mesh; **Animate** ● when a clip has keys, ○ otherwise; Rig & Skin and Review
   are disabled tabs ("Arrives with characters from your own models (v0.4)", "Arrives in V1").
-- Switching keeps the document, the object selection, the scene time and each pane's camera; **leaving Model** ends
-  the extrude session, cancels a running modal tool, closes the Last-op card, drops to object mode (bitsets kept) and
-  schedules the character display rebuild (§5.23); **entering Model** shows skinned meshes in bind pose with the
-  `BIND POSE` badge. No default switch hotkey; the command palette lists "Workspace: Model" etc.
+- Switching keeps the document, the object selection, the scene time and each pane's camera; layout, maximized pane
+  and per-pane display flags are **per workspace** (`session.workspaceViews`, the ViewportManager's pane memory keyed
+  by workspace), so Animate's `pane-persp` keeps `lit` shading and its split layout whatever Model does; **leaving
+  Model** ends the extrude session, cancels a running modal tool, closes the Last-op card, drops to object mode
+  (bitsets kept) and schedules the character display rebuild (§5.23); **entering Model** shows skinned meshes in bind
+  pose with the `BIND POSE` badge. No default switch hotkey; the command palette lists "Workspace: Model" etc.
 - The Model workspace's layout, menus (§8.3), status-line groups, default tool `select`, pick mask `{controls: false,
   joints: false, meshes: true, groups: true}`, key scope `model` and hidden timeline are its `WorkspaceDef`.
 - **Key scopes** (B0b, `editor/src/input/keyboard.ts` `scopeChain()`): in Model, with the pointer over a viewport pane
@@ -2371,16 +2506,45 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   `global`. In Animate the chain is today's (`<panel>` → `global`). `KeymapManager.resolve` is unchanged (first match
   in chain order); a deeper scope shadows a shallower one; the help line shows the resolved meaning under the pointer.
   `KeymapManager.preset` widens from `'maya'` to `string` (registered preset id; only `maya` ships).
-- The keyboard adapter offers keys to `app.capture.key` first (§5.10), then resolves; tap/hold codes grow from
-  `Space` to `Space`, `B`, `D`, `X`, `V`, `J`, `I` (holds that tools read through `ToolKeyEvent`).
+- **Animate-only rows are shadowed in Model.** Shipped `viewport`-scope rows that would act on controls the modeler
+  cannot see resolve in `model.viewport` to `model.animateOnly` (poll-fails "Keys and poses are set in Animate"): `S`,
+  `Shift+W/E/R`, `Alt+S` (`key.set`), `Alt+M` (`pose.mirror`), `Mod+C`, `Mod+V`, `Mod+Shift+V` (pose copy/paste).
+  `Mod+A` resolves to `select.mesh.all` in `mvc` and to `select.objects {all meshes}` in `mv`. Time keys (`,`/`.`,
+  `Alt+V`, `Home`/`End` outside the pivot rows) keep their global meaning.
+- **Keyboard adapter order** (B0b, `editor/src/input/keyboard.ts`), normative for every keydown and keyup:
+  1. `app.capture.key` — only while the capture window is armed (§5.10); consumed = stop.
+  2. The **active viewport tool's `key()`** (a `ToolKeyEvent` with `ctrl` and `repeat`), when the pointer is over a
+     viewport pane and either the tool's `phase()` is `placing` or `dragging` (it then gets the reserved modal keys
+     `Backspace`, `Enter`, `NumpadEnter`, `PageUp`, `PageDown`, `Escape` first) or the code is in its `ToolDef.keys`
+     (any phase); consumed = stop. A tool returns true only when it acted on the key; observing a hold (`X`, `V`,
+     `J`, `D`, `B`, `I`) returns false, so step 3 still runs.
+  3. The keymap: tap/hold deferral, then `resolve` over the scope chain.
+- **Tap/hold contract** (changed): `KeymapManager.isTapHoldKey(code, scopes, mods)`. `Space` stays exactly as shipped
+  (every scope, any modifiers); `KeyB` is tap/hold **only with no modifiers and only when `scopes` contains
+  `model.viewport`** (tap → `model.softSelect.toggle`; a pointer-down while it is held makes the release no tap, the
+  tool used it for the radius drag). Every other code — `X`, `V`, `J`, `D`, `I` included — is never deferred: tools see
+  them as plain `ToolKeyEvent` down/up holds (step 2), and the keymap resolves them as `press` as today. So `Mod+V`
+  paste, `Mod+I` import, `Mod+D` duplicate, `Mod+B` bevel, `Alt+V` play, `Alt+X` x-ray, `Alt+J` skeleton and the Graph
+  Editor's `B` (tangent break) and `I` (insert tool) resolve exactly as on M2a. B0b's DOM-adapter test asserts this
+  through the real `keydown` path, not only through `resolve()`.
+- **Pointer platform rules** (B9, viewport pointer routing; research 09 §5.1). (a) In a viewport pane the browser
+  `contextmenu` event is always suppressed and **never** treated as RMB: marking menus, Multi-Cut completion and the
+  RMB mode menu trigger on pointer-down with `button === 2` only. On macOS a Ctrl-click arrives as `button 0` +
+  `ctrlKey` and is a Ctrl-click (Multi-Cut loop, E2E-MOD-05 `platform=mac` case). (b) **MMB stand-in**: in the
+  `trackpad` and `mayaOneButton` navigation profiles, an `Alt+Shift`+LMB drag in a **Model** viewport pane is delivered
+  to tools as an MMB drag (`button 1`, `Alt`/`Shift` cleared), so the MMB rule, `B`+MMB radius, Target Weld centre,
+  Slide Edge, `Ctrl`+MMB centred loop (`Ctrl+Alt+Shift`+LMB) and the INPUTS virtual slider are all reachable without a
+  middle button; Animate and the `maya` profile are unchanged (`Alt`+LMB stays tumble everywhere).
 
 ### 5.18 Marking menus, Toolkit and the command palette (B9 generic; B10, B11, B12a data)
 
 - **Generic `MarkingMenu`** (FR-SHELL-09; research 09 §7.4 geometry): opens at the pointer on press of its trigger;
   eight compass slots at 80 px radius plus a list below; **flick** — releasing within 250 ms after moving > 20 px
   toward a slot runs it without drawing; press-drag-release selects the slot under the pointer; click-release leaves
-  the menu open for a click. Slots are fixed per menu id and never move between modes (an inapplicable item is drawn
-  disabled with its poll reason). Every item also exists in a menu-bar menu and the command palette (ADR 0016 D10).
+  the menu open for a click. **Key-triggered menus** (`M` → `model.merge`) follow the same rules with the key as the
+  button: a tap of the key leaves the menu open for a click; holding the key, moving toward a slot and releasing the
+  key runs the slot under the pointer (or the flicked slot); `Esc` closes it. Slots are fixed per menu id and never
+  move between modes (an inapplicable item is drawn disabled with its poll reason). Every item also exists in a menu-bar menu and the command palette (ADR 0016 D10).
   `prefers-reduced-motion`: no animation.
 - Menu data (provisional compass positions until the owner's calibration, Q-MOD-UI-1) is §8.4.
 - **Command palette** (`Mod+K`, FR-SHELL-08): fuzzy search over every registered operator visible in the current
@@ -2399,10 +2563,12 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   `#8bc34a`, `#3b9b5a`, `#3fa7c9`, `#3d6fd8`, `#7b4fc9`, `#e07bb5`, `#c98b5b`, `#8a5a3b`, `#4a3426`.
 - **Painting** (`mesh.paint {slot, faces?}`; Paint Colour tool): click a face paints it; drag paints across faces;
   `Shift`+click fills the connected shell (`mesh.paint.fillShell`); `I` held picks the slot under the pointer
-  (eyedropper → active swatch); `Enter` with the tool active applies the active swatch to the selected faces. Select
-  › By Swatch selects faces using the active swatch; `palette.replaceSwatch {from, to}` repaints every face of `from`
-  on the palette's meshes. Painting is refused on asset-backed (made-editable) meshes in M6a ("Painting imported
-  meshes arrives later") — they keep their materials.
+  (eyedropper → active swatch); `Enter` with the tool active applies the active swatch to the selected faces (the tool
+  declares `KeyI` and `Enter` in `ToolDef.keys`, §5.17). Select › By Swatch selects faces using the active swatch.
+  **Replace swatch** has one name, `palette.replaceSwatch {palette, from, to, meshes?}` (editor operator, B13): its
+  targets are `meshes`, default every live authored mesh whose `palette` is `palette`; in one transaction it commits
+  the kernel op `mesh.paint.remap {from, to}` (whole mesh, slot `from` → `to`) on each target. Painting is refused on
+  asset-backed (made-editable) meshes in M6a ("Painting imported meshes arrives later") — they keep their materials.
 - **Exports** (derived, never stored; `MeshRecord.colourOutput`, overridable in the Export dialog):
   - **A palette texture** (default): one material, one PNG `ekza-palette-v1`: cells 8 × 8 px in a grid of 8 columns;
     64 × 64 px for ≤ 64 swatches, 128 × 64 for ≤ 128, 128 × 128 for ≤ 256 (more refuses with a reason); the cell of a
@@ -2432,37 +2598,68 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   `$faceFlags`). Each array/layer is cut into chunks of `chunkElems` elements, the largest power of two whose bytes fit
   32 KiB (positions: 2,048 points = 24 KiB; `u32` corner arrays: 8,192; `u8` flags: 32,768); chunk bytes are raw
   little-endian slices. A layer's chunk list **may stop before its element count**: the missing tail reads as
-  `def.default` (a morph layer that is zero for appended points needs no new tail chunk). Readers refuse a newer
-  manifest `version` (read-only, "Update the app to edit this mesh") and keep unknown layers.
+  `def.default` (a morph layer that is zero for appended points needs no new tail chunk). **Canonical tails
+  (normative):** a trailing chunk whose every element equals the default is **never stored**, in full and incremental
+  writes alike — the writer re-checks the last stored chunks of every layer whose count or tail changed and trims
+  them — so the same geometry always has the same manifest id (P6, P8: a full write and an incremental write of
+  identical content hash identically). Readers refuse a newer manifest `version` (read-only, "Update the app to edit
+  this mesh") and keep unknown layers.
 - **Incremental writes**: `writeRevision` with `previous` and `dirty` re-hashes only chunks spanned by dirty indices
   (and changed tails); the commit budget is ≤ 3 ms for a typical op.
 - **BlobStore** (memory first; IndexedDB backing in the browser): `put` is synchronous and dedupes; chunks are not
   `AssetRecord`s.
 - **GC from derived roots** (never pins): the reachable set = manifests (and their chunks) referenced by (1) live
   `meshes.data` values, (2) every `meshes.data` value in the before/after records of every doc undo and redo entry
-  (`UndoManager.entries()`), (3) revisions held by open runtimes and journals, (4) the current autosave slot's roots.
-  `sweep` runs on `onEvict`, on `EditorHistory.onDrop` and on idle after commits (≤ 1 per 5 s).
+  (`UndoManager.entries()`), (3) revisions held by runtimes and journals (and the pre-op MeshData of the last
+  MeshSetOp), (4) the current autosave slot's blobs **and the blobs of an autosave write in flight** (from the moment
+  it takes its snapshot until `write` resolves), (5) `BlobStore.fresh`: blobs `put` since the last completed sweep,
+  roots until the next completed batch. **Sweep rule (normative):** a sweep never runs inside a transaction, a batch
+  or an event-emit loop; `onEvict`, `EditorHistory.onDrop` and commit completion only **schedule** one (a microtask
+  after the current batch completes, or idle, ≤ 1 per 5 s), so a budget eviction fired inside `commitOp` can never
+  free the chunks that commit just put. B7 keeps chunk reference counts incrementally (on commit, undo-entry eviction
+  and runtime disposal), so the budget check and a sweep are O(changed chunks), never a set difference over all of
+  history. Fuzz case (B7): "budget eviction during commit" never leaves a ref to a missing blob.
 - **Undo byte budget** (Q-MOD-K-12): bytes of blobs reachable **only** from history (set (2) minus sets (1), (3),
-  (4)) plus journal bytes count against `prefs.modeling.undoBudgetMB` (256 MB); journals alone against
-  `journalBudgetMB` (64 MB: the oldest journal edges are dropped first, except the edge to the last op; a step whose
-  journal was dropped undoes through the chunk rebuild). Above the budget, `history.dropOldest(n)` drops the oldest
-  steps until under it, with one toast per session: "Older undo steps were released to save memory". B7's bench: 50
-  morph layers × 200 commits on a 10k-vertex mesh stays within the budget and frees evicted chunks.
-- **Autosave** (M2a store extended): the IndexedDB database version upgrades and adds a `blobs` object store keyed by
-  sha256; a slot record gains `blobRoots` (manifest ids of live meshes); `write` stores only blobs missing from the
-  store; on slot removal or overwrite, blobs referenced by no slot's roots are deleted in an idle pass. Recovery reads
-  the snapshot, then loads manifests and chunks lazily through `read(slot).blob`. Multi-tab: a second tab recovering
-  the same slot sees the same mesh (E2E-MOD-14).
-- **`.ekzanim`** (ADR 0011 extended under `schemaVersion` 3): every manifest and chunk reachable from live mesh records
-  is stored as `blobs/<sha256>` (deflated with the same level as asset entries); entries sorted by name; the archive
-  stays deterministic. Opening verifies each blob's
-  hash; a missing or corrupt blob makes that mesh `error` (the project still opens).
+  (4), (5)) plus journal bytes plus selection-snapshot bytes count against `prefs.modeling.undoBudgetMB` (256 MB);
+  journals alone against `journalBudgetMB` (64 MB: the oldest journal edges are dropped first, except the edge to the
+  last op; a step whose journal was dropped undoes through the chunk rebuild). Above the budget, `history.dropOldest(n)`
+  drops the oldest steps until under it (from the deferred check, never inside the commit's transaction), with one
+  toast per session: "Older undo steps were released to save memory". B7's bench: 50 morph layers × 200 commits on a
+  10k-vertex mesh stays within the budget and frees evicted chunks.
+- **Autosave** (M2a store extended; B7 owns the store, the controller `editor-core/src/app/autosave.ts` and the
+  recovery operator `operators/builtin/autosave.ts`): the IndexedDB database version upgrades and adds a `blobs`
+  object store keyed by sha256, **owned by the autosave store alone** (`BlobStore` has no persistence of its own); the
+  controller passes `blobs` = `BlobStore.closure(live manifests)` (manifests and chunks; the browser store never parses
+  a manifest); a slot record lists its blobs; `write` stores only blobs missing from the store; on slot removal or
+  overwrite, blobs listed by no slot are deleted in an idle pass. Recovery reads the snapshot, then loads manifests and
+  chunks lazily through `read(slot).blob` into the `BlobStore`. Multi-tab: a second tab recovering the same slot sees
+  the same mesh (E2E-MOD-14).
+- **`.ekzanim`** (ADR 0011 extended under `schemaVersion` 3; B7 owns `io/src/project/**` and the save/open workflow
+  `editor-core/src/workflows/project.ts`): every manifest and chunk reachable from live mesh records is stored as
+  `blobs/<sha256>` (deflate level 6, like `project.json`); reference images (assets with ext `png`/`jpg`) are stored
+  as `images/<sha256>.<ext>` and listed under the manifest key `images` (same entry shape as `assets`), **not** under
+  `assets`, because the M2a reader rejects any `assets` entry that is not `glb`/`vrm`/`vrma`; entries sorted by name;
+  the archive stays deterministic. `PROJECT_LIMITS` gains `maxBlobBytes` (4 MiB per entry) and `maxImageBytes`
+  (32 MiB per entry), inside the unchanged total. Opening verifies each blob's hash (a missing or corrupt blob makes
+  that mesh `error`; the project still opens) and accepts `images` entries with the mime of their ext and role
+  `reference-image` when the snapshot does not describe them. An M2a reader opens such a project read-only and never
+  sees `images/` or `blobs/` (unknown entries are not inflated); B7's M2a-reader-double test opens a project with a
+  mesh and an image plane through the shipped M2a `readProjectArchive`. The `.ekzanim.json` debug variant carries no
+  blob or image bytes (as it carries no model bytes): saving it warns "Mesh data and reference images are not
+  included", and on open meshes whose chunks are not resident go `error` ("Mesh data is missing").
 - Partitions: meshes live in their owner's partition (`char:<id>` / `scene`); collaboration claims and the
   `data.base` fork handling are M3 (ADR 0015 §10); M6a writes `base` correctly on every commit.
 
 ### 5.21 Make editable and mesh export (B8; B13 UI)
 
-**Make editable** (`mesh.makeEditable {mesh}`, explicit, per mesh, from the Outliner badge `⊘ asset` → button):
+**Make editable** (`mesh.makeEditable {character, meshIndex}`, explicit, per glTF mesh; B8 owns the operator, B13
+the Outliner button and the report dialog). **Record rule (normative):** importing or animating a character creates
+no `meshes` record (rule 10: Animate's import is unchanged, and `requiredWriterVersion` stays ≤ 2 for animation-only
+projects). The Model Outliner lists a character's glTF meshes from its loaded container; one without a record shows
+`⊘ asset` with the inline button. `mesh.makeEditable` creates the record **lazily** in its own transaction with id
+`derivedId('mesh', 'asset', [characterId], '', meshIndex)` (deterministic, so M3 peers and a re-run never duplicate
+it), `owner: {character}`, `source: {asset, mesh: meshIndex}`, `skin: {asset, skin}` when the glTF mesh is skinned,
+and its first revision as `data`. Steps:
 1. Licence gate (Q-SKIN-2): `editLicence(container)` refuses VRMs whose meta forbids modification, with the reason
    and a link to the licence badge. Animation-only exports of that character stay allowed.
 2. Above 200,000 triangles: refused ("read-only until decimated; Reduce arrives in M7").
@@ -2474,8 +2671,10 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
    apart; a disagreement means "do not weld", nothing to report).
 6. Per-corner layers from the split vertices: `TEXCOORD_0/1` → `uv0/uv1`, `COLOR_0` → `color0` (linear RGBA),
    `NORMAL` → `normal.custom`; `JOINTS_0`/`WEIGHTS_0` → `skin.*` (palette = the glTF skin's joints, stored as layer
-   meta with each joint's parent); morph targets → `morph:<name>` in glTF order (names from `extras.targetNames` or
-   `target_<i>`); hard edges where the two faces' corner normals differ at either endpoint.
+   meta with each joint's parent; `data.joints` stays `[]` for this imported skin, §4.2, and the dangling-joint fold
+   rule of ADR 0015 §8 applies only to `skin.skeleton` meshes); morph targets → `morph:<name>` in glTF order (names
+   from `extras.targetNames` or `target_<i>`); hard edges where the two faces' corner normals differ at either
+   endpoint.
 7. Faces with < 3 distinct points are dropped and counted. The record gets `data` (its first revision), `faceted:
    false`; the report dialog lists counts, layers and warnings (`hadTangents`: "Tangents will be refused at export
    unless you drop them").
@@ -2567,7 +2766,7 @@ and creates an `ImagePlaneRecord`; decoded with `createImageBitmap`, drawn only 
 view (front/side/top presets), on layer 9, centred at `offset` in the camera plane, `size` metres high, with
 `opacity`; `depth: 'behind'` draws before geometry with depth writes off (geometry occludes it), `'front'` after
 geometry without depth test. Planes are **never** in the pick pass (clicks go through to geometry), never exported,
-saved in `.ekzanim` (the image as an asset). `locked` prevents Attributes and viewport edits; `imagePlane.set` edits
+saved in `.ekzanim` (the image as an asset under `images/`, §5.20). `locked` prevents Attributes and viewport edits; `imagePlane.set` edits
 fields (undoable); `imagePlane.delete` soft-deletes.
 
 ### 5.27 Performance budgets (reference machine; report-only except the gates)
@@ -2588,7 +2787,8 @@ fields (undoable); `imagePlane.delete` soft-deletes.
 | Undo-retained chunks and journals | ≤ 256 MB (pref), journals ≤ 64 MB; bench 50 morph layers × 200 commits | B7 bench |
 | Model workspace chunk (gzip, excluding WASM) | ≤ 250 kB (warning in `check:size`) | B9 |
 | Editor route (first visit) | **`check:size` 900,000 B gate unchanged** | B9, INT |
-| Eager additions to the Animate route by B0a + B0b + B9 | **≤ +20,480 B gzip over the recorded M2a baseline (gate in `check:size`, baseline in `apps/web/scripts/size-baseline.json`)** | B9 writes the gate; every package keeps it green |
+| Eager additions to the Animate route by every M6a package | **≤ +20,480 B gzip over the recorded M2a baseline (gate in `check:size`, baseline in `apps/web/scripts/size-baseline.json`)**; the eager side holds only descriptors, registrations, keymap rows and shell code (§2) | B9 writes the gate; every package keeps it green |
+| Kernel and mesh-view in the eager route | **never** (the `mesh-kernel` and `mesh-view` BOUNDARIES, landed by B0a, fail `check:size` when their markers appear in the initial chunks) | B0a; every package |
 
 Benches: `packages/mesh-core/bench/*.bench.ts` (Node), `apps/web/e2e/bench/m6a-*.bench.ts` (Chrome);
 `apps/web/e2e/bench/m6a-budgets.bench.ts` (INT) re-measures the whole table at the end. Reference figures (Node 25,
@@ -2616,7 +2816,7 @@ random divisions, random op sequences, synthetic non-manifold soups):
 | P5 exact undo | `apply(delta, 'backward')` after an op is bit-identical (stored and edit arrays, counts, layers) and redo re-yields the after-state; manifest hashes match | all |
 | P6 determinism | same input + args ⇒ same manifest hash, in Node and in Chromium (Vitest browser mode) | goldens |
 | P7 propagation | ≤ 4 normalized influences; split values between endpoints; seams kept; mirror swaps sides; **P7-hard: an all-hard mesh stays all-hard** (§5.3) | all |
-| P8 serialization | `readRevision(writeRevision(m))` bit-identical; unchanged chunks keep their hashes after local edits; implicit tails read as defaults | B1 |
+| P8 serialization | `readRevision(writeRevision(m))` bit-identical; unchanged chunks keep their hashes after local edits; implicit tails read as defaults; a full write and an incremental write (`previous` + `dirty`) of the same content give the same manifest id (canonical tails, §5.20) | B1 |
 | P9 involution | the symmetry vertex map is an involution | B2 |
 | P10 symmetric tools | symmetric input + symmetric args → symmetric output for every row of §5.14 | B2…B5 |
 
@@ -2628,9 +2828,12 @@ Count oracles (V/E/F after; research 10 §9; JSON goldens in `mesh-core/test/gol
 | Extrude one cube face (together) / divisions 2 / divisions 3 | 12/20/10 · 16/28/14 · 20/36/18 |
 | Extrude two adjacent faces together / individually | 14/24/12 · 16/28/14 |
 | Insert edge loop around the four sides | 12/20/10 |
+| Insert edge loop, Object X symmetry, on an X-ring (crossing edges): weight 0.3 / weight 0.5 | 16/28/14 (loops at x = ±0.2) · 12/20/10 (one loop at x = 0) |
+| Half cube duplicated with scale X −1, Combined (reversed winding), Merge by Distance | 16/24/10 → 12/20/10, consistent winding |
 | Bevel one edge, 1 / 2 / 3 segments | 10/15/7 · 12/18/8 · 14/21/9 |
 | Bevel all 12 edges, 1 segment | 24/48/26 |
 | Delete one edge (plain / Delete Edge/Vertex) | 8/11/5 · 6/9/5 |
+| Delete a cube corner vertex (plain: refused `delete.not-winged` / Delete Edge/Vertex) | 8/12/6 · 7/9/4 |
 | Merge to Center on the top face | 5/8/5 |
 | Collapse one edge; Target Weld two adjacent vertices | 7/11/6 · 7/11/6 |
 | Triangulate cube | 8/18/12 |
