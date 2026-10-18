@@ -1,6 +1,6 @@
 export { EkzaError } from '@ekza-animator/anim-core';
 export * from './ids';
-export { controlId, newId, seededIdSource, setDefaultIdSource } from './ids/generate';
+export { controlId, newId, seededIdSource, setDefaultIdSource, solverId } from './ids/generate';
 export { deriveMigratedId, migrateSnapshot } from './migrations/migrate';
 export * from './records';
 export { defaultChannelValue, isRotationChannel } from './records/channels';
@@ -15,7 +15,9 @@ export {
 } from './records/factories';
 export { fractionalIndex, isFractionalIndex } from './records/order';
 export { emptySnapshot, parseSnapshot, SCHEMA_VERSION, serializeSnapshot } from './snapshot/serialize';
+export { requiredWriterVersion } from './snapshot/version';
 export * from './store';
+export { batchTables, batchTouches } from './store/batchTables';
 export { compareStrings, deepEqual, diffFields } from './store/diff';
 export {
   type ApplyChangesOptions,

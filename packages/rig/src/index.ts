@@ -12,12 +12,31 @@ export {
   solveBoneChannels,
   solveControlChannels,
 } from './inverse/solve';
-export { type RigOpImpl, registerRigOp } from './kernel/ops';
+export { type RigOpImpl, registerBuiltinRigOps, registerRigOp } from './kernel/ops';
+export { isRigOpSkipped } from './kernel/internals';
 export { controlWorld } from './kernel/pose';
+export { footprintShape, validateFootParams } from './limb/foot';
+export {
+  evaluateWithLimbMode,
+  footPivotWorlds,
+  ikControlForEndWorld,
+  limbOfControl,
+  matchFkToIk,
+  matchIkToFk,
+} from './limb/match';
+export { limbIkRecords } from './limb/records';
 export { mirrorPose } from './mirror/mirrorPose';
 export { applyPoseClipboard, makePoseClipboard } from './pose/clipboard';
-export { convertRotateOrderKeys } from './pose/rotateOrder';
+export { convertRotateOrderKeys, convertRotateOrderKeysWith } from './pose/rotateOrder';
 export { type CurveCache, createClipSampler, createCurveCache } from './sampler/cache';
-export { applyOverrides, readControlChannels, writeControlChannels } from './sampler/channels';
+export {
+  applyOverrides,
+  channelDefaultValue,
+  readAttr,
+  readControlChannels,
+  writeAttr,
+  writeControlChannels,
+} from './sampler/channels';
+export { computeInfluenceKeyTimes } from './schedule/influence';
 export { computeStepSchedule } from './schedule/steps';
 export * from './types';

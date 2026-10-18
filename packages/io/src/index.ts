@@ -1,5 +1,7 @@
 export { readAnimations } from './animation/read';
-export { bakeClip, clipFramesToSeconds, ekzaAnimationMeta } from './bake/bake';
+export { bakeClip, ekzaAnimationMeta } from './bake/bake';
+export { clipFramesToSeconds } from './bake/meta';
+export { reduceBakedClip, trackLeverArms } from './bake/reduce';
 export { checkInputBudget } from './budget/check';
 export { parseGlb, sha256Hex } from './glb/parse';
 export { detectModelFormat, readVrmLicense } from './gltf/format';
@@ -19,4 +21,5 @@ export {
   validateGltf,
 } from './validate/validate';
 export { inspectVrma, readVrma, type VrmaReadResult } from './vrma/read';
-export { clipExportName, exportFileName, writeAnimationGlb, writeVrma } from './writers/write';
+export { clipExportName, exportFileName } from './writers/names';
+export { writeAnimationGlb, writeVrma } from './writers/write';

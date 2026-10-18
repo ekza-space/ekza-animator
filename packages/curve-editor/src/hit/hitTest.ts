@@ -4,7 +4,7 @@
 // return the keys (or, when no key is inside, the shown handles) inside a rectangle.
 import { Segment } from '@ekza-animator/anim-core';
 import type { KeyId } from '@ekza-animator/doc';
-import type { CurveEntry } from '../graph/curveSet';
+import { type CurveEntry, drawnOf } from '../graph/curveSet';
 import { lowerBound, segmentBezier, segmentKind, segmentValueAt, visibleRange } from '../graph/geometry';
 import { type GraphScene, handlePosition, handlesShown, keyX, keyY, type Point } from '../graph/scene';
 import { GRAPH_METRICS } from '../painters/theme';
@@ -168,8 +168,9 @@ function segmentDistance(
   const c = entry.compiled;
   const { view, height } = scene;
   const k = entry.scale;
+  const o = entry.offset;
   const sx = (t: number) => frameToX(view, t);
-  const sy = (v: number) => valueToY(view, height, v * k);
+  const sy = (v: number) => valueToY(view, height, v * k + o);
   const t0 = c.t[i] as number;
   const v0 = c.v[i] as number;
   const t1 = c.t[i + 1] as number;
@@ -280,7 +281,7 @@ export function hitTestScene(scene: GraphScene, x: number, y: number, scratch: H
   if (curve.entry !== null) {
     const c = curve.entry.compiled;
     const clamped = Math.min(Math.max(frame, c.t[curve.segment] as number), c.t[curve.segment + 1] as number);
-    const value = segmentValueAt(c, curve.segment, clamped, scratch.bezier) * curve.entry.scale;
+    const value = drawnOf(curve.entry, segmentValueAt(c, curve.segment, clamped, scratch.bezier));
     return { kind: 'curve', curve: curve.entry.id, frame, value };
   }
   return { kind: 'none', frame, value: yToValue(scene.view, scene.height, y) };

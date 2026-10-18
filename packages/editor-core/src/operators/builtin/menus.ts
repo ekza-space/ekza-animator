@@ -3,7 +3,8 @@
 // (dialogs, windows, help); the time slider owns `timeline.context`. Enabled state and shortcut labels come from the
 // operators' polls and the keymap.
 import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
-import type { MenuItemDef } from '../../types';
+import type { LimbId } from '@ekza-animator/rig';
+import type { GraphViewMode, MenuItemDef, TweenMode } from '../../types';
 
 type Item = Omit<MenuItemDef, 'id'> & { readonly name: string };
 
@@ -37,6 +38,132 @@ const INFINITY: readonly (readonly [InfinityMode, string])[] = [
   ['cycle', 'Cycle'],
   ['cycleOffset', 'Cycle with Offset'],
   ['oscillate', 'Oscillate'],
+];
+
+// ---------- M2a (M2A-SPEC §7 "Menus") ----------
+
+const TWEENS: readonly (readonly [TweenMode, string])[] = [
+  ['tween', 'Tween'],
+  ['neighbor', 'Blend to Neighbour'],
+  ['ease', 'Ease'],
+  ['pushPull', 'Push/Pull'],
+  ['toDefault', 'Blend to Default'],
+];
+
+const LIMBS: readonly (readonly [LimbId, string])[] = [
+  ['leg.L', 'L Leg'],
+  ['leg.R', 'R Leg'],
+  ['arm.L', 'L Arm'],
+  ['arm.R', 'R Arm'],
+];
+
+const GRAPH_VIEWS: readonly (readonly [GraphViewMode, string])[] = [
+  ['absolute', 'Absolute'],
+  ['normalized', 'Normalized'],
+  ['stacked', 'Stacked'],
+];
+
+const MIRROR_MODES = [
+  ['flip', 'Flip'],
+  ['leftToRight', 'Left → Right'],
+  ['rightToLeft', 'Right → Left'],
+] as const;
+
+/** Rig › IK/FK: per limb, switch, match and match range (the limb is an argument of every IK/FK operator). */
+const IK_FK_ITEMS: readonly MenuItemDef[] = LIMBS.flatMap(([limb, name], l) =>
+  items('rig.ik-fk', `limb-${limb}`, [
+    { name: `${limb}.toIk`, op: 'rig.ikFk.switch', args: { limb, to: 'ik' }, label: `Switch ${name} to IK` },
+    { name: `${limb}.toFk`, op: 'rig.ikFk.switch', args: { limb, to: 'fk' }, label: `Switch ${name} to FK` },
+    { name: `${limb}.matchFk`, op: 'rig.ikFk.match', args: { limb, side: 'fk' }, label: `Match ${name} FK to IK` },
+    { name: `${limb}.matchIk`, op: 'rig.ikFk.match', args: { limb, side: 'ik' }, label: `Match ${name} IK to FK` },
+    {
+      name: `${limb}.rangeFk`,
+      op: 'rig.ikFk.matchRange',
+      args: { limb, side: 'fk' },
+      label: `Match Range ${name} to FK`,
+    },
+    {
+      name: `${limb}.rangeIk`,
+      op: 'rig.ikFk.matchRange',
+      args: { limb, side: 'ik' },
+      label: `Match Range ${name} to IK`,
+    },
+    // Fix round 1: matching to IK keys the key times only (§5.6 default) and warns when the in-betweens move; this
+    // item matches every frame instead.
+    {
+      name: `${limb}.rangeIkFrames`,
+      op: 'rig.ikFk.matchRange',
+      args: { limb, side: 'ik', step: 'frames' },
+      label: `Match Range ${name} to IK (Every Frame)`,
+    },
+  ]).map((item) => ({ ...item, order: item.order + l * 100 })),
+);
+
+const M2A_MENU_ITEMS: readonly MenuItemDef[] = [
+  ...items('file', 'recovery', [{ name: 'autosaveNow', op: 'file.autosaveNow', label: 'Save Recovery Point' }]),
+
+  ...items('key', 'breakdown', [
+    { name: 'setBreakdown', op: 'key.set', args: { breakdown: true }, label: 'Set Breakdown' },
+    { name: 'toBreakdown', op: 'key.convert', args: { to: 'breakdown' }, label: 'Convert to Breakdown' },
+    { name: 'toKey', op: 'key.convert', args: { to: 'key' }, label: 'Convert to Key' },
+  ]),
+  ...items('key', 'ripple', [{ name: 'ripple', op: 'key.toggleRipple', label: 'Ripple Edit' }]),
+  ...items(
+    'key.tween',
+    'tween',
+    TWEENS.flatMap(([mode, label]) => [
+      { name: `${mode}-50`, op: 'key.tween', args: { mode, amount: -50 }, label: `${label} −50` },
+      { name: `${mode}+50`, op: 'key.tween', args: { mode, amount: 50 }, label: `${label} +50` },
+    ]),
+  ),
+  ...items('key.key-target', 'target', [
+    { name: 'selected', op: 'key.setTarget', args: { target: 'selected' }, label: 'Selected Controls' },
+    { name: 'bodyPart', op: 'key.setTarget', args: { target: 'bodyPart' }, label: 'Body Part' },
+    { name: 'character', op: 'key.setTarget', args: { target: 'character' }, label: 'Character' },
+  ]),
+
+  ...items(
+    'pose.mirror-animation',
+    'mirror',
+    MIRROR_MODES.map(([mode, label]) => ({
+      name: mode,
+      op: 'pose.mirrorAnimation',
+      args: { mode, offset: 'none' },
+      label,
+    })),
+  ),
+  ...items(
+    'pose.mirror-animation',
+    'halfCycle',
+    MIRROR_MODES.map(([mode, label]) => ({
+      name: `${mode}-half`,
+      op: 'pose.mirrorAnimation',
+      args: { mode, offset: 'halfCycle' },
+      label: `${label} (half cycle)`,
+    })),
+  ),
+
+  ...items('rig', 'ik', [{ name: 'addLimbIk', op: 'rig.addLimbIk', label: 'Add Limb IK' }]),
+  ...IK_FK_ITEMS,
+
+  // Time › Insert Frame / Remove Frame act at the current frame (`time.insertTime` without `at`); Delete Time removes
+  // the band's frames, or the current frame without a band (`time.deleteTime` without `range`), M2A-SPEC §5.9.
+  ...items('time', 'insert', [
+    { name: 'insertFrame', op: 'time.insertTime', args: { frames: 1 }, label: 'Insert Frame' },
+    { name: 'removeFrame', op: 'time.insertTime', args: { frames: -1 }, label: 'Remove Frame' },
+    { name: 'deleteTime', op: 'time.deleteTime', label: 'Delete Time' },
+  ]),
+
+  ...items('graph.buffer', 'buffer', [
+    { name: 'snapshot', op: 'graph.buffer.snapshot', label: 'Snapshot' },
+    { name: 'swap', op: 'graph.buffer.swap', label: 'Swap' },
+    { name: 'clear', op: 'graph.buffer.clear', label: 'Clear' },
+  ]),
+  ...items(
+    'graph.view',
+    'view',
+    GRAPH_VIEWS.map(([mode, label]) => ({ name: mode, op: 'graph.view.setMode', args: { mode }, label })),
+  ),
 ];
 
 export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[] = [
@@ -207,4 +334,5 @@ export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[] = [
     { name: 'smaller', op: 'view.manipulatorSize', args: { delta: -10 }, label: 'Smaller Manipulator' },
     { name: 'larger', op: 'view.manipulatorSize', args: { delta: 10 }, label: 'Larger Manipulator' },
   ]),
+  ...M2A_MENU_ITEMS,
 ];

@@ -125,7 +125,8 @@ test('Graph Editor: More menu closes, Simplify reports, Shift-drags a selected k
       return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
     }),
   );
-  expect(lines).toEqual([1, 1, 1, 1, 1]);
+  // Five tangent items plus M2a's Convert to Breakdown / Convert to Key (M2A-SPEC §7, §3 rule 8 literal).
+  expect(lines).toEqual([1, 1, 1, 1, 1, 1, 1]);
   await page.getByTestId('ge-tangent-stepNext').click();
   await expect(menu).toBeHidden();
   await expect

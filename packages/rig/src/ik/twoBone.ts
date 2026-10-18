@@ -10,6 +10,7 @@ import {
   type Vec3,
 } from '@ekza-animator/anim-core';
 import type { TwoBoneIkInput, TwoBoneIkOutput } from '../types';
+import { TwoBoneCore } from './core';
 
 // Stateless analytic two-bone IK (research 07 §9.2): seeded from the rest pose under the current parent, the mid
 // joint bends about its hinge axis only, the chain then swings onto the target ray and twists about it so that the
@@ -86,6 +87,10 @@ function bendAngle(u: Vec3, v: Vec3, k: Vec3, d: number): number {
  * reported as not reached. `twist` adds a roll about the chain axis.
  */
 export function solveTwoBoneIk(input: TwoBoneIkInput, out: TwoBoneIkOutput): void {
+  if (input.restReach !== undefined) {
+    solveRestExact(input, out);
+    return;
+  }
   const pa = mat4Decompose(input.parentWorld);
   const sPa = uniform(pa.s);
   const qU0 = quatNormalize(input.upperRest.q);
@@ -156,4 +161,53 @@ export function solveTwoBoneIk(input: TwoBoneIkInput, out: TwoBoneIkOutput): voi
 function normalizeOr(v: Vec3, fallback: Vec3): Vec3 {
   const len = length(v);
   return len > 1e-12 ? scale(v, 1 / len) : fallback;
+}
+
+/** One solver for the public entry point with `restReach` (the `ik2` op keeps its own instance per op). */
+const sharedCore = new TwoBoneCore();
+
+/**
+ * `solveTwoBoneIk` with `restReach` (M2A-SPEC §5.3): the ik2 op's solver with the rest-exact amendments (`core.ts`).
+ * Without `restReach` the M1 solver above runs unchanged, bit for bit (Plant Feet).
+ */
+function solveRestExact(input: TwoBoneIkInput, out: TwoBoneIkOutput): void {
+  const core = sharedCore;
+  const pa = mat4Decompose(input.parentWorld);
+  setVec(core.parentT, pa.t);
+  setQuat(core.parentQ, pa.q);
+  setVec(core.parentS, pa.s);
+  setVec(core.upperT, input.upperRest.t);
+  setQuat(core.upperQ, input.upperRest.q);
+  setVec(core.upperS, input.upperRest.s);
+  setVec(core.midT, input.midRest.t);
+  setQuat(core.midQ, input.midRest.q);
+  setVec(core.midS, input.midRest.s);
+  setVec(core.endT, input.endRest.t);
+  setQuat(core.endQ, input.endRest.q);
+  setVec(core.hingeLocal, input.hingeLocal);
+  setVec(core.target, input.target);
+  setVec(core.pole, input.pole);
+  core.twist = input.twist;
+  core.soft = input.soft;
+  core.restReach = input.restReach ?? 0;
+  core.useEndRotation = input.endWorldRotation !== null;
+  if (input.endWorldRotation !== null) setQuat(core.endWorldQ, input.endWorldRotation);
+  core.solve();
+  setQuat(out.upperLocal, core.upperLocal);
+  setQuat(out.midLocal, core.midLocal);
+  setQuat(out.endLocal, core.endLocal);
+  out.reached = core.reached;
+}
+
+function setVec(out: Vec3, v: ReadonlyVec3): void {
+  out[0] = v[0];
+  out[1] = v[1];
+  out[2] = v[2];
+}
+
+function setQuat(out: Quat, q: readonly number[]): void {
+  out[0] = q[0] as number;
+  out[1] = q[1] as number;
+  out[2] = q[2] as number;
+  out[3] = q[3] as number;
 }

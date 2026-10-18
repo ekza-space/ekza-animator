@@ -56,9 +56,12 @@ export function PaneView(props: {
     return () => vm.unregisterPane(paneId);
   }, [vm, paneId]);
 
+  // `w-full`: the pane fills the box its layout gives it. In the one-pane layouts (Single, a Space-maximized pane) that
+  // box is a row flex container, where a section sized by its content took only its header's width — about 40 % of
+  // the panel (fix round 2, M2A-INT-34); the split and quad panes sit in block boxes and always filled them.
   return (
     <section
-      className="flex h-full min-h-0 min-w-0 flex-col"
+      className="flex h-full w-full min-h-0 min-w-0 flex-col"
       aria-label={`Viewport pane ${state?.cameraName ?? paneId}`}
     >
       <PaneHeader app={app} paneId={paneId} state={state} />
@@ -287,10 +290,10 @@ function Hud(props: { readonly app: EditorApp; readonly state: PaneState | null 
       const character = session.activeCharacter;
       const frame = character === null ? null : app.evaluation.clipFrame(character);
       const fps = app.store.get('project', 'project')?.sceneFps ?? { num: 30, den: 1 };
-      if (frameRef.current !== null) frameRef.current.textContent = frame === null ? '' : `f ${formatFrame(frame)}`;
-      if (secondsRef.current !== null) {
-        secondsRef.current.textContent = `${((session.time.sceneFrame * fps.den) / fps.num).toFixed(2)} s`;
-      }
+      // Only real changes touch the DOM: the store calls this for every batch (drag previews included), and an
+      // unchanged text written again still replaces the text node, which invalidates layout for the frame (M-1).
+      setText(frameRef.current, frame === null ? '' : `f ${formatFrame(frame)}`);
+      setText(secondsRef.current, `${((session.time.sceneFrame * fps.den) / fps.num).toFixed(2)} s`);
     };
     write();
     const unsubscribeSession = app.session.subscribe((next, previous) => {
@@ -335,6 +338,10 @@ function Hud(props: { readonly app: EditorApp; readonly state: PaneState | null 
       </div>
     </div>
   );
+}
+
+function setText(element: HTMLElement | null, text: string): void {
+  if (element !== null && element.textContent !== text) element.textContent = text;
 }
 
 /** True for 300 ms after `counter` changes (a locked camera swallowed navigation). */

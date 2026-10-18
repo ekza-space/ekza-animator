@@ -1,7 +1,9 @@
 // Pose-preserving rotate-order change (MVP-SPEC §4.11.5, M1-stretch; FR-RIG-08): in every clip and layer of the
 // character, the control's rx/ry/rz curves are resampled at the union of their key times, converted to the new order
-// (rig `convertRotateOrderKeys`: `eulerNear` against the previous sample, then the Euler filter) and written back on
-// all three curves, synchronized. Static values and pose overrides are converted as a triple.
+// (rig `convertRotateOrderKeysWith`: `eulerNear` against the previous sample, then the Euler filter) and written back
+// on all three curves, synchronized. Static values and pose overrides are converted as a triple. The curves are
+// sampled with the editor's engine (`deps.curves.engine`, cycle-aware on cyclic curves, M2A-SPEC §5.23), so the values
+// converted between a curve's keys are the values the editor evaluates and draws.
 import { type AnimCurve, eulerNear, eulerToQuat, type RotateOrder, type Vec3 } from '@ekza-animator/anim-core';
 import type {
   ChannelValues,
@@ -13,8 +15,8 @@ import type {
   LayerRecord,
   Tx,
 } from '@ekza-animator/doc';
-import { convertRotateOrderKeys } from '@ekza-animator/rig';
-import { newRecordId } from '../app/internals';
+import { convertRotateOrderKeysWith } from '@ekza-animator/rig';
+import { internalsOf, newRecordId } from '../app/internals';
 import { animCurve, keyDataOf } from '../edit/context';
 import { ensureCurve } from '../edit/keys';
 import type { EditorApp } from '../types';
@@ -29,7 +31,14 @@ export function convertTriple(values: Vec3, from: RotateOrder, to: RotateOrder):
   return eulerNear(eulerToQuat(values, from), to, values);
 }
 
-/** The control's channel curve in a layer, created (base or not) when missing. */
+/**
+ * The control's channel curve in a layer, created (base or not) when missing. A created curve takes the pre and post
+ * infinities of the control's first existing rotation curve in that layer (rx, ry, rz order), so the three converted
+ * curves extrapolate alike and the converted pose holds outside the keyed range as it did before (a sibling with
+ * `constant` infinities on a clip whose `loop` was turned on later stays `constant`). Only without such a curve does a
+ * base-layer curve follow the loop-clip rule of `ensureCurve` (M2A-SPEC §5.23, M2A-A0-11). The converter always has a
+ * sibling: it creates a curve only next to a keyed or static one.
+ */
 function curveIn(
   app: EditorApp,
   tx: Tx,
@@ -41,14 +50,16 @@ function curveIn(
   const channel = ROTATIONS[axis] as (typeof ROTATIONS)[number];
   const existing = tx.query.curveFor(clip.id, layer.id, control.id, channel);
   if (existing !== undefined) return existing.id;
-  if (tx.query.baseLayer(clip.id)?.id === layer.id) return ensureCurve(app, tx, clip.id, control.id, channel);
-  const curve = curveRecord({
-    id: newRecordId(app, 'curve'),
-    clip: clip.id,
-    layer: layer.id,
-    control: control.id,
-    channel,
-  });
+  const sibling = ROTATIONS.filter((other) => other !== channel)
+    .map((other) => tx.query.curveFor(clip.id, layer.id, control.id, other))
+    .find((curve) => curve !== undefined);
+  if (sibling === undefined && tx.query.baseLayer(clip.id)?.id === layer.id) {
+    return ensureCurve(app, tx, clip.id, control.id, channel);
+  }
+  const curve: CurveRecord = {
+    ...curveRecord({ id: newRecordId(app, 'curve'), clip: clip.id, layer: layer.id, control: control.id, channel }),
+    ...(sibling === undefined ? {} : { pre: sibling.pre, post: sibling.post }),
+  };
   tx.put('curves', curve);
   return curve.id;
 }
@@ -88,7 +99,7 @@ function convertLayer(
       ? constantCurve(first, statics[axis] as number)
       : animCurve(curve, list.map(keyDataOf));
   }) as [AnimCurve, AnimCurve, AnimCurve];
-  const converted = convertRotateOrderKeys(input, from, to);
+  const converted = convertRotateOrderKeysWith(internalsOf(app).deps.curves.engine, input, from, to);
   converted.forEach((data, axis) => {
     const id = curveIn(app, tx, clip, layer, control, axis);
     for (const key of tx.query.keysOfCurve(id)) tx.remove('keys', key.id);

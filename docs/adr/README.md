@@ -23,6 +23,14 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0011](0011-project-file-format.md) | Project file format `.ekzanim` | Accepted (rev. 2) |
 | [0012](0012-sample-assets.md) | Sample avatars and test fixtures | Accepted (rev. 2, erratum) |
 | [0013](0013-editor-history.md) | Editor history: document undo plus unkeyed session edits | Accepted |
+| [0014](0014-mesh-kernel.md) | Mesh kernel: radial-edge structure of arrays, write log, deterministic operations | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
+| [0015](0015-mesh-storage-in-the-document.md) | Mesh storage in the document: revision refs, content-addressed chunks, claims, undo | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
+| [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
+| [0017](0017-ai-generation-boundary.md) | AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
+
+ADRs 0014–0016 become Accepted when the M6a build spec freezes; ADR 0017 when the M7 spec does (its provenance
+items with M6a). They extend, and do not supersede, ADRs 0002, 0005, 0008 and 0011. The plan they serve is
+[`../MODELING-PLAN.md`](../MODELING-PLAN.md).
 
 Status values: `Proposed`, `Accepted`, `Superseded by NNNN`, `Rejected`. All ADRs are owner-overridable defaults;
 the owner-facing list, including the design-review outcomes, is [`../DECISIONS-OPEN.md`](../DECISIONS-OPEN.md).

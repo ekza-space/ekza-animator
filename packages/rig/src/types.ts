@@ -1,9 +1,9 @@
-// Contract file: MVP-SPEC §4.3, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.3 with the M2A-SPEC §4.3 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { CurveEngine, Fps, Frame, InfinityMode, KeyData, Mat4, Quat, ReadonlyQuat, ReadonlyVec3, ReadonlyXf,
   RotateOrder } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, ClipId, ConstraintRecord, ControlId, ControlRecord, HumanBoneName,
-  ModelFormat, RigId, RigRecord, SolverRecord } from '@ekza-animator/doc';
+import type { AttrDef, BoneRef, ChannelId, ChannelValues, ClipId, ConstraintRecord, ControlId, ControlRecord,
+  HumanBoneName, ModelFormat, RigId, RigRecord, SolverId, SolverRecord } from '@ekza-animator/doc';
 
 /** One glTF node, in topological order (parents before children). */
 export interface SkeletonNode {
@@ -42,6 +42,14 @@ export interface SkeletonDesc {
   readonly fingerprint: string;                // 'sha256:<hex>'
   readonly ekzaHeightScale: number | null;     // extras.ekza.avatar.heightScale (root extras or asset.extras)
   readonly warnings: readonly string[];        // e.g. non-uniform joint scale, shear in matrices
+  /**
+   * Per node: the horizontal support function of the rest-pose vertices whose dominant skin weight is that node,
+   * relative to the node's rest position p, in character space: 32 values h_k = max over those vertices of
+   * ((v − p).x·sin θ_k + (v − p).z·cos θ_k), θ_k = k·11.25°, then 2 values min (v − p).y and max (v − p).y. null for
+   * nodes without such vertices; the array is absent without mesh data (§5.2.3). A humanoid lower leg's vertices
+   * below its foot's rest position count for the foot (rigs often skin the heel to the shin; A1 notes).
+   */
+  readonly boneSupport?: readonly (Float32Array | null)[];
 }
 
 /** Assembled view of the rig records (readRigDefinition). */
@@ -62,7 +70,81 @@ export interface RigWarning {
 export const CHANNELS_PER_CONTROL = 9;
 export interface ChannelBuffer {
   readonly values: Float64Array;               // controlCount * 9; defaults 0 (t, r) and 1 (s)
-  readonly attrs: Float64Array;                // custom attribute slots (empty in the MVP)
+  readonly attrs: Float64Array;                // one slot per RigProgram.attrSlots entry (M2a), defaults AttrDef.default
+}
+
+// ---------- M2a: limbs, attribute slots, ik2 (M2A-SPEC §4.3) ----------
+
+/** A limb that can carry two-bone IK. */
+export type LimbId = 'leg.L' | 'leg.R' | 'arm.L' | 'arm.R';
+export const LIMB_IDS: readonly LimbId[] = ['leg.L', 'leg.R', 'arm.L', 'arm.R'];
+/** Attribute names on a limb's IK control. Legs carry all seven, arms the first three. */
+export const LIMB_ATTR: { readonly ikFk: 'ikFk'; readonly soft: 'soft'; readonly twist: 'twist'; readonly roll: 'roll';
+  readonly bank: 'bank'; readonly heelTwist: 'heelTwist'; readonly toeTwist: 'toeTwist' } = {
+  ikFk: 'ikFk', soft: 'soft', twist: 'twist', roll: 'roll', bank: 'bank', heelTwist: 'heelTwist', toeTwist: 'toeTwist',
+};
+export type LimbAttr = keyof typeof LIMB_ATTR;
+
+/** `${ControlId}/@${name}`: key of an attribute slot. */
+export type AttrKey = `${string}/@${string}`;
+export interface AttrSlot { readonly control: ControlId; readonly name: string; readonly def: AttrDef }
+
+/**
+ * Foot-roll pivots of a leg (§5.2.3), in the IK control's REST frame (origin = its rest position, character axes,
+ * metres). The pivots lie on the foot line: with f = R_y(yaw)·(0, 0, 1) and l = side·R_y(yaw)·(1, 0, 0) (outward),
+ * heel = ground − f·heelBack, ball = ground + f·ballFront, toe tip = ball + f·toeFront,
+ * inner = ball − l·innerWidth, outer = ball + l·outerWidth.
+ */
+export interface FootRollParams {
+  readonly side: 1 | -1;                       // +1 left, −1 right
+  readonly ground: ReadonlyVec3;               // the ankle projected to the ground plane
+  readonly yaw: number;                        // ψ: rotation about +y from +z to the foot's forward direction f
+  readonly heelBack: number;                   // metres, ≥ 0
+  readonly ballFront: number;
+  readonly toeFront: number;
+  readonly innerWidth: number;
+  readonly outerWidth: number;
+  readonly breakAngle: number;                 // β, radians in [0, π/2]; default π/6
+}
+
+/** `SolverRecord.params` for `type: 'ik2'` (version 1). Unknown fields are preserved. */
+export interface Ik2Params {
+  readonly v: 1;
+  readonly limb: LimbId;
+  readonly bones: { readonly upper: BoneRef; readonly mid: BoneRef; readonly end: BoneRef; readonly toes: BoneRef | null };
+  readonly fk: { readonly upper: ControlId; readonly mid: ControlId; readonly end: ControlId; readonly toes: ControlId | null };
+  readonly ikControl: ControlId;               // owns the LIMB_ATTR attributes
+  readonly pole: ControlId;
+  /** Unit hinge axis in canonical character space at rest, + = flexion (§5.2 table). */
+  readonly hinge: readonly [number, number, number];
+  readonly foot: FootRollParams | null;        // legs; null for arms
+}
+
+/** A compiled, enabled `ik2` solver. */
+export interface LimbDesc {
+  readonly id: LimbId;
+  readonly solver: SolverId;
+  readonly params: Ik2Params;
+  readonly nodes: { readonly upper: number; readonly mid: number; readonly end: number; readonly toes: number };   // toes −1 when absent
+  /** ChannelBuffer.attrs slot per limb attribute; −1 when the IK control lacks it. */
+  readonly attrSlots: Readonly<Record<LimbAttr, number>>;
+  /** l1, l2 (rest, scaled) and d⁰ = rest |end − upper| (§5.3 amendment A). */
+  readonly lengths: { readonly upper: number; readonly lower: number; readonly restReach: number };
+  readonly fkControls: readonly ControlId[];   // fk.upper, fk.mid, fk.end: hidden in full IK (§5.5)
+  readonly ikControls: readonly ControlId[];   // ik control, pole: hidden in full FK
+}
+
+/**
+ * Compile-time view handed to rig op implementations (§5.4). Everything in it is known before scheduling:
+ * attribute slots are ordered schedule-independently, so `attrSlot` answers inside `reads`/`writes` too.
+ */
+export interface RigOpCompileContext {
+  readonly skeleton: SkeletonDesc;
+  readonly controls: ReadonlyMap<ControlId, ControlRecord>;
+  resolveBone(ref: BoneRef): number;                                     // node index, −1 when absent
+  attrSlot(control: ControlId, name: string): number;                    // −1 when absent
+  controlChildren(control: ControlId): readonly ControlId[];             // by order, then id
+  nodeChildren(node: number): readonly number[];
 }
 
 /** Evaluation output. Allocate with RigProgram.allocPose(); written by evaluate() without allocation. */
@@ -86,6 +168,14 @@ export interface RigProgram {
   readonly nodeCount: number;
   readonly drivenNodes: readonly number[];     // node indices written by bindBone ops (exported as animated)
   readonly warnings: readonly RigWarning[];
+  /**
+   * Custom attribute slots ordered by (control id, attribute name), code-unit order: independent of the schedule,
+   * so adding or removing an op never renumbers them, and known before ops declare their reads and writes.
+   */
+  readonly attrSlots: readonly AttrSlot[];
+  readonly attrIndex: ReadonlyMap<AttrKey, number>;
+  /** Enabled ik2 solvers that compiled, in solver-id order (§5.4 rule 4). */
+  readonly limbs: readonly LimbDesc[];
   allocChannels(): ChannelBuffer;
   allocPose(): PoseBuffers;
   resetChannels(ch: ChannelBuffer): void;
@@ -155,6 +245,10 @@ export interface ImportRawOptions {
   readonly keyMode: 'source-times' | 'resample';
   readonly eulerFilter: boolean;
   readonly reduce: ReduceSpec | null;
+  /** §5.8: 'auto' (default) writes IK controls for limbs whose ikFk default is ≥ 0.5; 'none' writes FK only (M1). */
+  readonly ik?: 'auto' | 'none';
+  /** §5.8 fidelity check of 'auto'; default { rotationRad: 2° = 0.03490658503988659, positionM: 0.002 }. */
+  readonly ikTolerance?: { readonly rotationRad: number; readonly positionM: number };
 }
 export interface ImportHumanoidOptions extends ImportRawOptions {
   /** 'auto': target rest hips height / source restHipsPosition.y (VRMA convention). */
@@ -172,6 +266,9 @@ export interface ImportedClipKeys {
   readonly range: { readonly start: Frame; readonly end: Frame };
   readonly curves: readonly ImportedCurve[];
   readonly warnings: readonly string[];        // dropped channels (spring joints, unrigged nodes, weights, …)
+  /** M2a §5.8: one row per limb that ik 'auto' considered. */
+  readonly limbs?: readonly { readonly limb: LimbId; readonly mode: 'ik' | 'fk'; readonly maxRotationErrorRad: number;
+    readonly maxMidErrorM: number }[];
 }
 
 /** Clipboard payload (JSON, `text/plain`), research 07 §17. */
@@ -196,6 +293,8 @@ export interface TwoBoneIkInput {
   readonly twist: number;                      // radians about the chain axis, added to the pole twist
   readonly soft: number;                       // metres; 0 = off
   readonly endWorldRotation: ReadonlyQuat | null;   // null: end bone keeps its rest local rotation
+  /** ik2 op only: enables the rest-exact amendments A, B and C of §5.3. Absent = M1 behaviour (Plant Feet). */
+  readonly restReach?: number;
 }
 export interface TwoBoneIkOutput {
   upperLocal: Quat;                            // resulting LOCAL rotations (raw bone space)

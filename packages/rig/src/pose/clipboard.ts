@@ -7,12 +7,28 @@ import type { PoseClipboard, RigProgram } from '../types';
 
 const ROTATE_ORDERS: ReadonlySet<string> = new Set(['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx']);
 
-/** Finite TRS channel values only (custom attributes are not part of the MVP clipboard). */
+/** Finite TRS channel values only. */
 function trsValues(values: ChannelValues): ChannelValues {
   const out: ChannelValues = {};
   for (const channel of SLOT_CHANNELS) {
     const value = values[channel];
     if (value !== undefined && Number.isFinite(value)) out[channel] = value;
+  }
+  return out;
+}
+
+/**
+ * Finite values of the control's keyable custom attributes ('@name', M2A-SPEC §5.8), except `keyAll: false` ones
+ * (modes and settings such as `ikFk` and `soft` travel only when named explicitly, §5.1 rule 4).
+ */
+function attrValues(control: ControlRecord, values: ChannelValues): ChannelValues {
+  const out: ChannelValues = {};
+  const attrs = control.attrs;
+  if (typeof attrs !== 'object' || attrs === null) return out;
+  for (const [name, def] of Object.entries(attrs)) {
+    if (typeof def !== 'object' || def === null || def.keyable === false || def.keyAll === false) continue;
+    const value = values[`@${name}`];
+    if (value !== undefined && Number.isFinite(value)) out[`@${name}`] = value;
   }
   return out;
 }
@@ -30,7 +46,10 @@ export function makePoseClipboard(
   program.controls.forEach((control) => {
     const pose = values.get(control.id);
     if (pose === undefined) return;
-    controls[control.key] = { values: trsValues(pose), order: control.rotateOrder };
+    controls[control.key] = {
+      values: { ...trsValues(pose), ...attrValues(control, pose) },
+      order: control.rotateOrder,
+    };
   });
   return {
     kind: 'ekza.pose',
@@ -41,7 +60,7 @@ export function makePoseClipboard(
 }
 
 /**
- * Channel values to paste from a pose clipboard (keyable channels of the target controls only). Controls match by
+ * Channel values to paste from a pose clipboard (keyable channels and attributes of the target controls only). Controls match by
  * template key; a rotate order that differs from the clipboard's is converted (same rotation, nearest triple).
  * `mirrored` pastes each control's mirror image onto its counterpart (centre controls mirror in place, unpaired
  * sided controls are skipped). Malformed payloads give an empty map.
@@ -62,7 +81,8 @@ export function applyPoseClipboard(
   for (const [key, entry] of Object.entries(clip.controls)) {
     const slot = slotByKey.get(key);
     if (slot === undefined || entry === null || typeof entry !== 'object' || typeof entry.values !== 'object') continue;
-    const values = { ...trsValues(entry.values) };
+    const target0 = internals.controls[slot] as ControlRecord;
+    const values = { ...trsValues(entry.values), ...attrValues(target0, entry.values) };
     const order = internals.rotateOrders[slot] ?? 'xyz';
     if (ROTATE_ORDERS.has(entry.order) && entry.order !== order) {
       const e = eulerNear(eulerToQuat([values.rx ?? 0, values.ry ?? 0, values.rz ?? 0], entry.order), order, [
@@ -75,16 +95,18 @@ export function applyPoseClipboard(
       values.rz = e[2];
     }
     if (mode === 'local') {
-      result.set((internals.controls[slot] as ControlRecord).id, keyableOnly(internals.keyable, slot, values));
+      result.set(target0.id, { ...keyableOnly(internals.keyable, slot, values), ...attrValues(target0, values) });
       continue;
     }
-    const control = internals.controls[slot] as ControlRecord;
-    const target = control.side === 'C' ? slot : (internals.mirror[slot] as number);
+    const target = target0.side === 'C' ? slot : (internals.mirror[slot] as number);
     if (target === -1) continue;
-    result.set(
-      (internals.controls[target] as ControlRecord).id,
-      mirrorChannels(internals, slot, target, values, undefined),
-    );
+    const mirrored = mirrorChannels(internals, slot, target, values, undefined);
+    // Attributes the clipboard did not carry (keyAll: false ones) are not pasted.
+    const targetControl = internals.controls[target] as ControlRecord;
+    for (const key of Object.keys(mirrored)) {
+      if (key.startsWith('@') && values[key as `@${string}`] === undefined) delete mirrored[key as `@${string}`];
+    }
+    result.set(targetControl.id, mirrored);
   }
   return result;
 }

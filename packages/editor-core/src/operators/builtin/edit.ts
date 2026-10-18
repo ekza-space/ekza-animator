@@ -37,7 +37,8 @@ const redo = defineOperator({
 });
 
 /** Panels whose copy/paste/delete act on keys rather than on the pose. */
-const KEY_PANELS: ReadonlySet<string> = new Set([PANEL.graph, PANEL.timeline]);
+// M2a: copy, paste and delete act on keys in the Dope Sheet too (M2A-SPEC §5.10).
+const KEY_PANELS: ReadonlySet<string> = new Set([PANEL.graph, PANEL.timeline, PANEL.dopeSheet]);
 
 /**
  * Dispatchers whose target already ran in this run's `prepare`. The runner polls again after `prepare` (§4.11.0 rule

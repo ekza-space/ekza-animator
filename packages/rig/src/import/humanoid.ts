@@ -16,6 +16,7 @@ import {
   type SolvePlan,
   type SourceWorlds,
 } from './core';
+import { createImportIk } from './ik';
 import { clipRange } from './raw';
 import { type Interpolation, type SampledTrack, sampleTrack, trackKeyCount } from './sample';
 
@@ -265,8 +266,16 @@ export function importHumanoidClip(
     );
   }
   const source = new HumanoidSource(internals, { rotation, hips: hipsTrack }, sourceParent, sourceOf, hipsScale);
-  const curves = buildImportedCurves(internals, plan, source, slots, opts);
-  return { fps: opts.fps, range, curves, warnings };
+  const ik = createImportIk(program, slots, opts, data.name, range);
+  const built = buildImportedCurves(internals, plan, source, slots, opts, ik);
+  warnings.push(...built.warnings);
+  return {
+    fps: opts.fps,
+    range,
+    curves: built.curves,
+    warnings,
+    ...(built.limbs === undefined ? {} : { limbs: built.limbs }),
+  };
 }
 
 function hasCarriedDescendant(h: number, carried: Uint8Array, present: Uint8Array): boolean {

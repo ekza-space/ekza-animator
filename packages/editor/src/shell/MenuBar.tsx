@@ -16,11 +16,12 @@ import {
   MenubarTrigger,
   MenuShortcut,
 } from '@ekza-animator/ui';
-import { Fragment, type JSX } from 'react';
+import { Fragment, type JSX, useEffect } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from './context';
 import { type MenuSection, menuContents, topMenus } from './menus';
+import { prefetchForMenuItems } from './prefetch';
 import type { Shell } from './types';
 
 function menuContext(shell: Shell): RunContext {
@@ -60,6 +61,14 @@ function Sections(props: { readonly shell: Shell; readonly sections: readonly Me
 /** Rendered only while its menu is open (Radix mounts content on open), so polls run at open time. */
 function MenuContents(props: { readonly shell: Shell; readonly menuId: string }): JSX.Element {
   const { sections, submenus } = menuContents(props.shell.app, props.menuId, menuContext(props.shell));
+  // Intent prefetch (M2A-SPEC §5.21.2): an open menu loads the chunks of its items' dialogs and file paths.
+  useEffect(() => {
+    prefetchForMenuItems([
+      ...sections.flatMap((section) => section.items),
+      ...submenus.flatMap((submenu) => submenu.sections.flatMap((section) => section.items)),
+    ]);
+    // oxlint-disable-next-line react/exhaustive-deps -- once per opening: Radix mounts the content when it opens
+  }, []);
   return (
     <>
       <Sections shell={props.shell} sections={sections} />

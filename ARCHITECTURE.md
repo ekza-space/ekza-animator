@@ -210,7 +210,8 @@ RigProgram.evaluate(channels, out):                        (rig, compiled schedu
    for op in schedule:
      controlWorld  W_c = W_parent · O_c · T(t)·R(r; order)·S(s)
      constraint    (slot; MVP: disabled)                   → writes W_space(c) or W_b
-     solver        (slot; MVP: disabled; V1 ik2)           → writes chain W_b
+     solver        (slot; M2a: ik2 limb IK)                → writes the limb's subtree W_b and the controls
+                                                             below its FK chain; nothing at ikFk 0
      bindBone      rotate: q_b = q(W_c)·q(K_cb), rest local translation under the current parent
                    translateRotate / full: W_b = W_c · K_cb
      boneLocal     L_b = W_parentBone⁻¹ · W_b   (uncontrolled bones: W_b = W_parentBone · L_b⁰)
@@ -225,8 +226,13 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   frame (`sceneStart`, fps ratio; loop wraps, once holds).
 - **Once per frame**: the `EvaluationService` evaluates each visible character once, after input and clock and
   before any viewport renders (R04 §4.3). Budget ≤ 1 ms for two humanoids.
-- **Invalidation**: change batches mark compiled curves dirty by curve ID; a structural rig change recompiles the
-  program; preview overlays emit `origin: 'preview'` batches and go through the same path.
+- **Invalidation**: change batches mark compiled curves dirty by curve ID (M2a M-1: each touched curve once per
+  batch, so a 1,000-key drag of 30 curves recompiles 30); a structural rig change recompiles the program; preview
+  overlays emit `origin: 'preview'` batches and go through the same path. M2a M-1: a re-evaluation whose sampled
+  channels (curves ⊕ overrides) are bit-identical to the last ones keeps the pose and publishes no `poseVersion`, so
+  a drag that leaves the current frame's values unchanged costs no viewport frame. Batch listeners that only ask
+  which tables a batch touches read `batchTables(batch)` (doc; one scan per batch for all of them), and listeners
+  that walk the changes skip the bookkeeping of a change on the same curve or clip as the one before it.
 - **Determinism**: same document + frame → identical buffers on every run; schedules are independent of record
   insertion order.
 - **Normalized output is computed from world deltas**, never assumed equal to a control's local rotation: `fk.spine`
@@ -241,15 +247,20 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
 ([ADR 0004](docs/adr/0004-rig-model.md), R07)
 
 - **Inputs**: `SkeletonDesc` (pure data from glTF JSON and BIN: nodes, parents, rest TRS, skin-joint flags, VRM
-  humanoid map, VRM version, `facing`, spring-bone joints, node constraints, per-bone mesh radii, height,
-  fingerprint) and a `RigDefinition` assembled from document records.
+  humanoid map, VRM version, `facing`, spring-bone joints, node constraints, per-bone mesh radii, per-bone
+  horizontal mesh support functions (M2a: the foot-roll pivots), height, fingerprint) and a `RigDefinition`
+  assembled from document records.
 - **Compile** (on structural change only): resolve bone references (humanoid name first, then name + parent name;
   never glTF indices in the document), derive `O_c`, `K_cb`, rest lengths, mirror pairs; build ops with declared
   reads/writes; Kahn sort with `(opKindPriority, id)` tie-break; repair dangling refs and cycles with warnings.
 - **Op registry**: `controlWorld`, `bindBone`, `boneLocal` in the MVP. `constraint` (`parent | point | orient |
   aim`) and `solver` (`ik2 | footRoll | chain`) are schema-defined slots whose implementations register in V1/V2
   (`registerRigOp(kind, impl)`), without a schema change. The `ik2` math (`solveTwoBoneIk`, R07 §9.2) already
-  ships in M1 for *Plant Feet*.
+  ships in M1 for *Plant Feet*. M2a registers `solver:ik2` (`registerBuiltinRigOps`; M2A-SPEC §5.3): two-bone limb
+  IK with pole, twist, soft IK and (legs) foot roll in the foot frame, blended with FK by the IK control's `@ikFk`
+  attribute in chain-relative space, rest-exact, allocation-free; at ikFk 0 it writes nothing, so bone locals stay
+  bit-identical to an FK-only rig. Matching (FK ↔ IK), import to IK and Plant Feet on IK legs build on the inverse
+  path below ([A1 notes](docs/wp-notes/m2a-rig-ik.md)).
 - **Humanoid output**: the kernel writes raw bone locals itself, so the viewport loads VRMs with
   `autoUpdateHumanBones: false` and three-vrm never double-applies. Parity is tested against
   `VRMHumanoidRig.update()` fed with `flipYaw(N_b)` for VRM 0.x and `N_b` for VRM 1.0.
@@ -339,7 +350,16 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   channels, metres for translation; x axis in active-clip frames.
 - `GraphEditorController` owns two canvases, a `CurveSet` (visible channels → compiled curves via the evaluation
   service), the selection of keys/handles (session store), and the interaction state machine. Edits run through the
-  editor-core edit kernel inside preview sessions.
+  editor-core edit kernel inside preview sessions; key, handle and scale drags are key-edit gestures
+  (`beginKeyEditGesture`: one preview update per frame, one history step).
+- M2a (M2A-SPEC §5.15): each curve is drawn through an affine mapping `drawn = v·scale + offset` — absolute display
+  units, normalized to −1…1 from the curve's key-range min/max, or stacked one lane per curve — with ranges frozen
+  while a document preview runs; buffer curves (per-user copies in the session) draw dashed behind the curves; the
+  Scale tool's region box scales times (`scaleKeys`) and values (`scaleKeyValues`); breakdown keys draw as diamonds.
+  M-1: during a drag the curves it does not touch come from a cached static layer and only the dragged curves are
+  repainted; a redraw first runs the scheduled (coalesced) drag update. A key drag that moves no key in time writes
+  the values of curves whose shown keys are all dragged directly (the writes `moveKeys` makes for them then, without
+  its time placement); the time slider repaints only when a key's time, a key set or a curve changes.
 - Painters: grid + labels, infinity (dotted), curves (exact Bézier), keys, handles (selected keys only; non-weighted
   at fixed 40 px screen length, weighted at true length), playhead, marquee.
 - Handle drag ("pen-like"): non-weighted → angle only; weighted + locked weight → angle only; weighted + free →
@@ -368,10 +388,13 @@ PoseBuffers ──► SceneSync (three Bones ← L_b; node constraints) ──�
   gestures, key moves/scales, handles, tangent types, insert, delete).
 - **Workspace**: dockview 8 (MIT core) behind a `WorkspaceHost` adapter so FlexLayout can replace it. MVP Animate
   workspace: menu bar; status line (tools Q/W/E, move/rotate space incl. gimbal, selection mask, auto-key, layout
-  preset); left dock Outliner | Clips; centre Viewport panel (pane grid); right dock Channel Box | Attributes;
-  bottom dock Graph Editor; fixed time slider + range/playback row; help line. Layout JSON persisted per user in
-  `localStorage` with a schema version. Panels register explicitly.
-- **Frame loop**: R3F's single rAF. `addEffect` runs input drain → playback clock → `evaluation.tick()`;
+  preset; M2a: key target and the Tween bar); left dock Outliner | Clips; centre Viewport panel (pane grid); right
+  dock Channel Box | Attributes; bottom dock Graph Editor | Dope Sheet (M2a); fixed time slider + range/playback
+  row; help line. Layout JSON persisted per user in `localStorage` with a schema version (v2 since M2a; the v1
+  layout migrates once). Panels register explicitly.
+- **Frame loop**: R3F's single rAF. `addEffect` runs the tasks scheduled before the frame
+  (`app.flushScheduled()`: drag updates coalesced to one per frame, M2a) → input drain → playback clock →
+  `evaluation.tick()`;
   `useFrame(…, 1)` runs `viewportManager.render()`; `addAfterEffect` redraws dirty 2D canvases. Playback and drags
   call `invalidate()`; idle renders nothing.
 - **Hotkeys**: DOM adapter maps `KeyboardEvent` → `{code, mods}` → `keymap.resolve(scopeChain)` where the scope
@@ -461,7 +484,7 @@ named P0–P3 (R06), distinct from Ekza tiers T0–T3 and plugin trust levels.
 
 Reference: 2020-class laptop (Apple M1 or GTX 1650 class), Chrome stable, 1440×900 at DPR 2 (R04 §1). Budgets are
 **measured and recorded** (benches and the `chrome` e2e project report them); they are not CI pass/fail gates on
-shared runners or SwiftShader.
+shared runners or SwiftShader, except the two deterministic ones: idle frames and the route's JS size.
 
 | Scenario | Budget | How measured |
 |---|---|---|
@@ -475,7 +498,8 @@ shared runners or SwiftShader.
 | Undo/redo one gesture | ≤ 5 ms | bench |
 | Open Seed-san (10.9 MB VRM) to interactive | ≤ 3 s | e2e (report) |
 | Bake + write VRMA, 1 humanoid × 10 s @ 30 fps | ≤ 200 ms | bench |
-| Editor route JS (gzip, no fixtures) | ≤ 900 kB | size check (M2 CI gate) |
+| Editor route JS (gzip, no fixtures) | ≤ 900 kB | `check:size` (CI gate since M2a): a first visit's scripts until the empty state, gzip -9, decimal kB |
+| Autosave write, Seed-san × 10 clips (M2a) | ≤ 50 ms main thread | bench (report) |
 
 ---
 

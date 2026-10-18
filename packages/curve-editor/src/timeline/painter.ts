@@ -156,11 +156,13 @@ function paintTicks(
   const snap = snapper(dpr);
   const top = Math.min(LABEL_STRIP, layout.height);
   const tall = layout.height - top;
-  for (let pass = 0; pass < 2; pass++) {
-    ctx.fillStyle = pass === 0 ? theme.keyTick : theme.keySelected;
+  // Pass 0: keys (red), 1: breakdowns (green, M2A-SPEC §5.9), 2: selected (white).
+  for (let pass = 0; pass < 3; pass++) {
+    ctx.fillStyle = pass === 0 ? theme.keyTick : pass === 1 ? theme.keyBreakdown : theme.keySelected;
     ctx.beginPath();
     for (let i = 0; i < ticks.times.length; i++) {
-      if (ticks.selected[i] !== pass) continue;
+      const kind = ticks.selected[i] === 1 ? 2 : ticks.breakdown[i] === 1 ? 1 : 0;
+      if (kind !== pass) continue;
       const x = layoutFrameToX(layout, ticks.times[i]!);
       if (x < -TICK_WIDTH || x > layout.width + TICK_WIDTH) continue;
       ctx.rect(snap(x - TICK_WIDTH / 2), top, TICK_WIDTH, tall);

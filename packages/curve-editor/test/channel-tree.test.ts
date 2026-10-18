@@ -1,7 +1,8 @@
-import type { ControlId } from '@ekza-animator/doc';
+import type { ChannelId, ControlId } from '@ekza-animator/doc';
+import { createFakeEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { buildChannelTree, CHANNEL_COLORS, channelColor, channelLabel, channelNodes } from '../src';
-import { addCurve, key, WAVE, waveApp } from './support/app';
+import { addCurve, key, WAVE, waveApp, waveDoc } from './support/app';
 
 const UPPER_ARM = 'rig_SyntheticWave001:fk.upperArm.L' as ControlId;
 const ROOT = 'rig_SyntheticWave001:root' as ControlId;
@@ -45,7 +46,8 @@ describe('buildChannelTree', () => {
     expect(tree[0]?.children.map((node) => node.id)).toEqual([UPPER_ARM, WAVE.control, ROOT]);
     const upper = tree[0]?.children[0];
     expect(upper?.children.map((node) => node.channel)).toEqual(['rx', 'ry', 'rz', '@curl']);
-    expect(upper?.children.at(-1)).toMatchObject({ label: 'curl', color: CHANNEL_COLORS.other });
+    // An attribute the control does not define is named like the Channel Box names attributes (title case).
+    expect(upper?.children.at(-1)).toMatchObject({ label: 'Curl', color: CHANNEL_COLORS.other });
     expect(tree[0]?.children[2]?.children.map((node) => node.channel)).toEqual(['tx', 'ty', 'tz', 'rx', 'ry', 'rz']);
     app.dispose();
   });
@@ -77,6 +79,37 @@ describe('buildChannelTree', () => {
     app.dispose();
   });
 
+  it('names and orders IK attribute channels like the Channel Box (M2A-INT-35)', async () => {
+    // A leg IK control: `attrs` in the rig's order ikFk, soft, twist, roll, bank, heelTwist, toeTwist (§5.2).
+    const app = createFakeEditorApp({ snapshot: withLimbIkRecords(await waveDoc(), { limbs: ['leg.L'] }) });
+    const ik = 'rig_SyntheticWave001:ik.leg.L' as ControlId;
+    for (const channel of ['@toeTwist', '@roll', '@ikFk', '@bank', '@soft', '@heelTwist', '@twist', '@zLeft', 'ty']) {
+      addCurve(app, { control: ik, channel: channel as ChannelId, keys: [key(0, 0)] });
+    }
+    const tree = buildChannelTree(app, { clip: WAVE.clip, controls: [ik] });
+    // Before the fix: 'bank', 'heelTwist', 'ikFk', 'roll', 'soft', 'toeTwist', 'twist' (raw ids, alphabetical).
+    expect(channelNodes(tree).map((node) => [node.channel, node.label])).toEqual([
+      ['tx', 'Translate X'],
+      ['ty', 'Translate Y'],
+      ['tz', 'Translate Z'],
+      ['rx', 'Rotate X'],
+      ['ry', 'Rotate Y'],
+      ['rz', 'Rotate Z'],
+      ['@soft', 'Soft'],
+      ['@twist', 'Twist'],
+      ['@roll', 'Roll'],
+      ['@bank', 'Bank'],
+      ['@heelTwist', 'Heel Twist'],
+      ['@toeTwist', 'Toe Twist'],
+      ['@ikFk', 'IK/FK'], // the Channel Box's IK/FK row is its last row
+      ['@zLeft', 'Z Left'], // a curve of an attribute the control does not define
+    ]);
+    // The filter matches the shown name.
+    const heel = buildChannelTree(app, { clip: WAVE.clip, controls: [ik], filter: 'heel tw' });
+    expect(channelNodes(heel).map((node) => node.channel)).toEqual(['@heelTwist']);
+    app.dispose();
+  });
+
   it('works without a clip (no curves) and with no controls', async () => {
     const app = await waveApp();
     expect(buildChannelTree(app, { clip: null, controls: [] })).toEqual([]);
@@ -89,7 +122,7 @@ describe('buildChannelTree', () => {
     expect(channelLabel('tx')).toBe('Translate X');
     expect(channelLabel('ry')).toBe('Rotate Y');
     expect(channelLabel('sz')).toBe('Scale Z');
-    expect(channelLabel('@blink')).toBe('blink');
+    expect(channelLabel('@blink')).toBe('Blink');
     expect(channelColor('ty')).toBe(CHANNEL_COLORS.y);
     expect(channelColor('sz')).toBe(CHANNEL_COLORS.z);
     expect(channelColor('@x')).toBe(CHANNEL_COLORS.other);

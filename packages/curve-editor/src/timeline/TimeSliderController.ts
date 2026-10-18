@@ -2,14 +2,28 @@
 // playback-range shading and markers, auto-key border, and Maya range editing — Shift+click/drag selects a band with
 // its keys, dragging the band's middle moves them, dragging an end scales them (one history step per drag), RMB
 // opens the band menu. Everything is in active-clip frames (§4.11.8). Canvas2D, no React.
+// M2a (M2A-SPEC §5.9, §5.11): Mod+drag on the band middle copies its keys, band moves and scales ripple when
+// `tools.ripple` is on (one global region: the band), an MMB drag scrubs carrying the pose, breakdown ticks are green.
 import { type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
-import type { ChangeBatch, KeyId } from '@ekza-animator/doc';
 import {
+  type AnyChange,
+  batchTables,
+  type ChangeBatch,
+  type CurveId,
+  type KeyId,
+  type TableName,
+  type Tx,
+} from '@ekza-animator/doc';
+import {
+  copyKeys,
   type EditorApp,
+  type KeyEditOptions,
   type MenuItemDef,
   moveKeys,
   PANEL,
   type Prefs,
+  type RippleScope,
+  rippleMoveShift,
   type SessionState,
   scaleKeys,
   type ToolPointerEvent,
@@ -27,9 +41,9 @@ import {
   snapFrame,
 } from './band';
 import { activeTimelineContext, currentFrame, playbackRangeInClip, sliderRange, type TimelineContext } from './context';
-import { registerContributions, TIMELINE_CONTEXT_MENU } from './contributions';
+import { registerContributions, TIMELINE_CHECKED_OPS, TIMELINE_CONTEXT_MENU } from './contributions';
 import { KeyDrag } from './keyDrag';
-import { bandKeys, collectTicks, nearestTick, TICK_EPSILON, type TickSet } from './keys';
+import { bandKeys, collectTicks, nearestTick, TICK_EPSILON, type TickSet, targetCurves, timelineTargets } from './keys';
 import { layoutFrameToX, layoutXToFrame, type SliderLayout, sliderLayout, tickCentreY } from './layout';
 import { badgeFont, bandExtent, type PlayheadBadge, paintBase, paintPlayhead, updateBadge } from './painter';
 import { readTimelineTheme, type TimelineTheme } from './theme';
@@ -40,6 +54,7 @@ const HANDLE_INSIDE_PX = 6;
 const HANDLE_OUTSIDE_PX = 4;
 export const MOVE_KEYS_LABEL = 'Move Keys';
 export const SCALE_KEYS_LABEL = 'Scale Keys';
+export const COPY_KEYS_LABEL = 'Copy Keys';
 /** Menu operators that act on the band's keys: without a band the menu leaves them out. */
 const BAND_OPS: ReadonlySet<string> = new Set([
   'graph.keys.delete',
@@ -47,20 +62,33 @@ const BAND_OPS: ReadonlySet<string> = new Set([
   'graph.tangent.set',
   'time.selectBand',
 ]);
-const GROUP_ORDER: readonly string[] = ['edit', 'tangent', 'select'];
+const GROUP_ORDER: readonly string[] = ['edit', 'tangent', 'select', 'time'];
 /** Tables whose changes move the slider's frames (clip range, fps, scene clock) or its ticks. */
-const VIEW_TABLES: ReadonlySet<string> = new Set(['clips', 'project', 'characters']);
-const TICK_TABLES: ReadonlySet<string> = new Set(['keys', 'curves', 'layers', 'controls', 'rigs']);
+const VIEW_TABLES: readonly TableName[] = ['clips', 'project', 'characters'];
+/**
+ * Tables whose changes rebuild the ticks; `keys` only when a key's time, curve or breakdown flag changes (see
+ * `onBatch`; the flag colours the tick, M2A-SPEC §5.9).
+ */
+const TICK_TABLES: readonly TableName[] = ['curves', 'layers', 'controls', 'rigs'];
 
 export interface TimelineMenuItem {
   readonly id: string;
   readonly label: string;
   readonly op: string;
   readonly args?: unknown;
+  /** M2a: a toggle item (Ripple Edit) and whether it is on. */
+  readonly checked?: boolean;
+}
+
+/** A key tick as the e2e test API reports it (M2A-SPEC §4.8 `timelineTicks`). */
+export interface TimelineTick {
+  readonly frame: Frame;
+  readonly breakdown: boolean;
+  readonly selected: boolean;
 }
 
 type Gesture =
-  | { readonly kind: 'scrub'; lastFrame: number }
+  | { readonly kind: 'scrub'; lastFrame: number; readonly carry: boolean }
   | { readonly kind: 'select'; readonly anchor: Frame; band: FrameRange }
   | {
       readonly kind: 'move';
@@ -69,7 +97,13 @@ type Gesture =
       readonly keys: readonly KeyId[];
       readonly snap: boolean;
       readonly drag: KeyDrag;
+      /** M2a: the ripple scope (§5.11; the band is the region), null without ripple. */
+      readonly ripple: RippleScope | null;
+      /** M2a: Mod+drag copies the band's keys instead of moving them (§5.9). */
+      readonly copy: boolean;
       delta: number;
+      /** The offset the keys really got (the ripple's Δ < 0 stop); the band moves by it. */
+      shift: number;
       /** The keys moved at some point of the gesture (a press released in place is a click: it sets the time). */
       moved: boolean;
     }
@@ -82,6 +116,7 @@ type Gesture =
       readonly keys: readonly KeyId[];
       readonly snap: boolean;
       readonly drag: KeyDrag;
+      readonly ripple: RippleScope | null;
       scale: BandScale | null;
     };
 
@@ -187,13 +222,46 @@ export class TimeSliderController {
     return { x: layoutFrameToX(layout, ticks.times[index]!), y: tickCentreY(layout) };
   }
 
+  /** M2a (§4.8 `timelineTicks`): the ticks of the current key set, in time order. */
+  keyTicks(): readonly TimelineTick[] {
+    const ticks = this.tickSet();
+    const out: TimelineTick[] = [];
+    for (let i = 0; i < ticks.times.length; i++) {
+      out.push({ frame: ticks.times[i]!, breakdown: ticks.breakdown[i] === 1, selected: ticks.selected[i] === 1 });
+    }
+    return out;
+  }
+
+  /**
+   * M2a (§4.8 `screenOfBand`): a grab point (canvas CSS px) on the band's start or end handle or its middle; null
+   * without a band, and for the ends of a 1-frame band (it only moves).
+   */
+  bandPoint(part: 'start' | 'middle' | 'end'): { readonly x: number; readonly y: number } | null {
+    const band = this.displayBand();
+    if (band === null) return null;
+    const { layout } = this.currentView();
+    const { left, right } = bandExtent(layout, band);
+    const y = tickCentreY(layout);
+    if (part === 'middle') return { x: (left + right) / 2, y };
+    if (!bandHasSpan(band)) return null;
+    const inside = Math.min(HANDLE_INSIDE_PX, (right - left) / 4);
+    return { x: part === 'start' ? left + inside / 2 : right - inside / 2, y };
+  }
+
   pointerDown(e: ToolPointerEvent): void {
     if (this.disposed) return;
     if (this.gesture !== null) this.cancel();
-    if (e.button !== 0) return;
     const { ctx } = this.currentView();
     const time = this.app.session.getState().time;
     const frame = this.xToFrame(e.x);
+    if (e.button === 1) {
+      // M2a §5.9 (FR-TIME-10): an MMB drag scrubs and carries the pose to the new frame.
+      const gesture: Gesture = { kind: 'scrub', lastFrame: Number.NaN, carry: ctx !== null };
+      this.gesture = gesture;
+      this.scrub(gesture, frame);
+      return;
+    }
+    if (e.button !== 0) return;
 
     if (e.shift) {
       if (ctx === null) return;
@@ -208,6 +276,7 @@ export class TimeSliderController {
     const snap = time.snapToFrames && !e.alt;
     if (ctx !== null && time.band !== null) {
       const hit = this.hitTest(e.x, e.y);
+      const ripple = this.app.session.getState().tools.ripple ? this.rippleScope(ctx, time.band) : null;
       if (hit.kind === 'band-middle') {
         this.gesture = {
           kind: 'move',
@@ -215,8 +284,12 @@ export class TimeSliderController {
           band: time.band,
           keys: bandKeys(this.app, ctx, time.band),
           snap,
-          drag: new KeyDrag(this.app, MOVE_KEYS_LABEL),
+          drag: new KeyDrag(this.app, e.mod ? COPY_KEYS_LABEL : MOVE_KEYS_LABEL),
+          // Ripple does not apply to copies (§5.9).
+          ripple: e.mod ? null : ripple,
+          copy: e.mod,
           delta: 0,
+          shift: 0,
           moved: false,
         };
         return;
@@ -231,6 +304,7 @@ export class TimeSliderController {
           keys: bandKeys(this.app, ctx, time.band),
           snap,
           drag: new KeyDrag(this.app, SCALE_KEYS_LABEL),
+          ripple,
           scale: null,
         };
         return;
@@ -238,7 +312,7 @@ export class TimeSliderController {
     }
     // A plain click outside the band clears it, then scrubs.
     if (time.band !== null) this.selectBand(null);
-    const gesture: Gesture = { kind: 'scrub', lastFrame: Number.NaN };
+    const gesture: Gesture = { kind: 'scrub', lastFrame: Number.NaN, carry: false };
     this.gesture = gesture;
     this.scrub(gesture, frame);
   }
@@ -265,13 +339,10 @@ export class TimeSliderController {
         if (delta === gesture.delta) return;
         gesture.delta = delta;
         gesture.moved = true;
-        const { keys, snap } = gesture;
-        if (keys.length > 0) {
-          const ok = gesture.drag.update((tx) => {
-            moveKeys(this.app, tx, keys, delta, 0, { snap, resolveCollisions: false });
-          });
+        if (gesture.keys.length > 0) {
+          const ok = gesture.drag.update((tx) => this.applyMove(gesture, tx, false));
           if (!ok) this.gesture = null;
-        }
+        } else gesture.shift = delta;
         this.invalidate(true);
         return;
       }
@@ -279,10 +350,11 @@ export class TimeSliderController {
         const scale = bandScale(gesture.band, gesture.side, frame - gesture.grab, gesture.snap);
         if (scale === null || scale.factor === (gesture.scale?.factor ?? 1)) return;
         gesture.scale = scale;
-        const { keys, snap } = gesture;
+        const { keys, snap, ripple } = gesture;
         if (keys.length > 0) {
           const ok = gesture.drag.update((tx) => {
-            scaleKeys(this.app, tx, keys, scale.pivot, scale.factor, { snap, resolveCollisions: false });
+            const opts: KeyEditOptions = { snap, resolveCollisions: false, ripple: ripple !== null };
+            scaleKeys(this.app, tx, keys, scale.pivot, scale.factor, opts, ripple ?? undefined);
           });
           if (!ok) this.gesture = null;
         }
@@ -303,27 +375,23 @@ export class TimeSliderController {
       case 'select':
         break;
       case 'move': {
-        const { keys, snap, delta } = gesture;
-        if (delta === 0) {
+        if (gesture.delta === 0) {
           gesture.drag.cancel();
           if (!gesture.moved) {
             // A click inside the band (no drag): Maya sets the time there and drops the band (acceptance round 2:
             // it read as a dead click).
             this.selectBand(null);
-            this.scrub({ kind: 'scrub', lastFrame: Number.NaN }, gesture.origin);
+            this.scrub({ kind: 'scrub', lastFrame: Number.NaN, carry: false }, gesture.origin);
           }
           break;
         }
-        const committed =
-          keys.length === 0 ||
-          gesture.drag.commit((tx) => {
-            moveKeys(this.app, tx, keys, delta, 0, { snap, resolveCollisions: true });
-          });
-        if (committed) this.selectBand(shiftBand(gesture.band, delta));
+        const committed = gesture.keys.length === 0 || gesture.drag.commit((tx) => this.applyMove(gesture, tx, true));
+        // The band follows the keys: the copies, or the moved keys (by the offset they really got).
+        if (committed) this.selectBand(shiftBand(gesture.band, gesture.shift));
         break;
       }
       case 'scale': {
-        const { keys, snap, scale } = gesture;
+        const { keys, snap, scale, ripple } = gesture;
         if (scale === null || scale.factor === 1) {
           gesture.drag.cancel();
           break;
@@ -331,7 +399,8 @@ export class TimeSliderController {
         const committed =
           keys.length === 0 ||
           gesture.drag.commit((tx) => {
-            scaleKeys(this.app, tx, keys, scale.pivot, scale.factor, { snap, resolveCollisions: true });
+            const opts: KeyEditOptions = { snap, resolveCollisions: true, ripple: ripple !== null };
+            scaleKeys(this.app, tx, keys, scale.pivot, scale.factor, opts, ripple ?? undefined);
           });
         if (committed) this.selectBand(scale.band);
         break;
@@ -381,7 +450,9 @@ export class TimeSliderController {
       .map((def): TimelineMenuItem => {
         const label = def.label ?? this.app.operators.get(def.op)?.label ?? def.op;
         const args = def.args ?? (def.op === 'time.selectBand' ? { band, mode: 'replace' } : undefined);
-        return args === undefined ? { id: def.id, label, op: def.op } : { id: def.id, label, op: def.op, args };
+        const item: TimelineMenuItem =
+          args === undefined ? { id: def.id, label, op: def.op } : { id: def.id, label, op: def.op, args };
+        return TIMELINE_CHECKED_OPS.has(def.op) ? { ...item, checked: this.app.session.getState().tools.ripple } : item;
       });
   }
 
@@ -446,7 +517,7 @@ export class TimeSliderController {
   private displayBand(): FrameRange | null {
     const gesture = this.gesture;
     if (gesture?.kind === 'select') return gesture.band;
-    if (gesture?.kind === 'move') return shiftBand(gesture.band, gesture.delta);
+    if (gesture?.kind === 'move') return shiftBand(gesture.band, gesture.shift);
     if (gesture?.kind === 'scale') return gesture.scale?.band ?? gesture.band;
     return this.app.session.getState().time.band;
   }
@@ -456,7 +527,10 @@ export class TimeSliderController {
     return Math.min(Math.max(frame, layout.start), layout.end);
   }
 
-  /** `time.setFrame` with an active-clip frame inside the clip range (whole frames when snapping). */
+  /**
+   * `time.setFrame` with an active-clip frame inside the clip range (whole frames when snapping); an MMB scrub
+   * carries the pose (§5.9).
+   */
   private scrub(gesture: Extract<Gesture, { kind: 'scrub' }>, frame: Frame): void {
     const { ctx, layout } = this.currentView();
     const range = ctx?.clip.range ?? layout;
@@ -466,9 +540,34 @@ export class TimeSliderController {
     gesture.lastFrame = target;
     void this.app.run(
       'time.setFrame',
-      { frame: target, unit: ctx === null ? 'scene' : 'clip' },
+      {
+        frame: target,
+        unit: ctx === null ? 'scene' : 'clip',
+        ...(gesture.carry ? { carry: true } : {}),
+      },
       { panel: PANEL.timeline },
     );
+  }
+
+  /** The ripple scope of a band edit (§5.11): the band's target curves, the band as the region. */
+  private rippleScope(ctx: TimelineContext, band: FrameRange): RippleScope {
+    const curves: CurveId[] = targetCurves(this.app, ctx, timelineTargets(this.app, ctx))
+      .filter((curve) => !curve.locked)
+      .map((curve) => curve.id);
+    return { curves, region: { start: band.start, end: band.end } };
+  }
+
+  /** One update of a band move or copy (§4.11.17, §5.9, §5.11); records the offset the keys really got. */
+  private applyMove(gesture: Extract<Gesture, { kind: 'move' }>, tx: Tx, final: boolean): void {
+    const { keys, snap, ripple, delta } = gesture;
+    const opts: KeyEditOptions = { snap, resolveCollisions: final, ripple: ripple !== null };
+    if (gesture.copy) {
+      copyKeys(this.app, tx, keys, delta, opts);
+      gesture.shift = delta;
+      return;
+    }
+    gesture.shift = rippleMoveShift(this.app, tx, keys, delta, opts, ripple ?? undefined);
+    moveKeys(this.app, tx, keys, delta, 0, opts, ripple ?? undefined);
   }
 
   private selectBand(band: FrameRange | null): void {
@@ -515,9 +614,29 @@ export class TimeSliderController {
   private onBatch(batch: ChangeBatch): void {
     let ticks = batch.origin === 'load';
     let view = ticks;
-    for (const change of batch.changes) {
-      if (VIEW_TABLES.has(change.table)) view = ticks = true;
-      else if (TICK_TABLES.has(change.table)) ticks = true;
+    // M-1 (M2A-SPEC §5.21.1): the batch's table set (one scan per batch for every listener); key updates that keep
+    // their time, curve and breakdown flag (a Graph Editor value drag of 1,000 keys) leave the ticks alone, so the slider neither
+    // rebuilds its tick set nor repaints on every preview batch of such a drag.
+    const tables = batchTables(batch);
+    if (VIEW_TABLES.some((table) => tables.has(table))) view = ticks = true;
+    if (!ticks && TICK_TABLES.some((table) => tables.has(table))) ticks = true;
+    if (!ticks && tables.has('keys')) {
+      const changes = batch.changes;
+      for (let i = 0; i < changes.length; i++) {
+        const change = changes[i] as AnyChange;
+        if (change.table !== 'keys') continue;
+        const { before, after } = change;
+        if (
+          before === undefined ||
+          after === undefined ||
+          before.t !== after.t ||
+          before.curve !== after.curve ||
+          before.breakdown !== after.breakdown
+        ) {
+          ticks = true;
+          break;
+        }
+      }
     }
     if (view) this.view = null;
     if (ticks) {

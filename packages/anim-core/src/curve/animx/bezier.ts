@@ -4,7 +4,8 @@
 // Adapted from Autodesk/animx/src/internal/Tbezier.h @ 11c31ac74e526b599031414866db639383c9a5e0 (Apache-2.0,
 // © Autodesk, Inc.). Changes: ported to TypeScript; `Tbezier::evaluate` is split into a time-independent segment
 // preparation (monotonic-X correction and power basis, run once when a curve is compiled) and the per-time root
-// solve; out-parameters go through scratch arrays; added the parameter/derivative helpers used by the curve engine.
+// solve; out-parameters go through scratch arrays; added the parameter/derivative helpers used by the curve engine;
+// the root finder is bound once at module load (M-3).
 
 import { polyZeroes } from './polyZeroes';
 
@@ -22,6 +23,9 @@ export const BEZIER_STRIDE = 8;
  * Read it right after the call; the next call overwrites it.
  */
 export const BEZIER_CORRECTED = new Float64Array(4);
+
+/** Bound once (M2A-SPEC §5.21.3, M-3): module wrappers can turn each imported-binding access into a getter call. */
+const findZeroes = polyZeroes;
 
 const MONO = new Float64Array(2);
 const BOUNDS = new Float64Array(2);
@@ -177,7 +181,7 @@ export function bezierParameter(coef: Float64Array, o: number, startX: number, e
   POLY[2] = coef[o + 1]!;
   POLY[1] = coef[o + 2]!;
   POLY[0] = 0.0 - s;
-  const numRoots = polyZeroes(POLY, 3, 0.0, true, 1.0, true, ROOTS);
+  const numRoots = findZeroes(POLY, 3, 0.0, true, 1.0, true, ROOTS);
   return numRoots === 1 ? ROOTS[0]! : 0.0;
 }
 

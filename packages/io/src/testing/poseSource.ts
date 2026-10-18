@@ -81,6 +81,9 @@ export function createFkPoseSource(skeleton: SkeletonDesc, opts: FkPoseSourceOpt
     nodeCount: n,
     drivenNodes,
     warnings: [],
+    attrSlots: [],
+    attrIndex: new Map(),
+    limbs: [],
     allocChannels: () => ({ values: new Float64Array(0), attrs: new Float64Array(0) }),
     allocPose: () => ({
       boneLocal: new Float64Array(n * 10),

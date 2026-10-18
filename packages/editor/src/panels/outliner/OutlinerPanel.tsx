@@ -37,6 +37,7 @@ import {
 } from '../channel-box/kit/styles';
 import { ClipNameInput } from '../clips/ClipNameInput';
 import { setHoveredControl } from './hover';
+import { useLimbHiddenControls } from './limbHidden';
 import {
   buildOutlinerRows,
   controlHierarchy,
@@ -80,6 +81,7 @@ export function OutlinerPanel({ app, instanceId }: PanelProps): JSX.Element {
   const selected = useSession(selectedControls, sameIds);
   const showSecondary = useSession(selectShowSecondary);
   const hiddenControls = useSession(selectHidden);
+  const limbHidden = useLimbHiddenControls(app);
   const activeCharacter = useSession(selectActiveCharacter);
   const activeClip = useSession(selectActiveClip);
   const [filter, setFilter] = useState('');
@@ -473,6 +475,7 @@ export function OutlinerPanel({ app, instanceId }: PanelProps): JSX.Element {
                   domId={rowDomId(row.key)}
                   top={item.start}
                   selected={controlId !== null && row.kind === 'control' && selectedSet.has(controlId)}
+                  ikFkHidden={controlId !== null && row.kind === 'control' && limbHidden.has(controlId)}
                   lead={row.kind === 'control' && controlId === lead}
                   focused={row.key === focusKey}
                   renaming={row.kind === 'clip' && row.clip.id === renaming}
@@ -509,6 +512,8 @@ interface RowViewProps {
   readonly domId: string;
   readonly top: number;
   readonly selected: boolean;
+  /** M2a §5.5: the IK/FK rule hides it (drawn dimmed like a hidden control). */
+  readonly ikFkHidden: boolean;
   readonly lead: boolean;
   readonly focused: boolean;
   readonly renaming: boolean;
@@ -563,12 +568,13 @@ function OutlinerRowView(props: RowViewProps): JSX.Element {
       aria-selected={selectable ? selected : undefined}
       data-testid={rowTestId(row)}
       data-lead={lead ? 'true' : undefined}
+      data-ikfk-hidden={props.ikFkHidden ? 'true' : undefined}
       data-match={row.match ? 'true' : undefined}
       className={
         'flex cursor-default items-center gap-1 pr-2 whitespace-nowrap ' +
         `${selected ? ROW_SELECTED : ROW_HOVER} ` +
         (focused ? 'group-focus:shadow-[inset_0_0_0_1px_var(--accent-text,#a996ff)] ' : '') +
-        (row.kind === 'control' && row.hidden ? 'opacity-50' : '')
+        (row.kind === 'control' && (row.hidden || props.ikFkHidden) ? 'opacity-50' : '')
       }
       style={style}
       onClick={props.onActivate}

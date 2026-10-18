@@ -2,7 +2,7 @@
 // document (asynchronous; asset store, partitions); `applyModelImport` writes every record in the operator's single
 // transaction and points the session at the new character.
 import { EkzaError, type Fps } from '@ekza-animator/anim-core';
-import type { AssetRecord, CameraId, CharacterId, ClipId, ModelFormat, ReadView, RigId, Tx } from '@ekza-animator/doc';
+import type { AssetRecord, CameraId, CharacterId, ClipId, ModelFormat, RigId, Tx } from '@ekza-animator/doc';
 import {
   checkInputBudget,
   detectModelFormat,
@@ -30,11 +30,14 @@ import type { EditorApp } from '../types';
 import { frameShotCamera, SHOT_FOV_Y } from './camera';
 import { type ClipWritePlan, planEmptyClip, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
 import { type Progress, yieldToHost } from './host';
-import { baseName, extensionOf, nameKey, numberedName, sanitizeClipName, uniqueName } from './names';
+import { importLimbWarnings } from './ik';
+import { baseName, extensionOf, numberedName, sanitizeClipName, uniqueName } from './names';
 import { clipProvenance, isRestrictedLicense, type KnownLicense, sourceProvenance } from './provenance';
 import { cameraRecord, characterRecord, DEFAULT_CLIP_RANGE, orderAfter, projectRecord } from './records';
 import { activateClip, EMPTY_SELECTION, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';
+
+export { clipNamesOf, clipNameTaken } from './importChecks';
 
 /** Embedded clips are all imported by default when there are at most this many (import dialog default). */
 export const DEFAULT_ALL_CLIPS_LIMIT = 8;
@@ -177,10 +180,12 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
 
   const characterId = newRecordId(app, 'character');
   const rigId: RigId = newRecordId(app, 'rig');
+  // M2a §5.2: limb IK per the user's preference (legs IK, arms FK with IK one click away by default).
+  const autoRigIk = app.prefs.getState().autoRigIk;
   const rig = autoRig(
     skeleton,
     { character: characterId, rig: rigId },
-    { kind: 'auto', secondary: options.secondaryControls ?? true },
+    { kind: 'auto', secondary: options.secondaryControls ?? true, ik: { legs: autoRigIk.legs, arms: autoRigIk.arms } },
   );
   const program = compileRig(rig, skeleton);
   for (const warning of program.warnings) {
@@ -230,8 +235,11 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
       keyMode: resolved.keyMode,
       eulerFilter: resolved.eulerFilter,
       reduce: resolved.reduce,
+      ik: 'auto',
     });
     warnings.push(...imported.warnings.map((warning) => `${raw.name}: ${warning}`));
+    // M2a §5.8: limbs kept FK say so, first (the import toast shows the first three warnings).
+    warnings.unshift(...importLimbWarnings(raw.name, imported));
     const nodeNames = raw.channels.map((channel) => skeleton.nodes[channel.node]?.name ?? '');
     const name = uniqueName(sanitizeClipName(raw.name), takenNames);
     takenNames.push(name);
@@ -365,15 +373,4 @@ export function applyModelImport(app: EditorApp, tx: Tx, plan: ModelImportPlan):
   const name = tx.get('project', 'project')?.name;
   if (name !== undefined && name !== app.session.getState().projectName) app.session.setState({ projectName: name });
   return { character: plan.characterId, clips: clipIds, warnings: [...plan.warnings, ...plan.notes] };
-}
-
-/** Names of a character's live clips (unique-name checks), in any order. */
-export function clipNamesOf(view: ReadView, character: CharacterId): readonly string[] {
-  return view.query.clipsOfCharacter(character).map((clip) => clip.name);
-}
-
-/** True when another live clip of the character has this name (ignoring case and surrounding spaces). */
-export function clipNameTaken(view: ReadView, character: CharacterId, name: string, except?: ClipId): boolean {
-  const key = nameKey(name);
-  return view.query.clipsOfCharacter(character).some((clip) => clip.id !== except && nameKey(clip.name) === key);
 }

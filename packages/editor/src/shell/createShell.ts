@@ -14,6 +14,7 @@ import { createPanelRegistry } from '../panels/registry';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
 import type { EditorParams } from '../test-api/params';
+import { startShellAutosave } from './autosave';
 import { asArtifacts, createExportRecorder } from './exports';
 import { createFilePipeline } from './files';
 import { ANIMATE_SLOTS, FIXED_KINDS } from './layout';
@@ -178,6 +179,8 @@ export function createShell(opts: CreateShellOptions): Shell {
   });
 
   disposers.push(registerShellOperators(app, { workspace, onImportClosed: () => files.cancelImport() }));
+  // M2A-SPEC §5.20: autosave and the Recovery prompt (browser services only).
+  disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args) }));
   const extraPanels: { kind: PanelKind; title: string }[] = [];
   for (const def of registry.list()) {
     if (FIXED_KINDS.has(def.kind) || ANIMATE_SLOTS.some((slot) => slot.kind === def.kind)) continue;

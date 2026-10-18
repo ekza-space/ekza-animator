@@ -1,4 +1,5 @@
-import type { ChannelId } from '@ekza-animator/doc';
+import type { ChannelId, ControlRecord } from '@ekza-animator/doc';
+import { channelDisplayLabel } from '@ekza-animator/editor-core';
 
 /** Channel swatch and curve colours: research 09 §8.2 `--axis-x/y/z` and `--channel-other`. */
 export const CHANNEL_COLORS: { readonly x: string; readonly y: string; readonly z: string; readonly other: string } = {
@@ -24,12 +25,11 @@ export function channelColor(channel: ChannelId): string {
   }
 }
 
-const AXIS_LABEL: Readonly<Record<string, string>> = { t: 'Translate', r: 'Rotate', s: 'Scale' };
-
-/** 'Translate X', 'Rotate Z', 'Scale Y'; custom attributes show their name without the '@'. */
-export function channelLabel(channel: ChannelId): string {
-  if (channel.startsWith('@')) return channel.slice(1);
-  const group = AXIS_LABEL[channel[0] ?? ''];
-  const axis = channel[1]?.toUpperCase();
-  return group === undefined || axis === undefined ? channel : `${group} ${axis}`;
+/**
+ * The Channel Box's name of a channel (§5.1 rule 5): 'Translate X', 'Rotate Z', 'Scale Y'; an attribute of `control`
+ * by its `AttrDef.label` or title-cased name ('@heelTwist' → 'Heel Twist', `@ikFk` → 'IK/FK'). Before acceptance fix
+ * round 2 (M2A-INT-35) attributes showed their raw name ('heelTwist').
+ */
+export function channelLabel(channel: ChannelId, control?: ControlRecord | null): string {
+  return channelDisplayLabel(control, channel);
 }

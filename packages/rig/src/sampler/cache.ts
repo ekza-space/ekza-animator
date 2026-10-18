@@ -8,6 +8,7 @@ import {
 } from '@ekza-animator/anim-core';
 import {
   type AnyChange,
+  batchTables,
   type ChangeBatch,
   type ChannelId,
   type ClipId,
@@ -18,7 +19,7 @@ import {
   TRS_CHANNELS,
 } from '@ekza-animator/doc';
 import { CHANNELS_PER_CONTROL, type ChannelBuffer, type ClipSampler, type CurveInfo, type RigProgram } from '../types';
-import { channelDefaultValue, channelSlot } from './channels';
+import { attrChannelSlot, channelDefaultValue, channelSlot } from './channels';
 
 export interface CurveCache {
   get(curve: CurveId): CompiledAnimCurve;
@@ -66,6 +67,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
   };
   const curveRecordOf = (id: CurveId): CurveRecord | undefined => store.getIncludingDeleted('curves', id);
 
+  /** Curves whose keys changed in the batch being processed (each forgotten once, M-1 mechanism 4). */
+  const keyed = new Set<CurveId>();
   const onChange = (change: AnyChange): boolean => {
     if (change.table === 'curves') {
       forget(change.id);
@@ -74,11 +77,8 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return true;
     }
     if (change.table === 'keys') {
-      for (const key of [change.before, change.after]) {
-        if (key === undefined) continue;
-        forget(key.curve);
-        forgetChannel(curveRecordOf(key.curve));
-      }
+      if (change.before !== undefined) keyed.add(change.before.curve);
+      if (change.after !== undefined) keyed.add(change.after.curve);
       return true;
     }
     return false;
@@ -93,7 +93,26 @@ export function createCurveCache(store: DocumentStore, engine: CurveEngine = cur
       return;
     }
     let touched = false;
-    for (const change of batch.changes) touched = onChange(change) || touched;
+    // M-1: a drag batch is 1,000 key updates in runs of one curve; a key update that stays on the curve of the change
+    // before it adds nothing (one check instead of two set insertions per key, in a fresh editor's interpreted frames).
+    let lastCurve: CurveId | null = null;
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
+      if (change.table === 'keys' && change.before !== undefined && change.after !== undefined) {
+        const curve = change.before.curve;
+        touched = true;
+        if (curve === lastCurve && change.after.curve === curve) continue;
+        lastCurve = change.after.curve === curve ? curve : null;
+      }
+      touched = onChange(change) || touched;
+    }
+    // Only the curves the batch touched recompile (on their next read); a 1,000-key drag of 30 curves forgets 30.
+    for (const curve of keyed) {
+      forget(curve);
+      forgetChannel(curveRecordOf(curve));
+    }
+    keyed.clear();
     if (touched) version++;
   });
 
@@ -156,7 +175,9 @@ interface PlanEntry {
   readonly channel: ChannelId;
   /** Offset into ChannelBuffer.values, −1 when the program has no such control or the channel has no slot. */
   readonly offset: number;
-  /** Value without keys: staticValue ?? channel default. */
+  /** M2a: ChannelBuffer.attrs slot of an attribute channel ('@name'), −1 otherwise (M2A-SPEC §5.1 rule 3). */
+  readonly attr: number;
+  /** Value without keys: staticValue ?? channel default (AttrDef.default for attributes). */
   readonly rest: number;
 }
 
@@ -181,13 +202,12 @@ export function createClipSampler(
       byControl = null;
       return;
     }
-    for (const change of batch.changes) {
-      // Keys do not change the plan: key counts and values come from the compiled curves.
-      if (change.table === 'curves' || change.table === 'layers') {
-        plan = null;
-        byControl = null;
-        return;
-      }
+    // Keys do not change the plan: key counts and values come from the compiled curves. M-1: the batch's table set
+    // (one scan per batch for every listener) instead of a scan of a 1,000-key drag batch here.
+    const tables = batchTables(batch);
+    if (tables.has('curves') || tables.has('layers')) {
+      plan = null;
+      byControl = null;
     }
   });
 
@@ -209,12 +229,14 @@ export function createClipSampler(
       .map((curve): PlanEntry => {
         const index = program.controlIndex.get(curve.control);
         const slot = channelSlot(curve.channel);
+        const attr = index === undefined ? -1 : attrChannelSlot(program, curve.control, curve.channel);
         return {
           curve: curve.id,
           control: curve.control,
           channel: curve.channel,
           offset: index === undefined || slot === -1 ? -1 : index * CHANNELS_PER_CONTROL + slot,
-          rest: curve.staticValue ?? channelDefaultValue(curve.channel),
+          attr,
+          rest: curve.staticValue ?? channelDefaultValue(curve.channel, program.attrSlots[attr]?.def),
         };
       })
       .sort((a, b) => (a.control < b.control ? -1 : a.control > b.control ? 1 : compareChannels(a.channel, b.channel)));
@@ -241,8 +263,8 @@ export function createClipSampler(
       const entries = resolve();
       for (let i = 0; i < entries.length; i++) {
         const entry = entries[i] as PlanEntry;
-        if (entry.offset === -1) continue;
-        out.values[entry.offset] = valueOf(entry, frame);
+        if (entry.offset !== -1) out.values[entry.offset] = valueOf(entry, frame);
+        else if (entry.attr !== -1 && entry.attr < out.attrs.length) out.attrs[entry.attr] = valueOf(entry, frame);
       }
     },
     value(control: ControlId, channel: ChannelId, frame: Frame): number | undefined {

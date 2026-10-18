@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.4, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, ReadonlyXf } from '@ekza-animator/anim-core';
 import type { AssetId, AssetRecord, CharacterId, ClipId, DerivedFrom, DocSnapshot, Redistributable,
@@ -56,7 +56,7 @@ export interface BakeOptions {
   readonly closeLoop: boolean;
   readonly loop: boolean;
   readonly rootMotion: RootMotionMode;
-  /** Node whose X/Z is locked for rootMotion 'in-place' (humanoid: hips; generic: topmost driven joint with
+  /** Node whose X/Z travel rootMotion 'in-place' removes (humanoid: hips; generic: topmost driven joint with
    *  translation); null makes 'in-place' unavailable. */
   readonly inPlaceNode: number | null;
   /** Fully stepped tracks → STEP sampler at these clip frames (rig.computeStepSchedule). Others: LINEAR. */
@@ -64,6 +64,9 @@ export interface BakeOptions {
   /** Tracks every clip of the output file must contain (constant tracks get 2 keys); see §4.11.10. */
   readonly requiredTracks: ReadonlySet<TrackKey>;
   readonly meta: EkzaClipMetaV1;
+  /** M2a §5.16: export-side key reduction of the sampled tracks; absent or null = no reduction (M1 bytes). */
+  readonly reduce?: { readonly spec: ExportReduceSpec; readonly height: number;
+    readonly leverArm: ReadonlyMap<number, number>; readonly keep: ReadonlyMap<TrackKey, readonly Frame[]> } | null;
 }
 
 export interface BakedTrack {
@@ -84,6 +87,8 @@ export interface BakedClip {
   readonly restHipsPosition: readonly [number, number, number] | null;   // humanoid target
   readonly meta: EkzaClipMetaV1;
   readonly warnings: readonly LintIssue[];     // e.g. bake.large-rotation-step
+  /** M2a §5.16: present when the clip was reduced. */
+  readonly reduction?: ReductionStats;
 }
 
 /** Per-clip metadata inside asset.extras.ekza_animation_v1 (ADR 0010). */
@@ -160,7 +165,9 @@ export interface ExportArtifact {
   readonly lints: readonly LintIssue[];
   readonly readBack: ReadBackReport | null;
   readonly validation: ValidationReport | null;   // tests and (stretch) the in-app worker
-  readonly stats: { readonly clips: number; readonly channels: number; readonly keys: number; readonly bytesAppended?: number };
+  readonly stats: { readonly clips: number; readonly channels: number; readonly keys: number; readonly bytesAppended?: number;
+    /** M2a §5.16: sample counts and max errors of the export-side reduction. */
+    readonly reduction?: ReductionStats };
 }
 
 export interface ExportRequest {
@@ -172,6 +179,28 @@ export interface ExportRequest {
   readonly includeConstantTracks: boolean;     // default true (ADR 0005 §3)
   readonly acknowledgeLicense: boolean;        // required when VRM meta forbids modification/redistribution
   readonly profile: string | null;             // ExportProfileDef id; null = generic lints only
+  /** M2a §5.16: export-side key reduction; absent or null = no reduction, the M1 output byte for byte. */
+  readonly reduce?: ExportReduceSpec | null;
+}
+
+// ---------- M2a: export reduction (M2A-SPEC §4.4) ----------
+
+/** R02 §6.4 tolerances; position terms scale with the character height H (÷ 1.7 m). */
+export interface ExportReduceSpec {
+  readonly positionM: number;                  // ε_pos for a 1.7 m character; default 0.0002
+  readonly rotationCapRad: number;             // θ_cap; default 0.25° = 0.004363323129985824
+  readonly minLeverM: number;                  // L_min; default 0.01
+  readonly scaleRel: number;                   // default 1e-4 (relative)
+}
+export const DEFAULT_EXPORT_REDUCE: ExportReduceSpec = {
+  positionM: 0.0002, rotationCapRad: 0.004363323129985824, minLeverM: 0.01, scaleRel: 1e-4,
+};
+
+export interface ReductionStats {
+  readonly samplesBefore: number;
+  readonly samplesAfter: number;
+  readonly maxRotationErrorRad: number;
+  readonly maxTranslationErrorM: number;
 }
 
 /** Export target profile as data (mirrors the registry's GET /v1/profiles/{platform}/{profile}; ADR 0010). */

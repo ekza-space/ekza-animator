@@ -1281,7 +1281,7 @@ export interface BakeOptions {
   readonly closeLoop: boolean;
   readonly loop: boolean;
   readonly rootMotion: RootMotionMode;
-  /** Node whose X/Z is locked for rootMotion 'in-place' (humanoid: hips; generic: topmost driven joint with
+  /** Node whose X/Z travel rootMotion 'in-place' removes (humanoid: hips; generic: topmost driven joint with
    *  translation); null makes 'in-place' unavailable. */
   readonly inPlaceNode: number | null;
   /** Fully stepped tracks → STEP sampler at these clip frames (rig.computeStepSchedule). Others: LINEAR. */
@@ -2750,9 +2750,14 @@ source key time and integer frame is ≤ tolerance.
    times are `{start} ∪ influencing key times (after infinity mapping, inside the range) ∪ {end}`; mixed
    stepped/smooth tracks are LINEAR (a documented 1-frame blend at steps). Constant tracks collapse to 2 keys.
    Loop closure (`closeLoop`, default on for `loop` clips) writes the first pose at the last sample. Root motion
-   `hips`: root folded into hips; `in-place`: X/Z of `inPlaceNode` locked to rest **in canonical space** before
-   converting to raw local (humanoid: hips; generic: the topmost driven joint with translation keys; none → the
-   option is disabled). Lint `bake.large-rotation-step` (warning) when `angle(q_i, q_{i−1}) > 90°`.
+   `hips`: root folded into hips; `in-place`: the **travel** of `inPlaceNode` is removed **in canonical space** before
+   converting to raw local — its X/Z displacement from the first to the last frame of the range, spread linearly
+   over the range (`x′(f) = x(f) − Δx·(f − start)/(end − start)`, likewise z; a displacement ≤ 1e-7 m leaves the
+   clip untouched) (humanoid: hips; generic: the topmost driven joint with translation keys; none → the option is
+   disabled). *M2a acceptance fix round 1 (M2A-INT-21)*: M1 locked X/Z to rest, which also deleted the hips' sway
+   against IK-planted feet, so an in-place walk's planted feet slid sideways in the file (1.5 cm); now a clip that
+   ends where it starts exports the editor's motion. Lint `bake.large-rotation-step` (warning) when
+   `angle(q_i, q_{i−1}) > 90°`.
 4. Writers: `bakeIntoModel` (one artifact), `writeAnimationGlb` (one artifact), `writeVrma` (one per clip).
    Metadata from `ekzaAnimationMeta` (clip `contact` → `contactSeconds`, `tags`, provenance per clip and union).
 5. `lintExport(kind, bytes, profile)` + `readBackCheck` (1e-4 rad, 1e-5 m against the baked samples); in tests also

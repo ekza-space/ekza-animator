@@ -7,14 +7,17 @@
 // - Display models load after `setRenderer` (see `characters/models.ts`), then 'display' is emitted.
 // - Characters deleted while loading never get a runtime; undoing the deletion re-creates it from the parse cache.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type {
-  AnyChange,
-  AssetId,
-  CharacterId,
-  CharacterRecord,
-  ChangeBatch,
-  ClipId,
-  DocumentStore,
+import {
+  type AnyChange,
+  type AssetId,
+  batchTables,
+  batchTouches,
+  type CharacterId,
+  type CharacterRecord,
+  type ChangeBatch,
+  type ClipId,
+  type DocumentStore,
+  type TableName,
 } from '@ekza-animator/doc';
 import type { GlbContainer } from '@ekza-animator/io';
 import type { ChannelBuffer, ClipSampler, CurveCache, PoseBuffers, RigProgram, SkeletonDesc } from '@ekza-animator/rig';
@@ -29,7 +32,13 @@ import type {
   Notifier,
 } from '../types';
 
-const STRUCTURAL_TABLES: ReadonlySet<string> = new Set(['characters', 'rigs', 'controls', 'constraints', 'solvers']);
+const STRUCTURAL_TABLES: ReadonlySet<TableName> = new Set<TableName>([
+  'characters',
+  'rigs',
+  'controls',
+  'constraints',
+  'solvers',
+]);
 
 export interface KernelCharacters extends CharacterRegistry {
   /** Resolves once no runtime creation or display-model load is in flight. */
@@ -345,8 +354,9 @@ export function createCharacterRegistry(ctx: {
       sync('all');
       return;
     }
-    dropSamplers(batch.changes);
-    if (batch.changes.some((change) => STRUCTURAL_TABLES.has(change.table))) sync(recompileTargets(batch.changes));
+    // M-1: the batch's table set (one scan per batch for every listener) decides whether this batch matters here.
+    if (batchTables(batch).has('clips')) dropSamplers(batch.changes);
+    if (batchTouches(batch, STRUCTURAL_TABLES)) sync(recompileTargets(batch.changes));
   };
 
   sync('all');

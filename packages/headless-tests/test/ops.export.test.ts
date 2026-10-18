@@ -134,8 +134,14 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
       (source.json['extensions'] as Record<string, unknown>)['VRMC_vrm'],
     );
     expect(animationNames(output)).toEqual(['wave']);
-    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as { clips: { name: string; fps: number }[] };
+    const meta = (output.json.asset.extras?.['ekza_animation_v1'] ?? {}) as {
+      clips: { name: string; fps: number }[];
+      provenance: { toolVersion: string };
+    };
     expect(meta.clips.map((c) => [c.name, c.fps])).toEqual([['wave', 30]]);
+    // The M2a line, not the M1 alpha's 0.1.0 (acceptance fix round 1).
+    expect(meta.provenance.toolVersion).toMatch(/^0\.2\.\d+$/);
+    expect(output.json.asset.generator ?? '').not.toContain('0.1.0');
 
     // Reload the file in the editor: the clip comes back with rz(15) = −30°.
     const again = realApp().app;
@@ -206,6 +212,37 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     const [renamed] = await exportOk(app, request(imported.character, [clip], { fileNamePattern: 'out' }));
     if (renamed === undefined) throw new Error('no artifact');
     expect(animationNames(await parseGlb(renamed.bytes))).toEqual([...sourceNames, 'idle_edit']);
+  });
+
+  // Acceptance fix round 1, bug 2: a toe-off (roll in the ball range) pulled Polybot's toes joint 3.3 mm off the
+  // foot; the bake wrote a rightToes translation track and linted 'ekza.hips-only-translation' on every walk.
+  it('bakes a toe-off on Polybot with rotation-only toes: no toes translation track, no hips-only lint', async () => {
+    const { app } = realApp();
+    const bot = await importFixture(app, 'polybot.vrm');
+    const { clip } = (await runOk(app, 'clip.new', { name: 'toeoff' })) as { clip: ClipId };
+    const ik = controlOf(app, bot.character, 'ik.leg.R');
+    for (const [frame, roll] of [
+      [0, 0],
+      [3, 30],
+      [6, 0],
+    ] as const) {
+      setSceneFrame(app, frame);
+      await runOk(app, 'channel.setValues', {
+        edits: [{ control: ik, channel: '@roll', value: roll * DEG }],
+        key: 'force',
+      });
+    }
+    await runOk(app, 'clip.setSettings', { clip, range: { start: 0, end: 6 } });
+    const [artifact] = await exportOk(app, request(bot.character, [clip]));
+    if (artifact === undefined) throw new Error('no artifact');
+    expect(artifact.lints.map((lint) => lint.code)).not.toContain('ekza.hips-only-translation');
+    const output = await parseGlb(artifact.bytes);
+    const runtime = app.characters.get(bot.character);
+    const toes = runtime?.skeleton.humanoid?.rightToes ?? -1;
+    expect(toes).toBeGreaterThanOrEqual(0);
+    const index = animationNames(output).indexOf('toeoff');
+    expect(targets(output, index)).toContain(`${toes}/rotation`);
+    expect(targets(output, index)).not.toContain(`${toes}/translation`);
   });
 
   it('writes self-contained clips when several are baked together', async () => {

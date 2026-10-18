@@ -96,6 +96,8 @@ async function mount(
   );
   await waitFor(() => app !== null && document.querySelector('[data-testid="editor-shell"]') !== null);
   if (app === null) throw new Error('the editor did not create its app');
+  // The test API is a lazy chunk (M2A-SPEC §5.21.2): e2e pages install it once that chunk has loaded.
+  if (params.e2e !== false) await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
   await window.__EKZA_ANIMATOR_TEST__?.ready;
   stubOperators(app);
   return { view, app };
@@ -142,6 +144,7 @@ describe('editor shell', () => {
       </StrictMode>,
     );
     await waitFor(() => document.querySelector('[data-testid="editor-shell"]') !== null);
+    await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
     await window.__EKZA_ANIMATOR_TEST__?.ready;
     expect(created).toHaveLength(1);
     // `?e2e=1` turns transitions off for content Radix portals to <body> too (dialogs, menus, tooltips).
@@ -260,10 +263,17 @@ describe('editor shell', () => {
     await update(() =>
       app.services.notify.toast({ kind: 'success', text: 'Deleted 9 keys', action: { label: 'Undo', op: 'key.set' } }),
     );
-    await waitFor(() => document.querySelector('[data-testid="toast"]') !== null);
-    expect(testId(view, 'toast').textContent).toContain('Deleted 9 keys');
+    // Another toast may show beside it (M2A-SPEC §5.7: "This rig has FK limbs only" for this FK-only humanoid once
+    // limb IK is available): find this one by its text.
+    const toast = (): HTMLElement | undefined =>
+      [...document.querySelectorAll<HTMLElement>('[data-testid="toast"]')].find((element) =>
+        (element.textContent ?? '').includes('Deleted 9 keys'),
+      );
+    await waitFor(() => toast() !== undefined);
+    const action = toast()?.querySelector<HTMLElement>('[data-testid="toast-action"]');
+    expect(action?.textContent).toBe('Undo');
     const before = app.calls.length;
-    await update(() => testId(view, 'toast-action').click());
+    await update(() => action?.click());
     await waitFor(() => app.calls.length > before);
     expect(app.calls.at(-1)?.id).toBe('key.set');
     await view.unmount();
@@ -363,6 +373,8 @@ describe('editor shell', () => {
     await waitFor(() => document.querySelector('[data-testid="menu-item-shell.help.about"]') !== null);
     await update(() => testId(view, 'menu-item-shell.help.about').click());
     await waitFor(() => app.session.getState().dialog === 'about');
+    // Dialogs are lazy chunks (M2A-SPEC §5.21.2): the dialog shows once its chunk has loaded.
+    await waitFor(() => document.querySelector('[data-testid="about-dialog"]') !== null);
     expect(testId(view, 'about-credits').textContent).toContain('Seed-san');
     expect(testId(view, 'about-notices').getAttribute('href')).toBe('/THIRD_PARTY_NOTICES.txt');
     const dialog = testId(view, 'about-dialog');

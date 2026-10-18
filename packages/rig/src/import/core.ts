@@ -16,6 +16,7 @@ import type { RigInternals } from '../kernel/internals';
 import { allocXfArrays, type XfArrays, xfaIdentity, xfaInvMul, xfaMul, xfaMulInv } from '../math/xfa';
 import { SLOT_CHANNELS, slotDefault } from '../sampler/channels';
 import type { ImportedClipKeys, ImportedCurve, ReduceSpec } from '../types';
+import type { ImportIk } from './ik';
 
 // Shared clip-import machinery (MVP-SPEC §4.11.6–7, research 07 §15.4): desired bone worlds from a source clip are
 // solved onto controls top-down at every key time, rotations converted with eulerNear against the previous key, then
@@ -238,10 +239,14 @@ export function buildImportedCurves(
   internals: RigInternals,
   plan: SolvePlan,
   source: SourceWorlds,
-  slots: readonly (SlotKeys | null)[],
+  fkSlots: readonly (SlotKeys | null)[],
   opts: BuildOptions,
-): ImportedCurve[] {
+  ik: ImportIk | null = null,
+): { readonly curves: ImportedCurve[]; readonly limbs: ImportedClipKeys['limbs']; readonly warnings: string[] } {
   const solver = new ControlSolver(internals, plan);
+  // Import to IK (M2A-SPEC §5.8): the IK and pole controls get keys of their own, filled by matching.
+  const slots: readonly (SlotKeys | null)[] =
+    ik === null ? fkSlots : fkSlots.map((keys, slot) => ik.extraSlots.get(slot) ?? keys);
   const count = internals.controlCount;
   // values[slot][key * 9 + channel]
   const values: (Float64Array | null)[] = slots.map((keys) =>
@@ -254,10 +259,17 @@ export function buildImportedCurves(
   const solveTimes = [...times].sort((a, b) => a - b);
   const q: [number, number, number, number] = [0, 0, 0, 1];
   const euler: Vec3 = [0, 0, 0];
+  const writeIk = (slot: number, key: number, channels: readonly number[]): void => {
+    const out = values[slot];
+    if (out === null || out === undefined || key < 0) return;
+    for (let c = 0; c < 9; c++) out[key * 9 + c] = channels[c] as number;
+  };
   for (const seconds of solveTimes) {
     source.prepare(seconds);
     solver.solve(source);
+    if (ik !== null) ik.match(seconds, solver, writeIk);
     for (let slot = 0; slot < count; slot++) {
+      if (ik?.extraSlots.has(slot) === true) continue;
       const keys = slots[slot];
       const out = values[slot];
       if (keys === null || keys === undefined || out === null || out === undefined) continue;
@@ -300,12 +312,14 @@ export function buildImportedCurves(
   }
 
   const slopes = hermiteSlopes(internals, source, slots, solver);
+  const decided = ik?.finish() ?? null;
 
   const curves: ImportedCurve[] = [];
   for (let slot = 0; slot < count; slot++) {
     const keys = slots[slot];
     const out = values[slot];
     if (keys === null || keys === undefined || out === null || out === undefined) continue;
+    if (decided?.skip.has(slot) === true) continue;
     const control = internals.controls[slot] as ControlRecord;
     for (let channel = 0; channel < 9; channel++) {
       if (internals.keyable[slot * 9 + channel] !== 1) continue;
@@ -341,7 +355,9 @@ export function buildImportedCurves(
       });
     }
   }
-  return curves;
+  if (decided === null) return { curves, limbs: undefined, warnings: [] };
+  curves.push(...decided.curves);
+  return { curves, limbs: decided.rows, warnings: [...decided.warnings] };
 }
 
 /**

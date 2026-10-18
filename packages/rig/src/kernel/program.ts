@@ -40,6 +40,10 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
     opKind,
     opIndex,
     customOps,
+    attrSlots,
+    attrIndex,
+    attrDefaults,
+    limbs,
   } = internals;
 
   const controlIds = controls.map((control) => control.id);
@@ -72,7 +76,11 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
       values[o + 7] = 1;
       values[o + 8] = 1;
     }
-    ch.attrs.fill(0);
+    // Attribute slots take their AttrDef.default (M2A-SPEC §5.1 rule 2).
+    const attrs = ch.attrs;
+    const attrCount = Math.min(attrs.length, attrDefaults.length);
+    for (let slot = 0; slot < attrCount; slot++) attrs[slot] = attrDefaults[slot] as number;
+    for (let slot = attrCount; slot < attrs.length; slot++) attrs[slot] = 0;
   };
 
   const evaluateControl = (ch: ChannelBuffer, slot: number, out: PoseBuffers): void => {
@@ -138,10 +146,13 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
     nodeCount,
     drivenNodes,
     warnings,
+    attrSlots,
+    attrIndex,
+    limbs,
     allocChannels(): ChannelBuffer {
       const ch: ChannelBuffer = {
         values: new Float64Array(controlCount * CHANNELS_PER_CONTROL),
-        attrs: new Float64Array(0),
+        attrs: new Float64Array(attrSlots.length),
       };
       resetChannels(ch);
       return ch;
@@ -169,11 +180,23 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
         else if (kind === OP_BONE) evaluateBone(index, out);
         else {
           const op = customOps[index];
-          if (op === undefined) continue;
-          op.impl.run(op.record, { pose: out, channels: ch, program });
-          // Ops overwrite worlds in the pose buffers; read them back so that downstream steps see them.
-          for (const slot of op.writesControls) xfaFromMat4(out.controlWorld, slot * 16, controlWorlds, slot);
-          for (const node of op.writesNodes) {
+          if (op === undefined || op.skipped) continue;
+          // `false`: the op wrote nothing (ik2 at ikFk 0), so nothing is read back or marked overridden and every
+          // bone local stays bit-identical to a program without the op (M2A-SPEC §4.3).
+          runContext.pose = out;
+          runContext.channels = ch;
+          runContext.state = op.state;
+          if (op.impl.run(op.record, runContext) === false) continue;
+          // Ops overwrite worlds in the pose buffers; read them back so that downstream steps see them (indexed
+          // loops: a typed-array iterator is not always optimized away, and this runs every frame).
+          const writesControls = op.writesControls;
+          for (let i = 0; i < writesControls.length; i++) {
+            const slot = writesControls[i] as number;
+            xfaFromMat4(out.controlWorld, slot * 16, controlWorlds, slot);
+          }
+          const writesNodes = op.writesNodes;
+          for (let i = 0; i < writesNodes.length; i++) {
+            const node = writesNodes[i] as number;
             xfaFromMat4(out.boneWorld, node * 16, nodeWorlds, node);
             overridden[node] = 1;
           }
@@ -291,6 +314,14 @@ export function createProgram(rigId: RigId, internals: RigInternals, warnings: r
       }
       out.version++;
     },
+  };
+  // One reused run context per program: custom ops run without a per-frame allocation by the kernel.
+  // `pose` and `channels` are set before every run.
+  const runContext: { pose: PoseBuffers; channels: ChannelBuffer; program: RigProgram; state: unknown } = {
+    pose: undefined as unknown as PoseBuffers,
+    channels: undefined as unknown as ChannelBuffer,
+    program,
+    state: undefined,
   };
   registerInternals(program, internals);
   return program;

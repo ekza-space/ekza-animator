@@ -1,6 +1,13 @@
-// WP-6 contributions (MVP-SPEC §4.9 owner 6): the Graph Editor tools, `graph.frame` and `select.curveKeys`.
+// WP-6 contributions (MVP-SPEC §4.9 owner 6): the Graph Editor tools, `graph.frame` and `select.curveKeys`; M2a:
+// the Scale tool and `graph.view.setMode` (M2A-SPEC §5.15.2–3, A4), acting on the focused Graph Editor.
 import type { Disposer } from '@ekza-animator/anim-core';
-import { type EditorApp, type OperatorArgs, type OperatorDef, PANEL } from '@ekza-animator/editor-core';
+import {
+  type EditorApp,
+  type GraphViewMode,
+  type OperatorArgs,
+  type OperatorDef,
+  PANEL,
+} from '@ekza-animator/editor-core';
 import { GRAPH_TOOLS } from '../tools/graphTools';
 import type { GraphEditorController } from './GraphEditorController';
 import { applyKeySelection, KEY_PART } from './selection';
@@ -44,9 +51,45 @@ export const SELECT_CURVE_KEYS_OPERATOR: OperatorDef<OperatorArgs<'select.curveK
   },
 };
 
+const VIEW_MODES: readonly string[] = ['absolute', 'normalized', 'stacked', 'toggleNormalized', 'toggleStacked'];
+
+/** The mode `graph.view.setMode` switches to from `current` (N toggles normalized, Shift+N stacked; again: absolute). */
+export function nextViewMode(
+  current: GraphViewMode,
+  mode: GraphViewMode | 'toggleNormalized' | 'toggleStacked',
+): GraphViewMode {
+  if (mode === 'toggleNormalized') return current === 'normalized' ? 'absolute' : 'normalized';
+  if (mode === 'toggleStacked') return current === 'stacked' ? 'absolute' : 'stacked';
+  return mode;
+}
+
+/** `graph.view.setMode` (N / Shift+N, M2A-SPEC §5.15.2): absolute, normalized or stacked curves in the focused editor. */
+export function graphViewModeOperator(
+  focused: () => GraphEditorController | null,
+): OperatorDef<OperatorArgs<'graph.view.setMode'>, void, void> {
+  return {
+    id: 'graph.view.setMode',
+    label: 'Graph View',
+    description: 'Absolute, normalized or stacked curves in the focused Graph Editor',
+    category: 'graph',
+    scope: PANEL.graph,
+    poll: (_ctx, args) => {
+      if (args === undefined || args === null || !VIEW_MODES.includes(String(args.mode))) {
+        return { ok: false, reason: `mode is one of ${VIEW_MODES.join(', ')}` };
+      }
+      return focused() === null ? { ok: false, reason: 'no Graph Editor is open' } : true;
+    },
+    apply: (_ctx, args) => {
+      const controller = focused();
+      if (controller !== null) controller.setViewMode(nextViewMode(controller.viewMode, args.mode));
+    },
+  };
+}
+
 /**
- * Registers the graph tools (select, move, insert), `graph.frame` and `select.curveKeys`; `focused` returns the
- * Graph Editor that `graph.frame` acts on. Call once per app (the Graph panel does, while one is mounted).
+ * Registers the graph tools (select, move, insert, scale), `graph.frame`, `select.curveKeys` and `graph.view.setMode`;
+ * `focused` returns the Graph Editor that `graph.frame` acts on. Call once per app (the Graph panel does, while one
+ * is mounted).
  */
 export function registerGraphContributions(app: EditorApp, focused: () => GraphEditorController | null): Disposer {
   const disposers: Disposer[] = [];
@@ -55,6 +98,7 @@ export function registerGraphContributions(app: EditorApp, focused: () => GraphE
     disposers.push(
       app.contribute({ kind: 'operator', def: graphFrameOperator(focused) }),
       app.contribute({ kind: 'operator', def: SELECT_CURVE_KEYS_OPERATOR }),
+      app.contribute({ kind: 'operator', def: graphViewModeOperator(focused) }),
     );
   } catch (error) {
     for (const dispose of disposers.reverse()) dispose();

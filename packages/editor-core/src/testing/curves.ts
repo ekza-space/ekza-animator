@@ -14,13 +14,27 @@ import {
 } from '@ekza-animator/anim-core';
 
 export const naiveCurveEngine: CurveEngine = {
-  compile: compileNaiveCurve,
+  compile: (curve) => compileNaiveCurve(curve),
   evaluate: evaluateNaiveCurve,
 };
 
-export function compileNaiveCurve(curve: AnimCurve): CompiledAnimCurve {
+/**
+ * The naive engine with cycle-aware auto tangents (M2A-SPEC §5.23), as the editor's kernel uses it: on curves whose
+ * pre and post infinities both cycle, the end keys of the auto family take the wrapped neighbours.
+ */
+export const naiveCycleAwareCurveEngine: CurveEngine = {
+  compile: (curve) => compileNaiveCurve(curve, { cycleAwareAuto: true }),
+  evaluate: evaluateNaiveCurve,
+};
+
+const isCyclic = (mode: string): boolean => mode === 'cycle' || mode === 'cycleOffset';
+
+export function compileNaiveCurve(curve: AnimCurve, opts?: { readonly cycleAwareAuto?: boolean }): CompiledAnimCurve {
   const keys = curve.keys;
   const n = keys.length;
+  const span = n >= 2 ? (keys[n - 1] as KeyData).t - (keys[0] as KeyData).t : 0;
+  const cyclic = opts?.cycleAwareAuto === true && n >= 2 && span > 0 && isCyclic(curve.pre) && isCyclic(curve.post);
+  const valueRange = n >= 2 ? (keys[n - 1] as KeyData).v - (keys[0] as KeyData).v : 0;
   const t = new Float64Array(n);
   const v = new Float64Array(n);
   const inSlope = new Float64Array(n);
@@ -43,6 +57,24 @@ export function compileNaiveCurve(curve: AnimCurve): CompiledAnimCurve {
     const catmullRom = prev !== undefined && next !== undefined ? (next.v - prev.v) / (next.t - prev.t) : null;
     inSlope[i] = slopeFor(key.inType, 'in', key, left, right, catmullRom);
     outSlope[i] = slopeFor(key.outType, 'out', key, left, right, catmullRom);
+    if (cyclic && (i === 0 || i === n - 1)) {
+      // Wrapped neighbours for the auto family at the seam (as anim-core's cycleAwareAuto).
+      const wrapPrev = i === 0 ? (keys[n - 2] as KeyData) : (prev as KeyData);
+      const wrapNext = i === n - 1 ? (keys[1] as KeyData) : (next as KeyData);
+      const pt = i === 0 ? wrapPrev.t - span : wrapPrev.t;
+      const pv = i === 0 ? wrapPrev.v - (curve.pre === 'cycleOffset' ? valueRange : 0) : wrapPrev.v;
+      const nt = i === n - 1 ? wrapNext.t + span : wrapNext.t;
+      const nv = i === n - 1 ? wrapNext.v + (curve.post === 'cycleOffset' ? valueRange : 0) : wrapNext.v;
+      const wrappedLeft = (key.v - pv) / (key.t - pt);
+      const wrappedRight = (nv - key.v) / (nt - key.t);
+      const wrappedCr = (nv - pv) / (nt - pt);
+      if (AUTO_FAMILY.has(key.inType)) {
+        inSlope[i] = slopeFor(key.inType, 'in', key, wrappedLeft, wrappedRight, wrappedCr);
+      }
+      if (AUTO_FAMILY.has(key.outType)) {
+        outSlope[i] = slopeFor(key.outType, 'out', key, wrappedLeft, wrappedRight, wrappedCr);
+      }
+    }
     const inSpan = prev === undefined ? (next === undefined ? 1 : next.t - key.t) : key.t - prev.t;
     const outSpan = next === undefined ? inSpan : next.t - key.t;
     inDt[i] = -inSpan / 3;
@@ -67,6 +99,8 @@ export function compileNaiveCurve(curve: AnimCurve): CompiledAnimCurve {
     post: curve.post,
   };
 }
+
+const AUTO_FAMILY: ReadonlySet<TangentType> = new Set<TangentType>(['auto', 'autoEase', 'autoMix', 'plateau']);
 
 function slopeFor(
   type: TangentType,

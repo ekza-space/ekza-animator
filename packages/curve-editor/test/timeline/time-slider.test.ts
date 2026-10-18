@@ -253,12 +253,24 @@ describe('TimeSliderController: scrubbing', () => {
     expect(args.frame).toBeCloseTo(12.25, 9);
   });
 
-  it('ignores other buttons (MMB, RMB) and pointer moves without a gesture', async () => {
+  it('ignores RMB and pointer moves without a gesture', async () => {
     const { app, slider } = await setUp();
-    slider.pointerDown(pointer(slider.frameToX(5), { button: 1, buttons: 4 }));
     slider.pointerDown(pointer(slider.frameToX(5), { button: 2, buttons: 2 }));
     slider.pointerMove(pointer(slider.frameToX(9), { buttons: 0 }));
     expect(app.calls).toEqual([]);
+  });
+
+  // M2a §5.9 (FR-TIME-10; literal update of the M1 "ignores MMB" case, M2A-SPEC §3 rule 8): an MMB drag scrubs
+  // with carry.
+  it('scrubs with carry on an MMB drag', async () => {
+    const { app, slider } = await setUp();
+    slider.pointerDown(pointer(slider.frameToX(5), { button: 1, buttons: 4 }));
+    slider.pointerMove(pointer(slider.frameToX(9), { button: 1, buttons: 4 }));
+    slider.pointerUp(pointer(slider.frameToX(9), { button: 1, buttons: 0 }));
+    expect(callsOf(app, 'time.setFrame')).toEqual([
+      { frame: 5, unit: 'clip', carry: true },
+      { frame: 9, unit: 'clip', carry: true },
+    ]);
   });
 });
 
@@ -274,7 +286,14 @@ describe('TimeSliderController: RMB menu', () => {
     ['Flat', 'graph.tangent.set'],
     ['Stepped', 'graph.tangent.set'],
     ['Select Band Keys in Graph Editor', 'time.selectBand'],
+    // M2a (M2A-SPEC §5.9, §7; literal update, §3 rule 8)
+    ['Ripple Edit', 'key.toggleRipple'],
+    ['Insert Frame', 'time.insertTime'],
+    ['Remove Frame', 'time.insertTime'],
+    ['Delete Time', 'time.deleteTime'],
   ];
+  const selectItem = (items: readonly { readonly op: string; readonly args?: unknown }[]) =>
+    items.find((item) => item.op === 'time.selectBand');
 
   it('offers delete, copy, paste, tangent types and graph selection for the band', async () => {
     const { app, slider } = await setUp();
@@ -284,7 +303,7 @@ describe('TimeSliderController: RMB menu', () => {
     expect(items.filter((item) => item.op === 'graph.tangent.set').map((item) => item.args)).toEqual(
       ['auto', 'spline', 'clamped', 'linear', 'flat', 'step'].map((type) => ({ type })),
     );
-    expect(items.at(-1)?.args).toEqual({ band: { start: 10, end: 20 }, mode: 'replace' });
+    expect(selectItem(items)?.args).toEqual({ band: { start: 10, end: 20 }, mode: 'replace' });
     expect(items[0]).not.toHaveProperty('args');
     await settle();
     expect(app.session.getState().time.band).toEqual({ start: 10, end: 20 });
@@ -297,7 +316,7 @@ describe('TimeSliderController: RMB menu', () => {
     app.session.setState({ time: { ...app.session.getState().time, sceneFrame: 15 } });
     const items = slider.contextMenu(100, 20);
     expect(items.map((item) => [item.label, item.op])).toEqual(BAND_MENU);
-    expect(items.at(-1)?.args).toEqual({ band: { start: 15, end: 15 }, mode: 'replace' });
+    expect(selectItem(items)?.args).toEqual({ band: { start: 15, end: 15 }, mode: 'replace' });
     await settle();
     expect(app.session.getState().time.band).toEqual({ start: 15, end: 15 });
     expect([...app.session.getState().selection.keys.keys()]).toEqual([WAVE.keys[1]]);
@@ -305,9 +324,15 @@ describe('TimeSliderController: RMB menu', () => {
     expect(slider.contextMenu(100, 20)).toHaveLength(BAND_MENU.length);
     expect(callsOf(app, 'time.selectBand')).toHaveLength(1);
 
-    // No active clip: no band to select, Paste only.
+    // No active clip: no band to select, Paste only (and the M2a time items, which poll-fail without a clip).
     app.session.setState({ activeClip: {}, time: { ...app.session.getState().time, band: null } });
-    expect(slider.contextMenu(100, 20).map((item) => item.id)).toEqual(['timeline.context.paste']);
+    expect(slider.contextMenu(100, 20).map((item) => item.id)).toEqual([
+      'timeline.context.paste',
+      'timeline.context.ripple',
+      'timeline.context.insert-frame',
+      'timeline.context.remove-frame',
+      'timeline.context.delete-time',
+    ]);
     await settle();
     expect(app.session.getState().time.band).toBeNull();
   });
@@ -385,9 +410,10 @@ describe('time.selectBand', () => {
     const app = await waveApp();
     const dispose = registerTimelineContributions(app, () => null);
     expect(app.operators.get('time.selectBand')?.scope).toBe('timeline');
-    expect(app.menus.list().filter((item) => item.menu === 'timeline.context')).toHaveLength(10);
+    // 10 M1 items + Ripple Edit, Insert Frame, Remove Frame, Delete Time (M2a; literal update, §3 rule 8).
+    expect(app.menus.list().filter((item) => item.menu === 'timeline.context')).toHaveLength(14);
     expect(() => registerTimelineContributions(app, () => null)).toThrow('already registered');
-    expect(app.menus.list()).toHaveLength(10); // a failed second registration leaves the first intact
+    expect(app.menus.list()).toHaveLength(14); // a failed second registration leaves the first intact
     dispose();
     expect(app.operators.get('time.selectBand')).toBeUndefined();
     expect(app.menus.list()).toEqual([]);

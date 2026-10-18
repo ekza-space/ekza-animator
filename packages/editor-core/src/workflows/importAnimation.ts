@@ -8,7 +8,7 @@
 // `prepare*` read and convert (asset store, partitions); `applyClipImport` writes the clips in the operator's
 // transaction and activates the first. A file the Animator wrote keeps its `ekza_animation_v1` provenance.
 import { EkzaError, type Fps } from '@ekza-animator/anim-core';
-import type { AssetRecord, CharacterId, ClipId, ClipProvenance, ReadView, Tx } from '@ekza-animator/doc';
+import type { AssetRecord, CharacterId, ClipId, ClipProvenance, Tx } from '@ekza-animator/doc';
 import { type GlbContainer, parseGlb, readAnimations, readVrma, skeletonFromGltf } from '@ekza-animator/io';
 import {
   DEFAULT_REDUCE,
@@ -17,7 +17,6 @@ import {
   type ImportedClipKeys,
   importHumanoidClip,
   importRawClip,
-  isHumanoidProgram,
   remapRawClipByName,
 } from '@ekza-animator/rig';
 import { newRecordId } from '../app/internals';
@@ -25,12 +24,16 @@ import type { ClipsResult, ImportAnimationOptions } from '../operators/args';
 import type { CharacterRuntime, EditorApp } from '../types';
 import { type ClipWritePlan, planImportedClip, resolveClipOptions, writeClipPlan } from './clipWrite';
 import { yieldToHost } from './host';
+import { importLimbWarnings } from './ik';
 import { assertWithinBudget } from './importModel';
 import { baseName, sanitizeClipName, uniqueName } from './names';
 import { animationAndNodeNames, clipProvenance, embeddedEkzaProvenance, sourceProvenance } from './provenance';
 import { orderAfter } from './records';
 import { activateClip, sceneFpsIn } from './session';
 import { maxChannelKeys } from './util';
+import { animationTargetProblem } from './importChecks';
+
+export { animationTargetProblem, importTarget, isAnimationOnlyGlb } from './importChecks';
 
 /** Frame rate of a VRMA whose sample times fit no standard rate (§4.11.7). */
 const VRMA_DEFAULT_FPS: Fps = { num: 30, den: 1 };
@@ -49,57 +52,11 @@ interface ImportInput {
   readonly options?: Partial<ImportAnimationOptions> | undefined;
 }
 
-/** Why `character` cannot receive clips (`humanoid`: VRMA needs a humanoid rig), or null. */
-export function animationTargetProblem(
-  app: EditorApp,
-  character: CharacterId | null,
-  humanoid: boolean,
-): string | null {
-  if (character === null) return humanoid ? 'Load a humanoid character first' : 'Load a character first';
-  if (app.store.get('characters', character) === undefined) return 'The character does not exist';
-  const runtime = app.characters.get(character);
-  if (runtime === undefined) return 'The character is still loading';
-  if (humanoid && !isHumanoidProgram(runtime.program)) return 'VRMA clips need a humanoid (VRM) character';
-  return null;
-}
-
 function requireRuntime(app: EditorApp, character: CharacterId, humanoid: boolean): CharacterRuntime {
   const problem = animationTargetProblem(app, character, humanoid);
   const runtime = app.characters.get(character);
   if (problem !== null || runtime === undefined) throw new EkzaError('unsupported', problem ?? 'No runtime');
   return runtime;
-}
-
-const sniffed = new WeakMap<Uint8Array, boolean>();
-
-/**
- * True for a GLB that carries animations but no skin (an animation-only file, not a character). Cached per byte
- * array: importer resolution runs in every poll of `file.open`.
- */
-export function isAnimationOnlyGlb(bytes: Uint8Array): boolean {
-  let result = sniffed.get(bytes);
-  if (result === undefined) {
-    result = sniffAnimationOnly(bytes);
-    sniffed.set(bytes, result);
-  }
-  return result;
-}
-
-function sniffAnimationOnly(bytes: Uint8Array): boolean {
-  if (bytes.byteLength < 20) return false;
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  if (view.getUint32(0, true) !== 0x46546c67 || view.getUint32(16, true) !== 0x4e4f534a) return false;
-  const length = view.getUint32(12, true);
-  if (length > bytes.byteLength - 20) return false;
-  try {
-    const json: unknown = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + length)));
-    if (typeof json !== 'object' || json === null) return false;
-    const { skins, animations } = json as { readonly skins?: unknown; readonly animations?: unknown };
-    const hasSkins = Array.isArray(skins) && skins.length > 0;
-    return !hasSkins && Array.isArray(animations) && animations.length > 0;
-  } catch {
-    return false;
-  }
 }
 
 function maxKeys(data: HumanoidClipData): number {
@@ -155,10 +112,13 @@ export async function prepareVrmaImport(app: EditorApp, input: ImportInput): Pro
     eulerFilter: resolved.eulerFilter,
     reduce: resolved.reduce,
     hipsScale: options.hipsScale ?? 'auto',
+    ik: 'auto',
   });
   warnings.push(...imported.warnings);
 
   const title = data.name !== '' ? data.name : baseName(input.fileName);
+  // M2a §5.8: limbs kept FK for this clip say so, first (the import toast shows the first three warnings).
+  warnings.unshift(...importLimbWarnings(title, imported));
   const asset = await storeSource(app, input, 'vrma');
   const clip = planImported(app, input, asset, title, vrmaProvenance(container, data.name, title), imported);
   await app.store.open(`clip:${clip.clip.id}`);
@@ -231,8 +191,11 @@ export async function prepareGlbAnimationImport(app: EditorApp, input: ImportInp
       keyMode: resolved.keyMode,
       eulerFilter: resolved.eulerFilter,
       reduce: resolved.reduce,
+      ik: 'auto',
     });
     warnings.push(...imported.warnings.map((warning) => `${raw.name}: ${warning}`));
+    // M2a §5.8: limbs kept FK say so, first (the import toast shows the first three warnings).
+    warnings.unshift(...importLimbWarnings(raw.name, imported));
     const names = [raw.name, ...raw.channels.map((channel) => source.nodes[channel.node]?.name ?? '')];
     const name = uniqueName(sanitizeClipName(raw.name), taken);
     taken.push(name);
@@ -266,14 +229,4 @@ export function applyClipImport(app: EditorApp, tx: Tx, plan: ClipImportPlan): C
   const first = ids[0] === undefined ? undefined : tx.get('clips', ids[0]);
   if (first !== undefined) activateClip(app, tx, first);
   return { clips: ids, warnings: plan.warnings };
-}
-
-/** The character a clip import targets: the given one, else the active one. */
-export function importTarget(
-  view: ReadView,
-  explicit: CharacterId | undefined,
-  active: CharacterId | null,
-): CharacterId | null {
-  const id = explicit ?? active;
-  return id !== null && view.get('characters', id) !== undefined ? id : null;
 }

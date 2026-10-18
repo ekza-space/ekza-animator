@@ -1,11 +1,14 @@
 # Ekza Animator — Requirements
 
-Status: v0.2 (2026-10-17, design review revision). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
+Status: v0.3 (2026-10-18, M2a integrated: the shipped M2a items are marked ✓). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
 IDs are stable: a removed requirement is marked *withdrawn*, never renumbered.
 
 **Priority**: `MVP` (milestone M1 core) · `MVP-S` (M1-stretch: built if time remains, MVP-SPEC §1.2) · `V1`
 (first public release line, M2a–M2c) · `V2` (power features and ecosystem, M3–M5) · `LATER` (research or large
-scope, M6+). The milestone column points to [ROADMAP.md](ROADMAP.md).
+scope, M6+). The milestone column points to [ROADMAP.md](ROADMAP.md); **✓** marks a requirement of a milestone after
+M1 that has shipped (M2a, integrated 2026-10-18, [M2A-SPEC](M2A-SPEC.md)), **(partial)** one that shipped without
+meeting its whole acceptance criterion, pending an owner decision; M1 items shipped with the alpha, M1-stretch items as
+their rows say.
 Acceptance criteria are the minimum test; MVP items are also covered by the user stories and e2e scenarios in
 [MVP-SPEC §5–6](MVP-SPEC.md#5-user-stories). Research references: `R01`…`R09` = `research/0N-*.md`.
 
@@ -47,8 +50,8 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-RIG-08 | Per-control rotate order (DCC semantics) with defaults per body part (MVP); changing it preserves the pose by resampling at the union of key times and synchronizing the three curves (MVP-S). | MVP-S | M1 | Changing `fk.upperArm.L` from `yxz` to `xyz` with unsynchronized `rx`/`ry` key times keeps bone worlds within 1e-6 at every union time. |
 | FR-RIG-09 | Stateless compiled rig kernel with constraint and solver slots (disabled in the MVP). | MVP | M1 | A constraint record compiles to a disabled op with a warning; evaluation unchanged. |
 | FR-RIG-10 | Constraints: parent, point, orient, aim with weights, maintain offset and blend. | V1 | M2c | R07 §7 formulas; prop follows hand. |
-| FR-RIG-11 | Two-bone IK controls with pole vector, soft IK, IK/FK blend, match and seamless switch (legs first). | V1 | M2a | R07 §21.3 IK tests; translating `cog` −5 cm leaves the IK foot world unchanged (1e-6). |
-| FR-RIG-12 | Foot roll and space switching with matching. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
+| FR-RIG-11 | Two-bone IK controls with pole vector, soft IK, IK/FK blend, match and seamless switch (legs first). | V1 | M2a ✓ | R07 §21.3 IK tests; translating `cog` −5 cm leaves the IK foot world unchanged (1e-6). |
+| FR-RIG-12 | Foot roll and space switching with matching. The simple foot roll (heel/ball/toe pivots, bank, heel and toe twist on the leg IK control) moved to M2a and shipped ✓ ([M2A-SPEC §5.3.1](M2A-SPEC.md#531-foot-roll-simple-variant-r07-12)); space switching stays M5. | V2 | M5 | Heel/ball/toe pivots; space switch without pops. |
 | FR-RIG-13 | Control shape editing (shape picker, size, colour, offset) in a Rig workspace; rig edits never create keys. | V1 | M2c | Shape change undoable; no keys created. |
 | FR-RIG-14 | VRM spring-bone preview during playback (never baked). | V1 | M2c | Toggle per pane; export unchanged by the toggle. |
 | FR-RIG-15 | VRM expressions and lookAt as keyable channels on a face control. | V1 | M2c | Blink keyed and exported to VRMA expressions. |
@@ -87,7 +90,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-OUT-02 | Filter by name and humanoid bone name. | MVP | M1 | "leftHand" shows `fk.hand.L`. |
 | FR-OUT-03 | Selection synced both ways with the viewport and Channel Box; hover pre-highlights in viewports. | MVP | M1 | US-05. |
 | FR-OUT-04 | Rename clips inline; controls rename in V1. | MVP | M1 | Clip rename undoable. |
-| FR-OUT-05 | Pick-walk with arrow keys over the control hierarchy. | V1 | M2a | ↑ selects the parent control. |
+| FR-OUT-05 | Pick-walk with arrow keys over the control hierarchy. | V1 | M2a ✓ | ↑ selects the parent control. |
 
 ### FR-CB — Channel Box
 
@@ -97,7 +100,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-CB-02 | Maya colour states: keyed on this frame, keyed elsewhere, changed (override), locked; never colour alone (bar shapes, tooltip). | MVP | M1 | State mapping unit test against `channelState`. |
 | FR-CB-03 | Numeric entry with relative expressions (`+=`, `-=`, `*`, `/`, `deg`/`rad` suffix), Tab navigation, ↑/↓ nudge. | MVP | M1 | US-11. |
 | FR-CB-04 | Context menu: key selected channels, reset to default, lock/unlock. | MVP | M1 | Locked channels reject edits with a toast. |
-| FR-CB-05 | Virtual slider (MMB drag / drag channel name) with Pointer Lock. | V1 | M2a | Drag changes value at the documented rate. |
+| FR-CB-05 | Virtual slider (MMB drag / drag channel name) with Pointer Lock. | V1 | M2a ✓ | Drag changes value at the documented rate. |
 | FR-CB-06 | Rotate order shown (MVP); editable, pose-preserving (MVP-S). | MVP | M1 | Shown, and editable per FR-RIG-08 (the stretch item landed with WP-7b; MVP-SPEC §1.2 status). |
 
 ### FR-KEY — Keying
@@ -111,9 +114,9 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-KEY-05 | Delete keys at the current frame (viewport/Channel Box) and selected keys (Graph Editor and time-slider band). | MVP | M1 | Undoable. |
 | FR-KEY-06 | Default tangent types for new keys as a preference (default auto/auto). | MVP | M1 | Changing the preference affects new keys only. |
 | FR-KEY-07 | Unkeyed edits: static values on key-less channels (document, undoable); session overrides on keyed channels (discarded on frame change, undoable through the editor history). | MVP | M1 | MVP-SPEC §4.11.2 table tests; E2E-24. |
-| FR-KEY-08 | Breakdown keys with proportional retiming. | V1 | M2a | Moving neighbours keeps the ratio. |
-| FR-KEY-09 | Tween slider family (tween, blend to neighbour, ease, push/pull) with overshoot. | V1 | M2a | R01 §5.9 formulas. |
-| FR-KEY-10 | Keying modes by body part (VRM groups). | V1 | M2a | `S` on a hand keys the whole arm group. |
+| FR-KEY-08 | Breakdown keys with proportional retiming. | V1 | M2a ✓ | Moving neighbours keeps the ratio. |
+| FR-KEY-09 | Tween slider family (tween, blend to neighbour, ease, push/pull) with overshoot. | V1 | M2a ✓ | R01 §5.9 formulas. |
+| FR-KEY-10 | Keying modes by body part (VRM groups). | V1 | M2a ✓ | `S` on a hand keys the whole arm group. |
 
 ### FR-TIME — Time and playback
 
@@ -125,10 +128,10 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-TIME-04 | Play/stop, loop/once/oscillate, real-time (drops frames) vs every-frame, half/double speed; snap to integer frames. | MVP | M1 | Clock unit tests with a fake time source. |
 | FR-TIME-05 | Per-clip frame rate 24/25/30/48/50/60/custom (rational); changing it offers keep-seconds or keep-frames. | MVP | M1 | Keep-seconds rescales key times by `new/old`. |
 | FR-TIME-06 | Previous/next key, previous/next frame, go to start/end. | MVP | M1 | `,`/`.` jump between key times. |
-| FR-TIME-07 | Maya range editing on the slider: Shift+click/drag selects a frame or range band with its keys; drag the middle to move, an end to scale; RMB delete/copy/paste/tangent type (MVP). Mod+drag copy and ripple (V1). | MVP | M1 | E2E-23: keys at 10 on three controls move to 14; one `Mod+Z` restores. |
+| FR-TIME-07 | Maya range editing on the slider: Shift+click/drag selects a frame or range band with its keys; drag the middle to move, an end to scale; RMB delete/copy/paste/tangent type (MVP). Mod+drag copy and ripple (V1, shipped in M2a ✓). | MVP | M1 | E2E-23: keys at 10 on three controls move to 14; one `Mod+Z` restores. |
 | FR-TIME-08 | Time bookmarks (named coloured ranges), exportable as clips. | V1 | M2c | Bookmark → named glTF animation. |
 | FR-TIME-09 | Audio track with waveform and scrubbing. | V1 | M2c | Waveform aligned with frames. |
-| FR-TIME-10 | MMB-drag on the slider changes time without evaluation (carry a pose). | V1 | M2a | `S` after MMB-drag keys the held pose. |
+| FR-TIME-10 | MMB-drag on the slider changes time without evaluation (carry a pose). | V1 | M2a ✓ | `S` after MMB-drag keys the held pose. |
 | FR-TIME-11 | Shared scene clock (`sceneFps`, `sceneFrame`); each clip maps it through `sceneStart` and its fps; the UI shows active-clip frames and scene seconds. | MVP | M1 | US-24 / E2E-27: 24 and 30 fps clips (sceneStart 0 and 6) both at clip frame 24 at scene frame 30. |
 
 ### FR-GE — Graph Editor
@@ -151,10 +154,10 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-GE-14 | Pre/post infinity: constant, linear, cycle, cycle with offset, oscillate. | MVP | M1 | Values at negative and multi-cycle times match the oracle. |
 | FR-GE-15 | Euler filter on selected rotation curves (also run on import). | MVP | M1 | No jumps > π after filtering a flipped clip. |
 | FR-GE-16 | Copy/paste keys at the current frame (merge/replace) with handles, broken/weight state and weighted-curve conversion. | MVP | M1 | Relative timing and curve shape preserved. |
-| FR-GE-17 | Cycle-aware auto tangents when both infinities cycle. | MVP-S | M1 | C¹ continuity at the seam (1e-9). |
-| FR-GE-18 | Normalized and stacked views. | V1 | M2a | Display-only, data unchanged. |
-| FR-GE-19 | Buffer curve snapshot/swap. | V1 | M2a | Ghost curve shown; swap restores. |
-| FR-GE-20 | Scale keys and region/lattice tools. | V1 | M2a | Scale around the pivot. |
+| FR-GE-17 | Cycle-aware auto tangents when both infinities cycle. Not built in M1 (stretch); M2a core, with cyclic infinities by default for curves keyed in loop clips ([M2A-SPEC §5.23](M2A-SPEC.md#523-loop-clips-cyclic-curves-and-cycle-aware-auto-tangents-a0-fr-ge-17)). | MVP-S | M2a ✓ | C¹ continuity at the seam (1e-9). |
+| FR-GE-18 | Normalized and stacked views. | V1 | M2a ✓ | Display-only, data unchanged. |
+| FR-GE-19 | Buffer curve snapshot/swap. | V1 | M2a ✓ | Ghost curve shown; swap restores. |
+| FR-GE-20 | Scale keys and region/lattice tools. | V1 | M2a ✓ | Scale around the pivot. |
 | FR-GE-21 | Simplify / key reduction with tolerance (`reduceKeys`; Graph Editor command and import option). | MVP | M1 | Error ≤ tolerance at original key times and integer frames. |
 | FR-GE-22 | Smoothing filters (Gaussian, Butterworth). | V2 | M5 | Preview popover. |
 | FR-GE-23 | Quaternion rotation curves per control (slerp/cubic). | V2 | M5 | No Euler flips by construction. |
@@ -163,8 +166,8 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
-| FR-DS-01 | Dope Sheet with summary/character/control/channel rows, key move/scale, hold bars. | V1 | M2a | Shares selection with the Graph Editor. |
-| FR-DS-02 | Ripple edit. | V1 | M2a | Later keys shift with the moved block. |
+| FR-DS-01 | Dope Sheet with summary/character/control/channel rows, key move/scale, hold bars. | V1 | M2a ✓ | Shares selection with the Graph Editor. |
+| FR-DS-02 | Ripple edit. | V1 | M2a ✓ | Later keys shift with the moved block. |
 
 ### FR-CLIP — Clips and layers
 
@@ -188,7 +191,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-POSE-02 | Paste mirrored. | MVP | M1 | Equals mirror of the copied pose. |
 | FR-POSE-03 | Mirror pose: flip, left→right, right→left (humanoid); scope = selection expanded to mirror pairs; only side `C` self-mirrors; unpaired L/R controls unchanged with a warning. | MVP | M1 | `mirror(mirror(P)) = P`; after flip R = mirror(L_before), L = mirror(R_before); Polybot `fk.toes.R` unchanged. |
 | FR-POSE-04 | Reset selected controls to rest. | MVP | M1 | Channels return to defaults (keyed per auto-key rule). |
-| FR-POSE-05 | Mirror animation with half-cycle offset. | V1 | M2a | Left step becomes right step. |
+| FR-POSE-05 | Mirror animation with half-cycle offset. | V1 | M2a ✓ | Left step becomes right step. |
 | FR-POSE-06 | Pose library with thumbnails and drag-to-blend. | V2 | M5 | Poses stored per humanoid bone. |
 | FR-POSE-07 | Selection sets and an auto-generated humanoid picker. | V1 | M2c | Picker button selects its control. |
 
@@ -216,9 +219,9 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-EXP-07 | VRMA expressions and lookAt. | V1 | M2c | Blink and gaze play in three-vrm-animation. |
 | FR-EXP-08 | Animation-only GLB (skeleton nodes + clips, no meshes). | MVP | M1 | E2E-18. |
 | FR-EXP-09 | Read-back check in the app and glTF-Validator in tests (MVP); validator in an app worker (MVP-S). | MVP | M1 | Errors block the download. |
-| FR-EXP-10 | Integer-frame LINEAR sampling with hemisphere continuity, STEP only for fully stepped tracks, loop closure option and root-motion modes (in-place in canonical space; generic rigs on the topmost driven translating joint). | MVP | M1 | `dot(q_i, q_{i−1}) ≥ 0` for all samples; > 90° steps produce a warning lint. |
+| FR-EXP-10 | Integer-frame LINEAR sampling with hemisphere continuity, STEP only for fully stepped tracks, loop closure option and root-motion modes (in-place removes the travel in canonical space and keeps the sway; generic rigs on the topmost driven translating joint). | MVP | M1 | `dot(q_i, q_{i−1}) ≥ 0` for all samples; > 90° steps produce a warning lint. |
 | FR-EXP-11 | Licence gate for baking avatars whose VRM meta forbids modification or redistribution. | MVP | M1 | Export blocked until acknowledged; VRMA always allowed. |
-| FR-EXP-12 | Error-bounded reduction of sampled export tracks. | V1 | M2a | Hand-keyed clips shrink 3–10× within tolerances (R02 §6.4). |
+| FR-EXP-12 | Error-bounded reduction of sampled export tracks. | V1 | M2a (partial) | Hand-keyed clips shrink 3–10× within tolerances (R02 §6.4). *M2a (partial):* every sample within the per-node tolerances and never more samples or bytes (fix round 1); ≥ 3× only on linear blocking — smooth 30 fps motion keeps (nearly) every sample at these tolerances. Owner item M2A-A5-3 / M2A-INT-3 in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18): accept, or change the tolerances or the criterion. |
 | FR-EXP-13 | BVH and FBX export behind an exporter interface. | V2 | M5 | Blender/Maya round-trip tests. |
 | FR-EXP-14 | CUBICSPLINE "compact" GLB mode. | LATER | M6+ | Exact for non-weighted, non-rotation channels. |
 | FR-EXP-15 | Optional embedded editable curve source in exported GLBs (`extras.ekza_animator_curves_v1`). | V1 | M2c | Re-import restores curves when hashes match. |
@@ -231,7 +234,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-PROJ-02 | Open `.ekzanim` with asset hash verification and migrations. | MVP | M1 | Corrupted asset → clear error. |
 | FR-PROJ-03 | `.ekzanim.json` debug variant. | MVP | M1 | Opens when assets are cached or supplied. |
 | FR-PROJ-04 | Deterministic output (sorted JSON, fixed zip metadata); `minWriterVersion` or a newer table version opens read-only; unknown tables and fields survive. | MVP | M1 | Same project → same bytes; an unknown table round-trips. |
-| FR-PROJ-05 | Autosave to IndexedDB with crash recovery. | V1 | M2a | Recovery prompt after a forced reload. |
+| FR-PROJ-05 | Autosave to IndexedDB with crash recovery. | V1 | M2a ✓ | Recovery prompt after a forced reload. |
 | FR-PROJ-06 | Opening a project that contains CRDT updates (`docs/*.yupd`) merges into an existing copy; schema-1 JSON snapshots always open as a new project. | V2 | M3 | Two edited copies merge without loss. |
 
 ### FR-SHELL — Application shell
@@ -312,7 +315,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 
 | ID | Requirement | Pri | Acceptance criterion |
 |---|---|---|---|
-| NFR-01 | Performance budgets of [ARCHITECTURE §14](../ARCHITECTURE.md#14-performance-budgets). | MVP | Benchmarks recorded per release (report-only on CI); misses tracked. |
+| NFR-01 | Performance budgets of [ARCHITECTURE §14](../ARCHITECTURE.md#14-performance-budgets). | MVP | Benchmarks recorded per release (report-only on CI); misses tracked (ROADMAP: M1's M-1…M-3 fixed in M2a ✓; M-4 open). |
 | NFR-02 | Idle editor renders zero WebGL frames and zero canvas redraws. | MVP | E2E-00 frame counter. |
 | NFR-03 | Browsers: Chrome/Edge stable (primary); Firefox and Safari 26+ smoke-tested from V1. | MVP | e2e on Chrome; V1 smoke on Firefox/WebKit. |
 | NFR-04 | Desktop only; editing from 1024×640, designed for ≥ 1280×720; below 768 px wide review-only (V1). | MVP | Layout usable at 1280×720. |
@@ -323,9 +326,9 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | NFR-09 | Offline capable: the static build works without network after load. | V1 | Static build e2e smoke with network disabled after load (M1: manual QA). |
 | NFR-10 | Licence hygiene: MIT + DCO; production dependency allow-list with reviewed exceptions; no LGPL `sharp`; fixtures with recorded licence and SHA-256; generated third-party notices. | MVP | `check:licenses`, `check:fixtures` and the `dco` job in CI. |
 | NFR-11 | Quality gates: format, type-aware lint, typecheck, dependency layering, unit, browser and e2e tests in CI. | MVP | Required checks on `dev`. |
-| NFR-12 | Storage resilience: the app works with `localStorage`/IndexedDB unavailable. | MVP | All storage access in try/catch (unit tests); e2e with storage blocked is V1 (M1: manual QA). |
+| NFR-12 | Storage resilience: the app works with `localStorage`/IndexedDB unavailable. | MVP | All storage access in try/catch (unit tests); e2e with storage blocked: E2E-M2A-20 (`storage=blocked`, M2a ✓). |
 | NFR-13 | WebGL context loss recovers from the document. | MVP | Handlers implemented; forced `WEBGL_lose_context` e2e is V1 (M1: manual QA). |
-| NFR-14 | Editor route JS ≤ 900 kB gzip (landing ≤ 100 kB). | V1 | size check in CI. |
+| NFR-14 | Editor route JS ≤ 900 kB gzip (landing ≤ 100 kB). | V1 | size check in CI (`check:size`, 900,000 B, M2a ✓; 843,270 B at the M2a integration). |
 | NFR-15 | UI strings centralized for i18n (English only in the MVP). | V1 | No inline user-facing strings outside the string table (lint). |
 | NFR-16 | Documentation: every public API documented; one ADR per architectural decision; README status table current. | MVP | Review checklist. |
 | NFR-17 | Collaboration readiness: per-user undo per merge unit, preview-then-commit drags, partitions with a lifecycle, async assets, shared scene clock, no U state in the document. | MVP | FR-COL-01…03, FR-TIME-11. |

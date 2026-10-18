@@ -27,7 +27,7 @@ import {
   type TableName,
 } from '../records';
 import { QueryEngine } from '../queries/engine';
-import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
+import { requiredWriterVersion, SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type {
   AnyChange,
   ChangeBatch,
@@ -50,9 +50,18 @@ import {
 } from '../tables/registry';
 import { DEFAULT_UNDO_LIMIT, PatchUndoManager, type UndoWrite } from '../undo/patchUndo';
 import { compareStrings, deepEqual } from './diff';
-import { Journal, type Savepoint } from './journal';
+import { Journal, type JournalOriginal, NOT_SHOWN, type Savepoint } from './journal';
 import { ReferenceIndex } from './references';
-import { type Entry, hasTombstone, makeChange, normalizeRow, type Row, type RowChange, rowKey } from './rows';
+import {
+  dropUndefined,
+  type Entry,
+  hasTombstone,
+  makeChange,
+  normalizeRow,
+  type Row,
+  type RowChange,
+  rowKey,
+} from './rows';
 import { Storage } from './storage';
 
 export interface MemoryStoreOptions {
@@ -90,7 +99,7 @@ const EXTERNAL_ORIGINS: ReadonlySet<string> = new Set<ExternalOrigin>(['remote',
 
 /** The running transaction or preview update: its journal, its `Tx` and the late metadata `annotate` sets. */
 class TxContext {
-  readonly journal = new Journal();
+  readonly journal: Journal;
   readonly tx: StoreTx;
   label: string;
   selectionAfter: unknown = undefined;
@@ -101,14 +110,32 @@ class TxContext {
     store: MemoryDocumentStore,
     readonly kind: 'transact' | 'preview',
     label: string,
+    journal?: Journal,
   ) {
     this.label = label;
+    this.journal = journal ?? new Journal();
     this.tx = new StoreTx(store, this);
   }
 }
 
 function isObject(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** True when `next` has the fields of `previous` with the same values, except finite numbers in `t` and `v`. */
+function onlyNewTimeOrValue(previous: Row, next: Row): boolean {
+  let fields = 0;
+  for (const field in next) {
+    fields++;
+    const value = next[field];
+    if (field === 't' || field === 'v') {
+      if (!Number.isFinite(value)) return false;
+    } else if (value !== previous[field]) {
+      return false;
+    }
+  }
+  for (const _ in previous) fields--;
+  return fields === 0;
 }
 
 function isThenable(value: unknown): boolean {
@@ -146,7 +173,8 @@ export class MemoryDocumentStore implements DocumentStore {
   private versionCounter = 0;
   private txCounter = 0;
   private readOnlyFlag = false;
-  private minWriterVersion: number = SCHEMA_VERSION;
+  /** `minWriterVersion` of the last `load()` (1 for a store that never loaded); see `snapshot()`. */
+  private loadedMinWriterVersion = 1;
   private loadedTableVersions: Readonly<Record<string, number>> = {};
   private readonly emitQueue: ChangeBatch[] = [];
   private emitting = false;
@@ -248,6 +276,21 @@ export class MemoryDocumentStore implements DocumentStore {
   private partitionForWrite(table: string, record: Row, existing: Entry | undefined): Partition {
     if (existing !== undefined && isRigScoped(table) && existing.record['rig'] === record['rig'])
       return existing.partition;
+    // M-1: a clip-partitioned record that keeps its clip keeps its `clip:<clip>` partition (no new partition string
+    // per write; checked without building one).
+    if (existing !== undefined && (table === 'keys' || table === 'curves' || table === 'layers')) {
+      const clip = record['clip'];
+      const partition = existing.partition;
+      if (
+        typeof clip === 'string' &&
+        existing.record['clip'] === clip &&
+        partition.length === clip.length + 5 &&
+        partition.startsWith('clip:') &&
+        partition.endsWith(clip)
+      ) {
+        return partition;
+      }
+    }
     return this.partitionFor(table, record);
   }
 
@@ -376,8 +419,7 @@ export class MemoryDocumentStore implements DocumentStore {
         }
         if (!remote && after !== undefined) this.checkValid(table, after, this.storage.get(table, id)?.record);
         const forced = opts?.partitions?.[index];
-        const key = rowKey(table, id);
-        const overlaid = preview?.journal.originals.get(key);
+        const overlaid = preview?.journal.get(table, id);
         if (overlaid !== undefined) {
           // The record is under the preview overlay: the committed value changes underneath it (a conflict).
           const next =
@@ -425,61 +467,64 @@ export class MemoryDocumentStore implements DocumentStore {
 
   // ---------- previews (called by StorePreview) ----------
 
-  /** @internal */
+  /**
+   * @internal One preview update: the callback runs on committed state and its writes become the new overlay.
+   *
+   * M-1 (M2A-SPEC §5.21.1 mechanism 2): the session's journal is kept in place across updates. Each update notes
+   * what readers saw of every overlaid record (`shown`), reverts the overlay (records whose stored entry is already
+   * the committed one are not written again), and lets the callback journal into the same originals; the preview
+   * batch then compares shown and new values with a reference check first. A failing callback restores the
+   * previous overlay.
+   */
   previewUpdate(session: StorePreview, fn: (tx: Tx) => void): void {
     this.assertNotInTransaction('preview.update');
-    const previous = new Map<
-      string,
-      { table: string; id: string; entry: Entry | undefined; committed: Entry | undefined }
-    >();
-    for (const [key, original] of session.journal.originals) {
-      previous.set(key, {
-        table: original.table,
-        id: original.id,
-        entry: this.storage.get(original.table, original.id),
-        committed: original.original,
-      });
+    const journal = session.journal;
+    const ordered = journal.ordered;
+    // Note what readers see, and revert to committed state (a record already at its committed entry is not written).
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
+      const shown = original.current;
+      original.shown = shown;
+      this.storage.write(original.table, original.id, shown, original.original);
+      original.current = original.original;
     }
-    this.revert(session.journal);
-    const context = this.beginContext('preview', session.label);
+    journal.ops.length = 0;
+    const context = this.beginContext('preview', session.label, journal);
     try {
       const result: unknown = fn(context.tx);
       if (isThenable(result)) throw asyncCallback();
-      this.resolvePartitions(context.journal);
+      this.resolvePartitions(journal);
     } catch (error) {
-      // Keep the previous overlay on screen: undo the partial update and re-apply it.
-      this.revert(context.journal);
+      // Keep the previous overlay on screen: undo the partial update and re-apply what readers saw.
+      this.revert(journal);
       this.endContext(context);
-      const restored = new Journal();
-      for (const item of previous.values()) {
-        restored.originals.set(rowKey(item.table, item.id), {
-          table: item.table,
-          id: item.id,
-          original: item.committed,
-        });
-        this.journalWrite(restored, item.table, item.id, item.entry, true);
+      for (const original of journal.originals.values()) {
+        if (original.shown === NOT_SHOWN) {
+          journal.remove(original.table, original.id);
+        } else {
+          this.storage.set(original.table, original.id, original.shown);
+          original.current = original.shown;
+        }
       }
-      session.journal = restored;
-      this.flushReveals(context.journal, null);
+      journal.ops.length = 0;
+      this.flushReveals(journal, null);
       throw error;
     }
     this.endContext(context);
-    session.journal = context.journal;
     if (context.hasSelectionAfter) session.selectionAfter = { value: context.selectionAfter };
     if (context.label !== session.label) session.annotatedLabel = context.label;
     // Preview batch: what readers saw before this update → what they see now.
     const changes: RowChange[] = [];
-    const keys = new Set([...previous.keys(), ...context.journal.originals.keys()]);
-    for (const key of keys) {
-      const prior = previous.get(key);
-      const original = context.journal.originals.get(key);
-      const table = (prior?.table ?? original?.table) as string;
-      const id = (prior?.id ?? original?.id) as string;
-      const before = prior !== undefined ? prior.entry?.record : original?.original?.record;
-      const after = this.storage.get(table, id)?.record;
-      if (!deepEqual(before, after)) changes.push(makeChange(table, id, before, after));
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
+      const shown = original.shown;
+      const before = shown === NOT_SHOWN ? original.original?.record : shown?.record;
+      const after = original.current?.record;
+      if (before !== after && !deepEqual(before, after)) {
+        changes.push(makeChange(original.table, original.id, before, after));
+      }
     }
-    this.flushReveals(context.journal, null, (key) => keys.has(key));
+    this.flushReveals(journal, null, (key) => journal.originals.has(key));
     if (changes.length > 0) this.emit(this.makeBatch('preview', session.label, this.user, changes));
   }
 
@@ -535,20 +580,31 @@ export class MemoryDocumentStore implements DocumentStore {
     }
     this.checkValid(table, row, existing?.record);
     const partition = this.partitionForWrite(table, row, existing);
-    this.journalWrite(context.journal, table, row.id, { record: row, partition }, true);
+    this.journalWrite(context.journal, table, row.id, { record: row, partition }, true, existing);
   }
 
   /** @internal */
   txPatch(context: TxContext, table: string, id: string, fields: unknown): void {
     if (!isObject(fields)) throw new EkzaError('invalid-record', `patch(${table}, ${id}): fields must be an object`);
-    const existing = this.require(table, id, 'patch');
+    const stored = this.requireEntry(table, id, 'patch');
+    const existing = stored.record;
     if (fields['id'] !== undefined && fields['id'] !== id) {
       throw new EkzaError('invalid-record', `patch(${table}, ${id}): the id cannot change`);
     }
-    const next = normalizeRow({ ...existing, ...fields, id });
+    // One merged copy; the stored record has no `undefined` field, so only the patch's own fields need the check.
+    const merged: Record<string, unknown> = { ...existing, ...fields };
+    merged['id'] = id;
+    let next: Row = merged as Row;
+    for (const key in fields) {
+      if (fields[key] === undefined) {
+        next = dropUndefined(merged);
+        break;
+      }
+    }
     this.checkValid(table, next, existing);
-    const partition = this.partitionForWrite(table, next, this.storage.get(table, id));
-    this.journalWrite(context.journal, table, id, { record: next, partition }, true);
+    // M-1: the entry read once above serves the partition, the journal and the storage write.
+    const partition = this.partitionForWrite(table, next, stored);
+    this.journalWrite(context.journal, table, id, { record: next, partition }, true, stored);
   }
 
   /** @internal */
@@ -567,21 +623,32 @@ export class MemoryDocumentStore implements DocumentStore {
   txSoftDelete(context: TxContext, table: string, id: string, deleted: boolean): void {
     const op = deleted ? 'softDelete' : 'restore';
     if (!isSoftDeletable(table)) throw new EkzaError('unsupported', `${op}(${table}): the table has no soft delete`);
-    const existing = this.require(table, id, op);
+    const stored = this.requireEntry(table, id, op);
+    const existing = stored.record;
     if (hasTombstone(existing) === deleted) return;
     const next: Row = { ...existing, deleted: deleted ? { by: this.user, at: this.now() } : null };
-    const partition = this.partitionForWrite(table, next, this.storage.get(table, id));
-    this.journalWrite(context.journal, table, id, { record: next, partition }, true);
+    const partition = this.partitionForWrite(table, next, stored);
+    this.journalWrite(context.journal, table, id, { record: next, partition }, true, stored);
   }
 
   private require(table: string, id: string, op: string): Row {
-    const existing = this.visibleRaw(table, id);
-    if (existing === undefined) throw new EkzaError('invalid-record', `${op}(${table}, ${id}): no such record`);
-    return existing;
+    return this.requireEntry(table, id, op).record;
+  }
+
+  /** The stored entry of a visible record (soft-deleted included), or `invalid-record`. */
+  private requireEntry(table: string, id: string, op: string): Entry {
+    const entry = this.storage.get(table, id);
+    if (entry === undefined || !this.openSet.has(entry.partition)) {
+      throw new EkzaError('invalid-record', `${op}(${table}, ${id}): no such record`);
+    }
+    return entry;
   }
 
   /** Throws for problems the write introduces; problems the stored record already had are tolerated. */
   private checkValid(table: string, next: Row, previous: Row | undefined): void {
+    // M-1: a key rewritten with only a new finite time or value (every key of a drag, every frame) introduces no
+    // problem: key fields are checked one by one, so its other fields have exactly the problems they had.
+    if (table === 'keys' && previous !== undefined && onlyNewTimeOrValue(previous, next)) return;
     const problems = validateAny(table, next);
     if (problems.length === 0) return;
     const known = previous === undefined ? new Set<string>() : new Set(validateAny(table, previous));
@@ -596,19 +663,21 @@ export class MemoryDocumentStore implements DocumentStore {
 
   // ---------- journal mechanics ----------
 
+  /** `prev` is the stored entry when the caller has just read it (M-1: one lookup per write); omitted, it is read. */
   private journalWrite(
     journal: Journal,
     table: string,
     id: string,
     next: Entry | undefined,
     implicitOpen: boolean,
+    prev: Entry | undefined = this.storage.get(table, id),
   ): void {
-    const key = rowKey(table, id);
-    const prev = this.storage.get(table, id);
-    const first = !journal.originals.has(key);
-    if (first) journal.originals.set(key, { table, id, original: prev });
+    const journaled = journal.get(table, id);
+    const first = journaled === undefined;
+    if (first) journal.add({ table, id, original: prev, shown: NOT_SHOWN, current: next });
+    else journaled.current = next;
     journal.ops.push({ table, id, prev, first });
-    this.storage.set(table, id, next);
+    this.storage.write(table, id, prev, next);
     if (!implicitOpen || next === undefined) return;
     this.openImplicitly(journal, next.partition);
     // A new character or clip owns a partition that has nothing to load yet: open it too, so nothing it implies is
@@ -630,15 +699,22 @@ export class MemoryDocumentStore implements DocumentStore {
       const op = journal.ops[i];
       if (op === undefined) continue;
       this.storage.set(op.table, op.id, op.prev);
-      if (op.first) journal.originals.delete(rowKey(op.table, op.id));
+      if (op.first) journal.remove(op.table, op.id);
+      else {
+        const journaled = journal.get(op.table, op.id);
+        if (journaled !== undefined) journaled.current = op.prev;
+      }
     }
     journal.ops.length = savepoint.ops;
   }
 
   /** Restores every touched record to its committed state (preview conflicts included). */
   private revert(journal: Journal): void {
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       this.storage.set(original.table, original.id, original.original);
+      original.current = original.original;
     }
   }
 
@@ -647,7 +723,9 @@ export class MemoryDocumentStore implements DocumentStore {
    * before its rig in one transaction got `scene` provisionally). Records that kept their rig keep their partition.
    */
   private resolvePartitions(journal: Journal, implicitOpen = true): void {
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       if (!isRigScoped(original.table)) continue;
       const entry = this.storage.get(original.table, original.id);
       if (entry === undefined) continue;
@@ -662,7 +740,9 @@ export class MemoryDocumentStore implements DocumentStore {
   /** Net change of every touched record, in first-touch order. */
   private collect(journal: Journal): CommittedChange[] {
     const out: CommittedChange[] = [];
-    for (const original of journal.originals.values()) {
+    const ordered = journal.ordered;
+    for (let i = 0; i < ordered.length; i++) {
+      const original = ordered[i] as JournalOriginal;
       const current = this.storage.get(original.table, original.id);
       const before = original.original?.record;
       const after = current?.record;
@@ -701,8 +781,8 @@ export class MemoryDocumentStore implements DocumentStore {
     if (changes.length > 0) this.emit(this.makeBatch('load', 'Open partitions', this.user, changes));
   }
 
-  private beginContext(kind: TxContext['kind'], label: string): TxContext {
-    const context = new TxContext(this, kind, label);
+  private beginContext(kind: TxContext['kind'], label: string, journal?: Journal): TxContext {
+    const context = new TxContext(this, kind, label, journal);
     this.current = context;
     return context;
   }
@@ -815,7 +895,7 @@ export class MemoryDocumentStore implements DocumentStore {
   // ---------- storage hook ----------
 
   private onStorageWrite(table: string, id: string, prev: Entry | undefined, next: Entry | undefined): void {
-    this.listCache.delete(table);
+    if (this.listCache.size !== 0) this.listCache.delete(table);
     if (prev?.record !== next?.record) this.references.onWrite(table, id, prev?.record, next?.record);
     this.query.onWrite(table, id, prev, next);
   }
@@ -850,10 +930,17 @@ export class MemoryDocumentStore implements DocumentStore {
       tables[table] = rows;
       tableVersions[table] = getTableDef(table)?.version ?? this.loadedTableVersions[table] ?? 1;
     }
+    // M2A-SPEC §4.2 snapshot rule: the content decides (2 with an enabled ik2 solver), and a loaded future document
+    // keeps its own, newer value (it stays read-only in this build).
+    const loaded = this.loadedMinWriterVersion;
+    const minWriterVersion = Math.max(
+      requiredWriterVersion(tables as unknown as SnapshotTables),
+      loaded > SCHEMA_VERSION ? loaded : 1,
+    );
     return {
       format: SNAPSHOT_FORMAT,
       schemaVersion: SCHEMA_VERSION,
-      minWriterVersion: this.minWriterVersion,
+      minWriterVersion,
       tableVersions,
       tables: tables as unknown as SnapshotTables,
     };
@@ -905,7 +992,7 @@ export class MemoryDocumentStore implements DocumentStore {
       for (const [id] of this.storage.entries(table)) this.openSet.add(ownedPartition(table, id) as Partition);
     }
 
-    this.minWriterVersion = snapshot.minWriterVersion;
+    this.loadedMinWriterVersion = snapshot.minWriterVersion;
     this.loadedTableVersions = { ...snapshot.tableVersions };
     const newerTable = Object.entries(snapshot.tableVersions).some(([table, version]) => {
       const def = getTableDef(table);

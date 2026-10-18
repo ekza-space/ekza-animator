@@ -8,6 +8,9 @@
 // | no keys          | curve + key  | 'all' → curve + key, else static value    | static value         | static   |
 //
 // Locked and non-keyable channels are skipped and reported (callers show one toast; the gesture helper does).
+// M2a (M2A-SPEC §5.1): '@name' attribute channels follow the same table (keyable by `AttrDef.keyable`, never
+// locked); a new key on a `stepped` attribute gets in 'flat', out 'step'. Values are written as given: attribute
+// ranges are clamped where values are produced (virtual slider, tween) or consumed (the ik2 op), never here.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza-animator/doc';
 import { internalsOf } from '../app/internals';
@@ -17,7 +20,7 @@ import { type OverrideLocation, overrideDelta, sameLocation } from '../history/o
 import { activeLocation, ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type { ChannelEdit, ChannelEditGesture, ChannelEditResult, EditorApp, KeyPolicy, OverrideDelta } from '../types';
-import { isKeyable, isLocked } from './channelMeta';
+import { isKeyable, isLocked, newKeyTangents } from './channelMeta';
 import { currentClipFrame, ensureBaseLayer } from './context';
 import { ensureCurve, writeKeyAt } from './keys';
 
@@ -87,7 +90,7 @@ export function applyChannelEdits(
     switch (outcomeFor(hasKeys, opts.key, prefs.autoKey, prefs.autoKeyMode)) {
       case 'key': {
         const curveId = curve?.id ?? ensureCurve(app, tx, clip.id, control.id, edit.channel);
-        writeKeyAt(app, tx, curveId, frame, edit.value, prefs.defaultTangents);
+        writeKeyAt(app, tx, curveId, frame, edit.value, newKeyTangents(control, edit.channel, prefs.defaultTangents));
         keyed++;
         clear(control.id, edit.channel);
         break;
@@ -148,11 +151,17 @@ function sameValues(a: ChannelValues, b: ChannelValues): boolean {
   return keys.length === Object.keys(b).length && keys.every((key) => Object.is(a[key], b[key]));
 }
 
+let nextChannelGesture = 0;
+
 /**
  * One interactive channel edit (manipulator drag, Channel Box scrub): a preview session whose updates re-apply
  * `applyChannelEdits` from the gesture's starting overrides, committed as ONE document transaction and ONE editor
  * history step (doc entry and override delta). `cancel` — or a preview cancelled by someone else (Esc) — restores
  * the document and the overrides.
+ *
+ * M2a (M2A-SPEC §4.5, M-1 mechanism 1): updates are coalesced through `app.scheduleBeforeFrame`, so several pointer
+ * moves within one animation frame cost one preview update (synchronous in Node); `commit` applies a pending update
+ * first, `cancel` drops it.
  */
 export function beginChannelEditGesture(
   app: EditorApp,
@@ -166,10 +175,13 @@ export function beginChannelEditGesture(
   const where = activeLocation(app);
   const skipped = new Set<string>();
   const gestures = internalsOf(app).gestures;
+  const taskKey = `channelEditGesture:${nextChannelGesture++}`;
   let active = true;
+  let pending: readonly ChannelEdit[] | null = null;
 
   const finish = (): void => {
     active = false;
+    pending = null;
     gestures.delete(gesture);
     unsubscribe();
   };
@@ -188,17 +200,12 @@ export function beginChannelEditGesture(
     },
     update(edits: readonly ChannelEdit[]): void {
       if (!active) return;
-      if (!preview.active) {
-        abandon();
-        return;
-      }
-      app.session.setState({ overrides: startOverrides });
-      preview.update((tx) => {
-        const result = applyChannelEdits(app, tx, edits, opts);
-        for (const s of result.skipped) skipped.add(`${s.control}\u0000${s.channel}\u0000${s.reason}`);
-      });
+      pending = edits;
+      app.scheduleBeforeFrame(taskKey, applyPending);
     },
     commit(): void {
+      if (!active) return;
+      applyPending();
       if (!active) return;
       if (!preview.active) {
         abandon();
@@ -244,6 +251,21 @@ export function beginChannelEditGesture(
       app.session.setState({ overrides: startOverrides });
     },
   };
+  /** The latest pending update, re-applied from the starting overrides (the M1 update body). */
+  function applyPending(): void {
+    const edits = pending;
+    pending = null;
+    if (!active || edits === null) return;
+    if (!preview.active) {
+      abandon();
+      return;
+    }
+    app.session.setState({ overrides: startOverrides });
+    preview.update((tx) => {
+      const result = applyChannelEdits(app, tx, edits, opts);
+      for (const s of result.skipped) skipped.add(`${s.control}\u0000${s.channel}\u0000${s.reason}`);
+    });
+  }
   gestures.add(gesture);
   return gesture;
 }

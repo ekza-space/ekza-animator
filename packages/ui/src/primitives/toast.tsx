@@ -12,6 +12,7 @@ export function ToastViewport({
 }: ComponentPropsWithRef<typeof ToastPrimitive.Viewport>): JSX.Element {
   return (
     <ToastPrimitive.Viewport
+      data-ekza-toast-viewport=""
       className={cn(
         'fixed right-4 bottom-[calc(var(--size-helpline)+var(--size-timeline)+var(--size-rangebar)+12px)] z-(--z-toast)',
         'm-0 flex w-[min(380px,calc(100vw-32px))] list-none flex-col gap-2 p-0 outline-none',

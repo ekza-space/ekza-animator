@@ -47,7 +47,8 @@ export function makeProject(fields?: Partial<ProjectRecord>): ProjectRecord {
       id: 'project',
       name: 'Untitled',
       schemaVersion: SCHEMA_VERSION,
-      minWriterVersion: SCHEMA_VERSION,
+      // M2A-SPEC §4.2 item 3: a fresh document needs no newer reader than schema 1 (no ik2 solver yet).
+      minWriterVersion: 1,
       sceneFps: DEFAULT_FPS,
       sceneRange: DEFAULT_RANGE,
       units: 'm',

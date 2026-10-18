@@ -15,6 +15,7 @@ import type {
 } from '@ekza-animator/doc';
 import {
   type ChannelRef,
+  channelUnit,
   type EvaluationService,
   type KeyFieldsArgs,
   type KeyPartSelection,
@@ -161,13 +162,24 @@ export interface SelectedKey {
 
 export function selectedKeys(store: DocumentStore, selection: ReadonlyMap<KeyId, KeyPartSelection>): SelectedKey[] {
   const out: SelectedKey[] = [];
+  // The channel's display unit (M2A-SPEC §5.1 rule 5): angle attributes show degrees like rotations and the canvas.
+  // One control lookup per curve, not per key.
+  const scales = new Map<CurveId, number>();
   for (const [id, parts] of selection) {
     if (!parts.key && !parts.in && !parts.out) continue;
     const key = store.get('keys', id);
     const curve = key === undefined ? undefined : store.get('curves', key.curve);
     const clip = key === undefined ? undefined : store.get('clips', key.clip);
     if (key === undefined || curve === undefined || clip === undefined) continue;
-    out.push({ key, curve, parts, scale: channelDisplayScale(curve.channel), fps: clip.fps });
+    let scale = scales.get(curve.id);
+    if (scale === undefined) {
+      scale = channelDisplayScale(
+        curve.channel,
+        channelUnit(store.get('controls', curve.control) ?? null, curve.channel),
+      );
+      scales.set(curve.id, scale);
+    }
+    out.push({ key, curve, parts, scale, fps: clip.fps });
   }
   return out;
 }

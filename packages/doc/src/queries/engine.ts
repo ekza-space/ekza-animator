@@ -79,6 +79,14 @@ export class QueryEngine implements DocQueries {
   private readonly controlsByRigKey = new MultiIndex();
 
   private readonly keyCache = new Map<string, KeyProjection>();
+  /**
+   * Curves whose key projection a key write made stale, dropped from `keyCache` before the next projection read
+   * (M2A-SPEC §5.21.1 M-1 mechanism 3: once per curve and batch of writes, not once per key). Curve writes still
+   * drop their channel's projection at once, so a deferred drop always finds the curve's current group.
+   */
+  private readonly staleKeyCurves = new Set<string>();
+  /** The curve last added to `staleKeyCurves` (a batch writes runs of keys of one curve: one Set add per run). */
+  private lastStaleCurve: string | undefined = undefined;
   private readonly clipCurvesCache = new Map<string, readonly CurveRecord[]>();
   private readonly controlCurvesCache = new Map<string, readonly CurveRecord[]>();
   private readonly layersCache = new Map<string, readonly LayerRecord[]>();
@@ -98,11 +106,14 @@ export class QueryEngine implements DocQueries {
     const before = prev?.record;
     const after = next?.record;
     switch (table) {
-      case 'keys':
-        this.relink(this.keysByCurve, str(before, 'curve'), str(after, 'curve'), id);
-        this.dropKeyGroupOfCurve(str(before, 'curve'));
-        this.dropKeyGroupOfCurve(str(after, 'curve'));
+      case 'keys': {
+        const from = str(before, 'curve');
+        const to = str(after, 'curve');
+        this.relink(this.keysByCurve, from, to, id);
+        if (from !== undefined && from !== this.lastStaleCurve) this.markStale(from);
+        if (to !== undefined && to !== from && to !== this.lastStaleCurve) this.markStale(to);
         break;
+      }
       case 'curves':
         this.relink(this.curvesByGroup, before && groupOf(before), after && groupOf(after), id);
         this.relink(this.curvesByClip, str(before, 'clip'), str(after, 'clip'), id);
@@ -145,6 +156,8 @@ export class QueryEngine implements DocQueries {
 
   /** Drops every cached result (partition visibility changed). Indexes stay valid. */
   invalidateAll(): void {
+    this.staleKeyCurves.clear();
+    this.lastStaleCurve = undefined;
     this.keyCache.clear();
     this.clipCurvesCache.clear();
     this.controlCurvesCache.clear();
@@ -183,10 +196,20 @@ export class QueryEngine implements DocQueries {
     if (b !== undefined) cache.delete(b);
   }
 
-  private dropKeyGroupOfCurve(curve: string | undefined): void {
-    if (curve === undefined) return;
-    const record = this.storage.get('curves', curve)?.record;
-    if (record !== undefined) this.keyCache.delete(groupOf(record));
+  private markStale(curve: string): void {
+    this.staleKeyCurves.add(curve);
+    this.lastStaleCurve = curve;
+  }
+
+  /** Applies the deferred key-projection drops (see `staleKeyCurves`). */
+  private dropStaleKeyGroups(): void {
+    if (this.staleKeyCurves.size === 0) return;
+    for (const curve of this.staleKeyCurves) {
+      const record = this.storage.get('curves', curve)?.record;
+      if (record !== undefined) this.keyCache.delete(groupOf(record));
+    }
+    this.staleKeyCurves.clear();
+    this.lastStaleCurve = undefined;
   }
 
   // ---------- visibility ----------
@@ -211,6 +234,7 @@ export class QueryEngine implements DocQueries {
   // ---------- curves and keys ----------
 
   private projection(group: string): KeyProjection {
+    this.dropStaleKeyGroups();
     const cached = this.keyCache.get(group);
     if (cached !== undefined) return cached;
     const curves = this.liveAll('curves', this.curvesByGroup.get(group)) as unknown as CurveRecord[];

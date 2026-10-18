@@ -7,8 +7,13 @@
 //   hips position (`hipsPosition`). Tracks in `requiredTracks` are always written.
 // - LINEAR at every frame; STEP at the frames of `stepSchedule` for fully stepped tracks. Unit quaternions with
 //   hemisphere continuity; loop closure copies the first pose to the last sample; constant tracks collapse to 2 keys.
-// - rootMotion 'in-place' locks X/Z of `inPlaceNode` to its rest position in canonical space before the conversion to
-//   a raw local (humanoid target: the hips position).
+// - rootMotion 'in-place' removes the clip's travel: the X/Z displacement of `inPlaceNode` (humanoid target: the hips
+//   position) in canonical space from the first to the last frame of the range, spread linearly over the range, before
+//   the conversion to a raw local. Motion relative to the travel (hip sway against IK-planted feet) is kept, so a clip
+//   that ends where it starts exports the editor's motion (acceptance fix round 1; M1 locked X/Z to rest, which
+//   deleted the sway and slid planted feet sideways in the file).
+// - M2a §5.16: with `reduce`, the finished tracks go through the error-bounded export reduction (`reduceBakedClip`)
+//   and the clip carries its `reduction` stats; without it the output is the M1 bake, byte for byte.
 import {
   EkzaError,
   type Frame,
@@ -21,15 +26,11 @@ import {
 import type { DerivedFrom } from '@ekza-animator/doc';
 import { HUMAN_BONE_NAMES, type PoseBuffers, type RigProgram, type TrackKey } from '@ekza-animator/rig';
 import { restWorlds } from '../skeleton/rest';
-import type {
-  BakedClip,
-  BakedTrack,
-  BakeOptions,
-  EkzaAnimationV1,
-  EkzaClipMetaV1,
-  LintIssue,
-  PoseSource,
-} from '../types';
+import { clipFramesToSeconds, normalizeClipMeta } from './meta';
+import { reduceBakedClip } from './reduce';
+
+export { clipFramesToSeconds, normalizeClipMeta } from './meta';
+import type { BakedClip, BakedTrack, BakeOptions, EkzaAnimationV1, LintIssue, PoseSource } from '../types';
 
 type TrackPath = BakedTrack['path'];
 const PATHS: readonly TrackPath[] = ['translation', 'rotation', 'scale'];
@@ -40,12 +41,13 @@ const COMPONENTS: Readonly<Record<TrackPath, number>> = { translation: 3, rotati
 export const REST_EPSILON = 1e-6;
 /** Samples equal within this (per component, after continuity) make a constant track. */
 export const CONSTANT_EPSILON = 1e-7;
+/**
+ * Root motion 'in-place' leaves a clip whose in-place node travels at most this far (metres, per X/Z component) over
+ * the range untouched: below float32 resolution at a metre, and loop clips end where they start up to rounding.
+ */
+export const TRAVEL_EPSILON = 1e-7;
 /** `bake.large-rotation-step` fires above this angle between consecutive samples. */
 export const LARGE_STEP_RAD = Math.PI / 2;
-
-export function clipFramesToSeconds(frames: Frame, fps: { readonly num: number; readonly den: number }): number {
-  return (frames * fps.den) / fps.num;
-}
 
 /** `${node}/${path}` (rig TrackKey). */
 export function trackKey(node: number, path: TrackPath): TrackKey {
@@ -65,8 +67,51 @@ interface TrackPlan {
   readonly step: readonly Frame[] | null;
 }
 
-/** Reads one track's value at the current pose into `out` (float64, unnormalized for rotations). */
-type Reader = (pose: PoseBuffers, node: number, path: TrackPath, out: Float64Array) => void;
+/**
+ * Reads one track's value at the current pose into `out` (float64, unnormalized for rotations). `frame` is the clip
+ * frame the pose was evaluated at (root motion 'in-place' removes the travel up to it).
+ */
+type Reader = (pose: PoseBuffers, node: number, path: TrackPath, out: Float64Array, frame: Frame) => void;
+
+/** X/Z travel of the in-place node over the range, removed linearly by root motion 'in-place'. */
+interface Travel {
+  readonly start: Frame;
+  readonly span: number;
+  readonly x: number;
+  readonly z: number;
+}
+
+/** Travel removed at clip frame `frame` along canonical axis 0 (x) or 2 (z). */
+function travelAt(travel: Travel | null, frame: Frame, axis: 0 | 2): number {
+  if (travel === null || !(travel.span > 0)) return 0;
+  const u = (frame - travel.start) / travel.span;
+  return (axis === 0 ? travel.x : travel.z) * u;
+}
+
+/**
+ * The in-place node's canonical X/Z displacement from the range's first to its last frame (the hips position on the
+ * humanoid target); null when the clip does not travel (within TRAVEL_EPSILON: the bake then reads the pose
+ * unchanged, so the file equals root motion 'hips').
+ */
+function measureTravel(source: PoseSource, opts: BakeOptions, humanoid: boolean): Travel | null {
+  if (opts.rootMotion !== 'in-place') return null;
+  const { start, end } = opts.range;
+  if (!(end > start)) return null;
+  const node = humanoid ? null : opts.inPlaceNode;
+  if (!humanoid && node === null) return null;
+  const pose = source.program.allocPose();
+  const xz = (frame: Frame): [number, number] => {
+    source.evaluate(frame, pose);
+    if (node === null) return [pose.hipsPosition[0] as number, pose.hipsPosition[2] as number];
+    return [pose.boneWorld[node * 16 + 12] as number, pose.boneWorld[node * 16 + 14] as number];
+  };
+  const [x0, z0] = xz(start);
+  const [x1, z1] = xz(end);
+  const x = x1 - x0;
+  const z = z1 - z0;
+  if (!(Math.abs(x) > TRAVEL_EPSILON) && !(Math.abs(z) > TRAVEL_EPSILON)) return null;
+  return { start, span: end - start, x, z };
+}
 
 export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
   const program = source.program;
@@ -80,18 +125,18 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
   const hipsNode = skeleton.humanoid?.hips;
   const restHipsPosition: [number, number, number] | null =
     humanoid && hipsNode !== undefined ? [...(worldsAtRest[hipsNode]?.t ?? [0, 0, 0])] : null;
-  const inPlace = opts.rootMotion === 'in-place';
+  const travel = measureTravel(source, opts, humanoid);
 
   // Dense samples of every candidate track (float64), one evaluation per frame.
   const candidates = candidateTracks(program, opts);
-  const read = humanoid ? readHumanoid(restHipsPosition, inPlace) : readRaw(program, inPlace ? opts.inPlaceNode : null);
+  const read = humanoid ? readHumanoid(travel) : readRaw(program, travel === null ? null : opts.inPlaceNode, travel);
   const pose = program.allocPose();
   const dense = candidates.map((c) => new Float64Array(frameCount * COMPONENTS[c.path]));
   const scratch = new Float64Array(4);
   for (let f = 0; f < frameCount; f++) {
     source.evaluate(start + f, pose);
     candidates.forEach((c, i) => {
-      read(pose, c.node, c.path, scratch);
+      read(pose, c.node, c.path, scratch, start + f);
       (dense[i] as Float64Array).set(scratch.subarray(0, COMPONENTS[c.path]), f * COMPONENTS[c.path]);
     });
   }
@@ -122,7 +167,7 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
           extraPoses.set(frame, p);
         }
         const out = new Float64Array(4);
-        read(p, plan.node, plan.path, out);
+        read(p, plan.node, plan.path, out, frame);
         return out;
       },
       warnings,
@@ -131,7 +176,7 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
   );
   tracks.sort((a, b) => a.node - b.node || PATH_ORDER[a.path] - PATH_ORDER[b.path]);
 
-  return {
+  const baked: BakedClip = {
     name: opts.name,
     target: opts.target,
     fps: opts.fps,
@@ -149,6 +194,17 @@ export function bakeClip(source: PoseSource, opts: BakeOptions): BakedClip {
     }),
     warnings,
   };
+  const reduce = opts.reduce;
+  if (reduce === undefined || reduce === null) return baked;
+  // The keep frames are clip frames; the reducer counts frames from the clip's first sample.
+  const keep = new Map<TrackKey, readonly Frame[]>();
+  for (const [key, frames] of reduce.keep) {
+    keep.set(
+      key,
+      frames.filter((frame) => frame >= start && frame <= end).map((frame) => frame - start),
+    );
+  }
+  return reduceBakedClip(baked, { spec: reduce.spec, height: reduce.height, leverArm: reduce.leverArm, keep }).clip;
 }
 
 function validate(opts: BakeOptions, program: RigProgram): void {
@@ -205,21 +261,23 @@ function candidateTracks(program: RigProgram, opts: BakeOptions): Candidate[] {
   return [...out.values()];
 }
 
-function readRaw(program: RigProgram, inPlaceNode: number | null): Reader {
+function readRaw(program: RigProgram, inPlaceNode: number | null, travel: Travel | null): Reader {
   const nodes = program.skeleton.nodes;
-  const rest = restWorlds(program.skeleton);
   const facing = mat4Compose({ t: [0, 0, 0], q: program.skeleton.facing, s: [1, 1, 1] });
   const parentWorld = new Float64Array(16);
   const inverse = new Float64Array(16);
-  return (pose, node, path, out) => {
+  return (pose, node, path, out, frame) => {
     const o = node * 10;
     const b = pose.boneLocal;
     if (path === 'translation') {
       out[0] = b[o] as number;
       out[1] = b[o + 1] as number;
       out[2] = b[o + 2] as number;
-      if (node === inPlaceNode)
-        lockInPlace(pose, node, nodes[node]?.parent ?? -1, rest, facing, parentWorld, inverse, out);
+      if (node === inPlaceNode && travel !== null) {
+        const dx = travelAt(travel, frame, 0);
+        const dz = travelAt(travel, frame, 2);
+        removeTravel(pose, node, nodes[node]?.parent ?? -1, dx, dz, facing, parentWorld, inverse, out);
+      }
     } else if (path === 'rotation') {
       out[0] = b[o + 3] as number;
       out[1] = b[o + 4] as number;
@@ -233,21 +291,25 @@ function readRaw(program: RigProgram, inPlaceNode: number | null): Reader {
   };
 }
 
-/** Replaces `out` (the node's local translation) with the local translation whose canonical X/Z are at rest. */
-function lockInPlace(
+/**
+ * Replaces `out` (the node's local translation) with the local translation of the node's world position moved by
+ * (−dx, 0, −dz) in canonical space (the travel removed up to this frame).
+ */
+function removeTravel(
   pose: PoseBuffers,
   node: number,
   parent: number,
-  rest: readonly { readonly t: readonly number[] }[],
+  dx: number,
+  dz: number,
   facing: Float64Array,
   parentWorld: Float64Array,
   inverse: Float64Array,
   out: Float64Array,
 ): void {
   const w = pose.boneWorld;
-  const x = rest[node]?.t[0] ?? 0;
+  const x = (w[node * 16 + 12] as number) - dx;
   const y = w[node * 16 + 13] as number;
-  const z = rest[node]?.t[2] ?? 0;
+  const z = (w[node * 16 + 14] as number) - dz;
   if (parent === -1) parentWorld.set(facing);
   else parentWorld.set(w.subarray(parent * 16, parent * 16 + 16));
   if (mat4Invert(parentWorld, inverse) === null) return;
@@ -259,12 +321,12 @@ function lockInPlace(
     (inverse[2] as number) * x + (inverse[6] as number) * y + (inverse[10] as number) * z + (inverse[14] as number);
 }
 
-function readHumanoid(restHips: readonly number[] | null, inPlace: boolean): Reader {
-  return (pose, bone, path, out) => {
+function readHumanoid(travel: Travel | null): Reader {
+  return (pose, bone, path, out, frame) => {
     if (path === 'translation') {
-      out[0] = inPlace ? (restHips?.[0] ?? 0) : (pose.hipsPosition[0] as number);
+      out[0] = (pose.hipsPosition[0] as number) - travelAt(travel, frame, 0);
       out[1] = pose.hipsPosition[1] as number;
-      out[2] = inPlace ? (restHips?.[2] ?? 0) : (pose.hipsPosition[2] as number);
+      out[2] = (pose.hipsPosition[2] as number) - travelAt(travel, frame, 2);
     } else if (path === 'rotation') {
       out[0] = pose.humanLocal[bone * 4] as number;
       out[1] = pose.humanLocal[bone * 4 + 1] as number;
@@ -409,32 +471,6 @@ function strictlyIncreasing(times: readonly number[]): number[] {
     keep.push(i);
   }
   return keep;
-}
-
-/** Clip metadata with a fixed key order (deterministic JSON) and lowercase-hex hashes. */
-export function normalizeClipMeta(meta: EkzaClipMetaV1): EkzaClipMetaV1 {
-  return {
-    index: meta.index,
-    name: meta.name,
-    slot: meta.slot,
-    loop: meta.loop,
-    fps: meta.fps,
-    durationSeconds: meta.durationSeconds,
-    rootMotion: meta.rootMotion,
-    contactSeconds: meta.contactSeconds,
-    tags: [...meta.tags],
-    derivedFrom: meta.derivedFrom.map(normalizeDerivedFrom),
-    redistributable: meta.redistributable,
-  };
-}
-
-function normalizeDerivedFrom(d: DerivedFrom): DerivedFrom {
-  return {
-    title: d.title,
-    author: d.author,
-    license: d.license,
-    sourceSha256: d.sourceSha256 === null ? null : d.sourceSha256.toLowerCase(),
-  };
 }
 
 /** `asset.extras.ekza_animation_v1` for the given clips (ADR 0010 §2); clip indices follow the array order. */

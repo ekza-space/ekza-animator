@@ -4,7 +4,7 @@ import type { AssetId } from '@ekza-animator/doc';
 import type { GlbContainer } from '@ekza-animator/io';
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import type { KernelDeps } from '../app/deps';
-import { naiveCurveEngine } from './curves';
+import { naiveCycleAwareCurveEngine } from './curves';
 import {
   createNaiveClipSampler,
   createNaiveCurveCache,
@@ -27,11 +27,12 @@ export function naiveKernelDeps(skeleton: SkeletonDesc | null): KernelDeps {
       clipToSceneFrame: naiveClipToSceneFrame,
       wrapClipFrame: naiveWrapClipFrame,
     },
-    curves: { engine: naiveCurveEngine, insertKeyPreservingShape: naiveInsertKeyPreservingShape },
+    // The naive engine with the editor's option (M2A-SPEC §5.23: cycle-aware auto tangents on cyclic curves).
+    curves: { engine: naiveCycleAwareCurveEngine, insertKeyPreservingShape: naiveInsertKeyPreservingShape },
     rig: {
       readRigDefinition: naiveReadRigDefinition,
       compileRig: (def, skel) => createNaiveRigProgram(skel, def.rig, def.controls),
-      createCurveCache: (store) => createNaiveCurveCache(store),
+      createCurveCache: (store, engine) => createNaiveCurveCache(store, engine),
       createClipSampler: createNaiveClipSampler,
       applyOverrides: naiveApplyOverrides,
     },

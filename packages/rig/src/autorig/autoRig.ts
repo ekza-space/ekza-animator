@@ -2,12 +2,15 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { CharacterId, ReadView, RigId, RigRecord, Tx } from '@ekza-animator/doc';
 import { VRM_REQUIRED_BONES } from '../humanoid/bones';
 import { humanTemplateKey } from '../humanoid/map';
-import type { RigDefinition, SkeletonDesc } from '../types';
+import { limbIkRecords } from '../limb/records';
+import type { LimbId, RigDefinition, SkeletonDesc } from '../types';
 import { genericControlSpecs, secondaryControlSpecs } from './generic';
 import { humanoidControlSpecs } from './humanoid';
 import { type ControlSpec, materializeControls, restContext } from './spec';
 
 export const AUTORIG_VERSION: string = '0.2.0';
+/** Generator version of humanoid rigs that `autoRig(…, { ik })` gave limb IK (M2A-SPEC §8 A1). */
+const AUTORIG_IK_VERSION = '0.3.0';
 
 /** True when the skeleton maps every VRM-required humanoid bone (MVP-SPEC §4.11.6 step 8). */
 export function hasRequiredHumanoid(skeleton: SkeletonDesc): boolean {
@@ -23,11 +26,18 @@ export function hasRequiredHumanoid(skeleton: SkeletonDesc): boolean {
  * Generates a rig for a skeleton (MVP-SPEC §4.11.15). `kind: 'auto'` (default) builds the humanoid FK rig when the
  * skeleton maps the 15 VRM-required bones and the generic 1:1 FK rig otherwise; `secondary` (default true) adds
  * hidden secondary controls to humanoid rigs. Deterministic: control IDs are `${rig}:${templateKey}`.
+ *
+ * M2a (M2A-SPEC §5.2): `ik` adds limb IK records (`limbIkRecords`, legs `ikFk` 1, arms 0) for the requested limb
+ * kinds of a humanoid rig and marks the generator version 0.3.0; absent (or nothing added) = the M1 output.
  */
 export function autoRig(
   skeleton: SkeletonDesc,
   ids: { readonly character: CharacterId; readonly rig: RigId },
-  opts?: { readonly kind?: 'auto' | 'humanoid' | 'generic'; readonly secondary?: boolean },
+  opts?: {
+    readonly kind?: 'auto' | 'humanoid' | 'generic';
+    readonly secondary?: boolean;
+    readonly ik?: { readonly legs: boolean; readonly arms: boolean };
+  },
 ): RigDefinition {
   const requested = opts?.kind ?? 'auto';
   const humanoid = requested === 'humanoid' || (requested === 'auto' && hasRequiredHumanoid(skeleton));
@@ -62,7 +72,22 @@ export function autoRig(
     skeleton: { format: skeleton.format, fingerprint: skeleton.fingerprint, facing: skeleton.facing },
     deleted: null,
   };
-  return { rig, controls: materializeControls(specs, ids.rig), constraints: [], solvers: [] };
+  const def: RigDefinition = { rig, controls: materializeControls(specs, ids.rig), constraints: [], solvers: [] };
+  const ik = opts?.ik;
+  if (!humanoid || ik === undefined) return def;
+  const limbs: LimbId[] = [
+    ...(ik.legs ? (['leg.L', 'leg.R'] as const) : []),
+    ...(ik.arms ? (['arm.L', 'arm.R'] as const) : []),
+  ];
+  if (limbs.length === 0) return def;
+  const added = limbIkRecords(def, skeleton, { limbs, ikFkDefault: 'by-limb' });
+  if (added.solvers.length === 0) return def;
+  return {
+    rig: { ...rig, generator: { ...rig.generator, version: AUTORIG_IK_VERSION } },
+    controls: [...def.controls, ...added.controls],
+    constraints: [],
+    solvers: [...added.solvers],
+  };
 }
 
 /** The rig records of `rig` as a RigDefinition (soft-deleted records excluded); undefined when the rig is absent. */

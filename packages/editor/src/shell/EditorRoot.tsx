@@ -10,7 +10,6 @@ import { EditorAppProvider } from '../hooks';
 import type { PanelRegistry } from '../panels/types';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
-import { createTestApi } from '../test-api/createTestApi';
 import { detectPlatform, type EditorParams, parseEditorParams } from '../test-api/params';
 import { ShellProvider } from './context';
 import { createShell } from './createShell';
@@ -55,7 +54,11 @@ function boot(props: EditorRootProps): Boot {
   const { services, toasts } = createShellServices({
     decoderPath: props.decoderPath ?? '/decoders/',
     samplesPath: props.samplesPath ?? '/samples/',
-    storage: params.e2e ? 'memory' : 'local',
+    // e2e: a fresh in-memory namespace per page load (M1), or a named one that survives reloads (M2a `ns=`).
+    storage: params.e2e && params.ns === null ? 'memory' : 'local',
+    ...(params.ns === null ? {} : { storageNamespace: params.ns }),
+    ...(params.storageBlocked ? { storageBlocked: true } : {}),
+    pointerLock: params.pointerLock,
     onDownload: (record) => shell?.exports.recordDownload(record),
     ...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker }),
   });
@@ -112,13 +115,26 @@ function ReadyEditor(props: {
     };
   }, [shell]);
 
+  // The e2e test API is a lazy chunk (M2A-SPEC §5.21.2): production pages never load it. Specs wait for the global.
   useEffect(() => {
     if (!shell.params.e2e) return undefined;
-    const handle = createTestApi(shell);
-    window.__EKZA_ANIMATOR_TEST__ = handle.api;
+    let cancelled = false;
+    let uninstall: (() => void) | null = null;
+    import('../test-api/createTestApi')
+      .then(({ createTestApi }) => {
+        if (cancelled) return;
+        const handle = createTestApi(shell);
+        window.__EKZA_ANIMATOR_TEST__ = handle.api;
+        uninstall = () => {
+          if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
+          handle.dispose();
+        };
+      })
+      // The editor keeps working without it; the spec waiting for the global fails with this message in its log.
+      .catch((error: unknown) => console.error('Ekza Animator: the e2e test API could not be loaded', error));
     return () => {
-      if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
-      handle.dispose();
+      cancelled = true;
+      uninstall?.();
     };
   }, [shell]);
 

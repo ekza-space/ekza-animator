@@ -33,7 +33,8 @@ function fixedKey(t: Frame, v: number, inHandle: Handle, outHandle: Handle): Key
  */
 function slopeHandle(side: Side, length: number, slope: number): Handle {
   const dt = Math.max(length, MIN_HANDLE_DT);
-  return side === 'in' ? { dt: -dt, dv: -slope * dt } : { dt, dv: slope * dt };
+  // `0 ± x`: a flat slope gives +0, never −0 (a document must survive a JSON round trip; M2A-INT-16, fix round 1).
+  return side === 'in' ? { dt: -dt, dv: 0 - slope * dt } : { dt, dv: 0 + slope * dt };
 }
 
 function sideType(key: KeyData, side: Side): TangentType {
@@ -158,8 +159,8 @@ export function insertKeyPreservingShape(
     const handle = (side: Side, s: number, outer: boolean): Handle =>
       weighted && !outer
         ? side === 'in'
-          ? { dt: -gap, dv: -s * gap }
-          : { dt: gap, dv: s * gap }
+          ? { dt: -gap, dv: 0 - s * gap }
+          : { dt: gap, dv: 0 + s * gap }
         : slopeHandle(side, gap, s);
     inserted = fixedKey(frame, value, handle('in', slope, before), handle('out', slope, !before));
     const mode = before ? pre : post;

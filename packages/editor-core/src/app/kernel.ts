@@ -6,7 +6,7 @@
 //   session time  ──► keeper (drop overrides of moved characters) ─► evaluation ─► requestFrame
 //   prefs         ──► storage (persisted) ─► keymap (user overrides, Space behaviour)
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-animator/doc';
+import type { AnyChange, CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-animator/doc';
 import { setDefaultIdSource } from '@ekza-animator/doc';
 import type { ExportProfileDef } from '@ekza-animator/io';
 import { createStore } from 'zustand/vanilla';
@@ -18,6 +18,7 @@ import { createEditorHistory } from '../history/history';
 import { createKeymapManager, preferenceBindings } from '../keymap/manager';
 import type { OperatorMap } from '../operators/args';
 import { registerBuiltins } from '../operators/builtin';
+import { pruneCurveBuffers } from '../operators/builtin/graphBuffer';
 import { createOperatorRegistry } from '../operators/registry';
 import { createOperatorRunner } from '../operators/runner';
 import { createPlaybackClock } from '../playback/clock';
@@ -70,9 +71,42 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
   const idSource = opts.idSource ?? null;
   if (idSource !== null) setDefaultIdSource(idSource);
   const disposers: Disposer[] = [];
+  // M2A-SPEC §5.3: the built-in rig ops (ik2, A1) are registered before the first rig compiles.
+  const disposeRigOps = deps.rig.registerBuiltinRigOps?.() ?? null;
 
   let frameRequester: () => void = () => {};
+  /** False until a host installs a frame requester: then `scheduleBeforeFrame` runs tasks synchronously (Node). */
+  let hasFrameRequester = false;
   const requestFrame = (): void => frameRequester();
+
+  // ---------- tasks before the next frame (M2A-SPEC §4.5, M-1 mechanism 1) ----------
+  // Keyed: a later task with the same key replaces the pending one (keeps its place in the order). The frame loop
+  // runs them first (`flushScheduled`), so pointer moves coalesce to one preview update per animation frame.
+  const scheduled = new Map<string, () => void>();
+  const flushScheduled = (): void => {
+    let failure: { readonly error: unknown } | null = null;
+    // Tasks may schedule further tasks; those run in the same flush (bounded, so a task that reschedules itself
+    // forever cannot hang the frame).
+    for (let guard = 0; scheduled.size > 0 && guard < 10_000; guard++) {
+      const [key, task] = scheduled.entries().next().value as [string, () => void];
+      scheduled.delete(key);
+      try {
+        task();
+      } catch (error) {
+        failure ??= { error };
+      }
+    }
+    if (failure !== null) throw failure.error;
+  };
+  const scheduleBeforeFrame = (key: string, task: () => void): void => {
+    if (!hasFrameRequester) {
+      scheduled.delete(key);
+      task();
+      return;
+    }
+    scheduled.set(key, task);
+    requestFrame();
+  };
 
   // ---------- state ----------
   const initial = defaultSession(store.user);
@@ -155,12 +189,19 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       byClip.set(clip, character as CharacterId);
     }
     const ids = new Set<CharacterId>();
-    for (const change of batch.changes) {
+    // M-1: a drag batch is 1,000 key changes of one clip; each clip is looked up once per run.
+    let lastClip: unknown = null;
+    const changes = batch.changes;
+    for (let i = 0; i < changes.length; i++) {
+      const change = changes[i] as AnyChange;
       const row = (change.after ?? change.before) as Readonly<Record<string, unknown>> | undefined;
       if (row === undefined) continue;
       if (change.table === 'project') return null;
       if (change.table === 'keys' || change.table === 'curves' || change.table === 'layers') {
-        const owner = byClip.get(row['clip'] as string);
+        const clip = row['clip'];
+        if (clip === lastClip) continue;
+        lastClip = clip;
+        const owner = byClip.get(clip as string);
         if (owner !== undefined) ids.add(owner);
       } else if (change.table === 'clips') {
         const owner = byClip.get(change.id);
@@ -169,11 +210,21 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     }
     return ids;
   };
+  /** M2A-SPEC §5.15.1: deleting a curve drops its buffer (loads, undo and remote deletes included). */
+  const dropsCurves = (batch: ChangeBatch): boolean => {
+    if (batch.origin === 'load') return true;
+    for (const change of batch.changes) {
+      if (change.table !== 'curves') continue;
+      if (change.after === undefined || change.after.deleted !== null) return true;
+    }
+    return false;
+  };
   disposers.push(
     store.subscribe((batch) => {
       const ids = affectedCharacters(batch);
       if (ids === null) evaluation.invalidate();
       else if (ids.size > 0) evaluation.invalidate(ids);
+      if (session.getState().curveBuffers.size > 0 && dropsCurves(batch)) pruneCurveBuffers(app);
     }),
     session.subscribe((state, previous) => {
       if (state.overrides !== previous.overrides) {
@@ -253,17 +304,23 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     requestFrame,
     setFrameRequester(fn: () => void): void {
       frameRequester = fn;
+      hasFrameRequester = true;
     },
+    scheduleBeforeFrame,
+    flushScheduled,
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      scheduled.clear();
       for (const dispose of disposers.splice(0).reverse()) dispose();
       keeper.dispose();
       capture?.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();
+      disposeRigOps?.();
       frameRequester = () => {};
+      hasFrameRequester = false;
       if (idSource !== null) setDefaultIdSource(null);
     },
   };

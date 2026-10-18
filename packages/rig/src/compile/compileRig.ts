@@ -1,11 +1,15 @@
-import type { ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import type { BoneRef, ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import { restWorlds } from '../humanoid/rest';
+import { bendOf, restBand } from '../ik/core';
 import { OP_BONE, OP_CONTROL, OP_CUSTOM } from '../kernel/constants';
 import type { ScheduledRigOp } from '../kernel/internals';
 import { lookupRigOp, type RigOpImpl, type RigOpKind } from '../kernel/ops';
 import { createProgram } from '../kernel/program';
-import type { RigDefinition, RigProgram, RigWarning, SkeletonDesc } from '../types';
+import { buildLimbDesc } from '../limb/ik2';
+import { LIMB_TEMPLATES } from '../limb/template';
+import type { LimbDesc, RigDefinition, RigOpCompileContext, RigProgram, RigWarning, SkeletonDesc } from '../types';
 import { createBoneResolver } from './bones';
-import { buildInternals } from './build';
+import { buildAttrSlots, buildInternals } from './build';
 import { type SortNode, topologicalSort } from './schedule';
 import { checkRig } from './warnings';
 
@@ -35,6 +39,10 @@ interface PendingOp {
  * cycles, schedules `controlWorld`, constraint/solver and bone ops by a Kahn sort with a `(opKindPriority, id)`
  * tie-break, and precomputes offsets and bind offsets. The schedule never depends on record order, and the
  * compiler never throws on document content: every repair is reported in `program.warnings`.
+ *
+ * Order (M2A-SPEC §5.4 rule 1): attribute slots first (schedule-independent), then the ops' `reads`/`writes` with a
+ * `RigOpCompileContext`, the schedule, `createProgram`, and last each op's optional `compile` with the finished
+ * program (its result is the op's run-time `state`; a throw skips the op and warns).
  */
 export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgram {
   const warnings: RigWarning[] = [];
@@ -42,6 +50,7 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
 
   const controls = liveRecords(def.controls, rigId, 'control', warnings);
   const byId = new Map<ControlId, ControlRecord>(controls.map((control) => [control.id, control]));
+  const attrs = buildAttrSlots(controls);
 
   const entries: GraphEntry[] = [];
   const nodes: SortNode[] = [];
@@ -103,9 +112,17 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
   }
   const drivenBy = new Map<ControlId, number>();
   for (const [node, control] of driverOf) drivenBy.set(control.id, node);
+  const context = compileContext(skeleton, byId, children, resolve, attrs.index);
   const pending: PendingOp[] = [
-    ...collectOps('constraint', liveRecords(def.constraints, rigId, 'constraint', warnings), byId, skeleton, warnings),
-    ...collectOps('solver', liveRecords(def.solvers, rigId, 'solver', warnings), byId, skeleton, warnings),
+    ...collectOps(
+      'constraint',
+      liveRecords(def.constraints, rigId, 'constraint', warnings),
+      byId,
+      skeleton,
+      warnings,
+      context,
+    ),
+    ...collectOps('solver', liveRecords(def.solvers, rigId, 'solver', warnings), byId, skeleton, warnings, context),
   ];
   const opEntries: number[] = [];
   for (const op of pending) {
@@ -115,17 +132,23 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
     nodes.push({ priority: op.kind === 'constraint' ? PRIORITY_CONSTRAINT : PRIORITY_SOLVER, key: op.record.id });
     for (const id of op.readsControls) edges.push([controlEntry.get(id) as number, entry]);
     for (const node of op.readsNodes) edges.push([boneEntry[node] as number, entry]);
+    // §5.4 rule 2: an op runs after the worlds it overwrites and before the children it does not overwrite, so an
+    // op may write a parent together with its children (a limb's whole subtree) without closing a cycle.
+    const writtenControls = new Set(op.writesControls);
+    const writtenNodes = new Set(op.writesNodes);
     for (const id of op.writesControls) {
       edges.push([controlEntry.get(id) as number, entry]);
-      for (const child of children.get(id) ?? []) edges.push([entry, controlEntry.get(child) as number]);
+      for (const child of children.get(id) ?? []) {
+        if (!writtenControls.has(child)) edges.push([entry, controlEntry.get(child) as number]);
+      }
       const node = drivenBy.get(id);
-      if (node !== undefined) edges.push([entry, boneEntry[node] as number]);
+      if (node !== undefined && !writtenNodes.has(node)) edges.push([entry, boneEntry[node] as number]);
     }
     for (const node of op.writesNodes) {
       edges.push([boneEntry[node] as number, entry]);
-      skeleton.nodes.forEach((child, index) => {
-        if (child.parent === node) edges.push([entry, boneEntry[index] as number]);
-      });
+      for (const child of context.nodeChildren(node)) {
+        if (!writtenNodes.has(child)) edges.push([entry, boneEntry[child] as number]);
+      }
     }
   }
   // An op that writes a world another op reads runs first.
@@ -197,9 +220,16 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
         impl: entry.op.impl,
         writesControls: Int32Array.from(entry.op.writesControls.map((id) => slotOf.get(id) as number)),
         writesNodes: Int32Array.from(entry.op.writesNodes),
+        readsControls: Int32Array.from(entry.op.readsControls.map((id) => slotOf.get(id) as number)),
+        readsNodes: Int32Array.from(entry.op.readsNodes),
+        state: undefined,
+        skipped: false,
       });
     }
   }
+
+  // §5.4 rule 4: RigProgram.limbs lists the enabled ik2 solvers that scheduled, in solver-id order.
+  const limbs = buildLimbs(customOps, context, skeleton, warnings);
 
   const internals = buildInternals(
     {
@@ -208,11 +238,68 @@ export function compileRig(def: RigDefinition, skeleton: SkeletonDesc): RigProgr
       parents,
       schedule: { kind: Uint8Array.from(kinds), index: Int32Array.from(indices) },
       customOps,
+      attrs,
+      limbs,
     },
     warnings,
   );
   checkRig(internals, warnings);
-  return createProgram(rigId, internals, warnings);
+  const program = createProgram(rigId, internals, warnings);
+
+  // §5.4 rule 1, last step: each op's optional compile with the finished program.
+  for (const op of customOps) {
+    if (op.impl.compile === undefined) continue;
+    try {
+      op.state = op.impl.compile(op.record, { ...context, program });
+    } catch (error) {
+      op.skipped = true;
+      warnings.push({
+        code: 'unsupported-op',
+        message: `${op.record.id} (${op.record.type}) failed to compile: ${String(error)}; it is skipped`,
+        ids: [op.record.id],
+      });
+    }
+  }
+  return program;
+}
+
+/**
+ * The compile-time view handed to op implementations (M2A-SPEC §4.3): known before scheduling, so `reads`/`writes`
+ * may already use attribute slots. Control children are ordered by `order`, then id; node children by index.
+ */
+function compileContext(
+  skeleton: SkeletonDesc,
+  controls: ReadonlyMap<ControlId, ControlRecord>,
+  children: ReadonlyMap<ControlId, readonly ControlId[]>,
+  resolveBone: (ref: BoneRef) => number,
+  attrIndex: ReadonlyMap<string, number>,
+): RigOpCompileContext {
+  const sortedChildren = new Map<ControlId, readonly ControlId[]>();
+  for (const [parent, list] of children) {
+    sortedChildren.set(
+      parent,
+      [...list].sort((a, b) => {
+        const oa = controls.get(a)?.order ?? '';
+        const ob = controls.get(b)?.order ?? '';
+        if (oa !== ob) return oa < ob ? -1 : 1;
+        return a < b ? -1 : a > b ? 1 : 0;
+      }),
+    );
+  }
+  const nodeChildren: number[][] = skeleton.nodes.map(() => []);
+  skeleton.nodes.forEach((node, index) => {
+    const parent = node.parent;
+    if (Number.isInteger(parent) && parent >= 0 && parent < index) nodeChildren[parent]?.push(index);
+  });
+  const none: readonly never[] = [];
+  return {
+    skeleton,
+    controls,
+    resolveBone,
+    attrSlot: (control: ControlId, name: string): number => attrIndex.get(`${control}/@${name}`) ?? -1,
+    controlChildren: (control: ControlId): readonly ControlId[] => sortedChildren.get(control) ?? none,
+    nodeChildren: (node: number): readonly number[] => nodeChildren[node] ?? none,
+  };
 }
 
 function entryId(entry: GraphEntry): string {
@@ -258,6 +345,7 @@ function collectOps(
   controls: ReadonlyMap<ControlId, ControlRecord>,
   skeleton: SkeletonDesc,
   warnings: RigWarning[],
+  context: RigOpCompileContext,
 ): PendingOp[] {
   const ops: PendingOp[] = [];
   for (const record of records) {
@@ -274,8 +362,8 @@ function collectOps(
     let reads: ReturnType<RigOpImpl['reads']>;
     let writes: ReturnType<RigOpImpl['writes']>;
     try {
-      reads = impl.reads(record);
-      writes = impl.writes(record);
+      reads = impl.reads(record, context);
+      writes = impl.writes(record, context);
     } catch (error) {
       warnings.push({
         code: 'unsupported-op',
@@ -308,4 +396,68 @@ function collectOps(
     });
   }
   return ops;
+}
+
+/** A rest bend against the hinge beyond this warns (§5.2.1). */
+const HYPEREXTENDED_REST = (2 * Math.PI) / 180;
+
+/**
+ * LimbDesc of every scheduled `ik2` solver (§5.4 rule 4), in solver-id order (the schedule's custom ops are in
+ * schedule order). A host-registered `ik2` implementation whose params are not `Ik2Params` gets no limb. Warns for
+ * a hyperextended rest (§5.2.1, `asymmetric-rest` reused) and for a second solver on the same limb (the first in
+ * id order owns the limb's IK/FK state).
+ */
+function buildLimbs(
+  customOps: readonly ScheduledRigOp[],
+  context: RigOpCompileContext,
+  skeleton: SkeletonDesc,
+  warnings: RigWarning[],
+): LimbDesc[] {
+  const candidates = customOps
+    .filter((op) => op.record.type === 'ik2' && 'enabled' in op.record && !('target' in op.record))
+    .map((op) => op.record as SolverRecord)
+    .sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  if (candidates.length === 0) return [];
+  const rest = restWorlds(skeleton);
+  const limbs: LimbDesc[] = [];
+  for (const record of candidates) {
+    let limb: LimbDesc;
+    try {
+      limb = buildLimbDesc(record, context, rest);
+    } catch {
+      continue;
+    }
+    if (limbs.some((other) => other.id === limb.id)) {
+      warnings.push({
+        code: 'duplicate-binding',
+        message: `${record.id}: ${LIMB_TEMPLATES[limb.id].label} already has the IK solver ${limbs.find((o) => o.id === limb.id)?.solver}`,
+        ids: [record.id],
+      });
+    }
+    const { upper, mid, end } = limb.nodes;
+    const at = (node: number): [number, number, number] => [
+      rest.t[node * 3] as number,
+      rest.t[node * 3 + 1] as number,
+      rest.t[node * 3 + 2] as number,
+    ];
+    const a = at(upper);
+    const b = at(mid);
+    const c = at(end);
+    const u: [number, number, number] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+    const v: [number, number, number] = [c[0] - b[0], c[1] - b[1], c[2] - b[2]];
+    const k: [number, number, number] = [limb.params.hinge[0], limb.params.hinge[1], limb.params.hinge[2]];
+    const bend = bendOf(u, v, k, [0, 0, 0]);
+    if (bend < -HYPEREXTENDED_REST) {
+      const t = LIMB_TEMPLATES[limb.id];
+      const band = restBand(u, v, k);
+      const mm = (m: number): string => (m * 1000).toFixed(m < 1e-3 ? 2 : 1);
+      warnings.push({
+        code: 'asymmetric-rest',
+        message: `${t.label}: the rest pose bends the ${t.joint} ${((-bend * 180) / Math.PI).toFixed(1)}° against its hinge (hyperextended); IK straightens it towards full reach and passes to the normal bend over the first ${mm(band.depth)} mm closer than the rest, where the ${t.joint === 'knee' ? 'foot' : 'hand'} may pass its target by up to ${mm(band.overshoot)} mm`,
+        ids: [record.id],
+      });
+    }
+    limbs.push(limb);
+  }
+  return limbs;
 }

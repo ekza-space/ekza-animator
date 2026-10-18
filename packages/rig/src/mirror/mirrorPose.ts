@@ -83,7 +83,33 @@ export function mirrorChannels(
   for (let k = 0; k < 9; k++) {
     if (internals.keyable[to * 9 + k] === 1) out[SLOT_CHANNELS[k] as (typeof SLOT_CHANNELS)[number]] = all[k] as number;
   }
+  mirrorAttrs(internals.controls[from], internals.controls[to], values, out);
   return out;
+}
+
+/**
+ * Custom attributes (M2A-SPEC §5.8): every keyable attribute of the target that the source control also has takes
+ * the source's value (its `AttrDef.default` when `values` lacks it), negated when the target's `AttrDef.mirror` is
+ * 'negate' (twists), copied otherwise (roll, bank and `ikFk`: a mirrored pose carries the limb mode with it).
+ */
+function mirrorAttrs(
+  from: ControlRecord | undefined,
+  to: ControlRecord | undefined,
+  values: ChannelValues | undefined,
+  out: ChannelValues,
+): void {
+  const fromAttrs = from?.attrs;
+  const toAttrs = to?.attrs;
+  if (typeof fromAttrs !== 'object' || fromAttrs === null || typeof toAttrs !== 'object' || toAttrs === null) return;
+  for (const [name, def] of Object.entries(toAttrs)) {
+    const source = fromAttrs[name];
+    if (typeof def !== 'object' || def === null || def.keyable === false) continue;
+    if (typeof source !== 'object' || source === null) continue;
+    const given = values?.[`@${name}`];
+    const value = given !== undefined && Number.isFinite(given) ? given : source.default;
+    if (!Number.isFinite(value)) continue;
+    out[`@${name}`] = def.mirror === 'negate' ? 0 - value : value;
+  }
 }
 
 /**

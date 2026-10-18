@@ -26,6 +26,13 @@ export interface ExportRequestArgs {
   readonly includeConstantTracks?: boolean;
   readonly acknowledgeLicense?: boolean;
   readonly profile?: string | null;
+  /** M2A-SPEC §5.16: export-side key reduction (absent or null: none, the M1 bytes). */
+  readonly reduce?: {
+    readonly positionM: number;
+    readonly rotationCapRad: number;
+    readonly minLeverM: number;
+    readonly scaleRel: number;
+  } | null;
 }
 
 /** An `ExportArtifact` as the operator returned it, without its bytes (those come from the download). */

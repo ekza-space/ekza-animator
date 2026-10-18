@@ -14,9 +14,9 @@ import {
   TRS_CHANNELS,
   type TrsChannel,
 } from '@ekza-animator/doc';
-import type { ChannelBuffer, CurveCache, PoseBuffers, RigProgram } from '@ekza-animator/rig';
+import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
 import type { KernelDeps } from '../app/deps';
-import { channelDefault, isKeyable, isLocked, trsSlot } from '../edit/channelMeta';
+import { channelDefault, channelDefaultOf, isKeyable, isLocked } from '../edit/channelMeta';
 import type { CharacterRegistry, CharacterRuntime, ChannelState, EvaluationService, SessionStore } from '../types';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from './time';
 
@@ -51,6 +51,40 @@ export function createEvaluationService(ctx: {
     CharacterRuntime,
     { clip: ClipId | null; frame: Frame | null; program: RigProgram }
   >();
+  /**
+   * M-1 mechanism 6 (M2A-SPEC §5.21.1): the channels each runtime's pose was last evaluated from. A re-evaluation
+   * whose sampled channels (curves ⊕ overrides) are bit-identical keeps the pose and reports no pose change, so the
+   * frame loop renders no viewport frame for it (a drag of keys that leaves the current frame's values unchanged).
+   */
+  const lastChannels = new WeakMap<
+    CharacterRuntime,
+    { program: RigProgram; values: Float64Array; attrs: Float64Array }
+  >();
+
+  /** True when `channels` equal the last evaluated ones of `runtime` (same program); else remembers them. */
+  const sameAsLast = (runtime: CharacterRuntime, program: RigProgram, channels: ChannelBuffer): boolean => {
+    const last = lastChannels.get(runtime);
+    if (
+      last !== undefined &&
+      last.program === program &&
+      equalArrays(last.values, channels.values) &&
+      equalArrays(last.attrs, channels.attrs)
+    ) {
+      return true;
+    }
+    if (
+      last === undefined ||
+      last.program !== program ||
+      last.values.length !== channels.values.length ||
+      last.attrs.length !== channels.attrs.length
+    ) {
+      lastChannels.set(runtime, { program, values: channels.values.slice(), attrs: channels.attrs.slice() });
+    } else {
+      last.values.set(channels.values);
+      last.attrs.set(channels.attrs);
+    }
+    return false;
+  };
   /** Reused per tick (listeners must not keep it). */
   const evaluated: CharacterId[] = [];
   /** Scratch channel buffers for `evaluateAt`, per program. */
@@ -70,9 +104,21 @@ export function createEvaluationService(ctx: {
 
   const curveValue = (curve: CurveRecord, frame: Frame): number => {
     const compiled = cache.get(curve.id);
-    return compiled.keyCount > 0
-      ? engine.evaluate(compiled, frame)
-      : (curve.staticValue ?? channelDefault(curve.channel));
+    if (compiled.keyCount > 0) return engine.evaluate(compiled, frame);
+    if (curve.staticValue !== null) return curve.staticValue;
+    // Attribute curves fall back to their AttrDef.default (M2A-SPEC §5.1 rules 3 and 6).
+    return curve.channel.startsWith('@')
+      ? channelDefaultOf(store.get('controls', curve.control) ?? null, curve.channel)
+      : channelDefault(curve.channel);
+  };
+
+  /** M2a: any channel (TRS or '@attr') at the control's clip frame: curve (else its default), then the override. */
+  const channelValue = (control: ControlId, channel: ChannelId): number => {
+    const override = session.getState().overrides.get(control)?.[channel];
+    if (override !== undefined) return override;
+    const { curve, frame } = curveAt(control, channel);
+    if (curve !== undefined && frame !== null) return curveValue(curve, frame);
+    return channelDefaultOf(store.get('controls', control) ?? null, channel);
   };
 
   /** The base-layer curve of a control's channel in its character's active clip, with the clip frame. */
@@ -88,7 +134,8 @@ export function createEvaluationService(ctx: {
     return { curve, frame: clipFrame(character) };
   };
 
-  const evaluateRuntime = (runtime: CharacterRuntime): void => {
+  /** Samples and evaluates a runtime; false when its channels did not change (the pose is kept, M-1). */
+  const evaluateRuntime = (runtime: CharacterRuntime): boolean => {
     const state = session.getState();
     const clip = activeClipOf(store, state, runtime.id);
     const frame = clip === undefined ? null : clipFrameAt(deps, sceneFpsOf(store), clip, state.time.sceneFrame);
@@ -96,7 +143,6 @@ export function createEvaluationService(ctx: {
     if (clip === undefined || frame === null) program.resetChannels(runtime.channels);
     else runtime.sampler(clip.id).sample(frame, runtime.channels);
     if (state.overrides.size > 0) deps.rig.applyOverrides(program, runtime.channels, state.overrides);
-    program.evaluate(runtime.channels, runtime.pose);
     const last = evaluatedAt.get(runtime);
     if (last === undefined) evaluatedAt.set(runtime, { clip: clip?.id ?? null, frame, program });
     else {
@@ -104,6 +150,9 @@ export function createEvaluationService(ctx: {
       last.frame = frame;
       last.program = program;
     }
+    if (sameAsLast(runtime, program, runtime.channels)) return false;
+    program.evaluate(runtime.channels, runtime.pose);
+    return true;
   };
 
   /** True when the runtime's clip, clip frame or program differ from its last evaluation. */
@@ -125,8 +174,7 @@ export function createEvaluationService(ctx: {
       evaluated.length = 0;
       for (const runtime of characters.list()) {
         if (!allDirty && !dirty.has(runtime.id) && !stale(runtime)) continue;
-        evaluateRuntime(runtime);
-        evaluated.push(runtime.id);
+        if (evaluateRuntime(runtime)) evaluated.push(runtime.id);
       }
       allDirty = false;
       dirty.clear();
@@ -173,7 +221,8 @@ export function createEvaluationService(ctx: {
     },
     channelState(control: ControlId, channel: ChannelId): ChannelState {
       const record = store.get('controls', control);
-      if (record === undefined || trsSlot(channel) === -1 || !isKeyable(record, channel)) return 'non-keyable';
+      // M2a (A2): '@name' attributes are keyable by their AttrDef (M2A-SPEC §5.1 rule 1); unknown channels are not.
+      if (record === undefined || !isKeyable(record, channel)) return 'non-keyable';
       if (isLocked(record, channel)) return 'locked';
       if (session.getState().overrides.get(control)?.[channel] !== undefined) return 'changed';
       const { curve, frame } = curveAt(control, channel);
@@ -182,6 +231,24 @@ export function createEvaluationService(ctx: {
       return frame !== null && keys.some((key) => Math.abs(key.t - frame) < 1e-6) ? 'keyed-on-frame' : 'keyed';
     },
     compiledCurve: (curve: CurveId): CompiledAnimCurve => cache.get(curve),
+    channelValue,
+    attrValues(control: ControlId): Readonly<Record<string, number>> {
+      const record = store.get('controls', control);
+      const out: Record<string, number> = {};
+      if (record === undefined) return out;
+      for (const name of Object.keys(record.attrs ?? {})) out[name] = channelValue(control, `@${name}`);
+      return out;
+    },
+    ikFk(character: CharacterId, limb: LimbId): number | null {
+      // The limb's IK control owns '@ikFk' (M2A-SPEC §4.3); the op clamps it to [0, 1] where it is consumed.
+      const program = characters.get(character)?.program;
+      const desc = program?.limbs.find((candidate) => candidate.id === limb);
+      if (program === undefined || desc === undefined) return null;
+      // §5.4 rule 4: an ik2 op whose compile threw stays in `limbs` but is skipped at run time: the limb is FK.
+      if (deps.rig.isRigOpSkipped?.(program, desc.solver) === true) return 0;
+      const value = channelValue(desc.params.ikControl, '@ikFk');
+      return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+    },
     subscribe(listener: PoseListener): Disposer {
       listeners.add(listener);
       return () => {
@@ -200,4 +267,17 @@ export function createEvaluationService(ctx: {
     },
   };
   return service;
+}
+
+/** Bit-identical Float64Arrays (NaN equals NaN, +0 differs from −0: the pose may differ by a sign). */
+function equalArrays(a: Float64Array, b: Float64Array): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i] as number;
+    const y = b[i] as number;
+    if (x !== y || (x === 0 && 1 / x !== 1 / y)) {
+      if (!(Number.isNaN(x) && Number.isNaN(y))) return false;
+    }
+  }
+  return true;
 }

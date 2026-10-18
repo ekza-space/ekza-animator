@@ -8,6 +8,7 @@ import type { StoreApi } from 'zustand/vanilla';
 import type { PanelRegistry } from '../panels/types';
 import {
   ANIMATE_SLOTS,
+  addDopeSheetTab,
   addPanelToDefaultDock,
   buildAnimateLayout,
   clearStoredLayout,
@@ -62,11 +63,16 @@ export function createWorkspaceController(deps: WorkspaceDeps): WorkspaceControl
 
   const restore = (target: DockviewApi): void => {
     const stored = readStoredLayout(deps.storage);
-    if (stored.kind === 'ok') {
+    if (stored.kind === 'ok' || stored.kind === 'migrate') {
       const layout = reconcileLayout(stored.layout, resolve);
       if (layout !== null) {
         try {
           target.fromJSON(layout);
+          if (stored.kind === 'migrate') {
+            // M2A-SPEC §4.8: the M1 layout gets the Dope Sheet tab and is stored under the v2 key (v1 key kept).
+            addDopeSheetTab(target, resolve);
+            writeStoredLayout(deps.storage, target.toJSON());
+          }
           return;
         } catch {
           // Fall through to the default layout below.

@@ -2,7 +2,7 @@
 // projects. Each names the operator that receives `{ name, bytes }`; `file.open` and the shell's drop handler dispatch
 // through them, sniffing the content where two importers claim `.glb`.
 import type { ImporterDef, Registry } from '../../types';
-import { isAnimationOnlyGlb } from '../../workflows/importAnimation';
+import { isAnimationOnlyGlb } from '../../workflows/importChecks';
 
 export const BUILTIN_IMPORTERS: readonly ImporterDef[] = [
   {

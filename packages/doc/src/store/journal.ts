@@ -2,7 +2,7 @@
 // queries and indexes see them: read-your-writes) and the journal keeps what is needed to roll them back and to
 // compute the net change of every touched record.
 import type { Partition } from '../records';
-import type { Entry } from './rows';
+import { type Entry, rowKey } from './rows';
 
 export interface JournalOp {
   readonly table: string;
@@ -12,22 +12,73 @@ export interface JournalOp {
   readonly first: boolean;
 }
 
+/** `JournalOriginal.shown` of a record the previous preview update did not show (it was at its committed value). */
+export const NOT_SHOWN: unique symbol = Symbol('not shown');
+
 export interface JournalOriginal {
   readonly table: string;
   readonly id: string;
   /** Committed state before the first write; external writes during a preview update it (conflicts). */
   original: Entry | undefined;
+  /**
+   * Preview journals only (M2A-SPEC §5.21.1 M-1 mechanism 2: the journal is kept in place across updates): what
+   * readers saw of the record before the running update, or NOT_SHOWN for a record first written by it.
+   */
+  shown: Entry | undefined | typeof NOT_SHOWN;
+  /**
+   * What storage holds for the record now. The journal's own writes, rollbacks and reverts keep it in step, and
+   * nothing else writes a journaled record's storage while the journal is open (a preview's conflicts change
+   * `original` only), so a preview update reverts and reports without looking the record up (M-1).
+   */
+  current: Entry | undefined;
 }
 
 export class Journal {
   readonly ops: JournalOp[] = [];
-  /** First-touch order. */
+  /** First-touch order, by `rowKey`. Add and remove through `add`/`remove` (they keep the lookup index). */
   readonly originals = new Map<string, JournalOriginal>();
+  /**
+   * `originals` in the same first-touch order, for indexed loops (M-1: a preview update walks its 1,000 originals
+   * three times per frame, and a Map iterator allocates a result object per step until the engine optimizes it).
+   */
+  readonly ordered: JournalOriginal[] = [];
   /** Partitions opened implicitly by writes, in order. */
   readonly opened: Partition[] = [];
+  /**
+   * The originals by table, then id (M-1: a write looks its record up without building a `rowKey` string; record
+   * ids are stored strings whose hash the engine caches).
+   */
+  private readonly index = new Map<string, Map<string, JournalOriginal>>();
 
   get isEmpty(): boolean {
     return this.ops.length === 0;
+  }
+
+  get(table: string, id: string): JournalOriginal | undefined {
+    return this.index.get(table)?.get(id);
+  }
+
+  add(original: JournalOriginal): void {
+    this.originals.set(rowKey(original.table, original.id), original);
+    this.ordered.push(original);
+    let byId = this.index.get(original.table);
+    if (byId === undefined) {
+      byId = new Map();
+      this.index.set(original.table, byId);
+    }
+    byId.set(original.id, original);
+  }
+
+  remove(table: string, id: string): void {
+    const key = rowKey(table, id);
+    const original = this.originals.get(key);
+    this.originals.delete(key);
+    this.index.get(table)?.delete(id);
+    // Removals undo the latest first touches (rollbacks) or a failed preview update's: search from the end.
+    if (original !== undefined) {
+      const at = this.ordered.lastIndexOf(original);
+      if (at !== -1) this.ordered.splice(at, 1);
+    }
   }
 }
 
