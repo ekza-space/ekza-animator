@@ -52,7 +52,9 @@ test('E2E-M2A-22: lazy loading of the editor route', async ({ page }) => {
   expect(loaded(scripts.bodies, MARKERS.dopeSheet), 'the Dope Sheet panel on the initial route').toBe(false);
 
   await page.getByTestId('sample-polybot').click();
-  await expect.poll(async () => (await call(page, 'controls')).length, { timeout: 60_000 }).toBeGreaterThan(0);
+  // `controls()` needs an active character: wait for the sample's import to commit first.
+  await expect.poll(async () => (await call(page, 'characters')).length, { timeout: 60_000 }).toBe(1);
+  expect((await call(page, 'controls')).length).toBeGreaterThan(0);
   expect(loaded(scripts.bodies.slice(initial), MARKERS.modelLoader), 'the model loader arrived with the sample').toBe(
     true,
   );
