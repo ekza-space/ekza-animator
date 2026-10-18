@@ -99,7 +99,16 @@ editor commands test, editor-core session defaults), `Prefs.lastWorkspace/modeli
 `isTapHoldKey` arguments (editor-core keymap test), `AutosaveStore` blobs (editor-core autosave fake store, editor
 autosave-store test), `ToolKeyEvent.ctrl/repeat` (curve-editor dope sheet controller and test support), the
 keyboard `RunContext.source` (editor input test), `EditorParams.ws` (editor test-api test), the registration table
-(editor-core registration test: every M6a operator with its U column and key scope).
+(editor-core registration test: every M6a operator with its U column and key scope), the saved `schemaVersion` 3
+(e2e `m2a-00-foundation.spec.ts`; `minWriterVersion` stays 1).
+
+## Gates (local, real Chrome; port 3160)
+
+`format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses` green; `test` green (15 turbo
+tasks: anim-core 671, doc 231, doc-yjs 77, mesh-core 132, mesh-view 2, io 170, rig 202, editor-core 785, curve-editor
+207 + 3 skipped, viewport 100 + 1 skipped, editor 359 + 1 skipped, headless-tests 173, ui 87, web 10, tooling);
+`build` and `check:size` green (864,164 B); `m6a-00-foundation.spec.ts` 3 passed + the B9 fixme; the full e2e suite
+106 passed, 10 skipped (the stretch `test.fixme` entries and the Model-tab fixme).
 
 ## Benchmarks (report only)
 
