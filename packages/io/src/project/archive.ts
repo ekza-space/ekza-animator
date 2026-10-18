@@ -56,6 +56,9 @@ export function writeProjectArchive(
   snapshot: DocSnapshot,
   assets: ReadonlyMap<AssetId, AssetEntry>,
   app: { readonly version: string },
+  // M6a (M6A-SPEC §4.5): the closure of mesh manifests and chunks to store under `blobs/`. Accepted from B0a on;
+  // B7 writes the entries (§5.20) — until then no project holds mesh records.
+  _blobs?: ReadonlyMap<string, Uint8Array>,
 ): Uint8Array {
   return zipProject(serializeSnapshot(snapshot), snapshot, assets, app);
 }
@@ -137,6 +140,8 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
     assets,
     readOnly: migrated.readOnly || (opened.manifest?.minWriterVersion ?? 0) > SCHEMA_VERSION,
     migratedFrom: migrated.migratedFrom,
+    // M6a (M6A-SPEC §4.5): the hash-verified `blobs/` entries; B7 reads them (§5.20), none exist before it.
+    blobs: new Map(),
   };
 }
 

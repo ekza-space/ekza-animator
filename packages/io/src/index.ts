@@ -9,6 +9,7 @@ export { importProvenance } from './gltf/provenance';
 export { lintExport } from './lint/lintExport';
 export { LINT_RULES, type LintRuleDef, ruleSeverity } from './lint/rules';
 export { ANY_EXPORT_KIND, BUILTIN_EXPORT_PROFILES, profilesForKind } from './profiles/builtin';
+export { PROFILE_OMOBA_HANDHELD } from './profiles/handheld';
 export { readProjectArchive, writeProjectArchive, writeProjectJson } from './project/archive';
 export { skeletonFromGltf } from './skeleton/read';
 export { bakeIntoModel, preexistingTracks } from './surgeon/bakeIntoModel';
