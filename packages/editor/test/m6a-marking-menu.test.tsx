@@ -1,12 +1,13 @@
 // M6A-SPEC §5.18 (B9): the generic marking menu — trigger matching (button, modifiers, held key, workspace, mode,
 // over a mesh or empty space), the flick, press-drag-release and click-release gestures, key-triggered menus (tap
-// leaves it open, hold-move-release runs), disabled items with their reasons, Esc, and the drawn component.
+// leaves it open, hold-move-release runs), disabled items with their reasons, Esc, the drawn component, and the lazy
+// controller (a press in Animate loads nothing).
 import type { MarkingMenuDef, OperatorDef, OperatorResult, RunContext } from '@ekza-animator/editor-core';
 import { registerBuiltinWorkspaces } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { PanePointerPress } from '@ekza-animator/viewport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMarkingMenus, MarkingMenuHost } from '../src/overlays/MarkingMenu';
+import { createMarkingMenus, MarkingMenuHost, marksMenus } from '../src/overlays/MarkingMenu';
 import {
   createMarkingMenuController,
   FLICK_MS,
@@ -361,5 +362,36 @@ describe('the drawn menu (§8.10 mm-<menuId>, mm-slot-<N…NW>, mm-item-<n>)', (
     expect(document.querySelector('[data-testid="mm-model.modes"]')).toBeNull();
     await view.unmount();
     menus.dispose();
+  });
+});
+
+describe('lazy loading (M6A-B9-16)', () => {
+  const runNothing = () => Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>);
+
+  it('a press in Animate starts no load; in Model, or in a workspace a registered menu lists, it does', async () => {
+    const app = createFakeEditorApp();
+    registerBuiltinWorkspaces(app);
+    app.contribute({ kind: 'markingMenu', def: MODES });
+    app.session.setState({ workspace: 'animate' });
+    expect(marksMenus(app)).toBe(false);
+    const animate = createMarkingMenus({ app, run: runNothing, help: () => {} });
+    expect(animate.handlePress(press())).toBe(false);
+    expect(animate.handlePress(press({ button: 0 }))).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(animate.controller()).toBeNull();
+
+    app.session.setState({ workspace: 'model' });
+    expect(marksMenus(app)).toBe(true);
+    expect(animate.handlePress(press())).toBe(false); // the first press in Model starts the load
+    await waitFor(() => animate.controller() !== null);
+    animate.dispose();
+
+    app.session.setState({ workspace: 'animate' });
+    app.contribute({ kind: 'markingMenu', def: { ...PRIMITIVES, id: 'animate.fixture', workspaces: ['animate'] } });
+    expect(marksMenus(app)).toBe(true);
+    const listed = createMarkingMenus({ app, run: runNothing, help: () => {} });
+    expect(listed.handlePress(press())).toBe(false);
+    await waitFor(() => listed.controller() !== null);
+    listed.dispose();
   });
 });

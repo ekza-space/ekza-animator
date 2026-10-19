@@ -13,7 +13,7 @@ import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
 import { createCommandPalette } from '../overlays/CommandPalette';
-import { createMarkingMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
+import { createMarkingMenus, marksMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
@@ -231,11 +231,8 @@ export function createShell(opts: CreateShellOptions): Shell {
   // The marking menus (controller and drawing) load before the first menu opens: when a workspace that has marking
   // menus is entered (Model), or when one is registered for the active workspace. Animate never loads them.
   const prefetchMenus = (): void => {
-    const workspace = app.session.getState().workspace;
     if (typeof window === 'undefined' || markingMenus.controller() !== null) return;
-    if (workspace === 'model' || app.markingMenus.list().some((def) => def.workspaces.includes(workspace))) {
-      prefetchMarkingMenu(markingMenus);
-    }
+    if (marksMenus(app)) prefetchMarkingMenu(markingMenus);
   };
   prefetchMenus();
   disposers.push(

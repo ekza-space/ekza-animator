@@ -1,8 +1,8 @@
 // Marking menus in the shell (M6A-SPEC §5.18; B9): an eager facade over the lazy controller and drawing. The facade
 // owns the state store (the test API and the host read it); the controller (gestures, geometry, polls) loads when a
 // workspace with marking menus is entered (Model) or a menu is opened by command, so Animate never loads it. Until
-// it has loaded a pointer press opens nothing and starts the load.
-import type { MarkingMenuDef, RunContext } from '@ekza-animator/editor-core';
+// it has loaded a pointer press opens nothing and, in a workspace that has marking menus, starts the load.
+import type { EditorApp, MarkingMenuDef, RunContext } from '@ekza-animator/editor-core';
 import type { PanePointerPress } from '@ekza-animator/viewport';
 import { type JSX, lazy, Suspense } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -18,7 +18,10 @@ export interface MarkingMenus {
   controller(): MarkingMenuController | null;
   /** Loads the controller (once; later calls share the promise). */
   load(): Promise<MarkingMenuController>;
-  /** The viewport's press hook: true when a menu opened (false, and the load starts, before it has loaded). */
+  /**
+   * The viewport's press hook: true when a menu opened. Before the controller has loaded it returns false and starts
+   * the load only in a workspace that has marking menus (`marksMenus`): a press in Animate loads nothing.
+   */
   handlePress(press: PanePointerPress): boolean;
   /** `ui.markingMenu`: opens the menu once the controller is there. */
   openByCommand(def: MarkingMenuDef, ctx: RunContext): void;
@@ -26,6 +29,12 @@ export interface MarkingMenus {
   /** Page position of each slot of the open menu. */
   screenOfSlot(): Partial<Record<string, { x: number; y: number }>>;
   dispose(): void;
+}
+
+/** True when the active workspace has marking menus: Model, or one a registered menu lists. */
+export function marksMenus(app: EditorApp): boolean {
+  const workspace = app.session.getState().workspace;
+  return workspace === 'model' || app.markingMenus.list().some((def) => def.workspaces.includes(workspace));
 }
 
 export function createMarkingMenus(deps: Omit<MarkingMenuDeps, 'state'>): MarkingMenus {
@@ -53,7 +62,7 @@ export function createMarkingMenus(deps: Omit<MarkingMenuDeps, 'state'>): Markin
     load,
     handlePress(press) {
       if (controller !== null) return controller.handlePress(press);
-      void load().catch(() => {});
+      if (marksMenus(deps.app)) void load().catch(() => {});
       return false;
     },
     openByCommand(def, ctx) {
