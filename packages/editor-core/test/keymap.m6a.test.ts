@@ -1,7 +1,15 @@
 // B0b (M6A-SPEC §7, §5.17): every §7 keymap row, the hierarchical scope chain, the Animate shadows, the tap/hold
 // contract and auto-repeat of grow/shrink.
 import { describe, expect, it } from 'vitest';
-import { chordInput, type KeyBinding, keyScopeChain, MAYA_KEYMAP, MODEL_SCOPE, resolveChord } from '../src';
+import {
+  chordInput,
+  type KeyBinding,
+  keyScopeChain,
+  MAYA_KEYMAP,
+  MODEL_SCOPE,
+  type OperatorId,
+  resolveChord,
+} from '../src';
 import { animateChain, ch, mayaKeymap, modelChain, resolved, sameChord } from './keymap-support';
 
 const mv = MODEL_SCOPE.viewport;
@@ -87,7 +95,7 @@ function expected(): KeyBinding[] {
       for (const scope of scopes) {
         out.push({
           chord: ch(chord),
-          op,
+          op: op as OperatorId,
           scope,
           ...(args === undefined ? {} : { args }),
           ...(trigger === undefined ? {} : { trigger }),

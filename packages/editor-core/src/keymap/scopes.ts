@@ -23,6 +23,16 @@ export const MODEL_SCOPE = {
   outliner: 'model.outliner',
 } as const;
 
+/** Keys a viewport tool that is placing or dragging receives before the keymap (§5.10, §5.17, §7). */
+export const RESERVED_MODAL_KEYS: ReadonlySet<string> = new Set([
+  'Backspace',
+  'Enter',
+  'NumpadEnter',
+  'PageUp',
+  'PageDown',
+  'Escape',
+]);
+
 export interface ScopeChainInput {
   /** The active workspace's `keyScope` (null: Animate, the shipped chain). */
   readonly workspace: KeyScope | null;

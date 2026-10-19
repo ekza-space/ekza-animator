@@ -1,18 +1,9 @@
 // Tool modifiers (M6A-SPEC §7 "Tool modifiers"): keys the active viewport tool reads through `ToolKeyEvent` (step 2 of
 // the keyboard adapter order, §5.17), not keymap rows. The cheat sheet lists them; the keymap conformance test keeps
-// their keys free in the Model viewport so a hold never also runs a binding.
+// their keys free in the Model viewport so a hold never also runs a binding. Only the cheat sheet (a lazy dialog)
+// imports this module in the app; the adapter's reserved modal keys live in `scopes.ts`.
 import type { Chord } from '../types';
 import { keyLabel } from './labels';
-
-/** Keys a tool that is placing or dragging receives before the keymap (§5.10, §5.17). */
-export const RESERVED_MODAL_KEYS: ReadonlySet<string> = new Set([
-  'Backspace',
-  'Enter',
-  'NumpadEnter',
-  'PageUp',
-  'PageDown',
-  'Escape',
-]);
 
 /** Codes tools observe as holds in the Model viewport (`B` is also the soft-select tap). */
 export const TOOL_HOLD_CODES: readonly string[] = ['KeyX', 'KeyV', 'KeyJ', 'KeyD', 'KeyB', 'KeyI'];

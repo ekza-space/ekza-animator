@@ -54,12 +54,12 @@ export {
   chordInput,
   keyScopeChain,
   MODEL_SCOPE,
+  RESERVED_MODAL_KEYS,
   resolveChord,
   type ScopeChainInput,
 } from './keymap/scopes';
 export { MODEL_MENUS } from './operators/builtin/menus';
 export {
-  RESERVED_MODAL_KEYS,
   TOOL_HOLD_CODES,
   TOOL_MODIFIERS,
   type ToolModifierDoc,
