@@ -1,9 +1,12 @@
 // B12b (M6A-SPEC §5.8–§5.12, §5.10 modal tool contract) on a real viewport: the tool state machines — RMB never
 // cancels (it completes Multi-Cut, is ignored while sliding or welding), `Esc` leaves no step, a `contextmenu` event
-// alone completes nothing, `Backspace` removes a Multi-Cut point, `Ctrl`-click inserts a loop; the Insert Edge Loop
-// hover preview and slide; Target Weld's target and centre modes; the Slide tool's rail pick and percent; the extrude
-// manipulator (shown with a session, its handles absorbed into the extrude's args, the local/world toggle, `Esc`
-// during the first drag ends the session with the zero-drop) and the Inset value handle.
+// alone completes nothing, `Backspace` removes a Multi-Cut point, `Ctrl`-click inserts a loop (`Ctrl`+MMB at 0.5,
+// `Ctrl+Shift` at the snap step), `Shift` snaps a cut point's `t`, a click within 8 px of a vertex cuts at it; the
+// reserved modal keys belong to every tool while it is placing or dragging (never the keymap's delete); the Insert
+// Edge Loop hover preview and slide; Target Weld's target and centre modes; the Slide tool's rail pick, percent, MMB
+// drag and typed percent; the extrude manipulator (shown with a session, its handles absorbed into the extrude's
+// args, the local/world toggle, `Esc` during the first drag ends the session with the zero-drop, `Shift` during a
+// drag ×0.1 per move) and the Inset value handle.
 import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
 import {
   type EditorApp,
@@ -11,6 +14,8 @@ import {
   loadExtrudeEngine,
   loadMeshKernel,
   registerBuiltinOperators,
+  RESERVED_MODAL_KEYS,
+  type ToolPhase,
 } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
@@ -23,6 +28,7 @@ import {
   worldPerPixel,
 } from '../../src/manipulators/extrude/geometry';
 import { PaneProjector } from '../../src/picking/geometry';
+import { dragSpeed } from '../../src/tools/model/extrude/tool';
 import { snapT } from '../../src/tools/model/multicut/tool';
 import { pickRail, slidePercent } from '../../src/tools/model/slide/tool';
 import { loadTopologyKit, topologyManipulatorPoint } from '../../src/tools/model/topology';
@@ -143,6 +149,30 @@ const counts = (s: Scene): string => {
 
 const labels = (app: EditorApp): readonly string[] => historyLabels(app.history).undo;
 
+const phase = (s: Scene): ToolPhase | undefined => s.rig.vm.activeTool()?.phase?.();
+
+/** A key going down to the active tool (as the keyboard adapter hands it a reserved key mid-gesture). */
+const keyDown = (s: Scene, code: string): boolean | undefined =>
+  s.rig.vm
+    .activeTool()
+    ?.key?.({ type: 'down', code, shift: false, alt: false, mod: false, ctrl: false, repeat: false });
+
+/**
+ * §5.10: every reserved modal key in `codes` (those the tool has no action for) is consumed while the tool is in
+ * `during`, and nothing happens: same phase, counts and history.
+ */
+async function swallows(s: Scene, codes: readonly string[], during: ToolPhase): Promise<void> {
+  const before = { counts: counts(s), steps: [...labels(s.app)] };
+  for (const code of codes) {
+    expect(RESERVED_MODAL_KEYS.has(code)).toBe(true);
+    expect([code, keyDown(s, code)]).toEqual([code, true]);
+    expect([code, phase(s)]).toEqual([code, during]);
+  }
+  await settle();
+  expect(counts(s)).toBe(before.counts);
+  expect(labels(s.app)).toEqual(before.steps);
+}
+
 async function settle(): Promise<void> {
   for (let i = 0; i < 20; i++) await Promise.resolve();
   await new Promise((resolve) => setTimeout(resolve, 0));
@@ -191,6 +221,15 @@ describe('pure helpers', () => {
     expect(slidePercent({ dx: 0, dy: -40 }, 0, -12)).toBeCloseTo(0.3, 12);
     expect(slidePercent({ dx: 0, dy: -40 }, 0, -80)).toBe(1);
     expect(slidePercent({ dx: 0, dy: -40 }, 0, 80)).toBe(-1);
+  });
+
+  it('dragSpeed: Shift ×0.1 (it wins), Mod ×10; a Shift held since the press (smart extrude) is not fine', () => {
+    expect(dragSpeed({ shift: false, mod: false })).toBe(1);
+    expect(dragSpeed({ shift: true, mod: false })).toBe(0.1);
+    expect(dragSpeed({ shift: false, mod: true })).toBe(10);
+    expect(dragSpeed({ shift: true, mod: true })).toBe(0.1);
+    expect(dragSpeed({ shift: true, mod: false }, true)).toBe(1);
+    expect(dragSpeed({ shift: true, mod: true }, true)).toBe(10);
   });
 });
 
@@ -268,6 +307,99 @@ describe('Multi-Cut (§5.11; the modal tool contract §5.10)', () => {
     expect(labels(s.app).at(-1)).toBe('Insert Edge Loop');
     expect(s.app.session.getState().tools.viewport).toBe('multiCut');
   });
+
+  it('Ctrl+MMB inserts the loop at 0.5, Ctrl+Shift-click at the snap step (one step each)', async () => {
+    const { data } = twoQuads();
+    const s = await scene(data, 'top');
+    await tool(s, 'multiCut');
+    const step = s.app.prefs.getState().modeling.multiCutSnapStep;
+    expect(step).toBe(0.25);
+    const xEdge = edgesOf(data).find(
+      (g) =>
+        Math.abs((g.a[2] ?? 0) + 0.5) < 1e-6 &&
+        Math.abs((g.b[2] ?? 0) + 0.5) < 1e-6 &&
+        Math.max(g.a[0] ?? 0, g.b[0] ?? 0) <= 1e-6,
+    );
+    if (xEdge === undefined) throw new Error('no X edge');
+    const base = labels(s.app).length;
+    // Ctrl+MMB at t = 0.3: the loop goes in at 0.5.
+    click(s, at(s, 'edge', xEdge.e, 0.3), { ctrlKey: true, button: 1 });
+    await settle();
+    expect(counts(s)).toBe('8/10/3');
+    expect(s.app.session.getState().lastRun).toMatchObject({ id: 'mesh.insertLoop', source: 'tool' });
+    expect(s.app.session.getState().lastRun?.args['weight']).toBe(0.5);
+    expect(labels(s.app).length).toBe(base + 1);
+    await run(s.app, 'edit.undo');
+    s.rig.frame();
+    expect(counts(s)).toBe('6/7/2');
+    // Ctrl+Shift-click at t = 0.37: at the nearest snap step (0.25).
+    click(s, at(s, 'edge', xEdge.e, 0.37), { ctrlKey: true, shiftKey: true });
+    await settle();
+    expect(counts(s)).toBe('8/10/3');
+    expect(s.app.session.getState().lastRun?.args['weight']).toBe(0.25);
+    expect(labels(s.app).length).toBe(base + 1);
+    expect(s.app.session.getState().tools.viewport).toBe('multiCut');
+  });
+
+  it('Shift snaps a point to the snap step; a click within 8 px of a vertex cuts at the vertex', async () => {
+    const { data, zEdges } = twoQuads();
+    const s = await scene(data, 'top');
+    await tool(s, 'multiCut');
+    const mid = zEdges[1] as number;
+    const v0 = data.edgeVerts[2 * mid] as number;
+    const v1 = data.edgeVerts[2 * mid + 1] as number;
+    const p0 = at(s, 'vertex', v0);
+    const p1 = at(s, 'vertex', v1);
+    const length = Math.hypot(p1.x - p0.x, p1.y - p0.y);
+    expect(length).toBeGreaterThan(60);
+    /** The middle edge's screen point `px` CSS px from its first vertex. */
+    const along = (px: number) => ({
+      x: p0.x + ((p1.x - p0.x) * px) / length,
+      y: p0.y + ((p1.y - p0.y) * px) / length,
+    });
+    /** The new vertices of the last cut (indices from 6 on). */
+    const added = (): number[][] => {
+      const d = s.app.meshes.get(s.mesh)?.data();
+      const out: number[][] = [];
+      for (let v = 6; v < (d?.counts.points ?? 0); v++) {
+        out.push([d?.position[3 * v] ?? 0, d?.position[3 * v + 1] ?? 0, d?.position[3 * v + 2] ?? 0]);
+      }
+      return out;
+    };
+    // Shift-click the left border edge at t = 0.37 (snapped to 0.25), then click 5 px from the middle edge's vertex:
+    // the cut runs from the snapped point to that vertex (one new vertex, two new edges, one new face).
+    click(s, at(s, 'edge', zEdges[0] as number, 0.37), { shiftKey: true });
+    click(s, along(5));
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('7/9/3');
+    const snapped = added();
+    expect(snapped).toHaveLength(1);
+    expect(snapped[0]?.[0]).toBeCloseTo(-1, 6);
+    expect(Math.abs(snapped[0]?.[2] ?? 0)).toBeCloseTo(0.25, 6);
+    await run(s.app, 'edit.undo');
+    s.rig.frame();
+    // 12 px from the vertex: a point on the middle edge (two new vertices).
+    click(s, at(s, 'edge', zEdges[0] as number, 0.37), { shiftKey: true });
+    click(s, along(12));
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('8/10/3');
+  });
+
+  it("PageUp and PageDown (no count) are swallowed while placing; idle, the reserved keys are the keymap's", async () => {
+    const { data, zEdges } = twoQuads();
+    const s = await scene(data, 'top');
+    await tool(s, 'multiCut');
+    click(s, at(s, 'edge', zEdges[0] as number, 0.5));
+    click(s, at(s, 'edge', zEdges[1] as number, 0.5));
+    await swallows(s, ['PageUp', 'PageDown'], 'placing');
+    // Both points are still placed: Enter cuts across the left quad.
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('8/10/3');
+    for (const code of RESERVED_MODAL_KEYS) expect([code, keyDown(s, code)]).toEqual([code, false]);
+  });
 });
 
 describe('Insert Edge Loop (§5.11)', () => {
@@ -338,6 +470,28 @@ describe('Insert Edge Loop counts (§5.10 PageUp/PageDown)', () => {
     expect(counts(s)).toBe('20/36/18');
     expect(s.app.session.getState().lastRun?.args['divisions']).toBe(3);
   });
+
+  it('Backspace is swallowed while placing and sliding (never the keymap delete); Enter places', async () => {
+    const s = await scene(primitive('cube', {}), 'front');
+    await tool(s, 'insertLoop');
+    const front = edgesOf(primitive('cube', {})).find(
+      (g) => (g.a[2] ?? 0) > 0.49 && (g.b[2] ?? 0) > 0.49 && (g.a[1] ?? 0) < -0.49 && (g.b[1] ?? 0) < -0.49,
+    );
+    if (front === undefined) throw new Error('no front bottom edge');
+    const p = at(s, 'edge', front.e, 0.3);
+    const q = at(s, 'edge', front.e, 0.6);
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    await swallows(s, ['Backspace'], 'placing');
+    pointer(element(s), 'pointermove', q.x, q.y, { buttons: 1 });
+    await swallows(s, ['Backspace'], 'dragging');
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+    pointer(element(s), 'pointerup', q.x, q.y);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+    expect(keyDown(s, 'Backspace')).toBe(false);
+  });
 });
 
 describe('Target Weld (§5.12)', () => {
@@ -383,6 +537,108 @@ describe('Target Weld (§5.12)', () => {
         found = true;
     }
     expect(found).toBe(true);
+  });
+
+  it("RMB is ignored during the drag; the reserved keys are the tool's (nothing deleted); the LMB release welds", async () => {
+    const s = await scene(primitive('cube', {}), 'front');
+    await tool(s, 'targetWeld');
+    const cube = primitive('cube', {});
+    const front = edgesOf(cube).find(
+      (g) => (g.a[2] ?? 0) > 0.49 && (g.b[2] ?? 0) > 0.49 && (g.a[1] ?? 0) > 0.49 && (g.b[1] ?? 0) > 0.49,
+    );
+    if (front === undefined) throw new Error('no front top edge');
+    const pa = at(s, 'vertex', cube.edgeVerts[2 * front.e] as number);
+    const pb = at(s, 'vertex', cube.edgeVerts[2 * front.e + 1] as number);
+    const base = labels(s.app).length;
+    pointer(element(s), 'pointerdown', pa.x, pa.y);
+    pointer(element(s), 'pointermove', pb.x, pb.y, { buttons: 1 });
+    expect(phase(s)).toBe('dragging');
+    // RMB during the drag: neither a cancel nor a marking menu.
+    pointer(element(s), 'pointerdown', pb.x, pb.y, { button: 2 });
+    pointer(element(s), 'pointermove', pb.x, pb.y, { buttons: 3 });
+    expect(phase(s)).toBe('dragging');
+    await swallows(s, ['Backspace', 'Enter', 'NumpadEnter', 'PageUp', 'PageDown'], 'dragging');
+    expect(counts(s)).toBe('8/12/6');
+    pointer(element(s), 'pointerup', pb.x, pb.y);
+    await settle();
+    expect(counts(s)).toBe('7/11/6');
+    expect(labels(s.app).length).toBe(base + 1);
+    expect(s.app.session.getState().lastRun).toMatchObject({ id: 'mesh.targetWeld', source: 'tool' });
+    expect(keyDown(s, 'Backspace')).toBe(false);
+  });
+});
+
+describe('Slide Edge (§5.12, §5.10)', () => {
+  /** The 2 × 1 plane from the top, its middle edge selected (edge mode), the Slide tool active. */
+  async function sliding(): Promise<{ readonly s: Scene; readonly mid: number }> {
+    const { data, zEdges } = twoQuads();
+    const s = await scene(data, 'top');
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.mesh] } });
+    await run(s.app, 'select.mode', { mode: 'edge' });
+    const mid = zEdges[1] as number;
+    await run(s.app, 'select.components', { mesh: s.mesh, kind: 'edge', indices: [mid], mode: 'replace' });
+    await tool(s, 'slide');
+    return { s, mid };
+  }
+
+  const positions = (s: Scene): number[] => Array.from(s.app.meshes.get(s.mesh)?.data()?.position ?? []);
+
+  it("RMB is ignored and the reserved keys are the tool's during the drag; Esc leaves no step", async () => {
+    const { s, mid } = await sliding();
+    const base = [...labels(s.app)];
+    const before = positions(s);
+    const p = at(s, 'edge', mid, 0.5);
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    expect(phase(s)).toBe('placing');
+    pointer(element(s), 'pointermove', p.x + 30, p.y, { buttons: 1 });
+    expect(phase(s)).toBe('dragging');
+    pointer(element(s), 'pointerdown', p.x + 30, p.y, { button: 2 });
+    pointer(element(s), 'pointermove', p.x + 30, p.y, { buttons: 3 });
+    expect(phase(s)).toBe('dragging');
+    await swallows(s, ['Backspace', 'PageUp', 'PageDown'], 'dragging');
+    expect(keyDown(s, 'Escape')).toBe(true);
+    expect(phase(s)).toBe('idle');
+    pointer(element(s), 'pointerup', p.x + 30, p.y);
+    await settle();
+    expect(labels(s.app)).toEqual(base);
+    expect(positions(s)).toEqual(before);
+    expect(counts(s)).toBe('6/7/2');
+    expect(keyDown(s, 'Backspace')).toBe(false);
+  });
+
+  it('an MMB drag slides along the rail it picks; a typed percent commits on confirm', async () => {
+    const { s, mid } = await sliding();
+    const base = labels(s.app).length;
+    const p = at(s, 'edge', mid, 0.5);
+    // MMB to the right: the rails towards x = 1, a positive percent.
+    drag(s, p, { x: p.x + 40, y: p.y }, { button: 1 });
+    await settle();
+    const last = s.app.session.getState().lastRun;
+    expect(last).toMatchObject({ id: 'mesh.slide', source: 'tool', tool: 'slide' });
+    const percent = Number(last?.args['percent']);
+    expect(percent).toBeGreaterThan(0);
+    expect(percent).toBeLessThan(1);
+    expect(labels(s.app).length).toBe(base + 1);
+    // The edge's ends moved along +X by the percent of their 1 m rails.
+    const d = s.app.meshes.get(s.mesh)?.data();
+    if (d === undefined || d === null) throw new Error('no data');
+    for (const v of [d.edgeVerts[2 * mid] as number, d.edgeVerts[2 * mid + 1] as number]) {
+      expect(d.position[3 * v] as number).toBeCloseTo(percent, 6);
+    }
+    // A typed percent during the next drag (the capture window's entry) commits on confirm.
+    const q = at(s, 'edge', mid, 0.5);
+    pointer(element(s), 'pointerdown', q.x, q.y);
+    pointer(element(s), 'pointermove', q.x - 20, q.y, { buttons: 1 });
+    const numeric = s.rig.vm.activeTool()?.numeric?.() ?? null;
+    expect(numeric?.active).toBe('percent');
+    numeric?.set('percent', -0.25);
+    numeric?.confirm();
+    await settle();
+    expect(phase(s)).toBe('idle');
+    pointer(element(s), 'pointerup', q.x - 20, q.y);
+    await settle();
+    expect(s.app.session.getState().lastRun?.args['percent']).toBe(-0.25);
+    expect(labels(s.app).length).toBe(base + 2);
   });
 });
 
@@ -458,6 +714,70 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
     expect(t.app.extrude.state?.stack).toHaveLength(2);
   });
 
+  it("the reserved keys are the tool's during a handle drag: nothing is deleted, the drag still commits", async () => {
+    const s = await extruded();
+    const steps = labels(s.app).length;
+    const tz = topologyManipulatorPoint(s.rig.vm, PANE, 'tz');
+    if (tz === null) throw new Error('no tz');
+    pointer(element(s), 'pointerdown', tz.x, tz.y);
+    await swallows(s, ['Backspace', 'Enter', 'NumpadEnter', 'PageUp', 'PageDown'], 'placing');
+    pointer(element(s), 'pointermove', tz.x, tz.y - 30, { buttons: 1 });
+    await swallows(s, ['Backspace', 'Enter', 'NumpadEnter', 'PageUp', 'PageDown'], 'dragging');
+    expect(s.app.extrude.state).not.toBeNull();
+    pointer(element(s), 'pointerup', tz.x, tz.y - 30);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+    expect(labels(s.app).length).toBe(steps);
+    expect(Number(s.app.session.getState().lastRun?.args['localTranslateZ'])).toBeGreaterThan(0);
+    expect(s.app.extrude.state?.stack).toHaveLength(2);
+  });
+
+  it('Shift pressed after the drag started is the fine adjustment (×0.1), per move: no jump', async () => {
+    /** The absorbed world-Y travel of each of four 10 px tz moves, with Shift held from move `shiftFrom` on. */
+    async function travel(shiftFrom: number | null): Promise<number[]> {
+      const s = await extruded();
+      const ys: number[] = [];
+      const absorb = s.app.extrude.beginAbsorb.bind(s.app.extrude);
+      vi.spyOn(s.app.extrude, 'beginAbsorb').mockImplementation((tool, space) => {
+        const gesture = absorb(tool, space);
+        if (gesture === null) return null;
+        return {
+          ...gesture,
+          update: (delta) => {
+            ys.push(delta.translate?.[1] ?? Number.NaN);
+            gesture.update(delta);
+          },
+        };
+      });
+      const tz = topologyManipulatorPoint(s.rig.vm, PANE, 'tz');
+      if (tz === null) throw new Error('no tz');
+      pointer(element(s), 'pointerdown', tz.x, tz.y);
+      for (let i = 1; i <= 4; i++) {
+        pointer(element(s), 'pointermove', tz.x, tz.y - 10 * i, {
+          buttons: 1,
+          shiftKey: shiftFrom !== null && i >= shiftFrom,
+        });
+      }
+      pointer(element(s), 'pointerup', tz.x, tz.y - 40);
+      await settle();
+      // A plain drag absorbs (no smart extrude): the session's stack grew, still one Extrude step.
+      expect(s.app.extrude.state?.stack).toHaveLength(2);
+      s.rig.dispose();
+      rig = null;
+      vi.restoreAllMocks();
+      return ys;
+    }
+    const plain = await travel(null);
+    const fine = await travel(2);
+    expect(plain).toHaveLength(4);
+    expect(fine).toHaveLength(4);
+    const first = plain[0] as number;
+    expect(first).toBeGreaterThan(0);
+    expect(plain[3] as number).toBeGreaterThan(first);
+    expect(fine[0] as number).toBeCloseTo(first, 12);
+    for (let i = 1; i < 4; i++) expect(fine[i] as number).toBeCloseTo(first + 0.1 * ((plain[i] as number) - first), 9);
+  });
+
   it('the toggle switches the handles between the cap and world axes', async () => {
     const s = await extruded();
     const { extrudeManipulatorFrame } = await import('@ekza-animator/editor-core');
@@ -495,6 +815,14 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
     drag(s, { x: p.x + 20, y: p.y }, { x: p.x + 30, y: p.y });
     await settle();
     expect(Number(s.app.session.getState().lastRun?.args['offset'])).toBeCloseTo(0.2, 6);
+    expect(labels(s.app).length).toBe(steps);
+    // The reserved keys are the tool's during a value drag too (nothing deleted); release adjusts once more.
+    pointer(element(s), 'pointerdown', p.x + 20, p.y);
+    pointer(element(s), 'pointermove', p.x + 30, p.y, { buttons: 1 });
+    await swallows(s, ['Backspace', 'Enter', 'NumpadEnter', 'PageUp', 'PageDown'], 'dragging');
+    pointer(element(s), 'pointerup', p.x + 30, p.y);
+    await settle();
+    expect(Number(s.app.session.getState().lastRun?.args['offset'])).toBeCloseTo(0.3, 6);
     expect(labels(s.app).length).toBe(steps);
   });
 });
