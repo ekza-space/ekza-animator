@@ -444,6 +444,35 @@ describe('splitFaceMakeEdge (H1) / joinFaceKillEdge', () => {
     flipped.abort();
   });
 
+  it('joinFaceKillEdge refuses two faces that share another edge (the join would run it twice)', () => {
+    // f0 = [0,1,2,3] and f1 = [2,1,0,4] share edges 0–1 and 1–2 (opposite directions, consistent winding).
+    const m = editMeshFrom(
+      buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, -1, 0],
+        faces: [
+          [0, 1, 2, 3],
+          [2, 1, 0, 4],
+        ],
+      }),
+    );
+    const before = m.snapshot();
+    const links = linkArray(m);
+    m.begin('refuse');
+    expect(code(() => m.joinFaceKillEdge(m.findEdge(0, 1)))).toBe('mesh-euler');
+    expect(code(() => m.joinFaceKillEdge(m.findEdge(1, 2)))).toBe('mesh-euler');
+    m.end();
+    expect(diffStored(m, before)).toBeNull();
+    expect(linkArray(m)).toEqual(links);
+    // Dissolving the shared run first (vertex 1 has valence 2) leaves one shared edge, which then joins.
+    const s = edit(m, () => {
+      const kept = m.joinEdgeKillVert(1);
+      return m.joinFaceKillEdge(kept);
+    });
+    expect(s).toBe(0);
+    expect(vef(m)).toBe('4/4/1');
+    expect(validateMesh(m)).toEqual([]);
+  });
+
   it('refuses adjacent or foreign corners and a chord between two corners of one vertex', () => {
     const m = editMeshFrom(cubeData());
     const [c0, c1] = cornersOf(m, 0) as [number, number, number, number];

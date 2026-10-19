@@ -14,7 +14,7 @@
 // | splitEdgeMakeVert(e, t) | new vertex at t from edgeVert(e, 0); e keeps (v0, new), a new edge (new, v1) | point layers interpolated, a new corner per face side interpolated between that side's corners (seams kept), the new edge copies flags (H4) and edge layers |
 // | joinEdgeKillVert(v) | dissolves a valence-2 vertex; the smaller-index edge survives (its endpoint order kept) | flags merged (H3) |
 // | splitFaceMakeEdge(f, cA, cB) | cuts f between the vertices of two non-adjacent corners; f keeps cA's side, a new face takes cB's side | new edge hard iff every edge of f was hard (H1); the new face copies f's layers, material and flags; the two new corners copy the corners at their vertices |
-// | joinFaceKillEdge(e) | merges the two faces of a manifold edge (opposite directions); the smaller face index survives | the survivor's face layers |
+// | joinFaceKillEdge(e) | merges the two faces of a manifold edge (opposite directions) that share no other edge; the smaller face index survives | the survivor's face layers |
 // | reverseFace(f) | flips the winding; corners keep their vertex and values | — |
 import { EDGE_HARD } from '../constants';
 import type { KernelMesh, LayerStore } from '../core/mesh';
@@ -388,6 +388,16 @@ export function joinFaceKillEdge(m: KernelMesh, e: number): number {
   if (f1 === f2) refuse(`joinFaceKillEdge: both sides of edge ${e} are face ${f1}`);
   if ((m.cv[c1] as number) === (m.cv[c2] as number)) {
     refuse(`joinFaceKillEdge: faces ${f1} and ${f2} run edge ${e} in the same direction (inconsistent winding)`);
+  }
+  // Faces that share another edge would join into one face running that edge twice (a spike): the caller dissolves
+  // the shared run first (joinEdgeKillVert at its inner vertices) or joins across another edge.
+  const edgesOfF1 = new Set<number>();
+  for (const c of faceCorners(m, f1)) if ((m.ce[c] as number) !== e) edgesOfF1.add(m.ce[c] as number);
+  for (const c of faceCorners(m, f2)) {
+    const other = m.ce[c] as number;
+    if (other !== e && edgesOfF1.has(other)) {
+      refuse(`joinFaceKillEdge: faces ${f1} and ${f2} also share edge ${other}; joining would run it twice`);
+    }
   }
   m.requireTx('joinFaceKillEdge');
   const s = Math.min(f1, f2);
