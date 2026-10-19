@@ -1,9 +1,10 @@
 // The per-step property checks of B3's ops (M6A-SPEC §5.29): P1 (no `.topology` safety refusal on manifold input),
-// P2, P3, P4, P6 and P7-hard around `runChecked` (P1 validity, P5, P8). Shared by the Node property run and the
-// Chromium run; no Node APIs.
+// P2 (χ for every op that states it, the delete family included), P3, P4, P6 and P7-hard around `runChecked` (P1
+// validity, P5, P8). Shared by the Node property run and the Chromium run; no Node APIs.
 import { expect } from 'vitest';
 import {
   BUILTIN_LAYERS,
+  type ComponentSelection,
   type EditMesh,
   editMeshFrom,
   groupLayer,
@@ -19,7 +20,9 @@ import { type OpStep, resolveStep } from './steps';
 import { ctxOf, op, runChecked, windingProblems } from './support';
 
 const KEEPS_EULER = new Set(['mesh.extrude', 'mesh.inset', 'mesh.insertLoop', 'mesh.offsetLoop', 'mesh.connect']);
-const MANIFOLD = new Set(['mesh.extrude', 'mesh.inset', 'mesh.insertLoop']);
+/** P3: the `manifoldPreserving` ops of B3 (Bridge separately: two holes only). */
+const MANIFOLD = new Set(['mesh.extrude', 'mesh.inset', 'mesh.insertLoop', 'mesh.offsetLoop', 'mesh.connect']);
+const DELETES = new Set(['mesh.delete', 'mesh.deleteEdgeVertex']);
 /** Merges may fold faces onto each other (allowed and reported, §5.1); P4 winding is checked on manifold input. */
 const MERGES = new Set([
   'mesh.merge',
@@ -32,6 +35,130 @@ const MERGES = new Set([
 function closedManifold(m: Parameters<typeof topologyStats>[0]): boolean {
   const s = topologyStats(m);
   return s.boundaryLoops === 0 && s.nonManifoldEdges === 0 && s.nonManifoldVerts === 0;
+}
+
+/** The faces at vertex `v` (distinct). */
+function vertFaceSet(m: EditMesh, v: number): Set<number> {
+  const faces = new Set<number>();
+  const first = m.vertEdge(v);
+  if (first === -1) return faces;
+  let e = first;
+  let guard = 0;
+  do {
+    const start = m.edgeCorner(e);
+    if (start !== -1) {
+      let c = start;
+      do {
+        faces.add(m.cornerFace(c));
+        c = m.cornerRadialNext(c);
+      } while (c !== start);
+    }
+    e = m.edgeDiskNext(e, v);
+  } while (e !== first && e !== -1 && ++guard <= m.counts.edges);
+  return faces;
+}
+
+function edgeFaceList(m: EditMesh, e: number): number[] {
+  const faces: number[] = [];
+  const start = m.edgeCorner(e);
+  if (start === -1) return faces;
+  let c = start;
+  do {
+    faces.push(m.cornerFace(c));
+    c = m.cornerRadialNext(c);
+  } while (c !== start);
+  return faces;
+}
+
+/** The χ that deleting the faces `gone` (and every edge and vertex only they use) takes away: |F| − |E| + |V|. */
+function eulerOfDeletion(m: EditMesh, gone: ReadonlySet<number>): number {
+  if (gone.size === 0) return 0;
+  let edges = 0;
+  for (let e = 0; e < m.counts.edges; e++) {
+    const faces = edgeFaceList(m, e);
+    if (faces.length > 0 && faces.every((f) => gone.has(f))) edges++;
+  }
+  let verts = 0;
+  for (let v = 0; v < m.counts.points; v++) {
+    const faces = vertFaceSet(m, v);
+    if (faces.size > 0 && [...faces].every((f) => gone.has(f))) verts++;
+  }
+  return gone.size - edges + verts;
+}
+
+/**
+ * P2 for the delete family (§5.29: "dissolve of a manifold edge or valence-2 vertex" keeps χ; "delete face χ − 1 plus
+ * removed loose elements"), on manifold input without loose elements (else null): the χ a successful run must leave.
+ * - Face mode: χ − (faces − the edges and vertices only they used).
+ * - Edge mode: interior edges dissolve (χ kept, as do Delete Edge/Vertex's valence-2 dissolves); plain Delete removes
+ *   a border edge's face with every face joined to it across selected interior edges — a face deletion of that set.
+ * - Vertex mode: plain Delete dissolves winged vertices (χ kept); Delete Edge/Vertex merges each vertex's faces into
+ *   one polygon over a disc (χ kept), and a shell whose every vertex is selected goes (its own χ is taken away).
+ */
+export function expectedDeleteEuler(data: MeshData, id: string, selection: ComponentSelection): number | null {
+  const m = editMeshFrom(data);
+  const stats = topologyStats(m);
+  if (stats.nonManifoldEdges > 0 || stats.nonManifoldVerts > 0) return null;
+  for (let e = 0; e < m.counts.edges; e++) if (m.edgeFaceCount(e) === 0) return null;
+  for (let v = 0; v < m.counts.points; v++) if (m.vertEdge(v) === -1) return null;
+  // A face that visits a vertex twice (a soup) is not a manifold surface either.
+  for (let f = 0; f < m.counts.faces; f++) {
+    const start = m.faceCorner(f);
+    const seen = new Set<number>();
+    let c = start;
+    do {
+      if (seen.has(m.cornerVert(c))) return null;
+      seen.add(m.cornerVert(c));
+      c = m.cornerNext(c);
+    } while (c !== start);
+  }
+  const kind = selection.kind;
+  const picked = Array.from(
+    (kind === 'vertex' ? selection.verts : kind === 'edge' ? selection.edges : selection.faces).toArray(),
+  );
+  if (kind === 'face') return stats.euler - eulerOfDeletion(m, new Set(picked));
+  if (kind === 'edge') {
+    const chosen = new Set(picked);
+    const gone = new Set<number>();
+    const queue: number[] = [];
+    const reach = (f: number): void => {
+      if (gone.has(f)) return;
+      gone.add(f);
+      queue.push(f);
+    };
+    for (const e of picked) if (m.edgeFaceCount(e) === 1) edgeFaceList(m, e).forEach(reach);
+    while (queue.length > 0) {
+      const f = queue.pop() as number;
+      const start = m.faceCorner(f);
+      let c = start;
+      do {
+        const e = m.cornerEdge(c);
+        if (chosen.has(e) && m.edgeFaceCount(e) === 2) edgeFaceList(m, e).forEach(reach);
+        c = m.cornerNext(c);
+      } while (c !== start);
+    }
+    return stats.euler - eulerOfDeletion(m, gone);
+  }
+  if (id === 'mesh.delete') return stats.euler;
+  // Shells (vertices joined by edges) whose every vertex is selected.
+  const parent = Int32Array.from({ length: m.counts.points }, (_, i) => i);
+  const find = (v: number): number => {
+    let r = v;
+    while (parent[r] !== r) r = parent[r] as number;
+    return r;
+  };
+  for (let e = 0; e < m.counts.edges; e++) {
+    const a = find(m.edgeVert(e, 0));
+    const b = find(m.edgeVert(e, 1));
+    if (a !== b) parent[Math.max(a, b)] = Math.min(a, b);
+  }
+  const chosen = new Set(picked);
+  const whole = new Set<number>();
+  for (let v = 0; v < m.counts.points; v++) whole.add(find(v));
+  for (let v = 0; v < m.counts.points; v++) if (!chosen.has(v)) whole.delete(find(v));
+  const gone = new Set<number>();
+  for (let f = 0; f < m.counts.faces; f++) if (whole.has(find(m.cornerVert(m.faceCorner(f))))) gone.add(f);
+  return stats.euler - eulerOfDeletion(m, gone);
 }
 
 /** Whether `loops` (Bridge's resolved arg) are two closed chains of border edges of `data`. */
@@ -87,13 +214,29 @@ export function checkStep(m: EditMesh, step: OpStep, manifoldInput: boolean): bo
   if (step.id === 'mesh.fillHole') {
     expect(statsAfter.euler - statsBefore.euler, `${step.id}: χ`).toBe(result.selection.faces.count());
   }
-  // P2 for Bridge: two closed border loops bridged by an annulus keep χ and lower the boundary-loop count by 2.
-  if (step.id === 'mesh.bridge' && step.kind === 'edge' && closedLoops(before, result.resolvedArgs['loops'])) {
+  // P2 for Bridge: two closed border loops bridged by an annulus keep χ and lower the boundary-loop count by 2 (a strip
+  // over existing edges says so with `bridge.non-manifold`).
+  const manifoldStrip = !result.warnings.some((w) => w.code === 'bridge.non-manifold');
+  if (
+    step.id === 'mesh.bridge' &&
+    step.kind === 'edge' &&
+    manifoldStrip &&
+    closedLoops(before, result.resolvedArgs['loops'])
+  ) {
     expect(statsAfter.euler, `${step.id}: χ`).toBe(statsBefore.euler);
     expect(statsAfter.boundaryLoops, `${step.id}: boundary loops`).toBe(statsBefore.boundaryLoops - 2);
   }
-  // P3, and P4's outward volume (a closed outward mesh stays positive under outward-only steps).
+  // P2 for the delete family (expand symmetry is off here: the selection is the expanded one).
+  if (DELETES.has(step.id) && resolved.selection !== null) {
+    const expected = expectedDeleteEuler(before, step.id, resolved.selection);
+    if (expected !== null) expect(statsAfter.euler, `${step.id} (${step.kind}): χ`).toBe(expected);
+  }
+  // P3, and P4's outward volume (a closed outward mesh stays positive under outward-only steps). Dissolves (every
+  // delete but a face deletion) keep a closed manifold closed too: each merged polygon spans a disc.
   if (closedBefore && MANIFOLD.has(step.id)) expect(closedManifold(m), `${step.id}: closed manifold`).toBe(true);
+  if (closedBefore && DELETES.has(step.id) && step.kind !== 'face') {
+    expect(closedManifold(m), `${step.id} (${step.kind}): closed manifold`).toBe(true);
+  }
   if (volumeBefore > 1e-6 && step.outward && closedManifold(m)) {
     expect(signedVolume(m), `${step.id}: volume`).toBeGreaterThan(0);
   }

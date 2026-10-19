@@ -223,6 +223,52 @@ export function opResult(
   };
 }
 
+/** What a run or an `adjust` re-placement reports: its warnings, its frame and its resolved args. */
+export interface PlacedState {
+  readonly warnings: readonly OpWarning[];
+  readonly frame?: OpFrame | undefined;
+  readonly resolvedArgs: ParamValues;
+}
+
+/**
+ * An `OpResult` with an `adjust` fast path whose `warnings`, `frame` and `resolvedArgs` follow the last successful
+ * adjustment (getters over the latest state): a live preview reads the clamp warnings, the frame on the re-placed cap
+ * and the merged args exactly as a fresh run with those args reports them, from the same result object. `step`
+ * re-places for a patch and returns the new state, or null to decline (the caller reverts and re-runs; the state is
+ * unchanged).
+ */
+export function adjustableResult(
+  selection: ComponentSelection,
+  first: PlacedState,
+  step: (patch: ParamValues) => PlacedState | null,
+): OpResult {
+  const freeze = (state: PlacedState): PlacedState => ({
+    warnings: state.warnings,
+    frame: state.frame,
+    resolvedArgs: Object.freeze({ ...state.resolvedArgs }),
+  });
+  let state = freeze(first);
+  const result: { -readonly [K in keyof OpResult]: OpResult[K] } = {
+    selection,
+    get warnings() {
+      return state.warnings;
+    },
+    get resolvedArgs() {
+      return state.resolvedArgs;
+    },
+    adjust: (patch: ParamValues): boolean => {
+      const next = step(patch);
+      if (next === null) return false;
+      state = freeze(next);
+      return true;
+    },
+  };
+  if (first.frame !== undefined) {
+    Object.defineProperty(result, 'frame', { enumerable: true, get: () => state.frame });
+  }
+  return result;
+}
+
 // ---------- removal bookkeeping ----------
 
 /**

@@ -4,8 +4,10 @@
 // even-thickness normals by `depth`. Topology as an extrude with one division (rim quads between the old and the
 // inset boundary, ../extrude/topology.ts); the inner faces keep their indices and are `selection′`; rim edges follow
 // H2. A region whose boundary is not manifold (a non-manifold edge or a vertex the region touches in two fans)
-// refuses `inset.non-manifold`. Symmetry (§5.14): runs on the expanded selection; a self-mirrored region is
-// symmetrized. `adjust` re-places the inner faces for offset, depth, even offset, clamp and smoothing angle.
+// refuses `inset.non-manifold`; a selection whose regions have no border at all (a whole closed shell, together)
+// refuses `inset.no-boundary`. Symmetry (§5.14): runs on the expanded selection; a self-mirrored region is
+// symmetrized. `adjust` re-places the inner faces for offset, depth, even offset, clamp and smoothing angle; the
+// result's warnings (`inset.clamped`), frame and resolved args then follow the adjustment.
 import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
@@ -17,9 +19,10 @@ import { type Mirror, expandIndices, mirrorOf, unmatchedWarnings } from '../extr
 import {
   type V3,
   add,
+  adjustableResult,
   bool,
   num,
-  opResult,
+  type PlacedState,
   resolveArgs,
   scale,
   selected,
@@ -107,6 +110,10 @@ function runInset(
     }
   }
   const plan = planExtrusion(m, regions);
+  // Nothing to inset (every region closes a whole shell): a refusal, not an empty step (M6A-B3-6).
+  if (plan.regions.every((region) => region.sides.length === 0)) {
+    return refuse('inset.no-boundary', 'Inset needs a border around the selected faces; they close a whole shell');
+  }
   for (const region of plan.regions) {
     const fans = new Map<number, number>();
     for (const cap of region.caps) fans.set(cap.src, (fans.get(cap.src) ?? 0) + 1);
@@ -159,23 +166,26 @@ function runInset(
           },
         ];
   };
-  const placed = place(current);
   const first = frames[0] as (typeof frames)[number];
-  const depth = num(args, 'depth');
-  const frame = { pivot: add(first.pivot, scale(first.z, depth)), axes: [first.x, first.y, first.z] as [V3, V3, V3] };
-  const adjust = (patch: ParamValues): boolean => {
-    for (const key of Object.keys(patch)) if (!VALUE_ARGS.has(key)) return false;
+  const state = (values: Record<string, ParamValue>, placed: OpWarning[]): PlacedState => ({
+    warnings: [...unmatchedWarnings(expanded.unmatched), ...placed],
+    frame: {
+      pivot: add(first.pivot, scale(first.z, num(values, 'depth'))),
+      axes: [first.x, first.y, first.z] as [V3, V3, V3],
+    },
+    resolvedArgs: values,
+  });
+  const initial = state(current, place(current));
+  const adjust = (patch: ParamValues): PlacedState | null => {
+    for (const key of Object.keys(patch)) if (!VALUE_ARGS.has(key)) return null;
     const merged = resolveArgs(INSET, { ...current, ...patch });
     merged['smoothingAngle'] = resolveSmoothingAngle(merged['smoothingAngle'] as number | null, ctx.faceted);
-    place(merged);
+    const placed = place(merged);
     current = merged;
-    return true;
+    return state(merged, placed);
   };
   const inner = regions.flat().sort((a, b) => a - b);
-  return opResult(selectionResult(m, 'face', inner), [...unmatchedWarnings(expanded.unmatched), ...placed], args, {
-    frame,
-    adjust,
-  });
+  return adjustableResult(selectionResult(m, 'face', inner), initial, adjust);
 }
 
 export const inset: MeshOp = Object.freeze({ ...INSET, poll: pollInset, run: guarded(INSET, runInset) });

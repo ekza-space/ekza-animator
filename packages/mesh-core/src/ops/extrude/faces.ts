@@ -1,7 +1,8 @@
 // `mesh.extrude` on faces (M6A-SPEC §5.8 steps 1–6, §5.14): regions (connected, or each face with
 // `keepFacesTogether` off), the extrusion topology (./topology.ts), the cap transform per region (./place.ts) and H2
 // on every wall edge. The cap keeps the original face indices; `selection′` = the cap faces. `adjust` re-places the
-// cap for value args (positions and wall hardness only), bit-identical to a fresh run with the merged args.
+// cap for value args (positions and wall hardness only), bit-identical to a fresh run with the merged args; the
+// result's warnings, frame and resolved args then follow the adjustment.
 import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
@@ -11,7 +12,7 @@ import { EXTRUDE } from './descriptor';
 import { capData, frameOf, PLACEMENT_ARGS } from './geometry';
 import { type PlaceGroup, pairGroups, placeGroups } from './place';
 import type { Mirror } from './shared/symmetry';
-import { bool, num, opResult, resolveArgs, selectionResult } from './shared/util';
+import { adjustableResult, bool, num, type PlacedState, resolveArgs, selectionResult } from './shared/util';
 import { buildExtrusion, faceRegions, planExtrusion, regionNonManifold, sideEdges } from './topology';
 
 /** Self-mirror keys of a cap vertex: its source and the smallest face of its fan (mapped through the mirror). */
@@ -88,16 +89,18 @@ export function extrudeFaces(
   };
   const placed = place(current);
   const capFaces = regions.flat().sort((a, b) => a - b);
-  const adjust = (patch: ParamValues): boolean => {
-    for (const key of Object.keys(patch)) if (!PLACEMENT_ARGS.has(key) && key !== 'smoothingAngle') return false;
+  const state = (values: Record<string, ParamValue>, at: typeof placed): PlacedState => ({
+    warnings: [...warnings, ...at.warnings],
+    frame: at.frame ?? undefined,
+    resolvedArgs: values,
+  });
+  const adjust = (patch: ParamValues): PlacedState | null => {
+    for (const key of Object.keys(patch)) if (!PLACEMENT_ARGS.has(key) && key !== 'smoothingAngle') return null;
     const merged = resolveArgs(EXTRUDE, { ...current, ...patch });
     merged['smoothingAngle'] = resolveSmoothingAngle(merged['smoothingAngle'] as number | null, ctx.faceted);
-    place(merged);
+    const again = place(merged);
     current = merged;
-    return true;
+    return state(merged, again);
   };
-  return opResult(selectionResult(m, 'face', capFaces), [...warnings, ...placed.warnings], args, {
-    ...(placed.frame === null ? {} : { frame: placed.frame }),
-    adjust,
-  });
+  return adjustableResult(selectionResult(m, 'face', capFaces), state(args, placed), adjust);
 }

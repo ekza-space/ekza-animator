@@ -8,8 +8,10 @@
 //   each vertex with its edges and merges its faces into one n-gon (cube corner → 7/9/4; a border vertex joins its
 //   two border neighbours).
 // Merged faces are made over the boundary of their union (each corner keeps its values; the smallest face's layers and
-// material); a union that would need a hole refuses `delete.hole`. `selection′` is empty. Symmetry: the expanded
-// selection (§5.14). Nothing is kept unused (§5.1 orphan cleanup).
+// material). Only a union that is a topological disc becomes one polygon (so a dissolve keeps χ, §5.29 P2): a union
+// with a hole or a handle refuses `delete.hole`, a union without any border (it closes a whole shell) refuses
+// `delete.closed` — unless every vertex of it is deleted (vertex mode), when the shell simply goes. `selection′` is
+// empty. Symmetry: the expanded selection (§5.14). Nothing is kept unused (§5.1 orphan cleanup).
 import type { ParamValues } from '@ekza-animator/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { allEdgesHard, mergeEdgeFlags } from '../../normals/hard';
@@ -96,6 +98,35 @@ function unionCycle(
   if (new Set(verts).size !== verts.length || verts.length < 3) return null;
   return { verts, corners };
 }
+
+/**
+ * Whether a face group (connected across edges, with one boundary cycle found by `unionCycle`) is a topological disc:
+ * the Euler characteristic of its closure — its distinct vertices − distinct edges + faces — is 1. A connected
+ * surface with one boundary has χ = 1 − 2g (orientable) or 1 − k (crosscaps), so χ = 1 rules out a handle (a punctured
+ * torus has χ = −1) and a Möbius band (χ = 0). Replacing a disc by one polygon keeps the mesh's χ (§5.29 P2).
+ */
+function isDisc(m: EditMesh, faces: readonly number[]): boolean {
+  const verts = new Set<number>();
+  const edges = new Set<number>();
+  for (const f of faces) {
+    for (const c of faceCorners(m, f)) {
+      verts.add(m.cornerVert(c));
+      edges.add(m.cornerEdge(c));
+    }
+  }
+  return verts.size - edges.size + faces.length === 1;
+}
+
+/** Whether a group has any corner on an edge outside it (an edge that is not internal). */
+function hasBoundary(m: EditMesh, faces: readonly number[], internal: (e: number) => boolean): boolean {
+  return faces.some((f) => faceCorners(m, f).some((c) => !internal(m.cornerEdge(c))));
+}
+
+const HOLE_EDGES = 'Deleting these edges would leave a face with a hole or around a handle';
+const HOLE_VERTS = 'Deleting these vertices would leave a face with a hole or around a handle';
+const CLOSED_EDGES = 'Deleting these edges would merge a whole closed shell into one face; delete faces instead';
+const CLOSED_VERTS =
+  'Deleting these vertices would merge a whole closed shell into one face; delete all its vertices or faces instead';
 
 /** Union-find groups of `faces` joined across the given edges (only faces in `faces`). */
 function faceGroups(m: EditMesh, faces: readonly number[], joins: readonly number[]): number[][] {
@@ -253,7 +284,12 @@ function deleteEdges(m: EditMesh, edges: readonly number[], dissolveAfter: boole
       return fs.length >= 2 && fs.every((f) => inGroup.has(f));
     };
     const cycle = unionCycle(m, faces, internal, new Set());
-    if (cycle === null) return refuse('delete.hole', 'Deleting these edges would leave a face with a hole');
+    if (cycle === null) {
+      return hasBoundary(m, faces, internal)
+        ? refuse('delete.hole', HOLE_EDGES)
+        : refuse('delete.closed', CLOSED_EDGES);
+    }
+    if (!isDisc(m, faces)) return refuse('delete.hole', HOLE_EDGES);
     groups.push({ faces, verts: cycle.verts, corners: cycle.corners });
     for (const f of faces) killFaces.add(f);
   }
@@ -360,14 +396,17 @@ function runDeleteEdgeVertex(
       const fs = edgeFaces(m, e);
       return fs.length >= 2 && fs.every((f) => inGroup.has(f));
     };
+    // A group whose every vertex is deleted is a whole shell (every face beside it shares one of its edges, a spoke,
+    // so it joined the group): it just goes. Any other group must become one polygon over a disc.
+    const keeps = group.some((f) => faceCorners(m, f).some((c) => !removed.has(m.cornerVert(c))));
+    if (!keeps) continue;
     const cycle = unionCycle(m, group, internal, removed);
     if (cycle === null) {
-      // Nothing left of the group (all its vertices removed) just goes; anything else would need a hole.
-      const keeps = group.some((f) => faceCorners(m, f).some((c) => !removed.has(m.cornerVert(c))));
-      const boundary = group.some((f) => faceCorners(m, f).some((c) => !internal(m.cornerEdge(c))));
-      if (keeps && boundary) return refuse('delete.hole', 'Deleting these vertices would leave a face with a hole');
-      continue;
+      return hasBoundary(m, group, internal)
+        ? refuse('delete.hole', HOLE_VERTS)
+        : refuse('delete.closed', CLOSED_VERTS);
     }
+    if (!isDisc(m, group)) return refuse('delete.hole', HOLE_VERTS);
     groups.push({ faces: group, verts: cycle.verts, corners: cycle.corners });
   }
   applyDeletion(m, groups, killFaces, new Set(spokes), removed);

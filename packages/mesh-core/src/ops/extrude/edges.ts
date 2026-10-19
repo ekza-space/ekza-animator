@@ -17,6 +17,7 @@ import type { Mirror } from './shared/symmetry';
 import {
   type V3,
   add,
+  adjustableResult,
   cornerAt,
   cross,
   dot,
@@ -28,7 +29,7 @@ import {
   newell,
   normalize,
   num,
-  opResult,
+  type PlacedState,
   pos,
   resolveArgs,
   scale,
@@ -47,8 +48,9 @@ interface BorderEdge {
 
 /**
  * Chains of the border edges: two edges join when one ends where the other starts in their faces' winding (a → b,
- * b → c), so a chain's quads wind consistently; edges meeting head to head at a bow-tie vertex stay in separate
- * chains with separate new vertices (ascending edge lists).
+ * b → c) at a vertex with no other selected edge in or out, so a chain's quads wind consistently; edges meeting at a
+ * bow-tie vertex (head to head, or more than one edge in or out) stay in separate chains with separate new vertices
+ * (ascending edge lists).
  */
 function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
   const parent = new Map<number, number>(edges.map((e) => [e, e]));
@@ -59,6 +61,7 @@ function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
   };
   const tailAt = new Map<number, number[]>();
   const headOf = new Map<number, number>();
+  const heads = new Map<number, number>(); // vertex → selected edges ending there
   for (const e of edges) {
     const c = edgeCorners(m, e)[0] as number;
     const a = m.cornerVert(c);
@@ -67,9 +70,15 @@ function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
     list.push(e);
     tailAt.set(a, list);
     headOf.set(e, b);
+    heads.set(b, (heads.get(b) ?? 0) + 1);
   }
   for (const e of edges) {
-    for (const next of tailAt.get(headOf.get(e) as number) ?? []) {
+    const b = headOf.get(e) as number;
+    // Join only through a vertex with one selected edge in and one out: at a bow-tie vertex (two border fans) the
+    // chains keep separate new vertices, or two quads would run their shared new edge the same way.
+    const out = tailAt.get(b) ?? [];
+    if (out.length !== 1 || heads.get(b) !== 1) continue;
+    for (const next of out) {
       const a = find(e);
       const b = find(next);
       if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
@@ -219,16 +228,18 @@ export function extrudeEdges(
   };
   const placed = place(current);
   const selection = uniqueSorted(outer.map(([a, b]) => m.findEdge(a, b)).filter((e) => e !== -1));
-  const adjust = (patch: ParamValues): boolean => {
-    for (const key of Object.keys(patch)) if (!PLACEMENT_ARGS.has(key) && key !== 'smoothingAngle') return false;
+  const state = (values: Record<string, ParamValue>, at: typeof placed): PlacedState => ({
+    warnings: [...warnings, ...at.warnings],
+    frame: at.frame ?? undefined,
+    resolvedArgs: values,
+  });
+  const adjust = (patch: ParamValues): PlacedState | null => {
+    for (const key of Object.keys(patch)) if (!PLACEMENT_ARGS.has(key) && key !== 'smoothingAngle') return null;
     const merged = resolveArgs(EXTRUDE, { ...current, ...patch });
     merged['smoothingAngle'] = resolveSmoothingAngle(merged['smoothingAngle'] as number | null, ctx.faceted);
-    place(merged);
+    const again = place(merged);
     current = merged;
-    return true;
+    return state(merged, again);
   };
-  return opResult(selectionResult(m, 'edge', selection), [...warnings, ...placed.warnings], args, {
-    ...(placed.frame === null ? {} : { frame: placed.frame }),
-    adjust,
-  });
+  return adjustableResult(selectionResult(m, 'edge', selection), state(args, placed), adjust);
 }

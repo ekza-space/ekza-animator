@@ -17,12 +17,14 @@ import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';
 import { type Mirror, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';
 import {
+  adjustableResult,
   cornerAt,
   edgeCorners,
   length,
   lerp3,
   num,
   opResult,
+  type PlacedState,
   pos,
   resolveArgs,
   selected,
@@ -283,11 +285,11 @@ function runInsertLoop(
   const ring = ring0;
   const order = new Map<number, number>(ring.edges.map((edge, i) => [edge.e, i]));
   const adjust = single
-    ? (patch: ParamValues): boolean => {
-        for (const key of Object.keys(patch)) if (key !== 'weight') return false;
+    ? (patch: ParamValues): PlacedState | null => {
+        for (const key of Object.keys(patch)) if (key !== 'weight') return null;
         const merged = resolveArgs(INSERT_LOOP, { ...current, ...patch });
         const [plan] = loopsOf(geometry0, fractions(geometry0, merged, seedLength));
-        if (plan === undefined) return false;
+        if (plan === undefined) return null;
         for (const split of splits) {
           const u = Math.min(1, Math.max(0, plan.u[order.get(split.e) ?? 0] as number));
           setPos(m, split.v, lerp3(pos(m, split.a), pos(m, split.b), u));
@@ -298,19 +300,17 @@ function runInsertLoop(
           }
         }
         current = merged;
-        return true;
+        return { warnings, resolvedArgs: merged };
       }
     : undefined;
-  return opResult(
-    selectionResult(
-      m,
-      'edge',
-      [...new Set(loopEdges)].sort((x, y) => x - y),
-    ),
-    warnings,
-    args,
-    adjust === undefined ? undefined : { adjust },
+  const selection = selectionResult(
+    m,
+    'edge',
+    [...new Set(loopEdges)].sort((x, y) => x - y),
   );
+  return adjust === undefined
+    ? opResult(selection, warnings, args)
+    : adjustableResult(selection, { warnings, resolvedArgs: args }, adjust);
 }
 
 export const insertLoop: MeshOp = Object.freeze({

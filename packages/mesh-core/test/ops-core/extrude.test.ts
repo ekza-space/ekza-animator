@@ -14,7 +14,7 @@ import {
   regionFrame,
 } from '../../src';
 import { cubeData, diffStored } from '../../src/testing';
-import { edgesAlong, planeData, topOf } from './fixtures';
+import { edgesAlong, fromFaces, planeData, topOf } from './fixtures';
 import {
   counts,
   ctxOf,
@@ -56,10 +56,14 @@ function adjusted(
   else m.abort();
   const fresh = make();
   fresh.begin(id);
-  op(id).run(fresh, selection(fresh), { ...args, ...patch }, ctx);
+  const freshResult = op(id).run(fresh, selection(fresh), { ...args, ...patch }, ctx);
   fresh.end();
-  return { ok, adjusted: m, fresh };
+  return { ok, adjusted: m, fresh, result, freshResult };
 }
+
+/** What a result reports besides its selection (read through the getters that follow `adjust`). */
+const reported = (r: ReturnType<ReturnType<typeof op>['run']>) =>
+  isRefusal(r) ? r : { warnings: r.warnings, frame: r.frame, resolvedArgs: r.resolvedArgs };
 
 describe('mesh.extrude: the cap transform (§5.8 step 5)', () => {
   it('applies scale, then rotate (Rz·Ry·Rx), then translate, in the region frame about its pivot', () => {
@@ -152,6 +156,30 @@ describe('mesh.extrude: border edges (§5.8 step 7)', () => {
     const all = [0, 1, 2, 3];
     runOk(m, 'mesh.extrude', sel(m, 'edge', all), { localTranslateY: 0.2, divisions: 2 });
     expect(counts(m)).toBe('12/20/9');
+    expect(windingProblems(m)).toEqual([]);
+  });
+
+  it('at a bow-tie vertex with two selected edges out, the chains keep separate new vertices (consistent winding)', () => {
+    // A triangle (1, 2, 3) and a quad (2, 0, 3, 4) touching at vertices 2 and 3 only: vertex 2 has two selected
+    // border edges leaving it (2 → 3 in the triangle, 2 → 0 in the quad). Joining them through one new vertex would
+    // make two quads run the edge (2, 2′) the same way.
+    const m = editMeshFrom(
+      fromFaces(
+        [1, 0, 0, -1, 0, 0, 0, 0, -1, 0, 0, 1, 0.5, 0, 0],
+        [
+          [1, 2, 3],
+          [2, 0, 3, 4],
+        ],
+      ),
+    );
+    const edges = [
+      [0, 3],
+      [1, 2],
+      [2, 0],
+      [2, 3],
+    ].map(([a, b]) => m.findEdge(a as number, b as number));
+    expect(edges.every((e) => e >= 0)).toBe(true);
+    runOk(m, 'mesh.extrude', sel(m, 'edge', edges), { localTranslateY: 0.2 });
     expect(windingProblems(m)).toEqual([]);
   });
 
@@ -259,6 +287,48 @@ describe('mesh.extrude: adjust fast path (positions and wall hardness only)', ()
     expect(diffStored(angle.adjusted, angle.fresh)).toBeNull();
     expect(adjusted(cube, 'mesh.extrude', top, { localTranslateZ: 0.5 }, { divisions: 3 }).ok).toBe(false);
     expect(adjusted(cube, 'mesh.extrude', top, { localTranslateZ: 0.5 }, { keepFacesTogether: false }).ok).toBe(false);
+  });
+
+  it('after adjust the result reports the warnings, frame and resolved args a fresh run reports', () => {
+    // localTranslateZ 0.5 → 1.2 with a rotation: the frame pivot moves with the cap (fresh: [0, 1.7, 0]).
+    const moved = adjusted(
+      cube,
+      'mesh.extrude',
+      top,
+      { localTranslateZ: 0.5 },
+      { localTranslateZ: 1.2, localRotateX: 0.3 },
+    );
+    expect(moved.ok).toBe(true);
+    expect(reported(moved.result)).toEqual(reported(moved.freshResult));
+    expect(isRefusal(moved.result) ? null : moved.result.frame?.pivot.map((x) => Math.round(x * 1e9) / 1e9)).toEqual([
+      0, 1.7, 0,
+    ]);
+    expect(isRefusal(moved.result) ? null : moved.result.resolvedArgs['localTranslateZ']).toBe(1.2);
+    // An offset pushed past the clamp warns on the adjusted result, and the warning goes when it comes back.
+    const clamped = adjusted(cube, 'mesh.extrude', top, { localTranslateZ: 0.5 }, { offset: 0.8 });
+    expect(reported(clamped.result)).toEqual(reported(clamped.freshResult));
+    const result = clamped.result;
+    if (isRefusal(result) || result.adjust === undefined) throw new Error('no adjust');
+    expect(result.warnings.map((w) => w.code)).toEqual(['extrude.offset-clamped']);
+    clamped.adjusted.begin('back');
+    expect(result.adjust({ offset: 0.1 })).toBe(true);
+    clamped.adjusted.end();
+    expect(result.warnings).toEqual([]);
+    // A declined patch leaves the reported state as it was.
+    expect(result.adjust({ divisions: 3 })).toBe(false);
+    expect(result.resolvedArgs['offset']).toBe(0.1);
+    // Edge extrude and inset follow their adjustments the same way.
+    const edge = adjusted(
+      () => editMeshFrom(planeData()),
+      'mesh.extrude',
+      (m) => sel(m, 'edge', [0, 1]),
+      { localTranslateY: 0.2 },
+      { localTranslateY: 0.6 },
+    );
+    expect(reported(edge.result)).toEqual(reported(edge.freshResult));
+    const inset = adjusted(cube, 'mesh.inset', top, { offset: 0.1 }, { offset: 0.9, depth: 0.3 });
+    expect(reported(inset.result)).toEqual(reported(inset.freshResult));
+    expect(isRefusal(inset.result) ? [] : inset.result.warnings.map((w) => w.code)).toEqual(['inset.clamped']);
   });
 
   it('edge extrude adjusts the same way', () => {

@@ -105,16 +105,16 @@ function adjusted(
   const result = op(id).run(m, selection(m), args, ctx);
   m.end();
   if (isRefusal(result)) throw new Error(`${id} refused: ${result.code}`);
-  if (result.adjust === undefined) return { has: false, ok: false, adjusted: m, fresh: m };
+  if (result.adjust === undefined) return { has: false, ok: false, adjusted: m, fresh: m, result, freshResult: result };
   m.begin(`${id} adjust`);
   const ok = result.adjust(patch);
   if (ok) m.end();
   else m.abort();
   const fresh = make();
   fresh.begin(id);
-  op(id).run(fresh, selection(fresh), { ...args, ...patch }, ctx);
+  const freshResult = op(id).run(fresh, selection(fresh), { ...args, ...patch }, ctx);
   fresh.end();
-  return { has: true, ok, adjusted: m, fresh };
+  return { has: true, ok, adjusted: m, fresh, result, freshResult };
 }
 
 /** A 2 × 1 strip: a 1 × 1 quad and a 2-tall quad beside it (ring edges of different lengths), all hard. */
@@ -308,6 +308,9 @@ describe('mesh.insertLoop placement (§5.11)', () => {
       );
       expect(run.ok).toBe(true);
       expect(diffStored(run.adjusted, run.fresh)).toBeNull();
+      // The result reports the adjusted weight, as the fresh run does.
+      expect(run.result.resolvedArgs).toEqual((run.freshResult as typeof run.result).resolvedArgs);
+      expect(run.result.resolvedArgs['weight']).toBe(0.7);
     }
     expect(adjusted(cube, 'mesh.insertLoop', seedOf, { weight: 0.3 }, { mode: 'multiple' }).ok).toBe(false);
     expect(adjusted(cube, 'mesh.insertLoop', seedOf, { mode: 'multiple' }, { weight: 0.2 }).has).toBe(false);
@@ -622,6 +625,68 @@ describe('mesh.delete family details (§5.12)', () => {
     expect(ring.length).toBe(8);
     runRefused(m, 'mesh.delete', sel(m, 'edge', ring), 'delete.hole');
   });
+
+  it('Delete Edge/Vertex on a cone: the apex merges the sides into one polygon; apex + a base vertex refuses', () => {
+    // Default cone 9/16/9: base vertices 0–7, apex 8. The apex alone: the 8 sides become one octagon over the base
+    // ring (a closed two-face shell, χ kept). Apex + any base vertex: the merged group is the whole closed shell and
+    // still keeps 7 vertices — there is no border to make a polygon over (`delete.closed`), the mesh is unchanged.
+    const apex = editMeshFrom(primitive('cone', {}));
+    expect(counts(apex)).toBe('9/16/9');
+    runOk(apex, 'mesh.deleteEdgeVertex', sel(apex, 'vertex', [8]));
+    expect(counts(apex)).toBe('8/8/2');
+    expect(topologyStats(apex)).toMatchObject({ euler: 2, boundaryLoops: 0, nonManifoldEdges: 0 });
+    for (let base = 0; base < 8; base++) {
+      const m = editMeshFrom(primitive('cone', {}));
+      runRefused(m, 'mesh.deleteEdgeVertex', sel(m, 'vertex', [8, base]), 'delete.closed');
+      expect(counts(m)).toBe('9/16/9');
+    }
+    // The same closed-shell case on a 3 × 2 sphere (5/9/6): two equator vertices and a pole.
+    const sphere = editMeshFrom(primitive('sphere', { subdivisionsAxis: 3, subdivisionsHeight: 2 }));
+    expect(counts(sphere)).toBe('5/9/6');
+    runRefused(sphere, 'mesh.deleteEdgeVertex', sel(sphere, 'vertex', [0, 1, 4]), 'delete.closed');
+  });
+
+  it('Delete Edge/Vertex: a shell whose every vertex is selected goes; a partial shell never does', () => {
+    const two = editMeshFrom(combined(cubeData(), cubeData(), [3, 0, 0]));
+    runOk(two, 'mesh.deleteEdgeVertex', sel(two, 'vertex', [0, 1, 2, 3, 4, 5, 6, 7]));
+    expect(counts(two)).toBe('8/12/6');
+    // Seven of a cube's eight vertices: the merged group still keeps one vertex and has no border.
+    const seven = cube();
+    runRefused(seven, 'mesh.deleteEdgeVertex', sel(seven, 'vertex', [0, 1, 2, 3, 4, 5, 6]), 'delete.closed');
+  });
+
+  it('a merged face around a handle refuses delete.hole (χ would change)', () => {
+    // Torus 4 × 3 (12/24/12, χ 0): vertices 0, 3, 6, 8 merge a group that is a punctured torus (one border cycle, χ −1).
+    const torus = editMeshFrom(primitive('torus', { subdivisionsAxis: 4, subdivisionsHeight: 3 }));
+    expect([counts(torus), topologyStats(torus).euler]).toEqual(['12/24/12', 0]);
+    runRefused(torus, 'mesh.deleteEdgeVertex', sel(torus, 'vertex', [0, 3, 6, 8]), 'delete.hole');
+    // Torus 3 × 3: every edge not on face 0 joins the other 8 faces into a torus minus a disc; plain Delete and
+    // Delete Edge/Vertex both refuse instead of capping it with one polygon (χ 0 → 2).
+    for (const id of ['mesh.delete', 'mesh.deleteEdgeVertex']) {
+      const m = editMeshFrom(primitive('torus', { subdivisionsAxis: 3, subdivisionsHeight: 3 }));
+      const keep = new Set(faceVerts(m, 0));
+      const edges: number[] = [];
+      for (let e = 0; e < m.counts.edges; e++) {
+        if (!(keep.has(m.edgeVert(e, 0)) && keep.has(m.edgeVert(e, 1)))) edges.push(e);
+      }
+      runRefused(m, id, sel(m, 'edge', edges), 'delete.hole');
+    }
+  });
+
+  it('every edge of a closed shell refuses delete.closed', () => {
+    const m = cube();
+    runRefused(
+      m,
+      'mesh.delete',
+      sel(
+        m,
+        'edge',
+        Array.from({ length: 12 }, (_, e) => e),
+      ),
+      'delete.closed',
+    );
+    expect(counts(m)).toBe('8/12/6');
+  });
 });
 
 describe('mesh.fillHole details (§5.12)', () => {
@@ -707,6 +772,39 @@ describe('mesh.bridge details (§5.12)', () => {
     expect(windingProblems(m)).toEqual([]);
     const c = cube();
     runRefused(c, 'mesh.bridge', sel(c, 'face', [0]), 'bridge.needs-two');
+  });
+
+  it('two opposite faces of a plain cube: the strip runs over the sides and says so (bridge.non-manifold)', () => {
+    // The strip edges are the cube's four side edges (M6A-B3-20): 8/12/8 with four edges of four faces, reported.
+    const m = cube();
+    const result = runOk(m, 'mesh.bridge', sel(m, 'face', [faceToward(m, [0, 1, 0]), faceToward(m, [0, -1, 0])]));
+    expect(counts(m)).toBe('8/12/8');
+    expect(topologyStats(m).nonManifoldEdges).toBe(4);
+    expect(result.warnings).toContainEqual(expect.objectContaining({ code: 'bridge.non-manifold', count: 4 }));
+    // A strip between two real holes reports nothing.
+    const open = twoOpen();
+    expect(runOk(open, 'mesh.bridge', sel(open, 'edge', borderEdges(open))).warnings).toEqual([]);
+  });
+
+  it('two border loops that share a vertex refuse bridge.needs-two', () => {
+    // Two triangles touching at vertex 0 (a bow-tie): their border loops share it.
+    const m = editMeshFrom(
+      fromFaces(
+        [0, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, -1, -1, 0],
+        [
+          [0, 1, 2],
+          [0, 3, 4],
+        ],
+      ),
+    );
+    const refusal = runRefused(m, 'mesh.bridge', sel(m, 'edge', borderEdges(m)), 'bridge.needs-two');
+    expect(refusal.reason).toContain('do not touch');
+    runRefused(m, 'mesh.bridge', sel(m, 'edge', []), 'bridge.needs-two', {
+      loops: [
+        [0, 1, 2].map((k) => m.findEdge(k, (k + 1) % 3)),
+        [0, 3, 4].map((v, i, l) => m.findEdge(v, l[(i + 1) % 3] as number)),
+      ],
+    });
   });
 
   it('twist and offset shift the pairing by whole steps; taper scales the intermediate ring', () => {
@@ -830,6 +928,21 @@ describe('refusals and warnings of the remaining codes', () => {
     // Extrude duplicates that vertex once per fan instead.
     runOk(grid, 'mesh.extrude', sel(grid, 'face', region), { localTranslateZ: 0.2 });
     expect(windingProblems(grid)).toEqual([]);
+  });
+
+  it('inset: every face of a closed shell together has no border to inset (inset.no-boundary)', () => {
+    const all = [0, 1, 2, 3, 4, 5];
+    const m = cube();
+    const refusal = runRefused(m, 'mesh.inset', sel(m, 'face', all), 'inset.no-boundary', { offset: 0.1 });
+    expect(refusal.reason).toContain('border');
+    expect(counts(m)).toBe('8/12/6');
+    // Individually each face has its own border: 32/60/30.
+    runOk(m, 'mesh.inset', sel(m, 'face', all), { offset: 0.1, individual: true });
+    expect(counts(m)).toBe('32/60/30');
+    // A closed shell next to a face with a border (two cubes, together): the open region is inset, the shell is not.
+    const two = editMeshFrom(combined(cubeData(), cubeData(), [3, 0, 0]));
+    runOk(two, 'mesh.inset', sel(two, 'face', [...all, 6]), { offset: 0.1 });
+    expect(counts(two)).toBe('20/32/16');
   });
 
   it('offset loop: a loop turning inside a face warns offsetLoop.corner; a closed face boundary has no ring', () => {

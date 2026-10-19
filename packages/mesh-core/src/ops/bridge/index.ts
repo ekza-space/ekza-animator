@@ -5,7 +5,8 @@
 // loops take the start offset minimizing the summed squared distances (ties: the smaller offset), shifted by
 // `twist + offset` whole steps. `divisions` rings at k/(divisions + 1), linear, scaled about the interpolated centroid
 // by 1 + (taper − 1)·4s(1 − s) (M6A-B3-9). Corner layers interpolate between the bounding corners; faces take the
-// lower-index adjacent face's layers and material; strip edges follow H2. `selection′` = the new faces.
+// lower-index adjacent face's layers and material; strip edges follow H2. `selection′` = the new faces. Two sides that
+// share a vertex refuse (`bridge.needs-two`); a strip over existing edges is made and reported (`bridge.non-manifold`).
 // Symmetry (pointer class): the mirrored pair is bridged too (pairing and rings mirrored exactly, so twist and offset
 // act mirrored); a pair that is its own mirror bridges once; a pair with an unpaired loop bridges once with
 // `symmetry.unmatched-partner`.
@@ -254,6 +255,11 @@ function runBridge(
     );
   }
   if (a.closed !== b.closed) return refuse('bridge.needs-two', 'Bridge needs two closed loops or two open chains');
+  // Two sides sharing a vertex would pair it with itself (a strip face visiting one vertex twice).
+  const aVerts = new Set(a.verts);
+  if (b.verts.some((v) => aVerts.has(v))) {
+    return refuse('bridge.needs-two', 'Bridge needs two border loops that do not touch');
+  }
   const divisions = Math.max(0, Math.round(num(args, 'divisions', 0)));
   const taper = num(args, 'taper', 1);
   const shift = Math.round(num(args, 'twist')) + Math.round(num(args, 'offset'));
@@ -300,6 +306,18 @@ function runBridge(
   }
   const hard = uniqueSorted(pairs.map(([x, y]) => m.findEdge(x, y)).filter((e) => e !== -1));
   applySmoothingAngle(m, hard, smoothing);
+  // A strip over existing edges (two opposite faces of a plain cube: the strip edges are its side edges) is valid but
+  // non-manifold; it is reported, as merges report theirs (§5.1, M6A-B3-20).
+  const crowded = uniqueSorted(faces.flatMap((f) => faceCorners(m, f).map((c) => m.cornerEdge(c)))).filter(
+    (e) => m.edgeFaceCount(e) > 2,
+  ).length;
+  if (crowded > 0) {
+    warnings.push({
+      code: 'bridge.non-manifold',
+      message: `The bridge ran over existing faces: ${crowded} edge${crowded === 1 ? '' : 's'} with more than two faces`,
+      count: crowded,
+    });
+  }
   return opResult(selectionResult(m, 'face', faces), warnings, args);
 }
 

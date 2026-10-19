@@ -6,15 +6,17 @@
 // a copy gives the same manifest), P7-hard (an all-hard mesh stays all-hard) — single steps and model-based sequences.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { editMeshFrom, primitive, topologyStats } from '../../src';
+import { type ComponentKind, editMeshFrom, primitive, type PrimitiveKind, topologyStats } from '../../src';
 import { arbPrimitive, arbSoup, signedVolume } from '../../src/testing';
 import { addTestLayers, checkStep, layerEnvelope, layerProblems } from './checks';
 import { combined, cylinderData } from './fixtures';
-import { arbOpStep } from './steps';
+import { arbOpStep, GROWTH } from './steps';
 import { faceToward, runOk, sel, windingProblems } from './support';
 
 /** Heavier local runs: B3_PROPERTY_SCALE=10 multiplies every run count (report-only; CI runs scale 1). */
 const SCALE = Math.max(1, Number(process.env['B3_PROPERTY_SCALE'] ?? '1') || 1);
+/** Sequences stop growing the mesh above this many faces (each step's checks rebuild and compare the whole mesh). */
+const FACE_CAP = 400;
 
 describe('B3 properties on primitives (P1–P7)', () => {
   it('single steps', () => {
@@ -31,21 +33,30 @@ describe('B3 properties on primitives (P1–P7)', () => {
 
   it('model-based sequences of 50–500 steps', () => {
     let ran = 0;
+    let attempted = 0;
     fc.assert(
-      fc.property(arbPrimitive(), fc.array(arbOpStep(), { minLength: 50, maxLength: 500 }), (prim, steps) => {
-        const m = editMeshFrom(primitive(prim.kind, prim.params));
-        for (const step of steps) {
-          // Later steps run on whatever the earlier ones made (merges may leave non-manifold edges).
-          const stats = topologyStats(m);
-          const manifold = stats.nonManifoldEdges === 0 && stats.nonManifoldVerts === 0;
-          if (checkStep(m, step, manifold && step.id !== 'mesh.bridge')) ran++;
-          if (m.counts.faces > 600) break;
-        }
-      }),
+      fc.property(
+        arbPrimitive(),
+        fc.array(arbOpStep(), { minLength: 50, maxLength: 500, size: 'max' }),
+        (prim, steps) => {
+          const m = editMeshFrom(primitive(prim.kind, prim.params));
+          for (const step of steps) {
+            // Above the face cap growth steps are skipped (the rest still run), so every sequence runs to its end.
+            if (m.counts.faces > FACE_CAP && GROWTH.has(step.id)) continue;
+            attempted++;
+            // Later steps run on whatever the earlier ones made (merges may leave non-manifold edges).
+            const stats = topologyStats(m);
+            const manifold = stats.nonManifoldEdges === 0 && stats.nonManifoldVerts === 0;
+            if (checkStep(m, step, manifold && step.id !== 'mesh.bridge')) ran++;
+          }
+        },
+      ),
       { numRuns: 8 * SCALE },
     );
+    expect(attempted).toBeGreaterThan(8 * SCALE * 50);
     expect(ran).toBeGreaterThan(100);
-  });
+    // `size: 'max'`: lengths spread over 50–500 (fast-check's default size would keep them near 50).
+  }, 180_000);
 
   it('P7: layer values stay inside their starting envelope (morph, bits, skin, paint, uv0)', () => {
     let ran = 0;
@@ -69,6 +80,63 @@ describe('B3 properties on primitives (P1–P7)', () => {
       { numRuns: 60 * SCALE },
     );
     expect(ran).toBeGreaterThan(80);
+  });
+});
+
+/** Low-poly closed primitives, where a few vertices reach around the whole shell (cones, tiny spheres, tori, cubes). */
+function arbLowPolyClosed(): fc.Arbitrary<{ kind: PrimitiveKind; params: Record<string, number> }> {
+  const n = (min: number, max: number) => fc.integer({ min, max });
+  return fc.oneof(
+    fc.record({
+      kind: fc.constant<PrimitiveKind>('cone'),
+      params: fc.record({ subdivisionsAxis: n(3, 8), subdivisionsHeight: n(1, 2), subdivisionsCaps: n(0, 1) }),
+    }),
+    fc.record({
+      kind: fc.constant<PrimitiveKind>('sphere'),
+      params: fc.record({ subdivisionsAxis: n(3, 6), subdivisionsHeight: n(2, 4) }),
+    }),
+    fc.record({
+      kind: fc.constant<PrimitiveKind>('torus'),
+      params: fc.record({ subdivisionsAxis: n(3, 6), subdivisionsHeight: n(3, 5) }),
+    }),
+    fc.record({
+      kind: fc.constant<PrimitiveKind>('cube'),
+      params: fc.record({ subdivisionsWidth: n(1, 2), subdivisionsHeight: n(1, 2), subdivisionsDepth: n(1, 2) }),
+    }),
+    fc.record({
+      kind: fc.constant<PrimitiveKind>('cylinder'),
+      params: fc.record({ subdivisionsAxis: n(3, 8), subdivisionsHeight: n(1, 2), subdivisionsCaps: n(0, 1) }),
+    }),
+  );
+}
+
+describe('B3 delete family on low-poly closed primitives (P1–P3)', () => {
+  it('vertex, edge and face sets of 1–8: χ as §5.29 P2 states, dissolves keep the shell closed', () => {
+    const outcomes = { ran: 0, refused: 0 };
+    fc.assert(
+      fc.property(
+        arbLowPolyClosed(),
+        fc.constantFrom('mesh.delete', 'mesh.deleteEdgeVertex'),
+        fc.constantFrom<ComponentKind>('vertex', 'edge', 'face'),
+        fc.array(fc.nat({ max: 1_000_000 }), { minLength: 1, maxLength: 8 }),
+        (prim, id, kind, seeds) => {
+          const m = editMeshFrom(primitive(prim.kind, prim.params));
+          expect(topologyStats(m)).toMatchObject({ boundaryLoops: 0, nonManifoldEdges: 0, nonManifoldVerts: 0 });
+          const step = {
+            id,
+            kind: id === 'mesh.deleteEdgeVertex' && kind === 'face' ? 'vertex' : kind,
+            seeds,
+            args: {},
+            outward: false,
+          } as const;
+          if (checkStep(m, step, true)) outcomes.ran++;
+          else outcomes.refused++;
+        },
+      ),
+      { numRuns: 1500 * SCALE },
+    );
+    expect(outcomes.ran).toBeGreaterThan(500);
+    expect(outcomes.refused).toBeGreaterThan(50);
   });
 });
 
