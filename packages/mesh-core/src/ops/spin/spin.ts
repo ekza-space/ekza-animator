@@ -103,9 +103,9 @@ export function planSpin(m: EditMesh, e: number, direction: SpinDirection): Spin
   const b = m.cornerVert(m.cornerNext(cA));
   // A from a: a, b, x₁…xₖ; B from b: b, a, y₁…yₘ.
   const ia = vertsA.indexOf(a);
-  const xs = [...vertsA.slice(ia + 2), ...vertsA.slice(0, ia)];
+  const xs = [...vertsA.slice(ia), ...vertsA.slice(0, ia)].slice(2);
   const ib = vertsB.indexOf(b);
-  const ys = [...vertsB.slice(ib + 2), ...vertsB.slice(0, ib)];
+  const ys = [...vertsB.slice(ib), ...vertsB.slice(0, ib)].slice(2);
   const all = [a, b, ...xs, ...ys];
   if (new Set(all).size !== all.length) {
     return refuse('spin.shared-vertices', 'The two faces share more than the edge; spinning it would fold them');

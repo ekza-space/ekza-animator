@@ -245,11 +245,11 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
     // Landed ops never answer not-implemented (on an empty mesh they refuse with their own reason or run).
     for (const op of Object.values(MESH_OPS).filter((o) => LANDED.has(o.id))) {
       const result = op.run(mesh, null, {}, ctx);
-      expect(isRefusal(result) ? result.code : 'ran', op.id).not.toBe('not-implemented');
+      expect([op.id, isRefusal(result) ? result.code : 'ran']).not.toEqual([op.id, 'not-implemented']);
     }
     for (const op of Object.values(MESH_SET_OPS).filter((o) => LANDED.has(o.id))) {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
-      expect(isRefusal(result) ? result.code : 'ran', op.id).not.toBe('not-implemented');
+      expect([op.id, isRefusal(result) ? result.code : 'ran']).not.toEqual([op.id, 'not-implemented']);
     }
   });
 });
