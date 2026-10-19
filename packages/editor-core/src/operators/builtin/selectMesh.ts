@@ -10,8 +10,17 @@
 // is one step).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { GroupId, MeshId } from '@ekza-animator/doc';
-import type { BitSet, ComponentKind, ComponentSelection, Domain, EditMesh, HiddenSet } from '@ekza-animator/mesh-core';
+import type {
+  BitSet,
+  ComponentKind,
+  ComponentSelection,
+  Domain,
+  EditMesh,
+  HiddenSet,
+  MeshData,
+} from '@ekza-animator/mesh-core';
 import { type MeshKernel, meshKernel } from '../../mesh';
+import { meshCheckOptions } from '../../selection/component/meshCheck';
 import { componentInternals, type ComponentServiceInternals } from '../../selection/component/service';
 import { selectionGesture } from '../../selection/component/steps';
 import type { EditorApp, OperatorContext, PollResult, SceneObjectId, SelectMode, SelectionGesture } from '../../types';
@@ -474,7 +483,10 @@ function wholeOperator(
             const sizes = internals.sizes(mesh);
             if (sizes === null) continue;
             const hidden = setOf(app.components.hidden(mesh), kind);
-            const current = setOf(app.components.get(mesh, kind), kind);
+            // Invert complements the expanded selection (the picks and their partners, §5.6): the complement of a
+            // mirrored set is mirrored, so its expansion adds nothing back.
+            const expanded = internals.expanded(mesh, kind);
+            const current = setOf(expanded ?? app.components.get(mesh, kind), kind);
             const indices: number[] = [];
             for (let i = 0; i < sizes[kind]; i++) {
               if (hidden.has(i)) continue;
@@ -496,6 +508,43 @@ const DOMAIN_KIND: Readonly<Record<Domain, ComponentKind>> = {
   face: 'face',
   corner: 'face',
 };
+
+/** The kind a code selects in when the mesh has none of it (the §5.25 detection domains). */
+const CODE_KIND: Readonly<Record<string, ComponentKind>> = {
+  'non-manifold-edge': 'edge',
+  'non-manifold-vertex': 'vertex',
+  'zero-length-edge': 'edge',
+  'inconsistent-winding': 'edge',
+  'stray-vertex': 'vertex',
+  'loose-geometry': 'vertex',
+  'open-border': 'edge',
+};
+
+/**
+ * The components of a code's problems in one kind: the first problem's domain, the other domains' elements converted
+ * to it (`loose-geometry` reports loose vertices and wire edges: in vertex mode the wire edges' endpoints).
+ */
+function matchingIndices(
+  mesh: EditMesh | MeshData,
+  problems: readonly { readonly elements?: Uint32Array; readonly domain?: Domain }[],
+  kind: ComponentKind,
+): number[] {
+  const edit = typeof (mesh as Partial<EditMesh>).edgeVert === 'function' ? (mesh as EditMesh) : null;
+  const endpoint = (e: number, end: 0 | 1): number =>
+    edit !== null ? edit.edgeVert(e, end) : ((mesh as MeshData).edgeVerts[2 * e + end] as number);
+  const out = new Set<number>();
+  for (const problem of problems) {
+    const domain = problem.domain === undefined ? kind : DOMAIN_KIND[problem.domain];
+    for (const i of problem.elements ?? []) {
+      if (domain === kind) out.add(i);
+      else if (domain === 'edge' && kind === 'vertex') {
+        out.add(endpoint(i, 0));
+        out.add(endpoint(i, 1));
+      }
+    }
+  }
+  return [...out].sort((a, b) => a - b);
+}
 
 const selectMatching = defineOperator({
   id: 'select.mesh.matching',
@@ -520,13 +569,10 @@ const selectMatching = defineOperator({
     const runtime = app.meshes.get(args.mesh);
     const data = runtime?.mesh ?? runtime?.data() ?? null;
     if (data === null) throw new EkzaError('mesh-not-ready', `Mesh ${args.mesh} is not ready`);
-    const problems = kernel
-      .checkMesh(data, { hidden: app.components.hidden(args.mesh) })
-      .filter((p) => p.code === args.code);
-    const domain: Domain = problems.find((p) => p.domain !== undefined)?.domain ?? 'face';
-    const kind = DOMAIN_KIND[domain];
-    const indices = new Set<number>();
-    for (const problem of problems) for (const i of problem.elements ?? []) indices.add(i);
+    // The panel's options (hidden elements, the template's closed flag, the palette's duplicate slots, §5.25).
+    const problems = kernel.checkMesh(data, meshCheckOptions(app, args.mesh)).filter((p) => p.code === args.code);
+    const domain = problems.find((p) => p.domain !== undefined)?.domain;
+    const kind = domain === undefined ? (CODE_KIND[args.code] ?? 'face') : DOMAIN_KIND[domain];
     const model = app.session.getState().model;
     const hilite = model.hilite.includes(args.mesh) ? model.hilite : [...model.hilite, args.mesh];
     const internals = internalsOf(app);
@@ -534,7 +580,7 @@ const selectMatching = defineOperator({
       app.session.setState({ model: { ...model, componentMode: kind, lastComponentMode: kind, hilite } });
       internals.batch(() => {
         for (const id of hilite) if (id !== args.mesh) internals.clearKind(id, kind);
-        app.components.apply(args.mesh, kind, [...indices], 'replace');
+        app.components.apply(args.mesh, kind, matchingIndices(data, problems, kind), 'replace');
       });
     });
   },

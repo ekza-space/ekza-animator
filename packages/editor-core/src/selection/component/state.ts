@@ -60,8 +60,15 @@ export interface MeshState {
   readonly runtime: MeshRuntime;
   /** Manifest of the revision the indices are known to index. */
   rev: string | null;
-  /** True after `set`/`remap` wrote indices of a revision that is not committed yet (inside a commit, §5.5). */
+  /**
+   * True after `set`/`remap` stored an op's result (inside a commit, §5.5): it belongs to the revision the commit
+   * lands, so it is never remembered as the state of `rev` (the revision the op read). It settles when the runtime
+   * follows the commit (the next revision's state), at the end of the task when no revision moved (a change of `rev`),
+   * or rolls back to the remembered state of `rev` when the content changed without a new revision (an aborted commit).
+   */
   pending: boolean;
+  /** `MeshRuntime.version` when the pending result was stored (a later change under the same revision = a rollback). */
+  pendingVersion: number;
   sizes: Sizes;
   readonly sel: Record<ComponentKind, KindState>;
   /** Explicitly hidden components; edges and vertices only hidden faces use are derived (`hiddenClosure`). */
@@ -91,6 +98,7 @@ export function freshState(kernel: MeshKernel, runtime: MeshRuntime, sizes: Size
     runtime,
     rev: runtime.ref?.manifest ?? null,
     pending: false,
+    pendingVersion: -1,
     sizes,
     sel: {
       vertex: emptyKind(kernel, sizes.vertex),

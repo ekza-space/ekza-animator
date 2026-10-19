@@ -1,4 +1,10 @@
 // The component selection service and its B10 helpers (M6A-SPEC §4.6, §5.6).
+export {
+  closedExpectedOf,
+  duplicateSlotsOf,
+  type MeshCheckOptions,
+  meshCheckOptions,
+} from './meshCheck';
 export { type ModelPointerProbe, modelPointer, provideModelPointer } from './probes';
 export {
   type ClickRecord,

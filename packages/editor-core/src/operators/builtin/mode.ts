@@ -5,7 +5,9 @@
 //   'toggle' (F8) switches between object mode and the last component mode; 'object' returns to object mode.
 // - Entering from object mode hilites the selected meshes; with none selected the mesh under the pointer (the press
 //   point of the RMB mode menu, else the hover point), else it refuses with "Select a mesh first". The RMB mode menu on
-//   another mesh adds that mesh to the hilite set.
+//   another mesh adds that mesh to the hilite set. Over a character's glTF mesh without a record (the RMB menu's press
+//   point, or the hover point when nothing else is a candidate) it refuses with "Make editable first" and the Outliner
+//   action (§5.6, §5.21).
 // - Returning to object mode makes the hilited meshes the object selection (one "Select" step when that changes it);
 //   `session.model.hilite` keeps the list (not drawn) for the Last-op card's comparison (§5.7).
 // - A mode switch ends an open extrude session without a zero-drop (§5.8); with `convertOnModeSwitch` the selection
@@ -29,6 +31,8 @@ export const MODEL_ONLY_REASON = 'Component modes are in the Model workspace';
 export const SELECT_A_MESH_FIRST = 'Select a mesh first';
 /** A glTF mesh of a character without a record (§5.21). */
 export const MAKE_EDITABLE_FIRST = 'Make editable first';
+/** `select.mode` over a character's glTF mesh without a record: the reason and the Outliner action (§5.6). */
+export const MAKE_EDITABLE_HINT = `${MAKE_EDITABLE_FIRST}: use Make editable on its Outliner row`;
 
 /** A live mesh record with data and a runtime that is not in error: it can be hilited. */
 export function isEditableMesh(app: Pick<EditorApp, 'store' | 'meshes'>, id: string): boolean {
@@ -55,6 +59,11 @@ function paneOf(ctx: OperatorContext): string | null {
 function pointerMesh(ctx: OperatorContext, at: 'press' | 'hover'): MeshId | null {
   const mesh = modelPointer(ctx.app)?.meshAt(paneOf(ctx), at) ?? null;
   return mesh !== null && isEditableMesh(ctx.app, mesh) ? mesh : null;
+}
+
+/** Whether a character's glTF mesh without a record (and no record's mesh) is under the pointer (§5.6). */
+function pointerAsset(ctx: OperatorContext, at: 'press' | 'hover'): boolean {
+  return modelPointer(ctx.app)?.assetMeshAt?.(paneOf(ctx), at) === true;
 }
 
 /** The meshes a component mode entered from object mode hilites (empty: none to hilite). */
@@ -120,8 +129,12 @@ const selectMode = defineOperator({
     const state = ctx.app.session.getState();
     if (state.workspace !== 'model') return fail(MODEL_ONLY_REASON);
     const next = targetMode(ctx, args['mode']);
-    if (next === 'object' || state.model.componentMode !== 'object') return OK;
-    return enteringHilite(ctx).length > 0 ? OK : fail(SELECT_A_MESH_FIRST);
+    if (next === 'object') return OK;
+    // The RMB mode menu opened over a character's glTF mesh that is not made editable: it cannot be hilited.
+    const menu = ctx.source === 'marking-menu';
+    if (menu && pointerMesh(ctx, 'press') === null && pointerAsset(ctx, 'press')) return fail(MAKE_EDITABLE_HINT);
+    if (state.model.componentMode !== 'object' || enteringHilite(ctx).length > 0) return OK;
+    return !menu && pointerAsset(ctx, 'hover') ? fail(MAKE_EDITABLE_HINT) : fail(SELECT_A_MESH_FIRST);
   },
   apply(ctx, args) {
     const app = ctx.app;

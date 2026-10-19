@@ -12,6 +12,11 @@ export interface ModelPointerProbe {
    * runs the operator opened there) or at the hover point (`hover`). Null over empty space or without a pane.
    */
   meshAt(paneId: string | null, at: 'press' | 'hover'): MeshId | null;
+  /**
+   * Whether a mesh without a record (a character's glTF mesh that is not made editable, §5.21) is under the pointer
+   * there and no record's mesh is: it cannot be hilited ("Make editable first", §5.6). Optional (false without it).
+   */
+  assetMeshAt?(paneId: string | null, at: 'press' | 'hover'): boolean;
   /** `KeyboardEvent.code` of the key press the keyboard adapter is dispatching (or last dispatched), or null. */
   lastKey(): string | null;
 }

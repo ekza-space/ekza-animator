@@ -6,18 +6,22 @@
 //   objects in object mode (a ray against the drawn faces; a marquee by the projected visible vertices);
 // - provides the pointer probe of the headless Model operators (the mesh under the pointer and at the last press, the
 //   key being dispatched) and the bounds `F`/`A` frame in Model (component, then object selections, then the meshes);
-// - pushes `view.isolate`'s face sets to the display and drops the ones a topology change made stale.
+// - pushes `view.isolate`'s face sets to the display and drops the ones a topology change made stale;
+// - drives the Mesh Check overlay (§5.25): while any pane has `DisplayFlags.meshCheck` in Model, every drawn mesh's
+//   problems (the Mesh Check panel's options) go to the display, recomputed only for meshes that changed.
 import type { Disposer } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
 import {
   componentInternals,
   type EditorApp,
+  meshCheckOptions,
+  meshKernel,
   objectsDrawnIn,
   provideModelPointer,
   type SelectMode,
   type ToolPointerEvent,
 } from '@ekza-animator/editor-core';
-import type { BitSet, ComponentKind } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, MeshProblem } from '@ekza-animator/mesh-core';
 import { type Camera, Matrix4, Ray, Vector3 } from 'three';
 import type { SpatialBounds } from '../../../framing/bounds';
 import type { ViewportManager } from '../../../manager/ViewportManager';
@@ -26,6 +30,21 @@ import { PICK } from '../../../theme';
 import type { MarqueeRect } from '../../../types';
 import type { ViewportToolHost } from '../../host';
 import { selectModeOf } from '../../selectTool';
+
+/**
+ * The loop-table gesture of a double-click's modifiers (§5.6, the click rules): `Shift` and `Mod+Shift` (add) extend
+ * the selection along the loop, `Mod` alone (remove) deselects the run; no modifier replaces.
+ */
+export function loopGestureOf(mods: {
+  readonly shift: boolean;
+  readonly mod: boolean;
+}): 'double' | 'shift-double' | 'mod-double' {
+  if (mods.shift) return 'shift-double';
+  return mods.mod ? 'mod-double' : 'double';
+}
+
+/** The tables whose changes can change a mesh's Mesh Check options. */
+const LINT_TABLES: ReadonlySet<string> = new Set(['meshes', 'groups', 'palettes', 'swatches']);
 
 /** Two presses within this time (ms) and distance (CSS px) on one component make a double-click (§5.6 loop table). */
 export const DOUBLE_CLICK_MS = 500;
@@ -68,6 +87,11 @@ export class ModelSelectRuntime {
   private lastKey: string | null = null;
   /** Face isolate sets pushed to the display, per pane. */
   private readonly pushedIsolates = new Map<string, Set<MeshId>>();
+  /** Mesh Check problems pushed to the display, with the change key they were computed for. */
+  private readonly pushedLints = new Map<MeshId, string>();
+  private lintsQueued = false;
+  /** Bumps on every document batch (template groups and palettes change a mesh's check options). */
+  private docVersion = 0;
   private disposed = false;
 
   constructor(
@@ -94,9 +118,13 @@ export class ModelSelectRuntime {
     this.disposers.push(
       provideModelPointer(app, {
         meshAt: (paneId, at) => this.meshAt(paneId, at),
+        assetMeshAt: (paneId, at) => this.assetMeshAt(paneId, at),
         lastKey: () => this.lastKey,
       }),
-      app.components.subscribe(() => this.syncIsolates()),
+      app.components.subscribe(() => {
+        this.syncIsolates();
+        this.scheduleLints();
+      }),
       app.session.subscribe((state, previous) => {
         if (
           state.workspace !== previous.workspace ||
@@ -106,7 +134,16 @@ export class ModelSelectRuntime {
           this.display.setHover(null, null);
         }
         if (state.model.isolate !== previous.model.isolate) this.syncIsolates();
+        if (state.workspace !== previous.workspace) this.scheduleLints();
       }),
+      app.meshes.subscribe(() => this.scheduleLints()),
+      app.store.subscribe((batch) => {
+        // Template groups, palettes and mesh records decide a mesh's check options (closed, duplicate slots).
+        if (batch.origin !== 'load' && !batch.changes.some((change) => LINT_TABLES.has(change.table))) return;
+        this.docVersion++;
+        this.scheduleLints();
+      }),
+      vm.subscribePanes(() => this.scheduleLints()),
       () => display.dispose(),
     );
     vm.setFrameBounds((what) => this.frameBounds(what));
@@ -116,6 +153,7 @@ export class ModelSelectRuntime {
       () => vm.setMeshHitTest(null),
     );
     this.syncIsolates();
+    this.syncLints();
   }
 
   dispose(): void {
@@ -297,12 +335,25 @@ export class ModelSelectRuntime {
     this.display.setHover(null, null);
   }
 
-  private meshAt(paneId: string | null, at: 'press' | 'hover'): MeshId | null {
+  /** The pane and pane-local point of the last press there (`press`) or of the hover (`hover`). */
+  private pointerPoint(paneId: string | null, at: 'press' | 'hover'): { pane: string; x: number; y: number } | null {
     const hover = this.hoverAt;
     const pane = paneId ?? hover?.paneId ?? null;
     if (pane === null) return null;
     const point = at === 'press' ? (this.pressAt.get(pane) ?? null) : hover?.paneId === pane ? hover : null;
-    return point === null ? null : this.pickObject(pane, point.x, point.y);
+    return point === null ? null : { pane, x: point.x, y: point.y };
+  }
+
+  private meshAt(paneId: string | null, at: 'press' | 'hover'): MeshId | null {
+    const point = this.pointerPoint(paneId, at);
+    return point === null ? null : this.pickObject(point.pane, point.x, point.y);
+  }
+
+  /** A mesh the viewport draws without a record (a character's glTF mesh) under the point, and no record's mesh. */
+  private assetMeshAt(paneId: string | null, at: 'press' | 'hover'): boolean {
+    const point = this.pointerPoint(paneId, at);
+    if (point === null || this.pickObject(point.pane, point.x, point.y) !== null) return false;
+    return this.vm.isOverMesh(point.pane, point.x, point.y);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -393,6 +444,57 @@ export class ModelSelectRuntime {
         const kept = new Map([...wanted].filter(([mesh]) => next.has(mesh)));
         internals.setFaceIsolate(pane, kept.size === 0 ? null : kept);
       }
+    }
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // Mesh Check overlay (§5.25)
+
+  /** Whether a pane draws Mesh Check markers (`DisplayFlags.meshCheck`, Model only). */
+  private meshCheckShown(): boolean {
+    if (this.app.session.getState().workspace !== 'model') return false;
+    return this.vm.paneIds().some((id) => this.vm.paneState(id)?.display.meshCheck === true);
+  }
+
+  private scheduleLints(): void {
+    if (this.lintsQueued || this.disposed) return;
+    this.lintsQueued = true;
+    queueMicrotask(() => {
+      this.lintsQueued = false;
+      if (!this.disposed) this.syncLints();
+    });
+  }
+
+  /**
+   * The overlay follows the panes' `meshCheck` flags, not the Mesh Check panel: while one is on, every drawn mesh gets
+   * its problems (recomputed when its content, its hidden set or the document changed); off, the markers go.
+   */
+  private syncLints(): void {
+    const kernel = meshKernel();
+    const shown = kernel !== null && this.meshCheckShown();
+    const seen = new Set<MeshId>();
+    if (shown) {
+      for (const runtime of this.app.meshes.list()) {
+        if (runtime.state !== 'ready') continue;
+        const data = runtime.mesh ?? runtime.data();
+        if (data === null) continue;
+        seen.add(runtime.id);
+        const key = `${runtime.version}|${this.app.components.version}|${this.docVersion}`;
+        if (this.pushedLints.get(runtime.id) === key) continue;
+        let problems: readonly MeshProblem[];
+        try {
+          problems = kernel.checkMesh(data, meshCheckOptions(this.app, runtime.id));
+        } catch {
+          problems = []; // the diagnostics package has not landed (`not-implemented`)
+        }
+        this.display.setLints(runtime.id, problems);
+        this.pushedLints.set(runtime.id, key);
+      }
+    }
+    for (const id of Array.from(this.pushedLints.keys())) {
+      if (seen.has(id)) continue;
+      this.pushedLints.delete(id);
+      this.display.setLints(id, []);
     }
   }
 
@@ -560,7 +662,7 @@ class ModelPointer implements ModelSelectBehaviour {
     if (press.double && hit !== null && previous?.hit === key) {
       // The second press of a double-click on the same component: Maya's loop table (§5.6).
       this.last = null;
-      const gesture = press.mod ? 'mod-double' : press.shift ? 'shift-double' : 'double';
+      const gesture = loopGestureOf(press);
       this.run('select.mesh.loop', { mesh: hit.mesh, kind: hit.kind, component: hit.index, gesture }, press.paneId);
       return;
     }

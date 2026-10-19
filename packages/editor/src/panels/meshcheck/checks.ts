@@ -1,8 +1,9 @@
 // Mesh Check results as the panel, its overlay and the test API read them (M6A-SPEC §5.25; B10 over B5's
 // `checkMesh`): problems grouped by code with their elements, a severity per code and the `mesh.cleanup` fix each
-// code offers ("select matching" is every code's default action). Visible elements only (the mesh's hidden set).
+// code offers ("select matching" is every code's default action). Visible elements only (the mesh's hidden set),
+// `open-border` only on meshes their template flags closed, `duplicate-slot` from the mesh's palette.
 import type { MeshId } from '@ekza-animator/doc';
-import { type EditorApp, meshKernel } from '@ekza-animator/editor-core';
+import { type EditorApp, meshCheckOptions, meshKernel } from '@ekza-animator/editor-core';
 import type { MeshProblem } from '@ekza-animator/mesh-core';
 
 export type CheckSeverity = 'error' | 'warning' | 'info';
@@ -36,19 +37,17 @@ export function severityOf(code: string): CheckSeverity {
   return 'error';
 }
 
-/** The kernel's problems of a mesh's current revision (visible elements), or null when it cannot be checked yet. */
+/**
+ * The kernel's problems of a mesh's current revision, or null when it cannot be checked yet: visible elements only,
+ * `open-border` when its template flags it closed, `duplicate-slot` from its palette (`meshCheckOptions`, the options
+ * "select matching" checks with).
+ */
 export function meshProblems(app: EditorApp, mesh: MeshId): readonly MeshProblem[] | null {
   const kernel = meshKernel();
   const runtime = app.meshes.get(mesh);
   const data = runtime?.state === 'ready' ? (runtime.mesh ?? runtime.data()) : null;
   if (kernel === null || data === null || data === undefined) return null;
-  let hidden: ReturnType<EditorApp['components']['hidden']> | null = null;
-  try {
-    hidden = app.components.hidden(mesh);
-  } catch {
-    hidden = null;
-  }
-  return kernel.checkMesh(data, hidden === null ? undefined : { hidden });
+  return kernel.checkMesh(data, meshCheckOptions(app, mesh));
 }
 
 /** Problems grouped by code (first appearance order). */

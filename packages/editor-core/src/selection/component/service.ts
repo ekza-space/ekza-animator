@@ -5,11 +5,14 @@
 //   see them (the stored picks keep them, so undoing a hide brings the selection back as it was).
 // - Hidden components: faces are the primary hide (component hides convert to faces, as Maya does); `hidden()` adds
 //   every edge whose faces are all hidden and every vertex whose edges are all hidden (mesh-view's rule, M6A-B6-6).
-// - Revisions: the indices belong to the mesh's committed revision (`MeshRuntime.ref`). A `set`/`remap` whose sizes
-//   differ from the committed ones (inside a commit, before its batch) is pending and becomes the new revision's state
-//   when the runtime follows the commit. When the runtime moves to another revision (undo, redo, a peer's change), the
-//   state remembered for that revision comes back; without one the selection stays when the sizes are unchanged and
-//   is cleared otherwise (hidden sets are resized: new elements visible).
+// - Revisions: the indices belong to the mesh's committed revision (`MeshRuntime.ref`). A `set`/`remap` (an op's
+//   result, stored inside its commit before the batch) is pending whatever its sizes: the state before it stays the
+//   remembered state of the revision the op read, and the result becomes the new revision's state when the runtime
+//   follows the commit (at the end of the task: the current revision's when no revision moved; the remembered state
+//   again when the content changed back under the same revision, a rolled-back commit). A same-size result keeps the
+//   other kinds' picks it does not supply. When the runtime moves to another revision (undo, redo, a peer's change),
+//   the state remembered for that revision comes back; without one the selection stays when the sizes are unchanged
+//   and is cleared otherwise (hidden sets are resized: new elements visible). Snapshots keep every kind's pick order.
 // - Symmetry (§5.6 mirrored selection): the stored set holds the picks; `expanded` adds the partners of the mesh's
 //   symmetry map (`MeshRuntime.symmetry()`), `mirrored` is what the expansion adds (HUD "+N sym", the 60 % glyphs).
 //   Removal gestures on either side remove the pick and its partner.
@@ -169,6 +172,14 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
   const states = new Map<MeshId, MeshState>();
   const listeners = new Set<(version: number) => void>();
   const isolates = new Map<string, Map<MeshId, BitSet>>();
+  /**
+   * Every kind's pick order and active component of the snapshot entries this service made: the contract's entry keeps
+   * them for its own kind only, and a selection undo must not reset the other kinds' order (§5.6 per-mode memory).
+   */
+  const kindOrders = new WeakMap<
+    MeshSelectionSnapshot,
+    Readonly<Record<ComponentKind, { readonly order: readonly number[]; readonly active: number }>>
+  >();
   /** Meshes this service opened (§5.5 rule 8); only these are closed again. */
   const opened = new Set<MeshId>();
   let version = 0;
@@ -279,12 +290,20 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     }
     // The committed revision moved.
     if (state.pending) {
+      // The pending result is the state of the revision its commit landed.
       state.pending = false;
       fitState(state, sizes);
     } else {
       const cached = ref === null ? undefined : state.revs.get(ref);
-      if (cached !== undefined && sameSizes(cached.sizes, sizes)) thaw(state, cached);
-      else {
+      // The sizes the revision had when first seen committed: a preview session that survives the undo of its own
+      // step ('before-last', §5.7) shows other counts than the revision the selection indexes.
+      const known = ref === null ? undefined : state.revSizes.get(ref);
+      if (
+        cached !== undefined &&
+        (sameSizes(cached.sizes, sizes) || (known !== undefined && sameSizes(cached.sizes, known)))
+      ) {
+        thaw(state, cached);
+      } else {
         const before = state.sizes;
         fitState(state, sizes);
         if (!sameSizes(before, sizes)) clearSelections(state);
@@ -321,6 +340,60 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     }
     state.closure = null;
     publish();
+  };
+
+  /** Meshes with a pending result to settle at the end of the task. */
+  const unsettled = new Set<MeshId>();
+  let settleQueued = false;
+
+  /**
+   * The end of the task that stored a pending result. A commit's batch has arrived by now (transactions are
+   * synchronous): the runtime moved to the new revision (its state is the result), or the content changed under the
+   * same revision (the commit was rolled back: the state the op read comes back), or nothing moved (a run that wrote
+   * no revision, a store outside a commit: a change of the current revision).
+   */
+  const settle = (): void => {
+    settleQueued = false;
+    const ids = Array.from(unsettled);
+    unsettled.clear();
+    internals.batch(() => {
+      for (const mesh of ids) {
+        const state = reconcile(mesh);
+        if (state === null || !state.pending) continue;
+        const runtime = state.runtime;
+        if (state.rev !== (runtime.ref?.manifest ?? null)) continue;
+        const live = liveSizes(runtime);
+        if (live === null) continue;
+        if (runtime.version !== state.pendingVersion) {
+          state.pending = false;
+          const cached = state.rev === null ? undefined : state.revs.get(state.rev);
+          if (cached !== undefined && sameSizes(cached.sizes, live)) thaw(state, cached);
+          else {
+            fitState(state, live);
+            clearSelections(state);
+          }
+          state.closure = null;
+          state.version++;
+          publish();
+          continue;
+        }
+        // Sizes of another revision with nothing committed: it waits for its revision (or a rollback event).
+        if (!sameSizes(live, state.sizes)) continue;
+        state.pending = false;
+        touched(state);
+      }
+    });
+  };
+
+  /** Marks a stored result as the next revision's (§5.5: an op stores it inside its commit, before the batch). */
+  const markPending = (mesh: MeshId, state: MeshState): void => {
+    state.pending = true;
+    state.pendingVersion = state.runtime.version;
+    unsettled.add(mesh);
+    if (!settleQueued) {
+      settleQueued = true;
+      queueMicrotask(settle);
+    }
   };
 
   const stateOf = (mesh: MeshId): MeshState | null => reconcile(mesh);
@@ -708,20 +781,30 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       if (deps.meshes().get(mesh) === undefined) throw new EkzaError('invalid-record', `No mesh runtime for ${mesh}`);
       kernelOrThrow();
       const state = requireState(mesh);
+      // What the op read is the current revision's state: remembered before its result replaces it, so that undoing
+      // the op brings it back (and Adjust Last re-runs on it, §5.7) whatever the result's sizes.
+      if (settled(state)) remember(state);
       const sizes: Sizes = { vertex: sel.verts.size, edge: sel.edges.size, face: sel.faces.size };
-      const committed = committedOf(state);
+      const resized = !sameSizes(state.sizes, sizes);
       fitState(state, sizes);
       for (const kind of KINDS) {
+        const incoming = setOf(sel, kind);
+        // Per-mode memory: with unchanged sizes a kind the result does not supply (empty, not its kind) keeps its picks.
+        if (!resized && kind !== sel.kind && incoming.isEmpty()) continue;
         const k = state.sel[kind];
-        k.set = setOf(sel, kind).clone();
-        k.order = sel.kind === kind && sel.order !== null ? [...sel.order] : [];
-        k.active = sel.kind === kind ? sel.active : -1;
+        k.set = incoming.clone();
+        if (kind === sel.kind) {
+          k.order = sel.order !== null ? [...sel.order] : [];
+          k.active = sel.active;
+        } else if (resized) {
+          k.order = [];
+          k.active = -1;
+        }
         tidyKind(k);
       }
-      // Sizes of another revision than the committed one: an op's result inside its commit (pending until the
-      // runtime follows the commit, §5.5).
-      state.pending = committed === null || !sameSizes(committed, sizes);
-      if (!state.pending) state.rev = state.runtime.ref?.manifest ?? null;
+      // The result belongs to the revision the commit lands (§5.5), whatever its sizes: settled when the runtime
+      // follows, or at the end of the task (see `settle`).
+      markPending(mesh, state);
       touched(state);
     },
     apply(mesh, kind, indices, mode) {
@@ -771,7 +854,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
           const state = stateOf(id);
           if (state === null) continue;
           const k = state.sel[kind];
-          out[id] = {
+          const entry: MeshSelectionSnapshot = {
             manifest: state.runtime.ref?.manifest ?? null,
             kind,
             verts: state.sel.vertex.set.encode(),
@@ -780,6 +863,12 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
             order: k.order.length === 0 ? null : Uint32Array.from(k.order),
             active: k.active,
           };
+          kindOrders.set(entry, {
+            vertex: { order: [...state.sel.vertex.order], active: state.sel.vertex.active },
+            edge: { order: [...state.sel.edge.order], active: state.sel.edge.active },
+            face: { order: [...state.sel.face.order], active: state.sel.face.active },
+          });
+          out[id] = entry;
         }
       }
       return {
@@ -806,11 +895,19 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
               edge: kernel.BitSet.decode(snap.edges, state.sizes.edge),
               face: kernel.BitSet.decode(snap.faces, state.sizes.face),
             };
+            const orders = kindOrders.get(snap);
             for (const kind of KINDS) {
               const k = state.sel[kind];
               k.set = sets[kind];
-              k.order = kind === snap.kind && snap.order !== null ? [...snap.order] : [];
-              k.active = kind === snap.kind ? snap.active : -1;
+              if (kind === snap.kind) {
+                k.order = snap.order !== null ? [...snap.order] : [];
+                k.active = snap.active;
+              } else if (orders !== undefined) {
+                k.order = [...orders[kind].order];
+                k.active = orders[kind].active;
+              }
+              // Without the snapshot's own orders (a copied snapshot) the other kinds keep their pick order and active
+              // component for the members still selected (Bridge, Target Weld, the loop table's reference).
               tidyKind(k);
             }
           } catch {
@@ -851,6 +948,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     remap(mesh, remap: ElementRemap) {
       const kernel = kernelOrThrow();
       const state = requireState(mesh);
+      if (settled(state)) remember(state);
       const sizes = liveSizes(state.runtime) ?? state.sizes;
       const domain = { vertex: remap.point, edge: remap.edge, face: remap.face } as const;
       const move = (set: BitSet, kind: ComponentKind): BitSet => {
@@ -872,8 +970,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         state.hidden[kind] = move(state.hidden[kind], kind);
       }
       state.sizes = sizes;
-      const committed = committedOf(state);
-      state.pending = committed === null || !sameSizes(committed, sizes);
+      markPending(mesh, state);
       touched(state);
     },
     subscribe(listener: (version: number) => void): Disposer {

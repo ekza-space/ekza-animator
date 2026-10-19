@@ -15,6 +15,7 @@ import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-c
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelSelectRuntime, modelSelectOf } from '../../src';
+import { loopGestureOf } from '../../src/tools/model/select/runtime';
 import { createRig, pointer, type Rig } from '../helpers';
 
 const PANE = 'pane-single';
@@ -196,6 +197,25 @@ describe('component clicks (§5.6)', () => {
     expect(s.app.calls.filter((call) => call.id === 'select.mesh.loop').at(-1)?.args).toMatchObject({
       gesture: 'shift-double',
     });
+    // Mod+Shift adds (the click rules): its double-click extends like Shift; Mod alone removes the run.
+    const mod: PointerEventInit = s.app.keymap.platform === 'mac' ? { metaKey: true } : { ctrlKey: true };
+    click(s, at, { ...mod, shiftKey: true });
+    click(s, at, { ...mod, shiftKey: true });
+    expect(s.app.calls.filter((call) => call.id === 'select.mesh.loop').at(-1)?.args).toMatchObject({
+      gesture: 'shift-double',
+    });
+    click(s, at, mod);
+    click(s, at, mod);
+    expect(s.app.calls.filter((call) => call.id === 'select.mesh.loop').at(-1)?.args).toMatchObject({
+      gesture: 'mod-double',
+    });
+    expect(s.app.calls.filter((call) => call.id === 'select.mesh.loop')).toHaveLength(4);
+    expect([
+      loopGestureOf({ shift: false, mod: false }),
+      loopGestureOf({ shift: true, mod: false }),
+      loopGestureOf({ shift: true, mod: true }),
+      loopGestureOf({ shift: false, mod: true }),
+    ]).toEqual(['double', 'shift-double', 'shift-double', 'mod-double']);
   });
 
   it('the hovered component is pre-highlighted; the pointer probe names the mesh under the pointer', async () => {
