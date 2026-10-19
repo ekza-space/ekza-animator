@@ -4,7 +4,7 @@
 // property: random edge/vertex paths on random meshes never produce invalid topology.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { EDGE_HARD, type EditMesh, editMeshFrom, MESH_OPS, primitive, selectionOf, topologyStats } from '../../../src';
+import { EDGE_HARD, type EditMesh, editMeshFrom, MESH_OPS, primitive, topologyStats } from '../../../src';
 import { arbPrimitive, arbSoup, buildMeshData, cubeData, signedVolume, vef } from '../../../src/testing';
 import { context, edgeAt, faceVertList, position, refusedCode, runOk, runOp } from '../harness';
 import { asymmetry, testSymmetryMap } from '../symmetry-fixture';

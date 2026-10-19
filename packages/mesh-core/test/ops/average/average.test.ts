@@ -40,10 +40,12 @@ describe('mesh.averageVertices', () => {
     expect(position(m, centre)[1]).toBeCloseTo(0.5, 6);
     // Neighbours of the centre moved up by a quarter of 0.5 · (1/4).
     expect(position(m, vertexAt(m, [1, 0.125, 0]))[1]).toBeCloseTo(0.125, 6);
-    for (let v = 0; v < m.counts.points; v++) {
+    const border = [...Array(m.counts.points).keys()].filter((v) => {
       const p = position(before, v);
-      if (Math.abs(p[0]) === 2 || Math.abs(p[2]) === 2) expect(position(m, v)).toEqual(p);
-    }
+      return Math.abs(p[0]) === 2 || Math.abs(p[2]) === 2;
+    });
+    expect(border).toHaveLength(16);
+    expect(border.map((v) => position(m, v))).toEqual(border.map((v) => position(before, v)));
   });
 
   it('iterations and strength; adjust re-solves from the pre-op positions', () => {
@@ -89,9 +91,9 @@ describe('mesh.averageVertices', () => {
       const map = testSymmetryMap(m);
       runOk(m, average, null, { iterations: 3, strength: 0.6 }, context({ symmetry: { map, preserveSeam } }));
       expect(asymmetry(m, map)).toBeLessThan(1e-6);
-      for (let v = 0; v < m.counts.points; v++) {
-        if ((map.vertex[v] as number) === v) expect(position(m, v)[0]).toBe(0);
-      }
+      const seam = [...Array(m.counts.points).keys()].filter((v) => map.vertex[v] === v);
+      expect(seam).toHaveLength(5);
+      expect(seam.map((v) => position(m, v)[0])).toEqual(seam.map(() => 0));
     }
   });
 });
