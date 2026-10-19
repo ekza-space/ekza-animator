@@ -6,9 +6,14 @@ import { type JSX, lazy, Suspense, useState } from 'react';
 import { useSession } from '../../hooks';
 import type { ShellOverlayProps } from '../../overlays/slots';
 
-const ModelOpsShellOverlay = lazy(() =>
-  import('../../overlays/menus/optionBox').then((module) => ({ default: module.ModelOpsShellOverlay })),
-);
+// The overlay registers B11's marking menus from a second chunk (`overlays/menus/tools`); both are fetched together
+// on the first Model entry, so `M` and the Shift+RMB menus do not wait for one chunk after the other.
+const ModelOpsShellOverlay = lazy(() => {
+  void import('../../overlays/menus/tools').catch(() => {
+    // The overlay's own import retries (offline after a redeploy).
+  });
+  return import('../../overlays/menus/optionBox').then((module) => ({ default: module.ModelOpsShellOverlay }));
+});
 
 export function ModelOpsSlot(props: ShellOverlayProps): JSX.Element | null {
   const inModel = useSession((s) => s.workspace === 'model');
