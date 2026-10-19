@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickComponent, createPrimitive, openModel, setMode } from './helpers/m6a-model';
 import { counts, hoverPane, openKeyMenu, runMenuItem, topFace } from './helpers/m6a-model-ops-ui';
-import { dragFrom, expectTool, undoLabels, type Vec3, vertexPoint } from './helpers/m6a-model-topology-tools';
+import { dragFrom, expectTool, inPane, undoLabels, type Vec3, vertexPoint } from './helpers/m6a-model-topology-tools';
 import { call, runOk } from './helpers/test-api';
 
 // E2E-MOD-08 "Target Weld, Merge to Center, Merge by Distance" (M6A-SPEC §10.1, §5.12; owner B12b). (a) The Target
@@ -21,7 +21,7 @@ async function adjacentVisible(page: Page, cube: string): Promise<{ a: number; b
     if ((positions[a] as Vec3)[1] < 0.49 || (positions[b] as Vec3)[1] < 0.49) continue;
     const pa = await call(page, 'screenOfVertex', cube, a, 'pane-persp');
     const pb = await call(page, 'screenOfVertex', cube, b, 'pane-persp');
-    if (pa !== null && pb !== null) return { a, b, positions };
+    if (pa !== null && pb !== null && (await inPane(page, pa)) && (await inPane(page, pb))) return { a, b, positions };
   }
   throw new Error('no visible top edge');
 }

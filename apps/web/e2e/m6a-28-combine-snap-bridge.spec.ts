@@ -74,11 +74,15 @@ test.fixme('b12a: E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page })
   await openModel(page);
   const a = await openCylinder(page, 0.5);
   const b = await openCylinder(page, -0.5);
+  // The snap target's screen point (read with A hilited; the camera stays where it is).
+  await runOk(page, 'select.mode', { mode: 'object' });
+  await runOk(page, 'select.objects', { ids: [a], mode: 'replace' });
+  await setMode(page, 'vertex');
+  const rim = ((await call(page, 'meshPositions', a)) as unknown as Vec3[]).findIndex((p) => near(p[1], 0.5));
+  const target = await vertexPoint(page, a, rim);
   await runOk(page, 'select.mode', { mode: 'object' });
   await runOk(page, 'select.objects', { ids: [b], mode: 'replace' });
   await keyOver(page, 'KeyW');
-  const rim = ((await call(page, 'meshPositions', a)) as unknown as Vec3[]).findIndex((p) => near(p[1], 0.5));
-  const target = await vertexPoint(page, a, rim);
   const centre = await call(page, 'screenOfManipulator', MODEL_PANE, 'tview');
   if (centre === null) throw new Error('no manipulator centre');
   await page.keyboard.down('KeyV');

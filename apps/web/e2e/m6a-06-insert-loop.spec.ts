@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { createPrimitive, openModel, setMode } from './helpers/m6a-model';
 import { counts, openShiftRmbMenu, releaseOnSlot, runMenuItem } from './helpers/m6a-model-ops-ui';
-import { expectTool, keyOver, verticalIn, visibleEdge } from './helpers/m6a-model-topology-tools';
+import { expectTool, inPane, keyOver, verticalIn, visibleEdge } from './helpers/m6a-model-topology-tools';
 import { call, runOk } from './helpers/test-api';
 
 // E2E-MOD-06 "Insert Edge Loop: menu, G, tools" (M6A-SPEC §10.1, §5.11, §5.7; owner B12b). With the option box at
@@ -89,7 +89,7 @@ async function quadPartner(
     );
     if (opposite < 0) continue;
     const at = await call(page, 'screenOfEdge', mesh, opposite, 'pane-persp', 0.5);
-    if (at !== null) return { e: opposite, at };
+    if (at !== null && (await inPane(page, at))) return { e: opposite, at };
   }
   throw new Error(`no visible quad partner of edge ${e}`);
 }

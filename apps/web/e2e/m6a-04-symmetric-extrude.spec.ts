@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { modKey, openModel } from './helpers/m6a-model';
 import { counts, hoverPane } from './helpers/m6a-model-ops-ui';
-import { createBody, faceTable, partners, quadLayout, type Vec3 } from './helpers/m6a-model-topology-tools';
+import { createBody, faceTable, inPane, partners, quadLayout, type Vec3 } from './helpers/m6a-model-topology-tools';
 import { call } from './helpers/test-api';
 
 // E2E-MOD-04 "Symmetry: extrude both arms" (M6A-SPEC §10.1, §5.8, §5.14; owner B12b). The humanoid body with
@@ -31,7 +31,7 @@ test.fixme('b12a, b13: E2E-MOD-04 — symmetry: extrude both arms', async ({ pag
   );
   expect(partnerFace).toBeDefined();
   const at = await call(page, 'screenOfFace', body, cap.f, SIDE);
-  if (at === null) throw new Error('the hand cap is not visible in pane-side');
+  if (at === null || !(await inPane(page, at, SIDE))) throw new Error('the hand cap is not visible inside pane-side');
   await page.mouse.click(at.x, at.y);
   await expect.poll(async () => (await call(page, 'model')).selected[body]?.face).toEqual([cap.f]);
   const expanded = (await call(page, 'model')).expanded[body]?.face ?? [];

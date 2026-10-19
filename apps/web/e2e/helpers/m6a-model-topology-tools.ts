@@ -48,15 +48,21 @@ export async function edgePoint(
   t = 0.5,
   paneId = MODEL_PANE,
 ): Promise<ScreenPoint> {
-  const read = (): Promise<ScreenPoint | null> => call(page, 'screenOfEdge', mesh, e, paneId, t);
-  await expect.poll(read, { message: `edge ${e} of ${mesh} is visible in ${paneId}` }).not.toBeNull();
+  const read = async (): Promise<ScreenPoint | null> => {
+    const at = await call(page, 'screenOfEdge', mesh, e, paneId, t);
+    return at !== null && (await inPane(page, at, paneId)) ? at : null;
+  };
+  await expect.poll(read, { message: `edge ${e} of ${mesh} is visible inside ${paneId}` }).not.toBeNull();
   return (await read()) as ScreenPoint;
 }
 
 /** A visible screen point of a vertex. */
 export async function vertexPoint(page: Page, mesh: string, v: number, paneId = MODEL_PANE): Promise<ScreenPoint> {
-  const read = (): Promise<ScreenPoint | null> => call(page, 'screenOfVertex', mesh, v, paneId);
-  await expect.poll(read, { message: `vertex ${v} of ${mesh} is visible in ${paneId}` }).not.toBeNull();
+  const read = async (): Promise<ScreenPoint | null> => {
+    const at = await call(page, 'screenOfVertex', mesh, v, paneId);
+    return at !== null && (await inPane(page, at, paneId)) ? at : null;
+  };
+  await expect.poll(read, { message: `vertex ${v} of ${mesh} is visible inside ${paneId}` }).not.toBeNull();
   return (await read()) as ScreenPoint;
 }
 
@@ -121,7 +127,7 @@ export async function visibleEdge(
         for (const edge of await edgeEnds(page, mesh)) {
           if (!(test(edge.a, edge.b) || test(edge.b, edge.a))) continue;
           const at = await call(page, 'screenOfEdge', mesh, edge.e, paneId, t);
-          if (at !== null) {
+          if (at !== null && (await inPane(page, at, paneId))) {
             found = { e: edge.e, at };
             return true;
           }
@@ -201,4 +207,15 @@ export async function partners(page: Page, mesh: string): Promise<number[]> {
 export async function quadLayout(page: Page): Promise<void> {
   await runOk(page, 'view.layout', { layout: 'quad' });
   if ((await call(page, 'state')).maximizedPane !== null) await runOk(page, 'view.toggleMaximize');
+}
+
+/**
+ * Whether a page point lies inside a pane with a margin: a component projected onto a pane's border would be clicked on
+ * a dock sash or a pane header instead (the camera framing decides where the mesh lands).
+ */
+export async function inPane(page: Page, p: ScreenPoint, paneId = MODEL_PANE, margin = 24): Promise<boolean> {
+  const pane = (await call(page, 'panes')).find((entry) => entry.id === paneId);
+  if (pane === undefined) return false;
+  const r = pane.rect;
+  return p.x >= r.x + margin && p.x <= r.x + r.w - margin && p.y >= r.y + margin && p.y <= r.y + r.h - margin;
 }

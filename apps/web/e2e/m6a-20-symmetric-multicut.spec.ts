@@ -7,6 +7,7 @@ import {
   edgePoint,
   expectTool,
   faceTable,
+  inPane,
   keyOver,
   near,
   partners,
@@ -25,7 +26,8 @@ import { call } from './helpers/test-api';
 type Face = Awaited<ReturnType<typeof faceTable>>[number];
 
 async function visible(page: Page, mesh: string, e: number, t: number): Promise<boolean> {
-  return (await call(page, 'screenOfEdge', mesh, e, MODEL_PANE, t)) !== null;
+  const at = await call(page, 'screenOfEdge', mesh, e, MODEL_PANE, t);
+  return at !== null && (await inPane(page, at));
 }
 
 async function rightClick(page: Page): Promise<void> {

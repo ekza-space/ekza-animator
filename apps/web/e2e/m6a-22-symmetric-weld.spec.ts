@@ -6,6 +6,7 @@ import {
   edgeBetween,
   edgePoint,
   faceTable,
+  inPane,
   keyOver,
   near,
   partners,
@@ -40,7 +41,9 @@ async function visiblePair(
       if (!test(positions[s] as Vec3, positions[g] as Vec3)) continue;
       const from = await screen(page, mesh, s);
       const to = await screen(page, mesh, g);
-      if (from !== null && to !== null) return { s, g, from, to };
+      if (from !== null && to !== null && (await inPane(page, from)) && (await inPane(page, to))) {
+        return { s, g, from, to };
+      }
     }
   }
   throw new Error('no visible vertex pair matches');
@@ -94,8 +97,9 @@ test.fixme('b12a, b13: E2E-MOD-22 (b) — an unpaired weld welds once and says s
     const [a, b, c, d] = face.verts as [number, number, number, number];
     const e1 = await edgeBetween(page, body, a, b);
     const e2 = await edgeBetween(page, body, c, d);
-    if ((await call(page, 'screenOfEdge', body, e1, MODEL_PANE, 0.5)) === null) continue;
-    if ((await call(page, 'screenOfEdge', body, e2, MODEL_PANE, 0.5)) === null) continue;
+    const p1 = await call(page, 'screenOfEdge', body, e1, MODEL_PANE, 0.5);
+    const p2 = await call(page, 'screenOfEdge', body, e2, MODEL_PANE, 0.5);
+    if (p1 === null || p2 === null || !(await inPane(page, p1)) || !(await inPane(page, p2))) continue;
     cut = { e1, e2 };
     break;
   }

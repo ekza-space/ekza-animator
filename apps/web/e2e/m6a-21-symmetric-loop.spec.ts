@@ -1,7 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createPrimitive, MODEL_PANE, openModel } from './helpers/m6a-model';
 import { counts } from './helpers/m6a-model-ops-ui';
-import { createBody, edgeEnds, near, partners, activateTool, type Vec3 } from './helpers/m6a-model-topology-tools';
+import {
+  activateTool,
+  createBody,
+  edgeEnds,
+  inPane,
+  near,
+  partners,
+  type Vec3,
+} from './helpers/m6a-model-topology-tools';
 import { call, runOk } from './helpers/test-api';
 
 // E2E-MOD-21 "Insert Edge Loop with symmetry" (M6A-SPEC §10.1, §5.11, §5.14; owner B12b). With the Insert Edge Loop
@@ -13,7 +21,7 @@ import { call, runOk } from './helpers/test-api';
 //
 // Gates (§10.1): b12a (`model.symmetry.set`, `symmetry()`), b13 (the humanoid body template).
 
-/** Clicks a visible edge matching `test` at weight `w` from its end nearest `from` (the end with the smaller key). */
+/** Clicks a visible edge matching `test` at weight `w` from its end with the smaller `key` (polled until one shows). */
 async function clickAtWeight(
   page: Page,
   mesh: string,
@@ -21,18 +29,30 @@ async function clickAtWeight(
   w: number,
   key: (p: Vec3) => number,
 ): Promise<{ e: number; a: Vec3; b: Vec3 }> {
-  for (const edge of await edgeEnds(page, mesh)) {
-    if (!test(edge.a, edge.b)) continue;
-    // t is measured from edgeVert(e, 0): flip it when that end is the far one.
-    const t = key(edge.a) <= key(edge.b) ? w : 1 - w;
-    const at = await call(page, 'screenOfEdge', mesh, edge.e, MODEL_PANE, t);
-    if (at === null) continue;
-    await page.mouse.move(at.x, at.y, { steps: 3 });
-    await page.mouse.down();
-    await page.mouse.up();
-    return { e: edge.e, a: edge.a, b: edge.b };
-  }
-  throw new Error('no visible edge matches');
+  let hit: { e: number; a: Vec3; b: Vec3; at: { x: number; y: number } } | null = null;
+  await expect
+    .poll(
+      async () => {
+        for (const edge of await edgeEnds(page, mesh)) {
+          if (!test(edge.a, edge.b)) continue;
+          // t is measured from edgeVert(e, 0): flipped when that end is the far one.
+          const t = key(edge.a) <= key(edge.b) ? w : 1 - w;
+          const at = await call(page, 'screenOfEdge', mesh, edge.e, MODEL_PANE, t);
+          if (at !== null && (await inPane(page, at))) {
+            hit = { e: edge.e, a: edge.a, b: edge.b, at };
+            return true;
+          }
+        }
+        return false;
+      },
+      { message: 'a visible edge matches' },
+    )
+    .toBe(true);
+  const found = hit as unknown as { e: number; a: Vec3; b: Vec3; at: { x: number; y: number } };
+  await page.mouse.move(found.at.x, found.at.y, { steps: 3 });
+  await page.mouse.down();
+  await page.mouse.up();
+  return { e: found.e, a: found.a, b: found.b };
 }
 
 function expectPartnered(positions: readonly Vec3[], vp: readonly number[], verts: readonly number[]): void {
@@ -64,12 +84,9 @@ test.fixme('b12a, b13: E2E-MOD-21 — Insert Edge Loop with symmetry (arm, waist
   for (const v of armVerts) expect(Math.abs(Math.abs((positions1[v] as Vec3)[0]) - 0.29)).toBeLessThanOrEqual(1e-4);
 
   // A vertical torso edge between the hip and waist rings: its ring goes round the waist and is its own mirror.
+  // A torso edge from the hip ring (y 0.82) to the waist ring (y 0.95): its ring goes round the waist.
   const waist = (a: Vec3, b: Vec3): boolean =>
-    near(a[0], b[0], 1e-6) &&
-    near(a[2], b[2], 1e-6) &&
-    Math.min(a[1], b[1]) > 0.8 &&
-    Math.max(a[1], b[1]) < 0.96 &&
-    Math.abs(a[1] - b[1]) > 0.1;
+    near(Math.min(a[1], b[1]), 0.82, 1e-3) && near(Math.max(a[1], b[1]), 0.95, 1e-3) && Math.abs(a[0] - b[0]) < 0.05;
   const v1 = positions1.length;
   await clickAtWeight(page, body, waist, 0.5, (p) => p[1]);
   await expect.poll(async () => (await call(page, 'meshInfo', body))?.counts.v).toBe(v1 + 8);
@@ -84,6 +101,8 @@ test.fixme('b12a, b13: E2E-MOD-21 — Insert Edge Loop with symmetry (arm, waist
 });
 
 async function cubeWithSymmetry(page: Page): Promise<string> {
+  // The select tool first: the Insert Edge Loop tool hilites the selected mesh when it is activated (§5.6).
+  await runOk(page, 'view.tool', { panel: 'viewport', tool: 'select' });
   await runOk(page, 'select.mode', { mode: 'object' });
   const cube = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });
@@ -95,9 +114,7 @@ async function cubeWithSymmetry(page: Page): Promise<string> {
 /** An X-direction edge of the cube (it crosses the YZ plane). */
 const xEdge = (a: Vec3, b: Vec3): boolean => near(a[1], b[1]) && near(a[2], b[2]) && Math.abs(a[0] - b[0]) > 0.9;
 
-test.fixme('b12a: E2E-MOD-21 (b, c) — a crossing ring: two loops at ±0.2 for 0.3, one at x = 0 for 0.5', async ({
-  page,
-}) => {
+test.fixme('b12a: E2E-MOD-21 (b) — a crossing ring at 0.3: two loops at x = ±0.2', async ({ page }) => {
   await openModel(page);
   const cube = await cubeWithSymmetry(page);
   await clickAtWeight(page, cube, xEdge, 0.3, (p) => p[0]);
@@ -105,9 +122,13 @@ test.fixme('b12a: E2E-MOD-21 (b, c) — a crossing ring: two loops at ±0.2 for 
   const positions = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   for (const p of positions.slice(8)) expect(Math.abs(Math.abs(p[0]) - 0.2)).toBeLessThanOrEqual(1e-6);
   expect((await call(page, 'symmetry', cube))?.unmatched).toBe(0);
+});
 
-  const fresh = await cubeWithSymmetry(page);
-  await clickAtWeight(page, fresh, xEdge, 0.5, (p) => p[0]);
-  await expect.poll(() => counts(page, fresh)).toBe('12/20/10');
-  for (const p of ((await call(page, 'meshPositions', fresh)) as unknown as Vec3[]).slice(8)) expect(p[0]).toBe(0);
+test.fixme('b12a: E2E-MOD-21 (c) — a crossing ring at 0.5: one loop at x = 0 exactly', async ({ page }) => {
+  await openModel(page);
+  const cube = await cubeWithSymmetry(page);
+  await clickAtWeight(page, cube, xEdge, 0.5, (p) => p[0]);
+  await expect.poll(() => counts(page, cube)).toBe('12/20/10');
+  for (const p of ((await call(page, 'meshPositions', cube)) as unknown as Vec3[]).slice(8)) expect(p[0]).toBe(0);
+  expect((await call(page, 'symmetry', cube))?.unmatched).toBe(0);
 });
