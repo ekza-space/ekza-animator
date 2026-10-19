@@ -1,5 +1,5 @@
 // M6a test API, B9 group (M6A-SPEC §4.8): workspaces, pixels, key resolution, marking menus, the command palette.
-import type { KeyInput } from '@ekza-animator/editor-core';
+import type { KeyInput, MarkingMenuDef } from '@ekza-animator/editor-core';
 import { scopeChain } from '../../input/keyboard';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
@@ -9,8 +9,29 @@ export type ShellWorkspacesTestApi = Pick<
   'workspaces' | 'pixel' | 'resolveKey' | 'markingMenu' | 'commandPalette'
 >;
 
+/**
+ * The e2e fixture marking menu (`?e2e=1&mmFixture=1`, M6A-B9-21): a plain-RMB menu in Model, so the shell e2e proves
+ * in real Chrome that a right-button press opens a registered menu while a `contextmenu` event alone opens nothing,
+ * before B10/B11 register the real menus. Only e2e pages that ask for it have it.
+ */
+export const E2E_FIXTURE_MENU: MarkingMenuDef = {
+  id: 'e2e.fixture',
+  trigger: { button: 'rmb', mods: 'none' },
+  workspaces: ['model'],
+  when: { over: 'any' },
+  slots: {
+    N: { label: 'Wireframe', op: 'view.shading', args: { mode: 'wire' } },
+    S: { label: 'Shaded', op: 'view.shading', args: { mode: 'shaded' } },
+    E: { label: 'Later', disabledReason: 'Arrives later (fixture)' },
+  },
+  list: [{ label: 'Lit', op: 'view.shading', args: { mode: 'lit' } }],
+};
+
 export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesTestApi {
   const { app } = ctx.shell;
+  if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mmFixture') === '1') {
+    app.contribute({ kind: 'markingMenu', def: E2E_FIXTURE_MENU });
+  }
   return {
     workspaces() {
       const active = app.session.getState().workspace;
