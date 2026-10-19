@@ -66,10 +66,11 @@ describe('M6a foundation over the real kernel', () => {
     expect(app.meshes.get(id)).toBeUndefined();
   });
 
-  it('starts in Animate with the Animate workspace registered and every M6a operator poll-failing', async () => {
+  // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the built-ins register the four workspace tabs.
+  it('starts in Animate with the workspaces registered and every M6a operator poll-failing', async () => {
     const { app } = realApp();
     expect(app.session.getState().workspace).toBe('animate');
-    expect(app.workspaces.list().map((w) => w.id)).toEqual(['animate']);
+    expect(app.workspaces.list().map((w) => w.id)).toEqual(['model', 'rig', 'animate', 'review']);
     const result = await app.runUntyped('mesh.create.cube');
     expect(result).toEqual({ status: 'cancelled', reason: 'not available yet' });
     expect(await app.runUntyped('model.animateOnly')).toEqual({
