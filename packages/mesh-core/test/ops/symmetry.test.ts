@@ -129,7 +129,7 @@ describe.skipIf(!READY.b2)('agreement with B2 (READY.b2)', () => {
     }
   });
 
-  it('P10 on B2 maps: a symmetric cut through the seam and a symmetric slide', () => {
+  it('P10 on B2 maps: a symmetric cut through the seam', () => {
     const m = editMeshFrom(primitive('cube', { width: 2, subdivisionsWidth: 2 }));
     const map = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 0.001 });
     const leftTop = edgeAt(m, [0, 0.5, 0.5], [1, 0.5, 0.5]);
@@ -151,5 +151,64 @@ describe.skipIf(!READY.b2)('agreement with B2 (READY.b2)', () => {
     expect(asymmetry(m)).toBeLessThan(1e-6);
     const after = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 0.001 });
     expect(after.unmatched).toBe(0);
+  });
+
+  it('P10 on B2 maps: symmetric slides (a loop and its mirror; vertices; a row through a seam vertex)', () => {
+    const b2 = (m: ReturnType<typeof editMeshFrom>) =>
+      buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 0.001 });
+    const slide = MESH_OPS['mesh.slide'] as MeshOp;
+    // A loop at x = 0.5 on a 2-wide cube cut in four along X: the op adds the mirrored loop at x = −0.5 itself.
+    const m = editMeshFrom(primitive('cube', { width: 2, subdivisionsWidth: 4 }));
+    const map = b2(m);
+    const loop: number[] = [];
+    for (let e = 0; e < m.counts.edges; e++) {
+      if (position(m, m.edgeVert(e, 0))[0] === 0.5 && position(m, m.edgeVert(e, 1))[0] === 0.5) loop.push(e);
+    }
+    expect(loop).toHaveLength(4);
+    const v = m.edgeVert(loop[0] as number, 0);
+    const rail = m.findEdge(v, vertexAt(m, [1, position(m, v)[1], position(m, v)[2]]));
+    const looped = runOk(
+      m,
+      slide,
+      selectionOf('edge', loop, m.counts),
+      { percent: 0.4, reference: { vertex: v, rail } },
+      context({ symmetry: { map, preserveSeam: true } }),
+    );
+    expect(looped.warnings.map((w) => w.code)).not.toContain('symmetry.unmatched-partner');
+    expect(position(m, v)[0]).toBeCloseTo(0.7, 6);
+    expect(position(m, map.vertex[v] as number)[0]).toBeCloseTo(-0.7, 6);
+    expect(asymmetry(m, b2(m))).toBeLessThan(1e-6);
+    expect(b2(m).unmatched).toBe(0);
+    // Vertex mode: one vertex on the +X side; its partner slides along the mirrored rail.
+    const g = editMeshFrom(primitive('plane', { width: 4, height: 2, subdivisionsWidth: 4, subdivisionsHeight: 2 }));
+    const gmap = b2(g);
+    const east = vertexAt(g, [1, 0, 0]);
+    runOk(
+      g,
+      slide,
+      selectionOf('vertex', [east], g.counts),
+      { percent: 0.3, reference: { vertex: east, rail: g.findEdge(east, vertexAt(g, [2, 0, 0])) } },
+      context({ symmetry: { map: gmap, preserveSeam: true } }),
+    );
+    expect(position(g, east)[0]).toBeCloseTo(1.3, 6);
+    expect(position(g, gmap.vertex[east] as number)[0]).toBeCloseTo(-1.3, 6);
+    expect(asymmetry(g, b2(g))).toBeLessThan(1e-6);
+    expect(b2(g).unmatched).toBe(0);
+    // A row through the seam: the seam vertex slides only along its rail in the plane (x stays 0).
+    const s = editMeshFrom(primitive('plane', { width: 2, height: 2, subdivisionsWidth: 2, subdivisionsHeight: 2 }));
+    const smap = b2(s);
+    const centre = vertexAt(s, [0, 0, 0]);
+    const seamEast = vertexAt(s, [1, 0, 0]);
+    const row = [s.findEdge(centre, seamEast), s.findEdge(centre, vertexAt(s, [-1, 0, 0]))];
+    runOk(
+      s,
+      slide,
+      selectionOf('edge', row, s.counts),
+      { percent: 0.5, reference: { vertex: seamEast, rail: s.findEdge(seamEast, vertexAt(s, [1, 0, 1])) } },
+      context({ symmetry: { map: smap, preserveSeam: true } }),
+    );
+    expect(position(s, centre)).toEqual([0, 0, 0.5]);
+    expect(asymmetry(s, b2(s))).toBeLessThan(1e-6);
+    expect(b2(s).unmatched).toBe(0);
   });
 });
