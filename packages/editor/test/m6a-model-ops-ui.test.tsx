@@ -164,7 +164,7 @@ describe('the Last-op card (§8.6)', () => {
       await click('lastop-pill');
       await waitFor(() => maybe('lastop-shortcut') !== null);
       expect(by('lastop-shortcut').textContent).toBe(label);
-      cleanup();
+      await cleanup();
     }
   });
 

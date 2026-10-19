@@ -2,9 +2,10 @@ import type { ClipId, ControlId, DocSnapshot, KeyId } from '@ekza-animator/doc';
 import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import { Component, type JSX, type ReactNode, useEffect } from 'react';
+import { Component, type JSX, type ReactNode, useEffect, useLayoutEffect } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EditorAppProvider, useDocQuery, useEditorApp, usePrefs, useRunOperator, useSession } from '../src';
+import { useRegistryList } from '../src/hooks/useRegistry';
 import { byTestId, readSynthetic, render, update } from './render';
 import { createTestShell, ShellFrame } from './shell-helpers';
 
@@ -167,6 +168,28 @@ describe('editor hooks over the fake app', () => {
 
     await update(() => fresh.store.load(snapshot));
     expect(clip()).toBe('wave');
+    await view.unmount();
+  });
+});
+
+describe('useRegistryList', () => {
+  // M6A-INT-15: the Model menu items register when the Model operators chunk loads, which can fall between the menu
+  // bar's first render and its subscription; the list must still show them.
+  it('shows an item registered after the first render but before the subscription', async () => {
+    const app = createFakeEditorApp();
+    function Probe(): JSX.Element {
+      const items = useRegistryList(app.menus);
+      useLayoutEffect(() => {
+        if (app.menus.get('test.late') !== undefined) return;
+        app.contribute({
+          kind: 'menu',
+          def: { id: 'test.late', menu: 'file', op: 'edit.undo', group: 'late', order: 1, label: 'Late' },
+        });
+      }, []);
+      return <output data-testid="items">{items.map((item) => item.id).join(',')}</output>;
+    }
+    const view = await render(<Probe />);
+    expect(byTestId(view.container, 'items').textContent).toBe('test.late');
     await view.unmount();
   });
 });
