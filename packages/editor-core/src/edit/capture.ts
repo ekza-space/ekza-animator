@@ -7,8 +7,9 @@
 // - a digit, `.` or `-` starts an entry for the active field (then the grammar's other characters extend it); a digit
 //   consumed this way never also switches mode or shading;
 // - `Backspace` edits the entry; `Tab`/`Shift+Tab` apply it and move between the target's fields;
-// - `Enter` applies (a: confirms the drag with the typed value; b: `edit.adjustLast {[field]: value}`) and disarms;
-//   `Enter` with no entry confirms the drag (a) or is a no-op that disarms (b);
+// - `Enter` applies (a: confirms the drag with the typed value; b: `edit.adjustLast {[field]: value}`, announced once the
+//   re-run finished; a refusal is reported and keeps the entry) and disarms; `Enter` with no entry confirms the drag
+//   (a) or is a no-op that disarms (b);
 // - `Esc` cancels the entry (a: cancels the drag); in (b) with no entry it disarms and passes on (edit.escape);
 // - case (b) disarms on any other key, which then reaches the keymap; an unfinished entry is **discarded** with the
 //   help line "Entry discarded" (an entry applies only on Enter or Tab). Pointer moves beyond 3 px and clicks disarm
@@ -137,26 +138,48 @@ export function createNumericCapture(): NumericCapture {
     return { field: state.field, value: parsed.value };
   };
 
-  /** Applies the entry to the target. False when it did not parse (the entry stays for editing). */
-  const applyEntry = (): boolean => {
-    if (state.text === null) return true;
+  /**
+   * Applies the entry to the target, then runs `done` (the key's follow-up: disarm, or the next field). False when the
+   * entry did not parse (it stays for editing). A drag target takes the value at once. Case (b) applies through
+   * `edit.adjustLast`: once the re-run finished the committed value is announced on the help line (the polite live
+   * region, §5.10) and `done` runs; a refused or failed re-run reports its reason as a warning and keeps the entry, so
+   * the user can correct it (§5.7 "A refusal of the re-run … reports the reason").
+   */
+  const applyEntry = (done: () => void): boolean => {
+    if (state.text === null) {
+      done();
+      return true;
+    }
     const entry = entryValue();
     if (entry === null || armed === null) return false;
     const def = defOf(entry.field);
+    const target = armed.target;
+    if (target !== 'last-run' || app === null) {
+      if (target !== 'last-run' && typeof entry.value === 'number') target.set(entry.field, entry.value);
+      if (def !== null) say(`${def.label} ${formatParamValue(def, entry.value)}`);
+      setState({ ...state, text: null });
+      done();
+      return true;
+    }
     const last = liveLastRun();
-    if (armed.target === 'last-run') {
-      if (app !== null) {
-        void app.runUntyped('edit.adjustLast', { args: { [entry.field]: entry.value } }, { source: 'keyboard' });
-      }
-    } else if (typeof entry.value === 'number') {
-      armed.target.set(entry.field, entry.value);
-    }
-    // The help line is the polite live region: it announces the committed value (§5.10).
-    if (def !== null) {
-      const what = armed.target === 'last-run' && last !== null ? `${last.label} ${def.label}` : def.label;
-      say(`${what} ${formatParamValue(def, entry.value)}`);
-    }
-    setState({ ...state, text: null });
+    const committed =
+      def === null
+        ? null
+        : `${last === null ? '' : `${last.label} `}${def.label} ${formatParamValue(def, entry.value)}`;
+    const entered = state;
+    void app
+      .runUntyped('edit.adjustLast', { args: { [entry.field]: entry.value } }, { source: 'keyboard' })
+      .then((result) => {
+        if (result.status !== 'finished') {
+          say(result.status === 'cancelled' ? result.reason : result.error.message, 'warning');
+          return;
+        }
+        if (committed !== null) say(committed);
+        // Unless the window moved on while the re-run ran (another key, the card closed), the key's follow-up runs.
+        if (state !== entered || armed?.target !== 'last-run') return;
+        setState({ ...state, text: null });
+        done();
+      });
     return true;
   };
 
@@ -231,14 +254,17 @@ export function createNumericCapture(): NumericCapture {
           break;
         case 'Tab':
           if (e.mod || e.alt) break;
-          if (applyEntry()) moveField(e.shift ? -1 : 1);
+          applyEntry(() => moveField(e.shift ? -1 : 1));
           return true;
         case 'Enter':
         case 'NumpadEnter': {
           if (e.mod || e.alt) break;
-          if (!applyEntry()) return true;
-          if (!keyboardOp && armed.target !== 'last-run') armed.target.confirm();
-          disarmQuietly();
+          const target = armed.target;
+          applyEntry(() => {
+            if (armed?.target !== target) return;
+            if (!keyboardOp && target !== 'last-run') target.confirm();
+            disarmQuietly();
+          });
           return true;
         }
         case 'Escape':

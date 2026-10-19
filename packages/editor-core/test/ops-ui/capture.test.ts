@@ -195,6 +195,37 @@ describe('case (b): after a keyboard-invoked operation', () => {
     expect(u.capture.state.armed).toBeNull();
   });
 
+  it('a refused re-run is reported, not announced: the entry stays for editing and nothing changes', async () => {
+    const t = await armedByKeyboard();
+    const before = positionsOf(t, t.id);
+    const steps = undoLength(t);
+    type(t.capture, '13');
+    expect(t.capture.key(ENTER)).toBe(true);
+    await settle();
+    // The kernel refuses dy 13: the original step is back, the help line says why (a warning), no value is announced.
+    expect(t.messages).toEqual([{ text: 'Advance: Thirteen is unlucky', tone: 'warning' }]);
+    expect(t.capture.state).toEqual({ armed: 'keyboard-op', field: 'dy', text: '13' });
+    expect(t.app.session.getState().lastRun).toMatchObject({ closed: null, args: { dy: 0.1 } });
+    expect(positionsOf(t, t.id)).toEqual(before);
+    expect(undoLength(t)).toBe(steps);
+    // Corrected in place: Backspace, 2, Enter commits and is announced.
+    t.capture.key(BACKSPACE);
+    type(t.capture, '2');
+    expect(t.capture.key(ENTER)).toBe(true);
+    await settle();
+    expect(t.messages.at(-1)).toEqual({ text: 'Advance Offset Y 12.000 m', tone: 'info' });
+    expect(t.capture.state.armed).toBeNull();
+    expect(t.app.session.getState().lastRun?.args['dy']).toBe(12);
+    expect(undoLength(t)).toBe(steps);
+    // Tab with a refused value stays on the field with the entry.
+    const u = await armedByKeyboard();
+    type(u.capture, '13');
+    expect(u.capture.key(TAB)).toBe(true);
+    await settle();
+    expect(u.capture.state).toEqual({ armed: 'keyboard-op', field: 'dy', text: '13' });
+    expect(u.messages.map((m) => m.tone)).toEqual(['warning']);
+  });
+
   it('a text that does not parse keeps the entry with a message', async () => {
     const t = await armedByKeyboard();
     type(t.capture, '1-');
