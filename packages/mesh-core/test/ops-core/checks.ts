@@ -15,9 +15,8 @@ import {
   writeRevision,
 } from '../../src';
 import { isAllHard } from '../../src/normals/hard';
-import { signedVolume } from '../../src/testing';
 import { type OpStep, resolveStep } from './steps';
-import { ctxOf, op, runChecked, windingProblems } from './support';
+import { ctxOf, faceVerts, op, runChecked, windingProblems } from './support';
 
 const KEEPS_EULER = new Set(['mesh.extrude', 'mesh.inset', 'mesh.insertLoop', 'mesh.offsetLoop', 'mesh.connect']);
 /** P3: the `manifoldPreserving` ops of B3 (Bridge separately: two holes only). */
@@ -31,6 +30,41 @@ const MERGES = new Set([
   'mesh.targetWeld',
   'mesh.collapse',
 ]);
+
+/**
+ * P4's signed volume with every face fanned around its vertex centroid. A fan from the face's first corner (the
+ * kernel's `signedVolume`) depends on where the corner cycle starts, which an op may move without moving a point (an
+ * extrude cap keeps its index and its points, its first corner can change): on a strongly non-planar quad that flips
+ * the measured diagonal, and a zero extrude after a long sequence "lost" volume (Chromium sequence run, seed
+ * −529114691). For planar faces both measures are equal.
+ */
+export function centroidVolume(m: EditMesh): number {
+  const p = m.position;
+  let volume = 0;
+  for (let f = 0; f < m.counts.faces; f++) {
+    const vs = faceVerts(m, f);
+    let cx = 0;
+    let cy = 0;
+    let cz = 0;
+    for (const v of vs) {
+      cx += (p[3 * v] as number) / vs.length;
+      cy += (p[3 * v + 1] as number) / vs.length;
+      cz += (p[3 * v + 2] as number) / vs.length;
+    }
+    for (let i = 0; i < vs.length; i++) {
+      const a = 3 * (vs[i] as number);
+      const b = 3 * (vs[(i + 1) % vs.length] as number);
+      const ax = p[a] as number;
+      const ay = p[a + 1] as number;
+      const az = p[a + 2] as number;
+      const bx = p[b] as number;
+      const by = p[b + 1] as number;
+      const bz = p[b + 2] as number;
+      volume += (cx * (ay * bz - az * by) - cy * (ax * bz - az * bx) + cz * (ax * by - ay * bx)) / 6;
+    }
+  }
+  return volume;
+}
 
 function closedManifold(m: Parameters<typeof topologyStats>[0]): boolean {
   const s = topologyStats(m);
@@ -184,7 +218,7 @@ export function checkStep(m: EditMesh, step: OpStep, manifoldInput: boolean): bo
   const statsBefore = topologyStats(m);
   const closedBefore = closedManifold(m);
   const hardBefore = isAllHard(m);
-  const volumeBefore = closedBefore ? signedVolume(m) : 0;
+  const volumeBefore = closedBefore ? centroidVolume(m) : 0;
   const windingBefore = windingProblems(m).length;
   const { result } = runChecked(m, op(step.id), resolved.selection, resolved.args, ctxOf());
   if (isRefusal(result)) {
@@ -238,7 +272,7 @@ export function checkStep(m: EditMesh, step: OpStep, manifoldInput: boolean): bo
     expect(closedManifold(m), `${step.id} (${step.kind}): closed manifold`).toBe(true);
   }
   if (volumeBefore > 1e-6 && step.outward && closedManifold(m)) {
-    expect(signedVolume(m), `${step.id}: volume`).toBeGreaterThan(0);
+    expect(centroidVolume(m), `${step.id}: volume`).toBeGreaterThan(0);
   }
   return true;
 }
