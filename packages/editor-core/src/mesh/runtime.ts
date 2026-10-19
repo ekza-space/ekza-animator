@@ -3,7 +3,7 @@
 // - **Content** is the revision `current` (a manifest id): its stored form `stored` (MeshData) and/or an EditMesh
 //   instance (`lineage`). The lineage is the open mesh while `isOpen`; after `close()` it stays as a dormant instance
 //   while the journal holds edges recorded on it, so undo, redo and `edit.adjustLast` keep the O(|delta|) path and a
-//   reopen is instant (M6A-MRD-3). `data()` is the stored form of the content (a lazy snapshot of the lineage).
+//   reopen is instant (M6A-B7-3). `data()` is the stored form of the content (a lazy snapshot of the lineage).
 // - **Following the ref** (undo, redo, remote, load): through a journal edge on the lineage when one joins the two
 //   revisions, else by a rebuild from resident chunks (synchronous), else by loading the chunks (`BlobStore.get`,
 //   async: state 'loading'; a missing or corrupt blob: 'error').
@@ -160,7 +160,7 @@ export class MeshRuntimeImpl implements MeshRuntime {
     if (this.state === 'ready') this.ensureLineage();
   }
 
-  /** Drops edit links: the instance stays dormant while journal edges were recorded on it (M6A-MRD-3). */
+  /** Drops edit links: the instance stays dormant while journal edges were recorded on it (M6A-B7-3). */
   close(): void {
     this.isOpen = false;
     this.sym = null;

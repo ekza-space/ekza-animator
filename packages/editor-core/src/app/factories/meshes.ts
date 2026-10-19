@@ -11,7 +11,7 @@ export function createBlobs(services: EditorServices): BlobStore {
 
 /**
  * The runtime registry. It binds the rest of the app (history, session, prefs, component selections) on first use
- * through `attachMeshes(app)` (M6A-MRD-1): the composition root passes only what exists before the history.
+ * through `attachMeshes(app)` (M6A-B7-1): the composition root passes only what exists before the history.
  */
 export function createMeshes(deps: {
   readonly store: DocumentStore;

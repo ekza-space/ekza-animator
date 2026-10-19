@@ -38,7 +38,7 @@ export function kernelMeshes(app: EditorApp): KernelMeshRuntimes | null {
 /**
  * Binds the app to its mesh registry (history drops and budget, session symmetry/soft settings, component
  * selections). Idempotent; every B7 entry point calls it (operators, autosave, project workflows, the test API), so
- * an app that writes mesh data is attached before its first commit (M6A-MRD-1).
+ * an app that writes mesh data is attached before its first commit (M6A-B7-1).
  */
 export function attachMeshes(app: EditorApp): KernelMeshRuntimes | null {
   const meshes = kernelMeshes(app);
