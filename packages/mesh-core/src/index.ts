@@ -40,4 +40,4 @@ export { appendMesh, copySubset } from './stubs/subset';
 // ---------- B5 ----------
 export { checkMesh } from './stubs/check';
 // ---------- B13 ----------
-export { humanoidBody } from './stubs/templates';
+export { humanoidBody } from './templates';

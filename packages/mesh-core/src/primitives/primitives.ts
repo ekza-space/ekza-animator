@@ -17,7 +17,7 @@ import { buildMeshData } from '../core/build';
 import { notImplemented } from '../kernel';
 import { BUILTIN_LAYERS } from '../layers/builtin';
 import { PRIMITIVE_PARAMS } from '../primitiveParams';
-import { humanoidBody } from '../stubs/templates';
+import { humanoidBody } from '../templates';
 import type { MeshData, PrimitiveKind } from '../types';
 
 type Vec = readonly [number, number, number];

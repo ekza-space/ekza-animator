@@ -2,7 +2,7 @@
 // §6.3 parameters — counts, faceted (all edges hard), CCW seen from outside (positive signed volume of closed shapes,
 // face normals pointing away from the centre), centred at the origin, `paint` at slot 0, parameters clamped.
 // Literal updates (B1): primitives carry `uv0` next to `paint`; sphere, cone and torus exist (test/primitives/
-// six.test.ts), only humanoidBody waits for B13.
+// six.test.ts; humanoidBody: B13, test/templates).
 import { describe, expect, it } from 'vitest';
 import {
   computeNormals,
@@ -133,8 +133,10 @@ describe('cube, plane, cylinder (§6.3, §5.29 counts)', () => {
     }
   });
 
-  it('humanoidBody waits for B13 (sphere, cone and torus are built: six.test.ts)', () => {
-    expect(code(() => primitive('humanoidBody', {}))).toBe('not-implemented');
-    for (const kind of ['sphere', 'cone', 'torus'] as const) expect(code(() => primitive(kind, {}))).toBeNull();
+  // Literal update (§3 rule 9): B13 landed the humanoid body generator (its cases: test/templates).
+  it('builds every kind (sphere, cone and torus: six.test.ts; humanoidBody: B13, test/templates)', () => {
+    for (const kind of ['sphere', 'cone', 'torus', 'humanoidBody'] as const) {
+      expect(code(() => primitive(kind, {}))).toBeNull();
+    }
   });
 });

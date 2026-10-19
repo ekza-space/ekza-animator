@@ -123,7 +123,7 @@ export function centroid(m: EditMesh, f: number): [number, number, number] {
   let k = first;
   do {
     const v = m.cornerVert(k);
-    for (let i = 0; i < 3; i++) c[i] += m.position[3 * v + i] as number;
+    for (let i = 0; i < 3; i++) c[i] = (c[i] as number) + (m.position[3 * v + i] as number);
     n += 1;
     k = m.cornerNext(k);
   } while (k !== first);
