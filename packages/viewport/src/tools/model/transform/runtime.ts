@@ -1345,7 +1345,7 @@ function keepPicksInCommit(app: EditorApp, kind: ComponentKind, picked: FrozenPi
   if (picked.size === 0) return () => {};
   const off = app.store.subscribe((batch) => {
     if (batch.origin !== 'local') return;
-    if (!batch.changes.some((change) => change.table === 'meshes' && picked.has(change.id as MeshId))) return;
+    if (!batch.changes.some((change) => change.table === 'meshes' && picked.has(change.id))) return;
     off();
     keepPicks(app, kind, picked);
   });
