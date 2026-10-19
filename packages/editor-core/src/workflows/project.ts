@@ -2,10 +2,17 @@
 // `.ekzanim.json` debug variant. Saving reads every referenced asset through the verifying asset store; opening
 // checks the assets, puts them into the asset store and replaces the document (never merges). The archive code and
 // fflate load with a dynamic `import('@ekza-animator/io/project')` on the first save or open (M2A-SPEC §5.21.2).
+//
+// M6a (M6A-SPEC §5.20, B7): a save also stores every manifest and chunk reachable from live mesh records (the blob
+// closure, read verified through `BlobStore.get`) and reference images; opening puts the archive's verified blobs
+// into the blob store before the document loads, so meshes are ready at once (a missing blob makes its mesh
+// 'error', the project still opens). The JSON variant carries no blob or image bytes and says so.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
 import type * as ProjectModule from '@ekza-animator/io/project';
-import type { EditorApp } from '../types';
+import { attachMeshes } from '../mesh';
+import { chunkIdsOfManifest } from '../mesh/ledger';
+import type { BlobId, EditorApp } from '../types';
 import { EDITOR_VERSION } from './samples';
 import { resetDocumentSession } from './session';
 
@@ -58,6 +65,47 @@ function assetRecords(snapshot: DocSnapshot): readonly AssetRecord[] {
   return Object.values(snapshot.tables.assets ?? {});
 }
 
+/** The JSON variant's warning when the document has mesh data or reference images (§5.20). */
+export const JSON_VARIANT_WARNING = 'Mesh data and reference images are not included';
+
+/** Manifests of the live mesh records of a snapshot (soft-deleted records are not in it). */
+export function liveManifests(snapshot: DocSnapshot): readonly BlobId[] {
+  const out = new Set<BlobId>();
+  for (const record of Object.values(snapshot.tables.meshes ?? {})) {
+    if (record.deleted === null && record.data !== null) out.add(record.data.manifest);
+  }
+  return [...out].sort();
+}
+
+/**
+ * The blob closure of `manifests` (manifests and their chunks) with verified bytes, read through `BlobStore.get`
+ * (resident blobs, else its sources). Blobs that cannot be read are reported in `missing`.
+ */
+export async function readBlobClosure(
+  app: EditorApp,
+  manifests: readonly BlobId[],
+): Promise<{ readonly blobs: ReadonlyMap<BlobId, Uint8Array>; readonly missing: readonly BlobId[] }> {
+  const blobs = new Map<BlobId, Uint8Array>();
+  const missing: BlobId[] = [];
+  const read = async (id: BlobId): Promise<Uint8Array | null> => {
+    if (blobs.has(id)) return blobs.get(id) ?? null;
+    try {
+      const bytes = await app.blobs.get(id);
+      blobs.set(id, bytes);
+      return bytes;
+    } catch {
+      missing.push(id);
+      return null;
+    }
+  };
+  for (const manifest of manifests) {
+    const bytes = await read(manifest);
+    if (bytes === null) continue;
+    for (const chunk of chunkIdsOfManifest(bytes)) await read(chunk);
+  }
+  return { blobs: new Map([...blobs].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))), missing };
+}
+
 /**
  * Opens every character and clip partition (§4.11.21): a snapshot holds only open partitions, and a project file must
  * hold the whole document.
@@ -85,8 +133,14 @@ export async function prepareProjectArchive(app: EditorApp, name: string): Promi
     }
     assets.set(record.id, { record, bytes: await app.services.assets.get(record.id) });
   }
+  const closure = await readBlobClosure(app, liveManifests(snapshot));
+  if (closure.missing.length > 0) {
+    warnings.push(
+      `Mesh data is missing (${closure.missing.length} blob${closure.missing.length === 1 ? '' : 's'}) and was not included`,
+    );
+  }
   const { writeProjectArchive } = await loadProjectArchive();
-  const bytes = writeProjectArchive(snapshot, assets, { version: EDITOR_VERSION });
+  const bytes = writeProjectArchive(snapshot, assets, { version: EDITOR_VERSION }, closure.blobs);
   return { fileName: projectFileName(name, PROJECT_EXTENSION), bytes, mime: PROJECT_MIME, version, warnings };
 }
 
@@ -97,12 +151,17 @@ export async function prepareProjectJson(app: EditorApp, name: string): Promise<
   const version = app.store.version;
   const snapshot = app.store.snapshot();
   const text = writeProjectJson(snapshot, assetRecords(snapshot));
+  // §5.20: the debug variant carries no blob or image bytes (as it carries no model bytes): say so.
+  const hasMeshData = liveManifests(snapshot).length > 0;
+  const hasImages = assetRecords(snapshot).some((record) => record.ext === 'png' || record.ext === 'jpg');
+  const warnings = hasMeshData || hasImages ? [JSON_VARIANT_WARNING] : [];
+  if (warnings.length > 0) app.services.notify.toast({ kind: 'warning', text: JSON_VARIANT_WARNING });
   return {
     fileName: projectFileName(name, PROJECT_JSON_EXTENSION),
     bytes: new TextEncoder().encode(text),
     mime: PROJECT_JSON_MIME,
     version,
-    warnings: [],
+    warnings,
   };
 }
 
@@ -135,11 +194,16 @@ export async function prepareProjectOpen(app: EditorApp, bytes: Uint8Array): Pro
     }
   }
   if (archive.readOnly) warnings.push('This project was written by a newer version and opens read-only');
+  // M6a: the archive's verified mesh blobs become resident before the document loads (§5.20).
+  for (const [, bytes] of archive.blobs) app.blobs.put(bytes);
+  const missing = liveManifests(archive.snapshot).filter((manifest) => !app.blobs.has(manifest));
+  if (missing.length > 0) warnings.push('Some mesh data is missing from this file; those meshes cannot be shown');
   return { snapshot: archive.snapshot, readOnly: archive.readOnly, migratedFrom: archive.migratedFrom, warnings };
 }
 
 /** Replaces the document with an opened project (origin 'load': clears undo and the editor history). */
 export function loadProject(app: EditorApp, opened: OpenedProject): void {
+  attachMeshes(app);
   resetDocumentSession(app);
   app.store.load(opened.snapshot, { readOnly: opened.readOnly });
   app.history.clear();

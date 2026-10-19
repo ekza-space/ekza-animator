@@ -1,9 +1,10 @@
 // Browser implementations of the EditorServices (MVP-SPEC §4.5, §7 WP-8): in-memory asset store with async
 // verification, file download, clipboard, toasts, the three.js model loader, localStorage preferences and the
-// IndexedDB autosave store (M2A-SPEC §5.20).
+// IndexedDB autosave store (M2A-SPEC §5.20) and (M6a) the mesh blob store.
 import type { BlobStore, EditorServices } from '@ekza-animator/editor-core';
 import { createBrowserAssetStore } from './assets';
 import { createIndexedDbAutosaveStore, newSlotId } from './autosave';
+import { createBrowserBlobStore } from './blobs';
 import { createBrowserClipboard } from './clipboard';
 import { createDownloadService, type DownloadRecord } from './files';
 import { createBrowserModelLoader } from './models';
@@ -21,7 +22,7 @@ export interface BrowserServicesOptions {
   readonly storageBlocked?: boolean;
   /** false: the Channel Box virtual slider uses pointer capture instead of Pointer Lock (§5.18; read by A2). */
   readonly pointerLock?: boolean;
-  /** M6a (M6A-SPEC §9.1): the mesh blob store; absent = editor-core's in-memory store (B7 adds the browser one). */
+  /** M6a (M6A-SPEC §9.1): the mesh blob store; absent = the browser's (memory) store, null = editor-core's default. */
   readonly blobs?: BlobStore | null;
   /** M6a (§3 rule 8): the kernel debug switch, on in development and e2e builds. */
   readonly kernelDebug?: boolean;
@@ -75,7 +76,7 @@ export function createShellServices(opts: ShellServicesOptions): ShellServices {
             : null,
     samplesPath: opts.samplesPath ?? '/samples/',
     autosave: autosaveStore(opts, storageKind),
-    ...(opts.blobs === undefined ? {} : { blobs: opts.blobs }),
+    blobs: opts.blobs === undefined ? createBrowserBlobStore() : opts.blobs,
     ...(opts.kernelDebug === undefined ? {} : { kernelDebug: opts.kernelDebug }),
   };
   return { services, toasts };
