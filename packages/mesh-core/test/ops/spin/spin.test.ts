@@ -182,7 +182,7 @@ describe('mesh.spinEdge', () => {
     const { batch, sequential, before } = run as NonNullable<typeof run>;
     expect(canonical(batch)).toEqual(canonical(sequential));
     expect(attributeProblems(before, batch, 'spin')).toEqual([]);
-    expect(Array.from(batch.snapshot().faceMaterial).sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(Array.from(batch.snapshot().faceMaterial).sort((x, y) => x - y)).toEqual([0, 1, 2, 3, 4, 5]);
     expect(checkPairs('mesh.spinEdge', () => primitive('cube', {}))).toBeGreaterThanOrEqual(18);
     expect(checkPairs('mesh.spinEdge', () => primitive('cylinder', { subdivisionsAxis: 6 }))).toBeGreaterThan(60);
   });

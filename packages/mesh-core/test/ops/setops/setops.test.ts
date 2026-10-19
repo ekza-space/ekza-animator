@@ -463,15 +463,15 @@ describe('MeshSetOps property (random inputs)', () => {
               ? sum((i) => picked[i] as number)
               : sum((i) => (touched(i) ? (faces[i] as number) + (picked[i] as number) : 0));
     expect([c.op, total]).toEqual([c.op, expected]);
-    if (c.op === 'mesh.combine' && volume.every((v) => v !== null)) {
-      const out = outputs[0] as (typeof outputs)[number];
-      const want =
-        sum((i) => Math.abs(det(list[i]?.placement ?? IDENTITY)) * (volume[i] as number)) /
-        Math.abs(det(out.placement));
-      const got = signedVolume(out.data);
-      expect(Math.abs(got - want)).toBeLessThan(1e-4 * Math.max(1, Math.abs(want)));
-    }
-    return c.op === 'mesh.combine' && volume.every((v) => v !== null) ? 'volume' : 'ran';
+    // Combine of closed inputs: the volumes add up (transformed by each placement, reversed when det < 0).
+    const closedCombine = c.op === 'mesh.combine' && volume.every((v) => v !== null);
+    const out = outputs[0] as (typeof outputs)[number];
+    const want = closedCombine
+      ? sum((i) => Math.abs(det(list[i]?.placement ?? IDENTITY)) * (volume[i] as number)) / Math.abs(det(out.placement))
+      : 0;
+    const got = closedCombine ? signedVolume(out.data) : 0;
+    expect([c.op, Math.abs(got - want) / Math.max(1, Math.abs(want)) < 1e-4]).toEqual([c.op, true]);
+    return closedCombine ? 'volume' : 'ran';
   }
 
   it('valid outputs, inputs unchanged, poll = run, faces conserved, Combine adds closed volumes', () => {

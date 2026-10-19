@@ -40,7 +40,7 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 | M6A-B4-8 | **Set Normal Angle**: hard iff `angle = 0` or the dihedral angle exceeds `angle` (B1's H2 helper); border edges count as flat, so they become soft for any angle > 0. | Keeps P7-hard for angle 0 (§5.3: only angles > 0 may soften). |
 | M6A-B4-9 | **Triangulate** writes the shared triangulation's diagonals with `splitFaceMakeEdge` (no removals: the original face keeps its index) and clears `FACE_FLIP_DIAGONAL` on the triangles. **Under symmetry** the partner of a source face (centroid on the positive side) is cut along the mirrored diagonals, and a self-mirrored face with two seam vertices is first cut along the seam, so its halves triangulate as mirror images (P10). A quad that straddles the plane has no symmetric triangulation and keeps the shared one. | §5.14: "symmetric input → symmetric output"; quad ties would otherwise go to the smaller vertex index on both sides. The seam cut makes the written triangles differ from the viewport's for that face only when symmetry is on. |
 | M6A-B4-10 | **Quadrangulate** joins only strictly convex quads (exact `orient2d` on the Newell plane), scores rectangularity (sum of \|corner angle − 90°\|, quantized to 1e-9 rad), ties to the smaller face then edge index, and **sets `FACE_FLIP_DIAGONAL` so each quad shows the removed edge as its diagonal** (the shape you see does not change). Under symmetry a pair is taken only with its mirrored pair. With nothing to join it refuses (`quadrangulate.no-pairs`, naming Keep Hard Edges when hard edges blocked every candidate). Note: on a faceted mesh every edge is hard, so the default `keepHardEdges` joins nothing there. | §5.13 options and defaults are Maya's; the refusal says why. |
-| M6A-B4-11 | **Spin**: the joined polygon is [a, y₁…yₘ, b, x₁…xₖ]; forward reattaches to y₁–x₁, back to yₘ–xₖ (two triangles: the same move). Each new face takes the material, face layers and flags (flip bit cleared) of the face whose own vertices it holds, and its corners that face's values (the other face's for its one foreign vertex); the spun edge keeps its flags and edge layers (H5). Under symmetry a negative-side edge whose partner is spun too turns the other way. Refuses spins that would fold faces sharing more than the edge or duplicate an edge. | §5.12; P10. |
+| M6A-B4-11 | **Spin**: the joined polygon is [a, y₁…yₘ, b, x₁…xₖ]; forward reattaches to y₁–x₁, back to yₘ–xₖ (two triangles: the same move). Each new face takes the material, face layers and flags (flip bit cleared) of the face whose own vertices it holds, and its corners that face's values (the other face's for its one foreign vertex); the spun edge keeps its flags and edge layers (H5). Under symmetry a negative-side edge whose partner is spun too turns the other way. Refuses spins that would fold faces sharing more than the edge or duplicate an edge. **Several edges in one run** (every symmetric spin or flip is two): a plan stores the edge and its vertices only, and each spin finds faces A and B again from its edge when it runs — plans run in descending edge order, so an earlier spin never moves a later plan's edge, while it does move face slots (fix round 1). | §5.12; P10. |
 | M6A-B4-12 | **Flip Triangle Edge** skips non-triangle edges and non-quad faces with `flip.skipped` when something else is flipped, refuses when nothing is; under symmetry a partner quad gets the mirrored diagonal. | §5.12. |
 | M6A-B4-13 | **Apply Transform** also transforms morph deltas (point f32×3 layers with mirror rule `negate-axis`) by the linear part, refuses any skin layer (`freeze.skinned`) and singular matrices (`freeze.singular`). | §5.13 lists positions and custom normals; morph deltas live in the same space. |
 | M6A-B4-14 | **Average Vertices**: Jacobi steps in float64, one write per vertex; pinned: border, non-manifold and loose vertices; under symmetry pairs are averaged then re-mirrored and seam vertices stay on the plane (pinned with Preserve Seam, else projected). `adjust` re-solves `iterations`/`strength` from the pre-op positions. **Heads-up for B12b (E2E-MOD-24):** on a regular 4 × 4 plane every interior vertex already sits at its neighbours' average, so "Average Vertices moves interior vertices" needs an irregular plane (e.g. one vertex moved first). | §5.12. |
@@ -51,6 +51,8 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 | M6A-B4-19 | **Symmetrize** uses the context's map when it is on the same axis and `tolerance` is null or equal to the map's; otherwise it builds vertex partners on the object plane with `tolerance` (null → the map's, else 0.001 m). Vertex mode acts on the pairs the selection touches; seam vertices go exactly onto the plane; point layers follow the mirror rules. | §5.13 "by the current symmetry map, or a map built with `prefs.modeling.symmetryTolerance`". |
 | M6A-B4-20 | **MeshSetOps.** Several inputs of a one-mesh op (Separate, Extract, Duplicate Faces) are processed one by one (`new:<n>` numbered across them). Separate drops loose vertices and wire edges (they belong to no shell) with `separate.loose-dropped`. Extract in place removes the faces and appends their copy (other elements keep their data, indices may move). Duplicate Faces on an asset-backed mesh makes a static copy without `skin.*` and `morph:*` layers; in place it is refused. Combine with `pivot: 'center'` places the result at the centre of the combined world bounds, unrotated, unit scale (Maya); `'first'` leaves the lead's geometry untouched. **Names**: the op cannot see record names (`MeshSetInput` has none), so new records are proposed as "Separated", "Extracted", "Duplicated" (the runner numbers them); the spec's "<name> 2" needs the runner (B7) to pass the source name — a follow-up for INT. Combine's palette refusal carries no action (the `Refusal` type has none): the UI maps `combine.palette-mismatch` to `palette.assign`. | §5.13; contract gaps noted for INT. |
 | M6A-B4-21 | **`appendMesh` details**: material slots without a key keep their index; a same-name layer of another shape is skipped (defaults); a longer joint palette re-declares a's `skin.joints` layer with the union (layer metadata is part of the definition; the layer moves to the end of a's layer list); `paintSlots` is the identity (Combine refuses differing palettes). `copySubset` copies only the vertices and edges the faces use. | §4.3 contract; no other way to change layer metadata through `EditMesh`. |
+| M6A-B4-23 | **Slide tolerances** (§9 B4: "on its rail (1e-9) and on the pre-slide surface (1e-4 m)"). Slide solves each position in float64 on the rail and rounds once to float32 storage. On an axis-aligned rail (the cylinder loop of E2E-MOD-24) that is exact: the off-rail coordinates are bit-equal and the along-rail one is `fround` of the float64 value, which the kernel test asserts. On a general rail no float32 point lies within 1e-9 of the segment in general, so the property test bounds the distance to the pre-slide rail by float32 rounding, 4e-7 × the mesh's largest coordinate; that is far inside the 1e-4 m surface bound, which every rail point meets because rails are edges of the pre-slide surface. | float32 storage (§4.3) cannot hold 1e-9 off axis; the bound states what the kernel guarantees. |
+| M6A-B4-24 | **Extract's "all faces" refusal** counts only inputs that give up faces: an input without faces (or without selected faces) is skipped by the run, so it no longer makes the poll refuse `extract.all-faces` (fix round 1). | Poll and run must agree with what the run does. |
 | M6A-B4-22 | **Literal updates.** `test/descriptors.test.ts` (B1's file; B0a's stub expectation): a `LANDED` list excludes landed ops from "run refuses not-implemented" and asserts they never answer it (§3 rule 9). `test/ready.ts` is new (mesh-core had none): probes `b2` (`buildSymmetryMap` stops throwing `not-implemented`) and `b3` (`mesh.mergeByDistance` runs), `b4: true`. B2, B3 and B5 add their own lines when they merge. | §3 rule 4; the B7 pattern of probe-based READY flags turns gated cases on by themselves. |
 
 ## Tests
@@ -64,6 +66,18 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 - Oracles (§5.29): triangulate cube 8/18/12; half cube 8/12/5 → Mirror 12/20/10 (closed, manifold, outward); the
   mirrored-duplicate Combine 16/24/10 with reversed winding (→ 12/20/10 through B3's Merge by Distance behind
   `READY.b3`); spin keeps 8/12/6; the E2E-MOD-05 plane cut 9/12/4; separate shells; extract 8/12/5 + 4/4/1.
+- Face attributes (`test/ops/attributes.ts`, in `properties.test.ts`): before each op every face gets its own
+  `paint` slot, a material and distinct `uv0` values per corner; ops that keep their faces must keep the multiset of
+  (material, paint) and each corner's value at its vertex (Spin/Flip: the one new vertex takes the other face's
+  value), Triangulate and Multi-Cut only split (every piece carries its face's values, no face lost), Quadrangulate
+  and Mirror only reuse values; random sequences on primitives (symmetric runs included) and soups, plus runs of
+  several spins and flips at once. `test/ops/spin/spin.test.ts`: a multi-edge run equals the same spins one at a time
+  (every spinnable pair of a cube and a cylinder; every flippable pair of a triangulated cube), symmetric spins on a
+  2 × 2 × 2 cube keep every slot.
+- MeshSetOps property (`test/ops/setops/setops.test.ts`): Combine, Separate, Extract and Duplicate Faces on random
+  primitives and soups with random component selections, offsets, `separate` flags, pivots and placements (rotations,
+  scales with negative components): outputs validate, inputs bit-identical after the abort, poll = run, faces
+  conserved per op, and Combine of closed inputs has Σ |det Pᵢ|·Vᵢ / |det P_out| volume (400 + 150 runs).
 - Properties (`test/ops/properties.test.ts`, model-based via `test/ops/steps.ts`): P1 + P5 + P8 + P7-hard on random
   sequences of 20–60 B4 ops over random primitives (40) and soups (60); P2 χ for every op but Mirror (300); P3 + P4
   on closed primitives for the manifold-preserving ops, volume measured on the shared triangulation (300); P7 chords
@@ -79,6 +93,11 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 ## Bugs the properties found (fixed before the first commit of each op)
 
 - Spin read the faces' vertex runs with a non-cyclic slice (every edge whose corner was not first refused).
+- **Found in review (fix round 1):** a run spinning several edges (every symmetric spin or flip) restored material,
+  paint and corner values from face indices taken at plan time, stale after the first spin's face removal
+  (M6A-B4-11); the single-edge test could not see it. The face-attribute property and the multi-edge spin tests now
+  gate it. Extract refused `extract.all-faces` when another input had no faces (M6A-B4-24), found by the MeshSetOps
+  property.
 - Quadrangulate projected Y-normal faces onto a left-handed plane (convex quads looked concave).
 - Conform flipped single selected faces by rounding noise, and inside-out patches on concave parts of a torus
   (M6A-B4-7).
@@ -98,7 +117,17 @@ passes `check:size`: 865,791 B ≤ 900,000 B, the mesh kernel stays a lazy chunk
 ## Open for the integration agent
 
 - `test/descriptors.test.ts` (B1's file) and the new shared `test/ready.ts` — literal updates and probes
-  (M6A-B4-22); B2, B3 and B5 extend `LANDED` and `READY` when they merge.
+  (M6A-B4-22). **Merge conflicts, verified resolution** (fix round 1, throwaway worktree: this branch + `m6a/mesh-select`
+  + `m6a/mesh-ops-core`): merging B2 gives an add/add conflict on `test/ready.ts` (B2 has static flags `b2: true,
+  b13: false`) and a content conflict in `descriptors.test.ts` (B2 adds an inner `const LANDED =
+  new Set(['mesh.transformComponents'])` that shadows B4's module-level set); merging B3 then conflicts on the
+  module-level `LANDED` again (B3's own list) and on the stub check's body. Resolution: **one** module-level `LANDED`
+  holding the union of the B4, B2 (`mesh.transformComponents`) and B3 ids, B2's inner declaration removed, B4's body
+  of the stub check (it also covers `MESH_SET_OPS`); `READY` keeps B4's probes and adds B2's flag:
+  `export const READY = { b2, b3, b4: true, b13: false } as const;`. Result: mesh-core node tests 656 passed,
+  3 skipped (B3's own `READY.b2` cases, B2's `READY.b13` golden), root `tsc -b` clean; all five B4-gated cases pass
+  (B2 agreement ×2, the symmetric cut and the symmetric slides on B2 maps, Combine + Merge by Distance 16/24/10 →
+  12/20/10), each also when run alone.
 - Switch B4's symmetry helpers to B2's functions once `READY.b2` holds and `test/ops/symmetry.test.ts` agrees
   (M6A-B4-2); confirm the plane convention of a world-space `SymmetryMap` (M6A-B4-3).
 - MeshSetOp names and the palette action (M6A-B4-20): the runner could pass the source record's name and attach

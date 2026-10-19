@@ -376,12 +376,14 @@ describe('face attributes travel with their faces', () => {
   });
 
   it('on polygon soups', () => {
+    let ran = 0;
     fc.assert(
       fc.property(arbSoup(), fc.array(arbOpStep(), { minLength: 1, maxLength: 12 }), (soup, steps) => {
-        check(editMeshFrom(soup), steps);
+        ran += check(editMeshFrom(soup), steps);
       }),
       { numRuns: 100, seed: 13 },
     );
+    expect(ran).toBeGreaterThan(100);
   });
 
   it('covers every B4 op', () => {
