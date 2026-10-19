@@ -1,0 +1,254 @@
+{
+  "cube": {
+    "counts": {
+      "points": 8,
+      "edges": 12,
+      "faces": 6,
+      "corners": 24
+    },
+    "triangles": 12,
+    "tris": "6ea531da056f40911104148f62c283d54b38354975f817f6f82079f981aeccf0",
+    "faceNormals": "58446a94efba39d405af6431480f7684cac13c68759829b2cc966b05cd4a3467",
+    "cornerNormals": "7e6e4e6082ce270b345d603033f8ed929ada638b2078aa6a84e5ec0a3d483d46",
+    "uv0": "a16685049e8b9b16a92e70818ac2a6945cda8f0b2998880443c2cd68320b4099",
+    "manifest": "97cce91b103741a2ec83edd66b250a373afe26d2c0c172a4da7bfd314ff43718"
+  },
+  "sphere": {
+    "counts": {
+      "points": 86,
+      "edges": 180,
+      "faces": 96,
+      "corners": 360
+    },
+    "triangles": 168,
+    "tris": "17cf99067825515eb88e6ed06d5c9038256269dd01d61d94221b8f5203288288",
+    "faceNormals": "825ba6ee9eef06c6915d36575f1bd3386b4c3f75579cab88f8fe6ccdd2944b9c",
+    "cornerNormals": "155de76d6a269ff4500f121bad31cd9535f9afaaf7079b8be4c4062887135cf7",
+    "uv0": "f46b295ea8a108ee09233b22c96f0cdf986c800cc3c6585a27bd086d96b65716",
+    "manifest": "90bac8d67adae50422b67d2bd7c2cd144c053f0ff736d7217dbdf91cf3d23b21"
+  },
+  "cylinder": {
+    "counts": {
+      "points": 16,
+      "edges": 24,
+      "faces": 10,
+      "corners": 48
+    },
+    "triangles": 28,
+    "tris": "8ac648ce6687e65c8f9901a05b3e3ff3af678d638ea9069864a1fad123b998c1",
+    "faceNormals": "914fb502c6f7182bd8a93cf15369caed4dd9557bfedd8907dd51f5f7f2456076",
+    "cornerNormals": "0f2ce0e38349d8ded03c2f763a570244e685e921c709afef1ab7a02944f158cc",
+    "uv0": "8d031ccdcb91028c506132aa6bfdd537a0b6185acb95767f7db95817e1570129",
+    "manifest": "cc1c750a556f2d52c137f1e95fad5d0221ae3c43e1ed45e588088553aa2b8491"
+  },
+  "cone": {
+    "counts": {
+      "points": 9,
+      "edges": 16,
+      "faces": 9,
+      "corners": 32
+    },
+    "triangles": 14,
+    "tris": "9bbb560ecc9b563967753f0cc72d35d1961e4d23efa99fd7351c4045a406c16e",
+    "faceNormals": "7475aa60582932c9bac8a87ac24e1d0bd7506553f12f381f98ee10a2dd10f198",
+    "cornerNormals": "561e5cbdeecda584bb4aecbfa96f68f0c0ca7f8e2aac465a79b9dc97ad4fc6f7",
+    "uv0": "403d9c0f5c56cf7a8244d084001e33257d6e716ba37409c00b3dbc11db7e00ea",
+    "manifest": "ee932cf64b7fa03c44effdcb8b2fe5ce4f1cbaa4aca0d1521e35c791651966dd"
+  },
+  "plane": {
+    "counts": {
+      "points": 4,
+      "edges": 4,
+      "faces": 1,
+      "corners": 4
+    },
+    "triangles": 2,
+    "tris": "02ffd6036746e09a28391c3e844722c1c989727c0f803d8dd8c9934ad74a3b61",
+    "faceNormals": "b478c82900a216d741ae56917973ab7e435ca61a52b209649be1150d04f239ef",
+    "cornerNormals": "9cf23892e34ec305f4aa3008a4289333920875aec5ed7f37554a330f307dda81",
+    "uv0": "6be2f2fab82fa8d21ec6b44e6b1904703d882b04ef8218b2e7776b5ca84ad5d9",
+    "manifest": "0d07b253b59c4ab11c10d887fd48aedb10ac210d250012e8502d08016058ff9e"
+  },
+  "torus": {
+    "counts": {
+      "points": 72,
+      "edges": 144,
+      "faces": 72,
+      "corners": 288
+    },
+    "triangles": 144,
+    "tris": "4f3eccc08a7c83f7fda0d2bf4afdde3604d1e777c0ca1404b9be60121f0bf82c",
+    "faceNormals": "894bdf08cfb7e2b1c0f5ae721e9eed17b5b72f1b13a2b5db79f6fed8ea2f1492",
+    "cornerNormals": "d5b48efec3cf48563682da8bc2087388169d03ffd8bc5af36a5476040c6c62c4",
+    "uv0": "fc5a1e7f461fb4a5f9e88f9e29b4b8a11b433eef96abd458415f2e93b4afb247",
+    "manifest": "b163d43f16c255086f2e505abf065fa6498baa7150504f78719b46f72dd9c3ad"
+  },
+  "cube-maya": {
+    "counts": {
+      "points": 8,
+      "edges": 12,
+      "faces": 6,
+      "corners": 24
+    },
+    "triangles": 12,
+    "tris": "6ea531da056f40911104148f62c283d54b38354975f817f6f82079f981aeccf0",
+    "faceNormals": "58446a94efba39d405af6431480f7684cac13c68759829b2cc966b05cd4a3467",
+    "cornerNormals": "7e6e4e6082ce270b345d603033f8ed929ada638b2078aa6a84e5ec0a3d483d46",
+    "uv0": "a16685049e8b9b16a92e70818ac2a6945cda8f0b2998880443c2cd68320b4099",
+    "manifest": "97cce91b103741a2ec83edd66b250a373afe26d2c0c172a4da7bfd314ff43718"
+  },
+  "sphere-maya": {
+    "counts": {
+      "points": 382,
+      "edges": 780,
+      "faces": 400,
+      "corners": 1560
+    },
+    "triangles": 760,
+    "tris": "b907cdb8c07db45042acf0e1cc9aca553286d35e8da47ce8d00a2ee2aa7b0d3b",
+    "faceNormals": "7980d6dd59bf6c158abd76134f5cd94fc54543062dc626784c334c33de81b323",
+    "cornerNormals": "18f0b76a21fab0e870965471697b280d71635a10b63370321f5482ebef85245a",
+    "uv0": "17bb17b08da78a409b1bb9b946188742266933ba2832c49892e619de790187cd",
+    "manifest": "471366d4442d8d79e0772e7fa5e6b157c4189d1ee3e6d1d72f33d86ad7cf8eb0"
+  },
+  "cylinder-maya": {
+    "counts": {
+      "points": 40,
+      "edges": 60,
+      "faces": 22,
+      "corners": 120
+    },
+    "triangles": 76,
+    "tris": "caec9e14467b413f09a75e4e471fa9a6bd6b1d19f7f406a341251c8103ebcb36",
+    "faceNormals": "36e973915c60180f814879f66fa3d5bffe4048ff6bdad40ee4d4cae18f52b75e",
+    "cornerNormals": "1a79f2728cc0d97551f49dd4f43e561e61b40beec2ccba51a16877c6d6dbab15",
+    "uv0": "14009e213768bdc3beb104fa7603b67281fd846d87936672672689532e2417e2",
+    "manifest": "55703677ab051b1e5119a415f20a8b9c8a1354567e1b048df180efdce876f970"
+  },
+  "cone-maya": {
+    "counts": {
+      "points": 21,
+      "edges": 40,
+      "faces": 21,
+      "corners": 80
+    },
+    "triangles": 38,
+    "tris": "41137ef550eaedb7958975f3ca91700fdd75bf422bfa498759d8c03e48fbcd3c",
+    "faceNormals": "ff81d892be70700a7d8c11a7a8370d10f9c55942746a26d6a563d7e05e2ce389",
+    "cornerNormals": "5982c068189ef151db4940707359876f290af68820b1f5294034c412384c7c6d",
+    "uv0": "ca07a0cc7acf5837821825e31912fd5121a86809479dc232b805d09175e79d99",
+    "manifest": "f416e689eff6cde70401dcdabf58088f506bb57b672e35cbae51bf8c126b8afa"
+  },
+  "plane-maya": {
+    "counts": {
+      "points": 121,
+      "edges": 220,
+      "faces": 100,
+      "corners": 400
+    },
+    "triangles": 200,
+    "tris": "364bcb5b1a2a4ea1a9ab70744e6b668c7666059009e418803a9495dd272f064e",
+    "faceNormals": "c90fb0ad621943af1129716284564e0d3218eaa5d2cb813e92c787176a75575e",
+    "cornerNormals": "484f02edc3017b0951b2d795ddb486f5f08c2ab07d966187860f6d195f6a0ca4",
+    "uv0": "ff8d15b159d2e6f6308d87d673dc2263e0804e746388fbc95e72f0fe794f0b86",
+    "manifest": "629522abed6191707ee07c5965608c037f026c51dbf6d5d4f7eb200f7343350f"
+  },
+  "torus-maya": {
+    "counts": {
+      "points": 400,
+      "edges": 800,
+      "faces": 400,
+      "corners": 1600
+    },
+    "triangles": 800,
+    "tris": "18fb819721fcd7a0693bd13ddbaefeef095b091c2c534c2173f5576a6d170786",
+    "faceNormals": "cf04dabe09d8100ff2a0f80f2b80ef1121f9b68615d3a098acf94c9b0afe352e",
+    "cornerNormals": "2381ea571ad7425a501e338b187aad092913db0a815718e4a5604ed83741d85d",
+    "uv0": "763e6d9fb360328bd5c665f23467b1c26315ac9c67117b43b125afd1c20efa83",
+    "manifest": "6d5b827d90a0fd5a0618bed5b23a9dd1773bc30f4d0d1ce34c8b90333744f831"
+  },
+  "cube-2x3x1": {
+    "counts": {
+      "points": 24,
+      "edges": 44,
+      "faces": 22,
+      "corners": 88
+    },
+    "triangles": 44,
+    "tris": "7d6bb44f0f35432c1ba790db6e48f0c701400d3768b6dbe095a7746ea5e14429",
+    "faceNormals": "49b44570bea39c1926781eafa0eb90a5165db6f9a55fc7ae153c60565c7be28f",
+    "cornerNormals": "7786feb8b13cb3be2c2b6bfa342a122bd2d40b4b1ccbc3a95d43270052dcd873",
+    "uv0": "3cea89ad9861f04dda46a21c98fb4e599d5e88e5736e0c34366605e337bbca32",
+    "manifest": "f476087a61c0d283d8cbf493f484b68d5063b8c7e4728a292415381d2c36723f"
+  },
+  "cylinder-caps2": {
+    "counts": {
+      "points": 42,
+      "edges": 88,
+      "faces": 48,
+      "corners": 176
+    },
+    "triangles": 80,
+    "tris": "dd42367c6f28679773f977cec4f90b17ad2682adb6f4b3d301f10fee39eb74f3",
+    "faceNormals": "29316dc43e653bf5347b5b08ca40114fe9c0b0f670a07286187700d96f393869",
+    "cornerNormals": "cfb1bfb5240b08c51aeaa49f09a955f8be2a305bda3fba92bb954cd8bc594c02",
+    "uv0": "e9ec1a4b237e715d6e8cdfffd592a6079654406c23755dedecb5369876615ab3",
+    "manifest": "6c40c39b83555f891a77367742ffffceecf535b559ee06956d9b14daf6f7a7c6"
+  },
+  "cone-h3-caps1": {
+    "counts": {
+      "points": 26,
+      "edges": 56,
+      "faces": 32,
+      "corners": 112
+    },
+    "triangles": 48,
+    "tris": "bd4f86a8ed7f78988d8aa6cb46017467f6bddc4996c31caf639ee5ebb20337fd",
+    "faceNormals": "7d701bcb2259dac3c41f921e524f423cfce063e38d247e4a37b83d0b0954f9e6",
+    "cornerNormals": "7c6c2beefaa545ea0c49f67acbae98b29e8ab7eb09e10b3cb11c01a459969c7b",
+    "uv0": "73de29e09892011898f3736db388ac13f7010227a732166298e330a5a8ece444",
+    "manifest": "e154308e3c147765facf0d4baf407e536c5ac5ca7410c1c1d5c91dae2662b7d2"
+  },
+  "sphere-5x3": {
+    "counts": {
+      "points": 12,
+      "edges": 25,
+      "faces": 15,
+      "corners": 50
+    },
+    "triangles": 20,
+    "tris": "5e4969f6086719662f1b89b771d88d075190ec1b68f284abc8ad149d92b60cc0",
+    "faceNormals": "6acdeacd2e355570017a00e99c228583c4711099787baf67cac3caf69bf7c254",
+    "cornerNormals": "231d16f32474679e5c4fe1d04d85bac2fa996c14b11855e91bbb2624c87195f9",
+    "uv0": "050074b700ed4736e2a1d14d95cf80790d967afd4c13df81ba42423c47f9697e",
+    "manifest": "83fb27b0fffe752c9ca4c4e2b675fc495087f749d00e6ee87ee8aee288441a23"
+  },
+  "torus-3x3": {
+    "counts": {
+      "points": 9,
+      "edges": 18,
+      "faces": 9,
+      "corners": 36
+    },
+    "triangles": 18,
+    "tris": "33bceb963587cbdc14252d31f36dde12bb3df35231779f7fa4263708b390c755",
+    "faceNormals": "32e834ebd4e46c72e55586c6de348e02de49227bad92b124248c796e4d8aa31c",
+    "cornerNormals": "5fe634d04840366f2456c827d53e097226999796806ba26d336ee6edd0f5692d",
+    "uv0": "d0ebed7131a6425b4c887b3f5e8cdb470dd860efe9a901787dc913f4915da307",
+    "manifest": "278c3ec0a5a273f4b88ce682ecde9f1613262116d93a6feedd39fa5b62a2c1ea"
+  },
+  "plane-3x2": {
+    "counts": {
+      "points": 12,
+      "edges": 17,
+      "faces": 6,
+      "corners": 24
+    },
+    "triangles": 12,
+    "tris": "5d6c1baf686316f9aa931b80536c9432b9454281e5fee10a8ff12c350fe1031e",
+    "faceNormals": "ac78583c3506c368303671e26177e448f055aac0ba1c6cfd80abfdc34a34b663",
+    "cornerNormals": "f90ae94b773827a8112ee8d922dd6645d4d74226342ea106a8100f2ceeba8048",
+    "uv0": "359d35d51c68ce2b495074a13fe0504f496155f96cf53962313db8edc02d82c2",
+    "manifest": "b61b3e5c51ac877cacd661af41c986f90d7c8395402d0dc67bd4e25c94450ab5"
+  }
+}

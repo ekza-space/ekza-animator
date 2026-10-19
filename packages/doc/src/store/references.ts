@@ -30,14 +30,59 @@ function constraintControls(row: Row, out: Reference[]): void {
 
 const NONE: readonly Reference[] = Object.freeze([]);
 
+/** M6a `MeshOwner`: the character it names. */
+function ownerCharacter(row: Row, out: Reference[]): void {
+  const owner = row['owner'];
+  if (isObject(owner)) push(out, 'characters', owner['character']);
+}
+
+/** A mesh's or group's parent: a GroupId (`grp_…`) or a MeshId (`msh_…`); other ids are checked in both tables. */
+function hierarchyParent(row: Row, out: Reference[], meshParents: boolean): void {
+  const parent = row['parent'];
+  if (typeof parent !== 'string' || parent.length === 0) return;
+  if (parent.startsWith('grp_') || !meshParents) push(out, 'groups', parent);
+  else if (parent.startsWith('msh_')) push(out, 'meshes', parent);
+  else {
+    push(out, 'groups', parent);
+    push(out, 'meshes', parent);
+  }
+}
+
+/** Every record a mesh references (M6A-SPEC §4.2 `referencesOf` column). */
+function meshReferences(row: Row, out: Reference[]): void {
+  ownerCharacter(row, out);
+  hierarchyParent(row, out, true);
+  const source = row['source'];
+  if (isObject(source)) push(out, 'assets', source['asset']);
+  const material = row['material'];
+  if (isObject(material) && Array.isArray(material['assetSlots'])) {
+    for (const slot of material['assetSlots'] as readonly unknown[])
+      if (isObject(slot)) push(out, 'assets', slot['asset']);
+  }
+  const skin = row['skin'];
+  if (isObject(skin)) {
+    push(out, 'assets', skin['asset']);
+    push(out, 'skeletons', skin['skeleton']);
+  }
+  push(out, 'palettes', row['palette']);
+  const data = row['data'];
+  if (isObject(data) && Array.isArray(data['joints'])) {
+    for (const joint of data['joints'] as readonly unknown[]) push(out, 'joints', joint);
+  }
+}
+
 /** Outgoing references of a record of `table` (opaque and extension tables have none). */
 export function referencesOf(table: string, row: Row): readonly Reference[] {
   const out: Reference[] = [];
   switch (table) {
-    case 'characters':
+    case 'characters': {
+      // v3: the asset only when non-null (a model-sourced character has none); the skeleton of a model source.
       push(out, 'assets', row['asset']);
       push(out, 'rigs', row['rig']);
+      const source = row['source'];
+      if (isObject(source)) push(out, 'skeletons', source['skeleton']);
       break;
+    }
     case 'rigs':
       push(out, 'characters', row['character']);
       break;
@@ -69,6 +114,28 @@ export function referencesOf(table: string, row: Row): readonly Reference[] {
       push(out, 'clips', row['clip']);
       push(out, 'curves', row['curve']);
       break;
+    // M6a (M6A-SPEC §4.2)
+    case 'meshes':
+      meshReferences(row, out);
+      break;
+    case 'groups':
+      ownerCharacter(row, out);
+      hierarchyParent(row, out, false);
+      break;
+    case 'swatches':
+      push(out, 'palettes', row['palette']);
+      break;
+    case 'imagePlanes':
+      push(out, 'assets', row['asset']);
+      break;
+    case 'skeletons':
+      push(out, 'characters', row['character']);
+      break;
+    case 'joints':
+      push(out, 'skeletons', row['skeleton']);
+      push(out, 'joints', row['parent']);
+      push(out, 'joints', row['mirror']);
+      break;
     default:
       return NONE;
   }
@@ -77,7 +144,7 @@ export function referencesOf(table: string, row: Row): readonly Reference[] {
 
 /** Fields that hold references, per table (a write that keeps them all identical keeps the references). */
 const REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
-  characters: ['asset', 'rig'],
+  characters: ['asset', 'rig', 'source'],
   rigs: ['character'],
   controls: ['rig', 'parent', 'mirror'],
   constraints: ['rig', 'driven', 'targets'],
@@ -86,6 +153,12 @@ const REFERENCE_FIELDS: Readonly<Record<string, readonly string[]>> = {
   layers: ['clip'],
   curves: ['clip', 'layer', 'control'],
   keys: ['clip', 'curve'],
+  meshes: ['owner', 'parent', 'source', 'material', 'skin', 'palette', 'data'],
+  groups: ['owner', 'parent'],
+  swatches: ['palette'],
+  imagePlanes: ['asset'],
+  skeletons: ['character'],
+  joints: ['skeleton', 'parent', 'mirror'],
 };
 
 /** Fast path of the index: true when a rewrite of a record cannot have changed its references. */
@@ -115,6 +188,11 @@ const REFERENCED: ReadonlySet<string> = new Set([
   'clips',
   'layers',
   'curves',
+  'meshes',
+  'groups',
+  'palettes',
+  'skeletons',
+  'joints',
 ]);
 
 /** Pending writes of an undo/redo step, by `rowKey`: the record it will hold (`undefined` = deleted). */

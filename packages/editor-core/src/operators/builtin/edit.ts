@@ -4,6 +4,7 @@ import { cancelChannelEditGestures } from '../../edit/channels';
 import type { EditorApp } from '../../types';
 import { GLOBAL_SCOPE, type HistoryResult, type OperatorContext, PANEL } from '../../types';
 import { type AnyOperator, defineOperator, fail, forward, OK, panelOf, runContextOf } from './define';
+import { stubOperator } from './stub';
 
 function reportHistory(app: EditorApp, result: HistoryResult | null): HistoryResult | null {
   if (result === null) return null;
@@ -109,4 +110,15 @@ export const EDIT_OPERATORS: readonly AnyOperator[] = [
   dispatcher('edit.paste', 'Paste', { pose: 'pose.paste', keys: 'graph.keys.paste' }),
   dispatcher('edit.delete', 'Delete', { pose: 'key.deleteAtFrame', keys: 'graph.keys.delete' }),
   escape,
+  // M6a (M6A-SPEC §5.7; B0a stubs, B11 lands them)
+  stubOperator('edit.adjustLast', 'Adjust Last Operation', {
+    category: 'edit',
+    description: 'Re-runs the last operation with new parameters, replacing its undo step.',
+    extraArgs: ['args'],
+    internal: true,
+  }),
+  stubOperator('edit.repeatLast', 'Repeat Last', {
+    category: 'edit',
+    description: 'Runs the last operation again on the current selection.',
+  }),
 ];

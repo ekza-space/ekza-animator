@@ -64,13 +64,22 @@ function documentFor(skeleton: SkeletonDesc): DocSnapshot {
         },
       },
       assets: {
-        [asset]: { id: asset, name: 'model.vrm', ext: 'vrm', mime: 'model/gltf-binary', size: 0, role: 'model' },
+        [asset]: {
+          id: asset,
+          name: 'model.vrm',
+          ext: 'vrm',
+          mime: 'model/gltf-binary',
+          size: 0,
+          role: 'model',
+          provenance: null,
+        },
       },
       characters: {
         [character]: {
           id: character,
           name: 'Model',
           asset,
+          source: { kind: 'asset', asset },
           format: skeleton.format,
           rig: rigId,
           placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
@@ -87,6 +96,14 @@ function documentFor(skeleton: SkeletonDesc): DocSnapshot {
       layers: {},
       curves: {},
       keys: {},
+      // M6a schema 3 tables (empty)
+      meshes: {},
+      groups: {},
+      palettes: {},
+      swatches: {},
+      imagePlanes: {},
+      skeletons: {},
+      joints: {},
     },
   };
 }
@@ -101,7 +118,7 @@ describe.runIf(READY)('framing a selected control (acceptance round 1)', () => {
     const fingers = controls.filter((c) => c.group === 'fingers' && c.side === 'L' && !c.hiddenByDefault);
     const hand = controls.find((c) => c.key === 'fk.hand.L');
     if (hand === undefined) throw new Error('no fk.hand.L');
-    app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [] } });
+    app.session.setState({ selection: { controls: [hand.id], keys: new Map(), channels: [], objects: [] } });
     rig.frame();
     rig.vm.frame('pane-right', 'selection');
     rig.frame();
@@ -133,6 +150,7 @@ describe.runIf(READY)('finger pick separation (WP-1, WP-3, WP-4)', () => {
           controls: [...fingers.map((c) => c.id), ...(hand === undefined ? [] : [hand.id])],
           keys: new Map(),
           channels: [],
+          objects: [],
         },
       });
       rig.frame();

@@ -13,6 +13,8 @@ export interface EditorProps {
   readonly createValidatorWorker?: () => Worker;
   /** The build allows e2e mode (`NEXT_PUBLIC_EKZA_E2E=1`); the test API installs only with `?e2e=1` as well. */
   readonly e2e?: boolean;
+  /** M6a (M6A-SPEC §3 rule 8): development builds validate every mesh commit. */
+  readonly kernelDebug?: boolean;
 }
 
 const createProductionApp = (args: CreateAppArgs) =>
@@ -29,6 +31,7 @@ export function Editor(props: EditorProps): JSX.Element {
       {...(props.decoderPath === undefined ? {} : { decoderPath: props.decoderPath })}
       {...(props.samplesPath === undefined ? {} : { samplesPath: props.samplesPath })}
       {...(props.e2e === undefined ? {} : { e2e: props.e2e })}
+      {...(props.kernelDebug === undefined ? {} : { kernelDebug: props.kernelDebug })}
       {...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker })}
     />
   );

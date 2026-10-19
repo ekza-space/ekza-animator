@@ -229,7 +229,7 @@ describe('mesh picking', () => {
       tools: {
         ...rig.app.session.getState().tools,
         viewport: VIEWPORT_TOOL.select,
-        selectionMask: { controls: false, joints: false, meshes: true },
+        selectionMask: { controls: false, joints: false, meshes: true, groups: false },
       },
     });
     rig.frame();

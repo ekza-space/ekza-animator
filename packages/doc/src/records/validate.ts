@@ -2,7 +2,17 @@
 // ('field: expected …'); an empty list means valid. Unknown extra fields are allowed: records written by newer apps
 // or extensions keep them (ADR 0011). The key validator is hand-written because it runs on every key write.
 import type { InfinityMode, RotateOrder, TangentType } from '@ekza-animator/anim-core';
-import type { BuiltinTableName, ChannelId, ModelFormat, Side } from '../records';
+import type {
+  BudgetPresetId,
+  BuiltinTableName,
+  ChannelId,
+  ColourOutput,
+  HumanBoneName,
+  ModelFormat,
+  OrthoCamera,
+  PrimitiveKind,
+  Side,
+} from '../records';
 
 type Problems = string[];
 type Obj = Readonly<Record<string, unknown>>;
@@ -31,6 +41,97 @@ export const INFINITY_MODES = [
 export const ROTATE_ORDERS = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'] as const satisfies readonly RotateOrder[];
 const MODEL_FORMATS = ['vrm0', 'vrm1', 'gltf'] as const satisfies readonly ModelFormat[];
 const SIDES = ['L', 'R', 'C'] as const satisfies readonly Side[];
+// ---------- M6a vocabularies (M6A-SPEC §4.2) ----------
+export const PRIMITIVE_KINDS = [
+  'cube',
+  'sphere',
+  'cylinder',
+  'cone',
+  'plane',
+  'torus',
+  'humanoidBody',
+] as const satisfies readonly PrimitiveKind[];
+export const COLOUR_OUTPUTS = [
+  'palette-texture',
+  'vertex-colour',
+  'material-per-colour',
+] as const satisfies readonly ColourOutput[];
+export const BUDGET_PRESETS = [
+  'hero',
+  'npc',
+  'boss',
+  'handheld',
+  'small-prop',
+  'medium-prop',
+  'building',
+] as const satisfies readonly BudgetPresetId[];
+export const ORTHO_CAMERAS = ['front', 'side', 'top'] as const satisfies readonly OrthoCamera[];
+export const SKELETON_PRESETS = ['lite17', 'core21', 'standard33', 'full52', 'custom'] as const;
+export const GROUP_TEMPLATES = ['prop', 'handheld', 'humanoid'] as const;
+/** VRM 1.0 humanoid bone names (doc keeps its own list: it cannot import rig). */
+export const HUMAN_BONE_NAMES = [
+  'hips',
+  'spine',
+  'chest',
+  'upperChest',
+  'neck',
+  'head',
+  'leftEye',
+  'rightEye',
+  'jaw',
+  'leftUpperLeg',
+  'leftLowerLeg',
+  'leftFoot',
+  'leftToes',
+  'rightUpperLeg',
+  'rightLowerLeg',
+  'rightFoot',
+  'rightToes',
+  'leftShoulder',
+  'leftUpperArm',
+  'leftLowerArm',
+  'leftHand',
+  'rightShoulder',
+  'rightUpperArm',
+  'rightLowerArm',
+  'rightHand',
+  'leftThumbMetacarpal',
+  'leftThumbProximal',
+  'leftThumbDistal',
+  'leftIndexProximal',
+  'leftIndexIntermediate',
+  'leftIndexDistal',
+  'leftMiddleProximal',
+  'leftMiddleIntermediate',
+  'leftMiddleDistal',
+  'leftRingProximal',
+  'leftRingIntermediate',
+  'leftRingDistal',
+  'leftLittleProximal',
+  'leftLittleIntermediate',
+  'leftLittleDistal',
+  'rightThumbMetacarpal',
+  'rightThumbProximal',
+  'rightThumbDistal',
+  'rightIndexProximal',
+  'rightIndexIntermediate',
+  'rightIndexDistal',
+  'rightMiddleProximal',
+  'rightMiddleIntermediate',
+  'rightMiddleDistal',
+  'rightRingProximal',
+  'rightRingIntermediate',
+  'rightRingDistal',
+  'rightLittleProximal',
+  'rightLittleIntermediate',
+  'rightLittleDistal',
+] as const satisfies readonly HumanBoneName[];
+/** Handheld grip bounds (M6A-SPEC §4.2 `HandheldGrip`). */
+export const HANDHELD_LIMITS = { offset: 0.3, rotationDegrees: 360, scaleMin: 0.25, scaleMax: 2 } as const;
+/** Mesh and group names: at most this many characters (M6A-SPEC §4.2 `MeshRecord.name`). */
+export const MESH_NAME_MAX = 64;
+/** Swatch slots are u16 0…65534 (65535 is reserved). */
+export const SWATCH_SLOT_MAX = 65_534;
 const TRS = new Set<string>(['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz']);
 
 // Compile-time exhaustiveness: every member of the unions above is listed.
@@ -39,7 +140,12 @@ const _exhaustive: [
   Missing<TangentType, typeof TANGENT_TYPES>,
   Missing<InfinityMode, typeof INFINITY_MODES>,
   Missing<RotateOrder, typeof ROTATE_ORDERS>,
-] = [] as unknown as [never, never, never];
+  Missing<PrimitiveKind, typeof PRIMITIVE_KINDS>,
+  Missing<ColourOutput, typeof COLOUR_OUTPUTS>,
+  Missing<BudgetPresetId, typeof BUDGET_PRESETS>,
+  Missing<OrthoCamera, typeof ORTHO_CAMERAS>,
+  Missing<HumanBoneName, typeof HUMAN_BONE_NAMES>,
+] = [] as unknown as [never, never, never, never, never, never, never, never];
 void _exhaustive;
 
 const TANGENT_SET = new Set<unknown>(TANGENT_TYPES);
@@ -259,19 +365,66 @@ const projectShape = shape({
   upAxis: literal('Y'),
 });
 
-const assetShape = shape({
-  id: pattern(/^[0-9a-f]{64}$/, 'a lowercase SHA-256 hex string'),
-  name: str,
-  ext: oneOf(['glb', 'vrm', 'vrma']),
-  mime: literal('model/gltf-binary'),
-  size: int(0),
-  role: oneOf(['model', 'animation-source']),
+const sha256Id = pattern(/^[0-9a-f]{64}$/, 'a lowercase SHA-256 hex string');
+
+/** M6a (ADR 0017 §7): `GeneratorProvenance`, stored and validated, filled by M7. */
+const generatorProvenance = shape({
+  kind: literal('ai'),
+  digitalSourceType: nonEmpty,
+  service: nonEmpty,
+  model: nonEmpty,
+  op: nonEmpty,
+  params: plainObject,
+  inputSha256: array(str),
+  termsSnapshot: nullable(plainObject),
+  rawSha256: str,
+  postSteps: array(shape({ op: str, aiMarksMayBeAltered: bool })),
+  promptSha256: nullable(str),
+  prompt: nullable(str),
+  tier: oneOf(['paid', 'free', 'unknown']),
+  taskId: nullable(str),
 });
+const assetProvenance = shape({
+  origin: oneOf(['imported', 'generated', 'authored']),
+  derivedFrom: array(
+    shape({ title: str, author: str, license: nonEmpty, sourceSha256: nullable(pattern(/^[0-9a-f]{64}$/, 'SHA-256')) }),
+  ),
+  redistributable: oneOf(['yes', 'no', 'unknown']),
+  generator: nullable(generatorProvenance),
+});
+
+const assetShape = shape({
+  id: sha256Id,
+  name: str,
+  ext: oneOf(['glb', 'vrm', 'vrma', 'png', 'jpg']),
+  mime: oneOf(['model/gltf-binary', 'image/png', 'image/jpeg']),
+  size: int(0),
+  role: oneOf(['model', 'animation-source', 'reference-image']),
+  provenance: nullable(assetProvenance),
+});
+
+const characterSource: Check = (v, p, out) => {
+  if (!isObj(v)) {
+    out.push(`${p}: expected a character source`);
+    return;
+  }
+  switch (v['kind']) {
+    case 'asset':
+      nonEmpty(v['asset'], `${p}.asset`, out);
+      return;
+    case 'model':
+      nonEmpty(v['skeleton'], `${p}.skeleton`, out);
+      return;
+    default:
+      out.push(`${p}.kind: expected 'asset' or 'model'`);
+  }
+};
 
 const characterShape = shape({
   id,
   name: str,
-  asset: nonEmpty,
+  asset: nullable(nonEmpty),
+  source: characterSource,
   format: oneOf(MODEL_FORMATS),
   rig: nonEmpty,
   placement: xf,
@@ -425,6 +578,168 @@ function checkHandle(value: unknown, path: string, sign: -1 | 1, out: Problems):
   if (value['dt'] * sign < 0) out.push(`${path}.dt: expected ${sign < 0 ? '≤ 0' : '≥ 0'}`);
 }
 
+// ---------- M6a tables (M6A-SPEC §4.2) ----------
+
+const scalarMap = map((v, p, out) => {
+  if (typeof v !== 'string' && typeof v !== 'boolean' && !isFiniteNumber(v)) {
+    out.push(`${p}: expected a number, boolean or string`);
+  }
+});
+const meshOwner: Check = (v, p, out) => {
+  if (isObj(v) && 'character' in v) nonEmpty(v['character'], `${p}.character`, out);
+  else if (isObj(v) && v['scene'] === true) return;
+  else out.push(`${p}: expected {character} or {scene: true}`);
+};
+const meshBudget: Check = (v, p, out) => {
+  if (v === null) return;
+  if (isObj(v) && 'preset' in v) oneOf(BUDGET_PRESETS)(v['preset'], `${p}.preset`, out);
+  else if (isObj(v) && 'tris' in v) int(1)(v['tris'], `${p}.tris`, out);
+  else out.push(`${p}: expected null, {preset} or {tris}`);
+};
+const bounded =
+  (limit: number): Check =>
+  (v, p, out) => {
+    if (!isFiniteNumber(v) || Math.abs(v) > limit) out.push(`${p}: expected a number with |value| ≤ ${limit}`);
+  };
+const handheldGrip = nullable(
+  shape({
+    bone: oneOf(['rightHand', 'leftHand']),
+    offset: tuple(3, bounded(HANDHELD_LIMITS.offset)),
+    rotationDegrees: tuple(3, bounded(HANDHELD_LIMITS.rotationDegrees)),
+    scale: (v, p, out) => {
+      if (!isFiniteNumber(v) || v < HANDHELD_LIMITS.scaleMin || v > HANDHELD_LIMITS.scaleMax) {
+        out.push(`${p}: expected a number in ${HANDHELD_LIMITS.scaleMin}…${HANDHELD_LIMITS.scaleMax}`);
+      }
+    },
+  }),
+);
+const meshName: Check = (v, p, out) => {
+  if (typeof v !== 'string' || v.length === 0 || v.length > MESH_NAME_MAX) {
+    out.push(`${p}: expected a non-empty string of at most ${MESH_NAME_MAX} characters`);
+  }
+};
+const meshRef = shape({
+  manifest: sha256Id,
+  rev: int(1),
+  base: nullable(sha256Id),
+  joints: array(str),
+});
+const meshMaterial: Check = (v, p, out) => {
+  if (isObj(v) && 'preset' in v) oneOf(['unlit', 'toon', 'lit'])(v['preset'], `${p}.preset`, out);
+  else if (isObj(v) && 'assetSlots' in v) {
+    array(shape({ asset: sha256Id, material: int(0) }))(v['assetSlots'], `${p}.assetSlots`, out);
+  } else out.push(`${p}: expected {preset} or {assetSlots}`);
+};
+const meshSkin: Check = (v, p, out) => {
+  if (v === null) return;
+  if (isObj(v) && 'skeleton' in v) {
+    nonEmpty(v['skeleton'], `${p}.skeleton`, out);
+    nullable(plainObject)(v['bind'], `${p}.bind`, out);
+  } else if (isObj(v) && 'asset' in v) {
+    sha256Id(v['asset'], `${p}.asset`, out);
+    int(0)(v['skin'], `${p}.skin`, out);
+  } else out.push(`${p}: expected null, {skeleton, bind} or {asset, skin}`);
+};
+
+const meshShape = shape({
+  id,
+  name: meshName,
+  owner: meshOwner,
+  parent: nullable(nonEmpty),
+  order,
+  placement: xf,
+  pivot: vec3,
+  source: nullable(shape({ asset: sha256Id, mesh: int(0) })),
+  data: nullable(meshRef),
+  faceted: bool,
+  generator: nullable(shape({ kind: oneOf(PRIMITIVE_KINDS), params: scalarMap, version: literal(1) })),
+  palette: nullable(nonEmpty),
+  material: meshMaterial,
+  colourOutput: oneOf(COLOUR_OUTPUTS),
+  skin: meshSkin,
+  budget: meshBudget,
+  handheld: handheldGrip,
+  deleted: tombstone,
+});
+
+const groupShape = shape({
+  id,
+  name: meshName,
+  owner: meshOwner,
+  parent: nullable(nonEmpty),
+  order,
+  placement: xf,
+  pivot: vec3,
+  template: nullable(shape({ kind: oneOf(GROUP_TEMPLATES), params: scalarMap })),
+  budget: meshBudget,
+  handheld: handheldGrip,
+  deleted: tombstone,
+});
+
+const paletteShape = shape({ id, name: nonEmpty, order, deleted: tombstone });
+
+const byte: Check = (v, p, out) => {
+  if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > 255) out.push(`${p}: expected an integer 0…255`);
+};
+const srgb = tuple(3, byte);
+const swatchShape = shape({
+  id,
+  palette: nonEmpty,
+  slot: (v, p, out) => {
+    if (typeof v !== 'number' || !Number.isInteger(v) || v < 0 || v > SWATCH_SLOT_MAX) {
+      out.push(`${p}: expected an integer 0…${SWATCH_SLOT_MAX}`);
+    }
+  },
+  order,
+  name: str,
+  srgb,
+  kind: oneOf(['flat', 'ramp']),
+  ramp: nullable(tuple(2, srgb)),
+  deleted: tombstone,
+});
+
+const imagePlaneShape = shape({
+  id,
+  name: str,
+  camera: oneOf(ORTHO_CAMERAS),
+  asset: sha256Id,
+  offset: tuple(2, num),
+  size: positive,
+  opacity: (v, p, out) => {
+    if (!isFiniteNumber(v) || v < 0 || v > 1) out.push(`${p}: expected a number in 0…1`);
+  },
+  depth: oneOf(['behind', 'front']),
+  locked: bool,
+  visible: bool,
+  order,
+  deleted: tombstone,
+});
+
+const skeletonShape = shape({
+  id,
+  character: nonEmpty,
+  template: oneOf(['vrm-humanoid', 'generic']),
+  templateVersion: str,
+  preset: oneOf(SKELETON_PRESETS),
+  symmetry: bool,
+  deleted: tombstone,
+});
+
+const jointShape = shape({
+  id,
+  skeleton: nonEmpty,
+  parent: nullable(nonEmpty),
+  order,
+  name: str,
+  humanBone: nullable(oneOf(HUMAN_BONE_NAMES)),
+  restPosition: vec3,
+  restRotation: quat,
+  tail: nullable(vec3),
+  side: oneOf(SIDES),
+  mirror: nullable(nonEmpty),
+  deleted: tombstone,
+});
+
 /** Cross-field rules the structural checks cannot express. */
 const RULES: Partial<Record<BuiltinTableName, (record: Obj, out: Problems) => void>> = {
   project(record, out) {
@@ -446,6 +761,34 @@ const RULES: Partial<Record<BuiltinTableName, (record: Obj, out: Problems) => vo
     if (isFiniteNumber(record['near']) && isFiniteNumber(record['far']) && record['far'] <= record['near']) {
       out.push('far: expected far > near');
     }
+  },
+  assets(record, out) {
+    const mime = record['mime'];
+    const ext = record['ext'];
+    const expected = ext === 'png' ? 'image/png' : ext === 'jpg' ? 'image/jpeg' : 'model/gltf-binary';
+    if (typeof ext === 'string' && typeof mime === 'string' && mime !== expected) {
+      out.push(`mime: expected '${expected}' for ext '${ext}'`);
+    }
+  },
+  characters(record, out) {
+    const source = record['source'];
+    if (!isObj(source)) return;
+    if (source['kind'] === 'asset' && record['asset'] !== source['asset']) {
+      out.push('asset: expected asset === source.asset for an asset-sourced character');
+    }
+    if (source['kind'] === 'model' && record['asset'] !== null) {
+      out.push('asset: expected null for a model-sourced character');
+    }
+  },
+  meshes(record, out) {
+    if (record['parent'] === record['id']) out.push('parent: a mesh cannot be its own parent');
+  },
+  groups(record, out) {
+    if (record['parent'] === record['id']) out.push('parent: a group cannot be its own parent');
+  },
+  joints(record, out) {
+    if (record['parent'] === record['id']) out.push('parent: a joint cannot be its own parent');
+    if (record['mirror'] === record['id']) out.push('mirror: a joint cannot mirror itself');
   },
   clips(record, out) {
     const range = record['range'];
@@ -472,6 +815,13 @@ const SHAPES: Readonly<Record<Exclude<BuiltinTableName, 'keys'>, Check>> = {
   clips: clipShape,
   layers: layerShape,
   curves: curveShape,
+  meshes: meshShape,
+  groups: groupShape,
+  palettes: paletteShape,
+  swatches: swatchShape,
+  imagePlanes: imagePlaneShape,
+  skeletons: skeletonShape,
+  joints: jointShape,
 };
 
 /** Problems of a built-in record ([] = valid). */
