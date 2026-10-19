@@ -31,10 +31,16 @@ describe('contract coherence', () => {
 });
 
 describe('workspaces and marking menus', () => {
-  it('registers the Animate workspace with the built-ins (Model is B9’s)', () => {
+  // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the built-ins register Model, Rig & Skin and Review next to Animate.
+  it('registers the Animate workspace with the built-ins, next to B9’s Model, Rig & Skin and Review', () => {
     const app = waveApp();
     const dispose = registerBuiltins(app);
-    expect(app.workspaces.list().map((w) => w.id)).toEqual([WORKSPACE.animate]);
+    expect(app.workspaces.list().map((w) => w.id)).toEqual([
+      WORKSPACE.model,
+      WORKSPACE.rig,
+      WORKSPACE.animate,
+      WORKSPACE.review,
+    ]);
     const animate = app.workspaces.get('animate') as WorkspaceDef;
     expect(animate).toBe(ANIMATE_WORKSPACE);
     expect(animate).toMatchObject({
@@ -235,6 +241,14 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'edit.repeatLast',
   ]);
   const M6A = BUILTIN_OPERATORS.filter((def) => def.workspaces?.includes('model') === true || GLOBAL.has(def.id));
+  /** Poll reasons of the operators that have landed, for the arguments below (headless: no viewport, no shell). */
+  const LANDED: Readonly<Record<string, readonly string[]>> = {
+    'workspace.set': ['expects { workspace }'],
+    'view.shading': ['expects { mode: wire | shaded | colours | lit }'],
+    'view.display.set': ['expects { patch }'],
+    'ui.commandPalette': ['The command palette needs the editor window'],
+    'ui.markingMenu': ['expects { menu }'],
+  };
 
   it('covers the §6 operators: 38 kernel ops, 4 set-ops and 77 editor operators', () => {
     expect(M6A.length).toBe(38 + 4 + 77);
@@ -249,10 +263,14 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
         const result = await app.runUntyped(def.id, args);
         expect([def.id, result.status]).toEqual([def.id, 'cancelled']);
         const reason = result.status === 'cancelled' ? result.reason : '';
-        expect([def.id, [NOT_AVAILABLE_YET, ANIMATE_ONLY_REASON, 'Component pick-walk arrives later']]).toEqual([
-          def.id,
-          expect.arrayContaining([reason]),
-        ]);
+        const reasons = [
+          NOT_AVAILABLE_YET,
+          ANIMATE_ONLY_REASON,
+          'Component pick-walk arrives later',
+          // Landed operators poll-fail with their own reasons on these arguments (B9: workspace and shell).
+          ...(LANDED[def.id] ?? []),
+        ];
+        expect([def.id, reasons]).toEqual([def.id, expect.arrayContaining([reason])]);
       }
     }
     expect(app.history.canUndo()).toBe(false);
