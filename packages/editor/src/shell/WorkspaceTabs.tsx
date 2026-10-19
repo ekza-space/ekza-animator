@@ -7,6 +7,7 @@ import { Fragment, type JSX, useEffect, useMemo, useState } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from './context';
+import { createStatusSchedule } from './statusSchedule';
 
 const GLYPH: Readonly<Record<WorkspaceStatus['glyph'], string>> = { done: '●', attention: '◐', todo: '○', none: '' };
 const GLYPH_TEXT: Readonly<Record<WorkspaceStatus['glyph'], string>> = {
@@ -16,13 +17,26 @@ const GLYPH_TEXT: Readonly<Record<WorkspaceStatus['glyph'], string>> = {
   none: '',
 };
 
-/** A version that changes whenever the document or a mesh runtime changes (statuses are re-read at human speed). */
+/**
+ * A version that changes when the statuses should be re-read: at human speed after committed document batches and
+ * mesh changes, never per preview frame of a drag (`createStatusSchedule`).
+ */
 function useStatusVersion(): number {
   const { app } = useShell();
   const [version, setVersion] = useState(0);
   useEffect(() => {
-    const bump = (): void => setVersion((v) => v + 1);
-    const disposers = [app.store.subscribe(bump), app.meshes.subscribe(bump)];
+    const schedule = createStatusSchedule(() => setVersion((v) => v + 1));
+    const disposers = [
+      app.store.subscribe((batch) => {
+        if (batch.origin === 'preview') schedule.preview();
+        else schedule.committed();
+      }),
+      app.meshes.subscribe((_id, e) => {
+        if (e.type === 'changed' && e.preview) schedule.preview();
+        else schedule.committed();
+      }),
+      () => schedule.dispose(),
+    ];
     return () => {
       for (const dispose of disposers) dispose();
     };

@@ -3,6 +3,7 @@
 // help line and pane header, the overlay slots, `ws=` and `prefs.lastWorkspace` at start, and Mod+K.
 import type { DocSnapshot } from '@ekza-animator/doc';
 import {
+  animateStatus,
   BUILTIN_MENU_ITEMS,
   type EditorApp,
   registerBuiltinOperators,
@@ -16,6 +17,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { registerPaneOverlay } from '../src/overlays/slots';
 import { EditorRoot } from '../src/shell/EditorRoot';
 import { layoutStorageKey } from '../src/shell/layout';
+import { STATUS_SETTLE_MS } from '../src/shell/statusSchedule';
 import { createSyntheticModelLoader } from '../src/testing/syntheticModels';
 import type { Shell } from '../src/shell/types';
 import { DEFAULT_PARAMS, type EditorParams } from '../src/test-api/params';
@@ -126,6 +128,55 @@ describe('workspace tabs (§5.17, §8.1)', () => {
     expect(query('menu-mesh')).not.toBeNull();
     expect(testId('ws-tab-model').getAttribute('aria-selected')).toBe('true');
     expect(app.prefs.getState().lastWorkspace).toBe('model');
+    await view.unmount();
+  });
+
+  it('re-reads the statuses at human speed: after committed changes, not per preview frame of a drag (§4.6)', async () => {
+    const { view, app } = await mount();
+    const animate = app.workspaces.get('animate');
+    if (animate === undefined) throw new Error('no Animate workspace');
+    let reads = 0;
+    const dispose = app.contribute({
+      kind: 'workspace',
+      def: {
+        ...animate,
+        id: 'probe',
+        label: 'Probe',
+        shortLabel: 'Prb',
+        order: 99,
+        status: (a) => {
+          reads += 1;
+          return animateStatus(a);
+        },
+      },
+    });
+    await waitFor(() => query('ws-glyph-probe') !== null);
+    expect(testId('ws-glyph-probe').textContent).toBe('●');
+    await settle(2 * STATUS_SETTLE_MS);
+    const key = app.store.list('keys')[0];
+    if (key === undefined) throw new Error('the wave clip has no keys');
+    // A 600 ms key drag: one preview batch every 20 ms. Every frame used to re-render the tabs and re-read every
+    // status; now the drag reads none (one read may slip through a browser stall longer than the settle window).
+    const before = reads;
+    const preview = app.store.beginPreview('Move Keys');
+    for (let frame = 1; frame <= 30; frame += 1) {
+      preview.update((tx) => tx.patch('keys', key.id, { v: key.v + frame / 100 }));
+      await settle(20);
+    }
+    expect(reads - before).toBeLessThanOrEqual(1);
+    const during = reads;
+    // A cancelled drag leaves no committed batch: the statuses are read once the previews are quiet.
+    preview.cancel();
+    await waitFor(() => reads > during);
+    await settle(3 * STATUS_SETTLE_MS);
+    expect(reads).toBe(during + 1);
+    // A committed change shows within the settle window: without keys Animate's glyph is ○.
+    app.store.transact({ label: 'Delete Keys' }, (tx) => {
+      for (const k of tx.list('keys')) tx.remove('keys', k.id);
+    });
+    await waitFor(() => testId('ws-glyph-probe').textContent === '○');
+    expect(testId('ws-glyph-animate').textContent).toBe('○');
+    dispose();
     await view.unmount();
   });
 });
