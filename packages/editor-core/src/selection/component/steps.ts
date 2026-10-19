@@ -1,7 +1,8 @@
 // Selection undo (M6A-SPEC §5.6, ADR 0016 D12; B10): with `prefs.modeling.undoSelection[workspace]` on (Model's
 // default), every selection gesture records one selection-only history step through `EditorHistory.recordSelection`
 // ("Select"; hide and show record "Hide"/"Show"). A gesture that changes nothing records nothing. Auto-repeated
-// grow/shrink keys and the continuation runs of one gesture (`RunContext.repeat`) coalesce into the step before.
+// grow/shrink keys (`RunContext.repeat`) coalesce into the step before, but only into the step the run right before
+// them recorded: a continuation never merges into an earlier gesture's step when its own first run changed nothing.
 import type { EditorApp, HideSnapshot, MeshSelectionSnapshot, SelectionGesture, SelectionSnapshot } from '../../types';
 
 /** Whether the active workspace records selection steps (Model: on, Animate: off). */
@@ -58,9 +59,13 @@ export function sameHidden(a: HideSnapshot, b: HideSnapshot): boolean {
   return true;
 }
 
+/** Per app: the id of the step the last selection run recorded, null when that run recorded nothing. */
+const lastRecorded = new WeakMap<EditorApp, number | null>();
+
 /**
  * Runs a selection gesture: snapshots the selection of `meshes` (default: the hilited meshes) before and after `fn`
- * and records one "Select" step when it changed and the workspace records selection steps.
+ * and records one "Select" step when it changed and the workspace records selection steps. `repeat` continues the
+ * top step only when the previous selection run recorded it (every discrete gesture is its own step, §5.6).
  */
 export function selectionGesture<T>(
   app: EditorApp,
@@ -73,11 +78,16 @@ export function selectionGesture<T>(
   const result = fn();
   const after = app.components.snapshot(meshes);
   if (undoSelectionOn(app) && !sameSelection(before, after)) {
+    const previous = lastRecorded.get(app) ?? null;
+    const continues = opts.repeat === true && previous !== null && previous === app.history.peekUndo()?.id;
     app.history.recordSelection(
       { kind: 'select', gesture, before, after },
       'Select',
-      opts.repeat === true ? { repeat: true } : undefined,
+      continues ? { repeat: true } : undefined,
     );
+    lastRecorded.set(app, app.history.peekUndo()?.id ?? null);
+  } else {
+    lastRecorded.set(app, null);
   }
   return result;
 }

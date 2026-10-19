@@ -643,8 +643,8 @@ class ModelPointer implements ModelSelectBehaviour {
     return mode === 'object' ? null : mode;
   }
 
-  private run(op: string, args: unknown, paneId: string, repeat = false): void {
-    void this.app.runUntyped(op, args, { panel: 'viewport', paneId, source: 'tool', ...(repeat ? { repeat } : {}) });
+  private run(op: string, args: unknown, paneId: string): void {
+    void this.app.runUntyped(op, args, { panel: 'viewport', paneId, source: 'tool' });
   }
 
   private click(press: Press, at: number): void {
@@ -707,15 +707,13 @@ class ModelPointer implements ModelSelectBehaviour {
       }
       return;
     }
-    // One gesture, one step: the meshes after the first continue it (`repeat`), adding to the replace.
-    entries.forEach(([mesh, indices], i) => {
-      const mode: SelectMode = i > 0 && press.mode === 'replace' ? 'add' : press.mode;
-      this.run(
-        'select.components',
-        { mesh, kind, indices: [...indices], mode, gesture: 'marquee' },
-        press.paneId,
-        i > 0,
-      );
-    });
+    // One gesture, one run, one step: the other meshes ride along in `also` (M6A-B10-3).
+    const [[mesh, indices], ...rest] = entries as [(typeof entries)[number], ...typeof entries];
+    const also = rest.map(([id, list]) => ({ mesh: id, indices: [...list] }));
+    this.run(
+      'select.components',
+      { mesh, kind, indices: [...indices], mode: press.mode, gesture: 'marquee', ...(also.length > 0 ? { also } : {}) },
+      press.paneId,
+    );
   }
 }

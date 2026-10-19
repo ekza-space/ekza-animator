@@ -6,8 +6,8 @@
 //
 // `select.components` also takes two pass-through keys the viewport's select tool sends (M6A-B10-3): `gesture`
 // ('click' | 'marquee'; a click is remembered so that a double-click's loop gesture reads the selection from before
-// its first click, §5.6 and M6A-B2-6) and a `RunContext.repeat` continuation (a marquee across several hilited meshes
-// is one step).
+// its first click, §5.6 and M6A-B2-6) and `also` (the other hilited meshes one marquee covers, `{ mesh, indices }[]`:
+// the whole marquee is one run, so it is one step even when the first mesh's part changes nothing).
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { GroupId, MeshId } from '@ekza-animator/doc';
 import type {
@@ -170,6 +170,24 @@ function walkerOperator(
 
 // ---------- select.components (click and marquee) ----------
 
+const isIndexList = (value: unknown): value is readonly number[] =>
+  Array.isArray(value) && value.every((i) => typeof i === 'number' && Number.isInteger(i) && i >= 0);
+
+/** The `also` pass-through key (M6A-B10-3): [] when absent, null when malformed. */
+function alsoOf(
+  args: Readonly<Record<string, unknown>>,
+): { readonly mesh: MeshId; readonly indices: number[] }[] | null {
+  const also = args['also'];
+  if (also === undefined) return [];
+  if (!Array.isArray(also)) return null;
+  const parts: { readonly mesh: MeshId; readonly indices: number[] }[] = [];
+  for (const part of also as unknown[]) {
+    if (!isRecord(part) || typeof part['mesh'] !== 'string' || !isIndexList(part['indices'])) return null;
+    parts.push({ mesh: part['mesh'] as MeshId, indices: [...part['indices']] });
+  }
+  return parts;
+}
+
 const selectComponents = defineOperator({
   id: 'select.components',
   label: 'Select Components',
@@ -189,13 +207,15 @@ const selectComponents = defineOperator({
     ) {
       return fail('expects { mesh, kind, indices, mode }');
     }
-    if (!(args['indices'] as unknown[]).every((i) => typeof i === 'number' && Number.isInteger(i) && i >= 0)) {
-      return fail('indices must be component indices');
-    }
+    if (!isIndexList(args['indices'])) return fail('indices must be component indices');
+    const also = alsoOf(args);
+    if (also === null) return fail('also must be a list of { mesh, indices }');
     if (ctx.app.session.getState().workspace !== 'model') return fail(MODEL_ONLY_REASON);
     if (meshKernel() === null) return fail('Mesh tools are loading');
-    if (!isEditableMesh(ctx.app, args['mesh'])) return fail(`Unknown mesh ${args['mesh']}`);
-    if (ctx.app.meshes.get(args['mesh'])?.state !== 'ready') return fail('Mesh is loading');
+    for (const mesh of [args['mesh'], ...also.map((part) => part.mesh)]) {
+      if (!isEditableMesh(ctx.app, mesh)) return fail(`Unknown mesh ${mesh}`);
+      if (ctx.app.meshes.get(mesh)?.state !== 'ready') return fail('Mesh is loading');
+    }
     return OK;
   },
   apply(ctx, args) {
@@ -204,8 +224,10 @@ const selectComponents = defineOperator({
     const raw = args as unknown as Readonly<Record<string, unknown>>;
     const marquee = raw['gesture'] === 'marquee';
     const click = raw['gesture'] === 'click';
+    const also = alsoOf(raw) ?? [];
     const hilite = app.session.getState().model.hilite;
-    const meshes = hilite.includes(args.mesh) ? hilite : [...hilite, args.mesh];
+    const meshes = [...hilite];
+    for (const id of [args.mesh, ...also.map((part) => part.mesh)]) if (!meshes.includes(id)) meshes.push(id);
     const gesture: SelectionGesture = marquee
       ? 'marquee'
       : args.mode === 'replace'
@@ -219,6 +241,9 @@ const selectComponents = defineOperator({
         // A replacing gesture replaces everything of the kind: the other hilited meshes lose theirs (§5.6).
         if (args.mode === 'replace') for (const id of hilite) if (id !== args.mesh) internals.clearKind(id, args.kind);
         app.components.apply(args.mesh, args.kind, args.indices, args.mode);
+        // The other meshes of the same marquee add to a replace (the replace already cleared them).
+        const rest: SelectMode = args.mode === 'replace' ? 'add' : args.mode;
+        for (const part of also) app.components.apply(part.mesh, args.kind, part.indices, rest);
       }),
     );
     const index = args.indices[0];

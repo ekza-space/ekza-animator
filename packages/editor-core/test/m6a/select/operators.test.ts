@@ -260,6 +260,58 @@ describe('selection steps (§5.6 selection undo)', () => {
     app.dispose();
   });
 
+  it('a marquee is one run with `also`: one step even when its first mesh part changes nothing (§5.6)', async () => {
+    const { app, cube, plane } = await scene();
+    selectObjects(app, [cube, plane]);
+    await ok(app, 'select.mode', { mode: 'vertex' });
+    const base = undoLabels(app).length;
+    const marquee = { mesh: cube, kind: 'vertex', indices: [1, 2], mode: 'replace', gesture: 'marquee' };
+    await ok(app, 'select.components', marquee);
+    // The second marquee covers the same cube vertices (unchanged) and a plane vertex.
+    await ok(app, 'select.components', { ...marquee, also: [{ mesh: plane, indices: [4] }] });
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([[1, 2], [4]]);
+    expect(undoLabels(app).slice(base)).toEqual(['Select', 'Select']);
+    app.history.undo();
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([[1, 2], []]);
+    app.history.undo();
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([[], []]);
+    // A replace marquee replaces on every hilited mesh; an additive one adds on each mesh it covers.
+    app.history.redo();
+    app.history.redo();
+    await ok(app, 'select.components', { ...marquee, indices: [0], also: [{ mesh: plane, indices: [5] }] });
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([[0], [5]]);
+    await ok(app, 'select.components', {
+      ...marquee,
+      indices: [3],
+      mode: 'add',
+      also: [{ mesh: plane, indices: [1] }],
+    });
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([
+      [0, 3],
+      [1, 5],
+    ]);
+    expect(await app.runUntyped('select.components', { ...marquee, also: [{ mesh: plane }] })).toEqual({
+      status: 'cancelled',
+      reason: 'also must be a list of { mesh, indices }',
+    });
+    app.dispose();
+  });
+
+  it('a continuation never merges into an earlier gesture’s step when its own first run changed nothing', async () => {
+    const { app, cube, plane } = await scene();
+    selectObjects(app, [cube, plane]);
+    await ok(app, 'select.mode', { mode: 'vertex' });
+    const base = undoLabels(app).length;
+    const marquee = { kind: 'vertex', mode: 'replace', gesture: 'marquee' };
+    await ok(app, 'select.components', { ...marquee, mesh: cube, indices: [1, 2] });
+    await ok(app, 'select.components', { ...marquee, mesh: cube, indices: [1, 2] }); // changes nothing
+    await ok(app, 'select.components', { ...marquee, mesh: plane, indices: [4], mode: 'add' }, { repeat: true });
+    expect(undoLabels(app).slice(base)).toEqual(['Select', 'Select']);
+    app.history.undo();
+    expect([selected(app, cube, 'vertex'), selected(app, plane, 'vertex')]).toEqual([[1, 2], []]);
+    app.dispose();
+  });
+
   it('undoing a click in another mode keeps the face pick order and active face (Bridge, Target Weld)', async () => {
     const { app, cube } = await scene();
     selectObjects(app, [cube]);

@@ -84,7 +84,8 @@ async function scene(opts?: { readonly second?: boolean }): Promise<Scene & { re
           placement: { t: [3, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
         })
       : null;
-  await expect.poll(() => modelSelectOf(app)).not.toBeNull();
+  // The runtime is a lazy chunk (mesh-view and the kernel): a cold import under load takes seconds.
+  await expect.poll(() => modelSelectOf(app), { timeout: 15_000 }).not.toBeNull();
   const runtime = modelSelectOf(app) as ModelSelectRuntime;
   r.vm.frame(PANE, 'all');
   r.frame();
@@ -180,6 +181,35 @@ describe('component clicks (§5.6)', () => {
     expect(picks(s.app, s.cube, 'edge')).not.toContain(edge);
     drag({ x: Math.min(a.x, b.x) - 10, y: a.y - 10 }, { x: Math.max(a.x, b.x) + 10, y: a.y + 10 });
     expect(picks(s.app, s.cube, 'edge')).toContain(edge);
+  });
+
+  it('a marquee over two hilited meshes is one step even when the first mesh is unchanged (§5.6)', async () => {
+    const s = await scene({ second: true });
+    const other = s.other as MeshId;
+    await enter(s, 'face', [s.cube, other]);
+    const drag = (from: { x: number; y: number }, to: { x: number; y: number }): void => {
+      pointer(element(s), 'pointerdown', from.x, from.y);
+      pointer(element(s), 'pointermove', (from.x + to.x) / 2, (from.y + to.y) / 2, { buttons: 1 });
+      pointer(element(s), 'pointermove', to.x, to.y, { buttons: 1 });
+      pointer(element(s), 'pointerup', to.x, to.y);
+    };
+    const lo = s.rig.vm.project(PANE, [-0.5, -0.5, 0.5]);
+    const hi = s.rig.vm.project(PANE, [0.5, 0.5, 0.5]);
+    const far = s.rig.vm.project(PANE, [3.5, -0.5, 0.5]);
+    if (lo === null || hi === null || far === null) throw new Error('cubes not visible');
+    const top = Math.min(lo.y, hi.y) - 10;
+    const bottom = Math.max(lo.y, hi.y) + 10;
+    const base = historyLabels(s.app.history).undo.length;
+    drag({ x: lo.x - 10, y: top }, { x: hi.x + 10, y: bottom }); // the cube only
+    const first = picks(s.app, s.cube, 'face');
+    expect(first.length).toBeGreaterThan(0);
+    expect(picks(s.app, other, 'face')).toEqual([]);
+    drag({ x: lo.x - 10, y: top }, { x: far.x + 10, y: bottom }); // the cube (unchanged) and the other cube
+    expect(picks(s.app, s.cube, 'face')).toEqual(first);
+    expect(picks(s.app, other, 'face').length).toBeGreaterThan(0);
+    expect(historyLabels(s.app.history).undo.slice(base)).toEqual(['Select', 'Select']);
+    s.app.history.undo();
+    expect([picks(s.app, s.cube, 'face'), picks(s.app, other, 'face')]).toEqual([first, []]);
   });
 
   it('a double-click on the same component runs the loop table with the modifiers (`select.mesh.loop`)', async () => {
