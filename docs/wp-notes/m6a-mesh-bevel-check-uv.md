@@ -78,7 +78,7 @@ the five ops no longer refuse it.
 
 On the code of `f3e494e` (the notes commits change no code), CI unset: `format:check`, `lint`, `typecheck`, `check:deps`
 (15 packages), `check:fixtures`, `check:licenses` (176) green; `test` 15/15 green (turbo, `--concurrency=4`):
-anim-core 671, doc 233, doc-yjs 78, ui 87, rig 202, **mesh-core 457 + 2 skipped** (the two `READY.b2` cases; Node and
+anim-core 671, doc 233, doc-yjs 78, ui 87, rig 202, **mesh-core 455 + 2 skipped** (the two `READY.b2` cases; Node and
 Chromium, the B5 Chromium file 5), mesh-view 2, io 170, editor-core 793, headless-tests 173, viewport 100 + 1 skipped,
 curve-editor 207 + 3 skipped, editor 359 + 1 skipped, web 10, tooling. The production build (inside the e2e run) and
 `check:size` green: **865,792 B** (≤ 900,000 B), the `mesh-kernel` boundary holds (kernel chunk 44.3 kB, lazy). The
