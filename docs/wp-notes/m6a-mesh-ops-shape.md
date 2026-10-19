@@ -107,12 +107,17 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 
 ## Gates (local, real Chrome; port 3165; CI unset)
 
-On the code of `8b48625`: `format:check`, `lint`, `typecheck`, `check:deps` (15 packages) green; `test` 15/15 turbo
-tasks green (`--concurrency=2`), **mesh-core 443 passed + 4 skipped (434 Node + 9 Chromium; the skips are the
-`READY.b2`/`READY.b3` cases)**, tooling 14. No UI file changed, so no separate `build`; the e2e run's production build
-passes `check:size`: 865,791 B ≤ 900,000 B, the mesh kernel stays a lazy chunk (49.9 kB with the B4 ops; B1 measured
-28.6 kB). Full e2e suite (`EKZA_E2E_PORT=3165`, `--workers=4`, project `chrome`): 109 passed, 10 skipped (the stretch
-`test.fixme` entries and B0a's `b9` fixme), rc 0 — B4 owns no E2E-MOD scenario.
+Fix round 1, on the code of `b661302`: `format:check`, `lint`, `typecheck`, `check:deps` (15 packages) green; `test`
+15/15 turbo tasks green (`--concurrency=2`; 9 executed — mesh-core and everything downstream of it — and 6 replayed
+from the cache for packages whose inputs did not change), **mesh-core 452 passed + 5 skipped (Node + 9 Chromium in
+real Chrome; the skips are the `READY.b2`/`READY.b3` cases, now five with the symmetric-slide case)**, editor-core 793,
+editor 359 + 1 skipped. No UI file changed, so no separate `build`; the e2e run's production build passes
+`check:size`: 865,793 B ≤ 900,000 B. Full e2e suite (`EKZA_E2E_PORT=3165`, project `chrome`, the config's default 7
+workers): 109 passed, 10 skipped (the stretch `test.fixme` entries and B0a's `b9` fixme), rc 0; port 3165 free
+afterwards — B4 owns no E2E-MOD scenario. Integration check with B2 and B3 merged: see the next section.
+
+Before fix round 1 (code of `8b48625`): mesh-core 443 passed + 4 skipped, the same e2e result, `check:size`
+865,791 B; the mesh kernel stays a lazy chunk (49.9 kB with the B4 ops; B1 measured 28.6 kB).
 
 ## Open for the integration agent
 
