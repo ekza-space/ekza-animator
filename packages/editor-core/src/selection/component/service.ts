@@ -5,14 +5,16 @@
 //   see them (the stored picks keep them, so undoing a hide brings the selection back as it was).
 // - Hidden components: faces are the primary hide (component hides convert to faces, as Maya does); `hidden()` adds
 //   every edge whose faces are all hidden and every vertex whose edges are all hidden (mesh-view's rule, M6A-B6-6).
-// - Revisions: the indices belong to the mesh's committed revision (`MeshRuntime.ref`). A `set`/`remap` (an op's
-//   result, stored inside its commit before the batch) is pending whatever its sizes: the state before it stays the
-//   remembered state of the revision the op read, and the result becomes the new revision's state when the runtime
-//   follows the commit (at the end of the task: the current revision's when no revision moved; the remembered state
-//   again when the content changed back under the same revision, a rolled-back commit). A same-size result keeps the
-//   other kinds' picks it does not supply. When the runtime moves to another revision (undo, redo, a peer's change),
-//   the state remembered for that revision comes back; without one the selection stays when the sizes are unchanged
-//   and is cleared otherwise (hidden sets are resized: new elements visible). Snapshots keep every kind's pick order.
+// - Revisions: the indices belong to the mesh's committed revision (`MeshRuntime.ref`). A `set`/`remap` while an op
+//   is in flight (its result, stored inside its commit before the batch: other sizes than the committed revision's, a
+//   stored form the runtime replaced, or a result already pending) is pending whatever its sizes: the state before it
+//   stays the remembered state of the revision the op read, and the result becomes the new revision's state when the
+//   runtime follows the commit (at the end of the task: the current revision's when no revision moved; the remembered
+//   state again when the content changed under the same revision, a rolled-back commit). Any other store changes the
+//   current revision. A same-size result keeps the other kinds' picks it does not supply. When the runtime moves to
+//   another revision (undo, redo, a peer's change), the state remembered for that revision comes back; without one the
+//   selection stays when the sizes are unchanged and is cleared otherwise (hidden sets are resized: new elements
+//   visible). Snapshots keep every kind's pick order.
 // - Symmetry (§5.6 mirrored selection): the stored set holds the picks; `expanded` adds the partners of the mesh's
 //   symmetry map (`MeshRuntime.symmetry()`), `mirrored` is what the expansion adds (HUD "+N sym", the 60 % glyphs).
 //   Removal gestures on either side remove the pick and its partner.
@@ -803,7 +805,10 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       if (settled(state)) remember(state);
       const sizes: Sizes = { vertex: sel.verts.size, edge: sel.edges.size, face: sel.faces.size };
       const pending = inFlight(state, sizes);
-      const resized = !sameSizes(state.sizes, sizes);
+      // A result of other sizes than the committed revision (or than the state, which an event during the commit may
+      // already have fitted to the edit mesh) indexes other elements: the kinds it does not supply are dropped.
+      const committed = committedOf(state);
+      const resized = !sameSizes(state.sizes, sizes) || (committed !== null && !sameSizes(committed, sizes));
       fitState(state, sizes);
       for (const kind of KINDS) {
         const incoming = setOf(sel, kind);
