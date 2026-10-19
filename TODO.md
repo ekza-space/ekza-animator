@@ -1,7 +1,8 @@
 # TODO — next iterations
 
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
-[MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
+[MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12) and, for the agent bridge,
+[MCP-SPEC](docs/MCP-SPEC.md); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
 Updated 2026-10-19.
 
@@ -9,6 +10,18 @@ Updated 2026-10-19.
 
 1. [ ] Owner reviews the M2a deviations and owner items ([DECISIONS-OPEN §F](docs/DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18)) and runs the demo script ([M2A-SPEC §10.3](docs/M2A-SPEC.md#103-owner-demo-script-10-minutes)).
 2. [ ] Tag `v0.2.0` from `dev` → `main` (owner's call); `v0.1.0` if still pending.
+
+## In parallel — agent bridge (M-AI, ≈ 41 + a fix round ≈ 2; critical path ≈ 14 days; [MCP-SPEC](docs/MCP-SPEC.md))
+
+Runs next to M6a/M6b with its own agents; the only shared code is the operator runner (D0 lands after M6a's B0a).
+Items are lettered so the numbered queue below keeps its numbers.
+
+- [ ] **AI-1** Owner reviews the M-AI defaults ([DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-agent-bridge-m-ai-defaults-chosen-2026-10-19)), [ADR 0018](docs/adr/0018-agent-bridge-mcp.md) and the scope (core ≈ 41 vs a reduced cut, Q-AI-16). Defaults stand until overridden.
+- [ ] **AI-2** D0 contracts, runner changes (actor, `AI: ` labels, session-state invariant, scope), headless app factory, `planRestore`, package scaffolds, tool definitions, policy table, manifest + schema lint, lockfile (3) — [MCP-SPEC §8](docs/MCP-SPEC.md#8-work-packages).
+- [ ] **AI-3** Right after D0, in parallel: P1 operators + scope (5), P2 tools core (6), P3 operator escape hatch (2), P4 motion analysis (2), P5 see (4), P6 MCP server + headless host (4), P7 live bridge (3.5), P8 agent UI + presence (3.5), P9 evals (5).
+- [ ] **AI-4** M-AI integration (3) + one fix round (≈ 2): E2E-AI-01 (live acceptance: pair, Polybot, three-wave clip, metrics + contact sheet, VRMA) and E2E-AI-02 (the same headless from a `.ekzanim`), descriptions review, README, `docs/agents.md`, owner demo ([MCP-SPEC §10.3](docs/MCP-SPEC.md#103-owner-demo-script-10-minutes)).
+- [ ] **AI-5** Owner: first npm publish of `ekza-animator-mcp` (with provenance) and the release tag; optional manual real-model eval run and the naming A/B before the publish ([MCP-SPEC §9.3](docs/MCP-SPEC.md#93-evaluation-suite-packagesagent-evals-p9)).
+- [ ] **AI-6** Later: in-app Assistant panel (Claude API via proxy or companion), text-to-motion tools behind the ADR 0017 gateway, remote MCP with Ekza accounts (FR-AI-16…18).
 
 ## Next — modeling base (M6a, ≈ 108 + a fix round; critical path ≈ 28 days, ≈ 31 with the fix round)
 

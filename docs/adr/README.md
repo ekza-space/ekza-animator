@@ -27,10 +27,14 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0015](0015-mesh-storage-in-the-document.md) | Mesh storage in the document: revision refs, content-addressed chunks, claims, undo | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
 | [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
 | [0017](0017-ai-generation-boundary.md) | AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction | Proposed (2026-10-18, modeling plan; rev. 2026-10-19 design review) |
+| [0018](0018-agent-bridge-mcp.md) | Agent bridge: MCP over the operator registry, a paired loopback bridge to the open tab, a headless runtime | Proposed (2026-10-19, M-AI spec) |
 
 ADRs 0014–0016 become Accepted when the M6a build spec freezes; ADR 0017 when the M7 spec does (its provenance
 items with M6a). They extend, and do not supersede, ADRs 0002, 0005, 0008 and 0011. The plan they serve is
 [`../MODELING-PLAN.md`](../MODELING-PLAN.md).
+
+ADR 0018 becomes Accepted when the M-AI build spec ([`../MCP-SPEC.md`](../MCP-SPEC.md)) freezes at its package D0; it
+extends, and does not supersede, ADRs 0008 and 0013.
 
 Status values: `Proposed`, `Accepted`, `Superseded by NNNN`, `Rejected`. All ADRs are owner-overridable defaults;
 the owner-facing list, including the design-review outcomes, is [`../DECISIONS-OPEN.md`](../DECISIONS-OPEN.md).

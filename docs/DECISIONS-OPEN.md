@@ -1,6 +1,7 @@
 # Open owner decisions — defaults chosen
 
-Status: 2026-10-19, M2a merged into `dev` (rev. 8; rev. 8 revised section G after the modeling plan's design review
+Status: 2026-10-19, M2a merged into `dev` (rev. 9; rev. 9 added section H: the owner decisions of milestone M-AI, the
+agent bridge over MCP specified in [MCP-SPEC](MCP-SPEC.md), with defaults; rev. 8 revised section G after the modeling plan's design review
 (MODELING-PLAN v0.2 §12); rev. 7 added section G: the owner decisions of the modeling
 iteration M6a–M7 planned in [MODELING-PLAN](MODELING-PLAN.md), with defaults; rev. 5 added section F: the M2a build
 deviations, the integration decisions and
@@ -685,3 +686,67 @@ each, including the rejected and partly applied ones). IDs from the research not
 | Q-GEN-8 | Rig for generated humanoids | **Provider rig when it uses VRM bone naming** (Tripo rig `v3.0-20260909`, `spec: "vrm"`, verified 2026-10-18), otherwise Quick Rig + Auto (low-poly); geodesic voxel binding in G2 (R15 Q8, R14 Q-SKIN-8) | Own rig always: weaker on polygon soup until voxel binding exists | M7 spec |
 | Q-GEN-9 | Provider tier of a generation | The user **attests paid tier** in the Generate panel (the API cannot tell); `ekza.provenance-free-tier` is an error for a T3 publish without the attestation | Warning only: free-tier outputs (owned by Tripo, CC BY at Meshy) could be published as the user's own | M7 spec |
 | Q-GEN-10 | Gateway exposure | **Default deny**: mounted only with `GEN_GATEWAY_ENABLED=1` and an auth or a loopback-only bind; refuses to start with keys and no auth; server-side daily/monthly caps from env; the app's first CSP lands in G-b before BYO keys | Optional auth: any reachable server build with a key set spends the operator's credits | M7 spec |
+
+## H. Agent bridge (M-AI), defaults chosen (2026-10-19)
+
+Milestone M-AI (the MCP/agent bridge of FR-EXT-06, pulled forward from M5 at the owner's request) is specified in
+[MCP-SPEC](MCP-SPEC.md) on research [20](research/20-mcp-state-and-dcc-servers.md),
+[21](research/21-agent-bridge-architecture.md) and [22](research/22-animation-agent-toolset.md) (`R20`…`R22`), with
+[ADR 0018](adr/0018-agent-bridge-mcp.md) (proposed). Every item has a **default chosen** so that D0 can start; **the
+owner may override any of them**. Items marked **override** replace a research note's proposal; MCP-SPEC §11.1
+lists every difference from the research notes and why. Build deviations of the M-AI packages will be added below as
+`MAI-<id>-<n>`.
+
+### H.1 Scope, order and size
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-AI-13 | Where M-AI goes | **In parallel with M6a/M6b**, with its own agents; D0 lands after M6a's B0a is on `dev` (both change the operator runner additively); M-AI ships in the next release after its integration (Q-MOD-DIR-6 reserves `v0.3.0` for the modeling base, so an M-AI release before it is a `v0.2.x` tag, else the modeling release carries it; the owner's call); the scripting console (FR-EXT-06's other half) stays in M5 (R21 Q-AI-13/14) | Sequential after M6a: no runner merge, but the agent bridge waits ≈ 6 weeks | before D0 |
+| Q-AI-16 | Scope | **Full core** (38 tools incl. goal posing, live and headless capture, curve plots, resources and prompts, HTTP mode; 15 eval tasks): ≈ 41 agent-days + a fix round (≈ 2), critical path ≈ 14 working days with nine agents. Reduced cut: no HTTP, no `view_plot_curves`/`operator_describe`, no viewport outline (status pill and audit only), 8 eval tasks: ≈ 36. Minimum slice: live only, ≈ 20 tools without goal posing, no headless projects, no selective revert, no live capture: ≈ 22. The earlier 8–12-day guess does not hold (R21 §11, R22 §13) | The minimum slice drops the two things that make agents useful for animation: eyes (captures) and goal posing | before D0 |
+| Q-AI-14 | The other half of FR-EXT-06 | A **JS scripting console** over the same tool layer, in M5 | Earlier: a second user-facing surface to secure | M5 |
+| Q-AI-23 | In-app Assistant panel (later) | Runs the tool loop in the tab through the Claude Messages API via a server proxy route (server builds, off by default, auth required) or the paired local companion; **no provider key in the browser** (ADR 0017); default model the current Opus (`claude-opus-5-5` on 2026-10-19), user-selectable Sonnet/Haiku; BYO key or companion env key, no hosted key (R21 §7, Q-AI-9) | A hosted key needs accounts and spend controls (M4b) | its own spec |
+| Q-AI-24 | Text-to-motion (later) | Behind the ADR 0017 gateway as MCP tasks; hosted providers first; NVIDIA Kimodo SOMA as the first self-hosted model only after a licence review of weights and training data; HY-Motion and HumanML3D-trained checkpoints never in commercial profiles (R22 §11, Q7) | — | its own spec |
+
+### H.2 Protocol, transport and packaging
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-AI-6 | MCP SDK line | **SDK v2** (`@modelcontextprotocol/server` 2.3.1, Apache-2.0) with `serveStdio` serving both revisions (2025-11-25 and 2026-07-28) and the low-level `Server` (own validation and manifest order); SDK v1 (MIT) only as a fallback adapter if a client breaks (R20 F1/F2, R22 Q1) | v1: no 2026-07-28, fixes end ≈ 2027-01 | D0 |
+| Q-AI-1 | Bridge ports | **127.0.0.1:47821–47830**, first free; `--bridge-port` to fix one; no port hand-over between servers (R21 Q-AI-1) | Another range: docs and the editor's probe list change | D0 |
+| Q-AI-5 | npm name and first publish | Unscoped **`ekza-animator-mcp`** (unclaimed on 2026-10-19), published **by the owner** with npm provenance; the repository's first public package; Polybot (CC0) bundled, Seed-san and UAL not (R21 Q-AI-5) | A scoped name (`@ekza/animator-mcp`) needs an npm org | before the first publish |
+| Q-AI-20 | Samples in the package; network | **Polybot only** (CC0, ≈ 1 MB); other samples through `--samples-dir`; the server makes **no network requests** (no sample download, telemetry or update check) | Bundling Seed-san: +11 MB and a credit duty in the package | D0 |
+| Q-AI-22 | HTTP transport | **Behind `--http`**, bound to `127.0.0.1`/`localhost` only, bearer token required; stdio is the default for every client | Without it: clients that only speak HTTP cannot connect locally | D0 |
+| Q-AI-10 | Tool naming | **`<noun>_<verb>`** with a fixed noun list (`pose_set`, `keys_retime`, `operator_run`); one manual naming A/B against verb-first names before the first publish; renames after the publish only by deprecation (R22 D14, Q9) | Verb-first names: one A/B run decides; free before the publish | the first npm publish |
+
+### H.3 Security and permissions
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-AI-2 | Pairing direction | **Code shown in the editor, claimed by the agent** with `editor_connect`; the reverse flow (the server prints a code typed into the editor) is stretch (R21 Q-AI-2; answers R20 §5.4 Q1) | Reverse first: worse in Claude Desktop, where the terminal is not visible | D0 |
+| Q-AI-3 | Grants at pairing | **override** of R21 (Edit off): Read always, **Edit pre-ticked**, Files (and its Workspace sub-option) and View unticked; all changeable at any time | Edit off: one more click per pairing; safer for users who only want reviews | D0 |
+| Q-AI-4 | Which calls always confirm | Clip delete; fps change; range/loop/scene-start changes while the user has unkeyed overrides; deleting more than **500 keys**; replacing the project; every download; every live file import; overwriting a workspace file; `history_revert {includeUserSteps}`; `confirm`-policy operators; confirm timeout 50 s (R21 Q-AI-4, R22 §4) | More confirmations: safer, slower agents | any time |
+| Q-AI-9 | Tabs and servers | **One tab per server, one server per tab**; several agents on one tab later (R21 §5.5 proposed several tabs per server) | Several tabs: a `project` handle is always required | D0 |
+| Q-AI-11 | Audit log on disk | **Off**; `--audit-log <file>` writes tool, argument digest, status, never document data (R21 Q-AI-11) | On by default: a file per session in the user's folder | any time |
+| Q-AI-12 | Survive a tab reload without re-pairing | **No** (token in memory only) (R21 Q-AI-12) | Persisting the token re-opens T3 (a local process could resume) | D0 |
+| Q-AI-15 | Bridge inside the M4a embed | **Off** unless the embedder opts in (the iframe must delegate local network access) (R21 Q-AI-15) | — | M4a |
+| Q-AI-17 | Live files | **Browser download after the editor's confirm** by default; transfer to/from the agent's workspace folder only with the Workspace sub-option of Files (R21 Q-AI-17, R22 Q5) | Workspace by default: files land in the agent's folder without a download prompt | any time |
+| Q-AI-18 | `operator_run` | **On by default**, policy-filtered (allowed/confirm/denied with an access class; unclassified → denied); `edit.undo`/`redo`, files, preferences, clipboards denied (R22 Q4) | Behind a flag: the long tail of operators unreachable by default | any time |
+
+### H.4 Tools and behaviour
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-AI-7 | Agent runs and M6a Last-op card / Repeat Last | **override** of R21 Q-AI-7: agent runs **never become `lastRun`**; an agent step closes the user's open card; `G` never repeats an agent run (a one-line contract note to M6A-SPEC §5.7) | Recording them: the user could tune an AI bevel in the card, at the cost of explaining AI-made cards | M6a B11 / D0 |
+| Q-AI-8 | Agent edit while the user's redo stack is not empty | **Allowed** (standard behaviour); toast "Redo cleared by an AI edit" (R21 Q-AI-8) | Refusing: agents blocked after every user undo | any time |
+| Q-AI-25 | Selection-driven operators under an agent | **One mechanism**: `RunContext.scope` read through `selectionOf(ctx)`; without `context` the scope is **empty**, never the user's selection; frames are explicit arguments; set-run-restore never (R21 Q-AI-16, **override** of the explicit-target-arguments-first proposal of R22 §6.3) | Explicit arguments per operator: twice the migration | D0 |
+| Q-AI-26 | Agent steps and selection snapshots | **Omitted**: undoing or redoing an AI step leaves the user's selection unchanged (**override** of R21, which recorded the user's real selection) | Recorded: an undo of an AI step restores the selection of the time of the run | D0 |
+| Q-AI-19 | Headless pictures | **Schematic renderer** (bones, joints, floor, contacts; deterministic PNG); no headless Chrome worker, no CPU-shaded raster in M-AI; revisit after the first real-model eval compares schematic and shaded (R21 Q-AI-10, R22 Q8) | A shaded raster: ≈ 2–3 agent-days more | after the first LLM eval |
+| Q-AI-21 | Default image size | Long edge **1,024 px** by default, hard cap **1,568 px**, one image per call, sheets of ≤ 16 frames (R20 F4, R22 §8.4) | Larger images cost more tokens per call | any time |
+| Q-AI-27 | Shared history | Agent steps share the user's **one linear history** in M-AI; per-actor undo with collaboration (M3) (R22 Q3) | Separate stacks now: a second undo model before M3 | M3 |
+
+### H.5 Evaluation
+
+| ID | Question | Default chosen | Impact if changed | Decide by |
+|---|---|---|---|---|
+| Q-AI-28 | What runs in CI | Scripted reference agent, adversarial scripts, a seeded fuzzer, the schema lint and the session-state invariant, all headless over the real MCP protocol (`InMemoryTransport`); **no paid API and no browser** in the eval loop (R22 D12) | — | D0 |
+| Q-AI-29 | Real-model runs | **Manual only**, with a key from the environment and a spend cap per run (default $5); default model the current Opus (`claude-opus-5-5` on 2026-10-19); the Polybot variants are the **held-out split** (R22 Q6) | Scheduled runs need a funded key and a budget owner | after INT |
