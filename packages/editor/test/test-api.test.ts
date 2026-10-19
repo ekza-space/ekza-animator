@@ -384,7 +384,8 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     // B10 landed its group (literal update): the Model state reads without a viewport.
     expect(api.model()).toMatchObject({ mode: 'object', hilite: [], hiddenObjects: [], isolate: {} });
     expect(api.paneObjects('pane-persp')).toEqual([]);
-    expect(() => api.lastOp()).toThrow(/B11/);
+    // B11 landed (literal update): nothing has run, so there is no last operation.
+    expect(api.lastOp()).toBeNull();
     expect(() => api.palettes()).toThrow(/B13/);
     expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
     // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
