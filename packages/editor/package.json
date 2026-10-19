@@ -20,6 +20,7 @@
     "@ekza-animator/doc": "workspace:*",
     "@ekza-animator/editor-core": "workspace:*",
     "@ekza-animator/io": "workspace:*",
+    "@ekza-animator/mesh-core": "workspace:*",
     "@ekza-animator/rig": "workspace:*",
     "@ekza-animator/ui": "workspace:*",
     "@ekza-animator/viewport": "workspace:*",

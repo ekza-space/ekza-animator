@@ -82,7 +82,12 @@ describe('shell operators', () => {
   it('view.selectionMask merges into the session tool state', async () => {
     const { shell, app } = createTestShell();
     await shell.runFromUi('view.selectionMask', { mask: { joints: true } });
-    expect(app.session.getState().tools.selectionMask).toEqual({ controls: true, joints: true, meshes: false });
+    expect(app.session.getState().tools.selectionMask).toEqual({
+      controls: true,
+      joints: true,
+      meshes: false,
+      groups: false,
+    });
   });
 
   it('runFromUi toasts failures and shows cancellations in the help line', async () => {

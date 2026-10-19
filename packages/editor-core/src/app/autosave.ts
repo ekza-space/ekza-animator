@@ -209,9 +209,16 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     for (const record of Object.values(snapshot.tables.assets ?? {})) {
       if (await app.services.assets.has(record.id)) assets.push(record);
     }
+    // Mesh blobs (M6a, §5.20): the chunk closure of every live mesh revision (B7 extends the root set).
+    const manifests: string[] = [];
+    for (const record of app.store.list('meshes')) if (record.data !== null) manifests.push(record.data.manifest);
+    const blobs = app.blobs.closure(manifests);
     try {
-      const { bytes } = await store.write(slot, { snapshotJson, assets, info: info() }, (id) =>
-        app.services.assets.get(id),
+      const { bytes } = await store.write(
+        slot,
+        { snapshotJson, assets, info: info(), blobs },
+        (id) => app.services.assets.get(id),
+        (id) => app.blobs.get(id),
       );
       if (disposed) return { slot, bytes };
       if (unsavedSeq === seq) {

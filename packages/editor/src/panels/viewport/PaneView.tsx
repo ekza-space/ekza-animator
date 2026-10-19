@@ -20,8 +20,13 @@ import { PaneMenu, type PaneMenuItem } from './PaneMenu';
 const VIEW_PRESETS: readonly ViewPreset[] = ['persp', 'top', 'front', 'side'];
 
 /** Header toggles: display flag, short label, tooltip (hotkeys from MVP-SPEC §4.10). */
+/** The on/off display flags (M6a adds enum flags such as `shading` and `normals`, set through other controls). */
+type BooleanDisplayFlag = {
+  [K in keyof DisplayFlags]: DisplayFlags[K] extends boolean ? K : never;
+}[keyof DisplayFlags];
+
 const DISPLAY_TOGGLES: readonly {
-  readonly flag: keyof DisplayFlags;
+  readonly flag: BooleanDisplayFlag;
   readonly label: string;
   readonly title: string;
 }[] = [

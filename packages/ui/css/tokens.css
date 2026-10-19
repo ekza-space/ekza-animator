@@ -81,6 +81,25 @@
   --cb-connected-text: #1b1c1f;
   --cb-expression: #7a4fd6;
   --cb-expression-text: #ffffff;
+  --comp-halo: #14151a;
+  --comp-vertex: #d17bff;
+  --comp-selected: #ffa31a;
+  --comp-hover: #ffe58a;
+  --wire: #14151a;
+  --wire-wiremode: #c8ccd4;
+  --hard-edge: #14151a;
+  --normal-face: #3fd1d9;
+  --normal-vertex: #b18cff;
+  --face-front: #56b4e9;
+  --face-back: #e69f00;
+  --sym-plane: #5cc8ff;
+  --lint-ngon: #e3b34a;
+  --lint-error: #ef6b6b;
+  --soft-1: #ffd84d;
+  --soft-2: #ff8a3d;
+  --soft-3: #d9363e;
+  --soft-4: #4a1a1e;
+  --clay: #6e7179;
   /* radius */
   --r-field: 3px;
   --r-button: 4px;

@@ -41,7 +41,7 @@ import type {
 } from '../store';
 import {
   getTableDef,
-  isRigScoped,
+  scopeFieldOf,
   isSoftDeletable,
   mergeUnitOf,
   ownedPartition,
@@ -190,6 +190,10 @@ export class MemoryDocumentStore implements DocumentStore {
         const character = this.storage.get('rigs', rig)?.record['character'];
         return typeof character === 'string' ? (character as CharacterId) : undefined;
       },
+      skeletonCharacter: (skeleton) => {
+        const character = this.storage.get('skeletons', skeleton)?.record['character'];
+        return typeof character === 'string' ? (character as CharacterId) : undefined;
+      },
     };
     this.undo = new PatchUndoManager(
       {
@@ -270,12 +274,13 @@ export class MemoryDocumentStore implements DocumentStore {
 
   /**
    * The partition of a record being written over `existing`. A record keeps its partition for life unless a
-   * partition-determining field changes: rig-scoped records depend on their rig's character, which the record itself
-   * does not carry, so they keep their partition while `rig` is unchanged (deleting a rig must not move its controls).
+   * partition-determining field changes: rig-scoped records depend on their rig's character (and M6a joints on their
+   * skeleton's), which the record itself does not carry, so they keep their partition while that field is unchanged
+   * (deleting a rig must not move its controls).
    */
   private partitionForWrite(table: string, record: Row, existing: Entry | undefined): Partition {
-    if (existing !== undefined && isRigScoped(table) && existing.record['rig'] === record['rig'])
-      return existing.partition;
+    const scope = scopeFieldOf(table);
+    if (existing !== undefined && scope !== null && existing.record[scope] === record[scope]) return existing.partition;
     // M-1: a clip-partitioned record that keeps its clip keeps its `clip:<clip>` partition (no new partition string
     // per write; checked without building one).
     if (existing !== undefined && (table === 'keys' || table === 'curves' || table === 'layers')) {
@@ -719,17 +724,19 @@ export class MemoryDocumentStore implements DocumentStore {
   }
 
   /**
-   * Re-resolves the partitions of rig-scoped records this journal inserted or moved to another rig (a control written
-   * before its rig in one transaction got `scene` provisionally). Records that kept their rig keep their partition.
+   * Re-resolves the partitions of rig-scoped (and skeleton-scoped) records this journal inserted or moved to another
+   * rig or skeleton (a control written before its rig in one transaction got `scene` provisionally). Records that kept
+   * their rig or skeleton keep their partition.
    */
   private resolvePartitions(journal: Journal, implicitOpen = true): void {
     const ordered = journal.ordered;
     for (let i = 0; i < ordered.length; i++) {
       const original = ordered[i] as JournalOriginal;
-      if (!isRigScoped(original.table)) continue;
+      const scope = scopeFieldOf(original.table);
+      if (scope === null) continue;
       const entry = this.storage.get(original.table, original.id);
       if (entry === undefined) continue;
-      if (original.original !== undefined && original.original.record['rig'] === entry.record['rig']) continue;
+      if (original.original !== undefined && original.original.record[scope] === entry.record[scope]) continue;
       const partition = this.partitionFor(original.table, entry.record);
       if (partition !== entry.partition) {
         this.journalWrite(journal, original.table, original.id, { record: entry.record, partition }, implicitOpen);
@@ -969,12 +976,20 @@ export class MemoryDocumentStore implements DocumentStore {
     this.listCache.clear();
     this.openSet.clear();
     const rows = snapshot.tables as unknown as Readonly<Record<string, Readonly<Record<string, unknown>>>>;
-    const rigCharacters = new Map<string, string>();
-    for (const [key, record] of Object.entries(rows['rigs'] ?? {})) {
-      if (!isObject(record) || typeof record['character'] !== 'string') continue;
-      rigCharacters.set(typeof record['id'] === 'string' ? record['id'] : key, record['character']);
-    }
-    const lookup: PartitionLookup = { rigCharacter: (rig) => rigCharacters.get(rig) as CharacterId | undefined };
+    const characterOf = (table: string): Map<string, string> => {
+      const out = new Map<string, string>();
+      for (const [key, record] of Object.entries(rows[table] ?? {})) {
+        if (!isObject(record) || typeof record['character'] !== 'string') continue;
+        out.set(typeof record['id'] === 'string' ? record['id'] : key, record['character']);
+      }
+      return out;
+    };
+    const rigCharacters = characterOf('rigs');
+    const skeletonCharacters = characterOf('skeletons');
+    const lookup: PartitionLookup = {
+      rigCharacter: (rig) => rigCharacters.get(rig) as CharacterId | undefined,
+      skeletonCharacter: (skeleton) => skeletonCharacters.get(skeleton) as CharacterId | undefined,
+    };
     for (const table of [...BUILTIN_TABLES, ...Object.keys(rows)]) this.storage.ensureTable(table);
     for (const [table, records] of Object.entries(rows)) {
       if (!isObject(records)) continue;
@@ -999,7 +1014,7 @@ export class MemoryDocumentStore implements DocumentStore {
       return def !== undefined && version > def.version;
     });
     this.readOnlyFlag = opts?.readOnly === true || snapshot.minWriterVersion > SCHEMA_VERSION || newerTable;
-    this.undo.clear();
+    this.undo.reset('load');
 
     const committed: CommittedChange[] = [];
     const visible: RowChange[] = [];

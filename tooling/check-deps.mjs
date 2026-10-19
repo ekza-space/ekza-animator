@@ -21,6 +21,8 @@ const VIEWPORT = scope('viewport');
 const CURVE_EDITOR = scope('curve-editor');
 const UI = scope('ui');
 const EDITOR = scope('editor');
+const MESH_CORE = scope('mesh-core');
+const MESH_VIEW = scope('mesh-view');
 
 const VITEST = ['@types/node', 'vitest'];
 const BROWSER_TESTS = [...VITEST, '@vitest/browser-playwright', 'playwright'];
@@ -62,6 +64,16 @@ export const ALLOWED = {
     dependencies: [DOC, 'yjs'],
     devDependencies: [...VITEST, 'fast-check'],
   },
+  // M6a (M6A-SPEC §2): the mesh kernel (headless, lazy chunk) and its viewport overlays (three.js, lazy chunk).
+  [MESH_CORE]: {
+    dependencies: [ANIM_CORE, 'earcut', 'robust-predicates'],
+    // Browser tests (P1, P4, P5, P6 in Chromium, M6A-SPEC §9 B1) next to the Node run.
+    devDependencies: [...BROWSER_TESTS, 'fast-check'],
+  },
+  [MESH_VIEW]: {
+    dependencies: [ANIM_CORE, MESH_CORE, 'three', 'three-mesh-bvh'],
+    devDependencies: [...BROWSER_TESTS, '@types/three'],
+  },
   [RIG]: {
     dependencies: [ANIM_CORE, DOC],
     devDependencies: [...VITEST, '@types/three', 'fast-check', 'three'],
@@ -71,6 +83,7 @@ export const ALLOWED = {
       ANIM_CORE,
       DOC,
       RIG,
+      MESH_CORE,
       '@gltf-transform/core',
       '@gltf-transform/extensions',
       '@gltf-transform/functions',
@@ -81,7 +94,7 @@ export const ALLOWED = {
     devDependencies: [...VITEST, '@pixiv/three-vrm-animation', '@types/three', 'gltf-validator'],
   },
   [EDITOR_CORE]: {
-    dependencies: [ANIM_CORE, DOC, RIG, IO, 'zustand'],
+    dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, 'zustand'],
     devDependencies: [...VITEST, 'fast-check', 'gltf-validator'],
   },
   [scope('headless-tests')]: {
@@ -93,6 +106,8 @@ export const ALLOWED = {
       RIG,
       IO,
       EDITOR_CORE,
+      MESH_CORE,
+      MESH_VIEW,
       ...VRM,
       '@types/three',
       'gltf-validator',
@@ -100,7 +115,7 @@ export const ALLOWED = {
     ],
   },
   [VIEWPORT]: {
-    dependencies: [ANIM_CORE, DOC, RIG, IO, EDITOR_CORE, 'camera-controls', 'three'],
+    dependencies: [ANIM_CORE, DOC, RIG, IO, EDITOR_CORE, MESH_CORE, MESH_VIEW, 'camera-controls', 'three'],
     devDependencies: [...BROWSER_TESTS, '@types/three'],
   },
   [CURVE_EDITOR]: {
@@ -126,6 +141,7 @@ export const ALLOWED = {
       RIG,
       IO,
       EDITOR_CORE,
+      MESH_CORE,
       VIEWPORT,
       CURVE_EDITOR,
       UI,
