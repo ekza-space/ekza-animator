@@ -16,6 +16,7 @@ import { createCommandPalette } from '../overlays/CommandPalette';
 import { createMarkingMenus, marksMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
 import { registerModelSelectUi } from '../panels/viewport/hud';
+import { registerModelTransformUi } from '../panels/viewport/ModalReadout';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
 import { screenOfTimelineFrame, screenOfTimelineTick } from '../panels/timeline/host';
@@ -256,6 +257,7 @@ export function createShell(opts: CreateShellOptions): Shell {
   disposers.push(registerShellMenuItems(app, extraPanels));
   // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
   disposers.push(registerModelSelectUi(app));
+  disposers.push(registerModelTransformUi(app));
 
   let glFrames = 0;
 

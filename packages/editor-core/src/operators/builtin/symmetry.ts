@@ -55,6 +55,7 @@ export function symmetryTargets(app: Pick<EditorApp, 'session' | 'store' | 'mesh
 interface Patch {
   readonly meshes: readonly MeshId[] | null;
   readonly settings: Partial<SymmetrySettings>;
+  readonly toggleSeam: boolean;
 }
 
 function parse(raw: unknown): Patch | string {
@@ -70,11 +71,14 @@ function parse(raw: unknown): Patch | string {
     if (!isFiniteNumber(raw['tolerance']) || raw['tolerance'] <= 0) return 'tolerance is a distance above 0 (metres)';
     settings.tolerance = raw['tolerance'];
   }
+  let toggleSeam = false;
   if (raw['preserveSeam'] !== undefined) {
-    if (typeof raw['preserveSeam'] !== 'boolean') return 'preserveSeam is true or false';
-    settings.preserveSeam = raw['preserveSeam'];
+    // 'toggle' (the options marking menu's ✓ item) flips each target's own setting.
+    if (raw['preserveSeam'] === 'toggle') toggleSeam = true;
+    else if (typeof raw['preserveSeam'] !== 'boolean') return 'preserveSeam is true or false';
+    else settings.preserveSeam = raw['preserveSeam'];
   }
-  if (Object.keys(settings).length === 0) return EXPECTS;
+  if (Object.keys(settings).length === 0 && !toggleSeam) return EXPECTS;
   let meshes: MeshId[] | null = null;
   if (raw['meshes'] !== undefined) {
     if (!Array.isArray(raw['meshes']) || !raw['meshes'].every((id) => typeof id === 'string')) {
@@ -82,7 +86,7 @@ function parse(raw: unknown): Patch | string {
     }
     meshes = raw['meshes'] as MeshId[];
   }
-  return { meshes, settings };
+  return { meshes, settings, toggleSeam };
 }
 
 function targetsOf(ctx: OperatorContext, patch: Patch): MeshId[] | string {
@@ -123,7 +127,11 @@ const symmetrySet = defineOperator({
     let changed = false;
     for (const id of targets) {
       const before = symmetryOf(app, id);
-      const after: SymmetrySettings = { ...before, ...patch.settings };
+      const after: SymmetrySettings = {
+        ...before,
+        ...patch.settings,
+        ...(patch.toggleSeam ? { preserveSeam: !before.preserveSeam } : {}),
+      };
       if (
         state.model.symmetry.has(id) &&
         after.mode === before.mode &&

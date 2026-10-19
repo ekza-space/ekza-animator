@@ -387,7 +387,9 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     // B11 landed (literal update): nothing has run, so there is no last operation.
     expect(api.lastOp()).toBeNull();
     expect(() => api.palettes()).toThrow(/B13/);
-    expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
+    // B12a landed (literal update): an unknown mesh has no symmetry and no soft weights.
+    expect(api.symmetry('msh_A')).toBeNull();
+    expect(api.softWeights('msh_A')).toBeNull();
     // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
     expect(api.pixel('pane-persp', 0, 0)).toEqual([0, 0, 0, 0]);
     // B7 landed (literal update): an unknown mesh has no ready runtime.

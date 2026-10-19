@@ -145,14 +145,18 @@ const cameraBased = defineOperator({
   extraArgs: ['value'],
   poll(_ctx, raw) {
     const args: unknown = raw;
-    return isRecord(args) && CAMERA_BASED.includes(args['value'] as 'auto')
+    // 'toggle' (the options marking menu's ✓ item): off ↔ on, from auto to off.
+    return isRecord(args) && (CAMERA_BASED.includes(args['value'] as 'auto') || args['value'] === 'toggle')
       ? OK
       : fail('expects { value: auto | on | off }');
   },
   apply({ app }, args) {
     const state = app.session.getState();
-    if (state.model.cameraBased === args.value) return;
-    app.session.setState({ model: { ...state.model, cameraBased: args.value } });
+    const current = state.model.cameraBased;
+    const raw = args.value as (typeof CAMERA_BASED)[number] | 'toggle';
+    const value = raw === 'toggle' ? (current === 'off' ? 'on' : 'off') : raw;
+    if (current === value) return;
+    app.session.setState({ model: { ...state.model, cameraBased: value } });
   },
 });
 

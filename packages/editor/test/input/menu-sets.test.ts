@@ -132,7 +132,8 @@ describe('menu sets per workspace', () => {
     // lazy kernel has loaded; operators whose owners have not landed still say "not available yet".
     expect(extrude).toMatchObject({ label: 'Extrude', op: 'mesh.extrude', disabledReason: 'Mesh tools are loading' });
     const centerPivot = menuContents(test.app, 'modify', {}).sections[0]?.items[0];
-    expect(centerPivot).toMatchObject({ op: 'mesh.pivot.center', disabledReason: 'not available yet' });
+    // B12a landed `mesh.pivot.center` (literal update): with nothing selected it says what it needs.
+    expect(centerPivot).toMatchObject({ op: 'mesh.pivot.center', disabledReason: 'Select a mesh or group first' });
   });
 });
 
