@@ -11,6 +11,7 @@ import { writeStaticGlb } from '../src/export/author';
 import { parseGlb } from '../src/glb/parse';
 import { GltfReader } from '../src/gltf/accessor';
 import { lintExport } from '../src/lint/lintExport';
+import { ruleSeverity } from '../src/lint/rules';
 import { lintMeshes, type MeshLintInput, srgbEotf } from '../src/mesh';
 import { BUILTIN_EXPORT_PROFILES, profilesForKind } from '../src/profiles/builtin';
 import { BUDGET_PRESETS, resolveBudget } from '../src/profiles/budgets';
@@ -416,6 +417,47 @@ describe('mesh lints and budgets', () => {
     ]);
     expect(lints[0]?.message).toMatch(/800 triangles.*handheld allows 600 \(warn above 1500\)/);
     expect(lintMeshes([input(big, { budget })], PROFILE_OMOBA_HANDHELD)[0]?.severity).toBe('warning');
+  });
+
+  it('every code of the §4.5 lint table has the table severities (local / Ekza profile)', () => {
+    // Rows of M6A-SPEC §4.5 "Lint codes", one entry per code; null = the rule does not apply ("—").
+    const table: readonly [string, string | null, string][] = [
+      ['mesh.budget.tris', 'info', 'warning'],
+      ['mesh.budget.materials', 'info', 'warning'],
+      ['mesh.budget.textures', 'info', 'warning'],
+      ['mesh.budget.joints', 'info', 'warning'],
+      ['mesh.non-manifold', 'warning', 'warning'],
+      ['mesh.zero-area-face', 'warning', 'warning'],
+      ['mesh.loose-geometry', 'warning', 'warning'],
+      ['mesh.inconsistent-winding', 'warning', 'warning'],
+      ['mesh.nonplanar-faceted', 'info', 'warning'],
+      ['mesh.ngon-concave', 'info', 'warning'],
+      ['mesh.influences', 'warning', 'error'],
+      ['mesh.weights-unnormalized', 'error', 'error'],
+      ['mesh.unweighted-vertex', 'error', 'error'],
+      ['mesh.skinned-node-transform', 'warning', 'warning'],
+      ['mesh.tangents-dropped', 'info', 'warning'],
+      ['palette.missing-swatch', 'warning', 'warning'],
+      ['ekza.positive-uniform-scale', 'error', 'error'],
+      ['ekza.no-matrix-node', 'error', 'error'],
+      ['tex.size', 'warning', 'warning'],
+      ['ekza.handheld.static', null, 'error'],
+      ['ekza.handheld.extensions', null, 'error'],
+      ['ekza.handheld.grip', null, 'error'],
+      ['ekza.handheld.limits', null, 'error'],
+      ['bevy.max-joints', 'error', 'error'],
+      ['ekza.provenance-ai-undisclosed', 'error', 'error'],
+      ['ekza.provenance-attribution', 'warning', 'error'],
+      ['ekza.provenance-territory', 'warning', 'error'],
+      ['ekza.provenance-free-tier', 'warning', 'warning'],
+    ];
+    const ekza = { ...LOCAL, ekza: true, rules: [] } as ExportProfileDef;
+    const plain = { ...LOCAL, ekza: false, rules: [] } as ExportProfileDef;
+    for (const [code, local, onEkza] of table) {
+      expect([code, ruleSeverity(code, plain), ruleSeverity(code, ekza)]).toEqual([code, local, onEkza]);
+    }
+    // "error for the handheld profile" (§4.5 tex.size row) through the profile's override.
+    expect(ruleSeverity('tex.size', PROFILE_OMOBA_HANDHELD)).toBe('error');
   });
 
   it('mesh.budget.joints: a skinned character over its preset joints', () => {
