@@ -195,6 +195,10 @@ export function poseRead(ctx: AgentToolContext, args: PoseReadArgs): Promise<Age
   const target = addressed(ctx, args);
   const { runtime } = target;
   const frames = readFrames(ctx, target, args);
+  ctx.focus(
+    { character: target.character.id, clip: target.clip.id, controls: [], frame: frames.length === 1 ? (frames[0] as number) : null },
+    `Read the pose (${frames.length === 1 ? `f${frames[0]}` : `${frames.length} frames`})`,
+  );
   const wantChannels = args.space !== 'world';
   const wantWorld = args.space !== 'channels';
   const named =

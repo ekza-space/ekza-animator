@@ -51,6 +51,10 @@ export function keysRead(ctx: AgentToolContext, args: KeysReadArgs): Promise<Age
     args.targets.bodyParts,
   );
   const targets = channelTargets(controls, args.targets.channels, { includeModes: true });
+  ctx.focus(
+    { character: target.character.id, clip: target.clip.id, controls: controls.map((c) => c.id), frame: null },
+    `Read keys (${controls.length} controls)`,
+  );
   const state = runtimeStateOf(ctx);
   // The cursor continues the same read: same clip, targets, range, precision and page size.
   const query = canonicalJson({

@@ -100,6 +100,7 @@ export interface CurvesSummaryArgs {
 
 export function curvesSummary(ctx: AgentToolContext, args: CurvesSummaryArgs): Promise<AgentToolResult<unknown>> {
   const target = addressed(ctx, args);
+  ctx.focus({ character: target.character.id, clip: target.clip.id, controls: [], frame: null }, 'Summarise curves');
   const range =
     args.rangeFrames === undefined
       ? ([target.record.range.start, target.record.range.end] as const)

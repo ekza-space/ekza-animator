@@ -566,6 +566,8 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
     const warnings: string[] = [];
     const ctx = context(tool, signal, intent, args['dryRun'] === true, progress, warnings);
     await confirmCall(tool, ctx, args, (message) => progress(0, null, message));
+    // §5.11: every live call shows as the actor's activity (tools that resolve targets refine it with ctx.focus)
+    if (presence) setPresence(lastFocus, tool.title);
     const result = await tool.run(ctx, args);
     const merged: AgentToolResult<unknown> =
       result.ok && warnings.length > 0
