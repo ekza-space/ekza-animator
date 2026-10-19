@@ -40,6 +40,11 @@ vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
  * B10's does on a selection change (`componentBumps`, one per app, in creation order).
  */
 const componentBumps = vi.hoisted(() => [] as ((changed: boolean) => void)[]);
+/**
+ * B10's pending result (one per app, in creation order): an op's result selection stored inside its commit is
+ * published when the service next reads the mesh, else in a microtask at the end of the task (`mark` stores one).
+ */
+const componentPending = vi.hoisted(() => [] as { mark(): void }[]);
 
 vi.mock('../../src/app/factories/components', async (importOriginal) => {
   const actual = await importOriginal<typeof ComponentsFactory>();
@@ -48,9 +53,22 @@ vi.mock('../../src/app/factories/components', async (importOriginal) => {
       const real = actual.createComponents(deps);
       const listeners = new Set<(version: number) => void>();
       let version = real.version;
-      componentBumps.push((changed) => {
+      const bump = (changed: boolean): void => {
         if (changed) version++;
         for (const listener of Array.from(listeners)) listener(version);
+      };
+      componentBumps.push(bump);
+      let pending = false;
+      const settle = (): void => {
+        if (!pending) return;
+        pending = false;
+        bump(true);
+      };
+      componentPending.push({
+        mark() {
+          pending = true;
+          queueMicrotask(settle);
+        },
       });
       return Object.create(real, {
         version: { get: () => version },
@@ -58,6 +76,12 @@ vi.mock('../../src/app/factories/components', async (importOriginal) => {
           value: (listener: (version: number) => void) => {
             listeners.add(listener);
             return () => listeners.delete(listener);
+          },
+        },
+        snapshot: {
+          value: (meshes?: readonly MeshId[]) => {
+            settle();
+            return real.snapshot(meshes);
           },
         },
       }) as ComponentSelectionService;
@@ -233,6 +257,9 @@ describe('when the card closes (§5.7 table)', () => {
   async function recorded(): Promise<MeshTestApp & { readonly id: MeshId }> {
     const t = await setup();
     await t.app.runUntyped('mesh.test.advance', { dy: 0.2 }, { source: 'keyboard' });
+    // The end of the task: B10's service settles the run's own result selection (its microtask) — that publish is
+    // part of the run and keeps the card live.
+    for (let i = 0; i < 10; i++) await Promise.resolve();
     expect(live(t.app)?.closed).toBeNull();
     return t;
   }
@@ -264,6 +291,27 @@ describe('when the card closes (§5.7 table)', () => {
     bump?.(false); // a notification with the same version keeps the card
     expect(live(t.app)?.closed).toBeNull();
     bump?.(true);
+    expect(live(t.app)?.closed).toBe(LAST_RUN_CLOSED.selection);
+  });
+
+  it("not the run's own result selection, which B10's service publishes after the commit (on a read or a microtask)", async () => {
+    const t = await setup();
+    const pending = componentPending.at(-1);
+    t.app.operators.register(
+      writer('test.result', {
+        params: [],
+        flags: { undo: true, adjustable: true },
+        apply: (ctx) => {
+          ctx.tx?.patch('meshes', t.id, { name: 'result' });
+          pending?.mark(); // the op stores its result selection inside its commit
+        },
+      }),
+    );
+    await t.app.runUntyped('test.result', {}, { source: 'keyboard' });
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    expect(live(t.app)).toMatchObject({ id: 'test.result', closed: null });
+    // A later change still closes it.
+    componentBumps.at(-1)?.(true);
     expect(live(t.app)?.closed).toBe(LAST_RUN_CLOSED.selection);
   });
 
@@ -517,13 +565,23 @@ describe('tool.last and view.lastOpCard', () => {
     expect(lastOpCardState(t.app).expanded).toBe(true);
     await t.app.runUntyped('mesh.test.advance', { dy: 0.1 });
     expect(lastOpCardState(t.app).expanded).toBe(false);
-    // `T` on a live extrude reopens its session (B12b decides).
+    // `T` on a live extrude reopens its session when the selection is still its result (§5.7; B12b decides the rest).
     const reopen = vi.spyOn(t.app.extrude, 'reopen');
     const current = live(t.app);
     if (current === null) throw new Error('no lastRun');
     t.app.session.setState({ lastRun: { ...current, id: 'mesh.extrude' } });
     await t.app.run('view.lastOpCard', { expand: true, focusPrimary: true });
     expect(reopen).toHaveBeenCalledTimes(1);
+    // A switch to object mode keeps the card live (same hilite) but shows another selection: `T` opens only the card.
+    const model = t.app.session.getState().model;
+    t.app.session.setState({ model: { ...model, componentMode: 'object' } });
+    expect(live(t.app)?.closed).toBeNull();
+    expect((await t.app.run('view.lastOpCard', { expand: true, focusPrimary: true })).status).toBe('finished');
+    expect(reopen).toHaveBeenCalledTimes(1);
+    // Back in face mode the result is the selection again.
+    t.app.session.setState({ model: { ...t.app.session.getState().model, componentMode: 'face' } });
+    await t.app.run('view.lastOpCard', { expand: true, focusPrimary: true });
+    expect(reopen).toHaveBeenCalledTimes(2);
   });
 });
 

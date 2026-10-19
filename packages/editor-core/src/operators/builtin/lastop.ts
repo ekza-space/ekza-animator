@@ -217,6 +217,24 @@ export function closeLastRun(app: EditorApp, reason: string): void {
   app.session.setState({ lastRun: { ...last, closed: reason } });
 }
 
+/**
+ * Lets the component selection service publish what the run itself stored before the tracker's baseline is taken
+ * (§5.7: the op's result selection is part of the run, not a "Selection changed" after it). B10's service settles an
+ * op's pending result when it next reads the mesh after the commit, else in a microtask at the end of the task, which
+ * would land after the baseline and close the fresh card. A read of the run's meshes and the hilited ones settles it
+ * now. Call it before the LastRun is installed (its publish must not reach the new card) and before `takeBaseline`.
+ */
+export function settleSelection(app: EditorApp, meshes: readonly MeshId[]): void {
+  const ids = new Set<MeshId>(meshes);
+  for (const id of app.session.getState().model.hilite) ids.add(id);
+  if (ids.size === 0) return;
+  try {
+    app.components.snapshot([...ids]);
+  } catch {
+    // A service that cannot read yet (the mesh kernel loading) has nothing pending to settle.
+  }
+}
+
 /** Re-reads what the tracker compares against (after recording or after an adjust that redid the original step). */
 export function takeBaseline(app: EditorApp): void {
   const state = lastRunState(app);
@@ -362,6 +380,7 @@ export function recordLastRun(app: EditorApp, run: FinishedRun): void {
   const seedNow = runSeedOf(app);
   const seed = seedNow !== null && seedNow !== run.seedBefore && seedNow.opId === def.id ? seedNow.seed : '';
   const targets = adjusted ? previous.targets : targetsOfRun(def, args, value, before);
+  settleSelection(app, targets);
   const flags = def.flags;
   const lastRun: LastRun = Object.freeze({
     id: def.id,
@@ -469,9 +488,23 @@ const lastOpCard = defineOperator({
       focusPrimary: opts['focusPrimary'] !== false,
       paneId: last.paneId ?? paneId ?? app.session.getState().hoveredPanel?.paneId ?? null,
     });
-    // Maya's `T` on the extrude node: reopen the extrude session and its manipulator (B12b decides when it can).
-    if (last.id === 'mesh.extrude' && app.extrude.state === null) app.extrude.reopen();
+    // Maya's `T` on the extrude node: reopen the extrude session and its manipulator when the current selection is
+    // still the extrude's result (§5.7; B12b's `reopen` decides the rest).
+    if (last.id === 'mesh.extrude' && app.extrude.state === null && resultIsSelection(app, last)) app.extrude.reopen();
   },
 });
+
+/**
+ * Whether the current selection still equals the live LastRun's result (§5.7, `T` and the extrude session): the
+ * component mode the run read is the current mode, its meshes are hilited, and the component selection has not changed
+ * since it was recorded (the tracker's baseline holds the run's own result, `settleSelection`). A mode switch that
+ * keeps the card live (same hilite) shows another kind's selection, so it does not qualify.
+ */
+export function resultIsSelection(app: EditorApp, last: LastRun): boolean {
+  const model = app.session.getState().model;
+  if (last.kind === null || model.componentMode !== last.kind) return false;
+  if (!last.targets.every((id) => model.hilite.includes(id))) return false;
+  return app.components.version === lastRunState(app).componentsVersion;
+}
 
 export const LASTOP_OPERATORS: readonly AnyOperator[] = [lastTool, lastOpCard];

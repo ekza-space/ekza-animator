@@ -15,6 +15,7 @@ import {
   liveLastRun,
   NO_OPERATION_TO_ADJUST,
   navigationsOf,
+  settleSelection,
   takeBaseline,
 } from './lastop';
 import { WHOLE_MESH_OPS } from './mesh/whole';
@@ -196,6 +197,7 @@ export async function adjustLastRun(app: EditorApp, patch: unknown): Promise<str
           ? result.error.message
           : `${last.label} changed nothing`;
     if (app.history.canRedo()) app.history.redo();
+    settleSelection(app, last.targets);
     const top = app.history.peekUndo();
     app.session.setState({
       lastRun: { ...last, stepId: top?.id ?? last.stepId, docSeqAfter: app.store.version, closed: null },
