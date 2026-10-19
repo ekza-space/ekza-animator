@@ -2,7 +2,7 @@
 // `get` re-hashes the stored bytes, so a corrupted cache surfaces as EkzaError('asset-corrupt') instead of a broken
 // bake. Async so a remote store (presigned URLs, M3) fits behind the same interface.
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord } from '@ekza-animator/doc';
+import { type AssetId, type AssetRecord, assetMime } from '@ekza-animator/doc';
 import type { AssetStore } from '@ekza-animator/editor-core';
 
 /** Lowercase hex SHA-256 of `bytes` (WebCrypto). */
@@ -31,7 +31,15 @@ export function createBrowserAssetStore(): BrowserAssetStore {
     async put(bytes, meta): Promise<AssetRecord> {
       const id = (await sha256Hex(bytes)) as AssetId;
       if (!blobs.has(id)) blobs.set(id, { bytes: bytes.slice(), size: bytes.byteLength });
-      return { id, name: meta.name, ext: meta.ext, mime: 'model/gltf-binary', size: bytes.byteLength, role: meta.role };
+      return {
+        id,
+        name: meta.name,
+        ext: meta.ext,
+        mime: assetMime(meta.ext),
+        size: bytes.byteLength,
+        role: meta.role,
+        provenance: null,
+      };
     },
     async get(id: AssetId): Promise<Uint8Array> {
       const stored = blobs.get(id);

@@ -8,6 +8,8 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import type { Chord, KeyBinding, KeyInput, KeymapManager, KeyScope, KeyTrigger, OperatorId } from '../types';
 import { chordLabel } from './labels';
 
+type TapHoldMods = Parameters<KeymapManager['isTapHoldKey']>[2];
+
 /** Operators that keep firing while their key auto-repeats (stepping, nudging, undo/redo); others fire once. */
 const REPEATABLE: ReadonlySet<OperatorId> = new Set<OperatorId>([
   'time.step',
@@ -74,7 +76,8 @@ export function createKeymapManager(
       }
       return null;
     },
-    isTapHoldKey: (code: string) => TAP_HOLD_KEYS.has(code),
+    // M6a (§5.17): the scope and modifier parameters are B0b's (`KeyB` in 'model.viewport'); `Space` is unchanged.
+    isTapHoldKey: (code: string, _scopes: readonly KeyScope[], _mods: TapHoldMods) => TAP_HOLD_KEYS.has(code),
     label: (chord: Chord) => chordLabel(chord, platform),
     setOverrides(bindings: readonly KeyBinding[]): void {
       overrides = Object.freeze([...bindings]);

@@ -6,7 +6,14 @@ import type { EditorApp, OperatorContext, OperatorDef, OperatorRegistry, PollRes
 export type AnyOperatorDef = OperatorDef<unknown, unknown, unknown>;
 
 export function operatorContext(app: EditorApp, ctx: RunContext | undefined): OperatorContext {
-  return { app, panel: ctx?.panel ?? null, paneId: ctx?.paneId ?? null };
+  return {
+    app,
+    panel: ctx?.panel ?? null,
+    paneId: ctx?.paneId ?? null,
+    // M6a (B0a addition): the run's source and auto-repeat flag reach poll/prepare/apply.
+    ...(ctx?.source === undefined ? {} : { source: ctx.source }),
+    ...(ctx?.repeat === undefined ? {} : { repeat: ctx.repeat }),
+  };
 }
 
 export function unknownOperator(id: string): string {

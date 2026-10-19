@@ -79,7 +79,8 @@ export function AttributesPanel({ app, instanceId }: PanelProps): JSX.Element {
         control,
         mirror,
         character,
-        asset: character === null ? null : (store.get('assets', character.asset) ?? null),
+        // M6a: a model-sourced character (asset null, M6b) shows no asset row.
+        asset: character === null || character.asset === null ? null : (store.get('assets', character.asset) ?? null),
         clip: activeClipId === null ? null : (store.get('clips', activeClipId) ?? null),
         cameras: [...store.list('cameras')].sort((a, b) => (a.order < b.order ? -1 : a.order > b.order ? 1 : 0)),
       };

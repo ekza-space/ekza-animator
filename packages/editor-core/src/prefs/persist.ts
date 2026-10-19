@@ -101,6 +101,55 @@ export function sanitizePrefs(raw: unknown, defaults: Prefs): Prefs {
       delayMs: isNonNegative,
       maxIntervalMs: isNonNegative,
     }),
+    // M6a fields (M6A-SPEC §4.6): the version stays 1; a missing or invalid field takes its default.
+    lastWorkspace: pick('lastWorkspace', isWorkspaceId, defaults.lastWorkspace),
+    modeling: sanitizeModeling(raw['modeling'], defaults.modeling),
+  };
+}
+
+function isWorkspaceId(value: unknown): value is string {
+  return typeof value === 'string' && /^[a-z][a-z0-9-]{0,31}$/.test(value);
+}
+
+function isStringList(value: unknown): value is readonly string[] {
+  return Array.isArray(value) && value.length <= 256 && value.every((item) => typeof item === 'string');
+}
+
+function isBooleanRecord(value: unknown): value is Readonly<Record<string, boolean>> {
+  return isRecord(value) && Object.values(value).every(isBoolean);
+}
+
+/** Option-box defaults: per operator id, an object of JSON values (each op re-coerces them when it reads them). */
+function isOptionDefaults(value: unknown): value is Prefs['modeling']['optionDefaults'] {
+  if (!isRecord(value)) return false;
+  return Object.values(value).every((args) => isRecord(args) && JSON.stringify(args).length <= 65_536);
+}
+
+function sanitizeModeling(raw: unknown, defaults: Prefs['modeling']): Prefs['modeling'] {
+  if (!isRecord(raw)) return defaults;
+  const shaped = pickShape(raw, defaults, {
+    primitiveDefaults: oneOf(['low-poly', 'maya'] as const),
+    numericCapture: oneOf(['auto', 'explicit'] as const),
+    undoSelection: isBooleanRecord,
+    undoBudgetMB: isPositive,
+    journalBudgetMB: isPositive,
+    symmetryTolerance: isPositive,
+    gridStep: isPositive,
+    increments: isRecord,
+    vertexSnapRadiusPx: isNonNegative,
+    multiCutSnapStep: isPositive,
+    optionDefaults: isOptionDefaults,
+    toolkitCollapsed: isStringList,
+    paletteRecents: isStringList,
+    convertOnModeSwitch: isBoolean,
+  });
+  return {
+    ...shaped,
+    increments: pickShape(raw['increments'], defaults.increments, {
+      move: isPositive,
+      rotate: isPositive,
+      scale: isPositive,
+    }),
   };
 }
 

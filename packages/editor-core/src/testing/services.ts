@@ -1,6 +1,6 @@
 // Host services of the fake app: the production in-memory asset store (content-addressed, verifying) and recording
 // file, clipboard and notification services. No model loader, validator or preference storage (Node and browser
-// tests alike).
+// tests alike); the kernel debug switch is on (M6A-SPEC §3 rule 8).
 import { createMemoryAssetStore } from '../services/assets';
 import type { EditorServices, Notifier } from '../types';
 
@@ -37,6 +37,8 @@ export function createFakeServices(): FakeServices {
     models: null,
     validate: null,
     storage: null,
+    // M6A-SPEC §3 rule 8: test apps run the kernel with the debug switch on.
+    kernelDebug: true,
     downloads,
     toasts,
   };
