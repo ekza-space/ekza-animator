@@ -2,14 +2,22 @@
 // authored GLBs with 0 validator errors, deterministic bytes (twice; after reopening the `.ekzanim` once B7 stores
 // mesh blobs in it), the palette and vertex-colour outputs, the handheld profile on a grip root, budget lints, and
 // poll refusals for character meshes and empty scenes.
-import { derivedId, type GroupId, type MeshId } from '@ekza-animator/doc';
+import { derivedId, type GroupId, type MeshId, seededIdSource } from '@ekza-animator/doc';
 import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-animator/doc/testing';
-import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
+import {
+  createEditorApp,
+  type DisplayModel,
+  type EditorApp,
+  loadMeshKernel,
+  type ModelLoader,
+} from '@ekza-animator/editor-core';
+import { createFakeServices } from '@ekza-animator/editor-core/testing';
 import { type ExportArtifact, parseGlb, readProjectArchive, writeProjectArchive } from '@ekza-animator/io';
+import { loadGltfInNode } from '@ekza-animator/io/testing';
 import { BUILTIN_LAYERS, type MeshData, primitive } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { AccessorReader } from './mesh.io.support';
-import { importFixture, realApp, runOk } from './ops.support';
+import { importFixture, realApp, runOk, validate } from './ops.support';
 
 type Json = Record<string, unknown>;
 
@@ -45,8 +53,20 @@ function paintedCube(): MeshData {
 }
 
 /** A scene with the default palette (8 swatches) and a cube, optionally under a handheld group. */
-async function sceneApp(opts: { readonly handheld?: boolean; readonly budget?: number } = {}) {
-  const { app, services } = realApp();
+async function sceneApp(
+  opts: { readonly handheld?: boolean; readonly budget?: number; readonly models?: ModelLoader } = {},
+) {
+  const { app, services } =
+    opts.models === undefined
+      ? realApp()
+      : (() => {
+          // The production kernel with a display loader (the browser's three.js read-back, run in Node).
+          const fake = createFakeServices();
+          const withLoader = { ...fake, validate, models: opts.models };
+          const app = createEditorApp({ services: withLoader, idSource: seededIdSource(7) });
+          app.services.models?.setRenderer({}); // the host's renderer is up (display loads wait for it)
+          return { app, services: fake };
+        })();
   await loadMeshKernel();
   const palette = derivedId('palette', 'palette.default', [], '', 0);
   const cube = 'msh_Cube000000000001' as MeshId;
@@ -106,6 +126,33 @@ describe('mesh.io: file.exportModel', () => {
     expect((json['asset'] as Json)['extras']).toMatchObject({
       ekza_model_v1: { schema: 1, rig: 'none', provenance: { tool: 'ekza-animator', generator: { kind: 'manual' } } },
     });
+    app.dispose();
+  });
+
+  it('reads the export back through three.js GLTFLoader when the host has a display loader (the browser path)', async () => {
+    let loads = 0;
+    let disposed = 0;
+    const models: ModelLoader = {
+      setRenderer: () => {},
+      load: async (container): Promise<DisplayModel> => {
+        loads++;
+        const loaded = await loadGltfInNode(container.bytes);
+        return { kind: 'three', handle: { root: loaded.scene }, dispose: () => disposed++ };
+      },
+    };
+    const { app } = await sceneApp({ models });
+    const artifact = await exportModel(app, { objects: [], fileName: 'cube', profile: 'local/generic' });
+    expect(artifact.readBack).toMatchObject({
+      ok: true,
+      kind: 'static',
+      meshes: 1,
+      primitives: 1,
+      triangles: 12,
+      three: { ok: true, primitives: 1, triangles: 12 },
+    });
+    expect(artifact.lints.filter((lint) => lint.code === 'export.read-back')).toEqual([]);
+    expect(artifact.validation?.errors).toBe(0);
+    expect([loads, disposed]).toEqual([1, 1]);
     app.dispose();
   });
 

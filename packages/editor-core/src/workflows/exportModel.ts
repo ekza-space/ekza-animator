@@ -5,7 +5,8 @@
 //   else the selected objects, else every top-level scene object) become a `StaticScene` — TRS nodes, meshes with
 //   their latest revisions, materials from the mesh presets, the palettes they paint with, the handheld grip of the
 //   root, and `ekza_model_v1` — written by io's author writer, linted for the profile (budgets resolved per mesh, Mesh
-//   Check, palette, handheld), read back, and validated by the host's glTF-Validator when it has one;
+//   Check, palette, handheld), read back (io's parse, then three.js's `GLTFLoader` through the host's display loader
+//   where there is one: the browser), and validated by the host's glTF-Validator when it has one;
 // - the edits of a character as surgeon `PrimitiveEdit`s (bake into model, §5.22) and its rebuilt display container
 //   (§5.23);
 // - Make editable's record (§5.21), built from the lazy io/mesh entry for `mesh.makeEditable`.
@@ -20,21 +21,24 @@ import type {
   MeshRecord,
   PaletteId,
 } from '@ekza-animator/doc';
-import type {
-  ExportArtifact,
-  ExportProfileDef,
-  GlbContainer,
-  LintIssue,
-  MakeEditableReport,
-  PrimitiveEdit,
-  StaticExportRequest,
-  StaticNode,
+import {
+  type ExportArtifact,
+  type ExportProfileDef,
+  type GlbContainer,
+  type LintIssue,
+  type MakeEditableReport,
+  type PrimitiveEdit,
+  parseGlb,
+  type StaticExportRequest,
+  type StaticNode,
+  skeletonFromGltf,
 } from '@ekza-animator/io';
-import type { MeshLintInput } from '@ekza-animator/io/write';
+import type { MeshLintInput, StaticThreeReadBack } from '@ekza-animator/io/write';
 import type { MeshData } from '@ekza-animator/mesh-core';
+import type { GatedModelLoader } from '../characters/models';
 import { isAssetCharacter } from '../characters/registry';
 import { loadMeshKernel } from '../mesh';
-import type { CharacterRuntime, EditorApp, MeshRuntimeRegistry } from '../types';
+import type { CharacterRuntime, DisplayModel, EditorApp, MeshRuntimeRegistry, ModelLoader } from '../types';
 import { loadWritePath } from './export';
 import { assetMeshId, characterMeshRecords, isEditedMesh } from './meshDisplay';
 import { orderAfter } from './records';
@@ -215,6 +219,8 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     },
     { fileName, profile, generator: `Ekza Animator ${EDITOR_VERSION}`, meshes: meshInputs },
   );
+  const three = await threeReadBack(app.services.models, artifact.bytes);
+  if (three !== null) artifact = write.withThreeReadBack(artifact, three);
   const validate = app.services.validate;
   if (req.validate !== false && validate !== null) {
     const report = await validate(artifact.bytes);
@@ -229,6 +235,74 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     artifact = { ...artifact, validation: report, lints: [...artifact.lints, ...lints] };
   }
   return artifact;
+}
+
+// ---------- the three.js read-back (§6.2) ----------
+
+/** The part of a three.js `Object3D` the read-back reads (editor-core sees the display model's handle as unknown). */
+interface ThreeObjectLike {
+  readonly isMesh?: unknown;
+  readonly geometry?: {
+    readonly index?: { readonly count: number } | null;
+    readonly attributes?: Readonly<
+      Record<string, { readonly count: number; readonly array?: ArrayLike<number> } | undefined>
+    >;
+  };
+}
+
+/**
+ * Counts what three.js loaded: the `root` of io/three's loaded model (the browser's display handle), one `Mesh` per
+ * glTF primitive. Null when the handle is not such a model (a host without three.js).
+ */
+function countThreeMeshes(handle: unknown): { primitives: number; triangles: number; finite: boolean } | null {
+  const root = typeof handle === 'object' && handle !== null ? (handle as { root?: unknown }).root : undefined;
+  const traverse = typeof root === 'object' && root !== null ? (root as { traverse?: unknown }).traverse : undefined;
+  if (typeof traverse !== 'function') return null;
+  let primitives = 0;
+  let triangles = 0;
+  let finite = true;
+  (traverse as (visit: (object: ThreeObjectLike) => void) => void).call(root, (object) => {
+    if (object.isMesh !== true || object.geometry === undefined) return;
+    primitives++;
+    const position = object.geometry.attributes?.['position'];
+    triangles += (object.geometry.index?.count ?? position?.count ?? 0) / 3;
+    const values = position?.array;
+    if (values !== undefined) for (let i = 0; i < values.length; i++) if (!Number.isFinite(values[i])) finite = false;
+  });
+  return { primitives, triangles, finite };
+}
+
+/**
+ * §6.2 "read-back (three `GLTFLoader` in the browser)": loads the written bytes through the host's display loader
+ * (io/three: `GLTFLoader` with the VRM plugin and the decoders) and counts its meshes and triangles. Null where no
+ * loader ran: Node (no display loader), a host whose renderer is not set yet (the kernel's loader would wait for it;
+ * no WebGL), or a handle that is not a three.js model. The loaded model is disposed.
+ */
+export async function threeReadBack(
+  models: ModelLoader | null,
+  bytes: Uint8Array,
+): Promise<StaticThreeReadBack | null> {
+  // `app.services.models` is the kernel's gated loader (characters/models.ts): without a renderer a load would wait.
+  if (models === null || (models as Partial<GatedModelLoader>).hasRenderer === false) return null;
+  let model: DisplayModel;
+  try {
+    const container = await parseGlb(bytes);
+    model = await models.load(container, skeletonFromGltf(container));
+  } catch (error) {
+    return { ok: false, primitives: 0, triangles: 0, error: error instanceof Error ? error.message : String(error) };
+  }
+  try {
+    const counted = countThreeMeshes(model.handle);
+    if (counted === null) return null;
+    return {
+      ok: counted.finite,
+      primitives: counted.primitives,
+      triangles: counted.triangles,
+      ...(counted.finite ? {} : { error: 'non-finite positions' }),
+    };
+  } finally {
+    model.dispose();
+  }
 }
 
 // ---------- character edits and the display (§5.22, §5.23) ----------

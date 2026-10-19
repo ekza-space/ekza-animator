@@ -1,6 +1,7 @@
 // M6A-SPEC §5.21, §5.23, §6.2 (B8): `mesh.makeEditable` (poll, apply, undo/redo exactness, the licence refusal, the
 // derived id and the virtual asset rows), the character edits the bake exports, the display hook of the character
-// registry (rebuilt containers, latest load wins) and the debounced display controller.
+// registry (rebuilt containers, latest load wins), the debounced display controller, and the three.js read-back of
+// static exports.
 import { readFileSync } from 'node:fs';
 import { type CharacterId, derivedId, type MeshId, newId, seededIdSource } from '@ekza-animator/doc';
 import { readFixture } from '@ekza-animator/doc/testing';
@@ -26,7 +27,9 @@ import {
   type ModelLoader,
   type SessionState,
 } from '../../src';
+import { gateModelLoader } from '../../src/characters/models';
 import { createFakeServices } from '../../src/testing';
+import { threeReadBack } from '../../src/workflows/exportModel';
 
 const PROHIBITED = new URL('../../../../fixtures/synthetic/prohibited-modification.vrm', import.meta.url);
 
@@ -315,5 +318,73 @@ describe('the display controller', () => {
     expect(pending).toHaveLength(1); // back to the original geometry: the display changes again
     display.dispose();
     app.dispose();
+  });
+});
+
+describe('the three.js read-back of a static export (§6.2)', () => {
+  const bytes = readFixture('polybot.vrm');
+  /** A loader whose handle is io/three's loaded model shape: `root.traverse` over meshes with geometry. */
+  function threeLike(meshes: readonly { index: number | null; positions: readonly number[] }[]) {
+    const calls = { loads: 0, disposed: 0 };
+    const objects = [
+      { isMesh: false },
+      ...meshes.map((mesh) => ({
+        isMesh: true,
+        geometry: {
+          index: mesh.index === null ? null : { count: mesh.index },
+          attributes: { position: { count: mesh.positions.length / 3, array: mesh.positions } },
+        },
+      })),
+    ];
+    const loader: ModelLoader = {
+      setRenderer: () => {},
+      load: () => {
+        calls.loads++;
+        const root = { traverse: (visit: (object: unknown) => void) => objects.forEach(visit) };
+        return Promise.resolve({ kind: 'three', handle: { root }, dispose: () => calls.disposed++ });
+      },
+    };
+    return { loader: gateModelLoader(loader), calls };
+  }
+
+  it('counts the meshes and triangles three.js made, and disposes the model', async () => {
+    const { loader, calls } = threeLike([
+      { index: 36, positions: [0, 0, 0, 1, 0, 0, 0, 1, 0] },
+      { index: null, positions: Array.from({ length: 18 }, (_, i) => i) },
+    ]);
+    loader.setRenderer({});
+    expect(await threeReadBack(loader, bytes)).toEqual({ ok: true, primitives: 2, triangles: 14 });
+    expect(calls).toEqual({ loads: 1, disposed: 1 });
+  });
+
+  it('fails on non-finite positions and on a load error; skips without a renderer, a loader or a three.js handle', async () => {
+    const nan = threeLike([{ index: 3, positions: [0, Number.NaN, 0, 1, 0, 0, 0, 1, 0] }]);
+    nan.loader.setRenderer({});
+    expect(await threeReadBack(nan.loader, bytes)).toEqual({
+      ok: false,
+      primitives: 1,
+      triangles: 1,
+      error: 'non-finite positions',
+    });
+    // The kernel's loader waits for the host's renderer: without one the read-back does not start a load.
+    const waiting = threeLike([]);
+    expect(await threeReadBack(waiting.loader, bytes)).toBeNull();
+    expect(waiting.calls.loads).toBe(0);
+    expect(await threeReadBack(null, bytes)).toBeNull();
+    const failing = gateModelLoader({
+      setRenderer: () => {},
+      load: () => Promise.reject(new Error('bad accessor')),
+    });
+    failing.setRenderer({});
+    expect(await threeReadBack(failing, bytes)).toEqual({
+      ok: false,
+      primitives: 0,
+      triangles: 0,
+      error: 'bad accessor',
+    });
+    const opaque = fakeModels();
+    const gated = gateModelLoader(opaque.models);
+    gated.setRenderer({});
+    expect(await threeReadBack(gated, bytes)).toBeNull(); // its handle is the container, not a three.js scene
   });
 });
