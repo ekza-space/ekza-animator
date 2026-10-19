@@ -62,6 +62,11 @@ export function FirstRunDialog(): JSX.Element {
                 data-testid="firstrun-start-model"
               />
             </RadioGroup>
+            {start === 'model' && nav === 'trackpad' && shell.app.keymap.platform === 'mac' ? (
+              <p className="text-ui-dense text-fg-3" data-testid="firstrun-mac-modes">
+                Component modes: 1 · 2 · 3 (F-keys are media keys on this Mac)
+              </p>
+            ) : null}
             <h3 className="mt-2 text-ui font-semibold text-fg-2">How do you navigate?</h3>
             <RadioGroup
               value={nav}
