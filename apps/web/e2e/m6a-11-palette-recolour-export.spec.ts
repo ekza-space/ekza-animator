@@ -12,6 +12,10 @@ import { call, expectKernelStarted, lastExport, runOk } from './helpers/test-api
 
 // E2E-MOD-11 (M6A-SPEC §10.1, §5.19; owner B13, gate b10): paint the top face of a cube from the Palette tab, recolour
 // its swatch, then export with the palette texture and with vertex colours.
+// Gate note for INT: `palette-apply` runs `mesh.paint`, which B11 registers (§6; a stub before it), so the scenario
+// also needs b11 although the §10.1 Gates column lists b10 only. The "re-import" check decodes the GLB's embedded
+// palette PNG here and samples it at each corner's UV; INT may route it through the `/e2e/model-check` loader
+// (three's GLTFLoader) once that lands.
 
 async function hoverPersp(page: Page): Promise<void> {
   const pane = (await call(page, 'panes')).find((entry) => entry.id === MODEL_PANE);

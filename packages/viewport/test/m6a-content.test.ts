@@ -455,7 +455,7 @@ describe('Paint Colour: gestures (§5.19)', () => {
     expect(slots(app, cube).every((s) => s === 0)).toBe(true);
   });
 
-  it("refuses a swatch of another palette (click and Enter): its slot is another colour in the mesh's palette", async () => {
+  it("refuses another palette's swatch (click and Enter): its slot is another colour in the mesh's palette", async () => {
     const { app, services } = await contentApp();
     const cube = await created(app, 'mesh.create.cube');
     const variant = await app.runUntyped('palette.duplicate', { palette: DEFAULT_PALETTE_ID });

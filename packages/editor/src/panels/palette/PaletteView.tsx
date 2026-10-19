@@ -1,8 +1,9 @@
 // The Palette panel's body (M6A-SPEC §5.19, §8.8; research 16 §14; B13; lazy chunk): the project palette dropdown,
 // the swatch grid (8 per row, 20 px, a check glyph and ring on the active swatch), the active swatch's name and sRGB hex
 // field (a colour popover on double-click), Apply (the active swatch on the selected faces, or on every face of the
-// selected mesh objects; refused when the swatch is not in a target's palette), Pick from mesh (the Paint Colour tool's `I` eyedropper), Add, Recents, "Used on mesh: n of
-// m · Select faces", "Export colours as" and Duplicate palette (a variant). Every edit runs an operator.
+// selected mesh objects; refused when the swatch is not in a target's palette), Pick from mesh (the Paint Colour
+// tool's `I` eyedropper), Add, Recents, "Used on mesh: n of m · Select faces", "Export colours as" and Duplicate
+// palette (a variant). Every edit runs an operator.
 import type { DocumentStore, MeshId, MeshRecord, PaletteId, SwatchId, SwatchRecord } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex } from '@ekza-animator/editor-core';
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useMemo, useState } from 'react';
