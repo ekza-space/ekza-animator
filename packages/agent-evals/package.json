@@ -1,0 +1,33 @@
+{
+  "name": "@ekza-animator/agent-evals",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Private, test-only evaluation suite of the agent bridge: harness, fixture builders, graded tasks, reference/adversarial/fuzz drivers and reports (MCP-SPEC §9.3).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./graders": "./src/graders/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "devDependencies": {
+    "@ekza-animator/agent-tools": "workspace:*",
+    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/editor-core": "workspace:*",
+    "@ekza-animator/io": "workspace:*",
+    "@ekza-animator/motion-analysis": "workspace:*",
+    "@ekza-animator/rig": "workspace:*",
+    "@modelcontextprotocol/client": "2.3.1",
+    "@types/node": "catalog:",
+    "ajv": "8.20.0",
+    "ekza-animator-mcp": "workspace:*",
+    "fast-check": "4.10.2",
+    "gltf-validator": "2.0.0-dev.3.10",
+    "vitest": "catalog:"
+  }
+}

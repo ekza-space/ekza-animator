@@ -1,0 +1,3 @@
+# build output (MCP-SPEC §5.22.1) and the bundled sample copied from fixtures/ by the build (ADR 0012)
+dist/
+samples/polybot.vrm

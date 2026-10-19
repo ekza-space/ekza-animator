@@ -1,4 +1,5 @@
 import type { Disposer } from '@ekza-animator/anim-core';
+import { registerAgentPanel } from './agent';
 import { registerAttributesPanel } from './attributes';
 import { registerChannelBoxPanel } from './channel-box';
 import { registerClipsPanel } from './clips';
@@ -23,6 +24,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerChannelBoxPanel(registry),
     registerAttributesPanel(registry),
     registerDopeSheetPanel(registry),
+    // M-AI (MCP-SPEC §7.1): the Agent panel, a lazy chunk opened from Windows › Agent or the status pill
+    registerAgentPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

@@ -28,14 +28,17 @@
     "three": "catalog:"
   },
   "devDependencies": {
+    "@ekza-animator/agent-evals": "workspace:*",
     "@ekza-animator/doc": "workspace:*",
     "@ekza-animator/io": "workspace:*",
+    "@modelcontextprotocol/client": "2.3.1",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "catalog:",
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "@types/three": "catalog:",
+    "ekza-animator-mcp": "workspace:*",
     "gltf-validator": "2.0.0-dev.3.10",
     "playwright": "1.63.0",
     "tailwindcss": "4.3.3",

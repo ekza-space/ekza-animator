@@ -1,4 +1,5 @@
-// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8 and MCP-SPEC §4.9 additions, copied verbatim (shapes are
+// normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { ChannelId } from '@ekza-animator/doc';
 import type { ManipHandle } from '@ekza-animator/editor-core';
@@ -72,4 +73,20 @@ export interface EkzaAnimatorTestApi {
   /** M2a (A0 over session.autosave and file.autosaveNow; A5 implements the store) */
   autosave(): { enabled: boolean; slot: string | null; lastSavedAt: number | null; pending: boolean };
   flushAutosave(): Promise<void>;
+
+  // ---------- M-AI (MCP-SPEC §4.9) ----------
+  /** Agent session; null while the agent module is not loaded. */
+  agent(): {
+    status: string; port: number | null; client: string | null; code: string | null;
+    grants: { read: boolean; edit: boolean; files: boolean; view: boolean; workspace: boolean };
+    queue: { running: string | null; waiting: number; waitingFor: string | null };
+    confirm: { id: string; title: string } | null;
+    audit: { n: number; tool: string; status: string; code: string | null; step: number | null; label: string | null;
+      reverted: boolean; unreachable: boolean; group: string | null }[];
+    checkpoints: { id: string; label: string | null; stepId: number }[];
+    beforeAgent: boolean;
+    presence: { controls: string[]; frame: number | null; activity: string | null } | null;
+  } | null;
+  /** M-AI: history steps (oldest first) with their actor ('user' or the agent's name). */
+  historySteps(): { id: number; label: string; actor: string; undone: boolean }[];
 }

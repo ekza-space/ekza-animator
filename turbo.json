@@ -39,6 +39,21 @@
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "ekza-animator-mcp#build": {
+      "dependsOn": ["^build", "transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/models/polybot.vrm", "$TURBO_ROOT$/packages/*/src/**"],
+      "outputs": ["dist/**", "samples/**"]
+    },
+    "ekza-animator-mcp#test": {
+      "dependsOn": ["build", "transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/**"],
+      "outputs": []
+    },
+    "@ekza-animator/agent-evals#test": {
+      "dependsOn": ["ekza-animator-mcp#build", "transit"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/fixtures/**"],
+      "outputs": []
     }
   }
 }

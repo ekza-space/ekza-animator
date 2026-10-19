@@ -244,6 +244,20 @@ export function StatusLine(): JSX.Element {
           </Toggle>
         </Tip>
       </Group>
+      {/* M-AI (MCP-SPEC §7.1, §7.5): the agent pill, before the layout buttons. D0 placeholder: "AI" (muted) opens
+          the Agent panel; P8 shows the live state through the lazy agent chunk. */}
+      <Group label="AI agent">
+        <Tip text="AI agent (Windows › Agent)">
+          <button
+            type="button"
+            className="rounded px-1.5 text-ui text-fg-3 hover:bg-hover hover:text-fg"
+            data-testid="status-agent"
+            onClick={() => void shell.runFromUi('workspace.showPanel', { panel: 'agent' })}
+          >
+            AI
+          </button>
+        </Tip>
+      </Group>
       <Group label="Viewport layout">
         <ToggleGroup
           type="single"
