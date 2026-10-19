@@ -10,7 +10,7 @@ export type ShellWorkspacesTestApi = Pick<
 >;
 
 /**
- * The e2e fixture marking menu (`?e2e=1&mmFixture=1`, M6A-B9-21): a plain-RMB menu in Model, so the shell e2e proves
+ * The e2e fixture marking menu (`?e2e=1&mmFixture=1`, M6A-B9-23): a plain-RMB menu in Model, so the shell e2e proves
  * in real Chrome that a right-button press opens a registered menu while a `contextmenu` event alone opens nothing,
  * before B10/B11 register the real menus. Only e2e pages that ask for it have it.
  */

@@ -224,6 +224,11 @@ export class ViewportManager {
   private standIn: number | null = null;
   /** The Scale tool's manipulator sits on the selected scene objects (Model object mode), not on a control. */
   private objectTarget = false;
+  /**
+   * The manipulator sits on a control carried over into Model (§5.17): it draws and takes presses only in the panes
+   * that draw controls (Show ▸ Controls), the same rule as the MMB virtual slider (M6A-B9-21).
+   */
+  private controlTargetInModel = false;
   private readonly views = new Map<string, Map<ViewPreset, ViewCamera>>();
   private readonly shots = new Map<CameraId, ShotCamera>();
   private readonly listeners = new Set<() => void>();
@@ -336,6 +341,7 @@ export class ViewportManager {
     this.memory.set(paneKey(this.workspace, desc.id), { camera: desc.camera, display: desc.display });
     this.attachInput(pane);
     this.autoFrame = true;
+    this.manipulatorDirty = true;
     this.notify();
     this.invalidate();
   }
@@ -351,6 +357,7 @@ export class ViewportManager {
     pane.camera = camera;
     pane.display = display;
     this.autoFrame = true;
+    this.manipulatorDirty = true;
     this.picker.forget(id);
     this.refreshPaneStates();
     this.invalidate();
@@ -366,6 +373,7 @@ export class ViewportManager {
     pane.marquee.dispose();
     this.panes.delete(id);
     this.picker.forget(id);
+    this.manipulatorDirty = true;
     this.notify();
     this.invalidate();
   }
@@ -626,7 +634,7 @@ export class ViewportManager {
     const view = this.queryView(paneId);
     if (view === null) return [];
     const results: PickResult[] = [];
-    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    const handle = this.kitIn(view.pane) ? this.kit.pick(view.camera, view.projector, view.height, x, y) : null;
     if (handle !== null) results.push({ kind: 'manipulator', handle });
     const mask = this.app.session.getState().tools.selectionMask;
     if (view.pane.display.controls && mask.controls) {
@@ -714,7 +722,7 @@ export class ViewportManager {
 
   manipulatorScreenPoint(paneId: string, handle: ManipHandle): ScreenPoint | null {
     const view = this.queryView(paneId);
-    if (view === null) return null;
+    if (view === null || !this.kitIn(view.pane)) return null;
     return this.kit.grabPoint(handle, view.camera, view.projector, view.height);
   }
 
@@ -839,13 +847,16 @@ export class ViewportManager {
             : null;
     const space = mode === 'translate' ? prefs.moveSpace : mode === 'rotate' ? prefs.rotateSpace : 'object';
     this.kit.configure(mode, space, session.tools.manipulatorSize);
-    // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model never
-    // draws or picks rig controls, so there a control selection carried over from Animate gets no manipulator (it
-    // would be edited and auto-keyed unseen, §5.17): move and rotate show none until B12a's object and component
-    // targets land. In Animate the transform tools sit on the lead control.
+    // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model does
+    // not draw or pick rig controls, so a control selection carried over from Animate is edited there only where it
+    // is seen (§5.17, M6A-B9-21): in object mode, with no object target, the transform tools sit on the lead control
+    // in the panes that draw controls (Show ▸ Controls) and nowhere else — the MMB virtual slider's rule. Component
+    // modes show none until B12a's component targets land. In Animate the transform tools sit on the lead control.
     let target: ManipTarget | null = null;
     this.objectTarget = false;
+    this.controlTargetInModel = false;
     const model = this.workspace === 'model';
+    const objectMode = session.model.componentMode === 'object';
     // The scale handles and drags live in the lazy scale chunk: until it has loaded no scale manipulator shows.
     const scale = mode === 'scale' ? scaleKit() : null;
     if (mode === 'scale' && scale === null) {
@@ -853,13 +864,32 @@ export class ViewportManager {
         this.manipulatorDirty = true;
         this.invalidate();
       });
-    } else if (scale !== null && model && session.model.componentMode === 'object') {
-      target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
-      this.objectTarget = target !== null;
-    } else if (mode !== null && !model) {
-      target = this.manipTarget(session.selection.controls.at(-1) ?? null);
+    } else if (mode !== null) {
+      if (scale !== null && model && objectMode) {
+        target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
+        this.objectTarget = target !== null;
+      }
+      if (target === null && !model) target = this.manipTarget(session.selection.controls.at(-1) ?? null);
+      if (target === null && model && objectMode && this.anyPaneDrawsControls()) {
+        target = this.manipTarget(session.selection.controls.at(-1) ?? null);
+        this.controlTargetInModel = target !== null;
+      }
     }
     this.kit.setTarget(target);
+  }
+
+  /** Whether any registered pane draws controls (Show ▸ Controls). */
+  private anyPaneDrawsControls(): boolean {
+    for (const pane of this.panes.values()) if (pane.display.controls) return true;
+    return false;
+  }
+
+  /**
+   * Whether the manipulator draws and takes presses in a pane: always where it shows, except that a control target in
+   * Model is limited to the panes that draw controls (M6A-B9-21).
+   */
+  private kitIn(pane: PaneRuntime): boolean {
+    return this.kit.visible && (!this.controlTargetInModel || pane.display.controls);
   }
 
   private manipTarget(lead: ControlId | null): ManipTarget | null {
@@ -946,7 +976,7 @@ export class ViewportManager {
       renderer.render(planes.scene, camera);
     }
     renderer.clearDepth();
-    if (this.kit.visible) {
+    if (this.kitIn(pane)) {
       this.projector.set(camera, viewport.width, viewport.height, camera.near);
       this.kit.prepare(camera, viewport.width, viewport.height, this.projector);
       camera.layers.set(LAYER.always);
@@ -1341,7 +1371,7 @@ export class ViewportManager {
   private hoverAt(paneId: string, x: number, y: number): void {
     const view = this.queryView(paneId);
     if (view === null) return;
-    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    const handle = this.kitIn(view.pane) ? this.kit.pick(view.camera, view.projector, view.height, x, y) : null;
     let control: ControlId | null = null;
     if (handle === null && view.pane.display.controls && this.app.session.getState().tools.selectionMask.controls) {
       const projected = this.picker.projections(paneId, view.key, view.projector, this.controls.entries());
@@ -1655,7 +1685,9 @@ export class ViewportManager {
       pickCandidates: (paneId, x, y) => this.pickCandidates(paneId, x, y),
       pickManipulator: (paneId, x, y) => {
         const view = this.queryView(paneId);
-        return view === null ? null : this.kit.pick(view.camera, view.projector, view.height, x, y);
+        return view === null || !this.kitIn(view.pane)
+          ? null
+          : this.kit.pick(view.camera, view.projector, view.height, x, y);
       },
       marquee: (paneId, rect) => this.marquee(paneId, rect),
       setMarquee: (paneId, rect) => this.panes.get(paneId)?.marquee.show(rect),
@@ -1708,6 +1740,8 @@ export class ViewportManager {
     const view = this.queryView(paneId);
     const target = this.kit.currentTarget;
     if (view === null || target === null || this.objectTarget || !this.kit.handles().includes(handle)) return null;
+    // M6A-B9-21: a control target in Model is edited only from a pane that draws controls.
+    if (!this.kitIn(view.pane)) return null;
     const controls: DragControl[] = [];
     for (const id of this.app.session.getState().selection.controls) {
       const entry = this.controls.entry(id);

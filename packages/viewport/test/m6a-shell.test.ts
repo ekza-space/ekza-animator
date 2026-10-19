@@ -1,8 +1,9 @@
 // M6A-SPEC §4.7, §5.17, §5.26 (B9): the M6a camera layers, pane memory per workspace, per-pane shading of character
 // models (pixel probes), mesh layers (`addMeshLayer`, `applyPane` per pane), reference image planes in their ortho
 // pane, the pointer platform rules (no context-menu RMB, the Model MMB stand-in, marking-menu presses, the stand-in's
-// virtual slider at the MMB rate), a control selection carried over to Model (no manipulator, no unseen edit) and
-// the Scale tool on controls (Animate) and on scene objects (Model, the topmost selected objects only), with undo.
+// virtual slider at the MMB rate), a control selection carried over to Model (no manipulator, no unseen edit; edits
+// only from a pane that draws controls) and the Scale tool on controls (Animate) and on scene objects (Model, the
+// topmost selected objects only), with undo.
 import { DEG2RAD } from '@ekza-animator/anim-core';
 import type {
   CharacterId,
@@ -588,6 +589,56 @@ describe('a control selection carried over to Model (§5.17)', () => {
     setDisplay(r, PANE, { controls: true });
     expect(slideDrag(r, { button: 1 })).toBeCloseTo(20, 9);
     expect(r.app.history.peekUndo()?.label).toBe('Drag Rotate Z');
+  });
+
+  it('W, E and R follow the slider’s rule: handles on it only in the panes that draw controls, object mode only', async () => {
+    const r = await ikRig();
+    r.layout('split');
+    const control = ctl('fk.lowerArm.L');
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    setWorkspace(r, 'model');
+    setTool(r, VIEWPORT_TOOL.rotate);
+    r.frame();
+    for (const id of ['pane-left', 'pane-right'])
+      expect(r.vm.manipulatorScreenPoint(id, 'rz'), `no ring in ${id}`).toBeNull();
+    // Where the ring would be in the left pane (read while that pane shows controls), then hidden there again.
+    setDisplay(r, 'pane-left', { controls: true });
+    r.frame();
+    const hiddenAt = r.vm.manipulatorScreenPoint('pane-left', 'rz');
+    if (hiddenAt === null) throw new Error('no rz ring in the left pane');
+    setDisplay(r, 'pane-left', { controls: false });
+    setDisplay(r, 'pane-right', { controls: true });
+    r.frame();
+    expect(r.vm.manipulatorScreenPoint('pane-left', 'rz')).toBeNull();
+    expect(r.vm.manipulatorScreenPoint('pane-right', 'rz')).not.toBeNull();
+
+    // A drag where the ring would be in the pane that hides controls edits and keys nothing.
+    const before = r.app.evaluation.channelValues(control).rz;
+    const historyBefore = r.app.history.peekUndo()?.label ?? null;
+    const left = r.vm.paneRect('pane-left') as { x: number; y: number };
+    const from = { x: left.x + hiddenAt.x, y: left.y + hiddenAt.y };
+    drag(r.panes.get('pane-left') as HTMLElement, from, { x: from.x + 30, y: from.y - 30 });
+    r.app.flushScheduled();
+    expect(r.app.evaluation.channelValues(control).rz).toBe(before);
+    expect(r.app.history.peekUndo()?.label ?? null).toBe(historyBefore);
+
+    // The pane that draws it: a drag on the ring rotates the control in one step "Rotate".
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    r.frame();
+    const shownAt = r.vm.manipulatorScreenPoint('pane-right', 'rz');
+    if (shownAt === null) throw new Error('no rz ring in the right pane');
+    const right = r.vm.paneRect('pane-right') as { x: number; y: number };
+    const grab = { x: right.x + shownAt.x, y: right.y + shownAt.y };
+    drag(r.panes.get('pane-right') as HTMLElement, grab, { x: grab.x + 30, y: grab.y - 30 });
+    r.app.flushScheduled();
+    expect(r.app.evaluation.channelValues(control).rz).not.toBeCloseTo(before, 6);
+    expect(r.app.history.peekUndo()?.label).toBe('Rotate');
+
+    // Component modes: no handle on the control even where controls are drawn.
+    r.app.session.setState({ model: { ...r.app.session.getState().model, componentMode: 'vertex' } });
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    r.frame();
+    expect(r.vm.manipulatorScreenPoint('pane-right', 'rz')).toBeNull();
   });
 });
 

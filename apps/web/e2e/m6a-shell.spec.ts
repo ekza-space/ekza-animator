@@ -149,7 +149,7 @@ async function contextMenuEvent(page: Page, x: number, y: number): Promise<boole
 test('pointer platform rule (a): a context-menu event opens no marking menu; a real RMB press opens a registered one', async ({
   page,
 }) => {
-  // `mmFixture=1` registers the test API's fixture menu `e2e.fixture` (plain RMB in Model; M6A-B9-21).
+  // `mmFixture=1` registers the test API's fixture menu `e2e.fixture` (plain RMB in Model; M6A-B9-23).
   await openModel(page, '&mmFixture=1');
   await expectKernelStarted(page);
   const pane = (await call(page, 'panes')).find((entry) => entry.id === MODEL_PANE);
@@ -204,7 +204,7 @@ test('pointer platform rule (a): a context-menu event opens no marking menu; a r
   expect(await shadingOf(page)).toEqual({ [MODEL_PANE]: 'wire' });
 });
 
-test('§5.17: a control selected in Animate gets no W/E/R manipulator in Model and is not slid unseen there', async ({
+test('§5.17: a control selected in Animate is neither handled nor slid in a Model pane that hides controls', async ({
   page,
 }) => {
   // The trackpad profile has the MMB stand-in in Model; pointer capture instead of Pointer Lock for CDP moves.
@@ -250,6 +250,18 @@ test('§5.17: a control selected in Animate gets no W/E/R manipulator in Model a
   await horizontalDrag(page, from, 40, { modifiers: ['Alt', 'Shift'] });
   await expect.poll(async () => Math.abs((await rz()) - ((before.rz ?? 0) + 20 * DEG))).toBeLessThan(1e-9);
   expect((await call(page, 'state')).history.undoLabel).toBe('Drag Rotate Z');
+  // The transform tools follow the slider's rule: where the pane draws controls, E puts the ring on the cog.
+  await hoverPane(page, MODEL_PANE);
+  await page.keyboard.press('KeyE');
+  await expect.poll(async () => (await call(page, 'state')).tool).toBe('rotate');
+  await pointOf(
+    page,
+    () => call(page, 'screenOfManipulator', MODEL_PANE, 'rz'),
+    'rz ring in Model with Show ▸ Controls',
+  );
+  // Hidden again: no ring.
+  await runOk(page, 'view.display.set', { patch: { controls: false }, paneId: MODEL_PANE });
+  await expect.poll(() => call(page, 'screenOfManipulator', MODEL_PANE, 'rz')).toBeNull();
 });
 
 test('Mod+K opens the command palette: search with aliases, Enter runs the entry, Esc closes', async ({ page }) => {
