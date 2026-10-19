@@ -138,15 +138,41 @@ const ARGS: Readonly<Record<string, ArgsOf>> = {
     args: { mode: 'leftToRight', controls: [controlOf(fx.app, fx.character, 'fk.lowerArm.L')] },
     scope: keysScope,
   }),
-  // explicit arguments (the M-AI stubs poll-fail "not available yet" until P1)
-  'key.write': (fx) => ({ args: { clip: fx.agentClip, keys: [], label: 'Set keys' } }),
-  'key.delete': (fx) => ({ args: { clip: fx.agentClip, targets: [], frames: [0], label: 'Delete keys' } }),
-  'key.adjust': (fx) => ({ args: { clip: fx.agentClip, targets: [], factor: 1.25, label: 'Adjust' } }),
-  'key.retime': (fx) => ({ args: { clip: fx.agentClip, targets: [], mode: 'offset', offset: 2, label: 'Retime' } }),
-  'pose.setAt': (fx) => ({ args: { clip: fx.agentClip, frame: 0, edits: [], mode: 'key', label: 'Set pose' } }),
-  'pose.goals': (fx) => ({ args: { clip: fx.agentClip, frame: 0, aims: [], label: 'Aim' } }),
+  // explicit arguments (D0's stubs poll-failed "not available yet"; P1 runs them on explicit targets)
+  'key.write': (fx) => ({
+    args: { clip: fx.agentClip, keys: [{ ...armZ(fx, 'fk.hand.L'), frame: 5, value: 0.2 }], label: 'Set keys' },
+  }),
+  'key.delete': (fx) => ({ args: { clip: fx.agentClip, targets: [armZ(fx)], frames: [15], label: 'Delete keys' } }),
+  'key.adjust': (fx) => ({ args: { clip: fx.agentClip, targets: [armZ(fx)], factor: 1.25, label: 'Adjust' } }),
+  'key.retime': (fx) => ({
+    args: { clip: fx.agentClip, targets: [armZ(fx)], mode: 'offset', offset: 2, label: 'Retime' },
+  }),
+  'pose.setAt': (fx) => ({
+    args: {
+      clip: fx.agentClip,
+      frame: 0,
+      edits: [{ ...armZ(fx, 'fk.hand.L'), value: 0.3 }],
+      mode: 'key',
+      label: 'Set pose',
+    },
+  }),
+  'pose.goals': (fx) => ({
+    args: {
+      clip: fx.agentClip,
+      frame: 10,
+      aims: [{ bone: 'leftUpperArm', direction: [0.8, 0.6, 0], keepTwist: true, weight: 1 }],
+      label: 'Aim',
+    },
+  }),
   'pose.transfer': (fx) => ({
-    args: { clip: fx.agentClip, fromFrame: 0, toFrames: [30], controls: [], mirror: 'none', label: 'Transfer' },
+    args: {
+      clip: fx.agentClip,
+      fromFrame: 15,
+      toFrames: [30],
+      controls: [controlOf(fx.app, fx.character, 'fk.lowerArm.L')],
+      mirror: 'none',
+      label: 'Transfer',
+    },
   }),
   'clip.makeLoop': (fx) => ({ args: { clip: fx.agentClip, method: 'matchEnds', rootTravel: 'keep' } }),
   'clip.new': (fx) => ({ args: { character: fx.character, name: 'agentNew', activate: false } }),
@@ -183,6 +209,11 @@ const ARGS: Readonly<Record<string, ArgsOf>> = {
   'time.stop': () => ({ args: undefined }),
   'time.setFrame': () => ({ args: { frame: 3 } }),
 };
+
+/** The `rz` channel target of a control (default the keyed fk.lowerArm.L). */
+function armZ(fx: Fixture, key = 'fk.lowerArm.L'): { readonly control: string; readonly channel: 'rz' } {
+  return { control: controlOf(fx.app, fx.character, key), channel: 'rz' };
+}
 
 function curveOf(fx: Fixture): string {
   const control = controlOf(fx.app, fx.character, 'fk.lowerArm.L');
@@ -289,17 +320,49 @@ const EXPECTED_D0: Readonly<Record<string, string>> = {
 };
 
 /**
- * The outcome a run must have: D0's record, or with READY.p1 P1's rule — every scope-ready operator finishes on the
- * scope's keys, the stubs are no longer stubs and the five gated operators run (P1 pins their exact outcomes here when
- * it lands). Returns `actual` when the rule accepts it, else what was expected.
+ * P1's outcomes (MCP-SPEC §8 P1, pinned when P1 landed): every scope-ready operator finishes on the scope's keys, the
+ * explicit-target operators run on their explicit targets, and the five gated operators run. Generated ids and the
+ * solved aim are matched by pattern.
+ */
+const EXPECTED_P1: Readonly<Record<string, string | RegExp>> = {
+  'graph.tangent.set': 'finished',
+  'graph.tangent.break': 'finished',
+  'graph.tangent.unify': 'finished',
+  'graph.tangent.lockWeight': 'finished',
+  'graph.curve.setWeighted': 'finished',
+  'graph.infinity.set': 'finished',
+  'graph.keys.setFields': 'finished',
+  'graph.curves.simplify': 'finished {"before":3,"after":3,"maxError":0}',
+  'graph.eulerFilter': 'finished {"count":0}',
+  'key.tween': 'finished {"count":1}',
+  'key.convert': 'finished {"count":3}',
+  'pose.mirrorAnimation': 'finished {"count":1}',
+  'key.write': 'finished {"written":1,"curvesCreated":1,"rangeExtended":false,"hiddenByOverrides":[]}',
+  'key.delete': 'finished {"deleted":1}',
+  'key.adjust': 'finished {"keys":3,"curves":1,"skipped":[]}',
+  'key.retime': 'finished {"moved":3,"merged":0,"clamped":0,"snapped":0,"contactFrame":null}',
+  'pose.setAt': 'finished {"keyed":1,"synced":2,"statics":0,"skipped":[],"hiddenByOverrides":[]}',
+  'pose.goals':
+    /^finished \{"aims":\[\{"bone":"leftUpperArm","control":"[^"]+","achieved":\[[^\]]+\],"errorRad":[0-9.e-]+\}\],"ik":\[\],"keyed":3\}$/,
+  'pose.transfer': 'finished {"keyed":3}',
+  'clip.makeLoop':
+    'finished {"before":{"maxC0":0,"maxC1":0,"worst":[]},"after":{"maxC0":0,"maxC1":0,"worst":[]},"curvesChanged":1}',
+  'clip.new': /^finished \{"clip":"clp_[A-Za-z0-9]+"\}$/,
+  'clip.duplicate': /^finished \{"clip":"clp_[A-Za-z0-9]+"\}$/,
+  'graph.key.insert': /^finished \{"key":"k_[A-Za-z0-9]+"\}$/,
+  'rig.ikFk.matchRange': 'finished {"count":279}',
+  'clip.delete': 'finished',
+};
+
+/**
+ * The outcome a run must have: D0's record, or with READY.p1 P1's pinned outcome for the operators P1 implements or
+ * migrates. Returns `actual` when a pinned pattern accepts it, else what was expected.
  */
 function expectedOutcome(id: string, actual: string): string {
-  if (!READY.p1) return EXPECTED_D0[id] ?? '(no outcome recorded)';
-  if (SCOPE_READY.includes(id) || NEEDS_P1.has(id)) {
-    return actual.startsWith('finished') ? actual : "finished (P1: on the scope's keys)";
-  }
-  if (P1_STUBS.includes(id)) return actual.includes(NOT_AVAILABLE_YET) ? 'implemented by P1, not a stub' : actual;
-  return EXPECTED_D0[id] ?? '(no outcome recorded)';
+  const pinned = READY.p1 && Object.hasOwn(EXPECTED_P1, id) ? EXPECTED_P1[id] : undefined;
+  if (pinned === undefined) return EXPECTED_D0[id] ?? '(no outcome recorded)';
+  if (typeof pinned === 'string') return pinned;
+  return pinned.test(actual) ? actual : `(matching ${String(pinned)})`;
 }
 
 function sessionRecord(app: EditorApp): unknown[] {
@@ -326,6 +389,10 @@ describe('every allowed and confirm operator under an actor (MCP-SPEC §5.14, ru
     expect(ran.filter((id) => !Object.hasOwn(EXPECTED_D0, id))).toEqual([]);
     expect(Object.keys(EXPECTED_D0).filter((id) => !ran.includes(id))).toEqual([]);
     expect(SCOPE_READY.filter((id) => (OPERATOR_POLICY[id] as OperatorAgentPolicy).policy !== 'allowed')).toEqual([]);
+    // P1 pins an outcome for every operator it implements or migrates, and the scope-ready ones say so in the table.
+    const p1 = [...SCOPE_READY, ...P1_STUBS, ...NEEDS_P1];
+    expect(p1.filter((id) => !Object.hasOwn(EXPECTED_P1, id))).toEqual([]);
+    expect(SCOPE_READY.filter((id) => OPERATOR_POLICY[id]?.runScope !== true)).toEqual([]);
   });
 
   for (const id of RUN_IDS.filter((id) => Object.hasOwn(ARGS, id))) {
@@ -360,13 +427,20 @@ describe('every allowed and confirm operator under an actor (MCP-SPEC §5.14, ru
     });
   }
 
-  it('runs the M-AI stubs to a clean "not available yet" refusal', async () => {
+  it('runs the M-AI operators to a clean refusal on incomplete arguments (D0: the stubs\' "not available yet")', async () => {
     const fx = await polybotFixture();
-    for (const id of ['key.write', 'pose.setAt', 'clip.makeLoop', 'edit.revertSteps', 'edit.restoreDocument']) {
-      expect(await fx.app.runUntyped(id, { clip: fx.agentClip }, { actor: AGENT, access: 'edit' })).toEqual({
-        status: 'cancelled',
-        reason: NOT_AVAILABLE_YET,
-      });
+    const p1: Readonly<Record<string, string>> = {
+      'key.write': 'expects exactly one of keys or poseAt',
+      'pose.setAt': 'frame must be a finite frame',
+      'clip.makeLoop': 'method is one of matchEnds, blend, cycleOnly',
+      'edit.revertSteps': 'expects { steps: [step ids] }',
+      'edit.restoreDocument': 'Restoring the document is the user’s action',
+    };
+    for (const [id, reason] of Object.entries(p1)) {
+      expect([id, await fx.app.runUntyped(id, { clip: fx.agentClip }, { actor: AGENT, access: 'edit' })]).toEqual([
+        id,
+        { status: 'cancelled', reason: READY.p1 ? reason : NOT_AVAILABLE_YET },
+      ]);
     }
     fx.app.dispose();
   });
