@@ -15,6 +15,7 @@ import {
 import { isTransformTool } from '../../workspaces/switch';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
+import { setComponentSpace } from './snap';
 import { NOT_AVAILABLE_YET } from './stub';
 
 /** Manipulator size limits in CSS px (§4.9 `view.manipulatorSize`). */
@@ -98,22 +99,28 @@ const manipulatorSize = defineOperator({
 const setManipSpace = defineOperator({
   id: 'view.setManipSpace',
   label: 'Manipulator Space',
-  description: 'Object or world space for the move tool; object, world or gimbal for the rotate tool.',
+  description:
+    'Object or world space for the move tool; object, world or gimbal for the rotate tool; component orientation for both in Model.',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll(_ctx, raw) {
     const args: unknown = raw;
     if (!isRecord(args) || (args['tool'] !== 'move' && args['tool'] !== 'rotate'))
       return fail('expects { tool, space }');
+    // M6a (B12a, §5.15): Move and Rotate gain the Component orientation (remembered per app, `transformSpace`).
+    if (args['space'] === 'component') return OK;
     if (!SPACES.includes(args['space'] as ManipSpace)) return fail("space is 'object', 'world' or 'gimbal'");
     return args['tool'] === 'move' && args['space'] === 'gimbal' ? fail('Gimbal space is for the rotate tool') : OK;
   },
   apply({ app }, args) {
+    const space = args.space as ManipSpace | 'component';
+    setComponentSpace(app, args.tool, space === 'component');
+    if (space === 'component') return;
     if (args.tool === 'move') {
-      if (args.space === 'gimbal') throw new EkzaError('unsupported', 'Gimbal space is for the rotate tool');
-      app.prefs.setState({ moveSpace: args.space });
+      if (space === 'gimbal') throw new EkzaError('unsupported', 'Gimbal space is for the rotate tool');
+      app.prefs.setState({ moveSpace: space });
     } else {
-      app.prefs.setState({ rotateSpace: args.space });
+      app.prefs.setState({ rotateSpace: space });
     }
   },
 });

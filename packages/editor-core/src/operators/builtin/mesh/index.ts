@@ -74,6 +74,22 @@ export const MESH_OP_TOOLS: Readonly<Record<string, ToolId>> = {
   'mesh.paint.fillShell': 'paint',
 };
 
+/**
+ * History labels by the dominant part of a run (§6.1 `mesh.transformComponents`: "label by the dominant part"; B12a):
+ * a component rotation is "Rotate", a scale "Scale", anything else "Move".
+ */
+export const MESH_OP_UNDO_LABELS: Readonly<Record<string, (args: MeshOpArgs) => string>> = {
+  'mesh.transformComponents': (args) => {
+    const set = (name: string, identity: number): boolean => {
+      const value = args?.[name];
+      return typeof value === 'number' && value !== identity;
+    };
+    if (['rotateX', 'rotateY', 'rotateZ'].some((name) => set(name, 0))) return 'Rotate';
+    if (['scaleX', 'scaleY', 'scaleZ'].some((name) => set(name, 1))) return 'Scale';
+    return 'Move';
+  },
+};
+
 /** Ops only other operators run (not in menus, the palette or the Toolkit). */
 export const INTERNAL_MESH_OPS: ReadonlySet<string> = new Set(['mesh.applyTransform', 'mesh.paint.remap']);
 
@@ -121,6 +137,7 @@ function descriptionOf(label: string, kinds: MeshOpDescriptor['kinds'] | null, w
 export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<MeshOpArgs, MeshOpOutcome, void> {
   const tool = MESH_OP_TOOLS[desc.id];
   const aliases = MESH_OP_ALIASES[desc.id];
+  const undoLabel = MESH_OP_UNDO_LABELS[desc.id];
   const opts = {
     category: 'mesh',
     scope: 'model',
@@ -145,6 +162,7 @@ export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<Mesh
     description: descriptionOf(desc.label, desc.kinds, whole),
     flags: { ...base.flags, ...(INTERNAL_MESH_OPS.has(desc.id) ? { internal: true } : {}) },
     ...(poll === undefined ? {} : { poll }),
+    ...(undoLabel === undefined ? {} : { undoLabel }),
     apply(ctx, args): MeshOpOutcome {
       const op = meshKernel()?.MESH_OPS[desc.id];
       const meshes = attachMeshes(ctx.app);

@@ -8,6 +8,8 @@ import { describe, expect, it } from 'vitest';
 import {
   ANIMATE_ONLY_REASON,
   MODEL_ONLY_REASON,
+  MODEL_SETTINGS_REASON,
+  NOTHING_TO_TRANSFORM,
   ANIMATE_WORKSPACE,
   type MarkingMenuDef,
   NOT_AVAILABLE_YET,
@@ -284,6 +286,25 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'edit.repeatLast': ['Nothing to repeat'],
     'tool.last': ['No tool used yet'],
     'view.lastOpCard': ['No operation to adjust'],
+    // B12a landed (literal update, M6A-SPEC §6.2): argument checks, "Modeling settings are in the Model workspace" for
+    // the argument-free toggles, and "Select a mesh or group first" for the pivot and transform operators.
+    'model.symmetry.set': ['expects { meshes?, mode?, tolerance?, preserveSeam? } with at least one setting'],
+    'model.softSelect.set': ['expects { on?, radius?, falloff?, curve? } with at least one setting'],
+    'model.softSelect.toggle': [MODEL_SETTINGS_REASON],
+    'model.selectionStyle.set': ['expects { style: marquee | tweak | toggle }'],
+    'model.cameraBased.set': ['expects { value: auto | on | off }'],
+    'model.backfaces.toggle': [MODEL_SETTINGS_REASON],
+    'model.constraint.set': ['expects { constraint: off | angle | border | loop | ring | shell }'],
+    'model.snap.toggle': ['expects { kind: grid | vertex | increment }'],
+    'model.pivot.editToggle': [MODEL_SETTINGS_REASON],
+    'mesh.pivot.set': ['expects { id, pivot: [x, y, z] }'],
+    'mesh.pivot.center': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'mesh.pivot.bottomCenter': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'mesh.pivot.reset': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'mesh.pivot.bake': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'mesh.resetTransforms': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'mesh.freezeTransforms': [NOTHING_TO_TRANSFORM, 'expects { ids? }'],
+    'scene.object.transform': ['expects { ids, placements } (one placement per id)'],
   };
   /**
    * B11 landed the `mesh.*` operators through `meshOperator`/`meshSetOperator` (literal update, M6A-SPEC §6.1): with

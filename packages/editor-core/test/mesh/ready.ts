@@ -44,4 +44,11 @@ const b1 =
     }
   });
 
-export const READY = { b1 } as const;
+/**
+ * B1's primitives (sphere, cone, torus) build: the reference kernel's refusal of these kinds is gone. Separate from
+ * `b1`, whose probe also runs `mesh.extrude` (B3's op), so a branch with B1 merged and B3 not yet merged checks the
+ * real creation instead of the reference refusal.
+ */
+const primitives = probe(() => kernel.primitive('sphere', {}));
+
+export const READY = { b1, primitives } as const;

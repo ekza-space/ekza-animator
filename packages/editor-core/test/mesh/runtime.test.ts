@@ -536,8 +536,9 @@ describe("'before-last' reads what the last op read (§4.6, §5.7 card drags)", 
     return [...data.position];
   }
 
+  // B10's selection service owns component selections once it has merged (its hand-over to B7): read it.
   const faces = (t: Awaited<ReturnType<typeof meshTestApp>>, id: MeshId): number[] => [
-    ...(t.meshes.localSelection(id)?.faces.toArray() ?? []),
+    ...t.app.components.get(id, 'face').faces.toArray(),
   ];
 
   const setMode = (t: Awaited<ReturnType<typeof meshTestApp>>, mode: 'object' | 'face', hilite: MeshId[]): void =>
