@@ -343,9 +343,11 @@ describe('the B7 test API group (§4.8)', () => {
     const { api, app } = await setup();
     const character = 'chr_Hero0000000001';
     // A character runtime whose glTF has two meshes; the second already has its record (made editable).
-    const list = vi.spyOn(app.characters, 'list').mockReturnValue([
-      { id: character, container: { json: { meshes: [{ name: 'Body' }, {}, { name: '' }] } } } as never,
-    ]);
+    const list = vi
+      .spyOn(app.characters, 'list')
+      .mockReturnValue([
+        { id: character, container: { json: { meshes: [{ name: 'Body' }, {}, { name: '' }] } } } as never,
+      ]);
     const made = derivedId('mesh', 'asset', [character], '', 1);
     const meshes = app.meshes as KernelMeshRuntimes;
     const ref = meshes.storeRevision(primitive('cube', {}));
