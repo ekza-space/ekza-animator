@@ -34,17 +34,18 @@ Branch `m6a/model-transform-tools` (from `m6a/spec`, with `m6a/model-select-ui` 
 | M6A-B12A-3 | **The Component orientation lives next to the preferences**: `prefs.moveSpace/rotateSpace` (closed types: object/world/gimbal) keep their values; Component is remembered per app (`transformSpace`, not persisted) and `view.setManipSpace` accepts `space: 'component'` for Move and Rotate. The Scale tool follows Move's orientation for components (B9 keeps object axes for objects). Gimbal reads as Object for components and objects in Model. | §5.15 "Move and Rotate space menus gain Component" with `Prefs` closed after B0a. Contract-PR suggestion: `ManipSpace` gains `'component'` (persisted). |
 | M6A-B12A-4 | **Object Move/Rotate in Model**: the topmost selected objects (B9's `topmostSelectedObjects`); translations move every one by the same world delta (through each parent's inverse), rotations turn each about its own pivot (Maya's default for several objects), scale stays B9's (handles) except MMB scale (uniform or along the last-picked axis, each about its own pivot). Preview through a document gesture, commit `scene.object.transform {ids, placements}` with `source: 'tool'`, labelled by the dominant change (`tx.annotate`): "Move", "Rotate", "Scale". | §6.2 `scene.object.transform` "object W/E/R and MMB commits in Model ('Move' etc.)"; M6A-B9-11. |
 | M6A-B12A-5 | **The MMB rule** (§5.15) — order: Channel Box channels selected → the viewport's shipped virtual slider (before any tool); an INPUTS field name selected → its virtual slider (`edit.adjustLast {[param]}` for the last-op entry and a primitive right after its creation, else `mesh.primitive.set`; the card's preview through `beginCardPreview`; rate `paramSliderRate`, Shift ×0.1 / Mod ×10; the stand-in clears Shift); else the selection moves along `session.model.tweakHandle` when it belongs to the active tool (move: tx…tview, rotate: rx…rview, scale: sx…suniform), else the view plane / the view axis / uniform scale. `tweakHandle` is set by any LMB press on a handle (Animate too) and cleared by a tool switch (`activate`). In Animate the drag is the same channel-edit gesture as a handle drag (additive: MMB without channels did nothing before). | §5.15, Q-MOD-UI-14. |
-| M6A-B12A-6 | **Tweak**: with the Move tool in a component mode and `selectionStyle: 'tweak'`, a press on a component (B10's picker) becomes a drag after 3 px: an unselected component replaces the selection on every hilited mesh (stored without a "Select" step) and moves in the view plane; the run is the one "Move" step. A press without a drag is a plain click (B10's select behaviour). Undo of the Move restores the revision's selection as B10 remembers it (the tweaked component), not the selection before the tweak. | §5.15 "one step 'Move' whose selectionBefore/After carry the change": the runner's `selectionBefore/After` carry no per-mesh part (B10 hand-over to B11); restoring the pre-tweak selection on undo needs that part (INT/B11). |
+| M6A-B12A-6 | **Tweak**: with the Move tool in a component mode and `selectionStyle: 'tweak'`, a press on a component (B10's picker) becomes a drag after 3 px: an unselected component replaces the selection on every hilited mesh (stored without a "Select" step) and moves in the view plane; the run is the one "Move" step. A press without a drag is a plain click (B10's select behaviour). The runtime snapshots the selection before it replaces it (`components.snapshot`): a cancelled Tweak drag (Esc, or a drag that cannot start) restores it, with no step (fix round 1). Undo of the Move still restores the revision's selection as B10 remembers it (the tweaked component), not the selection before the tweak. | §5.15 "one step 'Move' whose selectionBefore/After carry the change": the runner's `selectionBefore/After` (`runner.ts` 213–219, B11) are `selectionSnapshot(selection, model)` without the per-mesh `meshes` part, and the Tweak's replacement is stored before the run starts. INT/B11: fill `SelectionSnapshot.meshes` in the runner and let the Tweak hand its pre-tweak snapshot over as the run's `selectionBefore` (a `RunContext` field, say); B12a already holds it. |
 | M6A-B12A-7 | **Snapping**: `X` snaps the moved pivot's coordinate along each moved axis (measured from the world origin; plane handles: their two axes; view plane / MMB: all three) to `gridStep`; `J` snaps the move along each moved axis to `increments.move`, rotations to `increments.rotate`, scales to `1 + n·increments.scale`; `V` snaps the pivot to the nearest visible vertex within `vertexSnapRadiusPx` on any mesh the pane draws (`objectsDrawnIn`; hidden components skipped; component drags exclude their moved vertices, object drags the moved objects and their descendants; ties on one line of sight go to the nearer vertex) — constrained handles take the projection on their axis or plane. Priority V > X > J; held keys (consumed only in Model, without modifiers) or the sticky toggles. Occlusion of `V` candidates is not tested (a vertex behind a surface can win). | §5.15. |
 | M6A-B12A-8 | **Pivot editing**: `D` held or `model.pivot.editToggle` (`Insert`/`Home`); the manipulator shows translate handles (whatever the tool) drawn dashed; object mode commits `mesh.pivot.set {id: lead, pivot}` (the lead object only), component mode pins `componentPivot` (U state, world). A pinned component pivot follows a translation of its components and is dropped when the picked components change (Maya resets the custom pivot with the selection). | §5.15. |
 | M6A-B12A-9 | **Bounds of Modify › Pivot** are in the object's own space: a mesh's points, a group's descendant meshes' points mapped into the group; Bottom Center = (centre x, min y, centre z) of those bounds. Bake Pivot moves the geometry by −pivot (`mesh.applyTransform`), the children by −pivot in its space and the placement by R·S·pivot. | §5.15 "props stand on the ground" — for rotated objects the local bottom is not the world floor; the owner may want world bounds (DECISIONS-OPEN §H candidate). |
-| M6A-B12A-10 | **Freeze**: M = P′⁻¹·P per mesh (P the placement, P′ with the frozen parts reset), so the world stays exactly where it was with any subset of translate/rotate/scale; the pivot moves by M, child objects by M·C (decomposed). A group freezes its descendant meshes (the group's own placement stays). Params `translate/rotate/scale` (bool, default true) make it adjustable; skinned meshes poll-fail `freeze.skinned`'s message before the kernel is asked. | §5.13. |
-| M6A-B12A-11 | **Readout and capture**: during a drag the capture window is armed with the motion's three `mesh.transformComponents` fields (Tab order X, Y, Z; the dragged axis active); a typed value wins over the pointer for its field; `Enter` confirms the drag with it, `Esc` cancels (no step). The chip shows the field and value (single-axis handles: the frame value; planes and the view plane: the distance moved, "Move"; uniform scale: the factor). | §5.10, §8.7. |
+| M6A-B12A-10 | **Freeze**: M = P′⁻¹·P per mesh (P the placement, P′ with the frozen parts reset), so the world stays exactly where it was with any subset of translate/rotate/scale; the pivot moves by M, child objects by M·C (decomposed). A group freezes its descendant meshes (the group's own placement stays). Params `translate/rotate/scale` (bool, default true) make it adjustable; skinned meshes poll-fail `freeze.skinned`'s message before the kernel is asked. Until B4 lands `mesh.applyTransform` (the kernel's op is probed once per kernel module on an empty mesh: the B0a stub refuses `not-implemented`), Freeze and a Bake Pivot that moves geometry (a mesh with a non-zero pivot) poll-fail with the shared "not available yet" (fix round 1: they were enabled and failed with an error toast). | §5.13; §3 rule 1. |
+| M6A-B12A-11 | **Readout and capture**: during a drag the capture window is armed with the motion's three `mesh.transformComponents` fields (Tab order X, Y, Z; the dragged axis active); a typed value wins over the pointer for its field; `Enter` confirms the drag with it, `Esc` cancels (no step). Component drags pass the fields as args; object drags (and a pinned component pivot's follow) turn them back into a world motion: translations and scales per frame axis, a rotation typed on one frame axis as that axis–angle (its value kept, more than a turn included), several typed Euler fields as q = frame · euler_xyz · frame⁻¹ (the kernel's rotate order) — fix round 1: object rotations ignored typed values before. The chip shows the field and value (single-axis handles: the frame value; planes and the view plane: the distance moved, "Move"; uniform scale: the factor). | §5.10, §8.7. |
 | M6A-B12A-12 | **`model.options` is two menu definitions** (`MarkingMenuDef` has one trigger): `model.options` (Ctrl+Shift+RMB) and `model.options.lmb` (`Q`+LMB, same items). Its ✓ items for Camera-based and Preserve Seam run `model.cameraBased.set {value: 'toggle'}` and `model.symmetry.set {preserveSeam: 'toggle'}` (runtime-additive values; `OperatorMap` is closed). "Tolerance…" opens the Modeling Toolkit (B11's Symmetry section has the field). | §8.4; contract-PR suggestion: the two `toggle` values in `OperatorMap`. |
 | M6A-B12A-13 | **Space menus** `W`+LMB (World, Object, Component) and `E`+LMB (World, Object, Component, Gimbal) in Model; `R`+LMB is not registered (the Scale tool has no space of its own). | §7 "Pointer gestures". |
 | M6A-B12A-14 | **Soft select**: `B` is observed by the tools, never consumed on the way down (the keymap's tap toggles soft select, §7); a `B`+drag release is consumed (no tap). `B`+LMB scales the radius ×2 per 100 px to the right (relative), `B`+MMB sets it from zero (pointer travel × scene units per px at the manipulator); the session radius previews, the release runs `model.softSelect.set`. The overlay tint is B6's (`setSoftWeights`), pushed for every hilited mesh on selection, settings and committed geometry changes. | §5.15. |
 | M6A-B12A-15 | **Edge-on plane handles** (an orthographic side view: the plane contains the view direction within ~11°) are skipped by `ManipulatorKit.pick`, so the press goes to the axis drawn under them. Before, pressing the X arrow in the front view picked the X–Z plane, whose drag cannot move (the pointer ray runs in the plane) — in Animate's shipped tools too. | Found by the B12a viewport tests in M-Quad's ortho panes. |
 | M6A-B12A-16 | **Session fields written directly** (no operator): `tweakHandle` (`setTweakHandle`), `componentPivot` (pivot drags, the pinned pivot's follow and reset), the soft radius preview. All are B12a's U state; no edits in `editor-core/src/session/**`. | §9.1 "other packages write their `session.model` fields only through their own operators (no edits in this tree)". |
+| M6A-B12A-17 | **Observed holds return false** (fix round 1): `X`, `V`, `J` and `D` set the runtime's holds (snapping, pivot editing; a change during a drag re-applies the motion) and `key()` returns false on the press and the release, so step 3 (the keymap) still resolves them; no unmodified X/V/J/D row exists in the Model scopes, so nothing changes today, and a future row is not shadowed. `B` keeps its rule (false on the press; the release is true only after a `B`+drag). The adapter still routes the release to the tool that saw the press. | §5.17 step 2: "observing a hold (`X`, `V`, `J`, `D`, `B`, `I`) returns false, so step 3 still runs". |
 
 ## Shared files and other packages' paths (minimal, additive)
 
@@ -93,7 +94,8 @@ New B12a paths outside the literal §9 Dirs list (INT: please add them to B12a's
 
 - Unit: B4's `mesh.applyTransform` — `editor-core/test/m6a/transform/operators.test.ts` probes the kernel op (READY.b4
   by probe): with the B0a stub it substitutes a positions-only op through the module mock so Freeze and Bake Pivot run
-  end to end; with B4 merged the real op runs (verified below). B12b's absorb hook is tested with a fake
+  end to end; with B4 merged the real op runs (verified below). `freeze-ready.test.ts` (no mock) checks the operators'
+  side of the gate: with the stub both poll-fail "not available yet", with B4 they finish. B12b's absorb hook is tested with a fake
   `app.extrude.beginAbsorb` (the B0a stub returns null, so every drag transforms components today).
 - E2E: E2E-MOD-10 (Gates "—") and E2E-MOD-23 (a, b) run; E2E-MOD-23's INPUTS part is `test.fixme('b3: …')`.
 - For the packages gated on `b12a` (B12b E2E-MOD-04/08/13/17/18/20/21/22/24/28, B13 -27): `model.symmetry.set`,
@@ -152,13 +154,25 @@ soft and symmetry on 10k vertices with its undo, 0.47 ms.
 
 `check:size` (production build, gzip -9): the merge base of this branch (B2 + B10 + B11, `6c5d11f`) measures
 **906,923 B — already over the 900,000 B gate** (B10's +13 kB and B11's +7 kB together; each branch alone was under
-it). This branch: **912,498 B (B12a +5,575 B)**: 20 operator definitions with their polls and argument checks
-(the stubs they replace cost ≈ 0.8 kB), the tools' Model link and MMB rule, the ViewportManager hooks, the readout
-facade and its store, the registration. Lazy: the transform runtime, the readout view, the menus, the bounds and
-matrices of Pivot/Freeze (`pivotImpl`, loaded by `prepare`), the soft weights (`softWeights`) — guarded by
-`editor-core/test/m6a/transform/eager-boundary.test.ts`. The gate failure is the merged base's; INT needs the owner's
-eager-allowance decision (M6A-B9-14) or the lazy candidates B9 and B10 listed (Model-only registrations after the
-first Model entry; the selection service behind the kernel load).
+it). This branch after fix round 1: **912,769 B (B12a +5,846 B; fix round 1 +271 B: the `mesh.applyTransform` probe of
+the Freeze/Bake polls and the typed-rotation composition is lazy)**. **`check:size` fails, and it cannot pass on B12a's
+side alone**: with every B12a byte out of the eager route the branch would still measure the base's 906,923 B.
+READY.b12a stays unset until INT records the eager-allowance decision (M6A-B9-14) or the merged base moves its Model-only
+code behind the first Model entry.
+
+Where B12a's eager bytes are (source-mapped build, gzip -9 scaled per chunk, `scripts/attribute-chunks.mjs` per source
+file): operator definitions with their polls and argument checks — `pivot.ts` 2.5 kB, `softSelect.ts` 1.2 kB,
+`symmetry.ts` 1.0 kB, `snap.ts` 0.55 kB (the B0a stubs they replace cost ≈ 0.8 kB); the tools' Model link, the MMB
+rule on controls and the Scale wrapper in `transformTool.ts`/`scaleTool.ts` (≈ 1 kB of their 2.2 kB); the
+ViewportManager hooks and the dashed manipulator (≈ 0.6 kB); the readout facade, its store and the loader (≈ 1.1 kB).
+Lazy: the transform runtime, the readout view, the menus, the bounds and matrices of Pivot/Freeze (`pivotImpl`, loaded
+by `prepare`), the soft weights — guarded by `editor-core/test/m6a/transform/eager-boundary.test.ts`. Moving the
+operators' polls behind `prepare` as well (definitions eager, polls run after the lazy half loads, preloaded on the
+first Model entry) would save about 3 kB at most, and changes what menus show before that chunk loads; it was not done
+because it cannot make the gate pass. The candidates that can, together with it (both B10's, listed in its notes): the
+selection service behind the kernel load (`selection/component/**` ≈ 6.2 kB eager) and the walker operators' bodies
+behind an async `prepare` (`selectMesh.ts` 3.5 kB; `hide.ts` 1.7 kB, `mode.ts` 1.5 kB are further Model-only
+definitions). INT decides (owner: the allowance, option A/B/C of the B0a notes; or the moves).
 
 ## Verification against B4 (scratch, not committed)
 
@@ -169,16 +183,29 @@ the pivot following, exact undo) and Bake Pivot (the child compensated) pass on 
 
 ## Gates (local, real Chrome; port 3251)
 
-At the notes' commit, clean tree:
+Fix round 1, at its last code commit (`028f8c2`), clean tree, the lease asserted before each long command:
 
 | Gate | Result |
 |---|---|
-| `pnpm run format:check` | clean (1,339 files) |
+| `pnpm run format:check` | clean (1,340 files) |
 | `pnpm run lint` | rc 0, no findings |
 | `pnpm run typecheck` | clean |
 | `pnpm run check:deps` | 15 packages follow the rules |
-| `pnpm run test --concurrency=2` | 15/15 tasks: anim-core 671, ui 87, mesh-core 450 + 1 skipped, doc 235, rig 202, doc-yjs 81, mesh-view 74, io 176, **editor-core 1064 + 20 skipped**, curve-editor 207 + 3 skipped, headless-tests 173, **viewport 185 + 1 skipped**, **editor 485 + 6 skipped**, web 16, tooling |
-| `pnpm run build` | OK; `check:size` **912,498 B > 900,000 B** — the merge base already measures 906,923 B (see Eager route); B12a +5,575 B |
-| B12a e2e specs | E2E-MOD-10 and E2E-MOD-23 (a), (b) pass; E2E-MOD-23's INPUTS part is `test.fixme('b3: …')` |
-| Full e2e (`EKZA_E2E_PORT=3251 pnpm run test:e2e`, project `chrome`) | **130 passed, 32 skipped** (gated `test.fixme` and stretch), 0 failed (2.2 min); the server was stopped afterwards |
-| Bench (`-c e2e/bench/playwright.config.ts m6a-transform`) | numbers above (report only) |
+| `pnpm run test --concurrency=2 --force` | 15/15 tasks: anim-core 671, ui 87, mesh-core 450 + 1 skipped, doc 235, rig 202, doc-yjs 81, mesh-view 74, io 176, **editor-core 1065 + 20 skipped**, curve-editor 207 + 3 skipped, headless-tests 173, **viewport 192 + 1 skipped**, editor 485 + 6 skipped, web 16, tooling 14 |
+| `pnpm run build` | OK |
+| `pnpm --filter web check:size` | **FAIL: 912,769 B > 900,000 B** — the merge base alone measures 906,923 B (see Eager route); B12a +5,846 B. READY.b12a stays unset |
+| B12a e2e specs (`m6a-10 m6a-23 --project=chrome`) | E2E-MOD-10 and E2E-MOD-23 (a), (b) pass; E2E-MOD-23's INPUTS part is `test.fixme('b3: …')`. E2E-MOD-10: move handler mean 0.57 ms, p95 5.90 ms; frame mean 0.17 ms |
+| Full e2e (`EKZA_E2E_PORT=3251 pnpm run test:e2e`, project `chrome`) | **130 passed, 32 skipped** (gated `test.fixme` and stretch), 0 failed (1.2 min); port 3251 free afterwards |
+
+## Fix round 1 (review of `0db7fa2`)
+
+| Finding | Change |
+|---|---|
+| major: a value typed during an object Rotate drag was ignored | `withTyped` rebuilds rotations (M6A-B12A-11); tests: object Rotate with typed rotateY = 90° gives q = 90° about Y in one "Rotate" step, and two typed Euler fields compose as Ry·Rx |
+| major: `check:size` fails | not fixable on B12a's side (the merge base is over the gate); numbers, B12a's eager bytes and the candidates in Eager route; READY.b12a unset until INT decides |
+| minor: observed holds X/V/J/D were consumed | they return false (M6A-B12A-17); the runtime test asserts false and the held state |
+| minor: Freeze enabled while `mesh.applyTransform` is the stub | Freeze and a geometry-moving Bake Pivot poll-fail "not available yet" (M6A-B12A-10); `freeze-ready.test.ts` |
+| minor: P10 through the UI path covered one translate at 1e-5 | the symmetry block checks the whole mesh within 1e-6 with every seam vertex exactly on x = 0: translate, ring rotate, axis scale, soft select and a seam vertex in the view plane under Object X (a cube cut across X) |
+| minor: Tweak undo and Esc | Esc restores the pre-tweak selection (test); undo needs the runner's per-mesh part (INT/B11, M6A-B12A-6) |
+| minor: B12a's ViewportManager block split B10's `paneView` doc | moved above it |
+| minor: E2E-MOD-23's INPUTS part did not check the other vertices | it compares the dragged mesh with the same extrude adjusted to the start value (the extruded mesh) and to the dragged value (the dragged mesh) |
