@@ -103,8 +103,11 @@ test.fixme('b3, b11, b13: E2E-MOD-25 — hidden faces stay out of marquees and o
   await expect.poll(() => mode(page)).toBe('edge');
   const edges = await call(page, 'meshEdges', body);
   const after = await call(page, 'meshPositions', body);
-  let known: { e: number; a: ScreenPoint; b: ScreenPoint } | null = null;
-  for (let e = 0; e < edges.length && known === null; e++) {
+  // The longest visible front torso edge on screen (the 1.6 m body spans about 230 px of a quad pane, its torso edges
+  // 15–25 px): a 6 px pad around one endpoint must leave the other endpoint outside.
+  const PAD = 6;
+  let known: { e: number; a: ScreenPoint; b: ScreenPoint; length: number } | null = null;
+  for (let e = 0; e < edges.length; e++) {
     const [va, vb] = edges[e]?.v ?? [0, 0];
     const pa = after[va] ?? [0, 0, 0];
     const pb = after[vb] ?? [0, 0, 0];
@@ -112,14 +115,16 @@ test.fixme('b3, b11, b13: E2E-MOD-25 — hidden faces stay out of marquees and o
     const a = await call(page, 'screenOfVertex', body, va, FRONT);
     const b = await call(page, 'screenOfVertex', body, vb, FRONT);
     const edge = await call(page, 'screenOfEdge', body, e, FRONT);
-    if (a === null || b === null || edge === null || Math.hypot(a.x - b.x, a.y - b.y) < 24) continue;
-    known = { e, a, b };
+    if (a === null || b === null || edge === null) continue;
+    const length = Math.hypot(a.x - b.x, a.y - b.y);
+    if (length > (known?.length ?? 0)) known = { e, a, b, length };
   }
   if (known === null) throw new Error('no visible torso edge');
-  const one = around([known.a], 6);
+  expect(Math.max(Math.abs(known.a.x - known.b.x), Math.abs(known.a.y - known.b.y))).toBeGreaterThan(2 * PAD);
+  const one = around([known.a], PAD);
   await marquee(page, one.from, one.to);
   expect((await model(page)).selected[body]?.edge ?? []).not.toContain(known.e);
-  const both = around([known.a, known.b], 6);
+  const both = around([known.a, known.b], PAD);
   await marquee(page, both.from, both.to);
   expect((await model(page)).selected[body]?.edge ?? []).toContain(known.e);
 

@@ -282,7 +282,10 @@ describe('Mesh Check (§5.25)', () => {
     ]);
   });
 
-  /** A plane painted from a palette whose slot 3 two live swatches share (a merge of two peers' palettes). */
+  /**
+   * A plane coloured from a palette whose slot 0 two live swatches share (a merge of two peers' palettes): its faces,
+   * unpainted, read slot 0, so B5 reports each as `duplicate-slot`.
+   */
   const duplicatePalette = (app: FakeEditorApp): MeshId => {
     // `@ekza-animator/doc/testing` reads fixtures from disk (node:fs), so the records are spelled out here.
     const swatch = (id: string, slot: number, order: string): SwatchRecord => ({
@@ -298,8 +301,8 @@ describe('Mesh Check (§5.25)', () => {
     });
     app.store.transact({ label: 'Palette' }, (tx) => {
       tx.put('palettes', { id: 'pal_P' as PaletteId, name: 'Palette', order: 'a0', deleted: null });
-      tx.put('swatches', swatch('sw_A', 3, 'a0'));
-      tx.put('swatches', swatch('sw_B', 3, 'a1'));
+      tx.put('swatches', swatch('sw_A', 0, 'a0'));
+      tx.put('swatches', swatch('sw_B', 0, 'a1'));
       tx.put('swatches', swatch('sw_C', 4, 'a2'));
     });
     return createMesh(app, 'msh_Painted', primitive('plane', {}), { palette: 'pal_P' as PaletteId });
