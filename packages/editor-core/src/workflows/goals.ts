@@ -19,6 +19,7 @@ import type { ChannelValues, ControlId } from '@ekza-animator/doc';
 import {
   type ChannelBuffer,
   controlForNode,
+  HUMAN_BONE_PARENT,
   type LimbDesc,
   type LimbId,
   nodeForControl,
@@ -105,9 +106,43 @@ export function restPoseOf(program: RigProgram): PoseBuffers {
   return pose;
 }
 
+/** The nearest present humanoid ancestor of a humanoid bone (null at the hips). */
+function presentParent(humanoid: Readonly<Record<string, number | undefined>>, name: string): string | null {
+  let parent = (HUMAN_BONE_PARENT as Readonly<Record<string, string | null>>)[name] ?? null;
+  while (parent !== null && humanoid[parent] === undefined) {
+    parent = (HUMAN_BONE_PARENT as Readonly<Record<string, string | null>>)[parent] ?? null;
+  }
+  return parent;
+}
+
 /**
- * The bone's aim axis in its own frame (from the rest pose): the direction to its first child; a leaf continues the
- * line from its parent; the humanoid head looks forward (+Z), so a head aim is a look direction.
+ * The node a humanoid bone points at: its humanoid child (`leftLowerArm` → `leftHand`, skipping twist and secondary
+ * nodes in between), the main-chain or middle-finger child when there are several, else the farthest one; −1 for
+ * non-humanoid bones and humanoid leaves.
+ */
+function humanoidChild(runtime: CharacterRuntime, rest: PoseBuffers, node: number): number {
+  const humanoid = (runtime.skeleton.humanoid ?? {}) as Readonly<Record<string, number | undefined>>;
+  const name = Object.keys(humanoid).find((key) => humanoid[key] === node);
+  if (name === undefined) return -1;
+  const children = Object.keys(humanoid).filter((key) => presentParent(humanoid, key) === name);
+  if (children.length === 0) return -1;
+  const preferred =
+    children.length === 1
+      ? children[0]
+      : (children.find((key) => !key.startsWith('left') && !key.startsWith('right')) ??
+        children.find((key) => key.includes('middle')) ??
+        [...children].sort(
+          (a, b) =>
+            Math.hypot(...sub(positionOf(rest.boneWorld, humanoid[b] as number), positionOf(rest.boneWorld, node))) -
+            Math.hypot(...sub(positionOf(rest.boneWorld, humanoid[a] as number), positionOf(rest.boneWorld, node))),
+        )[0]);
+  return preferred === undefined ? -1 : (humanoid[preferred] ?? -1);
+}
+
+/**
+ * The bone's aim axis in its own frame (from the rest pose): the direction to its humanoid child, else to its first
+ * child node; a leaf continues the line from its parent; the humanoid head looks forward (+Z), so a head aim is a
+ * look direction.
  */
 export function aimAxisLocal(runtime: CharacterRuntime, rest: PoseBuffers, node: number, bone: string): Vec3 {
   const restRot = rotationOf(rest.boneWorld, node);
@@ -115,7 +150,9 @@ export function aimAxisLocal(runtime: CharacterRuntime, rest: PoseBuffers, node:
   const humanoid = runtime.skeleton.humanoid ?? {};
   const isHead = Object.hasOwn(humanoid, SPLIT_BONE) && (humanoid as Record<string, number>)[SPLIT_BONE] === node;
   let world: Vec3;
-  const child = runtime.skeleton.nodes.find((candidate) => candidate.parent === node);
+  const human = humanoidChild(runtime, rest, node);
+  const child =
+    human >= 0 ? runtime.skeleton.nodes[human] : runtime.skeleton.nodes.find((candidate) => candidate.parent === node);
   if (isHead || bone === SPLIT_BONE) world = [0, 0, 1];
   else if (child !== undefined)
     world = normalize(sub(positionOf(rest.boneWorld, child.index), positionOf(rest.boneWorld, node)));
