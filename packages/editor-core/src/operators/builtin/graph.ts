@@ -49,7 +49,6 @@ import {
   baseCurves,
   curveOf,
   keysOfCurves,
-  selectedControls,
   selectedKeyIds,
   selectedKeys,
   targetCurves,
@@ -61,6 +60,7 @@ import {
   all,
   defineOperator,
   fail,
+  isActorRun,
   isFiniteNumber,
   isRecord,
   OK,
@@ -68,6 +68,19 @@ import {
   panelOf,
 } from './define';
 import { pollClipEdit, pollEditable } from './polls';
+import {
+  forgetScopedKeys,
+  pollScopedClipEdit,
+  pollScopeTargets,
+  scopedClipRecord,
+  scopedSelectedKeyIds,
+  scopedSelectedKeys,
+  scopedTargetControls,
+  scopedTargetCurves,
+  selectScopedKeysOnly,
+  snapOf,
+} from './scoped';
+import { AGENT_SPAN_LIMIT } from './agentCommon';
 
 const TANGENT_TYPES: readonly TangentType[] = [
   'auto',
@@ -130,9 +143,22 @@ function pollTargetCurves(app: EditorApp) {
   return targetCurves(app).some((curve) => !curve.locked) ? OK : fail('No curves to edit');
 }
 
+// MCP-SPEC §4.10: the scope-ready operators read their targets through the run (`scoped.ts`): the session for user
+// runs (unchanged), the run scope for agent runs.
+
+function pollScopedSelectedKeys(ctx: OperatorContext, keyPart: boolean) {
+  const keys = scopedSelectedKeys(ctx);
+  const any = keyPart ? keys.some((k) => k.parts.key) : keys.length > 0;
+  return any ? OK : fail('No keys are selected');
+}
+
+function pollScopedTargetCurves(ctx: OperatorContext) {
+  return scopedTargetCurves(ctx).some((curve) => !curve.locked) ? OK : fail('No curves to edit');
+}
+
 /** Keys to change per side for `graph.tangent.set` (§4.11.4 editing rules). */
 function tangentTargets(
-  app: EditorApp,
+  ctx: OperatorContext,
   tx: Tx,
   side: 'both' | 'in' | 'out' | undefined,
 ): Map<'both' | 'in' | 'out', KeyId[]> {
@@ -142,14 +168,14 @@ function tangentTargets(
     if (group === undefined) groups.set(s, [id]);
     else group.push(id);
   };
-  const selected = selectedKeys(app, tx);
+  const selected = scopedSelectedKeys(ctx, tx);
   if (selected.length > 0) {
     for (const { key, parts } of selected) {
       if (parts.key) add(side ?? 'both', key.id);
       else add(parts.in && parts.out ? 'both' : parts.in ? 'in' : 'out', key.id);
     }
   } else {
-    for (const id of keysOfCurves(tx, targetCurves(app, tx))) add(side ?? 'both', id);
+    for (const id of keysOfCurves(tx, scopedTargetCurves(ctx, tx))) add(side ?? 'both', id);
   }
   return groups;
 }
@@ -162,17 +188,22 @@ const tangentSet = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: (args) => `Tangents: ${String(args.type)}`,
-  poll({ app }, raw) {
+  poll(ctx, raw) {
     const args: unknown = raw;
     if (!isRecord(args) || !TANGENT_TYPES.includes(args['type'] as TangentType)) return fail('expects { type, side? }');
     if (args['side'] !== undefined && !SIDES.includes(args['side'] as (typeof SIDES)[number])) {
       return fail("side is 'both', 'in' or 'out'");
     }
-    return all(pollEditable(app), selectedKeys(app).length > 0 ? OK : pollTargetCurves(app));
+    return all(
+      pollEditable(ctx.app),
+      pollScopeTargets(ctx),
+      scopedSelectedKeys(ctx).length > 0 ? OK : pollScopedTargetCurves(ctx),
+    );
   },
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.tangent.set');
-    for (const [side, ids] of tangentTargets(app, t, args.side)) setTangentTypes(app, t, ids, args.type, side);
+  apply(ctx, args) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.tangent.set');
+    for (const [side, ids] of tangentTargets(ctx, t, args.side)) setTangentTypes(app, t, ids, args.type, side);
   },
 });
 
@@ -183,10 +214,10 @@ const tangentBreak = defineOperator({
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
-  poll: ({ app }) => all(pollEditable(app), pollSelectedKeys(app, false)),
-  apply({ app, tx }) {
-    const t = txOf(tx, 'graph.tangent.break');
-    for (const { key } of selectedKeys(app, t)) {
+  poll: (ctx) => all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedSelectedKeys(ctx, false)),
+  apply(ctx) {
+    const t = txOf(ctx.tx, 'graph.tangent.break');
+    for (const { key } of scopedSelectedKeys(ctx, t)) {
       if (key.broken || t.get('curves', key.curve)?.locked === true) continue;
       t.put('keys', { ...key, broken: true });
     }
@@ -211,10 +242,11 @@ const tangentUnify = defineOperator({
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
-  poll: ({ app }) => all(pollEditable(app), pollSelectedKeys(app, false)),
-  apply({ app, tx }) {
-    const t = txOf(tx, 'graph.tangent.unify');
-    for (const { key: selected } of selectedKeys(app, t)) {
+  poll: (ctx) => all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedSelectedKeys(ctx, false)),
+  apply(ctx) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.tangent.unify');
+    for (const { key: selected } of scopedSelectedKeys(ctx, t)) {
       const key = t.get('keys', selected.id);
       const curve = key === undefined ? undefined : t.get('curves', key.curve);
       if (key === undefined || curve === undefined || curve.locked || !key.broken) continue;
@@ -237,13 +269,13 @@ const setWeighted = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: (args) => (args.weighted ? 'Weighted Tangents' : 'Non-weighted Tangents'),
-  poll: ({ app }, args) =>
+  poll: (ctx, args) =>
     isRecord(args) && typeof args['weighted'] === 'boolean'
-      ? all(pollEditable(app), pollTargetCurves(app))
+      ? all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedTargetCurves(ctx))
       : fail('expects { weighted }'),
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.curve.setWeighted');
-    for (const curve of targetCurves(app, t)) {
+  apply(ctx, args) {
+    const t = txOf(ctx.tx, 'graph.curve.setWeighted');
+    for (const curve of scopedTargetCurves(ctx, t)) {
       if (!curve.locked && curve.weighted !== args.weighted) t.patch('curves', curve.id, { weighted: args.weighted });
     }
   },
@@ -257,14 +289,18 @@ const lockWeight = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: (args) => (args.locked ? 'Lock Tangent Weight' : 'Free Tangent Weight'),
-  poll: ({ app }, args) =>
+  poll: (ctx, args) =>
     isRecord(args) && typeof args['locked'] === 'boolean'
-      ? all(pollEditable(app), selectedKeys(app).length > 0 ? OK : pollTargetCurves(app))
+      ? all(
+          pollEditable(ctx.app),
+          pollScopeTargets(ctx),
+          scopedSelectedKeys(ctx).length > 0 ? OK : pollScopedTargetCurves(ctx),
+        )
       : fail('expects { locked }'),
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.tangent.lockWeight');
-    const selected = selectedKeys(app, t).map((s) => s.key.id);
-    const ids = selected.length > 0 ? selected : keysOfCurves(t, targetCurves(app, t));
+  apply(ctx, args) {
+    const t = txOf(ctx.tx, 'graph.tangent.lockWeight');
+    const selected = scopedSelectedKeys(ctx, t).map((s) => s.key.id);
+    const ids = selected.length > 0 ? selected : keysOfCurves(t, scopedTargetCurves(ctx, t));
     for (const id of ids) {
       const key = t.get('keys', id);
       if (key === undefined || key.weightLocked === args.locked || t.get('curves', key.curve)?.locked === true)
@@ -282,7 +318,7 @@ const infinitySet = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: () => 'Set Infinity',
-  poll({ app }, raw) {
+  poll(ctx, raw) {
     const args: unknown = raw;
     if (!isRecord(args)) return fail('expects { pre?, post? }');
     const { pre, post } = args;
@@ -291,11 +327,11 @@ const infinitySet = defineOperator({
       if (mode !== undefined && !INFINITY_MODES.includes(mode as InfinityMode))
         return fail(`unknown infinity ${JSON.stringify(mode)}`);
     }
-    return all(pollEditable(app), pollTargetCurves(app));
+    return all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedTargetCurves(ctx));
   },
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.infinity.set');
-    for (const curve of targetCurves(app, t)) {
+  apply(ctx, args) {
+    const t = txOf(ctx.tx, 'graph.infinity.set');
+    for (const curve of scopedTargetCurves(ctx, t)) {
       if (curve.locked) continue;
       const patch: { pre?: InfinityMode; post?: InfinityMode } = {};
       if (args.pre !== undefined && args.pre !== curve.pre) patch.pre = args.pre;
@@ -385,20 +421,21 @@ const setFields = defineOperator({
   flags: { undo: true, internal: true },
   undoLabel: (args) =>
     args.frame !== undefined ? 'Move Key' : args.value !== undefined ? 'Set Key Value' : 'Edit Tangent',
-  poll({ app }, args) {
+  poll(ctx, args) {
     if (!isRecord(args)) return fail('expects key fields');
     const given = FIELD_NAMES.filter((name) => args[name] !== undefined);
     if (given.length === 0) return fail('expects at least one field');
     if (given.some((name) => !isFiniteNumber(args[name]))) return fail('fields must be finite numbers');
     if (args['relative'] !== undefined && typeof args['relative'] !== 'boolean')
       return fail('relative must be a boolean');
-    return all(pollEditable(app), pollSelectedKeys(app, false));
+    return all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedSelectedKeys(ctx, false));
   },
-  apply({ app, tx }, args: KeyFieldsArgs) {
-    const t = txOf(tx, 'graph.keys.setFields');
+  apply(ctx, args: KeyFieldsArgs) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.keys.setFields');
     const relative = args.relative === true;
     // Frame and value act on selected keys (key parts), like moving; tangent fields on every selected key or handle.
-    const keyIds = selectedKeyIds(app, t);
+    const keyIds = scopedSelectedKeyIds(ctx, t);
     const deleted: KeyId[] = [];
     const typed = { snap: false, resolveCollisions: true } as const;
     if (args.frame !== undefined) {
@@ -431,14 +468,14 @@ const setFields = defineOperator({
         }
       }
     }
-    const tangentIds = selectedKeys(app, t).map((s) => s.key.id);
+    const tangentIds = scopedSelectedKeys(ctx, t).map((s) => s.key.id);
     for (const side of ['in', 'out'] as const) {
       const angle = side === 'in' ? args.inAngleDeg : args.outAngleDeg;
       const weight = side === 'in' ? args.inWeight : args.outWeight;
       if (angle === undefined && weight === undefined) continue;
       for (const id of tangentIds) applyTangentField(app, t, id, side, angle, weight, relative);
     }
-    forgetKeys(app, deleted);
+    forgetScopedKeys(ctx, deleted);
   },
 });
 
@@ -596,11 +633,12 @@ const keyInsert = defineOperator({
     if (curve.locked) return fail('The curve is locked');
     return pollEditable(app);
   },
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.key.insert');
-    const frame = app.session.getState().time.snapToFrames ? Math.round(args.frame) : args.frame;
-    const key = insertKeyOnCurve(app, t, args.curve, frame);
-    selectOnly(app, [key]);
+  apply(ctx, args) {
+    const t = txOf(ctx.tx, 'graph.key.insert');
+    // MCP-SPEC §4.10 actor-safe migration: agents snap to whole frames and never select the new key.
+    const frame = snapOf(ctx) ? Math.round(args.frame) : args.frame;
+    const key = insertKeyOnCurve(ctx.app, t, args.curve, frame);
+    selectScopedKeysOnly(ctx, [key]);
     return { key };
   },
 });
@@ -713,12 +751,13 @@ const eulerFilter = defineOperator({
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
-  poll: ({ app }) => pollClipEdit(app),
-  apply({ app, tx }) {
-    const t = txOf(tx, 'graph.eulerFilter');
-    const clip = activeClipRecord(app, t);
+  poll: (ctx) => all(pollScopedClipEdit(ctx), pollScopeTargets(ctx)),
+  apply(ctx) {
+    const { app } = ctx;
+    const t = txOf(ctx.tx, 'graph.eulerFilter');
+    const clip = scopedClipRecord(ctx, t);
     if (clip === undefined) return { count: 0 };
-    const selected = selectedControls(app, t);
+    const selected = scopedTargetControls(ctx, t);
     const controls =
       selected.length > 0
         ? selected
@@ -779,6 +818,23 @@ function reduceSpecProblem(value: unknown): string | null {
   return null;
 }
 
+/**
+ * MCP-SPEC §5.5: Simplify measures every frame between a curve's first and last key, so an agent run poll-fails when
+ * a target curve spans more than 100,000 frames (a synchronous loop cannot be interrupted). User runs are unchanged.
+ */
+function pollSimplifySpan(ctx: OperatorContext) {
+  if (!isActorRun(ctx)) return OK;
+  for (const curve of scopedTargetCurves(ctx)) {
+    const keys = ctx.app.store.query.keysOfCurve(curve.id);
+    const first = keys[0];
+    const last = keys.at(-1);
+    if (first !== undefined && last !== undefined && last.t - first.t > AGENT_SPAN_LIMIT) {
+      return fail(`A curve spans more than ${AGENT_SPAN_LIMIT} frames; simplify a shorter clip`);
+    }
+  }
+  return OK;
+}
+
 function toleranceFor(channel: ChannelId, spec: ReduceSpec): number {
   if (isRotation(channel)) return spec.rotationRad;
   if (channel === 'tx' || channel === 'ty' || channel === 'tz') return spec.translationM;
@@ -792,20 +848,21 @@ const simplify = defineOperator({
   category: 'graph',
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
-  poll({ app }, args) {
+  poll(ctx, args) {
     const options = optionalArgs(args);
     if (options === null) return fail('expects { tolerance? }');
     const problem = reduceSpecProblem(options['tolerance']);
-    return problem === null ? all(pollEditable(app), pollTargetCurves(app)) : fail(problem);
+    if (problem !== null) return fail(problem);
+    return all(pollEditable(ctx.app), pollScopeTargets(ctx), pollScopedTargetCurves(ctx), pollSimplifySpan(ctx));
   },
-  apply({ app, tx }, args) {
-    const t = txOf(tx, 'graph.curves.simplify');
+  apply(ctx, args) {
+    const t = txOf(ctx.tx, 'graph.curves.simplify');
     const spec = (optionalArgs(args)?.['tolerance'] as ReduceSpec | undefined) ?? DEFAULT_REDUCE;
     let before = 0;
     let after = 0;
     let maxError = 0;
     const removed: KeyId[] = [];
-    for (const curve of targetCurves(app, t)) {
+    for (const curve of scopedTargetCurves(ctx, t)) {
       const keys = t.query.keysOfCurve(curve.id);
       before += keys.length;
       if (curve.locked || keys.length < 3) {
@@ -832,7 +889,7 @@ const simplify = defineOperator({
       }
       maxError = Math.max(maxError, result.maxError);
     }
-    forgetKeys(app, removed);
+    forgetScopedKeys(ctx, removed);
     return { before, after, maxError };
   },
 });

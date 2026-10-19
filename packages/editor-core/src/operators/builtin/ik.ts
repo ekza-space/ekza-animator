@@ -2,7 +2,16 @@
 // rig, switch a limb between IK and FK with the key policies, match one side to the other at the current frame or
 // over a range, and edit a leg's foot-roll pivots. Each undoable operator is one transaction and one history step.
 import { EkzaError, eulerFilterCurves, type Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ControlId, CurveId, SolverId, Tx } from '@ekza-animator/doc';
+import type {
+  ChannelId,
+  ChannelValues,
+  CharacterId,
+  ClipId,
+  ControlId,
+  CurveId,
+  SolverId,
+  Tx,
+} from '@ekza-animator/doc';
 import {
   type FootRollParams,
   type Ik2Params,
@@ -36,7 +45,17 @@ import {
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
-import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import { AGENT_SPAN_LIMIT } from './agentCommon';
+import {
+  type AnyOperator,
+  defineOperator,
+  fail,
+  isActorRun,
+  isFiniteNumber,
+  isRecord,
+  OK,
+  optionalArgs,
+} from './define';
 import { pollClipEdit, pollEditable } from './polls';
 import { NOT_AVAILABLE_YET } from './stub';
 
@@ -59,22 +78,30 @@ function pollLimb(
   args: unknown,
   extra?: (args: Readonly<Record<string, unknown>>) => string | null,
   inContext?: (ctx: LimbContext, args: Readonly<Record<string, unknown>>) => string | null,
+  explicitClip?: boolean,
 ) {
   if (!isRecord(args) || !isLimb(args['limb'])) return fail(`expects { limb: ${LIMB_ORDER.join(' | ')}, … }`);
   const character = args['character'];
   if (character !== undefined && typeof character !== 'string') return fail('character must be a character id');
   const problem = extra?.(args) ?? null;
   if (problem !== null) return fail(problem);
-  const base = pollClipEdit(app);
+  // MCP-SPEC §4.10: an operator given its clip (`rig.ikFk.matchRange {clip}`) needs no active clip.
+  const clip = explicitClip === true ? args['clip'] : undefined;
+  const base = clip === undefined ? pollClipEdit(app) : pollEditable(app);
   if (base !== true) return base;
-  const ctx = limbContext(app, args['limb'], character as CharacterId | undefined);
+  const ctx = limbContext(
+    app,
+    args['limb'],
+    character as CharacterId | undefined,
+    clip === undefined ? undefined : { clip: clip as ClipId },
+  );
   if (typeof ctx === 'string') return fail(ctx);
   const refused = inContext?.(ctx, args) ?? null;
   return refused === null ? OK : fail(refused);
 }
 
-function requireContext(app: EditorApp, limb: LimbId, character: CharacterId | undefined): LimbContext {
-  const ctx = limbContext(app, limb, character);
+function requireContext(app: EditorApp, limb: LimbId, character: CharacterId | undefined, clip?: ClipId): LimbContext {
+  const ctx = limbContext(app, limb, character, clip === undefined ? undefined : { clip });
   if (typeof ctx === 'string') throw new EkzaError('unsupported', ctx);
   return ctx;
 }
@@ -362,20 +389,36 @@ const matchRange = defineOperator({
   scope: GLOBAL_SCOPE,
   flags: { undo: true },
   undoLabel: (args) => `Match Range ${LIMB_NAME[args.limb] ?? 'Limb'} to ${args.side === 'ik' ? 'IK' : 'FK'}`,
-  poll({ app }, args) {
-    return pollLimb(app, args, (options) => {
-      if (!SIDES.includes(options['side'] as 'ik' | 'fk')) return "side must be 'ik' or 'fk'";
-      const range = rangeArg(options['range']);
-      if (typeof range === 'string') return range;
-      if (options['step'] !== undefined && options['step'] !== 'keys' && options['step'] !== 'frames') {
-        return "step must be 'keys' or 'frames'";
-      }
-      return null;
-    });
+  poll(opCtx, args) {
+    const { app } = opCtx;
+    const actor = isActorRun(opCtx);
+    return pollLimb(
+      app,
+      args,
+      (options) => {
+        if (!SIDES.includes(options['side'] as 'ik' | 'fk')) return "side must be 'ik' or 'fk'";
+        const range = rangeArg(options['range']);
+        if (typeof range === 'string') return range;
+        if (options['step'] !== undefined && options['step'] !== 'keys' && options['step'] !== 'frames') {
+          return "step must be 'keys' or 'frames'";
+        }
+        if (options['clip'] !== undefined && typeof options['clip'] !== 'string') return 'clip must be a clip id';
+        // MCP-SPEC §4.10: an agent run names its clip and range and never reads the session.
+        if (actor && (options['clip'] === undefined || range === null)) {
+          return 'An agent Match Range needs its clip and range';
+        }
+        if (actor && range !== null && range.end - range.start > AGENT_SPAN_LIMIT) {
+          return `The range spans more than ${AGENT_SPAN_LIMIT} frames`;
+        }
+        return null;
+      },
+      undefined,
+      true,
+    );
   },
   apply({ app, tx }, args) {
     if (tx === null) throw new EkzaError('internal', 'rig.ikFk.matchRange runs in a transaction');
-    const ctx = requireContext(app, args.limb, args.character);
+    const ctx = requireContext(app, args.limb, args.character, args.clip);
     const range = rangeArg(args.range);
     const span = range === null || typeof range === 'string' ? ctx.clip.range : range;
     const step = args.step ?? (args.side === 'fk' ? 'frames' : 'keys');

@@ -4,7 +4,15 @@
 // A1's (`@ekza-animator/rig`); this file reads compiled `RigProgram.limbs`, calls the rig's limb functions through
 // one seam (`limbKitOf`) and writes channels through the edit kernel.
 import { type Disposer, EkzaError, type Frame, type Mat4 } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
+import type {
+  ChannelId,
+  ChannelValues,
+  CharacterId,
+  ClipId,
+  ClipRecord,
+  ControlId,
+  ReadView,
+} from '@ekza-animator/doc';
 import {
   applyOverrides,
   type ChannelBuffer,
@@ -178,17 +186,31 @@ export interface LimbContext {
   readonly frame: Frame;
 }
 
-/** The limb context of `limb` on `character` (default: the active one), or the reason it cannot be used. */
-export function limbContext(app: EditorApp, limb: LimbId, character?: CharacterId): LimbContext | string {
-  const id = character ?? app.session.getState().activeCharacter;
+/**
+ * The limb context of `limb` on `character` (default: the active one, or the explicit clip's), or the reason it
+ * cannot be used. MCP-SPEC §4.10 (P1): an explicit `clip` and `frame` replace the active clip and the current frame,
+ * so an agent run never reads the session; without them (user runs) the defaults are unchanged.
+ */
+export function limbContext(
+  app: EditorApp,
+  limb: LimbId,
+  character?: CharacterId,
+  explicit?: { readonly clip?: ClipId; readonly frame?: Frame },
+): LimbContext | string {
+  const given = explicit?.clip === undefined ? undefined : app.store.get('clips', explicit.clip);
+  if (explicit?.clip !== undefined && given === undefined) return 'The clip does not exist';
+  const id = character ?? given?.character ?? app.session.getState().activeCharacter;
   if (id === null || id === undefined) return 'No character is loaded';
+  if (given !== undefined && given.character !== id) return 'The clip belongs to another character';
   const runtime = app.characters.get(id);
   if (runtime === undefined) return 'The character is still loading';
   const desc = runtime.program.limbs.find((candidate) => candidate.id === limb);
   if (desc === undefined) return `The character has no ${LIMB_NAME[limb] ?? limb} IK (Rig › Add Limb IK)`;
-  const clip = activeClipOf(app.store, app.session.getState(), id);
+  const clip = given ?? activeClipOf(app.store, app.session.getState(), id);
   if (clip === undefined) return 'The character has no active clip';
-  const frame = clipFrameAt(internalsOf(app).deps, sceneFpsOf(app.store), clip, app.session.getState().time.sceneFrame);
+  const frame =
+    explicit?.frame ??
+    clipFrameAt(internalsOf(app).deps, sceneFpsOf(app.store), clip, app.session.getState().time.sceneFrame);
   return { character: id, runtime, program: runtime.program, limb: desc, clip, frame };
 }
 

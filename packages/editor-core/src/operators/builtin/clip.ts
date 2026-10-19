@@ -1,5 +1,8 @@
 // Clip operators (MVP-SPEC §4.9 `clip.*`): several named clips per character. New clips and duplicates get their
 // IDs in `prepare`, where their partition (`clip:<id>`) is opened before the transaction writes into it (§4.11.21).
+// MCP-SPEC §4.10 (P1): `clip.new {loop, activate}`, `clip.duplicate {name, activate}` (`activate: false` leaves the
+// session alone; default true, the shipped behaviour), and `clip.delete` under an agent run never writes the session
+// (the session keeper re-points a deleted active clip after the commit).
 import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type {
   CharacterId,
@@ -29,7 +32,17 @@ import { DEFAULT_CLIP_RANGE, orderAfter, orderBetween } from '../../workflows/re
 import { activateClip, clipFrameOfScene, EMPTY_SELECTION, sceneFpsIn, sceneFrameOf } from '../../workflows/session';
 import { derivedFromProblem, fpsValue, sameFps } from '../../workflows/util';
 import type { ClipSettingsArgs } from '../args';
-import { type AnyOperator, all, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import {
+  type AnyOperator,
+  all,
+  defineOperator,
+  fail,
+  isActorRun,
+  isFiniteNumber,
+  isRecord,
+  OK,
+  optionalArgs,
+} from './define';
 import { pollEditable } from './polls';
 
 const REDISTRIBUTABLE: readonly Redistributable[] = ['yes', 'no', 'unknown'];
@@ -96,6 +109,10 @@ const clipNew = defineOperator<'clip.new', { readonly id: ClipId }>({
       const problem = rangeProblem(options['range']);
       if (problem !== null) return fail(problem);
     }
+    if (options['loop'] !== undefined && typeof options['loop'] !== 'boolean') return fail('loop must be a boolean');
+    if (options['activate'] !== undefined && typeof options['activate'] !== 'boolean') {
+      return fail('activate must be a boolean');
+    }
     return pollEditable(app);
   },
   async prepare({ app }) {
@@ -122,8 +139,11 @@ const clipNew = defineOperator<'clip.new', { readonly id: ClipId }>({
       range: options.range ?? DEFAULT_CLIP_RANGE,
     });
     writeClipPlan(tx, plan, { name: plan.clip.name, order: orderAfter(siblings.map((clip) => clip.order)) });
+    // A new clip has no curves yet: keying it later creates curves with the loop clip's cycle infinities (§5.23).
+    if (options.loop === true && tx.get('clips', prepared.id)?.loop !== true)
+      tx.patch('clips', prepared.id, { loop: true });
     const written = tx.get('clips', prepared.id);
-    if (written !== undefined) activateClip(app, tx, written);
+    if (written !== undefined && options.activate !== false) activateClip(app, tx, written);
     return { clip: prepared.id };
   },
 });
@@ -175,7 +195,21 @@ const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId }>(
   scope: GLOBAL_SCOPE,
   flags: { undo: true, internal: true },
   undoLabel: () => 'Duplicate Clip',
-  poll: ({ app }, args) => all(pollClipArg(app, args), pollEditable(app)),
+  poll({ app }, args) {
+    const base = all(pollClipArg(app, args), pollEditable(app));
+    if (base !== true) return base;
+    const options = args as { readonly name?: unknown; readonly activate?: unknown };
+    if (options.name !== undefined) {
+      const problem = clipNameProblem(options.name);
+      if (problem !== null) return fail(problem);
+      const source = clipOf(app, args) as ClipRecord;
+      if (clipNameTaken(app.store, source.character, options.name as string))
+        return fail('A clip with that name exists');
+    }
+    if (options.activate !== undefined && typeof options.activate !== 'boolean')
+      return fail('activate must be a boolean');
+    return OK;
+  },
   async prepare({ app }, args) {
     await app.store.open(`clip:${args.clip}`);
     const id = newRecordId(app, 'clip');
@@ -190,7 +224,7 @@ const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId }>(
     tx.put('clips', {
       ...source,
       id: prepared.id,
-      name: copyName(source.name, siblings),
+      name: args.name ?? copyName(source.name, siblings),
       order: orderBetween(
         source.order,
         siblings.map((clip) => clip.order),
@@ -216,6 +250,10 @@ const clipDuplicate = defineOperator<'clip.duplicate', { readonly id: ClipId }>(
         tx.put('keys', { ...key, id: newRecordId(app, 'key'), clip: prepared.id, curve: to });
       }
     }
+    // MCP-SPEC §4.10: `activate: true` makes the copy the active clip (at its start, like `clip.new`); default false
+    // for duplicates keeps the shipped behaviour (the source stays active).
+    const copy = tx.get('clips', prepared.id);
+    if (args.activate === true && copy !== undefined) activateClip(app, tx, copy);
     return { clip: prepared.id };
   },
 });
@@ -240,7 +278,8 @@ const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId 
     await app.store.open(`clip:${id}`);
     return { replacement: id };
   },
-  apply({ app, tx }, args, prepared) {
+  apply(ctx, args, prepared) {
+    const { app, tx } = ctx;
     if (tx === null) throw new EkzaError('internal', 'clip.delete runs in a transaction');
     const clip = tx.get('clips', args.clip);
     if (clip === undefined) return;
@@ -260,6 +299,9 @@ const clipDelete = defineOperator<'clip.delete', { readonly replacement: ClipId 
       writeClipPlan(tx, plan, { name: plan.clip.name, order: orderAfter([clip.order]) });
       next = tx.get('clips', id);
     }
+    // MCP-SPEC §4.10: an agent run never writes the session; when it deleted the user's active clip, the session
+    // keeper re-points `activeClip` after the commit (a kernel reaction the tool reports as a warning).
+    if (isActorRun(ctx)) return;
     const state = app.session.getState();
     if (next !== undefined && state.activeClip[clip.character] === clip.id) {
       const activeClip = { ...state.activeClip, [clip.character]: next.id };

@@ -8,6 +8,7 @@
 import { EkzaError, type Frame, type TangentType } from '@ekza-animator/anim-core';
 import type {
   ChannelId,
+  ClipId,
   ControlId,
   ControlRecord,
   CurveId,
@@ -38,6 +39,13 @@ export type TweenTarget =
       readonly controls: readonly ControlId[];
       readonly channels: readonly ChannelRef[] | null;
       readonly frame: Frame;
+      /**
+       * MCP-SPEC §4.10 `key.tween {frames}`: the clip to tween in (default: each control's character's active clip);
+       * controls of another character are left out.
+       */
+      readonly clip?: ClipId;
+      /** MCP-SPEC §4.10: read the keyed values (curves only), never the session's overrides (agent runs). */
+      readonly keyed?: boolean;
     }
   | { readonly kind: 'keys'; readonly keys: readonly KeyId[] };
 
@@ -163,15 +171,23 @@ function planFrame(app: EditorApp, target: Extract<TweenTarget, { readonly kind:
     const control = view.get('controls', id);
     if (control === undefined) continue;
     const character = view.get('rigs', control.rig)?.character;
-    const clip = character === undefined ? undefined : activeClipOf(view, state, character);
+    const clip =
+      character === undefined
+        ? undefined
+        : target.clip === undefined
+          ? activeClipOf(view, state, character)
+          : view.get('clips', target.clip);
     const layer = clip === undefined ? undefined : view.query.baseLayer(clip.id);
     if (character === undefined || clip === undefined || layer === undefined) continue;
+    if (clip.character !== character) continue;
     const channels =
       target.channels === null
         ? poseChannels(control)
         : target.channels.filter((ref) => ref.control === id && editable(control, ref.channel)).map((r) => r.channel);
-    const current = app.evaluation.clipFrame(character);
-    const atCurrent = current !== null && Math.abs(current - t) < 1e-9;
+    const current = target.keyed === true ? null : app.evaluation.clipFrame(character);
+    // The session's overrides belong to the active clip's current frame only (a tween in another clip reads curves).
+    const atCurrent =
+      current !== null && Math.abs(current - t) < 1e-9 && activeClipOf(view, state, character)?.id === clip.id;
     for (const channel of new Set(channels)) {
       const curve = view.query.curveFor(clip.id, layer.id, id, channel);
       if (curve === undefined || !curveEditable(curve, control)) continue;
