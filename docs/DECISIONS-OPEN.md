@@ -685,3 +685,11 @@ each, including the rejected and partly applied ones). IDs from the research not
 | Q-GEN-8 | Rig for generated humanoids | **Provider rig when it uses VRM bone naming** (Tripo rig `v3.0-20260909`, `spec: "vrm"`, verified 2026-10-18), otherwise Quick Rig + Auto (low-poly); geodesic voxel binding in G2 (R15 Q8, R14 Q-SKIN-8) | Own rig always: weaker on polygon soup until voxel binding exists | M7 spec |
 | Q-GEN-9 | Provider tier of a generation | The user **attests paid tier** in the Generate panel (the API cannot tell); `ekza.provenance-free-tier` is an error for a T3 publish without the attestation | Warning only: free-tier outputs (owned by Tripo, CC BY at Meshy) could be published as the user's own | M7 spec |
 | Q-GEN-10 | Gateway exposure | **Default deny**: mounted only with `GEN_GATEWAY_ENABLED=1` and an auth or a loopback-only bind; refuses to start with keys and no auth; server-side daily/monthly caps from env; the app's first CSP lands in G-b before BYO keys | Optional auth: any reachable server build with a key set spends the operator's credits | M7 spec |
+
+## H. Naming: Ekza Studio and Ekza Hub (2026-10-19)
+
+| ID | Decision | Owner choice | Notes |
+|---|---|---|---|
+| NAME-1 | The editor (this repository) is renamed from **Ekza Animator** to **Ekza Studio**: it now covers modeling, rigging, animation and the AI agent bridge. | Chosen by the owner | GitHub repository renamed to `ekza-space/ekza-studio`; the code rename runs after M6a and M-AI merge (TODO "Rename"). |
+| NAME-2 | The publishing site currently called "Ekza Studio" (`studio.ekza.io`, `ekza-registry/web`) becomes **Ekza Hub**: create in Studio, publish in Hub. | Chosen by the owner | Production change: new domain `hub.ekza.io` with redirects from `studio.ekza.io`, registry UI branding, public docs and in-game links. Deploy only with the owner's OK. |
+| NAME-3 | Research 05 advised against reusing "Ekza Studio" because of the registry UI; NAME-2 resolves that conflict instead of picking another editor name. | Superseded advice | Trademark check before a public launch still applies (research 05 §5). |

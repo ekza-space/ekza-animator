@@ -5,6 +5,21 @@ Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
 Updated 2026-10-19.
 
+## Rename — Ekza Animator becomes Ekza Studio (owner decision, 2026-10-19)
+
+The editor grew from an animator into a full 3D package (modeling, rigging, animation, AI agent), so it takes the
+name **Ekza Studio**. The publishing site that is called "Ekza Studio" today (`studio.ekza.io`, in `ekza-registry`)
+becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19).
+
+- [x] GitHub repository renamed `ekza-space/ekza-animator` → `ekza-space/ekza-studio` (the old URL redirects).
+- [ ] Code rename, right after M6a and M-AI (MCP) are merged into `dev` and before M6b starts (running agents use the
+      current paths): package scope `@ekza-animator/*` → `@ekza-studio/*`, app title, `.ekzanim` metadata
+      `generator`, README/ARCHITECTURE/docs, MCP server name, local folder `ekza-animator` → `ekza-studio` with
+      `git worktree repair`. One agent, full local gate.
+- [ ] Ekza Hub (separate task, production — deploy only with the owner's OK): Hub branding in `ekza-registry/web`,
+      `hub.ekza.io` with `studio.ekza.io` redirecting (keep old links working), public docs in `doc`, links from
+      Space and OMOBA, typed-asset docs.
+
 ## Now — release M2a
 
 1. [ ] Owner reviews the M2a deviations and owner items ([DECISIONS-OPEN §F](docs/DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18)) and runs the demo script ([M2A-SPEC §10.3](docs/M2A-SPEC.md#103-owner-demo-script-10-minutes)).
