@@ -435,4 +435,5 @@ export const posePlantFeet = defineTool({
   stretch: true,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk' },
 });

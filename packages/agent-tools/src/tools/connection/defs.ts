@@ -1,5 +1,5 @@
-// Connection tools (MCP-SPEC §6.2, tools 1–3): editor_connect (P7), projects_list and project_close (P6). D0 lands the
-// final schemas with `ready: false`.
+// Connection tools (MCP-SPEC §6.2, tools 1–3): editor_connect (P7), projects_list and project_close (P6). D0 landed the
+// final schemas with `ready: false`; P2 wrote the full descriptions (§5.20.1); their owners make them ready.
 import { z } from 'zod';
 import { grantsOut, projectRef, sceneSummaryOut } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
@@ -11,7 +11,12 @@ export const editorConnect = defineTool({
   name: 'editor_connect',
   title: 'Connect to the editor',
   description:
-    "Connect to the user's open Ekza Animator editor with the pairing code the user gave you in this conversation.",
+    "Connect to the user's open Ekza Animator editor with the pairing code the user gave you in this " +
+    'conversation. Only call it when the user gave you a code here (the editor shows it under Windows › ' +
+    'Agent, e.g. K7Q-M4P); never guess or reuse one. It waits up to 50 s while the user allows the ' +
+    'connection and picks what you may do (Read, Edit, Files, View). The result names the project handle ' +
+    "(tab_…), the grants, and the editor's origin: tell the user the origin, and say so when it is not " +
+    'the editor address they expect.',
   group: 'connection',
   input: z.strictObject({
     code: z
@@ -34,13 +39,16 @@ export const editorConnect = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.summary,
+  example: { code: 'K7Q-M4P' },
 });
 
 export const projectsList = defineTool({
   name: 'projects_list',
   title: 'List open projects',
   description:
-    'List the open projects: the paired editor tab (with its origin) and headless project files, with their handles and grants.',
+    'List the open projects: the paired editor tab (with its origin) and headless project files, with ' +
+    'their handles and grants. Pass a handle as project when several are open. Headless projects show ' +
+    'unsaved changes (dirty) and how long they were idle; idle projects close after 30 minutes.',
   group: 'connection',
   input: z.strictObject({}),
   output: z.object({
@@ -67,12 +75,16 @@ export const projectsList = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.summary,
+  example: {},
 });
 
 export const projectClose = defineTool({
   name: 'project_close',
   title: 'Close a project',
-  description: 'Close a headless project, or end the pairing with the editor tab.',
+  description:
+    'Close a headless project, or end the pairing with the editor tab. A headless project with unsaved ' +
+    "changes needs discardChanges: true (save it first with project_save). Closing the tab's handle ends " +
+    'the pairing; the user can pair again.',
   group: 'connection',
   input: z.strictObject({
     project: projectRef.describe('The project to close (prj_… headless, tab_… ends the pairing).'),
@@ -89,4 +101,5 @@ export const projectClose = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.write,
+  example: { project: 'prj_0123456789ab' },
 });

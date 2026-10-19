@@ -33,4 +33,5 @@ export const recipeApply = defineTool({
   stretch: true,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'idle', recipe: 'breathe' },
 });
