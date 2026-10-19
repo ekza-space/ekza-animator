@@ -8,6 +8,7 @@ import {
   editMeshFrom,
   groupLayer,
   isRefusal,
+  type MeshData,
   morphLayer,
   topologyStats,
   writeRevision,
@@ -31,6 +32,21 @@ const MERGES = new Set([
 function closedManifold(m: Parameters<typeof topologyStats>[0]): boolean {
   const s = topologyStats(m);
   return s.boundaryLoops === 0 && s.nonManifoldEdges === 0 && s.nonManifoldVerts === 0;
+}
+
+/** Whether `loops` (Bridge's resolved arg) are two closed chains of border edges of `data`. */
+export function closedLoops(data: MeshData, loops: unknown): boolean {
+  if (!Array.isArray(loops) || loops.length !== 2) return false;
+  const m = editMeshFrom(data);
+  return loops.every((list) => {
+    if (!Array.isArray(list) || list.length < 3) return false;
+    const degree = new Map<number, number>();
+    for (const e of list as number[]) {
+      if (m.edgeFaceCount(e) !== 1) return false;
+      for (const k of [0, 1] as const) degree.set(m.edgeVert(e, k), (degree.get(m.edgeVert(e, k)) ?? 0) + 1);
+    }
+    return [...degree.values()].every((d) => d === 2) && degree.size === list.length;
+  });
 }
 
 /** Runs one step with every per-step property; returns whether it ran. */
@@ -70,6 +86,11 @@ export function checkStep(m: EditMesh, step: OpStep, manifoldInput: boolean): bo
   if (KEEPS_EULER.has(step.id)) expect(statsAfter.euler, `${step.id}: χ`).toBe(statsBefore.euler);
   if (step.id === 'mesh.fillHole') {
     expect(statsAfter.euler - statsBefore.euler, `${step.id}: χ`).toBe(result.selection.faces.count());
+  }
+  // P2 for Bridge: two closed border loops bridged by an annulus keep χ and lower the boundary-loop count by 2.
+  if (step.id === 'mesh.bridge' && step.kind === 'edge' && closedLoops(before, result.resolvedArgs['loops'])) {
+    expect(statsAfter.euler, `${step.id}: χ`).toBe(statsBefore.euler);
+    expect(statsAfter.boundaryLoops, `${step.id}: boundary loops`).toBe(statsBefore.boundaryLoops - 2);
   }
   // P3, and P4's outward volume (a closed outward mesh stays positive under outward-only steps).
   if (closedBefore && MANIFOLD.has(step.id)) expect(closedManifold(m), `${step.id}: closed manifold`).toBe(true);

@@ -7,9 +7,11 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { editMeshFrom, primitive, topologyStats } from '../../src';
-import { arbPrimitive, arbSoup } from '../../src/testing';
+import { arbPrimitive, arbSoup, signedVolume } from '../../src/testing';
 import { addTestLayers, checkStep, layerEnvelope, layerProblems } from './checks';
+import { combined, cylinderData } from './fixtures';
 import { arbOpStep } from './steps';
+import { faceToward, runOk, sel, windingProblems } from './support';
 
 /** Heavier local runs: B3_PROPERTY_SCALE=10 multiplies every run count (report-only; CI runs scale 1). */
 const SCALE = Math.max(1, Number(process.env['B3_PROPERTY_SCALE'] ?? '1') || 1);
@@ -67,6 +69,42 @@ describe('B3 properties on primitives (P1–P7)', () => {
       { numRuns: 60 * SCALE },
     );
     expect(ran).toBeGreaterThan(80);
+  });
+});
+
+describe('B3 Bridge of two holes (P2, P3, P4, P5)', () => {
+  it('two open-ended cylinders, any sides, offsets and args: closed manifold, χ kept, two loops fewer', () => {
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 3, max: 12 }),
+        fc.record({ x: fc.double({ min: -1, max: 1, noNaN: true }), y: fc.double({ min: 1.2, max: 3, noNaN: true }) }),
+        fc.record({
+          divisions: fc.integer({ min: 0, max: 4 }),
+          twist: fc.integer({ min: -3, max: 3 }),
+          offset: fc.integer({ min: -3, max: 3 }),
+          taper: fc.double({ min: 0.2, max: 3, noNaN: true }),
+        }),
+        (sides, shift, args) => {
+          const a = editMeshFrom(cylinderData({ subdivisionsAxis: sides }));
+          const b = editMeshFrom(cylinderData({ subdivisionsAxis: sides }));
+          runOk(a, 'mesh.delete', sel(a, 'face', [faceToward(a, [0, 1, 0])]));
+          runOk(b, 'mesh.delete', sel(b, 'face', [faceToward(b, [0, -1, 0])]));
+          const m = editMeshFrom(combined(a.snapshot(), b.snapshot(), [shift.x, shift.y, 0]));
+          const before = topologyStats(m);
+          expect(before.boundaryLoops).toBe(2);
+          const border: number[] = [];
+          for (let e = 0; e < m.counts.edges; e++) if (m.edgeFaceCount(e) === 1) border.push(e);
+          const result = runOk(m, 'mesh.bridge', sel(m, 'edge', border), args);
+          const after = topologyStats(m);
+          expect([after.boundaryLoops, after.nonManifoldEdges, after.nonManifoldVerts]).toEqual([0, 0, 0]);
+          expect(after.euler).toBe(before.euler);
+          expect(windingProblems(m)).toEqual([]);
+          expect(signedVolume(m)).toBeGreaterThan(0);
+          expect(result.selection.faces.count()).toBe(sides * (args.divisions + 1));
+        },
+      ),
+      { numRuns: 60 * SCALE },
+    );
   });
 });
 
