@@ -154,11 +154,16 @@ export function restoreSelectionPart(app: EditorApp, part: SelectionPart, side: 
     });
     app.session.setState({ selection });
     const { skipped } = app.components.restore(snapshot);
-    return skipped.map((mesh) => `Selection on ${mesh} was not restored: the mesh changed since`);
+    return skipped.map((mesh) => `Selection of ${meshName(app, mesh)} no longer matches its topology`);
   }
   const snapshot = side === 'before' ? part.before : part.after;
   const hiddenObjects = new Set(snapshot.objects.filter((id) => liveObject(app, id)));
   app.session.setState({ model: { ...state.model, hiddenObjects } });
   const { skipped } = app.components.restoreHidden(snapshot);
-  return skipped.map((mesh) => `Hidden components on ${mesh} were not restored: the mesh changed since`);
+  return skipped.map((mesh) => `Hidden components of ${meshName(app, mesh)} no longer match its topology`);
+}
+
+/** A mesh's name for messages (its id when the record is gone). */
+function meshName(app: Pick<EditorApp, 'store'>, id: string): string {
+  return app.store.get('meshes', id as MeshId)?.name ?? id;
 }

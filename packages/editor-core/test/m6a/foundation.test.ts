@@ -7,6 +7,7 @@ import type { PrimitiveKind as MeshPrimitiveKind } from '@ekza-animator/mesh-cor
 import { describe, expect, it } from 'vitest';
 import {
   ANIMATE_ONLY_REASON,
+  MODEL_ONLY_REASON,
   ANIMATE_WORKSPACE,
   type MarkingMenuDef,
   NOT_AVAILABLE_YET,
@@ -156,8 +157,9 @@ describe('M6a session defaults and service stubs', () => {
     expect(app.components.restore({ ...app.components.snapshot(), meshes: { msh_A: {} as never } })).toEqual({
       skipped: ['msh_A'],
     });
+    // B10 landed the service (M6A-SPEC §4.6): its writers refuse a mesh without a runtime (a caller error).
     expect(() => app.components.set('msh_A' as never, {} as never)).toThrow(
-      expect.objectContaining({ code: 'not-implemented' }),
+      expect.objectContaining({ code: 'invalid-record' }),
     );
     expect(app.blobs.ids()).toEqual([]);
   });
@@ -248,6 +250,25 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'view.display.set': ['expects { patch }'],
     'ui.commandPalette': ['The command palette needs the editor window'],
     'ui.markingMenu': ['expects { menu }'],
+    // B10 (modes, selection, hide): argument checks first, then "Model only" (this app is in Animate).
+    'select.mode': ['expects { mode: object | vertex | edge | face | toggle }'],
+    'model.hilite': ['expects { meshes, mode: add | replace | remove }'],
+    'select.components': ['expects { mesh, kind, indices, mode }'],
+    'select.mesh.loop': ['expects { mesh, kind, component, gesture: double | shift-double | mod-double }'],
+    'select.mesh.ring': ['expects { mesh?, component? }', MODEL_ONLY_REASON],
+    'select.mesh.grow': [MODEL_ONLY_REASON],
+    'select.mesh.shrink': [MODEL_ONLY_REASON],
+    'select.mesh.border': [MODEL_ONLY_REASON],
+    'select.mesh.shell': [MODEL_ONLY_REASON],
+    'select.mesh.all': [MODEL_ONLY_REASON],
+    'select.mesh.invert': [MODEL_ONLY_REASON],
+    'select.mesh.none': [MODEL_ONLY_REASON],
+    'select.mesh.convert': ['expects { to: vertex | edge | face, mode? }'],
+    'select.mesh.matching': ['expects { mesh, code }'],
+    'select.objects': ['expects { ids?, all?: meshes, mode }'],
+    'view.hide': ['expects { target: selected | unselected }'],
+    'view.showAll': [MODEL_ONLY_REASON],
+    'view.isolate': ['expects { paneId? }', MODEL_ONLY_REASON],
   };
 
   it('covers the §6 operators: 38 kernel ops, 4 set-ops and 77 editor operators', () => {

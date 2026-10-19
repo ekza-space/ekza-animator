@@ -152,5 +152,26 @@ export {
   workspaceProblem,
   workspaceTabs,
 } from './workspaces';
+// M6a (B10): component modes, the selection service's internals, the pointer probe, hide/isolate and selection steps.
+export {
+  isEditableMesh,
+  MAKE_EDITABLE_FIRST,
+  MODEL_ONLY_REASON,
+  SELECT_A_MESH_FIRST,
+  targetMode,
+} from './operators/builtin/mode';
+export { objectsDrawnIn } from './operators/builtin/hide';
+export { COMPONENT_MODE_FIRST, EDGE_MODE_FIRST, NOTHING_SELECTED } from './operators/builtin/selectMesh';
+export {
+  type ClickRecord,
+  type ComponentServiceInternals,
+  componentInternals,
+  facesTouching,
+  type ModelPointerProbe,
+  modelPointer,
+  provideModelPointer,
+} from './selection/component';
+export { recordHide, sameSelection, selectionGesture, undoSelectionOn } from './selection/component/steps';
+export { repairModel } from './session/repair';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
 export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';
