@@ -1,8 +1,11 @@
 // M6A-SPEC §5.13 MeshSetOps (B4): Combine (pivots, material union, the mirrored-duplicate golden with reversed winding,
 // Merge by Distance through B3 when READY.b3), Separate (shells), Extract and Duplicate Faces (separate or in place,
 // offset), refusals (palettes, skeletons, asset-backed inputs, one shell, all faces), and the runner contract: the op
-// runs inside transactions the caller aborts, so inputs are unchanged and every output is a valid stored mesh.
+// runs inside transactions the caller aborts, so inputs are unchanged and every output is a valid stored mesh — on
+// fixed cases and as a property over random primitives and soups, face sets, offsets and placements (det < 0 included):
+// faces are conserved and the closed volumes of Combine's inputs add up.
 import type { ParamValues, ReadonlyXf } from '@ekza-animator/anim-core';
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_LAYERS,
@@ -23,7 +26,8 @@ import {
   validateMesh,
 } from '../../../src';
 import { removeFaces } from '../../../src/subset/setops';
-import { diffStored, signedVolume, vef } from '../../../src/testing';
+import { scopeFaces } from '../../../src/subset/support';
+import { arbPrimitive, arbSoup, buildMeshData, diffStored, signedVolume, vef } from '../../../src/testing';
 import { READY } from '../../ready';
 import { context, facesWhere, position } from '../harness';
 
@@ -91,9 +95,35 @@ function code(result: unknown): string {
 const cube = () => editMeshFrom(primitive('cube', {}));
 const at = (x: number, y = 0, z = 0): ReadonlyXf => ({ t: [x, y, z], q: [0, 0, 0, 1], s: [1, 1, 1] });
 
-describe('mesh.combine', () => {
-  let golden: MeshData | null = null;
+/** The golden's input: a half cube spanning x ∈ [0, 1] (the −X face removed: an open box facing −X). */
+function halfCube(): EditMesh {
+  const m = editMeshFrom(primitive('cube', {}));
+  m.begin('half');
+  removeFaces(
+    m,
+    facesWhere(m, (c) => c[0] === -0.5),
+  );
+  for (let v = 0; v < m.counts.points; v++) {
+    const p = position(m, v);
+    m.setPosition(v, p[0] + 0.5, p[1], p[2]);
+  }
+  m.end();
+  return m;
+}
 
+/** The golden: a half cube Combined with its X −1 duplicate (the mirrored placement reverses its winding). */
+function combinedHalves(): MeshData {
+  return (
+    ok(
+      runSet(set('mesh.combine'), [
+        { key: 'a', mesh: halfCube() },
+        { key: 'b', mesh: halfCube(), placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [-1, 1, 1] } },
+      ]),
+    ).outputs[0] as { data: MeshData }
+  ).data;
+}
+
+describe('mesh.combine', () => {
   it('two cubes → one 16/24/12 mesh at the centre of their bounds; the second input is removed', () => {
     const result = ok(
       runSet(set('mesh.combine'), [
@@ -149,45 +179,22 @@ describe('mesh.combine', () => {
   });
 
   it('golden: a half cube and its X −1 duplicate combine with reversed winding (16/24/10, outward)', () => {
-    const half = () => {
-      const m = editMeshFrom(primitive('cube', {}));
-      m.begin('half');
-      // Keep the +X face and slide the cube so it spans x ∈ [0, 1]: an open box whose open side faces −X.
-      removeFaces(
-        m,
-        facesWhere(m, (c) => c[0] === -0.5),
-      );
-      for (let v = 0; v < m.counts.points; v++) {
-        const p = position(m, v);
-        m.setPosition(v, p[0] + 0.5, p[1], p[2]);
-      }
-      m.end();
-      return m;
-    };
-    const out = ok(
-      runSet(set('mesh.combine'), [
-        { key: 'a', mesh: half() },
-        { key: 'b', mesh: half(), placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [-1, 1, 1] } },
-      ]),
-    ).outputs[0] as { data: MeshData };
-    expect(vef(out.data)).toBe('16/24/10');
+    const golden = combinedHalves();
+    expect(vef(golden)).toBe('16/24/10');
     // Both halves face outward: the unwelded surface encloses the 2 × 1 × 1 box positively.
-    expect(signedVolume(out.data)).toBeCloseTo(2, 6);
-    golden = out.data;
+    expect(signedVolume(golden)).toBeCloseTo(2, 6);
   });
 
   it.skipIf(!READY.b3)('golden, then Merge by Distance (B3): 12/20/10, closed, consistent winding', () => {
-    {
-      const m = editMeshFrom(golden as MeshData);
-      const merge = MESH_OPS['mesh.mergeByDistance'] as NonNullable<(typeof MESH_OPS)[string]>;
-      m.begin('merge');
-      const merged = merge.run(m, null, { distance: 0.001 }, context());
-      m.end();
-      expect(isRefusal(merged)).toBe(false);
-      expect(vef(m)).toBe('12/20/10');
-      expect(topologyStats(m).boundaryLoops).toBe(0);
-      expect(signedVolume(m)).toBeCloseTo(2, 6);
-    }
+    const m = editMeshFrom(combinedHalves());
+    const merge = MESH_OPS['mesh.mergeByDistance'] as NonNullable<(typeof MESH_OPS)[string]>;
+    m.begin('merge');
+    const merged = merge.run(m, null, { distance: 0.001 }, context());
+    m.end();
+    expect(isRefusal(merged)).toBe(false);
+    expect(vef(m)).toBe('12/20/10');
+    expect(topologyStats(m).boundaryLoops).toBe(0);
+    expect(signedVolume(m)).toBeCloseTo(2, 6);
   });
 
   it('unites morph layers in the lead’s order (missing deltas zero) and refuses mismatches', () => {
@@ -323,6 +330,18 @@ describe('mesh.extract / mesh.duplicateFaces', () => {
         ]),
       ),
     ).toBe('extract.asset-backed');
+    // A second input without faces (nothing to give up) does not count as "all faces".
+    const empty = editMeshFrom(buildMeshData({ positions: [0, 0, 0], faces: [] }));
+    const both = ok(
+      runSet(set('mesh.extract'), [
+        { key: 'm', mesh: cube(), selection: selectionOf('face', [0], m.counts) },
+        { key: 'e', mesh: empty, selection: selectionOf('face', [], empty.counts) },
+      ]),
+    );
+    expect(both.outputs.map((o) => [o.key, vef(o.data)])).toEqual([
+      ['m', '8/12/5'],
+      ['new:0', '4/4/1'],
+    ]);
   });
 
   it('duplicate faces: a new record (input unchanged) or a new shell in place', () => {
@@ -356,5 +375,143 @@ describe('mesh.extract / mesh.duplicateFaces', () => {
         }),
       ),
     ).toBe('duplicate.asset-backed');
+  });
+});
+
+describe('MeshSetOps property (random inputs)', () => {
+  const tenths = (min: number, max: number) => fc.integer({ min, max }).map((x) => x / 10);
+  const arbScale = fc.tuple(tenths(5, 20), fc.boolean()).map(([x, negative]) => (negative ? -x : x));
+  const arbPlacement: fc.Arbitrary<ReadonlyXf> = fc.record({
+    t: fc.tuple(tenths(-30, 30), tenths(-30, 30), tenths(-30, 30)),
+    q: fc
+      .tuple(tenths(-10, 10), tenths(-10, 10), tenths(-10, 10), tenths(-10, 10))
+      .filter((q) => Math.hypot(...q) > 0.2)
+      .map((q) => {
+        const n = Math.hypot(...q);
+        return [q[0] / n, q[1] / n, q[2] / n, q[3] / n] as [number, number, number, number];
+      }),
+    s: fc.tuple(arbScale, arbScale, arbScale),
+  });
+  const arbData = fc.oneof(
+    arbPrimitive().map(({ kind, params }) => primitive(kind, params)),
+    arbSoup(),
+  );
+  const arbInput = fc.record({
+    data: arbData,
+    kind: fc.constantFrom('vertex', 'edge', 'face', 'none'),
+    picks: fc.array(fc.nat(), { maxLength: 8 }),
+    placement: arbPlacement,
+  });
+  const arbCase = fc.record({
+    op: fc.constantFrom('mesh.combine', 'mesh.separate', 'mesh.extract', 'mesh.duplicateFaces'),
+    inputs: fc.array(arbInput, { minLength: 1, maxLength: 3 }),
+    separate: fc.boolean(),
+    offset: fc.constantFrom(0, 0, 0.05, 0.3, 2),
+    pivot: fc.constantFrom('center', 'first', 'origin'),
+  });
+
+  const det = (xf: ReadonlyXf) => xf.s[0] * xf.s[1] * xf.s[2];
+  const closed = (m: EditMesh) => {
+    const stats = topologyStats(m);
+    return (
+      m.counts.faces > 0 && stats.boundaryLoops === 0 && stats.nonManifoldEdges === 0 && stats.nonManifoldVerts === 0
+    );
+  };
+
+  type Case = typeof arbCase extends fc.Arbitrary<infer T> ? T : never;
+
+  /** Runs one case through `runSet` (inputs bit-identical after the abort, poll = run, valid outputs) and checks face
+   *  conservation and, for a Combine of closed meshes, the volume. */
+  function checkCase(c: Case): 'refused' | 'ran' | 'volume' {
+    const list: Input[] = c.inputs.map((input, i) => {
+      const mesh = editMeshFrom(input.data);
+      const counts = mesh.counts;
+      const n = input.kind === 'vertex' ? counts.points : input.kind === 'edge' ? counts.edges : counts.faces;
+      const selection =
+        input.kind === 'none' || n === 0
+          ? null
+          : selectionOf(
+              input.kind,
+              input.picks.map((p) => p % n),
+              counts,
+            );
+      return { key: `k${i}`, mesh, selection, placement: input.placement };
+    });
+    const faces = list.map((input) => input.mesh.counts.faces);
+    const picked = list.map((input) =>
+      input.selection === null || input.selection === undefined
+        ? 0
+        : scopeFaces(input.mesh, input.selection, null).length,
+    );
+    const volume = list.map((input) => (closed(input.mesh) ? signedVolume(input.mesh) : null));
+    const args: ParamValues = c.op === 'mesh.combine' ? { pivot: c.pivot } : { separate: c.separate, offset: c.offset };
+    // runSet: inputs bit-identical after the abort, poll = run, every output valid.
+    const result = runSet(set(c.op), list, args);
+    if (isRefusal(result)) return 'refused';
+    const { outputs } = result as MeshSetResult;
+    const total = outputs.reduce((sum, o) => sum + o.data.counts.faces, 0);
+    const sum = (pick: (i: number) => number) => list.reduce((acc, _, i) => acc + pick(i), 0);
+    const touched = (i: number) => (picked[i] as number) > 0;
+    const expected =
+      c.op === 'mesh.combine'
+        ? sum((i) => faces[i] as number)
+        : c.op === 'mesh.separate'
+          ? sum((i) => (outputs.some((o) => o.from[0] === `k${i}`) ? (faces[i] as number) : 0))
+          : c.op === 'mesh.extract'
+            ? sum((i) => (touched(i) ? (faces[i] as number) : 0))
+            : c.separate
+              ? sum((i) => picked[i] as number)
+              : sum((i) => (touched(i) ? (faces[i] as number) + (picked[i] as number) : 0));
+    expect([c.op, total]).toEqual([c.op, expected]);
+    if (c.op === 'mesh.combine' && volume.every((v) => v !== null)) {
+      const out = outputs[0] as (typeof outputs)[number];
+      const want =
+        sum((i) => Math.abs(det(list[i]?.placement ?? IDENTITY)) * (volume[i] as number)) /
+        Math.abs(det(out.placement));
+      const got = signedVolume(out.data);
+      expect(Math.abs(got - want)).toBeLessThan(1e-4 * Math.max(1, Math.abs(want)));
+    }
+    return c.op === 'mesh.combine' && volume.every((v) => v !== null) ? 'volume' : 'ran';
+  }
+
+  it('valid outputs, inputs unchanged, poll = run, faces conserved, Combine adds closed volumes', () => {
+    const seen = { refused: 0, ran: 0, volume: 0 };
+    fc.assert(
+      fc.property(arbCase, (c) => {
+        seen[checkCase(c)]++;
+      }),
+      { numRuns: 400, seed: 41 },
+    );
+    expect(seen.ran + seen.volume).toBeGreaterThan(150);
+  });
+
+  it('Combine of closed primitives under random placements (det < 0 included) adds their volumes', () => {
+    const arbClosed = fc
+      .constantFrom('cube', 'sphere', 'cylinder', 'cone', 'torus')
+      .chain((kind) => arbPrimitive().filter((p) => p.kind === kind))
+      .map(({ kind, params }) => primitive(kind, params));
+    const arbCombine = fc.record({
+      op: fc.constant('mesh.combine' as const),
+      inputs: fc.array(
+        fc.record({
+          data: arbClosed,
+          kind: fc.constant('none' as const),
+          picks: fc.constant([]),
+          placement: arbPlacement,
+        }),
+        { minLength: 2, maxLength: 3 },
+      ),
+      separate: fc.constant(true),
+      offset: fc.constant(0),
+      pivot: fc.constantFrom('center', 'first', 'origin'),
+    });
+    let volumes = 0;
+    fc.assert(
+      fc.property(arbCombine, (c) => {
+        if (checkCase(c as Case) === 'volume') volumes++;
+      }),
+      { numRuns: 150, seed: 42 },
+    );
+    expect(volumes).toBe(150);
   });
 });
