@@ -2,7 +2,7 @@
 // store. B0a: `meshes`, `meshInfo`, `meshNormals` (the reference kernel) and `blobs` are kernel-level and work; the
 // others throw until B7 lands them.
 import type { MeshId, MeshRecord } from '@ekza-animator/doc';
-import { meshKernel } from '@ekza-animator/editor-core';
+import { assetMeshRows, meshKernel } from '@ekza-animator/editor-core';
 import type { MeshData } from '@ekza-animator/mesh-core';
 import type { EkzaAnimatorTestApi } from '../types';
 import { type M6aTestApiContext, notImplemented } from './support';
@@ -66,7 +66,22 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
   return {
     meshes() {
       ctx.sync();
-      return app.store.list('meshes').map((record) => {
+      // B8 (§5.21): one virtual 'asset' row per loaded character glTF mesh without a record, after the records.
+      const virtual = assetMeshRows(app).map((row) => ({
+        id: row.id,
+        name: row.name,
+        owner: `char:${row.character}`,
+        parent: null,
+        badge: 'asset' as const,
+        manifest: null,
+        rev: 0,
+        faceted: false,
+        generator: null,
+        palette: null,
+        counts: null,
+        runtime: 'none',
+      }));
+      const records = app.store.list('meshes').map((record) => {
         const runtime = app.meshes.get(record.id);
         const data = runtime?.data() ?? null;
         return {
@@ -84,6 +99,7 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
           runtime: runtime?.state ?? 'none',
         };
       });
+      return [...records, ...virtual];
     },
     meshNormals(mesh) {
       ctx.sync();
