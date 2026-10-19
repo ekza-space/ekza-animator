@@ -3,7 +3,16 @@
 import type { EditorApp } from '../types';
 import type { KernelMeshRuntimes } from './shared';
 
-export { type MeshImpl, type MeshKernel, loadMeshKernel, meshImpl, meshKernel, whenMeshKernelLoaded } from './kernel';
+export {
+  type ComponentService,
+  componentServiceModule,
+  type MeshImpl,
+  type MeshKernel,
+  loadMeshKernel,
+  meshImpl,
+  meshKernel,
+  whenMeshKernelLoaded,
+} from './kernel';
 export { createMeshRuntimeRegistry } from './facade';
 export {
   BUDGET_TOAST,
