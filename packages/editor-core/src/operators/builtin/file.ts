@@ -188,7 +188,8 @@ const fileImportAnimation = defineOperator<'file.importAnimation', ClipImportPla
 
 /**
  * A sample's bytes (MCP-SPEC §4.1): `services.readSample` when a host provides it (Node), else `fetch` from
- * `samplesPath`. A rejected read is `asset-missing`.
+ * `samplesPath`. A rejected read is `asset-missing` naming only the sample's file: the host's error text (a Node fs
+ * error carries the absolute path) never reaches the message (§5.4); its code (`ENOENT`) goes to `details.cause`.
  */
 async function sampleBytes(app: EditorApp, sample: SampleDef): Promise<Uint8Array> {
   const read = app.services.readSample;
@@ -197,8 +198,12 @@ async function sampleBytes(app: EditorApp, sample: SampleDef): Promise<Uint8Arra
     return await read(sample);
   } catch (error) {
     if (error instanceof EkzaError && error.code === 'asset-missing') throw error;
-    const message = error instanceof Error ? error.message : String(error);
-    throw new EkzaError('asset-missing', `The sample ${sample.file} could not be read: ${message}`);
+    const code = isRecord(error) && typeof error['code'] === 'string' ? error['code'] : null;
+    throw new EkzaError(
+      'asset-missing',
+      `The sample ${sample.file} could not be read`,
+      code !== null && /^[A-Z][A-Z0-9_]{0,31}$/.test(code) ? { cause: code } : undefined,
+    );
   }
 }
 

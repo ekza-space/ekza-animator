@@ -1,7 +1,7 @@
 // MCP-SPEC §4.1 (D0): the headless editor (`createHeadlessEditorApp`) imports a bundled sample through
 // `services.readSample` and exports a VRMA in Node; `file.loadSample` without samples poll-fails, a failing read is
-// `asset-missing`; `activate: false` imports leave the active character and clip alone; `busy()` never writes the
-// session during an agent run's `prepare`.
+// `asset-missing` naming only the sample (never the host's path); `activate: false` imports leave the active
+// character and clip alone; `busy()` never writes the session during an agent run's `prepare`.
 import { type CharacterId, type ClipId, type ControlId, seededIdSource } from '@ekza-animator/doc';
 import { readFixture } from '@ekza-animator/doc/testing';
 import {
@@ -20,7 +20,9 @@ const AGENT: RunActor = { kind: 'agent', id: 'agt_HeadlessTest01', name: 'Headle
 
 const readSample = (sample: SampleDef): Promise<Uint8Array> => {
   if (sample.file !== 'polybot.vrm' && sample.file !== 'seed-san.vrm') {
-    return Promise.reject(new Error(`no file ${sample.file}`));
+    // As Node's fs rejects: the message names the absolute path, which must not reach the agent (§5.4).
+    const error = new Error(`ENOENT: no such file or directory, open '/Users/someone/secret/${sample.file}'`);
+    return Promise.reject(Object.assign(error, { code: 'ENOENT' }));
   }
   return Promise.resolve(readFixture(sample.file));
 };
@@ -98,6 +100,9 @@ describe.skipIf(!SIBLINGS_READY)(`headless editor (MCP-SPEC §4.1) ${SIBLINGS_RE
     const result = await failing.runUntyped('file.loadSample', { sample: 'quaternius-ual' });
     expect(result.status).toBe('failed');
     expect(result.status === 'failed' ? result.error.code : null).toBe('asset-missing');
+    expect(result.status === 'failed' ? result.error.message : null).toBe(
+      'The sample quaternius-ual.glb could not be read',
+    );
     none.dispose();
     failing.dispose();
   });
