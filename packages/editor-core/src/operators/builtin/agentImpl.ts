@@ -22,7 +22,15 @@ import {
 } from '@ekza-animator/doc';
 import { type LimbDesc, type LimbId, writeControlChannels } from '@ekza-animator/rig';
 import { internalsOf, newRecordId } from '../../app/internals';
-import { isLocked, newKeyTangents, ROTATE_CHANNELS } from '../../edit/channelMeta';
+import {
+  attrChannelsOf,
+  isKeyable,
+  isLocked,
+  newKeyTangents,
+  ROTATE_CHANNELS,
+  SCALE_CHANNELS,
+  TRANSLATE_CHANNELS,
+} from '../../edit/channelMeta';
 import { compileInTx, SAME_FRAME_EPS } from '../../edit/context';
 import { ensureCurve, moveKeys, scaleKeys, writeKeyAt } from '../../edit/keys';
 import type { ApplyContext, EditorApp, KeyEditOptions, OperatorArgs, OperatorContext, PollResult } from '../../types';
@@ -32,6 +40,7 @@ import {
   adjustedKey,
   adjustKindOf,
   adjustWeight,
+  frameMatcher,
   offsetFor,
   pivotValueOf,
 } from '../../workflows/adjust';
@@ -46,7 +55,15 @@ import {
   restPoseOf,
 } from '../../workflows/goals';
 import { boneNode, drivingControl, IK_FROM, ikFkIn, REACHED_M } from '../../workflows/goalTargets';
-import { channelsAt, limbContext, matchAt, matchEdits } from '../../workflows/ik';
+import {
+  channelsAt,
+  type LimbContext,
+  limbContext,
+  matchAt,
+  matchEdits,
+  matchRangeFrames,
+  sideControls,
+} from '../../workflows/ik';
 import {
   DEFAULT_BLEND_FRAMES,
   type LoopCurvePlan,
@@ -92,6 +109,7 @@ import {
   transferValues,
 } from './agentPoseChecks';
 import { fail, isActorRun, isFiniteNumber, OK } from './define';
+import { rangeArg } from './ik';
 import { revertible } from './revert';
 import { NOT_AVAILABLE_YET } from './stub';
 
@@ -122,7 +140,7 @@ function adjustPlan(
   const range = args.range ?? clip.range;
   const where: AdjustWhere =
     args.frames !== undefined
-      ? { kind: 'frames', frames: args.frames }
+      ? { kind: 'frames', at: frameMatcher(args.frames) }
       : { kind: 'range', start: range.start, end: range.end, falloffFrames: args.falloffFrames ?? 0 };
   const factor = args.factor ?? 1;
   const writes: KeyRecord[] = [];
@@ -908,6 +926,35 @@ function pollMakeLoop(ctx: OperatorContext, raw: unknown): PollResult {
       ? `Blending would write more than ${AGENT_WRITE_LIMIT} keys; pass fewer blendFrames`
       : `The loop would write more than ${AGENT_WRITE_LIMIT} keys`,
   );
+}
+
+// ---------- rig.ikFk.matchRange (agent runs) ----------
+
+/** Why an agent's Match Range would write more than 50,000 keys (frames × the side's keyable channels), or null. */
+export function matchRangeWriteProblem(
+  app: EditorApp,
+  ctx: LimbContext,
+  options: Readonly<Record<string, unknown>>,
+): string | null {
+  const range = rangeArg(options['range']);
+  if (range === null || typeof range === 'string') return null;
+  const side = options['side'] === 'fk' ? 'fk' : 'ik';
+  const step = options['step'] ?? (side === 'fk' ? 'frames' : 'keys');
+  const frames =
+    step === 'frames'
+      ? Math.max(0, Math.floor(range.end + 1e-9) - Math.ceil(range.start - 1e-9) + 1)
+      : matchRangeFrames(app, ctx, range, 'keys').length;
+  let channels = 0;
+  for (const id of sideControls(ctx.limb, side)) {
+    const control = app.store.get('controls', id);
+    if (control === undefined) continue;
+    for (const channel of [...TRANSLATE_CHANNELS, ...ROTATE_CHANNELS, ...SCALE_CHANNELS, ...attrChannelsOf(control)]) {
+      if (isKeyable(control, channel) && !isLocked(control, channel)) channels++;
+    }
+  }
+  return frames * channels > AGENT_WRITE_LIMIT
+    ? `The match would write more than ${AGENT_WRITE_LIMIT} keys (${frames} frames × ${channels} channels); pass a shorter range`
+    : null;
 }
 
 // ---------- history ----------

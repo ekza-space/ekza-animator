@@ -16,7 +16,7 @@ import type {
 import { isKeyable, isLocked } from '../../edit/channelMeta';
 import { SAME_FRAME_EPS } from '../../edit/context';
 import type { EditorApp, OperatorArgs, OperatorContext, PollResult } from '../../types';
-import type { AdjustOffsets } from '../../workflows/adjust';
+import { type AdjustOffsets, frameMatcher } from '../../workflows/adjust';
 import type { ChannelTarget, KeyChannels, KeyWriteItem } from '../args';
 import {
   baseCurveIn,
@@ -213,24 +213,6 @@ export function pollKeyWrite({ app }: OperatorContext, raw: unknown): PollResult
 }
 
 // ---------- key.delete ----------
-
-/**
- * Whether a key time is one of `frames` (exact, ±1e-6): sorted once, then a binary search per key, so matching many
- * keys against many frames stays O((keys + frames) · log frames).
- */
-export function frameMatcher(frames: readonly Frame[]): (t: Frame) => boolean {
-  const sorted = [...frames].sort((a, b) => a - b);
-  return (t) => {
-    let lo = 0;
-    let hi = sorted.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      if ((sorted[mid] as number) < t - SAME_FRAME_EPS) lo = mid + 1;
-      else hi = mid;
-    }
-    return lo < sorted.length && Math.abs((sorted[lo] as number) - t) < SAME_FRAME_EPS;
-  };
-}
 
 /** The keys `key.delete` deletes, per curve: at `frames` or inside `range` (§4.10: nothing else). */
 export function deletePlan(

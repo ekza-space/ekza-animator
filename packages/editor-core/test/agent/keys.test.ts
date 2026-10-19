@@ -318,6 +318,25 @@ describe('key.adjust', () => {
     });
   });
 
+  it('matches keys against many frames by search: 50,000 keys at 50,000 frames well inside the compute bound', async () => {
+    const app = opsApp();
+    const arm = waveCurve(app, ARM, 'rz') as CurveId;
+    const template = app.store.query.keysOfCurve(arm)[0];
+    if (template === undefined) throw new Error('no key');
+    app.store.transact({ label: 'setup' }, (tx) => {
+      for (let i = 1; i <= 49_990; i++) {
+        tx.put('keys', { ...template, id: `k_Bulk${i}` as typeof template.id, t: i / 20 + 0.001 });
+      }
+    });
+    const frames = Array.from({ length: 49_990 }, (_, i) => (i + 1) / 20 + 0.001);
+    const started = performance.now();
+    expect(await agentOk(app, 'key.adjust', { clip: WAVE.clip, targets, frames, factor: 1.1 })).toMatchObject({
+      keys: 49_990,
+    });
+    // A scan of the frame list per key took ≈ 7 s here; the sorted search ≈ 0.2 s.
+    expect(performance.now() - started).toBeLessThan(3000);
+  });
+
   it('polls factor bounds, offsets, pivots and that something changes', async () => {
     const app = opsApp();
     const base = { clip: WAVE.clip, targets };

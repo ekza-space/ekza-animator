@@ -25,14 +25,32 @@ export function adjustKindOf(control: ControlRecord | null, channel: ChannelId):
   return channelUnit(control, channel) === 'angle' ? 'rotate' : 'attr';
 }
 
-/** Where the change applies: a range with a falloff outside it, or exact frames. */
+/**
+ * Whether a key time is one of `frames` (exact, ±1e-6): sorted once, then a binary search per key, so matching many
+ * keys against many frames stays O((keys + frames) · log frames).
+ */
+export function frameMatcher(frames: readonly Frame[]): (t: Frame) => boolean {
+  const sorted = [...frames].sort((a, b) => a - b);
+  return (t) => {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if ((sorted[mid] as number) < t - SAME_FRAME_EPS) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo < sorted.length && Math.abs((sorted[lo] as number) - t) < SAME_FRAME_EPS;
+  };
+}
+
+/** Where the change applies: a range with a falloff outside it, or exact frames (`frameMatcher`). */
 export type AdjustWhere =
   | { readonly kind: 'range'; readonly start: Frame; readonly end: Frame; readonly falloffFrames: number }
-  | { readonly kind: 'frames'; readonly frames: readonly Frame[] };
+  | { readonly kind: 'frames'; readonly at: (t: Frame) => boolean };
 
 /** The weight of the change at a key time: 1 inside the range (or at a frame), fading to 0 over the falloff. */
 export function adjustWeight(t: Frame, where: AdjustWhere): number {
-  if (where.kind === 'frames') return where.frames.some((frame) => Math.abs(frame - t) < SAME_FRAME_EPS) ? 1 : 0;
+  if (where.kind === 'frames') return where.at(t) ? 1 : 0;
   if (t >= where.start - SAME_FRAME_EPS && t <= where.end + SAME_FRAME_EPS) return 1;
   const falloff = where.falloffFrames;
   if (!(falloff > 0)) return 0;

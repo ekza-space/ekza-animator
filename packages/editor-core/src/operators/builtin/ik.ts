@@ -19,15 +19,7 @@ import {
   type LimbId,
   readRigDefinition,
 } from '@ekza-animator/rig';
-import {
-  attrChannelsOf,
-  isKeyable,
-  isLocked,
-  newKeyTangents,
-  ROTATE_CHANNELS,
-  SCALE_CHANNELS,
-  TRANSLATE_CHANNELS,
-} from '../../edit/channelMeta';
+import { newKeyTangents } from '../../edit/channelMeta';
 import { applyChannelEdits } from '../../edit/channels';
 import { animCurve } from '../../edit/context';
 import { ensureCurve, insertKeyOnCurve, writeKeyAt } from '../../edit/keys';
@@ -49,12 +41,11 @@ import {
   matchWarnings,
   type MatchResult,
   resolveSwitchKey,
-  sideControls,
   switchAlreadyReason,
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
-import { AGENT_SPAN_LIMIT, AGENT_WRITE_LIMIT, type AgentImpl, loadAgentImpl } from './agentLoad';
+import { AGENT_SPAN_LIMIT, type AgentImpl, loadAgentImpl, loadedAgentImpl } from './agentLoad';
 import {
   type AnyOperator,
   defineOperator,
@@ -381,40 +372,13 @@ const matchLimb = defineOperator({
   },
 });
 
-function rangeArg(value: unknown): { start: Frame; end: Frame } | null | string {
+export function rangeArg(value: unknown): { start: Frame; end: Frame } | null | string {
   if (value === undefined) return null;
   if (!isRecord(value) || !isFiniteNumber(value['start']) || !isFiniteNumber(value['end'])) {
     return 'range must be { start, end }';
   }
   if (value['end'] < value['start']) return 'range ends before it starts';
   return { start: value['start'], end: value['end'] };
-}
-
-/** Why an agent's Match Range would write more than 50,000 keys (frames × the side's keyable channels), or null. */
-function matchRangeWriteProblem(
-  app: EditorApp,
-  ctx: LimbContext,
-  options: Readonly<Record<string, unknown>>,
-): string | null {
-  const range = rangeArg(options['range']);
-  if (range === null || typeof range === 'string') return null;
-  const side = options['side'] === 'fk' ? 'fk' : 'ik';
-  const step = options['step'] ?? (side === 'fk' ? 'frames' : 'keys');
-  const frames =
-    step === 'frames'
-      ? Math.max(0, Math.floor(range.end + 1e-9) - Math.ceil(range.start - 1e-9) + 1)
-      : matchRangeFrames(app, ctx, range, 'keys').length;
-  let channels = 0;
-  for (const id of sideControls(ctx.limb, side)) {
-    const control = app.store.get('controls', id);
-    if (control === undefined) continue;
-    for (const channel of [...TRANSLATE_CHANNELS, ...ROTATE_CHANNELS, ...SCALE_CHANNELS, ...attrChannelsOf(control)]) {
-      if (isKeyable(control, channel) && !isLocked(control, channel)) channels++;
-    }
-  }
-  return frames * channels > AGENT_WRITE_LIMIT
-    ? `The match would write more than ${AGENT_WRITE_LIMIT} keys (${frames} frames × ${channels} channels); pass a shorter range`
-    : null;
 }
 
 const matchRange = defineOperator<'rig.ikFk.matchRange', AgentImpl | undefined>({
@@ -448,8 +412,9 @@ const matchRange = defineOperator<'rig.ikFk.matchRange', AgentImpl | undefined>(
         }
         return null;
       },
-      // §5.5: an agent's match writes at most 50,000 keys (frames × the side's keyable channels).
-      (ctx, options) => (actor ? matchRangeWriteProblem(app, ctx, options) : null),
+      // §5.5: an agent's match writes at most 50,000 keys (frames × the side's keyable channels). The check loads
+      // with the agent operators' implementation (this run's `prepare` loads it; the runner polls again after it).
+      (ctx, options) => (actor ? (loadedAgentImpl()?.matchRangeWriteProblem(app, ctx, options) ?? null) : null),
       true,
     );
   },
