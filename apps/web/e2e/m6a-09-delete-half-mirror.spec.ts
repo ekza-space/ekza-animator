@@ -38,14 +38,29 @@ test.fixme('b3, b4, b5, b10: E2E-MOD-09 — delete half, Mirror, Conform, Mesh C
   expect(stats).toMatchObject({ boundaryLoops: 0, nonManifoldEdges: 0, nonManifoldVerts: 0 });
 
   const before = await positions(page, cube);
-  // Conform runs on the whole mesh in object mode (§6.1 Modes "f, object"): its item is enabled and the run finishes.
-  // The mirrored cube is consistent already, so nothing moves (and a run that changes nothing records no step, §5.7).
+  const wound = await call(page, 'meshFaces', cube);
+  // Conform runs on the whole mesh in object mode (§6.1 Modes "f, object"). To see the menu click's own run finish,
+  // the whole mesh is reversed first (the API, object mode): Conform from the menu turns every face back outward and
+  // records its step (the LastRun of a menu run).
+  await runOk(page, 'mesh.reverse', { meshes: [cube] });
+  expect(await call(page, 'meshFaces', cube)).not.toEqual(wound);
   await page.getByTestId('menu-mesh-display').click();
   const conform = page.getByTestId('menu-item-builtin.model.mesh-display.conform');
   await expect(conform).not.toHaveAttribute('aria-disabled', 'true');
   await conform.click();
+  await expect
+    .poll(async () => {
+      const last = await call(page, 'lastOp');
+      return last === null ? null : { id: last.id, source: last.source, targets: last.targets };
+    })
+    .toEqual({ id: 'mesh.conform', source: 'menu', targets: [cube] });
+  expect(await call(page, 'meshFaces', cube)).toEqual(wound);
+  // A consistent mesh stays as it is (a run that changes nothing records no step, §5.7).
+  const steps = (await call(page, 'history')).undo.length;
   await runOk(page, 'mesh.conform');
+  expect((await call(page, 'history')).undo).toHaveLength(steps);
   expect(await positions(page, cube)).toEqual(before);
+  expect(await call(page, 'meshFaces', cube)).toEqual(wound);
   expect(await call(page, 'meshCheck', cube)).toEqual([]);
 });
 
