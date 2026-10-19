@@ -68,8 +68,9 @@ export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
 export const FIXED_KINDS: ReadonlySet<PanelKind> = new Set([PANEL.timeline]);
 
 export const DOCK_SIZES = { left: 240, right: 280, bottomFraction: 0.36, bottomMin: 160 } as const;
-/** Model's docks (§8.2): Outliner 240 px, right dock 300 px, Mesh Check collapsed to its tab strip. */
-export const MODEL_DOCK_SIZES = { left: 240, right: 300, bottom: 34 } as const;
+/** Model's docks (§8.2): Outliner 240 px, right dock 300 px (min 260), Mesh Check collapsed to its tab strip
+ *  (`--size-tab`, 26 px: the panel's minimum height lets the group shrink to its tabs; dockview's default is 100). */
+export const MODEL_DOCK_SIZES = { left: 240, right: 300, rightMin: 260, bottom: 26 } as const;
 
 /** How the layout shows a panel kind: its registered component, or the placeholder. */
 export interface PanelComponent {
@@ -166,6 +167,7 @@ export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) =>
     kinds: readonly PanelKind[],
     direction: 'left' | 'right' | 'below',
     size: { readonly initialWidth?: number; readonly initialHeight?: number },
+    constraints: { readonly minimumWidth?: number; readonly minimumHeight?: number } = {},
   ): void => {
     let first: IDockviewPanel | null = null;
     for (const kind of kinds) {
@@ -173,17 +175,32 @@ export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) =>
       if (e === null) continue;
       if (first === null) {
         const position = center === null ? { direction } : { referencePanel: center, direction };
-        first = api.addPanel(addOptions(e, { position, ...size }));
+        first = api.addPanel(addOptions(e, { position, ...size, ...constraints }));
       } else {
-        api.addPanel(addOptions(e, { position: { referencePanel: first, direction: 'within' }, inactive: true }));
+        api.addPanel(
+          addOptions(e, { position: { referencePanel: first, direction: 'within' }, inactive: true, ...constraints }),
+        );
       }
+    }
+    // The group was sized before its panel (and the panel's minimum) was in it: dockview's default minimum (100 px)
+    // clamped a smaller initial height. Size it again now that the panel's minimum applies.
+    if (first !== null && constraints.minimumHeight !== undefined && size.initialHeight !== undefined) {
+      first.group.api.setSize({ height: size.initialHeight });
     }
   };
   dock([PANEL.outliner], 'left', { initialWidth: MODEL_DOCK_SIZES.left });
-  dock([MODEL_PANEL.toolkit, PANEL.channelBox, PANEL.attributes, MODEL_PANEL.palette], 'right', {
-    initialWidth: MODEL_DOCK_SIZES.right,
-  });
-  dock([MODEL_PANEL.meshCheck], 'below', { initialHeight: MODEL_DOCK_SIZES.bottom });
+  dock(
+    [MODEL_PANEL.toolkit, PANEL.channelBox, PANEL.attributes, MODEL_PANEL.palette],
+    'right',
+    { initialWidth: MODEL_DOCK_SIZES.right },
+    { minimumWidth: MODEL_DOCK_SIZES.rightMin },
+  );
+  dock(
+    [MODEL_PANEL.meshCheck],
+    'below',
+    { initialHeight: MODEL_DOCK_SIZES.bottom },
+    { minimumHeight: MODEL_DOCK_SIZES.bottom },
+  );
   center?.api.setActive();
 }
 
