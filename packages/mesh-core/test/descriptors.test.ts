@@ -274,9 +274,7 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
         };
       });
     expect(landed).toEqual(
-      [...LANDED]
-        .filter((id) => !(id in MESH_SET_OPS))
-        .map((id) => ({ id, defined: true, stub: false, poll: true })),
+      [...LANDED].filter((id) => !(id in MESH_SET_OPS)).map((id) => ({ id, defined: true, stub: false, poll: true })),
     );
     const setStubs = Object.values(MESH_SET_OPS).filter((op) => !LANDED.has(op.id));
     const setOutcomes = setStubs.map((op) => {
