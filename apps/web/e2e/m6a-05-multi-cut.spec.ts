@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { createPrimitive, MODEL_PANE, openModel } from './helpers/m6a-model';
+import { createPrimitive, openModel } from './helpers/m6a-model';
 import { counts } from './helpers/m6a-model-ops-ui';
 import {
   edgeEnds,
@@ -81,7 +81,7 @@ test('E2E-MOD-05 — Multi-Cut across two quads, Esc, Ctrl-click loop', async ({
     expect(Math.abs(p[1])).toBeLessThanOrEqual(1e-6);
     expect(Math.abs(p[2])).toBeLessThanOrEqual(1e-6);
   }
-  expect(added.map((p) => Math.round(p[0])).sort()).toEqual([-1, 0, 1]);
+  expect(added.map((p) => Math.round(p[0])).sort((x, y) => x - y)).toEqual([-1, 0, 1]);
 
   // `K`, two clicks, `Esc`: nothing is cut and no step is recorded.
   await keyOver(page, 'KeyK');
@@ -115,5 +115,4 @@ test('E2E-MOD-05 (b) — the Ctrl-click on macOS with the trackpad profile is a 
   await expectTool(page, 'multiCut');
   expect(await call(page, 'markingMenu')).toBeNull();
   expect((await undoLabels(page)).at(-1)).toBe('Insert Edge Loop');
-  void MODEL_PANE;
 });
