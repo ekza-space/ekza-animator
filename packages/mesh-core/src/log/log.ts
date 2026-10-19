@@ -212,12 +212,17 @@ export class OpenSegment {
     log.before = new Float64Array(0);
   }
 
-  /** Reads the after values and freezes the segment; unchanged slots are dropped. */
+  /**
+   * Reads the after values and freezes the segment. Unchanged slots are dropped, and so are slots past the live
+   * length at both ends of the segment (an element created and removed again): no state the segment joins reads them.
+   */
   close(): SegmentRecord {
     const slots: SlotRecord[] = [];
     const snaps: SnapRecord[] = [];
+    const endCounts = this.access.counts();
     for (const log of this.order) {
       const array = this.access.array(log.tid);
+      const live = Math.max(log.startLength, this.access.lengthAt(log.tid, endCounts));
       if (log.snap !== null) {
         snaps.push({
           key: log.key,
@@ -226,10 +231,12 @@ export class OpenSegment {
         });
         continue;
       }
+      const keep = (k: number): boolean => {
+        const i = log.idx[k] as number;
+        return (log.tid === T_COUNTS || i < live) && !Object.is(array[i], log.before[k]);
+      };
       let kept = 0;
-      for (let k = 0; k < log.n; k++) {
-        if (!Object.is(array[log.idx[k] as number], log.before[k])) kept++;
-      }
+      for (let k = 0; k < log.n; k++) if (keep(k)) kept++;
       if (kept === 0) continue;
       const Ctor = array.constructor as new (n: number) => KernelArray;
       const idx = new Uint32Array(kept);
@@ -237,9 +244,9 @@ export class OpenSegment {
       const after = new Ctor(kept);
       let o = 0;
       for (let k = 0; k < log.n; k++) {
+        if (!keep(k)) continue;
         const i = log.idx[k] as number;
         const value = array[i] as number;
-        if (Object.is(value, log.before[k])) continue;
         idx[o] = i;
         before[o] = log.before[k] as number;
         after[o] = value;
