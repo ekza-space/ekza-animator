@@ -160,6 +160,25 @@ matrices of Pivot/Freeze (`pivotImpl`, loaded by `prepare`), the soft weights (`
 eager-allowance decision (M6A-B9-14) or the lazy candidates B9 and B10 listed (Model-only registrations after the
 first Model entry; the selection service behind the kernel load).
 
-## Gates
+## Verification against B4 (scratch, not committed)
 
-(see the final section below, filled after the full runs)
+`git merge --no-commit m6a/mesh-ops-shape` on this branch (conflicts only in `mesh-core/test/{descriptors.test,ready}.ts`,
+left unresolved; the merge was aborted afterwards): `editor-core/test/m6a/transform` 15/15 plus a probe asserting
+that B4's real `mesh.applyTransform` runs (no stand-in): Freeze (translate/rotate/scale and partial, a group's meshes,
+the pivot following, exact undo) and Bake Pivot (the child compensated) pass on B4's op.
+
+## Gates (local, real Chrome; port 3251)
+
+At the notes' commit, clean tree:
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | clean (1,339 files) |
+| `pnpm run lint` | rc 0, no findings |
+| `pnpm run typecheck` | clean |
+| `pnpm run check:deps` | 15 packages follow the rules |
+| `pnpm run test --concurrency=2` | 15/15 tasks: anim-core 671, ui 87, mesh-core 450 + 1 skipped, doc 235, rig 202, doc-yjs 81, mesh-view 74, io 176, **editor-core 1064 + 20 skipped**, curve-editor 207 + 3 skipped, headless-tests 173, **viewport 185 + 1 skipped**, **editor 485 + 6 skipped**, web 16, tooling |
+| `pnpm run build` | OK; `check:size` **912,498 B > 900,000 B** — the merge base already measures 906,923 B (see Eager route); B12a +5,575 B |
+| B12a e2e specs | E2E-MOD-10 and E2E-MOD-23 (a), (b) pass; E2E-MOD-23's INPUTS part is `test.fixme('b3: …')` |
+| Full e2e (`EKZA_E2E_PORT=3251 pnpm run test:e2e`, project `chrome`) | **130 passed, 32 skipped** (gated `test.fixme` and stretch), 0 failed (2.2 min); the server was stopped afterwards |
+| Bench (`-c e2e/bench/playwright.config.ts m6a-transform`) | numbers above (report only) |
