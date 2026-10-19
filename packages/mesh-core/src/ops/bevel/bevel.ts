@@ -5,7 +5,8 @@
 // - an unselected edge that shares a face corner at x with a selected edge is a **slide** edge: a new vertex slides
 //   along it from x by the width d_x (the edge is split there, so §5.2's split rules give the point and corner layers
 //   and H4 the flags); the other unselected edges are **middle** edges;
-// - a face whose two edges at x are both selected gets a **miter** point x + d_x·(â + b̂) (along the bisector);
+// - a face whose two edges at x are both selected gets a **miter** point x + d_x·(â + b̂) (along the bisector), or
+//   x − d_x·(â + b̂) where the face's corner at x is reflex (the meet of the strips' inward offset lines);
 // - walking the fan gives x's cycle: selected edges (strip ends), slide vertices, miter points and runs of middle
 //   edges. A run keeps x (one run) or gets its own vertex slid along the run's mean direction (several runs);
 // - one selected edge at x (§5.9 "valence 1"): the strip's end runs through the rest of the cycle, so the face
@@ -20,8 +21,9 @@
 // Width (Maya fraction semantics): d_x = fraction × ½ × L_x with L_x the shortest edge at x, measured along the slide
 // edges, so fraction 1 makes bevels from both ends of an edge meet; `offsetAsFraction` off → `offset` metres. With
 // `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
-// when a rebuilt face or a strip would still invert or collapse, or two new vertices around a bevelled vertex would
-// coincide, every width is scaled down to the largest valid one (same warning). Hardness: strip row edges follow H2;
+// when a rebuilt face or a strip would still invert or collapse, a rebuilt face would cross itself (a reflex miter
+// past a thin arm), or two new vertices around a bevelled vertex would coincide, every width is scaled down to the
+// largest valid one (same warning). Hardness: strip row edges follow H2;
 // the edges bounding the bevel faces are hard with `hardenBorders` (else H2); fan spokes follow H1. Refusals:
 // `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid width at all, e.g.
 // Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the next vertex or one
@@ -127,6 +129,62 @@ function newell(points: Float64Array, n: number, out: Float64Array): void {
   out[0] = x;
   out[1] = y;
   out[2] = z;
+}
+
+/** Distance from 2D point (px, py) to the segment (ax, ay)–(bx, by). */
+function pointSegment(px: number, py: number, ax: number, ay: number, bx: number, by: number): number {
+  const ex = bx - ax;
+  const ey = by - ay;
+  const l2 = ex * ex + ey * ey;
+  const t = l2 > 0 ? Math.max(0, Math.min(1, ((px - ax) * ex + (py - ay) * ey) / l2)) : 0;
+  return Math.hypot(px - ax - t * ex, py - ay - t * ey);
+}
+
+/**
+ * Whether the closed polygon of `n` points (flat xyz in `points`) projected along axis `drop` keeps every two edges
+ * that share no corner (by `ids`) more than `gap` apart: no edge crosses or touches another one.
+ */
+function simpleIn(points: Float64Array, ids: readonly number[], drop: number, gap: number): boolean {
+  const n = ids.length;
+  if (n < 4) return true;
+  const u = drop === 0 ? 1 : 0;
+  const v = drop === 2 ? 1 : 2;
+  const x = (i: number): number => points[3 * i + u] as number;
+  const y = (i: number): number => points[3 * i + v] as number;
+  const side = (a: number, b: number, c: number): number =>
+    (x(b) - x(a)) * (y(c) - y(a)) - (y(b) - y(a)) * (x(c) - x(a));
+  for (let i = 0; i < n; i++) {
+    const i2 = (i + 1) % n;
+    for (let j = i + 1; j < n; j++) {
+      const j2 = (j + 1) % n;
+      const a = ids[i];
+      const b = ids[i2];
+      const c = ids[j];
+      const d = ids[j2];
+      if (a === c || a === d || b === c || b === d) continue;
+      const s1 = side(i, i2, j);
+      const s2 = side(i, i2, j2);
+      const s3 = side(j, j2, i);
+      const s4 = side(j, j2, i2);
+      if (((s1 > 0 && s2 < 0) || (s1 < 0 && s2 > 0)) && ((s3 > 0 && s4 < 0) || (s3 < 0 && s4 > 0))) return false;
+      const near = Math.min(
+        pointSegment(x(i), y(i), x(j), y(j), x(j2), y(j2)),
+        pointSegment(x(i2), y(i2), x(j), y(j), x(j2), y(j2)),
+        pointSegment(x(j), y(j), x(i), y(i), x(i2), y(i2)),
+        pointSegment(x(j2), y(j2), x(i), y(i), x(i2), y(i2)),
+      );
+      if (!(near > gap)) return false;
+    }
+  }
+  return true;
+}
+
+/** The axis a face with Newell normal `n` projects along (its dominant component). */
+function dominantAxis(n: Float64Array): number {
+  const ax = Math.abs(n[0] as number);
+  const ay = Math.abs(n[1] as number);
+  const az = Math.abs(n[2] as number);
+  return ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
 }
 
 function cornersOfFace(m: EditMesh, f: number): number[] {
@@ -271,6 +329,8 @@ interface Token {
   readonly delta: Float64Array;
   /** T_MITER: the far ends of the face's two selected edges at `at`. */
   readonly far: readonly [number, number];
+  /** T_MITER: the face's corner at `at` is reflex (the miter lies on the far ends' opposite side of `at`). */
+  readonly reflex: boolean;
   /** T_PROFILE: the chord's end tokens (ascending) and the parameter from the first. */
   readonly chord: readonly [number, number];
   readonly s: number;
@@ -297,6 +357,7 @@ class Tokens {
     delta: ArrayLike<number>,
     extra?: {
       readonly far?: readonly [number, number];
+      readonly reflex?: boolean;
       readonly chord?: readonly [number, number];
       readonly s?: number;
     },
@@ -311,6 +372,7 @@ class Tokens {
       base: Float64Array.of(p[3 * at] as number, p[3 * at + 1] as number, p[3 * at + 2] as number),
       delta: Float64Array.from(delta),
       far: extra?.far ?? [-1, -1],
+      reflex: extra?.reflex ?? false,
       chord: extra?.chord ?? [-1, -1],
       s: extra?.s ?? 0,
       vertex: kind === T_OLD ? at : -1,
@@ -542,6 +604,7 @@ export function runBevel(
   }
 
   // ----- tokens per vertex: slides, miters, middle-edge runs, the cycle, corner replacements -----
+  const cornerNormal = new Float64Array(3);
   for (const x of bevelled) {
     const plan = planOf(x);
     const { fan, cls, d } = plan;
@@ -566,8 +629,18 @@ export function runBevel(
           const f = fan.faces[i] as number;
           const a = unitAlong(m, e, x);
           const b = unitAlong(m, into, x);
-          const id = tokens.make(`m:${f}:${x}`, T_MITER, x, [d * (a[0] + b[0]), d * (a[1] + b[1]), d * (a[2] + b[2])], {
+          // In f, `e` leaves x and `into` enters it, so (â × b̂)·n > 0 at a convex corner. At a reflex corner (interior
+          // angle over 180°) â + b̂ points out of the face: the strips' inward offset lines meet at x − d·(â + b̂).
+          const n = faceNewell(m, f, cornerNormal);
+          const turn =
+            (a[1] * b[2] - a[2] * b[1]) * (n[0] as number) +
+            (a[2] * b[0] - a[0] * b[2]) * (n[1] as number) +
+            (a[0] * b[1] - a[1] * b[0]) * (n[2] as number);
+          const reflex = turn < 0;
+          const k = reflex ? -d : d;
+          const id = tokens.make(`m:${f}:${x}`, T_MITER, x, [k * (a[0] + b[0]), k * (a[1] + b[1]), k * (a[2] + b[2])], {
             far: [m.edgeOther(e, x), m.edgeOther(into, x)],
+            reflex,
           });
           raw.push({ kind: 'tok', edge: -1, token: id });
         }
@@ -878,11 +951,26 @@ export function runBevel(
     else list.push(poly);
   }
 
-  // ----- the clamp: the largest width factor λ ≤ 1 that keeps every face oriented and every edge non-degenerate -----
+  // ----- the clamp: the largest width factor λ ≤ 1 keeping faces oriented and simple, edges non-degenerate -----
   const refs = new Map<Poly, Float64Array>();
+  // Rebuilt faces whose original is a simple polygon (projected along its dominant axis) must stay simple: a reflex
+  // miter or a slide into a notch can otherwise cross the face's far side while its orientation still holds.
+  const simple = new Map<Poly, number>();
   for (const poly of live) {
-    if (poly.kind === 'rebuilt') refs.set(poly, faceNewell(m, poly.source, new Float64Array(3)));
-    else if (poly.kind === 'row') {
+    if (poly.kind === 'rebuilt') {
+      const ref = faceNewell(m, poly.source, new Float64Array(3));
+      refs.set(poly, ref);
+      const corners = cornersOfFace(m, poly.source);
+      if (corners.length < 3 || poly.tokens.length < 4) continue;
+      const points = new Float64Array(3 * corners.length);
+      const ids = corners.map((c, i) => {
+        const v = m.cornerVert(c);
+        for (let k = 0; k < 3; k++) points[3 * i + k] = m.position[3 * v + k] as number;
+        return v;
+      });
+      const drop = dominantAxis(ref);
+      if (simpleIn(points, ids, drop, eps)) simple.set(poly, drop);
+    } else if (poly.kind === 'row') {
       const points = new Float64Array(3 * poly.tokens.length);
       poly.tokens.forEach((t, i) => tokens.position(t, LAMBDA_REF, points, 3 * i));
       const ref = new Float64Array(3);
@@ -940,6 +1028,8 @@ export function runBevel(
         (normal[1] as number) * (ref[1] as number) +
         (normal[2] as number) * (ref[2] as number);
       if (!(dot > 0)) return false;
+      const drop = simple.get(poly);
+      if (drop !== undefined && !simpleIn(points, poly.tokens, drop, eps)) return false;
     }
     return true;
   };
@@ -1010,18 +1100,25 @@ export function runBevel(
     (tokens.list[t] as Token).vertex = v;
     return v;
   };
-  /** Weights of a miter point over (x, far end of a, far end of b). */
+  /**
+   * Weights of a miter point over (x, far end of a, far end of b): the point x ± d·(â + b̂) in those three points'
+   * affine frame. A reflex miter lies on the far ends' opposite side of x, so two weights are negative there: corner
+   * values (uv0 …) extrapolate the face's affine map, which keeps a projection exact.
+   */
   const miterWeights = (token: Token): number[] => {
     const d = planOf(token.at).d * lambda;
     const ta = d / Math.max(distance(m, token.at, token.far[0]), eps);
     const tb = d / Math.max(distance(m, token.at, token.far[1]), eps);
-    return [Math.max(0, 1 - ta - tb), ta, tb];
+    return token.reflex ? [1 + ta + tb, -ta, -tb] : [Math.max(0, 1 - ta - tb), ta, tb];
   };
   for (let t = 0; t < tokens.list.length; t++) {
     const token = tokens.list[t] as Token;
-    if (token.kind === T_MITER) {
+    if (token.kind === T_MITER && !token.reflex) {
       blendPointAttributes(m, [token.at, token.far[0], token.far[1]], miterWeights(token), create(t));
-    } else if (token.kind === T_RUN) copyPointAttributes(m, token.at, create(t));
+    } else if (token.kind === T_MITER || token.kind === T_RUN) {
+      // A reflex miter takes x's point values: extrapolated skin weights or group weights would leave their range.
+      copyPointAttributes(m, token.at, create(t));
+    }
   }
   for (let t = 0; t < tokens.list.length; t++) {
     const token = tokens.list[t] as Token;

@@ -3,7 +3,8 @@
 // edges), absolute offsets, the clamp (0.98 when both ends of an edge are bevelled, the clamp property: no inverted
 // faces and no coincident points for any fraction), profiles (chamfer, roundness), hardness (H2 rows, hardened
 // borders, H1 fan spokes, P7-hard), attribute propagation (uv0 lerps and stays continuous, skin weights, paint and
-// materials), refusals, selection′ and the frame. Every run goes through the op harness (P1, P5, P8).
+// materials), refusals, selection′ and the frame. Every run goes through the op harness (P1, P5, P8). The clamp and
+// P1–P4 on concave n-gons (reflex corners) are in concave.test.ts.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
