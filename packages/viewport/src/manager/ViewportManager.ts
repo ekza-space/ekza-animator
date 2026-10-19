@@ -222,6 +222,8 @@ export class ViewportManager {
   private pointerMenus: PanePointerMenus | null = null;
   /** M6a (B10): what `F`/`A` frame in Model (component and object selections, meshes); null = the shipped bounds. */
   private frameBounds: ((what: 'selection' | 'all') => SpatialBounds | null) | null = null;
+  /** M6a (B10): whether a mesh-view mesh is under a pane point (its meshes take no raycasts); null = none. */
+  private meshHitTest: ((paneId: string, x: number, y: number) => boolean) | null = null;
   /** The pointer whose Alt+Shift+LMB press is the MMB stand-in (M6a rule (b)), or null. */
   private standIn: number | null = null;
   /** The Scale tool's manipulator sits on the selected scene objects (Model object mode), not on a control. */
@@ -522,6 +524,14 @@ export class ViewportManager {
   }
 
   /**
+   * M6a (B10): the hit test of the meshes mesh-view draws (they opt out of three's raycasting), consulted by
+   * `isOverMesh` for marking menus' `when.over` (the RMB mode menu on a mesh, §8.4).
+   */
+  setMeshHitTest(test: ((paneId: string, x: number, y: number) => boolean) | null): void {
+    this.meshHitTest = test;
+  }
+
+  /**
    * M6a (B10): the camera a pane looks through, sized to the pane, with its size (CSS px) and display flags, for
    * mesh-view's component picking (B6's `MeshDisplay.pick`/`marquee`/`screenOf`). Null for an unknown or empty pane.
    */
@@ -568,6 +578,7 @@ export class ViewportManager {
     if (this.meshPicker.pick(view.camera, ndcX, ndcY, this.sync.meshTargets(), this.sync.poseStamp) !== null) {
       return true;
     }
+    if (this.meshHitTest?.(paneId, x, y) === true) return true;
     const raycaster = new Raycaster();
     raycaster.layers.set(LAYER.mesh);
     raycaster.setFromCamera(new Vector2(ndcX, ndcY), view.camera);

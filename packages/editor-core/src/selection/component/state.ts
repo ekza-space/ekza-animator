@@ -68,6 +68,12 @@ export interface MeshState {
   readonly hidden: Record<ComponentKind, BitSet>;
   /** The state last seen at earlier revisions (most recent last), for undo and redo across commits. */
   readonly revs: Map<string, Frozen>;
+  /**
+   * The sizes of each revision when the service first saw it committed (most recent last). A commit changes the
+   * runtime's edit mesh (and B7's `data()`) before its revision lands, so these, not the runtime's, tell a result
+   * stored inside a commit from a change of the committed revision.
+   */
+  readonly revSizes: Map<string, Sizes>;
   /** Bumps on every change (closure cache key). */
   version: number;
   closure: { readonly version: number; readonly value: HiddenSet } | null;
@@ -97,9 +103,22 @@ export function freshState(kernel: MeshKernel, runtime: MeshRuntime, sizes: Size
       face: new kernel.BitSet(sizes.face),
     },
     revs: new Map(),
+    revSizes: new Map(runtime.ref === null ? [] : [[runtime.ref.manifest, sizes]]),
     version: 0,
     closure: null,
   };
+}
+
+/** Records the sizes of a committed revision (bounded like the revision memory). */
+export function noteRevision(state: MeshState, rev: string | null, sizes: Sizes): void {
+  if (rev === null) return;
+  state.revSizes.delete(rev);
+  state.revSizes.set(rev, sizes);
+  while (state.revSizes.size > REVISION_MEMORY) {
+    const oldest = state.revSizes.keys().next().value;
+    if (oldest === undefined) break;
+    state.revSizes.delete(oldest);
+  }
 }
 
 /** Keeps `order` and `active` consistent with `set` (members only, in order; the active one a member). */

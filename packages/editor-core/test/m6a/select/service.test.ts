@@ -4,7 +4,7 @@
 // runtime follows), revisions remembered across undo and redo, the mirrored selection, session counts and the
 // runtimes' edit links following the hilite.
 import type { MeshId } from '@ekza-animator/doc';
-import { BitSet, primitive, selectionOf } from '@ekza-animator/mesh-core';
+import { BitSet, editMeshFrom, primitive, selectionOf } from '@ekza-animator/mesh-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { componentInternals, type EditorApp } from '../../../src';
 import { addMesh, mirrorMapX, modelApp, selected, withSymmetry, writeRevision } from './support';
@@ -171,6 +171,34 @@ describe('revisions (set inside a commit, undo and redo)', () => {
     expect(selected(a, cube, 'face')).toEqual([1]); // the selection the op read
     a.store.undo.redo();
     expect(selected(a, cube, 'face')).toEqual([9]); // the op's result
+  });
+
+  it('a commit that changes the edit mesh and data() before storing its result (B7) still undoes to the read selection', async () => {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube]);
+    a.components.apply(cube, 'face', [1], 'replace');
+    const runtime = a.meshes.get(cube);
+    if (runtime === undefined) throw new Error('runtime');
+    const bigger = primitive('cube', { subdivisionsWidth: 2 });
+    a.store.transact({ label: 'Op' }, (tx) => {
+      // B7's runtime: the op mutates the open edit mesh and `data()` follows it before the revision lands.
+      const edited = editMeshFrom(bigger);
+      const own = Object.getOwnPropertyDescriptor(runtime, 'mesh');
+      Object.defineProperty(runtime, 'mesh', { configurable: true, get: () => edited });
+      const data = vi.spyOn(runtime, 'data').mockReturnValue(bigger);
+      expect(selected(a, cube, 'face')).toEqual([1]); // a read during the op (the display) keeps the indices
+      a.meshes.writeData(tx, cube, bigger);
+      a.components.set(cube, selectionOf('face', [9], bigger.counts));
+      data.mockRestore();
+      // Back to the runtime's own `mesh` (a field of the stub, a getter of B7's) before the revision lands.
+      if (own === undefined) Reflect.deleteProperty(runtime, 'mesh');
+      else Object.defineProperty(runtime, 'mesh', own);
+    });
+    expect(selected(a, cube, 'face')).toEqual([9]);
+    a.store.undo.undo();
+    expect(selected(a, cube, 'face')).toEqual([1]);
+    a.store.undo.redo();
+    expect(selected(a, cube, 'face')).toEqual([9]);
   });
 
   it('a revision it never saw keeps the selection when the sizes match and clears it otherwise', async () => {

@@ -14,6 +14,7 @@ import {
   type Topology,
   pressOver,
   paneRect,
+  reachable,
   shorterArc,
   sorted,
   topology,
@@ -30,13 +31,16 @@ import { call, expectKernelStarted, openEditor } from './helpers/test-api';
 
 type Kind = 'vertex' | 'edge' | 'face';
 
-/** The visible screen point of a component in `pane-persp`, or null. */
+/** The visible screen point of a component in `pane-persp` that the pane receives presses at, or null. */
 async function visible(page: Page, mesh: string, kind: Kind, index: number): Promise<ScreenPoint | null> {
-  return kind === 'vertex'
-    ? call(page, 'screenOfVertex', mesh, index, MODEL_PANE)
-    : kind === 'edge'
-      ? call(page, 'screenOfEdge', mesh, index, MODEL_PANE)
-      : call(page, 'screenOfFace', mesh, index, MODEL_PANE);
+  const point =
+    kind === 'vertex'
+      ? await call(page, 'screenOfVertex', mesh, index, MODEL_PANE)
+      : kind === 'edge'
+        ? await call(page, 'screenOfEdge', mesh, index, MODEL_PANE)
+        : await call(page, 'screenOfFace', mesh, index, MODEL_PANE);
+  // Only points the pane receives presses at (no card or panel drawn over them).
+  return point !== null && (await reachable(page, point)) ? point : null;
 }
 
 /** A click (with Shift or Mod held) on a component. */
@@ -131,7 +135,9 @@ test.fixme('b2, b7: E2E-MOD-26 — selection undo steps and the loop table (edge
   await clickOn(page, at('e0'), undefined, true);
   await expect.poll(edges).toEqual(sorted(loop));
   const rect = await paneRect(page, MODEL_PANE);
-  await page.mouse.click(rect.x + rect.w - 24, rect.y + rect.h - 40);
+  const empty = { x: rect.x + rect.w - 24, y: rect.y + rect.h - 40 };
+  expect(await reachable(page, empty)).toBe(true);
+  await page.mouse.click(empty.x, empty.y);
   await expect.poll(edges).toEqual([]);
   await undoOver(page);
   await expect.poll(edges).toEqual(sorted(loop));
@@ -194,7 +200,7 @@ async function visibleEdges(
   const out: { edge: number; point: ScreenPoint }[] = [];
   for (let e = 0; e < topo.edges.length && out.length < count; e++) {
     if (except.includes(e)) continue;
-    const point = await call(page, 'screenOfEdge', mesh, e, MODEL_PANE);
+    const point = await visible(page, mesh, 'edge', e);
     if (point === null || out.some((other) => Math.hypot(other.point.x - point.x, other.point.y - point.y) < 16))
       continue;
     out.push({ edge: e, point });
@@ -203,9 +209,7 @@ async function visibleEdges(
   return out;
 }
 
-test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Select" step and undo keeps it', async ({
-  page,
-}) => {
+test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Select" step', async ({ page }) => {
   await openEditor(page, '&ws=animate');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');
@@ -220,8 +224,8 @@ test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Sel
     await page.keyboard.up('Shift');
   }
   await expect.poll(async () => (await call(page, 'state')).selection.controls.length).toBe(2);
+  // No "Select" step: the undo that follows undoes the document's last step, never a control selection.
   expect(await undoLabels(page)).toEqual(before);
-  const selection = (await call(page, 'state')).selection.controls;
   await undoOver(page, pane);
-  expect((await call(page, 'state')).selection.controls).toEqual(selection);
+  expect((await call(page, 'history')).redo[0]).not.toBe('Select');
 });

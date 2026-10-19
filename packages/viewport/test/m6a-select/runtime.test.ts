@@ -132,6 +132,14 @@ describe('loading (§5.5 rule 8, B6 hosting)', () => {
     expect(s.rig.vm.meshLayers()).toHaveLength(1);
     expect(modelPointer(s.app)).not.toBeNull();
   });
+
+  it('answers isOverMesh for the meshes mesh-view draws (marking menus over a mesh, §8.4)', async () => {
+    const s = await scene();
+    const at = s.rig.vm.project(PANE, [0, 0, 0.5]);
+    if (at === null) throw new Error('cube not visible');
+    expect(s.rig.vm.isOverMesh(PANE, at.x, at.y)).toBe(true);
+    expect(s.rig.vm.isOverMesh(PANE, 4, 4)).toBe(false);
+  });
 });
 
 describe('component clicks (§5.6)', () => {

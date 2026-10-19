@@ -110,7 +110,11 @@ export class ModelSelectRuntime {
       () => display.dispose(),
     );
     vm.setFrameBounds((what) => this.frameBounds(what));
-    this.disposers.push(() => vm.setFrameBounds(null));
+    vm.setMeshHitTest((paneId, x, y) => this.pickObject(paneId, x, y) !== null);
+    this.disposers.push(
+      () => vm.setFrameBounds(null),
+      () => vm.setMeshHitTest(null),
+    );
     this.syncIsolates();
   }
 

@@ -137,8 +137,9 @@ describe('Poly Count HUD (§5.24)', () => {
     await enterFaceMode(app, [cube]);
     const runtime = app.meshes.get(cube);
     const data = hudData(app, 'pane-persp');
-    expect(data?.scene).toEqual({ vertex: 8 + 6, edge: 12 + 7, face: 6 + 2, tris: 12 + 4 });
-    expect(data?.object).toEqual({
+    // UVs are a row only when the meshes have them (B1's primitives do, the reference kernel's do not).
+    expect(data?.scene).toMatchObject({ vertex: 8 + 6, edge: 12 + 7, face: 6 + 2, tris: 12 + 4 });
+    expect(data?.object).toMatchObject({
       vertex: runtime?.data()?.counts.points,
       edge: runtime?.data()?.counts.edges,
       face: runtime?.data()?.counts.faces,

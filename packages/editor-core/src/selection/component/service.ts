@@ -47,6 +47,7 @@ import {
   KINDS,
   liveSizes,
   type MeshState,
+  noteRevision,
   remember,
   sameSizes,
   selectionValue,
@@ -204,13 +205,19 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     for (const listener of Array.from(listeners)) listener(version);
   };
 
+  /** The sizes of the mesh's committed revision (as first seen), else its stored form's. */
+  const committedOf = (state: MeshState): Sizes | null => {
+    const ref = state.runtime.ref?.manifest ?? null;
+    return (ref === null ? undefined : state.revSizes.get(ref)) ?? committedSizes(state.runtime);
+  };
+
   /**
    * Whether the state indexes the committed revision as it is (no pending result, no commit in flight: the edit mesh
    * has the committed sizes). Only such states are remembered for their revision.
    */
   const settled = (state: MeshState): boolean => {
     if (state.pending) return false;
-    const committed = committedSizes(state.runtime);
+    const committed = committedOf(state);
     return committed !== null && sameSizes(committed, state.sizes);
   };
 
@@ -277,6 +284,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       }
     }
     state.rev = ref;
+    if (ref !== null && !state.revSizes.has(ref)) noteRevision(state, ref, sizes);
     state.closure = null;
     state.version++;
     if (click?.mesh === mesh) click = null;
@@ -295,7 +303,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     if (state === undefined || runtime === undefined || !state.pending) return;
     if (state.rev !== (runtime.ref?.manifest ?? null)) return;
     const live = liveSizes(runtime);
-    const committed = committedSizes(runtime);
+    const committed = committedOf(state);
     if (live === null || committed === null || !sameSizes(live, committed) || sameSizes(state.sizes, committed)) return;
     state.pending = false;
     const cached = state.rev === null ? undefined : state.revs.get(state.rev);
@@ -664,7 +672,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       kernelOrThrow();
       const state = requireState(mesh);
       const sizes: Sizes = { vertex: sel.verts.size, edge: sel.edges.size, face: sel.faces.size };
-      const committed = committedSizes(state.runtime);
+      const committed = committedOf(state);
       fitState(state, sizes);
       for (const kind of KINDS) {
         const k = state.sel[kind];
@@ -827,7 +835,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         state.hidden[kind] = move(state.hidden[kind], kind);
       }
       state.sizes = sizes;
-      const committed = committedSizes(state.runtime);
+      const committed = committedOf(state);
       state.pending = committed === null || !sameSizes(committed, sizes);
       touched(state);
     },

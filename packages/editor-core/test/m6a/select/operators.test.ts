@@ -367,10 +367,11 @@ describe.skipIf(!READY.b2)('walkers through the operators (B2)', () => {
 
   it('grow repeats while the key is held: the auto-repeated runs coalesce into one step', async () => {
     const app = await modelApp();
-    const plane = addMesh(app, 'msh_Grid', 'plane', { subdivisionsWidth: 6, subdivisionsHeight: 6 });
+    // A 10×10 grid: three grows from a centre face stay inside it, so the shrink after them changes something.
+    const plane = addMesh(app, 'msh_Grid', 'plane', { subdivisionsWidth: 10, subdivisionsHeight: 10 });
     selectObjects(app, [plane]);
     await ok(app, 'select.mode', { mode: 'face' });
-    await ok(app, 'select.components', { mesh: plane, kind: 'face', indices: [14], mode: 'replace' });
+    await ok(app, 'select.components', { mesh: plane, kind: 'face', indices: [55], mode: 'replace' });
     const base = undoLabels(app).length;
     await ok(app, 'select.mesh.grow', undefined, { source: 'keyboard' });
     await ok(app, 'select.mesh.grow', undefined, { source: 'keyboard', repeat: true });

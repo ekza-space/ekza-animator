@@ -30,6 +30,17 @@ export async function undoOver(page: Page, paneId: string = MODEL_PANE): Promise
   await pressOver(page, `${await modKey(page)}+KeyZ`, paneId);
 }
 
+/**
+ * Whether a page point reaches the pane (the topmost element there is inside it): a card or panel drawn over the pane
+ * (the "Drop a .glb" empty state while the scene has no character) would take the press instead.
+ */
+export async function reachable(page: Page, point: ScreenPoint, paneId: string = MODEL_PANE): Promise<boolean> {
+  return page.evaluate(
+    ({ x, y, pane }) => document.elementFromPoint(x, y)?.closest(`[data-ekza-pane="${pane}"]`) instanceof Element,
+    { x: point.x, y: point.y, pane: paneId },
+  );
+}
+
 /** The current component mode (`state().mode`). */
 export async function mode(page: Page): Promise<string> {
   return (await call(page, 'state')).mode;
