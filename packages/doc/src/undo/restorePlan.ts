@@ -92,7 +92,7 @@ function restoreOne(
     reverted++;
   }
   return {
-    write: reverted === 0 ? null : { table: change.table, id: change.id, after: next as Row },
+    write: reverted === 0 ? null : { table: change.table, id: change.id, after: next },
     skip: skippedFields.length === 0 ? null : { fields: skippedFields, reason: 'changed-by-other' },
   };
 }
@@ -219,7 +219,7 @@ export function applyRestorePlan(tx: Tx, plan: RestorePlan): number {
         fields[field] = write.after[field];
         differs = true;
       }
-      if (differs) tx.patch(table, write.id as never, fields as never);
+      if (differs) tx.patch(table, write.id as never, fields);
     } else {
       tx.put(table, write.after as never);
     }
@@ -291,7 +291,7 @@ function publicRestoreHost(tx: Tx): RestoreHost {
       for (const other of BUILTIN_TABLES) {
         for (const record of tx.list(other)) {
           const row = record as unknown as Row;
-          const key = rowKey(other, row.id as string);
+          const key = rowKey(other, row.id);
           const after = planned.has(key) ? planned.get(key)?.after : row;
           if (after === undefined || (other === table && row.id === id)) continue;
           for (const [refTable, refId] of referencesOf(other, after as Row)) {

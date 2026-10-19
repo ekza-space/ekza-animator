@@ -63,7 +63,7 @@ function rawText(store: DocumentStore): string {
 function change(table: string, id: string, before: DocRow | undefined, after: DocRow | undefined): AnyChange {
   const fields =
     before !== undefined && after !== undefined && mergeUnitOf(table) === 'field'
-      ? { fields: diffFields(before as never, after as never) }
+      ? { fields: diffFields(before, after) }
       : {};
   return { table, id, before, after, ...fields } as unknown as AnyChange;
 }
@@ -74,7 +74,7 @@ function foreignEdit(store: DocumentStore, scene: Scene, rng: Rng, step: number)
   const roll = rng.int(4);
   if (roll === 0 && keys.length > 0) {
     const key = rng.pick(keys);
-    store.applyChanges([change('keys', key.id, key as never, { ...key, v: key.v + 1 } as never)], {
+    store.applyChanges([change('keys', key.id, key as never, { ...key, v: key.v + 1 })], {
       origin: 'remote',
       label: 'Remote nudge',
     });
@@ -82,7 +82,7 @@ function foreignEdit(store: DocumentStore, scene: Scene, rng: Rng, step: number)
     const id = rng.pick(scene.controls);
     const control = store.get('controls', id);
     if (control !== undefined) {
-      store.applyChanges([change('controls', id, control as never, { ...control, name: `r${step}` } as never)], {
+      store.applyChanges([change('controls', id, control as never, { ...control, name: `r${step}` })], {
         origin: 'remote',
         label: 'Remote rename',
       });
@@ -96,7 +96,7 @@ function foreignEdit(store: DocumentStore, scene: Scene, rng: Rng, step: number)
   } else {
     const clip = store.get('clips', scene.clip);
     if (clip !== undefined) {
-      store.applyChanges([change('clips', scene.clip, clip as never, { ...clip, sceneStart: step * 3 } as never)], {
+      store.applyChanges([change('clips', scene.clip, clip as never, { ...clip, sceneStart: step * 3 })], {
         origin: 'remote',
         label: 'Remote clip',
       });
@@ -119,13 +119,15 @@ async function editedStore(seed: number, foreign: boolean): Promise<{ store: Doc
 
 function expectPlanMatches(store: DocumentStore, plan: RestorePlan, direction: 'undo' | 'redo', label: string): void {
   const result = direction === 'undo' ? store.undo.undo() : store.undo.redo();
-  expect(result, label).not.toBeNull();
-  if (result === null) return;
-  expect(plan.writes.length, `${label}: applied`).toBe(result.applied);
-  expect(plan.skipped, `${label}: skipped`).toEqual(result.skipped);
+  if (result === null) throw new Error(`${label}: nothing to ${direction}`);
+  expect([`${label}: applied`, plan.writes.length]).toEqual([`${label}: applied`, result.applied]);
+  expect([`${label}: skipped`, plan.skipped]).toEqual([`${label}: skipped`, result.skipped]);
   const host = (store as MemoryDocumentStore).restoreHost();
   for (const write of plan.writes) {
-    expect(host.current(write.table, write.id), `${label}: ${write.table}/${write.id}`).toEqual(write.after);
+    expect([`${label}: ${write.table}/${write.id}`, host.current(write.table, write.id)]).toEqual([
+      `${label}: ${write.table}/${write.id}`,
+      write.after,
+    ]);
   }
 }
 
@@ -170,8 +172,8 @@ describe('planRestore (MCP-SPEC §4.2)', () => {
       // Back to before the revert, then the real undo of the same entry.
       store.undo.undo();
       const undone = store.undo.undo();
-      expect(rawText(store), `seed ${seed}`).toBe(reverted);
-      expect(applied, `seed ${seed}: writes`).toBe(undone?.applied);
+      expect([`seed ${seed}`, rawText(store)]).toEqual([`seed ${seed}`, reverted]);
+      expect([`seed ${seed}: writes`, applied]).toEqual([`seed ${seed}: writes`, undone?.applied]);
     }
   });
 
@@ -183,7 +185,7 @@ describe('planRestore (MCP-SPEC §4.2)', () => {
     store.transact({ label: 'Nudge' }, (tx) => tx.patch('keys', key, { v: 2 }));
     const before = store.get('keys', key);
     if (before === undefined) throw new Error('no key');
-    store.applyChanges([change('keys', key, before as never, { ...before, v: 3 } as never)], {
+    store.applyChanges([change('keys', key, before as never, { ...before, v: 3 })], {
       origin: 'remote',
       label: 'Remote',
     });
@@ -249,14 +251,14 @@ describe('planSnapshotRestore (MCP-SPEC §4.2)', () => {
       const writes = store.transact({ label: 'Restore' }, (tx) =>
         applyRestorePlan(tx, planSnapshotRestore(restoreHostOf(tx), snapshot)),
       );
-      expect(serializeSnapshot(store.snapshot()), `seed ${seed}`).toBe(original);
-      if (writes > 0) {
-        store.undo.undo();
-        expect(docText(store), `seed ${seed}: undo`).toBe(edited);
-        expect(rawText(store), `seed ${seed}: undo (raw)`).toBe(raw);
-      } else {
-        expect(edited).toBe(original);
-      }
+      expect([`seed ${seed}`, serializeSnapshot(store.snapshot())]).toEqual([`seed ${seed}`, original]);
+      // The restore is one undoable step (none when nothing differed: then the edits cancelled out).
+      if (writes > 0) store.undo.undo();
+      expect([`seed ${seed}: undo`, docText(store)]).toEqual([`seed ${seed}: undo`, edited]);
+      expect([`seed ${seed}: undo (raw)`, writes > 0 ? rawText(store) : raw]).toEqual([
+        `seed ${seed}: undo (raw)`,
+        raw,
+      ]);
     }
   });
 

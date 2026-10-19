@@ -64,8 +64,10 @@ export function createPresenceRegistry(opts?: { readonly now?: () => number }): 
       if (typeof peer.id !== 'string' || peer.id.length === 0) {
         throw new EkzaError('invalid-record', 'presence.upsert: a peer needs a non-empty id');
       }
+      // Compared after the cap, so re-sending the same (over-long) focus is not a change.
+      const focus = frozenFocus(peer.focus);
       const existing = peers.get(peer.id);
-      if (existing !== undefined && samePeer(existing, peer)) return;
+      if (existing !== undefined && samePeer(existing, { ...peer, focus })) return;
       peers.set(
         peer.id,
         Object.freeze({
@@ -73,7 +75,7 @@ export function createPresenceRegistry(opts?: { readonly now?: () => number }): 
           kind: peer.kind,
           name: peer.name,
           color: peer.color,
-          focus: frozenFocus(peer.focus),
+          focus,
           activity: peer.activity,
           since: now(),
         }),
