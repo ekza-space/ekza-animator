@@ -36,7 +36,7 @@ describe('defaultSession', () => {
         viewport: 'select',
         graph: 'select',
         manipulatorSize: 90,
-        selectionMask: { controls: true, joints: false, meshes: false },
+        selectionMask: { controls: true, joints: false, meshes: false, groups: false },
         keyTarget: 'selected',
       },
       showSecondary: false,
@@ -115,6 +115,7 @@ describe('session and document', () => {
         controls: [W.lowerArmL, W.handL],
         keys: new Map([[W.keys[1], { key: true, in: false, out: false }]]),
         channels: [{ control: W.handL, channel: 'rz' }],
+        objects: [],
       },
       overrides: new Map([[W.handL, { rz: 1 }]]),
       feetPins: { character: W.character, pins: [] },
@@ -155,6 +156,7 @@ describe('selection snapshots', () => {
     controls: [W.lowerArmL, W.handL],
     keys: new Map([[W.keys[0], { key: true, in: false, out: true }]]),
     channels: [{ control: W.lowerArmL, channel: 'rz' }],
+    objects: [],
   };
 
   it('round-trips through JSON and restores into the session', () => {
@@ -189,6 +191,11 @@ describe('selection snapshots', () => {
       keys: [['k', null], 'x'],
       channels: [{}, null],
     });
-    expect(app.session.getState().selection).toEqual({ controls: [W.lowerArmL], keys: new Map(), channels: [] });
+    expect(app.session.getState().selection).toEqual({
+      controls: [W.lowerArmL],
+      keys: new Map(),
+      channels: [],
+      objects: [],
+    });
   });
 });

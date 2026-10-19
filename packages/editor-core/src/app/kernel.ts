@@ -29,7 +29,7 @@ import { defaultSession } from '../session/defaults';
 import { createSessionKeeper } from '../session/keeper';
 import { activeLocation, locateCharacter } from '../session/location';
 import { repairSession } from '../session/repair';
-import { restoreSelection } from '../session/selection';
+import { restoreSelection, restoreSelectionPart } from '../session/selection';
 import { createToolRegistry } from '../tools/registry';
 import type {
   Contribution,
@@ -38,6 +38,7 @@ import type {
   ExporterDef,
   ImporterDef,
   KeyBinding,
+  MarkingMenuDef,
   MenuItemDef,
   OperatorResult,
   OperatorReturn,
@@ -45,8 +46,13 @@ import type {
   Prefs,
   RunContext,
   SessionState,
+  WorkspaceDef,
 } from '../types';
 import type { KernelDeps } from './deps';
+import { createCapture } from './factories/capture';
+import { createComponents } from './factories/components';
+import { createExtrude } from './factories/extrude';
+import { createBlobs, createMeshes } from './factories/meshes';
 import { bindInternals } from './internals';
 
 export interface KernelOptions {
@@ -141,6 +147,14 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
   const exporters = createRegistry<ExporterDef>('Exporter');
   const exportProfiles = createRegistry<ExportProfileDef>('Export profile');
   const menus = createRegistry<MenuItemDef>('Menu item');
+  // M6a (M6A-SPEC §4.6, §9.1): workspaces, marking menus and the modeling services, one factory file each.
+  const workspaces = createRegistry<WorkspaceDef>('Workspace');
+  const markingMenus = createRegistry<MarkingMenuDef>('Marking menu');
+  const blobs = createBlobs(services);
+  const meshes = createMeshes({ store, blobs, services, requestFrame });
+  const components = createComponents({ session, meshes: () => meshes });
+  const numericCapture = createCapture();
+  const extrude = createExtrude();
 
   // ---------- characters and evaluation ----------
   const cache = deps.rig.createCurveCache(store, deps.curves.engine);
@@ -164,6 +178,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     now,
     locate: (character: CharacterId) => locateCharacter(app, character),
     restoreSelection: (snapshot: unknown) => restoreSelection(app, snapshot),
+    restoreSelectionPart: (part, side) => restoreSelectionPart(app, part, side),
     reconcile: () => capture?.reconcile(),
     navigated: () => capture?.sync(),
   });
@@ -278,6 +293,13 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     playback,
     history,
     services,
+    workspaces,
+    markingMenus,
+    meshes,
+    components,
+    extrude,
+    capture: numericCapture,
+    blobs,
     run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>> {
       const [args, ctx] = rest as readonly [unknown?, RunContext?];
       return run(id, args, ctx) as Promise<OperatorResult<OperatorReturn<K>>>;
@@ -299,6 +321,10 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
           return exportProfiles.register(contribution.def);
         case 'menu':
           return menus.register(contribution.def);
+        case 'workspace':
+          return workspaces.register(contribution.def);
+        case 'markingMenu':
+          return markingMenus.register(contribution.def);
       }
     },
     requestFrame,
@@ -315,6 +341,8 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       for (const dispose of disposers.splice(0).reverse()) dispose();
       keeper.dispose();
       capture?.dispose();
+      history.dispose();
+      meshes.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();

@@ -18,6 +18,7 @@ import {
   makeProject,
   MERGE_UNIT,
   mergeUnitOf,
+  migrateSnapshot,
   type PartitionLookup,
   partitionOf,
   type RecordOf,
@@ -28,9 +29,23 @@ import {
   toAnimCurve,
   validateRecord,
 } from '../src';
-import { makeTestDocument, readSyntheticFixture } from '../src/testing';
+import {
+  makeTestDocument,
+  makeTestGroup,
+  makeTestImagePlane,
+  makeTestJoint,
+  makeTestMesh,
+  makeTestPalette,
+  makeTestSkeleton,
+  makeTestSwatch,
+  readSyntheticFixture,
+  testHash,
+} from '../src/testing';
 
-const lookup: PartitionLookup = { rigCharacter: (rig) => (rig === 'rig_A' ? ('chr_A' as CharacterId) : undefined) };
+const lookup: PartitionLookup = {
+  rigCharacter: (rig) => (rig === 'rig_A' ? ('chr_A' as CharacterId) : undefined),
+  skeletonCharacter: (skeleton) => (skeleton === 'skl_A' ? ('chr_A' as CharacterId) : undefined),
+};
 
 function firstRecord<T extends TableName>(snapshot: DocSnapshot, table: T): RecordOf<T> {
   const rows: Readonly<Record<string, unknown>> = snapshot.tables[table];
@@ -41,8 +56,9 @@ function firstRecord<T extends TableName>(snapshot: DocSnapshot, table: T): Reco
 
 describe('validateRecord', () => {
   it('accepts every record of the synthetic fixture and of makeTestDocument', () => {
+    // M6A-SPEC §3 rule 9: the fixture is an M1 document; its schema 3 records are what migration makes of it.
     for (const snapshot of [
-      readSyntheticFixture('wave-doc.json') as DocSnapshot,
+      migrateSnapshot(readSyntheticFixture('wave-doc.json')).snapshot,
       makeTestDocument({ characters: 2 }),
     ]) {
       for (const table of BUILTIN_TABLES) {
@@ -139,6 +155,14 @@ describe('table definitions and partitions', () => {
       layers: 'clip:clp_A',
       curves: 'clip:clp_A',
       keys: 'clip:clp_A',
+      // M6a (M6A-SPEC §4.2)
+      meshes: 'char:chr_A',
+      groups: 'scene',
+      palettes: 'scene',
+      swatches: 'scene',
+      imagePlanes: 'scene',
+      skeletons: 'char:chr_A',
+      joints: 'char:chr_A',
     };
     const samples: { [T in TableName]: RecordOf<T> } = {
       project: makeProject(),
@@ -168,6 +192,13 @@ describe('table definitions and partitions', () => {
         channel: 'rx',
       }),
       keys: makeKey({ clip: 'clp_A' as ClipId, curve: 'crv_A' as never, t: 0, v: 0 }),
+      meshes: makeTestMesh('msh_A', { owner: { character: 'chr_A' as CharacterId } }),
+      groups: makeTestGroup('grp_A'),
+      palettes: makeTestPalette('pal_A'),
+      swatches: makeTestSwatch('sw_A', 'pal_A', 0),
+      imagePlanes: makeTestImagePlane('img_A', testHash('image')),
+      skeletons: makeTestSkeleton('skl_A', 'chr_A'),
+      joints: makeTestJoint('jnt_A', 'skl_A'),
     };
     const partitions = Object.fromEntries(
       BUILTIN_TABLES.map((table) => [table, partitionOf(table, samples[table] as never, lookup)]),
@@ -177,6 +208,8 @@ describe('table definitions and partitions', () => {
     expect(problems).toEqual(Object.fromEntries(BUILTIN_TABLES.map((table) => [table, []])));
     expect(partitionOf('controls', { ...samples.controls, rig: 'rig_unknown' as RigId }, lookup)).toBe('scene');
     expect(() => partitionOf('controls', samples.controls)).toThrow(expect.objectContaining({ code: 'unsupported' }));
+    expect(partitionOf('joints', { ...samples.joints, skeleton: 'skl_unknown' as never }, lookup)).toBe('scene');
+    expect(() => partitionOf('joints', samples.joints)).toThrow(expect.objectContaining({ code: 'unsupported' }));
     expect(partitionOf('vendor.notes' as TableName, { id: 'n' } as never)).toBe('scene');
   });
 

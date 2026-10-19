@@ -128,7 +128,7 @@ export function wheel(partial: Partial<ToolWheelEvent> & { readonly x: number; r
 }
 
 export function keyEvent(partial: Partial<ToolKeyEvent> & { readonly code: string }): ToolKeyEvent {
-  return { type: 'down', shift: false, alt: false, mod: false, ...partial };
+  return { type: 'down', shift: false, alt: false, mod: false, ctrl: false, repeat: false, ...partial };
 }
 
 /** Press at `from`, move through `steps` intermediate points to `to`, release there. */

@@ -196,6 +196,7 @@ export function exportNameOf(
   const fallback = clipExportName(clip);
   if (kind !== 'bake-into-model' || (clip.slot !== null && clip.slot.trim() !== '')) return fallback;
   const source = clip.source;
+  // M6a: a model-sourced character (asset null) has no embedded animations: the fallback name.
   if (source.kind !== 'embedded' || source.asset !== character.asset) return fallback;
   if (nameKey(clip.name) !== nameKey(sanitizeClipName(source.animationName))) return fallback; // renamed since
   const animations = container.json['animations'];

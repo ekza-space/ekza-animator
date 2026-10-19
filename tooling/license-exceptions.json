@@ -15,6 +15,11 @@
       "name": "lightningcss-*",
       "license": "MPL-2.0",
       "rationale": "Platform binaries of lightningcss (see above), installed per OS/CPU."
+    },
+    {
+      "name": "robust-predicates",
+      "license": "Unlicense",
+      "rationale": "Shewchuk's exact orient2d/orient3d predicates for Multi-Cut chords and concave tests in mesh-core (M6A-SPEC §2, Q-MOD-K-6). The Unlicense is a public-domain dedication, OSI-approved; it imposes no conditions on our code or on redistribution. Reviewed for M6a by the integration agent; fallback if a reviewer rejects it: port the four predicates into mesh-core/src/predicates (B1)."
     }
   ]
 }

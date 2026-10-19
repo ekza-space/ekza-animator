@@ -1,5 +1,6 @@
 // URL parameters of the editor (MVP-SPEC §4.8). They take effect only in e2e builds (NEXT_PUBLIC_EKZA_E2E=1)
-// opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode.
+// opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The one
+// exception is M6a `ws=<id>` (M6A-SPEC §4.8): a deep link to a workspace, read in any build.
 import type { NavProfile } from '@ekza-animator/editor-core';
 
 export interface EditorParams {
@@ -19,6 +20,8 @@ export interface EditorParams {
   readonly storageBlocked: boolean;
   /** M2a `pointerLock=off`: the virtual slider uses pointer capture instead of Pointer Lock (§5.18). */
   readonly pointerLock: boolean;
+  /** M6a `ws=<id>` (any build): open this workspace when it is registered and enabled; null = the remembered one. */
+  readonly ws: string | null;
 }
 
 export const DEFAULT_PARAMS: EditorParams = {
@@ -30,14 +33,19 @@ export const DEFAULT_PARAMS: EditorParams = {
   ns: null,
   storageBlocked: false,
   pointerLock: true,
+  ws: null,
 };
 
 /** A storage namespace from the URL: 1–64 characters of [A-Za-z0-9_-]; anything else is ignored. */
 const NAMESPACE = /^[A-Za-z0-9_-]{1,64}$/;
+/** A workspace id from the URL ('model', 'animate', …); anything else is ignored. */
+const WORKSPACE_ID = /^[a-z][a-z0-9-]{0,31}$/;
 
 export function parseEditorParams(search: string, buildAllowsE2e: boolean): EditorParams {
   const query = new URLSearchParams(search);
-  if (!buildAllowsE2e || query.get('e2e') !== '1') return DEFAULT_PARAMS;
+  const wsParam = query.get('ws');
+  const ws = wsParam !== null && WORKSPACE_ID.test(wsParam) ? wsParam : null;
+  if (!buildAllowsE2e || query.get('e2e') !== '1') return ws === null ? DEFAULT_PARAMS : { ...DEFAULT_PARAMS, ws };
   const nav = query.get('nav');
   const space = query.get('space');
   const platform = query.get('platform');
@@ -51,6 +59,7 @@ export function parseEditorParams(search: string, buildAllowsE2e: boolean): Edit
     ns: ns !== null && NAMESPACE.test(ns) ? ns : null,
     storageBlocked: query.get('storage') === 'blocked',
     pointerLock: query.get('pointerLock') !== 'off',
+    ws,
   };
 }
 
