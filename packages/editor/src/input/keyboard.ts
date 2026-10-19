@@ -375,9 +375,11 @@ export class KeyboardAdapter {
   }
 
   /**
-   * Step 2 of the adapter order. Keydown: over a viewport pane, a code in the tool's `keys` (any phase), or a reserved
-   * modal key while the tool is placing or dragging, goes to `key()` first. Keyup: the tool that got the keydown gets
-   * the release, wherever the pointer is. Returns true when the tool consumed the key.
+   * Step 2 of the adapter order. Keydown: over a viewport pane, a code in the tool's `keys` (any phase), and — wherever
+   * the pointer is — a reserved modal key while the tool is placing or dragging, goes to `key()` first (§5.10: a
+   * Multi-Cut `Backspace` can never run `mesh.delete`, not even with the pointer over another panel; M6A-INT-12).
+   * Keyup: the tool that got the keydown gets the release, wherever the pointer is. Returns true when the tool
+   * consumed the key.
    */
   #toolKey(type: 'down' | 'up', event: KeyboardEvent, input: KeyInput, chain: KeyScopeChain | null): boolean {
     let target: ToolKeyTarget | null = null;
@@ -387,12 +389,13 @@ export class KeyboardAdapter {
     }
     if (target === null) {
       const at = chain ?? this.#deps.scopeChain();
-      if (at.panel !== PANEL.viewport || at.paneId === null || this.#deps.viewportTool === undefined) return false;
-      const tool = this.#deps.viewportTool(at.paneId);
+      if (this.#deps.viewportTool === undefined) return false;
+      const over = at.panel === PANEL.viewport && at.paneId !== null;
+      const tool = this.#deps.viewportTool(at.paneId ?? '');
       if (tool === null) return false;
       const phase = tool.phase();
       const modal = (phase === 'placing' || phase === 'dragging') && RESERVED_MODAL_KEYS.has(event.code);
-      if (!modal && !tool.keys.includes(event.code)) return false;
+      if (!modal && !(over && tool.keys.includes(event.code))) return false;
       target = tool;
       if (type === 'down') this.#toolHeld.set(event.code, tool);
     }

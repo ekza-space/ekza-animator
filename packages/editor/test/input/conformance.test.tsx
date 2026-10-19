@@ -134,6 +134,27 @@ describe('DOM adapter, tool keys and tap/hold (§5.17)', () => {
     expect(tool.events).toHaveLength(2);
   });
 
+  // §5.10 (B12b's note for INT, M6A-INT-12): the gesture in progress owns the reserved keys wherever the pointer is.
+  it('a placing tool takes Backspace with the pointer over another panel; its own keys stay pane-only', async () => {
+    const h = await mount();
+    h.enterModel('face');
+    const tool = h.fakeTool({ keys: ['KeyX'], consumes: (e) => e.code === 'Backspace' || e.code === 'KeyX' });
+    tool.phase = 'placing';
+    h.hover('outliner');
+    h.runs();
+    const event = h.press('Backspace');
+    expect(h.runs()).toEqual([]);
+    expect(event.defaultPrevented).toBe(true);
+    expect(tool.events.map((e) => `${e.type} ${e.code}`)).toEqual(['down Backspace', 'up Backspace']);
+    // `ToolDef.keys` still reach the tool only over a pane: over the Outliner X goes to the keymap.
+    h.press('KeyX');
+    expect(tool.events).toHaveLength(2);
+    // Idle, Backspace over the Outliner is not offered to the tool (the keymap's again: it binds nothing there).
+    tool.phase = 'idle';
+    h.press('Backspace');
+    expect(tool.events).toHaveLength(2);
+  });
+
   it('a dragging tool gets the reserved modal keys first; Esc it does not take still escapes', async () => {
     const h = await mount();
     h.enterModel('vertex');
