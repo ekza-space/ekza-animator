@@ -8,7 +8,7 @@ import {
   setAttributeField,
   zipEntry,
 } from './helpers/m6a-model-content';
-import { createPrimitive, openModel, screenOf } from './helpers/m6a-model';
+import { createPrimitive, openModel, screenOf, setMode } from './helpers/m6a-model';
 import { call, expectKernelStarted, lastExport, loadFile, runOk, waitForTestApi } from './helpers/test-api';
 
 // E2E-MOD-29 (M6A-SPEC §10.1, §5.26; owner B13, gate b10): reference images for the front and side views through
@@ -41,9 +41,16 @@ test('E2E-MOD-29 — reference image planes', async ({ page }) => {
 
   // A cube in front of the side plane; a click on it in the side view selects it through the plane.
   const cube = await createPrimitive(page, 'cube');
-  await runOk(page, 'select.objects', { ids: [], mode: 'replace' });
+  // `screenOfFace` reads B10's component display, which draws the hilited meshes in a component mode: the facing
+  // face's point is taken in face mode, then the scene goes back to object mode with nothing selected (the cameras
+  // stay where they are) and the click selects the cube (M6A-INT-8).
+  await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });
+  await setMode(page, 'face');
   const facing = await extremeFace(page, cube, 0, 1);
   const point = await screenOf(page, cube, 'face', facing, 'pane-side');
+  await setMode(page, 'object');
+  await runOk(page, 'select.objects', { ids: [], mode: 'replace' });
+  await expect(page.getByTestId(`outliner-row-${cube}`)).not.toHaveAttribute('aria-selected', 'true');
   await page.mouse.click(point.x, point.y);
   await expect(page.getByTestId(`outliner-row-${cube}`)).toHaveAttribute('aria-selected', 'true');
 

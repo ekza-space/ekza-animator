@@ -50,11 +50,26 @@ test('E2E-MOD-27 — primitive parameters and freeze', async ({ page }) => {
   await setAttributeField(page, 'attr-prim-subdivisionsHeight', '2');
   await expect.poll(() => counts(page, cylinder)).toBe('30/50/22');
 
-  // The first component edit freezes the parameters: vertex mode, vertex 0, Move, drag ty by 10 px.
+  // The first component edit freezes the parameters: vertex mode, a vertex, Move, drag ty by 10 px. §10.1 names
+  // vertex 0, which on the low-poly cylinder sits on the back of the bottom ring (hidden in the default persp view):
+  // the first vertex the pane shows stands in for it (M6A-INT-11).
   await hoverPersp(page);
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await call(page, 'state')).mode).toBe('vertex');
-  const vertex = await screenOf(page, cylinder, 'vertex', 0);
+  let index = -1;
+  await expect
+    .poll(async () => {
+      const count = (await call(page, 'meshInfo', cylinder))?.counts.v ?? 0;
+      for (let v = 0; v < count; v++) {
+        if ((await call(page, 'screenOfVertex', cylinder, v, MODEL_PANE)) !== null) {
+          index = v;
+          break;
+        }
+      }
+      return index;
+    })
+    .toBeGreaterThanOrEqual(0);
+  const vertex = await screenOf(page, cylinder, 'vertex', index);
   await page.mouse.click(vertex.x, vertex.y);
   await page.keyboard.press('KeyW');
   await expect.poll(() => call(page, 'screenOfManipulator', MODEL_PANE, 'ty')).not.toBeNull();

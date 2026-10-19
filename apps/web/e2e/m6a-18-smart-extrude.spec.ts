@@ -44,12 +44,15 @@ test('E2E-MOD-18 — smart extrude and chains (W)', async ({ page }) => {
   await setCardField(page, 'divisions', '3');
   await expect.poll(() => counts(page, cube)).toBe('20/36/18');
   expect((await undoLabels(page)).length).toBe(before + 1);
+  // The smart extrude opened its session and Divisions stepped its args (§5.8): `Esc` ends the session (the cap moved:
+  // no zero-drop) and one undo then removes the extrude (§10.1 as amended at INT, M6A-INT-3).
   await hoverPane(page);
-  await page.keyboard.press(`${await modKey(page)}+KeyZ`);
-  await page.keyboard.press(`${await modKey(page)}+KeyZ`);
-  await page.keyboard.press(`${await modKey(page)}+KeyZ`);
+  expect((await call(page, 'state')).extrudeSession).toBe(true);
+  await page.keyboard.press('Escape');
+  await expect.poll(async () => (await call(page, 'state')).extrudeSession).toBe(false);
   await page.keyboard.press(`${await modKey(page)}+KeyZ`);
   await expect.poll(() => counts(page, cube)).toBe('8/12/6');
+  expect((await undoLabels(page)).length).toBe(before);
 });
 
 test('E2E-MOD-18 (b) — three Shift+drags of W build three extrudes', async ({ page }) => {

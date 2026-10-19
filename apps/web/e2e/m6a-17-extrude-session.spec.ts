@@ -89,14 +89,10 @@ test('E2E-MOD-17 — extrude session and its undo stack (R drag)', async ({ page
   await keyOver(page, 'KeyR');
   const handle = await call(page, 'screenOfManipulator', MODEL_PANE, 'suniform');
   if (handle === null) throw new Error('no suniform handle');
-  await page.mouse.move(handle.x, handle.y);
-  await page.mouse.down();
-  for (let dx = 4; dx <= 200; dx += 4) {
-    await page.mouse.move(handle.x - dx, handle.y);
-    const [sx] = await scaleArgs(page);
-    if (Math.abs(sx - 0.5) < 0.02) break;
-  }
-  await page.mouse.up();
+  // The Scale tool's uniform handle scales by 1 per manipulator size (90 px, the session default) of pointer travel
+  // (B12a's `scaleMotion`), so 45 px inward is 0.5. The drag previews the cap through the card preview and its
+  // release runs one `edit.adjustLast` (§5.8), which is when `lastOp().args` change (M6A-INT-6).
+  await dragFrom(page, handle, { x: handle.x - 45, y: handle.y }, { steps: 9 });
   await expect.poll(async () => Math.abs((await scaleArgs(page))[0] - 0.5)).toBeLessThan(0.05);
   expect((await call(page, 'state')).extrudeSession).toBe(true);
   // The original faces' vertices (the base ring) did not move: the drag changed the extrude's args.

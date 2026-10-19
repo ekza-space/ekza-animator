@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { createPrimitive, MODEL_PANE, modKey, openModel, setMode } from './helpers/m6a-model';
-import { counts, hoverPane, runMenuItem, setCardField } from './helpers/m6a-model-ops-ui';
+import { counts, hoverPane, runMenuItem, setCardField, showChannelBox } from './helpers/m6a-model-ops-ui';
 import { keyOver, near, undoLabels, type Vec3, vertexPoint, worldOf } from './helpers/m6a-model-topology-tools';
 import { call, runOk } from './helpers/test-api';
 
@@ -98,6 +98,8 @@ test('E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page }) => {
   for (let i = 0; i < 3; i++) {
     expect(Math.abs((moved[i] as number) - (local[i] as number) - (world[i] as number))).toBeLessThanOrEqual(1e-6);
   }
+  // The object's TRS rows are in the Channel Box tab of the right dock (Model shows the Toolkit tab first, §8.2).
+  await showChannelBox(page);
   const ty = page.getByTestId('cb-field-ty');
   await ty.fill('+=1');
   await ty.press('Enter');

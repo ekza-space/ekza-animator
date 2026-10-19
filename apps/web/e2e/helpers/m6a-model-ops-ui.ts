@@ -20,6 +20,15 @@ export async function hoverPane(
   return point;
 }
 
+/** Shows the right dock's Channel Box tab (Model opens on the Toolkit tab, §8.2) with the mesh object's rows. */
+export async function showChannelBox(page: Page): Promise<void> {
+  await page
+    .locator('.dv-tab', { hasText: /^Channel Box$/ })
+    .first()
+    .click();
+  await expect(page.getByTestId('channel-box-panel')).toBeVisible();
+}
+
 /** Empty space in a pane: left of the centre, where the Model empty-state card does not take the press (B9). */
 export async function emptySpot(page: Page, paneId: string = MODEL_PANE): Promise<{ x: number; y: number }> {
   const pane = (await call(page, 'panes')).find((entry) => entry.id === paneId);

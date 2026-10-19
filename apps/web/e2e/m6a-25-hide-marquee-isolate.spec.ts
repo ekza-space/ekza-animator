@@ -33,9 +33,7 @@ function around(points: readonly ScreenPoint[], pad: number): { from: ScreenPoin
   };
 }
 
-test('E2E-MOD-25 — hidden faces stay out of marquees and ops; edge marquee; per-pane isolate', async ({
-  page,
-}) => {
+test('E2E-MOD-25 — hidden faces stay out of marquees and ops; edge marquee; per-pane isolate', async ({ page }) => {
   await openModel(page);
   // pane-front is one of the M-Quad panes: leave the maximized persp pane.
   await runOk(page, 'view.layout', { layout: 'quad' });

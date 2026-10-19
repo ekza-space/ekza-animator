@@ -209,7 +209,8 @@ test('E2E-MOD-12 (loop and export): bake an edge loop on the forearm into Polybo
   const body = await bodyOf(page, id);
   const before = readGlb(sampleBytes('polybot.vrm'));
   const seedEdge = forearmRingEdge(body, before.json);
-  await runOk(page, 'mesh.insertLoop', { meshes: [id], seedEdge, weight: 0.5 });
+  // A scripted kernel-op run outside a component mode names its kind (§4.6 `MeshOpArgs.kind`, as E2E-MOD-09 does).
+  await runOk(page, 'mesh.insertLoop', { meshes: [id], kind: 'edge', seedEdge, weight: 0.5 });
   const baked = await exportOne(page, { kind: 'bake-into-model', character, clips: [clip] });
   expect(await validatorErrors(baked.bytes)).toEqual([]);
   const after = readGlb(baked.bytes);

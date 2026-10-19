@@ -36,9 +36,7 @@ async function topFace(page: Page, mesh: string): Promise<number> {
   return best;
 }
 
-test('E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac, trackpad)', async ({
-  page,
-}) => {
+test('E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac, trackpad)', async ({ page }) => {
   await openModel(page, '&platform=mac&nav=trackpad');
   // Shift+RMB on empty space → the primitives menu's N slot (Cube).
   const rect = await paneRect(page, MODEL_PANE);
@@ -95,7 +93,8 @@ test('E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac
   const card = await call(page, 'lastOpCard');
   expect(card?.title).toBe('Extrude');
   // The card names its shortcut in the platform's labels (§10.1: "the card and help line show ⌘E"), as text or as
-  // the tooltip of one of its parts. Soft: it still fails the test, and the rest of the scenario still reports.
+  // the tooltip of one of its parts (the pill's tooltip and the expanded card's header, M6A-INT-4). Soft: it still
+  // fails the test, and the rest of the scenario still reports.
   const cardLabels = (): Promise<string> =>
     page
       .getByTestId(`lastop-card-${MODEL_PANE}`)
@@ -111,6 +110,14 @@ test('E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac
   // Divisions 2 through the card (expanded from its pill); the field gives the keyboard back before the undo.
   await setLastOpField(page, 'divisions', '2');
   await expect.poll(async () => (await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 16, e: 28, f: 14 });
+  expect((await undoLabels(page)).length).toBe(steps);
+  // §5.8: `Mod+E` opened the extrude session and the typed value and Divisions stepped its args; `Esc` over the pane
+  // ends the session (the cap moved, so there is no zero-drop) and one undo then removes the whole extrude (M6A-SPEC
+  // §10.1 rows E2E-MOD-01/-02 as amended at INT, M6A-INT-3; inside the session the first undo steps Divisions back).
+  expect((await call(page, 'state')).extrudeSession).toBe(true);
+  await pressOver(page, 'Escape');
+  await expect.poll(async () => (await call(page, 'state')).extrudeSession).toBe(false);
+  expect((await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 16, e: 28, f: 14 });
   expect((await undoLabels(page)).length).toBe(steps);
   await undoOver(page);
   await expect.poll(async () => (await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 8, e: 12, f: 6 });

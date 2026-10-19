@@ -121,9 +121,7 @@ async function digit(page: Page, n: 1 | 2 | 3, expected: Kind): Promise<void> {
   await expect.poll(async () => (await call(page, 'state')).mode).toBe(expected);
 }
 
-test('E2E-MOD-26 — selection undo steps and the loop table (edges, vertices, faces)', async ({
-  page,
-}) => {
+test('E2E-MOD-26 — selection undo steps and the loop table (edges, vertices, faces)', async ({ page }) => {
   await openModel(page);
   const torus = await createPrimitive(page, 'torus');
   await expect.poll(async () => (await call(page, 'meshInfo', torus))?.counts).toMatchObject({ v: 72, e: 144, f: 72 });
