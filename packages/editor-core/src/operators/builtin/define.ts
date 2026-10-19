@@ -58,12 +58,25 @@ export function errorText(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-/** The run context an operator was run with (to forward it). */
+/**
+ * The run context an operator was run with (to forward it). M-AI runner rule 7: the source, actor, run scope, signal
+ * and access are forwarded too, so a nested run is attributed, scoped, cancellable and checked like its parent.
+ */
 export function runContextOf(ctx: OperatorContext): RunContext {
   return {
     ...(ctx.panel === null ? {} : { panel: ctx.panel }),
     ...(ctx.paneId === null ? {} : { paneId: ctx.paneId }),
+    ...(ctx.source === undefined || ctx.source === null ? {} : { source: ctx.source }),
+    ...(ctx.actor === undefined || ctx.actor === null ? {} : { actor: ctx.actor }),
+    ...(ctx.runScope === undefined || ctx.runScope === null ? {} : { runScope: ctx.runScope }),
+    ...(ctx.signal === undefined || ctx.signal === null ? {} : { signal: ctx.signal }),
+    ...(ctx.access === undefined || ctx.access === null ? {} : { access: ctx.access }),
   };
+}
+
+/** True when an operator runs for an agent (`RunContext.actor`, MCP-SPEC §4.1). */
+export function isActorRun(ctx: OperatorContext): boolean {
+  return ctx.actor !== undefined && ctx.actor !== null;
 }
 
 /**

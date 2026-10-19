@@ -31,6 +31,7 @@ import { activeLocation, locateCharacter } from '../session/location';
 import { repairSession } from '../session/repair';
 import { restoreSelection } from '../session/selection';
 import { createToolRegistry } from '../tools/registry';
+import { createKernelPresence } from './factories/presence';
 import type {
   Contribution,
   EditorApp,
@@ -278,6 +279,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     playback,
     history,
     services,
+    presence: createKernelPresence({ now }),
     run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>> {
       const [args, ctx] = rest as readonly [unknown?, RunContext?];
       return run(id, args, ctx) as Promise<OperatorResult<OperatorReturn<K>>>;

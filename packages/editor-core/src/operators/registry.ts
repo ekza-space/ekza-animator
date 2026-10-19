@@ -5,8 +5,18 @@ import type { EditorApp, OperatorContext, OperatorDef, OperatorRegistry, PollRes
 
 export type AnyOperatorDef = OperatorDef<unknown, unknown, unknown>;
 
+/** The operator context of a run; the M-AI fields are always set, null when the run context lacks them (rule 7). */
 export function operatorContext(app: EditorApp, ctx: RunContext | undefined): OperatorContext {
-  return { app, panel: ctx?.panel ?? null, paneId: ctx?.paneId ?? null };
+  return {
+    app,
+    panel: ctx?.panel ?? null,
+    paneId: ctx?.paneId ?? null,
+    source: ctx?.source ?? null,
+    actor: ctx?.actor ?? null,
+    runScope: ctx?.actor === undefined ? null : (ctx.runScope ?? null),
+    signal: ctx?.signal ?? null,
+    access: ctx?.access ?? null,
+  };
 }
 
 export function unknownOperator(id: string): string {

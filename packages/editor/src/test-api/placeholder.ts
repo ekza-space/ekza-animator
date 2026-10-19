@@ -73,6 +73,8 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
     tweenTarget: () => notImplemented('tweenTarget'),
     autosave: () => notImplemented('autosave'),
     flushAutosave: () => notImplemented('flushAutosave'),
+    agent: () => notImplemented('agent'),
+    historySteps: () => notImplemented('historySteps'),
   };
   return {
     api,

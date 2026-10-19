@@ -7,7 +7,10 @@ import {
   type Disposer,
   EkzaError,
   eulerToQuat,
+  mat4Compose,
   mat4Decompose,
+  mat4Invert,
+  mat4Multiply,
   type Quat,
   quatInvert,
   quatMultiply,
@@ -161,6 +164,30 @@ interface WheelBurst extends ShotNav {
 
 /** A shot-camera wheel burst ends after this idle time (ms) and commits once (MVP-SPEC §4.11.16). */
 export const WHEEL_BURST_MS = 120;
+
+/** M-AI (MCP-SPEC §4.3): an overlay drawn into every pane after the control pass (P8's presence outline). */
+export interface AgentOverlayPass {
+  readonly id: string;
+  draw(target: { readonly camera: Camera; readonly scene: Scene }): void;
+}
+/**
+ * M-AI (MCP-SPEC §4.3): what capture (P5) and the presence outline (P8) need; never changes a pane, a pane camera,
+ * the session or the playhead.
+ */
+export interface ViewportAgentHost {
+  readonly renderer: WebGLRenderer; // the shared renderer (three.js types never leave viewport)
+  readonly scene: Scene;
+  /**
+   * The pane the user last interacted with (keyboard focus inside a pane, else the last pointer press or wheel), else
+   * the hovered one, else null.
+   */
+  activePaneId(): string | null;
+  paneCamera(paneId: string): CameraSnapshot; // world space, a copy
+  /** Poses `character` from evaluated bone worlds for the duration of `draw`, then restores the current pose. */
+  withPose<T>(character: CharacterId, boneWorld: Float64Array, draw: () => T): T;
+  /** Overlay layer hook (also used by P8's presence outline, §7.6); returns a disposer. */
+  addOverlayPass(pass: AgentOverlayPass): Disposer;
+}
 const SHOT_LABEL = 'Move Shot Camera';
 
 export class ViewportManager {
@@ -206,6 +233,8 @@ export class ViewportManager {
   /** Untouched view cameras should be (re)framed at the next frame preparation. */
   private autoFrame = true;
   private readonly projector = new PaneProjector();
+  /** M-AI (MCP-SPEC §4.3, §7.6): overlay passes of the agent host, drawn after the control pass. */
+  private readonly overlayPasses = new Set<AgentOverlayPass>();
   private readonly onKeyDown = (e: KeyboardEvent): void => {
     if (e.code === 'Escape') this.cancelInteraction();
   };
@@ -540,6 +569,37 @@ export class ViewportManager {
     return snapshotOf(this.resolve(pane).nav);
   }
 
+  /**
+   * M-AI (MCP-SPEC §4.3): the agent host — the shared renderer and scene, the user's active pane and its camera, a
+   * temporary pose for one draw and overlay passes. Reading it changes nothing the user sees.
+   */
+  agentHost(): ViewportAgentHost {
+    return {
+      renderer: this.renderer,
+      scene: this.scene,
+      // Keyboard focus inside a pane (its menu, a focused pane element) is the user's current interaction; else the
+      // pane of the last pointer press or wheel; else the hovered pane; else null (MAI-D0-15).
+      activePaneId: () => {
+        const focus = typeof document === 'undefined' ? null : document.activeElement;
+        if (focus !== null && focus !== document.body) {
+          for (const [id, pane] of this.panes) if (pane.element.contains(focus)) return id;
+        }
+        if (this.lastPointerPane !== null && this.panes.has(this.lastPointerPane)) return this.lastPointerPane;
+        const hovered = this.pointerAt?.paneId ?? null;
+        return hovered !== null && this.panes.has(hovered) ? hovered : null;
+      },
+      paneCamera: (paneId) => this.camera(paneId),
+      withPose: (character, boneWorld, draw) => this.withAgentPose(character, boneWorld, draw),
+      addOverlayPass: (pass) => {
+        this.overlayPasses.add(pass);
+        this.invalidate();
+        return () => {
+          if (this.overlayPasses.delete(pass)) this.invalidate();
+        };
+      },
+    };
+  }
+
   setNavProfile(profile: NavProfile): void {
     this.profile = profile;
   }
@@ -687,6 +747,8 @@ export class ViewportManager {
       camera.layers.set(LAYER.controlsVisible);
       renderer.render(this.controlScene, camera);
     }
+    // M-AI (MCP-SPEC §7.6): agent overlay passes after the control pass, before the manipulator.
+    for (const pass of this.overlayPasses) pass.draw({ camera, scene: this.scene });
     renderer.clearDepth();
     if (this.kit.visible) {
       this.projector.set(camera, viewport.width, viewport.height, camera.near);
@@ -695,6 +757,60 @@ export class ViewportManager {
       renderer.render(this.kit.scene, camera);
     }
     camera.layers.set(LAYER.always);
+  }
+
+  /**
+   * M-AI (MCP-SPEC §4.3): poses a character's model from bone worlds in canonical character space for `draw`, then
+   * puts the current pose back. Node locals: `W_parent⁻¹·W` (the facing cancels), roots `F⁻¹·W` with F the
+   * skeleton's facing (model → canonical).
+   */
+  private withAgentPose<T>(character: CharacterId, boneWorld: Float64Array, draw: () => T): T {
+    const model = this.sync.model(character);
+    const runtime = this.app.characters.get(character);
+    if (model === null || runtime === undefined) return draw();
+    const nodes = runtime.skeleton.nodes;
+    if (boneWorld.length < nodes.length * 16) {
+      throw new EkzaError('invalid-record', `withPose: ${nodes.length} bone worlds expected`);
+    }
+    const objects = model.nodeObjects;
+    const saved = objects.map((object) =>
+      object === null || object === undefined
+        ? null
+        : { p: object.position.clone(), q: object.quaternion.clone(), s: object.scale.clone() },
+    );
+    const facing = mat4Compose({ t: [0, 0, 0], q: runtime.skeleton.facing, s: [1, 1, 1] });
+    const facingInverse = mat4Invert(facing) ?? facing;
+    const world = new Float64Array(16);
+    const parentInverse = new Float64Array(16);
+    const local = new Float64Array(16);
+    for (let i = 0; i < nodes.length; i++) {
+      const object = objects[i];
+      if (object === null || object === undefined) continue;
+      world.set(boneWorld.subarray(i * 16, i * 16 + 16));
+      const parent = (nodes[i] as { readonly parent: number }).parent;
+      if (parent < 0) mat4Multiply(facingInverse, world, local);
+      else {
+        parentInverse.set(boneWorld.subarray(parent * 16, parent * 16 + 16));
+        mat4Multiply(mat4Invert(parentInverse, parentInverse) ?? facingInverse, world, local);
+      }
+      const xf = mat4Decompose(local);
+      object.position.set(xf.t[0], xf.t[1], xf.t[2]);
+      object.quaternion.set(xf.q[0], xf.q[1], xf.q[2], xf.q[3]);
+      object.scale.set(xf.s[0], xf.s[1], xf.s[2]);
+    }
+    this.scene.updateMatrixWorld();
+    try {
+      return draw();
+    } finally {
+      objects.forEach((object, i) => {
+        const before = saved[i];
+        if (object === null || object === undefined || before === null || before === undefined) return;
+        object.position.copy(before.p);
+        object.quaternion.copy(before.q);
+        object.scale.copy(before.s);
+      });
+      this.scene.updateMatrixWorld();
+    }
   }
 
   // ---------------------------------------------------------------------------------------------------------------
