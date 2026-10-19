@@ -6,6 +6,7 @@ import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
 import { registerOutlinerPanel } from './outliner';
 import { registerTimelinePanel } from './timeline';
+import { registerToolkitPanel } from './toolkit';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
 
@@ -23,6 +24,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerChannelBoxPanel(registry),
     registerAttributesPanel(registry),
     registerDopeSheetPanel(registry),
+    // M6a (M6A-SPEC §8.5, §8.6; B11): the Modeling Toolkit and B11's overlays (Last-op card, option box).
+    registerToolkitPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

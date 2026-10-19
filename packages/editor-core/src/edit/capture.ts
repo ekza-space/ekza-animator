@@ -380,3 +380,51 @@ export function subscribeLastOpCard(app: EditorApp, listener: () => void): Dispo
     store.listeners.delete(listener);
   };
 }
+
+// ---------- the selected INPUTS field name (§8.6; the viewport MMB-drag runs its virtual slider, §5.15) ----------
+
+/** A Channel Box INPUTS field name the user selected (B12a's MMB rule drags it). */
+export interface InputsFieldSelection {
+  /** 'lastop': the last-op entry (`edit.adjustLast`); 'primitive': the primitive entry of `mesh`. */
+  readonly entry: 'lastop' | 'primitive';
+  readonly mesh: string;
+  readonly param: string;
+}
+
+const inputsFields = new WeakMap<EditorApp, { value: InputsFieldSelection | null; readonly listeners: Set<() => void> }>();
+
+function inputsStore(app: EditorApp): { value: InputsFieldSelection | null; readonly listeners: Set<() => void> } {
+  let store = inputsFields.get(app);
+  if (store === undefined) {
+    store = { value: null, listeners: new Set() };
+    inputsFields.set(app, store);
+  }
+  return store;
+}
+
+/** The selected INPUTS field name, null when none (a viewport MMB drag then follows the other rules of §5.15). */
+export function selectedInputsField(app: EditorApp): InputsFieldSelection | null {
+  return inputsStore(app).value;
+}
+
+/** Selects (or clears with null) an INPUTS field name; selecting it again clears it. */
+export function selectInputsField(app: EditorApp, field: InputsFieldSelection | null): void {
+  const store = inputsStore(app);
+  const current = store.value;
+  const same =
+    current !== null &&
+    field !== null &&
+    current.entry === field.entry &&
+    current.mesh === field.mesh &&
+    current.param === field.param;
+  store.value = same ? null : field;
+  for (const listener of Array.from(store.listeners)) listener();
+}
+
+export function subscribeInputsField(app: EditorApp, listener: () => void): Disposer {
+  const store = inputsStore(app);
+  store.listeners.add(listener);
+  return () => {
+    store.listeners.delete(listener);
+  };
+}

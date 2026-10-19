@@ -183,12 +183,16 @@ export {
   createNumericCapture,
   dismissLastOpCard,
   ENTRY_DISCARDED,
+  type InputsFieldSelection,
   type LastOpCardState,
   lastOpCardState,
   type NumericCapture,
   openLastOpCard,
   resetLastOpCard,
+  selectedInputsField,
+  selectInputsField,
   setLastOpCardExpanded,
+  subscribeInputsField,
   subscribeLastOpCard,
 } from './edit/capture';
 export {
