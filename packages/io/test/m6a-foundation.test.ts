@@ -46,9 +46,10 @@ describe('io M6a foundation', () => {
       bin: null,
       sha256: '',
     };
-    expect(await code(() => meshFromGltf(container, 0))).toBe('not-implemented');
-    expect(await code(() => editLicence(container))).toBe('not-implemented');
-    expect(await code(() => writePaletteTexture([]))).toBe('not-implemented');
+    // B8 landed io/mesh: make editable refuses a container without meshes, the palette writer works.
+    expect(await meshFromGltf(container, 0)).toMatchObject({ refused: true, code: 'unsupported' });
+    expect(editLicence(container)).toEqual({ ok: true });
+    expect(writePaletteTexture([]).width).toBe(64);
     expect(await code(() => replacePrimitives(new Uint8Array(0), [], { marker: true }))).toBe('not-implemented');
     expect(await code(() => rebuildContainer(container, []))).toBe('not-implemented');
     expect(
