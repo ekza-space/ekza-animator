@@ -4,6 +4,8 @@
 export const READY = {
   /** B2: the kernel's walkers (loop table, rings, grow, shrink, convert, border, shell) and `expandSelection`. */
   b2: false,
+  /** B3: core topology ops (`mesh.delete` through the runtime: hidden components are never op targets). */
+  b3: false,
   /** B5: `checkMesh` (Mesh Check "select matching"). */
   b5: false,
   /** B7: the real runtime (commits through `commitOp`, symmetry maps from the session settings). */

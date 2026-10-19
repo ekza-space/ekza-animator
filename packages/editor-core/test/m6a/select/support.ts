@@ -128,3 +128,63 @@ export function selected(app: EditorApp, id: MeshId, kind: 'vertex' | 'edge' | '
   const sel = app.components.get(id, kind);
   return [...(kind === 'vertex' ? sel.verts : kind === 'edge' ? sel.edges : sel.faces).toArray()];
 }
+
+/** Point `i` of a mesh's stored form. */
+export function pointOf(data: MeshData, i: number): [number, number, number] {
+  const p = data.position;
+  return [p[3 * i] as number, p[3 * i + 1] as number, p[3 * i + 2] as number];
+}
+
+/** The two in-plane axes of a flat mesh (the axis with the smallest extent is its normal). */
+export function planeAxes(data: MeshData): readonly [number, number] {
+  const extent = [0, 1, 2].map((k) => {
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < data.counts.points; i++) {
+      const value = pointOf(data, i)[k] as number;
+      lo = Math.min(lo, value);
+      hi = Math.max(hi, value);
+    }
+    return hi - lo;
+  });
+  const normal = extent.indexOf(Math.min(...extent));
+  return [0, 1, 2].filter((k) => k !== normal) as unknown as readonly [number, number];
+}
+
+/** A face's vertices, in winding order. */
+export function faceVertsOf(data: MeshData, f: number): number[] {
+  const out: number[] = [];
+  const first = data.faceCorner[f] as number;
+  let c = first;
+  do {
+    out.push(data.cornerVert[c] as number);
+    c = data.cornerNext[c] as number;
+  } while (c !== first);
+  return out;
+}
+
+/** The edges whose two endpoints satisfy `test` (ascending). */
+export function edgesWhere(data: MeshData, test: (a: readonly number[], b: readonly number[]) => boolean): number[] {
+  const out: number[] = [];
+  for (let e = 0; e < data.counts.edges; e++) {
+    const a = pointOf(data, data.edgeVerts[2 * e] as number);
+    const b = pointOf(data, data.edgeVerts[2 * e + 1] as number);
+    if (test(a, b)) out.push(e);
+  }
+  return out;
+}
+
+/** The faces whose centroid satisfies `test` (ascending). */
+export function facesWhere(data: MeshData, test: (centroid: readonly number[]) => boolean): number[] {
+  const out: number[] = [];
+  for (let f = 0; f < data.counts.faces; f++) {
+    const verts = faceVertsOf(data, f);
+    const c = [0, 0, 0];
+    for (const v of verts) {
+      const p = pointOf(data, v);
+      for (let k = 0; k < 3; k++) c[k] = (c[k] as number) + (p[k] as number) / verts.length;
+    }
+    if (test(c)) out.push(f);
+  }
+  return out;
+}

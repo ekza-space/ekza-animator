@@ -1,12 +1,47 @@
 // B10 (M6A-SPEC §5.6, §6.2): component modes and hilite, selection gestures as history steps (one per gesture,
 // continuation coalescing, undo/redo restoring the selection, nothing in Animate), all/invert/none, object selection,
 // hide/show/isolate, and the Model session repair. Walker operators (B2) and Mesh Check matching (B5) are gated.
-import type { MeshId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import type { GroupId, MeshId, PaletteId } from '@ekza-animator/doc';
+import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-animator/doc/testing';
+import type { MeshData } from '@ekza-animator/mesh-core';
+import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { buildMeshData } from '@ekza-animator/mesh-core/testing';
 import { describe, expect, it } from 'vitest';
-import { componentInternals, type EditorApp, historyLabels, objectsDrawnIn, SELECT_A_MESH_FIRST } from '../../../src';
+import {
+  componentInternals,
+  type EditorApp,
+  historyLabels,
+  MAKE_EDITABLE_HINT,
+  meshCheckOptions,
+  meshOperator,
+  objectsDrawnIn,
+  provideModelPointer,
+  SELECT_A_MESH_FIRST,
+} from '../../../src';
 import { READY } from './ready';
-import { addMesh, mirrorMapX, modelApp, probe, selected, selectObjects, withSymmetry } from './support';
+import {
+  addMesh,
+  edgesWhere,
+  faceVertsOf,
+  facesWhere,
+  mirrorMapX,
+  modelApp,
+  planeAxes,
+  pointOf,
+  probe,
+  selected,
+  selectObjects,
+  withSymmetry,
+} from './support';
+
+/** Equal within float noise. */
+const near = (a: number | undefined, b: number): boolean => a !== undefined && Math.abs(a - b) < 1e-5;
+
+/** Coordinate `axis` of an edge's two endpoints. */
+const ends = (data: MeshData, e: number, axis: number): number[] => [
+  pointOf(data, data.edgeVerts[2 * e] as number)[axis] as number,
+  pointOf(data, data.edgeVerts[2 * e + 1] as number)[axis] as number,
+];
 
 async function scene(): Promise<{ readonly app: EditorApp; readonly cube: MeshId; readonly plane: MeshId }> {
   const app = await modelApp();
@@ -94,6 +129,29 @@ describe('select.mode (§5.6 modes and hilite)', () => {
     app.history.undo();
     expect(app.session.getState().selection.objects).toEqual([cube]); // before the first switch
     expect(mode(app)).toBe('object'); // undo never changes the mode
+    app.dispose();
+  });
+
+  it('over a character mesh without a record: "Make editable first" with the Outliner action (§5.6)', async () => {
+    const { app, cube } = await scene();
+    provideModelPointer(app, { meshAt: () => null, assetMeshAt: () => true, lastKey: () => null });
+    expect(await app.runUntyped('select.mode', { mode: 'face' }, { source: 'keyboard' })).toEqual({
+      status: 'cancelled',
+      reason: MAKE_EDITABLE_HINT,
+    });
+    // The RMB mode menu opened over it refuses even with a mesh selected (the menu was opened for that mesh).
+    selectObjects(app, [cube]);
+    expect(await app.runUntyped('select.mode', { mode: 'face' }, { source: 'marking-menu' })).toEqual({
+      status: 'cancelled',
+      reason: MAKE_EDITABLE_HINT,
+    });
+    // A key with a mesh selected enters on it; then the menu over the asset mesh refuses in component mode too.
+    await ok(app, 'select.mode', { mode: 'face' }, { source: 'keyboard' });
+    expect(await app.runUntyped('select.mode', { mode: 'edge' }, { source: 'marking-menu' })).toEqual({
+      status: 'cancelled',
+      reason: MAKE_EDITABLE_HINT,
+    });
+    expect(MAKE_EDITABLE_HINT).toMatch(/^Make editable first: .*Outliner/);
     app.dispose();
   });
 
@@ -202,6 +260,21 @@ describe('selection steps (§5.6 selection undo)', () => {
     app.dispose();
   });
 
+  it('undoing a click in another mode keeps the face pick order and active face (Bridge, Target Weld)', async () => {
+    const { app, cube } = await scene();
+    selectObjects(app, [cube]);
+    await ok(app, 'select.mode', { mode: 'face' });
+    await ok(app, 'select.components', { mesh: cube, kind: 'face', indices: [5], mode: 'replace' });
+    await ok(app, 'select.components', { mesh: cube, kind: 'face', indices: [2], mode: 'add' });
+    await ok(app, 'select.mode', { mode: 'edge' });
+    await ok(app, 'select.components', { mesh: cube, kind: 'edge', indices: [7], mode: 'replace' });
+    app.history.undo();
+    expect(selected(app, cube, 'edge')).toEqual([]);
+    const face = app.components.get(cube, 'face');
+    expect([[...(face.order ?? [])], face.active]).toEqual([[5, 2], 2]);
+    app.dispose();
+  });
+
   it('records nothing in Animate (shipped selection behaviour)', async () => {
     const { app } = await scene();
     await ok(app, 'workspace.set', { workspace: 'animate' });
@@ -241,6 +314,31 @@ describe('all, invert, none', () => {
     await ok(app, 'select.mesh.none');
     expect([selected(app, cube, 'face'), selected(app, plane, 'face')]).toEqual([[], []]);
     expect(await app.runUntyped('select.mesh.grow')).toMatchObject({ status: 'cancelled' });
+    app.dispose();
+  });
+
+  it('invert under symmetry complements the expanded selection (the picks and their partners, §5.6)', async () => {
+    const app = await modelApp();
+    const strip = addMesh(app, 'msh_Strip', 'plane', { subdivisionsWidth: 6, subdivisionsHeight: 1 });
+    const data = app.meshes.get(strip)?.data();
+    if (data === null || data === undefined) throw new Error('data');
+    withSymmetry(app, strip, mirrorMapX(data));
+    selectObjects(app, [strip]);
+    await ok(app, 'select.mode', { mode: 'face' });
+    const internals = componentInternals(app.components);
+    const end = facesWhere(data, (c) => Math.max(...c.map(Math.abs)) > 0.4 && (c[0] as number) < 0)[0] as number;
+    const partner = internals?.partnerOf(strip, 'face', end) ?? -1;
+    expect(partner).toBeGreaterThanOrEqual(0);
+    expect(partner).not.toBe(end);
+    await ok(app, 'select.components', { mesh: strip, kind: 'face', indices: [end], mode: 'replace' });
+    expect([...(internals?.expanded(strip, 'face')?.faces.toArray() ?? [])]).toEqual(
+      [end, partner].sort((a, b) => a - b),
+    );
+    await ok(app, 'select.mesh.invert');
+    const rest = [0, 1, 2, 3, 4, 5].filter((f) => f !== end && f !== partner);
+    // Neither side of the inverted pair comes back through the expansion; ops act on the four others.
+    expect([...(internals?.expanded(strip, 'face')?.faces.toArray() ?? [])]).toEqual(rest);
+    expect(selected(app, strip, 'face')).toEqual(rest);
     app.dispose();
   });
 });
@@ -351,17 +449,49 @@ describe.skipIf(!READY.b2)('walkers through the operators (B2)', () => {
   it('double-click selects the edge loop; Shift+double-click on an adjacent edge adds the full loop', async () => {
     const app = await modelApp();
     const plane = addMesh(app, 'msh_Grid', 'plane', { subdivisionsWidth: 4, subdivisionsHeight: 4 });
+    const data = app.meshes.get(plane)?.data();
+    if (data === null || data === undefined) throw new Error('data');
+    const [u, w] = planeAxes(data);
+    // The lines w = 0 and w = 0.25 of the 4 × 4 grid (side 1): four edges each, along u.
+    const line = (at: number) => edgesWhere(data, (a, b) => near(a[w], at) && near(b[w], at));
+    const span = (e: number): [number, number] => {
+      const values = ends(data, e, u);
+      return [Math.min(...values), Math.max(...values)];
+    };
+    const middle = line(0);
+    const upper = line(0.25);
+    expect([middle.length, upper.length]).toEqual([4, 4]);
     selectObjects(app, [plane]);
     await ok(app, 'select.mode', { mode: 'edge' });
     const base = undoLabels(app).length;
     // The first click of the double-click, then the double-click on the same edge (the loop table reads the
     // selection from before the first click).
-    await ok(app, 'select.components', { mesh: plane, kind: 'edge', indices: [5], mode: 'replace', gesture: 'click' });
-    await ok(app, 'select.mesh.loop', { mesh: plane, kind: 'edge', component: 5, gesture: 'double' });
-    expect(selected(app, plane, 'edge').length).toBeGreaterThan(1);
+    const start = middle.find((e) => near(span(e)[0], -0.5)) as number;
+    await ok(app, 'select.components', {
+      mesh: plane,
+      kind: 'edge',
+      indices: [start],
+      mode: 'replace',
+      gesture: 'click',
+    });
+    await ok(app, 'select.mesh.loop', { mesh: plane, kind: 'edge', component: start, gesture: 'double' });
+    expect(selected(app, plane, 'edge')).toEqual(middle);
     expect(undoLabels(app).slice(base)).toEqual(['Select', 'Select']);
     app.history.undo();
-    expect(selected(app, plane, 'edge')).toEqual([5]);
+    expect(selected(app, plane, 'edge')).toEqual([start]);
+    // Shift+double-click on the edge next to the reference (the last pick) along its loop: the full loop is added.
+    const reference = upper.find((e) => near(span(e)[0], -0.5)) as number;
+    const next = upper.find((e) => near(span(e)[0], -0.25)) as number;
+    await ok(app, 'select.components', { mesh: plane, kind: 'edge', indices: [reference], mode: 'add' });
+    await ok(app, 'select.components', {
+      mesh: plane,
+      kind: 'edge',
+      indices: [next],
+      mode: 'toggle',
+      gesture: 'click',
+    });
+    await ok(app, 'select.mesh.loop', { mesh: plane, kind: 'edge', component: next, gesture: 'shift-double' });
+    expect(selected(app, plane, 'edge')).toEqual([start, ...upper].sort((a, b) => a - b));
     app.dispose();
   });
 
@@ -395,14 +525,180 @@ describe.skipIf(!READY.b2)('walkers through the operators (B2)', () => {
     expect(selected(app, plane, 'edge').length).toBe(8);
     app.dispose();
   });
+
+  /** A 4 × 2 grid (side 1) in face mode with its last column (u > 0.25) hidden. */
+  async function hiddenColumn() {
+    const app = await modelApp();
+    const plane = addMesh(app, 'msh_Grid', 'plane', { subdivisionsWidth: 4, subdivisionsHeight: 2 });
+    const data = app.meshes.get(plane)?.data();
+    if (data === null || data === undefined) throw new Error('data');
+    const [u, w] = planeAxes(data);
+    selectObjects(app, [plane]);
+    await ok(app, 'select.mode', { mode: 'face' });
+    const column = facesWhere(data, (c) => (c[u] as number) > 0.25);
+    expect(column.length).toBe(2);
+    await ok(app, 'select.components', { mesh: plane, kind: 'face', indices: column, mode: 'replace' });
+    await ok(app, 'view.hide', { target: 'selected' });
+    expect([...app.components.hidden(plane).faces.toArray()]).toEqual(column);
+    return { app, plane, data, u, w, column };
+  }
+
+  it('hidden components stop the loop walker (§5.6): the loop ends at a hidden column', async () => {
+    const { app, plane, data, u, w } = await hiddenColumn();
+    await ok(app, 'select.mode', { mode: 'edge' });
+    const line = edgesWhere(data, (a, b) => near(a[w], 0) && near(b[w], 0));
+    expect(line.length).toBe(4);
+    const start = line.find((e) => Math.min(...ends(data, e, u)) < -0.4) as number;
+    await ok(app, 'select.components', {
+      mesh: plane,
+      kind: 'edge',
+      indices: [start],
+      mode: 'replace',
+      gesture: 'click',
+    });
+    await ok(app, 'select.mesh.loop', { mesh: plane, kind: 'edge', component: start, gesture: 'double' });
+    // The three visible edges of the middle line; its edge between the two hidden faces is hidden.
+    const visible = line.filter((e) => Math.max(...ends(data, e, u)) < 0.3);
+    expect(visible.length).toBe(3);
+    expect(selected(app, plane, 'edge')).toEqual(visible);
+    app.dispose();
+  });
+
+  it('grow and convert skip hidden components', async () => {
+    const { app, plane, data, u, column } = await hiddenColumn();
+    // Grow from a face next to the hidden column: its visible vertex neighbours only.
+    const nextTo = facesWhere(data, (c) => (c[u] as number) > 0 && (c[u] as number) < 0.25)[0] as number;
+    await ok(app, 'select.components', { mesh: plane, kind: 'face', indices: [nextTo], mode: 'replace' });
+    await ok(app, 'select.mesh.grow');
+    const touching = new Set(faceVertsOf(data, nextTo));
+    const neighbours: number[] = [];
+    for (let f = 0; f < data.counts.faces; f++) {
+      if (faceVertsOf(data, f).some((v) => touching.has(v)) && !column.includes(f)) neighbours.push(f);
+    }
+    expect(neighbours.length).toBe(4);
+    expect(selected(app, plane, 'face')).toEqual(neighbours);
+    // An edge on the border of the hidden column converts to its one visible face.
+    await ok(app, 'select.mode', { mode: 'edge' });
+    const seam = edgesWhere(data, (a, b) => near(a[u], 0.25) && near(b[u], 0.25));
+    const edge = seam[0] as number;
+    await ok(app, 'select.components', { mesh: plane, kind: 'edge', indices: [edge], mode: 'replace' });
+    await ok(app, 'select.mesh.convert', { to: 'face', mode: 'touching' });
+    const a = data.edgeVerts[2 * edge] as number;
+    const b = data.edgeVerts[2 * edge + 1] as number;
+    const sides = facesWhere(data, () => true).filter((f) => {
+      const verts = faceVertsOf(data, f);
+      return verts.includes(a) && verts.includes(b);
+    });
+    expect(sides.length).toBe(2);
+    expect([mode(app), selected(app, plane, 'face')]).toEqual(['face', sides.filter((f) => !column.includes(f))]);
+    app.dispose();
+  });
+});
+
+describe.skipIf(!READY.b3)('hidden components are never op targets (B3 through B7)', () => {
+  it('a delete on faces whose stored picks include a hidden face deletes only the visible one', async () => {
+    const app = await modelApp();
+    (app.meshes as unknown as { attach?(a: EditorApp): void }).attach?.(app);
+    const desc = MESH_OP_DESCRIPTORS['mesh.delete'];
+    if (desc === undefined) throw new Error('mesh.delete');
+    app.operators.register({ ...meshOperator(desc), id: 'test.b10.delete' } as never);
+    const cube = addMesh(app, 'msh_Cube', 'cube');
+    const before = app.meshes.get(cube)?.data();
+    if (before === null || before === undefined) throw new Error('data');
+    selectObjects(app, [cube]);
+    await ok(app, 'select.mode', { mode: 'face' });
+    await ok(app, 'select.components', { mesh: cube, kind: 'face', indices: [1], mode: 'replace' });
+    await ok(app, 'view.hide', { target: 'selected' });
+    await ok(app, 'select.components', { mesh: cube, kind: 'face', indices: [0], mode: 'add' });
+    // The hidden pick stays stored; reads (and so ops) see the visible face only.
+    expect(selected(app, cube, 'face')).toEqual([0]);
+    const hiddenCorners = faceVertsOf(before, 1).map((v) => pointOf(before, v));
+    await ok(app, 'test.b10.delete');
+    const after = app.meshes.get(cube)?.data();
+    if (after === null || after === undefined) throw new Error('data');
+    expect(after.counts.faces).toBe(5);
+    // The hidden face is still there, its corners bit-equal.
+    const survivor = facesWhere(after, () => true).find((f) => {
+      const corners = faceVertsOf(after, f).map((v) => pointOf(after, v));
+      return hiddenCorners.every((p) => corners.some((q) => q.every((x, k) => x === p[k])));
+    });
+    expect(survivor).toBeDefined();
+    app.dispose();
+  });
 });
 
 describe.skipIf(!READY.b5)('Mesh Check "select matching" (B5)', () => {
-  it('selects the components of a problem code in their kind and hilites the mesh', async () => {
+  it('selects the open border of a mesh its template flags closed (edges, edge mode); none on an open mesh', async () => {
     const app = await modelApp();
-    const plane = addMesh(app, 'msh_Open', 'plane');
-    await ok(app, 'select.mesh.matching', { mesh: plane, code: 'open-border' });
-    expect(app.session.getState().model.hilite).toContain(plane);
+    app.store.transact({ label: 'Template' }, (tx) =>
+      tx.put('groups', makeTestGroup('grp_Prop', { template: { kind: 'prop', params: {} } })),
+    );
+    const lid = addMesh(app, 'msh_Lid', 'plane', {}, { parent: 'grp_Prop' as GroupId });
+    const open = addMesh(app, 'msh_Open', 'plane');
+    const data = app.meshes.get(lid)?.data();
+    if (data === null || data === undefined) throw new Error('data');
+    expect(data.counts.edges).toBe(4);
+    await ok(app, 'select.mesh.matching', { mesh: lid, code: 'open-border' });
+    expect([mode(app), app.session.getState().model.hilite]).toEqual(['edge', [lid]]);
+    // A 1 × 1 plane: its four edges are its border.
+    expect(selected(app, lid, 'edge')).toEqual([0, 1, 2, 3]);
+    // An open mesh (no template) has no open-border problem: the replace selects nothing anywhere.
+    await ok(app, 'select.mesh.matching', { mesh: open, code: 'open-border' });
+    expect([selected(app, open, 'edge'), selected(app, lid, 'edge')]).toEqual([[], []]);
+    expect(app.session.getState().model.hilite).toEqual([lid, open]);
+    app.dispose();
+  });
+
+  it('selects loose geometry in vertex mode: the loose vertex and the wire edge’s endpoints', async () => {
+    const app = await modelApp();
+    // A quad, a loose vertex (4) and a wire edge between two more vertices (5–6) are not buildable from faces:
+    // a quad plus one unused point gives the loose vertex.
+    const data = buildMeshData({
+      positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 3, 3, 3],
+      faces: [[0, 1, 2, 3]],
+    });
+    const id = 'msh_Loose' as MeshId;
+    app.store.transact({ label: 'Create' }, (tx) => {
+      tx.put('meshes', makeTestMesh(id, { name: id }));
+      app.meshes.writeData(tx, id, data);
+    });
+    await ok(app, 'select.mesh.matching', { mesh: id, code: 'loose-geometry' });
+    expect([mode(app), selected(app, id, 'vertex')]).toEqual(['vertex', [4]]);
+    app.dispose();
+  });
+});
+
+describe('Mesh Check options (§5.25)', () => {
+  it('closed by a template group above the mesh or the humanoid body generator; duplicate slots of the palette', async () => {
+    const app = await modelApp();
+    app.store.transact({ label: 'Content' }, (tx) => {
+      tx.put('groups', makeTestGroup('grp_Hand', { template: { kind: 'handheld', params: {} } }));
+      tx.put('groups', makeTestGroup('grp_Inner', { parent: 'grp_Hand' as GroupId }));
+      tx.put('groups', makeTestGroup('grp_Plain'));
+    });
+    const deep = addMesh(app, 'msh_Deep', 'cube', {}, { parent: 'grp_Inner' as GroupId });
+    const plain = addMesh(app, 'msh_Plain', 'cube', {}, { parent: 'grp_Plain' as GroupId });
+    const body = addMesh(
+      app,
+      'msh_Body',
+      'cube',
+      {},
+      {
+        generator: { kind: 'humanoidBody', params: {}, version: 1 },
+      },
+    );
+    const closed = (id: MeshId) => meshCheckOptions(app, id).closedExpected;
+    expect([closed(deep), closed(plain), closed(body)]).toEqual([true, false, true]);
+    // Two live swatches on one slot (a merge of two peers' palettes): that slot is a duplicate.
+    app.store.transact({ label: 'Palette' }, (tx) => {
+      tx.put('palettes', makeTestPalette('pal_P'));
+      tx.put('swatches', makeTestSwatch('sw_A', 'pal_P', 3, { order: 'a0' }));
+      tx.put('swatches', makeTestSwatch('sw_B', 'pal_P', 3, { order: 'a1' }));
+      tx.put('swatches', makeTestSwatch('sw_C', 'pal_P', 4, { order: 'a2' }));
+      tx.patch('meshes', plain, { palette: 'pal_P' as PaletteId });
+    });
+    expect([...(meshCheckOptions(app, plain).duplicateSlots ?? [])]).toEqual([3]);
+    expect(meshCheckOptions(app, deep).duplicateSlots).toBeUndefined();
     app.dispose();
   });
 });

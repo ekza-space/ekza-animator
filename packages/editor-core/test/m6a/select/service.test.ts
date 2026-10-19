@@ -17,7 +17,7 @@ import {
   selectionOf,
 } from '@ekza-animator/mesh-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { componentInternals, type EditorApp } from '../../../src';
+import { type ApplyContext, componentInternals, type EditorApp } from '../../../src';
 import { READY } from './ready';
 import { addMesh, mirrorMapX, modelApp, selected, withSymmetry, writeRevision } from './support';
 
@@ -473,7 +473,7 @@ describe.skipIf(!READY.b7)('a same-size op through the real runtime (B7 commitOp
       scope: 'model',
       flags: { undo: true },
       extraArgs: ['meshes'],
-      apply(ctx) {
+      apply(ctx: ApplyContext) {
         const result = ctx.app.meshes.commitOp(ctx.tx as never, op, [cube], {}, { seed: 'seed' });
         // The transaction aborts after the op stored its result (§5.5 rule 3: two-phase, reverted).
         if (opts?.fail === true) throw new Error('the operator failed after the commit');
