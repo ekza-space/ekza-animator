@@ -310,6 +310,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       }
     }
     state.rev = ref;
+    state.seenData = runtime.data();
     if (ref !== null && !state.revSizes.has(ref)) noteRevision(state, ref, sizes);
     state.closure = null;
     state.version++;
@@ -332,6 +333,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
     const committed = committedOf(state);
     if (live === null || committed === null || !sameSizes(live, committed) || sameSizes(state.sizes, committed)) return;
     state.pending = false;
+    state.seenData = runtime.data();
     const cached = state.rev === null ? undefined : state.revs.get(state.rev);
     if (cached !== undefined && sameSizes(cached.sizes, committed)) thaw(state, cached);
     else {
@@ -366,6 +368,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         if (live === null) continue;
         if (runtime.version !== state.pendingVersion) {
           state.pending = false;
+          state.seenData = runtime.data();
           const cached = state.rev === null ? undefined : state.revs.get(state.rev);
           if (cached !== undefined && sameSizes(cached.sizes, live)) thaw(state, cached);
           else {
@@ -380,9 +383,23 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         // Sizes of another revision with nothing committed: it waits for its revision (or a rollback event).
         if (!sameSizes(live, state.sizes)) continue;
         state.pending = false;
+        state.seenData = runtime.data();
         touched(state);
       }
     });
+  };
+
+  /**
+   * Whether a result stored now comes from an op in flight (§5.5: stored inside its commit, before the batch): a
+   * result already pending (a second op in the same transaction), sizes of another revision than the committed one, or
+   * a stored form the runtime replaced since the service last saw the committed content (B7 caches the new revision's
+   * form before storing the result). Otherwise it changes the current revision (a select outside a commit, a run that
+   * wrote no revision).
+   */
+  const inFlight = (state: MeshState, sizes: Sizes): boolean => {
+    if (state.pending) return true;
+    const committed = committedOf(state);
+    return committed === null || !sameSizes(committed, sizes) || state.runtime.data() !== state.seenData;
   };
 
   /** Marks a stored result as the next revision's (§5.5: an op stores it inside its commit, before the batch). */
@@ -785,6 +802,7 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       // the op brings it back (and Adjust Last re-runs on it, §5.7) whatever the result's sizes.
       if (settled(state)) remember(state);
       const sizes: Sizes = { vertex: sel.verts.size, edge: sel.edges.size, face: sel.faces.size };
+      const pending = inFlight(state, sizes);
       const resized = !sameSizes(state.sizes, sizes);
       fitState(state, sizes);
       for (const kind of KINDS) {
@@ -802,9 +820,9 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         }
         tidyKind(k);
       }
-      // The result belongs to the revision the commit lands (§5.5), whatever its sizes: settled when the runtime
+      // An op's result belongs to the revision its commit lands (§5.5), whatever its sizes: settled when the runtime
       // follows, or at the end of the task (see `settle`).
-      markPending(mesh, state);
+      if (pending) markPending(mesh, state);
       touched(state);
     },
     apply(mesh, kind, indices, mode) {
@@ -969,8 +987,9 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         tidyKind(k);
         state.hidden[kind] = move(state.hidden[kind], kind);
       }
+      const pending = inFlight(state, sizes);
       state.sizes = sizes;
-      markPending(mesh, state);
+      if (pending) markPending(mesh, state);
       touched(state);
     },
     subscribe(listener: (version: number) => void): Disposer {

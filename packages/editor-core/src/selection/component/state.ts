@@ -3,7 +3,7 @@
 // components, the revision the indices belong to and a small cache of the state seen at earlier revisions (undo and
 // redo of a topology commit bring the selection of that revision back). Kernel values (BitSet) come from the lazy
 // kernel chunk; nothing here imports kernel code.
-import type { BitSet, ComponentKind, ComponentSelection, HiddenSet } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshData } from '@ekza-animator/mesh-core';
 import type { MeshKernel } from '../../mesh';
 import type { MeshRuntime } from '../../types';
 
@@ -69,6 +69,12 @@ export interface MeshState {
   pending: boolean;
   /** `MeshRuntime.version` when the pending result was stored (a later change under the same revision = a rollback). */
   pendingVersion: number;
+  /**
+   * The runtime's stored form (`data()`, by identity) when the service last saw the committed content: a commit
+   * replaces it before storing the op's result (B7 caches the new revision's form), so a `set` that finds another one
+   * stores a result of an op in flight, and a `set` that finds the same one changes the current revision.
+   */
+  seenData: MeshData | null;
   sizes: Sizes;
   readonly sel: Record<ComponentKind, KindState>;
   /** Explicitly hidden components; edges and vertices only hidden faces use are derived (`hiddenClosure`). */
@@ -99,6 +105,7 @@ export function freshState(kernel: MeshKernel, runtime: MeshRuntime, sizes: Size
     rev: runtime.ref?.manifest ?? null,
     pending: false,
     pendingVersion: -1,
+    seenData: runtime.data(),
     sizes,
     sel: {
       vertex: emptyKind(kernel, sizes.vertex),

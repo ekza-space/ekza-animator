@@ -1,12 +1,24 @@
 // B10 (M6A-SPEC §4.6, §5.6): the component selection service — apply modes and per-mode memory, pick order and the
 // active component, hidden components (never selected, left out of reads, the closure), snapshot/restore (skipping
-// meshes whose revision changed, never touching mode or hilite), remap, set during a commit (pending until the
-// runtime follows), revisions remembered across undo and redo, the mirrored selection, session counts and the
-// runtimes' edit links following the hilite.
+// meshes whose revision changed, never touching mode or hilite, every kind's pick order), remap, set during a commit
+// (pending until the runtime follows, whatever the result's sizes; a same-size result keeps the other kinds; rolled-back
+// commits), revisions remembered across undo and redo, the mirrored selection, session counts and the runtimes' edit
+// links following the hilite. The same-size op through B7's real `commitOp` is gated on READY.b7.
 import type { MeshId } from '@ekza-animator/doc';
-import { BitSet, editMeshFrom, primitive, selectionOf } from '@ekza-animator/mesh-core';
+import {
+  BitSet,
+  type ComponentSelection,
+  type EditMesh,
+  editMeshFrom,
+  type MeshData,
+  type MeshOp,
+  type OpResult,
+  primitive,
+  selectionOf,
+} from '@ekza-animator/mesh-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { componentInternals, type EditorApp } from '../../../src';
+import { READY } from './ready';
 import { addMesh, mirrorMapX, modelApp, selected, withSymmetry, writeRevision } from './support';
 
 let app: EditorApp | null = null;
@@ -306,6 +318,199 @@ describe('session counts and edit links', () => {
     await a.run('workspace.set', { workspace: 'animate' });
     expect(a.session.getState().model.componentMode).toBe('object');
     expect(a.meshes.get(plane)?.isOpen).toBe(false);
+  });
+});
+
+/**
+ * B7's commit as the stub registry cannot show it: the op's revision is written and the runtime's stored form replaced
+ * (B7 caches the new revision's `data()`) before the op's result selection is stored, inside the transaction.
+ */
+function commitOp(
+  a: EditorApp,
+  id: MeshId,
+  data: MeshData,
+  sel: ComponentSelection,
+  opts?: { readonly fail?: boolean },
+): void {
+  const runtime = a.meshes.get(id);
+  if (runtime === undefined) throw new Error('runtime');
+  a.store.transact({ label: 'Op' }, (tx) => {
+    a.meshes.writeData(tx, id, data);
+    const stored = vi.spyOn(runtime, 'data').mockReturnValue(data);
+    try {
+      a.components.set(id, sel);
+    } finally {
+      stored.mockRestore();
+    }
+    if (opts?.fail === true) throw new Error('the op failed after storing its selection');
+  });
+}
+
+describe('same-size ops (a result that differs from what the op read, §5.6 undo, §5.7 Adjust Last)', () => {
+  /** Vertex 3 and face 0 selected in face mode, then an op that keeps the counts and leaves face 1 selected. */
+  async function afterOp() {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube]);
+    a.components.apply(cube, 'vertex', [3], 'replace');
+    a.components.apply(cube, 'face', [0], 'replace');
+    const moved = primitive('cube', { width: 2 }); // same counts, other positions
+    commitOp(a, cube, moved, selectionOf('face', [1], moved.counts));
+    return { a, cube };
+  }
+
+  it('the result is the new revision’s; undo restores what the op read, redo the result; vertex picks stay', async () => {
+    const { a, cube } = await afterOp();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[1], [3]]);
+    await Promise.resolve(); // the end of the task settles nothing else
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[1], [3]]);
+    a.store.undo.undo();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[0], [3]]);
+    a.store.undo.redo();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[1], [3]]);
+    a.store.undo.undo();
+    expect(selected(a, cube, 'face')).toEqual([0]);
+  });
+
+  it('undo right after the commit (no read in between) still restores what the op read', async () => {
+    const { a, cube } = await afterOp();
+    a.store.undo.undo();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[0], [3]]);
+  });
+
+  it('a selection stored outside a commit, then an op in the same task: undo restores that selection', async () => {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube]);
+    // A store outside a commit (B7's `select`, B13's swatch selection) changes the current revision's state.
+    a.components.set(cube, selectionOf('face', [4], cube6()));
+    const moved = primitive('cube', { width: 2 });
+    commitOp(a, cube, moved, selectionOf('face', [5], moved.counts));
+    expect(selected(a, cube, 'face')).toEqual([5]);
+    a.store.undo.undo();
+    expect(selected(a, cube, 'face')).toEqual([4]);
+  });
+
+  it('a rolled-back same-size commit (content changed under the same revision) restores what the op read', async () => {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube]);
+    a.components.apply(cube, 'vertex', [3], 'replace');
+    a.components.apply(cube, 'face', [0], 'replace');
+    const moved = primitive('cube', { width: 2 });
+    expect(() => commitOp(a, cube, moved, selectionOf('face', [1], moved.counts), { fail: true })).toThrow();
+    // B7 applies the op's delta backward in its verify microtask (a content change, §5.5 rule 3): the runtime's
+    // version moves while its revision stays.
+    const runtime = a.meshes.get(cube);
+    if (runtime === undefined) throw new Error('runtime');
+    const version = runtime.version;
+    Object.defineProperty(runtime, 'version', { configurable: true, get: () => version + 1 });
+    await Promise.resolve();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[0], [3]]);
+  });
+});
+
+/** The cube primitive's counts (8/12/6). */
+function cube6(): { points: number; edges: number; faces: number; corners: number } {
+  return primitive('cube', {}).counts;
+}
+
+describe('snapshots keep every kind’s pick order (§5.6 per-mode memory)', () => {
+  it('a snapshot taken in edge mode restores the face pick order and active face', async () => {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube], 'face');
+    a.components.apply(cube, 'face', [5], 'replace');
+    a.components.apply(cube, 'face', [2], 'add');
+    hilite(a, [cube], 'edge');
+    a.components.apply(cube, 'edge', [1], 'replace');
+    const snap = a.components.snapshot();
+    expect(snap.meshes[cube]?.kind).toBe('edge');
+    a.components.apply(cube, 'face', [1], 'replace');
+    a.components.restore(snap);
+    const face = a.components.get(cube, 'face');
+    expect([[...(face.order ?? [])], face.active]).toEqual([[5, 2], 2]);
+  });
+
+  it('a copied snapshot (no per-kind orders) keeps the other kinds’ order for the picks still selected', async () => {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube], 'face');
+    a.components.apply(cube, 'face', [5], 'replace');
+    a.components.apply(cube, 'face', [2], 'add');
+    hilite(a, [cube], 'edge');
+    const snap = structuredClone(a.components.snapshot());
+    a.components.apply(cube, 'edge', [3], 'replace');
+    a.components.restore(snap);
+    const face = a.components.get(cube, 'face');
+    expect([[...(face.order ?? [])], face.active]).toEqual([[5, 2], 2]);
+  });
+});
+
+describe.skipIf(!READY.b7)('a same-size op through the real runtime (B7 commitOp)', () => {
+  /** `mesh.test.b10advance`: lifts every vertex and leaves the next face selected (its result differs from its read). */
+  function advance(a: EditorApp, cube: MeshId, opts?: { readonly fail?: boolean }): { readonly reads: number[][] } {
+    (a.meshes as unknown as { attach?(app: EditorApp): void }).attach?.(a);
+    const reads: number[][] = [];
+    const op: MeshOp = {
+      id: 'mesh.test.b10advance' as MeshOp['id'],
+      label: 'Advance',
+      kinds: ['face'],
+      params: [],
+      flags: { adjustable: true, repeatable: true, topology: false, manifoldPreserving: true },
+      symmetry: 'expand',
+      poll: () => true,
+      run(m: EditMesh, sel: ComponentSelection | null): OpResult {
+        const faces = sel === null ? [] : [...sel.faces.toArray()];
+        reads.push(faces);
+        for (let v = 0; v < m.counts.points; v++) {
+          const p = m.position;
+          m.setPosition(v, p[3 * v] as number, (p[3 * v + 1] as number) + 0.1, p[3 * v + 2] as number);
+        }
+        const next = faces.map((f) => (f + 1) % m.counts.faces);
+        return { selection: selectionOf('face', next, m.counts), warnings: [], resolvedArgs: {} };
+      },
+    };
+    a.operators.register({
+      id: op.id,
+      label: op.label,
+      category: 'mesh',
+      scope: 'model',
+      flags: { undo: true },
+      extraArgs: ['meshes'],
+      apply(ctx) {
+        const result = ctx.app.meshes.commitOp(ctx.tx as never, op, [cube], {}, { seed: 'seed' });
+        // The transaction aborts after the op stored its result (§5.5 rule 3: two-phase, reverted).
+        if (opts?.fail === true) throw new Error('the operator failed after the commit');
+        return result;
+      },
+    } as never);
+    return { reads };
+  }
+
+  /** Vertex 3, then face 0 (face mode). */
+  async function picked(): Promise<{ readonly a: EditorApp; readonly cube: MeshId }> {
+    const { app: a, cube } = await setup();
+    hilite(a, [cube], 'vertex');
+    a.components.apply(cube, 'vertex', [3], 'replace');
+    hilite(a, [cube], 'face');
+    a.components.apply(cube, 'face', [0], 'replace');
+    return { a, cube };
+  }
+
+  it('undo restores what the op read and redo its result; the vertex picks survive', async () => {
+    const { a, cube } = await picked();
+    const { reads } = advance(a, cube);
+    expect((await a.runUntyped('mesh.test.b10advance', { meshes: [cube] })).status).toBe('finished');
+    expect(reads).toEqual([[0]]);
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[1], [3]]);
+    a.history.undo();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[0], [3]]);
+    a.history.redo();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[1], [3]]);
+  });
+
+  it('an aborted transaction after the commit brings back what the op read', async () => {
+    const { a, cube } = await picked();
+    advance(a, cube, { fail: true });
+    expect((await a.runUntyped('mesh.test.b10advance', { meshes: [cube] })).status).toBe('failed');
+    await Promise.resolve();
+    expect([selected(a, cube, 'face'), selected(a, cube, 'vertex')]).toEqual([[0], [3]]);
   });
 });
 
