@@ -135,10 +135,13 @@ function meshCheckLints(input: MeshLintInput): [string, string][] {
     throw error;
   }
   const out: [string, string][] = [];
+  let edgeFlags: Map<string, number> | null = null;
   for (const problem of problems) {
     const count = problem.elements?.length ?? 1;
     if (problem.code === 'nonplanar-ngon') {
-      const faceted = (problem.elements ?? []).filter((f) => allEdgesHard(input.data, f)).length;
+      edgeFlags ??= edgeFlagMap(input.data);
+      const flags = edgeFlags;
+      const faceted = (problem.elements ?? []).filter((f) => allEdgesHard(input.data, flags, f)).length;
       if (faceted > 0) out.push(['mesh.nonplanar-faceted', `${faceted} non-planar n-gon(s) in a faceted region`]);
       continue;
     }
@@ -148,13 +151,18 @@ function meshCheckLints(input: MeshLintInput): [string, string][] {
   return out;
 }
 
-function allEdgesHard(data: MeshData, face: number): boolean {
+/** Edge flags by unordered endpoint pair, built once per mesh. */
+function edgeFlagMap(data: MeshData): Map<string, number> {
   const edges = new Map<string, number>();
   for (let e = 0; e < data.counts.edges; e++) {
     const a = data.edgeVerts[2 * e] as number;
     const b = data.edgeVerts[2 * e + 1] as number;
     edges.set(a < b ? `${a},${b}` : `${b},${a}`, data.edgeFlags[e] as number);
   }
+  return edges;
+}
+
+function allEdgesHard(data: MeshData, edges: ReadonlyMap<string, number>, face: number): boolean {
   const start = data.faceCorner[face] as number;
   let c = start;
   do {
