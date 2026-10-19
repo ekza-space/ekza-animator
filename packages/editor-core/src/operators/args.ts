@@ -1,13 +1,16 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions and the M6A-SPEC §6 rows (B0a), copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { Fps, Frame, InfinityMode, RotateOrder, TangentType } from '@ekza-animator/anim-core';
-import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, KeyId, Redistributable,
-  RootMotionMode } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
+import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-animator/anim-core';
+import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, GroupId, ImagePlaneId,
+  ImagePlaneRecord, KeyId, MeshId, MeshRecord, OrthoCamera, PaletteId, Redistributable, RootMotionMode, SwatchId } from '@ekza-animator/doc';
+import type { ComponentKind } from '@ekza-animator/mesh-core';
+import type { ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-animator/io';
 import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-animator/rig';
 import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMode, HistoryResult, IkFkKeyMode,
   KeyPartSelection, KeyPolicy, KeyTarget, LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed,
   Prefs, SelectionMask, SelectMode, ToolId, TweenMode, UiDialog, ViewportLayout } from '../types';
+import type { ComponentMode, MeshOpArgs, MeshOpOutcome, MeshSetCommitResult, SceneObjectId, SelectionConstraint,
+  SelectionStyle, Shading, SoftSelectSettings, SymmetryMode, WorkspaceId } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -214,4 +217,138 @@ export interface OperatorMap {
   'file.recover': { args: { readonly slot: string }; result: { readonly readOnly: boolean } };
   'file.discardRecovery': { args: { readonly slot: string }; result: void };
   'file.autosaveNow': { args: void; result: { readonly slot: string; readonly bytes: number } | null };   // internal
+  // ---------- M6a (M6A-SPEC §6, §4.6; B0a rows) ----------
+  // Kernel ops (§6.1): MeshOpArgs → MeshOpOutcome; set-ops → MeshSetCommitResult.
+  'mesh.transformComponents': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.extrude': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.inset': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.bevel': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.insertLoop': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.offsetLoop': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.connect': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.cut': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.slide': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.averageVertices': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.bridge': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.fillHole': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.merge': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.mergeToCenter': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.mergeByDistance': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.targetWeld': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.collapse': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.delete': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.deleteEdgeVertex': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.spinEdge': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.flipTriangleEdge': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.triangulate': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.quadrangulate': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.harden': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.soften': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.setNormalAngle': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.reverse': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.conform': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.mirror': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.symmetrize': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.applyTransform': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.uv.planar': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.uv.box': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.uv.cylindrical': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.cleanup': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.paint': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.paint.fillShell': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.paint.remap': { args: MeshOpArgs; result: MeshOpOutcome };
+  'mesh.combine': { args: MeshOpArgs; result: MeshSetCommitResult };
+  'mesh.separate': { args: MeshOpArgs; result: MeshSetCommitResult };
+  'mesh.extract': { args: MeshOpArgs; result: MeshSetCommitResult };
+  'mesh.duplicateFaces': { args: MeshOpArgs; result: MeshSetCommitResult };
+  // Editor operators (§6.2)
+  'workspace.set': { args: { readonly workspace: WorkspaceId }; result: void };
+  'view.shading': { args: { readonly mode: Shading; readonly paneId?: string }; result: void };
+  'view.display.set': { args: { readonly patch: Partial<DisplayFlags>; readonly paneId?: string }; result: void };
+  'ui.commandPalette': { args: void; result: void };
+  'ui.markingMenu': { args: { readonly menu: string }; result: void };
+  'select.mode': { args: { readonly mode: ComponentMode | 'toggle' }; result: void };
+  'model.hilite': { args: { readonly meshes: readonly MeshId[]; readonly mode: 'add' | 'replace' | 'remove' }; result: void };
+  'select.components': { args: { readonly mesh: MeshId; readonly kind: ComponentKind; readonly indices: readonly number[];
+    readonly mode: SelectMode }; result: void };
+  'select.mesh.loop': { args: { readonly mesh: MeshId; readonly kind: ComponentKind; readonly component: number;
+    readonly gesture: 'double' | 'shift-double' | 'mod-double' }; result: void };
+  'select.mesh.ring': { args: { readonly mesh?: MeshId; readonly component?: number } | void; result: void };
+  'select.mesh.grow': { args: void; result: void };
+  'select.mesh.shrink': { args: void; result: void };
+  'select.mesh.border': { args: void; result: void };
+  'select.mesh.shell': { args: void; result: void };
+  'select.mesh.all': { args: void; result: void };
+  'select.mesh.invert': { args: void; result: void };
+  'select.mesh.none': { args: void; result: void };
+  'select.mesh.convert': { args: { readonly to: ComponentKind; readonly mode?: 'touching' | 'contained' | 'perimeter'
+    | 'border' | 'shell' | 'loop' | 'ring' }; result: void };
+  'select.mesh.matching': { args: { readonly mesh: MeshId; readonly code: string }; result: void };
+  'select.mesh.bySwatch': { args: { readonly slot?: number } | void; result: void };
+  'select.objects': { args: { readonly ids?: readonly SceneObjectId[]; readonly all?: 'meshes'; readonly mode: SelectMode }; result: void };
+  'select.mesh.pickWalk': { args: { readonly direction: 'up' | 'down' | 'left' | 'right' }; result: void };   // stretch
+  'view.hide': { args: { readonly target: 'selected' | 'unselected' }; result: void };
+  'view.showAll': { args: void; result: void };
+  'view.isolate': { args: { readonly paneId?: string } | void; result: void };
+  'model.symmetry.set': { args: { readonly meshes?: readonly MeshId[]; readonly mode?: SymmetryMode; readonly tolerance?: number;
+    readonly preserveSeam?: boolean }; result: void };
+  'model.softSelect.set': { args: Partial<Pick<SoftSelectSettings, 'on' | 'radius' | 'falloff' | 'curve'>>; result: void };
+  'model.softSelect.toggle': { args: void; result: void };
+  'model.selectionStyle.set': { args: { readonly style: SelectionStyle | 'toggle' }; result: void };
+  'model.cameraBased.set': { args: { readonly value: 'auto' | 'on' | 'off' }; result: void };
+  'model.backfaces.toggle': { args: void; result: void };
+  'model.constraint.set': { args: { readonly constraint: SelectionConstraint }; result: void };
+  'model.snap.toggle': { args: { readonly kind: 'grid' | 'vertex' | 'increment' }; result: void };
+  'model.pivot.editToggle': { args: void; result: void };
+  'mesh.pivot.set': { args: { readonly id: SceneObjectId; readonly pivot: ReadonlyVec3 }; result: void };
+  'mesh.pivot.center': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'mesh.pivot.bottomCenter': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'mesh.pivot.reset': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'mesh.pivot.bake': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'mesh.resetTransforms': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'mesh.freezeTransforms': { args: { readonly ids?: readonly SceneObjectId[]; readonly translate: boolean; readonly rotate: boolean;
+    readonly scale: boolean }; result: void };
+  'scene.object.transform': { args: { readonly ids: readonly SceneObjectId[]; readonly placements: readonly ReadonlyXf[] }; result: void };
+  'edit.adjustLast': { args: { readonly args: ParamValues }; result: void };
+  'edit.repeatLast': { args: void; result: void };
+  'model.animateOnly': { args: void; result: void };
+  'tool.last': { args: void; result: void };
+  'view.lastOpCard': { args: { readonly expand?: boolean; readonly focusPrimary?: boolean } | void; result: void };
+  'mesh.create.cube': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.sphere': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.cylinder': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.cone': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.plane': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.torus': { args: ParamValues | void; result: { readonly mesh: MeshId } };
+  'mesh.create.template': { args: ParamValues & { readonly template: 'prop' | 'handheld' | 'humanoid' | 'humanoidBody' };
+    result: { readonly root: SceneObjectId; readonly created: readonly SceneObjectId[] } };
+  'mesh.primitive.set': { args: { readonly mesh: MeshId; readonly params: ParamValues }; result: void };
+  'mesh.makeEditable': { args: { readonly character: CharacterId; readonly meshIndex: number }; result: { readonly mesh: MeshId } };
+  'mesh.setAttributes': { args: { readonly mesh: MeshId; readonly patch: Partial<Pick<MeshRecord, 'name' | 'faceted'
+    | 'colourOutput' | 'material' | 'budget' | 'handheld' | 'palette'>> }; result: void };
+  'palette.ensureDefault': { args: void; result: { readonly palette: PaletteId } };
+  'palette.create': { args: { readonly name: string }; result: { readonly palette: PaletteId } };
+  'palette.duplicate': { args: { readonly palette: PaletteId }; result: { readonly palette: PaletteId } };
+  'palette.rename': { args: { readonly palette: PaletteId; readonly name: string }; result: void };
+  'palette.addSwatch': { args: { readonly palette: PaletteId; readonly srgb: readonly [number, number, number]; readonly name?: string };
+    result: { readonly swatch: SwatchId; readonly slot: number } };
+  'palette.setSwatch': { args: { readonly swatch: SwatchId; readonly srgb?: readonly [number, number, number]; readonly name?: string };
+    result: void };
+  'palette.removeSwatch': { args: { readonly swatch: SwatchId }; result: void };
+  'palette.assign': { args: { readonly meshes?: readonly MeshId[]; readonly palette: PaletteId }; result: void };
+  'palette.replaceSwatch': { args: { readonly palette: PaletteId; readonly from: number; readonly to: number;
+    readonly meshes?: readonly MeshId[] }; result: void };
+  'palette.setActive': { args: { readonly swatch: SwatchId | null }; result: void };
+  'imagePlane.import': { args: { readonly camera: OrthoCamera; readonly name: string; readonly bytes: Uint8Array };
+    result: { readonly id: ImagePlaneId } };
+  'imagePlane.set': { args: { readonly id: ImagePlaneId; readonly patch: Partial<Pick<ImagePlaneRecord, 'name' | 'camera'
+    | 'offset' | 'size' | 'opacity' | 'depth' | 'locked' | 'visible'>> }; result: void };
+  'imagePlane.delete': { args: { readonly id: ImagePlaneId }; result: void };
+  'scene.group': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: { readonly group: GroupId } };
+  'scene.parent': { args: { readonly ids?: readonly SceneObjectId[]; readonly parent?: SceneObjectId } | void; result: void };
+  'scene.unparent': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: void };
+  'scene.duplicate': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: { readonly created: readonly SceneObjectId[] } };
+  'scene.delete': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: CountResult };
+  'scene.rename': { args: { readonly id: SceneObjectId; readonly name: string }; result: void };
+  'file.exportModel': { args: StaticExportRequest; result: readonly ExportArtifact[] };
 }

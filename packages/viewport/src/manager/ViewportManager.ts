@@ -3,6 +3,12 @@
 // visible pane with viewport/scissor rectangles: backdrop → main scene → control lines (two passes) → clearDepth →
 // manipulator. The manager also routes pointer input inside panes to navigation and the active viewport tool, and
 // answers picking/projection queries for tools, operators and the e2e test API.
+//
+// M6a (M6A-SPEC §4.7, §5.17, §5.26; B9): pane display flags and camera bindings are remembered per workspace; each
+// pane render applies its shading to the character models and hands its display to the mesh layers (B6) that joined
+// through `addMeshLayer`; reference image planes draw in their ortho pane (behind or in front of the geometry); the
+// pointer platform rules (no context-menu RMB, the Model MMB stand-in) and the marking-menu press hook route input;
+// the Scale tool's manipulator sits on controls or, in Model, on the selected scene objects.
 import {
   type Disposer,
   EkzaError,
@@ -36,11 +42,14 @@ import {
   AmbientLight,
   type Camera,
   DirectionalLight,
+  type Object3D,
   HemisphereLight,
   NoToneMapping,
   OrthographicCamera,
   PerspectiveCamera,
+  Raycaster,
   Scene,
+  Vector2,
   type WebGLRenderer,
 } from 'three';
 import {
@@ -61,12 +70,14 @@ import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
 import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
+import { onScaleKitLoaded, requestScaleKit, scaleKit } from '../manipulators/scale/load';
+import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { NavigationController, NavState } from '../navigation/NavigationController';
-import { type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
+import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
 import { MarqueeBox } from '../overlays/marquee';
 import { SkeletonLayer } from '../overlays/skeleton';
-import { defaultPaneCamera, paneGl } from '../panes/layout';
+import { paneGl } from '../panes/layout';
 import { PaneProjector } from '../picking/geometry';
 import { MeshPicker } from '../picking/meshPicker';
 import { ControlPicker } from '../picking/picker';
@@ -84,17 +95,37 @@ import type {
   ScreenPoint,
   ViewPreset,
 } from '../types';
+import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
+import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
 import { setManagerOf } from './registry';
+import { CharacterShading } from './shading';
+import { DEFAULT_DISPLAY, defaultCameraOf, defaultDisplayOf, paneKey } from './workspaceViews';
 
-export const DEFAULT_DISPLAY: DisplayFlags = {
-  mesh: true,
-  skeleton: false,
-  controls: true,
-  grid: true,
-  xray: false,
-  hud: true,
-  springBones: false,
-};
+export { DEFAULT_DISPLAY };
+
+/**
+ * A pointer press a marking menu may take (M6A-SPEC §5.17, §5.18): RMB (`button 2`, never `contextmenu`), or LMB
+ * while a key is held (`Q`, `W`/`E`/`R`). Pane CSS px and page px.
+ */
+export interface PanePointerPress {
+  readonly paneId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly clientX: number;
+  readonly clientY: number;
+  readonly button: number;
+  readonly pointerId: number;
+  readonly shift: boolean;
+  readonly ctrl: boolean;
+  readonly alt: boolean;
+  /** Cmd on macOS, Ctrl elsewhere. */
+  readonly mod: boolean;
+  /** Whether a mesh (a character mesh or a mesh-view surface) is under the press (marking menus' `when.over`). */
+  overMesh(): boolean;
+}
+
+/** The handler of marking-menu presses: true = it opened a menu (the press goes nowhere else). */
+export type PanePointerMenus = (press: PanePointerPress) => boolean;
 
 /** What the viewport panel shows for a pane (header, HUD, lock badge). Immutable snapshots. */
 export interface PaneState {
@@ -178,7 +209,31 @@ export class ViewportManager {
   private readonly picker = new ControlPicker();
   private readonly meshPicker = new MeshPicker();
   private readonly panes = new Map<string, PaneRuntime>();
+  /** Camera binding and display per `<workspace>:<paneId>` (M6a: per workspace). */
   private readonly memory = new Map<string, { camera: PaneCamera; display: DisplayFlags }>();
+  /** The workspace whose pane memory is current (follows `session.workspace`). */
+  private workspace: string;
+  private readonly meshHosts = new Set<MeshLayerHost>();
+  private readonly shading = new CharacterShading();
+  /** Reference image planes (§5.26): a lazy chunk, loaded when B13 first sets planes. */
+  private planes: ImagePlaneLayer | null = null;
+  private planeSpecs: readonly ImagePlaneSpec[] = [];
+  private planesLoad: Promise<void> | null = null;
+  private pointerMenus: PanePointerMenus | null = null;
+  /** The pointer whose Alt+Shift+LMB press is the MMB stand-in (M6a rule (b)), or null. */
+  private standIn: number | null = null;
+  /** The Scale tool's manipulator sits on the selected scene objects (Model object mode), not on a control. */
+  private objectTarget = false;
+  /**
+   * The manipulator sits on a control carried over into Model (§5.17): it draws and takes presses only in the panes
+   * that draw controls (Show ▸ Controls), the same rule as the MMB virtual slider (M6A-B9-21).
+   */
+  private controlTargetInModel = false;
+  /**
+   * The manager has asked for the lazy scale chunk since the Scale tool was last chosen: a failed load is not tried
+   * again on every manipulator refresh (playback refreshes each frame), only when the tool is chosen again.
+   */
+  private scaleKitRequested = false;
   private readonly views = new Map<string, Map<ViewPreset, ViewCamera>>();
   private readonly shots = new Map<CameraId, ShotCamera>();
   private readonly listeners = new Set<() => void>();
@@ -213,6 +268,7 @@ export class ViewportManager {
 
   constructor(opts: { readonly app: EditorApp; readonly renderer: WebGLRenderer }) {
     this.app = opts.app;
+    this.workspace = opts.app.session.getState().workspace;
     this.renderer = opts.renderer;
     this.renderer.autoClear = false;
     this.renderer.toneMapping = NoToneMapping;
@@ -287,23 +343,26 @@ export class ViewportManager {
     };
     pane.state = this.stateOf(pane);
     this.panes.set(desc.id, pane);
-    this.memory.set(desc.id, { camera: desc.camera, display: desc.display });
+    this.memory.set(paneKey(this.workspace, desc.id), { camera: desc.camera, display: desc.display });
     this.attachInput(pane);
     this.autoFrame = true;
+    this.manipulatorDirty = true;
     this.notify();
     this.invalidate();
   }
 
   updatePane(id: string, patch: Partial<Pick<PaneDescriptor, 'camera' | 'display'>>): void {
     const pane = this.panes.get(id);
-    const remembered = this.memory.get(id);
-    const camera = patch.camera ?? pane?.camera ?? remembered?.camera ?? defaultPaneCamera(id);
-    const display = patch.display ?? pane?.display ?? remembered?.display ?? DEFAULT_DISPLAY;
-    this.memory.set(id, { camera, display });
+    const key = paneKey(this.workspace, id);
+    const remembered = this.memory.get(key);
+    const camera = patch.camera ?? pane?.camera ?? remembered?.camera ?? defaultCameraOf(this.workspace, id);
+    const display = patch.display ?? pane?.display ?? remembered?.display ?? defaultDisplayOf(this.workspace);
+    this.memory.set(key, { camera, display });
     if (pane === undefined) return;
     pane.camera = camera;
     pane.display = display;
     this.autoFrame = true;
+    this.manipulatorDirty = true;
     this.picker.forget(id);
     this.refreshPaneStates();
     this.invalidate();
@@ -319,6 +378,7 @@ export class ViewportManager {
     pane.marquee.dispose();
     this.panes.delete(id);
     this.picker.forget(id);
+    this.manipulatorDirty = true;
     this.notify();
     this.invalidate();
   }
@@ -341,9 +401,152 @@ export class ViewportManager {
     return this.panes.get(id)?.state ?? null;
   }
 
-  /** Camera binding and display flags last used for a pane id (survive layout switches), or null. */
+  /** Camera binding and display flags last used for a pane id in the current workspace (survive layout switches),
+   *  or null. */
   rememberedPane(id: string): { readonly camera: PaneCamera; readonly display: DisplayFlags } | null {
-    return this.memory.get(id) ?? null;
+    return this.memory.get(paneKey(this.workspace, id)) ?? null;
+  }
+
+  /** What a pane id shows in the current workspace: its remembered binding and display, else the workspace's
+   *  defaults (Model: `colours`, wire on shaded, flat, M-Side `front | persp`). */
+  paneSetup(id: string): { readonly camera: PaneCamera; readonly display: DisplayFlags } {
+    return (
+      this.rememberedPane(id) ?? {
+        camera: defaultCameraOf(this.workspace, id),
+        display: defaultDisplayOf(this.workspace),
+      }
+    );
+  }
+
+  /** The workspace whose pane memory is current. */
+  get currentWorkspace(): string {
+    return this.workspace;
+  }
+
+  /**
+   * Switches the pane memory to another workspace (§5.17): every registered pane keeps its view camera but takes the
+   * binding and display flags it had in that workspace (or the workspace's defaults); a running tool gesture or
+   * navigation is cancelled. Called when `session.workspace` changes.
+   */
+  setWorkspace(workspace: string): void {
+    if (workspace === this.workspace) return;
+    this.cancelInteraction();
+    this.workspace = workspace;
+    for (const pane of this.panes.values()) {
+      const setup = this.paneSetup(pane.id);
+      pane.camera = setup.camera;
+      pane.display = setup.display;
+      this.memory.set(paneKey(workspace, pane.id), setup);
+      this.picker.forget(pane.id);
+    }
+    this.autoFrame = true;
+    this.manipulatorDirty = true;
+    this.refreshPaneStates();
+    this.invalidate();
+  }
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // M6a: mesh layers, image planes, pixel probes, marking-menu presses
+
+  /**
+   * Adds a mesh-view host to the shared scene (§4.7): its root renders on the mesh layers, and `applyPane` runs before
+   * every pane render with that pane's display. The disposer removes the root (the host owns its disposal).
+   */
+  addMeshLayer(host: MeshLayerHost): Disposer {
+    this.meshHosts.add(host);
+    this.scene.add(host.root);
+    this.invalidate();
+    return () => {
+      if (!this.meshHosts.delete(host)) return;
+      this.scene.remove(host.root);
+      this.invalidate();
+    };
+  }
+
+  /** The mesh layers currently in the scene. */
+  meshLayers(): readonly MeshLayerHost[] {
+    return [...this.meshHosts];
+  }
+
+  /**
+   * Replaces the reference image planes (§5.26; B13 decodes the images and passes the record fields). The drawing
+   * code loads on the first call with planes; the promise resolves once they are in the scene.
+   */
+  setImagePlanes(planes: readonly ImagePlaneSpec[]): Promise<void> {
+    this.planeSpecs = planes;
+    if (this.planes !== null) {
+      this.planes.set(planes);
+      this.invalidate();
+      return Promise.resolve();
+    }
+    if (planes.length === 0 && this.planesLoad === null) return Promise.resolve();
+    this.planesLoad ??= import('./imagePlanes').then(
+      ({ ImagePlaneLayer: Layer }) => {
+        if (this.disposed) return;
+        this.planes ??= new Layer();
+      },
+      (error: unknown) => {
+        this.planesLoad = null;
+        throw error;
+      },
+    );
+    return this.planesLoad.then(() => {
+      if (this.disposed || this.planes === null) return;
+      this.planes.set(this.planeSpecs);
+      this.invalidate();
+    });
+  }
+
+  /** Ids of the image planes a pane draws (behind and in front of the geometry). */
+  imagePlanesIn(paneId: string): readonly string[] {
+    const pane = this.panes.get(paneId);
+    if (pane === undefined || !pane.display.imagePlanes || this.planes === null) return [];
+    const resolved = this.resolve(pane);
+    const preset = resolved.kind === 'view' ? resolved.view.preset : null;
+    return [...this.planes.planesFor(preset, 'behind'), ...this.planes.planesFor(preset, 'front')];
+  }
+
+  /** Sets the handler of marking-menu presses (the shell's marking menus), or null. */
+  setPointerMenus(handler: PanePointerMenus | null): void {
+    this.pointerMenus = handler;
+  }
+
+  /**
+   * The colour at a page point (CSS px) after a render (test API `pixel`, §4.8): the panes are drawn again and the
+   * pixel is read before the browser composites the frame. Null outside the canvas.
+   */
+  readPixel(clientX: number, clientY: number): [number, number, number, number] | null {
+    if (this.disposed) return null;
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    if (clientX < rect.left || clientX >= rect.right || clientY < rect.top || clientY >= rect.bottom) return null;
+    this.dirty = true;
+    this.render(true);
+    const gl = this.renderer.getContext();
+    const width = gl.drawingBufferWidth;
+    const height = gl.drawingBufferHeight;
+    const x = Math.min(width - 1, Math.max(0, Math.floor(((clientX - rect.left) / rect.width) * width)));
+    const y = Math.min(height - 1, Math.max(0, height - 1 - Math.floor(((clientY - rect.top) / rect.height) * height)));
+    const out = new Uint8Array(4);
+    gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out);
+    return [out[0] as number, out[1] as number, out[2] as number, out[3] as number];
+  }
+
+  /** Whether a mesh is under a pane point: a character mesh or a mesh-view surface (marking menus' `when.over`). */
+  isOverMesh(paneId: string, x: number, y: number): boolean {
+    const view = this.queryView(paneId);
+    if (view === null || !view.pane.display.mesh) return false;
+    const ndcX = (x / view.width) * 2 - 1;
+    const ndcY = 1 - (y / view.height) * 2;
+    // Skinned character meshes through the mesh picker (posed skin); every other surface by a plain raycast.
+    if (this.meshPicker.pick(view.camera, ndcX, ndcY, this.sync.meshTargets(), this.sync.poseStamp) !== null) {
+      return true;
+    }
+    const raycaster = new Raycaster();
+    raycaster.layers.set(LAYER.mesh);
+    raycaster.setFromCamera(new Vector2(ndcX, ndcY), view.camera);
+    const roots = [...this.characterRoots(), ...[...this.meshHosts].map((host) => host.root)];
+    return roots.some((root) => root.visible && raycaster.intersectObject(root, true).length > 0);
   }
 
   /** The pane's element rectangle in page CSS px, or null. */
@@ -397,8 +600,8 @@ export class ViewportManager {
   // ---------------------------------------------------------------------------------------------------------------
   // rendering
 
-  /** Render dirty panes. Call from R3F useFrame(…, 1). */
-  render(): void {
+  /** Render dirty panes. Call from R3F useFrame(…, 1). `probe`: a pixel-probe render, not counted as a frame. */
+  render(probe = false): void {
     if (this.disposed) return;
     this.prepareFrame();
     if (!this.dirty) return;
@@ -416,7 +619,7 @@ export class ViewportManager {
     }
     renderer.setScissorTest(false);
     this.sync.setXray(false);
-    if (rendered > 0) this.frames++;
+    if (rendered > 0 && !probe) this.frames++;
   }
 
   invalidate(_paneId?: string): void {
@@ -436,7 +639,7 @@ export class ViewportManager {
     const view = this.queryView(paneId);
     if (view === null) return [];
     const results: PickResult[] = [];
-    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    const handle = this.kitIn(view.pane) ? this.kit.pick(view.camera, view.projector, view.height, x, y) : null;
     if (handle !== null) results.push({ kind: 'manipulator', handle });
     const mask = this.app.session.getState().tools.selectionMask;
     if (view.pane.display.controls && mask.controls) {
@@ -524,7 +727,7 @@ export class ViewportManager {
 
   manipulatorScreenPoint(paneId: string, handle: ManipHandle): ScreenPoint | null {
     const view = this.queryView(paneId);
-    if (view === null) return null;
+    if (view === null || !this.kitIn(view.pane)) return null;
     return this.kit.grabPoint(handle, view.camera, view.projector, view.height);
   }
 
@@ -581,6 +784,14 @@ export class ViewportManager {
     for (const dispose of this.disposers.splice(0).reverse()) dispose();
     for (const tool of this.toolInstances.values()) tool.deactivate?.();
     this.toolInstances.clear();
+    for (const host of this.meshHosts) {
+      this.scene.remove(host.root);
+      host.dispose();
+    }
+    this.meshHosts.clear();
+    this.shading.dispose();
+    this.planes?.dispose();
+    this.pointerMenus = null;
     this.sync.dispose();
     this.controls.dispose();
     this.skeleton.dispose();
@@ -632,9 +843,59 @@ export class ViewportManager {
     const prefs = this.app.prefs.getState();
     const tool = session.tools.viewport;
     const mode: ManipMode | null =
-      tool === VIEWPORT_TOOL.move ? 'translate' : tool === VIEWPORT_TOOL.rotate ? 'rotate' : null;
-    this.kit.configure(mode, mode === 'translate' ? prefs.moveSpace : prefs.rotateSpace, session.tools.manipulatorSize);
-    this.kit.setTarget(mode === null ? null : this.manipTarget(session.selection.controls.at(-1) ?? null));
+      tool === VIEWPORT_TOOL.move
+        ? 'translate'
+        : tool === VIEWPORT_TOOL.rotate
+          ? 'rotate'
+          : tool === VIEWPORT_TOOL.scale
+            ? 'scale'
+            : null;
+    const space = mode === 'translate' ? prefs.moveSpace : mode === 'rotate' ? prefs.rotateSpace : 'object';
+    this.kit.configure(mode, space, session.tools.manipulatorSize);
+    // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model does
+    // not draw or pick rig controls, so a control selection carried over from Animate is edited there only where it
+    // is seen (§5.17, M6A-B9-21): in object mode, with no object target, the transform tools sit on the lead control
+    // in the panes that draw controls (Show ▸ Controls) and nowhere else — the MMB virtual slider's rule. Component
+    // modes show none until B12a's component targets land. In Animate the transform tools sit on the lead control.
+    let target: ManipTarget | null = null;
+    this.objectTarget = false;
+    this.controlTargetInModel = false;
+    const model = this.workspace === 'model';
+    const objectMode = session.model.componentMode === 'object';
+    // The scale handles and drags live in the lazy scale chunk: until it has loaded no scale manipulator shows.
+    const scale = mode === 'scale' ? scaleKit() : null;
+    if (mode === 'scale' && scale === null) {
+      // Loaded handles show through `onScaleKitLoaded` (whoever's load it was); a failure is toasted once.
+      if (!this.scaleKitRequested) {
+        this.scaleKitRequested = true;
+        void requestScaleKit(this.app.services.notify);
+      }
+    } else if (mode !== null) {
+      if (scale !== null && model && objectMode) {
+        target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
+        this.objectTarget = target !== null;
+      }
+      if (target === null && !model) target = this.manipTarget(session.selection.controls.at(-1) ?? null);
+      if (target === null && model && objectMode && this.anyPaneDrawsControls()) {
+        target = this.manipTarget(session.selection.controls.at(-1) ?? null);
+        this.controlTargetInModel = target !== null;
+      }
+    }
+    this.kit.setTarget(target);
+  }
+
+  /** Whether any registered pane draws controls (Show ▸ Controls). */
+  private anyPaneDrawsControls(): boolean {
+    for (const pane of this.panes.values()) if (pane.display.controls) return true;
+    return false;
+  }
+
+  /**
+   * Whether the manipulator draws and takes presses in a pane: always where it shows, except that a control target in
+   * Model is limited to the panes that draw controls (M6A-B9-21).
+   */
+  private kitIn(pane: PaneRuntime): boolean {
+    return this.kit.visible && (!this.controlTargetInModel || pane.display.controls);
   }
 
   private manipTarget(lead: ControlId | null): ManipTarget | null {
@@ -659,14 +920,16 @@ export class ViewportManager {
       r,
       order: record.rotateOrder,
       keyable: flags.free,
-      locked: flags.locked,
+      locked: { t: flags.locked.t, r: flags.locked.r },
     };
   }
 
   private renderPane(pane: PaneRuntime, gl: NonNullable<ReturnType<typeof paneGl>>): void {
     const renderer = this.renderer;
     const { viewport, scissor } = gl;
-    const camera = this.resolve(pane).nav.camera;
+    const resolved = this.resolve(pane);
+    const camera = resolved.nav.camera;
+    const preset = resolved.kind === 'view' ? resolved.view.preset : null;
     fitCameraToAspect(camera, viewport.width / viewport.height);
     camera.updateMatrixWorld();
     renderer.setViewport(viewport.x, viewport.y, viewport.width, viewport.height);
@@ -676,10 +939,37 @@ export class ViewportManager {
     renderer.render(this.backdrop.scene, this.backdrop.camera);
 
     const display = pane.display;
+    // M6a §5.26: image planes behind the geometry draw first, without depth (the geometry covers them).
+    const planes = display.imagePlanes ? this.planes : null;
+    if (planes !== null && planes.prepare(preset, 'behind')) {
+      camera.layers.set(LAYER.helpers);
+      renderer.render(planes.scene, camera);
+    }
     this.sync.setXray(display.xray);
     applyMainLayers(camera, display);
     this.skeleton.lineMaterial.resolution.set(viewport.width, viewport.height);
+    // M6a §4.7: the mesh layers take this pane's display; the character models its shading (lit = their own look).
+    if (this.meshHosts.size > 0) {
+      const meshDisplay = meshPaneDisplay(display);
+      for (const host of this.meshHosts) host.applyPane(meshDisplay, pane.id);
+    }
+    const roots = display.mesh ? this.characterRoots() : [];
+    this.shading.begin(roots, display);
     renderer.render(this.scene, camera);
+    this.shading.end();
+    if (
+      display.wireOnShaded &&
+      display.shading !== 'wire' &&
+      roots.length > 0 &&
+      this.shading.beginWireOverlay(roots)
+    ) {
+      // The characters' wireframe over their shading; the mesh-view surfaces draw their own (hidden for this pass).
+      for (const host of this.meshHosts) host.root.visible = false;
+      camera.layers.set(LAYER.mesh);
+      renderer.render(this.scene, camera);
+      this.shading.end();
+      for (const host of this.meshHosts) host.root.visible = true;
+    }
     if (display.controls) {
       for (const material of this.controls.allMaterials()) material.resolution.set(viewport.width, viewport.height);
       camera.layers.set(LAYER.controlsOccluded);
@@ -687,14 +977,28 @@ export class ViewportManager {
       camera.layers.set(LAYER.controlsVisible);
       renderer.render(this.controlScene, camera);
     }
+    if (planes !== null && planes.prepare(preset, 'front')) {
+      camera.layers.set(LAYER.helpers);
+      renderer.render(planes.scene, camera);
+    }
     renderer.clearDepth();
-    if (this.kit.visible) {
+    if (this.kitIn(pane)) {
       this.projector.set(camera, viewport.width, viewport.height, camera.near);
       this.kit.prepare(camera, viewport.width, viewport.height, this.projector);
       camera.layers.set(LAYER.always);
       renderer.render(this.kit.scene, camera);
     }
     camera.layers.set(LAYER.always);
+  }
+
+  /** The display models of the characters in the scene (what a pane's shading applies to). */
+  private characterRoots(): Object3D[] {
+    const roots: Object3D[] = [];
+    for (const id of this.sync.characterIds()) {
+      const root = this.sync.model(id)?.root;
+      if (root !== undefined) roots.push(root);
+    }
+    return roots;
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -894,15 +1198,17 @@ export class ViewportManager {
   private toolEvent(pane: PaneRuntime, e: PointerEvent): ToolPointerEvent {
     const { x, y } = this.local(pane, e);
     const mac = this.app.keymap.platform === 'mac';
+    // M6a rule (b): the MMB stand-in reaches the tool as the middle button, Alt and Shift cleared.
+    const standIn = this.standIn === e.pointerId;
     return {
       panel: PANEL.viewport,
       paneId: pane.id,
       x,
       y,
-      button: e.button,
-      buttons: e.buttons,
-      shift: e.shiftKey,
-      alt: e.altKey,
+      button: standIn && e.button === 0 ? 1 : e.button,
+      buttons: standIn ? (e.buttons & 1 ? (e.buttons & ~1) | 4 : e.buttons) : e.buttons,
+      shift: standIn ? false : e.shiftKey,
+      alt: standIn ? false : e.altKey,
       mod: mac ? e.metaKey : e.ctrlKey,
       ctrl: e.ctrlKey,
       pointerType: e.pointerType === 'pen' || e.pointerType === 'touch' ? e.pointerType : 'mouse',
@@ -916,10 +1222,19 @@ export class ViewportManager {
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
     if (this.nav !== null || this.toolPointer !== null || this.virtualSliderActive) return;
+    // M6a rule (b) (§5.17): in Model on the trackpad and one-button profiles, Alt+Shift+LMB is the MMB stand-in.
+    const standIn = isMmbStandIn(this.profile, this.workspace, e);
+    this.standIn = standIn ? e.pointerId : null;
+    if (standIn) e.preventDefault();
+    const button = standIn ? 1 : e.button;
+    const alt = standIn ? false : e.altKey;
     // M2a §5.18: a plain MMB drag (no Alt) with Channel Box channels selected runs the virtual slider; Alt+MMB stays
     // navigation, and without selected channels a plain MMB drag does nothing (M1).
-    if (e.button === 1 && !e.altKey && this.startVirtualSlider(pane, e)) return;
-    const gesture = pointerGesture(this.profile, e);
+    if (button === 1 && !alt && this.startVirtualSlider(pane, e, standIn)) {
+      this.standIn = null;
+      return;
+    }
+    const gesture = standIn ? null : pointerGesture(this.profile, e);
     if (gesture !== null) {
       e.preventDefault();
       this.capture(pane, e.pointerId);
@@ -927,6 +1242,32 @@ export class ViewportManager {
       return;
     }
     const tool = this.tool();
+    // M6a rule (a) (§5.17, §5.18): marking menus open on the press of their button (RMB is `button 2` only, never the
+    // `contextmenu` event); a tool that is placing or dragging keeps its presses (Multi-Cut completes on RMB).
+    const phase = tool?.phase?.() ?? 'idle';
+    if (!standIn && this.pointerMenus !== null && phase !== 'placing' && phase !== 'dragging') {
+      const { x, y } = this.local(pane, e);
+      const mac = this.app.keymap.platform === 'mac';
+      const press: PanePointerPress = {
+        paneId: pane.id,
+        x,
+        y,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        button: e.button,
+        pointerId: e.pointerId,
+        shift: e.shiftKey,
+        ctrl: e.ctrlKey,
+        alt: e.altKey,
+        mod: mac ? e.metaKey : e.ctrlKey,
+        overMesh: () => this.isOverMesh(pane.id, x, y),
+      };
+      if (this.pointerMenus(press)) {
+        e.preventDefault();
+        this.setHover(null, null);
+        return;
+      }
+    }
     if (tool?.pointerDown?.(this.toolEvent(pane, e)) === true) {
       this.toolPointer = { paneId: pane.id, pointerId: e.pointerId };
       this.capture(pane, e.pointerId);
@@ -937,12 +1278,17 @@ export class ViewportManager {
     }
   }
 
-  private startVirtualSlider(pane: PaneRuntime, e: PointerEvent): boolean {
+  private startVirtualSlider(pane: PaneRuntime, e: PointerEvent, standIn: boolean): boolean {
     if (!this.app.prefs.getState().virtualSlider.viewportMmb) return false;
     const refs = this.app.session.getState().selection.channels;
     if (refs.length === 0) return false;
+    // M6a §5.17: the selected channels are rig controls'. Model does not draw them (unless the pane's Show ▸ Controls
+    // is on), and a control selection carried over from Animate is never edited or keyed unseen there.
+    if (this.workspace === 'model' && !pane.display.controls) return false;
     const drag = startVirtualSliderDrag(this.app, refs, pane.element, e, {
       pointerLock: this.pointerLockAllowed,
+      // §5.17 (b): the MMB stand-in is delivered as MMB with Alt and Shift cleared (no ×0.1 from the chord's Shift).
+      standIn,
       onEnd: () => {
         this.virtualDrag = null;
         this.invalidate();
@@ -991,10 +1337,12 @@ export class ViewportManager {
       this.release(pane, e.pointerId);
       this.invalidate();
     }
+    if (this.standIn === e.pointerId) this.standIn = null;
   }
 
   /** Esc or window blur during a drag: cancel the tool gesture and any navigation in progress. */
   private cancelInteraction(): void {
+    this.standIn = null;
     this.virtualDrag?.end(false);
     if (this.toolPointer !== null) {
       this.toolPointer = null;
@@ -1029,7 +1377,7 @@ export class ViewportManager {
   private hoverAt(paneId: string, x: number, y: number): void {
     const view = this.queryView(paneId);
     if (view === null) return;
-    const handle = this.kit.pick(view.camera, view.projector, view.height, x, y);
+    const handle = this.kitIn(view.pane) ? this.kit.pick(view.camera, view.projector, view.height, x, y) : null;
     let control: ControlId | null = null;
     if (handle === null && view.pane.display.controls && this.app.session.getState().tools.selectionMask.controls) {
       const projected = this.picker.projections(paneId, view.key, view.projector, this.controls.entries());
@@ -1046,6 +1394,11 @@ export class ViewportManager {
       changed = true;
     }
     if (changed) this.invalidate();
+  }
+
+  /** The session's viewport tool (created on first use), for the keyboard's tool-key bridge (M6A-SPEC §5.17). */
+  activeTool(): ToolInstance | null {
+    return this.disposed ? null : this.tool();
   }
 
   private tool(): ToolInstance | null {
@@ -1232,6 +1585,10 @@ export class ViewportManager {
   private subscribe(): void {
     const { app } = this;
     this.disposers.push(
+      onScaleKitLoaded(() => {
+        this.manipulatorDirty = true;
+        this.invalidate();
+      }),
       app.evaluation.subscribe(() => {
         this.manipulatorDirty = true;
         this.invalidate();
@@ -1245,9 +1602,18 @@ export class ViewportManager {
           for (const pane of this.panes.values()) this.picker.forget(pane.id);
           this.invalidate();
         }
-        if (tables.has('controls')) this.manipulatorDirty = true;
+        if (tables.has('controls') || tables.has('meshes') || tables.has('groups')) this.manipulatorDirty = true;
       }),
       app.session.subscribe((state, previous) => {
+        // M6a (§5.17): pane memory per workspace; leaving a workspace cancels a running tool gesture.
+        if (state.workspace !== previous.workspace) this.setWorkspace(state.workspace);
+        if (
+          state.selection.objects !== previous.selection.objects ||
+          state.model.componentMode !== previous.model.componentMode
+        ) {
+          this.manipulatorDirty = true;
+          this.invalidate();
+        }
         if (state.selection.controls !== previous.selection.controls) {
           this.stylesDirty = true;
           this.manipulatorDirty = true;
@@ -1258,7 +1624,10 @@ export class ViewportManager {
           this.invalidate();
         }
         if (state.tools !== previous.tools) {
-          if (state.tools.viewport !== previous.tools.viewport) this.tool();
+          if (state.tools.viewport !== previous.tools.viewport) {
+            this.scaleKitRequested = false;
+            this.tool();
+          }
           this.manipulatorDirty = true;
           for (const pane of this.panes.values()) this.picker.forget(pane.id);
           this.invalidate();
@@ -1329,7 +1698,9 @@ export class ViewportManager {
       pickCandidates: (paneId, x, y) => this.pickCandidates(paneId, x, y),
       pickManipulator: (paneId, x, y) => {
         const view = this.queryView(paneId);
-        return view === null ? null : this.kit.pick(view.camera, view.projector, view.height, x, y);
+        return view === null || !this.kitIn(view.pane)
+          ? null
+          : this.kit.pick(view.camera, view.projector, view.height, x, y);
       },
       marquee: (paneId, rect) => this.marquee(paneId, rect),
       setMarquee: (paneId, rect) => this.panes.get(paneId)?.marquee.show(rect),
@@ -1340,6 +1711,7 @@ export class ViewportManager {
         this.invalidate();
       },
       controlForJoint: (character: CharacterId, node: number) => this.controlForNode(character, node),
+      beginObjectDrag: (paneId, handle, x, y) => this.beginObjectDrag(paneId, handle, x, y),
     };
   }
 
@@ -1355,10 +1727,34 @@ export class ViewportManager {
     }
   }
 
+  /** M6a: a Scale tool drag on the selected scene objects (Model object mode), when the manipulator sits on them. */
+  private beginObjectDrag(paneId: string, handle: ManipHandle, x: number, y: number): ObjectScaleSession | null {
+    const view = this.queryView(paneId);
+    const target = this.kit.currentTarget;
+    const scale = scaleKit();
+    if (view === null || target === null || scale === null || !this.objectTarget) return null;
+    if (this.kit.currentMode !== 'scale' || !scale.isScaleHandle(handle) || !this.kit.handles().includes(handle)) {
+      return null;
+    }
+    const objects = scale.scaleObjects(this.app);
+    if (objects.length === 0) return null;
+    return scale.objectScaleDrag({
+      handle,
+      pivot: target.pivot,
+      axes: this.kit.axes(),
+      view: { camera: view.camera, projector: view.projector },
+      start: { x, y },
+      sizePx: this.kit.size,
+      objects,
+    });
+  }
+
   private beginManipulatorDrag(paneId: string, handle: ManipHandle, x: number, y: number): DragSession | null {
     const view = this.queryView(paneId);
     const target = this.kit.currentTarget;
-    if (view === null || target === null || !this.kit.handles().includes(handle)) return null;
+    if (view === null || target === null || this.objectTarget || !this.kit.handles().includes(handle)) return null;
+    // M6A-B9-21: a control target in Model is edited only from a pane that draws controls.
+    if (!this.kitIn(view.pane)) return null;
     const controls: DragControl[] = [];
     for (const id of this.app.session.getState().selection.controls) {
       const entry = this.controls.entry(id);
@@ -1385,6 +1781,19 @@ export class ViewportManager {
     }
     if (controls.length === 0) return null;
     const dragView = { camera: view.camera, projector: view.projector };
+    if (this.kit.currentMode === 'scale') {
+      const scale = scaleKit();
+      if (scale === null || !scale.isScaleHandle(handle)) return null;
+      return scale.scaleDrag({
+        handle,
+        pivot: target.pivot,
+        axes: this.kit.axes(),
+        controls,
+        view: dragView,
+        start: { x, y },
+        sizePx: this.kit.size,
+      });
+    }
     if (this.kit.currentMode === 'translate') {
       return translateDrag({
         handle,
@@ -1419,8 +1828,8 @@ type Axes = [boolean, boolean, boolean];
  * ones a drag writes; `locked` ones (keyable but locked) make their axis handle report the lock (§4.11.16).
  */
 function dragFlags(record: ControlRecord): {
-  readonly free: { readonly t: Axes; readonly r: Axes };
-  readonly locked: { readonly t: Axes; readonly r: Axes };
+  readonly free: { readonly t: Axes; readonly r: Axes; readonly s: Axes };
+  readonly locked: { readonly t: Axes; readonly r: Axes; readonly s: Axes };
 } {
   const axes = (test: (k: 0 | 1 | 2) => boolean): Axes => [test(0), test(1), test(2)];
   const free = (keyable: readonly boolean[], locked: readonly boolean[]): Axes =>
@@ -1428,8 +1837,16 @@ function dragFlags(record: ControlRecord): {
   const locked = (keyable: readonly boolean[], lock: readonly boolean[]): Axes =>
     axes((k) => (keyable[k] ?? false) && (lock[k] ?? false));
   return {
-    free: { t: free(record.keyable.t, record.locked.t), r: free(record.keyable.r, record.locked.r) },
-    locked: { t: locked(record.keyable.t, record.locked.t), r: locked(record.keyable.r, record.locked.r) },
+    free: {
+      t: free(record.keyable.t, record.locked.t),
+      r: free(record.keyable.r, record.locked.r),
+      s: free(record.keyable.s, record.locked.s),
+    },
+    locked: {
+      t: locked(record.keyable.t, record.locked.t),
+      r: locked(record.keyable.r, record.locked.r),
+      s: locked(record.keyable.s, record.locked.s),
+    },
   };
 }
 

@@ -49,6 +49,23 @@ export {
 export { scaleKeyValues } from './edit/valueScale';
 export { compileWithAppEngine } from './evaluation/compile';
 export { MAYA_KEYMAP } from './keymap/maya';
+// M6a (M6A-SPEC §5.17, §7; B0b): hierarchical key scopes and the tool-modifier sheet.
+export {
+  chordInput,
+  keyScopeChain,
+  MODEL_SCOPE,
+  RESERVED_MODAL_KEYS,
+  resolveChord,
+  type ScopeChainInput,
+} from './keymap/scopes';
+export { MODEL_MENUS } from './operators/builtin/menus';
+export {
+  TOOL_HOLD_CODES,
+  TOOL_MODIFIERS,
+  type ToolModifierDoc,
+  type ToolModifierPart,
+  toolModifierKeys,
+} from './keymap/toolModifiers';
 export type * from './operators/args';
 export type { CoalescingOperatorDef, OperatorCoalescing } from './operators/runner';
 export {
@@ -91,3 +108,49 @@ export {
 export { pickWalkDispatch, pickWalkTarget } from './operators/builtin/select';
 export { LIMB_NAME, limbOfControlApp, limbOfControlIn, limbsOf, watchFkOnlyRigs } from './workflows/ik';
 export { controlVisibilityResolver, limbHiddenControls, limbVisibilityState } from './workflows/visibility';
+// M6a (M6A-SPEC §4.6): workspaces, the mesh runtime registry and operator wrappers, the blob store, the component
+// selection service and the stubs of the services B10–B12b land.
+export { createCapture } from './app/factories/capture';
+export { createExtrude } from './app/factories/extrude';
+export { historyLabels } from './history/history';
+export { type KernelMeshRuntimes, loadMeshKernel, type MeshKernel, meshKernel } from './mesh';
+export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator';
+export { MESH_OPERATORS } from './operators/builtin/mesh';
+export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
+export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
+export type { LastRunRecorder } from './operators/runner';
+export { defaultModelingPrefs } from './prefs/defaults';
+export { createComponentSelectionService } from './selection';
+export { createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
+export { defaultModelSession } from './session/defaults';
+export { restoreSelectionPart, type StoredSelectionSnapshot } from './session/selection';
+export {
+  ANIMATE_MENUS,
+  ANIMATE_STATUS_GROUPS,
+  ANIMATE_WORKSPACE,
+  animateStatus,
+  BUDGET_TRIS,
+  BUILTIN_WORKSPACES,
+  DEFAULT_WORKSPACE_VIEWS,
+  isTransformTool,
+  LEFT_MODEL_REASON,
+  MODEL_STATUS_GROUPS,
+  MODEL_WORKSPACE,
+  meshBudget,
+  modelStatus,
+  type PaneDisplayPort,
+  paneDisplayPort,
+  providePaneDisplay,
+  provideShellOverlays,
+  REVIEW_WORKSPACE,
+  RIG_WORKSPACE,
+  registerBuiltinWorkspaces,
+  type ShellOverlayPort,
+  shellOverlayPort,
+  switchWorkspace,
+  WORKSPACE,
+  workspaceProblem,
+  workspaceTabs,
+} from './workspaces';
+// M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
+export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';

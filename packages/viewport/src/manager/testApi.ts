@@ -7,13 +7,22 @@ import type { ManipHandle } from '../types';
 import type { ViewportManager } from './ViewportManager';
 
 export interface ViewportTestApi {
-  panes(): { id: string; camera: string; locked: boolean; rect: { x: number; y: number; w: number; h: number } }[];
+  /** M6a (B9): `shading` is the pane's shading (additive; the §4.8 type lists the M1 fields). */
+  panes(): {
+    id: string;
+    camera: string;
+    locked: boolean;
+    rect: { x: number; y: number; w: number; h: number };
+    shading: string;
+  }[];
   cameraOf(paneId: string): { position: [number, number, number]; quaternion: [number, number, number, number] };
   /** Page CSS px of the control's best pick point (on its polyline), or null when it is not visible in the pane. */
   screenOfControl(control: string, paneId: string): { x: number; y: number } | null;
   /** Page CSS px of a grab point on a manipulator handle (rings: most horizontal tangent), or null. */
   screenOfManipulator(paneId: string, handle: ManipHandle): { x: number; y: number } | null;
   renderedFrames(): number;
+  /** M6a (B9, §4.8): the RGBA colour at a page point of a pane after a render; [0, 0, 0, 0] off the canvas. */
+  pixel(paneId: string, x: number, y: number): [number, number, number, number];
 }
 
 /** A ControlId, or a template key ('fk.upperArm.L') of the active character's rig. */
@@ -41,6 +50,7 @@ export function viewportTestApi(vm: ViewportManager): ViewportTestApi {
             camera: state.cameraKind === 'shot' ? 'shot' : (state.preset ?? 'persp'),
             locked: state.locked,
             rect: { ...rect },
+            shading: state.display.shading,
           },
         ];
       }),
@@ -54,5 +64,11 @@ export function viewportTestApi(vm: ViewportManager): ViewportTestApi {
     },
     screenOfManipulator: (paneId, handle) => toPage(paneId, vm.manipulatorScreenPoint(paneId, handle)),
     renderedFrames: () => vm.renderedFrames,
+    pixel: (paneId, x, y) => {
+      const rect = vm.paneRect(paneId);
+      if (rect === null || x < rect.x || y < rect.y || x >= rect.x + rect.w || y >= rect.y + rect.h)
+        return [0, 0, 0, 0];
+      return vm.readPixel(x, y) ?? [0, 0, 0, 0];
+    },
   };
 }

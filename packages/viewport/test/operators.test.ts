@@ -28,7 +28,8 @@ describe('viewport operators', () => {
     rig = await createRig({ contributions: false });
     const { registerViewportContributions } = await import('../src');
     const dispose = registerViewportContributions(rig.app, rig.vm);
-    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate']);
+    // M6A-SPEC §3 rule 9/10 literal update (B9): `R` selects the new viewport Scale tool.
+    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate', 'scale']);
     const ids = [
       'view.layout',
       'view.frame',
@@ -169,7 +170,7 @@ describe('viewport operators', () => {
       (c) => c.shape.kind === 'circle' && !c.hiddenByDefault && !controls.some((other) => other.parent === c.id),
     );
     if (leaf === undefined) throw new Error('no leaf circle control');
-    rig.app.session.setState({ selection: { controls: [leaf.id], keys: new Map(), channels: [] } });
+    rig.app.session.setState({ selection: { controls: [leaf.id], keys: new Map(), channels: [], objects: [] } });
     const before = rig.vm.camera('pane-right');
     await rig.app.run('view.frame', { what: 'selection', paneId: 'pane-right' });
     const after = rig.vm.camera('pane-right');

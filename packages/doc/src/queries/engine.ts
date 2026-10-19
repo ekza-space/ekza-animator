@@ -2,16 +2,33 @@
 // Relation indexes are maintained on every storage write (they include hidden and soft-deleted records); results are
 // computed on demand, filtered by visibility (open partition, no tombstone), cached per group and invalidated by the
 // writes that can change them. Cached arrays are frozen and shared between callers.
-import type { CharacterId, ClipId, ControlId, CurveId, LayerId, RigId } from '../ids';
+import type {
+  CharacterId,
+  ClipId,
+  ControlId,
+  CurveId,
+  GroupId,
+  LayerId,
+  MeshId,
+  PaletteId,
+  RigId,
+  SkeletonId,
+} from '../ids';
 import type {
   ChannelId,
   ClipRecord,
   ControlRecord,
   CurveRecord,
+  GroupRecord,
+  ImagePlaneRecord,
+  JointRecord,
   KeyRecord,
   LayerRecord,
+  MeshRecord,
+  OrthoCamera,
   Partition,
   RigRecord,
+  SwatchRecord,
 } from '../records';
 import type { DocQueries } from '../store';
 import { compareStrings } from '../store/diff';
@@ -47,6 +64,23 @@ class MultiIndex {
   }
 }
 
+/** M6a: the children lists of one owner's mesh/group hierarchy, with dangling parents and cycles repaired. */
+interface OwnerHierarchy {
+  readonly meshes: readonly MeshRecord[];
+  readonly children: ReadonlyMap<string | null, readonly (MeshRecord | GroupRecord)[]>;
+}
+
+/** M6a `MeshOwner` as a key: the character id, or 'scene'. */
+function ownerOf(record: Row | undefined): string | undefined {
+  if (record === undefined) return undefined;
+  const owner = record['owner'];
+  if (typeof owner === 'object' && owner !== null) {
+    const character = (owner as Readonly<Record<string, unknown>>)['character'];
+    if (typeof character === 'string') return character;
+  }
+  return 'scene';
+}
+
 interface KeyProjection {
   readonly canonical: CurveRecord | undefined;
   readonly visible: readonly KeyRecord[];
@@ -77,6 +111,16 @@ export class QueryEngine implements DocQueries {
   private readonly rigsByCharacter = new MultiIndex();
   private readonly controlsByRig = new MultiIndex();
   private readonly controlsByRigKey = new MultiIndex();
+  // M6a
+  private readonly meshesByOwner = new MultiIndex();
+  private readonly groupsByOwner = new MultiIndex();
+  private readonly swatchesByPalette = new MultiIndex();
+  private readonly imagePlanesByCamera = new MultiIndex();
+  private readonly jointsBySkeleton = new MultiIndex();
+  private readonly hierarchyCache = new Map<string, OwnerHierarchy>();
+  private readonly swatchCache = new Map<string, readonly SwatchRecord[]>();
+  private readonly imagePlaneCache = new Map<string, readonly ImagePlaneRecord[]>();
+  private readonly jointCache = new Map<string, readonly JointRecord[]>();
 
   private readonly keyCache = new Map<string, KeyProjection>();
   /**
@@ -149,6 +193,27 @@ export class QueryEngine implements DocQueries {
         this.relink(this.controlsByRigKey, before && rigKey(before), after && rigKey(after), id);
         this.dropKeys(this.controlsCache, str(before, 'rig'), str(after, 'rig'));
         break;
+      // M6a (M6A-SPEC §4.2)
+      case 'meshes':
+        this.relink(this.meshesByOwner, ownerOf(before), ownerOf(after), id);
+        this.dropKeys(this.hierarchyCache, ownerOf(before), ownerOf(after));
+        break;
+      case 'groups':
+        this.relink(this.groupsByOwner, ownerOf(before), ownerOf(after), id);
+        this.dropKeys(this.hierarchyCache, ownerOf(before), ownerOf(after));
+        break;
+      case 'swatches':
+        this.relink(this.swatchesByPalette, str(before, 'palette'), str(after, 'palette'), id);
+        this.dropKeys(this.swatchCache, str(before, 'palette'), str(after, 'palette'));
+        break;
+      case 'imagePlanes':
+        this.relink(this.imagePlanesByCamera, str(before, 'camera'), str(after, 'camera'), id);
+        this.dropKeys(this.imagePlaneCache, str(before, 'camera'), str(after, 'camera'));
+        break;
+      case 'joints':
+        this.relink(this.jointsBySkeleton, str(before, 'skeleton'), str(after, 'skeleton'), id);
+        this.dropKeys(this.jointCache, str(before, 'skeleton'), str(after, 'skeleton'));
+        break;
       default:
         break;
     }
@@ -165,6 +230,10 @@ export class QueryEngine implements DocQueries {
     this.clipsCache.clear();
     this.controlsCache.clear();
     this.missingCache = null;
+    this.hierarchyCache.clear();
+    this.swatchCache.clear();
+    this.imagePlaneCache.clear();
+    this.jointCache.clear();
   }
 
   /** Forgets everything (the storage was cleared). */
@@ -179,6 +248,11 @@ export class QueryEngine implements DocQueries {
       this.rigsByCharacter,
       this.controlsByRig,
       this.controlsByRigKey,
+      this.meshesByOwner,
+      this.groupsByOwner,
+      this.swatchesByPalette,
+      this.imagePlanesByCamera,
+      this.jointsBySkeleton,
     ]) {
       index.clear();
     }
@@ -386,6 +460,110 @@ export class QueryEngine implements DocQueries {
     }
     this.missingCache = freeze([...missing].sort(compareStrings));
     return this.missingCache;
+  }
+
+  // ---------- M6a: meshes, groups, palettes, image planes, joints (M6A-SPEC §4.2) ----------
+
+  /**
+   * The live meshes and groups of one owner as a forest: a parent that is not a live record of the same owner (or, for
+   * a group, not a group) makes its child a root, and a parent cycle is broken by detaching its member with the
+   * smallest id (the load repair's rule, applied to content that arrives later, e.g. concurrent reparenting).
+   */
+  private hierarchy(owner: string): OwnerHierarchy {
+    const cached = this.hierarchyCache.get(owner);
+    if (cached !== undefined) return cached;
+    const meshes = this.liveAll('meshes', this.meshesByOwner.get(owner)) as unknown as MeshRecord[];
+    const groups = this.liveAll('groups', this.groupsByOwner.get(owner)) as unknown as GroupRecord[];
+    const nodes = new Map<string, MeshRecord | GroupRecord>();
+    const isGroup = new Set<string>();
+    for (const mesh of meshes) nodes.set(mesh.id, mesh);
+    for (const group of groups) {
+      nodes.set(group.id, group);
+      isGroup.add(group.id);
+    }
+    const parentOf = (node: MeshRecord | GroupRecord): string | null => {
+      const parent = node.parent;
+      if (parent === null || parent === node.id || !nodes.has(parent)) return null;
+      if (isGroup.has(node.id) && !isGroup.has(parent)) return null;
+      return parent;
+    };
+    const detached = new Set<string>();
+    const state = new Map<string, 1 | 2>();
+    for (const id of [...nodes.keys()].sort(compareStrings)) {
+      if (state.has(id)) continue;
+      const walk: string[] = [];
+      let current: string | null = id;
+      while (current !== null && !state.has(current)) {
+        state.set(current, 1);
+        walk.push(current);
+        const node = nodes.get(current);
+        current = node === undefined || detached.has(current) ? null : parentOf(node);
+      }
+      if (current !== null && state.get(current) === 1) {
+        const cycle = walk.slice(walk.indexOf(current));
+        detached.add(cycle.reduce((min, member) => (compareStrings(member, min) < 0 ? member : min)));
+      }
+      for (const member of walk) state.set(member, 2);
+    }
+    const children = new Map<string | null, (MeshRecord | GroupRecord)[]>();
+    for (const node of nodes.values()) {
+      const parent = detached.has(node.id) ? null : parentOf(node);
+      const siblings = children.get(parent);
+      if (siblings === undefined) children.set(parent, [node]);
+      else siblings.push(node);
+    }
+    const frozen = new Map<string | null, readonly (MeshRecord | GroupRecord)[]>();
+    for (const [parent, siblings] of children) frozen.set(parent, freeze(siblings.sort(byOrderThenId)));
+    const result: OwnerHierarchy = { meshes: freeze(meshes.sort(byOrderThenId)), children: frozen };
+    this.hierarchyCache.set(owner, result);
+    return result;
+  }
+
+  meshesOfOwner(owner: CharacterId | 'scene'): readonly MeshRecord[] {
+    return this.hierarchy(owner).meshes;
+  }
+
+  childrenOf(parent: GroupId | MeshId | null, owner: CharacterId | 'scene'): readonly (MeshRecord | GroupRecord)[] {
+    return this.hierarchy(owner).children.get(parent) ?? EMPTY;
+  }
+
+  swatchesOfPalette(palette: PaletteId): readonly SwatchRecord[] {
+    let cached = this.swatchCache.get(palette);
+    if (cached === undefined) {
+      const swatches = this.liveAll('swatches', this.swatchesByPalette.get(palette)) as unknown as SwatchRecord[];
+      cached = freeze(swatches.sort(byOrderThenId));
+      this.swatchCache.set(palette, cached);
+    }
+    return cached;
+  }
+
+  swatchBySlot(palette: PaletteId, slot: number): SwatchRecord | undefined {
+    let found: SwatchRecord | undefined;
+    for (const swatch of this.swatchesOfPalette(palette)) {
+      if (swatch.slot !== slot) continue;
+      if (found === undefined || compareStrings(swatch.id, found.id) < 0) found = swatch;
+    }
+    return found;
+  }
+
+  imagePlanesOf(camera: OrthoCamera): readonly ImagePlaneRecord[] {
+    let cached = this.imagePlaneCache.get(camera);
+    if (cached === undefined) {
+      const planes = this.liveAll('imagePlanes', this.imagePlanesByCamera.get(camera)) as unknown as ImagePlaneRecord[];
+      cached = freeze(planes.sort(byOrderThenId));
+      this.imagePlaneCache.set(camera, cached);
+    }
+    return cached;
+  }
+
+  jointsOfSkeleton(skeleton: SkeletonId): readonly JointRecord[] {
+    let cached = this.jointCache.get(skeleton);
+    if (cached === undefined) {
+      const joints = this.liveAll('joints', this.jointsBySkeleton.get(skeleton)) as unknown as JointRecord[];
+      cached = freeze(hierarchyOrder(joints));
+      this.jointCache.set(skeleton, cached);
+    }
+    return cached;
   }
 }
 

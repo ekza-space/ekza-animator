@@ -433,6 +433,8 @@ function bindInput(
       shift: e.shiftKey,
       alt: e.altKey,
       mod: mac ? e.metaKey : e.ctrlKey,
+      ctrl: e.ctrlKey,
+      repeat: e.repeat,
     });
     if (consumed) {
       e.preventDefault();

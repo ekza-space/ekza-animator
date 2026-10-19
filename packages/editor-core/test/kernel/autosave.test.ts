@@ -126,7 +126,7 @@ function memoryStore(opts: { readonly openFails?: boolean } = {}) {
         const asset = assets.get(id);
         if (asset !== undefined) out.set(id, asset);
       }
-      return { snapshot: JSON.parse(row.snapshot) as unknown, assets: out };
+      return { snapshot: JSON.parse(row.snapshot) as unknown, assets: out, blob: async () => undefined };
     },
     remove: async (slot) => {
       removed.push(slot);

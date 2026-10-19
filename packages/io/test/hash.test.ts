@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { sha256Hex as coreSha256Hex } from '@ekza-animator/anim-core';
 import { describe, expect, it } from 'vitest';
 import { sha256Hex, sha256HexSync, toHex } from '../src/hash/sha256';
 
@@ -35,5 +36,15 @@ describe('sha256', () => {
 
   it('formats lowercase hex', () => {
     expect(toHex(new Uint8Array([0, 15, 16, 255]))).toBe('000f10ff');
+  });
+
+  it('agrees with the anim-core digest core (M6A-SPEC §4.1: one core, the doc text wrapper is checked in doc)', async () => {
+    for (const text of ['', 'abc', 'msh_0123456789abcdef', 'ü€𝄞 — ekza', 'x'.repeat(1000)]) {
+      const bytes = new TextEncoder().encode(text);
+      const core = coreSha256Hex(bytes);
+      expect(sha256HexSync(bytes)).toBe(core);
+      expect(await sha256Hex(bytes)).toBe(core);
+      expect(core).toBe(nodeSha(bytes));
+    }
   });
 });
