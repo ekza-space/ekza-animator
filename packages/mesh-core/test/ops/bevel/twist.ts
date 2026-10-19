@@ -137,7 +137,7 @@ export function twistProblems(m: EditMesh, ref: EditMesh, strict = true): string
   const reported = new Set<number>();
   for (const problem of problems) {
     if (problem.code === 'nonplanar-ngon' || problem.code === 'ngon-degenerate') {
-      for (const f of problem.elements) reported.add(f);
+      for (const f of problem.elements ?? []) reported.add(f);
     }
   }
   for (let f = 0; f < m.counts.faces; f++) {
@@ -163,11 +163,11 @@ export function twistProblems(m: EditMesh, ref: EditMesh, strict = true): string
   }
   const known = new Set<string>();
   if (!strict) {
-    for (const problem of checkMesh(ref)) for (const x of problem.elements) known.add(`${problem.code} ${x}`);
+    for (const problem of checkMesh(ref)) for (const x of problem.elements ?? []) known.add(`${problem.code} ${x}`);
   }
   for (const problem of problems) {
     if (problem.code === 'zero-area-face' || problem.code === 'zero-length-edge') {
-      const fresh = Array.from(problem.elements).filter((x) => !known.has(`${problem.code} ${x}`));
+      const fresh = Array.from(problem.elements ?? []).filter((x) => !known.has(`${problem.code} ${x}`));
       if (fresh.length > 0) out.push(`${problem.code} ${fresh.join(',')}`);
     }
   }

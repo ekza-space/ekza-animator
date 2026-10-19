@@ -13,7 +13,6 @@ import {
   type MeshData,
   MESH_OPS,
   type MeshOp,
-  type OpResult,
   primitive,
   selectionOf,
 } from '../../../src';
@@ -56,7 +55,7 @@ function bevelled(data: MeshData, kind: 'edge' | 'face', ids: readonly number[],
   if (isRefusal(result)) throw new Error(`refused: ${result.code} ${result.reason}`);
   const ref = referenceRun(bevel, data, sel, args);
   if (ref === null) throw new Error('every reference width refused');
-  return { m, warnings: (result as OpResult).warnings.map((w) => w.code), problems: twistProblems(m, ref) };
+  return { m, warnings: result.warnings.map((w) => w.code), problems: twistProblems(m, ref) };
 }
 
 describe('clamp: acute and triangle corners (fix round 2 repros)', () => {
@@ -165,12 +164,10 @@ describe('clamp property on every primitive and on triangular prisms', () => {
           );
           const ctx = ctxOf(m);
           const { result } = runChecked(bevel, m, sel, args, ctx);
-          if (isRefusal(result)) {
-            // Open primitives (plane, capless cylinder and cone) have border edges; a width no corner has room for
-            // refuses.
-            expect(result.code).toMatch(/^bevel\.(border-edge|zero-width)$/);
-            return;
-          }
+          // Open primitives (plane, capless cylinder and cone) have border edges; a width no corner has room for
+          // refuses.
+          expect(isRefusal(result) ? result.code : 'ran').toMatch(/^(ran|bevel\.(border-edge|zero-width))$/);
+          if (isRefusal(result)) return;
           ran++;
           expect(minVertexGap(m)).toBeGreaterThan(ctx.epsilon);
           // When every smaller width refuses (slivers), the result is its own reference: the absolute checks remain.
