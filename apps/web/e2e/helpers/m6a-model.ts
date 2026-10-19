@@ -63,22 +63,62 @@ export async function screenOf(
   return (await read()) as ScreenPoint;
 }
 
-/** Clicks a component in a pane (Shift adds, Ctrl removes, as in Maya). */
+/**
+ * A click modifier of §5.6 (unchanged from Animate, as in Maya): no modifier replaces, `Shift` toggles, `Mod` removes
+ * and `Mod` + `Shift` adds. `Mod` is the key the editor reads as Mod: Cmd on macOS, Ctrl elsewhere (`modKey`).
+ */
+export type ClickModifier = 'Shift' | 'Mod';
+
+/**
+ * The physical key the editor reads as `Mod`: `Meta` (Cmd) when its keymap platform is macOS, else `Control`. The
+ * platform is the e2e `platform=` override when the URL carries one, else the browser's own, the choice `EditorRoot`
+ * makes (`params.platform ?? detectPlatform()`). On a macOS host keep the browser's platform for pointer modifiers:
+ * Chrome turns a Control-click into a context click there.
+ */
+export async function modKey(page: Page): Promise<'Meta' | 'Control'> {
+  const forced = new URL(page.url()).searchParams.get('platform');
+  const mac =
+    forced === 'mac' || forced === 'other'
+      ? forced === 'mac'
+      : await page.evaluate(() => {
+          const data = (navigator as Navigator & { readonly userAgentData?: { readonly platform?: string } })
+            .userAgentData;
+          return /mac|iphone|ipad|ipod/i.test(data?.platform ?? navigator.platform ?? '');
+        });
+  return mac ? 'Meta' : 'Control';
+}
+
+/** Runs `action` with the modifiers held (`Mod` resolved by `modKey`), releasing them in reverse order. */
+export async function withModifiers<T>(
+  page: Page,
+  modifiers: readonly ClickModifier[],
+  action: () => Promise<T>,
+): Promise<T> {
+  const mod = modifiers.includes('Mod') ? await modKey(page) : 'Meta';
+  const held: string[] = [];
+  try {
+    for (const modifier of modifiers) {
+      const key = modifier === 'Mod' ? mod : modifier;
+      await page.keyboard.down(key);
+      held.push(key);
+    }
+    return await action();
+  } finally {
+    for (const key of held.reverse()) await page.keyboard.up(key);
+  }
+}
+
+/** Clicks a component in a pane with the §5.6 modifiers (`ClickModifier`: none replaces, `Shift` toggles, `Mod`
+ *  removes, `Mod` + `Shift` adds). */
 export async function clickComponent(
   page: Page,
   mesh: string,
   kind: ComponentKind,
   index: number,
-  opts: { readonly paneId?: string; readonly modifiers?: readonly ('Shift' | 'Control')[] } = {},
+  opts: { readonly paneId?: string; readonly modifiers?: readonly ClickModifier[] } = {},
 ): Promise<void> {
   const point = await screenOf(page, mesh, kind, index, opts.paneId ?? MODEL_PANE);
-  const modifiers = opts.modifiers ?? [];
-  for (const key of modifiers) await page.keyboard.down(key);
-  try {
-    await page.mouse.click(point.x, point.y);
-  } finally {
-    for (const key of [...modifiers].reverse()) await page.keyboard.up(key);
-  }
+  await withModifiers(page, opts.modifiers ?? [], () => page.mouse.click(point.x, point.y));
 }
 
 /** The stored component selection of a mesh in the current mode's kind. */

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { openModel } from './helpers/m6a-model';
+import { modKey, openModel, withModifiers } from './helpers/m6a-model';
 import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 
 // M6A-SPEC §9 B0a in the production editor: the M6a kernel-level test API, every new operator resolving and
@@ -186,6 +186,26 @@ test('ws=<id> opens only registered, enabled workspaces (unknown ids keep Animat
   await openEditor(page, '&ws=animate');
   expect((await call(page, 'state')).workspace).toBe('animate');
 });
+
+// The shared click helpers (helpers/m6a-model.ts, closed after B0a) press the key the editor reads as `Mod` (§5.6:
+// `Mod`-click removes, `Mod`+`Shift`-click adds): with the platform override and with the browser's own platform,
+// `Mod`+I through `withModifiers` opens Import (`ui.open`, scope `global`) and the other modifier does not.
+for (const platform of ['mac', 'other', null] as const) {
+  test(`the model helpers hold the editor's Mod key (${platform === null ? "the browser's platform" : `platform=${platform}`})`, async ({
+    page,
+  }) => {
+    await openEditor(page, platform === null ? '' : `&platform=${platform}`);
+    await expectKernelStarted(page);
+    const mod = await modKey(page);
+    if (platform !== null) expect(mod).toBe(platform === 'mac' ? 'Meta' : 'Control');
+    await page.keyboard.down(mod === 'Meta' ? 'Control' : 'Meta');
+    await page.keyboard.press('KeyI');
+    await page.keyboard.up(mod === 'Meta' ? 'Control' : 'Meta');
+    expect((await call(page, 'state')).dialog).toBeNull();
+    await withModifiers(page, ['Mod'], () => page.keyboard.press('KeyI'));
+    await expect.poll(async () => (await call(page, 'state')).dialog).toBe('import');
+  });
+}
 
 // Gate (M6A-SPEC §3 rule 4, §10.1): `test.fixme('b9…')` until B9 registers the Model workspace and the workspace tabs.
 test.fixme('b9: the Model tab is present and ws=model opens it', async ({ page }) => {
