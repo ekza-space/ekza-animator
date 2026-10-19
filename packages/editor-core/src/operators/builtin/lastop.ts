@@ -74,6 +74,11 @@ export interface LastRunState {
   pending: Promise<unknown> | null;
   /** Refusal of the last adjusted re-run (edit.adjustLast's second poll reports it). */
   refusal: string | null;
+  /**
+   * The card preview in progress (§5.7 card drags): it re-shows the pre-op mesh with new values, which the component
+   * selection service follows and publishes; that is the card's own preview, not a selection change.
+   */
+  preview: { readonly active: boolean } | null;
 }
 
 const states = new WeakMap<EditorApp, LastRunState>();
@@ -92,6 +97,7 @@ export function lastRunState(app: EditorApp): LastRunState {
       warningsOf: null,
       pending: null,
       refusal: null,
+      preview: null,
     };
     states.set(app, state);
   }

@@ -52,10 +52,16 @@ vi.mock('../../src/app/factories/components', async (importOriginal) => {
     createComponents(deps: Parameters<typeof actual.createComponents>[0]): ComponentSelectionService {
       const real = actual.createComponents(deps);
       const listeners = new Set<(version: number) => void>();
-      let version = real.version;
+      // The real service's own publishes (B10's; the B0a stub never publishes) reach the listeners too.
+      let bumps = 0;
+      const current = (): number => real.version + bumps;
+      const notify = (): void => {
+        for (const listener of Array.from(listeners)) listener(current());
+      };
+      let forwarding = false;
       const bump = (changed: boolean): void => {
-        if (changed) version++;
-        for (const listener of Array.from(listeners)) listener(version);
+        if (changed) bumps++;
+        notify();
       };
       componentBumps.push(bump);
       let pending = false;
@@ -71,9 +77,13 @@ vi.mock('../../src/app/factories/components', async (importOriginal) => {
         },
       });
       return Object.create(real, {
-        version: { get: () => version },
+        version: { get: current },
         subscribe: {
           value: (listener: (version: number) => void) => {
+            if (!forwarding) {
+              forwarding = true;
+              real.subscribe(notify);
+            }
             listeners.add(listener);
             return () => listeners.delete(listener);
           },

@@ -10,7 +10,14 @@ import type { MeshId } from '@ekza-animator/doc';
 import * as kernel from '@ekza-animator/mesh-core';
 import type * as Descriptors from '@ekza-animator/mesh-core/descriptors';
 import { describe, expect, it, vi } from 'vitest';
-import { beginCardPreview, CARD_PREVIEW_BUDGET_MS, type EditorApp } from '../../src';
+import {
+  beginCardPreview,
+  CARD_PREVIEW_BUDGET_MS,
+  type ComponentSelectionService,
+  type EditorApp,
+  LAST_RUN_CLOSED,
+} from '../../src';
+import type * as ComponentsFactory from '../../src/app/factories/components';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
 import { enterModel } from './model';
 import type { AdvanceOp } from './support';
@@ -28,6 +35,37 @@ vi.mock('@ekza-animator/mesh-core/descriptors', async (importOriginal) => {
   const actual = await importOriginal<typeof Descriptors>();
   const { ADVANCE } = await import('./support');
   return { ...actual, MESH_OP_DESCRIPTORS: Object.freeze({ ...actual.MESH_OP_DESCRIPTORS, [ADVANCE.id]: ADVANCE }) };
+});
+
+/**
+ * The B0a component selection service never publishes; B10's follows the mesh runtimes (a preview re-shows the pre-op
+ * mesh, a cancel brings the committed one back) and publishes. Each app's service is wrapped so a test can publish a
+ * change (`componentBumps`, one per app, in creation order).
+ */
+const componentBumps = vi.hoisted(() => [] as (() => void)[]);
+
+vi.mock('../../src/app/factories/components', async (importOriginal) => {
+  const actual = await importOriginal<typeof ComponentsFactory>();
+  return {
+    createComponents(deps: Parameters<typeof actual.createComponents>[0]): ComponentSelectionService {
+      const real = actual.createComponents(deps);
+      const listeners = new Set<(version: number) => void>();
+      let version = real.version;
+      componentBumps.push(() => {
+        version++;
+        for (const listener of Array.from(listeners)) listener(version);
+      });
+      return Object.create(real, {
+        version: { get: () => version },
+        subscribe: {
+          value: (listener: (version: number) => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        },
+      }) as ComponentSelectionService;
+    },
+  };
 });
 
 /** A Model app with a cube, face 2 selected, after `mesh.test.advance {dy: 0.2}` from a menu. */
@@ -102,6 +140,31 @@ describe('card drags (§5.7)', () => {
     preview?.cancel();
     expect(positionsOf(t, t.id)).toEqual(committed);
     expect(t.app.session.getState().lastRun).toMatchObject({ closed: null, args: { dy: 0.2 } });
+  });
+
+  it("the selection service's publishes during the preview are the preview's: the card stays live", async () => {
+    // Released: the adjust commits the preview; a selection change afterwards closes the card.
+    const t = await advanced();
+    const bump = componentBumps.at(-1);
+    const preview = beginCardPreview(t.app);
+    expect(preview).not.toBeNull();
+    preview?.update({ dy: 0.5 });
+    bump?.(); // B10 follows the runtime that re-shows the pre-op mesh
+    expect(t.app.session.getState().lastRun?.closed).toBeNull();
+    expect((await t.app.run('edit.adjustLast', { args: { dy: 0.5 } })).status).toBe('finished');
+    expect(t.app.session.getState().lastRun).toMatchObject({ closed: null, args: { dy: 0.5 } });
+    bump?.();
+    expect(t.app.session.getState().lastRun?.closed).toBe(LAST_RUN_CLOSED.selection);
+    // Cancelled: the committed mesh comes back (B10 publishes it), the card stays; a later change closes it.
+    const u = await advanced();
+    const bumpU = componentBumps.at(-1);
+    const cancelled = beginCardPreview(u.app);
+    cancelled?.update({ dy: 0.5 });
+    bumpU?.();
+    cancelled?.cancel();
+    expect(u.app.session.getState().lastRun).toMatchObject({ closed: null, args: { dy: 0.2 } });
+    bumpU?.();
+    expect(u.app.session.getState().lastRun?.closed).toBe(LAST_RUN_CLOSED.selection);
   });
 
   it('operations that are not kernel mesh ops have no preview (they update on release)', async () => {

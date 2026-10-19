@@ -96,7 +96,14 @@ export function attachTracker(app: EditorApp): void {
         const targets = new Set<string>(last.targets ?? []);
         const touches = batch.changes.some((change) => change.table === 'meshes' && targets.has(change.id));
         if (touches) closeLastRun(app, LAST_RUN_CLOSED.remote);
-        else app.session.setState({ lastRun: { ...last, docSeqAfter: batch.version } });
+        else {
+          // What the selection service publishes for this batch (another mesh's runtime) is the batch's, not a
+          // selection change: settled while the store version still differs from the LastRun's (the components
+          // listener defers to this one), then the baseline follows.
+          settleSelection(app, last.targets);
+          app.session.setState({ lastRun: { ...last, docSeqAfter: batch.version } });
+          state.componentsVersion = app.components.version;
+        }
       }
     }
   });
@@ -124,6 +131,16 @@ export function attachTracker(app: EditorApp): void {
   app.components.subscribe((version) => {
     const last = live();
     if (last === null || version === state.componentsVersion) return;
+    // The card's own preview re-shows the pre-op mesh; the service follows it (the baseline is re-taken at its end).
+    if (state.preview?.active === true) return;
+    // The service follows the mesh runtimes, which follow the store before this tracker's own store listener runs: a
+    // publish caused by an undo, a redo or another write is that change's, and its batch names the reason (an undo
+    // is "Undone", a peer's edit of another mesh keeps the card).
+    if (navigationsOf(app) !== state.navigations) {
+      closeLastRun(app, LAST_RUN_CLOSED.undone);
+      return;
+    }
+    if (app.store.version !== last.docSeqAfter) return;
     closeLastRun(app, LAST_RUN_CLOSED.selection);
   });
   app.history.subscribe(() => {
@@ -206,6 +223,9 @@ export async function adjustLastRun(app: EditorApp, patch: unknown): Promise<str
     state.refusal = `${last.label}: ${reason}`;
     return state.refusal;
   } finally {
+    // A card preview ends with its adjust (the re-run commits its session; the recorder or the refusal took the
+    // baseline).
+    state.preview = null;
     state.adjusting = null;
     state.suspended--;
     if (state.pending === done) state.pending = null;
@@ -239,25 +259,52 @@ export function beginCardPreview(app: EditorApp, now: () => number = () => perfo
   const op = meshKernel()?.MESH_OPS[last.id];
   if (op === undefined) return null;
   const base = { ...last.args };
-  let session: MeshOpSession;
+  // While the preview runs (from `beginOp` on: it re-shows the pre-op mesh) the selection service's publishes are the
+  // preview's, which the tracker ignores; when it ends without an adjust (cancel, a refused open) the committed mesh
+  // is back and the baseline is re-taken.
+  const state = lastRunState(app);
+  let held = true;
+  let session: MeshOpSession | null = null;
+  const marker = {
+    get active(): boolean {
+      return held || session?.active === true;
+    },
+  };
+  state.preview = marker;
+  const end = (): void => {
+    held = false;
+    if (state.preview !== marker) return;
+    state.preview = null;
+    if (liveLastRun(app) === null) return;
+    settleSelection(app, last.targets);
+    takeBaseline(app);
+  };
   try {
     session = app.meshes.beginOp(op, last.targets, base, { base: 'before-last' });
   } catch {
+    end();
     return null;
   }
+  held = false;
+  const open = session;
   let slow = false;
   return {
     get slow() {
       return slow;
     },
     update(patch: ParamValues): void {
-      if (slow || !session.active) return;
+      if (slow || !open.active) return;
       const start = now();
-      session.update({ ...base, ...coercePartial(last.params, patch) });
+      open.update({ ...base, ...coercePartial(last.params, patch) });
       if (now() - start > CARD_PREVIEW_BUDGET_MS) slow = true;
     },
     cancel(): void {
-      if (session.active) session.cancel();
+      held = true;
+      try {
+        if (open.active) open.cancel();
+      } finally {
+        end();
+      }
     },
   };
 }
