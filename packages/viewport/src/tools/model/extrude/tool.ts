@@ -2,8 +2,9 @@
 // session is open it draws Maya's polyExtrude manipulator on the cap: every handle drag goes through
 // `app.extrude.beginAbsorb` (the drag's world-space delta becomes the extrude's `local*` args, previewed from the
 // pre-op mesh and committed with one `edit.adjustLast`), `Shift` held at the start of a handle drag is smart extrude
-// (a new extrude from the drag, `beginSmartExtrude`), the small square toggles the handles between the cap's axes
-// and world axes. `Esc` cancels the drag; during the first drag after `Mod+E` it also ends the session (zero-drop).
+// (a new extrude from the drag, `beginSmartExtrude`), `Shift` pressed after the drag started is the fine adjustment
+// (×0.1) and `Mod` the coarse one (×10), per move (§7); the small square toggles the handles between the cap's axes
+// and world axes. The reserved modal keys are the tool's during a drag (§5.10). `Esc` cancels the drag; during the first drag after `Mod+E` it also ends the session (zero-drop).
 // After an Inset or Bevel (no session) it shows their value handle instead: dragging it is a virtual slider on the
 // offset/fraction (the card preview, one adjust on release). A press anywhere else selects like the select tool, which
 // ends the session at its start (§5.8).
@@ -80,6 +81,20 @@ interface ManipDrag {
   gesture: AbsorbGesture | null;
   moved: boolean;
   typed: { readonly field: string; readonly value: number } | null;
+  /**
+   * The drag-speed rule (§5.8, §7: `Shift` ×0.1, `Mod` ×10 during the drag), applied per move so a modifier change
+   * mid-drag never jumps: `raw` is the unmodified drag value of the last move (translate/scale: the axis parameter;
+   * rotate: the angle; uniform: the factor's offset from 1), `value` the sum of each move's step at its speed.
+   */
+  raw: number;
+  value: number;
+  /** `Shift` held since the press (smart extrude): it is the fine adjustment only once released and pressed again. */
+  shiftFromStart: boolean;
+}
+
+/** The speed of a manipulator drag's move (§7, the shipped virtual-slider rule): `Shift` ×0.1, else `Mod` ×10. */
+export function dragSpeed(e: { readonly shift: boolean; readonly mod: boolean }, shiftFromStart = false): number {
+  return e.shift && !shiftFromStart ? 0.1 : e.mod ? 10 : 1;
 }
 
 interface ValueDrag {
@@ -92,6 +107,9 @@ interface ValueDrag {
   preview: CardPreview | null;
   value: number;
   moved: boolean;
+  /** The pointer x of the last move and the unclamped value (per-move speed, as on the manipulator). */
+  lastX: number;
+  raw: number;
 }
 
 type Drag = ManipDrag | ValueDrag;
@@ -291,6 +309,9 @@ export class ExtrudeTool implements ToolInstance {
       gesture: null,
       moved: false,
       typed: null,
+      raw: startParam ?? 0,
+      value: startParam ?? 0,
+      shiftFromStart: e.shift,
     };
     this.rt.manipulator.setActive(handle);
     return true;
@@ -313,6 +334,14 @@ export class ExtrudeTool implements ToolInstance {
     if (gesture === null) return;
     const q = this.rt.query(drag.paneId);
     if (q === null) return;
+    if (drag.shiftFromStart && !e.shift) drag.shiftFromStart = false;
+    const speed = dragSpeed(e, drag.shiftFromStart);
+    /** This move's step at its speed, added to the drag's value. */
+    const advance = (raw: number): number => {
+      drag.value += (raw - drag.raw) * speed;
+      drag.raw = raw;
+      return drag.value;
+    };
     const handle = drag.handle;
     if (TRANSLATE.includes(handle) || SCALE.includes(handle)) {
       const origin = [0, 0, 0];
@@ -320,11 +349,12 @@ export class ExtrudeTool implements ToolInstance {
       q.projector.ray(q.camera, e.x, e.y, origin, dir);
       const now = rayLineParameter(origin, dir, drag.frame.pivot, drag.axis);
       if (now === null || drag.startParam === null) return;
+      const at = advance(now);
       if (TRANSLATE.includes(handle)) {
-        const d = now - drag.startParam;
+        const d = at - drag.startParam;
         gesture.update({ translate: [drag.axis[0] * d, drag.axis[1] * d, drag.axis[2] * d] });
       } else if (Math.abs(drag.startParam) > 1e-9) {
-        const factor = Math.max(0, now / drag.startParam);
+        const factor = Math.max(0, at / drag.startParam);
         const i = axisOf(handle) ?? 0;
         const scale: Vec3 = [1, 1, 1];
         scale[i] = factor;
@@ -334,10 +364,10 @@ export class ExtrudeTool implements ToolInstance {
       const [tx, ty] = drag.tangent;
       const speed2 = tx * tx + ty * ty;
       if (speed2 < 1e-9) return;
-      const angle = ((e.x - drag.x) * tx + (e.y - drag.y) * ty) / speed2;
+      const angle = advance(((e.x - drag.x) * tx + (e.y - drag.y) * ty) / speed2);
       gesture.update({ rotate: quatFromAxisAngle(drag.axis, angle) });
     } else if (handle === 'suniform') {
-      const f = Math.max(0, 1 + (e.x - drag.x) * UNIFORM_PER_PX);
+      const f = Math.max(0, 1 + advance((e.x - drag.x) * UNIFORM_PER_PX));
       gesture.update({ scale: [f, f, f] });
     }
     this.rt.invalidate();
@@ -405,6 +435,8 @@ export class ExtrudeTool implements ToolInstance {
       preview,
       value: start,
       moved: false,
+      lastX: e.x,
+      raw: start,
     };
     this.rt.valueHandle.setHot(true);
     return true;
@@ -415,9 +447,9 @@ export class ExtrudeTool implements ToolInstance {
     const def = last?.params.find((p) => p.name === drag.param);
     if (def === undefined) return;
     const rates = this.app.prefs.getState().virtualSlider;
-    const speed = e.shift ? 0.1 : e.mod ? 10 : 1;
-    const raw = drag.start + (e.x - drag.x) * paramSliderRate(def, rates) * speed;
-    drag.value = clampParamValue(def, raw).value;
+    drag.raw += (e.x - drag.lastX) * paramSliderRate(def, rates) * dragSpeed(e);
+    drag.lastX = e.x;
+    drag.value = clampParamValue(def, drag.raw).value;
     if (drag.preview !== null && !drag.preview.slow) drag.preview.update({ [drag.param]: drag.value });
     this.rt.invalidate();
   }
