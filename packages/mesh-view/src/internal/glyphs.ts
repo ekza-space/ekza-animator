@@ -14,6 +14,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { MESH_VIEW_STYLE } from '../style';
+import { tracked } from './ranges';
 import { GLYPH_FRAGMENT, GLYPH_VERTEX } from './shaders';
 
 /** Glyph shapes (`uShape` / `uAltShape`). */
@@ -96,9 +97,9 @@ export class GlyphBatch {
   setGeometry(count: number): void {
     const old = this.geometry;
     const geometry = new BufferGeometry();
-    this.position = new BufferAttribute(new Float32Array(3 * count), 3);
-    this.state = new BufferAttribute(new Uint8Array(count), 1);
-    this.soft = new BufferAttribute(new Uint8Array(count), 1, true);
+    this.position = tracked(new BufferAttribute(new Float32Array(3 * count), 3));
+    this.state = tracked(new BufferAttribute(new Uint8Array(count), 1));
+    this.soft = tracked(new BufferAttribute(new Uint8Array(count), 1, true));
     geometry.setAttribute('position', this.position);
     geometry.setAttribute('state', this.state);
     geometry.setAttribute('soft', this.soft);

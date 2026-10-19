@@ -29,22 +29,22 @@ vec3 softRamp(float w) {
 `;
 
 export const SURFACE_VERTEX = `
-attribute vec3 faceNormal;
 attribute vec3 paint;
 attribute float state;
 attribute float soft;
 varying vec3 vNormal;
-varying vec3 vFaceNormal;
+varying vec3 vViewPosition;
 varying vec3 vPaint;
 varying float vState;
 varying float vSoft;
 void main() {
   vNormal = normalize(normalMatrix * normal);
-  vFaceNormal = normalize(normalMatrix * faceNormal);
+  vec4 view = modelViewMatrix * vec4(position, 1.0);
+  vViewPosition = view.xyz;
   vPaint = paint;
   vState = state;
   vSoft = soft;
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  gl_Position = projectionMatrix * view;
 }
 `;
 
@@ -65,7 +65,7 @@ uniform float uMirroredMix;
 uniform float uSoftTint;
 uniform float uOpacity;
 varying vec3 vNormal;
-varying vec3 vFaceNormal;
+varying vec3 vViewPosition;
 varying vec3 vPaint;
 varying float vState;
 varying float vSoft;
@@ -73,8 +73,14 @@ vec3 srgbToLinear(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
 }
 void main() {
-  vec3 n = normalize(uFlat ? vFaceNormal : vNormal);
-  if (!gl_FrontFacing) n = -n;
+  // Flat: the plane of the drawn triangle from screen-space derivatives, which faces the viewer on either side.
+  vec3 n;
+  if (uFlat) {
+    n = normalize(cross(dFdx(vViewPosition), dFdy(vViewPosition)));
+  } else {
+    n = normalize(vNormal);
+    if (!gl_FrontFacing) n = -n;
+  }
   // A soft clay rig in view space: key from the upper left front, a low fill, ambient.
   float key = max(dot(n, normalize(${v3(LIGHT_RIG.keyDir)})), 0.0);
   float fill = max(dot(n, normalize(${v3(LIGHT_RIG.fillDir)})), 0.0);

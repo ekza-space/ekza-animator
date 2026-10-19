@@ -17,6 +17,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { MESH_VIEW_STYLE } from '../style';
+import { tracked } from './ranges';
 import { LINE_FRAGMENT, LINE_VERTEX } from './shaders';
 
 const viewport = new Vector4();
@@ -104,9 +105,9 @@ export class LineBatch {
     // Unit quad: x 0/1 = start/end, y −1/1 = side.
     geometry.setAttribute('position', new BufferAttribute(new Float32Array([0, -1, 0, 0, 1, 0, 1, -1, 0, 1, 1, 0]), 3));
     geometry.setIndex([0, 2, 1, 1, 2, 3]);
-    this.start = new InstancedBufferAttribute(new Float32Array(3 * count), 3);
-    this.end = new InstancedBufferAttribute(new Float32Array(3 * count), 3);
-    this.state = new InstancedBufferAttribute(new Uint8Array(count), 1);
+    this.start = tracked(new InstancedBufferAttribute(new Float32Array(3 * count), 3));
+    this.end = tracked(new InstancedBufferAttribute(new Float32Array(3 * count), 3));
+    this.state = tracked(new InstancedBufferAttribute(new Uint8Array(count), 1));
     geometry.setAttribute('instanceStart', this.start);
     geometry.setAttribute('instanceEnd', this.end);
     geometry.setAttribute('instanceState', this.state);

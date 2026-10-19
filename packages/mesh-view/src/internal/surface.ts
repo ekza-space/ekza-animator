@@ -1,5 +1,6 @@
-// The shaded surface of a mesh (research 13 §7.1): one GPU vertex per corner (position, smooth corner normal, face
-// normal for the flat display, palette colour, state byte, soft weight), indexed by the one triangulation (§5.4) so
+// The shaded surface of a mesh (research 13 §7.1): one GPU vertex per corner (position, corner normal, palette colour,
+// state byte, soft weight; the flat display takes each triangle's plane in the shader), indexed by the one
+// triangulation (§5.4) so
 // what is drawn is what ships. Invisible faces (hidden, isolated out) become degenerate triangles, which keeps every
 // face's index range stable for incremental updates. Three materials share the geometry: opaque (pushed back by a
 // polygon offset so overlays win the depth test), transparent (x-ray, dimmed) and a depth-only pre-pass for x-ray.
@@ -19,7 +20,7 @@ import {
 import { MESH_VIEW_STYLE, ORDER } from '../style';
 import type { MeshViewThemeInput } from '../theme';
 import { DEFAULT_MESH_VIEW_THEME } from '../theme';
-import { Touched, uploadAll } from './ranges';
+import { addRange, Touched, tracked, uploadAll } from './ranges';
 import { DEPTH_FRAGMENT, DEPTH_VERTEX, SURFACE_FRAGMENT, SURFACE_VERTEX } from './shaders';
 import type { Topo } from './topo';
 
@@ -35,7 +36,6 @@ export class SurfaceLayer {
   private geometry = new BufferGeometry();
   private position = new BufferAttribute(new Float32Array(0), 3);
   private normal = new BufferAttribute(new Float32Array(0), 3);
-  private faceNormal = new BufferAttribute(new Float32Array(0), 3);
   private paint = new BufferAttribute(new Uint8Array(0), 3, true);
   private state = new BufferAttribute(new Uint8Array(0), 1);
   private soft = new BufferAttribute(new Uint8Array(0), 1, true);
@@ -117,16 +117,14 @@ export class SurfaceLayer {
     const C = t.corners;
     const old = this.geometry;
     const geometry = new BufferGeometry();
-    this.position = new BufferAttribute(new Float32Array(3 * C), 3);
-    this.normal = new BufferAttribute(new Float32Array(3 * C), 3);
-    this.faceNormal = new BufferAttribute(new Float32Array(3 * C), 3);
-    this.paint = new BufferAttribute(new Uint8Array(3 * C), 3, true);
-    this.state = new BufferAttribute(new Uint8Array(C), 1);
-    this.soft = new BufferAttribute(new Uint8Array(C), 1, true);
-    this.index = new BufferAttribute(new Uint32Array(tri.tris.length), 1);
+    this.position = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
+    this.normal = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
+    this.paint = tracked(new BufferAttribute(new Uint8Array(3 * C), 3, true));
+    this.state = tracked(new BufferAttribute(new Uint8Array(C), 1));
+    this.soft = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
+    this.index = tracked(new BufferAttribute(new Uint32Array(tri.tris.length), 1));
     geometry.setAttribute('position', this.position);
     geometry.setAttribute('normal', this.normal);
-    geometry.setAttribute('faceNormal', this.faceNormal);
     geometry.setAttribute('paint', this.paint);
     geometry.setAttribute('state', this.state);
     geometry.setAttribute('soft', this.soft);
@@ -180,23 +178,12 @@ export class SurfaceLayer {
     this.corners.flush([this.position]);
   }
 
-  /** Normals of every corner, or of the corners of `faces`. */
+  /** Corner normals of every corner, or of the corners of `faces`. */
   writeNormals(t: Topo, normals: Normals, faces: Uint32Array | null): void {
     const n = this.normal.array as Float32Array;
-    const fn = this.faceNormal.array as Float32Array;
-    const write = (c: number): void => {
-      const f = 3 * (t.cf[c] as number);
-      n[3 * c] = normals.corner[3 * c] as number;
-      n[3 * c + 1] = normals.corner[3 * c + 1] as number;
-      n[3 * c + 2] = normals.corner[3 * c + 2] as number;
-      fn[3 * c] = normals.face[f] as number;
-      fn[3 * c + 1] = normals.face[f + 1] as number;
-      fn[3 * c + 2] = normals.face[f + 2] as number;
-    };
     if (faces === null) {
-      for (let c = 0; c < t.corners; c++) write(c);
+      n.set(normals.corner.length === 3 * t.corners ? normals.corner : normals.corner.subarray(0, 3 * t.corners));
       uploadAll(this.normal);
-      uploadAll(this.faceNormal);
       return;
     }
     for (let k = 0; k < faces.length; k++) {
@@ -204,11 +191,13 @@ export class SurfaceLayer {
       if (f >= t.faces) continue;
       for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
         const c = t.fcorners[i] as number;
-        write(c);
+        n[3 * c] = normals.corner[3 * c] as number;
+        n[3 * c + 1] = normals.corner[3 * c + 1] as number;
+        n[3 * c + 2] = normals.corner[3 * c + 2] as number;
         this.corners.add(c);
       }
     }
-    this.corners.flush([this.normal, this.faceNormal]);
+    this.corners.flush([this.normal]);
   }
 
   /** The index from the triangulation; triangles of invisible faces collapse onto their first corner. */
@@ -236,10 +225,7 @@ export class SurfaceLayer {
       min = Math.min(min, 3 * (tri.faceTriStart[f] as number));
       max = Math.max(max, 3 * (tri.faceTriStart[f + 1] as number));
     }
-    if (max > min) {
-      this.index.addUpdateRange(min, max - min);
-      this.index.needsUpdate = true;
-    }
+    if (max > min) addRange(this.index, min, max - min);
   }
 
   /** Face states (STATE bits per face) onto their corners. */

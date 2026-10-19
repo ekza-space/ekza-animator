@@ -232,22 +232,44 @@ export function csr(size: number, count: number, key: (i: number) => number, val
 
 /** Vertex → incident edges (each edge listed under both endpoints). */
 export function vertexEdges(t: Topo): Csr {
-  return csr(
-    t.points,
-    2 * t.edges,
-    (i) => t.ev[i] as number,
-    (i) => i >>> 1,
-  );
+  const P = t.points;
+  const ev = t.ev;
+  const start = new Uint32Array(P + 1);
+  for (let i = 0; i < 2 * t.edges; i++) {
+    const v = ev[i] as number;
+    start[v + 1] = (start[v + 1] as number) + 1;
+  }
+  for (let v = 0; v < P; v++) start[v + 1] = (start[v + 1] as number) + (start[v] as number);
+  const fill = start.slice(0, P);
+  const items = new Uint32Array(2 * t.edges);
+  for (let i = 0; i < 2 * t.edges; i++) {
+    const v = ev[i] as number;
+    const at = fill[v] as number;
+    items[at] = i >>> 1;
+    fill[v] = at + 1;
+  }
+  return { start, items };
 }
 
 /** Vertex → corners at it. */
 export function vertexCorners(t: Topo): Csr {
-  return csr(
-    t.points,
-    t.corners,
-    (c) => t.cv[c] as number,
-    (c) => c,
-  );
+  const P = t.points;
+  const cv = t.cv;
+  const start = new Uint32Array(P + 1);
+  for (let c = 0; c < t.corners; c++) {
+    const v = cv[c] as number;
+    start[v + 1] = (start[v + 1] as number) + 1;
+  }
+  for (let v = 0; v < P; v++) start[v + 1] = (start[v + 1] as number) + (start[v] as number);
+  const fill = start.slice(0, P);
+  const items = new Uint32Array(t.corners);
+  for (let c = 0; c < t.corners; c++) {
+    const v = cv[c] as number;
+    const at = fill[v] as number;
+    items[at] = c;
+    fill[v] = at + 1;
+  }
+  return { start, items };
 }
 
 /** Mean edge length (mesh-local), 0 for a mesh without edges. */

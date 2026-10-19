@@ -9,6 +9,24 @@ const MAX_RANGES = 16;
 
 type Attr = BufferAttribute | InterleavedBufferAttribute;
 
+/**
+ * Attributes that reached the GPU. A fresh attribute uploads whole on its first render (three ignores ranges then
+ * but keeps them), so ranges are only added once it was uploaded; before that a plain `needsUpdate` suffices.
+ */
+const uploaded = new WeakSet<object>();
+
+/** Registers `attr` for upload tracking (every attribute the overlays write incrementally). */
+export function tracked<T extends BufferAttribute>(attr: T): T {
+  attr.onUpload(() => {
+    uploaded.add(attr);
+  });
+  return attr;
+}
+
+function ranged(attr: Attr): attr is BufferAttribute {
+  return (attr as BufferAttribute).isBufferAttribute === true && uploaded.has(attr);
+}
+
 /** Collects touched element indices of one or more attributes with the same element count. */
 export class Touched {
   private marks: Uint8Array;
@@ -61,11 +79,11 @@ export class Touched {
       ranges.push(start, end);
       if (ranges.length / 2 > MAX_RANGES) ranges.splice(1, ranges.length - 2);
       for (const attr of attrs) {
-        if (!(attr as BufferAttribute).isBufferAttribute) {
+        if (!ranged(attr)) {
           attr.needsUpdate = true;
           continue;
         }
-        const buffer = attr as BufferAttribute;
+        const buffer = attr;
         for (let r = 0; r < ranges.length; r += 2) {
           const first = ranges[r] as number;
           const last = ranges[r + 1] as number;
@@ -85,10 +103,15 @@ export class Touched {
  * the pending whole upload into a partial one.
  */
 export function uploadAll(attr: Attr): void {
-  if ((attr as BufferAttribute).isBufferAttribute) {
-    const buffer = attr as BufferAttribute;
-    buffer.clearUpdateRanges();
-    buffer.addUpdateRange(0, buffer.array.length);
+  if (ranged(attr)) {
+    attr.clearUpdateRanges();
+    attr.addUpdateRange(0, attr.array.length);
   }
+  attr.needsUpdate = true;
+}
+
+/** One range (in array elements) of an attribute; a whole upload while it has not reached the GPU yet. */
+export function addRange(attr: BufferAttribute, start: number, count: number): void {
+  if (uploaded.has(attr)) attr.addUpdateRange(start, count);
   attr.needsUpdate = true;
 }
