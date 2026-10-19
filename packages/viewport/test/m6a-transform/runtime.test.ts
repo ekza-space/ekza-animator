@@ -309,6 +309,39 @@ describe('component drags (§5.15, §5.10)', () => {
   });
 });
 
+describe('the extrude session absorbs W/E/R and MMB drags first (§5.8; B12b behind READY.b12b)', () => {
+  it('calls app.extrude.beginAbsorb with the tool and space and feeds the gesture world deltas; no own step', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'face', [0]);
+    const updates: unknown[] = [];
+    let commits = 0;
+    const absorb = vi.spyOn(s.app.extrude, 'beginAbsorb').mockReturnValue({
+      update: (delta) => updates.push(delta),
+      commit: () => {
+        commits++;
+      },
+      cancel: () => {},
+    });
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    const ty = handle(s, 'ty');
+    drag(element(s), ty, { x: ty.x, y: ty.y - 30 });
+    expect(absorb).toHaveBeenCalledWith('move', 'world');
+    expect(updates.length).toBeGreaterThan(0);
+    const last = updates.at(-1) as { translate?: number[] };
+    expect(last.translate?.[1]).toBeGreaterThan(0);
+    expect(last.translate?.[0]).toBeCloseTo(0, 9);
+    expect(commits).toBe(1);
+    await Promise.resolve();
+    expect(labels(s.app)).toHaveLength(steps);
+    expect(positions(s.app, s.cube)).toEqual(before);
+    // An MMB drag asks with 'mmb'.
+    drag(element(s), { x: 200, y: 200 }, { x: 240, y: 200 }, { button: 1 });
+    expect(absorb).toHaveBeenLastCalledWith('mmb', 'world');
+  });
+});
+
 describe('the MMB rule (§5.15)', () => {
   it('moves in the view plane without a picked handle, then along the last-picked handle only', async () => {
     const s = await scene();
