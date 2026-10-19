@@ -31,6 +31,8 @@ export { mirrorEdgePoint } from './symmetry/pointer';
 export { regionFrame } from './ops/extrude/frame';
 // B12b (the extrude session's frame on border edges, the kernel's own chain frame; B3's edges.ts)
 export { borderChainFrame } from './ops/extrude/edges';
+// B12b (the extrude session's frame under symmetry: the group the kernel moves, a partner's source frame and S)
+export { type ExtrudeGroupFrame, type ExtrudeMirror, extrudeGroupFrame } from './ops/extrude/sessionFrame';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------

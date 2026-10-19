@@ -38,7 +38,7 @@ import {
   uniqueSorted,
 } from './shared/util';
 
-interface BorderEdge {
+export interface BorderEdge {
   readonly e: number;
   readonly face: number;
   /** The face runs a → b. */
@@ -52,7 +52,7 @@ interface BorderEdge {
  * bow-tie vertex (head to head, or more than one edge in or out) stay in separate chains with separate new vertices
  * (ascending edge lists).
  */
-function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
+export function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
   const parent = new Map<number, number>(edges.map((e) => [e, e]));
   const find = (e: number): number => {
     let r = e;
@@ -95,7 +95,7 @@ function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
 }
 
 /** The chain's edges with their face and that face's winding along them. */
-function borderRecords(m: EditMesh, chain: readonly number[]): BorderEdge[] {
+export function borderRecords(m: EditMesh, chain: readonly number[]): BorderEdge[] {
   return chain.map((e): BorderEdge => {
     const c = edgeCorners(m, e)[0] as number;
     return { e, face: m.cornerFace(c), a: m.cornerVert(c), b: m.cornerVert(m.cornerNext(c)) };
@@ -121,7 +121,7 @@ export function borderChainFrame(m: EditMesh, edges: ArrayLike<number>): OpFrame
 }
 
 /** §5.8 step 7 frame of a chain. */
-function chainFrame(m: EditMesh, chain: readonly BorderEdge[]): { pivot: V3; x: V3; y: V3; z: V3 } {
+export function chainFrame(m: EditMesh, chain: readonly BorderEdge[]): { pivot: V3; x: V3; y: V3; z: V3 } {
   let weighted: V3 = [0, 0, 0];
   let plain: V3 = [0, 0, 0];
   let total = 0;
