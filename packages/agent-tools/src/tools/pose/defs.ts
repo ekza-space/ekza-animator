@@ -228,7 +228,9 @@ export const poseAim = defineTool({
   title: 'Aim bones',
   description:
     'Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one ' +
-    'frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first); directions are ' +
+    'frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first) turn each bone so its ' +
+    'own axis, from the joint toward its child, points there (a head’s axis runs up from the neck: turn a head ' +
+    'with pose_set); directions are ' +
     "the character's: up, down, forward, back, left, right, sums such as up+left, or [x, y, z] with +X " +
     "the character's left, +Y up, +Z forward. keepTwist (default true) keeps the bone's twist; weight " +
     'blends; a head aim splits over neck and head. Keys the driving FK controls; reports the achieved ' +

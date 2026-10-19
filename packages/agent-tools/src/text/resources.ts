@@ -235,10 +235,12 @@ Read only: \`scene_summary\` → \`analyze_contacts\`, \`analyze_loop\`, \`analy
 "spacing", "arcs"]}\` → one \`view_capture\` with trails → a critique with the numbers behind each point.
 
 ## More recipes with the core tools
-- **Nod**: \`pose_aim\` the head down and back up twice (\`split\` spreads it over the neck), or \`pose_set\` on
-  \`fk.head\` pitch.
-- **Head shake**: alternate the head's yaw with \`pose_aim\` (left and right of forward).
-- **Look at**: \`pose_aim {aims: [{bone: "head", towardPointM}]}\` at the frames where the look holds.
+- **Nod**: \`pose_set\` on \`fk.head\` with the rotation channel whose axis hint (\`rig_describe {detail:
+  "detailed"}\`) moves the tip down — down and back up twice.
+- **Head shake and looking around**: the head's twist channel (its axis hint says "twist"); check the sign with
+  \`pose_read {space: "world"}\` — \`orientDeg.yawDeg\` is positive toward the character's left.
+- **Pointing**: \`pose_aim\` aims a bone's own axis (from the joint toward its child): arms and legs point where you
+  aim them; the head's axis runs up from the neck, so aim it to tilt the head, not to turn it.
 - **Idle sway**: a slow side-to-side \`translateM.x\` on \`cog\` with \`pose_set\`, feet planted (IK), looped.
 `;
 

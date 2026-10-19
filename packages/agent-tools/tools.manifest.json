@@ -1,5 +1,5 @@
 {
-  "hash": "d9a11124f9edd844fd27194489d8823276aa2ce1cab48399c22f76c2769e7cbb",
+  "hash": "760ec775af9f6598a5d676dcc190ecb319650cce09770ec9cbc15c34220567db",
   "tools": [
     {
       "access": "read",
@@ -2357,7 +2357,7 @@
         "openWorldHint": false,
         "readOnlyHint": false
       },
-      "description": "Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first); directions are the character's: up, down, forward, back, left, right, sums such as up+left, or [x, y, z] with +X the character's left, +Y up, +Z forward. keepTwist (default true) keeps the bone's twist; weight blends; a head aim splits over neck and head. Keys the driving FK controls; reports the achieved direction and the error in degrees. A bone of an IK limb answers limb_mode: use pose_ik_target.",
+      "description": "Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first) turn each bone so its own axis, from the joint toward its child, points there (a head’s axis runs up from the neck: turn a head with pose_set); directions are the character's: up, down, forward, back, left, right, sums such as up+left, or [x, y, z] with +X the character's left, +Y up, +Z forward. keepTwist (default true) keeps the bone's twist; weight blends; a head aim splits over neck and head. Keys the driving FK controls; reports the achieved direction and the error in degrees. A bone of an IK limb answers limb_mode: use pose_ik_target.",
       "group": "pose",
       "hosts": [
         "live",
