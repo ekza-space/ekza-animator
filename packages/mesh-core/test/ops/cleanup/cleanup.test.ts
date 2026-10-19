@@ -5,7 +5,9 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   BitSet,
+  BUILTIN_LAYERS,
   checkMesh,
+  EDGE_HARD,
   type EditMesh,
   editMeshFrom,
   isRefusal,
@@ -236,6 +238,42 @@ describe('visibility and properties', () => {
     const r = runOk(cleanup, m, null, { fix: 'deleteLamina', selectOnly: false }, ctxOf(m, { hidden }));
     expect(r.warnings[0]?.code).toBe('cleanup.clean');
     expect(vef(m)).toBe('4/4/2');
+  });
+
+  it('P7-hard: an all-hard mesh stays all-hard through every fix', () => {
+    for (const code of Object.keys(CHECK_CORPUS) as (keyof typeof CHECK_CORPUS)[]) {
+      const data = CHECK_CORPUS[code]();
+      const hard = { ...data, edgeFlags: new Uint8Array(data.counts.edges).fill(EDGE_HARD) };
+      for (const name of FIXES) {
+        const m = editMeshFrom(hard);
+        runOk(cleanup, m, null, { fix: name, selectOnly: false });
+        const soft = Array.from({ length: m.counts.edges }, (_, e) => e).filter(
+          (e) => (m.edgeFlags(e) & EDGE_HARD) === 0,
+        );
+        expect(soft, `${code} ${name}`).toEqual([]);
+      }
+    }
+  });
+
+  it('collapse averages point layers and keeps skin weights normalized', () => {
+    const data = CHECK_CORPUS['zero-length-edge']();
+    const joints = Uint16Array.from([0, 1, 0, 0, 2, 0, 0, 0, 3, 0, 0, 0, 1, 2, 0, 0]);
+    const weights = Float32Array.from([0.5, 0.5, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0.25, 0.75, 0, 0]);
+    const layers = new Map(data.layers);
+    layers.set('skin.joints', { def: BUILTIN_LAYERS.skinJoints, data: joints });
+    layers.set('skin.weights', { def: BUILTIN_LAYERS.skinWeights, data: weights });
+    const m = editMeshFrom({ ...data, layers });
+    fix(m, 'collapse');
+    // Vertices 0 and 3 merged into 0: joint 0 at (0.5 + 0) / 2, joint 1 at (0.5 + 0.25) / 2, joint 2 at 0.75 / 2.
+    const w = new Float64Array(4);
+    const j = new Float64Array(4);
+    m.layer('skin.weights')?.read(0, w);
+    m.layer('skin.joints')?.read(0, j);
+    const byJoint = new Map<number, number>();
+    for (let k = 0; k < 4; k++) if ((w[k] as number) > 0) byJoint.set(j[k] as number, w[k] as number);
+    expect(byJoint.get(0)).toBeCloseTo(0.25, 6);
+    expect(byJoint.get(1)).toBeCloseTo(0.375, 6);
+    expect(byJoint.get(2)).toBeCloseTo(0.375, 6);
   });
 
   it('P1 + P5 on polygon soups: every fix gives a valid mesh with exact undo, and removes what it can', () => {
