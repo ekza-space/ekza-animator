@@ -35,7 +35,7 @@ import {
   type Vec3,
 } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
-import type { BitSet, ComponentKind, EditMesh } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, EditMesh, OpFrame } from '@ekza-animator/mesh-core';
 import { worldPlacement } from '../../mesh/context';
 import { meshKernel } from '../../mesh/kernel';
 import { targetsOf } from '../../mesh/operator';
@@ -338,49 +338,6 @@ function firstRegion(m: EditMesh, faces: BitSet, together: boolean): number[] {
   return [...region].sort((a, b) => a - b);
 }
 
-function point(m: EditMesh, v: number): Vec3 {
-  const p = m.position;
-  return [p[3 * v] as number, p[3 * v + 1] as number, p[3 * v + 2] as number];
-}
-
-/** Newell normal and centroid of a face. */
-function faceNormal(m: EditMesh, f: number): { normal: Vec3; centroid: Vec3 } {
-  let n: Vec3 = [0, 0, 0];
-  let c: Vec3 = [0, 0, 0];
-  let count = 0;
-  const first = m.faceCorner(f);
-  let k = first;
-  do {
-    const a = point(m, m.cornerVert(k));
-    const b = point(m, m.cornerVert(m.cornerNext(k)));
-    n = add(n, [(a[1] - b[1]) * (a[2] + b[2]), (a[2] - b[2]) * (a[0] + b[0]), (a[0] - b[0]) * (a[1] + b[1])]);
-    c = add(c, a);
-    count++;
-    k = m.cornerNext(k);
-  } while (k !== first);
-  return { normal: normalize(n), centroid: scale(c, 1 / Math.max(1, count)) };
-}
-
-/** §5.8 step 7 frame of the chain of the lowest-index selected border edge: X along it, Z the face normal, Y away. */
-function edgeFrame(m: EditMesh, edges: BitSet): Frame | null {
-  const e = edges.toArray()[0];
-  if (e === undefined) return null;
-  const a = point(m, m.edgeVert(e, 0));
-  const b = point(m, m.edgeVert(e, 1));
-  let x = normalize(sub(b, a));
-  const corner = m.edgeCorner(e);
-  const face = corner >= 0 ? faceNormal(m, m.cornerFace(corner)) : null;
-  let z: Vec3 = face?.normal ?? [0, 1, 0];
-  let y = normalize(cross(z, x));
-  const mid = scale(add(a, b), 0.5);
-  if (face !== null && dot(y, sub(mid, face.centroid)) < 0) {
-    y = scale(y, -1);
-    x = scale(x, -1);
-  }
-  z = cross(x, y);
-  return { pivot: mid, axes: [x, y, z] };
-}
-
 // ---------- the engine ----------
 
 interface Live {
@@ -502,17 +459,22 @@ class Engine implements ExtrudeEngine {
     } catch {
       return null;
     }
-    if (kind === 'face') {
-      const region = firstRegion(m, sel.faces, together);
-      if (region.length === 0) return null;
-      try {
-        const frame = kernel.regionFrame(m, region);
-        return { pivot: [...frame.pivot] as Vec3, axes: frame.axes.map((a) => [...a] as Vec3) as [Vec3, Vec3, Vec3] };
-      } catch {
-        return null;
+    if (kind !== 'face' && kind !== 'edge') return null;
+    let frame: OpFrame | null;
+    try {
+      if (kind === 'face') {
+        const region = firstRegion(m, sel.faces, together);
+        frame = region.length === 0 ? null : kernel.regionFrame(m, region);
+      } else {
+        // Border edges: the kernel's own frame of the chain that holds the lowest-index selected edge (§5.8 step 7),
+        // so an absorbed drag is converted in the frame the kernel applies it in.
+        frame = kernel.borderChainFrame(m, sel.edges.toArray());
       }
+    } catch {
+      return null;
     }
-    return kind === 'edge' ? edgeFrame(m, sel.edges) : null;
+    if (frame === null) return null;
+    return { pivot: [...frame.pivot] as Vec3, axes: frame.axes.map((a) => [...a] as Vec3) as [Vec3, Vec3, Vec3] };
   }
 
   /** The frame of the selection an extrude is about to run on (`args` as the runner coerced them). */
@@ -660,13 +622,21 @@ class Engine implements ExtrudeEngine {
     }
   }
 
-  /** §5.8 zero-drop: an ended session whose args are the identity undoes its extrude (while it is the top step). */
+  /**
+   * §5.8 zero-drop: an ended session whose args are the identity undoes its extrude (while it is the top step). The
+   * toast's Undo is `edit.redo {step}`: it restores the extrude only while that step is still the top redo entry.
+   */
   private drop(live: Live): void {
     const app = this.app;
     if (!isIdentityExtrude(this.current(live)) || pendingAdjust(app) !== null) return;
-    if (app.history.peekUndo()?.id !== live.state.stepId) return;
+    const step = app.history.peekUndo();
+    if (step === null || step.id !== live.state.stepId) return;
     app.history.undo();
-    app.services.notify.toast({ kind: 'info', text: EXTRUDE_REMOVED, action: { label: 'Undo', op: 'edit.redo' } });
+    app.services.notify.toast({
+      kind: 'info',
+      text: EXTRUDE_REMOVED,
+      action: { label: 'Undo', op: 'edit.redo', args: { step: step.id } },
+    });
     sayModelHelp(app, EXTRUDE_REMOVED);
   }
 

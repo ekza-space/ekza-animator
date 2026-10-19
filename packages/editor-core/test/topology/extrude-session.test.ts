@@ -5,12 +5,13 @@
 // the end-trigger table with its zero-drop (a mode switch keeps a zero extrude), smart extrude chains, `T`'s reopen.
 import { type Quat, quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
 import type { MeshRecord } from '@ekza-animator/doc';
-import { primitive } from '@ekza-animator/mesh-core';
+import { borderChainFrame, editMeshFrom, type MeshData, primitive } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
 import {
   absorbArgs,
   beginSmartExtrude,
   EXTRUDE_REMOVED,
+  extrudeManipulatorFrame,
   type ExtrudeSessionShim,
   isIdentityExtrude,
   onModelHelp,
@@ -267,7 +268,38 @@ describe.skipIf(!READY.b3)('the extrude session (§5.8; READY.b3)', () => {
       });
       expect(help).toContain(EXTRUDE_REMOVED);
       // The toast's Undo brings it back while the redo entry exists.
+      const action = t.services.toasts.at(-1)?.action;
+      expect((await t.app.runUntyped(action?.op ?? 'edit.redo', action?.args)).status).toBe('finished');
+      expect(counts(t, t.id)).toBe('12/20/10');
+    });
+
+    it("the toast's Undo restores the dropped extrude only while its redo entry is the top one", async () => {
+      const t = await modelWith('face', topFace);
+      const top = topFace(dataOf(t, t.id));
+      // The user's earlier selection steps.
+      await t.app.runUntyped('select.components', { mesh: t.id, kind: 'face', indices: [0], mode: 'replace' });
+      await t.app.runUntyped('select.components', { mesh: t.id, kind: 'face', indices: top, mode: 'replace' });
+      await t.app.runUntyped('mesh.extrude', {}, { source: 'keyboard' });
+      await settle();
+      await t.app.run('edit.escape');
+      expect(counts(t, t.id)).toBe('8/12/6');
+      const action = t.services.toasts.at(-1)?.action;
+      expect(action).toMatchObject({ label: 'Undo', op: 'edit.redo' });
+      if (action === undefined) throw new Error('no toast action');
+      expect(typeof (action.args as { readonly step?: unknown } | undefined)?.step).toBe('number');
+      // An undo of the earlier "Select": the top redo entry is that selection now, not the extrude.
+      await t.app.run('edit.undo');
+      const selection = Array.from(t.app.components.get(t.id, 'face').faces.toArray());
+      expect(selection).toEqual([0]);
+      expect(await t.app.runUntyped(action.op, action.args)).toEqual({
+        status: 'cancelled',
+        reason: 'Nothing to restore',
+      });
+      expect(counts(t, t.id)).toBe('8/12/6');
+      expect(Array.from(t.app.components.get(t.id, 'face').faces.toArray())).toEqual(selection);
+      // Redo the selection by hand: the extrude's entry is the top one again and the toast's Undo restores it.
       await t.app.run('edit.redo');
+      expect((await t.app.runUntyped(action.op, action.args)).status).toBe('finished');
       expect(counts(t, t.id)).toBe('12/20/10');
     });
 
@@ -366,6 +398,94 @@ describe.skipIf(!READY.b3)('the extrude session (§5.8; READY.b3)', () => {
     await t.app.run('view.lastOpCard', { expand: true, focusPrimary: true });
     expect(t.app.extrude.state).not.toBeNull();
     expect(t.app.extrude.state?.frame).toEqual(frame);
+  });
+
+  describe('border-edge chains (§5.8 step 7: the session frame is the kernel chain frame)', () => {
+    /** A 2 × 2 plane (3 × 3 vertices in XZ, facing +Y). */
+    const grid = (): MeshData =>
+      primitive('plane', { width: 2, height: 2, subdivisionsWidth: 2, subdivisionsHeight: 2 });
+
+    /** The edge joining the vertices at `a` and `b`. */
+    function edgeBetween(data: MeshData, a: Vec3, b: Vec3): number {
+      const at = (v: number, p: Vec3): boolean => {
+        const q = position(data, v);
+        return Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]) < 1e-9;
+      };
+      for (let e = 0; e < data.counts.edges; e++) {
+        const u = data.edgeVerts[2 * e] as number;
+        const w = data.edgeVerts[2 * e + 1] as number;
+        if ((at(u, a) && at(w, b)) || (at(u, b) && at(w, a))) return e;
+      }
+      throw new Error(`no edge ${a.join(',')} – ${b.join(',')}`);
+    }
+
+    const chains: readonly { readonly name: string; readonly ends: readonly [Vec3, Vec3][]; readonly pivot: Vec3 }[] = [
+      {
+        name: 'an L-shaped chain round a corner',
+        ends: [
+          [
+            [-1, 0, -1],
+            [0, 0, -1],
+          ],
+          [
+            [-1, 0, -1],
+            [-1, 0, 0],
+          ],
+        ],
+        pivot: [-0.75, 0, -0.75],
+      },
+      {
+        name: 'a straight two-edge chain',
+        ends: [
+          [
+            [-1, 0, -1],
+            [0, 0, -1],
+          ],
+          [
+            [0, 0, -1],
+            [1, 0, -1],
+          ],
+        ],
+        pivot: [0, 0, -1],
+      },
+    ];
+
+    for (const chain of chains) {
+      it(`${chain.name}: the pivot is the kernel's, world drags move the outer edges exactly by their delta`, async () => {
+        const data = grid();
+        const edges = chain.ends.map(([a, b]) => edgeBetween(data, a, b));
+        const t = await modelWith('edge', () => edges, data);
+        const kernel = borderChainFrame(editMeshFrom(data), edges);
+        expectVec(kernel?.pivot ?? [], chain.pivot);
+        // Interior edges are not border edges (an extrude with one refuses): no chain, no frame.
+        expect(borderChainFrame(editMeshFrom(data), [edgeBetween(data, [0, 0, -1], [0, 0, 0])])).toBeNull();
+        expect((await t.app.runUntyped('mesh.extrude', {}, { source: 'keyboard' })).status).toBe('finished');
+        await settle();
+        expect(counts(t, t.id)).toBe('12/17/6');
+        expectVec(extrudeManipulatorFrame(t.app)?.pivot ?? [], chain.pivot);
+        expectVec(t.app.extrude.state?.frame.pivot ?? [], chain.pivot);
+        kernel?.axes.forEach((axis, i) => expectVec(t.app.extrude.state?.frame.axes[i] ?? [], axis));
+        // The new (outer) vertices: one per chain vertex, at the chain's vertices with identity args.
+        const outer = [9, 10, 11];
+        const start = outer.map((v) => worldOf(t, v));
+        const moved: Vec3 = [0, 0, 0];
+        for (const delta of [
+          [0.3, 0, 0],
+          [0, 0.25, 0],
+          [0, 0, -0.2],
+        ] as Vec3[]) {
+          await drag(t, { translate: delta });
+          moved[0] += delta[0];
+          moved[1] += delta[1];
+          moved[2] += delta[2];
+          outer.forEach((v, i) => {
+            const p = start[i] as Vec3;
+            expectVec(worldOf(t, v), [p[0] + moved[0], p[1] + moved[1], p[2] + moved[2]]);
+          });
+        }
+        expect(t.app.extrude.state?.stack).toHaveLength(4);
+      });
+    }
   });
 
   it('setManipSpace toggles the manipulator space of the open session', async () => {
