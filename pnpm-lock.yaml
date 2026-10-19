@@ -451,9 +451,15 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.1
+      '@vitest/browser-playwright':
+        specifier: 4.1.11
+        version: 4.1.11(playwright@1.63.0)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))(vitest@4.1.11)
       fast-check:
         specifier: 4.10.2
         version: 4.10.2
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))

@@ -199,6 +199,10 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
     }
   });
 
+  // Ops whose kernel owner has landed them (literal updates, M6A-SPEC §3 rule 9): their runs are tested in the
+  // owner's test dirs. B2: `mesh.transformComponents` (test/transform).
+  const LANDED: ReadonlySet<string> = new Set(['mesh.transformComponents']);
+
   it('poll true and run refuses not-implemented until the owner lands the op', () => {
     const mesh = emptyMesh();
     const ctx = {
@@ -210,11 +214,17 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
-    const outcomes = Object.values(MESH_OPS).map((op) => {
-      const result = op.run(mesh, null, {}, ctx);
-      return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
-    });
-    expect(outcomes).toEqual(Object.keys(MESH_OPS).map((id) => [id, true, 'not-implemented']));
+    const outcomes = Object.values(MESH_OPS)
+      .filter((op) => !LANDED.has(op.id))
+      .map((op) => {
+        const result = op.run(mesh, null, {}, ctx);
+        return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
+      });
+    expect(outcomes).toEqual(
+      Object.keys(MESH_OPS)
+        .filter((id) => !LANDED.has(id))
+        .map((id) => [id, true, 'not-implemented']),
+    );
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];
@@ -264,18 +274,36 @@ describe('eager/lazy split (§2)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('every kernel entry module references the marker (registry, reference modules, op stubs)', () => {
+  it('every kernel entry module references the marker (registry, kernel modules, op stubs)', () => {
     expect(KERNEL_MARKER).toBe('ekza-mesh-kernel');
     expect(Object.getOwnPropertyDescriptor(MESH_OPS, '__kernel')?.value).toBe(KERNEL_MARKER);
-    // `access.ts` holds only pure accessors reached through modules that reference the marker.
-    const reference = readdirSync(join(SRC, 'reference')).filter(
-      (name) => name.endsWith('.ts') && name !== 'access.ts',
-    );
-    const silent = reference.filter(
-      (name) =>
-        !/kernelError|notImplemented|KERNEL_MARKER|editMeshFrom|isKernelDebug/.test(
-          readFileSync(join(SRC, 'reference', name), 'utf8'),
-        ),
+    // B1 replaced B0a's reference/** with these module directories (literal update of this scan).
+    const dirs = [
+      'core',
+      'layers',
+      'log',
+      'euler',
+      'validate',
+      'revision',
+      'triangulate',
+      'normals',
+      'primitives',
+      'predicates',
+      // B2
+      'select',
+      'soft',
+      'symmetry',
+    ];
+    const silent = dirs.flatMap((dir) =>
+      readdirSync(join(SRC, dir))
+        .filter((name) => name.endsWith('.ts'))
+        .filter(
+          (name) =>
+            !/kernelError|notImplemented|KERNEL_MARKER|editMeshFrom|isKernelDebug/.test(
+              readFileSync(join(SRC, dir, name), 'utf8'),
+            ),
+        )
+        .map((name) => `${dir}/${name}`),
     );
     expect(silent).toEqual([]);
   });
