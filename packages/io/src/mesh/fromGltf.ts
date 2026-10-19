@@ -3,8 +3,8 @@
 //   1. Licence gate (`editLicence`), size gate (200,000 triangles by default), compression (Draco/meshopt need the
 //      host's decoder, `opts.decode`; quantized accessors are read as numbers like any other).
 //   2. Every primitive's vertices are concatenated (the face material is the primitive index → slot).
-//   3. Weld: glTF vertices become one point when their positions are bit-equal AND their skin joints and weights are
-//      equal AND every morph target's POSITION delta is equal (coincident lip or eyelid vertices that separate in a
+//   3. Weld: glTF vertices become one point when their positions are bit-equal (−0 = +0) AND their skin joints and
+//      weights are equal AND every morph target's POSITION delta is equal (coincident lip or eyelid vertices that separate in a
 //      target stay apart). Points keep the order of their first vertex; unreferenced vertices become no point.
 //   4. Per-corner layers from the split vertices: TEXCOORD_0/1 → uv0/uv1, COLOR_0 → color0 (linear RGBA), NORMAL →
 //      normal.custom; per-point JOINTS_0/WEIGHTS_0 → skin.joints/skin.weights (the glTF skin's joints as layer meta),
@@ -459,7 +459,8 @@ function build(
     offset += p.count;
   }
 
-  // Weld key: position bits, joints, weight bits, every morph delta's bits.
+  // Weld key: position bits, joints, weight bits, every morph delta's bits; −0 counts as +0 (exporters write
+  // centre-line vertices as −0 on one side, which must not crack the mesh along the seam).
   const K = 3 + (hasSkin ? 8 : 0) + 3 * T;
   const keys = new Uint32Array(K * V);
   const positionBits = new Uint32Array(position.buffer);
@@ -467,17 +468,17 @@ function build(
   const morphBits = morph.map((m) => new Uint32Array(m.buffer));
   for (let v = 0; v < V; v++) {
     let o = K * v;
-    keys[o++] = positionBits[3 * v] as number;
-    keys[o++] = positionBits[3 * v + 1] as number;
-    keys[o++] = positionBits[3 * v + 2] as number;
+    keys[o++] = floatKey(positionBits[3 * v] as number);
+    keys[o++] = floatKey(positionBits[3 * v + 1] as number);
+    keys[o++] = floatKey(positionBits[3 * v + 2] as number);
     if (joints !== null && weightBits !== null) {
       for (let i = 0; i < 4; i++) keys[o++] = joints[4 * v + i] as number;
-      for (let i = 0; i < 4; i++) keys[o++] = weightBits[4 * v + i] as number;
+      for (let i = 0; i < 4; i++) keys[o++] = floatKey(weightBits[4 * v + i] as number);
     }
     for (const bits of morphBits) {
-      keys[o++] = bits[3 * v] as number;
-      keys[o++] = bits[3 * v + 1] as number;
-      keys[o++] = bits[3 * v + 2] as number;
+      keys[o++] = floatKey(bits[3 * v] as number);
+      keys[o++] = floatKey(bits[3 * v + 1] as number);
+      keys[o++] = floatKey(bits[3 * v + 2] as number);
     }
   }
   const rep = new Int32Array(V);
@@ -661,6 +662,12 @@ function build(
     degenerate,
     hardEdges,
   };
+}
+
+/** The weld key of a float32's bits: the bits themselves, except −0 (0x80000000), which keys as +0. */
+const NEGATIVE_ZERO_BITS = 0x80000000;
+function floatKey(bits: number): number {
+  return bits === NEGATIVE_ZERO_BITS ? 0 : bits;
 }
 
 function sameKey(keys: Uint32Array, K: number, u: number, v: number): boolean {

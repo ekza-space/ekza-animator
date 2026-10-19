@@ -52,6 +52,47 @@ describe('meshFromGltf: weld, layers and hard edges', () => {
     expect([...result.data.edgeFlags].every((flags) => (flags & EDGE_HARD) === 0)).toBe(true);
   });
 
+  it('welds −0 with +0 (a centre-line vertex written as −0), in positions, weights and morph deltas', async () => {
+    // quadWithSeam's v3 duplicates v0 at the origin: written as (−0, 0, −0) it still welds to v0.
+    const seam = quadWithSeam();
+    const positions = [...seam.positions];
+    positions[9] = -0;
+    positions[11] = -0;
+    expect(Object.is(new Float32Array(positions)[9], -0)).toBe(true);
+    const delta = Array.from({ length: 18 }, () => 0);
+    delta[9] = -0;
+    const weights = Array.from({ length: 6 }, () => [1, 0, 0, 0]).flat();
+    weights[13] = -0;
+    const result = made(
+      await meshFromGltf(
+        await syntheticContainer({
+          primitives: [
+            {
+              ...seam,
+              positions,
+              joints: Array.from({ length: 24 }, () => 0),
+              weights,
+              targets: [{ position: delta }],
+            },
+          ],
+          targetNames: ['smile'],
+          skinned: true,
+        }),
+        0,
+      ),
+    );
+    expect(result.data.counts).toEqual({ points: 4, edges: 5, faces: 2, corners: 6 });
+    expect(validateMesh(result.data)).toEqual([]);
+    expect(topologyStats(result.data).shells).toBe(1);
+    // Other bits still decide: a vertex at +1e-30 next to +0 stays its own point.
+    const apart = [...seam.positions];
+    apart[9] = 1e-30;
+    const split = made(
+      await meshFromGltf(await syntheticContainer({ primitives: [{ ...seam, positions: apart }] }), 0),
+    );
+    expect(split.data.counts.points).toBe(5);
+  });
+
   it('recovers a hard edge where the faces disagree on a corner normal', async () => {
     const result = made(
       await meshFromGltf(await syntheticContainer({ primitives: [quadWithSeam({ hardDiagonal: true })] }), 0),
