@@ -45,8 +45,11 @@ const MODIFIER_CODES: ReadonlySet<string> = new Set([
 ]);
 
 const START = /^[0-9.-]$/;
-/** Characters of the §5.10 grammar after an entry started: numbers, operators, units, `%`. */
-const CONTINUE = /^[0-9.,+\-*/=()%° a-zA-Z]$/;
+/**
+ * Characters of the §5.10 grammar after an entry started: numbers, operators, `%`, `°` and the letters of its units
+ * (`m`, `cm`, `mm`, `deg`, `rad`, the exponent `e`). Any other letter is a key, not part of the entry.
+ */
+const CONTINUE = /^[0-9.,+\-*/=()%° acdegmrACDEGMR]$/;
 
 export interface CaptureKeyEvent {
   readonly code: string;
