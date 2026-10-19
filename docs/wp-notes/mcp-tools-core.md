@@ -116,6 +116,21 @@ The tools are ready in the manifest (the contract), but some run P1's work:
   drops the override at once: the fixture of the every-operator invariant test (§5.14, P3 extends it) has no override.
   P2's `test/p2-support.ts` seeds the frame first, then the override. Hand-off to P3.
 
+## Hand-offs to the other packages
+
+- **P6/P7 (hosts):** `createAgentToolRuntime` returns an `AgentToolRuntimeHandle` — call `dispose()` when a project
+  closes or a pairing ends (the revision tracker's store subscription, the presence timer). The host aborts the
+  call's signal at the deadline; `WAITING_FOR_CONFIRM` / `WAITING_FOR_REDO` progress messages mean a card opened
+  (extend the deadline once). A live host must report the `user`, `confirm` and `presence` capabilities and resolve
+  `confirm(…, {resolvedWhen})` with `'resolved'` when `resolvedWhen()` turns true on a history change.
+- **P6 (resources):** `GUIDE_TEXT` has the three guides; `sceneSummaryData`, `userSelectionOf`, `userTimeOf` and
+  `describeRig(…, {detail: 'detailed'})` give the template payloads (§5.20.3); `PROMPTS[].plan` are written, so
+  prompts/list now lists all seven (P6 adds prompts/get).
+- **P3/P4/P5:** `runtime/toolkit.ts` (`addressed`, `clipInfo`, `staleCheck`, `valueOf`, `writeResult`, `atFrame`),
+  `resolve/targets.ts` (`resolveControls`, `channelTargets`, `keysOfTargets`, `keySelection`, `checkFrames`,
+  `limbOf`), `units` and `poses` (namespaces) are exported from the package root; `runtimeStateOf(ctx)` gives the
+  checkpoints (view_plot_curves {overlayCheckpoint}, analyze_diff).
+
 ## Reference scripts (P2's own copies until P9)
 
 `test/ae-scripts.test.ts`: AE-01 (the shared wave script), AE-02 (`pose_set` blocking with the axis from the axis
