@@ -302,7 +302,8 @@ export function createIndexedDbAutosaveStore(opts: IndexedDbAutosaveOptions = {}
         const asset = (await promised(tx.objectStore(ASSETS).get(id))) as AssetRow | undefined;
         if (asset !== undefined) assets.set(id, { record: asset.record, bytes: new Uint8Array(asset.bytes) });
       }
-      return { snapshot: JSON.parse(row.snapshot) as unknown, assets };
+      // M6a: mesh blobs arrive with B7 (the slot's blob set, §5.20); until then a slot has none.
+      return { snapshot: JSON.parse(row.snapshot) as unknown, assets, blob: () => Promise.resolve(undefined) };
     },
 
     async remove(slot): Promise<void> {

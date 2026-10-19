@@ -304,7 +304,7 @@ class NaiveStore implements DocumentStore {
     this.readOnlyFlag = opts?.readOnly ?? false;
     this.loadedMinWriter = snapshot.minWriterVersion;
     this.loadedTableVersions = { ...snapshot.tableVersions };
-    this.undo.clear();
+    this.undo.reset('load');
     const changes: RowChange[] = [];
     for (const [table, rows] of entries) {
       for (const [id, row] of Object.entries(rows)) {

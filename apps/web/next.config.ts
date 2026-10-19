@@ -42,6 +42,8 @@ export default function nextConfig(phase: string): NextConfig {
       '@ekza-animator/doc',
       '@ekza-animator/rig',
       '@ekza-animator/io',
+      '@ekza-animator/mesh-core',
+      '@ekza-animator/mesh-view',
       '@ekza-animator/editor-core',
       '@ekza-animator/viewport',
       '@ekza-animator/curve-editor',

@@ -1219,6 +1219,19 @@ function partitionOfChange(change: AnyChange, rigCharacter: ReadonlyMap<string, 
     case 'assets':
     case 'characters':
     case 'cameras':
+    case 'palettes':
+    case 'swatches':
+    case 'imagePlanes':
+      return 'scene';
+    // M6a tables (the seeded scene writes none of them)
+    case 'skeletons':
+      return `char:${String(record['character'])}`;
+    case 'meshes':
+    case 'groups': {
+      const owner = record['owner'] as Readonly<Record<string, unknown>> | undefined;
+      return typeof owner?.['character'] === 'string' ? `char:${owner['character']}` : 'scene';
+    }
+    case 'joints':
       return 'scene';
   }
 }
