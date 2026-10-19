@@ -91,3 +91,28 @@ export {
 export { pickWalkDispatch, pickWalkTarget } from './operators/builtin/select';
 export { LIMB_NAME, limbOfControlApp, limbOfControlIn, limbsOf, watchFkOnlyRigs } from './workflows/ik';
 export { controlVisibilityResolver, limbHiddenControls, limbVisibilityState } from './workflows/visibility';
+// M6a (M6A-SPEC §4.6): workspaces, the mesh runtime registry and operator wrappers, the blob store, the component
+// selection service and the stubs of the services B10–B12b land.
+export { createCapture } from './app/factories/capture';
+export { createExtrude } from './app/factories/extrude';
+export { historyLabels } from './history/history';
+export { type KernelMeshRuntimes, loadMeshKernel, type MeshKernel, meshKernel } from './mesh';
+export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator';
+export { MESH_OPERATORS } from './operators/builtin/mesh';
+export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
+export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
+export type { LastRunRecorder } from './operators/runner';
+export { defaultModelingPrefs } from './prefs/defaults';
+export { createComponentSelectionService } from './selection';
+export { createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
+export { defaultModelSession } from './session/defaults';
+export { restoreSelectionPart, type StoredSelectionSnapshot } from './session/selection';
+export {
+  ANIMATE_MENUS,
+  ANIMATE_STATUS_GROUPS,
+  ANIMATE_WORKSPACE,
+  animateStatus,
+  BUILTIN_WORKSPACES,
+  registerBuiltinWorkspaces,
+  WORKSPACE,
+} from './workspaces';

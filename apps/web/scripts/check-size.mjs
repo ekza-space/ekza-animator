@@ -53,6 +53,10 @@ export const BOUNDARIES = [
   { id: 'dialog-open', label: 'dialog: Open', markers: ['-file-input'] },
   { id: 'test-api', label: 'e2e test API', markers: ['flushAutosave: '] },
   { id: 'path-browserify', label: 'path-browserify (loaded by the export path)', markers: ['Path must be a string.'] },
+  // M6A-SPEC §2 (B0a): the mesh kernel (mesh-core root: ops, editMeshFrom, triangulation, normals, revisions) and the
+  // mesh view (mesh-view, three-mesh-bvh) load on first need; their marker constants are referenced by every entry.
+  { id: 'mesh-kernel', label: 'mesh kernel (mesh-core)', markers: ['ekza-mesh-kernel'] },
+  { id: 'mesh-view', label: 'mesh view (mesh-view, three-mesh-bvh)', markers: ['ekza-mesh-view'] },
 ];
 
 /**

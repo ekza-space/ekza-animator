@@ -11,6 +11,7 @@
     "./three": "./src/three/index.ts",
     "./worker": "./src/worker/index.ts",
     "./write": "./src/write.ts",
+    "./mesh": "./src/mesh/index.ts",
     "./project": "./src/project.ts",
     "./testing": "./src/testing/index.ts"
   },
@@ -21,6 +22,7 @@
   "dependencies": {
     "@ekza-animator/anim-core": "workspace:*",
     "@ekza-animator/doc": "workspace:*",
+    "@ekza-animator/mesh-core": "workspace:*",
     "@ekza-animator/rig": "workspace:*",
     "@gltf-transform/core": "4.5.1",
     "@gltf-transform/extensions": "4.5.1",

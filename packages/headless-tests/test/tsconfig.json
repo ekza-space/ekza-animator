@@ -21,6 +21,9 @@
     },
     {
       "path": "../../editor-core/src"
+    },
+    {
+      "path": "../../mesh-core/src"
     }
   ]
 }
