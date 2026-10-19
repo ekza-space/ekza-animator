@@ -6,7 +6,7 @@ import { registerBuiltinWorkspaces } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { PanePointerPress } from '@ekza-animator/viewport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { MarkingMenuHost } from '../src/overlays/MarkingMenu';
+import { createMarkingMenus, MarkingMenuHost } from '../src/overlays/MarkingMenu';
 import {
   createMarkingMenuController,
   FLICK_MS,
@@ -328,9 +328,21 @@ describe('gestures (§5.18)', () => {
 
 describe('the drawn menu (§8.10 mm-<menuId>, mm-slot-<N…NW>, mm-item-<n>)', () => {
   it('draws the slots and the list with disabled reasons; a click runs the slot', async () => {
-    const { controller, runs } = rig();
-    const view = await render(<MarkingMenuHost controller={controller} />);
-    await update(() => controller.handlePress(press({ clientX: 500, clientY: 400 })));
+    const { app, runs } = rig();
+    // The shell's facade: the controller loads lazily, then drives the facade's store.
+    const menus = createMarkingMenus({
+      app,
+      run: (op, args, ctx) => {
+        runs.push({ op, args, ctx });
+        return Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>);
+      },
+      help: () => {},
+    });
+    expect(menus.handlePress(press())).toBe(false); // not loaded yet: the press goes on, the load starts
+    const controller = await menus.load();
+    expect(menus.controller()).toBe(controller);
+    const view = await render(<MarkingMenuHost menus={menus} />);
+    await update(() => menus.handlePress(press({ clientX: 500, clientY: 400 })));
     expect(document.querySelector('[data-testid="mm-model.modes"]')).toBeNull(); // not drawn during the flick window
     await update(() => pointerAt('pointerup', 500, 400));
     await waitFor(() => document.querySelector('[data-testid="mm-model.modes"]') !== null);
@@ -348,5 +360,6 @@ describe('the drawn menu (§8.10 mm-<menuId>, mm-slot-<N…NW>, mm-item-<n>)', (
     expect(runs.map((r) => r.args)).toEqual([{ mode: 'face' }]);
     expect(document.querySelector('[data-testid="mm-model.modes"]')).toBeNull();
     await view.unmount();
+    menus.dispose();
   });
 });

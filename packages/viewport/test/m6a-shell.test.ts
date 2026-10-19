@@ -16,7 +16,15 @@ import {
   PlaneGeometry,
 } from 'three';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { DEFAULT_DISPLAY, type ImagePlaneSpec, LAYER, MODEL_DISPLAY, type PanePointerPress, SCALE_LABEL } from '../src';
+import {
+  DEFAULT_DISPLAY,
+  type ImagePlaneSpec,
+  LAYER,
+  loadScaleKit,
+  MODEL_DISPLAY,
+  type PanePointerPress,
+  SCALE_LABEL,
+} from '../src';
 import { applyMainLayers } from '../src/layers';
 import type { MeshLayerHost } from '../src/manager/meshLayers';
 import type { SceneSync } from '../src/sync/SceneSync';
@@ -273,7 +281,7 @@ describe('reference image planes (§5.26)', () => {
       setDisplay(rig, id, { controls: false, grid: false });
     }
     attach(rig, boxModel(0xff2020));
-    rig.vm.setImagePlanes([plane({})]);
+    await rig.vm.setImagePlanes([plane({})]);
     rig.frame();
     expect(rig.vm.imagePlanesIn('pane-front')).toEqual(['img_Front']);
     expect(rig.vm.imagePlanesIn('pane-persp')).toEqual([]);
@@ -283,20 +291,20 @@ describe('reference image planes (§5.26)', () => {
     expect(redDominant(probe(rig, 'pane-front', [0, 1, 0]))).toBe(true);
     expect(magenta(probe(rig, 'pane-persp', [1.2, 2, 0]))).toBe(false);
     // In front: over the geometry too.
-    rig.vm.setImagePlanes([plane({ depth: 'front' })]);
+    await rig.vm.setImagePlanes([plane({ depth: 'front' })]);
     expect(magenta(probe(rig, 'pane-front', [0, 1, 0]))).toBe(true);
     // Hidden by the pane's flag, by the record's visibility, or without an image.
     setDisplay(rig, 'pane-front', { imagePlanes: false });
     expect(magenta(probe(rig, 'pane-front', [1.2, 2, 0]))).toBe(false);
     setDisplay(rig, 'pane-front', { imagePlanes: true });
-    rig.vm.setImagePlanes([plane({ visible: false })]);
+    await rig.vm.setImagePlanes([plane({ visible: false })]);
     expect(rig.vm.imagePlanesIn('pane-front')).toEqual([]);
-    rig.vm.setImagePlanes([plane({ image: null })]);
+    await rig.vm.setImagePlanes([plane({ image: null })]);
     expect(rig.vm.imagePlanesIn('pane-front')).toEqual([]);
-    rig.vm.setImagePlanes([plane({ camera: 'side', id: 'img_Side' })]);
+    await rig.vm.setImagePlanes([plane({ camera: 'side', id: 'img_Side' })]);
     expect(rig.vm.imagePlanesIn('pane-side')).toEqual(['img_Side']);
     expect(rig.vm.imagePlanesIn('pane-front')).toEqual([]);
-    rig.vm.setImagePlanes([]);
+    await rig.vm.setImagePlanes([]);
     expect(rig.vm.imagePlanesIn('pane-side')).toEqual([]);
   });
 
@@ -304,7 +312,7 @@ describe('reference image planes (§5.26)', () => {
     rig = await createRig();
     rig.layout('quad');
     attach(rig, boxModel(0xff2020));
-    rig.vm.setImagePlanes([plane({ depth: 'front', size: 50 })]);
+    await rig.vm.setImagePlanes([plane({ depth: 'front', size: 50 })]);
     rig.frame();
     const at = rig.vm.project('pane-front', [0, 1, 0]);
     if (at === null) throw new Error('box not in view');
@@ -433,9 +441,11 @@ function keyableOf(tx: Tx, id: ControlId): ControlRecord['keyable'] {
 
 const PANE = 'pane-single';
 
-function scaleTool(r: Rig): void {
+/** Picks the Scale tool and waits for its lazy chunk (the tool and the scale handles appear once it has loaded). */
+async function scaleTool(r: Rig): Promise<void> {
   const tools = r.app.session.getState().tools;
   r.app.session.setState({ tools: { ...tools, viewport: VIEWPORT_TOOL.scale } });
+  await loadScaleKit();
 }
 
 function handlePoint(r: Rig, handle: 'sx' | 'sy' | 'sz' | 'suniform'): { x: number; y: number } {
@@ -464,7 +474,7 @@ describe('the Scale tool (R) on controls (Animate)', () => {
       tx.patch('controls', control.id, { keyable: { ...keyableOf(tx, control.id), s: [true, true, true] } }),
     );
     rig.app.session.setState({ selection: { ...rig.app.session.getState().selection, controls: [control.id] } });
-    scaleTool(rig);
+    await scaleTool(rig);
     rig.frame();
     const before = rig.app.evaluation.channelValues(control.id);
     dragHandle(rig, 'sy', 2);
@@ -494,7 +504,7 @@ describe('the Scale tool (R) on controls (Animate)', () => {
       tx.patch('controls', control.id, { keyable: { ...keyableOf(tx, control.id), s: [false, false, false] } }),
     );
     rig.app.session.setState({ selection: { ...rig.app.session.getState().selection, controls: [control.id] } });
-    scaleTool(rig);
+    await scaleTool(rig);
     rig.frame();
     expect(rig.vm.manipulatorScreenPoint(PANE, 'sx')).toBeNull();
     expect(rig.vm.manipulatorScreenPoint(PANE, 'suniform')).toBeNull();
@@ -543,7 +553,7 @@ describe('the Scale tool (R) on scene objects (Model object mode)', () => {
     rig.app.session.setState({
       selection: { ...rig.app.session.getState().selection, objects: ['msh_Lid' as MeshId, 'msh_Crate' as MeshId] },
     });
-    scaleTool(rig);
+    await scaleTool(rig);
     rig.frame();
     // The manipulator sits on the lead object's pivot (the crate's bottom centre).
     const pivot = rig.vm.manipulatorScreenPoint(PANE, 'suniform');
@@ -576,7 +586,7 @@ describe('the Scale tool (R) on scene objects (Model object mode)', () => {
     rig.app.session.setState({
       selection: { ...rig.app.session.getState().selection, objects: ['msh_Crate' as MeshId] },
     });
-    scaleTool(rig);
+    await scaleTool(rig);
     rig.frame();
     const pane = rig.panes.get(PANE) as HTMLElement;
     const at = handlePoint(rig, 'sx');

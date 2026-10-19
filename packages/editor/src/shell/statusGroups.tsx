@@ -1,8 +1,8 @@
 // Status-line groups of the Model workspace (M6A-SPEC §8.2, §8.10; B9 the slots, B10/B12a the bodies): `Mode
 // [Obj|Vtx|Edg|Face] │ Sym [Object X▾] │ Soft ○ 0.50 m │ Snap #X .V ~J │ Piv D`. Each slot carries its `data-testid`
 // and a default body that reads the session and runs the owner's operator (disabled with the operator's reason until
-// it lands); an owner replaces a body with `registerStatusGroup(id, Component)`.
-import type { Disposer } from '@ekza-animator/anim-core';
+// it lands); an owner replaces a body with `registerStatusGroup(id, Component)` (./statusGroupRegistry.ts). A lazy
+// chunk: only Model draws these groups.
 import {
   type ComponentMode,
   type EditorApp,
@@ -11,48 +11,11 @@ import {
   type SymmetryMode,
 } from '@ekza-animator/editor-core';
 import { NativeSelect, Toggle, ToggleGroup, ToggleGroupItem, Tooltip } from '@ekza-animator/ui';
-import { type ComponentType, createElement, type JSX, useSyncExternalStore } from 'react';
+import { type ComponentType, createElement, type JSX } from 'react';
 import { useSession } from '../hooks';
 import { useShell } from './context';
 import { shortcutFor } from './menus';
-
-export interface StatusGroupProps {
-  readonly app: EditorApp;
-  /** Runs an operator for the status line (`source: 'menu'`, the viewport as panel). */
-  readonly run: (op: string, args?: unknown) => void;
-}
-
-const groups = new Map<string, ComponentType<StatusGroupProps>>();
-const listeners = new Set<() => void>();
-let version = 0;
-
-/** Replaces the body of a status-line group (Model's `mode`, `symmetry`, `soft`, `snap`, `pivot`). */
-export function registerStatusGroup(id: string, component: ComponentType<StatusGroupProps>): Disposer {
-  const previous = groups.get(id);
-  groups.set(id, component);
-  version += 1;
-  for (const listener of listeners) listener();
-  return () => {
-    if (groups.get(id) !== component) return;
-    if (previous === undefined) groups.delete(id);
-    else groups.set(id, previous);
-    version += 1;
-    for (const listener of listeners) listener();
-  };
-}
-
-/** The registered body of a group, or null (the default body draws). */
-export function useStatusGroup(id: string): ComponentType<StatusGroupProps> | null {
-  useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => listeners.delete(listener);
-    },
-    () => version,
-    () => version,
-  );
-  return groups.get(id) ?? null;
-}
+import { type StatusGroupProps, useStatusGroup } from './statusGroupRegistry';
 
 /** The poll reason of an operator run from the status line, or null when it can run. */
 function reasonOf(app: EditorApp, op: string, args?: unknown): string | null {

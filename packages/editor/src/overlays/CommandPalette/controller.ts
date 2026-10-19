@@ -7,45 +7,17 @@ import { type ParamDef, type ParamValue, primaryParam } from '@ekza-animator/ani
 import type { EditorApp, MenuItemDef, OperatorResult, RunContext } from '@ekza-animator/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { shortcutFor } from '../../shell/menus';
+import type { PaletteEntry, PalettePrompt, PaletteState } from './types';
 
-export interface PaletteEntry {
-  /** Unique within one opening. */
-  readonly key: string;
-  readonly op: string;
-  readonly args: unknown;
-  readonly label: string;
-  readonly aliases: readonly string[];
-  readonly shortcut: string | null;
-  readonly enabled: boolean;
-  readonly reason: string | null;
-  /** Value params the prompt asks for (primary first). */
-  readonly params: readonly ParamDef[];
-  /** `cmdk-item-<operatorId>`; variants add `:<variant>` (menu item id, workspace id). */
-  readonly testId: string;
-}
-
-export interface PalettePrompt {
-  readonly entry: PaletteEntry;
-  readonly field: string;
-  /** Typed text per param name. */
-  readonly values: Readonly<Record<string, string>>;
-  readonly error: string | null;
-}
-
-export interface PaletteState {
-  readonly open: boolean;
-  readonly query: string;
-  /** Highlighted row of the filtered list. */
-  readonly index: number;
-  readonly entries: readonly PaletteEntry[];
-  readonly prompt: PalettePrompt | null;
-}
+export type { PaletteEntry, PalettePrompt, PaletteState } from './types';
 
 export interface CommandPaletteDeps {
   readonly app: EditorApp;
   readonly run: (op: string, args: unknown, ctx: RunContext) => Promise<OperatorResult<unknown>>;
   /** The run context of palette runs (the last hovered panel). */
   readonly context: () => RunContext;
+  /** The state store to drive (the shell's eager facade owns it); default: a new one. */
+  readonly state?: StoreApi<PaletteState>;
 }
 
 export interface CommandPaletteController {
@@ -256,7 +228,7 @@ export function paletteEntries(app: EditorApp, ctx: RunContext): PaletteEntry[] 
 const CLOSED: PaletteState = { open: false, query: '', index: 0, entries: [], prompt: null };
 
 export function createCommandPaletteController(deps: CommandPaletteDeps): CommandPaletteController {
-  const state = createStore<PaletteState>()(() => CLOSED);
+  const state = deps.state ?? createStore<PaletteState>()(() => CLOSED);
 
   const items = (): readonly PaletteEntry[] => {
     const s = state.getState();

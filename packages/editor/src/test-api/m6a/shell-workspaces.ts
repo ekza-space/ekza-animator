@@ -53,8 +53,8 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
       return binding === null ? null : { op: binding.op, args: binding.args, scope: binding.scope };
     },
     markingMenu() {
-      const controller = ctx.shell.markingMenus;
-      const open = controller.state.getState().open;
+      const menus = ctx.shell.markingMenus;
+      const open = menus.state.getState().open;
       if (open === null) return null;
       const view = (entry: { label: string; op: string | null; enabled: boolean }) => ({
         label: entry.label,
@@ -64,7 +64,7 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
       const slots: Record<string, { label: string; op: string | null; enabled: boolean }> = {};
       for (const [slot, entry] of Object.entries(open.slots)) if (entry !== undefined) slots[slot] = view(entry);
       const screenOfSlot: Record<string, { x: number; y: number }> = {};
-      for (const [slot, point] of Object.entries(controller.screenOfSlot())) {
+      for (const [slot, point] of Object.entries(menus.screenOfSlot())) {
         if (point !== undefined) screenOfSlot[slot] = { x: point.x, y: point.y };
       }
       return { id: open.def.id, slots, list: open.list.map(view), screenOfSlot };

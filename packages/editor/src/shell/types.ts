@@ -14,8 +14,8 @@ import type { ViewportManager } from '@ekza-animator/viewport';
 import type { DockviewApi } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { KeyboardAdapter } from '../input/keyboard';
-import type { CommandPaletteController } from '../overlays/CommandPalette/controller';
-import type { MarkingMenuController } from '../overlays/MarkingMenu/controller';
+import type { CommandPalette } from '../overlays/CommandPalette';
+import type { MarkingMenus } from '../overlays/MarkingMenu';
 import type { HoverTarget } from '../input/pointer';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
@@ -230,9 +230,9 @@ export interface Shell {
   readonly exports: ExportRecorder;
   readonly keyboard: KeyboardAdapter;
   /** M6a (§5.18): the marking menus (pointer presses in panes, `ui.markingMenu`). */
-  readonly markingMenus: MarkingMenuController;
+  readonly markingMenus: MarkingMenus;
   /** M6a (§5.18): the command palette (`Mod+K`). */
-  readonly commandPalette: CommandPaletteController;
+  readonly commandPalette: CommandPalette;
   /** Binds the dockview API once the workspace has mounted. */
   attachWorkspace(api: DockviewApi): Disposer;
   /** Shows a transient help-line message (cancelled commands, hints). */

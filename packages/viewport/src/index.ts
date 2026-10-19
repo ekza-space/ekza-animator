@@ -15,7 +15,7 @@ export { type ImagePlaneCamera, type ImagePlaneSpec } from './manager/imagePlane
 export { defaultCameraOf, defaultDisplayOf, MODEL_DISPLAY } from './manager/workspaceViews';
 export { LAYER } from './layers';
 export { isMmbStandIn } from './navigation/profiles';
-export { type ScaleHandle, SCALE_HANDLES } from './manipulators/scale/math';
+export { loadScaleKit } from './manipulators/scale/load';
 export { SCALE_LABEL, scaleToolDef } from './tools/scaleTool';
 export { defaultPaneCamera, FIRST_SHOT_CAMERA, LAYOUT_PANES } from './panes/layout';
 export type { ViewportToolHost } from './tools/host';

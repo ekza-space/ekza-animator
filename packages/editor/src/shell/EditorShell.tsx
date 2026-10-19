@@ -34,8 +34,8 @@ function ShellOverlaysHost(): JSX.Element {
   const shell = useShell();
   return (
     <>
-      <MarkingMenuHost controller={shell.markingMenus} />
-      <CommandPaletteHost controller={shell.commandPalette} />
+      <MarkingMenuHost menus={shell.markingMenus} />
+      <CommandPaletteHost palette={shell.commandPalette} />
       <ShellOverlays app={shell.app} />
     </>
   );

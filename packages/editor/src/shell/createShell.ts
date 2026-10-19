@@ -12,9 +12,8 @@ import {
 import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
-import { createCommandPaletteController } from '../overlays/CommandPalette/controller';
-import { createMarkingMenuController } from '../overlays/MarkingMenu/controller';
-import { prefetchMarkingMenu } from '../overlays/MarkingMenu';
+import { createCommandPalette } from '../overlays/CommandPalette';
+import { createMarkingMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
@@ -201,9 +200,9 @@ export function createShell(opts: CreateShellOptions): Shell {
       ...(last === null || last.paneId === null ? {} : { paneId: last.paneId }),
     };
   };
-  const markingMenus = createMarkingMenuController({ app, run: (op, args, ctx) => runFromUi(op, args, ctx), help });
+  const markingMenus = createMarkingMenus({ app, run: (op, args, ctx) => runFromUi(op, args, ctx), help });
   disposers.push(() => markingMenus.dispose());
-  const commandPalette = createCommandPaletteController({
+  const commandPalette = createCommandPalette({
     app,
     run: (op, args, ctx) => runFromUi(op, args, ctx),
     context: lastContext,
@@ -229,14 +228,23 @@ export function createShell(opts: CreateShellOptions): Shell {
     }),
     () => hookMenus(ui.getState().viewport, null),
   );
-  // The marking menu's drawing loads before the first menu opens: when Model is entered.
-  if (app.session.getState().workspace === 'model' && typeof window !== 'undefined') prefetchMarkingMenu();
+  // The marking menus (controller and drawing) load before the first menu opens: when a workspace that has marking
+  // menus is entered (Model), or when one is registered for the active workspace. Animate never loads them.
+  const prefetchMenus = (): void => {
+    const workspace = app.session.getState().workspace;
+    if (typeof window === 'undefined' || markingMenus.controller() !== null) return;
+    if (workspace === 'model' || app.markingMenus.list().some((def) => def.workspaces.includes(workspace))) {
+      prefetchMarkingMenu(markingMenus);
+    }
+  };
+  prefetchMenus();
   disposers.push(
     app.session.subscribe((state, previous) => {
       if (state.workspace === previous.workspace) return;
       markingMenus.close();
-      if (state.workspace === 'model' && typeof window !== 'undefined') prefetchMarkingMenu();
+      prefetchMenus();
     }),
+    app.markingMenus.subscribe(prefetchMenus),
   );
   // M2A-SPEC §5.20: autosave and the Recovery prompt (browser services only).
   disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args) }));

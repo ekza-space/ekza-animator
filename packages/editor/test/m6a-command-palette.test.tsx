@@ -13,7 +13,7 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { CommandPaletteHost } from '../src/overlays/CommandPalette';
+import { CommandPaletteHost, createCommandPalette } from '../src/overlays/CommandPalette';
 import {
   type CommandPaletteController,
   createCommandPaletteController,
@@ -226,9 +226,21 @@ describe('palette entries (§5.18)', () => {
 
 describe('the palette UI (§8.10 cmdk, cmdk-input, cmdk-item-<operatorId>)', () => {
   it('opens, filters as you type, moves with the arrows, runs with Enter and closes with Esc', async () => {
-    const { controller, runs } = rig();
-    const view = await render(<CommandPaletteHost controller={controller} />);
-    await update(() => controller.open());
+    const { app, runs } = rig();
+    // The shell's facade: the controller and the list load on first use.
+    const palette = createCommandPalette({
+      app,
+      run: (op, args, ctx) => {
+        runs.push({ op, args, ctx });
+        return Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>);
+      },
+      context: () => ({ panel: 'viewport', paneId: 'pane-persp' }),
+    });
+    expect(palette.items()).toEqual([]);
+    const view = await render(<CommandPaletteHost palette={palette} />);
+    await update(() => palette.open());
+    await waitFor(() => palette.controller() !== null);
+    const controller = palette.controller() as CommandPaletteController;
     await waitFor(() => document.querySelector('[data-testid="cmdk"]') !== null);
     const input = byTestId(document.body, 'cmdk-input') as HTMLInputElement;
     expect(document.activeElement).toBe(input);

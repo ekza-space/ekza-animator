@@ -70,7 +70,8 @@ import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
 import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
-import { isScaleHandle, type ObjectScaleSession, objectScaleDrag, scaleDrag } from '../manipulators/scale/math';
+import { loadScaleKit, scaleKit } from '../manipulators/scale/load';
+import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { NavigationController, NavState } from '../navigation/NavigationController';
 import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
 import { Backdrop, createGrid } from '../overlays/background';
@@ -94,9 +95,8 @@ import type {
   ScreenPoint,
   ViewPreset,
 } from '../types';
-import { ImagePlaneLayer, type ImagePlaneSpec } from './imagePlanes';
+import type { ImagePlaneLayer, ImagePlaneSpec } from './imagePlanes';
 import { type MeshLayerHost, meshPaneDisplay } from './meshLayers';
-import { objectWorld, pivotWorld, type SceneObjectRecord, selectedObjects } from './objects';
 import { setManagerOf } from './registry';
 import { CharacterShading } from './shading';
 import { DEFAULT_DISPLAY, defaultCameraOf, defaultDisplayOf, paneKey } from './workspaceViews';
@@ -215,7 +215,10 @@ export class ViewportManager {
   private workspace: string;
   private readonly meshHosts = new Set<MeshLayerHost>();
   private readonly shading = new CharacterShading();
-  private readonly planes = new ImagePlaneLayer();
+  /** Reference image planes (§5.26): a lazy chunk, loaded when B13 first sets planes. */
+  private planes: ImagePlaneLayer | null = null;
+  private planeSpecs: readonly ImagePlaneSpec[] = [];
+  private planesLoad: Promise<void> | null = null;
   private pointerMenus: PanePointerMenus | null = null;
   /** The pointer whose Alt+Shift+LMB press is the MMB stand-in (M6a rule (b)), or null. */
   private standIn: number | null = null;
@@ -452,16 +455,39 @@ export class ViewportManager {
     return [...this.meshHosts];
   }
 
-  /** Replaces the reference image planes (§5.26; B13 decodes the images and passes the record fields). */
-  setImagePlanes(planes: readonly ImagePlaneSpec[]): void {
-    this.planes.set(planes);
-    this.invalidate();
+  /**
+   * Replaces the reference image planes (§5.26; B13 decodes the images and passes the record fields). The drawing
+   * code loads on the first call with planes; the promise resolves once they are in the scene.
+   */
+  setImagePlanes(planes: readonly ImagePlaneSpec[]): Promise<void> {
+    this.planeSpecs = planes;
+    if (this.planes !== null) {
+      this.planes.set(planes);
+      this.invalidate();
+      return Promise.resolve();
+    }
+    if (planes.length === 0 && this.planesLoad === null) return Promise.resolve();
+    this.planesLoad ??= import('./imagePlanes').then(
+      ({ ImagePlaneLayer: Layer }) => {
+        if (this.disposed) return;
+        this.planes ??= new Layer();
+      },
+      (error: unknown) => {
+        this.planesLoad = null;
+        throw error;
+      },
+    );
+    return this.planesLoad.then(() => {
+      if (this.disposed || this.planes === null) return;
+      this.planes.set(this.planeSpecs);
+      this.invalidate();
+    });
   }
 
   /** Ids of the image planes a pane draws (behind and in front of the geometry). */
   imagePlanesIn(paneId: string): readonly string[] {
     const pane = this.panes.get(paneId);
-    if (pane === undefined || !pane.display.imagePlanes) return [];
+    if (pane === undefined || !pane.display.imagePlanes || this.planes === null) return [];
     const resolved = this.resolve(pane);
     const preset = resolved.kind === 'view' ? resolved.view.preset : null;
     return [...this.planes.planesFor(preset, 'behind'), ...this.planes.planesFor(preset, 'front')];
@@ -751,7 +777,7 @@ export class ViewportManager {
     }
     this.meshHosts.clear();
     this.shading.dispose();
-    this.planes.dispose();
+    this.planes?.dispose();
     this.pointerMenus = null;
     this.sync.dispose();
     this.controls.dispose();
@@ -817,34 +843,20 @@ export class ViewportManager {
     // the transform tools sit on the lead control (B12a extends move and rotate to objects and components).
     let target: ManipTarget | null = null;
     this.objectTarget = false;
-    if (mode === 'scale' && session.workspace === 'model' && session.model.componentMode === 'object') {
-      target = this.objectManipTarget();
+    // The scale handles and drags live in the lazy scale chunk: until it has loaded no scale manipulator shows.
+    const scale = mode === 'scale' ? scaleKit() : null;
+    if (mode === 'scale' && scale === null) {
+      void loadScaleKit().then(() => {
+        this.manipulatorDirty = true;
+        this.invalidate();
+      });
+    } else if (scale !== null && session.workspace === 'model' && session.model.componentMode === 'object') {
+      target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
       this.objectTarget = target !== null;
     } else if (mode !== null) {
       target = this.manipTarget(session.selection.controls.at(-1) ?? null);
     }
     this.kit.setTarget(target);
-  }
-
-  /** The manipulator on the lead selected scene object: its pivot and object axes in scene space. */
-  private objectManipTarget(): ManipTarget | null {
-    const lead = selectedObjects(this.app).at(-1);
-    if (lead === undefined) return null;
-    const world = this.objectWorldOf(lead);
-    const xf = mat4Decompose(world);
-    const all: readonly [boolean, boolean, boolean] = [true, true, true];
-    return {
-      pivot: pivotWorld(world, lead.pivot),
-      worldQ: xf.q,
-      parentQ: xf.q,
-      r: [0, 0, 0],
-      order: 'xyz',
-      keyable: { t: all, r: all, s: all },
-    };
-  }
-
-  private objectWorldOf(record: SceneObjectRecord): Float64Array {
-    return objectWorld(this.app, record, (character) => this.sync.placement(character));
   }
 
   private manipTarget(lead: ControlId | null): ManipTarget | null {
@@ -889,9 +901,10 @@ export class ViewportManager {
 
     const display = pane.display;
     // M6a §5.26: image planes behind the geometry draw first, without depth (the geometry covers them).
-    if (display.imagePlanes && this.planes.prepare(preset, 'behind')) {
+    const planes = display.imagePlanes ? this.planes : null;
+    if (planes !== null && planes.prepare(preset, 'behind')) {
       camera.layers.set(LAYER.helpers);
-      renderer.render(this.planes.scene, camera);
+      renderer.render(planes.scene, camera);
     }
     this.sync.setXray(display.xray);
     applyMainLayers(camera, display);
@@ -925,9 +938,9 @@ export class ViewportManager {
       camera.layers.set(LAYER.controlsVisible);
       renderer.render(this.controlScene, camera);
     }
-    if (display.imagePlanes && this.planes.prepare(preset, 'front')) {
+    if (planes !== null && planes.prepare(preset, 'front')) {
       camera.layers.set(LAYER.helpers);
-      renderer.render(this.planes.scene, camera);
+      renderer.render(planes.scene, camera);
     }
     renderer.clearDepth();
     if (this.kit.visible) {
@@ -1665,15 +1678,14 @@ export class ViewportManager {
   private beginObjectDrag(paneId: string, handle: ManipHandle, x: number, y: number): ObjectScaleSession | null {
     const view = this.queryView(paneId);
     const target = this.kit.currentTarget;
-    if (view === null || target === null || !this.objectTarget || this.kit.currentMode !== 'scale') return null;
-    if (!isScaleHandle(handle) || !this.kit.handles().includes(handle)) return null;
-    const objects = selectedObjects(this.app).map((record) => ({
-      id: record.id,
-      placement: record.placement,
-      pivot: record.pivot,
-    }));
+    const scale = scaleKit();
+    if (view === null || target === null || scale === null || !this.objectTarget) return null;
+    if (this.kit.currentMode !== 'scale' || !scale.isScaleHandle(handle) || !this.kit.handles().includes(handle)) {
+      return null;
+    }
+    const objects = scale.scaleObjects(this.app);
     if (objects.length === 0) return null;
-    return objectScaleDrag({
+    return scale.objectScaleDrag({
       handle,
       pivot: target.pivot,
       axes: this.kit.axes(),
@@ -1715,8 +1727,9 @@ export class ViewportManager {
     if (controls.length === 0) return null;
     const dragView = { camera: view.camera, projector: view.projector };
     if (this.kit.currentMode === 'scale') {
-      if (!isScaleHandle(handle)) return null;
-      return scaleDrag({
+      const scale = scaleKit();
+      if (scale === null || !scale.isScaleHandle(handle)) return null;
+      return scale.scaleDrag({
         handle,
         pivot: target.pivot,
         axes: this.kit.axes(),

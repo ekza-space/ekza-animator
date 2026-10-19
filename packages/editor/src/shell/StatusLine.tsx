@@ -30,13 +30,15 @@ import {
   ToggleGroupItem,
   Tooltip,
 } from '@ekza-animator/ui';
-import { Fragment, type JSX, type ReactNode } from 'react';
+import { Fragment, type JSX, lazy, type ReactNode, Suspense } from 'react';
 import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { shortcutFor } from './menus';
-import { ModelStatusGroup } from './statusGroups';
+
+/** Model's groups (mode, symmetry, soft selection, snapping, pivot): a lazy chunk, drawn only in Model. */
+const ModelStatusGroup = lazy(() => import('./statusGroups').then((module) => ({ default: module.ModelStatusGroup })));
 
 const TOOL_ICONS: Readonly<Record<string, IconComponent>> = {
   [VIEWPORT_TOOL.select]: SelectToolIcon,
@@ -321,7 +323,11 @@ export function StatusLine(): JSX.Element {
           </Group>
         );
       default:
-        return <ModelStatusGroup key={id} id={id} />;
+        return (
+          <Suspense key={id} fallback={null}>
+            <ModelStatusGroup id={id} />
+          </Suspense>
+        );
     }
   };
 
