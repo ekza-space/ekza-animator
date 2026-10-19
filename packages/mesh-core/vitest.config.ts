@@ -13,7 +13,6 @@ export default defineConfig({
     globals: true,
     // property tests take seconds on 2-core CI runners; the 5 s default is too tight there
     testTimeout: 30_000,
-    benchmark: { include: ['bench/**/*.bench.ts'] },
     projects: [
       {
         extends: true,
@@ -23,6 +22,8 @@ export default defineConfig({
           include: ['test/**/*.test.ts'],
           exclude: ['test/**/*.browser.test.ts'],
           setupFiles: ['test/setup.ts'],
+          // Kernel benches are Node benches (M6A-SPEC §5.27); report-only.
+          benchmark: { include: ['bench/**/*.bench.ts'] },
         },
       },
       {
@@ -31,6 +32,7 @@ export default defineConfig({
           name: 'chromium',
           include: ['test/**/*.browser.test.ts'],
           setupFiles: ['test/setup.ts'],
+          benchmark: { include: [] },
           browser: {
             enabled: true,
             headless: true,

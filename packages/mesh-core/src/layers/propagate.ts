@@ -13,7 +13,9 @@
 //   clear   the default value ('normal.custom': cleared on new and touched corners)
 //   other   copy (§5.2: an unknown rule copies)
 // Writes go through the mesh's `AttrLayer.set`, so they are logged like every write.
+import { KernelMesh } from '../core/mesh';
 import { kernelError } from '../kernel';
+import { domainIndex } from './arrays';
 import type { AttrLayer, Domain, EditMesh } from '../types';
 import { NORMAL_CUSTOM, SKIN_JOINTS, SKIN_WEIGHTS } from './builtin';
 
@@ -22,6 +24,7 @@ const B = new Float64Array(4);
 const OUT = new Float64Array(4);
 
 function layersOn(m: EditMesh, domain: Domain): readonly AttrLayer[] {
+  if (m instanceof KernelMesh) return m.handlesOf(domainIndex(domain));
   const out: AttrLayer[] = [];
   for (const layer of m.layers()) if (layer.def.domain === domain) out.push(layer);
   return out;

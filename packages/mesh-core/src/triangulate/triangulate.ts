@@ -14,11 +14,61 @@
 // 'all'); a cache whose layout no longer matches is ignored.
 import earcut from 'earcut';
 import { FACE_FLIP_DIAGONAL } from '../constants';
-import { newell, type Topo, topoOf } from '../core/access';
+import { isEditMesh } from '../core/access';
+import { KernelMesh } from '../core/mesh';
 import { kernelError } from '../kernel';
 import type { EditMesh, MeshData, Triangulation } from '../types';
 
+/** The stored arrays triangulation reads (zero-copy views of a kernel mesh, or a MeshData). */
+interface Arrays {
+  readonly faces: number;
+  readonly corners: number;
+  readonly p: ArrayLike<number>;
+  readonly cv: ArrayLike<number>;
+  readonly cn: ArrayLike<number>;
+  readonly fc: ArrayLike<number>;
+  readonly ff: ArrayLike<number>;
+}
+
+function arraysOf(m: MeshData | EditMesh): Arrays {
+  const d = m instanceof KernelMesh ? m.dataView() : isEditMesh(m) ? m.snapshot() : m;
+  return {
+    faces: d.counts.faces,
+    corners: d.counts.corners,
+    p: d.position,
+    cv: d.cornerVert,
+    cn: d.cornerNext,
+    fc: d.faceCorner,
+    ff: d.faceFlags,
+  };
+}
+
 const normal = new Float64Array(3);
+
+/** Newell normal (not normalized) of the corner cycle `c` into `normal`. */
+function newellOf(a: Arrays, c: readonly number[]): void {
+  const p = a.p;
+  let x = 0;
+  let y = 0;
+  let z = 0;
+  const n = c.length;
+  for (let i = 0; i < n; i++) {
+    const u = 3 * (a.cv[c[i] as number] as number);
+    const w = 3 * (a.cv[c[(i + 1) % n] as number] as number);
+    const ux = p[u] as number;
+    const uy = p[u + 1] as number;
+    const uz = p[u + 2] as number;
+    const wx = p[w] as number;
+    const wy = p[w + 1] as number;
+    const wz = p[w + 2] as number;
+    x += (uy - wy) * (uz + wz);
+    y += (uz - wz) * (ux + wx);
+    z += (ux - wx) * (uy + wy);
+  }
+  normal[0] = x;
+  normal[1] = y;
+  normal[2] = z;
+}
 
 function dist(p: ArrayLike<number>, a: number, b: number): number {
   const dx = (p[3 * a] as number) - (p[3 * b] as number);
@@ -43,50 +93,67 @@ function orientation(p: ArrayLike<number>, a: number, b: number, c: number, n: F
 }
 
 /** The corners of a face in cycle order. */
-function faceCorners(t: Topo, f: number, out: number[]): number[] {
+function faceCorners(a: Arrays, f: number, out: number[]): number[] {
   out.length = 0;
-  const start = t.fc(f);
+  const start = a.fc[f] as number;
   let c = start;
   do {
     out.push(c);
-    c = t.cn(c);
-  } while (c !== start && out.length <= t.counts.corners);
+    c = a.cn[c] as number;
+  } while (c !== start && out.length <= a.corners);
   return out;
 }
 
-type Emit = (a: number, b: number, c: number) => void;
+/** Writes triangles into `tris`/`triFace` from triangle `at`. */
+class Sink {
+  k = 0;
+  constructor(
+    readonly tris: Uint32Array,
+    readonly triFace: Uint32Array,
+  ) {}
+  emit(f: number, a: number, b: number, c: number): void {
+    const k = this.k++;
+    this.tris[3 * k] = a;
+    this.tris[3 * k + 1] = b;
+    this.tris[3 * k + 2] = c;
+    this.triFace[k] = f;
+  }
+}
 
-function quad(t: Topo, f: number, c: readonly number[], emit: Emit): void {
-  const p = t.position;
-  const [c0, c1, c2, c3] = c as [number, number, number, number];
-  const v0 = t.cv(c0);
-  const v1 = t.cv(c1);
-  const v2 = t.cv(c2);
-  const v3 = t.cv(c3);
+function quad(a: Arrays, f: number, c: readonly number[], out: Sink): void {
+  const p = a.p;
+  const c0 = c[0] as number;
+  const c1 = c[1] as number;
+  const c2 = c[2] as number;
+  const c3 = c[3] as number;
+  const v0 = a.cv[c0] as number;
+  const v1 = a.cv[c1] as number;
+  const v2 = a.cv[c2] as number;
+  const v3 = a.cv[c3] as number;
   const l0 = dist(p, v0, v2);
   const l1 = dist(p, v1, v3);
   let first: boolean; // true: diagonal c0–c2
   if (Math.abs(l0 - l1) <= 1e-12 * Math.max(l0, l1)) first = Math.min(v0, v2) < Math.min(v1, v3);
   else first = l0 < l1;
-  if ((t.ff(f) & FACE_FLIP_DIAGONAL) !== 0) first = !first;
-  newell(t, f, normal);
+  if (((a.ff[f] as number) & FACE_FLIP_DIAGONAL) !== 0) first = !first;
+  newellOf(a, c);
   const concave = first
     ? orientation(p, v0, v1, v2, normal) < 0 || orientation(p, v0, v2, v3, normal) < 0
     : orientation(p, v1, v2, v3, normal) < 0 || orientation(p, v1, v3, v0, normal) < 0;
   if (concave) first = !first;
   if (first) {
-    emit(c0, c1, c2);
-    emit(c0, c2, c3);
+    out.emit(f, c0, c1, c2);
+    out.emit(f, c0, c2, c3);
   } else {
-    emit(c1, c2, c3);
-    emit(c1, c3, c0);
+    out.emit(f, c1, c2, c3);
+    out.emit(f, c1, c3, c0);
   }
 }
 
 /** earcut over the dominant-plane projection; null when it returns fewer than n − 2 triangles. */
-function earcutFace(t: Topo, f: number, c: readonly number[]): number[] | null {
-  const p = t.position;
-  newell(t, f, normal);
+function earcutFace(a: Arrays, c: readonly number[]): number[] | null {
+  const p = a.p;
+  newellOf(a, c);
   const ax = Math.abs(normal[0] as number);
   const ay = Math.abs(normal[1] as number);
   const az = Math.abs(normal[2] as number);
@@ -95,7 +162,7 @@ function earcutFace(t: Topo, f: number, c: readonly number[]): number[] | null {
   const v = ax >= ay && ax >= az ? 2 : ay >= az ? 0 : 1;
   const flat = new Float64Array(c.length * 2);
   for (let i = 0; i < c.length; i++) {
-    const vertex = t.cv(c[i] as number);
+    const vertex = a.cv[c[i] as number] as number;
     flat[2 * i] = p[3 * vertex + u] as number;
     flat[2 * i + 1] = p[3 * vertex + v] as number;
   }
@@ -103,51 +170,36 @@ function earcutFace(t: Topo, f: number, c: readonly number[]): number[] | null {
   return indices.length / 3 < c.length - 2 ? null : indices;
 }
 
-function ngon(t: Topo, f: number, c: readonly number[], emit: Emit): void {
-  const indices = earcutFace(t, f, c);
+function ngon(a: Arrays, f: number, c: readonly number[], out: Sink): void {
+  const indices = earcutFace(a, c);
   if (indices === null) {
-    for (let i = 1; i + 1 < c.length; i++) emit(c[0] as number, c[i] as number, c[i + 1] as number);
+    for (let i = 1; i + 1 < c.length; i++) out.emit(f, c[0] as number, c[i] as number, c[i + 1] as number);
     return;
   }
-  const p = t.position;
+  // earcutFace left the face's Newell normal in `normal`.
+  const p = a.p;
   for (let i = 0; i < indices.length; i += 3) {
-    const a = c[indices[i] as number] as number;
-    let b = c[indices[i + 1] as number] as number;
-    let d = c[indices[i + 2] as number] as number;
-    if (orientation(p, t.cv(a), t.cv(b), t.cv(d), normal) < 0) [b, d] = [d, b];
-    emit(a, b, d);
+    const x = c[indices[i] as number] as number;
+    let y = c[indices[i + 1] as number] as number;
+    let z = c[indices[i + 2] as number] as number;
+    if (orientation(p, a.cv[x] as number, a.cv[y] as number, a.cv[z] as number, normal) < 0) [y, z] = [z, y];
+    out.emit(f, x, y, z);
   }
 }
 
 /** True when the n-gon `f` (n > 4) falls back to a fan because earcut could not triangulate it (§5.4, §5.25). */
 export function isDegenerateNgon(m: MeshData | EditMesh, f: number): boolean {
-  const t = topoOf(m);
-  const c = faceCorners(t, f, []);
-  return c.length > 4 && earcutFace(t, f, c) === null;
+  const a = arraysOf(m);
+  const c = faceCorners(a, f, []);
+  return c.length > 4 && earcutFace(a, c) === null;
 }
 
-/** Triangles of face `f` written into `tris` from triangle `at` (corner indices × 3, CCW). */
-function triangulateFace(
-  t: Topo,
-  f: number,
-  corners: number[],
-  tris: Uint32Array,
-  triFace: Uint32Array,
-  at: number,
-): void {
-  const c = faceCorners(t, f, corners);
+function triangulateFace(a: Arrays, f: number, corners: number[], out: Sink): void {
+  const c = faceCorners(a, f, corners);
   if (c.length < 3) throw kernelError('invalid-mesh', `triangulate: face ${f} has ${c.length} corners`);
-  let k = at;
-  const emit: Emit = (a, b, d) => {
-    tris[3 * k] = a;
-    tris[3 * k + 1] = b;
-    tris[3 * k + 2] = d;
-    triFace[k] = f;
-    k++;
-  };
-  if (c.length === 3) emit(c[0] as number, c[1] as number, c[2] as number);
-  else if (c.length === 4) quad(t, f, c, emit);
-  else ngon(t, f, c, emit);
+  if (c.length === 3) out.emit(f, c[0] as number, c[1] as number, c[2] as number);
+  else if (c.length === 4) quad(a, f, c, out);
+  else ngon(a, f, c, out);
 }
 
 /** Triangles of every face (corner indices × 3, CCW), the face of each triangle and F + 1 prefix offsets. */
@@ -156,40 +208,41 @@ export function triangulate(
   cache?: Triangulation,
   dirtyFaces?: Uint32Array | 'all',
 ): Triangulation {
-  const t = topoOf(m);
-  const F = t.counts.faces;
+  const a = arraysOf(m);
+  const F = a.faces;
   const corners: number[] = [];
   if (cache !== undefined && dirtyFaces !== undefined && dirtyFaces !== 'all' && cache.faceTriStart.length === F + 1) {
-    const incremental = incrementalTriangulation(t, cache, dirtyFaces, corners);
+    const incremental = incrementalTriangulation(a, cache, dirtyFaces, corners);
     if (incremental !== null) return incremental;
   }
   const faceTriStart = new Uint32Array(F + 1);
   let total = 0;
   for (let f = 0; f < F; f++) {
     faceTriStart[f] = total;
-    total += faceCorners(t, f, corners).length - 2;
+    total += faceCorners(a, f, corners).length - 2;
   }
   faceTriStart[F] = total;
-  const tris = new Uint32Array(3 * total);
-  const triFace = new Uint32Array(total);
-  for (let f = 0; f < F; f++) triangulateFace(t, f, corners, tris, triFace, faceTriStart[f] as number);
-  return { tris, triFace, faceTriStart };
+  const out = new Sink(new Uint32Array(3 * total), new Uint32Array(total));
+  for (let f = 0; f < F; f++) triangulateFace(a, f, corners, out);
+  return { tris: out.tris, triFace: out.triFace, faceTriStart };
 }
 
 function incrementalTriangulation(
-  t: Topo,
+  a: Arrays,
   cache: Triangulation,
   dirtyFaces: Uint32Array,
   corners: number[],
 ): Triangulation | null {
-  const F = t.counts.faces;
+  const F = a.faces;
   for (const f of dirtyFaces) {
     if (f >= F) return null;
-    const n = faceCorners(t, f, corners).length;
+    const n = faceCorners(a, f, corners).length;
     if ((cache.faceTriStart[f + 1] as number) - (cache.faceTriStart[f] as number) !== n - 2) return null;
   }
-  const tris = cache.tris.slice();
-  const triFace = cache.triFace.slice();
-  for (const f of dirtyFaces) triangulateFace(t, f, corners, tris, triFace, cache.faceTriStart[f] as number);
-  return { tris, triFace, faceTriStart: cache.faceTriStart };
+  const out = new Sink(cache.tris.slice(), cache.triFace.slice());
+  for (const f of dirtyFaces) {
+    out.k = cache.faceTriStart[f] as number;
+    triangulateFace(a, f, corners, out);
+  }
+  return { tris: out.tris, triFace: out.triFace, faceTriStart: cache.faceTriStart };
 }

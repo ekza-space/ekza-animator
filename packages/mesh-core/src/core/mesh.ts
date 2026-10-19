@@ -191,6 +191,7 @@ export class KernelMesh implements EditMesh {
   private nextTid = BUILTIN_TARGETS;
   private handles: readonly AttrLayer[] | null = null;
   private readonly domainLayers: (LayerStore[] | null)[] = [null, null, null, null];
+  private readonly domainHandles: (readonly AttrLayer[] | null)[] = [null, null, null, null];
   // views and caches
   private posView: Float32Array | null = null;
   private countsView: MeshCounts | null = null;
@@ -511,6 +512,16 @@ export class KernelMesh implements EditMesh {
     return list;
   }
 
+  /** The layer handles of a domain, in layer order (cached until the layer set changes). */
+  handlesOf(domain: number): readonly AttrLayer[] {
+    let list = this.domainHandles[domain];
+    if (list === null || list === undefined) {
+      list = Object.freeze(this.layersOf(domain).map((store) => store.handle));
+      this.domainHandles[domain] = list;
+    }
+    return list;
+  }
+
   storeOf(name: string): LayerStore | undefined {
     return this.byName.get(name);
   }
@@ -587,6 +598,7 @@ export class KernelMesh implements EditMesh {
   private layersChanged(): void {
     this.handles = null;
     this.domainLayers.fill(null);
+    this.domainHandles.fill(null);
   }
 
   // ---------- logged writes ----------
