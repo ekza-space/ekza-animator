@@ -1,18 +1,20 @@
 // Pixel probes of the mesh overlays (M6A-SPEC §4.4, §5.6, §8.9; research 13 §7.1) on a real WebGL canvas: the clay
 // rig, selected/unselected/mirrored/hovered glyphs with their halo, fat selected edges, face tints, x-ray's occluded
 // pass, hidden and isolated faces, wire shading, palette colours, face orientation, culling, flat display, normals,
-// triangulation, Mesh Check markers, the symmetry plane, the soft ramp, "Dim unhilited", per-pane display and the
-// incremental upload of moved vertices.
+// triangulation, Mesh Check markers, the symmetry plane, the soft ramp, "Dim unhilited", per-pane display, inputs
+// mutated in place, and incremental updates (ranged uploads; equal to a full rebuild after random edits).
 import {
   BitSet,
+  BUILTIN_LAYERS,
   type ComponentSelection,
   computeNormals,
+  EDGE_HARD,
   type HiddenSet,
   selectionOf,
   triangulate,
 } from '@ekza-animator/mesh-core';
 import { cubeData } from '@ekza-animator/mesh-core/testing';
-import { type BufferAttribute, type Camera, Matrix4, type Points, Vector3 } from 'three';
+import { type BufferAttribute, type BufferGeometry, type Camera, Matrix4, type Points, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditMeshView, MeshSurface } from '../src';
 import { LIGHT_RIG, MESH_VIEW_STYLE } from '../src/style';
@@ -40,6 +42,7 @@ import {
   orthoTop,
   perspective,
   plane,
+  prng,
   scale,
   screen,
   THEME,
@@ -100,6 +103,50 @@ function lit(hex: number, camera: Camera, dir: readonly [number, number, number]
 /** Blend in the framebuffer (sRGB bytes): src·a + dst·(1 − a). */
 function over(src: readonly number[], a: number, dst: readonly number[]): [number, number, number] {
   return [0, 1, 2].map((i) => (src[i] as number) * a + (dst[i] as number) * (1 - a)) as [number, number, number];
+}
+
+/** Every attribute array and index of every object under the view's root, keyed by child position and name. */
+function arraysOf(view: EditMeshView): Map<string, ArrayLike<number>> {
+  const out = new Map<string, ArrayLike<number>>();
+  view.root.children.forEach((object, i) => {
+    const geometry = (object as { geometry?: BufferGeometry }).geometry;
+    if (geometry === undefined) return;
+    for (const [name, attribute] of Object.entries(geometry.attributes)) {
+      out.set(`${i} ${object.type} ${name}`, (attribute as BufferAttribute).array);
+    }
+    if (geometry.index !== null) out.set(`${i} ${object.type} index`, geometry.index.array);
+  });
+  return out;
+}
+
+/** '' when both maps hold the same arrays, else where they first differ. */
+function firstDifference(a: Map<string, ArrayLike<number>>, b: Map<string, ArrayLike<number>>): string {
+  if (a.size !== b.size) return `${a.size} vs ${b.size} arrays`;
+  for (const [key, x] of a) {
+    const y = b.get(key);
+    if (y === undefined) return `${key} missing`;
+    if (x.length !== y.length) return `${key}: length ${x.length} vs ${y.length}`;
+    for (let i = 0; i < x.length; i++) {
+      if (!Object.is(x[i], y[i])) return `${key}[${i}]: ${x[i]} vs ${y[i]}`;
+    }
+  }
+  return '';
+}
+
+/** The whole frame (RGBA bytes) right after a render. */
+function frame(canvasRef: Canvas): Uint8Array {
+  const gl = canvasRef.renderer.getContext();
+  const out = new Uint8Array(canvasRef.width * canvasRef.height * 4);
+  gl.readPixels(0, 0, canvasRef.width, canvasRef.height, gl.RGBA, gl.UNSIGNED_BYTE, out);
+  return out;
+}
+
+function differentPixels(a: Uint8Array, b: Uint8Array): number {
+  let n = 0;
+  for (let i = 0; i < a.length; i += 4) {
+    if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2] || a[i + 3] !== b[i + 3]) n++;
+  }
+  return n;
 }
 
 // Half a pixel of the 4 m-wide top/front ortho views (0.01 m per px): moves lines at x = 0 / z = 0 onto pixel centres.
@@ -374,6 +421,60 @@ describe('EditMeshView: surface', () => {
       ),
     ).toBe('');
   });
+
+  it('x-ray: an occluded edge draws in the second pass at 35 %, and never without x-ray', () => {
+    const d = cube();
+    const camera = perspective([0.6, 0.4, 3]);
+    // The back left vertical edge projects inside the front face.
+    const e = edgeBetween(d, vertexAt(d, [-0.5, -0.5, -0.5]), vertexAt(d, [-0.5, 0.5, -0.5]));
+    const sel = selectionOf('edge', [e], d.mesh.counts);
+    const view = editView(d, sel);
+    const hiddenEdge: HiddenSet = {
+      verts: new BitSet(d.mesh.counts.points),
+      edges: new BitSet(d.mesh.counts.edges),
+      faces: new BitSet(d.mesh.counts.faces),
+    };
+    hiddenEdge.edges.add(e);
+    const s = px(camera, [-0.5, 0, -0.5]);
+    view.setState(sel, null, null, null);
+    const shown = at(render(view, camera), s);
+    view.setState(sel, hiddenEdge, null, null);
+    const without = at(render(view, camera), s);
+    expect(colourError(shown, without, 0)).toBe('');
+    view.setState(sel, null, null, null);
+    const xShown = at(render(view, camera, { xray: true }), s);
+    view.setState(sel, hiddenEdge, null, null);
+    const xWithout = at(render(view, camera, { xray: true }), s);
+    expect(colourError(xWithout, hexBytes(THEME.selected), 40)).not.toBe('');
+    expect(colourError(xShown, over(hexBytes(THEME.selected), MESH_VIEW_STYLE.occludedAlpha, xWithout), 2)).toBe('');
+  });
+
+  it('x-ray: an occluded face-centre dot draws in the second pass at 35 %, and never without x-ray', () => {
+    const d = cube();
+    const camera = perspective([0.6, 0.4, 3]);
+    const back = faceFacing(d, [0, 0, -1]);
+    const s = px(camera, centroidOf(d, back));
+    // The front face's own dot is far enough away not to touch the back one's pixels.
+    const frontDot = px(camera, centroidOf(d, faceFacing(d, [0, 0, 1])));
+    expect(Math.hypot(frontDot[0] - s[0], frontDot[1] - s[1])).toBeGreaterThan(12);
+    const selected = selectionOf('face', [back], d.mesh.counts);
+    const none = selectionOf('face', [], d.mesh.counts);
+    const view = editView(d, none);
+    const sample = (sel: ComponentSelection, xray: boolean): [number, number, number, number] => {
+      view.setState(sel, null, null, null);
+      return at(render(view, camera, { xray }), s);
+    };
+    // Without x-ray the dot is occluded: selecting its face changes nothing at its pixel.
+    expect(colourError(sample(selected, false), sample(none, false), 0)).toBe('');
+    // In x-ray both pixels are the dot at 35 % over the same surface: solve the plain one for the surface …
+    const plain = sample(none, true);
+    const hot = sample(selected, true);
+    const a = MESH_VIEW_STYLE.occludedAlpha;
+    const surface = [0, 1, 2].map((i) => ((plain[i] as number) - a * (hexBytes(THEME.vertex)[i] as number)) / (1 - a));
+    // … and the selected one must be the selected colour at 35 % over that surface.
+    expect(colourError(hot, over(hexBytes(THEME.selected), a, surface), 3)).toBe('');
+    expect(colourError(hot, plain, 10)).not.toBe('');
+  });
 });
 
 function fillDot(n: readonly [number, number, number]): number {
@@ -571,24 +672,192 @@ describe('EditMeshView: incremental updates', () => {
     );
   });
 
-  it('redraws edge flags from an incremental update (hard 2 px → soft 1 px)', () => {
+  it('redraws edge flags from an incremental update (hard 2 px → soft 1 px) and the smoothing they change', () => {
     const d = cube();
     const camera = perspective([0.3, 0.9, 3]);
     const e = edgeBetween(d, vertexAt(d, [-0.5, 0.5, 0.5]), vertexAt(d, [0.5, 0.5, 0.5]));
     const view = editView(d, selectionOf('face', [], d.mesh.counts));
     const s = px(camera, [0.1, 0.5, 0.5]);
+    // On the front face just below the edge (smooth shading interpolates the corner normals there).
+    const nearEdge = px(camera, [0.1, 0.4, 0.5]);
     const darkRows = (canvasRef: Canvas): number =>
       [-2, -1, 0, 1, 2].filter((dy) => colourError(at(canvasRef, s, 0, dy), hexBytes(THEME.hardEdge), 2) === '').length;
-    const hard = darkRows(render(view, camera, { hardEdges: true }));
+    let canvasRef = render(view, camera, { hardEdges: true });
+    const hard = darkRows(canvasRef);
+    const hardShade = at(canvasRef, nearEdge);
     expect(hard).toBeGreaterThanOrEqual(2);
+    expect((d.mesh.edgeFlags(e) & EDGE_HARD) !== 0).toBe(true);
     d.mesh.begin('test.soften');
     d.mesh.setEdgeFlags(e, 0);
     const delta = d.mesh.end();
     expect(delta.dirty.topology).toBe(false);
-    view.update(d.mesh, delta.dirty, triangulate(d.mesh), computeNormals(d.mesh));
-    const soft = darkRows(render(view, camera, { hardEdges: true }));
+    expect(delta.dirty.points).toHaveLength(0);
+    const normals = computeNormals(d.mesh);
+    view.update(d.mesh, delta.dirty, triangulate(d.mesh), normals);
+    canvasRef = render(view, camera, { hardEdges: true });
+    const soft = darkRows(canvasRef);
     expect(soft).toBeGreaterThanOrEqual(1);
     expect(soft).toBeLessThan(hard);
+    // The two faces now share the edge's corner normals: the shading near it changes, exactly as a rebuilt view draws.
+    const softShade = at(canvasRef, nearEdge);
+    expect(colourError(softShade, hardShade, 3)).not.toBe('');
+    view.root.removeFromParent();
+    const fresh = editView(d, selectionOf('face', [], d.mesh.counts));
+    fresh.setMesh(d.mesh, triangulate(d.mesh), normals);
+    fresh.setState(selectionOf('face', [], d.mesh.counts), null, null, null);
+    expect(colourError(at(render(fresh, camera, { hardEdges: true }), nearEdge), softShade, 0)).toBe('');
+  });
+
+  it('equals a full rebuild after random moves, hard-flag toggles, custom normals and paint (arrays and pixels)', () => {
+    const d = cube({ subdivisionsWidth: 2, subdivisionsHeight: 2, subdivisionsDepth: 2 });
+    const mesh = d.mesh;
+    const { points: P, edges: E, faces: F, corners: C } = mesh.counts;
+    const random = prng(0xb6);
+    const camera = perspective([1.6, 1.2, 2.4]);
+    const display: Partial<MeshPaneDisplay> = {
+      normals: 'both',
+      triangulation: true,
+      hardEdges: true,
+      wireOnShaded: true,
+    };
+    const sel = selectionOf('vertex', [0, 5, 9], mesh.counts);
+    const hidden: HiddenSet = { verts: new BitSet(P), edges: new BitSet(E), faces: new BitSet(F) };
+    hidden.faces.add(faceFacing(d, [1, 0, 0]));
+    const palette = new Map<number, readonly [number, number, number]>([
+      [1, [200, 60, 40]],
+      [2, [40, 160, 220]],
+    ]);
+    const view = new EditMeshView({ theme: THEME, layers: LAYERS });
+    disposables.push(view);
+    view.setMesh(mesh, d.tri, d.normals);
+    view.setState(sel, hidden, null, null);
+    view.setPaint(palette);
+    // A first frame: the attributes are on the GPU, so later writes go up as ranges.
+    const canvasRef = render(view, camera, display);
+    mesh.begin('test.layers');
+    const custom = mesh.addLayer(BUILTIN_LAYERS.normalCustom);
+    const paint = mesh.addLayer(BUILTIN_LAYERS.paint);
+    const added = mesh.end();
+    view.update(mesh, added.dirty, triangulate(mesh), computeNormals(mesh));
+
+    const counts = { move: 0, flag: 0, custom: 0, paint: 0 };
+    for (let step = 0; step < 30; step++) {
+      mesh.begin('test.edit');
+      const ops = 1 + Math.floor(random() * 3);
+      for (let k = 0; k < ops; k++) {
+        const r = random();
+        if (r < 0.3) {
+          const v = Math.floor(random() * P);
+          const p = mesh.position;
+          mesh.setPosition(
+            v,
+            (p[3 * v] as number) + (random() - 0.5) * 0.15,
+            (p[3 * v + 1] as number) + (random() - 0.5) * 0.15,
+            (p[3 * v + 2] as number) + (random() - 0.5) * 0.15,
+          );
+          counts.move++;
+        } else if (r < 0.7) {
+          const e = Math.floor(random() * E);
+          mesh.setEdgeFlags(e, mesh.edgeFlags(e) ^ EDGE_HARD);
+          counts.flag++;
+        } else if (r < 0.85) {
+          const c = Math.floor(random() * C);
+          const clear = random() < 0.25;
+          for (let comp = 0; comp < 3; comp++) custom.set(c, comp, clear ? 0 : random() - 0.5);
+          counts.custom++;
+        } else {
+          paint.set(Math.floor(random() * F), 0, Math.floor(random() * 3));
+          counts.paint++;
+        }
+      }
+      const delta = mesh.end();
+      expect(delta.dirty.topology).toBe(false);
+      const tri = triangulate(mesh);
+      const normals = computeNormals(mesh);
+      view.update(mesh, delta.dirty, tri, normals);
+      const fresh = new EditMeshView({ theme: THEME, layers: LAYERS });
+      fresh.setMesh(mesh, tri, normals);
+      fresh.setState(sel, hidden, null, null);
+      fresh.setPaint(palette);
+      try {
+        // The same arrays (every attribute and index of every object, lazy overlays built for the pane) …
+        view.applyPane({ ...DISPLAY, ...display });
+        fresh.applyPane({ ...DISPLAY, ...display });
+        expect(firstDifference(arraysOf(view), arraysOf(fresh)), `step ${step}`).toBe('');
+        // … and the same pixels: the incremental ranges reached the GPU.
+        canvasRef.render(camera);
+        const incremental = frame(canvasRef);
+        view.root.removeFromParent();
+        canvasRef.scene.add(fresh.root);
+        canvasRef.render(camera);
+        const rebuilt = frame(canvasRef);
+        expect(differentPixels(incremental, rebuilt), `step ${step}`).toBe(0);
+      } finally {
+        fresh.dispose();
+        canvasRef.scene.add(view.root);
+      }
+    }
+    expect(Object.values(counts).every((n) => n >= 3)).toBe(true);
+  });
+
+  it('redraws a selection, hidden set or isolate set mutated in place and passed again', () => {
+    const d = plane({ width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+    const camera = orthoTop(3);
+    const right = centroidOf(d, 0)[0] > 0 ? 0 : 1;
+    const corner = vertexAt(d, [-1, 0, -0.5]);
+    const glyph = (canvasRef: Canvas) => at(canvasRef, px(camera, [-1, 0, -0.5]), 1, 1);
+    const inRight = px(camera, [0.6, 0, 0.1]);
+    const sel = selectionOf('vertex', [], d.mesh.counts);
+    const view = editView(d, sel);
+    expect(colourError(glyph(render(view, camera)), hexBytes(THEME.vertex), 1)).toBe('');
+    sel.verts.add(corner);
+    view.setState(sel, null, null, null);
+    expect(colourError(glyph(render(view, camera)), hexBytes(THEME.selected), 1)).toBe('');
+    sel.verts.delete(corner);
+    view.setState(sel, null, null, null);
+    expect(colourError(glyph(render(view, camera)), hexBytes(THEME.vertex), 1)).toBe('');
+    // Hidden set.
+    const hidden: HiddenSet = {
+      verts: new BitSet(d.mesh.counts.points),
+      edges: new BitSet(d.mesh.counts.edges),
+      faces: new BitSet(d.mesh.counts.faces),
+    };
+    view.setState(sel, hidden, null, null);
+    hidden.faces.add(right);
+    view.setState(sel, hidden, null, null);
+    expect(colourError(at(render(view, camera), inRight), hexBytes(BACKGROUND), 1)).toBe('');
+    hidden.faces.delete(right);
+    view.setState(sel, hidden, null, null);
+    expect(colourError(at(render(view, camera), inRight), hexBytes(BACKGROUND), 1)).not.toBe('');
+    // Isolate set.
+    const only = new BitSet(d.mesh.counts.faces);
+    only.add(0);
+    only.add(1);
+    view.setIsolate(only);
+    expect(colourError(at(render(view, camera), inRight), hexBytes(BACKGROUND), 1)).not.toBe('');
+    only.delete(right);
+    view.setIsolate(only);
+    expect(colourError(at(render(view, camera), inRight), hexBytes(BACKGROUND), 1)).toBe('');
+  });
+
+  it('drops a face isolate set of another topology (rebuild) and ignores one pushed for another face count', () => {
+    const d = plane({ width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+    const camera = orthoTop(3);
+    const left = centroidOf(d, 0)[0] < 0 ? 0 : 1;
+    const inRight = px(camera, [0.6, 0, 0.1]);
+    const clay = bytes(lit(THEME.clay, camera, [0, 1, 0]));
+    const view = editView(d, selectionOf('face', [], d.mesh.counts));
+    const only = new BitSet(d.mesh.counts.faces);
+    only.add(left);
+    view.setIsolate(only);
+    expect(colourError(at(render(view, camera), inRight), hexBytes(BACKGROUND), 1)).toBe('');
+    // Four faces now: the two-face set would name other faces.
+    const four = plane({ width: 2, height: 1, subdivisionsWidth: 4, subdivisionsHeight: 1 });
+    view.setMesh(four.mesh, four.tri, four.normals);
+    view.setState(selectionOf('face', [], four.mesh.counts), null, null, null);
+    expect(colourError(at(render(view, camera), inRight), clay, 2)).toBe('');
+    view.setIsolate(only);
+    expect(colourError(at(render(view, camera), inRight), clay, 2)).toBe('');
   });
 
   it('follows the world matrix', () => {

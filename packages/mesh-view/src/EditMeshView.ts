@@ -45,24 +45,40 @@ export const NGON_CODES: ReadonlySet<string> = new Set(['nonplanar-ngon', 'conca
 const VERTEX_CODES = new Set(['non-manifold-vertex', 'stray-vertex']);
 const EDGE_CODES = new Set(['non-manifold-edge', 'zero-length-edge', 'open-border']);
 
-function sameSet(a: BitSet | null | undefined, b: BitSet | null | undefined): boolean {
-  if (a === b) return true;
-  if (a === null || a === undefined || b === null || b === undefined) return false;
+// Change detection compares contents against the view's own copies (taken in `setState`/`setIsolate`): a caller may
+// mutate a selection, hidden set or isolate set in place and pass the same object again (the §4.6 selection service
+// does not promise fresh objects), so identity says nothing.
+function sameSet(a: BitSet | null, b: BitSet | null): boolean {
+  if (a === null || b === null) return a === b;
   return a.equals(b);
 }
 
 function sameSelection(a: ComponentSelection | null, b: ComponentSelection | null): boolean {
-  if (a === b) return true;
-  if (a === null || b === null) return false;
+  if (a === null || b === null) return a === b;
   return a.kind === b.kind && sameSet(a.verts, b.verts) && sameSet(a.edges, b.edges) && sameSet(a.faces, b.faces);
 }
 
 function sameHidden(a: HiddenSet | null, b: HiddenSet | null): boolean {
-  if (a === b) return true;
   const empty = (h: HiddenSet | null): boolean =>
     h === null || (h.verts.isEmpty() && h.edges.isEmpty() && h.faces.isEmpty());
   if (a === null || b === null) return empty(a) && empty(b);
   return sameSet(a.verts, b.verts) && sameSet(a.edges, b.edges) && sameSet(a.faces, b.faces);
+}
+
+function copySelection(s: ComponentSelection | null): ComponentSelection | null {
+  if (s === null) return null;
+  return {
+    kind: s.kind,
+    verts: s.verts.clone(),
+    edges: s.edges.clone(),
+    faces: s.faces.clone(),
+    order: null,
+    active: -1,
+  };
+}
+
+function copyHidden(h: HiddenSet | null): HiddenSet | null {
+  return h === null ? null : { verts: h.verts.clone(), edges: h.edges.clone(), faces: h.faces.clone() };
 }
 
 function setOf(sel: ComponentSelection | null, kind: ComponentKind): BitSet | null {
@@ -188,19 +204,18 @@ export class EditMeshView extends ViewBase {
     this.normals = normals;
     this.vcorners = vertexCorners(t);
     this.vedges = vertexEdges(t);
+    // A selection, hidden set, face isolate set or soft weights of another topology do not apply any more (their
+    // indices may name other elements now); the host pushes remapped ones (M6A-B6-19).
+    if (this.sel !== null && !this.fits(this.sel)) this.sel = null;
+    if (this.mirrored !== null && !this.fits(this.mirrored)) this.mirrored = null;
+    if (this.hidden !== null && !this.fitsHidden(this.hidden)) this.hidden = null;
+    if (this.isolate !== null && this.isolate.size !== t.faces) this.isolate = null;
     this.vis = { verts: new Uint8Array(t.points), edges: new Uint8Array(t.edges), faces: new Uint8Array(t.faces) };
     deriveVisibility(t, this.hidden, this.isolate, this.vis);
     this.faceState = new Uint8Array(t.faces);
     this.touchedVerts.resize(t.points);
     this.touchedEdges.resize(t.edges);
     this.touchedFaces.resize(t.faces);
-    // A selection, hidden set or soft weights of another topology do not apply any more.
-    if (this.sel !== null && !this.fits(this.sel)) this.sel = null;
-    if (this.mirrored !== null && !this.fits(this.mirrored)) this.mirrored = null;
-    if (this.hidden !== null && this.hidden.faces.size !== t.faces) {
-      this.hidden = null;
-      deriveVisibility(t, null, this.isolate, this.vis);
-    }
     if (this.soft !== null && this.soft.length < t.points) this.soft = null;
     this.hover = null;
 
@@ -223,6 +238,13 @@ export class EditMeshView extends ViewBase {
   private fits(sel: ComponentSelection): boolean {
     const t = this.topo;
     return t !== null && sel.verts.size === t.points && sel.edges.size === t.edges && sel.faces.size === t.faces;
+  }
+
+  /** A hidden set of this topology: each of its sets is empty or sized to the element count. */
+  private fitsHidden(h: HiddenSet): boolean {
+    const t = this.topo;
+    const fit = (set: BitSet, count: number): boolean => set.size === count || set.isEmpty();
+    return t !== null && fit(h.verts, t.points) && fit(h.edges, t.edges) && fit(h.faces, t.faces);
   }
 
   private paintSlots(): ArrayLike<number> | null {
@@ -299,12 +321,22 @@ export class EditMeshView extends ViewBase {
       this.planeDirty = true;
     }
 
-    // Normals change on the faces around moved vertices and on every corner of those faces' vertices (one ring).
+    // Corner normals (the kernel's incremental `computeNormals` recomputes the same places): the faces around moved
+    // vertices change, so every corner at those faces' vertices may (one ring); an edge whose hard flag changed splits
+    // or joins the smooth fans at both endpoints, so every corner there; corners written directly (`normal.custom`)
+    // take their value as is. Rewriting a superset is harmless: `normals` is the full current array.
+    let allNormals = faces === 'all';
+    const normalFaces = new Set<number>();
     if (faces === 'all') {
-      this.surface.writeNormals(t, normals, null);
       this.surface.writeIndex(tri, this.vis.faces, null);
     } else if (faces.length > 0) {
-      this.surface.writeNormals(t, normals, this.ringFaces(t, faces));
+      for (let k = 0; k < faces.length; k++) {
+        const f = faces[k] as number;
+        if (f >= t.faces) continue;
+        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
+          this.facesAt(t, t.cv[t.fcorners[i] as number] as number, normalFaces);
+        }
+      }
       this.surface.writeIndex(tri, this.vis.faces, faces);
       this.diagonalsDirty = true;
     }
@@ -316,29 +348,41 @@ export class EditMeshView extends ViewBase {
       const ef = t.ef;
       for (let k = 0; k < count; k++) {
         const e = list === null ? k : (list[k] as number);
-        if (e < t.edges) ef[e] = mesh.edgeFlags(e);
+        if (e >= t.edges) continue;
+        ef[e] = mesh.edgeFlags(e);
+        if (list !== null) {
+          this.facesAt(t, t.ev[2 * e] as number, normalFaces);
+          this.facesAt(t, t.ev[2 * e + 1] as number, normalFaces);
+        }
       }
+      if (list === null) allNormals = true;
       this.writeEdgeStates(list);
     }
+
+    const corners = dirty.corners;
+    if (corners === 'all') allNormals = true;
+    else {
+      for (let k = 0; k < corners.length; k++) {
+        const c = corners[k] as number;
+        if (c < t.corners) normalFaces.add(t.cf[c] as number);
+      }
+    }
+
+    if (allNormals) this.surface.writeNormals(t, normals, null);
+    else if (normalFaces.size > 0) this.surface.writeNormals(t, normals, Uint32Array.from(normalFaces));
+    if (allNormals || normalFaces.size > 0) this.normalsDirty = true;
+
     if (dirty.layers.includes('paint') || dirty.faces === 'all' || dirty.faces.length > 0) {
       this.surface.writePaint(t, this.paintSlots(), this.paint);
     }
   }
 
-  /** The faces whose corner normals may change when `faces` change: every face touching their vertices. */
-  private ringFaces(t: Topo, faces: Uint32Array): Uint32Array {
-    const out = new Set<number>();
-    for (let k = 0; k < faces.length; k++) {
-      const f = faces[k] as number;
-      if (f >= t.faces) continue;
-      for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
-        const v = t.cv[t.fcorners[i] as number] as number;
-        for (let j = this.vcorners.start[v] as number; j < (this.vcorners.start[v + 1] as number); j++) {
-          out.add(t.cf[this.vcorners.items[j] as number] as number);
-        }
-      }
+  /** Adds every face with a corner at vertex `v` to `out`. */
+  private facesAt(t: Topo, v: number, out: Set<number>): void {
+    if (v >= t.points) return;
+    for (let j = this.vcorners.start[v] as number; j < (this.vcorners.start[v + 1] as number); j++) {
+      out.add(t.cf[this.vcorners.items[j] as number] as number);
     }
-    return Uint32Array.from(out);
   }
 
   private writeFaceDots(t: Topo, faces: Iterable<number>): void {
@@ -380,13 +424,14 @@ export class EditMeshView extends ViewBase {
     const selChanged = !sameSelection(sel, this.sel);
     const mirChanged = !sameSelection(mirrored, this.mirrored);
     const previousHover = this.hover;
-    this.sel = sel;
-    this.hidden = hidden;
-    this.mirrored = mirrored;
-    this.hover = hover;
+    // Own copies: the next call compares contents, even when the caller mutated these objects in place.
+    if (selChanged) this.sel = copySelection(sel);
+    if (visChanged) this.hidden = copyHidden(hidden);
+    if (mirChanged) this.mirrored = copySelection(mirrored);
+    this.hover = hover === null ? null : { kind: hover.kind, index: hover.index, partner: hover.partner };
     if (t === null) return;
     if (visChanged) {
-      deriveVisibility(t, hidden, this.isolate, this.vis);
+      deriveVisibility(t, this.hidden, this.isolate, this.vis);
       if (this.tri !== null) this.surface.writeIndex(this.tri, this.vis.faces, null);
       this.lintsDirty = true;
     }
@@ -420,11 +465,13 @@ export class EditMeshView extends ViewBase {
    * null draws everything again. The host calls it from `applyPane` when the pane's isolate set differs.
    */
   setIsolate(faces: BitSet | null): void {
-    if (sameSet(faces, this.isolate)) return;
-    this.isolate = faces;
     const t = this.topo;
+    // A set of another topology (stale face indices) isolates nothing: the host pushes a remapped one.
+    const set = faces !== null && t !== null && faces.size !== t.faces ? null : faces;
+    if (sameSet(set, this.isolate)) return;
+    this.isolate = set === null ? null : set.clone();
     if (t === null) return;
-    deriveVisibility(t, this.hidden, faces, this.vis);
+    deriveVisibility(t, this.hidden, this.isolate, this.vis);
     if (this.tri !== null) this.surface.writeIndex(this.tri, this.vis.faces, null);
     this.lintsDirty = true;
     this.writeAllStates();
