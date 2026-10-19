@@ -13,7 +13,9 @@ const Editor = dynamic(() => import('@ekza-animator/editor').then((m) => m.Edito
 
 /** Inlined at build time: e2e builds expose the test API on `?e2e=1` (MVP-SPEC §4.8). */
 const E2E_BUILD = process.env.NEXT_PUBLIC_EKZA_E2E === '1';
+/** M6a (M6A-SPEC §3 rule 8): development and e2e builds validate every mesh commit. */
+const KERNEL_DEBUG = process.env.NODE_ENV !== 'production' || E2E_BUILD;
 
 export function EditorIsland(): JSX.Element {
-  return <Editor decoderPath="/decoders/" samplesPath="/samples/" e2e={E2E_BUILD} />;
+  return <Editor decoderPath="/decoders/" samplesPath="/samples/" e2e={E2E_BUILD} kernelDebug={KERNEL_DEBUG} />;
 }

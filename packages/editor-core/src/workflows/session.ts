@@ -7,7 +7,7 @@ import { DEFAULT_TIME } from '../session/defaults';
 import type { EditorApp, Selection, SessionState } from '../types';
 import { DEFAULT_SCENE_FPS } from './records';
 
-export const EMPTY_SELECTION: Selection = { controls: [], keys: new Map(), channels: [] };
+export const EMPTY_SELECTION: Selection = { controls: [], keys: new Map(), channels: [], objects: [] };
 
 export function sceneFpsIn(view: ReadView): Fps {
   return view.get('project', 'project')?.sceneFps ?? DEFAULT_SCENE_FPS;
