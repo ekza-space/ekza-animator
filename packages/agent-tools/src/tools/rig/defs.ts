@@ -17,8 +17,9 @@ export const rigDescribe = defineTool({
     'concise (default) lists the primary controls, counts secondary and finger controls per body part and the ' +
     'controls a limb’s mode hides (FK in IK) in `secondary`, and leaves attribute details out (their @channels are ' +
     'listed); pass bodyParts (e.g. ["fingers.L"]) to list a part completely. detailed adds axisHints — how the ' +
-    "driven bone's tip moves for +10° on each rotation channel at rest ('rz': 'tip up 4.1 cm, forward 0.4 cm') — and " +
-    'each bone’s rest direction in character space (+Y up, +Z forward, +X the character’s left).',
+    "driven bone's tip moves for +10° on each rotation channel at rest ('rz': 'tip up 4.1 cm, forward 0.4 cm') — a " +
+    "label for humanoid joints ('elbow hinge; bend = ry−') and each bone’s rest direction in character space (+Y up, " +
+    '+Z forward, +X the character’s left).',
   group: 'scene',
   input: z.strictObject({
     project: projectRef.optional(),
@@ -56,6 +57,7 @@ export const rigDescribe = defineTool({
           }),
         ),
         axisHints: z.record(z.string(), z.string()).optional(),
+        label: z.string().optional(),
         restDirection: vec3Out.optional(),
       }),
     ),

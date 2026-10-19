@@ -140,6 +140,41 @@ describe('rig_describe (§6.2 tool 5)', () => {
       expect(hint).toMatch(/^(tip (up|down|forward|back|left|right) [\d.]+ cm|twist)/);
     // the thigh points down at rest
     expect(thigh?.restDirection?.[1]).toBeLessThan(-0.8);
+    // the leg is IK at rest: its FK controls are measured in FK, so their channels move the tip
+    expect(Object.values(thigh?.axisHints ?? {}).filter((hint) => hint.startsWith('tip')).length).toBeGreaterThan(1);
+  });
+
+  it('labels humanoid joints from the axis-hint numbers (§6.2: `elbow hinge; bend = ry−`)', async () => {
+    type Rows = { controls: { key: string; label?: string; axisHints?: Record<string, string> }[] };
+    const polybot = dataOf<Rows>(await call(runtimeOf(fx), 'rig_describe', { detail: 'detailed' }));
+    const label = (data: Rows, key: string) => data.controls.find((control) => control.key === key)?.label;
+    expect(label(polybot, 'fk.lowerArm.L')).toMatch(/^elbow hinge; bend = r[xyz][+−]/);
+    expect(label(polybot, 'fk.lowerLeg.L')).toMatch(/^knee hinge; bend = r[xyz][+−]/);
+    expect(label(polybot, 'fk.head')).toMatch(
+      /^head; nod down = r[xyz][+−]; tilt left = r[xyz][+−]; turn left = r[xyz][+−]$/,
+    );
+    expect(label(polybot, 'cog')).toBeUndefined();
+    // the bend channel and sign agree with the hint: its tip moves forward (elbow) / back (knee) with the sign
+    const hintOf = (key: string, channel: string) =>
+      polybot.controls.find((control) => control.key === key)?.axisHints?.[channel] ?? '';
+    const [, elbow, elbowSign] = /bend = (r[xyz])([+−])/.exec(label(polybot, 'fk.lowerArm.L') ?? '') ?? [];
+    expect(hintOf('fk.lowerArm.L', elbow ?? '')).toMatch(elbowSign === '+' ? /^tip forward/ : /^tip back/);
+    const [, knee, kneeSign] = /bend = (r[xyz])([+−])/.exec(label(polybot, 'fk.lowerLeg.L') ?? '') ?? [];
+    expect(hintOf('fk.lowerLeg.L', knee ?? '')).toMatch(kneeSign === '+' ? /^tip back/ : /^tip forward/);
+    // Seed-san (T-pose): the spec's own example
+    const app = createHeadlessEditorApp({ readSample, idSource: seededIdSource(10) });
+    const loaded = await app.runUntyped('file.loadSample', { sample: 'seed-san' });
+    await runtimeReady(app, (loaded as { value: { character: never } }).value.character);
+    const seed = dataOf<Rows>(
+      await createAgentToolRuntime({ app, host: host(), actor: AGENT }).call(
+        'rig_describe',
+        { bodyParts: ['arm.L', 'arm.R'], detail: 'detailed' },
+        { signal: signal() },
+      ),
+    );
+    expect(label(seed, 'fk.lowerArm.L')).toBe('elbow hinge; bend = ry−; twist = rx');
+    expect(label(seed, 'fk.lowerArm.R')).toBe('elbow hinge; bend = ry+; twist = rx');
+    expect(label(seed, 'fk.upperArm.L')).toBe('shoulder; raise = rz+; forward = ry−; twist = rx');
   });
 
   it('keeps the concise answer within the read budget on Seed-san with its secondary controls (§5.5)', async () => {
