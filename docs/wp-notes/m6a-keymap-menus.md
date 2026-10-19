@@ -81,5 +81,8 @@ through contract PRs to §7/§8.3 (tests: `keymap.m6a.test.ts` table, `keymap.me
 
 ## Gates (local, real Chrome; port 3161)
 
-See the final report of this package (format, lint, typecheck, check:deps, unit tests, build, E2E-MOD-03 and the
-full e2e suite).
+`format:check`, `lint`, `typecheck`, `check:deps`, `test:tooling` green; `pnpm run test` 15/15 tasks green (editor-core
+53 files / 843 tests, editor 38 files / 397 passed + 1 skipped, headless-tests 173, the rest unchanged); `build` green,
+`check:size` 869,233 B (gate 900,000 B, no boundary violation); `m6a-03-mod-e-scopes.spec.ts` part (c) green, parts
+(a)/(b) `test.fixme` (M6A-B0B-4); the full e2e suite (`EKZA_E2E_PORT=3161 pnpm run test:e2e`, project `chrome`)
+**110 passed, 12 skipped, 0 failed** (B0a: 109 passed, 10 skipped; +1 E2E-MOD-03 (c), +2 gated parts).
