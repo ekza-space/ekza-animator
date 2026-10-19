@@ -19,7 +19,12 @@ function extractPoll(inputs: readonly MeshSetInput[], args: ParamValues): true |
   if (!inputs.some((input) => selectedFaces(input).length > 0)) {
     return refuse('extract.no-faces', 'Select the faces to extract');
   }
-  if (bool(args, 'separate', true) && inputs.some((input) => selectedFaces(input).length === input.mesh.counts.faces)) {
+  // Only an input that gives up faces must keep some (a mesh without faces or selected faces is skipped).
+  const takesAll = (input: MeshSetInput) => {
+    const n = selectedFaces(input).length;
+    return n > 0 && n === input.mesh.counts.faces;
+  };
+  if (bool(args, 'separate', true) && inputs.some(takesAll)) {
     return refuse('extract.all-faces', 'Extract needs some faces to stay: select fewer faces');
   }
   return true;
