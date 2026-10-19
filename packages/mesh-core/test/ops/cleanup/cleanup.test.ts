@@ -137,6 +137,57 @@ describe('fixes (§5.25 table)', () => {
     expect(codes(m)).toEqual([]);
   });
 
+  it('collapse leaves no loose geometry when every face of a component collapses (§5.1 orphan cleanup)', () => {
+    // Vertices 0 and 2 coincide; the quad 0–1–2–3 has no area and no edge it can join across, the triangle 0–2–4 is a
+    // needle: both faces go, then every edge and vertex they used.
+    const m = editMeshFrom(
+      buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, -1, -1, 0],
+        faces: [
+          [0, 1, 2, 3],
+          [0, 2, 4],
+        ],
+      }),
+    );
+    const r = fix(m, 'collapse');
+    expect(vef(m)).toBe('0/0/0');
+    expect(codes(m)).toEqual([]);
+    expect(ids(r.selection.verts)).toEqual([]);
+  });
+
+  it('collapse keeps loose geometry it did not make (deleteLoose’s job)', () => {
+    // The needle of the previous case beside a wire edge 5–6 and a lone vertex 7: those stay.
+    const m = editMeshFrom(
+      buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 1, 1e-9, 0, 0, 1, 0, 5, 0, 0, 6, 0, 0, 7, 0, 0],
+        faces: [
+          [0, 1, 3],
+          [0, 3, 2],
+          [0, 2, 4],
+        ],
+      }),
+    );
+    m.begin('wire');
+    m.makeEdge(5, 6);
+    m.end();
+    fix(m, 'collapse');
+    expect(vef(m)).toBe('7/6/2');
+    // Indices moved (the merged vertex 3 left a hole): name the loose elements by position.
+    const x = (v: number): number => m.position[3 * v] as number;
+    const loose = checkMesh(m).filter((p) => p.code === 'loose-geometry');
+    expect(
+      loose.map((p) => [
+        p.domain,
+        Array.from(p.elements ?? [], (i): number | number[] =>
+          p.domain === 'point' ? x(i) : [x(m.edgeVert(i, 0)), x(m.edgeVert(i, 1))],
+        ),
+      ]),
+    ).toEqual([
+      ['point', [7]],
+      ['edge', [[5, 6]]],
+    ]);
+  });
+
   it('collapse keeps the neighbour’s material, flags and face layers on a joined face', () => {
     const data = CHECK_CORPUS['zero-area-face']();
     const m = editMeshFrom({
@@ -280,12 +331,19 @@ describe('visibility and properties', () => {
     fc.assert(
       fc.property(arbSoup(), fc.constantFrom(...FIXES), fc.boolean(), (soup, name, selectOnly) => {
         const m = editMeshFrom(soup);
+        const loose = (): number =>
+          checkMesh(m)
+            .filter((p) => p.code === 'loose-geometry')
+            .reduce((n, p) => n + (p.elements?.length ?? 0), 0);
+        const looseBefore = loose();
         const { result } = runChecked(cleanup, m, null, { fix: name, selectOnly });
         expect(isRefusal(result)).toBe(false);
         const left = codes(m);
         // Deleting laminas and loose geometry never leaves one behind.
         expect(selectOnly || name !== 'deleteLamina' || !left.includes('lamina')).toBe(true);
         expect(selectOnly || name !== 'deleteLoose' || !left.includes('loose-geometry')).toBe(true);
+        // A collapse removes what its merges leave unused (§5.1): it never adds loose geometry.
+        expect(selectOnly || name !== 'collapse' || loose() <= looseBefore).toBe(true);
       }),
       { numRuns: 300, seed: 21 },
     );

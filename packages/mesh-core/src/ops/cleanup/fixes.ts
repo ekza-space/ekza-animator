@@ -5,7 +5,8 @@
 //   longest edge, which takes its corners (nothing moves; the neighbour keeps its material and face layers); then the
 //   endpoints of zero-length edges (and the shortest edge of a cap that could not join) merge into their centroid
 //   (point layers averaged, each face keeps its own corners, merged edges OR their flags (H3)); faces left with fewer
-//   than three distinct corners disappear (a needle's collapse removes it);
+//   than three distinct corners disappear (a needle's collapse removes it), then the edges and vertices they leave
+//   unused (§5.1 orphan cleanup);
 // - conform: reverses faces so every edge-connected component winds one way — outward (positive volume) for a closed
 //   component, the majority's way otherwise (ties: the way of its smallest face);
 // - triangulate: splits the flagged n-gons along the one triangulation's diagonals (H1 hardness from the split);
@@ -139,6 +140,12 @@ export function mergeGroups(
       }
     }
   }
+  // Edges and vertices in use before the merge (indices stay put until the kills below): the ones the merge leaves
+  // unused go with it (§5.1 orphan cleanup); loose geometry that was already there stays for deleteLoose.
+  const hadFaces = new BitSet(m.counts.edges);
+  for (let e = 0; e < m.counts.edges; e++) if (m.edgeFaceCount(e) > 0) hadFaces.add(e);
+  const hadEdges = new BitSet(P);
+  for (let v = 0; v < P; v++) if (m.vertEdge(v) !== -1) hadEdges.add(v);
   const cv = new CornerValues(m);
   const fv = new FaceValues(m);
   const rebuilt: { verts: number[]; records: Float64Array[]; face: Float64Array; material: number; flags: number }[] =
@@ -180,11 +187,40 @@ export function mergeGroups(
     if (e >= edgesBefore) copyEdgeAttributes(m, source.first, e);
     if (m.edgeFlags(e) !== (source.flags & 0xff)) m.setEdgeFlags(e, source.flags & 0xff);
   }
+  // Orphans: edges between survivors that had faces and have none now (a wire edge the merge re-made stays), then
+  // survivors that had edges and keep none. The merged vertices go with their edges (killVert).
+  const merged = (v: number): boolean => (rep[v] as number) !== v;
+  const wirePairs = new Set(wire.map(([a, b]) => pairKey(a, b)));
+  const orphanEdges: number[] = [];
+  for (let e = 0; e < edgesBefore; e++) {
+    const a = m.edgeVert(e, 0);
+    const b = m.edgeVert(e, 1);
+    if (!hadFaces.has(e) || m.edgeFaceCount(e) > 0 || merged(a) || merged(b) || wirePairs.has(pairKey(a, b))) continue;
+    orphanEdges.push(e);
+  }
+  for (let i = orphanEdges.length - 1; i >= 0; i--) m.killEdge(orphanEdges[i] as number);
   const doomed: number[] = [];
-  for (let v = 0; v < P; v++) if ((rep[v] as number) !== v) doomed.push(v);
+  for (let v = 0; v < P; v++) {
+    if (merged(v)) {
+      doomed.push(v);
+      continue;
+    }
+    if (!hadEdges.has(v)) continue;
+    let used = false;
+    const start = m.vertEdge(v);
+    if (start !== -1) {
+      let e = start;
+      let guard = 0;
+      do {
+        if (!merged(m.edgeOther(e, v))) used = true;
+        e = m.edgeDiskNext(e, v);
+      } while (!used && e !== start && ++guard <= m.counts.edges);
+    }
+    if (!used) doomed.push(v);
+  }
   for (let i = doomed.length - 1; i >= 0; i--) m.killVert(doomed[i] as number);
-  // Survivor indices after the kills. Nothing was created in this transaction, so each removal (descending) moves the
-  // last vertex into the hole (the kernel's removal rule, M6A-B1-2).
+  // Survivor indices after the kills. No vertex was created in this transaction, so each removal (descending) moves
+  // the last vertex into the hole (the kernel's removal rule, M6A-B1-2).
   const where = new Int32Array(P);
   const holder = new Int32Array(P);
   for (let v = 0; v < P; v++) {
@@ -201,9 +237,17 @@ export function mergeGroups(
       where[moved] = v;
     }
   }
+  const gone = new Set(doomed);
   return {
-    survivors: groups.map((group) => where[group[0] as number] as number).sort((a, b) => a - b),
-    tracked: track.map((v) => where[rep[v] as number] as number),
+    survivors: groups
+      .map((group) => group[0] as number)
+      .filter((v) => !gone.has(v))
+      .map((v) => where[v] as number)
+      .sort((a, b) => a - b),
+    tracked: track
+      .map((v) => rep[v] as number)
+      .filter((v) => !gone.has(v))
+      .map((v) => where[v] as number),
     nonManifold: countNonManifold(m) > nonManifoldBefore,
   };
 }
