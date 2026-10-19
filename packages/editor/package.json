@@ -15,12 +15,14 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
+    "@ekza-animator/agent-tools": "workspace:*",
     "@ekza-animator/anim-core": "workspace:*",
     "@ekza-animator/curve-editor": "workspace:*",
     "@ekza-animator/doc": "workspace:*",
     "@ekza-animator/editor-core": "workspace:*",
     "@ekza-animator/io": "workspace:*",
     "@ekza-animator/rig": "workspace:*",
+    "@ekza-animator/schematic-render": "workspace:*",
     "@ekza-animator/ui": "workspace:*",
     "@ekza-animator/viewport": "workspace:*",
     "@react-three/fiber": "9.8.1",

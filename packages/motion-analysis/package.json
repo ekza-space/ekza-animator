@@ -1,0 +1,24 @@
+{
+  "name": "@ekza-animator/motion-analysis",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Pure motion metrics over a sampled clip: contacts and foot slide, loop seams, oscillation, pops and Euler flips, spacing, holds, speed, arcs (MCP-SPEC §4.7).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "fast-check": "4.10.2",
+    "vitest": "catalog:"
+  }
+}

@@ -21,6 +21,13 @@ const VIEWPORT = scope('viewport');
 const CURVE_EDITOR = scope('curve-editor');
 const UI = scope('ui');
 const EDITOR = scope('editor');
+// M-AI (MCP-SPEC §2): the agent bridge packages.
+const MOTION_ANALYSIS = scope('motion-analysis');
+const SCHEMATIC_RENDER = scope('schematic-render');
+const AGENT_TOOLS = scope('agent-tools');
+const AGENT_EVALS = scope('agent-evals');
+const MCP_SERVER = 'ekza-animator-mcp';
+const MCP_CLIENT = '@modelcontextprotocol/client';
 
 const VITEST = ['@types/node', 'vitest'];
 const BROWSER_TESTS = [...VITEST, '@vitest/browser-playwright', 'playwright'];
@@ -84,6 +91,62 @@ export const ALLOWED = {
     dependencies: [ANIM_CORE, DOC, RIG, IO, 'zustand'],
     devDependencies: [...VITEST, 'fast-check', 'gltf-validator'],
   },
+  // M-AI (MCP-SPEC §2 layering table). `ekza-animator-mcp` is the only published package: every runtime dependency is
+  // bundled into dist/ by rolldown, so its manifest lists them as devDependencies and publishes no `dependencies`;
+  // gltf-validator stays an optional peer (`--validate`).
+  [MOTION_ANALYSIS]: {
+    dependencies: [ANIM_CORE],
+    devDependencies: [...VITEST, 'fast-check'],
+  },
+  [SCHEMATIC_RENDER]: {
+    dependencies: [ANIM_CORE, 'fflate'],
+    devDependencies: VITEST,
+  },
+  [AGENT_TOOLS]: {
+    dependencies: [ANIM_CORE, DOC, RIG, IO, EDITOR_CORE, MOTION_ANALYSIS, SCHEMATIC_RENDER, 'zod'],
+    devDependencies: [...VITEST, 'ajv', 'fast-check'],
+  },
+  [MCP_SERVER]: {
+    dependencies: [],
+    devDependencies: [
+      ...VITEST,
+      AGENT_TOOLS,
+      EDITOR_CORE,
+      IO,
+      DOC,
+      RIG,
+      ANIM_CORE,
+      SCHEMATIC_RENDER,
+      '@modelcontextprotocol/server',
+      '@modelcontextprotocol/node',
+      MCP_CLIENT,
+      '@types/ws',
+      'gltf-validator',
+      'rolldown',
+      'ws',
+      'zod',
+    ],
+    peerDependencies: ['gltf-validator'],
+  },
+  [AGENT_EVALS]: {
+    dependencies: [],
+    devDependencies: [
+      ...VITEST,
+      AGENT_TOOLS,
+      MCP_SERVER,
+      MOTION_ANALYSIS,
+      EDITOR_CORE,
+      DOC,
+      RIG,
+      IO,
+      ANIM_CORE,
+      MCP_CLIENT,
+      '@anthropic-ai/sdk',
+      'ajv',
+      'fast-check',
+      'gltf-validator',
+    ],
+  },
   [scope('headless-tests')]: {
     dependencies: [],
     devDependencies: [
@@ -129,6 +192,9 @@ export const ALLOWED = {
       VIEWPORT,
       CURVE_EDITOR,
       UI,
+      // M-AI: editor/src/agent/** (a React.lazy chunk; MCP-SPEC §2)
+      AGENT_TOOLS,
+      SCHEMATIC_RENDER,
       ...REACT,
       '@react-three/fiber',
       '@tanstack/react-virtual',
@@ -148,6 +214,10 @@ export const ALLOWED = {
       ...REACT_TYPES,
       DOC,
       IO,
+      // M-AI e2e specs spawn the built server and connect an SDK client (MCP-SPEC §2, §9).
+      MCP_SERVER,
+      AGENT_EVALS,
+      MCP_CLIENT,
       '@playwright/test',
       '@tailwindcss/postcss',
       '@types/three',
