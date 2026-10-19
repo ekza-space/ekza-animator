@@ -143,8 +143,9 @@ const repeatLastOperator = defineOperator({
   category: 'edit',
   scope: GLOBAL_SCOPE,
   poll(ctx) {
-    // The second poll answers for the run prepare made: the repeated operation may no longer poll on its result.
-    if (repeated.delete(ctx.app)) return OK;
+    // The runner's second poll answers for the run prepare made (the repeated operation may no longer poll on its
+    // own result); apply consumes the token.
+    if (repeated.has(ctx.app)) return OK;
     const plan = repeatPlan(ctx.app.session.getState().lastRun);
     switch (plan.kind) {
       case 'none':
@@ -158,9 +159,10 @@ const repeatLastOperator = defineOperator({
     }
   },
   async prepare(ctx) {
+    repeated.delete(ctx.app); // a token left by an interrupted run
     const last = ctx.app.session.getState().lastRun;
     const plan = repeatPlan(last);
-    if (plan.kind === 'none' || last === null) throw new EkzaError('unsupported', NOTHING_TO_REPEAT);
+    if (plan.kind === 'none' || last === null) return; // the second poll reports why
     if (plan.kind === 'tool') {
       await activateTool(ctx, plan.tool);
       return;
@@ -171,7 +173,9 @@ const repeatLastOperator = defineOperator({
     // The second poll answers for the repeated run: its own poll may fail now that it changed the selection.
     repeated.add(ctx.app);
   },
-  apply() {},
+  apply({ app }) {
+    repeated.delete(app);
+  },
 });
 
 /** Panels whose copy/paste/delete act on keys rather than on the pose. */
