@@ -132,6 +132,13 @@ step keys, one exact undo step; a Polybot walk's seam closed by `matchEnds` and 
 24 = pose at 0), `cycleOffset` and `cycleOnly`; an agent Match Range on its own clip). agent-tools: the policy test's
 P1 pins (54 tests, 0 skipped of P1's).
 
-## Gates
+## Gates (2026-10-20, local)
 
-See the final report of this work package (recorded below when run).
+`format:check` (1,060 files), `lint`, `typecheck`, `check:deps` (18 packages), `check:licenses` (174 production
+packages), `check:fixtures` green; `pnpm run test` with `CI` unset: 19/19 tasks (editor-core 835, headless-tests 186,
+agent-tools 116 / 1 skipped (the manifest update mode; no P1 gate left), editor 355 / 1, viewport 104 / 1,
+curve-editor 209 / 3, anim-core 650, mcp-server 13, the rest unchanged); `pnpm run build` green; `check:size`
+858,807 B ≤ 900,000 B (MAI-P1-16); e2e with `--project=chrome` on port 3271 (`EKZA_E2E_PORT=3271`): P1 has no
+e2e scenario of its own (E2E-AI-05 is P8's, gated on P1 and P2), so the full suite ran once against one fresh e2e
+build: 116 tests, 107 passed, 9 skipped (pre-existing fixmes), 0 failed. The web server stopped by itself; port 3271
+is free; no `ekza-ai-e2e-*` folder is left in `$TMPDIR`.
