@@ -22,6 +22,7 @@ import type { EditorApp, OperatorContext, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
 import type * as PivotImpl from './pivotImpl';
 import { MODEL_SETTINGS_REASON } from './softSelect';
+import { NOT_AVAILABLE_YET } from './stub';
 
 /** A mesh or group record (scene objects with a placement and a pivot). */
 export type ObjectRecord = MeshRecord | GroupRecord;
@@ -155,6 +156,44 @@ function ready(app: EditorApp, meshes: readonly MeshRecord[]): boolean {
 
 const kernelReady = (): PollResult => (meshKernel() === null ? fail('Mesh tools are loading') : OK);
 
+/** Whether the loaded kernel's `mesh.applyTransform` is B4's op, not the B0a stub (probed once per kernel module). */
+const applyTransformLanded = new WeakMap<object, boolean>();
+function applyTransformReady(): PollResult {
+  const kernel = meshKernel();
+  if (kernel === null) return fail('Mesh tools are loading');
+  let landed = applyTransformLanded.get(kernel);
+  if (landed === undefined) {
+    landed = true;
+    const op = kernel.MESH_OPS['mesh.applyTransform'];
+    const probe = kernel.emptyMesh();
+    try {
+      probe.begin('probe');
+      const result = op?.run(
+        probe,
+        null,
+        {},
+        {
+          symmetry: null,
+          hidden: null,
+          placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+          faceted: true,
+          soft: null,
+          curves: { compile: () => ({}) as never, evaluate: () => 0 },
+          epsilon: 1e-9,
+        },
+      );
+      landed = op !== undefined && !(kernel.isRefusal(result) && result.code === 'not-implemented');
+    } catch {
+      // The real op may refuse an empty probe in its own way: it is there.
+    } finally {
+      probe.abort();
+    }
+    applyTransformLanded.set(kernel, landed);
+  }
+  // Until B4 lands the op, Freeze and Bake Pivot poll-fail as other ops that have not landed yet (READY.b4).
+  return landed ? OK : fail(NOT_AVAILABLE_YET);
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // `model.pivot.editToggle`, `mesh.pivot.*`, `mesh.resetTransforms`
 
@@ -232,15 +271,17 @@ const pivotBake = defineOperator<'mesh.pivot.bake', Impl>({
   poll({ app }, raw) {
     const targets = targetsOf(app, raw);
     if (typeof targets === 'string') return fail(targets);
+    const moved = (record: ObjectRecord): boolean =>
+      record.pivot[0] !== 0 || record.pivot[1] !== 0 || record.pivot[2] !== 0;
     if (targets.some((record) => 'data' in record)) {
       const ok = kernelReady();
       if (ok !== true) return ok;
     }
     for (const record of targets) {
-      const moved = record.pivot[0] !== 0 || record.pivot[1] !== 0 || record.pivot[2] !== 0;
-      if ('data' in record && record.skin !== null && moved) return fail(FREEZE_SKINNED);
+      if ('data' in record && record.skin !== null && moved(record)) return fail(FREEZE_SKINNED);
     }
-    return OK;
+    // A mesh's geometry moves by −pivot through `mesh.applyTransform`; a group's children only change placements.
+    return targets.some((record) => 'data' in record && moved(record)) ? applyTransformReady() : OK;
   },
   prepare: loadImpl,
   apply(ctx, raw, impl) {
@@ -318,6 +359,8 @@ function freezePoll(ctx: OperatorContext, raw: unknown): PollResult {
   const ok = kernelReady();
   if (ok !== true) return ok;
   if (meshes.some((mesh) => mesh.skin !== null)) return fail(FREEZE_SKINNED);
+  const landed = applyTransformReady();
+  if (landed !== true) return landed;
   return ready(ctx.app, meshes) ? OK : fail(MESH_LOADING);
 }
 
