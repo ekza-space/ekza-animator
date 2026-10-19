@@ -119,7 +119,7 @@ describe('the mirror space', () => {
     fc.double({ min: -5, max: 5, noNaN: true }),
   );
 
-  it('S is an involution, flips the signed distance, and World mode is the local image of the world reflection', () => {
+  it('S is an involution and flips the signed distance; projections lie on the plane', () => {
     fc.assert(
       fc.property(
         arbXf,
@@ -148,29 +148,45 @@ describe('the mirror space', () => {
           reflectVector(ms, x, y, z, a);
           reflectVector(ms, a[0] as number, a[1] as number, a[2] as number, b);
           expect(Math.hypot((b[0] as number) - x, (b[1] as number) - y, (b[2] as number) - z)).toBeLessThan(1e-9);
-          if (space === 'world') {
-            // world(S(p)) = reflect_k(world(p)), and the signed distance is the world coordinate on the axis.
-            const A = placementAffine(placement);
-            const w = (px: number, py: number, pz: number): number[] =>
-              [0, 1, 2].map(
-                (i) =>
-                  (A[4 * i] as number) * px +
-                  (A[4 * i + 1] as number) * py +
-                  (A[4 * i + 2] as number) * pz +
-                  (A[4 * i + 3] as number),
-              );
-            const k = { x: 0, y: 1, z: 2 }[axis];
-            reflectPoint(ms, x, y, z, a);
-            const wp = w(x, y, z);
-            const ws = w(a[0] as number, a[1] as number, a[2] as number);
-            for (let i = 0; i < 3; i++)
-              expect(ws[i] as number).toBeCloseTo(i === k ? -(wp[i] as number) : (wp[i] as number), 7);
-            expect(planeDistance(ms, x, y, z)).toBeCloseTo(wp[k] as number, 7);
-          }
         },
       ),
       { numRuns: 300 },
     );
+  });
+
+  it('World mode is the local image of the world reflection; the signed distance is the world axis coordinate', () => {
+    let checked = 0;
+    fc.assert(
+      fc.property(
+        arbXf,
+        arbPoint,
+        fc.constantFrom('x' as const, 'y' as const, 'z' as const),
+        (placement, [x, y, z], axis) => {
+          const ms = mirrorSpace({ axis, space: 'world', placement });
+          const a = new Float64Array(3);
+          // world(S(p)) = reflect_k(world(p)), and the signed distance is the world coordinate on the axis.
+          const A = placementAffine(placement);
+          const w = (px: number, py: number, pz: number): number[] =>
+            [0, 1, 2].map(
+              (i) =>
+                (A[4 * i] as number) * px +
+                (A[4 * i + 1] as number) * py +
+                (A[4 * i + 2] as number) * pz +
+                (A[4 * i + 3] as number),
+            );
+          const k = { x: 0, y: 1, z: 2 }[axis];
+          reflectPoint(ms, x, y, z, a);
+          const wp = w(x, y, z);
+          const ws = w(a[0] as number, a[1] as number, a[2] as number);
+          for (let i = 0; i < 3; i++)
+            expect(ws[i] as number).toBeCloseTo(i === k ? -(wp[i] as number) : (wp[i] as number), 7);
+          expect(planeDistance(ms, x, y, z)).toBeCloseTo(wp[k] as number, 7);
+          checked++;
+        },
+      ),
+      { numRuns: 300 },
+    );
+    expect(checked).toBe(300);
   });
 
   it('a hand-made map falls back to the axis plane at `plane` in local units', () => {
@@ -224,15 +240,18 @@ describe('seam helpers', () => {
     const m = mesh('cube', { subdivisionsWidth: 2 });
     const map = buildSymmetryMap(m, X);
     const ms = mirrorSpaceOf(map);
-    for (let f = 0; f < m.counts.faces; f++) {
-      expect(isSourceOfPair(m, map, 'face', f)).toBe(centroidPlaneDistance(m, ms, 'face', f) > 0);
-    }
-    for (let e = 0; e < m.counts.edges; e++) {
-      const src = isSourceOfPair(m, map, 'edge', e);
+    const faces = [...Array(m.counts.faces).keys()];
+    expect(faces.map((f) => isSourceOfPair(m, map, 'face', f))).toEqual(
+      faces.map((f) => centroidPlaneDistance(m, ms, 'face', f) > 0),
+    );
+    // Exactly one edge of a mirrored pair is the source; self-partner edges always are.
+    const edges = [...Array(m.counts.edges).keys()];
+    const wrong = edges.filter((e) => {
       const p = map.edge[e] as number;
-      if (p === e) expect(src).toBe(true);
-      else expect(src).not.toBe(isSourceOfPair(m, map, 'edge', p));
-    }
+      const src = isSourceOfPair(m, map, 'edge', e);
+      return p === e ? !src : src === isSourceOfPair(m, map, 'edge', p);
+    });
+    expect(wrong).toEqual([]);
     expect(isSourceOfPair(m, map, 'vertex', vertexAt(m, 0, 0.5, 0.5))).toBe(true);
   });
 
@@ -255,11 +274,8 @@ describe('seam helpers', () => {
   it('crossingParameter: where the plane cuts an edge, null when it does not', () => {
     const m = editMeshFrom(primitive('cube', {}));
     const map = buildSymmetryMap(m, X);
-    for (let e = 0; e < 12; e++) {
-      const t = crossingParameter(m, map, e);
-      if (map.edgeSelf[e] === 1) expect(t).toBeCloseTo(0.5, 12);
-      else expect(t).toBeNull();
-    }
+    const ts = [...Array(12).keys()].map((e) => crossingParameter(m, map, e));
+    expect(ts).toEqual([...Array(12).keys()].map((e) => (map.edgeSelf[e] === 1 ? 0.5 : null)));
     expect(() => crossingParameter(m, map, 12)).toThrow(expect.objectContaining({ code: 'out-of-range' }));
     const stale = buildSymmetryMap(mesh('cube', { subdivisionsWidth: 2 }), X);
     expect(() => crossingParameter(m, stale, 0)).toThrow(expect.objectContaining({ code: 'symmetry-stale' }));

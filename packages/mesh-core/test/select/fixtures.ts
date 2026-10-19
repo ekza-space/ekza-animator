@@ -14,7 +14,11 @@ import {
 } from '../../src';
 import { buildMeshData } from '../../src/testing';
 
-export const IDENTITY: ReadonlyXf = Object.freeze({ t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] });
+export const IDENTITY: ReadonlyXf = Object.freeze({
+  t: [0, 0, 0] as const,
+  q: [0, 0, 0, 1] as const,
+  s: [1, 1, 1] as const,
+});
 
 export function mesh(kind: Parameters<typeof primitive>[0], params: Record<string, number> = {}): EditMesh {
   return editMeshFrom(primitive(kind, params));

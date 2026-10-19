@@ -6,7 +6,6 @@ import { describe, expect, it } from 'vitest';
 import { edgeLoop, edgeRing, editMeshFrom, faceLoop, partialLoop, vertexLoop } from '../../src';
 import { nonManifoldCorpus } from '../../src/testing';
 import {
-  edgeAt,
   edgeFaces,
   edgesChain,
   facesChain,
@@ -36,12 +35,9 @@ describe('edge loops', () => {
       const next = loop[1] as number;
       expect([m.edgeVert(next, 0), m.edgeVert(next, 1)]).toContain(m.edgeVert(e, 1));
     }
-    expect([...lengths.entries()].sort()).toEqual(
-      [
-        [12, 72],
-        [6, 72],
-      ].sort(),
-    );
+    expect(lengths.get(12)).toBe(72);
+    expect(lengths.get(6)).toBe(72);
+    expect(lengths.size).toBe(2);
   });
 
   it('cube: every vertex is a valence-3 pole, so a loop is the edge itself', () => {
@@ -275,7 +271,7 @@ describe('partial loops', () => {
     ]);
     const half = n / 2;
     expect(Array.from(partialLoop(m, 0, loop[half] as number, 'edge') ?? [])).toEqual(loop.slice(0, half + 1));
-    const ringEdge = (edgeRing(m, 0) as Uint32Array)[1] as number;
+    const ringEdge = edgeRing(m, 0)[1] as number;
     expect(partialLoop(m, 0, ringEdge, 'edge')).toBeNull();
     expect(Array.from(partialLoop(m, 0, 0, 'edge') ?? [])).toEqual([0]);
   });
@@ -303,7 +299,7 @@ describe('partial loops', () => {
     const c = loop[loop.length - 2] as number;
     expect(Array.from(partialLoop(m, v, c, 'vertex') ?? [])).toEqual([v, loop.at(-1), c]);
     // A vertex on neither loop through v.
-    const others = new Set<number>([...vertexLoop(m, v, along)]);
+    const others = new Set<number>(vertexLoop(m, v, along));
     const e2 = m.edgeDiskNext(along, v);
     for (const u of vertexLoop(m, v, e2)) others.add(u);
     const off = [...Array(m.counts.points).keys()].find((u) => !others.has(u)) as number;

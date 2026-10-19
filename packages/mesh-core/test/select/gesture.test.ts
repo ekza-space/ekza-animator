@@ -118,7 +118,7 @@ describe('vertex mode', () => {
     const m = torus();
     const e = m.vertEdge(0);
     const loop = Array.from(vertexLoop(m, 0, e));
-    const s = picks(m, 'vertex', [...loop.slice(0, 5)]);
+    const s = picks(m, 'vertex', loop.slice(0, 5));
     const after = loopGesture(m, s, 'vertex', loop[2] as number, 'mod-double');
     expect(membersOf(after)).toEqual([]);
   });

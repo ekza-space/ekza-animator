@@ -61,8 +61,7 @@ export function symmetrizeVertices(
   partner: ArrayLike<number> | ((v: number) => number),
   space: MirrorSpace,
 ): void {
-  const lookup =
-    typeof partner === 'function' ? partner : (v: number): number => (partner[v] as number | undefined) ?? -1;
+  const lookup = typeof partner === 'function' ? partner : (v: number): number => partner[v] ?? -1;
   const done = new Set<number>();
   const p = m.position;
   const s = new Float64Array(3);

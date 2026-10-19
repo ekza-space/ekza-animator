@@ -36,33 +36,43 @@ describe('cube, Object X', () => {
       expect(position(m, map.vertex[v] as number)).toEqual([-p[0], p[1], p[2]]);
     }
     // ±X faces swap; the other four straddle the plane and are their own partners.
-    for (let f = 0; f < 6; f++) {
+    const mirrorFace = (f: number): number => {
       const c = faceCentroid(m, f);
-      if (Math.abs(c[0]) > 0.4) expect(faceCentroid(m, map.face[f] as number)[0]).toBeCloseTo(-c[0], 9);
-      else expect(map.face[f]).toBe(f);
-    }
+      return [...Array(6).keys()].find((g) => {
+        const d = faceCentroid(m, g);
+        return Math.abs(d[0] + c[0]) < 1e-9 && Math.abs(d[1] - c[1]) < 1e-9 && Math.abs(d[2] - c[2]) < 1e-9;
+      }) as number;
+    };
+    expect(Array.from(map.face)).toEqual([...Array(6).keys()].map(mirrorFace));
+    expect([...Array(6).keys()].filter((f) => map.face[f] === f).length).toBe(4);
     expect(map.plane).toBe(0);
     expect(map.axis).toBe('x');
     expect(map.space).toBe('object');
   });
 
   it('X-ring edges are crossing (edgeSelf 1, reversed); the others pair across the plane', () => {
-    for (let e = 0; e < 12; e++) {
+    const rows = [...Array(12).keys()].map((e) => {
       const a = position(m, m.edgeVert(e, 0));
       const b = position(m, m.edgeVert(e, 1));
-      const crossing = Math.abs(a[0] - b[0]) > 0.5;
-      expect(map.edgeSelf[e]).toBe(crossing ? 1 : 0);
-      if (crossing) {
-        expect(map.edge[e]).toBe(e);
-        expect(map.edgeReversed[e]).toBe(1);
-      } else {
-        const p = map.edge[e] as number;
-        expect(p).not.toBe(e);
-        expect(map.edge[p]).toBe(e);
+      const p = map.edge[e] as number;
+      return {
+        crossing: Math.abs(a[0] - b[0]) > 0.5,
+        self: map.edgeSelf[e],
+        partnerIsSelf: p === e,
+        involution: map.edge[p] === e,
         // edgeReversed: the partner's end 0 is the partner of this edge's end 1.
-        expect(map.edgeReversed[e]).toBe(m.edgeVert(p, 0) === map.vertex[m.edgeVert(e, 1)] ? 1 : 0);
-      }
-    }
+        reversed: map.edgeReversed[e] === (m.edgeVert(p, 0) === map.vertex[m.edgeVert(e, 1)] ? 1 : 0),
+        flag: map.edgeReversed[e],
+      };
+    });
+    const crossing = rows
+      .filter((r) => r.crossing)
+      .map(({ self, partnerIsSelf, reversed, flag }) => [self, partnerIsSelf, reversed, flag]);
+    expect(crossing).toEqual(Array(4).fill([1, true, true, 1]));
+    const paired = rows
+      .filter((r) => !r.crossing)
+      .map(({ self, partnerIsSelf, involution, reversed }) => [self, partnerIsSelf, involution, reversed]);
+    expect(paired).toEqual(Array(8).fill([0, false, true, true]));
   });
 
   it('pointer rule on a crossing edge: t ↦ 1 − t; a point near x = 0 snaps to t* = 0.5', () => {
@@ -120,25 +130,19 @@ describe('in-seam edges: t ↦ t, never snapped', () => {
     const m = mesh('cube', { subdivisionsWidth: 2 }); // 12/20/10
     const map = buildSymmetryMap(m, X());
     expect(map.unmatched).toBe(0);
-    let inSeam = 0;
-    for (let e = 0; e < m.counts.edges; e++) {
-      const a = position(m, m.edgeVert(e, 0));
-      const b = position(m, m.edgeVert(e, 1));
-      if (Math.abs(a[0]) < 1e-9 && Math.abs(b[0]) < 1e-9) {
-        inSeam++;
-        expect(map.edgeSelf[e]).toBe(2);
-        expect(map.edge[e]).toBe(e);
-        expect(map.edgeReversed[e]).toBe(0);
-        for (const t of [0, 0.3, 0.5, 0.9])
-          expect(mirrorEdgePoint(m, map, { edge: e, t })).toEqual({ edge: e, t, self: true });
-      }
-    }
-    expect(inSeam).toBe(4);
-    for (let v = 0; v < m.counts.points; v++) {
-      if (Math.abs(position(m, v)[0]) < 1e-9) expect(map.vertex[v]).toBe(v);
-    }
-    // The split faces pair across the plane; none is its own partner except none (each half has a partner).
-    for (let f = 0; f < m.counts.faces; f++) expect(map.face[f]).not.toBe(-1);
+    const seamEdges = [...Array(m.counts.edges).keys()].filter(
+      (e) => Math.abs(position(m, m.edgeVert(e, 0))[0]) < 1e-9 && Math.abs(position(m, m.edgeVert(e, 1))[0]) < 1e-9,
+    );
+    expect(seamEdges.length).toBe(4);
+    expect(seamEdges.map((e) => [map.edgeSelf[e], map.edge[e], map.edgeReversed[e]])).toEqual(
+      seamEdges.map((e) => [2, e, 0]),
+    );
+    const samples = seamEdges.flatMap((e) => [0, 0.3, 0.5, 0.9].map((t) => mirrorEdgePoint(m, map, { edge: e, t })));
+    expect(samples).toEqual(seamEdges.flatMap((e) => [0, 0.3, 0.5, 0.9].map((t) => ({ edge: e, t, self: true }))));
+    const seamVerts = [...Array(m.counts.points).keys()].filter((v) => Math.abs(position(m, v)[0]) < 1e-9);
+    expect(seamVerts.map((v) => map.vertex[v])).toEqual(seamVerts);
+    // The split faces pair across the plane: every face has a partner, none is its own.
+    expect([...map.face].filter((g, f) => g < 0 || g === f)).toEqual([]);
   });
 
   describe.skipIf(!READY.b13)('humanoid body (B13 template)', () => {
@@ -167,12 +171,13 @@ describe('unmatched vertices and the mutual rule', () => {
     expect(map.vertex[1]).toBe(-1);
     expect(map.vertex[0]).toBe(-1);
     expect(map.unmatched).toBe(2);
-    for (let v = 2; v < 8; v++) expect(map.vertex[map.vertex[v] as number]).toBe(v);
-    // Edges and faces through them lose their partners.
-    for (let e = 0; e < m.counts.edges; e++) {
-      const ends = [m.edgeVert(e, 0), m.edgeVert(e, 1)];
-      if (ends.includes(0) || ends.includes(1)) expect(map.edge[e]).toBe(-1);
-    }
+    expect([2, 3, 4, 5, 6, 7].map((v) => map.vertex[map.vertex[v] as number])).toEqual([2, 3, 4, 5, 6, 7]);
+    // Edges through them lose their partners.
+    const touching = [...Array(m.counts.edges).keys()].filter(
+      (e) => [0, 1].includes(m.edgeVert(e, 0)) || [0, 1].includes(m.edgeVert(e, 1)),
+    );
+    expect(touching.length).toBe(5);
+    expect(touching.map((e) => map.edge[e])).toEqual(touching.map(() => -1));
   });
 
   it('a pair is accepted only when the nearest match is mutual; ties go to the smaller index', () => {
@@ -236,8 +241,9 @@ describe('World mode', () => {
   });
 });
 
-/** Every structural rule a map must satisfy (P9 and the §5.14 definitions). */
-function checkMap(m: ReturnType<typeof editMeshFrom>, map: SymmetryMap): void {
+/** Every structural rule a map must satisfy (P9 and the §5.14 definitions): the list of violations. */
+function mapProblems(m: ReturnType<typeof editMeshFrom>, map: SymmetryMap): string[] {
+  const problems: string[] = [];
   const space = mirrorSpaceOf(map);
   const q = new Float64Array(3);
   let unmatched = 0;
@@ -246,7 +252,7 @@ function checkMap(m: ReturnType<typeof editMeshFrom>, map: SymmetryMap): void {
     const [x, y, z] = position(m, v);
     const d = planeDistance(space, x, y, z);
     if (Math.abs(d) <= map.tolerance) {
-      expect(p).toBe(v);
+      if (p !== v) problems.push(`seam vertex ${v} has partner ${p}`);
       continue;
     }
     if (p < 0) {
@@ -254,27 +260,28 @@ function checkMap(m: ReturnType<typeof editMeshFrom>, map: SymmetryMap): void {
       continue;
     }
     // P9: an involution between off-seam vertices within the tolerance of each other's mirror.
-    expect(p).not.toBe(v);
-    expect(map.vertex[p]).toBe(v);
+    if (p === v || map.vertex[p] !== v) problems.push(`vertex ${v} ↔ ${p} is not an involution`);
     reflectPoint(space, x, y, z, q);
     const [px, py, pz] = position(m, p);
-    expect(worldDistance(space, q[0] as number, q[1] as number, q[2] as number, px, py, pz)).toBeLessThanOrEqual(
-      map.tolerance + 1e-12,
-    );
+    if (worldDistance(space, q[0] as number, q[1] as number, q[2] as number, px, py, pz) > map.tolerance + 1e-12) {
+      problems.push(`vertex ${v}: partner ${p} is beyond the tolerance`);
+    }
   }
-  expect(map.unmatched).toBe(unmatched);
+  if (map.unmatched !== unmatched) problems.push(`unmatched ${map.unmatched} ≠ ${unmatched}`);
   for (let e = 0; e < m.counts.edges; e++) {
     const p = map.edge[e] as number;
     if (p < 0) continue;
-    expect(map.edge[p]).toBe(e);
-    const ends = [map.vertex[m.edgeVert(e, 0)] as number, map.vertex[m.edgeVert(e, 1)] as number];
-    expect(ends.sort((a, b) => a - b)).toEqual([m.edgeVert(p, 0), m.edgeVert(p, 1)].sort((a, b) => a - b));
-    if (map.edgeSelf[e] !== 0) expect(p).toBe(e);
+    if (map.edge[p] !== e) problems.push(`edge ${e} ↔ ${p} is not an involution`);
+    const ends = [map.vertex[m.edgeVert(e, 0)] as number, map.vertex[m.edgeVert(e, 1)] as number].sort((a, b) => a - b);
+    const theirs = [m.edgeVert(p, 0), m.edgeVert(p, 1)].sort((a, b) => a - b);
+    if (ends[0] !== theirs[0] || ends[1] !== theirs[1]) problems.push(`edge ${e}: partner ${p} has other ends`);
+    if (map.edgeSelf[e] !== 0 && p !== e) problems.push(`edge ${e}: edgeSelf without being its own partner`);
   }
   for (let f = 0; f < m.counts.faces; f++) {
     const g = map.face[f] as number;
-    if (g >= 0) expect(map.face[g]).toBe(f);
+    if (g >= 0 && map.face[g] !== f) problems.push(`face ${f} ↔ ${g} is not an involution`);
   }
+  return problems;
 }
 
 describe('P9 and the map rules (properties)', () => {
@@ -310,12 +317,11 @@ describe('P9 and the map rules (properties)', () => {
         ({ kind, params }, axis) => {
           const m = editMeshFrom(primitive(kind, params));
           const map = buildSymmetryMap(m, { axis, space: 'object', placement: IDENTITY, tolerance: 1e-4 });
-          checkMap(m, map);
+          expect(mapProblems(m, map)).toEqual([]);
           // Round primitives with an odd side count are not symmetric about Z (rings start on −Z); a cone not about Y.
           const oddRound = kind !== 'cube' && kind !== 'plane' && (params['subdivisionsAxis'] as number) % 2 === 1;
           const symmetric = !(axis === 'z' && oddRound) && !(axis === 'y' && kind === 'cone');
-          if (symmetric) expect(map.unmatched).toBe(0);
-          else expect(map.unmatched).toBeGreaterThan(0);
+          expect(map.unmatched === 0).toBe(symmetric);
         },
       ),
       { numRuns: 120 },
@@ -337,7 +343,7 @@ describe('P9 and the map rules (properties)', () => {
             position[k] = Math.fround((position[k] as number) + d);
           }
           const m = editMeshFrom({ ...data, position });
-          checkMap(m, buildSymmetryMap(m, { ...opts, placement }));
+          expect(mapProblems(m, buildSymmetryMap(m, { ...opts, placement }))).toEqual([]);
         },
       ),
       { numRuns: 150 },
@@ -348,7 +354,7 @@ describe('P9 and the map rules (properties)', () => {
     fc.assert(
       fc.property(arbSoup({ maxVerts: 12, maxFaces: 10 }), arbOpts, (soup, opts) => {
         const m = editMeshFrom(soup);
-        checkMap(m, buildSymmetryMap(m, { ...opts, placement: IDENTITY }));
+        expect(mapProblems(m, buildSymmetryMap(m, { ...opts, placement: IDENTITY }))).toEqual([]);
       }),
       { numRuns: 200 },
     );

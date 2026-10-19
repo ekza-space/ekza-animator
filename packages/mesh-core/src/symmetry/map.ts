@@ -131,56 +131,96 @@ function edgePartners(
 
 function facePartners(m: EditMesh, vertex: Int32Array): Int32Array {
   const n = m.counts.faces;
+  const maxCorners = m.counts.corners;
   const best = new Int32Array(n).fill(-1);
+  // `stamp[w] = f` marks the partner vertex set of face f; `seen` counts a candidate's distinct vertices.
+  const stamp = new Int32Array(m.counts.points).fill(-1);
+  const seen = new Int32Array(m.counts.points).fill(-1);
+  let token = 0;
   const mine: number[] = [];
   const theirs: number[] = [];
-  const sortedOf = (f: number, out: number[], map: Int32Array | null): boolean => {
+  const sortedOf = (f: number, out: number[], map: Int32Array | null): void => {
     out.length = 0;
     const start = m.faceCorner(f);
     let c = start;
     let guard = 0;
     do {
       const v = m.cornerVert(c);
-      const w = map === null ? v : (map[v] ?? -1);
-      if (w < 0) return false;
-      out.push(w);
+      out.push(map === null ? v : (map[v] as number));
       c = m.cornerNext(c);
-    } while (c !== start && ++guard <= m.counts.corners);
+    } while (c !== start && ++guard <= maxCorners);
     out.sort((x, y) => x - y);
-    return true;
   };
   for (let f = 0; f < n; f++) {
-    if (!sortedOf(f, mine, vertex)) continue;
-    // Faces around the partner of the first corner's vertex.
-    const w = vertex[m.cornerVert(m.faceCorner(f))] as number;
-    const first = m.vertEdge(w);
+    // The partner vertex set of f (any vertex without a partner: f has none).
+    const start = m.faceCorner(f);
+    let c = start;
+    let len = 0;
+    let distinct = 0;
+    let complete = true;
+    let guard = 0;
+    do {
+      const w = vertex[m.cornerVert(c)] as number;
+      if (w < 0) {
+        complete = false;
+        break;
+      }
+      len++;
+      if (stamp[w] !== f) {
+        stamp[w] = f;
+        distinct++;
+      }
+      c = m.cornerNext(c);
+    } while (c !== start && ++guard <= maxCorners);
+    if (!complete) continue;
+    // A face visiting a vertex twice compares sorted tuples (multiplicities matter); others compare vertex sets.
+    const repeated = distinct !== len;
+    if (repeated) sortedOf(f, mine, vertex);
+    const w0 = vertex[m.cornerVert(start)] as number;
+    const first = m.vertEdge(w0);
     if (first < 0) continue;
     let found = -1;
     let e = first;
-    let guard = 0;
+    let g1 = 0;
     do {
       const radial = m.edgeCorner(e);
       if (radial >= 0) {
-        let c = radial;
+        let r = radial;
         let g2 = 0;
         do {
-          const g = m.cornerFace(c);
-          if ((found === -1 || g < found) && m.faceLen(g) === mine.length) {
-            sortedOf(g, theirs, null);
+          const g = m.cornerFace(r);
+          if ((found === -1 || g < found) && m.faceLen(g) === len) {
             let same = true;
-            for (let i = 0; i < mine.length; i++) {
-              if (mine[i] !== theirs[i]) {
-                same = false;
-                break;
-              }
+            if (repeated) {
+              sortedOf(g, theirs, null);
+              for (let i = 0; i < len && same; i++) same = mine[i] === theirs[i];
+            } else {
+              token++;
+              let count = 0;
+              const gs = m.faceCorner(g);
+              let k = gs;
+              let g3 = 0;
+              do {
+                const u = m.cornerVert(k);
+                if (stamp[u] !== f) {
+                  same = false;
+                  break;
+                }
+                if (seen[u] !== token) {
+                  seen[u] = token;
+                  count++;
+                }
+                k = m.cornerNext(k);
+              } while (k !== gs && ++g3 <= maxCorners);
+              same = same && count === len;
             }
             if (same) found = g;
           }
-          c = m.cornerRadialNext(c);
-        } while (c !== radial && ++g2 <= m.counts.corners);
+          r = m.cornerRadialNext(r);
+        } while (r !== radial && ++g2 <= maxCorners);
       }
-      e = m.edgeDiskNext(e, w);
-    } while (e !== first && ++guard <= m.counts.edges);
+      e = m.edgeDiskNext(e, w0);
+    } while (e !== first && ++g1 <= m.counts.edges);
     best[f] = found;
   }
   const face = new Int32Array(n).fill(-1);

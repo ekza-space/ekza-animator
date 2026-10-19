@@ -85,9 +85,9 @@ function toWorld(p: readonly number[], xf: ReadonlyXf): [number, number, number]
   ];
 }
 
-const close = (a: readonly number[], b: readonly number[], digits = 6): void => {
-  for (let i = 0; i < 3; i++) expect(a[i] as number).toBeCloseTo(b[i] as number, digits);
-};
+/** The largest coordinate difference of two points. */
+const gap = (a: ArrayLike<number>, b: ArrayLike<number>): number =>
+  Math.max(...[0, 1, 2].map((i) => Math.abs((a[i] ?? Number.NaN) - (b[i] ?? Number.NaN))));
 
 const topFace = (m: EditMesh): number =>
   [...Array(m.counts.faces).keys()].find((f) => faceCentroid(m, f)[1] > 0.49) as number;
@@ -114,14 +114,16 @@ describe('spaces, pivot and orientation', () => {
     const v = vertexAt(m, 0.5, 0.5, 0.5);
     const before = m.snapshot();
     const { result } = run(m, sel(m, 'vertex', [v]), { translateX: 0.1, translateY: 0.2, translateZ: -0.3 });
-    close(position(m, v), [0.6, 0.7, 0.2]);
-    for (let u = 0; u < 8; u++)
-      if (u !== v) expect(position(m, u)).toEqual(Array.from(before.position.slice(3 * u, 3 * u + 3)));
+    expect(gap(position(m, v), [0.6, 0.7, 0.2])).toBeLessThan(1e-6);
+    const others = [...Array(8).keys()].filter((u) => u !== v);
+    expect(others.map((u) => position(m, u))).toEqual(
+      others.map((u) => Array.from(before.position.slice(3 * u, 3 * u + 3))),
+    );
     expect(result.resolvedArgs['pivot']).toEqual([0.5, 0.5, 0.5]);
     expect(result.resolvedArgs['space']).toBe('world');
     expect(result.selection.verts.has(v)).toBe(true);
     expect(result.warnings).toEqual([]);
-    close(result.frame?.pivot ?? [], [0.6, 0.7, 0.2]);
+    expect(gap(result.frame?.pivot ?? [], [0.6, 0.7, 0.2])).toBeLessThan(1e-6);
     expect(validateMesh(m)).toEqual([]);
   });
 
@@ -132,7 +134,7 @@ describe('spaces, pivot and orientation', () => {
     const v = vertexAt(m, 0.5, 0.5, 0.5);
     const w0 = toWorld(position(m, v), placement);
     run(m, sel(m, 'vertex', [v]), { translateX: 1, translateY: 0.25 }, context({ placement }));
-    close(toWorld(position(m, v), placement), [w0[0] + 1, w0[1] + 0.25, w0[2]], 5);
+    expect(gap(toWorld(position(m, v), placement), [w0[0] + 1, w0[1] + 0.25, w0[2]])).toBeLessThan(1e-5);
   });
 
   it('Object: translation along the placement’s rotated axes, in world metres', () => {
@@ -142,7 +144,7 @@ describe('spaces, pivot and orientation', () => {
     const v = vertexAt(m, 0.5, 0.5, 0.5);
     const w0 = toWorld(position(m, v), placement);
     run(m, sel(m, 'vertex', [v]), { translateX: 1, space: 'object' }, context({ placement }));
-    close(toWorld(position(m, v), placement), [w0[0], w0[1], w0[2] - 1], 5);
+    expect(gap(toWorld(position(m, v), placement), [w0[0], w0[1], w0[2] - 1])).toBeLessThan(1e-5);
   });
 
   it('Component: the frame of the top face is Z = +Y, X = +Z, Y = +X (region-frame rule)', () => {
@@ -188,11 +190,11 @@ describe('spaces, pivot and orientation', () => {
     const m3 = mesh('cube');
     const v = vertexAt(m3, 0.5, 0.5, 0.5);
     run(m3, sel(m3, 'vertex', [v]), { scaleX: 2, scaleY: 2, scaleZ: 2, pivot: [0, 0, 0] });
-    close(position(m3, v), [1, 1, 1]);
+    expect(gap(position(m3, v), [1, 1, 1])).toBeLessThan(1e-6);
     // xyz order: R = Rz·Ry·Rx — a point on +Z rotated 90° about X then 90° about Z.
     const m4 = editMeshFrom(buildMeshData({ positions: [0, 0, 1, 1, 1, 1, 2, 2, 2], faces: [[0, 1, 2]] }));
     run(m4, sel(m4, 'vertex', [0]), { rotateX: Math.PI / 2, rotateZ: Math.PI / 2, pivot: [0, 0, 0] });
-    close(position(m4, 0), [1, 0, 0]);
+    expect(gap(position(m4, 0), [1, 0, 0])).toBeLessThan(1e-6);
   });
 
   it('edges move their endpoints; faces sharing a vertex with hidden faces still move it; hidden picks stay', () => {
@@ -268,8 +270,8 @@ describe('symmetry', () => {
         { translateX: 0.1, translateY: 0.2 },
         context({ symmetry: { map, preserveSeam: true } }),
       );
-      close(position(m, v), [0.5 * side + 0.1, 0.7, 0.5]);
-      close(position(m, p), [-0.5 * side - 0.1, 0.7, 0.5]);
+      expect(gap(position(m, v), [0.5 * side + 0.1, 0.7, 0.5])).toBeLessThan(1e-6);
+      expect(gap(position(m, p), [-0.5 * side - 0.1, 0.7, 0.5])).toBeLessThan(1e-6);
       expect(result.warnings).toEqual([]);
     }
   });
@@ -290,7 +292,7 @@ describe('symmetry', () => {
       const p = map.vertex[v] as number;
       const [x, y, z] = position(m, v);
       reflectPoint(space, x, y, z, q);
-      close(Array.from(q), position(m, p));
+      expect(gap(Array.from(q), position(m, p))).toBeLessThan(1e-6);
     }
   });
 
@@ -310,7 +312,7 @@ describe('symmetry', () => {
         { translateX: 0.3, translateY: 0.2 },
         context({ symmetry: { map, preserveSeam: preserve } }),
       );
-      close(position(m, c), [preserve ? 0 : 0.0004, 0.7, 0.5]);
+      expect(gap(position(m, c), [preserve ? 0 : 0.0004, 0.7, 0.5])).toBeLessThan(1e-6);
     }
   });
 
@@ -347,8 +349,8 @@ describe('symmetry', () => {
     const a = vertexAt(m, 0.5, 0.5, 0.5);
     const b = map.vertex[a] as number;
     run(m, sel(m, 'vertex', [b, a]), { translateX: 0.1 }, context({ symmetry: { map, preserveSeam: true } }));
-    close(position(m, a), [0.6, 0.5, 0.5]);
-    close(position(m, b), [-0.6, 0.5, 0.5]);
+    expect(gap(position(m, a), [0.6, 0.5, 0.5])).toBeLessThan(1e-6);
+    expect(gap(position(m, b), [-0.6, 0.5, 0.5])).toBeLessThan(1e-6);
   });
 
   it('a stale map (other vertex count) is a caller error', () => {
@@ -403,14 +405,22 @@ describe('soft selection', () => {
     );
     const seeds = expandSelection(sel(m, 'vertex', [v]), map).verts;
     const w = softWeights(editMeshFrom({ ...m.snapshot(), position: before }), seeds, { ...soft, placement: IDENTITY });
+    let dyError = 0;
+    let dxError = 0;
+    let seamMoves = 0;
     for (let u = 0; u < m.counts.points; u++) {
       const x0 = before[3 * u] as number;
       const dx = (m.position[3 * u] as number) - x0;
       const dy = m.position[3 * u + 1] as number;
-      expect(dy).toBeCloseTo(0.3 * (w[u] as number), 6);
-      if (Math.abs(x0) < 1e-9) expect(dx).toBe(0);
-      else expect(dx).toBeCloseTo(Math.sign(x0) * 0.2 * (w[u] as number), 6);
+      dyError = Math.max(dyError, Math.abs(dy - 0.3 * (w[u] as number)));
+      // Seam vertices (x = 0) take the in-plane part only; each side moves away from or towards the plane mirrored.
+      if (Math.abs(x0) < 1e-9) seamMoves = Math.max(seamMoves, Math.abs(dx));
+      else dxError = Math.max(dxError, Math.abs(dx - Math.sign(x0) * 0.2 * (w[u] as number)));
     }
+    expect(dyError).toBeLessThan(1e-6);
+    expect(dxError).toBeLessThan(1e-6);
+    expect(seamMoves).toBe(0);
+    expect(w.filter((x) => x > 0 && x < 1).length).toBeGreaterThan(10);
   });
 });
 
@@ -476,30 +486,32 @@ const arbSoft = fc.option(
   { nil: null },
 );
 
-/** Positions mirror each other across the map's plane (1e-6 m); seam vertices do not leave the tolerance band. */
-function checkSymmetric(m: EditMesh, map: SymmetryMap, before: Float32Array, preserve: boolean): void {
+/**
+ * How far the result is from symmetric (0 = exact): mirrored pairs by the world distance between one vertex's mirror
+ * image and its partner; seam vertices by their distance to the plane (Preserve Seam) or by how much farther from it
+ * they moved (without).
+ */
+function symmetryError(m: EditMesh, map: SymmetryMap, before: Float32Array, preserve: boolean): number {
   const space = mirrorSpaceOf(map);
   const q = new Float64Array(3);
+  let error = 0;
   for (let v = 0; v < m.counts.points; v++) {
     const p = map.vertex[v] as number;
     const [x, y, z] = position(m, v);
     if (p === v) {
-      const d0 = planeDistance(
-        space,
-        before[3 * v] as number,
-        before[3 * v + 1] as number,
-        before[3 * v + 2] as number,
+      const d0 = Math.abs(
+        planeDistance(space, before[3 * v] as number, before[3 * v + 1] as number, before[3 * v + 2] as number),
       );
-      const d1 = planeDistance(space, x, y, z);
-      if (preserve) expect(Math.abs(d1)).toBeLessThanOrEqual(1e-6);
-      else expect(Math.abs(d1)).toBeLessThanOrEqual(Math.abs(d0) + 1e-6);
+      const d1 = Math.abs(planeDistance(space, x, y, z));
+      error = Math.max(error, preserve ? d1 : d1 - d0);
       continue;
     }
     if (p < 0) continue;
     reflectPoint(space, x, y, z, q);
     const [px, py, pz] = position(m, p);
-    expect(worldDistance(space, q[0] as number, q[1] as number, q[2] as number, px, py, pz)).toBeLessThanOrEqual(1e-6);
+    error = Math.max(error, worldDistance(space, q[0] as number, q[1] as number, q[2] as number, px, py, pz));
   }
+  return error;
 }
 
 describe('P10: symmetric input + symmetric args → symmetric output', () => {
@@ -525,12 +537,13 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
           const placement: ReadonlyXf = { t: xf.t, q: [Math.sin(xf.angle / 2), 0, 0, Math.cos(xf.angle / 2)], s: xf.s };
           run(m, sel(m, ck, picks), args, context({ placement, soft, symmetry: { map, preserveSeam: preserve } }));
           expect(validateMesh(m)).toEqual([]);
-          checkSymmetric(m, map, before, preserve);
-          if (soft === null) {
-            // Partners are found again for every vertex (no vertex was created; the pairs survive).
-            const again = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 1e-4 });
-            expect(again.unmatched).toBe(0);
-          }
+          expect(symmetryError(m, map, before, preserve)).toBeLessThanOrEqual(1e-6);
+          // Without soft weights the pairs move rigidly: partners are found again for every vertex.
+          const again =
+            soft === null
+              ? buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 1e-4 })
+              : map;
+          expect(again.unmatched).toBe(0);
         },
       ),
       { numRuns: 150 },
@@ -553,7 +566,7 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
           const picks = [...new Set(raw.map((i) => i % m.counts.faces))];
           const before = m.snapshot().position;
           run(m, sel(m, 'face', picks), args, context({ placement, soft, symmetry: { map, preserveSeam: true } }));
-          checkSymmetric(m, map, before, true);
+          expect(symmetryError(m, map, before, true)).toBeLessThanOrEqual(1e-6);
         },
       ),
       { numRuns: 100 },

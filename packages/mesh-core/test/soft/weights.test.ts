@@ -127,15 +127,22 @@ describe('Volume vs Surface', () => {
     const surface = softWeights(m, seeds, { ...ctx, falloff: 'surface' });
     const [cx, , cz] = position(m, centre);
     let inside = 0;
+    let volumeError = 0;
+    let rowError = 0;
+    let outside = 0;
     for (let v = 0; v < m.counts.points; v++) {
       const [x, , z] = position(m, v);
       const d = Math.hypot(x - cx, z - cz);
       const expected = d > 1.8 ? 0 : presetFalloff('smooth', d / 1.8);
-      expect(Math.abs((volume[v] as number) - expected)).toBeLessThan(1e-6);
+      volumeError = Math.max(volumeError, Math.abs((volume[v] as number) - expected));
       if (d <= 1.8) inside++;
-      if (Math.abs(z - cz) < 1e-6) expect(Math.abs((surface[v] as number) - expected)).toBeLessThan(1e-5);
-      if (d > 1.8) expect(surface[v]).toBe(0);
+      // Along the seed's grid row the geodesic is the straight distance.
+      if (Math.abs(z - cz) < 1e-6) rowError = Math.max(rowError, Math.abs((surface[v] as number) - expected));
+      if (d > 1.8) outside = Math.max(outside, surface[v] as number);
     }
+    expect(volumeError).toBeLessThan(1e-6);
+    expect(rowError).toBeLessThan(1e-5);
+    expect(outside).toBe(0);
     expect(inside).toBeGreaterThan(900);
   });
 });

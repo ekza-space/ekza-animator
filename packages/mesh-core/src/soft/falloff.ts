@@ -44,7 +44,7 @@ export function falloffFunction(curve: FalloffCurve): (x: number) => number {
     presetFalloff(curve, 0); // validates the name
     return (x) => presetFalloff(curve, x);
   }
-  if (typeof curve !== 'object' || curve === null || !Array.isArray((curve as AnimCurve).keys)) {
+  if (typeof curve !== 'object' || curve === null || !Array.isArray(curve.keys)) {
     throw kernelError('invalid-argument', 'a custom falloff must be an AnimCurve');
   }
   const compiled = curveEngine.compile(curve);

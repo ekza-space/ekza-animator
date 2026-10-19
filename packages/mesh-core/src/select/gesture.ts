@@ -166,7 +166,7 @@ function runAround(walk: Walk, at: number, set: BitSet): number[] {
   }
   while (lo > 0 && inSet(lo - 1)) lo--;
   while (hi < n - 1 && inSet(hi + 1)) hi++;
-  return items.slice(lo, hi + 1) as number[];
+  return items.slice(lo, hi + 1);
 }
 
 function modDouble(

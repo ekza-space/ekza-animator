@@ -380,7 +380,7 @@ function plan(
     let sum = 0;
     picked.forEach((v) => {
       if (partner[v] === v) return;
-      sum += planeDistance(space as MirrorSpace, p[3 * v] as number, p[3 * v + 1] as number, p[3 * v + 2] as number);
+      sum += planeDistance(space, p[3 * v] as number, p[3 * v + 1] as number, p[3 * v + 2] as number);
     });
     if (sum !== 0) source = Math.sign(sum);
     else {
