@@ -17,8 +17,9 @@ import { runSeed, runSettings } from '../../../mesh/seed';
 import type { MeshOpArgs, MeshOpOutcome, OperatorDef, ToolId } from '../../../types';
 import type { AnyOperator } from '../define';
 import { rememberResolvedArgs } from '../lastop';
+import { WHOLE_MESH_OPS, wholeMeshRun } from './whole';
 
-export { MESH_EXTRA_ARGS };
+export { MESH_EXTRA_ARGS, WHOLE_MESH_OPS, wholeMeshRun };
 
 /** Blender names (and a few Maya synonyms) the command palette also finds (§6: "Blender names are palette aliases"). */
 export const MESH_OP_ALIASES: Readonly<Record<string, readonly string[]>> = {
@@ -106,29 +107,42 @@ function withSelectionHint(
 }
 
 /** One-line descriptions for the command palette and tooltips (the label says the rest). */
-function descriptionOf(label: string, kinds: MeshOpDescriptor['kinds'] | null): string {
+function descriptionOf(label: string, kinds: MeshOpDescriptor['kinds'] | null, whole = false): string {
   if (kinds === null) return `${label} (mesh objects).`;
-  return kinds === 'object' ? `${label} (whole meshes).` : `${label} (${kinds.join(', ')} components).`;
+  if (kinds === 'object') return `${label} (whole meshes).`;
+  return `${label} (${kinds.join(', ')} components${whole ? ' or whole meshes' : ''}).`;
 }
 
-/** `meshOperator` with the kernel's resolved args remembered for the LastRun recorder (§5.7). */
+/**
+ * `meshOperator` with the kernel's resolved args remembered for the LastRun recorder (§5.7). The ops of
+ * `WHOLE_MESH_OPS` (§6.1 Modes "…, object") poll and apply in object mode through B7's object-level wrapper built from
+ * the same descriptor: the selected mesh objects (or `meshes`), kind null, a null selection (the whole mesh).
+ */
 export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<MeshOpArgs, MeshOpOutcome, void> {
   const tool = MESH_OP_TOOLS[desc.id];
   const aliases = MESH_OP_ALIASES[desc.id];
-  const base = meshOperator(desc, {
+  const opts = {
     category: 'mesh',
     scope: 'model',
     ...(tool === undefined ? {} : { tool }),
     ...(aliases === undefined ? {} : { aliases }),
-  });
+  } as const;
+  const base = meshOperator(desc, opts);
+  const whole = WHOLE_MESH_OPS.has(desc.id) && desc.kinds !== 'object';
+  const wholeBase = whole ? meshOperator({ ...desc, kinds: 'object' }, opts) : null;
   const objectLevel = desc.kinds === 'object';
-  const poll = withSelectionHint(
+  const componentPoll = withSelectionHint(
     desc,
     base.poll === undefined ? undefined : (ctx, args) => base.poll?.(ctx, args) ?? true,
   );
+  const poll: OperatorDef<MeshOpArgs, MeshOpOutcome, void>['poll'] =
+    wholeBase === null || componentPoll === undefined
+      ? componentPoll
+      : (ctx, args) =>
+          wholeMeshRun(ctx.app, desc.id, args) ? (wholeBase.poll?.(ctx, args) ?? true) : componentPoll(ctx, args);
   return {
     ...base,
-    description: descriptionOf(desc.label, desc.kinds),
+    description: descriptionOf(desc.label, desc.kinds, whole),
     flags: { ...base.flags, ...(INTERNAL_MESH_OPS.has(desc.id) ? { internal: true } : {}) },
     ...(poll === undefined ? {} : { poll }),
     apply(ctx, args): MeshOpOutcome {
@@ -137,8 +151,9 @@ export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<Mesh
       if (ctx.tx === null || op === undefined || meshes === null) {
         throw new EkzaError('mesh-loading', 'Mesh tools are loading');
       }
-      const kind = objectLevel ? null : kindOf(ctx.app, args);
-      const targets = targetsOf(ctx.app, args, kind, objectLevel);
+      const onWhole = objectLevel || (whole && wholeMeshRun(ctx.app, desc.id, args));
+      const kind = onWhole ? null : kindOf(ctx.app, args);
+      const targets = targetsOf(ctx.app, args, kind, onWhole);
       const settings = runSettings(ctx, desc.id);
       const result = meshes.commitOp(ctx.tx, op, targets, opArgs(args), {
         seed: runSeed(ctx, desc.id),

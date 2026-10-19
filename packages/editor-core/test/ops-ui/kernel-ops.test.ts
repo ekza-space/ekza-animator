@@ -1,7 +1,8 @@
-// M6A-SPEC §5.7, §5.10, §9 B11 (READY-gated on the kernel owners, §3 rule 4): the B11 behaviours with the real ops —
-// Extrude adjusted through the capture window after `3` (object mode) on the restored face selection, bit-identical
-// to a fresh run; Bevel's `30%` fraction and its Segments adjust without a new step; Insert Edge Loop repeated by `G`
-// from the selected edge; a paramless repeatable op (Triangulate) repeated on the next selection.
+// M6A-SPEC §5.7, §5.10, §6.1, §9 B11 (READY-gated on the kernel owners, §3 rule 4): the B11 behaviours with the real
+// ops — Extrude adjusted through the capture window after `3` (object mode) on the restored face selection,
+// bit-identical to a fresh run; Bevel's `30%` fraction and its Segments adjust without a new step; Insert Edge Loop
+// repeated by `G` from an edge of another ring; a paramless repeatable op (Triangulate) repeated on the next selection;
+// Triangulate, Conform and Average Vertices on whole meshes in object mode (§6.1 Modes "…, object").
 import type { MeshId } from '@ekza-animator/doc';
 import { editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
@@ -37,19 +38,83 @@ function topFace(data: MeshData): number {
   return best;
 }
 
-/** A top edge of the cube along X (both ends at y = 0.5, different x). */
-function topEdgeAlongX(data: MeshData): number {
+/** A top edge of the mesh along `axis` (both ends at y = 0.5, apart along the axis). */
+function topEdgeAlong(data: MeshData, axis: 'x' | 'z'): number {
   const m = editMeshFrom(data);
+  const i = axis === 'x' ? 0 : 2;
   for (let e = 0; e < m.counts.edges; e++) {
     const a = m.edgeVert(e, 0);
     const b = m.edgeVert(e, 1);
     const ya = m.position[3 * a + 1] as number;
     const yb = m.position[3 * b + 1] as number;
-    const xa = m.position[3 * a] as number;
-    const xb = m.position[3 * b] as number;
-    if (ya > 0.49 && yb > 0.49 && Math.abs(xa - xb) > 0.5) return e;
+    const da = m.position[3 * a + i] as number;
+    const db = m.position[3 * b + i] as number;
+    if (ya > 0.49 && yb > 0.49 && Math.abs(da - db) > 0.5) return e;
   }
-  throw new Error('no top edge along X');
+  throw new Error(`no top edge along ${axis}`);
+}
+
+const topEdgeAlongX = (data: MeshData): number => topEdgeAlong(data, 'x');
+
+/** The face whose centroid is lowest (the cube's bottom, −Y). */
+function bottomFace(data: MeshData): number {
+  const m = editMeshFrom(data);
+  let best = -1;
+  let bestY = Infinity;
+  for (let f = 0; f < m.counts.faces; f++) {
+    let y = 0;
+    let n = 0;
+    const first = m.faceCorner(f);
+    let c = first;
+    do {
+      y += m.position[3 * m.cornerVert(c) + 1] as number;
+      n++;
+      c = m.cornerNext(c);
+    } while (c !== first);
+    if (y / n < bestY - 1e-9) {
+      bestY = y / n;
+      best = f;
+    }
+  }
+  return best;
+}
+
+/** Each face's vertex cycle, rotated to start at its lowest vertex (winding kept). */
+function faceLoops(data: MeshData): number[][] {
+  const m = editMeshFrom(data);
+  const out: number[][] = [];
+  for (let f = 0; f < m.counts.faces; f++) {
+    const loop: number[] = [];
+    const first = m.faceCorner(f);
+    let c = first;
+    do {
+      loop.push(m.cornerVert(c));
+      c = m.cornerNext(c);
+    } while (c !== first);
+    const at = loop.indexOf(Math.min(...loop));
+    out.push([...loop.slice(at), ...loop.slice(0, at)]);
+  }
+  return out;
+}
+
+const dataOf = (t: MeshTestApp, id: MeshId): MeshData => {
+  const data = t.app.meshes.get(id)?.data();
+  if (data === undefined || data === null) throw new Error(`no data for ${id}`);
+  return data;
+};
+
+/** Object mode with the cube selected as an object (and hilited, as entering a component mode shows it). */
+async function cubeInObjectMode() {
+  const t = await meshTestApp();
+  switchWorkspace(t.app, 'model');
+  const id = createMesh(t, 'msh_Cube');
+  t.app.history.clear();
+  const state = t.app.session.getState();
+  t.app.session.setState({
+    selection: { ...state.selection, objects: [id] },
+    model: { ...state.model, componentMode: 'object', hilite: [id] },
+  });
+  return { ...t, id };
 }
 
 async function cubeIn(mode: 'face' | 'edge', pick: (data: MeshData) => number) {
@@ -126,22 +191,75 @@ describe.skipIf(!READY.b5)('Bevel and its card (READY.b5)', () => {
 });
 
 describe.skipIf(!READY.b3)('Repeat Last with the real ops (READY.b3)', () => {
-  it('a menu-run Insert Edge Loop repeats from the newly selected edge with the same values', async () => {
+  it('a menu-run Insert Edge Loop repeats from the newly selected edge of another ring with the same values', async () => {
     const t = await cubeIn('edge', topEdgeAlongX);
     await t.app.runUntyped('mesh.insertLoop', { weight: 0.3 }, { source: 'menu' });
     expect(counts(t, t.id)).toBe('12/20/10');
     expect(t.app.session.getState().lastRun).toMatchObject({ source: 'menu', args: { weight: 0.3 } });
+    // A top edge along Z: its ring crosses the new loop (six quads: top halves, bottom halves, the ±X sides).
+    const data = dataOf(t, t.id);
+    const seed = topEdgeAlong(data, 'z');
+    t.meshes.select(t.id, selectionOf('edge', [seed], data.counts));
     expect((await t.app.run('edit.repeatLast')).status).toBe('finished');
-    expect(t.app.session.getState().lastRun?.args['weight']).toBe(0.3);
-    expect(counts(t, t.id)).not.toBe('12/20/10');
+    expect(t.app.session.getState().lastRun).toMatchObject({ args: { weight: 0.3, seedEdge: seed } });
+    expect(counts(t, t.id)).toBe('18/32/16');
   });
 });
 
 describe.skipIf(!READY.b4)('paramless repeatable ops (READY.b4)', () => {
-  it('Triangulate records a LastRun without card fields and repeats by G', async () => {
+  it('Triangulate records a LastRun without card fields and repeats by G on the next selection', async () => {
     const t = await cubeIn('face', topFace);
     await t.app.runUntyped('mesh.triangulate', {}, { source: 'menu' });
     expect(t.app.session.getState().lastRun).toMatchObject({ id: 'mesh.triangulate', params: [], repeatable: true });
-    expect(t.app.operators.poll('edit.repeatLast')).toBe(true);
+    expect(counts(t, t.id)).toBe('8/13/7');
+    const data = dataOf(t, t.id);
+    t.meshes.select(t.id, selectionOf('face', [bottomFace(data)], data.counts));
+    const steps = undoLength(t);
+    expect((await t.app.run('edit.repeatLast')).status).toBe('finished');
+    expect(counts(t, t.id)).toBe('8/14/8');
+    expect(undoLength(t)).toBe(steps + 1);
+    expect(t.app.history.peekUndo()?.label).toBe('Triangulate');
+  });
+});
+
+describe.skipIf(!READY.b4)('whole meshes in object mode (§6.1 Modes "…, object"; READY.b4)', () => {
+  it('Triangulate from the Mesh menu in object mode splits every quad of the selected cube', async () => {
+    const t = await cubeInObjectMode();
+    expect(t.app.operators.poll('mesh.triangulate')).toBe(true);
+    expect((await t.app.runUntyped('mesh.triangulate', {}, { source: 'menu' })).status).toBe('finished');
+    expect(counts(t, t.id)).toBe('8/18/12');
+    expect(t.app.session.getState().lastRun).toMatchObject({ id: 'mesh.triangulate', kind: null, targets: [t.id] });
+  });
+
+  it('Conform in object mode restores a reversed face; positions are untouched', async () => {
+    const t = await cubeInObjectMode();
+    const original = faceLoops(primitive('cube', {}));
+    const model = t.app.session.getState().model;
+    t.app.session.setState({ model: { ...model, componentMode: 'face' } });
+    t.meshes.select(t.id, selectionOf('face', [0], primitive('cube', {}).counts));
+    expect((await t.app.runUntyped('mesh.reverse', {})).status).toBe('finished');
+    expect(faceLoops(dataOf(t, t.id))).not.toEqual(original);
+    const before = positionsOf(t, t.id);
+    t.app.session.setState({ model: { ...t.app.session.getState().model, componentMode: 'object' } });
+    expect((await t.app.runUntyped('mesh.conform', {}, { source: 'menu' })).status).toBe('finished');
+    expect(faceLoops(dataOf(t, t.id))).toEqual(original);
+    expect(positionsOf(t, t.id)).toEqual(before);
+    expect(t.app.session.getState().lastRun).toMatchObject({ id: 'mesh.conform', kind: null, targets: [t.id] });
+  });
+
+  it('Average Vertices in object mode moves every vertex of the mesh, as a whole-mesh script run does', async () => {
+    const t = await cubeInObjectMode();
+    const before = positionsOf(t, t.id);
+    expect((await t.app.runUntyped('mesh.averageVertices', { iterations: 1 }, { source: 'menu' })).status).toBe(
+      'finished',
+    );
+    const after = positionsOf(t, t.id);
+    for (let v = 0; v < 8; v++) expect(after.slice(3 * v, 3 * v + 3)).not.toEqual(before.slice(3 * v, 3 * v + 3));
+    expect(t.app.session.getState().lastRun).toMatchObject({ id: 'mesh.averageVertices', kind: null });
+    const f = await cubeInObjectMode();
+    expect((await f.app.runUntyped('mesh.averageVertices', { iterations: 1, kind: null, meshes: [f.id] })).status).toBe(
+      'finished',
+    );
+    expect(positionsOf(f, f.id)).toEqual(after);
   });
 });

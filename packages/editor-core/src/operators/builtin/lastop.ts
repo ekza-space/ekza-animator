@@ -30,6 +30,7 @@ import type {
 } from '../../types';
 import { openLastOpCard, resetLastOpCard } from '../../edit/capture';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, runContextOf } from './define';
+import { WHOLE_MESH_OPS } from './mesh/whole';
 
 // ---------- reasons (§5.7 table) ----------
 
@@ -277,8 +278,9 @@ export function recordsLastRun(def: OperatorDef<unknown, unknown, unknown>): boo
 }
 
 /**
- * The component kind a run read: its explicit `kind`, else the mode at the start; null for object-level ops and for
- * operators that take no `kind` (only mesh operators pass `kind` through, `MeshOpArgs`).
+ * The component kind a run read: its explicit `kind`, else the mode at the start; null for object-level ops, for
+ * whole-mesh runs (object mode, or an explicit `kind: null` of a `WHOLE_MESH_OPS` op) and for operators that take no
+ * `kind` (only mesh operators pass `kind` through, `MeshOpArgs`).
  */
 function kindOfRun(
   def: OperatorDef<unknown, unknown, unknown>,
@@ -289,6 +291,7 @@ function kindOfRun(
   if (desc !== undefined && desc.kinds === 'object') return null;
   if (def.extraArgs?.includes('kind') !== true) return null;
   const given = isRecord(args) ? args['kind'] : undefined;
+  if (given === null && WHOLE_MESH_OPS.has(def.id)) return null;
   if (given === 'vertex' || given === 'edge' || given === 'face') return given;
   const mode = before.model.componentMode;
   return mode === 'object' ? null : mode;
@@ -442,15 +445,19 @@ export function coercePartial(params: readonly ParamDef[], raw: unknown): ParamV
   return out;
 }
 
-/** The args the adjusted re-run gets: the recorded args, the new values, the recorded targets and kind. */
+/**
+ * The args the adjusted re-run gets: the recorded args, the new values, the recorded targets and kind. A whole-mesh
+ * run of a `WHOLE_MESH_OPS` op passes `kind: null`, so it stays on the whole mesh after a switch to a component mode.
+ */
 export function adjustedArgs(app: EditorApp, last: LastRun, patch: unknown): Record<string, unknown> {
   const def = app.operators.get(last.id);
   const extra = def?.extraArgs ?? [];
+  const kind = last.kind !== null || WHOLE_MESH_OPS.has(last.id);
   return {
     ...last.args,
     ...coercePartial(last.params, patch),
     ...(extra.includes('meshes') ? { meshes: last.targets } : {}),
-    ...(extra.includes('kind') && last.kind !== null ? { kind: last.kind } : {}),
+    ...(extra.includes('kind') && kind ? { kind: last.kind } : {}),
   };
 }
 

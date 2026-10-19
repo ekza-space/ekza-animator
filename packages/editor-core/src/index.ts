@@ -237,6 +237,8 @@ export {
   MESH_OP_TOOLS,
   registeredMeshOperator,
   registeredMeshSetOperator,
+  WHOLE_MESH_OPS,
+  wholeMeshRun,
 } from './operators/builtin/mesh';
 export { coerceRunArgs, recordNoLastRun } from './operators/runner';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
