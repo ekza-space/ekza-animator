@@ -19,6 +19,7 @@ import {
   writeRevision,
 } from '@ekza-animator/mesh-core';
 import {
+  type AutosaveStore,
   createEditorApp,
   createMemoryBlobStore,
   type EditorApp,
@@ -40,12 +41,13 @@ export interface MeshTestApp {
 export async function meshTestApp(opts?: {
   readonly builtins?: boolean;
   readonly blobs?: MemoryBlobStore;
+  readonly autosave?: AutosaveStore;
 }): Promise<MeshTestApp> {
   await loadMeshKernel();
   const blobs = opts?.blobs ?? createMemoryBlobStore();
   const services = createFakeServices();
   const app = createEditorApp({
-    services: { ...services, blobs },
+    services: { ...services, blobs, ...(opts?.autosave === undefined ? {} : { autosave: opts.autosave }) },
     idSource: seededIdSource(7),
     builtins: opts?.builtins ?? true,
   });
