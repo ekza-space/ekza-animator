@@ -57,10 +57,20 @@ export default function ModalReadoutView(props: {
   const text = label === null || value === null ? null : `${label} ${value}`;
   const at = readout !== null ? { x: readout.x, y: readout.y } : pointer;
 
-  // The help line mirrors a capture entry (§5.10).
+  // The help line mirrors a capture entry (§5.10). The entry may have ended before this effect runs (Enter or Esc in
+  // the same frame as the last digit): then the line keeps what replaced the prompt (the committed value). When the
+  // entry ends (applied, cancelled, or dropped with its drag) a prompt still on the line is cleared, so it never
+  // outlives the entry.
+  const prompt = typing && text !== null ? `${text} · ${KEYS}` : null;
   useEffect(() => {
-    if (typing && text !== null) shell?.help(`${text} · ${KEYS}`);
-  }, [typing, text, shell]);
+    if (prompt === null || shell === null) return undefined;
+    const live = app.capture.state;
+    if (live.armed === null || live.text === null) return undefined;
+    shell.help(prompt);
+    return () => {
+      if (shell.ui.getState().help?.text === prompt) shell.ui.setState({ help: null });
+    };
+  }, [app, prompt, shell]);
 
   // The pane's and the chip's sizes (for the flip at the edges), measured after each change of the text or place.
   const x = at?.x ?? null;

@@ -16,7 +16,7 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import { setTransformReadout } from '@ekza-animator/viewport';
+import { announceTransform, setTransformReadout, transformAnnouncement } from '@ekza-animator/viewport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MOVE_SPACE_MENU, OPTIONS_MENU, OPTIONS_MENU_LMB, ROTATE_SPACE_MENU } from '../src/overlays/menus/options';
 import { EditorRoot } from '../src/shell/EditorRoot';
@@ -203,7 +203,60 @@ describe('the modal readout chip (§8.7)', () => {
     await waitFor(() => query('helpline-text')?.textContent?.includes('Translate Y 0.5_') === true);
     app.capture.key({ code: 'Enter', key: 'Enter', shift: false, mod: false, alt: false });
     await waitFor(() => applied === 0.5);
+    // Enter applied the entry: the committed value replaces the prompt (B11's engine says it at once).
+    await waitFor(() => query('helpline-text')?.textContent === 'Translate Y 0.500 m');
+    // The drag commits: the transform runtime's announcement goes to the help line of its pane (once).
     setTransformReadout(app, null);
+    announceTransform(app, { paneId: 'pane-persp', text: 'Move Translate Y 0.500 m' });
+    await waitFor(() => query('helpline-text')?.textContent === 'Move Translate Y 0.500 m');
+    await waitFor(() => transformAnnouncement(app) === null);
+    expect(query('helpline-text')?.textContent).toBe('Move Translate Y 0.500 m');
+  });
+
+  it('clears the entry prompt when the entry ends without a committed value (Esc, the drag released)', async () => {
+    const { app } = await mount();
+    await loadOpsRuntime();
+    let cancelled = false;
+    const target: NumericTarget = {
+      fields: [{ name: 'translateY', label: 'Translate Y', kind: 'distance', bound: 'value', default: 0 }],
+      active: 'translateY',
+      value: () => 0,
+      set: () => {},
+      confirm: () => {},
+      cancel: () => {
+        cancelled = true;
+        setTransformReadout(app, null);
+      },
+    };
+    const readout = {
+      paneId: 'pane-persp',
+      x: 100,
+      y: 80,
+      label: 'Translate Y',
+      value: '0.120 m',
+      snap: null,
+      ring: null,
+    } as const;
+    // Esc cancels the drag: the prompt leaves the help line.
+    setTransformReadout(app, readout);
+    app.capture.arm('drag', target);
+    await waitFor(() => app.capture.state.armed === 'drag');
+    for (const key of ['0', '.', '2']) {
+      app.capture.key({ code: key === '.' ? 'Period' : `Digit${key}`, key, shift: false, mod: false, alt: false });
+    }
+    await waitFor(() => query('helpline-text')?.textContent?.includes('Translate Y 0.2_') === true);
+    app.capture.key({ code: 'Escape', key: 'Escape', shift: false, mod: false, alt: false });
+    expect(cancelled).toBe(true);
+    await waitFor(() => query('helpline-text')?.textContent?.includes('0.2_') === false);
+    // A drag released with an entry neither applied nor confirmed (the runtime disarms): the same.
+    setTransformReadout(app, readout);
+    app.capture.arm('drag', target);
+    await waitFor(() => app.capture.state.armed === 'drag');
+    app.capture.key({ code: 'Digit7', key: '7', shift: false, mod: false, alt: false });
+    await waitFor(() => query('helpline-text')?.textContent?.includes('Translate Y 7_') === true);
+    app.capture.disarm();
+    setTransformReadout(app, null);
+    await waitFor(() => query('helpline-text')?.textContent?.includes('7_') === false);
   });
 });
 

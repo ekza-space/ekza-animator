@@ -44,6 +44,7 @@ import {
   type CardPreview,
   clampParamValue,
   componentInternals,
+  type ComponentServiceInternals,
   type EditorApp,
   type KeyEditGesture,
   liveLastRun,
@@ -72,7 +73,7 @@ import type { ViewportToolHost } from '../../host';
 import { modelSelectOf, subscribeModelSelect } from '../select';
 import { componentFrame, componentPicks, type MeshPicks, picksCentre, quatOfAxes, rotationOf } from './frame';
 import { type DragFrame, handleMode, isIdentityMotion, type Motion, mmbHandle, motionAt } from './motion';
-import { setTransformReadout, transformReadout } from './readout';
+import { announceTransform, setTransformReadout, transformReadout } from './readout';
 import { deltaTowards, nearestVertex, type SnapCandidate, snapIncrement, snapTranslation } from './snap';
 import type { ModelManipulator, ModelManipulatorRequest, ModelManipulatorTarget } from './types';
 
@@ -704,6 +705,21 @@ export class ModelTransformRuntime implements ModelManipulator {
     this.updateRing();
   }
 
+  /**
+   * A drag committed with typed fields announces them on its pane's help line (§5.10 "a polite live region announces
+   * committed values"), replacing the entry prompt: "Move Translate Y 0.500 m", in the fields' Tab order.
+   */
+  private announceTyped(base: MotionDragBase): void {
+    if (base.typed.size === 0 || base.paneId === '') return;
+    const parts: string[] = [];
+    for (const def of fieldDefs(base.motionKind)) {
+      const value = base.typed.get(def.name);
+      if (value !== undefined) parts.push(`${def.label} ${formatField(def.name, value)}`);
+    }
+    const label = base.motionKind === 'rotate' ? 'Rotate' : base.motionKind === 'scale' ? 'Scale' : 'Move';
+    announceTransform(this.app, { paneId: base.paneId, text: `${label} ${parts.join(', ')}` });
+  }
+
   /** The capture window's target for a drag (§5.10): the motion's three fields, the dragged one active. */
   private numericTarget(
     base: MotionDragBase,
@@ -766,6 +782,8 @@ export class ModelTransformRuntime implements ModelManipulator {
     const op = kernel?.MESH_OPS['mesh.transformComponents'];
     if (op === undefined) return null;
     const targets = sel.picks.map((p) => p.mesh);
+    // The picks as the drag found them (after a Tweak's replacement): kept across the run (see `keepPicks`).
+    const picked = freezePicks(app, targets);
     // The args' frame: World → world axes; Object on one mesh → its axes; else the manipulator's frame as Component.
     const objectFrames = sel.picks.map((p) => rotationOf(p.world));
     const argSpace: TransformSpace =
@@ -815,6 +833,10 @@ export class ModelTransformRuntime implements ModelManipulator {
         )
         .then((result) => {
           if (result.status === 'failed') app.services.notify.toast({ kind: 'error', text: result.error.message });
+          if (result.status === 'finished') {
+            keepPicks(app, kind, picked);
+            this.announceTyped(base);
+          }
           // A pinned component pivot moves with the components it was pinned on.
           if (result.status === 'finished' && pinned !== null && motion?.kind === 'translate') {
             const state = app.session.getState();
@@ -940,6 +962,7 @@ export class ModelTransformRuntime implements ModelManipulator {
         )
         .then((result) => {
           if (result.status === 'failed') app.services.notify.toast({ kind: 'error', text: result.error.message });
+          if (result.status === 'finished') this.announceTyped(base);
           this.vm.refreshManipulatorSoon();
         });
     };
@@ -1274,6 +1297,41 @@ export class ModelTransformRuntime implements ModelManipulator {
 function setComponentPivot(app: EditorApp, pivot: Vec3 | null): void {
   const state = app.session.getState();
   app.session.setState({ model: { ...state.model, componentPivot: pivot } });
+}
+
+type FrozenState = NonNullable<ReturnType<ComponentServiceInternals['freeze']>>;
+type FrozenPicks = ReadonlyMap<MeshId, FrozenState>;
+
+/** The selection state of the meshes a component drag transforms (B10's frozen form: every kind, order, hidden). */
+function freezePicks(app: EditorApp, meshes: readonly MeshId[]): FrozenPicks {
+  const internals = componentInternals(app.components);
+  const out = new Map<MeshId, FrozenState>();
+  if (internals === null) return out;
+  for (const mesh of meshes) {
+    const frozen = internals.freeze(mesh);
+    if (frozen !== null) out.set(mesh, frozen);
+  }
+  return out;
+}
+
+/**
+ * A committed transform keeps the user's picks (§5.6 "1 (+1 sym)", §5.15). `mesh.transformComponents` is an 'expand'
+ * op: B7 runs it on the picks plus their symmetry partners and stores the op's result selection (that expanded set) as
+ * the new revision's, so the next drag would start from the pick and its partner — the pivot on the mirror plane, a
+ * Component frame whose opposite normals cancel. A positions-only run indexes the same elements, so the picks as the
+ * drag found them become the new revision's selection (a change of the current revision, which B10's service
+ * remembers for redo; undo brings back the revision the run read, with its own remembered selection).
+ */
+function keepPicks(app: EditorApp, kind: ComponentKind, picked: FrozenPicks): void {
+  const internals = componentInternals(app.components);
+  if (internals === null) return;
+  internals.batch(() => {
+    for (const [mesh, frozen] of picked) {
+      const now = internals.freeze(mesh);
+      if (now === null || now.sel[kind].set.equals(frozen.sel[kind].set)) continue;
+      internals.restoreFrozen(mesh, frozen);
+    }
+  });
 }
 
 /** A manipulator target on a pivot with a frame (every channel free: components and objects have no locks). */

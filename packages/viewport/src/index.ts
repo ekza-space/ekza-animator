@@ -57,9 +57,12 @@ export {
   type TransformToolId,
 } from './tools/model/transform';
 export {
+  announceTransform,
   setTransformReadout,
   subscribeTransformReadout,
+  type TransformAnnouncement,
   type TransformReadout,
+  transformAnnouncement,
   transformReadout,
 } from './tools/model/transform/readout';
 export type { ManipulatorFrame, ModelManipulator, ModelManipulatorTarget } from './tools/model/transform/types';

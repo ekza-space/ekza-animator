@@ -172,3 +172,78 @@ test('E2E-MOD-10 — soft selection drag', async ({ page }) => {
   expect(moved).toBeGreaterThanOrEqual(900);
   expect(moved).toBeLessThanOrEqual(1100);
 });
+
+// B12a (§5.6, §5.10, §5.15) in the real app: under Object X two drags of one vertex keep the pick ("1 (+1 sym)") and
+// the manipulator on it; a value typed during a drag is announced on the help line (the polite live region) once the
+// drag commits; Esc cancels the drag and its entry prompt leaves the help line.
+test('B12a — symmetric drags keep the pick; typed values are announced; Esc clears the entry', async ({ page }) => {
+  await openModel(page);
+  const cube = await createPrimitive(page, 'cube');
+  await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });
+  await runOk(page, 'model.symmetry.set', { mode: 'object-x' });
+  await pressOver(page, 'Digit1');
+  await expect.poll(async () => (await call(page, 'state')).mode).toBe('vertex');
+  const rest = await positions(page, cube);
+  const find = (x: number, y: number, z: number): number =>
+    rest.findIndex((p) => Math.abs(p[0] - x) < 1e-6 && Math.abs(p[1] - y) < 1e-6 && Math.abs(p[2] - z) < 1e-6);
+  const v = find(0.5, 0.5, 0.5);
+  const mirror = find(-0.5, 0.5, 0.5);
+  expect(v).toBeGreaterThanOrEqual(0);
+  expect(mirror).toBeGreaterThanOrEqual(0);
+  await runOk(page, 'select.components', { mesh: cube, kind: 'vertex', indices: [v], mode: 'replace' });
+  await pressOver(page, 'KeyW');
+  await expect.poll(async () => (await call(page, 'state')).tool).toBe('move');
+  const steps = (await call(page, 'history')).undo.length;
+
+  /** Presses the ty handle and drags it 20 px up (the capture window arms for the drag). */
+  async function startDrag(): Promise<void> {
+    await expect.poll(() => call(page, 'screenOfManipulator', MODEL_PANE, 'ty')).not.toBeNull();
+    const ty = await call(page, 'screenOfManipulator', MODEL_PANE, 'ty');
+    if (ty === null) throw new Error('no ty handle');
+    await page.mouse.move(ty.x, ty.y);
+    await page.mouse.down();
+    await page.mouse.move(ty.x, ty.y - 20, { steps: 4 });
+    await expect.poll(async () => (await call(page, 'state')).capture.armed).toBe('drag');
+  }
+
+  for (const [n, value] of [
+    [1, '0.5'],
+    [2, '0.25'],
+  ] as const) {
+    await startDrag();
+    await page.keyboard.type(value);
+    await expect.poll(() => call(page, 'helpLine')).toContain(`Translate Y ${value}_`);
+    await page.keyboard.press('Enter');
+    await page.mouse.up();
+    await expect.poll(async () => (await call(page, 'history')).undo.length).toBe(steps + n);
+    expect((await call(page, 'history')).undo.at(-1)).toBe('Move');
+    await expect.poll(() => call(page, 'helpLine')).toBe(`Move Translate Y ${Number(value).toFixed(3)} m`);
+    const model = await call(page, 'model');
+    expect(model.selected[cube]?.vertex).toEqual([v]);
+    expect([...(model.expanded[cube]?.vertex ?? [])].sort((a, b) => a - b)).toEqual([v, mirror].sort((a, b) => a - b));
+    // The manipulator sits on the moved pick (not on the mirror plane between the pick and its partner).
+    await expect
+      .poll(async () => {
+        const at = await call(page, 'screenOfVertex', cube, v, MODEL_PANE);
+        const grab = await call(page, 'screenOfManipulator', MODEL_PANE, 'tview');
+        return at === null || grab === null ? Number.POSITIVE_INFINITY : Math.hypot(at.x - grab.x, at.y - grab.y);
+      })
+      .toBeLessThanOrEqual(1);
+  }
+  const after = await positions(page, cube);
+  for (const w of [v, mirror]) {
+    expect(after[w]?.[1]).toBeCloseTo(1.25, 6);
+    expect(after[w]?.[0]).toBe(rest[w]?.[0]);
+    expect(after[w]?.[2]).toBe(rest[w]?.[2]);
+  }
+
+  // Esc cancels the drag with its entry: no step, the prompt leaves the help line.
+  await startDrag();
+  await page.keyboard.type('0.3');
+  await expect.poll(() => call(page, 'helpLine')).toContain('Translate Y 0.3_');
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  await expect.poll(() => call(page, 'helpLine')).not.toContain('0.3_');
+  expect((await call(page, 'history')).undo).toHaveLength(steps + 2);
+  expect(await positions(page, cube)).toEqual(after);
+});

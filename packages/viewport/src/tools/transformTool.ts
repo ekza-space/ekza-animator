@@ -407,7 +407,7 @@ export function withModelTransform(
       return controls.dragging ? 'dragging' : (inner.phase?.() ?? 'idle');
     },
     numeric: () => model.get()?.numeric() ?? inner.numeric?.() ?? null,
-    cursor: () => (controls.active ? 'grabbing' : (inner.cursor?.() ?? null)),
+    cursor: () => (controls.active || model.get()?.phase() === 'dragging' ? 'grabbing' : (inner.cursor?.() ?? null)),
   };
 }
 

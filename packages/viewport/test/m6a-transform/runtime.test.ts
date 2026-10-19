@@ -7,6 +7,7 @@
 import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
 import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
 import {
+  componentInternals,
   type EditorApp,
   historyLabels,
   loadMeshKernel,
@@ -17,7 +18,13 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type ModelTransformRuntime, modelSelectOf, modelTransformOf, transformReadout } from '../../src';
+import {
+  type ModelTransformRuntime,
+  modelSelectOf,
+  modelTransformOf,
+  transformAnnouncement,
+  transformReadout,
+} from '../../src';
 import { createRig, drag, pointer, type Rig } from '../helpers';
 
 const PANE = 'pane-single';
@@ -306,6 +313,43 @@ describe('component drags (§5.15, §5.10)', () => {
     pointer(element(s), 'pointerup', from.x, from.y - 20);
     await settled(s.app, steps + 1);
     expect(positions(s.app, s.cube)[2]?.[1]).toBe(Math.fround((before[2]?.[1] ?? 0) + 0.5));
+    // The committed value goes to the help line (the editor's overlay writes it, §5.10 polite live region).
+    expect(transformAnnouncement(s.app)).toEqual({ paneId: PANE, text: 'Move Translate Y 0.500 m' });
+  });
+
+  it('a drag without typed values, or a cancelled one, announces nothing', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [2]);
+    const steps = labels(s.app).length;
+    const from = handle(s, 'ty');
+    drag(element(s), from, { x: from.x, y: from.y - 20 });
+    await settled(s.app, steps + 1);
+    expect(transformAnnouncement(s.app)).toBeNull();
+    pointer(element(s), 'pointerdown', from.x, from.y);
+    pointer(element(s), 'pointermove', from.x, from.y - 20, { buttons: 1 });
+    const target = s.rig.vm.activeTool()?.numeric?.();
+    target?.set('translateY', 0.5);
+    target?.cancel();
+    pointer(element(s), 'pointerup', from.x, from.y - 20);
+    await Promise.resolve();
+    expect(labels(s.app)).toHaveLength(steps + 1);
+    expect(transformAnnouncement(s.app)).toBeNull();
+  });
+
+  it('the Scale tool shows the grabbing cursor while a component drag runs (as Move and Rotate)', async () => {
+    const s = await scene();
+    await pick(s, 'face', [0]);
+    await tool(s, 'scale');
+    const tool0 = s.rig.vm.activeTool();
+    expect(tool0?.cursor?.() ?? null).toBeNull();
+    const cube = handle(s, 'suniform');
+    pointer(element(s), 'pointerdown', cube.x, cube.y);
+    pointer(element(s), 'pointermove', cube.x + 30, cube.y, { buttons: 1 });
+    expect(s.rig.vm.activeTool()?.phase?.()).toBe('dragging');
+    expect(s.rig.vm.activeTool()?.cursor?.()).toBe('grabbing');
+    pointer(element(s), 'pointerup', cube.x + 30, cube.y);
+    expect(s.rig.vm.activeTool()?.cursor?.() ?? null).toBeNull();
   });
 });
 
@@ -721,6 +765,129 @@ describe('symmetry through the UI path (§5.14, P10)', () => {
     expect(Math.abs((q[seam]?.[1] ?? 0) - 0.5) + Math.abs((q[seam]?.[2] ?? 0) - 0.5)).toBeGreaterThan(1e-4);
     expect(moved(q, rest).length).toBeGreaterThan(2);
     expectSymmetricX(q, partner);
+  });
+
+  /** The stored picks of `kind` and the counts B10's HUD shows ("1 (+1 sym)"). */
+  function picksOf(s: Scene, kind: 'vertex' | 'face'): { picks: number[]; selected: number; mirrored: number } {
+    const sel = s.app.components.get(s.cube, kind);
+    const set = kind === 'vertex' ? sel.verts : sel.faces;
+    const counts = componentInternals(s.app.components)?.counts([s.cube]);
+    return {
+      picks: [...set.toArray()],
+      selected: counts?.selected[kind] ?? -1,
+      mirrored: counts?.mirrored[kind] ?? -1,
+    };
+  }
+
+  /** Whether the manipulator's grab point sits on the projection of a world point (within half a pixel). */
+  function manipulatorOn(s: Scene, world: readonly number[]): boolean {
+    const at = s.rig.vm.project(PANE, [world[0] ?? 0, world[1] ?? 0, world[2] ?? 0]);
+    const grab = handle(s, 'tview');
+    return near(grab.x, at?.x ?? Number.NaN, 0.5) && near(grab.y, at?.y ?? Number.NaN, 0.5);
+  }
+
+  /** A drag of `h` by `px` pixels along the screen direction of the world axis `axis` from the pivot `from`. */
+  function dragAlong(s: Scene, h: string, from: readonly number[], axis: readonly number[], px: number): void {
+    const a = s.rig.vm.project(PANE, [from[0] ?? 0, from[1] ?? 0, from[2] ?? 0]);
+    const b = s.rig.vm.project(PANE, [
+      (from[0] ?? 0) + (axis[0] ?? 0),
+      (from[1] ?? 0) + (axis[1] ?? 0),
+      (from[2] ?? 0) + (axis[2] ?? 0),
+    ]);
+    if (a === null || b === null) throw new Error('axis not visible');
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    const grab = handle(s, h);
+    drag(element(s), grab, { x: grab.x + ((b.x - a.x) / len) * px, y: grab.y + ((b.y - a.y) / len) * px });
+  }
+
+  it('two symmetric vertex drags in a row: the picks stay [v] (+1 sym) and the manipulator follows the pick', async () => {
+    const { s, rest, partner } = await mirrored('move');
+    const v = at(rest, 0.5, 0.5, 0.5);
+    const mirror = at(rest, -0.5, 0.5, 0.5);
+    await pick(s, 'vertex', [v]);
+    expect(picksOf(s, 'vertex')).toEqual({ picks: [v], selected: 1, mirrored: 1 });
+    expect(manipulatorOn(s, [0.5, 0.5, 0.5])).toBe(true);
+    const steps = labels(s.app).length;
+    const ty = handle(s, 'ty');
+    drag(element(s), ty, { x: ty.x, y: ty.y - 30 });
+    await settled(s.app, steps + 1);
+    const first = positions(s.app, s.cube);
+    const dy1 = (first[v]?.[1] ?? 0) - 0.5;
+    expect(dy1).toBeGreaterThan(0);
+    // The run expanded the picks for the op; the selection stays the user's pick.
+    expect(picksOf(s, 'vertex')).toEqual({ picks: [v], selected: 1, mirrored: 1 });
+    s.rig.frame();
+    expect(manipulatorOn(s, first[v] ?? [])).toBe(true);
+    // The second drag starts from the pick (not from the pick and its partner, whose pivot is on the mirror plane).
+    const ty2 = handle(s, 'ty');
+    drag(element(s), ty2, { x: ty2.x, y: ty2.y - 30 });
+    await settled(s.app, steps + 2);
+    const second = positions(s.app, s.cube);
+    expect((second[v]?.[1] ?? 0) - (first[v]?.[1] ?? 0)).toBeGreaterThan(0);
+    expect(second[v]?.[0]).toBe(rest[v]?.[0]);
+    expect(second[v]?.[2]).toBe(rest[v]?.[2]);
+    expect(moved(second, rest).sort((a, b) => a - b)).toEqual([v, mirror].sort((a, b) => a - b));
+    expectSymmetricX(second, partner);
+    expect(picksOf(s, 'vertex')).toEqual({ picks: [v], selected: 1, mirrored: 1 });
+    s.rig.frame();
+    expect(manipulatorOn(s, second[v] ?? [])).toBe(true);
+    // Undo and redo bring back each revision with the pick.
+    s.app.history.undo();
+    await expect.poll(() => positions(s.app, s.cube)).toEqual(first);
+    await expect.poll(() => picksOf(s, 'vertex').picks).toEqual([v]);
+    s.app.history.undo();
+    await expect.poll(() => positions(s.app, s.cube)).toEqual(rest);
+    await expect.poll(() => picksOf(s, 'vertex').picks).toEqual([v]);
+    s.app.history.redo();
+    await expect.poll(() => positions(s.app, s.cube)).toEqual(first);
+    await expect.poll(() => picksOf(s, 'vertex').picks).toEqual([v]);
+  });
+
+  it('the second Component-space drag of a +X face still moves along the face normal', async () => {
+    const { s, rest, partner } = await mirrored('move');
+    const data = s.app.meshes.get(s.cube)?.data();
+    if (data === null || data === undefined) throw new Error('no data');
+    const faceVerts = (f: number): number[] => {
+      const out: number[] = [];
+      const start = data.faceCorner[f] as number;
+      let c = start;
+      do {
+        out.push(data.cornerVert[c] as number);
+        c = data.cornerNext[c] as number;
+      } while (c !== start);
+      return out;
+    };
+    let face = -1;
+    for (let f = 0; f < data.counts.faces; f++) {
+      if (faceVerts(f).every((w) => near(rest[w]?.[0], 0.5))) face = f;
+    }
+    expect(face).toBeGreaterThanOrEqual(0);
+    const verts = faceVerts(face);
+    setComponentSpace(s.app, 'move', true);
+    await pick(s, 'face', [face]);
+    const normal = (): number[] | undefined => s.rig.vm.manipulatorAxes()?.[2]?.map((x) => Math.round(x * 1e6) / 1e6);
+    expect(normal()).toEqual([1, 0, 0]);
+    const steps = labels(s.app).length;
+    dragAlong(s, 'tz', [0.5, 0, 0], [1, 0, 0], 30);
+    await settled(s.app, steps + 1);
+    const first = positions(s.app, s.cube);
+    const dx1 = (first[verts[0] ?? 0]?.[0] ?? 0) - 0.5;
+    expect(dx1).toBeGreaterThan(0);
+    expect(picksOf(s, 'face')).toEqual({ picks: [face], selected: 1, mirrored: 1 });
+    s.rig.frame();
+    // The Component frame is the pick's: Z still along +X, the pivot on the moved face.
+    expect(normal()).toEqual([1, 0, 0]);
+    expect(manipulatorOn(s, [0.5 + dx1, 0, 0])).toBe(true);
+    dragAlong(s, 'tz', [0.5 + dx1, 0, 0], [1, 0, 0], 30);
+    await settled(s.app, steps + 2);
+    const second = positions(s.app, s.cube);
+    for (const w of verts) {
+      expect((second[w]?.[0] ?? 0) - (first[w]?.[0] ?? 0)).toBeGreaterThan(0);
+      expect(near(second[w]?.[1], rest[w]?.[1] ?? Number.NaN, 1e-6)).toBe(true);
+      expect(near(second[w]?.[2], rest[w]?.[2] ?? Number.NaN, 1e-6)).toBe(true);
+    }
+    expectSymmetricX(second, partner);
+    expect(picksOf(s, 'face')).toEqual({ picks: [face], selected: 1, mirrored: 1 });
   });
 
   it('a seam vertex dragged in the view plane stays exactly on x = 0 (Preserve Seam)', async () => {
