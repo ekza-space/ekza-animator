@@ -2,9 +2,17 @@
 // serializeSnapshot output: sorted keys, no timestamps) and the source models under assets/<sha256>.<ext>, plus the
 // plain JSON debug variant `*.ekzanim.json` (snapshot + asset entries without bytes). Opening verifies every asset's
 // size and SHA-256 and migrates the snapshot; a newer minWriterVersion opens read-only.
+//
+// M6a (M6A-SPEC §5.20, B7): mesh manifests and chunks are stored as `blobs/<sha256>` (deflate level 6) and verified
+// on open (a missing or corrupt blob is left out: its mesh goes 'error', the project still opens); reference images
+// (assets with ext png/jpg) are stored as `images/<sha256>.<ext>` and listed under the manifest key `images` (same
+// entry shape as `assets`), never under `assets`, which an M2a reader accepts only for glb/vrm/vrma. An M2a reader
+// ignores both prefixes (unknown entries are never inflated) and opens such a project read-only. Entry order:
+// manifest.json, project.json, then assets/, blobs/ and images/, each sorted by name.
 import { EkzaError } from '@ekza-animator/anim-core';
 import {
   type AssetId,
+  assetMime,
   type AssetRecord,
   type DocSnapshot,
   migrateSnapshot,
@@ -28,7 +36,15 @@ export const PROJECT_LIMITS = {
   maxProjectJsonBytes: 67_108_864,
   maxAssetBytes: DEFAULT_INPUT_BUDGET.maxFileBytes,
   maxTotalBytes: 1_073_741_824,
+  /** M6a: one mesh manifest or chunk (`blobs/<sha256>`; chunks are ~32 KiB). */
+  maxBlobBytes: 4_194_304,
+  /** M6a: one reference image (`images/<sha256>.<ext>`). */
+  maxImageBytes: 33_554_432,
 } as const;
+
+/** Asset extensions archived under `images/` (reference images, M6a). */
+export const IMAGE_EXTS: ReadonlySet<string> = new Set(['png', 'jpg']);
+const BLOB_NAME = /^blobs\/([0-9a-f]{64})$/;
 
 /** DOS timestamps start in 1980; every entry gets this one, so identical input gives identical bytes. */
 const ZIP_TIME = new Date(1980, 0, 1, 0, 0, 0);
@@ -47,6 +63,8 @@ export interface ProjectManifest {
   readonly minWriterVersion: number;
   readonly app: { readonly name: string; readonly version: string };
   readonly assets: readonly ProjectManifestAsset[];
+  /** M6a: reference images (absent when the project has none, so M2a-shaped projects keep their bytes). */
+  readonly images?: readonly ProjectManifestAsset[];
 }
 
 type AssetEntry = { readonly record: AssetRecord; readonly bytes: Uint8Array };
@@ -56,12 +74,13 @@ export function writeProjectArchive(
   snapshot: DocSnapshot,
   assets: ReadonlyMap<AssetId, AssetEntry>,
   app: { readonly version: string },
-  // M6a (M6A-SPEC §4.5): the closure of mesh manifests and chunks to store under `blobs/`. Accepted from B0a on;
-  // B7 writes the entries (§5.20) — until then no project holds mesh records.
-  _blobs?: ReadonlyMap<string, Uint8Array>,
+  // M6a (M6A-SPEC §4.5, §5.20): the closure of mesh manifests and chunks to store under `blobs/`.
+  blobs?: ReadonlyMap<string, Uint8Array>,
 ): Uint8Array {
-  return zipProject(serializeSnapshot(snapshot), snapshot, assets, app);
+  return zipProject(serializeSnapshot(snapshot), snapshot, assets, app, blobs);
 }
+
+const byKey = <T>([a]: readonly [string, T], [b]: readonly [string, T]): number => (a < b ? -1 : a > b ? 1 : 0);
 
 /** The container part of `writeProjectArchive`, given the serialized snapshot. */
 export function zipProject(
@@ -69,21 +88,27 @@ export function zipProject(
   snapshot: Pick<DocSnapshot, 'schemaVersion' | 'minWriterVersion'>,
   assets: ReadonlyMap<AssetId, AssetEntry>,
   app: { readonly version: string },
+  blobs?: ReadonlyMap<string, Uint8Array>,
 ): Uint8Array {
-  const entries = [...assets.entries()].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
-  const manifestAssets: ProjectManifestAsset[] = entries.map(([id, { record, bytes }]) => {
+  const entries = [...assets.entries()].sort(byKey);
+  const describe = ([id, { record, bytes }]: readonly [AssetId, AssetEntry], path: string): ProjectManifestAsset => {
     // The asset store verified the hash when it handed out the bytes; a cheap consistency check suffices here.
     if (record.id !== id || bytes.byteLength !== record.size) {
       throw new EkzaError('asset-corrupt', `Asset ${id} (${record.name}) does not match its bytes`, { asset: id });
     }
-    return { sha256: id, size: record.size, mime: record.mime, ext: record.ext, path: assetPath(id, record.ext) };
-  });
+    return { sha256: id, size: record.size, mime: record.mime, ext: record.ext, path };
+  };
+  const models = entries.filter(([, { record }]) => !IMAGE_EXTS.has(record.ext));
+  const images = entries.filter(([, { record }]) => IMAGE_EXTS.has(record.ext));
+  const manifestAssets = models.map((entry) => describe(entry, assetPath(entry[0], entry[1].record.ext)));
+  const manifestImages = images.map((entry) => describe(entry, imagePath(entry[0], entry[1].record.ext)));
   const manifest: ProjectManifest = {
     format: PROJECT_FORMAT,
     schemaVersion: snapshot.schemaVersion,
     minWriterVersion: snapshot.minWriterVersion,
     app: { name: APP_NAME, version: app.version },
     assets: manifestAssets,
+    ...(manifestImages.length === 0 ? {} : { images: manifestImages }),
   };
   const encoder = new TextEncoder();
   const files: Zippable = {
@@ -91,8 +116,17 @@ export function zipProject(
     'project.json': [encoder.encode(projectJson), { level: 6 }],
   };
   // Models are already compressed (or large): store them.
-  entries.forEach(([, { bytes }], i) => {
+  models.forEach(([, { bytes }], i) => {
     files[(manifestAssets[i] as ProjectManifestAsset).path] = [bytes, { level: 0 }];
+  });
+  // Mesh blobs deflate like project.json (§5.20); their names are their SHA-256 (the caller's closure).
+  for (const [id, bytes] of [...(blobs ?? new Map<string, Uint8Array>()).entries()].sort(byKey)) {
+    if (!/^[0-9a-f]{64}$/.test(id)) throw new EkzaError('blob-corrupt', `Mesh blob id ${id} is not a SHA-256`);
+    files[`blobs/${id}`] = [bytes, { level: 6 }];
+  }
+  // Images are compressed formats: store them like models.
+  images.forEach(([, { bytes }], i) => {
+    files[(manifestImages[i] as ProjectManifestAsset).path] = [bytes, { level: 0 }];
   });
   return zipSync(files, { mtime: ZIP_TIME, os: 0, attrs: 0 });
 }
@@ -122,7 +156,7 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
   const migrated = migrateSnapshot(raw);
   const records: Readonly<Record<string, AssetRecord>> = migrated.snapshot.tables.assets ?? {};
   const assets = new Map<AssetId, AssetEntry>();
-  for (const asset of opened.assets) {
+  for (const asset of [...opened.assets, ...opened.images]) {
     // An asset the snapshot does not describe still opens, with a record derived from the manifest.
     const record: AssetRecord = records[asset.sha256] ?? {
       id: asset.sha256 as AssetId,
@@ -130,7 +164,7 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
       ext: asset.ext,
       mime: asset.mime,
       size: asset.size,
-      role: asset.ext === 'vrma' ? 'animation-source' : 'model',
+      role: IMAGE_EXTS.has(asset.ext) ? 'reference-image' : asset.ext === 'vrma' ? 'animation-source' : 'model',
       provenance: null,
     };
     assets.set(asset.sha256 as AssetId, { record, bytes: asset.bytes });
@@ -140,8 +174,8 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
     assets,
     readOnly: migrated.readOnly || (opened.manifest?.minWriterVersion ?? 0) > SCHEMA_VERSION,
     migratedFrom: migrated.migratedFrom,
-    // M6a (M6A-SPEC §4.5): the hash-verified `blobs/` entries; B7 reads them (§5.20), none exist before it.
-    blobs: new Map(),
+    // M6a (§5.20): the hash-verified `blobs/` entries (a corrupt one is left out).
+    blobs: opened.blobs,
   };
 }
 
@@ -151,6 +185,10 @@ export interface OpenedProject {
   readonly projectText: string;
   readonly manifest: ProjectManifest | null;
   readonly assets: readonly (ProjectManifestAsset & { readonly bytes: Uint8Array })[];
+  /** M6a: reference images listed under the manifest key `images`, verified like assets. */
+  readonly images: readonly (ProjectManifestAsset & { readonly bytes: Uint8Array })[];
+  /** M6a: `blobs/<sha256>` entries whose bytes hash to their name (others are left out). */
+  readonly blobs: ReadonlyMap<string, Uint8Array>;
 }
 
 /** The container part of `readProjectArchive`: unzip, check the manifest and verify every asset. */
@@ -173,7 +211,11 @@ async function openZip(bytes: Uint8Array): Promise<OpenedProject> {
               ? PROJECT_LIMITS.maxProjectJsonBytes
               : file.name.startsWith('assets/')
                 ? PROJECT_LIMITS.maxAssetBytes
-                : 0;
+                : BLOB_NAME.test(file.name)
+                  ? PROJECT_LIMITS.maxBlobBytes
+                  : file.name.startsWith('images/')
+                    ? PROJECT_LIMITS.maxImageBytes
+                    : 0;
         if (limit === 0) return false; // unknown entries are ignored, never inflated
         total += file.originalSize;
         if (file.originalSize > limit || total > PROJECT_LIMITS.maxTotalBytes) {
@@ -198,27 +240,42 @@ async function openZip(bytes: Uint8Array): Promise<OpenedProject> {
     );
   }
   const manifest = readManifest(parseJson(manifestBytes, 'manifest.json'));
-  const assets = await Promise.all(
-    manifest.assets.map(async (asset) => {
-      const data = files[asset.path];
-      if (data === undefined) {
-        throw new EkzaError('asset-missing', `Asset ${asset.sha256} (${asset.path}) is missing from the project`, {
-          asset: asset.sha256,
-        });
-      }
-      if (data.byteLength !== asset.size || (await sha256Hex(data)) !== asset.sha256) {
-        throw new EkzaError('asset-corrupt', `Asset ${asset.sha256} (${asset.path}) does not match its hash or size`, {
-          asset: asset.sha256,
-        });
-      }
-      return { ...asset, bytes: data };
-    }),
-  );
-  return { kind: 'zip', projectText: decodeUtf8(projectBytes, 'project.json'), manifest, assets };
+  const verified = async (asset: ProjectManifestAsset) => {
+    const data = files[asset.path];
+    if (data === undefined) {
+      throw new EkzaError('asset-missing', `Asset ${asset.sha256} (${asset.path}) is missing from the project`, {
+        asset: asset.sha256,
+      });
+    }
+    if (data.byteLength !== asset.size || (await sha256Hex(data)) !== asset.sha256) {
+      throw new EkzaError('asset-corrupt', `Asset ${asset.sha256} (${asset.path}) does not match its hash or size`, {
+        asset: asset.sha256,
+      });
+    }
+    return { ...asset, bytes: data };
+  };
+  const assets = await Promise.all(manifest.assets.map(verified));
+  const images = await Promise.all((manifest.images ?? []).map(verified));
+  const blobs = new Map<string, Uint8Array>();
+  for (const name of Object.keys(files).sort()) {
+    const id = BLOB_NAME.exec(name)?.[1];
+    const data = files[name];
+    if (id === undefined || data === undefined) continue;
+    // A blob whose bytes do not hash to its name is left out: its mesh goes 'error', the project still opens.
+    if ((await sha256Hex(data)) === id) blobs.set(id, data);
+  }
+  return { kind: 'zip', projectText: decodeUtf8(projectBytes, 'project.json'), manifest, assets, images, blobs };
 }
 
 function openJson(bytes: Uint8Array): OpenedProject {
-  return { kind: 'json', projectText: decodeUtf8(bytes, 'project'), manifest: null, assets: [] };
+  return {
+    kind: 'json',
+    projectText: decodeUtf8(bytes, 'project'),
+    manifest: null,
+    assets: [],
+    images: [],
+    blobs: new Map(),
+  };
 }
 
 function withoutAssets(raw: JsonRecord): JsonRecord {
@@ -244,17 +301,32 @@ function readManifest(value: unknown): ProjectManifest {
     }
     return { sha256, size: asset['size'], mime: 'model/gltf-binary', ext, path: assetPath(sha256, ext) };
   });
+  // M6a: reference images under their own key (an M2a reader never sees them).
+  const images = unknownList(value['images']).map((entry): ProjectManifestAsset => {
+    const image: JsonRecord = isRecord(entry) ? entry : {};
+    const sha256 = textOf(image['sha256']).toLowerCase();
+    const ext = image['ext'];
+    if (!/^[0-9a-f]{64}$/.test(sha256) || !isIndex(image['size']) || (ext !== 'png' && ext !== 'jpg')) {
+      throw new EkzaError('unsupported', 'manifest.json lists an invalid image entry');
+    }
+    return { sha256, size: image['size'], mime: assetMime(ext), ext, path: imagePath(sha256, ext) };
+  });
   return {
     format: PROJECT_FORMAT,
     schemaVersion: isIndex(value['schemaVersion']) ? value['schemaVersion'] : 0,
     minWriterVersion: isIndex(value['minWriterVersion']) ? value['minWriterVersion'] : 0,
     app: { name: textOf(app['name']), version: textOf(app['version']) },
     assets,
+    ...(images.length === 0 ? {} : { images }),
   };
 }
 
 function assetPath(sha256: string, ext: string): string {
   return `assets/${sha256}.${ext}`;
+}
+
+function imagePath(sha256: string, ext: string): string {
+  return `images/${sha256}.${ext}`;
 }
 
 function decodeUtf8(bytes: Uint8Array, label: string): string {
