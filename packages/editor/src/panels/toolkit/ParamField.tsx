@@ -2,7 +2,8 @@
 // boxes: numbers take the §5.10 grammar (`parseParamInput`: `30%`, `50cm`, `+=0.1`; fractions shown as fractions);
 // the label is a virtual slider (LMB drag after 3 px or an MMB press; `Shift` ×0.1, `Mod` ×10); booleans are
 // checkboxes; enums and axes are segmented controls. Typed values commit on Enter, Tab or blur; Esc restores the shown
-// value.
+// value. Enter (once accepted) and Esc give the keyboard back to the editor (the input blurs, as the Channel Box's
+// fields do): the hotkeys of the hovered pane (`T`, `G`, `Y`, digits) work again without a click elsewhere.
 import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-animator/anim-core';
 import { type EditorApp, formatParamValue, paramEditText, parseParamInput } from '@ekza-animator/editor-core';
 import { cn } from '@ekza-animator/ui';
@@ -72,6 +73,17 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
   const input = useRef<HTMLInputElement>(null);
   const slide = useRef<ParamSlide | null>(null);
   const press = useRef<{ x: number; pointerId: number } | null>(null);
+  /** Set while Enter or Esc blurs the input: that blur's handler (it still sees the draft) commits nothing. */
+  const settled = useRef(false);
+  const release = (element: HTMLInputElement): void => {
+    if (element.ownerDocument.activeElement !== element) return;
+    settled.current = true;
+    try {
+      element.blur(); // dispatches the blur synchronously
+    } finally {
+      settled.current = false;
+    }
+  };
 
   useEffect(() => {
     if (props.focus !== true || props.focusToken === undefined) return;
@@ -95,8 +107,7 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
       return false;
     }
     if (parsed.problem !== null) props.onMessage?.(parsed.problem);
-    setText(null);
-    setInvalid(false);
+    setText(null); // drops the draft and its invalid mark (a `setInvalid` after it would bring the draft back)
     props.onCommit(parsed.value);
     return true;
   };
@@ -104,12 +115,12 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      commitText(event.currentTarget.value);
+      // An accepted value hands the keyboard back to the editor; a refused one keeps the field for correcting.
+      if (commitText(event.currentTarget.value)) release(event.currentTarget);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       setText(null);
-      setInvalid(false);
-      event.currentTarget.blur();
+      release(event.currentTarget);
     } else if (event.key === 'Tab') {
       // The browser moves the focus; commit what was typed first.
       if (text !== null) commitText(event.currentTarget.value);
@@ -270,6 +281,7 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
         onChange={(event) => setText(event.currentTarget.value)}
         onFocus={(event) => event.currentTarget.select()}
         onBlur={(event) => {
+          if (settled.current) return;
           if (text !== null && !commitText(event.currentTarget.value)) setText(null);
         }}
         onKeyDown={onKeyDown}

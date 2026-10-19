@@ -34,7 +34,8 @@ export function LastOpCard(props: PaneOverlayProps): JSX.Element | null {
   );
   if (workspace !== 'model' || lastRun === null) return null;
   if (visibleParams(lastRun.params).length === 0) return null;
-  if (card.dismissed && lastRun.closed === null) return null;
+  // A card hidden with ✕ stays hidden, live or closed (no "closed" pill for it); `T` and the next run bring it back.
+  if (card.dismissed) return null;
   if (cardPane(card, lastRun.paneId, { maximized }) !== paneId) return null;
   return (
     <Suspense fallback={null}>

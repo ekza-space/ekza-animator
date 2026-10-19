@@ -33,7 +33,7 @@ import {
 import { PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
 import type { PrimitiveKind } from '@ekza-animator/mesh-core';
 import { cn } from '@ekza-animator/ui';
-import { type JSX, type KeyboardEvent, useCallback, useState, useSyncExternalStore } from 'react';
+import { type JSX, type KeyboardEvent, useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';
 import { ParamField, ParamSections } from '../toolkit/ParamField';
@@ -113,24 +113,37 @@ function TrsRow(props: {
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const shown = fixed3(value);
-  const commit = (raw: string): void => {
+  /** Set while Enter or Esc blurs the input: that blur's handler (it still sees the draft) commits nothing. */
+  const settled = useRef(false);
+  const commit = (raw: string): boolean => {
     if (raw === shown) {
       setText(null);
-      return;
+      return true;
     }
     const problem = props.onCommit(channel, raw);
     setError(problem);
     if (problem === null) setText(null);
+    return problem === null;
+  };
+  /** Enter (accepted) and Esc give the keyboard back to the editor: the hovered pane's hotkeys work again. */
+  const release = (element: HTMLInputElement): void => {
+    if (element.ownerDocument.activeElement !== element) return;
+    settled.current = true;
+    try {
+      element.blur();
+    } finally {
+      settled.current = false;
+    }
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>): void => {
     if (event.key === 'Enter') {
       event.preventDefault();
-      commit(event.currentTarget.value);
+      if (commit(event.currentTarget.value)) release(event.currentTarget);
     } else if (event.key === 'Escape') {
       event.preventDefault();
       setText(null);
       setError(null);
-      event.currentTarget.blur();
+      release(event.currentTarget);
     }
   };
   return (
@@ -153,7 +166,9 @@ function TrsRow(props: {
         value={text ?? shown}
         onChange={(event) => setText(event.currentTarget.value)}
         onFocus={(event) => event.currentTarget.select()}
-        onBlur={(event) => text !== null && commit(event.currentTarget.value)}
+        onBlur={(event) => {
+          if (!settled.current && text !== null) commit(event.currentTarget.value);
+        }}
         onKeyDown={onKeyDown}
       />
     </div>

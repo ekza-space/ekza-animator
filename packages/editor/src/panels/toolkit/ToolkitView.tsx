@@ -23,6 +23,7 @@ import { cn } from '@ekza-animator/ui';
 import {
   type JSX,
   type MouseEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
   useEffect,
   useMemo,
@@ -39,6 +40,16 @@ import type { PanelProps } from '../types';
 import { ParamField } from './ParamField';
 
 const TOOLKIT_CTX: RunContext = { source: 'toolkit', panel: 'toolkit' };
+
+/**
+ * The Toolkit's number inputs set their value as it is typed; Enter and Esc give the keyboard back to the editor (the
+ * input blurs), so the hovered pane's hotkeys work again without a click elsewhere.
+ */
+function releaseOnEnter(event: ReactKeyboardEvent<HTMLInputElement>): void {
+  if (event.key !== 'Enter' && event.key !== 'Escape') return;
+  event.preventDefault();
+  event.currentTarget.blur();
+}
 /** At or below this width the Toolkit packs its buttons (§8.5 "Narrow"). */
 export const NARROW_PX = 260;
 
@@ -417,6 +428,7 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
             max={1}
             step={0.05}
             data-testid="mtk-multicut-snap"
+            onKeyDown={releaseOnEnter}
             value={snapStep}
             onChange={(event) => {
               const value = Number(event.currentTarget.value);
@@ -617,6 +629,7 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
               step={0.001}
               min={0}
               data-testid="mtk-sym-tol"
+              onKeyDown={releaseOnEnter}
               value={symmetry.tolerance}
               onChange={(event) => {
                 const value = Number(event.currentTarget.value);
@@ -659,6 +672,7 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
               step={0.05}
               min={0}
               data-testid="mtk-soft-radius"
+              onKeyDown={releaseOnEnter}
               value={soft.radius}
               onChange={(event) => {
                 const value = Number(event.currentTarget.value);

@@ -242,6 +242,52 @@ describe('the Last-op card (§8.6)', () => {
     expect(maybe('lastop-card-pane-persp')).toBeNull();
   });
 
+  it('a card hidden with ✕ stays hidden when its operation closes (no closed pill)', async () => {
+    const { app, cube } = await modelApp();
+    await app.run('test.weight' as never, {} as never, { source: 'menu', paneId: 'pane-persp' });
+    await card(app);
+    await waitFor(() => maybe('lastop-pill') !== null);
+    await click('lastop-pill');
+    await click('lastop-close');
+    await waitFor(() => maybe('lastop-card-pane-persp') === null);
+    await act(async () => {
+      app.store.transact({ label: 'Rename' }, (tx) => tx.patch('meshes', cube, { name: 'x' }));
+    });
+    expect(app.session.getState().lastRun?.closed).toBe('Another operation ran');
+    await settle(50);
+    expect(maybe('lastop-card-pane-persp')).toBeNull();
+  });
+
+  it('Enter gives the keyboard back to the editor; Esc restores the shown value without committing', async () => {
+    const { app } = await modelApp();
+    await app.run('test.weight' as never, { weight: 0.5 } as never, { source: 'menu', paneId: 'pane-persp' });
+    await card(app);
+    await waitFor(() => maybe('lastop-pill') !== null);
+    await click('lastop-pill');
+    // An accepted value blurs the field: the next T, G, Y or digit over the pane reaches the keymap (E2E-MOD-07).
+    await type('lastop-field-weight', '0.25');
+    await waitFor(() => app.session.getState().lastRun?.args['weight'] === 0.25);
+    expect(document.activeElement).not.toBe(input('lastop-field-weight'));
+    // A value that does not parse keeps the focus for correcting.
+    await type('lastop-field-weight', 'abc');
+    expect(document.activeElement).toBe(input('lastop-field-weight'));
+    expect(input('lastop-field-weight').getAttribute('aria-invalid')).toBe('true');
+    // Esc drops the draft: the blur it causes does not commit it.
+    const field = input('lastop-field-weight');
+    await act(async () => {
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      descriptor?.set?.call(field, '0.9');
+      field.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    await act(async () => {
+      field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    });
+    await settle(30);
+    expect(document.activeElement).not.toBe(field);
+    expect(app.session.getState().lastRun?.args['weight']).toBe(0.25);
+    expect(input('lastop-field-weight').value).toBe('0.250');
+  });
+
   it('a label drag previews and adjusts once on release; the capture window is armed on the dragged field', async () => {
     const { app } = await modelApp();
     await app.run('test.weight' as never, {} as never, { source: 'menu', paneId: 'pane-persp' });
