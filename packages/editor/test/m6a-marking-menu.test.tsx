@@ -14,11 +14,15 @@ import {
   marksMenus,
   prefetchMarkingMenu,
 } from '../src/overlays/MarkingMenu';
+import { userEvent } from 'vitest/browser';
 import {
+  COMPASS,
   createMarkingMenuController,
+  EDGE_MARGIN,
   FLICK_MS,
   type MarkingMenuController,
   MM_RADIUS,
+  menuLabel,
   slotPosition,
   slotToward,
 } from '../src/overlays/MarkingMenu/controller';
@@ -333,6 +337,185 @@ describe('gestures (§5.18)', () => {
   });
 });
 
+/** Every compass slot filled (Ctrl+RMB, anywhere): each slot runs `test.mode` with its own name. */
+const FULL: MarkingMenuDef = {
+  id: 'model.full',
+  trigger: { button: 'rmb', mods: 'ctrl' },
+  workspaces: ['model'],
+  when: { over: 'any' },
+  slots: Object.fromEntries(COMPASS.map((slot) => [slot, { label: slot, op: 'test.mode', args: { mode: slot } }])),
+  list: [{ label: 'Listed', op: 'test.mode', args: { mode: 'list' } }],
+};
+const FULL_KEY: MarkingMenuDef = { ...FULL, id: 'model.fullKey', trigger: { key: 'KeyM' } };
+const SLOT_DEG: Record<string, number> = { E: 0, NE: 45, N: 90, NW: 135, W: 180, SW: 225, S: 270, SE: 315 };
+
+/** The page offset of `distance` px towards a slot (y down). */
+function toward(slot: string, distance: number): { dx: number; dy: number } {
+  const angle = ((SLOT_DEG[slot] ?? 0) * Math.PI) / 180;
+  return { dx: Math.cos(angle) * distance, dy: -Math.sin(angle) * distance };
+}
+
+/** Press points within EDGE_MARGIN of each window edge and corner (the drawing moves inwards there). */
+function edgePoints(): { name: string; x: number; y: number }[] {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  return [
+    { name: 'left', x: 10, y: h / 2 },
+    { name: 'right', x: w - 10, y: h / 2 },
+    { name: 'top', x: w / 2, y: 10 },
+    { name: 'bottom', x: w / 2, y: h - 10 },
+    { name: 'top-left', x: 30, y: 30 },
+    { name: 'top-right', x: w - 30, y: 40 },
+    { name: 'bottom-left', x: 100, y: h - 60 },
+    { name: 'bottom-right', x: w - 2, y: h - 2 },
+  ];
+}
+
+describe('near the window edges (directions from the press point)', () => {
+  it('the test window is large enough for the drawing to move inwards', () => {
+    expect(window.innerWidth).toBeGreaterThan(2 * EDGE_MARGIN);
+    expect(window.innerHeight).toBeGreaterThan(2 * EDGE_MARGIN);
+  });
+
+  it('a flick towards each slot runs that slot from a press near every edge and corner', () => {
+    const { controller, timers, runs } = rig([FULL]);
+    for (const at of edgePoints()) {
+      for (const slot of COMPASS) {
+        runs.length = 0;
+        const opened = controller.handlePress(press({ clientX: at.x, clientY: at.y, ctrl: true }));
+        expect([at.name, opened]).toEqual([at.name, true]);
+        const open = controller.state.getState().open;
+        // The drawing moved inwards: the press point is not the drawn centre.
+        expect([at.name, open !== null && (open.x !== at.x || open.y !== at.y)]).toEqual([at.name, true]);
+        expect(open?.visible).toBe(false);
+        const half = toward(slot, 20);
+        const full = toward(slot, 40);
+        timers.advance(60);
+        pointerAt('pointermove', at.x + half.dx, at.y + half.dy);
+        timers.advance(60);
+        pointerAt('pointerup', at.x + full.dx, at.y + full.dy);
+        expect(
+          runs.map((r) => r.args),
+          `${at.name}: flick ${slot}`,
+        ).toEqual([{ mode: slot }]);
+        expect(controller.state.getState().open).toBeNull();
+      }
+    }
+  });
+
+  it('press-drag-release on the drawn menu runs the slot in the direction moved, highlighted while moving', () => {
+    const { controller, timers, runs } = rig([FULL]);
+    for (const at of edgePoints()) {
+      for (const slot of COMPASS) {
+        runs.length = 0;
+        controller.handlePress(press({ clientX: at.x, clientY: at.y, ctrl: true }));
+        timers.advance(FLICK_MS);
+        expect(controller.state.getState().open?.visible).toBe(true);
+        const v = toward(slot, 60);
+        pointerAt('pointermove', at.x + v.dx, at.y + v.dy);
+        expect(controller.state.getState().open?.hover, `${at.name}: hover ${slot}`).toEqual({ kind: 'slot', slot });
+        pointerAt('pointerup', at.x + v.dx, at.y + v.dy);
+        expect(
+          runs.map((r) => r.args),
+          `${at.name}: drag ${slot}`,
+        ).toEqual([{ mode: slot }]);
+      }
+    }
+  });
+
+  it('a held key near a corner: move and release runs the slot in that direction', () => {
+    const { controller, runs } = rig([FULL, FULL_KEY]);
+    const corner = { x: window.innerWidth - 4, y: window.innerHeight - 4 };
+    for (const slot of COMPASS) {
+      runs.length = 0;
+      pointerAt('pointermove', corner.x, corner.y);
+      key('keydown', 'KeyM');
+      controller.openByCommand(FULL_KEY, { panel: 'viewport', paneId: 'pane-persp', source: 'keyboard' });
+      expect(controller.state.getState().open).toMatchObject({ via: 'key' });
+      const v = toward(slot, 40);
+      pointerAt('pointermove', corner.x + v.dx, corner.y + v.dy);
+      key('keyup', 'KeyM');
+      expect(
+        runs.map((r) => r.args),
+        `key ${slot}`,
+      ).toEqual([{ mode: slot }]);
+    }
+  });
+
+  it('a drawn item under the pointer wins over the direction; leaving it goes back to the direction', () => {
+    const { controller, timers, runs } = rig([FULL]);
+    const at = { x: window.innerWidth / 2, y: window.innerHeight - 10 };
+    controller.handlePress(press({ clientX: at.x, clientY: at.y, ctrl: true }));
+    timers.advance(FLICK_MS);
+    const open = controller.state.getState().open;
+    if (open === null) throw new Error('no menu');
+    expect(open.y).toBe(window.innerHeight - EDGE_MARGIN);
+    // The drawn E item sits up and to the right of the press point (NE from there): over it, it is E.
+    const east = slotPosition(open.x, open.y, 'E');
+    expect(slotToward(east.x - at.x, east.y - at.y)).toBe('NE');
+    controller.hover({ kind: 'slot', slot: 'E' }); // the view's pointerenter
+    pointerAt('pointermove', east.x, east.y);
+    expect(controller.state.getState().open?.hover).toEqual({ kind: 'slot', slot: 'E' });
+    controller.hover(null); // pointerleave
+    pointerAt('pointermove', east.x + 4, east.y);
+    expect(controller.state.getState().open?.hover).toEqual({ kind: 'slot', slot: 'NE' });
+    controller.hover({ kind: 'slot', slot: 'E' });
+    pointerAt('pointerup', east.x, east.y);
+    expect(runs.map((r) => r.args)).toEqual([{ mode: 'E' }]);
+  });
+
+  it('a click-release near an edge leaves the drawn menu open; then directions are read from the drawn centre', () => {
+    const { controller, runs } = rig([FULL]);
+    const at = { x: 12, y: 12 };
+    controller.handlePress(press({ clientX: at.x, clientY: at.y, ctrl: true }));
+    pointerAt('pointerup', at.x + 2, at.y + 1);
+    const open = controller.state.getState().open;
+    expect(open).toMatchObject({ visible: true, sticky: true, x: EDGE_MARGIN, y: EDGE_MARGIN });
+    const south = slotPosition(EDGE_MARGIN, EDGE_MARGIN, 'S');
+    pointerAt('pointermove', south.x, south.y);
+    expect(controller.state.getState().open?.hover).toEqual({ kind: 'slot', slot: 'S' });
+    controller.activate({ kind: 'slot', slot: 'S' });
+    expect(runs.map((r) => r.args)).toEqual([{ mode: 'S' }]);
+  });
+
+  it('with the real pointer: the drawn slot under it runs on release, near the bottom edge', async () => {
+    const { app } = rig([FULL]);
+    const runs: unknown[] = [];
+    const menus = createMarkingMenus({
+      app,
+      run: (_op, args) => {
+        runs.push(args);
+        return Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>);
+      },
+      help: () => {},
+    });
+    await menus.load();
+    const view = await render(<MarkingMenuHost menus={menus} />);
+    try {
+      const at = { x: window.innerWidth / 2, y: window.innerHeight - 10 };
+      await update(() => menus.handlePress(press({ clientX: at.x, clientY: at.y, ctrl: true })));
+      await waitFor(() => document.querySelector('[data-testid="mm-model.full"]') !== null);
+      const east = byTestId(document.body, 'mm-slot-E');
+      await userEvent.hover(east);
+      await waitFor(() => east.dataset['hover'] === 'true');
+      expect(menus.state.getState().open?.hover).toEqual({ kind: 'slot', slot: 'E' });
+      const rect = east.getBoundingClientRect();
+      await update(() => pointerAt('pointerup', rect.x + rect.width / 2, rect.y + rect.height / 2));
+      expect(runs).toEqual([{ mode: 'E' }]);
+      expect(menus.state.getState().open).toBeNull();
+    } finally {
+      await view.unmount();
+      menus.dispose();
+    }
+  });
+
+  it('names the menu for screen readers from its id', () => {
+    expect(menuLabel('model.modes')).toBe('Modes menu');
+    expect(menuLabel('model.tools.face')).toBe('Tools Face menu');
+    expect(menuLabel('e2e.fixture')).toBe('Fixture menu');
+  });
+});
+
 describe('the drawn menu (§8.10 mm-<menuId>, mm-slot-<N…NW>, mm-item-<n>)', () => {
   it('draws the slots and the list with disabled reasons; a click runs the slot', async () => {
     const { app, runs } = rig();
@@ -355,6 +538,8 @@ describe('the drawn menu (§8.10 mm-<menuId>, mm-slot-<N…NW>, mm-item-<n>)', (
     await waitFor(() => document.querySelector('[data-testid="mm-model.modes"]') !== null);
     const menu = byTestId(document.body, 'mm-model.modes');
     expect(menu.getAttribute('role')).toBe('menu');
+    // Screen readers hear a name, not the internal id.
+    expect(menu.getAttribute('aria-label')).toBe('Modes menu');
     expect(byTestId(menu, 'mm-slot-N').textContent).toContain('Edge');
     expect(byTestId(menu, 'mm-slot-E').getAttribute('aria-disabled')).toBe('true');
     expect(byTestId(menu, 'mm-slot-E').title).toBe('UV editor arrives later');

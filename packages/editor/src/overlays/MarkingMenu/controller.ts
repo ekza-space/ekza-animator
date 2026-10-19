@@ -4,6 +4,9 @@
 // 20 px towards a slot runs it without drawing (flick); a press-drag-release runs what the pointer is over; a
 // click-release (or a tap of the key) leaves the menu open for a click. Slots never move between modes: an
 // inapplicable item is drawn disabled with its reason. `Esc` closes. The menu data is the owners' (§8.4).
+// Near a window edge the drawing moves inwards so every item can be clicked, but a live gesture (button or key held)
+// keeps measuring its direction from where it started: a flick means the same thing anywhere in the window. A drawn
+// item under the pointer wins over the direction.
 import type { Disposer } from '@ekza-animator/anim-core';
 import type {
   CompassSlot,
@@ -28,8 +31,8 @@ export const COMPASS: readonly CompassSlot[] = ['N', 'NE', 'E', 'SE', 'S', 'SW',
 const ANGLE: Readonly<Record<CompassSlot, number>> = { E: 0, NE: 45, N: 90, NW: 135, W: 180, SW: 225, S: 270, SE: 315 };
 /** The list starts this far below the S slot (CSS px). */
 export const LIST_OFFSET = 34;
-/** The centre stays this far inside the window so every slot can be reached. */
-const EDGE_MARGIN = MM_RADIUS + 64;
+/** The drawn centre stays this far inside the window so every item can be clicked. */
+export const EDGE_MARGIN = MM_RADIUS + 64;
 
 export type { MarkingMenuEntry, MarkingMenuState, MarkingMenuTarget, OpenMarkingMenu } from './types';
 
@@ -57,7 +60,7 @@ export interface MarkingMenuController {
   /** A click on a drawn item (sticky menus). */
   activate(target: MarkingMenuTarget): void;
   close(): void;
-  /** Page position of each slot of the open menu. */
+  /** Page position of each drawn slot of the open menu (around the drawn centre, which an edge may move). */
   screenOfSlot(): Partial<Record<CompassSlot, { x: number; y: number }>>;
   dispose(): void;
 }
@@ -69,6 +72,13 @@ const titleCase = (id: string): string =>
     .filter((part) => part !== '')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+
+/** The menu's spoken name, from its id without the workspace prefix: 'model.tools.face' → 'Tools Face menu'. */
+export function menuLabel(id: string): string {
+  const parts = id.split('.');
+  const name = titleCase((parts.length > 1 ? parts.slice(1) : parts).join(' '));
+  return `${name === '' ? 'Marking' : name} menu`;
+}
 
 /** The compass slot in the direction of (dx, dy) (page px, y down), or null inside the dead zone. */
 export function slotToward(dx: number, dy: number, slots: readonly CompassSlot[] = COMPASS): CompassSlot | null {
@@ -133,6 +143,8 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
   } | null = null;
   let showTimer: unknown = null;
   let detach: Disposer | null = null;
+  /** The hover came from a drawn item under the pointer (the view reports it), not from a direction. */
+  let domHover = false;
 
   const entryOf = (item: MarkingMenuItem, ctx: RunContext): MarkingMenuEntry => {
     const op = item.op ?? null;
@@ -178,13 +190,21 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
     return open.expanded?.items[target.index] ?? null;
   };
 
-  /** What the pointer is over: a drawn list/submenu item the DOM reported, else the slot in its direction. */
-  const targetAt = (open: OpenMarkingMenu, x: number, y: number): MarkingMenuTarget | null => {
-    if (open.hover !== null && open.hover.kind !== 'slot') return open.hover;
+  /** The filled slot in the direction of (x, y) from `from`, or null inside the dead zone or between slots. */
+  const slotFrom = (
+    open: OpenMarkingMenu,
+    from: { readonly x: number; readonly y: number },
+    x: number,
+    y: number,
+  ): MarkingMenuTarget | null => {
     const filled = COMPASS.filter((slot) => open.slots[slot] !== undefined);
-    const slot = slotToward(x - open.x, y - open.y, filled);
+    const slot = slotToward(x - from.x, y - from.y, filled);
     return slot === null ? null : { kind: 'slot', slot };
   };
+
+  /** Where directions are measured from: the press point while a gesture is live, else the drawn centre. */
+  const origin = (open: OpenMarkingMenu): { x: number; y: number } =>
+    gesture === null ? { x: open.x, y: open.y } : { x: gesture.startX, y: gesture.startY };
 
   const run = (open: OpenMarkingMenu, target: MarkingMenuTarget): void => {
     const entry = entryAtTarget(open, target);
@@ -194,6 +214,7 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
     }
     if (entry.submenu !== null) {
       // A submenu opens in place and keeps the menu open for a click.
+      domHover = false;
       update({ expanded: { from: target, items: entry.submenu }, visible: true, sticky: true, hover: null });
       return;
     }
@@ -211,8 +232,10 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
     gesture = null;
     if (open === null || g === null) return;
     const moved = Math.hypot(x - g.startX, y - g.startY);
-    const target = targetAt(open, x, y);
-    if (moved <= FLICK_PX && (open.hover === null || open.hover.kind === 'slot')) {
+    // A drawn item under the pointer, else the slot in the gesture's direction from where it started.
+    const overItem = domHover ? open.hover : null;
+    const target = overItem ?? slotFrom(open, { x: g.startX, y: g.startY }, x, y);
+    if (moved <= FLICK_PX && (overItem === null || overItem.kind === 'slot')) {
       // Click-release or a key tap: the menu stays open for a click.
       if (showTimer !== null) timers.clear(showTimer);
       showTimer = null;
@@ -238,8 +261,8 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
       gesture.lastX = e.clientX;
       gesture.lastY = e.clientY;
     }
-    if (open.hover?.kind === 'item' || open.hover?.kind === 'sub') return; // the DOM reports list hovers
-    const target = targetAt({ ...open, hover: null }, e.clientX, e.clientY);
+    if (domHover) return; // the view reports hovers over drawn items
+    const target = slotFrom(open, origin(open), e.clientX, e.clientY);
     const same =
       (target === null && open.hover === null) ||
       (target?.kind === 'slot' && open.hover?.kind === 'slot' && target.slot === open.hover.slot);
@@ -352,6 +375,7 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
     if (showTimer !== null) timers.clear(showTimer);
     showTimer = null;
     gesture = null;
+    domHover = false;
     if (state.getState().open !== null) state.setState({ open: null });
   }
 
@@ -427,6 +451,7 @@ export function createMarkingMenuController(deps: MarkingMenuDeps): MarkingMenuC
     hover(target) {
       const open = state.getState().open;
       if (open === null) return;
+      domHover = target !== null;
       update({ hover: target });
     },
     activate(target) {

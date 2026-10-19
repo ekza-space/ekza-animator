@@ -11,6 +11,7 @@ import {
   type MarkingMenuController,
   type MarkingMenuEntry,
   type MarkingMenuTarget,
+  menuLabel,
   type OpenMarkingMenu,
   slotPosition,
 } from './controller';
@@ -64,6 +65,14 @@ function Item(props: {
   );
 }
 
+/** The expanded submenu's spoken name: the label of the item that opened it. */
+function submenuLabel(open: OpenMarkingMenu): string | undefined {
+  const from = open.expanded?.from;
+  if (from === undefined) return undefined;
+  const entry = from.kind === 'slot' ? open.slots[from.slot] : from.kind === 'item' ? open.list[from.index] : undefined;
+  return entry?.label;
+}
+
 export function MarkingMenuView(props: {
   readonly controller: MarkingMenuController;
   readonly open: OpenMarkingMenu;
@@ -75,7 +84,7 @@ export function MarkingMenuView(props: {
       className="pointer-events-none z-(--z-marking) select-none"
       style={{ position: 'fixed', inset: 0 }}
       role="menu"
-      aria-label={open.def.id}
+      aria-label={menuLabel(open.def.id)}
       data-testid={`mm-${open.def.id}`}
       data-ekza-marking-menu=""
     >
@@ -122,6 +131,7 @@ export function MarkingMenuView(props: {
           className="pointer-events-auto flex flex-col gap-0.5"
           style={{ position: 'absolute', left: open.x + MM_RADIUS + 70, top: open.y - MM_RADIUS }}
           role="menu"
+          aria-label={submenuLabel(open)}
           data-testid={`mm-sub-${open.def.id}`}
         >
           {open.expanded.items.map((entry, index) => (
