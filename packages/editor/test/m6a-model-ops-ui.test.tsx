@@ -81,8 +81,8 @@ interface Model {
 }
 
 /** A Model app with the built-ins, the kernel loaded, a cube created from the menu in `pane-persp`. */
-async function modelApp(): Promise<Model> {
-  const app = createFakeEditorApp();
+async function modelApp(opts?: { readonly platform?: 'mac' | 'other' }): Promise<Model> {
+  const app = createFakeEditorApp(opts?.platform === undefined ? undefined : { platform: opts.platform });
   registerBuiltins(app);
   await loadMeshKernel();
   (app.meshes as KernelMeshRuntimes).attach(app);
@@ -140,6 +140,32 @@ describe('the Last-op card (§8.6)', () => {
     expect(`${counts?.points}/${counts?.edges}/${counts?.faces}`).toBe('12/20/10');
     expect(input('lastop-field-subdivisionsWidth').value).toBe('2');
     expect(by('lastop-card-pane-persp').dataset['state']).toBe('expanded');
+  });
+
+  // §10.1 E2E-MOD-02: "the card and help line show ⌘E" — the operation's binding over the card's pane, in the
+  // platform's labels: in the pill's tooltip and the expanded card's header (M6A-INT-4).
+  it("names the operation's shortcut in the platform's labels (⌘E on macOS, Ctrl+E elsewhere)", async () => {
+    for (const [platform, label] of [
+      ['mac', '⌘E'],
+      ['other', 'Ctrl+E'],
+    ] as const) {
+      const { app, cube } = await modelApp({ platform });
+      app.session.setState({ selection: { ...app.session.getState().selection, objects: [cube] } });
+      expect((await app.run('select.mode', { mode: 'face' })).status).toBe('finished');
+      expect(
+        (await app.run('select.components', { mesh: cube, kind: 'face', indices: [0], mode: 'replace' })).status,
+      ).toBe('finished');
+      const extruded = await app.runUntyped('mesh.extrude', {}, { source: 'keyboard', paneId: 'pane-persp' });
+      expect(extruded.status).toBe('finished');
+      await card(app);
+      await waitFor(() => maybe('lastop-pill') !== null);
+      expect(by('lastop-title').textContent).toBe('Extrude');
+      expect(by('lastop-pill').title).toBe(`Adjust Extrude (T) · ${label}`);
+      await click('lastop-pill');
+      await waitFor(() => maybe('lastop-shortcut') !== null);
+      expect(by('lastop-shortcut').textContent).toBe(label);
+      cleanup();
+    }
   });
 
   it('shows param groups as sections (ungrouped first, sections by first appearance, list order kept)', async () => {
@@ -493,6 +519,9 @@ describe('the Channel Box of a mesh (§8.6)', () => {
     expect(input('cb-field-ty').value).toBe('0.000');
     expect(input('cb-field-sx').value).toBe('1.000');
     expect(by('cb-prim-title').textContent).toBe('cube (primitive)');
+    // `cb-inputs` is the INPUTS section with its entries (§8.10; E2E-MOD-27 reads the entry's title in it).
+    expect(by('cb-inputs').textContent).toContain('INPUTS');
+    expect(by('cb-inputs').textContent).toContain('cube (primitive)');
     // An edit right after the creation run adjusts it: same mesh, same step count.
     const steps = undoLength(app);
     await type('cb-prim-field-subdivisionsWidth', '3');
@@ -511,6 +540,7 @@ describe('the Channel Box of a mesh (§8.6)', () => {
     await mount(app, <ChannelBoxPanel app={app} instanceId="cb" />);
     await waitFor(() => maybe('cb-inputs-field-weight') !== null);
     expect(by('cb-lastop-title').textContent).toBe('weight (last operation)');
+    expect(by('cb-inputs').textContent).toContain('weight (last operation)');
     expect(input('cb-inputs-field-weight').value).toBe('0.250');
     await act(async () => {
       by('cb-inputs-name-weight').dispatchEvent(

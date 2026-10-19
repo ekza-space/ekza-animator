@@ -302,38 +302,39 @@ export default function MeshChannels(props: { readonly app: EditorApp; readonly 
             <div className="truncate px-1 text-fg-2" data-testid="cb-shape">
               {mesh.name}Shape
             </div>
-            <div className="mt-1 border-t border-line px-1 pt-1 font-semibold text-fg-3" data-testid="cb-inputs">
-              INPUTS
-            </div>
-            {generator !== null && kind !== undefined ? (
-              <InputsEntry
-                app={app}
-                title={`${kind} (primitive)`}
-                testId="cb-prim"
-                prefix="cb-prim"
-                entry="primitive"
-                mesh={mesh.id}
-                params={primitiveParams}
-                values={generator.params}
-                onCommit={commitPrimitive}
-              />
-            ) : null}
-            {lastOpParams.length > 0 && live !== null ? (
-              <InputsEntry
-                app={app}
-                title={`${live.label.toLowerCase()} (last operation)`}
-                testId="cb-lastop"
-                prefix="cb-inputs"
-                entry="lastop"
-                mesh={mesh.id}
-                params={lastOpParams}
-                values={live.args}
-                onCommit={(name, value) => run('edit.adjustLast', { args: { [name]: value } })}
-              />
-            ) : null}
-            {generator === null && lastOpParams.length === 0 ? (
-              <div className={cn('px-1', MUTED_TEXT)}>No inputs</div>
-            ) : null}
+            {/* §8.10 `cb-inputs` is the INPUTS section: its header and both entries (M6A-INT-7). */}
+            <section className="flex flex-col gap-1" data-testid="cb-inputs" aria-label="Inputs">
+              <div className="mt-1 border-t border-line px-1 pt-1 font-semibold text-fg-3">INPUTS</div>
+              {generator !== null && kind !== undefined ? (
+                <InputsEntry
+                  app={app}
+                  title={`${kind} (primitive)`}
+                  testId="cb-prim"
+                  prefix="cb-prim"
+                  entry="primitive"
+                  mesh={mesh.id}
+                  params={primitiveParams}
+                  values={generator.params}
+                  onCommit={commitPrimitive}
+                />
+              ) : null}
+              {lastOpParams.length > 0 && live !== null ? (
+                <InputsEntry
+                  app={app}
+                  title={`${live.label.toLowerCase()} (last operation)`}
+                  testId="cb-lastop"
+                  prefix="cb-inputs"
+                  entry="lastop"
+                  mesh={mesh.id}
+                  params={lastOpParams}
+                  values={live.args}
+                  onCommit={(name, value) => run('edit.adjustLast', { args: { [name]: value } })}
+                />
+              ) : null}
+              {generator === null && lastOpParams.length === 0 ? (
+                <div className={cn('px-1', MUTED_TEXT)}>No inputs</div>
+              ) : null}
+            </section>
           </>
         )}
       </div>

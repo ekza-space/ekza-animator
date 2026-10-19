@@ -16,6 +16,7 @@ import {
   lastRunWarnings,
   type NumericTarget,
   numericParams,
+  PANEL,
   type RunContext,
   setLastOpCardExpanded,
   visibleParams,
@@ -23,7 +24,9 @@ import {
 import { cn } from '@ekza-animator/ui';
 import { type JSX, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
+import { scopeChain } from '../../input/keyboard';
 import { useOptionalShell } from '../../shell/context';
+import { shortcutFor } from '../../shell/menus';
 import { BUTTON } from '../channel-box/kit/styles';
 import { ParamField, ParamSections, type ParamSliderHooks } from './ParamField';
 
@@ -155,6 +158,14 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
   if (!shown) return null;
 
   const summary = primary === null ? '' : ` · ${formatParamValue(primary, lastRun.args[primary.name])}`;
+  // The operation's own shortcut in the platform's labels (§10.1 E2E-MOD-02: "the card and help line show ⌘E"), from
+  // the binding that runs it over this pane (M6A-INT).
+  const shortcut = shortcutFor(
+    app.keymap,
+    lastRun.id,
+    undefined,
+    scopeChain(app, { kind: PANEL.viewport, scope: PANEL.viewport, paneId }).scopes,
+  );
   const warnings = lastRunWarnings(app);
   const message = (text: string): void => shell?.help(text, 'warning');
 
@@ -175,7 +186,7 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
             closed === null ? 'hover:text-fg' : 'opacity-50',
           )}
           data-testid="lastop-pill"
-          title={closed ?? `Adjust ${lastRun.label} (T)`}
+          title={closed ?? `Adjust ${lastRun.label} (T)${shortcut === null ? '' : ` · ${shortcut}`}`}
           disabled={closed !== null}
           onClick={() => setLastOpCardExpanded(app, true)}
         >
@@ -211,6 +222,11 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
         <span className="min-w-0 flex-1 truncate font-semibold" data-testid="lastop-title">
           {lastRun.label}
         </span>
+        {shortcut === null ? null : (
+          <kbd className="font-sans text-fg-3" data-testid="lastop-shortcut">
+            {shortcut}
+          </kbd>
+        )}
         <button
           type="button"
           className={BUTTON}
