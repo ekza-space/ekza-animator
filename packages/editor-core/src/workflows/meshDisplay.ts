@@ -140,12 +140,12 @@ export function createMeshDisplay(deps: {
   let idleQueued = false;
   let disposed = false;
 
-  const ownerOf = (row: unknown): CharacterId | null => {
+  /** The character whose display a record state counts for: an edited, live, made-editable mesh's owner. */
+  const editedOwner = (row: unknown): CharacterId | null => {
     const record = row as Partial<MeshRecord> | undefined;
     const owner = record?.owner;
-    return record?.source !== null && record?.source !== undefined && owner !== undefined && 'character' in owner
-      ? owner.character
-      : null;
+    if (record === undefined || record.deleted !== null || owner === undefined || !('character' in owner)) return null;
+    return isEditedMesh(record as MeshRecord) ? owner.character : null;
   };
 
   const flush = async (): Promise<void> => {
@@ -173,10 +173,11 @@ export function createMeshDisplay(deps: {
 
   const onBatch = (batch: ChangeBatch): void => {
     let touched = false;
+    // A display changes when an edited mesh appears, changes or goes (Make editable alone shows the same model).
     for (const change of batch.changes) {
       if (change.table !== 'meshes') continue;
       for (const row of [change.before, change.after]) {
-        const owner = ownerOf(row);
+        const owner = editedOwner(row);
         if (owner === null) continue;
         dirty.add(owner);
         touched = true;

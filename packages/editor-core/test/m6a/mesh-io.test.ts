@@ -292,8 +292,8 @@ describe('the display controller', () => {
     app.dispose();
   });
 
-  it('ignores scene meshes and character meshes without a source', async () => {
-    const { app } = await characterApp(readFixture('polybot.vrm'), 'Polybot');
+  it('ignores scene meshes, and Make editable alone (the model on screen is the same); an undone edit counts', async () => {
+    const { app, character } = await characterApp(readFixture('polybot.vrm'), 'Polybot');
     const { pending, timers } = controller();
     const session = createStore<Pick<SessionState, 'workspace'>>()(() => ({ workspace: 'model' }));
     const display = createMeshDisplay({
@@ -306,6 +306,13 @@ describe('the display controller', () => {
     const { makeTestMesh } = await import('@ekza-animator/doc/testing');
     app.store.transact({ label: 'Create' }, (tx) => tx.put('meshes', makeTestMesh('msh_Scene')));
     expect(pending).toEqual([]);
+    await app.run('mesh.makeEditable', { character, meshIndex: 0 });
+    expect(pending).toEqual([]);
+    editMesh(app, assetMeshId(character, 0));
+    expect(pending).toHaveLength(1);
+    pending.shift()?.fn(); // the debounce elapses
+    await app.run('edit.undo');
+    expect(pending).toHaveLength(1); // back to the original geometry: the display changes again
     display.dispose();
     app.dispose();
   });
