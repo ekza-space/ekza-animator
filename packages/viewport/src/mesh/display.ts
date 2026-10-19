@@ -1,14 +1,17 @@
 // The mesh display of the viewport (M6A-SPEC §4.4, §4.7, §5.6, §5.23; B6, lazy with mesh-view): one host per mesh
-// runtime, registered through `target.addMeshLayer` (B9's `ViewportManager.addMeshLayer`). A mesh shows as a
-// `MeshSurface` (props in every workspace, meshes outside the hilite set) or, while a component mode is active and
-// the mesh is hilited and open, as an `EditMeshView` with a `ComponentPicker`. The host follows the runtimes
-// (incremental `changed` events, rebuilds), the component selection service (selection, hidden sets, symmetry
-// partners), the session (mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes),
-// and applies each pane's display before the pane renders ("Dim unhilited", hidden and isolated objects).
+// runtime, registered through `target.addMeshLayer` (B9's `ViewportManager.addMeshLayer`). Scene-owned meshes (props)
+// are hosted in every workspace; character-owned meshes only in Model, where they render at bind pose (outside Model
+// a character displays through ModelLoader on its rebuilt container, §5.23, never twice). A mesh shows as a
+// `MeshSurface` (outside component mode, meshes outside the hilite set) or, while a component mode is active and the
+// mesh is hilited and open, as an `EditMeshView` with a `ComponentPicker`. The host follows the runtimes (incremental
+// `changed` events, rebuilds), the component selection service (selection, hidden sets, symmetry partners), the
+// session (workspace, mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes), and
+// applies each pane's display before the pane renders ("Dim unhilited", hidden and isolated objects). Picking is per
+// pane and skips what that pane does not draw (hidden objects, the pane's object isolate and face isolate, §5.6).
 // Hover, soft weights, Mesh Check problems and face isolate sets are pushed by their owners (B10, B12a).
 import type { Disposer } from '@ekza-animator/anim-core';
 import { batchTables, type CharacterId, type MeshId, type MeshRecord, type PaletteId } from '@ekza-animator/doc';
-import type { EditorApp, MeshRuntime } from '@ekza-animator/editor-core';
+import type { EditorApp, MeshRuntime, WorkspaceId } from '@ekza-animator/editor-core';
 import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshProblem } from '@ekza-animator/mesh-core';
 import type * as MeshViewModule from '@ekza-animator/mesh-view';
 import type {
@@ -54,6 +57,7 @@ export interface MeshDisplayPick extends PickHit {
 }
 
 type Hover = { readonly kind: ComponentKind; readonly index: number };
+type Viewport = { readonly w: number; readonly h: number };
 
 interface Entry {
   readonly id: MeshId;
@@ -111,8 +115,9 @@ export class MeshDisplay {
       app.session.subscribe((state, previous) => {
         const a = state.model;
         const b = previous.model;
-        if (a.componentMode !== b.componentMode || a.hilite !== b.hilite) this.sync();
-        else if (a.symmetry !== b.symmetry) this.refreshStates();
+        if (state.workspace !== previous.workspace || a.componentMode !== b.componentMode || a.hilite !== b.hilite) {
+          this.sync();
+        } else if (a.symmetry !== b.symmetry) this.refreshStates();
         if (a.hiddenObjects !== b.hiddenObjects || a.isolate !== b.isolate) this.target.invalidate();
       }),
       app.store.subscribe((batch) => {
@@ -131,14 +136,15 @@ export class MeshDisplay {
   // ---------------------------------------------------------------------------------------------------------------
   // reconciliation
 
-  /** Creates, switches and drops hosts to match the live runtimes and the component mode. */
+  /** Creates, switches and drops hosts to match the live runtimes, the workspace and the component mode. */
   sync(): void {
     if (this.disposed) return;
+    const workspace = this.app.session.getState().workspace;
     const live = new Set<MeshId>();
     for (const runtime of this.app.meshes.list()) {
       if (runtime.state !== 'ready' || runtime.data() === null) continue;
       const record = this.app.store.get('meshes', runtime.id);
-      if (record === undefined) continue;
+      if (record === undefined || !hostedIn(record, workspace)) continue;
       live.add(runtime.id);
       this.syncEntry(this.entryOf(runtime.id), runtime, record);
     }
@@ -217,6 +223,7 @@ export class MeshDisplay {
         entry.mesh = mesh;
         entry.picker?.setMesh(mesh, tri, entry.world, true);
         entry.version = runtime.version;
+        pruneIsolate(entry, mesh.counts.faces);
       } else {
         entry.picker?.setMesh(mesh, runtime.triangulation(), entry.world, false);
       }
@@ -261,7 +268,10 @@ export class MeshDisplay {
       entry.picker?.setMesh(runtime.mesh, tri, entry.world, dirty.topology);
       entry.mesh = runtime.mesh;
       entry.version = runtime.version;
-      if (dirty.topology) this.applyState(entry, runtime);
+      if (dirty.topology) {
+        pruneIsolate(entry, runtime.mesh.counts.faces);
+        this.applyState(entry, runtime);
+      }
     } else if (entry.surface !== null) {
       const data = runtime.data();
       const record = this.app.store.get('meshes', id);
@@ -370,6 +380,21 @@ export class MeshDisplay {
   // ---------------------------------------------------------------------------------------------------------------
   // per pane
 
+  /**
+   * Whether pane `paneId` draws the mesh at all: not hidden (itself or a parent group) and inside the pane's object
+   * isolate list when it has one. Drawing and picking share it (§5.6: what a pane does not draw is not pickable).
+   */
+  private drawnIn(record: MeshRecord | undefined, paneId: string): boolean {
+    if (record === undefined) return false;
+    const model = this.app.session.getState().model;
+    if (model.hiddenObjects.size > 0 && inSubtree(this.app.store, record, model.hiddenObjects)) return false;
+    const isolate = model.isolate[paneId];
+    if (isolate !== undefined && isolate !== null && !inSubtree(this.app.store, record, new Set<string>(isolate))) {
+      return false;
+    }
+    return true;
+  }
+
   private applyPane(entry: Entry, display: MeshPaneDisplay, paneId: string): void {
     const model = this.app.session.getState().model;
     const record = this.app.store.get('meshes', entry.id);
@@ -377,13 +402,7 @@ export class MeshDisplay {
     entry.hilited = model.hilite.includes(entry.id);
     if (record !== undefined && runtime !== undefined && this.stale(entry, runtime))
       this.syncEntry(entry, runtime, record);
-    let shown = record !== undefined;
-    if (shown && model.hiddenObjects.size > 0)
-      shown = !inSubtree(this.app.store, record as MeshRecord, model.hiddenObjects);
-    const isolate = model.isolate[paneId];
-    if (shown && isolate !== undefined && isolate !== null) {
-      shown = inSubtree(this.app.store, record as MeshRecord, new Set<string>(isolate));
-    }
+    const shown = this.drawnIn(record, paneId);
     entry.root.visible = shown;
     if (!shown) return;
     const componentMode = model.componentMode !== 'object';
@@ -432,19 +451,26 @@ export class MeshDisplay {
     this.target.invalidate();
   }
 
-  /** Face-mode isolate of a pane (`view.isolate`, §5.6): only `faces` of the mesh are drawn there; null ends it. */
+  /**
+   * Face-mode isolate of a pane (`view.isolate`, §5.6): only `faces` of the mesh are drawn and pickable there; null
+   * ends it. The set is copied. A topology commit drops sets that no longer match the face count (their indices would
+   * name other faces): the owner (B10) pushes the remapped set after such a commit, or the isolate ends.
+   */
   setFaceIsolate(paneId: string, mesh: MeshId, faces: BitSet | null): void {
     const entry = this.entries.get(mesh);
     if (entry === undefined) return;
     if (faces === null) entry.faceIsolate.delete(paneId);
-    else entry.faceIsolate.set(paneId, faces);
+    else entry.faceIsolate.set(paneId, faces.clone());
     this.target.invalidate();
   }
 
   // ---------------------------------------------------------------------------------------------------------------
   // picking
 
-  /** The picker of a hilited mesh in component mode (null otherwise). */
+  /**
+   * The picker of a hilited mesh in component mode (null otherwise). It carries the face isolate of the pane the
+   * display last picked in; pane-aware queries go through `pick`, `marquee` and `screenOf`.
+   */
   picker(mesh: MeshId): ComponentPicker | null {
     return this.entries.get(mesh)?.picker ?? null;
   }
@@ -460,22 +486,42 @@ export class MeshDisplay {
   }
 
   /**
-   * The hover candidate over every hilited mesh: vertices and edges by screen distance (then the nearer point), faces
-   * by the nearest ray hit. `opts.hidden` is replaced per mesh by its hidden set.
+   * The picker of `entry` set up for pane `paneId`, or null when the mesh has none (not in component mode, not
+   * hilited) or the pane does not draw it (hidden, outside the pane's object isolate). The pane's face isolate set
+   * restricts what it picks; the mesh's hidden set comes with the options (`pickOptions`).
+   */
+  private paneEntryPicker(entry: Entry, paneId: string): ComponentPicker | null {
+    const picker = entry.picker;
+    if (picker === null || !this.drawnIn(this.app.store.get('meshes', entry.id), paneId)) return null;
+    picker.setIsolate(entry.faceIsolate.get(paneId) ?? null);
+    return picker;
+  }
+
+  private pickOptions(entry: Entry, opts: Omit<PickOptions, 'hidden'>): PickOptions {
+    return { ...opts, hidden: this.hiddenOf(entry.id) };
+  }
+
+  /**
+   * The hover candidate over every hilited mesh pane `paneId` draws: vertices and edges by screen distance (then the
+   * nearer point), faces by the nearest ray hit. Hidden components, meshes the pane does not draw (hidden objects, its
+   * object isolate) and faces outside its face isolate set are never candidates. `opts.hidden` is each mesh's hidden
+   * set.
    */
   pick(
     camera: Camera,
     ndc: readonly [number, number],
-    viewport: { readonly w: number; readonly h: number },
+    viewport: Viewport,
     kind: ComponentKind,
     opts: Omit<PickOptions, 'hidden'>,
+    paneId: string,
   ): MeshDisplayPick | null {
     let best: MeshDisplayPick | null = null;
     let bestDepth = Number.POSITIVE_INFINITY;
     const eye = scratch.setFromMatrixPosition(camera.matrixWorld);
     for (const entry of this.entries.values()) {
-      if (entry.picker === null) continue;
-      const hit = entry.picker.hover(camera, ndc, viewport, kind, { ...opts, hidden: this.hiddenOf(entry.id) });
+      const picker = this.paneEntryPicker(entry, paneId);
+      if (picker === null) continue;
+      const hit = picker.hover(camera, ndc, viewport, kind, this.pickOptions(entry, opts));
       if (hit === null) continue;
       const depth = Math.hypot(hit.point[0] - eye.x, hit.point[1] - eye.y, hit.point[2] - eye.z);
       const better =
@@ -492,21 +538,47 @@ export class MeshDisplay {
     return best;
   }
 
-  /** Marquee over every hilited mesh: the components of `kind` inside the rectangle, per mesh (empty ones left out). */
+  /**
+   * Marquee over every hilited mesh pane `paneId` draws: the components of `kind` inside the rectangle, per mesh (empty
+   * ones left out), with the same exclusions as `pick`.
+   */
   marquee(
     camera: Camera,
     rect: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
-    viewport: { readonly w: number; readonly h: number },
+    viewport: Viewport,
     kind: ComponentKind,
     opts: Omit<PickOptions, 'hidden'>,
+    paneId: string,
   ): ReadonlyMap<MeshId, Uint32Array> {
     const out = new Map<MeshId, Uint32Array>();
     for (const entry of this.entries.values()) {
-      if (entry.picker === null) continue;
-      const found = entry.picker.marquee(camera, rect, viewport, kind, { ...opts, hidden: this.hiddenOf(entry.id) });
+      const picker = this.paneEntryPicker(entry, paneId);
+      if (picker === null) continue;
+      const found = picker.marquee(camera, rect, viewport, kind, this.pickOptions(entry, opts));
       if (found.length > 0) out.set(entry.id, found);
     }
     return out;
+  }
+
+  /**
+   * Screen point (pane CSS px) of a component of a hilited mesh in pane `paneId` (B10's `screenOfVertex/Edge/Face`,
+   * `ComponentPicker.screenOf`): null when the pane does not draw the mesh or the component (hidden, isolated out),
+   * when it is off-screen, occluded (camera-based) or, for a face, facing away without `backfaces`.
+   */
+  screenOf(
+    mesh: MeshId,
+    camera: Camera,
+    viewport: Viewport,
+    kind: ComponentKind,
+    index: number,
+    opts: Omit<PickOptions, 'hidden'>,
+    paneId: string,
+    t = 0.5,
+  ): { readonly x: number; readonly y: number } | null {
+    const entry = this.entries.get(mesh);
+    const picker = entry === undefined ? null : this.paneEntryPicker(entry, paneId);
+    if (entry === undefined || picker === null) return null;
+    return picker.screenOf(camera, viewport, kind, index, this.pickOptions(entry, opts), t);
   }
 
   dispose(): void {
@@ -515,6 +587,21 @@ export class MeshDisplay {
     for (const dispose of this.disposers.splice(0)) dispose();
     for (const entry of this.entries.values()) this.drop(entry);
     this.target.invalidate();
+  }
+}
+
+/**
+ * Whether the display hosts a mesh in `workspace`: props (scene-owned) everywhere, character-owned meshes only in
+ * Model (§5.23: elsewhere the character displays through ModelLoader on its rebuilt container).
+ */
+function hostedIn(record: MeshRecord, workspace: WorkspaceId): boolean {
+  return 'scene' in record.owner || workspace === 'model';
+}
+
+/** Drops face isolate sets of another topology (sized for another face count). */
+function pruneIsolate(entry: Entry, faces: number): void {
+  for (const [pane, set] of entry.faceIsolate) {
+    if (set !== null && set.size !== faces) entry.faceIsolate.delete(pane);
   }
 }
 

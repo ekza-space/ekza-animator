@@ -3,7 +3,7 @@
 // placements through groups, palette colours, hidden objects, per-pane isolate, "Dim unhilited", hover, face isolate,
 // revisions written while shown, and the pane-flag mapping.
 import type { Disposer, ReadonlyXf } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-animator/doc';
+import type { CharacterId, GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-animator/doc';
 import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { BitSet, type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
@@ -208,6 +208,30 @@ function clayFront(base = CLAY): [number, number, number] {
   return srgbOf([c.r * light, c.g * light, c.b * light]);
 }
 
+function ndcOf(camera: Camera, p: readonly [number, number, number]): [number, number] {
+  const [x, y] = screen(camera, p);
+  return [(x / W) * 2 - 1, 1 - (y / H) * 2];
+}
+
+/** The world x of face f's vertex average (meshes placed without rotation about Y). */
+function faceCentreX(app: EditorApp, id: MeshId, f: number): number {
+  const mesh = app.meshes.get(id)?.mesh;
+  if (mesh === null || mesh === undefined) throw new Error(`${id} is not open`);
+  const start = mesh.faceCorner(f);
+  let c = start;
+  let x = 0;
+  let n = 0;
+  do {
+    x += mesh.position[3 * mesh.cornerVert(c)] as number;
+    n++;
+    c = mesh.cornerNext(c);
+  } while (c !== start);
+  return x / n;
+}
+
+/** A plane standing in the XY plane (normal +Z, facing the front camera). */
+const STANDING = { q: [Math.SQRT1_2, 0, 0, Math.SQRT1_2] as const, s: [1, 1, 1] as const };
+
 function enterComponentMode(app: EditorApp, mode: 'vertex' | 'edge' | 'face', hilite: readonly MeshId[]): void {
   for (const id of hilite) app.meshes.open(id);
   const model = app.session.getState().model;
@@ -325,13 +349,24 @@ describe('viewport mesh display', () => {
     expect(off(h.pixel(cornerB[0] + 3, cornerB[1] + 3), clayFront())).toBe('');
     // Picking across hilited meshes.
     const ndc: [number, number] = [(vertexA[0] / W) * 2 - 1, 1 - (vertexA[1] / H) * 2];
-    const hit = h.display.pick(camera, ndc, { w: W, h: H }, 'vertex', { cameraBased: true, backfaces: false });
+    const hit = h.display.pick(
+      camera,
+      ndc,
+      { w: W, h: H },
+      'vertex',
+      { cameraBased: true, backfaces: false },
+      'pane-persp',
+    );
     expect(hit?.mesh).toBe(a);
     expect(hit?.point[0]).toBeCloseTo(-0.5, 5);
-    const all = h.display.marquee(camera, { x0: 0, y0: 0, x1: W, y1: H }, { w: W, h: H }, 'vertex', {
-      cameraBased: false,
-      backfaces: false,
-    });
+    const all = h.display.marquee(
+      camera,
+      { x0: 0, y0: 0, x1: W, y1: H },
+      { w: W, h: H },
+      'vertex',
+      { cameraBased: false, backfaces: false },
+      'pane-persp',
+    );
     expect([...all.keys()]).toEqual([a]);
     expect(all.get(a)).toHaveLength(8);
     // Hover pre-highlights.
@@ -406,6 +441,137 @@ describe('viewport mesh display', () => {
     expect(off(h.pixel(p[0], p[1] - 20), hex(BACKGROUND), 1)).not.toBe('');
     h.render(camera, {}, 'pane-b');
     expect(off(h.pixel(q[0], q[1] - 20), hex(BACKGROUND), 1)).not.toBe('');
+  });
+
+  it('picks only what a pane draws: hidden objects, the pane object isolate and its face isolate', async () => {
+    const h = await setup();
+    const camera = front();
+    const view = { w: W, h: H } as const;
+    const opts = { cameraBased: true, backfaces: false } as const;
+    const all = { cameraBased: false, backfaces: false } as const;
+    const full = { x0: 0, y0: 0, x1: W, y1: H } as const;
+    // A: two standing quads at x ∈ [−2.25, −0.25]; B: a cube at x ∈ [1, 2].
+    const a = createMesh(h.app, 'msh_A', primitive('plane', { width: 2, height: 1, subdivisionsWidth: 2 }), {
+      placement: { t: [-1.25, 0, 0], ...STANDING },
+    });
+    const b = createMesh(h.app, 'msh_B', primitive('cube', {}), {
+      placement: { t: [1.5, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    enterComponentMode(h.app, 'face', [a, b]);
+    expect([...h.display.editable()].sort()).toEqual([a, b]);
+    const right = faceCentreX(h.app, a, 0) > faceCentreX(h.app, a, 1) ? 0 : 1;
+    const left = 1 - right;
+    const rightAt: [number, number, number] = [-0.75, 0.2, 0];
+    const leftAt: [number, number, number] = [-1.75, 0.2, 0];
+    const cubeAt: [number, number, number] = [1.5, 0.2, 0.5];
+    const pick = (p: readonly [number, number, number], pane: string) =>
+      h.display.pick(camera, ndcOf(camera, p), view, 'face', opts, pane);
+    expect(pick(rightAt, 'pane-a')).toMatchObject({ mesh: a, index: right });
+    expect(pick(cubeAt, 'pane-a')?.mesh).toBe(b);
+
+    // Face isolate in pane-a: the right quad is neither drawn nor pickable there, and its own vertices and edges go
+    // with it; pane-b is untouched.
+    const isolated = new BitSet(2);
+    isolated.add(left);
+    h.display.setFaceIsolate('pane-a', a, isolated);
+    h.render(camera, {}, 'pane-a');
+    expect(off(h.pixel(...screen(camera, rightAt)), hex(BACKGROUND), 1)).toBe('');
+    expect(pick(rightAt, 'pane-a')).toBeNull();
+    expect(pick(leftAt, 'pane-a')).toMatchObject({ mesh: a, index: left });
+    expect(h.display.marquee(camera, full, view, 'vertex', all, 'pane-a').get(a)).toHaveLength(4);
+    expect(h.display.marquee(camera, full, view, 'edge', all, 'pane-a').get(a)).toHaveLength(4);
+    expect(Array.from(h.display.marquee(camera, full, view, 'face', all, 'pane-a').get(a) ?? [])).toEqual([left]);
+    expect(h.display.screenOf(a, camera, view, 'face', right, opts, 'pane-a')).toBeNull();
+    expect(h.display.screenOf(a, camera, view, 'face', left, opts, 'pane-a')).not.toBeNull();
+    h.render(camera, {}, 'pane-b');
+    expect(off(h.pixel(...screen(camera, rightAt)), hex(BACKGROUND), 1)).not.toBe('');
+    expect(pick(rightAt, 'pane-b')).toMatchObject({ mesh: a, index: right });
+    expect(h.display.marquee(camera, full, view, 'vertex', all, 'pane-b').get(a)).toHaveLength(6);
+    expect(h.display.screenOf(a, camera, view, 'face', right, opts, 'pane-b')).not.toBeNull();
+    // In-place changes of the pushed set do not leak into the display (it keeps a copy).
+    isolated.add(right);
+    expect(pick(rightAt, 'pane-a')).toBeNull();
+
+    // Object isolate in pane-b (only B): A is neither drawn nor pickable there.
+    let model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, isolate: { 'pane-b': [b] } } });
+    h.render(camera, {}, 'pane-b');
+    expect(off(h.pixel(...screen(camera, leftAt)), hex(BACKGROUND), 1)).toBe('');
+    expect(pick(leftAt, 'pane-b')).toBeNull();
+    expect(pick(cubeAt, 'pane-b')?.mesh).toBe(b);
+    expect([...h.display.marquee(camera, full, view, 'vertex', all, 'pane-b').keys()]).toEqual([b]);
+    expect(h.display.screenOf(a, camera, view, 'face', left, opts, 'pane-b')).toBeNull();
+    expect(pick(leftAt, 'pane-a')).toMatchObject({ mesh: a, index: left });
+
+    // Hidden objects: B is neither drawn nor pickable in any pane.
+    model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, isolate: {}, hiddenObjects: new Set([b]) } });
+    for (const pane of ['pane-a', 'pane-b']) {
+      h.render(camera, {}, pane);
+      expect(off(h.pixel(...screen(camera, cubeAt)), hex(BACKGROUND), 1)).toBe('');
+      expect(pick(cubeAt, pane)).toBeNull();
+      expect(h.display.marquee(camera, full, view, 'face', all, pane).has(b)).toBe(false);
+      expect(h.display.screenOf(b, camera, view, 'face', 0, all, pane)).toBeNull();
+    }
+    expect(pick(leftAt, 'pane-b')).toMatchObject({ mesh: a, index: left });
+  });
+
+  it('drops a face isolate set when a new revision changes the face count', async () => {
+    const h = await setup();
+    const camera = front();
+    const a = createMesh(h.app, 'msh_A', primitive('plane', { width: 2, height: 1, subdivisionsWidth: 2 }), {
+      placement: { t: [0, 0, 0], ...STANDING },
+    });
+    enterComponentMode(h.app, 'face', [a]);
+    const isolated = new BitSet(2);
+    isolated.add(faceCentreX(h.app, a, 0) < 0 ? 0 : 1);
+    h.display.setFaceIsolate('pane-a', a, isolated);
+    const opts = { cameraBased: true, backfaces: false } as const;
+    expect(h.display.pick(camera, ndcOf(camera, [0.5, 0.2, 0]), { w: W, h: H }, 'face', opts, 'pane-a')).toBeNull();
+    // Four quads now: the two-face set would name the wrong faces, so pane-a draws and picks every face again.
+    const four = primitive('plane', { width: 2, height: 1, subdivisionsWidth: 4 });
+    h.app.store.transact({ label: 'Write' }, (tx) => h.app.meshes.writeData(tx, a, four));
+    await (h.app.meshes as unknown as { settled?: () => Promise<void> }).settled?.();
+    expect(h.app.meshes.get(a)?.mesh?.counts.faces).toBe(4);
+    h.render(camera, {}, 'pane-a');
+    expect(off(h.pixel(...screen(camera, [0.75, 0.2, 0])), hex(BACKGROUND), 1)).not.toBe('');
+    const hit = h.display.pick(camera, ndcOf(camera, [0.75, 0.2, 0]), { w: W, h: H }, 'face', opts, 'pane-a');
+    expect(hit?.mesh).toBe(a);
+    expect(faceCentreX(h.app, a, hit?.index ?? -1)).toBeCloseTo(0.75, 5);
+  });
+
+  it('hosts character-owned meshes only in Model; props in every workspace (§5.23)', async () => {
+    const h = await setup();
+    const camera = front();
+    const propAt = screen(camera, [-1.5, 0.1, 0.5]);
+    const bodyAt = screen(camera, [1.5, 0.1, 0.5]);
+    createMesh(h.app, 'msh_P', primitive('cube', {}), {
+      placement: { t: [-1.5, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    const body = createMesh(h.app, 'msh_C', primitive('cube', {}), {
+      owner: { character: 'chr_A' as CharacterId },
+      placement: { t: [1.5, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    expect(h.app.meshes.get(body)?.state).toBe('ready');
+    expect(h.app.session.getState().workspace).toBe('animate');
+    expect(h.hosts.size).toBe(1);
+    h.render(camera);
+    expect(off(h.pixel(...propAt), clayFront())).toBe('');
+    expect(off(h.pixel(...bodyAt), hex(BACKGROUND), 1)).toBe('');
+    h.app.session.setState({ workspace: 'model' });
+    expect(h.hosts.size).toBe(2);
+    h.render(camera);
+    expect(off(h.pixel(...bodyAt), clayFront())).toBe('');
+    // Component mode on the character's mesh in Model, then leaving Model drops its host again.
+    enterComponentMode(h.app, 'vertex', [body]);
+    expect(h.display.editable()).toEqual([body]);
+    const model = h.app.session.getState().model;
+    h.app.session.setState({ workspace: 'review', model: { ...model, componentMode: 'object' } });
+    expect(h.hosts.size).toBe(1);
+    expect(h.display.editable()).toEqual([]);
+    h.render(camera);
+    expect(off(h.pixel(...bodyAt), hex(BACKGROUND), 1)).toBe('');
+    expect(off(h.pixel(...propAt), clayFront())).toBe('');
   });
 
   it('follows a new revision of a shown mesh and drops hosts on dispose', async () => {
