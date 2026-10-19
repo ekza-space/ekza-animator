@@ -4,8 +4,8 @@
 // triangulation and normals); positions in mesh-local or world space (the placement through groups, parent meshes and
 // the character root).
 import { quatRotateVec3 } from '@ekza-animator/anim-core';
-import { derivedId, type MeshId, type MeshRecord } from '@ekza-animator/doc';
-import { attachMeshes, meshKernel, worldPlacement } from '@ekza-animator/editor-core';
+import type { MeshId, MeshRecord } from '@ekza-animator/doc';
+import { assetMeshRows, attachMeshes, meshKernel, worldPlacement } from '@ekza-animator/editor-core';
 import type { MeshData } from '@ekza-animator/mesh-core';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
@@ -115,7 +115,22 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
     meshes() {
       ctx.sync();
       attachMeshes(app);
-      const rows: ReturnType<EkzaAnimatorTestApi['meshes']> = app.store.list('meshes').map((record) => {
+      // B8 (§5.21): one virtual 'asset' row per loaded character glTF mesh without a record, after the records.
+      const virtual = assetMeshRows(app).map((row) => ({
+        id: row.id,
+        name: row.name,
+        owner: `char:${row.character}`,
+        parent: null,
+        badge: 'asset' as const,
+        manifest: null,
+        rev: 0,
+        faceted: false,
+        generator: null,
+        palette: null,
+        counts: null,
+        runtime: 'none',
+      }));
+      const records = app.store.list('meshes').map((record) => {
         const runtime = app.meshes.get(record.id);
         const data = runtime?.data() ?? null;
         return {
@@ -133,31 +148,7 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
           runtime: runtime?.state ?? 'none',
         };
       });
-      // Virtual rows: glTF meshes of loaded characters that have no record yet (§5.21: Make editable creates it).
-      for (const character of app.characters.list()) {
-        const listed = (character.container.json as { readonly meshes?: unknown }).meshes;
-        const meshes: readonly { readonly name?: unknown }[] = Array.isArray(listed) ? listed : [];
-        meshes.forEach((mesh, index) => {
-          const id = derivedId('mesh', 'asset', [character.id], '', index);
-          if (app.store.getIncludingDeleted('meshes', id) !== undefined) return;
-          const name = typeof mesh.name === 'string' && mesh.name !== '' ? mesh.name : `Mesh ${index}`;
-          rows.push({
-            id,
-            name,
-            owner: `char:${character.id}`,
-            parent: null,
-            badge: 'asset',
-            manifest: null,
-            rev: 0,
-            faceted: false,
-            generator: null,
-            palette: null,
-            counts: null,
-            runtime: 'none',
-          });
-        });
-      }
-      return rows;
+      return [...records, ...virtual];
     },
     meshNormals(mesh) {
       ctx.sync();

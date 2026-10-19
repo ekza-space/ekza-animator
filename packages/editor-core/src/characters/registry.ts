@@ -8,6 +8,9 @@
 // - Characters deleted while loading never get a runtime; undoing the deletion re-creates it from the parse cache.
 // - M6a (M6A-SPEC §4.2, §9 B0a): only asset-sourced characters get a runtime. A model-sourced character (M6b,
 //   `source.kind === 'model'`, `asset === null`) is skipped here until M6b builds its runtime from the skeleton.
+// - M6a display hook (M6A-SPEC §5.23, B8): a character with edited meshes displays a container rebuilt in memory
+//   (`ctx.display.containerFor`); `redisplay` reloads a display (the previous one stays until the new one is ready,
+//   and a later reload wins over an earlier one that finishes after it). Characters without edits load as before.
 import type { Disposer } from '@ekza-animator/anim-core';
 import {
   type AnyChange,
@@ -24,6 +27,7 @@ import {
 import type { GlbContainer } from '@ekza-animator/io';
 import type { ChannelBuffer, ClipSampler, CurveCache, PoseBuffers, RigProgram, SkeletonDesc } from '@ekza-animator/rig';
 import type { KernelDeps, ModelSource } from '../app/deps';
+import type { CharacterDisplaySource } from '../workflows/meshDisplay';
 import type {
   AssetStore,
   CharacterEvent,
@@ -53,6 +57,8 @@ const STRUCTURAL_TABLES: ReadonlySet<TableName> = new Set<TableName>([
 export interface KernelCharacters extends CharacterRegistry {
   /** Resolves once no runtime creation or display-model load is in flight. */
   settled(): Promise<void>;
+  /** M6a (§5.23): reloads the character's display model (from its rebuilt container when it has edited meshes). */
+  redisplay(id: CharacterId): Promise<void>;
   dispose(): void;
 }
 
@@ -139,6 +145,8 @@ export function createCharacterRegistry(ctx: {
   readonly assets: AssetStore;
   readonly notify: Notifier;
   readonly models: ModelLoader | null;
+  /** M6a (§5.23, B8): which container a display loads; absent = always the character's own. */
+  readonly display?: CharacterDisplaySource | null;
 }): KernelCharacters {
   const { store, deps } = ctx;
   const entries = new Map<CharacterId, Entry>();
@@ -175,13 +183,36 @@ export function createCharacterRegistry(ctx: {
     ctx.notify.toast({ kind: 'error', text: `Could not load "${character.name}": ${message}` });
   };
 
-  const loadDisplay = (runtime: Runtime): void => {
+  /** Display loads started per runtime: a load applies only when it is the runtime's latest (M6a redisplay). */
+  const displayLoads = new WeakMap<Runtime, number>();
+
+  const loadDisplay = (runtime: Runtime): Promise<void> => {
     const models = ctx.models;
-    if (models === null) return;
-    const loading = models.load(runtime.container, runtime.skeleton).then(
+    if (models === null) return Promise.resolve();
+    const generation = (displayLoads.get(runtime) ?? 0) + 1;
+    displayLoads.set(runtime, generation);
+    const display = ctx.display;
+    // Characters without edited meshes load exactly as before (no extra step).
+    const model =
+      display === null || display === undefined || !display.hasEdits(runtime.id)
+        ? models.load(runtime.container, runtime.skeleton)
+        : display
+            .containerFor(runtime)
+            .catch((error: unknown) => {
+              const message = error instanceof Error ? error.message : String(error);
+              ctx.notify.toast({ kind: 'warning', text: `Edited meshes could not be displayed: ${message}` });
+              return null;
+            })
+            .then((container) => models.load(container ?? runtime.container, runtime.skeleton));
+    const loading = model.then(
       (model) => {
         const entry = entries.get(runtime.id);
-        if (disposed || entry?.state !== 'ready' || entry.runtime !== runtime) {
+        if (
+          disposed ||
+          entry?.state !== 'ready' ||
+          entry.runtime !== runtime ||
+          displayLoads.get(runtime) !== generation
+        ) {
           model.dispose();
           return;
         }
@@ -196,6 +227,7 @@ export function createCharacterRegistry(ctx: {
       },
     );
     track(loading);
+    return loading;
   };
 
   /** Builds the runtime of a live character from its parsed model (idle while its rig records are missing). */
@@ -218,7 +250,7 @@ export function createCharacterRegistry(ctx: {
     entries.set(character.id, { state: 'ready', asset: character.asset, runtime, source });
     reorder();
     emit('added', character.id);
-    loadDisplay(runtime);
+    void loadDisplay(runtime);
   };
 
   const sourceOf = (character: AssetCharacter): Promise<ModelSource | null> | ModelSource | null => {
@@ -398,6 +430,10 @@ export function createCharacterRegistry(ctx: {
     },
     async settled(): Promise<void> {
       while (inFlight.size > 0) await Promise.allSettled(inFlight);
+    },
+    redisplay(id: CharacterId): Promise<void> {
+      const entry = entries.get(id);
+      return entry?.state === 'ready' ? loadDisplay(entry.runtime) : Promise.resolve();
     },
     dispose(): void {
       if (disposed) return;
