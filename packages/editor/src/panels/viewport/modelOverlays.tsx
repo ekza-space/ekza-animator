@@ -6,7 +6,7 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import type { DocumentStore } from '@ekza-animator/doc';
 import type { SessionState } from '@ekza-animator/editor-core';
 import { LAYOUT_PANES } from '@ekza-animator/viewport';
-import { type JSX, useSyncExternalStore } from 'react';
+import { type JSX, type RefObject, useEffect, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { type PaneOverlayProps, registerPaneOverlay } from '../../overlays/slots';
 import { LazyBody } from '../palette/lazy';
@@ -86,6 +86,25 @@ function GettingStartedSlot(props: PaneOverlayProps): JSX.Element | null {
   return (
     <LazyBody name="Getting started card" load={loadGettingStarted} props={{ app: props.app, paneId: props.paneId }} />
   );
+}
+
+/**
+ * Keeps presses on an interactive overlay card to the card: the pane's surface takes every native `pointerdown`
+ * (navigation, picking, pointer capture, which would retarget the click), and React's handlers run too late to stop
+ * it, so the card stops the native event itself (as B11's Last-op card does).
+ */
+export function useOwnPointer(ref: RefObject<HTMLElement | null>): void {
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null) return undefined;
+    const stop = (event: Event): void => event.stopPropagation();
+    element.addEventListener('pointerdown', stop);
+    element.addEventListener('wheel', stop, { passive: true });
+    return () => {
+      element.removeEventListener('pointerdown', stop);
+      element.removeEventListener('wheel', stop);
+    };
+  }, [ref]);
 }
 
 /** Registers the Model start card and the Getting started card; the disposer removes them. */

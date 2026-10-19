@@ -4,11 +4,11 @@
 // `shortcutFor`); the card never takes input outside its own buttons, and ✕ dismisses it for this browser.
 import type { DocumentStore } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
-import { type JSX, useEffect, useState } from 'react';
+import { type JSX, useEffect, useRef, useState } from 'react';
 import { useDocQuery } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';
 import { shortcutFor } from '../../shell/menus';
-import { setGettingStartedDismissed } from './modelOverlays';
+import { setGettingStartedDismissed, useOwnPointer } from './modelOverlays';
 
 interface Progress {
   readonly created: boolean;
@@ -34,6 +34,8 @@ function markReached(app: EditorApp, s: SessionState): string {
 export default function GettingStarted(props: { readonly app: EditorApp; readonly paneId: string }): JSX.Element {
   const { app, paneId } = props;
   const created = useDocQuery(hasMesh, ['meshes']);
+  const card = useRef<HTMLElement>(null);
+  useOwnPointer(card);
   const [reachedKey, setReachedKey] = useState(() => markReached(app, app.session.getState()));
   useEffect(() => app.session.subscribe((state) => setReachedKey(markReached(app, state))), [app]);
   const [face, extruded, symmetry] = reachedKey.split(',').map((v) => v === 'true');
@@ -63,6 +65,7 @@ export default function GettingStarted(props: { readonly app: EditorApp; readonl
   ];
   return (
     <section
+      ref={card}
       className="pointer-events-auto w-56 rounded-md border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] p-2 text-[11px] text-fg-2 shadow"
       aria-label="Getting started"
       data-testid="getting-started"

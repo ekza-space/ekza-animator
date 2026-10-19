@@ -76,22 +76,22 @@ export default function ModelSections(props: { readonly app: EditorApp }): JSX.E
   const mesh = object !== null && object.id.startsWith('msh_') ? (object as MeshRecord) : null;
   return (
     <div data-testid="attr-model">
-      {view.plane === null ? null : <PlaneSection key={view.plane.id} plane={view.plane} run={run} />}
+      {view.plane === null ? null : <PlaneSection key={`plane:${view.plane.id}`} plane={view.plane} run={run} />}
       <Section title={mesh === null && object !== null ? 'Group' : 'Mesh'} testId="attr-section-mesh">
         {object === null ? (
           <p className={MUTED_TEXT}>
             {view.plane === null ? 'Select a mesh or group.' : 'An image plane is selected.'}
           </p>
         ) : (
-          <ObjectFields key={object.id} object={object} run={run} />
+          <ObjectFields key={`fields:${object.id}`} object={object} run={run} />
         )}
       </Section>
       {mesh !== null && mesh.generator !== null ? (
-        <PrimitiveSection key={`${mesh.id}:${mesh.generator.kind}`} mesh={mesh} run={run} />
+        <PrimitiveSection key={`prim:${mesh.id}:${mesh.generator.kind}`} mesh={mesh} run={run} />
       ) : null}
-      {object === null ? null : <PivotSection key={object.id} object={object} run={run} />}
+      {object === null ? null : <PivotSection key={`pivot:${object.id}`} object={object} run={run} />}
       {object !== null && object.handheld !== null ? (
-        <GripSection key={object.id} object={object} grip={object.handheld} run={run} />
+        <GripSection key={`grip:${object.id}`} object={object} grip={object.handheld} run={run} />
       ) : null}
     </div>
   );

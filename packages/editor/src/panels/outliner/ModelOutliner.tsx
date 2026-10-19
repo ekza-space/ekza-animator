@@ -709,7 +709,9 @@ function RowContent(props: RowViewProps): JSX.Element {
             {isGroup(row.object) ? '⊞' : '▢'}
           </span>
           {name(row.object.name)}
-          {isGroup(row.object) && row.object.template !== null ? (
+          {isGroup(row.object) &&
+          row.object.template !== null &&
+          !row.object.name.toLowerCase().includes(row.object.template.kind) ? (
             <span className="text-fg-3" title={`${row.object.template.kind} template`}>
               {row.object.template.kind}
             </span>

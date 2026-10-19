@@ -3,10 +3,11 @@
 // smooth or segmented, Handheld, Prop), Import mesh…, "Edit a sample: Polybot (CC0)" and "Generate with AI… · Coming
 // later" (disabled), with key hints rendered through the keymap (`⌘E` on macOS, `Ctrl+E` elsewhere).
 import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
-import { type JSX, useState } from 'react';
+import { type JSX, useRef, useState } from 'react';
 import { useRunOperator, useSession } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';
 import { shortcutFor } from '../../shell/menus';
+import { useOwnPointer } from './modelOverlays';
 
 const PRIMITIVES = [
   { kind: 'cube', label: 'Cube', glyph: '▣' },
@@ -33,6 +34,8 @@ export default function ModelEmptyState(props: { readonly app: EditorApp; readon
   const run = useRunOperator();
   const busy = useSession((s) => s.busy !== null);
   const [style, setStyle] = useState<'smooth' | 'segmented'>('smooth');
+  const card = useRef<HTMLDivElement>(null);
+  useOwnPointer(card);
   const ctx = { panel: PANEL.viewport, paneId, source: 'menu' as const };
   const scopes = scopeChain(app, { kind: PANEL.viewport, scope: PANEL.viewport, paneId }).scopes;
   const key = (op: string, args?: unknown): string | null => shortcutFor(app.keymap, op, args, scopes);
@@ -44,6 +47,7 @@ export default function ModelEmptyState(props: { readonly app: EditorApp; readon
   ].filter((hint): hint is [string, string] => hint[0] !== null);
   return (
     <div
+      ref={card}
       className="pointer-events-auto flex max-w-[34rem] flex-col items-center gap-3 rounded-lg border border-line bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] px-6 py-5 text-center text-[12px] text-fg-2 shadow-lg"
       data-testid="model-start"
     >
