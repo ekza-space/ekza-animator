@@ -282,6 +282,9 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
           ),
           ...['vertex', 'edge', 'face'].map((a) => `${def.label} works on ${a} components`),
           `${def.label} works on vertex, edge, face components`,
+          // B11's help-line wording for Extrude (§7 Mod+E, §6.1).
+          'Select faces or border edges',
+          'Vertex extrude is not available yet',
         ]
       : [];
   /** `mesh.*` editor operators of §6.2 that are not kernel ops (their owners land them). */

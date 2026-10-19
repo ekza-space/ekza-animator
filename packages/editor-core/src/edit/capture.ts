@@ -21,7 +21,7 @@
 import type { Disposer, ParamDef, ParamValue } from '@ekza-animator/anim-core';
 import { isNumericParam } from '@ekza-animator/anim-core';
 import type { EditorApp, LastRun, NumericCaptureApi, NumericCaptureState, NumericTarget } from '../types';
-import { numericParams, parseParamInput } from './paramInput';
+import { formatParamValue, numericParams, parseParamInput } from './paramInput';
 
 /** Help-line text when case (b) disarms with an unfinished entry (§5.10). */
 export const ENTRY_DISCARDED = 'Entry discarded';
@@ -142,11 +142,19 @@ export function createNumericCapture(): NumericCapture {
     if (state.text === null) return true;
     const entry = entryValue();
     if (entry === null || armed === null) return false;
+    const def = defOf(entry.field);
+    const last = liveLastRun();
     if (armed.target === 'last-run') {
-      if (app !== null)
+      if (app !== null) {
         void app.runUntyped('edit.adjustLast', { args: { [entry.field]: entry.value } }, { source: 'keyboard' });
+      }
     } else if (typeof entry.value === 'number') {
       armed.target.set(entry.field, entry.value);
+    }
+    // The help line is the polite live region: it announces the committed value (§5.10).
+    if (def !== null) {
+      const what = armed.target === 'last-run' && last !== null ? `${last.label} ${def.label}` : def.label;
+      say(`${what} ${formatParamValue(def, entry.value)}`);
     }
     setState({ ...state, text: null });
     return true;
@@ -391,7 +399,10 @@ export interface InputsFieldSelection {
   readonly param: string;
 }
 
-const inputsFields = new WeakMap<EditorApp, { value: InputsFieldSelection | null; readonly listeners: Set<() => void> }>();
+const inputsFields = new WeakMap<
+  EditorApp,
+  { value: InputsFieldSelection | null; readonly listeners: Set<() => void> }
+>();
 
 function inputsStore(app: EditorApp): { value: InputsFieldSelection | null; readonly listeners: Set<() => void> } {
   let store = inputsFields.get(app);

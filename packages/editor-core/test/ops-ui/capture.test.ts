@@ -119,6 +119,8 @@ describe('case (b): after a keyboard-invoked operation', () => {
     expect(t.app.session.getState().lastRun?.args['dy']).toBe(0.5);
     expect(undoLength(t)).toBe(steps);
     expect(t.capture.state.armed).toBeNull();
+    // The committed value is announced on the help line (the polite live region, §5.10).
+    expect(t.messages).toEqual([{ text: 'Advance Offset Y 0.500 m', tone: 'info' }]);
     const f = await armedByKeyboard();
     await f.app.run('edit.adjustLast', { args: { dy: 0.5 } });
     expect(positionsOf(t, t.id)).toEqual(positionsOf(f, f.id));

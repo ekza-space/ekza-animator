@@ -76,6 +76,35 @@ export const MESH_OP_TOOLS: Readonly<Record<string, ToolId>> = {
 /** Ops only other operators run (not in menus, the palette or the Toolkit). */
 export const INTERNAL_MESH_OPS: ReadonlySet<string> = new Set(['mesh.applyTransform', 'mesh.paint.remap']);
 
+/**
+ * Help-line wording of an op's selection problems (§7 `Mod+E`: "in object mode or over other panels it poll-fails
+ * 'Select faces or border edges'"; §6.1 Extrude: "vertex mode poll 'not available yet'"). Replaces the wrappers'
+ * generic "enter a component mode first" / "Select components first" / "works on …" reasons; the kernel's own
+ * refusals and "Mesh tools are loading" pass through.
+ */
+export const MESH_OP_SELECTION_HINTS: Readonly<Record<string, { readonly select: string; readonly vertex?: string }>> =
+  {
+    'mesh.extrude': { select: 'Select faces or border edges', vertex: 'Vertex extrude is not available yet' },
+  };
+
+function withSelectionHint(
+  desc: MeshOpDescriptor,
+  poll: OperatorDef<MeshOpArgs, MeshOpOutcome, void>['poll'],
+): OperatorDef<MeshOpArgs, MeshOpOutcome, void>['poll'] {
+  const hint = MESH_OP_SELECTION_HINTS[desc.id];
+  if (hint === undefined || poll === undefined) return poll;
+  const generic = [`${desc.label}: enter a component mode first`, 'Select components first'];
+  return (ctx, args) => {
+    const result = poll(ctx, args);
+    if (result === true) return result;
+    const vertex = ctx.app.session.getState().model.componentMode === 'vertex' && args?.kind === undefined;
+    if (result.reason.startsWith(`${desc.label} works on `)) {
+      return { ok: false, reason: vertex && hint.vertex !== undefined ? hint.vertex : hint.select };
+    }
+    return generic.includes(result.reason) ? { ok: false, reason: hint.select } : result;
+  };
+}
+
 /** One-line descriptions for the command palette and tooltips (the label says the rest). */
 function descriptionOf(label: string, kinds: MeshOpDescriptor['kinds'] | null): string {
   if (kinds === null) return `${label} (mesh objects).`;
@@ -93,10 +122,15 @@ export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<Mesh
     ...(aliases === undefined ? {} : { aliases }),
   });
   const objectLevel = desc.kinds === 'object';
+  const poll = withSelectionHint(
+    desc,
+    base.poll === undefined ? undefined : (ctx, args) => base.poll?.(ctx, args) ?? true,
+  );
   return {
     ...base,
     description: descriptionOf(desc.label, desc.kinds),
     flags: { ...base.flags, ...(INTERNAL_MESH_OPS.has(desc.id) ? { internal: true } : {}) },
+    ...(poll === undefined ? {} : { poll }),
     apply(ctx, args): MeshOpOutcome {
       const op = meshKernel()?.MESH_OPS[desc.id];
       const meshes = attachMeshes(ctx.app);

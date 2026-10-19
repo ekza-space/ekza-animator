@@ -56,6 +56,31 @@ const SYMMETRY_MODES: readonly { readonly value: SymmetryMode; readonly label: s
 
 const CURVES = ['smooth', 'linear', 'sharp', 'root', 'sphere', 'constant'] as const;
 
+/** Weight at normalised distance t (0 centre … 1 radius) of each falloff preset, for the preview only. */
+const PREVIEW: Readonly<Record<(typeof CURVES)[number], (t: number) => number>> = {
+  smooth: (t) => 1 - t * t * (3 - 2 * t),
+  linear: (t) => 1 - t,
+  sharp: (t) => (1 - t) * (1 - t),
+  root: (t) => Math.sqrt(1 - t),
+  sphere: (t) => Math.sqrt(1 - t * t),
+  constant: () => 1,
+};
+
+/** A small drawing of the falloff preset (§8.5 "falloff preset with a preview"). */
+function FalloffPreview(props: { readonly curve: string }): JSX.Element {
+  const weight = PREVIEW[props.curve as (typeof CURVES)[number]] ?? PREVIEW.smooth;
+  const points: string[] = [];
+  for (let i = 0; i <= 24; i++) {
+    const t = i / 24;
+    points.push(`${(t * 48).toFixed(1)},${(16 - Math.max(0, Math.min(1, weight(t))) * 14).toFixed(1)}`);
+  }
+  return (
+    <svg width="48" height="18" viewBox="0 0 48 18" aria-hidden="true" data-testid="mtk-soft-preview">
+      <polyline points={points.join(' ')} fill="none" stroke="var(--soft-2, #ff8a3d)" strokeWidth="1.5" />
+    </svg>
+  );
+}
+
 /** A button of the Toolkit: an operator (with args), its key label, its poll reason when disabled, its option box. */
 interface ButtonSpec {
   readonly label: string;
@@ -589,7 +614,9 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
             ))}
           </div>
           <label className="flex items-center justify-between gap-2">
-            <span>Falloff</span>
+            <span className="flex items-center gap-1">
+              Falloff <FalloffPreview curve={soft.curve} />
+            </span>
             <select
               className={cn(SELECT, 'w-28')}
               data-testid="mtk-soft-curve"

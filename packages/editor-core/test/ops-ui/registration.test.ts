@@ -3,6 +3,7 @@
 // internal ops), and every op renders a Last-op card from its params or none: the card's fields are the visible params
 // (primary first), each default displays and parses back to itself.
 import { coerceArgs, isNumericParam, type ParamDef } from '@ekza-animator/anim-core';
+import type { MeshId } from '@ekza-animator/doc';
 import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
@@ -11,9 +12,11 @@ import {
   MESH_OP_ALIASES,
   MESH_OP_TOOLS,
   parseParamInput,
+  switchWorkspace,
   visibleParams,
 } from '../../src';
 import { BUILTIN_OPERATORS } from '../../src/operators/builtin';
+import { meshTestApp } from '../mesh/support';
 
 const byId = new Map<string, (typeof BUILTIN_OPERATORS)[number]>(BUILTIN_OPERATORS.map((def) => [def.id, def]));
 const DESCRIPTORS = [...Object.values(MESH_OP_DESCRIPTORS), ...Object.values(MESH_SET_OP_DESCRIPTORS)];
@@ -58,6 +61,26 @@ describe('mesh operator registration (§6.1)', () => {
     expect(byId.get('mesh.mergeByDistance')?.aliases).toContain('Remove Doubles');
     expect(byId.get('mesh.combine')?.aliases).toContain('Join');
     expect(Object.keys(MESH_OP_ALIASES).filter((id) => !byId.has(id))).toEqual([]);
+  });
+
+  it("Extrude's poll speaks the help line's words (§7 Mod+E; §6.1 vertex mode)", async () => {
+    const t = await meshTestApp();
+    switchWorkspace(t.app, 'model');
+    await t.app.runUntyped('mesh.create.cube', {});
+    const reason = () => {
+      const result = t.app.operators.poll('mesh.extrude', undefined, {});
+      return result === true ? null : result.reason;
+    };
+    expect(reason()).toBe('Select faces or border edges');
+    const model = t.app.session.getState().model;
+    const hilite = t.app.session.getState().selection.objects.filter((id): id is MeshId => id.startsWith('msh_'));
+    t.app.session.setState({ model: { ...model, componentMode: 'face', hilite } });
+    expect(reason()).toBe('Select faces or border edges');
+    t.app.session.setState({ model: { ...t.app.session.getState().model, componentMode: 'vertex' } });
+    expect(reason()).toBe('Vertex extrude is not available yet');
+    // Other ops keep the wrappers' reasons.
+    const bevel = t.app.operators.poll('mesh.bevel', undefined, {});
+    expect(bevel).toEqual({ ok: false, reason: 'Bevel works on edge, face components' });
   });
 
   it('internal ops are run by other operators only', () => {

@@ -81,10 +81,10 @@ test('B11 — the Modeling Toolkit, its option boxes and the Last-op card of a p
   expect(created?.source).toBe('toolkit');
   const cube = created?.targets[0] ?? '';
   await expect.poll(() => counts(page, cube)).toBe('8/12/6');
-  // In object mode Extrude needs components: disabled with its poll reason.
+  // In object mode Extrude needs faces or border edges: disabled with its poll reason (§7).
   const extrude = page.getByTestId('mtk-btn-mesh.extrude');
   await expect(extrude).toHaveAttribute('aria-disabled', 'true');
-  await expect(extrude).toHaveAttribute('title', /component|loading/i);
+  await expect(extrude).toHaveAttribute('title', 'Select faces or border edges');
 
   // ⋯ opens the option box; its fields are the next run's defaults and stay set.
   await page.getByTestId('mtk-opt-mesh.insertLoop').click();
