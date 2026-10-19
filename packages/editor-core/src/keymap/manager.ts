@@ -7,6 +7,7 @@
 import type { Disposer } from '@ekza-animator/anim-core';
 import type { Chord, KeyBinding, KeyInput, KeymapManager, KeyScope, KeyTrigger, OperatorId } from '../types';
 import { chordLabel } from './labels';
+import { MODEL_SCOPE } from './scopes';
 
 type TapHoldMods = Parameters<KeymapManager['isTapHoldKey']>[2];
 
@@ -18,10 +19,23 @@ const REPEATABLE: ReadonlySet<OperatorId> = new Set<OperatorId>([
   'view.manipulatorSize',
   'edit.undo',
   'edit.redo',
+  // M6a (§5.6): a held grow/shrink key keeps growing; the history coalesces the repeats into one step.
+  'select.mesh.grow',
+  'select.mesh.shrink',
 ]);
 
-/** Keys whose binding depends on how long they are held (MVP: Space; 200 ms, measured by the DOM adapter). */
-const TAP_HOLD_KEYS: ReadonlySet<string> = new Set(['Space']);
+/**
+ * Keys whose binding depends on how long they are held (200 ms, measured by the DOM adapter), M6A-SPEC §5.17: `Space`
+ * in every scope with any modifiers (as shipped); `KeyB` only unmodified with the Model viewport in the chain (tap =
+ * soft select; a pointer-down while it is held makes it a hold, the radius drag). Every other key is never deferred,
+ * so tools see `X`/`V`/`J`/`D`/`I` as plain down/up holds and `Mod+B`, Graph `B` resolve on press as before.
+ */
+function isTapHoldKey(code: string, scopes: readonly KeyScope[], mods: TapHoldMods): boolean {
+  if (code === 'Space') return true;
+  return (
+    code === 'KeyB' && !mods.mod && !mods.shift && !mods.alt && !mods.ctrl && scopes.includes(MODEL_SCOPE.viewport)
+  );
+}
 
 export interface KernelKeymap extends KeymapManager {
   /** A keymap contribution (`app.contribute({kind: 'keymap'})`); the disposer removes it. */
@@ -76,8 +90,7 @@ export function createKeymapManager(
       }
       return null;
     },
-    // M6a (§5.17): the scope and modifier parameters are B0b's (`KeyB` in 'model.viewport'); `Space` is unchanged.
-    isTapHoldKey: (code: string, _scopes: readonly KeyScope[], _mods: TapHoldMods) => TAP_HOLD_KEYS.has(code),
+    isTapHoldKey,
     label: (chord: Chord) => chordLabel(chord, platform),
     setOverrides(bindings: readonly KeyBinding[]): void {
       overrides = Object.freeze([...bindings]);

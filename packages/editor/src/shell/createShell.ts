@@ -4,8 +4,7 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import type { EditorApp, OperatorResult, PanelKind, PrefsStorage, RunContext } from '@ekza-animator/editor-core';
 import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
-import { KeyboardAdapter } from '../input/keyboard';
-import { scopeChainOf } from '../input/pointer';
+import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
 import { registerBuiltinPanels } from '../panels';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
@@ -167,15 +166,18 @@ export function createShell(opts: CreateShellOptions): Shell {
   });
   disposers.push(() => files.dispose());
 
+  // M6A-SPEC §5.17 (B0b): the hierarchical scope chain, the capture window and the viewport tool-key bridge.
   const keyboard = new KeyboardAdapter({
     keymap: app.keymap,
-    scopeChain: () => {
-      const hover = ui.getState().hover;
-      return { scopes: scopeChainOf(hover), panel: hover?.kind ?? null, paneId: hover?.paneId ?? null };
-    },
+    scopeChain: () => scopeChain(app, ui.getState().hover),
     blocked: () => app.session.getState().dialog !== null || ui.getState().confirm !== null,
     spaceBehaviour: () => app.prefs.getState().spaceBehaviour,
     dispatch: ({ op, args, ctx }) => void runFromUi(op, args, ctx),
+    capture: (e) => app.capture.state.armed !== null && app.capture.key(e),
+    viewportTool: () => {
+      const vm = ui.getState().viewport;
+      return vm === null ? null : viewportToolTarget(app, () => vm.activeTool());
+    },
   });
 
   disposers.push(registerShellOperators(app, { workspace, onImportClosed: () => files.cancelImport() }));

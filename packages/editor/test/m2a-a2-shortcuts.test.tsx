@@ -13,7 +13,10 @@ describe('shortcut sheet: arrow keys (§5.17)', () => {
     // The fake app contributes the maya keymap; the built-in operators give the rows their labels.
     const { app } = createTestShell({ platform: 'other' });
     registerBuiltinOperators(app);
-    const walk = shortcutRows(app).filter((row) => row.label.startsWith('Pick Walk'));
+    // M6A-SPEC §3 rule 9 literal update (§7 arrows in `model.viewport.component`): the control pick-walk rows are
+    // `Pick Walk (…)`; Model's component pick-walk rows are 'Pick Walk Components (…)'.
+    const controlWalk = (label: string): boolean => label.startsWith('Pick Walk (');
+    const walk = shortcutRows(app).filter((row) => controlWalk(row.label));
     // ↑ ↓ ← → and their Shift forms, in the viewport and Channel Box scopes.
     expect(walk.map((row) => row.label).sort()).toEqual(
       [
@@ -29,7 +32,7 @@ describe('shortcut sheet: arrow keys (§5.17)', () => {
     const before = arrowRows(shortcutRows(app));
     await app.run('prefs.set', { patch: { arrowKeys: 'frames' } });
     const rows = shortcutRows(app);
-    expect(rows.some((row) => row.label.startsWith('Pick Walk'))).toBe(false);
+    expect(rows.some((row) => controlWalk(row.label))).toBe(false);
     const labels = (scope: string) =>
       rows
         .filter((row) => row.scope === scope && before.some((line) => line.startsWith(`${scope} ${row.keys}:`)))

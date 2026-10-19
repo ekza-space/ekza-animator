@@ -101,7 +101,10 @@ function isStub(error: unknown): boolean {
   return error instanceof EkzaError && error.code === 'not-implemented';
 }
 
-const MENUS = /^(file|edit|select|key|pose|clip|graph|time|rig|view)$/;
+// M6A-SPEC §3 rule 9 literal update (§8.3): Model's menus, whose items appear only in the Model workspace.
+const MENUS =
+  /^(file|edit|select|key|pose|clip|graph|time|rig|view|create|modify|display|mesh|edit-mesh|mesh-tools|mesh-display|uv)$/;
+const MODEL_ONLY_MENUS = /^(create|modify|display|mesh|edit-mesh|mesh-tools|mesh-display|uv)$/;
 
 /** Operators beyond §4.9 requested by other work packages (WP-9 R-1, R-3), with their undo flag. */
 const ADDITIONS: Readonly<Record<string, boolean>> = { 'select.channels': false, 'view.camera.setSettings': true };
@@ -388,6 +391,10 @@ describe('registerBuiltins', () => {
     }
     // The time slider owns its context menu.
     expect(BUILTIN_MENU_ITEMS.some((item) => item.menu === 'timeline.context')).toBe(false);
+    // Model's own menus never reach the Animate menu bar.
+    for (const item of BUILTIN_MENU_ITEMS.filter((entry) => MODEL_ONLY_MENUS.test(entry.menu.split('.')[0] ?? ''))) {
+      expect([item.id, item.workspaces]).toEqual([item.id, ['model']]);
+    }
   });
 
   it('binds keys only to registered operators or to the ones of other packages', () => {
