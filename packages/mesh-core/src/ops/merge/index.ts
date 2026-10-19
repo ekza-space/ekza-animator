@@ -15,6 +15,7 @@ import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/sy
 import {
   isHiddenVert,
   num,
+  pos,
   bool,
   opResult,
   pickOrder,
@@ -127,6 +128,64 @@ function runMerge(
 
 const pollMergeToCenter = pollSelection('mergeToCenter.no-selection', 'Select the components to merge');
 
+/**
+ * Merge to Center's groups under symmetry (§5.14): the picks and their partners, split into connected components (by
+ * the mesh's edges between members). A component that holds a member's partner is its own mirror: then everything
+ * merges once, onto the plane. Otherwise the components on one side of the plane merge into one point and their
+ * mirrors into the mirrored point. Reading the side from the plane, not from which vertices were picked, gives the same
+ * groups for the user's picks and for the runtime's expanded selection (§5.14: the runtime expands 'expand' ops'
+ * input before the run, M6A-INT-16: both hands' end caps merged into one point at the body's centre).
+ */
+function mirrorGroups(
+  m: EditMesh,
+  picked: readonly number[],
+  mirror: NonNullable<ReturnType<typeof mirrorOf>>,
+): number[][] {
+  const members = new Set<number>(picked);
+  for (const v of picked) {
+    const p = mirror.partner('vertex', v);
+    if (p !== -1) members.add(p);
+  }
+  // Connected components through the edges whose ends are both members.
+  const component = new Map<number, number>();
+  const components: number[][] = [];
+  for (const start of [...members].sort((a, b) => a - b)) {
+    if (component.has(start)) continue;
+    const id = components.length;
+    const list: number[] = [];
+    const stack = [start];
+    component.set(start, id);
+    while (stack.length > 0) {
+      const v = stack.pop() as number;
+      list.push(v);
+      const first = m.vertEdge(v);
+      if (first === -1) continue;
+      let e = first;
+      do {
+        const w = m.edgeOther(e, v);
+        if (members.has(w) && !component.has(w)) {
+          component.set(w, id);
+          stack.push(w);
+        }
+        e = m.edgeDiskNext(e, v);
+      } while (e !== first && e !== -1);
+    }
+    components.push(list.sort((a, b) => a - b));
+  }
+  const selfMirrored = components.some((list, id) =>
+    list.some((v) => {
+      const p = mirror.partner('vertex', v);
+      return p !== -1 && component.get(p) === id;
+    }),
+  );
+  if (selfMirrored) return [[...members].sort((a, b) => a - b)];
+  // One side's components merge together, the other side's into the mirrored point.
+  const side = (list: readonly number[]): number => list.reduce((sum, v) => sum + mirror.distance(pos(m, v)), 0);
+  const positive = components.filter((list) => side(list) >= 0).flat();
+  const negative = components.filter((list) => side(list) < 0).flat();
+  return [positive, negative].filter((group) => group.length > 0);
+}
+
 function runMergeToCenter(
   m: EditMesh,
   sel: ComponentSelection | null,
@@ -139,13 +198,7 @@ function runMergeToCenter(
   const mirror = mirrorOf(ctx);
   const picked = pickedVerts(m, sel as ComponentSelection, ctx);
   const expanded = expandIndices(mirror, 'vertex', picked);
-  let groups: number[][] = [picked];
-  if (mirror !== null) {
-    const partners = picked.map((v) => mirror.partner('vertex', v)).filter((v) => v !== -1);
-    const own = new Set(picked);
-    if (partners.some((v) => own.has(v))) groups = [[...new Set([...picked, ...partners])]];
-    else if (partners.length > 0) groups = [picked, partners];
-  }
+  const groups = mirror === null ? [picked] : mirrorGroups(m, picked, mirror);
   if (!mergesAnything(groups)) return refuse('mergeToCenter.nothing', 'Select at least two vertices to merge');
   const outcome = mergeGroups(m, groups, 'centroid', mirror);
   return opResult(

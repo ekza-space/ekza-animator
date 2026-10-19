@@ -17,6 +17,7 @@ import {
   mirrorEdgePoint,
   primitive,
   type SymmetryMap,
+  topologyStats,
 } from '../../src';
 import { expandIndices, Mirror, mirrorPoint } from '../../src/ops/extrude/shared/symmetry';
 import {
@@ -443,7 +444,9 @@ describe('P10 for the pointer and border rows: edge extrude, Target Weld, Bridge
           expect(result.warnings.filter((w) => w.code === 'symmetry.unmatched-partner')).toEqual([]);
         },
       ),
-      { numRuns: 300 * SCALE },
+      // 600 runs (was 300): at 300 the face-pair Bridge ran ≤ 5 times in about one full run in three (found at INT,
+      // M6A-INT-16), failing the coverage check below, not the property.
+      { numRuns: 600 * SCALE },
     );
     const keys = [
       'mesh.extrude:edge',
@@ -505,6 +508,52 @@ describe('extrude under symmetry (§5.14 extrude row)', () => {
     expect(result.warnings).toEqual([
       { code: 'symmetry.unmatched-partner', message: 'No mirror partner: applied to one side', count: 1 },
     ]);
+  });
+});
+
+// M6A-INT-16 (§5.14 merge rows): the runtime expands an 'expand' op's input before the run, so Merge to Center gets the
+// picks with their partners. Groups come from the plane, not from which vertices were picked: two end caps (both
+// arms) merge into two mirrored poles whether the run gets the pick or the expanded pair; a group that holds its own
+// mirror merges once onto the plane.
+/** How far the nearest vertex of `m` lies from `p`. */
+function distanceToVertex(m: EditMesh, p: readonly [number, number, number]): number {
+  const q = position(m, vertexNear(m, p));
+  return Math.hypot(q[0] - p[0], q[1] - p[1], q[2] - p[2]);
+}
+
+describe('Merge to Center under symmetry with the runtime’s expanded input (M6A-INT-16)', () => {
+  function arms(): { readonly m: EditMesh; readonly right: number; readonly left: number } {
+    const m = cube();
+    runOk(m, 'mesh.extrude', sel(m, 'face', [faceToward(m, [1, 0, 0])]), { localTranslateZ: 0.5 }, symCtx(m));
+    return { m, right: faceToward(m, [1, 0, 0]), left: faceToward(m, [-1, 0, 0]) };
+  }
+
+  it('the picked cap and the expanded pair both give two mirrored poles', () => {
+    for (const picks of [
+      (f: { right: number; left: number }) => [f.right],
+      (f: { right: number; left: number }) => [f.right, f.left],
+    ]) {
+      const { m, right, left } = arms();
+      expect(counts(m)).toBe('16/28/14');
+      const before = [faceCentroid(m, right), faceCentroid(m, left)];
+      runOk(m, 'mesh.mergeToCenter', sel(m, 'face', picks({ right, left })), {}, symCtx(m));
+      // Each cap's four corners become one vertex: 16 − 6 points.
+      expect(counts(m)).toBe('10/20/12');
+      const stats = topologyStats(m);
+      expect([stats.boundaryLoops, stats.nonManifoldEdges, stats.nonManifoldVerts]).toEqual([0, 0, 0]);
+      for (const centre of before) expect(distanceToVertex(m, centre)).toBeLessThan(1e-6);
+      expect(symmetryProblems(m)).toEqual([]);
+    }
+  });
+
+  it('picks that hold their own mirror (a cross-seam pair joined by an edge) merge once, onto the plane', () => {
+    const m = cube();
+    const v = vertexNear(m, [0.5, 0.5, 0.5]);
+    const p = vertexNear(m, [-0.5, 0.5, 0.5]);
+    runOk(m, 'mesh.mergeToCenter', sel(m, 'vertex', [v, p]), {}, symCtx(m));
+    expect(counts(m)).toBe('7/11/6');
+    expect(distanceToVertex(m, [0, 0.5, 0.5])).toBeLessThan(1e-6);
+    expect(symmetryProblems(m)).toEqual([]);
   });
 });
 
