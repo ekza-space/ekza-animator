@@ -18,7 +18,7 @@ import {
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Mesh, MeshBasicMaterial } from 'three';
 import { GlyphBatch, SHAPE } from './internal/glyphs';
 import { LineBatch } from './internal/lines';
-import { Touched, uploadAll } from './internal/ranges';
+import { IndexSet, Touched, uploadAll } from './internal/ranges';
 import { ViewBase } from './internal/base';
 import {
   bounds,
@@ -111,6 +111,10 @@ export class EditMeshView extends ViewBase {
   private readonly touchedVerts = new Touched(0);
   private readonly touchedEdges = new Touched(0);
   private readonly touchedFaces = new Touched(0);
+  // Scratch sets of `update` (sized per topology): edges and faces around moved vertices, faces whose normals change.
+  private readonly movedEdges = new IndexSet();
+  private readonly movedFaces = new IndexSet();
+  private readonly normalFaces = new IndexSet();
 
   constructor(opts: { readonly theme: MeshViewThemeInput; readonly layers: MeshViewLayers }) {
     super(opts);
@@ -216,6 +220,9 @@ export class EditMeshView extends ViewBase {
     this.touchedVerts.resize(t.points);
     this.touchedEdges.resize(t.edges);
     this.touchedFaces.resize(t.faces);
+    this.movedEdges.resize(t.edges);
+    this.movedFaces.resize(t.faces);
+    this.normalFaces.resize(t.faces);
     if (this.soft !== null && this.soft.length < t.points) this.soft = null;
     this.hover = null;
 
@@ -252,7 +259,10 @@ export class EditMeshView extends ViewBase {
     return layer === undefined ? null : layer.data;
   }
 
-  /** Incremental ranges after a commit or preview without topology change; a topology change rebuilds. */
+  /**
+   * Incremental ranges after a commit or preview without topology change; a topology change rebuilds. Runs every
+   * frame of a drag: its working sets are the view's own scratch (no allocation proportional to the edit).
+   */
   update(mesh: EditMesh, dirty: DirtySet, tri: Triangulation, normals: Normals): void {
     const t = this.topo;
     const c = mesh.counts;
@@ -279,8 +289,10 @@ export class EditMeshView extends ViewBase {
     if (movedPoints) {
       this.surface.updatePositions(t, this.position, points, this.vcorners);
       const vp = this.verts.position.array as Float32Array;
-      const ep = new Set<number>();
-      const fp = new Set<number>();
+      const ep = this.movedEdges;
+      const fp = this.movedFaces;
+      ep.clear();
+      fp.clear();
       if (allPoints) {
         copyPositions(vp, this.position, t.points);
         uploadAll(this.verts.position);
@@ -305,14 +317,14 @@ export class EditMeshView extends ViewBase {
           }
         }
         this.touchedVerts.flush([this.verts.position]);
-        const edgeList = Uint32Array.from(ep);
+        const edgeList = ep.items();
         this.writeEdgeSegments(t, edgeList);
-        for (const e of edgeList) this.touchedEdges.add(e);
+        for (let k = 0; k < edgeList.length; k++) this.touchedEdges.add(edgeList[k] as number);
         this.touchedEdges.flush([this.edges.start, this.edges.end]);
-        this.writeFaceDots(t, fp);
+        this.writeFaceDots(t, fp.items());
         if (faces !== 'all') {
           for (let k = 0; k < faces.length; k++) fp.add(faces[k] as number);
-          faces = Uint32Array.from(fp);
+          faces = fp.items();
         }
       }
       this.normalsDirty = true;
@@ -326,7 +338,8 @@ export class EditMeshView extends ViewBase {
     // or joins the smooth fans at both endpoints, so every corner there; corners written directly (`normal.custom`)
     // take their value as is. Rewriting a superset is harmless: `normals` is the full current array.
     let allNormals = faces === 'all';
-    const normalFaces = new Set<number>();
+    const normalFaces = this.normalFaces;
+    normalFaces.clear();
     if (faces === 'all') {
       this.surface.writeIndex(tri, this.vis.faces, null);
     } else if (faces.length > 0) {
@@ -369,7 +382,7 @@ export class EditMeshView extends ViewBase {
     }
 
     if (allNormals) this.surface.writeNormals(t, normals, null);
-    else if (normalFaces.size > 0) this.surface.writeNormals(t, normals, Uint32Array.from(normalFaces));
+    else if (normalFaces.size > 0) this.surface.writeNormals(t, normals, normalFaces.items());
     if (allNormals || normalFaces.size > 0) this.normalsDirty = true;
 
     if (dirty.layers.includes('paint') || dirty.faces === 'all' || dirty.faces.length > 0) {
@@ -378,17 +391,18 @@ export class EditMeshView extends ViewBase {
   }
 
   /** Adds every face with a corner at vertex `v` to `out`. */
-  private facesAt(t: Topo, v: number, out: Set<number>): void {
+  private facesAt(t: Topo, v: number, out: IndexSet): void {
     if (v >= t.points) return;
     for (let j = this.vcorners.start[v] as number; j < (this.vcorners.start[v + 1] as number); j++) {
       out.add(t.cf[this.vcorners.items[j] as number] as number);
     }
   }
 
-  private writeFaceDots(t: Topo, faces: Iterable<number>): void {
+  private writeFaceDots(t: Topo, faces: Uint32Array): void {
     const out = this.faceDots.position.array as Float32Array;
     const p = this.position;
-    for (const f of faces) {
+    for (let k = 0; k < faces.length; k++) {
+      const f = faces[k] as number;
       const start = t.fstart[f] as number;
       const end = t.fstart[f + 1] as number;
       let x = 0;

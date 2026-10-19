@@ -27,11 +27,16 @@ function ranged(attr: Attr): attr is BufferAttribute {
   return (attr as BufferAttribute).isBufferAttribute === true && uploaded.has(attr);
 }
 
-/** Collects touched element indices of one or more attributes with the same element count. */
+/**
+ * Collects touched element indices of one or more attributes with the same element count. Its buffers are reused
+ * across flushes (drags flush every frame; MVP-SPEC §3: no allocation in per-frame paths once warm).
+ */
 export class Touched {
   private marks: Uint8Array;
   private list: number[] = [];
   private all = false;
+  private sorted = new Int32Array(0);
+  private readonly ranges: number[] = [];
 
   constructor(size: number) {
     this.marks = new Uint8Array(size);
@@ -62,8 +67,13 @@ export class Touched {
     if (this.all) {
       for (const attr of attrs) uploadAll(attr);
     } else if (this.list.length > 0) {
-      const sorted = Int32Array.from(this.list).sort();
-      const ranges: number[] = [];
+      const n = this.list.length;
+      if (this.sorted.length < n) this.sorted = new Int32Array(Math.max(n, 2 * this.sorted.length));
+      const sorted = this.sorted.subarray(0, n);
+      for (let k = 0; k < n; k++) sorted[k] = this.list[k] as number;
+      sorted.sort();
+      const ranges = this.ranges;
+      ranges.length = 0;
       let start = sorted[0] as number;
       let end = start;
       for (let k = 1; k < sorted.length; k++) {
@@ -77,7 +87,10 @@ export class Touched {
         end = i;
       }
       ranges.push(start, end);
-      if (ranges.length / 2 > MAX_RANGES) ranges.splice(1, ranges.length - 2);
+      if (ranges.length / 2 > MAX_RANGES) {
+        ranges[1] = ranges[ranges.length - 1] as number;
+        ranges.length = 2;
+      }
       for (const attr of attrs) {
         if (!ranged(attr)) {
           attr.needsUpdate = true;
@@ -91,10 +104,60 @@ export class Touched {
         }
         buffer.needsUpdate = true;
       }
-      for (const i of this.list) this.marks[i] = 0;
+      for (let k = 0; k < n; k++) this.marks[this.list[k] as number] = 0;
     }
     this.list.length = 0;
     this.all = false;
+  }
+}
+
+/**
+ * A reusable set of element indices in insertion order (generation stamps over an item buffer): cleared and refilled
+ * per incremental update without allocating once sized for the topology.
+ */
+export class IndexSet {
+  private stamps: Uint32Array;
+  private buffer: Uint32Array;
+  private count = 0;
+  private generation = 1;
+
+  constructor(size = 0) {
+    this.stamps = new Uint32Array(size);
+    this.buffer = new Uint32Array(size);
+  }
+
+  /** Sizes the set for `size` elements (indices ≥ size are ignored) and empties it. */
+  resize(size: number): void {
+    if (this.stamps.length !== size) {
+      this.stamps = new Uint32Array(size);
+      this.buffer = new Uint32Array(size);
+      this.generation = 0;
+    }
+    this.clear();
+  }
+
+  clear(): void {
+    this.count = 0;
+    this.generation++;
+    if (this.generation === 0xffffffff) {
+      this.stamps.fill(0);
+      this.generation = 1;
+    }
+  }
+
+  add(i: number): void {
+    if (!(i < this.stamps.length) || this.stamps[i] === this.generation) return;
+    this.stamps[i] = this.generation;
+    this.buffer[this.count++] = i;
+  }
+
+  get size(): number {
+    return this.count;
+  }
+
+  /** The indices added since the last `clear`, in insertion order: a view, valid until the next change. */
+  items(): Uint32Array {
+    return this.buffer.subarray(0, this.count);
   }
 }
 
