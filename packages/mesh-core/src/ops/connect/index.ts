@@ -5,12 +5,15 @@
 // - Edges: every face with exactly two selected edges is split between the points at `weight` on each; the weight is
 //   measured from a side carried across such faces (as Insert Edge Loop's ring), so a selected ring becomes a straight
 //   loop. Faces with three or more selected edges are skipped with the warning `connect.skipped`.
-// Chords follow H1; `selection′` = the new edges. Symmetry (§5.14): the expanded selection; new vertices are
-// symmetrized with their partners (a point on a crossing edge lands on the plane).
+// Chords follow H1; `selection′` = the new edges. Symmetry (§5.14): poll and run see the expanded selection; a
+// mirrored pair of edge groups measures the weight from mirrored sides (the source group, on the positive side of
+// the plane, as without symmetry; its partner gets the reflected points), so the weight applies to both halves; a
+// group that is its own mirror is symmetrized (a point on a crossing edge lands on the plane).
 import type { ParamValues } from '@ekza-animator/anim-core';
 import { allEdgesHard } from '../../normals/hard';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';
+import { pairGroups } from '../extrude/place';
 import { cutChord, setChordHard, splitEdgeAt } from '../extrude/shared/split';
 import { type Mirror, expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';
 import {
@@ -31,8 +34,14 @@ import {
 } from '../extrude/shared/util';
 import { CONNECT } from './descriptor';
 
+/** The vertices or edges Connect runs on: the selection, expanded by its mirror partners under symmetry (§5.14). */
+function connectSet(m: EditMesh, sel: ComponentSelection, ctx: OpContext) {
+  const kind = sel.kind === 'edge' ? 'edge' : 'vertex';
+  return { kind, ...expandIndices(mirrorOf(ctx), kind, selected(m, sel, kind, ctx.hidden)) } as const;
+}
+
 function pollConnect(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal {
-  if (sel === null || sel.kind === 'face' || selected(m, sel, sel.kind, ctx.hidden).length < 2) {
+  if (sel === null || sel.kind === 'face' || connectSet(m, sel, ctx).indices.length < 2) {
     return refuse('connect.no-selection', 'Select two or more vertices or edges to connect');
   }
   return true;
@@ -81,8 +90,6 @@ function connectEdges(
     if (mine.length === 2) links.push({ f, e1: mine[0] as number, e2: mine[1] as number });
     else if (mine.length > 2) skipped++;
   }
-  // Sides carried across linked faces (x → y on e1 pairs with z → w on e2 as x ↔ w, y ↔ z).
-  const side = new Map<number, number>();
   const byEdge = new Map<number, typeof links>();
   for (const link of links) {
     for (const e of [link.e1, link.e2]) {
@@ -91,9 +98,41 @@ function connectEdges(
       byEdge.set(e, list);
     }
   }
+  // Groups: edges joined through linked faces, each sorted ascending (its first edge starts the side carry).
+  const groups: number[][] = [];
+  const groupOf = new Map<number, number>();
   for (const start of uniqueSorted(byEdge.keys())) {
-    if (side.has(start)) continue;
-    side.set(start, m.edgeVert(start, 0));
+    if (groupOf.has(start)) continue;
+    const group = [start];
+    groupOf.set(start, groups.length);
+    for (let i = 0; i < group.length; i++) {
+      for (const link of byEdge.get(group[i] as number) ?? []) {
+        for (const e of [link.e1, link.e2]) {
+          if (groupOf.has(e)) continue;
+          groupOf.set(e, groups.length);
+          group.push(e);
+        }
+      }
+    }
+    groups.push(group.sort((a, b) => a - b));
+  }
+  // §5.14 roles: a mirrored pair of groups has a source (its centroid on the positive side of the plane) whose sides
+  // are the plain run's; its partner takes the mirrored sides, so the weight means the same on both halves.
+  const roles = pairGroups(groups, 'edge', mirror, (i) => {
+    if (mirror === null) return 0;
+    let sum = 0;
+    for (const e of groups[i] as number[]) {
+      const a = pos(m, m.edgeVert(e, 0));
+      const b = pos(m, m.edgeVert(e, 1));
+      sum += mirror.distance([(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2]);
+    }
+    return sum / (groups[i] as number[]).length;
+  });
+  // Sides carried across linked faces (x → y on e1 pairs with z → w on e2 as x ↔ w, y ↔ z). The carry commutes with
+  // the reflection (a mirrored face runs its edges reversed), so a group started on the mirrored side is the mirror.
+  const side = new Map<number, number>();
+  const carry = (start: number, from: number): void => {
+    side.set(start, from);
     const stack = [start];
     while (stack.length > 0) {
       const e = stack.pop() as number;
@@ -109,7 +148,17 @@ function connectEdges(
         stack.push(other);
       }
     }
-  }
+  };
+  groups.forEach((group, i) => {
+    if (roles[i]?.kind !== 'partner') carry(group[0] as number, m.edgeVert(group[0] as number, 0));
+  });
+  groups.forEach((group, i) => {
+    if (roles[i]?.kind !== 'partner' || mirror === null) return;
+    const start = group[0] as number;
+    const own = side.get(mirror.partner('edge', start));
+    const mapped = own === undefined ? -1 : mirror.partner('vertex', own);
+    carry(start, mapped === m.edgeVert(start, 1) ? mapped : m.edgeVert(start, 0));
+  });
   const hard = new Map(links.map((link) => [link.f, allEdgesHard(m, link.f)]));
   const vertexOf = new Map<number, number>();
   for (const e of uniqueSorted(side.keys())) {
@@ -123,14 +172,19 @@ function connectEdges(
     if (cutChord(m, a, b) !== -1) chords.push(a, b, hard.get(link.f) === true ? 1 : 0);
   }
   if (mirror !== null) {
-    // Each new vertex with its partner's new vertex (crossing edges: itself, onto the plane).
+    // A partner group's new vertices are its source's reflected (the source keeps the plain run's points); in a group
+    // that is its own mirror (or one with unmatched edges) each new vertex is symmetrized with its partner's, and one
+    // on a crossing edge lands on the plane.
     const placed = new Map<number, V3>();
     for (const [e, v] of vertexOf) {
       const pe = mirror.partner('edge', e);
       const pv = pe === -1 ? undefined : vertexOf.get(pe);
-      const p = pos(m, v);
       if (pv === undefined) continue;
-      if (pe === e) placed.set(v, (mirror.map.edgeSelf[e] as number) === 1 ? mirror.project(p) : p);
+      const role = roles[groupOf.get(e) as number]?.kind;
+      const p = pos(m, v);
+      if (role === 'source') continue;
+      if (role === 'partner') placed.set(v, mirror.reflect(pos(m, pv)));
+      else if (pe === e) placed.set(v, (mirror.map.edgeSelf[e] as number) === 1 ? mirror.project(p) : p);
       else placed.set(v, mirror.symmetrize(p, pos(m, pv)));
     }
     for (const [v, p] of placed) setPos(m, v, p);
@@ -149,8 +203,8 @@ function runConnect(
   const selection = sel as ComponentSelection;
   const args = resolveArgs(CONNECT, rawArgs);
   const mirror = mirrorOf(ctx);
-  const kind = selection.kind === 'edge' ? 'edge' : 'vertex';
-  const expanded = expandIndices(mirror, kind, selected(m, selection, kind, ctx.hidden));
+  const expanded = connectSet(m, selection, ctx);
+  const kind = expanded.kind;
   const warnings: OpWarning[] = [...unmatchedWarnings(expanded.unmatched)];
   let chords: number[];
   if (kind === 'vertex') chords = connectVertices(m, expanded.indices).chords;

@@ -1,17 +1,22 @@
 // M6A-SPEC §5.14 for B3's ops (P10 and the goldens of §9 B3): expanded selections, mirror-consistent extrude frames,
-// self-mirrored regions and groups, Insert Edge Loop decided by the mapped seed point, the Target Weld seam table,
-// Bridge's mirrored pair, unmatched partners processed on one side with `symmetry.unmatched-partner`. Maps come from
-// the §5.14 definition (`referenceSymmetryMap`); `READY.b2` cross-checks B3's helpers against B2's functions.
+// self-mirrored regions and groups, scalar args applying to both halves (on the source side an expand-class op equals
+// the plain run of the expanded selection; Connect's weight), Insert Edge Loop decided by the mapped seed point, the
+// Target Weld seam table, Bridge's mirrored pair, unmatched partners processed on one side with
+// `symmetry.unmatched-partner`. Maps come from the §5.14 definition (`referenceSymmetryMap`); `READY.b2` cross-checks
+// B3's helpers against B2's functions.
+import type { ParamValues } from '@ekza-animator/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   buildSymmetryMap,
+  type ComponentKind,
   type EditMesh,
   editMeshFrom,
   expandSelection,
   isRefusal,
   mirrorEdgePoint,
   primitive,
+  type SymmetryMap,
 } from '../../src';
 import { expandIndices, Mirror, mirrorPoint } from '../../src/ops/extrude/shared/symmetry';
 import {
@@ -108,8 +113,9 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
     fc.constant(() => primitive('sphere', { subdivisionsAxis: 8, subdivisionsHeight: 4 })),
   );
 
-  it('every exp/ptr op on symmetric meshes (positions within 1e-6, every vertex partnered)', () => {
+  it('every exp/ptr op on symmetric meshes (positions within 1e-6, every vertex partnered); exp ops keep the plain run on the source side', () => {
     let ran = 0;
+    let compared = 0;
     fc.assert(
       fc.property(
         meshes,
@@ -121,14 +127,180 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
           const count =
             step.kind === 'vertex' ? m.counts.points : step.kind === 'edge' ? m.counts.edges : m.counts.faces;
           const picks = seeds.map((s) => s % count);
-          const { result } = runChecked(m, op(step.id), sel(m, step.kind, picks), step.args, symCtx(m));
+          const ctx = symCtx(m);
+          const { result } = runChecked(m, op(step.id), sel(m, step.kind, picks), step.args, ctx);
           if (isRefusal(result)) return;
           ran++;
-          expect(symmetryProblems(m), `${step.id} ${JSON.stringify(step.args)} on ${picks.join(',')}`).toEqual([]);
+          const label = `${step.id} ${JSON.stringify(step.args)} on ${picks.join(',')}`;
+          expect(symmetryProblems(m), label).toEqual([]);
           expect(result.warnings.filter((w) => w.code === 'symmetry.unmatched-partner')).toEqual([]);
+          // World-space extrude args move a region that is its own mirror asymmetrically (a world X move, a turn about
+          // world Y): its symmetrized result is not the plain run's, so those runs check P10 only.
+          if (!SOURCE_SIDE_OPS.has(step.id) || (step.args as { space?: string }).space === 'world') return;
+          compared++;
+          const map = ctx.symmetry?.map as SymmetryMap;
+          const gap = sourceSideGap(editMeshFrom(make()), map, step.id, step.kind, picks, step.args, m);
+          expect(gap, label).toBeLessThan(SOURCE_SIDE_TOLERANCE);
         },
       ),
       { numRuns: 300 * SCALE },
+    );
+    expect(ran).toBeGreaterThan(100);
+    expect(compared).toBeGreaterThan(50);
+  });
+});
+
+/**
+ * The expand-class ops whose symmetric run is, on the source side, the plain run of the expanded selection (§5.14:
+ * "scalar args apply to both halves"). Merge and Merge to Center merge the picks and their partners as separate groups
+ * (M6A-B3-22), so a plain run of the expanded set (one group) is not their reference; Insert Edge Loop is pointer-class
+ * (its goldens are below).
+ */
+const SOURCE_SIDE_OPS = new Set([
+  'mesh.extrude',
+  'mesh.inset',
+  'mesh.offsetLoop',
+  'mesh.collapse',
+  'mesh.delete',
+  'mesh.fillHole',
+  'mesh.connect',
+  'mesh.deleteEdgeVertex',
+]);
+
+/** As P10's: positions within 1e-6 (a lost weight or frame moves points by centimetres). */
+const SOURCE_SIDE_TOLERANCE = 1e-6;
+
+/**
+ * The largest distance between the symmetric result `after` and a plain run (no symmetry) of the expanded selection
+ * on `fresh`, a copy of the input, over the vertices of `after` on the positive side of the plane (the §5.14 source
+ * side; points snapped onto the plane are left out). Infinity when the plain run refuses or makes other counts.
+ */
+function sourceSideGap(
+  fresh: EditMesh,
+  map: SymmetryMap,
+  id: string,
+  kind: ComponentKind,
+  picks: readonly number[],
+  args: ParamValues,
+  after: EditMesh,
+): number {
+  const expanded = expandIndices(new Mirror({ map, preserveSeam: true }, IDENTITY_XF), kind, picks).indices;
+  const { result } = runChecked(fresh, op(id), sel(fresh, kind, expanded), args, ctxOf());
+  if (isRefusal(result) || counts(fresh) !== counts(after)) return Number.POSITIVE_INFINITY;
+  let gap = 0;
+  for (let v = 0; v < after.counts.points; v++) {
+    const p = position(after, v);
+    if (p[0] <= 1e-6) continue;
+    const q = position(fresh, v);
+    gap = Math.max(gap, Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]));
+  }
+  return gap;
+}
+
+describe('Connect under symmetry (§5.14: the weight applies to both halves)', () => {
+  /** A cube with a centre loop at x = 0: 12/20/10. */
+  const centreLoopCube = () => editMeshFrom(primitive('cube', { subdivisionsWidth: 2 }));
+  /** The two vertical edges of a cube's face at `x`. */
+  const verticals = (m: EditMesh, x: number): number[] =>
+    [0.5, -0.5].map((z) => edgeNear(m, [x, -0.5, z], [x, 0.5, z]));
+  const fresh = (m: EditMesh, from: number): [number, number, number][] => {
+    const out: [number, number, number][] = [];
+    for (let v = from; v < m.counts.points; v++) out.push(position(m, v));
+    return out.sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+  };
+
+  it.each([0.2, 0.8])(
+    'weight %s on one side face: the plain run on that side and its mirror on the other, not a loop at 0.5',
+    (weight) => {
+      const plain = centreLoopCube();
+      expect(counts(plain)).toBe('12/20/10');
+      runOk(plain, 'mesh.connect', sel(plain, 'edge', verticals(plain, 0.5)), { weight });
+      const right = fresh(plain, 12);
+      expect(right.map((p) => Math.abs(p[1]))).toEqual([expect.closeTo(0.3, 6), expect.closeTo(0.3, 6)]);
+      const left = right
+        .map(([x, y, z]): [number, number, number] => [-x, y, z])
+        .sort((a, b) => a[0] - b[0] || a[1] - b[1] || a[2] - b[2]);
+      for (const x of [0.5, -0.5]) {
+        // Picking either side gives the same mesh: the +X group is the source (§5.14 source side).
+        const m = centreLoopCube();
+        const result = runOk(m, 'mesh.connect', sel(m, 'edge', verticals(m, x)), { weight }, symCtx(m));
+        expect(counts(m)).toBe('16/26/12');
+        expect(result.resolvedArgs['weight']).toBe(weight);
+        expect(result.selection.edges.count()).toBe(2);
+        expect(fresh(m, 12)).toEqual([...left, ...right]);
+        expect(symmetryProblems(m)).toEqual([]);
+      }
+    },
+  );
+
+  it('one picked edge whose partner shares a face connects: poll and run count the expanded selection', () => {
+    const m = cube();
+    const edge = edgeNear(m, [0.5, -0.5, 0.5], [0.5, 0.5, 0.5]);
+    expect(op('mesh.connect').poll(m, sel(m, 'edge', [edge]), ctxOf())).not.toBe(true);
+    runRefused(m, 'mesh.connect', sel(m, 'edge', [edge]), 'connect.no-selection');
+    expect(op('mesh.connect').poll(m, sel(m, 'edge', [edge]), symCtx(m))).toBe(true);
+    const result = runOk(m, 'mesh.connect', sel(m, 'edge', [edge]), { weight: 0.3 }, symCtx(m));
+    // The +Z face holds the edge and its partner: one chord across it, both points at the same height.
+    expect(counts(m)).toBe('10/15/7');
+    expect(result.selection.edges.count()).toBe(1);
+    const [a, b] = fresh(m, 8) as [[number, number, number], [number, number, number]];
+    expect(Math.abs(a[1])).toBeCloseTo(0.2, 6);
+    expect(b[1]).toBe(a[1]);
+    expect(symmetryProblems(m)).toEqual([]);
+  });
+
+  it('one picked vertex whose partner shares a face (an 8-sided cap) is joined to it by a chord', () => {
+    const m = editMeshFrom(cylinderData());
+    const map = referenceSymmetryMap(m, 'x');
+    const top = faceToward(m, [0, 1, 0]);
+    const v = faceVerts(m, top).find((u) => {
+      const p = map.vertex[u] as number;
+      return p !== u && p !== -1 && m.findEdge(u, p) === -1;
+    }) as number;
+    runRefused(m, 'mesh.connect', sel(m, 'vertex', [v]), 'connect.no-selection');
+    const before = counts(m);
+    runOk(m, 'mesh.connect', sel(m, 'vertex', [v]), {}, symCtx(m));
+    expect(before).toBe('16/24/10');
+    expect(counts(m)).toBe('16/25/11');
+    expect(symmetryProblems(m)).toEqual([]);
+  });
+
+  it('property: edges picked in pairs of faces give a symmetric mesh that keeps the plain run on the source side', () => {
+    const meshes = fc.oneof(
+      fc.constant(() => primitive('cube', { subdivisionsWidth: 2, subdivisionsHeight: 2 })),
+      // Crossing edges (the middle column straddles the plane): their points land on the plane.
+      fc.constant(() => primitive('cube', { subdivisionsWidth: 3, subdivisionsHeight: 2 })),
+      fc.constant(() => primitive('plane', { subdivisionsWidth: 4, subdivisionsHeight: 3 })),
+      fc.constant(() => primitive('cylinder', { subdivisionsAxis: 8, subdivisionsHeight: 2 })),
+      fc.constant(() => primitive('sphere', { subdivisionsAxis: 8, subdivisionsHeight: 4 })),
+    );
+    // Each pick: two edges of one face (opposite or neighbours), so most picks link through a face.
+    const picks = fc.array(fc.record({ face: fc.nat(1_000_000), corner: fc.nat(7), opposite: fc.boolean() }), {
+      minLength: 1,
+      maxLength: 3,
+    });
+    let ran = 0;
+    fc.assert(
+      fc.property(meshes, picks, fc.double({ min: 0.05, max: 0.95, noNaN: true }), (make, chosen, weight) => {
+        const m = editMeshFrom(make());
+        const edges = chosen.flatMap(({ face, corner, opposite }) => {
+          const vs = faceVerts(m, face % m.counts.faces);
+          const n = vs.length;
+          const i = corner % n;
+          const j = (i + (opposite ? Math.floor(n / 2) : 1)) % n;
+          return [i, j].map((k) => m.findEdge(vs[k] as number, vs[(k + 1) % n] as number));
+        });
+        const ctx = symCtx(m);
+        const { result } = runChecked(m, op('mesh.connect'), sel(m, 'edge', edges), { weight }, ctx);
+        if (isRefusal(result)) return;
+        ran++;
+        const label = `weight ${weight} on ${edges.join(',')}`;
+        expect(symmetryProblems(m), label).toEqual([]);
+        const map = ctx.symmetry?.map as SymmetryMap;
+        const gap = sourceSideGap(editMeshFrom(make()), map, 'mesh.connect', 'edge', edges, { weight }, m);
+        expect(gap, label).toBeLessThan(SOURCE_SIDE_TOLERANCE);
+      }),
+      { numRuns: 200 * SCALE },
     );
     expect(ran).toBeGreaterThan(100);
   });
