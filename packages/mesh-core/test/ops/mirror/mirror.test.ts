@@ -17,36 +17,16 @@ import {
 } from '../../../src';
 import { buildMeshData, signedVolume, vef } from '../../../src/testing';
 import { removeFaces } from '../../../src/subset/setops';
+import { halfCube as sharedHalfCube } from '../determinism';
 import { context, faceVertList, facesWhere, position, refusedCode, runOk, vertexAt } from '../harness';
 import { asymmetry, testSymmetryMap } from '../symmetry-fixture';
 
 const mirror = MESH_OPS['mesh.mirror'] as NonNullable<(typeof MESH_OPS)[string]>;
 const symmetrize = MESH_OPS['mesh.symmetrize'] as NonNullable<(typeof MESH_OPS)[string]>;
-const cut = MESH_OPS['mesh.cut'] as NonNullable<(typeof MESH_OPS)[string]>;
 
-/** The +X half of a unit cube (8/12/5): a cube with a centre loop at x = 0 and its −X faces deleted (E2E-MOD-09). */
+/** The +X half of a unit cube (8/12/5): a centre loop by Multi-Cut, −X faces removed (E2E-MOD-09). */
 function halfCube(): EditMesh {
-  const m = editMeshFrom(primitive('cube', {}));
-  // The centre loop: Multi-Cut around the four faces that cross x = 0 (edges along X at t = 0.5).
-  const alongX: number[] = [];
-  for (let e = 0; e < m.counts.edges; e++) {
-    const a = position(m, m.edgeVert(e, 0));
-    const b = position(m, m.edgeVert(e, 1));
-    if (a[1] === b[1] && a[2] === b[2]) alongX.push(e);
-  }
-  // Order the four X edges around the loop: top-front, top-back, bottom-back, bottom-front.
-  const at = (y: number, z: number) =>
-    alongX.find((e) => position(m, m.edgeVert(e, 0))[1] === y && position(m, m.edgeVert(e, 0))[2] === z) as number;
-  const ring = [at(0.5, 0.5), at(0.5, -0.5), at(-0.5, -0.5), at(-0.5, 0.5)];
-  const points = ring.map((e) => ({ kind: 'edge', edge: e, t: 0.5 }));
-  runOk(m, cut, null, { points: [...points, points[0] as (typeof points)[number]] });
-  expect(vef(m)).toBe('12/20/10');
-  m.begin('delete half');
-  removeFaces(
-    m,
-    facesWhere(m, (c) => c[0] < 0),
-  );
-  m.end();
+  const m = sharedHalfCube();
   expect(vef(m)).toBe('8/12/5');
   return m;
 }

@@ -2,9 +2,12 @@
 // the rail segment, on the pre-slide surface), the reference picks the positive side, negative percents take the other
 // side, `adjust` re-solves from the pre-slide positions, vertex mode, and symmetry (P10): partners slide along mirrored
 // rails, seam vertices only along rails in the plane.
+import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { type EditMesh, editMeshFrom, isRefusal, MESH_OPS, primitive, selectionOf } from '../../../src';
-import { context, position, refusedCode, runOk, vertexAt } from '../harness';
+import { arbPrimitive } from '../../../src/testing';
+import { context, position, refusedCode, runOk, runOp, vertexAt } from '../harness';
+import { arbOpStep, resolveOpStep } from '../steps';
 import { asymmetry, testSymmetryMap } from '../symmetry-fixture';
 
 const slide = MESH_OPS['mesh.slide'] as NonNullable<(typeof MESH_OPS)[string]>;
@@ -168,5 +171,43 @@ describe('mesh.slide under symmetry (P10)', () => {
       context({ symmetry: { map: nmap, preserveSeam: true } }),
     );
     expect(position(n, c)).toEqual(position(before, c));
+  });
+});
+
+describe('mesh.slide property (§9 B4: on the rail, on the pre-slide surface)', () => {
+  it('every moved vertex lies on a pre-slide edge from its old position (float32 rounding only)', () => {
+    fc.assert(
+      fc.property(arbPrimitive(), arbOpStep(['mesh.slide']), ({ kind, params }, step) => {
+        const m = editMeshFrom(primitive(kind, params));
+        const before = m.snapshot();
+        const { op, sel, args, ctx } = resolveOpStep(m, { ...step, kind: step.kind % 2 === 0 ? 0 : 1 });
+        const run = runOp(m, op, sel, args, ctx);
+        if (isRefusal(run.result)) return;
+        const scale = Math.max(...Array.from(before.position, Math.abs), 1);
+        for (let v = 0; v < m.counts.points; v++) {
+          const p = position(m, v);
+          const q = position(before, v);
+          if (p[0] === q[0] && p[1] === q[1] && p[2] === q[2]) continue;
+          // Some edge v–w of the pre-slide mesh holds p: distance to the segment within float32 rounding.
+          let best = Number.POSITIVE_INFINITY;
+          for (let e = 0; e < before.counts.edges; e++) {
+            const a = before.edgeVerts[2 * e] as number;
+            const b = before.edgeVerts[2 * e + 1] as number;
+            if (a !== v && b !== v) continue;
+            const w = a === v ? b : a;
+            const r = position(before, w);
+            const d: [number, number, number] = [r[0] - q[0], r[1] - q[1], r[2] - q[2]];
+            const len2 = d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
+            const t = Math.max(
+              0,
+              Math.min(1, ((p[0] - q[0]) * d[0] + (p[1] - q[1]) * d[1] + (p[2] - q[2]) * d[2]) / len2),
+            );
+            best = Math.min(best, Math.hypot(q[0] + t * d[0] - p[0], q[1] + t * d[1] - p[1], q[2] + t * d[2] - p[2]));
+          }
+          expect(best).toBeLessThan(4e-7 * scale);
+        }
+      }),
+      { numRuns: 300, seed: 31 },
+    );
   });
 });
