@@ -3,7 +3,8 @@
 // `mesh.insertLoop` with the option box's mode and loop count; pressing on the edge starts it and dragging slides it
 // along the edge before release ("slide before release", the weight is the pointer ray's closest approach to the
 // seed edge); release places it with one `mesh.insertLoop` run (`source: 'tool'`, so `G` re-activates this tool,
-// §5.7). `Esc` cancels with no step; RMB is ignored while sliding; a digit during the slide types the weight (§5.10).
+// §5.7). `Esc` cancels with no step; RMB is ignored while sliding; a digit during the slide types the weight and
+// `PageUp`/`PageDown` step the loop count of Multiple mode (§5.10).
 import type { ParamDef } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
 import {
@@ -28,6 +29,8 @@ interface Seed {
   readonly x: number;
   readonly y: number;
   weight: number;
+  /** `PageUp`/`PageDown` during the gesture step the loop count (§5.10; the option box's mode Multiple uses it). */
+  divisions: number | null;
   moved: boolean;
   /** A typed weight (the capture window's entry) replaces the pointer's. */
   typed: boolean;
@@ -75,6 +78,7 @@ export class InsertLoopTool implements ToolInstance {
       x: e.x,
       y: e.y,
       weight: hit.t ?? 0.5,
+      divisions: null,
       moved: false,
       typed: false,
     };
@@ -116,6 +120,14 @@ export class InsertLoopTool implements ToolInstance {
       this.place();
       return true;
     }
+    if (e.code === 'PageUp' || e.code === 'PageDown') {
+      const seed = this.seed;
+      const defaults = this.app.prefs.getState().modeling.optionDefaults['mesh.insertLoop'] ?? {};
+      const current = seed.divisions ?? (typeof defaults['divisions'] === 'number' ? defaults['divisions'] : 2);
+      seed.divisions = Math.max(1, Math.min(16, current + (e.code === 'PageUp' ? 1 : -1)));
+      this.preview();
+      return true;
+    }
     return false;
   }
 
@@ -133,12 +145,14 @@ export class InsertLoopTool implements ToolInstance {
   // ---------- run and preview ----------
 
   /** The args a run with this seed gets (the runner adds the option box's mode and count under them). */
-  private args(seed: {
-    readonly mesh: MeshId;
-    readonly edge: number;
-    readonly weight: number;
-  }): Record<string, unknown> {
-    return { seedEdge: seed.edge, weight: seed.weight, meshes: [seed.mesh], kind: 'edge' };
+  private args(seed: Seed): Record<string, unknown> {
+    return {
+      seedEdge: seed.edge,
+      weight: seed.weight,
+      ...(seed.divisions === null ? {} : { divisions: seed.divisions }),
+      meshes: [seed.mesh],
+      kind: 'edge',
+    };
   }
 
   private place(): void {
@@ -170,14 +184,15 @@ export class InsertLoopTool implements ToolInstance {
 
   private preview(): void {
     const seed = this.seed;
-    if (seed !== null) this.draw(seed.mesh, seed.edge, seed.weight);
+    if (seed !== null) this.draw(seed.mesh, seed.edge, seed.weight, seed.divisions);
   }
 
   /** Draws the loops a run would insert (the option box's mode and count; the mirror image under symmetry). */
-  private draw(mesh: MeshId, edge: number, weight: number): void {
+  private draw(mesh: MeshId, edge: number, weight: number, divisions: number | null = null): void {
     const defaults = this.app.prefs.getState().modeling.optionDefaults['mesh.insertLoop'] ?? {};
+    const args = { ...defaults, seedEdge: edge, weight, ...(divisions === null ? {} : { divisions }) };
     const segments =
-      this.rt.tryOp(mesh, 'mesh.insertLoop', { ...defaults, seedEdge: edge, weight }, null, (m, result) =>
+      this.rt.tryOp(mesh, 'mesh.insertLoop', args, null, (m, result) =>
         isRefusal(result) ? [] : this.rt.edgeSegments(mesh, m, result.selection.edges.toArray()),
       ) ?? [];
     this.rt.overlay.set(segments.length > 0 ? [{ positions: segments, color: PREVIEW.loop }] : []);

@@ -305,6 +305,41 @@ describe('Insert Edge Loop (§5.11)', () => {
   });
 });
 
+describe('Insert Edge Loop counts (§5.10 PageUp/PageDown)', () => {
+  it('PageUp during the press steps the Multiple mode loop count of that placement', async () => {
+    const s = await scene(primitive('cube', {}), 'front');
+    const modeling = s.app.prefs.getState().modeling;
+    s.app.prefs.setState({
+      modeling: {
+        ...modeling,
+        optionDefaults: { ...modeling.optionDefaults, 'mesh.insertLoop': { mode: 'multiple', divisions: 2 } },
+      },
+    });
+    await tool(s, 'insertLoop');
+    const front = edgesOf(primitive('cube', {})).find(
+      (g) => (g.a[2] ?? 0) > 0.49 && (g.b[2] ?? 0) > 0.49 && (g.a[1] ?? 0) < -0.49 && (g.b[1] ?? 0) < -0.49,
+    );
+    if (front === undefined) throw new Error('no front bottom edge');
+    const p = at(s, 'edge', front.e, 0.5);
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    const key = {
+      type: 'down',
+      code: 'PageUp',
+      shift: false,
+      alt: false,
+      mod: false,
+      ctrl: false,
+      repeat: false,
+    } as const;
+    expect(s.rig.vm.activeTool()?.key?.(key)).toBe(true);
+    pointer(element(s), 'pointerup', p.x, p.y);
+    await settle();
+    // Three loops round the cube's four sides.
+    expect(counts(s)).toBe('20/36/18');
+    expect(s.app.session.getState().lastRun?.args['divisions']).toBe(3);
+  });
+});
+
 describe('Target Weld (§5.12)', () => {
   it('a drag onto a neighbour welds at the target; MMB welds at the centre; Esc and empty drops do nothing', async () => {
     const s = await scene(primitive('cube', {}), 'front');
