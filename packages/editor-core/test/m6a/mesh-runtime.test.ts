@@ -142,11 +142,9 @@ describe('mesh runtimes over the reference kernel', () => {
     const setOp = kernel.MESH_SET_OPS['mesh.combine'];
     if (op === undefined || setOp === undefined) throw new Error('missing kernel op');
     const session = app.meshes.beginOp(op, [id], {});
-    // The stub refused with `not-implemented`; B3's Extrude refuses for its own reason, nothing being selected
-    // (literal update at B12b's merge of B3: the refusal path stays under test).
-    const refusal = session.results.get(id) as { readonly refused?: boolean; readonly code?: string } | undefined;
-    expect(refusal?.refused).toBe(true);
-    expect(['not-implemented', 'extrude.no-selection']).toContain(refusal?.code);
+    // The stub refused with `not-implemented`; B3's Extrude (merged here) refuses for its own reason, nothing being
+    // selected (literal update at B12b's merge of B3: the refusal path stays under test).
+    expect(session.results.get(id)).toMatchObject({ refused: true, code: 'extrude.no-selection' });
     session.cancel();
     app.store.transact({ label: 'x' }, (tx) => {
       expect(() => app.meshes.commitOp(tx, op, [id], {}, { seed: 's' })).toThrow(
