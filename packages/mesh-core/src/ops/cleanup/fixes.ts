@@ -1,9 +1,11 @@
 // The `mesh.cleanup` fixes (M6A-SPEC §5.25): explicit, undoable topology edits over the elements Mesh Check reports.
 // Each fix composes the Euler operators (§5.1: valid topology or nothing) and keeps the §5.2 layer rules:
 // - deleteLamina: kills every face of a lamina group but the one with the smallest index;
-// - collapse: merges the endpoints of zero-length edges and the corners of zero-area faces into their centroid
+// - collapse: a zero-area face without a zero-length edge (a cap: its corners on one line) joins the face across its
+//   longest edge, which takes its corners (nothing moves; the neighbour keeps its material and face layers); then the
+//   endpoints of zero-length edges (and the shortest edge of a cap that could not join) merge into their centroid
 //   (point layers averaged, each face keeps its own corners, merged edges OR their flags (H3)); faces left with fewer
-//   than three distinct corners disappear;
+//   than three distinct corners disappear (a needle's collapse removes it);
 // - conform: reverses faces so every edge-connected component winds one way — outward (positive volume) for a closed
 //   component, the majority's way otherwise (ties: the way of its smallest face);
 // - triangulate: splits the flagged n-gons along the one triangulation's diagonals (H1 hardness from the split);
@@ -82,7 +84,8 @@ export function vertexGroups(points: number, sets: readonly (readonly number[])[
 export function mergeGroups(
   m: EditMesh,
   groups: readonly (readonly number[])[],
-): { survivors: number[]; nonManifold: boolean } {
+  track: readonly number[] = [],
+): { survivors: number[]; tracked: number[]; nonManifold: boolean } {
   const P = m.counts.points;
   const rep = new Int32Array(P);
   for (let i = 0; i < P; i++) rep[i] = i;
@@ -200,8 +203,109 @@ export function mergeGroups(
   }
   return {
     survivors: groups.map((group) => where[group[0] as number] as number).sort((a, b) => a - b),
+    tracked: track.map((v) => where[rep[v] as number] as number),
     nonManifold: countNonManifold(m) > nonManifoldBefore,
   };
+}
+
+/** A zero-area face found before the collapse, by its vertices (stable while faces and edges are rebuilt). */
+export interface Cap {
+  /** The face's vertices, sorted. */
+  readonly key: string;
+  /** The endpoints of its longest edge (the one it joins across). */
+  readonly long: readonly [number, number];
+  /** The endpoints of its shortest edge (merged when the join is not possible). */
+  readonly short: readonly [number, number];
+  /** Its vertices off the longest edge (they end up on the neighbour's side). */
+  readonly inner: readonly number[];
+}
+
+function lengthOf(m: EditMesh, a: number, b: number): number {
+  const p = m.position;
+  return Math.hypot(
+    (p[3 * b] as number) - (p[3 * a] as number),
+    (p[3 * b + 1] as number) - (p[3 * a + 1] as number),
+    (p[3 * b + 2] as number) - (p[3 * a + 2] as number),
+  );
+}
+
+/** The cap record of face f (its longest and shortest edges; ties to the earlier corner). */
+export function capOf(m: EditMesh, f: number): Cap {
+  const corners = cornersOf(m, f);
+  const verts = corners.map((c) => m.cornerVert(c));
+  let long = 0;
+  let short = 0;
+  let longest = -1;
+  let shortest = Infinity;
+  for (let i = 0; i < verts.length; i++) {
+    const length = lengthOf(m, verts[i] as number, verts[(i + 1) % verts.length] as number);
+    if (length > longest) {
+      longest = length;
+      long = i;
+    }
+    if (length < shortest) {
+      shortest = length;
+      short = i;
+    }
+  }
+  const a = verts[long] as number;
+  const b = verts[(long + 1) % verts.length] as number;
+  return {
+    key: [...verts].sort((x, y) => x - y).join(','),
+    long: [a, b],
+    short: [verts[short] as number, verts[(short + 1) % verts.length] as number],
+    inner: verts.filter((v) => v !== a && v !== b),
+  };
+}
+
+/**
+ * Joins each cap with the face across its longest edge (the neighbour's material, flags and face layers kept).
+ * Returns the vertex pairs of the caps that could not join (their shortest edges) and how many joined.
+ */
+export function joinCaps(m: EditMesh, caps: readonly Cap[]): { failed: [number, number][]; joined: number } {
+  const fv = new FaceValues(m);
+  const failed: [number, number][] = [];
+  let joined = 0;
+  const keyOf = (f: number): string =>
+    cornersOf(m, f)
+      .map((c) => m.cornerVert(c))
+      .sort((x, y) => x - y)
+      .join(',');
+  for (const cap of caps) {
+    const e = m.findEdge(cap.long[0], cap.long[1]);
+    const faces: number[] = [];
+    if (e !== -1) {
+      const start = m.edgeCorner(e);
+      let c = start;
+      do {
+        faces.push(m.cornerFace(c));
+        c = m.cornerRadialNext(c);
+      } while (c !== start);
+    }
+    const self = faces.find((f) => keyOf(f) === cap.key);
+    if (self === undefined) continue; // already merged into another face
+    const other = faces.length === 2 ? faces.find((f) => f !== self) : undefined;
+    if (other === undefined) {
+      failed.push([cap.short[0], cap.short[1]]);
+      continue;
+    }
+    const record = fv.capture(other);
+    const material = m.faceMaterial(other);
+    const flags = m.faceFlags(other);
+    try {
+      m.joinFaceKillEdge(e);
+    } catch (error) {
+      if (!isEuler(error)) throw error;
+      failed.push([cap.short[0], cap.short[1]]);
+      continue;
+    }
+    const survivor = Math.min(self, other);
+    fv.write(survivor, record);
+    if (m.faceMaterial(survivor) !== material) m.setFaceMaterial(survivor, material);
+    if (m.faceFlags(survivor) !== flags) m.setFaceFlags(survivor, flags);
+    joined++;
+  }
+  return { failed, joined };
 }
 
 function countNonManifold(m: EditMesh): number {

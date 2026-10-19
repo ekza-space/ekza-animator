@@ -6,7 +6,7 @@
 // |---|---|---|---|
 // | select | every code | none | every problem element |
 // | deleteLamina | lamina | kills the duplicate faces | none |
-// | collapse | zero-length-edge, zero-area-face | merges each degenerate group into its centroid | the merged vertices |
+// | collapse | zero-length-edge, zero-area-face | joins caps across their longest edge, merges the rest into centroids | the merged vertices and the caps' inner vertices |
 // | conform | inconsistent-winding | reverses the minority (or inward) faces of each component | the reversed faces |
 // | triangulate | nonplanar-ngon, concave-ngon | splits the n-gons along the one triangulation | the triangles |
 // | dissolve | stray-vertex | joins the two edges of each stray vertex | none |
@@ -31,8 +31,11 @@ import type {
 } from '../../types';
 import { CLEANUP } from './descriptor';
 import {
+  type Cap,
+  capOf,
   conformWinding,
   deleteFaces,
+  joinCaps,
   deleteLoose,
   dissolveVertices,
   mergeGroups,
@@ -135,26 +138,32 @@ export function runCleanup(
       selection = emptySelection(m, 'face');
       break;
     case 'collapse': {
-      const sets: number[][] = [];
-      for (const e of elementsOf(problems, 'zero-length-edge')) sets.push([m.edgeVert(e, 0), m.edgeVert(e, 1)]);
+      // Caps (zero-area faces without a zero-length edge) join across their longest edge first; needles and the
+      // zero-length edges then merge (vertex indices do not change until the merge).
+      const short = new Set(elementsOf(problems, 'zero-length-edge'));
+      const pairs: [number, number][] = [...short].map((e) => [m.edgeVert(e, 0), m.edgeVert(e, 1)]);
+      const caps: Cap[] = [];
       for (const f of elementsOf(problems, 'zero-area-face')) {
-        const verts: number[] = [];
+        let needle = false;
         const start = m.faceCorner(f);
         let c = start;
         do {
-          verts.push(m.cornerVert(c));
+          if (short.has(m.cornerEdge(c))) needle = true;
           c = m.cornerNext(c);
         } while (c !== start);
-        sets.push(verts);
+        if (!needle) caps.push(capOf(m, f));
       }
-      const groups = vertexGroups(m.counts.points, sets);
-      const { survivors, nonManifold } = mergeGroups(m, groups);
+      const { failed, joined } = joinCaps(m, caps);
+      pairs.push(...failed);
+      const groups = vertexGroups(m.counts.points, pairs);
+      const inner = caps.flatMap((cap) => cap.inner);
+      const { survivors, tracked, nonManifold } = mergeGroups(m, groups, inner);
       if (nonManifold) {
         warnings.push({ code: 'cleanup.non-manifold', message: 'Collapsing made an edge with more than two faces' });
       }
-      fixed = groups.reduce((n, group) => n + group.length - 1, 0);
+      fixed = joined + groups.reduce((n, group) => n + group.length - 1, 0);
       const verts = new BitSet(m.counts.points);
-      for (const v of survivors) verts.add(v);
+      for (const v of [...survivors, ...tracked]) verts.add(v);
       selection = { ...emptySelection(m, 'vertex'), verts };
       break;
     }
