@@ -182,6 +182,9 @@ describe('§6.3 primitive parameters', () => {
   });
 });
 
+/** Kernel ops whose owners have landed them (B3: M6A-SPEC §9 B3). */
+const LANDED: ReadonlySet<string> = new Set(['mesh.extrude']);
+
 describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
   it('hold one op per descriptor with the same descriptor fields', () => {
     expect(Object.keys(MESH_OPS).sort()).toEqual(Object.keys(MESH_OP_DESCRIPTORS).sort());
@@ -210,11 +213,27 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
-    const outcomes = Object.values(MESH_OPS).map((op) => {
-      const result = op.run(mesh, null, {}, ctx);
-      return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
-    });
-    expect(outcomes).toEqual(Object.keys(MESH_OPS).map((id) => [id, true, 'not-implemented']));
+    // Ops their owners have landed (B3, M6A-B3-12) poll and run on an empty mesh without a selection without throwing,
+    // and never refuse `not-implemented`; every other op is still B0a's stub.
+    const outcomes = Object.values(MESH_OPS)
+      .filter((op) => !LANDED.has(op.id))
+      .map((op) => {
+        const result = op.run(mesh, null, {}, ctx);
+        return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
+      });
+    expect(outcomes).toEqual(
+      Object.keys(MESH_OPS)
+        .filter((id) => !LANDED.has(id))
+        .map((id) => [id, true, 'not-implemented']),
+    );
+    for (const id of LANDED) {
+      const op = MESH_OPS[id];
+      expect(op, id).toBeDefined();
+      const result = op?.run(mesh, null, {}, ctx);
+      expect(isRefusal(result) ? result.code : 'ran', id).not.toBe('not-implemented');
+      const verdict = op?.poll(mesh, null, ctx);
+      expect(verdict === true || isRefusal(verdict), id).toBe(true);
+    }
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];

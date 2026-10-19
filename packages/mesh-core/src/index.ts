@@ -34,7 +34,7 @@ export {
 export { softWeights } from './stubs/soft';
 export { buildSymmetryMap, expandSelection, mirrorEdgePoint } from './stubs/symmetry';
 // ---------- B3 ----------
-export { regionFrame } from './stubs/frame';
+export { regionFrame } from './ops/extrude/frame';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './stubs/subset';
 // ---------- B5 ----------
