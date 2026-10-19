@@ -1063,6 +1063,11 @@ export class ViewportManager {
     if (changed) this.invalidate();
   }
 
+  /** The session's viewport tool (created on first use), for the keyboard's tool-key bridge (M6A-SPEC §5.17). */
+  activeTool(): ToolInstance | null {
+    return this.disposed ? null : this.tool();
+  }
+
   private tool(): ToolInstance | null {
     const id = this.app.session.getState().tools.viewport;
     if (id !== this.activeToolId) {
