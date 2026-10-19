@@ -288,6 +288,7 @@ export {
   SOFT_CURVES,
   SOFT_FALLOFFS,
   softPatch,
+  softWeightsOf,
 } from './operators/builtin/softSelect';
 export { SYMMETRY_LABELS, SYMMETRY_MODES, symmetryOf, symmetryTargets } from './operators/builtin/symmetry';
 export {

@@ -130,6 +130,8 @@ export class ManipulatorKit {
     [0, 0, 1],
   ];
   private danger: readonly boolean[] = [false, false, false];
+  /** M6a (B12a): pivot editing draws the manipulator dashed (§5.15). */
+  private dashed = false;
   /** Bumped on every visual change. */
   version = 0;
 
@@ -171,6 +173,25 @@ export class ManipulatorKit {
   setTarget(target: ManipTarget | null): void {
     this.target = target;
     this.refresh();
+  }
+
+  /** M6a (B12a, §5.15): dashed lines while the pivot is edited. */
+  setDashed(dashed: boolean): void {
+    if (dashed === this.dashed) return;
+    this.dashed = dashed;
+    for (const visual of this.visuals.values()) {
+      for (const material of visual.lines) {
+        material.dashed = dashed;
+        material.dashSize = 0.05;
+        material.gapSize = 0.04;
+        material.needsUpdate = true;
+      }
+    }
+    this.version++;
+  }
+
+  get isDashed(): boolean {
+    return this.dashed;
   }
 
   setHover(handle: ManipHandle | null): boolean {
@@ -558,6 +579,7 @@ export class ManipulatorKit {
     const geometry = new LineSegmentsGeometry();
     geometry.setPositions(positions);
     const line = new LineSegments2(geometry, material);
+    line.computeLineDistances(); // M6a: dashed pivot editing (setDashed)
     line.frustumCulled = false;
     return line;
   }
