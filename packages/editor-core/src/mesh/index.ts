@@ -1,23 +1,22 @@
-// Mesh runtimes (M6A-SPEC §4.6, §5.5, §5.13, §5.20; B7): the lazy kernel loader, the runtime registry with sessions,
-// commits, the MeshSetOp runner, the journal, blob reference counts and the undo budget, and the reader rules of skin
-// and morph layers. See registry.ts for the overview.
+// Mesh runtimes (M6A-SPEC §4.6, §5.5, §5.13, §5.20; B7). Eager here: the loader, the registry facade, the shared
+// interface and the reader rules; the implementation (commits, sessions, journal, GC: impl.ts) loads with the kernel.
 import type { EditorApp } from '../types';
-import type { KernelMeshRuntimes } from './registry';
+import type { KernelMeshRuntimes } from './shared';
 
-export { type MeshKernel, loadMeshKernel, meshKernel } from './kernel';
+export { type MeshImpl, type MeshKernel, loadMeshKernel, meshImpl, meshKernel, whenMeshKernelLoaded } from './kernel';
+export { createMeshRuntimeRegistry } from './facade';
 export {
   BUDGET_TOAST,
+  chunkIdsOfManifest,
   type CommitContext,
-  createMeshRuntimeRegistry,
   type GcReport,
   type KernelMeshRuntimes,
   type LastSetOp,
   type MeshClock,
   type MeshRegistryDeps,
   SWEEP_INTERVAL_MS,
-} from './registry';
+} from './shared';
 export { type RunSettings, worldPlacement } from './context';
-export { chunkIdsOfManifest } from './ledger';
 export {
   jointPaletteOf,
   morphNamesOf,

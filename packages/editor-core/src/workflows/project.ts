@@ -11,7 +11,7 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
 import type * as ProjectModule from '@ekza-animator/io/project';
 import { attachMeshes } from '../mesh';
-import { chunkIdsOfManifest } from '../mesh/ledger';
+import { chunkIdsOfManifest } from '../mesh/shared';
 import type { BlobId, EditorApp } from '../types';
 import { EDITOR_VERSION } from './samples';
 import { resetDocumentSession } from './session';

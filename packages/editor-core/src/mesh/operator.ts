@@ -20,7 +20,7 @@ import type {
 } from '../types';
 import { attachMeshes } from './index';
 import { loadMeshKernel, meshKernel } from './kernel';
-import type { KernelMeshRuntimes } from './registry';
+import type { KernelMeshRuntimes } from './shared';
 import { adjustedRun, runSeed, runSettings } from './seed';
 
 /** The arg keys every mesh operator passes through `coerceArgs` untouched. */

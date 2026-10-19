@@ -9,6 +9,7 @@
 // - Root 5 (`BlobStore.fresh`) is the store's own: a sweep never frees a fresh blob.
 // - A blob is **history-only** when hist > 0 and other = 0: those bytes count against the undo byte budget.
 import type { BlobId, BlobStore } from '../types';
+import { chunkIdsOfManifest } from './shared';
 
 export type RefClass = 'hist' | 'other';
 
@@ -24,27 +25,6 @@ interface ManifestCount {
   other: number;
   /** Unique blob ids of the closure (the manifest first); null while the manifest bytes are not resident. */
   closure: readonly BlobId[] | null;
-}
-
-const HEX64 = /^[0-9a-f]{64}$/;
-
-/** Chunk ids listed by manifest JSON bytes (no kernel needed; the same reading as `BlobStore.closure`). */
-export function chunkIdsOfManifest(bytes: Uint8Array): readonly BlobId[] {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    return [];
-  }
-  const layers = (raw as { layers?: unknown } | null)?.layers;
-  if (!Array.isArray(layers)) return [];
-  const out: BlobId[] = [];
-  for (const layer of layers) {
-    const chunks = (layer as { chunks?: unknown } | null)?.chunks;
-    if (!Array.isArray(chunks)) continue;
-    for (const id of chunks) if (typeof id === 'string' && HEX64.test(id)) out.push(id);
-  }
-  return out;
 }
 
 export class BlobLedger {

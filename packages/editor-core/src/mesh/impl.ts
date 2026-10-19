@@ -1,4 +1,6 @@
-// The mesh runtime registry (M6A-SPEC §4.6 `MeshRuntimeRegistry`, §5.5, §5.13 runner, §5.20 GC and budget).
+// The mesh runtime registry's implementation (M6A-SPEC §4.6 `MeshRuntimeRegistry`, §5.5, §5.13 runner, §5.20 GC and
+// budget). A LAZY module: `loadMeshKernel()` loads it with the kernel chunk and the eager facade (facade.ts) delegates
+// to it from then on (§2: only the facade is in the editor route).
 //
 // - **Lifecycle** (§5.5 rule 8): one runtime per live mesh record with `data`, created when the record appears and
 //   disposed when it is deleted, in every workspace; batches update only the records they touch.
@@ -17,7 +19,6 @@ import { type Disposer, EkzaError, type ParamValues } from '@ekza-animator/anim-
 import {
   type AnyChange,
   type ChangeBatch,
-  type DocumentStore,
   type MeshId,
   type MeshRecord,
   type MeshRef,
@@ -42,17 +43,14 @@ import { DEFAULT_DEPS } from '../app/deps';
 import { internalsOf } from '../app/internals';
 import type {
   BlobId,
-  BlobStore,
   EditorApp,
   HistoryStep,
   MeshCommitResult,
   MeshOpSession,
   MeshRuntime,
   MeshRuntimeEvent,
-  MeshRuntimeRegistry,
   MeshSetCommitResult,
   MeshSelectionSnapshot,
-  Notifier,
   SelectionPart,
   SoftSelectSettings,
   SymmetrySettings,
@@ -65,100 +63,21 @@ import { BlobLedger } from './ledger';
 import { MeshRuntimeImpl, type RuntimeEnv } from './runtime';
 import { OpSession, type SessionTarget } from './session';
 import { runSetOp } from './setOps';
+import {
+  BUDGET_TOAST,
+  type CommitContext,
+  type GcReport,
+  type KernelMeshRuntimes,
+  type LastSetOp,
+  type MeshClock,
+  type MeshRegistryDeps,
+  SWEEP_INTERVAL_MS,
+} from './shared';
 import { refJointsOf } from './skin';
 
 const MB = 1024 * 1024;
-/** §5.20: at most one sweep per 5 s. */
-export const SWEEP_INTERVAL_MS = 5000;
-/** §5.20: the one toast per session when the budget releases steps. */
-export const BUDGET_TOAST = 'Older undo steps were released to save memory';
 const DEFAULT_UNDO_BUDGET_MB = 256;
 const DEFAULT_JOURNAL_BUDGET_MB = 64;
-
-/** Extra commit inputs the editor's own wrappers pass (`meshOperator`, Adjust Last); the contract needs only `seed`. */
-export interface CommitContext {
-  readonly seed: string;
-  /** Component kind the run reads its selection in; default: the current mode's (null for object-level ops). */
-  readonly kind?: ComponentKind | null;
-  /** Explicit selections per target (tools, tests); default: the component selection service. */
-  readonly selection?: ReadonlyMap<MeshId, ComponentSelection>;
-  /** Recorded symmetry/soft settings of a re-run (`LastRun.context`, §5.7); default: the session's. */
-  readonly settings?: RunSettings;
-  /** An adjusted re-run (§5.7): a MeshSetOp must yield the same output keys as the last run (§5.13). */
-  readonly adjusting?: boolean;
-}
-
-/** Timers of the deferred work (fake ones in tests). */
-export interface MeshClock {
-  readonly now: () => number;
-  readonly setTimeout: (fn: () => void, ms: number) => unknown;
-  readonly clearTimeout: (handle: unknown) => void;
-  readonly microtask: (fn: () => void) => void;
-}
-
-export interface GcReport {
-  readonly freed: number;
-  readonly bytes: number;
-  /** History steps the budget dropped. */
-  readonly dropped: number;
-}
-
-export interface MeshRegistryDeps {
-  readonly store: DocumentStore;
-  readonly blobs: BlobStore;
-  /** §3 rule 8: applied to the kernel when it loads (development and e2e builds). */
-  readonly kernelDebug?: boolean;
-  /** Called when a runtime's state or data changes (the host requests a frame). */
-  readonly changed?: () => void;
-  readonly notify?: Notifier;
-  readonly clock?: MeshClock;
-}
-
-/** The pre-op inputs of the last MeshSetOp (§5.5 rule 5). */
-export interface LastSetOp {
-  readonly opId: string;
-  readonly inputs: ReadonlyMap<MeshId, MeshData>;
-  readonly outputs: readonly string[];
-}
-
-export interface KernelMeshRuntimes extends MeshRuntimeRegistry {
-  commitOp(tx: Tx, op: MeshOp, targets: readonly MeshId[], args: ParamValues, ctx: CommitContext): MeshCommitResult;
-  commitSetOp(
-    tx: Tx,
-    op: MeshSetOp,
-    inputs: readonly MeshId[],
-    args: ParamValues,
-    ctx: CommitContext,
-  ): MeshSetCommitResult;
-  /** Resolves when the kernel is loaded and no runtime is loading (tests, the test API). */
-  settled(): Promise<void>;
-  /** Binds the app (history, session, prefs, component selections); idempotent. */
-  attach(app: EditorApp): void;
-  readonly attached: boolean;
-  /** Runs the deferred check now: reconcile, budget, journal cap and a sweep. Never inside a transaction. */
-  collect(): GcReport;
-  /** Bytes of blobs only the undo history keeps alive (§5.20 budget, first term). */
-  readonly historyBytes: number;
-  /** Bytes of selection snapshots in history steps and doc entries (§5.6, §5.20). */
-  readonly selectionBytes: number;
-  /** Pins blobs as roots (an autosave slot or a write in flight, §5.20 root 4). */
-  pinBlobs(ids: readonly BlobId[]): Disposer;
-  /** Stores a whole revision for a record about to be written (`mesh.create.*`): the ref (rev 1 or prior + 1). */
-  storeRevision(data: MeshData, prior?: MeshRef | null, joints?: readonly string[]): MeshRef;
-  /** The last MeshSetOp's pre-op inputs. */
-  readonly lastSetOp: LastSetOp | null;
-  /** The last op's journal edges (pinned). */
-  lastOpEdges(): readonly { readonly mesh: MeshId; readonly from: string; readonly to: string }[];
-  /** The selection the runtime keeps for a mesh while the component selection service cannot store one (B10). */
-  localSelection(mesh: MeshId): ComponentSelection | null;
-  /** Stores a selection through the component selection service, else in the runtime's fallback (until B10). */
-  select(mesh: MeshId, sel: ComponentSelection): void;
-  /** The selection an op on `mesh` reads in `kind` (service, local fallback, else empty). */
-  selectionFor(mesh: MeshId, kind: ComponentKind): ComponentSelection | null;
-  /** The kernel op's poll on every target that has edit links (closed meshes are checked by the run). */
-  pollOp(op: MeshOp, targets: readonly MeshId[], kind: ComponentKind | null, settings?: RunSettings): true | Refusal;
-  dispose(): void;
-}
 
 interface Accounted {
   readonly entry: UndoEntry;
@@ -214,7 +133,13 @@ interface Host {
   readonly app: EditorApp;
 }
 
-export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRuntimes {
+/** What the facade passes besides the registry deps: runtime creation and disposal (it wraps runtimes in handles). */
+export interface MeshImplDeps extends MeshRegistryDeps {
+  readonly created?: (runtime: MeshRuntimeImpl) => void;
+  readonly disposed?: (id: MeshId) => void;
+}
+
+export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
   const { store, blobs } = deps;
   const clock = deps.clock ?? defaultClock();
   const runtimes = new Map<MeshId, MeshRuntimeImpl>();
@@ -370,6 +295,7 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
     runtimes.delete(id);
     localSelections.delete(id);
     runtime.dispose();
+    deps.disposed?.(id);
   };
 
   const setLive = (id: MeshId, manifest: string | null): void => {
@@ -403,6 +329,7 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
     if (runtime === undefined) {
       runtime = new MeshRuntimeImpl(id, ref, env);
       runtimes.set(id, runtime);
+      deps.created?.(runtime);
       if (meshKernel() === null) {
         runtime.setState('loading');
         ensureKernel();
