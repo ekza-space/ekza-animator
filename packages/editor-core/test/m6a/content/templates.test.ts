@@ -152,6 +152,26 @@ describe('mesh.create.template (§5.16)', () => {
     expect(t.app.meshes.get(inGroup.root as MeshId)?.triangulation().tris.length).toBe(560 * 3);
   });
 
+  it("a body created into Humanoid guides without a height takes the guides' height; an explicit one wins", async () => {
+    const t = await meshTestApp();
+    const guides = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoid', height: 1.8 });
+    const tall = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody' });
+    const record = t.app.store.get('meshes', tall.root as MeshId);
+    expect(record).toMatchObject({ parent: guides.root, generator: { params: { height: 1.8 } } });
+    // The generated body is 1.8 m tall (grounded at 0).
+    const positions = t.app.meshes.get(tall.root as MeshId)?.data()?.position ?? new Float64Array();
+    let top = -Infinity;
+    for (let i = 1; i < positions.length; i += 3) top = Math.max(top, positions[i] as number);
+    expect(top).toBeCloseTo(1.8, 6);
+    selectObjects(t, [guides.root]);
+    const explicit = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody', height: 1.2 });
+    expect(t.app.store.get('meshes', explicit.root as MeshId)?.generator?.params['height']).toBe(1.2);
+    // Outside a Humanoid group the param's default applies.
+    selectObjects(t, []);
+    const free = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody' });
+    expect(t.app.store.get('meshes', free.root as MeshId)?.generator?.params['height']).toBe(1.6);
+  });
+
   it('an adjusted re-run (card) keeps the derived ids', async () => {
     const t = await meshTestApp();
     const first = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody', height: 1.6 });

@@ -10,7 +10,8 @@
 // - `humanoid`: the proportion guides — a group "Humanoid" (template `humanoid` with `height` and `preset`, budget
 //   `hero`) and no mesh; meshes created into it take Object X symmetry (`mesh.create.*`, §5.16);
 // - `humanoidBody`: one mesh "Body" from the kernel's generator with live parameters (`generator.kind`
-//   'humanoidBody'), created into a selected template group like a primitive.
+//   'humanoidBody'), created into a selected template group like a primitive; into Humanoid guides without an
+//   explicit `height` it takes the guides' height.
 // Every mesh is faceted (all edges hard) with live parameters (`generator`) until its first component edit.
 //
 // `mesh.primitive.set {mesh, params}` (one step): regenerates a live primitive from its kind with the merged
@@ -25,6 +26,7 @@ import { loadMeshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
 import { type ContentApplyModule, loadContentApply } from './contentLoad';
+import { templateGroupOf } from './create';
 
 export const TEMPLATES = ['prop', 'handheld', 'humanoid', 'humanoidBody'] as const;
 export type TemplateId = (typeof TEMPLATES)[number];
@@ -111,6 +113,17 @@ export interface Prepared {
   readonly impl: ContentApplyModule;
 }
 
+/**
+ * A humanoid body created into a Humanoid guides group (the lead of the selection) without an explicit `height`
+ * matches the guides: the group's `template.params.height` (M6A-B13-19). Null: the param's own value.
+ */
+export function bodyHeight(app: EditorApp, args: unknown): number | null {
+  if (isRecord(args) && args['height'] !== undefined && args['height'] !== null) return null;
+  const host = templateGroupOf(app);
+  const height = host?.template?.kind === 'humanoid' ? host.template.params['height'] : undefined;
+  return typeof height === 'number' && Number.isFinite(height) ? height : null;
+}
+
 export const templateOf = (args: unknown): TemplateId | null => {
   const value = isRecord(args) ? args['template'] : undefined;
   return TEMPLATES.includes(value as TemplateId) ? (value as TemplateId) : null;
@@ -140,13 +153,14 @@ const createTemplate = defineOperator<typeof OP, Prepared>({
   poll(_ctx, args): PollResult {
     return templateOf(args) === null ? fail('expects { template: prop | handheld | humanoid | humanoidBody }') : OK;
   },
-  async prepare(_ctx, args): Promise<Prepared> {
+  async prepare({ app }, args): Promise<Prepared> {
     const template = templateOf(args) as TemplateId;
     const [kernel, impl] = await Promise.all([loadMeshKernel(), loadContentApply()]);
     if (template === 'humanoid') return { mesh: null, impl };
     const raw = coerceArgs(TEMPLATE_PARAMS, args).args;
     if (template === 'humanoidBody') {
-      const params = primitiveParams('humanoidBody', { height: raw['height'], style: raw['style'] });
+      const height = bodyHeight(app, args) ?? raw['height'];
+      const params = primitiveParams('humanoidBody', { height, style: raw['style'] });
       return { mesh: { kind: 'humanoidBody', params, data: kernel.primitive('humanoidBody', params) }, impl };
     }
     const params = primitiveParams('cube', template === 'handheld' ? HANDHELD_CUBE : {});
