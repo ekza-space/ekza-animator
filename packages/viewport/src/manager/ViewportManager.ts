@@ -220,6 +220,10 @@ export class ViewportManager {
   private planeSpecs: readonly ImagePlaneSpec[] = [];
   private planesLoad: Promise<void> | null = null;
   private pointerMenus: PanePointerMenus | null = null;
+  /** M6a (B10): what `F`/`A` frame in Model (component and object selections, meshes); null = the shipped bounds. */
+  private frameBounds: ((what: 'selection' | 'all') => SpatialBounds | null) | null = null;
+  /** M6a (B10): whether a mesh-view mesh is under a pane point (its meshes take no raycasts); null = none. */
+  private meshHitTest: ((paneId: string, x: number, y: number) => boolean) | null = null;
   /** The pointer whose Alt+Shift+LMB press is the MMB stand-in (M6a rule (b)), or null. */
   private standIn: number | null = null;
   /** The Scale tool's manipulator sits on the selected scene objects (Model object mode), not on a control. */
@@ -512,6 +516,38 @@ export class ViewportManager {
   }
 
   /**
+   * M6a (B10, §5.6 framing): a provider of the bounds `F` (selection) and `A` (all) frame; null from it (or no
+   * provider) keeps the shipped bounds. The Model select runtime frames component and object selections with it.
+   */
+  setFrameBounds(provider: ((what: 'selection' | 'all') => SpatialBounds | null) | null): void {
+    this.frameBounds = provider;
+  }
+
+  /**
+   * M6a (B10): the hit test of the meshes mesh-view draws (they opt out of three's raycasting), consulted by
+   * `isOverMesh` for marking menus' `when.over` (the RMB mode menu on a mesh, §8.4).
+   */
+  setMeshHitTest(test: ((paneId: string, x: number, y: number) => boolean) | null): void {
+    this.meshHitTest = test;
+  }
+
+  /**
+   * M6a (B10): the camera a pane looks through, sized to the pane, with its size (CSS px) and display flags, for
+   * mesh-view's component picking (B6's `MeshDisplay.pick`/`marquee`/`screenOf`). Null for an unknown or empty pane.
+   */
+  paneView(paneId: string): {
+    readonly camera: Camera;
+    readonly width: number;
+    readonly height: number;
+    readonly display: DisplayFlags;
+  } | null {
+    const view = this.queryView(paneId);
+    return view === null
+      ? null
+      : { camera: view.camera, width: view.width, height: view.height, display: view.pane.display };
+  }
+
+  /**
    * The colour at a page point (CSS px) after a render (test API `pixel`, §4.8): the panes are drawn again and the
    * pixel is read before the browser composites the frame. Null outside the canvas.
    */
@@ -542,6 +578,7 @@ export class ViewportManager {
     if (this.meshPicker.pick(view.camera, ndcX, ndcY, this.sync.meshTargets(), this.sync.poseStamp) !== null) {
       return true;
     }
+    if (this.meshHitTest?.(paneId, x, y) === true) return true;
     const raycaster = new Raycaster();
     raycaster.layers.set(LAYER.mesh);
     raycaster.setFromCamera(new Vector2(ndcX, ndcY), view.camera);
@@ -1065,6 +1102,8 @@ export class ViewportManager {
   }
 
   private boundsFor(what: 'selection' | 'all'): SpatialBounds {
+    const provided = this.frameBounds?.(what) ?? null;
+    if (provided !== null) return provided;
     const selection = this.app.session.getState().selection.controls;
     if (what === 'selection' && selection.length > 0) {
       // Like a Maya transform's bounding box, a selected control frames with the visible controls below it: F on a

@@ -4,6 +4,7 @@ import { registerChannelBoxPanel } from './channel-box';
 import { registerClipsPanel } from './clips';
 import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
+import { registerMeshCheckPanel } from './meshcheck';
 import { registerOutlinerPanel } from './outliner';
 import { registerTimelinePanel } from './timeline';
 import type { PanelRegistry } from './types';
@@ -23,6 +24,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerChannelBoxPanel(registry),
     registerAttributesPanel(registry),
     registerDopeSheetPanel(registry),
+    // M6a (B10): the Mesh Check panel (Model's bottom dock; a lazy body).
+    registerMeshCheckPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();
