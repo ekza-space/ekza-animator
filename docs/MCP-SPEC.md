@@ -187,8 +187,12 @@ lazily by `--validate`; `ws`'s optional native add-ons (`bufferutil`, `utf-8-val
 to JavaScript). If a dependency cannot be bundled, the package ships an `npm-shrinkwrap.json` (which npm honours for
 installed packages) instead, and INT records why. INT checks the contents with `npm pack --dry-run`, a clean-room
 `npx` smoke test and `npm audit signatures` over the build's lockfile. `engines.node >= 22`.
-`bin: { "ekza-animator-mcp": "dist/cli.mjs" }`. Publishing (with npm provenance) and the npm name are the owner's
-(Q-AI-5); `ekza-animator-mcp` was unclaimed on 2026-10-19.
+`bin: { "ekza-animator-mcp": "dist/cli.mjs" }`. In the workspace `exports` points at `src/index.ts` (the evals and
+tests import `createInProcessServer`); `publishConfig.exports` (`./package.json` only) replaces it in the packed
+manifest, so the package is packed and published with pnpm (`pnpm pack`/`pnpm publish`, which also rewrite the
+`workspace:` ranges) and INT's `npm pack --dry-run` runs on that tarball; a package test checks that every published
+entry point is in `files`. Publishing (with npm provenance) and the npm name are the owner's (Q-AI-5);
+`ekza-animator-mcp` was unclaimed on 2026-10-19.
 
 ---
 
@@ -630,6 +634,7 @@ export interface Grants {
 }
 /** The grant a call needs (§5.9). 'pairing' = callable before any project exists. */
 export type ToolAccess = Grant | 'pairing';
+export type ExtraGrant = Exclude<Grant, 'read'>;   // changed (D0 review round 2, Q-AI-38)
 export type ToolGroup = 'connection' | 'scene' | 'pose' | 'keys' | 'curves' | 'clip' | 'analyze' | 'view' | 'history' | 'files' | 'operators' | 'recipes';   // catalogue order (§6)
 export type HostCapability =
   | 'capture.shaded' | 'capture.schematic'     // fidelities
@@ -649,6 +654,11 @@ export interface AgentToolDef<I extends z.ZodObject = z.ZodObject, O extends z.Z
   readonly annotations: { readonly readOnly: boolean; readonly destructive: boolean; readonly idempotent: boolean };
   /** The grant a call needs; a function when it depends on the arguments (pose_set {key:'pose_only'} → 'view'). */
   readonly access: ToolAccess | ((args: z.output<I>, host: AgentHostMode) => ToolAccess);
+  /** Grants a call needs besides `access` (§5.9, Q-AI-38): live clip_create {activate: true} and operator_run
+   *  clip.new/clip.duplicate {activate: true} → ['view'] on top of Edit. changed (D0 review round 2) */
+  readonly extraGrants?: (args: z.output<I>, host: AgentHostMode) => readonly ExtraGrant[];
+  /** A minimal valid call: `invalid_args` carries it in `detail.example` (§5.4); the lint checks it parses. */
+  readonly example?: Readonly<Record<string, unknown>>;
   readonly hosts: readonly AgentHostMode[];
   readonly needs?: readonly HostCapability[];  // missing → `unsupported` with a hint
   readonly alwaysLoad: boolean;                // → _meta['anthropic/alwaysLoad'] (the always-loaded profile, §5.20.1)
@@ -1353,10 +1363,12 @@ Every tool result is one of the `AgentToolResult` shapes of §4.4, serialised as
 - **One sanitiser for every outgoing string** (`sanitizeText`, §4.4), applied by the envelope builder to every string
   of every result, live and headless — `data`, `message`, `hint`, `candidates`, `warnings`, `next`, labels, digests,
   the client name, operator poll reasons, toasts turned into warnings, export lint messages — and **re-applied by the
-  server to every tab result** (§5.10): Unicode NFC; remove every `Cc` and `Cf` code point (C0/C1 controls, the bidi
+  server to every tab result** (§5.10): remove every `Cc` and `Cf` code point (C0/C1 controls, the bidi
   controls U+202A–202E and U+2066–2069, the zero-width characters U+200B–200F and U+2060, U+FEFF, and the tag block
-  U+E0000–E007F used for invisible "ASCII smuggling"); collapse whitespace runs to one space; cap the length (names
-  120 characters, prose 300, `…` appended when cut). **Strings from the document** (character, clip, control, node
+  U+E0000–E007F used for invisible "ASCII smuggling"); collapse whitespace runs to one space; Unicode NFC (after the
+  removals, so a letter and a combining mark that a format character separated compose); cap the length (names
+  120 characters, prose 300, `…` appended when cut). Progress messages (§5.8 9) go through it too (prose, ≤ 120
+  characters). A value the sanitiser cannot walk (cyclic, or nested deeper than 64 levels) makes the call `internal`. **Strings from the document** (character, clip, control, node
   and file names, tags, VRM meta text) stay in data fields; prose fields (`message`, `hint`, `warnings`) quote them as
   `"…"` (≤ 40 characters, else they refer to the thing by its id or key). **Identifiers are never truncated**: a name
   the agent must pass back that would be cut is returned with its id or opaque key (§5.1). Document strings never
@@ -1377,7 +1389,7 @@ used, so the SDK's generic "Input validation error" never reaches the model).
 
 | Code | When | `retryable` | Hint pattern |
 |---|---|---|---|
-| `invalid_args` | schema-invalid (including unknown keys and out-of-bounds numbers), or valid but contradictory (end before start, both `keys` and `keyPoseAt`), or an edit without `clip` (or `character`) where §5.1 requires it | yes | the failing path (`detail.path`), what was expected, a minimal valid example; for a missing clip the clip names, the user's active clip first |
+| `invalid_args` | schema-invalid (including unknown keys and out-of-bounds numbers), or valid but contradictory (end before start, both `keys` and `keyPoseAt`), or an edit without `clip` (or `character`) where §5.1 requires it | yes | the failing path (`detail.path`), what was expected, a minimal valid example (`detail.example`, from the tool's `example`; P2 adds one per tool); for a missing clip the clip names, the user's active clip first |
 | `not_found`, `ambiguous` | name resolution (§5.1) | yes | candidates; the tool that lists the things |
 | `out_of_range` | frame outside the clip range | yes | the range; `extendRange` or `clip_update` |
 | `locked_channel`, `not_keyable` | channel edits | yes | the keyable channels of that control |
@@ -1430,7 +1442,8 @@ Write limits per call: one character; ≤ 50,000 key records written or deleted;
 ≤ 12 aims; `keys_adjust` ≤ 200 curves. Deleting more than **500 keys** in one call is consequential (§5.9).
 
 Compute limits per call (both hosts; a synchronous loop cannot be interrupted, so the bound is up front): every
-numeric schema field has bounds (frames −100,000…100,000, durations ≤ 100,000 frames, factors 0.01…100, offsets
+input record has a `maxProperties` (`pose_set` `attrs` ≤ 64, `recipe_apply` `params` ≤ 32, `operator_run` `args` ≤ 64,
+checked at parse time); every numeric schema field has bounds (frames −100,000…100,000, durations ≤ 100,000 frames, factors 0.01…100, offsets
 ±3,600° / ±1,000 m, counts as stated per field); an agent-set clip range is ≤ 100,000 frames; analysis, frame
 selection (`'keys'`, `'extremes'`), curve plots and samplers evaluate at most 20,000 frames and 2,000,000 bone-frame
 samples per call (`limit` beyond, naming `rangeFrames` as the way to split); sampling runs in chunks that yield and
@@ -1536,7 +1549,7 @@ frames. The fuzz mode (§9.3.2) includes huge-but-valid numbers and a user-made 
 | **Edit** | **on** (the user can untick it; Q-AI-3) | every `edit` tool (all undoable) | `clip_delete` (the card says when it is the clip the user is looking at); `clip_update` changing `fps`; `clip_update` changing range, loop or scene start while the user has unkeyed overrides on that character; `keys_delete` above 500 keys; `pose_ik_target {ensureIk: 'auto'}` when the limb has FK keys inside the switch range (they stop showing there); any edit while the user's redo stack holds their own steps (§5.8 4a); `history_revert {includeUserSteps: true}`; `operator_run` of `confirm`-policy operators and of `channel.toggleLock {locked: false}` ("AI wants to unlock N channels you locked") |
 | **Files** | off | `project_export`, `project_save` as a **browser download** after the editor's confirm; `project_open` (replaces the user's project) | every download; `project_open`; every `project_import {path}` |
 | ↳ **Workspace folder** (a sub-option of Files) | off | the same tools with `delivery: 'workspace'`, and `path` arguments of `project_open`/`project_import` — bytes move between the tab and the server's workspace folder over the bridge | overwriting a workspace file |
-| **View** | off | `pose_set {key: 'pose_only'}`, `clip_create`/`clip_update {activate: true}`, `operator_run` of `view`-access operators (selection, panes, cameras, playhead), `view_set_time` (stretch) | `operator_run time.setFrame` (and `view_set_time`) while the user has unkeyed overrides |
+| **View** | off | `pose_set {key: 'pose_only'}`, `clip_update {activate: true}`, together with Edit `clip_create {activate: true}` and `operator_run clip.new`/`clip.duplicate {activate: true}` (Q-AI-38), `operator_run` of `view`-access operators (selection, panes, cameras, playhead), `view_set_time` (stretch) | `operator_run time.setFrame` (and `view_set_time`) while the user has unkeyed overrides |
 
 - Grants live in memory for the pairing; the user changes them at any time in the Agent panel (`grants` message);
   a call in flight finishes under the grants it started with.
@@ -1545,8 +1558,12 @@ frames. The fuzz mode (§9.3.2) includes huge-but-valid numbers and a user-made 
 - Headless projects have Read, Edit and Files (workspace) and no View; consequential calls need `confirm: true`;
   overwrites need `overwrite: true`.
 - A tool's access is static except: `pose_set` (`pose_only` → view; `key` and `static` → edit),
-  `clip_create`/`clip_update` (`activate: true` in live → view), `project_import` (`sample` → edit, `path` → files),
+  `clip_update` (`activate: true` in live → view), `project_import` (`sample` → edit, `path` → files),
   `operator_run` (the operator's policy access), the connection tools (`pairing`/`read`).
+- A call that edits the document **and** changes what the user sees needs both grants (`extraGrants`, Q-AI-38):
+  live `clip_create {activate: true}` and `operator_run clip.new`/`clip.duplicate {activate: true}` need Edit and
+  View — View alone never creates a clip. They run with `access: 'view'` (runner rule 6). `not_granted` names every
+  missing grant (`detail.grant` the first, `detail.grants` when there are several).
 - Reads never need View, including `view_capture {views: ['user']}` and `{withUserOverrides: true}`: they look at
   what the user sees without changing it.
 
@@ -1585,7 +1602,9 @@ sequenceDiagram
   server) and the official hosted origin, compiled in when one exists (M4a). Every other origin — the e2e server
   (port 3100 or `EKZA_E2E_PORT`; the e2e helper passes it), a static export served elsewhere, a second dev server —
   needs `--allow-origin` or `EKZA_MCP_ALLOWED_ORIGINS` (comma-separated; exact `scheme://host[:port]`, `*` only as the
-  whole port). The CLI warns when `--allow-origin` names an `http:` origin other than loopback, a `*` port, or an
+  whole port), stored as the browser serialises `Origin` (WHATWG URL: lower case, no default port, `:03000` →
+  `:3000`, `127.1` → `127.0.0.1`, `[::ffff:127.0.0.1]` → `[::ffff:7f00:1]`; an invalid IP literal is a start
+  error). The CLI warns when `--allow-origin` names an `http:` origin other than loopback, a `*` port, or an
   origin with a path-based gateway pattern (`ipfs`, `gateway`). A refused upgrade gets HTTP 403 and a stderr line,
   rate-limited to one line per reason per 10 s with a count.
 - **Unpaired sockets**: at most 8 at a time (the ninth upgrade gets 503); a socket that sends no `hello` within 5 s
@@ -1759,7 +1778,7 @@ that fail it until P1 migrates them (`graph.key.insert`, `clip.delete`, `rig.ikF
 | Policy | Access | Operators |
 |---|---|---|
 | allowed, **scope-ready** (`context` works) | edit | `graph.tangent.set`, `graph.tangent.break`, `graph.tangent.unify`, `graph.tangent.lockWeight`, `graph.curve.setWeighted`, `graph.infinity.set`, `graph.keys.setFields`, `graph.curves.simplify`, `graph.eulerFilter`, `key.tween`, `key.convert`, `pose.mirrorAnimation` |
-| allowed, explicit arguments | edit | `key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt` (`mode: 'key'` or `'static'`), `pose.goals`, `pose.transfer`, `clip.makeLoop`, `clip.new` and `clip.duplicate` (their wire schemas default `activate` to false; `true` needs View), `clip.rename`, `graph.key.insert` (actor-safe after P1), `rig.setControlSize`, `rig.ikFk.matchRange` (actors must pass `clip` and `range`), `channel.toggleLock` with `locked: true` — **unlocking** (`locked: false`) is confirmed (`confirmWhen`: "AI wants to unlock N channels you locked") |
+| allowed, explicit arguments | edit | `key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt` (`mode: 'key'` or `'static'`), `pose.goals`, `pose.transfer`, `clip.makeLoop`, `clip.new` and `clip.duplicate` (their wire schemas default `activate` to false; live, `true` needs Edit and View, Q-AI-38), `clip.rename`, `graph.key.insert` (actor-safe after P1), `rig.setControlSize`, `rig.ikFk.matchRange` (actors must pass `clip` and `range`), `channel.toggleLock` with `locked: true` — **unlocking** (`locked: false`) is confirmed (`confirmWhen`: "AI wants to unlock N channels you locked") |
 | confirm | edit | `clip.delete` (actor-safe after P1), `clip.setSettings` (only when it changes `fps`, or range/scene start/loop while the user has overrides on that character; otherwise allowed), `rig.addLimbIk`, `rig.setFootParams`, `rig.setRotateOrder` |
 | allowed | view (live only) | `select.controls`, `select.keys`, `select.channels`, `select.curveKeys`, `select.none`, `clip.setActive`, `view.frame`, `graph.frame`, `dopeSheet.frame`, `graph.view.setMode`, `view.layout`, `view.toggleMaximize`, `view.display.toggle`, `view.lookThrough`, `view.toggleCameraLock`, `view.camera.setSettings`, `workspace.showPanel`, `time.setPlaybackRange`, `time.setLoop`, `time.setSpeed`, `time.play`, `time.stop`, `pose.setAt` (`mode: 'propose'`) |
 | confirm | view (live only) | `time.setFrame` while the user has unkeyed overrides (drops them), else allowed |
@@ -2235,7 +2254,7 @@ every row without "S" is a core tool); **Hosts**: L live, H headless; **Backing*
 | 19 | `curves_set_interpolation` | Set tangent types, tangent handle angles and weights, broken or weighted tangents, or pre/post infinity on curves. | edit | id | | L H | `graph.tangent.*`, `graph.keys.setFields`, `graph.curve.setWeighted`, `graph.infinity.set` + scope | P2 |
 | 20 | `curves_euler_filter` | Remove rotation flips (360° jumps and alternate Euler solutions) from rotation curves. | edit | id | | L H | `graph.eulerFilter` + scope | P2 |
 | 21 | `curves_simplify` | Reduce keys within a tolerance (degrees, metres) without visibly changing the motion. | edit | — | | L H | `graph.curves.simplify` + scope | P2 |
-| 22 | `clip_create` | Create a new clip (or duplicate one) with a name, fps and duration. | arg (edit; `activate` live: view) | — | | L H | `clip.new`, `clip.duplicate` | P2 |
+| 22 | `clip_create` | Create a new clip (or duplicate one) with a name, fps and duration. | arg (edit; `activate` live: edit + view) | — | | L H | `clip.new`, `clip.duplicate` | P2 |
 | 23 | `clip_update` | Rename a clip or change its fps, range, loop flag, root motion, slot, tags or contact frame. | arg | — | | L H | `clip.rename`, `clip.setSettings`, `clip.setActive` | P2 |
 | 24 | `clip_make_loop` | Make a clip loop seamlessly (match the ends, blend or only cycle), reporting the seam before and after. | edit | — | | L H | *new* `clip.makeLoop` | P2 |
 | 25 | `clip_delete` | Delete a clip (undoable). | edit | dx | | L H | `clip.delete` | P2 |
@@ -2567,7 +2586,7 @@ and/or `postInfinity` → `graph.infinity.set`; two kinds in one call → `inval
 interface ClipCreateArgs { project?: ProjectRef; character?: string; name: string; fps?: number;
   durationFrames?: number; durationSeconds?: number;                      // exactly one; default 2 s; ≤ 100,000 frames
   loop?: boolean; duplicateOf?: string; intent?: string;
-  activate?: boolean }                       // default: headless true; live false (true needs View; else the user gets [Show], §5.11)
+  activate?: boolean }                       // default: headless true; live false (true needs Edit and View; else the user gets [Show], §5.11)
 interface ClipCreateData { clip: ClipInfo; activated: boolean }
 
 // 23 clip_update
@@ -2592,7 +2611,7 @@ interface ClipDeleteData { deleted: string; userNowSees: string | null }   // li
 ```
 
 `clip_create` runs one operator: `clip.new {character, name, fps, range, loop, activate}` or `clip.duplicate {clip,
-name, activate}`. Live, `activate: true` needs the View grant; headless, `activate` defaults to true and the run
+name, activate}`. Live, `activate: true` needs the Edit and View grants (Q-AI-38); headless, `activate` defaults to true and the run
 passes `access: 'view'` (a headless project has no user session to protect, so later calls can default to the new
 clip). Live, a clip created without `activate` stays out of the user's view until the user clicks [Show] on the
 toast or the audit row (§5.11); later edits name it with `clip` (§5.1). `clip_update` runs one operator: a rename-only call runs `clip.rename`; an `activate`-only call `clip.setActive`;
@@ -3461,7 +3480,8 @@ Research notes 20, 21 and 22 were written in parallel. This spec takes note 22's
 The owner decisions with the largest impact if changed: Q-AI-3 (Edit on by default), Q-AI-1 (port range),
 Q-AI-5 (npm name and publish), Q-AI-13 (placement parallel to M6a/M6b), Q-AI-16 (the scope estimate ≈ 55 + 3, up
 from ≈ 41 + 2 in v0.1), Q-AI-19 (headless pictures schematic only), Q-AI-29 (the real-model release gate), Q-AI-31
-(live edits name their clip; agents never switch the user's clip without View).
+(live edits name their clip; agents never switch the user's clip without View), Q-AI-38 (added by D0's review round
+2: an activating clip creation needs Edit and View, never View alone).
 
 
 ### 11.3 Design review round 1 (v0.1 → v0.2)
