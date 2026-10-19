@@ -342,7 +342,9 @@ export class SurfaceLayer {
     this.mesh.renderOrder = transparent ? ORDER.surfaceTransparent : ORDER.surface;
     const drawn = opts.shading !== 'wire';
     this.mesh.visible = drawn;
-    this.depth.visible = drawn && opts.xray;
+    // A transparent surface (x-ray, dimmed) draws its nearest layer only: the depth pre-pass keeps its own back
+    // layers out, and the overlays' occluded pass tests against it.
+    this.depth.visible = drawn && (opts.xray || transparent);
     this.touch();
   }
 
