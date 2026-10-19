@@ -3,7 +3,7 @@
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
 [MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
-Updated 2026-10-19 (M6a build spec written).
+Updated 2026-10-19 (M6a build spec written; M6b expanded into the Rig & Skin workspace and its build spec written).
 
 ## Now — release M2a
 
@@ -20,16 +20,19 @@ Updated 2026-10-19 (M6a build spec written).
 8. [ ] Owner feel check (30 min, Chrome) when B12a merges: component W/E/R, MMB-drag, snapping, pivot, soft select, symmetry.
 9. [ ] M6a integration (6) + one fix round (≈ 4): E2E-MOD-01…32, AS-LP-A (from a cube, every base tool) and AS-LP-B by the owner, budgets ([M6A-SPEC §10–§11](docs/M6A-SPEC.md#10-acceptance-tests-e2e-scenarios-and-as-lp)); tag `v0.3.0`.
 
-## Then — characters from own models (M6b, ≈ 43.5; starts when B1, B7, B8, B9 have merged, day ≈ 13.5)
+## Then — Rig & Skin workspace (M6b, ≈ 70.5 + a fix round; C0 starts after M6a's B0a, on the staging branch `m6b/dev` — [M6B-SPEC §9](docs/M6B-SPEC.md#9-work-packages))
 
-10. [ ] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey).
-11. [ ] C0 contracts + minimal character writer + synthesized container (4.5) → C1 skeleton + Quick Rig, C2 auto-skin, C5 VRM/GLB writer, C6 Rig & Skin UI → C3 weights (also needs B6, B10, B12a/B12b) → C4 test loop → C7 imports + T0.
-12. [ ] Turnkey acceptance: E2E-SKIN-01…08 and AS-LP "Lowpoly Lad and his sword" end to end ([§8](docs/MODELING-PLAN.md#8-end-to-end-acceptance-as-lp--lowpoly-lad-and-his-sword)); tag `v0.4.0` — estimated ≈ 40–45 working days after B0a starts.
+10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-maya-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review (45 issues; the record is its §12.5: joint roles and sockets, rename-proof control keys, the A-pose Quick Rig, IK test poses, Auto Weights for Selected Joints, contract requests CR-1…CR-10 on `dev`; refinements in its §12.2; MODELING-PLAN §5, ROADMAP and REQUIREMENTS updated).
+11. [ ] Owner reviews the M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them): staging branch + schema v4, the grown scope, Attach Prop for the sword, rig regenerated inside skeleton edits, the eager allowance) and calibrates the rig marking menus together with Q-MOD-UI-1. Defaults stand until overridden.
+12. [ ] C0 contracts, schema v4, stubs, lazy chunks, Polybot-unskinned fixtures (4.5) right after M6a's B0a; it creates `m6b/dev` and files the contract requests CR-1…CR-10 as M6A-SPEC contract PRs on `dev` ([M6B-SPEC §2.4](docs/M6B-SPEC.md#24-contract-requests-to-m6a-small-land-on-dev-through-m6a-spec-contract-prs)).
+13. [ ] After C0: C8a constraint kernel (5); after M6a's B1: C2 skeleton kernel (5.5); after B1 + B7: C4 auto-skin (6); after B1, B7, B8, B9: C1 character runtime (6); after C4 + B2: C5 weights kernel (4.5); after B0b, B9, B10, B11: C7 rig shell (6.5); after C1: C10 character writer (5). Then C3 skeleton UI (5.5), C6 skin UI (6), C8b constraint UI (3), C9 control shapes (3.5), C11 imports and recovery (4.5) — M6b's work ends ≈ day 32.
+14. [ ] Owner feel check (30 min, Chrome) when C3 and C6 merge: Joint tool, `D`-held moves, the `E` test pose, brush keys, the Component Editor.
+15. [ ] M6b integration (5) + one fix round (≈ 4) after M6a's fix round and the `release/0.3.0` cut: `m6b/dev` → `dev`, E2E-SKIN-01…14, E2E-RIG-01…10, E2E-CNS-01…04, AS-LP-T "Lowpoly Lad and his sword" end to end by the owner ([M6B-SPEC §10.3](docs/M6B-SPEC.md#103-as-lp-t--lowpoly-lad-and-his-sword-turnkey-owner-run-replaces-modeling-plan-8-parts-ce)); tag `v0.4.0` — estimated ≈ 46–47 working days after B0a starts.
 
 ## After the turnkey release
 
-13. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
-14. [ ] M7 G1 AI generation (≈ 22): intake ops, gateway (default deny, auth, server-side caps, the app's first CSP), Tripo + Meshy adapters with a mock server, Generate panel with paid-tier attestation ([§7](docs/MODELING-PLAN.md#7-m7--ai-3d-generation)); re-verify provider prices and models first; written provider confirmations (Q-GEN-4) before BYO on a hosted gateway.
-15. [ ] M7 G2 (≈ 14): self-hosted GPU worker, fal/Hunyuan adapters, OBJ import, voxel binding; M6c UV editor + texturing (≈ 18) in parallel if wanted ([§6](docs/MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional)).
-16. [ ] M2b adoption (FBX/BVH/Mixamo) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
-17. [ ] M4a T1 typed animation assets, then M3 collaboration (incl. mesh-chunk transport, mesh claims and the conflicted-copy flow on `data.base`), M4b, M5, M8 splines ([ROADMAP §Recommended order](docs/ROADMAP.md#recommended-order)).
+16. [ ] "Publish avatar to Ekza" — the T3 slice of M4a (≈ 2 here + the `studio-upload` scope in the registry repository) ([ROADMAP M4a](docs/ROADMAP.md#m4a--ekza-t1t3--1520-agent-days-in-this-repo--ecosystem-work)).
+17. [ ] M7 G1 AI generation (≈ 22): intake ops, gateway (default deny, auth, server-side caps, the app's first CSP), Tripo + Meshy adapters with a mock server, Generate panel with paid-tier attestation ([§7](docs/MODELING-PLAN.md#7-m7--ai-3d-generation)); re-verify provider prices and models first; written provider confirmations (Q-GEN-4) before BYO on a hosted gateway.
+18. [ ] M7 G2 (≈ 14): self-hosted GPU worker, fal/Hunyuan adapters, OBJ import, voxel binding; M6c UV editor + texturing (≈ 18) in parallel if wanted ([§6](docs/MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional)).
+19. [ ] M2b adoption (FBX/BVH/Mixamo) and the rest of M2c → **V1** release ([ROADMAP](docs/ROADMAP.md#m2c--breadth-and-polish--v1-release--3040-agent-days)).
+20. [ ] M4a T1 typed animation assets, then M3 collaboration (incl. mesh-chunk transport, mesh claims and the conflicted-copy flow on `data.base`), M4b, M5, M8 splines ([ROADMAP §Recommended order](docs/ROADMAP.md#recommended-order)).

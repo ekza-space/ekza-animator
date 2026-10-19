@@ -1,13 +1,16 @@
 # Ekza Animator — Roadmap
 
-Status: v0.9 (2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
+Status: v1.0 (2026-10-19: **M6b expanded into the Rig & Skin workspace and its build spec written** —
+[M6B-SPEC](M6B-SPEC.md) v1.1 (revised after its design review), [work-package status](#m6b-work-package-status); constraints and control-shape editing
+moved from M2c to M6b; v0.9 2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
 accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
 **with its acceptance fix round 1** (M2A-INT-20…33), its `v0.2.x` tag pending its final acceptance; **the modeling iteration
 is planned**: the old M6 "splines first" is replaced by M6a/M6b/M6c/M7 in [MODELING-PLAN.md](MODELING-PLAN.md), splines
 move to M8, and the [recommended order](#recommended-order) puts modeling before collaboration; v0.8 applies the plan's
 design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
-[M2A-SPEC.md](M2A-SPEC.md), the M6a build plan is [M6A-SPEC.md](M6A-SPEC.md). Sizes are rough
+[M2A-SPEC.md](M2A-SPEC.md), the M6a build plan is [M6A-SPEC.md](M6A-SPEC.md), the M6b build plan is
+[M6B-SPEC.md](M6B-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
 
 ## Status
@@ -19,13 +22,13 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M1 | MVP → public alpha `v0.1.0` | **Done** (on `dev`); tag `v0.1.0` pending | 2026-10-17 | 2026-10-18 | WP-1…WP-10 done; E2E-00…E2E-27 green in Chrome and SwiftShader; owner demo script passes (acceptance round 3); [budgets](#m1-budgets-architecture-14) recorded, 3 misses with owners. The tag waits for the owner's review of [DECISIONS-OPEN](DECISIONS-OPEN.md) |
 | M2a | Game-clip daily driver | **Done** (on `dev`); tag `v0.2.x` pending | 2026-10-18 | 2026-10-18 | [M2A-SPEC](M2A-SPEC.md) v0.3: A0…A5 + integration with its fix round 1 ([status](#m2a-work-package-status)); E2E-00…27, E2E-M2A-01…25 and the owner demo script (scripted walkthrough) green in Chrome and SwiftShader on `dev`, the acceptance walk and attack authored without Plant Feet; the M2a-stretch items listed as `test.fixme`; M-1, M-2, M-3 [met on `dev`](#m2a-budgets-on-dev); one new report-only miss (M-4, Dope Sheet drag); FR-EXP-12 partial; acceptance fix round 1 on `dev` (2026-10-19): the 2 major and 12 minor defects of the acceptance round fixed with regression tests (M2A-INT-20…33: foot roll about the toes joint, "In place" removes only the travel, reduction never larger in bytes, …); owner items in [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18) |
 | M2b | Adoption: FBX/BVH/Mixamo retarget | Planned | — | — | gated by provenance |
-| M2c | Breadth and polish → V1 release | Planned | — | — | |
+| M2c | Breadth and polish → V1 release | Planned | — | — | constraints (FR-RIG-10) and control-shape editing (FR-RIG-13) moved to M6b (2026-10-19) |
 | M3 | Collaboration P1 | Planned | — | — | `doc-yjs` already passes the suite (M1) |
 | M4a | Ekza T1/T3 (typed animation assets, publish, open from Ekza) | Planned | — | — | depends on M1 + other repos |
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
 | M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Spec ready** ([M6A-SPEC](M6A-SPEC.md) v1.0, 2026-10-19); build not started | — | — | [MODELING-PLAN §4](MODELING-PLAN.md#4-m6a--modeling-base) → [M6A-SPEC §9](M6A-SPEC.md#9-work-packages): B0a, B0b, B1…B13 (B12a/B12b), INT ([status](#m6a-work-package-status)); ≈ 108 agent-days + a fix round; critical path B0a → B1 → B4 → B12b → INT ≈ 31.5 working days (≈ 35.5 with the fix round; 27.5 if B12b starts on READY gates, M6A-SPEC §12.2 S11); ADRs 0014–0016 accepted; starts after the M2a release |
-| M6b | Characters from own models: skeleton, auto-skin, weights, VRM 1.0/GLB writer (turnkey) | Planned (plan v0.2) | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey); ≈ 43.5 (turnkey minimum ≈ 36); overlaps M6a; turnkey release ≈ 40–45 working days after M6a's B0a starts |
+| M6b | Rig & Skin workspace (turnkey): skeletons and joint tools, Quick Rig, Bind Skin and weight tools, constraints, control shapes, VRM 1.0/GLB writer | **Spec ready** ([M6B-SPEC](M6B-SPEC.md) v1.1, 2026-10-19, after its design review); build not started | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey) → [M6B-SPEC §9](M6B-SPEC.md#9-work-packages): C0…C11 + INT ([status](#m6b-work-package-status)); ≈ 70.5 agent-days + a fix round (turnkey minimum ≈ 62); on the staging branch `m6b/dev` until M6a's release cut; contract requests to M6a land on `dev` (M6B-SPEC §2.4); turnkey release ≈ 46–47 working days after M6a's B0a starts |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
 | M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
@@ -94,6 +97,30 @@ cross-package tests are `READY`/`test.fixme` gates that turn on when the package
 | B13 | `model-content` | Outliner, palette and Paint Colour, primitives UI, templates, image planes, Make editable UI, Export dialog section | 7.5 | B1, B7, B8, B9 | Planned |
 | INT | `integration` | E2E-MOD-01/15/16/30/31, AS-LP-S, budgets, docs, owner demo; one fix round (≈ 4) | 6 | all | Planned |
 
+### M6b work-package status
+
+Packages, ownership and gates: [M6B-SPEC §9](M6B-SPEC.md#9-work-packages) (shared files in §9.1). Branches `m6b/<slug>`
+merge into the staging branch `m6b/dev` until M6a's `release/0.3.0` is cut, then INT merges `m6b/dev` into `dev`
+([M6B-SPEC §2.2](M6B-SPEC.md#22-branches-and-the-release-cut)). C0 lands first (after M6a's B0a); C8a needs only C0;
+the other packages also wait for the M6a packages listed per row.
+
+| WP | Slug | Scope | Size | Depends on (M6b; M6a) | Status |
+|---|---|---|---|---|---|
+| C0 | `rig-contracts` | schema v4, contracts and stubs, lazy chunks, Polybot-unskinned fixtures, contract requests CR-1…CR-10 filed on `dev` | 4.5 | —; B0a | Planned |
+| C1 | `character-runtime` | characters from scene meshes, Import Static Model, `skeletonFromDoc`, synthesized container in the `character-runtime` chunk, skinned display, `rig.autoRig.update` with joint keys | 6 | C0; B1, B7, B8, B9 | Planned |
+| C2 | `skeleton-kernel` | templates, joint edits and roles, sockets, Duplicate Joints, Orient/Mirror Joint, Attach Prop, Quick Rig fitter (T/A-pose), BVH, `skel.*` lints | 5.5 | C0; B1 | Planned |
+| C3 | `skeleton-ui` | Joint tool (auto parent), Socket tool, joint display, move/rotate/test rule, Quick Rig stepper, joint panels | 5.5 | C2, C7; B6, B11, B12a | Planned |
+| C4 | `auto-skin` | Bind Skin methods, Auto Weights for Selected Joints, worker, Bind/Unbind, sparse kit | 6 | C0; B1, B7 | Planned |
+| C5 | `weights-kernel` | normalization and holds, strokes and the stroke session, utilities, mirror, inpainting (LDLᵀ) | 4.5 | C4; B2 | Planned |
+| C6 | `skin-ui` | Paint Skin Weights, weight display and numbers, Paint Weights panel, Component Editor | 6 | C5, C7, C1; B6, B10, B12a | Planned |
+| C7 | `rig-shell` | tab, modes, pose view, test pose, ROM, keymap, menus, Toolkit + checklist, Validation | 6.5 | C0; B0b, B9, B10, B11 | Planned |
+| C8a | `constraint-kernel` | parent/point/orient/aim ops with per-target offsets, compiler rules, bake and mirror cores | 5 | C0 | Planned |
+| C8b | `constraint-ui` | constraint operators and UI, Animate's Constrain menu | 3 | C8a, C7; B11 | Planned |
+| C9 | `control-shapes` | shape library, `rig.shape.*`, Shapes mode with CV edit, shape edits without recompiles | 3.5 | C1, C7; B10, B12a | Planned |
+| C10 | `character-writer` | VRM 1.0 / GLB writer, meta, thumbnail, profiles, export dialog | 5 | C1; B8 | Planned |
+| C11 | `imports-recovery` | weight edits on imports, Make Character Editable, missing-weight fill | 4.5 | C5, C10; B8 | Planned |
+| INT | `integration` | E2E-SKIN-08, E2E-RIG-10, AS-LP-S2, budgets, docs, owner demo; one fix round (≈ 4) | 5 | all; M6a INT + fix round | Planned |
+
 ## Recommended order
 
 Set 2026-10-18 with the modeling plan; reasons per step in [MODELING-PLAN §9](MODELING-PLAN.md#9-ordering-relative-to-m2b-m2c-m3-and-m4).
@@ -103,9 +130,9 @@ The queue of next actions is [TODO.md](../TODO.md).
    script, tag `v0.2.0`.
 2. **M6a modeling base**, with the M2c shell prerequisites (marking menus, command palette, workspaces, viewport Scale
    tool) pulled into its packages B0b and B9.
-3. **M6b characters from own models**, overlapping M6a from its package C0; then the **turnkey release** (`v0.4.0`),
-   estimated ≈ 40–45 working days after M6a's package B0a starts (8–10 agents in parallel, one fix round per
-   integration).
+3. **M6b Rig & Skin workspace** ([M6B-SPEC](M6B-SPEC.md)), overlapping M6a on the staging branch `m6b/dev` from its
+   package C0; then the **turnkey release** (`v0.4.0`), estimated ≈ 46–47 working days after M6a's package B0a starts
+   (8–10 agents in parallel, one fix round per integration).
 4. **"Publish avatar to Ekza"** (the T3 slice of M4a: only the `studio-upload` scope is needed, the avatar kind exists)
    in parallel with **M7 G1**; then **M7 G2**, with **M6c** in parallel if wanted.
 5. **M2b** and the rest of **M2c** → **V1** release.
@@ -326,8 +353,7 @@ Mixamo-derived clips are marked non-redistributable and cannot be published unde
 
 ## M2c — Breadth and polish → V1 release (≈ 30–40 agent-days)
 
-Constraints (parent/point/orient/aim) (FR-RIG-10), control shape editing in a Rig workspace (FR-RIG-13), spring-bone
-preview polish (FR-RIG-14), VRMA expressions and lookAt (FR-RIG-15, FR-EXP-07), onion skin and motion trails
+Spring-bone preview polish (FR-RIG-14), VRMA expressions and lookAt (FR-RIG-15, FR-EXP-07), onion skin and motion trails
 (FR-VP-14..15), view history and camera bookmarks (FR-VP-13), playblast (WebCodecs), audio (FR-TIME-09), time
 bookmarks → clips (FR-TIME-08), hotkey editor (FR-SHELL-10), Review workspace layout, selection sets and humanoid
 picker (FR-POSE-07), History panel (FR-UNDO-06), data packs and trusted extensions (FR-EXT-03..04), "Preview as Ekza
@@ -337,7 +363,8 @@ table, Vite playground, docs site, Maya fixture calibration if a licence is avai
 
 **Moved to M6a** (2026-10-18, package B9 of [MODELING-PLAN](MODELING-PLAN.md#42-work-packages)): marking menus
 (FR-SHELL-09), command palette (FR-SHELL-08) and workspaces (FR-SHELL-11), which every modeling surface needs; the
-Rig & Skin workspace is built in M6b. M2c is scheduled after M7 G1 ([recommended order](#recommended-order)), so its
+Rig & Skin workspace is built in M6b, which on 2026-10-19 also took **constraints** (FR-RIG-10) and **control-shape
+editing** (FR-RIG-13) from M2c ([M6B-SPEC](M6B-SPEC.md)). M2c is scheduled after M7 G1 ([recommended order](#recommended-order)), so its
 polish covers the Model workspace too.
 
 **Acceptance**: research 01's V1 exit criterion (daily-driver quality for game clips); V1 tagged release.
@@ -449,22 +476,36 @@ using every base tool, and a sword; static) by the owner; budgets recorded; tag 
 
 **Depends on**: the M2a release; M1 registries, selection, history and IO.
 
-### M6b — Characters from own models (≈ 43.5 agent-days; turnkey minimum ≈ 36)
+### M6b — Rig & Skin workspace, turnkey (≈ 70.5 agent-days + a fix round; turnkey minimum ≈ 62)
 
-**Deliverables**: Rig & Skin workspace; VRM 1.0 humanoid skeleton templates (Lite 17, Core 21, Standard 33 with
-mitten hands, Full 52), Joint tool with Snap to Projected Center, Quick Rig wizard, Apply Pose as Rest; auto-skin
-"Auto (low-poly)" (rigid islands + bone heat, worker); weight table, assign, Paint Skin Weights, mirror, hammer,
-transfer; `rig.autoRig.update`, ROM clip; VRM 1.0 and plain GLB character writer with meta, licence presets and
-thumbnail; `char.makeEditable` and the skin surgeon for imported characters; exporter-agnostic
-`ekza/space-avatar-v1`; T0 docs. A character made in the editor becomes the same records an imported VRM produces, so
-the M1/M2a animation tools work unchanged.
+Build spec: [M6B-SPEC.md](M6B-SPEC.md) v1.1, revised after its design review (contracts and schema v4, normative behaviours, operator table, keymap, UI
+placement, work packages C0…C11 + INT, E2E-SKIN/E2E-RIG/E2E-CNS scenarios, AS-LP-T); expanded on the owner's request
+from "characters from own models" into a full but bounded rigging workspace (research 17, 18, 19).
 
-**Acceptance**: Polybot without weights auto-skins within one joint on ≥ 98 % of vertices (exact ≥ 85 %, calibrated);
-validators 0 errors; byte-identical re-export; E2E-SKIN-01…08 including the turnkey walkthrough; AS-LP-C/D/E;
-turnkey release `v0.4.0` (owner's call).
+**Deliverables**: the Rig & Skin workspace (modes Object/Skeleton/Skin/Shapes, pose view Bind/Test/Clip, Maya's
+Skeleton/Skin/Constrain/Control menus and marking menus, a setup checklist, the Validation panel as the export gate);
+characters from the user's own meshes (adoption, Import Static Model) with the control rig regenerated inside every
+skeleton edit; VRM humanoid templates (Lite 17, Core 21, Standard 33 with mitten hands, Full 52) with rest flexion and
+Quick Rig (markers or a One-Click guess; T- and A-posed meshes); the Joint tool with Snap to Projected Center,
+symmetry and an automatic parent, Insert Joint, Split Bone, Add Chain, Duplicate Joints, Remove/Delete, Parent/Unparent,
+Map Humanoid Bone, joint roles (deforming, helper, prop) and sockets, **Orient Joint** and **Mirror Joint**; test poses
+that never key (IK limbs bend in FK for the test), Go to Bind Pose, a ROM clip, Apply Pose as Rest; **Bind Skin** (Auto
+(low-poly), closest in hierarchy, rigid islands, bone heat; worker) and Auto Weights for Selected Joints; **Paint Skin Weights** (Maya operations, holds, mirror stroke, posed painting), the
+numbers overlay, the **Component Editor**, Mirror/Copy (inpainting)/Smooth/Hammer Skin Weights, Prune, Normalize, Remove
+Unused Influences, Move Weights; **constraints** parent/point/orient/aim with keyable weights, maintain offset and bake
+(from M2c); **control-shape editing** (from M2c); **Attach Prop** for handhelds; the VRM 1.0 / GLB character writer with
+meta, licence presets and thumbnail; weight edits on imported characters through the surgeon and Make Character
+Editable; exporter-agnostic `ekza/space-avatar-v1`; T0 guide. Non-goals: set driven keys, node editor, rig scripting,
+blend-shape authoring, muscle systems.
 
-**Depends on**: M6a packages B1, B7, B8, B9 (starts while M6a is in flight); weight painting (C3) also on B6, B10,
-B12a/B12b.
+**Acceptance**: Polybot without weights auto-skins within one joint on ≥ 98 % of points (exact ≥ 85 %, calibrated);
+Orient Joint leaves deformation and humanoid animation within 1e-9; constraint rest exactness and the M2a schedule
+identity; validators 0 errors; byte-identical re-export; E2E-SKIN-01…14, E2E-RIG-01…10, E2E-CNS-01…04 including the
+scripted turnkey walkthrough; AS-LP-T ("Lowpoly Lad and his sword" end to end); turnkey release `v0.4.0` (owner's
+call).
+
+**Depends on**: M6a's B0a (contracts) for C0; then per package B1, B7, B8, B9 (runtime), B2 (weights), B0b, B10, B11
+(shell), B6, B12a (tools); M6a's release cut for INT ([M6B-SPEC §2.3](M6B-SPEC.md#23-m6a-prerequisites-per-package)).
 
 ### M6c — UV editor and texturing basics (optional, ≈ 18 agent-days)
 
@@ -520,6 +561,8 @@ fallback; sandboxed third-party plugins.
 | Modeling edits silently break skin weights or VRM expressions | M6a/M6b | Attribute layers with propagation rules inside one revision, stable morph order, licence gate, surgeon read-back tests (ADR 0015) |
 | Shared-contract ripple into shipped animation code (operators, selection, keymap scopes, schema v3) | M6a | One atomic contracts package (B0a, keymap rows in B0b); M1/M2a e2e stay green at every merge |
 | Auto-skin quality on single-piece organic low-poly bodies | M6b | Bone heat with stiffness and rigidify; weight tools in the first release; gates on segmented and single-piece fixtures |
+| M6b scope growth after the Rig & Skin expansion and its design review (≈ 70.5 vs 43.5 agent-days) | M6b | Work ends before M6a's release cut; a named turnkey minimum (≈ 62); stretch items as `test.fixme` (M6B-SPEC §12.3) |
+| Constraint compiler changes shift shipped schedules or exports | M6b | Schedule-identity and export byte-identity gates on every M2a fixture rig (M6B-SPEC P-C3) |
 | AI provider churn, terms and cost | M7 | Pinned model versions, contract tests, mock server in CI, BYO/self-host first, quotes and caps (ADR 0017) |
 | Mesh undo history pins hundreds of MB (morph-heavy imports, whole-layer ops) | M6a | Derived GC roots, undo byte budget with eviction, journal cap, implicit default tail in chunks (ADR 0015) |
 | Tool feel found wrong only at the final owner run | M6a | Transform and topology tools in separate packages (B12a/B12b), owner feel check after B12a, AS-LP-A requires every base tool |

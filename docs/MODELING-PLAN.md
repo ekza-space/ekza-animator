@@ -1,6 +1,7 @@
 # Ekza Animator — Modeling plan (M6a, M6b, M6c, M7)
 
-Status: v0.2 (2026-10-19), plan for the owner's review, revised after the design review (one blocker, twenty
+Status: v0.3 (2026-10-19; v0.3 expands M6b on the owner's request into the full **Rig & Skin workspace**, §5, with its
+build spec [M6B-SPEC](M6B-SPEC.md); v0.2 was the plan revised after the design review: one blocker, twenty
 major and nineteen minor findings; every decision, including the rejected and partly applied ones, is in
 [§12](#12-design-review-2026-10-19-decisions)). It **replaces the old ROADMAP M6 "Modeling, splines first"**
 with a polygon-first sequence: M6a modeling base → M6b characters from own models (turnkey) → M6c UV editor and
@@ -18,7 +19,10 @@ spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md
   (*Proposed*; its provenance items accepted with M6a, the rest at the M7 spec).
 - Build spec: [M6A-SPEC](M6A-SPEC.md) v1.0 (2026-10-19) turns §2–§4 into contracts, normative behaviours and work
   packages; where it refines this plan (flattened extrude args, selection coalescing, B12b dependencies and the
-  critical path, kept BIN ranges in the surgeon, …) its §12.2 is binding.
+  critical path, kept BIN ranges in the surgeon, …) its §12.2 is binding. [M6B-SPEC](M6B-SPEC.md) v1.1 (2026-10-19,
+  revised after its design review; the record is its §12.5) does the same for §5 (Rig & Skin workspace), from
+  research [17](research/17-maya-rigging-basics.md), [18](research/18-constraints-control-shapes.md) and
+  [19](research/19-rig-workspace-ui.md); its §12.2 is binding.
 - Owner decisions with the defaults chosen: [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18).
   Queue: [TODO.md](../TODO.md). Sizes are **agent-days** (ROADMAP convention).
 
@@ -43,13 +47,13 @@ feeds the same pipeline instead of replacing it.
 | Milestone | What the owner gets | Size | Starts after |
 |---|---|---|---|
 | **M6a** Modeling base | Model workspace; box-model a low-poly prop or character body from a cube against front/side reference images (extrude with a live manipulator, inset, bevel, edge loops, Multi-Cut, slide edge, average vertices, bridge, merge/Target Weld, mirror + symmetry for every tool, soft select, hard/soft edges, hide/isolate, undoable selection); palette colouring; simple UV projections; poly-count HUD and Mesh Check; static GLB export (incl. the OMOBA handheld profile); fix meshes of imported models without breaking skin, expressions or MToon outlines | ≈ 108 + one fix round; critical path ≈ 28 working days | M2a release |
-| **M6b** Characters from own models | Rig & Skin workspace: VRM humanoid skeleton template, Quick Rig, auto-skin "Auto (low-poly)", weight tools, ROM test clip, VRM 1.0 / GLB character writer; the turnkey loop closes | ≈ 43.5 (turnkey minimum ≈ 36) | M6a packages B1, B7, B8, B9 (overlaps M6a) |
+| **M6b** Rig & Skin workspace (turnkey) | VRM humanoid templates and Quick Rig; Joint tool, hierarchy editing, Orient and Mirror Joint; Bind Skin with auto weights; Paint Skin Weights, Component Editor and weight utilities; constraints parent/point/orient/aim and control-shape editing (both from M2c); bind pose and test poses, ROM clip; Validation panel; VRM 1.0 / GLB character writer; the turnkey loop closes | ≈ 70.5 + a fix round (turnkey minimum ≈ 62) | M6a B0a (contracts), then B1, B7, B8, B9 … per package (overlaps M6a on a staging branch) |
 | **M6c** UV editor + texturing basics (optional) | UV editor pane, seams → LSCM unwrap → packing, image textures per material, decal region, ramp swatches, vertex-colour painting | ≈ 18 | M6a; independent of M6b |
 | **M7** AI 3D generation | server gateway (off unless enabled, authenticated, server-side spend caps, CSP) with Tripo + Meshy adapters, Generate panel and job tray, post chain (reduce, cleanup, palette bake) on the modeling operators, provider or own rig, provenance in every export; later a self-hosted open-model worker | G1 ≈ 22, G2 ≈ 14 (G3 ≈ 6 with M4a/M4b) | M6b |
 
 **When is it turnkey?** With about 8–10 agents in parallel and one fix round per integration, the M6a base is ready
-≈ 31 working days after package B0a starts and the turnkey release (`v0.4.0`) ≈ 40–45 working days after it (§4.2,
-§5.2). These are planning estimates in agent-days, not commitments.
+≈ 31 working days after package B0a starts (≈ 37.5 with M6A-SPEC v1.1's critical path and fix round) and the
+turnkey release (`v0.4.0`) ≈ 46–47 working days after it (§4.2, §5.2). These are planning estimates in agent-days, not commitments.
 | **M8** Splines and generators (the old M6) | renderable curves, CV/EP/pen tools, sweep/loft/revolve generators with history, `EKZA_curves` | TBD | M7 |
 
 Recommended order (§9): **M2a release → M6a → M6b (overlapping) → turnkey release → "Publish avatar" slice of M4a ‖
@@ -181,7 +185,7 @@ New packages follow the layering of ARCHITECTURE §3 (headless below the view la
 | `anim-core` (changed) | — | `ParamDef` (kinds, limits, step, `primary`, `bound: 'selection' \| 'pointer' \| 'value'`): the one parameter description shared by kernel ops and editor operators | — | — |
 | `doc` (changed) | — | schema v3 tables (`meshes`, `groups`, `palettes`, `swatches`, `skeletons`, `joints`, `imagePlanes`), `CharacterRecord.source`, `AssetRecord.provenance`, `referencesOf` for the new tables (incl. `meshes.data.joints`), validation, migration; `UndoManager.entries()` and `onEvict` | — | — |
 | `io` (changed) | — | `meshFromGltf` (make editable), `meshToPrimitives`, author writer (static in M6a, VRM 1.0 character in M6b), surgeon "replace primitives" with bake marker v2, in-memory container rebuild for the character display, palette PNG writer, handheld profile, new lints, `.ekzanim` `blobs/` | + mesh-core | — |
-| `rig` (changed, M6b) | — | `skeletonFromDoc`, typed-array `measureSkinned`, template presets and fitter, `autoRig.update`, ROM clip | + mesh-core (types only) | — |
+| `rig` (changed, M6b) | — | `skeletonFromDoc`, templates and the Quick Rig fitter, joint edits (orient, mirror, hierarchy), `updateAutoRig` with prop controls, constraint ops (parent/point/orient/aim) and the compiler rules, bake, control-shape maths (`measureSkinned` lives in `io/skeleton`) | + mesh-core (types only) | — |
 | `editor-core` (changed) | — | `MeshRuntime` per edited mesh (two-phase commit, `loading` state, journal), `MeshSetOp` runner, `BlobStore` service with derived GC roots and an undo byte budget, `ComponentSelection` service (incl. hide bitsets), selection history parts, `mesh.*`/`select.mesh.*`/`palette.*`/`skel.*`/`skin.*` operators, `edit.adjustLast`/`edit.repeatLast`, `LastRun`, operator `params`, workspace state | + mesh-core | — |
 | `viewport` (changed) | — | hosts mesh-view layers in panes, Scale tool, shading modes, modeling tools and manipulators (component spaces, smart extrude), snapping, pivot editing | + mesh-view | — |
 | `editor` (changed) | — | workspace tabs, generic `MarkingMenu`, `CommandPalette`, hierarchical key-scope chain, Model panels (Toolkit, Palette, Mesh Check), Last-op card, HUD, Rig & Skin panels (M6b), Generate panel (M7) | — | — |
@@ -536,6 +540,9 @@ then Divisions in INPUTS. Without construction history this works through adjust
 
 ### 3.10 Characters from own models (M6b)
 
+The binding version of this section is [M6B-SPEC](M6B-SPEC.md) §4–§5 (schema v4, characters from scene meshes,
+`skeletonFromDoc`, the control rig regenerated inside every skeleton edit, test poses, constraints, shapes, the writer).
+
 - `CharacterRecord.source.kind = 'model'`: skeleton (`SkeletonRecord`) + joints (`JointRecord`: rest world position in
   character space, identity rest rotation by default, humanoid bone, mirror link) + skinned meshes, all in `char:<id>`.
 - **`skeletonFromDoc(records)`** produces the same pure `SkeletonDesc` that `skeletonFromGltf` produces today, with
@@ -832,68 +839,98 @@ call).
 
 ---
 
-## 5. M6b — Characters from own models (turnkey)
+## 5. M6b — Rig & Skin workspace (turnkey)
+
+Build spec: [M6B-SPEC](M6B-SPEC.md) v1.1 (2026-10-19, revised after its design review, §12.5 there) — contracts
+(schema v4), normative behaviours, operator table,
+keymap, UI placement, work packages C0…C11 + INT, E2E-SKIN/E2E-RIG/E2E-CNS scenarios and the turnkey acceptance AS-LP-T;
+where it refines this section, its §12.2 is binding. On the owner's request ("do we have basic rigging tools? let's add
+them too") M6b grew from "characters from own models" into a **full but bounded Rig & Skin workspace** with Maya's
+rigging basics (research [17](research/17-maya-rigging-basics.md)), constraints and control-shape editing moved from M2c
+(research [18](research/18-constraints-control-shapes.md)) and a complete workspace UI
+(research [19](research/19-rig-workspace-ui.md)).
 
 ### 5.1 Deliverables
 
-Rig & Skin workspace (Skeleton → Bind → Weights → Test, Maya names) and the M6b half of AS-LP: VRM humanoid template
-skeletons (Lite/Core/Standard/Full), Joint tool with **Snap to Projected Center** and X-symmetry, **Quick Rig** wizard
-(five markers: chin, groin, wrist, elbow, knee; one-click guess), **Apply Pose as Rest**, `skel.*` lints; auto-skin
-(`closest`, `rigid-islands`, `heat`, `auto-lowpoly`) in a worker; weight tools (component weight table, assign to joint,
-rigid islands, Paint Skin Weights Replace/Add/Scale/Smooth/Flood with locks and interactive normalization, weight
-display, Mirror Skin Weights, copy/paste, hammer, transfer, prune/normalize); `rig.autoRig.update` (keeps control IDs
-and every curve); generated ROM clip; painting on the posed mesh; skin out-of-date flow after topology edits; fresh VRM
-1.0 / GLB character writer with the meta dialog, licence presets (explicit choice; CC0 listed first) and thumbnail;
-OMOBA plain-GLB mode with the five slot clips; `char.makeEditable` for imported characters (rebind at rest, licence
-gate); skin surgeon for weight edits on imported VRM/GLB; exporter-agnostic `ekza/space-avatar-v1`; T0 docs and the
-interop banner ("Space plays idle/walk; OMOBA uses your avatar but not its custom clips yet").
+| Group | Items |
+|---|---|
+| Workspace | Rig & Skin tab (Model › Rig & Skin › Animate) with four modes — Object, **Skeleton** `1`, **Skin** `2`, **Shapes** `3` (`F8` toggles); pose view `Bind │ Test │ Clip`; Maya's Rigging menus (Skeleton, Skin, Constrain, Control) and marking menus; Rig Toolkit with a setup checklist (Template → Fit → Bind → Test → Fix weights → Control rig → Animate); Paint Weights panel; Component Editor; **Validation panel** as the export gate (`skel.*`, `skin.*`, `rig.*`, `vrm.*` lints with severities per export profile); selection undo; Animate keying rows shadowed so nothing in Rig & Skin ever keys |
+| Characters from models | a model-sourced character from selected scene meshes (adoption with frozen placements, the live generator ended), `skeletonFromDoc`, the synthesized container (one display/export path, in a lazy `character-runtime` chunk every workspace loads for own-model characters), live skinned display, `rig.autoRig.update` inside every skeleton edit (control IDs from rename-proof joint keys, curves and user shape edits kept; user-authored chains get visible controls); **Attach Prop** (prop joint under the root, rigid bind, `prop.*` control, parent constraint with keyable weights); **sockets** (non-deforming helper joints with a control: back and hip sheathes, aim targets); Import Static Model |
+| Skeleton | VRM humanoid templates Lite 17 / Core 21 / **Standard 33** (mitten hands, default) / Full 52 with 2° rest flexion at elbows and knees, pre-fitted on M6a's generated body; **Quick Rig** (five markers or a One-Click guess, guides, Snap to Projected Center; T- and A-posed meshes); **Joint tool** (projected centre, X symmetry, MMB/`Insert` reposition, `Backspace`, `Enter`/RMB one step, automatic parent); Insert Joint, Split Bone, Add Chain, Duplicate Joints; Remove (splice) and Delete (subtree); Parent/Unparent; rename with mirror rename; Map Humanoid Bone; Set Side; joint roles (deforming bone, non-deforming helper such as the template root, prop); **Orient Joint** (World/Maya/Blender presets, key conversion on bone-aligned controls); **Mirror Joint** (YZ, Orientation/Behavior, update in place); joint display (X-ray, size, side colours, axes, labels); Apply Pose as Rest |
+| Test loop | one rule per state: `W` moves rests (Move Skinned Joints after binding; `D` + drag moves one joint), `E` on a bound joint is a **test pose** (session, never a key; IK limbs bend in FK for the test), also from Skin mode without leaving the brush; Go to Bind Pose (the constraint-free rest); ROM test clip; painting on the posed mesh |
+| Binding | Bind Skin with `auto-lowpoly` (rigid islands + bone heat, default), `closest` (in hierarchy, dropoff), `rigid-islands`, `heat`; joint/point masks; one joint = rigid attach; symmetrize; ≤ 4 influences, always normalized; in a worker; adjustable; **Auto Weights for Selected Joints** (Maya's Add Influence for a new chain on a bound mesh) |
+| Weights | normalization with **holds**; **Paint Skin Weights** (Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence); weight display (greyscale, ramp, influence colours, **numbers overlay**, Lock-Relative); **Component Editor** with a Hold row; assign, rigid islands, Mirror/Copy (weight inpainting)/Smooth/Hammer Skin Weights, copy/paste vertex weights, Prune, Normalize, Remove Unused Influences, Move Weights; missing weights after Model edits filled by inpainting with a review flag |
+| Constraints (FR-RIG-10, from M2c) | parent, point, orient, aim as built-in rig ops on the shipped `ConstraintRecord`; weights and blend as keyable holder attributes; maintain offset (rest-derived, stored, snap; per target, with Update Offset › Match for drops); averaged rotations; five world-up types; compiler fixes (a prop follows an IK hand, cycles disable only the constraint); Update/Clear Offset, Bake to Keys, Mirror, Delete; also in Animate's Rig menu; ◇ space switching |
+| Control shapes (FR-RIG-13, from M2c) | library (+ arrow, double arrow, gear, double circle), colour, size, line width, `W`/`E`/`R` on the shape offset, CV editing into custom shapes, Mirror/Copy/Paste/Reset/Size from Mesh; user edits survive rig updates; never keys |
+| Export | fresh **VRM 1.0** and plain **GLB** character writer: VRM meta with licence presets (explicit choice, CC0 first), thumbnail, palette materials, `ekza_model_v1`, slot clips, props policy; OMOBA five-clip GLB; validators and read-back; exporter-agnostic `ekza/space-avatar-v1`; interop banner; T0 guide |
+| Imports | weight edits on made-editable meshes of imported characters exported through M6a's surgeon (the skin surgeon); `char.makeEditable` converts an imported character (rebind at rest, licence gate) |
+| Schema | v4: VRM meta on characters, prop joints, thumbnail assets, test clips, shape edit markers; projects with own-model characters or constraints open read-only in `v0.3.x` |
+
+**Non-goals** (owner): set driven keys, a node editor, rig scripting, blend-shape authoring, muscle systems. Also out:
+skin layers, envelopes (stretch), DQ skinning, > 4 influences, scale/geometry constraints, joint limits, HumanIK, VRM
+0.x export, spring-bone/expression authoring (M6B-SPEC §1.3).
 
 ### 5.2 Work packages
 
-| ID | Slug | Scope | Size | Starts after |
+Branches `m6b/<slug>` merge into the staging branch `m6b/dev` until M6a's `release/0.3.0` is cut (schema v4 must not
+reach a `v0.3.x` build); INT then merges `m6b/dev` into `dev`. Sizes in agent-days; dirs and gates in M6B-SPEC §9.
+
+| ID | Slug | Scope | Size | Starts after (M6b; M6a) |
 |---|---|---|---|---|
-| C0 | `character-contracts` | `skeletonFromDoc`, typed-array `measureSkinned` (shared with imports), `SkinnedMesh` view from a revision's skin layers, **minimal character author writer** (skeleton + skinned meshes → GLB) and the **synthesized `GlbContainer`** for model-sourced characters (debounced on commit and workspace switch; `CharacterRuntime.asset`/`container` stay non-null, so display, export and rig keep one path, §3.10), `skel.*`/`skin.*` operator stubs and lint codes (incl. `skin.dangling-joint`), Rig & Skin workspace registration (records already in schema v3) | 4.5 | M6a B1, B7, B8, B9 |
-| C1 | `skeleton` | 14 S1: template presets, Joint tool, projected-center snap, symmetry, insert/delete/reparent/map bone, Add chain, Quick Rig wizard (markers, guides fitter, one-click guess), Apply Pose as Rest, `skel.*` lints, humanoid template's pre-fitted skeleton | 6 | C0 |
-| C2 | `auto-skin` | 14 S2: closest, rigid islands, bone heat (BVH visibility, clamped cotan Laplacian, PCG, per-island fallback), `auto-lowpoly`, post-processing, joint/vertex masks, worker, adjust-last args | 5 | C0 |
-| C3 | `weights` | 14 S3: §6.1 normalization contract, weight table, assign, rigid islands, Paint (surface/volume, X-mirror stroke, locks), display modes, Mirror Skin Weights, copy/paste, hammer, transfer, prune/normalize | 6 | C2; M6a B6 (picking, BVH), B10 (`ComponentSelection`), B12a/B12b (modal tool contract) |
-| C4 | `rig-test-loop` | 14 S4 + 16 §17: `rig.autoRig.update`, ROM clip, bind-pose toggle, paint on the posed mesh, `skin.*` lints, `BIND POSE` badge, skin out-of-date → closest-point weight transfer → "review weights" glyph | 3.5 | C2, C3 (paint) |
-| C5 | `character-writer` | 14 S5 + 12 §10: the full GLB/VRM 1.0 writer on C0's minimal one (`VRMC_vrm` class typed against `@pixiv/types-vrmc-vrm-1.0`), meta dialog, licence presets, thumbnail, unlit/lit palette materials, `ekza_model_v1`, OMOBA plain-GLB mode, `vrm-validator` + three-vrm read-back in CI; ◇ MToon toon preset | 5 | C0 |
-| C6 | `rig-skin-ui` | Rig & Skin layout, Skin panel, joint list with locks, Validation list (09 §9.3), status glyph, hand-off buttons (Toolkit footer, Outliner RMB) | 3 | C0 (B9 shell) |
-| C7 | `imports-ekza` | 14 S6 + S7: `char.makeEditable` (rebind at rest when IBMs disagree, licence gate), skin surgeon (new `JOINTS_0`/`WEIGHTS_0` accessors, IBMs, appended joints), stale-weight recovery, profile changes, interop banner, T0 docs; ◇ CC0 VRMA starter pack converted once from the Quaternius UAL fixture | 7 | C3, C5 |
-| INT-b | `integration` | E2E-SKIN-01…08, AS-LP-C/D/E, the full AS-LP-S scripted twin, budgets, docs | 3.5 | C1…C7 |
+| C0 | `rig-contracts` | schema v4, every contract and stub, lazy `rig-workspace`, `skin-worker` and `character-runtime` chunks, Polybot-unskinned fixtures, the contract requests to M6a (CR-1…CR-10, filed as M6A-SPEC contract PRs on `dev`) | 4.5 | —; B0a |
+| C1 | `character-runtime` | Import Static Model, character from scene meshes, `skeletonFromDoc` (in `io`), `measureSkinned`, minimal writer + synthesized container, `SkinnedSurface`, `rig.autoRig.update` with joint keys, prop and socket controls | 6 | C0; B1, B7, B8, B9 |
+| C2 | `skeleton-kernel` | templates, joint edits and roles, Duplicate Joints, sockets, Orient/Mirror Joint, Attach Prop, Apply Pose as Rest, Quick Rig fitter (T- and A-pose) and One-Click guess, triangle BVH, `skel.*` lints | 5.5 | C0; B1 |
+| C3 | `skeleton-ui` | Joint tool (automatic parent), Insert Joint, Socket tool, joint display and picking, the move/rotate/test rule (IK limbs in FK), Quick Rig stepper, option boxes, Attributes/Channel Box/Outliner joint UI | 5.5 | C2, C7; B6, B11, B12a |
+| C4 | `auto-skin` | bind methods (closest, rigid islands, heat, auto-lowpoly) over deforming joints, post-processing, Auto Weights for Selected Joints, worker, Bind/Unbind operators, the sparse kit (PSD Laplacian, PCG, LDLᵀ) | 6 | C0; B1, B7 |
+| C5 | `weights-kernel` | normalization and holds, stroke maths and the stroke session, table edits, utilities, mirror, inpainting transfer and fill, `skin.*` lints | 4.5 | C4; B2 |
+| C6 | `skin-ui` | Paint Skin Weights tool, weight display and numbers, Paint Weights panel, Component Editor, utilities wiring, the Skin-mode test rotate | 6 | C5, C7, C1; B6, B10, B12a |
+| C7 | `rig-shell` | the tab, modes, pose view and test pose (constraint-free Bind view, history drop), ROM clip, keymap and shadows, menus, marking menus, Toolkit and checklist, Validation, eager gate | 6.5 | C0; B0b, B9, B10, B11 |
+| C8a | `constraint-kernel` | the four constraint ops with per-target offsets and match, compiler rules R3–R10, bake and mirror cores | 5 | C0 |
+| C8b | `constraint-ui` | constraint operators, Attributes/Channel Box/Outliner UI, lines, Animate's Constrain menu | 3 | C8a, C7; B11 |
+| C9 | `control-shapes` | shape library additions, `rig.shape.*`, Shapes mode with CV edit, edited-field preservation, the shape-only patch path (no recompile) | 3.5 | C1, C7; B10, B12a |
+| C10 | `character-writer` | VRM 1.0 / GLB writer, meta and licence presets, thumbnail, profiles, `vrm.*` lints, export dialog | 5 | C1; B8 |
+| C11 | `imports-recovery` | weight edits on imports through the surgeon, `char.makeEditable`, missing-weight fill and review | 4.5 | C5, C10; B8 |
+| INT | `integration` | E2E-SKIN-08, E2E-RIG-10, AS-LP-S2, budgets, docs, owner demo; one fix round (≈ 4) | 5 | all C packages; M6a INT + fix round |
 
-**Total ≈ 43.5 agent-days**; the **turnkey minimum** (C0, C1, C2, C3 core ≈ 4, C4, C5, C6, the T0 part of C7 ≈ 1.5,
-INT-b) ≈ 36. C1, C2 and C5 run on imported static meshes made editable in M6a (a derived CC0 fixture
-`fixtures/models/polybot-unskinned.glb`, produced by a committed script, and a synthetic single-piece "box man"
-generated in tests), so M6b starts while M6a's tool packages are still in flight.
+**Total ≈ 70.5 agent-days** plus the fix round (≈ 4); the **turnkey minimum** ≈ 62 (deferrable to the fix round:
+Orient Joint key conversion, One-Click guess, averaged table rows, Lock-Relative, Move Weights, Copy Skin Weights
+between meshes, Bake to Keys, shape CV editing, `char.makeEditable`, Duplicate Joints, the Skin-mode test rotate).
+Growth over v0.2's 43.5: research 17's tools (≈ +8), constraints and shapes (≈ +10.5), the contracts/runtime split
+(≈ +3), the spec's design review (≈ +5.5; M6B-SPEC §12.5).
 
-**Schedule** (working days from the start of M6a's B0a, same assumptions as §4.2): C0 starts when B8 merges (day
-13.5) and ends at 18; C2 and C5 end at 23, C1 at 24, C6 at 21; C3 waits for C2 and B12a/B12b and ends at 29; C4 ends
-at 32.5, C7 at 36, INT-b at 39.5. With one fix round per integration the **turnkey release lands ≈ 40–45 working days
-after B0a starts** (the turnkey minimum path: ≈ 39). M6a's own INT and fix round (day ≈ 31) come first.
+**Schedule** (working days from the start of M6a's B0a, M6A-SPEC v1.1 dates): C0 4.5–9; C8a 9–14; C2 11.5–17; C4
+13–19; C1 15–21; C5 19–23.5; C7 19.5–26; C10 21–26; C3 26–31.5; C6 26–32; C8b 26–29; C9 26–29.5; C11 26–30.5. M6b's
+work ends ≈ day 32; INT waits for M6a's fix round and release cut (≈ 37.5) and ends ≈ 42.5; with M6b's fix round the
+**turnkey release `v0.4.0` lands ≈ 46–47 working days after B0a starts**. At most six M6b agents run at once. Contract
+requests to M6a land on `dev` by M6A-SPEC contract PRs and reach `m6b/dev` only through `dev`; each has a fallback.
 
 ### 5.3 Acceptance
 
-- **Quality gates**: Polybot without weights → auto-skin within one joint of the artist's dominant joint on ≥ 98 % of
-  vertices and exact on ≥ 85 % (calibrated in C2's first spike); the box man has no forearm vertex on the spine; the
-  Quick Rig fitter places every humanoid joint within 0.03 H on Seed-san and on T-posed Polybot; the weight
-  normalization property tests (sums 1e-9, ≤ 4 influences, locked weights bit-equal, idempotent normalize); mirror
-  involution; split-vertex crack distance ≤ 1e-6 m over the ROM clip.
-- **Exports**: 0 glTF-Validator and `vrm-validator` errors; `skeletonFromGltf(written)` equals `skeletonFromDoc(records)`
-  (fingerprint, humanoid map, radii within 1e-4 H); a VRMA idle plays on the exported VRM in three-vrm; OMOBA rules
-  pass with five clips; re-export byte-identical; the skin surgeon keeps every original JSON value except the allowed
-  diffs.
-- **E2E-SKIN-01** Quick Rig + auto-skin + ROM on the unskinned fixture; **-02** paint fix with one undo; **-03** mirror
-  weights; **-04** moving a knee joint after animating keeps every keyed curve and the walk still plants feet; **-05**
-  VRM export → re-import → VRMA plays; **-06** OMOBA plain GLB with five clips; **-07** skin surgeon on Seed-san;
-  **-08** the turnkey walkthrough (model → rig → skin → walk with leg IK → export VRM).
-- Manual: AS-LP-C/D/E (§8). Definition of done as M6a; tag `v0.4.0` = the turnkey release (owner's call).
+- **Quality gates** (headless): Polybot without weights → auto-skin within one joint of the artist's dominant joint on
+  ≥ 98 % of points and exact on ≥ 85 %, no weight on the helper `root`; the generated body has no forearm point on the
+  spine; the Quick Rig fitter places every humanoid joint within 0.03 H on Seed-san and on T- and A-posed Polybot, and
+  the A-pose path (Quick Rig → Bind → T-Stance → Apply Pose as Rest) ends `skel.tpose`-clean; normalization properties (sums 1e-9, ≤ 4
+  influences, held weights bit-equal, idempotent normalize); Orient Joint leaves skinning and humanoid animation within
+  1e-9; Mirror Joint and Mirror Skin Weights are involutions; constraint rest exactness (1e-9), "inactive = absent", the
+  M2a schedule identity and export byte-identity; shape edits never key or recompile; split-vertex crack ≤ 1e-6 m over
+  the ROM clip.
+- **Exports**: 0 glTF-Validator and `vrm-validator` errors; `skeletonFromGltf(written)` equals `skeletonFromDoc(records)`;
+  a VRMA idle plays on the exported VRM in three-vrm; OMOBA rules pass with five clips; re-export byte-identical; the
+  skin surgeon keeps every original JSON value except the allowed diffs.
+- **E2E**: E2E-SKIN-01…14 (Quick Rig + auto-skin + ROM, paint, mirror weights, joint edits after animating, VRM and OMOBA
+  exports, skin surgeon, the scripted turnkey walkthrough, Joint tool + Mirror/Orient Joint, test pose + posed painting,
+  numbers + table, missing weights, Make Character Editable, Apply Pose as Rest), E2E-RIG-01…10 (checklist, modes and
+  scopes, Joint tool gestures, paint keys, pose view, constraint UI, shapes, Validation gate, Mac trackpad, idle),
+  E2E-CNS-01…04 (prop follows an IK hand and is dropped, bake an aim, replace + CV edit, mirror shapes).
+- **Manual**: AS-LP-T — "Lowpoly Lad and his sword" end to end in one project (§8, M6B-SPEC §10.3); definition of done
+  as M6a; tag `v0.4.0` = the turnkey release (owner's call).
 
 ### 5.4 Later (after M6b)
 
-Geodesic voxel binding (M7 G2, for AI meshes); geometry surgeon for topology edits that keep every VRM extension;
-editing on the posed cage; MToon writer if not built; expressions (morph targets + `VRMC_vrm.expressions`), lookAt,
-spring bones; Gradient/Smear weight brushes; curve compensation for Apply Pose as Rest.
+Space switching if the stretch slips (M5); envelope binding; Paint Select and gradient brushes; cross-skeleton Copy Skin
+Weights; geodesic voxel binding (M7 G2, for AI meshes); a geometry surgeon for topology edits that keeps every VRM
+extension; editing on the posed cage; the MToon writer if the stretch slips; expressions (morph targets +
+`VRMC_vrm.expressions`), lookAt, spring bones; curve compensation for Apply Pose as Rest; scale and geometry constraints.
 
 ---
 
@@ -966,9 +1003,9 @@ are recorded, not gating: character ≤ 90 min, prop ≤ 15 min, rig + skin ≤ 
 | **A. Character** | M6a | New → **Low-poly humanoid guides** (proportion guides, budget preset, symmetry Object X; no body mesh); import front and side **reference image planes**; **start from a cube**; block out the torso with extrude sessions (`Ctrl+E` then `W`/`R` on the cap) and Insert Edge Loop; **Multi-Cut** the shoulder or hip topology; extrude the legs; a separate 8-sided arm cylinder snapped with `V`, joined by **Combine + Bridge** with Divisions ≥ 1; a separate head box (bevel) joined the same way or kept as its own mesh; **soft select** to shape the head; **Target Weld** at least once; ≥ 2 loops at elbows and knees placed with **Slide Edge**; shoulder ring + armpit loop, hip diagonal; mitten hands, box feet; hide the arms to work on the armpits; all hard, soften the head by angle, flip one diagonal; paint 8–16 swatches | **tris ≤ 3,000** (no lower bound); joint-loop checks (≥ 2 loops at elbows and knees, shoulder ring, armpit loop); 1 material; 1 texture ≤ 128²; 0 non-manifold, zero-area or loose; partners within 1 mm; min Y = 0 ± 5 mm; transforms frozen; the operator log contains each named tool |
 | **A′. Body generator check** | M6a | New → humanoid body mesh generator (smooth, then segmented) | 400–900 tris; closed, manifold, X-symmetric, T-posed; 5 minutes |
 | **B. Prop** | M6a | New → handheld; cube → blade (extrude, merge tip to centre), cross-guard, 6-sided handle, pommel; same palette, all hard; ◇ preview in the right hand | 80–400 tris; static; ≤ 16 meshes; grip block in bounds; `ekza/omoba-handheld-v1` clean, < 100 KB |
-| **C. Rig and skin** | M6b | Quick Rig (Standard 33, five markers); `vrm.tpose.*` pass; Bind → Auto (low-poly); play the ROM clip; fix shoulders with Smooth/Replace; mirror weights L→R; variant C′: segmented body with rigid islands | every vertex weighted; ≤ 4 influences; sums within tolerance; crack distance ≤ 1e-6 m over ROM; C′ 100 % single influence |
-| **D. Animate** | M6b (M1/M2a tools) | controls appear as for an imported VRM; 1 s in-place walk loop at 30 fps with IK legs (planted feet, closed loop); rough `idle`, `attack`, `cast`, `death` | M2a walk checks hold on the own character |
-| **E. Export** | M6a (static) + M6b | `ekza/space-avatar-v1` → `lowpoly-lad.vrm`; `ekza/omoba-humanoid-v1` with five clips; `ekza/omoba-handheld-v1` → `lowpoly-sword.glb` | glTF-Validator and `vrm-validator` 0 errors; Ekza lints 0 errors; read-back equal (tris, joints, humanoid map, palette samples within 1/255); three-vrm plays `walk`; VRM < 1 MiB; export twice and after reopening the project → byte-identical; (owner, optional) upload both to Ekza Studio |
+| **C. Rig and skin** | M6b | (in the same project as A and B, with a 3-segment ponytail added in A) Quick Rig (Standard 33, five markers or One-Click guess; a knee fitted with `D` + drag); a hair chain with Add Chain (parented to `head`) + Orient Joint; `skel.*` pass; Bind → Auto (low-poly); `E` on an elbow and a knee (test pose); play the ROM clip; fix shoulders with Smooth/Replace (mirror stroke); type 0.5 on elbow/knee loops in the Component Editor; Mirror Skin Weights L→R; Prune; **C2** Attach Prop (the sword in the right hand) + a **Back socket** added as a third grip target `back` (snap offset); **C3** control shapes (arrow, colour, mirrored arm circles); variant C′: the segmented body | every point weighted, none on the helper `root`; ≤ 4 influences; sums within tolerance; a visible control rotates the ponytail; crack distance ≤ 1e-6 m over ROM; sword rest-exact in the hand; shape edits create no keys; C′: upper/lower arm and leg islands 100 % single influence (M6B-SPEC §10.3 row C′, P-S7) |
+| **D. Animate** | M6b (M1/M2a tools) | controls appear as for an imported VRM; 1 s in-place walk loop at 30 fps with IK legs (planted feet, closed loop) and a ponytail swing; an `attack` with the IK right arm swinging the sword and a sheathe (grip weights hand → back keyed); rough `idle`, `cast`, `death` | M2a walk checks hold on the own character; the sword follows the hand, then sits on the back socket |
+| **E. Export** | M6a (static) + M6b | VRM meta (authors, CC0, thumbnail) → `ekza/space-avatar-v1` → `lowpoly-lad.vrm` (sword included); `ekza/omoba-humanoid-v1` with five clips (sword excluded: OMOBA equips handhelds); `ekza/omoba-handheld-v1` → `lowpoly-sword.glb` | glTF-Validator and `vrm-validator` 0 errors; Ekza lints 0 errors; read-back equal (tris, joints, humanoid map, palette samples within 1/255); three-vrm plays `walk`; VRM < 1 MiB; export twice and after reopening the project → byte-identical; (owner, optional) upload both to Ekza Studio |
 
 Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its own retargeted library on VRM avatars;
 "passes the OMOBA profile" is not "plays our walk in OMOBA". Ekza Space plays embedded `idle`/`walk`.
@@ -985,7 +1022,7 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | 4 | **Turnkey release** (`v0.4.0`) | Closes the loop model → rig → animate → export; T0 (manual upload to Studio) works with no ecosystem change |
 | 5 | **"Publish avatar"** (the T3 slice of M4a) in parallel with M7 G1 | Needs only the `studio-upload` registry scope (the avatar kind exists, unlike `ekza:animation`), ≈ 2 days here plus registry work in its repository; ends the turnkey story inside Ekza |
 | 6 | **M7 G1**, then G2 (with M6c in parallel if wanted) | Generated meshes are only useful once cleanup (M6a) and rig/skin (M6b) exist; contracts are already in place from M6a, so nothing is retrofitted; integrating later also lands on newer provider models (Meshy and Tripo retired modes within months) |
-| 7 | **M2b** (FBX/BVH/Mixamo retarget) and the rest of **M2c** → **V1** release | M2b's humanoid inference (FR-IO-13) also helps M7 with Mixamo-like provider rigs (G2); M2c polish (constraints, onion skin, playblast, audio, hotkey editor, IO worker) can then include the Model workspace |
+| 7 | **M2b** (FBX/BVH/Mixamo retarget) and the rest of **M2c** → **V1** release | M2b's humanoid inference (FR-IO-13) also helps M7 with Mixamo-like provider rigs (G2); M2c polish (onion skin, playblast, audio, hotkey editor, IO worker; constraints and control-shape editing moved to M6b) can then include the Model and Rig & Skin workspaces |
 | 8 | **M4a T1** (typed animation assets) | Registry migration and game consumers in other repositories; independent of collaboration |
 | 9 | **M3** collaboration, then **M4b** | No team user exists yet; mesh storage (chunks, claims) must be settled first so the sync transport and `HttpAssetStore` cover mesh blobs once; `doc-yjs` keeps running the conformance suite with the schema v3 tables meanwhile, so the store contract does not drift |
 | 10 | **M5**, then **M8** splines and generators | `mesh-core` is the generator output type, so M8 builds on M6 without a second kernel |
@@ -1006,6 +1043,9 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | A collaborator's offline modeling silently lost under last-writer-wins | M3 | `data.base` in schema v3; conflicted copy on fork (ADR 0015 §10) |
 | An exposed gateway spends the operator's credits | M7 | default deny, required auth, server-side caps, 404 test |
 | Auto-skin quality on single-piece organic bodies | M6b | bone heat with stiffness + rigidify; weight tools in the MVP; two fixture kinds in the gates |
+| M6b scope growth (≈ 70.5 vs 43.5 agent-days) after the Rig & Skin expansion and its design review | M6b | M6b's work ends before M6a's release cut; a named turnkey minimum (≈ 62) and stretch list; M6B-SPEC §12.3 |
+| Constraint compiler changes (priority swap, data-flow edges) shift shipped schedules or exports | M6b | schedule-identity and export byte-identity gates on every M2a fixture rig (M6B-SPEC P-C3) |
+| Schema v4 reaching a `v0.3.x` build | M6b | the `m6b/dev` staging branch until the `release/0.3.0` cut (M6B-SPEC §2.2) |
 | A-pose assets and the VRM T-pose rule; Apply Pose as Rest shifts existing clips | M6b | `skel.tpose` lint; offer it before animating; warning |
 | Provider churn, terms (resale, training) and cost attacks | M7 | pinned versions, contract tests, BYO and self-host first, quotes, caps, kill switch, mock server in CI |
 | Licence traps (GPL references, Unlicense, nvdiffrast non-commercial, Hunyuan territory) | all | clean-room rule, licence gate with reviewed exceptions, worker SBOM check, weights never vendored |
