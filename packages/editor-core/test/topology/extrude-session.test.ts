@@ -3,7 +3,7 @@
 // along world Y; rotations compose about the cap's pivot; scale in the session frame), the args undo stack (undo steps
 // back through absorbed drags without changing the history length; undo at index 0 removes the extrude), every row of
 // the end-trigger table with its zero-drop (a mode switch keeps a zero extrude), smart extrude chains, `T`'s reopen.
-import { type Quat, quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
+import { type Quat, quatFromAxisAngle, quatRotateVec3, type ReadonlyXf, type Vec3 } from '@ekza-animator/anim-core';
 import type { MeshRecord } from '@ekza-animator/doc';
 import { borderChainFrame, editMeshFrom, type MeshData, primitive } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
@@ -14,6 +14,7 @@ import {
   extrudeManipulatorFrame,
   type ExtrudeSessionShim,
   isIdentityExtrude,
+  manipulatorFrame,
   onModelHelp,
   type OperatorDef,
   worldPlacement,
@@ -103,6 +104,37 @@ describe('the zero-drop identity (§5.8)', () => {
     expect(args['localTranslateZ']).toBeCloseTo(0, 12);
     const world = absorbArgs({ space: 'world' }, { translate: [0, 2, 0] }, frame, { t: [5, 0, 0], q, s: [2, 2, 2] });
     expect(world).toMatchObject({ localTranslateX: 0, localTranslateY: 2, localTranslateZ: 0 });
+  });
+  it('absorbArgs and manipulatorFrame of a mirrored partner: the source frame with the reflected delta (§5.14)', () => {
+    // The +X face's frame carried by the −X cap (Object X): the kernel moves the −X cap with S ∘ T ∘ S.
+    const frame = {
+      pivot: [0.5, 0, 0] as Vec3,
+      axes: [
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+      ] as [Vec3, Vec3, Vec3],
+      mirror: { m: [-1, 0, 0, 0, 1, 0, 0, 0, 1], t: [0, 0, 0] as [number, number, number] },
+    };
+    const xf = { t: [0, 0, 0] as Vec3, q: [0, 0, 0, 1] as Quat, s: [1, 1, 1] as Vec3 };
+    // World +Z on the −X cap is the frame's +Y; world +X (out of the +X cap's mirror) is its −Z.
+    expect(absorbArgs({}, { translate: [0, 0, 0.3] }, frame, xf)['localTranslateY']).toBeCloseTo(0.3, 12);
+    expect(absorbArgs({}, { translate: [0.3, 0, 0] }, frame, xf)['localTranslateZ']).toBeCloseTo(-0.3, 12);
+    // A rotation about the mirror's normal (world X) reflects to itself: about the source frame's Z, localRotateZ +θ.
+    const rotated = absorbArgs({}, { rotate: quatFromAxisAngle([1, 0, 0], 0.2) }, frame, xf);
+    expect(rotated['localRotateZ']).toBeCloseTo(0.2, 12);
+    expect(rotated['localRotateX']).toBeCloseTo(0, 12);
+    // The manipulator sits on the −X cap in the reflected frame (left-handed: Z is the −X cap's normal).
+    const at = manipulatorFrame({ localTranslateZ: 0.25 }, frame, xf, 'local');
+    expectVec(at.pivot, [-0.75, 0, 0]);
+    expectVec(at.axes[0], [0, 1, 0]);
+    expectVec(at.axes[1], [0, 0, 1]);
+    expectVec(at.axes[2], [-1, 0, 0]);
+    expect(manipulatorFrame({}, frame, xf, 'world').axes).toEqual([
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]);
   });
 });
 
@@ -486,6 +518,234 @@ describe.skipIf(!READY.b3)('the extrude session (§5.8; READY.b3)', () => {
         expect(t.app.extrude.state?.stack).toHaveLength(4);
       });
     }
+  });
+
+  describe('under symmetry, a picked mirrored partner (§5.8 step 4, §5.14: the session follows the reflected frame)', () => {
+    const IDENTITY: ReadonlyXf = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
+
+    /** Object X symmetry on the test mesh (the runs and the session read it from the session state). */
+    function objectX(t: ModelTest): void {
+      const model = t.app.session.getState().model;
+      t.app.session.setState({
+        model: {
+          ...model,
+          symmetry: new Map([[t.id, { mode: 'object-x' as const, tolerance: 0.001, preserveSeam: true }]]),
+        },
+      });
+    }
+
+    /** The world mirror of a world point: placement ∘ (local x ↦ −x) ∘ placement⁻¹ (scale uniform in these tests). */
+    function mirrorWorld(xf: ReadonlyXf, p: Vec3): Vec3 {
+      const s = xf.s[0];
+      const inv: Quat = [-xf.q[0], -xf.q[1], -xf.q[2], xf.q[3]];
+      const l = quatRotateVec3(inv, [(p[0] - xf.t[0]) / s, (p[1] - xf.t[1]) / s, (p[2] - xf.t[2]) / s]);
+      const w = quatRotateVec3(xf.q, [-l[0] * s, l[1] * s, l[2] * s]);
+      return [w[0] + xf.t[0], w[1] + xf.t[1], w[2] + xf.t[2]];
+    }
+
+    /** Every point of `actual` matches one point of `expected` (1e-6), and back. */
+    function expectSameSet(actual: readonly Vec3[], expected: readonly Vec3[]): void {
+      expect(actual).toHaveLength(expected.length);
+      const near = (a: Vec3, b: Vec3): boolean => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]) < 1e-6;
+      for (const p of expected)
+        expect(
+          actual.some((q) => near(p, q)),
+          `missing ${p.join(', ')}`,
+        ).toBe(true);
+      for (const q of actual)
+        expect(
+          expected.some((p) => near(p, q)),
+          `unexpected ${q.join(', ')}`,
+        ).toBe(true);
+    }
+
+    const rotateAbout = (q: Quat, pivot: Vec3, p: Vec3): Vec3 => {
+      const r = quatRotateVec3(q, [p[0] - pivot[0], p[1] - pivot[1], p[2] - pivot[2]]);
+      return [r[0] + pivot[0], r[1] + pivot[1], r[2] + pivot[2]];
+    };
+
+    /**
+     * World drags on X, Y and Z, then a world rotation about the moved pivot: the picked group's new vertices move by
+     * exactly each delta, its source group's by the delta's mirror.
+     */
+    async function dragsFollowTheMirror(
+      t: ModelTest,
+      picked: readonly number[],
+      source: readonly number[],
+      xf: ReadonlyXf,
+    ): Promise<void> {
+      const start = picked.map((v) => worldOf(t, v));
+      const pivot0 = extrudeManipulatorFrame(t.app)?.pivot ?? [0, 0, 0];
+      const moved: Vec3 = [0, 0, 0];
+      for (const delta of [
+        [0.3, 0, 0],
+        [0, 0.25, 0],
+        [0, 0, 0.3],
+      ] as Vec3[]) {
+        await drag(t, { translate: delta });
+        moved[0] += delta[0];
+        moved[1] += delta[1];
+        moved[2] += delta[2];
+        const now = picked.map((v) => worldOf(t, v));
+        now.forEach((p, i) => {
+          const s = start[i] as Vec3;
+          expectVec(p, [s[0] + moved[0], s[1] + moved[1], s[2] + moved[2]]);
+        });
+        expectSameSet(
+          source.map((v) => worldOf(t, v)),
+          now.map((p) => mirrorWorld(xf, p)),
+        );
+        // The manipulator sits on the picked group and moves with it.
+        expectVec(extrudeManipulatorFrame(t.app)?.pivot ?? [], [
+          pivot0[0] + moved[0],
+          pivot0[1] + moved[1],
+          pivot0[2] + moved[2],
+        ]);
+      }
+      const pivot = extrudeManipulatorFrame(t.app)?.pivot ?? [0, 0, 0];
+      const before = picked.map((v) => worldOf(t, v));
+      const q = quatFromAxisAngle(
+        [0.3 / Math.hypot(0.3, 0.5, 0.8), 0.5 / Math.hypot(0.3, 0.5, 0.8), 0.8 / Math.hypot(0.3, 0.5, 0.8)],
+        0.4,
+      );
+      await drag(t, { rotate: q }, 'rotate');
+      const after = picked.map((v) => worldOf(t, v));
+      after.forEach((p, i) => expectVec(p, rotateAbout(q, pivot, before[i] as Vec3)));
+      expectSameSet(
+        source.map((v) => worldOf(t, v)),
+        after.map((p) => mirrorWorld(xf, p)),
+      );
+    }
+
+    /** The face whose centroid is lowest along `axis` (the cube's −X face for 0). */
+    function lowestFace(data: MeshData, axis: 0 | 1 | 2): number {
+      let best = -1;
+      for (let f = 0; f < data.counts.faces; f++) {
+        if (best === -1 || faceCentroid(data, f)[axis] < faceCentroid(data, best)[axis] - 1e-9) best = f;
+      }
+      return best;
+    }
+    const highestFace = (data: MeshData, axis: 0 | 1 | 2): number => {
+      let best = -1;
+      for (let f = 0; f < data.counts.faces; f++) {
+        if (best === -1 || faceCentroid(data, f)[axis] > faceCentroid(data, best)[axis] + 1e-9) best = f;
+      }
+      return best;
+    };
+
+    const placements: readonly { readonly name: string; readonly xf: ReadonlyXf }[] = [
+      { name: 'at the origin', xf: IDENTITY },
+      {
+        name: 'rotated, moved and scaled',
+        xf: { t: [1, -2, 0.5], q: quatFromAxisAngle([0, 1, 0], 0.7), s: [2, 2, 2] },
+      },
+    ];
+
+    for (const { name, xf } of placements) {
+      it(`a cube's −X face (${name}): the reflected frame, X/Y/Z drags and a rotation exact on both caps`, async () => {
+        const data = primitive('cube', {});
+        const minusX = lowestFace(data, 0);
+        const plusX = highestFace(data, 0);
+        const t = await modelWith('face', () => [minusX], data, { placement: xf });
+        objectX(t);
+        expect((await t.app.runUntyped('mesh.extrude', {}, { source: 'keyboard' })).status).toBe('finished');
+        await settle();
+        // Both caps extruded (8 + 2 × 4 vertices).
+        expect(counts(t, t.id)).toBe('16/28/14');
+        // The session frame is the reflected frame of the +X face's: X and Y as the source's, Z its own normal.
+        const plus = [0, 1, 0] as Vec3;
+        const state = t.app.extrude.state;
+        const toWorldDir = (d: Vec3): Vec3 => quatRotateVec3(xf.q, d);
+        const toWorldPoint = (p: Vec3): Vec3 => {
+          const r = quatRotateVec3(xf.q, [p[0] * xf.s[0], p[1] * xf.s[1], p[2] * xf.s[2]]);
+          return [r[0] + xf.t[0], r[1] + xf.t[1], r[2] + xf.t[2]];
+        };
+        expectVec(state?.frame.pivot ?? [], toWorldPoint([-0.5, 0, 0]));
+        expectVec(state?.frame.axes[0] ?? [], toWorldDir(plus));
+        expectVec(state?.frame.axes[1] ?? [], toWorldDir([0, 0, 1]));
+        expectVec(state?.frame.axes[2] ?? [], toWorldDir([-1, 0, 0]));
+        expect(extrudeManipulatorFrame(t.app)?.scaleAxes).toEqual(extrudeManipulatorFrame(t.app)?.axes);
+        await dragsFollowTheMirror(t, faceVerts(dataOf(t, t.id), minusX), faceVerts(dataOf(t, t.id), plusX), xf);
+        // Identical numbers on both sides (§5.14): mesh-local +Z on the −X cap is its reflected frame's +Y (and the
+        // source's), so the translate args hold the drags' local Z as localTranslateY (the bug stored −Z).
+        expect(t.app.extrude.state?.stack).toHaveLength(5);
+        const inverse: Quat = [-xf.q[0], -xf.q[1], -xf.q[2], xf.q[3]];
+        const local = quatRotateVec3(inverse, [0.3, 0.25, 0.3]);
+        expect(t.app.extrude.state?.stack[3]?.['localTranslateY']).toBeCloseTo(local[2] / xf.s[0], 9);
+        expect(t.app.extrude.state?.stack[3]?.['localTranslateX']).toBeCloseTo(local[1] / xf.s[0], 9);
+        expect(t.app.extrude.state?.stack[3]?.['localTranslateZ']).toBeCloseTo(-local[0] / xf.s[0], 9);
+      });
+    }
+
+    it('the +X face (the source) keeps its own frame: the same drags, the partner mirrored', async () => {
+      const data = primitive('cube', {});
+      const t = await modelWith('face', () => [highestFace(data, 0)], data);
+      objectX(t);
+      await t.app.runUntyped('mesh.extrude', {}, { source: 'keyboard' });
+      await settle();
+      expect(counts(t, t.id)).toBe('16/28/14');
+      expectVec(t.app.extrude.state?.frame.axes[2] ?? [], [1, 0, 0]);
+      const d = dataOf(t, t.id);
+      await dragsFollowTheMirror(t, faceVerts(d, highestFace(data, 0)), faceVerts(d, lowestFace(data, 0)), IDENTITY);
+    });
+
+    it('a border edge on −X (2 × 1 plane): X/Y/Z drags and a rotation exact on both new edges', async () => {
+      const data = primitive('plane', { width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+      const m = editMeshFrom(data);
+      let edge = -1;
+      for (let e = 0; e < data.counts.edges; e++) {
+        const a = position(data, data.edgeVerts[2 * e] as number);
+        const b = position(data, data.edgeVerts[2 * e + 1] as number);
+        if (Math.abs(a[0] + 1) < 1e-9 && Math.abs(b[0] + 1) < 1e-9 && m.edgeFaceCount(e) === 1) edge = e;
+      }
+      expect(edge).toBeGreaterThanOrEqual(0);
+      const t = await modelWith('edge', () => [edge], data);
+      objectX(t);
+      expect((await t.app.runUntyped('mesh.extrude', {}, { source: 'keyboard' })).status).toBe('finished');
+      await settle();
+      // Two new vertices per edge, both border edges extruded.
+      const before = data.counts.points;
+      expect(dataOf(t, t.id).counts.points).toBe(before + 4);
+      const added = [0, 1, 2, 3].map((i) => before + i);
+      const picked = added.filter((v) => worldOf(t, v)[0] < 0);
+      const source = added.filter((v) => worldOf(t, v)[0] > 0);
+      expect(picked).toHaveLength(2);
+      expect(source).toHaveLength(2);
+      // The session frame is the reflected frame of the +X chain's: its pivot on the −X edge.
+      expectVec(t.app.extrude.state?.frame.pivot ?? [], [-1, 0, 0]);
+      await dragsFollowTheMirror(t, picked, source, IDENTITY);
+    });
+
+    it('smart extrude on the −X face: the drag moves the picked cap by its delta, the partner by its mirror', async () => {
+      const data = primitive('cube', {});
+      const minusX = lowestFace(data, 0);
+      const plusX = highestFace(data, 0);
+      const t = await modelWith('face', () => [minusX], data);
+      objectX(t);
+      const start = faceVerts(data, minusX).map((v) => position(data, v));
+      const gesture = beginSmartExtrude(t.app, { paneId: 'pane-persp' });
+      expect(gesture).not.toBeNull();
+      gesture?.update({ translate: [0, 0.1, 0.3] });
+      gesture?.commit();
+      await settle();
+      expect(counts(t, t.id)).toBe('16/28/14');
+      expect(undoLabels(t)).toEqual(['Extrude']);
+      const cap = faceVerts(dataOf(t, t.id), minusX).map((v) => worldOf(t, v));
+      expectSameSet(
+        cap,
+        start.map((p) => [p[0], p[1] + 0.1, p[2] + 0.3] as Vec3),
+      );
+      expectSameSet(
+        faceVerts(dataOf(t, t.id), plusX).map((v) => worldOf(t, v)),
+        cap.map((p) => [-p[0], p[1], p[2]] as Vec3),
+      );
+      // The new session opens on the same (reflected) frame: a further drag stays exact.
+      await drag(t, { translate: [0, 0, -0.1] });
+      expectSameSet(
+        faceVerts(dataOf(t, t.id), minusX).map((v) => worldOf(t, v)),
+        start.map((p) => [p[0], p[1] + 0.1, p[2] + 0.2] as Vec3),
+      );
+    });
   });
 
   it('setManipSpace toggles the manipulator space of the open session', async () => {

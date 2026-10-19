@@ -2,9 +2,11 @@
 // ./extrudeSession.ts on the first Model entry.
 //
 // - **Open**: after a finished `mesh.extrude` run from any source but the card (keyboard, menus, marking menus, the
-//   Toolkit, smart extrude, `G`), and on `T` (`reopen`). The session frame is the §5.8 region frame of the first region
-//   of the run's selection, taken before the run (the cap keeps the original face indices, so the frame of a later
-//   `T` comes from a memo of that frame, else from the cap). In Model's select tool the extrude manipulator tool
+//   Toolkit, smart extrude, `G`), and on `T` (`reopen`). The session frame is the frame the kernel applies to the group
+//   (region or border-edge chain) holding the lowest-index selected component, grouped as the run groups the
+//   symmetry-expanded selection (mesh-core `extrudeGroupFrame`; a mirrored partner group: its source's frame and the
+//   mirror, the manipulator drawn in the reflected frame, §5.14), taken before the run (the cap keeps the original face
+//   indices, so the frame of a later `T` comes from a memo of that frame, else from the cap). In Model's select tool the extrude manipulator tool
 //   (`VIEWPORT_TOOL.extrude`) takes over the viewport until the session ends.
 // - **Absorb**: every manipulator drag and every W/E/R or MMB drag on the cap (`beginAbsorb`) converts its world-space
 //   delta into the extrude's `local*` args (exact from any manipulator space: translate `t += Aᵀ·M⁻¹·Δt`, rotate
@@ -35,7 +37,7 @@ import {
   type Vec3,
 } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
-import type { BitSet, ComponentKind, EditMesh, OpFrame } from '@ekza-animator/mesh-core';
+import type { ComponentKind, EditMesh, ExtrudeGroupFrame, OpFrame } from '@ekza-animator/mesh-core';
 import { worldPlacement } from '../../mesh/context';
 import { meshKernel } from '../../mesh/kernel';
 import { targetsOf } from '../../mesh/operator';
@@ -94,10 +96,22 @@ const PIVOT_OPERATORS: ReadonlySet<string> = new Set([
 
 // ---------- frames and the args math (pure) ----------
 
+/** A mesh-local reflection `p ↦ m·p + t` (`m` row-major 3×3; mesh-core's `ExtrudeMirror`). */
+export interface FrameMirror {
+  readonly m: readonly number[];
+  readonly t: readonly [number, number, number];
+}
+
 /** A frame: pivot and orthonormal axes (mesh-local or world). */
 export interface Frame {
   readonly pivot: Vec3;
   readonly axes: readonly [Vec3, Vec3, Vec3];
+  /**
+   * Under symmetry, when the session's group is a mirrored partner (§5.8 step 4, §5.14): the kernel moves it with
+   * S ∘ T ∘ S, T the transform of this (its source group's) frame. A drag of the picked group is then converted in
+   * this frame with the mirrored delta, and the manipulator is drawn in the reflected frame S·F the group follows.
+   */
+  readonly mirror?: FrameMirror | null;
 }
 
 /** A drag's world-space delta about the session frame's pivot (`AbsorbGesture.update`). */
@@ -167,6 +181,47 @@ function invert3(m: M3): M3 | null {
   ];
 }
 
+const mulM = (a: M3, b: M3): M3 => {
+  const out = [0, 0, 0, 0, 0, 0, 0, 0, 0];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 3; c++) {
+      out[3 * r + c] =
+        (a[3 * r] as number) * (b[c] as number) +
+        (a[3 * r + 1] as number) * (b[3 + c] as number) +
+        (a[3 * r + 2] as number) * (b[6 + c] as number);
+    }
+  }
+  return out as unknown as M3;
+};
+
+/** The world reflection of a frame's mirror (`L ∘ S ∘ L⁻¹`, L the placement), or null without one. */
+interface WorldMirror {
+  /** Linear part W = M·S·M⁻¹ (orthogonal, det −1: the mirror plane in world). */
+  readonly w: M3;
+  readonly point: (p: Vec3) => Vec3;
+}
+
+function worldMirror(frame: Frame, placement: ReadonlyXf): WorldMirror | null {
+  const mirror = frame.mirror;
+  if (mirror === undefined || mirror === null) return null;
+  const M = placementLinear(placement);
+  const inverse = invert3(M);
+  if (inverse === null) return null;
+  const S = mirror.m as unknown as M3;
+  const t: Vec3 = [placement.t[0], placement.t[1], placement.t[2]];
+  return {
+    w: mulM(M, mulM(S, inverse)),
+    point: (p) => add(mulV(M, add(mulV(S, mulV(inverse, sub(p, t))), [...mirror.t] as Vec3)), t),
+  };
+}
+
+/** W·ΔR·W for a reflection W (det −1): the rotation about −W·axis by the same angle. */
+function mirrorQuat(w: M3, q: Quat): Quat {
+  const v = mulV(w, [q[0], q[1], q[2]]);
+  const n = Math.hypot(v[0], v[1], v[2], q[3]) || 1;
+  return [-v[0] / n, -v[1] / n, -v[2] / n, q[3] / n];
+}
+
 /** World point of a mesh-local point. */
 export function toWorld(xf: ReadonlyXf, p: Vec3): Vec3 {
   return add(mulV(placementLinear(xf), p), [xf.t[0], xf.t[1], xf.t[2]]);
@@ -197,7 +252,9 @@ const numberArg = (args: ParamValues, name: string, fallback: number): number =>
 /**
  * The extrude's args after a drag (§5.8 "Conversion uses the args frame A"): `start` are the args when the drag began,
  * `frame` the session frame (mesh-local), `placement` the mesh's world placement. Translate and rotate are exact from
- * any manipulator space; scale multiplies the frame-aligned factors.
+ * any manipulator space; scale multiplies the frame-aligned factors. A mirrored partner group (`frame.mirror`) moves
+ * with the reflection of its source's transform, so its world delta is reflected first (W·Δt, W·ΔR·W): the picked
+ * group moves by the delta, its source by the delta's mirror.
  */
 export function absorbArgs(
   start: ParamValues,
@@ -207,6 +264,14 @@ export function absorbArgs(
 ): Record<string, ParamValue> {
   const out: Record<string, ParamValue> = { ...start };
   const world = start['space'] === 'world';
+  const reflect = worldMirror(frame, placement);
+  if (reflect !== null) {
+    delta = {
+      ...delta,
+      ...(delta.translate === undefined ? {} : { translate: mulV(reflect.w, delta.translate) }),
+      ...(delta.rotate === undefined ? {} : { rotate: mirrorQuat(reflect.w, delta.rotate) }),
+    };
+  }
   const t: Vec3 = [
     numberArg(start, 'localTranslateX', 0),
     numberArg(start, 'localTranslateY', 0),
@@ -305,37 +370,19 @@ export function manipulatorFrame(
     pivot = toWorld(placement, local);
     cap = worldAxes(placement, rotatedAxes(frame.axes, r));
   }
+  // A mirrored partner group follows the reflected frame S·F (§5.14): the handles sit on it, not on its source.
+  const reflect = worldMirror(frame, placement);
+  if (reflect !== null) {
+    pivot = reflect.point(pivot);
+    cap = cap.map((axis) => mulV(reflect.w, axis)) as [Vec3, Vec3, Vec3];
+  }
   return { pivot, axes: space === 'world' ? WORLD_AXES : cap, scaleAxes: cap, space };
 }
 
-// ---------- region frames (§5.8 step 4, step 7) ----------
-
-/** The faces of the region of `faces` holding its lowest-index face (connected through shared edges). */
-function firstRegion(m: EditMesh, faces: BitSet, together: boolean): number[] {
-  const all = faces.toArray();
-  const seed = all[0];
-  if (seed === undefined) return [];
-  if (!together) return [seed];
-  const region = new Set<number>([seed]);
-  const queue = [seed];
-  while (queue.length > 0) {
-    const f = queue.pop() as number;
-    const first = m.faceCorner(f);
-    let c = first;
-    do {
-      let o = m.cornerRadialNext(c);
-      while (o !== c && o >= 0) {
-        const g = m.cornerFace(o);
-        if (faces.has(g) && !region.has(g)) {
-          region.add(g);
-          queue.push(g);
-        }
-        o = m.cornerRadialNext(o);
-      }
-      c = m.cornerNext(c);
-    } while (c !== first);
-  }
-  return [...region].sort((a, b) => a - b);
+/** The world frame of a session frame with the identity args (the cap where the faces were; mirrored for a partner). */
+export function sessionWorldFrame(frame: Frame, placement: ReadonlyXf): OpFrame {
+  const at = manipulatorFrame({}, frame, placement, 'local');
+  return { pivot: at.pivot, axes: at.scaleAxes };
 }
 
 // ---------- the engine ----------
@@ -448,33 +495,34 @@ class Engine implements ExtrudeEngine {
     return data === null || kernel === null ? null : kernel.editMeshFrom(data);
   }
 
-  /** The §5.8 frame of the first region of the current selection of `kind` (faces or border edges). */
+  /**
+   * The frame the kernel applies to the group (face region or border-edge chain, §5.8 steps 4 and 7) that holds the
+   * lowest-index selected component of `kind`, grouped as `mesh.extrude` groups the selection expanded by the mesh's
+   * symmetry (§5.14): a mirrored partner group carries its source's frame and the mirror (`Frame.mirror`).
+   */
   private frameOfSelection(mesh: MeshId, kind: ComponentKind, together: boolean): Frame | null {
     const kernel = meshKernel();
     const m = this.editMesh(mesh);
-    if (kernel === null || m === null) return null;
-    let sel;
+    if (kernel === null || m === null || (kind !== 'face' && kind !== 'edge')) return null;
+    let found: ExtrudeGroupFrame | null;
     try {
-      sel = this.app.components.get(mesh, kind);
+      const sel = this.app.components.get(mesh, kind);
+      const map = this.app.meshes.get(mesh)?.symmetry() ?? null;
+      found = kernel.extrudeGroupFrame(m, kind, kind === 'face' ? sel.faces.toArray() : sel.edges.toArray(), {
+        keepFacesTogether: together,
+        symmetry: map === null ? null : { map, preserveSeam: true },
+        placement: this.placementOf(mesh),
+      });
     } catch {
       return null;
     }
-    if (kind !== 'face' && kind !== 'edge') return null;
-    let frame: OpFrame | null;
-    try {
-      if (kind === 'face') {
-        const region = firstRegion(m, sel.faces, together);
-        frame = region.length === 0 ? null : kernel.regionFrame(m, region);
-      } else {
-        // Border edges: the kernel's own frame of the chain that holds the lowest-index selected edge (§5.8 step 7),
-        // so an absorbed drag is converted in the frame the kernel applies it in.
-        frame = kernel.borderChainFrame(m, sel.edges.toArray());
-      }
-    } catch {
-      return null;
-    }
-    if (frame === null) return null;
-    return { pivot: [...frame.pivot] as Vec3, axes: frame.axes.map((a) => [...a] as Vec3) as [Vec3, Vec3, Vec3] };
+    if (found === null) return null;
+    const { frame, mirror } = found;
+    return {
+      pivot: [...frame.pivot] as Vec3,
+      axes: frame.axes.map((a) => [...a] as Vec3) as [Vec3, Vec3, Vec3],
+      mirror: mirror === null ? null : { m: [...mirror.m], t: [...mirror.t] },
+    };
   }
 
   /** The frame of the selection an extrude is about to run on (`args` as the runner coerced them). */
@@ -509,24 +557,23 @@ class Engine implements ExtrudeEngine {
     if (args['space'] === 'world') {
       const inverse = invert3(placementLinear(this.placementOf(mesh)));
       const back = inverse === null ? t : mulV(inverse, t);
-      return { mesh, frame: { pivot: sub(frame.pivot, back), axes: frame.axes } };
+      return { mesh, frame: { ...frame, pivot: sub(frame.pivot, back) } };
     }
     const shift = add(add(scale(frame.axes[0], t[0]), scale(frame.axes[1], t[1])), scale(frame.axes[2], t[2]));
-    return { mesh, frame: { pivot: sub(frame.pivot, shift), axes: frame.axes } };
+    return { mesh, frame: { ...frame, pivot: sub(frame.pivot, shift) } };
   }
 
   private open(last: LastRun, captured: Captured | null): void {
     const frame = captured ?? this.frameFromCap(last);
     if (frame === null || last.stepId === null) return;
     const placement = this.placementOf(frame.mesh);
-    const axes = worldAxes(placement, frame.frame.axes);
     const session = this.app.session.getState();
     const toolFree = session.tools.viewport === 'select' || session.tools.viewport === EXTRUDE_TOOL;
     const manipulator = toolFree && this.app.tools.get('viewport', EXTRUDE_TOOL) !== undefined;
     const state: ExtrudeSessionState = {
       stepId: last.stepId,
       meshes: [...last.targets],
-      frame: { pivot: toWorld(placement, frame.frame.pivot), axes },
+      frame: sessionWorldFrame(frame.frame, placement),
       stack: [{ ...argsOf(last) }],
       index: 0,
       manipSpace: 'local',

@@ -302,6 +302,7 @@ export {
   type ExtrudeManipFrame,
   extrudeManipulatorFrame,
   type Frame as ExtrudeFrame,
+  type FrameMirror as ExtrudeFrameMirror,
   isIdentityExtrude,
   manipulatorFrame,
   placementLinear,
