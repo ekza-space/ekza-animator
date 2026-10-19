@@ -14,7 +14,7 @@
     "build": "turbo run build",
     "test": "turbo run test test:tooling",
     "test:tooling": "node --test \"tooling/test/*.test.mjs\"",
-    "test:e2e": "pnpm --filter web e2e",
+    "test:e2e": "pnpm run mcp:build && pnpm --filter web e2e",
     "mcp:build": "pnpm --filter ekza-animator-mcp build",
     "evals": "pnpm --filter @ekza-animator/agent-evals test",
     "lint": "oxlint --type-aware",

@@ -5,9 +5,7 @@
     "rootDir": ".",
     "outDir": "../.tsbuild/src"
   },
-  "include": [
-    "./**/*"
-  ],
+  "include": ["./**/*"],
   "references": [
     {
       "path": "../../anim-core/src"
