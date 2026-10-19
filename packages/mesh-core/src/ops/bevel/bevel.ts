@@ -867,6 +867,16 @@ export function runBevel(
   }
   // A row whose ends both converge on kept vertices has no area: its neighbours share its long edge instead.
   const live = polys.filter((poly) => new Set(poly.tokens).size >= 3);
+  // The rows of each strip (by its edge) and the triangles of each fan (by its bevelled vertex).
+  const rowsOf = new Map<number, Poly[]>();
+  const fanPolys = new Map<number, Poly[]>();
+  for (const poly of live) {
+    const group = poly.kind === 'row' ? rowsOf : poly.kind === 'fan' ? fanPolys : null;
+    if (group === null) continue;
+    const list = group.get(poly.source);
+    if (list === undefined) group.set(poly.source, [poly]);
+    else list.push(poly);
+  }
 
   // ----- the clamp: the largest width factor λ ≤ 1 that keeps every face oriented and every edge non-degenerate -----
   const refs = new Map<Poly, Float64Array>();
@@ -1022,11 +1032,8 @@ export function runBevel(
     const token = tokens.list[t] as Token;
     if (token.kind !== T_CENTER) continue;
     const ring = new Set<number>();
-    for (const poly of live) {
-      if (poly.kind === 'fan' && poly.source === token.at) {
-        for (const r of poly.tokens) if (r !== t) ring.add(tokens.vertex(r));
-      }
-    }
+    for (const poly of fanPolys.get(token.at) ?? [])
+      for (const r of poly.tokens) if (r !== t) ring.add(tokens.vertex(r));
     mergePointAttributes(
       m,
       [...ring].sort((a, b) => a - b),
@@ -1092,12 +1099,11 @@ export function runBevel(
       if (end.insert !== -1) own.set(end.insert, at(strip.f1, end.x));
     }
     for (const [t, record] of own) stripRecord.set(`${strip.e}:${t}`, record);
-    for (const poly of live) {
-      if (poly.kind === 'row' && poly.source === strip.e)
-        records.set(
-          poly,
-          poly.tokens.map((t) => own.get(t) ?? zero),
-        );
+    for (const poly of rowsOf.get(strip.e) ?? []) {
+      records.set(
+        poly,
+        poly.tokens.map((t) => own.get(t) ?? zero),
+      );
     }
   }
   /** A corner-patch record: profile points from their strip; others from the face around x that has the token. */
@@ -1127,8 +1133,7 @@ export function runBevel(
     const center = poly.tokens[0] as number;
     if (!centerRecord.has(center)) {
       const ring = new Set<number>();
-      for (const other of live)
-        if (other.kind === 'fan' && other.fan === poly.fan) for (const t of other.tokens.slice(1)) ring.add(t);
+      for (const other of fanPolys.get(poly.source) ?? []) for (const t of other.tokens.slice(1)) ring.add(t);
       const list = [...ring].map((t) => patchRecord(poly.source, t));
       centerRecord.set(
         center,
