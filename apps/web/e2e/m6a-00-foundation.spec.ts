@@ -133,12 +133,15 @@ const EDITOR_OPS = [
   'file.exportModel',
 ];
 
+/** Operators their owners have landed (no longer stubs): B7's `mesh.create.*` (M6A-SPEC §6.2). */
+const LANDED = new Set(['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`));
+
 test('every M6a operator resolves and poll-fails cleanly; the document stays untouched', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const before = await call(page, 'counts');
   const refused: string[] = [];
-  for (const op of [...MESH_OPS, ...EDITOR_OPS]) {
+  for (const op of [...MESH_OPS, ...EDITOR_OPS].filter((id) => !LANDED.has(id))) {
     // `run` fails the test for an unregistered operator or a stub that reaches its apply (helpers/test-api.ts).
     const result = await run(page, op);
     if (result.status !== 'cancelled' || (result.reason ?? '') === '') refused.push(`${op}: ${JSON.stringify(result)}`);
