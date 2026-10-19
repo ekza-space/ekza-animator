@@ -374,3 +374,34 @@ export {
   placementArg,
   placementChangeLabel,
 } from './operators/builtin/pivot';
+// M6a (B12b, M6A-SPEC §5.8): the extrude session's shim and hooks, the Model tools' help-line channel (eager), and the
+// session engine (./operators/builtin/extrudeEngine, a lazy chunk: only lazy code — the viewport's topology tools and
+// the test API — imports its exports, so the eager route drops them; eager code reaches it through `loadExtrudeEngine`).
+export {
+  bindExtrude,
+  type ExtrudeEngine,
+  type ExtrudeEngineHost,
+  extrudeEngineModule,
+  type ExtrudeSessionShim,
+  loadExtrudeEngine,
+  type ModelToolMessage,
+  onModelHelp,
+  sayModelHelp,
+} from './operators/builtin/extrudeSession';
+export {
+  type AbsorbDelta,
+  absorbArgs,
+  beginSmartExtrude,
+  EXTRUDE_IDENTITY,
+  EXTRUDE_REMOVED,
+  extrudeFirstDrag,
+  type ExtrudeManipFrame,
+  extrudeManipulatorFrame,
+  type Frame as ExtrudeFrame,
+  type FrameMirror as ExtrudeFrameMirror,
+  isIdentityExtrude,
+  manipulatorFrame,
+  placementLinear,
+  toWorld,
+  worldAxes,
+} from './operators/builtin/extrudeEngine';

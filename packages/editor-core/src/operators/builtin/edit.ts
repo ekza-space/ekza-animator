@@ -63,14 +63,25 @@ const undo = defineOperator<'edit.undo', Stepped>({
   apply: ({ app }, _args, prepared) => (prepared.stepped ? null : reportHistory(app, app.history.undo())),
 });
 
+/**
+ * `edit.redo {step}` (B12b, §5.8: the zero-drop toast's Undo) redoes only while `step` is the history's top redo entry
+ * (an undo of anything else since, or a new edit, leaves it a no-op "Nothing to restore"); it never steps a session.
+ */
+const redoStep = (args: unknown): number | null =>
+  isRecord(args) && typeof args['step'] === 'number' ? args['step'] : null;
+
 const redo = defineOperator<'edit.redo', Stepped>({
   id: 'edit.redo',
   label: 'Redo',
   description: 'Redo the last undone edit.',
   category: 'edit',
   scope: GLOBAL_SCOPE,
-  poll: ({ app }) => (app.history.canRedo() || app.extrude.state !== null ? OK : fail('Nothing to redo')),
-  prepare: ({ app }) => stepSession(app, 'forward'),
+  poll: ({ app }, args) => {
+    const step = redoStep(args);
+    if (step !== null) return app.history.peekRedo()?.id === step ? OK : fail('Nothing to restore');
+    return app.history.canRedo() || app.extrude.state !== null ? OK : fail('Nothing to redo');
+  },
+  prepare: ({ app }, args) => (redoStep(args) !== null ? NOT_STEPPED : stepSession(app, 'forward')),
   apply: ({ app }, _args, prepared) => (prepared.stepped ? null : reportHistory(app, app.history.redo())),
 });
 

@@ -142,7 +142,9 @@ describe('mesh runtimes over the reference kernel', () => {
     const setOp = kernel.MESH_SET_OPS['mesh.combine'];
     if (op === undefined || setOp === undefined) throw new Error('missing kernel op');
     const session = app.meshes.beginOp(op, [id], {});
-    expect(session.results.get(id)).toMatchObject({ refused: true, code: 'not-implemented' });
+    // The stub refused with `not-implemented`; B3's Extrude (merged here) refuses for its own reason, nothing being
+    // selected (literal update at B12b's merge of B3: the refusal path stays under test).
+    expect(session.results.get(id)).toMatchObject({ refused: true, code: 'extrude.no-selection' });
     session.cancel();
     app.store.transact({ label: 'x' }, (tx) => {
       expect(() => app.meshes.commitOp(tx, op, [id], {}, { seed: 's' })).toThrow(
@@ -206,7 +208,9 @@ describe('meshOperator / meshSetOperator (descriptor wrappers)', () => {
     // B7 (§4.6 MeshOpArgs): the default targets are the hilited meshes with a selection of the kind.
     expect(poll('mesh.inset', {})).toEqual({ ok: false, reason: 'Select components first' });
     const meshes = app.meshes as KernelMeshRuntimes;
-    meshes.select(id, selectionOf('face', [0], primitive('cube', {}).counts));
+    // Every face of the cube: a closed shell has no region boundary, so B3's Inset refuses it (`inset.no-boundary`)
+    // as the stub refused everything (literal update at B12b's merge of B3: the refusal path stays under test).
+    meshes.select(id, selectionOf('face', [0, 1, 2, 3, 4, 5], primitive('cube', {}).counts));
     expect(poll('mesh.inset', {})).toBe(true);
     const result = await app.runUntyped('mesh.inset', {});
     // B7: a refusal of the kernel op fails the run with 'op-refused' (§4.6 commitOp), no step.

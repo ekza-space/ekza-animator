@@ -59,7 +59,7 @@ export function switchWorkspace(app: EditorApp, id: WorkspaceId): boolean {
   if (from === id) return false;
   if (from === 'model') {
     // Before the session is read: ending the session may record its args and change the selection (§5.8).
-    if (app.extrude.state !== null) app.extrude.end('workspace', { drop: false });
+    if (app.extrude.state !== null) app.extrude.end('workspace', { drop: true });
     if (app.capture.state.armed !== null) app.capture.disarm();
   }
   const current = app.session.getState();

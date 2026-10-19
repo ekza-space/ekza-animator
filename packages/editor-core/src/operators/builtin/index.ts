@@ -28,7 +28,7 @@ import { VIEW_OPERATORS } from './view';
 // M6a (M6A-SPEC §6; B0a registers every new operator from its stub file)
 import { CREATE_OPERATORS } from './create';
 import { EXPORT_MODEL_OPERATORS } from './exportModel';
-import { EXTRUDE_SESSION_OPERATORS } from './extrudeSession';
+import { bindExtrude, EXTRUDE_SESSION_OPERATORS } from './extrudeSession';
 import { HIDE_OPERATORS } from './hide';
 import { IMAGE_PLANE_OPERATORS } from './imagePlane';
 import { KEYMAP_SHADOW_OPERATORS } from './keymapShadows';
@@ -118,6 +118,8 @@ export function registerBuiltins(app: EditorApp): Disposer {
   // has loaded (the LastRun recorder loads it).
   attachLastRunTracker(app, false);
   bindCapture(app);
+  // M6a (B12b): the extrude session binds up front too (its engine loads on the first Model entry).
+  bindExtrude(app);
   const disposers: Disposer[] = [registerBuiltinOperators(app), registerBuiltinWorkspaces(app)];
   for (const def of BUILTIN_IMPORTERS) {
     if (app.importers.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'importer', def }));

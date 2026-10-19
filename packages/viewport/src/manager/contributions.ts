@@ -3,7 +3,7 @@
 // view.toggleCameraLock and view.cameraRadial (M1-stretch: opens the pane's camera radial; the viewport panel draws
 // it and picks on Space release).
 // M6a (B9): the `scale` tool (`R`), every boolean display flag in view.display.toggle, and the pane display port of
-// editor-core's view.shading / view.display.set.
+// editor-core's view.shading / view.display.set. M6a (B12b): the topology tools.
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import { type CameraId, type CameraRecord, fractionalIndex, newId } from '@ekza-animator/doc';
 import {
@@ -24,6 +24,7 @@ import { paintToolDef } from '../tools/model/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
 import { attachModelTransform } from '../tools/model/transform';
+import { registerTopologyTools } from '../tools/model/topology';
 import { selectToolDef } from '../tools/selectTool';
 import { moveToolDef, rotateToolDef } from '../tools/transformTool';
 import type { DisplayFlags, PaneCamera, ViewPreset } from '../types';
@@ -216,7 +217,10 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     app.contribute({ kind: 'tool', def: paintToolDef(vm) }),
     attachImagePlanes(app, vm),
     attachGuides(app, vm),
+    // M6a (B12a): component transforms, MMB-drag, Tweak, snapping, pivots and soft selection (lazy).
     attachModelTransform(app, vm),
+    // M6a (B12b): Multi-Cut, Insert Edge Loop, Target Weld, Slide Edge and the extrude manipulator (a lazy kit).
+    registerTopologyTools(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
