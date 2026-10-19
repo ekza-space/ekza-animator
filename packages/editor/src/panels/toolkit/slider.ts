@@ -24,7 +24,8 @@ export interface ParamSlideHandlers {
 
 /**
  * Starts a slider drag from `press` on `element` (call after the LMB threshold or at once for MMB). `initialDx` is the
- * motion already made before the drag started (applied with the press's modifiers).
+ * motion already made before the drag started (applied with the press's modifiers); `startEvent`, the native event
+ * that started the drag, is not counted again when it reaches the window.
  */
 export function startParamSlide(
   app: EditorApp,
@@ -39,6 +40,7 @@ export function startParamSlide(
   },
   handlers: ParamSlideHandlers,
   initialDx = 0,
+  startEvent: Event | null = null,
 ): ParamSlide {
   const rate = paramSliderRate(def, app.prefs.getState().virtualSlider);
   const mac = app.keymap.platform === 'mac';
@@ -66,7 +68,7 @@ export function startParamSlide(
     handlers.end(commit ? value : start, commit);
   };
   const move = (event: PointerEvent): void => {
-    if (event.pointerId !== press.pointerId) return;
+    if (event === startEvent || event.pointerId !== press.pointerId) return;
     const dx = event.movementX !== 0 || lastX === null ? event.movementX : event.clientX - lastX;
     lastX = event.clientX;
     if (dx === 0) return;

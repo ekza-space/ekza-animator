@@ -137,6 +137,7 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
         },
       },
       initialDx,
+      event.nativeEvent,
     );
   };
 

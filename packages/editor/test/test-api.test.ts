@@ -382,7 +382,8 @@ describe('M6a test API (B0a kernel-level functions)', () => {
   it('owner groups that have not landed throw not-implemented with their owner', () => {
     const { api } = setup();
     expect(() => api.model()).toThrow(/B10/);
-    expect(() => api.lastOp()).toThrow(/B11/);
+    // B11 landed (literal update): nothing has run, so there is no last operation.
+    expect(api.lastOp()).toBeNull();
     expect(() => api.palettes()).toThrow(/B13/);
     expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
     // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
