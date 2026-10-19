@@ -393,6 +393,61 @@ describe('attributes (§5.2, P7)', () => {
     );
   });
 
+  it('UV seams stay where they were: every uv0 discontinuity after a bevel is on the wrap or touches an old one', () => {
+    // The sphere's and cylinder's uv0 jump at the wrap (x = 0, z < 0) and around the poles; bevels on and near them
+    // must not open a discontinuity anywhere else (split edges interpolate per face side, strips take each side's
+    // values): every edge with a jump afterwards lies on the wrap half-plane (a strip's shared end across the wrap), or
+    // ends on an edge that had one (a strip across a seam takes one side's value where it touches the seam, so one of
+    // the edges there must jump).
+    type Seg = readonly [readonly number[], readonly number[]];
+    const jumps = (m: EditMesh): number[] => {
+      const uv = m.layer('uv0');
+      const same = (x: number, y: number) => uv?.get(x, 0) === uv?.get(y, 0) && uv?.get(x, 1) === uv?.get(y, 1);
+      return allEdges(m).filter((e) => {
+        if (m.edgeFaceCount(e) !== 2) return false;
+        const c = m.edgeCorner(e);
+        const d = m.cornerRadialNext(c);
+        return !(same(c, m.cornerNext(d)) && same(m.cornerNext(c), d));
+      });
+    };
+    const onSegment = (q: readonly number[], [a, b]: Seg): boolean => {
+      const ab = [0, 1, 2].map((k) => (b[k] as number) - (a[k] as number));
+      const aq = [0, 1, 2].map((k) => (q[k] as number) - (a[k] as number));
+      const len2 = ab.reduce((n, x) => n + x * x, 0);
+      const t = Math.max(0, Math.min(1, ab.reduce((n, x, k) => n + x * (aq[k] as number), 0) / len2));
+      return Math.hypot(...aq.map((x, k) => x - t * (ab[k] as number))) <= 1e-6;
+    };
+    const wrap = (m: EditMesh, v: number): boolean => Math.abs(at(m, v)[0]) <= 1e-6 && at(m, v)[2] < 0;
+    let bevelledOnWrap = 0;
+    fc.assert(
+      fc.property(
+        fc.constantFrom('sphere', 'cylinder'),
+        fc.array(fc.nat(), { minLength: 1, maxLength: 8 }),
+        fc.integer({ min: 1, max: 3 }),
+        fc.double({ min: 0.05, max: 1, noNaN: true }),
+        (kind, seeds, segments, fraction) => {
+          const m = editMeshFrom(primitive(kind, {}));
+          const before: Seg[] = jumps(m).map((e) => [at(m, m.edgeVert(e, 0)), at(m, m.edgeVert(e, 1))]);
+          // Edges at the wrap, and a few others.
+          const near = allEdges(m).filter((e) => wrap(m, m.edgeVert(e, 0)) || wrap(m, m.edgeVert(e, 1)));
+          const picks = seeds.map((s, i) => (i % 2 === 0 ? (near[s % near.length] as number) : s % m.counts.edges));
+          bevelledOnWrap += picks.filter((e) => wrap(m, m.edgeVert(e, 0)) && wrap(m, m.edgeVert(e, 1))).length;
+          runOk(bevel, m, edgeSel(m, picks), { segments, fraction });
+          const stray = jumps(m).filter((e) => {
+            const a = at(m, m.edgeVert(e, 0));
+            const b = at(m, m.edgeVert(e, 1));
+            const plane = (q: readonly number[]) => Math.abs(q[0] as number) <= 1e-6 && (q[2] as number) < 0;
+            if (plane(a) && plane(b)) return false;
+            return !before.some((seg) => onSegment(a, seg)) && !before.some((seg) => onSegment(b, seg));
+          });
+          expect(stray).toEqual([]);
+        },
+      ),
+      { numRuns: 80, seed: 13 },
+    );
+    expect(bevelledOnWrap).toBeGreaterThan(10);
+  });
+
   it('skin weights of new vertices stay normalized with at most four influences', () => {
     const data = primitive('cube', { subdivisionsWidth: 2 });
     const joints = new Uint16Array(data.counts.points * 4);

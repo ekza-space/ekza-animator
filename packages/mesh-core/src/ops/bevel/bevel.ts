@@ -1081,6 +1081,7 @@ export function runBevel(
   }
   const valueIn = (f: number, t: number): Float64Array => inFace.get(`${f}:${t}`) ?? at(f, tokens.vertex(t));
   const stripRecord = new Map<string, Float64Array>(); // `${edge}:${token}` → record in the strip
+  const profileRecord = new Map<number, Float64Array>(); // profile token → its record in every strip through it
   for (const strip of strips) {
     const own = new Map<number, Float64Array>();
     for (const end of [strip.v, strip.w]) {
@@ -1091,9 +1092,15 @@ export function runBevel(
         const token = tokens.list[t] as Token;
         if (token.kind === T_OLD && token.at === end.x) own.set(t, at(strip.f1, end.x));
         else if (token.kind === T_PROFILE) {
-          // In the chord's own orientation, exactly as a rebuilt face interpolates the same point.
+          // The value the rebuilt face across the strip's end has at this point, or the one the first strip through
+          // a shared end gave it, else interpolated in the chord's own orientation, exactly as a face would. Where
+          // the sides are continuous all three agree; across a UV seam this keeps the jump on the seam.
+          let record: Float64Array | undefined = profileRecord.get(t);
+          for (const f of planOf(end.x).fan.faces) record ??= inFace.get(`${f}:${t}`);
           const [lo, hi] = token.chord;
-          own.set(t, cv.lerp(lo === end.A ? a : b, hi === end.A ? a : b, token.s));
+          record ??= cv.lerp(lo === end.A ? a : b, hi === end.A ? a : b, token.s);
+          profileRecord.set(t, record);
+          own.set(t, record);
         } else own.set(t, i === 0 ? a : b);
       });
       if (end.insert !== -1) own.set(end.insert, at(strip.f1, end.x));
