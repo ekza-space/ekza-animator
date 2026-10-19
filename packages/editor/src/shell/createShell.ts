@@ -206,6 +206,7 @@ export function createShell(opts: CreateShellOptions): Shell {
     app,
     run: (op, args, ctx) => runFromUi(op, args, ctx),
     context: lastContext,
+    help,
   });
   disposers.push(
     provideShellOverlays(app, {

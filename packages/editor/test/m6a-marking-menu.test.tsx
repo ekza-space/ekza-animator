@@ -7,7 +7,13 @@ import { registerBuiltinWorkspaces } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { PanePointerPress } from '@ekza-animator/viewport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createMarkingMenus, MarkingMenuHost, marksMenus } from '../src/overlays/MarkingMenu';
+import {
+  createMarkingMenus,
+  MARKING_MENU_LOAD_FAILED,
+  MarkingMenuHost,
+  marksMenus,
+  prefetchMarkingMenu,
+} from '../src/overlays/MarkingMenu';
 import {
   createMarkingMenuController,
   FLICK_MS,
@@ -393,5 +399,64 @@ describe('lazy loading (M6A-B9-16)', () => {
     expect(listed.handlePress(press())).toBe(false);
     await waitFor(() => listed.controller() !== null);
     listed.dispose();
+  });
+});
+
+describe('a failed load (offline after a redeploy)', () => {
+  const runNothing = () => Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>);
+
+  it('a right-button press or a command says so, other presses and the prefetch stay quiet; the next try loads', async () => {
+    const app = createFakeEditorApp();
+    registerBuiltinWorkspaces(app);
+    app.contribute({ kind: 'markingMenu', def: MODES });
+    app.session.setState({ workspace: 'model' });
+    const helps: { text: string; tone: string | undefined }[] = [];
+    let online = false;
+    let imports = 0;
+    const menus = createMarkingMenus({
+      app,
+      run: runNothing,
+      help: (text, tone) => void helps.push({ text, tone }),
+      importChunks: () => {
+        imports += 1;
+        if (!online) return Promise.reject(new TypeError('Failed to fetch dynamically imported module'));
+        return Promise.all([
+          import('../src/overlays/MarkingMenu/controller'),
+          import('../src/overlays/MarkingMenu/MarkingMenuView'),
+        ]).then(([controller, view]) => ({ controller, view }));
+      },
+    });
+    const unhandled: unknown[] = [];
+    const listener = (e: PromiseRejectionEvent): void => {
+      unhandled.push(e.reason);
+      e.preventDefault();
+    };
+    window.addEventListener('unhandledrejection', listener);
+    const quiet = () => new Promise((resolve) => setTimeout(resolve, 30));
+    try {
+      expect(menus.handlePress(press({ button: 0 }))).toBe(false);
+      prefetchMarkingMenu(menus);
+      await quiet();
+      expect(helps).toEqual([]);
+      expect(menus.handlePress(press())).toBe(false);
+      await waitFor(() => helps.length === 1);
+      menus.openByCommand(MODES, {});
+      await waitFor(() => helps.length === 2);
+      expect(helps).toEqual([
+        { text: MARKING_MENU_LOAD_FAILED, tone: 'error' },
+        { text: MARKING_MENU_LOAD_FAILED, tone: 'error' },
+      ]);
+      expect(menus.controller()).toBeNull();
+      online = true;
+      expect(menus.handlePress(press())).toBe(false);
+      await waitFor(() => menus.controller() !== null);
+      await quiet();
+    } finally {
+      window.removeEventListener('unhandledrejection', listener);
+      menus.dispose();
+    }
+    expect(unhandled).toEqual([]);
+    expect(imports).toBe(4); // the prefetch joined the first load
+    expect(helps).toHaveLength(2);
   });
 });

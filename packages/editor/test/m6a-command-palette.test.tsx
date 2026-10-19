@@ -13,7 +13,7 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
-import { CommandPaletteHost, createCommandPalette } from '../src/overlays/CommandPalette';
+import { CommandPaletteHost, createCommandPalette, PALETTE_LOAD_FAILED } from '../src/overlays/CommandPalette';
 import {
   type CommandPaletteController,
   createCommandPaletteController,
@@ -261,5 +261,59 @@ describe('the palette UI (§8.10 cmdk, cmdk-input, cmdk-item-<operatorId>)', () 
     await update(() => userEvent.keyboard('{Escape}'));
     expect(controller.state.getState().open).toBe(false);
     await view.unmount();
+  });
+});
+
+/** Collects unhandled promise rejections while `fn` runs (and a moment after). */
+async function unhandledDuring(fn: () => Promise<void>): Promise<unknown[]> {
+  const reasons: unknown[] = [];
+  const listener = (e: PromiseRejectionEvent): void => {
+    reasons.push(e.reason);
+    e.preventDefault();
+  };
+  window.addEventListener('unhandledrejection', listener);
+  try {
+    await fn();
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  } finally {
+    window.removeEventListener('unhandledrejection', listener);
+  }
+  return reasons;
+}
+
+describe('a failed load (offline after a redeploy)', () => {
+  it('Mod+K says so on the help line, rejects nothing unhandled, and the next Mod+K tries again', async () => {
+    const { app } = rig();
+    const helps: { text: string; tone: string | undefined }[] = [];
+    let online = false;
+    let imports = 0;
+    const palette = createCommandPalette({
+      app,
+      run: () => Promise.resolve({ status: 'finished', value: undefined } as OperatorResult<unknown>),
+      context: () => ({}),
+      help: (text, tone) => void helps.push({ text, tone }),
+      importChunks: () => {
+        imports += 1;
+        if (!online) return Promise.reject(new TypeError('Failed to fetch dynamically imported module'));
+        return Promise.all([
+          import('../src/overlays/CommandPalette/controller'),
+          import('../src/overlays/CommandPalette/CommandPaletteView'),
+        ]).then(([controller, view]) => ({ controller, view }));
+      },
+    });
+    const unhandled = await unhandledDuring(async () => {
+      palette.open();
+      await waitFor(() => helps.length > 0);
+      expect(helps).toEqual([{ text: PALETTE_LOAD_FAILED, tone: 'error' }]);
+      expect(palette.controller()).toBeNull();
+      expect(palette.state.getState().open).toBe(false);
+      online = true;
+      palette.open();
+      await waitFor(() => palette.state.getState().open);
+    });
+    expect(unhandled).toEqual([]);
+    expect(imports).toBe(2);
+    expect(helps).toHaveLength(1);
+    expect(palette.items().length).toBeGreaterThan(0);
   });
 });
