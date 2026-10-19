@@ -127,7 +127,7 @@ describe('clamp: acute and triangle corners (fix round 2 repros)', () => {
 });
 
 describe('clamp property on every primitive and on triangular prisms', () => {
-  it('no flipped, twisted, crossing or zero-area face and no coincident points for any fraction in (0, 1]', () => {
+  it('no flipped, twisted, crossing or zero-area face and no coincident points for any fraction in (0, 1] or offset', () => {
     let ran = 0;
     const arbMesh = fc.oneof(
       arbPrimitive().map(({ kind, params }) => primitive(kind, params)),
@@ -150,6 +150,9 @@ describe('clamp property on every primitive and on triangular prisms', () => {
           segments: fc.integer({ min: 1, max: 3 }),
           chamfer: fc.boolean(),
           roundness: fc.double({ min: 0, max: 1, noNaN: true }),
+          // One run in four takes an absolute offset (Clamp limits it the same way).
+          offsetAsFraction: fc.constantFrom(true, true, true, false),
+          offset: fc.double({ min: 0.001, max: 1, noNaN: true }),
         }),
         fc.boolean(),
         (data, seeds, args, faceMode) => {

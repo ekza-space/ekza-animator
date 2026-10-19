@@ -6,8 +6,8 @@
 // - `flipped`: a face whose Newell normal turned against the reference's (an inverted face);
 // - `twisted`: a quad with a corner triangle (one of the triangles of its two diagonal splits) turned against the
 //   reference's: a strip twisted into a bow-tie, which keeps its Newell normal;
-// - `crossing`: an n-gon (n ≥ 5) whose outline crosses itself where the reference's does not (both projected along
-//   the reference's Newell normal);
+// - `crossing`: an n-gon (n ≥ 5) whose outline crosses itself where the reference's does not (projected along the
+//   dominant axis of the Newell normal, as the triangulator projects n-gons; the reference's axis for both);
 // - `unreported crossing`: an n-gon whose outline crosses itself at any width (a strip kept through an in-line vertex
 //   on a fold, M6A-B5-4) that Mesh Check reports neither `nonplanar-ngon` nor `ngon-degenerate`;
 // - `reversed`: an edge whose direction turned against the reference's (two new vertices passed each other along an
@@ -84,18 +84,16 @@ function turnedCorners(q: readonly V3[], q0: readonly V3[]): number[] {
 }
 
 /**
- * Whether the closed outline, projected onto the plane normal to `n`, has two non-adjacent edges properly crossing
- * (beyond float32 rounding).
+ * Whether the closed outline, projected along the dominant axis of `n` (as the triangulator projects an n-gon), has two
+ * non-adjacent edges properly crossing (beyond float32 rounding).
  */
 function crosses(points: readonly V3[], n: V3): boolean {
-  const l = norm(n);
-  if (!(l > 0)) return false;
-  const z: V3 = [n[0] / l, n[1] / l, n[2] / l];
-  const seed: V3 = Math.abs(z[0]) < 0.9 ? [1, 0, 0] : [0, 1, 0];
-  const xl = cross(seed, z);
-  const x: V3 = [xl[0] / norm(xl), xl[1] / norm(xl), xl[2] / norm(xl)];
-  const y = cross(z, x);
-  const flat = points.map((p) => [dot(p, x), dot(p, y)] as const);
+  if (!(norm(n) > 0)) return false;
+  const ax = Math.abs(n[0]);
+  const ay = Math.abs(n[1]);
+  const az = Math.abs(n[2]);
+  const drop = ax >= ay && ax >= az ? 0 : ay >= az ? 1 : 2;
+  const flat = points.map((p) => [p[drop === 0 ? 1 : 0], p[drop === 2 ? 1 : 2]] as const);
   // Sides within float32 rounding count as zero: the corners a slide leaves on an edge are collinear.
   const size = Math.max(...points.flatMap((p) => p.map(Math.abs)));
   const side = (a: readonly number[], b: readonly number[], c: readonly number[]): number => {
@@ -151,7 +149,7 @@ export function twistProblems(m: EditMesh, ref: EditMesh, strict = true): string
     const n0 = newell(pts0);
     if (norm(n0) > 0 && !(dot(n, n0) > 0)) out.push(`flipped face ${f}`);
     if (vs.length === 4 && turnedCorners(pts, pts0).length > 0) out.push(`twisted face ${f}`);
-    // Both outlines are projected along the reference's normal: a non-planar n-gon's own normal turns with the width.
+    // Both outlines are projected along the reference's axis too: a non-planar n-gon's own normal turns with the width.
     if (vs.length >= 5 && (crosses(pts, n0) || crosses(pts, n))) {
       if (strict && !crosses(pts0, n0)) out.push(`crossing face ${f}`);
       else if (!reported.has(f)) out.push(`unreported crossing face ${f}`);
