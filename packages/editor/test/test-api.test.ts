@@ -381,7 +381,9 @@ describe('M6a test API (B0a kernel-level functions)', () => {
 
   it('owner groups that have not landed throw not-implemented with their owner', () => {
     const { api } = setup();
-    expect(() => api.model()).toThrow(/B10/);
+    // B10 landed its group (literal update): the Model state reads without a viewport.
+    expect(api.model()).toMatchObject({ mode: 'object', hilite: [], hiddenObjects: [], isolate: {} });
+    expect(api.paneObjects('pane-persp')).toEqual([]);
     expect(() => api.lastOp()).toThrow(/B11/);
     expect(() => api.palettes()).toThrow(/B13/);
     expect(() => api.symmetry('msh_A')).toThrow(/B12a/);

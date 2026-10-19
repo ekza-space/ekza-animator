@@ -333,12 +333,15 @@ describe('overlay slots (§4.8)', () => {
     function Hud(props: { readonly paneId: string }): JSX.Element {
       return <span data-testid={`test-hud-${props.paneId}`}>HUD</span>;
     }
-    const dispose = registerPaneOverlay('hud', Hud);
+    // B10's shell registers the Poly Count HUD when it is created: the test overlay registers after it (the latest
+    // registration of a slot draws).
     const { view } = await mount({ ws: 'model' });
-    await waitFor(() => query('pane-slot-hud-pane-persp') !== null);
+    const dispose = registerPaneOverlay('hud', Hud);
+    await waitFor(() => query('test-hud-pane-persp') !== null);
     expect(testId('pane-slot-hud-pane-persp').contains(testId('test-hud-pane-persp'))).toBe(true);
     dispose();
-    await waitFor(() => query('pane-slot-hud-pane-persp') === null);
+    // B10's Poly Count HUD (registered by the shell) owns the slot afterwards: the test overlay is gone from it.
+    await waitFor(() => query('test-hud-pane-persp') === null);
     await view.unmount();
   });
 });

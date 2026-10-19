@@ -19,6 +19,7 @@ import {
 import { firstShotCamera } from '../cameras/cameras';
 import { LAYOUT_PANES } from '../panes/layout';
 import { scaleToolDef } from '../tools/scaleTool';
+import { attachModelSelect } from '../tools/model/select';
 import { selectToolDef } from '../tools/selectTool';
 import { moveToolDef, rotateToolDef } from '../tools/transformTool';
 import type { DisplayFlags, PaneCamera, ViewPreset } from '../types';
@@ -205,6 +206,8 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     ...[layout, frame, displayToggle, lookThrough, copyViewToShot, toggleLock, cameraRadial].map((def) =>
       app.contribute({ kind: 'operator', def: def as unknown as OperatorDef<unknown, unknown, unknown> }),
     ),
+    // M6a (B10): the mesh display and the Model select runtime (lazy; loaded with the first mesh or Model).
+    attachModelSelect(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

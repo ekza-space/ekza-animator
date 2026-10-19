@@ -220,6 +220,8 @@ export class ViewportManager {
   private planeSpecs: readonly ImagePlaneSpec[] = [];
   private planesLoad: Promise<void> | null = null;
   private pointerMenus: PanePointerMenus | null = null;
+  /** M6a (B10): what `F`/`A` frame in Model (component and object selections, meshes); null = the shipped bounds. */
+  private frameBounds: ((what: 'selection' | 'all') => SpatialBounds | null) | null = null;
   /** The pointer whose Alt+Shift+LMB press is the MMB stand-in (M6a rule (b)), or null. */
   private standIn: number | null = null;
   /** The Scale tool's manipulator sits on the selected scene objects (Model object mode), not on a control. */
@@ -509,6 +511,30 @@ export class ViewportManager {
   /** Sets the handler of marking-menu presses (the shell's marking menus), or null. */
   setPointerMenus(handler: PanePointerMenus | null): void {
     this.pointerMenus = handler;
+  }
+
+  /**
+   * M6a (B10, §5.6 framing): a provider of the bounds `F` (selection) and `A` (all) frame; null from it (or no
+   * provider) keeps the shipped bounds. The Model select runtime frames component and object selections with it.
+   */
+  setFrameBounds(provider: ((what: 'selection' | 'all') => SpatialBounds | null) | null): void {
+    this.frameBounds = provider;
+  }
+
+  /**
+   * M6a (B10): the camera a pane looks through, sized to the pane, with its size (CSS px) and display flags, for
+   * mesh-view's component picking (B6's `MeshDisplay.pick`/`marquee`/`screenOf`). Null for an unknown or empty pane.
+   */
+  paneView(paneId: string): {
+    readonly camera: Camera;
+    readonly width: number;
+    readonly height: number;
+    readonly display: DisplayFlags;
+  } | null {
+    const view = this.queryView(paneId);
+    return view === null
+      ? null
+      : { camera: view.camera, width: view.width, height: view.height, display: view.pane.display };
   }
 
   /**
@@ -1065,6 +1091,8 @@ export class ViewportManager {
   }
 
   private boundsFor(what: 'selection' | 'all'): SpatialBounds {
+    const provided = this.frameBounds?.(what) ?? null;
+    if (provided !== null) return provided;
     const selection = this.app.session.getState().selection.controls;
     if (what === 'selection' && selection.length > 0) {
       // Like a Maya transform's bounding box, a selected control frames with the visible controls below it: F on a
