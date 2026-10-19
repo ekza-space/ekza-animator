@@ -336,8 +336,10 @@ export const keysTween = defineTool({
   description:
     'Key tweens and breakdowns at frames between neighbouring keys (tween, toward a neighbour, ease, ' +
     'push/pull, toward default). For each frame (≤ 64) and each target channel keyed before and after ' +
-    'it, keys the value amountPercent of the way (tween 50 = halfway; neighbor toward the nearer key; ' +
-    "ease; push_pull exaggerates; to_default toward rest); −150…150, beyond ±100 only with the user's " +
+    'it, keys a value between the previous and the next key (a key at the frame itself is replaced). ' +
+    'amountPercent is the Tween slider: tween −100 = the previous key, 0 = halfway, +100 = the next key ' +
+    '(30 % of the way from the previous key = −40); neighbor moves toward the nearer key, ease eases, ' +
+    "push_pull exaggerates, to_default goes toward rest; −150…150, beyond ±100 only with the user's " +
     'overshoot preference. breakdown (default true) marks the new keys as breakdowns. To tween the ' +
     "user's selected keys, read them with scene_summary and pass their controls and frames.",
   group: 'keys',
@@ -349,7 +351,11 @@ export const keysTween = defineTool({
     mode: z
       .enum(['tween', 'neighbor', 'ease', 'push_pull', 'to_default'])
       .describe('tween between neighbours, toward a neighbour, ease, push/pull, or toward the default value.'),
-    amountPercent: z.number().min(-150).max(150).describe('Amount in percent, −150…150 (50 = halfway).'),
+    amountPercent: z
+      .number()
+      .min(-150)
+      .max(150)
+      .describe('Tween slider amount, −150…150: tween −100 = previous key, 0 = halfway, +100 = next key.'),
     breakdown: z.boolean().default(true).describe('Mark the new keys as breakdowns.'),
   }),
   output: z.object({ keyed: z.number(), frames: z.array(z.number()) }),
@@ -360,7 +366,7 @@ export const keysTween = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
-  example: { clip: 'walk', targets: { bodyParts: ['arm.L'] }, frames: [5], mode: 'tween', amountPercent: 30 },
+  example: { clip: 'walk', targets: { bodyParts: ['arm.L'] }, frames: [5], mode: 'tween', amountPercent: 0 },
   ready: true,
   run: (ctx, args) => keysTweenRun(ctx, args) as never,
 });
