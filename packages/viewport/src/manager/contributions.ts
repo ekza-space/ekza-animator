@@ -2,35 +2,33 @@
 // operators view.layout, view.frame, view.display.toggle, view.lookThrough, view.copyViewToShot,
 // view.toggleCameraLock and view.cameraRadial (M1-stretch: opens the pane's camera radial; the viewport panel draws
 // it and picks on Space release).
+// M6a (B9): the `scale` tool (`R`), every boolean display flag in view.display.toggle, and the pane display port of
+// editor-core's view.shading / view.display.set.
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import { type CameraId, type CameraRecord, fractionalIndex, newId } from '@ekza-animator/doc';
-import type {
-  EditorApp,
-  OperatorArgs,
-  OperatorContext,
-  OperatorDef,
-  OperatorReturn,
-  PollResult,
+import {
+  BOOLEAN_DISPLAY_FLAGS,
+  type EditorApp,
+  type OperatorArgs,
+  type OperatorContext,
+  type OperatorDef,
+  type OperatorReturn,
+  type PollResult,
+  providePaneDisplay,
 } from '@ekza-animator/editor-core';
 import { firstShotCamera } from '../cameras/cameras';
 import { LAYOUT_PANES } from '../panes/layout';
-import { moveToolDef, rotateToolDef } from '../tools/transformTool';
+import { scaleToolDef } from '../tools/scaleTool';
 import { selectToolDef } from '../tools/selectTool';
+import { moveToolDef, rotateToolDef } from '../tools/transformTool';
 import type { DisplayFlags, PaneCamera, ViewPreset } from '../types';
 import type { ViewportManager } from './ViewportManager';
 
 type Def<K extends Parameters<EditorApp['run']>[0], P = void> = OperatorDef<OperatorArgs<K>, OperatorReturn<K>, P>;
 
 const VIEW_PRESETS: readonly ViewPreset[] = ['persp', 'top', 'front', 'side'];
-const DISPLAY_FLAGS: readonly (keyof DisplayFlags)[] = [
-  'mesh',
-  'skeleton',
-  'controls',
-  'grid',
-  'xray',
-  'hud',
-  'springBones',
-];
+/** The on/off display flags (M6a: every boolean `DisplayFlags` field; enums go through view.display.set). */
+const DISPLAY_FLAGS: readonly (keyof DisplayFlags)[] = BOOLEAN_DISPLAY_FLAGS;
 const NO_PANE: PollResult = { ok: false, reason: 'no viewport pane' };
 
 /** Registers the viewport tools and operators; the disposer removes them. */
@@ -196,6 +194,14 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     app.contribute({ kind: 'tool', def: selectToolDef() }),
     app.contribute({ kind: 'tool', def: moveToolDef() }),
     app.contribute({ kind: 'tool', def: rotateToolDef() }),
+    app.contribute({ kind: 'tool', def: scaleToolDef() }),
+    // M6a: view.shading and view.display.set (editor-core) change pane display flags through this port.
+    providePaneDisplay(app, {
+      panes: () => vm.paneIds(),
+      activePane: () => vm.activePaneId(),
+      display: (paneId) => vm.paneState(paneId)?.display ?? null,
+      setDisplay: (paneId, display) => vm.updatePane(paneId, { display }),
+    }),
     ...[layout, frame, displayToggle, lookThrough, copyViewToShot, toggleLock, cameraRadial].map((def) =>
       app.contribute({ kind: 'operator', def: def as unknown as OperatorDef<unknown, unknown, unknown> }),
     ),

@@ -67,3 +67,19 @@ export function wheelAction(profile: NavProfile, e: NavWheelInput, pageHeightPx:
   }
   return { kind: 'dolly', amount: -dy * WHEEL_DOLLY_PER_PX };
 }
+
+/**
+ * M6a pointer platform rule (b) (M6A-SPEC §5.17; B9): the MMB stand-in. In the `trackpad` and `mayaOneButton`
+ * profiles an `Alt+Shift`+LMB press in a Model viewport pane is an MMB press for the tools (`button 1`, Alt and Shift
+ * cleared; Ctrl stays, so `Ctrl+Alt+Shift`+LMB is Ctrl+MMB): the MMB rule, `B`+MMB radius, Target Weld centre, Slide
+ * and the virtual slider work without a middle button. Animate and the `maya` profile keep Alt+LMB as tumble.
+ */
+export function isMmbStandIn(profile: NavProfile, workspace: string, e: NavPointerInput): boolean {
+  return (
+    workspace === 'model' &&
+    (profile === 'trackpad' || profile === 'mayaOneButton') &&
+    e.button === 0 &&
+    e.altKey &&
+    e.shiftKey
+  );
+}

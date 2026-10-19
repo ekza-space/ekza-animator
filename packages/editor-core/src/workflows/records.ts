@@ -71,7 +71,8 @@ export function characterRecord(fields: {
   readonly placement: ReadonlyXf;
   readonly order: string;
 }): CharacterRecord {
-  return { ...fields, deleted: null };
+  // M6a schema 3: an imported character is asset-sourced (`source.asset === asset`).
+  return { ...fields, source: { kind: 'asset', asset: fields.asset }, deleted: null };
 }
 
 export function clipRecord(fields: {

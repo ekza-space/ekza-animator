@@ -61,7 +61,9 @@ describe('pane layouts', () => {
     for (let i = 0; i < 5; i++) rig.frame();
     expect(rig.vm.renderedFrames).toBe(after);
     const control = rig.app.store.list('controls')[3];
-    rig.app.session.setState({ selection: { controls: [control?.id ?? never()], keys: new Map(), channels: [] } });
+    rig.app.session.setState({
+      selection: { controls: [control?.id ?? never()], keys: new Map(), channels: [], objects: [] },
+    });
     rig.frame();
     rig.frame();
     expect(rig.vm.renderedFrames).toBe(after + 1);

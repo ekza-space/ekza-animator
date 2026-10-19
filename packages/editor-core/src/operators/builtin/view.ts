@@ -10,7 +10,9 @@ import {
   type ManipSpace,
   type NavProfile,
   PANEL,
+  VIEWPORT_TOOL,
 } from '../../types';
+import { isTransformTool } from '../../workspaces/switch';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
 import { NOT_AVAILABLE_YET } from './stub';
@@ -27,18 +29,20 @@ const TOOL_FIELD = {
   [PANEL.dopeSheet]: 'dopeSheet',
 } as const satisfies Readonly<Record<string, 'viewport' | 'graph' | 'dopeSheet'>>;
 const DOPE_TOOLS: ReadonlySet<string> = new Set(Object.values(DOPE_TOOL));
-/** The built-in tool ids of the panels whose tools grow in M2a (§4.5 `GRAPH_TOOL`, `DOPE_TOOL`). */
+/** The built-in tool ids of the panels whose tools grow in M2a (§4.5 `GRAPH_TOOL`, `DOPE_TOOL`) and M6a (§4.6
+ *  `VIEWPORT_TOOL`: scale, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Paint Colour, the extrude manipulator). */
 const BUILTIN_TOOLS: Readonly<Record<string, ReadonlySet<string>>> = {
   [PANEL.graph]: new Set(Object.values(GRAPH_TOOL)),
   [PANEL.dopeSheet]: DOPE_TOOLS,
+  [PANEL.viewport]: new Set(Object.values(VIEWPORT_TOOL)),
 };
 
 const viewTool = defineOperator({
   id: 'view.tool',
   label: 'Tool',
   description:
-    'Choose the viewport tool (Q select, W move, E rotate), the Graph Editor tool (Q, W, I insert, R scale) or the ' +
-    'Dope Sheet tool (Q, W, R scale).',
+    'Choose the viewport tool (Q select, W move, E rotate, R scale; the Model tools), the Graph Editor tool (Q, W, ' +
+    'I insert, R scale) or the Dope Sheet tool (Q, W, R scale).',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll({ app }, args) {
@@ -59,10 +63,21 @@ const viewTool = defineOperator({
     return BUILTIN_TOOLS[panel]?.has(tool) === true ? fail(NOT_AVAILABLE_YET) : fail(`Unknown ${panel} tool '${tool}'`);
   },
   apply({ app }, args) {
-    const tools = app.session.getState().tools;
+    const session = app.session.getState();
+    const tools = session.tools;
     const key = TOOL_FIELD[args.panel as keyof typeof TOOL_FIELD];
     if (key === undefined) throw new EkzaError('unsupported', `The ${args.panel} panel has no tools`);
-    if (tools[key] !== args.tool) app.session.setState({ tools: { ...tools, [key]: args.tool } });
+    // M6a (§6.2): in Model the last non-transform viewport tool is what `Y` re-activates (Maya's "last tool").
+    const model =
+      session.workspace === 'model' &&
+      key === 'viewport' &&
+      !isTransformTool(args.tool) &&
+      session.model.lastTool !== args.tool
+        ? { ...session.model, lastTool: args.tool }
+        : session.model;
+    if (tools[key] !== args.tool || model !== session.model) {
+      app.session.setState({ tools: { ...tools, [key]: args.tool }, model });
+    }
   },
 });
 

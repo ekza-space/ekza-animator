@@ -1,7 +1,8 @@
 // The e2e test API (MVP-SPEC §4.8) over the fake app with the synthetic wave document: reads, lookups by id or
 // template key, evaluation at frames, screen positions through probes, run() results and lastExport().
 import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId, DocSnapshot } from '@ekza-animator/doc';
+import type { ClipId, ControlId, CurveId, DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import { loadMeshKernel, registerBuiltins } from '@ekza-animator/editor-core';
 import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
 import type { ExportArtifact } from '@ekza-animator/io';
 import type { SkeletonDesc } from '@ekza-animator/rig';
@@ -45,11 +46,23 @@ describe('URL parameters (e2e builds only)', () => {
       ns: null,
       storageBlocked: false,
       pointerLock: true,
+      ws: null, // M6a (literal update, M6A-SPEC §4.8)
     });
     expect(parseEditorParams('?e2e=1&nav=blender&platform=amiga', true)).toEqual({ ...DEFAULT_PARAMS, e2e: true });
     expect(parseEditorParams('?e2e=1&firstRun=1', false)).toEqual(DEFAULT_PARAMS);
     expect(isE2eRequested(true, '?nav=maya&e2e=1')).toBe(true);
     expect(isE2eRequested(true, '?e2e=0')).toBe(false);
+  });
+
+  it('M6a: reads ws=<id> in any build (a workspace deep link), ignoring malformed ids', () => {
+    expect(parseEditorParams('?ws=model', false)).toEqual({ ...DEFAULT_PARAMS, ws: 'model' });
+    expect(parseEditorParams('?ws=model&e2e=1&platform=mac', true)).toMatchObject({
+      e2e: true,
+      platform: 'mac',
+      ws: 'model',
+    });
+    expect(parseEditorParams('?ws=Model!', true)).toEqual(DEFAULT_PARAMS);
+    expect(parseEditorParams('?e2e=1&ws=../x', true).ws).toBeNull();
   });
 });
 
@@ -260,6 +273,125 @@ describe('createTestApi', () => {
   });
 });
 
+/** An authored scene cube record over a stored revision. */
+const cubeRecord = (data: MeshRef): MeshRecord => ({
+  id: 'msh_Cube' as MeshId,
+  name: 'Cube',
+  owner: { scene: true },
+  parent: null,
+  order: 'a0',
+  placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+  pivot: [0, 0, 0],
+  source: null,
+  data,
+  faceted: true,
+  generator: { kind: 'cube', params: {}, version: 1 },
+  palette: null,
+  material: { preset: 'unlit' },
+  colourOutput: 'palette-texture',
+  skin: null,
+  budget: null,
+  handheld: null,
+  deleted: null,
+});
+
+describe('M6a test API (B0a kernel-level functions)', () => {
+  it('extends state() with the workspace, component mode, hilite, capture and extrude session', () => {
+    const { api } = setup();
+    expect(api.state()).toMatchObject({
+      workspace: 'animate',
+      mode: 'object',
+      hilite: [],
+      capture: { armed: null, field: null, text: null },
+      extrudeSession: false,
+    });
+  });
+
+  it('lists workspaces (Animate active, ○ without keys … ● with) and resolves keys through the keymap', () => {
+    const { api, app } = setup();
+    registerBuiltins(app);
+    // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the four tabs; disabled ones carry no glyph.
+    expect(api.workspaces()).toEqual([
+      { id: 'model', label: 'Model', enabled: true, active: false, glyph: 'todo', reasons: ['No editable mesh yet'] },
+      { id: 'rig', label: 'Rig & Skin', enabled: false, active: false, glyph: 'none', reasons: [] },
+      { id: 'animate', label: 'Animate', enabled: true, active: true, glyph: 'done', reasons: [] },
+      { id: 'review', label: 'Review', enabled: false, active: false, glyph: 'none', reasons: [] },
+    ]);
+    expect(api.resolveKey({ code: 'KeyS' }, { panel: 'viewport', paneId: 'pane-persp' })).toEqual({
+      op: 'key.set',
+      args: { channels: 'all' },
+      scope: 'viewport',
+    });
+    expect(api.resolveKey({ code: 'KeyZ', mod: true }, { panel: 'graph' })).toMatchObject({ op: 'edit.undo' });
+    expect(api.resolveKey({ code: 'F13' }, { panel: 'viewport' })).toBeNull();
+  });
+
+  it('reports history labels oldest first and the blob store', async () => {
+    const { api, app } = setup();
+    app.store.transact({ label: 'Rename' }, (tx) => tx.patch('clips', CLIP, { name: 'one' }));
+    app.store.transact({ label: 'Loop' }, (tx) => tx.patch('clips', CLIP, { loop: false }));
+    app.history.undo();
+    expect(api.history()).toEqual({ undo: ['Rename'], redo: ['Loop'] });
+    expect(api.blobs()).toEqual({ resident: 0, residentBytes: 0, historyBytes: 0, journalBytes: 0 });
+  });
+
+  it('lists mesh records with counts, info and normals from the reference kernel', async () => {
+    const { api, app } = setup();
+    const kernel = await loadMeshKernel();
+    const cube = kernel.primitive('cube', {});
+    const out = kernel.writeRevision(cube);
+    for (const [, chunk] of out.newChunks) app.blobs.put(chunk);
+    app.blobs.put(out.manifestBytes);
+    const ref: MeshRef = { manifest: out.manifestId, rev: 1, base: null, joints: [] };
+    app.store.transact({ label: 'Create' }, (tx) => tx.put('meshes', cubeRecord(ref)));
+    expect(api.meshes()).toEqual([
+      {
+        id: 'msh_Cube',
+        name: 'Cube',
+        owner: 'scene',
+        parent: null,
+        badge: 'prim',
+        manifest: out.manifestId,
+        rev: 1,
+        faceted: true,
+        generator: 'cube',
+        palette: null,
+        counts: { v: 8, e: 12, f: 6, c: 24, tris: 12 },
+        runtime: 'ready',
+      },
+    ]);
+    expect(api.meshInfo('msh_Cube')).toEqual({
+      counts: { v: 8, e: 12, f: 6, c: 24, tris: 12 },
+      stats: { shells: 1, boundaryLoops: 0, euler: 2, nonManifoldEdges: 0, nonManifoldVerts: 0 },
+      problems: 0,
+      bounds: [
+        [-0.5, -0.5, -0.5],
+        [0.5, 0.5, 0.5],
+      ],
+      manifest: out.manifestId,
+      layers: [...cube.layers.keys()],
+    });
+    const normals = api.meshNormals('msh_Cube');
+    expect(normals?.face).toHaveLength(6);
+    expect(normals?.corner).toHaveLength(24);
+    expect(normals?.face.map((n) => n.map((x) => Math.round(x)))).toContainEqual([0, 1, 0]);
+    expect(api.meshInfo('msh_None')).toBeNull();
+    expect(api.meshNormals('msh_None')).toBeNull();
+  });
+
+  it('owner groups that have not landed throw not-implemented with their owner', () => {
+    const { api } = setup();
+    expect(() => api.model()).toThrow(/B10/);
+    expect(() => api.lastOp()).toThrow(/B11/);
+    expect(() => api.palettes()).toThrow(/B13/);
+    expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
+    // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
+    expect(api.pixel('pane-persp', 0, 0)).toEqual([0, 0, 0, 0]);
+    expect(() => api.meshFaces('msh_A')).toThrow(/B7/);
+    expect(() => api.setExpression('c', 'smile', 1)).toThrow(/INT/);
+  });
+});
+
 describe('placeholder test API (kernel unavailable)', () => {
   it('resolves ready and counts frames; everything else is not implemented', async () => {
     const testApi = createPlaceholderTestApi();
@@ -269,5 +401,7 @@ describe('placeholder test API (kernel unavailable)', () => {
     expect(testApi.api.renderedFrames()).toBe(1);
     expect(testApi.api.webgl).toEqual({ ok: true, renderer: 'GPU' });
     expect(() => testApi.api.counts()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect(() => testApi.api.workspaces()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect(() => testApi.api.meshes()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
   });
 });

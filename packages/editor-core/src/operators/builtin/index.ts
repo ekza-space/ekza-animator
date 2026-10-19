@@ -25,6 +25,27 @@ import { SELECT_OPERATORS } from './select';
 import { TIME_OPERATORS } from './time';
 import { TWEEN_OPERATORS } from './tween';
 import { VIEW_OPERATORS } from './view';
+// M6a (M6A-SPEC §6; B0a registers every new operator from its stub file)
+import { CREATE_OPERATORS } from './create';
+import { EXPORT_MODEL_OPERATORS } from './exportModel';
+import { EXTRUDE_SESSION_OPERATORS } from './extrudeSession';
+import { HIDE_OPERATORS } from './hide';
+import { IMAGE_PLANE_OPERATORS } from './imagePlane';
+import { KEYMAP_SHADOW_OPERATORS } from './keymapShadows';
+import { LASTOP_OPERATORS } from './lastop';
+import { MAKE_EDITABLE_OPERATORS } from './makeEditable';
+import { MESH_OPERATORS } from './mesh';
+import { MODE_OPERATORS } from './mode';
+import { PALETTE_OPERATORS } from './palette';
+import { PIVOT_OPERATORS } from './pivot';
+import { SCENE_OPERATORS } from './scene';
+import { SELECT_MESH_OPERATORS } from './selectMesh';
+import { SNAP_OPERATORS } from './snap';
+import { SOFT_SELECT_OPERATORS } from './softSelect';
+import { SYMMETRY_OPERATORS } from './symmetry';
+import { TEMPLATE_OPERATORS } from './templates';
+import { WORKSPACE_OPERATORS } from './workspace';
+import { registerBuiltinWorkspaces } from '../../workspaces';
 
 export { BUILTIN_EXPORTERS, BUILTIN_IMPORTERS, BUILTIN_MENU_ITEMS };
 
@@ -47,6 +68,26 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...GRAPH_BUFFER_OPERATORS,
   ...MIRROR_ANIMATION_OPERATORS,
   ...AUTOSAVE_OPERATORS,
+  // M6a (M6A-SPEC §6.1, §6.2)
+  ...MESH_OPERATORS,
+  ...WORKSPACE_OPERATORS,
+  ...MODE_OPERATORS,
+  ...SELECT_MESH_OPERATORS,
+  ...HIDE_OPERATORS,
+  ...SYMMETRY_OPERATORS,
+  ...SOFT_SELECT_OPERATORS,
+  ...SNAP_OPERATORS,
+  ...PIVOT_OPERATORS,
+  ...EXTRUDE_SESSION_OPERATORS,
+  ...LASTOP_OPERATORS,
+  ...KEYMAP_SHADOW_OPERATORS,
+  ...CREATE_OPERATORS,
+  ...TEMPLATE_OPERATORS,
+  ...PALETTE_OPERATORS,
+  ...IMAGE_PLANE_OPERATORS,
+  ...SCENE_OPERATORS,
+  ...MAKE_EDITABLE_OPERATORS,
+  ...EXPORT_MODEL_OPERATORS,
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {
@@ -68,9 +109,9 @@ export function registerBuiltinOperators(app: EditorApp): Disposer {
   return disposeAll(disposers);
 }
 
-/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items and MAYA_KEYMAP. */
+/** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items, MAYA_KEYMAP and (M6a) workspaces. */
 export function registerBuiltins(app: EditorApp): Disposer {
-  const disposers: Disposer[] = [registerBuiltinOperators(app)];
+  const disposers: Disposer[] = [registerBuiltinOperators(app), registerBuiltinWorkspaces(app)];
   for (const def of BUILTIN_IMPORTERS) {
     if (app.importers.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'importer', def }));
   }
