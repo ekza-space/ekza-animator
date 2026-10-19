@@ -264,18 +264,32 @@ describe('eager/lazy split (§2)', () => {
     expect(offenders).toEqual([]);
   });
 
-  it('every kernel entry module references the marker (registry, reference modules, op stubs)', () => {
+  it('every kernel entry module references the marker (registry, kernel modules, op stubs)', () => {
     expect(KERNEL_MARKER).toBe('ekza-mesh-kernel');
     expect(Object.getOwnPropertyDescriptor(MESH_OPS, '__kernel')?.value).toBe(KERNEL_MARKER);
-    // `access.ts` holds only pure accessors reached through modules that reference the marker.
-    const reference = readdirSync(join(SRC, 'reference')).filter(
-      (name) => name.endsWith('.ts') && name !== 'access.ts',
-    );
-    const silent = reference.filter(
-      (name) =>
-        !/kernelError|notImplemented|KERNEL_MARKER|editMeshFrom|isKernelDebug/.test(
-          readFileSync(join(SRC, 'reference', name), 'utf8'),
-        ),
+    // B1 replaced B0a's reference/** with these module directories (literal update of this scan).
+    const dirs = [
+      'core',
+      'layers',
+      'log',
+      'euler',
+      'validate',
+      'revision',
+      'triangulate',
+      'normals',
+      'primitives',
+      'predicates',
+    ];
+    const silent = dirs.flatMap((dir) =>
+      readdirSync(join(SRC, dir))
+        .filter((name) => name.endsWith('.ts'))
+        .filter(
+          (name) =>
+            !/kernelError|notImplemented|KERNEL_MARKER|editMeshFrom|isKernelDebug/.test(
+              readFileSync(join(SRC, dir, name), 'utf8'),
+            ),
+        )
+        .map((name) => `${dir}/${name}`),
     );
     expect(silent).toEqual([]);
   });
