@@ -70,18 +70,24 @@ interface Scene {
 }
 
 /** A single front ortho pane in Model, a cube at the origin framed in it. */
-async function scene(opts?: { readonly second?: boolean }): Promise<Scene & { readonly other: MeshId | null }> {
+async function scene(opts?: {
+  readonly second?: boolean;
+  readonly preset?: 'front' | 'side' | 'top';
+  /** Where the second cube sits (default 3 m along X). */
+  readonly secondAt?: readonly [number, number, number];
+}): Promise<Scene & { readonly other: MeshId | null }> {
   const app = createFakeEditorApp();
   registerBuiltinOperators(app);
   app.session.setState({ workspace: 'model' });
   const r = await createRig({ app });
   rig = r;
-  r.layout('single', { camera: () => ({ kind: 'view', preset: 'front' }), display: { shading: 'shaded' } });
+  const preset = opts?.preset ?? 'front';
+  r.layout('single', { camera: () => ({ kind: 'view', preset }), display: { shading: 'shaded' } });
   const cube = createMesh(app, 'msh_Cube', primitive('cube', {}));
   const other =
     opts?.second === true
       ? createMesh(app, 'msh_Other', primitive('cube', {}), {
-          placement: { t: [3, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+          placement: { t: [...(opts?.secondAt ?? [3, 0, 0])], q: [0, 0, 0, 1], s: [1, 1, 1] },
         })
       : null;
   // The runtime is a lazy chunk (mesh-view and the kernel): a cold import under load takes seconds.
@@ -276,6 +282,39 @@ describe('object mode (§5.6)', () => {
     pointer(element(s), 'pointermove', 1198, 598, { buttons: 1 });
     pointer(element(s), 'pointerup', 1198, 598);
     expect([...s.app.session.getState().selection.objects].sort(byId)).toEqual([s.cube, s.other].sort(byId));
+  });
+
+  // M6A-INT-10: the object hit test read triangle corners as point indices (most faces of a cube then missed: a click
+  // on the +X face in the side view selected nothing) and a second mesh tested a ray whose direction the first one's
+  // triangles had overwritten.
+  it('a click anywhere on a mesh selects it in every ortho view, with two meshes drawn', async () => {
+    const facing = { front: 2, side: 0, top: 1 } as const;
+    // The second cube beside the first as each view sees them (the side view looks along −X).
+    const beside = { front: [3, 0, 0], side: [0, 0, 3], top: [3, 0, 0] } as const;
+    for (const preset of ['front', 'side', 'top'] as const) {
+      rig?.dispose();
+      rig = null;
+      const s = await scene({ second: true, preset, secondAt: beside[preset] });
+      const k = facing[preset];
+      for (const [mesh, centre] of [
+        [s.cube, [0, 0, 0]],
+        [s.other, beside[preset]],
+      ] as const) {
+        for (const u of [-0.4, -0.15, 0, 0.15, 0.4]) {
+          for (const v of [-0.4, 0, 0.4]) {
+            const point = [...centre] as [number, number, number];
+            const [i, j] = ([0, 1, 2] as const).filter((axis) => axis !== k) as [0 | 1 | 2, 0 | 1 | 2];
+            point[k] += 0.5;
+            point[i] += u;
+            point[j] += v;
+            const at = s.rig.vm.project(PANE, point);
+            if (at === null) throw new Error(`${preset}: ${point.join(', ')} not visible`);
+            click(s, { x: at.x, y: at.y });
+            expect([preset, point, s.app.session.getState().selection.objects]).toEqual([preset, point, [mesh]]);
+          }
+        }
+      }
+    }
   });
 
   it('the RMB press point stays the menu mesh when a later left click lands elsewhere (click-release menus)', async () => {

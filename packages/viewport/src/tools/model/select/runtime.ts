@@ -220,7 +220,8 @@ export class ModelSelectRuntime {
       origin.set(ndcX, ndcY, -1).unproject(camera);
       target.set(ndcX, ndcY, 1).unproject(camera);
     }
-    const worldRay = new Ray(origin.clone(), target.sub(origin).normalize());
+    // Both vectors are copied: `rayDistance` reuses the module scratch vectors for its triangles (M6A-INT-10).
+    const worldRay = new Ray(origin.clone(), target.sub(origin).normalize().clone());
     let best: MeshId | null = null;
     let bestDistance = Number.POSITIVE_INFINITY;
     for (const id of objectsDrawnIn(this.app, paneId) as MeshId[]) {
@@ -251,13 +252,15 @@ export class ModelSelectRuntime {
     const inverse = m.clone().invert();
     const local = scratchRay.copy(ray).applyMatrix4(inverse);
     const p = data.position;
+    const cornerVert = data.cornerVert;
     let nearest: number | null = null;
     const count = tri.triFace.length;
     for (let t = 0; t < count; t++) {
       if (hidden !== null && hidden.has(tri.triFace[t] as number)) continue;
-      const a = tri.tris[3 * t] as number;
-      const b = tri.tris[3 * t + 1] as number;
-      const c = tri.tris[3 * t + 2] as number;
+      // The triangulation lists corners (§4.3 `Triangulation.tris`); positions are per point (M6A-INT-10).
+      const a = cornerVert[tri.tris[3 * t] as number] as number;
+      const b = cornerVert[tri.tris[3 * t + 1] as number] as number;
+      const c = cornerVert[tri.tris[3 * t + 2] as number] as number;
       scratchA.set(p[3 * a] as number, p[3 * a + 1] as number, p[3 * a + 2]);
       scratchB.set(p[3 * b] as number, p[3 * b + 1] as number, p[3 * b + 2]);
       scratchC.set(p[3 * c] as number, p[3 * c + 1] as number, p[3 * c + 2]);
