@@ -17,7 +17,6 @@
 import { EkzaError, type ParamDef, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
 import type { ComponentKind, OpWarning } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { openLastOpCard, resetLastOpCard } from '../../edit/capture';
 import type * as CaptureEngineModule from '../../edit/captureEngine';
 import type { KernelHistory } from '../../history/history';
@@ -34,6 +33,7 @@ import type {
 import { type AnyOperator, defineOperator, fail, isRecord, OK, runContextOf } from './define';
 import type * as LastopEngineModule from './lastopEngine';
 import { WHOLE_MESH_OPS } from './mesh/whole';
+import { modelOperators } from './modelOps';
 
 // ---------- reasons (§5.7 table) ----------
 
@@ -281,8 +281,8 @@ function kindOfRun(
   args: unknown,
   before: SessionState,
 ): ComponentKind | null {
-  const desc = MESH_OP_DESCRIPTORS[def.id];
-  if (desc !== undefined && desc.kinds === 'object') return null;
+  // Object-level kernel ops (their descriptors, M6A-INT-13: with the Model operators chunk, loaded once one ran).
+  if (modelOperators()?.OBJECT_LEVEL_MESH_OPS.has(def.id) === true) return null;
   if (def.extraArgs?.includes('kind') !== true) return null;
   const given = isRecord(args) ? args['kind'] : undefined;
   if (given === null && WHOLE_MESH_OPS.has(def.id)) return null;
@@ -302,7 +302,7 @@ function targetsOfRun(
   before: SessionState,
 ): MeshId[] {
   const explicit = isRecord(args) ? args['meshes'] : undefined;
-  if (MESH_SET_OP_DESCRIPTORS[def.id] !== undefined) {
+  if (modelOperators()?.MESH_SET_OPS.has(def.id) === true) {
     // Set-ops: the inputs (Combine removes all but the first; the adjusted re-run first undoes, restoring them).
     return Array.isArray(explicit) ? meshIds(explicit) : meshIds(before.selection.objects);
   }

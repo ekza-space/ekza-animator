@@ -67,6 +67,10 @@ export const BOUNDARIES = [
   // M6A-SPEC §5.18 (B9): the drawings of the marking menu and the command palette load when first opened.
   { id: 'marking-menu', label: 'marking menu drawing', markers: ['mm-slot-'] },
   { id: 'command-palette', label: 'command palette list', markers: ['cmdk-input'] },
+  // M6A-INT-13/14 (§5.27): the Model operators chunk (definitions, polls and bodies of the Model-only operators, the
+  // Model menu items, the op descriptors) loads on the first Model entry; B10's selection service with the kernel.
+  { id: 'model-operators', label: 'Model operators', markers: ['Works on edges: enter edge mode first'] },
+  { id: 'component-selection', label: 'component selection service', markers: ['is not open for component edits'] },
 ];
 
 /** The recorded M2a baseline and the M6a eager allowance (`size-baseline.json`, §5.27). */

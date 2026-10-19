@@ -4,6 +4,7 @@ import {
   ANIMATE_WORKSPACE,
   BUILTIN_MENU_ITEMS,
   type ComponentMode,
+  MODEL_MENU_ITEMS,
   registerBuiltinOperators,
 } from '@ekza-animator/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -19,7 +20,8 @@ afterEach(() => {
 function setup(platform: 'mac' | 'other' = 'other'): TestShell {
   const test = createTestShell({ platform });
   registerBuiltinOperators(test.app);
-  for (const def of BUILTIN_MENU_ITEMS) test.app.contribute({ kind: 'menu', def });
+  // The Model items register with the Model operators chunk in the editor (M6A-INT-13); the test contributes both.
+  for (const def of [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS]) test.app.contribute({ kind: 'menu', def });
   test.app.contribute({ kind: 'workspace', def: TEST_MODEL_WORKSPACE });
   shells.push(test);
   return test;

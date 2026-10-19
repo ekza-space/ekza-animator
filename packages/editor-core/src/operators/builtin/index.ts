@@ -25,25 +25,12 @@ import { SELECT_OPERATORS } from './select';
 import { TIME_OPERATORS } from './time';
 import { TWEEN_OPERATORS } from './tween';
 import { VIEW_OPERATORS } from './view';
-// M6a (M6A-SPEC §6; B0a registers every new operator from its stub file)
-import { CREATE_OPERATORS } from './create';
-import { EXPORT_MODEL_OPERATORS } from './exportModel';
+// M6a (M6A-SPEC §6; B0a registers every new operator from its stub file). The Model-only operators are proxies until
+// their chunk loads on the first Model entry (`./modelOps`, M6A-INT-13); the others are eager.
 import { bindExtrude, EXTRUDE_SESSION_OPERATORS } from './extrudeSession';
-import { HIDE_OPERATORS } from './hide';
-import { IMAGE_PLANE_OPERATORS } from './imagePlane';
 import { KEYMAP_SHADOW_OPERATORS } from './keymapShadows';
 import { LASTOP_OPERATORS } from './lastop';
-import { MAKE_EDITABLE_OPERATORS } from './makeEditable';
-import { MESH_OPERATORS } from './mesh';
-import { MODE_OPERATORS } from './mode';
-import { PALETTE_OPERATORS } from './palette';
-import { PIVOT_OPERATORS } from './pivot';
-import { SCENE_OPERATORS } from './scene';
-import { SELECT_MESH_OPERATORS } from './selectMesh';
-import { SNAP_OPERATORS } from './snap';
-import { SOFT_SELECT_OPERATORS } from './softSelect';
-import { SYMMETRY_OPERATORS } from './symmetry';
-import { TEMPLATE_OPERATORS } from './templates';
+import { loadModelOperators, MODEL_OPERATOR_PROXIES, modelOperatorExtras, whenModelOperatorsLoaded } from './modelOps';
 import { WORKSPACE_OPERATORS } from './workspace';
 import { registerBuiltinWorkspaces } from '../../workspaces';
 import { bindCapture } from '../../edit/capture';
@@ -70,26 +57,14 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...GRAPH_BUFFER_OPERATORS,
   ...MIRROR_ANIMATION_OPERATORS,
   ...AUTOSAVE_OPERATORS,
-  // M6a (M6A-SPEC §6.1, §6.2)
-  ...MESH_OPERATORS,
+  // M6a (M6A-SPEC §6.1, §6.2): the proxies' groups keep the order the eager operators had (`MODEL_OPERATOR_GROUPS`)
+  ...MODEL_OPERATOR_PROXIES.mesh,
   ...WORKSPACE_OPERATORS,
-  ...MODE_OPERATORS,
-  ...SELECT_MESH_OPERATORS,
-  ...HIDE_OPERATORS,
-  ...SYMMETRY_OPERATORS,
-  ...SOFT_SELECT_OPERATORS,
-  ...SNAP_OPERATORS,
-  ...PIVOT_OPERATORS,
+  ...MODEL_OPERATOR_PROXIES.select,
   ...EXTRUDE_SESSION_OPERATORS,
   ...LASTOP_OPERATORS,
   ...KEYMAP_SHADOW_OPERATORS,
-  ...CREATE_OPERATORS,
-  ...TEMPLATE_OPERATORS,
-  ...PALETTE_OPERATORS,
-  ...IMAGE_PLANE_OPERATORS,
-  ...SCENE_OPERATORS,
-  ...MAKE_EDITABLE_OPERATORS,
-  ...EXPORT_MODEL_OPERATORS,
+  ...MODEL_OPERATOR_PROXIES.content,
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {
@@ -104,7 +79,7 @@ function disposeAll(disposers: Disposer[]): Disposer {
 /** Registers the built-in operators; ids already registered (by the host or an extension) are left as they are. */
 export function registerBuiltinOperators(app: EditorApp): Disposer {
   const disposers: Disposer[] = [];
-  for (const def of BUILTIN_OPERATORS) {
+  for (const def of [...BUILTIN_OPERATORS, ...modelOperatorExtras()]) {
     if (app.operators.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'operator', def }));
   }
@@ -134,5 +109,34 @@ export function registerBuiltins(app: EditorApp): Disposer {
     if (app.menus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'menu', def }));
   }
   disposers.push(app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP }));
+  disposers.push(registerModelOperators(app));
   return disposeAll(disposers);
+}
+
+/**
+ * M6a (M6A-INT-13): the Model operators chunk loads on the first Model entry (and with the first run or poll of a
+ * Model operator); once it has, this app gets the Model menu items (the menu bar lists registry changes).
+ */
+function registerModelOperators(app: EditorApp): Disposer {
+  const menus: Disposer[] = [];
+  let disposed = false;
+  const offLoaded = whenModelOperatorsLoaded((module) => {
+    if (disposed) return;
+    for (const def of module.MODEL_MENU_ITEMS) {
+      if (app.menus.get(def.id) === undefined) menus.push(app.contribute({ kind: 'menu', def }));
+    }
+  });
+  const load = (workspace: string): void => {
+    if (workspace === 'model') void loadModelOperators().catch(() => {});
+  };
+  load(app.session.getState().workspace);
+  const offSession = app.session.subscribe((state, previous) => {
+    if (state.workspace !== previous.workspace) load(state.workspace);
+  });
+  return () => {
+    disposed = true;
+    offLoaded();
+    offSession();
+    for (const dispose of menus.splice(0).reverse()) dispose();
+  };
 }

@@ -32,6 +32,7 @@ import type {
 } from '../types';
 import { extrudeAfterRun, extrudeBeforeRun } from './builtin/extrudeSession';
 import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRunOf } from './builtin/lastop';
+import { pendingModelOperator } from './builtin/modelOps';
 import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
 
 /** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
@@ -175,6 +176,18 @@ export function createOperatorRunner(deps: {
   };
 
   const execute = async (def: AnyOperatorDef, rawArgs: unknown, ctx: RunContext | undefined) => {
+    // M6a (M6A-INT-13): a Model operator proxy runs once its chunk has loaded (the proxy is then the operator).
+    const loading = pendingModelOperator(def);
+    if (loading !== null) {
+      try {
+        await loading;
+      } catch (error) {
+        return {
+          status: 'failed',
+          error: { code: 'unavailable', message: error instanceof Error ? error.message : String(error) },
+        } as const;
+      }
+    }
     const app = deps.app();
     // The card's tracker binds here once its chunk has loaded (the recorder loads it, §5.27).
     attachLastRunTracker(app, false);

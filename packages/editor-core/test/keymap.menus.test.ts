@@ -6,6 +6,7 @@ import {
   type ComponentMode,
   MAYA_KEYMAP,
   type MenuItemDef,
+  MODEL_MENU_ITEMS,
   MODEL_MENUS,
   registerBuiltinOperators,
 } from '../src';
@@ -15,7 +16,10 @@ import { ch, sameChord, stableKeyOf } from './keymap-support';
 const app = createFakeEditorApp();
 registerBuiltinOperators(app);
 
-const MODEL_ITEMS = BUILTIN_MENU_ITEMS.filter((item) => item.workspaces?.includes('model') === true);
+// The Model items come with the Model operators chunk (M6A-INT-13): both lists are the built-in menu data.
+const MODEL_ITEMS = [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS].filter(
+  (item) => item.workspaces?.includes('model') === true,
+);
 const label = (item: MenuItemDef): string => item.label ?? app.operators.get(item.op)?.label ?? item.op;
 
 /** Items of one menu (or sub-menu) in order, as `label` or `label [modes]`. */

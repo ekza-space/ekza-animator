@@ -8,6 +8,8 @@ import {
   BUILTIN_EXPORTERS,
   BUILTIN_IMPORTERS,
   BUILTIN_MENU_ITEMS,
+  loadModelOperators,
+  MODEL_MENU_ITEMS,
   MAYA_KEYMAP,
   registerBuiltinOperators,
   registerBuiltins,
@@ -255,6 +257,9 @@ const OTHERS: ReadonlySet<string> = new Set([
   'graph.view.setMode',
 ]);
 
+/** The built-in menu data: the eager items and the Model items of the Model operators chunk (M6A-INT-13). */
+const ALL_MENU_ITEMS = [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS];
+
 describe('built-in operators', () => {
   it('registers every §4.9 operator owned by WP-7b with its undo flag, plus the requested additions', () => {
     const app = createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });
@@ -345,7 +350,9 @@ describe('built-in operators', () => {
 });
 
 describe('registerBuiltins', () => {
-  it('contributes operators, importers, exporters, profiles, menu items and the maya keymap', () => {
+  it('contributes operators, importers, exporters, profiles, menu items and the maya keymap', async () => {
+    // The Model menu items register once the Model operators chunk has loaded (M6A-INT-13).
+    await loadModelOperators();
     const app = kernelApp({ snapshot: waveDoc() });
     const before = app.keymap.bindings().length;
     const dispose = registerBuiltins(app);
@@ -353,7 +360,7 @@ describe('registerBuiltins', () => {
     expect(app.importers.list().map((def) => def.id)).toEqual(BUILTIN_IMPORTERS.map((def) => def.id));
     expect(app.exporters.list().map((def) => def.id)).toEqual(['bake-into-model', 'animation-glb', 'vrma']);
     expect(app.exportProfiles.list().map((def) => def.id)).toEqual(BUILTIN_EXPORT_PROFILES.map((def) => def.id));
-    expect(app.menus.list()).toHaveLength(BUILTIN_MENU_ITEMS.length);
+    expect(app.menus.list()).toHaveLength(ALL_MENU_ITEMS.length);
     expect(app.keymap.bindings().length).toBe(before + MAYA_KEYMAP.length);
     dispose();
     expect(app.operators.list()).toEqual([]);
@@ -380,8 +387,8 @@ describe('registerBuiltins', () => {
 
   it('builds menu items for registered (or other packages’) operators only, with unique ids', () => {
     const ids = new Set(BUILTIN_OPERATORS.map((def) => def.id));
-    expect(new Set(BUILTIN_MENU_ITEMS.map((item) => item.id)).size).toBe(BUILTIN_MENU_ITEMS.length);
-    for (const item of BUILTIN_MENU_ITEMS) {
+    expect(new Set(ALL_MENU_ITEMS.map((item) => item.id)).size).toBe(ALL_MENU_ITEMS.length);
+    for (const item of ALL_MENU_ITEMS) {
       const top = item.menu.split('.')[0] ?? '';
       expect({ id: item.id, known: ids.has(item.op) || OTHERS.has(item.op), menu: MENUS.test(top) }).toEqual({
         id: item.id,
@@ -390,9 +397,9 @@ describe('registerBuiltins', () => {
       });
     }
     // The time slider owns its context menu.
-    expect(BUILTIN_MENU_ITEMS.some((item) => item.menu === 'timeline.context')).toBe(false);
+    expect(ALL_MENU_ITEMS.some((item) => item.menu === 'timeline.context')).toBe(false);
     // Model's own menus never reach the Animate menu bar.
-    for (const item of BUILTIN_MENU_ITEMS.filter((entry) => MODEL_ONLY_MENUS.test(entry.menu.split('.')[0] ?? ''))) {
+    for (const item of ALL_MENU_ITEMS.filter((entry) => MODEL_ONLY_MENUS.test(entry.menu.split('.')[0] ?? ''))) {
       expect([item.id, item.workspaces]).toEqual([item.id, ['model']]);
     }
   });
@@ -407,7 +414,7 @@ describe('registerBuiltins', () => {
   it('menu-item arguments pass their operator polls', () => {
     const app = opsApp();
     const ctx: OperatorContext = { app, panel: null, paneId: null };
-    for (const item of BUILTIN_MENU_ITEMS) {
+    for (const item of ALL_MENU_ITEMS) {
       const def = app.operators.get(item.op);
       if (def === undefined) continue;
       let result: ReturnType<NonNullable<typeof def.poll>> = true;

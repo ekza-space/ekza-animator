@@ -5,6 +5,7 @@ import type { DocSnapshot } from '@ekza-animator/doc';
 import {
   animateStatus,
   BUILTIN_MENU_ITEMS,
+  MODEL_MENU_ITEMS,
   type EditorApp,
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
@@ -52,7 +53,10 @@ const query = (id: string): HTMLElement | null => document.querySelector(`[data-
 function withBuiltins(app: EditorApp): void {
   registerBuiltinOperators(app);
   registerBuiltinWorkspaces(app);
-  for (const def of BUILTIN_MENU_ITEMS) if (app.menus.get(def.id) === undefined) app.contribute({ kind: 'menu', def });
+  // The Model menu items come with the Model operators chunk in the editor (M6A-INT-13): both lists here.
+  for (const def of [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS]) {
+    if (app.menus.get(def.id) === undefined) app.contribute({ kind: 'menu', def });
+  }
 }
 
 let shell: Shell | null = null;

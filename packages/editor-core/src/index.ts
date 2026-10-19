@@ -75,6 +75,15 @@ export {
   registerBuiltinOperators,
   registerBuiltins,
 } from './operators/builtin';
+// M6a (M6A-INT-13): the Model operators chunk's eager side, and its menu items for tests and lazy code (the editor
+// registers them once the chunk has loaded).
+export {
+  loadModelOperators,
+  MODEL_TOOLS_LOADING,
+  modelOperators,
+  whenModelOperatorsLoaded,
+} from './operators/builtin/modelOps';
+export { MODEL_MENU_ITEMS } from './operators/builtin/modelMenus';
 export { defaultPrefs } from './prefs/defaults';
 export { createMemoryAssetStore } from './services/assets';
 export { activeClip, activeClipFrame, activeRuntime } from './session/active';

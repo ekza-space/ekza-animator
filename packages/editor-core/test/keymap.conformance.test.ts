@@ -7,6 +7,7 @@ import {
   type KeyBinding,
   type KeyInput,
   MAYA_KEYMAP,
+  MODEL_MENU_ITEMS,
   MODEL_MENUS,
   MODEL_SCOPE,
   type MarkingMenuItem,
@@ -150,7 +151,10 @@ describe('keymap conformance (§7)', () => {
 
   it('reaches every Model operator with a menu item from a menu of the Model menu bar', () => {
     const app = builtinApp();
-    const model = BUILTIN_MENU_ITEMS.filter((item) => item.workspaces?.includes('model') === true);
+    // The Model items come with the Model operators chunk (M6A-INT-13).
+    const model = [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS].filter(
+      (item) => item.workspaces?.includes('model') === true,
+    );
     expect(model.length).toBeGreaterThan(80);
     for (const item of model) {
       const top = item.menu.split('.')[0] ?? '';
