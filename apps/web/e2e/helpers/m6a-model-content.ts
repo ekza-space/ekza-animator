@@ -95,11 +95,12 @@ export interface Sword {
 }
 
 /**
- * E2E-MOD-13's scripted handheld sword (about 110 triangles, inside the 80–400 the scenario asks for): the Handheld
+ * E2E-MOD-13's scripted handheld sword (about 102 triangles, inside the 80–400 the scenario asks for): the Handheld
  * template, a cube scaled to a blade above the grip (four height segments), its top face extruded twice and the tip
- * vertices merged to their centre, a 6-sided cylinder handle (three segments) and a cube cross-guard combined into
- * the hilt. Needs B3 (extrude), B4 (Merge to Center, Combine), B10 (component selection) and B12a
- * (object transforms).
+ * vertices merged to their centre (21 quads and 4 triangles: 46), a 6-sided cylinder handle (three segments, n-gon
+ * caps: 44) and a cube cross-guard (12) combined into the hilt. Combine (§5.13) appends into the first-selected mesh
+ * and removes the others, so the hilt keeps the handle's id and the guard's record goes. Needs B3 (extrude), B4
+ * (Merge to Center, Combine), B10 (component selection) and B12a (object transforms).
  */
 export async function buildSword(page: Page): Promise<Sword> {
   const { root: group } = await runOk<{ root: string }>(page, 'mesh.create.template', { template: 'handheld' });
@@ -134,10 +135,17 @@ export async function buildSword(page: Page): Promise<Sword> {
   const guard = await createPrimitive(page, 'cube', { width: 0.16, height: 0.02, depth: 0.03 });
   await placeObjects(page, { [handle]: [0, 0, 0], [guard]: [0, 0.08, 0] });
   await selectObjects(page, [handle, guard]);
-  const before = new Set((await call(page, 'meshes')).map((row) => row.id));
+  const rowOf = async (id: string) => (await call(page, 'meshes')).find((row) => row.id === id);
+  const handleBefore = await rowOf(handle);
   await runOk(page, 'mesh.combine');
-  const hilt = (await call(page, 'meshes')).find((row) => !before.has(row.id))?.id;
-  if (hilt === undefined) throw new Error('Combine created no mesh');
+  // Combine appends into the lead (the first selected: the handle) and removes the other inputs (§5.13).
+  const hilt = handle;
+  await expect
+    .poll(async () => (await rowOf(guard)) === undefined, { message: 'the guard record was removed' })
+    .toBe(true);
+  await expect
+    .poll(async () => (await rowOf(hilt))?.rev ?? 0, { message: "the handle's revision advanced" })
+    .toBeGreaterThan(handleBefore?.rev ?? 0);
   await expect.poll(() => meshRuntime(page, hilt)).toBe('ready');
   await selectObjects(page, [group]);
   return { group, blade, hilt };
