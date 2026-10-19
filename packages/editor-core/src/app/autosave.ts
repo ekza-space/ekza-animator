@@ -10,10 +10,15 @@
 //   again before it writes: a gesture that began meanwhile defers it, a clean end meanwhile drops it.
 // - Clean ends: when the document stops being dirty (a save, a new or opened project) the slot's snapshot is removed
 //   and pending writes are dropped; a quota error pauses autosave until then, with one warning toast.
+// - Mesh blobs (M6A-SPEC §5.20, B7): a write passes the blob closure of every live mesh revision of its snapshot
+//   (`BlobStore.closure`, after reading non-resident manifests through `BlobStore.get`) and a verified blob reader;
+//   the closure is pinned as a GC root from the moment the snapshot is taken until the write resolves, and the last
+//   written slot's closure stays pinned until the next write or the slot's removal.
 import { SCHEMA_VERSION, serializeSnapshot } from '@ekza-animator/doc';
 import type { AssetRecord, ChangeBatch } from '@ekza-animator/doc';
-import type { AutosaveSlotInfo, AutosaveStatus, AutosaveStore, EditorApp } from '../types';
-import { openAllPartitions } from '../workflows/project';
+import { attachMeshes } from '../mesh';
+import type { AutosaveSlotInfo, AutosaveStatus, AutosaveStore, BlobId, EditorApp } from '../types';
+import { liveManifests, openAllPartitions } from '../workflows/project';
 import { EDITOR_VERSION } from '../workflows/samples';
 
 /** Orphans older than this are removed at start (§5.20 housekeeping). */
@@ -95,6 +100,10 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
   if (existing !== undefined) return existing;
   const clock = opts?.clock ?? browserClock();
   const store = app.services.autosave ?? null;
+  // The page that autosaves is the page whose mesh registry must know the app (budget, history drops): bind it now.
+  const meshes = attachMeshes(app);
+  /** Releases the pin of the last written slot's blobs (§5.20 root 4). */
+  let slotPin: (() => void) | null = null;
   const prefs = () => app.prefs.getState().autosave;
 
   let disposed = false;
@@ -203,16 +212,20 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     cancelTimer();
     await openAllPartitions(app);
     const snapshot = app.store.snapshot();
+    // Mesh blobs (M6a, §5.20): the snapshot's revisions are roots from now until the write resolves.
+    const manifests = liveManifests(snapshot);
+    const unpinManifests = meshes?.pinBlobs(manifests) ?? (() => {});
     const snapshotJson = serializeSnapshot(snapshot);
     // Models the asset store does not have (a project opened from the JSON variant) are left out, as in a save.
     const assets: AssetRecord[] = [];
     for (const record of Object.values(snapshot.tables.assets ?? {})) {
       if (await app.services.assets.has(record.id)) assets.push(record);
     }
-    // Mesh blobs (M6a, §5.20): the chunk closure of every live mesh revision (B7 extends the root set).
-    const manifests: string[] = [];
-    for (const record of app.store.list('meshes')) if (record.data !== null) manifests.push(record.data.manifest);
-    const blobs = app.blobs.closure(manifests);
+    // Manifests that are not resident (a recovered slot still loading) are read through the blob store's sources.
+    for (const manifest of manifests) if (!app.blobs.has(manifest)) await app.blobs.get(manifest).catch(() => {});
+    const blobs: readonly BlobId[] = app.blobs.closure(manifests);
+    const unpinBlobs = meshes?.pinBlobs(blobs) ?? (() => {});
+    unpinManifests();
     try {
       const { bytes } = await store.write(
         slot,
@@ -220,6 +233,10 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
         (id) => app.services.assets.get(id),
         (id) => app.blobs.get(id),
       );
+      // The written slot's blobs stay roots until the next write or the slot's removal.
+      slotPin?.();
+      slotPin = meshes?.pinBlobs(blobs) ?? null;
+      unpinBlobs();
       if (disposed) return { slot, bytes };
       if (unsavedSeq === seq) {
         firstUnsavedAt = null;
@@ -233,6 +250,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
       if (firstUnsavedAt !== null) schedule();
       return { slot, bytes };
     } catch (error) {
+      unpinBlobs();
       if (isQuotaError(error)) {
         if (!paused) app.services.notify.toast({ kind: 'warning', text: AUTOSAVE_QUOTA_TOAST });
         paused = true;
@@ -258,6 +276,8 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     if (store === null || slot === null) return;
     await chain;
     await store.remove(slot).catch(() => {});
+    slotPin?.();
+    slotPin = null;
   };
 
   const onBatch = (batch: ChangeBatch): void => {
@@ -379,6 +399,8 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
       if (disposed) return;
       disposed = true;
       cancelTimer();
+      slotPin?.();
+      slotPin = null;
       if (timers.recheck !== null) clock.clearTimeout(timers.recheck);
       for (const dispose of disposers.splice(0).reverse()) dispose();
       controllers.delete(app);

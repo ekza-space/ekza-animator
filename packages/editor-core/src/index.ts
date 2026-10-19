@@ -96,7 +96,29 @@ export { controlVisibilityResolver, limbHiddenControls, limbVisibilityState } fr
 export { createCapture } from './app/factories/capture';
 export { createExtrude } from './app/factories/extrude';
 export { historyLabels } from './history/history';
-export { type KernelMeshRuntimes, loadMeshKernel, type MeshKernel, meshKernel } from './mesh';
+export {
+  attachMeshes,
+  BUDGET_TOAST,
+  type CommitContext,
+  type GcReport,
+  jointPaletteOf,
+  type KernelMeshRuntimes,
+  kernelMeshes,
+  type LastSetOp,
+  loadMeshKernel,
+  type MeshKernel,
+  meshKernel,
+  morphNamesOf,
+  type PaletteJoint,
+  readSkin,
+  refJointsOf,
+  type RunSettings,
+  type SkinRead,
+  SWEEP_INTERVAL_MS,
+  uniqueMeshName,
+  worldPlacement,
+} from './mesh';
+export { adjustedRun, runSeed, runSeedOf, runSettings } from './mesh/seed';
 export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator';
 export { MESH_OPERATORS } from './operators/builtin/mesh';
 export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
@@ -104,7 +126,7 @@ export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
 export type { LastRunRecorder } from './operators/runner';
 export { defaultModelingPrefs } from './prefs/defaults';
 export { createComponentSelectionService } from './selection';
-export { createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
+export { addBlobSource, type BlobSource, createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
 export { defaultModelSession } from './session/defaults';
 export { restoreSelectionPart, type StoredSelectionSnapshot } from './session/selection';
 export {
