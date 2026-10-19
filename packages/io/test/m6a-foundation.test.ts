@@ -1,6 +1,7 @@
-// M6A-SPEC §4.5 (B0a): io's M6a surface — the static-glb export kind, the handheld profile as data (not registered
-// before B8), the archive's `blobs` (writer parameter accepted, reader map present), and the lazy `io/mesh` and
-// `io/write` stubs that refuse `not-implemented` until B8 lands them.
+// M6A-SPEC §4.5 (B0a, then B8): io's M6a surface — the static-glb export kind, the handheld profile (registered by
+// B8), the archive's `blobs` (writer parameter accepted, reader map present), and the lazy `io/mesh` and `io/write`
+// entries (B0a stubs, landed by B8; their behaviour is tested in the mesh-*, palette, surgeon-geometry and
+// author-writer suites).
 import { describe, expect, it } from 'vitest';
 import { BUILTIN_EXPORT_KINDS, BUILTIN_EXPORT_PROFILES, PROFILE_OMOBA_HANDHELD } from '../src';
 import { editLicence, meshFromGltf, meshToPrimitives, writePaletteTexture } from '../src/mesh';
@@ -18,7 +19,7 @@ const code = async (fn: () => unknown): Promise<string | null> => {
 };
 
 describe('io M6a foundation', () => {
-  it('adds the static-glb export kind and the OMOBA handheld profile (unregistered until B8)', () => {
+  it('adds the static-glb export kind and the OMOBA handheld profile (registered by B8)', () => {
     expect(BUILTIN_EXPORT_KINDS).toEqual(['bake-into-model', 'animation-glb', 'vrma', 'static-glb']);
     expect(PROFILE_OMOBA_HANDHELD).toMatchObject({
       id: 'ekza/omoba-handheld-v1',
@@ -28,7 +29,7 @@ describe('io M6a foundation', () => {
       maxBytes: 8 * 1_048_576,
       ekza: true,
     });
-    expect(BUILTIN_EXPORT_PROFILES.map((profile) => profile.id)).not.toContain('ekza/omoba-handheld-v1');
+    expect(BUILTIN_EXPORT_PROFILES.map((profile) => profile.id)).toContain('ekza/omoba-handheld-v1');
   });
 
   it('writeProjectArchive accepts the blob closure and readProjectArchive returns a blobs map', async () => {
@@ -38,7 +39,7 @@ describe('io M6a foundation', () => {
     expect(archive.blobs.size).toBe(0);
   });
 
-  it('the lazy mesh entries are stubs until B8', async () => {
+  it('the lazy mesh entries are implemented (B8 replaced the B0a stubs)', async () => {
     const container = {
       bytes: new Uint8Array(0),
       json: { asset: { version: '2.0' } },
@@ -76,7 +77,7 @@ describe('io M6a foundation', () => {
           { generator: 'test' },
         ),
       ),
-    ).toBe('not-implemented');
+    ).toBeNull();
     expect(typeof meshToPrimitives).toBe('function');
   });
 });

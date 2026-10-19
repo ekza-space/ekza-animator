@@ -3,6 +3,7 @@
 // to every export kind (local/generic).
 import { profileRules } from '../lint/rules';
 import type { ExportKind, ExportProfileDef } from '../types';
+import { PROFILE_OMOBA_HANDHELD } from './handheld';
 
 const MiB = 1_048_576;
 
@@ -44,6 +45,8 @@ export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
     ekza: true,
     rules: profileRules(true),
   },
+  // M6a (M6A-SPEC §5.22): the static handheld-prop profile.
+  PROFILE_OMOBA_HANDHELD,
   {
     id: 'local/generic',
     label: 'Local file (generic checks)',

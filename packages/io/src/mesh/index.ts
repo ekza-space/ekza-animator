@@ -14,3 +14,4 @@ export {
   TANGENT_REFUSAL,
   type TangentRefusal,
 } from './toPrimitives';
+export { lintMeshes, type MeshLintInput, type MeshLintOptions, triangleCount } from '../lint/meshes';
