@@ -255,13 +255,19 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     expect(M6A.filter((d) => d.id.startsWith('mesh.') && d.extraArgs?.includes('kind') === true)).toHaveLength(42);
   });
 
-  /** Operators their owners have landed (no longer stubs): B7's `mesh.create.*` (§6.2). */
-  const LANDED = new Set(['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`));
+  /** Operators their owners have landed with their own argument checks (no longer stubs): skipped here. */
+  const OWN_CHECKS = new Set([
+    // B7 (m6a/mesh-runtime-doc): `mesh.create.*` (§6.2)
+    ...['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`),
+    // B8 (m6a/mesh-io)
+    'mesh.makeEditable',
+    'file.exportModel',
+  ]);
 
   it('cancels with a reason, never fails or throws, with or without args', async () => {
     const app = createFakeEditorApp({ snapshot: waveDoc() });
     registerBuiltins(app);
-    for (const def of M6A.filter((d) => !LANDED.has(d.id))) {
+    for (const def of M6A.filter((d) => !OWN_CHECKS.has(d.id))) {
       for (const args of [undefined, {}, { meshes: ['msh_X'], kind: 'face' }, 42]) {
         const result = await app.runUntyped(def.id, args);
         expect([def.id, result.status]).toEqual([def.id, 'cancelled']);

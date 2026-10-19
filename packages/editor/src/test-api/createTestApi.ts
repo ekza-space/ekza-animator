@@ -293,7 +293,8 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
           error: { code: 'internal', message: error instanceof Error ? error.message : String(error) },
         };
       }
-      if (result.status === 'finished' && op === 'file.export') {
+      // M6a (§4.8): static-model exports are reported too (contract note, M6A-B8 wp-notes).
+      if (result.status === 'finished' && (op === 'file.export' || op === 'file.exportModel')) {
         const artifacts = asArtifacts(result.value);
         if (artifacts !== null) shell.exports.recordArtifacts(artifacts);
       }

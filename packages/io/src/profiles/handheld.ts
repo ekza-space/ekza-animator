@@ -1,6 +1,8 @@
-// `ekza/omoba-handheld-v1` (M6A-SPEC §5.22; registry `desktop / handheld-glb-v1`): the static handheld-prop profile as
-// data. B0a lands the definition; B8 adds its `ekza.handheld.*` rules and registers it in BUILTIN_EXPORT_PROFILES (it
-// is not registered before B8, so no export dialog offers it yet).
+// `ekza/omoba-handheld-v1` (M6A-SPEC §5.22; registry `desktop / handheld-glb-v1`, re-implemented from its documented
+// contract): the static handheld-prop profile. Its `ekza.handheld.*` rules run in `lintExport` for 'static-glb'
+// exports (`lint/static.ts`); `tex.size` is an error here (the registry's browser preflight bound for handhelds).
+// Registered through BUILTIN_EXPORT_PROFILES (`profiles/builtin.ts`).
+import { profileRules } from '../lint/rules';
 import type { ExportProfileDef } from '../types';
 
 export const PROFILE_OMOBA_HANDHELD: ExportProfileDef = Object.freeze({
@@ -12,5 +14,7 @@ export const PROFILE_OMOBA_HANDHELD: ExportProfileDef = Object.freeze({
   maxBytes: 8 * 1_048_576,
   jsonMaxBytes: 4 * 1_048_576,
   ekza: true,
-  rules: [],
+  rules: profileRules(true).map((rule) =>
+    rule.id === 'tex.size' ? { id: rule.id, severity: 'error' as const } : rule,
+  ),
 });

@@ -144,6 +144,39 @@ export const LINT_RULES: readonly LintRuleDef[] = [
     ekza: 'warning',
     description: 'No node on an animated path shares its name with a sibling',
   },
+  // ---------- M6a (M6A-SPEC §4.5 lint table; B8): [id, local, ekza, description] ----------
+  ...(
+    [
+      ['mesh.budget.tris', 'info', 'warning', 'Triangles over budget (§5.24)'],
+      ['mesh.budget.materials', 'info', 'warning', 'Materials over budget'],
+      ['mesh.budget.textures', 'info', 'warning', 'Texture size over budget'],
+      ['mesh.budget.joints', 'info', 'warning', 'Joints over budget'],
+      ['mesh.non-manifold', 'warning', 'warning', 'Non-manifold edges or vertices'],
+      ['mesh.zero-area-face', 'warning', 'warning', 'Zero-area faces'],
+      ['mesh.loose-geometry', 'warning', 'warning', 'Loose vertices or edges'],
+      ['mesh.inconsistent-winding', 'warning', 'warning', 'Inconsistent winding'],
+      ['mesh.nonplanar-faceted', 'info', 'warning', 'Non-planar n-gon in a faceted region'],
+      ['mesh.ngon-concave', 'info', 'warning', 'Concave n-gon'],
+      ['mesh.influences', 'warning', 'error', 'More than four skin influences'],
+      ['mesh.weights-unnormalized', 'error', 'error', 'Skin weights do not sum to 1'],
+      ['mesh.unweighted-vertex', 'error', 'error', 'Skinned vertex without weight'],
+      ['mesh.skinned-node-transform', 'warning', 'warning', 'Skinned mesh node not at identity'],
+      ['mesh.tangents-dropped', 'info', 'warning', 'Tangents dropped from an edited primitive'],
+      ['palette.missing-swatch', 'warning', 'warning', 'Face paints a slot without a live swatch'],
+      ['ekza.positive-uniform-scale', 'error', 'error', 'Node scales positive and uniform'],
+      ['ekza.no-matrix-node', 'error', 'error', 'TRS nodes only'],
+      ['tex.size', 'warning', 'warning', 'Images ≤ 4096² each, ≤ 32 MP total'],
+      ['ekza.handheld.static', null, 'error', 'Handheld: static, one scene'],
+      ['ekza.handheld.extensions', null, 'error', 'Handheld: allowed extensions only'],
+      ['ekza.handheld.grip', null, 'error', 'Handheld: grip block in bounds'],
+      ['ekza.handheld.limits', null, 'error', 'Handheld: size and count limits'],
+      ['bevy.max-joints', 'error', 'error', 'At most 256 joints in a skin'],
+      ['ekza.provenance-ai-undisclosed', 'error', 'error', 'AI geometry disclosed in ekza_model_v1'],
+      ['ekza.provenance-attribution', 'warning', 'error', 'Derived-from entries name author and licence'],
+      ['ekza.provenance-territory', 'warning', 'error', 'Provider territory clause recorded'],
+      ['ekza.provenance-free-tier', 'warning', 'warning', 'Generation not attested as paid tier'],
+    ] as const
+  ).map(([id, local, ekza, description]): LintRuleDef => ({ id, local, ekza, description })),
 ];
 
 const BY_ID = new Map(LINT_RULES.map((rule) => [rule.id, rule]));

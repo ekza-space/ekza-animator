@@ -147,7 +147,8 @@ export function createShell(opts: CreateShellOptions): Shell {
       notifyError(`${label} failed: ${message}`);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
-    } else if (op === 'file.export') {
+    } else if (op === 'file.export' || op === 'file.exportModel') {
+      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes).
       const artifacts = asArtifacts(result.value);
       if (artifacts !== null) exports.recordArtifacts(artifacts);
     } else if (op === 'graph.curves.simplify') {

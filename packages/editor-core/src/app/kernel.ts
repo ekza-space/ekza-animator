@@ -54,6 +54,7 @@ import { createComponents } from './factories/components';
 import { createExtrude } from './factories/extrude';
 import { createBlobs, createMeshes } from './factories/meshes';
 import { bindInternals } from './internals';
+import { createMeshDisplay } from '../workflows/meshDisplay';
 
 export interface KernelOptions {
   readonly services: EditorServices;
@@ -158,6 +159,13 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
 
   // ---------- characters and evaluation ----------
   const cache = deps.rig.createCurveCache(store, deps.curves.engine);
+  // M6a (§5.23, B8): characters with edited meshes display a container rebuilt from their latest revisions.
+  const meshDisplay = createMeshDisplay({
+    store,
+    session,
+    app: () => app,
+    redisplay: (character) => characters.redisplay(character),
+  });
   const characters = createCharacterRegistry({
     store,
     deps,
@@ -165,6 +173,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     assets: services.assets,
     notify: services.notify,
     models: services.models,
+    display: meshDisplay,
   });
   const evaluation = createEvaluationService({ store, session, characters, deps, cache, requestFrame });
   const playback = createPlaybackClock({ store, session, deps, requestFrame });
@@ -343,6 +352,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       capture?.dispose();
       history.dispose();
       meshes.dispose();
+      meshDisplay.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();
