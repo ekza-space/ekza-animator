@@ -1,9 +1,12 @@
 // Budget report (M6A-SPEC §5.27, §9 B6): entering component mode on a 50k-triangle mesh (edit links, caches, overlays,
 // BVH) ≤ 40 ms, a hover pick ≤ 0.5 ms, a 10k-vertex marquee with occlusion ≤ 16 ms, idle 0 frames (by construction: the
-// views never schedule a frame; view.test.ts checks it). Recorded, never a pass/fail gate (report-only like
-// ARCHITECTURE §14); `apps/web/e2e/bench/m6a-mesh-view.bench.ts` re-measures the path through the editor once B10 wires
-// component mode. Until B1 lands, edit links, triangulation and normals are B0a's reference kernel.
+// views never schedule a frame; view.test.ts checks it). Also recorded, without a budget: the marquee with another
+// mesh around it as an occluder (M6A-B6-22), and a pane switch between two face isolate sets (M6A-B6-23). Recorded,
+// never a pass/fail gate (report-only like ARCHITECTURE §14); `apps/web/e2e/bench/m6a-mesh-view.bench.ts` re-measures
+// the path through the editor once B10 wires component mode. Until B1 lands, edit links, triangulation and normals are
+// B0a's reference kernel.
 import {
+  BitSet,
   computeNormals,
   editMeshFrom,
   type MeshData,
@@ -12,9 +15,10 @@ import {
   triangulate,
 } from '@ekza-animator/mesh-core';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ComponentPicker, EditMeshView } from '../src';
+import { Matrix4 } from 'three';
+import { ComponentPicker, EditMeshView, MeshSurface } from '../src';
 import type { PickOptions } from '../src/types';
-import { type Canvas, canvas, DISPLAY, IDENTITY, LAYERS, perspective, prng, THEME } from './support';
+import { type Canvas, canvas, DISPLAY, IDENTITY, LAYERS, matrixOf, perspective, prng, THEME } from './support';
 
 const CAMERA_BASED: PickOptions = { cameraBased: true, backfaces: false, hidden: null };
 
@@ -125,6 +129,57 @@ describe('mesh-view budgets (report)', () => {
     }
     expect(selected).toBeGreaterThan(5000);
 
+    // The same marquee with a second 50k-triangle mesh (a MeshSurface) 1 m above the right half of the grid, between
+    // the camera and about half the candidates: every candidate the grid itself does not hide is also cast through it.
+    const neighbour = new MeshSurface({ theme: THEME, layers: LAYERS });
+    neighbour.setData(data, tri, computeNormals(mesh), null);
+    neighbour.setWorld(matrixOf(new Matrix4().makeTranslation(5, 1, 0)));
+    picker.setOccluder(neighbour);
+    const occluded: number[] = [];
+    let behind = 0;
+    for (let run = 0; run < 7; run++) {
+      const start = performance.now();
+      behind = picker.marquee(camera, rect, view_, 'vertex', CAMERA_BASED).length;
+      occluded.push(performance.now() - start);
+    }
+    picker.setOccluder(null);
+    neighbour.dispose();
+    expect(behind).toBeLessThan(selected);
+    expect(behind).toBeGreaterThan(selected / 4);
+
+    // A pane switch between two face isolate sets (one pane isolates half the faces, another none): the view
+    // re-derives visibility, rewrites the index and every state and uploads them; the picker rebuilds its BVH.
+    const switchView = new EditMeshView({ theme: THEME, layers: LAYERS });
+    switchView.setMesh(mesh, tri, computeNormals(mesh));
+    switchView.setState(selectionOf('face', [], mesh.counts), null, null, null);
+    c.scene.add(switchView.root);
+    switchView.applyPane(DISPLAY);
+    c.render(camera);
+    c.pixel(1, 1);
+    const half = new BitSet(mesh.counts.faces);
+    for (let f = 0; f < mesh.counts.faces; f += 2) half.add(f);
+    const isolateCpu: number[] = [];
+    const isolateFrame: number[] = [];
+    const isolateBvh: number[] = [];
+    for (let run = 0; run < 6; run++) {
+      const set = run % 2 === 0 ? half : null;
+      const t0 = performance.now();
+      switchView.setIsolate(set);
+      const t1 = performance.now();
+      switchView.applyPane(DISPLAY);
+      c.render(camera);
+      c.pixel(1, 1);
+      const t2 = performance.now();
+      picker.setIsolate(set);
+      picker.prepareBvh(null);
+      const t3 = performance.now();
+      isolateCpu.push(t1 - t0);
+      isolateFrame.push(t2 - t1);
+      isolateBvh.push(t3 - t2);
+    }
+    switchView.dispose();
+    picker.setIsolate(null);
+
     const lines = [
       `enter component mode, 50k tris (median of 5): ${median(enter.map((e) => e.total)).toFixed(1)} ms total ` +
         `(kernel edit links + triangulation + normals ${median(enter.map((e) => e.kernel)).toFixed(1)} ms [B0a reference], ` +
@@ -136,6 +191,10 @@ describe('mesh-view budgets (report)', () => {
       ),
       `hover vertex after a camera move (re-projection): median ${median(moved).toFixed(3)} ms, p95 ${p95(moved).toFixed(3)} ms`,
       `marquee ${selected} vertices with occlusion: first ${(marquee[0] as number).toFixed(1)} ms, median ${median(marquee).toFixed(1)} ms (budget 10k ≤ 16 ms)`,
+      `marquee with a 50k-tri neighbour as occluder (${behind} of ${selected} left): first ${(occluded[0] as number).toFixed(1)} ms ` +
+        `(incl. the neighbour's BVH build), median ${median(occluded).toFixed(1)} ms (no budget; M6A-B6-22)`,
+      `pane switch between face isolate sets: setIsolate ${median(isolateCpu).toFixed(1)} ms + frame with uploads ` +
+        `${median(isolateFrame).toFixed(1)} ms, picker BVH rebuild ${median(isolateBvh).toFixed(1)} ms (medians of 6; no budget; M6A-B6-23)`,
     ];
     for (const line of lines) {
       console.warn(line);
