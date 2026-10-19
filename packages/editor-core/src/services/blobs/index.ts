@@ -1,8 +1,12 @@
 // The memory BlobStore (M6A-SPEC §4.6, §5.20; B0a complete, B7 owns it after): content-addressed mesh manifests and
-// chunks, resident in memory. `put` is synchronous (hashes with the anim-core SHA-256 and dedupes); `get` re-verifies
-// the bytes; `sweep` frees what is neither reachable nor fresh (blobs `put` since the last completed sweep are roots
-// until the next one, so a sweep can never free what a commit in progress just stored); `closure` expands manifests to
-// their chunks by reading the manifest JSON directly (no kernel needed, so the autosave store never parses manifests).
+// chunks, resident in memory.
+// - `put` is synchronous: hashes with the anim-core SHA-256, dedupes and keeps a private copy.
+// - `get` re-verifies the bytes and returns a copy the caller owns; `peek` lends the resident bytes, which callers only
+//   read (§4.6: copy before any change; `get` reports a corrupted lend as `blob-corrupt`).
+// - `sweep` frees what is neither reachable nor fresh (blobs `put` since the last completed sweep are roots until the
+//   next one, so a sweep can never free what a commit in progress just stored).
+// - `closure` expands manifests to their chunks by reading the manifest JSON directly (no kernel needed, so the
+//   autosave store never parses manifests).
 import { EkzaError, sha256Hex } from '@ekza-animator/anim-core';
 import type { BlobId, BlobStore } from '../../types';
 
@@ -52,7 +56,7 @@ export function createMemoryBlobStore(): MemoryBlobStore {
       if (sha256Hex(bytes) !== id) {
         return Promise.reject(new EkzaError('blob-corrupt', `Mesh data is corrupt (blob ${id})`, { id }));
       }
-      return Promise.resolve(bytes);
+      return Promise.resolve(bytes.slice());
     },
     peek: (id: BlobId) => blobs.get(id),
     has: (id: BlobId) => blobs.has(id),

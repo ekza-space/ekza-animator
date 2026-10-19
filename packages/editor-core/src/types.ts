@@ -863,8 +863,8 @@ export type BlobId = string;                    // lowercase sha256 hex
 /** Content-addressed mesh chunks and manifests (ADR 0015 §3). Not AssetRecords. */
 export interface BlobStore {
   put(bytes: Uint8Array): BlobId;              // sync: hashes, dedupes, keeps bytes resident
-  get(id: BlobId): Promise<Uint8Array>;        // hash-verified; EkzaError('blob-missing' | 'blob-corrupt')
-  peek(id: BlobId): Uint8Array | undefined;
+  get(id: BlobId): Promise<Uint8Array>;        // hash-verified; EkzaError('blob-missing' | 'blob-corrupt'); a copy the caller owns
+  peek(id: BlobId): Uint8Array | undefined;    // the resident bytes, lent read-only (never mutate them; copy first)
   has(id: BlobId): boolean;                    // resident (the store has no other backing; autosave owns IndexedDB)
   /** Frees resident blobs not in `reachable` (mark-and-sweep, §5.20). Never call it inside a transaction or an
    *  emit loop (§5.20 sweep rule). */

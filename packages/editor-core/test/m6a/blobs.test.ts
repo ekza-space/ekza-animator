@@ -24,9 +24,14 @@ describe('memory BlobStore', () => {
     expect(blobs.ids()).toEqual([id]);
   });
 
-  it('verifies reads: missing and corrupt blobs reject with their codes', async () => {
+  it('verifies reads and returns copies: missing and corrupt blobs reject with their codes', async () => {
     const blobs = createMemoryBlobStore();
     const id = blobs.put(bytes(4, 5));
+    await expect(blobs.get(id)).resolves.toEqual(bytes(4, 5));
+    // `get` hands out a copy the caller owns: changing it leaves the store intact.
+    const read = await blobs.get(id);
+    read[0] = 7;
+    expect([...(blobs.peek(id) as Uint8Array)]).toEqual([4, 5]);
     await expect(blobs.get(id)).resolves.toEqual(bytes(4, 5));
     await expect(blobs.get('0'.repeat(64))).rejects.toMatchObject({ code: 'blob-missing' });
     (blobs.peek(id) as Uint8Array)[0] = 0; // simulate corruption of the resident bytes
