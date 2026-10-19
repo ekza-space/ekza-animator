@@ -182,7 +182,8 @@ describe('workspace.set (§5.17)', () => {
     Object.defineProperty(a.capture, 'state', { get: () => ({ armed: 'keyboard-op', field: null, text: null }) });
     (a.capture as { disarm: unknown }).disarm = disarm;
     await run(a, 'workspace.set', { workspace: 'animate' });
-    expect(end).toHaveBeenCalledWith('workspace', { drop: false });
+    // §5.8 table: a workspace switch ends the session with the zero-drop (B12b aligned B9's call with the table).
+    expect(end).toHaveBeenCalledWith('workspace', { drop: true });
     expect(disarm).toHaveBeenCalledOnce();
   });
 });

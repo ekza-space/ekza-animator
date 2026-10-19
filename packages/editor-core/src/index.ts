@@ -278,3 +278,33 @@ export {
 export { coerceRunArgs, recordNoLastRun } from './operators/runner';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
 export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';
+// M6a (B12b, M6A-SPEC §5.8): the extrude session's shim and hooks, the Model tools' help-line channel (eager), and the
+// session engine (./operators/builtin/extrudeEngine, a lazy chunk: only lazy code — the viewport's topology tools and
+// the test API — imports its exports, so the eager route drops them; eager code reaches it through `loadExtrudeEngine`).
+export {
+  bindExtrude,
+  EXTRUDE_IDENTITY,
+  type ExtrudeEngine,
+  type ExtrudeEngineHost,
+  extrudeEngineModule,
+  type ExtrudeSessionShim,
+  isIdentityExtrude,
+  loadExtrudeEngine,
+  type ModelToolMessage,
+  onModelHelp,
+  sayModelHelp,
+} from './operators/builtin/extrudeSession';
+export {
+  type AbsorbDelta,
+  absorbArgs,
+  beginSmartExtrude,
+  EXTRUDE_REMOVED,
+  extrudeFirstDrag,
+  type ExtrudeManipFrame,
+  extrudeManipulatorFrame,
+  type Frame as ExtrudeFrame,
+  manipulatorFrame,
+  placementLinear,
+  toWorld,
+  worldAxes,
+} from './operators/builtin/extrudeEngine';

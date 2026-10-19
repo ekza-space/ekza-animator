@@ -576,7 +576,8 @@ describe('tool.last and view.lastOpCard', () => {
     await t.app.runUntyped('mesh.test.advance', { dy: 0.1 });
     expect(lastOpCardState(t.app).expanded).toBe(false);
     // `T` on a live extrude reopens its session when the selection is still its result (§5.7; B12b decides the rest).
-    const reopen = vi.spyOn(t.app.extrude, 'reopen');
+    // The call conditions only: what a reopen does is B12b's (test/topology/extrude-session.test.ts).
+    const reopen = vi.spyOn(t.app.extrude, 'reopen').mockReturnValue(false);
     const current = live(t.app);
     if (current === null) throw new Error('no lastRun');
     t.app.session.setState({ lastRun: { ...current, id: 'mesh.extrude' } });
@@ -608,7 +609,8 @@ describe('edit.undo / edit.redo and the extrude session (§5.8 args stack)', () 
     const t = await setup();
     await t.app.runUntyped('mesh.test.advance', { dy: 0.1 });
     const count = undoCount(t.app);
-    (t.app.extrude as { state: unknown }).state = { stepId: 1 };
+    // A session as the B12b shim reports it (its getter replaced; the stack steps are mocked below).
+    Object.defineProperty(t.app.extrude, 'state', { get: () => ({ stepId: 1 }), configurable: true });
     const back = vi.spyOn(t.app.extrude, 'stepBack').mockReturnValueOnce(true).mockReturnValueOnce(false);
     const forward = vi.spyOn(t.app.extrude, 'stepForward').mockReturnValueOnce(true);
     await t.app.run('edit.undo');

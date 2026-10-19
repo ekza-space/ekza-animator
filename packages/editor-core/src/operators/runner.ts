@@ -9,6 +9,8 @@
 // "<label> (adjusted)"; after every finished run the LastRun recorder (lastop.ts) records `session.lastRun`; after a
 // failed run the mesh runtimes settle an aborted commit (`reconcile`, M6A-B7-26) before the result is reported. A
 // `prepare` that returns a plain value (not a promise) keeps the run synchronous up to `apply`.
+// M6a (M6A-SPEC §5.8; B12b): the extrude session's hooks run after the first poll (an ending run ends the session
+// before it reads the mesh) and after every finished run (an extrude opens a session; an adjusted one steps it).
 import { coerceArgs, EkzaError } from '@ekza-animator/anim-core';
 import type { DocumentStore } from '@ekza-animator/doc';
 import { bindCapture } from '../edit/capture';
@@ -28,6 +30,7 @@ import type {
   SessionState,
   SessionStore,
 } from '../types';
+import { extrudeAfterRun, extrudeBeforeRun } from './builtin/extrudeSession';
 import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRunOf } from './builtin/lastop';
 import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
 
@@ -185,6 +188,8 @@ export function createOperatorRunner(deps: {
       const args = coerceRunArgs(app, def, rawArgs, ctx);
       const first = def.poll?.(opCtx, args) ?? true;
       if (first !== true) return cancelled(first.reason);
+      // M6a (§5.8; B12b): the extrude session ends at the start of the gesture that ends it, before it reads the mesh.
+      extrudeBeforeRun(app, def, args, ctx);
       let prepared = def.prepare === undefined ? undefined : def.prepare(opCtx, args);
       if (isThenable(prepared)) prepared = await prepared;
       const second = def.poll?.(opCtx, args) ?? true;
@@ -237,6 +242,7 @@ export function createOperatorRunner(deps: {
         if (top !== null && (top !== topBefore || outcome.kind === 'coalesced')) stepId = top;
       }
       recordLastRun({ def, args, ctx, value, stepId, before, seedBefore });
+      extrudeAfterRun(app, def, ctx, stepId);
       return { status: 'finished', value } as const;
     } catch (error) {
       if (rollback !== null) session.setState(rollback, true);
