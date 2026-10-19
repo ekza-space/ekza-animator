@@ -129,11 +129,12 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
   are a start error naming the flag or variable. The CLI warns at the `warn` level about plain http off loopback, a `*`
   port and gateway-like hosts (`ipfs`, `ipns`, `gateway` labels). Duplicates collapse. P6 applies the list at the
   upgrade (and to `--http`'s `Origin`), P7's helper passes the e2e origin.
-- **MAI-D0-22** First-visit size (DoD "unchanged"): `check:size` reads 848,267 B against 845,146 B in ROADMAP §M-2
-  (after M2a fix round 1; fix round 2, `72bd7d8`, is in the base and was not measured separately), **+3,121 B**:
+- **MAI-D0-22** First-visit size (DoD "unchanged"): `check:size` reads 848,319 B against 845,146 B in ROADMAP §M-2
+  (after M2a fix round 1; fix round 2, `72bd7d8`, is in the base and was not measured separately), **+3,173 B**:
   eager kernel code (runner rules 1–9, scope helpers, the presence registry and its factory, `entries()` and the change
-  journal) and the StatusLine placeholder pill. agent-tools and zod are not in the eager chunks. Remaining to the
-  850,000 B M2a target: 1,733 B; to the 900,000 B gate: 51,733 B. P8 (status pill through B9's registry, the agent
+  journal), the StatusLine placeholder pill and `agentHost()` in the viewport. agent-tools and zod are not in the eager
+  chunks (no agent-tools string in any web chunk). Remaining to the 850,000 B M2a target: 1,681 B; to the 900,000 B
+  gate: 51,681 B. P8 (status pill through B9's registry, the agent
   panel) must keep its code lazy or budget against these numbers.
 
 ## Routes to M6a (§8.2) — B0a was not on `dev` when D0 ran
@@ -189,14 +190,21 @@ or the insert must normalise `-0` on rewritten neighbours; a seed pin would only
 ## Tests added
 
 editor-core 22 (`mai-runner.test.ts`) + the registration literal; doc 7 (`restore-plan.test.ts`); headless-tests 3
-(`ops.mai-headless.test.ts`); agent-tools 89 (lint, manifest, policy + 45 per-operator invariant runs (5 gated on P1), runtime,
-resolver, sanitiser, bridge protocol); motion-analysis 1; schematic-render 1; mcp-server 9 (CLI over the built bin,
-in-process server, arguments); agent-evals 3; editor 4 (`mai.test.ts`); viewport 3 (`agentHost.test.ts`); e2e
+(`ops.mai-headless.test.ts`); agent-tools 107 (lint, manifest incl. the merge-base guard, policy + 45 per-operator
+invariant runs with pinned outcomes (5 gated on P1), budgets (`budget.test.ts`: every tool's cut result against its
+own schemas, every tool × four caps), runtime, resolver, sanitiser, bridge protocol incl. the hostile write names and
+mimes); motion-analysis 1; schematic-render 1; mcp-server 12 (CLI over the built bin, in-process server, arguments
+and origins); agent-evals 3; editor 4 (`mai.test.ts`); viewport 4 (`agentHost.test.ts`); e2e
 `ai-00-foundation.spec.ts` (2).
 
-## Gates (2026-10-20, local)
+## Gates (2026-10-20, local, after review fix round 1)
 
-`format:check`, `lint`, `typecheck`, `check:deps`, `check:licenses`, `check:fixtures` green; `pnpm run test` 19/19
-turbo tasks (browser suites in local Chrome); `pnpm run build` green; `check:size` 848,267 B ≤ 900,000 B; e2e
-`ai-00-foundation` 2/2 and the full suite once with `--project=chrome` on port 3270: 107 passed, 9 skipped
-(pre-existing fixmes), 0 failed.
+`format:check` (1,044 files), `lint`, `typecheck`, `check:deps` (18 packages), `check:licenses` (174 production
+packages), `check:fixtures` green; lockfile in sync (`--frozen-lockfile --lockfile-only`); `pnpm run test` 19/19 turbo
+tasks with `CI` unset (browser suites in local Chrome): agent-tools 101 passed / 6 skipped (P1 gates, update mode),
+mcp-server 12, viewport 104 / 1 skipped, editor 355 / 1 skipped, anim-core 650, the rest unchanged; `pnpm run build`
+green; `check:size` 848,319 B ≤ 900,000 B (headroom 51,681 B; 1,681 B under the 850,000 B target — the viewport's
+focus check added 52 B to MAI-D0-22's figure); `mcp:build` one `dist/cli.mjs` whose only top-level imports are
+`node:path` and `node:process`; e2e with `--project=chrome` on port 3270 against one e2e build: `ai-00-foundation`
+2/2, then the full suite once: 116 tests, 107 passed, 9 skipped (pre-existing fixmes), 0 failed. The server was
+stopped afterwards; port 3270 is free.
