@@ -5,7 +5,7 @@
 // while the shell is mounted. A lazy chunk (§5.27): `panels/toolkit/ModelOpsSlot.tsx` mounts it on the first Model
 // entry.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, NumericCapture } from '@ekza-animator/editor-core';
+import { type EditorApp, type NumericCapture, onModelHelp } from '@ekza-animator/editor-core';
 import { type JSX, lazy, Suspense, useEffect, useState } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { useSession } from '../../hooks';
@@ -60,6 +60,9 @@ export function bridgeCapture(app: EditorApp, shell: Pick<Shell, 'help'> | null,
       origin = state.armed === 'keyboard-op' ? (origin ?? pointer) : null;
     }) ?? (() => {});
   const offMessage = capture.onMessage?.((message) => shell?.help(message.text, message.tone)) ?? (() => {});
+  // M6a (B12b): the Model tools' messages ("Click on each face the cut crosses", "Extrude removed: it did not move",
+  // "No mirror partner: applied to one side") go to the help line too.
+  const offTools = onModelHelp(app, (message) => shell?.help(message.text, message.tone));
   const onMove = (event: PointerEvent): void => {
     pointer = { x: event.clientX, y: event.clientY };
     if (app.capture.state.armed !== 'keyboard-op') return;
@@ -78,6 +81,7 @@ export function bridgeCapture(app: EditorApp, shell: Pick<Shell, 'help'> | null,
   return () => {
     offState();
     offMessage();
+    offTools();
     win.removeEventListener('pointermove', onMove, { capture: true });
     win.removeEventListener('pointerdown', onDown, { capture: true });
   };

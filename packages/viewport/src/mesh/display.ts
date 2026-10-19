@@ -95,6 +95,15 @@ function isEmptySet(h: HiddenSet): boolean {
   return h.verts.isEmpty() && h.edges.isEmpty() && h.faces.isEmpty();
 }
 
+/** The component kind each component tool draws in object mode (§5.6; the editor-core `COMPONENT_TOOLS`). */
+const OBJECT_MODE_TOOL_KIND: Readonly<Record<string, ComponentKind>> = {
+  multiCut: 'edge',
+  insertLoop: 'edge',
+  targetWeld: 'vertex',
+  slide: 'edge',
+  paint: 'face',
+};
+
 const scratch = new Vector3();
 /** The idle BVH build (`scheduleBvh`): quiet time after the last change, then the longest wait for an idle period. */
 const BVH_DELAY_MS = 200;
@@ -176,7 +185,12 @@ export class MeshDisplay {
       app.session.subscribe((state, previous) => {
         const a = state.model;
         const b = previous.model;
-        if (state.workspace !== previous.workspace || a.componentMode !== b.componentMode || a.hilite !== b.hilite) {
+        if (
+          state.workspace !== previous.workspace ||
+          a.componentMode !== b.componentMode ||
+          a.hilite !== b.hilite ||
+          (a.componentMode === 'object' && state.tools.viewport !== previous.tools.viewport)
+        ) {
           this.sync();
         } else if (a.symmetry !== b.symmetry) this.refreshStates();
         if (a.hiddenObjects !== b.hiddenObjects || a.isolate !== b.isolate) this.target.invalidate();
@@ -251,8 +265,13 @@ export class MeshDisplay {
   }
 
   private componentMode(): ComponentKind | null {
-    const mode = this.app.session.getState().model.componentMode;
-    return mode === 'object' ? null : mode;
+    const state = this.app.session.getState();
+    const mode = state.model.componentMode;
+    if (mode !== 'object') return mode;
+    // M6a (§5.6 "Component tools in object mode", B12b): Multi-Cut, Insert Edge Loop, Target Weld, Slide and Paint
+    // work on the components of the meshes they hilite without changing the mode, so those meshes draw and pick their
+    // components (in the kind each tool works on) while the tool is active.
+    return state.workspace === 'model' ? (OBJECT_MODE_TOOL_KIND[state.tools.viewport] ?? null) : null;
   }
 
   private editing(entry: Entry, runtime: MeshRuntime): boolean {

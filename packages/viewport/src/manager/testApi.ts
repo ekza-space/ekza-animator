@@ -3,6 +3,7 @@
 // ("a point ON the shape polyline", "a grab point on the handle") stay with the viewport.
 import type { ControlId } from '@ekza-animator/doc';
 import type { EditorApp } from '@ekza-animator/editor-core';
+import { topologyManipulatorPoint } from '../tools/model/topology';
 import type { ManipHandle } from '../types';
 import type { ViewportManager } from './ViewportManager';
 
@@ -62,7 +63,9 @@ export function viewportTestApi(vm: ViewportManager): ViewportTestApi {
       const id = resolveControl(vm.app, control);
       return id === null ? null : toPage(paneId, vm.controlScreenPoint(paneId, id));
     },
-    screenOfManipulator: (paneId, handle) => toPage(paneId, vm.manipulatorScreenPoint(paneId, handle)),
+    // M6a (§4.7, B12b): the extrude manipulator's handles while it shows, else the W/E/R manipulator's.
+    screenOfManipulator: (paneId, handle) =>
+      toPage(paneId, topologyManipulatorPoint(vm, paneId, handle) ?? vm.manipulatorScreenPoint(paneId, handle)),
     renderedFrames: () => vm.renderedFrames,
     pixel: (paneId, x, y) => {
       const rect = vm.paneRect(paneId);
