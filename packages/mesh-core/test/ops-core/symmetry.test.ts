@@ -14,7 +14,16 @@ import {
   primitive,
 } from '../../src';
 import { expandIndices, Mirror, mirrorPoint } from '../../src/ops/extrude/shared/symmetry';
-import { combined, cylinderData, edgesAlong, planeData, topOf, vertexNear } from './fixtures';
+import {
+  combined,
+  cylinderData,
+  edgeNear,
+  edgesAlong,
+  openCylinderData,
+  planeData,
+  topOf,
+  vertexNear,
+} from './fixtures';
 import { READY } from './ready';
 import {
   counts,
@@ -22,6 +31,7 @@ import {
   cube,
   faceCentroid,
   faceToward,
+  faceVerts,
   IDENTITY_XF,
   op,
   position,
@@ -121,6 +131,158 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
       { numRuns: 300 * SCALE },
     );
     expect(ran).toBeGreaterThan(100);
+  });
+});
+
+/** Open cylinders: a bottom one without its top cap and a top one (2 m up) without its bottom cap (a neck at x = 0). */
+function neckPair(): ReturnType<EditMesh['snapshot']> {
+  const a = editMeshFrom(cylinderData());
+  const b = editMeshFrom(cylinderData());
+  runOk(a, 'mesh.delete', sel(a, 'face', [faceToward(a, [0, 1, 0])]));
+  runOk(b, 'mesh.delete', sel(b, 'face', [faceToward(b, [0, -1, 0])]));
+  return combined(a.snapshot(), b.snapshot(), [0, 2, 0]);
+}
+
+/** The border loops of `m` (border edges joined through shared vertices), each sorted. */
+function borderLoops(m: EditMesh): number[][] {
+  const border: number[] = [];
+  for (let e = 0; e < m.counts.edges; e++) if (m.edgeFaceCount(e) === 1) border.push(e);
+  const parent = new Map<number, number>();
+  const find = (v: number): number => {
+    let r = v;
+    while ((parent.get(r) ?? r) !== r) r = parent.get(r) as number;
+    return r;
+  };
+  for (const e of border) {
+    const a = find(m.edgeVert(e, 0));
+    const b = find(m.edgeVert(e, 1));
+    if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
+  }
+  const loops = new Map<number, number[]>();
+  for (const e of border) {
+    const r = find(m.edgeVert(e, 0));
+    loops.set(r, [...(loops.get(r) ?? []), e]);
+  }
+  return [...loops.values()].sort((x, y) => (x[0] as number) - (y[0] as number));
+}
+
+describe('P10 for the pointer and border rows: edge extrude, Target Weld, Bridge', () => {
+  const meshes = fc.oneof(
+    fc.constant(() => primitive('plane', { subdivisionsWidth: 4, subdivisionsHeight: 3 })),
+    fc.constant(() => primitive('cube', { subdivisionsWidth: 3, subdivisionsHeight: 2, subdivisionsDepth: 2 })),
+    fc.constant(() => openCylinderData()),
+    fc.constant(() => neckPair()),
+    fc.constant(() => combined(shifted(neckPair(), -2), shifted(neckPair(), 2))),
+  );
+  const steps = fc.oneof(
+    fc.record({
+      id: fc.constant('mesh.extrude'),
+      kind: fc.constant('edge' as const),
+      args: fc.record({
+        localTranslateY: fc.double({ min: -0.3, max: 0.5, noNaN: true }),
+        localTranslateZ: fc.double({ min: -0.3, max: 0.3, noNaN: true }),
+        localScaleX: fc.double({ min: 0.5, max: 1.5, noNaN: true }),
+        divisions: fc.integer({ min: 1, max: 2 }),
+      }),
+    }),
+    fc.record({
+      id: fc.constant('mesh.targetWeld'),
+      kind: fc.constantFrom('vertex' as const, 'edge' as const),
+      args: fc.record({ mode: fc.constantFrom('target', 'center') }),
+    }),
+    fc.record({
+      id: fc.constant('mesh.bridge'),
+      kind: fc.constantFrom('edge' as const, 'face' as const),
+      args: fc.record({
+        divisions: fc.integer({ min: 0, max: 2 }),
+        twist: fc.integer({ min: -1, max: 1 }),
+        taper: fc.double({ min: 0.5, max: 1.5, noNaN: true }),
+      }),
+    }),
+  );
+
+  it('symmetric picks on symmetric meshes give symmetric meshes (positions within 1e-6, every vertex partnered)', () => {
+    const ran: Record<string, number> = {};
+    fc.assert(
+      fc.property(
+        meshes,
+        steps,
+        fc.array(fc.nat({ max: 1_000_000 }), { minLength: 2, maxLength: 4 }),
+        (make, step, seeds) => {
+          const m = editMeshFrom(make());
+          expect(symmetryProblems(m)).toEqual([]);
+          // Preserve Seam on (the default): without it a seam source welded off the seam is one weld, one-sided by
+          // the seam table (the fixed seam-table case below).
+          const ctx = symCtx(m);
+          let selection = sel(m, step.kind, []);
+          let args: Record<string, unknown> = { ...step.args };
+          if (step.id === 'mesh.extrude') {
+            // Border edges only (interior edges refuse `extrude.interior-edge`).
+            const border = borderLoops(m).flat();
+            if (border.length === 0) return;
+            selection = sel(
+              m,
+              'edge',
+              seeds.map((x) => border[x % border.length] as number),
+            );
+          } else if (step.id === 'mesh.targetWeld') {
+            const count = step.kind === 'vertex' ? m.counts.points : m.counts.edges;
+            const a = (seeds[0] as number) % count;
+            const b = (seeds[1] as number) % count;
+            if (a === b) return;
+            args = { ...args, pairs: [[a, b]] };
+          } else if (step.kind === 'edge') {
+            // Two whole border loops; a pair that is its own mirror (a neck, or a loop and its mirror image) is one
+            // bridge, so a twist would make it chiral: symmetric args there are twist 0.
+            const loops = borderLoops(m);
+            if (loops.length < 2) return;
+            const i = (seeds[0] as number) % loops.length;
+            const j = (i + 1 + ((seeds[1] as number) % (loops.length - 1))) % loops.length;
+            const pick = [...(loops[i] as number[]), ...(loops[j] as number[])];
+            const map = ctx.symmetry?.map;
+            const mirrored = pick.map((e) => (map === undefined ? -1 : (map.edge[e] as number)));
+            if (mirrored.every((e) => pick.includes(e))) args = { ...args, twist: 0 };
+            selection = sel(m, 'edge', pick);
+          } else {
+            // Two interior faces of one size that touch neither each other nor each other's mirror images.
+            const map = ctx.symmetry?.map;
+            const partner = (f: number): number => (map === undefined ? -1 : (map.face[f] as number));
+            const vertsOf = (f: number): number[] => (f === -1 ? [] : faceVerts(m, f));
+            const interior = (f: number): boolean =>
+              vertsOf(f).every((v, i, vs) => m.edgeFaceCount(m.findEdge(v, vs[(i + 1) % vs.length] as number)) === 2);
+            const a = (seeds[0] as number) % m.counts.faces;
+            const near = new Set([...vertsOf(a), ...vertsOf(partner(a))]);
+            const candidates: number[] = [];
+            for (let f = 0; f < m.counts.faces; f++) {
+              if (f === a || vertsOf(f).length !== vertsOf(a).length || !interior(f)) continue;
+              if ([...vertsOf(f), ...vertsOf(partner(f))].some((v) => near.has(v))) continue;
+              candidates.push(f);
+            }
+            if (candidates.length === 0 || !interior(a)) return;
+            const b = candidates[(seeds[1] as number) % candidates.length] as number;
+            selection = sel(m, 'face', [a, b]);
+            // A face pair that is its own mirror is one bridge: twist 0, as above.
+            if ([a, b].every((f) => [a, b].includes(partner(f)))) args = { ...args, twist: 0 };
+          }
+          const { result } = runChecked(m, op(step.id), selection, args as never, ctx);
+          if (isRefusal(result)) return;
+          ran[`${step.id}:${step.kind}`] = (ran[`${step.id}:${step.kind}`] ?? 0) + 1;
+          expect(symmetryProblems(m), `${step.id} ${step.kind} ${JSON.stringify(args)}`).toEqual([]);
+          expect(result.warnings.filter((w) => w.code === 'symmetry.unmatched-partner')).toEqual([]);
+        },
+      ),
+      { numRuns: 300 * SCALE },
+    );
+    const keys = [
+      'mesh.extrude:edge',
+      'mesh.targetWeld:vertex',
+      'mesh.targetWeld:edge',
+      'mesh.bridge:edge',
+      'mesh.bridge:face',
+    ];
+    expect(Object.fromEntries(keys.map((key) => [key, (ran[key] ?? 0) > 5]))).toEqual(
+      Object.fromEntries(keys.map((key) => [key, true])),
+    );
   });
 });
 
@@ -285,6 +447,23 @@ describe('Target Weld seam table (§5.14)', () => {
     expect(counts(m)).toBe('9/12/4');
     runOk(m, 'mesh.targetWeld', sel(m, 'vertex', []), { pairs: [[s, g]] }, symCtx(m, false));
     expect(counts(m)).toBe('8/11/4');
+  });
+
+  it('an edge weld onto a crossing edge: the chain and the centre pair weld into one point on the plane', () => {
+    // Cube 3 × 2 × 2, top centre row x ∈ {±0.5, ±1/6} at z = 0: the edge (0.5 → 1/6) welded onto the crossing edge
+    // (1/6 → −1/6) pairs 0.5 → 1/6 (mirrored −0.5 → −1/6) and 1/6 → −1/6 (a mirror pair: its centre). The four
+    // vertices share welds, so they become one vertex at (0, 0.5, 0).
+    const m = editMeshFrom(primitive('cube', { subdivisionsWidth: 3, subdivisionsHeight: 2, subdivisionsDepth: 2 }));
+    const third = 1 / 6;
+    const source = edgeNear(m, [0.5, 0.5, 0], [third, 0.5, 0]);
+    const target = edgeNear(m, [third, 0.5, 0], [-third, 0.5, 0]);
+    const before = m.counts.points;
+    const result = runOk(m, 'mesh.targetWeld', sel(m, 'edge', []), { pairs: [[source, target]] }, symCtx(m));
+    expect(m.counts.points).toBe(before - 3);
+    expect(symmetryProblems(m)).toEqual([]);
+    const kept = result.selection.verts.toArray();
+    expect(kept.length).toBe(1);
+    expect(position(m, kept[0] as number).map((x) => Math.round(x * 1e9) / 1e9)).toEqual([0, 0.5, 0]);
   });
 
   it('an unpaired weld welds once with symmetry.unmatched-partner (count 1)', () => {

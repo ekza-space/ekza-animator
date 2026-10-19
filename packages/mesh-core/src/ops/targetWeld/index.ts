@@ -129,17 +129,51 @@ function runTargetWeld(
     groups.set(rep, list);
   };
   for (const [s] of welds) add(resolve(s), s);
-  const centreOf = new Map<string, V3>();
+  const centreByRep = new Map<number, V3>();
   for (const group of centres) {
     const [g, s] = group as [number, number];
     const rep = resolve(g);
     add(rep, s);
     for (const v of group) if (v !== rep) add(rep, v);
-    const list = groups.get(rep) as number[];
     // Midpoint of the dragged pair (on the plane when it is a mirror pair, by mergeGroups' snap).
-    centreOf.set(list.join(','), lerp3(pos(m, s), pos(m, g), 0.5));
+    if (!centreByRep.has(rep)) centreByRep.set(rep, lerp3(pos(m, s), pos(m, g), 0.5));
   }
-  const ordered = [...groups.values()].sort((a, b) => (a[0] as number) - (b[0] as number));
+  // Groups that share a vertex weld into one point (a chain into a centre pair: s → g with g = p(s′) dragged to its
+  // centre). A merged group keeps the first centre group's representative and centre, else the first group's.
+  const lists = [...groups.values()];
+  const root = new Map<number, number>();
+  const find = (i: number): number => {
+    let r = i;
+    while ((root.get(r) ?? r) !== r) r = root.get(r) as number;
+    return r;
+  };
+  const holder = new Map<number, number>();
+  lists.forEach((list, i) => {
+    for (const v of list) {
+      const j = holder.get(v);
+      if (j === undefined) holder.set(v, i);
+      else {
+        const a = find(i);
+        const b = find(j);
+        if (a !== b) root.set(Math.max(a, b), Math.min(a, b));
+      }
+    }
+  });
+  const clusters = new Map<number, number[]>();
+  lists.forEach((_, i) => clusters.set(find(i), [...(clusters.get(find(i)) ?? []), i]));
+  const centreOf = new Map<string, V3>();
+  const ordered: number[][] = [];
+  for (const members of clusters.values()) {
+    const lead = members.find((i) => centreByRep.has((lists[i] as number[])[0] ?? -1)) ?? members[0] ?? 0;
+    const list: number[] = [];
+    for (const i of [lead, ...members.filter((k) => k !== lead)]) {
+      for (const v of lists[i] as number[]) if (!list.includes(v)) list.push(v);
+    }
+    const centre = centreByRep.get(list[0] as number);
+    if (centre !== undefined) centreOf.set(list.join(','), centre);
+    ordered.push(list);
+  }
+  ordered.sort((a, b) => (a[0] as number) - (b[0] as number));
   const outcome = mergeGroups(m, ordered, 'target', mirror, (group) => centreOf.get(group.join(',')) ?? null);
   return opResult(
     selectionResult(m, 'vertex', outcome.reps),
