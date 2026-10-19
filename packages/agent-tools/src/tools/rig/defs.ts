@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { bodyPartName, characterRef, detail, projectRef, vec3Out } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { runtimeOf } from '../../units/pose';
 import { describeRig } from './describe';
 
 export const rigDescribe = defineTool({
@@ -80,6 +81,7 @@ export const rigDescribe = defineTool({
   ready: true,
   run(ctx, args) {
     const character = ctx.resolve.character(args.character);
+    runtimeOf(ctx.app, character.id); // busy while the character is still loading
     const data = describeRig(ctx.app, character.id, { bodyParts: args.bodyParts, detail: args.detail });
     return Promise.resolve({
       ok: true,

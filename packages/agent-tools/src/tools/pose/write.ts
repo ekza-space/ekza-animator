@@ -170,13 +170,14 @@ export async function poseSet(ctx: AgentToolContext, args: PoseSetArgs): Promise
     }
   });
   if (looksLikeRadians(rotations)) warnings.push(RADIANS_WARNING);
-  // A value written back unchanged at a frame that already has a key changes nothing (pose_read → pose_set).
+  // A value written back unchanged onto a key at that frame changes nothing (pose_read → pose_set): it is left out.
+  // Every other edit keys, equal values included — blocking a rest pose at f0 must keep it when f10 gets keyed.
   const writes = edits.filter((edit) => {
     if (args.key !== 'key' || Math.abs(edit.after - edit.before) > SAME_VALUE[edit.unit]) return true;
     const curve = curveOf(ctx.app, target.clip.id, edit.control.id, edit.channel);
-    const hasKey =
+    const keyed =
       curve !== undefined && ctx.app.store.query.keysOfCurve(curve.id).some((key) => Math.abs(key.t - frame) <= 1e-6);
-    if (!hasKey) return true;
+    if (!keyed) return true;
     unchanged.add(`${edit.control.id} ${edit.channel}`);
     return false;
   });
