@@ -17,11 +17,20 @@ describe('createMemoryAssetStore', () => {
       mime: 'model/gltf-binary',
       size: 3,
       role: 'model',
+      provenance: null, // M6A-SPEC §4.2 AssetRecord.provenance (literal update)
     });
     expect(await assets.has(record.id)).toBe(true);
     expect(Array.from(await assets.get(record.id))).toEqual([97, 98, 99]);
     expect(Array.from(assets.peek(record.id) ?? [])).toEqual([97, 98, 99]);
     expect(assets.peek(EMPTY_SHA as AssetId)).toBeUndefined();
+  });
+
+  it('M6a: reference images get the image media type of their extension', async () => {
+    const assets = createMemoryAssetStore();
+    const png = await assets.put(new Uint8Array([1]), { name: 'front.png', ext: 'png', role: 'reference-image' });
+    const jpg = await assets.put(new Uint8Array([2]), { name: 'side.jpg', ext: 'jpg', role: 'reference-image' });
+    expect([png.mime, jpg.mime]).toEqual(['image/png', 'image/jpeg']);
+    expect(png.provenance).toBeNull();
   });
 
   it('copies the input and keeps one blob per content', async () => {

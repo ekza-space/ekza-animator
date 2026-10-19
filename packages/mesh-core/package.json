@@ -1,0 +1,29 @@
+{
+  "name": "@ekza-animator/mesh-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Mesh kernel: radial-edge edit mesh, write log, Euler operators, revisions, triangulation, normals, primitives and the modeling operations (headless, lazy chunk; ./descriptors is the eager part).",
+  "license": "MIT",
+  "sideEffects": false,
+  "exports": {
+    ".": "./src/index.ts",
+    "./descriptors": "./src/descriptors.ts",
+    "./testing": "./src/testing/index.ts"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "bench": "vitest bench --run"
+  },
+  "dependencies": {
+    "@ekza-animator/anim-core": "workspace:*",
+    "earcut": "3.2.4",
+    "robust-predicates": "3.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "fast-check": "4.10.2",
+    "vitest": "catalog:"
+  }
+}

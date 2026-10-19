@@ -2,8 +2,41 @@
 export { registerViewportContributions } from './manager/contributions';
 export { subscribeViewportManager, viewportManagerOf } from './manager/lookup';
 export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager/testApi';
-export { DEFAULT_DISPLAY, type PaneState, ViewportManager, WHEEL_BURST_MS } from './manager/ViewportManager';
+export {
+  DEFAULT_DISPLAY,
+  type PanePointerMenus,
+  type PanePointerPress,
+  type PaneState,
+  ViewportManager,
+  WHEEL_BURST_MS,
+} from './manager/ViewportManager';
+// M6a (M6A-SPEC §4.7, §5.17, §5.26; B9)
+export { type ImagePlaneCamera, type ImagePlaneSpec } from './manager/imagePlanes';
+export { defaultCameraOf, defaultDisplayOf, MODEL_DISPLAY } from './manager/workspaceViews';
+export { LAYER } from './layers';
+export { isMmbStandIn } from './navigation/profiles';
+export { loadScaleKit } from './manipulators/scale/load';
+export { SCALE_LABEL, scaleToolDef } from './tools/scaleTool';
+export {
+  loadMeshDisplay,
+  loadMeshView,
+  MESH_LAYERS,
+  type MeshDisplay,
+  type MeshDisplayOptions,
+  type MeshDisplayPick,
+  type MeshLayerHost,
+  type MeshLayerTarget,
+  type MeshView,
+  meshPaneDisplay,
+} from './mesh';
 export { defaultPaneCamera, FIRST_SHOT_CAMERA, LAYOUT_PANES } from './panes/layout';
+// M6a (B10): the Model select runtime (mesh display, component and object picking, the operators' pointer probe).
+export {
+  attachModelSelect,
+  type ModelSelectRuntime,
+  modelSelectOf,
+  subscribeModelSelect,
+} from './tools/model/select';
 export type { ViewportToolHost } from './tools/host';
 export { selectModeOf } from './tools/selectTool';
 export * from './types';

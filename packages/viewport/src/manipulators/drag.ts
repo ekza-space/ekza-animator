@@ -29,16 +29,19 @@ export interface DragControl {
   readonly order: RotateOrder;
   readonly t0: Vec3;
   readonly r0: Vec3;
+  /** M6a (B9): drag-start scale channels, for the Scale tool. */
+  readonly s0: Vec3;
   /** Scene-space parent·offset frame P = W · L⁻¹ (column-major). */
   readonly parent: Mat4;
   /** Rotation of P. */
   readonly parentQ: Quat;
   /** Rotation of the control's scene-space world matrix W (= parentQ · q(r0)). */
   readonly worldQ: Quat;
-  /** Channels the drag may write: keyable and not locked. */
+  /** Channels the drag may write: keyable and not locked (`s`: the Scale tool's channels; absent = none). */
   readonly keyable: {
     readonly t: readonly [boolean, boolean, boolean];
     readonly r: readonly [boolean, boolean, boolean];
+    readonly s?: readonly [boolean, boolean, boolean];
   };
   /** Locked rotate channels: a ring whose channel is locked leaves the control alone (see `rotateEdits`). */
   readonly lockedR: readonly [boolean, boolean, boolean];
@@ -66,6 +69,7 @@ export function dragControl(args: {
     order: args.order,
     t0: [args.t[0], args.t[1], args.t[2]],
     r0: [args.r[0], args.r[1], args.r[2]],
+    s0: [args.s[0], args.s[1], args.s[2]],
     parent,
     parentQ,
     worldQ: quatMultiply(parentQ, qr),
@@ -88,7 +92,17 @@ export interface DragSession {
   readonly amount: number;
 }
 
-const AXIS_OF: Partial<Record<ManipHandle, 0 | 1 | 2>> = { tx: 0, ty: 1, tz: 2, rx: 0, ry: 1, rz: 2 };
+const AXIS_OF: Partial<Record<ManipHandle, 0 | 1 | 2>> = {
+  tx: 0,
+  ty: 1,
+  tz: 2,
+  rx: 0,
+  ry: 1,
+  rz: 2,
+  sx: 0,
+  sy: 1,
+  sz: 2,
+};
 const PLANE_NORMAL_OF: Partial<Record<ManipHandle, 0 | 1 | 2>> = { tyz: 0, txz: 1, txy: 2 };
 
 // ---------------------------------------------------------------------------------------------------------------

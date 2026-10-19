@@ -313,7 +313,11 @@ describe('partitions (memory store details)', () => {
     for (const [table, rows] of Object.entries(source.snapshot().tables)) {
       if (table === 'project' || table === 'assets') continue;
       for (const record of Object.values(rows as Record<string, { id: string }>)) {
-        const after = table === 'characters' ? { ...record, asset: scene.asset } : record;
+        // M6A-SPEC §4.2: a character's `source.asset` equals its `asset` (literal update, v3 CharacterRecord.source)
+        const after =
+          table === 'characters'
+            ? { ...record, asset: scene.asset, source: { kind: 'asset', asset: scene.asset } }
+            : record;
         imported.push({ table, id: record.id, before: undefined, after } as AnyChange);
       }
     }
