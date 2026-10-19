@@ -102,6 +102,12 @@ export interface KernelMeshRuntimes extends MeshRuntimeRegistry {
   readonly attached: boolean;
   /** Runs the deferred check now: reconcile, budget, journal cap and a sweep. Never inside a transaction. */
   collect(): GcReport;
+  /**
+   * Settles the commits of a transaction that has ended, now instead of in the next microtask: a commit whose ref the
+   * store holds is confirmed, one whose transaction aborted is reverted (§5.5 rule 3). The doc store has no abort
+   * hook, so the operator runner calls this after a failed run, before it reports. Never inside a transaction.
+   */
+  reconcile(): void;
   /** Bytes of blobs only the undo history keeps alive (§5.20 budget, first term). */
   readonly historyBytes: number;
   /** Bytes of selection snapshots in history steps and doc entries (§5.6, §5.20). */

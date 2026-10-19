@@ -209,6 +209,40 @@ describe('MeshSetOp runner (§5.13)', () => {
   });
 });
 
+describe('MeshSetOp outputs under the kernel debug switch (§5.5 rule 7, §3 rule 8)', () => {
+  it('validates every output: an invalid one fails the run with invalid-mesh naming the op; nothing is written', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_In');
+    const before = t.app.store.get('meshes', id)?.data;
+    const broken = setOp('mesh.test.broken', 'one', (inputs) => {
+      const input = inputs[0] as MeshSetInput;
+      const c = cube();
+      return {
+        outputs: [
+          {
+            key: 'new:0',
+            data: { ...c, position: Float32Array.from(c.position, (v, i) => (i === 4 ? Number.NaN : v)) },
+            placement: input.placement,
+            materials: input.materials,
+            from: [input.key],
+            selection: null,
+            name: 'Piece',
+          },
+        ],
+        removed: [],
+        warnings: [],
+      };
+    });
+    register(t, broken, () => 'seed');
+    const result = await t.app.runUntyped('mesh.test.broken', { meshes: [id] });
+    expect(result).toMatchObject({ status: 'failed', error: { code: 'invalid-mesh' } });
+    expect((result as { error?: { message?: string } }).error?.message).toContain("'mesh.test.broken'");
+    expect(t.app.store.get('meshes', id)?.data).toEqual(before);
+    expect(t.app.store.list('meshes').map((r) => r.id)).toEqual([id]);
+    expect(t.app.history.peekUndo()?.label).toBe('Create');
+  });
+});
+
 describe('Adjust Last over a MeshSetOp (§5.13 record-set rule)', () => {
   it('refuses an adjusted re-run that would change which meshes exist; the same set re-runs', async () => {
     const t = await meshTestApp();

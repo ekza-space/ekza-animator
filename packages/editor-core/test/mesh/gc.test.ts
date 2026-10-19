@@ -2,7 +2,7 @@
 // (history-only blob bytes + journal bytes + selection-snapshot bytes) with one toast, the journal cap that keeps the
 // last op's edge, autosave pins, and the fuzz cases "nothing reachable is freed" and "budget eviction during commit
 // never leaves a ref to a missing blob".
-import type { MeshId, MeshRecord, MeshRef, UndoEntry } from '@ekza-animator/doc';
+import type { MeshId, MeshRecord, MeshRef, UndoEntry, UserId } from '@ekza-animator/doc';
 import { BitSet, primitive } from '@ekza-animator/mesh-core';
 import fc from 'fast-check';
 import { describe, expect, it, vi } from 'vitest';
@@ -17,6 +17,7 @@ import {
   positionsOf,
   resident,
   seamOp,
+  storeRevision,
   testOperator,
 } from './support';
 
@@ -31,6 +32,19 @@ function expectAllRefsResident(t: MeshTestApp): void {
       expect(resident(t, change.after?.data), `${entry.label} after`).toBe(true);
     }
   }
+}
+
+/** Clears the history, then nothing is resident but the closure of the live revisions and of the last op's edges. */
+function expectOnlyRoots(t: MeshTestApp): void {
+  t.app.history.clear();
+  t.app.store.undo.clear();
+  t.meshes.collect();
+  t.meshes.collect(); // the second sweep frees what the first kept as fresh
+  const roots = [
+    ...t.app.store.list('meshes').map((r) => r.data?.manifest),
+    ...t.meshes.lastOpEdges().flatMap((e) => [e.from, e.to]),
+  ].filter((m): m is string => m !== undefined);
+  expect(t.blobs.ids()).toEqual([...new Set(t.blobs.closure(roots))].sort());
 }
 
 function setBudget(t: MeshTestApp, undoBudgetMB: number, journalBudgetMB?: number): void {
@@ -138,6 +152,45 @@ describe('GC from derived roots (§5.20)', () => {
     expectAllRefsResident(t);
   });
 
+  it("releases the last op's revisions when its edge goes (deletion, rebuild): nothing outlives its roots", async () => {
+    // The last op's mesh is deleted by undoing its creation: the edge goes with the runtime.
+    const t = await meshTestApp();
+    const a = createMesh(t, 'msh_A', bigPlane());
+    createMesh(t, 'msh_B');
+    t.app.operators.register(testOperator(offsetOp()));
+    await t.app.runUntyped('mesh.test.offset', { meshes: [a], dy: 0.5 });
+    t.app.history.undo(); // the offset
+    expect(t.meshes.lastOpEdges()).toHaveLength(1); // still the last op: adjust-last could re-run it
+    t.app.history.undo(); // Create B
+    t.app.history.undo(); // Create A: its runtime and journal go
+    expect(t.meshes.lastOpEdges()).toEqual([]);
+    expectOnlyRoots(t);
+    expect(t.blobs.ids()).toEqual([]);
+    // A remote change rebuilds the runtime (a new lineage): the last op's edge is dropped with the old one.
+    const u = await meshTestApp();
+    const id = createMesh(u, 'msh_A', bigPlane());
+    u.app.meshes.open(id);
+    u.app.operators.register(testOperator(offsetOp()));
+    await u.app.runUntyped('mesh.test.offset', { meshes: [id], dy: 0.5 });
+    const record = u.app.store.get('meshes', id) as MeshRecord;
+    const remote = storeRevision(u.blobs, primitive('plane', { subdivisionsWidth: 3 }));
+    u.app.store.applyChanges(
+      [
+        {
+          table: 'meshes',
+          id,
+          before: record,
+          after: { ...record, data: { ...remote, rev: 3, base: record.data?.manifest ?? null } },
+          fields: ['data'],
+        },
+      ],
+      { origin: 'remote', label: 'Remote edit', user: 'peer' as UserId },
+    );
+    expect(u.meshes.lastOpEdges()).toEqual([]);
+    expectOnlyRoots(u);
+    expect(u.blobs.ids()).toEqual([...u.blobs.closure([remote.manifest])].sort());
+  });
+
   it('caps the journal at journalBudgetMB but keeps the edges of the last op', async () => {
     const t = await meshTestApp();
     const id = createMesh(t, 'msh_Plane', bigPlane());
@@ -197,7 +250,7 @@ describe('GC from derived roots (§5.20)', () => {
 });
 
 describe('fuzz (§5.20 B7 cases)', () => {
-  it('nothing reachable is freed; every runtime equals its committed revision', async () => {
+  it('nothing reachable is freed; every runtime equals its committed revision; nothing outlives its roots', async () => {
     await fc.assert(
       fc.asyncProperty(
         fc.array(
@@ -218,6 +271,16 @@ describe('fuzz (§5.20 B7 cases)', () => {
             fc.record({ kind: fc.constant('delete' as const), mesh: fc.nat(1) }),
             fc.record({ kind: fc.constant('regenerate' as const), mesh: fc.nat(1) }),
             fc.record({ kind: fc.constant('abort' as const), mesh: fc.nat(1) }),
+            {
+              // Weighted: it only acts right after an op, so it is drawn more often.
+              arbitrary: fc.record({
+                kind: fc.constant('adjust' as const),
+                dy: fc.double({ min: -1, max: 1, noNaN: true }),
+                slot: fc.integer({ min: 0, max: 5 }),
+                cancel: fc.boolean(),
+              }),
+              weight: 4,
+            },
           ),
           { minLength: 5, maxLength: 40 },
         ),
@@ -227,9 +290,10 @@ describe('fuzz (§5.20 B7 cases)', () => {
             createMesh(t, 'msh_A', primitive('plane', { subdivisionsWidth: 40, subdivisionsHeight: 40 })),
             createMesh(t, 'msh_B', primitive('cube', { subdivisionsWidth: 3 })),
           ];
-          t.app.operators.register(testOperator(paintOp()));
-          t.app.operators.register(testOperator(offsetOp()));
-          t.app.operators.register(testOperator(seamOp()));
+          const ops = { paint: paintOp(), offset: offsetOp(), seam: seamOp() };
+          for (const op of Object.values(ops)) t.app.operators.register(testOperator(op));
+          /** The last op run as B11 records it (adjustable while the store has not moved since). */
+          let lastRun: { kind: keyof typeof ops; mesh: MeshId; version: number } | null = null;
           for (const step of steps) {
             const live = (n: number): MeshId | null => {
               const id = ids[n] as MeshId;
@@ -243,7 +307,28 @@ describe('fuzz (§5.20 B7 cases)', () => {
                 if (id === null) break;
                 const args =
                   step.kind === 'paint' ? { slot: step.slot } : step.kind === 'offset' ? { dy: step.dy } : {};
+                const before = t.app.store.version;
                 await t.app.runUntyped(`mesh.test.${step.kind}`, { meshes: [id], ...args });
+                lastRun = t.app.store.version === before ? null : { kind: step.kind, mesh: id, version: 0 };
+                if (lastRun !== null) lastRun.version = t.app.store.version;
+                break;
+              }
+              case 'adjust': {
+                // A card drag ('before-last' preview), then edit.adjustLast: undo + re-run (or a cancelled drag).
+                if (lastRun === null || lastRun.version !== t.app.store.version || !t.app.history.canUndo()) break;
+                const op = ops[lastRun.kind];
+                const args =
+                  lastRun.kind === 'paint' ? { slot: step.slot } : lastRun.kind === 'offset' ? { dy: step.dy } : {};
+                const session = t.app.meshes.beginOp(op, [lastRun.mesh], args, { base: 'before-last' });
+                if (step.cancel) {
+                  session.cancel();
+                  break;
+                }
+                t.app.history.undo();
+                if (!session.active) throw new Error('the session must survive the undo of its own step');
+                await t.app.runUntyped(op.id, { meshes: [lastRun.mesh], ...args });
+                if (session.active) throw new Error('the adjusted re-run must commit (take) the session');
+                lastRun.version = t.app.store.version;
                 break;
               }
               case 'undo':
@@ -315,6 +400,8 @@ describe('fuzz (§5.20 B7 cases)', () => {
               expect([...(runtime?.data()?.edgeFlags ?? [])]).toEqual([...stored.edgeFlags]);
             }
           }
+          // No leak: without history, only the live revisions and the last op's edges keep blobs.
+          expectOnlyRoots(t);
           t.app.dispose();
         },
       ),

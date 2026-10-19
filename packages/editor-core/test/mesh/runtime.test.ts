@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { addBlobSource, type MeshRuntimeEvent, meshOperator } from '../../src';
 import {
+  advanceOp,
   createMesh,
   cube,
   flushMicrotasks,
@@ -208,6 +209,30 @@ describe('two-phase (§5.5 rule 3)', () => {
     await flushMicrotasks();
     expect(positionsOf(t, id)).toEqual(before);
     expect(t.app.meshes.get(id)?.state).toBe('ready');
+  });
+
+  it('reconcile() reverts an aborted transaction at once (the runner calls it after a failed run)', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_Cube');
+    t.app.meshes.open(id);
+    const before = { positions: positionsOf(t, id), ref: ref(t, id) };
+    expect(() =>
+      t.app.store.transact({ label: 'x' }, (tx) => {
+        t.meshes.commitOp(tx, offsetOp(), [id], { dy: 1 }, { seed: 's', kind: null });
+        throw new Error('abort');
+      }),
+    ).toThrow('abort');
+    t.meshes.reconcile(); // no microtask in between
+    expect(positionsOf(t, id)).toEqual(before.positions);
+    expect(ref(t, id)).toEqual(before.ref);
+    expect(t.meshes.journalBytes).toBe(0);
+    // A committed transaction is confirmed by it (its edge recorded and pinned), not reverted.
+    t.app.store.transact({ label: 'Move' }, (tx) =>
+      t.meshes.commitOp(tx, offsetOp(), [id], { dy: 1 }, { seed: 's', kind: null }),
+    );
+    t.meshes.reconcile();
+    expect(ref(t, id)?.rev).toBe(2);
+    expect(t.meshes.lastOpEdges()).toHaveLength(1);
   });
 });
 
@@ -488,6 +513,143 @@ describe('preview sessions (§5.5 rule 1, §5.7 card drags)', () => {
   });
 });
 
+describe("'before-last' reads what the last op read (§4.6, §5.7 card drags)", () => {
+  /** Positions after a fresh run of `mesh.test.advance` on face 0 of a new cube (what an adjusted re-run must give). */
+  async function freshRun(dy: number): Promise<number[]> {
+    const f = await meshTestApp();
+    const id = createMesh(f, 'msh_Cube');
+    f.app.store.transact({ label: 'Advance' }, (tx) =>
+      f.meshes.commitOp(tx, advanceOp(), [id], { dy }, { seed: 's', kind: 'face', selection: face0(id) }),
+    );
+    const out = positionsOf(f, id);
+    f.app.dispose();
+    return out;
+  }
+
+  /** The committed revision's positions (read from the blobs, not from the runtime). */
+  function committedPositions(t: Awaited<ReturnType<typeof meshTestApp>>, id: MeshId): number[] {
+    const r = ref(t, id) as MeshRef;
+    const data = readRevision(
+      parseManifest(t.blobs.peek(r.manifest) as Uint8Array),
+      (c) => t.blobs.peek(c) as Uint8Array,
+    );
+    return [...data.position];
+  }
+
+  const faces = (t: Awaited<ReturnType<typeof meshTestApp>>, id: MeshId): number[] => [
+    ...(t.meshes.localSelection(id)?.faces.toArray() ?? []),
+  ];
+
+  const setMode = (t: Awaited<ReturnType<typeof meshTestApp>>, mode: 'object' | 'face', hilite: MeshId[]): void =>
+    t.app.session.setState({ model: { ...t.app.session.getState().model, componentMode: mode, hilite } });
+
+  /** Face mode, face 0 selected, then `mesh.test.advance {dy: 0.1}` (it reads face 0 and leaves face 1 selected). */
+  async function afterAdvance() {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_Cube');
+    const op = advanceOp();
+    t.app.operators.register(testOperator(op));
+    setMode(t, 'face', [id]);
+    t.meshes.select(id, selectionOf('face', [0], cube().counts));
+    expect((await t.app.runUntyped(op.id, { meshes: [id], dy: 0.1, kind: 'face' })).status).toBe('finished');
+    expect(op.reads).toEqual([[0]]);
+    expect(faces(t, id)).toEqual([1]); // the op's result is the current selection now
+    return { t, id, op };
+  }
+
+  for (const mode of ['face', 'object'] as const) {
+    it(`previews and commits the re-run on the pre-op selection, not the op's result (${mode} mode)`, async () => {
+      const { t, id, op } = await afterAdvance();
+      const expected = await freshRun(0.3);
+      // `3` back to object mode keeps the recorded kind (§5.7: whatever the current mode).
+      setMode(t, mode, mode === 'object' ? [] : [id]);
+      const session = t.app.meshes.beginOp(op, [id], { dy: 0.3 }, { base: 'before-last' });
+      expect(op.reads[1]).toEqual([0]);
+      expect(positionsOf(t, id)).toEqual(expected);
+      // edit.adjustLast: undo (the fallback restores what the op read, as TxMeta.selectionBefore will) …
+      t.app.history.undo();
+      expect(session.active).toBe(true);
+      expect(faces(t, id)).toEqual([0]);
+      // … then the re-run with the recorded kind takes the session.
+      await t.app.runUntyped(op.id, { meshes: [id], dy: 0.3, kind: 'face' });
+      expect(session.active).toBe(false);
+      expect(op.runs).toBe(2);
+      expect(positionsOf(t, id)).toEqual(expected);
+      expect(committedPositions(t, id)).toEqual(expected);
+      expect(faces(t, id)).toEqual([1]);
+      expect(t.app.history.canRedo()).toBe(false);
+      expect(ref(t, id)?.rev).toBe(2);
+    });
+  }
+
+  it('the selection fallback follows undo and redo across the op (what it read, what it left)', async () => {
+    const { t, id } = await afterAdvance();
+    t.app.history.undo();
+    expect(faces(t, id)).toEqual([0]);
+    t.app.history.redo();
+    expect(faces(t, id)).toEqual([1]);
+  });
+
+  it('commitOp takes a session only when its run would read the same selection; else it re-runs', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_Cube');
+    const op = advanceOp();
+    t.app.operators.register(testOperator(op));
+    setMode(t, 'face', [id]);
+    t.meshes.select(id, selectionOf('face', [2], cube().counts));
+    // A preview on face 0 (explicit) is not what a run on the current selection (face 2) writes.
+    const stale = t.app.meshes.beginOp(op, [id], { dy: 0.2 }, { selection: face0(id) });
+    await t.app.runUntyped(op.id, { meshes: [id], dy: 0.2, kind: 'face' });
+    expect(stale.active).toBe(false);
+    expect((stale as unknown as { endedBecause: string }).endedBecause).toBe('Another operation ran');
+    expect(op.reads).toEqual([[0], [2]]);
+    t.app.history.undo();
+    // A preview on the current selection is: committed without a new run.
+    t.meshes.select(id, selectionOf('face', [2], cube().counts));
+    const live = t.app.meshes.beginOp(op, [id], { dy: 0.2 });
+    const previewed = positionsOf(t, id);
+    await t.app.runUntyped(op.id, { meshes: [id], dy: 0.2, kind: 'face' });
+    expect(live.active).toBe(false);
+    expect(op.reads).toEqual([[0], [2], [2]]);
+    expect(positionsOf(t, id)).toEqual(previewed);
+  });
+
+  it('keeps a session through batches that do not change data (local or remote rename); remote data ends it', async () => {
+    const { t, id, op } = await afterAdvance();
+    const session = t.app.meshes.beginOp(op, [id], { dy: 0.3 }, { base: 'before-last' });
+    const previewed = positionsOf(t, id);
+    t.app.store.transact({ label: 'Rename' }, (tx) => tx.patch('meshes', id, { name: 'Renamed' }));
+    expect(session.active).toBe(true);
+    const record = t.app.store.get('meshes', id);
+    if (record === undefined) throw new Error('no record');
+    const remote = (after: typeof record, fields: string[]) =>
+      t.app.store.applyChanges([{ table: 'meshes', id, before: record, after, fields }], {
+        origin: 'remote',
+        label: 'Remote edit',
+        user: 'peer' as UserId,
+      });
+    remote({ ...record, name: 'Peer name' }, ['name']);
+    expect(session.active).toBe(true);
+    expect(positionsOf(t, id)).toEqual(previewed);
+    const plane = storeRevision(t.blobs, primitive('plane', {}));
+    const now = t.app.store.get('meshes', id) as typeof record;
+    t.app.store.applyChanges(
+      [
+        {
+          table: 'meshes',
+          id,
+          before: now,
+          after: { ...now, data: { ...plane, rev: 3, base: now.data?.manifest ?? null } },
+          fields: ['data'],
+        },
+      ],
+      { origin: 'remote', label: 'Remote edit', user: 'peer' as UserId },
+    );
+    expect(session.active).toBe(false);
+    expect((session as unknown as { endedBecause: string }).endedBecause).toBe('Changed by another user');
+  });
+});
+
 describe('writeData and storeRevision', () => {
   it('writes whole revisions without reading chunks back; the runtime is ready synchronously', async () => {
     const t = await meshTestApp();
@@ -502,6 +664,26 @@ describe('writeData and storeRevision', () => {
     const fresh = t.meshes.storeRevision(cube(), written);
     expect(fresh).toMatchObject({ rev: 3, base: written.manifest });
     expect(t.blobs.has(fresh.manifest)).toBe(true);
+  });
+
+  it('validates whole revisions under the kernel debug switch (§3 rule 8): invalid data is never stored', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_Cube');
+    const before = ref(t, id);
+    const good = cube();
+    const bad: MeshData = { ...good, position: Float32Array.from(good.position, (v, i) => (i === 0 ? Number.NaN : v)) };
+    const resident = t.blobs.size;
+    expect(() => t.app.store.transact({ label: 'Regenerate' }, (tx) => t.app.meshes.writeData(tx, id, bad))).toThrow(
+      expect.objectContaining({ code: 'invalid-mesh' }),
+    );
+    expect(() => t.app.store.transact({ label: 'Regenerate' }, (tx) => t.app.meshes.writeData(tx, id, bad))).toThrow(
+      "'writeData' left an invalid mesh",
+    );
+    expect(ref(t, id)).toEqual(before);
+    expect(() => t.meshes.storeRevision(bad)).toThrow(expect.objectContaining({ code: 'invalid-mesh' }));
+    expect(t.blobs.size).toBe(resident);
+    await flushMicrotasks();
+    expect(positionsOf(t, id)).toEqual([...good.position]);
   });
 });
 

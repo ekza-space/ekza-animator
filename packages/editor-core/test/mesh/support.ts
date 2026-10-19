@@ -169,6 +169,30 @@ export function offsetOp(opts?: { readonly fastPath?: boolean; readonly id?: str
   return op;
 }
 
+/**
+ * `mesh.test.advance {dy}`: moves the selected faces by `dy` along Y and leaves the **next** face selected (as Extrude
+ * leaves its cap): its result selection differs from what it read. `reads` lists the faces each run read.
+ */
+export function advanceOp(): MeshOp & { runs: number; reads: number[][] } {
+  const base = offsetOp({ id: 'mesh.test.advance' });
+  const op = {
+    ...base,
+    label: 'Advance',
+    kinds: ['face'] as const,
+    runs: 0,
+    reads: [] as number[][],
+    run(m: EditMesh, sel: ComponentSelection | null, args: ParamValues, ctx: OpContext): OpResult {
+      op.runs++;
+      const faces = sel === null ? [] : [...sel.faces.toArray()];
+      op.reads.push(faces);
+      const result = base.run(m, sel, args, ctx) as OpResult;
+      const next = faces.map((f) => (f + 1) % m.counts.faces);
+      return { ...result, selection: selectionOf('face', next, m.counts) };
+    },
+  };
+  return op;
+}
+
 /** `mesh.test.harden {}`: toggles EDGE_SEAM on every edge (a flags-only op). */
 export function seamOp(): MeshOp {
   return {

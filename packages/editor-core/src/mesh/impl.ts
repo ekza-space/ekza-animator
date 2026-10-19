@@ -7,9 +7,19 @@
 // - **Commits** (§5.5 rules 2–3, 9): `commitOp` commits the matching preview session or runs the op on every target
 //   (atomic: one refusal refuses the run and reverts every target), hashes the dirty chunks, stores them and patches
 //   each ref (`rev + 1`, `base`, `joints`) with `generator: null` (a component edit). The new content is pending until
-//   the transaction's batch confirms it; a transaction that aborts reverts it (two-phase).
+//   the transaction's batch confirms it; a transaction that aborts reverts it (two-phase). Under the kernel debug
+//   switch, whole revisions (`writeData`, `storeRevision`, set-op outputs) are validated as `EditMesh.end` validates
+//   kernel ops (§5.5 rule 7).
 // - **Following** (§5.5 rules 4, 6): undo, redo, remote and import batches move runtimes to their record's ref (see
-//   runtime.ts); remote and import changes of `data` end a preview session on that mesh ("Changed by another user").
+//   runtime.ts); remote and import changes of `data` end a preview session on that mesh ("Changed by another user");
+//   batches that leave `data` alone (a rename, a move) keep it.
+// - **Adjust Last** (§5.7): each journal edge keeps what its op read (kind and selection) and left; a 'before-last'
+//   session re-runs on what the last op read whatever the current mode, and `commitOp` takes a session only when its
+//   run would read the same selection. Until B10 stores selections, the runtime's fallback follows undo and redo
+//   across an edge the way `TxMeta.selectionBefore/After` will.
+// - **Aborted transactions** (§5.5 rule 3): the doc store has no abort hook, so a commit whose transaction aborted is
+//   reverted by the next batch, the microtask after the commit, or `reconcile()` (the runner's hook after a failed
+//   run), whichever comes first.
 // - **GC and budget** (§5.20): reference counts per manifest (ledger.ts) for live records, every doc undo/redo entry,
 //   runtimes, the last op's edges and pinned autosave blobs. Commits, evictions and history drops only **schedule**
 //   the deferred check (a microtask after the current batch; sweeps at most once per 5 s): the undo byte budget
@@ -57,6 +67,7 @@ import type {
 } from '../types';
 import { buildOpContext, type RunSettings, softContextOf, symmetryAxisOf, worldPlacement } from './context';
 import { dirtyOf, isClean } from './dirty';
+import { cloneInput, cloneSelection, type OpInput, sameInput } from './input';
 import { MeshJournal, type JournalEdge } from './journal';
 import { loadMeshKernel, type MeshKernel, meshKernel } from './kernel';
 import { BlobLedger } from './ledger';
@@ -144,8 +155,20 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
   const clock = deps.clock ?? defaultClock();
   const runtimes = new Map<MeshId, MeshRuntimeImpl>();
   const listeners = new Set<(id: MeshId, e: MeshRuntimeEvent) => void>();
-  const journal = new MeshJournal();
   const ledger = new BlobLedger(blobs);
+  // The last op's edges keep their two revisions as roots (§5.20 (3)) exactly as long as they are pinned: a new last
+  // op, a rebuild or a disposal that drops the edge releases them.
+  const journal = new MeshJournal({
+    pinned(edge) {
+      ledger.ref(edge.from, 'other', 1);
+      ledger.ref(edge.to, 'other', 1);
+    },
+    unpinned(edge) {
+      ledger.ref(edge.from, 'other', -1);
+      ledger.ref(edge.to, 'other', -1);
+      schedule();
+    },
+  });
   /** Live record refs counted in the ledger. */
   const liveRefs = new Map<MeshId, string>();
   /** History entries counted in the ledger, by txId. */
@@ -157,8 +180,10 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
   /** Runtimes a commit path touched in this task: verified against the committed refs in a microtask. */
   const touched = new Set<MeshRuntimeImpl>();
   const localSelections = new Map<MeshId, ComponentSelection>();
-  /** Edges of last-op journal pins counted as 'other' roots in the ledger. */
-  let pinnedRoots: readonly string[] = [];
+  /** True while the component selection service cannot store selections (B10 not landed): the runtime keeps them. */
+  let selectionFallback = false;
+  /** §3 rule 8: whole revisions (set-op outputs, `writeData`, `storeRevision`) are validated like `EditMesh.end`. */
+  const validating = deps.kernelDebug === true;
   let session: OpSession | null = null;
   let lastSetOp: LastSetOp | null = null;
   let host: Host | null = null;
@@ -277,13 +302,33 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
       try {
         service.set(id, sel);
         localSelections.delete(id);
+        selectionFallback = false;
         return;
       } catch (error) {
         if (!(error instanceof EkzaError) || error.code !== 'not-implemented') throw error;
       }
     }
     // Until B10 lands the service's writers, the runtime keeps the op's selection itself (READY.b10 fallback).
+    selectionFallback = true;
     localSelections.set(id, sel);
+  };
+
+  /**
+   * The fallback's stand-in for `TxMeta.selectionBefore/After` (until B10 restores them): when an undo or redo moves a
+   * mesh across a journal edge, the kept selection becomes what that op read (undo) or left (redo); any other content
+   * change drops it (its indices may not match).
+   */
+  const followLocalSelection = (
+    id: MeshId,
+    from: string | null,
+    to: string,
+    origin: ChangeBatch['origin'] | null,
+  ): void => {
+    if (from === null || from === to) return;
+    const edge = selectionFallback && (origin === 'undo' || origin === 'redo') ? journal.between(id, from, to) : null;
+    const sel = edge === null ? null : edge.from === from ? edge.output : (edge.input?.selection ?? null);
+    if (sel === null) localSelections.delete(id);
+    else localSelections.set(id, cloneSelection(sel));
   };
 
   // ---------- runtimes ----------
@@ -326,6 +371,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     const ref = record.data;
     setLive(id, ref.manifest);
     let runtime = runtimes.get(id);
+    const previous = runtime?.ref?.manifest ?? null;
     if (runtime === undefined) {
       runtime = new MeshRuntimeImpl(id, ref, env);
       runtimes.set(id, runtime);
@@ -348,25 +394,30 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     }
     runtime.ref = ref;
     if (session !== null && session.active && session.meshes.includes(id)) {
+      // Only a change of `data` concerns the session (§5.5 rule 6): a rename or a move keeps it.
+      if (previous === ref.manifest) return;
       const external = origin === 'remote' || origin === 'import' || origin === 'load' || origin === 'migration';
       if (external) endSession('Changed by another user');
+      // The session's base is the content it started from (for 'before-last' the pre-op revision): the undo of the
+      // last op lands there and keeps the session; any other revision ends it.
       else if (runtime.current !== ref.manifest) endSession('The mesh changed');
-      else return;
+      else {
+        followLocalSelection(id, previous, ref.manifest, origin);
+        return;
+      }
     }
-    if (runtime.current !== ref.manifest && runtime.state === 'ready') localSelections.delete(id);
+    if (runtime.current !== ref.manifest && runtime.state === 'ready') {
+      followLocalSelection(id, runtime.current, ref.manifest, origin);
+    }
     runtime.follow();
   };
 
   /** Edges confirmed while processing one batch (pinned as the last op's edges). */
   let confirmedEdges: JournalEdge[] = [];
 
+  /** The last op's edges (their revisions count as roots through the journal's pin hooks). */
   const pinLastOp = (edges: readonly JournalEdge[]): void => {
     journal.pin(edges);
-    const roots: string[] = [];
-    for (const edge of edges) roots.push(edge.from, edge.to);
-    for (const root of roots) ledger.ref(root, 'other', 1);
-    for (const root of pinnedRoots) ledger.ref(root, 'other', -1);
-    pinnedRoots = roots;
   };
 
   const onBatch = (batch: ChangeBatch): void => {
@@ -620,27 +671,44 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     });
   };
 
-  /** The selection an op reads on a target, expanded by its symmetry map for 'expand' ops (§5.14). */
-  const runSelection = (
+  /** What an op reads on a target: the kind and its selection (explicit, else the service's or the fallback's). */
+  const readInput = (
     op: MeshOp,
     runtime: MeshRuntimeImpl,
     kind: ComponentKind | null,
     explicit: ReadonlyMap<MeshId, ComponentSelection> | undefined,
-    symmetry: SymmetryMap | null,
-  ): ComponentSelection | null => {
-    if (op.kinds === 'object' && explicit?.get(runtime.id) === undefined) return null;
+  ): OpInput => {
     const given = explicit?.get(runtime.id);
+    if (op.kinds === 'object' && given === undefined) return { kind: null, selection: null };
     const effectiveKind = kind ?? given?.kind ?? null;
-    if (effectiveKind === null && given === undefined) return null;
-    let sel = given ?? selectionFor(runtime.id, effectiveKind as ComponentKind);
-    if (sel !== null && op.symmetry === 'expand' && symmetry !== null) {
-      try {
-        sel = (meshKernel() as MeshKernel).expandSelection(sel, symmetry);
-      } catch (error) {
-        if (!(error instanceof EkzaError)) throw error;
-      }
+    if (effectiveKind === null) return { kind: null, selection: null };
+    return { kind: effectiveKind, selection: given ?? selectionFor(runtime.id, effectiveKind) };
+  };
+
+  /** The selection an op runs on: the input expanded by its symmetry map for 'expand' ops (§5.14). */
+  const expandInput = (op: MeshOp, input: OpInput, symmetry: SymmetryMap | null): ComponentSelection | null => {
+    const sel = input.selection;
+    if (sel === null || op.symmetry !== 'expand' || symmetry === null) return sel;
+    try {
+      return (meshKernel() as MeshKernel).expandSelection(sel, symmetry);
+    } catch (error) {
+      if (!(error instanceof EkzaError)) throw error;
+      return sel;
     }
-    return sel;
+  };
+
+  /** §3 rule 8 for whole revisions: `validateMesh` under the debug switch, `invalid-mesh` naming the op. */
+  const validateData = (kernel: MeshKernel, data: MeshData, opId: string): void => {
+    if (!validating) return;
+    const problems = kernel.validateMesh(data);
+    if (problems.length === 0) return;
+    throw new EkzaError(
+      'invalid-mesh',
+      `'${opId}' left an invalid mesh: ${problems.map((p) => p.message).join('; ')}`,
+      {
+        opId,
+      },
+    );
   };
 
   /** Runs `op` once on `mesh` in its own kernel transaction: the delta, or the refusal (log aborted). */
@@ -675,6 +743,8 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     readonly wasOpen: boolean;
     readonly deltas: readonly MeshDelta[];
     readonly result: OpResult;
+    /** What the run read (a copy, kept on the journal edge for a 'before-last' session). */
+    readonly input: OpInput;
   }
 
   const revertRan = (ran: readonly Ran[]): void => {
@@ -714,6 +784,31 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
         }
       }
     },
+  };
+
+  /** Stores a whole revision (validated under the debug switch) for a record about to be written. */
+  const storeWhole = (
+    kernel: MeshKernel,
+    data: MeshData,
+    prior: MeshRef | null,
+    joints: readonly string[] | undefined,
+    opId: string,
+  ): MeshRef => {
+    validateData(kernel, data, opId);
+    const out = kernel.writeRevision(data);
+    for (const [, bytes] of out.newChunks) blobs.put(bytes);
+    blobs.put(out.manifestBytes);
+    preloaded.set(out.manifestId, { data, manifest: out.manifest });
+    if (!verifyQueued) {
+      verifyQueued = true;
+      clock.microtask(verify);
+    }
+    return {
+      manifest: out.manifestId,
+      rev: (prior?.rev ?? 0) + 1,
+      base: prior?.manifest ?? null,
+      joints: (joints ?? prior?.joints ?? []) as MeshRef['joints'],
+    };
   };
 
   // ---------- the registry ----------
@@ -772,20 +867,22 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
             undone = edge;
           }
           runtime.previewing = true;
-          const kind = opts?.selection?.get(id)?.kind ?? null;
-          const mode = host?.app.session.getState().model.componentMode ?? 'object';
-          const selection = runSelection(
-            op,
-            runtime,
-            kind ?? (mode === 'object' ? null : mode),
-            opts?.selection,
-            runtime.symmetry(),
-          );
+          let input: OpInput;
+          if (opts?.selection?.get(id) !== undefined) input = readInput(op, runtime, null, opts.selection);
+          else if (undone !== null && undone.input !== null) {
+            // An adjusted re-run reads what the last op read, in its kind, whatever the current mode (§5.7).
+            input = undone.input;
+          } else {
+            const mode = host?.app.session.getState().model.componentMode ?? 'object';
+            input = readInput(op, runtime, mode === 'object' ? null : mode, undefined);
+          }
+          input = cloneInput(input);
           list.push({
             runtime,
             wasOpen,
             undone,
-            selection,
+            input,
+            selection: expandInput(op, input, runtime.symmetry()),
             deltas: [],
             result: { refused: true, code: 'pending', reason: '' },
           });
@@ -817,13 +914,17 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
       if (targets.length === 0) throw new EkzaError('op-refused', 'Select components first');
       const ran: Ran[] = [];
       const s = session;
+      const mode = host?.app.session.getState().model.componentMode ?? 'object';
+      const kind = ctx.kind !== undefined ? ctx.kind : op.kinds === 'object' ? null : mode === 'object' ? null : mode;
+      // The session is this run's result only when the run would read what the session read (§5.5 rule 2, §5.7).
       if (
         s !== null &&
         s.active &&
         s.matches(op, targets, args) &&
         s.targets.every((t) => {
           const record = tx.get('meshes', t.runtime.id);
-          return record?.data?.manifest === t.runtime.current;
+          if (record?.data?.manifest !== t.runtime.current) return false;
+          return sameInput(t.input, readInput(op, t.runtime, kind, ctx.selection));
         })
       ) {
         for (const target of s.take()) {
@@ -833,12 +934,11 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
             wasOpen: target.wasOpen,
             deltas: target.deltas,
             result: target.result as OpResult,
+            input: target.input,
           });
         }
       } else {
         if (s !== null && s.active) endSession('Another operation ran');
-        const mode = host?.app.session.getState().model.componentMode ?? 'object';
-        const kind = ctx.kind !== undefined ? ctx.kind : op.kinds === 'object' ? null : mode === 'object' ? null : mode;
         try {
           for (const id of targets) {
             const runtime = readyRuntime(id);
@@ -846,14 +946,15 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
             const wasOpen = runtime.isOpen;
             const mesh = runtime.ensureLineage();
             const opCtx = contextFor(runtime, record, mesh, ctx.settings);
-            const selection = runSelection(op, runtime, kind, ctx.selection, opCtx.symmetry?.map ?? null);
+            const input = cloneInput(readInput(op, runtime, kind, ctx.selection));
+            const selection = expandInput(op, input, opCtx.symmetry?.map ?? null);
             const { delta, result } = runOnce(op, mesh, selection, args, opCtx);
             if (isRefusal(result)) {
               if (!wasOpen) runtime.close();
               throw refusalError(result, id);
             }
             const deltas = delta === null ? [] : [delta];
-            ran.push({ runtime, record, wasOpen, deltas, result });
+            ran.push({ runtime, record, wasOpen, deltas, result, input });
             if (delta !== null) runtime.noteChanged(delta.dirty, false);
           }
         } catch (error) {
@@ -904,6 +1005,8 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
             deltas: r.deltas,
             lineage: mesh,
             pin: true,
+            input: r.input,
+            output: cloneSelection(r.result.selection),
           };
           pending.push(runtime);
           runtime.hold(ref.manifest);
@@ -958,7 +1061,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
         },
         selectionFor: (id, k) => selectionFor(id, k),
         placement: (record) => worldPlacement(tx, record),
-        storeRevision: (data, prior, joints) => registry.storeRevision(data, prior, joints),
+        storeRevision: (data, prior, joints) => storeWhole(kernel, data, prior, joints, op.id),
         ...(ctx.adjusting === true && lastSetOp?.opId === op.id ? { expectOutputs: lastSetOp.outputs } : {}),
       });
       for (const id of [...result.result.created, ...result.result.updated]) {
@@ -976,10 +1079,10 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     },
 
     writeData(tx: Tx, id: MeshId, data: MeshData): MeshRef {
-      requireKernel();
+      const kernel = requireKernel();
       const record = tx.get('meshes', id);
       if (record === undefined) throw new EkzaError('invalid-record', `writeData: no mesh record ${id}`);
-      const ref = registry.storeRevision(data, record.data, refJointsOf(record, data));
+      const ref = storeWhole(kernel, data, record.data, refJointsOf(record, data), 'writeData');
       tx.patch('meshes', id, { data: ref });
       pinLastOp([]);
       const runtime = runtimes.get(id);
@@ -989,21 +1092,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     },
 
     storeRevision(data: MeshData, prior?: MeshRef | null, joints?: readonly string[]): MeshRef {
-      const kernel = requireKernel();
-      const out = kernel.writeRevision(data);
-      for (const [, bytes] of out.newChunks) blobs.put(bytes);
-      blobs.put(out.manifestBytes);
-      preloaded.set(out.manifestId, { data, manifest: out.manifest });
-      if (!verifyQueued) {
-        verifyQueued = true;
-        clock.microtask(verify);
-      }
-      return {
-        manifest: out.manifestId,
-        rev: (prior?.rev ?? 0) + 1,
-        base: prior?.manifest ?? null,
-        joints: (joints ?? prior?.joints ?? []) as MeshRef['joints'],
-      };
+      return storeWhole(requireKernel(), data, prior ?? null, joints, 'storeRevision');
     },
 
     get journalBytes(): number {
@@ -1034,7 +1123,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
         if (runtime === undefined || record === undefined || mesh === null || runtime.state !== 'ready') continue;
         if (runtime.current !== record.data?.manifest) continue;
         const ctx = contextFor(runtime, record, mesh, settings);
-        const selection = runSelection(op, runtime, kind, undefined, ctx.symmetry?.map ?? null);
+        const selection = expandInput(op, readInput(op, runtime, kind, undefined), ctx.symmetry?.map ?? null);
         const verdict = op.poll(mesh, selection, ctx);
         if (verdict !== true) return verdict;
       }
@@ -1072,6 +1161,10 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     },
     get attached(): boolean {
       return host !== null;
+    },
+
+    reconcile(): void {
+      verify();
     },
 
     collect(): GcReport {

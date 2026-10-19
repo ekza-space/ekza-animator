@@ -295,6 +295,9 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
     collect(): GcReport {
       return current()?.collect() ?? { freed: 0, bytes: 0, dropped: 0 };
     },
+    reconcile(): void {
+      impl?.reconcile();
+    },
     async settled(): Promise<void> {
       await loadMeshKernel();
       bindImpl();

@@ -4,12 +4,16 @@
 // targets and args match the operator's (else it cancels the session and runs the op itself).
 //
 // `base: 'before-last'` previews an adjust-last re-run from the pre-op mesh: the last op's journal edge is applied
-// backwards first, and the session survives the undo of that step (the ref then equals the session's base).
+// backwards first, the run reads the selection **that op read** (its kind and components, recorded on the edge, §5.7:
+// whatever the current mode), and the session survives the undo of that step (the ref then equals the session's base).
+// `commitOp` takes a session only when the selection its run would read equals the session's (`sameInput`), so a
+// committed session is always what a fresh run would have written.
 import { EkzaError, type ParamValues } from '@ekza-animator/anim-core';
 import { deepEqual, type MeshId } from '@ekza-animator/doc';
 import type { ComponentSelection, MeshDelta, MeshOp, OpResult, Refusal } from '@ekza-animator/mesh-core';
 import type { MeshOpSession } from '../types';
 import { dirtyOf } from './dirty';
+import type { OpInput } from './input';
 import type { JournalEdge } from './journal';
 import type { MeshRuntimeImpl } from './runtime';
 
@@ -19,6 +23,9 @@ export interface SessionTarget {
   readonly wasOpen: boolean;
   /** The last op's edge undone for a 'before-last' session (re-applied on cancel when the ref still needs it). */
   readonly undone: JournalEdge | null;
+  /** What the run reads (a copy): compared with what the commit's run would read before the session is taken. */
+  readonly input: OpInput;
+  /** The selection the op runs on (`input.selection`, expanded by the symmetry map for 'expand' ops). */
   readonly selection: ComponentSelection | null;
   deltas: MeshDelta[];
   result: OpResult | Refusal;

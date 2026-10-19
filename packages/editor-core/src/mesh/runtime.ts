@@ -13,6 +13,7 @@
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import type { MeshId, MeshRef } from '@ekza-animator/doc';
 import type {
+  ComponentSelection,
   DirtySet,
   EditMesh,
   MeshData,
@@ -24,6 +25,7 @@ import type {
 } from '@ekza-animator/mesh-core';
 import type { BlobId, BlobStore, MeshRuntime, MeshRuntimeEvent, MeshRuntimeState } from '../types';
 import { ALL_DIRTY, CLEAN, dirtyOf, mergeDirty, trianglesDirty } from './dirty';
+import type { OpInput } from './input';
 import type { JournalEdge, MeshJournal } from './journal';
 import type { MeshKernel } from './kernel';
 import type { BlobLedger } from './ledger';
@@ -52,6 +54,9 @@ export interface PendingCommit {
   readonly lineage: EditMesh;
   /** Pinned as the last op's edge once confirmed. */
   readonly pin: boolean;
+  /** What the op read on this mesh and the selection it left (copies kept on the journal edge). */
+  readonly input: OpInput | null;
+  readonly output: ComponentSelection | null;
 }
 
 const missingMessage = (id: string): string => `Mesh data is missing (blob ${id})`;
@@ -296,7 +301,10 @@ export class MeshRuntimeImpl implements MeshRuntime {
     if (pending === null) return null;
     this.pending = null;
     if (pending.deltas.length === 0) return null;
-    return this.env.journal.add(this.id, pending.from, pending.to.manifest, pending.deltas, pending.lineage);
+    return this.env.journal.add(this.id, pending.from, pending.to.manifest, pending.deltas, pending.lineage, {
+      input: pending.input,
+      output: pending.output,
+    });
   }
 
   /** Reverts the pending commit (its transaction aborted). */
