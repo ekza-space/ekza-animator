@@ -56,6 +56,9 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   'virtualSlider',
   'exportReduce',
   'autosave',
+  // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
+  'lastWorkspace',
+  'modeling',
 ]);
 
 export interface ShellOperatorDeps {

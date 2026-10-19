@@ -1,5 +1,7 @@
 // First-run dialog (research 09 §10.1; MVP-SPEC §1.4, §7 WP-8): navigation profile, Space behaviour and the
 // "Getting started" card that says plainly what M1 is for. Closing it in any way marks the first run done.
+// M6a (M6A-SPEC §8.8, research 16 §16.1; B13): "What do you want to do first?" — Animate an avatar or Model something
+// new — sets the start workspace (`workspace.set`) and `prefs.lastWorkspace`.
 import { Button, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem } from '@ekza-animator/ui';
 import { type JSX, useState } from 'react';
 import { usePrefs } from '../hooks';
@@ -7,6 +9,7 @@ import { useShell } from '../shell/context';
 
 type Nav = 'maya' | 'trackpad';
 type Space = 'maya' | 'play';
+type Start = 'animate' | 'model';
 
 export function FirstRunDialog(): JSX.Element {
   const shell = useShell();
@@ -14,9 +17,14 @@ export function FirstRunDialog(): JSX.Element {
   const savedSpace = usePrefs((p) => p.spaceBehaviour);
   const [nav, setNav] = useState<Nav>(savedNav === 'trackpad' ? 'trackpad' : 'maya');
   const [space, setSpace] = useState<Space>(savedSpace);
+  const savedStart = usePrefs((p) => p.lastWorkspace);
+  const [start, setStart] = useState<Start>(savedStart === 'model' ? 'model' : 'animate');
 
   const finish = async (): Promise<void> => {
-    await shell.runFromUi('prefs.set', { patch: { navProfile: nav, spaceBehaviour: space, firstRunDone: true } });
+    await shell.runFromUi('prefs.set', {
+      patch: { navProfile: nav, spaceBehaviour: space, firstRunDone: true, lastWorkspace: start },
+    });
+    if (shell.app.session.getState().workspace !== start) await shell.runFromUi('workspace.set', { workspace: start });
     await shell.runFromUi('ui.close');
   };
 
@@ -35,7 +43,26 @@ export function FirstRunDialog(): JSX.Element {
       >
         <div className="grid gap-5 md:grid-cols-2">
           <section className="flex flex-col gap-2">
-            <h3 className="text-ui font-semibold text-fg-2">How do you navigate?</h3>
+            <h3 className="text-ui font-semibold text-fg-2">What do you want to do first?</h3>
+            <RadioGroup
+              value={start}
+              onValueChange={(value) => setStart(value === 'model' ? 'model' : 'animate')}
+              aria-label="Start with"
+            >
+              <RadioGroupItem
+                value="animate"
+                label="Animate an avatar"
+                hint="Load a VRM or glTF character and key its controls"
+                data-testid="firstrun-start-animate"
+              />
+              <RadioGroupItem
+                value="model"
+                label="Model something new"
+                hint="Low-poly props and characters from primitives or a template"
+                data-testid="firstrun-start-model"
+              />
+            </RadioGroup>
+            <h3 className="mt-2 text-ui font-semibold text-fg-2">How do you navigate?</h3>
             <RadioGroup
               value={nav}
               onValueChange={(value) => setNav(value === 'trackpad' ? 'trackpad' : 'maya')}
@@ -101,7 +128,7 @@ export function FirstRunDialog(): JSX.Element {
         </div>
         <DialogFooter>
           <Button variant="primary" data-testid="firstrun-done" onClick={() => void finish()}>
-            Start animating
+            {start === 'model' ? 'Start modeling' : 'Start animating'}
           </Button>
         </DialogFooter>
       </DialogContent>

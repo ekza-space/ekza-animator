@@ -341,7 +341,9 @@ describe('the B7 test API group (§4.8)', () => {
 
   it("lists a loaded character's glTF meshes without records as virtual 'asset' rows with their derived ids", async () => {
     const { api, app } = await setup();
-    const character = 'chr_Hero0000000001';
+    // Merge fix (B7 × B8, literal update): B8's `assetMeshRows` lists runtimes of live asset characters only, so the
+    // mocked runtime is the fixture's character (an imported asset) instead of an id without a record.
+    const character = 'chr_SyntheticWave001';
     // A character runtime whose glTF has two meshes; the second already has its record (made editable).
     const list = vi
       .spyOn(app.characters, 'list')
