@@ -14,6 +14,8 @@ import type { ViewportManager } from '@ekza-animator/viewport';
 import type { DockviewApi } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { KeyboardAdapter } from '../input/keyboard';
+import type { CommandPaletteController } from '../overlays/CommandPalette/controller';
+import type { MarkingMenuController } from '../overlays/MarkingMenu/controller';
 import type { HoverTarget } from '../input/pointer';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
@@ -133,6 +135,9 @@ export interface ShellUiState {
   readonly busy: string | null;
   readonly dockMaximized: boolean;
   readonly confirm: ConfirmRequest | null;
+  /** M6a (§8.2): the time slider shown (true) or hidden (false) per workspace, where the user toggled it (Windows ›
+   *  Timeline); absent = the workspace definition's `timeline`. */
+  readonly timeline: Readonly<Record<string, boolean>>;
 }
 
 // ---------- the last export (test API `lastExport()`) ----------
@@ -157,7 +162,9 @@ export interface ExportRecorder {
 export interface WorkspaceApi {
   /** The bound dockview API (null until the workspace has mounted). */
   readonly dockview: DockviewApi | null;
-  /** Rebuilds the default Animate layout and forgets the stored one. */
+  /** M6a: the workspace whose layout the dockview shows. */
+  readonly workspace: string;
+  /** Rebuilds the current workspace's default layout and forgets the stored one. */
   reset(): void;
   /** Activates the panel of `kind`, adding it to its default dock when it is closed. False when unknown. */
   showPanel(kind: PanelKind): boolean;
@@ -222,6 +229,10 @@ export interface Shell {
   readonly files: FilePipeline;
   readonly exports: ExportRecorder;
   readonly keyboard: KeyboardAdapter;
+  /** M6a (§5.18): the marking menus (pointer presses in panes, `ui.markingMenu`). */
+  readonly markingMenus: MarkingMenuController;
+  /** M6a (§5.18): the command palette (`Mod+K`). */
+  readonly commandPalette: CommandPaletteController;
   /** Binds the dockview API once the workspace has mounted. */
   attachWorkspace(api: DockviewApi): Disposer;
   /** Shows a transient help-line message (cancelled commands, hints). */

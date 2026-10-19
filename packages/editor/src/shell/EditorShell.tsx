@@ -2,8 +2,11 @@
 // the overlays (dialogs, toasts, drop target). Sits above the GL host's canvas.
 import type { JSX } from 'react';
 import { DialogHost } from '../dialogs/DialogHost';
+import { CommandPaletteHost } from '../overlays/CommandPalette';
+import { MarkingMenuHost } from '../overlays/MarkingMenu';
+import { ShellOverlays } from '../overlays/slots';
 import type { ToastNotifier } from '../services/notify';
-import { useShellUi } from './context';
+import { useShell, useShellUi } from './context';
 import { HelpLine } from './HelpLine';
 import { MenuBar } from './MenuBar';
 import { StatusLine } from './StatusLine';
@@ -26,6 +29,18 @@ function DropOverlay(): JSX.Element | null {
   );
 }
 
+/** M6a overlays (§4.8, §5.18): the marking menu, the command palette and the shell slots (B11's option box). */
+function ShellOverlaysHost(): JSX.Element {
+  const shell = useShell();
+  return (
+    <>
+      <MarkingMenuHost controller={shell.markingMenus} />
+      <CommandPaletteHost controller={shell.commandPalette} />
+      <ShellOverlays app={shell.app} />
+    </>
+  );
+}
+
 export function EditorShell(props: { readonly toasts: ToastNotifier | null }): JSX.Element {
   return (
     <>
@@ -39,6 +54,7 @@ export function EditorShell(props: { readonly toasts: ToastNotifier | null }): J
         <HelpLine />
       </div>
       <DialogHost />
+      <ShellOverlaysHost />
       {props.toasts === null ? null : <Toaster notifier={props.toasts} />}
       <DropOverlay />
     </>

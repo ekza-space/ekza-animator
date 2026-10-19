@@ -310,8 +310,12 @@ describe('M6a test API (B0a kernel-level functions)', () => {
   it('lists workspaces (Animate active, ○ without keys … ● with) and resolves keys through the keymap', () => {
     const { api, app } = setup();
     registerBuiltins(app);
+    // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the four tabs; disabled ones carry no glyph.
     expect(api.workspaces()).toEqual([
+      { id: 'model', label: 'Model', enabled: true, active: false, glyph: 'todo', reasons: ['No editable mesh yet'] },
+      { id: 'rig', label: 'Rig & Skin', enabled: false, active: false, glyph: 'none', reasons: [] },
       { id: 'animate', label: 'Animate', enabled: true, active: true, glyph: 'done', reasons: [] },
+      { id: 'review', label: 'Review', enabled: false, active: false, glyph: 'none', reasons: [] },
     ]);
     expect(api.resolveKey({ code: 'KeyS' }, { panel: 'viewport', paneId: 'pane-persp' })).toEqual({
       op: 'key.set',
@@ -381,7 +385,8 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     expect(() => api.lastOp()).toThrow(/B11/);
     expect(() => api.palettes()).toThrow(/B13/);
     expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
-    expect(() => api.pixel('pane-persp', 0, 0)).toThrow(/B9/);
+    // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
+    expect(api.pixel('pane-persp', 0, 0)).toEqual([0, 0, 0, 0]);
     expect(() => api.meshFaces('msh_A')).toThrow(/B7/);
     expect(() => api.setExpression('c', 'smile', 1)).toThrow(/INT/);
   });

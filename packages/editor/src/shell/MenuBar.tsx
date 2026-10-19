@@ -23,6 +23,7 @@ import { useShell } from './context';
 import { type MenuSection, menuContents, topMenus } from './menus';
 import { prefetchForMenuItems } from './prefetch';
 import type { Shell } from './types';
+import { WorkspaceTabs } from './WorkspaceTabs';
 
 function menuContext(shell: Shell): RunContext {
   const last = shell.ui.getState().lastPanel;
@@ -119,6 +120,8 @@ export function MenuBar(): JSX.Element {
           </MenubarMenu>
         ))}
       </Menubar>
+      {/* M6A-SPEC §8.1: the workspace tabs sit right of the menus. */}
+      <WorkspaceTabs />
       <div className="ml-auto flex min-w-0 items-center gap-3">
         <span className="truncate text-ui text-fg-2" data-testid="project-title" title={projectName}>
           {projectName}

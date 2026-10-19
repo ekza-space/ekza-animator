@@ -1,9 +1,8 @@
 // M6a test API, B9 group (M6A-SPEC §4.8): workspaces, pixels, key resolution, marking menus, the command palette.
-// B0a: `workspaces` and `resolveKey` are kernel-level and work; the others throw until B9 lands them.
 import type { KeyInput } from '@ekza-animator/editor-core';
 import { scopeChain } from '../../input/keyboard';
 import type { EkzaAnimatorTestApi } from '../types';
-import { type M6aTestApiContext, notImplemented } from './support';
+import type { M6aTestApiContext } from './support';
 
 export type ShellWorkspacesTestApi = Pick<
   EkzaAnimatorTestApi,
@@ -18,7 +17,7 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
       return [...app.workspaces.list()]
         .sort((a, b) => a.order - b.order)
         .map((def) => {
-          const status = def.status?.(app) ?? { glyph: 'none' as const, reasons: [] };
+          const status = (def.enabled ? def.status?.(app) : undefined) ?? { glyph: 'none' as const, reasons: [] };
           return {
             id: def.id,
             label: def.label,
@@ -29,7 +28,14 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
           };
         });
     },
-    pixel: () => notImplemented('B9', 'pixel'),
+    pixel(paneId, x, y) {
+      ctx.sync();
+      const vm = ctx.shell.ui.getState().viewport;
+      const rect = vm?.paneRect(paneId) ?? null;
+      if (vm === null || rect === null) return [0, 0, 0, 0];
+      if (x < rect.x || y < rect.y || x >= rect.x + rect.w || y >= rect.y + rect.h) return [0, 0, 0, 0];
+      return vm.readPixel(x, y) ?? [0, 0, 0, 0];
+    },
     resolveKey(chord, at) {
       const mac = app.keymap.platform === 'mac';
       const mod = chord.mod === true;
@@ -46,7 +52,31 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
       const binding = app.keymap.resolve(input, scopes, 'press');
       return binding === null ? null : { op: binding.op, args: binding.args, scope: binding.scope };
     },
-    markingMenu: () => notImplemented('B9', 'markingMenu'),
-    commandPalette: () => notImplemented('B9', 'commandPalette'),
+    markingMenu() {
+      const controller = ctx.shell.markingMenus;
+      const open = controller.state.getState().open;
+      if (open === null) return null;
+      const view = (entry: { label: string; op: string | null; enabled: boolean }) => ({
+        label: entry.label,
+        op: entry.op,
+        enabled: entry.enabled,
+      });
+      const slots: Record<string, { label: string; op: string | null; enabled: boolean }> = {};
+      for (const [slot, entry] of Object.entries(open.slots)) if (entry !== undefined) slots[slot] = view(entry);
+      const screenOfSlot: Record<string, { x: number; y: number }> = {};
+      for (const [slot, point] of Object.entries(controller.screenOfSlot())) {
+        if (point !== undefined) screenOfSlot[slot] = { x: point.x, y: point.y };
+      }
+      return { id: open.def.id, slots, list: open.list.map(view), screenOfSlot };
+    },
+    commandPalette() {
+      const palette = ctx.shell.commandPalette;
+      const state = palette.state.getState();
+      return {
+        open: state.open,
+        query: state.query,
+        items: palette.items().map((entry) => ({ op: entry.op, label: entry.label, enabled: entry.enabled })),
+      };
+    },
   };
 }

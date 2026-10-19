@@ -1,10 +1,20 @@
 // Creates the shell core for one editor (MVP-SPEC §7 WP-8): panel registry with the built-in panels, shell
 // operators and menu items, frame hooks, probes, workspace adapter, keyboard adapter and the file pipeline.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, OperatorResult, PanelKind, PrefsStorage, RunContext } from '@ekza-animator/editor-core';
+import {
+  type EditorApp,
+  type OperatorResult,
+  type PanelKind,
+  type PrefsStorage,
+  provideShellOverlays,
+  type RunContext,
+} from '@ekza-animator/editor-core';
 import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
+import { createCommandPaletteController } from '../overlays/CommandPalette/controller';
+import { createMarkingMenuController } from '../overlays/MarkingMenu/controller';
+import { prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
@@ -16,7 +26,7 @@ import type { EditorParams } from '../test-api/params';
 import { startShellAutosave } from './autosave';
 import { asArtifacts, createExportRecorder } from './exports';
 import { createFilePipeline } from './files';
-import { ANIMATE_SLOTS, FIXED_KINDS } from './layout';
+import { ALL_SLOTS, FIXED_KINDS } from './layout';
 import { registerShellMenuItems } from './menuItems';
 import { registerShellOperators } from './operators';
 import { createProbeRegistry } from './probes';
@@ -49,6 +59,7 @@ export const INITIAL_UI: ShellUiState = {
   busy: null,
   dockMaximized: false,
   confirm: null,
+  timeline: {},
 };
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -180,12 +191,58 @@ export function createShell(opts: CreateShellOptions): Shell {
     },
   });
 
-  disposers.push(registerShellOperators(app, { workspace, onImportClosed: () => files.cancelImport() }));
+  disposers.push(registerShellOperators(app, { workspace, ui, onImportClosed: () => files.cancelImport() }));
+
+  // M6A-SPEC §5.18 (B9): marking menus (the viewport's press hook, `ui.markingMenu`) and the command palette.
+  const lastContext = (): RunContext => {
+    const last = ui.getState().lastPanel;
+    return {
+      ...(last === null ? {} : { panel: last.kind }),
+      ...(last === null || last.paneId === null ? {} : { paneId: last.paneId }),
+    };
+  };
+  const markingMenus = createMarkingMenuController({ app, run: (op, args, ctx) => runFromUi(op, args, ctx), help });
+  disposers.push(() => markingMenus.dispose());
+  const commandPalette = createCommandPaletteController({
+    app,
+    run: (op, args, ctx) => runFromUi(op, args, ctx),
+    context: lastContext,
+  });
+  disposers.push(
+    provideShellOverlays(app, {
+      openCommandPalette: () => commandPalette.open(),
+      openMarkingMenu: (def, ctx) => markingMenus.openByCommand(def, ctx),
+    }),
+  );
+  const pointerMenus = (press: Parameters<typeof markingMenus.handlePress>[0]): boolean =>
+    markingMenus.handlePress(press);
+  /** Hooks the presses of a viewport (null unhooks); test fakes without the hook are left alone. */
+  const hookMenus = (vm: ShellUiState['viewport'], handler: typeof pointerMenus | null): void => {
+    if (typeof vm?.setPointerMenus === 'function') vm.setPointerMenus(handler);
+  };
+  hookMenus(ui.getState().viewport, pointerMenus);
+  disposers.push(
+    ui.subscribe((state, previous) => {
+      if (state.viewport === previous.viewport) return;
+      hookMenus(previous.viewport, null);
+      hookMenus(state.viewport, pointerMenus);
+    }),
+    () => hookMenus(ui.getState().viewport, null),
+  );
+  // The marking menu's drawing loads before the first menu opens: when Model is entered.
+  if (app.session.getState().workspace === 'model' && typeof window !== 'undefined') prefetchMarkingMenu();
+  disposers.push(
+    app.session.subscribe((state, previous) => {
+      if (state.workspace === previous.workspace) return;
+      markingMenus.close();
+      if (state.workspace === 'model' && typeof window !== 'undefined') prefetchMarkingMenu();
+    }),
+  );
   // M2A-SPEC §5.20: autosave and the Recovery prompt (browser services only).
   disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args) }));
   const extraPanels: { kind: PanelKind; title: string }[] = [];
   for (const def of registry.list()) {
-    if (FIXED_KINDS.has(def.kind) || ANIMATE_SLOTS.some((slot) => slot.kind === def.kind)) continue;
+    if (FIXED_KINDS.has(def.kind) || ALL_SLOTS.some((slot) => slot.kind === def.kind)) continue;
     if (extraPanels.some((panel) => panel.kind === def.kind)) continue;
     extraPanels.push({ kind: def.kind, title: def.title });
   }
@@ -222,6 +279,8 @@ export function createShell(opts: CreateShellOptions): Shell {
     files,
     exports,
     keyboard,
+    markingMenus,
+    commandPalette,
     attachWorkspace: (api) => workspace.attach(api),
     help,
     confirm,
