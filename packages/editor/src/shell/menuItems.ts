@@ -88,6 +88,17 @@ export function shellMenuItems(
       label: 'About Ekza Animator',
     },
     {
+      // M6A-SPEC §8.3 Mesh › Mesh Check: shows the Mesh Check panel (B10 registers it).
+      id: 'shell.mesh.meshCheck',
+      menu: 'mesh',
+      op: 'workspace.showPanel',
+      args: { panel: 'meshCheck' },
+      group: 'check',
+      order: 250,
+      label: 'Mesh Check',
+      workspaces: ['model'],
+    },
+    {
       id: 'shell.windows.reset',
       menu: 'windows',
       op: 'workspace.reset',
