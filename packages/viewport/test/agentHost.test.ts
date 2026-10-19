@@ -49,6 +49,31 @@ describe('ViewportManager.agentHost (MCP-SPEC §4.3)', () => {
     expect(host.paneCamera('pane-right')).toEqual(rig.vm.camera('pane-right'));
   });
 
+  it('takes the pane holding keyboard focus as the active pane, then the last pointer pane', async () => {
+    rig = await createRig();
+    rig.layout('split');
+    const host = rig.vm.agentHost();
+    const left = rig.panes.get('pane-left') as HTMLElement;
+    const right = rig.panes.get('pane-right') as HTMLElement;
+    left.dispatchEvent(new WheelEvent('wheel', { bubbles: true, cancelable: true, clientX: 100, clientY: 100 }));
+    expect(host.activePaneId()).toBe('pane-left');
+    const button = document.createElement('button');
+    button.textContent = 'pane menu';
+    right.append(button);
+    button.focus();
+    expect(document.activeElement).toBe(button);
+    expect(host.activePaneId()).toBe('pane-right');
+    button.blur();
+    expect(host.activePaneId()).toBe('pane-left');
+    // focus outside every pane leaves the pointer rule in charge
+    const outside = document.createElement('input');
+    document.body.append(outside);
+    outside.focus();
+    expect(host.activePaneId()).toBe('pane-left');
+    outside.remove();
+    button.remove();
+  });
+
   it('draws overlay passes in every pane after the control pass until disposed', async () => {
     rig = await createRig();
     rig.layout('split');

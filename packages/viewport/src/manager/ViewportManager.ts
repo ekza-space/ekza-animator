@@ -177,7 +177,10 @@ export interface AgentOverlayPass {
 export interface ViewportAgentHost {
   readonly renderer: WebGLRenderer; // the shared renderer (three.js types never leave viewport)
   readonly scene: Scene;
-  /** The pane the user last interacted with (pointer or keyboard focus), else the hovered one, else null. */
+  /**
+   * The pane the user last interacted with (keyboard focus inside a pane, else the last pointer press or wheel), else
+   * the hovered one, else null.
+   */
   activePaneId(): string | null;
   paneCamera(paneId: string): CameraSnapshot; // world space, a copy
   /** Poses `character` from evaluated bone worlds for the duration of `draw`, then restores the current pose. */
@@ -574,7 +577,13 @@ export class ViewportManager {
     return {
       renderer: this.renderer,
       scene: this.scene,
+      // Keyboard focus inside a pane (its menu, a focused pane element) is the user's current interaction; else the
+      // pane of the last pointer press or wheel; else the hovered pane; else null (MAI-D0-15).
       activePaneId: () => {
+        const focus = typeof document === 'undefined' ? null : document.activeElement;
+        if (focus !== null && focus !== document.body) {
+          for (const [id, pane] of this.panes) if (pane.element.contains(focus)) return id;
+        }
         if (this.lastPointerPane !== null && this.panes.has(this.lastPointerPane)) return this.lastPointerPane;
         const hovered = this.pointerAt?.paneId ?? null;
         return hovered !== null && this.panes.has(hovered) ? hovered : null;
