@@ -38,8 +38,13 @@ test.fixme('b3, b4, b5, b10: E2E-MOD-09 — delete half, Mirror, Conform, Mesh C
   expect(stats).toMatchObject({ boundaryLoops: 0, nonManifoldEdges: 0, nonManifoldVerts: 0 });
 
   const before = await positions(page, cube);
-  await runMenuItem(page, 'mesh-display', 'builtin.model.mesh-display.conform');
-  await expect.poll(async () => (await call(page, 'lastOp'))?.id).toBe('mesh.conform');
+  // Conform runs on the whole mesh in object mode (§6.1 Modes "f, object"): its item is enabled and the run finishes.
+  // The mirrored cube is consistent already, so nothing moves (and a run that changes nothing records no step, §5.7).
+  await page.getByTestId('menu-mesh-display').click();
+  const conform = page.getByTestId('menu-item-builtin.model.mesh-display.conform');
+  await expect(conform).not.toHaveAttribute('aria-disabled', 'true');
+  await conform.click();
+  await runOk(page, 'mesh.conform');
   expect(await positions(page, cube)).toEqual(before);
   expect(await call(page, 'meshCheck', cube)).toEqual([]);
 });
