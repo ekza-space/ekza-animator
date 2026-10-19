@@ -62,4 +62,56 @@ describe('bridge protocol (MCP-SPEC §4.5)', () => {
     expect(() => parseBridgeMessage('not json')).toThrow(/not JSON/);
     expect(() => parseBridgeMessage('[]')).toThrow(/not an object/);
   });
+
+  const result = (writes: readonly unknown[], images: readonly unknown[] = []) =>
+    JSON.stringify({ t: 'result', id: 'c_1abc', result: { ok: true, data: {} }, images, writes });
+  /** True when the strict parser refuses the frame with a protocol error (the socket then closes with 1008). */
+  const refuses = (text: string): boolean => {
+    try {
+      parseBridgeMessage(text);
+      return false;
+    } catch (error) {
+      return error instanceof BridgeProtocolError;
+    }
+  };
+
+  it('accepts workspace writes named by a base file name only', () => {
+    for (const name of ['wave.vrma', 'walk 2.glb', 'Привет.ekzanim', '.hidden', 'a..b.vrma', 'x'.repeat(255)]) {
+      expect(parseBridgeMessage(result([{ name, blob: 'b_1' }]))).toMatchObject({ writes: [{ name }] });
+    }
+  });
+
+  it('refuses write names with a path, a traversal, a drive, a control character or the wrong length (T7, T16)', () => {
+    const hostile = [
+      '../../.ssh/authorized_keys',
+      '../wave.vrma',
+      '/etc/passwd',
+      'dir/wave.vrma',
+      'a\\b.vrma',
+      '..\\..\\boot.ini',
+      'C:wave.vrma',
+      'C:\\Windows\\win.ini',
+      '.',
+      '..',
+      '',
+      'wave\u0000.vrma',
+      'wave\n.vrma',
+      'wave\u007f.vrma',
+      'wave\u0085.vrma',
+      'evil\u202egpj.vrma',
+      'zero\u200bwidth.vrma',
+      'x'.repeat(256),
+    ];
+    for (const name of hostile) expect([name, refuses(result([{ name, blob: 'b_1' }]))]).toEqual([name, true]);
+  });
+
+  it('accepts PNG and WebP images only', () => {
+    const image = (mime: string) => ({ blob: 'b_2', mime, width: 64, height: 64 });
+    expect(parseBridgeMessage(result([], [image('image/png'), image('image/webp')]))).toMatchObject({
+      images: [{ mime: 'image/png' }, { mime: 'image/webp' }],
+    });
+    for (const mime of ['text/html', 'image/svg+xml', 'application/javascript', 'image/PNG', 'image/png; x=1', '']) {
+      expect([mime, refuses(result([], [image(mime)]))]).toEqual([mime, true]);
+    }
+  });
 });

@@ -82,7 +82,7 @@ export type BridgeMessage =
       readonly result: unknown; // AgentToolResult without images
       readonly images: readonly {
         readonly blob: string;
-        readonly mime: string;
+        readonly mime: BridgeImageMime;
         readonly width: number;
         readonly height: number;
       }[];
@@ -105,6 +105,16 @@ export type BridgeMessage =
       readonly sha256?: string;
     }
   | { readonly t: 'error'; readonly code: string; readonly message: string };
+
+/** The image types a tab may send (§5.15.5). */
+export const BRIDGE_IMAGE_MIMES = ['image/png', 'image/webp'] as const;
+export type BridgeImageMime = (typeof BRIDGE_IMAGE_MIMES)[number];
+/**
+ * A workspace write's name (§4.5, §5.10): one base file name — no slash, backslash or colon, no control or format
+ * character (`Cc`, `Cf`: no bidi override disguising the extension), not `.` or `..`, 1–255 code points. The server
+ * still derives the folder, the extension and the overwrite rule itself (T7, T16).
+ */
+export const BRIDGE_WRITE_NAME = /^(?!\.{1,2}$)[^/\\:\p{Cc}\p{Cf}]{1,255}$/u;
 
 // ---------- strict schemas (one per message) ----------
 const shortText = (max: number) => z.string().max(max);
@@ -186,13 +196,13 @@ export const BRIDGE_MESSAGE_SCHEMAS = {
       .array(
         z.strictObject({
           blob: id,
-          mime: shortText(64),
+          mime: z.enum(BRIDGE_IMAGE_MIMES),
           width: z.int().min(1).max(16_384),
           height: z.int().min(1).max(16_384),
         }),
       )
       .max(4),
-    writes: z.array(z.strictObject({ name: shortText(255), blob: id })).max(64),
+    writes: z.array(z.strictObject({ name: z.string().regex(BRIDGE_WRITE_NAME), blob: id })).max(64),
   }),
   cancel: z.strictObject({ t: z.literal('cancel'), id }),
   grants: z.strictObject({ t: z.literal('grants'), grants }),
