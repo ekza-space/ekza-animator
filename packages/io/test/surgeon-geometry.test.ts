@@ -263,6 +263,42 @@ describe('replacePrimitives on the fixtures', () => {
     expect((await validateGltf(out.bytes)).errors).toBe(0);
   });
 
+  it('drops KHR_draco_mesh_compression from the replaced primitive and the extension lists', async () => {
+    const plain = await syntheticContainer({
+      primitives: [
+        { positions: [0, 0, 0, 1, 0, 0, 1, 1, 0], normals: [0, 0, 1, 0, 0, 1, 0, 0, 1], indices: [0, 1, 2] },
+      ],
+    });
+    // The same mesh declared Draco-compressed (the plain accessors stand in for the decoded data).
+    const json = structuredClone(plain.json) as Json;
+    const primitive = (json['meshes'] as { primitives: Json[] }[])[0]?.primitives[0] as Json;
+    primitive['extensions'] = { KHR_draco_mesh_compression: { bufferView: 0, attributes: { POSITION: 0 } } };
+    json['extensionsUsed'] = ['KHR_draco_mesh_compression'];
+    json['extensionsRequired'] = ['KHR_draco_mesh_compression'];
+    const { makeGlb } = await import('../src/testing/glb');
+    const draco = await parseGlb(makeGlb(json, plain.bin));
+    expect(await meshFromGltf(draco, 0)).toMatchObject({ refused: true, code: 'compressed' });
+    const made = await meshFromGltf(draco, 0, { decode: () => Promise.resolve(plain) });
+    if ('refused' in made) throw new Error(made.reason);
+    const edit: PrimitiveEdit = {
+      meshIndex: 0,
+      data: made.data,
+      morphNormals: new Set(),
+      hadTangents: false,
+      dropTangents: false,
+    };
+    const out = await glb(await replacePrimitives(draco.bytes, [edit], { marker: true }));
+    const written = (out.json['meshes'] as { primitives: Json[] }[])[0]?.primitives[0];
+    expect(written?.['extensions']).toBeUndefined();
+    expect(out.json['extensionsUsed']).toBeUndefined();
+    expect(out.json['extensionsRequired']).toBeUndefined();
+    expect(markerV2(out)?.originalExtensions).toEqual({
+      used: ['KHR_draco_mesh_compression'],
+      required: ['KHR_draco_mesh_compression'],
+    });
+    expect(markerV2(out)?.replacedPrimitives['0']).toEqual([primitive]);
+  });
+
   it('drops KHR_mesh_quantization with its last user and the marker restores the lists', async () => {
     const base = await syntheticContainer({
       primitives: [
