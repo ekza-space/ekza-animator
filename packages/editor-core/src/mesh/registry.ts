@@ -173,7 +173,7 @@ function defaultClock(): MeshClock {
   };
 }
 
-const isRefusal = (x: OpResult | Refusal | unknown): x is Refusal =>
+const isRefusal = (x: unknown): x is Refusal =>
   typeof x === 'object' && x !== null && (x as { refused?: unknown }).refused === true;
 
 /** The mesh records a doc change touches with their data refs (before and after). */
@@ -444,8 +444,8 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
     if (disposed) return;
     confirmedEdges = [];
     if (batch.origin === 'load') {
-      for (const id of [...runtimes.keys()]) dispose(id);
-      for (const id of [...liveRefs.keys()]) setLive(id, null);
+      for (const id of runtimes.keys()) dispose(id);
+      for (const id of liveRefs.keys()) setLive(id, null);
       localSelections.clear();
       lastSetOp = null;
       pinLastOp([]);
@@ -823,12 +823,14 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
       if (session !== null && session.active) endSession('Another operation started');
       const base = opts?.base ?? 'current';
       const list: SessionTarget[] = [];
+      const opened: { readonly runtime: MeshRuntimeImpl; readonly wasOpen: boolean }[] = [];
       try {
         for (const id of targets) {
           const runtime = readyRuntime(id);
           syncToTx(null, runtime);
           const wasOpen = runtime.isOpen;
           runtime.open();
+          opened.push({ runtime, wasOpen });
           let undone: JournalEdge | null = null;
           if (base === 'before-last') {
             const edge =
@@ -860,10 +862,10 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
           });
         }
       } catch (error) {
-        for (const target of list) {
-          target.runtime.previewing = false;
-          target.runtime.follow();
-          if (!target.wasOpen) target.runtime.close();
+        for (const { runtime, wasOpen } of opened) {
+          runtime.previewing = false;
+          runtime.follow();
+          if (!wasOpen) runtime.close();
         }
         throw error;
       }

@@ -105,7 +105,7 @@ export class BlobLedger {
 
   /** Computes the closures of manifests whose bytes have become resident since they were referenced. */
   resolve(): void {
-    for (const manifest of [...this.unresolved]) {
+    for (const manifest of this.unresolved) {
       const entry = this.manifests.get(manifest);
       if (entry === undefined) {
         this.unresolved.delete(manifest);

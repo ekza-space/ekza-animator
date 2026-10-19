@@ -58,7 +58,7 @@ const isRefusal = (x: unknown): x is Refusal =>
 const NEW_KEY = /^new:(\d+)$/;
 
 export function runSetOp(run: SetOpRun): SetOpOutcome {
-  const { tx, op, kernel } = run;
+  const { tx, op } = run;
   if (run.inputs.length === 0) throw new EkzaError('op-refused', 'Select a mesh first');
   const records = new Map<MeshId, MeshRecord>();
   const runtimes = new Map<MeshId, MeshRuntimeImpl>();
@@ -145,10 +145,10 @@ export function runSetOp(run: SetOpRun): SetOpOutcome {
     const match = NEW_KEY.exec(output.key);
     if (match === null) throw new EkzaError('invalid-mesh', `${op.id}: unknown output key '${output.key}'`);
     const n = Number(match[1]);
-    let id = derivedId('mesh', op.id, run.inputs, run.seed, n) as MeshId;
+    let id = derivedId('mesh', op.id, run.inputs, run.seed, n);
     // A record with the derived id still exists (soft-deleted by a later edit): never overwrite it.
     for (let k = 1; tx.getIncludingDeleted('meshes', id) !== undefined; k++) {
-      id = derivedId('mesh', op.id, run.inputs, `${run.seed}:${k}`, n) as MeshId;
+      id = derivedId('mesh', op.id, run.inputs, `${run.seed}:${k}`, n);
     }
     const skin = source.source !== null ? null : source.skin;
     const record: MeshRecord = {

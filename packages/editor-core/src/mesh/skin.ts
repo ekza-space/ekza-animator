@@ -113,7 +113,8 @@ export function readSkin(
     for (let k = 0; k < 4; k++) {
       const w = weights[4 * v + k] as number;
       if (w === 0) continue;
-      const j = fold[joints[4 * v + k] as number] ?? (joints[4 * v + k] as number);
+      const raw = joints[4 * v + k] ?? 0;
+      const j = fold[raw] ?? raw;
       let slot = -1;
       for (let s = 0; s < n; s++) if (ids[s] === j) slot = s;
       if (slot < 0) {

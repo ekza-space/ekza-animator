@@ -113,7 +113,7 @@ export class MeshJournal {
       evict.add(edge);
       total -= edge.bytes;
     }
-    for (const mesh of [...this.edges.keys()]) this.retain(mesh, (edge) => !evict.has(edge));
+    for (const mesh of this.edges.keys()) this.retain(mesh, (edge) => !evict.has(edge));
     return evict.size;
   }
 
