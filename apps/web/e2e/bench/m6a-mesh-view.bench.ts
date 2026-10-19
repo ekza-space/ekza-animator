@@ -8,7 +8,7 @@
 // Run: `EKZA_E2E_PORT=<port> pnpm --filter web exec playwright test -c e2e/bench/playwright.config.ts m6a-mesh-view`.
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
-import { createPrimitive, MODEL_PANE, openModel, setMode } from '../helpers/m6a-model';
+import { createPrimitive, MODEL_PANE, openModel, selectedComponents, setMode } from '../helpers/m6a-model';
 import { call, renderedFrames, runOk } from '../helpers/test-api';
 
 const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
@@ -152,6 +152,8 @@ test.fixme('b7, b9, b10: mesh-view budgets in the editor at 50k triangles', asyn
 
   // Idle in face mode with a face selected: no WebGL frame over 2 s (E2E-MOD-16's gate shape).
   await setMode(page, 'face');
+  await runOk(page, 'select.components', { mesh, kind: 'face', indices: [0], mode: 'replace' });
+  expect(await selectedComponents(page, mesh, 'face')).toEqual([0]);
   await frames(page, 4);
   const before = await renderedFrames(page);
   await page.waitForTimeout(2000);
