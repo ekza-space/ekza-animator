@@ -14,9 +14,9 @@ import {
   type NumericCapture,
   type NumericTarget,
   registeredMeshOperator,
-  switchWorkspace,
 } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
+import { enterModel } from './model';
 import { ADVANCE } from './support';
 
 vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
@@ -49,7 +49,7 @@ async function armedByKeyboard(): Promise<
   MeshTestApp & { readonly id: MeshId; readonly capture: NumericCapture; readonly messages: CaptureMessage[] }
 > {
   const t = await meshTestApp();
-  switchWorkspace(t.app, 'model');
+  await enterModel(t.app);
   t.app.operators.register(registeredMeshOperator(ADVANCE));
   const id = createMesh(t, 'msh_Cube');
   t.app.session.setState({ model: { ...t.app.session.getState().model, componentMode: 'face', hilite: [id] } });

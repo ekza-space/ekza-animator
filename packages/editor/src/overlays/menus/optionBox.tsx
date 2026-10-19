@@ -2,7 +2,8 @@
 // popover (`OptionBoxPopover`: an operator's params as defaults for its next run, `prefs.modeling.optionDefaults`;
 // the view is a lazy chunk), the numeric capture window's bridge to the page (case (b) disarms at the first pointer
 // move beyond 3 CSS px or any click; its messages go to the help line) and the registration of B11's marking menus
-// while the shell is mounted.
+// while the shell is mounted. A lazy chunk (§5.27): `panels/toolkit/ModelOpsSlot.tsx` mounts it on the first Model
+// entry.
 import type { Disposer } from '@ekza-animator/anim-core';
 import type { EditorApp, NumericCapture } from '@ekza-animator/editor-core';
 import { type JSX, lazy, Suspense, useEffect, useState } from 'react';

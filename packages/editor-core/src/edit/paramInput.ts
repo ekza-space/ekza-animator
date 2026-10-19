@@ -1,6 +1,7 @@
 // Typed values and display text of operator parameters (M6A-SPEC §1, §5.10, §8.6; B11): the Last-op card, Channel Box
 // INPUTS, option boxes and the numeric capture window read and write `ParamDef` values through these helpers, so a
-// typed `30%` means the same everywhere.
+// typed `30%` means the same everywhere. Not in the eager route (§5.27): the capture engine and the lazy views import
+// it; which fields show (`visibleParams`, `numericParams`) is ./capture.ts.
 //
 // `parseParamInput` wraps the shipped numeric-field grammar (`parseNumericInput`, research 09 §6.4: `[=]expr`,
 // `+=`/`-=`/`*=`/`/=` against the current value, a decimal comma, `deg`/`rad`/`°`) and leaves that parser and its
@@ -20,7 +21,6 @@ import {
   type ParamValue,
   type ParamValues,
   paramLimits,
-  primaryParam,
   RAD2DEG,
 } from '@ekza-animator/anim-core';
 import { parseNumericInput } from './numeric';
@@ -145,28 +145,6 @@ export function formatParamValue(
 export function paramEditText(def: ParamDef, value: ParamValue | undefined): string {
   if (value === null || value === undefined) return '';
   return formatParamValue(def, value, { unit: false });
-}
-
-/**
- * The fields the Last-op card, INPUTS and option boxes show (§8.6): value-bound, not hidden, not `data`; the primary
- * field first, the others in list order.
- */
-export function visibleParams(params: readonly ParamDef[] | undefined): readonly ParamDef[] {
-  if (params === undefined) return [];
-  const shown = params.filter((def) => def.hidden !== true && def.kind !== 'data' && def.bound === 'value');
-  const primary = primaryParam(shown);
-  return primary === null ? shown : [primary, ...shown.filter((def) => def !== primary)];
-}
-
-/** Fields the numeric capture moves through (Tab order): the visible numeric params, primary first. */
-export function numericParams(params: readonly ParamDef[] | undefined): readonly ParamDef[] {
-  return visibleParams(params).filter(isNumericParam);
-}
-
-/** The primary visible param, else null (operations without one never arm the capture window). */
-export function primaryVisibleParam(params: readonly ParamDef[] | undefined): ParamDef | null {
-  const shown = visibleParams(params);
-  return primaryParam(shown);
 }
 
 /** Per-pixel rate of a card/INPUTS virtual slider in stored units (the shipped rates where one exists). */

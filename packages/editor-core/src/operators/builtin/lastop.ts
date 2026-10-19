@@ -1,7 +1,11 @@
 // Adjust Last Operation, Repeat Last and the last tool (M6A-SPEC §5.7, ADR 0016 D6; B11): the `LastRun` recorder the
-// operator runner calls after every finished run, the tracker that closes the Last-op card on the events of §5.7's
-// table, and the operators `tool.last` (`Y`) and `view.lastOpCard` (`T`). `edit.adjustLast` and `edit.repeatLast` live
-// in ./edit.ts and use the helpers below.
+// operator runner calls after every finished run, the per-app state, the polls, and the operators `tool.last` (`Y`)
+// and `view.lastOpCard` (`T`). `edit.adjustLast` and `edit.repeatLast` live in ./edit.ts and use the helpers below.
+//
+// The eager route (§5.27) holds only this part. The tracker that closes the Last-op card (§5.7's table), the adjust
+// engine and the card preview (./lastopEngine.ts) and the capture window's state machine (../../edit/captureEngine.ts)
+// are the **B11 runtime chunk**: `loadOpsRuntime()` loads it on the first Model entry (the capture binding watches the
+// workspace), when a LastRun is recorded, when the capture window arms and when Adjust Last runs.
 //
 // What is recorded (`session.lastRun`): the last undoable run that finished and recorded a history step, of an
 // operator that declares `params` (`[]` allowed) or is flagged adjustable or repeatable, and is not a selection
@@ -10,26 +14,25 @@
 // read, the step, the store version, the pane, the run source, the flags, the targets, the step seed and the
 // symmetry/soft context. An adjusted re-run (`edit.adjustLast`) keeps the recorded source, pane, tool, seed, context,
 // kind and targets: it is the same operation with new values.
-import { coerceArgs, EkzaError, type ParamDef, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
+import { EkzaError, type ParamDef, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
 import type { ComponentKind, OpWarning } from '@ekza-animator/mesh-core';
 import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { openLastOpCard, resetLastOpCard } from '../../edit/capture';
+import type * as CaptureEngineModule from '../../edit/captureEngine';
 import type { KernelHistory } from '../../history/history';
-import { attachMeshes } from '../../mesh';
-import { meshKernel } from '../../mesh/kernel';
 import { runSeedOf } from '../../mesh/seed';
 import type {
   EditorApp,
   LastRun,
-  MeshOpSession,
   OperatorContext,
   OperatorDef,
   RunContext,
   SessionState,
   SymmetrySettings,
 } from '../../types';
-import { openLastOpCard, resetLastOpCard } from '../../edit/capture';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, runContextOf } from './define';
+import type * as LastopEngineModule from './lastopEngine';
 import { WHOLE_MESH_OPS } from './mesh/whole';
 
 // ---------- reasons (§5.7 table) ----------
@@ -54,7 +57,7 @@ const TARGET_KEYS: ReadonlySet<string> = new Set(['meshes', 'kind']);
 
 // ---------- per-app state ----------
 
-interface LastRunState {
+export interface LastRunState {
   attached: boolean;
   /** >0 while `edit.adjustLast` undoes and re-runs: the tracker ignores what that does. */
   suspended: number;
@@ -75,7 +78,8 @@ interface LastRunState {
 
 const states = new WeakMap<EditorApp, LastRunState>();
 
-function stateOf(app: EditorApp): LastRunState {
+/** The per-app LastRun state (shared with the lazy engine, ./lastopEngine.ts). */
+export function lastRunState(app: EditorApp): LastRunState {
   let state = states.get(app);
   if (state === undefined) {
     state = {
@@ -102,7 +106,7 @@ export function rememberResolvedArgs(outcome: object, args: ParamValues): void {
   resolvedArgs.set(outcome, args);
 }
 
-const navigationsOf = (app: EditorApp): number => (app.history as Partial<KernelHistory>).navigations ?? 0;
+export const navigationsOf = (app: EditorApp): number => (app.history as Partial<KernelHistory>).navigations ?? 0;
 
 // ---------- reading ----------
 
@@ -114,7 +118,7 @@ export function liveLastRun(app: EditorApp): LastRun | null {
 
 /** Warnings of the recorded run (empty when `lastRun` is not the run they came from). */
 export function lastRunWarnings(app: EditorApp): readonly OpWarning[] {
-  const state = stateOf(app);
+  const state = lastRunState(app);
   const last = app.session.getState().lastRun;
   return last !== null &&
     state.warningsOf !== null &&
@@ -126,12 +130,82 @@ export function lastRunWarnings(app: EditorApp): readonly OpWarning[] {
 
 /** The operator `edit.adjustLast` is re-running right now, else null (the runner labels its step). */
 export function adjustingOperator(app: EditorApp): string | null {
-  return stateOf(app).adjusting;
+  return lastRunState(app).adjusting;
 }
 
 /** The adjust in flight, if any (edit.undo/edit.redo wait for it). */
 export function pendingAdjust(app: EditorApp): Promise<unknown> | null {
-  return stateOf(app).pending;
+  return lastRunState(app).pending;
+}
+
+// ---------- the B11 runtime chunk (§5.27) ----------
+
+/** The lazy modules of B11's runtime. */
+export interface OpsRuntime {
+  readonly lastop: typeof LastopEngineModule;
+  readonly capture: typeof CaptureEngineModule;
+}
+
+let runtime: OpsRuntime | null = null;
+let runtimeLoad: Promise<OpsRuntime> | null = null;
+
+/** Loads the B11 runtime chunk once (a failed load is retried by the next call). */
+export function loadOpsRuntime(): Promise<OpsRuntime> {
+  if (runtimeLoad === null) {
+    const load = Promise.all([import('./lastopEngine'), import('../../edit/captureEngine')]).then(
+      ([lastop, capture]) => {
+        runtime = { lastop, capture };
+        return runtime;
+      },
+    );
+    runtimeLoad = load;
+    load.catch(() => {
+      if (runtimeLoad === load) runtimeLoad = null;
+    });
+  }
+  return runtimeLoad;
+}
+
+/** The B11 runtime once its chunk has loaded, else null. */
+export function opsRuntime(): OpsRuntime | null {
+  return runtime;
+}
+
+/**
+ * Binds the card's tracker to `app` once (§5.7 "When the card closes"): at once when the runtime chunk has loaded,
+ * else when it loads (`load: false` only binds an already loaded chunk: the runner before every run and the built-ins
+ * at registration; the recorder loads it). Idempotent.
+ */
+export function attachLastRunTracker(app: EditorApp, load = true): void {
+  if (lastRunState(app).attached) return;
+  const loaded = opsRuntime();
+  if (loaded !== null) loaded.lastop.attachTracker(app);
+  else if (load) {
+    loadOpsRuntime().then(
+      (rt) => rt.lastop.attachTracker(app),
+      () => {
+        // Offline after a redeploy: the card stays until the chunk loads (the next record retries).
+      },
+    );
+  }
+}
+
+/**
+ * `edit.adjustLast`'s prepare (§5.7; the engine is ./lastopEngine.ts): undo the step, re-run the operator with the
+ * recorded context, targets and kind plus the new values. Resolves to the refusal (null when it ran). While the
+ * runtime chunk loads, `pendingAdjust` already answers for this adjust (undo and redo wait for it).
+ */
+export function adjustLastRun(app: EditorApp, patch: unknown): Promise<string | null> {
+  const loaded = opsRuntime();
+  if (loaded !== null) return loaded.lastop.adjustLastRun(app, patch);
+  const state = lastRunState(app);
+  const run = loadOpsRuntime().then((rt) => rt.lastop.adjustLastRun(app, patch));
+  state.pending = run;
+  const settled = (): void => {
+    if (state.pending === run) state.pending = null;
+  };
+  run.then(settled, settled);
+  return run;
 }
 
 // ---------- closing ----------
@@ -144,114 +218,10 @@ export function closeLastRun(app: EditorApp, reason: string): void {
 }
 
 /** Re-reads what the tracker compares against (after recording or after an adjust that redid the original step). */
-function takeBaseline(app: EditorApp): void {
-  const state = stateOf(app);
+export function takeBaseline(app: EditorApp): void {
+  const state = lastRunState(app);
   state.componentsVersion = app.components.version;
   state.navigations = navigationsOf(app);
-}
-
-const sameSet = (a: readonly string[], b: readonly string[]): boolean => {
-  if (a === b) return true;
-  if (a.length !== b.length) return false;
-  const set = new Set(a);
-  return b.every((id) => set.has(id));
-};
-
-function sameSymmetry(a: SymmetrySettings | undefined, b: SymmetrySettings | undefined): boolean {
-  if (a === b) return true;
-  if (a === undefined || b === undefined) return false;
-  return a.mode === b.mode && a.tolerance === b.tolerance && a.preserveSeam === b.preserveSeam;
-}
-
-function settingsChanged(last: LastRun, state: SessionState, previous: SessionState): boolean {
-  if (state.model.symmetry !== previous.model.symmetry) {
-    for (const id of last.targets ?? []) {
-      if (!sameSymmetry(state.model.symmetry.get(id), previous.model.symmetry.get(id))) return true;
-    }
-  }
-  const soft = state.model.softSelect;
-  const before = previous.model.softSelect;
-  return (
-    soft !== before &&
-    (soft.on !== before.on ||
-      soft.radius !== before.radius ||
-      soft.falloff !== before.falloff ||
-      soft.curve !== before.curve)
-  );
-}
-
-/**
- * Binds the tracker to `app` once (§5.7 "When the card closes"). Idempotent; the runner calls it before every run and
- * the built-ins at registration. Mode switches with the same hilited meshes, shading, display toggles, camera,
- * panels, `T` and menus never close the card.
- */
-export function attachLastRunTracker(app: EditorApp): void {
-  const state = stateOf(app);
-  if (state.attached) return;
-  state.attached = true;
-  takeBaseline(app);
-  const live = (): LastRun | null => (state.suspended > 0 ? null : liveLastRun(app));
-  app.store.subscribe((batch) => {
-    const last = live();
-    if (last === null) return;
-    switch (batch.origin) {
-      case 'preview':
-        // A preview is not a write; the adjust poll compares versions, so follow it.
-        app.session.setState({ lastRun: { ...last, docSeqAfter: batch.version } });
-        return;
-      case 'local':
-        closeLastRun(app, LAST_RUN_CLOSED.another);
-        return;
-      case 'undo':
-      case 'redo':
-        closeLastRun(app, LAST_RUN_CLOSED.undone);
-        return;
-      case 'load':
-        closeLastRun(app, LAST_RUN_CLOSED.project);
-        return;
-      case 'remote':
-      case 'import':
-      case 'migration':
-      case 'cleanup': {
-        // Another user, an import, a repair: only a change of a target mesh closes the card.
-        const targets = new Set<string>(last.targets ?? []);
-        const touches = batch.changes.some((change) => change.table === 'meshes' && targets.has(change.id));
-        if (touches) closeLastRun(app, LAST_RUN_CLOSED.remote);
-        else app.session.setState({ lastRun: { ...last, docSeqAfter: batch.version } });
-      }
-    }
-  });
-  app.session.subscribe((next, previous) => {
-    const last = state.suspended > 0 ? null : next.lastRun;
-    if (last === null || last.closed !== null) return;
-    // An update that installs or replaces the LastRun itself is authoritative (the recorder, B9's workspace switch).
-    if (next.lastRun !== previous.lastRun) return;
-    if (next.workspace !== previous.workspace) closeLastRun(app, LAST_RUN_CLOSED.workspace);
-    else if (
-      next.selection.objects !== previous.selection.objects &&
-      !sameSet(next.selection.objects, previous.selection.objects)
-    ) {
-      closeLastRun(app, LAST_RUN_CLOSED.selection);
-    } else if (
-      next.selection.controls !== previous.selection.controls &&
-      !sameSet(next.selection.controls, previous.selection.controls)
-    ) {
-      closeLastRun(app, LAST_RUN_CLOSED.selection);
-    } else if (next.model.hilite !== previous.model.hilite && !sameSet(next.model.hilite, previous.model.hilite)) {
-      // A mode switch with the same hilited meshes keeps the card (§5.7, E2E-MOD-19); another hilite set does not.
-      closeLastRun(app, LAST_RUN_CLOSED.selection);
-    } else if (settingsChanged(last, next, previous)) closeLastRun(app, LAST_RUN_CLOSED.settings);
-  });
-  app.components.subscribe((version) => {
-    const last = live();
-    if (last === null || version === state.componentsVersion) return;
-    closeLastRun(app, LAST_RUN_CLOSED.selection);
-  });
-  app.history.subscribe(() => {
-    const last = live();
-    if (last === null) return;
-    if (navigationsOf(app) !== state.navigations) closeLastRun(app, LAST_RUN_CLOSED.undone);
-  });
 }
 
 // ---------- recording ----------
@@ -380,14 +350,13 @@ function warningsOf(value: unknown): readonly OpWarning[] {
  * that recorded a step, and arms the capture window after a keyboard-invoked run with a primary param (§5.10 (b)).
  */
 export function recordLastRun(app: EditorApp, run: FinishedRun): void {
-  attachLastRunTracker(app);
   const { def, args, ctx, value, stepId, before } = run;
   if (stepId === null || def.flags?.undo !== true) return;
   if (!recordsLastRun(def)) {
     closeLastRun(app, def.flags?.selection === true ? LAST_RUN_CLOSED.selection : LAST_RUN_CLOSED.another);
     return;
   }
-  const state = stateOf(app);
+  const state = lastRunState(app);
   const previous = before.lastRun;
   const adjusted = state.adjusting === def.id && ctx?.source === 'card' && previous !== null && previous.id === def.id;
   const seedNow = runSeedOf(app);
@@ -417,6 +386,8 @@ export function recordLastRun(app: EditorApp, run: FinishedRun): void {
   state.warnings = warningsOf(value);
   state.warningsOf = lastRun;
   takeBaseline(app);
+  // A live LastRun needs the tracker (loads the B11 runtime chunk when an operation records before any Model entry).
+  attachLastRunTracker(app);
   if (
     !adjusted &&
     ctx?.source === 'keyboard' &&
@@ -433,34 +404,6 @@ const primaryOf = (params: readonly ParamDef[]): ParamDef | null =>
 
 // ---------- adjust (edit.adjustLast's engine) ----------
 
-/** Coerces only the given keys (absent params keep the recorded values; unknown keys drop). */
-export function coercePartial(params: readonly ParamDef[], raw: unknown): ParamValues {
-  if (!isRecord(raw)) return {};
-  const out: Record<string, ParamValue> = {};
-  for (const param of params) {
-    if (!Object.hasOwn(raw, param.name) || raw[param.name] === undefined) continue;
-    const value = coerceArgs([param], { [param.name]: raw[param.name] }).args[param.name];
-    if (value !== undefined) out[param.name] = value;
-  }
-  return out;
-}
-
-/**
- * The args the adjusted re-run gets: the recorded args, the new values, the recorded targets and kind. A whole-mesh
- * run of a `WHOLE_MESH_OPS` op passes `kind: null`, so it stays on the whole mesh after a switch to a component mode.
- */
-export function adjustedArgs(app: EditorApp, last: LastRun, patch: unknown): Record<string, unknown> {
-  const def = app.operators.get(last.id);
-  const extra = def?.extraArgs ?? [];
-  const kind = last.kind !== null || WHOLE_MESH_OPS.has(last.id);
-  return {
-    ...last.args,
-    ...coercePartial(last.params, patch),
-    ...(extra.includes('meshes') ? { meshes: last.targets } : {}),
-    ...(extra.includes('kind') && kind ? { kind: last.kind } : {}),
-  };
-}
-
 /** Why `edit.adjustLast` cannot run now (null: it can). */
 export function adjustProblem(app: EditorApp): string | null {
   const last = liveLastRun(app);
@@ -474,107 +417,9 @@ export function adjustProblem(app: EditorApp): string | null {
   return null;
 }
 
-/**
- * `edit.adjustLast`'s prepare (§5.7): undo the step, re-run the operator with the recorded context, targets and kind
- * plus the new values (`source: 'card'`, label "<label> (adjusted)"; history length unchanged). A refusal redoes the
- * original step; the returned reason makes the dispatcher's second poll report it.
- */
-export async function adjustLastRun(app: EditorApp, patch: unknown): Promise<string | null> {
-  const state = stateOf(app);
-  const last = liveLastRun(app);
-  if (last === null) return NO_OPERATION_TO_ADJUST;
-  const args = adjustedArgs(app, last, patch);
-  const ctx: RunContext = {
-    source: 'card',
-    ...(last.paneId === null ? {} : { paneId: last.paneId }),
-  };
-  state.suspended++;
-  state.adjusting = last.id;
-  state.refusal = null;
-  let resolveDone: (value?: unknown) => void = () => {};
-  const done = new Promise((resolve) => {
-    resolveDone = resolve;
-  });
-  state.pending = done;
-  try {
-    app.history.undo();
-    const result = await app.runUntyped(last.id, args, ctx);
-    if (result.status === 'finished' && liveLastRun(app)?.stepId !== last.stepId) return null;
-    // Refused, failed or recorded nothing: the original step comes back, the card stays as it was.
-    const reason =
-      result.status === 'cancelled'
-        ? result.reason
-        : result.status === 'failed'
-          ? result.error.message
-          : `${last.label} changed nothing`;
-    if (app.history.canRedo()) app.history.redo();
-    const top = app.history.peekUndo();
-    app.session.setState({
-      lastRun: { ...last, stepId: top?.id ?? last.stepId, docSeqAfter: app.store.version, closed: null },
-    });
-    takeBaseline(app);
-    state.refusal = `${last.label}: ${reason}`;
-    return state.refusal;
-  } finally {
-    state.adjusting = null;
-    state.suspended--;
-    if (state.pending === done) state.pending = null;
-    resolveDone();
-  }
-}
-
 /** The refusal of the latest adjust (cleared by the next one). */
 export function lastAdjustRefusal(app: EditorApp): string | null {
-  return stateOf(app).refusal;
-}
-
-// ---------- card drags (§5.7 "Card drags") ----------
-
-/** A live preview of new values of the last mesh op from its pre-op mesh (no document writes). */
-export interface CardPreview {
-  update(patch: ParamValues): void;
-  /** The preview's re-runs exceeded 50 ms: the card switches to "update on release". */
-  readonly slow: boolean;
-  cancel(): void;
-}
-
-/** Above this per re-run the card stops previewing and updates on release (§5.7). */
-export const CARD_PREVIEW_BUDGET_MS = 50;
-
-/**
- * Opens `meshes.beginOp(op, targets, args', { base: 'before-last' })` for the live LastRun when it is a kernel mesh op
- * (null otherwise: the field updates on release). Release runs `edit.adjustLast` once, which commits the matching
- * session.
- */
-export function beginCardPreview(app: EditorApp, now: () => number = () => performance.now()): CardPreview | null {
-  const last = liveLastRun(app);
-  if (last === null || !last.adjustable || adjustProblem(app) !== null) return null;
-  if (MESH_OP_DESCRIPTORS[last.id] === undefined) return null;
-  if (attachMeshes(app) === null) return null;
-  const op = meshKernel()?.MESH_OPS[last.id];
-  if (op === undefined) return null;
-  const base = { ...last.args };
-  let session: MeshOpSession;
-  try {
-    session = app.meshes.beginOp(op, last.targets, base, { base: 'before-last' });
-  } catch {
-    return null;
-  }
-  let slow = false;
-  return {
-    get slow() {
-      return slow;
-    },
-    update(patch: ParamValues): void {
-      if (slow || !session.active) return;
-      const start = now();
-      session.update({ ...base, ...coercePartial(last.params, patch) });
-      if (now() - start > CARD_PREVIEW_BUDGET_MS) slow = true;
-    },
-    cancel(): void {
-      if (session.active) session.cancel();
-    },
-  };
+  return lastRunState(app).refusal;
 }
 
 // ---------- operators ----------

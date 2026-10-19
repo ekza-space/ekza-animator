@@ -173,7 +173,8 @@ export function createOperatorRunner(deps: {
 
   const execute = async (def: AnyOperatorDef, rawArgs: unknown, ctx: RunContext | undefined) => {
     const app = deps.app();
-    attachLastRunTracker(app);
+    // The card's tracker binds here once its chunk has loaded (the recorder loads it, §5.27).
+    attachLastRunTracker(app, false);
     bindCapture(app);
     const opCtx = operatorContext(app, ctx);
     const before = session.getState();

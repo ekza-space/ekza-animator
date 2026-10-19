@@ -11,8 +11,9 @@ import type { MeshId } from '@ekza-animator/doc';
 import * as kernel from '@ekza-animator/mesh-core';
 import type { ComponentSelection, EditMesh, MeshOp, OpResult } from '@ekza-animator/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
-import { type EditorApp, switchWorkspace, WHOLE_MESH_OPS } from '../../src';
+import { type EditorApp, WHOLE_MESH_OPS } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, verticesOf } from '../mesh/support';
+import { enterModel } from './model';
 
 interface SpyOp extends MeshOp {
   /** What each run read: null for the whole mesh, else `<kind>:<indices>`. */
@@ -66,7 +67,7 @@ const spyOf = (id: (typeof SPIED)[number]): SpyOp =>
  */
 async function setup(): Promise<MeshTestApp & { readonly id: MeshId }> {
   const t = await meshTestApp();
-  switchWorkspace(t.app, 'model');
+  await enterModel(t.app);
   const id = createMesh(t, 'msh_Cube');
   t.app.history.clear();
   const state = t.app.session.getState();

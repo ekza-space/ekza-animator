@@ -113,9 +113,10 @@ export function registerBuiltinOperators(app: EditorApp): Disposer {
 
 /** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items, MAYA_KEYMAP and (M6a) workspaces. */
 export function registerBuiltins(app: EditorApp): Disposer {
-  // M6a (B11): the Last-op card's tracker and the numeric capture window bind to the app up front (tools arm the
-  // capture before any operator runs).
-  attachLastRunTracker(app);
+  // M6a (B11): the numeric capture window binds to the app up front (tools arm the capture before any operator runs;
+  // the binding loads the B11 runtime chunk on the first Model entry); the Last-op card's tracker binds once that chunk
+  // has loaded (the LastRun recorder loads it).
+  attachLastRunTracker(app, false);
   bindCapture(app);
   const disposers: Disposer[] = [registerBuiltinOperators(app), registerBuiltinWorkspaces(app)];
   for (const def of BUILTIN_IMPORTERS) {

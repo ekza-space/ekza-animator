@@ -176,6 +176,9 @@ export {
 } from './workspaces';
 // M6a (B11, M6A-SPEC §5.7, §5.10, §8.5, §8.6): typed parameter values, the LastRun recorder and tracker, Adjust Last
 // and Repeat Last helpers, the numeric capture window and the Last-op card's open state, the mesh op registration.
+// ./edit/paramInput and ./operators/builtin/lastopEngine are the B11 runtime chunk (§5.27): only lazy code (the card
+// and option-box views, the test API) imports their exports, so the eager route drops them; eager code reaches the
+// engines through `loadOpsRuntime`.
 export {
   type CaptureKeyEvent,
   type CaptureMessage,
@@ -187,50 +190,55 @@ export {
   type LastOpCardState,
   lastOpCardState,
   type NumericCapture,
+  numericParams,
   openLastOpCard,
+  primaryVisibleParam,
   resetLastOpCard,
   selectedInputsField,
   selectInputsField,
   setLastOpCardExpanded,
   subscribeInputsField,
   subscribeLastOpCard,
+  visibleParams,
 } from './edit/capture';
 export {
   clampParamValue,
   formatParamValue,
   nonDefaultParams,
-  numericParams,
   type ParamInputResult,
   paramEditText,
   paramSliderRate,
   parseParamInput,
-  primaryVisibleParam,
-  visibleParams,
 } from './edit/paramInput';
 export { repeatArgs } from './operators/builtin/edit';
 export {
   activateTool,
-  adjustedArgs,
   adjustingOperator,
   adjustLastRun,
   adjustProblem,
   attachLastRunTracker,
-  beginCardPreview,
-  CARD_PREVIEW_BUDGET_MS,
-  type CardPreview,
   closeLastRun,
-  coercePartial,
   type FinishedRun,
   LAST_RUN_CLOSED,
   lastAdjustRefusal,
   lastRunWarnings,
   liveLastRun,
+  loadOpsRuntime,
   NO_OPERATION_TO_ADJUST,
   NOTHING_TO_REPEAT,
+  type OpsRuntime,
+  opsRuntime,
   pendingAdjust,
   recordLastRun,
   recordsLastRun,
 } from './operators/builtin/lastop';
+export {
+  adjustedArgs,
+  beginCardPreview,
+  CARD_PREVIEW_BUDGET_MS,
+  type CardPreview,
+  coercePartial,
+} from './operators/builtin/lastopEngine';
 export {
   INTERNAL_MESH_OPS,
   MESH_OP_ALIASES,

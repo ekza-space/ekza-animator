@@ -1,56 +1,24 @@
 // Numeric capture window and the Last-op card's open state (M6A-SPEC §5.10, §5.7 `T`, §8.6; B11).
 //
-// The capture window is **armed** (a) during an active drag of a tool, manipulator or card virtual slider (the tool's
-// `NumericTarget`, active field = the dragged field) and (b) right after an operator invoked from the keyboard
-// finishes with a live `lastRun` that has a primary param (the Last-op card, active field = the primary). While armed
-// the keyboard adapter offers keydowns to `key()` before anything else (§5.17 step 1):
-// - a digit, `.` or `-` starts an entry for the active field (then the grammar's other characters extend it); a digit
-//   consumed this way never also switches mode or shading;
-// - `Backspace` edits the entry; `Tab`/`Shift+Tab` apply it and move between the target's fields;
-// - `Enter` applies (a: confirms the drag with the typed value; b: `edit.adjustLast {[field]: value}`, announced once the
-//   re-run finished; a refusal is reported and keeps the entry) and disarms; `Enter` with no entry confirms the drag
-//   (a) or is a no-op that disarms (b);
-// - `Esc` cancels the entry (a: cancels the drag); in (b) with no entry it disarms and passes on (edit.escape);
-// - case (b) disarms on any other key, which then reaches the keymap; an unfinished entry is **discarded** with the
-//   help line "Entry discarded" (an entry applies only on Enter or Tab). Pointer moves beyond 3 px and clicks disarm
-//   (b) too: the editor's capture bridge calls `disarm()` for them.
-// Modifier keys alone never disarm. With `prefs.modeling.numericCapture: 'explicit'` nothing arms (only `T` and the
-// card fields take numbers).
+// `app.capture` is an eager **shim** (§5.27: the eager route holds descriptors, registrations, keymap rows and shell
+// code): it owns the state (mirrored to `session.model.capture`), the listeners and the app binding, and answers
+// `key()` with false while nothing is armed. The state machine (what is armed, what each key does, the typed-value
+// grammar) is ./captureEngine.ts, which loads with the B11 runtime chunk (`loadOpsRuntime`: the first Model entry, a
+// recorded LastRun, an arm, an adjust). An `arm` before the chunk has loaded arms once it has (when what it armed for
+// is still current); in the editor the chunk loads on entering Model, before any operation can arm the window.
 //
 // The capture is created before the app exists (app/kernel.ts); `bindCapture` binds the app on first use (the runner
 // and the built-ins call it), like `attachMeshes` for the mesh runtime.
-import type { Disposer, ParamDef, ParamValue } from '@ekza-animator/anim-core';
-import { isNumericParam } from '@ekza-animator/anim-core';
-import type { EditorApp, LastRun, NumericCaptureApi, NumericCaptureState, NumericTarget } from '../types';
-import { formatParamValue, numericParams, parseParamInput } from './paramInput';
+import { type Disposer, isNumericParam, type ParamDef, primaryParam } from '@ekza-animator/anim-core';
+import { loadOpsRuntime, opsRuntime } from '../operators/builtin/lastop';
+import type { EditorApp, LastRun, NumericCaptureApi, NumericCaptureState } from '../types';
+import type { CaptureEngine } from './captureEngine';
 
 /** Help-line text when case (b) disarms with an unfinished entry (§5.10). */
 export const ENTRY_DISCARDED = 'Entry discarded';
 
-const IDLE: NumericCaptureState = Object.freeze({ armed: null, field: null, text: null });
-
-/** Keys that are only modifiers: they never start, end or disarm anything. */
-const MODIFIER_CODES: ReadonlySet<string> = new Set([
-  'ShiftLeft',
-  'ShiftRight',
-  'ControlLeft',
-  'ControlRight',
-  'AltLeft',
-  'AltRight',
-  'MetaLeft',
-  'MetaRight',
-  'CapsLock',
-  'Fn',
-  'OSLeft',
-  'OSRight',
-]);
-
-const START = /^[0-9.-]$/;
-/**
- * Characters of the §5.10 grammar after an entry started: numbers, operators, `%`, `°` and the letters of its units
- * (`m`, `cm`, `mm`, `deg`, `rad`, the exponent `e`). Any other letter is a key, not part of the entry.
- */
-const CONTINUE = /^[0-9.,+\-*/=()%° acdegmrACDEGMR]$/;
+/** Nothing armed. */
+export const IDLE_CAPTURE: NumericCaptureState = Object.freeze({ armed: null, field: null, text: null });
 
 export interface CaptureKeyEvent {
   readonly code: string;
@@ -77,10 +45,12 @@ export interface NumericCapture extends NumericCaptureApi {
   subscribe(listener: (state: NumericCaptureState) => void): Disposer;
 }
 
-interface Armed {
-  readonly reason: 'drag' | 'keyboard-op';
-  readonly target: NumericTarget | 'last-run';
-  readonly fields: readonly ParamDef[];
+/** What the lazy engine reads and writes through (the shim's state, messages and app). */
+export interface CaptureHost {
+  readonly app: EditorApp | null;
+  state(): NumericCaptureState;
+  setState(next: NumericCaptureState): void;
+  say(text: string, tone?: CaptureMessage['tone']): void;
 }
 
 const captures = new WeakMap<NumericCaptureApi, { bind(app: EditorApp): void }>();
@@ -90,112 +60,46 @@ export function bindCapture(app: EditorApp): void {
   captures.get(app.capture)?.bind(app);
 }
 
+const liveLastRunOf = (app: EditorApp | null): LastRun | null => {
+  const last = app?.session.getState().lastRun ?? null;
+  return last !== null && last.closed === null ? last : null;
+};
+
 export function createNumericCapture(): NumericCapture {
   let app: EditorApp | null = null;
-  let state: NumericCaptureState = IDLE;
-  let armed: Armed | null = null;
+  let state: NumericCaptureState = IDLE_CAPTURE;
+  let engine: CaptureEngine | null = null;
+  /** Bumped by every arm/disarm: an arm waiting for the chunk applies only when nothing happened since. */
+  let armSeq = 0;
   const listeners = new Set<(state: NumericCaptureState) => void>();
   const messages = new Set<(message: CaptureMessage) => void>();
 
-  const say = (text: string, tone: CaptureMessage['tone'] = 'info'): void => {
-    for (const listener of Array.from(messages)) listener({ text, tone });
+  const host: CaptureHost = {
+    get app() {
+      return app;
+    },
+    state: () => state,
+    setState(next) {
+      if (next.armed === state.armed && next.field === state.field && next.text === state.text) return;
+      state = Object.freeze({ ...next });
+      if (app !== null) {
+        const session = app.session.getState();
+        app.session.setState({ model: { ...session.model, capture: state } });
+      }
+      for (const listener of Array.from(listeners)) listener(state);
+    },
+    say(text, tone = 'info') {
+      for (const listener of Array.from(messages)) listener({ text, tone });
+    },
   };
 
-  const setState = (next: NumericCaptureState): void => {
-    if (next.armed === state.armed && next.field === state.field && next.text === state.text) return;
-    state = Object.freeze({ ...next });
-    if (app !== null) {
-      const session = app.session.getState();
-      app.session.setState({ model: { ...session.model, capture: state } });
+  /** The engine once the runtime chunk has loaded (created on first use), else null. */
+  const engineNow = (): CaptureEngine | null => {
+    if (engine === null) {
+      const runtime = opsRuntime();
+      if (runtime !== null) engine = runtime.capture.createCaptureEngine(host);
     }
-    for (const listener of Array.from(listeners)) listener(state);
-  };
-
-  const liveLastRun = (): LastRun | null => {
-    const last = app?.session.getState().lastRun ?? null;
-    return last !== null && last.closed === null ? last : null;
-  };
-
-  const defOf = (field: string | null): ParamDef | null =>
-    field === null ? null : (armed?.fields.find((def) => def.name === field) ?? null);
-
-  const currentValue = (field: string): ParamValue | undefined => {
-    if (armed === null) return undefined;
-    if (armed.target === 'last-run') return liveLastRun()?.args[field];
-    return armed.target.value(field);
-  };
-
-  /** Parses the entry for the active field; null (with a message) when it does not parse. */
-  const entryValue = (): { readonly field: string; readonly value: ParamValue } | null => {
-    const def = defOf(state.field);
-    if (def === null || state.text === null || state.field === null) return null;
-    const parsed = parseParamInput(state.text, currentValue(state.field), def);
-    if ('error' in parsed) {
-      say(parsed.error, 'warning');
-      return null;
-    }
-    if (parsed.problem !== null) say(parsed.problem, 'warning');
-    return { field: state.field, value: parsed.value };
-  };
-
-  /**
-   * Applies the entry to the target, then runs `done` (the key's follow-up: disarm, or the next field). False when the
-   * entry did not parse (it stays for editing). A drag target takes the value at once. Case (b) applies through
-   * `edit.adjustLast`: once the re-run finished the committed value is announced on the help line (the polite live
-   * region, §5.10) and `done` runs; a refused or failed re-run reports its reason as a warning and keeps the entry, so
-   * the user can correct it (§5.7 "A refusal of the re-run … reports the reason").
-   */
-  const applyEntry = (done: () => void): boolean => {
-    if (state.text === null) {
-      done();
-      return true;
-    }
-    const entry = entryValue();
-    if (entry === null || armed === null) return false;
-    const def = defOf(entry.field);
-    const target = armed.target;
-    if (target !== 'last-run' || app === null) {
-      if (target !== 'last-run' && typeof entry.value === 'number') target.set(entry.field, entry.value);
-      if (def !== null) say(`${def.label} ${formatParamValue(def, entry.value)}`);
-      setState({ ...state, text: null });
-      done();
-      return true;
-    }
-    const last = liveLastRun();
-    const committed =
-      def === null
-        ? null
-        : `${last === null ? '' : `${last.label} `}${def.label} ${formatParamValue(def, entry.value)}`;
-    const entered = state;
-    void app
-      .runUntyped('edit.adjustLast', { args: { [entry.field]: entry.value } }, { source: 'keyboard' })
-      .then((result) => {
-        if (result.status !== 'finished') {
-          say(result.status === 'cancelled' ? result.reason : result.error.message, 'warning');
-          return;
-        }
-        if (committed !== null) say(committed);
-        // Unless the window moved on while the re-run ran (another key, the card closed), the key's follow-up runs.
-        if (state !== entered || armed?.target !== 'last-run') return;
-        setState({ ...state, text: null });
-        done();
-      });
-    return true;
-  };
-
-  const moveField = (delta: number): void => {
-    if (armed === null || armed.fields.length === 0) return;
-    const at = Math.max(
-      0,
-      armed.fields.findIndex((def) => def.name === state.field),
-    );
-    const next = armed.fields[(at + delta + armed.fields.length) % armed.fields.length];
-    if (next !== undefined) setState({ ...state, field: next.name, text: null });
-  };
-
-  const disarmQuietly = (): void => {
-    armed = null;
-    setState(IDLE);
+    return engine;
   };
 
   const capture: NumericCapture = {
@@ -205,92 +109,39 @@ export function createNumericCapture(): NumericCapture {
     get state() {
       return state;
     },
-    fields: () => armed?.fields ?? [],
+    fields: () => engine?.fields() ?? [],
     arm(reason, target) {
-      if (app !== null && app.prefs.getState().modeling.numericCapture === 'explicit') return;
-      if (target === 'last-run') {
-        const last = liveLastRun();
-        if (app !== null && last === null) return;
-        const fields = numericParams(last?.params ?? []);
-        const primary = fields[0];
-        if (primary === undefined) return;
-        armed = { reason, target, fields };
-        setState({ armed: reason, field: primary.name, text: null });
+      armSeq++;
+      const now = engineNow();
+      if (now !== null) {
+        now.arm(reason, target);
         return;
       }
-      const fields = target.fields.filter(isNumericParam);
-      const active = fields.find((def) => def.name === target.active) ?? fields[0];
-      armed = { reason, target, fields };
-      setState({ armed: reason, field: active?.name ?? null, text: null });
+      if (app !== null && app.prefs.getState().modeling.numericCapture === 'explicit') return;
+      const last = target === 'last-run' ? liveLastRunOf(app) : null;
+      if (target === 'last-run' && (app === null || last === null)) return;
+      const seq = armSeq;
+      void loadOpsRuntime().then(
+        () => {
+          // Arms only for what it was asked: nothing else armed or disarmed, the same live last operation.
+          if (armSeq !== seq || (target === 'last-run' && liveLastRunOf(app) !== last)) return;
+          engineNow()?.arm(reason, target);
+        },
+        () => {
+          // The chunk did not load (offline after a redeploy): the window stays closed; the card still takes numbers.
+        },
+      );
     },
     disarm() {
-      if (armed === null) return;
-      const discarded = armed.reason === 'keyboard-op' && state.text !== null;
-      disarmQuietly();
-      if (discarded) say(ENTRY_DISCARDED, 'warning');
+      armSeq++;
+      engine?.disarm();
     },
     key(e: CaptureKeyEvent): boolean {
-      if (armed === null) return false;
-      if (MODIFIER_CODES.has(e.code)) return false;
-      const keyboardOp = armed.reason === 'keyboard-op';
-      if (keyboardOp && armed.target === 'last-run' && liveLastRun() === null && app !== null) {
-        // The card closed under the window (another operation, a selection change): nothing to type into.
-        capture.disarm();
-        return false;
-      }
-      const plain = !e.mod && !e.alt;
-      if (plain && e.key.length === 1) {
-        if (state.text === null ? START.test(e.key) : CONTINUE.test(e.key)) {
-          setState({ ...state, text: `${state.text ?? ''}${e.key}` });
-          return true;
-        }
-      }
-      switch (e.code) {
-        case 'Backspace':
-          if (state.text !== null && plain) {
-            setState({ ...state, text: state.text.slice(0, -1) });
-            return true;
-          }
-          break;
-        case 'Tab':
-          if (e.mod || e.alt) break;
-          applyEntry(() => moveField(e.shift ? -1 : 1));
-          return true;
-        case 'Enter':
-        case 'NumpadEnter': {
-          if (e.mod || e.alt) break;
-          const target = armed.target;
-          applyEntry(() => {
-            if (armed?.target !== target) return;
-            if (!keyboardOp && target !== 'last-run') target.confirm();
-            disarmQuietly();
-          });
-          return true;
-        }
-        case 'Escape':
-          if (!keyboardOp && armed.target !== 'last-run') {
-            const target = armed.target;
-            disarmQuietly();
-            target.cancel();
-            return true;
-          }
-          if (state.text !== null) {
-            setState({ ...state, text: null });
-            return true;
-          }
-          disarmQuietly();
-          return false;
-        default:
-          break;
-      }
-      // Any other key: case (b) ends (an unfinished entry is discarded) and the key reaches the keymap; during a
-      // drag (a) the tool and the keymap get it as usual.
-      if (keyboardOp) capture.disarm();
-      return false;
+      return state.armed === null || engine === null ? false : engine.key(e);
     },
     openCard() {
       if (app === null) return;
-      const last = liveLastRun();
+      const last = liveLastRunOf(app);
       openLastOpCard(app, { expand: true, focusPrimary: true, paneId: last?.paneId ?? null });
     },
     onMessage(listener) {
@@ -311,15 +162,39 @@ export function createNumericCapture(): NumericCapture {
     bind(next: EditorApp): void {
       if (app === next) return;
       app = next;
-      // Case (b) belongs to the live last operation: when the card closes, the window closes with it.
-      next.session.subscribe((session) => {
-        if (armed?.target !== 'last-run') return;
-        const last = session.lastRun;
-        if (last === null || last.closed !== null) capture.disarm();
+      next.session.subscribe((session, previous) => {
+        engine?.sessionChanged(session);
+        // The B11 runtime chunk loads with the Model workspace (§5.27), before an operation can arm the window.
+        if (session.workspace === 'model' && previous.workspace !== 'model') void loadOpsRuntime().catch(() => {});
       });
+      if (next.session.getState().workspace === 'model') void loadOpsRuntime().catch(() => {});
     },
   });
   return capture;
+}
+
+// ---------- the fields of a parameter list (eager: the card facade decides from them whether a card shows) ----------
+
+/**
+ * The fields the Last-op card, INPUTS and option boxes show (§8.6): value-bound, not hidden, not `data`; the primary
+ * field first, the others in list order.
+ */
+export function visibleParams(params: readonly ParamDef[] | undefined): readonly ParamDef[] {
+  if (params === undefined) return [];
+  const shown = params.filter((def) => def.hidden !== true && def.kind !== 'data' && def.bound === 'value');
+  const primary = primaryParam(shown);
+  return primary === null ? shown : [primary, ...shown.filter((def) => def !== primary)];
+}
+
+/** Fields the numeric capture moves through (Tab order): the visible numeric params, primary first. */
+export function numericParams(params: readonly ParamDef[] | undefined): readonly ParamDef[] {
+  return visibleParams(params).filter(isNumericParam);
+}
+
+/** The primary visible param, else null (operations without one never arm the capture window). */
+export function primaryVisibleParam(params: readonly ParamDef[] | undefined): ParamDef | null {
+  const shown = visibleParams(params);
+  return primaryParam(shown);
 }
 
 // ---------- the Last-op card's open state (per app; UI state, never in the document) ----------

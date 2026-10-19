@@ -22,6 +22,7 @@ import {
   switchWorkspace,
 } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
+import { enterModel } from './model';
 import { ADVANCE, type AdvanceOp } from './support';
 
 vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
@@ -36,7 +37,7 @@ const advanceOp = (): AdvanceOp => (kernel as unknown as { __advance: AdvanceOp 
 /** A Model app with one cube mesh, `mesh.test.advance` registered, face `face` selected and the cube hilited. */
 async function setup(face = 2): Promise<MeshTestApp & { readonly id: MeshId }> {
   const t = await meshTestApp();
-  switchWorkspace(t.app, 'model');
+  await enterModel(t.app);
   t.app.operators.register(registeredMeshOperator(ADVANCE));
   const id = createMesh(t, 'msh_Cube');
   t.app.history.clear();
@@ -379,7 +380,7 @@ describe('edit.adjustLast (§5.7)', () => {
 
   it('mesh.create.cube: the adjusted re-run keeps the mesh id and records the primitive parameters', async () => {
     const t = await meshTestApp();
-    switchWorkspace(t.app, 'model');
+    await enterModel(t.app);
     const modeling = t.app.prefs.getState().modeling;
     t.app.prefs.setState({ modeling: { ...modeling, primitiveDefaults: 'maya' } });
     const created = await t.app.run('mesh.create.cylinder', {});

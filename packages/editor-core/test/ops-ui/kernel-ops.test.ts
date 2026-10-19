@@ -6,8 +6,9 @@
 import type { MeshId } from '@ekza-animator/doc';
 import { editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
-import { type NumericCapture, switchWorkspace } from '../../src';
+import type { NumericCapture } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
+import { enterModel } from './model';
 import { READY } from './ready';
 
 const counts = (t: MeshTestApp, id: MeshId): string => {
@@ -106,7 +107,7 @@ const dataOf = (t: MeshTestApp, id: MeshId): MeshData => {
 /** Object mode with the cube selected as an object (and hilited, as entering a component mode shows it). */
 async function cubeInObjectMode() {
   const t = await meshTestApp();
-  switchWorkspace(t.app, 'model');
+  await enterModel(t.app);
   const id = createMesh(t, 'msh_Cube');
   t.app.history.clear();
   const state = t.app.session.getState();
@@ -119,7 +120,7 @@ async function cubeInObjectMode() {
 
 async function cubeIn(mode: 'face' | 'edge', pick: (data: MeshData) => number) {
   const t = await meshTestApp();
-  switchWorkspace(t.app, 'model');
+  await enterModel(t.app);
   const id = createMesh(t, 'msh_Cube');
   t.app.history.clear();
   const data = primitive('cube', {});

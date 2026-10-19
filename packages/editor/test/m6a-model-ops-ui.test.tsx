@@ -11,6 +11,7 @@ import {
   type KernelMeshRuntimes,
   lastOpCardState,
   loadMeshKernel,
+  loadOpsRuntime,
   type OperatorDef,
   registerBuiltins,
   selectedInputsField,
@@ -24,6 +25,7 @@ import { bridgeCapture, ModelOpsShellOverlay, openOptionBox, optionBoxStore } fr
 import { MODEL_OPS_MARKING_MENUS, registerModelOpsMenus } from '../src/overlays/menus/tools';
 import { ChannelBoxPanel } from '../src/panels/channel-box/ChannelBoxPanel';
 import { CLOSED_CARD_MS } from '../src/panels/toolkit/LastOpCardView';
+import { ModelOpsSlot } from '../src/panels/toolkit/ModelOpsSlot';
 import ToolkitView from '../src/panels/toolkit/ToolkitView';
 import { cardPane, LastOpCard } from '../src/panels/viewport/LastOpCard';
 import { createTestApi } from '../src/test-api/createTestApi';
@@ -83,7 +85,9 @@ async function modelApp(): Promise<Model> {
   registerBuiltins(app);
   await loadMeshKernel();
   (app.meshes as KernelMeshRuntimes).attach(app);
+  // Entering Model loads the B11 runtime chunk (§5.27); the editor's first keystroke there comes after it.
   switchWorkspace(app, 'model');
+  await loadOpsRuntime();
   const created = await app.run('mesh.create.cube', {}, { source: 'menu', paneId: 'pane-persp' });
   if (created.status !== 'finished') throw new Error(JSON.stringify(created));
   const cube = (created.value as { mesh: MeshId }).mesh;
@@ -287,6 +291,20 @@ describe('marking menus and the capture bridge', () => {
     }
     dispose();
     expect(app.markingMenus.get('model.merge')).toBeUndefined();
+  });
+
+  it('the shell slot mounts the overlay (a lazy chunk) on the first Model entry and keeps it (§5.27)', async () => {
+    const { app } = createTestShell();
+    registerBuiltins(app);
+    await mount(app, <ModelOpsSlot app={app} />);
+    await settle();
+    expect(app.session.getState().workspace).not.toBe('model');
+    expect(app.markingMenus.get('model.tools.object')).toBeUndefined();
+    await act(async () => switchWorkspace(app, 'model'));
+    await waitFor(() => app.markingMenus.get('model.tools.object') !== undefined);
+    await act(async () => switchWorkspace(app, 'animate'));
+    await settle();
+    expect(app.markingMenus.get('model.tools.object')).toBeDefined();
   });
 
   it('a keyboard-op window disarms after 3 px of pointer travel or a click; an unfinished entry is discarded', async () => {
