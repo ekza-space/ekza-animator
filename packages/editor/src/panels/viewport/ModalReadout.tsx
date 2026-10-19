@@ -3,22 +3,14 @@
 // 0.5_ · Enter ✓ · Esc ✕ · Tab next") from the first typed digit, the snap candidate's ring and name, and the
 // soft-select radius ring while `B` is held. This file is the eager facade: it subscribes to the viewport's readout
 // state and the capture window, and loads the drawing (`ModalReadoutView`) the first time there is something to show.
-// A drag committed with typed values announces them on the help line (the polite live region, §5.10) from here: the
-// drawing is gone by then.
 //
 // `registerModelTransformUi(app)` (one line in the shell) registers the slot and, on the first Model entry, B12a's
 // marking menus (`model.options`, the `W`/`E`+LMB space menus; a lazy chunk).
 import type { Disposer } from '@ekza-animator/anim-core';
 import type { EditorApp, NumericCaptureState } from '@ekza-animator/editor-core';
-import {
-  announceTransform,
-  subscribeTransformReadout,
-  transformAnnouncement,
-  transformReadout,
-} from '@ekza-animator/viewport';
-import { type JSX, lazy, Suspense, useEffect, useSyncExternalStore } from 'react';
+import { subscribeTransformReadout, transformReadout } from '@ekza-animator/viewport';
+import { type JSX, lazy, Suspense, useSyncExternalStore } from 'react';
 import { type PaneOverlayProps, registerPaneOverlay } from '../../overlays/slots';
-import { useOptionalShell } from '../../shell/context';
 
 const ModalReadoutView = lazy(() => import('./ModalReadoutView'));
 
@@ -40,16 +32,6 @@ export function ModalReadout(props: PaneOverlayProps): JSX.Element | null {
     () => transformReadout(app),
   );
   const capture = useCaptureState(app);
-  const said = useSyncExternalStore(
-    (listener) => subscribeTransformReadout(app, listener),
-    () => transformAnnouncement(app),
-  );
-  const shell = useOptionalShell();
-  useEffect(() => {
-    if (said === null || said.paneId !== paneId || shell === null) return;
-    shell.help(said.text);
-    announceTransform(app, null);
-  }, [app, said, paneId, shell]);
   const mine = readout !== null && readout.paneId === paneId;
   const typing = capture.armed !== null && capture.text !== null;
   if (!mine && !typing) return null;

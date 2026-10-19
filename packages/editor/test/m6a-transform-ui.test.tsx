@@ -16,7 +16,7 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import type { SkeletonDesc } from '@ekza-animator/rig';
-import { announceTransform, setTransformReadout, transformAnnouncement } from '@ekza-animator/viewport';
+import { setTransformReadout, transformReadout } from '@ekza-animator/viewport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MOVE_SPACE_MENU, OPTIONS_MENU, OPTIONS_MENU_LMB, ROTATE_SPACE_MENU } from '../src/overlays/menus/options';
 import { EditorRoot } from '../src/shell/EditorRoot';
@@ -207,9 +207,11 @@ describe('the modal readout chip (§8.7)', () => {
     await waitFor(() => query('helpline-text')?.textContent === 'Translate Y 0.500 m');
     // The drag commits: the transform runtime's announcement goes to the help line of its pane (once).
     setTransformReadout(app, null);
-    announceTransform(app, { paneId: 'pane-persp', text: 'Move Translate Y 0.500 m' });
+    const said = { paneId: 'pane-persp', x: 0, y: 0, label: null, value: null, snap: null, ring: null };
+    setTransformReadout(app, { ...said, said: 'Move Translate Y 0.500 m' });
     await waitFor(() => query('helpline-text')?.textContent === 'Move Translate Y 0.500 m');
-    await waitFor(() => transformAnnouncement(app) === null);
+    await waitFor(() => transformReadout(app) === null);
+    expect(query('modal-readout')).toBeNull();
     expect(query('helpline-text')?.textContent).toBe('Move Translate Y 0.500 m');
   });
 

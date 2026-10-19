@@ -73,7 +73,7 @@ import type { ViewportToolHost } from '../../host';
 import { modelSelectOf, subscribeModelSelect } from '../select';
 import { componentFrame, componentPicks, type MeshPicks, picksCentre, quatOfAxes, rotationOf } from './frame';
 import { type DragFrame, handleMode, isIdentityMotion, type Motion, mmbHandle, motionAt } from './motion';
-import { announceTransform, setTransformReadout, transformReadout } from './readout';
+import { setTransformReadout, transformReadout } from './readout';
 import { deltaTowards, nearestVertex, type SnapCandidate, snapIncrement, snapTranslation } from './snap';
 import type { ModelManipulator, ModelManipulatorRequest, ModelManipulatorTarget } from './types';
 
@@ -710,14 +710,25 @@ export class ModelTransformRuntime implements ModelManipulator {
    * committed values"), replacing the entry prompt: "Move Translate Y 0.500 m", in the fields' Tab order.
    */
   private announceTyped(base: MotionDragBase): void {
-    if (base.typed.size === 0 || base.paneId === '') return;
+    // Nothing else on the readout (a new drag, the radius ring): the announcement never replaces what is shown.
+    if (base.typed.size === 0 || base.paneId === '' || this.drag !== null || transformReadout(this.app) !== null)
+      return;
     const parts: string[] = [];
     for (const def of fieldDefs(base.motionKind)) {
       const value = base.typed.get(def.name);
       if (value !== undefined) parts.push(`${def.label} ${formatField(def.name, value)}`);
     }
     const label = base.motionKind === 'rotate' ? 'Rotate' : base.motionKind === 'scale' ? 'Scale' : 'Move';
-    announceTransform(this.app, { paneId: base.paneId, text: `${label} ${parts.join(', ')}` });
+    setTransformReadout(this.app, {
+      paneId: base.paneId,
+      x: 0,
+      y: 0,
+      label: null,
+      value: null,
+      snap: null,
+      ring: null,
+      said: `${label} ${parts.join(', ')}`,
+    });
   }
 
   /** The capture window's target for a drag (§5.10): the motion's three fields, the dragged one active. */

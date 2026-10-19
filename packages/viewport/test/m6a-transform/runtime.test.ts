@@ -18,13 +18,7 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import {
-  type ModelTransformRuntime,
-  modelSelectOf,
-  modelTransformOf,
-  transformAnnouncement,
-  transformReadout,
-} from '../../src';
+import { type ModelTransformRuntime, modelSelectOf, modelTransformOf, transformReadout } from '../../src';
 import { createRig, drag, pointer, type Rig } from '../helpers';
 
 const PANE = 'pane-single';
@@ -314,7 +308,7 @@ describe('component drags (§5.15, §5.10)', () => {
     await settled(s.app, steps + 1);
     expect(positions(s.app, s.cube)[2]?.[1]).toBe(Math.fround((before[2]?.[1] ?? 0) + 0.5));
     // The committed value goes to the help line (the editor's overlay writes it, §5.10 polite live region).
-    expect(transformAnnouncement(s.app)).toEqual({ paneId: PANE, text: 'Move Translate Y 0.500 m' });
+    expect(transformReadout(s.app)).toMatchObject({ paneId: PANE, label: null, said: 'Move Translate Y 0.500 m' });
   });
 
   it('a drag without typed values, or a cancelled one, announces nothing', async () => {
@@ -325,7 +319,7 @@ describe('component drags (§5.15, §5.10)', () => {
     const from = handle(s, 'ty');
     drag(element(s), from, { x: from.x, y: from.y - 20 });
     await settled(s.app, steps + 1);
-    expect(transformAnnouncement(s.app)).toBeNull();
+    expect(transformReadout(s.app)?.said).toBeUndefined();
     pointer(element(s), 'pointerdown', from.x, from.y);
     pointer(element(s), 'pointermove', from.x, from.y - 20, { buttons: 1 });
     const target = s.rig.vm.activeTool()?.numeric?.();
@@ -334,7 +328,7 @@ describe('component drags (§5.15, §5.10)', () => {
     pointer(element(s), 'pointerup', from.x, from.y - 20);
     await Promise.resolve();
     expect(labels(s.app)).toHaveLength(steps + 1);
-    expect(transformAnnouncement(s.app)).toBeNull();
+    expect(transformReadout(s.app)?.said).toBeUndefined();
   });
 
   it('the Scale tool shows the grabbing cursor while a component drag runs (as Move and Rotate)', async () => {

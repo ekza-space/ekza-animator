@@ -2,7 +2,7 @@
 // below the pointer that flips at the pane edges (z-order 20), the snap candidate's ring and name, and the soft-select
 // radius ring. During a capture entry the chip shows the field, the entry and the keys; the help line mirrors it.
 import type { EditorApp, NumericCaptureState } from '@ekza-animator/editor-core';
-import type { TransformReadout } from '@ekza-animator/viewport';
+import { setTransformReadout, type TransformReadout, transformReadout } from '@ekza-animator/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOptionalShell } from '../../shell/context';
 
@@ -71,6 +71,13 @@ export default function ModalReadoutView(props: {
       if (shell.ui.getState().help?.text === prompt) shell.ui.setState({ help: null });
     };
   }, [app, prompt, shell]);
+
+  // A drag committed with typed values: its announcement replaces the prompt on the help line (§5.10), once.
+  useEffect(() => {
+    if (readout?.said === undefined) return;
+    shell?.help(readout.said);
+    if (transformReadout(app) === readout) setTransformReadout(app, null);
+  }, [app, readout, shell]);
 
   // The pane's and the chip's sizes (for the flip at the edges), measured after each change of the text or place.
   const x = at?.x ?? null;
