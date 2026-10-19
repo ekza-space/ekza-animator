@@ -50,8 +50,32 @@ import type {
 } from '../../types';
 import { isRecord } from '../../workflows/util';
 import { operatorContext } from '../registry';
-import { type ExtrudeEngine, type ExtrudeEngineHost, isIdentityExtrude, sayModelHelp } from './extrudeSession';
+import { type ExtrudeEngine, type ExtrudeEngineHost, sayModelHelp } from './extrudeSession';
 import { adjustingOperator, LAST_RUN_CLOSED, liveLastRun, opsRuntime, pendingAdjust } from './lastop';
+
+/** The extrude's value args at their identity (§5.8 zero-drop: every `local*`, `offset` and `thickness`). */
+export const EXTRUDE_IDENTITY: Readonly<Record<string, number>> = Object.freeze({
+  localTranslateX: 0,
+  localTranslateY: 0,
+  localTranslateZ: 0,
+  localRotateX: 0,
+  localRotateY: 0,
+  localRotateZ: 0,
+  localScaleX: 1,
+  localScaleY: 1,
+  localScaleZ: 1,
+  offset: 0,
+  thickness: 0,
+});
+
+/** True when an extrude's args leave the cap where the faces were (§5.8 zero-drop). */
+export function isIdentityExtrude(args: ParamValues): boolean {
+  for (const [name, identity] of Object.entries(EXTRUDE_IDENTITY)) {
+    const value = args[name];
+    if (value !== undefined && value !== identity) return false;
+  }
+  return true;
+}
 
 /** The toast and help line of a zero-drop (§5.8). */
 export const EXTRUDE_REMOVED = 'Extrude removed: it did not move';

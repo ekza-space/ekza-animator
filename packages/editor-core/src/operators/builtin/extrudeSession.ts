@@ -9,7 +9,7 @@
 // the shim answers `state: null`, `beginAbsorb → null`, `stepBack/stepForward → false`.
 //
 // The shim is created before the app exists (app/kernel.ts); the runner's hooks bind the app on its first run.
-import type { Disposer, ParamValues } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-animator/anim-core';
 import type {
   AbsorbGesture,
   EditorApp,
@@ -238,28 +238,4 @@ export function onModelHelp(app: EditorApp, listener: (message: ModelToolMessage
   return () => {
     set.delete(listener);
   };
-}
-
-/** The extrude's value args at their identity (§5.8 zero-drop: every `local*`, `offset` and `thickness`). */
-export const EXTRUDE_IDENTITY: Readonly<Record<string, number>> = Object.freeze({
-  localTranslateX: 0,
-  localTranslateY: 0,
-  localTranslateZ: 0,
-  localRotateX: 0,
-  localRotateY: 0,
-  localRotateZ: 0,
-  localScaleX: 1,
-  localScaleY: 1,
-  localScaleZ: 1,
-  offset: 0,
-  thickness: 0,
-});
-
-/** True when an extrude's args leave the cap where the faces were (§5.8 zero-drop). */
-export function isIdentityExtrude(args: ParamValues): boolean {
-  for (const [name, identity] of Object.entries(EXTRUDE_IDENTITY)) {
-    const value = args[name];
-    if (value !== undefined && value !== identity) return false;
-  }
-  return true;
 }
