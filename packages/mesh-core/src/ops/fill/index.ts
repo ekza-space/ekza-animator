@@ -2,7 +2,9 @@
 // (any mode: a selected vertex on it, an edge or face touching it) gets one n-gon whose vertices run opposite to the
 // existing faces' traversal (consistent winding). The new face takes the lowest-index adjacent face's layers and
 // material and, on every corner, the average of the loop's corners (§5.2 fill row). `selection′` = the new faces.
-// Symmetry: the expanded selection (a hole across the seam is one loop, filled once).
+// Loops that touch at a bow-tie vertex are separate holes: each simple loop is filled on its own, and only when one
+// of its own vertices is touched (M6A-B3-26). Symmetry: the expanded selection (a hole across the seam is one loop,
+// filled once).
 import type { ParamValues } from '@ekza-animator/anim-core';
 import { averageCornerAttributes } from '../../layers/propagate';
 import { refuse } from '../../refusal';
@@ -122,6 +124,36 @@ export function borderChains(m: EditMesh, edges: readonly number[], restrict: bo
   return out;
 }
 
+/**
+ * A closed border walk split into simple loops at the vertices it visits twice: border loops that touch at a bow-tie
+ * vertex (two holes meeting at a corner, a hole touching the outer border) are walked as one figure-eight when the
+ * walk turns into the other loop there; each simple loop is its own hole.
+ */
+function simpleLoops(loop: BorderLoop): BorderLoop[] {
+  const out: BorderLoop[] = [];
+  const stack: number[] = [];
+  const at = new Map<number, number>();
+  const cut = (from: number): void => {
+    const steps = stack.splice(from);
+    for (const i of steps) at.delete(loop.verts[i] as number);
+    out.push({
+      verts: steps.map((i) => loop.verts[i] as number),
+      corners: steps.map((i) => loop.corners[i] as number),
+      edges: steps.map((i) => loop.edges[i] as number),
+      faces: steps.map((i) => loop.faces[i] as number),
+      closed: true,
+    });
+  };
+  for (let i = 0; i < loop.verts.length; i++) {
+    const seen = at.get(loop.verts[i] as number);
+    if (seen !== undefined) cut(seen);
+    at.set(loop.verts[i] as number, stack.length);
+    stack.push(i);
+  }
+  if (stack.length > 0) cut(0);
+  return out;
+}
+
 function pollFill(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal {
   if (sel === null || selected(m, sel, sel.kind, ctx.hidden).length === 0) {
     return refuse('fillHole.no-border', 'Select a component on a hole border');
@@ -153,7 +185,13 @@ function runFill(
       if (e === start) break;
     }
   }
-  const loops = borderChains(m, [...seeds], false).filter((loop) => loop.closed && loop.verts.length >= 3);
+  // A loop is touched through its own vertices only: the flood through a bow-tie vertex reaches the loops touching
+  // there, which are filled only when the selection touches them too.
+  const touched = new Set(verts);
+  const loops = borderChains(m, [...seeds], false)
+    .filter((loop) => loop.closed)
+    .flatMap(simpleLoops)
+    .filter((loop) => loop.verts.length >= 3 && loop.verts.some((v) => touched.has(v)));
   if (loops.length === 0) return refuse('fillHole.no-border', 'No hole border touches the selection');
   const created: number[] = [];
   for (const loop of loops) {
