@@ -561,6 +561,49 @@ describe('mesh.merge family details (§5.12)', () => {
     const unpaired = cube();
     runRefused(unpaired, 'mesh.targetWeld', sel(unpaired, 'vertex', []), 'targetWeld.no-pairs', { pairs: [] });
   });
+
+  it('target weld: a cycle of pairs welds at its first pair’s target (never an empty step)', () => {
+    // An edge's ends welded both ways: one weld onto b, as dragging a onto b and then b onto a would.
+    const m = cube();
+    const a = m.edgeVert(0, 0);
+    const b = m.edgeVert(0, 1);
+    const at = position(m, b);
+    const result = runOk(m, 'mesh.targetWeld', sel(m, 'vertex', []), {
+      pairs: [
+        [a, b],
+        [b, a],
+      ],
+    });
+    expect(counts(m)).toBe('7/11/6');
+    const kept = [...result.selection.verts.toArray()];
+    expect(kept.length).toBe(1);
+    expect(position(m, kept[0] as number)).toEqual(at);
+    // A three-cycle on the top face plus a chain into it: all four corners at the target of the cycle's first pair.
+    const top = cube();
+    const [p, q, r, s] = faceVerts(top, topOf(top)) as [number, number, number, number];
+    const target = position(top, q);
+    const welded = runOk(top, 'mesh.targetWeld', sel(top, 'vertex', []), {
+      pairs: [
+        [s, p],
+        [p, q],
+        [q, r],
+        [r, p],
+      ],
+    });
+    expect(counts(top).split('/')[0]).toBe('5');
+    expect([...welded.selection.verts.toArray()].map((v) => position(top, v))).toEqual([target]);
+    // Center mode on a two-cycle: the midpoint of the first pair.
+    const centre = cube();
+    const mid = lerp(position(centre, a), position(centre, b), 0.5);
+    const middle = runOk(centre, 'mesh.targetWeld', sel(centre, 'vertex', []), {
+      pairs: [
+        [a, b],
+        [b, a],
+      ],
+      mode: 'center',
+    });
+    expect(r6(position(centre, middle.selection.verts.toArray()[0] as number))).toEqual(r6(mid));
+  });
 });
 
 describe('mesh.delete family details (§5.12)', () => {
@@ -720,6 +763,82 @@ describe('mesh.fillHole details (§5.12)', () => {
     const m = cube();
     runRefused(m, 'mesh.fillHole', sel(m, 'vertex', [0]), 'fillHole.no-border');
     expect(counts(m)).toBe('8/12/6');
+  });
+
+  describe('loops that touch at a bow-tie vertex are separate holes (M6A-B3-26)', () => {
+    /** A 3 × 3 plane in XZ (cells 1/3 wide) with the cells (i, j) deleted. */
+    const holed = (cells: readonly (readonly [number, number])[]): EditMesh => {
+      const m = editMeshFrom(planeData({ subdivisionsWidth: 3, subdivisionsHeight: 3 }));
+      const centre = (i: number, j: number): [number, number, number] => [(i - 1) / 3, 0, (j - 1) / 3];
+      const faces = cells.map(([i, j]) => {
+        let best = -1;
+        for (let f = 0; f < m.counts.faces; f++) {
+          const c = faceCentroid(m, f);
+          if (Math.hypot(c[0] - centre(i, j)[0], c[2] - centre(i, j)[2]) < 1e-6) best = f;
+        }
+        return best;
+      });
+      expect(faces).not.toContain(-1);
+      runOk(m, 'mesh.delete', sel(m, 'face', faces));
+      return m;
+    };
+    const simple = (m: EditMesh, f: number): boolean => new Set(faceVerts(m, f)).size === m.faceLen(f);
+    const all = (m: EditMesh): number[] => Array.from({ length: m.counts.points }, (_, v) => v);
+
+    it('a hole touching the outer border: two faces (a 12-gon and a quad), each through its vertices once', () => {
+      for (const corner of [
+        [2, 2],
+        [0, 0],
+      ] as const) {
+        const m = holed([[1, 1], corner]);
+        expect(counts(m)).toBe('15/22/7');
+        expect(topologyStats(m).boundaryLoops).toBeGreaterThan(0);
+        const result = runOk(m, 'mesh.fillHole', sel(m, 'vertex', all(m)));
+        const fills = [...result.selection.faces.toArray()];
+        expect(fills.map((f) => m.faceLen(f)).sort((a, b) => a - b)).toEqual([4, 12]);
+        expect(fills.every((f) => simple(m, f))).toBe(true);
+        expect(counts(m)).toBe('15/22/9');
+        expect(topologyStats(m).boundaryLoops).toBe(0);
+        expect(windingProblems(m)).toEqual([]);
+      }
+    });
+
+    it('two inner holes meeting at a corner: one quad each', () => {
+      // Cells (1, 1) and (2, 2) of a 4 × 4 plane: both inner, touching at (0.25, 0.25).
+      const m = editMeshFrom(planeData({ subdivisionsWidth: 4, subdivisionsHeight: 4 }));
+      const cell = (i: number, j: number) => {
+        for (let f = 0; f < m.counts.faces; f++) {
+          const c = faceCentroid(m, f);
+          if (Math.hypot(c[0] - (i - 1.5) / 4, c[2] - (j - 1.5) / 4) < 1e-6) return f;
+        }
+        return -1;
+      };
+      runOk(m, 'mesh.delete', sel(m, 'face', [cell(1, 1), cell(2, 2)]));
+      expect(counts(m)).toBe('25/40/14');
+      const result = runOk(m, 'mesh.fillHole', sel(m, 'vertex', [vertexNear(m, [0, 0, 0])]));
+      expect([...result.selection.faces.toArray()].map((f) => m.faceLen(f))).toEqual([4, 4]);
+      expect(counts(m)).toBe('25/40/16');
+      expect(windingProblems(m)).toEqual([]);
+    });
+
+    it('only the loops the selection touches through their own vertices are filled', () => {
+      const m = holed([
+        [1, 1],
+        [0, 0],
+      ]);
+      // A vertex of the centre hole away from the bow-tie vertex (−1/6, −1/6): the centre hole only.
+      const result = runOk(m, 'mesh.fillHole', sel(m, 'vertex', [vertexNear(m, [1 / 6, 0, 1 / 6])]));
+      expect([...result.selection.faces.toArray()].map((f) => m.faceLen(f))).toEqual([4]);
+      expect(counts(m)).toBe('15/22/8');
+      // The bow-tie vertex touches both loops.
+      const both = holed([
+        [1, 1],
+        [0, 0],
+      ]);
+      const r2 = runOk(both, 'mesh.fillHole', sel(both, 'vertex', [vertexNear(both, [-1 / 6, 0, -1 / 6])]));
+      expect(r2.selection.faces.count()).toBe(2);
+      expect(counts(both)).toBe('15/22/9');
+    });
   });
 });
 
