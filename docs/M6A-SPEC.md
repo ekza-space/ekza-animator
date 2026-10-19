@@ -3330,7 +3330,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 | `anim-core/src/params/**`, `anim-core/src/hash/**`, `anim-core/src/index.ts`; `io/src/hash/**`, `doc/src/migrations/sha256.ts` (wrappers, §4.1) | `ParamDef` helpers, streaming SHA-256 and the unchanged io/doc wrappers | closed after B0a | — |
 | `editor-core/src/types.ts`, `editor-core/src/operators/args.ts`, `editor-core/src/history/**` | §4.6 types, `OperatorMap` rows, selection parts, `onDrop`, `dropOldest`, `recordSelection` (per-gesture steps, repeat coalescing, selection-aware `isEmpty`/pruning, limit drops paired with `evictOldest`, `clearRedo`) | closed after B0a | B10 calls `recordSelection` |
 | `mesh-core/src/{index.ts,descriptors.ts}` (barrels), `mesh-core/src/ops/*/{index.ts,descriptor.ts}` stubs, `mesh-core/src/registry.ts` (`MESH_OPS`), `mesh-core/src/kernel.ts` (`KERNEL_MARKER`) | stub exports, every op stub and descriptor with final params | barrels: only stub lines change; each `ops/<dir>/` belongs to its kernel owner (§6.1 Kernel column) | — |
-| `mesh-core/src/reference/**` | reference `editMeshFrom`, revision codec, `triangulate` (fan for convex faces, earcut for the rest), `computeNormals` (face + angle-weighted corner normals split at hard edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' \| 'plane' \| 'cylinder')` — static meshes, no Euler ops | B1 (switches the barrel lines to its modules and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
+| `mesh-core/src/reference/**` | reference `editMeshFrom`, revision codec, `triangulate` (§5.4: quads by the diagonal rule, n-gons by earcut, a fan only when earcut returns fewer than n − 2 triangles), `computeNormals` (face + angle-weighted corner normals split at hard edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' \| 'plane' \| 'cylinder')` — static meshes, no Euler ops | B1 (switches the barrel lines to its modules and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
 | `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/{menus.ts,keymapShadows.ts}`, `editor/src/shell/{menuItems.ts,menus.ts}` | `keymapShadows.ts` stub (`model.animateOnly`) | **B0b**, then **B9** after B0b merges | B10…B13 add rows and menu items through contract PRs to §7/§8.3 |
 | `editor/src/input/keyboard.ts` | — | B0b (scope chain, capture hook, active-tool key route, tap/hold contract), then B9 | B11 registers the capture handler through the hook |
 | `editor-core/src/operators/builtin/index.ts`, `edit.ts`, `operators/runner.ts`, `operators/registry.ts` | registration of every new operator file; stubs of `edit.adjustLast`/`edit.repeatLast`; a no-op `LastRun` recorder | **B11** (incl. the `edit.undo`/`edit.redo` session hook) | B7 provides `MeshRuntime` hooks; B12b provides `app.extrude.stepBack/stepForward` |
@@ -3378,8 +3378,8 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
   anim-core, io/doc wrappers keeping their signatures; (5) mesh-core: the public types of §4.3, `BitSet` (complete,
   tagged encoding), `selectionOf`, `refuse`/`isRefusal`, **a working reference** `editMeshFrom`/`emptyMesh` for static
   meshes (traversal, value writes, layers, write log with exact `apply`; Euler operators throw `not-implemented`),
-  `writeRevision`/`readRevision`/`parseManifest` with canonical tails, reference `triangulate` (fan for convex faces,
-  earcut otherwise), `computeNormals` (face normals by Newell, angle-weighted corner normals split at hard, border and
+  `writeRevision`/`readRevision`/`parseManifest` with canonical tails, reference `triangulate` (§5.4: n-gons by
+  earcut, a fan from the first corner only when earcut returns fewer than n − 2 triangles), `computeNormals` (face normals by Newell, angle-weighted corner normals split at hard, border and
   non-manifold edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' | 'plane' | 'cylinder')`
   (§6.3 parameters, faceted, all hard; no UVs needed); the descriptors barrel with every §6.1 descriptor (final `id`,
   `label`, `kinds`, `params`, `flags`, `symmetry`) and `PRIMITIVE_PARAMS`, and the `MESH_OPS` registry with every op
@@ -4052,6 +4052,7 @@ round 1; details and reasons in [wp-notes/m6a-contracts-foundation](wp-notes/m6a
 | §4.6 `BlobStore.get`/`peek` | `get` returns a copy the caller owns; `peek` lends the resident bytes read-only |
 | §4.2 `UndoManager.entries()` | frozen views, the same object until the stacks change; built on the first read after a change (O(n), n ≤ 500), O(1) after — M6A-B0A-26 |
 | §4.2 `entries()`/`onEvict`, §5.20 | coalescing replaces or pops the top entry and is not an eviction; transactions that write `meshes.data` never set a `coalesceKey` — M6A-B0A-27 |
+| §9 B0a (5), §9.1 `mesh-core/src/reference/**` | the reference `triangulate` follows §5.4: n-gons by earcut, a fan from the first corner only when earcut returns fewer than n − 2 triangles (the earlier "fan for convex faces" wording contradicted §5.4) — M6A-B0A-8 |
 | §4.2 rules table | write checks are per record; cross-record parent and name rules are kept by their operators, read as roots by queries and repaired on load — M6A-B0A-6 |
 
 Open for the owner: the eager-route allowance of §5.27 (B0a alone uses most of the +20,480 B; the options are in the
