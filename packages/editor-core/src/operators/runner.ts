@@ -1,11 +1,21 @@
 // The operator runner (MVP-SPEC §4.11.0, ADR 0008 §1): poll → prepare (async, no document writes) → poll again →
 // apply (sync; for `flags.undo` exactly one transaction) → one editor-history step. `app.run` inside `apply` throws
 // `nested-run`; a failing apply rolls the document back (the store) and the session back (the runner).
-import { EkzaError } from '@ekza-animator/anim-core';
+//
+// M6a (M6A-SPEC §4.6, §5.7; B11): `ParamValues` args are validated by `coerceArgs(def.params, raw, { passThrough:
+// def.extraArgs })` before `poll` (operators without `params` are not coerced, shipped behaviour); runs from the UI
+// (keyboard, menus, marking menus, Toolkit, palette, tools) start from the option box's defaults
+// (`prefs.modeling.optionDefaults[id]`) under the given args; the re-run of `edit.adjustLast` is labelled
+// "<label> (adjusted)"; after every finished run the LastRun recorder (lastop.ts) records `session.lastRun`; after a
+// failed run the mesh runtimes settle an aborted commit (`reconcile`, M6A-B7-26) before the result is reported. A
+// `prepare` that returns a plain value (not a promise) keeps the run synchronous up to `apply`.
+import { coerceArgs, EkzaError } from '@ekza-animator/anim-core';
 import type { DocumentStore } from '@ekza-animator/doc';
+import { bindCapture } from '../edit/capture';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
+import { runSeedOf } from '../mesh/seed';
 import { ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type {
@@ -14,9 +24,11 @@ import type {
   OperatorRegistry,
   OperatorResult,
   RunContext,
+  RunSource,
   SessionState,
   SessionStore,
 } from '../types';
+import { adjustingOperator, attachLastRunTracker, recordLastRun as recordLastRunOf } from './builtin/lastop';
 import { type AnyOperatorDef, operatorContext, unknownOperator } from './registry';
 
 /** Consecutive runs with the same `key` within `ms` merge into one undo step (Channel Box ↑/↓ nudges). */
@@ -39,8 +51,8 @@ function coalescingOf(def: AnyOperatorDef, args: unknown): OperatorCoalescing | 
 }
 
 /**
- * M6a (M6A-SPEC §5.7; B0a no-op, B11 records): called after every finished run with the step it recorded (null when
- * none). B11 records `session.lastRun` here for operators that declare `params` or are flagged adjustable/repeatable.
+ * M6a (M6A-SPEC §5.7; B11): called after every finished run with the step it recorded (null when none), the args after
+ * coercion, the session before the run and the step seed of the latest mesh run before it started.
  */
 export type LastRunRecorder = (run: {
   readonly def: AnyOperatorDef;
@@ -48,10 +60,53 @@ export type LastRunRecorder = (run: {
   readonly ctx: RunContext | undefined;
   readonly value: unknown;
   readonly stepId: number | null;
+  readonly before?: SessionState;
+  readonly seedBefore?: object | null;
 }) => void;
 
-/** B0a baseline: records nothing (`session.lastRun` stays null). */
+/** Records nothing (`session.lastRun` stays null): for hosts and tests that opt out. */
 export const recordNoLastRun: LastRunRecorder = () => {};
+
+/** Run sources that start from the option box's defaults (§8.5: "defaults for the next run"). */
+const UI_SOURCES: ReadonlySet<RunSource> = new Set(['keyboard', 'menu', 'marking-menu', 'toolkit', 'palette', 'tool']);
+
+const isThenable = (value: unknown): value is PromiseLike<unknown> =>
+  typeof value === 'object' && value !== null && typeof (value as { then?: unknown }).then === 'function';
+
+const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/**
+ * The args an operator with `params` runs with (§4.6): the option box's defaults for UI runs, the given args over
+ * them, validated by `coerceArgs` (clamping, int rounding, enum/axis membership, `data` schemas; `extraArgs` passed
+ * through untouched, every other unknown key dropped). Only the keys the run was given (or the option box supplied)
+ * reach the operator: the defaults of absent params stay the operator's to resolve (the kernel's nullable "auto"
+ * and selection-bound values, the primitives' `prefs.modeling.primitiveDefaults` set; M6A-B11-2).
+ */
+export function coerceRunArgs(app: EditorApp, def: AnyOperatorDef, raw: unknown, ctx: RunContext | undefined): unknown {
+  if (def.params === undefined) return raw;
+  const source = ctx?.source;
+  const defaults =
+    source !== undefined && UI_SOURCES.has(source) ? app.prefs.getState().modeling.optionDefaults[def.id] : undefined;
+  const given: Readonly<Record<string, unknown>> = isPlainRecord(raw) ? raw : {};
+  const input: Readonly<Record<string, unknown>> = defaults === undefined ? given : { ...defaults, ...given };
+  const coerced = coerceArgs(def.params, input, { passThrough: def.extraArgs ?? [] }).args;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(coerced)) {
+    if (Object.hasOwn(input, key) && input[key] !== undefined) out[key] = value;
+  }
+  return out;
+}
+
+/** M6A-B7-26: settle a commit whose transaction aborted, before the failure is reported. */
+function reconcileMeshes(app: EditorApp): void {
+  const meshes = app.meshes as { reconcile?: () => void };
+  try {
+    meshes.reconcile?.();
+  } catch {
+    // Reconciling is best effort; the next store batch or microtask settles it anyway.
+  }
+}
 
 /**
  * Operators that run while a preview (gesture) is active (§4.11.0 rule 3 exception): `edit.escape` exists to cancel
@@ -76,7 +131,14 @@ export function createOperatorRunner(deps: {
   /** M6a: the LastRun recorder (default: `recordNoLastRun`). */
   readonly lastRun?: LastRunRecorder;
 }): OperatorRunner {
-  const recordLastRun = deps.lastRun ?? recordNoLastRun;
+  const recordLastRun: LastRunRecorder =
+    deps.lastRun ??
+    ((run) =>
+      recordLastRunOf(deps.app(), {
+        ...run,
+        before: run.before ?? deps.session.getState(),
+        seedBefore: run.seedBefore ?? null,
+      }));
   const { store, session, history, capture } = deps;
   let applying = 0;
 
@@ -109,13 +171,21 @@ export function createOperatorRunner(deps: {
     }
   };
 
-  const execute = async (def: AnyOperatorDef, args: unknown, ctx: RunContext | undefined) => {
-    const opCtx = operatorContext(deps.app(), ctx);
+  const execute = async (def: AnyOperatorDef, rawArgs: unknown, ctx: RunContext | undefined) => {
+    const app = deps.app();
+    attachLastRunTracker(app);
+    bindCapture(app);
+    const opCtx = operatorContext(app, ctx);
+    const before = session.getState();
+    const seedBefore = runSeedOf(app);
     let rollback: SessionState | null = null;
+    let applied = false;
     try {
+      const args = coerceRunArgs(app, def, rawArgs, ctx);
       const first = def.poll?.(opCtx, args) ?? true;
       if (first !== true) return cancelled(first.reason);
-      const prepared = def.prepare === undefined ? undefined : await def.prepare(opCtx, args);
+      let prepared = def.prepare === undefined ? undefined : def.prepare(opCtx, args);
+      if (isThenable(prepared)) prepared = await prepared;
       const second = def.poll?.(opCtx, args) ?? true;
       if (second !== true) return cancelled(second.reason);
       // A gesture-safe operator run during a gesture records no step: the overrides it sees are the gesture's
@@ -125,13 +195,16 @@ export function createOperatorRunner(deps: {
 
       rollback = session.getState();
       const where = deps.location();
-      const label = def.undoLabel?.(args) ?? def.label;
+      const baseLabel = def.undoLabel?.(args) ?? def.label;
+      // §5.7: the re-run of `edit.adjustLast` replaces the step under the label "<label> (adjusted)".
+      const label = ctx?.source === 'card' && adjustingOperator(app) === def.id ? `${baseLabel} (adjusted)` : baseLabel;
       const coalescing = coalescingOf(def, args);
       const navigations = history.navigations;
       const scope = capture.begin();
       let value: unknown;
       let outcome: CaptureOutcome = { kind: 'none' };
       applying++;
+      applied = true;
       try {
         if (def.flags?.undo === true) {
           const meta = {
@@ -162,10 +235,11 @@ export function createOperatorRunner(deps: {
         // A coalesced run keeps the top step's id: it is still the step this run recorded into.
         if (top !== null && (top !== topBefore || outcome.kind === 'coalesced')) stepId = top;
       }
-      recordLastRun({ def, args, ctx, value, stepId });
+      recordLastRun({ def, args, ctx, value, stepId, before, seedBefore });
       return { status: 'finished', value } as const;
     } catch (error) {
       if (rollback !== null) session.setState(rollback, true);
+      if (applied) reconcileMeshes(app);
       return {
         status: 'failed',
         error: {

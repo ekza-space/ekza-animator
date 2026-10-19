@@ -174,5 +174,66 @@ export {
   workspaceProblem,
   workspaceTabs,
 } from './workspaces';
+// M6a (B11, M6A-SPEC §5.7, §5.10, §8.5, §8.6): typed parameter values, the LastRun recorder and tracker, Adjust Last
+// and Repeat Last helpers, the numeric capture window and the Last-op card's open state, the mesh op registration.
+export {
+  type CaptureKeyEvent,
+  type CaptureMessage,
+  bindCapture,
+  createNumericCapture,
+  dismissLastOpCard,
+  ENTRY_DISCARDED,
+  type LastOpCardState,
+  lastOpCardState,
+  type NumericCapture,
+  openLastOpCard,
+  resetLastOpCard,
+  setLastOpCardExpanded,
+  subscribeLastOpCard,
+} from './edit/capture';
+export {
+  clampParamValue,
+  formatParamValue,
+  nonDefaultParams,
+  numericParams,
+  type ParamInputResult,
+  paramEditText,
+  paramSliderRate,
+  parseParamInput,
+  primaryVisibleParam,
+  visibleParams,
+} from './edit/paramInput';
+export { repeatArgs } from './operators/builtin/edit';
+export {
+  activateTool,
+  adjustedArgs,
+  adjustingOperator,
+  adjustLastRun,
+  adjustProblem,
+  attachLastRunTracker,
+  beginCardPreview,
+  CARD_PREVIEW_BUDGET_MS,
+  type CardPreview,
+  closeLastRun,
+  coercePartial,
+  type FinishedRun,
+  LAST_RUN_CLOSED,
+  lastAdjustRefusal,
+  lastRunWarnings,
+  liveLastRun,
+  NO_OPERATION_TO_ADJUST,
+  NOTHING_TO_REPEAT,
+  pendingAdjust,
+  recordLastRun,
+  recordsLastRun,
+} from './operators/builtin/lastop';
+export {
+  INTERNAL_MESH_OPS,
+  MESH_OP_ALIASES,
+  MESH_OP_TOOLS,
+  registeredMeshOperator,
+  registeredMeshSetOperator,
+} from './operators/builtin/mesh';
+export { coerceRunArgs, recordNoLastRun } from './operators/runner';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
 export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';

@@ -145,7 +145,9 @@ describe('M6a session defaults and service stubs', () => {
     expect(app.capture.state).toEqual({ armed: null, field: null, text: null });
     expect(app.capture.key({ code: 'Digit1', key: '1', shift: false, mod: false, alt: false })).toBe(false);
     app.capture.disarm();
-    expect(() => app.capture.arm('drag', 'last-run')).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    // B11 landed the capture (literal update, M6A-SPEC §5.10): with no live last operation there is nothing to arm.
+    app.capture.arm('keyboard-op', 'last-run');
+    expect(app.capture.state).toEqual({ armed: null, field: null, text: null });
     expect(app.components.snapshot()).toEqual({
       controls: [],
       objects: [],
@@ -164,7 +166,8 @@ describe('M6a session defaults and service stubs', () => {
 });
 
 describe('runner context and LastRun (B0a baselines)', () => {
-  it('passes the run source and the auto-repeat flag to poll and apply; records no LastRun', async () => {
+  // B11 landed the LastRun recorder (literal update, M6A-SPEC §5.7): the paramless repeatable run is recorded.
+  it('passes the run source and the auto-repeat flag to poll and apply; records the LastRun', async () => {
     const app = waveApp();
     const seen: { readonly phase: string; readonly source: unknown; readonly repeat: unknown }[] = [];
     app.operators.register<void, void, void>({
@@ -193,7 +196,14 @@ describe('runner context and LastRun (B0a baselines)', () => {
       { phase: 'poll', source: undefined, repeat: undefined },
       { phase: 'apply', source: undefined, repeat: undefined },
     ]);
-    expect(app.session.getState().lastRun).toBeNull();
+    // The second run renames to the same name: no step, so the first (keyboard) run stays the last operation.
+    expect(app.session.getState().lastRun).toMatchObject({
+      id: 'test.context',
+      source: 'keyboard',
+      repeatable: true,
+      adjustable: false,
+      closed: null,
+    });
   });
 });
 
@@ -248,7 +258,46 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'view.display.set': ['expects { patch }'],
     'ui.commandPalette': ['The command palette needs the editor window'],
     'ui.markingMenu': ['expects { menu }'],
+    // B11 landed (literal update, M6A-SPEC §5.7): Adjust Last, Repeat Last, `Y` and `T` with nothing recorded.
+    'edit.adjustLast': ['No operation to adjust'],
+    'edit.repeatLast': ['Nothing to repeat'],
+    'tool.last': ['No tool used yet'],
+    'view.lastOpCard': ['No operation to adjust'],
   };
+  /**
+   * B11 landed the `mesh.*` operators through `meshOperator`/`meshSetOperator` (literal update, M6A-SPEC §6.1): with
+   * no hilite, no selection and no such mesh they poll-fail with the wrappers' reasons (B7, `mesh/operator.ts`).
+   */
+  const meshReasons = (def: { readonly id: string; readonly label: string }): readonly string[] =>
+    def.id.startsWith('mesh.') && !def.id.startsWith('mesh.create.') && !NOT_KERNEL_OPS.has(def.id)
+      ? [
+          'Mesh tools are loading',
+          `${def.label}: enter a component mode first`,
+          'Select a mesh first',
+          'Select components first',
+          'Unknown mesh msh_X',
+          `${def.label} needs at least two meshes`,
+          ...['vertex', 'edge', 'face'].flatMap((a) =>
+            ['vertex', 'edge', 'face'].map((b) => `${def.label} works on ${a}, ${b} components`),
+          ),
+          ...['vertex', 'edge', 'face'].map((a) => `${def.label} works on ${a} components`),
+          `${def.label} works on vertex, edge, face components`,
+        ]
+      : [];
+  /** `mesh.*` editor operators of §6.2 that are not kernel ops (their owners land them). */
+  const NOT_KERNEL_OPS = new Set([
+    'mesh.pivot.set',
+    'mesh.pivot.center',
+    'mesh.pivot.bottomCenter',
+    'mesh.pivot.reset',
+    'mesh.pivot.bake',
+    'mesh.resetTransforms',
+    'mesh.freezeTransforms',
+    'mesh.template',
+    'mesh.primitive.set',
+    'mesh.makeEditable',
+    'mesh.setAttributes',
+  ]);
 
   it('covers the §6 operators: 38 kernel ops, 4 set-ops and 77 editor operators', () => {
     expect(M6A.length).toBe(38 + 4 + 77);
@@ -256,12 +305,14 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
   });
 
   /** Operators their owners have landed (no longer stubs): B7's `mesh.create.*` (§6.2). */
-  const LANDED = new Set(['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`));
+  const LANDED_CREATE = new Set(
+    ['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`),
+  );
 
   it('cancels with a reason, never fails or throws, with or without args', async () => {
     const app = createFakeEditorApp({ snapshot: waveDoc() });
     registerBuiltins(app);
-    for (const def of M6A.filter((d) => !LANDED.has(d.id))) {
+    for (const def of M6A.filter((d) => !LANDED_CREATE.has(d.id))) {
       for (const args of [undefined, {}, { meshes: ['msh_X'], kind: 'face' }, 42]) {
         const result = await app.runUntyped(def.id, args);
         expect([def.id, result.status]).toEqual([def.id, 'cancelled']);
@@ -272,6 +323,7 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
           'Component pick-walk arrives later',
           // Landed operators poll-fail with their own reasons on these arguments (B9: workspace and shell).
           ...(LANDED[def.id] ?? []),
+          ...meshReasons(def),
         ];
         expect([def.id, reasons]).toEqual([def.id, expect.arrayContaining([reason])]);
       }

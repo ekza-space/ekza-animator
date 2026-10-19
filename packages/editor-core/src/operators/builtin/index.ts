@@ -46,6 +46,8 @@ import { SYMMETRY_OPERATORS } from './symmetry';
 import { TEMPLATE_OPERATORS } from './templates';
 import { WORKSPACE_OPERATORS } from './workspace';
 import { registerBuiltinWorkspaces } from '../../workspaces';
+import { bindCapture } from '../../edit/capture';
+import { attachLastRunTracker } from './lastop';
 
 export { BUILTIN_EXPORTERS, BUILTIN_IMPORTERS, BUILTIN_MENU_ITEMS };
 
@@ -111,6 +113,10 @@ export function registerBuiltinOperators(app: EditorApp): Disposer {
 
 /** Operators, importers, exporters, BUILTIN_EXPORT_PROFILES, menu items, MAYA_KEYMAP and (M6a) workspaces. */
 export function registerBuiltins(app: EditorApp): Disposer {
+  // M6a (B11): the Last-op card's tracker and the numeric capture window bind to the app up front (tools arm the
+  // capture before any operator runs).
+  attachLastRunTracker(app);
+  bindCapture(app);
   const disposers: Disposer[] = [registerBuiltinOperators(app), registerBuiltinWorkspaces(app)];
   for (const def of BUILTIN_IMPORTERS) {
     if (app.importers.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'importer', def }));

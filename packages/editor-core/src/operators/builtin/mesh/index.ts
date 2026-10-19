@@ -1,35 +1,135 @@
-// Kernel mesh operators (M6A-SPEC §6.1): every `mesh.*` op registered from its **descriptor** (eager; no kernel code)
-// with its final label, params, flags and pass-through args, as a stub that poll-fails "not available yet". B11
-// registers them through `meshOperator`/`meshSetOperator` (`editor-core/src/mesh/operator.ts`) as their kernels land.
+// Kernel mesh operators (M6A-SPEC §6.1; B11, research 16 U-2): every `mesh.*` op registered from its **descriptor**
+// (eager; no kernel code in the editor route) through `meshOperator` / `meshSetOperator` (B7), with Maya's label,
+// Blender names as command-palette aliases, the tool that `G` (after a tool run) and `Y` re-activate, and the
+// internal flag for the ops other operators run (`mesh.applyTransform`: Freeze and Bake Pivot; `mesh.paint.remap`:
+// Replace Swatch).
+//
+// The LastRun recorder stores **resolved** args (§5.7: `OpResult.resolvedArgs` for kernel ops): `apply` is B7's
+// commit path (the same calls `meshOperator.apply` makes) with the kernel's resolved args remembered for the outcome
+// it returns. Until a kernel owner lands an op, the kernel's stub refuses it with "<Label> is not available yet".
+import { EkzaError } from '@ekza-animator/anim-core';
+import type { MeshOpDescriptor, MeshSetOpDescriptor } from '@ekza-animator/mesh-core';
 import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
-import { MESH_EXTRA_ARGS } from '../../../mesh/operator';
-import type { OperatorMap } from '../../args';
+import { attachMeshes } from '../../../mesh';
+import { meshKernel } from '../../../mesh/kernel';
+import { kindOf, MESH_EXTRA_ARGS, meshOperator, meshSetOperator, opArgs, targetsOf } from '../../../mesh/operator';
+import { runSeed, runSettings } from '../../../mesh/seed';
+import type { MeshOpArgs, MeshOpOutcome, OperatorDef, ToolId } from '../../../types';
 import type { AnyOperator } from '../define';
-import { stubOperator } from '../stub';
+import { rememberResolvedArgs } from '../lastop';
 
-type MeshOperatorId = Extract<keyof OperatorMap, `mesh.${string}`>;
+export { MESH_EXTRA_ARGS };
 
-function stub(desc: {
-  readonly id: string;
-  readonly label: string;
-  readonly params: (typeof MESH_OP_DESCRIPTORS)[string]['params'];
-  readonly flags: { readonly adjustable: boolean; readonly repeatable: boolean };
-}): AnyOperator {
-  return stubOperator(desc.id as MeshOperatorId, desc.label, {
+/** Blender names (and a few Maya synonyms) the command palette also finds (§6: "Blender names are palette aliases"). */
+export const MESH_OP_ALIASES: Readonly<Record<string, readonly string[]>> = {
+  'mesh.transformComponents': ['Move Components', 'Rotate Components', 'Scale Components', 'Grab'],
+  'mesh.extrude': ['Extrude Region', 'Extrude Faces', 'Extrude Edges'],
+  'mesh.inset': ['Inset Faces'],
+  'mesh.bevel': ['Bevel Edges', 'Chamfer'],
+  'mesh.insertLoop': ['Loop Cut', 'Loop Cut and Slide', 'Edge Loop'],
+  'mesh.offsetLoop': ['Offset Edge Slide'],
+  'mesh.connect': ['Connect Vertex Path', 'Connect Components'],
+  'mesh.cut': ['Knife', 'Knife Tool'],
+  'mesh.slide': ['Edge Slide', 'Vertex Slide'],
+  'mesh.averageVertices': ['Smooth Vertices'],
+  'mesh.bridge': ['Bridge Edge Loops'],
+  'mesh.fillHole': ['Fill', 'Make Face'],
+  'mesh.merge': ['Merge Vertices', 'Weld'],
+  'mesh.mergeToCenter': ['Merge at Center', 'Collapse to Center'],
+  'mesh.mergeByDistance': ['Remove Doubles', 'Merge Vertices by Distance'],
+  'mesh.targetWeld': ['Weld to Target', 'Merge at Last'],
+  'mesh.collapse': ['Collapse Edges'],
+  'mesh.delete': ['Delete Faces', 'Delete Edges', 'Delete Vertices'],
+  'mesh.deleteEdgeVertex': ['Dissolve', 'Dissolve Edges', 'Dissolve Vertices'],
+  'mesh.spinEdge': ['Rotate Edge'],
+  'mesh.flipTriangleEdge': ['Flip Edge'],
+  'mesh.triangulate': ['Triangulate Faces'],
+  'mesh.quadrangulate': ['Tris to Quads'],
+  'mesh.harden': ['Mark Sharp', 'Harden Edges'],
+  'mesh.soften': ['Clear Sharp', 'Soften Edges'],
+  'mesh.setNormalAngle': ['Smooth by Angle', 'Auto Smooth'],
+  'mesh.reverse': ['Flip Normals', 'Reverse Normals'],
+  'mesh.conform': ['Recalculate Normals', 'Recalculate Outside'],
+  'mesh.mirror': ['Mirror Mesh'],
+  'mesh.symmetrize': ['Symmetrize Mesh'],
+  'mesh.uv.planar': ['Project from View', 'Planar Projection'],
+  'mesh.uv.box': ['Cube Projection', 'Box Mapping'],
+  'mesh.uv.cylindrical': ['Cylinder Projection'],
+  'mesh.cleanup': ['Clean Up Mesh'],
+  'mesh.paint': ['Assign Colour', 'Paint Faces'],
+  'mesh.combine': ['Join'],
+  'mesh.separate': ['Separate by Loose Parts'],
+  'mesh.extract': ['Separate Selection'],
+  'mesh.duplicateFaces': ['Duplicate Faces'],
+};
+
+/** The tool `G` re-activates after a tool run and `Y` returns to (§6.1 UI column, §5.7 rules 1 and 3). */
+export const MESH_OP_TOOLS: Readonly<Record<string, ToolId>> = {
+  'mesh.insertLoop': 'insertLoop',
+  'mesh.cut': 'multiCut',
+  'mesh.slide': 'slide',
+  'mesh.targetWeld': 'targetWeld',
+  'mesh.paint': 'paint',
+  'mesh.paint.fillShell': 'paint',
+};
+
+/** Ops only other operators run (not in menus, the palette or the Toolkit). */
+export const INTERNAL_MESH_OPS: ReadonlySet<string> = new Set(['mesh.applyTransform', 'mesh.paint.remap']);
+
+/** One-line descriptions for the command palette and tooltips (the label says the rest). */
+function descriptionOf(label: string, kinds: MeshOpDescriptor['kinds'] | null): string {
+  if (kinds === null) return `${label} (mesh objects).`;
+  return kinds === 'object' ? `${label} (whole meshes).` : `${label} (${kinds.join(', ')} components).`;
+}
+
+/** `meshOperator` with the kernel's resolved args remembered for the LastRun recorder (§5.7). */
+export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<MeshOpArgs, MeshOpOutcome, void> {
+  const tool = MESH_OP_TOOLS[desc.id];
+  const aliases = MESH_OP_ALIASES[desc.id];
+  const base = meshOperator(desc, {
     category: 'mesh',
-    description: `${desc.label} (polygon modeling).`,
     scope: 'model',
-    undo: true,
-    adjustable: desc.flags.adjustable,
-    repeatable: desc.flags.repeatable,
-    params: desc.params,
-    extraArgs: MESH_EXTRA_ARGS,
-    workspaces: ['model'],
+    ...(tool === undefined ? {} : { tool }),
+    ...(aliases === undefined ? {} : { aliases }),
   });
+  const objectLevel = desc.kinds === 'object';
+  return {
+    ...base,
+    description: descriptionOf(desc.label, desc.kinds),
+    flags: { ...base.flags, ...(INTERNAL_MESH_OPS.has(desc.id) ? { internal: true } : {}) },
+    apply(ctx, args): MeshOpOutcome {
+      const op = meshKernel()?.MESH_OPS[desc.id];
+      const meshes = attachMeshes(ctx.app);
+      if (ctx.tx === null || op === undefined || meshes === null) {
+        throw new EkzaError('mesh-loading', 'Mesh tools are loading');
+      }
+      const kind = objectLevel ? null : kindOf(ctx.app, args);
+      const targets = targetsOf(ctx.app, args, kind, objectLevel);
+      const settings = runSettings(ctx, desc.id);
+      const result = meshes.commitOp(ctx.tx, op, targets, opArgs(args), {
+        seed: runSeed(ctx, desc.id),
+        kind,
+        ...(settings === undefined ? {} : { settings }),
+      });
+      const outcome: MeshOpOutcome = { meshes: targets, warnings: result.warnings };
+      rememberResolvedArgs(outcome, result.resolvedArgs);
+      return outcome;
+    },
+  };
+}
+
+export function registeredMeshSetOperator(desc: MeshSetOpDescriptor): AnyOperator {
+  const aliases = MESH_OP_ALIASES[desc.id];
+  const base = meshSetOperator(desc, { category: 'mesh' });
+  return {
+    ...base,
+    description: descriptionOf(desc.label, null),
+    ...(aliases === undefined ? {} : { aliases }),
+  };
 }
 
 /** Every §6.1 MeshOp and set-op, in descriptor order. */
 export const MESH_OPERATORS: readonly AnyOperator[] = [
-  ...Object.values(MESH_OP_DESCRIPTORS).map(stub),
-  ...Object.values(MESH_SET_OP_DESCRIPTORS).map(stub),
+  ...Object.values(MESH_OP_DESCRIPTORS).map((desc) => registeredMeshOperator(desc) as unknown as AnyOperator),
+  ...Object.values(MESH_SET_OP_DESCRIPTORS).map(registeredMeshSetOperator),
 ];
