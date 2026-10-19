@@ -279,6 +279,20 @@ describe('session counts and edit links', () => {
     expect(versions).toEqual([...versions].sort((x, y) => x - y));
   });
 
+  it('a component tool in object mode hilites (and opens) the selected meshes until it ends (§5.6)', async () => {
+    const { app: a, cube, plane } = await setup();
+    a.session.setState({ selection: { ...a.session.getState().selection, objects: [cube] } });
+    const model = a.session.getState().model;
+    a.session.setState({ model: { ...model, hilite: [plane] } }); // the last component session's list
+    a.session.setState({ tools: { ...a.session.getState().tools, viewport: 'multiCut' } });
+    expect(a.session.getState().model.componentMode).toBe('object');
+    expect(a.session.getState().model.hilite).toEqual([cube]);
+    expect(a.meshes.get(cube)?.isOpen).toBe(true);
+    a.session.setState({ tools: { ...a.session.getState().tools, viewport: 'select' } });
+    expect(a.session.getState().model.hilite).toEqual([plane]);
+    expect(a.meshes.get(cube)?.isOpen).toBe(false);
+  });
+
   it('opens the hilited meshes in a component mode and closes them in object mode or outside Model (§5.5 r8)', async () => {
     const { app: a, cube, plane } = await setup();
     expect(a.meshes.get(cube)?.isOpen).toBe(false);

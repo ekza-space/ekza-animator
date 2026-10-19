@@ -3,6 +3,7 @@ export { type ModelPointerProbe, modelPointer, provideModelPointer } from './pro
 export {
   type ClickRecord,
   type ComponentSelectionDeps,
+  COMPONENT_TOOLS,
   type ComponentServiceInternals,
   componentInternals,
   createComponentSelectionService,

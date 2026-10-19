@@ -165,6 +165,7 @@ export { COMPONENT_MODE_FIRST, EDGE_MODE_FIRST, NOTHING_SELECTED } from './opera
 export {
   type ClickRecord,
   type ComponentServiceInternals,
+  COMPONENT_TOOLS,
   componentInternals,
   facesTouching,
   type ModelPointerProbe,

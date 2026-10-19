@@ -126,6 +126,13 @@ export function componentInternals(service: ComponentSelectionService): Componen
 
 const ZERO: ComponentCounts = { vertex: 0, edge: 0, face: 0 };
 
+/** The component tools that hilite in object mode (§5.6): Multi-Cut, Insert Edge Loop, Target Weld, Slide, Paint. */
+export const COMPONENT_TOOLS: ReadonlySet<string> = new Set(['multiCut', 'insertLoop', 'targetWeld', 'slide', 'paint']);
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, i) => id === b[i]);
+}
+
 function sameCounts(a: ComponentCounts, b: ComponentCounts): boolean {
   return a.vertex === b.vertex && a.edge === b.edge && a.face === b.face;
 }
@@ -329,10 +336,38 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
   };
 
   /** Opens the hilited meshes while a component mode is active in Model; closes what it opened otherwise. */
+  /**
+   * §5.6 "Component tools in object mode": activating one of them in object mode hilites the selected meshes (their
+   * components are what the tool works on) without changing the mode; the hilite ends with the tool. `previous` is the
+   * hilite list it replaced (kept for the Last-op card's comparison, §5.7).
+   */
+  let toolHilite: { readonly previous: readonly MeshId[] } | null = null;
+
+  const followTool = (s: SessionState): void => {
+    const tool = s.workspace === 'model' && s.model.componentMode === 'object' && COMPONENT_TOOLS.has(s.tools.viewport);
+    if (s.model.componentMode !== 'object') {
+      toolHilite = null; // a component mode took over the hilite
+      return;
+    }
+    if (tool && toolHilite === null) {
+      const registry = deps.meshes();
+      const selected = s.selection.objects.filter((id) => registry.get(id as MeshId) !== undefined) as MeshId[];
+      toolHilite = { previous: s.model.hilite };
+      if (selected.length > 0 && !sameIds(selected, s.model.hilite)) {
+        deps.session.setState({ model: { ...s.model, hilite: selected } });
+      }
+    } else if (!tool && toolHilite !== null) {
+      const { previous } = toolHilite;
+      toolHilite = null;
+      const model = deps.session.getState().model;
+      if (!sameIds(previous, model.hilite)) deps.session.setState({ model: { ...model, hilite: previous } });
+    }
+  };
+
   const followHilite = (): void => {
     const registry = deps.meshes();
     const s = deps.session.getState();
-    const active = s.workspace === 'model' && s.model.componentMode !== 'object';
+    const active = s.workspace === 'model' && (s.model.componentMode !== 'object' || toolHilite !== null);
     const wanted = new Set<MeshId>(active ? s.model.hilite : []);
     for (const id of Array.from(opened)) {
       if (wanted.has(id) && registry.get(id) !== undefined) continue;
@@ -366,10 +401,12 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
       if (
         s.workspace === previous.workspace &&
         s.model.componentMode === previous.model.componentMode &&
-        s.model.hilite === previous.model.hilite
+        s.model.hilite === previous.model.hilite &&
+        s.tools.viewport === previous.tools.viewport
       ) {
         return;
       }
+      followTool(s);
       followHilite();
       if (s.model.hilite !== previous.model.hilite) publish();
     });
