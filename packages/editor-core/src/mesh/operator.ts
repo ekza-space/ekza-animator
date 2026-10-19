@@ -21,7 +21,7 @@ import type {
 import { attachMeshes } from './index';
 import { loadMeshKernel, meshKernel } from './kernel';
 import type { KernelMeshRuntimes } from './registry';
-import { runSeed, runSettings } from './seed';
+import { adjustedRun, runSeed, runSettings } from './seed';
 
 /** The arg keys every mesh operator passes through `coerceArgs` untouched. */
 export const MESH_EXTRA_ARGS: readonly string[] = ['meshes', 'kind'];
@@ -179,7 +179,11 @@ export function meshSetOperator(
       const meshes = registryOf(ctx.app);
       const inputs = targetsOf(ctx.app, args, null, true);
       const kind = kindOf(ctx.app, args);
-      return meshes.commitSetOp(ctx.tx, op, inputs, opArgs(args), { seed: runSeed(ctx, desc.id), kind });
+      return meshes.commitSetOp(ctx.tx, op, inputs, opArgs(args), {
+        seed: runSeed(ctx, desc.id),
+        kind,
+        adjusting: adjustedRun(ctx, desc.id) !== null,
+      });
     },
   };
 }

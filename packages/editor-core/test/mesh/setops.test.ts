@@ -14,6 +14,7 @@ import {
 } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { OperatorDef } from '../../src';
+import { ADJUST_RECORD_SET } from '../../src/mesh/setOps';
 import { createMesh, cube, meshTestApp, type MeshTestApp } from './support';
 
 const IDENTITY = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } as const;
@@ -205,5 +206,43 @@ describe('MeshSetOp runner (§5.13)', () => {
     });
     expect(t.app.history.peekUndo()?.label).toBe('Create');
     expect(t.app.meshes.get(a)?.isOpen).toBe(false);
+  });
+});
+
+describe('Adjust Last over a MeshSetOp (§5.13 record-set rule)', () => {
+  it('refuses an adjusted re-run that would change which meshes exist; the same set re-runs', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_In');
+    let pieces = 2;
+    const variable = setOp('mesh.test.variable', 'one', (inputs) => {
+      const input = inputs[0] as MeshSetInput;
+      return {
+        outputs: Array.from({ length: pieces }, (_, n) => ({
+          key: `new:${n}`,
+          data: cube(),
+          placement: input.placement,
+          materials: input.materials,
+          from: [input.key],
+          selection: null,
+          name: 'Piece',
+        })),
+        removed: [],
+        warnings: [],
+      };
+    });
+    const commit = (adjusting: boolean) =>
+      t.app.store.transact({ label: 'Variable' }, (tx) =>
+        t.meshes.commitSetOp(tx, variable, [id], {}, { seed: 'seed', kind: null, adjusting }),
+      );
+    commit(false);
+    t.app.history.undo();
+    // The same record set: allowed (and the derived ids are reused).
+    pieces = 2;
+    expect(commit(true).created).toHaveLength(2);
+    t.app.history.undo();
+    pieces = 3;
+    expect(() => commit(true)).toThrow(expect.objectContaining({ code: 'op-refused', message: ADJUST_RECORD_SET }));
+    // A first run (not an adjustment) may yield any set.
+    expect(commit(false).created).toHaveLength(3);
   });
 });

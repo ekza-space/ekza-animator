@@ -84,6 +84,8 @@ export interface CommitContext {
   readonly selection?: ReadonlyMap<MeshId, ComponentSelection>;
   /** Recorded symmetry/soft settings of a re-run (`LastRun.context`, §5.7); default: the session's. */
   readonly settings?: RunSettings;
+  /** An adjusted re-run (§5.7): a MeshSetOp must yield the same output keys as the last run (§5.13). */
+  readonly adjusting?: boolean;
 }
 
 /** Timers of the deferred work (fake ones in tests). */
@@ -1030,10 +1032,11 @@ export function createMeshRuntimeRegistry(deps: MeshRegistryDeps): KernelMeshRun
         selectionFor: (id, k) => selectionFor(id, k),
         placement: (record) => worldPlacement(tx, record),
         storeRevision: (data, prior, joints) => registry.storeRevision(data, prior, joints),
+        ...(ctx.adjusting === true && lastSetOp?.opId === op.id ? { expectOutputs: lastSetOp.outputs } : {}),
       });
       for (const id of [...result.result.created, ...result.result.updated]) {
         const sel = result.selections.get(id);
-        if (sel !== undefined && sel !== null) localSelections.set(id, sel);
+        if (sel !== undefined && sel !== null) storeSelection(id, sel);
       }
       pinLastOp([]);
       lastSetOp = { opId: op.id, inputs: result.preOp, outputs: result.outputKeys };

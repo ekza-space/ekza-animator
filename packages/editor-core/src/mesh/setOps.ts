@@ -43,7 +43,12 @@ export interface SetOpRun {
   selectionFor(id: MeshId, kind: ComponentKind): ComponentSelection | null;
   placement(record: MeshRecord): ReadonlyXf;
   storeRevision(data: MeshData, prior: MeshRef | null, joints: readonly string[]): MeshRef;
+  /** Adjust Last: the output keys of the run being adjusted (a different record set is refused, §5.13). */
+  readonly expectOutputs?: readonly string[];
 }
+
+/** §5.13: the refusal reason when an adjusted re-run would create or keep other records. */
+export const ADJUST_RECORD_SET = 'Adjust would change which meshes exist';
 
 export interface SetOpOutcome {
   readonly result: MeshSetCommitResult;
@@ -112,6 +117,11 @@ export function runSetOp(run: SetOpRun): SetOpOutcome {
     close();
   }
   if (isRefusal(result)) throw new EkzaError('op-refused', result.reason, { code: result.code });
+  if (run.expectOutputs !== undefined) {
+    const keys = result.outputs.map((o) => o.key);
+    const same = keys.length === run.expectOutputs.length && keys.every((key, i) => key === run.expectOutputs?.[i]);
+    if (!same) throw new EkzaError('op-refused', ADJUST_RECORD_SET, { code: 'adjust.record-set' });
+  }
 
   const created: MeshId[] = [];
   const updated: MeshId[] = [];
