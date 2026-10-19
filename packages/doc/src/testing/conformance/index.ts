@@ -6,6 +6,8 @@ import { registerCoreCases } from './core';
 import { hostRunner } from './harness';
 import { registerReplicatingCases } from './replicating';
 import { registerSchemaV3Cases, registerSchemaV3ReplicatingCases } from './schemaV3';
+// M6a B7: the opaque mesh-ref cases (testing/meshRefs.ts).
+import { registerMeshRefCases, registerMeshRefReplicatingCases } from '../meshRefs';
 
 /**
  * Registers the suite with the host test runner's global `describe`/`it` (Vitest needs `globals: true`). `factory`
@@ -19,9 +21,11 @@ export function runDocumentStoreConformance(label: string, factory: () => Docume
   runner.describe(`DocumentStore conformance: ${label}`, () => {
     registerCoreCases(runner, factory);
     registerSchemaV3Cases(runner, factory);
+    registerMeshRefCases(runner, factory);
     if (caps.replicating) {
       registerReplicatingCases(runner, caps);
       registerSchemaV3ReplicatingCases(runner, caps);
+      registerMeshRefReplicatingCases(runner, caps);
     }
   });
 }

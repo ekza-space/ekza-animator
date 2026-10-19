@@ -1,11 +1,14 @@
 // M6a test API, B7 group (M6A-SPEC §4.8): mesh records, revisions and derived data through the kernel, and the blob
-// store. B0a: `meshes`, `meshInfo`, `meshNormals` (the reference kernel) and `blobs` are kernel-level and work; the
-// others throw until B7 lands them.
-import type { MeshId, MeshRecord } from '@ekza-animator/doc';
-import { meshKernel } from '@ekza-animator/editor-core';
+// store. `meshes()` lists the records plus one virtual row per loaded character glTF mesh without a record (badge
+// 'asset', its derived MeshId, §5.21); counts, stats and normals come from the runtimes (the kernel's one
+// triangulation and normals); positions in mesh-local or world space (the placement through groups, parent meshes and
+// the character root).
+import { quatRotateVec3 } from '@ekza-animator/anim-core';
+import { derivedId, type MeshId, type MeshRecord } from '@ekza-animator/doc';
+import { attachMeshes, meshKernel, worldPlacement } from '@ekza-animator/editor-core';
 import type { MeshData } from '@ekza-animator/mesh-core';
 import type { EkzaAnimatorTestApi } from '../types';
-import { type M6aTestApiContext, notImplemented } from './support';
+import type { M6aTestApiContext } from './support';
 
 export type MeshRuntimeDocTestApi = Pick<
   EkzaAnimatorTestApi,
@@ -19,6 +22,9 @@ export type MeshRuntimeDocTestApi = Pick<
   | 'shading'
   | 'blobs'
 >;
+
+const EDGE_HARD = 1;
+const EDGE_SEAM = 2;
 
 /** Rows of a Float32Array of `n` vectors with `k` components. */
 function rows(values: ArrayLike<number>, k: number): number[][] {
@@ -47,11 +53,48 @@ function boundsOf(data: MeshData): [number[], number[]] {
     : [min, max];
 }
 
+/** Faces as vertex index lists in winding order. */
+function facesOf(data: MeshData): number[][] {
+  const out: number[][] = [];
+  for (let f = 0; f < data.counts.faces; f++) {
+    const first = data.faceCorner[f] as number;
+    const face: number[] = [];
+    let c = first;
+    for (let guard = 0; guard <= data.counts.corners; guard++) {
+      face.push(data.cornerVert[c] as number);
+      c = data.cornerNext[c] as number;
+      if (c === first) break;
+    }
+    out.push(face);
+  }
+  return out;
+}
+
+/** Number of faces using each edge (corners whose side is the edge). */
+function edgeFaceCounts(data: MeshData): Int32Array {
+  const P = data.counts.points;
+  const index = new Map<number, number>();
+  for (let e = 0; e < data.counts.edges; e++) {
+    const a = data.edgeVerts[2 * e] as number;
+    const b = data.edgeVerts[2 * e + 1] as number;
+    index.set(Math.min(a, b) * P + Math.max(a, b), e);
+  }
+  const counts = new Int32Array(data.counts.edges);
+  for (let c = 0; c < data.counts.corners; c++) {
+    const a = data.cornerVert[c] as number;
+    const b = data.cornerVert[data.cornerNext[c] as number] as number;
+    const e = index.get(Math.min(a, b) * P + Math.max(a, b));
+    if (e !== undefined) counts[e] = (counts[e] as number) + 1;
+  }
+  return counts;
+}
+
 export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTestApi {
   const { app } = ctx.shell;
   const ownerOf = (record: MeshRecord): string =>
     'character' in record.owner ? `char:${record.owner.character}` : 'scene';
   const ready = (mesh: string): { readonly record: MeshRecord; readonly data: MeshData } | null => {
+    attachMeshes(app);
     const record = app.store.get('meshes', mesh as MeshId);
     const data = app.meshes.get(mesh as MeshId)?.data() ?? null;
     return record === undefined || data === null ? null : { record, data };
@@ -63,10 +106,16 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
     c: data.counts.corners,
     tris: (app.meshes.get(mesh as MeshId)?.triangulation().tris.length ?? 0) / 3,
   });
+  const require = (mesh: string, fn: string): { readonly record: MeshRecord; readonly data: MeshData } => {
+    const found = ready(mesh);
+    if (found === null) throw new Error(`${fn}: mesh ${mesh} has no ready runtime`);
+    return found;
+  };
   return {
     meshes() {
       ctx.sync();
-      return app.store.list('meshes').map((record) => {
+      attachMeshes(app);
+      const rows: ReturnType<EkzaAnimatorTestApi['meshes']> = app.store.list('meshes').map((record) => {
         const runtime = app.meshes.get(record.id);
         const data = runtime?.data() ?? null;
         return {
@@ -84,6 +133,31 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
           runtime: runtime?.state ?? 'none',
         };
       });
+      // Virtual rows: glTF meshes of loaded characters that have no record yet (§5.21: Make editable creates it).
+      for (const character of app.characters.list()) {
+        const listed = (character.container.json as { readonly meshes?: unknown }).meshes;
+        const meshes: readonly { readonly name?: unknown }[] = Array.isArray(listed) ? listed : [];
+        meshes.forEach((mesh, index) => {
+          const id = derivedId('mesh', 'asset', [character.id], '', index);
+          if (app.store.getIncludingDeleted('meshes', id) !== undefined) return;
+          const name = typeof mesh.name === 'string' && mesh.name !== '' ? mesh.name : `Mesh ${index}`;
+          rows.push({
+            id,
+            name,
+            owner: `char:${character.id}`,
+            parent: null,
+            badge: 'asset',
+            manifest: null,
+            rev: 0,
+            faceted: false,
+            generator: null,
+            palette: null,
+            counts: null,
+            runtime: 'none',
+          });
+        });
+      }
+      return rows;
     },
     meshNormals(mesh) {
       ctx.sync();
@@ -113,16 +187,69 @@ export function meshRuntimeDocTestApi(ctx: M6aTestApiContext): MeshRuntimeDocTes
         layers: [...found.data.layers.keys()],
       };
     },
-    meshPositions: () => notImplemented('B7', 'meshPositions'),
-    meshFaces: () => notImplemented('B7', 'meshFaces'),
-    meshEdges: () => notImplemented('B7', 'meshEdges'),
-    meshLayer: () => notImplemented('B7', 'meshLayer'),
-    shading: () => notImplemented('B7', 'shading'),
+    meshPositions(mesh, verts, space = 'local') {
+      ctx.sync();
+      const { record, data } = require(mesh, 'meshPositions');
+      const all = verts ?? Array.from({ length: data.counts.points }, (_, i) => i);
+      const world = space === 'world' ? worldPlacement(app.store, record) : null;
+      return all.map((v) => {
+        const p: [number, number, number] = [
+          data.position[3 * v] as number,
+          data.position[3 * v + 1] as number,
+          data.position[3 * v + 2] as number,
+        ];
+        if (world === null) return p;
+        const scaled: [number, number, number] = [p[0] * world.s[0], p[1] * world.s[1], p[2] * world.s[2]];
+        const r = quatRotateVec3(world.q, scaled, [0, 0, 0]);
+        return [r[0] + world.t[0], r[1] + world.t[1], r[2] + world.t[2]];
+      });
+    },
+    meshFaces(mesh) {
+      ctx.sync();
+      return facesOf(require(mesh, 'meshFaces').data);
+    },
+    meshEdges(mesh) {
+      ctx.sync();
+      const { data } = require(mesh, 'meshEdges');
+      const faces = edgeFaceCounts(data);
+      return Array.from({ length: data.counts.edges }, (_, e) => {
+        const flags = data.edgeFlags[e] as number;
+        return {
+          v: [data.edgeVerts[2 * e] as number, data.edgeVerts[2 * e + 1] as number] as [number, number],
+          hard: (flags & EDGE_HARD) !== 0,
+          seam: (flags & EDGE_SEAM) !== 0,
+          faces: faces[e] as number,
+        };
+      });
+    },
+    meshLayer(mesh, layer, indices) {
+      ctx.sync();
+      const { data } = require(mesh, 'meshLayer');
+      const found = data.layers.get(layer);
+      if (found === undefined) return [];
+      const all = rows(found.data, found.def.comps);
+      return indices === undefined ? all : indices.map((i) => all[i] ?? []);
+    },
+    shading(mesh) {
+      ctx.sync();
+      const { data } = require(mesh, 'shading');
+      const faces = edgeFaceCounts(data);
+      let hardEdges = 0;
+      let softEdges = 0;
+      let borderEdges = 0;
+      for (let e = 0; e < data.counts.edges; e++) {
+        if ((faces[e] as number) < 2) borderEdges++;
+        else if (((data.edgeFlags[e] as number) & EDGE_HARD) !== 0) hardEdges++;
+        else softEdges++;
+      }
+      return { hardEdges, softEdges, borderEdges };
+    },
     blobs() {
+      const meshes = attachMeshes(app);
       return {
         resident: app.blobs.ids().length,
         residentBytes: app.blobs.residentBytes,
-        historyBytes: 0, // B7: bytes the undo history keeps alive (the budget, §5.20)
+        historyBytes: meshes?.historyBytes ?? 0,
         journalBytes: app.meshes.journalBytes,
       };
     },

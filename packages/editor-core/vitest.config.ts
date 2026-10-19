@@ -9,5 +9,7 @@ export default defineConfig({
     setupFiles: ['test/setup.ts'],
     // property and browser tests take seconds on 2-core CI runners; the 5 s default is too tight there
     testTimeout: 30_000,
+    // M6a B7: report-only benches (`vitest bench --run`), M6A-SPEC §5.27.
+    benchmark: { include: ['bench/**/*.bench.ts'] },
   },
 });
