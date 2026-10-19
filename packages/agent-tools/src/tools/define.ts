@@ -1,6 +1,7 @@
 // Tool definitions (MCP-SPEC §4.4, §6): `defineTool` keeps a definition's input and output types together, and D0's
 // stubs answer `unsupported` "not available yet" with `ready: false` (§3 rule 1) until their owner lands the tool.
-import type { z } from 'zod';
+import { z } from 'zod';
+import { TRUNCATED_FIELD } from '../budget/budget';
 import type { AgentToolDef, AgentToolResult } from '../types';
 import { AgentToolFailure } from '../types';
 
@@ -33,8 +34,18 @@ type Def<I extends z.ZodObject, O extends z.ZodType> = Omit<AgentToolDef<I, O>, 
   readonly run?: AgentToolDef<I, O>['run'];
 };
 
+/**
+ * The output with the `truncated` field every result may carry (§5.5): the runtime sets `truncated: true` when it cuts
+ * a result to the hard cap, and the advertised `data` object is closed, so every output declares the field. An output
+ * that declares its own `truncated` (keys_read, curves_summary, pose_read) keeps it.
+ */
+export function withTruncated<O extends z.ZodType>(output: O): z.ZodType {
+  if (!(output instanceof z.ZodObject) || Object.hasOwn(output.shape, 'truncated')) return output;
+  return output.extend({ truncated: TRUNCATED_FIELD });
+}
+
 /** A tool definition; without `run` it is a D0 stub (`ready: false`, answers `unsupported`). */
 export function defineTool<I extends z.ZodObject, O extends z.ZodType>(def: Def<I, O>): AgentToolDef {
   const run = def.run ?? notAvailableYet(def.name);
-  return { ...def, ready: def.ready ?? false, run } as unknown as AgentToolDef;
+  return { ...def, output: withTruncated(def.output), ready: def.ready ?? false, run } as unknown as AgentToolDef;
 }

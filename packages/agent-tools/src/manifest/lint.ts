@@ -2,7 +2,7 @@
 // combinators, `additionalProperties: false` on every object (records excepted), property names, descriptions,
 // `required` without defaulted fields, strict nested objects (unknown keys rejected at every level), bounds on every
 // number, unit suffixes on unit-bearing numeric fields, description length and first sentence, tool names, an
-// object output schema. The Ajv 2020-12 meta-schema check runs in the package's tests (Ajv is a dev dependency).
+// object output schema whose `data` declares `truncated` (§5.5). The Ajv 2020-12 meta-schema check runs in the package's tests (Ajv is a dev dependency).
 import type { z } from 'zod';
 import type { AgentToolDef } from '../types';
 import { manifestToolOf } from './manifest';
@@ -226,6 +226,16 @@ export function lintTool(tool: AgentToolDef): string[] {
   if (unknownKey.success) at('the input accepts an unknown root key');
   const output = entry.outputSchema;
   if (output['type'] !== 'object') at('outputSchema is not an object');
+  // §5.5: the runtime may cut any result and sets `data.truncated`; the closed `data` object must declare it.
+  const data = isObject(output['properties']) ? output['properties']['data'] : undefined;
+  const dataProperties = isObject(data) && isObject(data['properties']) ? data['properties'] : null;
+  if (dataProperties === null) at('output data is not an object with properties');
+  else {
+    const truncated = dataProperties['truncated'];
+    if (!isObject(truncated) || !types(truncated).includes('boolean')) {
+      at('output data does not declare a boolean truncated field (§5.5; defineTool adds it)');
+    }
+  }
   walk(output, 'output', [], { violations, input: false });
   return violations.map((v) => (v.startsWith(`${tool.name}: `) ? v : `${tool.name}: ${v}`));
 }

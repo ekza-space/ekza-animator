@@ -1,9 +1,16 @@
 // The result envelope (MCP-SPEC §5.3): every outgoing string through the one sanitiser, `warnings` capped (≤ 10,
 // ≤ 200 characters each), `data` cut to the tool's hard token cap (§5.5). Used by the runtime for every result and by
 // the server again on every tab result (§5.10).
-import { MAX_WARNINGS, TRUNCATED_NEXT, WARNING_MAX_CHARS, enforceBudget } from '../budget/budget';
+import {
+  enforceBudget,
+  type JsonSchema,
+  MAX_WARNINGS,
+  OVER_BUDGET_HINT,
+  TRUNCATED_NEXT,
+  WARNING_MAX_CHARS,
+} from '../budget/budget';
 import { NAME_MAX_CHARS, PROSE_MAX_CHARS, sanitizeDeep, sanitizeText } from '../sanitize/sanitize';
-import type { AgentToolError, AgentToolResult, ClipInfo, UndoInfo } from '../types';
+import { AgentToolFailure, type AgentToolError, type AgentToolResult, type ClipInfo, type UndoInfo } from '../types';
 
 /** At most this many candidates in an error (§4.4). */
 export const MAX_CANDIDATES = 5;
@@ -42,14 +49,34 @@ export function sanitizeError(error: AgentToolError): AgentToolError {
   };
 }
 
+/** The hard cap of a tool's `data` and the JSON Schema a cut must keep valid (`outputJsonSchemaOf(tool.output)`). */
+export interface ResultBudget {
+  readonly maxTokens: number;
+  readonly schema: JsonSchema;
+}
+
 /**
- * Sanitises a result and enforces the hard cap on its `data` (§5.3, §5.5). `maxTokens` null leaves the size alone
- * (the server's re-validation passes the tool's own cap).
+ * Sanitises a result and enforces the hard cap on its `data` (§5.3, §5.5): declared lists are cut (`truncated: true`,
+ * `next`), and a result that cannot be cut below the cap becomes a `limit` error. `budget` null leaves the size alone
+ * (error envelopes; the server's re-validation passes the tool's own budget).
  */
-export function finishResult(result: AgentToolResult<unknown>, maxTokens: number | null): AgentToolResult<unknown> {
+export function finishResult(result: AgentToolResult<unknown>, budget: ResultBudget | null): AgentToolResult<unknown> {
   if (!result.ok) return { ok: false, error: sanitizeError(result.error) };
   const clean = sanitizeDeep(result.data, { maxChars: PROSE_MAX_CHARS, kind: 'prose' });
-  const budgeted = maxTokens === null ? { data: clean, truncated: false } : enforceBudget(clean, maxTokens);
+  const budgeted =
+    budget === null ? { data: clean, truncated: false } : enforceBudget(clean, budget.maxTokens, budget.schema);
+  if (budgeted.over !== undefined && budget !== null) {
+    return {
+      ok: false,
+      error: sanitizeError(
+        new AgentToolFailure(
+          'limit',
+          `The result needs about ${budgeted.over.tokens} tokens even with its lists cut; the limit is ${budget.maxTokens}.`,
+          OVER_BUDGET_HINT,
+        ).toError(),
+      ),
+    };
+  }
   const warnings = (result.warnings ?? []).slice(0, MAX_WARNINGS).map((w) => prose(w, WARNING_MAX_CHARS));
   const next = result.next ?? (budgeted.truncated ? TRUNCATED_NEXT : undefined);
   return {

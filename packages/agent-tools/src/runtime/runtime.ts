@@ -4,6 +4,7 @@
 // presence focus timing and the automatic stale check on top of this file.
 import type { AgentAccess, RunContext } from '@ekza-animator/editor-core';
 import type { z } from 'zod';
+import { outputJsonSchemaOf } from '../budget/budget';
 import { failureFrom } from '../envelope/errors';
 import { finishResult } from '../envelope/envelope';
 import { createResolver } from '../resolve/resolver';
@@ -223,7 +224,7 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
           typeof intentArg === 'string' ? sanitizeText(intentArg, { maxChars: INTENT_MAX_CHARS, kind: 'name' }) : null;
         // Every result that carries a clip marks it seen (§4.4): P2, which knows the clip id behind ClipInfo.
         const result = await tool.run(context(tool, callOpts.signal, intent, callOpts.progress), args);
-        return finishResult(result, tool.budget.maxTokens);
+        return finishResult(result, { maxTokens: tool.budget.maxTokens, schema: outputJsonSchemaOf(tool.output) });
       } catch (error) {
         return finishResult({ ok: false, error: failureFrom(error).toError() }, null);
       }

@@ -22,7 +22,7 @@ export {
   type ResolverOptions,
   SEC_NODE_MAX,
 } from './resolve/resolver';
-export { finishResult, MAX_CANDIDATES, sanitizeError } from './envelope/envelope';
+export { finishResult, MAX_CANDIDATES, type ResultBudget, sanitizeError } from './envelope/envelope';
 export { failureFrom, failureFromEkza, finishedValue } from './envelope/errors';
 export {
   isClean,
@@ -34,16 +34,21 @@ export {
   sanitizeText,
 } from './sanitize/sanitize';
 export {
+  type BudgetOutcome,
   CHARS_PER_TOKEN,
   enforceBudget,
+  type JsonSchema,
   MAX_WARNINGS,
+  OVER_BUDGET_HINT,
+  outputJsonSchemaOf,
   TRUNCATED_NEXT,
   tokensOf,
+  TRUNCATED_FIELD,
   WARNING_MAX_CHARS,
 } from './budget/budget';
 // tools, manifest, lint
 export { allTools, CORE_TOOL_COUNT, readyTools, STRETCH_TOOL_COUNT } from './tools/catalogue';
-export { BUDGETS, defineTool, notAvailableYet } from './tools/define';
+export { BUDGETS, defineTool, notAvailableYet, withTruncated } from './tools/define';
 export { buildManifest, canonicalJson, manifestAccess, manifestFileText, manifestToolOf } from './manifest/manifest';
 export { firstSentence, lintTool, lintTools, TOOL_NAME, TOOL_NOUNS, UNIT_SUFFIX } from './manifest/lint';
 export * as schemas from './schemas/common';
