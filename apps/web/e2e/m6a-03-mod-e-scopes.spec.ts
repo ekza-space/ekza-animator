@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickComponent, createPrimitive, MODEL_PANE, modKey, openModel } from './helpers/m6a-model';
+import { seedSample } from './helpers/seed';
 import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 
 // E2E-MOD-03 "Mod+E scopes" (M6A-SPEC §10.1; owner B0b): Mod+E is Extrude everywhere in the Model workspace (scope
@@ -8,6 +9,8 @@ import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 //
 // Gates (§3 rule 4): part (a) needs the Model workspace, which B9 registers (`ws=model` keeps Animate until then; see
 // docs/wp-notes/m6a-keymap-menus.md for the Gates-column request); part (b) is gated on b3, b7, b10 as §10.1 says.
+// The Export dialog opens only with something to export (`ui.open` polls "Load a character to export"), so the
+// scenes that press an Export chord load the Polybot sample first; the key routing is what this scenario checks.
 
 /** Moves the pointer to the middle of a viewport pane. */
 async function hoverPane(page: Page, paneId: string): Promise<void> {
@@ -26,6 +29,14 @@ async function hoverOutliner(page: Page): Promise<void> {
 
 async function pressMod(page: Page, key: string): Promise<void> {
   await page.keyboard.press(`${await modKey(page)}+${key}`);
+}
+
+/** Waits for the (lazy) Export dialog to show, then closes it with Esc. */
+async function closeExport(page: Page): Promise<void> {
+  await expect(page.getByTestId('export-dialog')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('export-dialog')).toBeHidden();
+  await expect.poll(() => dialog(page)).toBeNull();
 }
 
 async function dialog(page: Page): Promise<string | null> {
@@ -50,11 +61,11 @@ test.fixme('b9: E2E-MOD-03 (a) — Mod+E resolves to Extrude over the pane and t
   await expect(page.getByTestId('helpline-text')).toHaveText(refused.reason ?? '');
   expect(await dialog(page)).toBeNull();
   // Mod+Shift+E over the pane opens Export; Esc closes it.
+  await seedSample(page, 'polybot');
   await hoverPane(page, MODEL_PANE);
   await page.keyboard.press(`${await modKey(page)}+Shift+KeyE`);
   await expect.poll(() => dialog(page)).toBe('export');
-  await page.keyboard.press('Escape');
-  await expect.poll(() => dialog(page)).toBeNull();
+  await closeExport(page);
 });
 
 test.fixme('b3, b7, b10: E2E-MOD-03 (b) — Mod+E over the pane extrudes the top face of a cube', async ({ page }) => {
@@ -79,6 +90,7 @@ test('E2E-MOD-03 (c) — in Animate Mod+E opens Export (ui.open, scope global), 
   await openEditor(page, '&ws=animate');
   await expectKernelStarted(page);
   expect((await call(page, 'state')).workspace).toBe('animate');
+  await seedSample(page, 'polybot');
   for (const at of [{ panel: 'viewport', paneId: 'pane-right' }, { panel: 'outliner' }, { panel: 'graph' }]) {
     expect(await call(page, 'resolveKey', { code: 'KeyE', mod: true }, at)).toEqual({
       op: 'ui.open',
@@ -92,13 +104,11 @@ test('E2E-MOD-03 (c) — in Animate Mod+E opens Export (ui.open, scope global), 
   await page.mouse.move(pane.rect.x + pane.rect.w / 2, pane.rect.y + pane.rect.h / 2);
   await pressMod(page, 'KeyE');
   await expect.poll(() => dialog(page)).toBe('export');
-  await page.keyboard.press('Escape');
-  await expect.poll(() => dialog(page)).toBeNull();
+  await closeExport(page);
   await hoverOutliner(page);
   await page.keyboard.press(`${await modKey(page)}+Shift+KeyE`);
   await expect.poll(() => dialog(page)).toBe('export');
-  await page.keyboard.press('Escape');
-  await expect.poll(() => dialog(page)).toBeNull();
+  await closeExport(page);
   // Nothing of Model leaked into Animate's menu bar.
   await expect(page.getByTestId('menu-edit-mesh')).toHaveCount(0);
   await expect(page.getByTestId('menu-key')).toBeVisible();
