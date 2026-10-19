@@ -9,10 +9,13 @@
 // keydowns to `key()` before anything else (§5.17 step 1):
 // - a digit, `.` or `-` starts an entry for the active field (then the grammar's other characters extend it); a digit
 //   consumed this way never also switches mode or shading;
-// - `Backspace` edits the entry; `Tab`/`Shift+Tab` apply it and move between the target's fields;
+// - `Backspace` edits the entry (erased to nothing it still holds the keys: an extra `Backspace` never reaches the
+//   keymap's Delete); `Tab`/`Shift+Tab` apply it and move between the target's fields;
 // - `Enter` applies (a: confirms the drag with the typed value; b: `edit.adjustLast {[field]: value}`, announced once the
-//   re-run finished; a refusal is reported and keeps the entry) and disarms; `Enter` with no entry confirms the drag
-//   (a) or is a no-op that disarms (b);
+//   re-run finished; a refusal is reported and brings the entry back) and disarms; `Enter` with no entry — none typed,
+//   or one erased to nothing (except a nullable field's, where nothing means "auto") — confirms the drag (a) or is a
+//   no-op that disarms (b). An accepted entry leaves the window at once: keys typed while its re-run runs start a new
+//   entry instead of extending the committed one;
 // - `Esc` cancels the entry (a: cancels the drag); in (b) with no entry it disarms and passes on (edit.escape);
 // - case (b) disarms on any other key, which then reaches the keymap; an unfinished entry is **discarded** with the
 //   help line "Entry discarded" (an entry applies only on Enter or Tab). Pointer moves beyond 3 px and clicks disarm
@@ -83,6 +86,16 @@ export function createCaptureEngine(host: CaptureHost): CaptureEngine {
     return armed.target.value(field);
   };
 
+  /**
+   * Whether the window holds an entry to apply: typed text, or text erased to nothing for a nullable field (nothing
+   * there means "auto"). Text erased to nothing elsewhere is no entry (Enter disarms case (b), nothing is discarded).
+   */
+  const hasEntry = (): boolean => {
+    const { field, text } = state();
+    if (text === null) return false;
+    return text !== '' || defOf(field)?.nullable === true;
+  };
+
   /** Parses the entry for the active field; null (with a message) when it does not parse. */
   const entryValue = (): { readonly field: string; readonly value: ParamValue } | null => {
     const { field, text } = state();
@@ -101,11 +114,12 @@ export function createCaptureEngine(host: CaptureHost): CaptureEngine {
    * Applies the entry to the target, then runs `done` (the key's follow-up: disarm, or the next field). False when the
    * entry did not parse (it stays for editing). A drag target takes the value at once. Case (b) applies through
    * `edit.adjustLast`: once the re-run finished the committed value is announced on the help line (the polite live
-   * region, §5.10) and `done` runs; a refused or failed re-run reports its reason as a warning and keeps the entry, so
-   * the user can correct it (§5.7 "A refusal of the re-run … reports the reason").
+   * region, §5.10) and `done` runs; a refused or failed re-run reports its reason as a warning and brings the entry
+   * back, so the user can correct it (§5.7 "A refusal of the re-run … reports the reason").
    */
   const applyEntry = (done: () => void): boolean => {
-    if (state().text === null) {
+    if (!hasEntry()) {
+      if (state().text !== null) setState({ ...state(), text: null });
       done();
       return true;
     }
@@ -126,18 +140,22 @@ export function createCaptureEngine(host: CaptureHost): CaptureEngine {
       def === null
         ? null
         : `${last === null ? '' : `${last.label} `}${def.label} ${formatParamValue(def, entry.value)}`;
-    const entered = state();
+    // The entry is accepted: it leaves the window now (keys typed during the re-run start a new entry; a pointer move
+    // meanwhile discards nothing). A refusal brings it back unless the window moved on.
+    const text = state().text;
+    setState({ ...state(), text: null });
+    const accepted = state();
     void app
       .runUntyped('edit.adjustLast', { args: { [entry.field]: entry.value } }, { source: 'keyboard' })
       .then((result) => {
         if (result.status !== 'finished') {
           say(result.status === 'cancelled' ? result.reason : result.error.message, 'warning');
+          if (state() === accepted && armed?.target === 'last-run') setState({ ...state(), field: entry.field, text });
           return;
         }
         if (committed !== null) say(committed);
         // Unless the window moved on while the re-run ran (another key, the card closed), the key's follow-up runs.
-        if (state() !== entered || armed?.target !== 'last-run') return;
-        setState({ ...state(), text: null });
+        if (state() !== accepted || armed?.target !== 'last-run') return;
         done();
       });
     return true;
@@ -180,7 +198,7 @@ export function createCaptureEngine(host: CaptureHost): CaptureEngine {
     },
     disarm() {
       if (armed === null) return;
-      const discarded = armed.reason === 'keyboard-op' && state().text !== null;
+      const discarded = armed.reason === 'keyboard-op' && hasEntry();
       disarmQuietly();
       if (discarded) say(ENTRY_DISCARDED, 'warning');
     },

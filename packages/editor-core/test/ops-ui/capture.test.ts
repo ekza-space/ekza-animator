@@ -195,6 +195,53 @@ describe('case (b): after a keyboard-invoked operation', () => {
     expect(u.capture.state.armed).toBeNull();
   });
 
+  it('an entry erased to nothing is no entry: Enter disarms quietly, an extra Backspace never reaches the keymap', async () => {
+    const t = await armedByKeyboard();
+    const before = t.app.session.getState().lastRun;
+    type(t.capture, '5');
+    expect(t.capture.key(BACKSPACE)).toBe(true);
+    expect(t.capture.state.text).toBe('');
+    // One Backspace too many stays in the window (Maya's Delete must not run on the selection).
+    expect(t.capture.key(BACKSPACE)).toBe(true);
+    expect(t.capture.key(ENTER)).toBe(true);
+    await settle();
+    expect(t.capture.state).toEqual({ armed: null, field: null, text: null });
+    expect(t.messages).toEqual([]);
+    expect(t.app.session.getState().lastRun).toBe(before);
+    // Erased, then the pointer moves: nothing is discarded.
+    const u = await armedByKeyboard();
+    type(u.capture, '5');
+    u.capture.key(BACKSPACE);
+    u.capture.disarm();
+    expect(u.messages).toEqual([]);
+  });
+
+  it('an accepted entry leaves the window at once: keys typed during its re-run start a new entry', async () => {
+    const t = await armedByKeyboard();
+    type(t.capture, '0.5');
+    expect(t.capture.key(ENTER)).toBe(true);
+    expect(t.capture.state).toEqual({ armed: 'keyboard-op', field: 'dy', text: null });
+    type(t.capture, '7');
+    expect(t.capture.state.text).toBe('7');
+    await settle();
+    expect(t.app.session.getState().lastRun?.args['dy']).toBe(0.5);
+    // The new entry is still open (it applies only on Enter or Tab); the committed one is not discarded with it.
+    expect(t.capture.state).toEqual({ armed: 'keyboard-op', field: 'dy', text: '7' });
+    t.capture.key(ENTER);
+    await settle();
+    expect(t.app.session.getState().lastRun?.args['dy']).toBe(7);
+    expect(t.capture.state.armed).toBeNull();
+    expect(t.messages.map((m) => m.text)).toEqual(['Advance Offset Y 0.500 m', 'Advance Offset Y 7.000 m']);
+    // Committed, then the pointer moves during the re-run: nothing is discarded.
+    const u = await armedByKeyboard();
+    type(u.capture, '0.5');
+    u.capture.key(ENTER);
+    u.capture.disarm();
+    await settle();
+    expect(u.app.session.getState().lastRun?.args['dy']).toBe(0.5);
+    expect(u.messages.map((m) => m.text)).toEqual(['Advance Offset Y 0.500 m']);
+  });
+
   it('a refused re-run is reported, not announced: the entry stays for editing and nothing changes', async () => {
     const t = await armedByKeyboard();
     const before = positionsOf(t, t.id);
