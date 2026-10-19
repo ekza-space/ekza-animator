@@ -87,8 +87,9 @@ and §9 B0a's DoD asks for "≤ its share", which neither document quantifies. B
 About 13 kB of it is code §2 and §5.27 place on the eager side by design — descriptors and registrations (≈ 8.6 kB)
 and schema v3 (≈ 4.6 kB; `store.load` is synchronous, so validation and repairs cannot load lazily) — and most of the
 rest is contract plumbing that B7 and B10 replace (runtime registry, blob store and selection stubs ≈ 2.4 kB). No
-builder-side trim brings B0a near a third of the allowance without a §2 change, and the remaining ≈ 1.3 kB cannot
-hold B0b's keymap rows and B9's shell. The allowance is the owner's number (MODELING-PLAN R38) and §9.1 lets INT
+builder-side trim brings B0a near a third of the allowance without a §2 change (rechecked in the third fix round with a per-file
+attribution: deriving the 63 param labels that equal their title-cased names would save ≈ 170 B of the 3.3 kB gzip
+descriptor source), and the remaining ≈ 1.3 kB cannot hold B0b's keymap rows and B9's shell. The allowance is the owner's number (MODELING-PLAN R38) and §9.1 lets INT
 re-record the size baseline only with an owner decision, so B0a does not pick an option itself: the request stays
 here (M6A-SPEC §12.4 points to it) for the owner to decide and INT to copy into §5.27 and DECISIONS-OPEN §H. The plan
 sized +20 kB for "workspace tabs, the generic MarkingMenu, schema v3 validation, ComponentSelection, keymap rows"
@@ -155,6 +156,12 @@ Second fix round (review of `0db2e22`; commits `cc6eb04`…): `format:check`, `l
 not change replayed from cache): doc 233, doc-yjs 78, editor-core 793, the others as above; `build` and `check:size`
 green (**864,427 B**, `mesh-kernel` lazy group 18.8 kB, no boundary violation); `m6a-00-foundation.spec.ts` 6 passed +
 the `b9` fixme; the full e2e suite 109 passed, 10 skipped, `--workers=4`.
+
+Third fix round (review of `6c1c162`; the docs-only commit `8e38f12`, no code change since `6c1c162`): `format:check`,
+`lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses` green; `test` 15/15 green (turbo replayed every
+task from the cache of the review's forced run of the same inputs); a clean forced `build` and `check:size` green
+(**864,427 B**, `mesh-kernel` lazy group 18.8 kB, no boundary violation); the full e2e suite 109 passed, 10 skipped,
+`--workers=4`, `m6a-00-foundation.spec.ts` 6 passed + the `b9` fixme. The eager-allowance decision is still open.
 
 ## Benchmarks (report only)
 
