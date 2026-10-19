@@ -1,8 +1,10 @@
-// Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4 and M6A-SPEC §4.5 additions, copied verbatim (shapes are normative;
+// change the spec first). The M6a functions and constants live in the lazy entries `io/mesh` and `io/write` (§4.5).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, ReadonlyXf } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord, CharacterId, ClipId, DerivedFrom, DocSnapshot, Redistributable,
-  RootMotionMode } from '@ekza-animator/doc';
+import type { AssetId, AssetRecord, CharacterId, ClipId, ColourOutput, DerivedFrom, DocSnapshot,
+  GeneratorProvenance, HandheldGrip, Redistributable, RootMotionMode } from '@ekza-animator/doc';
+import type { MeshData } from '@ekza-animator/mesh-core';
 import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-animator/rig';
 
 /** Loosely typed glTF JSON; typed accessors live in io/src/gltf/schema.ts. */
@@ -39,7 +41,7 @@ export const DEFAULT_INPUT_BUDGET: InputBudget = {
 
 /** Open string; built-ins are registered by editor-core as exporters (§4.5). */
 export type ExportKind = string;
-export const BUILTIN_EXPORT_KINDS = ['bake-into-model', 'animation-glb', 'vrma'] as const;
+export const BUILTIN_EXPORT_KINDS = ['bake-into-model', 'animation-glb', 'vrma', 'static-glb'] as const;   // changed (M6a)
 export type BuiltinExportKind = (typeof BUILTIN_EXPORT_KINDS)[number];
 
 /** Evaluation callback so io never depends on editor state. `frame` is a clip frame. */
@@ -234,7 +236,93 @@ export interface ProjectArchive {
   readonly assets: ReadonlyMap<AssetId, { readonly record: AssetRecord; readonly bytes: Uint8Array }>;
   readonly readOnly: boolean;                  // minWriterVersion > SCHEMA_VERSION, or a newer table version
   readonly migratedFrom: number;
+  /** Every `blobs/<sha256>` entry, hash-verified; a corrupt or missing blob is absent here (its mesh goes `error`). */
+  readonly blobs: ReadonlyMap<string, Uint8Array>;                                // changed (additive, M6a)
 }
 
 /** Placement of model scene under the canonical character root (viewport uses it). */
 export interface ModelPlacement { readonly facing: ReadonlyXf }
+
+// ---------- M6a (M6A-SPEC §4.5) ----------
+
+// ---------- make editable (io/mesh, lazy) ----------
+export interface MakeEditableReport {
+  readonly triangles: number;
+  readonly pointsBefore: number; readonly pointsAfter: number;   // glTF vertices → welded points
+  readonly degenerateDropped: number;
+  readonly hardEdges: number;
+  readonly layers: readonly string[];                            // 'uv0', 'skin.joints', 'morph:Blink', …
+  readonly morphNormals: readonly string[];                      // targets whose primitives carried NORMAL deltas
+  readonly hadTangents: boolean;
+  readonly warnings: readonly string[];
+}
+export type MakeEditableRefusal = { readonly refused: true; readonly code: 'licence' | 'too-large' | 'compressed' | 'unsupported'; readonly reason: string };
+
+// ---------- primitives out (io/mesh; the writers below call them from io/write) ----------
+export interface PaletteTexture {
+  readonly png: Uint8Array;                    // ekza-palette-v1 (§5.19), deterministic bytes
+  readonly width: number; readonly height: number;
+  readonly cols: number; readonly rows: number;
+  uvOf(slot: number): readonly [number, number];   // cell centre; v from the top (glTF)
+}
+export interface PrimitiveOut {
+  readonly material: number;                   // slot index into the caller's material list
+  readonly attributes: Readonly<Record<string, Float32Array | Uint16Array | Uint8Array>>;   // POSITION, NORMAL, TEXCOORD_0, COLOR_0, JOINTS_0, WEIGHTS_0
+  readonly indices: Uint16Array | Uint32Array;
+  readonly targets: readonly Readonly<Record<'POSITION' | 'NORMAL', Float32Array>>[];      // manifest morph order
+}
+
+// ---------- surgeon "replace primitives" and bake marker v2 (io/write) ----------
+export interface PrimitiveEdit { readonly meshIndex: number; readonly data: MeshData; readonly morphNormals: ReadonlySet<string>;
+  readonly hadTangents: boolean; readonly dropTangents: boolean }
+/** asset.extras.ekza_animator_bake_v2 (written instead of v1 when a geometry step was applied). */
+export interface EkzaBakeMarkerV2 {
+  readonly version: 2;
+  readonly baseAnimations: number; readonly baseAccessors: number; readonly baseBufferViews: number;
+  readonly baseBinLength: number; readonly baseBinSha256: string; readonly baseSha256: string;
+  readonly replaced: Readonly<Record<string, unknown>>;              // animations, as v1
+  readonly replacedPrimitives: Readonly<Record<string, unknown>>;    // mesh index → original `primitives` JSON array
+  readonly originalExtensions: { readonly used: readonly string[] | null; readonly required: readonly string[] | null } | null;
+  readonly generatorAdded?: true;
+}
+
+// ---------- author writer for static models (io/write) ----------
+export interface StaticNode {
+  readonly id: string;                         // MeshId | GroupId
+  readonly name: string;
+  readonly placement: ReadonlyXf;              // TRS; scales must be positive and uniform (lint)
+  readonly mesh: { readonly data: MeshData; readonly materials: readonly StaticMaterial[]; readonly colourOutput: ColourOutput;
+    readonly paletteId: string | null } | null;
+  readonly children: readonly StaticNode[];
+}
+export type StaticMaterial = { readonly preset: 'unlit' | 'lit'; readonly name: string };
+export interface StaticScene {
+  readonly roots: readonly StaticNode[];
+  readonly palettes: ReadonlyMap<string, readonly { readonly slot: number; readonly srgb: readonly [number, number, number] }[]>;
+  readonly handheld: HandheldGrip | null;
+  readonly model: EkzaModelV1;
+}
+/** asset.extras.ekza_model_v1 (research 14 §9.5, ADR 0017 §7); hashed with the bytes, no key named `uri`. */
+export interface EkzaModelV1 {
+  readonly schema: 1;
+  readonly rig: 'none' | 'vrm-humanoid' | 'generic';
+  readonly skeletonTemplate: string | null;
+  readonly provenance: {
+    readonly tool: 'ekza-animator'; readonly toolVersion: string; readonly projectSha256: string | null;
+    readonly derivedFrom: readonly DerivedFrom[];
+    readonly generator: { readonly kind: 'manual' } | ({ readonly kind: 'ai' } & Omit<GeneratorProvenance, 'kind' | 'taskId' | 'prompt'>
+      & { readonly prompt?: string });
+  };
+}
+/** `file.exportModel` request (§6.2). */
+export interface StaticExportRequest {
+  readonly objects: readonly string[];         // export roots (MeshId | GroupId); [] = selected objects, else every scene mesh
+  readonly fileName: string;
+  readonly profile: string | null;             // 'ekza/omoba-handheld-v1' | 'local/generic' | null
+  readonly colourOutput?: ColourOutput;        // default: each mesh's own
+  readonly materialPreset?: 'unlit' | 'lit';   // default: each mesh's own
+  readonly dropTangents?: boolean;             // default false (§5.21)
+  readonly validate?: boolean;                 // default true: lazy glTF-Validator
+}
+// The shipped 'local/generic' profile (kind '*') also applies to static exports: generic lints only.
+

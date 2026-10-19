@@ -18,6 +18,8 @@
     "@ekza-animator/doc": "workspace:*",
     "@ekza-animator/editor-core": "workspace:*",
     "@ekza-animator/io": "workspace:*",
+    "@ekza-animator/mesh-core": "workspace:*",
+    "@ekza-animator/mesh-view": "workspace:*",
     "@ekza-animator/rig": "workspace:*",
     "camera-controls": "3.1.2",
     "three": "catalog:"

@@ -246,6 +246,9 @@ importers:
       '@ekza-animator/io':
         specifier: workspace:*
         version: link:../io
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
       '@ekza-animator/rig':
         specifier: workspace:*
         version: link:../rig
@@ -316,6 +319,9 @@ importers:
       '@ekza-animator/io':
         specifier: workspace:*
         version: link:../io
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
       '@ekza-animator/rig':
         specifier: workspace:*
         version: link:../rig
@@ -350,6 +356,12 @@ importers:
       '@ekza-animator/io':
         specifier: workspace:*
         version: link:../io
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
+      '@ekza-animator/mesh-view':
+        specifier: workspace:*
+        version: link:../mesh-view
       '@ekza-animator/rig':
         specifier: workspace:*
         version: link:../rig
@@ -383,6 +395,9 @@ importers:
       '@ekza-animator/doc':
         specifier: workspace:*
         version: link:../doc
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
       '@ekza-animator/rig':
         specifier: workspace:*
         version: link:../rig
@@ -417,6 +432,59 @@ importers:
       gltf-validator:
         specifier: 2.0.0-dev.3.10
         version: 2.0.0-dev.3.10
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+
+  packages/mesh-core:
+    dependencies:
+      '@ekza-animator/anim-core':
+        specifier: workspace:*
+        version: link:../anim-core
+      earcut:
+        specifier: 3.2.4
+        version: 3.2.4
+      robust-predicates:
+        specifier: 3.0.3
+        version: 3.0.3
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.1
+      fast-check:
+        specifier: 4.10.2
+        version: 4.10.2
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+
+  packages/mesh-view:
+    dependencies:
+      '@ekza-animator/anim-core':
+        specifier: workspace:*
+        version: link:../anim-core
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
+      three:
+        specifier: 'catalog:'
+        version: 0.186.1
+      three-mesh-bvh:
+        specifier: 0.9.15
+        version: 0.9.15(three@0.186.1)
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 24.19.1
+      '@types/three':
+        specifier: 'catalog:'
+        version: 0.186.0
+      '@vitest/browser-playwright':
+        specifier: 4.1.11
+        version: 4.1.11(playwright@1.63.0)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))(vitest@4.1.11)
+      playwright:
+        specifier: 1.63.0
+        version: 1.63.0
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
@@ -500,6 +568,12 @@ importers:
       '@ekza-animator/io':
         specifier: workspace:*
         version: link:../io
+      '@ekza-animator/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
+      '@ekza-animator/mesh-view':
+        specifier: workspace:*
+        version: link:../mesh-view
       '@ekza-animator/rig':
         specifier: workspace:*
         version: link:../rig
@@ -2021,6 +2095,9 @@ packages:
   dockview@8.4.0:
     resolution: {integrity: sha512-MAxJZREkIdPwxMVFgLFRAni8VE3fXTbbjV2SDaLlsubmvrQNCTM89YexuTSHC5PsWAqQLV87CIF2X7yT2wrY2g==}
 
+  earcut@3.2.4:
+    resolution: {integrity: sha512-FHc6yNpnTORB0tM5kmZ03iD2mDuNakDE2lvf4Hw1XkfxtEHIGVi01B/GqUSwx+NcC1WGjidAfpTXzeALtPtfpg==}
+
   enhanced-resolve@5.26.0:
     resolution: {integrity: sha512-9vhedylFonb2YGogzUKX6+Ja72gOJbN1QHAqdrvqLwhdl/QWbKopzoUC9EbQNVsAns/bx/4uyqalrQAoy1IByw==}
     engines: {node: '>=10.13.0'}
@@ -2429,6 +2506,9 @@ packages:
     resolution: {integrity: sha512-E8LUcbtBWt20bbl2YoHfx4ZDBdxVTfOKtCZn9cDSJ4l6/nuoApcpIBcj47t2wZoVX8g2ZHuMHbiShgCR1T5Sog==}
     engines: {node: '>=0.10.0'}
 
+  robust-predicates@3.0.3:
+    resolution: {integrity: sha512-NS3levdsRIUOmiJ8FZWCP7LG3QpJyrs/TE0Zpf1yvZu8cAJJ6QMW92H1c7kWpdIHo8RvmLxN/o2JXTKHp74lUA==}
+
   rolldown@1.2.12:
     resolution: {integrity: sha512-8wafseiaG80xmXSfqidUNqZcylTlhmPZZt+za2m+js2sFZ8dTNlhIOV2WcbIPx2hgwPBJpEUGFAMZ9bgBBLTSQ==}
     engines: {node: ^20.19.0 || >=22.12.0}
@@ -2478,6 +2558,11 @@ packages:
   tapable@2.3.3:
     resolution: {integrity: sha512-uxc/zpqFg6x7C8vOE7lh6Lbda8eEL9zmVm/PLeTPBRhh1xCgdWaQ+J1CUieGpIfm2HdtsUpRv+HshiasBMcc6A==}
     engines: {node: '>=6'}
+
+  three-mesh-bvh@0.9.15:
+    resolution: {integrity: sha512-9xdEDkCzFoT8VPFH9DznwFSdbaIEjMvM106Iqq7TJurrIheUKDcdW4prfJTCxryih4XS/UxWs0H3K4MLMRFyOQ==}
+    peerDependencies:
+      three: '>= 0.159.0'
 
   three@0.186.1:
     resolution: {integrity: sha512-blFeqb49wRCSGUGj7gtpfnSGHy2lwDk94RhUmS1c/hTby70kvChbWpkJ4Pm1390LqzzvTmzgXKHPEafJwCb8jA==}
@@ -4029,6 +4114,8 @@ snapshots:
     dependencies:
       dockview-core: 8.4.0
 
+  earcut@3.2.4: {}
+
   enhanced-resolve@5.26.0:
     dependencies:
       graceful-fs: 4.2.11
@@ -4417,6 +4504,8 @@ snapshots:
 
   react@19.3.0: {}
 
+  robust-predicates@3.0.3: {}
+
   rolldown@1.2.12:
     dependencies:
       '@oxc-project/types': 0.152.0
@@ -4466,6 +4555,10 @@ snapshots:
   tailwindcss@4.3.3: {}
 
   tapable@2.3.3: {}
+
+  three-mesh-bvh@0.9.15(three@0.186.1):
+    dependencies:
+      three: 0.186.1
 
   three@0.186.1: {}
 

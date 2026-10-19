@@ -1,6 +1,14 @@
 // Patch undo of the naive store: local batches only, coalescing, compare-before-restore per merge unit
 // (MVP-SPEC §4.11.0 store rules 4–5). Simple stacks; WP-2's PatchUndoManager is the production version.
-import type { AnyChange, TxMeta, UndoEntry, UndoManager, UndoResult, UndoSkipReason } from '@ekza-animator/doc';
+import type {
+  AnyChange,
+  TxMeta,
+  UndoEntry,
+  UndoEvictReason,
+  UndoManager,
+  UndoResult,
+  UndoSkipReason,
+} from '@ekza-animator/doc';
 import { deepEqual, diffFields, mergeUnitOf, type Row } from './rows';
 
 /** Loosely typed `Change`; the store casts it to `AnyChange` at the API boundary. */
@@ -58,10 +66,13 @@ interface StackEntry {
   lastAt: number;
 }
 
+type EvictListener = (entries: readonly UndoEntry[], reason: UndoEvictReason) => void;
+
 export class NaiveUndoManager implements UndoManager {
   private readonly undoStack: StackEntry[] = [];
   private readonly redoStack: StackEntry[] = [];
   private readonly listeners = new Set<() => void>();
+  private readonly evictListeners = new Set<EvictListener>();
   private capturing = true;
 
   constructor(
@@ -101,9 +112,12 @@ export class NaiveUndoManager implements UndoManager {
         ...selectionAfter(meta),
       };
       this.undoStack.push({ entry, coalesceKey: meta.coalesceKey, lastAt: now });
-      if (this.undoStack.length > this.limit) this.undoStack.splice(0, this.undoStack.length - this.limit);
+      if (this.undoStack.length > this.limit) {
+        const limited = this.undoStack.splice(0, this.undoStack.length - this.limit).map((item) => item.entry);
+        this.evicted(limited, 'limit');
+      }
     }
-    this.redoStack.length = 0;
+    this.evicted(this.takeRedo(), 'redo-cleared');
     this.notify();
   }
 
@@ -136,9 +150,55 @@ export class NaiveUndoManager implements UndoManager {
   }
 
   clear(): void {
+    this.reset('clear');
+  }
+
+  /** Empties both stacks (`load` = a document load). */
+  reset(reason: 'clear' | 'load'): void {
+    const evicted = [...this.undoStack.map((item) => item.entry), ...this.takeRedo()];
     this.undoStack.length = 0;
-    this.redoStack.length = 0;
+    this.evicted(evicted, reason);
     this.notify();
+  }
+
+  entries(): { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] } {
+    return {
+      undo: this.undoStack.map((item) => item.entry),
+      redo: this.redoStack.map((item) => item.entry).reverse(),
+    };
+  }
+
+  onEvict(listener: EvictListener): () => void {
+    this.evictListeners.add(listener);
+    return () => this.evictListeners.delete(listener);
+  }
+
+  evictOldest(n: number): void {
+    if (n <= 0 || this.undoStack.length === 0) return;
+    this.evicted(
+      this.undoStack.splice(0, Math.min(n, this.undoStack.length)).map((item) => item.entry),
+      'budget',
+    );
+    this.notify();
+  }
+
+  clearRedo(): void {
+    this.capturing = false;
+    const redone = this.takeRedo();
+    if (redone.length === 0) return;
+    this.evicted(redone, 'redo-cleared');
+    this.notify();
+  }
+
+  private takeRedo(): UndoEntry[] {
+    const redone = this.redoStack.map((item) => item.entry).reverse();
+    this.redoStack.length = 0;
+    return redone;
+  }
+
+  private evicted(entries: readonly UndoEntry[], reason: UndoEvictReason): void {
+    if (entries.length === 0) return;
+    for (const listener of Array.from(this.evictListeners)) listener(entries, reason);
   }
 
   subscribe(listener: () => void): () => void {

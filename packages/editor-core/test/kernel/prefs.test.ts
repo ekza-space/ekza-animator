@@ -48,6 +48,24 @@ describe('defaultPrefs', () => {
         scaleRel: 1e-4,
       },
       autosave: { enabled: true, delayMs: 2000, maxIntervalMs: 30000 },
+      // M6a (M6A-SPEC §4.6; §3 rule 9 literal update)
+      lastWorkspace: 'animate',
+      modeling: {
+        primitiveDefaults: 'low-poly',
+        numericCapture: 'auto',
+        undoSelection: { model: true, animate: false },
+        undoBudgetMB: 256,
+        journalBudgetMB: 64,
+        symmetryTolerance: 0.001,
+        gridStep: 0.1,
+        increments: { move: 0.1, rotate: Math.PI / 12, scale: 0.1 },
+        vertexSnapRadiusPx: 12,
+        multiCutSnapStep: 0.25,
+        optionDefaults: {},
+        toolkitCollapsed: [],
+        paletteRecents: [],
+        convertOnModeSwitch: false,
+      },
     });
     expect(defaultPrefs('mac').navProfile).toBe('trackpad');
   });
@@ -81,6 +99,8 @@ describe('M2a preferences (version stays 1)', () => {
       virtualSlider: defaults.virtualSlider,
       exportReduce: defaults.exportReduce,
       autosave: defaults.autosave,
+      lastWorkspace: 'animate',
+      modeling: defaults.modeling,
     });
   });
 
@@ -106,6 +126,44 @@ describe('M2a preferences (version stays 1)', () => {
       virtualSlider: { degPerPx: 1, metresPerPx: 0.01, unitsPerPx: 0.02, viewportMmb: false },
       exportReduce: { ...defaults.exportReduce, enabled: false, positionM: 0.001 },
       autosave: defaults.autosave,
+    });
+  });
+});
+
+describe('M6a preferences (version stays 1)', () => {
+  it('keeps valid modeling values and falls back field by field', () => {
+    const defaults = defaultPrefs('other');
+    const stored = {
+      ...defaults,
+      lastWorkspace: 'model',
+      modeling: {
+        primitiveDefaults: 'maya',
+        numericCapture: 'sometimes',
+        undoSelection: { model: false, animate: 'yes' },
+        undoBudgetMB: 128,
+        journalBudgetMB: -1,
+        increments: { move: 0.5, rotate: 'x', scale: 0.25 },
+        optionDefaults: { 'mesh.bevel': { offset: 0.1 } },
+        toolkitCollapsed: ['soft', 3],
+        paletteRecents: ['sw_A'],
+        convertOnModeSwitch: true,
+      },
+    };
+    expect(sanitizePrefs(stored, defaults)).toMatchObject({
+      lastWorkspace: 'model',
+      modeling: {
+        ...defaults.modeling,
+        primitiveDefaults: 'maya',
+        undoBudgetMB: 128,
+        increments: { move: 0.5, rotate: Math.PI / 12, scale: 0.25 },
+        optionDefaults: { 'mesh.bevel': { offset: 0.1 } },
+        paletteRecents: ['sw_A'],
+        convertOnModeSwitch: true,
+      },
+    });
+    expect(sanitizePrefs({ ...defaults, lastWorkspace: 'Not An Id!', modeling: 'off' }, defaults)).toMatchObject({
+      lastWorkspace: 'animate',
+      modeling: defaults.modeling,
     });
   });
 });

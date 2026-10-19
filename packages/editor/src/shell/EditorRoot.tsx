@@ -34,6 +34,8 @@ export interface EditorRootProps {
   readonly samplesPath?: string;
   /** The build allows e2e mode (NEXT_PUBLIC_EKZA_E2E=1); e2e mode itself needs `?e2e=1` as well. */
   readonly e2e?: boolean;
+  /** M6a (§3 rule 8): the mesh kernel validates after every commit (development builds; e2e mode turns it on too). */
+  readonly kernelDebug?: boolean;
   /** Overrides the URL parameters (harnesses and tests). */
   readonly params?: EditorParams;
   readonly panels?: PanelRegistry;
@@ -59,6 +61,7 @@ function boot(props: EditorRootProps): Boot {
     ...(params.ns === null ? {} : { storageNamespace: params.ns }),
     ...(params.storageBlocked ? { storageBlocked: true } : {}),
     pointerLock: params.pointerLock,
+    kernelDebug: props.kernelDebug === true || params.e2e,
     onDownload: (record) => shell?.exports.recordDownload(record),
     ...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker }),
   });
@@ -69,6 +72,9 @@ function boot(props: EditorRootProps): Boot {
     console.error('Ekza Animator: the editor kernel could not start', error);
     return { kind: 'unavailable', error, params };
   }
+  // M6a `ws=<id>` (M6A-SPEC §4.8): a registered, enabled workspace opens directly (B9 routes it through workspace.set).
+  if (params.ws !== null && app.workspaces.get(params.ws)?.enabled === true)
+    app.session.setState({ workspace: params.ws });
   if (params.e2e) {
     app.prefs.setState({
       firstRunDone: !params.firstRun,

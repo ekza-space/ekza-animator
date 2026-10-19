@@ -1,5 +1,5 @@
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterRecord, ControlRecord, DocSnapshot } from '@ekza-animator/doc';
+import type { AssetId, CharacterRecord, ControlRecord, DocSnapshot } from '@ekza-animator/doc';
 import type { GlbContainer } from '@ekza-animator/io';
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import { describe, expect, it } from 'vitest';
@@ -79,7 +79,7 @@ function build(opts: {
 }
 
 const source = (character: CharacterRecord): ModelSource => ({
-  container: placeholderContainer(character.asset),
+  container: placeholderContainer(character.asset as AssetId),
   skeleton: humanoidSkeleton(),
 });
 
@@ -106,7 +106,7 @@ describe('character registry', () => {
   it('loads model bytes through the asset store and reports failures once', async () => {
     const { app, services, characters, events } = build({
       loadModel: async (character, assets) => {
-        await assets.get(character.asset);
+        await assets.get(character.asset as AssetId);
         return source(character);
       },
     });
@@ -260,7 +260,7 @@ describe('character registry', () => {
 describe('model sources', () => {
   it('builds runtimes from SkeletonDesc data only (no three.js)', () => {
     const skeleton: SkeletonDesc = humanoidSkeleton();
-    const container: GlbContainer = placeholderContainer('a'.repeat(64) as CharacterRecord['asset']);
+    const container: GlbContainer = placeholderContainer('a'.repeat(64) as AssetId);
     expect(container.bytes.byteLength).toBe(0);
     expect(skeleton.nodes.length).toBeGreaterThan(20);
     const controls: ControlRecord[] = Object.values(waveDoc().tables.controls);

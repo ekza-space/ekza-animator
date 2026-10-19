@@ -206,6 +206,7 @@ export async function prepareModelImport(app: EditorApp, input: ModelImportInput
   });
   const ext = extensionOf(input.fileName) === 'vrm' || format !== 'gltf' ? 'vrm' : 'glb';
   const asset = await app.services.assets.put(input.bytes, { name: input.fileName, ext, role: 'model' });
+  // M6a: a model-sourced character (asset null) never matches an imported asset.
   if (app.store.list('characters').some((character) => character.asset === asset.id)) {
     warnings.push(`${input.fileName} is already in the project; it was imported as another character`);
   }
