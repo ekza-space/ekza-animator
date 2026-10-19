@@ -1,6 +1,15 @@
 // Editor history (ADR 0013, MVP-SPEC §4.11.0): steps that own a document undo entry (`docTxId`) and/or a session
 // override delta. A step's document part is undone only while its entry is the top of the doc undo stack; its
 // override part only while the character still shows the same clip at the same clip frame.
+//
+// M-AI (MCP-SPEC §4.1, runner rules 3–4):
+// - A step recorded by an actor run carries `actor` and `changes` (the document changes of its transaction, for
+//   `edit.revertSteps`). The history keeps at most `CHANGE_JOURNAL_CAP` change records across all steps; above that
+//   the oldest steps lose their `changes` (they can no longer be reverted selectively; plain undo still works). A step
+//   takes its `changes` with it when it leaves the history, and loses them with its doc part.
+// - Override-only coalescing requires both steps to have no actor, so a user nudge never merges into an agent step
+//   and an agent step never merges into a user step.
+// - `entries()` returns frozen copies of both stacks, oldest first (redo: the next redo first).
 import type { Disposer } from '@ekza-animator/anim-core';
 import type { CharacterId, DocumentStore, UndoResult } from '@ekza-animator/doc';
 import type { EditorHistory, HistoryResult, HistoryStep, OverrideDelta, SessionStore } from '../types';
@@ -10,6 +19,8 @@ import { applyOverrideValues, mergeDeltas, type OverrideLocation, sameLocation, 
 export const HISTORY_COALESCE_MS = 1_000;
 /** Oldest steps beyond this are dropped (the doc undo stack keeps 500 entries by default). */
 export const HISTORY_LIMIT = 1_000;
+/** M-AI runner rule 3: change records the history keeps in actor steps' `changes`, in total. */
+export const CHANGE_JOURNAL_CAP = 200_000;
 
 export interface KernelHistory extends EditorHistory {
   /** Number of undo/redo navigations so far (the runner records no step for an operator that navigated). */
@@ -18,6 +29,8 @@ export interface KernelHistory extends EditorHistory {
   record(step: Omit<HistoryStep, 'id' | 'at'>, coalesceMs?: number): void;
   /** True when a step owns the doc entry. */
   owns(docTxId: string): boolean;
+  /** Id of the top undo step without reconciling first (the runner reports the step it recorded), null when empty. */
+  topId(): number | null;
   /** The doc entry no longer exists (coalesced edits cancelled out): steps lose their doc part. */
   forgetDocEntry(docTxId: string): void;
   /** The doc undo stacks were emptied: every step loses its doc part; steps left empty disappear. */
@@ -37,6 +50,13 @@ export interface HistoryContext {
   /** Runs after the doc undo stack was navigated (whether or not the store emitted a batch). */
   navigated(): void;
   readonly limit?: number;
+  /** M-AI: total change records kept in steps' `changes` (default `CHANGE_JOURNAL_CAP`). */
+  readonly journalCap?: number;
+}
+
+/** Override-only coalescing never crosses actors (runner rule 4): both steps must be user steps. */
+function hasActor(step: { readonly actor?: unknown }): boolean {
+  return step.actor !== undefined && step.actor !== null;
 }
 
 export function createEditorHistory(ctx: HistoryContext): KernelHistory {
@@ -44,6 +64,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
   const redoSteps: HistoryStep[] = [];
   const listeners = new Set<() => void>();
   const limit = ctx.limit ?? HISTORY_LIMIT;
+  const journalCap = ctx.journalCap ?? CHANGE_JOURNAL_CAP;
   let nextId = 1;
   let navigations = 0;
 
@@ -98,6 +119,33 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
 
   const isEmpty = (step: HistoryStep): boolean => step.docTxId === null && step.overrides === null;
 
+  /** A step without its doc part also loses its `changes` (they describe that doc part). */
+  const withoutDocPart = (step: HistoryStep): HistoryStep => {
+    const next: HistoryStep = { ...step, docTxId: null };
+    return next.changes === undefined || next.changes === null ? next : { ...next, changes: null };
+  };
+
+  /** Runner rule 3: above the cap, the oldest steps (undo oldest first, then redo) lose their `changes`. */
+  const capJournal = (): void => {
+    let total = 0;
+    for (const step of undoSteps) total += step.changes?.length ?? 0;
+    for (const step of redoSteps) total += step.changes?.length ?? 0;
+    if (total <= journalCap) return;
+    // Oldest first: the undo stack from the bottom, then the redo stack from the step undone last (its bottom).
+    const order: [HistoryStep[], number][] = [
+      ...undoSteps.map((_, i) => [undoSteps, i] as [HistoryStep[], number]),
+      ...redoSteps.map((_, i) => [redoSteps, i] as [HistoryStep[], number]).reverse(),
+    ];
+    for (const [steps, i] of order) {
+      if (total <= journalCap) break;
+      const step = steps[i] as HistoryStep;
+      const size = step.changes?.length ?? 0;
+      if (size === 0) continue;
+      steps[i] = Object.freeze({ ...step, changes: null });
+      total -= size;
+    }
+  };
+
   const prune = (steps: HistoryStep[], edit: (step: HistoryStep) => HistoryStep): boolean => {
     let changed = false;
     for (let i = steps.length - 1; i >= 0; i--) {
@@ -106,7 +154,7 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       if (next === step) continue;
       changed = true;
       if (isEmpty(next)) steps.splice(i, 1);
-      else steps[i] = next;
+      else steps[i] = Object.freeze(next);
     }
     return changed;
   };
@@ -142,19 +190,26 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         step.docTxId === null &&
         top !== undefined &&
         top.docTxId === null &&
+        !hasActor(step) &&
+        !hasActor(top) &&
         step.coalesceKey !== undefined &&
         top.coalesceKey === step.coalesceKey &&
         now - top.at <= coalesceMs;
       if (top !== undefined && (sameDocEntry || sameKey)) {
-        undoSteps[undoSteps.length - 1] = { ...top, overrides: mergeDeltas(top.overrides, step.overrides), at: now };
+        undoSteps[undoSteps.length - 1] = Object.freeze({
+          ...top,
+          overrides: mergeDeltas(top.overrides, step.overrides),
+          at: now,
+        });
       } else {
         // A doc entry belongs to one step: a later step that extends it (store coalescing past an override-only
         // step) takes it over.
         if (step.docTxId !== null) history.forgetDocEntry(step.docTxId);
-        undoSteps.push({ ...step, id: nextId++, at: now });
+        undoSteps.push(Object.freeze({ ...step, id: nextId++, at: now }));
         if (undoSteps.length > limit) undoSteps.splice(0, undoSteps.length - limit);
       }
       redoSteps.length = 0;
+      if (step.changes !== undefined && step.changes !== null && step.changes.length > 0) capJournal();
       notify();
     },
     dropOverrides(where): void {
@@ -184,16 +239,21 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
         listeners.delete(listener);
       };
     },
+    entries() {
+      ctx.reconcile();
+      return { undo: Object.freeze([...undoSteps]), redo: Object.freeze([...redoSteps].reverse()) };
+    },
+    topId: () => undoSteps.at(-1)?.id ?? null,
     owns: (docTxId: string) =>
       undoSteps.some((step) => step.docTxId === docTxId) || redoSteps.some((step) => step.docTxId === docTxId),
     forgetDocEntry(docTxId: string): void {
-      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === docTxId ? { ...step, docTxId: null } : step);
+      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === docTxId ? withoutDocPart(step) : step);
       const changedUndo = prune(undoSteps, edit);
       const changedRedo = prune(redoSteps, edit);
       if (changedUndo || changedRedo) notify();
     },
     forgetDocEntries(): void {
-      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === null ? step : { ...step, docTxId: null });
+      const edit = (step: HistoryStep): HistoryStep => (step.docTxId === null ? step : withoutDocPart(step));
       const changedUndo = prune(undoSteps, edit);
       const changedRedo = prune(redoSteps, edit);
       if (changedUndo || changedRedo) notify();
