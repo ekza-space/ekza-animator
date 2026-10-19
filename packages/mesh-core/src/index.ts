@@ -38,6 +38,6 @@ export { regionFrame } from './stubs/frame';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './stubs/subset';
 // ---------- B5 ----------
-export { checkMesh } from './stubs/check';
+export { checkMesh } from './check';
 // ---------- B13 ----------
 export { humanoidBody } from './stubs/templates';
