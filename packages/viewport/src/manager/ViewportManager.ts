@@ -83,6 +83,7 @@ import { MeshPicker } from '../picking/meshPicker';
 import { ControlPicker } from '../picking/picker';
 import { SceneSync } from '../sync/SceneSync';
 import type { ViewportToolHost } from '../tools/host';
+import type { ManipulatorFrame, ModelManipulator } from '../tools/model/transform/types';
 import { startVirtualSliderDrag, type VirtualSliderDrag } from '../tools/virtualSliderDrag';
 import type {
   CameraSnapshot,
@@ -233,6 +234,10 @@ export class ViewportManager {
    * that draw controls (Show ▸ Controls), the same rule as the MMB virtual slider (M6A-B9-21).
    */
   private controlTargetInModel = false;
+  /** M6a (B12a): Model's transform runtime places the manipulator first (components, objects, pivot editing). */
+  private modelManipulator: ModelManipulator | null = null;
+  /** True while the manipulator sits on a target of Model's transform runtime (its drags are the runtime's). */
+  private modelTarget = false;
   /**
    * The manager has asked for the lazy scale chunk since the Scale tool was last chosen: a failed load is not tried
    * again on every manipulator refresh (playback refreshes each frame), only when the tool is chosen again.
@@ -529,6 +534,55 @@ export class ViewportManager {
    */
   setMeshHitTest(test: ((paneId: string, x: number, y: number) => boolean) | null): void {
     this.meshHitTest = test;
+  }
+
+  /**
+   * M6a (B12a, §5.15): Model's transform runtime, asked for the manipulator target before B9's object scale target and
+   * the control target (null removes it). Its targets are dragged by the runtime itself, never by the control drags.
+   */
+  setModelManipulator(provider: ModelManipulator | null): void {
+    this.modelManipulator = provider;
+    this.manipulatorDirty = true;
+    this.invalidate();
+  }
+
+  /** M6a (B12a): places the manipulator again before the next frame or query (a selection or geometry changed). */
+  refreshManipulatorSoon(): void {
+    this.manipulatorDirty = true;
+    this.invalidate();
+  }
+
+  /** M6a (B12a): the pane camera and the manipulator's frame for Model's transform drags; null for an unknown pane. */
+  manipulatorFrame(paneId: string): ManipulatorFrame | null {
+    const view = this.queryView(paneId);
+    if (view === null) return null;
+    const kit = this.kit;
+    const target = this.kitIn(view.pane) ? kit.currentTarget : null;
+    const camera = view.camera;
+    const at = target?.pivot ?? null;
+    const depth =
+      at === null
+        ? camera.position.distanceTo(this.resolve(view.pane).nav.target())
+        : Math.max(view.projector.depth(at[0], at[1], at[2]), 1e-4);
+    const unitsPerPx =
+      camera instanceof OrthographicCamera
+        ? (camera.top - camera.bottom) / camera.zoom / Math.max(view.height, 1)
+        : camera instanceof PerspectiveCamera
+          ? (2 * depth * Math.tan((camera.getEffectiveFOV() * Math.PI) / 360)) / Math.max(view.height, 1)
+          : 0.01;
+    return {
+      camera,
+      projector: view.projector,
+      width: view.width,
+      height: view.height,
+      pivot: at,
+      axes: kit.axes(),
+      mode: target === null ? null : kit.currentMode,
+      sizePx: kit.size,
+      unitsPerPx,
+      ringAxis: (handle) => kit.ringAxis(handle, camera),
+      ringGrab: (handle, x, y) => kit.ringGrab(handle, camera, view.projector, view.height, x, y),
+    };
   }
 
   /**
@@ -888,6 +942,22 @@ export class ViewportManager {
             ? 'scale'
             : null;
     const space = mode === 'translate' ? prefs.moveSpace : mode === 'rotate' ? prefs.rotateSpace : 'object';
+    // M6a (B12a, §5.15): in Model the transform runtime places the manipulator first — component selections,
+    // objects for Move and Rotate, the pivot while it is edited — with its own frame (object axes of the target).
+    this.modelTarget = false;
+    const modelTarget =
+      this.workspace === 'model' && mode !== null && this.modelManipulator !== null
+        ? this.modelManipulator.target({ mode, characterWorld: (character) => this.sync.placement(character) })
+        : null;
+    this.kit.setDashed(modelTarget?.dashed === true);
+    if (modelTarget !== null) {
+      this.objectTarget = false;
+      this.controlTargetInModel = false;
+      this.modelTarget = true;
+      this.kit.configure(modelTarget.mode, 'object', session.tools.manipulatorSize);
+      this.kit.setTarget(modelTarget.target);
+      return;
+    }
     this.kit.configure(mode, space, session.tools.manipulatorSize);
     // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model does
     // not draw or pick rig controls, so a control selection carried over from Animate is edited there only where it
@@ -1771,7 +1841,7 @@ export class ViewportManager {
     const view = this.queryView(paneId);
     const target = this.kit.currentTarget;
     const scale = scaleKit();
-    if (view === null || target === null || scale === null || !this.objectTarget) return null;
+    if (view === null || target === null || scale === null || !this.objectTarget || this.modelTarget) return null;
     if (this.kit.currentMode !== 'scale' || !scale.isScaleHandle(handle) || !this.kit.handles().includes(handle)) {
       return null;
     }
@@ -1791,7 +1861,8 @@ export class ViewportManager {
   private beginManipulatorDrag(paneId: string, handle: ManipHandle, x: number, y: number): DragSession | null {
     const view = this.queryView(paneId);
     const target = this.kit.currentTarget;
-    if (view === null || target === null || this.objectTarget || !this.kit.handles().includes(handle)) return null;
+    if (view === null || target === null || this.objectTarget || this.modelTarget) return null;
+    if (!this.kit.handles().includes(handle)) return null;
     // M6A-B9-21: a control target in Model is edited only from a pane that draws controls.
     if (!this.kitIn(view.pane)) return null;
     const controls: DragControl[] = [];

@@ -281,8 +281,8 @@ describe("Model's status line, help line and pane header (§8.2, §8.10)", () =>
     }
     expect(query('status-keytarget-selected')).toBeNull();
     expect(testId('status-mode-object').getAttribute('aria-checked')).toBe('true');
-    // The owners' operators have not landed: the controls are disabled and say why.
-    expect((testId('status-soft') as HTMLButtonElement).disabled).toBe(true);
+    // B12a landed `model.softSelect.toggle` (literal update): the Soft body runs it in Model.
+    expect((testId('status-soft') as HTMLButtonElement).disabled).toBe(false);
     await view.unmount();
   });
 

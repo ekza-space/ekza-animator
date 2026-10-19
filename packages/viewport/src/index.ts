@@ -45,3 +45,22 @@ export {
   type VirtualSliderDrag,
   type VirtualSliderDragOptions,
 } from './tools/virtualSliderDrag';
+// M6a (B12a, M6A-SPEC §5.15, §8.7): Model's transform runtime (component and object transforms, the MMB rule, Tweak,
+// snapping, pivots, soft select) and the modal readout's state.
+export {
+  attachModelTransform,
+  type ModelTransformBehaviour,
+  type ModelTransformRuntime,
+  modelTransformOf,
+  subscribeModelTransform,
+  TRANSFORM_TOOL_KEYS,
+  type TransformToolId,
+} from './tools/model/transform';
+export {
+  setTransformReadout,
+  subscribeTransformReadout,
+  type TransformReadout,
+  transformReadout,
+} from './tools/model/transform/readout';
+export type { ManipulatorFrame, ModelManipulator, ModelManipulatorTarget } from './tools/model/transform/types';
+export { mmbHandleFor, withModelTransform } from './tools/transformTool';

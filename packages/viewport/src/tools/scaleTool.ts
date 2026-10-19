@@ -6,6 +6,8 @@ import type { ChannelEditGesture, EditorApp, ToolDef, ToolInstance } from '@ekza
 import { PANEL, VIEWPORT_TOOL } from '@ekza-animator/editor-core';
 import { requestScaleKit, scaleKit } from '../manipulators/scale/load';
 import type { ViewportToolHost } from './host';
+import { TRANSFORM_TOOL_KEYS } from './model/transform';
+import { withModelTransform } from './transformTool';
 
 /** Creates the channel gesture for a control drag; replaceable for tests, defaults to the editor-core helper. */
 export type ScaleGestureFactory = (app: EditorApp, label: string) => ChannelEditGesture;
@@ -19,6 +21,9 @@ export function scaleToolDef(gestureFactory?: ScaleGestureFactory): ToolDef<View
     panel: PANEL.viewport,
     label: 'Scale',
     icon: 'tool-scale',
+    // M6a (B12a, §4.6): one ToolDef per id; component scaling, the MMB rule and pivot editing branch inside.
+    modes: ['object', 'vertex', 'edge', 'face'],
+    keys: TRANSFORM_TOOL_KEYS,
     create: (app: EditorApp, host: ViewportToolHost): ToolInstance => {
       let impl: ToolInstance | null = null;
       let active = true;
@@ -45,7 +50,8 @@ export function scaleToolDef(gestureFactory?: ScaleGestureFactory): ToolDef<View
         return null;
       };
       ensure(false); // the host activates a new instance next
-      return {
+      // M6a (B12a): Model's transform runtime and the MMB rule get the presses first (`withModelTransform`).
+      return withModelTransform(app, host, 'scale', {
         activate: () => {
           active = true;
           if (impl === null) ensure(true);
@@ -60,7 +66,7 @@ export function scaleToolDef(gestureFactory?: ScaleGestureFactory): ToolDef<View
         pointerUp: (e) => impl?.pointerUp?.(e) ?? false,
         cancel: () => impl?.cancel?.(),
         cursor: () => impl?.cursor?.() ?? null,
-      };
+      });
     },
   };
 }

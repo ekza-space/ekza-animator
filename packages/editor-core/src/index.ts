@@ -327,6 +327,7 @@ export {
   INTERNAL_MESH_OPS,
   MESH_OP_ALIASES,
   MESH_OP_TOOLS,
+  MESH_OP_UNDO_LABELS,
   registeredMeshOperator,
   registeredMeshSetOperator,
   WHOLE_MESH_OPS,
@@ -335,3 +336,41 @@ export {
 export { coerceRunArgs, recordNoLastRun } from './operators/runner';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
 export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';
+// M6a (B12a, M6A-SPEC §5.13–§5.15, §6.2): symmetry, soft selection and selection settings, snapping, the transform
+// orientation, pivots, Freeze/Reset Transformations and object transforms.
+export {
+  CONSTRAINTS_LATER,
+  DRAG_STYLE_LATER,
+  MODEL_SETTINGS_REASON,
+  SOFT_CURVES,
+  SOFT_FALLOFFS,
+  softPatch,
+} from './operators/builtin/softSelect';
+export { softWeightsOf } from './operators/builtin/softWeights';
+export { SYMMETRY_LABELS, SYMMETRY_MODES, symmetryOf, symmetryTargets } from './operators/builtin/symmetry';
+export {
+  componentSpaceOn,
+  SNAP_KINDS,
+  SNAP_LABELS,
+  type SnapKind,
+  setComponentSpace,
+  setTweakHandle,
+  subscribeTransformSpace,
+  type TransformSpace,
+  type TransformToolKind,
+  transformSpace,
+} from './operators/builtin/snap';
+export {
+  childrenOf,
+  defaultObjects,
+  FREEZE_PARAMS,
+  FREEZE_SKINNED,
+  MESH_LOADING,
+  NOTHING_TO_FREEZE,
+  NOTHING_TO_TRANSFORM,
+  type ObjectRecord,
+  objectRecord,
+  objectTableOf,
+  placementArg,
+  placementChangeLabel,
+} from './operators/builtin/pivot';

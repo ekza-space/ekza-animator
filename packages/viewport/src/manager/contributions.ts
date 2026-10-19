@@ -23,6 +23,7 @@ import { LAYOUT_PANES } from '../panes/layout';
 import { paintToolDef } from '../tools/model/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
+import { attachModelTransform } from '../tools/model/transform';
 import { selectToolDef } from '../tools/selectTool';
 import { moveToolDef, rotateToolDef } from '../tools/transformTool';
 import type { DisplayFlags, PaneCamera, ViewPreset } from '../types';
@@ -215,6 +216,7 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     app.contribute({ kind: 'tool', def: paintToolDef(vm) }),
     attachImagePlanes(app, vm),
     attachGuides(app, vm),
+    attachModelTransform(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

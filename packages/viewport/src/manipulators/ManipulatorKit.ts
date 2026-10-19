@@ -130,6 +130,8 @@ export class ManipulatorKit {
     [0, 0, 1],
   ];
   private danger: readonly boolean[] = [false, false, false];
+  /** M6a (B12a): pivot editing draws the manipulator dashed (§5.15). */
+  private dashed = false;
   /** Bumped on every visual change. */
   version = 0;
 
@@ -171,6 +173,25 @@ export class ManipulatorKit {
   setTarget(target: ManipTarget | null): void {
     this.target = target;
     this.refresh();
+  }
+
+  /** M6a (B12a, §5.15): dashed lines while the pivot is edited. */
+  setDashed(dashed: boolean): void {
+    if (dashed === this.dashed) return;
+    this.dashed = dashed;
+    for (const visual of this.visuals.values()) {
+      for (const material of visual.lines) {
+        material.dashed = dashed;
+        material.dashSize = 0.05;
+        material.gapSize = 0.04;
+        material.needsUpdate = true;
+      }
+    }
+    this.version++;
+  }
+
+  get isDashed(): boolean {
+    return this.dashed;
   }
 
   setHover(handle: ManipHandle | null): boolean {
@@ -309,6 +330,9 @@ export class ManipulatorKit {
     let best: ManipHandle | null = null;
     let bestDistance: number = PICK.manipulatorPx;
     for (const handle of this.pickable()) {
+      // M6a (B12a): a plane handle seen edge-on (an orthographic side view) draws as a line over one of its axes and
+      // cannot be dragged in its plane: the press belongs to the axis.
+      if (this.edgeOn(handle, camera)) continue;
       const d = this.handleDistance(handle, camera, projector, s, x, y);
       if ((handle === 'tview' || handle === 'suniform') && d === 0) return handle;
       if (d <= bestDistance) {
@@ -317,6 +341,15 @@ export class ManipulatorKit {
       }
     }
     return best;
+  }
+
+  /** Whether a plane handle's plane contains the view direction (within ~11°): it cannot be dragged in its plane. */
+  private edgeOn(handle: ManipHandle, camera: Camera): boolean {
+    if (handle !== 'txy' && handle !== 'tyz' && handle !== 'txz') return false;
+    const n = this.axesCache[PLANE_AXES[handle][2]];
+    const e = camera.matrixWorld.elements;
+    const len = Math.hypot(e[8], e[9], e[10]) || 1;
+    return Math.abs((n[0] * e[8] + n[1] * e[9] + n[2] * e[10]) / len) < 0.2;
   }
 
   /**
@@ -558,6 +591,7 @@ export class ManipulatorKit {
     const geometry = new LineSegmentsGeometry();
     geometry.setPositions(positions);
     const line = new LineSegments2(geometry, material);
+    line.computeLineDistances(); // M6a: dashed pivot editing (setDashed)
     line.frustumCulled = false;
     return line;
   }
