@@ -39,6 +39,21 @@ function coalescingOf(def: AnyOperatorDef, args: unknown): OperatorCoalescing | 
 }
 
 /**
+ * M6a (M6A-SPEC §5.7; B0a no-op, B11 records): called after every finished run with the step it recorded (null when
+ * none). B11 records `session.lastRun` here for operators that declare `params` or are flagged adjustable/repeatable.
+ */
+export type LastRunRecorder = (run: {
+  readonly def: AnyOperatorDef;
+  readonly args: unknown;
+  readonly ctx: RunContext | undefined;
+  readonly value: unknown;
+  readonly stepId: number | null;
+}) => void;
+
+/** B0a baseline: records nothing (`session.lastRun` stays null). */
+export const recordNoLastRun: LastRunRecorder = () => {};
+
+/**
  * Operators that run while a preview (gesture) is active (§4.11.0 rule 3 exception): `edit.escape` exists to cancel
  * that gesture. They must not write the document while the preview is active (`store.transact` would throw).
  */
@@ -58,7 +73,10 @@ export function createOperatorRunner(deps: {
   readonly capture: DocCapture;
   /** Active character's clip and clip frame (where override edits are recorded). */
   readonly location: () => OverrideLocation | null;
+  /** M6a: the LastRun recorder (default: `recordNoLastRun`). */
+  readonly lastRun?: LastRunRecorder;
 }): OperatorRunner {
+  const recordLastRun = deps.lastRun ?? recordNoLastRun;
   const { store, session, history, capture } = deps;
   let applying = 0;
 
@@ -118,12 +136,13 @@ export function createOperatorRunner(deps: {
         if (def.flags?.undo === true) {
           const meta = {
             label,
-            selectionBefore: selectionSnapshot(rollback.selection),
+            selectionBefore: selectionSnapshot(rollback.selection, rollback.model),
             ...(coalescing === null ? {} : { coalesceKey: coalescing.key, coalesceMs: coalescing.ms }),
           };
           value = store.transact(meta, (tx) => {
             const result = def.apply({ ...opCtx, tx }, args, prepared);
-            tx.annotate({ selectionAfter: selectionSnapshot(session.getState().selection) });
+            const after = session.getState();
+            tx.annotate({ selectionAfter: selectionSnapshot(after.selection, after.model) });
             return result;
           });
         } else {
@@ -135,9 +154,15 @@ export function createOperatorRunner(deps: {
       }
       // An operator that navigated the history (edit.undo/redo) adds no step: its doc undo and restored overrides
       // are the navigation itself, and a new step would clear the redo stack.
+      let stepId: number | null = null;
       if (history.navigations === navigations && !scope.loaded && !duringGesture) {
+        const topBefore = history.topId();
         recordStep(label, rollback, where, outcome, coalescing);
+        const top = history.topId();
+        // A coalesced run keeps the top step's id: it is still the step this run recorded into.
+        if (top !== null && (top !== topBefore || outcome.kind === 'coalesced')) stepId = top;
       }
+      recordLastRun({ def, args, ctx, value, stepId });
       return { status: 'finished', value } as const;
     } catch (error) {
       if (rollback !== null) session.setState(rollback, true);

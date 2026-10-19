@@ -9,3 +9,6 @@ export { bakeIntoModel, preexistingTracks } from './surgeon/bakeIntoModel';
 export { readBackCheck } from './validate/readBack';
 export { compareValidation } from './validate/validate';
 export { writeAnimationGlb, writeVrma } from './writers/write';
+// M6a (M6A-SPEC §4.5): the author writer for static models and the surgeon's "replace primitives" step (B8).
+export { writeStaticGlb } from './export/author';
+export { rebuildContainer, replacePrimitives } from './surgeon/replacePrimitives';

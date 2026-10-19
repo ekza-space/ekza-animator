@@ -58,15 +58,33 @@ export function byOrderThenId(
 }
 
 /**
- * Partition of a record (ARCHITECTURE §4.2): scene (project, assets, characters, cameras, unknown tables),
- * char:<characterId> (rigs, controls, constraints, solvers, clips), clip:<clipId> (layers, curves, keys).
- * `rigCharacter` resolves a rig id for the records that only reference their rig.
+ * Partition of a record (ARCHITECTURE §4.2): scene (project, assets, characters, cameras, palettes, swatches, image
+ * planes, unknown tables), char:<characterId> (rigs, controls, constraints, solvers, clips, skeletons, joints, meshes and
+ * groups owned by a character), clip:<clipId> (layers, curves, keys). `rigCharacter` resolves a rig id for the records
+ * that only reference their rig; `skeletonCharacter` a skeleton id for joints (M6a).
  */
-export function partitionOfRow(table: string, row: Row, rigCharacter: (rig: string) => string | undefined): Partition {
+export function partitionOfRow(
+  table: string,
+  row: Row,
+  rigCharacter: (rig: string) => string | undefined,
+  skeletonCharacter: (skeleton: string) => string | undefined = () => undefined,
+): Partition {
   switch (table) {
     case 'rigs':
     case 'clips':
+    case 'skeletons':
       return `char:${String(row['character'])}`;
+    case 'meshes':
+    case 'groups': {
+      const owner = row['owner'];
+      const character =
+        typeof owner === 'object' && owner !== null ? (owner as Readonly<Record<string, unknown>>)['character'] : null;
+      return typeof character === 'string' ? `char:${character}` : 'scene';
+    }
+    case 'joints': {
+      const character = skeletonCharacter(String(row['skeleton']));
+      return character === undefined ? 'scene' : `char:${character}`;
+    }
     case 'controls':
     case 'constraints':
     case 'solvers': {

@@ -92,6 +92,19 @@ const browserTimers: TimerApi = {
   clear: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
 };
 
+/** The tap/hold modifiers of a key input (`mod` = Cmd on macOS, Ctrl elsewhere; `ctrl` = the Ctrl key). */
+export function modsOf(
+  input: KeyInput,
+  platform: 'mac' | 'other',
+): { readonly mod: boolean; readonly shift: boolean; readonly alt: boolean; readonly ctrl: boolean } {
+  return {
+    mod: platform === 'mac' ? input.metaKey : input.ctrlKey,
+    shift: input.shiftKey,
+    alt: input.altKey,
+    ctrl: input.ctrlKey,
+  };
+}
+
 export function keyInputOf(event: KeyboardEvent): KeyInput {
   return {
     code: event.code,
@@ -148,17 +161,18 @@ export class KeyboardAdapter {
     const pending = this.#pending;
     if (pending !== null && pending.code !== event.code) this.#interrupt(pending);
 
-    if (this.#deps.keymap.isTapHoldKey(event.code)) {
+    const tapHoldChain = this.#deps.scopeChain();
+    if (this.#deps.keymap.isTapHoldKey(event.code, tapHoldChain.scopes, modsOf(input, this.#deps.keymap.platform))) {
       event.preventDefault(); // Space would scroll the page
       if (event.repeat || pending?.code === event.code) return true;
-      const chain = this.#deps.scopeChain();
+      const chain = tapHoldChain;
       const next: PendingTapHold = { code: event.code, input, chain, timer: null, held: false, interrupted: false };
       next.timer = this.#timers.set(() => this.#hold(next), this.#deps.holdMs ?? TAP_HOLD_MS);
       this.#pending = next;
       return true;
     }
 
-    const chain = this.#deps.scopeChain();
+    const chain = tapHoldChain;
     // A held chord is still bound when the keymap refuses its repeats: its browser default (Mod+S "Save page",
     // Mod+O "Open file") must stay suppressed on every repeat.
     const bound = event.repeat
@@ -172,7 +186,7 @@ export class KeyboardAdapter {
     event.preventDefault();
     if (event.repeat) {
       const binding = this.#deps.keymap.resolve(input, chain.scopes, 'press');
-      if (binding !== null && REPEATING_OPERATORS.has(binding.op)) this.#dispatch(binding, chain, 'press');
+      if (binding !== null && REPEATING_OPERATORS.has(binding.op)) this.#dispatch(binding, chain, 'press', true);
       return true;
     }
     this.#dispatch(bound, chain, 'press');
@@ -243,10 +257,13 @@ export class KeyboardAdapter {
     if (binding !== null) this.#dispatch(binding, pending.chain, 'hold');
   }
 
-  #dispatch(binding: KeyBinding, chain: KeyScopeChain, trigger: KeyTrigger): void {
+  #dispatch(binding: KeyBinding, chain: KeyScopeChain, trigger: KeyTrigger, repeat = false): void {
+    // M6a (§4.6): keyboard runs carry their source and the auto-repeat flag (selection coalescing, LastRun).
     const ctx: RunContext = {
       ...(chain.panel === null ? {} : { panel: chain.panel }),
       ...(chain.paneId === null ? {} : { paneId: chain.paneId }),
+      source: 'keyboard',
+      ...(repeat ? { repeat: true } : {}),
     };
     if (trigger === 'tap' && binding.op === 'view.toggleMaximize' && this.#deps.spaceBehaviour() === 'play') {
       this.#deps.dispatch({ op: 'time.togglePlay', args: undefined, ctx, binding, trigger });

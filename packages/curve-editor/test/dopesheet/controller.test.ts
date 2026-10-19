@@ -157,10 +157,16 @@ describe('selection (§5.10)', () => {
   it('Mod+A selects every shown key; Esc and other keys are not consumed when idle', async () => {
     const m = await setUp();
     const curves = armKeys(m);
-    expect(m.sheet.key({ type: 'down', code: 'KeyA', mod: true, shift: false, alt: false })).toBe(true);
+    expect(
+      m.sheet.key({ type: 'down', code: 'KeyA', mod: true, shift: false, alt: false, ctrl: false, repeat: false }),
+    ).toBe(true);
     expect(new Set(selectedKeys(m.app))).toEqual(new Set(curves.flatMap((curve) => curve.keys)));
-    expect(m.sheet.key({ type: 'down', code: 'Escape', mod: false, shift: false, alt: false })).toBe(false);
-    expect(m.sheet.key({ type: 'down', code: 'KeyS', mod: false, shift: false, alt: false })).toBe(false);
+    expect(
+      m.sheet.key({ type: 'down', code: 'Escape', mod: false, shift: false, alt: false, ctrl: false, repeat: false }),
+    ).toBe(false);
+    expect(
+      m.sheet.key({ type: 'down', code: 'KeyS', mod: false, shift: false, alt: false, ctrl: false, repeat: false }),
+    ).toBe(false);
   });
 
   it('a double-click on a row label selects all its keys (selectRowKeys)', async () => {
@@ -234,7 +240,9 @@ describe('key drags (§5.10): one history step each', () => {
     m.sheet.pointerDown(pointer(at10.x, at10.y));
     m.sheet.pointerMove(pointer(at10.x + 3 * m.sheet.view.sx, at10.y));
     expect(m.sheet.dragging).toBe(true);
-    expect(m.sheet.key({ type: 'down', code: 'Escape', mod: false, shift: false, alt: false })).toBe(true);
+    expect(
+      m.sheet.key({ type: 'down', code: 'Escape', mod: false, shift: false, alt: false, ctrl: false, repeat: false }),
+    ).toBe(true);
     m.sheet.pointerUp(pointer(at10.x + 3 * m.sheet.view.sx, at10.y, { buttons: 0 }));
     for (const { curve } of curves) expect(times(m.app, curve)).toEqual([0, 10, 20]);
     expect(m.app.history.canUndo()).toBe(false);
