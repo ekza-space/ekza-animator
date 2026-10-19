@@ -1,0 +1,536 @@
+// B12a (M6A-SPEC §5.15, §5.10, §5.14): Model's transform runtime on a real viewport — the manipulator on component
+// selections (pivot, World/Object/Component frames) and on objects, component W/E/R drags through a MeshOpSession that
+// commit one "Move"/"Rotate"/"Scale" step (Esc cancels without a step), object Move/Rotate through
+// `scene.object.transform`, the MMB rule (view plane, last-picked handle, the INPUTS field), Tweak, snapping (grid,
+// increments, vertex onto another mesh), pivot editing (objects and components), the soft-select radius and overlay,
+// symmetric transforms through the UI path and the numeric capture target of a drag.
+import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
+import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import {
+  type EditorApp,
+  historyLabels,
+  loadMeshKernel,
+  registerBuiltinOperators,
+  selectInputsField,
+  setComponentSpace,
+} from '@ekza-animator/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { type ModelTransformRuntime, modelSelectOf, modelTransformOf, transformReadout } from '../../src';
+import { createRig, drag, pointer, type Rig } from '../helpers';
+
+const PANE = 'pane-single';
+let rig: Rig | null = null;
+
+beforeAll(async () => {
+  await loadMeshKernel();
+});
+
+afterEach(() => {
+  rig?.dispose();
+  rig = null;
+  vi.restoreAllMocks();
+});
+
+function createMesh(app: EditorApp, id: string, data: MeshData, fields: Partial<MeshRecord> = {}): MeshId {
+  const out = writeRevision(data);
+  for (const [, chunk] of out.newChunks) app.blobs.put(chunk);
+  app.blobs.put(out.manifestBytes);
+  const ref: MeshRef = { manifest: out.manifestId, rev: 1, base: null, joints: [] };
+  app.store.transact({ label: 'Create' }, (tx) =>
+    tx.put('meshes', {
+      id: id as MeshId,
+      name: id,
+      owner: { scene: true },
+      parent: null,
+      order: 'a0',
+      placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+      pivot: [0, 0, 0],
+      source: null,
+      data: ref,
+      faceted: true,
+      generator: null,
+      palette: null,
+      material: { preset: 'unlit' },
+      colourOutput: 'palette-texture',
+      skin: null,
+      budget: null,
+      handheld: null,
+      deleted: null,
+      ...fields,
+    }),
+  );
+  return id as MeshId;
+}
+
+interface Scene {
+  readonly rig: Rig;
+  readonly app: FakeEditorApp;
+  readonly runtime: ModelTransformRuntime;
+  readonly cube: MeshId;
+  readonly other: MeshId | null;
+}
+
+/**
+ * A single pane in Model, a cube at the origin: the persp view by default (edge-on plane handles of the front view
+ * pick like their axes), the front ortho view on request (screen x → world +x, screen y → world −y).
+ */
+async function scene(opts?: {
+  readonly second?: boolean;
+  readonly front?: boolean;
+  readonly data?: MeshData;
+}): Promise<Scene> {
+  const app = createFakeEditorApp();
+  registerBuiltinOperators(app);
+  app.session.setState({ workspace: 'model' });
+  const r = await createRig({ app });
+  rig = r;
+  r.layout('single', {
+    camera: () => ({ kind: 'view', preset: opts?.front === true ? 'front' : 'persp' }),
+    display: { shading: 'shaded' },
+  });
+  const cube = createMesh(app, 'msh_Cube', opts?.data ?? primitive('cube', {}));
+  const other =
+    opts?.second === true
+      ? createMesh(app, 'msh_Other', primitive('cube', {}), {
+          placement: { t: [2.5, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+        })
+      : null;
+  // Both lazy chunks (mesh-view with the select runtime, the transform runtime): a cold import takes seconds.
+  await expect.poll(() => modelSelectOf(app), { timeout: 15_000 }).not.toBeNull();
+  await expect.poll(() => modelTransformOf(app), { timeout: 15_000 }).not.toBeNull();
+  r.vm.frame(PANE, 'all');
+  r.frame();
+  return { rig: r, app, runtime: modelTransformOf(app) as ModelTransformRuntime, cube, other };
+}
+
+async function run(app: EditorApp, op: string, args?: unknown): Promise<void> {
+  const result = await app.runUntyped(op, args);
+  expect([op, result.status, result.status === 'cancelled' ? result.reason : '']).toEqual([op, 'finished', '']);
+}
+
+async function tool(s: Scene, id: 'move' | 'rotate' | 'scale' | 'select'): Promise<void> {
+  await run(s.app, 'view.tool', { panel: 'viewport', tool: id });
+  s.rig.frame();
+}
+
+/** Selects the mesh objects, enters a component mode and selects components of the cube. */
+async function pick(s: Scene, kind: 'vertex' | 'edge' | 'face', indices: readonly number[]): Promise<void> {
+  s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+  await run(s.app, 'select.mode', { mode: kind });
+  await run(s.app, 'select.components', { mesh: s.cube, kind, indices, mode: 'replace' });
+  s.rig.frame();
+}
+
+function element(s: Scene): HTMLElement {
+  const pane = s.rig.panes.get(PANE);
+  if (pane === undefined) throw new Error('no pane');
+  return pane;
+}
+
+function handle(s: Scene, h: string): { x: number; y: number } {
+  const point = s.rig.vm.manipulatorScreenPoint(PANE, h as never);
+  if (point === null) throw new Error(`handle ${h} not visible`);
+  return { x: point.x, y: point.y };
+}
+
+function positions(app: EditorApp, mesh: MeshId): number[][] {
+  const data = app.meshes.get(mesh)?.data();
+  if (data === null || data === undefined) throw new Error('no data');
+  const out: number[][] = [];
+  for (let v = 0; v < data.counts.points; v++) {
+    out.push([data.position[3 * v] as number, data.position[3 * v + 1] as number, data.position[3 * v + 2] as number]);
+  }
+  return out;
+}
+
+const labels = (app: EditorApp): readonly string[] => historyLabels(app.history).undo;
+
+/** Waits for the commit a drag release started (the run is asynchronous). */
+async function settled(app: EditorApp, steps: number): Promise<void> {
+  await expect.poll(() => labels(app).length).toBe(steps);
+}
+
+function key(
+  s: Scene,
+  code: string,
+  type: 'down' | 'up',
+  mods: Partial<{ shift: boolean; mod: boolean }> = {},
+): boolean {
+  return (
+    s.rig.vm.activeTool()?.key?.({
+      type,
+      code,
+      shift: mods.shift ?? false,
+      alt: false,
+      mod: mods.mod ?? false,
+      ctrl: false,
+      repeat: false,
+    }) ?? false
+  );
+}
+
+const near = (a: number | undefined, b: number, eps = 1e-5): boolean => a !== undefined && Math.abs(a - b) <= eps;
+
+describe('the manipulator on components and objects (§5.15)', () => {
+  it('sits on the bounding-box centre of the picked vertices with World, Object or Component axes', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', []);
+    expect(s.rig.vm.manipulatorAxes()).toBeNull(); // nothing selected: no manipulator
+    const p = positions(s.app, s.cube);
+    const top = p.map((q, v) => ({ q, v })).filter(({ q }) => near(q[1], 0.5));
+    await pick(
+      s,
+      'vertex',
+      top.map(({ v }) => v),
+    );
+    expect(s.rig.vm.manipulatorAxes()).toEqual([
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]);
+    const centre = s.rig.vm.project(PANE, [0, 0.5, 0]);
+    const grab = handle(s, 'tview');
+    expect(near(grab.x, centre?.x ?? Number.NaN, 0.5) && near(grab.y, centre?.y ?? Number.NaN, 0.5)).toBe(true);
+    // Component: Z along the top face normal (+Y), X/Y by the region-frame rule.
+    setComponentSpace(s.app, 'move', true);
+    s.rig.vm.refreshManipulatorSoon();
+    const axes = s.rig.vm.manipulatorAxes();
+    expect(axes?.[2]?.map((x) => Math.round(x * 1e6) / 1e6)).toEqual([0, 1, 0]);
+  });
+
+  it('sits on the topmost selected object in object mode (Move, Rotate); Scale stays B9’s', async () => {
+    const s = await scene();
+    s.app.store.transact({ label: 'Place' }, (tx) =>
+      tx.patch('meshes', s.cube, { placement: { t: [1, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] }, pivot: [0, 0.5, 0] }),
+    );
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'move');
+    const at = s.rig.vm.project(PANE, [1, 0.5, 0]);
+    const grab = handle(s, 'tview');
+    expect(near(grab.x, at?.x ?? Number.NaN, 0.5) && near(grab.y, at?.y ?? Number.NaN, 0.5)).toBe(true);
+  });
+});
+
+describe('component drags (§5.15, §5.10)', () => {
+  it('drags the ty handle: one "Move" step along +Y only; undo restores bit-equal positions', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0, 1]);
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    const from = handle(s, 'ty');
+    drag(element(s), from, { x: from.x, y: from.y - 40 });
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Move');
+    const after = positions(s.app, s.cube);
+    const dy = (after[0]?.[1] ?? 0) - (before[0]?.[1] ?? 0);
+    expect(dy).toBeGreaterThan(0);
+    for (const v of [0, 1]) {
+      expect(after[v]?.[0]).toBe(before[v]?.[0]);
+      expect(after[v]?.[2]).toBe(before[v]?.[2]);
+      expect(near(after[v]?.[1], (before[v]?.[1] ?? 0) + dy)).toBe(true);
+    }
+    for (let v = 2; v < before.length; v++) expect(after[v]).toEqual(before[v]);
+    s.app.history.undo();
+    expect(positions(s.app, s.cube)).toEqual(before);
+  });
+
+  it('in an ortho side view a press on an axis whose plane handle lies edge-on over it drags that axis', async () => {
+    const s = await scene({ front: true });
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    const tx = handle(s, 'tx');
+    drag(element(s), tx, { x: tx.x + 30, y: tx.y + 10 });
+    await settled(s.app, steps + 1);
+    expect(s.app.session.getState().model.tweakHandle).toBe('tx');
+    const after = positions(s.app, s.cube);
+    expect((after[0]?.[0] ?? 0) - (before[0]?.[0] ?? 0)).toBeGreaterThan(0);
+    expect(after[0]?.[1]).toBe(before[0]?.[1]);
+    expect(after[0]?.[2]).toBe(before[0]?.[2]);
+  });
+
+  it('Esc (cancel) during a drag restores the mesh and records nothing', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    const from = handle(s, 'tx');
+    pointer(element(s), 'pointerdown', from.x, from.y);
+    pointer(element(s), 'pointermove', from.x + 30, from.y, { buttons: 1 });
+    expect(s.rig.vm.activeTool()?.phase?.()).toBe('dragging');
+    expect(s.app.capture.state.armed).toBe('drag');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+    pointer(element(s), 'pointerup', from.x + 30, from.y);
+    await Promise.resolve();
+    expect(positions(s.app, s.cube)).toEqual(before);
+    expect(labels(s.app)).toHaveLength(steps);
+    expect(s.app.capture.state.armed).toBeNull();
+  });
+
+  it('rotates and scales faces about the selection centre ("Rotate", "Scale")', async () => {
+    const s = await scene();
+    await pick(s, 'face', [0]);
+    await tool(s, 'rotate');
+    const steps = labels(s.app).length;
+    const ring = handle(s, 'rz');
+    drag(element(s), ring, { x: ring.x + 30, y: ring.y + 10 });
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Rotate');
+    await tool(s, 'scale');
+    const cube = handle(s, 'suniform');
+    drag(element(s), cube, { x: cube.x + 40, y: cube.y });
+    await settled(s.app, steps + 2);
+    expect(labels(s.app).at(-1)).toBe('Scale');
+  });
+
+  it('commits the value typed in the capture window (§5.10): exactly 0.5 m along Y', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [2]);
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    const from = handle(s, 'ty');
+    pointer(element(s), 'pointerdown', from.x, from.y);
+    pointer(element(s), 'pointermove', from.x, from.y - 20, { buttons: 1 });
+    const target = s.rig.vm.activeTool()?.numeric?.();
+    expect(target?.active).toBe('translateY');
+    expect(target?.fields.map((f) => f.name)).toEqual(['translateX', 'translateY', 'translateZ']);
+    target?.set('translateY', 0.5);
+    target?.confirm();
+    pointer(element(s), 'pointerup', from.x, from.y - 20);
+    await settled(s.app, steps + 1);
+    expect(positions(s.app, s.cube)[2]?.[1]).toBe(Math.fround((before[2]?.[1] ?? 0) + 0.5));
+  });
+});
+
+describe('the MMB rule (§5.15)', () => {
+  it('moves in the view plane without a picked handle, then along the last-picked handle only', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0, 1]);
+    const before = positions(s.app, s.cube);
+    const steps = labels(s.app).length;
+    drag(element(s), { x: 100, y: 100 }, { x: 140, y: 100 }, { button: 1 });
+    await settled(s.app, steps + 1);
+    const moved = positions(s.app, s.cube);
+    const delta = [0, 1, 2].map((k) => (moved[0]?.[k] ?? 0) - (before[0]?.[k] ?? 0));
+    const other = [0, 1, 2].map((k) => (moved[1]?.[k] ?? 0) - (before[1]?.[k] ?? 0));
+    const camera = s.rig.vm.camera(PANE);
+    const forward = [0, 1, 2].map((k) => (camera.target[k] ?? 0) - (camera.position[k] ?? 0));
+    const length = Math.hypot(...forward);
+    expect(Math.hypot(...delta)).toBeGreaterThan(0.01);
+    expect(Math.abs(delta.reduce((sum, d, k) => sum + d * (forward[k] ?? 0), 0) / length)).toBeLessThan(1e-5);
+    delta.forEach((d, k) => expect(near(other[k], d)).toBe(true)); // both by the same delta
+    s.app.history.undo();
+    // A LMB press-release on tx picks it (no move, no step).
+    const tx = handle(s, 'tx');
+    pointer(element(s), 'pointerdown', tx.x, tx.y);
+    pointer(element(s), 'pointerup', tx.x, tx.y);
+    expect(s.app.session.getState().model.tweakHandle).toBe('tx');
+    expect(labels(s.app)).toHaveLength(steps);
+    drag(element(s), { x: 100, y: 100 }, { x: 140, y: 140 }, { button: 1 });
+    await settled(s.app, steps + 1);
+    const along = positions(s.app, s.cube);
+    expect((along[0]?.[0] ?? 0) - (before[0]?.[0] ?? 0)).toBeGreaterThan(0);
+    expect(along[0]?.[1]).toBe(before[0]?.[1]);
+    expect(along[0]?.[2]).toBe(before[0]?.[2]);
+    await tool(s, 'rotate');
+    expect(s.app.session.getState().model.tweakHandle).toBeNull(); // cleared on a tool switch
+  });
+
+  it('drags the selected INPUTS field: width += 40 px × metresPerPx as an adjusted primitive run', async () => {
+    const s = await scene();
+    await run(s.app, 'mesh.create.cube');
+    const created = s.app.store.list('meshes').find((m) => m.generator !== null);
+    if (created === undefined) throw new Error('no primitive');
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [created.id] } });
+    await tool(s, 'move');
+    selectInputsField(s.app, { entry: 'primitive', mesh: created.id, param: 'width' });
+    const steps = labels(s.app).length;
+    drag(element(s), { x: 100, y: 100 }, { x: 140, y: 100 }, { button: 1 });
+    await expect.poll(() => s.app.store.get('meshes', created.id)?.generator?.params['width']).toBeCloseTo(1.4, 9);
+    expect(labels(s.app)).toHaveLength(steps); // adjusted in place, not a new step
+  });
+});
+
+describe('Tweak (§5.15)', () => {
+  it('a drag starting on an unselected vertex selects and moves it in one "Move" step', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    await run(s.app, 'model.selectionStyle.set', { style: 'tweak' });
+    const selectRuntime = modelSelectOf(s.app);
+    const p = positions(s.app, s.cube);
+    // A front vertex not selected: the one at the top right front (+x, +y, +z).
+    const v = p.findIndex((q) => near(q[0], 0.5) && near(q[1], 0.5) && near(q[2], 0.5));
+    const at = selectRuntime?.screenOf(s.cube, 'vertex', v, PANE);
+    if (at === null || at === undefined) throw new Error('vertex not visible');
+    const steps = labels(s.app).length;
+    drag(element(s), at, { x: at.x + 30, y: at.y });
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).slice(steps)).toEqual(['Move']);
+    expect([...s.app.components.get(s.cube, 'vertex').verts.toArray()]).toEqual([v]);
+    const moved = positions(s.app, s.cube);
+    expect((moved[v]?.[0] ?? 0) - (p[v]?.[0] ?? 0)).toBeGreaterThan(0);
+    expect(moved[0]).toEqual(p[0]);
+  });
+});
+
+describe('snapping (§5.15)', () => {
+  it('X snaps the moved pivot to the grid, J the move to increments', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    const before = positions(s.app, s.cube);
+    let steps = labels(s.app).length;
+    expect(key(s, 'KeyX', 'down')).toBe(true);
+    const from = handle(s, 'ty');
+    drag(element(s), from, { x: from.x, y: from.y - 37 });
+    expect(key(s, 'KeyX', 'up')).toBe(true);
+    await settled(s.app, ++steps);
+    const y = positions(s.app, s.cube)[0]?.[1] ?? 0;
+    expect(near(Math.round(y / 0.1) * 0.1, y)).toBe(true);
+    s.app.history.undo();
+    await run(s.app, 'model.snap.toggle', { kind: 'increment' });
+    const again = handle(s, 'tx');
+    drag(element(s), again, { x: again.x + 37, y: again.y });
+    await settled(s.app, steps);
+    const dx = (positions(s.app, s.cube)[0]?.[0] ?? 0) - (before[0]?.[0] ?? 0);
+    expect(near(Math.round(dx / 0.1) * 0.1, dx)).toBe(true);
+    expect(dx).not.toBe(0);
+  });
+
+  it('V snaps an object move onto another mesh’s vertex: its placement lands on that vertex (E2E-MOD-28)', async () => {
+    const s = await scene({ second: true, front: true });
+    const other = s.other as MeshId;
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'move');
+    const target = [2.5 - 0.5, 0.5, 0.5] as const; // a corner of the other cube (front, top, left)
+    const at = s.rig.vm.project(PANE, [...target]);
+    if (at === null) throw new Error('vertex not visible');
+    const steps = labels(s.app).length;
+    key(s, 'KeyV', 'down');
+    drag(element(s), handle(s, 'tview'), { x: at.x + 3, y: at.y - 2 }, undefined, 6);
+    key(s, 'KeyV', 'up');
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Move');
+    const t = s.app.store.get('meshes', s.cube)?.placement.t ?? [];
+    expect(t.map((x) => Math.round(x * 1e6) / 1e6)).toEqual([...target]);
+    expect(s.app.store.get('meshes', other)?.placement.t).toEqual([2.5, 0, 0]);
+  });
+});
+
+describe('objects (§5.13 scene.object.transform)', () => {
+  it('moves and rotates the selected object in one step each; undo restores the placement', async () => {
+    const s = await scene();
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'move');
+    const steps = labels(s.app).length;
+    const ty = handle(s, 'ty');
+    drag(element(s), ty, { x: ty.x, y: ty.y - 30 });
+    await settled(s.app, steps + 1);
+    const moved = s.app.store.get('meshes', s.cube)?.placement;
+    expect(moved?.t[1]).toBeGreaterThan(0);
+    expect(moved?.t[0]).toBe(0);
+    await tool(s, 'rotate');
+    const ring = handle(s, 'ry');
+    drag(element(s), ring, { x: ring.x + 30, y: ring.y });
+    await settled(s.app, steps + 2);
+    expect(labels(s.app).slice(-2)).toEqual(['Move', 'Rotate']);
+    const turned = s.app.store.get('meshes', s.cube)?.placement;
+    expect(turned?.q[1]).not.toBe(0);
+    expect(turned?.t.map((x) => Math.round(x * 1e9) / 1e9)).toEqual(moved?.t.map((x) => Math.round(x * 1e9) / 1e9));
+    s.app.history.undo();
+    expect(s.app.store.get('meshes', s.cube)?.placement).toEqual(moved);
+  });
+});
+
+describe('pivot editing (§5.15)', () => {
+  it('D held: the manipulator is dashed and a drag moves the object pivot (mesh.pivot.set, undoable)', async () => {
+    const s = await scene();
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'rotate');
+    expect(key(s, 'KeyD', 'down')).toBe(true);
+    s.rig.frame();
+    const tx = handle(s, 'tx'); // pivot editing shows the translate handles whatever the tool
+    const steps = labels(s.app).length;
+    drag(element(s), tx, { x: tx.x + 40, y: tx.y });
+    key(s, 'KeyD', 'up');
+    await settled(s.app, steps + 1);
+    const pivot = s.app.store.get('meshes', s.cube)?.pivot ?? [];
+    expect(pivot[0]).toBeGreaterThan(0);
+    expect(pivot[1]).toBe(0);
+    expect(s.app.store.get('meshes', s.cube)?.placement.t).toEqual([0, 0, 0]);
+    s.app.history.undo();
+    expect(s.app.store.get('meshes', s.cube)?.pivot).toEqual([0, 0, 0]);
+  });
+
+  it('in a component mode it pins componentPivot (U state); a new selection drops it', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    await run(s.app, 'model.pivot.editToggle');
+    s.rig.frame();
+    const tx = handle(s, 'tx');
+    const steps = labels(s.app).length;
+    drag(element(s), tx, { x: tx.x + 40, y: tx.y });
+    await expect.poll(() => s.app.session.getState().model.componentPivot).not.toBeNull();
+    expect(labels(s.app)).toHaveLength(steps);
+    await run(s.app, 'model.pivot.editToggle');
+    await run(s.app, 'select.components', { mesh: s.cube, kind: 'vertex', indices: [1], mode: 'replace' });
+    await expect.poll(() => s.app.session.getState().model.componentPivot).toBeNull();
+  });
+});
+
+describe('soft selection (§5.15)', () => {
+  it('pushes the weights to the display; B+LMB drag scales the radius (no tap toggle behind it)', async () => {
+    const s = await scene({
+      data: primitive('plane', { width: 4, height: 4, subdivisionsWidth: 8, subdivisionsHeight: 8 }),
+    });
+    const display = modelSelectOf(s.app)?.display;
+    if (display === undefined) throw new Error('no display');
+    const pushed = vi.spyOn(display, 'setSoftWeights');
+    await tool(s, 'move');
+    await pick(s, 'vertex', [40]);
+    await run(s.app, 'model.softSelect.set', { on: true, radius: 1 });
+    await expect.poll(() => pushed.mock.calls.some(([mesh, w]) => mesh === s.cube && w !== null)).toBe(true);
+    expect(key(s, 'KeyB', 'down')).toBe(false); // observed: the keymap's tap toggles soft select
+    drag(element(s), { x: 300, y: 300 }, { x: 400, y: 300 });
+    expect(key(s, 'KeyB', 'up')).toBe(true); // a B+drag release is no tap
+    await expect.poll(() => s.app.session.getState().model.softSelect.radius).toBeCloseTo(2, 6);
+    expect(transformReadout(s.app)?.ring ?? null).toBeNull();
+  });
+});
+
+describe('symmetry through the UI path (§5.14, P10)', () => {
+  it('a vertex moved along +X under Object X moves its partner along −X', async () => {
+    const s = await scene();
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await run(s.app, 'model.symmetry.set', { mode: 'object-x' });
+    await tool(s, 'move');
+    const p = positions(s.app, s.cube);
+    const v = p.findIndex((q) => near(q[0], 0.5) && near(q[1], 0.5) && near(q[2], 0.5));
+    const partner = p.findIndex((q) => near(q[0], -0.5) && near(q[1], 0.5) && near(q[2], 0.5));
+    await pick(s, 'vertex', [v]);
+    const steps = labels(s.app).length;
+    const tx = handle(s, 'tx');
+    drag(element(s), tx, { x: tx.x + 30, y: tx.y });
+    await settled(s.app, steps + 1);
+    const q = positions(s.app, s.cube);
+    const dx = (q[v]?.[0] ?? 0) - 0.5;
+    expect(dx).toBeGreaterThan(0);
+    expect(near(q[partner]?.[0], -0.5 - dx)).toBe(true);
+    expect(q[partner]?.[1]).toBe(p[partner]?.[1]);
+  });
+});
+
+/** World matrix of a mesh's placement (used by the object tests). */
+export function worldOf(app: EditorApp, mesh: MeshId): Mat4 {
+  return mat4Compose(app.store.get('meshes', mesh)?.placement ?? { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] });
+}

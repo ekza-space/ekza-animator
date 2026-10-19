@@ -69,7 +69,7 @@ import type { ManipHandle } from '../../../types';
 import type { ViewportToolHost } from '../../host';
 import { modelSelectOf, subscribeModelSelect } from '../select';
 import { componentFrame, componentPicks, type MeshPicks, picksCentre, quatOfAxes, rotationOf } from './frame';
-import { type DragFrame, handleMode, isIdentityMotion, type Motion, mmbHandle, motionAt } from './motion';
+import { type DragFrame, handleMode, isIdentityMotion, type Motion, mmbHandle, motionAt, refineHandle } from './motion';
 import { setTransformReadout, transformReadout } from './readout';
 import { deltaTowards, nearestVertex, type SnapCandidate, snapIncrement, snapTranslation } from './snap';
 import type { ModelManipulator, ModelManipulatorRequest, ModelManipulatorTarget } from './types';
@@ -465,7 +465,9 @@ export class ModelTransformRuntime implements ModelManipulator {
       return true;
     }
     if (e.button !== 0) return false;
-    const handle = host.pickManipulator(e.paneId, e.x, e.y);
+    const picked = host.pickManipulator(e.paneId, e.x, e.y);
+    const frame = picked === null ? null : this.vm.manipulatorFrame(e.paneId);
+    const handle = picked === null || frame === null ? picked : refineHandle(picked, frame);
     if (handle !== null) {
       setTweakHandle(this.app, handle);
       // Object scaling with the Scale tool's handles stays B9's (each object in its own axes, one "Scale" step).

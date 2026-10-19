@@ -67,7 +67,9 @@ export function nearestVertex(
       if (!frame.projector.project(w[0], w[1], w[2], out)) continue;
       const d = Math.hypot((out[0] as number) - x, (out[1] as number) - y);
       const depth = out[2] as number;
-      if (d < bestDistance || (d === bestDistance && depth < bestDepth)) {
+      // Ties (vertices on one line of sight project onto the same point) go to the nearer one.
+      const tie = Math.abs(d - bestDistance) < 1e-6;
+      if ((d < bestDistance && !tie) || (tie && depth < bestDepth) || (best === null && d <= bestDistance)) {
         bestDistance = d;
         bestDepth = depth;
         const name = app.store.get('meshes', mesh)?.name ?? mesh;
