@@ -184,6 +184,8 @@ describe('mesh-view budgets (report)', () => {
       `enter component mode, 50k tris (median of 5): ${median(enter.map((e) => e.total)).toFixed(1)} ms total ` +
         `(kernel edit links + triangulation + normals ${median(enter.map((e) => e.kernel)).toFixed(1)} ms [B0a reference], ` +
         `overlays + first frame ${median(enter.map((e) => e.view)).toFixed(1)} ms, BVH ${median(enter.map((e) => e.bvh)).toFixed(1)} ms; budget ≤ 40 ms)`,
+      `enter component mode before the first component frame (MeshDisplay builds the BVH on idle afterwards): ` +
+        `${median(enter.map((e) => e.kernel + e.view)).toFixed(1)} ms (no separate budget)`,
       ...(['vertex', 'edge', 'face'] as const).map(
         (kind) =>
           `hover ${kind}: mean ${((hover[kind] as number[]).reduce((a, b) => a + b, 0) / 1000).toFixed(3)} ms, ` +
