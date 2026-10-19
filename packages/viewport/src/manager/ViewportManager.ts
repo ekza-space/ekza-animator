@@ -537,10 +537,6 @@ export class ViewportManager {
   }
 
   /**
-   * M6a (B10): the camera a pane looks through, sized to the pane, with its size (CSS px) and display flags, for
-   * mesh-view's component picking (B6's `MeshDisplay.pick`/`marquee`/`screenOf`). Null for an unknown or empty pane.
-   */
-  /**
    * M6a (B12a, §5.15): Model's transform runtime, asked for the manipulator target before B9's object scale target and
    * the control target (null removes it). Its targets are dragged by the runtime itself, never by the control drags.
    */
@@ -589,6 +585,10 @@ export class ViewportManager {
     };
   }
 
+  /**
+   * M6a (B10): the camera a pane looks through, sized to the pane, with its size (CSS px) and display flags, for
+   * mesh-view's component picking (B6's `MeshDisplay.pick`/`marquee`/`screenOf`). Null for an unknown or empty pane.
+   */
   paneView(paneId: string): {
     readonly camera: Camera;
     readonly width: number;

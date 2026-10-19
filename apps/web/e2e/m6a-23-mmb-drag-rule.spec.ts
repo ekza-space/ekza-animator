@@ -159,4 +159,13 @@ test.fixme('b3: E2E-MOD-23 — the INPUTS field’s virtual slider after an extr
   // One adjusted step (the history keeps its length); no vertex moved by the move rule.
   expect((await call(page, 'history')).undo).toHaveLength(steps);
   expect((await call(page, 'history')).undo.at(-1)).toMatch(/adjusted/);
+  // The mesh is exactly the extrude at the dragged value: adjusting the same extrude back to the start value gives
+  // the extruded mesh, and directly to the dragged value gives the dragged mesh (nothing else moved).
+  const dragged = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
+  const value = Number((await call(page, 'lastOp'))?.args['localTranslateZ'] ?? 0);
+  await runOk(page, 'edit.adjustLast', { args: { localTranslateZ: start } });
+  await expect.poll(() => call(page, 'meshPositions', cube)).toEqual(extruded);
+  await runOk(page, 'edit.adjustLast', { args: { localTranslateZ: value } });
+  await expect.poll(() => call(page, 'meshPositions', cube)).toEqual(dragged);
+  expect((await call(page, 'history')).undo).toHaveLength(steps);
 });
