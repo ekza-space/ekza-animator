@@ -49,6 +49,23 @@ export {
 export { scaleKeyValues } from './edit/valueScale';
 export { compileWithAppEngine } from './evaluation/compile';
 export { MAYA_KEYMAP } from './keymap/maya';
+// M6a (M6A-SPEC §5.17, §7; B0b): hierarchical key scopes and the tool-modifier sheet.
+export {
+  chordInput,
+  keyScopeChain,
+  MODEL_SCOPE,
+  RESERVED_MODAL_KEYS,
+  resolveChord,
+  type ScopeChainInput,
+} from './keymap/scopes';
+export { MODEL_MENUS } from './operators/builtin/menus';
+export {
+  TOOL_HOLD_CODES,
+  TOOL_MODIFIERS,
+  type ToolModifierDoc,
+  type ToolModifierPart,
+  toolModifierKeys,
+} from './keymap/toolModifiers';
 export type * from './operators/args';
 export type { CoalescingOperatorDef, OperatorCoalescing } from './operators/runner';
 export {

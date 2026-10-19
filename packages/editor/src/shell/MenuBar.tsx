@@ -93,7 +93,10 @@ export function MenuBar(): JSX.Element {
   const shell = useShell();
   const { app } = shell;
   const items = useRegistryList(app.menus);
-  const menus = topMenus(items);
+  // M6a (§8.1): each workspace shows its own menu set (B0b's `topMenus`); Animate's is the shipped one.
+  const workspaceId = useSession((s) => s.workspace);
+  const workspaces = useRegistryList(app.workspaces);
+  const menus = topMenus(items, { id: workspaceId, menus: workspaces.find((def) => def.id === workspaceId)?.menus });
   const projectName = useSession((s) => s.projectName);
   const dirty = useSession((s) => s.dirty);
 

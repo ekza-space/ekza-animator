@@ -1,7 +1,7 @@
 // M6a test API, B9 group (M6A-SPEC §4.8): workspaces, pixels, key resolution, marking menus, the command palette.
 // B0a: `workspaces` and `resolveKey` are kernel-level and work; the others throw until B9 lands them.
 import type { KeyInput } from '@ekza-animator/editor-core';
-import { scopeChainOf } from '../../input/pointer';
+import { scopeChain } from '../../input/keyboard';
 import type { EkzaAnimatorTestApi } from '../types';
 import { type M6aTestApiContext, notImplemented } from './support';
 
@@ -41,13 +41,8 @@ export function shellWorkspacesTestApi(ctx: M6aTestApiContext): ShellWorkspacesT
         altKey: chord.alt === true,
         repeat: false,
       };
-      // B0b replaces the chain with the hierarchical Model chain (§5.17); Animate keeps `<panel>` → `global`.
-      const scopes = scopeChainOf({
-        kind: at.panel,
-        scope: at.panel,
-        instanceId: null,
-        paneId: at.paneId ?? null,
-      });
+      // The keyboard adapter's chain (§5.17, B0b): hierarchical in Model, `<panel>` → `global` in Animate.
+      const { scopes } = scopeChain(app, { kind: at.panel, scope: at.panel, paneId: at.paneId ?? null });
       const binding = app.keymap.resolve(input, scopes, 'press');
       return binding === null ? null : { op: binding.op, args: binding.args, scope: binding.scope };
     },
