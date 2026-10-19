@@ -5,6 +5,9 @@ import type { Disposer } from '@ekza-animator/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-animator/io';
 import { MAYA_KEYMAP } from '../../keymap/maya';
 import type { EditorApp } from '../../types';
+import { AGENT_CLIP_OPERATORS } from './agentClip';
+import { AGENT_KEY_OPERATORS } from './agentKeys';
+import { AGENT_POSE_OPERATORS } from './agentPose';
 import { AUTOSAVE_OPERATORS } from './autosave';
 import { BREAKDOWN_OPERATORS } from './breakdown';
 import { CLIP_OPERATORS } from './clip';
@@ -20,6 +23,7 @@ import { KEY_OPERATORS } from './key';
 import { BUILTIN_MENU_ITEMS } from './menus';
 import { MIRROR_ANIMATION_OPERATORS } from './mirrorAnimation';
 import { POSE_OPERATORS } from './pose';
+import { REVERT_OPERATORS } from './revert';
 import { RIG_OPERATORS } from './rig';
 import { SELECT_OPERATORS } from './select';
 import { TIME_OPERATORS } from './time';
@@ -47,6 +51,11 @@ export const BUILTIN_OPERATORS: readonly AnyOperator[] = [
   ...GRAPH_BUFFER_OPERATORS,
   ...MIRROR_ANIMATION_OPERATORS,
   ...AUTOSAVE_OPERATORS,
+  // M-AI (MCP-SPEC §3 rule 2: new operators live in new files; D0 registers their stubs here, one line per file)
+  ...AGENT_KEY_OPERATORS,
+  ...AGENT_POSE_OPERATORS,
+  ...AGENT_CLIP_OPERATORS,
+  ...REVERT_OPERATORS,
 ];
 
 function disposeAll(disposers: Disposer[]): Disposer {
