@@ -51,6 +51,7 @@ import {
   readModelOutlinerDoc,
   rowId,
 } from './modelTree';
+import { useMeshRuntimesVersion } from '../palette/hooks';
 import { setSelectedPlane, useSelectedPlane } from './planeSelection';
 import { selectObjects } from './sceneSelection';
 
@@ -162,6 +163,8 @@ function Badges(props: { readonly id: string; readonly badges: MeshBadges }): JS
 export default function ModelOutliner({ app, instanceId }: PanelProps): JSX.Element {
   const run = useRunOperator();
   const doc = useDocQuery(readModelOutlinerDoc, TABLES);
+  // Re-render badges when runtimes load (the value is read through `meshBadges` during render).
+  useMeshRuntimesVersion(app);
   const charactersVersion = useCharactersVersion(app);
   const selected = useSession(selectObjectsState, sameIds);
   const hilite = useSession(selectHilite, sameIds);

@@ -10,6 +10,7 @@ import { useDocQuery, usePrefs, useRunOperator, useSession } from '../../hooks';
 import { shortcutFor } from '../../shell/menus';
 import { type MenuEntry, useContextMenu } from '../channel-box/kit/menu';
 import { Popover } from '../channel-box/kit/popover';
+import { useMeshRuntimesVersion } from './hooks';
 import { BUTTON, CHECK, EMPTY_STATE, INPUT, INVALID, MUTED_TEXT, PANEL_ROOT, SELECT } from '../channel-box/kit/styles';
 import {
   contrastOn,
@@ -70,6 +71,8 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
     [doc, activeId],
   );
   // The mesh's runtime data (its paint layer) changes with mesh revisions, which the `meshes` table reports.
+  // The mesh's paint layer lives in its runtime: re-read when runtimes load or rebuild (revisions change the doc).
+  useMeshRuntimesVersion(app);
   const used = lead === null ? null : usedSlots(app, lead);
   const targets = useMemo(() => (targetsKey === '' ? [] : (targetsKey.split(',') as MeshId[])), [targetsKey]);
 
