@@ -29,7 +29,7 @@ B7 (runtime commits); its E2E-MOD scenarios -02, -25 and -26 are landed behind t
 
 | # | What | Why |
 |---|---|---|
-| M6A-B10-1 | **Revisions.** The service tags each mesh's state with the revision (`MeshRuntime.ref.manifest`) it indexes and records each revision's sizes when it first sees it committed. A `set`/`remap` whose sizes differ from the committed revision's is **pending** (B7 stores the op's result inside the commit, before the batch moves the runtime) and becomes the new revision's state when the runtime follows; a rolled-back commit restores the committed state. When the runtime moves to another revision (undo, redo, a peer) the state remembered for that revision (last 24 per mesh) comes back, so undoing an extrude restores the face selection the op read and redo the op's result — without per-mesh snapshots in `TxMeta` (the runner's `selectionBefore/After` carry none yet, see Hand-over B11). A revision never seen keeps the selection when the sizes match and clears it otherwise; hidden sets are resized (new elements visible). | §4.6 "remap after topology commits", §5.6 "a mesh whose revision changed since the snapshot is skipped", §5.5 rule 2. B7's `data()` follows the edit mesh during a commit, so the runtime's own counts cannot tell a pending result from a committed change (found in the scratch integration, see Verification). |
+| M6A-B10-1 | **Revisions.** The service tags each mesh's state with the revision (`MeshRuntime.ref.manifest`) it indexes and records each revision's sizes when it first sees it committed. A `set`/`remap` is **pending** when an op is in flight (fix round 1): a result already pending, sizes other than the committed revision's, or a stored form (`data()`, by identity) the runtime replaced since the service last saw the committed content (B7 caches the new revision's form before it stores the result, `commitOp`). Before a pending result replaces the state, that state is remembered as the revision the op read; the result becomes the new revision's state when the runtime follows, settles as a change of the current revision at the end of the task when no revision moved, and rolls back to the remembered state when the content changed under the same revision (an aborted commit). A same-size result keeps the kinds it does not supply (empty bitsets of other kinds: per-mode memory). A store with the same stored form and the committed sizes (a select outside a commit, a run that wrote no revision) changes the current revision at once. When the runtime moves to another revision (undo, redo, a peer) the state remembered for that revision (last 24 per mesh) comes back, so undoing an op restores the selection it read and redo its result, whatever the sizes — without per-mesh snapshots in `TxMeta` (the runner's `selectionBefore/After` carry none yet, see Hand-over B11). A revision never seen keeps the selection when the sizes match and clears it otherwise; hidden sets are resized (new elements visible). | §4.6 "remap after topology commits", §5.6 "a mesh whose revision changed since the snapshot is skipped", §5.5 rule 2, §5.7 (Adjust Last re-runs on the restored selection). The service has no document handle (the factory gets `session` and `meshes`; `kernel.ts` is closed), so it reads "an op is in flight" from the runtime itself. |
 | M6A-B10-2 | **Hidden components.** Component hides convert to faces (Maya): `H` in vertex/edge mode hides the faces the selection touches; `hidden()` returns the explicit sets plus the closure (an edge whose faces are all hidden, a vertex whose edges are all hidden), mesh-view's visibility rule (M6A-B6-6), so B2's walkers stop at the same elements the display hides. **Hidden picks stay stored** but `get()` (what ops, walkers, the HUD and the test API read) leaves them out; undoing a hide therefore brings the selection back as it was, and a replacing click or marquee drops them. | §5.6 "never op targets", "stop loop and ring walkers"; the §4.6 `HideSnapshot` has no selection, so a hide that deselected could not be undone exactly. |
 | M6A-B10-3 | **`select.components` pass-through keys** (runtime only; `OperatorMap` is closed): `gesture: 'click' | 'marquee'` from the select tool. A click is remembered so a double-click's loop gesture reads the selection from **before** its first click (M6A-B2-6); a marquee over several hilited meshes runs once per mesh, the later runs with `mode: 'add'` (for a replace) and `RunContext.repeat`, so `recordSelection` merges them into one "Select" step. | §5.6 "every discrete gesture is its own step: … a marquee". |
 | M6A-B10-4 | **Selection steps** record only when the gesture changed something (controls, objects or any per-mesh set, order or active); a click on what is already selected records nothing. Coalescing: auto-repeated grow/shrink (`RunContext.repeat`) and marquee continuations. Animate (`undoSelection.animate` false) is unchanged. | §5.6; a no-op step would make `Mod+Z` appear to do nothing. |
@@ -42,10 +42,15 @@ B7 (runtime commits); its E2E-MOD scenarios -02, -25 and -26 are landed behind t
 | M6A-B10-11 | **Framing** in Model: `F` frames the component selection (expanded, of the hilited meshes), else the selected mesh objects, else every mesh; `A` every mesh; outside Model, or with no mesh, the shipped bounds. A single point is padded to 10 cm. | §9 B10 "framing (F/A) on component selections". |
 | M6A-B10-12 | **Status-line mode body**: B9's default body (`status-mode-<mode>`, `select.mode` with poll reasons, F-key labels from the keymap) is what B10 needs, so no replacement is registered. | Avoids two bodies for one behaviour. |
 | M6A-B10-13 | **HUD**: Scene = the meshes the pane draws (hidden objects and the pane's isolate left out), Object = the hilited meshes (component modes) or the selected meshes (object mode), Selected = the visible picks of the current kind (tris of the selected faces in face mode; the selected meshes in object mode); UVs row = distinct (vertex, uv0) points when a mesh has UVs. Budget: the first worked-on mesh with a budget (`meshBudget`, own then parents), triangles of the worked-on meshes (else the pane's). Shown while the pane's `polyCount` flag is on (Model default). Recomputed once per microtask after a change; never per frame. | §5.24, §8.7. |
-| M6A-B10-14 | **Mesh Check panel** checks one mesh (the lead hilited mesh, else the lead selected one, else the first editable mesh): rows per code with count, severity (✕ error, ◇ n-gon, ○ `open-border`), **Select** (`select.mesh.matching`: hilites the mesh and enters the problem's kind) and **Fix** (`mesh.cleanup {fix, selectOnly: false}` for codes with a §5.25 fix). While its body is shown, Model's panes get `meshCheck: true` and the display gets the problems; it says "Mesh Check arrives with the diagnostics package" while `checkMesh` is B5's stub. | §5.25; one mesh keeps the §8.10 `meshcheck-*-<code>` test ids unique. |
+| M6A-B10-14 | **Mesh Check panel** checks one mesh (the lead hilited mesh, else the lead selected one, else the first editable mesh) with `meshCheckOptions` (M6A-B10-18): rows per code with count, severity (✕ error, ◇ n-gon, ○ `open-border`), **Select** (`select.mesh.matching`: hilites the mesh, enters the problem's kind and selects its elements; `loose-geometry`'s wire edges become their endpoints in vertex mode) and **Fix** (`mesh.cleanup {fix, selectOnly: false}` for codes with a §5.25 fix). "Clean" = no row (`open-border` appears only on meshes their template flags closed, where it is a problem). While its body is shown, Model's panes get `meshCheck: true` (turned off again only where the panel turned it on); the markers follow the flag (M6A-B10-20). It says "Mesh Check arrives with the diagnostics package" while `checkMesh` is B5's stub. | §5.25; one mesh keeps the §8.10 `meshcheck-*-<code>` test ids unique. |
 | M6A-B10-15 | **Component tools in object mode** (Multi-Cut, Insert Edge Loop, Target Weld, Slide, Paint Colour): activating one in object mode hilites (and opens) the selected meshes without changing the mode; the previous hilite list returns when the tool ends; entering a component mode takes over. The mesh under the pointer at the first pointer-down is the tool's to add (`model.hilite {add}`). | §5.6 "Component tools in object mode". |
 | M6A-B10-16 | **Drop-zone card in Model**: the shipped "Drop a .glb or .vrm file" card shows while there is no character; in Model it now shows only while the scene has no mesh either — over a Model scene it covered the meshes at the pane centre and took their clicks (E2E-MOD-01/-02/-26 click there). | Found in the scratch integration; B13's Model start card owns the empty Model scene. |
 | M6A-B10-17 | **The RMB press point** the operators' probe reads for marking-menu runs is the last right-button press in the pane; a left click on a drawn menu item (click-release menus) does not move it. | Otherwise choosing Face in a sticky RMB menu would look for the mesh under the menu item. |
+| M6A-B10-18 | **Mesh Check options** (`meshCheckOptions`, `editor-core/src/selection/component/meshCheck.ts`): the visible elements (the mesh's hidden set); **`closedExpected`** when a template group is above the mesh (`GroupRecord.template`: prop, handheld, humanoid — AS-LP's sword, grip and body parts are closed solids, §5.16) or the mesh is the humanoid body generator's; **`duplicateSlots`** = the slots two live swatches of the mesh's palette share. The panel, the overlay, `select.mesh.matching` and the test API's `meshCheck()` use it. | §5.25 "`open-border`: border edges on a mesh flagged closed by its template/AS-LP check", "`duplicate-slot`: two live swatches share a slot in the mesh's palette". No record field flags a mesh closed; the template group is the template's flag (agreed source to confirm with B8/B13, Hand-over). |
+| M6A-B10-19 | **Snapshots keep every kind's pick order**: the §4.6 `MeshSelectionSnapshot` carries order/active for its own kind only (closed type), so the service keeps the other kinds' order and active component per snapshot entry it made (a `WeakMap`); a copied snapshot (no entry) keeps the current order of the picks still selected. A selection undo never resets Bridge/Target Weld pick order or the loop table's reference of another mode. | §5.6 per-mode memory. |
+| M6A-B10-20 | **The Mesh Check overlay follows `DisplayFlags.meshCheck`**, not the panel: while any pane in Model has the flag, the Model select runtime pushes every drawn mesh's problems to the display (recomputed only when the mesh's content, the component selection service or a `meshes`/`groups`/`palettes`/`swatches` batch changed); without the flag the markers go. B6 draws them in edit views (hilited meshes in component modes). | §5.25 "the overlay (`DisplayFlags.meshCheck`)". |
+| M6A-B10-21 | **"Make editable first" in `select.mode`**: the pointer probe answers `assetMeshAt(pane, press | hover)` — a mesh the viewport draws without a record (a character's glTF mesh; `isOverMesh` true where no record's mesh is picked). The RMB mode menu opened over one refuses (in object and component modes); a key or menu run with no other candidate over one refuses; the reason is `MAKE_EDITABLE_HINT` ("Make editable first: use Make editable on its Outliner row"). `model.hilite` keeps `MAKE_EDITABLE_FIRST` for record rows without data. | §5.6 "cannot be hilited: 'Make editable first' with the Outliner action". |
+| M6A-B10-22 | **`Mod+Shift` double-click** extends the loop like `Shift` (`shift-double`, additive); only `Mod` alone gives `mod-double` (`loopGestureOf`). | §5.6 click rules: `Mod+Shift` adds. |
 
 ## Shared files and other packages' paths (minimal, additive)
 
@@ -62,12 +67,34 @@ B7 (runtime commits); its E2E-MOD scenarios -02, -25 and -26 are landed behind t
 | `editor/test/test-api.test.ts` (B0a) | literal update: `model()` and `paneObjects()` answer (the B10 group landed) | Same. |
 | `editor/test/m6a-shell.test.tsx` (B9) | the overlay-slot test registers its overlay after the shell (the shell now registers B10's HUD; the latest registration draws) and checks its own element goes away | Same property checked. |
 
+### Contract request to B9 and INT (§9.1) — pending acceptance
+
+§9.1 makes `viewport/src/manager/**`, `editor/src/shell/**` and `editor/src/panels/viewport/ViewportPanel.tsx` B9's
+files; "another package that needs a change sends a contract PR or asks the owner". B10 needed the five changes above
+before B9 could add them, so they are on this branch, additive and covered by B10's tests. **B10 asks B9 (or INT at the
+merge) to accept them as B9's API** — no B9 owner session was reachable in this round, so the acceptance is not
+recorded yet:
+
+| Hook (B9 file) | Contract | Consumers | Tests |
+|---|---|---|---|
+| `ViewportManager.paneView(paneId)` | `{camera, width, height, display} | null` for a registered pane; no side effects | B10 picking, framing, HUD; B12a (pane camera) | `viewport/test/m6a-select/runtime.test.ts` |
+| `ViewportManager.setFrameBounds(provider | null)` | `boundsFor('selection' | 'all')` asks the provider first; null = the shipped bounds | B10 `F`/`A` in Model | same (framing) |
+| `ViewportManager.setMeshHitTest(test | null)` | `isOverMesh` also answers true where `test(pane, x, y)` does (mesh-view meshes take no raycasts) | marking menus' `when.over: 'mesh'` (`model.modes`) | same (`isOverMesh`) |
+| `contributions.ts`: `attachModelSelect(app, vm)` | one line next to the tool registrations; lazy chunk | — | the runtime tests |
+| `createShell.ts`: `registerModelSelectUi(app)` | one line (HUD, BIND POSE, `model.modes`, `model.convert`) | — | `editor/test/m6a-select-ui.test.tsx`, `m6a-shell.test.tsx` |
+| `ViewportPanel.tsx` drop-zone condition | in Model the "Drop a .glb" card shows only while the scene has no mesh either (M6A-B10-16) | B13's Model start card owns the empty Model scene | E2E-MOD-26 clicks at the pane centre |
+
+If B9 prefers other names, B10 adapts its three call sites (`tools/model/select/{index,runtime}.ts`, `hud/index.tsx`).
+
 ## READY gates and E2E gates
 
-- Unit: `editor-core/test/m6a/select/ready.ts` (`b2`, `b5`, `b7`), `editor/test/m6a-select/ready.ts` (`b5`). Gated: the
-  walker operators (loop table, grow/shrink coalescing, convert, border) on `b2`; Mesh Check matching and the panel's
-  rows on `b5`. `b7` gates nothing today (the service's revision tests run on the stub registry and pass on B7's
-  runtime too).
+- Unit: `editor-core/test/m6a/select/ready.ts` (`b2`, `b3`, `b5`, `b7`), `editor/test/m6a-select/ready.ts` (`b5`).
+  Gated: on `b2` the walker operators (the exact edge loop and a `Shift`+double-click full loop, grow/shrink coalescing,
+  convert, border) and the hide semantics of walkers (a loop stops at a hidden column; grow and convert skip hidden
+  faces); on `b3` a `mesh.delete` through `meshOperator`/B7 that never targets a hidden pick; on `b5` Mesh Check
+  matching (a template mesh's open border, loose vertices), the panel (Clean, Select, Fix) and `meshCheck()`; on `b7` a
+  same-size op through the real `commitOp` (undo/redo/per-mode memory, an aborted transaction). The service's revision
+  tests also simulate B7's commit on the stub registry (ungated).
 - E2E (`test.fixme` with the §10.1 Gates column): E2E-MOD-02 `b3, b7, b11`; E2E-MOD-25 `b3, b11, b13`; E2E-MOD-26
   `b2, b7` (both its Model part and its Animate part).
 
@@ -92,11 +119,41 @@ final re-run (this branch's head merged into the scratch) passed E2E-MOD-26, the
 B9's `m6a-shell.spec.ts`; the only failure there was B7's copy of `m6a-00-foundation.spec.ts` expecting
 `ui.commandPalette` to poll-fail (B9 landed it) — a B7 × B9 merge item, not B10's (the spec passes on this branch).
 
+### Fix round 1 re-verification (scratch integration, deleted afterwards)
+
+A throwaway `--shared` clone merged `m6a/mesh-select` (B1 + B2), `m6a/mesh-runtime-doc` (B7), `m6a/mesh-bevel-check-uv`
+(B5) and `m6a/mesh-ops-core` (B3) onto this branch, every READY flag on, and B7's three fallback reads
+(`t.meshes.localSelection(...)` in `test/mesh/runtime.test.ts` (the `'before-last'` block's `faces` helper) and
+`test/mesh/setops.test.ts` (two places)) pointed at `app.components.get(id, 'face')`:
+
+- editor-core: B10's 55 tests and B7's `runtime`/`setops` suites all pass (B7's `'before-last' reads what the last op
+  read` block 4/4, including the re-run on the restored selection); the whole package 969 passed, 2 failed — both
+  failures exist before this round's commits too (the B0a `foundation.test.ts` gets two `LANDED` tables from the B7
+  auto-merge, and `m6a/mesh-runtime.test.ts` expects stub ops that B3/B5 replaced): INT literal updates, not B10;
+- editor (`m6a-select-ui`, `m6a-shell`, `test-api`): 36 passed — the b5-gated panel tests run against real B5;
+- viewport (`m6a-select`): 13 passed;
+- **E2E-MOD-26 un-gated, both parts pass** in real Chrome with the tightened assertions (the exact vertex arc
+  v0 v1 v2; the Animate part undoes a real `clip.new` step).
+
 ## Hand-over
 
 - **B7**: `components.set(id, sel)` inside `commitOp` is the intended path (a pending result); `remap` exists for ops
-  that return no selection. `get()` excludes hidden components; `hidden()` includes the closure.
-- **B11**: the runner's `TxMeta.selectionBefore/After` are built with `selectionSnapshot(selection, model)` (no
+  that return no selection. `get()` excludes hidden components; `hidden()` includes the closure. The service reads "an
+  op is in flight" from your runtime: keep caching the new revision's stored form (`cacheStored`) **before**
+  `storeSelection` and bumping `version` when a commit is reverted (M6A-B10-1). **With READY.b10 your fallback-reading
+  tests must read `app.components`**: once B10's service stores, `localSelection` stays empty, so
+  `test/mesh/runtime.test.ts` (`faces` in the `'before-last'` block) and `test/mesh/setops.test.ts` (the created
+  output's face 0, the reshaped plane's face 1) read `app.components.get(id, 'face')`; all of them pass on the scratch
+  integration (above).
+- **B8, B13**: Mesh Check's `closedExpected` comes from the template group above a mesh (and the humanoid body
+  generator), `duplicateSlots` from its palette (`meshCheckOptions`, M6A-B10-18). B8's export lints call
+  `checkMesh(data)` without options; for the AS-LP closed check they can pass `closedExpectedOf(store, record)`. If B13
+  wants another flag (a template field on the mesh), `closedExpectedOf` is the one place to change.
+- **B9**: the Model tab glyph (`workspaces/index.ts`) counts `checkMesh(data)` problems without options; with
+  `meshCheckOptions(app, id)` it would match the panel ("Clean" = no row). The five hooks above wait for your
+  acceptance (contract request).
+- **B11**: E2E-MOD-02 expects the Last-op card to show the op's shortcut in platform labels (`⌘E`, as text or a
+  tooltip; §10.1) — `LastOpCardView` on `m6a/model-ops-ui` shows only `Adjust <label> (T)`. The runner's `TxMeta.selectionBefore/After` are built with `selectionSnapshot(selection, model)` (no
   per-mesh part); passing `app.components.snapshot().meshes` as its third argument would make doc-step undo carry
   component selections too (the service already restores them by revision, M6A-B10-1). The LastRun card closing on an
   `objects` selection step after returning to object mode is yours (§5.7). `select.mode` ends the extrude session
@@ -112,11 +169,28 @@ B9's `m6a-shell.spec.ts`; the only failure there was B7's copy of `m6a-00-founda
   refuses records without data ("Make editable first"). `select.mesh.bySwatch` can store its result with
   `componentInternals(app.components).store(mesh, sel, 'face')` (a selection step around it: `selectionGesture`). The
   Model start card replaces the drop-zone card, which no longer shows over a Model scene with meshes (M6A-B10-16).
-- **INT**: turn on the READY flags and the three `test.fixme` gates; the drop-zone and `isOverMesh` changes touch
-  B9's files (above). Merging B7 conflicts with this branch only in the B0a foundation tests (`editor-core/test/m6a/
+- **INT**: turn on the READY flags (`b3` is new this round) and the three `test.fixme` gates; the drop-zone and
+  `isOverMesh` changes touch B9's files (the contract request above). E2E-MOD-25 moves its cube beside the body with
+  `select.mesh.all` + `mesh.transformComponents {translateX: 1.6}` (registered by B11, its gate). Merging B7 conflicts with this branch only in the B0a foundation tests (`editor-core/test/m6a/
   foundation.test.ts` LANDED tables, `editor/test/test-api.test.ts`, `headless-tests/test/ops.m6a-foundation.test.ts`,
   `apps/web/e2e/m6a-00-foundation.spec.ts`): keep both sides' landed operators. Decide the eager allowance with
   B10's +12,044 B in mind (above).
+
+## Fix round 1 (review of 77b4c8d)
+
+| Finding | Resolution |
+|---|---|
+| Major: Mesh Check never passed `closedExpected`/`duplicateSlots`; the b5 panel test failed on real B5; matching only checked the hilite | `meshCheckOptions` (M6A-B10-18) for the panel, overlay, matching and `meshCheck()`; matching selects per domain; b5 tests rewritten on real problems with exact elements and kinds (template plane's open border, a loose vertex, a non-planar cap for Fix), green on real B5 |
+| Major: a same-size `set` inside a commit was taken as the pre-op revision's state; result kinds wiped per-mode memory | pending whenever an op is in flight, the pre-op state remembered first, same-size results keep unsupplied kinds, end-of-task settle and rollback (M6A-B10-1); simulated and READY.b7 real-`commitOp` regression tests; B7's own fallback tests pass on `app.components` |
+| Major: invert under symmetry re-added the inverted picks | invert complements the expanded set; mirrored-invert test |
+| Major: no tests of hide semantics in walkers/ops, of the Fix button; the loop test was loose | b2: exact loop, `Shift`+double-click full loop, loop stops at a hidden column, grow/convert skip hidden; b3: a delete never targets a hidden pick; b5: panel Fix runs `mesh.cleanup {fix, selectOnly: false}` |
+| Minor: selection undo lost other kinds' pick order | per-kind orders per snapshot entry (M6A-B10-19); service and operator tests |
+| Minor: hand-over omitted B7's fallback tests | Hand-over B7 lists them; verified on the scratch integration |
+| Minor: overlay only with the panel, one mesh | the overlay follows `DisplayFlags.meshCheck` for every drawn mesh (M6A-B10-20); viewport test |
+| Minor: `select.mode` ignored character meshes without a record | probe `assetMeshAt`, `MAKE_EDITABLE_HINT` (M6A-B10-21); operator and viewport tests |
+| Minor: `Mod+Shift` double-click removed | `loopGestureOf` (M6A-B10-22); runtime test |
+| Minor: E2E gaps | E2E-26 exact vertex arc and a real doc step in Animate (passes un-gated on the scratch); E2E-02 the card's `⌘E`; E2E-25 the cube beside the body |
+| Minor: B9-owned files without a recorded ack | contract request above; acceptance pending (no B9 session reachable) |
 
 ## Eager route size (§5.27)
 
