@@ -67,7 +67,8 @@ export const ALLOWED = {
   // M6a (M6A-SPEC §2): the mesh kernel (headless, lazy chunk) and its viewport overlays (three.js, lazy chunk).
   [MESH_CORE]: {
     dependencies: [ANIM_CORE, 'earcut', 'robust-predicates'],
-    devDependencies: [...VITEST, 'fast-check'],
+    // Browser tests (P1, P4, P5, P6 in Chromium, M6A-SPEC §9 B1) next to the Node run.
+    devDependencies: [...BROWSER_TESTS, 'fast-check'],
   },
   [MESH_VIEW]: {
     dependencies: [ANIM_CORE, MESH_CORE, 'three', 'three-mesh-bvh'],
