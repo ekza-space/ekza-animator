@@ -649,10 +649,9 @@ describe.skipIf(!READY.b5)('Mesh Check "select matching" (B5)', () => {
     app.dispose();
   });
 
-  it('selects loose geometry in vertex mode: the loose vertex and the wire edge’s endpoints', async () => {
+  it('selects loose geometry in its kind: a quad’s unused point is a loose vertex (vertex mode)', async () => {
     const app = await modelApp();
-    // A quad, a loose vertex (4) and a wire edge between two more vertices (5–6) are not buildable from faces:
-    // a quad plus one unused point gives the loose vertex.
+    // A quad and one point no face uses (vertex 4): a vertex without edges.
     const data = buildMeshData({
       positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 3, 3, 3],
       faces: [[0, 1, 2, 3]],

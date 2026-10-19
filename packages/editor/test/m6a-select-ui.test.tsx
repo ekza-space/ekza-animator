@@ -1,8 +1,9 @@
 // B10 (M6A-SPEC §5.24, §5.25, §8.4, §8.7, §4.8): the Poly Count HUD (counts equal the runtimes' counts and
 // triangulation, the selected column with the mirrored partners, the badge line, the budget bar), BIND POSE, the
-// `model.modes` and `model.convert` marking menus, the Mesh Check panel and its helpers, and the B10 test API group
-// on the whole shell. Mesh Check results need B5's `checkMesh` (READY.b5).
-import type { AssetId, DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+// `model.modes` and `model.convert` marking menus, the Mesh Check panel (Clean, a template mesh's open border, Select,
+// Fix) and its helpers, and the B10 test API group on the whole shell. Mesh Check results need B5's `checkMesh`
+// (READY.b5).
+import type { AssetId, DocSnapshot, GroupId, GroupRecord, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
 import {
   BUILTIN_MENU_ITEMS,
   type EditorApp,
@@ -256,35 +257,111 @@ describe('Mesh Check (§5.25)', () => {
     expect(Object.keys(FIX_OF)).toContain('loose-geometry');
   });
 
-  /** The panel body over a fake app in Model with an open plane, unmounted after `body`. */
-  async function withPanel(body: (app: FakeEditorApp, plane: MeshId, container: HTMLElement) => Promise<void>) {
+  /** The panel body over a fake app in Model with the mesh `make` creates, unmounted after `body`. */
+  async function withPanel(
+    make: (app: FakeEditorApp) => MeshId,
+    body: (app: FakeEditorApp, mesh: MeshId, container: HTMLElement) => Promise<void>,
+  ) {
     const app = createFakeEditorApp();
     registerBuiltinOperators(app);
     app.session.setState({ workspace: 'model' });
-    const plane = createMesh(app, 'msh_Open', primitive('plane', {}));
-    await waitFor(() => app.meshes.get(plane)?.state === 'ready');
+    const mesh = make(app);
+    await waitFor(() => app.meshes.get(mesh)?.state === 'ready');
     const view = mountLive(<MeshCheckView app={app} />);
     try {
-      await waitFor(() => view.container.textContent?.includes('msh_Open') === true);
-      await body(app, plane, view.container);
+      await waitFor(() => view.container.textContent?.includes(mesh) === true);
+      await body(app, mesh, view.container);
     } finally {
       await view.unmount();
       app.dispose();
     }
   }
 
+  const openPlane = (app: FakeEditorApp): MeshId => createMesh(app, 'msh_Open', primitive('plane', {}));
+
+  /** A plane under a `prop` template group: the template flags it closed, so its border is a problem (§5.25). */
+  const templatePlane = (app: FakeEditorApp): MeshId => {
+    const group: GroupRecord = {
+      id: 'grp_Prop' as GroupId,
+      name: 'Prop',
+      owner: { scene: true },
+      parent: null,
+      order: 'a0',
+      placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+      pivot: [0, 0, 0],
+      template: { kind: 'prop', params: {} },
+      budget: null,
+      handheld: null,
+      deleted: null,
+    };
+    app.store.transact({ label: 'Template' }, (tx) => tx.put('groups', group));
+    return createMesh(app, 'msh_Lid', primitive('plane', {}), { parent: 'grp_Prop' as GroupId });
+  };
+
+  /**
+   * A cylinder (8 sides) with one top-ring vertex lifted by 0.5 m: its top cap n-gon is no longer planar
+   * (`nonplanar-ngon`, fixed by `mesh.cleanup {fix: 'triangulate'}`).
+   */
+  const warped = (app: FakeEditorApp): MeshId => {
+    const base = primitive('cylinder', { subdivisionsAxis: 8 });
+    const position = new Float32Array(base.position);
+    let top = 0;
+    for (let v = 1; v < base.counts.points; v++) {
+      const y = position[3 * v + 1] as number;
+      const best = position[3 * top + 1] as number;
+      if (
+        y > best + 1e-6 ||
+        (Math.abs(y - best) <= 1e-6 && (position[3 * v] as number) > (position[3 * top] as number))
+      )
+        top = v;
+    }
+    position[3 * top + 1] = (position[3 * top + 1] as number) + 0.5;
+    return createMesh(app, 'msh_Warped', { ...base, position });
+  };
+
   it.skipIf(READY.b5)('the panel body names the checked mesh and says why it has no results yet', async () => {
-    await withPanel(async (_app, _plane, container) => {
+    await withPanel(openPlane, async (_app, _plane, container) => {
       expect(container.textContent).toContain('Mesh Check arrives with the diagnostics package');
     });
   });
 
-  it.skipIf(!READY.b5)('the panel lists the open border; Select runs select.mesh.matching (B5)', async () => {
-    await withPanel(async (app, plane) => {
+  it.skipIf(!READY.b5)(
+    'an open mesh is Clean: open borders count only on meshes their template flags closed (B5)',
+    async () => {
+      await withPanel(openPlane, async () => {
+        await waitFor(() => query('meshcheck-status') !== null);
+        expect(query('meshcheck-status')?.textContent).toBe('Clean');
+        expect(query('meshcheck-row-open-border')).toBeNull();
+      });
+    },
+  );
+
+  it.skipIf(!READY.b5)('lists a template mesh’s open border; Select selects its edges in edge mode (B5)', async () => {
+    await withPanel(templatePlane, async (app, lid) => {
       await waitFor(() => query('meshcheck-row-open-border') !== null);
+      expect(query('meshcheck-row-open-border')?.textContent).toContain('4');
+      expect(query('meshcheck-status')?.textContent).toBe('1 problem');
+      // Open borders have no fix (§5.25: select border).
+      expect(query('meshcheck-fix-open-border')).toBeNull();
       query('meshcheck-select-open-border')?.click();
       await waitFor(() => app.session.getState().model.componentMode === 'edge');
-      expect(app.session.getState().model.hilite).toContain(plane);
+      expect(app.session.getState().model.hilite).toEqual([lid]);
+      expect([...app.components.get(lid, 'edge').edges.toArray()]).toEqual([0, 1, 2, 3]);
+      expect(app.calls.filter((call) => call.id === 'select.mesh.matching').map((call) => call.args)).toEqual([
+        { mesh: lid, code: 'open-border' },
+      ]);
+    });
+  });
+
+  it.skipIf(!READY.b5)('Fix runs the code’s mesh.cleanup fix on the checked mesh (B5)', async () => {
+    await withPanel(warped, async (app, cylinder) => {
+      await waitFor(() => query('meshcheck-row-nonplanar-ngon') !== null);
+      expect(query('meshcheck-row-nonplanar-ngon')?.textContent).toContain('1');
+      query('meshcheck-fix-nonplanar-ngon')?.click();
+      await waitFor(() => app.calls.some((call) => call.id === 'mesh.cleanup'));
+      expect(app.calls.filter((call) => call.id === 'mesh.cleanup').map((call) => call.args)).toEqual([
+        { meshes: [cylinder], fix: 'triangulate', selectOnly: false },
+      ]);
     });
   });
 });
