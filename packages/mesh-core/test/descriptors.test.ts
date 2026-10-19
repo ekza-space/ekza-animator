@@ -200,6 +200,12 @@ const LANDED: ReadonlySet<string> = new Set([
   'mesh.averageVertices',
   'mesh.slide',
   'mesh.cut',
+  'mesh.mirror',
+  'mesh.symmetrize',
+  'mesh.combine',
+  'mesh.separate',
+  'mesh.extract',
+  'mesh.duplicateFaces',
 ]);
 
 describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
