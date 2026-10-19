@@ -1,12 +1,13 @@
 // The Chromium run (Vitest browser mode, M6A-SPEC §9 B1): P6 — the same manifests and digests as Node (the golden
-// file the Node run keeps); P1 and P5 — Euler sequences through the property harness; P4 — primitive orientation.
+// file the Node run keeps); P1 and P5 — Euler sequences through the property harness, one step per transaction and
+// 2–40 steps per transaction with layer events (abort, undo and redo, rebuilt runtimes); P4 — primitive orientation.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { editMeshFrom, primitive, topologyStats } from '../../src';
 import { arbEulerStep, arbPrimitive, arbSoup, signedVolume } from '../../src/testing';
 import goldens from '../goldens/primitives-determinism.json?raw';
 import { determinismValues } from './determinism';
-import { checkSequence } from './harness';
+import { checkSequence, checkTransactions } from './harness';
 
 describe('Chromium', () => {
   it('runs in a browser (not Node)', () => {
@@ -34,6 +35,33 @@ describe('Chromium', () => {
         applied += checkSequence(soup, steps).tally.applied;
       }),
       { numRuns: 6 },
+    );
+    expect(applied).toBeGreaterThan(200);
+  });
+
+  it('P1 + P5: multi-step transactions with layer events on primitives and soups', () => {
+    let applied = 0;
+    const transactions = fc.array(fc.array(arbEulerStep(), { minLength: 2, maxLength: 40, size: 'max' }), {
+      minLength: 1,
+      maxLength: 8,
+    });
+    fc.assert(
+      fc.property(arbPrimitive(), transactions, ({ kind, params }, txs) => {
+        applied += checkTransactions(primitive(kind, params), txs).tally.applied;
+      }),
+      { numRuns: 6 },
+    );
+    fc.assert(
+      fc.property(arbSoup(), transactions, (soup, txs) => {
+        applied += checkTransactions(soup, txs).tally.applied;
+      }),
+      { numRuns: 6 },
+    );
+    fc.assert(
+      fc.property(arbPrimitive(), fc.array(arbEulerStep(), { minLength: 200, maxLength: 300, size: 'max' }), (p, s) => {
+        applied += checkTransactions(primitive(p.kind, p.params), [s]).tally.applied;
+      }),
+      { numRuns: 2 },
     );
     expect(applied).toBeGreaterThan(200);
   });
