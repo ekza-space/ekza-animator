@@ -133,8 +133,16 @@ const EDITOR_OPS = [
   'file.exportModel',
 ];
 
-/** Operators their owners have landed (no longer stubs): B7's `mesh.create.*` (M6A-SPEC §6.2). */
-const LANDED = new Set(['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`));
+/**
+ * Operators their owners have landed (no longer stubs) that run without arguments and write the document: B7's
+ * `mesh.create.*` (M6A-SPEC §6.2); literal update (B13): `palette.ensureDefault` and `palette.create` (a palette named
+ * "Palette"; the command palette's New Palette runs it so).
+ */
+const LANDED = new Set([
+  ...['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`),
+  'palette.ensureDefault',
+  'palette.create',
+]);
 /** Landed operators that run without arguments (they open UI, never touch the document). */
 const LANDED_WITHOUT_ARGS: ReadonlySet<string> = new Set(['ui.commandPalette']);
 
