@@ -63,7 +63,7 @@ export class ModelSelectRuntime {
   private readonly disposers: Disposer[] = [];
   /** Pane-local pointer position while over a pane (hover), null outside. */
   private hoverAt: { paneId: string; x: number; y: number } | null = null;
-  /** The last press per pane (pane-local), for the RMB mode menu's mesh. */
+  /** The last right-button press per pane (pane-local): where the RMB mode menu was opened. */
   private readonly pressAt = new Map<string, { x: number; y: number }>();
   private lastKey: string | null = null;
   /** Face isolate sets pushed to the display, per pane. */
@@ -288,8 +288,12 @@ export class ModelSelectRuntime {
   }
 
   private pointerPressed(e: PointerEvent): void {
-    const at = this.paneLocal(e.clientX, e.clientY);
-    if (at !== null) this.pressAt.set(at.paneId, { x: at.x, y: at.y });
+    // The marking menus that run mode operators open on a right-button press: a later left click on a drawn item
+    // (a click-release menu) must not move the point the menu was opened at.
+    if (e.button === 2) {
+      const at = this.paneLocal(e.clientX, e.clientY);
+      if (at !== null) this.pressAt.set(at.paneId, { x: at.x, y: at.y });
+    }
     this.display.setHover(null, null);
   }
 

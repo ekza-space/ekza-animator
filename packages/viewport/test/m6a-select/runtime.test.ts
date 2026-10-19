@@ -228,6 +228,17 @@ describe('object mode (§5.6)', () => {
     expect([...s.app.session.getState().selection.objects].sort(byId)).toEqual([s.cube, s.other].sort(byId));
   });
 
+  it('the RMB press point stays the menu mesh when a later left click lands elsewhere (click-release menus)', async () => {
+    const s = await scene();
+    const at = s.rig.vm.project(PANE, [0, 0, 0.5]);
+    if (at === null) throw new Error('cube not visible');
+    pointer(element(s), 'pointerdown', at.x, at.y, { button: 2 });
+    pointer(element(s), 'pointerup', at.x, at.y, { button: 2 });
+    pointer(element(s), 'pointerdown', 10, 10);
+    pointer(element(s), 'pointerup', 10, 10);
+    expect(modelPointer(s.app)?.meshAt(PANE, 'press')).toBe(s.cube);
+  });
+
   it('entering a component mode without a selection hilites the mesh under the pointer', async () => {
     const s = await scene();
     const at = s.rig.vm.project(PANE, [0, 0, 0.5]);
