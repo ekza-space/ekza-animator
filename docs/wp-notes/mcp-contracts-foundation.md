@@ -122,7 +122,14 @@ D0 landed first (§8.2 last rule); B0a rebases. The overlaps, each additive:
 ## Tests added
 
 editor-core 22 (`mai-runner.test.ts`) + the registration literal; doc 7 (`restore-plan.test.ts`); headless-tests 3
-(`ops.mai-headless.test.ts`); agent-tools 89 (lint, manifest, policy + 41 per-operator invariant runs, runtime,
+(`ops.mai-headless.test.ts`); agent-tools 89 (lint, manifest, policy + 45 per-operator invariant runs (5 gated on P1), runtime,
 resolver, sanitiser, bridge protocol); motion-analysis 1; schematic-render 1; mcp-server 9 (CLI over the built bin,
 in-process server, arguments); agent-evals 3; editor 4 (`mai.test.ts`); viewport 3 (`agentHost.test.ts`); e2e
 `ai-00-foundation.spec.ts` (2).
+
+## Gates (2026-10-20, local)
+
+`format:check`, `lint`, `typecheck`, `check:deps`, `check:licenses`, `check:fixtures` green; `pnpm run test` 19/19
+turbo tasks (browser suites in local Chrome); `pnpm run build` green; `check:size` 848,267 B ≤ 900,000 B; e2e
+`ai-00-foundation` 2/2 and the full suite once with `--project=chrome` on port 3270: 107 passed, 9 skipped
+(pre-existing fixmes), 0 failed.
