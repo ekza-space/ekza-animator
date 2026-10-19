@@ -330,6 +330,9 @@ export class ManipulatorKit {
     let best: ManipHandle | null = null;
     let bestDistance: number = PICK.manipulatorPx;
     for (const handle of this.pickable()) {
+      // M6a (B12a): a plane handle seen edge-on (an orthographic side view) draws as a line over one of its axes and
+      // cannot be dragged in its plane: the press belongs to the axis.
+      if (this.edgeOn(handle, camera)) continue;
       const d = this.handleDistance(handle, camera, projector, s, x, y);
       if ((handle === 'tview' || handle === 'suniform') && d === 0) return handle;
       if (d <= bestDistance) {
@@ -338,6 +341,15 @@ export class ManipulatorKit {
       }
     }
     return best;
+  }
+
+  /** Whether a plane handle's plane contains the view direction (within ~11°): it cannot be dragged in its plane. */
+  private edgeOn(handle: ManipHandle, camera: Camera): boolean {
+    if (handle !== 'txy' && handle !== 'tyz' && handle !== 'txz') return false;
+    const n = this.axesCache[PLANE_AXES[handle][2]];
+    const e = camera.matrixWorld.elements;
+    const len = Math.hypot(e[8], e[9], e[10]) || 1;
+    return Math.abs((n[0] * e[8] + n[1] * e[9] + n[2] * e[10]) / len) < 0.2;
   }
 
   /**

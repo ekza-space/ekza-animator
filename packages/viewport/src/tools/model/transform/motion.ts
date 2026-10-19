@@ -146,21 +146,3 @@ export function isIdentityMotion(motion: Motion): boolean {
   if (motion.kind === 'rotate') return motion.angle === 0;
   return motion.factors.every((f) => f === 1);
 }
-
-/**
- * A plane handle seen edge-on (its normal within ~78° of the view: an orthographic side view) draws as a line over
- * one of its axes and cannot be dragged in its plane: the press is taken as that axis (the one less along the view).
- */
-export function refineHandle(handle: ManipHandle, frame: Pick<ManipulatorFrame, 'camera' | 'axes'>): ManipHandle {
-  const normal = PLANE_NORMAL[handle];
-  if (normal === undefined) return handle;
-  const forward = cameraForward(frame.camera);
-  const along = (k: 0 | 1 | 2): number => {
-    const u = frame.axes[k];
-    return Math.abs(u[0] * forward[0] + u[1] * forward[1] + u[2] * forward[2]);
-  };
-  if (along(normal) > 0.2) return handle;
-  const [a, b] = ([0, 1, 2] as const).filter((k) => k !== normal) as [0 | 1 | 2, 0 | 1 | 2];
-  const axis = along(a) <= along(b) ? a : b;
-  return (['tx', 'ty', 'tz'] as const)[axis];
-}
