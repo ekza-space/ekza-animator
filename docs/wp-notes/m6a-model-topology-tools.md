@@ -93,4 +93,18 @@ probe (neither committed; the probe stood in for B12a). **No Live Mirror decisio
 
 ## Gates (local, real Chrome; port 3252)
 
-See the final section below (filled after the last run).
+Run on this branch's head in this worktree (the tree clean before and after; the server stopped, port 3252 free):
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | clean (1,403 files) |
+| `pnpm run lint` | rc 0, no findings |
+| `pnpm run typecheck` | rc 0 |
+| `pnpm run check:deps` | 15 packages follow the rules |
+| `pnpm run test` | 15 tasks green: anim-core 671, doc 235, doc-yjs 81, rig 202, io 176, mesh-core 711 + 3 skipped, mesh-view 74, editor-core **1083 + 12 skipped** (B12b: 27 in `test/topology`), curve-editor 207 + 3 skipped, viewport **176 + 1 skipped** (B12b: 12 in `test/m6a-topology`), editor 480 + 6 skipped, headless-tests 173, ui 87, web 16, tooling 14 |
+| `pnpm run build` | green |
+| `check:size` (not in B12b's gate list; reported) | **908,543 B > 900,000 B**: the merged base before B12b measures 906,925 B (pre-existing, B10 + B11 together); B12b adds **+1,618 B**; every lazy boundary holds; the Model workspace chunk 119,132 B |
+| B12b e2e specs (`--repeat-each=2`, project `chrome`) | **20 passed, 26 skipped** (the gated `test.fixme` parts with their §10.1 ids) |
+| Full e2e suite once (`EKZA_E2E_PORT=3252 pnpm run test:e2e`) | **137 passed, 44 skipped, 0 failed** (1.1 min) |
+| Symmetric scenarios on a throwaway B13 merge with a temporary symmetry probe (not committed) | E2E-MOD-04, -20, -21 (a, b, c), -22 (a, b): **green**; -08 (c), -17, -18, -28's snap fail only where B12a's tools are needed (`scene.object.transform`, the component R/W manipulators, `V` snap) |
+| B11's E2E-MOD-19 (gated `b3, b10, b12b`) with the fixme removed locally | **green** (the extrude manipulator's `tz` drag) |
