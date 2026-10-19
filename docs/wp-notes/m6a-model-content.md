@@ -91,6 +91,16 @@ binding, the guides drawing, the operator bodies) is lazy.
 | CI green | Local gates green (below); the full e2e suite once at the end. |
 | READY flag `b13` | Set by INT at merge. |
 
-## Gates (this branch)
+## Gates (this branch, final run)
 
-Filled in after the final gate run (see the last commit of these notes).
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | green (1,276 files) |
+| `pnpm run lint` | green (0 diagnostics) |
+| `pnpm run typecheck` | green |
+| `pnpm run check:deps` / `check:fixtures` / `check:licenses` | green (15 packages; 4 licensed fixtures; 176 production packages) |
+| `pnpm run test` | 15/15 tasks: editor-core 999 passed, 4 skipped (B10/B12a-gated cases); editor 466 + 1 skipped; viewport 142 + 1 skipped; mesh-core 376; io 237 + 6 skipped; anim-core 671; doc 235; doc-yjs 81; rig 202; curve-editor 207 + 3 skipped; headless-tests 192; ui 87; mesh-view 2; web 16; tooling 16 |
+| `pnpm run build` | green |
+| `pnpm --filter web check:size` | green: 898,097 B (gate 900,000 B); M6a eager delta +52,830 B (allowance unenforced, M6A-B9-14) |
+| B13 e2e (`EKZA_E2E_PORT=3243`, local Chrome) | `m6a-content.spec.ts` 8 passed; E2E-MOD-11, -13, -27, -29 `test.fixme` behind their gates |
+| Full e2e suite once (`EKZA_E2E_PORT=3243 pnpm run test:e2e`) | 132 passed, 16 skipped (the gated `test.fixme` cases), 0 failed |
