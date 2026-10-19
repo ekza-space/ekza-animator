@@ -8,8 +8,9 @@
 // session (workspace, mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes), and
 // applies each pane's display before the pane renders ("Dim unhilited", hidden and isolated objects). Picking is per
 // pane and skips what that pane does not draw (hidden objects, the pane's object isolate and face isolate, §5.6);
-// camera-based picks also test every other mesh the pane draws as an occluder (M6A-B6-22). Hover, soft weights, Mesh
-// Check problems and face isolate sets are pushed by their owners (B10, B12a).
+// camera-based picks also test every other mesh the pane draws as an occluder (M6A-B6-22); each picker's BVH is built
+// on idle (M6A-B6-8). Hover, soft weights, Mesh Check problems and face isolate sets are pushed by their owners (B10,
+// B12a); document batches redo only what changed (M6A-B6-25).
 import type { Disposer } from '@ekza-animator/anim-core';
 import { batchTables, type CharacterId, type MeshId, type MeshRecord, type PaletteId } from '@ekza-animator/doc';
 import type { EditorApp, MeshRuntime, WorkspaceId } from '@ekza-animator/editor-core';
