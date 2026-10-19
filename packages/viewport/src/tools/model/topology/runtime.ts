@@ -46,6 +46,15 @@ export interface PaneQuery {
   readonly projector: PaneProjector;
 }
 
+/** The viewport tools whose previews and handles this runtime draws. */
+const TOPOLOGY_TOOL_IDS: ReadonlySet<string> = new Set([
+  VIEWPORT_TOOL.multiCut,
+  VIEWPORT_TOOL.insertLoop,
+  VIEWPORT_TOOL.targetWeld,
+  VIEWPORT_TOOL.slide,
+  VIEWPORT_TOOL.extrude,
+]);
+
 /** The kernel ops whose live LastRun gets the value handle (§5.9: Inset offset, Bevel fraction). */
 export const VALUE_HANDLE_OPS: Readonly<Record<string, string>> = { 'mesh.inset': 'offset', 'mesh.bevel': 'fraction' };
 
@@ -107,7 +116,7 @@ export class TopologyRuntime {
     this.group.matrixAutoUpdate = false;
     this.group.add(this.overlay.root, this.manipulator.root, this.valueHandle.root);
     this.disposers.push(
-      vm.addMeshLayer({ root: this.group, applyPane: () => {}, dispose: () => {} }),
+      () => this.releaseLayer(true),
       app.session.subscribe((state, previous) => {
         if (
           state.model.extrudeSession !== previous.model.extrudeSession ||
@@ -130,6 +139,26 @@ export class TopologyRuntime {
       this.disposers.push(() => window.removeEventListener('pointermove', move, { capture: true }));
     }
     this.refreshHandles();
+  }
+
+  /** The previews join the viewport's scene only while a topology tool or a handle needs them (no extra layer else). */
+  private layer: Disposer | null = null;
+
+  ensureLayer(): void {
+    if (this.layer === null && !this.disposed) {
+      this.layer = this.vm.addMeshLayer({ root: this.group, applyPane: () => {}, dispose: () => {} });
+    }
+  }
+
+  /** Leaves the scene when no topology tool is active and nothing shows (`force`: always). */
+  releaseLayer(force = false): void {
+    if (this.layer === null) return;
+    const tool = this.app.session.getState().tools.viewport;
+    const busy = TOPOLOGY_TOOL_IDS.has(tool) || this.manipulator.visible || this.valueHandle.visible;
+    if (!force && busy) return;
+    this.overlay.clear();
+    this.layer();
+    this.layer = null;
   }
 
   dispose(): void {
@@ -346,6 +375,8 @@ export class TopologyRuntime {
     const value = tool && frame === null ? this.valuePivot() : null;
     const wasValue = this.valueHandle.visible;
     this.valueHandle.set(value, this.sizePx());
+    if (frame !== null || value !== null || TOPOLOGY_TOOL_IDS.has(state.tools.viewport)) this.ensureLayer();
+    else this.releaseLayer();
     if (wasManip || frame !== null || wasValue || value !== null) this.invalidate();
   }
 

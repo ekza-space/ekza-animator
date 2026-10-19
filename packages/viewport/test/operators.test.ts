@@ -28,8 +28,19 @@ describe('viewport operators', () => {
     rig = await createRig({ contributions: false });
     const { registerViewportContributions } = await import('../src');
     const dispose = registerViewportContributions(rig.app, rig.vm);
-    // M6A-SPEC §3 rule 9/10 literal update (B9): `R` selects the new viewport Scale tool.
-    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate', 'scale']);
+    // M6A-SPEC §3 rule 9/10 literal update (B9): `R` selects the new viewport Scale tool. M6a (§4.7, B12b): the
+    // topology tools (Multi-Cut, Insert Edge Loop, Target Weld, Slide Edge, the extrude manipulator).
+    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual([
+      'select',
+      'move',
+      'rotate',
+      'scale',
+      'multiCut',
+      'insertLoop',
+      'targetWeld',
+      'slide',
+      'extrude',
+    ]);
     const ids = [
       'view.layout',
       'view.frame',

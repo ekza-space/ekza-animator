@@ -155,8 +155,9 @@ export function pickExtrudeHandle(
 }
 
 /**
- * A grab point of a handle in pane CSS px (`screenOfManipulator`): arrows at their cone, cubes and the centre at their
- * centre, rings at their widest point on screen.
+ * A grab point of a handle in pane CSS px (`screenOfManipulator`): a point on the handle that picks back as that
+ * handle (other handles in front of it on screen are avoided) — arrows from their cone inwards, cubes and the centre
+ * at their centre, rings from their widest point on screen round the ring.
  */
 export function extrudeGrabPoint(
   frame: ExtrudeManipFrame,
@@ -166,22 +167,36 @@ export function extrudeGrabPoint(
 ): { readonly x: number; readonly y: number } | null {
   if (!isExtrudeHandle(handle)) return null;
   const out = [0, 0, 0];
+  const screen = (p: Vec3): { x: number; y: number } | null =>
+    projector.project(p[0], p[1], p[2], out) ? { x: out[0] as number, y: out[1] as number } : null;
+  const picks = (p: { x: number; y: number } | null): p is { x: number; y: number } =>
+    p !== null && pickExtrudeHandle(frame, s, projector, p.x, p.y) === handle;
   const i = axisOf(handle);
+  let candidates: Vec3[];
   if (ROTATE.includes(handle) && i !== null) {
-    const centre = projector.project(frame.pivot[0], frame.pivot[1], frame.pivot[2], out)
-      ? [out[0] as number, out[1] as number]
-      : null;
+    const centre = screen(frame.pivot);
     if (centre === null) return null;
-    let best: { x: number; y: number; d: number } | null = null;
-    for (const p of ringPoints(frame, i, s)) {
-      if (!projector.project(p[0], p[1], p[2], out)) continue;
-      const d = Math.hypot((out[0] as number) - (centre[0] as number), (out[1] as number) - (centre[1] as number));
-      if (best === null || d > best.d) best = { x: out[0] as number, y: out[1] as number, d };
+    candidates = ringPoints(frame, i, s)
+      .map((p) => ({ p, q: screen(p) }))
+      .filter((c) => c.q !== null)
+      .sort((a, b) => {
+        const qa = a.q as { x: number; y: number };
+        const qb = b.q as { x: number; y: number };
+        return Math.hypot(qb.x - centre.x, qb.y - centre.y) - Math.hypot(qa.x - centre.x, qa.y - centre.y);
+      })
+      .map((c) => c.p);
+  } else if (TRANSLATE.includes(handle) && i !== null) {
+    candidates = [];
+    for (let u = EXTRUDE_LAYOUT.axisEnd - EXTRUDE_LAYOUT.cone / 2; u > EXTRUDE_LAYOUT.axisStart; u -= 0.04) {
+      candidates.push(at(frame, frame.axes, s, unit(i, u)));
     }
-    return best === null ? null : { x: best.x, y: best.y };
+  } else candidates = [handlePoint(frame, handle, s)];
+  for (const p of candidates) {
+    const q = screen(p);
+    if (picks(q)) return q;
   }
-  const p = handlePoint(frame, handle, s);
-  return projector.project(p[0], p[1], p[2], out) ? { x: out[0] as number, y: out[1] as number } : null;
+  const first = candidates[0];
+  return first === undefined ? null : screen(first);
 }
 
 export function isExtrudeHandle(handle: string): handle is ExtrudeHandle {
