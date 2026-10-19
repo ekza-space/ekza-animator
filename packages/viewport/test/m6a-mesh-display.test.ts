@@ -9,6 +9,8 @@ import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { BitSet, type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import {
+  type BufferAttribute,
+  type BufferGeometry,
   type Camera,
   Color,
   LinearSRGBColorSpace,
@@ -20,7 +22,7 @@ import {
   Vector3,
   WebGLRenderer,
 } from 'three';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_DISPLAY,
   type DisplayFlags,
@@ -704,6 +706,121 @@ describe('viewport mesh display', () => {
     expect(
       h.display.pick(camera, pointer, view, 'face', { cameraBased: true, backfaces: false }, 'pane-persp')?.mesh,
     ).toBe(a);
+  });
+
+  it('does only what changed on document batches: a rename uploads nothing, a move refits nothing', async () => {
+    const h = await setup();
+    const camera = front();
+    h.app.store.transact({ label: 'Palette' }, (tx) => {
+      tx.put('palettes', { id: 'pal_A' as PaletteId, name: 'P', order: 'a0', deleted: null });
+      tx.put('swatches', {
+        id: 'sw_A' as SwatchId,
+        palette: 'pal_A' as PaletteId,
+        slot: 0,
+        order: 'a0',
+        name: 'Red',
+        srgb: [255, 0, 0],
+        kind: 'flat',
+        ramp: null,
+        deleted: null,
+      });
+    });
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}), { palette: 'pal_A' as PaletteId });
+    enterComponentMode(h.app, 'vertex', [a]);
+    const weights = new Float32Array(8).fill(0.5);
+    h.display.setSoftWeights(a, weights);
+    h.display.setLints(a, []);
+    h.render(camera, { shading: 'colours', normals: 'both', triangulation: true });
+    const picker = h.display.picker(a);
+    picker?.prepareBvh(null);
+    expect(picker?.bvhReady).toBe(true);
+    /** Every attribute and index version under the hosts (a version moves with each upload request). */
+    const versions = (): number[] => {
+      const out: number[] = [];
+      for (const host of h.hosts) {
+        host.root.traverse((object) => {
+          const geometry = (object as { geometry?: BufferGeometry }).geometry;
+          if (geometry === undefined) return;
+          for (const attribute of Object.values(geometry.attributes)) {
+            out.push((attribute as BufferAttribute).version);
+          }
+          if (geometry.index !== null) out.push(geometry.index.version);
+        });
+      }
+      return out;
+    };
+    const before = versions();
+    // A rename: a meshes batch that changes nothing the display shows.
+    h.app.store.transact({ label: 'Rename' }, (tx) => tx.patch('meshes', a, { name: 'Renamed' }));
+    h.render(camera, { shading: 'colours', normals: 'both', triangulation: true });
+    expect(versions()).toEqual(before);
+    expect(picker?.bvhReady).toBe(true);
+    // A move: the views and the picker follow the matrix; the BVH (mesh-local) needs no refit.
+    h.app.store.transact({ label: 'Move' }, (tx) =>
+      tx.patch('meshes', a, { placement: { t: [1, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } }),
+    );
+    h.render(camera, { shading: 'colours', normals: 'both', triangulation: true });
+    expect(versions()).toEqual(before);
+    expect(picker?.bvhReady).toBe(true);
+    const corner = h.display.pick(
+      camera,
+      ndcOf(camera, [1.5, 0.5, 0.5]),
+      { w: W, h: H },
+      'vertex',
+      { cameraBased: true, backfaces: false },
+      'pane-persp',
+    );
+    expect(corner?.point[0]).toBeCloseTo(1.5, 5);
+    expect(
+      h.display.pick(
+        camera,
+        ndcOf(camera, [-0.5, 0.5, 0.5]),
+        { w: W, h: H },
+        'vertex',
+        {
+          cameraBased: true,
+          backfaces: false,
+        },
+        'pane-persp',
+      ),
+    ).toBeNull();
+    // Owners still push changes: weights edited in place and pushed again are redrawn.
+    weights.fill(1);
+    h.display.setSoftWeights(a, weights);
+    h.render(camera, { shading: 'colours', normals: 'both', triangulation: true });
+    expect(versions()).not.toEqual(before);
+  });
+
+  it('builds the BVH on idle after entering component mode, not in the enter path nor on the first hover', async () => {
+    const h = await setup();
+    const camera = front();
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}));
+    enterComponentMode(h.app, 'vertex', [a]);
+    h.render(camera);
+    const picker = h.display.picker(a);
+    expect(picker).not.toBeNull();
+    // Entering built the views and the picker's topology only.
+    expect(picker?.bvhReady).toBe(false);
+    h.invalidations = 0;
+    await vi.waitFor(() => expect(picker?.bvhReady).toBe(true), { timeout: 5000, interval: 20 });
+    // No frame for it, and the picks use it as is.
+    expect(h.invalidations).toBe(0);
+    const hit = h.display.pick(
+      camera,
+      ndcOf(camera, [0.5, 0.5, 0.5]),
+      { w: W, h: H },
+      'vertex',
+      { cameraBased: true, backfaces: false },
+      'pane-persp',
+    );
+    expect(hit?.point[0]).toBeCloseTo(0.5, 5);
+    // Leaving the mode before the idle build cancels it (no build on a disposed picker).
+    const model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, componentMode: 'object' } });
+    enterComponentMode(h.app, 'vertex', [a]);
+    h.app.session.setState({ model: { ...h.app.session.getState().model, componentMode: 'object' } });
+    expect(h.display.picker(a)).toBeNull();
+    await new Promise((resolve) => setTimeout(resolve, 400));
   });
 
   it('requests a frame for a hover only when it changes', async () => {

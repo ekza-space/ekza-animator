@@ -81,6 +81,12 @@ interface Entry {
   lints: readonly MeshProblem[];
   faceIsolate: Map<string, BitSet | null>;
   hilited: boolean;
+  /** The idle BVH build (`scheduleBvh`): when it may start, its pending timer or idle callback, and its steps. */
+  bvhDue: number;
+  bvhTimer: ReturnType<typeof setTimeout> | null;
+  bvhIdle: number | null;
+  readonly bvhTick: () => void;
+  readonly bvhRun: () => void;
 }
 
 function isEmptySet(h: HiddenSet): boolean {
@@ -88,6 +94,30 @@ function isEmptySet(h: HiddenSet): boolean {
 }
 
 const scratch = new Vector3();
+/** The idle BVH build (`scheduleBvh`): quiet time after the last change, then the longest wait for an idle period. */
+const BVH_DELAY_MS = 200;
+const BVH_IDLE_TIMEOUT_MS = 2000;
+/** `syncEntry`'s copy of a host's world matrix before it is recomputed. */
+const previousWorld = new Float64Array(16);
+
+function sameMatrix(a: Float64Array, b: Float64Array): boolean {
+  for (let i = 0; i < 16; i++) if (a[i] !== b[i]) return false;
+  return true;
+}
+
+/** Same palette colours (slot → sRGB): the document hands out a fresh map on every query. */
+function samePalette(
+  a: ReadonlyMap<number, readonly [number, number, number]> | null,
+  b: ReadonlyMap<number, readonly [number, number, number]> | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.size !== b.size) return false;
+  for (const [slot, c] of a) {
+    const d = b.get(slot);
+    if (d === undefined || d[0] !== c[0] || d[1] !== c[1] || d[2] !== c[2]) return false;
+  }
+  return true;
+}
 
 export class MeshDisplay {
   private readonly mod: typeof MeshViewModule;
@@ -179,6 +209,14 @@ export class MeshDisplay {
       lints: [],
       faceIsolate: new Map(),
       hilited: false,
+      bvhDue: 0,
+      bvhTimer: null,
+      bvhIdle: null,
+      bvhTick: () => this.bvhTick(entry),
+      bvhRun: () => {
+        entry.bvhIdle = null;
+        if (entry.picker !== null && !this.disposed) entry.picker.prepareBvh(this.hiddenOf(entry.id));
+      },
     };
     entry.dispose = this.target.addMeshLayer(entry.host);
     this.entries.set(id, entry);
@@ -203,10 +241,18 @@ export class MeshDisplay {
     );
   }
 
+  /**
+   * Brings one host up to date. Runs for every hosted mesh on each document batch that touches meshes, groups or
+   * characters (any commit, any rename), so it does only what changed: the views skip unchanged palette colours, the
+   * soft weights and Mesh Check problems go to a new edit view only (their owners push changes themselves), and the
+   * picker is rebuilt for a new version or edit mesh and otherwise only follows a moved world matrix (no BVH refit).
+   */
   private syncEntry(entry: Entry, runtime: MeshRuntime, record: MeshRecord): void {
     const model = this.app.session.getState().model;
     entry.hilited = model.hilite.includes(entry.id);
+    previousWorld.set(entry.world);
     meshWorld(this.app.store, record, this.characterWorld, entry.world);
+    const moved = !sameMatrix(previousWorld, entry.world);
     const editMesh = this.editing(entry, runtime) ? runtime.mesh : null;
     if (editMesh !== null) {
       if (entry.surface !== null) {
@@ -214,11 +260,13 @@ export class MeshDisplay {
         entry.surface = null;
         entry.version = -1;
       }
+      let created = false;
       if (entry.edit === null) {
         entry.edit = new this.mod.EditMeshView({ theme: this.theme, layers: this.layers });
         entry.root.add(entry.edit.root);
         entry.picker = new this.mod.ComponentPicker();
         entry.version = -1;
+        created = true;
       }
       const mesh = editMesh;
       if (entry.version !== runtime.version || entry.mesh !== mesh) {
@@ -228,18 +276,22 @@ export class MeshDisplay {
         entry.picker?.setMesh(mesh, tri, entry.world, true);
         entry.version = runtime.version;
         pruneIsolate(entry, mesh.counts.faces);
-      } else {
-        entry.picker?.setMesh(mesh, runtime.triangulation(), entry.world, false);
+        this.scheduleBvh(entry);
+      } else if (moved) {
+        entry.picker?.setWorld(entry.world);
       }
       entry.edit.setWorld(entry.world);
       this.applyPaint(entry);
-      entry.edit.setSoftWeights(entry.soft);
-      entry.edit.setLints(entry.lints);
+      if (created) {
+        entry.edit.setSoftWeights(entry.soft);
+        entry.edit.setLints(entry.lints);
+      }
       this.applyState(entry, runtime);
     } else {
       if (entry.edit !== null) {
         entry.edit.dispose();
         entry.edit = null;
+        this.cancelBvh(entry);
         entry.picker?.dispose();
         entry.picker = null;
         entry.mesh = null;
@@ -270,6 +322,7 @@ export class MeshDisplay {
       const tri = runtime.triangulation();
       entry.edit.update(runtime.mesh, dirty, tri, runtime.normals());
       entry.picker?.setMesh(runtime.mesh, tri, entry.world, dirty.topology);
+      this.scheduleBvh(entry);
       entry.mesh = runtime.mesh;
       entry.version = runtime.version;
       if (dirty.topology) {
@@ -293,6 +346,7 @@ export class MeshDisplay {
   }
 
   private drop(entry: Entry): void {
+    this.cancelBvh(entry);
     entry.surface?.dispose();
     entry.edit?.dispose();
     entry.picker?.dispose();
@@ -308,7 +362,11 @@ export class MeshDisplay {
   refreshStates(): void {
     for (const entry of this.entries.values()) {
       const runtime = this.app.meshes.get(entry.id);
-      if (entry.edit !== null && runtime !== undefined) this.applyState(entry, runtime);
+      if (entry.edit !== null && runtime !== undefined) {
+        this.applyState(entry, runtime);
+        // A hidden-set change rebuilds the BVH: on idle too (a no-op when the BVH is current).
+        this.scheduleBvh(entry);
+      }
     }
     this.target.invalidate();
   }
@@ -348,6 +406,41 @@ export class MeshDisplay {
   }
 
   /**
+   * Builds or refits the picker's BVH on idle (§4.4 "deferred to the first pick or idle"), so the first hover after
+   * entering a component mode, a commit or a hidden-set change does not pay for it. Each change re-arms a short
+   * delay first (`BVH_DELAY_MS`), so a drag, which reports a change every frame, builds nothing until it rests; the
+   * build itself waits for an idle period (at most `BVH_IDLE_TIMEOUT_MS`). It requests no frame. A pick before then
+   * builds it as before; when the BVH is already current for the mesh's hidden set, the idle call does nothing.
+   */
+  private scheduleBvh(entry: Entry): void {
+    if (entry.picker === null || this.disposed) return;
+    // Per drag frame this only moves the due time: one timer at a time, nothing allocated.
+    entry.bvhDue = performance.now() + BVH_DELAY_MS;
+    if (entry.bvhIdle !== null) {
+      if (typeof cancelIdleCallback === 'function') cancelIdleCallback(entry.bvhIdle);
+      entry.bvhIdle = null;
+    }
+    if (entry.bvhTimer === null) entry.bvhTimer = setTimeout(entry.bvhTick, BVH_DELAY_MS);
+  }
+
+  private bvhTick(entry: Entry): void {
+    entry.bvhTimer = null;
+    if (entry.picker === null || this.disposed) return;
+    const wait = entry.bvhDue - performance.now();
+    if (wait > 0) entry.bvhTimer = setTimeout(entry.bvhTick, wait);
+    else if (typeof requestIdleCallback === 'function') {
+      entry.bvhIdle = requestIdleCallback(entry.bvhRun, { timeout: BVH_IDLE_TIMEOUT_MS });
+    } else entry.bvhRun();
+  }
+
+  private cancelBvh(entry: Entry): void {
+    if (entry.bvhTimer !== null) clearTimeout(entry.bvhTimer);
+    if (entry.bvhIdle !== null && typeof cancelIdleCallback === 'function') cancelIdleCallback(entry.bvhIdle);
+    entry.bvhTimer = null;
+    entry.bvhIdle = null;
+  }
+
+  /**
    * The symmetry plane in mesh-local terms: the runtime's map when there is one; else Object modes are the local plane
    * through the origin and World modes the world plane mapped into the mesh (hidden when the mesh's rotation leaves
    * it oblique to every local axis, where no axis-and-offset plane exists; M6A-B6-15).
@@ -380,7 +473,7 @@ export class MeshDisplay {
     else if (entry.surface !== null) {
       const runtime = this.app.meshes.get(entry.id);
       const data = runtime?.data() ?? null;
-      if (runtime !== undefined && data !== null && entry.surface.colours !== colours) {
+      if (runtime !== undefined && data !== null && !samePalette(entry.surface.colours, colours)) {
         entry.surface.setData(data, runtime.triangulation(), runtime.normals(), colours);
       }
     }
