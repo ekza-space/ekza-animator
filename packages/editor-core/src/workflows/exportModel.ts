@@ -1,17 +1,43 @@
-// Static-model export (M6A-SPEC §6.2 `file.exportModel`, §5.19, §5.22; B8): the export roots (the request's objects,
-// else the selected objects, else every top-level scene object) become a `StaticScene` — TRS nodes, meshes with
-// their latest revisions, materials from the mesh presets, the palettes they paint with, the handheld grip of the
-// root, and `ekza_model_v1` — written by io's author writer, linted for the profile (budgets resolved per mesh, Mesh
-// Check, palette, handheld), read back, and validated by the host's glTF-Validator when it has one. A lazy chunk:
-// `file.exportModel` loads it on its first run, like the animation export pipeline.
+// The lazy half of B8's editor-core workflows (a chunk loaded on first use, like the animation export pipeline; the
+// eager half is `workflows/meshDisplay.ts`):
+//
+// - static-model export (M6A-SPEC §6.2 `file.exportModel`, §5.19, §5.22): the export roots (the request's objects,
+//   else the selected objects, else every top-level scene object) become a `StaticScene` — TRS nodes, meshes with
+//   their latest revisions, materials from the mesh presets, the palettes they paint with, the handheld grip of the
+//   root, and `ekza_model_v1` — written by io's author writer, linted for the profile (budgets resolved per mesh, Mesh
+//   Check, palette, handheld), read back, and validated by the host's glTF-Validator when it has one;
+// - the edits of a character as surgeon `PrimitiveEdit`s (bake into model, §5.22) and its rebuilt display container
+//   (§5.23);
+// - Make editable's record (§5.21), built from the lazy io/mesh entry for `mesh.makeEditable`.
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { ColourOutput, GroupId, GroupRecord, MeshBudget, MeshId, MeshRecord, PaletteId } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportProfileDef, LintIssue, StaticExportRequest, StaticNode } from '@ekza-animator/io';
-import type { MeshData } from '@ekza-animator/mesh-core';
-import { loadMeshKernel } from '../mesh';
-import type { EditorApp, MeshRuntimeRegistry } from '../types';
+import type {
+  CharacterId,
+  ColourOutput,
+  GroupId,
+  GroupRecord,
+  MeshBudget,
+  MeshId,
+  MeshRecord,
+  PaletteId,
+} from '@ekza-animator/doc';
+import type {
+  ExportArtifact,
+  ExportProfileDef,
+  GlbContainer,
+  LintIssue,
+  MakeEditableReport,
+  PrimitiveEdit,
+  StaticExportRequest,
+  StaticNode,
+} from '@ekza-animator/io';
 import type { MeshLintInput } from '@ekza-animator/io/write';
+import type { MeshData } from '@ekza-animator/mesh-core';
+import { isAssetCharacter } from '../characters/registry';
+import { loadMeshKernel } from '../mesh';
+import type { CharacterRuntime, EditorApp, MeshRuntimeRegistry } from '../types';
 import { loadWritePath } from './export';
+import { assetMeshId, characterMeshRecords, isEditedMesh } from './meshDisplay';
+import { orderAfter } from './records';
 import { EDITOR_VERSION } from './samples';
 
 type SceneObject = MeshRecord | GroupRecord;
@@ -85,9 +111,10 @@ function meshesUnder(app: EditorApp, root: SceneObject): MeshRecord[] {
   return out;
 }
 
-async function meshData(meshes: MeshRuntimeRegistry, record: MeshRecord): Promise<MeshData> {
+/** The revision data of a mesh once its runtime is ready (waits for the kernel and a loading runtime). */
+async function readyData(meshes: MeshRuntimeRegistry, id: MeshId, name: string): Promise<MeshData> {
   await loadMeshKernel();
-  const runtime = meshes.get(record.id);
+  const runtime = meshes.get(id);
   if (runtime !== undefined && runtime.state === 'loading') {
     await new Promise<void>((resolve) => {
       const off = runtime.subscribe((event) => {
@@ -104,7 +131,7 @@ async function meshData(meshes: MeshRuntimeRegistry, record: MeshRecord): Promis
   }
   const data = runtime?.data() ?? null;
   if (data === null) {
-    throw new EkzaError('mesh-not-ready', `${record.name}: ${runtime?.error ?? 'its mesh data is not available'}`);
+    throw new EkzaError('mesh-not-ready', `${name}: ${runtime?.error ?? 'its mesh data is not available'}`);
   }
   return data;
 }
@@ -138,7 +165,7 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     if (!isMesh(record)) {
       return { id: record.id, name: record.name, placement: record.placement, mesh: null, children };
     }
-    const data = await meshData(app.meshes, record);
+    const data = await readyData(app.meshes, record.id, record.name);
     const colourOutput: ColourOutput = req.colourOutput ?? record.colourOutput;
     const preset =
       req.materialPreset ??
@@ -202,4 +229,174 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     artifact = { ...artifact, validation: report, lints: [...artifact.lints, ...lints] };
   }
   return artifact;
+}
+
+// ---------- character edits and the display (§5.22, §5.23) ----------
+
+/**
+ * The edited meshes of a character as surgeon edits (§5.22): the latest revision of every record whose revision moved
+ * past Make editable's, with the source facts the export needs (targets that had NORMAL deltas, tangents).
+ */
+export async function characterEdits(
+  app: Pick<EditorApp, 'store' | 'meshes' | 'characters'>,
+  character: CharacterId,
+  opts: { readonly dropTangents?: boolean } = {},
+): Promise<PrimitiveEdit[]> {
+  const records = characterMeshRecords(app.store, character).filter(isEditedMesh);
+  if (records.length === 0) return [];
+  const runtime = app.characters.get(character);
+  if (runtime === undefined) throw new EkzaError('unsupported', 'The character is still loading');
+  const io = await (await loadWritePath()).loadMeshIo();
+  const edits: PrimitiveEdit[] = [];
+  for (const record of records) {
+    const meshIndex = (record.source as { readonly mesh: number }).mesh;
+    const facts = io.meshFacts(runtime.container, meshIndex);
+    edits.push({
+      meshIndex,
+      data: await readyData(app.meshes, record.id, record.name),
+      morphNormals: new Set(facts.morphNormals),
+      hadTangents: facts.hadTangents,
+      dropTangents: opts.dropTangents === true,
+    });
+  }
+  return edits;
+}
+
+/**
+ * The container to display for a character: its model rebuilt with the edited meshes (tangents dropped: display
+ * only), or null when it has none (its own container).
+ */
+export async function displayContainer(
+  app: Pick<EditorApp, 'store' | 'meshes' | 'characters'>,
+  runtime: CharacterRuntime,
+): Promise<GlbContainer | null> {
+  const edits = await characterEdits(app, runtime.id, { dropTangents: true });
+  if (edits.length === 0) return null;
+  return (await loadWritePath()).rebuildContainer(runtime.container, edits);
+}
+
+// ---------- Make editable (§5.21) ----------
+
+export interface MakeEditablePrepared {
+  readonly record: MeshRecord;
+  readonly data: MeshData;
+  readonly report: MakeEditableReport;
+}
+
+/**
+ * Builds the record and first revision of a character's glTF mesh (`mesh.makeEditable`'s prepare): the lazy io/mesh
+ * entry decodes, welds and gates; the record gets the derived id, the source, the imported skin, the asset's material
+ * slots, a unique name among the owner's meshes and the mesh node's placement. Throws the refusal's code and reason.
+ */
+export async function prepareMakeEditable(
+  app: EditorApp,
+  args: { readonly character: CharacterId; readonly meshIndex: number },
+): Promise<MakeEditablePrepared> {
+  const character = app.store.get('characters', args.character);
+  const runtime = app.characters.get(args.character);
+  if (character === undefined || !isAssetCharacter(character) || runtime === undefined) {
+    throw new EkzaError('unsupported', 'The character is still loading');
+  }
+  await loadMeshKernel();
+  const io = await (await loadWritePath()).loadMeshIo();
+  const result = await io.meshFromGltf(runtime.container, args.meshIndex);
+  if ('refused' in result) throw new EkzaError(result.code, result.reason);
+  const json = runtime.container.json;
+  const nodes = Array.isArray(json['nodes']) ? (json['nodes'] as unknown[]) : [];
+  const mesh = (json['meshes'] as unknown[])[args.meshIndex];
+  const name = isRecordValue(mesh) && typeof mesh['name'] === 'string' ? mesh['name'] : `Mesh ${args.meshIndex}`;
+  const skinned = nodes.find(
+    (node) => isRecordValue(node) && node['mesh'] === args.meshIndex && typeof node['skin'] === 'number',
+  );
+  const skin = isRecordValue(skinned) ? (skinned['skin'] as number) : null;
+  const record: MeshRecord = {
+    id: assetMeshId(character.id, args.meshIndex),
+    name: uniqueName(app, character.id, name),
+    owner: { character: character.id },
+    parent: null,
+    order: orderAfter(app.store.query.meshesOfOwner(character.id).map((other) => other.order)),
+    placement: placementOf(nodes, args.meshIndex),
+    pivot: [0, 0, 0],
+    source: { asset: character.asset, mesh: args.meshIndex },
+    data: null,
+    faceted: false,
+    generator: null,
+    palette: null,
+    material: { assetSlots: result.slots.map((slot) => ({ asset: character.asset, material: slot.material })) },
+    colourOutput: 'palette-texture',
+    skin: skin === null ? null : { asset: character.asset, skin },
+    budget: null,
+    handheld: null,
+    deleted: null,
+  };
+  return { record, data: result.data, report: result.report };
+}
+
+function isRecordValue(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** A unique record name among the owner's live meshes (≤ 64 characters; ' 2', ' 3' … on a clash). */
+function uniqueName(app: EditorApp, character: CharacterId, wanted: string): string {
+  const taken = new Set(app.store.query.meshesOfOwner(character).map((record) => record.name));
+  const base = (wanted.trim() === '' ? 'Mesh' : wanted.trim()).slice(0, 60);
+  if (!taken.has(base)) return base;
+  let n = 2;
+  while (taken.has(`${base} ${n}`)) n++;
+  return `${base} ${n}`;
+}
+
+type Quat = readonly [number, number, number, number];
+
+function qmul(a: Quat, b: Quat): Quat {
+  return [
+    a[3] * b[0] + a[0] * b[3] + a[1] * b[2] - a[2] * b[1],
+    a[3] * b[1] - a[0] * b[2] + a[1] * b[3] + a[2] * b[0],
+    a[3] * b[2] + a[0] * b[1] - a[1] * b[0] + a[2] * b[3],
+    a[3] * b[3] - a[0] * b[0] - a[1] * b[1] - a[2] * b[2],
+  ];
+}
+
+/**
+ * Placement of the record (object transform under the character root): identity for skinned meshes (glTF ignores
+ * their node transform), else the composed rest TRS of the first node using the mesh (matrix nodes count as identity).
+ */
+function placementOf(nodes: readonly unknown[], meshIndex: number): MeshRecord['placement'] {
+  const identity: MeshRecord['placement'] = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
+  const index = nodes.findIndex((node) => isRecordValue(node) && node['mesh'] === meshIndex);
+  const node = nodes[index];
+  if (!isRecordValue(node) || node['skin'] !== undefined) return identity;
+  const parentOf = new Map<number, number>();
+  nodes.forEach((n, i) => {
+    if (isRecordValue(n) && Array.isArray(n['children'])) {
+      for (const child of n['children'] as unknown[]) parentOf.set(child as number, i);
+    }
+  });
+  const chain: Readonly<Record<string, unknown>>[] = [];
+  for (let i: number | undefined = index; i !== undefined && chain.length <= nodes.length; i = parentOf.get(i)) {
+    const n = nodes[i];
+    if (isRecordValue(n)) chain.unshift(n);
+  }
+  let t: readonly [number, number, number] = [0, 0, 0];
+  let q: Quat = [0, 0, 0, 1];
+  let s: readonly [number, number, number] = [1, 1, 1];
+  const triple = (value: unknown, fallback: number): [number, number, number] => {
+    const list = Array.isArray(value) ? (value as unknown[]) : [];
+    const at = (k: number): number => {
+      const c = list[k];
+      return typeof c === 'number' ? c : fallback;
+    };
+    return [at(0), at(1), at(2)];
+  };
+  for (const n of chain) {
+    const nt = triple(n['translation'], 0);
+    const rotation = Array.isArray(n['rotation']) ? (n['rotation'] as number[]) : [0, 0, 0, 1];
+    const ns = triple(n['scale'], 1);
+    const local: Quat = [nt[0] * s[0], nt[1] * s[1], nt[2] * s[2], 0];
+    const r = qmul(qmul(q, local), [-q[0], -q[1], -q[2], q[3]]);
+    t = [t[0] + r[0], t[1] + r[1], t[2] + r[2]];
+    q = qmul(q, [rotation[0] ?? 0, rotation[1] ?? 0, rotation[2] ?? 0, rotation[3] ?? 1]);
+    s = [s[0] * ns[0], s[1] * ns[1], s[2] * ns[2]];
+  }
+  return { t, q, s };
 }

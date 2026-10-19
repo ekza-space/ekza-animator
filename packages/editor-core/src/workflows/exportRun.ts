@@ -33,7 +33,7 @@ import {
   type WritePath,
 } from './export';
 import { yieldToHost } from './host';
-import { characterEdits } from './meshDisplay';
+import { characterEdits } from './exportModel';
 import { EDITOR_VERSION } from './samples';
 import { fpsValue } from './util';
 

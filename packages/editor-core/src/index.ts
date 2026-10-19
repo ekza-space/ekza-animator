@@ -101,18 +101,17 @@ export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator'
 export { MESH_OPERATORS } from './operators/builtin/mesh';
 // M6a B8 (M6A-SPEC §5.21, §5.23): character meshes made editable, their edits and the rebuilt display.
 export { lastMakeEditableReport } from './operators/builtin/makeEditable';
+export { characterEdits, displayContainer } from './workflows/exportModel';
 export {
   type AssetMeshRow,
   assetMeshId,
   assetMeshRows,
   type CharacterDisplaySource,
-  characterEdits,
   characterMeshRecords,
   createMeshDisplay,
   DISPLAY_DEBOUNCE_MS,
   DISPLAY_IDLE_TIMEOUT_MS,
   type DisplayTimers,
-  displayContainer,
   hasMeshEdits,
   isEditedMesh,
   type MeshDisplayController,

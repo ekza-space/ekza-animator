@@ -2,13 +2,13 @@
 //
 // - the record id of a character's glTF mesh, `derivedId('mesh', 'asset', [characterId], '', meshIndex)`, and the
 //   virtual 'asset' rows of the glTF meshes that have no record yet (Outliner, test API);
-// - the edits of a character (records with a source whose revision moved past the first, Make editable's) as the
-//   surgeon's `PrimitiveEdit`s, for the bake-into-model export and the display;
+// - which records are edits (a source and a revision past Make editable's first one); the edits themselves, the rebuilt
+//   display container and Make editable's record are built in the lazy half, `workflows/exportModel.ts`;
 // - the display: characters outside Model are shown through the shipped `ModelLoader` on a container rebuilt in memory
 //   by `rebuildContainer` from the latest revisions of their edited meshes (never a geometry swap inside the loaded
 //   scene). The rebuild runs when leaving Model and on idle after commits (debounced 500 ms, then
 //   `requestIdleCallback` with a 2 s timeout); the previous display stays until the new one is ready.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-animator/anim-core';
 import {
   type ChangeBatch,
   type CharacterId,
@@ -17,11 +17,9 @@ import {
   type MeshId,
   type MeshRecord,
 } from '@ekza-animator/doc';
-import type { GlbContainer, PrimitiveEdit } from '@ekza-animator/io';
+import type { GlbContainer } from '@ekza-animator/io';
 import { isAssetCharacter } from '../characters/registry';
-import { loadMeshKernel } from '../mesh';
-import type { CharacterRuntime, EditorApp, MeshRuntimeRegistry, SessionStore } from '../types';
-import { loadWritePath } from './export';
+import type { CharacterRuntime, EditorApp, SessionStore } from '../types';
 
 /** The record id of a character's glTF mesh (§3 rule 3): deterministic, so a re-run or an M3 peer never duplicates it. */
 export function assetMeshId(character: CharacterId, meshIndex: number): MeshId {
@@ -81,77 +79,6 @@ export function isEditedMesh(record: MeshRecord): boolean {
 /** Whether a character has edited meshes (cheap: a store scan, no kernel). */
 export function hasMeshEdits(store: DocumentStore, character: CharacterId): boolean {
   return characterMeshRecords(store, character).some(isEditedMesh);
-}
-
-/** The revision data of a mesh once its runtime is ready (waits for the kernel and a loading runtime). */
-async function readyData(meshes: MeshRuntimeRegistry, id: MeshId, name: string) {
-  await loadMeshKernel();
-  const runtime = meshes.get(id);
-  if (runtime === undefined) throw new EkzaError('mesh-not-ready', `Mesh '${name}' has no runtime`);
-  if (runtime.state === 'loading') {
-    await new Promise<void>((resolve) => {
-      const off = runtime.subscribe((event) => {
-        if (event.type === 'state' && event.state !== 'loading') {
-          off();
-          resolve();
-        }
-      });
-      if (runtime.state !== 'loading') {
-        off();
-        resolve();
-      }
-    });
-  }
-  const data = runtime.data();
-  if (data === null) {
-    throw new EkzaError(
-      'mesh-not-ready',
-      `Mesh '${name}' is ${runtime.state}${runtime.error === null ? '' : `: ${runtime.error}`}`,
-    );
-  }
-  return data;
-}
-
-/**
- * The edited meshes of a character as surgeon edits (§5.22): the latest revision of every record whose revision moved
- * past Make editable's, with the source facts the export needs (targets that had NORMAL deltas, tangents).
- */
-export async function characterEdits(
-  app: Pick<EditorApp, 'store' | 'meshes' | 'characters'>,
-  character: CharacterId,
-  opts: { readonly dropTangents?: boolean } = {},
-): Promise<PrimitiveEdit[]> {
-  const records = characterMeshRecords(app.store, character).filter(isEditedMesh);
-  if (records.length === 0) return [];
-  const runtime = app.characters.get(character);
-  if (runtime === undefined) throw new EkzaError('unsupported', 'The character is still loading');
-  const io = await (await loadWritePath()).loadMeshIo();
-  const edits: PrimitiveEdit[] = [];
-  for (const record of records) {
-    const meshIndex = (record.source as { readonly mesh: number }).mesh;
-    const facts = io.meshFacts(runtime.container, meshIndex);
-    edits.push({
-      meshIndex,
-      data: await readyData(app.meshes, record.id, record.name),
-      morphNormals: new Set(facts.morphNormals),
-      hadTangents: facts.hadTangents,
-      dropTangents: opts.dropTangents === true,
-    });
-  }
-  return edits;
-}
-
-/**
- * The container to display for a character: its model rebuilt with the edited meshes (tangents dropped: display
- * only), or null when it has none (its own container). Exposed for tests and the rebuild bench.
- */
-export async function displayContainer(
-  app: Pick<EditorApp, 'store' | 'meshes' | 'characters'>,
-  runtime: CharacterRuntime,
-): Promise<GlbContainer | null> {
-  const edits = await characterEdits(app, runtime.id, { dropTangents: true });
-  if (edits.length === 0) return null;
-  return (await loadWritePath()).rebuildContainer(runtime.container, edits);
 }
 
 // ---------- the display controller ----------
@@ -275,7 +202,7 @@ export function createMeshDisplay(deps: {
       const key = `${runtime.container.sha256}:${records.map((r) => `${r.source?.mesh}=${r.data?.manifest}`).join(',')}`;
       const cached = cache.get(runtime.id);
       if (cached?.key === key) return cached.container;
-      const container = displayContainer(app, runtime);
+      const container = import('./exportModel').then((lazy) => lazy.displayContainer(app, runtime));
       cache.set(runtime.id, { key, container });
       container.catch(() => {
         if (cache.get(runtime.id)?.container === container) cache.delete(runtime.id);
