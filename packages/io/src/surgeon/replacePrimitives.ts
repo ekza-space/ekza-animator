@@ -244,8 +244,8 @@ function writePrimitive(
   primitive['indices'] = writer.accessor(out.indices, 'SCALAR', { target: ELEMENT_ARRAY_BUFFER });
   if (template['material'] !== undefined) primitive['material'] = template['material'];
   if (template['mode'] === 4) primitive['mode'] = 4;
-  const hadTargets = Array.isArray(template['targets']) && template['targets'].length > 0;
-  if (hadTargets || out.targets.length > 0) {
+  // glTF lists targets only when there are some (minItems 1); their count follows the mesh's morph layers.
+  if (out.targets.length > 0) {
     primitive['targets'] = out.targets.map((target) => {
       const json: MutableJson = {
         POSITION: writer.accessor(target.POSITION, 'VEC3', { target: ARRAY_BUFFER, minMax: true }),
