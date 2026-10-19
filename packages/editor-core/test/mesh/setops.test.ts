@@ -148,8 +148,9 @@ describe('MeshSetOp runner (§5.13)', () => {
     expect(b?.name).toBe('Piece 2');
     expect(a !== undefined && b !== undefined && a.order < b.order).toBe(true);
     expect(t.app.meshes.get(created[0] as MeshId)?.data()?.counts).toEqual(cube().counts);
-    // Output selections are kept (component selections until B10: the runtime's fallback).
-    expect(t.meshes.localSelection(created[0] as MeshId)?.faces.has(0)).toBe(true);
+    // Output selections are kept (B10's component selections; the runtime's fallback before B10 — `selectionFor`
+    // reads either; literal update at the B12b merge of B10).
+    expect(t.meshes.selectionFor(created[0] as MeshId, 'face')?.faces.has(0)).toBe(true);
     // The pre-op MeshData of the input is the last set-op's.
     expect(t.meshes.lastSetOp?.opId).toBe('mesh.test.split');
     expect(t.meshes.lastSetOp?.inputs.get(id)?.counts).toEqual(cube().counts);
@@ -235,7 +236,7 @@ describe('MeshSetOp output selections', () => {
     register(t, reshape, () => 'seed');
     expect((await t.app.runUntyped('mesh.test.reshape', { meshes: [id] })).status).toBe('finished');
     expect(t.app.meshes.get(id)?.data()?.counts).toEqual(plane.counts);
-    const kept = t.meshes.localSelection(id);
+    const kept = t.meshes.selectionFor(id, 'face');
     expect(kept?.faces.size).toBe(plane.counts.faces);
     expect([...(kept?.faces.toArray() ?? [])]).toEqual([1]);
   });

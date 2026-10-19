@@ -536,8 +536,10 @@ describe("'before-last' reads what the last op read (§4.6, §5.7 card drags)", 
     return [...data.position];
   }
 
+  // The selection an op reads (`selectionFor`: B10's component selection service once it stores selections, else
+  // the runtime's fallback). Literal update at the B12b merge of B10 (the fallback no longer holds the selection).
   const faces = (t: Awaited<ReturnType<typeof meshTestApp>>, id: MeshId): number[] => [
-    ...(t.meshes.localSelection(id)?.faces.toArray() ?? []),
+    ...(t.meshes.selectionFor(id, 'face')?.faces.toArray() ?? []),
   ];
 
   const setMode = (t: Awaited<ReturnType<typeof meshTestApp>>, mode: 'object' | 'face', hilite: MeshId[]): void =>
