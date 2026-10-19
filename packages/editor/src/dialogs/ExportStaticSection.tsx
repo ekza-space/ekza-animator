@@ -1,8 +1,9 @@
 // The Export dialog's "Static model (GLB)" section (M6A-SPEC §8.8, §5.19, §5.21, §5.22; B13 over B8's
-// `file.exportModel`): the export roots (the selected objects, else every scene mesh), the profile (`local/generic`,
-// `ekza/omoba-handheld-v1`; a handheld template root defaults to the latter), the colour output and material preset
-// (each mesh's own unless overridden), Drop tangents (only when a made-editable mesh's glTF primitives carried
-// tangents), the file name, then the lints, the validator's result and the file size of what was written.
+// `file.exportModel`): the export roots (the selected objects, else the scene roots; only those holding a mesh), the
+// profile (`local/generic`, `ekza/omoba-handheld-v1`; a handheld template root defaults to the latter), the colour
+// output and material preset (each mesh's own unless overridden), Drop tangents (only when a made-editable mesh's glTF
+// primitives carried tangents), the file name, then the lints, the validator's result and the file size of what was
+// written.
 import type { DocumentStore, GroupRecord, MeshRecord } from '@ekza-animator/doc';
 import { type EditorApp, topmost } from '@ekza-animator/editor-core';
 import type { ExportArtifact, StaticExportRequest } from '@ekza-animator/io';
@@ -19,6 +20,7 @@ import {
 import { type JSX, useId, useMemo, useState } from 'react';
 import { useDocQuery, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
+import { markModelExported } from '../panels/viewport/modelProgress';
 import { useShell } from '../shell/context';
 
 type SceneObject = MeshRecord | GroupRecord;
@@ -37,11 +39,21 @@ const MATERIAL_OPTIONS = [
 const HANDHELD_PROFILE = 'ekza/omoba-handheld-v1';
 const GENERIC_PROFILE = 'local/generic';
 
-/** The export roots: the topmost selected scene objects, else every scene root that holds a mesh. */
+/** Whether a scene object is a mesh or a group whose subtree holds one (a mesh-less group exports an empty node). */
+export function holdsMesh(store: DocumentStore, object: SceneObject): boolean {
+  if (object.id.startsWith('msh_')) return true;
+  const owner = 'scene' in object.owner ? 'scene' : object.owner.character;
+  return store.query.childrenOf(object.id, owner).some((child) => holdsMesh(store, child));
+}
+
+/**
+ * The export roots: the topmost selected scene objects, else every scene root — in both cases only those that hold a
+ * mesh (Humanoid guides and empty groups are left out; a selection of only those exports nothing).
+ */
 export function staticRoots(store: DocumentStore, selected: readonly string[]): readonly SceneObject[] {
   const chosen = topmost(store, selected);
-  if (chosen.length > 0) return chosen;
-  return store.query.childrenOf(null, 'scene');
+  const roots = chosen.length > 0 ? chosen : store.query.childrenOf(null, 'scene');
+  return roots.filter((root) => holdsMesh(store, root));
 }
 
 /** Whether a made-editable mesh among the roots came from glTF primitives with TANGENT (Drop tangents applies). */
@@ -113,7 +125,12 @@ export function ExportStaticSection(props: { readonly onCancel: () => void }): J
     ...(material === '' ? {} : { materialPreset: material as 'unlit' | 'lit' }),
     ...(tangents && dropTangents ? { dropTangents: true } : {}),
   };
-  const blocked = roots.length === 0 ? 'Nothing to export: create or select a mesh' : null;
+  const blocked =
+    roots.length > 0
+      ? null
+      : selected.length > 0
+        ? 'Nothing to export: the selection holds no mesh'
+        : 'Nothing to export: create or select a mesh';
 
   const run = async (): Promise<void> => {
     setRunning(true);
@@ -121,8 +138,10 @@ export function ExportStaticSection(props: { readonly onCancel: () => void }): J
     setArtifacts(null);
     try {
       const result = await app.runUntyped('file.exportModel', request, { panel: 'global', source: 'menu' });
-      if (result.status === 'finished') setArtifacts(result.value as readonly ExportArtifact[]);
-      else setError(result.status === 'failed' ? result.error.message : result.reason);
+      if (result.status === 'finished') {
+        setArtifacts(result.value as readonly ExportArtifact[]);
+        markModelExported(app);
+      } else setError(result.status === 'failed' ? result.error.message : result.reason);
     } finally {
       setRunning(false);
     }

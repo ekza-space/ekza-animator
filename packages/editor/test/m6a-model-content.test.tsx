@@ -4,9 +4,11 @@
 // the Export dialog's Static model section and the first-run start question.
 import type { CharacterId, DocSnapshot, MeshId } from '@ekza-animator/doc';
 import {
+  attachMeshes,
   DEFAULT_PALETTE_ID,
   type EditorApp,
   loadMeshKernel,
+  meshKernel,
   registerBuiltins,
   swatchIdFor,
 } from '@ekza-animator/editor-core';
@@ -15,6 +17,7 @@ import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { ExportDialog } from '../src/dialogs/ExportDialog';
+import { staticRoots } from '../src/dialogs/ExportStaticSection';
 import { FirstRunDialog } from '../src/dialogs/FirstRunDialog';
 import { ImagePlaneImportDialog } from '../src/dialogs/ImagePlaneImport';
 import { EditorAppProvider } from '../src/hooks';
@@ -27,6 +30,7 @@ import { pushRecent, shownPalette, usageLine } from '../src/panels/palette/model
 import PaletteView from '../src/panels/palette/PaletteView';
 import GettingStarted from '../src/panels/viewport/GettingStarted';
 import ModelEmptyState from '../src/panels/viewport/ModelEmptyState';
+import { markModelExported, modelExported } from '../src/panels/viewport/modelProgress';
 import {
   GETTING_STARTED_KEY,
   gettingStartedDismissed,
@@ -354,6 +358,29 @@ describe('Palette panel (§8.8, §5.19)', () => {
     await click(by('palette-apply'));
     expect(runs).toContainEqual(['mesh.paint', { kind: 'face', slot: 2 }]);
   });
+
+  it("Apply and Select faces refuse a swatch of another palette than the mesh's (Assign offers it)", async () => {
+    const { app } = modelShell();
+    const id = await cube(app);
+    const variant = ((await run(app, 'palette.duplicate', { palette: DEFAULT_PALETTE_ID })) as { palette: string })
+      .palette;
+    await mount(app, <PaletteView app={app} />);
+    await update(() => userEvent.selectOptions(by('palette-select'), variant));
+    await click(by('palette-swatch-3'));
+    await waitUntil(() => app.session.getState().model.activeSwatch === swatchIdFor(variant as never, 3));
+    const model = app.session.getState().model;
+    await update(() => app.session.setState({ model: { ...model, componentMode: 'face', hilite: [id] } }));
+    const apply = by('palette-apply') as HTMLButtonElement;
+    expect(apply.disabled).toBe(true);
+    expect(apply.title).toMatch(/^The active swatch is not in .+'s palette: assign .+ first$/);
+    expect((by('palette-select-faces') as HTMLButtonElement).disabled).toBe(true);
+    expect(maybe('palette-assign')).not.toBeNull();
+    // After Assign the variant's swatch paints the mesh.
+    await click(by('palette-assign'));
+    await waitUntil(() => app.store.get('meshes', id)?.palette === variant);
+    expect((by('palette-apply') as HTMLButtonElement).disabled).toBe(false);
+    expect((by('palette-select-faces') as HTMLButtonElement).disabled).toBe(false);
+  });
 });
 
 // ---------- Attributes ----------
@@ -438,8 +465,26 @@ describe('Model start card and Getting started (§8.8)', () => {
     await mount(app, <GettingStarted app={app} paneId="pane-persp" />);
     expect(by('getting-started-step-3').textContent).toMatch(/Ctrl\+E/);
     expect(by('getting-started-step-1').dataset['done']).toBeUndefined();
-    await cube(app);
+    const id = await cube(app);
     await waitUntil(() => by('getting-started-step-1').dataset['done'] === 'true');
+    // ⑤ ticks when a face carries a non-default slot, ⑥ when a static model export finished; both stay ticked.
+    expect(by('getting-started-step-5').dataset['done']).toBeUndefined();
+    expect(by('getting-started-step-6').dataset['done']).toBeUndefined();
+    const op = meshKernel()?.MESH_OPS['mesh.paint'];
+    const meshes = attachMeshes(app);
+    if (op === undefined || meshes === null) throw new Error('no kernel');
+    const paint = (slot: number) =>
+      update(() => {
+        app.store.transact({ label: 'Assign Colour' }, (tx) =>
+          meshes.commitOp(tx, op, [id], { slot, faces: [1] }, { seed: `paint-${slot}`, kind: null }),
+        );
+      });
+    await paint(4);
+    await waitUntil(() => by('getting-started-step-5').dataset['done'] === 'true');
+    await paint(0);
+    expect(by('getting-started-step-5').dataset['done']).toBe('true');
+    await update(() => markModelExported(app));
+    await waitUntil(() => by('getting-started-step-6').dataset['done'] === 'true');
     await click(by('getting-started-dismiss'));
     expect(gettingStartedDismissed()).toBe(true);
     expect(globalThis.localStorage.getItem(GETTING_STARTED_KEY)).toBe('dismissed');
@@ -494,9 +539,30 @@ describe('B13 dialogs', () => {
     await click(by('export-static-confirm'));
     await waitUntil(() => maybe('export-static-size') !== null, 10_000);
     expect(by('export-static-size').textContent).toMatch(/KB|B/);
+    // Getting started ⑥ reads this.
+    expect(modelExported(app)).toBe(true);
     // The Animation side stays one click away.
     await click(by('export-animation'));
     await waitUntil(() => maybe('export-confirm') !== null);
+  });
+
+  it('Static model roots leave out mesh-less groups (Humanoid guides, empty groups)', async () => {
+    const { app } = modelShell();
+    const guides = ((await run(app, 'mesh.create.template', { template: 'humanoid' })) as { root: string }).root;
+    expect(staticRoots(app.store, [])).toEqual([]);
+    await update(() => app.session.setState({ selection: { ...app.session.getState().selection, objects: [] } }));
+    const id = await cube(app);
+    expect(staticRoots(app.store, []).map((root) => root.id)).toEqual([id]);
+    // A body created into the guides makes them a root that holds a mesh.
+    await update(() =>
+      app.session.setState({ selection: { ...app.session.getState().selection, objects: [guides as never] } }),
+    );
+    await run(app, 'mesh.create.template', { template: 'humanoidBody' });
+    expect(staticRoots(app.store, []).map((root) => root.id)).toEqual([guides, id]);
+    // A selection of only mesh-less groups exports nothing.
+    const empty = ((await run(app, 'mesh.create.template', { template: 'humanoid' })) as { root: string }).root;
+    expect(staticRoots(app.store, [empty])).toEqual([]);
+    expect(staticRoots(app.store, [empty, id]).map((root) => root.id)).toEqual([id]);
   });
 
   it('the first-run dialog asks Animate or Model and starts in the chosen workspace', async () => {
