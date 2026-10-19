@@ -15,9 +15,8 @@
 //   palette holds it) on the hilited meshes (or the selected mesh objects, which it hilites in face mode), one
 //   "Select" step in Model.
 //
-// `paintRefusal(app, meshes, swatch)` is the editor-side rule of §5.19 that the kernel cannot see (painting is refused
-// on asset-backed meshes, and with a swatch that is not in the mesh's palette); the Palette panel and the Paint Colour
-// tool check it before running `mesh.paint`.
+// `paintRefusal(app, meshes, swatch)` (`paintRules.ts`, loaded only by the lazy Palette panel and Paint Colour tool) is
+// the editor-side rule of §5.19 that the kernel cannot see; they check it before running `mesh.paint`.
 // The document writes live in the lazy `contentApply.ts` (M6A-B13-10): `prepare` loads it, `apply` runs its body.
 import { EkzaError } from '@ekza-animator/anim-core';
 import {
@@ -33,7 +32,7 @@ import {
 import { loadMeshKernel, meshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } from './define';
-import { loadContentApply } from './contentLoad';
+import { loadContentApply, loadedContentApply } from './contentLoad';
 
 // ---------- the default palette ----------
 
@@ -91,30 +90,6 @@ export function swatchIdFor(palette: PaletteId, slot: number): SwatchId {
 
 /** Authored (not asset-backed) live meshes. */
 export const isAuthored = (record: MeshRecord): boolean => record.source === null;
-
-/**
- * §5.19: painting is refused on asset-backed (made-editable) meshes in M6a; with `swatch`, also on a mesh whose
- * palette does not hold it (the Palette panel can show and activate another palette's swatch: its slot would paint
- * another colour there, or a slot the mesh's palette lacks). Null when every mesh may be painted.
- */
-export function paintRefusal(app: EditorApp, meshes: readonly MeshId[], swatch?: SwatchRecord | null): string | null {
-  for (const id of meshes) {
-    const record = app.store.get('meshes', id);
-    if (record !== undefined && !isAuthored(record)) return 'Painting imported meshes arrives later';
-  }
-  return swatch === undefined || swatch === null ? null : swatchMismatch(app, meshes, swatch);
-}
-
-/** The reason `swatch` cannot paint one of `meshes` (not in its palette), or null. */
-export function swatchMismatch(app: EditorApp, meshes: readonly MeshId[], swatch: SwatchRecord): string | null {
-  for (const id of meshes) {
-    const record = app.store.get('meshes', id);
-    if (record === undefined || record.palette === swatch.palette) continue;
-    const palette = app.store.get('palettes', swatch.palette)?.name ?? 'its palette';
-    return `The active swatch is not in ${record.name}'s palette: assign ${palette} first`;
-  }
-  return null;
-}
 
 // ---------- args ----------
 
@@ -382,18 +357,6 @@ export function slotArg(app: EditorApp, args: unknown): number | null {
   return activeSwatchOf(app)?.slot ?? null;
 }
 
-/**
- * The slot Select by Swatch reads on `mesh`: the explicit `slot`, else the active swatch's — only when the mesh paints
- * with the active swatch's palette (another palette's slot means another colour there); null: select nothing.
- */
-export function swatchSlotOn(app: EditorApp, args: unknown, mesh: MeshId): number | null {
-  const explicit = optionalArgs(args)?.['slot'];
-  if (explicit !== undefined && explicit !== null) return slotArg(app, args);
-  const active = activeSwatchOf(app);
-  if (active === null) return null;
-  return app.store.get('meshes', mesh)?.palette === active.palette ? active.slot : null;
-}
-
 const selectBySwatch = defineOperator({
   id: 'select.mesh.bySwatch',
   label: 'Select by Swatch',
@@ -413,11 +376,10 @@ const selectBySwatch = defineOperator({
     const targets = swatchTargets(app);
     if (targets.length === 0) return fail('Select a mesh first');
     if (targets.some((id) => app.meshes.get(id)?.state !== 'ready')) return fail('Mesh is loading');
-    // The active swatch selects only on meshes whose palette holds it: refuse when that is none of them.
-    const active = activeSwatchOf(app);
-    const mismatch = active === null ? null : swatchMismatch(app, targets, active);
-    if (mismatch !== null && targets.every((id) => swatchSlotOn(app, args, id) === null)) return fail(mismatch);
-    return OK;
+    // The active swatch selects only on meshes whose palette holds it: refused when that is none of them (the check
+    // loads with the bodies; the runner polls again after `prepare`, M6A-B13-10).
+    const problem = loadedContentApply()?.bySwatchProblem(app, args, targets) ?? null;
+    return problem === null ? OK : fail(problem);
   },
   prepare: loadContentApply,
   apply: (ctx, args, impl) => impl.selectBySwatch(ctx, args),

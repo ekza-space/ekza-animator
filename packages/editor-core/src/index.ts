@@ -161,11 +161,11 @@ export {
   DEFAULT_PALETTE_ID,
   defaultSwatchId,
   nextSlot,
-  paintRefusal,
   parseHex,
   swatchIdFor,
   toHex,
 } from './operators/builtin/palette';
+export { paintRefusal } from './operators/builtin/paintRules';
 export {
   DEFAULT_GRIP,
   FROZEN_REASON,

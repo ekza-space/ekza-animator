@@ -47,14 +47,16 @@ import type {
 import { templateGroupOf } from './create';
 import { isRecord, optionalArgs } from './define';
 import { defaultOffset, type Imported, isCamera, LABEL, LOCKED_REASON } from './imagePlane';
+import { swatchMismatch } from './paintRules';
 import {
+  activeSwatchOf,
   cleanName,
   lastOrder,
   livePalette,
   nextSlot,
   replaceTargets,
+  slotArg,
   swatchIdFor,
-  swatchSlotOn,
   swatchTargets,
   targetMeshes,
   BUSY_KERNEL,
@@ -85,7 +87,6 @@ import {
   type Prepared,
   type Regenerated,
   TEMPLATE_PARAMS,
-  templateHeight,
   type TemplateId,
   type TemplateMesh,
   templateOf,
@@ -622,6 +623,25 @@ export function paletteReplaceSwatch(ctx: ApplyContext, args: OperatorArgs<'pale
   );
 }
 
+/**
+ * The slot Select by Swatch reads on `mesh`: the explicit `slot`, else the active swatch's — only when the mesh paints
+ * with the active swatch's palette (another palette's slot means another colour there); null: select nothing.
+ */
+export function swatchSlotOn(app: EditorApp, args: unknown, mesh: MeshId): number | null {
+  const explicit = optionalArgs(args)?.['slot'];
+  if (explicit !== undefined && explicit !== null) return slotArg(app, args);
+  const active = activeSwatchOf(app);
+  if (active === null) return null;
+  return app.store.get('meshes', mesh)?.palette === active.palette ? active.slot : null;
+}
+
+/** Select by Swatch's refusal when the active swatch is in none of the targets' palettes (else null). */
+export function bySwatchProblem(app: EditorApp, args: unknown, targets: readonly MeshId[]): string | null {
+  const active = activeSwatchOf(app);
+  if (active === null || targets.some((id) => swatchSlotOn(app, args, id) !== null)) return null;
+  return swatchMismatch(app, targets, active);
+}
+
 export function selectBySwatch({ app }: ApplyContext, args: OperatorArgs<'select.mesh.bySwatch'>) {
   const kernel = meshKernel();
   const meshes = attachMeshes(app);
@@ -647,6 +667,21 @@ export function selectBySwatch({ app }: ApplyContext, args: OperatorArgs<'select
       meshes.select(id, sel);
     }
   });
+}
+
+/** The humanoid height (metres) when the run names none and no Humanoid guides host the body. */
+export const DEFAULT_HUMANOID_HEIGHT = 1.6;
+
+/**
+ * The height a humanoid template run builds: the run's `height`; when it is auto (null), for a body created into a
+ * Humanoid guides group (the lead of the selection) the group's `template.params.height`, so the body matches the
+ * guides; else 1.6 m (M6A-B13-19).
+ */
+export function templateHeight(app: EditorApp, template: TemplateId, height: unknown): number {
+  if (typeof height === 'number' && Number.isFinite(height)) return height;
+  const host = template === 'humanoidBody' ? templateGroupOf(app) : null;
+  const guides = host?.template?.kind === 'humanoid' ? host.template.params['height'] : undefined;
+  return typeof guides === 'number' && Number.isFinite(guides) ? guides : DEFAULT_HUMANOID_HEIGHT;
 }
 
 export function createTemplate(ctx: ApplyContext, args: OperatorArgs<'mesh.create.template'>, prepared: Prepared) {

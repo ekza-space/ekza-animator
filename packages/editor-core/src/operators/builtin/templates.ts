@@ -26,7 +26,6 @@ import { loadMeshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
 import { type ContentApplyModule, loadContentApply } from './contentLoad';
-import { templateGroupOf } from './create';
 
 export const TEMPLATES = ['prop', 'handheld', 'humanoid', 'humanoidBody'] as const;
 export type TemplateId = (typeof TEMPLATES)[number];
@@ -45,12 +44,10 @@ export const DEFAULT_GRIP: HandheldGrip = {
 /** The handheld template's cube (metres). */
 export const HANDHELD_CUBE = { width: 0.04, height: 0.3, depth: 0.04 } as const;
 
-/** The humanoid height (metres) when the run names none and no Humanoid guides host the body. */
-export const DEFAULT_HUMANOID_HEIGHT = 1.6;
-
 /** The template operator's params (the Last-op card): height for the humanoid templates, the body style, the guides
  *  preset. Templates ignore the ones they do not use. `height` is nullable ("auto", resolved at invoke time like
- *  `smoothingAngle`): a body created into Humanoid guides takes their height, anything else 1.6 m (M6A-B13-19). */
+ *  `smoothingAngle`, by `templateHeight` in the lazy bodies): a body created into Humanoid guides takes their height,
+ *  anything else 1.6 m (M6A-B13-19). */
 export const TEMPLATE_PARAMS: readonly ParamDef[] = [
   {
     name: 'height',
@@ -119,18 +116,6 @@ export interface Prepared {
   readonly impl: ContentApplyModule;
 }
 
-/**
- * The height a humanoid template run builds: the run's `height`; when it is auto (null), for a body created into a
- * Humanoid guides group (the lead of the selection) the group's `template.params.height`, so the body matches the
- * guides; else 1.6 m (M6A-B13-19).
- */
-export function templateHeight(app: EditorApp, template: TemplateId, height: unknown): number {
-  if (typeof height === 'number' && Number.isFinite(height)) return height;
-  const host = template === 'humanoidBody' ? templateGroupOf(app) : null;
-  const guides = host?.template?.kind === 'humanoid' ? host.template.params['height'] : undefined;
-  return typeof guides === 'number' && Number.isFinite(guides) ? guides : DEFAULT_HUMANOID_HEIGHT;
-}
-
 export const templateOf = (args: unknown): TemplateId | null => {
   const value = isRecord(args) ? args['template'] : undefined;
   return TEMPLATES.includes(value as TemplateId) ? (value as TemplateId) : null;
@@ -166,7 +151,7 @@ const createTemplate = defineOperator<typeof OP, Prepared>({
     if (template === 'humanoid') return { mesh: null, impl };
     const raw = coerceArgs(TEMPLATE_PARAMS, args).args;
     if (template === 'humanoidBody') {
-      const height = templateHeight(app, template, raw['height']);
+      const height = impl.templateHeight(app, template, raw['height']);
       const params = primitiveParams('humanoidBody', { height, style: raw['style'] });
       return { mesh: { kind: 'humanoidBody', params, data: kernel.primitive('humanoidBody', params) }, impl };
     }
