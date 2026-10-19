@@ -296,3 +296,39 @@ describe('framing and isolate', () => {
     expect(isolate).toHaveBeenLastCalledWith(PANE, s.cube, null);
   });
 });
+
+describe('Mesh Check overlay (§5.25)', () => {
+  it('follows the panes’ meshCheck flag for every drawn mesh, without the Mesh Check panel', async () => {
+    const s = await scene({ second: true });
+    const lints = vi.spyOn(s.runtime.display, 'setLints');
+    const pane = s.rig.vm.paneState(PANE);
+    if (pane === null) throw new Error('no pane');
+    expect(pane.display.meshCheck).toBe(false);
+    s.rig.vm.updatePane(PANE, { display: { ...pane.display, meshCheck: true } });
+    await expect.poll(() => new Set(lints.mock.calls.map(([mesh]) => mesh))).toEqual(new Set([s.cube, s.other]));
+    lints.mockClear();
+    // Nothing changed: nothing recomputed.
+    s.rig.vm.updatePane(PANE, { display: { ...pane.display, meshCheck: true } });
+    await Promise.resolve();
+    expect(lints).not.toHaveBeenCalled();
+    s.rig.vm.updatePane(PANE, { display: { ...pane.display, meshCheck: false } });
+    await expect.poll(() => lints.mock.calls.length).toBe(2);
+    expect(lints.mock.calls.every(([, problems]) => problems.length === 0)).toBe(true);
+  });
+});
+
+describe('the pointer probe over meshes without a record (§5.6 "Make editable first")', () => {
+  it('assetMeshAt: a mesh the viewport draws without a record under the point, never a record’s mesh', async () => {
+    const s = await scene();
+    const over = vi.spyOn(s.rig.vm, 'isOverMesh').mockReturnValue(true); // e.g. a character's glTF mesh
+    pointer(element(s), 'pointermove', 15, 15, { buttons: 0 });
+    expect(modelPointer(s.app)?.assetMeshAt?.(PANE, 'hover')).toBe(true);
+    const at = s.rig.vm.project(PANE, [0, 0, 0.5]);
+    if (at === null) throw new Error('cube not visible');
+    pointer(element(s), 'pointermove', at.x, at.y, { buttons: 0 });
+    expect(modelPointer(s.app)?.assetMeshAt?.(PANE, 'hover')).toBe(false);
+    over.mockReturnValue(false);
+    pointer(element(s), 'pointermove', 15, 15, { buttons: 0 });
+    expect(modelPointer(s.app)?.assetMeshAt?.(PANE, 'hover')).toBe(false);
+  });
+});

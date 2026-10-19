@@ -23,7 +23,7 @@ import {
   vertexLoop,
 } from './helpers/m6a-model-select-ui';
 import { seedSample } from './helpers/seed';
-import { call, expectKernelStarted, openEditor } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-MOD-26 "Selection undo and the loop table" (M6A-SPEC §10.1, §5.6; owner B10). Gates (§3 rule 4): b2 (the
 // kernel's loop walkers) and b7 (`mesh.create.torus`, mesh runtimes). Real clicks at the test API's screen points;
@@ -72,6 +72,8 @@ function faceStrip(topo: Topology, from: number, across: number): number[] {
 interface Plan {
   readonly loop: number[];
   readonly ring: number[];
+  /** v0, v1, v2 along the loop's first two edges (v1 shared): the vertex mode's partial arc from v0 to v2. */
+  readonly arc: readonly [number, number, number];
   readonly points: Map<string, ScreenPoint>;
 }
 
@@ -83,7 +85,10 @@ async function plan(page: Page, torus: string, topo: Topology): Promise<Plan> {
     const ring = edgeRing(topo, loop[2] as number);
     const [a, b] = topo.edges[e0] as readonly [number, number];
     const third = topo.edges[loop[1] as number] as readonly [number, number];
-    const v2 = third[0] === b ? third[1] : third[0];
+    // v1 is the vertex the loop's first two edges share; v0 and v2 their other ends.
+    const v1 = third[0] === a || third[0] === b ? third[0] : third[1];
+    const v0 = v1 === a ? b : a;
+    const v2 = third[0] === v1 ? third[1] : third[0];
     const faces = topo.facesOf(e0);
     const strip = faces.length === 2 ? faceStrip(topo, faces[0] as number, e0) : [];
     const wanted: [string, Kind, number][] = [
@@ -91,8 +96,8 @@ async function plan(page: Page, torus: string, topo: Topology): Promise<Plan> {
       ['e1', 'edge', loop[1] as number],
       ['e2', 'edge', loop[2] as number],
       ['p', 'edge', ring[1] as number],
-      ['v0', 'vertex', a],
-      ['v1', 'vertex', b],
+      ['v0', 'vertex', v0],
+      ['v1', 'vertex', v1],
       ['v2', 'vertex', v2],
       ['f0', 'face', strip[0] ?? -1],
       ['f1', 'face', strip[1] ?? -1],
@@ -105,7 +110,7 @@ async function plan(page: Page, torus: string, topo: Topology): Promise<Plan> {
       if (point === null) break;
       points.set(name, point);
     }
-    if (points.size === wanted.length) return { loop, ring, points };
+    if (points.size === wanted.length) return { loop, ring, arc: [v0, v1, v2], points };
   }
   throw new Error('no edge of the torus with every needed neighbour visible');
 }
@@ -127,7 +132,7 @@ test.fixme('b2, b7: E2E-MOD-26 — selection undo steps and the loop table (edge
   const topo = await topology(page, torus);
   // Visible from the frame: wait until the pane has drawn the hilited torus.
   await screenOf(page, torus, 'edge', 0).catch(() => null);
-  const { loop, ring, points } = await plan(page, torus, topo);
+  const { loop, ring, arc: vertexArc, points } = await plan(page, torus, topo);
   const at = (name: string): ScreenPoint => points.get(name) as ScreenPoint;
   const edges = (): Promise<number[]> => selectedComponents(page, torus, 'edge');
 
@@ -175,7 +180,8 @@ test.fixme('b2, b7: E2E-MOD-26 — selection undo steps and the loop table (edge
   await expect.poll(verts).toEqual(sorted(vertexLoop(topo, loop[0] as number)));
   await clickOn(page, at('v0'));
   await clickOn(page, at('v2'), 'Shift', true);
-  await expect.poll(async () => (await verts()).length).toBe(3);
+  // The shorter arc from v0 to v2: v0, v1, v2 (2 of the loop's edges).
+  await expect.poll(verts).toEqual(sorted(vertexArc));
 
   // Face mode: adjacent across the shared edge → full face loop, non-adjacent → partial.
   await digit(page, 3, 'face');
@@ -213,7 +219,10 @@ test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Sel
   await openEditor(page, '&ws=animate');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');
+  // A document step to undo: without one the undo below would pass whatever the selection recorded.
+  await runOk(page, 'clip.new', { name: 'b10' });
   const before = await undoLabels(page);
+  expect(before.length).toBeGreaterThan(0);
   const panes = await call(page, 'panes');
   const pane = panes[0]?.id ?? 'pane-right';
   for (const control of ['fk.upperArm.L', 'fk.upperArm.R']) {
@@ -227,5 +236,7 @@ test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Sel
   // No "Select" step: the undo that follows undoes the document's last step, never a control selection.
   expect(await undoLabels(page)).toEqual(before);
   await undoOver(page, pane);
+  // The undo took the document's last step (the new clip), not a control selection.
+  await expect.poll(async () => (await call(page, 'history')).redo[0]).toBe(before.at(-1));
   expect((await call(page, 'history')).redo[0]).not.toBe('Select');
 });

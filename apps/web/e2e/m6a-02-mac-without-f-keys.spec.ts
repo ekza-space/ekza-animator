@@ -77,6 +77,8 @@ test.fixme('b3, b7, b11: E2E-MOD-02 — modes by RMB and digits, Extrude through
   await expect.poll(async () => (await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 12, e: 20, f: 10 });
   const card = await call(page, 'lastOpCard');
   expect(card?.title).toBe('Extrude');
+  // The card names its shortcut in the platform's labels (§10.1: "the card and help line show ⌘E").
+  await expect(page.getByTestId(`lastop-card-${MODEL_PANE}`)).toContainText('⌘E');
   expect(card?.fields.find((field) => field.name === 'localTranslateZ')?.text).toBe('0.500 m');
   const steps = (await undoLabels(page)).length;
   await page.getByTestId('lastop-field-divisions').fill('2');

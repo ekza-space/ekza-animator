@@ -128,6 +128,14 @@ test.fixme('b3, b11, b13: E2E-MOD-25 — hidden faces stay out of marquees and o
   await expect.poll(() => mode(page)).toBe('object');
   await runOk(page, 'view.layout', { layout: 'quad' });
   const cube = await createPrimitive(page, 'cube');
+  // Beside the body (its arms reach about 0.8 m from its axis): the cube's vertices move 1.6 m along +X.
+  await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });
+  await runOk(page, 'select.mode', { mode: 'vertex' });
+  await runOk(page, 'select.mesh.all');
+  await runOk(page, 'mesh.transformComponents', { meshes: [cube], translateX: 1.6 });
+  await runOk(page, 'select.mode', { mode: 'object' });
+  const moved = await call(page, 'meshPositions', cube);
+  expect(moved.every((p) => (p[0] ?? 0) > 1)).toBe(true);
   await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });
   await pressOver(page, 'Shift+KeyL', 'pane-persp');
   await expect.poll(() => call(page, 'paneObjects', 'pane-persp')).toEqual([cube]);
