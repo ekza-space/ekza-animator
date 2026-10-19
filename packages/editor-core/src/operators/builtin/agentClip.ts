@@ -31,12 +31,21 @@ export const DEFAULT_BLEND_FRAMES = 6;
 /** Rows of `SeamMetrics.worst`. */
 const WORST_ROWS = 5;
 
-/** The control whose X/Z translation is the clip's root travel (the in-place node's driver), or null. */
-function travelControl(app: EditorApp, clip: ClipRecord): ControlId | null {
+/**
+ * The controls whose X/Z translation is the clip's root travel: the in-place node's driver (hips on humanoids,
+ * §4.11.10) and the space controls above it (`cog`, `root`), which move it too.
+ */
+function travelControls(app: EditorApp, clip: ClipRecord): ReadonlySet<ControlId> {
+  const out = new Set<ControlId>();
   const runtime = app.characters.get(clip.character);
-  if (runtime === undefined) return null;
+  if (runtime === undefined) return out;
   const node = inPlaceNode(app.store, runtime.program, clip);
-  return node === null ? null : drivingControl(runtime.program, node);
+  let control = node === null ? null : drivingControl(runtime.program, node);
+  while (control !== null && !out.has(control)) {
+    out.add(control);
+    control = app.store.get('controls', control)?.parent ?? null;
+  }
+  return out;
 }
 
 function metricsOf(values: readonly SeamValue[]): SeamMetrics {
@@ -64,7 +73,7 @@ interface LoopArgs {
 function planClip(app: EditorApp, view: Tx | EditorApp['store'], clip: ClipRecord, args: LoopArgs): LoopCurvePlan[] {
   const layer = view.query.baseLayer(clip.id);
   if (layer === undefined) return [];
-  const travel = travelControl(app, clip);
+  const travel = travelControls(app, clip);
   const blendFrames = args.blendFrames ?? DEFAULT_BLEND_FRAMES;
   return view.query
     .curvesOfClip(clip.id)
@@ -73,7 +82,7 @@ function planClip(app: EditorApp, view: Tx | EditorApp['store'], clip: ClipRecor
       planLoopCurve(app, view, clip, curve, {
         method: args.method,
         rootTravel: args.rootTravel,
-        travel: travel !== null && curve.control === travel && (curve.channel === 'tx' || curve.channel === 'tz'),
+        travel: travel.has(curve.control) && (curve.channel === 'tx' || curve.channel === 'tz'),
         blendFrames,
       }),
     );

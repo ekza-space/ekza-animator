@@ -612,7 +612,13 @@ const keyRetime = defineOperator({
     let merged = 0;
     let clamped = 0;
     let snapped = 0;
-    const keys = curves.flatMap((curve) => tx.query.keysOfCurve(curve.id).map((key) => key.id));
+    // Breakdowns are not edited: they follow their anchors proportionally (M2A-SPEC §5.12) unless
+    // `retimeBreakdowns: false`, which leaves them where they are.
+    const keys = curves.flatMap((curve) => {
+      const all = tx.query.keysOfCurve(curve.id);
+      const anchors = all.filter((key) => key.breakdown !== true);
+      return (anchors.length > 0 ? anchors : all).map((key) => key.id);
+    });
     const opts: KeyEditOptions = {
       snap: false,
       resolveCollisions: true,
