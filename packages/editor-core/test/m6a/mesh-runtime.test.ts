@@ -3,12 +3,13 @@
 // the meshOperator/meshSetOperator wrappers built from descriptors.
 import type { MeshId, MeshRef } from '@ekza-animator/doc';
 import { makeTestMesh } from '@ekza-animator/doc/testing';
-import { type MeshData, primitive, triangulate, writeRevision } from '@ekza-animator/mesh-core';
+import { type MeshData, primitive, selectionOf, triangulate, writeRevision } from '@ekza-animator/mesh-core';
 import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryBlobStore,
   type EditorApp,
+  type KernelMeshRuntimes,
   loadMeshKernel,
   MESH_EXTRA_ARGS,
   meshKernel,
@@ -104,6 +105,8 @@ describe('mesh runtimes over the reference kernel', () => {
     const ref: MeshRef = { manifest: 'a'.repeat(64), rev: 1, base: null, joints: [] };
     app.store.transact({ label: 'Create' }, (tx) => tx.put('meshes', makeTestMesh('msh_Lost', { data: ref })));
     const runtime = app.meshes.get('msh_Lost' as MeshId);
+    // B7 (§5.5 rule 4): blobs that are not resident are read through BlobStore.get ('loading'), then 'error'.
+    await (app.meshes as unknown as { settled(): Promise<void> }).settled();
     expect(runtime?.state).toBe('error');
     expect(runtime?.error).toMatch(/Mesh data is missing/);
     expect(() => runtime?.triangulation()).toThrow(/is error/);
@@ -131,20 +134,22 @@ describe('mesh runtimes over the reference kernel', () => {
     app.dispose();
   });
 
-  it("leaves sessions and commits to B7: beginOp, commitOp and commitSetOp throw 'not-implemented'", async () => {
+  it('B7 landed sessions and commits: a stub op previews as its refusal and commits refuse with op-refused', async () => {
     const kernel = await loadMeshKernel();
     const app = appWithBlobs();
     const id = createMesh(app, 'msh_Cube', primitive('cube', {}));
     const op = kernel.MESH_OPS['mesh.extrude'];
     const setOp = kernel.MESH_SET_OPS['mesh.combine'];
     if (op === undefined || setOp === undefined) throw new Error('missing kernel op');
-    expect(() => app.meshes.beginOp(op, [id], {})).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    const session = app.meshes.beginOp(op, [id], {});
+    expect(session.results.get(id)).toMatchObject({ refused: true, code: 'not-implemented' });
+    session.cancel();
     app.store.transact({ label: 'x' }, (tx) => {
       expect(() => app.meshes.commitOp(tx, op, [id], {}, { seed: 's' })).toThrow(
-        expect.objectContaining({ code: 'not-implemented' }),
+        expect.objectContaining({ code: 'op-refused' }),
       );
       expect(() => app.meshes.commitSetOp(tx, setOp, [id], {}, { seed: 's' })).toThrow(
-        expect.objectContaining({ code: 'not-implemented' }),
+        expect.objectContaining({ code: 'op-refused' }),
       );
     });
     expect(app.meshes.session).toBeNull();
@@ -198,9 +203,14 @@ describe('meshOperator / meshSetOperator (descriptor wrappers)', () => {
     // The hilite is the default target of component ops in a component mode.
     const model = app.session.getState().model;
     app.session.setState({ model: { ...model, componentMode: 'face', hilite: [id] } });
+    // B7 (§4.6 MeshOpArgs): the default targets are the hilited meshes with a selection of the kind.
+    expect(poll('mesh.inset', {})).toEqual({ ok: false, reason: 'Select components first' });
+    const meshes = app.meshes as KernelMeshRuntimes;
+    meshes.select(id, selectionOf('face', [0], primitive('cube', {}).counts));
     expect(poll('mesh.inset', {})).toBe(true);
     const result = await app.runUntyped('mesh.inset', {});
-    expect(result).toMatchObject({ status: 'failed', error: { code: 'not-implemented' } });
+    // B7: a refusal of the kernel op fails the run with 'op-refused' (§4.6 commitOp), no step.
+    expect(result).toMatchObject({ status: 'failed', error: { code: 'op-refused' } });
     expect(app.history.canUndo()).toBe(true); // only the Create transaction
     expect(app.history.peekUndo()?.label).toBe('Create');
     app.dispose();
