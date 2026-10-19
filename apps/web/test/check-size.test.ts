@@ -158,6 +158,26 @@ describe('check:size', () => {
     );
   });
 
+  it('M6a: labels the lazy mesh kernel and mesh view chunks, and fails when either is imported eagerly', () => {
+    const lazy = checkSize(
+      fixtureBuild({
+        ...CHUNKS,
+        'editor-a.js': `${loader(6, ['static/chunks/kernel.js'], 60)}${loader(8, ['static/chunks/view.js'], 80)}${CHUNKS['editor-a.js']}`,
+        'kernel.js': push(60, 'e=>{const KERNEL_MARKER="ekza-mesh-kernel"}'),
+        'view.js': push(80, 'e=>{const VIEW_MARKER="ekza-mesh-view"}'),
+      }),
+    );
+    expect(lazy.violations).toEqual([]);
+    expect(lazy.present).toEqual(expect.arrayContaining(['mesh-kernel', 'mesh-view']));
+    expect(lazy.ok).toBe(true);
+    const eager = checkSize(
+      fixtureBuild({ ...CHUNKS, 'editor-b.js': `${CHUNKS['editor-b.js']}"ekza-mesh-kernel";"ekza-mesh-view"` }),
+    );
+    expect(eager.violations).toEqual(['mesh-kernel', 'mesh-view']);
+    expect(eager.ok).toBe(false);
+    expect(eager.problems).toContain('lazy boundary broken: mesh kernel (mesh-core) is in the initial route');
+  });
+
   it('fails when an initial script is missing from the build; reports an e2e build', () => {
     const { 'editor-b.js': _gone, ...rest } = CHUNKS;
     const report = checkSize(fixtureBuild(rest, { e2e: true }));

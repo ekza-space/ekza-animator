@@ -29,6 +29,7 @@ function menuContext(shell: Shell): RunContext {
   return {
     ...(last === null ? {} : { panel: last.kind }),
     ...(last === null || last.paneId === null ? {} : { paneId: last.paneId }),
+    source: 'menu',
   };
 }
 

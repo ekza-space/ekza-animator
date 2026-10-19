@@ -171,7 +171,7 @@ export function beginChannelEditGesture(
   const preview = app.store.beginPreview(label);
   const start = app.session.getState();
   const startOverrides = start.overrides;
-  const selectionBefore = selectionSnapshot(start.selection);
+  const selectionBefore = selectionSnapshot(start.selection, start.model);
   const where = activeLocation(app);
   const skipped = new Set<string>();
   const gestures = internalsOf(app).gestures;
@@ -220,7 +220,7 @@ export function beginChannelEditGesture(
         const batch = preview.commit({
           label,
           selectionBefore,
-          selectionAfter: selectionSnapshot(app.session.getState().selection),
+          selectionAfter: selectionSnapshot(app.session.getState().selection, app.session.getState().model),
         });
         if (scope === null) {
           const top = app.store.undo.peekUndo();

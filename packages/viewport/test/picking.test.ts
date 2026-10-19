@@ -20,7 +20,7 @@ function control(r: Rig, key: string): ControlRecord {
 }
 
 function select(r: Rig, ids: readonly ControlId[]): void {
-  r.app.session.setState({ selection: { controls: [...ids], keys: new Map(), channels: [] } });
+  r.app.session.setState({ selection: { controls: [...ids], keys: new Map(), channels: [], objects: [] } });
 }
 
 function setTool(r: Rig, tool: string): void {
@@ -171,7 +171,10 @@ describe('control picking', () => {
     expect(p).not.toBeNull();
     expect(rig.vm.pickCandidates(PANE, p?.x ?? 0, p?.y ?? 0)).toEqual([]);
     rig.app.session.setState({
-      tools: { ...rig.app.session.getState().tools, selectionMask: { controls: true, joints: true, meshes: false } },
+      tools: {
+        ...rig.app.session.getState().tools,
+        selectionMask: { controls: true, joints: true, meshes: false, groups: false },
+      },
     });
     const hits = rig.vm.pickCandidates(PANE, p?.x ?? 0, p?.y ?? 0);
     expect(hits.some((h) => h.kind === 'joint' && h.node === node)).toBe(true);
