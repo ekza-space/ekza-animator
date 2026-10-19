@@ -496,7 +496,7 @@ describe('MeshSetOps property (random inputs)', () => {
         fc.record({
           data: arbClosed,
           kind: fc.constant('none' as const),
-          picks: fc.constant([]),
+          picks: fc.constant<number[]>([]),
           placement: arbPlacement,
         }),
         { minLength: 2, maxLength: 3 },
@@ -508,7 +508,7 @@ describe('MeshSetOps property (random inputs)', () => {
     let volumes = 0;
     fc.assert(
       fc.property(arbCombine, (c) => {
-        if (checkCase(c as Case) === 'volume') volumes++;
+        if (checkCase(c) === 'volume') volumes++;
       }),
       { numRuns: 150, seed: 42 },
     );
