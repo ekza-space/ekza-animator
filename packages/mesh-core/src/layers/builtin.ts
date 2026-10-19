@@ -61,6 +61,8 @@ export const BUILTIN_LAYERS: {
     mirror: 'swap-side',
     default: [0, 0, 0, 0],
   }),
+  // Default: fully bound to joint 0, so a vertex no op gave weights (and an implicit default tail) still sums to 1
+  // (invariant 7).
   skinWeights: def({
     name: 'skin.weights',
     domain: 'point',
@@ -68,7 +70,7 @@ export const BUILTIN_LAYERS: {
     comps: 4,
     interp: 'skin',
     mirror: 'swap-side',
-    default: [0, 0, 0, 0],
+    default: [1, 0, 0, 0],
   }),
   paint: def({ name: 'paint', domain: 'face', type: 'u16', comps: 1, interp: 'copy', mirror: 'none', default: [0] }),
   crease: def({ name: 'crease', domain: 'edge', type: 'f32', comps: 1, interp: 'copy', mirror: 'none', default: [0] }),

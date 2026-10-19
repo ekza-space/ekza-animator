@@ -274,10 +274,13 @@ export function joinEdgeKillVert(m: KernelMesh, v: number): number {
   if (m.findEdge(a, b) !== -1) refuse(`joinEdgeKillVert: vertices ${a} and ${b} are already joined by an edge`);
   const corners: number[] = [];
   for (const e of [keep, drop]) for (const c of radialCorners(m, e)) if ((m.cv[c] as number) === v) corners.push(c);
+  // A face may pass through v more than once: it loses every corner it has there.
+  const losing = new Map<number, number>();
+  for (const c of corners) losing.set(m.cf[c] as number, (losing.get(m.cf[c] as number) ?? 0) + 1);
+  for (const [f, lost] of losing) {
+    if (m.faceLen(f) - lost < 3) refuse(`joinEdgeKillVert: face ${f} would keep fewer than three corners`);
+  }
   for (const c of corners) {
-    if (m.faceLen(m.cf[c] as number) < 4) {
-      refuse(`joinEdgeKillVert: face ${m.cf[c]} would keep fewer than three corners`);
-    }
     if ((m.ce[m.cp[c] as number] as number) === (m.ce[c] as number)) {
       refuse(`joinEdgeKillVert: face ${m.cf[c]} turns back at vertex ${v}`);
     }

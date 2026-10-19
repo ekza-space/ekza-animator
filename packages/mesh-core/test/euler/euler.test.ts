@@ -383,6 +383,11 @@ describe('joinEdgeKillVert (H3)', () => {
     spike.begin('refuse');
     expect(code(() => spike.joinEdgeKillVert(2))).toBe('mesh-euler');
     spike.abort();
+    // A face through v twice ([a, v, b, v]) would keep only a and b: refused (found by the soup property).
+    const twice = editMeshFrom(buildMeshData({ positions: [0, 0, 0, 1, 0, 0, 0, 1, 0], faces: [[0, 1, 2, 1]] }));
+    twice.begin('refuse');
+    expect(code(() => twice.joinEdgeKillVert(1))).toBe('mesh-euler');
+    twice.abort();
   });
 });
 

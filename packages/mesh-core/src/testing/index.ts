@@ -63,6 +63,17 @@ export function brokenMeshes(): Readonly<Record<string, MeshData>> {
   };
 }
 
+/** `data` with one more edge a–b and no face using it (a wire edge). */
+function withWireEdge(data: MeshData, a: number, b: number): MeshData {
+  const edgeVerts = new Uint32Array(data.edgeVerts.length + 2);
+  edgeVerts.set(data.edgeVerts);
+  edgeVerts[data.edgeVerts.length] = a;
+  edgeVerts[data.edgeVerts.length + 1] = b;
+  const edgeFlags = new Uint8Array(data.edgeFlags.length + 1);
+  edgeFlags.set(data.edgeFlags);
+  return { ...data, counts: { ...data.counts, edges: data.counts.edges + 1 }, edgeVerts, edgeFlags };
+}
+
 /**
  * The synthetic non-manifold corpus (research 13 §12 "synthetic nasties"): meshes the kernel must represent and
  * validate without complaint, while Mesh Check reports them.
@@ -110,10 +121,14 @@ export function nonManifoldCorpus(): Readonly<Record<string, MeshData>> {
       ],
     }),
     // A loose vertex and a wire edge beside a triangle.
-    loose: buildMeshData({
-      positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 5, 5],
-      faces: [[0, 1, 2]],
-    }),
+    loose: withWireEdge(
+      buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 5, 5, 6, 6, 6],
+        faces: [[0, 1, 2]],
+      }),
+      2,
+      3,
+    ),
     // A non-planar, self-overlapping hexagon (earcut falls back to a fan).
     'bad-ngon': buildMeshData({
       positions: [0, 0, 0, 2, 0, 0, 0, 1, 0, 2, 1, 0, 0, 2, 0, 1, 0.5, 0.3],

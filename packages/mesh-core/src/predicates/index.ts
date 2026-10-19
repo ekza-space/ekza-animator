@@ -7,7 +7,7 @@ import { KERNEL_MARKER } from '../kernel';
 
 /** > 0 when a, b, c turn counterclockwise (c left of a → b), < 0 clockwise, exactly 0 when collinear. */
 export function orient2d(ax: number, ay: number, bx: number, by: number, cx: number, cy: number): number {
-  return -libOrient2d(ax, ay, bx, by, cx, cy);
+  return 0 - libOrient2d(ax, ay, bx, by, cx, cy); // 0 − x: a collinear result is +0, not −0
 }
 
 /**
@@ -28,7 +28,7 @@ export function orient3d(
   dy: number,
   dz: number,
 ): number {
-  return -libOrient3d(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
+  return 0 - libOrient3d(ax, ay, az, bx, by, bz, cx, cy, cz, dx, dy, dz);
 }
 
 /** For counterclockwise a, b, c: > 0 when d lies inside their circumcircle, < 0 outside, 0 on it. */
