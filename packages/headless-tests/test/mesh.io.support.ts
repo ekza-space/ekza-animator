@@ -59,6 +59,101 @@ export async function keyedClip(app: EditorApp, character: CharacterId, name = '
   return clip;
 }
 
+/** Deletes every face `drop` accepts (Delete Faces stand-in until READY.b3) and commits the mesh's next revision. */
+export function deleteFacesAndCommit(
+  app: EditorApp,
+  mesh: MeshId,
+  drop: (data: MeshData, face: number) => boolean,
+): MeshData {
+  const data = meshData(app, mesh);
+  const edited = keepFaces(data, (f) => !drop(data, f));
+  app.store.transact({ label: 'Delete' }, (tx) => app.meshes.writeData(tx, mesh, edited));
+  return edited;
+}
+
+/** The faces `keep` accepts with only the points, corners and edges they use (layers follow their elements). */
+export function keepFaces(data: MeshData, keep: (face: number) => boolean): MeshData {
+  const faces: number[] = [];
+  const corners: number[] = [];
+  const firsts: number[] = [];
+  for (let f = 0; f < data.counts.faces; f++) {
+    if (!keep(f)) continue;
+    faces.push(f);
+    firsts.push(corners.length);
+    let c = data.faceCorner[f] as number;
+    do {
+      corners.push(c);
+      c = data.cornerNext[c] as number;
+    } while (c !== data.faceCorner[f]);
+  }
+  const pointMap = new Int32Array(data.counts.points).fill(-1);
+  for (const c of corners) pointMap[data.cornerVert[c] as number] = 0;
+  const points: number[] = [];
+  pointMap.forEach((used, p) => {
+    if (used === 0) {
+      pointMap[p] = points.length;
+      points.push(p);
+    }
+  });
+  const cornerVert = Uint32Array.from(corners, (c) => pointMap[data.cornerVert[c] as number] as number);
+  const cornerNext = new Uint32Array(corners.length);
+  firsts.forEach((first, i) => {
+    const end = firsts[i + 1] ?? corners.length;
+    for (let c = first; c < end; c++) cornerNext[c] = c + 1 < end ? c + 1 : first;
+  });
+  const flagsOf = new Map<string, number>();
+  for (let e = 0; e < data.counts.edges; e++) {
+    const a = pointMap[data.edgeVerts[2 * e] as number] as number;
+    const b = pointMap[data.edgeVerts[2 * e + 1] as number] as number;
+    if (a >= 0 && b >= 0) flagsOf.set(a < b ? `${a},${b}` : `${b},${a}`, data.edgeFlags[e] as number);
+  }
+  const edgeIndex = new Set<string>();
+  const edgeVerts: number[] = [];
+  const edgeFlags: number[] = [];
+  for (let c = 0; c < corners.length; c++) {
+    const a = cornerVert[c] as number;
+    const b = cornerVert[cornerNext[c] as number] as number;
+    const key = a < b ? `${a},${b}` : `${b},${a}`;
+    if (edgeIndex.has(key)) continue;
+    edgeIndex.add(key);
+    edgeVerts.push(a, b);
+    edgeFlags.push(flagsOf.get(key) ?? 0);
+  }
+  type Arr = Float32Array | Uint8Array | Uint16Array | Uint32Array;
+  const layers = new Map<string, { readonly def: LayerDef; readonly data: Arr }>();
+  for (const [name, layer] of data.layers) {
+    const sources =
+      layer.def.domain === 'point'
+        ? points
+        : layer.def.domain === 'corner'
+          ? corners
+          : layer.def.domain === 'face'
+            ? faces
+            : null;
+    if (sources === null) continue;
+    const comps = layer.def.comps;
+    const out = new (layer.data.constructor as new (n: number) => Arr)(sources.length * comps);
+    sources.forEach((source, i) => {
+      for (let k = 0; k < comps; k++) out[i * comps + k] = layer.data[source * comps + k] as number;
+    });
+    layers.set(name, { def: layer.def, data: out });
+  }
+  const position = new Float32Array(3 * points.length);
+  points.forEach((p, i) => position.set(data.position.subarray(3 * p, 3 * p + 3), 3 * i));
+  return {
+    counts: { points: points.length, edges: edgeVerts.length / 2, faces: faces.length, corners: corners.length },
+    position,
+    edgeVerts: Uint32Array.from(edgeVerts),
+    edgeFlags: Uint8Array.from(edgeFlags),
+    cornerVert,
+    cornerNext,
+    faceCorner: Uint32Array.from(firsts),
+    faceMaterial: Uint16Array.from(faces, (f) => data.faceMaterial[f] as number),
+    faceFlags: Uint8Array.from(faces, (f) => data.faceFlags[f] as number),
+    layers,
+  };
+}
+
 /** Every face split into a fan around its centroid (point layers averaged, skin copied, corner layers averaged). */
 export function splitFaces(data: MeshData, split: readonly number[]): MeshData {
   const { faces: F, points: P } = data.counts;

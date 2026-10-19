@@ -2,7 +2,7 @@
 // kernel — the surgeon keeps every untouched JSON value and the BIN prefix of Polybot, Seed-san and the UAL mannequin,
 // the validator finds no new errors, new vertices are normalized and morph targets keep NORMAL; a Make editable
 // without edits bakes exactly as M2a did (v1); export → re-import → re-bake keeps the geometry with the original
-// baseline (the headless twin of E2E-MOD-31).
+// baseline (the headless twin of E2E-MOD-31), also after an earlier bake emptied a material slot.
 import type { CharacterId, ClipId } from '@ekza-animator/doc';
 import { readFixture } from '@ekza-animator/doc/testing';
 import type { EditorApp } from '@ekza-animator/editor-core';
@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import {
   AccessorReader,
   binPrefixKept,
+  deleteFacesAndCommit,
   keyedClip,
   makeEditable,
   meshData,
@@ -168,6 +169,50 @@ describe('mesh.io: bake into model with edited meshes', () => {
       return out.sort();
     };
     expect(positions(meshData(second.app, mesh))).toEqual(positions(edited));
+    second.app.dispose();
+  });
+
+  it('a re-bake of a re-imported file whose bake emptied a material slot keeps every face on its material', async () => {
+    // Seed-san's head (mesh 2) has materials [2, 3, 4]; A deletes the faces of slot 1, so A's head has [2, 4] and a
+    // Make editable on A numbers its slots 0 → 2, 1 → 4. The re-bake rolls A back to the original primitives first.
+    const head = 2;
+    const materialsOf = (c: GlbContainer): unknown[] =>
+      (((c.json['meshes'] as Json[])[head] as Json)['primitives'] as Json[]).map((p) => p['material']);
+    const { app } = realApp({ validator: false });
+    const { character } = await importFixture(app, 'seed-san.vrm');
+    const clip = await keyedClip(app, character);
+    const id = await makeEditable(app, character, head);
+    deleteFacesAndCommit(app, id, (data, f) => data.faceMaterial[f] === 1);
+    const a = await bake(app, character, clip);
+    app.dispose();
+    const fileA = await parseGlb(a.bytes);
+    expect(materialsOf(fileA)).toEqual([2, 4]);
+
+    const second = realApp();
+    const imported = (await runOk(second.app, 'file.importModel', { name: 'a.vrm', bytes: a.bytes })) as {
+      character: CharacterId;
+    };
+    await runtimeOf(second.app, imported.character);
+    const clip2 = await keyedClip(second.app, imported.character, 'idle');
+    const mesh = await makeEditable(second.app, imported.character, head);
+    const edited = splitAndCommit(second.app, mesh, 8);
+    const b = await bake(second.app, imported.character, clip2);
+    expect(b.lints.filter((lint) => lint.severity === 'error')).toEqual([]);
+    expect(b.validation?.errors).toBe(0);
+    const fileB = await parseGlb(b.bytes);
+    expect(materialsOf(fileB)).toEqual([2, 4]);
+    const triangles = (c: GlbContainer): number[] =>
+      (((c.json['meshes'] as Json[])[head] as Json)['primitives'] as Json[]).map(
+        (p) => ((c.json['accessors'] as Json[])[p['indices'] as number]?.['count'] as number) / 3,
+      );
+    const perSlot = [0, 1].map((slot) => {
+      let n = 0;
+      for (let f = 0; f < edited.counts.faces; f++) if (edited.faceMaterial[f] === slot) n++;
+      return n;
+    });
+    expect(triangles(fileB)).toEqual(perSlot);
+    const source = await parseGlb(readFixture('seed-san.vrm'));
+    expect(compareValidation(await validate(source.bytes), await validate(b.bytes))).toEqual([]);
     second.app.dispose();
   });
 });

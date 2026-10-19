@@ -159,12 +159,18 @@ export interface CarriedMesh {
  * Applies the geometry step to `json`: writes the edited meshes' primitives and re-appends carried ones, then drops
  * Draco and mesh quantization from the extension lists when nothing uses them any more. Returns the `primitives`
  * JSON each replaced mesh had before the step.
+ *
+ * A new primitive copies `material`, `mode`, `extras` and extensions from the template of its material slot: the
+ * mesh's primitive at that index. Slots number the primitives of the file the mesh was made editable from, so a
+ * re-bake that rolled the file back first passes that file's primitives as `templates` (by mesh index); without an
+ * entry the mesh's current primitives serve.
  */
 export function applyGeometry(
   json: MutableJson,
   writer: GeometryWriter,
   edits: readonly MeshPrimitivesOut[],
   carried: readonly CarriedMesh[] = [],
+  templates: ReadonlyMap<number, readonly unknown[]> = new Map(),
 ): ReadonlyMap<number, unknown> {
   const meshes = arrayOf(json, 'meshes');
   const before = new Map<number, unknown>();
@@ -181,7 +187,8 @@ export function applyGeometry(
   }
   for (const edit of edits) {
     const mesh = meshes[edit.meshIndex] as JsonRecord;
-    const originals = (mesh['primitives'] as readonly unknown[]).map((p) => (isRecord(p) ? p : {}));
+    const slots = templates.get(edit.meshIndex) ?? (mesh['primitives'] as readonly unknown[]);
+    const originals = slots.map((p) => (isRecord(p) ? p : {}));
     if (edit.primitives.length === 0) {
       throw new EkzaError('unsupported', `Mesh ${edit.meshIndex} has no faces left; a glTF mesh needs a primitive`);
     }

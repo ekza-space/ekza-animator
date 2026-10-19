@@ -101,6 +101,8 @@ export async function bakeIntoModel(
   let marker: MutableMarker;
   let rolledBack = false;
   let carried: CarriedMesh[] = [];
+  // Material-slot templates of the meshes edited now: their primitives in the file as it is (before a rollback).
+  const templates = new Map<number, readonly unknown[]>();
   if (existing === null) {
     const baseBinLength = binLength(json);
     marker = {
@@ -136,6 +138,14 @@ export async function bakeIntoModel(
           const primitives = isRecord(current) && Array.isArray(current['primitives']) ? current['primitives'] : [];
           return { meshIndex: mesh, primitives, reader, json: original.json };
         });
+      // Make editable numbered the material slots by this file's primitives; the rollback below restores the
+      // original ones, whose order differs once a previous bake emptied a slot (§5.22 "re-applies both").
+      for (const mesh of editedNow) {
+        const current = meshes[mesh];
+        if (isRecord(current) && Array.isArray(current['primitives'])) {
+          templates.set(mesh, structuredClone(current['primitives']) as unknown[]);
+        }
+      }
       rollBack(json, existing);
       rolledBack = true;
     } else {
@@ -174,7 +184,7 @@ export async function bakeIntoModel(
   if (outputs.length > 0 || carried.length > 0) {
     const listsBefore = extensionLists(json);
     const writer = new GeometryWriter(json, appendOffset);
-    const before = applyGeometry(json, writer, outputs, carried);
+    const before = applyGeometry(json, writer, outputs, carried, templates);
     geometryBytes = writer.finish();
     setBinLength(json, appendOffset + geometryBytes.length);
     marker.version = 2;

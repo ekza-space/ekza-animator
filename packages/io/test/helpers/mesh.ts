@@ -300,3 +300,106 @@ export function splitFaces(data: MeshData, split: readonly number[]): MeshData {
     layers,
   };
 }
+
+/**
+ * A stand-in for Delete Faces until the kernel's ops land (READY.b3): keeps the faces `keep` accepts and only the
+ * points, edges and corners they use (points in their old order). Point, corner and face layers follow their
+ * elements; edge flags of kept edges survive.
+ */
+export function keepFaces(data: MeshData, keep: (face: number) => boolean): MeshData {
+  const { faces: F, points: P } = data.counts;
+  const kept: number[][] = [];
+  const keptFaces: number[] = [];
+  for (let f = 0; f < F; f++) {
+    if (!keep(f)) continue;
+    const corners: number[] = [];
+    let c = data.faceCorner[f] as number;
+    do {
+      corners.push(c);
+      c = data.cornerNext[c] as number;
+    } while (c !== data.faceCorner[f]);
+    kept.push(corners);
+    keptFaces.push(f);
+  }
+  const used = new Uint8Array(P);
+  for (const corners of kept) for (const c of corners) used[data.cornerVert[c] as number] = 1;
+  const pointMap = new Int32Array(P).fill(-1);
+  const points: number[] = [];
+  for (let p = 0; p < P; p++) {
+    if (used[p] === 0) continue;
+    pointMap[p] = points.length;
+    points.push(p);
+  }
+  const sourceCorner = kept.flat();
+  const C2 = sourceCorner.length;
+  const cornerVert = new Uint32Array(C2);
+  const cornerNext = new Uint32Array(C2);
+  const faceCorner = new Uint32Array(kept.length);
+  const faceMaterial = new Uint16Array(kept.length);
+  const faceFlags = new Uint8Array(kept.length);
+  let c2 = 0;
+  kept.forEach((corners, f) => {
+    faceCorner[f] = c2;
+    faceMaterial[f] = data.faceMaterial[keptFaces[f] as number] as number;
+    faceFlags[f] = data.faceFlags[keptFaces[f] as number] as number;
+    corners.forEach((c, i) => {
+      cornerVert[c2 + i] = pointMap[data.cornerVert[c] as number] as number;
+      cornerNext[c2 + i] = c2 + ((i + 1) % corners.length);
+    });
+    c2 += corners.length;
+  });
+  const oldEdges = new Map<string, number>();
+  for (let e = 0; e < data.counts.edges; e++) {
+    const a = pointMap[data.edgeVerts[2 * e] as number] as number;
+    const b = pointMap[data.edgeVerts[2 * e + 1] as number] as number;
+    if (a >= 0 && b >= 0) oldEdges.set(a < b ? `${a},${b}` : `${b},${a}`, data.edgeFlags[e] as number);
+  }
+  const edgeIndex = new Set<string>();
+  const edgeVerts: number[] = [];
+  const edgeFlags: number[] = [];
+  for (let c = 0; c < C2; c++) {
+    const a = cornerVert[c] as number;
+    const b = cornerVert[cornerNext[c] as number] as number;
+    const key = a < b ? `${a},${b}` : `${b},${a}`;
+    if (edgeIndex.has(key)) continue;
+    edgeIndex.add(key);
+    edgeVerts.push(a, b);
+    edgeFlags.push(oldEdges.get(key) ?? 0);
+  }
+  const layers = new Map<
+    string,
+    { readonly def: LayerDef; readonly data: Float32Array | Uint8Array | Uint16Array | Uint32Array }
+  >();
+  for (const [name, layer] of data.layers) {
+    const comps = layer.def.comps;
+    const Ctor = layer.data.constructor as new (n: number) => Float32Array | Uint8Array | Uint16Array | Uint32Array;
+    const sources =
+      layer.def.domain === 'point'
+        ? points
+        : layer.def.domain === 'corner'
+          ? sourceCorner
+          : layer.def.domain === 'face'
+            ? keptFaces
+            : null;
+    if (sources === null) continue;
+    const out = new Ctor(sources.length * comps);
+    sources.forEach((source, i) => {
+      for (let k = 0; k < comps; k++) out[i * comps + k] = layer.data[source * comps + k] as number;
+    });
+    layers.set(name, { def: layer.def, data: out });
+  }
+  const position = new Float32Array(3 * points.length);
+  points.forEach((p, i) => position.set(data.position.subarray(3 * p, 3 * p + 3), 3 * i));
+  return {
+    counts: { points: points.length, edges: edgeVerts.length / 2, faces: kept.length, corners: C2 },
+    position,
+    edgeVerts: Uint32Array.from(edgeVerts),
+    edgeFlags: Uint8Array.from(edgeFlags),
+    cornerVert,
+    cornerNext,
+    faceCorner,
+    faceMaterial,
+    faceFlags,
+    layers,
+  };
+}

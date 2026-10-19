@@ -18,7 +18,7 @@ import { rebuildContainer, replacePrimitives } from '../src/surgeon/replacePrimi
 import { loadGltfInNode } from '../src/testing';
 import type { BakedClip, EkzaBakeMarkerV2, GlbContainer, PrimitiveEdit } from '../src/types';
 import { compareValidation, validateGltf } from '../src/validate/validate';
-import { splitFaces, syntheticContainer } from './helpers/mesh';
+import { keepFaces, splitFaces, syntheticContainer } from './helpers/mesh';
 import { metaOf, rawClip } from './helpers/poses';
 
 beforeAll(() => setKernelDebug(true));
@@ -442,6 +442,62 @@ describe('bake marker v2: geometry and clips together', () => {
     expect(markerV2(fileC)?.replacedPrimitives['0']).toEqual((source.json['meshes'] as Json[])[0]?.['primitives']);
     expect(markerV2(fileC)?.baseAccessors).toBe((source.json['accessors'] as unknown[]).length);
     expect(await newErrors(source, fileC)).toEqual([]);
+  });
+
+  it('a re-bake after an emptied material slot keeps each face on its material (slots of the re-imported file)', async () => {
+    // Seed-san's head has materials [2, 3, 4]. Bake A deletes every face of slot 1 (material 3): A's head has two
+    // primitives, materials [2, 4]. Make editable on A numbers the slots by A's primitives (0 → 2, 1 → 4); the
+    // re-bake rolls A back to the original primitives, but the edited faces must keep materials 2 and 4.
+    const source = await load('seed-san.vrm');
+    const skeleton = skeletonFromGltf(source);
+    const head = 2;
+    const materialsOf = (c: GlbContainer): unknown[] =>
+      (((c.json['meshes'] as Json[])[head] as Json)['primitives'] as Json[]).map((p) => p['material']);
+    expect(materialsOf(source)).toEqual([2, 3, 4]);
+    const made = await meshFromGltf(source, head);
+    if ('refused' in made) throw new Error(made.reason);
+    const emptied = keepFaces(made.data, (f) => made.data.faceMaterial[f] !== 1);
+    const editA: PrimitiveEdit = {
+      meshIndex: head,
+      data: emptied,
+      morphNormals: new Set(made.report.morphNormals),
+      hadTangents: made.report.hadTangents,
+      dropTangents: false,
+    };
+    const fileA = await glb((await bake(source, skeleton, [rawClip(skeleton, 'wave')], [editA])).bytes);
+    expect(materialsOf(fileA)).toEqual([2, 4]);
+
+    const second = await editOf(fileA, head, 6);
+    const fileB = await glb(
+      (await bake(fileA, skeletonFromGltf(fileA), [rawClip(skeleton, 'wave')], [second.edit])).bytes,
+    );
+    expect(materialsOf(fileB)).toEqual([2, 4]);
+    // Every face keeps its material: the faces per material of B are A's with the split faces fanned out.
+    const facesPerMaterial = async (c: GlbContainer): Promise<Map<unknown, number>> => {
+      const mesh = await meshFromGltf(c, head);
+      if ('refused' in mesh) throw new Error(mesh.reason);
+      const materials = materialsOf(c);
+      const out = new Map<unknown, number>();
+      for (let f = 0; f < mesh.data.counts.faces; f++) {
+        const material = materials[mesh.data.faceMaterial[f] as number];
+        out.set(material, (out.get(material) ?? 0) + 1);
+      }
+      return out;
+    };
+    const madeA = await meshFromGltf(fileA, head);
+    if ('refused' in madeA) throw new Error(madeA.reason);
+    const expected = new Map<unknown, number>();
+    const materialsA = materialsOf(fileA);
+    for (let f = 0; f < second.data.counts.faces; f++) {
+      const material = materialsA[second.data.faceMaterial[f] as number];
+      expected.set(material, (expected.get(material) ?? 0) + 1);
+    }
+    expect(await facesPerMaterial(fileB)).toEqual(expected);
+    // The marker still holds the original primitives (materials [2, 3, 4]) for a later rollback.
+    expect(
+      (markerV2(fileB)?.replacedPrimitives[String(head)] as Json[] | undefined)?.map((p) => p['material']),
+    ).toEqual([2, 3, 4]);
+    expect(await newErrors(source, fileB)).toEqual([]);
   });
 
   it('reports dropped tangents as the lint mesh.tangents-dropped', async () => {
