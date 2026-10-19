@@ -114,7 +114,9 @@ const throwing = (name: string, error: () => Error): AgentToolDef =>
 function readyCatalogueTool(name: string): AgentToolDef {
   const tool = allTools().find((candidate) => candidate.name === name);
   if (tool === undefined) throw new Error(`no catalogue tool ${name}`);
-  return { ...tool, ready: true, confirm: undefined, run: notAvailableYet(name) } as AgentToolDef;
+  const stub: AgentToolDef = { ...tool, ready: true, run: notAvailableYet(name) };
+  delete (stub as { confirm?: unknown }).confirm;
+  return stub;
 }
 
 /** A failure whose detail refers to itself: the sanitiser cannot walk it. */
