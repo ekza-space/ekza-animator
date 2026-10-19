@@ -1,11 +1,13 @@
 // What `EditMeshView` and `MeshSurface` share (M6A-SPEC §4.4): the surface, the wire/hard edges, normals and
-// triangulation lines, the world matrix and the per-pane display rules.
+// triangulation lines (skipping hidden and isolated faces, `faceVisibility`), the world matrix and the per-pane display
+// rules.
 import type { Normals, Triangulation } from '@ekza-animator/mesh-core';
 import { Group } from 'three';
-import { MESH_VIEW_STYLE, ORDER } from '../style';
+import { MESH_VIEW_STYLE, ORDER, STATE } from '../style';
 import type { MeshViewThemeInput } from '../theme';
 import type { MeshPaneDisplay, MeshViewLayers } from '../types';
 import { LineBatch } from './lines';
+import { uploadAll } from './ranges';
 import { SurfaceLayer } from './surface';
 import { faceCentroids, meanEdgeLength, type Topo, triangulationDiagonals } from './topo';
 
@@ -25,6 +27,14 @@ export class ViewBase {
   /** Optional overlays are rebuilt on the next pane that shows them after a change. */
   protected normalsDirty = true;
   protected diagonalsDirty = true;
+  /**
+   * Their visibility states only (hidden set or isolate set changed, positions not): rewritten on the next pane that
+   * shows them. A rebuild writes them too.
+   */
+  private normalStatesDirty = true;
+  private diagonalStatesDirty = true;
+  /** Corner pairs of the triangulation diagonals last built (the face of a diagonal is the face of its corners). */
+  private diagonalPairs: Uint32Array = new Uint32Array(0);
   private disposed = false;
 
   constructor(opts: { readonly theme: MeshViewThemeInput; readonly layers: MeshViewLayers }) {
@@ -143,10 +153,48 @@ export class ViewBase {
     }
     this.vertexNormals.start.needsUpdate = true;
     this.vertexNormals.end.needsUpdate = true;
+    this.writeNormalStates(t);
+  }
+
+  /**
+   * Per-face visibility of the overlays (1 = drawn): normals and triangulation diagonals of a face that is hidden or
+   * outside the isolate set are not drawn (§9 B6 "hidden and isolated elements skipped"). null = every face.
+   */
+  protected faceVisibility(): Uint8Array | null {
+    return null;
+  }
+
+  /** Per-vertex visibility (1 = drawn): a corner's normal starts at its vertex, so a hidden vertex hides it too. */
+  protected vertexVisibility(): Uint8Array | null {
+    return null;
+  }
+
+  /** The hidden set or the isolate set changed: the overlays' visibility states are rewritten when next shown. */
+  protected overlayVisibilityChanged(): void {
+    this.normalStatesDirty = true;
+    this.diagonalStatesDirty = true;
+  }
+
+  /** Face normals by their face, corner normals by their face and their vertex (`STATE.hidden` or 0). */
+  private writeNormalStates(t: Topo): void {
+    const faces = this.faceVisibility();
+    const verts = this.vertexVisibility();
+    const fs = this.faceNormals.state.array as Uint8Array;
+    for (let f = 0; f < t.faces; f++) fs[f] = faces === null || faces[f] === 1 ? 0 : STATE.hidden;
+    const cs = this.vertexNormals.state.array as Uint8Array;
+    for (let c = 0; c < t.corners; c++) {
+      const shown =
+        (faces === null || faces[t.cf[c] as number] === 1) && (verts === null || verts[t.cv[c] as number] === 1);
+      cs[c] = shown ? 0 : STATE.hidden;
+    }
+    uploadAll(this.faceNormals.state);
+    uploadAll(this.vertexNormals.state);
+    this.normalStatesDirty = false;
   }
 
   private buildDiagonals(t: Topo, tri: Triangulation): void {
     const pairs = triangulationDiagonals(t, tri.tris);
+    this.diagonalPairs = pairs;
     const n = pairs.length / 2;
     if (this.diagonals.count !== n) this.diagonals.setGeometry(n);
     const s = this.diagonals.start.array as Float32Array;
@@ -162,6 +210,20 @@ export class ViewBase {
     }
     this.diagonals.start.needsUpdate = true;
     this.diagonals.end.needsUpdate = true;
+    this.writeDiagonalStates(t);
+  }
+
+  /** Each diagonal by the face its two corners belong to. */
+  private writeDiagonalStates(t: Topo): void {
+    const faces = this.faceVisibility();
+    const pairs = this.diagonalPairs;
+    const state = this.diagonals.state.array as Uint8Array;
+    const n = Math.min(state.length, pairs.length / 2);
+    for (let i = 0; i < n; i++) {
+      state[i] = faces === null || faces[t.cf[pairs[2 * i] as number] as number] === 1 ? 0 : STATE.hidden;
+    }
+    uploadAll(this.diagonals.state);
+    this.diagonalStatesDirty = false;
   }
 
   /**
@@ -200,18 +262,22 @@ export class ViewBase {
     const t = this.topo;
     const showFace = display.normals === 'face' || display.normals === 'both';
     const showVertex = display.normals === 'vertex' || display.normals === 'both';
-    if ((showFace || showVertex) && this.normalsDirty && t !== null && this.normals !== null) {
-      this.buildNormals(t, this.normals);
-      this.normalsDirty = false;
+    if ((showFace || showVertex) && t !== null && this.normals !== null) {
+      if (this.normalsDirty) {
+        this.buildNormals(t, this.normals);
+        this.normalsDirty = false;
+      } else if (this.normalStatesDirty) this.writeNormalStates(t);
     }
     this.faceNormals.setAlpha(dim, dim * MESH_VIEW_STYLE.occludedAlpha);
     this.vertexNormals.setAlpha(dim, dim * MESH_VIEW_STYLE.occludedAlpha);
     this.faceNormals.show(showFace, xray);
     this.vertexNormals.show(showVertex, xray);
 
-    if (display.triangulation && this.diagonalsDirty && t !== null && this.tri !== null) {
-      this.buildDiagonals(t, this.tri);
-      this.diagonalsDirty = false;
+    if (display.triangulation && t !== null && this.tri !== null) {
+      if (this.diagonalsDirty) {
+        this.buildDiagonals(t, this.tri);
+        this.diagonalsDirty = false;
+      } else if (this.diagonalStatesDirty) this.writeDiagonalStates(t);
     }
     this.diagonals.setColours(wire ? theme.wireMode : theme.wire, theme.wire, theme.selected, theme.hover);
     this.diagonals.setAlpha(dim * MESH_VIEW_STYLE.triangulationAlpha, 0);

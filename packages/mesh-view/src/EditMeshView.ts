@@ -81,6 +81,28 @@ function copyHidden(h: HiddenSet | null): HiddenSet | null {
   return h === null ? null : { verts: h.verts.clone(), edges: h.edges.clone(), faces: h.faces.clone() };
 }
 
+function copyPalette(
+  colours: ReadonlyMap<number, readonly [number, number, number]> | null,
+): Map<number, readonly [number, number, number]> | null {
+  if (colours === null) return null;
+  const out = new Map<number, readonly [number, number, number]>();
+  for (const [slot, c] of colours) out.set(slot, [c[0], c[1], c[2]]);
+  return out;
+}
+
+function samePalette(
+  a: ReadonlyMap<number, readonly [number, number, number]> | null,
+  b: ReadonlyMap<number, readonly [number, number, number]> | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  if (a.size !== b.size) return false;
+  for (const [slot, c] of a) {
+    const d = b.get(slot);
+    if (d === undefined || d[0] !== c[0] || d[1] !== c[1] || d[2] !== c[2]) return false;
+  }
+  return true;
+}
+
 function setOf(sel: ComponentSelection | null, kind: ComponentKind): BitSet | null {
   if (sel === null) return null;
   return kind === 'vertex' ? sel.verts : kind === 'edge' ? sel.edges : sel.faces;
@@ -238,8 +260,17 @@ export class EditMeshView extends ViewBase {
     this.writeSoft();
     this.normalsDirty = true;
     this.diagonalsDirty = true;
+    this.overlayVisibilityChanged();
     this.lintsDirty = true;
     this.planeDirty = true;
+  }
+
+  protected override faceVisibility(): Uint8Array {
+    return this.vis.faces;
+  }
+
+  protected override vertexVisibility(): Uint8Array {
+    return this.vis.verts;
   }
 
   private fits(sel: ComponentSelection): boolean {
@@ -447,6 +478,7 @@ export class EditMeshView extends ViewBase {
     if (visChanged) {
       deriveVisibility(t, this.hidden, this.isolate, this.vis);
       if (this.tri !== null) this.surface.writeIndex(this.tri, this.vis.faces, null);
+      this.overlayVisibilityChanged();
       this.lintsDirty = true;
     }
     if (visChanged || selChanged || mirChanged) {
@@ -487,6 +519,7 @@ export class EditMeshView extends ViewBase {
     if (t === null) return;
     deriveVisibility(t, this.hidden, this.isolate, this.vis);
     if (this.tri !== null) this.surface.writeIndex(this.tri, this.vis.faces, null);
+    this.overlayVisibilityChanged();
     this.lintsDirty = true;
     this.writeAllStates();
   }
@@ -498,8 +531,12 @@ export class EditMeshView extends ViewBase {
       if (has(setOf(this.sel, kind), i)) s |= STATE.selected;
       else if (this.mirrored !== null && has(setOf(this.mirrored, kind), i)) s |= STATE.mirrored;
     }
+    // Hover, like selection, belongs to the current component mode only (M6A-B6-5): a hover of another kind draws
+    // nothing (edge states show in every mode, so an edge hover in vertex mode would otherwise draw a fat edge).
     const h = this.hover;
-    if (h !== null && h.kind === kind && (h.index === i || h.partner === i)) s |= STATE.hover;
+    if (h !== null && h.kind === kind && this.sel?.kind === kind && (h.index === i || h.partner === i)) {
+      s |= STATE.hover;
+    }
     if (kind === 'edge' && this.topo !== null && ((this.topo.ef[i] as number) & EDGE_HARD) !== 0) s |= STATE.hard;
     return s;
   }
@@ -582,14 +619,20 @@ export class EditMeshView extends ViewBase {
     this.verts.setUniform('uShowSoft', weights !== null);
   }
 
-  /** Palette colours (slot → sRGB 8-bit) of the `paint` layer for the `colours` and `lit` shadings; null = clay. */
+  /**
+   * Palette colours (slot → sRGB 8-bit) of the `paint` layer for the `colours` and `lit` shadings; null = clay. The
+   * same colours again (a host re-pushing on every document batch, often as a fresh map) upload nothing; the paint
+   * slots themselves follow `update`'s dirty layers.
+   */
   setPaint(colours: ReadonlyMap<number, readonly [number, number, number]> | null): void {
-    this.paint = colours;
-    if (this.topo !== null) this.surface.writePaint(this.topo, this.paintSlots(), colours);
+    if (samePalette(colours, this.paint)) return;
+    this.paint = copyPalette(colours);
+    if (this.topo !== null) this.surface.writePaint(this.topo, this.paintSlots(), this.paint);
   }
 
-  /** Mesh Check problems (§5.25): ◇ for n-gon codes, ✕ for the others, at their elements. */
+  /** Mesh Check problems (§5.25): ◇ for n-gon codes, ✕ for the others, at their elements. The same list is a no-op. */
   setLints(problems: readonly MeshProblem[]): void {
+    if (problems === this.problems) return;
     this.problems = problems;
     this.lintsDirty = true;
   }
@@ -622,7 +665,10 @@ export class EditMeshView extends ViewBase {
             alt,
           );
         } else if (domain === 'corner') {
-          if (i >= t.corners) continue;
+          // A corner is drawn at its vertex, as part of its face: either hidden (or isolated out) hides the marker.
+          if (i >= t.corners || this.vis.faces[t.cf[i] as number] !== 1 || this.vis.verts[t.cv[i] as number] !== 1) {
+            continue;
+          }
           const v = 3 * (t.cv[i] as number);
           push(p[v] as number, p[v + 1] as number, p[v + 2] as number, alt);
         } else {

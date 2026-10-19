@@ -141,6 +141,16 @@ function frame(canvasRef: Canvas): Uint8Array {
   return out;
 }
 
+/** Pixels of a frame that are not the clear colour (`BACKGROUND`). */
+function drawnPixels(pixels: Uint8Array): number {
+  const [r, g, b] = hexBytes(BACKGROUND);
+  let n = 0;
+  for (let i = 0; i < pixels.length; i += 4) {
+    if (pixels[i] !== r || pixels[i + 1] !== g || pixels[i + 2] !== b) n++;
+  }
+  return n;
+}
+
 function differentPixels(a: Uint8Array, b: Uint8Array): number {
   let n = 0;
   for (let i = 0; i < a.length; i += 4) {
@@ -221,6 +231,35 @@ describe('EditMeshView: glyphs and halos', () => {
     view.setState({ ...selectionOf('vertex', [], d.mesh.counts), edges }, null, null, null);
     canvasRef = render(view, camera);
     expect(column()).not.toContain('S');
+  });
+
+  it('draws a hover only in its own component mode (an edge hover in vertex mode draws nothing)', () => {
+    const d = cube();
+    const camera = perspective([0.3, 0.9, 3]);
+    const e = edgeBetween(d, vertexAt(d, [-0.5, 0.5, 0.5]), vertexAt(d, [0.5, 0.5, 0.5]));
+    const s = px(camera, [0.1, 0.5, 0.5]);
+    const hovered = (canvasRef: Canvas): boolean =>
+      [-2, -1, 0, 1, 2].some((dy) => colourError(at(canvasRef, s, 0, dy), hexBytes(THEME.hover), 1) === '');
+    const edgeMode = selectionOf('edge', [], d.mesh.counts);
+    const view = editView(d, edgeMode);
+    view.setState(edgeMode, null, { kind: 'edge', index: e, partner: -1 }, null);
+    expect(hovered(render(view, camera))).toBe(true);
+    // Vertex mode still draws the edges (wire), but a hover of another kind is not this mode's hover.
+    const vertexMode = selectionOf('vertex', [], d.mesh.counts);
+    view.setState(vertexMode, null, { kind: 'edge', index: e, partner: -1 }, null);
+    expect(hovered(render(view, camera))).toBe(false);
+    // Hover-only update path too: a fresh vertex-mode view handed the edge hover second.
+    const other = editView(d, vertexMode);
+    other.setState(vertexMode, null, { kind: 'edge', index: e, partner: -1 }, null);
+    view.root.removeFromParent();
+    expect(hovered(render(other, camera))).toBe(false);
+    // Face hovers do not tint faces outside face mode either.
+    const front = faceFacing(d, [0, 0, 1]);
+    other.setState(vertexMode, null, { kind: 'face', index: front, partner: -1 }, null);
+    const centre = px(camera, [0.1, 0.1, 0.5]);
+    const tinted = at(render(other, camera), centre);
+    other.setState(vertexMode, null, null, null);
+    expect(colourError(tinted, at(render(other, camera), centre), 0)).toBe('');
   });
 
   it('shows face-centre dots in face mode and tints selected and mirrored faces', () => {
@@ -332,6 +371,19 @@ describe('EditMeshView: surface', () => {
     expect(colourError(at(canvasRef, line), hexBytes(THEME.wireMode), 1)).toBe('');
     expect(colourError(at(canvasRef, line, 1, 0), hexBytes(THEME.halo), 1)).toBe('');
     expect(colourError(at(canvasRef, line, 2, 0), hexBytes(BACKGROUND), 1)).toBe('');
+  });
+
+  it('draws an edge with an end behind the camera up to the near plane (where the picker finds it)', () => {
+    // The scene of the picker's near-plane test: a long floor quad whose side edges end behind the camera.
+    const d = plane({ width: 1.2, height: 4 });
+    const camera = perspective([0, 0.3, 1.5]);
+    const view = editView(d, selectionOf('edge', [], d.mesh.counts));
+    const canvasRef = render(view, camera, { shading: 'wire' });
+    for (const z of [-1, 0]) {
+      const p = px(camera, [0.6, 0, z]);
+      const around = [-1, 0, 1].flatMap((dx) => [-1, 0, 1].map((dy) => at(canvasRef, p, dx, dy)));
+      expect(around.some((q) => colourError(q, hexBytes(THEME.wireMode), 1) === '')).toBe(true);
+    }
   });
 
   it('face orientation, back-face culling and the darker back side', () => {
@@ -517,6 +569,115 @@ describe('EditMeshView: overlays', () => {
     expect(onDiagonal(render(view, camera, { triangulation: false, components: false }))).toBe(false);
   });
 
+  it('draws no normals or diagonals of hidden faces: every face hidden leaves the background only', () => {
+    const d = cube();
+    const camera = perspective([1.6, 1.2, 2.4]);
+    const { points: P, edges: E, faces: F } = d.mesh.counts;
+    const sel = selectionOf('vertex', [], d.mesh.counts);
+    const all: HiddenSet = { verts: new BitSet(P), edges: new BitSet(E), faces: new BitSet(F) };
+    for (let f = 0; f < F; f++) all.faces.add(f);
+    const overlays: Partial<MeshPaneDisplay> = { shading: 'wire', normals: 'both', triangulation: true };
+    // Hidden before the overlays are first built (the build path) …
+    const view = editView(d, sel);
+    view.setState(sel, all, null, null);
+    expect(drawnPixels(frame(render(view, camera, overlays)))).toBe(0);
+    expect(drawnPixels(frame(render(view, camera, { ...overlays, shading: 'shaded', xray: true })))).toBe(0);
+    view.root.removeFromParent();
+    // … and after (the visibility-only rewrite of overlays already built), then shown again.
+    const later = editView(d, sel);
+    const shown = drawnPixels(frame(render(later, camera, overlays)));
+    expect(shown).toBeGreaterThan(0);
+    later.setState(sel, all, null, null);
+    expect(drawnPixels(frame(render(later, camera, overlays)))).toBe(0);
+    later.setState(sel, null, null, null);
+    expect(drawnPixels(frame(render(later, camera, overlays)))).toBe(shown);
+  });
+
+  it('draws no normals or diagonals of faces outside the isolate set (an empty set leaves the background only)', () => {
+    const d = cube();
+    const camera = perspective([1.6, 1.2, 2.4]);
+    const sel = selectionOf('face', [], d.mesh.counts);
+    const overlays: Partial<MeshPaneDisplay> = { shading: 'wire', normals: 'both', triangulation: true };
+    const view = editView(d, sel);
+    const shown = drawnPixels(frame(render(view, camera, overlays)));
+    expect(shown).toBeGreaterThan(0);
+    view.setIsolate(new BitSet(d.mesh.counts.faces));
+    expect(drawnPixels(frame(render(view, camera, overlays)))).toBe(0);
+    view.setIsolate(null);
+    expect(drawnPixels(frame(render(view, camera, overlays)))).toBe(shown);
+    // Isolated before the first build.
+    view.root.removeFromParent();
+    const first = editView(d, sel);
+    first.setIsolate(new BitSet(d.mesh.counts.faces));
+    expect(drawnPixels(frame(render(first, camera, overlays)))).toBe(0);
+  });
+
+  it('hiding one face removes its normals and its diagonal only', () => {
+    const d = cube();
+    const camera = orthoTop(4);
+    const sel = selectionOf('vertex', [], d.mesh.counts);
+    const right = faceFacing(d, [1, 0, 0]);
+    const hidden: HiddenSet = {
+      verts: new BitSet(d.mesh.counts.points),
+      edges: new BitSet(d.mesh.counts.edges),
+      faces: new BitSet(d.mesh.counts.faces),
+    };
+    hidden.faces.add(right);
+    const view = editView(d, sel, HALF_PX);
+    // Seen from the top: the ±X face normals at (±0.75, 0, 0), the ±X corner normals at (±0.75, ·, ±0.5).
+    const normalsOf = (canvasRef: Canvas, x: number): [boolean, boolean] => [
+      colourError(at(canvasRef, px(camera, [x, 0, 0], HALF_PX)), hexBytes(THEME.normalFace), 1) === '',
+      colourError(at(canvasRef, px(camera, [x, 0, 0.5], HALF_PX)), hexBytes(THEME.normalVertex), 1) === '',
+    ];
+    let canvasRef = render(view, camera, { normals: 'both' });
+    expect(normalsOf(canvasRef, 0.75)).toEqual([true, true]);
+    expect(normalsOf(canvasRef, -0.75)).toEqual([true, true]);
+    view.setState(sel, hidden, null, null);
+    canvasRef = render(view, camera, { normals: 'both' });
+    expect(normalsOf(canvasRef, 0.75)).toEqual([false, false]);
+    expect(colourError(at(canvasRef, px(camera, [0.75, 0, 0], HALF_PX)), hexBytes(BACKGROUND), 1)).toBe('');
+    expect(normalsOf(canvasRef, -0.75)).toEqual([true, true]);
+
+    // Diagonals: two quads seen from the top; hiding the right one leaves the left one's diagonal.
+    view.root.removeFromParent();
+    const two = plane({ width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+    const top = orthoTop(3);
+    const rightQuad = centroidOf(two, 0)[0] > 0 ? 0 : 1;
+    const flat = editView(two, selectionOf('face', [], two.mesh.counts), HALF_PX);
+    const base = bytes(lit(THEME.clay, top, [0, 1, 0]));
+    const onDiagonal = (canvasRef: Canvas, cx: number, under: readonly number[]): boolean =>
+      [
+        [0.25, 0.25],
+        [0.25, -0.25],
+      ].some(([x, z]) => {
+        const pixel = at(canvasRef, px(top, [cx + (x as number), 0, z as number], HALF_PX));
+        const expected = over(hexBytes(THEME.wire), MESH_VIEW_STYLE.triangulationAlpha, under);
+        return [0, 1, 2].every((i) => Math.abs((pixel[i] as number) - (expected[i] as number)) <= 3);
+      });
+    const shading: Partial<MeshPaneDisplay> = { triangulation: true, components: false };
+    canvasRef = render(flat, top, shading);
+    expect(onDiagonal(canvasRef, 0.5, base)).toBe(true);
+    expect(onDiagonal(canvasRef, -0.5, base)).toBe(true);
+    const hideRight: HiddenSet = {
+      verts: new BitSet(two.mesh.counts.points),
+      edges: new BitSet(two.mesh.counts.edges),
+      faces: new BitSet(two.mesh.counts.faces),
+    };
+    hideRight.faces.add(rightQuad);
+    flat.setState(selectionOf('face', [], two.mesh.counts), hideRight, null, null);
+    canvasRef = render(flat, top, shading);
+    expect(onDiagonal(canvasRef, -0.5, base)).toBe(true);
+    // Nothing at all where the right quad was: neither surface nor its diagonal.
+    for (const [x, z] of [
+      [0.75, 0.25],
+      [0.75, -0.25],
+      [0.25, 0.25],
+      [0.25, -0.25],
+    ] as const) {
+      expect(colourError(at(canvasRef, px(top, [x, 0, z], HALF_PX)), hexBytes(BACKGROUND), 1)).toBe('');
+    }
+  });
+
   it('draws Mesh Check markers: ✕ errors in --lint-error, ◇ n-gon codes in --lint-ngon', () => {
     const d = cube();
     const camera = orthoFront(4);
@@ -532,6 +693,49 @@ describe('EditMeshView: overlays', () => {
     expect(colourError(at(canvasRef, px(camera, [0, -0.5, 0.5])), hexBytes(THEME.lintError), 1)).toBe('');
     canvasRef = render(view, camera, { meshCheck: false });
     expect(at(canvasRef, px(camera, centroidOf(d, front))).slice(0, 3)).not.toEqual(hexBytes(THEME.lintNgon));
+  });
+
+  it('skips Mesh Check markers of hidden and isolated elements, corners included', () => {
+    const d = plane({ width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+    const camera = orthoTop(3);
+    const right = centroidOf(d, 0)[0] > 0 ? 0 : 1;
+    const left = 1 - right;
+    const sel = selectionOf('face', [], d.mesh.counts);
+    const view = editView(d, sel);
+    // A corner of each quad at its outer far vertex: (1, 0, -0.5) on the right, (-1, 0, -0.5) on the left.
+    const cornerAt = (f: number, p: readonly [number, number, number]): number => {
+      const v = vertexAt(d, p);
+      const m = d.mesh;
+      for (let c = 0; c < m.counts.corners; c++) if (m.cornerFace(c) === f && m.cornerVert(c) === v) return c;
+      throw new Error('no such corner');
+    };
+    view.setLints([
+      {
+        code: 'zero-area-face',
+        message: 'corner',
+        elements: Uint32Array.of(cornerAt(right, [1, 0, -0.5]), cornerAt(left, [-1, 0, -0.5])),
+        domain: 'corner',
+      },
+    ]);
+    const marker = (canvasRef: Canvas, x: number): boolean =>
+      colourError(at(canvasRef, px(camera, [x, 0, -0.5])), hexBytes(THEME.lintError), 1) === '';
+    let canvasRef = render(view, camera, { meshCheck: true });
+    expect([marker(canvasRef, 1), marker(canvasRef, -1)]).toEqual([true, true]);
+    const hidden: HiddenSet = {
+      verts: new BitSet(d.mesh.counts.points),
+      edges: new BitSet(d.mesh.counts.edges),
+      faces: new BitSet(d.mesh.counts.faces),
+    };
+    hidden.faces.add(right);
+    view.setState(sel, hidden, null, null);
+    canvasRef = render(view, camera, { meshCheck: true });
+    expect([marker(canvasRef, 1), marker(canvasRef, -1)]).toEqual([false, true]);
+    view.setState(sel, null, null, null);
+    const only = new BitSet(d.mesh.counts.faces);
+    only.add(right);
+    view.setIsolate(only);
+    canvasRef = render(view, camera, { meshCheck: true });
+    expect([marker(canvasRef, 1), marker(canvasRef, -1)]).toEqual([true, false]);
   });
 
   it('draws the symmetry plane across the mesh bounds when the pane shows it', () => {
@@ -708,7 +912,7 @@ describe('EditMeshView: incremental updates', () => {
     expect(colourError(at(render(fresh, camera, { hardEdges: true }), nearEdge), softShade, 0)).toBe('');
   });
 
-  it('equals a full rebuild after random moves, hard-flag toggles, custom normals and paint (arrays and pixels)', () => {
+  it('equals a full rebuild after random moves, flags, custom normals, paint, hiding and isolating (arrays, pixels)', () => {
     const d = cube({ subdivisionsWidth: 2, subdivisionsHeight: 2, subdivisionsDepth: 2 });
     const mesh = d.mesh;
     const { points: P, edges: E, faces: F, corners: C } = mesh.counts;
@@ -740,13 +944,32 @@ describe('EditMeshView: incremental updates', () => {
     const added = mesh.end();
     view.update(mesh, added.dirty, triangulate(mesh), computeNormals(mesh));
 
-    const counts = { move: 0, flag: 0, custom: 0, paint: 0 };
+    const counts = { move: 0, flag: 0, custom: 0, paint: 0, hide: 0, isolate: 0 };
+    // The pane's face isolate set (null = none); hiding and isolating rewrite the overlays' visibility only.
+    let isolate: BitSet | null = null;
     for (let step = 0; step < 30; step++) {
       mesh.begin('test.edit');
       const ops = 1 + Math.floor(random() * 3);
       for (let k = 0; k < ops; k++) {
         const r = random();
-        if (r < 0.3) {
+        if (r < 0.12) {
+          hidden.faces.toggle(Math.floor(random() * F));
+          counts.hide++;
+          continue;
+        }
+        if (r < 0.22) {
+          if (isolate !== null && random() < 0.3) isolate = null;
+          else {
+            if (isolate === null) {
+              isolate = new BitSet(F);
+              for (let f = 0; f < F; f++) isolate.add(f);
+            }
+            isolate.toggle(Math.floor(random() * F));
+          }
+          counts.isolate++;
+          continue;
+        }
+        if (r < 0.4) {
           const v = Math.floor(random() * P);
           const p = mesh.position;
           mesh.setPosition(
@@ -775,9 +998,12 @@ describe('EditMeshView: incremental updates', () => {
       const tri = triangulate(mesh);
       const normals = computeNormals(mesh);
       view.update(mesh, delta.dirty, tri, normals);
+      view.setState(sel, hidden, null, null);
+      view.setIsolate(isolate);
       const fresh = new EditMeshView({ theme: THEME, layers: LAYERS });
       fresh.setMesh(mesh, tri, normals);
       fresh.setState(sel, hidden, null, null);
+      fresh.setIsolate(isolate);
       fresh.setPaint(palette);
       try {
         // The same arrays (every attribute and index of every object, lazy overlays built for the pane) …
