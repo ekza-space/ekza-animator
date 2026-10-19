@@ -26,6 +26,9 @@ export const UI_DIALOGS: readonly UiDialog[] = [
   'firstRun',
   'preferences',
   'recovery',
+  // M6a (B13): the Make editable report and the reference image import (M6A-SPEC §4.6 UiDialog).
+  'makeEditableReport',
+  'imagePlaneImport',
 ];
 
 /** Dialogs whose implementation has not landed yet (none since M2a's Recovery dialog). */
@@ -53,6 +56,9 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   'virtualSlider',
   'exportReduce',
   'autosave',
+  // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
+  'lastWorkspace',
+  'modeling',
 ]);
 
 export interface ShellOperatorDeps {
@@ -70,7 +76,10 @@ const fail = (reason: string): PollResult => ({ ok: false, reason });
 function pollDialog(app: EditorApp, dialog: UiDialog): PollResult {
   if (!UI_DIALOGS.includes(dialog)) return fail(`Unknown dialog '${String(dialog)}'`);
   if (PENDING_DIALOGS.has(dialog)) return fail('not available yet');
-  if (dialog === 'export' && app.store.list('characters').length === 0) return fail('Load a character to export');
+  // M6a (B13): the Export dialog's Static model section exports scene meshes without a character (§8.8).
+  if (dialog === 'export' && app.store.list('characters').length === 0 && app.store.list('meshes').length === 0) {
+    return fail('Load a character to export');
+  }
   // M2A-SPEC §5.20: File › Recover… needs the autosave store (the dialog lists its orphaned slots).
   if (
     dialog === 'recovery' &&

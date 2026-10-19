@@ -37,9 +37,9 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   shortcuts: () => import('./ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })),
   preferences: () => import('./PreferencesDialog').then((m) => ({ default: m.PreferencesDialog })),
   recovery: () => import('./RecoveryDialog').then((m) => ({ default: m.RecoveryDialog })),
-  // M6a (B0a placeholders; B8 and B13 land the dialogs)
-  makeEditableReport: () => import('./PendingDialog').then((m) => ({ default: m.MakeEditableReportDialog })),
-  imagePlaneImport: () => import('./PendingDialog').then((m) => ({ default: m.ImagePlaneImportDialog })),
+  // M6a (B13)
+  makeEditableReport: () => import('./MakeEditableReport').then((m) => ({ default: m.MakeEditableReportDialog })),
+  imagePlaneImport: () => import('./ImagePlaneImport').then((m) => ({ default: m.ImagePlaneImportDialog })),
 };
 
 const loadConfirm = (): Promise<Module<ConfirmProps>> =>

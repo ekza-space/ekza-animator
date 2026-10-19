@@ -71,9 +71,10 @@ describe('M6a foundation over the real kernel', () => {
     const { app } = realApp();
     expect(app.session.getState().workspace).toBe('animate');
     expect(app.workspaces.list().map((w) => w.id)).toEqual(['model', 'rig', 'animate', 'review']);
-    // B7 landed `mesh.create.*` (literal update): a stub that is still B13's stands in for "every M6a operator".
-    const result = await app.runUntyped('mesh.create.template', { template: 'prop' });
-    expect(result).toEqual({ status: 'cancelled', reason: 'not available yet' });
+    // B7 landed `mesh.create.*`, B13 `mesh.create.template` (literal updates): the stretch pick-walk, which stays a
+    // poll-failing operator in M6a core, stands in for "every M6a operator".
+    const result = await app.runUntyped('select.mesh.pickWalk', { direction: 'up' });
+    expect(result).toEqual({ status: 'cancelled', reason: 'Component pick-walk arrives later' });
     expect(await app.runUntyped('model.animateOnly')).toEqual({
       status: 'cancelled',
       reason: 'Keys and poses are set in Animate',

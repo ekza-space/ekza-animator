@@ -17,7 +17,10 @@ import {
   providePaneDisplay,
 } from '@ekza-animator/editor-core';
 import { firstShotCamera } from '../cameras/cameras';
+import { attachGuides } from '../guides';
+import { attachImagePlanes } from '../imageplanes';
 import { LAYOUT_PANES } from '../panes/layout';
+import { paintToolDef } from '../tools/model/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
 import { selectToolDef } from '../tools/selectTool';
@@ -208,6 +211,10 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     ),
     // M6a (B10): the mesh display and the Model select runtime (lazy; loaded with the first mesh or Model).
     attachModelSelect(app, vm),
+    // M6a (B13): the Paint Colour tool, reference image planes and template guides (each lazy until needed).
+    app.contribute({ kind: 'tool', def: paintToolDef(vm) }),
+    attachImagePlanes(app, vm),
+    attachGuides(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

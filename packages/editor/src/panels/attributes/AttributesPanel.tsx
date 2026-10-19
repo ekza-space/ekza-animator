@@ -37,6 +37,7 @@ import {
 import { licenceSummary } from './licence';
 import { Field, Fields, Section } from './layout';
 import { LimbSection } from './LimbSection';
+import { LazyBody } from '../palette/lazy';
 
 const PANEL_KIND = PANEL.attributes;
 
@@ -61,6 +62,8 @@ interface AttributesView {
 }
 
 const selectActiveCharacter = (s: SessionState): CharacterId | null => s.activeCharacter;
+const selectWorkspace = (s: SessionState): string => s.workspace;
+const loadModelSections = () => import('./ModelSections');
 const selectActiveClipId = (s: SessionState): ClipId | null =>
   s.activeCharacter === null ? null : (s.activeClip[s.activeCharacter] ?? null);
 
@@ -88,24 +91,32 @@ export function AttributesPanel({ app, instanceId }: PanelProps): JSX.Element {
     [leadId, activeCharacter, activeClipId],
   );
   const view = useDocQuery(read, ['controls', 'characters', 'assets', 'clips', 'cameras']);
+  const workspace = useSession(selectWorkspace);
 
   return (
     <div className={`${PANEL_ROOT} overflow-auto`} data-testid="attributes-panel" data-instance={instanceId}>
-      <Section title="Control" testId="attr-section-control">
-        {view.control === null ? (
-          <p className={MUTED_TEXT}>Select a control.</p>
-        ) : (
-          <ControlFields app={app} control={view.control} mirror={view.mirror} />
-        )}
-      </Section>
-      <LimbSection app={app} control={view.control} />
-      <Section title="Clip" testId="attr-section-clip">
-        {view.clip === null ? (
-          <p className={MUTED_TEXT}>No active clip.</p>
-        ) : (
-          <ClipFields key={view.clip.id} app={app} clip={view.clip} />
-        )}
-      </Section>
+      {workspace === 'model' ? (
+        // M6a (B13): Model's sections (mesh, primitive, pivot, grip, image plane), a lazy chunk.
+        <LazyBody name="Model attributes" load={loadModelSections} props={{ app }} />
+      ) : (
+        <>
+          <Section title="Control" testId="attr-section-control">
+            {view.control === null ? (
+              <p className={MUTED_TEXT}>Select a control.</p>
+            ) : (
+              <ControlFields app={app} control={view.control} mirror={view.mirror} />
+            )}
+          </Section>
+          <LimbSection app={app} control={view.control} />
+          <Section title="Clip" testId="attr-section-clip">
+            {view.clip === null ? (
+              <p className={MUTED_TEXT}>No active clip.</p>
+            ) : (
+              <ClipFields key={view.clip.id} app={app} clip={view.clip} />
+            )}
+          </Section>
+        </>
+      )}
       <Section title="Character" testId="attr-section-character">
         {view.character === null ? (
           <p className={MUTED_TEXT}>No character loaded.</p>

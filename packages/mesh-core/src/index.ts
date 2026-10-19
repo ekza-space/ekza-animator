@@ -34,4 +34,4 @@ export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------
 export { checkMesh } from './check';
 // ---------- B13 ----------
-export { humanoidBody } from './stubs/templates';
+export { humanoidBody } from './templates';

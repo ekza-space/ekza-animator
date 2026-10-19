@@ -155,6 +155,46 @@ export {
   isEditedMesh,
   type MeshDisplayController,
 } from './workflows/meshDisplay';
+// M6a B13 (M6A-SPEC §5.13, §5.16, §5.19, §5.26): palettes, templates, live primitives, image planes, scene objects.
+export {
+  activeSwatchOf,
+  DEFAULT_PALETTE_ID,
+  defaultSwatchId,
+  nextSlot,
+  parseHex,
+  swatchIdFor,
+  toHex,
+} from './operators/builtin/palette';
+export { paintRefusal } from './operators/builtin/paintRules';
+export {
+  DEFAULT_GRIP,
+  FROZEN_REASON,
+  HUMANOID_PRESETS,
+  type HumanoidPreset,
+  primitiveParams,
+  TEMPLATE_PARAMS,
+  TEMPLATES,
+  type TemplateId,
+} from './operators/builtin/templates';
+export {
+  defaultOffset,
+  imageBytesOf,
+  imageExt,
+  LOCKED_REASON,
+  MAX_IMAGE_BYTES,
+  ORTHO_CAMERAS,
+  pendingImagePlaneCamera,
+} from './operators/builtin/imagePlane';
+export {
+  BUDGET_PRESETS,
+  isAncestorOrSelf,
+  objectWorld,
+  type SceneObject,
+  sceneObject,
+  subtree,
+  TOON_REASON,
+  topmost,
+} from './operators/builtin/scene';
 export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
 export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
 export type { LastRunRecorder } from './operators/runner';

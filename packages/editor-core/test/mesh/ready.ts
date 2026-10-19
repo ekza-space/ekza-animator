@@ -44,4 +44,11 @@ const b1 =
     }
   });
 
-export const READY = { b1 } as const;
+/**
+ * B1's primitives alone (sphere, cone, torus): the kernel builds them while `mesh.extrude` still waits for B3, so the
+ * primitive cases gate on this probe, not on the extrude part of `b1` (B13 merge fix: with B1 merged and B3 not,
+ * `b1` is false although the reference kernel is gone).
+ */
+const primitives = probe(() => kernel.primitive('sphere', {}));
+
+export const READY = { b1, primitives } as const;

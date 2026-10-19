@@ -386,7 +386,10 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     expect(api.paneObjects('pane-persp')).toEqual([]);
     // B11 landed (literal update): nothing has run, so there is no last operation.
     expect(api.lastOp()).toBeNull();
-    expect(() => api.palettes()).toThrow(/B13/);
+    // B13 landed (literal update): the palette, swatch and image-plane reads answer from the document.
+    expect(api.palettes()).toEqual([]);
+    expect(api.activeSwatch()).toBeNull();
+    expect(api.imagePlanes()).toEqual([]);
     expect(() => api.symmetry('msh_A')).toThrow(/B12a/);
     // B9 landed `pixel` (literal update): without a viewport it answers transparent black.
     expect(api.pixel('pane-persp', 0, 0)).toEqual([0, 0, 0, 0]);

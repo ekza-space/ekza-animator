@@ -29,6 +29,8 @@ export function lastMakeEditableReport(
 const BUSY = 'Making the mesh editable…';
 
 function poll(app: EditorApp, args: unknown): PollResult {
+  // B13: the Mesh menu item runs without arguments; the Outliner's mesh rows carry them (M6A-B13 notes).
+  if (args === undefined || args === null) return fail('Use Make editable on a mesh row in the Outliner');
   if (!isRecord(args)) return fail('expects { character, meshIndex }');
   if (typeof args['character'] !== 'string') return fail('expects a character');
   const meshIndex = args['meshIndex'];

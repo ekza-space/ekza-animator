@@ -2,7 +2,6 @@
 // splitters; Space-maximized pane), pane headers, HUD and the empty-state drop zone. The 3D view is drawn by the
 // shared canvas behind the workspace; panes register their surfaces with the app's ViewportManager.
 // M2a (A2): the panel passes the Pointer Lock switch to the manager and runs the "FK limbs only" notice (§5.7).
-import type { DocumentStore } from '@ekza-animator/doc';
 import { type EditorApp, watchFkOnlyRigs } from '@ekza-animator/editor-core';
 import { LAYOUT_PANES, type ViewportManager } from '@ekza-animator/viewport';
 import { type JSX, useEffect } from 'react';
@@ -19,13 +18,10 @@ export function ViewportPanel({ app }: PanelProps): JSX.Element {
   const vm = useViewportManager(app);
   const layout = useSession((s) => s.viewportLayout);
   const maximized = useSession((s) => s.maximizedPane);
-  // M6a (B10): in Model the drop-zone card shows only while the scene has no mesh either — it would sit over the
-  // meshes being modeled and take their clicks (B13's Model start card owns the empty Model scene).
+  // M6a (B13): Model's empty scene shows the Model start card (a pane overlay) instead of the drop zone, whose card
+  // would sit over the meshes being modeled and take their clicks.
   const model = useSession((s) => s.workspace === 'model');
-  const empty = useDocQuery(
-    model ? hasNothingToModel : hasNoCharacters,
-    model ? ['characters', 'meshes'] : ['characters'],
-  );
+  const empty = useDocQuery(hasNoCharacters, ['characters']) && !model;
   const panes = LAYOUT_PANES[layout] ?? LAYOUT_PANES.split;
   // M2a §5.18: the e2e switch `pointerLock=off` makes the viewport's virtual slider use pointer capture.
   const pointerLock = useOptionalShell()?.params.pointerLock ?? true;
@@ -50,10 +46,6 @@ export function ViewportPanel({ app }: PanelProps): JSX.Element {
 
 function hasNoCharacters(store: { list(table: 'characters'): readonly unknown[] }): boolean {
   return store.list('characters').length === 0;
-}
-
-function hasNothingToModel(store: DocumentStore): boolean {
-  return hasNoCharacters(store) && !store.list('meshes').some((mesh) => mesh.deleted === null);
 }
 
 function PaneGrid(props: {

@@ -1,6 +1,6 @@
 // Primitive creation (M6A-SPEC §5.16, §6.2, §6.3; B7): `mesh.create.<kind>` creates an authored scene mesh at the world
 // origin, centred (Maya), selected, in object mode: `faceted: true`, every edge hard (the kernel's primitives are
-// faceted), the default palette when the project has one, live parameters in `generator` (§6.3 with the
+// faceted), the default palette (created by this first modeling action when missing, B13), live parameters in `generator` (§6.3 with the
 // `prefs.modeling.primitiveDefaults` set), id `derivedId('mesh', 'mesh.create.<kind>', [], seed, 0)` so an adjusted
 // re-run (Last-op card, INPUTS) keeps the id. With exactly one template group as the lead of the object selection the
 // mesh is created as its child at the group's origin and takes the template's symmetry (humanoid: Object X).
@@ -16,6 +16,7 @@ import { orderAfterSiblings, uniqueMeshName } from '../../mesh/records';
 import { runSeed } from '../../mesh/seed';
 import type { EditorApp, OperatorContext, PollResult, SymmetrySettings } from '../../types';
 import { type AnyOperator, defineOperator, fail, OK } from './define';
+import { type ContentApplyModule, loadContentApply } from './contentLoad';
 
 type CreateKind = Exclude<PrimitiveKind, 'humanoidBody'>;
 
@@ -28,8 +29,8 @@ const LABELS: Readonly<Record<CreateKind, string>> = {
   torus: 'Torus',
 };
 
-/** The default palette's id (M6A-SPEC §3 rule 3). */
-export const DEFAULT_PALETTE_ID = derivedId('palette', 'palette.default', [], '', 0);
+/** The default palette's id (M6A-SPEC §3 rule 3; B13's palette module owns it). */
+export { DEFAULT_PALETTE_ID } from './palette';
 
 /** Kinds the loaded kernel can build (probed once per kernel module). */
 const supported = new WeakMap<object, Map<CreateKind, boolean>>();
@@ -79,6 +80,8 @@ type PrimitiveParams = Readonly<Record<string, number | boolean | string>>;
 interface Prepared {
   readonly params: PrimitiveParams;
   readonly data: MeshData;
+  /** B13's lazy bodies (the default palette, M6A-B13-10). */
+  readonly content: ContentApplyModule;
 }
 
 /** Primitive params are scalars (§6.3): nulls and JSON values never appear after coercion; drop any that would. */
@@ -110,9 +113,9 @@ function createOperator(kind: CreateKind): AnyOperator {
       return OK;
     },
     async prepare(ctx: OperatorContext, args): Promise<Prepared> {
-      const kernel = await loadMeshKernel();
+      const [kernel, content] = await Promise.all([loadMeshKernel(), loadContentApply()]);
       const params = scalarParams(primitiveArgs(ctx.app, kind, args));
-      return { params, data: kernel.primitive(kind, params) };
+      return { params, data: kernel.primitive(kind, params), content };
     },
     apply(ctx, _args, prepared) {
       const { app, tx } = ctx;
@@ -126,7 +129,8 @@ function createOperator(kind: CreateKind): AnyOperator {
       const group = templateGroupOf(app);
       const owner = group?.owner ?? { scene: true as const };
       const parent = group === null ? null : group.id;
-      const palette = tx.get('palettes', DEFAULT_PALETTE_ID) === undefined ? null : DEFAULT_PALETTE_ID;
+      // B13: the first modeling action creates the default palette (§5.19, §10 "Model scene").
+      const palette = prepared.content.ensureDefaultPalette(tx);
       const record: MeshRecord = {
         id: mesh,
         name: uniqueMeshName(tx, owner, label),

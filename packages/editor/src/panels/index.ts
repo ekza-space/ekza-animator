@@ -6,10 +6,12 @@ import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
 import { registerMeshCheckPanel } from './meshcheck';
 import { registerOutlinerPanel } from './outliner';
+import { registerPalettePanel } from './palette';
 import { registerTimelinePanel } from './timeline';
 import { registerToolkitPanel } from './toolkit';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
+import { registerModelStartOverlays } from './viewport/modelOverlays';
 
 /**
  * Registers every built-in panel. Each panel directory exports `register<Name>Panel`; panel owners edit only their
@@ -29,6 +31,10 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerMeshCheckPanel(registry),
     // M6a (M6A-SPEC §8.5, §8.6; B11): the Modeling Toolkit and B11's overlays (Last-op card, option box).
     registerToolkitPanel(registry),
+    // M6a (B13): the Palette panel (Model's right dock; a lazy body).
+    registerPalettePanel(registry),
+    // M6a (B13): the Model start card and the Getting started card (pane overlay slots).
+    registerModelStartOverlays(),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();
