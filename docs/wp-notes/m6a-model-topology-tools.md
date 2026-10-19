@@ -157,6 +157,22 @@ probe (neither committed; the probe stood in for B12a). **No Live Mirror decisio
 
 ## Gates (local, real Chrome; port 3252)
 
+Fix round 2, run on this branch's head (`e12d6db`, code unchanged since) in this worktree; the tree clean before and
+after; one e2e server (`NEXT_PUBLIC_EKZA_E2E=1` build, `next start -p 3252`) for both e2e runs, stopped afterwards, port
+free; the preview server untouched. Local B5 merges for the Bevel investigation were never committed and were aborted.
+
+| Gate | Result |
+|---|---|
+| `pnpm run format:check` | clean (1,405 files) |
+| `pnpm run lint` | rc 0, no findings |
+| `pnpm run typecheck` | rc 0 |
+| `pnpm run check:deps` | 15 packages follow the rules |
+| `pnpm run test` (forced: `turbo run test test:tooling --force --continue`, no cache) | 15 tasks green: anim-core 671, doc 235, doc-yjs 81, rig 202, io 176, mesh-core **717 + 3 skipped** (B12b: 6 in `test/ops-core/extrude-session-frame.test.ts`), mesh-view 74, editor-core **1092 + 12 skipped** (B12b: 35 in `test/topology`), curve-editor 207 + 3 skipped, viewport **193 + 3 skipped** (B12b: 29 + 2 READY.b5-gated in `test/m6a-topology`), editor 480 + 6 skipped, headless-tests 173, ui 87, web 16, tooling 14 |
+| `pnpm run build` (forced) | green |
+| `check:size` (not in B12b's gate list; reported) | **908,618 B > 900,000 B** (unchanged by fix round 2: its code is in lazy chunks); M6a eager delta +63,351 B (warning); the Model workspace chunk 119,568 B |
+| B12b e2e specs (04, 05, 06, 08, 17, 18, 20, 21, 22, 24, 28; project `chrome`) | **10 passed, 13 skipped** (the gated `test.fixme` parts), 0 failed |
+| Full e2e suite once (`EKZA_E2E_PORT=3252 pnpm run test:e2e`) | **137 passed, 44 skipped, 0 failed** (1.1 min) |
+
 Fix round 1, run on this branch's head in this worktree (the tree clean before and after apart from these notes; one
 e2e server on port 3252 for both e2e runs, stopped afterwards, port free; the preview server untouched):
 
