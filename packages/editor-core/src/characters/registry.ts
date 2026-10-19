@@ -6,6 +6,8 @@
 // - A structural rig change (rigs, controls, constraints, solvers) recompiles the program in place ('recompiled').
 // - Display models load after `setRenderer` (see `characters/models.ts`), then 'display' is emitted.
 // - Characters deleted while loading never get a runtime; undoing the deletion re-creates it from the parse cache.
+// - M6a (M6A-SPEC §4.2, §9 B0a): only asset-sourced characters get a runtime. A model-sourced character (M6b,
+//   `source.kind === 'model'`, `asset === null`) is skipped here until M6b builds its runtime from the skeleton.
 import type { Disposer } from '@ekza-animator/anim-core';
 import {
   type AnyChange,
@@ -31,6 +33,14 @@ import type {
   ModelLoader,
   Notifier,
 } from '../types';
+
+/** A character with a model asset (every character M6a writes; `asset === null` only for model sources, M6b). */
+type AssetCharacter = CharacterRecord & { readonly asset: AssetId };
+
+/** True for characters this registry builds runtimes for (asset-sourced). */
+export function isAssetCharacter(character: CharacterRecord): character is AssetCharacter {
+  return character.asset !== null && character.source?.kind !== 'model';
+}
 
 const STRUCTURAL_TABLES: ReadonlySet<TableName> = new Set<TableName>([
   'characters',
@@ -159,7 +169,7 @@ export function createCharacterRegistry(ctx: {
     ordered = runtimes;
   };
 
-  const fail = (character: CharacterRecord, error: unknown): void => {
+  const fail = (character: AssetCharacter, error: unknown): void => {
     entries.set(character.id, { state: 'failed', asset: character.asset });
     const message = error instanceof Error ? error.message : String(error);
     ctx.notify.toast({ kind: 'error', text: `Could not load "${character.name}": ${message}` });
@@ -189,7 +199,7 @@ export function createCharacterRegistry(ctx: {
   };
 
   /** Builds the runtime of a live character from its parsed model (idle while its rig records are missing). */
-  const build = (character: CharacterRecord, source: ModelSource): void => {
+  const build = (character: AssetCharacter, source: ModelSource): void => {
     const def = deps.rig.readRigDefinition(store, character.rig);
     if (def === undefined) {
       entries.set(character.id, { state: 'idle', asset: character.asset, source });
@@ -211,7 +221,7 @@ export function createCharacterRegistry(ctx: {
     loadDisplay(runtime);
   };
 
-  const sourceOf = (character: CharacterRecord): Promise<ModelSource | null> | ModelSource | null => {
+  const sourceOf = (character: AssetCharacter): Promise<ModelSource | null> | ModelSource | null => {
     let source = sources.get(character.asset);
     if (source === undefined) {
       source = deps.loadModel(character, ctx.assets);
@@ -220,7 +230,7 @@ export function createCharacterRegistry(ctx: {
     return source;
   };
 
-  const start = (character: CharacterRecord): void => {
+  const start = (character: AssetCharacter): void => {
     let source: Promise<ModelSource | null> | ModelSource | null;
     try {
       source = sourceOf(character);
@@ -242,7 +252,14 @@ export function createCharacterRegistry(ctx: {
         const current = store.get('characters', character.id);
         const entry = entries.get(character.id);
         // Deleted or re-pointed while loading: the next sync handles the character as it is now.
-        if (current === undefined || entry?.state !== 'loading' || current.asset !== character.asset) return;
+        if (
+          current === undefined ||
+          !isAssetCharacter(current) ||
+          entry?.state !== 'loading' ||
+          current.asset !== character.asset
+        ) {
+          return;
+        }
         if (resolved === null) entries.set(character.id, { state: 'idle', asset: character.asset, source: null });
         else build(current, resolved);
       },
@@ -251,7 +268,7 @@ export function createCharacterRegistry(ctx: {
         if (disposed) return;
         const entry = entries.get(character.id);
         const current = store.get('characters', character.id);
-        if (current !== undefined && entry?.state === 'loading') fail(current, error);
+        if (current !== undefined && isAssetCharacter(current) && entry?.state === 'loading') fail(current, error);
       },
     );
     track(loading);
@@ -266,7 +283,7 @@ export function createCharacterRegistry(ctx: {
     emit('removed', id);
   };
 
-  const recompile = (character: CharacterRecord, entry: Extract<Entry, { state: 'ready' }>): void => {
+  const recompile = (character: AssetCharacter, entry: Extract<Entry, { state: 'ready' }>): void => {
     const def = deps.rig.readRigDefinition(store, character.rig);
     if (def === undefined) {
       remove(character.id);
@@ -285,7 +302,12 @@ export function createCharacterRegistry(ctx: {
 
   /** Brings runtimes in line with the document; `touched` = characters with structural changes (all on load). */
   const sync = (touched: ReadonlySet<CharacterId> | 'all'): void => {
-    const live = new Map(store.list('characters').map((character) => [character.id, character]));
+    const live = new Map(
+      store
+        .list('characters')
+        .filter(isAssetCharacter)
+        .map((character) => [character.id, character]),
+    );
     for (const id of entries.keys()) if (!live.has(id)) remove(id);
     for (const [id, character] of live) {
       let entry = entries.get(id);

@@ -1,9 +1,10 @@
-// Contract file: MVP-SPEC §4.2 with the M2A-SPEC §4.2 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.2 with the M2A-SPEC §4.2 and M6A-SPEC §4.2 additions, copied verbatim (shapes are normative;
+// change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, KeyData, ReadonlyQuat, ReadonlyXf,
-  RotateOrder, SplineSet } from '@ekza-animator/anim-core';
-import type { AssetId, CameraId, CharacterId, ClipId, ConstraintId, ControlId, CurveId, KeyId, LayerId, RigId,
-  SolverId, UserId } from './ids';
+import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, JsonValue, KeyData, ReadonlyQuat,
+  ReadonlyVec3, ReadonlyXf, RotateOrder, SplineSet } from '@ekza-animator/anim-core';
+import type { AssetId, CameraId, CharacterId, ClipId, ConstraintId, ControlId, CurveId, GroupId, ImagePlaneId, JointId,
+  KeyId, LayerId, MeshId, PaletteId, RigId, SkeletonId, SolverId, SwatchId, UserId } from './ids';
 
 /** Soft-delete marker for structural records (research 06 R4). `at` = ms since epoch. */
 export type Tombstone = { readonly by: UserId; readonly at: number } | null;
@@ -51,19 +52,51 @@ export interface ProjectRecord {
   readonly upAxis: 'Y';
 }
 
+// ---------- changed (M6A-SPEC §4.2) ----------
 export interface AssetRecord {
   readonly id: AssetId;                        // sha256 hex
   readonly name: string;                       // original file name
-  readonly ext: 'glb' | 'vrm' | 'vrma';
-  readonly mime: 'model/gltf-binary';          // no registered media type exists for VRM/VRMA (research 03 §7.2)
+  readonly ext: 'glb' | 'vrm' | 'vrma' | 'png' | 'jpg';                          // changed: + png, jpg (image planes; archived under `images/`, §5.20)
+  readonly mime: 'model/gltf-binary' | 'image/png' | 'image/jpeg';               // changed
   readonly size: number;
-  readonly role: 'model' | 'animation-source';
+  readonly role: 'model' | 'animation-source' | 'reference-image';               // changed: + reference-image
+  /** v3 (ADR 0017 §7): null for assets imported before v3 and for plain imports; set by M7 generation. */
+  readonly provenance: AssetProvenance | null;
 }
+export interface AssetProvenance {
+  readonly origin: 'imported' | 'generated' | 'authored';
+  readonly derivedFrom: readonly DerivedFrom[];
+  readonly redistributable: Redistributable;
+  readonly generator: GeneratorProvenance | null;
+}
+/** Filled by M7; M6a only stores, validates, exports and lints it. */
+export interface GeneratorProvenance {
+  readonly kind: 'ai';
+  readonly digitalSourceType: string;          // IPTC, e.g. 'trainedAlgorithmicMedia'
+  readonly service: string;                    // 'tripo' | 'meshy' | 'selfhost' | …
+  readonly model: string;                      // pinned model version; never 'latest'
+  readonly op: string;                         // 'image-to-3d' | 'text-to-3d' | 'rig' | …
+  readonly params: Readonly<Record<string, JsonValue>>;
+  readonly inputSha256: readonly string[];
+  readonly termsSnapshot: Readonly<Record<string, JsonValue>> | null;
+  readonly rawSha256: string;
+  readonly postSteps: readonly { readonly op: string; readonly aiMarksMayBeAltered: boolean }[];
+  readonly promptSha256: string | null;
+  readonly prompt: string | null;              // only on the user's opt-in (Q-GEN-5)
+  readonly tier: 'paid' | 'free' | 'unknown';  // the user's attestation (Q-GEN-9)
+  readonly taskId: string | null;              // provider task id; document only, never exported
+}
+export type CharacterSource =
+  | { readonly kind: 'asset'; readonly asset: AssetId }
+  | { readonly kind: 'model'; readonly skeleton: SkeletonId };                  // M6b
 
 export interface CharacterRecord {
   readonly id: CharacterId;
   readonly name: string;
-  readonly asset: AssetId;
+  /** v3: kept so that projects without v3-only content stay usable by M2a apps (minWriterVersion 2). Equals
+   *  `source.asset` for asset-sourced characters; null exactly when `source.kind === 'model'` (M6b). */
+  readonly asset: AssetId | null;                                                // changed: nullable
+  readonly source: CharacterSource;                                              // v3
   readonly format: ModelFormat;
   readonly rig: RigId;
   readonly placement: ReadonlyXf;              // scene placement of the character root (MVP: offset along X per character)
@@ -274,6 +307,9 @@ export interface Tables {
   layers: LayerRecord;
   curves: CurveRecord;
   keys: KeyRecord;
+  // M6a (M6A-SPEC §4.2), changed: the seven modeling tables
+  meshes: MeshRecord; groups: GroupRecord; palettes: PaletteRecord;
+  swatches: SwatchRecord; imagePlanes: ImagePlaneRecord; skeletons: SkeletonRecord; joints: JointRecord;
 }
 export type TableName = keyof Tables;
 export type RecordOf<T extends TableName> = Tables[T];
@@ -282,8 +318,8 @@ export type AnyRecord = Tables[TableName];
 export type SoftDeletableTable = Exclude<TableName, 'project' | 'assets' | 'keys'>;
 export const BUILTIN_TABLES = [
   'project', 'assets', 'characters', 'rigs', 'controls', 'constraints', 'solvers', 'cameras', 'clips', 'layers',
-  'curves', 'keys',
-] as const;
+  'curves', 'keys', 'meshes', 'groups', 'palettes', 'swatches', 'imagePlanes', 'skeletons',
+  'joints' ] as const;                                                          // changed (appended, order fixed)
 export type BuiltinTableName = (typeof BUILTIN_TABLES)[number];
 
 /** CRDT document boundary (ADR 0002): scene | char:<CharacterId> | clip:<ClipId>. */
@@ -294,14 +330,16 @@ export type MergeUnit = 'record' | 'field';
 export const MERGE_UNIT: Readonly<Record<BuiltinTableName, MergeUnit>> = {
   project: 'field', assets: 'record', characters: 'field', rigs: 'field', controls: 'field',
   constraints: 'field', solvers: 'field', cameras: 'field', clips: 'field', layers: 'field', curves: 'field',
-  keys: 'record',
-};
+  keys: 'record', meshes: 'field', groups: 'field', palettes: 'field', swatches: 'field',
+  imagePlanes: 'field', skeletons: 'field', joints: 'field',
+};                                                                              // changed (M6a)
 
 /** WP-2 addition (docs/wp-notes/wp-2.md): resolves what a record alone cannot tell — rig-scoped records (controls,
  *  constraints, solvers) reference only their rig, and their partition is `char:<the rig's character>`. Stores pass
  *  a lookup over their own state; an unknown rig yields `undefined` (the record then belongs to `scene`). */
 export interface PartitionLookup {
   rigCharacter(rig: RigId): CharacterId | undefined;
+  skeletonCharacter(skeleton: SkeletonId): CharacterId | undefined;            // additive (M6a)
 }
 
 /** Runtime description of a table: built-ins are registered by `doc`, extensions call registerTable(). */
@@ -316,6 +354,126 @@ export interface TableDef {
   validate(record: unknown): readonly string[];
   /** Pure, idempotent migrations; index i migrates version i+1 → i+2. New IDs derive as hash(oldId + ':' + purpose). */
   readonly migrations: readonly ((record: unknown) => unknown)[];
+}
+
+// ---------- M6a new tables (M6A-SPEC §4.2) ----------
+export type MeshOwner = { readonly character: CharacterId } | { readonly scene: true };
+export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'cone' | 'plane' | 'torus' | 'humanoidBody';
+/** One field value = one merge unit (ADR 0015 §1). */
+export interface MeshRef {
+  readonly manifest: string;                   // sha256 hex of the revision manifest = the revision id
+  readonly rev: number;                        // 1 for the first revision, +1 per commit on this record
+  readonly base: string | null;                // parent revision (M3 fork detection); null for the first
+  /** Copy of the manifest's skin palette for `skin.skeleton` meshes (M6b), in palette order. [] without a skin **and
+   *  [] for an imported skin** (`skin: {asset, skin}`): its palette is the glTF skin's joints, identified only in the
+   *  `skin.*` layer meta, never as JointIds (M6a creates no JointRecords, so they would all look dangling). */
+  readonly joints: readonly JointId[];
+}
+export interface AssetMaterialRef { readonly asset: AssetId; readonly material: number }   // glTF material index
+export type MeshMaterial =
+  | { readonly preset: 'unlit' | 'toon' | 'lit' }                               // authored meshes ('toon' needs M6b)
+  | { readonly assetSlots: readonly AssetMaterialRef[] };                       // made editable: face material = slot
+export type ColourOutput = 'palette-texture' | 'vertex-colour' | 'material-per-colour';
+export type MeshBudget = { readonly preset: BudgetPresetId } | { readonly tris: number } | null;
+export type BudgetPresetId = 'hero' | 'npc' | 'boss' | 'handheld' | 'small-prop' | 'medium-prop' | 'building';
+export interface HandheldGrip {                // asset.extras.ekza_handheld_v1 (registry handheld-glb-v1)
+  readonly bone: 'rightHand' | 'leftHand';
+  readonly offset: ReadonlyVec3;               // metres, each |c| ≤ 0.3
+  readonly rotationDegrees: ReadonlyVec3;      // each |c| ≤ 360
+  readonly scale: number;                      // 0.25…2
+}
+export interface MeshRecord {
+  readonly id: MeshId;
+  readonly name: string;                       // ≤ 64 chars, unique per owner (repair appends ' 2')
+  readonly owner: MeshOwner;                   // partition: char:<id> | scene
+  readonly parent: GroupId | MeshId | null;    // same owner only
+  readonly order: string;                      // fractional index among siblings
+  readonly placement: ReadonlyXf;              // object transform relative to the parent (character root for owner.character)
+  readonly pivot: ReadonlyVec3;                // rotate/scale pivot in object space (D), default [0,0,0]
+  readonly source: { readonly asset: AssetId; readonly mesh: number } | null;   // glTF mesh it edits; null = authored
+  /** null is reserved (an asset-backed record without a revision): M6a never writes it. A glTF mesh that is not made
+   *  editable has **no record**; `mesh.makeEditable` creates the record and its first revision in one transaction. */
+  readonly data: MeshRef | null;
+  readonly faceted: boolean;                   // true for meshes made in the editor; smoothingAngle default 0° (§5.3)
+  readonly generator: { readonly kind: PrimitiveKind; readonly params: Readonly<Record<string, number | boolean | string>>;
+    readonly version: 1 } | null;              // live primitive parameters; null after the first component edit
+  readonly palette: PaletteId | null;
+  readonly material: MeshMaterial;
+  readonly colourOutput: ColourOutput;         // default 'palette-texture'
+  readonly skin: { readonly skeleton: SkeletonId; readonly bind: Readonly<Record<string, JsonValue>> | null }   // M6b
+              | { readonly asset: AssetId; readonly skin: number } | null;  // imported skin (glTF skin index)
+  readonly budget: MeshBudget;                 // null = the export profile's default
+  readonly handheld: HandheldGrip | null;      // only meaningful on an export root (§5.22)
+  readonly deleted: Tombstone;
+}
+export interface GroupRecord {                 // Ctrl+G transform nodes
+  readonly id: GroupId;
+  readonly name: string;
+  readonly owner: MeshOwner;
+  readonly parent: GroupId | null;
+  readonly order: string;
+  readonly placement: ReadonlyXf;
+  readonly pivot: ReadonlyVec3;
+  readonly template: { readonly kind: 'prop' | 'handheld' | 'humanoid'; readonly params: Readonly<Record<string, number | string | boolean>> } | null;
+  readonly budget: MeshBudget;
+  readonly handheld: HandheldGrip | null;
+  readonly deleted: Tombstone;
+}
+export interface PaletteRecord {
+  readonly id: PaletteId;
+  readonly name: string;                       // 'Ekza Default 16'
+  readonly order: string;
+  readonly deleted: Tombstone;
+}
+export interface SwatchRecord {
+  readonly id: SwatchId;
+  readonly palette: PaletteId;
+  /** u16 0…65534, unique among the palette's swatches including deleted ones, never reused; faces store it. */
+  readonly slot: number;
+  readonly order: string;                      // display order in the panel
+  readonly name: string;
+  readonly srgb: readonly [number, number, number];   // 8-bit sRGB integers 0…255
+  readonly kind: 'flat' | 'ramp';              // 'ramp' is M6a-stretch (validation accepts it; M6a renders it flat)
+  readonly ramp: readonly [readonly [number, number, number], readonly [number, number, number]] | null;
+  readonly deleted: Tombstone;
+}
+export type OrthoCamera = 'front' | 'side' | 'top';
+export interface ImagePlaneRecord {            // scene partition; never picked, never exported
+  readonly id: ImagePlaneId;
+  readonly name: string;
+  readonly camera: OrthoCamera;                // front = looking along −Z, side = along −X, top = along −Y
+  readonly asset: AssetId;                     // AssetRecord role 'reference-image'
+  readonly offset: readonly [number, number];  // metres, in the camera plane (right, up)
+  readonly size: number;                       // displayed image height in metres (default 2)
+  readonly opacity: number;                    // 0…1 (default 0.5)
+  readonly depth: 'behind' | 'front';          // default 'behind'
+  readonly locked: boolean;
+  readonly visible: boolean;
+  readonly order: string;
+  readonly deleted: Tombstone;
+}
+export interface SkeletonRecord {              // M6b creates them; M6a validates and preserves
+  readonly id: SkeletonId;
+  readonly character: CharacterId;
+  readonly template: 'vrm-humanoid' | 'generic';
+  readonly templateVersion: string;
+  readonly preset: 'lite17' | 'core21' | 'standard33' | 'full52' | 'custom';
+  readonly symmetry: boolean;
+  readonly deleted: Tombstone;
+}
+export interface JointRecord {                 // M6b creates them; M6a validates and preserves
+  readonly id: JointId;
+  readonly skeleton: SkeletonId;
+  readonly parent: JointId | null;
+  readonly order: string;
+  readonly name: string;
+  readonly humanBone: HumanBoneName | null;
+  readonly restPosition: ReadonlyVec3;         // character space, metres
+  readonly restRotation: ReadonlyQuat;         // identity by default
+  readonly tail: ReadonlyVec3 | null;
+  readonly side: Side;
+  readonly mirror: JointId | null;
+  readonly deleted: Tombstone;
 }
 
 /** Helper used by the curve engine: a curve record + its keys as an AnimCurve. */

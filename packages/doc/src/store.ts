@@ -1,8 +1,10 @@
-// Contract file: MVP-SPEC §4.2, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.2 with the M6A-SPEC §4.2 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { CharacterId, ClipId, ControlId, CurveId, LayerId, RigId, UserId } from './ids';
-import type { ChannelId, ClipRecord, ControlRecord, CurveRecord, IdOf, KeyRecord, LayerRecord, Partition,
-  RecordOf, RigRecord, SoftDeletableTable, TableName } from './records';
+import type { CharacterId, ClipId, ControlId, CurveId, GroupId, LayerId, MeshId, PaletteId, RigId, SkeletonId,
+  UserId } from './ids';
+import type { ChannelId, ClipRecord, ControlRecord, CurveRecord, GroupRecord, IdOf, ImagePlaneRecord, JointRecord,
+  KeyRecord, LayerRecord, MeshRecord, OrthoCamera, Partition, RecordOf, RigRecord, SoftDeletableTable, SwatchRecord,
+  TableName } from './records';
 
 export type Origin = 'local' | 'undo' | 'redo' | 'preview' | 'remote' | 'load' | 'import' | 'migration' | 'cleanup';
 
@@ -77,6 +79,13 @@ export interface DocQueries {
   controlByKey(rig: RigId, templateKey: string): ControlRecord | undefined;
   /** Partitions referenced by open records (character → char:, clip → clip:) that are not open. [] in the MVP. */
   missingPartitions(): readonly Partition[];
+  // ---------- M6a (M6A-SPEC §4.2) ----------
+  meshesOfOwner(owner: CharacterId | 'scene'): readonly MeshRecord[];          // by order
+  childrenOf(parent: GroupId | MeshId | null, owner: CharacterId | 'scene'): readonly (MeshRecord | GroupRecord)[];
+  swatchesOfPalette(palette: PaletteId): readonly SwatchRecord[];              // by order; live only
+  swatchBySlot(palette: PaletteId, slot: number): SwatchRecord | undefined;    // smallest SwatchId on a duplicate
+  imagePlanesOf(camera: OrthoCamera): readonly ImagePlaneRecord[];             // by order
+  jointsOfSkeleton(skeleton: SkeletonId): readonly JointRecord[];              // parents first, then order
 }
 
 export interface PreviewSession {
@@ -107,6 +116,8 @@ export interface UndoResult {
   readonly skipped: readonly { readonly change: AnyChange; readonly fields: readonly string[] | null; readonly reason: UndoSkipReason }[];
   readonly selection?: unknown;               // selectionBefore (undo) / selectionAfter (redo)
 }
+/** M6a: why entries left the undo manager for good (M6A-SPEC §4.2). */
+export type UndoEvictReason = 'limit' | 'clear' | 'budget' | 'redo-cleared' | 'load';
 export interface UndoManager {
   canUndo(): boolean;
   canRedo(): boolean;
@@ -119,6 +130,20 @@ export interface UndoManager {
   clear(): void;
   readonly limit: number;                      // default 500
   subscribe(listener: () => void): () => void;
+  /** M6a: every entry, oldest undo entry first, and the redo entries from the next redo to the last. Frozen views,
+   *  valid until the next store write and the same object until the stacks change: the first read after a change
+   *  builds them (O(n), n ≤ limit), every further read is O(1). A coalesced transaction replaces the top entry by a
+   *  merged one (same txId) or pops it when its edits cancel out; entries() shows that, onEvict does not report it
+   *  (transactions that write `meshes.data` never set a coalesceKey, §5.20). */
+  entries(): { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] };
+  /** M6a: entries leaving the manager for good (the 500 limit, clear(), evictOldest, a new transaction clearing
+   *  redo, load()). Called synchronously after the change, in eviction order. Coalescing is not an eviction. */
+  onEvict(listener: (entries: readonly UndoEntry[], reason: UndoEvictReason) => void): () => void;
+  /** M6a: drops the n oldest undo entries (the BlobStore byte budget, §5.20); fires onEvict(…, 'budget'). */
+  evictOldest(n: number): void;
+  /** M6a: drops every redo entry (a selection-only step in Model clears redo like a transaction does, §5.6); fires
+   *  onEvict(…, 'redo-cleared') when there was any. */
+  clearRedo(): void;
 }
 
 /** Known tables are typed; unknown tables (missing extensions, newer apps) are preserved verbatim. */

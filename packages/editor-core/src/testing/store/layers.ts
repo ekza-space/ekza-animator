@@ -91,10 +91,18 @@ export class RowView {
   ) {}
 
   partitionOf(table: string, row: Row): Partition {
-    return partitionOfRow(table, row, (rig) => {
-      const rigRow = this.source.raw('rigs', rig);
-      return rigRow === undefined ? undefined : String(rigRow['character']);
-    });
+    return partitionOfRow(
+      table,
+      row,
+      (rig) => {
+        const rigRow = this.source.raw('rigs', rig);
+        return rigRow === undefined ? undefined : String(rigRow['character']);
+      },
+      (skeleton) => {
+        const skeletonRow = this.source.raw('skeletons', skeleton);
+        return skeletonRow === undefined ? undefined : String(skeletonRow['character']);
+      },
+    );
   }
 
   /** Including soft-deleted records. */
