@@ -34,7 +34,7 @@ resolves, or when `app.extrude.state` becomes non-null after a `mesh.extrude` ru
 | M6A-B12B-2 | **Runner hooks** (B11's `operators/runner.ts`, two lines): `extrudeBeforeRun` after the first poll — an ending run ends the session before its `prepare`/`apply` read the mesh; `extrudeAfterRun` after the LastRun recorder — a finished `mesh.extrude` opens a session, an adjusted re-run pushes onto the args stack (or follows a stack step). | §5.8 "at the start of the ending gesture … before that gesture reads the mesh"; no other hook sees an operator's start. |
 | M6A-B12B-3 | **What ends the session**, mapped onto operators: any `flags.undo` or `flags.selection` operator and `edit.escape` (zero-drop), `workspace.set` leaving Model (zero-drop), `model.pivot.editToggle`/`mesh.pivot.*` (no drop); never `view.*`, `ui.*`, `edit.undo`/`edit.redo` (they step the stack), `edit.adjustLast` and its re-run, tool switches, `T`. A remote/import batch touching a target mesh ends it and drops after the store's emit. Safety net: the LastRun closing for a reason no operator reported (a store write by a gesture, an undo elsewhere) ends it without the drop. B10's `select.mode` and B9's `switchWorkspace` call `end` themselves. | §5.8 table. |
 | M6A-B12B-4 | **Workspace switch zero-drops** (B9's `workspaces/switch.ts` called `end('workspace', {drop: false})`; now `drop: true`, and B9's test literal follows). | §5.8 table: "workspace switch … yes / yes". |
-| M6A-B12B-5 | **The session frame** is the §5.8 region frame (B3's `regionFrame`) of the first region of the stored picks of the first target mesh (with `keepFacesTogether` off: the lowest-index face), taken right before the run (after a drop, whose cap kept the face indices); border edges: the chain frame of the lowest-index selected edge (X along it, Z its face's normal, Y away from the face). `T` reopens with a memo of that frame (it follows the extrude's adjusted steps); without one, the frame comes from the cap moved back by `localTranslate*` (exact when only translation moved the cap). | §5.8 step 4, §5.7 `T`. |
+| M6A-B12B-5 | **The session frame** is the §5.8 region frame (B3's `regionFrame`) of the first region of the stored picks of the first target mesh (with `keepFacesTogether` off: the lowest-index face), taken right before the run (after a drop, whose cap kept the face indices); border edges: the kernel's own §5.8 step 7 frame of the chain that holds the lowest-index selected border edge (`borderChainFrame`, exported by B3's `ops/extrude/edges.ts` next to `regionFrame`: the length-weighted pivot, X the summed edge directions projected, Z the averaged face normals, Y away from the faces), so absorbed drags convert in the frame the kernel applies them in (fix round 1). `T` reopens with a memo of that frame (it follows the extrude's adjusted steps); without one, the frame comes from the cap moved back by `localTranslate*` (exact when only translation moved the cap). | §5.8 step 4, §5.7 `T`. |
 | M6A-B12B-6 | **Absorption math** (`absorbArgs`, pure and exported): local args `t += Fᵀ·M⁻¹·Δt` (M = the placement's linear part), world args `t += Δt`; rotation about the cap's current pivot `R' = Aᵀ·ΔR·A·R` (A = the frame's world rotation; world args `R' = ΔR·R`), Euler xyz through `eulerNear` against the current angles; scale multiplies `localScale*` by the frame-aligned factors. The drag's start args are the stack's current entry; each update previews through B11's `beginCardPreview` (`base: 'before-last'`); `commit` runs one `edit.adjustLast` with the changed values (it commits the preview session). | §5.8 "Conversion uses the args frame A"; unit tests: a 30°-tilted face moved on world Y (data-tilted and through a rotated, scaled placement), two composed world rotations, scale. |
 | M6A-B12B-7 | **Smart extrude** (`beginSmartExtrude(app, ctx)`, the same `AbsorbGesture` shape): ends the open session with its zero-drop, takes the frame of the selection, previews a new `mesh.extrude` through a `MeshOpSession` from the current mesh (the option box's defaults under the drag's args) and runs **one** `mesh.extrude` on commit (`source: 'tool'`): the step and the card are titled "Extrude" (an adjust would label the step "Extrude (adjusted)"), and that run opens the next session. A commit without movement runs nothing. On the extrude manipulator the manipulator tool stays active through the drag. B12a's W/E/R tools call it when `Shift` is held at a handle drag's start (null: move normally — object mode, nothing to extrude). | §5.8 "Smart extrude"; E2E-MOD-18 "three 'Extrude' steps". |
 | M6A-B12B-8 | **The extrude manipulator is a viewport tool** (`VIEWPORT_TOOL.extrude`): a session switches the select tool to it (no other tool: W/E/R stay and absorb through B12a), its end hands the viewport back; the tool never lingers with nothing to show (a workspace's remembered tool falls back to select). Its handles reuse the W/E/R handle ids (`tx…tz`, `rx…rz`, `sx…sz`, `suniform`; the toggle is `space`), drawn at the manipulator size in px, placed per pane in `onBeforeRender`; picking is analytic (centre, toggle, cubes, arrows, rings). `screenOfManipulator` (B9's `manager/testApi.ts`) asks the topology kit first; a grab point always picks back as its own handle (a ring's widest point can lie on an arrow). | §4.6 `VIEWPORT_TOOL.extrude`, §4.7. |
@@ -43,11 +43,13 @@ resolves, or when `app.extrude.state` becomes non-null after a `mesh.extrude` ru
 | M6A-B12B-11 | **Component tools in object mode draw and pick components** (B6's `viewport/src/mesh/display.ts`: the display's component kind is the tool's — Multi-Cut, Insert Edge Loop, Slide: edges; Target Weld: vertices; Paint: faces — while B10 hilites the selected meshes for the tool). | §5.6 "Component tools in object mode"; E2E-MOD-05 starts in object mode. |
 | M6A-B12B-12 | **Multi-Cut details**: points on edges and vertices only (a click inside a face says "Click on an edge or a vertex: points inside faces arrive later"); consecutive points must share a face ("Click on each face the cut crosses") and the chord is validated by a scratch `mesh.cut` ("That cut would leave the face"); one mesh per cut; a single point cuts nothing. `Ctrl`-click loops pass `mode: 'relative'` (one loop, whatever the Insert Edge Loop option box says) and drop a cut in progress first (the loop renumbers it). | §5.11. |
 | M6A-B12B-13 | **The Model tools' help line**: `sayModelHelp`/`onModelHelp` (eager, `extrudeSession.ts`); B11's capture bridge (`editor/src/overlays/menus/optionBox.tsx`, one subscription) shows them. Tools say the first warning of a finished run and the reason of a refused one. | §5.14 "the help line says …", §5.8 "the help line mirrors it". |
-| M6A-B12B-14 | **The Inset/Bevel value handle**: after an Inset or Bevel from the select tool (any source but the card) the manipulator tool shows a diamond and a pane-right arrow at the result's centroid; dragging it is a virtual slider on `offset` / `fraction` (the shipped rates, `Shift` ×0.1, `Mod` ×10; B11's card preview; one `edit.adjustLast` on release); the select tool comes back when that operation stops being the live last one. Bevel's handle works once B5's bevel lands (READY.b5; the stub refuses). | §6.1 "B12b (handle)", research 16 §9. |
-| M6A-B12B-15 | **`PageUp`/`PageDown`** step the Insert Edge Loop count of a placement in progress (Multiple mode). Multi-Cut, Target Weld and Slide have no counts. | §5.10. |
+| M6A-B12B-14 | **The Inset/Bevel value handle**: after an Inset or Bevel from the select tool (any source but the card) the manipulator tool shows a diamond and a pane-right arrow at the result's centroid; dragging it is a virtual slider on `offset` / `fraction` (the shipped rates, `Shift` ×0.1, `Mod` ×10 per move; B11's card preview; one `edit.adjustLast` on release); the select tool comes back when that operation stops being the live last one. Bevel's handle works once B5's bevel lands (READY.b5; the stub refuses). | §6.1 "B12b (handle)", research 16 §9. |
+| M6A-B12B-15 | **`PageUp`/`PageDown`** step the Insert Edge Loop count of a placement in progress (Multiple mode). Multi-Cut, Target Weld and Slide have no counts. **Every reserved modal key** (`RESERVED_MODAL_KEYS`) is consumed by each topology tool while it is placing or dragging — acted on, or swallowed as a no-op (`Backspace` on Slide, Target Weld, Insert Edge Loop and the extrude manipulator/value handle; `PageUp`/`PageDown` without a count; `Enter` on the extrude manipulator and Target Weld) — so the keyboard adapter never falls through to the keymap's `mesh.delete`/`scene.delete` mid-gesture (fix round 1). | §5.10 "can never run `mesh.delete` on the selection". |
 | M6A-B12B-16 | **E2E-MOD-24's Average step** lifts one interior vertex first (`mesh.transformComponents`): a regular grid's interior vertices already sit at their neighbours' average, so Average would move none. | §10.1 assertion "interior vertices moved". |
 | M6A-B12B-17 | **Gated scenarios keep ungated B12b checks** in the same file (the B11 pattern): E2E-MOD-17 part (b) and the manipulator flow, -18 with the manipulator's `Shift` drags, -08 (a), (b) and the MMB weld, -24 without symmetry, -28 without the snap. The gated parts are `test.fixme('<§10.1 ids>')`: 04 `b12a, b13`; 08, 17, 18, 24, 28 `b12a`; 20, 21 (arm/waist), 22 `b12a, b13`; 21 (b), (c) `b12a`. Every spec picks screen points at least 24 px inside the pane (a point on a dock sash is not a click on the mesh). | §10.1 Gates. |
 | M6A-B12B-18 | **The status line's "Extrude · W World"** is not drawn: the status-line tool/space body is B12a's (B9 slots); it can read `app.extrude.state` and the tool's space. | §5.8 (B12a's status body). |
+| M6A-B12B-19 | **Drag speed on the extrude manipulator** (`dragSpeed`): `Shift` pressed after a drag has started is ×0.1, `Mod` ×10 (Shift wins), applied per move to that move's step of the drag value (translate/scale: the axis parameter; rotate: the angle; uniform: the factor's offset from 1), so a modifier change mid-drag never jumps. `Shift` held since the press is smart extrude and becomes fine only after it is released and pressed again. The value handle accumulates the same way. | §5.8 "Shift pressed after a drag has started is the fine adjustment", §7, S29. |
+| M6A-B12B-20 | **The zero-drop toast's Undo** is `edit.redo {step: <the dropped extrude's step id>}`: with a `step`, B11's `edit.redo` polls "Nothing to restore" unless that step is the history's top redo entry and never steps a session; without args it is unchanged. | §5.8 "runs `edit.redo` while that redo entry still exists". |
 
 ## Midpoint review (§5.14 overrun rule, Q-MOD-UI-9)
 
@@ -70,9 +72,14 @@ probe (neither committed; the probe stood in for B12a). **No Live Mirror decisio
   Model), B9's `viewport/src/manager/contributions.ts` (`registerTopologyTools`), B9's `viewport/src/manager/testApi.ts`
   (`screenOfManipulator` asks the extrude manipulator first), B6's `viewport/src/mesh/display.ts` (component tools in
   object mode), B11's `editor/src/overlays/menus/optionBox.tsx` (the Model tools' help line), `editor-core/src/index.ts`
-  (exports).
+  (exports); fix round 1: B11's `operators/builtin/edit.ts` (`edit.redo {step}`, M6A-B12B-20) and B3's
+  `mesh-core/src/ops/extrude/edges.ts` + `mesh-core/src/index.ts` (`borderChainFrame` exported next to `regionFrame`,
+  M6A-B12B-5). **§4.3 API addition**: `borderChainFrame(m: EditMesh, edges: ArrayLike<number>): OpFrame | null` (the
+  frame of the chain holding the lowest-index border edge; null without a border edge) — please add it to the §4.3
+  listing.
 - **Literal test updates at this merge of B3, B4, B10 and B11** (the refusal path and the read selection kept under
-  test): B0a's `test/m6a/mesh-runtime.test.ts` ×2 (real refusals: Extrude without a selection, Inset of a closed shell),
+  test): B0a's `test/m6a/mesh-runtime.test.ts` ×2 (real refusals: Extrude without a selection — exactly
+  `extrude.no-selection` since fix round 1 —, Inset of a closed shell),
   B7's `test/mesh/runtime.test.ts` ×5 and `test/mesh/setops.test.ts` ×2 (selections read through `selectionFor`, B10's
   service once it stores them), B9's `test/m6a/workspaces.test.ts` (drop true), B11's `test/ops-ui/lastrun.test.ts` ×2
   (the shim's `state` getter, `reopen` mocked to test only B11's call conditions), viewport's `test/operators.test.ts`
@@ -88,12 +95,28 @@ probe (neither committed; the probe stood in for B12a). **No Live Mirror decisio
   already measures **906,925 B > 900,000 B**; B12b adds about **+1.8 kB** (908,767 B before moving the zero-drop identity
   into the lazy engine): the shim and hooks (`extrudeSession.ts` ≈ 1.0 kB standalone gzip) and the eager tool
   definitions (`topology/index.ts` ≈ 0.8 kB). The engine, the kit, the manipulator drawing and the tools are lazy chunks.
+  Fix round 1 adds +78 B (the `edit.redo {step}` guard): **908,621 B**. Even without all of B12b's eager additions the
+  route stays above the gate (the base alone is 906,925 B), so trimming the shim or the tool definitions would not pass
+  it; the decision stays INT's/the owner's.
   The gate needs INT's/the owner's decision (M6A-B9-14 allowance) and the candidates B10 named (M6A-B10 "Eager route
   size").
 
+## Fix round 1
+
+| Problem (verifier, 388c3dd) | Resolution | Test |
+|---|---|---|
+| major: reserved modal keys fell through to the keymap mid-gesture (`Backspace` ran `mesh.delete`) in the extrude manipulator/value handle, Slide, Target Weld, Insert Edge Loop, Multi-Cut | every tool's `key()` consumes every `RESERVED_MODAL_KEYS` code while placing or dragging (M6A-B12B-15) | per tool, `viewport/test/m6a-topology/tools.test.ts`: each reserved code returns true during the gesture, no step, no mesh change; idle, false |
+| major: border-edge session frame from the lowest-index edge only (L-chain drag moved diagonally; pivot off the kernel's) | `borderChainFrame`, the kernel's chain frame (M6A-B12B-5) | `editor-core/test/topology/extrude-session.test.ts`: L-shaped and straight chains — pivot = kernel pivot, world drags move the outer edges exactly (1e-6) |
+| major: `Shift`/`Mod` ignored during manipulator drags | per-move drag speed (M6A-B12B-19) | Shift from the second move gives ×0.1 of each later step; `dragSpeed` |
+| minor: unguarded toast `edit.redo` | `edit.redo {step}` (M6A-B12B-20) | undo of an earlier Select, then the toast's Undo: "Nothing to restore"; after redoing the Select it restores |
+| minor: weakened B0a literal | exact `extrude.no-selection` | — |
+| minor: test gaps | Slide state machine (RMB ignored, `Esc` no step, MMB drag, typed percent), Target Weld RMB ignored, Multi-Cut `Ctrl`+MMB / `Ctrl+Shift` / `Shift` snap / 8 px vertex snap, reserved keys per tool, edge-chain sessions | as listed |
+| minor: `check:size` | not fixable inside B12b (see "Eager route"); needs the INT/owner decision | — |
+
 ## Gates (local, real Chrome; port 3252)
 
-Run on this branch's head in this worktree (the tree clean before and after; the server stopped, port 3252 free):
+Fix round 1, run on this branch's head in this worktree (the tree clean before and after apart from these notes; one
+e2e server on port 3252 for both e2e runs, stopped afterwards, port free; the preview server untouched):
 
 | Gate | Result |
 |---|---|
@@ -101,10 +124,15 @@ Run on this branch's head in this worktree (the tree clean before and after; the
 | `pnpm run lint` | rc 0, no findings |
 | `pnpm run typecheck` | rc 0 |
 | `pnpm run check:deps` | 15 packages follow the rules |
-| `pnpm run test` | 15 tasks green: anim-core 671, doc 235, doc-yjs 81, rig 202, io 176, mesh-core 711 + 3 skipped, mesh-view 74, editor-core **1083 + 12 skipped** (B12b: 27 in `test/topology`), curve-editor 207 + 3 skipped, viewport **176 + 1 skipped** (B12b: 12 in `test/m6a-topology`), editor 480 + 6 skipped, headless-tests 173, ui 87, web 16, tooling 14 |
+| `pnpm run test` | 15 tasks green (6 replayed from the cache: ui, doc, doc-yjs, anim-core, rig, tooling — inputs unchanged): anim-core 671, doc 235, doc-yjs 81, rig 202, io 176, mesh-core 711 + 3 skipped, mesh-view 74, editor-core **1086 + 12 skipped** (B12b: 29 in `test/topology`), curve-editor 207 + 3 skipped, viewport **186 + 1 skipped** (B12b: 22 in `test/m6a-topology`), editor 480 + 6 skipped, headless-tests 173, ui 87, web 16, tooling 14 |
 | `pnpm run build` | green |
-| `check:size` (not in B12b's gate list; reported) | **908,543 B > 900,000 B**: the merged base before B12b measures 906,925 B (pre-existing, B10 + B11 together); B12b adds **+1,618 B**; every lazy boundary holds; the Model workspace chunk 119,132 B |
-| B12b e2e specs (`--repeat-each=2`, project `chrome`) | **20 passed, 26 skipped** (the gated `test.fixme` parts with their §10.1 ids) |
+| `check:size` (not in B12b's gate list; reported) | **908,621 B > 900,000 B** (the base before B12b 906,925 B; B12b +1,696 B with fix round 1's +78 B); M6a eager delta +63,354 B (warning, not enforced); the Model workspace chunk 119,239 B |
+| B12b e2e specs (04, 05, 06, 08, 17, 18, 20, 21, 22, 24, 28; project `chrome`) | **10 passed, 13 skipped** (the gated `test.fixme` parts with their §10.1 ids), 0 failed |
 | Full e2e suite once (`EKZA_E2E_PORT=3252 pnpm run test:e2e`) | **137 passed, 44 skipped, 0 failed** (1.1 min) |
+
+Before fix round 1 (388c3dd), also recorded:
+
+| Gate | Result |
+|---|---|
 | Symmetric scenarios on a throwaway B13 merge with a temporary symmetry probe (not committed) | E2E-MOD-04, -20, -21 (a, b, c), -22 (a, b): **green**; -08 (c), -17, -18, -28's snap fail only where B12a's tools are needed (`scene.object.transform`, the component R/W manipulators, `V` snap) |
 | B11's E2E-MOD-19 (gated `b3, b10, b12b`) with the fixme removed locally | **green** (the extrude manipulator's `tz` drag) |
