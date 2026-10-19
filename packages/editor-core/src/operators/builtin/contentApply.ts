@@ -85,6 +85,7 @@ import {
   type Prepared,
   type Regenerated,
   TEMPLATE_PARAMS,
+  templateHeight,
   type TemplateId,
   type TemplateMesh,
   templateOf,
@@ -691,7 +692,10 @@ export function createTemplate(ctx: ApplyContext, args: OperatorArgs<'mesh.creat
       groupRecord(tx, {
         id: group,
         name: 'Humanoid',
-        template: { kind: 'humanoid', params: { height: raw['height'] as number, preset: raw['preset'] as string } },
+        template: {
+          kind: 'humanoid',
+          params: { height: templateHeight(app, 'humanoid', raw['height']), preset: raw['preset'] as string },
+        },
         budget: { preset: 'hero' },
         handheld: null,
       }),

@@ -152,7 +152,7 @@ describe('mesh.create.template (§5.16)', () => {
     expect(t.app.meshes.get(inGroup.root as MeshId)?.triangulation().tris.length).toBe(560 * 3);
   });
 
-  it("a body created into Humanoid guides without a height takes the guides' height; an explicit one wins", async () => {
+  it("a body made into Humanoid guides with height auto takes the guides' height; an explicit one wins", async () => {
     const t = await meshTestApp();
     const guides = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoid', height: 1.8 });
     const tall = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody' });
@@ -166,10 +166,16 @@ describe('mesh.create.template (§5.16)', () => {
     selectObjects(t, [guides.root]);
     const explicit = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody', height: 1.2 });
     expect(t.app.store.get('meshes', explicit.root as MeshId)?.generator?.params['height']).toBe(1.2);
-    // Outside a Humanoid group the param's default applies.
+    // `height: null` is the auto value a Last-op card re-run passes: resolved at invoke time again.
+    selectObjects(t, [guides.root]);
+    const auto = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody', height: null });
+    expect(t.app.store.get('meshes', auto.root as MeshId)?.generator?.params['height']).toBe(1.8);
+    // Outside a Humanoid group, and for the guides themselves, auto is 1.6 m.
     selectObjects(t, []);
     const free = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody' });
     expect(t.app.store.get('meshes', free.root as MeshId)?.generator?.params['height']).toBe(1.6);
+    const plain = await runValue<Created>(t, 'mesh.create.template', { template: 'humanoid' });
+    expect(t.app.store.get('groups', plain.root as GroupId)?.template?.params['height']).toBe(1.6);
   });
 
   it('an adjusted re-run (card) keeps the derived ids', async () => {
