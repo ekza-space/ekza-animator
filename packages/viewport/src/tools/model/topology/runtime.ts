@@ -55,8 +55,17 @@ const TOPOLOGY_TOOL_IDS: ReadonlySet<string> = new Set([
   VIEWPORT_TOOL.extrude,
 ]);
 
-/** The kernel ops whose live LastRun gets the value handle (§5.9: Inset offset, Bevel fraction). */
+/** The kernel ops whose live LastRun gets the value handle (§5.9: Inset offset, Bevel fraction) and their default param. */
 export const VALUE_HANDLE_OPS: Readonly<Record<string, string>> = { 'mesh.inset': 'offset', 'mesh.bevel': 'fraction' };
+
+/**
+ * The param the value handle drags for a run's args: Inset's offset; Bevel's fraction, or its absolute offset when
+ * the run has Offset as Fraction off (the fraction is then ignored by the op). Null for any other op.
+ */
+export function valueParamOf(opId: string, args: Readonly<Record<string, unknown>>): string | null {
+  if (opId === 'mesh.bevel' && args['offsetAsFraction'] === false) return 'offset';
+  return VALUE_HANDLE_OPS[opId] ?? null;
+}
 
 const IDENTITY: ReadonlyXf = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
 
@@ -384,10 +393,10 @@ export class TopologyRuntime {
   valueRun(): { readonly op: string; readonly param: string; readonly mesh: MeshId } | null {
     const last = liveLastRun(this.app);
     if (last === null || !last.adjustable) return null;
-    const param = VALUE_HANDLE_OPS[last.id];
+    const param = valueParamOf(last.id, last.args);
     const mesh = last.targets[0];
     const model = this.app.session.getState().model;
-    if (param === undefined || mesh === undefined || !model.hilite.includes(mesh)) return null;
+    if (param === null || mesh === undefined || !model.hilite.includes(mesh)) return null;
     if (last.kind === null || model.componentMode !== last.kind) return null;
     return { op: last.id, param, mesh };
   }
