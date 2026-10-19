@@ -6,7 +6,7 @@
 import type { MeshId } from '@ekza-animator/doc';
 import { editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
-import type { NumericCapture } from '../../src';
+import { beginCardPreview, type NumericCapture } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
 import { enterModel } from './model';
 import { READY } from './ready';
@@ -168,6 +168,32 @@ describe.skipIf(!READY.b3)('Extrude through the capture window (READY.b3)', () =
     await t.app.run('edit.adjustLast', { args: { divisions: 2 } });
     expect(counts(t, t.id)).toBe('16/28/14');
     expect(undoLength(t)).toBe(steps);
+    t.app.history.undo();
+    expect(counts(t, t.id)).toBe('8/12/6');
+  });
+});
+
+describe.skipIf(!READY.b3)('the card preview with the real Extrude (READY.b3)', () => {
+  it('a label drag previews from the pre-op mesh; the release commits the session: one step, bit-identical', async () => {
+    const t = await cubeIn('face', topFace);
+    await t.app.runUntyped('mesh.extrude', { localTranslateZ: 0.2 }, { source: 'menu' });
+    const steps = undoLength(t);
+    const doc = t.app.store.get('meshes', t.id)?.data;
+    const preview = beginCardPreview(t.app);
+    expect(preview).not.toBeNull();
+    preview?.update({ localTranslateZ: 0.4 });
+    preview?.update({ localTranslateZ: 0.5 });
+    expect(preview?.slow).toBe(false);
+    expect(counts(t, t.id)).toBe('12/20/10');
+    expect(t.app.store.get('meshes', t.id)?.data).toBe(doc);
+    const result = await t.app.run('edit.adjustLast', { args: { localTranslateZ: 0.5 } });
+    expect(result.status).toBe('finished');
+    expect(t.app.meshes.session).toBeNull();
+    expect(undoLength(t)).toBe(steps);
+    expect(t.app.history.peekUndo()?.label).toBe('Extrude (adjusted)');
+    const f = await cubeIn('face', topFace);
+    await f.app.runUntyped('mesh.extrude', { localTranslateZ: 0.5 });
+    expect(positionsOf(t, t.id)).toEqual(positionsOf(f, f.id));
     t.app.history.undo();
     expect(counts(t, t.id)).toBe('8/12/6');
   });

@@ -10,6 +10,7 @@ import type { MeshId } from '@ekza-animator/doc';
 import * as kernel from '@ekza-animator/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  type ComponentSelectionService,
   type EditorApp,
   type KernelMeshRuntimes,
   LAST_RUN_CLOSED,
@@ -21,8 +22,10 @@ import {
   registeredMeshOperator,
   switchWorkspace,
 } from '../../src';
+import type * as ComponentsFactory from '../../src/app/factories/components';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';
 import { enterModel } from './model';
+import { READY } from './ready';
 import { ADVANCE, type AdvanceOp } from './support';
 
 vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
@@ -30,6 +33,36 @@ vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
   const { makeAdvanceOp } = await import('./support');
   const advance = makeAdvanceOp(actual);
   return { ...actual, MESH_OPS: Object.freeze({ ...actual.MESH_OPS, [advance.id]: advance }), __advance: advance };
+});
+
+/**
+ * The B0a component selection service never changes; each app's service is wrapped so a test can bump its version as
+ * B10's does on a selection change (`componentBumps`, one per app, in creation order).
+ */
+const componentBumps = vi.hoisted(() => [] as ((changed: boolean) => void)[]);
+
+vi.mock('../../src/app/factories/components', async (importOriginal) => {
+  const actual = await importOriginal<typeof ComponentsFactory>();
+  return {
+    createComponents(deps: Parameters<typeof actual.createComponents>[0]): ComponentSelectionService {
+      const real = actual.createComponents(deps);
+      const listeners = new Set<(version: number) => void>();
+      let version = real.version;
+      componentBumps.push((changed) => {
+        if (changed) version++;
+        for (const listener of Array.from(listeners)) listener(version);
+      });
+      return Object.create(real, {
+        version: { get: () => version },
+        subscribe: {
+          value: (listener: (version: number) => void) => {
+            listeners.add(listener);
+            return () => listeners.delete(listener);
+          },
+        },
+      }) as ComponentSelectionService;
+    },
+  };
 });
 
 const advanceOp = (): AdvanceOp => (kernel as unknown as { __advance: AdvanceOp }).__advance;
@@ -221,6 +254,23 @@ describe('when the card closes (§5.7 table)', () => {
     const u = await recorded();
     u.app.session.setState({ model: { ...u.app.session.getState().model, hilite: [] } });
     expect(live(u.app)?.closed).toBe(LAST_RUN_CLOSED.selection);
+  });
+
+  it("a component selection change (the selection service's version; B10 bumps it)", async () => {
+    const t = await setup();
+    const bump = componentBumps.at(-1);
+    await t.app.runUntyped('mesh.test.advance', { dy: 0.2 }, { source: 'keyboard' });
+    expect(live(t.app)?.closed).toBeNull();
+    bump?.(false); // a notification with the same version keeps the card
+    expect(live(t.app)?.closed).toBeNull();
+    bump?.(true);
+    expect(live(t.app)?.closed).toBe(LAST_RUN_CLOSED.selection);
+  });
+
+  it.skipIf(!READY.b10)("a component selection change through B10's service (READY.b10)", async () => {
+    const t = await recorded();
+    t.app.components.set(t.id, kernel.selectionOf('face', [3], kernel.primitive('cube', {}).counts));
+    expect(live(t.app)?.closed).toBe(LAST_RUN_CLOSED.selection);
   });
 
   it('undo or redo of any step', async () => {
