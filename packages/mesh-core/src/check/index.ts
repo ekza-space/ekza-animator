@@ -10,7 +10,7 @@
 // | zero-area-face | height (2 × area / longest edge) or longest edge ≤ 1e-6 × the diagonal | face |
 // | inconsistent-winding | a two-face edge both faces traverse in the same direction | edge |
 // | nonplanar-ngon | an n-gon (n ≥ 5) whose farthest corner from its Newell plane is > 1 % of its size (bounding-box diagonal) | face |
-// | concave-ngon | an n-gon (n ≥ 5) with a reflex corner on its plane | face |
+// | concave-ngon | an n-gon (n ≥ 5) with a reflex corner on its plane, deeper than 1e-6 × the diagonal | face |
 // | ngon-degenerate | an n-gon earcut cannot triangulate (the fan fallback of §5.4) | face |
 // | stray-vertex | a valence-2 vertex whose edges are collinear within 1° | point |
 // | loose-geometry | vertices without edges; edges without faces | point; edge |
@@ -146,8 +146,12 @@ function isPlanar(m: EditMesh, corners: readonly number[]): boolean {
   return worst <= 0.01 * size;
 }
 
-/** Whether a corner of the face turns against the face's Newell normal (a reflex corner on its plane). */
-function hasReflexCorner(m: EditMesh, corners: readonly number[]): boolean {
+/**
+ * Whether a corner of the face turns against the face's Newell normal (a reflex corner on its plane) by more than
+ * `tolerance`: the corner's distance from the line through its neighbours, so straight runs (a chamfer's profile
+ * points on a face, stored in float32) are not reflex.
+ */
+function hasReflexCorner(m: EditMesh, corners: readonly number[], tolerance: number): boolean {
   const length = newellOf(m, corners);
   if (!(length > 0)) return false;
   const nx = NORMAL[0] as number;
@@ -166,9 +170,10 @@ function hasReflexCorner(m: EditMesh, corners: readonly number[]): boolean {
     const wy = (p[c + 1] as number) - (p[b + 1] as number);
     const wz = (p[c + 2] as number) - (p[b + 2] as number);
     const turn = (uy * wz - uz * wy) * nx + (uz * wx - ux * wz) * ny + (ux * wy - uy * wx) * nz;
-    // A straight corner (collinear) is not reflex: the tolerance is relative to the two edges and the normal.
-    const scale = Math.hypot(ux, uy, uz) * Math.hypot(wx, wy, wz) * length;
-    if (turn < -1e-9 * scale) return true;
+    // |u × w| = |c − a| × the corner's distance from the line a–c; the turn is that times |N| with its sign.
+    const chord = Math.hypot(ux + wx, uy + wy, uz + wz);
+    if (!(chord > 0)) continue;
+    if (turn / (length * chord) < -tolerance) return true;
   }
   return false;
 }
@@ -297,7 +302,7 @@ export function checkMesh(input: EditMesh | MeshData, opts: CheckOptions = {}): 
   for (let f = 0; f < F; f++) {
     if (!visibleFace(f) || m.faceLen(f) < 5) continue;
     faceCorners(m, f, corners);
-    if (hasReflexCorner(m, corners)) add('concave-ngon', 'face', f);
+    if (hasReflexCorner(m, corners, threshold)) add('concave-ngon', 'face', f);
   }
   for (let f = 0; f < F; f++) {
     if (visibleFace(f) && m.faceLen(f) >= 5 && isDegenerateNgon(m, f)) add('ngon-degenerate', 'face', f);
