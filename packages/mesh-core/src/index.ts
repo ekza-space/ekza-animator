@@ -20,19 +20,13 @@ export { topologyStats } from './validate/stats';
 export { triangulate } from './triangulate/triangulate';
 export { validateMesh } from './validate/validate';
 // ---------- B2 ----------
-export {
-  convertSelection,
-  edgeLoop,
-  edgeRing,
-  faceLoop,
-  growSelection,
-  loopGesture,
-  partialLoop,
-  shrinkSelection,
-  vertexLoop,
-} from './stubs/select';
-export { softWeights } from './stubs/soft';
-export { buildSymmetryMap, expandSelection, mirrorEdgePoint } from './stubs/symmetry';
+export { loopGesture } from './select/gesture';
+export { edgeLoop, edgeRing, faceLoop, partialLoop, vertexLoop } from './select/loops';
+export { convertSelection, growSelection, shrinkSelection } from './select/region';
+export { softWeights } from './soft/weights';
+export { expandSelection } from './symmetry/expand';
+export { buildSymmetryMap } from './symmetry/map';
+export { mirrorEdgePoint } from './symmetry/pointer';
 // ---------- B3 ----------
 export { regionFrame } from './stubs/frame';
 // ---------- B4 ----------
