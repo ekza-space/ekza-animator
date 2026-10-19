@@ -351,6 +351,23 @@ describe('symmetry', () => {
     run(m, sel(m, 'vertex', [b, a]), { translateX: 0.1 }, context({ symmetry: { map, preserveSeam: true } }));
     expect(gap(position(m, a), [0.6, 0.5, 0.5])).toBeLessThan(1e-6);
     expect(gap(position(m, b), [-0.6, 0.5, 0.5])).toBeLessThan(1e-6);
+    // Mirrored picks whose positions do not cancel exactly (partners within the tolerance, 1e-6 m apart): the noise
+    // in their mean must not choose the side; the pivot lies on the plane, so the positive side moves by M.
+    const e = 1e-6;
+    const c = editMeshFrom(
+      buildMeshData({
+        positions: [0.5, 0, 0, 1, 0, 0, 1, 1, 0, 0.5, 1, 0, -0.5 - e, 0, 0, -1 - e, 0, 0, -1 - e, 1, 0, -0.5 - e, 1, 0],
+        faces: [
+          [0, 1, 2, 3],
+          [7, 6, 5, 4],
+        ],
+      }),
+    );
+    const cmap = X(c);
+    expect(cmap.face[0]).toBe(1);
+    run(c, sel(c, 'face', [0, 1]), { translateX: 0.1 }, context({ symmetry: { map: cmap, preserveSeam: true } }));
+    expect(position(c, 0)[0]).toBeCloseTo(0.6, 6);
+    expect(position(c, 4)[0]).toBeCloseTo(-0.6 - e, 6);
   });
 
   it('a stale map (other vertex count) is a caller error', () => {

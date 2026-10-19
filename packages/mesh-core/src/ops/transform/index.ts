@@ -374,19 +374,23 @@ function plan(
     weights = softWeights(m, moving, { ...ctx.soft, placement: ctx.placement, hidden });
   }
   const p = m.position;
-  // Source side: the mean signed distance of the off-seam picks, else the pivot's side, else positive.
+  // Source side: the side of the off-seam picks (their mean signed distance beyond the tolerance), else the pivot's
+  // side, else positive (two-sided symmetric picks: float noise in the mean must not pick the side).
   let source = 1;
-  if (space !== null && partner !== null) {
+  if (space !== null && partner !== null && symmetry !== null) {
+    const tolerance = symmetry.map.tolerance;
     let sum = 0;
+    let count = 0;
     picked.forEach((v) => {
       if (partner[v] === v) return;
       sum += planeDistance(space, p[3 * v] as number, p[3 * v + 1] as number, p[3 * v + 2] as number);
+      count++;
     });
-    if (sum !== 0) source = Math.sign(sum);
+    if (count > 0 && Math.abs(sum / count) > tolerance) source = Math.sign(sum);
     else {
       const local = a34Point(a34Invert(placementAffine(ctx.placement)), pivot[0], pivot[1], pivot[2]);
       const d = planeDistance(space, local[0], local[1], local[2]);
-      if (symmetry !== null && Math.abs(d) > symmetry.map.tolerance) source = Math.sign(d);
+      if (Math.abs(d) > tolerance) source = Math.sign(d);
     }
   }
   const moved: number[] = [];
