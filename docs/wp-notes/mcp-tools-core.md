@@ -93,6 +93,9 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
   goal tools answer `busy` while the character is still loading.
 - **MAI-P2-22** Examples (MAI-D0-25 hand-off): every catalogue tool has a minimal `example`, including the other
   packages' definitions (additive `example` lines only, not in the manifest).
+- **MAI-P2-23** `bodyParts` may resolve up to 1,000 controls (`CONTROLS_MAX`, a whole rig with its secondary chains):
+  §5.5 bounds writes by key records (≤ 50,000), curves (`keys_adjust` ≤ 200) and frames; the `controls` lists of the
+  schemas stay ≤ 100 and `pose_set` ≤ 100 items, so "retime the whole clip" works on rigs with many controls.
 
 ## Gated on P1 — merge P1 before P2 (§10.1 order)
 
@@ -146,7 +149,14 @@ shown pose) — scripted through the runtime, graded on raw bone worlds from `ev
 the text rules), `tools-invariant` 1 (200 random calls, seeded), `tools-resolve` 5, `ae-scripts` 6; D0's
 `runtime.test.ts` literal updates. agent-tools: 194 passed, 8 skipped (P1 gates and the manifest update mode).
 
-## Gates
+## Gates (2026-10-20, local)
 
-See the final report of the run (format:check, lint, typecheck, check:deps, check:licenses, check:fixtures, the full
-unit gate, `mcp:build`, `ai-00-foundation` and the full e2e suite with `--project=chrome` on port 3272).
+`format:check` (1,068 files), `lint` (oxlint type-aware, 0 findings), `typecheck`, `check:deps` (18 packages),
+`check:licenses` (174 production packages), `check:fixtures` green. `pnpm run test` with `CI` unset (browser suites
+in local Chrome): 19/19 turbo tasks green — agent-tools 194 passed / 8 skipped, ekza-animator-mcp 13 (the built bin),
+editor-core 769, headless-tests 173, editor 355 / 1 skipped, viewport 104 / 1 skipped, curve-editor 209 / 3
+skipped, anim-core 650, the rest unchanged. No UI was touched (no `build` / `check:size` run needed); `mcp:build`
+rebuilt `dist/cli.mjs`. E2E with `--project=chrome`, `EKZA_E2E_PORT=3272`, one fresh e2e build: P2 has no e2e spec of
+its own; `ai-00-foundation` (the built server lists the committed manifest's 24 ready tools) 2/2, and the full suite
+once: 116 tests, 107 passed, 9 skipped (pre-existing fixmes), 0 failed. The web server stopped by itself; port 3272
+is free.

@@ -637,7 +637,7 @@ function allOrNamed(
     const rig = ctx.app.store.query.rigOfCharacter(target.character.id);
     return rig === undefined ? [] : ctx.app.store.query.controlsOfRig(rig.id);
   }
-  return resolveControls(ctx.app, ctx.resolve, target.character.id, controls, bodyParts, { max: 1_000 });
+  return resolveControls(ctx.app, ctx.resolve, target.character.id, controls, bodyParts);
 }
 
 export async function poseTransfer(ctx: AgentToolContext, args: PoseTransferArgs): Promise<AgentToolResult<unknown>> {

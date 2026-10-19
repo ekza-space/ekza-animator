@@ -45,6 +45,7 @@ export {
 } from './runtime/toolkit';
 export {
   AGENT_RANGE_MAX,
+  CONTROLS_MAX,
   type ChannelTargetRef,
   channelTargets,
   checkFrames,

@@ -35,6 +35,12 @@ export interface ChannelTargetRef {
   readonly channel: ChannelId;
 }
 
+/**
+ * Controls one call may resolve through `bodyParts` (§5.5 bounds work by key records, curves and frames; `controls`
+ * itself is ≤ 100 in the schemas): a whole rig with its secondary chains fits.
+ */
+export const CONTROLS_MAX = 1_000;
+
 /** Controls named by `controls` and/or `bodyParts` (deduplicated, in rig order). */
 export function resolveControls(
   app: EditorApp,
@@ -51,7 +57,7 @@ export function resolveControls(
   }
   const rig = app.store.query.rigOfCharacter(character);
   const ordered = rig === undefined ? [] : app.store.query.controlsOfRig(rig.id).filter((c) => ids.has(c.id));
-  const max = opts?.max ?? 100;
+  const max = opts?.max ?? CONTROLS_MAX;
   if (ordered.length > max) {
     throw new AgentToolFailure(
       'limit',
