@@ -13,17 +13,24 @@ import {
   primitive,
   selectionOf,
 } from '../../src';
-import { expandWithPartners, mirrorEdgePointOf, vertexPartners } from '../../src/subset/symmetry';
+import {
+  expandWithPartners,
+  mirrorEdgePointOf,
+  mirrorOf,
+  mirrorPlane,
+  vertexPartners,
+} from '../../src/subset/symmetry';
 import { READY } from '../ready';
 import { context, edgeAt, position, runOk, vertexAt } from './harness';
 import { asymmetry, testSymmetryMap } from './symmetry-fixture';
 
 const IDENTITY = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } as const;
+const OBJECT_X = mirrorPlane({ axis: 'x', space: 'object', placement: IDENTITY });
 
 describe('vertex partners (§5.14 rule)', () => {
   it('a 2×1×1 cube: seam vertices are their own partners, the others mutual pairs', () => {
     const m = editMeshFrom(primitive('cube', { width: 2, subdivisionsWidth: 2 }));
-    const { partner, unmatched } = vertexPartners(m, 'x', 0, 0.001);
+    const { partner, unmatched } = vertexPartners(m, OBJECT_X, 0.001);
     expect(unmatched).toBe(0);
     for (let v = 0; v < m.counts.points; v++) {
       const p = position(m, v);
@@ -44,7 +51,7 @@ describe('vertex partners (§5.14 rule)', () => {
     m.makeVert(-1.0003, 0, 0);
     m.makeVert(-0.9998, 0, 0.0007);
     m.end();
-    const { partner } = vertexPartners(m, 'x', 0, 0.001);
+    const { partner } = vertexPartners(m, OBJECT_X, 0.001);
     expect(partner[4]).toBe(5);
     expect(partner[5]).toBe(4);
     expect(partner[6]).toBe(-1);
@@ -58,13 +65,21 @@ describe('the pointer rule (mirrorEdgePointOf)', () => {
   it('a crossing edge maps t ↦ 1 − t, and a point near the plane snaps to t*', () => {
     const e = edgeAt(m, [-0.5, 0.5, 0.5], [0.5, 0.5, 0.5]);
     expect(map.edgeSelf[e]).toBe(1);
-    expect(mirrorEdgePointOf(m, map, { edge: e, t: 0.3 })).toEqual({ edge: e, t: 0.7, self: false });
-    expect(mirrorEdgePointOf(m, map, { edge: e, t: 0.50005 })).toEqual({ edge: e, t: 0.5, self: true });
+    expect(mirrorEdgePointOf(m, mirrorOf(map, IDENTITY), { edge: e, t: 0.3 })).toEqual({
+      edge: e,
+      t: 0.7,
+      self: false,
+    });
+    expect(mirrorEdgePointOf(m, mirrorOf(map, IDENTITY), { edge: e, t: 0.50005 })).toEqual({
+      edge: e,
+      t: 0.5,
+      self: true,
+    });
   });
 
   it('an ordinary edge maps to its partner, reversed when the partner runs the other way', () => {
     const e = edgeAt(m, [0.5, -0.5, 0.5], [0.5, 0.5, 0.5]);
-    const mapped = mirrorEdgePointOf(m, map, { edge: e, t: 0.25 });
+    const mapped = mirrorEdgePointOf(m, mirrorOf(map, IDENTITY), { edge: e, t: 0.25 });
     const partner = map.edge[e] as number;
     expect(mapped?.edge).toBe(partner);
     expect(mapped?.t).toBe(map.edgeReversed[e] === 1 ? 0.75 : 0.25);
@@ -75,7 +90,11 @@ describe('the pointer rule (mirrorEdgePointOf)', () => {
     const cmap = testSymmetryMap(c);
     const e = edgeAt(c, [0, -0.5, 0.5], [0, 0.5, 0.5]);
     expect(cmap.edgeSelf[e]).toBe(2);
-    expect(mirrorEdgePointOf(c, cmap, { edge: e, t: 0.3 })).toEqual({ edge: e, t: 0.3, self: true });
+    expect(mirrorEdgePointOf(c, mirrorOf(cmap, IDENTITY), { edge: e, t: 0.3 })).toEqual({
+      edge: e,
+      t: 0.3,
+      self: true,
+    });
   });
 
   it('the expansion adds partners and lists components without one', () => {
@@ -117,7 +136,9 @@ describe.skipIf(!READY.b2)('agreement with B2 (READY.b2)', () => {
       const map = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY, tolerance: 1e-4 });
       for (let e = 0; e < m.counts.edges; e++) {
         for (const t of [0.1, 0.5, 0.73]) {
-          expect(mirrorEdgePoint(m, map, { edge: e, t })).toEqual(mirrorEdgePointOf(m, map, { edge: e, t }));
+          expect(mirrorEdgePoint(m, map, { edge: e, t })).toEqual(
+            mirrorEdgePointOf(m, mirrorOf(map, IDENTITY), { edge: e, t }),
+          );
         }
       }
       const sel = selectionOf(

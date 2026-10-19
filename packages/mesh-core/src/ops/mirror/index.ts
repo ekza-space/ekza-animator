@@ -7,7 +7,8 @@
 //    the plane (`keep` names the source half: positive = +axis) is deleted with its unused edges and vertices.
 // 3. The source half is copied with positions reflected and **corner order reversed** (outward winding); layers by
 //    their mirror rules (§5.2: morph axis negated and `_L`/`_R` swapped, joints through the palette's mirror pairs,
-//    U flipped when `flipUVs`, custom normals negated on the axis); copied edges keep their source's flags.
+//    U flipped when `flipUVs`, custom normals negated on the axis — in World position on a rotated mesh, morph deltas
+//    and custom normals go through the local reflection itself); copied edges keep their source's flags.
 // 4. `mergeMode: 'merge'` shares the on-plane vertices between the halves (seam edges are the same edge: H3 trivially);
 //    `'none'` duplicates them (the halves stay apart). Faces lying in the plane are not copied in merge mode (they would
 //    be laminas).
@@ -16,7 +17,6 @@
 // `selection′` = every face (face memory). Half cube (centre loop, −X faces deleted) 8/12/5 → 12/20/10.
 import { mat4Invert, mat4Multiply, type ParamValues } from '@ekza-animator/anim-core';
 import { EDGE_HARD, FACE_FLIP_DIAGONAL } from '../../constants';
-import { mirrorCornerAttributes, mirrorPointAttributes } from '../../layers/propagate';
 import { allEdgesHard } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
 import { refuse } from '../../refusal';
@@ -34,6 +34,7 @@ import {
   str,
   vertEdges,
 } from '../../subset/support';
+import { type MirrorPlane, mirrorCornerLayers, mirrorPlane, mirrorPointLayers } from '../../subset/symmetry';
 import { triangulate as triangulation } from '../../triangulate/triangulate';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';
 import { MIRROR } from './descriptor';
@@ -110,8 +111,12 @@ export const mirror: MeshOp = Object.freeze({
     const axis = str<Axis>(args, 'axis', 'x');
     const k = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
     const keep = str<string>(args, 'keep', 'positive') === 'negative' ? -1 : 1;
-    const plane = str<string>(args, 'position', 'object') === 'world' ? worldPlane(k, ctx) : objectPlane(k);
+    const space = str<string>(args, 'position', 'object') === 'world' ? 'world' : 'object';
+    const plane = space === 'world' ? worldPlane(k, ctx) : objectPlane(k);
     if (plane === null) return refuse('mirror.placement', 'The mesh placement cannot be inverted (zero scale)');
+    // Vector layers (morph deltas, custom normals) reflect through the same mirror: along the local axis it runs on, or
+    // through the full reflection when the world plane is oblique in local space (a rotated mesh).
+    const layerMirror: MirrorPlane = mirrorPlane({ axis, space, placement: ctx.placement });
     const cutMesh = bool(args, 'cutMesh', true);
     const merge = str<string>(args, 'mergeMode', 'merge') === 'merge';
     const threshold = Math.max(0, num(args, 'mergeThreshold', 0.001));
@@ -241,7 +246,7 @@ export const mirror: MeshOp = Object.freeze({
           }
           plane.reflect(pos[3 * v] as number, pos[3 * v + 1] as number, pos[3 * v + 2] as number, OUT);
           const w = m.makeVert((OUT[0] as number) + 0, (OUT[1] as number) + 0, (OUT[2] as number) + 0);
-          mirrorPointAttributes(m, v, w, axis);
+          mirrorPointLayers(m, layerMirror, v, w);
           positiveZeros(m, 'point', w);
           copyOf[v] = w;
         }
@@ -256,7 +261,7 @@ export const mirror: MeshOp = Object.freeze({
         if (m.faceFlags(f) !== 0) m.setFaceFlags(g, m.faceFlags(f));
         let c = m.faceCorner(g);
         for (const source of corners) {
-          mirrorCornerAttributes(m, source, c, axis, { flipUVs });
+          mirrorCornerLayers(m, layerMirror, source, c, { flipUVs });
           positiveZeros(m, 'corner', c);
           c = m.cornerNext(c);
         }

@@ -15,7 +15,7 @@ import {
   scopeEdges,
   str,
 } from '../../subset/support';
-import { expandWarnings, partnerOf, vertexSide } from '../../subset/symmetry';
+import { contextMirror, expandWarnings, partnerOf, vertexSide } from '../../subset/symmetry';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { SPIN_EDGE } from './descriptor';
 import { planSpin, type SpinDirection, type SpinPlan, spin } from './spin';
@@ -50,11 +50,11 @@ export function mirroredDirection(
   inSet: ReadonlySet<number>,
   ctx: OpContext,
 ): SpinDirection {
-  const map = ctx.symmetry?.map;
-  if (map === undefined) return direction;
-  const p = partnerOf(map, 'edge', e);
+  const mirror = contextMirror(ctx);
+  if (mirror === null) return direction;
+  const p = partnerOf(mirror.map, 'edge', e);
   if (p < 0 || p === e || !inSet.has(p)) return direction;
-  const side = vertexSide(m, map, m.edgeVert(e, 0)) + vertexSide(m, map, m.edgeVert(e, 1));
+  const side = vertexSide(m, mirror, m.edgeVert(e, 0)) + vertexSide(m, mirror, m.edgeVert(e, 1));
   if (side >= 0) return direction;
   return direction === 'forward' ? 'back' : 'forward';
 }

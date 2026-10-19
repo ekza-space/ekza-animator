@@ -194,6 +194,78 @@ describe('mesh.cut under symmetry (§5.14, P10)', () => {
     expect(result.warnings.map((w) => w.code)).toContain('symmetry.unmatched-partner');
     expect(m.counts.points).toBe(P + 2);
   });
+
+  it('a path whose mirror image cannot be cut (the sides differ in topology) is cut on its own side', () => {
+    // Symmetric positions; the −X quad is split into triangles, the +X quad is not.
+    const m = editMeshFrom(
+      buildMeshData({
+        positions: [-1, 0, -0.5, 0, 0, -0.5, 1, 0, -0.5, -1, 0, 0.5, 0, 0, 0.5, 1, 0, 0.5],
+        faces: [
+          [0, 3, 4],
+          [0, 4, 1],
+          [1, 4, 5, 2],
+        ],
+      }),
+    );
+    const map = testSymmetryMap(m);
+    expect(Array.from(map.vertex)).toEqual([2, 1, 0, 5, 4, 3]);
+    // 1 → 5 is a diagonal of the +X quad; its mirror 1 → 3 shares no face.
+    expect(vef(m)).toBe('6/8/3');
+    const result = runOk(
+      m,
+      cut,
+      null,
+      { points: [vertPt(1), vertPt(5)] },
+      context({ symmetry: { map, preserveSeam: true } }),
+    );
+    expect(vef(m)).toBe('6/9/4');
+    expect(m.findEdge(1, 5)).not.toBe(-1);
+    expect(result.warnings.map((w) => [w.code, w.count])).toEqual([['symmetry.unmatched-partner', 1]]);
+    // The user's own path is still refused when it is the part that cannot be cut.
+    const n = editMeshFrom(
+      buildMeshData({
+        positions: [-1, 0, -0.5, 0, 0, -0.5, 1, 0, -0.5, -1, 0, 0.5, 0, 0, 0.5, 1, 0, 0.5],
+        faces: [
+          [0, 3, 4],
+          [0, 4, 1],
+          [1, 4, 5, 2],
+        ],
+      }),
+    );
+    expect(
+      refusedCode(n, cut, null, { points: [vertPt(1), vertPt(3)] }, context({ symmetry: { map, preserveSeam: true } })),
+    ).toBe('cut.no-common-face');
+  });
+
+  it('a clipped path whose mirrored half cannot be cut keeps its own half', () => {
+    // As above, plus the seam crossing: from the +X quad's far edge to the seam edge 1–4, then on to −X.
+    const m = editMeshFrom(
+      buildMeshData({
+        positions: [-1, 0, -0.5, 0, 0, -0.5, 1, 0, -0.5, -1, 0, 0.5, 0, 0, 0.5, 1, 0, 0.5],
+        faces: [
+          [0, 3, 4],
+          [0, 4, 1],
+          [1, 4, 5, 2],
+        ],
+      }),
+    );
+    const map = testSymmetryMap(m);
+    const far = m.findEdge(2, 5);
+    const seam = m.findEdge(1, 4);
+    const left = m.findEdge(0, 4);
+    // The path is clipped at the seam point; its mirrored half runs from there to the mirror of (2–5, 0.5) on 0–3,
+    // which shares no face with the seam edge: the kept half alone is cut (2 points, 2 split edges, 1 chord).
+    const result = runOk(
+      m,
+      cut,
+      null,
+      { points: [edgePt(far, 0.5), edgePt(seam, 0.5), edgePt(left, 0.5)] },
+      context({ symmetry: { map, preserveSeam: true } }),
+    );
+    expect(vef(m)).toBe('8/11/4');
+    expect(result.warnings.map((w) => [w.code, w.count])).toEqual([['symmetry.unmatched-partner', 1]]);
+    expect(Math.max(...[6, 7].map((v) => position(m, v)[0]))).toBe(1);
+  });
 });
 
 describe('mesh.cut fuzz (§9 B4: random paths never produce invalid topology)', () => {

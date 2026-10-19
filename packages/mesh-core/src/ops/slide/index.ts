@@ -14,13 +14,24 @@
 //   rails point most along the reference direction (null reference: the left side of the chain through the
 //   lowest-index edge, oriented from its first vertex);
 // - symmetry (pointer class: the op expands the selection itself): partners slide by the same percent along mirrored
-//   rails (the reference direction mirrored on the other side of the plane); seam vertices slide only along rails that
-//   lie in the plane; components without a partner slide on their own side with `symmetry.unmatched-partner`.
+//   rails (the reference direction mirrored on the other side of the plane, through the map's mirror in mesh-local
+//   space: Object, or World mapped through the placement); seam vertices slide only along rails that lie in the plane;
+//   components without a partner slide on their own side with `symmetry.unmatched-partner`, and so does a vertex whose
+//   partner's rail has no mirror image among its own edges (asymmetric topology: it keeps its own rails, so it never
+//   leaves the pre-slide surface).
 // Not repeatable (pointer-bound reference). `adjust` re-solves new percents from the pre-slide positions.
 import type { JsonValue, ParamValues } from '@ekza-animator/anim-core';
 import { refuse } from '../../refusal';
 import { argsOf, edgeCorners, keptSelection, num, scopeEdges, scopeVerts, vertEdges } from '../../subset/support';
-import { axisIndex, expandWithPartners, partnerOf, unmatchedWarning, vertexSide } from '../../subset/symmetry';
+import {
+  contextMirror,
+  expandWithPartners,
+  type Mirror,
+  partnerOf,
+  reflectVector,
+  unmatchedWarning,
+  vertexSide,
+} from '../../subset/symmetry';
 import type {
   ComponentSelection,
   EditMesh,
@@ -72,12 +83,11 @@ function directionFor(
   d: readonly [number, number, number],
   originSide: number,
   side: number,
-  map: SymmetryMap | null,
+  mirror: Mirror | null,
 ): readonly [number, number, number] {
-  if (map === null || originSide === 0 || side === 0 || Math.sign(originSide) === Math.sign(side)) return d;
-  const out: [number, number, number] = [d[0], d[1], d[2]];
-  const k = axisIndex(map.axis);
-  out[k] = -out[k];
+  if (mirror === null || originSide === 0 || side === 0 || Math.sign(originSide) === Math.sign(side)) return d;
+  const out: [number, number, number] = [0, 0, 0];
+  reflectVector(mirror, d[0], d[1], d[2], out);
   return out;
 }
 
@@ -171,16 +181,16 @@ function edgeSliders(
   m: EditMesh,
   edges: readonly number[],
   reference: Reference | null,
-  map: SymmetryMap | null,
+  mirror: Mirror | null,
 ): Slider[] {
-  const list = chains(m, edges, map);
+  const list = chains(m, edges, mirror?.map ?? null);
   if (list.length === 0) return [];
   // The reference chain, its positive side and the reference direction.
   let refChain = 0;
   let refLeft = true;
   let d: [number, number, number] = [0, 0, 0];
   let origin = 0;
-  const sideOf = (v: number): number => (map === null ? 0 : vertexSide(m, map, v));
+  const sideOf = (v: number): number => (mirror === null ? 0 : vertexSide(m, mirror, v));
   const meanDir = (chain: Chain, rails: Int32Array): [number, number, number] => {
     const acc: [number, number, number] = [0, 0, 0];
     chain.verts.forEach((v, i) => {
@@ -229,7 +239,7 @@ function edgeSliders(
   list.forEach((chain, ci) => {
     let leftPositive = refLeft;
     if (ci !== refChain) {
-      const dd = directionFor(d, origin, chainSide(chain), map);
+      const dd = directionFor(d, origin, chainSide(chain), mirror);
       leftPositive = dot(meanDir(chain, chain.left), dd) >= dot(meanDir(chain, chain.right), dd);
     }
     chain.verts.forEach((v, i) => {
@@ -247,11 +257,12 @@ function vertexSliders(
   m: EditMesh,
   verts: readonly number[],
   reference: Reference | null,
-  map: SymmetryMap | null,
+  mirror: Mirror | null,
   ctx: OpContext,
 ): Slider[] {
   if (verts.length === 0) return [];
-  const sideOf = (v: number): number => (map === null ? 0 : vertexSide(m, map, v));
+  const map = mirror?.map ?? null;
+  const sideOf = (v: number): number => (mirror === null ? 0 : vertexSide(m, mirror, v));
   let ref = reference;
   if (ref === null || !verts.includes(ref.vertex)) {
     const v0 = Math.min(...verts);
@@ -284,7 +295,7 @@ function vertexSliders(
       out.push({ v, pos, neg });
       continue;
     }
-    const dd = directionFor(d, origin, sideOf(v), map);
+    const dd = directionFor(d, origin, sideOf(v), mirror);
     let pos = -1;
     let bestPos = 0;
     for (const w of rails) {
@@ -311,18 +322,31 @@ function vertexSliders(
 
 /**
  * §5.14: partner vertices slide along mirrored rails. A vertex on the negative side whose partner slides takes the
- * partner's rails mirrored (whatever its own chain decided), so the result is an exact mirror image.
+ * partner's rails mirrored (whatever its own chain decided), so the result is an exact mirror image — when the mirrored
+ * rails are edges of its own. Where the topology differs between the sides (a one-sided triangulate, cut,
+ * spin or connect), a mirrored rail end may not be joined to the vertex at all: sliding toward it would leave the
+ * pre-slide surface, so the vertex keeps its own rails and is listed in `unmatched` (`symmetry.unmatched-partner`).
  */
-function mirrorSliders(m: EditMesh, sliders: readonly Slider[], map: SymmetryMap | null): Slider[] {
-  if (map === null) return [...sliders];
+function mirrorSliders(m: EditMesh, sliders: readonly Slider[], mirror: Mirror | null, unmatched: number[]): Slider[] {
+  if (mirror === null) return [...sliders];
+  const map = mirror.map;
   const byVertex = new Map(sliders.map((s) => [s.v, s]));
   const mirrorOf = (far: number): number => (far < 0 ? -1 : partnerOf(map, 'vertex', far));
+  /** Whether the mirror image `far` of a source rail end (−1: none) is the far end of an edge of v. */
+  const isRail = (v: number, far: number): boolean => far >= 0 && m.findEdge(v, far) !== -1;
   return sliders.map((s) => {
     const p = partnerOf(map, 'vertex', s.v);
-    if (p < 0 || p === s.v || vertexSide(m, map, s.v) >= 0) return s;
+    if (p < 0 || p === s.v || vertexSide(m, mirror, s.v) >= 0) return s;
     const source = byVertex.get(p);
     if (source === undefined) return s;
-    return { v: s.v, pos: mirrorOf(source.pos), neg: mirrorOf(source.neg) };
+    const pos = mirrorOf(source.pos);
+    const neg = mirrorOf(source.neg);
+    // A rail end without a partner (−1 from a slid-to vertex that has none) or not joined to v: own rails.
+    if ((source.pos !== -1 && !isRail(s.v, pos)) || (source.neg !== -1 && !isRail(s.v, neg))) {
+      unmatched.push(s.v);
+      return s;
+    }
+    return { v: s.v, pos, neg };
   });
 }
 
@@ -368,25 +392,39 @@ export const slide: MeshOp = Object.freeze({
     if (verdict !== true || sel === null) return verdict as Refusal;
     let args = argsOf(SLIDE.params, raw);
     const reference = referenceOf(args['reference'], m);
-    const map = ctx.symmetry?.map ?? null;
+    const mirror = contextMirror(ctx);
     const warnings: OpWarning[] = [];
     let working = sel;
-    if (map !== null) {
-      const expanded = expandWithPartners(sel, map);
+    let unmatched: number[] = [];
+    if (mirror !== null) {
+      const expanded = expandWithPartners(sel, mirror.map);
       working = expanded.selection;
-      if (expanded.unmatched.length > 0) warnings.push(unmatchedWarning(expanded.unmatched.length, expanded.unmatched));
+      unmatched = expanded.unmatched;
     }
     const sliders =
       sel.kind === 'edge'
-        ? edgeSliders(m, scopeEdges(m, working, ctx.hidden), reference, map)
-        : vertexSliders(m, scopeVerts(m, working, ctx.hidden), reference, map, ctx);
+        ? edgeSliders(m, scopeEdges(m, working, ctx.hidden), reference, mirror)
+        : vertexSliders(m, scopeVerts(m, working, ctx.hidden), reference, mirror, ctx);
     // A vertex reached by two chains keeps its first slider.
     const seen = new Set<number>();
+    const ownRails: number[] = [];
     const unique = mirrorSliders(
       m,
       sliders.filter((s) => (seen.has(s.v) ? false : (seen.add(s.v), true))),
-      map,
+      mirror,
+      ownRails,
     );
+    if (ownRails.length > 0) {
+      // Reported in the selection's kind: the vertices themselves, or the selected edges that hold them.
+      const listed = new Set(unmatched);
+      if (sel.kind === 'vertex') for (const v of ownRails) listed.add(v);
+      else {
+        const edges = new Set(scopeEdges(m, working, ctx.hidden));
+        for (const v of ownRails) for (const e of vertEdges(m, v)) if (edges.has(e)) listed.add(e);
+      }
+      unmatched = [...listed].sort((a, b) => a - b);
+    }
+    if (unmatched.length > 0) warnings.push(unmatchedWarning(unmatched.length, unmatched));
     const start = Float64Array.from(m.position.subarray(0, 3 * m.counts.points));
     apply(m, start, unique, num(args, 'percent', 0));
     return {

@@ -18,7 +18,7 @@ import {
   resultSelection,
   scopeFaces,
 } from '../../subset/support';
-import { axisIndex, expandWarnings, partnerOf } from '../../subset/symmetry';
+import { contextMirror, expandWarnings, partnerOf, planeDistance } from '../../subset/symmetry';
 import { triangulate as triangulation } from '../../triangulate/triangulate';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { TRIANGULATE } from './descriptor';
@@ -147,13 +147,14 @@ export const triangulate: MeshOp = Object.freeze({
       const tris = triangulation(m);
       const plan = new Map<number, [number, number][]>();
       for (const f of faces) if (m.faceLen(f) > 3) plan.set(f, diagonalsOf(m, tris, f));
-      if (map !== null) {
-        const k = axisIndex(map.axis);
+      const mirror = contextMirror(ctx);
+      if (map !== null && mirror !== null) {
         for (const f of faces) {
           const pf = halves.get(f) ?? partnerOf(map, 'face', f);
           if (pf < 0 || pf === f || !inScope.has(pf) || !plan.has(f) || !plan.has(pf)) continue;
           if (hasRepeatedVertex(m, f) || hasRepeatedVertex(m, pf)) continue;
-          if ((faceCentroid(m, f, C)[k] as number) - map.plane <= 0) continue; // f is the source when positive
+          faceCentroid(m, f, C);
+          if (planeDistance(mirror, C[0] as number, C[1] as number, C[2] as number) <= 0) continue; // source: positive
           const mirrored: [number, number][] = [];
           for (const [a, b] of plan.get(f) as [number, number][]) {
             const pa = partnerOf(map, 'vertex', m.cornerVert(a));

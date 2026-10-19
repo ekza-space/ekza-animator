@@ -3,12 +3,13 @@
 // neighbours by `strength` (Jacobi: a step reads the previous step's positions; float64 throughout, one write per
 // vertex at the end). Pinned: border vertices, non-manifold vertices, loose vertices. Under symmetry (the runtime
 // expands the selection) mirrored pairs are averaged then re-mirrored (each side set to the mean of its value and its
-// partner's mirror image), and seam vertices stay on the plane (pinned with Preserve Seam, else projected onto it).
+// partner's mirror image), and seam vertices stay on the plane (pinned with Preserve Seam, else projected onto it) —
+// through the map's mirror in mesh-local space (Object, or World mapped through the placement).
 // Positions only; `adjust` re-runs from the pre-op positions for new `iterations`/`strength` (live preview).
 import type { ParamValues } from '@ekza-animator/anim-core';
 import { refuse } from '../../refusal';
 import { argsOf, edgeCorners, keptSelection, num, scopeVerts, vertEdges } from '../../subset/support';
-import { axisIndex, expandWarnings, mirrorCoord, partnerOf } from '../../subset/symmetry';
+import { contextMirror, expandWarnings, partnerOf, projectOntoPlane, reflectPoint } from '../../subset/symmetry';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { AVERAGE_VERTICES } from './descriptor';
 
@@ -68,25 +69,23 @@ function solve(m: EditMesh, p: Plan, iterations: number, strength: number, ctx: 
       cur[3 * v + 2] = next[3 * v + 2] as number;
     }
   }
-  const map = ctx.symmetry?.map ?? null;
-  if (map !== null) {
-    const k = axisIndex(map.axis);
+  const mirror = contextMirror(ctx);
+  if (mirror !== null) {
+    const map = mirror.map;
     const inSet = new Set(p.moving);
+    const image = new Float64Array(3);
     for (const v of p.moving) {
       const q = partnerOf(map, 'vertex', v);
       if (q === v) {
-        cur[3 * v + k] = map.plane; // a seam vertex stays on the plane
+        // A seam vertex stays on the plane.
+        projectOntoPlane(mirror, cur[3 * v] as number, cur[3 * v + 1] as number, cur[3 * v + 2] as number, cur, 3 * v);
         continue;
       }
       if (q < 0 || !inSet.has(q) || q < v) continue;
       // Mean of v and the mirror image of q, then q = the mirror image of v.
-      for (let c = 0; c < 3; c++) {
-        const mirrored = c === k ? mirrorCoord(map, cur[3 * q + c] as number) : (cur[3 * q + c] as number);
-        cur[3 * v + c] = ((cur[3 * v + c] as number) + mirrored) / 2;
-      }
-      for (let c = 0; c < 3; c++) {
-        cur[3 * q + c] = c === k ? mirrorCoord(map, cur[3 * v + c] as number) : (cur[3 * v + c] as number);
-      }
+      reflectPoint(mirror, cur[3 * q] as number, cur[3 * q + 1] as number, cur[3 * q + 2] as number, image);
+      for (let c = 0; c < 3; c++) cur[3 * v + c] = ((cur[3 * v + c] as number) + (image[c] as number)) / 2;
+      reflectPoint(mirror, cur[3 * v] as number, cur[3 * v + 1] as number, cur[3 * v + 2] as number, cur, 3 * q);
     }
   }
   return cur;

@@ -17,7 +17,7 @@ import {
   scopeEdges,
   scopeFaces,
 } from '../../subset/support';
-import { axisIndex, expandWarnings, partnerOf } from '../../subset/symmetry';
+import { contextMirror, expandWarnings, partnerOf, planeDistance } from '../../subset/symmetry';
 import { triangulate as triangulation } from '../../triangulate/triangulate';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';
 import { mirroredDirection, sameFace, spinAll } from '../spin';
@@ -72,15 +72,16 @@ export const flipTriangleEdge: MeshOp = Object.freeze({
         warnings.push({ code: 'flip.skipped', message: 'Only quads were flipped', count: faces.length - quads.length });
       }
       for (const f of quads) m.setFaceFlags(f, m.faceFlags(f) ^ FACE_FLIP_DIAGONAL);
-      const map = ctx.symmetry?.map;
-      if (map !== undefined) {
+      const mirror = contextMirror(ctx);
+      if (mirror !== null) {
+        const map = mirror.map;
         const tris = triangulation(m);
-        const k = axisIndex(map.axis);
         const inSet = new Set(quads);
         for (const f of quads) {
           const pf = partnerOf(map, 'face', f);
           if (pf < 0 || pf === f || !inSet.has(pf)) continue;
-          if ((faceCentroid(m, f, C)[k] as number) - map.plane <= 0) continue;
+          faceCentroid(m, f, C);
+          if (planeDistance(mirror, C[0] as number, C[1] as number, C[2] as number) <= 0) continue;
           const [x, y] = shownDiagonal(m, tris, f);
           const px = partnerOf(map, 'vertex', x);
           const py = partnerOf(map, 'vertex', y);

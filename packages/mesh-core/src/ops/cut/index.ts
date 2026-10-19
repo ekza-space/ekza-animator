@@ -14,12 +14,15 @@
 //    with snapping at t*, in-seam edges t ↦ t); a path that stays on one side gets its mirrored path as a second cut in
 //    the same run; a path that reaches the plane (a point on it) or crosses it (a chord between the two sides) is
 //    clipped there and its kept half is mirrored back to the start: one symmetric cut. Points without a partner are not
-//    mirrored (`symmetry.unmatched-partner`).
+//    mirrored (`symmetry.unmatched-partner`); nor is a path whose mirror image cannot be cut where the sides' topology
+//    differs (the user's own path is cut on its side, with the same warning, instead of refusing the run). Sides,
+//    the t* snap and the seam test go through the map's mirror in mesh-local space (Object, or World mapped through the
+//    placement).
 // No removals happen, so every index is stable during the run.
 import type { JsonValue, ParamValues } from '@ekza-animator/anim-core';
 import { kernelError } from '../../kernel';
 import { orient2d, segmentsCross2d } from '../../predicates';
-import { refuse } from '../../refusal';
+import { isRefusal, refuse } from '../../refusal';
 import {
   argsOf,
   edgeCorners,
@@ -29,17 +32,15 @@ import {
   resultSelection,
   vertFaces,
 } from '../../subset/support';
-import { mirrorEdgePointOf, partnerOf, unmatchedWarning, vertexSide } from '../../subset/symmetry';
-import type {
-  ComponentSelection,
-  EditMesh,
-  MeshOp,
-  OpContext,
-  OpResult,
-  OpWarning,
-  Refusal,
-  SymmetryMap,
-} from '../../types';
+import {
+  contextMirror,
+  type Mirror,
+  mirrorEdgePointOf,
+  partnerOf,
+  unmatchedWarning,
+  vertexSide,
+} from '../../subset/symmetry';
+import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';
 import { CUT } from './descriptor';
 
 /** A path point: on an edge at t (0 < t < 1 after normalization) or at a vertex. */
@@ -108,44 +109,48 @@ function dedupe(points: readonly Pt[]): Pt[] {
 // ---------- symmetry ----------
 
 /** −1 / 0 / +1: the side of the plane a point is on (0 = on it, within tolerance; seam vertices and in-seam edges). */
-function sideOfPoint(m: EditMesh, map: SymmetryMap, p: Pt): number {
+function sideOfPoint(m: EditMesh, mirror: Mirror, p: Pt): number {
+  const map = mirror.map;
   if (p.kind === 'vertex') {
     if (partnerOf(map, 'vertex', p.vertex) === p.vertex) return 0;
-    const d = vertexSide(m, map, p.vertex);
+    const d = vertexSide(m, mirror, p.vertex);
     return Math.abs(d) <= map.tolerance ? 0 : Math.sign(d);
   }
   if ((map.edgeSelf[p.edge] ?? 0) === 2) return 0;
-  const d0 = vertexSide(m, map, m.edgeVert(p.edge, 0));
-  const d1 = vertexSide(m, map, m.edgeVert(p.edge, 1));
+  const d0 = vertexSide(m, mirror, m.edgeVert(p.edge, 0));
+  const d1 = vertexSide(m, mirror, m.edgeVert(p.edge, 1));
   const d = d0 + (d1 - d0) * p.t;
   return Math.abs(d) <= map.tolerance ? 0 : Math.sign(d);
 }
 
 /** A point snapped onto the plane when the pointer rule says so (a crossing edge near t*). */
-function snap(m: EditMesh, map: SymmetryMap, p: Pt, epsilon: number): Pt {
-  if (p.kind !== 'edge' || (map.edgeSelf[p.edge] ?? 0) !== 1) return p;
-  const mapped = mirrorEdgePointOf(m, map, p);
+function snap(m: EditMesh, mirror: Mirror, p: Pt, epsilon: number): Pt {
+  if (p.kind !== 'edge' || (mirror.map.edgeSelf[p.edge] ?? 0) !== 1) return p;
+  const mapped = mirrorEdgePointOf(m, mirror, p);
   return mapped !== null && mapped.self ? normalize(m, { ...p, t: mapped.t }, epsilon) : p;
 }
 
-function mirrored(m: EditMesh, map: SymmetryMap, p: Pt, epsilon: number): Pt | null {
+function mirrored(m: EditMesh, mirror: Mirror, p: Pt, epsilon: number): Pt | null {
   if (p.kind === 'vertex') {
-    const q = partnerOf(map, 'vertex', p.vertex);
+    const q = partnerOf(mirror.map, 'vertex', p.vertex);
     return q < 0 ? null : vertexPt(q);
   }
-  const q = mirrorEdgePointOf(m, map, p);
+  const q = mirrorEdgePointOf(m, mirror, p);
   return q === null ? null : normalize(m, { kind: 'edge', edge: q.edge, t: q.t, vertex: -1 }, epsilon);
 }
 
-/** The paths one symmetric run cuts (§5.14 Multi-Cut row) and how many points had no partner. */
+/**
+ * The paths one symmetric run cuts (§5.14 Multi-Cut row), how many points had no partner, and the user's own paths to
+ * cut instead when the mirrored part cannot be cut (the sides' topology differs) — null when nothing was mirrored.
+ */
 function symmetricPaths(
   m: EditMesh,
-  map: SymmetryMap,
+  mirror: Mirror,
   path: readonly Pt[],
   epsilon: number,
-): { readonly paths: Pt[][]; readonly unmatched: number } {
-  const points = path.map((p) => snap(m, map, p, epsilon));
-  const sides = points.map((p) => sideOfPoint(m, map, p));
+): { readonly paths: Pt[][]; readonly unmatched: number; readonly own: { paths: Pt[][]; unmatched: number } | null } {
+  const points = path.map((p) => snap(m, mirror, p, epsilon));
+  const sides = points.map((p) => sideOfPoint(m, mirror, p));
   let lastSide = 0;
   let clipEnd = -1; // the half is points[0..clipEnd]
   let turn: 'touch' | 'cross' | null = null;
@@ -166,26 +171,29 @@ function symmetricPaths(
     }
     lastSide = s;
   }
+  // Points off the plane (the ones a dropped mirror image leaves unmirrored).
+  const offPlane = (list: readonly Pt[]): number => list.filter((p) => sideOfPoint(m, mirror, p) !== 0).length;
   const mirrorAll = (list: readonly Pt[]): { readonly out: Pt[]; readonly missing: number } => {
     const out: Pt[] = [];
     let missing = 0;
     for (const p of list) {
-      const q = mirrored(m, map, p, epsilon);
+      const q = mirrored(m, mirror, p, epsilon);
       if (q === null) missing++;
       else out.push(q);
     }
     return { out, missing };
   };
   if (turn === null) {
-    if (sides.every((s) => s === 0)) return { paths: [points], unmatched: 0 };
+    if (sides.every((s) => s === 0)) return { paths: [points], unmatched: 0, own: null };
     const { out, missing } = mirrorAll(points);
-    return missing > 0 ? { paths: [points], unmatched: missing } : { paths: [points, out], unmatched: 0 };
+    if (missing > 0) return { paths: [points], unmatched: missing, own: null };
+    return { paths: [points, out], unmatched: 0, own: { paths: [points], unmatched: offPlane(points) } };
   }
   const half = points.slice(0, clipEnd + 1);
   const back = turn === 'touch' ? half.slice(0, half.length - 1) : half;
   const { out, missing } = mirrorAll(back);
-  if (missing > 0) return { paths: [half], unmatched: missing };
-  return { paths: [[...half, ...out.reverse()]], unmatched: 0 };
+  if (missing > 0) return { paths: [half], unmatched: missing, own: null };
+  return { paths: [[...half, ...out.reverse()]], unmatched: 0, own: { paths: [half], unmatched: offPlane(back) } };
 }
 
 // ---------- geometry ----------
@@ -327,6 +335,102 @@ interface Chord {
   readonly b: Pt;
 }
 
+/** The edge points (by edge, ascending t) and the validated chords of `paths` on the pre-op mesh, or the refusal. */
+function planCut(
+  m: EditMesh,
+  paths: readonly (readonly Pt[])[],
+  epsilon: number,
+): { readonly onEdges: Map<number, Pt[]>; readonly chords: Chord[] } | Refusal {
+  // Every edge point, by edge (ascending t); points within ε of each other on one edge become one point.
+  const onEdges = new Map<number, Pt[]>();
+  const lists = paths.map((list) =>
+    dedupe(
+      list.map((p) => {
+        if (p.kind !== 'edge') return p;
+        const points = onEdges.get(p.edge) ?? [];
+        const length = edgeLength(m, p.edge);
+        const same = points.find((q) => Math.abs(q.t - p.t) * length <= epsilon);
+        if (same !== undefined) return same;
+        points.push(p);
+        onEdges.set(p.edge, points);
+        return p;
+      }),
+    ),
+  );
+  for (const points of onEdges.values()) points.sort((a, b) => a.t - b.t);
+
+  // Chords and their faces (validated on the pre-op mesh).
+  const chords: Chord[] = [];
+  const chordKeys = new Set<string>();
+  const polygons = new Map<number, Polygon>();
+  const polygonOf = (f: number): Polygon => {
+    let poly = polygons.get(f);
+    if (poly === undefined) {
+      poly = virtualPolygon(m, f, onEdges);
+      polygons.set(f, poly);
+    }
+    return poly;
+  };
+  for (const list of lists) {
+    for (let i = 0; i + 1 < list.length; i++) {
+      const a = list[i] as Pt;
+      const b = list[i + 1] as Pt;
+      if (alongEdge(m, a, b)) continue;
+      const fa = facesOf(m, a);
+      const fb = new Set(facesOf(m, b));
+      const common = fa.filter((f) => fb.has(f));
+      if (common.length === 0) {
+        return refuse('cut.no-common-face', 'Click on each face the cut crosses (the points share no face)');
+      }
+      let chosen = -1;
+      for (const f of common) {
+        const poly = polygonOf(f);
+        const ia = poly.keys.indexOf(keyOf(a));
+        const ib = poly.keys.indexOf(keyOf(b));
+        if (ia === -1 || ib === -1) continue;
+        const n = poly.keys.length;
+        if ((ia + 1) % n === ib || (ib + 1) % n === ia) continue;
+        if (chordInside(poly, ia, ib)) {
+          chosen = f;
+          break;
+        }
+      }
+      if (chosen === -1) return refuse('cut.outside-face', 'That cut would leave the face');
+      const key = [chosen, ...[keyOf(a), keyOf(b)].sort()].join('|');
+      if (chordKeys.has(key)) continue;
+      chordKeys.add(key);
+      chords.push({ face: chosen, a, b });
+    }
+  }
+  // Chords in one face must not cross.
+  for (let i = 0; i < chords.length; i++) {
+    for (let j = i + 1; j < chords.length; j++) {
+      const c1 = chords[i] as Chord;
+      const c2 = chords[j] as Chord;
+      if (c1.face !== c2.face) continue;
+      const poly = polygonOf(c1.face);
+      const at = (p: Pt): number => poly.keys.indexOf(keyOf(p));
+      const [p1, p2, q1, q2] = [at(c1.a), at(c1.b), at(c2.a), at(c2.b)] as [number, number, number, number];
+      if (
+        segmentsCross2d(
+          poly.xs[p1] as number,
+          poly.ys[p1] as number,
+          poly.xs[p2] as number,
+          poly.ys[p2] as number,
+          poly.xs[q1] as number,
+          poly.ys[q1] as number,
+          poly.xs[q2] as number,
+          poly.ys[q2] as number,
+        )
+      ) {
+        return refuse('cut.crossing', 'The cut crosses itself inside a face');
+      }
+    }
+  }
+  if (chords.length === 0) return refuse('cut.nothing', 'The points run along existing edges: nothing to cut');
+  return { onEdges, chords };
+}
+
 // ---------- the op ----------
 
 const CUT_POLL = (m: EditMesh): true | Refusal =>
@@ -346,101 +450,21 @@ export const cut: MeshOp = Object.freeze({
     const path = dedupe(parsed);
     if (path.length < 2) return refuse('cut.too-few-points', 'Place at least two points to cut');
     const warnings: OpWarning[] = [];
-    const map = ctx.symmetry?.map ?? null;
-    let paths: Pt[][] = [path];
-    if (map !== null) {
-      const sym = symmetricPaths(m, map, path, epsilon);
-      paths = sym.paths.map(dedupe);
+    const mirror = contextMirror(ctx);
+    let plan: ReturnType<typeof planCut>;
+    if (mirror === null) plan = planCut(m, [path], epsilon);
+    else {
+      const sym = symmetricPaths(m, mirror, path, epsilon);
+      plan = planCut(m, sym.paths.map(dedupe), epsilon);
       if (sym.unmatched > 0) warnings.push(unmatchedWarning(sym.unmatched));
-    }
-
-    // Every edge point, by edge (ascending t); points within ε of each other on one edge become one point.
-    const onEdges = new Map<number, Pt[]>();
-    paths = paths.map((list) =>
-      dedupe(
-        list.map((p) => {
-          if (p.kind !== 'edge') return p;
-          const points = onEdges.get(p.edge) ?? [];
-          const length = edgeLength(m, p.edge);
-          const same = points.find((q) => Math.abs(q.t - p.t) * length <= epsilon);
-          if (same !== undefined) return same;
-          points.push(p);
-          onEdges.set(p.edge, points);
-          return p;
-        }),
-      ),
-    );
-    for (const points of onEdges.values()) points.sort((a, b) => a.t - b.t);
-
-    // Chords and their faces (validated on the pre-op mesh).
-    const chords: Chord[] = [];
-    const chordKeys = new Set<string>();
-    const polygons = new Map<number, Polygon>();
-    const polygonOf = (f: number): Polygon => {
-      let poly = polygons.get(f);
-      if (poly === undefined) {
-        poly = virtualPolygon(m, f, onEdges);
-        polygons.set(f, poly);
-      }
-      return poly;
-    };
-    for (const list of paths) {
-      for (let i = 0; i + 1 < list.length; i++) {
-        const a = list[i] as Pt;
-        const b = list[i + 1] as Pt;
-        if (alongEdge(m, a, b)) continue;
-        const fa = facesOf(m, a);
-        const fb = new Set(facesOf(m, b));
-        const common = fa.filter((f) => fb.has(f));
-        if (common.length === 0) {
-          return refuse('cut.no-common-face', 'Click on each face the cut crosses (the points share no face)');
-        }
-        let chosen = -1;
-        for (const f of common) {
-          const poly = polygonOf(f);
-          const ia = poly.keys.indexOf(keyOf(a));
-          const ib = poly.keys.indexOf(keyOf(b));
-          if (ia === -1 || ib === -1) continue;
-          const n = poly.keys.length;
-          if ((ia + 1) % n === ib || (ib + 1) % n === ia) continue;
-          if (chordInside(poly, ia, ib)) {
-            chosen = f;
-            break;
-          }
-        }
-        if (chosen === -1) return refuse('cut.outside-face', 'That cut would leave the face');
-        const key = [chosen, ...[keyOf(a), keyOf(b)].sort()].join('|');
-        if (chordKeys.has(key)) continue;
-        chordKeys.add(key);
-        chords.push({ face: chosen, a, b });
+      if (isRefusal(plan) && sym.own !== null) {
+        // The mirrored part cannot be cut (the sides' topology differs): the user's own path, on its side only (§5.14).
+        plan = planCut(m, sym.own.paths.map(dedupe), epsilon);
+        if (!isRefusal(plan)) warnings.push(unmatchedWarning(sym.own.unmatched));
       }
     }
-    // Chords in one face must not cross.
-    for (let i = 0; i < chords.length; i++) {
-      for (let j = i + 1; j < chords.length; j++) {
-        const c1 = chords[i] as Chord;
-        const c2 = chords[j] as Chord;
-        if (c1.face !== c2.face) continue;
-        const poly = polygonOf(c1.face);
-        const at = (p: Pt): number => poly.keys.indexOf(keyOf(p));
-        const [p1, p2, q1, q2] = [at(c1.a), at(c1.b), at(c2.a), at(c2.b)] as [number, number, number, number];
-        if (
-          segmentsCross2d(
-            poly.xs[p1] as number,
-            poly.ys[p1] as number,
-            poly.xs[p2] as number,
-            poly.ys[p2] as number,
-            poly.xs[q1] as number,
-            poly.ys[q1] as number,
-            poly.xs[q2] as number,
-            poly.ys[q2] as number,
-          )
-        ) {
-          return refuse('cut.crossing', 'The cut crosses itself inside a face');
-        }
-      }
-    }
-    if (chords.length === 0) return refuse('cut.nothing', 'The points run along existing edges: nothing to cut');
+    if (isRefusal(plan)) return plan;
+    const { onEdges, chords } = plan;
 
     return guarded('cut.failed', 'That cut would leave the face', () => {
       // Split the edges (ascending t per edge; the remaining piece is the edge just created).
