@@ -1,15 +1,17 @@
 // The Mesh Check panel body (M6A-SPEC §5.25, §8.10; B10, a lazy chunk): the checked mesh's problems by code with a
 // count and a severity glyph (✕ error, ◇ n-gon, ○ info), "Select" (`select.mesh.matching`: the matching components in
-// their kind) and the code's fix (`mesh.cleanup {fix}`). While the panel is shown Model's panes have
-// `DisplayFlags.meshCheck` on, so the overlay (driven by that flag in the Model select runtime) draws the markers.
+// their kind), the code's fix (`mesh.cleanup {fix}`) and, for `duplicate-slot`, "Swatch" (§5.25 "select swatch":
+// `palette.setActive` with the shadowed duplicate, which B13's Palette panel shows as active). While the panel is shown every pane has
+// `DisplayFlags.meshCheck` on (panes made later too), so the overlay (driven by that flag in the Model select runtime)
+// draws the markers.
 // "Clean" = no code except `open-border` on open meshes.
 import type { MeshId } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, type RunContext } from '@ekza-animator/editor-core';
 import type { MeshProblem } from '@ekza-animator/mesh-core';
-import { subscribeModelSelect, viewportManagerOf } from '@ekza-animator/viewport';
+import { subscribeViewportManager, type ViewportManager, viewportManagerOf } from '@ekza-animator/viewport';
 import { type JSX, useEffect, useState } from 'react';
 import { useOptionalShell } from '../../shell/context';
-import { type CheckRow, checkedMesh, checkRows, meshProblems } from './checks';
+import { type CheckRow, checkedMesh, checkRows, duplicateSwatchOf, meshProblems } from './checks';
 
 const GLYPH = { error: '✕', warning: '◇', info: '○' } as const;
 const TONE = {
@@ -72,36 +74,51 @@ function evaluate(app: EditorApp): Result {
 }
 
 /**
- * While shown, Model's panes draw the markers (`meshCheck` on, turned off again only where the panel turned it on).
- * The Model select runtime pushes every drawn mesh's problems while any pane has the flag (§5.25 overlay).
+ * While shown, every pane draws the markers (`meshCheck` on, turned off again only where the panel turned it on),
+ * including panes made while the panel stays open (a layout switch) and a manager that comes after the panel. The
+ * Model select runtime pushes every drawn mesh's problems while any pane has the flag (§5.25 overlay).
  */
 function useOverlay(app: EditorApp): void {
   useEffect(() => {
-    let changed: string[] = [];
-    let release: (() => void) | null = null;
-    const attach = (): void => {
-      const vm = viewportManagerOf(app);
-      if (vm === null || release !== null) return;
-      for (const paneId of vm.paneIds()) {
-        const state = vm.paneState(paneId);
+    let vm: ViewportManager | null = null;
+    let offPanes: (() => void) | null = null;
+    /** Panes of `vm` the panel turned the flag on for. */
+    const changed = new Set<string>();
+    const turnOn = (): void => {
+      const manager = vm;
+      if (manager === null) return;
+      for (const paneId of manager.paneIds()) {
+        const state = manager.paneState(paneId);
         if (state === null || state.display.meshCheck) continue;
-        vm.updatePane(paneId, { display: { ...state.display, meshCheck: true } });
-        changed.push(paneId);
+        changed.add(paneId);
+        manager.updatePane(paneId, { display: { ...state.display, meshCheck: true } });
       }
-      release = () => {
-        for (const paneId of changed) {
-          const state = vm.paneState(paneId);
-          if (state !== null) vm.updatePane(paneId, { display: { ...state.display, meshCheck: false } });
-        }
-        changed = [];
-      };
     };
-    attach();
-    // The viewport (and its Model select runtime) may come after the panel.
-    const off = subscribeModelSelect(app, attach);
+    const attach = (manager: ViewportManager | null): void => {
+      if (manager === vm) return;
+      // A replaced manager is gone with its panes: nothing to turn off there.
+      offPanes?.();
+      offPanes = null;
+      changed.clear();
+      vm = manager;
+      if (manager === null) return;
+      offPanes = manager.subscribePanes(turnOn);
+      turnOn();
+    };
+    attach(viewportManagerOf(app));
+    const offManager = subscribeViewportManager(app, attach);
     return () => {
-      off();
-      release?.();
+      offManager();
+      offPanes?.();
+      const manager = vm;
+      if (manager !== null) {
+        for (const paneId of changed) {
+          const state = manager.paneState(paneId);
+          if (state !== null) manager.updatePane(paneId, { display: { ...state.display, meshCheck: false } });
+        }
+      }
+      changed.clear();
+      vm = null;
     };
   }, [app]);
 }
@@ -152,6 +169,20 @@ export default function MeshCheckView(props: { readonly app: EditorApp }): JSX.E
             >
               Select
             </button>
+            {row.code === 'duplicate-slot' && result.mesh !== null ? (
+              <button
+                type="button"
+                className="rounded-sm px-1.5 hover:bg-[var(--bg-pressed,#3a3d46)]"
+                data-testid="meshcheck-swatch-duplicate-slot"
+                title="Make the duplicate swatch active in the Palette"
+                onClick={() => {
+                  const swatch = result.mesh === null ? null : duplicateSwatchOf(app, result.mesh);
+                  if (swatch !== null) run('palette.setActive', { swatch });
+                }}
+              >
+                Swatch
+              </button>
+            ) : null}
             {row.fix === null ? null : (
               <button
                 type="button"

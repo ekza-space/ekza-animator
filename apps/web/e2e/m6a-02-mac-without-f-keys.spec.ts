@@ -1,11 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickComponent, MODEL_PANE, openModel, screenOf } from './helpers/m6a-model';
 import {
+  areaOf,
+  centroidOf,
+  faceCorners,
   hoverPane,
   markingMenuSlot,
   mode,
   paneRect,
   pressOver,
+  setLastOpField,
   undoLabels,
   undoOver,
 } from './helpers/m6a-model-select-ui';
@@ -67,6 +71,7 @@ test.fixme('b3, b7, b11: E2E-MOD-02 — modes by RMB and digits, Extrude through
   await expect.poll(() => mode(page)).toBe('face');
   const manifest = (await call(page, 'meshInfo', cube))?.manifest;
   const top = await topFace(page, cube);
+  const before = centroidOf(await faceCorners(page, cube, top));
   await screenOf(page, cube, 'face', top);
   await clickComponent(page, cube, 'face', top);
   await hoverPane(page);
@@ -75,10 +80,22 @@ test.fixme('b3, b7, b11: E2E-MOD-02 — modes by RMB and digits, Extrude through
   await page.keyboard.type('0.5');
   await page.keyboard.press('Enter');
   await expect.poll(async () => (await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 12, e: 20, f: 10 });
+  // The extrude results of E2E-MOD-01: the top face (same index) at y = 1.0, moved by (0, 0.5, 0), area 1.0 (1e-6:
+  // float32 positions).
+  const corners = await faceCorners(page, cube, top);
+  expect(corners).toHaveLength(4);
+  for (const [, y] of corners) expect(y).toBeCloseTo(1, 6);
+  const after = centroidOf(corners);
+  expect(after.map((value, k) => value - (before[k] as number))).toEqual([
+    expect.closeTo(0, 6),
+    expect.closeTo(0.5, 6),
+    expect.closeTo(0, 6),
+  ]);
+  expect(areaOf(corners)).toBeCloseTo(1, 6);
   const card = await call(page, 'lastOpCard');
   expect(card?.title).toBe('Extrude');
   // The card names its shortcut in the platform's labels (§10.1: "the card and help line show ⌘E"), as text or as
-  // the tooltip of one of its parts.
+  // the tooltip of one of its parts. Soft: it still fails the test, and the rest of the scenario still reports.
   const cardLabels = (): Promise<string> =>
     page
       .getByTestId(`lastop-card-${MODEL_PANE}`)
@@ -88,11 +105,11 @@ test.fixme('b3, b7, b11: E2E-MOD-02 — modes by RMB and digits, Extrude through
           ...[el, ...el.querySelectorAll('[title]')].map((e) => e.getAttribute('title') ?? ''),
         ].join(' '),
       );
-  await expect.poll(cardLabels).toContain('⌘E');
+  await expect.configure({ soft: true }).poll(cardLabels, { message: 'the Last-op card shows ⌘E' }).toContain('⌘E');
   expect(card?.fields.find((field) => field.name === 'localTranslateZ')?.text).toBe('0.500 m');
   const steps = (await undoLabels(page)).length;
-  await page.getByTestId('lastop-field-divisions').fill('2');
-  await page.getByTestId('lastop-field-divisions').press('Enter');
+  // Divisions 2 through the card (expanded from its pill); the field gives the keyboard back before the undo.
+  await setLastOpField(page, 'divisions', '2');
   await expect.poll(async () => (await call(page, 'meshInfo', cube))?.counts).toMatchObject({ v: 16, e: 28, f: 14 });
   expect((await undoLabels(page)).length).toBe(steps);
   await undoOver(page);

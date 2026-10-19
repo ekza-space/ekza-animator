@@ -82,6 +82,60 @@ export async function markingMenuSlot(page: Page, at: ScreenPoint, menu: string,
   await expect.poll(() => call(page, 'markingMenu')).toBeNull();
 }
 
+/**
+ * Expands the Last-op card when it is the collapsed pill (§8.6: a pill until a click or `T`), then sets a field: fill,
+ * Enter, and Escape so the keyboard focus leaves the field (the next key, e.g. an undo, reaches the app).
+ */
+export async function setLastOpField(
+  page: Page,
+  param: string,
+  text: string,
+  paneId: string = MODEL_PANE,
+): Promise<void> {
+  const card = page.getByTestId(`lastop-card-${paneId}`);
+  await expect(card).toBeVisible();
+  if ((await card.getAttribute('data-state')) !== 'expanded') await page.getByTestId('lastop-pill').click();
+  await expect(card).toHaveAttribute('data-state', 'expanded');
+  const field = page.getByTestId(`lastop-field-${param}`);
+  await field.fill(text);
+  await field.press('Enter');
+  await field.press('Escape');
+  await expect(field).not.toBeFocused();
+}
+
+/** A face's corner positions (local). */
+export async function faceCorners(page: Page, mesh: string, face: number): Promise<[number, number, number][]> {
+  const faces = await call(page, 'meshFaces', mesh);
+  const points = await call(page, 'meshPositions', mesh);
+  return (faces[face] ?? []).map((v) => {
+    const p = points[v];
+    return [p?.[0] ?? Number.NaN, p?.[1] ?? Number.NaN, p?.[2] ?? Number.NaN];
+  });
+}
+
+/** The mean of points. */
+export function centroidOf(points: readonly (readonly [number, number, number])[]): [number, number, number] {
+  const sum: [number, number, number] = [0, 0, 0];
+  for (const [x, y, z] of points) {
+    sum[0] += x;
+    sum[1] += y;
+    sum[2] += z;
+  }
+  return [sum[0] / points.length, sum[1] / points.length, sum[2] / points.length];
+}
+
+/** A polygon's area (Newell: half the length of the summed corner cross products). */
+export function areaOf(points: readonly (readonly [number, number, number])[]): number {
+  const n: [number, number, number] = [0, 0, 0];
+  points.forEach((a, i) => {
+    const b = points[(i + 1) % points.length] as readonly [number, number, number];
+    n[0] += (a[1] - b[1]) * (a[2] + b[2]);
+    n[1] += (a[2] - b[2]) * (a[0] + b[0]);
+    n[2] += (a[0] - b[0]) * (a[1] + b[1]);
+  });
+  return Math.hypot(n[0], n[1], n[2]) / 2;
+}
+
 // ---------- topology ----------
 
 export interface Topology {

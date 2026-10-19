@@ -3,7 +3,18 @@
 // `model.modes` and `model.convert` marking menus, the Mesh Check panel (Clean, a template mesh's open border, Select,
 // Fix) and its helpers, and the B10 test API group on the whole shell. Mesh Check results need B5's `checkMesh`
 // (READY.b5).
-import type { AssetId, DocSnapshot, GroupId, GroupRecord, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import type {
+  AssetId,
+  DocSnapshot,
+  GroupId,
+  GroupRecord,
+  MeshId,
+  MeshRecord,
+  MeshRef,
+  PaletteId,
+  SwatchId,
+  SwatchRecord,
+} from '@ekza-animator/doc';
 import {
   BUILTIN_MENU_ITEMS,
   type EditorApp,
@@ -15,10 +26,11 @@ import {
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, type SymmetryMap, writeRevision } from '@ekza-animator/mesh-core';
 import type { SkeletonDesc } from '@ekza-animator/rig';
+import { viewportManagerOf } from '@ekza-animator/viewport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { CONVERT_MENU } from '../src/overlays/menus/convert';
 import { MODES_MENU } from '../src/overlays/menus/modes';
-import { checkRows, FIX_OF, severityOf } from '../src/panels/meshcheck/checks';
+import { checkRows, duplicateSwatchOf, FIX_OF, severityOf } from '../src/panels/meshcheck/checks';
 import MeshCheckView from '../src/panels/meshcheck/MeshCheckView';
 import { budgetState, hudData } from '../src/panels/viewport/hud/data';
 import { EditorRoot } from '../src/shell/EditorRoot';
@@ -257,6 +269,54 @@ describe('Mesh Check (§5.25)', () => {
     expect(Object.keys(FIX_OF)).toContain('loose-geometry');
   });
 
+  it('keeps elements per domain: loose point 5 and wire edge 5 are two elements of one row', () => {
+    const [row] = checkRows([
+      { code: 'loose-geometry', message: 'Loose points', elements: Uint32Array.from([5, 9]), domain: 'point' },
+      { code: 'loose-geometry', message: 'Wire edges', elements: Uint32Array.from([5]), domain: 'edge' },
+    ]);
+    expect([row?.count, row?.domain, row?.elements, row?.byDomain]).toEqual([
+      3,
+      'point',
+      [5, 9],
+      { point: [5, 9], edge: [5] },
+    ]);
+  });
+
+  /** A plane painted from a palette whose slot 3 two live swatches share (a merge of two peers' palettes). */
+  const duplicatePalette = (app: FakeEditorApp): MeshId => {
+    // `@ekza-animator/doc/testing` reads fixtures from disk (node:fs), so the records are spelled out here.
+    const swatch = (id: string, slot: number, order: string): SwatchRecord => ({
+      id: id as SwatchId,
+      palette: 'pal_P' as PaletteId,
+      slot,
+      order,
+      name: `Swatch ${slot}`,
+      srgb: [128, 128, 128],
+      kind: 'flat',
+      ramp: null,
+      deleted: null,
+    });
+    app.store.transact({ label: 'Palette' }, (tx) => {
+      tx.put('palettes', { id: 'pal_P' as PaletteId, name: 'Palette', order: 'a0', deleted: null });
+      tx.put('swatches', swatch('sw_A', 3, 'a0'));
+      tx.put('swatches', swatch('sw_B', 3, 'a1'));
+      tx.put('swatches', swatch('sw_C', 4, 'a2'));
+    });
+    return createMesh(app, 'msh_Painted', primitive('plane', {}), { palette: 'pal_P' as PaletteId });
+  };
+
+  it('"select swatch" for duplicate-slot picks the swatch the reader shadows; none without a duplicate', () => {
+    const app = createFakeEditorApp();
+    try {
+      const painted = duplicatePalette(app);
+      const plain = createMesh(app, 'msh_Plain', primitive('plane', {}));
+      // The reader takes the smallest SwatchId on a duplicate (sw_A): the duplicate to fix is sw_B.
+      expect([duplicateSwatchOf(app, painted), duplicateSwatchOf(app, plain)]).toEqual(['sw_B', null]);
+    } finally {
+      app.dispose();
+    }
+  });
+
   /** The panel body over a fake app in Model with the mesh `make` creates, unmounted after `body`. */
   async function withPanel(
     make: (app: FakeEditorApp) => MeshId,
@@ -353,6 +413,18 @@ describe('Mesh Check (§5.25)', () => {
     });
   });
 
+  it.skipIf(!READY.b5)('duplicate-slot offers Swatch: it makes the shadowed duplicate active (B5, B13)', async () => {
+    await withPanel(duplicatePalette, async (app) => {
+      await waitFor(() => query('meshcheck-row-duplicate-slot') !== null);
+      expect(query('meshcheck-fix-duplicate-slot')).toBeNull();
+      query('meshcheck-swatch-duplicate-slot')?.click();
+      await waitFor(() => app.calls.some((call) => call.id === 'palette.setActive'));
+      expect(app.calls.filter((call) => call.id === 'palette.setActive').map((call) => call.args)).toEqual([
+        { swatch: 'sw_B' },
+      ]);
+    });
+  });
+
   it.skipIf(!READY.b5)('Fix runs the code’s mesh.cleanup fix on the checked mesh (B5)', async () => {
     await withPanel(warped, async (app, cylinder) => {
       await waitFor(() => query('meshcheck-row-nonplanar-ngon') !== null);
@@ -363,6 +435,33 @@ describe('Mesh Check (§5.25)', () => {
         { meshes: [cylinder], fix: 'triangulate', selectOnly: false },
       ]);
     });
+  });
+});
+
+describe('Mesh Check overlay flag (§5.25, DisplayFlags.meshCheck)', () => {
+  it('is on in every pane while the panel is shown, panes of a later layout too, and off again after', async () => {
+    const { app } = await mount();
+    await waitFor(() => (viewportManagerOf(app)?.paneIds().length ?? 0) > 0);
+    const flags = (): Record<string, boolean | undefined> => {
+      const vm = viewportManagerOf(app);
+      return Object.fromEntries((vm?.paneIds() ?? []).map((id) => [id, vm?.paneState(id)?.display.meshCheck]));
+    };
+    const all = (value: boolean): boolean => Object.values(flags()).every((flag) => flag === value);
+    expect(all(false)).toBe(true);
+    const panel = mountLive(<MeshCheckView app={app} />);
+    try {
+      await waitFor(() => all(true));
+      const single = Object.keys(flags()).length;
+      // Model opens on the quad layout with the persp pane maximized: leaving it makes the other three panes.
+      expect((await app.runUntyped('view.layout', { layout: 'quad' })).status).toBe('finished');
+      if (app.session.getState().maximizedPane !== null) await app.runUntyped('view.toggleMaximize');
+      await waitFor(() => Object.keys(flags()).length > single);
+      await waitFor(() => all(true));
+      expect(Object.keys(flags()).length).toBe(4);
+    } finally {
+      await panel.unmount();
+    }
+    expect(flags()).toEqual(Object.fromEntries(Object.keys(flags()).map((id) => [id, false])));
   });
 });
 
