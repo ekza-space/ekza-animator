@@ -203,6 +203,15 @@ function createState(gestureWaitMs: number): RuntimeState {
   };
 }
 
+type PresenceFocus = Parameters<AgentToolContext['focus']>[0];
+/** The presence of one running call (§5.11). */
+interface CallPresence {
+  readonly edit: boolean;
+  readonly seq: number;
+  focus: PresenceFocus | null;
+  activity: string | null;
+}
+
 /** A runtime that also releases its subscriptions and timers. */
 export interface AgentToolRuntimeHandle extends AgentToolRuntime {
   dispose(): void;
@@ -265,28 +274,19 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
   let waiting = 0;
 
   // ---------- presence (§5.11) ----------
+  // Every call that runs keeps its own focus and activity; the actor shows one of them: an edit (or files) call in
+  // flight — running or waiting for the user's drag, redo or confirmation — over any read, else the newest read. A
+  // read never replaces a waiting edit's activity, and the focus is cleared 3 s after the last call ended.
   let focusTimer: ReturnType<typeof setTimeout> | null = null;
-  let lastFocus: {
-    readonly character: CharacterId | null;
-    readonly clip: ClipId | null;
-    readonly controls: readonly ControlId[];
-    readonly frame: number | null;
-  } | null = null;
-  const setPresence = (
-    focus: {
-      readonly character: CharacterId | null;
-      readonly clip: ClipId | null;
-      readonly controls: readonly ControlId[];
-      readonly frame: number | null;
-    } | null,
-    activity: string | null,
-  ): void => {
-    if (!presence) return;
+  const inFlight = new Map<number, CallPresence>();
+  let callSeq = 0;
+  let shownFocus: PresenceFocus | null = null;
+  const show = (focus: PresenceFocus | null, activity: string | null): void => {
     if (focusTimer !== null) {
       clearTimeout(focusTimer);
       focusTimer = null;
     }
-    lastFocus = focus;
+    shownFocus = focus;
     app.presence.upsert({
       id: actor.id,
       kind: 'agent',
@@ -296,12 +296,40 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
       activity: activity === null ? null : sanitizeText(activity, { maxChars: 120, kind: 'name' }),
     });
   };
-  const lingerThenClear = (): void => {
+  /** Shows the call that speaks for the actor now (see above); nothing while no running call has an activity. */
+  const publish = (): void => {
     if (!presence) return;
+    let chosen: CallPresence | null = null;
+    for (const entry of inFlight.values()) {
+      if (entry.activity === null) continue;
+      if (chosen === null || (entry.edit && !chosen.edit) || (entry.edit === chosen.edit && entry.seq > chosen.seq)) {
+        chosen = entry;
+      }
+    }
+    if (chosen !== null) show(chosen.focus, chosen.activity);
+  };
+  const beginPresence = (edit: boolean): CallPresence => {
+    const entry: CallPresence = { edit, seq: ++callSeq, focus: shownFocus, activity: null };
+    inFlight.set(entry.seq, entry);
+    return entry;
+  };
+  const updatePresence = (entry: CallPresence, focus: PresenceFocus | null, activity: string): void => {
+    entry.focus = focus;
+    entry.activity = activity;
+    publish();
+  };
+  /** A call ended: another call in flight takes over, else the focus lingers 3 s and is cleared. */
+  const endPresence = (entry: CallPresence): void => {
+    inFlight.delete(entry.seq);
+    if (!presence) return;
+    if (inFlight.size > 0) {
+      publish();
+      return;
+    }
     if (focusTimer !== null) clearTimeout(focusTimer);
     focusTimer = softTimeout(() => {
       focusTimer = null;
-      setPresence(null, null);
+      if (inFlight.size === 0) show(null, null);
     }, FOCUS_LINGER_MS);
   };
 
@@ -385,10 +413,14 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
       }, confirmTimeoutMs);
     });
     try {
-      const answer = await Promise.race([
-        host.confirm(prompt, card.signal, resolvedWhen === undefined ? undefined : { resolvedWhen }),
-        timeout,
-      ]);
+      // The call's signal ends the wait even when the host ignores the card's abort.
+      const answer = await abortable(
+        Promise.race([
+          host.confirm(prompt, card.signal, resolvedWhen === undefined ? undefined : { resolvedWhen }),
+          timeout,
+        ]),
+        signal,
+      );
       if (signal.aborted) throw cancelledFailure();
       return answer;
     } finally {
@@ -429,6 +461,24 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
     );
   };
 
+  /**
+   * A run with a scope needs a scope-ready operator (§4.10): for an actor run without a scope its targets are empty,
+   * so it poll-fails ("no targets"), never reading the user's selection, active clip or playhead. An operator that
+   * polls fine without the scope still reads the user's state (P1 has not migrated it in this build): refused before
+   * it runs, so the call cannot edit what the user selected. The probe uses the run's own arguments and the session
+   * as it is right now, so an operator that ignores the scope would poll the same way in the run itself.
+   */
+  const scopeGuard = (tool: AgentToolDef, id: string, args: unknown, access: AgentAccess): void => {
+    const probe = app.operators.poll(id, { source: 'api', actor, access }, args);
+    if (probe !== true) return;
+    throw new AgentToolFailure(
+      'unsupported',
+      `${tool.name} is not available yet: this editor's ${id} does not take explicit targets.`,
+      'use keys_set or pose_set for these keys, or ask the user to make this change in the editor',
+      { retryable: false, detail: { operator: id } },
+    );
+  };
+
   /** Steps of the user's own (no actor) on the redo stack: an edit would destroy them (§5.8 4a). */
   const userRedoSteps = (): number =>
     app.history.entries().redo.filter((step) => step.actor === null || step.actor === undefined).length;
@@ -440,13 +490,14 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
     dryRun: boolean,
     progress: (done: number, total: number | null, message?: string) => void,
     warnings: string[],
+    shown: CallPresence,
   ): AgentToolContext => {
     const waitForGesture = async (): Promise<void> => {
       if (signal.aborted) throw cancelledFailure();
       const previewing = app.store.preview?.active === true;
       if (previewing) {
         progress(0, null, WAITING_FOR_DRAG);
-        if (presence) setPresence(lastFocus, 'waiting for your drag');
+        updatePresence(shown, shown.focus, 'waiting for your drag');
       }
       const done = await abortable(host.waitForGesture(signal, gestureWaitMs), signal);
       if (!done) {
@@ -468,7 +519,7 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         throw redoPending(count);
       }
       progress(0, null, WAITING_FOR_REDO);
-      if (presence) setPresence(lastFocus, `waiting: you have ${count} step${count === 1 ? '' : 's'} to redo`);
+      updatePresence(shown, shown.focus, `waiting: you have ${count} step${count === 1 ? '' : 's'} to redo`);
       const answer = await ask(prompt, signal, () => userRedoSteps() === 0);
       if (answer === 'allow' || answer === 'resolved') return;
       throw redoPending(count);
@@ -491,8 +542,9 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         // The user may have started a drag while the card was open.
         await waitForGesture();
         if (signal.aborted) throw cancelledFailure();
-        const before = app.history.peekUndo()?.id ?? null;
         const access: AgentAccess = runOpts?.access ?? 'edit';
+        if (runOpts?.runScope !== undefined) scopeGuard(tool, id, labelled, access);
+        const before = app.history.peekUndo()?.id ?? null;
         const ctx: RunContext = {
           source: 'api',
           actor,
@@ -520,8 +572,7 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
       },
       progress,
       focus(focus, activity) {
-        if (!presence) return;
-        setPresence(focus, activity);
+        updatePresence(shown, focus, activity);
       },
     };
   };
@@ -564,11 +615,24 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
       else report(done, total, sanitizeText(message, { maxChars: PROGRESS_MAX_CHARS, kind: 'prose' }));
     };
     const warnings: string[] = [];
-    const ctx = context(tool, signal, intent, args['dryRun'] === true, progress, warnings);
-    await confirmCall(tool, ctx, args, (message) => progress(0, null, message));
-    // §5.11: every live call shows as the actor's activity (tools that resolve targets refine it with ctx.focus)
-    if (presence) setPresence(lastFocus, tool.title);
-    const result = await tool.run(ctx, args);
+    const shown = beginPresence(tool.kind !== 'read');
+    try {
+      const ctx = context(tool, signal, intent, args['dryRun'] === true, progress, warnings, shown);
+      await confirmCall(tool, ctx, args, (message) => progress(0, null, message));
+      // §5.11: every live call shows as the actor's activity (tools that resolve targets refine it with ctx.focus)
+      updatePresence(shown, shown.focus, tool.title);
+      return finish(tool, await tool.run(ctx, args), warnings);
+    } finally {
+      endPresence(shown);
+    }
+  };
+
+  /** Toasts of the operator runs as warnings, then the envelope and the budget's hard cut. */
+  const finish = (
+    tool: AgentToolDef,
+    result: AgentToolResult<unknown>,
+    warnings: readonly string[],
+  ): AgentToolResult<unknown> => {
     const merged: AgentToolResult<unknown> =
       result.ok && warnings.length > 0
         ? {
@@ -638,12 +702,8 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         if (callOpts.signal.aborted) {
           throw new AgentToolFailure('cancelled', `${tool.name} was cancelled before it ran.`, 'nothing changed');
         }
-        try {
-          if (tool.kind === 'read') return await execute(tool, args, access, callOpts);
-          return await enqueue(callOpts.signal, () => execute(tool, args, access, callOpts));
-        } finally {
-          lingerThenClear();
-        }
+        if (tool.kind === 'read') return await execute(tool, args, access, callOpts);
+        return await enqueue(callOpts.signal, () => execute(tool, args, access, callOpts));
       } catch (error) {
         // The error path itself must not throw (a failure whose detail is cyclic or too deep for the sanitiser):
         // the MCP layer always gets an envelope, never a rejected call.

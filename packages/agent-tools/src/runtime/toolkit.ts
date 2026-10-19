@@ -3,7 +3,7 @@
 // operator and shape the result (`undo`, warnings). Tool owners outside P2 (operator_run, files, analysis, see) may use
 // these too.
 import type { CharacterId, ClipId, ClipRecord, CurveId } from '@ekza-animator/doc';
-import type { CharacterRuntime } from '@ekza-animator/editor-core';
+import { type CharacterRuntime, type EditorApp, NOT_AVAILABLE_YET } from '@ekza-animator/editor-core';
 import { finishedValue } from '../envelope/errors';
 import { runtimeOf } from '../units/pose';
 import { fpsNumber } from '../units/units';
@@ -88,6 +88,24 @@ export function writeResult<D>(
     ...(list.length === 0 ? {} : { warnings: list }),
     ...(next === undefined ? {} : { next }),
   };
+}
+
+/**
+ * P1's explicit-target operators are in this build (§4.10): D0 registered them as stubs that poll-fail "not available
+ * yet", and P1 replaces them in one merge (§10.1) together with `clip.new`/`clip.duplicate {activate}` and the
+ * actor-safe `clip.delete`. Tools whose path needs those changes refuse up front until then, instead of letting the
+ * runner's session check fail the run (MCP-SPEC §4.1 runner rule 6).
+ */
+export function explicitOperatorsIn(app: EditorApp): boolean {
+  const poll = app.operators.poll('key.write', { source: 'api' }, undefined);
+  return poll === true || poll.reason !== NOT_AVAILABLE_YET;
+}
+
+/** `unsupported` "not available yet" for a call this build cannot run without touching the user's state. */
+export function notAvailableInThisBuild(message: string, hint: string): AgentToolFailure {
+  return new AgentToolFailure('unsupported', `${message} This is not available yet in this editor.`, hint, {
+    retryable: false,
+  });
 }
 
 /** `@ f12` (§5.6 labels). */

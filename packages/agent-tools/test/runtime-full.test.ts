@@ -292,6 +292,29 @@ describe('confirmations, pause and read-only projects (§5.9)', () => {
     expect(fx.app.store.query.clipsOfCharacter(fx.character).some((clip) => clip.name === 'clip1')).toBe(true);
   });
 
+  it('answers cancelled at once when the call is cancelled during a card, even if the host ignores the abort', async () => {
+    const opened = deferred();
+    const rt = runtime(
+      {
+        mode: 'live',
+        answer: () => {
+          opened.resolve();
+          return new Promise(() => undefined); // never settles, ignores its signal
+        },
+      },
+      [],
+      { confirmTimeoutMs: 60_000 },
+    );
+    const abort = new AbortController();
+    const pending = rt.call('clip_delete', { clip: 'clip1' }, { signal: abort.signal });
+    await opened.promise;
+    const started = Date.now();
+    abort.abort();
+    expect(errorOf(await pending).code).toBe('cancelled');
+    expect(Date.now() - started).toBeLessThan(1_000);
+    expect(fx.app.store.query.clipsOfCharacter(fx.character).some((clip) => clip.name === 'clip1')).toBe(true);
+  });
+
   it('meets a pause that came while the call waited in the queue', async () => {
     let paused = false;
     const gates = new Map<string, Promise<void>>();
@@ -337,6 +360,40 @@ describe('presence and toasts (§5.11, §4.4)', () => {
       focus: { clip: fx.agentClip, frame: 3 },
       activity: 'Edit A',
     });
+    vi.advanceTimersByTime(FOCUS_LINGER_MS + 1);
+    expect(fx.app.presence.get(AGENT.id)).toMatchObject({ focus: null, activity: null });
+  });
+
+  it('keeps a waiting edit’s activity while reads run, and clears the focus only after the last call', async () => {
+    const cog = controlOf(fx.app, fx.character, 'cog');
+    for (const value of [0.01, 0.02]) {
+      await fx.app.runUntyped('channel.setValues', { edits: [{ control: cog, channel: 'ty', value }], key: 'force' });
+    }
+    fx.app.history.undo();
+    const card = deferred();
+    const rt = runtime({
+      mode: 'live',
+      answer: async () => {
+        await card.promise;
+        return 'deny';
+      },
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const edit = rt.call(
+      'keys_set',
+      { clip: 'agent', keys: [{ control: 'cog', channel: 'ty', frame: 0, value: 0.05 }] },
+      { signal: signal() },
+    );
+    await vi.waitFor(() => expect(fx.app.presence.get(AGENT.id)?.activity).toBe('waiting: you have 1 step to redo'));
+    // a read while the edit waits on the redo card: the edit keeps speaking for the actor
+    expect((await rt.call('scene_summary', {}, { signal: signal() })).ok).toBe(true);
+    expect(fx.app.presence.get(AGENT.id)?.activity).toBe('waiting: you have 1 step to redo');
+    vi.advanceTimersByTime(FOCUS_LINGER_MS + 1);
+    expect(fx.app.presence.get(AGENT.id)?.activity).toBe('waiting: you have 1 step to redo');
+    card.resolve();
+    expect(errorOf(await edit).code).toBe('redo_pending');
+    // no call left: the focus lingers, then clears
+    expect(fx.app.presence.get(AGENT.id)?.activity).not.toBeNull();
     vi.advanceTimersByTime(FOCUS_LINGER_MS + 1);
     expect(fx.app.presence.get(AGENT.id)).toMatchObject({ focus: null, activity: null });
   });

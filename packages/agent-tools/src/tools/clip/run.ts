@@ -6,7 +6,16 @@ import type { Fps } from '@ekza-animator/anim-core';
 import type { ChannelId, ClipId, ControlId } from '@ekza-animator/doc';
 import { controlKeyOf } from '../../resolve/resolver';
 import { AGENT_RANGE_MAX, rangeArg } from '../../resolve/targets';
-import { addressed, clipInfo, labelName, staleCheck, valueOf, writeResult } from '../../runtime/toolkit';
+import {
+  addressed,
+  clipInfo,
+  explicitOperatorsIn,
+  labelName,
+  notAvailableInThisBuild,
+  staleCheck,
+  valueOf,
+  writeResult,
+} from '../../runtime/toolkit';
 import { quoteName } from '../../sanitize/sanitize';
 import { AgentToolFailure, type AgentToolContext, type AgentToolResult, type ConfirmPrompt } from '../../types';
 import { overridesOn } from '../../units/pose';
@@ -45,6 +54,15 @@ export async function clipCreate(ctx: AgentToolContext, args: ClipCreateArgs): P
   // Headless: no user to protect, so the new clip becomes active by default (later calls can default to it).
   const activate = args.activate ?? ctx.host.mode === 'headless';
   const access = activate ? ('view' as const) : ('edit' as const);
+  if (!activate && !explicitOperatorsIn(ctx.app)) {
+    // The shipped clip.new / clip.duplicate always make the new clip active (P1 adds `activate`).
+    throw notAvailableInThisBuild(
+      'Creating a clip without showing it to the user would switch the user’s clip.',
+      ctx.host.mode === 'live'
+        ? 'pass activate: true (it needs the View grant and shows the new clip to the user), or ask the user to add the clip'
+        : 'leave activate out: a headless project makes the new clip active',
+    );
+  }
   let created: ClipId;
   if (args.duplicateOf !== undefined) {
     const source = ctx.resolve.clip(character.id, args.duplicateOf);
@@ -334,8 +352,26 @@ export interface ClipDeleteArgs {
   readonly confirm?: boolean | undefined;
 }
 
+/**
+ * Whether this build's clip.delete would write the session itself (deleting the active clip before P1's actor-safe
+ * migration). Live that is refused up front — before any confirmation card; headless has no user to protect, so the
+ * run goes ahead with `access: 'view'` (MCP-SPEC §4.1 runner rule 6 does not apply).
+ */
+function legacyDelete(ctx: AgentToolContext, target: ReturnType<typeof addressed>): boolean {
+  const wasActive = ctx.app.session.getState().activeClip[target.character.id] === target.clip.id;
+  if (!wasActive || explicitOperatorsIn(ctx.app)) return false;
+  if (ctx.host.mode === 'live') {
+    throw notAvailableInThisBuild(
+      'Deleting the clip the user is looking at would switch the user’s clip.',
+      'delete another clip, or ask the user to delete this one',
+    );
+  }
+  return true;
+}
+
 export function clipDeleteConfirm(ctx: AgentToolContext, args: ClipDeleteArgs): ConfirmPrompt {
   const target = addressed(ctx, args);
+  legacyDelete(ctx, target);
   const looking =
     ctx.host.capabilities.has('user') && ctx.app.session.getState().activeClip[target.character.id] === target.clip.id;
   return {
@@ -349,11 +385,12 @@ export async function clipDelete(ctx: AgentToolContext, args: ClipDeleteArgs): P
   const target = addressed(ctx, args);
   const clip = target.clip.id;
   const wasActive = ctx.app.session.getState().activeClip[target.character.id] === clip;
+  const legacy = legacyDelete(ctx, target);
   ctx.focus(
     { character: target.character.id, clip: null, controls: [], frame: null },
     `Delete clip ${labelName(target.clip.name)}`,
   );
-  const run = await ctx.run('clip.delete', { clip });
+  const run = await ctx.run('clip.delete', { clip }, legacy ? { access: 'view' } : undefined);
   valueOf('clip.delete', run);
   const nowId = ctx.app.session.getState().activeClip[target.character.id];
   const now = nowId === undefined ? undefined : ctx.app.store.get('clips', nowId);
