@@ -3,6 +3,18 @@ export { registerViewportContributions } from './manager/contributions';
 export { subscribeViewportManager, viewportManagerOf } from './manager/lookup';
 export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager/testApi';
 export { DEFAULT_DISPLAY, type PaneState, ViewportManager, WHEEL_BURST_MS } from './manager/ViewportManager';
+export {
+  loadMeshDisplay,
+  loadMeshView,
+  MESH_LAYERS,
+  type MeshDisplay,
+  type MeshDisplayOptions,
+  type MeshDisplayPick,
+  type MeshLayerHost,
+  type MeshLayerTarget,
+  type MeshView,
+  meshPaneDisplay,
+} from './mesh';
 export { defaultPaneCamera, FIRST_SHOT_CAMERA, LAYOUT_PANES } from './panes/layout';
 export type { ViewportToolHost } from './tools/host';
 export { selectModeOf } from './tools/selectTool';
