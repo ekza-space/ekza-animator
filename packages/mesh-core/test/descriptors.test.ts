@@ -241,14 +241,18 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
         .filter((id) => !LANDED.has(id))
         .map((id) => [id, true, 'not-implemented']),
     );
-    for (const id of LANDED) {
+    const landed = [...LANDED].map((id) => {
       const op = MESH_OPS[id];
-      expect(op, id).toBeDefined();
       const result = op?.run(mesh, null, {}, ctx);
-      expect(isRefusal(result) ? result.code : 'ran', id).not.toBe('not-implemented');
       const verdict = op?.poll(mesh, null, ctx);
-      expect(verdict === true || isRefusal(verdict), id).toBe(true);
-    }
+      return {
+        id,
+        defined: op !== undefined,
+        stub: isRefusal(result) && result.code === 'not-implemented',
+        poll: verdict === true || isRefusal(verdict),
+      };
+    });
+    expect(landed).toEqual([...LANDED].map((id) => ({ id, defined: true, stub: false, poll: true })));
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];

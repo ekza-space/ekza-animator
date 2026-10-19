@@ -9,7 +9,7 @@ import { EXTRUDE } from './descriptor';
 import { extrudeEdges } from './edges';
 import { extrudeFaces } from './faces';
 import { expandIndices, mirrorOf, unmatchedWarnings } from './shared/symmetry';
-import { resolveArgs, selected } from './shared/util';
+import { guarded, resolveArgs, selected } from './shared/util';
 
 function pollExtrude(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal {
   if (sel === null) return refuse('extrude.no-selection', 'Select faces or border edges');
@@ -43,5 +43,5 @@ function runExtrude(
 export const extrude: MeshOp = Object.freeze({
   ...EXTRUDE,
   poll: pollExtrude,
-  run: runExtrude,
+  run: guarded(EXTRUDE, runExtrude),
 });

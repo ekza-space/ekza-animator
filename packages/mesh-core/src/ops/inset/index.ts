@@ -25,6 +25,7 @@ import {
   selected,
   selectionResult,
   setPos,
+  guarded,
 } from '../extrude/shared/util';
 import { buildExtrusion, faceRegions, planExtrusion, regionNonManifold, sideEdges } from '../extrude/topology';
 import { INSET } from './descriptor';
@@ -177,4 +178,4 @@ function runInset(
   });
 }
 
-export const inset: MeshOp = Object.freeze({ ...INSET, poll: pollInset, run: runInset });
+export const inset: MeshOp = Object.freeze({ ...INSET, poll: pollInset, run: guarded(INSET, runInset) });

@@ -6,7 +6,7 @@ import type { ParamValues } from '@ekza-animator/anim-core';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';
-import { faceVerts, opResult, resolveArgs, selected, selectionResult } from '../extrude/shared/util';
+import { faceVerts, guarded, opResult, resolveArgs, selected, selectionResult } from '../extrude/shared/util';
 import { mergeGroups } from '../merge/clusters';
 import { COLLAPSE } from './descriptor';
 
@@ -67,4 +67,4 @@ function runCollapse(
   );
 }
 
-export const collapse: MeshOp = Object.freeze({ ...COLLAPSE, poll: pollCollapse, run: runCollapse });
+export const collapse: MeshOp = Object.freeze({ ...COLLAPSE, poll: pollCollapse, run: guarded(COLLAPSE, runCollapse) });

@@ -33,6 +33,7 @@ import {
   setPos,
   sub,
   uniqueSorted,
+  guarded,
 } from '../extrude/shared/util';
 import { type BorderLoop, borderChains } from '../fill';
 import { BRIDGE } from './descriptor';
@@ -301,4 +302,4 @@ function runBridge(
   return opResult(selectionResult(m, 'face', faces), warnings, args);
 }
 
-export const bridge: MeshOp = Object.freeze({ ...BRIDGE, poll: pollBridge, run: runBridge });
+export const bridge: MeshOp = Object.freeze({ ...BRIDGE, poll: pollBridge, run: guarded(BRIDGE, runBridge) });

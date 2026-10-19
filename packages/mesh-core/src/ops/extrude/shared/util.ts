@@ -4,6 +4,7 @@
 // every entry references `KERNEL_MARKER` through `kernelError`.
 import { coerceArgs, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
 import { kernelError } from '../../../kernel';
+import { refuse } from '../../../refusal';
 import { selectionOf } from '../../../selection';
 import type {
   ComponentKind,
@@ -11,9 +12,11 @@ import type {
   EditMesh,
   HiddenSet,
   MeshOpDescriptor,
+  OpContext,
   OpFrame,
   OpResult,
   OpWarning,
+  Refusal,
 } from '../../../types';
 
 // ---------- arguments ----------
@@ -314,4 +317,33 @@ export function setPos(m: EditMesh, v: number, p: Readonly<V3>): void {
 /** Sorted unique numbers. */
 export function uniqueSorted(values: Iterable<number>): number[] {
   return [...new Set(values)].sort((a, b) => a - b);
+}
+
+// ---------- the refusal policy (§5.1) ----------
+
+/**
+ * Wraps an op's `run` so an Euler operator refusing on topology the op cannot handle (`EkzaError('mesh-euler')`, a
+ * kernel-internal `mesh-op` error) becomes the refusal `<op>.topology` instead of a throw: §5.1 "never a throw for
+ * valid input". The caller aborts the transaction on a refusal, so the mesh is bit-identical to before. Property
+ * tests on manifold meshes assert this refusal never happens there.
+ */
+export function guarded(
+  desc: MeshOpDescriptor,
+  run: (m: EditMesh, sel: ComponentSelection | null, args: ParamValues, ctx: OpContext) => OpResult | Refusal,
+): (m: EditMesh, sel: ComponentSelection | null, args: ParamValues, ctx: OpContext) => OpResult | Refusal {
+  const name = desc.id.slice('mesh.'.length);
+  return (m, sel, args, ctx) => {
+    try {
+      return run(m, sel, args, ctx);
+    } catch (error) {
+      const code = (error as { readonly code?: unknown } | null)?.code;
+      if (code === 'mesh-euler' || code === 'mesh-op') {
+        return refuse(
+          `${name}.topology`,
+          `${desc.label} cannot handle the mesh around the selection (${String((error as Error).message)})`,
+        );
+      }
+      throw error;
+    }
+  };
 }

@@ -45,7 +45,11 @@ interface BorderEdge {
   readonly b: number;
 }
 
-/** Connected components of the edges through shared vertices (ascending edge lists). */
+/**
+ * Chains of the border edges: two edges join when one ends where the other starts in their faces' winding (a → b,
+ * b → c), so a chain's quads wind consistently; edges meeting head to head at a bow-tie vertex stay in separate
+ * chains with separate new vertices (ascending edge lists).
+ */
 function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
   const parent = new Map<number, number>(edges.map((e) => [e, e]));
   const find = (e: number): number => {
@@ -53,17 +57,22 @@ function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
     while (parent.get(r) !== r) r = parent.get(r) as number;
     return r;
   };
-  const byVert = new Map<number, number>();
+  const tailAt = new Map<number, number[]>();
+  const headOf = new Map<number, number>();
   for (const e of edges) {
-    for (const end of [0, 1] as const) {
-      const v = m.edgeVert(e, end);
-      const other = byVert.get(v);
-      if (other === undefined) byVert.set(v, e);
-      else {
-        const a = find(other);
-        const b = find(e);
-        if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
-      }
+    const c = edgeCorners(m, e)[0] as number;
+    const a = m.cornerVert(c);
+    const b = m.cornerVert(m.cornerNext(c));
+    const list = tailAt.get(a) ?? [];
+    list.push(e);
+    tailAt.set(a, list);
+    headOf.set(e, b);
+  }
+  for (const e of edges) {
+    for (const next of tailAt.get(headOf.get(e) as number) ?? []) {
+      const a = find(e);
+      const b = find(next);
+      if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
     }
   }
   const groups = new Map<number, number[]>();

@@ -11,7 +11,7 @@ function partsOf(data: MeshData): { positions: number[]; faces: number[][]; hard
   const faces: number[][] = [];
   for (let f = 0; f < data.counts.faces; f++) faces.push(faceVerts(m, f));
   let hard = true;
-  for (let e = 0; e < data.counts.edges; e++) if ((data.edgeFlags[e] as number & EDGE_HARD) === 0) hard = false;
+  for (let e = 0; e < data.counts.edges; e++) if (((data.edgeFlags[e] as number) & EDGE_HARD) === 0) hard = false;
   return { positions, faces, hard };
 }
 

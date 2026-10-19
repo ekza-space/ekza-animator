@@ -9,7 +9,7 @@ import type { ParamValues } from '@ekza-animator/anim-core';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { unmatchedWarnings, mirrorOf } from '../extrude/shared/symmetry';
-import { type V3, lerp3, opResult, pos, resolveArgs, selectionResult, str } from '../extrude/shared/util';
+import { type V3, guarded, lerp3, opResult, pos, resolveArgs, selectionResult, str } from '../extrude/shared/util';
 import { mergeGroups } from '../merge/clusters';
 import { TARGET_WELD } from './descriptor';
 
@@ -148,4 +148,8 @@ function runTargetWeld(
   );
 }
 
-export const targetWeld: MeshOp = Object.freeze({ ...TARGET_WELD, poll: pollTargetWeld, run: runTargetWeld });
+export const targetWeld: MeshOp = Object.freeze({
+  ...TARGET_WELD,
+  poll: pollTargetWeld,
+  run: guarded(TARGET_WELD, runTargetWeld),
+});

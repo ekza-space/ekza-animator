@@ -22,6 +22,7 @@ import {
   selected,
   selectionResult,
   touchedVerts,
+  guarded,
 } from '../extrude/shared/util';
 import { clusterByDistance, countWarning, mergeGroups, mergesAnything } from './clusters';
 import { MERGE, MERGE_BY_DISTANCE, MERGE_TO_CENTER } from './descriptor';
@@ -155,14 +156,14 @@ function runMergeByDistance(
   );
 }
 
-export const merge: MeshOp = Object.freeze({ ...MERGE, poll: pollMerge, run: runMerge });
+export const merge: MeshOp = Object.freeze({ ...MERGE, poll: pollMerge, run: guarded(MERGE, runMerge) });
 export const mergeToCenter: MeshOp = Object.freeze({
   ...MERGE_TO_CENTER,
   poll: pollMergeToCenter,
-  run: runMergeToCenter,
+  run: guarded(MERGE_TO_CENTER, runMergeToCenter),
 });
 export const mergeByDistance: MeshOp = Object.freeze({
   ...MERGE_BY_DISTANCE,
   poll: pollMergeByDistance,
-  run: runMergeByDistance,
+  run: guarded(MERGE_BY_DISTANCE, runMergeByDistance),
 });

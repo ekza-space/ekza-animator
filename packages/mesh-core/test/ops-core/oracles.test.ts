@@ -84,28 +84,31 @@ describe('§5.29 oracles: insert edge loop', () => {
     expect(windingProblems(m)).toEqual([]);
   });
 
-  it('Object X symmetry on an X-ring: weight 0.3 → 16/28/14 at x = ±0.2; 0.5 → 12/20/10 at x = 0', () => {
-    for (const [weight, expected, xs] of [
-      [0.3, '16/28/14', [-0.2, 0.2]],
-      [0.5, '12/20/10', [0]],
-    ] as const) {
-      const m = cube();
-      const seed = edgesAlong(m, 0)[0] as number;
-      const map = referenceSymmetryMap(m, 'x');
-      expect(map.edgeSelf[seed]).toBe(1);
-      const result = runOk(m, 'mesh.insertLoop', sel(m, 'edge', [seed]), { weight }, ctxOf({ symmetry: map }));
-      expect(counts(m)).toBe(expected);
-      const found = new Set<number>();
-      for (let v = 8; v < m.counts.points; v++) found.add(Math.round(position(m, v)[0] * 1e6) / 1e6);
-      expect([...found].sort((a, b) => a - b)).toEqual([...xs]);
-      for (let v = 8; v < m.counts.points; v++) {
-        const x = position(m, v)[0];
-        if (weight === 0.5) expect(x).toBe(0);
-        else expect(Math.abs(Math.abs(x) - 0.2)).toBeLessThan(1e-6);
-      }
-      expect(result.warnings).toEqual([]);
-      expect(referenceSymmetryMap(m, 'x').unmatched).toBe(0);
-    }
+  const xRing = (weight: number) => {
+    const m = cube();
+    const seed = edgesAlong(m, 0)[0] as number;
+    const map = referenceSymmetryMap(m, 'x');
+    expect(map.edgeSelf[seed]).toBe(1);
+    const result = runOk(m, 'mesh.insertLoop', sel(m, 'edge', [seed]), { weight }, ctxOf({ symmetry: map }));
+    const xs: number[] = [];
+    for (let v = 8; v < m.counts.points; v++) xs.push(position(m, v)[0]);
+    return { m, result, xs };
+  };
+
+  it('Object X symmetry on an X-ring at weight 0.3: two loops at x = ±0.2, 16/28/14, every vertex partnered', () => {
+    const { m, result, xs } = xRing(0.3);
+    expect(counts(m)).toBe('16/28/14');
+    expect(xs.map((x) => Math.abs(Math.abs(x) - 0.2) < 1e-6)).toEqual(xs.map(() => true));
+    expect(xs.filter((x) => x < 0).length).toBe(4);
+    expect(result.warnings).toEqual([]);
+    expect(referenceSymmetryMap(m, 'x').unmatched).toBe(0);
+  });
+
+  it('Object X symmetry on an X-ring at weight 0.5: one loop at x = 0 exactly, 12/20/10', () => {
+    const { m, xs } = xRing(0.5);
+    expect(counts(m)).toBe('12/20/10');
+    expect(xs).toEqual([0, 0, 0, 0]);
+    expect(referenceSymmetryMap(m, 'x').unmatched).toBe(0);
   });
 
   it('8-sided cylinder, multiple 3: 16/24/10 → 40/72/34', () => {

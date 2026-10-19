@@ -29,6 +29,7 @@ import {
   str,
   sub,
   vertCorners,
+  guarded,
 } from '../extrude/shared/util';
 import { INSERT_LOOP } from './descriptor';
 import { type Ring, walkRing } from './ring';
@@ -292,4 +293,8 @@ function runInsertLoop(
   );
 }
 
-export const insertLoop: MeshOp = Object.freeze({ ...INSERT_LOOP, poll: pollInsertLoop, run: runInsertLoop });
+export const insertLoop: MeshOp = Object.freeze({
+  ...INSERT_LOOP,
+  poll: pollInsertLoop,
+  run: guarded(INSERT_LOOP, runInsertLoop),
+});

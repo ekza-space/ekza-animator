@@ -24,6 +24,7 @@ import {
   selectionResult,
   uniqueSorted,
   vertEdges,
+  guarded,
 } from '../extrude/shared/util';
 import { OFFSET_LOOP } from './descriptor';
 
@@ -188,4 +189,8 @@ function runOffsetLoop(
   return opResult(selectionResult(m, 'edge', uniqueSorted(out)), warnings, args);
 }
 
-export const offsetLoop: MeshOp = Object.freeze({ ...OFFSET_LOOP, poll: pollOffsetLoop, run: runOffsetLoop });
+export const offsetLoop: MeshOp = Object.freeze({
+  ...OFFSET_LOOP,
+  poll: pollOffsetLoop,
+  run: guarded(OFFSET_LOOP, runOffsetLoop),
+});

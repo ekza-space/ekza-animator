@@ -27,6 +27,7 @@ import {
   setPos,
   uniqueSorted,
   vertFaces,
+  guarded,
 } from '../extrude/shared/util';
 import { CONNECT } from './descriptor';
 
@@ -179,4 +180,4 @@ function runConnect(
   return opResult(selectionResult(m, 'edge', uniqueSorted(out)), warnings, args);
 }
 
-export const connect: MeshOp = Object.freeze({ ...CONNECT, poll: pollConnect, run: runConnect });
+export const connect: MeshOp = Object.freeze({ ...CONNECT, poll: pollConnect, run: guarded(CONNECT, runConnect) });

@@ -16,6 +16,7 @@ import {
   selected,
   selectionResult,
   touchedVerts,
+  guarded,
 } from '../extrude/shared/util';
 import { FILL_HOLE } from './descriptor';
 
@@ -165,4 +166,4 @@ function runFill(
   return opResult(selectionResult(m, 'face', created), unmatchedWarnings(expanded.unmatched), args);
 }
 
-export const fillHole: MeshOp = Object.freeze({ ...FILL_HOLE, poll: pollFill, run: runFill });
+export const fillHole: MeshOp = Object.freeze({ ...FILL_HOLE, poll: pollFill, run: guarded(FILL_HOLE, runFill) });

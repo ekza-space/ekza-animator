@@ -206,7 +206,13 @@ export function weld(m: EditMesh, plan: WeldPlan): WeldResult {
     for (const e of vertEdges(m, v)) {
       if (seen.has(e)) continue;
       seen.add(e);
-      if (edgeFaces(m, e).length > 2) nonManifold++;
+      const faces = edgeFaces(m, e).length;
+      if (faces > 2) nonManifold++;
+      else if (faces === 2) {
+        // Two faces running the edge the same way: the merge folded one onto the other.
+        const c = m.edgeCorner(e);
+        if (m.cornerVert(c) === m.cornerVert(m.cornerRadialNext(c))) nonManifold++;
+      }
     }
   }
   const warnings: OpWarning[] =

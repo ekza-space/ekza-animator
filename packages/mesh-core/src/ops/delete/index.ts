@@ -11,8 +11,10 @@
 // material); a union that would need a hole refuses `delete.hole`. `selection′` is empty. Symmetry: the expanded
 // selection (§5.14). Nothing is kept unused (§5.1 orphan cleanup).
 import type { ParamValues } from '@ekza-animator/anim-core';
-import type { ComponentKind, ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
+import { EDGE_HARD } from '../../constants';
+import { allEdgesHard, mergeEdgeFlags } from '../../normals/hard';
 import { refuse } from '../../refusal';
+import type { ComponentKind, ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { copyCornerRaw } from '../extrude/shared/rewire';
 import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';
 import {
@@ -26,6 +28,7 @@ import {
   uniqueSorted,
   vertEdges,
   vertFaces,
+  guarded,
 } from '../extrude/shared/util';
 import { DELETE, DELETE_EDGE_VERTEX } from './descriptor';
 
@@ -139,9 +142,27 @@ function applyDeletion(
   const wire = new Set<number>();
   for (const f of killFaces) for (const c of faceCorners(m, f)) edgeCandidates.add(m.cornerEdge(c));
   for (const e of edgeCandidates) if (m.edgeFaceCount(e) === 0) wire.add(e);
+  const E0 = m.counts.edges;
   for (const group of groups) {
     const example = group.faces[0] as number;
+    const allHard = group.faces.every((f) => allEdgesHard(m, f));
     const g = m.makeFace(group.verts, { example });
+    // A new edge closes the gap of a removed border vertex: H3, the OR of the two edges it joins (else H1).
+    for (const corner of faceCorners(m, g)) {
+      const e = m.cornerEdge(corner);
+      if (e < E0) continue;
+      const a = m.cornerVert(corner);
+      const b = m.cornerVert(m.cornerNext(corner));
+      let flags = -1;
+      for (const v of killVerts) {
+        const ea = m.findEdge(a, v);
+        const eb = m.findEdge(v, b);
+        if (ea !== -1 && eb !== -1)
+          flags = mergeEdgeFlags(Math.max(0, flags), mergeEdgeFlags(m.edgeFlags(ea), m.edgeFlags(eb)));
+      }
+      const next = flags >= 0 ? flags : allHard ? EDGE_HARD : 0;
+      if (m.edgeFlags(e) !== next) m.setEdgeFlags(e, next);
+    }
     const corners = faceCorners(m, g);
     corners.forEach((corner, i) => {
       const src = group.corners[i] as number;
@@ -205,7 +226,11 @@ function deleteEdges(m: EditMesh, edges: readonly number[], dissolveAfter: boole
     }
     if (faces.length < 2) continue;
     const inGroup = new Set(faces);
-    const internal = (e: number): boolean => edgeFaces(m, e).every((f) => inGroup.has(f));
+    // Internal: an edge between two faces of the group (a border edge of the group stays on its boundary).
+    const internal = (e: number): boolean => {
+      const fs = edgeFaces(m, e);
+      return fs.length >= 2 && fs.every((f) => inGroup.has(f));
+    };
     const cycle = unionCycle(m, faces, internal, new Set());
     if (cycle === null) return refuse('delete.hole', 'Deleting these edges would leave a face with a hole');
     groups.push({ faces, verts: cycle.verts, corners: cycle.corners });
@@ -309,8 +334,11 @@ function runDeleteEdgeVertex(
   const killFaces = new Set<number>(faces);
   for (const group of grouped) {
     const inGroup = new Set(group);
-    const internal = (e: number): boolean =>
-      removed.has(m.edgeVert(e, 0)) || removed.has(m.edgeVert(e, 1)) || edgeFaces(m, e).every((f) => inGroup.has(f));
+    const internal = (e: number): boolean => {
+      if (removed.has(m.edgeVert(e, 0)) || removed.has(m.edgeVert(e, 1))) return true;
+      const fs = edgeFaces(m, e);
+      return fs.length >= 2 && fs.every((f) => inGroup.has(f));
+    };
     const cycle = unionCycle(m, group, internal, removed);
     if (cycle === null) {
       // Nothing left of the group (all its vertices removed) just goes; anything else would need a hole.
@@ -325,9 +353,9 @@ function runDeleteEdgeVertex(
   return emptyResult(m, 'vertex', args, expanded.unmatched);
 }
 
-export const meshDelete: MeshOp = Object.freeze({ ...DELETE, poll: pollDelete, run: runDelete });
+export const meshDelete: MeshOp = Object.freeze({ ...DELETE, poll: pollDelete, run: guarded(DELETE, runDelete) });
 export const deleteEdgeVertex: MeshOp = Object.freeze({
   ...DELETE_EDGE_VERTEX,
   poll: pollDeleteEdgeVertex,
-  run: runDeleteEdgeVertex,
+  run: guarded(DELETE_EDGE_VERTEX, runDeleteEdgeVertex),
 });
