@@ -598,8 +598,8 @@ describe.skipIf(!READY.p1)('tools over P1’s scope migrations (READY.p1)', () =
 });
 
 describe('the user’s selection, clip and playhead never reach a call (guards until P1 is in)', () => {
-  /** The user looks at clip `agent` at frame 12 with fk.lowerArm.L (keys at 0, 15, 30) selected. */
-  function userOnAgentClip(keys: readonly ClipId[] = []): void {
+  /** The user looks at clip `agent` at frame 12 with fk.lowerArm.L (keys at 0, 15, 30) and some keys selected. */
+  function userOnAgentClip(keys: readonly string[] = []): void {
     const state = fx.app.session.getState();
     fx.app.session.setState({
       activeClip: { ...state.activeClip, [fx.character]: fx.agentClip },
@@ -613,11 +613,16 @@ describe('the user’s selection, clip and playhead never reach a call (guards u
       },
     });
   }
-  const forearmKeys = () => keysOf(fx.app, fx.agentClip, controlOf(fx.app, fx.character, 'fk.lowerArm.L'), 'rz');
+  /** The forearm's keys on clip `agent` (the user's selected control and keys). */
+  const forearmCurve = () => {
+    const key = fx.app.store.get('keys', fx.keys[1] as never);
+    if (key === undefined) throw new Error('no key');
+    return JSON.stringify(fx.app.store.query.keysOfCurve(key.curve));
+  };
 
-  it('keys_tween never tweens the user’s selected control at the user’s frame', async () => {
+  async function tweenScenario() {
     userOnAgentClip();
-    const before = sessionRecord(fx.app);
+    const before = { session: sessionRecord(fx.app), curve: forearmCurve() };
     const result = await call(runtimeOf(fx, liveHost()), 'keys_tween', {
       clip: 'agent',
       targets: { controls: ['fk.upperArm.L'] },
@@ -625,74 +630,88 @@ describe('the user’s selection, clip and playhead never reach a call (guards u
       mode: 'tween',
       amountPercent: 50,
     });
-    if (!READY.p1) {
-      expect(errorOf(result)).toMatchObject({ code: 'unsupported', detail: { operator: 'key.tween' } });
-      expect(errorOf(result).message).toContain('not available yet');
-    }
-    expect(forearmKeys().map(([t]) => t)).toEqual([0, 15, 30]);
-    expect(sessionRecord(fx.app)).toEqual(before);
-  });
+    return { before, result };
+  }
 
-  it('curves_euler_filter and curves_set_interpolation never act on the user’s clip or selected keys', async () => {
-    userOnAgentClip([fx.keys[1] as never]);
-    const before = sessionRecord(fx.app);
-    const keysBefore = JSON.stringify(
-      fx.app.store.query.keysOfCurve(fx.app.store.get('keys', fx.keys[1] as never)!.curve),
-    );
+  async function curvesScenario() {
+    // the agent's own keys on fk.upperArm.L (the user selected keys of fk.lowerArm.L)
+    const keyed = await call(runtimeOf(fx), 'keys_set', {
+      clip: 'agent',
+      keys: [0, 30].map((frame) => ({ control: 'fk.upperArm.L', channel: 'rz', frame, value: 10 })),
+    });
+    expect(keyed.ok).toBe(true);
+    userOnAgentClip([fx.keys[1] as string]);
+    const before = { session: sessionRecord(fx.app), curve: forearmCurve() };
     const runtime = runtimeOf(fx, liveHost());
+    // the forearm has no flips: a filter on the scope leaves it as it is
     const filter = await call(runtime, 'curves_euler_filter', {
       clip: 'agent',
       targets: { controls: ['fk.lowerArm.L'] },
     });
     const tangents = await call(runtime, 'curves_set_interpolation', {
       clip: 'agent',
-      targets: { controls: ['fk.lowerArm.L'] },
-      frames: [0],
+      targets: { controls: ['fk.upperArm.L'] },
       tangent: 'linear',
     });
-    if (!READY.p1) {
-      expect(errorOf(filter)).toMatchObject({ code: 'unsupported', detail: { operator: 'graph.eulerFilter' } });
-      expect(errorOf(tangents)).toMatchObject({ code: 'unsupported', detail: { operator: 'graph.tangent.set' } });
-      expect(JSON.stringify(fx.app.store.query.keysOfCurve(fx.app.store.get('keys', fx.keys[1] as never)!.curve))).toBe(
-        keysBefore,
-      );
-    }
-    // the user's selected key (f15) keeps its tangents either way
-    const selected = fx.app.store.get('keys', fx.keys[1] as never);
-    expect(JSON.parse(keysBefore).find((k: { id: string }) => k.id === selected?.id)).toMatchObject({
-      inType: selected?.inType,
-      outType: selected?.outType,
-    });
-    expect(sessionRecord(fx.app)).toEqual(before);
+    return { before, filter, tangents };
+  }
+
+  it('keys_tween never tweens the user’s selected control at the user’s frame', async () => {
+    const { before } = await tweenScenario();
+    expect(forearmCurve()).toBe(before.curve);
+    expect(sessionRecord(fx.app)).toEqual(before.session);
+  });
+
+  it('curves_euler_filter and curves_set_interpolation never act on the user’s clip or selected keys', async () => {
+    const { before } = await curvesScenario();
+    expect(forearmCurve()).toBe(before.curve);
+    expect(sessionRecord(fx.app)).toEqual(before.session);
+  });
+
+  it.skipIf(READY.p1)('before P1: they answer unsupported “not available yet”, naming the operator', async () => {
+    const tween = await tweenScenario();
+    expect(errorOf(tween.result)).toMatchObject({ code: 'unsupported', detail: { operator: 'key.tween' } });
+    expect(errorOf(tween.result).message).toContain('not available yet');
+    const curves = await curvesScenario();
+    expect(errorOf(curves.filter)).toMatchObject({ code: 'unsupported', detail: { operator: 'graph.eulerFilter' } });
+    expect(errorOf(curves.tangents)).toMatchObject({ code: 'unsupported', detail: { operator: 'graph.tangent.set' } });
   });
 
   it('clip_create without activate keeps the user’s clip, frame and unkeyed edits', async () => {
     seedUserSession(fx);
     const before = sessionRecord(fx.app);
-    const result = await call(runtimeOf(fx, liveHost()), 'clip_create', { name: 'extra', durationFrames: 30 });
-    if (READY.p1) expect(dataOf(result)).toMatchObject({ activated: false });
-    else {
-      expect(errorOf(result)).toMatchObject({ code: 'unsupported', retryable: false });
-      expect(errorOf(result).hint).toContain('activate: true');
-      expect(fx.app.store.query.clipsOfCharacter(fx.character).map((clip) => clip.name)).not.toContain('extra');
-    }
+    await call(runtimeOf(fx, liveHost()), 'clip_create', { name: 'extra', durationFrames: 30 });
     expect(fx.app.session.getState().overrides.size).toBe(1);
     expect(sessionRecord(fx.app)).toEqual(before);
   });
 
-  it('clip_delete of the clip the user looks at is refused live before any card; headless deletes it', async () => {
+  it.runIf(READY.p1)('with P1: clip_create live leaves the new clip out of the user’s view', async () => {
     seedUserSession(fx);
-    const prompts: ConfirmPrompt[] = [];
-    const before = sessionRecord(fx.app);
-    const live = await call(runtimeOf(fx, liveHost({ answer: 'allow', prompts })), 'clip_delete', { clip: 'user' });
-    if (!READY.p1) {
+    const result = await call(runtimeOf(fx, liveHost()), 'clip_create', { name: 'extra', durationFrames: 30 });
+    expect(dataOf(result)).toMatchObject({ activated: false });
+  });
+
+  it.skipIf(READY.p1)('before P1: clip_create without activate is refused up front, hinting at activate', async () => {
+    seedUserSession(fx);
+    const result = await call(runtimeOf(fx, liveHost()), 'clip_create', { name: 'extra', durationFrames: 30 });
+    expect(errorOf(result)).toMatchObject({ code: 'unsupported', retryable: false });
+    expect(errorOf(result).hint).toContain('activate: true');
+    expect(fx.app.store.query.clipsOfCharacter(fx.character).map((clip) => clip.name)).not.toContain('extra');
+  });
+
+  it.skipIf(READY.p1)(
+    'before P1: deleting the user’s clip is refused live before any card; headless works',
+    async () => {
+      seedUserSession(fx);
+      const prompts: ConfirmPrompt[] = [];
+      const before = sessionRecord(fx.app);
+      const live = await call(runtimeOf(fx, liveHost({ answer: 'allow', prompts })), 'clip_delete', { clip: 'user' });
       expect(errorOf(live)).toMatchObject({ code: 'unsupported' });
       expect(prompts).toEqual([]);
       expect(sessionRecord(fx.app)).toEqual(before);
-    } else expect(live.ok).toBe(true);
-    const headless = await call(runtimeOf(fx), 'clip_delete', { clip: READY.p1 ? 'clip1' : 'user', confirm: true });
-    expect(headless.ok).toBe(true);
-  });
+      expect((await call(runtimeOf(fx), 'clip_delete', { clip: 'user', confirm: true })).ok).toBe(true);
+    },
+  );
 });
 
 describe('curves tools without P1', () => {

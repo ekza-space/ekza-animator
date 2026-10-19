@@ -10,7 +10,6 @@
 //   `confirm: true`, else `confirm_required`), read-only projects, cooperative cancellation at every wait;
 // - presence focus and activity (cleared 3 s after the call), progress throttled to 4 per second, toasts raised
 //   during an operator run returned as warnings, and the actor's own steps and batches (revisions, history tools).
-import type { CharacterId, ClipId, ControlId } from '@ekza-animator/doc';
 import type { AgentAccess, Notifier, RunContext } from '@ekza-animator/editor-core';
 import type { z } from 'zod';
 import { outputJsonSchemaOf } from '../budget/budget';
