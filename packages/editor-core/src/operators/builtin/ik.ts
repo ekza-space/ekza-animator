@@ -19,7 +19,15 @@ import {
   type LimbId,
   readRigDefinition,
 } from '@ekza-animator/rig';
-import { newKeyTangents } from '../../edit/channelMeta';
+import {
+  attrChannelsOf,
+  isKeyable,
+  isLocked,
+  newKeyTangents,
+  ROTATE_CHANNELS,
+  SCALE_CHANNELS,
+  TRANSLATE_CHANNELS,
+} from '../../edit/channelMeta';
 import { applyChannelEdits } from '../../edit/channels';
 import { animCurve } from '../../edit/context';
 import { ensureCurve, insertKeyOnCurve, writeKeyAt } from '../../edit/keys';
@@ -41,11 +49,12 @@ import {
   matchWarnings,
   type MatchResult,
   resolveSwitchKey,
+  sideControls,
   switchAlreadyReason,
 } from '../../workflows/ik';
 import { editsFromValues } from '../../workflows/pose';
 import type { CountResult } from '../args';
-import { AGENT_SPAN_LIMIT } from './agentLoad';
+import { AGENT_SPAN_LIMIT, AGENT_WRITE_LIMIT, type AgentImpl, loadAgentImpl } from './agentLoad';
 import {
   type AnyOperator,
   defineOperator,
@@ -381,7 +390,34 @@ function rangeArg(value: unknown): { start: Frame; end: Frame } | null | string 
   return { start: value['start'], end: value['end'] };
 }
 
-const matchRange = defineOperator({
+/** Why an agent's Match Range would write more than 50,000 keys (frames × the side's keyable channels), or null. */
+function matchRangeWriteProblem(
+  app: EditorApp,
+  ctx: LimbContext,
+  options: Readonly<Record<string, unknown>>,
+): string | null {
+  const range = rangeArg(options['range']);
+  if (range === null || typeof range === 'string') return null;
+  const side = options['side'] === 'fk' ? 'fk' : 'ik';
+  const step = options['step'] ?? (side === 'fk' ? 'frames' : 'keys');
+  const frames =
+    step === 'frames'
+      ? Math.max(0, Math.floor(range.end + 1e-9) - Math.ceil(range.start - 1e-9) + 1)
+      : matchRangeFrames(app, ctx, range, 'keys').length;
+  let channels = 0;
+  for (const id of sideControls(ctx.limb, side)) {
+    const control = app.store.get('controls', id);
+    if (control === undefined) continue;
+    for (const channel of [...TRANSLATE_CHANNELS, ...ROTATE_CHANNELS, ...SCALE_CHANNELS, ...attrChannelsOf(control)]) {
+      if (isKeyable(control, channel) && !isLocked(control, channel)) channels++;
+    }
+  }
+  return frames * channels > AGENT_WRITE_LIMIT
+    ? `The match would write more than ${AGENT_WRITE_LIMIT} keys (${frames} frames × ${channels} channels); pass a shorter range`
+    : null;
+}
+
+const matchRange = defineOperator<'rig.ikFk.matchRange', AgentImpl | undefined>({
   id: 'rig.ikFk.matchRange',
   label: 'Match Range',
   description: 'Match the IK or FK controls of a limb over a frame range and key them.',
@@ -412,11 +448,14 @@ const matchRange = defineOperator({
         }
         return null;
       },
-      undefined,
+      // §5.5: an agent's match writes at most 50,000 keys (frames × the side's keyable channels).
+      (ctx, options) => (actor ? matchRangeWriteProblem(app, ctx, options) : null),
       true,
     );
   },
-  apply({ app, tx }, args) {
+  // Agent runs write their keys through the agent operators' merge writer (one pass per curve, MAI-P1-16).
+  prepare: (ctx) => (isActorRun(ctx) ? loadAgentImpl() : undefined),
+  apply({ app, tx }, args, impl) {
     if (tx === null) throw new EkzaError('internal', 'rig.ikFk.matchRange runs in a transaction');
     const ctx = requireContext(app, args.limb, args.character, args.clip);
     const range = rangeArg(args.range);
@@ -443,15 +482,20 @@ const matchRange = defineOperator({
     let count = 0;
     const tangents = app.prefs.getState().defaultTangents;
     const written = new Set<ControlId>();
+    const merged: { control: ControlId; channel: ChannelId; frame: Frame; value: number }[] = [];
     for (const { frame, values } of perFrame) {
       for (const edit of matchEdits(app, values)) {
-        const curve = ensureCurve(app, tx, ctx.clip.id, edit.control, edit.channel);
-        const control = tx.get('controls', edit.control);
-        writeKeyAt(app, tx, curve, frame, edit.value, newKeyTangents(control, edit.channel, tangents));
+        if (impl !== undefined) merged.push({ ...edit, frame });
+        else {
+          const curve = ensureCurve(app, tx, ctx.clip.id, edit.control, edit.channel);
+          const control = tx.get('controls', edit.control);
+          writeKeyAt(app, tx, curve, frame, edit.value, newKeyTangents(control, edit.channel, tangents));
+        }
         written.add(edit.control);
         count++;
       }
     }
+    if (impl !== undefined) impl.writeKeys(app, tx, ctx.clip, merged);
     eulerFilterWritten(tx, ctx, [...written]);
     const warnings = matchWarnings(args.limb, worst);
     if (step === 'keys' && perFrame.length > 0) {

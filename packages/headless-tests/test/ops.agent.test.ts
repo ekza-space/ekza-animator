@@ -443,4 +443,24 @@ describe.skipIf(!SIBLINGS_READY)(`rig.ikFk.matchRange {clip} for agents ${SIBLIN
     expect(curveOf(bot, 'ik.arm.L', 'tx', bot.userClip)).toBeUndefined();
     bot.app.dispose();
   });
+
+  it('writes at most 50,000 keys per agent call and writes them in one pass per curve (§5.5)', async () => {
+    const bot = await load('polybot');
+    await runOk(bot.app, 'clip.setSettings', { clip: bot.clip, range: { start: 0, end: 6000 } });
+    const args = { limb: 'arm.L', side: 'ik', clip: bot.clip, step: 'frames' };
+    // Every frame of 0…6,000 on the IK side's keyable channels: over the bound, refused before any work.
+    expect(await refusal(bot.app, 'rig.ikFk.matchRange', { ...args, range: { start: 0, end: 6000 } })).toMatch(
+      /^The match would write more than 50000 keys \(6001 frames × \d+ channels\)/,
+    );
+    // 3,000 frames (≈ 30,000 keys) run in one pass per curve: ≈ 0.4 s here, ≈ 6 s with one curve scan per key.
+    const started = performance.now();
+    const value = (await agent(bot.app, 'rig.ikFk.matchRange', { ...args, range: { start: 0, end: 2999 } })) as {
+      readonly count: number;
+    };
+    expect(performance.now() - started).toBeLessThan(20_000);
+    expect(value.count).toBeGreaterThan(20_000);
+    const ik = curveOf(bot, 'ik.arm.L', 'tx');
+    expect(ik === undefined ? 0 : bot.app.store.query.keysOfCurve(ik).length).toBe(3000);
+    bot.app.dispose();
+  });
 });

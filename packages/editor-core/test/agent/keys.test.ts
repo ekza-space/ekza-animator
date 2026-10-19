@@ -108,6 +108,51 @@ describe('key.write', () => {
     });
     const key = app.store.query.keysOfCurve(waveCurve(app, ARM, 'rz') as CurveId)[1];
     expect(key).toMatchObject({ t: 15, v: 0, inType: 'linear', outType: 'step', breakdown: true });
+    // An explicit `breakdown: false` clears the flag again; the tangents stay.
+    await agentOk(app, 'key.write', {
+      clip: WAVE.clip,
+      keys: [{ control: ARM, channel: 'rz', frame: 15, value: 0.1, breakdown: false }],
+    });
+    const cleared = app.store.query.keysOfCurve(waveCurve(app, ARM, 'rz') as CurveId)[1];
+    expect(cleared).toMatchObject({ t: 15, v: 0.1, inType: 'linear', outType: 'step' });
+    expect(cleared?.breakdown).toBeUndefined();
+  });
+
+  it('counts each channel and frame once: the later item at a frame wins', async () => {
+    const app = opsApp();
+    const value = await agentOk(app, 'key.write', {
+      clip: WAVE.clip,
+      keys: [
+        { control: UPPER, channel: 'rz', frame: 5, value: 0.1 },
+        { control: UPPER, channel: 'rz', frame: 5, value: 0.2 },
+        { control: UPPER, channel: 'rz', frame: 5.0000001, value: 0.3, inType: 'flat' },
+        { control: ARM, channel: 'rz', frame: 15, value: 0.4 },
+        { control: ARM, channel: 'rz', frame: 15, value: 0.5 },
+      ],
+    });
+    expect(value).toMatchObject({ written: 2, curvesCreated: 1 });
+    expect(keysOf(app, waveCurve(app, UPPER, 'rz'))).toEqual([[5, 0.3]]);
+    expect(app.store.query.keysOfCurve(waveCurve(app, UPPER, 'rz') as CurveId)[0]?.inType).toBe('flat');
+    expect(keysOf(app, waveCurve(app, ARM, 'rz')).map(([t, v]) => [t, v === 0.5 ? 'new' : 'old'])).toEqual([
+      [0, 'old'],
+      [15, 'new'],
+      [30, 'old'],
+    ]);
+  });
+
+  it('writes 50,000 keys on one curve in one pass: the §5.5 write bound is also a usable compute bound', async () => {
+    const app = opsApp();
+    const keys = Array.from({ length: 50_000 }, (_, i) => ({
+      control: UPPER,
+      channel: 'rz',
+      frame: (i * 30) / 50_000,
+      value: i * 1e-5,
+    }));
+    const started = performance.now();
+    expect(await agentOk(app, 'key.write', { clip: WAVE.clip, keys })).toMatchObject({ written: 50_000 });
+    // One scan of the curve per key took ≈ 14 minutes here (21 s for 8,000 keys); the merge takes well under 1 s.
+    expect(performance.now() - started).toBeLessThan(10_000);
+    expect(app.store.query.keysOfCurve(waveCurve(app, UPPER, 'rz') as CurveId)).toHaveLength(50_000);
   });
 });
 

@@ -68,7 +68,15 @@ import {
   txOf,
   uniqueTargets,
 } from './agentCommon';
-import { deletePlan, planWrite, pollKeyAdjust, pollKeyDelete, pollKeyRetime, pollKeyWrite } from './agentKeyChecks';
+import {
+  deletePlan,
+  type PlannedKey,
+  planWrite,
+  pollKeyAdjust,
+  pollKeyDelete,
+  pollKeyRetime,
+  pollKeyWrite,
+} from './agentKeyChecks';
 import { AGENT_SPAN_LIMIT, AGENT_WRITE_LIMIT, clipArg, pollAgentClip } from './agentLoad';
 import {
   type GoalsArgs,
@@ -213,38 +221,114 @@ export function keyWrite(app: EditorApp, maybe: Tx | null, args: OperatorArgs<'k
       clip,
       planned.map((key) => key.frame),
     );
-  const defaults = app.prefs.getState().defaultTangents;
-  let curvesCreated = 0;
-  for (const item of planned) {
-    const control = tx.get('controls', item.control);
-    if (control === undefined) throw new EkzaError('invalid-record', `Control ${item.control} does not exist`);
-    if (baseCurveIn(tx, clip, item.control, item.channel) === undefined) curvesCreated++;
-    const curve = ensureCurve(app, tx, clip.id, item.control, item.channel);
-    const fallback = newKeyTangents(control, item.channel, defaults);
-    const tangents = { in: item.inType ?? fallback.in, out: item.outType ?? fallback.out };
-    const id = writeKeyAt(
-      app,
-      tx,
-      curve,
-      item.frame,
-      item.value,
-      tangents,
-      item.breakdown === undefined ? undefined : { breakdown: item.breakdown, existing: 'set' },
-    );
-    // An explicit tangent also applies to a key that was already there.
-    const written = tx.get('keys', id);
-    if (written !== undefined && (item.inType !== undefined || item.outType !== undefined)) {
-      const inType = item.inType ?? written.inType;
-      const outType = item.outType ?? written.outType;
-      if (inType !== written.inType || outType !== written.outType) tx.put('keys', { ...written, inType, outType });
-    }
-  }
+  const { written, curvesCreated } = writeKeys(app, tx, clip, planned);
   return {
-    written: planned.length,
+    written,
     curvesCreated,
     rangeExtended,
     hiddenByOverrides: hiddenByOverrides(app, clip, planned),
   };
+}
+
+/**
+ * Writes keys on the clip's base curves, per curve in one pass: its keys are read once and the items merge into them
+ * in order (a later item at the same frame wins, as with one `writeKeyAt` per item), so n keys on one curve cost
+ * O(n), not one scan of the curve per key. A key already at a frame takes the value, the explicit tangent types and
+ * the explicit breakdown flag; a new key gets the item's tangents or the channel's defaults. Returns the key records
+ * written (each curve and frame once, however often the items name it) and the curves created.
+ */
+export function writeKeys(
+  app: EditorApp,
+  tx: Tx,
+  clip: ClipRecord,
+  items: readonly PlannedKey[],
+): { readonly written: number; readonly curvesCreated: number } {
+  const defaults = app.prefs.getState().defaultTangents;
+  const byCurve = new Map<string, PlannedKey[]>();
+  for (const item of items) {
+    const id = `${item.control}\u0000${item.channel}`;
+    const list = byCurve.get(id);
+    if (list === undefined) byCurve.set(id, [item]);
+    else list.push(item);
+  }
+  let curvesCreated = 0;
+  let written = 0;
+  for (const list of byCurve.values()) {
+    const { control: controlId, channel } = list[0] as PlannedKey;
+    const control = tx.get('controls', controlId);
+    if (control === undefined) throw new EkzaError('invalid-record', `Control ${controlId} does not exist`);
+    if (baseCurveIn(tx, clip, controlId, channel) === undefined) curvesCreated++;
+    const curve = ensureCurve(app, tx, clip.id, controlId, channel);
+    const fallback = newKeyTangents(control, channel, defaults);
+    const atFrame = new Map<number, KeyRecord>();
+    for (const key of tx.query.keysOfCurve(curve)) atFrame.set(frameSlot(key.t), key);
+    const final = new Map<KeyId, KeyRecord>();
+    for (const item of list) {
+      const existing = keyNear(atFrame, item.frame);
+      const next = existing === undefined ? newKey(app, clip, curve, item, fallback) : rewrittenKey(existing, item);
+      atFrame.set(frameSlot(next.t), next);
+      final.set(next.id, next);
+    }
+    for (const record of final.values()) {
+      const before = tx.get('keys', record.id);
+      if (before === undefined || JSON.stringify(before) !== JSON.stringify(record)) tx.put('keys', record);
+    }
+    written += final.size;
+  }
+  return { written, curvesCreated };
+}
+
+/** The slot of a key time in a per-curve frame map (1e-6 frames). */
+function frameSlot(t: Frame): number {
+  return Math.round(t / SAME_FRAME_EPS);
+}
+
+/** The key within 1e-6 frames of `t` (the earliest, as `writeKeyAt` finds it), or undefined. */
+function keyNear(atFrame: ReadonlyMap<number, KeyRecord>, t: Frame): KeyRecord | undefined {
+  const slot = frameSlot(t);
+  for (const candidate of [slot - 1, slot, slot + 1]) {
+    const key = atFrame.get(candidate);
+    if (key !== undefined && Math.abs(key.t - t) < SAME_FRAME_EPS) return key;
+  }
+  return undefined;
+}
+
+/** A new key of `key.write` (`writeKeyAt`'s new key: zero handles, unified, weight-locked; §4.11.1 rule 4). */
+function newKey(
+  app: EditorApp,
+  clip: ClipRecord,
+  curve: CurveRecord['id'],
+  item: PlannedKey,
+  fallback: { readonly in: TangentType; readonly out: TangentType },
+): KeyRecord {
+  return {
+    id: newRecordId(app, 'key'),
+    clip: clip.id,
+    curve,
+    t: item.frame,
+    v: item.value,
+    inType: item.inType ?? fallback.in,
+    outType: item.outType ?? fallback.out,
+    inHandle: { dt: 0, dv: 0 },
+    outHandle: { dt: 0, dv: 0 },
+    broken: false,
+    weightLocked: true,
+    ...(item.breakdown === true ? { breakdown: true } : {}),
+  };
+}
+
+/** A key already at the frame takes the value, the explicit tangent types and the explicit breakdown flag. */
+function rewrittenKey(existing: KeyRecord, item: PlannedKey): KeyRecord {
+  const next: KeyRecord = {
+    ...existing,
+    v: item.value,
+    inType: item.inType ?? existing.inType,
+    outType: item.outType ?? existing.outType,
+  };
+  if (item.breakdown === undefined || (existing.breakdown === true) === item.breakdown) return next;
+  if (item.breakdown) return { ...next, breakdown: true };
+  const { breakdown: _flag, ...rest } = next;
+  return rest;
 }
 
 export function keyDelete(app: EditorApp, maybe: Tx | null, args: OperatorArgs<'key.delete'>) {
@@ -403,9 +487,19 @@ function setKeys(
       }
     }
   }
-  for (const edit of [...usable, ...synced]) {
-    keyAt(app, tx, clip, edit.control, edit.channel, args.frame, edit.value, args.tangent);
-  }
+  const tangent = args.tangent === undefined ? {} : { inType: args.tangent, outType: args.tangent };
+  writeKeys(
+    app,
+    tx,
+    clip,
+    [...usable, ...synced].map((edit) => ({
+      control: edit.control.id,
+      channel: edit.channel,
+      frame: args.frame,
+      value: edit.value,
+      ...tangent,
+    })),
+  );
   return {
     keyed: usable.length,
     synced: synced.length,
@@ -566,21 +660,18 @@ export function poseTransfer(app: EditorApp, maybe: Tx | null, args: TransferArg
   const clip = requireClipIn(tx, args.clip);
   const values = transferValues(app, tx, args);
   if (args.extendRange === true) extendClipRange(tx, clip, args.toFrames);
-  let keyed = 0;
-  for (const frame of new Set(args.toFrames)) {
-    for (const [id, pose] of values) {
-      const control = tx.get('controls', id);
-      if (control === undefined) continue;
-      for (const channel of transferChannels(control)) {
-        const value = pose[channel];
-        if (value === undefined || !Number.isFinite(value)) continue;
-        if (baseCurveIn(tx, clip, id, channel)?.locked === true) continue;
-        keyAt(app, tx, clip, control, channel, frame, value);
-        keyed++;
-      }
+  const items: PlannedKey[] = [];
+  for (const [id, pose] of values) {
+    const control = tx.get('controls', id);
+    if (control === undefined) continue;
+    for (const channel of transferChannels(control)) {
+      const value = pose[channel];
+      if (value === undefined || !Number.isFinite(value)) continue;
+      if (baseCurveIn(tx, clip, id, channel)?.locked === true) continue;
+      for (const frame of new Set(args.toFrames)) items.push({ control: id, channel, frame, value });
     }
   }
-  return { keyed };
+  return { keyed: writeKeys(app, tx, clip, items).written };
 }
 
 export function poseGoals(app: EditorApp, maybe: Tx | null, args: GoalsArgs) {

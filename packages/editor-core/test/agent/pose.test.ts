@@ -249,6 +249,23 @@ describe('pose.transfer', () => {
       /source clip does not exist/,
     );
   });
+
+  it('keys thousands of frames in one pass per curve (≈ 50 s for 6,000 keys with one curve scan per key)', async () => {
+    const app = opsApp();
+    const toFrames = Array.from({ length: 5000 }, (_, i) => 1 + (i * 28) / 5000);
+    const started = performance.now();
+    const value = await agentOk(app, 'pose.transfer', {
+      clip: WAVE.clip,
+      fromFrame: 0,
+      toFrames,
+      controls: [UPPER],
+      mirror: 'none',
+    });
+    expect(performance.now() - started).toBeLessThan(10_000);
+    const channels = (value as { readonly keyed: number }).keyed / toFrames.length;
+    expect(Number.isInteger(channels) && channels > 0).toBe(true);
+    expect(app.store.query.keysOfCurve(waveCurve(app, UPPER, 'rx') as CurveId)).toHaveLength(5000);
+  });
 });
 
 describe('the user session stays', () => {
