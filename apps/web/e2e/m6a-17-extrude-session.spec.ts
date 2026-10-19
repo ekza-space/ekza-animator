@@ -38,7 +38,7 @@ async function undoOnce(page: Page): Promise<void> {
 /** Lengths of the cap's edges (its face's corners in order). */
 async function capEdgeLengths(page: Page, cube: string, top: number): Promise<number[]> {
   const faces = await call(page, 'meshFaces', cube);
-  const positions = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   const loop = faces[top] ?? [];
   return loop.map((v, i) => {
     const a = positions[v] as Vec3;
@@ -84,7 +84,7 @@ test.fixme('b12a: E2E-MOD-17 — extrude session and its undo stack (R drag)', a
   const { cube, top } = await cubeTopFace(page);
   const manifest = (await call(page, 'meshInfo', cube))?.manifest ?? '';
   const steps = (await call(page, 'history')).undo.length + 1;
-  const before = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const before = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   await modE(page);
   await keyOver(page, 'KeyR');
   const handle = await call(page, 'screenOfManipulator', MODEL_PANE, 'suniform');
@@ -100,7 +100,7 @@ test.fixme('b12a: E2E-MOD-17 — extrude session and its undo stack (R drag)', a
   await expect.poll(async () => Math.abs((await scaleArgs(page))[0] - 0.5)).toBeLessThan(0.05);
   expect((await call(page, 'state')).extrudeSession).toBe(true);
   // The original faces' vertices (the base ring) did not move: the drag changed the extrude's args.
-  const after = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const after = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   expect(after.slice(0, 8)).toEqual(before);
   await stackAndUndo(page, cube, top, manifest, steps);
 });
@@ -111,13 +111,18 @@ test('B12b — E2E-MOD-17 part (b): a mode switch ends the session and keeps a z
   await modE(page);
   // The window armed by the keyboard run disarms at the first pointer move beyond 3 px from where it armed.
   await expect.poll(async () => (await call(page, 'state')).capture.armed).toBe('keyboard-op');
-  // Pointer moves one frame apart along 20 px (some point of the path is beyond 3 px of wherever the window armed).
+  // Pointer moves one frame apart, back and forth over 20 px, until the window disarms: B11's page bridge (a lazy chunk
+  // mounted on the first Model entry) measures the moves, and on a loaded machine it may mount after the first ones.
   const at = await hoverPane(page);
-  for (let dx = 2; dx <= 20; dx += 2) {
-    await page.mouse.move(at.x + dx, at.y);
-    await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
-  }
-  await expect.poll(async () => (await call(page, 'state')).capture.armed).toBeNull();
+  let dx = 0;
+  await expect
+    .poll(async () => {
+      dx = dx >= 20 ? 0 : dx + 4;
+      await page.mouse.move(at.x + dx, at.y);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => resolve(null))));
+      return (await call(page, 'state')).capture.armed;
+    })
+    .toBeNull();
   await page.keyboard.press('Digit1');
   await expect.poll(async () => (await call(page, 'state')).mode).toBe('vertex');
   expect((await call(page, 'state')).extrudeSession).toBe(false);
@@ -130,7 +135,7 @@ test('B12b — the extrude manipulator: uniform scale drag, Divisions, undo thro
   const { cube, top } = await cubeTopFace(page);
   const manifest = (await call(page, 'meshInfo', cube))?.manifest ?? '';
   const steps = (await call(page, 'history')).undo.length + 1;
-  const before = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const before = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   await modE(page);
   expect((await call(page, 'state')).tool).toBe('extrude');
   const handle = await call(page, 'screenOfManipulator', MODEL_PANE, 'suniform');
@@ -141,7 +146,7 @@ test('B12b — the extrude manipulator: uniform scale drag, Divisions, undo thro
   expect((await scaleArgs(page))[1]).toBeCloseTo(0.5, 9);
   expect((await call(page, 'state')).extrudeSession).toBe(true);
   expect((await call(page, 'history')).undo).toHaveLength(steps);
-  const after = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const after = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   expect(after.slice(0, 8)).toEqual(before);
   await stackAndUndo(page, cube, top, manifest, steps);
   // The manipulator tool hands the viewport back to the select tool with the session.

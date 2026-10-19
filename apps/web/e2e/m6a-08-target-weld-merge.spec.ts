@@ -14,7 +14,7 @@ import { call, runOk } from './helpers/test-api';
 
 /** Two adjacent vertices of the cube's top face whose screen points the pane shows, with their positions. */
 async function adjacentVisible(page: Page, cube: string): Promise<{ a: number; b: number; positions: Vec3[] }> {
-  const positions = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   const edges = await call(page, 'meshEdges', cube);
   for (const edge of edges) {
     const [a, b] = edge.v;
@@ -49,7 +49,7 @@ async function partA(page: Page): Promise<void> {
   await expect.poll(() => counts(page, cube)).toBe('7/11/6');
   expect((await undoLabels(page)).slice(before)).toEqual(['Target Weld']);
   // B kept its position exactly (the source merged into it); every remaining position is one of the cube's.
-  const after = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const after = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   expect(
     after.filter(
       (p) =>
@@ -68,10 +68,13 @@ async function partB(page: Page): Promise<void> {
   expect(await openKeyMenu(page, 'KeyM')).toBe('model.merge');
   await page.getByTestId('mm-slot-N').click();
   await expect.poll(() => counts(page, cube)).toBe('5/8/5');
-  const positions = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   const apex = positions.find((p) => p[1] > 0.49);
   expect(apex).toBeDefined();
-  for (const [i, value] of [0, 0.5, 0].entries()) expect(Math.abs((apex as Vec3)[i] - value)).toBeLessThanOrEqual(1e-6);
+  const [x, y, z] = apex as Vec3;
+  expect(Math.abs(x)).toBeLessThanOrEqual(1e-6);
+  expect(Math.abs(y - 0.5)).toBeLessThanOrEqual(1e-6);
+  expect(Math.abs(z)).toBeLessThanOrEqual(1e-6);
 }
 
 test.fixme('b12a: E2E-MOD-08 — Target Weld, Merge to Center, Merge by Distance', async ({ page }) => {
@@ -127,7 +130,7 @@ test('B12b — Target Weld with MMB welds at the midpoint; Esc leaves no step', 
   const pa = positions[a] as Vec3;
   const pb = positions[b] as Vec3;
   const mid: Vec3 = [(pa[0] + pb[0]) / 2, (pa[1] + pb[1]) / 2, (pa[2] + pb[2]) / 2];
-  const after = (await call(page, 'meshPositions', cube)) as Vec3[];
+  const after = (await call(page, 'meshPositions', cube)) as unknown as Vec3[];
   expect(after.some((p) => Math.hypot(p[0] - mid[0], p[1] - mid[1], p[2] - mid[2]) <= 1e-6)).toBe(true);
   expect((await call(page, 'lastOp'))?.args['mode']).toBe('center');
 });

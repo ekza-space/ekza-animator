@@ -32,7 +32,7 @@ async function slideMiddleRing(page: Page): Promise<void> {
   await expect.poll(async () => (await call(page, 'model')).selected[cylinder]?.edge.length).toBe(8);
   const verts = await selectedLoopVerts(page, cylinder);
   expect(verts).toHaveLength(8);
-  const before = (await call(page, 'meshPositions', cylinder)) as Vec3[];
+  const before = (await call(page, 'meshPositions', cylinder)) as unknown as Vec3[];
   const edges = await call(page, 'meshEdges', cylinder);
 
   await runOk(page, 'view.tool', { panel: 'viewport', tool: 'slide' });
@@ -52,7 +52,7 @@ async function slideMiddleRing(page: Page): Promise<void> {
   expect(await counts(page, cylinder)).toBe('32/56/26');
 
   // Every loop vertex lies on one of its rails (a vertical edge from its pre-slide position), 0.3 along it.
-  const after = (await call(page, 'meshPositions', cylinder)) as Vec3[];
+  const after = (await call(page, 'meshPositions', cylinder)) as unknown as Vec3[];
   for (const v of verts) {
     const o = before[v] as Vec3;
     const p = after[v] as Vec3;
@@ -79,15 +79,15 @@ async function averagePlane(page: Page): Promise<void> {
   const plane = await createPrimitive(page, 'plane', { subdivisionsWidth: 4, subdivisionsHeight: 4 });
   await runOk(page, 'select.objects', { ids: [plane], mode: 'replace' });
   await setMode(page, 'vertex');
-  const before = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const before = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   const centre = before.findIndex((p) => near(p[0], 0) && near(p[2], 0));
   await runOk(page, 'select.components', { mesh: plane, kind: 'vertex', indices: [centre], mode: 'replace' });
   await runOk(page, 'mesh.transformComponents', { translateY: 0.2 });
-  const lifted = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const lifted = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   await runOk(page, 'select.mesh.all');
   await runMenuItem(page, 'edit-mesh', 'builtin.model.edit-mesh.averageVertices');
   await expect.poll(async () => (await call(page, 'lastOp'))?.id).toBe('mesh.averageVertices');
-  const after = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const after = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   let moved = 0;
   after.forEach((p, v) => {
     const b = lifted[v] as Vec3;
@@ -108,7 +108,7 @@ test.fixme('b12a: E2E-MOD-24 — Slide Edge, Average Vertices, Average under sym
   await runOk(page, 'select.objects', { ids: [plane], mode: 'replace' });
   await runOk(page, 'model.symmetry.set', { mode: 'object-x' });
   await setMode(page, 'vertex');
-  const before = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const before = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   const pair = before
     .map((p, v) => ({ p, v }))
     .filter(({ p }) => near(Math.abs(p[0]), 0.25) && near(p[2], 0))
@@ -118,7 +118,7 @@ test.fixme('b12a: E2E-MOD-24 — Slide Edge, Average Vertices, Average under sym
   await runOk(page, 'select.mesh.all');
   await runMenuItem(page, 'edit-mesh', 'builtin.model.edit-mesh.averageVertices');
   await expect.poll(async () => (await call(page, 'lastOp'))?.id).toBe('mesh.averageVertices');
-  const after = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const after = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   before.forEach((p, v) => {
     if (near(p[0], 0)) expect((after[v] as Vec3)[0]).toBe(0);
   });

@@ -15,7 +15,7 @@ import { call, runOk } from './helpers/test-api';
 /** The cap face of a cylinder at height y (all its vertices there). */
 async function capAt(page: Page, mesh: string, y: number): Promise<number> {
   const faces = await call(page, 'meshFaces', mesh);
-  const positions = (await call(page, 'meshPositions', mesh)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', mesh)) as unknown as Vec3[];
   const f = faces.findIndex((face) => face.length > 4 && face.every((v) => near((positions[v] as Vec3)[1], y)));
   if (f < 0) throw new Error(`no cap at y = ${y}`);
   return f;
@@ -77,7 +77,7 @@ test.fixme('b12a: E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page })
   await runOk(page, 'select.mode', { mode: 'object' });
   await runOk(page, 'select.objects', { ids: [b], mode: 'replace' });
   await keyOver(page, 'KeyW');
-  const rim = ((await call(page, 'meshPositions', a)) as Vec3[]).findIndex((p) => near(p[1], 0.5));
+  const rim = ((await call(page, 'meshPositions', a)) as unknown as Vec3[]).findIndex((p) => near(p[1], 0.5));
   const target = await vertexPoint(page, a, rim);
   const centre = await call(page, 'screenOfManipulator', MODEL_PANE, 'tview');
   if (centre === null) throw new Error('no manipulator centre');
@@ -89,7 +89,7 @@ test.fixme('b12a: E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page })
   await page.keyboard.up('KeyV');
   // B's placement translation (its origin in world space; B is not rotated or scaled) = that vertex's position.
   const world = await worldOf(page, a, rim);
-  const local = ((await call(page, 'meshPositions', b, [0])) as Vec3[])[0] as Vec3;
+  const local = ((await call(page, 'meshPositions', b, [0])) as unknown as Vec3[])[0] as Vec3;
   const moved = await worldOf(page, b, 0);
   for (let i = 0; i < 3; i++) {
     expect(Math.abs((moved[i] as number) - (local[i] as number) - (world[i] as number))).toBeLessThanOrEqual(1e-6);

@@ -13,7 +13,7 @@ export async function edgeEnds(
   mesh: string,
 ): Promise<{ e: number; v: [number, number]; a: Vec3; b: Vec3 }[]> {
   const edges = await call(page, 'meshEdges', mesh);
-  const positions = (await call(page, 'meshPositions', mesh)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', mesh)) as unknown as Vec3[];
   return edges.map((edge, e) => ({
     e,
     v: edge.v,
@@ -32,7 +32,7 @@ export async function findEdge(page: Page, mesh: string, test: (a: Vec3, b: Vec3
 
 /** The first vertex whose position satisfies `test`. */
 export async function findVertex(page: Page, mesh: string, test: (p: Vec3) => boolean): Promise<number> {
-  const positions = (await call(page, 'meshPositions', mesh)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', mesh)) as unknown as Vec3[];
   const v = positions.findIndex(test);
   if (v < 0) throw new Error(`no vertex of ${mesh} matches`);
   return v;
@@ -76,7 +76,7 @@ export async function expectTool(page: Page, tool: string): Promise<void> {
 }
 
 /** Activates a viewport tool through `view.tool` (the menu items' and the Toolkit buttons' operator). */
-export async function useTool(page: Page, tool: string): Promise<void> {
+export async function activateTool(page: Page, tool: string): Promise<void> {
   await runOk(page, 'view.tool', { panel: 'viewport', tool });
   await expectTool(page, tool);
 }
@@ -103,7 +103,7 @@ export async function dragFrom(
 
 /** World position of a vertex. */
 export async function worldOf(page: Page, mesh: string, v: number): Promise<Vec3> {
-  return ((await call(page, 'meshPositions', mesh, [v], 'world')) as Vec3[])[0] as Vec3;
+  return ((await call(page, 'meshPositions', mesh, [v], 'world')) as unknown as Vec3[])[0] as Vec3;
 }
 
 /** The first edge matching `test` that the pane shows (not occluded, on screen), with its screen point at `t`. */
@@ -143,3 +143,62 @@ export const verticalIn =
     Math.min(a[1], b[1]) >= y0 - 1e-6 &&
     Math.max(a[1], b[1]) <= y1 + 1e-6 &&
     Math.abs(a[1] - b[1]) > 1e-4;
+
+/** Creates the smooth humanoid body template (B13's generator, 1.6 m) and returns its mesh id. */
+export async function createBody(page: Page, opts: { readonly symmetry?: boolean } = {}): Promise<string> {
+  const before = new Set((await call(page, 'meshes')).map((row) => row.id));
+  await runOk(page, 'mesh.create.template', { template: 'humanoidBody', style: 'smooth', height: 1.6 });
+  await expect.poll(async () => (await call(page, 'meshes')).filter((row) => !before.has(row.id)).length).toBe(1);
+  const body = (await call(page, 'meshes')).find((row) => !before.has(row.id))?.id as string;
+  await runOk(page, 'select.objects', { ids: [body], mode: 'replace' });
+  if (opts.symmetry !== false) await runOk(page, 'model.symmetry.set', { mode: 'object-x' });
+  return body;
+}
+
+/** Faces with their vertices, centroid and Newell normal (mesh-local). */
+export async function faceTable(
+  page: Page,
+  mesh: string,
+): Promise<{ f: number; verts: number[]; centroid: Vec3; normal: Vec3 }[]> {
+  const faces = await call(page, 'meshFaces', mesh);
+  const positions = (await call(page, 'meshPositions', mesh)) as unknown as Vec3[];
+  return faces.map((verts, f) => {
+    let c: [number, number, number] = [0, 0, 0];
+    let n: [number, number, number] = [0, 0, 0];
+    verts.forEach((v, i) => {
+      const a = positions[v] as Vec3;
+      const b = positions[verts[(i + 1) % verts.length] as number] as Vec3;
+      c = [c[0] + a[0], c[1] + a[1], c[2] + a[2]];
+      n = [
+        n[0] + (a[1] - b[1]) * (a[2] + b[2]),
+        n[1] + (a[2] - b[2]) * (a[0] + b[0]),
+        n[2] + (a[0] - b[0]) * (a[1] + b[1]),
+      ];
+    });
+    const len = Math.hypot(n[0], n[1], n[2]) || 1;
+    return {
+      f,
+      verts,
+      centroid: [c[0] / verts.length, c[1] / verts.length, c[2] / verts.length],
+      normal: [n[0] / len, n[1] / len, n[2] / len],
+    };
+  });
+}
+
+/** The edge joining two vertices (−1 when none). */
+export async function edgeBetween(page: Page, mesh: string, a: number, b: number): Promise<number> {
+  return (await call(page, 'meshEdges', mesh)).findIndex((edge) => edge.v.includes(a) && edge.v.includes(b));
+}
+
+/** The vertex partners of a mesh under its symmetry (B12a's `symmetry()`), −1 = unmatched. */
+export async function partners(page: Page, mesh: string): Promise<number[]> {
+  const sym = await call(page, 'symmetry', mesh);
+  if (sym === null) throw new Error(`no symmetry on ${mesh}`);
+  return sym.vertexPartners;
+}
+
+/** Leaves the maximized persp pane for the M-Quad layout (the side and front panes show). */
+export async function quadLayout(page: Page): Promise<void> {
+  await runOk(page, 'view.layout', { layout: 'quad' });
+  if ((await call(page, 'state')).maximizedPane !== null) await runOk(page, 'view.toggleMaximize');
+}

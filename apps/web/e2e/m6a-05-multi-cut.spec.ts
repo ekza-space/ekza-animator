@@ -74,7 +74,7 @@ test('E2E-MOD-05 — Multi-Cut across two quads, Esc, Ctrl-click loop', async ({
   expect(history.length).toBe(before + 1);
   expect(history.at(-1)).toBe('Multi-Cut');
   // The three new vertices sit at z = 0 and y = 0 (the cut points at the midpoints of the three Z edges).
-  const positions = (await call(page, 'meshPositions', plane)) as Vec3[];
+  const positions = (await call(page, 'meshPositions', plane)) as unknown as Vec3[];
   const added = positions.slice(6);
   expect(added).toHaveLength(3);
   for (const p of added) {
