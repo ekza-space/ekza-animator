@@ -73,8 +73,11 @@ function setFrameConfirm(app: EditorApp): string | null {
     : `Moving the playhead drops your ${overrides} unkeyed edit${overrides === 1 ? '' : 's'}`;
 }
 
-/** The §5.14 table, by operator id. */
-export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = {
+/**
+ * The §5.14 table, by operator id. A null-prototype object: an id such as `constructor` or `__proto__` never finds an
+ * inherited member (lookups go through `tablePolicyOf`, which also checks `Object.hasOwn`).
+ */
+export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = nullPrototype({
   // allowed, scope-ready (`operator_run {context}` works): edit
   'graph.tangent.set': SCOPE_READY,
   'graph.tangent.break': SCOPE_READY,
@@ -216,7 +219,16 @@ export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = {
   'time.goToEnd': denied(DENIED_USER_STATE),
   'time.togglePlay': denied(DENIED_USER_STATE),
   'time.selectBand': denied(DENIED_USER_STATE),
-};
+});
+
+function nullPrototype<T>(entries: Readonly<Record<string, T>>): Readonly<Record<string, T>> {
+  return Object.freeze(Object.assign(Object.create(null) as Record<string, T>, entries));
+}
+
+/** The table's own entry for an operator id (never an inherited member), else undefined. */
+export function tablePolicyOf(id: string): OperatorAgentPolicy | undefined {
+  return Object.hasOwn(OPERATOR_POLICY, id) ? OPERATOR_POLICY[id] : undefined;
+}
 
 /**
  * The agent policy of an operator (§5.14): its own `agent` field when the definition is trusted (a built-in or a
@@ -228,7 +240,7 @@ export function agentPolicyOf(
   opts?: { readonly trusted?: boolean },
 ): OperatorAgentPolicy {
   if (def?.agent !== undefined && opts?.trusted === true) return def.agent;
-  return OPERATOR_POLICY[id] ?? denied(UNCLASSIFIED_REASON);
+  return tablePolicyOf(id) ?? denied(UNCLASSIFIED_REASON);
 }
 
 /** True when an operator id has a classification in the table. */

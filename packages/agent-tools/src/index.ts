@@ -53,7 +53,7 @@ export { buildManifest, canonicalJson, manifestAccess, manifestFileText, manifes
 export { firstSentence, lintTool, lintTools, TOOL_NAME, TOOL_NOUNS, UNIT_SUFFIX } from './manifest/lint';
 export * as schemas from './schemas/common';
 // operator policy and wire schemas
-export { agentPolicyOf, isClassified, OPERATOR_POLICY, UNCLASSIFIED_REASON } from './policy';
+export { agentPolicyOf, isClassified, OPERATOR_POLICY, tablePolicyOf, UNCLASSIFIED_REASON } from './policy';
 export { OPERATOR_WIRE, type OperatorWire, type OperatorWireMap, type WireUnit } from './operators/wire';
 // bridge protocol
 export * from './bridge/protocol';

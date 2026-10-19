@@ -253,7 +253,8 @@ export function createResolver(app: EditorApp, opts: ResolverOptions): Resolver 
       }
       const { skeleton } = runtime;
       const humanoid = skeleton.humanoid ?? {};
-      const index = humanoid[ref as HumanBoneName];
+      // Own entries only: `constructor`, `toString` or `__proto__` are not bones (resolution never guesses, §5.1).
+      const index = Object.hasOwn(humanoid, ref) ? humanoid[ref as HumanBoneName] : undefined;
       if (index !== undefined) return { name: skeleton.nodes[index]?.name ?? ref, humanoid: ref };
       const node = skeleton.nodes.find((n) => n.name === ref);
       if (node !== undefined) {

@@ -14,7 +14,7 @@ import {
   type RunScope,
 } from '@ekza-animator/editor-core';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { agentPolicyOf, isClassified, OPERATOR_POLICY, UNCLASSIFIED_REASON } from '../src';
+import { agentPolicyOf, allTools, isClassified, OPERATOR_POLICY, tablePolicyOf, UNCLASSIFIED_REASON } from '../src';
 import { READY } from './ready';
 import { AGENT, controlOf, type Fixture, polybotFixture, seedUserSession } from './support';
 
@@ -76,6 +76,16 @@ describe('operator policy table (MCP-SPEC §5.14)', () => {
     expect(agentPolicyOf('acme.unknown', { agent: own }, { trusted: true })).toBe(own);
     expect(agentPolicyOf('edit.undo', undefined).policy).toBe('denied');
     expect(agentPolicyOf('key.write', undefined)).toEqual({ policy: 'allowed', access: 'edit' });
+  });
+
+  it('never answers an inherited object member as a policy (deny by default)', () => {
+    const operatorRun = allTools().find((tool) => tool.name === 'operator_run');
+    for (const id of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+      expect([id, agentPolicyOf(id, undefined)]).toEqual([id, { policy: 'denied', reason: UNCLASSIFIED_REASON }]);
+      expect([id, isClassified(id), tablePolicyOf(id)]).toEqual([id, false, undefined]);
+      const access = operatorRun?.access;
+      expect([id, typeof access === 'function' ? access({ id }, 'headless') : access]).toEqual([id, 'edit']);
+    }
   });
 
   it('asks before unlocking channels, changing fps or dropping overrides', async () => {

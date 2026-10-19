@@ -1,6 +1,6 @@
 // Operator escape hatch (MCP-SPEC §6.11 and §5.14, tools 37–39; P3). D0 lands the final schemas with `ready: false`.
 import { z } from 'zod';
-import { OPERATOR_POLICY } from '../../policy';
+import { tablePolicyOf } from '../../policy';
 import {
   channelName,
   characterRef,
@@ -97,7 +97,7 @@ export const operatorDescribe = defineTool({
 
 /** operator_run's access is the operator's policy access (`by_operator` in the manifest); unknown → edit. */
 function operatorAccess(args: { readonly id: string }): ToolAccess {
-  return OPERATOR_POLICY[args.id]?.access ?? 'edit';
+  return tablePolicyOf(args.id)?.access ?? 'edit';
 }
 
 export const operatorRun = defineTool({

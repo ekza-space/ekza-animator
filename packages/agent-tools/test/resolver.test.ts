@@ -69,6 +69,14 @@ describe('resolver (MCP-SPEC §5.1)', () => {
     expect(failure(() => r.bone(fx.character, 'leftHnad')).candidates).toContain('leftHand');
   });
 
+  it('never resolves an inherited object member as a bone or a control', () => {
+    const r = createResolver(fx.app, { forEdit: false, userSession: false });
+    for (const ref of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+      expect([ref, failure(() => r.bone(fx.character, ref)).code]).toEqual([ref, 'not_found']);
+      expect([ref, failure(() => r.control(fx.character, ref, 'ik')).code]).toEqual([ref, 'not_found']);
+    }
+  });
+
   it('lists body-part controls of a humanoid rig', () => {
     const r = createResolver(fx.app, { forEdit: false, userSession: false });
     const arm = r.bodyPartControls(fx.character, ['arm.L']);
