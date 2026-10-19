@@ -132,7 +132,7 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
           if (isRefusal(result)) return;
           ran++;
           const label = `${step.id} ${JSON.stringify(step.args)} on ${picks.join(',')}`;
-          expect(symmetryProblems(m), label).toEqual([]);
+          expect(symmetryProblems(m), `P10: ${label}`).toEqual([]);
           expect(result.warnings.filter((w) => w.code === 'symmetry.unmatched-partner')).toEqual([]);
           // World-space extrude args move a region that is its own mirror asymmetrically (a world X move, a turn about
           // world Y): its symmetrized result is not the plain run's, so those runs check P10 only.
@@ -140,7 +140,7 @@ describe('P10: symmetric input + symmetric args → symmetric output', () => {
           compared++;
           const map = ctx.symmetry?.map as SymmetryMap;
           const gap = sourceSideGap(editMeshFrom(make()), map, step.id, step.kind, picks, step.args, m);
-          expect(gap, label).toBeLessThan(SOURCE_SIDE_TOLERANCE);
+          expect(gap, `source side: ${label}`).toBeLessThan(SOURCE_SIDE_TOLERANCE);
         },
       ),
       { numRuns: 300 * SCALE },
@@ -295,10 +295,10 @@ describe('Connect under symmetry (§5.14: the weight applies to both halves)', (
         if (isRefusal(result)) return;
         ran++;
         const label = `weight ${weight} on ${edges.join(',')}`;
-        expect(symmetryProblems(m), label).toEqual([]);
+        expect(symmetryProblems(m), `P10: ${label}`).toEqual([]);
         const map = ctx.symmetry?.map as SymmetryMap;
         const gap = sourceSideGap(editMeshFrom(make()), map, 'mesh.connect', 'edge', edges, { weight }, m);
-        expect(gap, label).toBeLessThan(SOURCE_SIDE_TOLERANCE);
+        expect(gap, `source side: ${label}`).toBeLessThan(SOURCE_SIDE_TOLERANCE);
       }),
       { numRuns: 200 * SCALE },
     );
