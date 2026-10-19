@@ -24,8 +24,8 @@ import {
 } from '../../../src';
 import { removeFaces } from '../../../src/subset/setops';
 import { diffStored, signedVolume, vef } from '../../../src/testing';
-import { context, facesWhere, position } from '../harness';
 import { READY } from '../../ready';
+import { context, facesWhere, position } from '../harness';
 
 const IDENTITY: ReadonlyXf = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
 const set = (id: string): MeshSetOp => MESH_SET_OPS[id] as MeshSetOp;

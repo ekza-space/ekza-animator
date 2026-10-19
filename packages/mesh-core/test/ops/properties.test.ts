@@ -7,7 +7,11 @@
 // - P3 closed 2-manifold in → closed 2-manifold out and P4 orientation (opposite traversal, positive volume) for the
 //   manifold-preserving ops;
 // - P7 propagation: edges cut inside a face are never attribute seams;
-// - P10 symmetric tools: a symmetric mesh, selection and args give a symmetric mesh with a partner for every vertex.
+// - P10 symmetric tools: a symmetric mesh, selection and args give a symmetric mesh with a partner for every vertex;
+// - face attributes travel with their faces: with every face painted its own slot, ops that keep the faces keep the
+//   multiset of (material, paint) and each corner's value, ops that split or join faces only reuse them (./attributes.ts);
+// - the MeshSetOps on random inputs: valid outputs, inputs unchanged after the abort, poll = run, faces conserved,
+//   closed volumes add up under Combine (also with mirrored placements).
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
@@ -22,8 +26,9 @@ import {
   triangulate,
 } from '../../src';
 import { arbPrimitive, arbSoup } from '../../src/testing';
+import { type AttributeClass, attributeProblems, decorateFaces, faceAttributes } from './attributes';
 import { context, runOp } from './harness';
-import { arbOpStep, type B4OpId, resolveOpStep } from './steps';
+import { arbOpStep, B4_OPS, type B4OpId, resolveOpStep } from './steps';
 import { asymmetry, expand, testSymmetryMap } from './symmetry-fixture';
 
 const SOFTENING = new Set(['mesh.soften', 'mesh.setNormalAngle']);
@@ -304,5 +309,82 @@ describe('P10: symmetric input, selection and args → symmetric output', () => 
     s.end();
     runOp(s, MESH_OPS['mesh.symmetrize'] as MeshOp, null, { tolerance: 0.001 });
     expect(asymmetry(s, testSymmetryMap(s, { tolerance: 0.001 }))).toBeLessThan(1e-6);
+  });
+});
+
+// ---------- face attributes ----------
+
+const ATTRIBUTE_CLASS: Readonly<Record<B4OpId, AttributeClass>> = {
+  'mesh.harden': 'identity',
+  'mesh.soften': 'identity',
+  'mesh.setNormalAngle': 'identity',
+  'mesh.reverse': 'identity',
+  'mesh.conform': 'identity',
+  'mesh.triangulate': 'split',
+  'mesh.quadrangulate': 'join',
+  'mesh.spinEdge': 'spin',
+  'mesh.flipTriangleEdge': 'spin',
+  'mesh.applyTransform': 'identity',
+  'mesh.averageVertices': 'identity',
+  'mesh.slide': 'identity',
+  'mesh.cut': 'split',
+  'mesh.mirror': 'copy',
+  'mesh.symmetrize': 'identity',
+};
+
+describe('face attributes travel with their faces', () => {
+  /** Each step on freshly decorated faces (a split or copy before it leaves slots shared). */
+  function check(m: EditMesh, steps: readonly Parameters<typeof resolveOpStep>[1][]): number {
+    let ran = 0;
+    for (const step of steps) {
+      decorateFaces(m);
+      const before = faceAttributes(m);
+      const { op, sel, args, ctx, label } = resolveOpStep(m, step);
+      const run = runOp(m, op, sel, args, ctx, { maySoften: true });
+      if (isRefusal(run.result)) continue;
+      ran++;
+      const cls = ATTRIBUTE_CLASS[op.id as B4OpId];
+      expect([label, attributeProblems(before, m, cls)]).toEqual([label, []]);
+    }
+    return ran;
+  }
+
+  it('on primitives, symmetric runs included (a symmetric spin or flip is two at once)', () => {
+    let ran = 0;
+    fc.assert(
+      fc.property(arbPrimitive(), fc.array(arbOpStep(), { minLength: 1, maxLength: 12 }), ({ kind, params }, steps) => {
+        ran += check(editMeshFrom(primitive(kind, params)), steps);
+      }),
+      { numRuns: 150, seed: 11 },
+    );
+    expect(ran).toBeGreaterThan(300);
+  });
+
+  it('on several spins and flips per run', () => {
+    let ran = 0;
+    const many = arbOpStep(['mesh.spinEdge', 'mesh.flipTriangleEdge', 'mesh.triangulate']).map((step) => ({
+      ...step,
+      kind: 1,
+    }));
+    fc.assert(
+      fc.property(arbPrimitive(), fc.array(many, { minLength: 2, maxLength: 8 }), ({ kind, params }, steps) => {
+        ran += check(editMeshFrom(primitive(kind, params)), steps);
+      }),
+      { numRuns: 150, seed: 12 },
+    );
+    expect(ran).toBeGreaterThan(80);
+  });
+
+  it('on polygon soups', () => {
+    fc.assert(
+      fc.property(arbSoup(), fc.array(arbOpStep(), { minLength: 1, maxLength: 12 }), (soup, steps) => {
+        check(editMeshFrom(soup), steps);
+      }),
+      { numRuns: 100, seed: 13 },
+    );
+  });
+
+  it('covers every B4 op', () => {
+    expect(Object.keys(ATTRIBUTE_CLASS).sort()).toEqual([...B4_OPS].sort());
   });
 });

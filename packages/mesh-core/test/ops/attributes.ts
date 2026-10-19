@@ -1,6 +1,6 @@
 // Face-attribute identity for the B4 tests: `decorateFaces` gives every face its own `paint` slot (the face's identity),
 // a material and distinct `uv0` values on every corner; `faceAttributes` records them and `attributeProblems` says how
-// an op broke them. Classes of op:
+// an op broke them (decorate right before the op: after a split or a copy faces share slots). Classes of op:
 // - 'identity' (normals, Reverse, Conform, Apply Transform, Average, Slide, Symmetrize, Flip on quads): the same faces,
 //   so the multiset of (material, paint) is unchanged and each corner keeps its face's value at its vertex;
 // - 'spin' (Spin Edge, Flip Triangle Edge): as 'identity', but a face's one new vertex takes the other face's value;
@@ -38,7 +38,7 @@ interface FaceAttributes {
 }
 
 export interface RecordedAttributes {
-  /** Paint slot → the face's attributes (the first face, if two share a slot). */
+  /** Paint slot → the face's attributes (slots are unique right after `decorateFaces`). */
   readonly faces: ReadonlyMap<number, FaceAttributes>;
   /** The sorted "material/paint" keys of every face. */
   readonly pairs: readonly string[];

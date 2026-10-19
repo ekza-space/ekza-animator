@@ -15,10 +15,10 @@ import {
   triangulate,
   validateMesh,
 } from '../../../src';
-import { buildMeshData, signedVolume, vef } from '../../../src/testing';
 import { removeFaces } from '../../../src/subset/setops';
+import { buildMeshData, signedVolume, vef } from '../../../src/testing';
 import { halfCube as sharedHalfCube } from '../determinism';
-import { context, faceVertList, facesWhere, position, refusedCode, runOk, vertexAt } from '../harness';
+import { context, facesWhere, faceVertList, position, refusedCode, runOk, vertexAt } from '../harness';
 import { asymmetry, testSymmetryMap } from '../symmetry-fixture';
 
 const mirror = MESH_OPS['mesh.mirror'] as NonNullable<(typeof MESH_OPS)[string]>;

@@ -2,8 +2,8 @@
 // custom normals), Conform (consistent and outward winding). Each run goes through the B4 harness (P1, P5, P8).
 import { describe, expect, it } from 'vitest';
 import { BUILTIN_LAYERS, EDGE_HARD, editMeshFrom, MESH_OPS, primitive, selectionOf, topologyStats } from '../../../src';
-import { cubeData, signedVolume } from '../../../src/testing';
 import { conformFlips } from '../../../src/ops/normals';
+import { cubeData, signedVolume } from '../../../src/testing';
 import { context, faceVertList, refusedCode, runOk } from '../harness';
 
 const op = (id: string) => {
