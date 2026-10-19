@@ -243,7 +243,8 @@ test('B12a — symmetric drags keep the pick; typed values are announced; Esc cl
   await expect.poll(() => call(page, 'helpLine')).toContain('Translate Y 0.3_');
   await page.keyboard.press('Escape');
   await page.mouse.up();
-  await expect.poll(() => call(page, 'helpLine')).not.toContain('0.3_');
+  // At once, not when the help line's message times out (4 s).
+  await expect.poll(() => call(page, 'helpLine'), { timeout: 1_000 }).not.toContain('0.3_');
   expect((await call(page, 'history')).undo).toHaveLength(steps + 2);
   expect(await positions(page, cube)).toEqual(after);
 });
