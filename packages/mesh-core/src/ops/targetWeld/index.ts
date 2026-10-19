@@ -1,7 +1,8 @@
 // Kernel ops of `ops/targetWeld/` (M6A-SPEC §6.1, §5.12, §5.14; B3): `mesh.targetWeld {pairs, mode}` — each pair
 // [source, target] (pointer-bound; vertices, or edges in edge mode welded endpoint to endpoint by proximity) merges the
 // source into the target at the target (`mode: 'target'`, the target's layers) or at their midpoint (`'center'`).
-// `selection′` = the target vertices. Symmetry (pointer class) by the §5.14 seam table: s → g also welds p(s) → p(g);
+// Chains resolve to their final target; a cycle of pairs welds at its first pair's target; pairs that weld nothing
+// refuse `targetWeld.no-pairs`. `selection′` = the target vertices. Symmetry (pointer class) by the §5.14 seam table: s → g also welds p(s) → p(g);
 // g on the seam: both s and p(s) weld onto g; g = p(s): both merge to their centre on the plane; s on the seam and g
 // off it: refused with Preserve Seam (`symmetry.seam`); a missing partner welds once with
 // `symmetry.unmatched-partner`.
@@ -10,7 +11,7 @@ import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { unmatchedWarnings, mirrorOf } from '../extrude/shared/symmetry';
 import { type V3, guarded, lerp3, opResult, pos, resolveArgs, selectionResult, str } from '../extrude/shared/util';
-import { mergeGroups } from '../merge/clusters';
+import { mergeGroups, mergesAnything } from '../merge/clusters';
 import { TARGET_WELD } from './descriptor';
 
 /** Always true: the tool supplies `pairs` (poll sees no args); `run` refuses missing or invalid pairs. */
@@ -110,9 +111,15 @@ function runTargetWeld(
     if (center) centres.push([g, s], [pg, ps]);
     else welds.push([s, g], [ps, pg]);
   }
-  // Group by final target (chains s → g → h resolve to h).
+  // Group by final target (chains s → g → h resolve to h). A cycle ([a, b], [b, a]) has no final target: its vertices
+  // weld at the target of its first pair, as dragging them one after the other would (a onto b; then b onto a is
+  // already one vertex).
   const to = new Map<number, number>();
-  for (const [s, g] of welds) to.set(s, g);
+  const order = new Map<number, number>();
+  welds.forEach(([s, g], i) => {
+    to.set(s, g);
+    order.set(s, i);
+  });
   const resolve = (v: number): number => {
     let r = v;
     const seen = new Set<number>();
@@ -120,7 +127,13 @@ function runTargetWeld(
       seen.add(r);
       r = to.get(r) as number;
     }
-    return r;
+    if (!to.has(r)) return r;
+    // r lies on the cycle the walk closed: its earliest pair names the target.
+    let first = r;
+    for (let s = to.get(r) as number; s !== r; s = to.get(s) as number) {
+      if ((order.get(s) as number) < (order.get(first) as number)) first = s;
+    }
+    return to.get(first) as number;
   };
   const groups = new Map<number, number[]>();
   const add = (rep: number, v: number): void => {
@@ -174,6 +187,8 @@ function runTargetWeld(
     ordered.push(list);
   }
   ordered.sort((a, b) => (a[0] as number) - (b[0] as number));
+  // Nothing to weld is a refusal, not an empty step (M6A-B3-6).
+  if (!mergesAnything(ordered)) return refuse('targetWeld.no-pairs', 'Drag a vertex onto the vertex to weld it to');
   const outcome = mergeGroups(m, ordered, 'target', mirror, (group) => centreOf.get(group.join(',')) ?? null);
   return opResult(
     selectionResult(m, 'vertex', outcome.reps),
