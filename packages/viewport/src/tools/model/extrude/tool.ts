@@ -24,6 +24,7 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type ToolPointerEvent,
+  VIEWPORT_TOOL,
 } from '@ekza-animator/editor-core';
 import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { rayLineParameter, ringScreenTangent } from '../../../manipulators/drag';
@@ -115,6 +116,14 @@ export class ExtrudeTool implements ToolInstance {
       if (changed || this.rt.valueHandle.setHot(value)) this.rt.invalidate();
     });
     this.rt.refreshHandles();
+    // The manipulator tool never lingers with nothing to show (a workspace's remembered tool, a session that ended
+    // while another tool was active): the select tool takes over.
+    if (!this.rt.manipulator.visible && !this.rt.valueHandle.visible) {
+      const tools = this.app.session.getState().tools;
+      if (tools.viewport === VIEWPORT_TOOL.extrude) {
+        this.app.session.setState({ tools: { ...tools, viewport: VIEWPORT_TOOL.select } });
+      }
+    }
   }
 
   deactivate(): void {
