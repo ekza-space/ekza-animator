@@ -17,7 +17,10 @@ import {
   providePaneDisplay,
 } from '@ekza-animator/editor-core';
 import { firstShotCamera } from '../cameras/cameras';
+import { attachGuides } from '../guides';
+import { attachImagePlanes } from '../imageplanes';
 import { LAYOUT_PANES } from '../panes/layout';
+import { paintToolDef } from '../tools/model/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { selectToolDef } from '../tools/selectTool';
 import { moveToolDef, rotateToolDef } from '../tools/transformTool';
@@ -205,6 +208,10 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     ...[layout, frame, displayToggle, lookThrough, copyViewToShot, toggleLock, cameraRadial].map((def) =>
       app.contribute({ kind: 'operator', def: def as unknown as OperatorDef<unknown, unknown, unknown> }),
     ),
+    // M6a (B13): the Paint Colour tool, reference image planes and template guides (each lazy until needed).
+    app.contribute({ kind: 'tool', def: paintToolDef(vm) }),
+    attachImagePlanes(app, vm),
+    attachGuides(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
