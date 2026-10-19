@@ -28,7 +28,8 @@ describe('viewport operators', () => {
     rig = await createRig({ contributions: false });
     const { registerViewportContributions } = await import('../src');
     const dispose = registerViewportContributions(rig.app, rig.vm);
-    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate']);
+    // M6A-SPEC §3 rule 9/10 literal update (B9): `R` selects the new viewport Scale tool.
+    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate', 'scale']);
     const ids = [
       'view.layout',
       'view.frame',

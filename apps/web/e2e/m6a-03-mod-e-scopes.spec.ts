@@ -7,7 +7,7 @@ import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 // `model`, §7), Export keeps Mod+Shift+E there and stays on Mod+E in Animate. Real key presses through the editor's
 // keyboard adapter, with the pointer over the named panel.
 //
-// Gates (§3 rule 4): part (a) needs the Model workspace, which B9 registers (`ws=model` keeps Animate until then; see
+// Gates (§3 rule 4): part (a) needed the Model workspace, which B9 registers (its `b9` gate is lifted; see
 // docs/wp-notes/m6a-keymap-menus.md for the Gates-column request); part (b) is gated on b3, b7, b10 as §10.1 says.
 // The Export dialog opens only with something to export (`ui.open` polls "Load a character to export"), so the
 // scenes that press an Export chord load the Polybot sample first; the key routing is what this scenario checks.
@@ -43,9 +43,7 @@ async function dialog(page: Page): Promise<string | null> {
   return (await call(page, 'state')).dialog;
 }
 
-test.fixme('b9: E2E-MOD-03 (a) — Mod+E resolves to Extrude over the pane and the Outliner in Model', async ({
-  page,
-}) => {
+test('E2E-MOD-03 (a) — Mod+E resolves to Extrude over the pane and the Outliner in Model', async ({ page }) => {
   await openModel(page);
   for (const at of [{ panel: 'viewport', paneId: MODEL_PANE }, { panel: 'outliner' }]) {
     expect(await call(page, 'resolveKey', { code: 'KeyE', mod: true }, at)).toEqual({

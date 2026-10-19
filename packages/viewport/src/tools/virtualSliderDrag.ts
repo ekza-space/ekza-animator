@@ -30,6 +30,12 @@ export interface VirtualSliderDragOptions {
    * modifiers.
    */
   readonly initialDx?: number;
+  /**
+   * M6a (M6A-SPEC §5.17 (b); B9): the press is the viewport's MMB stand-in (`Alt+Shift`+LMB in Model on the trackpad
+   * and one-button profiles), delivered as MMB with Alt and Shift cleared: for the whole gesture Shift is part of the
+   * chord, never the ×0.1 rate. `Mod` keeps its ×10. Default false.
+   */
+  readonly standIn?: boolean;
 }
 
 /**
@@ -50,6 +56,8 @@ export function startVirtualSliderDrag(
   );
   if (!slider.active) return null;
   const mac = app.keymap.platform === 'mac';
+  // The stand-in's Shift belongs to its chord (§5.17 (b)): the rate reads it as released.
+  const shiftOf = (event: { readonly shiftKey: boolean }): boolean => opts.standIn !== true && event.shiftKey;
   const doc = element.ownerDocument;
   const win = doc.defaultView ?? window;
   const pointerId = press.pointerId;
@@ -94,7 +102,7 @@ export function startVirtualSliderDrag(
   const onMove = (event: PointerEvent): void => {
     if (done || (event.pointerId !== pointerId && mode === 'capture')) return;
     event.preventDefault();
-    slider.move(event.movementX, { shift: event.shiftKey, mod: mac ? event.metaKey : event.ctrlKey });
+    slider.move(event.movementX, { shift: shiftOf(event), mod: mac ? event.metaKey : event.ctrlKey });
     if (!slider.active) end(false);
   };
   element.addEventListener('pointermove', onMove, { signal });
@@ -137,7 +145,7 @@ export function startVirtualSliderDrag(
   // Capture first: moves arriving before the lock is granted still reach the element.
   capture();
   if (opts.initialDx !== undefined && opts.initialDx !== 0) {
-    slider.move(opts.initialDx, { shift: press.shiftKey, mod: mac ? press.metaKey : press.ctrlKey });
+    slider.move(opts.initialDx, { shift: shiftOf(press), mod: mac ? press.metaKey : press.ctrlKey });
   }
   const lockable = opts.pointerLock !== false && typeof element.requestPointerLock === 'function';
   if (lockable) {
