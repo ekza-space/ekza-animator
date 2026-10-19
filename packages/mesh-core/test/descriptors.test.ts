@@ -183,7 +183,22 @@ describe('§6.3 primitive parameters', () => {
 });
 
 /** Kernel ops whose owners have landed them (B3: M6A-SPEC §9 B3). */
-const LANDED: ReadonlySet<string> = new Set(['mesh.extrude']);
+const LANDED: ReadonlySet<string> = new Set([
+  'mesh.extrude',
+  'mesh.inset',
+  'mesh.insertLoop',
+  'mesh.offsetLoop',
+  'mesh.connect',
+  'mesh.bridge',
+  'mesh.fillHole',
+  'mesh.merge',
+  'mesh.mergeToCenter',
+  'mesh.mergeByDistance',
+  'mesh.targetWeld',
+  'mesh.collapse',
+  'mesh.delete',
+  'mesh.deleteEdgeVertex',
+]);
 
 describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
   it('hold one op per descriptor with the same descriptor fields', () => {
