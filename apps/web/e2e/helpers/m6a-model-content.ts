@@ -95,9 +95,10 @@ export interface Sword {
 }
 
 /**
- * E2E-MOD-13's scripted handheld sword: the Handheld template, a cube scaled to a blade above the grip, its top face
- * extruded twice and the tip vertices merged to their centre, a 6-sided cylinder handle and a cube cross-guard
- * combined into the hilt. Needs B3 (extrude), B4 (Merge to Center, Combine), B10 (component selection) and B12a
+ * E2E-MOD-13's scripted handheld sword (about 110 triangles, inside the 80–400 the scenario asks for): the Handheld
+ * template, a cube scaled to a blade above the grip (four height segments), its top face extruded twice and the tip
+ * vertices merged to their centre, a 6-sided cylinder handle (three segments) and a cube cross-guard combined into
+ * the hilt. Needs B3 (extrude), B4 (Merge to Center, Combine), B10 (component selection) and B12a
  * (object transforms).
  */
 export async function buildSword(page: Page): Promise<Sword> {
@@ -107,7 +108,7 @@ export async function buildSword(page: Page): Promise<Sword> {
 
   // The blade: created into the selected Handheld group (§5.16), then raised above the guard.
   await selectObjects(page, [group]);
-  const blade = await createPrimitive(page, 'cube', { width: 0.06, height: 0.5, depth: 0.012 });
+  const blade = await createPrimitive(page, 'cube', { width: 0.06, height: 0.5, depth: 0.012, subdivisionsHeight: 4 });
   await placeObjects(page, { [blade]: [0, 0.32, 0] });
   await runOk(page, 'model.hilite', { meshes: [blade], mode: 'replace' });
   await setMode(page, 'face');
@@ -123,7 +124,12 @@ export async function buildSword(page: Page): Promise<Sword> {
 
   // The hilt: a 6-sided handle and a cube cross-guard, combined.
   await selectObjects(page, [group]);
-  const handle = await createPrimitive(page, 'cylinder', { radius: 0.015, height: 0.16, subdivisionsAxis: 6 });
+  const handle = await createPrimitive(page, 'cylinder', {
+    radius: 0.015,
+    height: 0.16,
+    subdivisionsAxis: 6,
+    subdivisionsHeight: 3,
+  });
   await selectObjects(page, [group]);
   const guard = await createPrimitive(page, 'cube', { width: 0.16, height: 0.02, depth: 0.03 });
   await placeObjects(page, { [handle]: [0, 0, 0], [guard]: [0, 0.08, 0] });
