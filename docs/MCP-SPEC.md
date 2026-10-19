@@ -840,9 +840,11 @@ export type BridgeMessage =
       readonly files: readonly { readonly path: string; readonly blob: string }[] }       // workspace reads, pre-attached (§5.10)
   | { readonly t: 'progress'; readonly id: string; readonly done: number; readonly total: number | null; readonly message?: string }
   | { readonly t: 'result'; readonly id: string; readonly result: unknown;                 // AgentToolResult without images
-      readonly images: readonly { readonly blob: string; readonly mime: string; readonly width: number; readonly height: number }[];
+      readonly images: readonly { readonly blob: string; readonly mime: 'image/png' | 'image/webp'; readonly width: number; readonly height: number }[];
       /** Workspace writes: base file names only (no separators); the server decides the folder, the extension check
-       *  and whether an existing file may be replaced, from the call's own arguments (§5.10, §5.18). */
+       *  and whether an existing file may be replaced, from the call's own arguments (§5.10, §5.18). The strict
+       *  parser checks the name: /^(?!\.{1,2}$)[^/\\:\p{Cc}\p{Cf}]{1,255}$/u (no `/`, `\`, `:`, control or format
+       *  character, not `.` or `..`). */
       readonly writes: readonly { readonly name: string; readonly blob: string }[] }
   | { readonly t: 'cancel'; readonly id: string }                                          // server → tab
   // session state (tab → server)
@@ -2973,6 +2975,7 @@ routes stay the same with D0's integration agent in B0a's role.
 | `editor/src/shell/**` (`StatusLine.tsx`, `menuItems.ts`, `workspace.ts`, status-line group registry) | B9 (menus: B0b, then B9) | the `status-agent` pill, the Windows › Agent item, the `agent` extra panel | P8 registers an `agent` status-line group through B9's registry and adds `agent` to every workspace's `statusGroups`, the menu row and the panel through contract PRs to B9 (§7/§8.3 of M6A-SPEC); before B9 lands, D0's placeholder lines in `StatusLine.tsx` and `menuItems.ts` |
 | `viewport/src/manager/**` | B9 | `agentHost()` (`renderTile` and the presence outline need the renderer, the scene, pane cameras, posing and an overlay pass) | D0's one-method contract PR to B9; everything else in `viewport/src/capture/**` (P5) and `viewport/src/overlays/presence.ts` (P8) |
 | `doc/src/undo/**` | closed after B0a | `restorePlan.ts` (new file) and its exports | D0's contract PR; `patchUndo.ts` untouched |
+| `doc/src/store/memory.ts` | closed after B0a (contract PRs) | `MemoryDocumentStore.restoreHost()` and the `RESTORE_HOST` symbol method on its transactions: the exact restore host `planRestore`/`planSnapshotRestore` read (§4.2, MAI-D0-1) | D0's contract PR, additive only (two members and their imports); if D0 lands first, B0a rebases onto it |
 | `editor-core/src/operators/builtin/{graph,tween,key,mirrorAnimation,clip,ik,file,define}.ts`, `workflows/ik.ts` | not in M6A-SPEC §9.1 (animation files) | P1's scope and actor-safe migrations; D0's `file.ts`/`define.ts` lines | M-AI owns them for its duration; an M6a package that needs one asks P1 |
 
 ### D0 — Contracts, kernel changes, minimal runtime, scaffolds (integration agent; first)
