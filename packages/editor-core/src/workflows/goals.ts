@@ -1,0 +1,304 @@
+// Goal posing for `pose.goals` (MCP-SPEC §4.10, P1): aim math (a bone pointed in a character-space direction, solved
+// back to its driving FK control through the rig's inverse solver with eulerNear continuity) and IK target placement
+// (`ikControlForEndWorld`, the pole kept or placed), plus the IK/FK range switch of `ensureIk: 'auto'`. Everything is
+// evaluated from explicit channel buffers of one clip frame: the committed keyed pose, never the user's overrides.
+import {
+  type Mat4,
+  mat4Compose,
+  mat4Decompose,
+  type Quat,
+  quatInvert,
+  quatMultiply,
+  quatNormalize,
+  quatRotateVec3,
+  quatShortestArc,
+  quatSlerp,
+  type Vec3,
+} from '@ekza-animator/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import {
+  type ChannelBuffer,
+  controlForNode,
+  type LimbDesc,
+  type LimbId,
+  nodeForControl,
+  type PoseBuffers,
+  type RigProgram,
+  readControlChannels,
+  solveBoneChannels,
+  solveControlChannels,
+  writeControlChannels,
+} from '@ekza-animator/rig';
+import type { CharacterRuntime, EditorApp } from '../types';
+import { limbKitOf } from './ik';
+
+/** The humanoid bone a `split` aim distributes over its parent (§4.10 "split distributes a head aim"). */
+export const SPLIT_BONE = 'head';
+/** A limb counts as IK at a frame from this ikFk on (§5.5 rule 2: the viewport's and Attributes' threshold). */
+export const IK_FROM = 0.999;
+/** An IK goal within this distance counts as reached (MCP-SPEC §8 P1: "IK targets within 1 mm in reach"). */
+export const REACHED_M = 1e-3;
+
+/** Node index of a bone: a VRM humanoid name (own entries only), else an exact node name; −1 when absent. */
+export function boneNode(runtime: CharacterRuntime, bone: string): number {
+  const humanoid = runtime.skeleton.humanoid ?? {};
+  if (Object.hasOwn(humanoid, bone)) {
+    const index = (humanoid as Readonly<Record<string, number | undefined>>)[bone];
+    if (index !== undefined) return index;
+  }
+  return runtime.skeleton.nodes.find((node) => node.name === bone)?.index ?? -1;
+}
+
+/** The control that drives exactly this node (its FK control), or null. */
+export function drivingControl(program: RigProgram, node: number): ControlId | null {
+  const control = controlForNode(program, node);
+  return control !== null && nodeForControl(program, control) === node ? control : null;
+}
+
+/** The limb's ikFk in a channel buffer (0 when the IK control lacks the attribute). */
+export function ikFkIn(limb: LimbDesc, ch: ChannelBuffer): number {
+  const slot = limb.attrSlots.ikFk;
+  return slot >= 0 ? (ch.attrs[slot] as number) : 0;
+}
+
+/** The limb whose IK chain (upper, mid, end) contains the node, or null. */
+export function limbOfNode(program: RigProgram, node: number): LimbDesc | null {
+  for (const limb of program.limbs) {
+    const { upper, mid, end } = limb.nodes;
+    if (node === upper || node === mid || node === end) return limb;
+  }
+  return null;
+}
+
+function rotationOf(world: Float64Array, node: number): Quat {
+  const xf = mat4Decompose(world.subarray(node * 16, node * 16 + 16));
+  return quatNormalize(xf.q);
+}
+
+function positionOf(world: Float64Array, node: number): Vec3 {
+  return [world[node * 16 + 12] as number, world[node * 16 + 13] as number, world[node * 16 + 14] as number];
+}
+
+function normalize(v: readonly number[]): Vec3 {
+  const length = Math.hypot(v[0] ?? 0, v[1] ?? 0, v[2] ?? 0);
+  return length < 1e-12 ? [0, 0, 0] : [(v[0] ?? 0) / length, (v[1] ?? 0) / length, (v[2] ?? 0) / length];
+}
+
+function sub(a: readonly number[], b: readonly number[]): Vec3 {
+  return [(a[0] ?? 0) - (b[0] ?? 0), (a[1] ?? 0) - (b[1] ?? 0), (a[2] ?? 0) - (b[2] ?? 0)];
+}
+
+/** The angle between two directions (radians). */
+export function angleBetween(a: readonly number[], b: readonly number[]): number {
+  const u = normalize(a);
+  const v = normalize(b);
+  const dot = u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+  return Math.acos(Math.min(1, Math.max(-1, dot)));
+}
+
+/** The rest pose of a program (every channel at its default). */
+export function restPoseOf(program: RigProgram): PoseBuffers {
+  const ch = program.allocChannels();
+  program.resetChannels(ch);
+  const pose = program.allocPose();
+  program.evaluate(ch, pose);
+  return pose;
+}
+
+/**
+ * The bone's aim axis in its own frame (from the rest pose): the direction to its first child; a leaf continues the
+ * line from its parent; the humanoid head looks forward (+Z), so a head aim is a look direction.
+ */
+export function aimAxisLocal(runtime: CharacterRuntime, rest: PoseBuffers, node: number, bone: string): Vec3 {
+  const restRot = rotationOf(rest.boneWorld, node);
+  const inverse = quatInvert(restRot);
+  const humanoid = runtime.skeleton.humanoid ?? {};
+  const isHead = Object.hasOwn(humanoid, SPLIT_BONE) && (humanoid as Record<string, number>)[SPLIT_BONE] === node;
+  let world: Vec3;
+  const child = runtime.skeleton.nodes.find((candidate) => candidate.parent === node);
+  if (isHead || bone === SPLIT_BONE) world = [0, 0, 1];
+  else if (child !== undefined)
+    world = normalize(sub(positionOf(rest.boneWorld, child.index), positionOf(rest.boneWorld, node)));
+  else {
+    const parent = runtime.skeleton.nodes[node]?.parent ?? -1;
+    world =
+      parent < 0 ? [0, 1, 0] : normalize(sub(positionOf(rest.boneWorld, node), positionOf(rest.boneWorld, parent)));
+  }
+  return normalize(quatRotateVec3(inverse, world));
+}
+
+/** The bone's current aim direction in a pose (character space). */
+export function aimDirection(pose: PoseBuffers, node: number, axisLocal: Vec3): Vec3 {
+  return normalize(quatRotateVec3(rotationOf(pose.boneWorld, node), axisLocal));
+}
+
+/** The node's world matrix in `pose` with its rotation replaced (position and scale kept). */
+function withRotation(pose: PoseBuffers, node: number, q: Quat): Mat4 {
+  const xf = mat4Decompose(pose.boneWorld.subarray(node * 16, node * 16 + 16));
+  return mat4Compose({ t: xf.t, q: quatNormalize(q), s: xf.s });
+}
+
+export interface AimRequest {
+  readonly node: number;
+  readonly bone: string;
+  readonly direction: Vec3;
+  readonly keepTwist: boolean;
+  readonly weight: number;
+  readonly split?: { readonly neck: number; readonly head: number };
+}
+
+/** The pose state the goal solve works on: a channel buffer of one clip frame and its evaluated pose. */
+export interface GoalState {
+  readonly program: RigProgram;
+  readonly ch: ChannelBuffer;
+  readonly pose: PoseBuffers;
+  /** Channels solved so far, per control (what the operator keys). */
+  readonly solved: Map<ControlId, ChannelValues>;
+}
+
+/** Current channels of a control in the state (the eulerNear reference). */
+function referenceOf(state: GoalState, control: ControlId): ChannelValues {
+  return { ...readControlChannels(state.program, state.ch, control) };
+}
+
+/** Keeps the solved channels a control may take (keyable, unlocked); the others keep their values. */
+export type ChannelFilter = (control: ControlId, values: ChannelValues) => ChannelValues;
+
+/** Writes solved channels into the state (filtered) and records them for keying. */
+function commitSolved(state: GoalState, control: ControlId, values: ChannelValues, filter: ChannelFilter): void {
+  const kept = filter(control, values);
+  writeControlChannels(state.program, state.ch, control, kept);
+  state.solved.set(control, { ...state.solved.get(control), ...kept });
+}
+
+/** Solves `node` to the world rotation `q` through its driving control and re-evaluates the state. */
+function solveNodeRotation(state: GoalState, node: number, q: Quat, filter: ChannelFilter): void {
+  const control = drivingControl(state.program, node);
+  if (control === null) return;
+  const desired = new Map<number, Mat4>([[node, withRotation(state.pose, node, q)]]);
+  const solved = solveBoneChannels(
+    state.program,
+    state.pose,
+    desired,
+    new Map([[control, referenceOf(state, control)]]),
+  );
+  for (const [id, values] of solved) commitSolved(state, id, values, filter);
+  state.program.evaluate(state.ch, state.pose);
+}
+
+/**
+ * One aim (§4.10): the minimal rotation from the bone's current direction to `direction`, without a twist about the
+ * bone (`keepTwist`: from the current orientation; otherwise from its rest orientation under the current parent),
+ * blended by `weight`; a head aim with `split` turns its parent (the neck) by its share first. `writable` filters a
+ * control's solved channels (locked channels stay). Returns the bone and driving control.
+ */
+export function applyAim(
+  state: GoalState,
+  rest: PoseBuffers,
+  runtime: CharacterRuntime,
+  aim: AimRequest,
+  filter: ChannelFilter,
+): void {
+  const axis = aimAxisLocal(runtime, rest, aim.node, aim.bone);
+  const target = normalize(aim.direction);
+  const goalRotation = (): Quat => {
+    const current = rotationOf(state.pose.boneWorld, aim.node);
+    if (aim.keepTwist) {
+      const from = aimDirection(state.pose, aim.node, axis);
+      return quatMultiply(quatShortestArc(from, target), current);
+    }
+    const parent = runtime.skeleton.nodes[aim.node]?.parent ?? -1;
+    const restRelative =
+      parent < 0
+        ? rotationOf(rest.boneWorld, aim.node)
+        : quatMultiply(quatInvert(rotationOf(rest.boneWorld, parent)), rotationOf(rest.boneWorld, aim.node));
+    const start = parent < 0 ? restRelative : quatMultiply(rotationOf(state.pose.boneWorld, parent), restRelative);
+    return quatMultiply(quatShortestArc(normalize(quatRotateVec3(start, axis)), target), start);
+  };
+  if (aim.split !== undefined) {
+    const parent = runtime.skeleton.nodes[aim.node]?.parent ?? -1;
+    const total = aim.split.neck + aim.split.head;
+    const share = total > 0 ? aim.split.neck / total : 0;
+    if (parent >= 0 && share > 0 && drivingControl(state.program, parent) !== null) {
+      const current = rotationOf(state.pose.boneWorld, aim.node);
+      const turn = quatMultiply(goalRotation(), quatInvert(current));
+      const partial = quatSlerp([0, 0, 0, 1], turn, aim.weight * share);
+      const parentRot = rotationOf(state.pose.boneWorld, parent);
+      solveNodeRotation(state, parent, quatMultiply(partial, parentRot), filter);
+    }
+  }
+  const current = rotationOf(state.pose.boneWorld, aim.node);
+  solveNodeRotation(state, aim.node, quatSlerp(current, goalRotation(), aim.weight), filter);
+}
+
+/** The achieved aim direction and its error to the requested direction (radians). */
+export function aimResult(
+  state: GoalState,
+  rest: PoseBuffers,
+  runtime: CharacterRuntime,
+  aim: AimRequest,
+): { readonly achieved: Vec3; readonly errorRad: number } {
+  const achieved = aimDirection(state.pose, aim.node, aimAxisLocal(runtime, rest, aim.node, aim.bone));
+  return { achieved, errorRad: angleBetween(achieved, aim.direction) };
+}
+
+export interface IkRequest {
+  readonly limb: LimbId;
+  readonly position?: Vec3;
+  readonly rotation?: Quat;
+  readonly pole?: Vec3;
+}
+
+/**
+ * Places a limb's IK effector (§4.10): the IK control channels that put the end bone at `position` (kept when absent)
+ * with `rotation` (kept when absent), the pole control at `pole` (kept when absent), solved with the limb in IK.
+ * Writes the solved channels into the state and returns the end bone's remaining distance to the goal.
+ */
+export function applyIkGoal(
+  app: EditorApp,
+  state: GoalState,
+  limb: LimbDesc,
+  goal: IkRequest,
+  filter: ChannelFilter,
+): number {
+  const { program, ch } = state;
+  const slot = limb.attrSlots.ikFk;
+  if (slot >= 0) ch.attrs[slot] = 1;
+  program.evaluate(ch, state.pose);
+  const end = limb.nodes.end;
+  const endXf = mat4Decompose(state.pose.boneWorld.subarray(end * 16, end * 16 + 16));
+  const targetPosition: Vec3 = goal.position === undefined ? [...endXf.t] : [...goal.position];
+  if (goal.pole !== undefined) {
+    const pole = limb.params.pole;
+    const index = program.controlIndex.get(pole);
+    if (index !== undefined) {
+      const world = mat4Decompose(state.pose.controlWorld.subarray(index * 16, index * 16 + 16));
+      const desired = mat4Compose({ t: [...goal.pole], q: world.q, s: world.s });
+      commitSolved(
+        state,
+        pole,
+        solveControlChannels(program, state.pose, pole, desired, referenceOf(state, pole)),
+        filter,
+      );
+      program.evaluate(ch, state.pose);
+    }
+  }
+  const endWorld = mat4Compose({
+    t: targetPosition,
+    q: goal.rotation === undefined ? endXf.q : quatNormalize([...goal.rotation] as Quat),
+    s: endXf.s,
+  });
+  const ikControl = limb.params.ikControl;
+  const solved = limbKitOf(app).ikControlForEndWorld(
+    program,
+    state.pose,
+    ch,
+    limb.id,
+    endWorld,
+    referenceOf(state, ikControl),
+  );
+  commitSolved(state, ikControl, solved, filter);
+  program.evaluate(ch, state.pose);
+  // Goal tools report the remaining error and never fail for an imperfect reach (§6.3).
+  return Math.hypot(...sub(positionOf(state.pose.boneWorld, end), targetPosition));
+}
