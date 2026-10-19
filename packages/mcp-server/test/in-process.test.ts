@@ -76,6 +76,18 @@ describe('command-line arguments (MCP-SPEC §5.22.2)', () => {
       'http://localhost:3270',
     ]);
     expect(parseArgs(['--no-bridge'], env, '/cwd')).toMatchObject({ config: { bridge: { enabled: false } } });
+    // Another spelling of a listed origin collapses into it.
+    const respelled = parseArgs(
+      ['--allow-origin', 'http://127.1:03000', '--allow-origin', 'HTTP://[::1]:3000'],
+      {},
+      '/',
+    );
+    if (respelled.kind !== 'serve') throw new Error('not serve');
+    expect(respelled.config.bridge.allowedOrigins).toEqual([
+      'http://localhost:3000',
+      'http://127.0.0.1:3000',
+      'http://[::1]:3000',
+    ]);
   });
 
   it('accepts exact scheme://host[:port] origins only, normalised as the browser sends them (§5.10)', () => {
@@ -84,6 +96,15 @@ describe('command-line arguments (MCP-SPEC §5.22.2)', () => {
     expect(parseOrigin('https://animator.example.org:443')).toEqual({ origin: 'https://animator.example.org' });
     expect(parseOrigin('http://[::1]:3100')).toEqual({ origin: 'http://[::1]:3100' });
     expect(parseOrigin('http://localhost:*')).toEqual({ origin: 'http://localhost:*' });
+    // As the browser serialises Origin (WHATWG URL): plain port numbers, dotted-quad IPv4, compressed IPv6.
+    expect(parseOrigin('http://localhost:03000')).toEqual({ origin: 'http://localhost:3000' });
+    expect(parseOrigin('https://animator.example.org:00443')).toEqual({ origin: 'https://animator.example.org' });
+    expect(parseOrigin('http://127.1:3000')).toEqual({ origin: 'http://127.0.0.1:3000' });
+    expect(parseOrigin('http://2130706433:3000')).toEqual({ origin: 'http://127.0.0.1:3000' });
+    expect(parseOrigin('http://0x7f.0.0.1:3000')).toEqual({ origin: 'http://127.0.0.1:3000' });
+    expect(parseOrigin('http://[::ffff:127.0.0.1]:3000')).toEqual({ origin: 'http://[::ffff:7f00:1]:3000' });
+    expect(parseOrigin('http://[0:0:0:0:0:0:0:1]:3000')).toEqual({ origin: 'http://[::1]:3000' });
+    expect(parseOrigin('http://127.1:*')).toEqual({ origin: 'http://127.0.0.1:*' });
     for (const bad of [
       '*',
       'null',
@@ -100,6 +121,9 @@ describe('command-line arguments (MCP-SPEC §5.22.2)', () => {
       'file:///tmp/editor.html',
       'chrome-extension://abcdef',
       'ws://localhost:3000',
+      'http://999.1.1.1:3000',
+      'http://[::g]:3000',
+      'http://[1::2::3]:3000',
       '',
     ]) {
       expect([bad, 'error' in parseOrigin(bad)]).toEqual([bad, true]);
@@ -124,6 +148,13 @@ describe('command-line arguments (MCP-SPEC §5.22.2)', () => {
     expect(warningsOf('http://localhost:3270')).toEqual([]);
     expect(warningsOf('http://127.0.0.1:3100')).toEqual([]);
     expect(warningsOf('http://[::1]:3100')).toEqual([]);
+    // Loopback in any spelling the URL parser canonicalises is still loopback.
+    expect(warningsOf('http://127.1:3100')).toEqual([]);
+    expect(warningsOf('http://2130706433:3100')).toEqual([]);
+    expect(warningsOf('http://127.8.9.10:3100')).toEqual([]);
+    expect(warningsOf('http://[::ffff:127.0.0.1]:3100')).toEqual([]);
+    expect(warningsOf('http://[0:0:0:0:0:0:0:1]:3100')).toEqual([]);
+    expect(warningsOf('http://[::ffff:192.168.1.20]:3000')).toEqual([expect.stringMatching(/plain http/)]);
     expect(warningsOf('https://animator.example.org')).toEqual([]);
     expect(warningsOf('http://192.168.1.20:3000')).toEqual([expect.stringMatching(/plain http/)]);
     expect(warningsOf('http://localhost:*')).toEqual([expect.stringMatching(/every port/)]);

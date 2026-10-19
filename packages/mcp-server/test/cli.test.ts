@@ -14,14 +14,44 @@ import { SERVER_VERSION } from '../src';
 const BIN = fileURLToPath(new URL('../dist/cli.mjs', import.meta.url));
 const built = existsSync(BIN);
 
+interface PackageJson {
+  readonly version: string;
+  readonly bin: Readonly<Record<string, string>>;
+  readonly files: readonly string[];
+  readonly exports?: unknown;
+  readonly publishConfig?: Readonly<Record<string, unknown>>;
+  readonly dependencies?: unknown;
+  readonly [field: string]: unknown;
+}
+
+const PKG = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')) as PackageJson;
+
+/** Every file path an exports map names (conditions and subpaths, depth first). */
+function exportTargets(value: unknown): string[] {
+  if (typeof value === 'string') return [value];
+  if (value === null || typeof value !== 'object') return [];
+  return Object.values(value).flatMap(exportTargets);
+}
+
 describe('package', () => {
   it('states its version in src/version.ts', () => {
-    const pkg = JSON.parse(readFileSync(fileURLToPath(new URL('../package.json', import.meta.url)), 'utf8')) as {
-      readonly version: string;
-      readonly bin: Readonly<Record<string, string>>;
-    };
-    expect(SERVER_VERSION).toBe(pkg.version);
-    expect(pkg.bin).toEqual({ 'ekza-animator-mcp': 'dist/cli.mjs' });
+    expect(SERVER_VERSION).toBe(PKG.version);
+    expect(PKG.bin).toEqual({ 'ekza-animator-mcp': 'dist/cli.mjs' });
+  });
+
+  it('publishes a manifest whose entry points are all in `files` and that has no dependencies (§2)', () => {
+    // pnpm pack/publish replace top-level fields with publishConfig's (the workspace keeps `exports` on src/ for
+    // the evals and tests; the published package is a bin and exports only its package.json).
+    const { publishConfig, ...rest } = PKG;
+    const published: Readonly<Record<string, unknown>> = { ...rest, ...publishConfig };
+    const shipped = new Set([...PKG.files, 'package.json'].map((file) => file.replace(/^\.\//, '')));
+    const entryPoints = [
+      ...Object.values(PKG.bin),
+      ...exportTargets(published['exports']),
+      ...['main', 'module', 'types', 'typings'].flatMap((field) => exportTargets(published[field])),
+    ].map((file) => file.replace(/^\.\//, ''));
+    expect(entryPoints.filter((file) => !shipped.has(file))).toEqual([]);
+    expect(published['dependencies']).toBeUndefined();
   });
 });
 

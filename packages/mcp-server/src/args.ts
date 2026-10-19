@@ -40,30 +40,43 @@ const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
 /** `scheme://host[:port]` (§5.10): http(s), a DNS name, an IPv4 address or a bracketed IPv6 address, a port or `*`. */
 const ORIGIN =
   /^(https?):\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)(?::(\d{1,5}|\*))?\/?$/i;
-const LOOPBACK_HOST = /^(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\])$/;
+/**
+ * Loopback hosts in their canonical (WHATWG URL) form: `localhost`, 127.0.0.0/8, `[::1]` and the IPv4-mapped
+ * 127.0.0.0/8 (`[::ffff:7f00:1]`, how a browser serialises `[::ffff:127.0.0.1]`).
+ */
+const LOOPBACK_HOST = /^(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\]|\[::ffff:7f[0-9a-f]{2}:[0-9a-f]{1,4}\])$/;
 const GATEWAY_HOST = /(^|[.-])(ipfs|ipns|gateway)([.-]|$)/;
-const DEFAULT_PORTS: Readonly<Record<string, string>> = { http: '80', https: '443' };
 
 /**
- * An allowed bridge origin as the browser sends it (§5.10): exact `scheme://host[:port]`, `*` only as the whole port;
- * scheme and host lower-cased, a default port and one trailing slash dropped. Anything else (`*`, `null`, a path, a
- * query, credentials, another scheme) is an error.
+ * An allowed bridge origin as the browser sends it (§5.10): exact `scheme://host[:port]`, `*` only as the whole port,
+ * one trailing slash tolerated; then serialised by the WHATWG URL parser, as the browser serialises `Origin`: scheme
+ * and host lower-cased, a default port dropped, the port as a plain number (`:03000` → `:3000`), IPv4 in dotted-quad
+ * form (`127.1`, `2130706433` → `127.0.0.1`), IPv6 compressed (`[::ffff:127.0.0.1]` → `[::ffff:7f00:1]`). Anything
+ * else (`*`, `null`, a path, a query, credentials, another scheme, an invalid IP literal) is an error.
  */
 export function parseOrigin(text: string): { readonly origin: string } | { readonly error: string } {
-  const match = ORIGIN.exec(text.trim());
+  const trimmed = text.trim();
+  const match = ORIGIN.exec(trimmed);
   if (match === null) {
     return {
       error: `allowed origin ${JSON.stringify(text.slice(0, 80))} is not scheme://host[:port] (http or https; '*' only as the whole port)`,
     };
   }
   const scheme = (match[1] as string).toLowerCase();
-  const host = (match[2] as string).toLowerCase();
+  const host = match[2] as string;
   const port = match[3];
   if (port !== undefined && port !== '*' && (Number(port) < 1 || Number(port) > 65_535)) {
-    return { error: `allowed origin ${text.trim()} has a port outside 1…65535` };
+    return { error: `allowed origin ${trimmed} has a port outside 1…65535` };
   }
-  const shown = port === undefined || port === DEFAULT_PORTS[scheme] ? '' : `:${port}`;
-  return { origin: `${scheme}://${host}${shown}` };
+  let origin: string;
+  try {
+    origin = new URL(`${scheme}://${host}${port === undefined || port === '*' ? '' : `:${String(Number(port))}`}`)
+      .origin;
+  } catch {
+    return { error: `allowed origin ${trimmed} has an invalid host` };
+  }
+  if (!origin.startsWith(`${scheme}://`)) return { error: `allowed origin ${trimmed} has an invalid host` };
+  return { origin: port === '*' ? `${origin}:*` : origin };
 }
 
 /** The warnings §5.10 asks for: plain http off loopback, a `*` port, a shared (path-based) gateway host. */
