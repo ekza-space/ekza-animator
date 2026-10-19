@@ -2,7 +2,8 @@
 // (refit after position commits, rebuilt after topology commits and hidden-set changes, both deferred to the first
 // pick) answers ray hits and occlusion; a per-camera projection of the vertices answers vertex and edge distances in
 // screen space. Vertex = nearest projected vertex within 8 CSS px; edge = nearest projected segment within 6 px with
-// its parameter t from `edgeVert(e, 0)`; face = the BVH ray hit (camera-based off, as in x-ray: the face-centre dot
+// its parameter t from `edgeVert(e, 0)` (an edge with an end behind the camera by its part in front, clipped at the
+// near plane as the line shader draws it); face = the BVH ray hit (camera-based off, as in x-ray: the face-centre dot
 // within 8 px first; wire shading: the dot only). Camera-based selection tests occlusion against the visible surface
 // and against the meshes around this one (`setOccluder`: the other meshes a pane draws, M6A-B6-22); the picker in turn
 // occludes for them (`occludes`). Back faces are pickable only with `backfaces` (the caller passes x-ray || the
@@ -105,6 +106,8 @@ export class ComponentPicker {
   private readonly occRay = new Ray();
   private readonly occA = new Vector3();
   private readonly occB = new Vector3();
+  /** `clipEdge`'s result: screen x, y of both clipped ends, the nearer NDC depth, the kept edge interval t0…t1. */
+  private readonly clipped = new Float64Array(7);
 
   /**
    * The mesh to pick on, its triangulation and its column-major world-from-local matrix. `topologyChanged` (a
@@ -139,6 +142,15 @@ export class ComponentPicker {
     this.world.fromArray(world);
     this.inverse.copy(this.world).invert();
     this.version++;
+  }
+
+  /**
+   * A new column-major world-from-local matrix for the same mesh (an object moved): the BVH lives in mesh-local space,
+   * so nothing is refit; the projection cache follows the matrix by itself.
+   */
+  setWorld(world: Float64Array): void {
+    this.world.fromArray(world);
+    this.inverse.copy(this.world).invert();
   }
 
   /**
@@ -410,7 +422,7 @@ export class ComponentPicker {
     const px = ((ndc[0] + 1) / 2) * viewport.w;
     const py = ((1 - ndc[1]) / 2) * viewport.h;
     if (kind === 'vertex') return this.hoverVertex(px, py, opts.radiusPx ?? PICK_RADIUS.vertex, opts);
-    if (kind === 'edge') return this.hoverEdge(camera, ndc, px, py, opts.radiusPx ?? PICK_RADIUS.edge, opts);
+    if (kind === 'edge') return this.hoverEdge(camera, ndc, viewport, px, py, opts.radiusPx ?? PICK_RADIUS.edge, opts);
     return this.hoverFace(camera, ndc, viewport, px, py, opts);
   }
 
@@ -460,9 +472,61 @@ export class ComponentPicker {
     return order;
   }
 
+  /**
+   * Edge `e` clipped to the near and far planes in clip space (the GPU clips the drawn line the same way; the line
+   * shader trims it at the near plane): for an edge with an end the per-vertex projection cannot place (behind the
+   * camera, beyond the far plane). Writes `clipped` and returns true when a part of the edge lies in the depth range.
+   */
+  private clipEdge(e: number, viewport: Viewport): boolean {
+    const t = this.topo as Topo;
+    const m = this.mvp.elements;
+    const p = this.positions;
+    const a = 3 * (t.ev[2 * e] as number);
+    const b = 3 * (t.ev[2 * e + 1] as number);
+    const ax = p[a] as number;
+    const ay = p[a + 1] as number;
+    const az = p[a + 2] as number;
+    const bx = p[b] as number;
+    const by = p[b + 1] as number;
+    const bz = p[b + 2] as number;
+    const aw = clipRow(m, 3, ax, ay, az);
+    const bw = clipRow(m, 3, bx, by, bz);
+    const acz = clipRow(m, 2, ax, ay, az);
+    const bcz = clipRow(m, 2, bx, by, bz);
+    let t0 = 0;
+    let t1 = 1;
+    // Near (z ≥ −w) and far (z ≤ w), as signed distances at both ends (Liang–Barsky).
+    for (let k = 0; k < 2; k++) {
+      const da = k === 0 ? acz + aw : aw - acz;
+      const db = k === 0 ? bcz + bw : bw - bcz;
+      if (da < 0 && db < 0) return false;
+      if (da < 0) t0 = Math.max(t0, da / (da - db));
+      else if (db < 0) t1 = Math.min(t1, da / (da - db));
+    }
+    if (!(t0 <= t1)) return false;
+    const out = this.clipped;
+    let depth = Number.POSITIVE_INFINITY;
+    for (let k = 0; k < 2; k++) {
+      const u = k === 0 ? t0 : t1;
+      const x = ax + (bx - ax) * u;
+      const y = ay + (by - ay) * u;
+      const z = az + (bz - az) * u;
+      const w = clipRow(m, 3, x, y, z);
+      if (!(w > 1e-9)) return false;
+      out[2 * k] = ((clipRow(m, 0, x, y, z) / w + 1) / 2) * viewport.w;
+      out[2 * k + 1] = ((1 - clipRow(m, 1, x, y, z) / w) / 2) * viewport.h;
+      depth = Math.min(depth, clipRow(m, 2, x, y, z) / w);
+    }
+    out[4] = depth;
+    out[5] = t0;
+    out[6] = t1;
+    return true;
+  }
+
   private hoverEdge(
     camera: Camera,
     ndc: readonly [number, number],
+    viewport: Viewport,
     px: number,
     py: number,
     radius: number,
@@ -472,15 +536,26 @@ export class ComponentPicker {
     const s = this.screen;
     const found: number[] = [];
     const r2 = radius * radius;
+    const clipped = this.clipped;
     for (let e = 0; e < t.edges; e++) {
       if (this.vis.edges[e] !== 1) continue;
       const a = 3 * (t.ev[2 * e] as number);
       const b = 3 * (t.ev[2 * e + 1] as number);
-      const ax = s[a] as number;
-      const bx = s[b] as number;
-      if (Number.isNaN(ax) || Number.isNaN(bx)) continue;
-      const ay = s[a + 1] as number;
-      const by = s[b + 1] as number;
+      let ax = s[a] as number;
+      let bx = s[b] as number;
+      let ay: number;
+      let by: number;
+      if (Number.isNaN(ax) || Number.isNaN(bx)) {
+        // An end outside the depth range: the part of the edge the pane draws (close-up perspective views).
+        if (!this.clipEdge(e, viewport)) continue;
+        ax = clipped[0] as number;
+        ay = clipped[1] as number;
+        bx = clipped[2] as number;
+        by = clipped[3] as number;
+      } else {
+        ay = s[a + 1] as number;
+        by = s[b + 1] as number;
+      }
       if (Math.min(ax, bx) - radius > px || Math.max(ax, bx) + radius < px) continue;
       if (Math.min(ay, by) - radius > py || Math.max(ay, by) + radius < py) continue;
       const d2 = segmentDistance2(px, py, ax, ay, bx, by);
@@ -492,13 +567,24 @@ export class ComponentPicker {
     const order = this.sortCandidates(found, (e) => {
       const a = 3 * (t.ev[2 * e] as number);
       const b = 3 * (t.ev[2 * e + 1] as number);
-      return Math.min(s[a + 2] as number, s[b + 2] as number);
+      const za = s[a + 2] as number;
+      const zb = s[b + 2] as number;
+      if (Number.isNaN(s[a]) || Number.isNaN(s[b])) {
+        return this.clipEdge(e, viewport) ? (clipped[4] as number) : Number.POSITIVE_INFINITY;
+      }
+      return Math.min(za, zb);
     });
     for (const k of order) {
       const e = found[2 * k + 1] as number;
       const A = this.local(t.ev[2 * e] as number, tmpA);
       const B = this.local(t.ev[2 * e + 1] as number, tmpB);
-      const param = closestOnSegment(pickRay, A, B);
+      let param = closestOnSegment(pickRay, A, B);
+      // A clipped edge: the point stays on the part in front of the camera.
+      const sa = s[3 * (t.ev[2 * e] as number)] as number;
+      const sb = s[3 * (t.ev[2 * e + 1] as number)] as number;
+      if ((Number.isNaN(sa) || Number.isNaN(sb)) && this.clipEdge(e, viewport)) {
+        param = Math.max(clipped[5] as number, Math.min(clipped[6] as number, param));
+      }
       const p = tmpC.copy(A).lerp(B, param);
       const point = p.clone();
       if (opts.cameraBased && !this.unoccluded(point, 'edge', e)) continue;
@@ -756,6 +842,11 @@ export class ComponentPicker {
     this.topo = null;
     this.tri = null;
   }
+}
+
+/** Row `row` (0 x, 1 y, 2 z, 3 w) of column-major matrix `m` applied to point (x, y, z, 1). */
+function clipRow(m: ArrayLike<number>, row: number, x: number, y: number, z: number): number {
+  return (m[row] as number) * x + (m[row + 4] as number) * y + (m[row + 8] as number) * z + (m[row + 12] as number);
 }
 
 /** Squared distance from (px, py) to segment a–b (screen space). */

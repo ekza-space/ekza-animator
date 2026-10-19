@@ -74,6 +74,10 @@ function hiddenFaces(d: Derived, faces: readonly number[]): HiddenSet {
   return h;
 }
 
+function ndcOf(x: number, y: number): [number, number] {
+  return ndc(x, y, W, H);
+}
+
 function at(camera: Camera, p: readonly [number, number, number], dx = 0, dy = 0): [number, number] {
   const [x, y] = screen(camera, p, W, H);
   return ndc(x + dx, y + dy, W, H);
@@ -270,6 +274,44 @@ describe('ComponentPicker: edges', () => {
     const hidden = edgeBetween(d, vertexAt(d, [-0.5, -0.5, -0.5]), vertexAt(d, [0.5, -0.5, -0.5]));
     expect(p.hover(cam2, at(cam2, [0.1, -0.5, -0.5]), VIEW, 'edge', CAMERA_BASED)).toBeNull();
     expect(p.hover(cam2, at(cam2, [0.1, -0.5, -0.5]), VIEW, 'edge', NO_OCCLUSION)?.index).toBe(hidden);
+  });
+
+  it('picks an edge with an end behind the camera by the part the pane draws (clipped at the near plane)', () => {
+    // A long 1.2 × 4 m floor quad; the camera hovers over it at z = 1.5, so its side edges run from z = −2 in front
+    // of the camera to z = 2 behind it (the line shader trims them at the near plane and draws the rest).
+    const d = plane({ width: 1.2, height: 4 });
+    const p = pickerFor(d);
+    const camera = perspective([0, 0.3, 1.5]);
+    const far = vertexAt(d, [0.6, 0, -2]);
+    const near = vertexAt(d, [0.6, 0, 2]);
+    const e = edgeBetween(d, far, near);
+    const z0 = vertexOf(d, d.mesh.edgeVert(e, 0))[2];
+    const z1 = vertexOf(d, d.mesh.edgeVert(e, 1))[2];
+    for (const opts of [CAMERA_BASED, NO_OCCLUSION]) {
+      for (const z of [-1, 0]) {
+        const hit = p.hover(camera, at(camera, [0.6, 0, z]), VIEW, 'edge', opts);
+        expect(hit?.index).toBe(e);
+        expect(hit?.t).toBeCloseTo((z - z0) / (z1 - z0), 4);
+        expect(hit?.point[2]).toBeCloseTo(z, 4);
+        expect(hit?.distancePx).toBeLessThan(1e-3);
+      }
+      // 7 px beside the drawn part: outside the 6 px radius.
+      const [x, y] = screen(camera, [0.6, 0, -1], W, H);
+      const beside = new Vector3(0.6, 0, -1).project(camera);
+      const along = new Vector3(0.6, 0, 0).project(camera);
+      const dir = new Vector2((along.x - beside.x) * W, (beside.y - along.y) * H).normalize();
+      expect(p.hover(camera, ndcOf(x - 7 * dir.y, y + 7 * dir.x), VIEW, 'edge', opts)).toBeNull();
+    }
+    // The edge whose ends both lie behind the camera is never a candidate; the far edge still is.
+    const back = edgeBetween(d, vertexAt(d, [-0.6, 0, 2]), near);
+    const front = edgeBetween(d, vertexAt(d, [-0.6, 0, -2]), far);
+    for (let k = 0; k < 40; k++) {
+      const hit = p.hover(camera, ndcOf((k / 39) * W, (k % 7) * (H / 6)), VIEW, 'edge', NO_OCCLUSION);
+      expect(hit?.index).not.toBe(back);
+    }
+    expect(p.hover(camera, at(camera, [0.1, 0, -2]), VIEW, 'edge', NO_OCCLUSION)?.index).toBe(front);
+    // The marquee keeps Maya's rule: an end behind the camera is not inside any rectangle.
+    expect(Array.from(p.marquee(camera, { x0: 0, y0: 0, x1: W, y1: H }, VIEW, 'edge', NO_OCCLUSION))).toEqual([front]);
   });
 });
 
