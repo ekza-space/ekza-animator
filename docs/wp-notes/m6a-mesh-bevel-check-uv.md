@@ -60,7 +60,7 @@ the five ops no longer refuse it.
 | M6A-B5-11 | **Fit packs the charts**: several charts are laid out on shelves (tallest first, a gap of 2 % of the largest extent, rows about √(total area) wide), then one uniform scale makes the layout's larger side 1; one chart starts at (0, 0). Every chart keeps its aspect and relative size, all values lie in 0–1, and no two charts overlap (property-tested). | §5.28 "scale charts uniformly into 0–1 keeping aspect"; stacking every box chart at the origin would overlap them, unlike Maya's Automatic Mapping. |
 | M6A-B5-12 | **Seams**: an edge with two or more faces gets `EDGE_SEAM` when its faces are in different charts, one is outside the run, or the values differ across it (the cylinder wrap); an edge inside one continuous chart loses it; border edges keep their flags. Hardness never changes. | §5.28 "set EDGE_SEAM on chart borders" plus clearing seams a new continuous chart covers. |
 | M6A-B5-13 | **READY probes live in `test/ops/bevel/ready.ts`** (`b2`: `buildSymmetryMap` not `not-implemented`), not `test/ready.ts`: B2 and B4 each add their own `test/ready.ts` on their branches, and `test/ready.ts` is in no package's Dirs. INT folds the probes together. | §3 rule 4; avoids a three-way conflict on a file nobody owns. |
-| M6A-B5-14 | **Literal update** (§3 rule 9, commit `60b681a`): `test/descriptors.test.ts` keeps asserting `not-implemented` for every op stub except the five B5 landed (`LANDED`), which must no longer refuse it. | The B0a stub test would otherwise fail by design. |
+| M6A-B5-14 | **Literal update** (§3 rule 9, commit `60b681a`): `test/descriptors.test.ts` keeps asserting `not-implemented` for every op stub except the five B5 landed (`LANDED`), which must no longer refuse it. B0a's `src/stubs/check.ts` is deleted with the barrel's B5 line pointing at `src/check`. | The B0a stub test would otherwise fail by design; §3 rule 2 (only the stub line changes). |
 
 ## Bugs the properties found (fixed before handing over)
 
@@ -76,7 +76,14 @@ the five ops no longer refuse it.
 
 ## Gates (local, real Chrome; port 3166)
 
-See the end of this file for the numbers of the final run.
+On the code of `f3e494e` (the notes commits change no code), CI unset: `format:check`, `lint`, `typecheck`, `check:deps`
+(15 packages), `check:fixtures`, `check:licenses` (176) green; `test` 15/15 green (turbo, `--concurrency=4`):
+anim-core 671, doc 233, doc-yjs 78, ui 87, rig 202, **mesh-core 457 + 2 skipped** (the two `READY.b2` cases; Node and
+Chromium, the B5 Chromium file 5), mesh-view 2, io 170, editor-core 793, headless-tests 173, viewport 100 + 1 skipped,
+curve-editor 207 + 3 skipped, editor 359 + 1 skipped, web 10, tooling. The production build (inside the e2e run) and
+`check:size` green: **865,792 B** (≤ 900,000 B), the `mesh-kernel` boundary holds (kernel chunk 44.3 kB, lazy). The
+full e2e suite (`EKZA_E2E_PORT=3166`, `--workers=4`): chrome 109 passed, 10 skipped (the stretch and other packages'
+`test.fixme` gates), rc 0. B5 owns no e2e spec (§10.1).
 
 ## Performance (report only; Node 25.6, Apple M4 Pro; debug validation off)
 
