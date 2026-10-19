@@ -18,12 +18,13 @@ import {
   loadMeshKernel,
   registerBuiltinOperators,
   RESERVED_MODAL_KEYS,
+  selectInputsField,
   type ToolPhase,
 } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { type ModelSelectRuntime, modelSelectOf } from '../../src';
+import { type ModelSelectRuntime, modelSelectOf, modelTransformOf } from '../../src';
 import { ringScreenTangent } from '../../src/manipulators/drag';
 import {
   EXTRUDE_LAYOUT,
@@ -1201,6 +1202,67 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
     await settle();
     expect(Number(s.app.session.getState().lastRun?.args['offset'])).toBeCloseTo(0.3, 6);
     expect(labels(s.app).length).toBe(steps);
+  });
+});
+
+// M6A-INT (cross-package): B12a's W/E/R tools and B12b's session meet here. `Shift` at the start of a W handle drag
+// is smart extrude (B12a never called B12b's `beginSmartExtrude`: the drag moved the face, "Move"); an MMB drag with
+// a Channel Box INPUTS field selected runs that field's slider while the session's manipulator tool is the active
+// one after `Mod+E` (§5.15 MMB rule; B12b's tool only selected).
+describe('W/E/R and the extrude session together (M6A-INT-5, M6A-INT-9)', () => {
+  async function topFaceSelected(): Promise<Scene> {
+    const cube = primitive('cube', {});
+    const s = await scene(cube, 'persp');
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.mesh] } });
+    await run(s.app, 'select.mode', { mode: 'face' });
+    await run(s.app, 'select.components', { mesh: s.mesh, kind: 'face', indices: [cubeTop(cube)], mode: 'replace' });
+    await expect.poll(() => modelTransformOf(s.app), { timeout: 15_000 }).not.toBeNull();
+    s.rig.frame();
+    return s;
+  }
+
+  it('Shift held at the start of a W handle drag extrudes the face: one "Extrude" step, its session open', async () => {
+    const s = await topFaceSelected();
+    await run(s.app, 'view.tool', { panel: 'viewport', tool: 'move' });
+    s.rig.frame();
+    const steps = labels(s.app).length;
+    const ty = s.rig.vm.manipulatorScreenPoint(PANE, 'ty');
+    if (ty === null) throw new Error('no ty handle');
+    drag(s, ty, { x: ty.x, y: ty.y - 40 }, { shiftKey: true });
+    await settle();
+    await expect.poll(() => labels(s.app).length).toBe(steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Extrude');
+    expect(counts(s)).toBe('12/20/10');
+    expect(s.app.session.getState().lastRun?.id).toBe('mesh.extrude');
+    expect(Number(s.app.session.getState().lastRun?.args['localTranslateZ'])).toBeGreaterThan(0);
+    expect(s.app.extrude.state).not.toBeNull();
+    // Without Shift the same drag moves the face ("Move").
+    const plain = await topFaceSelected();
+    await run(plain.app, 'view.tool', { panel: 'viewport', tool: 'move' });
+    plain.rig.frame();
+    const handle = plain.rig.vm.manipulatorScreenPoint(PANE, 'ty');
+    if (handle === null) throw new Error('no ty handle');
+    drag(plain, handle, { x: handle.x, y: handle.y - 40 });
+    await settle();
+    await expect.poll(() => labels(plain.app).at(-1)).toBe('Move');
+    expect(counts(plain)).toBe('8/12/6');
+  });
+
+  it('an MMB drag with an INPUTS field selected runs its slider while the extrude manipulator is active', async () => {
+    const s = await topFaceSelected();
+    await run(s.app, 'mesh.extrude', {}, { source: 'keyboard', paneId: PANE });
+    await settle();
+    s.rig.frame();
+    expect(s.app.session.getState().tools.viewport).toBe('extrude');
+    const steps = labels(s.app).length;
+    selectInputsField(s.app, { entry: 'lastop', mesh: s.mesh, param: 'localTranslateZ' });
+    drag(s, { x: 120, y: 120 }, { x: 160, y: 120 }, { button: 1 });
+    await settle();
+    // 40 px at the shipped 0.01 m per px (prefs.virtualSlider), one adjusted step: the history keeps its length.
+    await expect.poll(() => Number(s.app.session.getState().lastRun?.args['localTranslateZ'])).toBeCloseTo(0.4, 9);
+    expect(labels(s.app)).toHaveLength(steps);
+    expect(s.app.session.getState().tools.viewport).toBe('extrude');
+    expect(s.app.extrude.state).not.toBeNull();
   });
 });
 

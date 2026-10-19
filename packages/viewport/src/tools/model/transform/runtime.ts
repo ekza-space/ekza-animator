@@ -41,6 +41,7 @@ import {
   type AbsorbGesture,
   beginCardPreview,
   beginKeyEditGesture,
+  beginSmartExtrude,
   type CardPreview,
   clampParamValue,
   componentInternals,
@@ -609,7 +610,16 @@ export class ModelTransformRuntime implements ModelManipulator {
       };
       if (this.pivotEditing()) return this.beginPivot(press, handle, drag);
       if (this.app.session.getState().model.componentMode !== 'object') {
-        return this.beginComponents(press.tool, press.button === 1 ? 'mmb' : press.tool, handle, drag);
+        // Smart extrude (§5.8, B12b's engine): `Shift` held at the start of a W/E/R handle drag (M6A-INT-5).
+        const smart = press.kind === 'handle' && press.event.shift ? { paneId: press.paneId } : null;
+        return this.beginComponents(
+          press.tool,
+          press.button === 1 ? 'mmb' : press.tool,
+          handle,
+          drag,
+          undefined,
+          smart,
+        );
       }
       return this.beginObjects(handle, drag);
     } catch (error) {
@@ -767,6 +777,7 @@ export class ModelTransformRuntime implements ModelManipulator {
     handle: ManipHandle,
     drag: DragFrame,
     cancelled?: () => void,
+    smart: { readonly paneId: string } | null = null,
   ): Drag | null {
     const app = this.app;
     const kind = app.session.getState().model.componentMode as ComponentKind;
@@ -784,6 +795,11 @@ export class ModelTransformRuntime implements ModelManipulator {
       frame,
       motion: null,
     };
+    // Smart extrude (§5.8): with faces or border edges selected, a handle drag started with `Shift` extrudes them and
+    // transforms the new cap (one "Extrude" step; it ends an open session first, and its own session opens). Null:
+    // nothing to extrude (vertices, inner edges), so the drag moves the components normally.
+    const extruding = smart === null ? null : beginSmartExtrude(app, { paneId: smart.paneId });
+    if (extruding !== null) return this.absorbDrag(base, extruding, cancelled);
     // An open extrude session absorbs the gesture on its cap (§5.8, B12b).
     const absorb = app.extrude.beginAbsorb(gesture, space);
     if (absorb !== null) return this.absorbDrag(base, absorb, cancelled);

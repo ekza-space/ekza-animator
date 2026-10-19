@@ -22,6 +22,7 @@ import {
   numericParams,
   paramSliderRate,
   RESERVED_MODAL_KEYS,
+  selectedInputsField,
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPhase,
@@ -44,6 +45,7 @@ import type { PaneProjector } from '../../../picking/geometry';
 import type { ViewportToolHost } from '../../host';
 import { SelectBehaviour } from '../../selectTool';
 import type { TopologyRuntime } from '../topology/runtime';
+import { type ModelTransformBehaviour, modelTransformOf } from '../transform';
 
 const DRAG_PX = 3;
 /** Uniform scale per px of horizontal travel on the centre cube. */
@@ -117,11 +119,17 @@ type Drag = ManipDrag | ValueDrag;
 export class ExtrudeTool implements ToolInstance {
   private drag: Drag | null = null;
   private readonly select: SelectBehaviour;
+  /**
+   * An MMB drag while a Channel Box INPUTS field name is selected (§5.15 MMB rule, step 2): the field's virtual slider
+   * runs through B12a's transform runtime, as with W/E/R active (E2E-MOD-23: the session's manipulator tool is the
+   * active one after `Mod+E`; M6A-INT-9).
+   */
+  private inputs: ModelTransformBehaviour | null = null;
 
   constructor(
     private readonly app: EditorApp,
     private readonly rt: TopologyRuntime,
-    host: ViewportToolHost,
+    private readonly host: ViewportToolHost,
   ) {
     this.select = new SelectBehaviour(app, host);
   }
@@ -152,6 +160,7 @@ export class ExtrudeTool implements ToolInstance {
   }
 
   phase(): ToolPhase {
+    if (this.inputs !== null) return this.inputs.phase() === 'dragging' ? 'dragging' : 'placing';
     if (this.drag === null) return 'idle';
     return this.drag.moved ? 'dragging' : 'placing';
   }
@@ -190,7 +199,14 @@ export class ExtrudeTool implements ToolInstance {
   // ---------- pointer ----------
 
   pointerDown(e: ToolPointerEvent): boolean {
-    if (this.drag !== null) return true; // RMB and other buttons are ignored during a drag
+    if (this.drag !== null || this.inputs !== null) return true; // RMB and other buttons are ignored during a drag
+    if (e.button === 1 && selectedInputsField(this.app) !== null) {
+      const inputs = modelTransformOf(this.app)?.behaviour('move', this.host, this.select) ?? null;
+      if (inputs?.pointerDown(e) === true) {
+        this.inputs = inputs;
+        return true;
+      }
+    }
     if (e.button !== 0 || e.paneId === null) return this.select.pointerDown(e);
     const handle = this.handleAt(e.paneId, e.x, e.y);
     if (handle === 'space') {
@@ -205,6 +221,7 @@ export class ExtrudeTool implements ToolInstance {
   }
 
   pointerMove(e: ToolPointerEvent): boolean {
+    if (this.inputs !== null) return this.inputs.pointerMove(e);
     const drag = this.drag;
     if (drag === null) return this.select.pointerMove(e);
     if (!drag.moved && Math.hypot(e.x - drag.x, e.y - drag.y) < DRAG_PX) return true;
@@ -215,6 +232,11 @@ export class ExtrudeTool implements ToolInstance {
   }
 
   pointerUp(e: ToolPointerEvent): boolean {
+    const inputs = this.inputs;
+    if (inputs !== null) {
+      this.inputs = null;
+      return inputs.pointerUp(e);
+    }
     const drag = this.drag;
     if (drag === null) return this.select.pointerUp(e);
     if (e.button !== 0) return true;
@@ -238,6 +260,9 @@ export class ExtrudeTool implements ToolInstance {
   }
 
   cancel(): void {
+    const inputs = this.inputs;
+    this.inputs = null;
+    inputs?.cancel();
     const drag = this.drag;
     this.select.cancel();
     if (drag === null) return;
