@@ -1,7 +1,8 @@
 // M-AI explicit-target key operators (MCP-SPEC §4.10): `key.write`, `key.delete`, `key.adjust`, `key.retime`. They take
 // stored units and explicit targets (never the session's selection, playhead or overrides) and their `label` argument
-// is set by the tool layer. One transaction each; `internal` (hidden from menus, palette and keymaps).
-import { EkzaError, type Frame, type TangentType } from '@ekza-animator/anim-core';
+// is set by the tool layer. One transaction each; `internal` (hidden from menus, palette and keymaps). Definitions and
+// polls here; the applies load on first use with the agent operators' implementation (`agentImpl.ts`).
+import type { Frame, TangentType } from '@ekza-animator/anim-core';
 import type {
   ChannelId,
   ClipRecord,
@@ -12,32 +13,19 @@ import type {
   KeyRecord,
   Tx,
 } from '@ekza-animator/doc';
-import { isKeyable, isLocked, newKeyTangents } from '../../edit/channelMeta';
-import { compileInTx, SAME_FRAME_EPS } from '../../edit/context';
-import { ensureCurve, moveKeys, scaleKeys, writeKeyAt } from '../../edit/keys';
-import { internalsOf } from '../../app/internals';
-import { type EditorApp, GLOBAL_SCOPE, type KeyEditOptions } from '../../types';
-import {
-  type AdjustOffsets,
-  type AdjustWhere,
-  adjustedKey,
-  adjustKindOf,
-  adjustWeight,
-  offsetFor,
-  pivotValueOf,
-} from '../../workflows/adjust';
-import { deleteCurveKeys, insertTimeOn, keyedBaseCurves, wrapOffsetCurve } from '../../workflows/retime';
-import type { AdjustPivot, ChannelTarget, KeyChannels, KeyWriteItem } from '../args';
+import { isKeyable, isLocked } from '../../edit/channelMeta';
+import { SAME_FRAME_EPS } from '../../edit/context';
+import { type EditorApp, GLOBAL_SCOPE } from '../../types';
+import type { AdjustOffsets } from '../../workflows/adjust';
+import type { ChannelTarget, KeyChannels, KeyWriteItem } from '../args';
 import {
   AGENT_SPAN_LIMIT,
   AGENT_WRITE_LIMIT,
   baseCurveIn,
   clipArg,
   controlOfClip,
-  extendClipRange,
   frameProblem,
   framesProblem,
-  hiddenByOverrides,
   keyedValuesAt,
   labelOf,
   labelProblem,
@@ -48,6 +36,7 @@ import {
   targetsProblem,
   uniqueTargets,
 } from './agentCommon';
+import { type AgentImpl, loadAgentImpl } from './agentLoad';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { keyChannelsOf } from './key';
 import { NOT_AVAILABLE_YET } from './stub';
@@ -69,17 +58,6 @@ const TANGENTS: readonly TangentType[] = [
 ];
 const POSE_CHANNELS: readonly KeyChannels[] = ['all', 'translate', 'rotate', 'scale', 'attributes'];
 
-function requireClipIn(tx: Tx, clip: ClipRecord['id']): ClipRecord {
-  const record = tx.get('clips', clip);
-  if (record === undefined) throw new EkzaError('invalid-record', `Clip ${clip} does not exist`);
-  return record;
-}
-
-function txOf(tx: Tx | null, id: string): Tx {
-  if (tx === null) throw new EkzaError('internal', `${id} runs in a transaction`);
-  return tx;
-}
-
 /** `control.channel` as the messages name it (`fk.hand.L.rz`). */
 function channelName(control: ControlRecord, channel: ChannelId): string {
   return `${control.key}.${channel}`;
@@ -94,7 +72,7 @@ function writeRefusal(control: ControlRecord, channel: ChannelId): string | null
 
 // ---------- key.write ----------
 
-interface WriteArgs {
+export interface WriteArgs {
   readonly clip: ClipRecord['id'];
   readonly keys?: readonly KeyWriteItem[];
   readonly poseAt?: {
@@ -106,7 +84,7 @@ interface WriteArgs {
 }
 
 /** One planned key of `key.write`. */
-interface PlannedKey extends ChannelTarget {
+export interface PlannedKey extends ChannelTarget {
   readonly frame: Frame;
   readonly value: number;
   readonly inType?: TangentType;
@@ -140,7 +118,7 @@ function keyItemProblem(app: EditorApp, clip: ClipRecord, item: unknown, name: s
 }
 
 /** The keys `key.write` writes (pose keys are planned from the committed keyed pose). */
-function planWrite(app: EditorApp, clip: ClipRecord, args: WriteArgs): PlannedKey[] | string {
+export function planWrite(app: EditorApp, clip: ClipRecord, args: WriteArgs): PlannedKey[] | string {
   if (args.keys !== undefined) return args.keys.map((item) => ({ ...item }));
   const poseAt = args.poseAt;
   if (poseAt === undefined) return [];
@@ -227,7 +205,7 @@ function writeProblem(app: EditorApp, raw: unknown): string | null {
   return null;
 }
 
-const keyWrite = defineOperator({
+const keyWrite = defineOperator<'key.write', AgentImpl>({
   ...AGENT,
   id: 'key.write',
   label: 'Set Keys',
@@ -239,57 +217,14 @@ const keyWrite = defineOperator({
     const problem = writeProblem(app, raw);
     return problem === null ? OK : fail(problem);
   },
-  apply({ app, tx: maybe }, args) {
-    const tx = txOf(maybe, 'key.write');
-    const clip = requireClipIn(tx, args.clip);
-    const planned = planWrite(app, clip, args);
-    if (typeof planned === 'string') throw new EkzaError('unsupported', planned);
-    const rangeExtended =
-      args.extendRange === true &&
-      extendClipRange(
-        tx,
-        clip,
-        planned.map((key) => key.frame),
-      );
-    const defaults = app.prefs.getState().defaultTangents;
-    let curvesCreated = 0;
-    for (const item of planned) {
-      const control = tx.get('controls', item.control);
-      if (control === undefined) throw new EkzaError('invalid-record', `Control ${item.control} does not exist`);
-      if (baseCurveIn(tx, clip, item.control, item.channel) === undefined) curvesCreated++;
-      const curve = ensureCurve(app, tx, clip.id, item.control, item.channel);
-      const fallback = newKeyTangents(control, item.channel, defaults);
-      const tangents = { in: item.inType ?? fallback.in, out: item.outType ?? fallback.out };
-      const id = writeKeyAt(
-        app,
-        tx,
-        curve,
-        item.frame,
-        item.value,
-        tangents,
-        item.breakdown === undefined ? undefined : { breakdown: item.breakdown, existing: 'set' },
-      );
-      // An explicit tangent also applies to a key that was already there.
-      const written = tx.get('keys', id);
-      if (written !== undefined && (item.inType !== undefined || item.outType !== undefined)) {
-        const inType = item.inType ?? written.inType;
-        const outType = item.outType ?? written.outType;
-        if (inType !== written.inType || outType !== written.outType) tx.put('keys', { ...written, inType, outType });
-      }
-    }
-    return {
-      written: planned.length,
-      curvesCreated,
-      rangeExtended,
-      hiddenByOverrides: hiddenByOverrides(app, clip, planned),
-    };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: ({ app, tx }, args, impl) => impl.keyWrite(app, tx, args),
 });
 
 // ---------- key.delete ----------
 
 /** The keys `key.delete` deletes, per curve. */
-function deletePlan(
+export function deletePlan(
   view: Tx | EditorApp['store'],
   clip: ClipRecord,
   args: {
@@ -322,7 +257,7 @@ function keyMatches(
   return true;
 }
 
-const keyDelete = defineOperator({
+const keyDelete = defineOperator<'key.delete', AgentImpl>({
   ...AGENT,
   id: 'key.delete',
   label: 'Delete Keys',
@@ -342,16 +277,11 @@ const keyDelete = defineOperator({
     if (problem !== null) return fail(problem);
     if ((args['targets'] as readonly unknown[]).length === 0) return fail('targets is empty');
     let count = 0;
-    for (const ids of deletePlan(app.store, clip, raw as never).values()) count += ids.length;
+    for (const ids of deletePlan(app.store, clip, raw).values()) count += ids.length;
     return count > AGENT_WRITE_LIMIT ? fail(`The call would delete more than ${AGENT_WRITE_LIMIT} keys`) : OK;
   },
-  apply({ app, tx: maybe }, args) {
-    const tx = txOf(maybe, 'key.delete');
-    const clip = requireClipIn(tx, args.clip);
-    let deleted = 0;
-    for (const [curve, ids] of deletePlan(tx, clip, args)) deleted += deleteCurveKeys(app, tx, curve, ids).length;
-    return { deleted };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: ({ app, tx }, args, impl) => impl.keyDelete(app, tx, args),
 });
 
 // ---------- key.adjust ----------
@@ -416,68 +346,27 @@ function adjustProblem(app: EditorApp, clip: ClipRecord, args: Readonly<Record<s
   return null;
 }
 
-interface AdjustArgs {
-  readonly targets: readonly ChannelTarget[];
-  readonly range?: { readonly start: Frame; readonly end: Frame };
-  readonly frames?: readonly Frame[];
-  readonly offset?: AdjustOffsets;
-  readonly factor?: number;
-  readonly pivot?: AdjustPivot;
-  readonly falloffFrames?: number;
-}
-
-/** The adjusted keys per curve, the skipped targets, from the committed (or transaction) view. */
-function adjustPlan(
-  app: EditorApp,
-  view: Tx | EditorApp['store'],
-  clip: ClipRecord,
-  args: AdjustArgs,
-): {
-  readonly writes: readonly KeyRecord[];
-  readonly curves: number;
-  readonly skipped: readonly (ChannelTarget & { readonly reason: 'locked' | 'no_keys' })[];
-} {
-  const engine = internalsOf(app).deps.curves.engine;
-  const range = args.range ?? clip.range;
-  const where: AdjustWhere =
-    args.frames !== undefined
-      ? { kind: 'frames', frames: args.frames }
-      : { kind: 'range', start: range.start, end: range.end, falloffFrames: args.falloffFrames ?? 0 };
-  const factor = args.factor ?? 1;
-  const writes: KeyRecord[] = [];
-  const skipped: (ChannelTarget & { readonly reason: 'locked' | 'no_keys' })[] = [];
-  let curves = 0;
-  for (const target of uniqueTargets(args.targets)) {
-    const control = view.get('controls', target.control) ?? null;
-    const curve = baseCurveIn(view, clip, target.control, target.channel);
-    if (control !== null && isLocked(control, target.channel)) {
-      skipped.push({ ...target, reason: 'locked' });
-      continue;
+/** Keys a `key.adjust` call can change (inside the range and its falloff, or at the frames): the §5.5 write bound. */
+function adjustedCount(app: EditorApp, clip: ClipRecord, args: Readonly<Record<string, unknown>>): number {
+  const frames = args['frames'] as readonly Frame[] | undefined;
+  const range = (args['range'] as { readonly start: Frame; readonly end: Frame } | undefined) ?? clip.range;
+  const falloff = (args['falloffFrames'] as number | undefined) ?? 0;
+  let count = 0;
+  for (const target of uniqueTargets(args['targets'] as readonly ChannelTarget[])) {
+    const curve = baseCurveIn(app.store, clip, target.control, target.channel);
+    if (curve === undefined) continue;
+    for (const key of app.store.query.keysOfCurve(curve.id)) {
+      const inside =
+        frames === undefined
+          ? key.t >= range.start - falloff - SAME_FRAME_EPS && key.t <= range.end + falloff + SAME_FRAME_EPS
+          : frames.some((frame) => Math.abs(frame - key.t) < SAME_FRAME_EPS);
+      if (inside) count++;
     }
-    if (curve === undefined || view.query.keysOfCurve(curve.id).length === 0) {
-      skipped.push({ ...target, reason: 'no_keys' });
-      continue;
-    }
-    if (curve.locked) {
-      skipped.push({ ...target, reason: 'locked' });
-      continue;
-    }
-    const { keys, compiled } = compileInTx(app, view, curve);
-    const pivot = pivotValueOf(args.pivot ?? { kind: 'rest' }, engine, compiled, control, target.channel, range);
-    const offset = offsetFor(args.offset, adjustKindOf(control, target.channel));
-    let changed = false;
-    for (const key of keys) {
-      const next = adjustedKey(key, { pivot, factor, offset, weight: adjustWeight(key.t, where) });
-      if (next === null) continue;
-      writes.push(next);
-      changed = true;
-    }
-    if (changed) curves++;
   }
-  return { writes, curves, skipped };
+  return count;
 }
 
-const keyAdjust = defineOperator({
+const keyAdjust = defineOperator<'key.adjust', AgentImpl>({
   ...AGENT,
   id: 'key.adjust',
   label: 'Adjust Keys',
@@ -487,20 +376,14 @@ const keyAdjust = defineOperator({
     const base = pollAgentClip(app, raw);
     if (base !== true) return base;
     const clip = clipArg(app.store, raw) as ClipRecord;
-    const problem = adjustProblem(app, clip, raw as unknown as Readonly<Record<string, unknown>>);
+    const problem = adjustProblem(app, clip, raw);
     if (problem !== null) return fail(problem);
-    const plan = adjustPlan(app, app.store, clip, raw as unknown as AdjustArgs);
-    return plan.writes.length > AGENT_WRITE_LIMIT
+    return adjustedCount(app, clip, raw) > AGENT_WRITE_LIMIT
       ? fail(`The call would change more than ${AGENT_WRITE_LIMIT} keys`)
       : OK;
   },
-  apply({ app, tx: maybe }, args) {
-    const tx = txOf(maybe, 'key.adjust');
-    const clip = requireClipIn(tx, args.clip);
-    const plan = adjustPlan(app, tx, clip, args);
-    for (const key of plan.writes) tx.put('keys', key);
-    return { keys: plan.writes.length, curves: plan.curves, skipped: plan.skipped };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: ({ app, tx }, args, impl) => impl.keyAdjust(app, tx, args),
 });
 
 // ---------- key.retime ----------
@@ -545,48 +428,7 @@ function retimeProblem(app: EditorApp, clip: ClipRecord, args: Readonly<Record<s
   }
 }
 
-interface RetimeArgs {
-  readonly targets: readonly ChannelTarget[];
-  readonly mode: 'offset' | 'scale' | 'insertTime' | 'deleteTime' | 'warp';
-  readonly offset?: number;
-  readonly wrap?: boolean;
-  readonly factor?: number;
-  readonly pivot?: Frame;
-  readonly at?: Frame;
-  readonly frames?: number;
-  readonly ripple?: boolean;
-  readonly retimeBreakdowns?: boolean;
-  readonly snapToFrames?: boolean;
-}
-
-/** The editable base curves of the targets (unique, locked curves left out). */
-function retimeCurves(tx: Tx, clip: ClipRecord, targets: readonly ChannelTarget[]): CurveRecord[] {
-  const out: CurveRecord[] = [];
-  for (const target of uniqueTargets(targets)) {
-    const curve = baseCurveIn(tx, clip, target.control, target.channel);
-    if (curve !== undefined && !curve.locked && !out.some((c) => c.id === curve.id)) out.push(curve);
-  }
-  return out;
-}
-
-/** The contact frame after a scale or offset of every keyed curve of the clip (§4.10), or the unchanged one. */
-function movedContact(clip: ClipRecord, args: RetimeArgs, snap: boolean): Frame | null {
-  if (clip.contact === null) return null;
-  const { start, end } = clip.range;
-  let contact = clip.contact;
-  if (args.mode === 'offset') {
-    contact += args.offset ?? 0;
-    if (args.wrap === true && end > start)
-      contact = start + ((((contact - start) % (end - start)) + (end - start)) % (end - start));
-  } else if (args.mode === 'scale') {
-    const pivot = args.pivot ?? start;
-    contact = pivot + (contact - pivot) * (args.factor ?? 1);
-    if (snap) contact = Math.round(contact);
-  }
-  return Math.min(Math.max(contact, start), end);
-}
-
-const keyRetime = defineOperator({
+const keyRetime = defineOperator<'key.retime', AgentImpl>({
   ...AGENT,
   id: 'key.retime',
   label: 'Retime Keys',
@@ -596,97 +438,11 @@ const keyRetime = defineOperator({
     const base = pollAgentClip(app, raw);
     if (base !== true) return base;
     const clip = clipArg(app.store, raw) as ClipRecord;
-    const problem = retimeProblem(app, clip, raw as unknown as Readonly<Record<string, unknown>>);
+    const problem = retimeProblem(app, clip, raw);
     return problem === null ? OK : fail(problem);
   },
-  apply({ app, tx: maybe }, args) {
-    const tx = txOf(maybe, 'key.retime');
-    const clip = requireClipIn(tx, args.clip);
-    const curves = retimeCurves(tx, clip, args.targets);
-    const snap = args.snapToFrames !== false;
-    const allCurves = (() => {
-      const keyed = keyedBaseCurves(tx, clip);
-      return keyed.length > 0 && keyed.every((id) => curves.some((curve) => curve.id === id));
-    })();
-    let moved = 0;
-    let merged = 0;
-    let clamped = 0;
-    let snapped = 0;
-    // Breakdowns are not edited: they follow their anchors proportionally (M2A-SPEC §5.12) unless
-    // `retimeBreakdowns: false`, which leaves them where they are.
-    const keys = curves.flatMap((curve) => {
-      const all = tx.query.keysOfCurve(curve.id);
-      const anchors = all.filter((key) => key.breakdown !== true);
-      return (anchors.length > 0 ? anchors : all).map((key) => key.id);
-    });
-    const opts: KeyEditOptions = {
-      snap: false,
-      resolveCollisions: true,
-      ripple: args.ripple === true,
-      ...(args.retimeBreakdowns === false ? { retimeBreakdowns: false } : {}),
-    };
-    const scope = { curves: curves.map((curve) => curve.id) };
-    switch (args.mode) {
-      case 'offset': {
-        const offset = args.offset ?? 0;
-        if (args.wrap === true) {
-          for (const curve of curves) {
-            const result = wrapOffsetCurve(app, tx, curve, clip, offset);
-            moved += result.moved;
-            merged += result.merged;
-          }
-        } else {
-          const before = new Map(keys.map((id) => [id, tx.get('keys', id)?.t ?? 0]));
-          const result = moveKeys(app, tx, keys, offset, 0, opts, scope);
-          moved = result.moved;
-          merged = result.deleted.length;
-          clamped = countClamped(tx, before, (t) => t + offset);
-        }
-        break;
-      }
-      case 'scale': {
-        const pivot = args.pivot ?? clip.range.start;
-        const factor = args.factor ?? 1;
-        const target = (t: number): number => pivot + (t - pivot) * factor;
-        const before = new Map(keys.map((id) => [id, tx.get('keys', id)?.t ?? 0]));
-        if (snap) {
-          for (const t of before.values()) if (Math.abs(target(t) - Math.round(target(t))) > 1e-9) snapped++;
-        }
-        const result = scaleKeys(app, tx, keys, pivot, factor, { ...opts, snap }, scope);
-        moved = result.moved;
-        merged = result.deleted.length;
-        clamped = countClamped(tx, before, (t) => (snap ? Math.round(target(t)) : target(t)));
-        break;
-      }
-      case 'insertTime':
-      case 'deleteTime': {
-        const frames = (args.mode === 'insertTime' ? 1 : -1) * (args.frames ?? 0);
-        const result = insertTimeOn(app, tx, curves, args.at ?? 0, frames);
-        moved = result.moved;
-        merged = result.deleted.length;
-        break;
-      }
-      case 'warp':
-        throw new EkzaError('unsupported', `warp is ${NOT_AVAILABLE_YET}`);
-    }
-    let contactFrame = clip.contact;
-    if (allCurves && (args.mode === 'offset' || args.mode === 'scale')) {
-      const next = movedContact(clip, args, snap);
-      if (next !== clip.contact) tx.patch('clips', clip.id, { contact: next });
-      contactFrame = next;
-    }
-    return { moved, merged, clamped, snapped, contactFrame };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: ({ app, tx }, args, impl) => impl.keyRetime(app, tx, args),
 });
-
-/** Keys (still there) whose final time differs from their target time: stopped by a key that did not move. */
-function countClamped(tx: Tx, before: ReadonlyMap<KeyId, number>, target: (t: number) => number): number {
-  let clamped = 0;
-  for (const [id, t] of before) {
-    const key = tx.get('keys', id);
-    if (key !== undefined && Math.abs(key.t - target(t)) > SAME_FRAME_EPS) clamped++;
-  }
-  return clamped;
-}
 
 export const AGENT_KEY_OPERATORS: readonly AnyOperator[] = [keyWrite, keyDelete, keyAdjust, keyRetime];

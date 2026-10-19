@@ -18,6 +18,8 @@ import { keyDataOf, SAME_FRAME_EPS } from '../edit/context';
 import type { EditorApp } from '../types';
 
 export type LoopMethod = 'matchEnds' | 'blend' | 'cycleOnly';
+/** Default cross-fade length of `blend` (frames). */
+export const DEFAULT_BLEND_FRAMES = 6;
 export type RootTravel = 'cycleOffset' | 'inPlace' | 'keep';
 
 /** A planned key: an existing key (its id) or a new one (null). */

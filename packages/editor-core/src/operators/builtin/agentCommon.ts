@@ -2,7 +2,7 @@
 // range bounds, `extendRange`, channel targets, the keyed pose of a clip at a frame (never the user's overrides) and
 // the `hiddenByOverrides` report (§5.12). New file of P1 (the operator files stay small); nothing here writes the
 // session.
-import type { Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type { ChannelId, ChannelValues, ClipRecord, ControlId, ControlRecord, ReadView, Tx } from '@ekza-animator/doc';
 import { readControlChannels } from '@ekza-animator/rig';
 import { attrChannelsOf, attrDefOf, isTrsChannel } from '../../edit/channelMeta';
@@ -18,6 +18,26 @@ export const AGENT_FRAME_LIMIT = 100_000;
 export const AGENT_SPAN_LIMIT = 100_000;
 /** Key records one call writes or deletes at most (§5.5). */
 export const AGENT_WRITE_LIMIT = 50_000;
+
+/** The transaction of an undoable operator's apply. */
+export function txOf(tx: Tx | null, id: string): Tx {
+  if (tx === null) throw new EkzaError('internal', `${id} runs in a transaction`);
+  return tx;
+}
+
+/** The clip record as the transaction sees it. */
+export function requireClipIn(tx: Tx, clip: ClipRecord['id']): ClipRecord {
+  const record = tx.get('clips', clip);
+  if (record === undefined) throw new EkzaError('invalid-record', `Clip ${clip} does not exist`);
+  return record;
+}
+
+/** The runtime of the clip's character (the operators' polls checked it). */
+export function requireRuntime(app: EditorApp, clip: ClipRecord): CharacterRuntime {
+  const runtime = runtimeOfClip(app, clip);
+  if (typeof runtime === 'string') throw new EkzaError('unsupported', runtime);
+  return runtime;
+}
 
 /** The `label` argument the tool layer sets (≤ 80 characters after the runner's prefix), else `fallback`. */
 export function labelOf(args: unknown, fallback: string): string {
