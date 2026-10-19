@@ -21,14 +21,16 @@
 // Width (Maya fraction semantics): d_x = fraction × ½ × L_x with L_x the shortest edge at x, measured along the slide
 // edges, so fraction 1 makes bevels from both ends of an edge meet; `offsetAsFraction` off → `offset` metres. With
 // `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
-// when a rebuilt face or a strip would still invert or collapse, a rebuilt face would cross itself (a reflex miter
-// past a thin arm), or two new vertices around a bevelled vertex would coincide, every width is scaled down to the
-// largest valid one (same warning). Hardness: strip row edges follow H2; the edges bounding the bevel faces are hard
-// with `hardenBorders` (else H2); fan spokes follow H1. Symmetry (§5.14): the op runs on the expanded selection, and
-// the new vertices of a region of selected edges that is its own mirror are symmetrized afterwards. Refusals:
-// `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid width at all, e.g.
-// Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the next vertex or one
-// that folds faces over).
+// when a rebuilt face or a strip would still invert, twist (two new vertices passing each other along an edge, a
+// strip's corner triangle turning over: a bow-tie keeps its Newell normal) or thin out below ε, a rebuilt face or a
+// strip through an in-line vertex would cross itself (a reflex miter past a thin arm), or two new vertices around a
+// bevelled vertex would coincide, every width is scaled down to 0.98 × the largest valid one (same warning); a corner
+// polygon or fan thinner than ε at every width refuses. Hardness: strip row edges follow H2; the edges bounding the
+// bevel faces are hard with `hardenBorders` (else H2); fan spokes follow H1. Symmetry (§5.14): the op runs on the
+// expanded selection, and the new vertices of a region of selected edges that is its own mirror are symmetrized
+// afterwards. Refusals: `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid
+// width at all, e.g. Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the
+// next vertex or one that folds faces over).
 import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { kernelError } from '../../kernel';
@@ -178,6 +180,26 @@ function simpleIn(points: Float64Array, ids: readonly number[], drop: number, ga
     }
   }
   return true;
+}
+
+/**
+ * Normal of the corner triangle (points[i − 1], points[i], points[i + 1]) of the closed polygon of `n` points (flat
+ * xyz), into `out`; returns the product of its two edge lengths (the normal's length when they are perpendicular).
+ */
+function cornerTurn(points: Float64Array, n: number, i: number, out: Float64Array): number {
+  const a = 3 * ((i + n - 1) % n);
+  const b = 3 * i;
+  const c = 3 * ((i + 1) % n);
+  const ux = (points[b] as number) - (points[a] as number);
+  const uy = (points[b + 1] as number) - (points[a + 1] as number);
+  const uz = (points[b + 2] as number) - (points[a + 2] as number);
+  const vx = (points[c] as number) - (points[b] as number);
+  const vy = (points[c + 1] as number) - (points[b + 1] as number);
+  const vz = (points[c + 2] as number) - (points[b + 2] as number);
+  out[0] = uy * vz - uz * vy;
+  out[1] = uz * vx - ux * vz;
+  out[2] = ux * vy - uy * vx;
+  return Math.hypot(ux, uy, uz) * Math.hypot(vx, vy, vz);
 }
 
 /** The axis a face with Newell normal `n` projects along (its dominant component). */
@@ -472,6 +494,8 @@ interface Poly {
 }
 
 const LAMBDA_REF = 1e-3;
+/** The clamp keeps this share of the largest valid width factor (§5.9's 0.98 for slides from both ends). */
+const CLAMP_MARGIN = 0.98;
 
 /** The bevel's input edges (face mode: every edge of the selected faces), ascending; hidden components skipped. */
 function inputEdges(m: EditMesh, sel: ComponentSelection, ctx: OpContext): number[] {
@@ -972,12 +996,50 @@ export function runBevel(
     else list.push(poly);
   }
 
-  // ----- the clamp: the largest width factor λ ≤ 1 keeping faces oriented and simple, edges non-degenerate -----
+  // ----- the clamp: the largest width factor λ ≤ 1 keeping faces oriented, untwisted and simple, edges forward -----
   const refs = new Map<Poly, Float64Array>();
   // Rebuilt faces whose original is a simple polygon (projected along its dominant axis) must stay simple: a reflex
   // miter or a slide into a notch can otherwise cross the face's far side while its orientation still holds.
   const simple = new Map<Poly, number>();
+  // Edges between tokens of two different vertices (the only ones whose direction changes with λ: tokens of one
+  // vertex scale about it) must keep their direction at λ → 0, the original edge's: new vertices must not pass each
+  // other along an edge. At an acute corner the miters do, and the shrunk face beyond comes out rotated by 180°, which
+  // keeps its Newell normal, while every strip along it becomes a bow-tie.
+  const forward = new Map<Poly, Float64Array>(); // per poly: (i, x, y, z) for edge tokens[i] → tokens[i + 1]
+  // Strip rows of four or more corners: every corner triangle (for a quad, the triangles of both diagonal splits)
+  // that mixes two vertices keeps its orientation at λ → 0, so a nonplanar row cannot twist into a bow-tie.
+  const turns = new Map<Poly, Float64Array>(); // per row: (i, x, y, z) for the corner triangle at tokens[i]
+  const ref3 = new Float64Array(3);
   for (const poly of live) {
+    const n = poly.tokens.length;
+    const dirs: number[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = tokens.list[poly.tokens[i] as number] as Token;
+      const b = tokens.list[poly.tokens[(i + 1) % n] as number] as Token;
+      if (a.at === b.at) continue;
+      const dx = (b.base[0] as number) - (a.base[0] as number);
+      const dy = (b.base[1] as number) - (a.base[1] as number);
+      const dz = (b.base[2] as number) - (a.base[2] as number);
+      if (Math.hypot(dx, dy, dz) > eps) dirs.push(i, dx, dy, dz);
+    }
+    if (dirs.length > 0) forward.set(poly, Float64Array.from(dirs));
+    if (poly.kind === 'row' && n >= 4) {
+      const points = new Float64Array(3 * n);
+      poly.tokens.forEach((t, i) => tokens.position(t, LAMBDA_REF, points, 3 * i));
+      const list: number[] = [];
+      for (let i = 0; i < n; i++) {
+        const p = poly.tokens[(i + n - 1) % n] as number;
+        const c = poly.tokens[i] as number;
+        const q = poly.tokens[(i + 1) % n] as number;
+        const at = (tokens.list[c] as Token).at;
+        if ((tokens.list[p] as Token).at === at && (tokens.list[q] as Token).at === at) continue;
+        const scale = cornerTurn(points, n, i, ref3);
+        if (Math.hypot(ref3[0] as number, ref3[1] as number, ref3[2] as number) > 1e-9 * scale) {
+          list.push(i, ref3[0] as number, ref3[1] as number, ref3[2] as number);
+        }
+      }
+      if (list.length > 0) turns.set(poly, Float64Array.from(list));
+    }
     if (poly.kind === 'rebuilt') {
       const ref = faceNewell(m, poly.source, new Float64Array(3));
       refs.set(poly, ref);
@@ -997,6 +1059,9 @@ export function runBevel(
       const ref = new Float64Array(3);
       newell(points, poly.tokens.length, ref);
       refs.set(poly, ref);
+      // A row through an in-line vertex (five or six corners) stays simple when it starts simple.
+      const drop = dominantAxis(ref);
+      if (poly.tokens.length >= 5 && simpleIn(points, poly.tokens, drop, 0)) simple.set(poly, drop);
     }
   }
   // The vertices of the result around each bevelled vertex (every token there is used): no two may coincide (Roundness
@@ -1030,6 +1095,7 @@ export function runBevel(
       const n = poly.tokens.length;
       const points = new Float64Array(3 * n);
       poly.tokens.forEach((t, i) => tokens.position(t, lambda, points, 3 * i));
+      let longest = 0;
       for (let i = 0; i < n; i++) {
         const a = 3 * i;
         const b = 3 * ((i + 1) % n);
@@ -1038,27 +1104,65 @@ export function runBevel(
           (points[b + 1] as number) - (points[a + 1] as number),
           (points[b + 2] as number) - (points[a + 2] as number),
         );
+        longest = Math.max(longest, length);
         if (!(length > eps)) return false;
       }
-      const ref = refs.get(poly);
-      if (ref === undefined || !(Math.hypot(ref[0] as number, ref[1] as number, ref[2] as number) > eps * eps))
-        continue;
+      const dirs = forward.get(poly);
+      if (dirs !== undefined) {
+        for (let j = 0; j < dirs.length; j += 4) {
+          const a = 3 * (dirs[j] as number);
+          const b = 3 * (((dirs[j] as number) + 1) % n);
+          const along =
+            ((points[b] as number) - (points[a] as number)) * (dirs[j + 1] as number) +
+            ((points[b + 1] as number) - (points[a + 1] as number)) * (dirs[j + 2] as number) +
+            ((points[b + 2] as number) - (points[a + 2] as number)) * (dirs[j + 3] as number);
+          if (!(along > 0)) return false;
+        }
+      }
+      const corners = turns.get(poly);
+      if (corners !== undefined) {
+        for (let j = 0; j < corners.length; j += 4) {
+          cornerTurn(points, n, corners[j] as number, normal);
+          const same =
+            (normal[0] as number) * (corners[j + 1] as number) +
+            (normal[1] as number) * (corners[j + 2] as number) +
+            (normal[2] as number) * (corners[j + 3] as number);
+          if (!(same > 0)) return false;
+        }
+      }
+      // A height (2 × area / longest edge, Mesh Check's zero-area measure) above ε: a sliver of a corner polygon or fan
+      // at a very acute corner (whose shape does not change with λ) refuses rather than reaching Mesh Check.
       newell(points, n, normal);
+      if (!(Math.hypot(normal[0] as number, normal[1] as number, normal[2] as number) > eps * longest)) return false;
+      const ref = refs.get(poly);
+      const refLength = ref === undefined ? 0 : Math.hypot(ref[0] as number, ref[1] as number, ref[2] as number);
+      if (ref === undefined || !(refLength > eps * eps)) continue;
+      // Oriented as before, also with that margin: a face that has just collapsed onto a line keeps a float64 sign
+      // that float32 positions can flip.
       const dot =
         (normal[0] as number) * (ref[0] as number) +
         (normal[1] as number) * (ref[1] as number) +
         (normal[2] as number) * (ref[2] as number);
-      if (!(dot > 0)) return false;
+      if (!(dot > eps * longest * refLength)) return false;
       const drop = simple.get(poly);
-      if (drop !== undefined && !simpleIn(points, poly.tokens, drop, eps)) return false;
+      if (drop !== undefined && !simpleIn(points, poly.tokens, drop, poly.kind === 'row' ? 0 : eps)) return false;
     }
     return true;
   };
   let lambda = 1;
   if (!valid(1)) {
+    // The valid factors need not reach down to 0 (a corner polygon or fan thins out with λ): find one by halving,
+    // then the largest by bisection.
     let lo = 0;
     let hi = 1;
-    for (let i = 0; i < 40; i++) {
+    for (let k = 0.5; k > 1e-12; k /= 2) {
+      if (valid(k)) {
+        lo = k;
+        break;
+      }
+      hi = k;
+    }
+    for (let i = 0; i < 40 && lo > 0; i++) {
       const mid = (lo + hi) / 2;
       if (valid(mid)) lo = mid;
       else hi = mid;
@@ -1067,14 +1171,17 @@ export function runBevel(
     if (!args.clamp && room) {
       return refuse('bevel.too-wide', 'The bevel is so wide that faces would fold over (turn Clamp on)');
     }
-    lambda = lo;
+    // Stop short of the boundary when that is valid too, as §5.9's 0.98 does for slides from both ends: at the largest
+    // valid λ something has just collapsed (a corner triangle of a twisting row, an edge's direction), and float32
+    // positions round across it.
+    lambda = lo > 0 && valid(CLAMP_MARGIN * lo) ? CLAMP_MARGIN * lo : lo;
     clamped = args.clamp;
   }
   for (const x of bevelled) {
     if (!(planOf(x).d * lambda > eps)) {
       return refuse(
         'bevel.zero-width',
-        `There is no room for the bevel at vertex ${x}: its faces would collapse or turn inside out at any width` +
+        `There is no room for the bevel at vertex ${x}: its faces would collapse, thin out or turn inside out at any width` +
           (!args.chamfer && args.roundness > 0.999 && segments % 2 === 0 ? ' (Roundness 1 meets at the corner)' : ''),
       );
     }
