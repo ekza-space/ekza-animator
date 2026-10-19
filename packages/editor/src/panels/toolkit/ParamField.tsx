@@ -11,6 +11,7 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   useEffect,
+  useLayoutEffect,
   useRef,
   useState,
 } from 'react';
@@ -114,7 +115,17 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
     }
   };
 
-  const beginSlide = (element: HTMLElement, event: ReactPointerEvent<HTMLElement>, initialDx: number): void => {
+  const beginSlide = (
+    element: HTMLElement,
+    event: {
+      readonly pointerId: number;
+      readonly shiftKey: boolean;
+      readonly ctrlKey: boolean;
+      readonly metaKey: boolean;
+    },
+    initialDx: number,
+    startEvent: Event,
+  ): void => {
     if (!numeric || props.disabled === true) return;
     const start = typeof value === 'number' ? value : typeof def.default === 'number' ? def.default : 0;
     const preview = props.slider?.begin?.(def) ?? null;
@@ -137,26 +148,41 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
         },
       },
       initialDx,
-      event.nativeEvent,
+      startEvent,
     );
   };
 
-  const onNamePointerDown = (event: ReactPointerEvent<HTMLElement>): void => {
+  // A native listener: overlays inside a viewport pane stop `pointerdown` before it reaches React's root (the pane
+  // would take the press and capture the pointer), so the label listens to its own presses.
+  const onNamePointerDown = (event: PointerEvent): void => {
+    if (!numeric || !(event.currentTarget instanceof HTMLElement)) return;
     if (event.button === 1) {
       event.preventDefault();
-      beginSlide(event.currentTarget, event, 0);
+      beginSlide(event.currentTarget, event, 0, event);
       return;
     }
     if (event.button !== 0) return;
     press.current = { x: event.clientX, pointerId: event.pointerId };
   };
+  const latestPointerDown = useRef(onNamePointerDown);
+  useLayoutEffect(() => {
+    latestPointerDown.current = onNamePointerDown;
+  });
+  const labelRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const element = labelRef.current;
+    if (element === null) return undefined;
+    const listener = (event: PointerEvent): void => latestPointerDown.current(event);
+    element.addEventListener('pointerdown', listener);
+    return () => element.removeEventListener('pointerdown', listener);
+  }, []);
   const onNamePointerMove = (event: ReactPointerEvent<HTMLElement>): void => {
     const start = press.current;
     if (start === null || slide.current !== null || event.pointerId !== start.pointerId) return;
     const dx = event.clientX - start.x;
     if (Math.abs(dx) < LABEL_DRAG_PX) return;
     press.current = null;
-    beginSlide(event.currentTarget, event, dx);
+    beginSlide(event.currentTarget, event, dx, event.nativeEvent);
   };
   const onNamePointerUp = (): void => {
     if (press.current !== null) props.onName?.();
@@ -165,13 +191,13 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
 
   const label = (
     <button
+      ref={labelRef}
       type="button"
       className={cn(LABEL, props.nameSelected === true && 'bg-[var(--bg-selected,#3b3270)] text-fg')}
       data-testid={props.nameTestId}
       title={def.description === undefined ? def.label : `${def.label}: ${def.description}`}
       aria-pressed={props.nameSelected === true}
       disabled={props.disabled}
-      onPointerDown={numeric ? onNamePointerDown : undefined}
       onPointerMove={numeric ? onNamePointerMove : undefined}
       onPointerUp={numeric ? onNamePointerUp : () => props.onName?.()}
       onAuxClick={(event) => event.preventDefault()}

@@ -21,7 +21,8 @@ import {
   visibleParams,
 } from '@ekza-animator/editor-core';
 import { cn } from '@ekza-animator/ui';
-import { type JSX, useEffect, useMemo, useState } from 'react';
+import { type JSX, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
+
 import { useOptionalShell } from '../../shell/context';
 import { BUTTON } from '../channel-box/kit/styles';
 import { ParamField, type ParamSliderHooks } from './ParamField';
@@ -111,8 +112,27 @@ function cardSlider(app: EditorApp, lastRun: LastRun, commit: (args: ParamValues
   };
 }
 
+/**
+ * The card sits inside the pane's surface, which takes every `pointerdown` (navigation, picking, pointer capture):
+ * presses on the card stop there, natively, so its buttons, fields and sliders get their clicks.
+ */
+function useOwnPresses(ref: RefObject<HTMLElement | null>, mounted: unknown): void {
+  useEffect(() => {
+    const element = ref.current;
+    if (element === null) return undefined;
+    const stop = (event: Event): void => event.stopPropagation();
+    element.addEventListener('pointerdown', stop);
+    element.addEventListener('wheel', stop, { passive: true });
+    return () => {
+      element.removeEventListener('pointerdown', stop);
+      element.removeEventListener('wheel', stop);
+    };
+  }, [ref, mounted]);
+}
+
 export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element | null {
   const { app, paneId, lastRun, card } = props;
+  const root = useRef<HTMLElement>(null);
   const run = useRunner(app);
   const shell = useOptionalShell();
   const fields = useMemo(() => visibleParams(lastRun.params), [lastRun.params]);
@@ -129,15 +149,21 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
   const ctx: RunContext = { source: 'card', paneId };
   const adjust = (args: ParamValues): void => run('edit.adjustLast', { args }, ctx);
   const slider = useMemo(() => cardSlider(app, lastRun, adjust), [app, lastRun]); // oxlint-disable-line react-hooks/exhaustive-deps -- adjust only closes over stable values
-  if (fields.length === 0 || expired === lastRun) return null;
+  const shown = fields.length > 0 && expired !== lastRun;
+  const expanded = closed === null && card.expanded;
+  useOwnPresses(root, `${String(shown)}:${String(expanded)}`);
+  if (!shown) return null;
 
   const summary = primary === null ? '' : ` · ${formatParamValue(primary, lastRun.args[primary.name])}`;
   const warnings = lastRunWarnings(app);
   const message = (text: string): void => shell?.help(text, 'warning');
 
-  if (closed !== null || !card.expanded) {
+  if (!expanded) {
     return (
       <div
+        ref={(element) => {
+          root.current = element;
+        }}
         className="pointer-events-auto mb-8"
         data-testid={`lastop-card-${paneId}`}
         data-state={closed === null ? 'collapsed' : 'closed'}
@@ -172,6 +198,7 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
 
   return (
     <section
+      ref={root}
       className="pointer-events-auto mb-8 flex w-[17rem] flex-col gap-1 rounded-md border border-line bg-[var(--bg-overlay,#202227)]/95 p-1.5 text-ui-dense text-fg shadow-lg"
       data-testid={`lastop-card-${paneId}`}
       data-state="expanded"
