@@ -187,7 +187,7 @@ A throwaway `--shared` clone merged `m6a/mesh-select` (B1 + B2), `m6a/mesh-runti
   `select.mesh.all` + `mesh.transformComponents {translateX: 1.6}` (registered by B11, its gate). Merging B7 conflicts with this branch only in the B0a foundation tests (`editor-core/test/m6a/
   foundation.test.ts` LANDED tables, `editor/test/test-api.test.ts`, `headless-tests/test/ops.m6a-foundation.test.ts`,
   `apps/web/e2e/m6a-00-foundation.spec.ts`): keep both sides' landed operators. Decide the eager allowance with
-  B10's +12,044 B in mind (above).
+  B10's +13,126 B in mind (above).
 
 ## Fix round 1 (review of 77b4c8d)
 
@@ -240,9 +240,9 @@ registration conflicts kept both sides; `ViewportPanel.tsx` from B13), every REA
 
 ## Eager route size (§5.27)
 
-`check:size` on this branch (fix round 1): **894,125 B ≤ 900,000 B** (headroom 5,875 B); the pre-B10 base (the B9 +
-B6 merge, 67734e8) measures 881,183 B, so **B10 adds +12,942 B** (gzip -9) to the eager route (+898 B in fix round 1:
-the Mesh Check options, the pending detection, the Make editable hint). Both boundaries hold (the kernel
+`check:size` on this branch (fix round 2): **894,309 B ≤ 900,000 B** (headroom 5,691 B); the pre-B10 base (the B9 +
+B6 merge, 67734e8) measures 881,183 B, so **B10 adds +13,126 B** (gzip -9) to the eager route (+898 B in fix round 1:
+the Mesh Check options, the pending detection, the Make editable hint; +184 B in fix round 2). Both boundaries hold (the kernel
 and mesh-view stay lazy: the Model select runtime, the HUD, the Mesh Check body and the marking-menu drawing are lazy
 chunks). The eager part is mostly editor-core: the selection service (`editor-core/src/selection`: 5.4 kB) and the
 mode, selection and hide operators. If INT needs the bytes for B11–B13 under the allowance the owner decides
@@ -252,15 +252,15 @@ mode, selection and hide operators. If INT needs the bytes for B11–B13 under t
 
 ## Gates
 
-Fix round 1, run on the final head in this worktree (the tree clean before and after):
+Fix round 2, run on this head in this worktree (the tree clean before and after; servers stopped, port 3241 free):
 
 | Gate | Result |
 |---|---|
 | `pnpm run format:check` | clean (1,199 files) |
-| `pnpm run lint` | 0 findings |
+| `pnpm run lint` | rc 0, no findings |
 | `pnpm run typecheck` | clean |
 | `pnpm run check:deps` | 15 packages follow the rules |
-| `pnpm run test` | 15/15 tasks: editor-core 904 passed / 10 skipped (B10 gates `b2`, `b3`, `b5`, `b7`), viewport 163 / 1, editor 451 / 5, mesh-view 74, mesh-core 134, headless-tests 173, anim-core 671, doc 233, io 170, rig 202, curve-editor 207 / 3, doc-yjs 78, ui 87, web 16 |
-| `pnpm run build` | OK; `check:size` 894,125 B ≤ 900,000 B (the M6a eager-delta warning is the owner's pending allowance decision, not enforced) |
-| B10 e2e specs | E2E-MOD-02, -25, -26 list as `test.fixme` with their gates (4 tests skipped); E2E-MOD-26 passes un-gated on the scratch integration (above) |
-| Full e2e (`EKZA_E2E_PORT=3241 pnpm run test:e2e`, project `chrome`, local GPU Chrome) | **122 passed, 14 skipped** (gated), 0 failed (1.2 min); the server stopped, port 3241 free |
+| `pnpm run test` (and `turbo run test --force --continue`) | 15/15 tasks: editor-core 906 passed / 10 skipped (B10 gates `b2`, `b3`, `b5`, `b7`), viewport 164 / 1, editor 454 / 6, mesh-view 74, mesh-core 134, headless-tests 173, anim-core 671, doc 233, io 170, rig 202, curve-editor 207 / 3, doc-yjs 78, ui 87, web 16 |
+| `pnpm run build` | OK; `check:size` **894,309 B ≤ 900,000 B** (headroom 5,691 B; +184 B over fix round 1: the `also` key and the continuation guard); the M6a eager-delta warning is the owner's pending allowance decision, not enforced |
+| B10 e2e specs | E2E-MOD-02, -25, -26 list as `test.fixme` with their gates (skipped here); un-gated on the fix round 2 scratch integration: -25 and -26 pass, -02 fails only at B11's card `⌘E` (above) |
+| Full e2e (`EKZA_E2E_PORT=3241 pnpm run test:e2e`, project `chrome`, local GPU Chrome) | **122 passed, 14 skipped** (gated), 0 failed (1.0 min) |
