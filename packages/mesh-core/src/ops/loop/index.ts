@@ -58,13 +58,24 @@ function pollInsertLoop(_m: EditMesh, _sel: ComponentSelection | null, _ctx: OpC
   return true;
 }
 
+/** A ring's edge lengths and start vertices (`edgeVert(e, 0)`), read on the pre-op mesh (`adjust` runs after the splits). */
+interface RingGeometry {
+  readonly ring: Ring;
+  readonly lengths: readonly number[];
+  readonly starts: readonly number[];
+}
+
+function ringGeometry(m: EditMesh, ring: Ring): RingGeometry {
+  return {
+    ring,
+    lengths: ring.edges.map((edge) => length(sub(pos(m, m.edgeVert(edge.e, 1)), pos(m, m.edgeVert(edge.e, 0))))),
+    starts: ring.edges.map((edge) => m.edgeVert(edge.e, 0)),
+  };
+}
+
 /** Side fractions of the loops of `mode` (equal: per edge, from the seed's length). */
-function fractions(
-  m: EditMesh,
-  ring: Ring,
-  args: Readonly<Record<string, ParamValue>>,
-  seedLength: number,
-): number[][] {
+function fractions(geometry: RingGeometry, args: Readonly<Record<string, ParamValue>>, seedLength: number): number[][] {
+  const { ring } = geometry;
   const mode = str(args, 'mode', 'relative');
   const weight = num(args, 'weight', 0.5);
   if (mode === 'multiple') {
@@ -75,23 +86,19 @@ function fractions(
   }
   if (mode === 'equal') {
     const distance = weight * seedLength;
-    return [
-      ring.edges.map((edge) => {
-        const l = length(sub(pos(m, m.edgeVert(edge.e, 1)), pos(m, m.edgeVert(edge.e, 0))));
-        return l > 0 ? Math.min(1, distance / l) : 0;
-      }),
-    ];
+    return [geometry.lengths.map((l) => (l > 0 ? Math.min(1, distance / l) : 0))];
   }
   return [ring.edges.map(() => weight)];
 }
 
-/** Side fractions → parameters from edgeVert(e, 0). */
-function loopsOf(m: EditMesh, ring: Ring, sideFractions: readonly (readonly number[])[]): LoopPlan[] {
+/** Side fractions → parameters from edgeVert(e, 0) (as it was before the op). */
+function loopsOf(geometry: RingGeometry, sideFractions: readonly (readonly number[])[]): LoopPlan[] {
+  const { ring } = geometry;
   return sideFractions.map((list) => ({
     ring,
     u: ring.edges.map((edge, i) => {
       const t = list[i] as number;
-      return edge.side === m.edgeVert(edge.e, 0) ? t : 1 - t;
+      return edge.side === geometry.starts[i] ? t : 1 - t;
     }),
   }));
 }
@@ -146,7 +153,8 @@ function runInsertLoop(
   const ring0 = walkRing(m, seed, side0, ctx.hidden);
   if (ring0.faces.length === 0) return refuse('insertLoop.no-ring', 'Insert Edge Loop needs an edge between quads');
   const seedLength = length(sub(pos(m, m.edgeVert(seed, 1)), pos(m, side0)));
-  let loops = loopsOf(m, ring0, fractions(m, ring0, args, seedLength));
+  const geometry0 = ringGeometry(m, ring0);
+  let loops = loopsOf(geometry0, fractions(geometry0, args, seedLength));
   const warnings: OpWarning[] = [];
   const mirror = mirrorOf(ctx);
   if (mirror !== null) {
@@ -155,7 +163,8 @@ function runInsertLoop(
     if (e1 === -1 || s1 === -1) warnings.push(...unmatchedWarnings(1));
     else {
       const ring1 = walkRing(m, e1, s1, ctx.hidden);
-      const mirrored = loopsOf(m, ring1, fractions(m, ring1, args, seedLength));
+      const geometry1 = ringGeometry(m, ring1);
+      const mirrored = loopsOf(geometry1, fractions(geometry1, args, seedLength));
       // A loop is its own mirror when its mirrored loop (the same index) coincides with it: snapped onto the plane.
       const kept: LoopPlan[] = [];
       for (let i = 0; i < loops.length; i++) {
@@ -268,7 +277,7 @@ function runInsertLoop(
     ? (patch: ParamValues): boolean => {
         for (const key of Object.keys(patch)) if (key !== 'weight') return false;
         const merged = resolveArgs(INSERT_LOOP, { ...current, ...patch });
-        const [plan] = loopsOf(m, ring, fractions(m, ring, merged, seedLength));
+        const [plan] = loopsOf(geometry0, fractions(geometry0, merged, seedLength));
         if (plan === undefined) return false;
         for (const split of splits) {
           const u = Math.min(1, Math.max(0, plan.u[order.get(split.e) ?? 0] as number));
