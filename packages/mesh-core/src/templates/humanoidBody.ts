@@ -203,7 +203,7 @@ function smooth(body: Body, s: number): void {
     const legCentre = sx * (LEG[0]?.[1] as number) * s;
     for (const ring of LEG) {
       const next = legRing(body, sx, ring);
-      body.band(legPrevious, next, legOut(legCentre, (ring[2] as number) * s));
+      body.band(legPrevious, next, legOut(legCentre, ring[2] * s));
       legPrevious = next;
     }
     body.face(legPrevious, () => down);

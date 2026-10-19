@@ -65,7 +65,8 @@ function unmatched(faces: readonly number[]): OpWarning | null {
 function mirrorFaces(faces: Set<number>, map: SymmetryMap | null): number[] {
   const lonely: number[] = [];
   if (map === null) return lonely;
-  for (const f of [...faces]) {
+  // A snapshot: the partners added below are not walked again.
+  for (const f of Array.from(faces)) {
     const partner = f < map.face.length ? (map.face[f] as number) : -1;
     if (partner < 0) lonely.push(f);
     else faces.add(partner);
@@ -118,7 +119,7 @@ function paintRun(m: EditMesh, sel: ComponentSelection | null, raw: ParamValues,
   // The runtime expands a selection for `expand` ops; explicit faces (a tool stroke) are mirrored here. Expanding a
   // selection that is already expanded adds nothing, and its lonely faces are reported either way.
   const lonely = mirrorFaces(faces, ctx.symmetry?.map ?? null);
-  for (const f of [...faces]) if (hiddenFace(ctx, f)) faces.delete(f);
+  for (const f of faces) if (hiddenFace(ctx, f)) faces.delete(f);
   if (faces.size === 0) return refuse('paint.no-faces', 'Select faces to paint');
   writeSlot(m, faces, slot);
   const warning = unmatched(lonely.filter((f) => !hiddenFace(ctx, f)));

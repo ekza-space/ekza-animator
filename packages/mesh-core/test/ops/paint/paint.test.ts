@@ -147,7 +147,7 @@ describe('mesh.paint', () => {
         ),
         (strokes) => {
           const m = wideCube();
-          const expected = new Array<number>(10).fill(0);
+          const expected = Array.from({ length: 10 }, () => 0);
           for (const stroke of strokes) {
             ok(runChecked(paint, m, null, stroke));
             for (const f of stroke.faces) expected[f] = stroke.slot;
@@ -174,7 +174,7 @@ describe('mesh.paint.fillShell', () => {
     const m = twoCubes();
     const ctx = ctxOf({ symmetry: { map: mirrorMapX(m), preserveSeam: true } });
     ok(runChecked(paintFillShell, m, null, { slot: 6, face: 0 }, ctx));
-    expect(slots(m)).toEqual(new Array(12).fill(6));
+    expect(slots(m)).toEqual(Array.from({ length: 12 }, () => 6));
     const lonely = ctxOf({ symmetry: { map: mirrorMapX(m, 1e-6, [0]), preserveSeam: true } });
     const result = ok(runChecked(paintFillShell, m, null, { slot: 2, face: 0 }, lonely));
     expect(slots(m).filter((s) => s === 2)).toHaveLength(6);
