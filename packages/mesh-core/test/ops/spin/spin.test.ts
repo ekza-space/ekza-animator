@@ -1,11 +1,14 @@
 // M6A-SPEC §5.12 Spin Edge / Flip Triangle Edge (B4): counts never change, refusals (border, same face), the spun edge
-// keeps its own flag (H5, P7-hard), faces keep their material and paint, forward then back is the identity on
-// topology, Flip on triangles = one spin, on quads it toggles FACE_FLIP_DIAGONAL; P10 with the test symmetry map.
+// keeps its own flag (H5, P7-hard), faces keep their material, paint and corner values — also when one run spins
+// several edges (a run equals the same spins one at a time; a symmetric spin is always two) — forward then back is the
+// identity on topology, Flip on triangles = one spin, on quads it toggles FACE_FLIP_DIAGONAL; P10 with the test
+// symmetry map.
 import { describe, expect, it } from 'vitest';
 import {
   EDGE_HARD,
   editMeshFrom,
   FACE_FLIP_DIAGONAL,
+  isRefusal,
   MESH_OPS,
   primitive,
   selectionOf,
@@ -13,10 +16,88 @@ import {
   triangulate,
 } from '../../../src';
 import { buildMeshData, signedVolume, vef } from '../../../src/testing';
-import { context, faceVertList, refusedCode, runOk } from '../harness';
+import { attributeProblems, decorateFaces, faceAttributes } from '../attributes';
+import { context, faceVertList, refusedCode, runOk, runOp } from '../harness';
 import { asymmetry, expand, testSymmetryMap } from '../symmetry-fixture';
 
 const op = (id: string) => MESH_OPS[id] as NonNullable<(typeof MESH_OPS)[string]>;
+
+/** `make()` with every face decorated (distinct paint, material and corner values). */
+function decorated(make: () => ReturnType<typeof primitive>): ReturnType<typeof editMeshFrom> {
+  const m = editMeshFrom(make());
+  decorateFaces(m);
+  return m;
+}
+
+/** A triangulated unit cube (8/18/12). */
+const triCube = () => {
+  const m = editMeshFrom(primitive('cube', {}));
+  runOk(m, op('mesh.triangulate'), null);
+  return m.snapshot();
+};
+
+/** The mesh up to element order: faces as vertex cycles from their lowest vertex with material, flags, paint and each
+ *  corner's uv0; edges as vertex pairs with flags. (One run and single runs order elements differently: a removal
+ *  inside a transaction moves the last pre-op element into the hole and created elements after it, M6A-B1-2.) */
+function canonical(m: ReturnType<typeof editMeshFrom>): { faces: string[]; edges: string[] } {
+  const paint = m.layer('paint');
+  const uv = m.layer('uv0');
+  const faces: string[] = [];
+  for (let f = 0; f < m.counts.faces; f++) {
+    const corners: number[] = [];
+    const start = m.faceCorner(f);
+    let c = start;
+    do {
+      corners.push(c);
+      c = m.cornerNext(c);
+    } while (c !== start);
+    const verts = corners.map((x) => m.cornerVert(x));
+    const first = verts.indexOf(Math.min(...verts));
+    const cycle = [...corners.slice(first), ...corners.slice(0, first)].map(
+      (x) => `${m.cornerVert(x)}:${uv?.get(x, 0)},${uv?.get(x, 1)}`,
+    );
+    faces.push(`${m.faceMaterial(f)}|${m.faceFlags(f)}|${paint?.get(f, 0)}|${cycle.join(' ')}`);
+  }
+  const edges: string[] = [];
+  for (let e = 0; e < m.counts.edges; e++) {
+    const a = m.edgeVert(e, 0);
+    const b = m.edgeVert(e, 1);
+    edges.push(`${Math.min(a, b)}-${Math.max(a, b)}:${m.edgeFlags(e)}`);
+  }
+  return { faces: faces.sort(), edges: edges.sort() };
+}
+
+/** Spins `edges` in one run and one at a time (descending, as a run does), both on decorated meshes; null when the run
+ *  refuses. */
+function batchAndSequential(
+  id: 'mesh.spinEdge' | 'mesh.flipTriangleEdge',
+  make: () => ReturnType<typeof primitive>,
+  edges: readonly number[],
+) {
+  const batch = decorated(make);
+  const before = faceAttributes(batch);
+  if (isRefusal(runOp(batch, op(id), selectionOf('edge', edges, batch.counts)).result)) return null;
+  const sequential = decorated(make);
+  for (const e of [...edges].sort((x, y) => y - x))
+    runOk(sequential, op(id), selectionOf('edge', [e], sequential.counts));
+  return { batch, sequential, before };
+}
+
+/** Every pair of edges of `make()` that one run spins: the run equals the single spins and keeps the attributes. */
+function checkPairs(id: 'mesh.spinEdge' | 'mesh.flipTriangleEdge', make: () => ReturnType<typeof primitive>): number {
+  const E = editMeshFrom(make()).counts.edges;
+  let pairs = 0;
+  for (let e = 0; e < E; e++) {
+    for (let x = e + 1; x < E; x++) {
+      const run = batchAndSequential(id, make, [e, x]);
+      if (run === null) continue;
+      pairs++;
+      expect([e, x, canonical(run.batch)]).toEqual([e, x, canonical(run.sequential)]);
+      expect([e, x, attributeProblems(run.before, run.batch, 'spin')]).toEqual([e, x, []]);
+    }
+  }
+  return pairs;
+}
 
 /** A unit square split into two triangles along 0–2 (vertices 0 1 2 3 counterclockwise, +Z normal). */
 const square = () =>
@@ -93,6 +174,38 @@ describe('mesh.spinEdge', () => {
     expect(values.filter(([p]) => p === 7)).toEqual([[7, 2]]);
   });
 
+  it('a run of several spins equals the same spins one at a time: material, paint and corner values stay put', () => {
+    // Edges 3 and 5 of the default cube share no face; spinning 5 removes a face slot and moves the last face into
+    // it, so faces looked up before the run would be stale for edge 3.
+    const run = batchAndSequential('mesh.spinEdge', () => primitive('cube', {}), [3, 5]);
+    expect(run).not.toBeNull();
+    const { batch, sequential, before } = run as NonNullable<typeof run>;
+    expect(canonical(batch)).toEqual(canonical(sequential));
+    expect(attributeProblems(before, batch, 'spin')).toEqual([]);
+    expect(Array.from(batch.snapshot().faceMaterial).sort()).toEqual([0, 1, 2, 3, 4, 5]);
+    expect(checkPairs('mesh.spinEdge', () => primitive('cube', {}))).toBeGreaterThanOrEqual(18);
+    expect(checkPairs('mesh.spinEdge', () => primitive('cylinder', { subdivisionsAxis: 6 }))).toBeGreaterThan(60);
+  });
+
+  it('P10 with paint: a symmetric spin (the picked edge and its partner) keeps every face its own slot', () => {
+    const make = () =>
+      primitive('cube', { width: 2, subdivisionsWidth: 2, subdivisionsHeight: 2, subdivisionsDepth: 2 });
+    let ran = 0;
+    for (let e = 0; e < editMeshFrom(make()).counts.edges; e++) {
+      const m = decorated(make);
+      const map = testSymmetryMap(m);
+      const sel = expand(selectionOf('edge', [e], m.counts), map);
+      if (sel.edges.count() !== 2) continue;
+      const before = faceAttributes(m);
+      const run = runOp(m, op('mesh.spinEdge'), sel, {}, context({ symmetry: { map, preserveSeam: true } }));
+      if (isRefusal(run.result)) continue;
+      ran++;
+      expect([e, attributeProblems(before, m, 'spin')]).toEqual([e, []]);
+      expect([e, asymmetry(m, testSymmetryMap(m))]).toEqual([e, 0]);
+    }
+    expect(ran).toBeGreaterThanOrEqual(20);
+  });
+
   it('refuses border edges, two edges of one face and an existing target edge', () => {
     const m = editMeshFrom(square());
     expect(refusedCode(m, op('mesh.spinEdge'), selectionOf('edge', [m.findEdge(0, 1)], m.counts))).toBe(
@@ -131,6 +244,16 @@ describe('mesh.flipTriangleEdge', () => {
     runOk(m, op('mesh.flipTriangleEdge'), selectionOf('edge', [m.findEdge(0, 2)], m.counts));
     expect(m.findEdge(1, 3)).toBeGreaterThanOrEqual(0);
     expect(m.findEdge(0, 2)).toBe(-1);
+  });
+
+  it('flipping several edges in one run keeps all twelve paint slots of a triangulated cube', () => {
+    const run = batchAndSequential('mesh.flipTriangleEdge', triCube, [6, 8]);
+    expect(run).not.toBeNull();
+    const { batch, sequential, before } = run as NonNullable<typeof run>;
+    expect(canonical(batch)).toEqual(canonical(sequential));
+    expect(attributeProblems(before, batch, 'spin')).toEqual([]);
+    expect(new Set(Array.from(batch.snapshot().layers.get('paint')?.data ?? [])).size).toBe(12);
+    expect(checkPairs('mesh.flipTriangleEdge', triCube)).toBeGreaterThan(50);
   });
 
   it('refuses edges that are not between triangles; skips them with a warning beside valid ones', () => {

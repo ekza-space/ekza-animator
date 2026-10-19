@@ -7,6 +7,10 @@
 // piece holding all of A's own vertices takes A's material, flags (flip-diagonal cleared: the quad changed) and face
 // layers, each of its corners A's values at that vertex (B's for the one vertex A did not have), likewise for B; the
 // new edge takes the old edge's flags and layers (H5: the spun edge keeps its own flag).
+//
+// A plan names its edge and vertices, never its faces: an earlier spin of the same run removes a face slot and moves
+// the last face into the hole, so face indices taken at plan time go stale. Edges spun in descending order and
+// vertices (never removed) stay valid, so `spin` finds A and B again from the edge at spin time.
 import { FACE_FLIP_DIAGONAL } from '../../constants';
 import { kernelError } from '../../kernel';
 import { refuse } from '../../refusal';
@@ -73,11 +77,11 @@ function restoreFace(
 }
 
 export interface SpinPlan {
+  /** The edge to spin; valid as long as only higher-index edges were removed since planning. */
   readonly edge: number;
+  /** A runs a → b along the edge, B runs b → a. */
   readonly a: number;
   readonly b: number;
-  readonly faceA: number;
-  readonly faceB: number;
   /** The new edge's endpoints. */
   readonly u: number;
   readonly w: number;
@@ -113,7 +117,20 @@ export function planSpin(m: EditMesh, e: number, direction: SpinDirection): Spin
   const u = direction === 'forward' ? (ys[0] as number) : (ys[ys.length - 1] as number);
   const w = direction === 'forward' ? (xs[0] as number) : (xs[xs.length - 1] as number);
   if (m.findEdge(u, w) !== -1) return refuse('spin.existing-edge', 'The spun edge would duplicate an existing edge');
-  return { edge: e, a, b, faceA, faceB, u, w, direction };
+  return { edge: e, a, b, u, w, direction };
+}
+
+/** Faces A (running a → b) and B (running b → a) of the plan's edge, looked up now (face indices move on removals). */
+function planFaces(m: EditMesh, plan: SpinPlan): [number, number] {
+  const radial = edgeCorners(m, plan.edge);
+  if (radial.length === 2) {
+    const [c0, c1] = radial as [number, number];
+    const v0 = m.cornerVert(c0);
+    const v1 = m.cornerVert(c1);
+    if (v0 === plan.a && v1 === plan.b) return [m.cornerFace(c0), m.cornerFace(c1)];
+    if (v1 === plan.a && v0 === plan.b) return [m.cornerFace(c1), m.cornerFace(c0)];
+  }
+  throw kernelError('mesh-euler', 'spin: the planned edge no longer joins its two faces');
 }
 
 /** Performs a planned spin; returns the new edge's index (valid until the next removal). */
@@ -121,8 +138,9 @@ export function spin(m: EditMesh, plan: SpinPlan): number {
   const faceLayers = m.layers().filter((layer) => layer.def.domain === 'face');
   const cornerLayers = m.layers().filter((layer) => layer.def.domain === 'corner');
   const edgeLayers = m.layers().filter((layer) => layer.def.domain === 'edge');
-  const recA = recordFace(m, plan.faceA, faceLayers, cornerLayers);
-  const recB = recordFace(m, plan.faceB, faceLayers, cornerLayers);
+  const [faceA, faceB] = planFaces(m, plan);
+  const recA = recordFace(m, faceA, faceLayers, cornerLayers);
+  const recB = recordFace(m, faceB, faceLayers, cornerLayers);
   const edgeFlags = m.edgeFlags(plan.edge);
   const edgeValues = edgeLayers.map((layer) => readValues(layer, plan.edge));
   // Another spin of the same run may have created the edge meanwhile: reusing it would make it non-manifold.

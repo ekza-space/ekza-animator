@@ -59,7 +59,9 @@ export function mirroredDirection(
   return direction === 'forward' ? 'back' : 'forward';
 }
 
-/** Spins every planned edge (descending edge order) and returns the spun edges' final indices. */
+/** Spins every planned edge and returns the spun edges' final indices. Descending edge order keeps every later plan's
+ *  edge index valid (a removal moves only a higher-index edge into the hole); `spin` finds the faces again from the
+ *  edge, since face slots move with every spin. */
 export function spinAll(m: EditMesh, plans: readonly SpinPlan[]): number[] {
   for (const plan of [...plans].sort((x, y) => y.edge - x.edge)) markEdge(m, spin(m, plan));
   return collectMarkedEdges(m);
