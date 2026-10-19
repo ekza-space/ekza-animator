@@ -15,7 +15,7 @@ import {
   type SampleDef,
 } from '@ekza-animator/editor-core';
 import { describe, expect, it } from 'vitest';
-import { BLOCKED, runOk, runtimeOf, SIBLINGS_READY } from './ops.support';
+import { BLOCKED, docJson, runOk, runtimeOf, SIBLINGS_READY } from './ops.support';
 
 const DEG = Math.PI / 180;
 const AGENT: RunActor = { kind: 'agent', id: 'agt_P1HeadlessTest', name: 'P1 Headless' };
@@ -277,11 +277,19 @@ describe.skipIf(!SIBLINGS_READY)(`pose.goals (MCP-SPEC §4.10) ${SIBLINGS_READY 
         at[1] + 0.15 * (shoulder[1] - at[1]) + 0.02,
         at[2] + 0.15 * (shoulder[2] - at[2]) + 0.04,
       ];
+      const docBefore = docJson(bot.app);
       const result = (await agent(bot.app, 'pose.goals', {
         clip: bot.clip,
         frame: 10,
         ik: [{ limb, position: target, ensureIk: 'auto', switchRange: { start: 8, end: 12 } }],
       })) as GoalsResult;
+      // One AI step: one undo reverts the switch and the goal exactly, one redo replays them.
+      const docAfter = docJson(bot.app);
+      expect(bot.app.history.peekUndo()?.actor).toEqual(AGENT);
+      await runOk(bot.app, 'edit.undo');
+      expect(docJson(bot.app)).toEqual(docBefore);
+      await runOk(bot.app, 'edit.redo');
+      expect(docJson(bot.app)).toEqual(docAfter);
       expect(result.ik[0]).toMatchObject({ reached: true, switched: { start: 8, end: 12 } });
       expect(result.ik[0]?.errorM).toBeLessThan(1e-3);
       expect(Math.hypot(...sub(boneAt(bot, end, 10), target))).toBeLessThan(1e-3);
