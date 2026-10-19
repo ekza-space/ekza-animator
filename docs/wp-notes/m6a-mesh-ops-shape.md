@@ -130,6 +130,15 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 
 ## Gates (local, real Chrome; port 3165; CI unset)
 
+Fix round 2, on the code of `b6e3dd1`: `format:check` (1146 files), `lint`, `typecheck`, `check:deps` (15 packages)
+green; `test` (`turbo run test test:tooling --concurrency=2 --force`) 15/15 tasks green, **mesh-core 468 passed + 8
+skipped** (Node + Chromium in real Chrome; the skips are the `READY.b2`/`READY.b3` cases, now eight with the three
+World-map cases), editor 359 + 1 skipped, editor-core 793. The first forced run had one `@ekza-animator/editor` file
+fail (9 tests) under the concurrent load; it passed alone and the full forced rerun passed — the editor does not use
+the B4 symmetry code. No UI file changed; the e2e run's production build passes `check:size`: 865,794 B ≤ 900,000 B,
+the mesh kernel a lazy 51.0 kB chunk. Full e2e suite (`EKZA_E2E_PORT=3165`, project `chrome`): 109 passed,
+10 skipped, rc 0; port 3165 free afterwards. Integration check with B2 and B3 merged: see the next section.
+
 Fix round 1, on the code of `b661302`: `format:check`, `lint`, `typecheck`, `check:deps` (15 packages) green; `test`
 15/15 turbo tasks green (`--concurrency=2`; 9 executed — mesh-core and everything downstream of it — and 6 replayed
 from the cache for packages whose inputs did not change), **mesh-core 452 passed + 5 skipped (Node + 9 Chromium in
@@ -155,7 +164,7 @@ Before fix round 1 (code of `8b48625`): mesh-core 443 passed + 4 skipped, the sa
   `export const READY = { b2, b3, b4: true, b13: false } as const;`. Result: mesh-core node tests 656 passed,
   3 skipped (B3's own `READY.b2` cases, B2's `READY.b13` golden), root `tsc -b` clean; all five B4-gated cases pass
   (B2 agreement ×2, the symmetric cut and the symmetric slides on B2 maps, Combine + Merge by Distance 16/24/10 →
-  12/20/10), each also when run alone. **Fix round 2**, the same resolution on `f03dceb` in a throwaway
+  12/20/10), each also when run alone. **Fix round 2**, the same resolution on `b6e3dd1` in a throwaway
   `git clone --shared`: mesh-core node tests 686 passed, 3 skipped, `tsc -b` clean; all eight B4-gated cases pass,
   the three new ones being B2's World maps (partners on 90° and oblique placements, `mirrorEdgePoint` on World maps,
   Average/Slide/Multi-Cut on B2 World maps = the B4-map results).
