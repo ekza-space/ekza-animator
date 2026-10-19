@@ -36,7 +36,7 @@ export { buildSymmetryMap, expandSelection, mirrorEdgePoint } from './stubs/symm
 // ---------- B3 ----------
 export { regionFrame } from './stubs/frame';
 // ---------- B4 ----------
-export { appendMesh, copySubset } from './stubs/subset';
+export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------
 export { checkMesh } from './stubs/check';
 // ---------- B13 ----------
