@@ -99,4 +99,12 @@ first build had +4,366 B; moving those parts into the lazy chunk and compacting 
 
 ## Gates (local, real Chrome; port 3169)
 
-See the final section ("Gate run") for the numbers of the last run.
+Last run (after the commits of this branch): `format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`,
+`check:licenses` green; `test` (turbo, `--concurrency=2`) 15/15 tasks: anim-core 671, doc 233, doc-yjs 78, mesh-core
+134, mesh-view 2, rig 202, **io 226 + 6 skipped** (the READY.b5 Mesh Check lint fixtures), **editor-core 800**,
+curve-editor 207 + 3 skipped, **headless-tests 189 + 1 skipped** (the READY.b7 `.ekzanim` round trip), viewport 100 + 1
+skipped, editor 359 + 1 skipped, ui 87, web 10, tooling 16; `build` and `check:size` green (**867,245 B**, the
+`mesh-kernel` boundary lazy); `m6a-12-make-editable-polybot.spec.ts` 1 passed + the `b3` fixme; the full e2e suite
+(`EKZA_E2E_PORT=3169`, `--workers=4`) **110 passed, 11 skipped** (the `b9` and `b3` fixmes and the stretch entries).
+An earlier `test` run at `--concurrency=4` on the shared machine (load average ≈ 88) timed out 12 editor browser tests;
+the editor suite alone and the final run were green.
