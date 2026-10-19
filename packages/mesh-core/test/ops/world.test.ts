@@ -20,6 +20,7 @@ import {
   MESH_OPS,
   type MeshData,
   type MeshOp,
+  mirrorEdgePoint,
   morphLayer,
   type OpContext,
   primitive,
@@ -29,6 +30,7 @@ import {
 } from '../../src';
 import { normalMatrix, transformNormal, transformPoint, transformVector } from '../../src/subset/matrix';
 import {
+  mirrorEdgePointOf,
   mirrorOf,
   mirrorPlane,
   planeDistance,
@@ -567,6 +569,27 @@ describe.skipIf(!READY.b2)('World maps of B2 (READY.b2)', () => {
       expect(Array.from(theirs.edge)).toEqual(Array.from(ours.edge));
       expect(Array.from(theirs.edgeSelf)).toEqual(Array.from(ours.edgeSelf));
       expect(Array.from(theirs.face)).toEqual(Array.from(ours.face));
+    }
+  });
+
+  it('mirrorEdgePoint on a World map agrees with the B4 pointer rule (t* to rounding)', () => {
+    for (const [m, placement] of [
+      [bumpy(3), Q90],
+      [placed(primitive('cube', { width: 2, subdivisionsWidth: 3 }), OBLIQUE), OBLIQUE],
+    ] as [EditMesh, ReadonlyXf][]) {
+      const map = b2(m, placement);
+      const mirror = mirrorOf(map, placement);
+      let crossing = 0;
+      for (let e = 0; e < m.counts.edges; e++) {
+        if (map.edgeSelf[e] === 1) crossing++;
+        for (const t of [0.1, 0.5, 0.73, 0.50001]) {
+          const theirs = mirrorEdgePoint(m, map, { edge: e, t });
+          const ours = mirrorEdgePointOf(m, mirror, { edge: e, t });
+          expect([theirs?.edge, theirs?.self]).toEqual([ours?.edge, ours?.self]);
+          expect(Math.abs((theirs?.t ?? 0) - (ours?.t ?? 0))).toBeLessThan(1e-12);
+        }
+      }
+      expect(crossing).toBeGreaterThan(0);
     }
   });
 
