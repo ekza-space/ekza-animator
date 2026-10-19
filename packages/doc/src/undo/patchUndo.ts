@@ -12,8 +12,8 @@
 // - M6a eviction (M6A-SPEC §4.2): `entries()` exposes both stacks; entries leaving for good (the limit, `clear`, a new
 //   transaction clearing redo, `evictOldest`, `clearRedo`, a document load) are reported to `onEvict` listeners
 //   synchronously after the change, in eviction order. Coalescing replaces the top entry by a merged one with the same
-//   txId (and drops it when the edits cancel out): that is not an eviction, the entry's records are re-read from
-//   `entries()` by whoever counts references (B7).
+//   txId (and drops it when the edits cancel out): that is not an eviction (§4.2). Transactions that write
+//   `meshes.data` never set a coalesceKey (§5.20), so no chunk reference leaves the history unreported.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { AnyChange, TxMeta, UndoEntry, UndoEvictReason, UndoManager, UndoResult, UndoSkipReason } from '../store';
 import { deepEqual } from '../store/diff';

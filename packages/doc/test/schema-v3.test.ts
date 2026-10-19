@@ -393,6 +393,46 @@ describe('hierarchy repairs (cross-record)', () => {
     expect((out.meshes['msh_D'] as Row)['name']).toBe('Cube');
     expect((out.meshes['msh_E'] as Row)['name']).toBe('Cube');
   });
+
+  // §4.2 (M6A-B0A-6): write validation checks one record (a self-parent is rejected); cross-record rules (parent of
+  // the same owner and table kind, acyclic, existing; unique live names per owner) are kept by the operators that
+  // write parents and names. The store writes such records as given, queries read their parents as roots, and the
+  // next load repairs them.
+  it('local writes check one record: cross-record problems are written, read as roots and repaired by a reload', async () => {
+    const store = createMemoryStore();
+    await store.open('scene');
+    store.transact({ label: 'Seed' }, (tx) => {
+      tx.put('project', makeProject());
+      tx.put('meshes', makeTestMesh('msh_A', { name: 'Same' }));
+      tx.put('meshes', makeTestMesh('msh_B', { name: 'Same', order: 'a1' }));
+      tx.put('meshes', makeTestMesh('msh_C', { name: 'Orphan', parent: 'grp_missing' as GroupId, order: 'a2' }));
+      tx.put('groups', makeTestGroup('grp_A', { parent: 'grp_B' as GroupId, order: 'a3' }));
+      tx.put('groups', makeTestGroup('grp_B', { parent: 'grp_A' as GroupId, order: 'a4' }));
+      tx.put('groups', makeTestGroup('grp_C', { parent: 'msh_A' as never, order: 'a5' }));
+    });
+    expect(store.get('meshes', 'msh_B' as never)?.name).toBe('Same');
+    expect(store.get('meshes', 'msh_C' as never)?.parent).toBe('grp_missing');
+    expect(store.get('groups', 'grp_C' as never)?.parent).toBe('msh_A');
+    const ids = (rows: readonly { readonly id: string }[]): string[] => rows.map((row) => row.id);
+    expect(ids(store.query.childrenOf(null, 'scene'))).toEqual(['msh_A', 'msh_B', 'msh_C', 'grp_A', 'grp_C']);
+    expect(ids(store.query.childrenOf('grp_A' as GroupId, 'scene'))).toEqual(['grp_B']);
+    expect(() =>
+      store.transact({ label: 'Self' }, (tx) =>
+        tx.put('groups', makeTestGroup('grp_S', { parent: 'grp_S' as GroupId })),
+      ),
+    ).toThrow(/cannot be its own parent/);
+
+    const { snapshot } = migrateSnapshot(JSON.parse(serializeSnapshot(store.snapshot())));
+    const reloaded = createMemoryStore();
+    reloaded.load(snapshot);
+    expect(reloaded.get('meshes', 'msh_A' as never)?.name).toBe('Same');
+    expect(reloaded.get('meshes', 'msh_B' as never)?.name).toBe('Same 2');
+    expect(reloaded.get('meshes', 'msh_C' as never)?.parent).toBeNull();
+    expect(reloaded.get('groups', 'grp_A' as never)?.parent).toBeNull();
+    expect(reloaded.get('groups', 'grp_B' as never)?.parent).toBe('grp_A');
+    expect(reloaded.get('groups', 'grp_C' as never)?.parent).toBeNull();
+    expect(ids(reloaded.query.childrenOf(null, 'scene'))).toEqual(ids(store.query.childrenOf(null, 'scene')));
+  });
 });
 
 describe('referencesOf (M6a tables)', () => {

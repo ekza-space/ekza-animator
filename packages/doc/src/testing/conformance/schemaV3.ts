@@ -290,6 +290,37 @@ export function registerSchemaV3Cases(r: SuiteRunner, factory: Factory): void {
       equal(log.events.length, 5, 'disposed listeners hear nothing');
     });
 
+    // §4.2, §5.20: a coalesced transaction replaces the top entry by a merged one (same txId, earliest `before`,
+    // latest `after`) and edits that cancel out pop it; neither is an eviction. Values written only by the folded
+    // middle transactions leave the history unreported, which is why transactions writing `meshes.data` never set a
+    // `coalesceKey` (B7 counts chunk references from entries and evictions).
+    r.it('coalescing is not an eviction: merged and cancelled entries change entries() without onEvict', async () => {
+      const store = factory();
+      const scene = await seedScene(store);
+      const log = record(store);
+      const start = read(store, 'layers', scene.layer)?.weight;
+      check(start !== undefined && start !== 0.25 && start !== 0.75, 'the seeded weight differs from the nudges');
+      const nudge = (weight: number): void =>
+        store.transact({ label: 'Nudge', coalesceKey: 'nudge', coalesceMs: 3_600_000 }, (tx) =>
+          tx.patch('layers', scene.layer, { weight }),
+        );
+      nudge(0.25);
+      const first = store.undo.entries().undo.at(-1);
+      nudge(0.75);
+      const merged = store.undo.entries();
+      equal(labels(merged.undo), ['Seed', 'Nudge'], 'one entry for both nudges');
+      check(merged.undo.at(-1) !== first, 'the merged entry is a new object');
+      equal(merged.undo.at(-1)?.txId, first?.txId, 'with the same txId');
+      const change = merged.undo.at(-1)?.changes[0] as { readonly before?: unknown; readonly after?: unknown };
+      equal((change.before as { weight?: number } | undefined)?.weight, start, 'earliest before');
+      equal((change.after as { weight?: number } | undefined)?.weight, 0.75, 'latest after');
+      check(!merged.undo.includes(first as UndoEntry), 'the first entry left entries()');
+      nudge(start);
+      equal(labels(store.undo.entries().undo), ['Seed'], 'edits that cancel out pop the entry');
+      equal(log.events, [], 'neither the merge nor the pop is reported to onEvict');
+      log.dispose();
+    });
+
     r.it('reports entries dropped by the limit', async () => {
       const store = factory();
       const scene = await seedScene(store);

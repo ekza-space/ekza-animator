@@ -130,11 +130,14 @@ export interface UndoManager {
   clear(): void;
   readonly limit: number;                      // default 500
   subscribe(listener: () => void): () => void;
-  /** M6a: every entry, oldest undo entry first, and the redo entries from the next redo to the last. Read-only
-   *  views valid until the next store write; O(1) to obtain. */
+  /** M6a: every entry, oldest undo entry first, and the redo entries from the next redo to the last. Frozen views,
+   *  valid until the next store write and the same object until the stacks change: the first read after a change
+   *  builds them (O(n), n ≤ limit), every further read is O(1). A coalesced transaction replaces the top entry by a
+   *  merged one (same txId) or pops it when its edits cancel out; entries() shows that, onEvict does not report it
+   *  (transactions that write `meshes.data` never set a coalesceKey, §5.20). */
   entries(): { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] };
   /** M6a: entries leaving the manager for good (the 500 limit, clear(), evictOldest, a new transaction clearing
-   *  redo, load()). Called synchronously after the change, in eviction order. */
+   *  redo, load()). Called synchronously after the change, in eviction order. Coalescing is not an eviction. */
   onEvict(listener: (entries: readonly UndoEntry[], reason: UndoEvictReason) => void): () => void;
   /** M6a: drops the n oldest undo entries (the BlobStore byte budget, §5.20); fires onEvict(…, 'budget'). */
   evictOldest(n: number): void;
