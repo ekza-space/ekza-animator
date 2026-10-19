@@ -35,6 +35,7 @@ import {
 import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-animator/rig';
 import { asArtifacts } from '../shell/exports';
 import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
+import { maiTestApi } from './mai';
 import type { EkzaAnimatorTestApi } from './types';
 
 export interface TestApiHandle {
@@ -607,6 +608,8 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
       if (result.status === 'failed') throw new EkzaError(result.error.code, result.error.message);
       if (result.status === 'cancelled') throw new EkzaError('unsupported', `flushAutosave: ${result.reason}`);
     },
+    // M-AI (MCP-SPEC §4.9, §8.1): the slices of test-api/mai/*.ts.
+    ...maiTestApi(app),
   };
 
   // Every probe-backed read sees the pending once-per-frame updates too (the kernel-level reads call `sync` above).
