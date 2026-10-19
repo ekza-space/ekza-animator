@@ -47,12 +47,18 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
 - **MAI-D0-5** Sanitiser: lone surrogates become U+FFFD first (`toWellFormed`, so every string is valid UTF-8 for
   every client); whitespace controls (tab, line breaks, NEL) become spaces before every other `Cc`/`Cf` code
   point is removed, so words never fuse; the whole tag block U+E0000–E007F goes (U+E0000 itself is unassigned, not
-  `Cf`). `sanitizeDeep` defines keys as own properties, so a document key `__proto__` stays a key. Envelope caps: `data` strings 300 (prose; the tool layer keeps identifiers short or opaque, §5.1), names in
+  `Cf`); NFC runs **last**, after the removals (round 2: `e` ZWJ U+0301 → `é`; a code-point prefix of an NFC string
+  stays NFC, so the length cap keeps it). `sanitizeDeep` defines keys as own properties, so a document key
+  `__proto__` stays a key, and throws a `RangeError` on a cyclic value or one nested deeper than 64 levels
+  (`NEST_MAX_DEPTH`; a value shared by two branches is fine); the runtime turns it into `internal`, and its error
+  path falls back to a fixed `internal` envelope when the failure itself cannot be sanitised (round 2). Progress
+  messages go through the sanitiser too (prose, `PROGRESS_MAX_CHARS` 120). Envelope caps: `data` strings 300 (prose; the tool layer keeps identifiers short or opaque, §5.1), names in
   `clip`/`undo`/`candidates` 120, warnings 200, `message`/`hint`/`next` 300.
 - **MAI-D0-6** Gate order of the minimal runtime: unknown tool / not ready → `unsupported`; schema → `invalid_args`
   (path like `set[2].rotateDeg.x`, unknown keys named); hosts and `needs` → `unsupported`; `view` access on a host
-  without the `view` capability → `unsupported` (§5.4: "View tools headless"); a missing grant → `not_granted`; pause
-  → `paused`; an aborted signal → `cancelled`. The runner's "gesture in progress" maps to `busy` through
+  without the `view` capability → `unsupported` (§5.4: "View tools headless"); a missing grant → `not_granted` (the
+  call's `access` plus its `extraGrants`, MAI-D0-24; `detail.grant` the first missing one, `detail.grants` when
+  several are missing, the message names them all); pause → `paused`; an aborted signal → `cancelled`. The runner's "gesture in progress" maps to `busy` through
   `finishedValue()`. Revisions: a minimal tracker (per-clip batch counter, strict `ifClipRevision`); the automatic
   stale check is P2's.
 - **MAI-D0-7** Labels: `composeLabel(toolLabel, intent)` puts the intent first and cuts it at a word boundary so
@@ -63,7 +69,8 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
   `entries().redo` lists the next redo first (chronological order of the undone steps).
 - **MAI-D0-9** Policy table: `clip.setSettings` and `time.setFrame` are `allowed` with `confirmWhen` (the §5.14 rows say
   "confirm only when …, otherwise allowed"); `pose.setAt` and `clip.new`/`clip.duplicate` carry access `edit` — the
-  `propose` mode and `activate: true` are View per call, which P3's wire schemas resolve. `operator_run`'s static
+  `propose` mode is View per call, which P3's wire schema resolves; `clip.new`/`clip.duplicate {activate: true}` live
+  need Edit **and** View (`operator_run`'s `extraGrants`, MAI-D0-24) and P3 runs them with `access: 'view'`. `operator_run`'s static
   access function reads the table (manifest: `by_operator`); P3 adds `OperatorDef.agent` for trusted definitions.
 - **MAI-D0-10** Annotations follow §6.0 literally: `destructiveHint` is true for every tool that is not read-only
   except `clip_create` and `project_import` — this includes `editor_connect` and `history_checkpoint` is
@@ -83,7 +90,12 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
   release — INT picks the release version (any version change passes the guard; a pre-release series such as
   `1.0.0-dev.N` during M-AI would avoid counting down).
 - **MAI-D0-13** `ekza-animator-mcp` lists every runtime dependency as a devDependency (all are inlined by rolldown;
-  the published manifest has no `dependencies`), `gltf-validator` as an optional peer. `check:licenses` covers
+  the published manifest has no `dependencies`), `gltf-validator` as an optional peer. Round 2: the workspace's
+  `exports` (`./src/index.ts`, for the evals' `createInProcessServer`) is replaced in the packed manifest by
+  `publishConfig.exports` (`./package.json` only), so the package is packed and published with pnpm (which also
+  rewrites the `workspace:` ranges; `pnpm pack` checked: the tarball's `exports` is `./package.json`), and INT's
+  `npm pack --dry-run` runs on that tarball; `test/cli.test.ts` checks that every published entry point (bin,
+  exports, main/module/types) is in `files` and that there are no `dependencies`. `check:licenses` covers
   production dependencies only; the bundle's third-party notices are P6/INT's (generated from the module graph). The
   D0 bundle inlines dynamic imports (`codeSplitting: false`, one `dist/cli.mjs`); P6 splits `dist/http.mjs`. The build
   copies `fixtures/models/polybot.vrm` to `samples/` (gitignored). Root `test:e2e` builds the server first; turbo
@@ -125,17 +137,51 @@ cleanly; the built server starts, `tools/list` answers `[]` (no tool ready), and
   function uses the same lookup. `resolver.bone` checks own humanoid entries (`constructor` is `not_found`).
 - **MAI-D0-21** Allowed bridge origins (`--allow-origin`, `EKZA_MCP_ALLOWED_ORIGINS`, §5.10): exact
   `http(s)://host[:port]`, `*` only as the whole port, one trailing slash tolerated; scheme and host are lower-cased and
-  a default port dropped (as the browser sends `Origin`); `*`, `null`, paths, queries, credentials and other schemes
+  a default port dropped (as the browser sends `Origin`); round 2: the result is the WHATWG URL parser's `origin`
+  (`:03000` → `:3000`, `127.1` and `2130706433` → `127.0.0.1`, `[::ffff:127.0.0.1]` → `[::ffff:7f00:1]`, an invalid
+  IP literal is a start error), so a respelled entry matches the header and collapses into an equal one; canonical
+  127.0.0.0/8, `[::1]` and IPv4-mapped 127/8 are loopback for the warnings; `*`, `null`, paths, queries, credentials and other schemes
   are a start error naming the flag or variable. The CLI warns at the `warn` level about plain http off loopback, a `*`
   port and gateway-like hosts (`ipfs`, `ipns`, `gateway` labels). Duplicates collapse. P6 applies the list at the
   upgrade (and to `--http`'s `Origin`), P7's helper passes the e2e origin.
-- **MAI-D0-22** First-visit size (DoD "unchanged"): `check:size` reads 848,319 B against 845,146 B in ROADMAP §M-2
-  (after M2a fix round 1; fix round 2, `72bd7d8`, is in the base and was not measured separately), **+3,173 B**:
-  eager kernel code (runner rules 1–9, scope helpers, the presence registry and its factory, `entries()` and the change
-  journal), the StatusLine placeholder pill and `agentHost()` in the viewport. agent-tools and zod are not in the eager
-  chunks (no agent-tools string in any web chunk). Remaining to the 850,000 B M2a target: 1,681 B; to the 900,000 B
-  gate: 51,681 B. P8 (status pill through B9's registry, the agent
-  panel) must keep its code lazy or budget against these numbers.
+- **MAI-D0-22** First-visit size (DoD "unchanged"): measured on both sides on 2026-10-20 with the same machine and
+  Next build cache (`pnpm --filter web build`, `check:size`): **`mcp/spec` 845,157 B → D0 848,367 B, +3,210 B gzip -9**
+  (+9.5 kB minified). Per source file (source-map attribution of the eager scripts, minified bytes, both builds with
+  `ANIMATOR_SOURCE_MAPS=1`): `ViewportManager` +1,773 (`agentHost()`, `withAgentPose`, the overlay-pass loop, §4.3),
+  the ten §4.10 operator stubs and `stub.ts` +2,022, `runner.ts` +1,501 (rules 1–9), `presence/registry.ts` +1,075,
+  `history.ts` +644 (`entries()`, the change journal), `file.ts` +596 (`readSample`, `activate`), `memory.ts` +419
+  (`restoreHost`), `define.ts` +367 (`busy()` for actors), `StatusLine.tsx` +324 (the pill placeholder),
+  the Agent panel's lazy registration +270, the rest < 120 each. Every item is a §4.1/§4.3 contract or the menu entry
+  §8 D0 (7) asks for, eager by construction (kernel, registered operators, the viewport class, the status line);
+  nothing was found that can move behind a lazy boundary without changing a contract (`withPose` is synchronous in
+  §4.3). agent-tools and zod are not in the eager chunks. Remaining to the 850,000 B M2a target: 1,633 B; to the
+  900,000 B gate: 51,633 B. **Needs explicit acceptance by INT or the owner** (DECISIONS-OPEN §H, MAI-D0-22); P1's
+  real operators replace the stubs and P8 must keep the pill and panel lazy or budget against these numbers.
+- **MAI-D0-23** (round 2) Targets (§6.1) refine "pass controls or bodyParts" on the shared schema (keys_read,
+  keys_delete, keys_adjust, keys_retime, keys_tween, curves_set_interpolation, curves_summary, pose_read,
+  view_plot_curves): `targets: {}` and `{channels}` alone are `invalid_args` at `targets`; an absent optional
+  `targets` stays valid. Input records are bounded with `boundedRecord(key, value, max)` (entry count checked at
+  parse time, `maxProperties` in the JSON Schema): `pose_set` `attrs` ≤ 64, `recipe_apply` `params` ≤ 32,
+  `operator_run` `args` ≤ 64 (P3's wire schema stays the real check); the schema lint flags any input record without
+  `maxProperties`.
+- **MAI-D0-24** (round 2, **Q-AI-38**, owner to confirm) A call that edits the document and changes what the user sees
+  needs **Edit and View**: `AgentToolDef.extraGrants(args, host)` (additive, optional) lists grants on top of
+  `access`; live `clip_create {activate: true}` (access `edit` + `['view']`; P2's run passes `access: 'view'` to
+  `ctx.run` for it) and `operator_run clip.new`/`clip.duplicate {activate: true}` (policy access `edit` + `['view']`).
+  `clip_update {activate: true}` stays View only (one change kind per call). `ToolAccess` is unchanged; the manifest
+  states a tool with `extraGrants` as `by_argument` (`by_operator` for operator_run), so no manifest change. The
+  literal v0.2 §5.9 reading ("View allows clip_create {activate: true}") let an agent with Edit unticked create and
+  duplicate clips; MCP-SPEC §5.9/§5.14/§6.6 updated. Related and left as specified: `project_open` and
+  `project_import {path}` need Files only (in Q-AI-38's row for the owner).
+- **MAI-D0-25** (round 2) `AgentToolDef.example` (additive, optional): a minimal valid call; `invalid_args` carries
+  it in `detail.example` and the hint points at it; the lint requires that it parses. **Hand-off to P2** (runtime owner
+  after D0): give every catalogue tool an `example` (none has one in D0, so the hint stays generic until then).
+- **MAI-D0-26** (round 2) Paths never reach error text (§5.4): `file.loadSample`'s `asset-missing` names the sample
+  only (`The sample <file> could not be read`; a Node fs code such as `ENOENT` goes to `details.cause`), and
+  `failureFromEkza` reduces absolute paths in any operator or host error text to base names (`scrubPaths`: POSIX,
+  Windows drive and UNC paths, `file:` URLs; `30/1`, `and/or` and `https://…` stay).
+- **MAI-D0-27** (round 2) e2e helper: `startAgentServer().close()` removes the `ekza-ai-e2e-*` workspace it created
+  (a caller's own `workspace` stays).
 
 ## Routes to M6a (§8.2) — B0a was not on `dev` when D0 ran
 
@@ -179,6 +225,23 @@ D0 landed first (§8.2 last rule); B0a rebases. The overlaps, each additive:
 | the every-operator test did not assert outcomes | `EXPECTED_D0` pins each run's outcome (finished with its value, or the refusal); `READY.p1` switches to P1's rule (scope-ready operators finish, stubs gone, the gated five run); `key.tween` gets a middle-key scope |
 | flaky anim-core property test | reported below; not D0's code |
 
+## Review fix round 2 (2026-10-20)
+
+| Finding | Fix |
+|---|---|
+| major: shared `targets` accepted `{}` (no controls or bodyParts) on seven tools | MAI-D0-23: refine on the shared schema; schema test over nine tools, runtime test `keys_delete {targets: {}}` → `invalid_args` at `targets` |
+| `readSample` errors leaked absolute paths | MAI-D0-26: message names the sample only, `details.cause` the code; `scrubPaths` in `failureFromEkza`; headless test with an fs-like rejection, runtime test for paths |
+| a cyclic failure detail rejected `runtime.call()` | MAI-D0-5: `sanitizeDeep` cycle/depth guard, fixed `internal` fallback on the error path; tests for cyclic detail, 10,000-deep detail and cyclic data |
+| NFC before the removals left non-NFC output | MAI-D0-5: NFC last; `e`+ZWJ+U+0301 → `é` and two more cases, NFC in the property test |
+| `clip_create {activate: true}` live needed View only (no Edit) | MAI-D0-24, **Q-AI-38** (DECISIONS-OPEN §H.3, owner to confirm): `extraGrants`, Edit and View; same for `operator_run clip.new`/`clip.duplicate`; runtime test of every grant combination, live and headless |
+| `attrs`, `params`, `operator_run.args` unbounded | MAI-D0-23: `boundedRecord` (64/32/64), lint rule "record without maxProperties"; tests at the limits and 50,000 entries |
+| progress messages unsanitised | MAI-D0-5: sanitised, ≤ 120 characters; runtime test with the hostile string |
+| `invalid_args` hint generic | MAI-D0-25: `AgentToolDef.example` → `detail.example`; per-tool examples handed to P2 |
+| origins stored as typed | MAI-D0-21: WHATWG URL `origin`; tests for `:03000`, `127.1`, `2130706433`, `0x7f.0.0.1`, IPv4-mapped and long-form IPv6, invalid literals, loopback warnings, duplicates |
+| first-visit delta not exact | MAI-D0-22: `mcp/spec` measured (845,157 B → 848,367 B, +3,210 B) with per-file attribution; acceptance left to INT or the owner |
+| e2e workspaces left in `$TMPDIR` | MAI-D0-27: `close()` removes its own workspace; the seven empty leftovers removed |
+| published manifest exported `src/` | MAI-D0-13: `publishConfig.exports`; package test over the published entry points |
+
 ## Known issue outside D0 (reported to the anim-core owner)
 
 `anim-core/test/curve/insert.test.ts` "never writes −0 into a handle" is intermittently red under `pnpm run test`
@@ -190,21 +253,26 @@ or the insert must normalise `-0` on rewritten neighbours; a seed pin would only
 ## Tests added
 
 editor-core 22 (`mai-runner.test.ts`) + the registration literal; doc 7 (`restore-plan.test.ts`); headless-tests 3
-(`ops.mai-headless.test.ts`); agent-tools 107 (lint, manifest incl. the merge-base guard, policy + 45 per-operator
-invariant runs with pinned outcomes (5 gated on P1), budgets (`budget.test.ts`: every tool's cut result against its
-own schemas, every tool × four caps), runtime, resolver, sanitiser, bridge protocol incl. the hostile write names and
-mimes); motion-analysis 1; schematic-render 1; mcp-server 12 (CLI over the built bin, in-process server, arguments
-and origins); agent-evals 3; editor 4 (`mai.test.ts`); viewport 4 (`agentHost.test.ts`); e2e
+(`ops.mai-headless.test.ts`, incl. the path-free sample error); agent-tools 117 (lint incl. unbounded records and
+examples, final input schemas (Targets over nine tools, record bounds), manifest incl. the merge-base guard, policy +
+45 per-operator invariant runs with pinned outcomes (5 gated on P1), budgets (`budget.test.ts`: every tool's cut
+result against its own schemas, every tool × four caps), runtime (grants incl. Edit and View for activating creates,
+the unwalkable-failure fallback, progress, paths, `detail.example`), resolver, sanitiser (NFC after removals,
+cycles and depth), bridge protocol incl. the hostile write names and mimes); motion-analysis 1; schematic-render 1;
+mcp-server 13 (CLI over the built bin, the published manifest's entry points, in-process server, arguments and
+canonical origins); agent-evals 3; editor 4 (`mai.test.ts`); viewport 4 (`agentHost.test.ts`); e2e
 `ai-00-foundation.spec.ts` (2).
 
-## Gates (2026-10-20, local, after review fix round 1)
+## Gates (2026-10-20, local, after review fix round 2)
 
 `format:check` (1,044 files), `lint`, `typecheck`, `check:deps` (18 packages), `check:licenses` (174 production
-packages), `check:fixtures` green; lockfile in sync (`--frozen-lockfile --lockfile-only`); `pnpm run test` 19/19 turbo
-tasks with `CI` unset (browser suites in local Chrome): agent-tools 101 passed / 6 skipped (P1 gates, update mode),
-mcp-server 12, viewport 104 / 1 skipped, editor 355 / 1 skipped, anim-core 650, the rest unchanged; `pnpm run build`
-green; `check:size` 848,319 B ≤ 900,000 B (headroom 51,681 B; 1,681 B under the 850,000 B target — the viewport's
-focus check added 52 B to MAI-D0-22's figure); `mcp:build` one `dist/cli.mjs` whose only top-level imports are
-`node:path` and `node:process`; e2e with `--project=chrome` on port 3270 against one e2e build: `ai-00-foundation`
-2/2, then the full suite once: 116 tests, 107 passed, 9 skipped (pre-existing fixmes), 0 failed. The server was
-stopped afterwards; port 3270 is free.
+packages), `check:fixtures` green; lockfile in sync (`--frozen-lockfile --lockfile-only`); `turbo run test
+test:tooling --force` 19/19 tasks, 0 cached, with `CI` unset (browser suites in local Chrome): agent-tools 111 passed
+/ 6 skipped (P1 gates, update mode), mcp-server 13 (the built-bin tests ran), headless-tests 173, editor-core 769,
+viewport 104 / 1 skipped, editor 355 / 1 skipped, curve-editor 209 / 3 skipped, anim-core 650, the rest unchanged;
+`turbo run build --force` green; `check:size` 848,367 B ≤ 900,000 B (headroom 51,633 B; 1,633 B under the 850,000 B
+target; `mcp/spec` itself 845,157 B, MAI-D0-22); `mcp:build` one `dist/cli.mjs` whose only top-level imports are
+`node:path` and `node:process`; `pnpm pack` of `ekza-animator-mcp` checked once by hand (`exports` is
+`./package.json`); e2e with `--project=chrome` on port 3270: `ai-00-foundation` 2/2, then the full suite once
+against one fresh e2e build: 116 tests, 107 passed, 9 skipped (pre-existing fixmes), 0 failed. The web server stopped
+by itself; port 3270 is free; no `ekza-ai-e2e-*` folder is left in `$TMPDIR`.
