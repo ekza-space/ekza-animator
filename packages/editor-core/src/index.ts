@@ -113,7 +113,29 @@ export { controlVisibilityResolver, limbHiddenControls, limbVisibilityState } fr
 export { createCapture } from './app/factories/capture';
 export { createExtrude } from './app/factories/extrude';
 export { historyLabels } from './history/history';
-export { type KernelMeshRuntimes, loadMeshKernel, type MeshKernel, meshKernel } from './mesh';
+export {
+  attachMeshes,
+  BUDGET_TOAST,
+  type CommitContext,
+  type GcReport,
+  jointPaletteOf,
+  type KernelMeshRuntimes,
+  kernelMeshes,
+  type LastSetOp,
+  loadMeshKernel,
+  type MeshKernel,
+  meshKernel,
+  morphNamesOf,
+  type PaletteJoint,
+  readSkin,
+  refJointsOf,
+  type RunSettings,
+  type SkinRead,
+  SWEEP_INTERVAL_MS,
+  uniqueMeshName,
+  worldPlacement,
+} from './mesh';
+export { adjustedRun, runSeed, runSeedOf, runSettings } from './mesh/seed';
 export { MESH_EXTRA_ARGS, meshOperator, meshSetOperator } from './mesh/operator';
 export { MESH_OPERATORS } from './operators/builtin/mesh';
 export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
@@ -121,7 +143,7 @@ export { NOT_AVAILABLE_YET } from './operators/builtin/stub';
 export type { LastRunRecorder } from './operators/runner';
 export { defaultModelingPrefs } from './prefs/defaults';
 export { createComponentSelectionService } from './selection';
-export { createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
+export { addBlobSource, type BlobSource, createMemoryBlobStore, type MemoryBlobStore } from './services/blobs';
 export { defaultModelSession } from './session/defaults';
 export { restoreSelectionPart, type StoredSelectionSnapshot } from './session/selection';
 export {
@@ -179,5 +201,80 @@ export {
 } from './selection/component';
 export { recordHide, sameSelection, selectionGesture, undoSelectionOn } from './selection/component/steps';
 export { repairModel } from './session/repair';
+// M6a (B11, M6A-SPEC §5.7, §5.10, §8.5, §8.6): typed parameter values, the LastRun recorder and tracker, Adjust Last
+// and Repeat Last helpers, the numeric capture window and the Last-op card's open state, the mesh op registration.
+// ./edit/paramInput and ./operators/builtin/lastopEngine are the B11 runtime chunk (§5.27): only lazy code (the card
+// and option-box views, the test API) imports their exports, so the eager route drops them; eager code reaches the
+// engines through `loadOpsRuntime`.
+export {
+  type CaptureKeyEvent,
+  type CaptureMessage,
+  bindCapture,
+  createNumericCapture,
+  dismissLastOpCard,
+  ENTRY_DISCARDED,
+  type InputsFieldSelection,
+  type LastOpCardState,
+  lastOpCardState,
+  type NumericCapture,
+  numericParams,
+  openLastOpCard,
+  primaryVisibleParam,
+  resetLastOpCard,
+  selectedInputsField,
+  selectInputsField,
+  setLastOpCardExpanded,
+  subscribeInputsField,
+  subscribeLastOpCard,
+  visibleParams,
+} from './edit/capture';
+export {
+  clampParamValue,
+  formatParamValue,
+  nonDefaultParams,
+  type ParamInputResult,
+  paramEditText,
+  paramSliderRate,
+  parseParamInput,
+} from './edit/paramInput';
+export { repeatArgs } from './operators/builtin/edit';
+export {
+  activateTool,
+  adjustingOperator,
+  adjustLastRun,
+  adjustProblem,
+  attachLastRunTracker,
+  closeLastRun,
+  type FinishedRun,
+  LAST_RUN_CLOSED,
+  lastAdjustRefusal,
+  lastRunWarnings,
+  liveLastRun,
+  loadOpsRuntime,
+  NO_OPERATION_TO_ADJUST,
+  NOTHING_TO_REPEAT,
+  type OpsRuntime,
+  opsRuntime,
+  pendingAdjust,
+  recordLastRun,
+  recordsLastRun,
+} from './operators/builtin/lastop';
+export {
+  adjustedArgs,
+  beginCardPreview,
+  CARD_PREVIEW_BUDGET_MS,
+  type CardPreview,
+  coercePartial,
+} from './operators/builtin/lastopEngine';
+export {
+  INTERNAL_MESH_OPS,
+  MESH_OP_ALIASES,
+  MESH_OP_TOOLS,
+  registeredMeshOperator,
+  registeredMeshSetOperator,
+  WHOLE_MESH_OPS,
+  wholeMeshRun,
+} from './operators/builtin/mesh';
+export { coerceRunArgs, recordNoLastRun } from './operators/runner';
 // M6a (B9): the pane display operators' vocabulary (view.shading, view.display.set, view.display.toggle).
 export { BOOLEAN_DISPLAY_FLAGS, displayPatchProblem, SHADINGS } from './operators/builtin/workspace';

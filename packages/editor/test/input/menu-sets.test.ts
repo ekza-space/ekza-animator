@@ -128,7 +128,11 @@ describe('menu sets per workspace', () => {
     const test = setup();
     enter(test, 'model', 'face');
     const extrude = menuContents(test.app, 'edit-mesh', {}).sections[0]?.items[0];
-    expect(extrude).toMatchObject({ label: 'Extrude', op: 'mesh.extrude', disabledReason: 'not available yet' });
+    // B11 landed `mesh.extrude` (literal update, M6A-SPEC §6.1): the item shows its own poll reason, here before the
+    // lazy kernel has loaded; operators whose owners have not landed still say "not available yet".
+    expect(extrude).toMatchObject({ label: 'Extrude', op: 'mesh.extrude', disabledReason: 'Mesh tools are loading' });
+    const centerPivot = menuContents(test.app, 'modify', {}).sections[0]?.items[0];
+    expect(centerPivot).toMatchObject({ op: 'mesh.pivot.center', disabledReason: 'not available yet' });
   });
 });
 
