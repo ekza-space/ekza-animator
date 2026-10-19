@@ -9,15 +9,19 @@
 //   corner (Mesh Check reports `ngon-degenerate`, `isDegenerateNgon`).
 // - Triangles are emitted in face order, CCW; every face yields exactly n − 2 triangles, so the arrays are sized
 //   C − 2F up front.
-// Incremental: with a `cache` of the same face layout and a list of dirty faces, only those faces are recomputed
-// (the list is valid for edits that kept the counts and corner cycles — positions, flags; a topology edit passes
-// 'all'); a cache whose layout no longer matches is ignored.
+// Incremental: with a `cache` and a list of dirty faces, only those faces are recomputed. The list MUST name every
+// face whose triangles can differ: faces with a moved vertex, a changed flag or a changed corner. That is only
+// decidable without topology edits: after any topology edit (`DirtySet.topology`) pass 'all' — `DirtySet.faces` does
+// not list a face whose corners were renumbered under it (a removal moves another face's corners into the freed
+// slots without writing the face's own arrays), and a stale cache cannot detect that. `dirtyTriangleFaces` derives
+// the right argument from a `DirtySet`. The only check the list path makes is a cheap one: a dirty face whose
+// triangle count changed (or a cache of another face count) falls back to a full run.
 import earcut from 'earcut';
 import { FACE_FLIP_DIAGONAL } from '../constants';
 import { isEditMesh } from '../core/access';
 import { KernelMesh } from '../core/mesh';
 import { kernelError } from '../kernel';
-import type { EditMesh, MeshData, Triangulation } from '../types';
+import type { DirtySet, EditMesh, MeshData, Triangulation } from '../types';
 
 /** The stored arrays triangulation reads (zero-copy views of a kernel mesh, or a MeshData). */
 interface Arrays {
@@ -245,4 +249,41 @@ function incrementalTriangulation(
     triangulateFace(a, f, corners, out);
   }
   return { tris: out.tris, triFace: out.triFace, faceTriStart: cache.faceTriStart };
+}
+
+/**
+ * The `dirtyFaces` argument of `triangulate` for the edits a `DirtySet` describes: 'all' after a topology edit (or an
+ * 'all' list), otherwise the sorted faces that are dirty themselves (flags), use a dirty corner or touch a dirty
+ * point (positions). `m` is the mesh after the edit.
+ */
+export function dirtyTriangleFaces(m: EditMesh, dirty: DirtySet): Uint32Array | 'all' {
+  if (dirty.topology || dirty.faces === 'all' || dirty.points === 'all' || dirty.corners === 'all') return 'all';
+  const { points: P, faces: F, corners: C } = m.counts;
+  const out = new Uint8Array(F);
+  for (const f of dirty.faces) if (f < F) out[f] = 1;
+  for (const c of dirty.corners) if (c < C) out[m.cornerFace(c)] = 1;
+  for (const v of dirty.points) {
+    if (v >= P) continue;
+    const start = m.vertEdge(v);
+    if (start === -1) continue;
+    let e = start;
+    let guard = 0;
+    do {
+      const r = m.edgeCorner(e);
+      if (r !== -1) {
+        let c = r;
+        do {
+          out[m.cornerFace(c)] = 1;
+          c = m.cornerRadialNext(c);
+        } while (c !== r);
+      }
+      e = m.edgeDiskNext(e, v);
+    } while (e !== start && e !== -1 && ++guard <= m.counts.edges);
+  }
+  let n = 0;
+  for (let f = 0; f < F; f++) n += out[f] as number;
+  const list = new Uint32Array(n);
+  let o = 0;
+  for (let f = 0; f < F; f++) if (out[f] === 1) list[o++] = f;
+  return list;
 }
