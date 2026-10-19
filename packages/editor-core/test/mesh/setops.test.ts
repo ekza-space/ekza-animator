@@ -209,6 +209,38 @@ describe('MeshSetOp runner (§5.13)', () => {
   });
 });
 
+describe('MeshSetOp output selections', () => {
+  it('an updated input keeps the selection the op left on it once its batch has brought it to the new revision', async () => {
+    const t = await meshTestApp();
+    const id = createMesh(t, 'msh_In');
+    const plane = primitive('plane', { subdivisionsWidth: 2 });
+    const reshape = setOp('mesh.test.reshape', 'one', (inputs) => {
+      const input = inputs[0] as MeshSetInput;
+      return {
+        outputs: [
+          {
+            key: input.key,
+            data: plane,
+            placement: input.placement,
+            materials: input.materials,
+            from: [input.key],
+            selection: selectionOf('face', [1], plane.counts),
+            name: 'kept',
+          },
+        ],
+        removed: [],
+        warnings: [],
+      };
+    });
+    register(t, reshape, () => 'seed');
+    expect((await t.app.runUntyped('mesh.test.reshape', { meshes: [id] })).status).toBe('finished');
+    expect(t.app.meshes.get(id)?.data()?.counts).toEqual(plane.counts);
+    const kept = t.meshes.localSelection(id);
+    expect(kept?.faces.size).toBe(plane.counts.faces);
+    expect([...(kept?.faces.toArray() ?? [])]).toEqual([1]);
+  });
+});
+
 describe('MeshSetOp outputs under the kernel debug switch (§5.5 rule 7, §3 rule 8)', () => {
   it('validates every output: an invalid one fails the run with invalid-mesh naming the op; nothing is written', async () => {
     const t = await meshTestApp();

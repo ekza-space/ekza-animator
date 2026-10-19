@@ -590,6 +590,18 @@ describe("'before-last' reads what the last op read (§4.6, §5.7 card drags)", 
     expect(faces(t, id)).toEqual([1]);
   });
 
+  it('an undo that ends a tool preview restores what the op read (the fallback follows the committed ref)', async () => {
+    const { t, id, op } = await afterAdvance();
+    const session = t.app.meshes.beginOp(op, [id], { dy: 0.2 }); // a tool preview on the current selection (face 1)
+    expect(op.reads[1]).toEqual([1]);
+    t.app.history.undo();
+    expect(session.active).toBe(false);
+    expect((session as unknown as { endedBecause: string }).endedBecause).toBe('The mesh changed');
+    expect(faces(t, id)).toEqual([0]);
+    t.app.history.redo();
+    expect(faces(t, id)).toEqual([1]);
+  });
+
   it('commitOp takes a session only when its run would read the same selection; else it re-runs', async () => {
     const t = await meshTestApp();
     const id = createMesh(t, 'msh_Cube');

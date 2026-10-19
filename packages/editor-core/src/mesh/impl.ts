@@ -180,6 +180,8 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
   /** Runtimes a commit path touched in this task: verified against the committed refs in a microtask. */
   const touched = new Set<MeshRuntimeImpl>();
   const localSelections = new Map<MeshId, ComponentSelection>();
+  /** Selections a MeshSetOp left on its outputs, stored once the batch has brought each output to that revision. */
+  const selectionsAfter = new Map<MeshId, { readonly manifest: string; readonly sel: ComponentSelection }>();
   /** True while the component selection service cannot store selections (B10 not landed): the runtime keeps them. */
   let selectionFallback = false;
   /** §3 rule 8: whole revisions (set-op outputs, `writeData`, `storeRevision`) are validated like `EditMesh.end`. */
@@ -315,8 +317,8 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
 
   /**
    * The fallback's stand-in for `TxMeta.selectionBefore/After` (until B10 restores them): when an undo or redo moves a
-   * mesh across a journal edge, the kept selection becomes what that op read (undo) or left (redo); any other content
-   * change drops it (its indices may not match).
+   * mesh's committed ref across a journal edge, the kept selection becomes what that op read (undo) or left (redo); any
+   * other change of the committed data drops it (its indices may not match). A commit's own batch keeps the op's result.
    */
   const followLocalSelection = (
     id: MeshId,
@@ -361,8 +363,21 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     s.cancel();
   };
 
-  /** Brings a runtime to `record` (its committed ref), creating it when needed. */
+  /** Brings a runtime to `record` (its committed ref), creating it when needed; then the set-op selection it waits for. */
   const syncRecord = (id: MeshId, record: MeshRecord | undefined, origin: ChangeBatch['origin'] | null): void => {
+    syncRuntime(id, record, origin);
+    const after = selectionsAfter.get(id);
+    if (after === undefined) return;
+    selectionsAfter.delete(id);
+    if (record?.data?.manifest !== after.manifest || !runtimes.has(id)) return;
+    try {
+      storeSelection(id, after.sel);
+    } catch {
+      // A selection the service refuses (its revision is not ready): the mesh keeps none.
+    }
+  };
+
+  const syncRuntime = (id: MeshId, record: MeshRecord | undefined, origin: ChangeBatch['origin'] | null): void => {
     if (record === undefined || record.data === null) {
       setLive(id, null);
       dispose(id);
@@ -384,15 +399,19 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
       runtime.follow();
       return;
     }
+    let confirmed = false;
     if (runtime.pending !== null) {
       if (runtime.pending.to.manifest === ref.manifest) {
         const edge = runtime.confirm();
         if (edge !== null) confirmedEdges.push(edge);
+        confirmed = true;
       } else {
         runtime.revertPending();
       }
     }
     runtime.ref = ref;
+    // The fallback selection follows the committed data (a commit's own batch keeps the op's result).
+    if (!confirmed) followLocalSelection(id, previous, ref.manifest, origin);
     if (session !== null && session.active && session.meshes.includes(id)) {
       // Only a change of `data` concerns the session (§5.5 rule 6): a rename or a move keeps it.
       if (previous === ref.manifest) return;
@@ -401,13 +420,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
       // The session's base is the content it started from (for 'before-last' the pre-op revision): the undo of the
       // last op lands there and keeps the session; any other revision ends it.
       else if (runtime.current !== ref.manifest) endSession('The mesh changed');
-      else {
-        followLocalSelection(id, previous, ref.manifest, origin);
-        return;
-      }
-    }
-    if (runtime.current !== ref.manifest && runtime.state === 'ready') {
-      followLocalSelection(id, runtime.current, ref.manifest, origin);
+      else return;
     }
     runtime.follow();
   };
@@ -427,6 +440,7 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
       for (const id of runtimes.keys()) dispose(id);
       for (const id of liveRefs.keys()) setLive(id, null);
       localSelections.clear();
+      selectionsAfter.clear();
       lastSetOp = null;
       pinLastOp([]);
       for (const record of store.list('meshes')) syncRecord(record.id, record, 'load');
@@ -470,6 +484,8 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
     }
     touched.clear();
     preloaded.clear();
+    // Left over from a transaction that aborted (its batch never came).
+    selectionsAfter.clear();
   };
   const touch = (runtime: MeshRuntimeImpl): void => {
     touched.add(runtime);
@@ -1064,9 +1080,11 @@ export function createMeshRuntimeImpl(deps: MeshImplDeps): KernelMeshRuntimes {
         storeRevision: (data, prior, joints) => storeWhole(kernel, data, prior, joints, op.id),
         ...(ctx.adjusting === true && lastSetOp?.opId === op.id ? { expectOutputs: lastSetOp.outputs } : {}),
       });
+      // The outputs' selections index the new revisions: stored when the batch has brought the runtimes there.
       for (const id of [...result.result.created, ...result.result.updated]) {
         const sel = result.selections.get(id);
-        if (sel !== undefined && sel !== null) storeSelection(id, sel);
+        const manifest = tx.get('meshes', id)?.data?.manifest;
+        if (sel !== undefined && sel !== null && manifest !== undefined) selectionsAfter.set(id, { manifest, sel });
       }
       pinLastOp([]);
       lastSetOp = { opId: op.id, inputs: result.preOp, outputs: result.outputKeys };
