@@ -616,17 +616,24 @@ class Engine implements ExtrudeEngine {
     if (live !== null && opts.drop && reason !== 'undo') this.drop(live);
   }
 
-  /** Ends the session (state cleared, the manipulator tool's predecessor back); returns what it ended. */
-  private close(): Live | null {
+  /**
+   * Ends the session (state cleared, the manipulator tool's predecessor back unless `keepTool`: a smart extrude started
+   * on the manipulator keeps its tool for the drag and the session it opens); returns what it ended.
+   */
+  private close(keepTool = false): Live | null {
     const live = this.live;
     if (live === null) return null;
     this.live = null;
     this.host.setState(null);
+    if (!keepTool) this.restoreTool(live.previousTool);
+    return live;
+  }
+
+  private restoreTool(previous: string | null): void {
     const tools = this.app.session.getState().tools;
     if (tools.viewport === EXTRUDE_TOOL) {
-      this.app.session.setState({ tools: { ...tools, viewport: live.previousTool ?? 'select' } });
+      this.app.session.setState({ tools: { ...tools, viewport: previous ?? 'select' } });
     }
-    return live;
   }
 
   /** §5.8 zero-drop: an ended session whose args are the identity undoes its extrude (while it is the top step). */
@@ -767,9 +774,18 @@ class Engine implements ExtrudeEngine {
     const runCtx: RunContext = { ...ctx, source: 'tool' };
     if ((def.poll?.(operatorContext(app, runCtx), {}) ?? true) !== true) return null;
     // Shift at the start always ends the open session first (its zero-drop included), then reads the selection.
-    this.end('smart', { drop: true });
+    const ended = this.close(true);
+    if (ended !== null) this.drop(ended);
+    const previousTool = ended?.previousTool ?? null;
+    /** A smart extrude that ran nothing hands the viewport back from the manipulator tool (no session to show). */
+    const settle = (): void => {
+      if (this.live === null) this.restoreTool(previousTool);
+    };
     const captured = this.captureFrame({});
-    if (captured === null) return null;
+    if (captured === null) {
+      settle();
+      return null;
+    }
     const targets = targetsOf(app, {}, mode, false);
     const defaults = app.prefs.getState().modeling.optionDefaults['mesh.extrude'] ?? {};
     const start: ParamValues = { ...defaults };
@@ -793,17 +809,20 @@ class Engine implements ExtrudeEngine {
         done = true;
         if (Object.keys(patchOf(start, next)).length === 0) {
           if (session?.active === true) session.cancel();
+          settle();
           return;
         }
         this.smart = captured;
         void app.runUntyped('mesh.extrude', { ...next }, runCtx).then((result) => {
           if (result.status !== 'finished' && session?.active === true) session.cancel();
+          settle();
         });
       },
       cancel() {
         if (done) return;
         done = true;
         if (session?.active === true) session.cancel();
+        settle();
       },
     };
   }
