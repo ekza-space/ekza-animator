@@ -288,8 +288,8 @@ export {
   SOFT_CURVES,
   SOFT_FALLOFFS,
   softPatch,
-  softWeightsOf,
 } from './operators/builtin/softSelect';
+export { softWeightsOf } from './operators/builtin/softWeights';
 export { SYMMETRY_LABELS, SYMMETRY_MODES, symmetryOf, symmetryTargets } from './operators/builtin/symmetry';
 export {
   componentSpaceOn,
@@ -308,14 +308,10 @@ export {
   defaultObjects,
   FREEZE_PARAMS,
   FREEZE_SKINNED,
-  freezeMatrix,
-  frozenPlacement,
   MESH_LOADING,
   NOTHING_TO_FREEZE,
   NOTHING_TO_TRANSFORM,
   type ObjectRecord,
-  objectBounds,
-  objectMatrix,
   objectRecord,
   objectTableOf,
   placementArg,

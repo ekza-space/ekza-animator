@@ -14,24 +14,13 @@
 //   are compensated (M·C). Groups apply to their descendant meshes. Skinned meshes refuse (`freeze.skinned`).
 // - `scene.object.transform {ids, placements}`: object W/E/R, MMB and Channel Box commits in Model, labelled by the
 //   dominant change ("Move", "Rotate", "Scale").
-import {
-  EkzaError,
-  type Mat4,
-  mat4Compose,
-  mat4Decompose,
-  mat4Invert,
-  mat4Multiply,
-  type ParamDef,
-  type ReadonlyVec3,
-  type ReadonlyXf,
-  type Vec3,
-  type Xf,
-} from '@ekza-animator/anim-core';
+// The bounds and the matrices are the lazy half (`pivotImpl.ts`, loaded by `prepare`, §5.27).
+import type { ParamDef, ReadonlyVec3, ReadonlyXf, Vec3, Xf } from '@ekza-animator/anim-core';
 import type { GroupId, GroupRecord, MeshId, MeshRecord, ReadView, Tx } from '@ekza-animator/doc';
-import { attachMeshes, meshKernel } from '../../mesh';
-import { runSeed } from '../../mesh/seed';
-import type { ApplyContext, EditorApp, OperatorContext, PollResult } from '../../types';
+import { meshKernel } from '../../mesh';
+import type { EditorApp, OperatorContext, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';
+import type * as PivotImpl from './pivotImpl';
 import { MODEL_SETTINGS_REASON } from './softSelect';
 
 /** A mesh or group record (scene objects with a placement and a pivot). */
@@ -41,6 +30,9 @@ export const NOTHING_TO_TRANSFORM = 'Select a mesh or group first';
 export const MESH_LOADING = 'Mesh is loading';
 export const FREEZE_SKINNED = 'Freezing would move a skinned mesh off its bones';
 export const NOTHING_TO_FREEZE = 'Choose translate, rotate or scale to freeze';
+
+type Impl = typeof PivotImpl;
+const loadImpl = (): Promise<Impl> => import('./pivotImpl');
 
 // ---------------------------------------------------------------------------------------------------------------
 // records
@@ -55,32 +47,14 @@ export function objectTableOf(record: ObjectRecord): 'meshes' | 'groups' {
   return 'data' in record ? 'meshes' : 'groups';
 }
 
-function ownerKey(record: ObjectRecord): string {
-  return 'character' in record.owner ? `char:${record.owner.character}` : 'scene';
-}
-
-/** The scene matrix of an object: the character root (character-owned), then the placements from the top down. */
-export function objectMatrix(view: ReadView, record: ObjectRecord): Mat4 {
-  const chain: ReadonlyXf[] = [record.placement];
-  const seen = new Set<string>([record.id]);
-  let parent: string | null = record.parent;
-  while (parent !== null && !seen.has(parent)) {
-    seen.add(parent);
-    const next = objectRecord(view, parent);
-    if (next === null || ownerKey(next) !== ownerKey(record)) break;
-    chain.push(next.placement);
-    parent = next.parent;
-  }
-  let world: Mat4 | null = null;
-  if ('character' in record.owner) {
-    const character = view.get('characters', record.owner.character);
-    if (character !== undefined) world = mat4Compose(character.placement);
-  }
-  for (let i = chain.length - 1; i >= 0; i--) {
-    const local = mat4Compose(chain[i] as ReadonlyXf);
-    world = world === null ? local : mat4Multiply(world, local);
-  }
-  return world ?? mat4Compose(record.placement);
+/** Patches the placement or pivot of a mesh or group. */
+export function patchObject(
+  tx: Tx,
+  record: ObjectRecord,
+  fields: { readonly placement?: ReadonlyXf; readonly pivot?: ReadonlyVec3 },
+): void {
+  if ('data' in record) tx.patch('meshes', record.id, fields);
+  else tx.patch('groups', record.id, fields);
 }
 
 /** Direct children (meshes and groups of the same owner) of an object. */
@@ -92,7 +66,7 @@ export function childrenOf(view: ReadView, record: ObjectRecord): ObjectRecord[]
 }
 
 /** Every descendant mesh of an object (depth first, parents before children). */
-function descendantMeshes(view: ReadView, record: ObjectRecord, seen = new Set<string>()): MeshRecord[] {
+export function descendantMeshes(view: ReadView, record: ObjectRecord, seen = new Set<string>()): MeshRecord[] {
   const out: MeshRecord[] = [];
   for (const child of childrenOf(view, record)) {
     if (seen.has(child.id)) continue;
@@ -101,6 +75,11 @@ function descendantMeshes(view: ReadView, record: ObjectRecord, seen = new Set<s
     out.push(...descendantMeshes(view, child, seen));
   }
   return out;
+}
+
+/** The meshes an object's bounds or Freeze read: the mesh itself, or a group's descendant meshes with data. */
+function meshesOf(view: ReadView, record: ObjectRecord): MeshRecord[] {
+  return ('data' in record ? [record] : descendantMeshes(view, record)).filter((mesh) => mesh.data !== null);
 }
 
 /** The objects an operator applies to by default: the hilite in a component mode, else the selected objects. */
@@ -170,73 +149,14 @@ export function placementArg(value: unknown): Xf | null {
   return { t, q: [x / len, y / len, z / len, w / len], s };
 }
 
-// ---------------------------------------------------------------------------------------------------------------
-// bounds
-
-/** Local-space positions of a ready mesh, or null while its runtime is not ready. */
-function meshPositions(
-  app: EditorApp,
-  id: MeshId,
-): { readonly position: ArrayLike<number>; readonly n: number } | null {
-  const runtime = app.meshes.get(id);
-  if (runtime === undefined || runtime.state !== 'ready') return null;
-  const data = runtime.data();
-  if (data === null) return null;
-  return { position: data.position, n: data.counts.points };
+function ready(app: EditorApp, meshes: readonly MeshRecord[]): boolean {
+  return meshes.every((mesh) => app.meshes.get(mesh.id)?.state === 'ready');
 }
 
-interface Bounds {
-  readonly min: Vec3;
-  readonly max: Vec3;
-}
-
-function apply4(m: Mat4, x: number, y: number, z: number): Vec3 {
-  return [
-    (m[0] as number) * x + (m[4] as number) * y + (m[8] as number) * z + (m[12] as number),
-    (m[1] as number) * x + (m[5] as number) * y + (m[9] as number) * z + (m[13] as number),
-    (m[2] as number) * x + (m[6] as number) * y + (m[10] as number) * z + (m[14] as number),
-  ];
-}
-
-/**
- * Bounds of an object in its own space: a mesh's points; a group's descendant meshes' points mapped into the
- * group. 'loading' while a mesh is not ready; null for an object without points.
- */
-export function objectBounds(app: EditorApp, record: ObjectRecord): Bounds | null | 'loading' {
-  const min: Vec3 = [Infinity, Infinity, Infinity];
-  const max: Vec3 = [-Infinity, -Infinity, -Infinity];
-  const add = (p: Vec3): void => {
-    for (let k = 0; k < 3; k++) {
-      min[k] = Math.min(min[k] as number, p[k] as number);
-      max[k] = Math.max(max[k] as number, p[k] as number);
-    }
-  };
-  const meshes: { readonly mesh: MeshRecord; readonly toLocal: Mat4 | null }[] = [];
-  if ('data' in record) meshes.push({ mesh: record, toLocal: null });
-  else {
-    const inverse = mat4Invert(objectMatrix(app.store, record));
-    if (inverse === null) return null;
-    for (const mesh of descendantMeshes(app.store, record)) {
-      if (mesh.data === null) continue;
-      meshes.push({ mesh, toLocal: mat4Multiply(inverse, objectMatrix(app.store, mesh)) });
-    }
-  }
-  for (const { mesh, toLocal } of meshes) {
-    const points = meshPositions(app, mesh.id);
-    if (points === null) return 'loading';
-    const p = points.position;
-    for (let v = 0; v < points.n; v++) {
-      const x = p[3 * v] as number;
-      const y = p[3 * v + 1] as number;
-      const z = p[3 * v + 2] as number;
-      add(toLocal === null ? [x, y, z] : apply4(toLocal, x, y, z));
-    }
-  }
-  return min[0] <= max[0] ? { min, max } : null;
-}
+const kernelReady = (): PollResult => (meshKernel() === null ? fail('Mesh tools are loading') : OK);
 
 // ---------------------------------------------------------------------------------------------------------------
-// `model.pivot.editToggle`, `mesh.pivot.*`
+// `model.pivot.editToggle`, `mesh.pivot.*`, `mesh.resetTransforms`
 
 const pivotEditToggle = defineOperator({
   id: 'model.pivot.editToggle',
@@ -275,23 +195,6 @@ const pivotSet = defineOperator({
   },
 });
 
-/** A pivot from the bounds (`center`, `bottomCenter`) or the origin (`reset`). */
-function pivotFrom(kind: 'center' | 'bottomCenter' | 'reset', bounds: Bounds | null): Vec3 | null {
-  if (kind === 'reset') return [0, 0, 0];
-  if (bounds === null) return null;
-  const cx = 0.5 * (bounds.min[0] + bounds.max[0]);
-  const cz = 0.5 * (bounds.min[2] + bounds.max[2]);
-  return kind === 'center' ? [cx, 0.5 * (bounds.min[1] + bounds.max[1]), cz] : [cx, bounds.min[1], cz];
-}
-
-function boundsPoll(app: EditorApp, raw: unknown, kind: 'center' | 'bottomCenter' | 'reset'): PollResult {
-  const targets = targetsOf(app, raw);
-  if (typeof targets === 'string') return fail(targets);
-  if (kind === 'reset') return OK;
-  for (const record of targets) if (objectBounds(app, record) === 'loading') return fail(MESH_LOADING);
-  return OK;
-}
-
 function pivotFromBounds(
   id: 'mesh.pivot.center' | 'mesh.pivot.bottomCenter' | 'mesh.pivot.reset',
   label: string,
@@ -304,67 +207,23 @@ function pivotFromBounds(
     description,
     ...pivot,
     extraArgs: ['ids'],
-    poll: ({ app }, raw) => boundsPoll(app, raw, kind),
-    apply({ app, tx }: ApplyContext, raw: unknown) {
+    poll({ app }, raw) {
+      const targets = targetsOf(app, raw);
+      if (typeof targets === 'string') return fail(targets);
+      if (kind === 'reset') return OK;
+      return targets.every((record) => ready(app, meshesOf(app.store, record))) ? OK : fail(MESH_LOADING);
+    },
+    prepare: loadImpl,
+    apply({ app, tx }, raw, impl) {
       const targets = targetsOf(app, raw);
       if (tx === null || typeof targets === 'string') return;
-      for (const record of targets) {
-        const bounds = objectBounds(app, record);
-        const next = pivotFrom(kind, bounds === 'loading' ? null : bounds);
-        if (next !== null) patchObject(tx, record, { pivot: next });
-      }
+      (impl as Impl).applyPivotFrom(app, tx, targets, kind);
     },
   };
   return def;
 }
 
-/** Moves the children of an object by `delta` in its space (T(delta)·C), keeping their world placement when the
- *  object's own frame moved by −delta. */
-function shiftChildren(tx: Tx, record: ObjectRecord, delta: ReadonlyVec3): void {
-  for (const child of childrenOf(tx, record)) {
-    const t = child.placement.t;
-    patchObject(tx, child, {
-      placement: { ...child.placement, t: [t[0] + delta[0], t[1] + delta[1], t[2] + delta[2]] },
-    });
-  }
-}
-
-/** Patches the placement or pivot of a mesh or group. */
-export function patchObject(
-  tx: Tx,
-  record: ObjectRecord,
-  fields: { readonly placement?: ReadonlyXf; readonly pivot?: ReadonlyVec3 },
-): void {
-  if ('data' in record) tx.patch('meshes', record.id, fields);
-  else tx.patch('groups', record.id, fields);
-}
-
-/** `placement.t + R·(s ∘ v)`: where a local point v sits in the parent. */
-function inParent(placement: ReadonlyXf, v: ReadonlyVec3): Vec3 {
-  const m = mat4Compose(placement);
-  return apply4(m, v[0], v[1], v[2]);
-}
-
-function kernelReady(): PollResult {
-  return meshKernel() === null ? fail('Mesh tools are loading') : OK;
-}
-
-/** Runs `mesh.applyTransform {matrix}` on one mesh inside the operator's transaction (B4's kernel op). */
-function applyMatrix(ctx: ApplyContext, tx: Tx, opId: string, mesh: MeshId, matrix: Mat4): void {
-  const kernel = meshKernel();
-  const meshes = attachMeshes(ctx.app);
-  const op = kernel?.MESH_OPS['mesh.applyTransform'];
-  if (kernel === null || meshes === null || op === undefined) {
-    throw new EkzaError('mesh-loading', 'Mesh tools are loading');
-  }
-  meshes.commitOp(tx, op, [mesh], { matrix: Array.from(matrix) }, { seed: runSeed(ctx, opId), kind: null });
-}
-
-function isIdentityTranslation(v: ReadonlyVec3): boolean {
-  return v[0] === 0 && v[1] === 0 && v[2] === 0;
-}
-
-const pivotBake = defineOperator({
+const pivotBake = defineOperator<'mesh.pivot.bake', Impl>({
   id: 'mesh.pivot.bake',
   label: 'Bake Pivot',
   description: 'Makes the pivot the object origin without moving the mesh.',
@@ -374,32 +233,20 @@ const pivotBake = defineOperator({
     const targets = targetsOf(app, raw);
     if (typeof targets === 'string') return fail(targets);
     if (targets.some((record) => 'data' in record)) {
-      const ready = kernelReady();
-      if (ready !== true) return ready;
+      const ok = kernelReady();
+      if (ok !== true) return ok;
     }
     for (const record of targets) {
-      if ('data' in record && record.skin !== null && !isIdentityTranslation(record.pivot)) return fail(FREEZE_SKINNED);
+      const moved = record.pivot[0] !== 0 || record.pivot[1] !== 0 || record.pivot[2] !== 0;
+      if ('data' in record && record.skin !== null && moved) return fail(FREEZE_SKINNED);
     }
     return OK;
   },
-  apply(ctx, raw) {
-    const { app, tx } = ctx;
-    const targets = targetsOf(app, raw);
-    if (tx === null || typeof targets === 'string') return;
-    for (const target of targets) {
-      const record = objectRecord(tx, target.id);
-      if (record === null || isIdentityTranslation(record.pivot)) continue;
-      const p = record.pivot;
-      if ('data' in record && record.data !== null) {
-        const shift = mat4Compose({ t: [-p[0], -p[1], -p[2]], q: [0, 0, 0, 1], s: [1, 1, 1] });
-        applyMatrix(ctx, tx, 'mesh.pivot.bake', record.id, shift);
-      }
-      shiftChildren(tx, record, [-p[0], -p[1], -p[2]]);
-      patchObject(tx, record, {
-        placement: { ...record.placement, t: inParent(record.placement, p) },
-        pivot: [0, 0, 0],
-      });
-    }
+  prepare: loadImpl,
+  apply(ctx, raw, impl) {
+    const targets = targetsOf(ctx.app, raw);
+    if (ctx.tx === null || typeof targets === 'string') return;
+    impl.applyBakePivot(ctx, ctx.tx, targets);
   },
 });
 
@@ -432,7 +279,7 @@ export const FREEZE_PARAMS: readonly ParamDef[] = [
   BOOL('scale', 'Scale'),
 ];
 
-interface FreezeParts {
+export interface FreezeParts {
   readonly translate: boolean;
   readonly rotate: boolean;
   readonly scale: boolean;
@@ -452,40 +299,13 @@ function freezeMeshes(view: ReadView, targets: readonly ObjectRecord[]): MeshRec
   const out: MeshRecord[] = [];
   const seen = new Set<string>();
   for (const record of targets) {
-    if ('data' in record) {
-      if (!seen.has(record.id)) {
-        seen.add(record.id);
-        out.push(record);
-      }
-    } else {
-      for (const mesh of descendantMeshes(view, record)) {
-        if (seen.has(mesh.id)) continue;
-        seen.add(mesh.id);
-        out.push(mesh);
-      }
+    for (const mesh of meshesOf(view, record)) {
+      if (seen.has(mesh.id)) continue;
+      seen.add(mesh.id);
+      out.push(mesh);
     }
   }
-  return out.filter((mesh) => mesh.data !== null);
-}
-
-/** The placement with the frozen parts reset to identity. */
-export function frozenPlacement(placement: ReadonlyXf, parts: FreezeParts): Xf {
-  return {
-    t: parts.translate ? [0, 0, 0] : [placement.t[0], placement.t[1], placement.t[2]],
-    q: parts.rotate ? [0, 0, 0, 1] : [placement.q[0], placement.q[1], placement.q[2], placement.q[3]],
-    s: parts.scale ? [1, 1, 1] : [placement.s[0], placement.s[1], placement.s[2]],
-  };
-}
-
-/** M = P′⁻¹·P: the mesh-local matrix that keeps the world where it was once the placement is P′. */
-export function freezeMatrix(placement: ReadonlyXf, next: ReadonlyXf): Mat4 | null {
-  const inverse = mat4Invert(mat4Compose(next));
-  return inverse === null ? null : mat4Multiply(inverse, mat4Compose(placement));
-}
-
-function isIdentityMatrix(m: Mat4): boolean {
-  for (let i = 0; i < 16; i++) if (Math.abs((m[i] as number) - (i % 5 === 0 ? 1 : 0)) > 1e-12) return false;
-  return true;
+  return out;
 }
 
 function freezePoll(ctx: OperatorContext, raw: unknown): PollResult {
@@ -495,17 +315,13 @@ function freezePoll(ctx: OperatorContext, raw: unknown): PollResult {
   if (!parts.translate && !parts.rotate && !parts.scale) return fail(NOTHING_TO_FREEZE);
   const meshes = freezeMeshes(ctx.app.store, targets);
   if (meshes.length === 0) return fail('Freeze works on meshes (a group freezes its meshes)');
-  const ready = kernelReady();
-  if (ready !== true) return ready;
-  for (const mesh of meshes) {
-    if (mesh.skin !== null) return fail(FREEZE_SKINNED);
-    const runtime = ctx.app.meshes.get(mesh.id);
-    if (runtime === undefined || runtime.state !== 'ready') return fail(MESH_LOADING);
-  }
-  return OK;
+  const ok = kernelReady();
+  if (ok !== true) return ok;
+  if (meshes.some((mesh) => mesh.skin !== null)) return fail(FREEZE_SKINNED);
+  return ready(ctx.app, meshes) ? OK : fail(MESH_LOADING);
 }
 
-const freezeTransforms = defineOperator({
+const freezeTransforms = defineOperator<'mesh.freezeTransforms', Impl>({
   id: 'mesh.freezeTransforms',
   label: 'Freeze Transformations',
   description: 'Bakes the object transforms into the mesh data.',
@@ -515,24 +331,11 @@ const freezeTransforms = defineOperator({
   extraArgs: ['ids'],
   aliases: ['Apply Transform'],
   poll: freezePoll,
-  apply(ctx, raw) {
-    const { app, tx } = ctx;
-    const targets = targetsOf(app, raw);
-    if (tx === null || typeof targets === 'string') return;
-    const parts = freezeParts(raw);
-    for (const target of freezeMeshes(app.store, targets)) {
-      // Parents first: a child's placement already carries its frozen parent's compensation.
-      const record = tx.get('meshes', target.id);
-      if (record === undefined) continue;
-      const next = frozenPlacement(record.placement, parts);
-      const matrix = freezeMatrix(record.placement, next);
-      if (matrix === null || isIdentityMatrix(matrix)) continue;
-      applyMatrix(ctx, tx, 'mesh.freezeTransforms', record.id, matrix);
-      for (const child of childrenOf(tx, record)) {
-        patchObject(tx, child, { placement: mat4Decompose(mat4Multiply(matrix, mat4Compose(child.placement))) });
-      }
-      tx.patch('meshes', record.id, { placement: next, pivot: apply4(matrix, ...record.pivot) });
-    }
+  prepare: loadImpl,
+  apply(ctx, raw, impl) {
+    const targets = targetsOf(ctx.app, raw);
+    if (ctx.tx === null || typeof targets === 'string') return;
+    impl.applyFreeze(ctx, ctx.tx, freezeMeshes(ctx.app.store, targets), freezeParts(raw));
   },
 });
 
