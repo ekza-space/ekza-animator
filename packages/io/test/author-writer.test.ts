@@ -6,7 +6,7 @@ import { readFixture } from '@ekza-animator/doc/testing';
 import { BUILTIN_LAYERS, EDGE_HARD, type MeshData, setKernelDebug } from '@ekza-animator/mesh-core';
 import { buildMeshData, cubeData } from '@ekza-animator/mesh-core/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { exportStaticModel, readBackStatic } from '../src/export/author/artifact';
+import { exportStaticModel, readBackStatic, withThreeReadBack } from '../src/export/author/artifact';
 import { writeStaticGlb } from '../src/export/author';
 import { parseGlb } from '../src/glb/parse';
 import { GltfReader } from '../src/gltf/accessor';
@@ -149,7 +149,21 @@ describe('writeStaticGlb', () => {
           expect(Math.abs((png.rgb[o + c] as number) - expected[c]!) / 255).toBeLessThanOrEqual(1 / 255);
       }
     }
-    expect(readBackStatic(bytes, scene)).toMatchObject({ ok: true, channels: 1, maxTranslationErrorM: 0 });
+    expect(readBackStatic(bytes, scene)).toEqual({
+      ok: true,
+      kind: 'static',
+      meshes: 1,
+      primitives: 1,
+      triangles: 12,
+      maxPaletteUvErrorTexels: 0,
+      deadCellVertices: 0,
+      three: null,
+      // The animation fields of ReadBackReport stay 0 on the static path.
+      animations: 0,
+      channels: 0,
+      maxRotationErrorRad: 0,
+      maxTranslationErrorM: 0,
+    });
     // three.js reads it (the browser's GLTFLoader path, run in Node).
     const loaded = await loadGltfInNode(bytes);
     let meshes = 0;
@@ -530,5 +544,40 @@ describe('static read-back', () => {
     expect(readBackStatic(other, scene).ok).toBe(false);
     expect(readBackStatic(makeGlb({ asset: { version: '2.0' } }, null), scene).ok).toBe(false);
     expect(readBackStatic(new Uint8Array(4), scene).ok).toBe(false);
+  });
+
+  it('fails when a palette vertex samples a cell without a live swatch', async () => {
+    // Written with 16 swatches, the top face samples slot 4's cell (rank 4); read back against a palette whose live
+    // swatches are slots 0–3 only, that cell holds no swatch.
+    const scene = sceneOf([meshNode('Cube', paintedCube(4))]);
+    const bytes = await writeStaticGlb(scene, { generator: 'test' });
+    expect(readBackStatic(bytes, scene)).toMatchObject({ ok: true, deadCellVertices: 0 });
+    const fewer: StaticScene = { ...scene, palettes: new Map([['pal_default', DEFAULT_16.slice(0, 4)]]) };
+    const report = readBackStatic(bytes, fewer);
+    expect(report.ok).toBe(false);
+    expect(report.deadCellVertices).toBeGreaterThanOrEqual(3);
+    expect(report.maxPaletteUvErrorTexels).toBe(0);
+  });
+
+  it('merges the host three.js read-back: agreement passes, a mismatch or a load error blocks with export.read-back', async () => {
+    const scene = sceneOf([meshNode('Cube', paintedCube())]);
+    const artifact = await exportStaticModel(scene, { fileName: 'cube.glb', profile: LOCAL, generator: 'test' });
+    expect(artifact.readBack).toMatchObject({ ok: true, three: null });
+    const agreed = withThreeReadBack(artifact, { ok: true, primitives: 1, triangles: 12 });
+    expect(agreed.readBack).toMatchObject({ ok: true, three: { ok: true, primitives: 1, triangles: 12 } });
+    expect(agreed.lints).toEqual(artifact.lints);
+    const short = withThreeReadBack(artifact, { ok: true, primitives: 1, triangles: 10 });
+    expect(short.readBack).toMatchObject({ ok: false, three: { ok: false, triangles: 10 } });
+    const blocking = short.lints.filter((lint) => lint.code === 'export.read-back');
+    expect(blocking.map((lint) => lint.severity)).toEqual(['error']);
+    expect(blocking[0]?.message).toMatch(/1 primitives with 10 triangles/);
+    const broken = withThreeReadBack(artifact, { ok: false, primitives: 0, triangles: 0, error: 'bad buffer' });
+    expect(broken.lints.find((lint) => lint.code === 'export.read-back')?.message).toMatch(/bad buffer/);
+    // An animation export's read-back is not a static one: unchanged.
+    const animation = {
+      ...artifact,
+      readBack: { ok: true, animations: 1, channels: 3, maxRotationErrorRad: 0, maxTranslationErrorM: 0 },
+    };
+    expect(withThreeReadBack(animation, { ok: false, primitives: 0, triangles: 0 })).toBe(animation);
   });
 });

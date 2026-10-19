@@ -27,7 +27,15 @@ export type MeshIoModule = typeof MeshIo;
 export function loadMeshIo(): Promise<MeshIoModule> {
   return import('./mesh');
 }
-export { exportStaticModel, readBackStatic, type StaticExportOptions } from './export/author/artifact';
+export {
+  exportStaticModel,
+  isStaticReadBack,
+  readBackStatic,
+  type StaticExportOptions,
+  type StaticReadBackReport,
+  type StaticThreeReadBack,
+  withThreeReadBack,
+} from './export/author/artifact';
 export { BUDGET_PRESETS, type BudgetPreset, profileBudget, resolveBudget } from './profiles/budgets';
 export type { MeshLintInput } from './lint/meshes';
 export { manualModelProvenance, modelBlock } from './provenance/model';
