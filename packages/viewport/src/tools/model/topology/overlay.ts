@@ -78,6 +78,11 @@ export class ToolOverlay {
     this.set([], []);
   }
 
+  /** The segment lists drawn now (xyz pairs, world) with their colours: what the previews show, for tests. */
+  get drawn(): readonly { readonly positions: Float32Array; readonly color: Rgb }[] {
+    return this.segments.map((s) => ({ positions: s.from, color: s.color }));
+  }
+
   dispose(): void {
     this.root.removeFromParent();
     this.lines.dispose();

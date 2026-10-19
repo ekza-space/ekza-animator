@@ -7,9 +7,12 @@
 // drag and typed percent; the extrude manipulator (shown with a session, its handles absorbed into the extrude's
 // args, the local/world toggle, `Esc` during the first drag ends the session with the zero-drop, `Shift` during a
 // drag ×0.1 per move) and the Inset value handle.
+import { EkzaError, quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
 import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
 import {
+  attachMeshes,
   type EditorApp,
+  extrudeManipulatorFrame,
   historyLabels,
   loadExtrudeEngine,
   loadMeshKernel,
@@ -18,24 +21,70 @@ import {
   type ToolPhase,
 } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import {
+  editMeshFrom,
+  isRefusal,
+  MESH_OPS,
+  type MeshData,
+  primitive,
+  selectionOf,
+  writeRevision,
+} from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelSelectRuntime, modelSelectOf } from '../../src';
+import { ringScreenTangent } from '../../src/manipulators/drag';
 import {
+  EXTRUDE_LAYOUT,
   extrudeGrabPoint,
   isExtrudeHandle,
   pickExtrudeHandle,
+  ringPoints,
   worldPerPixel,
 } from '../../src/manipulators/extrude/geometry';
 import { PaneProjector } from '../../src/picking/geometry';
 import { dragSpeed } from '../../src/tools/model/extrude/tool';
 import { snapT } from '../../src/tools/model/multicut/tool';
 import { pickRail, slidePercent } from '../../src/tools/model/slide/tool';
-import { loadTopologyKit, topologyManipulatorPoint } from '../../src/tools/model/topology';
+import { loadTopologyKit, topologyKit, topologyManipulatorPoint } from '../../src/tools/model/topology';
+import { PREVIEW } from '../../src/tools/model/topology/overlay';
+import { valueParamOf } from '../../src/tools/model/topology/runtime';
 import { createRig, pointer, type Rig } from '../helpers';
 
 const PANE = 'pane-single';
 let rig: Rig | null = null;
+
+/** READY.b5 (M6A-SPEC §3 rule 4): B5's bevel runs on a cube edge (B0a's stub refuses or throws `not-implemented`). */
+function bevelRuns(): boolean {
+  try {
+    const cube = editMeshFrom(primitive('cube', {}));
+    const op = MESH_OPS['mesh.bevel'];
+    if (op === undefined) return false;
+    cube.begin('probe');
+    try {
+      const out = op.run(
+        cube,
+        selectionOf('edge', [0], cube.counts),
+        {},
+        {
+          symmetry: null,
+          hidden: null,
+          placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+          faceted: true,
+          soft: null,
+          curves: { compile: () => ({}) as never, evaluate: () => 0 },
+          epsilon: 1e-9,
+        },
+      );
+      return !(isRefusal(out) && out.code === 'not-implemented');
+    } finally {
+      cube.abort();
+    }
+  } catch (error) {
+    if (error instanceof EkzaError && error.code === 'not-implemented') return false;
+    return true;
+  }
+}
+const READY = { b5: bevelRuns() } as const;
 
 beforeAll(async () => {
   await Promise.all([loadMeshKernel(), loadExtrudeEngine(), loadTopologyKit()]);
@@ -87,6 +136,9 @@ interface Scene {
 async function scene(data: MeshData, view: 'front' | 'top' | 'persp' = 'front'): Promise<Scene> {
   const app = createFakeEditorApp();
   registerBuiltinOperators(app);
+  // The registry reads the session's symmetry settings once attached (the editor attaches it at boot, M6A-B7-1): the
+  // previews' scratch runs then see the symmetry map the runs use.
+  attachMeshes(app);
   app.session.setState({ workspace: 'model' });
   const r = await createRig({ app });
   rig = r;
@@ -206,6 +258,72 @@ function twoQuads(): { data: MeshData; zEdges: number[] } {
   return { data, zEdges };
 }
 
+/** Object X symmetry on the scene's mesh (the runs and the previews read it from the session). */
+function objectX(s: Scene): void {
+  const model = s.app.session.getState().model;
+  s.app.session.setState({
+    model: {
+      ...model,
+      symmetry: new Map([[s.mesh, { mode: 'object-x' as const, tolerance: 0.001, preserveSeam: true }]]),
+    },
+  });
+}
+
+/** The preview overlay's segments of a colour now, as [from, to] world points. */
+function previewSegments(s: Scene, color: readonly [number, number, number]): [Vec3, Vec3][] {
+  const rt = topologyKit()?.topologyRuntime(s.app, s.rig.vm);
+  if (rt === undefined) throw new Error('no topology kit');
+  const out: [Vec3, Vec3][] = [];
+  for (const list of rt.overlay.drawn) {
+    if (list.color !== color) continue;
+    const p = list.positions;
+    for (let i = 0; i + 5 < p.length; i += 6) {
+      out.push([
+        [p[i] as number, p[i + 1] as number, p[i + 2] as number],
+        [p[i + 3] as number, p[i + 4] as number, p[i + 5] as number],
+      ]);
+    }
+  }
+  return out;
+}
+
+/** A hover (no button) at a pane point: the topology runtime previews from window pointer moves. */
+function hover(s: Scene, p: { x: number; y: number }): void {
+  const rect = s.rig.vm.paneRect(PANE);
+  if (rect === null) throw new Error('no pane rect');
+  window.dispatchEvent(new PointerEvent('pointermove', { clientX: rect.x + p.x, clientY: rect.y + p.y, buttons: 0 }));
+}
+
+/** Positions of the vertices from index `from` on (the ones a run added). */
+function addedPoints(s: Scene, from: number): Vec3[] {
+  const d = s.app.meshes.get(s.mesh)?.data();
+  const out: Vec3[] = [];
+  for (let v = from; v < (d?.counts.points ?? 0); v++) {
+    out.push([d?.position[3 * v] ?? 0, d?.position[3 * v + 1] ?? 0, d?.position[3 * v + 2] ?? 0]);
+  }
+  return out;
+}
+
+/** The cube's front bottom edge (along X at y = z = −0.5… +0.5): its ring runs round the four sides. */
+function frontBottom(): { e: number; a: number[]; b: number[] } {
+  const edge = edgesOf(primitive('cube', {})).find(
+    (g) => (g.a[2] ?? 0) > 0.49 && (g.b[2] ?? 0) > 0.49 && (g.a[1] ?? 0) < -0.49 && (g.b[1] ?? 0) < -0.49,
+  );
+  if (edge === undefined) throw new Error('no front bottom edge');
+  return edge;
+}
+
+/** Every point of a loop round the cube's four sides at x = `x`: y and z at ±0.5. */
+function expectLoopAt(segments: readonly [Vec3, Vec3][], x: number): void {
+  for (const [a, b] of segments) {
+    for (const p of [a, b]) {
+      expect(p[0]).toBeCloseTo(x, 5);
+      expect(Math.abs(p[1])).toBeCloseTo(0.5, 5);
+      expect(Math.abs(p[2])).toBeCloseTo(0.5, 5);
+    }
+  }
+}
+
 describe('pure helpers', () => {
   it('snapT snaps to the step and clamps; pickRail follows the drag; slidePercent clamps to ±1', () => {
     expect(snapT(0.37, 0.25)).toBe(0.25);
@@ -230,6 +348,14 @@ describe('pure helpers', () => {
     expect(dragSpeed({ shift: true, mod: true })).toBe(0.1);
     expect(dragSpeed({ shift: true, mod: false }, true)).toBe(1);
     expect(dragSpeed({ shift: true, mod: true }, true)).toBe(10);
+  });
+
+  it('valueParamOf: Inset drags offset; Bevel its fraction, or its absolute offset with Offset as Fraction off', () => {
+    expect(valueParamOf('mesh.inset', {})).toBe('offset');
+    expect(valueParamOf('mesh.bevel', {})).toBe('fraction');
+    expect(valueParamOf('mesh.bevel', { offsetAsFraction: true })).toBe('fraction');
+    expect(valueParamOf('mesh.bevel', { offsetAsFraction: false })).toBe('offset');
+    expect(valueParamOf('mesh.extrude', {})).toBeNull();
   });
 });
 
@@ -413,7 +539,13 @@ describe('Insert Edge Loop (§5.11)', () => {
     if (front === undefined) throw new Error('no front bottom edge');
     const p = at(s, 'edge', front.e, 0.3);
     pointer(element(s), 'pointermove', p.x, p.y);
-    window.dispatchEvent(new PointerEvent('pointermove', { clientX: p.x, clientY: p.y, buttons: 0 }));
+    hover(s, p);
+    // The hover preview: the whole loop round the cube's four sides near t = 0.3 of the edge.
+    const hovered = previewSegments(s, PREVIEW.loop);
+    expect(hovered).toHaveLength(4);
+    const x03 = (front.a[0] ?? 0) + ((front.b[0] ?? 0) - (front.a[0] ?? 0)) * 0.3;
+    expect(Math.abs((hovered[0]?.[0][0] ?? 9) - x03)).toBeLessThan(0.02);
+    expectLoopAt(hovered, hovered[0]?.[0][0] ?? 9);
     // Esc while pressed: nothing.
     pointer(element(s), 'pointerdown', p.x, p.y);
     expect(s.rig.vm.activeTool()?.phase?.()).toBe('placing');
@@ -434,6 +566,135 @@ describe('Insert Edge Loop (§5.11)', () => {
     const last = s.app.session.getState().lastRun;
     expect(last).toMatchObject({ id: 'mesh.insertLoop', source: 'tool', tool: 'insertLoop' });
     expect(Number(last?.args['weight'])).toBeCloseTo(0.6, 3);
+  });
+});
+
+describe('Insert Edge Loop and Multi-Cut previews (§5.11, §5.14: the cut a run makes, mirrored under symmetry)', () => {
+  it('the hover and the slide preview the loop the run inserts (same points)', async () => {
+    const s = await scene(primitive('cube', {}), 'front');
+    await tool(s, 'insertLoop');
+    const front = frontBottom();
+    // Hover, then a click at the same point: the run's new loop is the previewed one.
+    const p = at(s, 'edge', front.e, 0.3);
+    hover(s, p);
+    const hovered = previewSegments(s, PREVIEW.loop);
+    expect(hovered).toHaveLength(4);
+    const x = hovered[0]?.[0][0] ?? 9;
+    expectLoopAt(hovered, x);
+    click(s, p);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+    const placed = addedPoints(s, 8);
+    expect(placed).toHaveLength(4);
+    for (const q of placed) expect(q[0]).toBeCloseTo(x, 5);
+    await run(s.app, 'edit.undo');
+    s.rig.frame();
+    // Press at 0.3 and slide to 0.6: the preview follows the slide; the release places that loop.
+    const q = at(s, 'edge', front.e, 0.6);
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    pointer(element(s), 'pointermove', q.x, q.y, { buttons: 1 });
+    const slid = previewSegments(s, PREVIEW.loop);
+    expect(slid).toHaveLength(4);
+    const x06 = (front.a[0] ?? 0) + ((front.b[0] ?? 0) - (front.a[0] ?? 0)) * 0.6;
+    const xs = slid[0]?.[0][0] ?? 9;
+    expect(Math.abs(xs - x06)).toBeLessThan(0.02);
+    expectLoopAt(slid, xs);
+    pointer(element(s), 'pointerup', q.x, q.y);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+    for (const r of addedPoints(s, 8)) expect(r[0]).toBeCloseTo(xs, 5);
+  });
+
+  it('under Object X the preview holds the mirror loop: two loops at 0.3, one (its own mirror) at a typed 0.5', async () => {
+    const s = await scene(primitive('cube', {}), 'front');
+    objectX(s);
+    await tool(s, 'insertLoop');
+    const front = frontBottom();
+    const p = at(s, 'edge', front.e, 0.3);
+    hover(s, p);
+    const both = previewSegments(s, PREVIEW.loop);
+    expect(both).toHaveLength(8);
+    const x = both[0]?.[0][0] ?? 9;
+    expect(Math.abs(x)).toBeGreaterThan(0.1);
+    expectLoopAt(
+      both.filter(([a]) => a[0] * x > 0),
+      x,
+    );
+    expectLoopAt(
+      both.filter(([a]) => a[0] * x < 0),
+      -x,
+    );
+    expect(both.filter(([a]) => a[0] * x > 0)).toHaveLength(4);
+    // A typed weight of 0.5 puts the loop on the plane: one loop, its own mirror.
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    const numeric = s.rig.vm.activeTool()?.numeric?.() ?? null;
+    expect(numeric?.active).toBe('weight');
+    numeric?.set('weight', 0.5);
+    const middle = previewSegments(s, PREVIEW.loop);
+    expect(middle).toHaveLength(4);
+    expectLoopAt(middle, 0);
+    expect(keyDown(s, 'Escape')).toBe(true);
+    pointer(element(s), 'pointerup', p.x, p.y);
+    await settle();
+    expect(counts(s)).toBe('8/12/6');
+    // The runs match: two loops at ±x (16/28/14) for the hovered point, one (12/20/10) at 0.5.
+    hover(s, p);
+    click(s, p);
+    await settle();
+    expect(counts(s)).toBe('16/28/14');
+    const placed = addedPoints(s, 8);
+    expect(placed.filter((q) => Math.abs(q[0] - x) < 1e-5)).toHaveLength(4);
+    expect(placed.filter((q) => Math.abs(q[0] + x) < 1e-5)).toHaveLength(4);
+    await run(s.app, 'edit.undo');
+    s.rig.frame();
+    pointer(element(s), 'pointerdown', p.x, p.y);
+    s.rig.vm.activeTool()?.numeric?.()?.set('weight', 0.5);
+    expect(keyDown(s, 'Enter')).toBe(true);
+    pointer(element(s), 'pointerup', p.x, p.y);
+    await settle();
+    expect(counts(s)).toBe('12/20/10');
+  });
+
+  it('Multi-Cut previews the chord the run cuts; under Object X its mirror too (one seam point)', async () => {
+    const { data, zEdges } = twoQuads();
+    const s = await scene(data, 'top');
+    await tool(s, 'multiCut');
+    click(s, at(s, 'edge', zEdges[0] as number, 0.5));
+    click(s, at(s, 'edge', zEdges[1] as number, 0.5));
+    const cut = previewSegments(s, PREVIEW.cut);
+    expect(cut).toHaveLength(1);
+    const chord = cut[0] as [Vec3, Vec3];
+    const ends = [chord[0], chord[1]].sort((a, b) => a[0] - b[0]);
+    expect(ends[0]?.[0]).toBeCloseTo(-1, 5);
+    expect(ends[1]?.[0]).toBeCloseTo(0, 5);
+    for (const e of ends) {
+      expect(e?.[1]).toBeCloseTo(0, 5);
+      expect(Math.abs(e?.[2] ?? 9)).toBeLessThan(0.02);
+    }
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('8/10/3');
+    // The run's two new points are the chord's ends.
+    const placed = addedPoints(s, 6).sort((a, b) => a[0] - b[0]);
+    placed.forEach((q, i) => {
+      for (let k = 0; k < 3; k++) expect(q[k]).toBeCloseTo(ends[i]?.[k] ?? 9, 5);
+    });
+    await run(s.app, 'edit.undo');
+    s.rig.frame();
+
+    objectX(s);
+    click(s, at(s, 'edge', zEdges[0] as number, 0.5));
+    click(s, at(s, 'edge', zEdges[1] as number, 0.5));
+    const mirrored = previewSegments(s, PREVIEW.cut);
+    expect(mirrored).toHaveLength(2);
+    const xs = mirrored.flatMap(([a, b]) => [a[0], b[0]]).sort((a, b) => a - b);
+    expect(xs[0]).toBeCloseTo(-1, 5);
+    expect(xs[3]).toBeCloseTo(1, 5);
+    expect(xs[1]).toBeCloseTo(0, 5);
+    expect(xs[2]).toBeCloseTo(0, 5);
+    expect(keyDown(s, 'Enter')).toBe(true);
+    await settle();
+    expect(counts(s)).toBe('9/12/4');
   });
 });
 
@@ -642,24 +903,35 @@ describe('Slide Edge (§5.12, §5.10)', () => {
   });
 });
 
+/** The vertices of a face of mesh data, winding order. */
+function faceVertsOf(data: MeshData, f: number): number[] {
+  const out: number[] = [];
+  const first = data.faceCorner[f] as number;
+  let c = first;
+  do {
+    out.push(data.cornerVert[c] as number);
+    c = data.cornerNext[c] as number;
+  } while (c !== first);
+  return out;
+}
+
+/** The cube's top face (its centroid at y = 0.5). */
+function cubeTop(cube: MeshData): number {
+  const top = [...Array(cube.counts.faces).keys()].find((f) => {
+    const verts = faceVertsOf(cube, f);
+    return verts.reduce((y, v) => y + (cube.position[3 * v + 1] as number), 0) / verts.length > 0.49;
+  });
+  if (top === undefined) throw new Error('no top face');
+  return top;
+}
+
 describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
   async function extruded(): Promise<Scene> {
     const cube = primitive('cube', {});
     const s = await scene(cube, 'persp');
     s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.mesh] } });
     await run(s.app, 'select.mode', { mode: 'face' });
-    const top = [...Array(cube.counts.faces).keys()].find((f) => {
-      let y = 0;
-      let n = 0;
-      const first = cube.faceCorner[f] as number;
-      let c = first;
-      do {
-        y += cube.position[3 * (cube.cornerVert[c] as number) + 1] as number;
-        n++;
-        c = cube.cornerNext[c] as number;
-      } while (c !== first);
-      return y / n > 0.49;
-    });
+    const top = cubeTop(cube);
     await run(s.app, 'select.components', { mesh: s.mesh, kind: 'face', indices: [top], mode: 'replace' });
     await run(s.app, 'mesh.extrude', {}, { source: 'keyboard', paneId: PANE });
     await settle();
@@ -793,6 +1065,152 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
     expect(s.app.extrude.state?.manipSpace).toBe('world');
   });
 
+  /** The pane's projector, the manipulator frame and its world units per manipulator unit. */
+  function manip(s: Scene) {
+    const view = s.rig.vm.paneView(PANE);
+    const frame = extrudeManipulatorFrame(s.app);
+    if (view === null || frame === null) throw new Error('no manipulator');
+    const projector = new PaneProjector().set(view.camera, view.width, view.height, 0.01);
+    const k =
+      worldPerPixel(view.camera, view.height, projector, frame.pivot) * s.app.session.getState().tools.manipulatorSize;
+    const screen = (p: readonly number[]): { x: number; y: number } => {
+      const out = [0, 0, 0];
+      if (!projector.project(p[0] as number, p[1] as number, p[2] as number, out)) throw new Error('behind');
+      return { x: out[0] as number, y: out[1] as number };
+    };
+    /** The unit screen direction of a world axis through the pivot. */
+    const direction = (axis: readonly number[]): { x: number; y: number } => {
+      const a = screen(frame.pivot);
+      const b = screen([
+        frame.pivot[0] + (axis[0] as number) * k,
+        frame.pivot[1] + (axis[1] as number) * k,
+        frame.pivot[2] + (axis[2] as number) * k,
+      ]);
+      const n = Math.hypot(b.x - a.x, b.y - a.y);
+      return { x: (b.x - a.x) / n, y: (b.y - a.y) / n };
+    };
+    return { frame, projector, k, screen, direction };
+  }
+
+  /** World points of the cap (the cube's top face keeps its index). */
+  function capPoints(s: Scene): Vec3[] {
+    const d = s.app.meshes.get(s.mesh)?.data();
+    if (d === undefined || d === null) throw new Error('no data');
+    return faceVertsOf(d, cubeTop(primitive('cube', {}))).map(
+      (v) => [d.position[3 * v] as number, d.position[3 * v + 1] as number, d.position[3 * v + 2] as number] as Vec3,
+    );
+  }
+
+  const argOf = (s: Scene, name: string): number => Number(s.app.session.getState().lastRun?.args[name]);
+
+  it('a ring drag rotates the cap about its pivot in the drag direction (localRotateX)', async () => {
+    const s = await extruded();
+    const steps = labels(s.app).length;
+    const m = manip(s);
+    const before = capPoints(s);
+    const press = topologyManipulatorPoint(s.rig.vm, PANE, 'rx');
+    if (press === null) throw new Error('no rx');
+    // The ring sample the tool grabs (the nearest to the press) and the ring's screen tangent there.
+    let grab: Vec3 = [m.frame.pivot[0], m.frame.pivot[1], m.frame.pivot[2]];
+    let best = Number.POSITIVE_INFINITY;
+    for (const p of ringPoints(m.frame, 0, m.k)) {
+      const q = m.screen(p);
+      const d = Math.hypot(q.x - press.x, q.y - press.y);
+      if (d < best) {
+        best = d;
+        grab = p;
+      }
+    }
+    const axis = m.frame.axes[0];
+    const [tx, ty] = ringScreenTangent(m.projector, m.frame.pivot, axis, grab);
+    const n = Math.hypot(tx, ty);
+    const to = { x: press.x + (30 * tx) / n, y: press.y + (30 * ty) / n };
+    drag(s, press, to);
+    await settle();
+    const angle = argOf(s, 'localRotateX');
+    expect(angle).toBeGreaterThan(0.01);
+    expect(argOf(s, 'localRotateY')).toBeCloseTo(0, 9);
+    expect(argOf(s, 'localRotateZ')).toBeCloseTo(0, 9);
+    expect(labels(s.app).length).toBe(steps);
+    expect(s.app.extrude.state?.stack).toHaveLength(2);
+    // About the pivot: every cap point is its start point turned by the angle about the frame's X through the pivot.
+    const q = quatFromAxisAngle([axis[0], axis[1], axis[2]], angle);
+    const pivot = m.frame.pivot;
+    const turn = (p: readonly number[]): Vec3 => {
+      const r = quatRotateVec3(q, [
+        (p[0] as number) - pivot[0],
+        (p[1] as number) - pivot[1],
+        (p[2] as number) - pivot[2],
+      ]);
+      return [r[0] + pivot[0], r[1] + pivot[1], r[2] + pivot[2]];
+    };
+    capPoints(s).forEach((p, i) => {
+      const expected = turn(before[i] as Vec3);
+      for (let c = 0; c < 3; c++) expect(p[c]).toBeCloseTo(expected[c] as number, 5);
+    });
+    // In the drag direction: the grabbed ring point, turned by the angle, moved along the drag on screen.
+    const from = m.screen(grab);
+    const moved = m.screen(turn(grab));
+    expect((moved.x - from.x) * (to.x - press.x) + (moved.y - from.y) * (to.y - press.y)).toBeGreaterThan(0);
+  });
+
+  it('an axis scale cube drag scales the cap along that cap axis only (localScaleX)', async () => {
+    const s = await extruded();
+    const m = manip(s);
+    const before = capPoints(s);
+    const press = topologyManipulatorPoint(s.rig.vm, PANE, 'sx');
+    if (press === null) throw new Error('no sx');
+    const axis = m.frame.scaleAxes[0];
+    const dir = m.direction(axis);
+    drag(s, press, { x: press.x + 25 * dir.x, y: press.y + 25 * dir.y });
+    await settle();
+    const factor = argOf(s, 'localScaleX');
+    expect(factor).toBeGreaterThan(1.05);
+    expect(argOf(s, 'localScaleY')).toBe(1);
+    expect(argOf(s, 'localScaleZ')).toBe(1);
+    const pivot = m.frame.pivot;
+    capPoints(s).forEach((p, i) => {
+      const b = before[i] as Vec3;
+      const along = (b[0] - pivot[0]) * axis[0] + (b[1] - pivot[1]) * axis[1] + (b[2] - pivot[2]) * axis[2];
+      for (let c = 0; c < 3; c++)
+        expect(p[c]).toBeCloseTo((b[c] as number) + (factor - 1) * along * (axis[c] as number), 5);
+    });
+  });
+
+  it('after the local/world toggle a translate drag moves the cap along the world axis (args in the cap frame)', async () => {
+    const s = await extruded();
+    const local = manip(s);
+    const toggle = extrudeGrabPoint(local.frame, 'space', local.k, local.projector);
+    if (toggle === null) throw new Error('no toggle');
+    click(s, toggle);
+    expect(s.app.extrude.state?.manipSpace).toBe('world');
+    const m = manip(s);
+    expect(m.frame.axes).toEqual([
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ]);
+    // The cap frame of the top face: X = world +Z, Y = world +X, Z = world +Y; its scale handles stay on it.
+    expect(m.frame.scaleAxes[1]?.[0]).toBeCloseTo(1, 9);
+    const before = capPoints(s);
+    const press = topologyManipulatorPoint(s.rig.vm, PANE, 'tx');
+    if (press === null) throw new Error('no tx');
+    const dir = m.direction([1, 0, 0]);
+    drag(s, press, { x: press.x + 25 * dir.x, y: press.y + 25 * dir.y });
+    await settle();
+    const d = argOf(s, 'localTranslateY');
+    expect(d).toBeGreaterThan(0.01);
+    expect(argOf(s, 'localTranslateX')).toBeCloseTo(0, 9);
+    expect(argOf(s, 'localTranslateZ')).toBeCloseTo(0, 9);
+    capPoints(s).forEach((p, i) => {
+      const b = before[i] as Vec3;
+      expect(p[0]).toBeCloseTo(b[0] + d, 5);
+      expect(p[1]).toBeCloseTo(b[1], 5);
+      expect(p[2]).toBeCloseTo(b[2], 5);
+    });
+    expect(EXTRUDE_LAYOUT.toggle).toHaveLength(3);
+  });
+
   it('after an Inset the value handle drags its offset (the card preview, one adjust)', async () => {
     const cube = primitive('cube', {});
     const s = await scene(cube, 'persp');
@@ -825,4 +1243,47 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
     expect(Number(s.app.session.getState().lastRun?.args['offset'])).toBeCloseTo(0.3, 6);
     expect(labels(s.app).length).toBe(steps);
   });
+});
+
+describe.skipIf(!READY.b5)('the Bevel value handle (§5.9; READY.b5)', () => {
+  const cases = [
+    { name: 'its fraction', args: {}, param: 'fraction', other: 'offset' },
+    {
+      name: 'its absolute offset (Offset as Fraction off)',
+      args: { offsetAsFraction: false },
+      param: 'offset',
+      other: 'fraction',
+    },
+  ] as const;
+
+  for (const c of cases) {
+    it(`after a Bevel the value handle drags ${c.name} (the card preview, one adjust)`, async () => {
+      const cube = primitive('cube', {});
+      const s = await scene(cube, 'persp');
+      s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.mesh] } });
+      await run(s.app, 'select.mode', { mode: 'edge' });
+      await run(s.app, 'select.components', { mesh: s.mesh, kind: 'edge', indices: [0], mode: 'replace' });
+      await run(s.app, 'view.tool', { panel: 'viewport', tool: 'select' });
+      await run(s.app, 'mesh.bevel', { ...c.args }, { source: 'menu', paneId: PANE });
+      await settle();
+      s.rig.frame();
+      expect(s.app.session.getState().tools.viewport).toBe('extrude');
+      const steps = labels(s.app).length;
+      const before = { ...s.app.session.getState().lastRun?.args };
+      const kit = topologyKit();
+      if (kit === null) throw new Error('no kit');
+      const rt = kit.topologyRuntime(s.app, s.rig.vm);
+      expect(rt.valueRun()?.param).toBe(c.param);
+      const pivot = rt.valueHandle.at;
+      if (pivot === null) throw new Error('no value handle');
+      const p = s.rig.vm.project(PANE, pivot);
+      if (p === null) throw new Error('value handle off-screen');
+      drag(s, { x: p.x + 20, y: p.y }, { x: p.x + 30, y: p.y });
+      await settle();
+      const after = s.app.session.getState().lastRun?.args ?? {};
+      expect(Number(after[c.param])).toBeGreaterThan(Number(before[c.param]));
+      expect(after[c.other]).toBe(before[c.other]);
+      expect(labels(s.app).length).toBe(steps);
+    });
+  }
 });
