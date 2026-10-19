@@ -20,10 +20,12 @@
 // Width (Maya fraction semantics): d_x = fraction × ½ × L_x with L_x the shortest edge at x, measured along the slide
 // edges, so fraction 1 makes bevels from both ends of an edge meet; `offsetAsFraction` off → `offset` metres. With
 // `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
-// when a rebuilt face or a strip would still invert or collapse, every width is scaled down to the largest valid one
-// (same warning). Hardness: strip row edges follow H2; the edges bounding the bevel faces are hard with
-// `hardenBorders` (else H2); fan spokes follow H1. Refusals: `bevel.no-selection`, `bevel.border-edge`,
-// `bevel.non-manifold`, `bevel.zero-width`, `bevel.too-wide` (Clamp off and a width past the next vertex).
+// when a rebuilt face or a strip would still invert or collapse, or two new vertices around a bevelled vertex would
+// coincide, every width is scaled down to the largest valid one (same warning). Hardness: strip row edges follow H2;
+// the edges bounding the bevel faces are hard with `hardenBorders` (else H2); fan spokes follow H1. Refusals:
+// `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid width at all, e.g.
+// Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the next vertex or one
+// that folds faces over).
 import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { kernelError } from '../../kernel';
@@ -878,8 +880,33 @@ export function runBevel(
       refs.set(poly, ref);
     }
   }
+  // The vertices of the result around each bevelled vertex (every token there is used): no two may coincide (Roundness
+  // 1 with an even segment count puts the middle profile point of every strip at the corner).
+  const around = new Map<number, number[]>();
+  for (const t of [...new Set(live.flatMap((poly) => poly.tokens))].sort((a, b) => a - b)) {
+    const x = (tokens.list[t] as Token).at;
+    if (!vp.has(x)) continue;
+    const list = around.get(x);
+    if (list === undefined) around.set(x, [t]);
+    else list.push(t);
+  }
   const normal = new Float64Array(3);
+  const pair = new Float64Array(6);
   const valid = (lambda: number): boolean => {
+    for (const list of around.values()) {
+      for (let i = 0; i < list.length; i++) {
+        tokens.position(list[i] as number, lambda, pair, 0);
+        for (let j = i + 1; j < list.length; j++) {
+          tokens.position(list[j] as number, lambda, pair, 3);
+          const gap = Math.hypot(
+            (pair[3] as number) - (pair[0] as number),
+            (pair[4] as number) - (pair[1] as number),
+            (pair[5] as number) - (pair[2] as number),
+          );
+          if (!(gap > eps)) return false;
+        }
+      }
+    }
     for (const poly of live) {
       const n = poly.tokens.length;
       const points = new Float64Array(3 * n);
@@ -907,7 +934,7 @@ export function runBevel(
     return true;
   };
   let lambda = 1;
-  if (args.clamp && !valid(1)) {
+  if (!valid(1)) {
     let lo = 0;
     let hi = 1;
     for (let i = 0; i < 40; i++) {
@@ -915,8 +942,12 @@ export function runBevel(
       if (valid(mid)) lo = mid;
       else hi = mid;
     }
+    const room = bevelled.every((x) => planOf(x).d * lo > eps);
+    if (!args.clamp && room) {
+      return refuse('bevel.too-wide', 'The bevel is so wide that faces would fold over (turn Clamp on)');
+    }
     lambda = lo;
-    clamped = true;
+    clamped = args.clamp;
   }
   for (const x of bevelled) {
     if (!(planOf(x).d * lambda > eps)) {
@@ -1052,7 +1083,11 @@ export function runBevel(
         if (own.has(t)) return;
         const token = tokens.list[t] as Token;
         if (token.kind === T_OLD && token.at === end.x) own.set(t, at(strip.f1, end.x));
-        else own.set(t, i === 0 ? a : i === segments ? b : cv.lerp(a, b, i / segments));
+        else if (token.kind === T_PROFILE) {
+          // In the chord's own orientation, exactly as a rebuilt face interpolates the same point.
+          const [lo, hi] = token.chord;
+          own.set(t, cv.lerp(lo === end.A ? a : b, hi === end.A ? a : b, token.s));
+        } else own.set(t, i === 0 ? a : b);
       });
       if (end.insert !== -1) own.set(end.insert, at(strip.f1, end.x));
     }
