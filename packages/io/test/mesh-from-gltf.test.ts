@@ -13,7 +13,7 @@ import {
 } from '@ekza-animator/mesh-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
-import { editLicence, meshFromGltf } from '../src/mesh';
+import { editLicence, meshFacts, meshFromGltf } from '../src/mesh';
 import type { MakeEditableResult } from '../src/mesh';
 import type { GlbContainer } from '../src/types';
 import { quadWithSeam, syntheticContainer } from './helpers/mesh';
@@ -312,5 +312,19 @@ describe('meshFromGltf: fixtures', () => {
     expect(validateMesh(result.data)).toEqual([]);
     expect(result.report.layers).toEqual(['uv0', 'uv1', 'normal.custom', 'skin.joints', 'skin.weights']);
     expect(result.report.triangles + result.report.degenerateDropped).toBe(5731 + 8012);
+  });
+});
+
+describe('meshFacts', () => {
+  it('names the targets with NORMAL deltas and reports tangents like Make editable', async () => {
+    const polybot = await fixture('polybot.vrm');
+    const made = await meshFromGltf(polybot, 0);
+    if ('refused' in made) throw new Error(made.reason);
+    expect(meshFacts(polybot, 0)).toEqual({ morphNormals: made.report.morphNormals, hadTangents: false });
+    const seed = await fixture('seed-san.vrm');
+    const head = await meshFromGltf(seed, 2);
+    if ('refused' in head) throw new Error(head.reason);
+    expect(meshFacts(seed, 2).morphNormals).toEqual(head.report.morphNormals);
+    expect(meshFacts(seed, 99)).toEqual({ morphNormals: [], hadTangents: false });
   });
 });

@@ -29,3 +29,5 @@ export function loadMeshIo(): Promise<MeshIoModule> {
 }
 export { exportStaticModel, readBackStatic, type StaticExportOptions } from './export/author/artifact';
 export { BUDGET_PRESETS, type BudgetPreset, profileBudget, resolveBudget } from './profiles/budgets';
+export type { MeshLintInput } from './lint/meshes';
+export { manualModelProvenance, modelBlock } from './provenance/model';

@@ -241,6 +241,13 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     expect(M6A.filter((d) => d.id.startsWith('mesh.') && d.extraArgs?.includes('kind') === true)).toHaveLength(42);
   });
 
+  /** Operators their owners have landed: they still cancel these bad args, with their own reasons. */
+  const LANDED = new Set([
+    // B8 (m6a/mesh-io)
+    'mesh.makeEditable',
+    'file.exportModel',
+  ]);
+
   it('cancels with a reason, never fails or throws, with or without args', async () => {
     const app = createFakeEditorApp({ snapshot: waveDoc() });
     registerBuiltins(app);
@@ -249,10 +256,11 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
         const result = await app.runUntyped(def.id, args);
         expect([def.id, result.status]).toEqual([def.id, 'cancelled']);
         const reason = result.status === 'cancelled' ? result.reason : '';
-        expect([def.id, [NOT_AVAILABLE_YET, ANIMATE_ONLY_REASON, 'Component pick-walk arrives later']]).toEqual([
-          def.id,
-          expect.arrayContaining([reason]),
-        ]);
+        // Landed operators cancel with their own (non-empty) reason; stubs with one of the stub reasons.
+        const reasons = LANDED.has(def.id)
+          ? [reason.length > 0 ? reason : '(empty)']
+          : [NOT_AVAILABLE_YET, ANIMATE_ONLY_REASON, 'Component pick-walk arrives later'];
+        expect([def.id, reasons]).toEqual([def.id, expect.arrayContaining([reason])]);
       }
     }
     expect(app.history.canUndo()).toBe(false);

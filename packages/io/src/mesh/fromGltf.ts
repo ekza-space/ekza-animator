@@ -178,6 +178,31 @@ export async function meshFromGltf(
   };
 }
 
+/**
+ * What an export of the mesh's edits needs to know about its source (M6A-SPEC §5.21 "meshToPrimitives"): the morph
+ * targets whose primitives carried NORMAL deltas (named as Make editable names them) and whether any primitive had
+ * TANGENT. Read from the glTF JSON only.
+ */
+export function meshFacts(
+  container: GlbContainer,
+  meshIndex: number,
+): { readonly morphNormals: readonly string[]; readonly hadTangents: boolean } {
+  const mesh = isIndex(meshIndex) ? meshesOf(container.json)[meshIndex] : undefined;
+  if (mesh === undefined) return { morphNormals: [], hadTangents: false };
+  const primitives = primitivesOf(mesh as unknown as JsonRecord);
+  const count = unknownList(primitives[0]?.targets).length;
+  const names = targetNames(mesh as unknown as JsonRecord, primitives[0], count);
+  const withNormals = (t: number): boolean =>
+    primitives.some((p) => {
+      const target = unknownList(p.targets)[t];
+      return isRecord(target) && target['NORMAL'] !== undefined;
+    });
+  return {
+    morphNormals: names.filter((_, t) => withNormals(t)),
+    hadTangents: primitives.some((p) => p.attributes?.['TANGENT'] !== undefined),
+  };
+}
+
 // ---------- reading ----------
 
 /** Attributes Make editable does not keep (reported). */
