@@ -5,7 +5,7 @@
 // its parameter t from `edgeVert(e, 0)`; face = the BVH ray hit (camera-based off, as in wire shading and x-ray: the
 // face-centre dot within 8 px first). Camera-based selection tests occlusion against the visible surface; back faces
 // are pickable only with `backfaces` or with camera-based selection off. Hidden elements are never pickable.
-import type { ComponentKind, EditMesh, HiddenSet, Triangulation } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, EditMesh, HiddenSet, Triangulation } from '@ekza-animator/mesh-core';
 import { BufferAttribute, BufferGeometry, type Camera, DoubleSide, Matrix4, Ray, Vector3 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { allVisible, deriveVisibility, type Topo, topoOfEdit, type Visibility } from './internal/topo';
@@ -13,6 +13,9 @@ import type { PickHit, PickOptions } from './types';
 
 /** Default pick radii in CSS px (§5.6). */
 export const PICK_RADIUS = { vertex: 8, edge: 6, face: 8 } as const;
+
+/** `check-size` marker of the mesh-view chunk (§2): this entry module pulls three-mesh-bvh in, so it names it too. */
+const PICKER_MARKER = 'ekza-mesh-view';
 
 type Viewport = { readonly w: number; readonly h: number };
 type Rect = { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number };
@@ -42,7 +45,14 @@ function cloneHidden(h: HiddenSet | null): HiddenSet | null {
   return h === null ? null : { verts: h.verts.clone(), edges: h.edges.clone(), faces: h.faces.clone() };
 }
 
+function sameIsolate(a: BitSet | null, b: BitSet | null): boolean {
+  if (a === null || b === null) return a === b;
+  return sameBits(a, b);
+}
+
 export class ComponentPicker {
+  /** The mesh-view chunk's size marker (§2), on every picker. */
+  static readonly marker: string = PICKER_MARKER;
   private mesh: EditMesh | null = null;
   private topo: Topo | null = null;
   private tri: Triangulation | null = null;
@@ -51,6 +61,10 @@ export class ComponentPicker {
   private positions = new Float32Array(0);
   private vis: Visibility = { verts: new Uint8Array(0), edges: new Uint8Array(0), faces: new Uint8Array(0) };
   private hidden: HiddenSet | null = null;
+  /** The pane's face isolate set (`setIsolate`); null = every face. */
+  private isolate: BitSet | null = null;
+  /** The isolate set the visibility was derived with. */
+  private isolateUsed: BitSet | null = null;
   private visValid = false;
   private bvh: MeshBVH | null = null;
   private geometry: BufferGeometry | null = null;
@@ -104,13 +118,30 @@ export class ComponentPicker {
     this.version++;
   }
 
-  /** The visibility (hidden set) the BVH and the projections were built for; changes rebuild the BVH. */
+  /**
+   * Picks only `faces` (and the edges and vertices they use) from now on: a pane's face-mode isolate (`view.isolate`,
+   * §5.6), the same rule `EditMeshView.setIsolate` draws with. null picks every face again; a set of another topology
+   * (its size is not the face count) isolates nothing. The set is copied: later in-place changes need another call.
+   */
+  setIsolate(faces: BitSet | null): void {
+    this.isolate = faces === null ? null : faces.clone();
+  }
+
+  /** The face isolate set in effect for the current topology (null when none or of another topology). */
+  private isolateInEffect(): BitSet | null {
+    const t = this.topo;
+    return this.isolate !== null && t !== null && this.isolate.size === t.faces ? this.isolate : null;
+  }
+
+  /** The visibility (hidden set, isolate set) the BVH and the projections were built for; changes rebuild the BVH. */
   private syncHidden(hidden: HiddenSet | null): void {
     const t = this.topo;
     if (t === null) return;
-    if (this.visValid && sameHidden(hidden, this.hidden)) return;
+    const isolate = this.isolateInEffect();
+    if (this.visValid && sameHidden(hidden, this.hidden) && sameIsolate(isolate, this.isolateUsed)) return;
     this.hidden = cloneHidden(hidden);
-    deriveVisibility(t, hidden, null, this.vis);
+    this.isolateUsed = isolate;
+    deriveVisibility(t, hidden, isolate, this.vis);
     this.visValid = true;
     this.bvhState = 'rebuild';
     this.version++;

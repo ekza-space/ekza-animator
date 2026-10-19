@@ -1,6 +1,6 @@
-// ComponentPicker (M6A-SPEC §4.4, §5.6): vertex/edge/face picking on fixed cameras, occlusion, back faces, hidden
-// elements, marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a randomized check of vertex
-// and face picks against three.js's own raycaster over the same triangles.
+// ComponentPicker (M6A-SPEC §4.4, §5.6): vertex/edge/face picking on fixed cameras, depth order, occlusion, back faces,
+// hidden elements, a pane's face isolate, marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a
+// randomized check of vertex and face picks against three.js's own raycaster over the same triangles.
 import { BitSet, type HiddenSet, triangulate } from '@ekza-animator/mesh-core';
 import {
   BufferAttribute,
@@ -72,6 +72,21 @@ function at(camera: Camera, p: readonly [number, number, number], dx = 0, dy = 0
 
 const BACK: [number, number, number] = [-0.5, -0.5, -0.5];
 
+/** The front orthographic view from behind (looking along +Z). */
+function orthoBack(height = 4): Camera {
+  const camera = orthoFront(height);
+  camera.position.set(0, 0, -10);
+  camera.lookAt(0, 0, 0);
+  camera.updateMatrixWorld();
+  return camera;
+}
+
+function hiding(d: Derived, kind: 'verts' | 'edges', index: number): HiddenSet {
+  const h = hiddenFaces(d, []);
+  h[kind].add(index);
+  return h;
+}
+
 describe('ComponentPicker: vertices', () => {
   it('picks every visible cube vertex at its projection and none of the occluded one (camera-based)', () => {
     const d = cube();
@@ -111,11 +126,22 @@ describe('ComponentPicker: vertices', () => {
     const camera = orthoFront(4);
     const front = vertexAt(d, [0.5, 0.5, 0.5]);
     const back = vertexAt(d, [0.5, 0.5, -0.5]);
-    // Camera-based off: both project to the same pixel; the nearer one (smaller clip w) wins.
-    expect(p.hover(camera, at(camera, vertexOf(d, front)), VIEW, 'vertex', NO_OCCLUSION)?.index).toBe(front);
-    // The back one is occluded by the front face only from inside its interior; on the silhouette corner it is not
-    // reachable because the nearer vertex covers it.
-    expect(back).not.toBe(front);
+    const pointer = at(camera, vertexOf(d, front));
+    // Camera-based off: both project to the same pixel at the same distance; the nearer one wins …
+    const hit = p.hover(camera, pointer, VIEW, 'vertex', NO_OCCLUSION);
+    expect(hit?.index).toBe(front);
+    expect(hit?.distancePx).toBeLessThan(1e-3);
+    // … the back one is a candidate there: with the front one hidden it is the pick, at the same distance …
+    const behindIt = p.hover(camera, pointer, VIEW, 'vertex', { ...NO_OCCLUSION, hidden: hiding(d, 'verts', front) });
+    expect(behindIt?.index).toBe(back);
+    expect(behindIt?.distancePx).toBeLessThan(1e-3);
+    // … and seen from behind the order flips: depth decides, not the index.
+    const behind = orthoBack();
+    expect(p.hover(behind, at(behind, vertexOf(d, back)), VIEW, 'vertex', NO_OCCLUSION)?.index).toBe(back);
+    // Off axis the back vertex lies behind the front face: camera-based picks nothing at its projection.
+    const persp = perspective([0.3, 0.2, 3]);
+    expect(p.hover(persp, at(persp, vertexOf(d, back)), VIEW, 'vertex', CAMERA_BASED)).toBeNull();
+    expect(p.hover(persp, at(persp, vertexOf(d, back)), VIEW, 'vertex', NO_OCCLUSION)?.index).toBe(back);
   });
 
   it('never picks hidden vertices, and hiding faces takes the vertices only they use along', () => {
@@ -219,14 +245,21 @@ describe('ComponentPicker: edges', () => {
     const e = edgeBetween(d, a, b);
     expect(p.hover(camera, at(camera, [0.1, 0.5, 0.5], 0, -5), VIEW, 'edge', CAMERA_BASED)?.index).toBe(e);
     expect(p.hover(camera, at(camera, [0.1, 0.5, 0.5], 0, -7), VIEW, 'edge', CAMERA_BASED)).toBeNull();
-    // The edge behind it (same screen line) is occluded by the top face only when seen from above; from the front it
-    // projects onto the same line and the nearer edge wins.
+    // The top back edge projects onto the same line: the nearer edge wins at the same distance …
     const back = edgeBetween(d, vertexAt(d, [-0.5, 0.5, -0.5]), vertexAt(d, [0.5, 0.5, -0.5]));
-    expect(back).not.toBe(e);
+    const onLine = at(camera, [0.1, 0.5, 0.5], 0, -3);
+    expect(p.hover(camera, onLine, VIEW, 'edge', NO_OCCLUSION)?.index).toBe(e);
+    // … the back one is a candidate there (the pick once the front one is hidden) …
+    const behindIt = p.hover(camera, onLine, VIEW, 'edge', { ...NO_OCCLUSION, hidden: hiding(d, 'edges', e) });
+    expect(behindIt?.index).toBe(back);
+    expect(behindIt?.distancePx).toBeCloseTo(3, 3);
+    // … and from behind the order flips.
+    const behind = orthoBack();
+    expect(p.hover(behind, at(behind, [0.1, 0.5, -0.5], 0, -3), VIEW, 'edge', NO_OCCLUSION)?.index).toBe(back);
     // From above-front the back-bottom edge is hidden behind the cube.
     const cam2 = perspective([0.3, 2, 3]);
     const hidden = edgeBetween(d, vertexAt(d, [-0.5, -0.5, -0.5]), vertexAt(d, [0.5, -0.5, -0.5]));
-    expect(p.hover(cam2, at(cam2, [0.1, -0.5, -0.5]), VIEW, 'edge', CAMERA_BASED)?.index).not.toBe(hidden);
+    expect(p.hover(cam2, at(cam2, [0.1, -0.5, -0.5]), VIEW, 'edge', CAMERA_BASED)).toBeNull();
     expect(p.hover(cam2, at(cam2, [0.1, -0.5, -0.5]), VIEW, 'edge', NO_OCCLUSION)?.index).toBe(hidden);
   });
 });
@@ -305,6 +338,59 @@ describe('ComponentPicker: faces', () => {
     expect(hit?.point[1]).toBeCloseTo(2.5, 5);
     expect(hit?.point[2]).toBeCloseTo(0.2, 5);
     expect(p.raycastFace(new Ray(new Vector3(2, 10, 0), new Vector3(0, -1, 0)), CAMERA_BASED)).toBeNull();
+  });
+});
+
+describe("ComponentPicker: face isolate (a pane's view.isolate)", () => {
+  it('never picks faces outside the isolate set, nor the edges and vertices only they use', () => {
+    const d = plane({ width: 2, height: 1, subdivisionsWidth: 2, subdivisionsHeight: 1 });
+    const p = pickerFor(d);
+    const camera = orthoTop(3);
+    const full = { x0: 0, y0: 0, x1: W, y1: H } as const;
+    const left = centroidOf(d, 0)[0] < 0 ? 0 : 1;
+    const right = 1 - left;
+    const corner = vertexAt(d, [1, 0, -0.5]);
+    const shared = vertexAt(d, [0, 0, -0.5]);
+    const outer = edgeBetween(d, corner, vertexAt(d, [1, 0, 0.5]));
+    const only = new BitSet(d.mesh.counts.faces);
+    only.add(left);
+    p.setIsolate(only);
+    expect(p.hover(camera, at(camera, centroidOf(d, right)), VIEW, 'face', CAMERA_BASED)).toBeNull();
+    expect(p.hover(camera, at(camera, centroidOf(d, right)), VIEW, 'face', NO_OCCLUSION)).toBeNull();
+    expect(p.hover(camera, at(camera, centroidOf(d, left)), VIEW, 'face', CAMERA_BASED)?.index).toBe(left);
+    expect(p.hover(camera, at(camera, vertexOf(d, corner)), VIEW, 'vertex', CAMERA_BASED)).toBeNull();
+    expect(p.hover(camera, at(camera, vertexOf(d, shared)), VIEW, 'vertex', CAMERA_BASED)?.index).toBe(shared);
+    expect(p.hover(camera, at(camera, [1, 0, 0]), VIEW, 'edge', CAMERA_BASED)).toBeNull();
+    expect(p.marquee(camera, full, VIEW, 'vertex', NO_OCCLUSION)).toHaveLength(4);
+    expect(p.marquee(camera, full, VIEW, 'edge', NO_OCCLUSION)).toHaveLength(4);
+    expect(Array.from(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION))).toEqual([left]);
+    expect(p.screenOf(camera, VIEW, 'face', right, CAMERA_BASED)).toBeNull();
+    expect(p.isVisible('edge', outer)).toBe(false);
+    // The hidden set applies on top of the isolate set.
+    expect(
+      p.hover(camera, at(camera, centroidOf(d, left)), VIEW, 'face', {
+        ...CAMERA_BASED,
+        hidden: hiddenFaces(d, [left]),
+      }),
+    ).toBeNull();
+    // The picker keeps a copy: an in-place change takes another call.
+    only.add(right);
+    expect(p.hover(camera, at(camera, centroidOf(d, right)), VIEW, 'face', CAMERA_BASED)).toBeNull();
+    p.setIsolate(only);
+    expect(p.hover(camera, at(camera, centroidOf(d, right)), VIEW, 'face', CAMERA_BASED)?.index).toBe(right);
+    // A set of another face count isolates nothing; null ends the isolate.
+    p.setIsolate(new BitSet(5));
+    expect(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(2);
+    only.delete(right);
+    p.setIsolate(only);
+    expect(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(1);
+    p.setIsolate(null);
+    expect(p.marquee(camera, full, VIEW, 'vertex', NO_OCCLUSION)).toHaveLength(6);
+    // A topology change drops a set of the old face count.
+    p.setIsolate(only);
+    const four = plane({ width: 2, height: 1, subdivisionsWidth: 4, subdivisionsHeight: 1 });
+    p.setMesh(four.mesh, four.tri, IDENTITY, true);
+    expect(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(4);
   });
 });
 

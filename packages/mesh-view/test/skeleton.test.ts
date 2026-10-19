@@ -6,8 +6,9 @@ import { ComponentPicker, EditMeshView, MeshSurface, VIEW_MARKER } from '../src'
 import { LAYERS, THEME } from './support';
 
 describe('mesh-view entry', () => {
-  it('names the check-size marker of the mesh-view chunk', () => {
+  it('names the check-size marker of the mesh-view chunk, in the entry and in the picker module (three-mesh-bvh)', () => {
     expect(VIEW_MARKER).toBe('ekza-mesh-view');
+    expect(ComponentPicker.marker).toBe(VIEW_MARKER);
   });
 
   it('builds views and pickers (B6) and disposes them twice without error', () => {
