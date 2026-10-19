@@ -2,7 +2,7 @@
 // the EditorApp, the shell core, the providers, the GL host and the workspace chrome; installs the window input
 // adapter, the first-run dialog and (e2e builds with ?e2e=1) the test API.
 import { seededIdSource, type IdSource } from '@ekza-animator/doc';
-import type { EditorApp, EditorServices } from '@ekza-animator/editor-core';
+import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-animator/editor-core';
 import { ToastProvider, TooltipProvider } from '@ekza-animator/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { GLHost } from '../gl/GLHost';
@@ -72,9 +72,12 @@ function boot(props: EditorRootProps): Boot {
     console.error('Ekza Animator: the editor kernel could not start', error);
     return { kind: 'unavailable', error, params };
   }
-  // M6a `ws=<id>` (M6A-SPEC §4.8): a registered, enabled workspace opens directly (B9 routes it through workspace.set).
-  if (params.ws !== null && app.workspaces.get(params.ws)?.enabled === true)
-    app.session.setState({ workspace: params.ws });
+  // M6a (M6A-SPEC §4.8, §5.17): the workspace opens as `ws=<id>` asks (any build), else as the user left it
+  // (`prefs.lastWorkspace`), through the switching rules of `workspace.set` (layout, tool, pick mask, pane memory).
+  const startIn = params.ws ?? app.prefs.getState().lastWorkspace;
+  if (app.workspaces.get(startIn)?.enabled === true && startIn !== app.session.getState().workspace) {
+    switchWorkspace(app, startIn);
+  }
   if (params.e2e) {
     app.prefs.setState({
       firstRunDone: !params.firstRun,

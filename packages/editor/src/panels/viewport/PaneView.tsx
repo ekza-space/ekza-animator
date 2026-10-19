@@ -1,11 +1,13 @@
 // One viewport pane: header (camera menu, lock toggle, display toggles, maximize), the surface registered with the
 // ViewportManager (receives pointer input; the shared canvas draws behind it) and the HUD overlay.
+// M6a (M6A-SPEC §4.7, §8.2, §8.10; B9): in Model the header has Shading ▾ (`4`–`7`), Show ▾ (every display flag) and
+// the Wire, Flat, X-ray and Cull toggles; the surface carries the overlay slots the owners fill (HUD, Last-op card,
+// modal readout, empty state, Getting started, BIND POSE).
 import type { CameraRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
+import { type EditorApp, PANEL, type Shading } from '@ekza-animator/editor-core';
 import {
-  DEFAULT_DISPLAY,
   type DisplayFlags,
-  defaultPaneCamera,
+  defaultDisplayOf,
   type PaneCamera,
   type PaneState,
   type ViewportManager,
@@ -13,6 +15,7 @@ import {
 } from '@ekza-animator/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
+import { PaneOverlays } from '../../overlays/slots';
 import { CameraRadial, type CameraChoice } from './CameraRadial';
 import { usePaneState } from './hooks';
 import { PaneMenu, type PaneMenuItem } from './PaneMenu';
@@ -25,11 +28,50 @@ type BooleanDisplayFlag = {
   [K in keyof DisplayFlags]: DisplayFlags[K] extends boolean ? K : never;
 }[keyof DisplayFlags];
 
-const DISPLAY_TOGGLES: readonly {
+type DisplayToggle = {
   readonly flag: BooleanDisplayFlag;
   readonly label: string;
   readonly title: string;
-}[] = [
+};
+
+/** Model's header toggles (research 16 §10.1): `[Wire] [Flat] [Xray] [Cull]`. */
+const MODEL_TOGGLES: readonly DisplayToggle[] = [
+  { flag: 'wireOnShaded', label: 'Wire', title: 'Wireframe on shaded' },
+  { flag: 'flat', label: 'Flat', title: 'Flat shading (display only: hard edges are mesh data, Soften/Harden)' },
+  { flag: 'xray', label: 'X-ray', title: 'X-ray meshes (Alt+X)' },
+  { flag: 'cull', label: 'Cull', title: 'Backface culling' },
+];
+
+/** Shading ▾ (§4.7): the four modes and their keys. */
+const SHADINGS: readonly { readonly mode: Shading; readonly label: string }[] = [
+  { mode: 'wire', label: 'Wireframe  4' },
+  { mode: 'shaded', label: 'Shaded  5' },
+  { mode: 'colours', label: 'Colours  6' },
+  { mode: 'lit', label: 'Lit  7' },
+];
+
+/** Show ▾ (§8.10 `pane-show-<paneId>-<flag>`): every on/off flag of the pane; normals show both kinds. */
+const SHOW_ITEMS: readonly { readonly flag: BooleanDisplayFlag | 'normals'; readonly label: string }[] = [
+  { flag: 'mesh', label: 'Meshes' },
+  { flag: 'components', label: 'Components' },
+  { flag: 'normals', label: 'Normals' },
+  { flag: 'faceOrientation', label: 'Face Orientation' },
+  { flag: 'triangulation', label: 'Triangulation' },
+  { flag: 'hardEdges', label: 'Hard Edges' },
+  { flag: 'wireOnShaded', label: 'Wire on Shaded' },
+  { flag: 'cull', label: 'Backface Culling' },
+  { flag: 'dimUnhilited', label: 'Dim Unhilited' },
+  { flag: 'polyCount', label: 'Poly Count' },
+  { flag: 'meshCheck', label: 'Mesh Check' },
+  { flag: 'symmetryPlane', label: 'Symmetry Plane' },
+  { flag: 'imagePlanes', label: 'Image Planes' },
+  { flag: 'grid', label: 'Grid' },
+  { flag: 'controls', label: 'Controls' },
+  { flag: 'skeleton', label: 'Joints' },
+  { flag: 'hud', label: 'HUD' },
+];
+
+const DISPLAY_TOGGLES: readonly DisplayToggle[] = [
   { flag: 'mesh', label: 'Mesh', title: 'Show meshes' },
   { flag: 'controls', label: 'Ctrls', title: 'Show controls (Alt+C)' },
   { flag: 'skeleton', label: 'Joints', title: 'Show skeleton (Alt+J)' },
@@ -51,19 +93,16 @@ export function PaneView(props: {
   useLayoutEffect(() => {
     const element = surface.current;
     if (vm === null || element === null) return undefined;
-    const remembered = vm.rememberedPane(paneId);
-    vm.registerPane({
-      id: paneId,
-      element,
-      camera: remembered?.camera ?? defaultPaneCamera(paneId),
-      display: remembered?.display ?? DEFAULT_DISPLAY,
-    });
+    // M6a: what the pane showed in this workspace, else the workspace's defaults (Model: colours, M-Side, …).
+    const setup = vm.paneSetup(paneId);
+    vm.registerPane({ id: paneId, element, camera: setup.camera, display: setup.display });
     return () => vm.unregisterPane(paneId);
   }, [vm, paneId]);
 
+  // `w-full`: the pane fills its cell, the single pane's flex row as well as a split's panel.
   return (
     <section
-      className="flex h-full min-h-0 min-w-0 flex-col"
+      className="flex h-full w-full min-h-0 min-w-0 flex-col"
       aria-label={`Viewport pane ${state?.cameraName ?? paneId}`}
     >
       <PaneHeader app={app} paneId={paneId} state={state} />
@@ -75,6 +114,7 @@ export function PaneView(props: {
         data-ekza-pane={paneId}
       >
         {state === null || state.display.hud ? <Hud app={app} state={state} /> : null}
+        <PaneOverlays app={app} paneId={paneId} state={state} />
         {vm !== null && state !== null && state.radial !== null ? (
           <PaneRadial app={app} vm={vm} paneId={paneId} state={state} at={state.radial} />
         ) : null}
@@ -117,9 +157,10 @@ function PaneRadial(props: {
  * How many children of a row fit its width, from the left (all of them until the first one that would be cut).
  * Measured from layout, which `visibility: hidden` keeps, so hiding the rest never changes the answer.
  */
-function useFittingCount(row: { readonly current: HTMLElement | null }, total: number): number {
+function useFittingCount(row: { readonly current: HTMLElement | null }, total: number, key?: unknown): number {
   const [fitting, setFitting] = useState(total);
   useLayoutEffect(() => {
+    void key; // re-measure when the toggle set changes (workspace switch)
     const element = row.current;
     if (element === null) return undefined;
     const measure = (): void => {
@@ -134,7 +175,7 @@ function useFittingCount(row: { readonly current: HTMLElement | null }, total: n
     observer.observe(element);
     for (const child of element.children) observer.observe(child); // labels re-measure when a web font lands
     return () => observer.disconnect();
-  }, [row]);
+  }, [row, key]);
   return fitting;
 }
 
@@ -174,8 +215,12 @@ function PaneHeader(props: {
   ];
   const locked = state?.locked === true;
   const shot = state?.cameraKind === 'shot';
+  const model = useSession((s) => s.workspace === 'model');
+  const list = model ? MODEL_TOGGLES : DISPLAY_TOGGLES;
+  const fallback = defaultDisplayOf(model ? 'model' : 'animate');
+  const display = state?.display ?? fallback;
   const toggles = useRef<HTMLDivElement>(null);
-  const fitting = useFittingCount(toggles, DISPLAY_TOGGLES.length);
+  const fitting = useFittingCount(toggles, list.length, model);
   return (
     <header className="flex h-[22px] shrink-0 items-center gap-0.5 border-b border-line bg-header px-1 text-[11px] text-fg-2">
       <PaneMenu
@@ -197,11 +242,42 @@ function PaneHeader(props: {
         <LockIcon locked={locked} />
       </button>
       <span className="mx-1 h-3 w-px shrink-0 bg-line" aria-hidden="true" />
+      {model ? (
+        <>
+          <PaneMenu
+            label={<span>Shading</span>}
+            title="Shading (4 wireframe, 5 shaded, 6 colours, 7 lit)"
+            testId={`pane-shading-${paneId}`}
+            items={SHADINGS.map((entry) => ({
+              id: entry.mode,
+              label: entry.label,
+              checked: display.shading === entry.mode,
+              onSelect: () => run('view.shading', { mode: entry.mode, paneId }),
+            }))}
+          />
+          <PaneMenu
+            label={<span>Show</span>}
+            title="Show in this pane"
+            testId={`pane-show-${paneId}`}
+            items={SHOW_ITEMS.map((entry) => ({
+              id: entry.flag,
+              label: entry.label,
+              checkbox: true,
+              checked: entry.flag === 'normals' ? display.normals !== 'off' : display[entry.flag],
+              onSelect: () =>
+                entry.flag === 'normals'
+                  ? run('view.display.set', { patch: { normals: display.normals === 'off' ? 'both' : 'off' }, paneId })
+                  : run('view.display.toggle', { flag: entry.flag, paneId }),
+            }))}
+          />
+          <span className="mx-1 h-3 w-px shrink-0 bg-line" aria-hidden="true" />
+        </>
+      ) : null}
       {/* The toggles that do not fit the pane's width are hidden (never wrapped or cut) and listed in the "»" menu
           (acceptance round 2: at 1024 px "X-ray" wrapped and "Springs" was cut). */}
       <div ref={toggles} className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
-        {DISPLAY_TOGGLES.map(({ flag, label, title }, index) => {
-          const on = state?.display[flag] ?? DEFAULT_DISPLAY[flag];
+        {list.map(({ flag, label, title }, index) => {
+          const on = state?.display[flag] ?? fallback[flag];
           const hidden = index >= fitting;
           return (
             <button
@@ -219,17 +295,17 @@ function PaneHeader(props: {
           );
         })}
       </div>
-      {fitting < DISPLAY_TOGGLES.length ? (
+      {fitting < list.length ? (
         <PaneMenu
           label={<span aria-hidden="true">»</span>}
           title="More display toggles"
           testId={`pane-display-more-${paneId}`}
           align="right"
-          items={DISPLAY_TOGGLES.slice(fitting).map(({ flag, title }) => ({
+          items={list.slice(fitting).map(({ flag, title }) => ({
             id: flag,
             label: title,
             checkbox: true,
-            checked: state?.display[flag] ?? DEFAULT_DISPLAY[flag],
+            checked: state?.display[flag] ?? fallback[flag],
             onSelect: () => run('view.display.toggle', { flag, paneId }),
           }))}
         />

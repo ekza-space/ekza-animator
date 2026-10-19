@@ -23,6 +23,7 @@ import { useShell } from './context';
 import { type MenuSection, menuContents, topMenus } from './menus';
 import { prefetchForMenuItems } from './prefetch';
 import type { Shell } from './types';
+import { WorkspaceTabs } from './WorkspaceTabs';
 
 function menuContext(shell: Shell): RunContext {
   const last = shell.ui.getState().lastPanel;
@@ -93,7 +94,10 @@ export function MenuBar(): JSX.Element {
   const shell = useShell();
   const { app } = shell;
   const items = useRegistryList(app.menus);
-  const menus = topMenus(items);
+  // M6a (§8.1): each workspace shows its own menu set (B0b's `topMenus`); Animate's is the shipped one.
+  const workspaceId = useSession((s) => s.workspace);
+  const workspaces = useRegistryList(app.workspaces);
+  const menus = topMenus(items, { id: workspaceId, menus: workspaces.find((def) => def.id === workspaceId)?.menus });
   const projectName = useSession((s) => s.projectName);
   const dirty = useSession((s) => s.dirty);
 
@@ -116,6 +120,8 @@ export function MenuBar(): JSX.Element {
           </MenubarMenu>
         ))}
       </Menubar>
+      {/* M6A-SPEC §8.1: the workspace tabs sit right of the menus. */}
+      <WorkspaceTabs />
       <div className="ml-auto flex min-w-0 items-center gap-3">
         <span className="truncate text-ui text-fg-2" data-testid="project-title" title={projectName}>
           {projectName}
