@@ -6,10 +6,13 @@ import {
   BUILTIN_LAYERS,
   type EditMesh,
   editMeshFrom,
+  type MeshData,
   type MeshDelta,
   morphLayer,
   primitive,
+  readRevision,
   validateMesh,
+  writeRevision,
 } from '../../src';
 import { diffStored, linkArray } from '../../src/testing';
 
@@ -174,6 +177,98 @@ describe('journals and apply', () => {
     const c = editMeshFrom(a.snapshot());
     c.apply(delta, 'backward');
     expect(diffStored(c, primitive('cube', {}))).toBeNull();
+  });
+
+  /** A runtime rebuilt from the stored state (what reopening component mode does, §5.5 rules 4 and 8). */
+  function rebuilt(m: EditMesh): EditMesh {
+    const revision = writeRevision(m);
+    return editMeshFrom(readRevision(revision.manifest, (id) => revision.newChunks.get(id) as Uint8Array));
+  }
+
+  /** Undo on a rebuilt runtime, then redo on another one rebuilt from the before-state: both exact. */
+  function crossRuntime(before: MeshData, after: EditMesh, delta: MeshDelta): void {
+    const back = rebuilt(after);
+    back.apply(delta, 'backward');
+    expect(diffStored(back, before)).toBeNull();
+    expect(validateMesh(back)).toEqual([]);
+    expect(linkArray(back)).toEqual(linkArray(editMeshFrom(before)));
+    const again = editMeshFrom(before);
+    again.apply(delta, 'forward');
+    expect(diffStored(again, after)).toBeNull();
+    expect(linkArray(again)).toEqual(linkArray(after));
+  }
+
+  it('removals undo on a runtime rebuilt from the after-state (the vacated slots are in the delta)', () => {
+    const cases: [string, (m: EditMesh) => void][] = [
+      ['killFace 0', (m) => m.killFace(0)],
+      ['killFace 5', (m) => m.killFace(5)],
+      ['killVert 3', (m) => m.killVert(3)],
+      ['killEdge 7', (m) => m.killEdge(7)],
+      ['joinFace 0', (m) => m.joinFaceKillEdge(0)],
+      [
+        'split, then join',
+        (m) => {
+          const v = m.splitEdgeMakeVert(2, 0.25);
+          m.joinEdgeKillVert(v);
+        },
+      ],
+      [
+        'kill every face, then every vertex',
+        (m) => {
+          for (let f = m.counts.faces - 1; f >= 0; f--) m.killFace(f);
+          for (let v = m.counts.points - 1; v >= 0; v--) m.killVert(v);
+        },
+      ],
+    ];
+    for (const [label, op] of cases) {
+      const m = editMeshFrom(primitive('cube', {}));
+      m.begin('prep');
+      m.addLayer(morphLayer('Z')).set(3, 1, 0.5);
+      m.end();
+      const before = m.snapshot();
+      m.begin(label);
+      op(m);
+      const delta = m.end();
+      expect({ label, problems: validateMesh(m) }).toEqual({ label, problems: [] });
+      crossRuntime(before, m, delta);
+    }
+  });
+
+  it('a slot emptied, refilled and emptied again across a layer event undoes and aborts exactly', () => {
+    const run = (m: EditMesh): void => {
+      m.killFace(5);
+      m.addLayer(BUILTIN_LAYERS.color0);
+      const f = m.makeFace([0, 2, 4]);
+      m.killFace(f);
+    };
+    const m = editMeshFrom(primitive('cube', {}));
+    const before = m.snapshot();
+    const links = linkArray(m);
+    m.begin('abort');
+    run(m);
+    m.abort();
+    expect(diffStored(m, before)).toBeNull();
+    expect(linkArray(m)).toEqual(links);
+    expect(validateMesh(m)).toEqual([]);
+    m.begin('undo');
+    run(m);
+    const delta = m.end();
+    m.apply(delta, 'backward');
+    expect(diffStored(m, before)).toBeNull();
+    expect(linkArray(m)).toEqual(links);
+    expect(validateMesh(m)).toEqual([]);
+    m.apply(delta, 'forward');
+    crossRuntime(before, m, delta);
+    // The shrunk sequence the property found: killVert, addLayer, makeVert, killVert.
+    const n = editMeshFrom(primitive('cube', {}));
+    const start = n.snapshot();
+    n.begin('shrunk');
+    n.killVert(7);
+    n.addLayer(BUILTIN_LAYERS.color0);
+    n.killVert(n.makeVert(1, 2, 3));
+    n.abort();
+    expect(diffStored(n, start)).toBeNull();
+    expect(validateMesh(n)).toEqual([]);
   });
 
   it('guards: inside a transaction, a foreign delta, a mesh in another state', () => {

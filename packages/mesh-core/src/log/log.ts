@@ -6,6 +6,11 @@
 // segments forward (event, then after values) or backward (before values in reverse, then the event's inverse).
 // Targets are numbers for the kernel's own arrays (stored arrays, edit links, counts) and layer names for attribute
 // layers, so a delta applies to any kernel mesh in the same state (no object identity inside a delta).
+//
+// Dead slots (past the count, up to the capacity) always hold the target's dead value (`TARGET_DEAD`, a layer's
+// default): a removal writes them through the log into the slot it vacates, so the slot's live content is in the
+// delta, and every array is a pure function of the live state. That is what makes a delta exact on any mesh in the
+// same state — the same object, or a runtime rebuilt from its revision (§5.5 rules 4 and 8).
 import { KERNEL_MARKER } from '../kernel';
 import type { KernelArray, LayerArray } from '../layers/arrays';
 import type { LayerDef } from '../types';
@@ -53,6 +58,8 @@ export const TARGET_STORED: readonly boolean[] = [
   false,
   false,
 ];
+/** The value a dead slot of each built-in target holds: 0 in the stored arrays, −1 in the edit links. */
+export const TARGET_DEAD: readonly number[] = [0, 0, 0, 0, 0, 0, 0, 0, 0, -1, -1, -1, -1, -1, -1, -1];
 /** Built-in targets whose writes change connectivity (`DirtySet.topology`). */
 export const TARGET_TOPOLOGY: readonly boolean[] = [
   true,
@@ -86,7 +93,11 @@ export interface SlotRecord {
   readonly before: KernelArray;
   readonly after: KernelArray;
 }
-/** A copy-on-write snapshot of one target in one segment: the live prefix before and after. */
+/**
+ * A copy-on-write snapshot of one target in one segment: the live prefix at the segment's start (`before`) and the
+ * prefix up to the larger of both live lengths at its end (`after`, dead values past the end count). Slots of `after`
+ * past `before` were dead at the start: backward application writes the dead value there.
+ */
 export interface SnapRecord {
   readonly key: number | string;
   readonly before: KernelArray;
@@ -213,8 +224,9 @@ export class OpenSegment {
   }
 
   /**
-   * Reads the after values and freezes the segment. Unchanged slots are dropped, and so are slots past the live
-   * length at both ends of the segment (an element created and removed again): no state the segment joins reads them.
+   * Reads the after values and freezes the segment. Unchanged slots are dropped (an element created and removed
+   * again within the segment leaves dead values at both ends, so it drops out here too); every changed slot is kept,
+   * live or not, so a slot a later segment empties again is still restored by the segment that emptied it first.
    */
   close(): SegmentRecord {
     const slots: SlotRecord[] = [];
@@ -222,19 +234,12 @@ export class OpenSegment {
     const endCounts = this.access.counts();
     for (const log of this.order) {
       const array = this.access.array(log.tid);
-      const live = Math.max(log.startLength, this.access.lengthAt(log.tid, endCounts));
       if (log.snap !== null) {
-        snaps.push({
-          key: log.key,
-          before: log.snap,
-          after: array.slice(0, this.access.lengthAt(log.tid, this.access.counts())),
-        });
+        const live = Math.max(log.startLength, this.access.lengthAt(log.tid, endCounts));
+        snaps.push({ key: log.key, before: log.snap, after: array.slice(0, live) });
         continue;
       }
-      const keep = (k: number): boolean => {
-        const i = log.idx[k] as number;
-        return (log.tid === T_COUNTS || i < live) && !Object.is(array[i], log.before[k]);
-      };
+      const keep = (k: number): boolean => !Object.is(array[log.idx[k] as number], log.before[k]);
       let kept = 0;
       for (let k = 0; k < log.n; k++) if (keep(k)) kept++;
       if (kept === 0) continue;

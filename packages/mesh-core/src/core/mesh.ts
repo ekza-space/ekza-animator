@@ -16,6 +16,10 @@
 //   element into the hole. Every element a removal moves comes from an index ≥ the removed one, so removals in
 //   descending index order never invalidate the indices still to be removed. `MeshDelta.remap` is therefore exact:
 //   `forward` maps every pre-op index, and the created elements are exactly [createdFrom, count).
+// - **Dead slots are canonical.** Every slot in [count, capacity) holds its target's dead value (0 in the stored
+//   arrays, −1 in the edit links, a layer's default): construction and growth fill them, a removal writes them
+//   (logged) into the slot it vacates, and `apply` restores them. The arrays are therefore a pure function of the live
+//   state, and a delta replays exactly on any mesh in the same state, not only on the object that recorded it.
 //
 // Topology changes only through the Euler operators of ../euler/operators.ts; this module owns storage, traversal,
 // logged writes, element moves, transactions and `apply`.
@@ -62,6 +66,7 @@ import {
   TARGET_STORED,
   TARGET_STRIDE,
   TARGET_TOPOLOGY,
+  TARGET_DEAD,
   type TargetAccess,
 } from '../log/log';
 import type {
@@ -84,6 +89,12 @@ const D_EDGE = 1;
 const D_FACE = 2;
 const D_CORNER = 3;
 const DOMAIN_NAMES: readonly Domain[] = ['point', 'edge', 'face', 'corner'];
+/** The built-in targets (stored arrays and edit links) of each domain. */
+const DOMAIN_TARGETS: readonly (readonly number[])[] = [0, 1, 2, 3].map((domain) => {
+  const out: number[] = [];
+  for (let tid = 1; tid < BUILTIN_TARGETS; tid++) if (TARGET_DOMAIN[tid] === domain) out.push(tid);
+  return out;
+});
 
 /** One attribute layer's storage (capacity × comps values). */
 export class LayerStore {
@@ -577,7 +588,11 @@ export class KernelMesh implements EditMesh {
     const capacity = (this.cap[domain] as number) * def.comps;
     const array = allocLayer(def.type, capacity);
     if (data === null) fillDefault(array, def, 0, this.cap[domain] as number);
-    else array.set(data.subarray(0, Math.min(data.length, capacity)));
+    else {
+      // The rest of the capacity is dead: the layer's default (see the header).
+      array.set(data.subarray(0, Math.min(data.length, capacity)));
+      fillDefault(array, def, Math.min(data.length, capacity) / def.comps, this.cap[domain] as number);
+    }
     const store = new LayerStore(this, def, this.nextTid++, array);
     this.layerList.splice(Math.min(at, this.layerList.length), 0, store);
     this.byName.set(def.name, store);
@@ -775,7 +790,40 @@ export class KernelMesh implements EditMesh {
       tx.boundary[domain] = lastOld;
       if (n - 1 > lastOld) this.move(domain, n - 1, lastOld);
     }
+    this.vacate(domain, n - 1);
     this.w(T_COUNTS, this.cnt, domain, n - 1);
+  }
+
+  /**
+   * Writes the dead values into slot `i` of every target of `domain` (stored arrays, edit links, layers) through the
+   * log, so the slot's live content is in the delta and the slot is dead-canonical once the count drops past it.
+   */
+  private vacate(domain: number, i: number): void {
+    for (const tid of DOMAIN_TARGETS[domain] as readonly number[]) {
+      const stride = TARGET_STRIDE[tid] as number;
+      const array = this.arrayOfTid(tid);
+      const dead = TARGET_DEAD[tid] as number;
+      for (let k = 0; k < stride; k++) this.w(tid, array, i * stride + k, dead);
+    }
+    for (const store of this.layersOf(domain)) {
+      const def = store.def;
+      const comps = def.comps;
+      for (let k = 0; k < comps; k++) {
+        this.w(store.tid, store.data, i * comps + k, storedValue(def.type, def.default[k] ?? 0));
+      }
+    }
+  }
+
+  /** Writes the dead values into values [from, to) of a delta key's array (no logging: `apply` only). */
+  private fillDead(key: number | string, from: number, to: number): void {
+    if (to <= from) return;
+    if (typeof key === 'number') {
+      this.arrayOfTid(key).fill(TARGET_DEAD[key] as number, from, to);
+      return;
+    }
+    const store = this.byName.get(key);
+    if (store === undefined) throw kernelError('invalid-delta', `apply(): layer ${key} does not exist`);
+    fillDefault(store.data, store.def, from / store.def.comps, to / store.def.comps);
   }
 
   private move(domain: number, j: number, i: number): void {
@@ -1080,6 +1128,8 @@ export class KernelMesh implements EditMesh {
       for (let s = segment.snaps.length - 1; s >= 0; s--) {
         const snap = segment.snaps[s] as SegmentRecord['snaps'][number];
         this.arrayOfKey(snap.key).set(snap.before);
+        // Slots the segment brought to life were dead at its start.
+        this.fillDead(snap.key, snap.before.length, snap.after.length);
       }
       for (let s = segment.slots.length - 1; s >= 0; s--) {
         const slot = segment.slots[s] as SegmentRecord['slots'][number];
