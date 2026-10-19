@@ -413,6 +413,28 @@ describe('Tweak (§5.15)', () => {
     expect((moved[v]?.[0] ?? 0) - (p[v]?.[0] ?? 0)).toBeGreaterThan(0);
     expect(moved[0]).toEqual(p[0]);
   });
+
+  it('Esc during a Tweak drag puts the selection it replaced back and records nothing', async () => {
+    const s = await scene();
+    await tool(s, 'move');
+    await pick(s, 'vertex', [0]);
+    await run(s.app, 'model.selectionStyle.set', { style: 'tweak' });
+    const p = positions(s.app, s.cube);
+    const v = p.findIndex((q) => near(q[0], 0.5) && near(q[1], 0.5) && near(q[2], 0.5));
+    const at = modelSelectOf(s.app)?.screenOf(s.cube, 'vertex', v, PANE);
+    if (at === null || at === undefined) throw new Error('vertex not visible');
+    const steps = labels(s.app).length;
+    pointer(element(s), 'pointerdown', at.x, at.y);
+    pointer(element(s), 'pointermove', at.x + 30, at.y, { buttons: 1 });
+    expect(s.rig.vm.activeTool()?.phase?.()).toBe('dragging');
+    expect([...s.app.components.get(s.cube, 'vertex').verts.toArray()]).toEqual([v]); // the press replaced it
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape', key: 'Escape' }));
+    pointer(element(s), 'pointerup', at.x + 30, at.y);
+    await Promise.resolve();
+    expect([...s.app.components.get(s.cube, 'vertex').verts.toArray()]).toEqual([0]);
+    expect(positions(s.app, s.cube)).toEqual(p);
+    expect(labels(s.app)).toHaveLength(steps);
+  });
 });
 
 describe('snapping (§5.15)', () => {
@@ -422,10 +444,13 @@ describe('snapping (§5.15)', () => {
     await pick(s, 'vertex', [0]);
     const before = positions(s.app, s.cube);
     let steps = labels(s.app).length;
-    expect(key(s, 'KeyX', 'down')).toBe(true);
+    // Observed holds return false (§5.17 step 2: the keymap still resolves the key); the runtime holds the snap.
+    expect(key(s, 'KeyX', 'down')).toBe(false);
+    expect(s.runtime.held.grid).toBe(true);
     const from = handle(s, 'ty');
     drag(element(s), from, { x: from.x, y: from.y - 37 });
-    expect(key(s, 'KeyX', 'up')).toBe(true);
+    expect(key(s, 'KeyX', 'up')).toBe(false);
+    expect(s.runtime.held.grid).toBe(false);
     await settled(s.app, ++steps);
     const y = positions(s.app, s.cube)[0]?.[1] ?? 0;
     expect(near(Math.round(y / 0.1) * 0.1, y)).toBe(true);
@@ -484,12 +509,60 @@ describe('objects (§5.13 scene.object.transform)', () => {
   });
 });
 
+describe('typed values of object drags (§5.10)', () => {
+  /** |q · expected| = 1 within eps (q and −q are the same rotation). */
+  const sameRotation = (q: readonly number[] | undefined, expected: readonly number[], eps = 1e-9): boolean =>
+    q !== undefined && Math.abs(Math.abs(q.reduce((sum, x, k) => sum + x * (expected[k] ?? 0), 0)) - 1) <= eps;
+
+  it('an object Rotate drag commits the typed angle: rotateY = 90° about Y in one "Rotate" step', async () => {
+    const s = await scene();
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'rotate');
+    const steps = labels(s.app).length;
+    const ring = handle(s, 'ry');
+    pointer(element(s), 'pointerdown', ring.x, ring.y);
+    pointer(element(s), 'pointermove', ring.x + 20, ring.y, { buttons: 1 });
+    const target = s.rig.vm.activeTool()?.numeric?.();
+    expect(target?.active).toBe('rotateY');
+    expect(target?.fields.map((f) => f.name)).toEqual(['rotateX', 'rotateY', 'rotateZ']);
+    target?.set('rotateY', Math.PI / 2);
+    expect(target?.value('rotateY')).toBe(Math.PI / 2);
+    target?.confirm();
+    pointer(element(s), 'pointerup', ring.x + 20, ring.y);
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).slice(steps)).toEqual(['Rotate']);
+    const placement = s.app.store.get('meshes', s.cube)?.placement;
+    expect(sameRotation(placement?.q, [0, Math.SQRT1_2, 0, Math.SQRT1_2])).toBe(true);
+    expect(placement?.t).toEqual([0, 0, 0]);
+    expect(placement?.s).toEqual([1, 1, 1]);
+  });
+
+  it('several typed Euler fields compose in the frame as mesh.transformComponents does (xyz: Ry·Rx)', async () => {
+    const s = await scene();
+    s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
+    await tool(s, 'rotate');
+    const steps = labels(s.app).length;
+    const ring = handle(s, 'ry');
+    pointer(element(s), 'pointerdown', ring.x, ring.y);
+    pointer(element(s), 'pointermove', ring.x + 20, ring.y, { buttons: 1 });
+    const target = s.rig.vm.activeTool()?.numeric?.();
+    target?.set('rotateX', Math.PI / 2);
+    target?.set('rotateY', Math.PI / 2);
+    target?.confirm();
+    pointer(element(s), 'pointerup', ring.x + 20, ring.y);
+    await settled(s.app, steps + 1);
+    // Ry(90°)·Rx(90°) = (x, y, z, w) (0.5, 0.5, −0.5, 0.5).
+    expect(sameRotation(s.app.store.get('meshes', s.cube)?.placement.q, [0.5, 0.5, -0.5, 0.5])).toBe(true);
+  });
+});
+
 describe('pivot editing (§5.15)', () => {
   it('D held: the manipulator is dashed and a drag moves the object pivot (mesh.pivot.set, undoable)', async () => {
     const s = await scene();
     s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
     await tool(s, 'rotate');
-    expect(key(s, 'KeyD', 'down')).toBe(true);
+    expect(key(s, 'KeyD', 'down')).toBe(false); // observed (§5.17 step 2), held by the runtime
+    expect(s.runtime.held.pivot).toBe(true);
     s.rig.frame();
     const tx = handle(s, 'tx'); // pivot editing shows the translate handles whatever the tool
     const steps = labels(s.app).length;
@@ -542,14 +615,51 @@ describe('soft selection (§5.15)', () => {
 });
 
 describe('symmetry through the UI path (§5.14, P10)', () => {
-  it('a vertex moved along +X under Object X moves its partner along −X', async () => {
-    const s = await scene();
+  /** A cube cut once across X: the seam (x = 0) holds a ring of vertices on the mirror plane. */
+  const SEAMED = (): MeshData => primitive('cube', { subdivisionsWidth: 2 });
+  const P10 = 1e-6;
+
+  /** Each vertex's mirror partner across x = 0 in a symmetric rest pose (a seam vertex is its own). */
+  function partnersX(p: readonly number[][]): number[] {
+    return p.map((q) => p.findIndex((r) => near(r[0], -(q[0] ?? 0)) && near(r[1], q[1] ?? 0) && near(r[2], q[2] ?? 0)));
+  }
+
+  /** P10: every vertex mirrors its rest partner within 1e-6 m; seam vertices stay exactly on x = 0. */
+  function expectSymmetricX(q: readonly number[][], partner: readonly number[]): void {
+    partner.forEach((w, v) => {
+      expect(w).toBeGreaterThanOrEqual(0);
+      const a = q[v] ?? [];
+      const b = q[w] ?? [];
+      expect(Math.abs((a[0] ?? 0) + (b[0] ?? 0))).toBeLessThanOrEqual(P10);
+      expect(Math.abs((a[1] ?? 0) - (b[1] ?? 0))).toBeLessThanOrEqual(P10);
+      expect(Math.abs((a[2] ?? 0) - (b[2] ?? 0))).toBeLessThanOrEqual(P10);
+    });
+    const seam = partner.flatMap((w, v) => (w === v ? [v] : []));
+    expect(seam.map((v) => Math.abs(q[v]?.[0] ?? Number.NaN))).toEqual(seam.map(() => 0));
+  }
+
+  /** The cube in Object X, the given tool, its rest positions and partners. */
+  async function mirrored(
+    t: 'move' | 'rotate' | 'scale',
+    data?: MeshData,
+  ): Promise<{ s: Scene; rest: number[][]; partner: number[] }> {
+    const s = await scene(data === undefined ? {} : { data });
     s.app.session.setState({ selection: { ...s.app.session.getState().selection, objects: [s.cube] } });
     await run(s.app, 'model.symmetry.set', { mode: 'object-x' });
-    await tool(s, 'move');
-    const p = positions(s.app, s.cube);
-    const v = p.findIndex((q) => near(q[0], 0.5) && near(q[1], 0.5) && near(q[2], 0.5));
-    const partner = p.findIndex((q) => near(q[0], -0.5) && near(q[1], 0.5) && near(q[2], 0.5));
+    await tool(s, t);
+    const rest = positions(s.app, s.cube);
+    return { s, rest, partner: partnersX(rest) };
+  }
+
+  const at = (p: readonly number[][], x: number, y: number, z: number): number =>
+    p.findIndex((q) => near(q[0], x) && near(q[1], y) && near(q[2], z));
+  const moved = (a: readonly number[][], b: readonly number[][]): number[] =>
+    a.flatMap((q, v) => (q.some((x, k) => x !== b[v]?.[k]) ? [v] : []));
+
+  it('a vertex moved along +X under Object X moves its partner along −X', async () => {
+    const { s, rest, partner } = await mirrored('move');
+    const v = at(rest, 0.5, 0.5, 0.5);
+    const mirror = at(rest, -0.5, 0.5, 0.5);
     await pick(s, 'vertex', [v]);
     const steps = labels(s.app).length;
     const tx = handle(s, 'tx');
@@ -558,8 +668,74 @@ describe('symmetry through the UI path (§5.14, P10)', () => {
     const q = positions(s.app, s.cube);
     const dx = (q[v]?.[0] ?? 0) - 0.5;
     expect(dx).toBeGreaterThan(0);
-    expect(near(q[partner]?.[0], -0.5 - dx)).toBe(true);
-    expect(q[partner]?.[1]).toBe(p[partner]?.[1]);
+    expect(Math.abs((q[mirror]?.[0] ?? 0) - (-0.5 - dx))).toBeLessThanOrEqual(P10);
+    expect(q[mirror]?.[1]).toBe(rest[mirror]?.[1]);
+    expect(moved(q, rest).sort((a, b) => a - b)).toEqual([v, mirror].sort((a, b) => a - b));
+    expectSymmetricX(q, partner);
+  });
+
+  it('rotates the +X side about its centre and the −X side about the mirrored pivot (S·R·S)', async () => {
+    const { s, rest, partner } = await mirrored('rotate', SEAMED());
+    const side = rest.flatMap((q, v) => (near(q[0], 0.5) ? [v] : []));
+    expect(side).toHaveLength(4);
+    await pick(s, 'vertex', side);
+    const steps = labels(s.app).length;
+    const ring = handle(s, 'rz');
+    drag(element(s), ring, { x: ring.x + 30, y: ring.y + 10 });
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Rotate');
+    const q = positions(s.app, s.cube);
+    expect(moved(q, rest)).toHaveLength(8); // the picked side and its mirror; the seam ring stays
+    expectSymmetricX(q, partner);
+  });
+
+  it('scales the +X side along one axis and the −X side by the mirrored scale', async () => {
+    const { s, rest, partner } = await mirrored('scale', SEAMED());
+    const side = rest.flatMap((q, v) => (near(q[0], 0.5) ? [v] : []));
+    await pick(s, 'vertex', side);
+    const steps = labels(s.app).length;
+    const sy = handle(s, 'sy');
+    drag(element(s), sy, { x: sy.x, y: sy.y - 30 });
+    await settled(s.app, steps + 1);
+    expect(labels(s.app).at(-1)).toBe('Scale');
+    const q = positions(s.app, s.cube);
+    const top = at(rest, 0.5, 0.5, 0.5);
+    expect(q[top]?.[1]).toBeGreaterThan(0.5);
+    expect(q[top]?.[0]).toBe(rest[top]?.[0]); // along Y only
+    expect(moved(q, rest)).toHaveLength(8);
+    expectSymmetricX(q, partner);
+  });
+
+  it('soft select under symmetry: both sides take their weights, the seam keeps x = 0', async () => {
+    const { s, rest, partner } = await mirrored('move', SEAMED());
+    await run(s.app, 'model.softSelect.set', { on: true, radius: 0.8 });
+    const v = at(rest, 0.5, 0.5, 0.5);
+    const seam = at(rest, 0, 0.5, 0.5);
+    await pick(s, 'vertex', [v]);
+    const steps = labels(s.app).length;
+    const grab = handle(s, 'tview');
+    drag(element(s), grab, { x: grab.x + 25, y: grab.y - 15 });
+    await settled(s.app, steps + 1);
+    const q = positions(s.app, s.cube);
+    // The seam vertex is 0.5 m from the pick: it moves (in the plane) by its weight.
+    expect(Math.abs((q[seam]?.[1] ?? 0) - 0.5) + Math.abs((q[seam]?.[2] ?? 0) - 0.5)).toBeGreaterThan(1e-4);
+    expect(moved(q, rest).length).toBeGreaterThan(2);
+    expectSymmetricX(q, partner);
+  });
+
+  it('a seam vertex dragged in the view plane stays exactly on x = 0 (Preserve Seam)', async () => {
+    const { s, rest, partner } = await mirrored('move', SEAMED());
+    expect(s.app.session.getState().model.symmetry.get(s.cube)?.preserveSeam).toBe(true);
+    const seam = at(rest, 0, 0.5, 0.5);
+    await pick(s, 'vertex', [seam]);
+    const steps = labels(s.app).length;
+    const grab = handle(s, 'tview');
+    drag(element(s), grab, { x: grab.x + 25, y: grab.y - 15 });
+    await settled(s.app, steps + 1);
+    const q = positions(s.app, s.cube);
+    expect(Math.abs(q[seam]?.[0] ?? Number.NaN)).toBe(0);
+    expect(moved(q, rest)).toEqual([seam]);
+    expectSymmetricX(q, partner);
   });
 });
 

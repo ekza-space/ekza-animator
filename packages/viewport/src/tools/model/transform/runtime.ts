@@ -16,6 +16,7 @@
 // - the numeric capture window during drags (the tool's `NumericTarget`) and the modal readout's state.
 import {
   type Disposer,
+  eulerToQuat,
   type Mat4,
   mat4Compose,
   mat4Decompose,
@@ -27,6 +28,7 @@ import {
   type Quat,
   quatFromAxisAngle,
   quatInvert,
+  quatMultiply,
   quatRotateVec3,
   quatToEuler,
   type ReadonlyVec3,
@@ -543,6 +545,8 @@ export class ModelTransformRuntime implements ModelManipulator {
     if (this.app.session.getState().workspace !== 'model') return false;
     const modified = e.shift || e.alt || e.mod || e.ctrl;
     const down = e.type === 'down';
+    // Observed holds (§5.17 step 2): the runtime notes the key and returns false, so the keymap (step 3) still
+    // resolves it (no unmodified X, V, J or D row exists in the Model scopes today; a future one is not shadowed).
     const hold = (name: 'grid' | 'vertex' | 'increment' | 'pivot'): boolean => {
       if (down && modified && !this.held[name]) return false;
       const was = this.held[name];
@@ -550,7 +554,7 @@ export class ModelTransformRuntime implements ModelManipulator {
       if (name === 'pivot' && was !== down) this.vm.refreshManipulatorSoon();
       // A snap key pressed or released during a drag applies at once (Maya).
       if (this.drag !== null && this.lastEvent !== null && was !== down) this.drag.update(this.lastEvent);
-      return down || was;
+      return false;
     };
     switch (e.code) {
       case 'KeyX':
@@ -735,6 +739,7 @@ export class ModelTransformRuntime implements ModelManipulator {
     gesture: TransformToolId | 'mmb',
     handle: ManipHandle,
     drag: DragFrame,
+    cancelled?: () => void,
   ): Drag | null {
     const app = this.app;
     const kind = app.session.getState().model.componentMode as ComponentKind;
@@ -754,7 +759,7 @@ export class ModelTransformRuntime implements ModelManipulator {
     };
     // An open extrude session absorbs the gesture on its cap (§5.8, B12b).
     const absorb = app.extrude.beginAbsorb(gesture, space);
-    if (absorb !== null) return this.absorbDrag(base, absorb);
+    if (absorb !== null) return this.absorbDrag(base, absorb, cancelled);
     const sel = this.componentSelection(kind);
     if (sel.picks.length === 0) return null;
     const kernel = meshKernel();
@@ -796,11 +801,12 @@ export class ModelTransformRuntime implements ModelManipulator {
       const identity = base.motion === null || isIdentityMotion(base.motion);
       if (!commit || (identity && base.typed.size === 0) || !session.active) {
         if (session.active) session.cancel();
+        if (!commit) cancelled?.();
         this.vm.refreshManipulatorSoon();
         return;
       }
       const pinned = app.session.getState().model.componentPivot;
-      const motion = base.motion;
+      const motion = base.motion === null ? null : withTyped(base.motion, base.typed, frame);
       void app
         .runUntyped(
           'mesh.transformComponents',
@@ -839,12 +845,15 @@ export class ModelTransformRuntime implements ModelManipulator {
   }
 
   /** An open extrude session absorbs the drag (§5.8): world deltas about the session frame's pivot. */
-  private absorbDrag(base: MotionDragBase, absorb: AbsorbGesture): Drag {
+  private absorbDrag(base: MotionDragBase, absorb: AbsorbGesture, cancelled?: () => void): Drag {
     let paneId = '';
     const finish = (commit: boolean): void => {
       this.clearReadout();
       if (commit) absorb.commit();
-      else absorb.cancel();
+      else {
+        absorb.cancel();
+        cancelled?.();
+      }
     };
     return {
       get paneId() {
@@ -1018,7 +1027,15 @@ export class ModelTransformRuntime implements ModelManipulator {
     const service = app.components;
     const sel = service.get(pick.mesh, pick.kind);
     const set = pick.kind === 'vertex' ? sel.verts : pick.kind === 'edge' ? sel.edges : sel.faces;
+    // A cancelled Tweak (Esc, or no drag frame) leaves the selection it found (§5.15: no step, nothing changed).
+    let restore: (() => void) | null = null;
     if (!set.has(pick.index)) {
+      const before = service.snapshot(app.session.getState().model.hilite);
+      restore = () => {
+        service.restore(before);
+        this.frameCache = null;
+        this.vm.refreshManipulatorSoon();
+      };
       // The press replaces the selection with the component under it (no "Select" step: the Move carries it).
       const internals = componentInternals(service);
       for (const mesh of app.session.getState().model.hilite) {
@@ -1031,7 +1048,10 @@ export class ModelTransformRuntime implements ModelManipulator {
     }
     const frame = this.vm.manipulatorFrame(press.paneId);
     const selection = this.componentSelection(pick.kind);
-    if (frame === null || selection.centre === null) return null;
+    if (frame === null || selection.centre === null) {
+      restore?.();
+      return null;
+    }
     const drag: DragFrame = {
       frame,
       pivot: selection.centre,
@@ -1042,7 +1062,9 @@ export class ModelTransformRuntime implements ModelManipulator {
       ],
       start: { x: press.x, y: press.y },
     };
-    return this.beginComponents('move', 'move', 'tview', drag);
+    const started = this.beginComponents('move', 'move', 'tview', drag, restore ?? undefined);
+    if (started === null) restore?.();
+    return started;
   }
 
   // ---------- soft-select radius ----------
@@ -1274,7 +1296,12 @@ function formatParam(def: ParamDef, value: number): string {
   return value.toFixed(3);
 }
 
-/** Typed values override the pointer's per frame axis (§5.10). */
+/**
+ * Typed values override the pointer's per frame axis (§5.10): the motion's fields in `frame` (`componentArgs`) with
+ * the typed ones replacing theirs, turned back into a world motion. A rotation about one frame axis keeps its typed
+ * angle as it is (more than a turn included); several Euler fields compose as `mesh.transformComponents` does
+ * (rotate order xyz in the frame): q = frame · euler_xyz · frame⁻¹.
+ */
 function withTyped(motion: Motion, typed: ReadonlyMap<string, number>, frame: Quat): Motion {
   if (typed.size === 0) return motion;
   const args = componentArgs(motion, frame);
@@ -1288,7 +1315,19 @@ function withTyped(motion: Motion, typed: ReadonlyMap<string, number>, frame: Qu
   if (motion.kind === 'scale') {
     return { kind: 'scale', factors: [args['scaleX'] ?? 1, args['scaleY'] ?? 1, args['scaleZ'] ?? 1] };
   }
-  return motion;
+  const euler: Vec3 = [args['rotateX'] ?? 0, args['rotateY'] ?? 0, args['rotateZ'] ?? 0];
+  const turning = [0, 1, 2].filter((k) => euler[k] !== 0);
+  if (turning.length === 0) return { kind: 'rotate', axis: motion.axis, angle: 0 };
+  if (turning.length === 1) {
+    const k = turning[0] as number;
+    const unit: Vec3 = [0, 0, 0];
+    unit[k] = 1;
+    return { kind: 'rotate', axis: quatRotateVec3(frame, unit), angle: euler[k] as number };
+  }
+  const q = quatMultiply(quatMultiply(frame, eulerToQuat(euler, 'xyz')), quatInvert(frame));
+  const sin = Math.hypot(q[0], q[1], q[2]);
+  if (sin < 1e-12) return { kind: 'rotate', axis: motion.axis, angle: 0 };
+  return { kind: 'rotate', axis: [q[0] / sin, q[1] / sin, q[2] / sin], angle: 2 * Math.atan2(sin, q[3]) };
 }
 
 /** An object at the start of a drag: its placement, its parent's world matrix and its pivot in the scene. */
