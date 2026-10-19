@@ -4,14 +4,7 @@
 // keys_tween), AE-24 (AE-09 on an adversarial document). The scripts are gated on READY.p1 (until then these tools
 // answer "not available yet" or the doubles do not model them); the setups and graders run now, and every grader
 // must reject its unedited setup (grader integrity, §9.3.4).
-import {
-  eulerToQuat,
-  type Quat,
-  quatInvert,
-  quatMultiply,
-  quatRotateVec3,
-  type RotateOrder,
-} from '@ekza-animator/anim-core';
+import { eulerToQuat, quatInvert, quatMultiply, quatRotateVec3 } from '@ekza-animator/anim-core';
 import { type ClipId, type ControlRecord, seededIdSource } from '@ekza-animator/doc';
 import { createHeadlessEditorApp } from '@ekza-animator/editor-core';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -99,14 +92,14 @@ function smooth(control: string, channel: 'rx' | 'ry' | 'rz', f: number): number
 function flipKeys(inject: boolean): UserKey[] {
   const keys: UserKey[] = [];
   for (const control of SPINE) {
-    const order = controlRecord(control).rotateOrder as RotateOrder;
+    const order = controlRecord(control).rotateOrder;
     const middle = order[1] as 'x' | 'y' | 'z';
     for (const f of FLIP_FRAMES) {
       const triple = { rx: smooth(control, 'rx', f), ry: smooth(control, 'ry', f), rz: smooth(control, 'rz', f) };
       if (inject && control === 'fk.chest' && f >= 12 && f <= 16) triple.rz += 360;
       if (inject && control === 'fk.spine' && f >= 25 && f <= 27) {
         for (const axis of ['x', 'y', 'z'] as const) {
-          const name = `r${axis}` as 'rx' | 'ry' | 'rz';
+          const name = `r${axis}` as const;
           triple[name] = axis === middle ? 180 - triple[name] : triple[name] + 180;
         }
       }
@@ -332,11 +325,11 @@ describe('AE setups and graders of the tasks over P1’s work (grader integrity,
   it('AE-09: the injected flips keep every orientation and fail only the jump test', async () => {
     const { clip, clean } = await flipsSetup();
     // the alternate triple is the same rotation (the setup's own check)
-    const order = controlRecord('fk.spine').rotateOrder as RotateOrder;
+    const order = controlRecord('fk.spine').rotateOrder;
     const middle = 'xyz'.indexOf(order[1] as string);
     const triple = [10, 20, 30].map((v) => v * DEG) as [number, number, number];
     const alternate = triple.map((v, i) => (i === middle ? Math.PI - v : v + Math.PI)) as [number, number, number];
-    expect(angleDeg(eulerToQuat(triple, order) as Quat, eulerToQuat(alternate, order) as Quat)).toBeLessThan(1e-6);
+    expect(angleDeg(eulerToQuat(triple, order), eulerToQuat(alternate, order))).toBeLessThan(1e-6);
     expect(gradeFlips(clip, clean)).toEqual({ orientation: true, flips: false });
     expect(gradeFlips(clean, clean)).toEqual({ orientation: true, flips: true });
   });
@@ -358,12 +351,7 @@ describe('AE setups and graders of the tasks over P1’s work (grader integrity,
     const clip = await swingSetup();
     const at10 = boneWorld(fx.app, fx.character, clip, 'leftUpperArm', 10);
     const at30 = boneWorld(fx.app, fx.character, clip, 'leftUpperArm', 30);
-    expect(gradeSpacing(clip, at10, at30)).toEqual({
-      easesOut: false,
-      easesIn: false,
-      peakInMiddle: expect.any(Boolean),
-      poses: true,
-    });
+    expect(gradeSpacing(clip, at10, at30)).toMatchObject({ easesOut: false, easesIn: false, poses: true });
   });
 
   it('AE-23: the selected keys are not tweened yet', async () => {
