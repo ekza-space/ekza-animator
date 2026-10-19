@@ -28,7 +28,7 @@ export { expandSelection } from './symmetry/expand';
 export { buildSymmetryMap } from './symmetry/map';
 export { mirrorEdgePoint } from './symmetry/pointer';
 // ---------- B3 ----------
-export { regionFrame } from './stubs/frame';
+export { regionFrame } from './ops/extrude/frame';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './stubs/subset';
 // ---------- B5 ----------

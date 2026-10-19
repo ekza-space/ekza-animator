@@ -182,6 +182,28 @@ describe('§6.3 primitive parameters', () => {
   });
 });
 
+/**
+ * Kernel ops whose owners have landed them (literal updates per package, M6A-SPEC §3 rule 9): their `run` no longer
+ * refuses `not-implemented`. B2 `mesh.transformComponents` (test/transform); B3 (M6A-SPEC §9 B3).
+ */
+const LANDED: ReadonlySet<string> = new Set([
+  'mesh.transformComponents',
+  'mesh.extrude',
+  'mesh.inset',
+  'mesh.insertLoop',
+  'mesh.offsetLoop',
+  'mesh.connect',
+  'mesh.bridge',
+  'mesh.fillHole',
+  'mesh.merge',
+  'mesh.mergeToCenter',
+  'mesh.mergeByDistance',
+  'mesh.targetWeld',
+  'mesh.collapse',
+  'mesh.delete',
+  'mesh.deleteEdgeVertex',
+]);
+
 describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
   it('hold one op per descriptor with the same descriptor fields', () => {
     expect(Object.keys(MESH_OPS).sort()).toEqual(Object.keys(MESH_OP_DESCRIPTORS).sort());
@@ -199,10 +221,6 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
     }
   });
 
-  // Ops whose kernel owner has landed them (literal updates, M6A-SPEC §3 rule 9): their runs are tested in the
-  // owner's test dirs. B2: `mesh.transformComponents` (test/transform).
-  const LANDED: ReadonlySet<string> = new Set(['mesh.transformComponents']);
-
   it('poll true and run refuses not-implemented until the owner lands the op', () => {
     const mesh = emptyMesh();
     const ctx = {
@@ -214,6 +232,8 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
+    // Ops their owners have landed (B3, M6A-B3-12) poll and run on an empty mesh without a selection without throwing,
+    // and never refuse `not-implemented`; every other op is still B0a's stub.
     const outcomes = Object.values(MESH_OPS)
       .filter((op) => !LANDED.has(op.id))
       .map((op) => {
@@ -225,6 +245,18 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
         .filter((id) => !LANDED.has(id))
         .map((id) => [id, true, 'not-implemented']),
     );
+    const landed = [...LANDED].map((id) => {
+      const op = MESH_OPS[id];
+      const result = op?.run(mesh, null, {}, ctx);
+      const verdict = op?.poll(mesh, null, ctx);
+      return {
+        id,
+        defined: op !== undefined,
+        stub: isRefusal(result) && result.code === 'not-implemented',
+        poll: verdict === true || isRefusal(verdict),
+      };
+    });
+    expect(landed).toEqual([...LANDED].map((id) => ({ id, defined: true, stub: false, poll: true })));
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];
