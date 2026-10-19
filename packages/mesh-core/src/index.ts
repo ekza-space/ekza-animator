@@ -32,6 +32,6 @@ export { regionFrame } from './ops/extrude/frame';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------
-export { checkMesh } from './stubs/check';
+export { checkMesh } from './check';
 // ---------- B13 ----------
 export { humanoidBody } from './stubs/templates';

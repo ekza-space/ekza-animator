@@ -185,7 +185,7 @@ describe('§6.3 primitive parameters', () => {
 /**
  * Kernel ops whose owners have landed them (literal updates per package, M6A-SPEC §3 rule 9): their `run` no longer
  * refuses `not-implemented`. B2 `mesh.transformComponents` (test/transform); B3 (M6A-SPEC §9 B3); B4 (shape ops,
- * Multi-Cut, Slide, Average, MeshSetOps).
+ * Multi-Cut, Slide, Average, MeshSetOps); B5 (bevel, cleanup, UV projections).
  */
 const LANDED: ReadonlySet<string> = new Set([
   'mesh.transformComponents',
@@ -222,6 +222,11 @@ const LANDED: ReadonlySet<string> = new Set([
   'mesh.separate',
   'mesh.extract',
   'mesh.duplicateFaces',
+  'mesh.bevel',
+  'mesh.cleanup',
+  'mesh.uv.planar',
+  'mesh.uv.box',
+  'mesh.uv.cylindrical',
 ]);
 
 describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
@@ -252,7 +257,7 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
-    // Ops their owners have landed (B3, M6A-B3-12; B4) poll and run on an empty mesh without a selection without
+    // Ops their owners have landed (B3, M6A-B3-12; B4; B5) poll and run on an empty mesh without a selection without
     // throwing, and never refuse `not-implemented`; every other op is still B0a's stub.
     const stubs = Object.values(MESH_OPS).filter((op) => !LANDED.has(op.id));
     const outcomes = stubs.map((op) => {
