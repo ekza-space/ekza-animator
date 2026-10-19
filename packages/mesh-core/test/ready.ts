@@ -2,6 +2,8 @@
 // `describe.skipIf(!READY.<id>)` until that package merges; the integration agent (INT) sets every flag to true and
 // the gated tests become failures if they do not pass.
 export const READY = {
+  /** B2: selection walkers, soft weights, symmetry maps and `mesh.transformComponents` (landed with this file). */
+  b2: true,
   /** B13: the humanoid body generator (`primitive('humanoidBody', …)`), used by B2's in-seam golden. */
   b13: false,
 } as const;
