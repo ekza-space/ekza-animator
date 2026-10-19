@@ -315,7 +315,7 @@ describe('marking menus and the capture bridge', () => {
     );
     expect(broken).toEqual([]);
     // The S / W / SW family of the component menus (§8.4).
-    for (const id of ['model.tools.edge', 'model.tools.face']) {
+    for (const id of ['model.tools.vertex', 'model.tools.edge', 'model.tools.face']) {
       const slots = app.markingMenus.get(id)?.slots;
       expect([slots?.S?.op, slots?.W?.args, slots?.SW?.op]).toEqual([
         'mesh.extrude',
@@ -323,6 +323,15 @@ describe('marking menus and the capture bridge', () => {
         'mesh.delete',
       ]);
     }
+    // In vertex mode the S slot shows Extrude's own poll reason (§6.1 Extrude, §8.4).
+    await loadMeshKernel();
+    const model = app.session.getState().model;
+    app.session.setState({ workspace: 'model', model: { ...model, componentMode: 'vertex' } });
+    const extrude = app.operators.poll('mesh.extrude');
+    expect(extrude === true ? null : extrude.reason).toBe('Vertex extrude is not available yet');
+    // Snap to Grid is the sticky grid snap of §6.2.
+    const snap = app.markingMenus.get('model.tools.vertex')?.list.find((item) => item.label === 'Snap to Grid');
+    expect([snap?.op, snap?.args]).toEqual(['model.snap.toggle', { kind: 'grid' }]);
     dispose();
     expect(app.markingMenus.get('model.merge')).toBeUndefined();
   });

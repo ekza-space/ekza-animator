@@ -62,7 +62,8 @@ export const TOOLS_VERTEX_MENU: MarkingMenuDef = {
     NE: tool('Target Weld', 'targetWeld'),
     E: op('mesh.connect', 'Connect'),
     SE: later('Chamfer Vertex', 'Chamfer Vertex arrives later'),
-    S: later('Extrude', 'Vertex extrude arrives later'),
+    // §8.4: Extrude with its own poll reason in vertex mode ("Vertex extrude is not available yet", M6A-B11-9).
+    S: EXTRUDE,
     SW: DELETE,
     W: MULTI_CUT,
     NW: op('mesh.averageVertices', 'Average Vertices'),
@@ -71,7 +72,8 @@ export const TOOLS_VERTEX_MENU: MarkingMenuDef = {
     op('mesh.deleteEdgeVertex', 'Delete Edge/Vertex'),
     op('mesh.merge', 'Merge'),
     tool('Slide', 'slide'),
-    later('Snap to Grid', 'Snap to Grid arrives later: hold X while moving'),
+    // The sticky grid snap of §6.2 (B12a's `model.snap.toggle`; its stub says why until it lands).
+    op('model.snap.toggle', 'Snap to Grid', { kind: 'grid' }),
   ],
 };
 
