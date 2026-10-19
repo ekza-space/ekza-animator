@@ -149,7 +149,25 @@ export function conformFlips(m: EditMesh, faces: readonly number[]): number[] {
       if (!closed) break;
     }
     let invert = false;
-    if (closed) {
+    // A patch that is part of a larger shell agrees with the faces around it (votes across manifold edges to faces
+    // outside the scope); a whole closed shell goes by its signed volume, a whole open shell by the centroid vote.
+    let keepVotes = 0;
+    let invertVotes = 0;
+    for (const f of patch) {
+      for (const c of faceCorners(m, f, corners)) {
+        const e = m.cornerEdge(c);
+        if (m.edgeFaceCount(e) !== 2) continue;
+        edgeCorners(m, e, radial);
+        const d = radial[0] === c ? (radial[1] as number) : (radial[0] as number);
+        if (inScope[m.cornerFace(d)] === 1) continue;
+        const agreesAsIs = m.cornerVert(c) !== m.cornerVert(d);
+        if (agreesAsIs !== (flip[f] === 1)) keepVotes++;
+        else invertVotes++;
+      }
+    }
+    if (keepVotes + invertVotes > 0) {
+      invert = invertVotes > keepVotes;
+    } else if (closed) {
       let volume = 0;
       for (const f of patch) volume += (flip[f] === 1 ? -1 : 1) * faceVolume(m, f);
       invert = volume < 0;
@@ -172,6 +190,25 @@ export function conformFlips(m: EditMesh, faces: readonly number[]): number[] {
         cx /= total;
         cy /= total;
         cz /= total;
+        // Votes below rounding noise do not count (a single face, or a flat patch, has no inside).
+        // The scale of the patch: the diagonal of its vertices' bounding box.
+        const lo = [Infinity, Infinity, Infinity];
+        const hi = [-Infinity, -Infinity, -Infinity];
+        const p = m.position;
+        for (const f of patch) {
+          for (const c of faceCorners(m, f, corners)) {
+            const v = m.cornerVert(c);
+            for (let k = 0; k < 3; k++) {
+              lo[k] = Math.min(lo[k] as number, p[3 * v + k] as number);
+              hi[k] = Math.max(hi[k] as number, p[3 * v + k] as number);
+            }
+          }
+        }
+        const extent = Math.hypot(
+          (hi[0] as number) - (lo[0] as number),
+          (hi[1] as number) - (lo[1] as number),
+          (hi[2] as number) - (lo[2] as number),
+        );
         let outward = 0;
         let inward = 0;
         for (const f of patch) {
@@ -183,8 +220,9 @@ export function conformFlips(m: EditMesh, faces: readonly number[]): number[] {
             ((N[0] as number) * ((Q[0] as number) - cx) +
               (N[1] as number) * ((Q[1] as number) - cy) +
               (N[2] as number) * ((Q[2] as number) - cz));
-          if (dot > 0) outward++;
-          else if (dot < 0) inward++;
+          const noise = 1e-9 * Math.hypot(N[0] as number, N[1] as number, N[2] as number) * extent;
+          if (dot > noise) outward++;
+          else if (dot < -noise) inward++;
         }
         invert = inward > outward;
       }

@@ -1,7 +1,7 @@
 // Kernel op `mesh.mirror` (M6A-SPEC §5.13, research 10 §4.14, 13 §5.10; Maya `polyMirror`; owner B4). Whole mesh:
 // 1. The plane: `position: 'object'` — local axis = 0 through the object origin; `'world'` — the world axis plane
 //    through the world origin, mapped into mesh-local space through the placement (the reflection is then the local
-//    affine map P⁻¹·S·P). Vertices within `mergeThreshold` of the plane snap onto it.
+//    affine map P⁻¹·S·P). Vertices within `mergeThreshold` (at least ctx.epsilon) of the plane snap onto it.
 // 2. `cutMesh` (default): edges crossing the plane are split exactly on it, faces crossing it are clipped to their
 //    kept-side part (`makeFace` with the face as example; the clip edge follows H1), and everything on the far side of
 //    the plane (`keep` names the source half: positive = +axis) is deleted with its unused edges and vertices.
@@ -126,7 +126,7 @@ export const mirror: MeshOp = Object.freeze({
         const y = p[3 * v + 1] as number;
         const z = p[3 * v + 2] as number;
         const d = plane.distance(x, y, z);
-        if (Math.abs(d) <= threshold) {
+        if (Math.abs(d) <= Math.max(threshold, ctx.epsilon)) {
           if (d !== 0) {
             plane.project(x, y, z, OUT);
             m.setPosition(v, (OUT[0] as number) + 0, (OUT[1] as number) + 0, (OUT[2] as number) + 0);

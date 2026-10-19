@@ -124,15 +124,33 @@ export const triangulate: MeshOp = Object.freeze({
     const args = argsOf(TRIANGULATE.params, raw);
     return guarded('triangulate.degenerate', 'A face could not be triangulated', () => {
       const faces = scopeFaces(m, sel, ctx.hidden);
+      const map = ctx.symmetry?.map ?? null;
+      // Under symmetry a face that is its own mirror image and has two seam vertices is first cut along the seam: its
+      // halves are mirror images, so they triangulate symmetrically (a quad crossing the plane cannot).
+      const halves = new Map<number, number>();
+      if (map !== null) {
+        const original = faces.slice(); // the loop appends the halves
+        for (const f of original) {
+          if (partnerOf(map, 'face', f) !== f || m.faceLen(f) <= 3 || hasRepeatedVertex(m, f)) continue;
+          const seam = faceCorners(m, f).filter((c) => partnerOf(map, 'vertex', m.cornerVert(c)) === m.cornerVert(c));
+          if (seam.length !== 2) continue;
+          const [c1, c2] = seam as [number, number];
+          if (m.cornerNext(c1) === c2 || m.cornerNext(c2) === c1) continue;
+          m.splitFaceMakeEdge(f, c1, c2);
+          const g = m.counts.faces - 1;
+          halves.set(f, g);
+          halves.set(g, f);
+          faces.push(g);
+        }
+      }
       const inScope = new Set(faces);
       const tris = triangulation(m);
-      const map = ctx.symmetry?.map ?? null;
       const plan = new Map<number, [number, number][]>();
       for (const f of faces) if (m.faceLen(f) > 3) plan.set(f, diagonalsOf(m, tris, f));
       if (map !== null) {
         const k = axisIndex(map.axis);
         for (const f of faces) {
-          const pf = partnerOf(map, 'face', f);
+          const pf = halves.get(f) ?? partnerOf(map, 'face', f);
           if (pf < 0 || pf === f || !inScope.has(pf) || !plan.has(f) || !plan.has(pf)) continue;
           if (hasRepeatedVertex(m, f) || hasRepeatedVertex(m, pf)) continue;
           if ((faceCentroid(m, f, C)[k] as number) - map.plane <= 0) continue; // f is the source when positive

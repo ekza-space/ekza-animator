@@ -193,38 +193,43 @@ function edgeSliders(
     });
     return acc;
   };
+  const chainSide = (chain: Chain): number => {
+    let sum = 0;
+    for (const v of chain.verts) sum += sideOf(v);
+    return sum;
+  };
   const found = reference === null ? -1 : list.findIndex((c) => c.verts.includes(reference.vertex));
-  if (reference !== null && found !== -1) {
-    refChain = found;
-    const chain = list[found] as Chain;
-    const i = chain.verts.indexOf(reference.vertex);
+  if (reference !== null) {
+    // The reference rail's direction, seen from the reference vertex's side of the plane.
     const far = m.edgeOther(reference.rail, reference.vertex);
     d = dir(m, reference.vertex, far);
     origin = sideOf(reference.vertex);
-    if (chain.left[i] === far) refLeft = true;
-    else if (chain.right[i] === far) refLeft = false;
-    else refLeft = dot(meanDir(chain, chain.left), d) >= dot(meanDir(chain, chain.right), d);
+    refChain = found;
+    if (found !== -1) {
+      const chain = list[found] as Chain;
+      const i = chain.verts.indexOf(reference.vertex);
+      if (chain.left[i] === far) refLeft = true;
+      else if (chain.right[i] === far) refLeft = false;
+      else refLeft = dot(meanDir(chain, chain.left), d) >= dot(meanDir(chain, chain.right), d);
+    }
   } else {
-    // The chain through the lowest-index selected edge; its left side is positive.
-    const lowest = Math.min(...edges);
-    const v0 = m.edgeVert(lowest, 0);
+    // The chain through the lowest-index selected edge; its left side is positive, and its rails' mean direction
+    // decides the other chains (mirrored on the other side of the plane).
+    const v0 = m.edgeVert(Math.min(...edges), 0);
     refChain = Math.max(
       0,
       list.findIndex((c) => c.verts.includes(v0)),
     );
     const chain = list[refChain] as Chain;
     d = meanDir(chain, chain.left);
-    if (reference !== null) d = dir(m, reference.vertex, m.edgeOther(reference.rail, reference.vertex));
-    origin = sideOf(v0);
+    origin = chainSide(chain);
     refLeft = true;
   }
   const out: Slider[] = [];
   list.forEach((chain, ci) => {
     let leftPositive = refLeft;
     if (ci !== refChain) {
-      let centroid = 0;
-      for (const v of chain.verts) centroid += sideOf(v);
-      const dd = directionFor(d, origin, centroid, map);
+      const dd = directionFor(d, origin, chainSide(chain), map);
       leftPositive = dot(meanDir(chain, chain.left), dd) >= dot(meanDir(chain, chain.right), dd);
     }
     chain.verts.forEach((v, i) => {
@@ -304,6 +309,23 @@ function vertexSliders(
   return out;
 }
 
+/**
+ * §5.14: partner vertices slide along mirrored rails. A vertex on the negative side whose partner slides takes the
+ * partner's rails mirrored (whatever its own chain decided), so the result is an exact mirror image.
+ */
+function mirrorSliders(m: EditMesh, sliders: readonly Slider[], map: SymmetryMap | null): Slider[] {
+  if (map === null) return [...sliders];
+  const byVertex = new Map(sliders.map((s) => [s.v, s]));
+  const mirrorOf = (far: number): number => (far < 0 ? -1 : partnerOf(map, 'vertex', far));
+  return sliders.map((s) => {
+    const p = partnerOf(map, 'vertex', s.v);
+    if (p < 0 || p === s.v || vertexSide(m, map, s.v) >= 0) return s;
+    const source = byVertex.get(p);
+    if (source === undefined) return s;
+    return { v: s.v, pos: mirrorOf(source.pos), neg: mirrorOf(source.neg) };
+  });
+}
+
 // ---------- the op ----------
 
 function slidePoll(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal {
@@ -360,7 +382,11 @@ export const slide: MeshOp = Object.freeze({
         : vertexSliders(m, scopeVerts(m, working, ctx.hidden), reference, map, ctx);
     // A vertex reached by two chains keeps its first slider.
     const seen = new Set<number>();
-    const unique = sliders.filter((s) => (seen.has(s.v) ? false : (seen.add(s.v), true)));
+    const unique = mirrorSliders(
+      m,
+      sliders.filter((s) => (seen.has(s.v) ? false : (seen.add(s.v), true))),
+      map,
+    );
     const start = Float64Array.from(m.position.subarray(0, 3 * m.counts.points));
     apply(m, start, unique, num(args, 'percent', 0));
     return {
