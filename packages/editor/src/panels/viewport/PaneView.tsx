@@ -99,9 +99,10 @@ export function PaneView(props: {
     return () => vm.unregisterPane(paneId);
   }, [vm, paneId]);
 
+  // `w-full`: the pane fills its cell, the single pane's flex row as well as a split's panel.
   return (
     <section
-      className="flex h-full min-h-0 min-w-0 flex-col"
+      className="flex h-full w-full min-h-0 min-w-0 flex-col"
       aria-label={`Viewport pane ${state?.cameraName ?? paneId}`}
     >
       <PaneHeader app={app} paneId={paneId} state={state} />
