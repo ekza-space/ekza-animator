@@ -234,6 +234,33 @@ describe('Model Outliner (§8.8)', () => {
     spy.mockRestore();
   });
 
+  it('a licence refusal toasts the reason with a link to the licence badge instead of running', async () => {
+    const test = modelShell();
+    const { app } = test;
+    vi.spyOn(app.characters, 'list').mockReturnValue([
+      { id: CHARACTER, container: { json: { meshes: [{ name: 'Body' }] } } } as never,
+    ]);
+    const reason = "This avatar's licence does not allow modification; its meshes stay read-only";
+    const poll = app.operators.poll.bind(app.operators);
+    vi.spyOn(app.operators, 'poll').mockImplementation((id, ctx, args) =>
+      id === 'mesh.makeEditable' ? { ok: false, reason } : poll(id, ctx, args),
+    );
+    const toasts: unknown[] = [];
+    vi.spyOn(app.services.notify, 'toast').mockImplementation((toast) => {
+      toasts.push(toast);
+    });
+    await mount(app, <ModelOutliner app={app} instanceId="t" />);
+    const button = document.querySelector<HTMLElement>('[data-testid^="outliner-make-editable-"]');
+    if (button === null) throw new Error('no Make editable button');
+    await click(button);
+    expect(toasts).toContainEqual({
+      kind: 'warning',
+      text: reason,
+      action: { label: 'Show licence', op: 'workspace.showPanel', args: { panel: 'attributes' } },
+    });
+    expect(app.store.list('meshes')).toHaveLength(0);
+  });
+
   it('a click on a mesh row in a component mode adds it to the hilite set', async () => {
     const { app } = modelShell();
     const id = await cube(app);

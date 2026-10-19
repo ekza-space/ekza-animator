@@ -232,11 +232,20 @@ export default function ModelOutliner({ app, instanceId }: PanelProps): JSX.Elem
   };
 
   const makeEditable = (row: Extract<ModelOutlinerRow, { kind: 'asset' }>): void => {
-    void run('mesh.makeEditable', { character: row.character, meshIndex: row.meshIndex }, { panel: PANEL_KIND }).then(
-      (result) => {
-        if (result.status === 'finished') void run('ui.open', { dialog: 'makeEditableReport' }, { panel: PANEL_KIND });
-      },
-    );
+    const args = { character: row.character, meshIndex: row.meshIndex };
+    // §5.21 step 1: a licence refusal says why and links to the licence badge (Attributes › Character).
+    const verdict = app.operators.poll('mesh.makeEditable', { panel: PANEL_KIND }, args);
+    if (verdict !== true && /licen[cs]e/i.test(verdict.reason)) {
+      app.services.notify.toast({
+        kind: 'warning',
+        text: verdict.reason,
+        action: { label: 'Show licence', op: 'workspace.showPanel', args: { panel: 'attributes' } },
+      });
+      return;
+    }
+    void run('mesh.makeEditable', args, { panel: PANEL_KIND }).then((result) => {
+      if (result.status === 'finished') void run('ui.open', { dialog: 'makeEditableReport' }, { panel: PANEL_KIND });
+    });
   };
 
   /** The objects an object-row command acts on: the selection when the row is in it, else the row. */
