@@ -2,13 +2,18 @@
 // bottom: header (target meshes · hilite count · triangles) · mode switcher · Selection · Symmetry · Soft Selection ·
 // Components · Tools · Mesh · Active tool · Next. Buttons run operators (`source: 'toolkit'`); a disabled button shows
 // the operator's poll reason; `⋯` opens the operator's option box (defaults for its next run). Section collapse is
-// remembered in `prefs.modeling.toolkitCollapsed`. Narrow (≤ 260 px): compact two-column buttons. Empty state:
-// "Select a mesh, or create one" with primitive buttons.
+// remembered in `prefs.modeling.toolkitCollapsed`. Narrow (≤ 260 px): two columns of short labels (no icon set exists
+// for the operators yet; wide is two columns of full labels). The Next footer: Mesh Check ✓ or its problem count (the
+// kernel's `checkMesh`, B5; the plain button until it lands), triangles / budget (§5.24, `meshBudget`) with the
+// budget bar's states, Export model…, Rig & Skin (v0.4). Empty state: "Select a mesh, or create one" with primitive
+// buttons.
 import type { ParamValue } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
 import {
   type ComponentMode,
   type EditorApp,
+  meshBudget,
+  meshKernel,
   type OperatorId,
   type RunContext,
   type SessionState,
@@ -200,6 +205,68 @@ function useNarrow(ref: { readonly current: HTMLElement | null }): boolean {
   return narrow;
 }
 
+/** The target meshes' triangle budget (§5.24: a mesh's own, else its nearest parent's): their sum when each has one. */
+function budgetOf(app: EditorApp, ids: readonly MeshId[]): number | null {
+  if (ids.length === 0) return null;
+  let total = 0;
+  for (const id of ids) {
+    const record = app.store.get('meshes', id);
+    const budget = record === undefined ? null : meshBudget(app, record);
+    if (budget === null) return null;
+    total += budget.tris;
+  }
+  return total;
+}
+
+/** §5.24's budget bar states: ok below 90 %, warn up to 100 %, danger above. */
+function budgetState(tris: number, budget: number): 'ok' | 'warn' | 'danger' {
+  if (tris > budget) return 'danger';
+  return tris >= 0.9 * budget ? 'warn' : 'ok';
+}
+
+const BUDGET_TEXT: Readonly<Record<'ok' | 'warn' | 'danger', string>> = {
+  ok: 'text-[var(--ok,#65a878)]',
+  warn: 'text-[var(--warn,#e3b34a)]',
+  danger: 'text-[var(--danger,#ef6b6b)]',
+};
+
+/** Mesh Check counts per runtime version (the kernel's `checkMesh`, B5), recomputed only when a mesh changes. */
+const checkCounts = new WeakMap<object, Map<MeshId, { readonly version: number; readonly count: number | null }>>();
+
+/**
+ * Mesh Check problems of the target meshes (§5.25: "clean" = no code but `open-border`, the rule of Model's tab
+ * glyph); null while the check is not available (B5's `checkMesh` not landed, a mesh not ready).
+ */
+function problemsOf(app: EditorApp, ids: readonly MeshId[]): number | null {
+  const kernel = meshKernel();
+  if (kernel === null || ids.length === 0) return null;
+  let cache = checkCounts.get(app.meshes);
+  if (cache === undefined) {
+    cache = new Map();
+    checkCounts.set(app.meshes, cache);
+  }
+  let total = 0;
+  for (const id of ids) {
+    const runtime = app.meshes.get(id);
+    if (runtime === undefined || runtime.state !== 'ready') return null;
+    let hit = cache.get(id);
+    if (hit === undefined || hit.version !== runtime.version) {
+      let count: number | null = null;
+      try {
+        const data = runtime.data();
+        count = data === null ? null : kernel.checkMesh(data).filter((p) => p.code !== 'open-border').length;
+      } catch {
+        count = null; // Mesh Check has not landed (B5): nothing to report.
+      }
+      hit = { version: runtime.version, count };
+      cache.set(id, hit);
+    }
+    if (hit.count === null) return null;
+    total += hit.count;
+  }
+  return total;
+}
+
 function trianglesOf(app: EditorApp, ids: readonly MeshId[]): number {
   let total = 0;
   for (const id of ids) {
@@ -323,7 +390,7 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
     );
   };
   const grid = (specs: readonly ButtonSpec[]): JSX.Element => (
-    <div className={cn('grid gap-1', narrow ? 'grid-cols-2' : 'grid-cols-2')}>{specs.map(button)}</div>
+    <div className="grid grid-cols-2 gap-1">{specs.map(button)}</div>
   );
   const isCollapsed = (id: string): boolean => collapsed.includes(id);
   const section = (id: string, title: string, children: ReactNode): JSX.Element => (
@@ -333,6 +400,9 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
   );
 
   const triangles = trianglesOf(app, meshIds);
+  const budget = budgetOf(app, meshIds);
+  const budgetLevel = budget === null ? null : budgetState(triangles, budget);
+  const problems = problemsOf(app, meshIds);
   const empty = meshIds.length === 0 && app.store.list('meshes').length === 0;
 
   const activeToolSettings = (): JSX.Element | null => {
@@ -642,11 +712,28 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
             type="button"
             className={cn(BUTTON, 'border border-line')}
             data-testid="mtk-mesh-check"
+            data-problems={problems ?? undefined}
+            title={
+              problems === null
+                ? 'Open Mesh Check'
+                : problems === 0
+                  ? 'Mesh Check: clean'
+                  : `Mesh Check found ${problems} problem${problems === 1 ? '' : 's'}`
+            }
             onClick={() => run('workspace.showPanel', { panel: 'meshCheck' })}
           >
             Mesh Check
+            {problems === null ? null : problems === 0 ? ' ✓' : ` · ${problems.toLocaleString('en')}`}
           </button>
-          <span className={MUTED_TEXT}>{triangles.toLocaleString('en')} tris</span>
+          <span
+            className={cn(MUTED_TEXT, budgetLevel !== null && BUDGET_TEXT[budgetLevel])}
+            data-testid="mtk-next-tris"
+            data-state={budgetLevel ?? 'none'}
+            title={budget === null ? 'No triangle budget set' : 'Triangles / budget (§5.24, advisory)'}
+          >
+            {triangles.toLocaleString('en')}
+            {budget === null ? '' : ` / ${budget.toLocaleString('en')}`} tris
+          </span>
         </div>
         <button
           type="button"

@@ -12,6 +12,7 @@ import {
   lastOpCardState,
   loadMeshKernel,
   loadOpsRuntime,
+  meshKernel,
   type OperatorDef,
   registerBuiltins,
   selectedInputsField,
@@ -387,6 +388,37 @@ describe('the Modeling Toolkit (§8.5)', () => {
     expect(optionBoxStore(app).getState().op).toBe('mesh.insertLoop');
     expect(by('mtk-mode-object').dataset['disabled']).toBeDefined();
     expect(by('mtk-tris').textContent).toBe('12 tris');
+  });
+
+  it('the Next footer: triangles / budget with the bar states (§5.24); Mesh Check ✓ or its count (§5.25)', async () => {
+    const { app, cube } = await modelApp();
+    const state = app.session.getState();
+    app.session.setState({ selection: { ...state.selection, objects: [cube] } });
+    await mount(app, <ToolkitView app={app} instanceId="toolkit" />, { width: 300, height: 900 });
+    await waitFor(() => maybe('mtk-next-tris') !== null);
+    expect(by('mtk-next-tris').textContent).toBe('12 tris');
+    expect(by('mtk-next-tris').dataset['state']).toBe('none');
+    const budget = async (value: { tris: number } | { preset: 'small-prop' }): Promise<void> => {
+      await act(async () => {
+        app.store.transact({ label: 'Budget' }, (tx) => tx.patch('meshes', cube, { budget: value }));
+      });
+      await settle(20);
+    };
+    await budget({ preset: 'small-prop' });
+    expect([by('mtk-next-tris').textContent, by('mtk-next-tris').dataset['state']]).toEqual(['12 / 300 tris', 'ok']);
+    await budget({ tris: 12 });
+    expect([by('mtk-next-tris').textContent, by('mtk-next-tris').dataset['state']]).toEqual(['12 / 12 tris', 'warn']);
+    await budget({ tris: 10 });
+    expect([by('mtk-next-tris').textContent, by('mtk-next-tris').dataset['state']]).toEqual(['12 / 10 tris', 'danger']);
+    // Mesh Check: the plain button until B5's check lands; then ✓ for the clean cube.
+    const data = app.meshes.get(cube)?.data();
+    let checks = true;
+    try {
+      if (data !== null && data !== undefined) meshKernel()?.checkMesh(data);
+    } catch {
+      checks = false;
+    }
+    expect(by('mtk-mesh-check').textContent).toBe(checks ? 'Mesh Check ✓' : 'Mesh Check');
   });
 
   it('sections collapse and remember it; narrow packs the buttons; the empty state creates primitives', async () => {
