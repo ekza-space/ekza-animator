@@ -8,7 +8,8 @@ import { type JSX, useEffect, useRef, useState } from 'react';
 import { useDocQuery } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';
 import { shortcutFor } from '../../shell/menus';
-import { setGettingStartedDismissed, useOwnPointer } from './modelOverlays';
+import { setGettingStartedDismissed } from './modelOverlays';
+import { useOwnPointer } from './ownPointer';
 
 interface Progress {
   readonly created: boolean;

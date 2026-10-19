@@ -159,14 +159,9 @@ export {
 export {
   activeSwatchOf,
   DEFAULT_PALETTE_ID,
-  DEFAULT_PALETTE_NAME,
-  DEFAULT_SWATCHES,
   defaultSwatchId,
-  ensureDefaultPalette,
-  faceSlotsOf,
   nextSlot,
   paintRefusal,
-  paletteOfMesh,
   parseHex,
   swatchIdFor,
   toHex,
@@ -189,11 +184,9 @@ export {
   MAX_IMAGE_BYTES,
   ORTHO_CAMERAS,
   pendingImagePlaneCamera,
-  planePatchProblem,
 } from './operators/builtin/imagePlane';
 export {
   BUDGET_PRESETS,
-  clampGrip,
   isAncestorOrSelf,
   objectWorld,
   type SceneObject,
@@ -201,8 +194,6 @@ export {
   subtree,
   TOON_REASON,
   topmost,
-  uniqueObjectName,
-  worldBounds,
 } from './operators/builtin/scene';
 export { ANIMATE_ONLY_REASON } from './operators/builtin/keymapShadows';
 export { NOT_AVAILABLE_YET } from './operators/builtin/stub';

@@ -16,7 +16,7 @@ import { orderAfterSiblings, uniqueMeshName } from '../../mesh/records';
 import { runSeed } from '../../mesh/seed';
 import type { EditorApp, OperatorContext, PollResult, SymmetrySettings } from '../../types';
 import { type AnyOperator, defineOperator, fail, OK } from './define';
-import { ensureDefaultPalette } from './palette';
+import { type ContentApplyModule, loadContentApply } from './contentLoad';
 
 type CreateKind = Exclude<PrimitiveKind, 'humanoidBody'>;
 
@@ -80,6 +80,8 @@ type PrimitiveParams = Readonly<Record<string, number | boolean | string>>;
 interface Prepared {
   readonly params: PrimitiveParams;
   readonly data: MeshData;
+  /** B13's lazy bodies (the default palette, M6A-B13-10). */
+  readonly content: ContentApplyModule;
 }
 
 /** Primitive params are scalars (§6.3): nulls and JSON values never appear after coercion; drop any that would. */
@@ -111,9 +113,9 @@ function createOperator(kind: CreateKind): AnyOperator {
       return OK;
     },
     async prepare(ctx: OperatorContext, args): Promise<Prepared> {
-      const kernel = await loadMeshKernel();
+      const [kernel, content] = await Promise.all([loadMeshKernel(), loadContentApply()]);
       const params = scalarParams(primitiveArgs(ctx.app, kind, args));
-      return { params, data: kernel.primitive(kind, params) };
+      return { params, data: kernel.primitive(kind, params), content };
     },
     apply(ctx, _args, prepared) {
       const { app, tx } = ctx;
@@ -128,7 +130,7 @@ function createOperator(kind: CreateKind): AnyOperator {
       const owner = group?.owner ?? { scene: true as const };
       const parent = group === null ? null : group.id;
       // B13: the first modeling action creates the default palette (§5.19, §10 "Model scene").
-      const palette = ensureDefaultPalette(tx);
+      const palette = prepared.content.ensureDefaultPalette(tx);
       const record: MeshRecord = {
         id: mesh,
         name: uniqueMeshName(tx, owner, label),

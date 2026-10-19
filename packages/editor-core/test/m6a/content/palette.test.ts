@@ -4,15 +4,9 @@
 import type { MeshId, PaletteId, SwatchId } from '@ekza-animator/doc';
 import { makeTestMesh } from '@ekza-animator/doc/testing';
 import { describe, expect, it } from 'vitest';
-import {
-  DEFAULT_PALETTE_ID,
-  DEFAULT_SWATCHES,
-  defaultSwatchId,
-  nextSlot,
-  paintRefusal,
-  parseHex,
-  toHex,
-} from '../../../src';
+import { DEFAULT_PALETTE_ID, defaultSwatchId, nextSlot, paintRefusal, parseHex, toHex } from '../../../src';
+// The default palette's table lives with the lazy operator bodies (M6A-B13-10).
+import { DEFAULT_SWATCHES } from '../../../src/operators/builtin/contentApply';
 import { counts, faceSlots, meshTestApp, paintFaces, pollReason, readyB10, runValue, selectObjects } from './support';
 
 const B10 = await readyB10();

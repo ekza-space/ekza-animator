@@ -7,7 +7,7 @@ import { type JSX, useRef, useState } from 'react';
 import { useRunOperator, useSession } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';
 import { shortcutFor } from '../../shell/menus';
-import { useOwnPointer } from './modelOverlays';
+import { useOwnPointer } from './ownPointer';
 
 const PRIMITIVES = [
   { kind: 'cube', label: 'Cube', glyph: '▣' },
