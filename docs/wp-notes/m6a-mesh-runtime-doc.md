@@ -111,7 +111,8 @@ and `test/tsconfig.json` (bench). Not touched: `app/kernel.ts` (M6A-B7-1).
 - **B12a/B12b**: tools preview with `beginOp`/`update`/`cancel` and commit through the operator (the session is taken
   when op, targets and args match and the operator's run would read the session's selection, M6A-B7-24); Freeze
   calls `commitOp` on `mesh.applyTransform` (object-level, `kind` null).
-- **B8**: `writeData` for Make editable (a whole revision; `refJointsOf` fills `MeshRef.joints`), `readSkin` and
+- **B8**: `writeData` for Make editable (a whole revision; `refJointsOf` fills `MeshRef.joints`; validated under the
+  kernel debug switch like every commit, M6A-B7-27, so a converted mesh must pass `validateMesh`), `readSkin` and
   `morphNamesOf` for the display rebuild and exporters, `data()` of closed runtimes.
 - **INT**: M6A-B7-1 (the attach line in `kernel.ts`), the `bench` script, and the eager-allowance record (M6A-B7-2).
 
