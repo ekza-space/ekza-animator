@@ -6,10 +6,11 @@ import type { MeshId, MeshRef, UserId } from '@ekza-animator/doc';
 import { makeTestMesh } from '@ekza-animator/doc/testing';
 import {
   type MeshData,
+  parseManifest,
   primitive,
   readRevision,
-  parseManifest,
   selectionOf,
+  setKernelDebug,
   writeRevision,
 } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
@@ -502,4 +503,61 @@ describe('writeData and storeRevision', () => {
     expect(fresh).toMatchObject({ rev: 3, base: written.manifest });
     expect(t.blobs.has(fresh.manifest)).toBe(true);
   });
+});
+
+describe('budgets at 50k triangles (§5.27; the bench reports the full table)', () => {
+  it('undo through the journal ≤ 5 ms and by rebuild ≤ 40 ms (median of 5)', async () => {
+    const t = await meshTestApp({ builtins: false });
+    setKernelDebug(false);
+    try {
+      const big = primitive('cube', { subdivisionsWidth: 64, subdivisionsHeight: 64, subdivisionsDepth: 64 });
+      const id = createMesh(t, 'msh_Big', big);
+      t.app.meshes.open(id);
+      expect(t.app.meshes.get(id)?.triangulation().tris.length).toBe(3 * 49_152);
+      const op = offsetOp();
+      const commit = (dy: number) =>
+        t.app.store.transact({ label: 'Move' }, (tx) =>
+          t.meshes.commitOp(tx, op, [id], { dy }, { seed: 's', kind: 'vertex', selection: firstThousand }),
+        );
+      const firstThousand = new Map([
+        [
+          id,
+          selectionOf(
+            'vertex',
+            Array.from({ length: 1000 }, (_, i) => i),
+            big.counts,
+          ),
+        ],
+      ]);
+      const median = (samples: number[]) =>
+        [...samples].sort((a, b) => a - b)[Math.floor(samples.length / 2)] as number;
+      const time = (fn: () => void): number => {
+        const t0 = performance.now();
+        fn();
+        return performance.now() - t0;
+      };
+      commit(0.01);
+      const journal: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        journal.push(time(() => t.app.store.undo.undo()));
+        journal.push(time(() => t.app.store.undo.redo()));
+      }
+      expect(median(journal)).toBeLessThanOrEqual(5);
+      // Rebuild: past the last op's edge with the journal capped to nothing.
+      commit(0.02);
+      t.app.prefs.setState({ modeling: { ...t.app.prefs.getState().modeling, journalBudgetMB: 0 } });
+      t.meshes.collect();
+      t.app.store.undo.undo();
+      const rebuild: number[] = [];
+      const seen = events(t, id);
+      for (let i = 0; i < 5; i++) {
+        rebuild.push(time(() => t.app.store.undo.undo()));
+        rebuild.push(time(() => t.app.store.undo.redo()));
+      }
+      expect(seen.filter((e) => e.type === 'rebuilt')).toHaveLength(10);
+      expect(median(rebuild)).toBeLessThanOrEqual(40);
+    } finally {
+      setKernelDebug(true);
+    }
+  }, 60_000);
 });
