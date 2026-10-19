@@ -156,10 +156,12 @@ function runInsertLoop(
     else {
       const ring1 = walkRing(m, e1, s1, ctx.hidden);
       const mirrored = loopsOf(m, ring1, fractions(m, ring1, args, seedLength));
+      // A loop is its own mirror when its mirrored loop (the same index) coincides with it: snapped onto the plane.
       const kept: LoopPlan[] = [];
       for (let i = 0; i < loops.length; i++) {
         const loop = loops[i] as LoopPlan;
-        const self = mirrored.some((other) => sameLoop(m, loop, other, mirror.map.tolerance));
+        const own = mirrored[i];
+        const self = own !== undefined && sameLoop(m, loop, own, mirror.map.tolerance);
         kept.push(self ? snapped(m, loop, mirror) : loop);
       }
       for (const other of mirrored)

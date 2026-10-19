@@ -67,7 +67,8 @@ function pairChains(m: EditMesh, a: BorderLoop, b: BorderLoop, shift: number): P
       const d = sub(p, q);
       cost += d[0] * d[0] + d[1] * d[1] + d[2] * d[2];
     }
-    if (cost < bestCost - 1e-12 * Math.max(1, bestCost)) {
+    // Ties (within rounding) keep the smaller offset.
+    if (s === 0 || cost < bestCost - 1e-12 * Math.max(1, bestCost)) {
       bestCost = cost;
       best = s;
     }

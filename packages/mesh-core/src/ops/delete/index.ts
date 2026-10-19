@@ -184,6 +184,27 @@ function applyDeletion(
   return removalMap(P, deadVerts);
 }
 
+/**
+ * The valence-2 vertices Delete Edge/Vertex dissolves, decided on one state for all of them (so a symmetric state
+ * gives a symmetric decision, §5.14): neighbours not already joined, no other candidate next to it, and every face
+ * through it keeping three corners after every candidate in it is gone (Maya keeps a vertex whose dissolve would
+ * collapse a face).
+ */
+function dissolvable(m: EditMesh, candidates: readonly number[]): number[] {
+  const set = new Set(candidates);
+  return candidates.filter((v) => {
+    const edges = vertEdges(m, v);
+    if (edges.length !== 2) return false;
+    const a = m.edgeOther(edges[0] as number, v);
+    const b = m.edgeOther(edges[1] as number, v);
+    if (a === b || m.findEdge(a, b) !== -1 || set.has(a) || set.has(b)) return false;
+    return vertFaces(m, v).every((f) => {
+      const inFace = faceCorners(m, f).filter((c) => set.has(m.cornerVert(c))).length;
+      return m.faceLen(f) - inFace >= 3;
+    });
+  });
+}
+
 function pollDelete(m: EditMesh, sel: ComponentSelection | null, ctx: OpContext): true | Refusal {
   if (sel === null || selected(m, sel, sel.kind, ctx.hidden).length === 0) {
     return refuse('delete.no-selection', 'Select components to delete');
@@ -241,11 +262,11 @@ function deleteEdges(m: EditMesh, edges: readonly number[], dissolveAfter: boole
   const valenceBefore = new Map<number, number>(endpoints.map((v) => [v, m.vertValence(v)]));
   const map = applyDeletion(m, groups, killFaces, new Set([...interior, ...wire]), new Set());
   if (dissolveAfter) {
-    const dissolve = endpoints
+    const candidates = endpoints
       .filter((v) => (valenceBefore.get(v) ?? 0) > 2)
       .map((v) => map[v] as number)
-      .filter((v) => v !== -1 && m.vertValence(v) === 2)
-      .sort((a, b) => b - a);
+      .filter((v) => v !== -1 && m.vertValence(v) === 2);
+    const dissolve = dissolvable(m, candidates).sort((a, b) => b - a);
     const P = m.counts.points;
     const dissolved: number[] = [];
     for (const v of dissolve) {
@@ -253,7 +274,7 @@ function deleteEdges(m: EditMesh, edges: readonly number[], dissolveAfter: boole
         m.joinEdgeKillVert(v);
         dissolved.push(v);
       } catch {
-        // A dissolve that would collapse a face keeps the vertex (Maya keeps it too).
+        // Unreachable after the static checks; a vertex that still cannot go keeps its place.
       }
     }
     const second = removalMap(P, dissolved);

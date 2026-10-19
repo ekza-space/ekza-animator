@@ -304,22 +304,23 @@ export function referenceSymmetryMap(m: EditMesh, axis: SymmetryAxis = 'x', tole
   return { axis, space: 'object', plane, tolerance, vertex, edge, edgeReversed, edgeSelf, face, unmatched };
 }
 
-/** P10: every vertex has a partner and partners are mirror images within `tol`. */
+/**
+ * P10: every vertex has a mirror image among the vertices within `tol` (coincident vertices — a zero-length wall,
+ * two caps meeting — may share their partner), so the vertex set is symmetric.
+ */
 export function symmetryProblems(m: EditMesh, axis: SymmetryAxis = 'x', tol = 1e-6): string[] {
-  const map = referenceSymmetryMap(m, axis, 1e-4);
   const k = AXIS[axis];
   const problems: string[] = [];
-  for (let v = 0; v < m.counts.points; v++) {
-    const p = map.vertex[v] as number;
-    if (p === -1) {
-      problems.push(`vertex ${v} has no partner`);
-      continue;
-    }
-    const a = position(m, v);
-    const b = position(m, p);
-    const r = [...b] as [number, number, number];
+  const P = m.counts.points;
+  for (let v = 0; v < P; v++) {
+    const r = position(m, v);
     r[k] = -r[k];
-    if (Math.hypot(a[0] - r[0], a[1] - r[1], a[2] - r[2]) > tol) problems.push(`vertex ${v} vs ${p}`);
+    let found = false;
+    for (let u = 0; u < P && !found; u++) {
+      const q = position(m, u);
+      if (Math.hypot(q[0] - r[0], q[1] - r[1], q[2] - r[2]) <= tol) found = true;
+    }
+    if (!found) problems.push(`vertex ${v} has no mirror image`);
   }
   return problems;
 }

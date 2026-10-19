@@ -42,6 +42,34 @@ function pollSelection(code: string, sentence: string) {
   };
 }
 
+/** Groups with the members of each join pair in one group (union of the groups that hold them). */
+function joinGroups(groups: readonly number[][], joins: readonly (readonly [number, number])[]): number[][] {
+  const owner = new Map<number, number>();
+  groups.forEach((g, i) => {
+    for (const v of g) owner.set(v, i);
+  });
+  const parent = groups.map((_, i) => i);
+  const find = (i: number): number => {
+    let r = i;
+    while (parent[r] !== r) r = parent[r] as number;
+    return r;
+  };
+  for (const [x, y] of joins) {
+    const gx = owner.get(x);
+    const gy = owner.get(y);
+    if (gx === undefined || gy === undefined) continue;
+    const rx = find(gx);
+    const ry = find(gy);
+    if (rx !== ry) parent[Math.max(rx, ry)] = Math.min(rx, ry);
+  }
+  const out = new Map<number, number[]>();
+  groups.forEach((g, i) => {
+    const r = find(i);
+    out.set(r, [...(out.get(r) ?? []), ...g]);
+  });
+  return [...out.values()].map((g) => g.sort((x, y) => x - y)).sort((x, y) => (x[0] as number) - (y[0] as number));
+}
+
 /** Orders a group by pick order (the position in `priority`), then index. */
 function ordered(group: readonly number[], priority: ReadonlyMap<number, number>): number[] {
   return [...group].sort((a, b) => (priority.get(a) ?? Infinity) - (priority.get(b) ?? Infinity) || a - b);
@@ -64,18 +92,16 @@ function runMerge(
   const priority = new Map<number, number>(picked.map((v, i) => [v, i]));
   let groups = clusterByDistance(m, expanded.indices, Math.max(0, num(args, 'distance', 0.001)));
   if (picked.length === 2 && bool(args, 'alwaysMergeTwo', true)) {
+    // The two picks merge whatever their distance, and so do their mirror images; groups that meet merge into one
+    // (a pick on the seam joins both sides: one self-mirrored group, §5.14).
     const [a, b] = picked as [number, number];
-    const pair = new Set([a, b]);
-    const mirrored = mirror === null ? null : new Set([mirror.partner('vertex', a), mirror.partner('vertex', b)]);
-    const together = (g: readonly number[]) => g.some((v) => pair.has(v));
-    const mirrorTogether = (g: readonly number[]) => mirrored !== null && g.some((v) => mirrored.has(v));
-    const joined = groups.filter(together).flat();
-    const joinedMirror = groups.filter((g) => !together(g) && mirrorTogether(g)).flat();
-    groups = [
-      ...groups.filter((g) => !together(g) && !mirrorTogether(g)),
-      joined,
-      ...(joinedMirror.length > 0 ? [joinedMirror] : []),
-    ].filter((g) => g.length > 0);
+    const joins: [number, number][] = [[a, b]];
+    if (mirror !== null) {
+      const pa = mirror.partner('vertex', a);
+      const pb = mirror.partner('vertex', b);
+      if (pa !== -1 && pb !== -1) joins.push([pa, pb]);
+    }
+    groups = joinGroups(groups, joins);
   }
   if (!mergesAnything(groups)) return refuse('merge.nothing', 'No vertices are within the merge threshold');
   // Mirror groups take the mirrored pick order (their partners' priorities).
