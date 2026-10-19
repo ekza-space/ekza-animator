@@ -36,7 +36,7 @@ import { cn } from '@ekza-animator/ui';
 import { type JSX, type KeyboardEvent, useCallback, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';
-import { ParamField } from '../toolkit/ParamField';
+import { ParamField, ParamSections } from '../toolkit/ParamField';
 import { INPUT, MUTED_TEXT, PANEL_ROOT, ROW_HOVER } from './kit/styles';
 
 const CHANNELS = ['tx', 'ty', 'tz', 'rx', 'ry', 'rz', 'sx', 'sy', 'sz'] as const;
@@ -181,24 +181,26 @@ function InputsEntry(props: {
       <div className="truncate font-semibold text-fg-2" data-testid={`${props.testId}-title`}>
         {props.title}
       </div>
-      {props.params.map((def) => (
-        <ParamField
-          key={def.name}
-          app={app}
-          def={def}
-          value={props.values[def.name] ?? def.default}
-          fieldTestId={`${prefix}-field-${def.name}`}
-          nameTestId={`${prefix}-name-${def.name}`}
-          nameSelected={
-            selected !== null &&
-            selected.entry === props.entry &&
-            selected.mesh === props.mesh &&
-            selected.param === def.name
-          }
-          onName={() => selectInputsField(app, { entry: props.entry, mesh: props.mesh, param: def.name })}
-          onCommit={(value) => props.onCommit(def.name, value)}
-        />
-      ))}
+      <ParamSections params={props.params} testId={prefix}>
+        {(def) => (
+          <ParamField
+            key={def.name}
+            app={app}
+            def={def}
+            value={props.values[def.name] ?? def.default}
+            fieldTestId={`${prefix}-field-${def.name}`}
+            nameTestId={`${prefix}-name-${def.name}`}
+            nameSelected={
+              selected !== null &&
+              selected.entry === props.entry &&
+              selected.mesh === props.mesh &&
+              selected.param === def.name
+            }
+            onName={() => selectInputsField(app, { entry: props.entry, mesh: props.mesh, param: def.name })}
+            onCommit={(value) => props.onCommit(def.name, value)}
+          />
+        )}
+      </ParamSections>
     </div>
   );
 }

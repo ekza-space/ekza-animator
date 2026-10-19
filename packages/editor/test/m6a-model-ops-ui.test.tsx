@@ -141,6 +141,40 @@ describe('the Last-op card (§8.6)', () => {
     expect(by('lastop-card-pane-persp').dataset['state']).toBe('expanded');
   });
 
+  it('shows param groups as sections (ungrouped first, sections by first appearance, list order kept)', async () => {
+    const { app, cube } = await modelApp();
+    app.operators.register({
+      ...weightOperator(cube),
+      id: 'test.grouped',
+      label: 'Grouped',
+      params: [
+        WEIGHT,
+        { ...OFFSET, group: 'Offsets' },
+        { ...MODE, group: 'Shape' },
+        { ...OFFSET, name: 'depth', label: 'Depth', group: 'Offsets' },
+      ],
+    });
+    await app.run('test.grouped' as never, {} as never, { source: 'menu', paneId: 'pane-persp' });
+    await card(app);
+    await waitFor(() => maybe('lastop-pill') !== null);
+    await click('lastop-pill');
+    await waitFor(() => maybe('lastop-section-offsets') !== null);
+    const ids = (root: ParentNode): string[] =>
+      Array.from(root.querySelectorAll('[data-testid^="lastop-name-"], [data-testid^="lastop-section-"]')).map(
+        (element) => (element as HTMLElement).dataset['testid'] ?? '',
+      );
+    expect(ids(by('lastop-card-pane-persp'))).toEqual([
+      'lastop-name-weight',
+      'lastop-section-offsets',
+      'lastop-name-offset',
+      'lastop-name-depth',
+      'lastop-section-shape',
+      'lastop-name-mode',
+    ]);
+    expect(by('lastop-section-offsets').querySelector('legend')?.textContent).toBe('Offsets');
+    expect(ids(by('lastop-section-shape'))).toEqual(['lastop-name-mode']);
+  });
+
   it('only in its pane (a pane that is not drawn falls back to the maximized one); not for paramless runs', async () => {
     const { app } = await modelApp();
     expect(cardPane(lastOpCardState(app), 'pane-front', { maximized: 'pane-persp' })).toBe('pane-persp');
@@ -297,13 +331,13 @@ describe('marking menus and the capture bridge', () => {
     const { app } = createTestShell();
     registerBuiltins(app);
     await mount(app, <ModelOpsSlot app={app} />);
-    await settle();
+    await settle(50);
     expect(app.session.getState().workspace).not.toBe('model');
     expect(app.markingMenus.get('model.tools.object')).toBeUndefined();
     await act(async () => switchWorkspace(app, 'model'));
     await waitFor(() => app.markingMenus.get('model.tools.object') !== undefined);
     await act(async () => switchWorkspace(app, 'animate'));
-    await settle();
+    await settle(50);
     expect(app.markingMenus.get('model.tools.object')).toBeDefined();
   });
 

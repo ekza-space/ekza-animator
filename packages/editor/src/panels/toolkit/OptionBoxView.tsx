@@ -8,7 +8,7 @@ import { type JSX, useEffect, useRef } from 'react';
 import { usePrefs } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';
 import { BUTTON, PRIMARY_BUTTON } from '../channel-box/kit/styles';
-import { ParamField } from './ParamField';
+import { ParamField, ParamSections } from './ParamField';
 
 export interface OptionBoxViewProps {
   readonly app: EditorApp;
@@ -78,18 +78,20 @@ export default function OptionBoxView(props: OptionBoxViewProps): JSX.Element | 
         <p className="text-fg-3">{def.label} has no options.</p>
       ) : (
         <div className="flex flex-col gap-0.5">
-          {fields.map((field) => (
-            <ParamField
-              key={field.name}
-              app={app}
-              def={field}
-              value={value(field.name, field.default)}
-              fieldTestId={`optbox-field-${field.name}`}
-              nameTestId={`optbox-name-${field.name}`}
-              onCommit={(next) => setOptionDefault(app, op, { [field.name]: next })}
-              onMessage={(text) => shell?.help(text, 'warning')}
-            />
-          ))}
+          <ParamSections params={fields} testId="optbox">
+            {(field) => (
+              <ParamField
+                key={field.name}
+                app={app}
+                def={field}
+                value={value(field.name, field.default)}
+                fieldTestId={`optbox-field-${field.name}`}
+                nameTestId={`optbox-name-${field.name}`}
+                onCommit={(next) => setOptionDefault(app, op, { [field.name]: next })}
+                onMessage={(text) => shell?.help(text, 'warning')}
+              />
+            )}
+          </ParamSections>
         </div>
       )}
       <footer className="flex items-center justify-end gap-1">

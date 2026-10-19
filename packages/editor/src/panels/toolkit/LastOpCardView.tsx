@@ -25,7 +25,7 @@ import { type JSX, type RefObject, useEffect, useMemo, useRef, useState } from '
 
 import { useOptionalShell } from '../../shell/context';
 import { BUTTON } from '../channel-box/kit/styles';
-import { ParamField, type ParamSliderHooks } from './ParamField';
+import { ParamField, ParamSections, type ParamSliderHooks } from './ParamField';
 
 /** How long a closed card shows its reason before it disappears (§8.6). */
 export const CLOSED_CARD_MS = 3000;
@@ -236,21 +236,23 @@ export default function LastOpCardView(props: LastOpCardViewProps): JSX.Element 
         </button>
       </header>
       <div className="flex flex-col gap-0.5">
-        {fields.map((def) => (
-          <ParamField
-            key={def.name}
-            app={app}
-            def={def}
-            value={lastRun.args[def.name]}
-            fieldTestId={`lastop-field-${def.name}`}
-            nameTestId={`lastop-name-${def.name}`}
-            onCommit={(value) => adjust({ [def.name]: value })}
-            slider={slider}
-            focus={card.focusField === def.name}
-            focusToken={card.focusSeq}
-            onMessage={message}
-          />
-        ))}
+        <ParamSections params={fields} testId="lastop">
+          {(def) => (
+            <ParamField
+              key={def.name}
+              app={app}
+              def={def}
+              value={lastRun.args[def.name]}
+              fieldTestId={`lastop-field-${def.name}`}
+              nameTestId={`lastop-name-${def.name}`}
+              onCommit={(value) => adjust({ [def.name]: value })}
+              slider={slider}
+              focus={card.focusField === def.name}
+              focusToken={card.focusSeq}
+              onMessage={message}
+            />
+          )}
+        </ParamSections>
       </div>
       {warnings.length === 0 ? null : (
         <p className="text-[var(--warning,#e3b34a)]" data-testid="lastop-warning">

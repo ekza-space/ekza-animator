@@ -7,6 +7,7 @@ import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-animator/a
 import { type EditorApp, formatParamValue, paramEditText, parseParamInput } from '@ekza-animator/editor-core';
 import { cn } from '@ekza-animator/ui';
 import {
+  Fragment,
   type JSX,
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
@@ -287,5 +288,55 @@ export function ParamField(props: ParamFieldProps): JSX.Element {
       {label}
       {control}
     </div>
+  );
+}
+
+// ---------- sections (§8.6: param groups) ----------
+
+/** Fields grouped into sections by `ParamDef.group`: sections in order of first appearance, fields in list order. */
+export function paramSections(
+  params: readonly ParamDef[],
+): readonly { readonly group: string | null; readonly params: readonly ParamDef[] }[] {
+  const sections: { group: string | null; params: ParamDef[] }[] = [];
+  for (const def of params) {
+    const group = def.group ?? null;
+    let section = sections.find((candidate) => candidate.group === group);
+    if (section === undefined) {
+      section = { group, params: [] };
+      sections.push(section);
+    }
+    section.params.push(def);
+  }
+  return sections;
+}
+
+const slug = (text: string): string => text.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+
+/**
+ * The fields of a card, an option box or an INPUTS entry with their param groups as sections (a header per group;
+ * ungrouped fields have none). `testId` prefixes each section's `data-testid` (`<testId>-section-<group>`).
+ */
+export function ParamSections(props: {
+  readonly params: readonly ParamDef[];
+  readonly testId: string;
+  readonly children: (def: ParamDef) => JSX.Element;
+}): JSX.Element {
+  return (
+    <>
+      {paramSections(props.params).map((section) =>
+        section.group === null ? (
+          <Fragment key="(ungrouped)">{section.params.map(props.children)}</Fragment>
+        ) : (
+          <fieldset
+            key={section.group}
+            className="m-0 flex min-w-0 flex-col gap-0.5 border-0 p-0"
+            data-testid={`${props.testId}-section-${slug(section.group)}`}
+          >
+            <legend className="truncate p-0 pt-1 text-ui-dense text-fg-3">{section.group}</legend>
+            {section.params.map(props.children)}
+          </fieldset>
+        ),
+      )}
+    </>
   );
 }

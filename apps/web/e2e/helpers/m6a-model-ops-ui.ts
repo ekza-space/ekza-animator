@@ -150,15 +150,36 @@ export async function runMenuItem(page: Page, menu: string, itemId: string): Pro
 
 /**
  * No edge is soft (§5.3) and every corner normal is its face's normal (1e-6; E2E-MOD-32). The test API lists corner
- * normals by corner index without their faces, so each one is matched against the face normals: with every edge hard
- * a corner's smooth fan is its own face, so its normal must equal one of them exactly.
+ * normals by corner index without their faces (corners are linked lists, `faceCorner`/`cornerNext`, which it does not
+ * expose; contract-PR suggestion for INT in the B11 notes: a `cornerFace` list in `meshNormals`), so the check is by
+ * counts: every corner normal equals a face normal, and for each distinct face normal exactly as many corners carry it
+ * as the faces with that normal have corners. A corner that took a neighbouring face's normal, or a smoothed one,
+ * fails; only a swap between two faces' corners would pass, which no normal computation produces.
  */
 export async function expectAllHard(page: Page, mesh: string): Promise<void> {
   expect((await call(page, 'shading', mesh)).softEdges).toBe(0);
   const normals = await call(page, 'meshNormals', mesh);
   if (normals === null) throw new Error(`no normals for ${mesh}`);
-  const off = normals.corner.filter(
-    (n) => !normals.face.some((f) => [0, 1, 2].every((c) => Math.abs((n[c] ?? 0) - (f[c] ?? 0)) <= 1e-6)),
-  );
+  const faces = await call(page, 'meshFaces', mesh);
+  const same = (a: readonly number[], b: readonly number[]): boolean =>
+    [0, 1, 2].every((c) => Math.abs((a[c] ?? 0) - (b[c] ?? 0)) <= 1e-6);
+  const groups: { readonly normal: readonly number[]; expected: number; actual: number }[] = [];
+  faces.forEach((loop, f) => {
+    const normal = normals.face[f] ?? [];
+    let group = groups.find((g) => same(g.normal, normal));
+    if (group === undefined) {
+      group = { normal, expected: 0, actual: 0 };
+      groups.push(group);
+    }
+    group.expected += loop.length;
+  });
+  const off: number[] = [];
+  normals.corner.forEach((normal, c) => {
+    const group = groups.find((g) => same(g.normal, normal));
+    if (group === undefined) off.push(c);
+    else group.actual++;
+  });
   expect(off).toEqual([]);
+  expect(normals.corner).toHaveLength(faces.reduce((sum, loop) => sum + loop.length, 0));
+  expect(groups.map((g) => g.actual)).toEqual(groups.map((g) => g.expected));
 }
