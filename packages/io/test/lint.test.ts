@@ -356,6 +356,7 @@ describe('profiles and rules', () => {
     expect(ruleSeverity('ekza.slot-name', null)).toBe('warning');
     expect(ruleSeverity('ekza.non-redistributable', profile('ekza/space-avatar-v1'))).toBe('error');
     expect(ruleSeverity('rendition_animation', null)).toBeNull();
-    expect(LINT_RULES.every((rule) => /^[a-z_]+$|^[a-z]+\.[a-z-]+$/.test(rule.id))).toBe(true);
+    // M6A-SPEC §4.5 adds sub-namespaced codes (`mesh.budget.tris`, `ekza.handheld.grip`).
+    expect(LINT_RULES.every((rule) => /^[a-z_]+$|^[a-z]+(\.[a-z-]+)+$/.test(rule.id))).toBe(true);
   });
 });

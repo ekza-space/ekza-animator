@@ -2,38 +2,70 @@
 // re-serializing anything it does not understand. Existing array entries keep their indices (so every extension's
 // references stay valid), the original BIN bytes are copied verbatim as a prefix, and new accessors/bufferViews/
 // animations are appended. A baseline marker in asset.extras lets a later bake roll back to the original first.
+//
+// M6a (M6A-SPEC §5.22): `opts.geometry` adds the geometry step ("replace primitives") before the clips. A bake with a
+// geometry step writes marker v2 instead of v1 (the original primitives of every replaced mesh and the original
+// extension lists); a re-bake of such a file rolls geometry and clips back together and re-applies both: meshes edited
+// now are written from their new data, meshes the previous bake replaced are carried over as they are. Bakes without
+// any geometry write v1 and stay byte-identical to M2a outputs.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { SkeletonDesc, TrackKey } from '@ekza-animator/rig';
 import { parseTrackKey, trackKey } from '../bake/bake';
 import { normalizeClipMeta } from '../bake/meta';
 import { align4, assembleGlb } from '../glb/write';
+import { GltfReader } from '../gltf/accessor';
 import { animationsOf, isIndex, isRecord, listField, textOf, unknownList } from '../gltf/schema';
 import { sha256Hex, sha256HexSync } from '../hash/sha256';
+import { ruleSeverity } from '../lint/rules';
 import type {
   BakedClip,
   BakedTrack,
   EkzaAnimationV1,
-  EkzaBakeMarkerV1,
   EkzaClipMetaV1,
   ExportArtifact,
   ExportProfileDef,
   GlbContainer,
   LintIssue,
+  PrimitiveEdit,
 } from '../types';
 import { finalizeArtifact } from '../writers/artifact';
 import { clipNameKey, outputMeta } from '../writers/names';
 import { assertUniqueNames, generatorName } from '../writers/write';
+import {
+  arrayOf,
+  BAKE_MARKER_KEY,
+  BAKE_MARKER_V2_KEY,
+  binLength,
+  binPrefix,
+  hasGenerator,
+  type MutableJson,
+  type MutableMarker,
+  readMarker,
+  rollBack,
+  rollbackBlocker,
+  rollbackBlockerAsync,
+  setBinLength,
+  writeMarker,
+} from './marker';
+import {
+  applyGeometry,
+  assertSelfContained,
+  type CarriedMesh,
+  extensionLists,
+  GeometryWriter,
+  primitivesOfEdits,
+} from './replacePrimitives';
 
-export const BAKE_MARKER_KEY = 'ekza_animator_bake_v1';
+export { BAKE_MARKER_KEY, BAKE_MARKER_V2_KEY };
 export const ANIMATION_META_KEY = 'ekza_animation_v1';
 const FLOAT = 5126;
-
-type MutableJson = Record<string, unknown>;
 
 export interface SurgeonOptions {
   readonly meta: EkzaAnimationV1;
   readonly fileName: string;
   readonly profile: ExportProfileDef | null;
+  /** M6a (§5.22): edited meshes of the model, written by the geometry step before the clips (marker v2). */
+  readonly geometry?: readonly PrimitiveEdit[];
 }
 
 /** Node indices (SkeletonDesc) and paths animated by the original file's animations that stay after a re-bake. */
@@ -59,26 +91,20 @@ export async function bakeIntoModel(
   }
   assertUniqueNames(clips);
   const json = structuredClone(original.json) as unknown as MutableJson;
-  const buffers = arrayOf(json, 'buffers');
-  const buffer0 = buffers[0];
-  if (isRecord(buffer0) && buffer0['uri'] !== undefined) {
-    throw new EkzaError(
-      'external-buffer',
-      'The model keeps buffers[0] in an external file; only self-contained GLB/VRM can be baked into',
-      {
-        pointer: '/buffers/0/uri',
-      },
-    );
-  }
+  assertSelfContained(json);
   checkMatrixNodes(clips, skeleton);
+  const edits = opts.geometry ?? [];
+  const outputs = await primitivesOfEdits(edits);
 
   const writerLints: LintIssue[] = [];
   const existing = readMarker(json);
   let marker: MutableMarker;
   let rolledBack = false;
+  let carried: CarriedMesh[] = [];
   if (existing === null) {
     const baseBinLength = binLength(json);
     marker = {
+      version: 1,
       baseAnimations: arrayOf(json, 'animations').length,
       baseAccessors: arrayOf(json, 'accessors').length,
       baseBufferViews: arrayOf(json, 'bufferViews').length,
@@ -86,12 +112,30 @@ export async function bakeIntoModel(
       baseBinSha256: await sha256Hex(binPrefix(original.bin, baseBinLength)),
       baseSha256: original.sha256,
       replaced: {},
+      replacedPrimitives: {},
+      originalExtensions: null,
       ...(hasGenerator(json) ? {} : { generatorAdded: true as const }),
     };
   } else {
-    marker = { ...existing, replaced: { ...existing.replaced } };
+    marker = {
+      ...existing,
+      replaced: { ...existing.replaced },
+      replacedPrimitives: { ...existing.replacedPrimitives },
+    };
     const blocker = await rollbackBlockerAsync(json, existing, original.bin);
     if (blocker === null) {
+      // Meshes the previous bake replaced and nobody edits now keep their current geometry (re-appended verbatim).
+      const editedNow = new Set(edits.map((edit) => edit.meshIndex));
+      const reader = new GltfReader(original.json, original.bin);
+      const meshes = arrayOf(original.json, 'meshes');
+      carried = Object.keys(existing.replacedPrimitives)
+        .map(Number)
+        .filter((mesh) => !editedNow.has(mesh))
+        .map((mesh) => {
+          const current = meshes[mesh];
+          const primitives = isRecord(current) && Array.isArray(current['primitives']) ? current['primitives'] : [];
+          return { meshIndex: mesh, primitives, reader, json: original.json };
+        });
       rollBack(json, existing);
       rolledBack = true;
     } else {
@@ -99,7 +143,7 @@ export async function bakeIntoModel(
         code: 'surgeon.no-rollback',
         severity: 'warning',
         message: `The previous bake could not be rolled back (${blocker}); the new clips were appended after it`,
-        pointer: `/asset/extras/${BAKE_MARKER_KEY}`,
+        pointer: `/asset/extras/${existing.version === 2 ? BAKE_MARKER_V2_KEY : BAKE_MARKER_KEY}`,
       });
     }
   }
@@ -125,7 +169,33 @@ export async function bakeIntoModel(
 
   const prefixLength = binLength(json);
   const appendOffset = align4(prefixLength);
-  const appender = new BinAppender(json, appendOffset);
+  // M6a geometry step (§5.22): after the baseline, before the clips.
+  let geometryBytes: Uint8Array = new Uint8Array(0);
+  if (outputs.length > 0 || carried.length > 0) {
+    const listsBefore = extensionLists(json);
+    const writer = new GeometryWriter(json, appendOffset);
+    const before = applyGeometry(json, writer, outputs, carried);
+    geometryBytes = writer.finish();
+    setBinLength(json, appendOffset + geometryBytes.length);
+    marker.version = 2;
+    marker.originalExtensions ??= listsBefore;
+    for (const [mesh, primitives] of before) {
+      if (!Object.hasOwn(marker.replacedPrimitives, String(mesh))) marker.replacedPrimitives[String(mesh)] = primitives;
+    }
+    for (const edit of edits) {
+      if (!edit.hadTangents || !edit.dropTangents) continue;
+      const severity = ruleSeverity('mesh.tangents-dropped', opts.profile);
+      if (severity === null) continue;
+      writerLints.push({
+        code: 'mesh.tangents-dropped',
+        severity,
+        message: `Mesh ${edit.meshIndex} was exported without its tangents (normal maps may shade differently)`,
+        pointer: `/meshes/${edit.meshIndex}`,
+      });
+    }
+  }
+  const animationOffset = appendOffset + geometryBytes.length;
+  const appender = new BinAppender(json, animationOffset);
   let channels = 0;
   let keys = 0;
   for (const { clip, index } of written) {
@@ -137,7 +207,7 @@ export async function bakeIntoModel(
   }
   if (animations.length > 0) json['animations'] = animations;
   const appended = appender.finish();
-  if (appended.length > 0) setBinLength(json, appendOffset + appended.length);
+  if (appended.length > 0) setBinLength(json, animationOffset + appended.length);
 
   const keptMeta = rolledBack
     ? []
@@ -149,7 +219,9 @@ export async function bakeIntoModel(
   writeAsset(json, marker, meta, written.length > 0);
 
   const binParts =
-    binLength(json) > 0 || original.bin !== null ? [binPrefix(original.bin, appendOffset), appended] : null;
+    binLength(json) > 0 || original.bin !== null
+      ? [binPrefix(original.bin, appendOffset), geometryBytes, appended]
+      : null;
   const bytes = assembleGlb(JSON.stringify(json), binParts);
   return finalizeArtifact({
     kind: 'bake-into-model',
@@ -159,113 +231,9 @@ export async function bakeIntoModel(
     skeleton,
     profile: opts.profile,
     writerLints,
-    stats: { clips: complete.length, channels, keys, bytesAppended: appended.length },
+    stats: { clips: complete.length, channels, keys, bytesAppended: geometryBytes.length + appended.length },
     context: { source: original },
   });
-}
-
-// ---------- marker and rollback ----------
-
-type MutableMarker = Omit<EkzaBakeMarkerV1, 'replaced'> & { replaced: Record<string, unknown> };
-
-function readMarker(json: MutableJson): EkzaBakeMarkerV1 | null {
-  const asset = json['asset'];
-  const extras = isRecord(asset) ? asset['extras'] : undefined;
-  const marker = isRecord(extras) ? extras[BAKE_MARKER_KEY] : undefined;
-  if (!isRecord(marker)) return null;
-  const counts = ['baseAnimations', 'baseAccessors', 'baseBufferViews', 'baseBinLength'] as const;
-  if (!counts.every((key) => isIndex(marker[key]))) return null;
-  if (typeof marker['baseBinSha256'] !== 'string' || typeof marker['baseSha256'] !== 'string') return null;
-  const replaced = isRecord(marker['replaced']) ? marker['replaced'] : {};
-  return {
-    baseAnimations: marker['baseAnimations'] as number,
-    baseAccessors: marker['baseAccessors'] as number,
-    baseBufferViews: marker['baseBufferViews'] as number,
-    baseBinLength: marker['baseBinLength'] as number,
-    baseBinSha256: marker['baseBinSha256'],
-    baseSha256: marker['baseSha256'],
-    replaced,
-    ...(marker['generatorAdded'] === true ? { generatorAdded: true as const } : {}),
-  };
-}
-
-/** Why a rollback to the marker's baseline is not safe, or null when it is (§4.11.11 rule 7). */
-function rollbackBlocker(
-  json: MutableJson,
-  marker: EkzaBakeMarkerV1,
-  bin: Uint8Array | null,
-  hash: (bytes: Uint8Array) => string,
-): string | null {
-  const structural = structuralBlocker(json, marker, bin);
-  if (structural !== null) return structural;
-  return hash(binPrefix(bin, marker.baseBinLength)) === marker.baseBinSha256 ? null : 'the original BIN bytes changed';
-}
-
-async function rollbackBlockerAsync(
-  json: MutableJson,
-  marker: EkzaBakeMarkerV1,
-  bin: Uint8Array | null,
-): Promise<string | null> {
-  const structural = structuralBlocker(json, marker, bin);
-  if (structural !== null) return structural;
-  return (await sha256Hex(binPrefix(bin, marker.baseBinLength))) === marker.baseBinSha256
-    ? null
-    : 'the original BIN bytes changed';
-}
-
-function structuralBlocker(json: MutableJson, marker: EkzaBakeMarkerV1, bin: Uint8Array | null): string | null {
-  if (arrayOf(json, 'animations').length < marker.baseAnimations) return 'animations were removed';
-  if (arrayOf(json, 'accessors').length < marker.baseAccessors) return 'accessors were removed';
-  if (arrayOf(json, 'bufferViews').length < marker.baseBufferViews) return 'bufferViews were removed';
-  if (binLength(json) < marker.baseBinLength || (bin?.length ?? 0) < marker.baseBinLength)
-    return 'the BIN is shorter than the baseline';
-  const animations = arrayOf(json, 'animations').length;
-  for (const key of Object.keys(marker.replaced)) {
-    const index = Number(key);
-    if (!Number.isInteger(index) || index < 0 || index >= Math.min(animations, marker.baseAnimations)) {
-      return 'the marker lists a replaced animation that no longer exists';
-    }
-  }
-  const asset = json['asset'];
-  const extras = isRecord(asset) ? asset['extras'] : undefined;
-  for (const [key, value] of Object.entries(isRecord(extras) ? extras : {})) {
-    if (key === BAKE_MARKER_KEY || !isRecord(value)) continue;
-    const later =
-      (isIndex(value['baseAnimations']) && value['baseAnimations'] > marker.baseAnimations) ||
-      (isIndex(value['baseAccessors']) && value['baseAccessors'] > marker.baseAccessors) ||
-      (isIndex(value['baseBufferViews']) && value['baseBufferViews'] > marker.baseBufferViews) ||
-      (isIndex(value['baseBinLength']) && value['baseBinLength'] > marker.baseBinLength);
-    if (later) return `another tool (${key}) appended after the previous bake`;
-  }
-  return null;
-}
-
-/** Restores replaced animations, then truncates the arrays and the BIN to the baseline. */
-function rollBack(json: MutableJson, marker: EkzaBakeMarkerV1): void {
-  const animations = arrayOf(json, 'animations');
-  for (const [key, value] of Object.entries(marker.replaced)) animations[Number(key)] = structuredClone(value);
-  if (marker.generatorAdded === true && isRecord(json['asset'])) {
-    const { generator: _ours, ...asset } = json['asset'];
-    json['asset'] = asset;
-  }
-  truncate(json, 'animations', marker.baseAnimations);
-  truncate(json, 'accessors', marker.baseAccessors);
-  truncate(json, 'bufferViews', marker.baseBufferViews);
-  if (marker.baseBinLength === 0) {
-    // buffers[0] was created by the first bake (a glTF buffer is never empty).
-    const buffers = arrayOf(json, 'buffers');
-    if (buffers.length > 0) buffers.shift();
-    if (buffers.length === 0) delete json['buffers'];
-    else json['buffers'] = buffers;
-  } else {
-    setBinLength(json, marker.baseBinLength);
-  }
-}
-
-function truncate(json: MutableJson, key: string, length: number): void {
-  const list = arrayOf(json, key);
-  if (length === 0) delete json[key];
-  else json[key] = list.slice(0, length);
 }
 
 // ---------- tracks ----------
@@ -450,39 +418,6 @@ class BinAppender {
   }
 }
 
-/** Whether `asset.generator` is present (any value counts: an existing key is never rewritten). */
-function hasGenerator(json: MutableJson): boolean {
-  const asset = json['asset'];
-  return isRecord(asset) && asset['generator'] !== undefined;
-}
-
-function arrayOf(json: MutableJson, key: string): unknown[] {
-  const value = json[key];
-  return Array.isArray(value) ? (value as unknown[]) : [];
-}
-
-/** buffers[0].byteLength (0 when there is no buffer). */
-function binLength(json: MutableJson): number {
-  const buffer = arrayOf(json, 'buffers')[0];
-  return isRecord(buffer) && isIndex(buffer['byteLength']) ? buffer['byteLength'] : 0;
-}
-
-function setBinLength(json: MutableJson, length: number): void {
-  const buffers = arrayOf(json, 'buffers');
-  const buffer = buffers[0];
-  if (isRecord(buffer)) buffers[0] = { ...buffer, byteLength: length };
-  else buffers.unshift({ byteLength: length });
-  json['buffers'] = buffers;
-}
-
-/** The first `length` bytes of the original BIN chunk (zero-padded if the chunk is shorter). */
-function binPrefix(bin: Uint8Array | null, length: number): Uint8Array {
-  if (bin !== null && bin.length >= length) return bin.subarray(0, length);
-  const out = new Uint8Array(length);
-  if (bin !== null) out.set(bin);
-  return out;
-}
-
 function keptClipMeta(json: MutableJson, overwritten: readonly number[]): EkzaClipMetaV1[] {
   const asset = json['asset'];
   const extras = isRecord(asset) ? asset['extras'] : undefined;
@@ -513,17 +448,7 @@ function writeAsset(json: MutableJson, marker: MutableMarker, meta: EkzaAnimatio
     asset = Object.fromEntries(entries);
   }
   const extras: MutableJson = isRecord(asset['extras']) ? { ...asset['extras'] } : {};
-  extras[BAKE_MARKER_KEY] = {
-    baseAnimations: marker.baseAnimations,
-    baseAccessors: marker.baseAccessors,
-    baseBufferViews: marker.baseBufferViews,
-    baseBinLength: marker.baseBinLength,
-    baseBinSha256: marker.baseBinSha256,
-    baseSha256: marker.baseSha256,
-    // Integer-like keys iterate in ascending order, so re-bakes serialize identically.
-    replaced: { ...marker.replaced },
-    ...(marker.generatorAdded === true ? { generatorAdded: true } : {}),
-  };
+  writeMarker(extras, marker);
   extras[ANIMATION_META_KEY] = meta;
   asset['extras'] = extras;
   json['asset'] = asset;

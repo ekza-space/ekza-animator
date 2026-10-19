@@ -50,8 +50,9 @@ describe('io M6a foundation', () => {
     expect(await meshFromGltf(container, 0)).toMatchObject({ refused: true, code: 'unsupported' });
     expect(editLicence(container)).toEqual({ ok: true });
     expect(writePaletteTexture([]).width).toBe(64);
-    expect(await code(() => replacePrimitives(new Uint8Array(0), [], { marker: true }))).toBe('not-implemented');
-    expect(await code(() => rebuildContainer(container, []))).toBe('not-implemented');
+    // B8 landed the surgeon step: a non-GLB source is refused like every other surgeon input.
+    expect(await code(() => replacePrimitives(new Uint8Array(0), [], { marker: true }))).toBe('not-glb');
+    expect(await code(() => rebuildContainer(container, []))).toBe('not-glb');
     expect(
       await code(() =>
         writeStaticGlb(

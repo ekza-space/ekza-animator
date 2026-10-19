@@ -1,5 +1,6 @@
 // Synthetic glTF meshes for the M6a mesh IO tests (B8): small triangle meshes with optional normals, UVs, colours,
 // skin and morph targets, built through the shared GltfBuilder, and a minimal PNG reader for palette round trips.
+import type { LayerDef, MeshData } from '@ekza-animator/mesh-core';
 import { unzlibSync } from 'fflate';
 import { parseGlb } from '../../src/glb/parse';
 import { GltfBuilder } from '../../src/testing/glb';
@@ -154,4 +155,148 @@ export function readPngRgb(png: Uint8Array): {
     rgb.set(raw.subarray(y * (width * 3 + 1) + 1, (y + 1) * (width * 3 + 1)), y * width * 3);
   }
   return { width, height, rgb, chunks };
+}
+
+/**
+ * A stand-in for a topology edit until the kernel's Euler operators land (READY.b1): every listed face is split into
+ * a fan around a new point at its centroid. Point layers of the new point average the face's points (skin layers copy
+ * the first point's, which stays normalized), corner layers of its corners average the face's corners
+ * (`normal.custom` 0, the kernel's 'clear' rule); edge flags of kept edges survive, new edges are soft.
+ */
+export function splitFaces(data: MeshData, split: readonly number[]): MeshData {
+  const { faces: F, points: P } = data.counts;
+  const splitSet = new Set(split);
+  const faceCorners = (f: number): number[] => {
+    const out: number[] = [];
+    let c = data.faceCorner[f] as number;
+    do {
+      out.push(c);
+      c = data.cornerNext[c] as number;
+    } while (c !== data.faceCorner[f]);
+    return out;
+  };
+  // New faces as lists of (point, source corner | -1 for the new centre point) with their source face.
+  const faces: { readonly verts: number[]; readonly corners: number[]; readonly face: number }[] = [];
+  const centres: { readonly face: number; readonly corners: readonly number[] }[] = [];
+  for (let f = 0; f < F; f++) {
+    const corners = faceCorners(f);
+    if (!splitSet.has(f)) {
+      faces.push({ verts: corners.map((c) => data.cornerVert[c] as number), corners, face: f });
+      continue;
+    }
+    const centre = P + centres.length;
+    centres.push({ face: f, corners });
+    corners.forEach((c, i) => {
+      const next = corners[(i + 1) % corners.length] as number;
+      faces.push({
+        verts: [data.cornerVert[c] as number, data.cornerVert[next] as number, centre],
+        corners: [c, next, -1 - (centres.length - 1)],
+        face: f,
+      });
+    });
+  }
+  const P2 = P + centres.length;
+  const position = new Float32Array(3 * P2);
+  position.set(data.position);
+  centres.forEach(({ corners }, i) => {
+    for (let k = 0; k < 3; k++) {
+      let sum = 0;
+      for (const c of corners) sum += data.position[3 * (data.cornerVert[c] as number) + k] as number;
+      position[3 * (P + i) + k] = sum / corners.length;
+    }
+  });
+  const C2 = faces.reduce((sum, face) => sum + face.verts.length, 0);
+  const cornerVert = new Uint32Array(C2);
+  const cornerNext = new Uint32Array(C2);
+  const faceCorner = new Uint32Array(faces.length);
+  const faceMaterial = new Uint16Array(faces.length);
+  const sourceCorner: number[] = [];
+  let c2 = 0;
+  faces.forEach((face, f) => {
+    faceCorner[f] = c2;
+    faceMaterial[f] = data.faceMaterial[face.face] as number;
+    face.verts.forEach((v, i) => {
+      cornerVert[c2 + i] = v;
+      cornerNext[c2 + i] = c2 + ((i + 1) % face.verts.length);
+      sourceCorner.push(face.corners[i] as number);
+    });
+    c2 += face.verts.length;
+  });
+  const oldEdges = new Map<string, number>();
+  for (let e = 0; e < data.counts.edges; e++) {
+    const a = data.edgeVerts[2 * e] as number;
+    const b = data.edgeVerts[2 * e + 1] as number;
+    oldEdges.set(a < b ? `${a},${b}` : `${b},${a}`, data.edgeFlags[e] as number);
+  }
+  const edgeIndex = new Map<string, number>();
+  const edgeVerts: number[] = [];
+  const edgeFlags: number[] = [];
+  for (let c = 0; c < C2; c++) {
+    const a = cornerVert[c] as number;
+    const b = cornerVert[cornerNext[c] as number] as number;
+    const key = a < b ? `${a},${b}` : `${b},${a}`;
+    if (edgeIndex.has(key)) continue;
+    edgeIndex.set(key, edgeVerts.length / 2);
+    edgeVerts.push(a, b);
+    edgeFlags.push(oldEdges.get(key) ?? 0);
+  }
+  const layers = new Map<
+    string,
+    { readonly def: LayerDef; readonly data: Float32Array | Uint8Array | Uint16Array | Uint32Array }
+  >();
+  for (const [name, layer] of data.layers) {
+    const comps = layer.def.comps;
+    const Ctor = layer.data.constructor as new (n: number) => Float32Array | Uint8Array | Uint16Array | Uint32Array;
+    if (layer.def.domain === 'point') {
+      const out = new Ctor(P2 * comps);
+      out.set(layer.data);
+      centres.forEach(({ corners }, i) => {
+        const first = data.cornerVert[corners[0] as number] as number;
+        for (let k = 0; k < comps; k++) {
+          if (name.startsWith('skin.')) {
+            out[(P + i) * comps + k] = layer.data[first * comps + k] as number;
+          } else {
+            let sum = 0;
+            for (const c of corners) sum += layer.data[(data.cornerVert[c] as number) * comps + k] as number;
+            out[(P + i) * comps + k] = sum / corners.length;
+          }
+        }
+      });
+      layers.set(name, { def: layer.def, data: out });
+    } else if (layer.def.domain === 'corner') {
+      const out = new Ctor(C2 * comps);
+      sourceCorner.forEach((source, c) => {
+        if (source >= 0) {
+          for (let k = 0; k < comps; k++) out[c * comps + k] = layer.data[source * comps + k] as number;
+          return;
+        }
+        if (name === 'normal.custom') return;
+        const centre = centres[-1 - source] as { readonly corners: readonly number[] };
+        for (let k = 0; k < comps; k++) {
+          let sum = 0;
+          for (const s of centre.corners) sum += layer.data[s * comps + k] as number;
+          out[c * comps + k] = sum / centre.corners.length;
+        }
+      });
+      layers.set(name, { def: layer.def, data: out });
+    } else if (layer.def.domain === 'face') {
+      const out = new Ctor(faces.length * comps);
+      faces.forEach((face, f) => {
+        for (let k = 0; k < comps; k++) out[f * comps + k] = layer.data[face.face * comps + k] as number;
+      });
+      layers.set(name, { def: layer.def, data: out });
+    }
+  }
+  return {
+    counts: { points: P2, edges: edgeVerts.length / 2, faces: faces.length, corners: C2 },
+    position,
+    edgeVerts: Uint32Array.from(edgeVerts),
+    edgeFlags: Uint8Array.from(edgeFlags),
+    cornerVert,
+    cornerNext,
+    faceCorner,
+    faceMaterial,
+    faceFlags: new Uint8Array(faces.length),
+    layers,
+  };
 }
