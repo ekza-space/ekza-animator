@@ -69,6 +69,7 @@ describe('mesh.io: bake into model with edited meshes', () => {
       expect(preservationProblems(source, out, [mesh])).toEqual([]);
       expect(binPrefixKept(source, out)).toBe(true);
       expect(compareValidation(await validate(source.bytes), await validate(artifact.bytes))).toEqual([]);
+      expect(artifact.validation?.errors).toBe(0); // the host's validator ran in the export (the sources have none)
       expect(markerOf(out, 2)).toMatchObject({ version: 2, baseSha256: source.sha256 });
       expect(markerOf(out, 1)).toBeUndefined();
       // The edited mesh reads back with the edit's triangle count.
@@ -153,6 +154,7 @@ describe('mesh.io: bake into model with edited meshes', () => {
       baseBinLength: ((source.json['buffers'] as Json[])[0]?.['byteLength'] as number) ?? 0,
     });
     expect(compareValidation(await validate(source.bytes), await validate(b.bytes))).toEqual([]);
+    expect(b.validation?.errors).toBe(0);
     expect(preservationProblems(source, fileB, [0])).toEqual([]);
     // Making B editable gives A's geometry: the same triangles at the same positions.
     const mesh = await makeEditable(second.app, imported.character, 0);

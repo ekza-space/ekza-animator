@@ -3,7 +3,7 @@
 // and each lint code fires on a fixture made for it.
 import type { HandheldGrip } from '@ekza-animator/doc';
 import { readFixture } from '@ekza-animator/doc/testing';
-import { BUILTIN_LAYERS, type MeshData, setKernelDebug } from '@ekza-animator/mesh-core';
+import { BUILTIN_LAYERS, EDGE_HARD, type MeshData, setKernelDebug } from '@ekza-animator/mesh-core';
 import { buildMeshData, cubeData } from '@ekza-animator/mesh-core/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { exportStaticModel, readBackStatic } from '../src/export/author/artifact';
@@ -418,8 +418,18 @@ describe('mesh lints and budgets', () => {
     expect(lintMeshes([input(big, { budget })], PROFILE_OMOBA_HANDHELD)[0]?.severity).toBe('warning');
   });
 
-  describe.skipIf(!READY.b5)('Mesh Check lints (READY.b5)', () => {
-    it('reports non-manifold and loose geometry from the kernel diagnostics', () => {
+  it('mesh.budget.joints: a skinned character over its preset joints', () => {
+    const lints = lintMeshes(
+      [input(paintedCube(), { budget: resolveBudget({ preset: 'hero' }, null, null), joints: 52 })],
+      LOCAL,
+    );
+    expect(lints.map((l) => `${l.code}:${l.severity}`)).toEqual(['mesh.budget.joints:info']);
+    expect(lints[0]?.message).toMatch(/52 joints; hero allows 33/);
+  });
+
+  describe.skipIf(!READY.b5)('Mesh Check lints, one fixture per code (READY.b5)', () => {
+    const codesOf = (data: MeshData): string[] => lintMeshes([input(data)], LOCAL).map((l) => l.code);
+    it('mesh.non-manifold: an edge with three faces', () => {
       const fin = buildMeshData({
         positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1, 0, 0, 0, 1],
         faces: [
@@ -428,8 +438,43 @@ describe('mesh lints and budgets', () => {
           [0, 1, 4],
         ],
       });
-      const codes = lintMeshes([input(fin)], LOCAL).map((l) => l.code);
-      expect(codes).toContain('mesh.non-manifold');
+      expect(codesOf(fin)).toContain('mesh.non-manifold');
+    });
+    it('mesh.zero-area-face: three collinear points', () => {
+      expect(codesOf(buildMeshData({ positions: [0, 0, 0, 1, 0, 0, 2, 0, 0], faces: [[0, 1, 2]] }))).toContain(
+        'mesh.zero-area-face',
+      );
+    });
+    it('mesh.loose-geometry: a vertex without edges', () => {
+      expect(codesOf(buildMeshData({ positions: [0, 0, 0, 1, 0, 0, 0, 1, 0, 5, 5, 5], faces: [[0, 1, 2]] }))).toContain(
+        'mesh.loose-geometry',
+      );
+    });
+    it('mesh.inconsistent-winding: neighbours traverse their shared edge the same way', () => {
+      // Both triangles walk the diagonal from 2 to 0.
+      const flipped = buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0],
+        faces: [
+          [0, 1, 2],
+          [2, 0, 3],
+        ],
+      });
+      expect(codesOf(flipped)).toContain('mesh.inconsistent-winding');
+    });
+    it('mesh.nonplanar-faceted: a warped pentagon with hard edges', () => {
+      const warped = buildMeshData({
+        positions: [0, 0, 0, 1, 0, 0.5, 1.5, 1, 0, 0.5, 1.6, 0.5, -0.5, 1, 0],
+        faces: [[0, 1, 2, 3, 4]],
+        edgeFlags: EDGE_HARD,
+      });
+      expect(codesOf(warped)).toContain('mesh.nonplanar-faceted');
+    });
+    it('mesh.ngon-concave: a pentagon with a reflex corner', () => {
+      const concave = buildMeshData({
+        positions: [0, 0, 0, 2, 0, 0, 2, 2, 0, 1, 0.5, 0, 0, 2, 0],
+        faces: [[0, 1, 2, 3, 4]],
+      });
+      expect(codesOf(concave)).toContain('mesh.ngon-concave');
     });
   });
 });

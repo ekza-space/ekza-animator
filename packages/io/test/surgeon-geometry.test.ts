@@ -149,6 +149,7 @@ describe('replacePrimitives on the fixtures', () => {
       expect(preservationProblems(source, out, { meshes: [mesh] })).toEqual([]);
       expect(binPrefixEqual(source, out)).toBe(true);
       expect(await newErrors(source, out)).toEqual([]);
+      expect((await validateGltf(out.bytes)).errors).toBe(0); // the fixtures themselves have none
       // Accessors and bufferViews are appended: the originals keep their indices (and stay, unused).
       expect((out.json['accessors'] as unknown[]).length).toBeGreaterThan(
         (source.json['accessors'] as unknown[]).length,
@@ -375,6 +376,7 @@ describe('bake marker v2: geometry and clips together', () => {
     expect(markerB?.replacedPrimitives).toEqual(markerA?.replacedPrimitives);
     expect((fileB.json['animations'] as Json[]).map((x) => x['name'])).toEqual(['idle']);
     expect(await newErrors(source, fileB)).toEqual([]);
+    expect((await validateGltf(fileB.bytes)).errors).toBe(0);
     expect(preservationProblems(source, fileB, { meshes: [0], clips: true })).toEqual([]);
     const meshB = await meshFromGltf(fileB, 0);
     if ('refused' in meshB) throw new Error(meshB.reason);
