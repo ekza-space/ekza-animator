@@ -235,6 +235,40 @@ describe('select.mesh.bySwatch', () => {
     expect(zero === null ? [] : [...zero.faces.toArray()]).toEqual([0, 2, 4, 5]);
   });
 
+  it("uses the active swatch only on meshes of its palette (another palette's slot is another colour)", async () => {
+    const t = await meshTestApp();
+    const a = await cube(t);
+    const b = await cube(t);
+    paintFaces(t, a, [1], 6);
+    paintFaces(t, b, [2], 6);
+    const { palette: variant } = await runValue<{ palette: PaletteId }>(t, 'palette.duplicate', {
+      palette: DEFAULT_PALETTE_ID,
+    });
+    selectObjects(t, [b]);
+    await runValue(t, 'palette.assign', { palette: variant });
+    t.app.session.setState({ workspace: 'model' });
+    const foreign = t.app.store.query.swatchesOfPalette(variant).find((s) => s.slot === 6);
+    await runValue(t, 'palette.setActive', { swatch: foreign?.id });
+    expect(paintRefusal(t.app, [b], foreign)).toBeNull();
+    expect(paintRefusal(t.app, [a, b], foreign)).toMatch(/^The active swatch is not in .+'s palette: assign .+ first$/);
+    // Only `a` (the default palette): refused with the reason.
+    selectObjects(t, [a]);
+    expect(pollReason(t, 'select.mesh.bySwatch')).toMatch(/^The active swatch is not in/);
+    // Both: `b` (the variant) selects its slot-6 face, `a` selects nothing.
+    selectObjects(t, [a, b]);
+    await runValue(t, 'select.mesh.bySwatch');
+    const faces = (id: MeshId) => {
+      const sel = t.meshes.selectionFor(id, 'face');
+      return sel === null ? [] : [...sel.faces.toArray()];
+    };
+    expect(faces(b)).toEqual([2]);
+    expect(faces(a)).toEqual([]);
+    // An explicit slot is the caller's choice on every mesh.
+    await runValue(t, 'select.mesh.bySwatch', { slot: 6 });
+    expect(faces(a)).toEqual([1]);
+    expect(faces(b)).toEqual([2]);
+  });
+
   it.skipIf(!B10)('[READY.b10] records one "Select" step in Model', async () => {
     const t = await meshTestApp();
     const id = await cube(t);

@@ -5,8 +5,10 @@
 // - Shift+click: fills the face's shell (`mesh.paint.fillShell`);
 // - `I` held: the eyedropper — a click makes the slot under the pointer the active swatch (the mesh's palette);
 // - `Enter`: applies the active swatch to the selected faces (`mesh.paint` without faces).
-// Painting is refused on asset-backed (made-editable) meshes ("Painting imported meshes arrives later") and without an
-// active swatch; the reasons are toasted, as the data panels report cancelled runs.
+// Painting is refused on asset-backed (made-editable) meshes ("Painting imported meshes arrives later"), without an
+// active swatch and with a swatch that is not in the mesh's palette; the reasons are toasted, as the data panels
+// report cancelled runs. `I` is a hold the tool observes: `key()` returns false for it (§5.17), so the keymap still
+// resolves the key.
 import type { MeshId } from '@ekza-animator/doc';
 import {
   activeSwatchOf,
@@ -62,9 +64,10 @@ export class PaintTool implements ToolInstance {
 
   key(e: ToolKeyEvent): boolean {
     if (e.code === 'KeyI') {
-      if (e.mod || e.alt || e.ctrl) return false;
-      this.eyedropper = e.type === 'down';
-      return true;
+      // A hold the tool observes (§5.17 adapter step 2): false, so the keymap still resolves the key.
+      if (e.type === 'up') this.eyedropper = false;
+      else if (!e.mod && !e.alt && !e.ctrl) this.eyedropper = true;
+      return false;
     }
     if ((e.code === 'Enter' || e.code === 'NumpadEnter') && e.type === 'down' && !e.repeat) {
       if (this.stroke !== null) return true;
@@ -84,7 +87,7 @@ export class PaintTool implements ToolInstance {
     }
     const swatch = activeSwatchOf(this.app);
     if (swatch === null) return this.refuse(NO_SWATCH);
-    const refusal = paintRefusal(this.app, [hit.mesh]);
+    const refusal = paintRefusal(this.app, [hit.mesh], swatch);
     if (refusal !== null) return this.refuse(refusal);
     if (e.shift) {
       void this.run('mesh.paint.fillShell', { meshes: [hit.mesh], kind: 'face', slot: swatch.slot, face: hit.face }, e);
@@ -182,7 +185,7 @@ export class PaintTool implements ToolInstance {
       return;
     }
     const hilite = this.app.session.getState().model.hilite;
-    const refusal = paintRefusal(this.app, hilite);
+    const refusal = paintRefusal(this.app, hilite, swatch);
     if (refusal !== null) {
       this.refuse(refusal);
       return;

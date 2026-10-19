@@ -1,7 +1,7 @@
 // The Palette panel's body (M6A-SPEC §5.19, §8.8; research 16 §14; B13; lazy chunk): the project palette dropdown,
 // the swatch grid (8 per row, 20 px, a check glyph and ring on the active swatch), the active swatch's name and sRGB hex
 // field (a colour popover on double-click), Apply (the active swatch on the selected faces, or on every face of the
-// selected mesh objects), Pick from mesh (the Paint Colour tool's `I` eyedropper), Add, Recents, "Used on mesh: n of
+// selected mesh objects; refused when the swatch is not in a target's palette), Pick from mesh (the Paint Colour tool's `I` eyedropper), Add, Recents, "Used on mesh: n of
 // m · Select faces", "Export colours as" and Duplicate palette (a variant). Every edit runs an operator.
 import type { DocumentStore, MeshId, MeshRecord, PaletteId, SwatchId, SwatchRecord } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex } from '@ekza-animator/editor-core';
@@ -89,11 +89,19 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
     if (active === null) return;
     const state = app.session.getState();
     const hilite = state.model.hilite;
-    if (state.model.componentMode === 'face' && hilite.length > 0) {
+    const faceMode = state.model.componentMode === 'face' && hilite.length > 0;
+    // A swatch of another palette would paint its slot's colour of the mesh's palette: refuse (Assign offers it).
+    const problem = paintRefusal(app, faceMode ? hilite : targetMeshIds(state), active);
+    if (problem !== null) {
+      app.services.notify.toast({ kind: 'warning', text: problem });
+      return;
+    }
+    if (faceMode) {
       void run('mesh.paint', { kind: 'face', slot: active.slot }, { panel: PANEL_KIND });
       return;
     }
-    // Object mode: every face of the selected authored meshes (Maya assigns to the whole object).
+    // Object mode: every face of the selected authored meshes (Maya assigns to the whole object), one `mesh.paint`
+    // run per mesh — its `faces` list is shared by all its targets (M6A-B13-17).
     const meshes = targetMeshIds(state);
     for (const mesh of meshes) {
       const faces = app.meshes.get(mesh)?.data()?.counts.faces ?? 0;
@@ -108,10 +116,10 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
     active === null
       ? 'Pick a swatch first'
       : mode === 'face'
-        ? paintRefusal(app, app.session.getState().model.hilite)
+        ? paintRefusal(app, app.session.getState().model.hilite, active)
         : targets.length === 0
           ? 'Select a mesh or faces first'
-          : paintRefusal(app, targets);
+          : paintRefusal(app, targets, active);
 
   const pick = (): void => {
     void run('view.tool', { panel: PANEL.viewport, tool: 'paint' }, { panel: PANEL_KIND });
@@ -188,7 +196,14 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
   const usage = usageLine(used, swatches);
   const mesh = doc.mesh;
   const outputEditable = mesh !== null && mesh.source === null;
-  const selectFacesProblem = active === null ? 'Pick a swatch first' : lead === null ? 'Select a mesh first' : null;
+  const selectFacesProblem =
+    active === null
+      ? 'Pick a swatch first'
+      : lead === null
+        ? 'Select a mesh first'
+        : targets.length > 0 && targets.every((id) => doc.store.get('meshes', id)?.palette !== active.palette)
+          ? "The active swatch is not in the selected meshes' palette"
+          : null;
   const applyKey = shortcutFor(app.keymap, 'mesh.paint', undefined);
 
   return (

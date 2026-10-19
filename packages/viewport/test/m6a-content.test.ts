@@ -409,14 +409,18 @@ describe('Paint Colour: gestures (§5.19)', () => {
     const front = faceFacing(app, cube, 2);
     await settled(() => slots(app, cube)[front] === 9);
     setActive(app, 1);
-    const key = (type: 'down' | 'up', code: string) =>
-      tool.key({ type, code, shift: false, alt: false, mod: false, ctrl: false, repeat: false });
-    expect(key('down', 'KeyI')).toBe(true);
+    const key = (type: 'down' | 'up', code: string, shift = false) =>
+      tool.key({ type, code, shift, alt: false, mod: false, ctrl: false, repeat: false });
+    // `I` is a hold the tool observes: it returns false so the keymap still resolves the key (§5.17 step 2).
+    expect(key('down', 'KeyI')).toBe(false);
     expect(tool.cursor()).toBe('copy');
     tool.pointerDown(pointer(px('front', 0, 0)));
     await settled(() => app.session.getState().model.activeSwatch === swatchIdFor(DEFAULT_PALETTE_ID, 9));
     expect(app.session.getState().model.activeSwatch).toBe(swatchIdFor(DEFAULT_PALETTE_ID, 9));
-    expect(key('up', 'KeyI')).toBe(true);
+    expect(key('up', 'KeyI')).toBe(false);
+    expect(tool.cursor()).toBe('crosshair');
+    expect(key('down', 'KeyI', true)).toBe(false);
+    expect(key('up', 'KeyI', true)).toBe(false);
     expect(tool.cursor()).toBe('crosshair');
 
     // Enter: the selected faces of the hilited mesh (face mode).
@@ -449,5 +453,31 @@ describe('Paint Colour: gestures (§5.19)', () => {
     expect(services.toasts.at(-1)?.text).toBe('Painting imported meshes arrives later');
     expect(tool.state().stroke).toBeNull();
     expect(slots(app, cube).every((s) => s === 0)).toBe(true);
+  });
+
+  it("refuses a swatch of another palette (click and Enter): its slot is another colour in the mesh's palette", async () => {
+    const { app, services } = await contentApp();
+    const cube = await created(app, 'mesh.create.cube');
+    const variant = await app.runUntyped('palette.duplicate', { palette: DEFAULT_PALETTE_ID });
+    if (variant.status !== 'finished') throw new Error('no variant');
+    const palette = (variant.value as { palette: string }).palette;
+    const foreign = app.store.query.swatchesOfPalette(palette as never).find((swatch) => swatch.slot === 4);
+    if (foreign === undefined) throw new Error('no variant swatch');
+    const model = app.session.getState().model;
+    app.session.setState({ model: { ...model, activeSwatch: foreign.id } });
+    const tool = new PaintTool(app, view('front'));
+    tool.activate();
+    const undo = app.store.undo.entries().undo.length;
+    expect(tool.pointerDown(pointer(px('front', 0, 0)))).toBe(true);
+    expect(services.toasts.at(-1)?.text).toMatch(/^The active swatch is not in .+'s palette: assign .+ first$/);
+    expect(tool.state().stroke).toBeNull();
+    app.session.setState({ model: { ...app.session.getState().model, componentMode: 'face', hilite: [cube] } });
+    expect(
+      tool.key({ type: 'down', code: 'Enter', shift: false, alt: false, mod: false, ctrl: false, repeat: false }),
+    ).toBe(true);
+    for (let i = 0; i < 5; i++) await settle();
+    expect(services.toasts.at(-1)?.text).toMatch(/^The active swatch is not in/);
+    expect(slots(app, cube).every((s) => s === 0)).toBe(true);
+    expect(app.store.undo.entries().undo.length).toBe(undo);
   });
 });

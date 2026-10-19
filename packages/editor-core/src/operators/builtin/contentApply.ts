@@ -53,8 +53,8 @@ import {
   livePalette,
   nextSlot,
   replaceTargets,
-  slotArg,
   swatchIdFor,
+  swatchSlotOn,
   swatchTargets,
   targetMeshes,
   BUSY_KERNEL,
@@ -625,7 +625,6 @@ export function selectBySwatch({ app }: ApplyContext, args: OperatorArgs<'select
   const kernel = meshKernel();
   const meshes = attachMeshes(app);
   if (kernel === null || meshes === null) throw new EkzaError('mesh-loading', BUSY_KERNEL);
-  const slot = slotArg(app, args) as number;
   const targets = swatchTargets(app);
   const state = app.session.getState();
   recordSelect(app, targets, () => {
@@ -639,8 +638,10 @@ export function selectBySwatch({ app }: ApplyContext, args: OperatorArgs<'select
       const slots = faceSlotsOf(app, id);
       const data = app.meshes.get(id)?.data() ?? null;
       if (slots === null || data === null) continue;
+      // The active swatch's slot only on meshes of its palette (elsewhere it is another colour): none selected there.
+      const slot = swatchSlotOn(app, args, id);
       const faces: number[] = [];
-      for (let f = 0; f < slots.length; f++) if (slots[f] === slot) faces.push(f);
+      if (slot !== null) for (let f = 0; f < slots.length; f++) if (slots[f] === slot) faces.push(f);
       const sel: ComponentSelection = kernel.selectionOf('face', faces, data.counts);
       meshes.select(id, sel);
     }
