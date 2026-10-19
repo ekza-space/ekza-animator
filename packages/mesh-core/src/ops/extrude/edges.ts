@@ -9,7 +9,7 @@ import { copyCornerAttributes, copyPointAttributes } from '../../layers/propagat
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
 import { refuse } from '../../refusal';
-import type { EditMesh, OpContext, OpResult, OpWarning, Refusal } from '../../types';
+import type { EditMesh, OpContext, OpFrame, OpResult, OpWarning, Refusal } from '../../types';
 import { EXTRUDE } from './descriptor';
 import { axesFromNormal, type CapData, PLACEMENT_ARGS } from './geometry';
 import { type PlaceGroup, pairGroups, placeGroups } from './place';
@@ -94,6 +94,32 @@ function chainsOf(m: EditMesh, edges: readonly number[]): number[][] {
   return [...groups.values()].map((g) => g.sort((a, b) => a - b)).sort((a, b) => (a[0] as number) - (b[0] as number));
 }
 
+/** The chain's edges with their face and that face's winding along them. */
+function borderRecords(m: EditMesh, chain: readonly number[]): BorderEdge[] {
+  return chain.map((e): BorderEdge => {
+    const c = edgeCorners(m, e)[0] as number;
+    return { e, face: m.cornerFace(c), a: m.cornerVert(c), b: m.cornerVert(m.cornerNext(c)) };
+  });
+}
+
+/**
+ * The §5.8 step 7 frame (mesh-local) of the chain that holds the lowest-index border edge of `edges`, chained as
+ * `mesh.extrude` chains them: the frame its local args apply in for that chain, and so the extrude session's frame on
+ * border edges (B12b; `regionFrame`'s counterpart). Interior, wire and out-of-range edges are skipped (an extrude
+ * with an interior edge refuses); null when no border edge is left.
+ */
+export function borderChainFrame(m: EditMesh, edges: ArrayLike<number>): OpFrame | null {
+  const border: number[] = [];
+  for (let i = 0; i < edges.length; i++) {
+    const e = edges[i] as number;
+    if (Number.isInteger(e) && e >= 0 && e < m.counts.edges && m.edgeFaceCount(e) === 1) border.push(e);
+  }
+  const chain = chainsOf(m, uniqueSorted(border))[0];
+  if (chain === undefined) return null;
+  const frame = chainFrame(m, borderRecords(m, chain));
+  return { pivot: frame.pivot, axes: [frame.x, frame.y, frame.z] };
+}
+
 /** §5.8 step 7 frame of a chain. */
 function chainFrame(m: EditMesh, chain: readonly BorderEdge[]): { pivot: V3; x: V3; y: V3; z: V3 } {
   let weighted: V3 = [0, 0, 0];
@@ -141,12 +167,7 @@ export function extrudeEdges(
   }
   const n = Math.max(1, Math.round(num(args, 'divisions', 1)));
   const chains = chainsOf(m, edges);
-  const records = chains.map((chain) =>
-    chain.map((e): BorderEdge => {
-      const c = edgeCorners(m, e)[0] as number;
-      return { e, face: m.cornerFace(c), a: m.cornerVert(c), b: m.cornerVert(m.cornerNext(c)) };
-    }),
-  );
+  const records = chains.map((chain) => borderRecords(m, chain));
   const frames = records.map((chain) => chainFrame(m, chain));
   const roles = pairGroups(chains, 'edge', mirror, (i) =>
     mirror === null ? 0 : mirror.distance((frames[i] as (typeof frames)[number]).pivot),

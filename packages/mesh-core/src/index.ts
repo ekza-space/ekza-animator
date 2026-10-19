@@ -29,6 +29,8 @@ export { buildSymmetryMap } from './symmetry/map';
 export { mirrorEdgePoint } from './symmetry/pointer';
 // ---------- B3 ----------
 export { regionFrame } from './ops/extrude/frame';
+// B12b (the extrude session's frame on border edges, the kernel's own chain frame; B3's edges.ts)
+export { borderChainFrame } from './ops/extrude/edges';
 // ---------- B4 ----------
 export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------
