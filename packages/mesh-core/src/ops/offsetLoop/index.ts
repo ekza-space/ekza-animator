@@ -59,7 +59,8 @@ function runOffsetLoop(
   const points = new Map<string, Point>();
   const chords: { face: number; a: Point; b: Point }[] = [];
   const endEdges: { w: number; spoke: Point }[] = [];
-  let corners = 0;
+  /** Faces where the loop turns (counted once however many of their sides are selected). */
+  const cornerFaces = new Set<number>();
   const point = (e: number, from: number): Point => {
     const p = { e, from };
     points.set(keyOf(p), p);
@@ -74,7 +75,7 @@ function runOffsetLoop(
       const ex = m.cornerEdge(m.cornerPrev(c));
       const ey = m.cornerEdge(m.cornerNext(c));
       if (chosen.has(ex) || chosen.has(ey) || ex === ey) {
-        corners++;
+        cornerFaces.add(f);
         continue;
       }
       chords.push({ face: f, a: point(ex, x), b: point(ey, y) });
@@ -179,6 +180,7 @@ function runOffsetLoop(
     out.push(e);
   }
   const warnings: OpWarning[] = [...unmatchedWarnings(expanded.unmatched)];
+  const corners = cornerFaces.size;
   if (corners > 0) {
     warnings.push({
       code: 'offsetLoop.corner',

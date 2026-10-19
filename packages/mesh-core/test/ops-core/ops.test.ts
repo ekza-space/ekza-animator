@@ -742,3 +742,89 @@ describe('mesh.bridge details (§5.12)', () => {
     expect(softEdges(smooth).length).toBeGreaterThan(0);
   });
 });
+
+describe('refusals and warnings of the remaining codes', () => {
+  /** Three quads on one edge (0–1): a non-manifold fan. */
+  const fan = () =>
+    editMeshFrom(
+      fromFaces(
+        [0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, -1, 0, 0, -1, 0, 1, 0, 1, 0, 0, 1],
+        [
+          [0, 1, 2, 3],
+          [1, 0, 5, 4],
+          [1, 0, 7, 6],
+        ],
+      ),
+    );
+  /** Two triangles that share only vertex 0 (a bow-tie). */
+  const bowTie = () =>
+    editMeshFrom(
+      fromFaces(
+        [0, 0, 0, 1, 0, 0, 1, 1, 0, -1, 0, 0, -1, -1, 0],
+        [
+          [0, 1, 2],
+          [0, 3, 4],
+        ],
+      ),
+    );
+
+  it('extrude: vertex mode, an empty selection, faces around a non-manifold edge', () => {
+    const m = fan();
+    expect(runRefused(m, 'mesh.extrude', sel(m, 'vertex', [0]), 'extrude.vertex').reason).toContain('not available');
+    runRefused(m, 'mesh.extrude', sel(m, 'face', []), 'extrude.no-selection');
+    runRefused(m, 'mesh.extrude', sel(m, 'face', [0, 1]), 'extrude.non-manifold');
+    expect(counts(m)).toBe('8/10/3');
+    // A bow-tie region is extruded: its shared vertex is duplicated once per fan.
+    const b = bowTie();
+    runOk(b, 'mesh.extrude', sel(b, 'face', [0, 1]), { localTranslateZ: 0.2 });
+    expect(counts(b)).toBe('11/18/8');
+  });
+
+  it('inset: an empty selection, a non-manifold edge, a vertex in two fans', () => {
+    const m = fan();
+    runRefused(m, 'mesh.inset', sel(m, 'face', []), 'inset.no-selection');
+    runRefused(m, 'mesh.inset', sel(m, 'face', [0, 1]), 'inset.non-manifold');
+    // Faces sharing only a vertex are two regions, each inset on its own.
+    const b = bowTie();
+    runOk(b, 'mesh.inset', sel(b, 'face', [0, 1]), { offset: 0.05 });
+    expect(counts(b)).toBe('11/18/8');
+    // One region that touches a vertex in two fans: the faces at (2, 2) of a 5 × 5 grid diagonal to each other,
+    // joined round the far side.
+    const grid = editMeshFrom(planeData({ width: 5, height: 5, subdivisionsWidth: 5, subdivisionsHeight: 5 }));
+    const at = (i: number, j: number) => {
+      for (let f = 0; f < grid.counts.faces; f++) {
+        const c = faceCentroid(grid, f);
+        if (Math.abs(c[0] - (i - 2)) < 1e-6 && Math.abs(c[2] - (j - 2)) < 1e-6) return f;
+      }
+      return -1;
+    };
+    const region = [at(1, 1), at(0, 1), at(0, 2), at(0, 3), at(1, 3), at(2, 3), at(2, 2)];
+    expect(region.every((f) => f >= 0)).toBe(true);
+    runRefused(grid, 'mesh.inset', sel(grid, 'face', region), 'inset.non-manifold');
+    // Extrude duplicates that vertex once per fan instead.
+    runOk(grid, 'mesh.extrude', sel(grid, 'face', region), { localTranslateZ: 0.2 });
+    expect(windingProblems(grid)).toEqual([]);
+  });
+
+  it('offset loop: a loop turning inside a face warns offsetLoop.corner; a closed face boundary has no ring', () => {
+    const m = editMeshFrom(planeData({ width: 3, height: 3, subdivisionsWidth: 3, subdivisionsHeight: 3 }));
+    // An L through the interior vertex at (−0.5, −0.5): one edge along x, one along z.
+    const v = vertexNear(m, [-0.5, 0, -0.5]);
+    const along = (dx: number, dz: number) => m.findEdge(v, vertexNear(m, [-0.5 + dx, 0, -0.5 + dz]));
+    const result = runOk(m, 'mesh.offsetLoop', sel(m, 'edge', [along(1, 0), along(0, 1)]), { offset: 0.25 });
+    expect(result.warnings.find((w) => w.code === 'offsetLoop.corner')?.count).toBe(1);
+    expect(windingProblems(m)).toEqual([]);
+    const quad = editMeshFrom(planeData());
+    runRefused(quad, 'mesh.offsetLoop', sel(quad, 'edge', [0, 1, 2, 3]), 'offsetLoop.no-ring');
+    expect(counts(quad)).toBe('4/4/1');
+  });
+
+  it('delete: an empty selection, a 3-face edge, a winged vertex that would collapse its triangle', () => {
+    const m = fan();
+    runRefused(m, 'mesh.delete', sel(m, 'edge', []), 'delete.no-selection');
+    runRefused(m, 'mesh.delete', sel(m, 'edge', [m.findEdge(0, 1)]), 'delete.non-manifold');
+    const tri = editMeshFrom(fromFaces([0, 0, 0, 1, 0, 0, 0, 1, 0], [[0, 1, 2]]));
+    runRefused(tri, 'mesh.delete', sel(tri, 'vertex', [0]), 'delete.degenerate');
+    expect(counts(tri)).toBe('3/3/1');
+  });
+});
