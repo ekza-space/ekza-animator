@@ -4,7 +4,7 @@ export const READY = {
   /** P1: explicit-target operators, the scope migrations and the actor-safe operators. */
   p1: false,
   /** P2: the full runtime call path (queue, gesture and redo waits, confirmations, revisions) and tools 4–25, 31–32. */
-  p2: false,
+  p2: true,
   p3: false,
   p4: false,
   p5: false,
