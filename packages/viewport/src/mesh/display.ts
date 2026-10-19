@@ -7,8 +7,9 @@
 // `changed` events, rebuilds), the component selection service (selection, hidden sets, symmetry partners), the
 // session (workspace, mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes), and
 // applies each pane's display before the pane renders ("Dim unhilited", hidden and isolated objects). Picking is per
-// pane and skips what that pane does not draw (hidden objects, the pane's object isolate and face isolate, §5.6).
-// Hover, soft weights, Mesh Check problems and face isolate sets are pushed by their owners (B10, B12a).
+// pane and skips what that pane does not draw (hidden objects, the pane's object isolate and face isolate, §5.6);
+// camera-based picks also test every other mesh the pane draws as an occluder (M6A-B6-22). Hover, soft weights, Mesh
+// Check problems and face isolate sets are pushed by their owners (B10, B12a).
 import type { Disposer } from '@ekza-animator/anim-core';
 import { batchTables, type CharacterId, type MeshId, type MeshRecord, type PaletteId } from '@ekza-animator/doc';
 import type { EditorApp, MeshRuntime, WorkspaceId } from '@ekza-animator/editor-core';
@@ -22,11 +23,12 @@ import type {
   MeshViewLayers,
   MeshViewThemeInput,
   PickHit,
-  PickOptions,
+  PickOccluder,
+  PickOptionsInput,
 } from '@ekza-animator/mesh-view';
 import { type Camera, Group, type Object3D, Vector3 } from 'three';
 import { MESH_LAYERS } from './layers';
-import { inSubtree, meshWorld } from './world';
+import { inSubtree, meshWorld, worldPlaneInLocal } from './world';
 
 /** What `ViewportManager.addMeshLayer` takes (§4.7). */
 export interface MeshLayerHost {
@@ -58,6 +60,8 @@ export interface MeshDisplayPick extends PickHit {
 
 type Hover = { readonly kind: ComponentKind; readonly index: number };
 type Viewport = { readonly w: number; readonly h: number };
+/** What the display's queries take: the picker options without the hidden set (each mesh's own, `pickOptions`). */
+type QueryOptions = Omit<PickOptionsInput, 'hidden'>;
 
 interface Entry {
   readonly id: MeshId;
@@ -339,20 +343,25 @@ export class MeshDisplay {
         ? null
         : { kind: hover.kind, index: hover.index, partner: this.mod.partnerOf(map, hover.kind, hover.index) };
     edit.setState(sel, this.hiddenOf(entry.id), hoverState, this.mod.mirroredOf(sel, map));
-    const plane = this.symmetryPlane(entry.id, runtime);
+    const plane = this.symmetryPlane(entry, runtime);
     edit.setSymmetryPlane(plane);
   }
 
+  /**
+   * The symmetry plane in mesh-local terms: the runtime's map when there is one; else Object modes are the local plane
+   * through the origin and World modes the world plane mapped into the mesh (hidden when the mesh's rotation leaves
+   * it oblique to every local axis, where no axis-and-offset plane exists; M6A-B6-15).
+   */
   private symmetryPlane(
-    id: MeshId,
+    entry: Entry,
     runtime: MeshRuntime,
   ): { readonly axis: 'x' | 'y' | 'z'; readonly offset: number } | null {
-    const settings = this.app.session.getState().model.symmetry.get(id);
+    const settings = this.app.session.getState().model.symmetry.get(entry.id);
     if (settings === undefined || settings.mode === 'off') return null;
     const map = runtime.symmetry();
     if (map !== null) return { axis: map.axis, offset: map.plane };
     const axis = settings.mode.slice(-1) as 'x' | 'y' | 'z';
-    return { axis, offset: 0 };
+    return settings.mode.startsWith('world') ? worldPlaneInLocal(entry.world, axis) : { axis, offset: 0 };
   }
 
   private paletteColours(palette: PaletteId | null): ReadonlyMap<number, readonly [number, number, number]> | null {
@@ -423,14 +432,17 @@ export class MeshDisplay {
 
   /** The hovered component of a hilited mesh (B10's select tool); its symmetry partner is pre-highlighted. */
   setHover(mesh: MeshId | null, hover: Hover | null): void {
+    let changed = false;
     for (const entry of this.entries.values()) {
       const next = entry.id === mesh ? hover : null;
       if (entry.hover?.kind === next?.kind && entry.hover?.index === next?.index) continue;
-      entry.hover = next;
+      entry.hover = next === null ? null : { kind: next.kind, index: next.index };
+      changed = true;
       const runtime = this.app.meshes.get(entry.id);
       if (entry.edit !== null && runtime !== undefined) this.applyState(entry, runtime);
     }
-    this.target.invalidate();
+    // B10 calls this on every pointer move: an unchanged hover requests no frame.
+    if (changed) this.target.invalidate();
   }
 
   /** Soft-selection weights per vertex of a mesh (B12a), null clears them. */
@@ -497,36 +509,81 @@ export class MeshDisplay {
     return picker;
   }
 
-  private pickOptions(entry: Entry, opts: Omit<PickOptions, 'hidden'>): PickOptions {
+  private pickOptions(entry: Entry, opts: QueryOptions): PickOptionsInput {
     return { ...opts, hidden: this.hiddenOf(entry.id) };
   }
 
   /**
+   * Every mesh pane `paneId` draws, as occluders for camera-based queries (§5.6: a component is visible when nothing
+   * the pane draws lies between it and the camera; M6A-B6-22): hilited meshes in component mode through their pickers
+   * (visible faces only: their hidden set and the pane's face isolate set), every other mesh through its surface, dimmed
+   * or not. null when the query is not camera-based.
+   */
+  private paneOccluders(paneId: string, opts: QueryOptions): PaneOccluders | null {
+    if (!opts.cameraBased) return null;
+    const list: OccluderEntry[] = [];
+    for (const entry of this.entries.values()) {
+      if (!this.drawnIn(this.app.store.get('meshes', entry.id), paneId)) continue;
+      const picker = entry.picker;
+      if (picker !== null) {
+        list.push({
+          entry,
+          occluder: picker,
+          prepare: () => {
+            picker.setIsolate(entry.faceIsolate.get(paneId) ?? null);
+            picker.prepareBvh(this.hiddenOf(entry.id));
+          },
+        });
+      } else if (entry.surface !== null) {
+        list.push({ entry, occluder: entry.surface, prepare: null });
+      }
+    }
+    return new PaneOccluders(list);
+  }
+
+  /** Runs `query` on `picker` with the pane's other meshes as its occluders (none when `occluders` is null). */
+  private withOccluders<T>(picker: ComponentPicker, entry: Entry, occluders: PaneOccluders | null, query: () => T): T {
+    if (occluders === null) return query();
+    occluders.self = entry;
+    picker.setOccluder(occluders);
+    try {
+      return query();
+    } finally {
+      picker.setOccluder(null);
+      occluders.self = null;
+    }
+  }
+
+  /**
    * The hover candidate over every hilited mesh pane `paneId` draws: vertices and edges by screen distance (then the
-   * nearer point), faces by the nearest ray hit. Hidden components, meshes the pane does not draw (hidden objects, its
-   * object isolate) and faces outside its face isolate set are never candidates. `opts.hidden` is each mesh's hidden
-   * set.
+   * nearer point); faces camera-based by the nearest ray hit, otherwise (wire's dots, x-ray's dots before the ray) by
+   * screen distance like vertices, a ray hit counting as 0 px. Hidden components, meshes the pane does not draw
+   * (hidden objects, its object isolate) and faces outside its face isolate set are never candidates; camera-based,
+   * neither is a component behind another mesh the pane draws, hilited or not. The hidden set is each mesh's own.
    */
   pick(
     camera: Camera,
     ndc: readonly [number, number],
     viewport: Viewport,
     kind: ComponentKind,
-    opts: Omit<PickOptions, 'hidden'>,
+    opts: QueryOptions,
     paneId: string,
   ): MeshDisplayPick | null {
     let best: MeshDisplayPick | null = null;
     let bestDepth = Number.POSITIVE_INFINITY;
     const eye = scratch.setFromMatrixPosition(camera.matrixWorld);
+    const occluders = this.paneOccluders(paneId, opts);
     for (const entry of this.entries.values()) {
       const picker = this.paneEntryPicker(entry, paneId);
       if (picker === null) continue;
-      const hit = picker.hover(camera, ndc, viewport, kind, this.pickOptions(entry, opts));
+      const hit = this.withOccluders(picker, entry, occluders, () =>
+        picker.hover(camera, ndc, viewport, kind, this.pickOptions(entry, opts)),
+      );
       if (hit === null) continue;
       const depth = Math.hypot(hit.point[0] - eye.x, hit.point[1] - eye.y, hit.point[2] - eye.z);
       const better =
         best === null ||
-        (kind === 'face'
+        (kind === 'face' && opts.cameraBased
           ? depth < bestDepth
           : hit.distancePx < best.distancePx - 1e-9 ||
             (Math.abs(hit.distancePx - best.distancePx) <= 1e-9 && depth < bestDepth));
@@ -540,21 +597,24 @@ export class MeshDisplay {
 
   /**
    * Marquee over every hilited mesh pane `paneId` draws: the components of `kind` inside the rectangle, per mesh (empty
-   * ones left out), with the same exclusions as `pick`.
+   * ones left out), with the same exclusions as `pick` (camera-based: only what no other drawn mesh hides).
    */
   marquee(
     camera: Camera,
     rect: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
     viewport: Viewport,
     kind: ComponentKind,
-    opts: Omit<PickOptions, 'hidden'>,
+    opts: QueryOptions,
     paneId: string,
   ): ReadonlyMap<MeshId, Uint32Array> {
     const out = new Map<MeshId, Uint32Array>();
+    const occluders = this.paneOccluders(paneId, opts);
     for (const entry of this.entries.values()) {
       const picker = this.paneEntryPicker(entry, paneId);
       if (picker === null) continue;
-      const found = picker.marquee(camera, rect, viewport, kind, this.pickOptions(entry, opts));
+      const found = this.withOccluders(picker, entry, occluders, () =>
+        picker.marquee(camera, rect, viewport, kind, this.pickOptions(entry, opts)),
+      );
       if (found.length > 0) out.set(entry.id, found);
     }
     return out;
@@ -563,7 +623,8 @@ export class MeshDisplay {
   /**
    * Screen point (pane CSS px) of a component of a hilited mesh in pane `paneId` (B10's `screenOfVertex/Edge/Face`,
    * `ComponentPicker.screenOf`): null when the pane does not draw the mesh or the component (hidden, isolated out),
-   * when it is off-screen, occluded (camera-based) or, for a face, facing away without `backfaces`.
+   * when it is off-screen, occluded (camera-based: by the mesh itself or another mesh the pane draws) or, for a face,
+   * facing away without `backfaces`.
    */
   screenOf(
     mesh: MeshId,
@@ -571,14 +632,17 @@ export class MeshDisplay {
     viewport: Viewport,
     kind: ComponentKind,
     index: number,
-    opts: Omit<PickOptions, 'hidden'>,
+    opts: QueryOptions,
     paneId: string,
     t = 0.5,
   ): { readonly x: number; readonly y: number } | null {
     const entry = this.entries.get(mesh);
     const picker = entry === undefined ? null : this.paneEntryPicker(entry, paneId);
     if (entry === undefined || picker === null) return null;
-    return picker.screenOf(camera, viewport, kind, index, this.pickOptions(entry, opts), t);
+    const occluders = this.paneOccluders(paneId, opts);
+    return this.withOccluders(picker, entry, occluders, () =>
+      picker.screenOf(camera, viewport, kind, index, this.pickOptions(entry, opts), t),
+    );
   }
 
   dispose(): void {
@@ -587,6 +651,39 @@ export class MeshDisplay {
     for (const dispose of this.disposers.splice(0)) dispose();
     for (const entry of this.entries.values()) this.drop(entry);
     this.target.invalidate();
+  }
+}
+
+interface OccluderEntry {
+  readonly entry: Entry;
+  readonly occluder: PickOccluder;
+  /** Brings a picker to the pane's visibility before its first use in a query (null: nothing to prepare). */
+  prepare: (() => void) | null;
+}
+
+/**
+ * The meshes one pane draws, as the occluder of one query (§5.6): `self` (the mesh being queried) is skipped, each
+ * picker is prepared for the pane on first use. Characters drawn by ModelLoader are not in it (M6A-B6-22).
+ */
+class PaneOccluders implements PickOccluder {
+  self: Entry | null = null;
+  private readonly list: readonly OccluderEntry[];
+
+  constructor(list: readonly OccluderEntry[]) {
+    this.list = list;
+  }
+
+  occludes(from: Vector3, to: Vector3): boolean {
+    for (const item of this.list) {
+      if (item.entry === this.self) continue;
+      if (item.prepare !== null) {
+        const prepare = item.prepare;
+        item.prepare = null;
+        prepare();
+      }
+      if (item.occluder.occludes(from, to)) return true;
+    }
+    return false;
   }
 }
 

@@ -62,3 +62,32 @@ export function inSubtree(view: ReadView, record: MeshRecord, set: ReadonlySet<s
   }
   return false;
 }
+
+/** Below this share of the largest coefficient a local axis does not count (rounding of a 90° rotation). */
+const OBLIQUE = 1e-6;
+
+/**
+ * The world plane `axis = 0` (World symmetry, §5.14) in the mesh-local terms mesh-view draws a symmetry plane with:
+ * the one local axis the world coordinate depends on and the local offset where it is 0. null when the world
+ * coordinate mixes several local axes (a rotation that is not a multiple of 90°): no local axis plane matches, and
+ * the partner map (B7) decides what such a mesh mirrors.
+ */
+export function worldPlaneInLocal(
+  world: Float64Array,
+  axis: 'x' | 'y' | 'z',
+): { readonly axis: 'x' | 'y' | 'z'; readonly offset: number } | null {
+  const k = axis === 'x' ? 0 : axis === 'y' ? 1 : 2;
+  // Column-major: world_k = m[k]·x + m[4 + k]·y + m[8 + k]·z + m[12 + k].
+  const coefficients = [world[k] as number, world[4 + k] as number, world[8 + k] as number];
+  const largest = Math.max(...coefficients.map(Math.abs));
+  if (!(largest > 0)) return null;
+  let local = -1;
+  for (let c = 0; c < 3; c++) {
+    if (Math.abs(coefficients[c] as number) <= largest * OBLIQUE) continue;
+    if (local !== -1) return null;
+    local = c;
+  }
+  const names = ['x', 'y', 'z'] as const;
+  const offset = -(world[12 + k] as number) / (coefficients[local] as number);
+  return { axis: names[local] as 'x' | 'y' | 'z', offset: offset === 0 ? 0 : offset };
+}

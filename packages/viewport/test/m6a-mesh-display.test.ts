@@ -1,7 +1,8 @@
 // The viewport's mesh display (M6A-SPEC §4.4, §4.7, §5.6, §5.23; B6): lazy loading of mesh-view, one host per mesh
 // runtime through `addMeshLayer`, MeshSurface outside component mode, EditMeshView + picker for hilited open meshes,
 // placements through groups, palette colours, hidden objects, per-pane isolate, "Dim unhilited", hover, face isolate,
-// revisions written while shown, and the pane-flag mapping.
+// revisions written while shown, the pane-flag mapping, occlusion of camera-based picks by the other meshes a pane
+// draws, and the World symmetry plane without a partner map.
 import type { Disposer, ReadonlyXf } from '@ekza-animator/anim-core';
 import type { CharacterId, GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-animator/doc';
 import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
@@ -11,7 +12,9 @@ import {
   type Camera,
   Color,
   LinearSRGBColorSpace,
+  Matrix4,
   OrthographicCamera,
+  Quaternion,
   Scene,
   SRGBColorSpace,
   Vector3,
@@ -28,6 +31,7 @@ import {
   type MeshLayerHost,
   meshPaneDisplay,
 } from '../src';
+import { worldPlaneInLocal } from '../src/mesh/world';
 
 const W = 400;
 const H = 300;
@@ -117,7 +121,7 @@ async function setup(): Promise<Harness> {
   return h;
 }
 
-function front(height = 4): OrthographicCamera {
+function front(height = 4, eye: readonly [number, number, number] = [0, 0, 10]): OrthographicCamera {
   const aspect = W / H;
   const camera = new OrthographicCamera(
     (-height * aspect) / 2,
@@ -127,7 +131,7 @@ function front(height = 4): OrthographicCamera {
     0.05,
     100,
   );
-  camera.position.set(0, 0, 10);
+  camera.position.set(...eye);
   camera.lookAt(0, 0, 0);
   camera.updateProjectionMatrix();
   camera.layers.enableAll();
@@ -227,6 +231,30 @@ function faceCentreX(app: EditorApp, id: MeshId, f: number): number {
     c = mesh.cornerNext(c);
   } while (c !== start);
   return x / n;
+}
+
+/** The vertex of an open mesh at local point `p`. */
+function vertexAtLocal(app: EditorApp, id: MeshId, p: readonly [number, number, number]): number {
+  const mesh = app.meshes.get(id)?.mesh;
+  if (mesh === null || mesh === undefined) throw new Error(`${id} is not open`);
+  for (let v = 0; v < mesh.counts.points; v++) {
+    const d = Math.hypot(
+      (mesh.position[3 * v] as number) - p[0],
+      (mesh.position[3 * v + 1] as number) - p[1],
+      (mesh.position[3 * v + 2] as number) - p[2],
+    );
+    if (d < 1e-6) return v;
+  }
+  throw new Error(`${id} has no vertex at ${p.join(', ')}`);
+}
+
+/** sRGB bytes of `top` at `alpha` over `under` (8-bit blending, as the framebuffer does). */
+function over(top: readonly number[], alpha: number, under: readonly number[]): [number, number, number] {
+  return [0, 1, 2].map((i) => (top[i] as number) * alpha + (under[i] as number) * (1 - alpha)) as [
+    number,
+    number,
+    number,
+  ];
 }
 
 /** A plane standing in the XY plane (normal +Z, facing the front camera). */
@@ -572,6 +600,171 @@ describe('viewport mesh display', () => {
     h.render(camera);
     expect(off(h.pixel(...bodyAt), hex(BACKGROUND), 1)).toBe('');
     expect(off(h.pixel(...propAt), clayFront())).toBe('');
+  });
+
+  it('camera-based picks skip components behind other meshes the pane draws, hilited or not (§5.6)', async () => {
+    const h = await setup();
+    const camera = front();
+    const view = { w: W, h: H } as const;
+    const opts = { cameraBased: true, backfaces: false } as const;
+    const wire = { cameraBased: false, backfaces: false, wire: true } as const;
+    const full = { x0: 0, y0: 0, x1: W, y1: H } as const;
+    // A: a unit cube at the origin; B: a 0.5 m cube 3 m behind it, entirely inside A's silhouette from the front.
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}));
+    const b = createMesh(h.app, 'msh_B', primitive('cube', { width: 0.5, height: 0.5, depth: 0.5 }), {
+      placement: { t: [0, 0, -3], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    const corner: [number, number, number] = [0.25, 0.25, -2.75];
+    const faceAt: [number, number, number] = [0.05, 0.05, -2.75];
+    const pickAt = (
+      p: readonly [number, number, number],
+      kind: 'vertex' | 'edge' | 'face',
+      o: { readonly cameraBased: boolean; readonly backfaces: boolean } = opts,
+      pane = 'pane-persp',
+    ) => h.display.pick(camera, ndcOf(camera, p), view, kind, o, pane);
+
+    // Both hilited: B's vertices lie behind A.
+    enterComponentMode(h.app, 'vertex', [a, b]);
+    const bCorner = vertexAtLocal(h.app, b, [0.25, 0.25, 0.25]);
+    let found = h.display.marquee(camera, full, view, 'vertex', opts, 'pane-persp');
+    expect([...found.keys()]).toEqual([a]);
+    expect(found.get(a)).toHaveLength(4);
+    expect(pickAt(corner, 'vertex')).toBeNull();
+    expect(h.display.screenOf(b, camera, view, 'vertex', bCorner, opts, 'pane-persp')).toBeNull();
+    expect(h.display.marquee(camera, full, view, 'edge', opts, 'pane-persp').has(b)).toBe(false);
+    expect(h.display.marquee(camera, full, view, 'face', opts, 'pane-persp').has(b)).toBe(false);
+    // Camera-based off (wire): nothing occludes.
+    found = h.display.marquee(camera, full, view, 'vertex', wire, 'pane-persp');
+    expect(found.get(a)).toHaveLength(8);
+    expect(found.get(b)).toHaveLength(8);
+    expect(pickAt(corner, 'vertex', wire)).toMatchObject({ mesh: b, index: bCorner });
+    expect(h.display.screenOf(b, camera, view, 'vertex', bCorner, wire, 'pane-persp')).not.toBeNull();
+
+    // A's face isolate in pane-a (only its top face is drawn there): B shows through A in pane-a, not elsewhere.
+    const top = new BitSet(6);
+    for (let f = 0; f < 6; f++) {
+      const mesh = h.app.meshes.get(a)?.mesh;
+      const start = mesh?.faceCorner(f) ?? 0;
+      let c = start;
+      let y = 0;
+      do {
+        y += mesh?.position[3 * (mesh?.cornerVert(c) ?? 0) + 1] ?? 0;
+        c = mesh?.cornerNext(c) ?? start;
+      } while (c !== start);
+      if (y > 1.9) top.add(f);
+    }
+    expect(top.count()).toBe(1);
+    h.display.setFaceIsolate('pane-a', a, top);
+    expect(pickAt(corner, 'vertex', opts, 'pane-a')).toMatchObject({ mesh: b, index: bCorner });
+    expect(h.display.marquee(camera, full, view, 'vertex', opts, 'pane-a').get(b)).toHaveLength(4);
+    expect(pickAt(corner, 'vertex', opts, 'pane-b')).toBeNull();
+    h.display.setFaceIsolate('pane-a', a, null);
+
+    // Only B hilited: A is a plain surface in front of it and still hides it, for every kind of query.
+    enterComponentMode(h.app, 'vertex', [b]);
+    expect(h.display.editable()).toEqual([b]);
+    expect(h.display.marquee(camera, full, view, 'vertex', opts, 'pane-persp').size).toBe(0);
+    expect(pickAt(corner, 'vertex')).toBeNull();
+    expect(h.display.screenOf(b, camera, view, 'vertex', bCorner, opts, 'pane-persp')).toBeNull();
+    expect(h.display.marquee(camera, full, view, 'vertex', wire, 'pane-persp').get(b)).toHaveLength(8);
+    let model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, componentMode: 'face', lastComponentMode: 'face' } });
+    expect(pickAt(faceAt, 'face')).toBeNull();
+    expect(h.display.marquee(camera, full, view, 'face', opts, 'pane-persp').size).toBe(0);
+    // "Dim unhilited" fades A but it is still drawn, so it still hides B.
+    h.render(camera, { dimUnhilited: true });
+    expect(pickAt(faceAt, 'face')).toBeNull();
+    // A hidden, or isolated out of a pane, hides nothing there.
+    model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, isolate: { 'pane-a': [b] } } });
+    expect(pickAt(faceAt, 'face', opts, 'pane-a')?.mesh).toBe(b);
+    expect(pickAt(faceAt, 'face', opts, 'pane-b')).toBeNull();
+    model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, isolate: {}, hiddenObjects: new Set([a]) } });
+    expect(pickAt(faceAt, 'face')?.mesh).toBe(b);
+    model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, componentMode: 'vertex', lastComponentMode: 'vertex' } });
+    expect(pickAt(corner, 'vertex')).toMatchObject({ mesh: b, index: bCorner });
+    expect(h.display.marquee(camera, full, view, 'vertex', opts, 'pane-persp').get(b)).toHaveLength(4);
+  });
+
+  it('picks the nearest face dot across meshes in wire shading, the nearest face camera-based', async () => {
+    const h = await setup();
+    const camera = front();
+    const view = { w: W, h: H } as const;
+    // Two overlapping standing quads: A 1 m nearer the camera, its dot 0.1 m left of B's.
+    const a = createMesh(h.app, 'msh_A', primitive('plane', {}), { placement: { t: [-0.05, 0, 1], ...STANDING } });
+    const b = createMesh(h.app, 'msh_B', primitive('plane', {}), { placement: { t: [0.05, 0, 0], ...STANDING } });
+    enterComponentMode(h.app, 'face', [a, b]);
+    const pointer = ndcOf(camera, [0.02, 0, 0]);
+    const wire = { cameraBased: false, backfaces: false, wire: true } as const;
+    const wireHit = h.display.pick(camera, pointer, view, 'face', wire, 'pane-persp');
+    expect(wireHit?.mesh).toBe(b);
+    expect(wireHit?.distancePx).toBeCloseTo(0.03 * (H / 4), 3);
+    expect(
+      h.display.pick(camera, pointer, view, 'face', { cameraBased: true, backfaces: false }, 'pane-persp')?.mesh,
+    ).toBe(a);
+  });
+
+  it('requests a frame for a hover only when it changes', async () => {
+    const h = await setup();
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}));
+    enterComponentMode(h.app, 'vertex', [a]);
+    h.invalidations = 0;
+    h.display.setHover(a, { kind: 'vertex', index: 0 });
+    expect(h.invalidations).toBe(1);
+    h.display.setHover(a, { kind: 'vertex', index: 0 });
+    expect(h.invalidations).toBe(1);
+    h.display.setHover(a, { kind: 'vertex', index: 1 });
+    expect(h.invalidations).toBe(2);
+    h.display.setHover(null, null);
+    h.display.setHover(null, null);
+    expect(h.invalidations).toBe(3);
+  });
+
+  it('maps a World symmetry plane into the mesh without a partner map (M6A-B6-15)', async () => {
+    const at = (m: Matrix4) => new Float64Array(m.elements);
+    expect(worldPlaneInLocal(at(new Matrix4()), 'x')).toEqual({ axis: 'x', offset: 0 });
+    expect(worldPlaneInLocal(at(new Matrix4().makeTranslation(1.5, 2, 0)), 'x')).toEqual({ axis: 'x', offset: -1.5 });
+    expect(worldPlaneInLocal(at(new Matrix4().makeTranslation(1.5, 2, 0)), 'y')).toEqual({ axis: 'y', offset: -2 });
+    const scaled = new Matrix4().makeTranslation(1, 0, 0).multiply(new Matrix4().makeScale(2, 1, 1));
+    expect(worldPlaneInLocal(at(scaled), 'x')?.offset).toBeCloseTo(-0.5, 12);
+    // A quarter turn about Y: world x = local z + 3.
+    const quarter = new Matrix4()
+      .makeTranslation(3, 0, 0)
+      .multiply(new Matrix4().makeRotationFromQuaternion(new Quaternion(0, Math.SQRT1_2, 0, Math.SQRT1_2)));
+    const mapped = worldPlaneInLocal(at(quarter), 'x');
+    expect(mapped?.axis).toBe('z');
+    expect(mapped?.offset).toBeCloseTo(-3, 9);
+    // An oblique rotation has no axis plane in the mesh.
+    const oblique = new Matrix4().makeRotationY(Math.PI / 6);
+    expect(worldPlaneInLocal(at(oblique), 'x')).toBeNull();
+    expect(worldPlaneInLocal(at(oblique), 'y')).toEqual({ axis: 'y', offset: 0 });
+
+    // Drawn: a cube 1.5 m along +X in vertex mode with World X symmetry, seen from −X. The world plane x = 0 lies in
+    // front of the cube's −X face (the plane fill tints it); Object X puts it at the cube's centre, behind that face.
+    const h = await setup();
+    const camera = front(4, [-10, 0, 0]);
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}), {
+      placement: { t: [1.5, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    enterComponentMode(h.app, 'vertex', [a]);
+    const { DEFAULT_MESH_VIEW_THEME } = await loadMeshView();
+    const probe = screen(camera, [1, 0.1, 0.15]);
+    const setMode = (mode: 'world-x' | 'object-x') => {
+      const model = h.app.session.getState().model;
+      h.app.session.setState({
+        model: { ...model, symmetry: new Map([[a, { mode, tolerance: 0.001, preserveSeam: true }]]) },
+      });
+    };
+    h.render(camera);
+    expect(off(h.pixel(...probe), clayFront())).toBe('');
+    setMode('world-x');
+    h.render(camera);
+    expect(off(h.pixel(...probe), over(hex(DEFAULT_MESH_VIEW_THEME.symPlane), 0.12, clayFront()))).toBe('');
+    setMode('object-x');
+    h.render(camera);
+    expect(off(h.pixel(...probe), clayFront())).toBe('');
   });
 
   it('follows a new revision of a shown mesh and drops hosts on dispose', async () => {
