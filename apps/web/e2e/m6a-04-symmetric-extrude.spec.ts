@@ -13,7 +13,7 @@ import { call } from './helpers/test-api';
 
 const SIDE = 'pane-side';
 
-test.fixme('b12a, b13: E2E-MOD-04 — symmetry: extrude both arms', async ({ page }) => {
+test('E2E-MOD-04 — symmetry: extrude both arms', async ({ page }) => {
   await openModel(page);
   await quadLayout(page);
   const body = await createBody(page);

@@ -121,7 +121,7 @@ async function digit(page: Page, n: 1 | 2 | 3, expected: Kind): Promise<void> {
   await expect.poll(async () => (await call(page, 'state')).mode).toBe(expected);
 }
 
-test.fixme('b2, b7: E2E-MOD-26 — selection undo steps and the loop table (edges, vertices, faces)', async ({
+test('E2E-MOD-26 — selection undo steps and the loop table (edges, vertices, faces)', async ({
   page,
 }) => {
   await openModel(page);
@@ -215,7 +215,7 @@ async function visibleEdges(
   return out;
 }
 
-test.fixme('b2, b7: E2E-MOD-26 (Animate) — a control selection records no "Select" step', async ({ page }) => {
+test('E2E-MOD-26 (Animate) — a control selection records no "Select" step', async ({ page }) => {
   await openEditor(page, '&ws=animate');
   await expectKernelStarted(page);
   await seedSample(page, 'polybot');

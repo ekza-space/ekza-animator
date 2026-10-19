@@ -199,7 +199,7 @@ function changedValues(before: Json, after: Json): string[] {
   return problems;
 }
 
-test.fixme('b3: E2E-MOD-12 (loop and export): bake an edge loop on the forearm into Polybot', async ({ page }) => {
+test('E2E-MOD-12 (loop and export): bake an edge loop on the forearm into Polybot', async ({ page }) => {
   test.setTimeout(180_000);
   await openEditor(page);
   await expectKernelStarted(page);
@@ -276,7 +276,7 @@ test.fixme('b3: E2E-MOD-12 (loop and export): bake an edge loop on the forearm i
 
 // Needs a scene mesh, which B7's `mesh.create.cube` creates (a stub until B7 lands): the export is read back through
 // three.js's GLTFLoader in the page (the display loader), and lastExport() reports it with its lints and read-back.
-test.fixme('b7: file.exportModel in the browser: the three.js read-back and lastExport()', async ({ page }) => {
+test('file.exportModel in the browser: the three.js read-back and lastExport()', async ({ page }) => {
   test.setTimeout(120_000);
   await openEditor(page);
   await expectKernelStarted(page);

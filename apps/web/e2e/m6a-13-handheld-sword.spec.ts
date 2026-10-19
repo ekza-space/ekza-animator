@@ -25,7 +25,7 @@ function extensionKeys(value: unknown, out = new Set<string>()): Set<string> {
   return out;
 }
 
-test.fixme('b3, b4, b12a: E2E-MOD-13 — handheld sword', async ({ page }) => {
+test('E2E-MOD-13 — handheld sword', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const sword = await buildSword(page);

@@ -65,15 +65,3 @@ export const PNG_1X1 = Uint8Array.from([
 ]);
 
 export const JPEG_HEADER = Uint8Array.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]);
-
-/** READY probes of the packages B13's gated cases need (M6A-SPEC §3 rule 4). */
-export async function readyB10(): Promise<boolean> {
-  const t = await meshTestApp();
-  try {
-    t.app.components.clear();
-    t.app.components.set('msh_probe' as MeshId, null as never);
-    return true;
-  } catch (error) {
-    return (error as { code?: string }).code !== 'not-implemented';
-  }
-}

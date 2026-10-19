@@ -11,7 +11,7 @@ import { call, expectKernelStarted, runOk } from './helpers/test-api';
 // selection). The B11 check below runs today: the Channel Box of a primitive — the object's rows and the INPUTS
 // primitive entry adjusting the creation in place (same mesh, same step).
 
-test.fixme('b3, b4, b5, b10: E2E-MOD-09 — delete half, Mirror, Conform, Mesh Check', async ({ page }) => {
+test('E2E-MOD-09 — delete half, Mirror, Conform, Mesh Check', async ({ page }) => {
   await openModel(page);
   const cube = await createPrimitive(page, 'cube');
   const { edge } = await topEdge(page, cube, 'x');

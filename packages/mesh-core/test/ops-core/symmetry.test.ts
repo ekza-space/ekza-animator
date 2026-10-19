@@ -29,7 +29,7 @@ import {
   topOf,
   vertexNear,
 } from './fixtures';
-import { READY } from './ready';
+import { READY } from '../ready';
 import {
   counts,
   ctxOf,

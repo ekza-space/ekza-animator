@@ -77,7 +77,7 @@ async function partB(page: Page): Promise<void> {
   expect(Math.abs(z)).toBeLessThanOrEqual(1e-6);
 }
 
-test.fixme('b12a: E2E-MOD-08 — Target Weld, Merge to Center, Merge by Distance', async ({ page }) => {
+test('E2E-MOD-08 — Target Weld, Merge to Center, Merge by Distance', async ({ page }) => {
   await openModel(page);
   await partA(page);
   await partB(page);

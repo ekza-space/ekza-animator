@@ -54,7 +54,7 @@ const count = async (page: Page, mesh: string): Promise<number> => (await call(p
 const hasPosition = (positions: readonly Vec3[], p: Vec3): boolean =>
   positions.some((q) => q[0] === p[0] && q[1] === p[1] && q[2] === p[2]);
 
-test.fixme('b12a, b13: E2E-MOD-22 — Target Weld under symmetry', async ({ page }) => {
+test('E2E-MOD-22 — Target Weld under symmetry', async ({ page }) => {
   await openModel(page);
   const body = await createBody(page);
   await activateTool(page, 'targetWeld');
@@ -83,7 +83,7 @@ test.fixme('b12a, b13: E2E-MOD-22 — Target Weld under symmetry', async ({ page
   expect(seam[0]).toBe(0);
 });
 
-test.fixme('b12a, b13: E2E-MOD-22 (b) — an unpaired weld welds once and says so', async ({ page }) => {
+test('E2E-MOD-22 (b) — an unpaired weld welds once and says so', async ({ page }) => {
   await openModel(page);
   const body = await createBody(page, { symmetry: false });
   // A cut across one left torso quad with symmetry off: its two new vertices have no partner.

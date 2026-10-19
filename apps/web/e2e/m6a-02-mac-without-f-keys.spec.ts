@@ -36,7 +36,7 @@ async function topFace(page: Page, mesh: string): Promise<number> {
   return best;
 }
 
-test.fixme('b3, b7, b11: E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac, trackpad)', async ({
+test('E2E-MOD-02 — modes by RMB and digits, Extrude through ⌘E (platform=mac, trackpad)', async ({
   page,
 }) => {
   await openModel(page, '&platform=mac&nav=trackpad');

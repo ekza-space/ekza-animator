@@ -24,7 +24,7 @@ async function hoverPersp(page: Page): Promise<void> {
   await page.mouse.move(pane.rect.x + pane.rect.w / 2, pane.rect.y + pane.rect.h / 2);
 }
 
-test.fixme('b10, b11, b12a: E2E-MOD-27 — primitive parameters and freeze', async ({ page }) => {
+test('E2E-MOD-27 — primitive parameters and freeze', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const cylinder = await createPrimitive(page, 'cylinder');

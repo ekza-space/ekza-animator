@@ -52,7 +52,7 @@ function expectMirrored(positions: readonly Vec3[], vp: readonly number[], verts
   }
 }
 
-test.fixme('b12a, b13: E2E-MOD-20 — symmetric Multi-Cut', async ({ page }) => {
+test('E2E-MOD-20 — symmetric Multi-Cut', async ({ page }) => {
   await openModel(page);
   const body = await createBody(page);
   await keyOver(page, 'KeyK');

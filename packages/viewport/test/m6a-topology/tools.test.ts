@@ -7,7 +7,7 @@
 // drag and typed percent; the extrude manipulator (shown with a session, its handles absorbed into the extrude's
 // args, the local/world toggle, `Esc` during the first drag ends the session with the zero-drop, `Shift` during a
 // drag ×0.1 per move) and the Inset value handle.
-import { EkzaError, quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
+import { quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
 import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
 import {
   attachMeshes,
@@ -21,15 +21,7 @@ import {
   type ToolPhase,
 } from '@ekza-animator/editor-core';
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import {
-  editMeshFrom,
-  isRefusal,
-  MESH_OPS,
-  type MeshData,
-  primitive,
-  selectionOf,
-  writeRevision,
-} from '@ekza-animator/mesh-core';
+import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelSelectRuntime, modelSelectOf } from '../../src';
 import { ringScreenTangent } from '../../src/manipulators/drag';
@@ -52,39 +44,6 @@ import { createRig, pointer, type Rig } from '../helpers';
 
 const PANE = 'pane-single';
 let rig: Rig | null = null;
-
-/** READY.b5 (M6A-SPEC §3 rule 4): B5's bevel runs on a cube edge (B0a's stub refuses or throws `not-implemented`). */
-function bevelRuns(): boolean {
-  try {
-    const cube = editMeshFrom(primitive('cube', {}));
-    const op = MESH_OPS['mesh.bevel'];
-    if (op === undefined) return false;
-    cube.begin('probe');
-    try {
-      const out = op.run(
-        cube,
-        selectionOf('edge', [0], cube.counts),
-        {},
-        {
-          symmetry: null,
-          hidden: null,
-          placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
-          faceted: true,
-          soft: null,
-          curves: { compile: () => ({}) as never, evaluate: () => 0 },
-          epsilon: 1e-9,
-        },
-      );
-      return !(isRefusal(out) && out.code === 'not-implemented');
-    } finally {
-      cube.abort();
-    }
-  } catch (error) {
-    if (error instanceof EkzaError && error.code === 'not-implemented') return false;
-    return true;
-  }
-}
-const READY = { b5: bevelRuns() } as const;
 
 beforeAll(async () => {
   await Promise.all([loadMeshKernel(), loadExtrudeEngine(), loadTopologyKit()]);
@@ -1245,7 +1204,7 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
   });
 });
 
-describe.skipIf(!READY.b5)('the Bevel value handle (§5.9; READY.b5)', () => {
+describe('the Bevel value handle (§5.9; READY.b5, a failure since INT)', () => {
   /** A cube's edge 0 bevelled from the select tool with `args`: the manipulator tool shows the value handle. */
   async function bevelled(args: Readonly<Record<string, unknown>>) {
     const cube = primitive('cube', {});

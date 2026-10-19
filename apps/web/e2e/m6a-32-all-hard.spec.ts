@@ -177,7 +177,7 @@ const CASES: readonly Case[] = [
 ];
 
 for (const { name, run } of CASES) {
-  test.fixme(`b3, b4, b5, b10: E2E-MOD-32 — ${name} keeps a faceted cube all-hard`, async ({ page }) => {
+  test(`E2E-MOD-32 — ${name} keeps a faceted cube all-hard`, async ({ page }) => {
     await openModel(page);
     const cube = await createPrimitive(page, 'cube');
     expect((await call(page, 'meshes')).find((row) => row.id === cube)?.faceted).toBe(true);

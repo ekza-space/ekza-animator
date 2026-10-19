@@ -13,7 +13,7 @@ import { call, expectKernelStarted } from './helpers/test-api';
 
 const near = (a: Vec3, b: Vec3): boolean => a.every((v, k) => Math.abs(v - (b[k] ?? Number.NaN)) <= 1e-6);
 
-test.fixme('b5, b10: E2E-MOD-07 — Bevel and adjust', async ({ page }) => {
+test('E2E-MOD-07 — Bevel and adjust', async ({ page }) => {
   await openModel(page);
   const cube = await createPrimitive(page, 'cube');
   await hoverPane(page);

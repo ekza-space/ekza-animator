@@ -67,7 +67,7 @@ function expectPartnered(positions: readonly Vec3[], vp: readonly number[], vert
   }
 }
 
-test.fixme('b12a, b13: E2E-MOD-21 — Insert Edge Loop with symmetry (arm, waist)', async ({ page }) => {
+test('E2E-MOD-21 — Insert Edge Loop with symmetry (arm, waist)', async ({ page }) => {
   await openModel(page);
   const body = await createBody(page);
   await activateTool(page, 'insertLoop');
@@ -114,7 +114,7 @@ async function cubeWithSymmetry(page: Page): Promise<string> {
 /** An X-direction edge of the cube (it crosses the YZ plane). */
 const xEdge = (a: Vec3, b: Vec3): boolean => near(a[1], b[1]) && near(a[2], b[2]) && Math.abs(a[0] - b[0]) > 0.9;
 
-test.fixme('b12a: E2E-MOD-21 (b) — a crossing ring at 0.3: two loops at x = ±0.2', async ({ page }) => {
+test('E2E-MOD-21 (b) — a crossing ring at 0.3: two loops at x = ±0.2', async ({ page }) => {
   await openModel(page);
   const cube = await cubeWithSymmetry(page);
   await clickAtWeight(page, cube, xEdge, 0.3, (p) => p[0]);
@@ -124,7 +124,7 @@ test.fixme('b12a: E2E-MOD-21 (b) — a crossing ring at 0.3: two loops at x = ±
   expect((await call(page, 'symmetry', cube))?.unmatched).toBe(0);
 });
 
-test.fixme('b12a: E2E-MOD-21 (c) — a crossing ring at 0.5: one loop at x = 0 exactly', async ({ page }) => {
+test('E2E-MOD-21 (c) — a crossing ring at 0.5: one loop at x = 0 exactly', async ({ page }) => {
   await openModel(page);
   const cube = await cubeWithSymmetry(page);
   await clickAtWeight(page, cube, xEdge, 0.5, (p) => p[0]);

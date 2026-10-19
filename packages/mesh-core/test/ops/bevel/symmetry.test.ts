@@ -17,7 +17,7 @@ import {
 } from '../../../src';
 import { buildMeshData, diffStored } from '../../../src/testing';
 import { at, ctxOf, edgeBetween, runChecked, runOk } from './harness';
-import { READY } from './ready';
+import { READY } from '../../ready';
 import { standInSymmetryMap } from './symmetry-map';
 
 const bevel = MESH_OPS['mesh.bevel'] as MeshOp;

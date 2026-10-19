@@ -66,7 +66,7 @@ test('E2E-MOD-03 (a) — Mod+E resolves to Extrude over the pane and the Outline
   await closeExport(page);
 });
 
-test.fixme('b3, b7, b10: E2E-MOD-03 (b) — Mod+E over the pane extrudes the top face of a cube', async ({ page }) => {
+test('E2E-MOD-03 (b) — Mod+E over the pane extrudes the top face of a cube', async ({ page }) => {
   await openModel(page);
   const cube = await createPrimitive(page, 'cube');
   // §7: in object mode (and over other panels) Mod+E poll-fails with this help-line text.

@@ -33,7 +33,7 @@ function around(points: readonly ScreenPoint[], pad: number): { from: ScreenPoin
   };
 }
 
-test.fixme('b3, b11, b13: E2E-MOD-25 — hidden faces stay out of marquees and ops; edge marquee; per-pane isolate', async ({
+test('E2E-MOD-25 — hidden faces stay out of marquees and ops; edge marquee; per-pane isolate', async ({
   page,
 }) => {
   await openModel(page);

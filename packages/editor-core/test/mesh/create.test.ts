@@ -156,16 +156,6 @@ describe('mesh.create.* (§5.16)', () => {
     expect(counts(t, id)).toBe('40/60/22');
   });
 
-  it.skipIf(READY.primitives)('poll-fails the kinds the reference kernel cannot build until B1 lands', async () => {
-    const t = await meshTestApp();
-    for (const kind of ['sphere', 'cone', 'torus'] as const) {
-      expect(t.app.operators.poll(`mesh.create.${kind}`, undefined, {})).toEqual({
-        ok: false,
-        reason: `${kind[0]?.toUpperCase()}${kind.slice(1)} is not available yet`,
-      });
-    }
-  });
-
   it.skipIf(!READY.primitives)(
     '[READY.b1] creates sphere, cone and torus with the low-poly defaults (§5.29 oracles)',
     async () => {

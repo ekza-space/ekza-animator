@@ -12,7 +12,7 @@ import {
   type ModelLoader,
 } from '@ekza-animator/editor-core';
 import { createFakeServices } from '@ekza-animator/editor-core/testing';
-import { type ExportArtifact, parseGlb, readProjectArchive, writeProjectArchive } from '@ekza-animator/io';
+import { type ExportArtifact, parseGlb } from '@ekza-animator/io';
 import { loadGltfInNode } from '@ekza-animator/io/testing';
 import { BUILTIN_LAYERS, type MeshData, primitive } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
@@ -24,16 +24,6 @@ type Json = Record<string, unknown>;
 const DEFAULT_16 = ['#f4f4f4', '#c2c3c7', '#6e7179', '#2b2d33', '#e04646', '#f08a3c', '#f2c84b', '#8bc34a'].map(
   (hex) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [number, number, number],
 );
-
-/** B7: `.ekzanim` archives carry mesh blobs (probe: a blob survives the round trip). */
-const B7 = await (async () => {
-  const { emptySnapshot } = await import('@ekza-animator/doc');
-  const blob = new Uint8Array([1, 2, 3]);
-  const { sha256Hex } = await import('@ekza-animator/io');
-  const id = await sha256Hex(blob);
-  const bytes = writeProjectArchive(emptySnapshot('probe'), new Map(), { version: '0.3.0' }, new Map([[id, blob]]));
-  return (await readProjectArchive(bytes)).blobs.size === 1;
-})();
 
 /** A cube whose top face (+Y) paints slot 4, the rest slot 0 (the reference primitive carries the paint layer). */
 function paintedCube(): MeshData {
@@ -224,7 +214,7 @@ describe('mesh.io: file.exportModel', () => {
     app.dispose();
   });
 
-  it.skipIf(!B7)('exports the same bytes after the project is saved and reopened (READY.b7)', async () => {
+  it('exports the same bytes after the project is saved and reopened (READY.b7)', async () => {
     const { app, services } = await sceneApp();
     const args = { objects: [], fileName: 'cube.glb', profile: 'local/generic' };
     const before = await exportModel(app, args);

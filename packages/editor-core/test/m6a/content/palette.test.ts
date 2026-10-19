@@ -7,9 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { DEFAULT_PALETTE_ID, defaultSwatchId, nextSlot, paintRefusal, parseHex, toHex } from '../../../src';
 // The default palette's table lives with the lazy operator bodies (M6A-B13-10).
 import { DEFAULT_SWATCHES } from '../../../src/operators/builtin/contentApply';
-import { counts, faceSlots, meshTestApp, paintFaces, pollReason, readyB10, runValue, selectObjects } from './support';
-
-const B10 = await readyB10();
+import { counts, faceSlots, meshTestApp, paintFaces, pollReason, runValue, selectObjects } from './support';
 
 async function cube(t: Awaited<ReturnType<typeof meshTestApp>>, args?: object): Promise<MeshId> {
   return (await runValue<{ mesh: MeshId }>(t, 'mesh.create.cube', args)).mesh;
@@ -269,7 +267,7 @@ describe('select.mesh.bySwatch', () => {
     expect(faces(b)).toEqual([2]);
   });
 
-  it.skipIf(!B10)('[READY.b10] records one "Select" step in Model', async () => {
+  it('[READY.b10] records one "Select" step in Model', async () => {
     const t = await meshTestApp();
     const id = await cube(t);
     paintFaces(t, id, [2], 6);

@@ -79,7 +79,7 @@ async function stackAndUndo(page: Page, cube: string, top: number, manifest: str
   expect((await call(page, 'state')).extrudeSession).toBe(false);
 }
 
-test.fixme('b12a: E2E-MOD-17 — extrude session and its undo stack (R drag)', async ({ page }) => {
+test('E2E-MOD-17 — extrude session and its undo stack (R drag)', async ({ page }) => {
   await openModel(page);
   const { cube, top } = await cubeTopFace(page);
   const manifest = (await call(page, 'meshInfo', cube))?.manifest ?? '';

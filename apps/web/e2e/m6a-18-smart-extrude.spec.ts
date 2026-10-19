@@ -33,7 +33,7 @@ async function shiftDrag(page: Page, handle: 'ty' | 'tz', dy: number): Promise<v
   await dragFrom(page, from, { x: from.x, y: from.y - dy }, { hold: ['Shift'], steps: 8 });
 }
 
-test.fixme('b12a: E2E-MOD-18 — smart extrude and chains (W)', async ({ page }) => {
+test('E2E-MOD-18 — smart extrude and chains (W)', async ({ page }) => {
   await openModel(page);
   const cube = await cubeTopFace(page);
   await keyOver(page, 'KeyW');
@@ -52,7 +52,7 @@ test.fixme('b12a: E2E-MOD-18 — smart extrude and chains (W)', async ({ page })
   await expect.poll(() => counts(page, cube)).toBe('8/12/6');
 });
 
-test.fixme('b12a: E2E-MOD-18 (b) — three Shift+drags of W build three extrudes', async ({ page }) => {
+test('E2E-MOD-18 (b) — three Shift+drags of W build three extrudes', async ({ page }) => {
   await openModel(page);
   const cube = await cubeTopFace(page);
   await keyOver(page, 'KeyW');

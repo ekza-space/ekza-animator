@@ -29,7 +29,7 @@ async function paneShading(page: Parameters<typeof call>[0], paneId: string): Pr
   return rows.find((pane) => pane.id === paneId)?.shading;
 }
 
-test.fixme('b3, b10, b12b: E2E-MOD-19 — numeric capture window', async ({ page }) => {
+test('E2E-MOD-19 — numeric capture window', async ({ page }) => {
   await openModel(page);
   const cube = await createPrimitive(page, 'cube');
   await hoverPane(page);

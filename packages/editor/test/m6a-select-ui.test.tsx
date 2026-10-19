@@ -382,12 +382,6 @@ describe('Mesh Check (§5.25)', () => {
     return createMesh(app, 'msh_Warped', { ...base, position });
   };
 
-  it.skipIf(READY.b5)('the panel body names the checked mesh and says why it has no results yet', async () => {
-    await withPanel(openPlane, async (_app, _plane, container) => {
-      expect(container.textContent).toContain('Mesh Check arrives with the diagnostics package');
-    });
-  });
-
   it.skipIf(!READY.b5)(
     'an open mesh is Clean: open borders count only on meshes their template flags closed (B5)',
     async () => {
@@ -486,13 +480,6 @@ describe('test API (B10 group, §4.8)', () => {
     await waitFor(
       () => api.screenOfFace(cube, 0, 'pane-persp') !== null || api.screenOfFace(cube, 1, 'pane-persp') !== null,
     );
-  });
-
-  it.skipIf(READY.b5)('meshCheck() reports the kernel stub until B5 lands', async () => {
-    const { app } = await mount();
-    const cube = createMesh(app, 'msh_Cube', primitive('cube', {}));
-    await waitFor(() => app.meshes.get(cube)?.state === 'ready');
-    expect(() => window.__EKZA_ANIMATOR_TEST__?.meshCheck(cube)).toThrow(/checkMesh/);
   });
 
   it.skipIf(!READY.b5)('meshCheck() of a closed cube is empty (B5)', async () => {

@@ -18,7 +18,7 @@ import { call, expectKernelStarted, lastExport, loadFile, runOk, waitForTestApi 
 
 const sha256 = (bytes: Uint8Array): string => createHash('sha256').update(bytes).digest('hex');
 
-test.fixme('b10: E2E-MOD-29 — reference image planes', async ({ page }) => {
+test('E2E-MOD-29 — reference image planes', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   await runOk(page, 'view.layout', { layout: 'split' });

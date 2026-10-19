@@ -90,7 +90,7 @@ function record(data: Record<string, unknown>, summary: string): void {
   console.warn(`[budget] ${summary}`);
 }
 
-test.fixme('b7, b9, b10: mesh-view budgets in the editor at 50k triangles', async ({ page }) => {
+test('mesh-view budgets in the editor at 50k triangles', async ({ page }) => {
   await page.addInitScript(instrument);
   await openModel(page);
   // 158 × 158 quads = 49,928 triangles (research 13 §8.1's workload).

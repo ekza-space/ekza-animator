@@ -133,7 +133,7 @@ test('E2E-MOD-23 (b) — the trackpad MMB stand-in (Alt+Shift+LMB) gives the fir
   viaStandIn.forEach((value, k) => expect(Math.abs(value - (viaMmb[k] as number))).toBeLessThanOrEqual(1e-6));
 });
 
-test.fixme('b3: E2E-MOD-23 — the INPUTS field’s virtual slider after an extrude', async ({ page }) => {
+test('E2E-MOD-23 — the INPUTS field’s virtual slider after an extrude', async ({ page }) => {
   await openModel(page);
   const cube = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [cube], mode: 'replace' });

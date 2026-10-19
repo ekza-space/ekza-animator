@@ -6,17 +6,10 @@ import type { GroupId, MeshId } from '@ekza-animator/doc';
 import { derivedId } from '@ekza-animator/doc';
 import { MESH_OPS } from '@ekza-animator/mesh-core';
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_PALETTE_ID, FROZEN_REASON, type LastRun, NOT_AVAILABLE_YET, runSeedOf } from '../../../src';
+import { DEFAULT_PALETTE_ID, FROZEN_REASON, type LastRun, runSeedOf } from '../../../src';
 import { counts, type MeshTestApp, meshTestApp, paintFaces, pollReason, runValue, selectObjects } from './support';
 
 type Created = { root: string; created: string[] };
-
-/** B12a's pivot operators have landed (their stubs poll-fail "not available yet"). */
-const READY_PIVOT = await (async () => {
-  const t = await meshTestApp();
-  const { mesh } = await runValue<{ mesh: MeshId }>(t, 'mesh.create.cube');
-  return pollReason(t, 'mesh.pivot.set', { id: mesh, pivot: [0, 0, 0] }) !== NOT_AVAILABLE_YET;
-})();
 
 /** World-space min/max Y of a mesh child of an identity-placed group (placement translation + local positions). */
 function worldYRange(t: MeshTestApp, id: MeshId): [number, number] {
@@ -246,7 +239,7 @@ describe('mesh.primitive.set (live parameters, §5.16)', () => {
   });
 
   // §5.16: pivot edits (`mesh.pivot.*`, B12a) are object edits and keep the parameters; they land with B12a.
-  it.skipIf(!READY_PIVOT)('[READY.b12a] pivot edits keep the parameters', async () => {
+  it('[READY.b12a] pivot edits keep the parameters', async () => {
     const t = await meshTestApp();
     const { mesh } = await runValue<{ mesh: MeshId }>(t, 'mesh.create.cube');
     await runValue(t, 'mesh.pivot.set', { id: mesh, pivot: [0, -0.5, 0] });

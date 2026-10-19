@@ -39,7 +39,7 @@ function primitiveOf(bytes: Uint8Array): { json: Record<string, unknown>; primit
   return { json, primitive };
 }
 
-test.fixme('b10: E2E-MOD-11 — palette, recolour, export', async ({ page }) => {
+test('E2E-MOD-11 — palette, recolour, export', async ({ page }) => {
   await openModel(page);
   await expectKernelStarted(page);
   const cube = await createPrimitive(page, 'cube');

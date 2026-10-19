@@ -70,7 +70,7 @@ async function combineAndBridge(page: Page, a: string, b: string): Promise<void>
   await expect.poll(() => counts(page, combined)).toBe('32/48/18');
 }
 
-test.fixme('b12a: E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page }) => {
+test('E2E-MOD-28 — Combine, vertex snap, Bridge', async ({ page }) => {
   await openModel(page);
   const a = await openCylinder(page, 0.5);
   const b = await openCylinder(page, -0.5);

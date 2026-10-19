@@ -98,7 +98,7 @@ async function averagePlane(page: Page): Promise<void> {
   expect(moved).toBeGreaterThan(0);
 }
 
-test.fixme('b12a: E2E-MOD-24 — Slide Edge, Average Vertices, Average under symmetry', async ({ page }) => {
+test('E2E-MOD-24 — Slide Edge, Average Vertices, Average under symmetry', async ({ page }) => {
   await openModel(page);
   await slideMiddleRing(page);
   await averagePlane(page);
