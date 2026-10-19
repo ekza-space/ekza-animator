@@ -4,6 +4,7 @@ import {
   emptySpot,
   expectAllHard,
   hoverPane,
+  openKeyMenu,
   openShiftRmbMenu,
   releaseOnSlot,
   runMenuItem,
@@ -131,8 +132,7 @@ const CASES: readonly Case[] = [
     async run(page, cube) {
       await selectIn(page, cube, 'face', [await topFace(page, cube)]);
       await hoverPane(page, MODEL_PANE, -200, 0);
-      await page.keyboard.press('KeyM');
-      await expect.poll(async () => (await call(page, 'markingMenu'))?.id ?? null).toBe('model.merge');
+      expect(await openKeyMenu(page, 'KeyM')).toBe('model.merge');
       await page.getByTestId('mm-model.merge').getByTestId('mm-slot-N').click();
     },
   },

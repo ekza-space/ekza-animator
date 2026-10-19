@@ -132,6 +132,23 @@ export async function openShiftRmbMenu(page: Page, point: { x: number; y: number
   return id;
 }
 
+/**
+ * Taps a marking-menu key over the hovered pane (`M`: the merge menu) until a menu opens; returns its id. B11's menus
+ * arrive with the first Model entry's chunk, so a tap right after the page opened may find none yet (the help line
+ * says so and nothing else happens): it is tapped again.
+ */
+export async function openKeyMenu(page: Page, key: string): Promise<string | null> {
+  let id: string | null = null;
+  await expect
+    .poll(async () => {
+      await page.keyboard.press(key);
+      id = (await call(page, 'markingMenu'))?.id ?? null;
+      return id;
+    })
+    .not.toBeNull();
+  return id;
+}
+
 /** Releases a held Shift+RMB menu on a slot (press-drag-release). */
 export async function releaseOnSlot(page: Page, slot: string): Promise<void> {
   const open = await call(page, 'markingMenu');
