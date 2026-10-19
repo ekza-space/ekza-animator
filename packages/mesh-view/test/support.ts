@@ -298,14 +298,14 @@ export function light(n: readonly [number, number, number]): number {
   return LIGHT_RIG.ambient + LIGHT_RIG.key * dot(LIGHT_RIG.keyDir) + LIGHT_RIG.fill * dot(LIGHT_RIG.fillDir);
 }
 
-export function expectClose(actual: readonly number[], expected: readonly number[], tolerance = 3): void {
+/** '' when `actual` is within `tolerance` of `expected` per channel (RGB), else a description for the failure. */
+export function colourError(actual: readonly number[], expected: readonly number[], tolerance = 3): string {
   for (let i = 0; i < 3; i++) {
     if (Math.abs((actual[i] as number) - (expected[i] as number)) > tolerance) {
-      throw new Error(
-        `colour ${JSON.stringify(actual.slice(0, 3))} is not within ${tolerance} of ${JSON.stringify(expected)}`,
-      );
+      return `colour ${JSON.stringify(actual.slice(0, 3))} is not within ${tolerance} of ${JSON.stringify(expected)}`;
     }
   }
+  return '';
 }
 
 /** A deterministic PRNG (mulberry32) for randomized checks. */

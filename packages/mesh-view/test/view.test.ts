@@ -28,7 +28,7 @@ import {
   DISPLAY,
   derived,
   edgeBetween,
-  expectClose,
+  colourError,
   faceFacing,
   hexBytes,
   LAYERS,
@@ -114,14 +114,14 @@ describe('EditMeshView: glyphs and halos', () => {
     const view = editView(d, selectionOf('vertex', [selected], d.mesh.counts));
     const canvasRef = render(view, camera);
     const s = px(camera, vertexOf(d, selected));
-    expectClose(at(canvasRef, s), hexBytes(THEME.selected), 1);
+    expect(colourError(at(canvasRef, s), hexBytes(THEME.selected), 1)).toBe('');
     // Hot glyph: 7 px core + 1 px halo each side → the ring 4 px from the centre.
-    expectClose(at(canvasRef, s, 4, 0), hexBytes(THEME.halo), 1);
-    expectClose(at(canvasRef, s, 3, 0), hexBytes(THEME.selected), 1);
+    expect(colourError(at(canvasRef, s, 4, 0), hexBytes(THEME.halo), 1)).toBe('');
+    expect(colourError(at(canvasRef, s, 3, 0), hexBytes(THEME.selected), 1)).toBe('');
     const o = px(camera, vertexOf(d, other));
-    expectClose(at(canvasRef, o), hexBytes(THEME.vertex), 1);
+    expect(colourError(at(canvasRef, o), hexBytes(THEME.vertex), 1)).toBe('');
     // Plain glyph: 5 px core → ring 3 px from the centre.
-    expectClose(at(canvasRef, o, -3, 0), hexBytes(THEME.halo), 1);
+    expect(colourError(at(canvasRef, o, -3, 0), hexBytes(THEME.halo), 1)).toBe('');
     expect(MESH_VIEW_STYLE.haloPx).toBe(1);
   });
 
@@ -136,20 +136,20 @@ describe('EditMeshView: glyphs and halos', () => {
     view.setState(sel, null, null, mirrored);
     let canvasRef = render(view, camera);
     const expected = bytes(mix(linear(THEME.vertex), linear(THEME.selected), MESH_VIEW_STYLE.mirroredMix));
-    expectClose(at(canvasRef, px(camera, vertexOf(d, partner))), expected, 2);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, picked))), hexBytes(THEME.selected), 1);
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, partner))), expected, 2)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, picked))), hexBytes(THEME.selected), 1)).toBe('');
     // Hover a third vertex and pre-highlight its partner.
     const h = vertexAt(d, [0.5, -0.5, 0.5]);
     const hp = vertexAt(d, [-0.5, -0.5, 0.5]);
     view.setState(sel, null, { kind: 'vertex', index: h, partner: hp }, mirrored);
     canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, h))), hexBytes(THEME.hover), 1);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, hp))), hexBytes(THEME.hover), 1);
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, h))), hexBytes(THEME.hover), 1)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, hp))), hexBytes(THEME.hover), 1)).toBe('');
     // Moving the hover away restores both (hover-only update path).
     view.setState(sel, null, null, mirrored);
     canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, h))), hexBytes(THEME.vertex), 1);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, hp))), hexBytes(THEME.vertex), 1);
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, h))), hexBytes(THEME.vertex), 1)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, hp))), hexBytes(THEME.vertex), 1)).toBe('');
   });
 
   it('draws selected edges 3 px wide in --comp-selected with a halo, in edge mode only', () => {
@@ -189,14 +189,18 @@ describe('EditMeshView: glyphs and halos', () => {
     // Away from the dot and the edges.
     const inLeft = px(camera, [centroidOf(d, left)[0] - 0.25, 0, 0.2]);
     const inRight = px(camera, [centroidOf(d, right)[0] + 0.25, 0, 0.2]);
-    expectClose(at(canvasRef, inLeft), bytes(mix(base, linear(THEME.selected), MESH_VIEW_STYLE.faceSelectedTint)), 2);
-    expectClose(
-      at(canvasRef, inRight),
-      bytes(mix(base, linear(THEME.selected), MESH_VIEW_STYLE.faceSelectedTint * MESH_VIEW_STYLE.mirroredMix)),
-      2,
-    );
+    expect(
+      colourError(at(canvasRef, inLeft), bytes(mix(base, linear(THEME.selected), MESH_VIEW_STYLE.faceSelectedTint)), 2),
+    ).toBe('');
+    expect(
+      colourError(
+        at(canvasRef, inRight),
+        bytes(mix(base, linear(THEME.selected), MESH_VIEW_STYLE.faceSelectedTint * MESH_VIEW_STYLE.mirroredMix)),
+        2,
+      ),
+    ).toBe('');
     // The selected face's dot.
-    expectClose(at(canvasRef, px(camera, centroidOf(d, left))), hexBytes(THEME.selected), 1);
+    expect(colourError(at(canvasRef, px(camera, centroidOf(d, left))), hexBytes(THEME.selected), 1)).toBe('');
   });
 });
 
@@ -207,24 +211,24 @@ describe('EditMeshView: surface', () => {
     const view = editView(d, selectionOf('vertex', [], d.mesh.counts));
     let canvasRef = render(view, camera);
     const centre = px(camera, [0.1, 0.15, 0.5]);
-    expectClose(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2);
+    expect(colourError(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2)).toBe('');
     // Palette: slot 0 (the primitives' paint) red.
     view.setPaint(new Map([[0, [255, 0, 0] as const]]));
     canvasRef = render(view, camera, { shading: 'colours' });
     const red = at(canvasRef, centre);
-    expectClose(red, bytes(lit(0xff0000, camera, [0, 0, 1])), 2);
+    expect(colourError(red, bytes(lit(0xff0000, camera, [0, 0, 1])), 2)).toBe('');
     expect(red[0]).toBeGreaterThanOrEqual(180);
     expect(red[1]).toBeLessThanOrEqual(40);
     expect(red[2]).toBeLessThanOrEqual(40);
     // `shaded` stays clay with a palette set; `lit` draws the palette too (M6A-B6-3).
     canvasRef = render(view, camera, { shading: 'shaded' });
-    expectClose(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2);
+    expect(colourError(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2)).toBe('');
     canvasRef = render(view, camera, { shading: 'lit' });
-    expectClose(at(canvasRef, centre), bytes(lit(0xff0000, camera, [0, 0, 1])), 2);
+    expect(colourError(at(canvasRef, centre), bytes(lit(0xff0000, camera, [0, 0, 1])), 2)).toBe('');
     // A slot without a colour shows clay.
     view.setPaint(new Map([[3, [0, 255, 0] as const]]));
     canvasRef = render(view, camera, { shading: 'colours' });
-    expectClose(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2);
+    expect(colourError(at(canvasRef, centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2)).toBe('');
   });
 
   it('draws nothing for hidden faces and the vertices only they use', () => {
@@ -240,12 +244,14 @@ describe('EditMeshView: surface', () => {
     hidden.faces.add(right);
     view.setState(selectionOf('vertex', [], d.mesh.counts), hidden, null, null);
     const canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, [0.6, 0, 0.1])), hexBytes(BACKGROUND), 1);
-    expectClose(at(canvasRef, px(camera, [-0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2);
+    expect(colourError(at(canvasRef, px(camera, [0.6, 0, 0.1])), hexBytes(BACKGROUND), 1)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, [-0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2)).toBe(
+      '',
+    );
     // The corner vertex of the hidden face only: no glyph.
-    expectClose(at(canvasRef, px(camera, [1, 0, -0.5]), -1, 1), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(canvasRef, px(camera, [1, 0, -0.5]), -1, 1), hexBytes(BACKGROUND), 1)).toBe('');
     // The shared vertex stays.
-    expectClose(at(canvasRef, px(camera, [0, 0, -0.5]), 0, 1), hexBytes(THEME.vertex), 1);
+    expect(colourError(at(canvasRef, px(camera, [0, 0, -0.5]), 0, 1), hexBytes(THEME.vertex), 1)).toBe('');
   });
 
   it('isolates faces per pane (setIsolate)', () => {
@@ -257,11 +263,15 @@ describe('EditMeshView: surface', () => {
     only.add(left);
     view.setIsolate(only);
     let canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, [0.6, 0, 0.1])), hexBytes(BACKGROUND), 1);
-    expectClose(at(canvasRef, px(camera, [-0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2);
+    expect(colourError(at(canvasRef, px(camera, [0.6, 0, 0.1])), hexBytes(BACKGROUND), 1)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, [-0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2)).toBe(
+      '',
+    );
     view.setIsolate(null);
     canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, [0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2);
+    expect(colourError(at(canvasRef, px(camera, [0.6, 0, 0.1])), bytes(lit(THEME.clay, camera, [0, 1, 0])), 2)).toBe(
+      '',
+    );
   });
 
   it('wire shading draws no surface and the edges in --wire-wiremode', () => {
@@ -269,12 +279,12 @@ describe('EditMeshView: surface', () => {
     const camera = orthoTop(3);
     const view = editView(d, selectionOf('face', [], d.mesh.counts), HALF_PX);
     const canvasRef = render(view, camera, { shading: 'wire' });
-    expectClose(at(canvasRef, px(camera, [-0.6, 0, 0.1], HALF_PX)), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(canvasRef, px(camera, [-0.6, 0, 0.1], HALF_PX)), hexBytes(BACKGROUND), 1)).toBe('');
     // The middle edge (x = 0) on a pixel column: core, then the halo beside it.
     const line = px(camera, [0, 0, 0.2], HALF_PX);
-    expectClose(at(canvasRef, line), hexBytes(THEME.wireMode), 1);
-    expectClose(at(canvasRef, line, 1, 0), hexBytes(THEME.halo), 1);
-    expectClose(at(canvasRef, line, 2, 0), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(canvasRef, line), hexBytes(THEME.wireMode), 1)).toBe('');
+    expect(colourError(at(canvasRef, line, 1, 0), hexBytes(THEME.halo), 1)).toBe('');
+    expect(colourError(at(canvasRef, line, 2, 0), hexBytes(BACKGROUND), 1)).toBe('');
   });
 
   it('face orientation, back-face culling and the darker back side', () => {
@@ -284,25 +294,31 @@ describe('EditMeshView: surface', () => {
     const centre = px(below, [0.1, 0, 0.15]);
     let canvasRef = render(view, below);
     const back = viewNormal(below, [0, -1, 0]);
-    expectClose(at(canvasRef, centre), bytes(scale(linear(THEME.clay), light(back) * LIGHT_RIG.backFactor)), 2);
+    expect(
+      colourError(at(canvasRef, centre), bytes(scale(linear(THEME.clay), light(back) * LIGHT_RIG.backFactor)), 2),
+    ).toBe('');
     canvasRef = render(view, below, { faceOrientation: true });
     const key = (light(back) - LIGHT_RIG.ambient - LIGHT_RIG.fill * fillDot(back)) / LIGHT_RIG.key;
-    expectClose(
-      at(canvasRef, centre),
-      bytes(scale(linear(THEME.faceBack), LIGHT_RIG.orientationAmbient + LIGHT_RIG.orientationKey * key)),
-      2,
-    );
+    expect(
+      colourError(
+        at(canvasRef, centre),
+        bytes(scale(linear(THEME.faceBack), LIGHT_RIG.orientationAmbient + LIGHT_RIG.orientationKey * key)),
+        2,
+      ),
+    ).toBe('');
     canvasRef = render(view, below, { cull: true });
-    expectClose(at(canvasRef, centre), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(canvasRef, centre), hexBytes(BACKGROUND), 1)).toBe('');
     const above = perspective([0.3, 3, 0.4]);
     canvasRef = render(view, above, { faceOrientation: true });
     const front = viewNormal(above, [0, 1, 0]);
     const keyFront = (light(front) - LIGHT_RIG.ambient - LIGHT_RIG.fill * fillDot(front)) / LIGHT_RIG.key;
-    expectClose(
-      at(canvasRef, px(above, [0.1, 0, 0.15])),
-      bytes(scale(linear(THEME.faceFront), LIGHT_RIG.orientationAmbient + LIGHT_RIG.orientationKey * keyFront)),
-      2,
-    );
+    expect(
+      colourError(
+        at(canvasRef, px(above, [0.1, 0, 0.15])),
+        bytes(scale(linear(THEME.faceFront), LIGHT_RIG.orientationAmbient + LIGHT_RIG.orientationKey * keyFront)),
+        2,
+      ),
+    ).toBe('');
   });
 
   it('flat display lights each face by its face normal; smooth normals vary across it', () => {
@@ -311,11 +327,9 @@ describe('EditMeshView: surface', () => {
     const view = editView(d, selectionOf('face', [], d.mesh.counts));
     const near = px(camera, [0.38, 0.38, 0.5]);
     const flat = at(render(view, camera, { flat: true }), near);
-    expectClose(flat, bytes(lit(THEME.clay, camera, [0, 0, 1])), 2);
+    expect(colourError(flat, bytes(lit(THEME.clay, camera, [0, 0, 1])), 2)).toBe('');
     const smooth = at(render(view, camera, { flat: false }), near);
-    expect(
-      Math.abs((smooth[0] as number) - (flat[0] as number)) + Math.abs((smooth[2] as number) - (flat[2] as number)),
-    ).toBeGreaterThan(3);
+    expect(Math.abs(smooth[0] - flat[0]) + Math.abs(smooth[2] - flat[2])).toBeGreaterThan(3);
   });
 
   it('x-ray: occluded components draw in a second pass at 35 % over the transparent surface', () => {
@@ -336,25 +350,29 @@ describe('EditMeshView: surface', () => {
     const shown = at(render(view, camera), s);
     view.setState(sel, hiddenBack, null, null);
     const without = at(render(view, camera), s);
-    expectClose(shown, without, 0);
+    expect(colourError(shown, without, 0)).toBe('');
     // X-ray: the occluded pass blends the glyph at 35 % over whatever is drawn there.
     view.setState(sel, null, null, null);
     const xShown = at(render(view, camera, { xray: true }), s);
     view.setState(sel, hiddenBack, null, null);
     const xWithout = at(render(view, camera, { xray: true }), s);
-    expectClose(xShown, over(hexBytes(THEME.vertex), MESH_VIEW_STYLE.occludedAlpha, xWithout), 2);
+    expect(colourError(xShown, over(hexBytes(THEME.vertex), MESH_VIEW_STYLE.occludedAlpha, xWithout), 2)).toBe('');
     // A vertex in front keeps its full colour in x-ray.
     view.setState(sel, null, null, null);
     const front = vertexAt(d, [0.5, 0.5, 0.5]);
-    expectClose(at(render(view, camera, { xray: true }), px(camera, vertexOf(d, front))), hexBytes(THEME.vertex), 1);
+    expect(
+      colourError(at(render(view, camera, { xray: true }), px(camera, vertexOf(d, front))), hexBytes(THEME.vertex), 1),
+    ).toBe('');
     // The x-ray surface is half transparent over the background.
     const surfaceOnly = px(camera, [0.15, 0.2, 0.5]);
     const opaque = bytes(lit(THEME.clay, camera, [0, 0, 1]));
-    expectClose(
-      at(render(view, camera, { xray: true }), surfaceOnly),
-      over(opaque, MESH_VIEW_STYLE.xrayOpacity, hexBytes(BACKGROUND)),
-      3,
-    );
+    expect(
+      colourError(
+        at(render(view, camera, { xray: true }), surfaceOnly),
+        over(opaque, MESH_VIEW_STYLE.xrayOpacity, hexBytes(BACKGROUND)),
+        3,
+      ),
+    ).toBe('');
   });
 });
 
@@ -371,12 +389,12 @@ describe('EditMeshView: overlays', () => {
     const view = editView(d, selectionOf('face', [], d.mesh.counts), HALF_PX);
     // +X face normal: from (0.5, 0, 0) to (0.9, 0, 0); sample outside the cube.
     const p = px(camera, [0.75, 0, 0], HALF_PX);
-    expectClose(at(render(view, camera, { normals: 'face' }), p), hexBytes(THEME.normalFace), 1);
-    expectClose(at(render(view, camera, { normals: 'off' }), p), hexBytes(BACKGROUND), 1);
-    expectClose(at(render(view, camera, { normals: 'vertex' }), p), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(render(view, camera, { normals: 'face' }), p), hexBytes(THEME.normalFace), 1)).toBe('');
+    expect(colourError(at(render(view, camera, { normals: 'off' }), p), hexBytes(BACKGROUND), 1)).toBe('');
+    expect(colourError(at(render(view, camera, { normals: 'vertex' }), p), hexBytes(BACKGROUND), 1)).toBe('');
     // Vertex normals (faceted: along the face normals) from the corners.
     const q = px(camera, [0.75, 0, 0.5], HALF_PX);
-    expectClose(at(render(view, camera, { normals: 'both' }), q), hexBytes(THEME.normalVertex), 1);
+    expect(colourError(at(render(view, camera, { normals: 'both' }), q), hexBytes(THEME.normalVertex), 1)).toBe('');
   });
 
   it('draws the triangulation diagonals at 60 % of the wire colour', () => {
@@ -409,8 +427,8 @@ describe('EditMeshView: overlays', () => {
       { code: 'non-manifold-edge', message: 'edge', elements: Uint32Array.of(e) },
     ]);
     let canvasRef = render(view, camera, { meshCheck: true });
-    expectClose(at(canvasRef, px(camera, centroidOf(d, front))), hexBytes(THEME.lintNgon), 1);
-    expectClose(at(canvasRef, px(camera, [0, -0.5, 0.5])), hexBytes(THEME.lintError), 1);
+    expect(colourError(at(canvasRef, px(camera, centroidOf(d, front))), hexBytes(THEME.lintNgon), 1)).toBe('');
+    expect(colourError(at(canvasRef, px(camera, [0, -0.5, 0.5])), hexBytes(THEME.lintError), 1)).toBe('');
     canvasRef = render(view, camera, { meshCheck: false });
     expect(at(canvasRef, px(camera, centroidOf(d, front))).slice(0, 3)).not.toEqual(hexBytes(THEME.lintNgon));
   });
@@ -422,10 +440,10 @@ describe('EditMeshView: overlays', () => {
     view.setSymmetryPlane({ axis: 'z', offset: 0 });
     const outside = px(camera, [0.58, 0.1, 0]);
     const expected = over(hexBytes(THEME.symPlane), MESH_VIEW_STYLE.symPlaneAlpha, hexBytes(BACKGROUND));
-    expectClose(at(render(view, camera), outside), expected, 2);
-    expectClose(at(render(view, camera, { symmetryPlane: false }), outside), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(render(view, camera), outside), expected, 2)).toBe('');
+    expect(colourError(at(render(view, camera, { symmetryPlane: false }), outside), hexBytes(BACKGROUND), 1)).toBe('');
     view.setSymmetryPlane(null);
-    expectClose(at(render(view, camera), outside), hexBytes(BACKGROUND), 1);
+    expect(colourError(at(render(view, camera), outside), hexBytes(BACKGROUND), 1)).toBe('');
   });
 
   it('colours soft-selection weights with the --soft ramp', () => {
@@ -439,16 +457,18 @@ describe('EditMeshView: overlays', () => {
     weights[half] = 0.5;
     view.setSoftWeights(weights);
     let canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, full))), hexBytes(THEME.soft[0]), 2);
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, full))), hexBytes(THEME.soft[0]), 2)).toBe('');
     // Weight 0.5 = halfway between --soft-2 and --soft-3 (linear light), within the 8-bit weight.
-    expectClose(
-      at(canvasRef, px(camera, vertexOf(d, half))),
-      bytes(mix(linear(THEME.soft[1]), linear(THEME.soft[2]), 0.5)),
-      4,
-    );
+    expect(
+      colourError(
+        at(canvasRef, px(camera, vertexOf(d, half))),
+        bytes(mix(linear(THEME.soft[1]), linear(THEME.soft[2]), 0.5)),
+        4,
+      ),
+    ).toBe('');
     view.setSoftWeights(null);
     canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, vertexOf(d, full))), hexBytes(THEME.vertex), 1);
+    expect(colourError(at(canvasRef, px(camera, vertexOf(d, full))), hexBytes(THEME.vertex), 1)).toBe('');
   });
 
   it('fades the whole view to 35 % when dimmed', () => {
@@ -459,12 +479,14 @@ describe('EditMeshView: overlays', () => {
     surface.setData(d.data, d.tri, d.normals, null);
     const centre = px(camera, [0.1, 0.15, 0.5]);
     const opaque = bytes(lit(THEME.clay, camera, [0, 0, 1]));
-    expectClose(at(render(surface, camera), centre), opaque, 2);
-    expectClose(
-      at(render(surface, camera, { dimmed: true }), centre),
-      over(opaque, MESH_VIEW_STYLE.dimOpacity, hexBytes(BACKGROUND)),
-      3,
-    );
+    expect(colourError(at(render(surface, camera), centre), opaque, 2)).toBe('');
+    expect(
+      colourError(
+        at(render(surface, camera, { dimmed: true }), centre),
+        over(opaque, MESH_VIEW_STYLE.dimOpacity, hexBytes(BACKGROUND)),
+        3,
+      ),
+    ).toBe('');
   });
 });
 
@@ -479,12 +501,12 @@ describe('MeshSurface', () => {
     const edge = px(camera, [0.1, 0.5, 0.5]);
     const face = bytes(lit(THEME.clay, camera, [0, 0, 1]));
     let canvasRef = render(surface, camera, { hardEdges: false, wireOnShaded: false });
-    expectClose(at(canvasRef, edge, 0, 1), face, 2);
+    expect(colourError(at(canvasRef, edge, 0, 1), face, 2)).toBe('');
     canvasRef = render(surface, camera, { hardEdges: true });
-    expectClose(at(canvasRef, edge), hexBytes(THEME.hardEdge), 1);
-    expectClose(at(canvasRef, edge, 0, 2), face, 2);
+    expect(colourError(at(canvasRef, edge), hexBytes(THEME.hardEdge), 1)).toBe('');
+    expect(colourError(at(canvasRef, edge, 0, 2), face, 2)).toBe('');
     canvasRef = render(surface, camera, { wireOnShaded: true });
-    expectClose(at(canvasRef, edge), hexBytes(THEME.wire), 1);
+    expect(colourError(at(canvasRef, edge), hexBytes(THEME.wire), 1)).toBe('');
     expect(surface.current).toBe(d.data);
   });
 
@@ -495,17 +517,21 @@ describe('MeshSurface', () => {
     disposables.push(surface);
     surface.setData(d.data, d.tri, d.normals, new Map([[0, [0, 0, 255] as const]]));
     const centre = px(camera, [0.1, 0.15, 0.5]);
-    expectClose(at(render(surface, camera, { shading: 'wire' }), centre), hexBytes(BACKGROUND), 1);
-    expectClose(
-      at(render(surface, camera, { shading: 'colours' }), centre),
-      bytes(lit(0x0000ff, camera, [0, 0, 1])),
-      2,
-    );
-    expectClose(
-      at(render(surface, camera, { shading: 'shaded' }), centre),
-      bytes(lit(THEME.clay, camera, [0, 0, 1])),
-      2,
-    );
+    expect(colourError(at(render(surface, camera, { shading: 'wire' }), centre), hexBytes(BACKGROUND), 1)).toBe('');
+    expect(
+      colourError(
+        at(render(surface, camera, { shading: 'colours' }), centre),
+        bytes(lit(0x0000ff, camera, [0, 0, 1])),
+        2,
+      ),
+    ).toBe('');
+    expect(
+      colourError(
+        at(render(surface, camera, { shading: 'shaded' }), centre),
+        bytes(lit(THEME.clay, camera, [0, 0, 1])),
+        2,
+      ),
+    ).toBe('');
   });
 });
 
@@ -533,14 +559,16 @@ describe('EditMeshView: incremental updates', () => {
     expect(ranges.length).toBe(1);
     expect(ranges[0]?.count).toBe(3);
     canvasRef = render(view, camera);
-    expectClose(at(canvasRef, px(camera, [0.8, 0.8, 0.5])), hexBytes(THEME.selected), 1);
+    expect(colourError(at(canvasRef, px(camera, [0.8, 0.8, 0.5])), hexBytes(THEME.selected), 1)).toBe('');
     expect(at(canvasRef, px(camera, [0.5, 0.5, 0.5])).slice(0, 3)).not.toEqual(hexBytes(THEME.selected));
     // A topology change (another mesh) rebuilds and drops the old selection.
     const other = plane();
     view.update(other.mesh, { ...delta.dirty, topology: true }, other.tri, other.normals);
     expect(view.mode).toBeNull();
     canvasRef = render(view, orthoTop(3));
-    expectClose(at(canvasRef, [200, 150], -10, -10), bytes(lit(THEME.clay, orthoTop(3), [0, 1, 0])), 2);
+    expect(colourError(at(canvasRef, [200, 150], -10, -10), bytes(lit(THEME.clay, orthoTop(3), [0, 1, 0])), 2)).toBe(
+      '',
+    );
   });
 
   it('follows the world matrix', () => {
@@ -549,7 +577,9 @@ describe('EditMeshView: incremental updates', () => {
     const world = new Matrix4().makeTranslation(1, 0.5, 0);
     const v = vertexAt(d, [0.5, 0.5, 0.5]);
     const view = editView(d, selectionOf('vertex', [v], d.mesh.counts), world);
-    expectClose(at(render(view, camera), px(camera, vertexOf(d, v), world)), hexBytes(THEME.selected), 1);
+    expect(colourError(at(render(view, camera), px(camera, vertexOf(d, v), world)), hexBytes(THEME.selected), 1)).toBe(
+      '',
+    );
   });
 
   it('never schedules frames of its own (idle costs nothing)', () => {

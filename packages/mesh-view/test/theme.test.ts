@@ -31,7 +31,7 @@ describe('mesh-view theme', () => {
     const all = [...Object.values(MESH_VIEW_TOKENS), ...MESH_VIEW_SOFT_TOKENS];
     expect(all).toHaveLength(19);
     for (const [property, fallback] of all) {
-      expect(flat.get(property.slice(2)), property).toBe(fallback);
+      expect({ property, value: flat.get(property.slice(2)) }).toEqual({ property, value: fallback });
     }
     expect(DEFAULT_MESH_VIEW_THEME.selected).toBe(0xffa31a);
     expect(DEFAULT_MESH_VIEW_THEME.clay).toBe(0x6e7179);
