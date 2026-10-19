@@ -51,6 +51,8 @@ with the shared-file roles of §9.1. Decision IDs below are `M6A-B9-<n>`.
 | M6A-B9-20 | **Windows menu**: Model lists its own panels (Toolkit, Palette, Mesh Check) and Timeline; the layout submenu has Model's presets (Single, Four View, Front \| Persp) there and Animate's in Animate. Reset Workspace resets the current workspace's layout. | §8.2 presets, "Windows › Timeline shows it". |
 | M6A-B9-21 | **Control edits from a Model pane only where the pane draws controls** (fix rounds 1 and 2): one rule for every edit path. The pane's MMB virtual slider leaves control channels alone unless that pane draws controls (Show ▸ Controls); the transform tools likewise put a manipulator on the lead control in Model **only in object mode, only when no object target applies** (the Scale tool's selected objects win), and that manipulator draws, hovers, picks and drags **only in the panes that draw controls** (`controlTargetInModel`, `kitIn(pane)` in `ViewportManager`); with every pane hiding controls (Model's default) there is none. Component modes show no handle on controls (their handles are B12a's components). Animate is unchanged. | §5.17: Model neither draws nor picks controls, and a control selection carried over from Animate is never edited or keyed unseen (the same reason as the `model.animateOnly` rows). Round 1 gated the slider on Show ▸ Controls but never showed W/E/R handles, so showing controls enabled one edit path and not the other. |
 | M6A-B9-22 | **The MMB stand-in reaches the virtual slider as MMB**: `startVirtualSliderDrag` takes an optional `standIn` (default false) that reads Shift as released for the whole gesture and keeps `Mod` ×10; the ViewportManager passes it for stand-in presses. **Contract note for B12a** (`virtualSliderDrag.ts` is B12a's file): the option is additive; B12a's INPUTS-field slider from the viewport MMB rule must pass it through as well. | §5.17 (b): delivered as MMB with Alt and Shift cleared, the INPUTS virtual slider among its targets. |
+| M6A-B9-24 | **Workspace statuses are re-read at human speed** (fix round 3; `editor/src/shell/statusSchedule.ts`): a committed document batch or mesh change schedules one re-read at most 250 ms later (`STATUS_SETTLE_MS`), however many arrive; preview frames (`origin: 'preview'` batches, mesh `changed` with `preview: true`) schedule nothing while they keep coming, and the statuses are re-read once they have been quiet for 250 ms (a cancelled drag leaves no committed batch) or at once with a committed change. A drag arms one timer per 250 ms window and reads no status. | §4.6 "`status?(app)` … read on human-speed changes only"; MVP-SPEC §3 (no per-frame work): before, every drag frame re-rendered the tab strip and re-ran `animateStatus` (a re-sort of every key) and `modelStatus`. |
+| M6A-B9-25 | **A lazy chunk that fails to load is reported, never an unhandled rejection** (fix round 3): the Scale tool's chunk through `requestScaleKit` (one error toast per failed load, "The Scale tool could not be loaded…", whoever joined it), the command palette and the marking menu on the help line (`PALETTE_LOAD_FAILED`, `MARKING_MENU_LOAD_FAILED`). Retries follow user actions only: the ViewportManager asks once per choice of the Scale tool (not on every manipulator refresh; playback refreshes each frame), the tool again on activation or a press, the palette on the next `Mod+K`, the marking menu on the next command or right-button press (other presses and the prefetch stay quiet). The facades load the controller and the drawing together, so the React.lazy drawing never fails on its own; `onScaleKitLoaded` shows the scale handles whoever's load succeeded. Test seams: `setScaleKitImporterForTests`, the facades' optional `importChunks`. | Offline after a redeploy, `R` or `Mod+K` did nothing silently and rejected unhandled; the manipulator retried the import on every refresh. |
 | M6A-B9-23 | **E2E fixture marking menu**: the test API registers `e2e.fixture` (plain RMB in Model: N Wireframe, S Shaded, E disabled, list Lit) on e2e pages opened with `mmFixture=1`, read from `location.search` in `test-api/m6a/shell-workspaces.ts` (the test-API types and `params.ts` are closed). | The pointer-rule (a) e2e must show a real right-button press opening a registered menu while `contextmenu` alone opens nothing, before B10/B11 register the real menus. |
 
 ## Literal updates (§3 rule 9)
@@ -72,21 +74,22 @@ with the shared-file roles of §9.1. Decision IDs below are `M6A-B9-<n>`.
 
 ## Eager route (§5.27)
 
-Production build, `check:size` (gzip -9, first visit): B0b merged **869,233 B** → this branch **880,571 B** (B9
-**+11,338 B**, fix rounds 1 and 2 included; gate 900,000 B green, headroom 19,429 B; no boundary violation).
+Production build, `check:size` (gzip -9, first visit): B0b merged **869,233 B** → this branch **881,118 B** (B9
+**+11,885 B**, fix rounds 1–3 included; fix round 3's failure handling and status schedule +547 B; gate 900,000 B
+green, headroom 18,882 B; no boundary violation).
 Lazy-loading the marking menu, the command palette, Model's status bodies, the Scale tool and the image planes took B9
 from +16.1 kB to +11.1 kB. The eager B9 code is the workspace definitions, status and switching rules, the workspace
 operators (≈ 3.4 kB), the workspace tabs, slots and facades (≈ 2.1 kB), the per-workspace pane memory, character
 shading, mesh-layer hosting, pointer rules and scale handles in the viewport, and the shell changes (status line, help
-line, pane header, layout swap). M6a total: **+35,304 B over the M2a baseline** (allowance +20,480 B: not enforced,
-M6A-B9-14). Model workspace chunk: 22.5 kB (kernel and marking menu; mesh-view has no consumer in this build).
+line, pane header, layout swap). M6a total: **+35,851 B over the M2a baseline** (allowance +20,480 B: not enforced,
+M6A-B9-14). Model workspace chunk: 22.6 kB (kernel and marking menu; mesh-view has no consumer in this build).
 
 ## DoD status
 
 | DoD item | Status |
 |---|---|
 | CI green | Local gates green (below). |
-| `check:size` passes with both gates | **Not met; waived by an open owner decision.** The 900,000 B gate passes (880,571 B). The +20,480 B eager-delta gate is not enforced (`size-baseline.json` `eagerDelta.enforce: false`, M6A-B9-14) because the allowance is the owner's number (MODELING-PLAN R38, M6A-SPEC §12.4, "Decision requested" in the B0a notes). Against the options there: **A** (+40,960 B over M2a, limit 886,227 B) passes with 5,656 B to spare; **B** (+20,480 B from the B0a merge, limit 884,907 B) passes with 4,336 B; **C** (+20,480 B over M2a, limit 865,747 B) fails by 14,824 B. When the owner decides, INT sets `enforce: true` with that allowance and re-runs `check:size`. |
+| `check:size` passes with both gates | **Not met; waived by an open owner decision.** The 900,000 B gate passes (881,118 B). The +20,480 B eager-delta gate is not enforced (`size-baseline.json` `eagerDelta.enforce: false`, M6A-B9-14) because the allowance is the owner's number (MODELING-PLAN R38, M6A-SPEC §12.4, "Decision requested" in the B0a notes). Against the options there: **A** (+40,960 B over M2a, limit 886,227 B) passes with 5,109 B to spare; **B** (+20,480 B from the B0a merge, limit 884,907 B) passes with 3,789 B; **C** (+20,480 B over M2a, limit 865,747 B) fails by 15,371 B (B0a and B0b alone use +23,966 B, so no B9-side trim reaches C; under C, Model-only registrations and descriptors of B0a, B0b and B9 move behind the first Model entry). When the owner decides, INT sets `enforce: true` with that allowance and re-runs `check:size`. |
 | READY flag `b9` | Set by INT at merge (the `b9` gates of the foundation e2e and E2E-MOD-03 (a) are lifted on this branch). |
 
 ## Hand-over
@@ -114,6 +117,12 @@ M6A-B9-14). Model workspace chunk: 22.5 kB (kernel and marking menu; mesh-view h
   so B6's exports win); `LAYER.meshComponents … helpers` = 6…9 as B6's `MESH_LAYERS`.
 - **INT**: decide the eager allowance (M6A-B9-14) and set `enforce`; add `toolkit`, `palette`, `meshCheck` to `PANEL`
   (M6A-B9-13); the B6 bench's `b9` gate can be lifted.
+- **INT / anim-core owner** (not B9; identical on `main`): `anim-core/test/curve/insert.test.ts` is flaky. The
+  random-seed property "never writes −0 into a handle" found a counterexample (seed −1009123903) whose generated input
+  key already carries `outHandle.dv` −0, which the insert copies onto a frozen neighbour; "weighted spans beyond the
+  monotonic limit" timed out at 30 s under load. Pin the fast-check seed or keep −0 out of `curveArbitrary`'s inputs
+  (or normalise it in `insertKeyPreservingShape`), and raise the slow property's timeout. Fix round 3's test run was
+  green.
 
 ## Gates (local, real Chrome; port 3170)
 
@@ -151,3 +160,23 @@ carried into Model (no ring in a pane that hides controls, a drag where it would
 in the pane that draws controls rotates the control in one step "Rotate", no handle in component modes); the shell
 e2e shows the ring on the Polybot cog with Show ▸ Controls and none once controls are hidden again. Both viewport
 tests fail without the fixes.
+
+Fix round 3 (verifier round 3: the blocker is the eager allowance above, the owner's decision; the anim-core flake is
+handed to INT under "Hand-over"; the two B9 minors are fixed): M6A-B9-24 and M6A-B9-25. Added tests: the status
+schedule frame by frame on manual timers (coalescing, a 2 s drag reads nothing and arms ≤ 9 timers, a committed change
+mid-drag, dispose), the shell re-reading a probe workspace's status not per preview frame of a 600 ms key drag, once
+after the drag is cancelled, and within the window after a committed change (the Animate glyph turns ○); the scale
+loader (one toast for two callers, a retry on the next request, the loaded listener), the Scale tool and manipulator
+offline (one import and one toast for the tool and the manipulator together, none for 20 refreshes, a retry and a toast
+on a press, handles once R is chosen again online); the palette and the marking menu offline (help-line message, no
+unhandled rejection, quiet left presses and prefetch, the next try loads). Gates at HEAD after the fix commits, clean
+tree: `format:check`, `lint`, `typecheck`, `check:deps` green; `test` (`turbo run test test:tooling --force
+--concurrency=3 --continue`, CI unset) 15/15 tasks green, the same counts as round 2 except viewport **131 + 1
+skipped** (+2) and editor **432 + 1 skipped** (+7), anim-core 671 green this time; `build` green (production, no e2e
+flag); `check:size` 881,118 B ≤ 900,000 B (eager-delta warning +35,851 B); the full e2e suite once
+(`EKZA_E2E_PORT=3170 pnpm run test:e2e`), project `chrome`: **120 passed, 10 skipped, 0 failed**. That run was invoked
+with `-- --workers=3 --project=chrome`; pnpm passes the flags after `--`, so Playwright treated them as file filters,
+while the config saw `--project` in `argv` and enabled both projects: the `chromium-swiftshader` project ran once as
+well (100 passed, 20 failed, 10 skipped; every failure a shipped M1/M2a spec, 30 s timeouts of software rendering
+with three workers on the shared machine; the B9 specs passed there too). It was not re-run (CPU rules); CI runs that
+project and is the place to confirm it.
