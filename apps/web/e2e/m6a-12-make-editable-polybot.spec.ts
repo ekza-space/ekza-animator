@@ -3,13 +3,24 @@
 // the synthetic prohibited-modification VRM is refused with a reason and gets no record. The loop-and-export part
 // inserts an edge loop on the forearm (B3's `mesh.insertLoop`) and bakes into the model: validator 0 errors,
 // untouched JSON and BIN prefix, new vertices weighted between their edge's endpoints and every morph target with
-// NORMAL; it is gated on B3 (§10.1 Gates column) and reads the body through B7's mesh test API.
+// NORMAL; it is gated on B3 (§10.1 Gates column) and reads the body through B7's mesh test API. A last B8 check (not
+// part of E2E-MOD-12, gated on B7's primitives) reads a static export back through three.js in the page and finds it
+// in lastExport().
 import { readFileSync } from 'node:fs';
 import { derivedId } from '@ekza-animator/doc';
 import { expect, type Page, test } from '@playwright/test';
 import { exportOne, readGlb, sampleBytes, validatorErrors } from './helpers/g4-export';
 import { seedSample, seedWaveClip } from './helpers/seed';
-import { call, expectKernelStarted, loadFile, openEditor, run, runOk, waitForCount } from './helpers/test-api';
+import {
+  call,
+  expectKernelStarted,
+  lastExport,
+  loadFile,
+  openEditor,
+  run,
+  runOk,
+  waitForCount,
+} from './helpers/test-api';
 
 type Json = Record<string, unknown>;
 
@@ -259,4 +270,45 @@ test.fixme('b3: E2E-MOD-12 (loop and export): bake an edge loop on the forearm i
     expect(normal.length).toBe(3 * count);
     expect(normal.every(Number.isFinite)).toBe(true);
   }
+});
+
+// ---------- B8's static export in the browser (§6.2 `file.exportModel`, §4.8 `lastExport()`) ----------
+
+// Needs a scene mesh, which B7's `mesh.create.cube` creates (a stub until B7 lands): the export is read back through
+// three.js's GLTFLoader in the page (the display loader), and lastExport() reports it with its lints and read-back.
+test.fixme('b7: file.exportModel in the browser: the three.js read-back and lastExport()', async ({ page }) => {
+  test.setTimeout(120_000);
+  await openEditor(page);
+  await expectKernelStarted(page);
+  const { mesh: cube } = await runOk<{ mesh: string }>(page, 'mesh.create.cube');
+  await expect
+    .poll(async () => (await call(page, 'meshes')).find((row) => row.id === cube)?.runtime, { timeout: 30_000 })
+    .toBe('ready');
+  const download = page.waitForEvent('download', { timeout: 60_000 });
+  const result = await run(page, 'file.exportModel', {
+    objects: [cube],
+    fileName: 'cube.glb',
+    profile: 'local/generic',
+  });
+  expect(result.status).toBe('finished');
+  expect((await download).suggestedFilename()).toBe('cube.glb');
+  const last = await page.evaluate(() => {
+    const value = window.__EKZA_ANIMATOR_TEST__?.lastExport() ?? null;
+    return value === null ? null : { fileName: value.fileName, lints: value.lints, readBack: value.readBack };
+  });
+  expect(last).toMatchObject({
+    fileName: 'cube.glb',
+    readBack: {
+      ok: true,
+      kind: 'static',
+      meshes: 1,
+      primitives: 1,
+      triangles: 12,
+      three: { ok: true, primitives: 1, triangles: 12 },
+    },
+  });
+  expect((last?.lints ?? []).filter((lint) => (lint as { severity?: string }).severity === 'error')).toEqual([]);
+  const bytes = (await lastExport(page))?.bytes;
+  expect(bytes).toBeDefined();
+  expect(await validatorErrors(new Uint8Array(bytes ?? []))).toEqual([]);
 });
