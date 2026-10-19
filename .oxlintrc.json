@@ -429,9 +429,10 @@
                   "!fast-check",
                   "!vitest",
                   "!vitest/**",
+                  "!@vitest/browser-playwright",
                   "!node:*"
                 ],
-                "message": "mesh-core tests may import only: @ekza-animator/anim-core, fast-check, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+                "message": "mesh-core tests may import only: @ekza-animator/anim-core, fast-check, vitest, vitest/**, @vitest/browser-playwright, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",

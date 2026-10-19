@@ -23,7 +23,9 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@vitest/browser-playwright": "4.1.11",
     "fast-check": "4.10.2",
+    "playwright": "1.63.0",
     "vitest": "catalog:"
   }
 }
