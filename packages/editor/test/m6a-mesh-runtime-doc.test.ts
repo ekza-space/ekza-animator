@@ -343,7 +343,7 @@ describe('the B7 test API group (§4.8)', () => {
     const { api, app } = await setup();
     const character = 'chr_Hero0000000001';
     // A character runtime whose glTF has two meshes; the second already has its record (made editable).
-    vi.spyOn(app.characters, 'list').mockReturnValue([
+    const list = vi.spyOn(app.characters, 'list').mockReturnValue([
       { id: character, container: { json: { meshes: [{ name: 'Body' }, {}, { name: '' }] } } } as never,
     ]);
     const made = derivedId('mesh', 'asset', [character], '', 1);
@@ -367,6 +367,7 @@ describe('the B7 test API group (§4.8)', () => {
       runtime: 'none',
     });
     const rows = api.meshes();
+    list.mockRestore();
     expect(rows.filter((r) => r.badge === 'asset')).toEqual([row(0, 'Body'), row(2, 'Mesh 2')]);
     expect(rows.find((r) => r.id === made)).toMatchObject({ badge: 'edit', runtime: 'ready', manifest: ref.manifest });
   });
