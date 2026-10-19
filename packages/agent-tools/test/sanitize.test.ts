@@ -2,7 +2,16 @@
 // block), whitespace collapsed, names capped at 120 and prose at 300 characters with an ellipsis; labels with intents.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { composeLabel, isClean, NAME_MAX_CHARS, PROSE_MAX_CHARS, quoteName, sanitizeDeep, sanitizeText } from '../src';
+import {
+  composeLabel,
+  isClean,
+  NAME_MAX_CHARS,
+  PROSE_MAX_CHARS,
+  quoteName,
+  sanitizeDeep,
+  sanitizeText,
+  toWellFormed,
+} from '../src';
 
 const name = (text: string) => sanitizeText(text, { maxChars: NAME_MAX_CHARS, kind: 'name' });
 
@@ -28,13 +37,28 @@ describe('sanitizeText (MCP-SPEC §5.3)', () => {
     expect(name('short')).toBe('short');
   });
 
-  it('never leaves a control or format character, whatever the input', () => {
+  it('replaces lone surrogates with U+FFFD and keeps surrogate pairs', () => {
+    expect(name('a\ud800b')).toBe('a\ufffdb');
+    expect(name('a\udc00b')).toBe('a\ufffdb');
+    expect(name('end\udbff')).toBe('end\ufffd');
+    expect(name('\udc00\ud800')).toBe('\ufffd\ufffd');
+    expect(name('pair 😀 ok')).toBe('pair 😀 ok');
+    expect(toWellFormed('x\ud83d\ude00\ud83dy')).toBe('x😀\ufffdy');
+  });
+
+  it('never leaves a control or format character or a lone surrogate, whatever the input', () => {
     expect(() =>
       fc.assert(
-        fc.property(fc.string({ unit: 'binary', maxLength: 400 }), (text) => {
-          const out = sanitizeText(text, { maxChars: 300, kind: 'prose' });
-          return isClean(out) && Array.from(out).length <= 300;
-        }),
+        fc.property(
+          fc.string({ unit: 'binary', maxLength: 400 }),
+          fc.string({ unit: 'grapheme', maxLength: 40 }),
+          (text, extra) => {
+            // `binary` units are whole code points; cut one in half too (a lone surrogate)
+            const input = `${text}${'😀'.slice(0, 1)}${extra}`;
+            const out = sanitizeText(input, { maxChars: 300, kind: 'prose' });
+            return isClean(out) && Array.from(out).length <= 300 && out === toWellFormed(out);
+          },
+        ),
         { numRuns: 500 },
       ),
     ).not.toThrow();
@@ -45,6 +69,11 @@ describe('sanitizeText (MCP-SPEC §5.3)', () => {
     expect(sanitizeDeep({ 'k​': ['a‮b', 3, null, new Uint8Array(4)] }, { maxChars: 300, kind: 'prose' })).toEqual({
       k: ['ab', 3, null, 4],
     });
+    const hostile = JSON.parse('{"__proto__": {"polluted": true}, "ok": 1}') as Record<string, unknown>;
+    const clean = sanitizeDeep(hostile, { maxChars: 300, kind: 'prose' }) as Record<string, unknown>;
+    expect(Object.getPrototypeOf(clean)).toBe(Object.prototype);
+    expect(Object.hasOwn(clean, '__proto__')).toBe(true);
+    expect(JSON.stringify(clean)).toBe('{"__proto__":{"polluted":true},"ok":1}');
   });
 });
 

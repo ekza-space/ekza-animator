@@ -32,6 +32,7 @@ export {
   quoteName,
   sanitizeDeep,
   sanitizeText,
+  toWellFormed,
 } from './sanitize/sanitize';
 export {
   type BudgetOutcome,

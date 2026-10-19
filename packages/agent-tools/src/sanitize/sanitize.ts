@@ -1,5 +1,6 @@
 // The one sanitiser for every outgoing string (MCP-SPEC §5.3), live and headless, re-applied by the server to tab
-// results: Unicode NFC; whitespace controls become spaces; every other `Cc` and `Cf` code point is removed (C0/C1
+// results: lone surrogates become U+FFFD (well-formed UTF-16, so valid UTF-8 for every client); Unicode NFC;
+// whitespace controls become spaces; every other `Cc` and `Cf` code point is removed (C0/C1
 // controls, the bidi controls U+202A–202E and U+2066–2069, the zero-width characters U+200B–200F and U+2060, U+FEFF
 // and the tag block U+E0000–E007F used for invisible "ASCII smuggling"); whitespace runs collapse to one space; the
 // length is capped (names 120 characters, prose 300, `…` appended when cut).
@@ -17,6 +18,13 @@ const CONTROL_WHITESPACE = /[\t\n\v\f\r\u0085]/gu;
 const CONTROLS_AND_FORMATS = /[\p{Cc}\p{Cf}\u{E0000}-\u{E007F}]/gu;
 /** Whitespace runs (Unicode White_Space, after the controls are gone). */
 const WHITESPACE_RUN = /\s+/gu;
+/** A high surrogate without its low half, or a low surrogate without its high half (UTF-16 code units). */
+const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g;
+
+/** `String.prototype.toWellFormed` (ES2024): every lone surrogate becomes U+FFFD. */
+export function toWellFormed(text: string): string {
+  return text.replace(LONE_SURROGATE, '\uFFFD');
+}
 
 /** Cuts `text` to `max` code points, appending `…` (counted) when it was longer. Never splits a surrogate pair. */
 function capLength(text: string, max: number): string {
@@ -34,7 +42,7 @@ export function sanitizeText(
   text: string,
   opts: { readonly maxChars: number; readonly kind: 'name' | 'prose' },
 ): string {
-  const cleaned = String(text)
+  const cleaned = toWellFormed(String(text))
     .normalize('NFC')
     .replace(CONTROL_WHITESPACE, ' ')
     .replace(CONTROLS_AND_FORMATS, '')
@@ -68,7 +76,13 @@ export function sanitizeDeep(
   if (Array.isArray(value)) return value.map((item: unknown) => sanitizeDeep(item, opts));
   const out: Record<string, unknown> = {};
   for (const [key, inner] of Object.entries(value as Record<string, unknown>)) {
-    out[sanitizeText(key, { maxChars: NAME_MAX_CHARS, kind: 'name' })] = sanitizeDeep(inner, opts);
+    // defineProperty: a `__proto__` key stays an own entry instead of replacing the prototype
+    Object.defineProperty(out, sanitizeText(key, { maxChars: NAME_MAX_CHARS, kind: 'name' }), {
+      value: sanitizeDeep(inner, opts),
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return out;
 }
