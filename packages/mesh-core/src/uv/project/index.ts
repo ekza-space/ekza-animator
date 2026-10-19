@@ -13,8 +13,9 @@
 //   −Z (−Y for the z axis), u grows to the right seen from outside, v along the axis; each face's corners take the
 //   angle branch nearest the face centre's angle, so no face spans the wrap and the discontinuity lies on the edges
 //   at the wrap; corners on the axis take the face centre's angle; u is metres of arc at the mean radius.
-// - fit (default): every chart is moved to start at (0, 0) and all charts of the run are scaled by one factor so the
-//   largest chart extent is 1 (uniform, aspect kept); off: the raw metres.
+// - fit (default): the charts are packed side by side (shelves, a small gap; one chart starts at (0, 0)) and the
+//   layout is scaled by one factor so its larger side is 1 (uniform: every chart keeps its aspect and relative size);
+//   off: the raw metres, charts where they project.
 import { KERNEL_MARKER } from '../../kernel';
 import type { EditMesh } from '../../types';
 
@@ -274,7 +275,15 @@ export function projectCylindrical(m: EditMesh, faces: readonly number[], axis: 
   return { uv, chart, charts: faces.length > 0 ? 1 : 0 };
 }
 
-/** The fit (§5.28): each chart starts at (0, 0); one uniform scale makes the largest chart extent 1. */
+/** Gap between packed charts, as a fraction of the largest chart extent. */
+export const CHART_GAP = 0.02;
+
+/**
+ * The fit (§5.28): one chart is moved to start at (0, 0); several charts are packed side by side on shelves (tallest
+ * first, ties to the lower chart id, a gap of `CHART_GAP` × the largest extent between them, rows about as wide as
+ * the square root of the charts' total area); then one uniform scale makes the larger side of the layout 1, so every
+ * value lies in 0–1 and every chart keeps its aspect and its size relative to the others.
+ */
 export function fitCharts(projection: Projection): void {
   const { uv, chart, charts } = projection;
   if (charts === 0) return;
@@ -288,13 +297,53 @@ export function fitCharts(projection: Projection): void {
       hi[2 * k + i] = Math.max(hi[2 * k + i] as number, uv[2 * c + i] as number);
     }
   }
+  const width = (k: number): number => (hi[2 * k] as number) - (lo[2 * k] as number);
+  const height = (k: number): number => (hi[2 * k + 1] as number) - (lo[2 * k + 1] as number);
+  // Placement of each chart's corner (lo) in the layout.
+  const at = new Float64Array(2 * charts);
   let extent = 0;
-  for (let i = 0; i < 2 * charts; i++) extent = Math.max(extent, (hi[i] as number) - (lo[i] as number));
-  const scale = extent > 0 && Number.isFinite(extent) && KERNEL_MARKER.length > 0 ? 1 / extent : 1;
+  let area = 0;
+  for (let k = 0; k < charts; k++) {
+    if (!Number.isFinite(width(k))) continue; // a chart id without corners
+    extent = Math.max(extent, width(k), height(k));
+    area += width(k) * height(k);
+  }
+  let layoutW = 0;
+  let layoutH = 0;
+  if (charts === 1) {
+    layoutW = width(0);
+    layoutH = height(0);
+  } else {
+    const gap = CHART_GAP * extent;
+    const order = Array.from({ length: charts }, (_, k) => k)
+      .filter((k) => Number.isFinite(width(k)))
+      .sort((a, b) => height(b) - height(a) || a - b);
+    let rowWidth = 0;
+    for (const k of order) rowWidth = Math.max(rowWidth, width(k));
+    rowWidth = Math.max(rowWidth, Math.sqrt(area) + gap);
+    let x = 0;
+    let y = 0;
+    let shelf = 0;
+    for (const k of order) {
+      if (x > 0 && x + width(k) > rowWidth) {
+        x = 0;
+        y += shelf + gap;
+        shelf = 0;
+      }
+      at[2 * k] = x;
+      at[2 * k + 1] = y;
+      x += width(k) + gap;
+      shelf = Math.max(shelf, height(k));
+      layoutW = Math.max(layoutW, x - gap);
+      layoutH = Math.max(layoutH, y + shelf);
+    }
+  }
+  const side = Math.max(layoutW, layoutH);
+  const scale = side > 0 && Number.isFinite(side) && KERNEL_MARKER.length > 0 ? 1 / side : 1;
   for (let c = 0; c < chart.length; c++) {
     const k = chart[c] as number;
     if (k < 0) continue;
-    uv[2 * c] = ((uv[2 * c] as number) - (lo[2 * k] as number)) * scale;
-    uv[2 * c + 1] = ((uv[2 * c + 1] as number) - (lo[2 * k + 1] as number)) * scale;
+    uv[2 * c] = ((uv[2 * c] as number) - (lo[2 * k] as number) + (at[2 * k] as number)) * scale;
+    uv[2 * c + 1] = ((uv[2 * c + 1] as number) - (lo[2 * k + 1] as number) + (at[2 * k + 1] as number)) * scale;
   }
 }
