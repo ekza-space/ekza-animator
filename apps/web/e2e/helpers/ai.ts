@@ -2,7 +2,7 @@
 // client, reserve a free bridge port the page can be told about, and pair the editor through the UI (§5.10). P7 owns
 // this file after D0; other packages add helpers through P7. The live specs spawn packages/mcp-server/dist/cli.mjs,
 // so `pnpm mcp:build` (part of `pnpm test:e2e`) runs first.
-import { existsSync, mkdtempSync } from 'node:fs';
+import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -43,12 +43,14 @@ export interface AgentServer {
   readonly bridgePort: number | null;
   /** Everything the server wrote to stderr so far. */
   stderr(): string;
+  /** Closes the client (the server exits with stdin) and removes the workspace when the helper created it. */
   close(): Promise<void>;
 }
 
 /**
  * Spawns the built bin through StdioClientTransport and connects an SDK client: `--workspace <tmp> --bridge-port
- * <port> --allow-origin <e2e origin> --log-level warn` plus `flags`. Every spec closes its server in `afterEach`.
+ * <port> --allow-origin <e2e origin> --log-level warn` plus `flags`. Every spec closes its server in `afterEach`;
+ * `close()` removes a workspace the helper created (a caller's own `workspace` stays).
  */
 export async function startAgentServer(opts?: {
   readonly workspace?: string;
@@ -56,6 +58,7 @@ export async function startAgentServer(opts?: {
   readonly flags?: readonly string[];
 }): Promise<AgentServer> {
   if (!existsSync(MCP_BIN)) throw new Error(`${MCP_BIN} is missing: run pnpm mcp:build`);
+  const ownWorkspace = opts?.workspace === undefined;
   const workspace = opts?.workspace ?? mkdtempSync(join(tmpdir(), 'ekza-ai-e2e-'));
   const bridgePort = opts?.bridgePort === undefined ? await freePort() : opts.bridgePort;
   const args = [
@@ -81,7 +84,13 @@ export async function startAgentServer(opts?: {
     workspace,
     bridgePort,
     stderr: () => stderr,
-    close: () => client.close(),
+    async close() {
+      try {
+        await client.close();
+      } finally {
+        if (ownWorkspace) rmSync(workspace, { recursive: true, force: true });
+      }
+    },
   };
 }
 
