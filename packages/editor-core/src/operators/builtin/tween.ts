@@ -2,8 +2,8 @@
 // slider uses the gesture form (`beginTweenGesture`). One step per run.
 //
 // MCP-SPEC §4.10 (P1): `frames` tweens and keys the pose at each of those clip frames on the run's controls (or the
-// controls of its selected keys), never the playhead; agent runs read their run scope (keys, controls, channels and
-// clip), the keyed values only (never the user's overrides), and never write the session.
+// controls of its selected keys) from the keyed values, never the playhead or the overrides (user and agent runs
+// alike); agent runs read their run scope (keys, controls, channels and clip) and never write the session.
 import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type { ControlId } from '@ekza-animator/doc';
 import {
@@ -87,7 +87,8 @@ function runPlan(ctx: OperatorContext, args: TweenArgs): RunPlan | string {
       controls: frameControls(ctx),
       channels: selection.channels.length > 0 ? selection.channels : null,
       ...(clip === undefined ? {} : { clip: clip.id }),
-      keyed: isActorRun(ctx),
+      // §4.10: with `frames` the playhead is not read, so no run reads the overrides of the current frame.
+      keyed: true,
     };
     const frames = [...new Set(args.frames)];
     return {
@@ -116,7 +117,11 @@ function pollRunPlan(ctx: OperatorContext, args: TweenArgs) {
   return plan.plans.some((p) => p.entries.length > 0) ? OK : fail(plan.empty);
 }
 
-/** Keyed channels leave the overrides (§4.11.1 rule 5) on the shipped path only: a user run at the playhead. */
+/**
+ * Keyed channels leave the overrides (§4.11.1 rule 5) on the shipped path only: a user run at the playhead. A run with
+ * `frames` never reads the playhead, so it neither reads nor drops the overrides (a key it writes at the user's frame
+ * shows once the frame changes, like any key written under an override).
+ */
 function dropOverrides(app: EditorApp, ctx: OperatorContext, args: TweenArgs, plans: readonly TweenPlan[]): void {
   if (isActorRun(ctx) || args.frames !== undefined) return;
   for (const plan of plans) dropPlannedOverrides(app, plan);

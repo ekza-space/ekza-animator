@@ -3,9 +3,11 @@
 // (`graph.key.insert`, `clip.delete`, `rig.ikFk.matchRange {clip}`) and `clip.new {loop, activate}`,
 // `clip.duplicate {name, activate}` keep the user's session (runner rule 6) under an agent.
 import type { ClipId, CurveId, KeyId } from '@ekza-animator/doc';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FakeEditorApp } from '../../src/testing';
 import type { RunScope, Selection } from '../../src/types';
+import { limbContext } from '../../src/workflows/ik';
+import { ikApp } from '../builtin/ikFixture';
 import {
   agentOk,
   agentRefusal,
@@ -30,6 +32,37 @@ interface Case {
   readonly id: string;
   readonly args: unknown;
   readonly selection: Partial<Selection>;
+  /** Extra document state the operator needs to have work (applied to every fixture of the case). */
+  readonly prepare?: (app: FakeEditorApp) => void;
+}
+
+/**
+ * The arm as linear segments 0 → 15 → 30 with the key at 22 on the second one (Simplify removes it; the user's
+ * selected key at 15 is a corner and stays, so the keeper has nothing to prune).
+ */
+function straightArm(app: FakeEditorApp): void {
+  const value = (t: number): number => (t <= 15 ? t * 0.02 : 0.3 - (t - 15) * 0.01);
+  app.store.transact({ label: 'straight' }, (tx) => {
+    for (const key of tx.query.keysOfCurve(WAVE.curve)) {
+      tx.put('keys', { ...key, v: value(key.t), inType: 'linear', outType: 'linear' });
+    }
+  });
+}
+
+/** The middle wave key broken, with fixed handles that are not collinear (Unify has work). */
+function breakMiddle(app: FakeEditorApp): void {
+  const middle = app.store.get('keys', WAVE.keys[1]);
+  if (middle === undefined) throw new Error('no key');
+  app.store.transact({ label: 'broken' }, (tx) => {
+    tx.put('keys', {
+      ...middle,
+      broken: true,
+      inType: 'fixed',
+      outType: 'fixed',
+      inHandle: { dt: -3, dv: 0.2 },
+      outHandle: { dt: 4, dv: 0.5 },
+    });
+  });
 }
 
 const MIDDLE = [WAVE.keys[1]];
@@ -37,6 +70,7 @@ const CASES: readonly Case[] = [
   { id: 'graph.tangent.set', args: { type: 'flat' }, selection: { keys: KEYS(MIDDLE) } },
   { id: 'graph.tangent.set', args: { type: 'linear', side: 'out' }, selection: { controls: [ARM] } },
   { id: 'graph.tangent.break', args: undefined, selection: { keys: KEYS(WAVE.keys) } },
+  { id: 'graph.tangent.unify', args: undefined, selection: { keys: KEYS(MIDDLE) }, prepare: breakMiddle },
   { id: 'graph.tangent.lockWeight', args: { locked: false }, selection: { keys: KEYS(MIDDLE) } },
   {
     id: 'graph.curve.setWeighted',
@@ -46,7 +80,7 @@ const CASES: readonly Case[] = [
   { id: 'graph.infinity.set', args: { pre: 'linear', post: 'cycle' }, selection: { controls: [ARM] } },
   { id: 'graph.keys.setFields', args: { value: 12 }, selection: { keys: KEYS(MIDDLE) } },
   { id: 'graph.keys.setFields', args: { frame: 3, relative: true }, selection: { keys: KEYS(MIDDLE) } },
-  { id: 'graph.curves.simplify', args: undefined, selection: { controls: [ARM] } },
+  { id: 'graph.curves.simplify', args: undefined, selection: { controls: [ARM] }, prepare: straightArm },
   { id: 'graph.eulerFilter', args: undefined, selection: { controls: [ARM] } },
   { id: 'key.tween', args: { mode: 'tween', amount: 50, target: 'keys' }, selection: { keys: KEYS(MIDDLE) } },
   { id: 'key.tween', args: { mode: 'ease', amount: 40, frames: [5, 20] }, selection: { controls: [ARM] } },
@@ -54,8 +88,8 @@ const CASES: readonly Case[] = [
   { id: 'pose.mirrorAnimation', args: { mode: 'leftToRight' }, selection: { controls: [ARM] } },
 ];
 
-/** A wave whose arm curve has a 2π flip at 15 (the Euler filter has work) and a shallow middle key (simplify). */
-async function fixture(): Promise<FakeEditorApp> {
+/** A wave whose arm curve has a 2π flip at 15 (the Euler filter has work) and a fourth key at 22. */
+async function fixture(c?: Case): Promise<FakeEditorApp> {
   const app = opsApp();
   const [first, middle] = app.store.query.keysOfCurve(WAVE.curve);
   if (first === undefined || middle === undefined) throw new Error('no keys');
@@ -64,6 +98,7 @@ async function fixture(): Promise<FakeEditorApp> {
     tx.put('keys', { ...middle, v: -30 * DEG + 2 * Math.PI });
     tx.put('keys', { ...first, id: 'k_ScopeFixture22' as KeyId, t: 22, v: 0.4 });
   });
+  c?.prepare?.(app);
   return app;
 }
 
@@ -99,12 +134,14 @@ function idsOf(app: FakeEditorApp): Set<string> {
 describe('scope-ready operators (MCP-SPEC §4.10)', () => {
   for (const c of CASES) {
     it(`${c.id} ${JSON.stringify(c.args ?? {})}: the scope gives the user-selection result`, async () => {
-      const user = await fixture();
+      const user = await fixture(c);
       const base = idsOf(user);
       const start = docJson(user);
       user.session.setState({ selection: { ...EMPTY, ...c.selection } });
       await runOk(user, c.id, c.args);
-      const agent = await fixture();
+      // Every case has work: the user run changes the document.
+      expect(docJson(user)).not.toEqual(start);
+      const agent = await fixture(c);
       // The agent's user has another selection, a band and an override; the scope names the targets.
       seedUser(agent);
       const before = sessionRecord(agent);
@@ -120,7 +157,7 @@ describe('scope-ready operators (MCP-SPEC §4.10)', () => {
 
   it('acts on nothing without a context: "No targets", never the user selection', async () => {
     for (const c of CASES) {
-      const app = await fixture();
+      const app = await fixture(c);
       seedUser(app);
       app.session.setState({ selection: { ...EMPTY, ...c.selection } });
       const doc = docJson(app);
@@ -165,6 +202,21 @@ describe('scope-ready operators (MCP-SPEC §4.10)', () => {
     // pushPull at 0 keys the current value: the keyed curve value, not the override (1 rad).
     const key = app.store.query.keysOfCurve(waveCurve(app, ARM, 'rz') as CurveId).find((k) => k.t === 12);
     expect(key?.v).not.toBeCloseTo(1, 3);
+    expect(app.session.getState().overrides.get(ARM)).toEqual({ rz: 1 });
+  });
+
+  it('a user tween with frames reads the keyed values too: neither the playhead nor the overrides (§4.10)', async () => {
+    const plain = await fixture();
+    const base = idsOf(plain);
+    plain.session.setState({ selection: { ...EMPTY, controls: [ARM], channels: [{ control: ARM, channel: 'rz' }] } });
+    await runOk(plain, 'key.tween', { mode: 'pushPull', amount: 0, frames: [12] });
+    const app = await fixture();
+    seedUser(app);
+    app.session.setState({ selection: { ...EMPTY, controls: [ARM], channels: [{ control: ARM, channel: 'rz' }] } });
+    app.session.setState({ overrides: new Map([[ARM, { rz: 1 }]]) });
+    await runOk(app, 'key.tween', { mode: 'pushPull', amount: 0, frames: [12] });
+    // The same key as without the override and the user's frame; the override stays the user's.
+    expect(normalized(app, base)).toEqual(normalized(plain, base));
     expect(app.session.getState().overrides.get(ARM)).toEqual({ rz: 1 });
   });
 
@@ -243,6 +295,23 @@ describe('actor-safe migrations', () => {
     expect(app.store.get('clips', app.session.getState().activeClip[WAVE.character] as ClipId)?.name).toBe('wave 3');
     const { clip: made } = (await runOk(app, 'clip.new', { character: WAVE.character })) as { clip: ClipId };
     expect(app.session.getState().activeClip[WAVE.character]).toBe(made);
+  });
+
+  it('limbContext with an explicit clip never reads the session (the agent Match Range path)', () => {
+    const { app } = ikApp();
+    const read = vi.spyOn(app.session, 'getState').mockImplementation(() => {
+      throw new Error('session read');
+    });
+    try {
+      const ctx = limbContext(app, 'leg.L', undefined, { clip: WAVE.clip });
+      if (typeof ctx === 'string') throw new Error(ctx);
+      expect([ctx.clip.id, ctx.frame]).toEqual([WAVE.clip, 0]);
+      const at = limbContext(app, 'leg.L', WAVE.character, { clip: WAVE.clip, frame: 7 });
+      expect(typeof at === 'string' ? at : at.frame).toBe(7);
+      expect(read).not.toHaveBeenCalled();
+    } finally {
+      read.mockRestore();
+    }
   });
 
   it('rig.ikFk.matchRange: an agent run names its clip and range', async () => {

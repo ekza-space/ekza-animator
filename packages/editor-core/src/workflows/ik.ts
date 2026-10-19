@@ -182,7 +182,7 @@ export interface LimbContext {
   readonly program: RigProgram;
   readonly limb: LimbDesc;
   readonly clip: ClipRecord;
-  /** The active clip frame (the frame the switch keys). */
+  /** The active clip frame (the frame the switch keys); with an explicit clip, the given frame or its range start. */
   readonly frame: Frame;
 }
 
@@ -206,7 +206,13 @@ export function limbContext(
   if (runtime === undefined) return 'The character is still loading';
   const desc = runtime.program.limbs.find((candidate) => candidate.id === limb);
   if (desc === undefined) return `The character has no ${LIMB_NAME[limb] ?? limb} IK (Rig › Add Limb IK)`;
-  const clip = given ?? activeClipOf(app.store, app.session.getState(), id);
+  if (given !== undefined) {
+    // An explicit clip never reads the session: without a frame (`rig.ikFk.matchRange {clip}` keys a range, not a
+    // frame) the context's frame is the clip's range start.
+    const frame = explicit?.frame ?? given.range.start;
+    return { character: id, runtime, program: runtime.program, limb: desc, clip: given, frame };
+  }
+  const clip = activeClipOf(app.store, app.session.getState(), id);
   if (clip === undefined) return 'The character has no active clip';
   const frame =
     explicit?.frame ??
