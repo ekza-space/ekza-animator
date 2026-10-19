@@ -210,11 +210,24 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
-    const outcomes = Object.values(MESH_OPS).map((op) => {
-      const result = op.run(mesh, null, {}, ctx);
-      return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
+    // Ops whose owners landed them (literal update per §3 rule 9): they no longer refuse `not-implemented`.
+    const LANDED = new Set(['mesh.paint', 'mesh.paint.fillShell', 'mesh.paint.remap']);
+    const outcomes = Object.values(MESH_OPS)
+      .filter((op) => !LANDED.has(op.id))
+      .map((op) => {
+        const result = op.run(mesh, null, {}, ctx);
+        return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
+      });
+    expect(outcomes).toEqual(
+      Object.keys(MESH_OPS)
+        .filter((id) => !LANDED.has(id))
+        .map((id) => [id, true, 'not-implemented']),
+    );
+    const landed = [...LANDED].map((id) => {
+      const result = MESH_OPS[id]?.run(mesh, null, {}, ctx);
+      return isRefusal(result) ? result.code : 'ran';
     });
-    expect(outcomes).toEqual(Object.keys(MESH_OPS).map((id) => [id, true, 'not-implemented']));
+    expect(landed).not.toContain('not-implemented');
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];
