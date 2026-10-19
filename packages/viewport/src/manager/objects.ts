@@ -73,3 +73,30 @@ export function selectedObjects(app: Pick<EditorApp, 'store' | 'session'>): read
   }
   return out;
 }
+
+/**
+ * The selected objects a transform applies to (selection order kept, the lead last): every selected object except
+ * those with a selected ancestor, which follow that ancestor's placement instead of being transformed twice (Maya
+ * and Blender transform only the topmost selected objects). The ancestor chain is `objectWorld`'s: same owner, a
+ * missing, deleted, cross-owner or cyclic parent ends it; an object on a parent cycle (which the document's repair
+ * breaks on load) counts as a root, so a cycle never drops all of its selected members.
+ */
+export function topmostSelectedObjects(app: Pick<EditorApp, 'store' | 'session'>): readonly SceneObjectRecord[] {
+  const selected = selectedObjects(app);
+  if (selected.length < 2) return selected;
+  const ids = new Set<string>(selected.map((record) => record.id));
+  return selected.filter((record) => {
+    const owner = ownerKey(record);
+    const seen = new Set<string>([record.id]);
+    let selectedAncestor = false;
+    let parent: string | null = record.parent;
+    while (parent !== null && !seen.has(parent)) {
+      seen.add(parent);
+      const next = sceneObject(app, parent);
+      if (next === null || ownerKey(next) !== owner) break;
+      if (ids.has(next.id)) selectedAncestor = true;
+      parent = next.parent;
+    }
+    return !selectedAncestor || parent === record.id;
+  });
+}

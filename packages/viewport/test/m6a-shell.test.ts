@@ -2,9 +2,20 @@
 // models (pixel probes), mesh layers (`addMeshLayer`, `applyPane` per pane), reference image planes in their ortho
 // pane, the pointer platform rules (no context-menu RMB, the Model MMB stand-in, marking-menu presses, the stand-in's
 // virtual slider at the MMB rate), a control selection carried over to Model (no manipulator, no unseen edit) and
-// the Scale tool on controls (Animate) and on scene objects (Model), with undo.
+// the Scale tool on controls (Animate) and on scene objects (Model, the topmost selected objects only), with undo.
 import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId, ControlRecord, MeshId, MeshRecord, RigId, Tx } from '@ekza-animator/doc';
+import type {
+  CharacterId,
+  ControlId,
+  ControlRecord,
+  GroupId,
+  GroupRecord,
+  MeshId,
+  MeshRecord,
+  RigId,
+  Tx,
+  UserId,
+} from '@ekza-animator/doc';
 import {
   type DisplayFlags,
   registerBuiltinOperators,
@@ -42,6 +53,7 @@ import {
 } from '../src';
 import { applyMainLayers } from '../src/layers';
 import type { MeshLayerHost } from '../src/manager/meshLayers';
+import { topmostSelectedObjects } from '../src/manager/objects';
 import type { SceneSync } from '../src/sync/SceneSync';
 import { createRig, drag, fixtures, pointer, type Rig } from './helpers';
 
@@ -784,4 +796,92 @@ describe('the Scale tool (R) on scene objects (Model object mode)', () => {
     expect(rig.app.history.canUndo()).toBe(false);
     expect(SCALE_LABEL).toBe('Scale');
   });
+
+  it('a selected child of a selected group follows the group: only the topmost selected objects are scaled', async () => {
+    rig = await createRig();
+    rig.layout('single');
+    const lidPlacement = { ...IDENTITY, t: [0, 0.5, 0] as [number, number, number] };
+    rig.app.store.transact({ label: 'Hierarchy', undoable: false }, (tx) => {
+      tx.put('groups', groupRecord('grp_Crate', { placement: { ...IDENTITY, t: [0, 1, 0] } }));
+      tx.put(
+        'groups',
+        groupRecord('grp_Inner', { parent: 'grp_Crate' as GroupId, placement: { ...IDENTITY, t: [0.2, 0, 0] } }),
+      );
+      tx.put('meshes', meshRecord('msh_Lid', { parent: 'grp_Inner' as GroupId, placement: lidPlacement }));
+      tx.put('meshes', meshRecord('msh_Free', { placement: { ...IDENTITY, t: [1, 1, 0] } }));
+    });
+    setWorkspace(rig, 'model');
+    // The lid (the selection's lead) sits under the selected crate through the unselected inner group.
+    rig.app.session.setState({
+      selection: {
+        ...rig.app.session.getState().selection,
+        objects: ['msh_Free' as MeshId, 'grp_Crate' as GroupId, 'msh_Lid' as MeshId],
+      },
+    });
+    expect(topmostSelectedObjects(rig.app).map((record) => record.id)).toEqual(['msh_Free', 'grp_Crate']);
+    await scaleTool(rig);
+    rig.frame();
+    // The manipulator sits on the lead of the scaled objects: the crate's pivot.
+    const pivot = rig.vm.manipulatorScreenPoint(PANE, 'suniform');
+    const expected = rig.vm.project(PANE, [0, 1, 0]);
+    expect(pivot?.x).toBeCloseTo(expected?.x ?? Number.NaN, 6);
+    expect(pivot?.y).toBeCloseTo(expected?.y ?? Number.NaN, 6);
+
+    const pane = rig.panes.get(PANE) as HTMLElement;
+    const centre = handlePoint(rig, 'suniform');
+    drag(pane, centre, { x: centre.x + 45, y: centre.y }, undefined, 5);
+    const crate = rig.app.store.get('groups', 'grp_Crate' as GroupId);
+    const f = crate?.placement.s[0] ?? 1;
+    expect(f).toBeGreaterThan(1.1);
+    expect(crate?.placement.s).toEqual([f, f, f]);
+    expect(rig.app.store.get('meshes', 'msh_Free' as MeshId)?.placement.s).toEqual([f, f, f]);
+    // The lid and the inner group keep their placements: the lid's world scale is f (through the crate), not f².
+    expect(rig.app.store.get('meshes', 'msh_Lid' as MeshId)?.placement).toEqual(lidPlacement);
+    expect(rig.app.store.get('groups', 'grp_Inner' as GroupId)?.placement).toEqual({ ...IDENTITY, t: [0.2, 0, 0] });
+    expect(rig.app.history.peekUndo()?.label).toBe('Scale');
+    rig.app.history.undo();
+    expect(rig.app.store.get('groups', 'grp_Crate' as GroupId)?.placement).toEqual({ ...IDENTITY, t: [0, 1, 0] });
+    expect(rig.app.store.get('meshes', 'msh_Free' as MeshId)?.placement).toEqual({ ...IDENTITY, t: [1, 1, 0] });
+  });
+
+  it('topmostSelectedObjects: a deleted or cross-owner parent ends the chain; a parent cycle drops none of its members', async () => {
+    rig = await createRig();
+    const app = rig.app;
+    const character = app.store.list('characters')[0]?.id as CharacterId;
+    const topmost = (ids: readonly string[]): readonly string[] => {
+      app.session.setState({ selection: { ...app.session.getState().selection, objects: ids as readonly MeshId[] } });
+      return topmostSelectedObjects(app).map((record) => record.id);
+    };
+    const gone = { by: 'usr_Tester' as UserId, at: 1 };
+    app.store.transact({ label: 'Hierarchy', undoable: false }, (tx) => {
+      tx.put('groups', groupRecord('grp_Top'));
+      tx.put('groups', groupRecord('grp_Gone', { parent: 'grp_Top' as GroupId, deleted: gone }));
+      tx.put('meshes', meshRecord('msh_UnderGone', { parent: 'grp_Gone' as GroupId }));
+      tx.put('meshes', meshRecord('msh_Body', { owner: { character }, parent: 'grp_Top' as GroupId }));
+      tx.put('groups', groupRecord('grp_LoopA', { parent: 'grp_LoopB' as GroupId }));
+      tx.put('groups', groupRecord('grp_LoopB', { parent: 'grp_LoopA' as GroupId }));
+      tx.put('meshes', meshRecord('msh_UnderLoop', { parent: 'grp_LoopA' as GroupId }));
+    });
+    expect(topmost(['grp_Top', 'msh_UnderGone'])).toEqual(['grp_Top', 'msh_UnderGone']);
+    expect(topmost(['grp_Top', 'msh_Body'])).toEqual(['grp_Top', 'msh_Body']);
+    expect(topmost(['grp_LoopA', 'grp_LoopB', 'msh_UnderLoop'])).toEqual(['grp_LoopA', 'grp_LoopB']);
+    expect(topmost(['msh_UnderLoop', 'grp_LoopB'])).toEqual(['grp_LoopB']);
+  });
 });
+
+function groupRecord(id: string, fields: Partial<GroupRecord> = {}): GroupRecord {
+  return {
+    id: id as GroupId,
+    name: id,
+    owner: { scene: true },
+    parent: null,
+    order: 'a0',
+    placement: IDENTITY,
+    pivot: [0, 0, 0],
+    template: null,
+    budget: null,
+    handheld: null,
+    deleted: null,
+    ...fields,
+  };
+}
