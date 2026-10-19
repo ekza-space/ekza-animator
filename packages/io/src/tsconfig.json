@@ -16,6 +16,9 @@
     },
     {
       "path": "../../rig/src"
+    },
+    {
+      "path": "../../mesh-core/src"
     }
   ]
 }

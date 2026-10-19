@@ -3,6 +3,7 @@
 import { type AnimCurve, EkzaError } from '@ekza-animator/anim-core';
 import { newId } from '../ids/generate';
 import type {
+  AssetRecord,
   BuiltinTableName,
   CameraRecord,
   ClipRecord,
@@ -38,6 +39,11 @@ function defined<T extends object>(record: T): T {
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(record)) if (value !== undefined) out[name] = value;
   return out as T;
+}
+
+/** M6a (M6A-SPEC §4.2): the media type of an asset by its extension (png, jpg: images; glb, vrm, vrma: glTF binary). */
+export function assetMime(ext: AssetRecord['ext']): AssetRecord['mime'] {
+  return ext === 'png' ? 'image/png' : ext === 'jpg' ? 'image/jpeg' : 'model/gltf-binary';
 }
 
 export function makeProject(fields?: Partial<ProjectRecord>): ProjectRecord {

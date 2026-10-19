@@ -1,7 +1,10 @@
 // Snapshot migrations (MVP-SPEC §7 WP-2, ADR 0002 §4, ADR 0011 §4, research 06 R11): pure, idempotent functions.
 // - Core migrations rewrite a whole snapshot from schema v(n) to v(n+1). SCHEMA_VERSION 1 is the baseline; 1 → 2
 //   (M2A-SPEC §4.2) is the identity on records: schema 1 documents contain no `ik2` solvers, no attribute curves and
-//   no breakdown keys, and every M2a field is optional.
+//   no breakdown keys, and every M2a field is optional. 2 → 3 (M6A-SPEC §4.2) gives every character its `source` and
+//   every asset its `provenance: null`; nothing else changes (the seven M6a tables start empty at version 1).
+// - Repairs (MVP-SPEC §3 rule 6, M6A-SPEC §4.2) run after the migrations on every load: the per-record repairs of the
+//   M6a rules table and the cross-record mesh/group hierarchy repairs. Repaired content is never rejected.
 // - Per-table migrations come from `TableDef.migrations` and move each record from the snapshot's
 //   `tableVersions[table]` to the registered `TableDef.version`.
 // New IDs are derived, never random, so two clients migrating the same document write identical records.
@@ -10,6 +13,7 @@ import { BUILTIN_TABLES } from '../records';
 import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type { DocSnapshot, SnapshotTables } from '../store';
 import { compareStrings } from '../store/diff';
+import { repairHierarchy, repairRecord } from '../records/repair';
 import { getTableDef } from '../tables/registry';
 import { digestBase62 as base62, sha256 } from './sha256';
 
@@ -27,7 +31,49 @@ export interface MigratableSnapshot {
 export const CORE_MIGRATIONS: readonly ((snapshot: MigratableSnapshot) => MigratableSnapshot)[] = [
   // 1 → 2 (M2A-SPEC §4.2 item 1): the identity on records. The loop below writes schemaVersion 2.
   (snapshot) => snapshot,
+  // 2 → 3 (M6A-SPEC §4.2): characters without `source` get {kind: 'asset', asset}; assets without `provenance` get
+  // null. Pure and idempotent; the loop below writes schemaVersion 3.
+  (snapshot) => {
+    for (const table of ['characters', 'assets'] as const) {
+      const rows = snapshot.tables[table];
+      if (rows === undefined) continue;
+      for (const [key, record] of Object.entries(rows)) {
+        const repaired = repairRecord(table, record).record;
+        if (repaired !== record) rows[key] = repaired;
+      }
+    }
+    return snapshot;
+  },
 ];
+
+/** Tables whose records `migrateSnapshot` repairs one by one after the migrations (M6A-SPEC §4.2 rules). */
+const REPAIRED_TABLES = [
+  'characters',
+  'assets',
+  'meshes',
+  'groups',
+  'palettes',
+  'swatches',
+  'imagePlanes',
+  'skeletons',
+] as const;
+
+function repairSnapshot(snapshot: MigratableSnapshot): void {
+  for (const table of REPAIRED_TABLES) {
+    const rows = snapshot.tables[table];
+    if (rows === undefined) continue;
+    for (const [key, record] of Object.entries(rows)) {
+      const repaired = repairRecord(table, record).record;
+      if (repaired !== record) rows[key] = repaired;
+    }
+  }
+  const meshes = snapshot.tables['meshes'];
+  const groups = snapshot.tables['groups'];
+  if (meshes === undefined && groups === undefined) return;
+  const hierarchy = repairHierarchy(meshes ?? {}, groups ?? {});
+  if (meshes !== undefined) snapshot.tables['meshes'] = { ...hierarchy.meshes };
+  if (groups !== undefined) snapshot.tables['groups'] = { ...hierarchy.groups };
+}
 
 const GENERATED_ID = /^([a-z]+_)([0-9A-Za-z]+)$/;
 const SHA256_ID = /^[0-9a-f]{64}$/;
@@ -125,6 +171,8 @@ export function migrateSnapshot(raw: unknown): {
     snapshot.tables[name] ??= {};
     snapshot.tableVersions[name] ??= getTableDef(name)?.version ?? 1;
   }
+  // Repairs apply to documents of this build's schema (a newer core version is kept as is and opens read-only).
+  if (snapshot.schemaVersion <= SCHEMA_VERSION) repairSnapshot(snapshot);
 
   const readOnly = snapshot.minWriterVersion > SCHEMA_VERSION || newerTable;
   const result: DocSnapshot = {
