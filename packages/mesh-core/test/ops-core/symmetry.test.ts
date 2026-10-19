@@ -4,7 +4,15 @@
 // the §5.14 definition (`referenceSymmetryMap`); `READY.b2` cross-checks B3's helpers against B2's functions.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { type EditMesh, editMeshFrom, expandSelection, isRefusal, mirrorEdgePoint, primitive } from '../../src';
+import {
+  buildSymmetryMap,
+  type EditMesh,
+  editMeshFrom,
+  expandSelection,
+  isRefusal,
+  mirrorEdgePoint,
+  primitive,
+} from '../../src';
 import { expandIndices, Mirror, mirrorPoint } from '../../src/ops/extrude/shared/symmetry';
 import { combined, cylinderData, edgesAlong, planeData, topOf, vertexNear } from './fixtures';
 import { READY } from './ready';
@@ -344,6 +352,53 @@ function shifted(data: ReturnType<EditMesh['snapshot']>, dx: number): ReturnType
 }
 
 describe.skipIf(!READY.b2)('B3 helpers agree with B2 (READY.b2)', () => {
+  it('the reference maps of these tests equal buildSymmetryMap (Object X, 1 mm) on symmetric and broken meshes', () => {
+    const extruded = () => {
+      const m = cube();
+      runOk(m, 'mesh.extrude', sel(m, 'face', [faceToward(m, [1, 0, 0])]), { localTranslateZ: 0.6 }, symCtx(m));
+      runOk(m, 'mesh.insertLoop', sel(m, 'edge', [edgesAlong(m, 0)[0] as number]), { weight: 0.3 }, symCtx(m));
+      return m;
+    };
+    const makers = [
+      () => cube(),
+      () => editMeshFrom(primitive('cube', { subdivisionsWidth: 2, subdivisionsHeight: 2 })),
+      () => editMeshFrom(primitive('cylinder', { subdivisionsAxis: 8, subdivisionsHeight: 2 })),
+      () => editMeshFrom(primitive('sphere', { subdivisionsAxis: 8, subdivisionsHeight: 4 })),
+      () => editMeshFrom(planeData({ subdivisionsWidth: 3, subdivisionsHeight: 2 })),
+      extruded,
+      () => {
+        // One vertex nudged off its mirror: unmatched vertices, edges and faces.
+        const m = cube();
+        const v = vertexNear(m, [0.5, 0.5, 0.5]);
+        const p = position(m, v);
+        m.begin('nudge');
+        m.setPosition(v, p[0] + 0.05, p[1], p[2]);
+        m.end();
+        return m;
+      },
+    ];
+    for (const make of makers) {
+      const m = make();
+      const ours = referenceSymmetryMap(m, 'x');
+      const theirs = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY_XF, tolerance: 0.001 });
+      expect({
+        vertex: [...theirs.vertex],
+        edge: [...theirs.edge],
+        edgeReversed: [...theirs.edgeReversed],
+        edgeSelf: [...theirs.edgeSelf],
+        face: [...theirs.face],
+        unmatched: theirs.unmatched,
+      }).toEqual({
+        vertex: [...ours.vertex],
+        edge: [...ours.edge],
+        edgeReversed: [...ours.edgeReversed],
+        edgeSelf: [...ours.edgeSelf],
+        face: [...ours.face],
+        unmatched: ours.unmatched,
+      });
+    }
+  });
+
   it('expandIndices and mirrorPoint follow expandSelection and mirrorEdgePoint', () => {
     for (const make of [() => cube(), () => editMeshFrom(planeData({ subdivisionsWidth: 3, subdivisionsHeight: 2 }))]) {
       const m = make();
