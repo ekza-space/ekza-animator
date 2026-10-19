@@ -35,7 +35,6 @@ export const sceneSummary = defineTool({
         host: ctx.host,
         actor: ctx.actor,
         revision: (clip) => ctx.revisions.revision(clip),
-        markSeen: (clip) => ctx.revisions.markSeen(clip),
       },
       args.detail,
     );

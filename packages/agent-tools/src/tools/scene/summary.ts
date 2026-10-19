@@ -136,11 +136,12 @@ export interface SummaryHost {
   readonly host: AgentHost;
   readonly actor: RunActorLike;
   readonly revision: (clip: ClipId) => number;
-  /** Marks clips as seen when the summary lists them. */
-  readonly markSeen?: (clip: ClipId) => void;
 }
 
-/** The data of scene_summary (§6.2). */
+/**
+ * The data of scene_summary (§6.2). It lists every clip's revision but marks none as seen (§4.4: only results that
+ * carry `clip` do), so a summary between a read and a write never hides a user edit from the automatic stale check.
+ */
 export function sceneSummaryData(app: EditorApp, env: SummaryHost, detail: 'concise' | 'detailed') {
   const { host, actor } = env;
   const state = app.session.getState();
@@ -182,7 +183,6 @@ export function sceneSummaryData(app: EditorApp, env: SummaryHost, detail: 'conc
         for (const curve of app.store.query.curvesOfClip(clip.id)) {
           keyCount += app.store.query.keysOfCurve(curve.id).length;
         }
-        env.markSeen?.(clip.id);
         return {
           name: clip.name,
           id: clip.id,

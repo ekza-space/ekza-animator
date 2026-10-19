@@ -175,6 +175,30 @@ describe('the stale check (§5.12)', () => {
     expect(next.ok && next.warnings).toBeFalsy();
   });
 
+  it('keeps the check after a scene_summary: read A, the user edits A, summary, write A → stale (§4.4)', async () => {
+    const runtime = runtimeOf(fx);
+    expect((await call(runtime, 'keys_read', { clip: 'agent', targets: { controls: ['fk.lowerArm.L'] } })).ok).toBe(
+      true,
+    );
+    foreignEdit(fx.app, fx.keys[1] as never, -10 * DEG);
+    // the summary lists the clip's new revision but carries no `clip`: it marks nothing seen
+    const summary = dataOf<{ characters: { clips: { name: string; revision: number }[] }[] }>(
+      await call(runtime, 'scene_summary', {}),
+    );
+    expect(summary.characters[0]?.clips.find((c) => c.name === 'agent')?.revision).toBeGreaterThan(0);
+    const write = await call(runtime, 'keys_set', {
+      clip: 'agent',
+      keys: [{ control: 'fk.lowerArm.L', channel: 'rz', frame: 15, value: -40 }],
+    });
+    expect(errorOf(write)).toMatchObject({ code: 'stale' });
+    expect(errorOf(write).message).toContain('fk.lowerArm.L rz');
+    // the user's edit is intact
+    expect(keysOf(fx.app, fx.agentClip, controlOf(fx.app, fx.character, 'fk.lowerArm.L'), 'rz')[1]).toEqual([
+      15,
+      -10 * DEG,
+    ]);
+  });
+
   it('never counts the actor’s own writes', async () => {
     const runtime = runtimeOf(fx);
     await call(runtime, 'keys_read', { clip: 'agent', targets: { controls: ['fk.lowerArm.L'] } });
