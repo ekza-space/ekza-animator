@@ -135,13 +135,15 @@ const EDITOR_OPS = [
 
 /** Landed operators that run without arguments (they open UI, never touch the document). */
 const LANDED_WITHOUT_ARGS: ReadonlySet<string> = new Set(['ui.commandPalette']);
+/** Operators their owners have landed (no longer stubs): B7's `mesh.create.*` (M6A-SPEC §6.2). */
+const LANDED = new Set(['cube', 'sphere', 'cylinder', 'cone', 'plane', 'torus'].map((kind) => `mesh.create.${kind}`));
 
 test('every M6a operator resolves and poll-fails cleanly; the document stays untouched', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const before = await call(page, 'counts');
   const refused: string[] = [];
-  for (const op of [...MESH_OPS, ...EDITOR_OPS]) {
+  for (const op of [...MESH_OPS, ...EDITOR_OPS].filter((id) => !LANDED.has(id))) {
     // M6A-SPEC §3 rule 9 literal update (B9): the command palette has landed and opens without arguments.
     if (LANDED_WITHOUT_ARGS.has(op)) continue;
     // `run` fails the test for an unregistered operator or a stub that reaches its apply (helpers/test-api.ts).

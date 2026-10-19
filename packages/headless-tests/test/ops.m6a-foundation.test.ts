@@ -71,7 +71,8 @@ describe('M6a foundation over the real kernel', () => {
     const { app } = realApp();
     expect(app.session.getState().workspace).toBe('animate');
     expect(app.workspaces.list().map((w) => w.id)).toEqual(['model', 'rig', 'animate', 'review']);
-    const result = await app.runUntyped('mesh.create.cube');
+    // B7 landed `mesh.create.*` (literal update): a stub that is still B13's stands in for "every M6a operator".
+    const result = await app.runUntyped('mesh.create.template', { template: 'prop' });
     expect(result).toEqual({ status: 'cancelled', reason: 'not available yet' });
     expect(await app.runUntyped('model.animateOnly')).toEqual({
       status: 'cancelled',
