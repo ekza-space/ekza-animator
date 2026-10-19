@@ -1,7 +1,7 @@
 // Error mapping of the tool runtime (MCP-SPEC §5.4): thrown `AgentToolFailure`s become error envelopes; operator
 // results that did not finish map to `cancelled` (the agent's signal), `busy` (the user's drag: the runner's "gesture
 // in progress"), `poll_failed` (a refused poll) or the `EkzaError` code of a failed run; everything else is
-// `internal` — messages never contain stack traces, paths or tokens.
+// `internal` — messages never contain stack traces, paths (`scrubPaths`) or tokens.
 import { EkzaError } from '@ekza-animator/anim-core';
 import { CANCELLED_BY_AGENT, GESTURE_IN_PROGRESS, type OperatorResult } from '@ekza-animator/editor-core';
 import { AgentToolFailure, type AgentErrorCode } from '../types';
@@ -15,12 +15,31 @@ const EKZA_CODES: Readonly<Record<string, AgentErrorCode>> = {
 
 const INTERNAL_HINT = 'report this; the document was rolled back';
 
-/** The tool error for an `EkzaError` thrown by an operator or a tool. */
+/**
+ * An absolute path inside error text: POSIX (`/Users/…`, not preceded by a word character or a slash, so `30/1`,
+ * `and/or` and `https://host/x` stay), a Windows drive or UNC path, or a `file:` URL.
+ */
+const ABSOLUTE_PATH =
+  /(?<![\w.~/\\-])(?:file:\/{2,3}[^\s'"`<>()]*|[A-Za-z]:[\\/][^\s'"`<>()]*|\\\\[^\s'"`<>()]+|\/(?:[^\s'"`<>()/]+\/)*[^\s'"`<>()/]+\/?)/g;
+
+/**
+ * Error text with every absolute path replaced by its base name (§5.4: messages never contain paths outside the
+ * workspace). Operator and host errors (a Node fs error, a runner `internal` carrying a `TypeError` text) pass here.
+ */
+export function scrubPaths(text: string): string {
+  return text.replace(ABSOLUTE_PATH, (path) => {
+    const parts = path.split(/[\\/]/).filter((part) => part !== '');
+    return parts.at(-1) ?? '';
+  });
+}
+
+/** The tool error for an `EkzaError` thrown by an operator or a tool (absolute paths reduced to base names). */
 export function failureFromEkza(error: EkzaError, operator?: string): AgentToolFailure {
   const code = EKZA_CODES[error.code] ?? 'internal';
   const where = operator === undefined ? '' : `${operator}: `;
+  const message = `${where}${scrubPaths(error.message)}`;
   if (code === 'internal') {
-    return new AgentToolFailure('internal', `${where}${error.message}`, INTERNAL_HINT, {
+    return new AgentToolFailure('internal', message, INTERNAL_HINT, {
       retryable: false,
       detail: { ekzaCode: error.code },
     });
@@ -31,7 +50,7 @@ export function failureFromEkza(error: EkzaError, operator?: string): AgentToolF
       : code === 'io_error'
         ? 'check the file and its size'
         : 'this project was saved by a newer editor; ask the user';
-  return new AgentToolFailure(code, `${where}${error.message}`, hint, { detail: { ekzaCode: error.code } });
+  return new AgentToolFailure(code, message, hint, { detail: { ekzaCode: error.code } });
 }
 
 /** The tool error for anything a tool threw: failures pass, `EkzaError`s map, the rest is `internal`. */

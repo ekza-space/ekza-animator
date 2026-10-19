@@ -101,7 +101,8 @@ export const OPERATOR_POLICY: Readonly<Record<string, OperatorAgentPolicy>> = nu
   'pose.goals': ALLOWED_EDIT,
   'pose.transfer': ALLOWED_EDIT,
   'clip.makeLoop': ALLOWED_EDIT,
-  // The wire schemas default `activate` to false; `activate: true` needs View (P3).
+  // The wire schemas default `activate` to false; live, `activate: true` needs Edit and View (operator_run's
+  // extraGrants, Q-AI-38) and runs with access 'view' (P3).
   'clip.new': ALLOWED_EDIT,
   'clip.duplicate': ALLOWED_EDIT,
   'clip.rename': ALLOWED_EDIT,

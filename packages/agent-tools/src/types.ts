@@ -18,6 +18,8 @@ export interface Grants {
 }
 /** The grant a call needs (§5.9). 'pairing' = callable before any project exists. */
 export type ToolAccess = Grant | 'pairing';
+/** A grant a call can need besides its `access` (Read is implied by pairing). */
+export type ExtraGrant = Exclude<Grant, 'read'>;
 export type ToolGroup =
   | 'connection'
   | 'scene'
@@ -52,6 +54,14 @@ export interface AgentToolDef<I extends z.ZodObject = z.ZodObject, O extends z.Z
   readonly annotations: { readonly readOnly: boolean; readonly destructive: boolean; readonly idempotent: boolean };
   /** The grant a call needs; a function when it depends on the arguments (pose_set {key:'pose_only'} → 'view'). */
   readonly access: ToolAccess | ((args: z.output<I>, host: AgentHostMode) => ToolAccess);
+  /**
+   * Grants a call needs besides `access` (§5.9, Q-AI-38): a call that edits the document and changes what the user
+   * sees needs Edit and View (clip_create {activate: true} live; operator_run clip.new/clip.duplicate {activate: true}
+   * live). The manifest states such a tool's access as `by_argument` (or `by_operator`).
+   */
+  readonly extraGrants?: (args: z.output<I>, host: AgentHostMode) => readonly ExtraGrant[];
+  /** A minimal valid call (§5.4): `invalid_args` carries it in `detail.example`; it must parse against `input`. */
+  readonly example?: Readonly<Record<string, unknown>>;
   readonly hosts: readonly AgentHostMode[];
   readonly needs?: readonly HostCapability[]; // missing → `unsupported` with a hint
   readonly alwaysLoad: boolean; // → _meta['anthropic/alwaysLoad'] (the always-loaded profile, §5.20.1)

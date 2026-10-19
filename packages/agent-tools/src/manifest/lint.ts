@@ -1,8 +1,10 @@
 // The schema lint of MCP-SPEC §5.20.1 / §9.2 over every tool definition, ready or not: object roots without root
 // combinators, `additionalProperties: false` on every object (records excepted), property names, descriptions,
 // `required` without defaulted fields, strict nested objects (unknown keys rejected at every level), bounds on every
-// number, unit suffixes on unit-bearing numeric fields, description length and first sentence, tool names, an
-// object output schema whose `data` declares `truncated` (§5.5). The Ajv 2020-12 meta-schema check runs in the package's tests (Ajv is a dev dependency).
+// number and on the entries of every input record (`maxProperties`), unit suffixes on unit-bearing numeric fields,
+// description length and first sentence, tool names, an object output schema whose `data` declares `truncated` (§5.5),
+// an `example` that parses (§5.4). The Ajv 2020-12 meta-schema check runs in the package's tests (Ajv is a dev
+// dependency).
 import type { z } from 'zod';
 import type { AgentToolDef } from '../types';
 import { manifestToolOf } from './manifest';
@@ -128,6 +130,10 @@ function walk(node: unknown, path: string, names: readonly string[], w: Walk): v
     } else if (!isRecord && w.input && node['additionalProperties'] !== false) {
       w.violations.push(`${path}: object without properties must be a record or closed`);
     }
+    // §5.5, T9: every input is bounded up front, records by their number of entries (`boundedRecord`).
+    if (isRecord && w.input && typeof node['maxProperties'] !== 'number') {
+      w.violations.push(`${path}: record without maxProperties`);
+    }
     if (isObject(node['additionalProperties'])) walk(node['additionalProperties'], `${path}{}`, [...names, '[]'], w);
   }
   if (kinds.includes('array')) {
@@ -224,6 +230,10 @@ export function lintTool(tool: AgentToolDef): string[] {
   for (const message of strict) at(message);
   const unknownKey = tool.input.safeParse({ __unknown_key__: 1 });
   if (unknownKey.success) at('the input accepts an unknown root key');
+  // §5.4: `invalid_args` hands the example to the agent as a minimal valid call.
+  if (tool.example !== undefined && !tool.input.safeParse(tool.example).success) {
+    at('example does not parse against the input schema');
+  }
   const output = entry.outputSchema;
   if (output['type'] !== 'object') at('outputSchema is not an object');
   // §5.5: the runtime may cut any result and sets `data.truncated`; the closed `data` object must declare it.

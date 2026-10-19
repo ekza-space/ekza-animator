@@ -11,6 +11,7 @@ export {
   invalidArgs,
   issuePath,
   LABEL_MAX,
+  PROGRESS_MAX_CHARS,
   RUNTIME_DEFAULTS,
 } from './runtime/runtime';
 export { createRevisionTracker } from './runtime/revisions';
@@ -23,10 +24,11 @@ export {
   SEC_NODE_MAX,
 } from './resolve/resolver';
 export { finishResult, MAX_CANDIDATES, type ResultBudget, sanitizeError } from './envelope/envelope';
-export { failureFrom, failureFromEkza, finishedValue } from './envelope/errors';
+export { failureFrom, failureFromEkza, finishedValue, scrubPaths } from './envelope/errors';
 export {
   isClean,
   NAME_MAX_CHARS,
+  NEST_MAX_DEPTH,
   PROSE_MAX_CHARS,
   QUOTE_MAX_CHARS,
   quoteName,

@@ -176,7 +176,9 @@ describe('schema lint (MCP-SPEC §5.20.1)', () => {
         angle: z.number().describe('No unit, no bounds'),
         nested: z.object({ x: z.number().min(0).max(1).describe('x') }).describe('Not strict'),
         flag: z.boolean().default(true),
+        attrs: z.record(z.string(), z.number().min(0).max(1)).optional().describe('Unbounded record'),
       }),
+      example: { angle: 'not a number' },
       output: z.object({}),
       annotations: { readOnly: false, destructive: true, idempotent: false },
       access: 'edit',
@@ -192,5 +194,57 @@ describe('schema lint (MCP-SPEC §5.20.1)', () => {
     expect(violations).toContain('input.nested: object without additionalProperties: false');
     expect(violations).toContain('input.nested: not a z.strictObject');
     expect(violations).toContain('input.flag: property without a description');
+    expect(violations).toContain('input.attrs: record without maxProperties');
+    expect(violations).toContain('example does not parse against the input schema');
+  });
+});
+
+describe('final input schemas (MCP-SPEC §6.1, §5.5)', () => {
+  const byName = new Map(allTools().map((tool) => [tool.name, tool]));
+  const parse = (name: string, args: unknown) => {
+    const tool = byName.get(name);
+    if (tool === undefined) throw new Error(`no tool ${name}`);
+    return tool.input.safeParse(args);
+  };
+  const paths = (result: {
+    readonly success: boolean;
+    readonly error?: { readonly issues: readonly { readonly path: readonly PropertyKey[] }[] };
+  }) => (result.error?.issues ?? []).map((issue) => issue.path.join('.'));
+
+  it('requires controls or bodyParts in every Targets, absent targets staying valid where optional', () => {
+    const cases: readonly [string, Record<string, unknown>][] = [
+      ['keys_read', { clip: 'a' }],
+      ['keys_delete', { clip: 'a', frames: [1] }],
+      ['keys_adjust', { clip: 'a' }],
+      ['keys_retime', { clip: 'a' }],
+      ['keys_tween', { clip: 'a' }],
+      ['curves_set_interpolation', { clip: 'a' }],
+      ['view_plot_curves', { clip: 'a' }],
+      ['curves_summary', { clip: 'a' }],
+      ['pose_read', { clip: 'a' }],
+    ];
+    for (const [name, base] of cases) {
+      for (const targets of [{}, { channels: ['rx'] }]) {
+        const result = parse(name, { ...base, targets });
+        const onTargets = paths(result).filter((path) => path.startsWith('targets'));
+        expect([name, targets, result.success, onTargets]).toEqual([name, targets, false, ['targets']]);
+      }
+      const named = parse(name, { ...base, targets: { controls: ['cog'] } });
+      expect([name, named.error?.issues.some((issue) => issue.path[0] === 'targets') ?? false]).toEqual([name, false]);
+    }
+  });
+
+  it('bounds every input record: pose_set attrs ≤ 64, recipe params ≤ 32, operator_run args ≤ 64', () => {
+    const many = (n: number, value: unknown) =>
+      Object.fromEntries(Array.from({ length: n }, (_, i) => [`a${i}`, value] as const));
+    const pose = (n: number) =>
+      parse('pose_set', { clip: 'a', frame: 0, set: [{ control: 'cog', attrs: many(n, 1) }] });
+    expect(pose(64).error?.issues.some((issue) => issue.path.includes('attrs')) ?? false).toBe(false);
+    expect(paths(pose(65))).toEqual(['set.0.attrs']);
+    expect(paths(pose(50_000))).toEqual(['set.0.attrs']);
+    expect(paths(parse('recipe_apply', { clip: 'a', recipe: 'wave', params: many(33, 1) }))).toEqual(['params']);
+    expect(parse('recipe_apply', { clip: 'a', recipe: 'wave', params: many(32, 1) }).success).toBe(true);
+    expect(paths(parse('operator_run', { id: 'key.tween', args: many(65, 1) }))).toEqual(['args']);
+    expect(parse('operator_run', { id: 'key.tween', args: many(64, 1) }).success).toBe(true);
   });
 });

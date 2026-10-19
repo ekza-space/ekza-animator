@@ -3,6 +3,7 @@
 import { z } from 'zod';
 import {
   bodyPartName,
+  boundedRecord,
   boneRef,
   clipRef,
   controlRef,
@@ -30,6 +31,8 @@ export const ROTATE_ORDERS = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'] as const
 const xyzOut = z.object({ x: z.number().optional(), y: z.number().optional(), z: z.number().optional() });
 /** Attribute values: degrees for angle attributes, metres for distances, plain numbers otherwise. */
 const ATTR_MAX = 100_000;
+/** Custom attributes per control of one pose_set item. */
+const ATTRS_MAX = 64;
 
 export const poseRead = defineTool({
   name: 'pose_read',
@@ -103,10 +106,13 @@ const poseSetItem = z.strictObject({
   rotateDeg: valueXYZ('degrees', -DEG_MAX, DEG_MAX).optional(),
   translateM: valueXYZ('metres', -M_MAX, M_MAX).optional(),
   scaleFactor: valueXYZ('factor', -FACTOR_MAX, FACTOR_MAX).optional(),
-  attrs: z
-    .record(z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/), z.number().min(-ATTR_MAX).max(ATTR_MAX))
+  attrs: boundedRecord(
+    z.string().regex(/^[A-Za-z_][A-Za-z0-9_]{0,63}$/),
+    z.number().min(-ATTR_MAX).max(ATTR_MAX),
+    ATTRS_MAX,
+  )
     .optional()
-    .describe('Custom attributes by name without @ (angle attributes in degrees).'),
+    .describe('Custom attributes by name without @ (≤ 64; angle attributes in degrees).'),
   rotateOrder: z
     .enum(ROTATE_ORDERS)
     .optional()

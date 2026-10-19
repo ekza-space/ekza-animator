@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { tablePolicyOf } from '../../policy';
 import {
+  boundedRecord,
   channelName,
   characterRef,
   clipRef,
@@ -13,7 +14,7 @@ import {
   projectRef,
   writes,
 } from '../../schemas/common';
-import type { ToolAccess } from '../../types';
+import type { AgentHostMode, ExtraGrant, ToolAccess } from '../../types';
 import { BUDGETS, defineTool } from '../define';
 
 /** Operator ids: `<category>.<name>` (dots allowed after the category). */
@@ -100,6 +101,20 @@ function operatorAccess(args: { readonly id: string }): ToolAccess {
   return tablePolicyOf(args.id)?.access ?? 'edit';
 }
 
+/** Operators that create a clip and, with `activate: true`, also switch the user's active clip. */
+const ACTIVATING_CREATIONS: ReadonlySet<string> = new Set(['clip.new', 'clip.duplicate']);
+
+/**
+ * Live, `clip.new`/`clip.duplicate {activate: true}` edit the document and change what the user sees: Edit (their
+ * policy access) and View (§5.9, Q-AI-38). P3 runs them with `access: 'view'` (runner rule 6).
+ */
+function operatorExtraGrants(
+  args: { readonly id: string; readonly args?: Readonly<Record<string, unknown>> | undefined },
+  host: AgentHostMode,
+): readonly ExtraGrant[] {
+  return host === 'live' && ACTIVATING_CREATIONS.has(args.id) && args.args?.['activate'] === true ? ['view'] : [];
+}
+
 export const operatorRun = defineTool({
   name: 'operator_run',
   title: 'Run an operator',
@@ -108,10 +123,11 @@ export const operatorRun = defineTool({
   input: z.strictObject({
     project: projectRef.optional(),
     id: operatorId,
-    args: z
-      .record(z.string(), z.unknown())
+    args: boundedRecord(z.string().max(64), z.unknown(), 64)
       .optional()
-      .describe("The operator's arguments in its own units (see operator_describe)."),
+      .describe(
+        "The operator's arguments in its own units (≤ 64 fields; see operator_describe); P3's wire schema checks them.",
+      ),
     context: z
       .strictObject({
         character: characterRef.optional(),
@@ -146,6 +162,7 @@ export const operatorRun = defineTool({
   output: z.object({ status: z.enum(['finished', 'available']), value: z.unknown() }),
   annotations: { readOnly: false, destructive: true, idempotent: false },
   access: operatorAccess,
+  extraGrants: operatorExtraGrants,
   hosts: ['live', 'headless'],
   alwaysLoad: false,
   stretch: false,

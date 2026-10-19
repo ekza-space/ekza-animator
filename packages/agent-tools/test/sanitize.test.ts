@@ -1,11 +1,13 @@
-// MCP-SPEC §5.3 (D0): the one sanitiser — NFC, controls and format characters out (bidi, zero-width, BOM, the tag
-// block), whitespace collapsed, names capped at 120 and prose at 300 characters with an ellipsis; labels with intents.
+// MCP-SPEC §5.3 (D0): the one sanitiser — controls and format characters out (bidi, zero-width, BOM, the tag block),
+// whitespace collapsed, NFC last, names capped at 120 and prose at 300 characters with an ellipsis; `sanitizeDeep`
+// refuses cycles and over-deep values; labels with intents.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
   composeLabel,
   isClean,
   NAME_MAX_CHARS,
+  NEST_MAX_DEPTH,
   PROSE_MAX_CHARS,
   quoteName,
   sanitizeDeep,
@@ -26,6 +28,12 @@ describe('sanitizeText (MCP-SPEC §5.3)', () => {
   it('normalises to NFC and collapses whitespace', () => {
     expect(name('é')).toBe('é');
     expect(name('  a \t\n b\r\n  c  ')).toBe('a b c');
+  });
+
+  it('normalises after removing format characters, so a letter and its combining mark compose', () => {
+    expect(name('e\u200D\u0301')).toBe('\u00e9');
+    expect(name('A\u2060\u030A ring')).toBe('\u00c5 ring');
+    expect(name('\u1100\u200B\u1161')).toBe('\uAC00');
   });
 
   it('caps names at 120 and prose at 300 characters, with an ellipsis', () => {
@@ -56,7 +64,9 @@ describe('sanitizeText (MCP-SPEC §5.3)', () => {
             // `binary` units are whole code points; cut one in half too (a lone surrogate)
             const input = `${text}${'😀'.slice(0, 1)}${extra}`;
             const out = sanitizeText(input, { maxChars: 300, kind: 'prose' });
-            return isClean(out) && Array.from(out).length <= 300 && out === toWellFormed(out);
+            return (
+              isClean(out) && Array.from(out).length <= 300 && out === toWellFormed(out) && out === out.normalize('NFC')
+            );
           },
         ),
         { numRuns: 500 },
@@ -74,6 +84,27 @@ describe('sanitizeText (MCP-SPEC §5.3)', () => {
     expect(Object.getPrototypeOf(clean)).toBe(Object.prototype);
     expect(Object.hasOwn(clean, '__proto__')).toBe(true);
     expect(JSON.stringify(clean)).toBe('{"__proto__":{"polluted":true},"ok":1}');
+  });
+
+  it('refuses cyclic and too deeply nested values with a RangeError, and keeps shared values', () => {
+    const opts = { maxChars: 300, kind: 'prose' } as const;
+    const cyclic: Record<string, unknown> = { a: 1 };
+    cyclic['self'] = cyclic;
+    expect(() => sanitizeDeep(cyclic, opts)).toThrow(RangeError);
+    const list: unknown[] = [];
+    list.push(list);
+    expect(() => sanitizeDeep({ list }, opts)).toThrow(RangeError);
+    let deep: unknown = 'leaf';
+    for (let i = 0; i < NEST_MAX_DEPTH + 1; i++) deep = [deep];
+    expect(() => sanitizeDeep(deep, opts)).toThrow(RangeError);
+    let fits: unknown = 'leaf';
+    for (let i = 0; i < NEST_MAX_DEPTH; i++) fits = [fits];
+    expect(() => sanitizeDeep(fits, opts)).not.toThrow();
+    const shared = { name: 'x\u202E' };
+    expect(sanitizeDeep({ a: shared, b: [shared, shared] }, opts)).toEqual({
+      a: { name: 'x' },
+      b: [{ name: 'x' }, { name: 'x' }],
+    });
   });
 });
 

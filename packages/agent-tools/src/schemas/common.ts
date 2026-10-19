@@ -123,6 +123,17 @@ export const valueXYZ = (unit: string, min: number, max: number) =>
     })
     .describe(`Values per axis in ${unit}; omitted axes stay.`);
 
+/**
+ * A record bounded to `max` entries (§5.5, T9: every input bounded up front): checked when the call is parsed and
+ * stated as `maxProperties` in the JSON Schema (the schema lint requires it on every input record).
+ */
+export function boundedRecord<K extends z.ZodType<string, string>, V extends z.ZodType>(key: K, value: V, max: number) {
+  return z
+    .record(key, value)
+    .refine((entries) => Object.keys(entries).length <= max, `at most ${max} entries`)
+    .meta({ maxProperties: max });
+}
+
 // ---------- shared argument groups (§6.1) ----------
 /** Every project-scoped tool. With a user session, edit tools require `clip` (§5.1). */
 export const scoped = {
@@ -151,6 +162,7 @@ export const targets = z
     bodyParts: z.array(bodyPartName).min(1).max(10).optional().describe('Body parts (humanoid rigs).'),
     channels: z.array(channelName).min(1).max(64).optional().describe('Channels; default: every keyable channel.'),
   })
+  .refine((value) => atLeastOne(['controls', 'bodyParts'], value), 'pass controls or bodyParts')
   .describe('What to act on: at least one of controls or bodyParts, optionally narrowed to channels.');
 export const optionalExtendRange = z
   .boolean()

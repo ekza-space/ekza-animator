@@ -11,11 +11,15 @@ import {
   AgentToolFailure,
   type AgentToolDef,
   type AgentToolResult,
+  allTools,
   createAgentToolRuntime,
   defineTool,
   finishedValue,
+  type Grants,
   isClean,
+  PROGRESS_MAX_CHARS,
   schemas,
+  scrubPaths,
   TRUNCATED_NEXT,
   tokensOf,
 } from '../src';
@@ -102,6 +106,52 @@ const throwing = (name: string, error: () => Error): AgentToolDef =>
     run: () => Promise.reject(error()),
   });
 
+/** A catalogue definition made ready: validation and gating are final in D0, its run is still the stub. */
+function readyCatalogueTool(name: string): AgentToolDef {
+  const tool = allTools().find((candidate) => candidate.name === name);
+  if (tool === undefined) throw new Error(`no catalogue tool ${name}`);
+  return { ...tool, ready: true };
+}
+
+/** A failure whose detail refers to itself: the sanitiser cannot walk it. */
+function cyclicFailure(): Error {
+  const detail: Record<string, unknown> = { reason: 'loop' };
+  detail['self'] = detail;
+  return new AgentToolFailure('limit', 'Too many targets.', 'split the call', { detail });
+}
+
+/** A failure whose detail nests 10,000 levels deep. */
+function deepFailure(): Error {
+  let detail: Record<string, unknown> = {};
+  for (let i = 0; i < 10_000; i++) detail = { inner: detail };
+  return new AgentToolFailure('limit', 'Too many targets.', 'split the call', { detail });
+}
+
+const cyclicData = defineTool({
+  ...sceneProbe,
+  name: 'scene_cyclic_data',
+  ready: true,
+  run() {
+    const data: Record<string, unknown> = { name: 'a', clip: 'b', items: [] };
+    data['self'] = data;
+    return Promise.resolve({ ok: true, data } as AgentToolResult<never>);
+  },
+});
+
+/** Reports progress with a hostile, over-long message, then without a message. */
+const progressProbe = defineTool({
+  ...sceneProbe,
+  name: 'scene_progress',
+  ready: true,
+  run(ctx) {
+    ctx.progress(1, 2, `Importing ${HOSTILE.repeat(20)}`);
+    ctx.progress(2, 2);
+    return Promise.resolve({ ok: true, data: { name: 'done', clip: 'none', items: [] } });
+  },
+});
+
+const withExample = defineTool({ ...sceneProbe, name: 'scene_example', ready: true, example: { count: 3 } });
+
 const liveOnly = defineTool({ ...sceneProbe, name: 'scene_live', hosts: ['live'], ready: true });
 const needsView = defineTool({ ...sceneProbe, name: 'scene_needs', needs: ['view'], ready: true });
 
@@ -114,6 +164,20 @@ const TOOLS: readonly AgentToolDef[] = [
   throwing('scene_failure', () => new AgentToolFailure('limit', 'Too many targets.', 'split the call')),
   throwing('scene_ekza', () => new EkzaError('invalid-record', 'bad record')),
   throwing('scene_bug', () => new TypeError('x is undefined at /Users/someone/secret.ts:12')),
+  throwing(
+    'scene_fs',
+    () => new EkzaError('asset-missing', "ENOENT: no such file or directory, open '/Users/someone/secret/polybot.vrm'"),
+  ),
+  throwing('scene_cyclic', cyclicFailure),
+  throwing('scene_deep', deepFailure),
+  cyclicData,
+  progressProbe,
+  withExample,
+  readyCatalogueTool('keys_delete'),
+  readyCatalogueTool('pose_set'),
+  readyCatalogueTool('clip_create'),
+  readyCatalogueTool('clip_update'),
+  readyCatalogueTool('operator_run'),
 ];
 
 function registerSetLoop(app: EditorApp): void {
@@ -250,5 +314,124 @@ describe('minimal tool runtime (MCP-SPEC §8 D0)', () => {
       ok: false,
       error: { code: 'cancelled' },
     });
+  });
+
+  it('never names an absolute path in an operator or host error (§5.4)', async () => {
+    const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    const fs = await runtime.call('scene_fs', {}, { signal: signal() });
+    expect(fs).toMatchObject({
+      ok: false,
+      error: { code: 'io_error', message: "ENOENT: no such file or directory, open 'polybot.vrm'" },
+    });
+    expect(scrubPaths('at /Users/a/b.ts:12, C:\\Users\\me\\x.vrm, \\\\srv\\share\\y.glb, file:///home/u/z.vrma')).toBe(
+      'at b.ts:12, x.vrm, y.glb, z.vrma',
+    );
+    expect(scrubPaths('fps 30/1 and/or N/A, 0 / 10, https://example.org/a/b')).toBe(
+      'fps 30/1 and/or N/A, 0 / 10, https://example.org/a/b',
+    );
+  });
+
+  it('answers an internal envelope, never a rejected call, when the error path cannot be sanitised', async () => {
+    const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    for (const name of ['scene_cyclic', 'scene_deep', 'scene_cyclic_data']) {
+      const result = await runtime.call(name, {}, { signal: signal() });
+      expect([name, result]).toEqual([
+        name,
+        {
+          ok: false,
+          error: {
+            code: 'internal',
+            message: 'The tool failed unexpectedly.',
+            hint: 'report this; the document was rolled back',
+            retryable: false,
+          },
+        },
+      ]);
+    }
+  });
+
+  it('sanitises progress messages (§5.3)', async () => {
+    const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    const seen: [number, number | null, string | undefined][] = [];
+    const result = await runtime.call(
+      'scene_progress',
+      {},
+      { signal: signal(), progress: (done, total, message) => seen.push([done, total, message]) },
+    );
+    expect(result.ok).toBe(true);
+    expect(seen).toHaveLength(2);
+    const message = seen[0]?.[2] ?? '';
+    expect(isClean(message)).toBe(true);
+    expect(message.startsWith('Importing Wave evil hand ok')).toBe(true);
+    expect(Array.from(message).length).toBeLessThanOrEqual(PROGRESS_MAX_CHARS);
+    expect(seen[1]).toEqual([2, 2, undefined]);
+  });
+
+  it('rejects a Targets that names no target, and an unbounded record, with invalid_args at the field', async () => {
+    const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    for (const targets of [{}, { channels: ['rx'] }]) {
+      const result = await runtime.call('keys_delete', { clip: 'agent', targets, frames: [1] }, { signal: signal() });
+      expect(result).toMatchObject({ ok: false, error: { code: 'invalid_args', detail: { path: 'targets' } } });
+    }
+    const attrs = Object.fromEntries(Array.from({ length: 65 }, (_, i) => [`a${i}`, 1] as const));
+    const pose = await runtime.call(
+      'pose_set',
+      { clip: 'agent', frame: 0, set: [{ control: 'cog', attrs }] },
+      { signal: signal() },
+    );
+    expect(pose).toMatchObject({ ok: false, error: { code: 'invalid_args', detail: { path: 'set[0].attrs' } } });
+  });
+
+  it('hands a minimal valid call to the agent in invalid_args when the tool has an example (§5.4)', async () => {
+    const runtime = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    const result = await runtime.call('scene_example', { count: 'three' }, { signal: signal() });
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'invalid_args', detail: { path: 'count', example: { count: 3 } } },
+    });
+    expect(result.ok ? '' : result.error.hint).toContain('detail.example');
+    const plain = await runtime.call('scene_probe', { count: 'three' }, { signal: signal() });
+    expect(plain.ok ? null : plain.error.detail?.['example']).toBeUndefined();
+  });
+
+  it('needs Edit and View for a live activating create, View alone for an activation (§5.9, Q-AI-38)', async () => {
+    const live = (grants: Partial<Grants>) =>
+      createAgentToolRuntime({
+        app: fx.app,
+        host: testHost({ mode: 'live', grants, capabilities: ['user', 'confirm', 'presence', 'view'] }),
+        actor: AGENT,
+        tools: TOOLS,
+      });
+    const call = (grants: Partial<Grants>, name: string, args: unknown) =>
+      live(grants).call(name, args, { signal: signal() });
+    const notGranted = (grant: string) => ({ ok: false, error: { code: 'not_granted', detail: { grant } } });
+    // The gate passed: the D0 stub answers "not available yet".
+    const passed = (result: AgentToolResult<unknown>): string =>
+      result.ok ? 'ok' : `${result.error.code}: ${result.error.message}`;
+    const stub = (name: string) => `unsupported: ${name} is not available yet.`;
+    const create = { name: 'tmp', activate: true };
+    const viewOnly = { edit: false, view: true };
+    const editOnly = { edit: true, view: false };
+
+    expect(await call(viewOnly, 'clip_create', create)).toMatchObject(notGranted('edit'));
+    expect(await call(editOnly, 'clip_create', create)).toMatchObject(notGranted('view'));
+    const neither = await call({ edit: false, view: false }, 'clip_create', create);
+    expect(neither).toMatchObject({ ok: false, error: { detail: { grant: 'edit', grants: ['edit', 'view'] } } });
+    expect(neither.ok ? '' : neither.error.message).toContain('Edit and View grants');
+    expect(passed(await call({ edit: true, view: true }, 'clip_create', create))).toBe(stub('clip_create'));
+    expect(passed(await call(editOnly, 'clip_create', { name: 'tmp' }))).toBe(stub('clip_create'));
+    // An activation only changes what the user sees.
+    expect(passed(await call(viewOnly, 'clip_update', { clip: 'agent', activate: true }))).toBe(stub('clip_update'));
+    // operator_run clip.new/clip.duplicate {activate: true}: the same rule.
+    for (const id of ['clip.new', 'clip.duplicate']) {
+      expect(await call(viewOnly, 'operator_run', { id, args: { activate: true } })).toMatchObject(notGranted('edit'));
+      expect(await call(editOnly, 'operator_run', { id, args: { activate: true } })).toMatchObject(notGranted('view'));
+      expect(passed(await call(editOnly, 'operator_run', { id, args: { activate: false } }))).toBe(
+        stub('operator_run'),
+      );
+    }
+    // Headless, an activating create is an ordinary edit (no View there).
+    const headless = createAgentToolRuntime({ app: fx.app, host: testHost(), actor: AGENT, tools: TOOLS });
+    expect(passed(await headless.call('clip_create', create, { signal: signal() }))).toBe(stub('clip_create'));
   });
 });

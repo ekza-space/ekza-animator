@@ -12,7 +12,7 @@ import {
   scoped,
   writes,
 } from '../../schemas/common';
-import type { AgentHostMode } from '../../types';
+import type { AgentHostMode, ExtraGrant } from '../../types';
 import { BUDGETS, defineTool } from '../define';
 
 /** Clip names: ≤ 64 characters of [A-Za-z0-9 _.-] (doc ClipRecord). */
@@ -26,9 +26,24 @@ const fps = z
   .max(240)
   .describe('Frames per second: 24, 25, 30, 60; 23.976, 29.97 and 59.94 mean the NTSC rates.');
 
-/** Live, `activate: true` needs the View grant (§5.9); headless it is an ordinary edit. */
+/**
+ * clip_update: live, an activation-only call (`activate: true`; the refine allows one change kind per call) changes
+ * only what the user sees and needs the View grant (§5.9); headless it is an ordinary edit.
+ */
 function activationAccess(args: { readonly activate?: boolean | undefined }, host: AgentHostMode): 'view' | 'edit' {
   return args.activate === true && host === 'live' ? 'view' : 'edit';
+}
+
+/**
+ * clip_create always edits the document (Edit); live, `activate: true` also changes what the user sees, so the call
+ * needs Edit **and** View (§5.9, Q-AI-38) — View alone never creates a clip. Its run (P2) passes `access: 'view'` to
+ * `ctx.run` for an activating create (runner rule 6 lets the run change the active clip), else `'edit'`.
+ */
+function creationExtraGrants(
+  args: { readonly activate?: boolean | undefined },
+  host: AgentHostMode,
+): readonly ExtraGrant[] {
+  return args.activate === true && host === 'live' ? ['view'] : [];
 }
 
 export const clipCreate = defineTool({
@@ -50,7 +65,7 @@ export const clipCreate = defineTool({
       activate: z
         .boolean()
         .optional()
-        .describe('Make it the active clip: headless default true; live default false (true needs the View grant).'),
+        .describe('Make it the active clip: headless default true; live default false (true needs Edit and View).'),
     })
     .refine(
       (value) => value.durationFrames === undefined || value.durationSeconds === undefined,
@@ -58,7 +73,8 @@ export const clipCreate = defineTool({
     ),
   output: z.object({ clip: clipInfoOut, activated: z.boolean() }),
   annotations: { readOnly: false, destructive: false, idempotent: false },
-  access: activationAccess,
+  access: 'edit',
+  extraGrants: creationExtraGrants,
   hosts: ['live', 'headless'],
   alwaysLoad: false,
   stretch: false,

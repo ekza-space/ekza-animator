@@ -37,9 +37,12 @@ export function canonicalJson(value: unknown): string {
   throw new Error('canonicalJson: unreachable');
 }
 
-/** How the manifest states a tool's access: static, by argument, or by the operator's policy (operator_run). */
+/**
+ * How the manifest states a tool's access: static, by argument (an access function or extra grants that depend on the
+ * arguments, §5.9), or by the operator's policy (operator_run).
+ */
 export function manifestAccess(tool: AgentToolDef): ManifestTool['access'] {
-  if (typeof tool.access !== 'function') return tool.access;
+  if (typeof tool.access !== 'function' && tool.extraGrants === undefined) return tool.access;
   return tool.name === 'operator_run' ? 'by_operator' : 'by_argument';
 }
 

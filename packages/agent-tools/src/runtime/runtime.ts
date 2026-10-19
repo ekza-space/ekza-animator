@@ -17,7 +17,7 @@ import {
   type AgentToolResult,
   type AgentToolRuntime,
   type AgentToolRuntimeOptions,
-  type Grant,
+  type ExtraGrant,
   type OperatorRun,
   type ToolAccess,
 } from '../types';
@@ -30,6 +30,8 @@ export const LABEL_MAX = 80;
 const AI_PREFIX = 'AI: ';
 const INTENT_SEPARATOR = ' · ';
 export const INTENT_MAX_CHARS = 60;
+/** Progress messages (§5.3): prose, at most this many characters. */
+export const PROGRESS_MAX_CHARS = 120;
 
 /** The path of a zod issue as the agent writes it: `set[2].rotateDeg.x`. */
 export function issuePath(path: readonly PropertyKey[]): string {
@@ -50,11 +52,14 @@ export function invalidArgs(tool: AgentToolDef, error: z.ZodError): AgentToolFai
     return { path: issuePath(path), message };
   });
   const first = issues[0] ?? { path: '(root)', message: 'invalid arguments' };
+  const example = tool.example;
   return new AgentToolFailure(
     'invalid_args',
     `${tool.name}: ${first.path}: ${first.message}.`,
-    `fix ${first.path} and call ${tool.name} again; its input schema lists every field with its unit`,
-    { detail: { path: first.path, issues: issues.slice(0, 5) } },
+    example === undefined
+      ? `fix ${first.path} and call ${tool.name} again; its input schema lists every field with its unit`
+      : `fix ${first.path} and call ${tool.name} again; detail.example is a minimal valid call`,
+    { detail: { path: first.path, issues: issues.slice(0, 5), ...(example === undefined ? {} : { example }) } },
   );
 }
 
@@ -78,10 +83,26 @@ export function composeLabel(toolLabel: string, intent: string | null): string {
   return shown === '' ? toolLabel : `${shown}${INTENT_SEPARATOR}${toolLabel}`;
 }
 
-const GRANT_NAMES: Readonly<Record<Exclude<Grant, 'read'>, string>> = {
+const GRANT_NAMES: Readonly<Record<ExtraGrant, string>> = {
   edit: 'Edit',
   files: 'Files',
   view: 'View',
+};
+
+/** `A`, `A and B`, `A, B and C`. */
+function listed(names: readonly string[]): string {
+  return names.length <= 1 ? (names[0] ?? '') : `${names.slice(0, -1).join(', ')} and ${names.at(-1) ?? ''}`;
+}
+
+/** The envelope when even the error path fails (a failure whose detail cannot be sanitised): fixed text, no detail. */
+const INTERNAL_FALLBACK: AgentToolResult<unknown> = {
+  ok: false,
+  error: {
+    code: 'internal',
+    message: 'The tool failed unexpectedly.',
+    hint: 'report this; the document was rolled back',
+    retryable: false,
+  },
 };
 
 export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentToolRuntime {
@@ -91,7 +112,7 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
   const tools = readyTools(all);
   const revisions = createRevisionTracker(app);
 
-  const gate = (tool: AgentToolDef, access: ToolAccess): void => {
+  const gate = (tool: AgentToolDef, access: ToolAccess, extra: readonly ExtraGrant[]): void => {
     if (!tool.hosts.includes(host.mode)) {
       throw new AgentToolFailure(
         'unsupported',
@@ -114,7 +135,12 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         );
       }
     }
-    if (access === 'view' && !host.capabilities.has('view')) {
+    // The grants this call needs: its access, then the extra ones (§5.9, Q-AI-38), each once.
+    const needed: ExtraGrant[] = [];
+    for (const grant of [access, ...extra]) {
+      if ((grant === 'edit' || grant === 'files' || grant === 'view') && !needed.includes(grant)) needed.push(grant);
+    }
+    if (needed.includes('view') && !host.capabilities.has('view')) {
       throw new AgentToolFailure(
         'unsupported',
         'Changing what the user sees needs the user’s editor.',
@@ -122,15 +148,18 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         { retryable: false },
       );
     }
-    if (access === 'edit' || access === 'files' || access === 'view') {
-      if (!host.grants()[access]) {
-        throw new AgentToolFailure(
-          'not_granted',
-          `${tool.name} needs the ${GRANT_NAMES[access]} grant.`,
-          `only the user can give the ${GRANT_NAMES[access]} grant, in the Agent panel`,
-          { retryable: false, detail: { grant: access } },
-        );
-      }
+    const grants = host.grants();
+    const missing = needed.filter((grant) => !grants[grant]);
+    const first = missing[0];
+    if (first !== undefined) {
+      const names = listed(missing.map((grant) => GRANT_NAMES[grant]));
+      const plural = missing.length === 1 ? 'grant' : 'grants';
+      throw new AgentToolFailure(
+        'not_granted',
+        `${tool.name} needs the ${names} ${plural}.`,
+        `only the user can give the ${names} ${plural}, in the Agent panel`,
+        { retryable: false, detail: { grant: first, ...(missing.length === 1 ? {} : { grants: missing }) } },
+      );
     }
     if (access !== 'pairing' && host.paused()) {
       throw new AgentToolFailure(
@@ -176,7 +205,10 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
       return { result, step, warnings: [] };
     },
     progress(done, total, message) {
-      progress?.(done, total, message);
+      if (progress === undefined) return;
+      // §5.3: progress text can name document things (clips, files); it goes through the one sanitiser.
+      if (message === undefined) progress(done, total);
+      else progress(done, total, sanitizeText(message, { maxChars: PROGRESS_MAX_CHARS, kind: 'prose' }));
     },
     focus(focus, activity) {
       if (!host.capabilities.has('presence')) return;
@@ -215,7 +247,7 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         if (!parsed.success) throw invalidArgs(tool, parsed.error);
         const args: Readonly<Record<string, unknown>> = parsed.data;
         const access = typeof tool.access === 'function' ? tool.access(args, host.mode) : tool.access;
-        gate(tool, access);
+        gate(tool, access, tool.extraGrants?.(args, host.mode) ?? []);
         if (callOpts.signal.aborted) {
           throw new AgentToolFailure('cancelled', `${tool.name} was cancelled before it ran.`, 'nothing changed');
         }
@@ -226,7 +258,13 @@ export function createAgentToolRuntime(opts: AgentToolRuntimeOptions): AgentTool
         const result = await tool.run(context(tool, callOpts.signal, intent, callOpts.progress), args);
         return finishResult(result, { maxTokens: tool.budget.maxTokens, schema: outputJsonSchemaOf(tool.output) });
       } catch (error) {
-        return finishResult({ ok: false, error: failureFrom(error).toError() }, null);
+        // The error path itself must not throw (a failure whose detail is cyclic or too deep for the sanitiser):
+        // the MCP layer always gets an envelope, never a rejected call.
+        try {
+          return finishResult({ ok: false, error: failureFrom(error).toError() }, null);
+        } catch {
+          return INTERNAL_FALLBACK;
+        }
       }
     },
   };
