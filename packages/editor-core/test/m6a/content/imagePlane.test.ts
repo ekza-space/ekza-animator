@@ -123,3 +123,28 @@ describe('imagePlane.set / imagePlane.delete', () => {
     expect(pollReason(t, 'imagePlane.delete', { id: 'img_nope' })).toBe('Unknown image plane img_nope');
   });
 });
+
+describe('image planes are never exported (§5.26)', () => {
+  it('a static export of the scene writes the palette image only and no node for the planes', async () => {
+    const t = await meshTestApp();
+    await runValue(t, 'mesh.create.cube');
+    await runValue(t, 'imagePlane.import', { camera: 'front', bytes: PNG_1X1 });
+    await runValue(t, 'imagePlane.import', { camera: 'side', bytes: PNG_1X1 });
+    const artifacts = await runValue<readonly { readonly bytes: Uint8Array }[]>(t, 'file.exportModel', {
+      objects: [],
+      fileName: 'scene.glb',
+      profile: 'local/generic',
+      validate: false,
+    });
+    const glb = artifacts[0]?.bytes;
+    if (glb === undefined) throw new Error('no artifact');
+    // GLB: 12-byte header, then the JSON chunk (length, type, payload).
+    const length = new DataView(glb.buffer, glb.byteOffset + 12, 4).getUint32(0, true);
+    const json = JSON.parse(new TextDecoder().decode(glb.subarray(20, 20 + length))) as {
+      images?: unknown[];
+      nodes?: { name?: string }[];
+    };
+    expect(json.images ?? []).toHaveLength(1);
+    expect((json.nodes ?? []).map((node) => node.name)).toEqual(['Cube']);
+  });
+});
