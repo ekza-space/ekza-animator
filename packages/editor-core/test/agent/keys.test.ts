@@ -139,7 +139,11 @@ describe('key.delete', () => {
     const app = opsApp();
     seedUser(app); // the user's frame is 12: the static value does not depend on it
     const arm = waveCurve(app, ARM, 'rz') as CurveId;
-    await agentOk(app, 'key.delete', { clip: WAVE.clip, targets: [{ control: ARM, channel: 'rz' }] });
+    await agentOk(app, 'key.delete', {
+      clip: WAVE.clip,
+      targets: [{ control: ARM, channel: 'rz' }],
+      range: { start: 0, end: 30 },
+    });
     expect(app.store.query.keysOfCurve(arm)).toEqual([]);
     expect(app.store.get('curves', arm)?.staticValue).toBeCloseTo(30 * DEG, 12);
   });
@@ -151,8 +155,17 @@ describe('key.delete', () => {
     expect(
       await agentRefusal(app, 'key.delete', { clip: WAVE.clip, targets: t, frames: [1], range: { start: 0, end: 1 } }),
     ).toBe('expects frames or range, not both');
+    // §4.10: keys at `frames` or inside `range`, nothing else — neither is refused, never "every key of the targets".
+    expect(await agentRefusal(app, 'key.delete', { clip: WAVE.clip, targets: t })).toBe(
+      'expects frames or range (key.delete deletes only the keys at frames or inside a range)',
+    );
+    expect(app.store.query.keysOfCurve(waveCurve(app, ARM, 'rz') as CurveId)).toHaveLength(3);
     expect(
-      await agentRefusal(app, 'key.delete', { clip: WAVE.clip, targets: [{ control: 'rig_x:nope', channel: 'rz' }] }),
+      await agentRefusal(app, 'key.delete', {
+        clip: WAVE.clip,
+        targets: [{ control: 'rig_x:nope', channel: 'rz' }],
+        frames: [0],
+      }),
     ).toMatch(/not one of the clip's character/);
   });
 });
@@ -385,6 +398,66 @@ describe('key.retime', () => {
       /not available yet/,
     );
   });
+
+  it('moves at most 50,000 keys per call, like key.adjust and key.delete (§5.5)', async () => {
+    const app = opsApp();
+    const arm = waveCurve(app, ARM, 'rz') as CurveId;
+    const template = app.store.query.keysOfCurve(arm)[0];
+    if (template === undefined) throw new Error('no key');
+    // 60,003 keys on one curve (the wave's three and 60,000 more at 0.05…3,000).
+    app.store.transact({ label: 'setup' }, (tx) => {
+      for (let i = 1; i <= 60_000; i++)
+        tx.put('keys', { ...template, id: `k_Bulk${i}` as typeof template.id, t: i / 20 + 0.001 });
+    });
+    const doc = JSON.stringify(app.store.query.keysOfCurve(arm).map((key) => key.t));
+    const base = { clip: WAVE.clip, targets };
+    for (const args of [
+      { ...base, mode: 'offset', offset: 1 },
+      { ...base, mode: 'scale', factor: 2, snapToFrames: false },
+      { ...base, mode: 'insertTime', at: 0, frames: 1 },
+      { ...base, mode: 'deleteTime', at: 100, frames: 1 },
+    ]) {
+      expect([args.mode, await agentRefusal(app, 'key.retime', args)]).toEqual([
+        args.mode,
+        'The call would move more than 50000 keys',
+      ]);
+    }
+    expect(await agentRefusal(app, 'key.delete', { ...base, range: { start: 0, end: 3000 } })).toBe(
+      'The call would delete more than 50000 keys',
+    );
+    expect(JSON.stringify(app.store.query.keysOfCurve(arm).map((key) => key.t))).toBe(doc);
+    // Inserting time late in the curve moves only the keys after it (≈ 10,000): allowed.
+    expect(await agentOk(app, 'key.retime', { ...base, mode: 'insertTime', at: 2500, frames: 2 })).toMatchObject({
+      moved: 10_001,
+    });
+  });
+
+  it('never moves keys beyond ±100,000 frames or more than 100,000 frames outside the clip range (§5.5)', async () => {
+    const app = opsApp();
+    const arm = waveCurve(app, ARM, 'rz') as CurveId;
+    const before = keysOf(app, arm);
+    const base = { clip: WAVE.clip, targets };
+    // The wave's keys at 0, 15 and 30.
+    expect(await agentRefusal(app, 'key.retime', { ...base, mode: 'scale', factor: 100, pivot: -100_000 })).toBe(
+      'A key would land at frame 9900000, outside ±100000 frames',
+    );
+    expect(await agentRefusal(app, 'key.retime', { ...base, mode: 'insertTime', at: -100_000, frames: 100_000 })).toBe(
+      'A key would land at frame 100015, outside ±100000 frames',
+    );
+    expect(await agentRefusal(app, 'key.retime', { ...base, mode: 'offset', offset: 99_971 })).toBe(
+      'A key would land at frame 100001, outside ±100000 frames',
+    );
+    expect(keysOf(app, arm)).toEqual(before);
+    // The bounds are inclusive: the last key lands exactly on frame 100,000.
+    expect(await agentOk(app, 'key.retime', { ...base, mode: 'offset', offset: 99_970 })).toMatchObject({ moved: 3 });
+    expect(keysOf(app, arm).map(([t]) => t)).toEqual([99_970, 99_985, 100_000]);
+    // A clip far from frame 0: the keys may not land more than 100,000 frames past its end.
+    const far = opsApp();
+    await far.runUntyped('clip.setSettings', { clip: WAVE.clip, range: { start: -90_000, end: -89_970 } });
+    expect(await agentRefusal(far, 'key.retime', { ...base, mode: 'offset', offset: 20_000 })).toBe(
+      'A key would land at frame 20000, more than 100000 frames outside the clip range -90000…-89970',
+    );
+  });
 });
 
 describe('explicit targets only', () => {
@@ -396,7 +469,7 @@ describe('explicit targets only', () => {
     const result = await runAgent(
       app,
       'key.delete',
-      { clip: WAVE.clip, targets: [{ control: UPPER, channel: 'rz' }] },
+      { clip: WAVE.clip, targets: [{ control: UPPER, channel: 'rz' }], range: { start: 0, end: 30 } },
       asAgent(),
     );
     expect(result).toEqual({ status: 'finished', value: { deleted: 0 } });

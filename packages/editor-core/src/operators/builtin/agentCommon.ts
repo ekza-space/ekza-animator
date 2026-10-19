@@ -1,23 +1,15 @@
-// Shared checks and reads of the M-AI explicit-target operators (MCP-SPEC §4.10, §5.5): the clip argument, frame and
-// range bounds, `extendRange`, channel targets, the keyed pose of a clip at a frame (never the user's overrides) and
-// the `hiddenByOverrides` report (§5.12). New file of P1 (the operator files stay small); nothing here writes the
-// session.
+// Shared checks and reads of the M-AI explicit-target operators (MCP-SPEC §4.10, §5.5): range bounds, `extendRange`,
+// channel targets, the keyed pose of a clip at a frame (never the user's overrides) and the `hiddenByOverrides` report
+// (§5.12). Loaded with the implementation (`agentLoad.ts`); nothing here writes the session.
 import { EkzaError, type Frame } from '@ekza-animator/anim-core';
 import type { ChannelId, ChannelValues, ClipRecord, ControlId, ControlRecord, ReadView, Tx } from '@ekza-animator/doc';
 import { readControlChannels } from '@ekza-animator/rig';
 import { attrChannelsOf, attrDefOf, isTrsChannel } from '../../edit/channelMeta';
 import { SAME_FRAME_EPS } from '../../edit/context';
-import type { CharacterRuntime, EditorApp, PollResult } from '../../types';
+import type { CharacterRuntime, EditorApp } from '../../types';
 import type { ChannelTarget } from '../args';
-import { fail, isFiniteNumber, isRecord, OK } from './define';
-import { pollEditable } from './polls';
-
-/** Frames of every frame argument lie in −100,000…100,000 (MCP-SPEC §5.5). */
-export const AGENT_FRAME_LIMIT = 100_000;
-/** An agent-grown clip range, and the frame span an operator loops over under an actor, stay ≤ 100,000 frames. */
-export const AGENT_SPAN_LIMIT = 100_000;
-/** Key records one call writes or deletes at most (§5.5). */
-export const AGENT_WRITE_LIMIT = 50_000;
+import { AGENT_SPAN_LIMIT, AGENT_WRITE_LIMIT, frameProblem } from './agentLoad';
+import { isRecord } from './define';
 
 /** The transaction of an undoable operator's apply. */
 export function txOf(tx: Tx | null, id: string): Tx {
@@ -39,55 +31,16 @@ export function requireRuntime(app: EditorApp, clip: ClipRecord): CharacterRunti
   return runtime;
 }
 
-/** The `label` argument the tool layer sets (≤ 80 characters after the runner's prefix), else `fallback`. */
-export function labelOf(args: unknown, fallback: string): string {
-  const label = isRecord(args) ? args['label'] : undefined;
-  return typeof label === 'string' && label.trim().length > 0 ? label : fallback;
-}
-
 /** Why a `label` argument is malformed, or null. */
 export function labelProblem(args: Readonly<Record<string, unknown>>): string | null {
   const label = args['label'];
   return label === undefined || typeof label === 'string' ? null : 'label must be a string';
 }
 
-/** The clip a record argument names (`clip` by default), when it exists. */
-export function clipArg(view: ReadView, args: unknown, field = 'clip'): ClipRecord | undefined {
-  if (!isRecord(args) || typeof args[field] !== 'string') return undefined;
-  return view.get('clips', args[field] as ClipRecord['id']);
-}
-
-/** Editable document and an existing clip in `args.clip`. */
-export function pollAgentClip(app: EditorApp, args: unknown): PollResult {
-  if (!isRecord(args) || typeof args['clip'] !== 'string') return fail('expects { clip, … }');
-  const editable = pollEditable(app);
-  if (editable !== true) return editable;
-  return clipArg(app.store, args) === undefined ? fail('The clip does not exist') : OK;
-}
-
 /** The runtime (rig program, sampler) of the clip's character, or why there is none. */
 export function runtimeOfClip(app: EditorApp, clip: ClipRecord): CharacterRuntime | string {
   const runtime = app.characters.get(clip.character);
   return runtime === undefined ? 'The character is still loading' : runtime;
-}
-
-/** Why a frame value is not a frame of §5.5 (finite, −100,000…100,000), or null. */
-export function frameProblem(value: unknown, name: string): string | null {
-  if (!isFiniteNumber(value)) return `${name} must be a finite frame`;
-  return Math.abs(value) > AGENT_FRAME_LIMIT ? `${name} must lie within ±${AGENT_FRAME_LIMIT} frames` : null;
-}
-
-/** Why a list of frames is malformed (empty, too long, a bad frame), or null. */
-export function framesProblem(value: unknown, name: string, max = AGENT_WRITE_LIMIT): string | null {
-  if (!Array.isArray(value)) return `${name} must be a list of frames`;
-  const list = value as readonly unknown[];
-  if (list.length === 0) return `${name} is empty`;
-  if (list.length > max) return `${name} has more than ${max} frames`;
-  for (const frame of list) {
-    const problem = frameProblem(frame, name);
-    if (problem !== null) return problem;
-  }
-  return null;
 }
 
 /** Why a `{start, end}` range argument is malformed, or null. */

@@ -4,6 +4,7 @@
 import type { CurveId } from '@ekza-animator/doc';
 import { describe, expect, it } from 'vitest';
 import { internalsOf } from '../../src/app/internals';
+import { isKeyable, isLocked } from '../../src/edit/channelMeta';
 import type { EditorApp } from '../../src/types';
 import {
   agentOk,
@@ -150,5 +151,43 @@ describe('clip.makeLoop', () => {
     expect(await agentRefusal(app, 'clip.makeLoop', { ...base, method: 'matchEnds' }, asAgent())).toMatch(
       /100000 frames/,
     );
+  });
+
+  it('refuses a blend that would bake more than 50,000 keys, up front (§5.5)', async () => {
+    const app = opsApp();
+    // Every keyable, unlocked rotation channel of the wave rig keyed at 0 and 2,000.
+    const keys = app.store.query
+      .controlsOfRig(WAVE.rig)
+      .flatMap((control) =>
+        (['rx', 'ry', 'rz'] as const)
+          .filter((channel) => isKeyable(control, channel) && !isLocked(control, channel))
+          .flatMap((channel) =>
+            [0, 2000].map((frame) => ({ control: control.id, channel, frame, value: frame * 1e-4 })),
+          ),
+      );
+    await agentOk(app, 'key.write', { clip: WAVE.clip, keys, extendRange: true });
+    const curves = new Set(keys.map((key) => `${key.control}.${key.channel}`)).size;
+    expect(curves).toBeGreaterThan(25);
+    const base = { clip: WAVE.clip, method: 'blend', rootTravel: 'keep' };
+    const doc = docJson(app);
+    const started = performance.now();
+    // blendFrames 2,000 (the clip length) bakes one key per frame on every curve: refused for agents and users.
+    expect(await agentRefusal(app, 'clip.makeLoop', { ...base, blendFrames: 2000 })).toBe(
+      'Blending would write more than 50000 keys; pass fewer blendFrames',
+    );
+    const user = await app.runUntyped('clip.makeLoop', { ...base, blendFrames: 2000 });
+    expect(user).toEqual({
+      status: 'cancelled',
+      reason: 'Blending would write more than 50000 keys; pass fewer blendFrames',
+    });
+    expect(performance.now() - started).toBeLessThan(2000);
+    expect(docJson(app)).toEqual(doc);
+    // A tail that keeps the bake under the bound runs (a dry run here: nothing written).
+    const fits = Math.floor(50_000 / curves) - 10;
+    const dry = (await agentOk(app, 'clip.makeLoop', { ...base, blendFrames: fits, dryRun: true })) as {
+      readonly curvesChanged: number;
+    };
+    expect(dry.curvesChanged).toBe(curves);
+    expect(docJson(app)).toEqual(doc);
   });
 });

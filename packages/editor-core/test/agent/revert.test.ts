@@ -84,6 +84,16 @@ describe('edit.revertSteps', () => {
     expect(docJson(app)).toEqual(before);
   });
 
+  it('counts a step named twice once, in the agent label and in the user label alike', async () => {
+    const app = opsApp();
+    const a = await agentKey(app, UPPER, 10, 20);
+    expect(await agentOk(app, 'edit.revertSteps', { steps: [a, a] })).toMatchObject({ reverted: [a] });
+    expect(app.history.peekUndo()?.label).toBe('AI: Revert 1 step');
+    await runOk(app, 'edit.undo');
+    await runOk(app, 'edit.revertSteps', { steps: [a, a] });
+    expect(app.history.peekUndo()?.label).toBe('Revert AI step: AI: Set keys (1 on 1 curve)');
+  });
+
   it('refuses steps that are not in the undo history or have no change record', async () => {
     const app = opsApp();
     await runOk(app, 'channel.setValues', { edits: [{ control: ARM, channel: 'rz', value: 0.1 }], key: 'force' });

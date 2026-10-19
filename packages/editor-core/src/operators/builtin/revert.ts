@@ -1,10 +1,10 @@
 // Selective revert and restore (MCP-SPEC §4.10, §5.13): `edit.revertSteps` (a forward step that restores older
 // history steps' changes, compare-before-restore per merge unit, through doc `planRestore`) and
 // `edit.restoreDocument` (user runs only: "Restore the project as it was before the agent", through doc
-// `planSnapshotRestore`). Nothing of this lives in `edit.ts` (M6a's B11 owns it).
-import { EkzaError } from '@ekza-animator/anim-core';
-import { applyRestorePlan, planRestore, planSnapshotRestore, restoreHostOf } from '@ekza-animator/doc';
+// `planSnapshotRestore`). Nothing of this lives in `edit.ts` (M6a's B11 owns it). The definitions and polls live
+// here; the applies load on first use with the agent operators' implementation (`agentImpl.ts`).
 import { GLOBAL_SCOPE, type HistoryStep } from '../../types';
+import { type AgentImpl, loadAgentImpl } from './agentLoad';
 import { type AnyOperator, defineOperator, fail, isActorRun, isRecord, OK } from './define';
 import { pollEditable } from './polls';
 
@@ -18,8 +18,11 @@ function stepsArg(raw: unknown): readonly number[] | string {
   return steps as readonly number[];
 }
 
-/** The undo-stack steps of the ids, or why one cannot be reverted (not in the undo stack, no change journal). */
-function revertible(undo: readonly HistoryStep[], ids: readonly number[]): readonly HistoryStep[] | string {
+/**
+ * The undo-stack steps of the ids (each once, however often it is named), or why one cannot be reverted (not in the
+ * undo stack, no change journal).
+ */
+export function revertible(undo: readonly HistoryStep[], ids: readonly number[]): readonly HistoryStep[] | string {
   const out: HistoryStep[] = [];
   for (const id of new Set(ids)) {
     const step = undo.find((candidate) => candidate.id === id);
@@ -32,12 +35,16 @@ function revertible(undo: readonly HistoryStep[], ids: readonly number[]): reado
   return out;
 }
 
-const revertSteps = defineOperator({
+const revertSteps = defineOperator<'edit.revertSteps', AgentImpl>({
   ...EDIT,
   id: 'edit.revertSteps',
   label: 'Revert Steps',
   description: 'Revert older history steps as one new step; fields changed since are kept and reported.',
-  undoLabel: (args) => (args.steps.length === 1 ? 'Revert 1 step' : `Revert ${args.steps.length} steps`),
+  // A step named twice is reverted once, so it is counted once (the user-run label of the apply agrees).
+  undoLabel: (args) => {
+    const count = new Set(args.steps).size;
+    return count === 1 ? 'Revert 1 step' : `Revert ${count} steps`;
+  },
   poll({ app }, raw) {
     const ids = stepsArg(raw);
     if (typeof ids === 'string') return fail(ids);
@@ -46,34 +53,11 @@ const revertSteps = defineOperator({
     const steps = revertible(app.history.entries().undo, ids);
     return typeof steps === 'string' ? fail(steps) : OK;
   },
-  apply(ctx, args) {
-    const { app, tx } = ctx;
-    if (tx === null) throw new EkzaError('internal', 'edit.revertSteps runs in a transaction');
-    const steps = revertible(app.history.entries().undo, args.steps);
-    if (typeof steps === 'string') throw new EkzaError('unsupported', steps);
-    const reverted: number[] = [];
-    const skipped: { step: number; reason: string }[] = [];
-    const skippedFields: { table: string; id: string; fields: readonly string[] | null }[] = [];
-    // Newest first, each against the document as the earlier reverts left it (the transaction's view).
-    for (const step of [...steps].sort((a, b) => b.id - a.id)) {
-      const plan = planRestore(restoreHostOf(tx), step.changes ?? [], 'undo');
-      const written = applyRestorePlan(tx, plan);
-      for (const skip of plan.skipped) {
-        skippedFields.push({ table: skip.change.table, id: String(skip.change.id), fields: skip.fields });
-      }
-      if (written > 0) reverted.push(step.id);
-      else skipped.push({ step: step.id, reason: plan.skipped.length > 0 ? 'changed since' : 'nothing to revert' });
-    }
-    // Labels (§4.10): agent runs `AI: Revert N steps` (the runner adds the prefix); user runs name the AI step.
-    if (!isActorRun(ctx)) {
-      const only = steps.length === 1 ? steps[0] : undefined;
-      tx.annotate({ label: only === undefined ? `Revert ${steps.length} AI steps` : `Revert AI step: ${only.label}` });
-    }
-    return { reverted: reverted.sort((a, b) => a - b), skipped, skippedFields };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: (ctx, args, impl) => impl.revertSteps(ctx, args),
 });
 
-const restoreDocument = defineOperator({
+const restoreDocument = defineOperator<'edit.restoreDocument', AgentImpl>({
   ...EDIT,
   id: 'edit.restoreDocument',
   label: 'Restore Document',
@@ -87,11 +71,8 @@ const restoreDocument = defineOperator({
     }
     return pollEditable(ctx.app);
   },
-  apply({ tx }, args) {
-    if (tx === null) throw new EkzaError('internal', 'edit.restoreDocument runs in a transaction');
-    const writes = applyRestorePlan(tx, planSnapshotRestore(restoreHostOf(tx), args.snapshot));
-    return { writes };
-  },
+  prepare: () => loadAgentImpl(),
+  apply: ({ tx }, args, impl) => impl.restoreDocument(tx, args),
 });
 
 export const REVERT_OPERATORS: readonly AnyOperator[] = [revertSteps, restoreDocument];

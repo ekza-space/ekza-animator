@@ -1,26 +1,31 @@
 // The implementation of the M-AI explicit-target operators (MCP-SPEC §4.10, P1), loaded on first use by
-// `agentLoad.ts`: the applies of `key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt`, `pose.goals`,
-// `pose.transfer` and `clip.makeLoop`. The definitions and polls live in `agentKeys.ts`, `agentPose.ts` and
-// `agentClip.ts`.
+// `agentLoad.ts`: the full polls (`AGENT_POLLS`, from `agentKeyChecks.ts`, `agentPoseChecks.ts` and the loop poll
+// below) and the applies of `key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt`, `pose.goals`,
+// `pose.transfer`, `clip.makeLoop`, `edit.revertSteps` and `edit.restoreDocument`. The definitions live in
+// `agentKeys.ts`, `agentPose.ts`, `agentClip.ts` and `revert.ts`.
 
 import { EkzaError, type Frame, type TangentType } from '@ekza-animator/anim-core';
-import type {
-  ChannelId,
-  ChannelValues,
-  ClipRecord,
-  ControlId,
-  ControlRecord,
-  CurveRecord,
-  KeyId,
-  KeyRecord,
-  Tx,
+import {
+  applyRestorePlan,
+  type ChannelId,
+  type ChannelValues,
+  type ClipRecord,
+  type ControlId,
+  type ControlRecord,
+  type CurveRecord,
+  type KeyId,
+  type KeyRecord,
+  planRestore,
+  planSnapshotRestore,
+  restoreHostOf,
+  type Tx,
 } from '@ekza-animator/doc';
 import { type LimbDesc, type LimbId, writeControlChannels } from '@ekza-animator/rig';
 import { internalsOf, newRecordId } from '../../app/internals';
 import { isLocked, newKeyTangents, ROTATE_CHANNELS } from '../../edit/channelMeta';
 import { compileInTx, SAME_FRAME_EPS } from '../../edit/context';
 import { ensureCurve, moveKeys, scaleKeys, writeKeyAt } from '../../edit/keys';
-import type { EditorApp, KeyEditOptions, OperatorArgs, OperatorContext } from '../../types';
+import type { ApplyContext, EditorApp, KeyEditOptions, OperatorArgs, OperatorContext, PollResult } from '../../types';
 import {
   type AdjustOffsets,
   type AdjustWhere,
@@ -52,7 +57,7 @@ import {
   seamValues,
 } from '../../workflows/loop';
 import { deleteCurveKeys, insertTimeOn, keyedBaseCurves, wrapOffsetCurve } from '../../workflows/retime';
-import type { AdjustPivot, ChannelTarget, SeamMetrics } from '../args';
+import type { AdjustPivot, ChannelTarget, OperatorMap, SeamMetrics } from '../args';
 import {
   baseCurveIn,
   extendClipRange,
@@ -63,17 +68,23 @@ import {
   txOf,
   uniqueTargets,
 } from './agentCommon';
-import { deletePlan, planWrite } from './agentKeys';
+import { deletePlan, planWrite, pollKeyAdjust, pollKeyDelete, pollKeyRetime, pollKeyWrite } from './agentKeyChecks';
+import { AGENT_SPAN_LIMIT, AGENT_WRITE_LIMIT, clipArg, pollAgentClip } from './agentLoad';
 import {
   type GoalsArgs,
   keyedChannels,
+  pollPoseGoals,
+  pollPoseSetAt,
+  pollPoseTransfer,
   type SetAtArgs,
   type Skip,
   skipOf,
   type TransferArgs,
   transferChannels,
   transferValues,
-} from './agentPose';
+} from './agentPoseChecks';
+import { fail, isActorRun, isFiniteNumber, OK } from './define';
+import { revertible } from './revert';
 import { NOT_AVAILABLE_YET } from './stub';
 
 // ---------- keys ----------
@@ -748,3 +759,107 @@ export function makeLoop(app: EditorApp, tx: Tx | null, args: OperatorArgs<'clip
   }
   return { before, after, curvesChanged: changed.length };
 }
+
+const METHODS: readonly LoopMethod[] = ['matchEnds', 'blend', 'cycleOnly'];
+const TRAVEL: readonly RootTravel[] = ['cycleOffset', 'inPlace', 'keep'];
+
+/**
+ * An upper bound of the key records `clip.makeLoop` writes or deletes (§5.5), from the curves alone (no planning):
+ * per animated, unlocked base curve the two seam keys; a root travel curve made in place rewrites every key; `blend`
+ * (except on cycleOffset travel curves) bakes one key per whole frame of the tail, adds the key where the tail starts
+ * and replaces the keys inside it.
+ */
+function loopWriteCount(app: EditorApp, clip: ClipRecord, args: LoopArgs): number {
+  const view = app.store;
+  const layer = view.query.baseLayer(clip.id);
+  if (layer === undefined) return 0;
+  const travel = travelControls(app, clip);
+  const { start, end } = clip.range;
+  const from = Math.max(start, end - (args.blendFrames ?? DEFAULT_BLEND_FRAMES));
+  const baked = Math.max(0, Math.floor(end + SAME_FRAME_EPS) - Math.floor(from + SAME_FRAME_EPS));
+  let count = 0;
+  for (const curve of view.query.curvesOfClip(clip.id)) {
+    if (curve.layer !== layer.id || curve.locked) continue;
+    const keys = view.query.keysOfCurve(curve.id);
+    if (keys.length === 0) continue;
+    const isTravel = travel.has(curve.control) && (curve.channel === 'tx' || curve.channel === 'tz');
+    if (isTravel && args.rootTravel === 'keep') continue;
+    if (isTravel && args.rootTravel === 'inPlace') count += keys.length + 2;
+    else if (args.method !== 'cycleOnly') count += 2;
+    if (args.method === 'blend' && !(isTravel && args.rootTravel === 'cycleOffset')) {
+      count += baked + 1;
+      for (const key of keys) if (key.t > from + SAME_FRAME_EPS && key.t <= end + SAME_FRAME_EPS) count++;
+    }
+    if (count > AGENT_WRITE_LIMIT) break;
+  }
+  return count;
+}
+
+function pollMakeLoop(ctx: OperatorContext, raw: unknown): PollResult {
+  const { app } = ctx;
+  const base = pollAgentClip(app, raw);
+  if (base !== true) return base;
+  const args = raw as Readonly<Record<string, unknown>>;
+  if (!METHODS.includes(args['method'] as LoopMethod)) return fail(`method is one of ${METHODS.join(', ')}`);
+  if (!TRAVEL.includes(args['rootTravel'] as RootTravel)) return fail(`rootTravel is one of ${TRAVEL.join(', ')}`);
+  if (args['dryRun'] !== undefined && typeof args['dryRun'] !== 'boolean') return fail('dryRun must be a boolean');
+  const clip = clipArg(app.store, raw) as ClipRecord;
+  const span = clip.range.end - clip.range.start;
+  const blend = args['blendFrames'];
+  if (blend !== undefined && (!isFiniteNumber(blend) || blend < 1 || blend > Math.max(1, span))) {
+    return fail(`blendFrames must lie in 1…${Math.max(1, span)} (the clip length)`);
+  }
+  if (!(span > 0)) return fail('The clip range is empty');
+  if (isActorRun(ctx) && span > AGENT_SPAN_LIMIT) return fail(`The clip spans more than ${AGENT_SPAN_LIMIT} frames`);
+  if (loopWriteCount(app, clip, raw as LoopArgs) <= AGENT_WRITE_LIMIT) return OK;
+  return fail(
+    args['method'] === 'blend'
+      ? `Blending would write more than ${AGENT_WRITE_LIMIT} keys; pass fewer blendFrames`
+      : `The loop would write more than ${AGENT_WRITE_LIMIT} keys`,
+  );
+}
+
+// ---------- history ----------
+
+export function revertSteps(ctx: ApplyContext, args: OperatorArgs<'edit.revertSteps'>) {
+  const { app, tx } = ctx;
+  if (tx === null) throw new EkzaError('internal', 'edit.revertSteps runs in a transaction');
+  const steps = revertible(app.history.entries().undo, args.steps);
+  if (typeof steps === 'string') throw new EkzaError('unsupported', steps);
+  const reverted: number[] = [];
+  const skipped: { step: number; reason: string }[] = [];
+  const skippedFields: { table: string; id: string; fields: readonly string[] | null }[] = [];
+  // Newest first, each against the document as the earlier reverts left it (the transaction's view).
+  for (const step of [...steps].sort((a, b) => b.id - a.id)) {
+    const plan = planRestore(restoreHostOf(tx), step.changes ?? [], 'undo');
+    const written = applyRestorePlan(tx, plan);
+    for (const skip of plan.skipped) {
+      skippedFields.push({ table: skip.change.table, id: String(skip.change.id), fields: skip.fields });
+    }
+    if (written > 0) reverted.push(step.id);
+    else skipped.push({ step: step.id, reason: plan.skipped.length > 0 ? 'changed since' : 'nothing to revert' });
+  }
+  // Labels (§4.10): agent runs `AI: Revert N steps` (the runner adds the prefix); user runs name the AI step.
+  if (!isActorRun(ctx)) {
+    const only = steps.length === 1 ? steps[0] : undefined;
+    tx.annotate({ label: only === undefined ? `Revert ${steps.length} AI steps` : `Revert AI step: ${only.label}` });
+  }
+  return { reverted: reverted.sort((a, b) => a - b), skipped, skippedFields };
+}
+
+export function restoreDocument(tx: Tx | null, args: OperatorArgs<'edit.restoreDocument'>) {
+  if (tx === null) throw new EkzaError('internal', 'edit.restoreDocument runs in a transaction');
+  return { writes: applyRestorePlan(tx, planSnapshotRestore(restoreHostOf(tx), args.snapshot)) };
+}
+
+/** The full polls of the operators `agentLoad.ts` defines (their shape check answers until this module loads). */
+export const AGENT_POLLS = {
+  'key.write': pollKeyWrite,
+  'key.delete': pollKeyDelete,
+  'key.adjust': pollKeyAdjust,
+  'key.retime': pollKeyRetime,
+  'pose.setAt': pollPoseSetAt,
+  'pose.goals': pollPoseGoals,
+  'pose.transfer': pollPoseTransfer,
+  'clip.makeLoop': pollMakeLoop,
+} as const satisfies Partial<Readonly<Record<keyof OperatorMap, (ctx: OperatorContext, raw: unknown) => PollResult>>>;
