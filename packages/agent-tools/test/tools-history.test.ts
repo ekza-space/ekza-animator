@@ -82,6 +82,7 @@ describe('history_revert (§6.9 tool 32, §5.13)', () => {
     const runtime = runtimeOf(fx);
     const cp = dataOf<{ checkpoint: string }>(await call(runtime, 'history_checkpoint', { label: 'Mixed' })).checkpoint;
     await call(runtime, 'keys_set', key(10, 20));
+    await call(runtime, 'keys_set', key(20, 30));
     const cog = controlOf(fx.app, fx.character, 'cog');
     expect(
       (
@@ -93,7 +94,9 @@ describe('history_revert (§6.9 tool 32, §5.13)', () => {
     ).toBe('finished');
     const result = await call(runtime, 'history_revert', { to: cp });
     expect(dataOf(result)).toMatchObject({ mode: 'revert', dryRun: false });
-    expect(result.ok && result.undo?.label.startsWith('AI: ')).toBe(true);
+    // §5.6, §4.10: the revert step of an actor run reads `AI: Revert N steps`
+    expect(result.ok && result.undo?.label).toBe('AI: Revert 2 steps');
+    expect(fx.app.history.peekUndo()?.label).toBe('AI: Revert 2 steps');
     expect(keysOf(fx.app, fx.agentClip, controlOf(fx.app, fx.character, 'fk.upperArm.L'), 'rz')).toEqual([]);
     expect(
       fx.app.history

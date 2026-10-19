@@ -146,6 +146,8 @@ export interface CursorRecord {
   /** What the cursor continues (the tool's own query key) and where. */
   readonly query: string;
   readonly offset: number;
+  /** The clip revision the read started at (reads of a clip): a later page of a changed clip is refused. */
+  readonly revision?: number;
 }
 /** State of one runtime that tools reach through `runtimeStateOf(ctx)`. */
 export interface RuntimeState {

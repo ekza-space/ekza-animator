@@ -19,6 +19,7 @@ import {
 } from '../../resolve/targets';
 import { addressed, plural, staleCheck, valueOf, writeResult } from '../../runtime/toolkit';
 import { quoteName } from '../../sanitize/sanitize';
+import { FRAME_MAX } from '../../schemas/common';
 import { AgentToolFailure, type AgentToolContext, type AgentToolResult, type ConfirmPrompt } from '../../types';
 import {
   isRotationChannel,
@@ -514,6 +515,7 @@ export async function keysRetime(ctx: AgentToolContext, args: KeysRetimeArgs): P
     curves: curvesOfTargets(ctx.app, target.clip.id, targets),
     clipRecord: false,
   });
+  const landing = retimeLanding(ctx, target, targets, args);
   const name = targetsLabel(args.targets, controls);
   let mode: 'offset' | 'scale' | 'insertTime' | 'deleteTime';
   let detail: Record<string, unknown>;
@@ -572,8 +574,69 @@ export async function keysRetime(ctx: AgentToolContext, args: KeysRetimeArgs): P
       snapped: value.snapped,
       contactFrame: value.contactFrame,
     },
-    [stale, value.merged > 0 ? `${value.merged} keys landed on the same frame as another key and were merged` : null],
+    [
+      stale,
+      value.merged > 0 ? `${value.merged} keys landed on the same frame as another key and were merged` : null,
+      landing,
+    ],
   );
+}
+
+/** Where a retime moves a key time (offset with wrap stays inside the loop range). */
+function retimedFrame(t: number, args: KeysRetimeArgs, record: { readonly range: { readonly start: number } }) {
+  switch (args.mode) {
+    case 'offset':
+      return t + (args.offsetFrames ?? 0);
+    case 'scale': {
+      const pivot = args.pivotFrame ?? record.range.start;
+      return pivot + (args.factor ?? 1) * (t - pivot);
+    }
+    case 'insert_time':
+      return t >= (args.atFrame ?? 0) - 1e-6 ? t + (args.frames ?? 0) : t;
+    case 'delete_time': {
+      const at = args.atFrame ?? 0;
+      const frames = args.frames ?? 0;
+      if (t < at - 1e-6) return t;
+      return t < at + frames - 1e-6 ? null : t - frames;
+    }
+  }
+}
+
+/**
+ * Where the retimed keys land (§5.2, §5.5): beyond ±100,000 frames the call answers `limit`; keys that leave the clip
+ * range give a warning (they play only once the range covers them). Offsets with `wrap` stay inside the loop.
+ */
+function retimeLanding(
+  ctx: AgentToolContext,
+  target: ReturnType<typeof addressed>,
+  targets: readonly ChannelTargetRef[],
+  args: KeysRetimeArgs,
+): string | null {
+  if (args.mode === 'offset' && args.wrap) return null;
+  const { start, end } = target.record.range;
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  let outside = 0;
+  for (const entry of keysOfTargets(ctx.app, target.clip.id, targets, {})) {
+    for (const key of entry.keys) {
+      const t = retimedFrame(key.t, args, target.record);
+      if (t === null) continue;
+      lo = Math.min(lo, t);
+      hi = Math.max(hi, t);
+      if (t < start - 1e-6 || t > end + 1e-6) outside++;
+    }
+  }
+  if (!Number.isFinite(lo)) return null;
+  if (lo < -FRAME_MAX || hi > FRAME_MAX) {
+    throw new AgentToolFailure(
+      'limit',
+      `The retime would put keys at f${Math.round(lo)}…f${Math.round(hi)}; key frames stay within ±${FRAME_MAX.toLocaleString('en')}.`,
+      'use a smaller offset or factor, or another pivotFrame',
+      { detail: { path: args.mode === 'scale' ? 'factor' : args.mode === 'offset' ? 'offsetFrames' : 'frames' } },
+    );
+  }
+  if (outside === 0) return null;
+  return `${outside} retimed key${outside === 1 ? '' : 's'} now lie outside the clip range ${start}…${end} (keys span f${Math.round(lo)}…f${Math.round(hi)}); they play only once the range covers them: clip_update {rangeFrames}`;
 }
 
 // ---------- keys_tween ----------

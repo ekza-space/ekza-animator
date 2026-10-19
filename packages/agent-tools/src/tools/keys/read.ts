@@ -56,22 +56,32 @@ export function keysRead(ctx: AgentToolContext, args: KeysReadArgs): Promise<Age
     `Read keys (${controls.length} controls)`,
   );
   const state = runtimeStateOf(ctx);
-  // The cursor continues the same read: same clip, targets, range, precision and page size.
-  const query = canonicalJson({
-    clip: target.clip.id,
-    targets: targets.map((t) => `${t.control.id} ${t.channel}`),
-    range: range ?? null,
-    precision: args.precision,
-    limit: args.limit,
-  });
+  // The cursor continues the same read: same clip, targets, range, precision and page size — and the same clip
+  // revision, so a clip that changed between pages never skips or repeats keys.
+  const revision = ctx.revisions.revision(target.clip.id);
+  const queryOf = (at: number): string =>
+    canonicalJson({
+      clip: target.clip.id,
+      targets: targets.map((t) => `${t.control.id} ${t.channel}`),
+      range: range ?? null,
+      precision: args.precision,
+      limit: args.limit,
+      revision: at,
+    });
+  const query = queryOf(revision);
   let offset = 0;
   if (args.cursor !== undefined) {
     const cursor = state.cursors.get(args.cursor);
     if (cursor === undefined || cursor.tool !== 'keys_read' || cursor.query !== query) {
+      const changed =
+        cursor !== undefined && cursor.tool === 'keys_read' && cursor.query === queryOf(cursor.revision ?? -1);
       throw new AgentToolFailure(
         'expired_handle',
-        'The cursor is unknown, expired or belongs to another read.',
+        changed
+          ? `The clip changed since the first page (revision ${cursor.revision}, now ${revision}).`
+          : 'The cursor is unknown, expired or belongs to another read.',
         'repeat the read without cursor',
+        changed ? { detail: { expected: cursor.revision, current: revision } } : undefined,
       );
     }
     offset = cursor.offset;
@@ -117,7 +127,7 @@ export function keysRead(ctx: AgentToolContext, args: KeysReadArgs): Promise<Age
   let cursor: string | null = null;
   if (more) {
     cursor = state.handle('cur');
-    state.cursors.set(cursor, { tool: 'keys_read', query, offset: offset + listed });
+    state.cursors.set(cursor, { tool: 'keys_read', query, offset: offset + listed, revision });
     while (state.cursors.size > CURSOR_MAX) {
       const oldest = state.cursors.keys().next().value;
       if (oldest === undefined) break;

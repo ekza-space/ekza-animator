@@ -139,6 +139,8 @@ function register(app: EditorApp): void {
     id: string,
     def: {
       poll?: (args: Args) => true | { ok: false; reason: string };
+      /** The step label when the operator sets its own (§4.10), else the tool's `label` argument. */
+      label?: (args: Args) => string;
       apply: (tx: Tx, args: Args, ctx: { readonly app: EditorApp }) => unknown;
     },
   ): void => {
@@ -148,7 +150,7 @@ function register(app: EditorApp): void {
       category: 'test',
       scope: 'global',
       flags: { undo: true, internal: true },
-      undoLabel: (args) => (typeof args['label'] === 'string' ? args['label'] : id),
+      undoLabel: (args) => def.label?.(args) ?? (typeof args['label'] === 'string' ? args['label'] : id),
       poll: (_ctx, args) => def.poll?.(args) ?? true,
       apply: (ctx, args) => {
         if (ctx.tx === null) throw new Error('double: no transaction');
@@ -528,6 +530,8 @@ function register(app: EditorApp): void {
   });
 
   op('edit.revertSteps', {
+    // §4.10: an actor run is labelled `AI: Revert N steps` (the runner adds the prefix)
+    label: (args) => `Revert ${(args['steps'] as number[]).length} steps`,
     poll(args) {
       const steps = args['steps'] as number[];
       const undo = app.history.entries().undo;

@@ -285,6 +285,45 @@ describe('keys_delete, keys_adjust, keys_retime (§6.4 tools 15–17)', () => {
     });
     expect(errorOf(wrap)).toMatchObject({ code: 'invalid_args', detail: { path: 'wrap' } });
   });
+
+  it('warns when keys leave the clip range and answers limit beyond ±100,000 frames (§5.2, §5.5)', async () => {
+    const runtime = runtimeOf(fx);
+    const forearm = controlOf(fx.app, fx.character, 'fk.lowerArm.L');
+    const top = fx.app.history.peekUndo()?.id;
+    const far = await call(runtime, 'keys_retime', {
+      clip: 'agent',
+      targets: { controls: ['fk.lowerArm.L'] },
+      mode: 'offset',
+      offsetFrames: 99_990,
+    });
+    expect(errorOf(far)).toMatchObject({ code: 'limit', detail: { path: 'offsetFrames' } });
+    const huge = await call(runtime, 'keys_retime', {
+      clip: 'agent',
+      targets: { controls: ['fk.lowerArm.L'] },
+      mode: 'scale',
+      factor: 100,
+      pivotFrame: -100_000,
+    });
+    expect(errorOf(huge)).toMatchObject({ code: 'limit', detail: { path: 'factor' } });
+    expect(fx.app.history.peekUndo()?.id).toBe(top);
+    expect(keysOf(fx.app, fx.agentClip, forearm, 'rz').map(([t]) => t)).toEqual([0, 15, 30]);
+    const out = await call(runtime, 'keys_retime', {
+      clip: 'agent',
+      targets: { controls: ['fk.lowerArm.L'] },
+      mode: 'offset',
+      offsetFrames: 90_000,
+    });
+    expect(out.ok && out.warnings).toEqual([
+      '3 retimed keys now lie outside the clip range 0…30 (keys span f90000…f90030); they play only once the range covers them: clip_update {rangeFrames}',
+    ]);
+    const inside = await call(runtime, 'keys_retime', {
+      clip: 'agent',
+      targets: { controls: ['fk.lowerArm.L'] },
+      mode: 'offset',
+      offsetFrames: -90_000,
+    });
+    expect(inside.ok && inside.warnings).toBeFalsy();
+  });
 });
 
 describe('pose_set (§6.3 tool 9)', () => {

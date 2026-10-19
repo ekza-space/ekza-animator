@@ -12,6 +12,7 @@ import {
   controlOf,
   dataOf,
   errorOf,
+  foreignEdit,
   host,
   liveHost,
   type P2Fixture,
@@ -205,6 +206,17 @@ describe('keys_read and curves_summary (§6.2 tools 6–7)', () => {
     const other = await call(runtime, 'keys_read', { ...args, limit: 3, cursor: first.cursor });
     expect(errorOf(other).code).toBe('expired_handle');
     expect(errorOf(other).hint).toContain('without cursor');
+  });
+
+  it('refuses the next page when the clip changed since the first (no skipped or repeated keys)', async () => {
+    const local = await p2Fixture(53);
+    const runtime = runtimeOf(local);
+    const args = { clip: 'agent', targets: { controls: ['fk.lowerArm.L'] }, limit: 2 };
+    const first = dataOf<{ cursor: string | null }>(await call(runtime, 'keys_read', args));
+    foreignEdit(local.app, local.keys[0] as never, 0.5);
+    const next = await call(runtime, 'keys_read', { ...args, cursor: first.cursor });
+    expect(errorOf(next)).toMatchObject({ code: 'expired_handle', hint: 'repeat the read without cursor' });
+    expect(errorOf(next).message).toMatch(/^The clip changed since the first page \(revision \d+, now \d+\)\.$/);
   });
 
   it('answers not_found with up to five candidates by edit distance, ambiguous names never guessed', async () => {
