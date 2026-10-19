@@ -108,16 +108,23 @@ the material and inside checks run for chamfers and Roundness ≤ 0.5.
 | **Major — the tests could not see it**: the clamp property sampled boxes and L/U/star prisms only, and nothing checked twisted, self-crossing or zero-area faces. | `clamp.test.ts`: the four repros as fixed cases (the prism cap's corners must point at the original corners, within 5°), a 1.3° sliver corner (refuses at 0.01, clean at 1), and the clamp property on every primitive (random parameters), the octahedron and random triangular prisms, edge and face mode, fraction 0.01–1 or an absolute offset, 1–3 segments, chamfer or any roundness: harness P1/P5/P8, no coincident points, and the twist oracle (`twist.ts`): against a reference run at fraction 0.001 no face flips, no quad's corner triangle turns, no n-gon starts crossing itself (dominant-axis projection, as the triangulator), no edge reverses, and Mesh Check reports no zero-area face or zero-length edge; a crossing n-gon that crosses at every width (M6A-B5-4) must be one Mesh Check reports. Every new case fails on the round-1 code (checked by swapping `bevel.ts` back). |
 | Minor — the notes overstated the clamp. | M6A-B5-1 describes the twist checks and the margin; M6A-B5-15 (Roundness above 0.5) and M6A-B5-16 (tents at sharp apexes) record what the clamp cannot change. |
 
-## Gates (local, real Chrome; port 3166)
+## Gates (local, real Chrome)
 
-Fix round 1, on the code of `b079985` (the notes commits change no code), CI unset: `format:check` (1,139 files),
-`lint`, `typecheck`, `check:deps` (15 packages), `check:fixtures` (4), `check:licenses` (176) green; `test` 15/15 green
-(`turbo run test test:tooling --force --concurrency=4`): anim-core 671, doc 233, doc-yjs 78, ui 87, rig 202,
-**mesh-core 466 + 2 skipped** (the two `READY.b2` cases; Node and Chromium), mesh-view 2, io 170, editor-core 793,
-headless-tests 173, viewport 100 + 1 skipped, curve-editor 207 + 3 skipped, editor 359 + 1 skipped, web 10, tooling 14.
-The production build (`turbo run build --force`) and `check:size` green: **864,426 B** (≤ 900,000 B), the `mesh-kernel`
-boundary holds (kernel chunk 46.1 kB, lazy). The full e2e suite (`EKZA_E2E_PORT=3166`, `--workers=4`): chrome 109
-passed, 10 skipped (the stretch and other packages' `test.fixme` gates), rc 0. B5 owns no e2e spec (§10.1).
+Fix round 2, on the code of `5b46db8` (the later commits change notes and a test-file comment only), CI unset, port
+3240: `format:check` (1,141 files), `lint`, `typecheck`, `check:deps` (15 packages), `check:fixtures` (4),
+`check:licenses` (176) green; `test` 15/15 green (`turbo run test test:tooling --force --concurrency=4 --continue`):
+anim-core 671, doc 233, doc-yjs 78, ui 87, rig 202, **mesh-core 473 + 2 skipped** (the two `READY.b2` cases; Node and
+Chromium; +7 in `clamp.test.ts`), mesh-view 2, io 170, editor-core 793, headless-tests 173, viewport 100 + 1 skipped,
+curve-editor 207 + 3 skipped, editor 359 + 1 skipped, web 10, tooling 14. The first `test` run hit the known flaky
+anim-core property "never writes −0 into a handle" (`insert.test.ts`, unseeded, seed `-192123828` this time; the
+B0a notes record seed `-657253700`); anim-core is unchanged by B5 and the rerun passed. The full e2e suite
+(`EKZA_E2E_PORT=3240 pnpm run test:e2e --workers=4`, which builds the production app): chrome 109 passed, 10 skipped
+(the stretch and other packages' `test.fixme` gates), rc 0, port free afterwards; `check:size` on that build
+**865,793 B** (≤ 900,000 B), the `mesh-kernel` boundary holds (kernel chunk 46.6 kB, lazy). B5 owns no e2e spec
+(§10.1). No UI file changed, so no separate `turbo run build`.
+
+Fix round 1 (code of `b079985`, port 3166): the same gates green, mesh-core 466 + 2 skipped, `check:size` 864,426 B,
+e2e 109 passed, 10 skipped.
 
 ## Performance (report only; Node 25.6, Apple M4 Pro; debug validation off)
 

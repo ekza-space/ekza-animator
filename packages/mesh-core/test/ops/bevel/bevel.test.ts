@@ -4,7 +4,8 @@
 // faces and no coincident points for any fraction), profiles (chamfer, roundness), hardness (H2 rows, hardened
 // borders, H1 fan spokes, P7-hard), attribute propagation (uv0 lerps and stays continuous, skin weights, paint and
 // materials), refusals, selection′ and the frame. Every run goes through the op harness (P1, P5, P8). The clamp and
-// P1–P4 on concave n-gons (reflex corners) are in concave.test.ts.
+// P1–P4 on concave n-gons (reflex corners) are in concave.test.ts; the clamp at acute and triangle corners, on every
+// primitive and on triangular prisms, in clamp.test.ts.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
