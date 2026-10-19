@@ -540,6 +540,10 @@ export interface RestoreHost {
   isOpen(table: string, id: string, record: DocRow): boolean;
   /** A record that still references (table, id) when it is about to be hard-deleted, else null. */
   dependantOf(table: string, id: string, planned: ReadonlyMap<string, { readonly table: string; readonly after: DocRow | undefined }>): string | null;
+  /** D0 (MAI-D0-1): the table names and the ids of every stored record of a table (any visibility), for
+   *  planSnapshotRestore's "records created since"; planRestore does not call them. */
+  tables(): readonly string[];
+  ids(table: string): readonly string[];
 }
 export interface RestoreWrite { readonly table: string; readonly id: string; readonly after: DocRow | undefined }
 export interface RestorePlan {
@@ -770,6 +774,7 @@ export function createAgentToolRuntime(opts: {
   readonly actor: RunActor;
   readonly gestureWaitMs?: number;             // default 15,000
   readonly confirmTimeoutMs?: number;          // default 50,000
+  readonly tools?: readonly AgentToolDef[];    // D0 (MAI-D0-2): the tool set served; default allTools()
 }): AgentToolRuntime;
 export function allTools(): readonly AgentToolDef[];   // every definition incl. not-ready ones (manifest generator, lint)
 
