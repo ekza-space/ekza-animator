@@ -1,8 +1,10 @@
 // MCP-SPEC §5.14 (D0): the policy table classifies every operator the built-ins register (and the run-time ones of
 // viewport, the shell and the curve editor); every allowed and confirm operator run under an actor, on a fixture whose
-// user session has a selection, a band, an override and another active clip, keeps the session-state invariant and
-// never ends `internal`; and the `prepare` of each of them leaves the session alone (runner rule 6). Operators that
-// fail the invariant until P1 migrates them are gated on READY.p1.
+// user session has a selection, a band, an override and another active clip, keeps the session-state invariant,
+// never ends `internal` and ends exactly as recorded per operator (finished, or the reason it refuses); and the
+// `prepare` of each of them leaves the session alone (runner rule 6). Operators that fail the invariant until P1
+// migrates them are gated on READY.p1, and READY.p1 switches the expected outcomes to P1's (the scope-ready operators
+// then must finish on the scope's keys), so P1's migration is visible and cannot regress silently.
 import type { KeyId } from '@ekza-animator/doc';
 import {
   AGENT_PROTECTED_SESSION_FIELDS,
@@ -10,6 +12,7 @@ import {
   NOT_AVAILABLE_YET,
   type OperatorAgentPolicy,
   type OperatorContext,
+  type OperatorResult,
   type RunContext,
   type RunScope,
 } from '@ekza-animator/editor-core';
@@ -129,7 +132,7 @@ const ARGS: Readonly<Record<string, ArgsOf>> = {
   'graph.keys.setFields': () => ({ args: { value: 12 }, scope: keysScope }),
   'graph.curves.simplify': () => ({ args: undefined, scope: keysScope }),
   'graph.eulerFilter': () => ({ args: undefined, scope: keysScope }),
-  'key.tween': () => ({ args: { mode: 'tween', amount: 0.5, target: 'keys' }, scope: keysScope }),
+  'key.tween': () => ({ args: { mode: 'tween', amount: 0.5, target: 'keys' }, scope: middleKeyScope }),
   'key.convert': () => ({ args: { to: 'breakdown' }, scope: keysScope }),
   'pose.mirrorAnimation': (fx) => ({
     args: { mode: 'leftToRight', controls: [controlOf(fx.app, fx.character, 'fk.lowerArm.L')] },
@@ -198,6 +201,107 @@ function keysScope(fx: Fixture): RunScope {
   };
 }
 
+/** The middle key only (frame 15): a tween needs unselected keys on both sides. */
+function middleKeyScope(fx: Fixture): RunScope {
+  const middle = fx.keys[1] as KeyId;
+  return {
+    ...keysScope(fx),
+    selection: { ...keysScope(fx).selection, keys: new Map([[middle, { key: true, in: true, out: true }]]) },
+  };
+}
+
+/** How a run ended: `finished` (with its value), `refused: <reason>` (cancelled or poll-failed) or `failed: <code>`. */
+function outcomeOf(result: OperatorResult<unknown>): string {
+  if (result.status === 'finished')
+    return result.value === undefined ? 'finished' : `finished ${JSON.stringify(result.value)}`;
+  if (result.status === 'cancelled') return `refused: ${result.reason}`;
+  return `failed: ${result.error.code}`;
+}
+
+/** The allowed operators whose targets come from the run scope (`operator_run {context}`); P1 migrates them. */
+const SCOPE_READY = [
+  'graph.tangent.set',
+  'graph.tangent.break',
+  'graph.tangent.unify',
+  'graph.tangent.lockWeight',
+  'graph.curve.setWeighted',
+  'graph.infinity.set',
+  'graph.keys.setFields',
+  'graph.curves.simplify',
+  'graph.eulerFilter',
+  'key.tween',
+  'key.convert',
+  'pose.mirrorAnimation',
+];
+/** The §4.10 operators D0 registers as stubs; P1 implements them. */
+const P1_STUBS = [
+  'key.write',
+  'key.delete',
+  'key.adjust',
+  'key.retime',
+  'pose.setAt',
+  'pose.goals',
+  'pose.transfer',
+  'clip.makeLoop',
+];
+
+/**
+ * What each run under an actor ends with in D0. The scope-ready operators still read the user's session, not the
+ * scope: most refuse because the user has no keys selected, and `graph.eulerFilter`/`pose.mirrorAnimation` finish
+ * without touching the scope's keys (count 0). `rig.addLimbIk` refuses because Polybot's arms have IK already (its
+ * confirm path is covered by the policy's `confirmWhen` and P3's wire examples). `select.curveKeys` is registered by
+ * the curve editor only.
+ */
+const EXPECTED_D0: Readonly<Record<string, string>> = {
+  'graph.tangent.set': 'refused: No curves to edit',
+  'graph.tangent.break': 'refused: No keys are selected',
+  'graph.tangent.unify': 'refused: No keys are selected',
+  'graph.tangent.lockWeight': 'refused: No curves to edit',
+  'graph.curve.setWeighted': 'refused: No curves to edit',
+  'graph.infinity.set': 'refused: No curves to edit',
+  'graph.keys.setFields': 'refused: No keys are selected',
+  'graph.curves.simplify': 'refused: No curves to edit',
+  'graph.eulerFilter': 'finished {"count":0}',
+  'key.tween': 'refused: Nothing to tween: the selected keys need unselected keys before and after them',
+  'key.convert': 'refused: No keys are selected or at the current frame',
+  'pose.mirrorAnimation': 'finished {"count":0}',
+  ...Object.fromEntries(P1_STUBS.map((id) => [id, `refused: ${NOT_AVAILABLE_YET}`])),
+  'clip.rename': 'finished',
+  'rig.setControlSize': 'finished',
+  'channel.toggleLock': 'finished',
+  'clip.setSettings': 'finished',
+  'rig.addLimbIk': 'refused: Those limbs have IK already',
+  'rig.setFootParams': 'finished',
+  'rig.setRotateOrder': 'finished',
+  'select.controls': 'finished',
+  'select.keys': 'finished',
+  'select.channels': 'finished',
+  'select.curveKeys': 'refused: not registered headless',
+  'select.none': 'finished',
+  'clip.setActive': 'finished',
+  'view.camera.setSettings': 'finished',
+  'time.setPlaybackRange': 'finished',
+  'time.setLoop': 'finished',
+  'time.setSpeed': 'finished',
+  'time.play': 'finished',
+  'time.stop': 'finished',
+  'time.setFrame': 'finished',
+};
+
+/**
+ * The outcome a run must have: D0's record, or with READY.p1 P1's rule — every scope-ready operator finishes on the
+ * scope's keys, the stubs are no longer stubs and the five gated operators run (P1 pins their exact outcomes here when
+ * it lands). Returns `actual` when the rule accepts it, else what was expected.
+ */
+function expectedOutcome(id: string, actual: string): string {
+  if (!READY.p1) return EXPECTED_D0[id] ?? '(no outcome recorded)';
+  if (SCOPE_READY.includes(id) || NEEDS_P1.has(id)) {
+    return actual.startsWith('finished') ? actual : "finished (P1: on the scope's keys)";
+  }
+  if (P1_STUBS.includes(id)) return actual.includes(NOT_AVAILABLE_YET) ? 'implemented by P1, not a stub' : actual;
+  return EXPECTED_D0[id] ?? '(no outcome recorded)';
+}
+
 function sessionRecord(app: EditorApp): unknown[] {
   const state = app.session.getState() as unknown as Readonly<Record<string, unknown>>;
   return [...AGENT_PROTECTED_SESSION_FIELDS.map((field) => state[field]), app.prefs.getState()];
@@ -215,6 +319,13 @@ describe('every allowed and confirm operator under an actor (MCP-SPEC §5.14, ru
     const missing = RUN_IDS.filter((id) => !Object.hasOwn(ARGS, id));
     // view.* and the shell's operators are registered by viewport and the editor only (absent headless).
     expect(missing.filter((id) => !RUNTIME_REGISTERED.includes(id))).toEqual([]);
+  });
+
+  it('records an expected outcome for every operator it runs', () => {
+    const ran = RUN_IDS.filter((id) => Object.hasOwn(ARGS, id) && !NEEDS_P1.has(id));
+    expect(ran.filter((id) => !Object.hasOwn(EXPECTED_D0, id))).toEqual([]);
+    expect(Object.keys(EXPECTED_D0).filter((id) => !ran.includes(id))).toEqual([]);
+    expect(SCOPE_READY.filter((id) => (OPERATOR_POLICY[id] as OperatorAgentPolicy).policy !== 'allowed')).toEqual([]);
   });
 
   for (const id of RUN_IDS.filter((id) => Object.hasOwn(ARGS, id))) {
@@ -243,6 +354,8 @@ describe('every allowed and confirm operator under an actor (MCP-SPEC §5.14, ru
       expect([id, changed, after.at(-1) === before.at(-1)]).toEqual([id, [], true]);
       const internal = result.status === 'failed' && !MAPPED.has(result.error.code);
       expect([id, internal ? result.error : null]).toEqual([id, null]);
+      const outcome = outcomeOf(result);
+      expect([id, outcome]).toEqual([id, expectedOutcome(id, outcome)]);
       fx.app.dispose();
     });
   }
