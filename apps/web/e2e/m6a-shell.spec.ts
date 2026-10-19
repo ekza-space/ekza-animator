@@ -50,6 +50,20 @@ test('workspace tabs: Model › Rig & Skin › Animate › Review; a click on Mo
   await expect(page.getByTestId('menu-key')).toHaveCount(0);
 });
 
+/** Heights of the dock groups holding a Mesh Check tab and widths of those holding a Toolkit tab (page CSS px). */
+async function dockGroups(page: Page): Promise<{ meshCheck: number[]; toolkit: number[] }> {
+  return page.evaluate(() => {
+    const groupsOf = (title: string): DOMRect[] =>
+      [...document.querySelectorAll('.dv-tab')]
+        .filter((tab) => tab.textContent?.trim() === title)
+        .map((tab) => tab.closest('.dv-groupview')?.getBoundingClientRect() ?? new DOMRect(0, 0, -1, -1));
+    return {
+      meshCheck: groupsOf('Mesh Check').map((rect) => Math.round(rect.height)),
+      toolkit: groupsOf('Toolkit').map((rect) => Math.round(rect.width)),
+    };
+  });
+}
+
 test('ws=model opens the Model layout: Outliner, the M-Quad viewport with persp maximized, the right dock, no time slider', async ({
   page,
 }) => {
@@ -61,6 +75,14 @@ test('ws=model opens the Model layout: Outliner, the M-Quad viewport with persp 
   await expect(page.getByTestId('timeline-region')).toHaveCount(0);
   // The Toolkit is the right dock's first tab (a placeholder until B11 lands it).
   await expect(page.getByText('Toolkit', { exact: true }).first()).toBeVisible();
+  // Mesh Check starts collapsed to its tab strip (§8.2: 26 px), the right dock 300 px wide; a round trip through
+  // Animate restores them.
+  expect(await dockGroups(page)).toEqual({ meshCheck: [26], toolkit: [300] });
+  await runOk(page, 'workspace.set', { workspace: 'animate' });
+  await expect(page.getByTestId('timeline-region')).toBeVisible();
+  await runOk(page, 'workspace.set', { workspace: 'model' });
+  await expect(page.getByTestId('timeline-region')).toHaveCount(0);
+  await expect.poll(() => dockGroups(page)).toEqual({ meshCheck: [26], toolkit: [300] });
   // Model's status-line groups and help line.
   for (const id of ['status-mode-object', 'status-sym', 'status-soft', 'status-snap-grid', 'status-pivot']) {
     await expect(page.getByTestId(id)).toBeVisible();
@@ -154,13 +176,14 @@ test('pointer platform rule (a): a context-menu event opens no marking menu; a r
   await expectKernelStarted(page);
   const pane = (await call(page, 'panes')).find((entry) => entry.id === MODEL_PANE);
   if (pane === undefined) throw new Error('no Model pane');
-  const centre = { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + pane.rect.h / 2 };
-  expect(await contextMenuEvent(page, centre.x, centre.y)).toBe(true);
+  // Left of the empty-state card, which sits at the pane's centre and takes its own presses.
+  const point = { x: pane.rect.x + 160, y: pane.rect.y + pane.rect.h / 2 };
+  expect(await contextMenuEvent(page, point.x, point.y)).toBe(true);
   expect(await call(page, 'markingMenu')).toBeNull();
 
   // A real right-button press (button 2) opens the menu at the pointer. Chrome also fires `contextmenu` on it; the
   // pane suppresses that. The controller loads lazily on entering Model: a press before it is there opens nothing.
-  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.move(point.x, point.y);
   await expect
     .poll(async () => {
       await page.mouse.down({ button: 'right' });
@@ -189,19 +212,109 @@ test('pointer platform rule (a): a context-menu event opens no marking menu; a r
   await expect(menu).toHaveCount(0);
 
   // A flick: press, move 40 px toward N and release at once — the slot runs without the menu being drawn.
-  await page.mouse.move(centre.x, centre.y);
+  await page.mouse.move(point.x, point.y);
   await page.mouse.down({ button: 'right' });
-  await page.mouse.move(centre.x, centre.y - 40, { steps: 2 });
+  await page.mouse.move(point.x, point.y - 40, { steps: 2 });
   await page.mouse.up({ button: 'right' });
   await expect.poll(() => shadingOf(page)).toEqual({ [MODEL_PANE]: 'wire' });
   expect(await call(page, 'markingMenu')).toBeNull();
   await expect(menu).toHaveCount(0);
 
   // With the menu registered and its controller loaded, a `contextmenu` event alone still opens nothing.
-  expect(await contextMenuEvent(page, centre.x, centre.y)).toBe(true);
+  expect(await contextMenuEvent(page, point.x, point.y)).toBe(true);
   expect(await call(page, 'markingMenu')).toBeNull();
   await expect(menu).toHaveCount(0);
   expect(await shadingOf(page)).toEqual({ [MODEL_PANE]: 'wire' });
+});
+
+/** Right-presses at (x, y) until the fixture menu opens (its controller loads on entering Model), then releases. */
+async function fixtureFlick(page: Page, from: { x: number; y: number }, to: { x: number; y: number }): Promise<void> {
+  await page.mouse.move(from.x, from.y);
+  await expect
+    .poll(async () => {
+      await page.mouse.down({ button: 'right' });
+      const open = await call(page, 'markingMenu');
+      if (open === null) await page.mouse.up({ button: 'right' });
+      return open?.id ?? null;
+    })
+    .toBe('e2e.fixture');
+  await page.mouse.move(to.x, to.y, { steps: 2 });
+  await page.mouse.up({ button: 'right' });
+  expect(await call(page, 'markingMenu')).toBeNull();
+}
+
+test('marking menu near the window edges: a flick runs the slot in the direction moved from the press', async ({
+  page,
+}) => {
+  await openModel(page, '&mmFixture=1');
+  await expectKernelStarted(page);
+  // The viewport panel maximized: the pane reaches the window's left edge.
+  await runOk(page, 'view.toggleMaximize', { panel: 'viewport' });
+  await expect
+    .poll(async () => (await call(page, 'panes')).find((entry) => entry.id === MODEL_PANE)?.rect.x ?? -1)
+    .toBeLessThan(2);
+  const pane = (await call(page, 'panes')).find((entry) => entry.id === MODEL_PANE);
+  if (pane === undefined) throw new Error('no Model pane');
+  const inner = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
+  const middle = pane.rect.y + pane.rect.h / 2;
+  // Each press is within the menu's edge margin (144 px), where the drawing moves inwards.
+  const left = { x: pane.rect.x + 30, y: middle };
+  const top = { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + 20 };
+  const bottom = { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + pane.rect.h - 20 };
+  expect(left.x).toBeLessThan(144);
+  expect(top.y).toBeLessThan(144);
+  expect(inner.h - bottom.y).toBeLessThan(144);
+  expect(await shadingOf(page)).toEqual({ [MODEL_PANE]: 'colours' });
+
+  await fixtureFlick(page, left, { x: left.x, y: left.y - 40 });
+  await expect.poll(() => shadingOf(page)).toEqual({ [MODEL_PANE]: 'wire' });
+  await fixtureFlick(page, top, { x: top.x, y: top.y + 40 });
+  await expect.poll(() => shadingOf(page)).toEqual({ [MODEL_PANE]: 'shaded' });
+  await fixtureFlick(page, bottom, { x: bottom.x, y: bottom.y - 40 });
+  await expect.poll(() => shadingOf(page)).toEqual({ [MODEL_PANE]: 'wire' });
+  await expect(page.getByTestId('mm-e2e.fixture')).toHaveCount(0);
+});
+
+/** The shown pane's whole box (header and surface) and the viewport panel's box, page CSS px. */
+async function paneAndPanel(page: Page, paneId: string): Promise<{ pane: number[]; panel: number[] }> {
+  return page.evaluate((id) => {
+    const box = (el: Element | null | undefined): number[] => {
+      const r = el?.getBoundingClientRect();
+      return r === undefined ? [] : [r.x, r.y, r.width, r.height].map((v) => Math.round(v));
+    };
+    const surface = document.querySelector(`[data-testid="pane-${id}"]`);
+    return {
+      pane: box(surface?.closest('section')),
+      panel: box(document.querySelector('[data-testid="viewport-panel"]')),
+    };
+  }, paneId);
+}
+
+async function expectPaneFillsPanel(page: Page, paneId: string): Promise<void> {
+  await expect.poll(async () => (await call(page, 'panes')).map((pane) => pane.id)).toEqual([paneId]);
+  const { pane, panel } = await paneAndPanel(page, paneId);
+  expect(panel[2], 'panel width').toBeGreaterThan(400);
+  expect(pane, `${paneId} fills the viewport panel`).toEqual(panel);
+  const surface = (await call(page, 'panes'))[0];
+  expect(Math.round(surface?.rect.w ?? 0)).toBe(panel[2]);
+}
+
+test('a single or maximized pane fills the viewport panel (Model’s first view, Animate’s Space and Single)', async ({
+  page,
+}) => {
+  await openModel(page);
+  await expectKernelStarted(page);
+  await expectPaneFillsPanel(page, MODEL_PANE);
+
+  await runOk(page, 'workspace.set', { workspace: 'animate' });
+  await expect.poll(async () => (await call(page, 'panes')).length).toBe(2);
+  await hoverPane(page, 'pane-right');
+  await page.keyboard.press('Space');
+  await expectPaneFillsPanel(page, 'pane-right');
+  await page.keyboard.press('Space');
+  await expect.poll(async () => (await call(page, 'panes')).length).toBe(2);
+  await runOk(page, 'view.layout', { layout: 'single' });
+  await expectPaneFillsPanel(page, 'pane-single');
 });
 
 test('§5.17: a control selected in Animate is neither handled nor slid in a Model pane that hides controls', async ({
