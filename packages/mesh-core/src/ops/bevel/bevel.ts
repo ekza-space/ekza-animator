@@ -23,8 +23,9 @@
 // `clamp`, a vertex with an edge measured from both of its ends is limited to fraction 0.98 (`bevel.clamped`), and
 // when a rebuilt face or a strip would still invert or collapse, a rebuilt face would cross itself (a reflex miter
 // past a thin arm), or two new vertices around a bevelled vertex would coincide, every width is scaled down to the
-// largest valid one (same warning). Hardness: strip row edges follow H2;
-// the edges bounding the bevel faces are hard with `hardenBorders` (else H2); fan spokes follow H1. Refusals:
+// largest valid one (same warning). Hardness: strip row edges follow H2; the edges bounding the bevel faces are hard
+// with `hardenBorders` (else H2); fan spokes follow H1. Symmetry (§5.14): the op runs on the expanded selection, and
+// the new vertices of a region of selected edges that is its own mirror are symmetrized afterwards. Refusals:
 // `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid width at all, e.g.
 // Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the next vertex or one
 // that folds faces over).
@@ -44,7 +45,7 @@ import { selectionOf } from '../../selection';
 import type { ComponentSelection, EditMesh, OpContext, OpFrame, OpResult, OpWarning, Refusal } from '../../types';
 import { blendPointAttributes, CornerValues, FaceValues } from './attributes';
 import { BEVEL } from './descriptor';
-import { expandForOp, isHidden, unmatchedWarning } from './symmetry';
+import { expandForOp, isHidden, mirrorOf, symmetrizeVertices, unmatchedWarning } from './symmetry';
 
 // ---------- arguments ----------
 
@@ -322,6 +323,8 @@ const T_CENTER = 5;
 
 /** A vertex of the result: position = base + λ·delta (the base is the bevelled vertex, or the original vertex). */
 interface Token {
+  /** The key the token was made under (its source elements: §5.14 maps them to the partner token's). */
+  readonly key: string;
   readonly kind: number;
   /** The bevelled vertex the token belongs to (T_OLD: the vertex itself). */
   readonly at: number;
@@ -331,6 +334,8 @@ interface Token {
   readonly far: readonly [number, number];
   /** T_MITER: the face's corner at `at` is reflex (the miter lies on the far ends' opposite side of `at`). */
   readonly reflex: boolean;
+  /** T_RUN: the run's middle edges. */
+  readonly run: readonly number[];
   /** T_PROFILE: the chord's end tokens (ascending) and the parameter from the first. */
   readonly chord: readonly [number, number];
   readonly s: number;
@@ -350,6 +355,11 @@ class Tokens {
     return id;
   }
 
+  /** The token made under `key`, or −1. */
+  find(key: string): number {
+    return this.#keys.get(key) ?? -1;
+  }
+
   make(
     key: string,
     kind: number,
@@ -358,6 +368,7 @@ class Tokens {
     extra?: {
       readonly far?: readonly [number, number];
       readonly reflex?: boolean;
+      readonly run?: readonly number[];
       readonly chord?: readonly [number, number];
       readonly s?: number;
     },
@@ -367,12 +378,14 @@ class Tokens {
     const p = this.m.position;
     const id = this.list.length;
     this.list.push({
+      key,
       kind,
       at,
       base: Float64Array.of(p[3 * at] as number, p[3 * at + 1] as number, p[3 * at + 2] as number),
       delta: Float64Array.from(delta),
       far: extra?.far ?? [-1, -1],
       reflex: extra?.reflex ?? false,
+      run: extra?.run ?? [],
       chord: extra?.chord ?? [-1, -1],
       s: extra?.s ?? 0,
       vertex: kind === T_OLD ? at : -1,
@@ -649,15 +662,20 @@ export function runBevel(
     // Runs: cyclically consecutive middle edges.
     const runOf = new Map<number, number>();
     const runDirs: number[][] = [];
+    const runEdges: number[][] = [];
     const first = raw.findIndex((r) => r.kind !== 'mid');
     for (let j = 0; j < raw.length; j++) {
       const i = (first + j) % raw.length;
       const r = raw[i] as Raw;
       if (r.kind !== 'mid') continue;
       const prev = raw[(i + raw.length - 1) % raw.length] as Raw;
-      if (prev.kind !== 'mid' || runDirs.length === 0) runDirs.push([0, 0, 0]);
+      if (prev.kind !== 'mid' || runDirs.length === 0) {
+        runDirs.push([0, 0, 0]);
+        runEdges.push([]);
+      }
       const run = runDirs.length - 1;
       runOf.set(r.edge, run);
+      (runEdges[run] as number[]).push(r.edge);
       const u = unitAlong(m, r.edge, x);
       const dir = runDirs[run] as number[];
       for (let k = 0; k < 3; k++) dir[k] = (dir[k] as number) + (u[k] as number);
@@ -670,12 +688,15 @@ export function runBevel(
       const dir = runDirs[r] as number[];
       const length = Math.hypot(dir[0] as number, dir[1] as number, dir[2] as number);
       const s = length > 0 ? d / length : 0;
+      // Keyed by the run's smallest edge, so the partner run is found through the edge map (§5.14).
+      const edges = runEdges[r] as number[];
       plan.runs.push(
         tokens.make(
-          `r:${x}:${r}`,
+          `r:${x}:${Math.min(...edges)}`,
           T_RUN,
           x,
           dir.map((c) => c * s),
+          { run: edges },
         ),
       );
     }
@@ -1139,6 +1160,11 @@ export function runBevel(
     );
   }
 
+  // 2b. Symmetry (§5.14): a region of selected edges that is its own mirror (it holds an edge's partner) was bevelled
+  //     once; its new vertices are symmetrized, each with the vertex of its partner token (the token made from the
+  //     partner elements). A region whose mirror is another region keeps its positions (both halves ran the same way).
+  if (ctx.symmetry !== null) symmetrizeRegions(m, ctx, selected, S, tokens, segments);
+
   // 3. Corner and face records, captured before the rebuilt faces are killed.
   const cv = new CornerValues(m);
   const fv = new FaceValues(m);
@@ -1358,6 +1384,99 @@ export function runBevel(
   for (let i = removed.length - 1; i >= 0; i--) m.killVert(removed[i] as number);
 
   return { selection: selectionOf('face', result, m.counts), warnings, frame, resolvedArgs };
+}
+
+/** §5.14 for the bevel: symmetrizes the new vertices of every region of selected edges that is its own mirror. */
+function symmetrizeRegions(
+  m: EditMesh,
+  ctx: OpContext,
+  selected: readonly number[],
+  S: ReadonlySet<number>,
+  tokens: Tokens,
+  segments: number,
+): void {
+  const symmetry = ctx.symmetry;
+  if (symmetry === null) return;
+  const { map } = symmetry;
+  const at = (list: Int32Array, i: number): number => (i >= 0 && i < list.length ? (list[i] as number) : -1);
+  // Regions: selected edges joined through shared vertices.
+  const parent = new Map<number, number>();
+  const find = (v: number): number => {
+    let r = v;
+    while ((parent.get(r) ?? r) !== r) r = parent.get(r) as number;
+    parent.set(v, r);
+    return r;
+  };
+  for (const e of selected) {
+    const a = find(m.edgeVert(e, 0));
+    const b = find(m.edgeVert(e, 1));
+    if (a !== b) parent.set(Math.max(a, b), Math.min(a, b));
+  }
+  const selfMirror = new Set<number>();
+  for (const e of selected) {
+    const pe = at(map.edge, e);
+    if (pe >= 0 && S.has(pe) && find(m.edgeVert(pe, 0)) === find(m.edgeVert(e, 0)))
+      selfMirror.add(find(m.edgeVert(e, 0)));
+  }
+  if (selfMirror.size === 0) return;
+  // The partner of a token: the token made from the partner elements (−1 when one has none).
+  const memo = new Map<number, number>();
+  const mirrorToken = (t: number): number => {
+    const known = memo.get(t);
+    if (known !== undefined) return known;
+    const token = tokens.list[t] as Token;
+    const parts = token.key.split(':').map(Number);
+    const x = at(map.vertex, token.at);
+    let key: string | null = null;
+    if (x >= 0) {
+      switch (token.kind) {
+        case T_OLD:
+          key = `o:${x}`;
+          break;
+        case T_SLIDE: {
+          const e = at(map.edge, parts[1] as number);
+          if (e >= 0) key = `s:${e}:${x}`;
+          break;
+        }
+        case T_MITER: {
+          const f = at(map.face, parts[1] as number);
+          if (f >= 0) key = `m:${f}:${x}`;
+          break;
+        }
+        case T_RUN: {
+          const edges = token.run.map((e) => at(map.edge, e));
+          if (!edges.includes(-1)) key = `r:${x}:${Math.min(...edges)}`;
+          break;
+        }
+        case T_CENTER:
+          key = `c:${x}`;
+          break;
+        case T_PROFILE: {
+          const lo = mirrorToken(token.chord[0]);
+          const hi = mirrorToken(token.chord[1]);
+          const i = Math.round(token.s * segments);
+          if (lo >= 0 && hi >= 0) key = `p:${Math.min(lo, hi)}:${Math.max(lo, hi)}:${x}:${lo < hi ? i : segments - i}`;
+          break;
+        }
+        default:
+          key = null;
+      }
+    }
+    const partner = key === null ? -1 : tokens.find(key);
+    memo.set(t, partner);
+    return partner;
+  };
+  const verts: number[] = [];
+  const partnerOf = new Map<number, number>();
+  for (let t = 0; t < tokens.list.length; t++) {
+    const token = tokens.list[t] as Token;
+    if (token.kind === T_OLD || token.vertex < 0 || !selfMirror.has(find(token.at))) continue;
+    const u = mirrorToken(t);
+    const vertex = u >= 0 ? tokens.vertex(u) : -1;
+    verts.push(token.vertex);
+    partnerOf.set(token.vertex, vertex);
+  }
+  symmetrizeVertices(m, verts, (v) => partnerOf.get(v) ?? -1, mirrorOf(map, ctx.placement));
 }
 
 /**

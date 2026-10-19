@@ -1,6 +1,7 @@
 // P10 for mesh.bevel (M6A-SPEC §5.14, §5.29): a symmetric mesh with a symmetric (or one-sided, expanded) edge or face
 // selection yields a symmetric mesh — positions mirrored within 1e-6 m, a partner for every new vertex and face — and
-// the unmatched-partner rule. Runs on the test stand-in map before B2 lands and on B2's real map behind READY.b2.
+// the unmatched-partner rule; on a mesh symmetric only within tolerance, a region that is its own mirror is
+// symmetrized. Runs on the test stand-in map before B2 lands and on B2's real map behind READY.b2.
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {
@@ -137,7 +138,15 @@ describe('P10: symmetric bevel (stand-in partner map)', () => {
         ctxOf(a, { symmetry: { map, preserveSeam: true } }),
       );
       const plain = runOk(bevel, b, selectionOf(kind, both, b.counts), args);
-      expect(diffStored(a, b)).toBeNull();
+      // The same mesh: every array bit-identical but the positions, which may differ by float noise (≤ 1e-12 m)
+      // where a region that is its own mirror was symmetrized (§5.14: seam points land exactly on the plane).
+      const sb = b.snapshot();
+      let noise = 0;
+      for (let i = 0; i < sb.position.length; i++) {
+        noise = Math.max(noise, Math.abs((a.position[i] as number) - (sb.position[i] as number)));
+      }
+      expect(noise).toBeLessThanOrEqual(1e-12);
+      expect(diffStored(a, { ...sb, position: Float32Array.from(a.position) })).toBeNull();
       expect(withSymmetry.selection.faces.toArray()).toEqual(plain.selection.faces.toArray());
       expect(mirrorError(a, standIn(a))).toBeLessThanOrEqual(1e-6);
     }
@@ -165,6 +174,59 @@ describe('P10: symmetric bevel (stand-in partner map)', () => {
     const seam = Array.from({ length: m.counts.points }, (_, v) => v).filter((v) => after.vertex[v] === v);
     expect(seam.length).toBeGreaterThan(0);
     expect(Math.max(...seam.map((v) => Math.abs(at(m, v)[0])))).toBeLessThanOrEqual(1e-7);
+  });
+
+  it('on a mesh symmetric only within tolerance, a region that is its own mirror comes out exactly symmetric', () => {
+    // A subdivided cube with every vertex moved by up to 2e-5 m: the stand-in map (1e-4) still pairs all of them.
+    const data = primitive('cube', { subdivisionsWidth: 2 });
+    const position = Float32Array.from(data.position, (x, i) => x + 2e-5 * Math.sin(12.9898 * (i + 1)));
+    const original = Array.from({ length: data.counts.points }, (_, v) => [...position.subarray(3 * v, 3 * v + 3)]);
+    /** Vertices the bevel made (not at an original position). */
+    const created = (m: EditMesh): number[] =>
+      Array.from({ length: m.counts.points }, (_, v) => v).filter(
+        (v) => !original.some((q) => Math.hypot(...at(m, v).map((x, k) => x - (q[k] as number))) <= 1e-9),
+      );
+    /** The largest distance from a created vertex's mirror image to the nearest created vertex. */
+    const asymmetry = (m: EditMesh): number => {
+      const list = created(m);
+      return Math.max(
+        ...list.map((v) => {
+          const [x, y, z] = at(m, v);
+          return Math.min(...list.map((w) => Math.hypot(at(m, w)[0] + x, at(m, w)[1] - y, at(m, w)[2] - z)));
+        }),
+      );
+    };
+    const run = (pick: (m: EditMesh) => number[]): EditMesh => {
+      const m = editMeshFrom({ ...data, position });
+      const map = standIn(m);
+      expect(map.unmatched).toBe(0);
+      runOk(
+        bevel,
+        m,
+        selectionOf('edge', pick(m), m.counts),
+        { segments: 2 },
+        ctxOf(m, { symmetry: { map, preserveSeam: true } }),
+      );
+      return m;
+    };
+    // The top-front edge, both halves: one region across the seam, its own mirror.
+    const across = run((m) => [
+      edgeBetween(m, [-0.5, 0.5, 0.5], [0, 0.5, 0.5], 1e-4),
+      edgeBetween(m, [0, 0.5, 0.5], [0.5, 0.5, 0.5], 1e-4),
+    ]);
+    expect(created(across).length).toBeGreaterThan(0);
+    expect(asymmetry(across)).toBeLessThanOrEqual(1e-7);
+    const seam = created(across).filter((v) => Math.abs(at(across, v)[0]) <= 1e-4);
+    expect(seam.length).toBeGreaterThan(0);
+    for (const v of seam) expect(at(across, v)[0]).toBe(0);
+    // The left and right top edges: two regions, each the other's mirror. Each is bevelled from its own geometry,
+    // so the input's asymmetry stays (nothing is averaged across regions).
+    const apart = run((m) => [
+      edgeBetween(m, [-0.5, 0.5, 0.5], [-0.5, 0.5, -0.5], 1e-4),
+      edgeBetween(m, [0.5, 0.5, 0.5], [0.5, 0.5, -0.5], 1e-4),
+    ]);
+    expect(asymmetry(apart)).toBeGreaterThan(1e-7);
+    expect(asymmetry(apart)).toBeLessThanOrEqual(1e-4);
   });
 
   it('an edge without a partner is bevelled on its own side with symmetry.unmatched-partner', () => {
