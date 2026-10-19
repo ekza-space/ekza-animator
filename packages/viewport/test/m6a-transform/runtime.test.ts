@@ -11,6 +11,7 @@ import {
   type EditorApp,
   historyLabels,
   loadMeshKernel,
+  opsRuntime,
   registerBuiltinOperators,
   selectInputsField,
   setComponentSpace,
@@ -808,8 +809,11 @@ describe('symmetry through the UI path (§5.14, P10)', () => {
     const first = positions(s.app, s.cube);
     const dy1 = (first[v]?.[1] ?? 0) - 0.5;
     expect(dy1).toBeGreaterThan(0);
-    // The run expanded the picks for the op; the selection stays the user's pick.
+    // The run expanded the picks for the op; the selection stays the user's pick, as part of the run's result: the
+    // Last-op card of the Move stays open (no "selection changed").
     expect(picksOf(s, 'vertex')).toEqual({ picks: [v], selected: 1, mirrored: 1 });
+    await Promise.resolve();
+    expect(s.app.session.getState().lastRun).toMatchObject({ id: 'mesh.transformComponents', closed: null });
     s.rig.frame();
     expect(manipulatorOn(s, first[v] ?? [])).toBe(true);
     // The second drag starts from the pick (not from the pick and its partner, whose pivot is on the mirror plane).
@@ -823,6 +827,9 @@ describe('symmetry through the UI path (§5.14, P10)', () => {
     expect(moved(second, rest).sort((a, b) => a - b)).toEqual([v, mirror].sort((a, b) => a - b));
     expectSymmetricX(second, partner);
     expect(picksOf(s, 'vertex')).toEqual({ picks: [v], selected: 1, mirrored: 1 });
+    await expect.poll(() => opsRuntime() !== null).toBe(true); // the tracker is bound
+    await Promise.resolve();
+    expect(s.app.session.getState().lastRun).toMatchObject({ id: 'mesh.transformComponents', closed: null });
     s.rig.frame();
     expect(manipulatorOn(s, second[v] ?? [])).toBe(true);
     // Undo and redo bring back each revision with the pick.

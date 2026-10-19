@@ -836,6 +836,7 @@ export class ModelTransformRuntime implements ModelManipulator {
       }
       const pinned = app.session.getState().model.componentPivot;
       const motion = base.motion === null ? null : withTyped(base.motion, base.typed, frame);
+      const keeping = keepPicksInCommit(app, kind, picked);
       void app
         .runUntyped(
           'mesh.transformComponents',
@@ -843,8 +844,10 @@ export class ModelTransformRuntime implements ModelManipulator {
           { source: 'tool', panel: PANEL.viewport, ...(paneId === '' ? {} : { paneId }) },
         )
         .then((result) => {
+          keeping();
           if (result.status === 'failed') app.services.notify.toast({ kind: 'error', text: result.error.message });
           if (result.status === 'finished') {
+            // Normally done inside the run's batch already (then nothing changes here).
             keepPicks(app, kind, picked);
             this.announceTyped(base);
           }
@@ -1333,6 +1336,22 @@ function freezePicks(app: EditorApp, meshes: readonly MeshId[]): FrozenPicks {
  * drag found them become the new revision's selection (a change of the current revision, which B10's service
  * remembers for redo; undo brings back the revision the run read, with its own remembered selection).
  */
+/**
+ * Keeps the picks inside the run's own change batch (the first local batch that changes a target mesh): the restore is
+ * then part of the run's result, before the runner records the LastRun and B11's tracker takes its baseline (a later
+ * selection change closes the Last-op card, "Selection changed"). The disposer stops waiting (after the run).
+ */
+function keepPicksInCommit(app: EditorApp, kind: ComponentKind, picked: FrozenPicks): () => void {
+  if (picked.size === 0) return () => {};
+  const off = app.store.subscribe((batch) => {
+    if (batch.origin !== 'local') return;
+    if (!batch.changes.some((change) => change.table === 'meshes' && picked.has(change.id as MeshId))) return;
+    off();
+    keepPicks(app, kind, picked);
+  });
+  return off;
+}
+
 function keepPicks(app: EditorApp, kind: ComponentKind, picked: FrozenPicks): void {
   const internals = componentInternals(app.components);
   if (internals === null) return;
