@@ -259,6 +259,7 @@ export class MeshDisplay {
       const tri = runtime.triangulation();
       entry.edit.update(runtime.mesh, dirty, tri, runtime.normals());
       entry.picker?.setMesh(runtime.mesh, tri, entry.world, dirty.topology);
+      entry.mesh = runtime.mesh;
       entry.version = runtime.version;
       if (dirty.topology) this.applyState(entry, runtime);
     } else if (entry.surface !== null) {

@@ -571,6 +571,26 @@ describe('EditMeshView: incremental updates', () => {
     );
   });
 
+  it('redraws edge flags from an incremental update (hard 2 px → soft 1 px)', () => {
+    const d = cube();
+    const camera = perspective([0.3, 0.9, 3]);
+    const e = edgeBetween(d, vertexAt(d, [-0.5, 0.5, 0.5]), vertexAt(d, [0.5, 0.5, 0.5]));
+    const view = editView(d, selectionOf('face', [], d.mesh.counts));
+    const s = px(camera, [0.1, 0.5, 0.5]);
+    const darkRows = (canvasRef: Canvas): number =>
+      [-2, -1, 0, 1, 2].filter((dy) => colourError(at(canvasRef, s, 0, dy), hexBytes(THEME.hardEdge), 2) === '').length;
+    const hard = darkRows(render(view, camera, { hardEdges: true }));
+    expect(hard).toBeGreaterThanOrEqual(2);
+    d.mesh.begin('test.soften');
+    d.mesh.setEdgeFlags(e, 0);
+    const delta = d.mesh.end();
+    expect(delta.dirty.topology).toBe(false);
+    view.update(d.mesh, delta.dirty, triangulate(d.mesh), computeNormals(d.mesh));
+    const soft = darkRows(render(view, camera, { hardEdges: true }));
+    expect(soft).toBeGreaterThanOrEqual(1);
+    expect(soft).toBeLessThan(hard);
+  });
+
   it('follows the world matrix', () => {
     const d = cube();
     const camera = orthoFront(6);
