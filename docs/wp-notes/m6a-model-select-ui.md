@@ -194,8 +194,9 @@ A throwaway `--shared` clone merged `m6a/mesh-select` (B1 + B2), `m6a/mesh-runti
 
 ## Eager route size (§5.27)
 
-`check:size` on this branch: **893,227 B ≤ 900,000 B** (headroom 6,773 B); the pre-B10 base (the B9 + B6 merge,
-67734e8) measures 881,183 B, so **B10 adds +12,044 B** (gzip -9) to the eager route. Both boundaries hold (the kernel
+`check:size` on this branch (fix round 1): **894,125 B ≤ 900,000 B** (headroom 5,875 B); the pre-B10 base (the B9 +
+B6 merge, 67734e8) measures 881,183 B, so **B10 adds +12,942 B** (gzip -9) to the eager route (+898 B in fix round 1:
+the Mesh Check options, the pending detection, the Make editable hint). Both boundaries hold (the kernel
 and mesh-view stay lazy: the Model select runtime, the HUD, the Mesh Check body and the marking-menu drawing are lazy
 chunks). The eager part is mostly editor-core: the selection service (`editor-core/src/selection`: 5.4 kB) and the
 mode, selection and hide operators. If INT needs the bytes for B11–B13 under the allowance the owner decides
@@ -205,13 +206,15 @@ mode, selection and hide operators. If INT needs the bytes for B11–B13 under t
 
 ## Gates
 
+Fix round 1, run on the final head in this worktree (the tree clean before and after):
+
 | Gate | Result |
 |---|---|
-| `pnpm run format:check` | clean (1,198 files) |
+| `pnpm run format:check` | clean (1,199 files) |
 | `pnpm run lint` | 0 findings |
 | `pnpm run typecheck` | clean |
 | `pnpm run check:deps` | 15 packages follow the rules |
-| `pnpm run test` | 15/15 tasks: editor-core 894 passed / 4 skipped (B10 gates), viewport 160 / 1, editor 451 / 3, mesh-view 74, mesh-core 134, headless-tests 173, … |
-| `pnpm run build` | OK; `check:size` 893,227 B (see above) |
-| B10 e2e specs | E2E-MOD-02, -25, -26 list as `test.fixme` with their gates (4 tests skipped) |
-| Full e2e (`EKZA_E2E_PORT=3171 pnpm run test:e2e`, project `chrome`) | **122 passed, 14 skipped** (gated), 0 failed |
+| `pnpm run test` | 15/15 tasks: editor-core 904 passed / 10 skipped (B10 gates `b2`, `b3`, `b5`, `b7`), viewport 163 / 1, editor 451 / 5, mesh-view 74, mesh-core 134, headless-tests 173, anim-core 671, doc 233, io 170, rig 202, curve-editor 207 / 3, doc-yjs 78, ui 87, web 16 |
+| `pnpm run build` | OK; `check:size` 894,125 B ≤ 900,000 B (the M6a eager-delta warning is the owner's pending allowance decision, not enforced) |
+| B10 e2e specs | E2E-MOD-02, -25, -26 list as `test.fixme` with their gates (4 tests skipped); E2E-MOD-26 passes un-gated on the scratch integration (above) |
+| Full e2e (`EKZA_E2E_PORT=3241 pnpm run test:e2e`, project `chrome`, local GPU Chrome) | **122 passed, 14 skipped** (gated), 0 failed (1.2 min); the server stopped, port 3241 free |
