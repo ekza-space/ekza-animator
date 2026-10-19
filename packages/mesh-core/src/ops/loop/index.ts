@@ -5,8 +5,10 @@
 // A non-quad face at a ring end gets the new vertex (triangle → quad). Cross edges follow H1; `selection′` = the new
 // loop edges. Symmetry (§5.14, pointer class): the seed point is mapped by the pointer rule and the partner ring gets
 // the mirrored loops; a loop whose mirror is itself (a waist ring; a crossing ring at the crossing weight, snapped onto
-// the plane) is inserted once. `adjust` re-places a single relative/equal loop for a new weight (positions and the
-// interpolated layers, bit-identical to a fresh run); with symmetry or `multiple` it declines (the caller re-runs).
+// the plane) is inserted once. A seed between non-quads (a triangle mesh made editable) is a ring of one edge: it is
+// split and the new vertex joins its faces; only an edge without faces refuses `insertLoop.no-ring`. `adjust`
+// re-places a single relative/equal loop for a new weight (positions and the interpolated layers, bit-identical to a
+// fresh run); with symmetry or `multiple` it declines (the caller re-runs).
 import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { copyCornerAttributes, interpolateCornerAttributes, interpolatePointAttributes } from '../../layers/propagate';
@@ -29,6 +31,7 @@ import {
   str,
   sub,
   vertCorners,
+  vertEdges,
   guarded,
 } from '../extrude/shared/util';
 import { INSERT_LOOP } from './descriptor';
@@ -151,7 +154,9 @@ function runInsertLoop(
   args['seedEdge'] = seed;
   const side0 = m.edgeVert(seed, 0);
   const ring0 = walkRing(m, seed, side0, ctx.hidden);
-  if (ring0.faces.length === 0) return refuse('insertLoop.no-ring', 'Insert Edge Loop needs an edge between quads');
+  // A seed between non-quads (a triangle mesh made editable) has a ring of one edge: it is split and the new vertex
+  // joins its faces (§5.11 termination, triangle → quad). Only an edge without faces has no ring at all.
+  if (m.edgeFaceCount(seed) === 0) return refuse('insertLoop.no-ring', 'Insert Edge Loop needs an edge of a face');
   const seedLength = length(sub(pos(m, m.edgeVert(seed, 1)), pos(m, side0)));
   const geometry0 = ringGeometry(m, ring0);
   let loops = loopsOf(geometry0, fractions(geometry0, args, seedLength));
@@ -192,6 +197,7 @@ function runInsertLoop(
   // Split every ring edge at its parameters (largest first, so e keeps running from edgeVert(e, 0)).
   const vertexOf = new Map<string, number>();
   const splits: Split[] = [];
+  const created: number[] = [];
   for (const [e, list] of [...perEdge].sort((x, y) => x[0] - y[0])) {
     const a = m.edgeVert(e, 0);
     const b = m.edgeVert(e, 1);
@@ -210,6 +216,7 @@ function runInsertLoop(
       const sides = edgeCorners(m, e).map((c) => ({ c, face: m.cornerFace(c) }));
       const v = m.splitEdgeMakeVert(e, span > 0 ? u / span : 0);
       setPos(m, v, lerp3(pa, pb, u));
+      created.push(v);
       if (sorted.length === 1) {
         // The single-split case is exactly the Euler operator's interpolation; record it for `adjust`.
         const record: Split = { e, v, a, b, sides: [] };
@@ -268,6 +275,8 @@ function runInsertLoop(
     if (next !== flags) m.setEdgeFlags(e, next);
     loopEdges.push(e);
   }
+  // No quad crossed (only end faces): select the pieces of the split ring edges, so the new points show.
+  if (chords.length === 0) for (const v of created) loopEdges.push(...vertEdges(m, v));
   // `adjust`: one relative/equal loop without symmetry moves its points and re-interpolates their layers.
   const single = mirror === null && loops.length === 1 && str(args, 'mode', 'relative') !== 'multiple';
   let current: Record<string, ParamValue> = args;

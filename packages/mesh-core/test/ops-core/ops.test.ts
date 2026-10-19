@@ -219,12 +219,38 @@ describe('mesh.insertLoop placement (§5.11)', () => {
     expect(r2.resolvedArgs['seedEdge']).toBe(ring[1]);
   });
 
-  it('refuses insertLoop.no-ring without a seed or without a quad beside it', () => {
+  it('refuses insertLoop.no-ring without a seed or for an edge without faces', () => {
     const m = cube();
     runRefused(m, 'mesh.insertLoop', sel(m, 'edge', []), 'insertLoop.no-ring');
     expect(counts(m)).toBe('8/12/6');
-    const tri = editMeshFrom(fromFaces([0, 0, 0, 1, 0, 0, 0, 1, 0], [[0, 1, 2]]));
-    runRefused(tri, 'mesh.insertLoop', sel(tri, 'edge', [0]), 'insertLoop.no-ring');
+    // A wire edge between two opposite corners.
+    m.begin('wire');
+    const wire = m.makeEdge(0, 6);
+    m.end();
+    runRefused(m, 'mesh.insertLoop', sel(m, 'edge', [wire]), 'insertLoop.no-ring');
+    expect(counts(m)).toBe('8/13/6');
+  });
+
+  it('a seed between triangles (a triangle mesh made editable) is split; its triangles become quads', () => {
+    // Two triangles sharing edge 1–2, as glTF meshes arrive.
+    const m = editMeshFrom(
+      fromFaces(
+        [0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 1, 0],
+        [
+          [0, 1, 2],
+          [2, 1, 3],
+        ],
+      ),
+    );
+    const seed = m.findEdge(1, 2);
+    const a = position(m, m.edgeVert(seed, 0));
+    const b = position(m, m.edgeVert(seed, 1));
+    const result = runOk(m, 'mesh.insertLoop', sel(m, 'edge', [seed]), { weight: 0.25 });
+    expect(counts(m)).toBe('5/6/2');
+    expect([m.faceLen(0), m.faceLen(1)]).toEqual([4, 4]);
+    expect(r6(position(m, 4))).toEqual(r6(lerp(a, b, 0.25)));
+    expect(result.selection.edges.count()).toBe(2);
+    expect(windingProblems(m)).toEqual([]);
   });
 
   it('H1: cross edges are hard on a faceted cube, soft on a smooth one', () => {
