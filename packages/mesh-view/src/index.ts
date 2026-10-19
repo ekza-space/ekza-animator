@@ -3,7 +3,7 @@
 // `VIEW_MARKER`, the `check-size` marker of the `mesh-view` boundary (§2), so eager code that pulls mesh-view in fails
 // the size gate.
 export type * from './types';
-export { ComponentPicker, PICK_RADIUS } from './ComponentPicker';
+export { ComponentPicker, PICK_RADIUS, type PickOccluder, type PickOptionsInput } from './ComponentPicker';
 export { EditMeshView, emptySelection, NGON_CODES } from './EditMeshView';
 export { MeshSurface } from './MeshSurface';
 export { mirroredOf, partnerOf } from './mirror';

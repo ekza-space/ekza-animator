@@ -2,14 +2,28 @@
 // (refit after position commits, rebuilt after topology commits and hidden-set changes, both deferred to the first
 // pick) answers ray hits and occlusion; a per-camera projection of the vertices answers vertex and edge distances in
 // screen space. Vertex = nearest projected vertex within 8 CSS px; edge = nearest projected segment within 6 px with
-// its parameter t from `edgeVert(e, 0)`; face = the BVH ray hit (camera-based off, as in wire shading and x-ray: the
-// face-centre dot within 8 px first). Camera-based selection tests occlusion against the visible surface; back faces
-// are pickable only with `backfaces` or with camera-based selection off. Hidden elements are never pickable.
+// its parameter t from `edgeVert(e, 0)`; face = the BVH ray hit (camera-based off, as in x-ray: the face-centre dot
+// within 8 px first; wire shading: the dot only). Camera-based selection tests occlusion against the visible surface
+// and against the meshes around this one (`setOccluder`: the other meshes a pane draws, M6A-B6-22); the picker in turn
+// occludes for them (`occludes`). Back faces are pickable only with `backfaces` (the caller passes x-ray || the
+// Backfaces option, §5.6). Hidden elements are never pickable.
 import type { BitSet, ComponentKind, EditMesh, HiddenSet, Triangulation } from '@ekza-animator/mesh-core';
-import { BufferAttribute, BufferGeometry, type Camera, DoubleSide, Matrix4, Ray, Vector3 } from 'three';
+import { BufferAttribute, BufferGeometry, type Camera, DoubleSide, FrontSide, Matrix4, Ray, Vector3 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
+import { localSegment, type PickOccluder, segmentFar } from './internal/occluder';
 import { allVisible, deriveVisibility, type Topo, topoOfEdit, type Visibility } from './internal/topo';
 import type { PickHit, PickOptions } from './types';
+
+export type { PickOccluder } from './internal/occluder';
+
+/**
+ * `PickOptions` (§4.4) with mesh-view's own field (M6A-B6-1, M6A-B6-7): `wire` = the pane draws no surface (wire
+ * shading), so a face is picked by its centre dot only (§5.6 "wireframe: the face-centre dot within 8 px"). Absent =
+ * false. Back faces follow `backfaces` alone in every shading: the caller passes `xray || Backfaces option` (§5.6).
+ */
+export interface PickOptionsInput extends PickOptions {
+  readonly wire?: boolean;
+}
 
 /** Default pick radii in CSS px (§5.6). */
 export const PICK_RADIUS = { vertex: 8, edge: 6, face: 8 } as const;
@@ -24,6 +38,9 @@ const tmpA = new Vector3();
 const tmpB = new Vector3();
 const tmpC = new Vector3();
 const tmpR = new Vector3();
+// The world segment handed to an external occluder (only `externallyOccluded` writes them; occluders read them).
+const occFrom = new Vector3();
+const occTo = new Vector3();
 
 function sameBits(a: { readonly words: Uint32Array; readonly size: number }, b: typeof a): boolean {
   if (a.size !== b.size) return false;
@@ -82,6 +99,12 @@ export class ComponentPicker {
   private readonly cameraLocal = new Vector3();
   private readonly forwardLocal = new Vector3();
   private orthographic = false;
+  /** The meshes around this one, consulted by camera-based tests (`setOccluder`). */
+  private occluder: PickOccluder | null = null;
+  // Scratch of `occludes` (this picker as another picker's occluder; never the module scratch the caller holds).
+  private readonly occRay = new Ray();
+  private readonly occA = new Vector3();
+  private readonly occB = new Vector3();
 
   /**
    * The mesh to pick on, its triangulation and its column-major world-from-local matrix. `topologyChanged` (a
@@ -125,6 +148,28 @@ export class ComponentPicker {
    */
   setIsolate(faces: BitSet | null): void {
     this.isolate = faces === null ? null : faces.clone();
+  }
+
+  /**
+   * What hides this mesh's components besides its own surface (camera-based tests only; §5.6): the other meshes the
+   * pane draws, as the host (`MeshDisplay`) collects them for one pane query. null = this mesh only. The host sets it
+   * before a query and clears it after.
+   */
+  setOccluder(occluder: PickOccluder | null): void {
+    this.occluder = occluder;
+  }
+
+  /**
+   * True when a visible triangle of this mesh crosses the world segment `from`–`to` short of a 1e-4 margin at `to`:
+   * this mesh hiding another mesh's component (M6A-B6-22). It uses the visibility of the last query or `prepareBvh`
+   * call (hidden set, the face isolate set of `setIsolate`), so the host prepares it for the pane first.
+   */
+  occludes(from: Vector3, to: Vector3): boolean {
+    if (this.topo === null || this.tri === null) return false;
+    const bvh = this.ensureBvh();
+    if (bvh === null) return false;
+    const far = localSegment(this.inverse, from, to, this.occRay, this.occA, this.occB);
+    return far > 0 && bvh.raycastFirst(this.occRay, DoubleSide, 0, far) !== null;
   }
 
   /** The face isolate set in effect for the current topology (null when none or of another topology). */
@@ -276,17 +321,29 @@ export class ComponentPicker {
     return false;
   }
 
-  /** True when nothing visible covers local point `p` of element (kind, index) from the camera. */
+  /**
+   * True when nothing visible covers local point `p` of element (kind, index) from the camera: no visible triangle of
+   * this mesh is hit before 0.9999 × its distance (or the hit face contains the element), and no mesh around it
+   * (`setOccluder`) crosses the same segment.
+   */
   private unoccluded(p: Vector3, kind: ComponentKind, index: number): boolean {
     const bvh = this.ensureBvh();
-    if (bvh === null) return true;
-    const d = this.rayTo(p);
-    const far = d * (1 - 1e-4) - 1e-7;
+    const far = segmentFar(this.rayTo(p));
     if (!(far > 0)) return true;
-    const hit = bvh.raycastFirst(this.ray, DoubleSide, 0, far);
-    if (hit === null) return true;
-    const f = this.bvhTriFace[hit.faceIndex ?? 0] as number;
-    return this.faceHas(f, kind, index);
+    if (bvh !== null) {
+      const hit = bvh.raycastFirst(this.ray, DoubleSide, 0, far);
+      if (hit !== null && !this.faceHas(this.bvhTriFace[hit.faceIndex ?? 0] as number, kind, index)) return false;
+    }
+    return !this.externallyOccluded(this.ray.origin, p);
+  }
+
+  /** Whether a mesh around this one (`setOccluder`) crosses the local segment `from`–`to` (mapped to world). */
+  private externallyOccluded(from: Vector3, to: Vector3): boolean {
+    const occluder = this.occluder;
+    if (occluder === null) return false;
+    occFrom.copy(from).applyMatrix4(this.world);
+    occTo.copy(to).applyMatrix4(this.world);
+    return occluder.occludes(occFrom, occTo);
   }
 
   private local(v: number, out: Vector3): Vector3 {
@@ -347,7 +404,7 @@ export class ComponentPicker {
     ndc: readonly [number, number],
     viewport: { readonly w: number; readonly h: number },
     kind: ComponentKind,
-    opts: PickOptions,
+    opts: PickOptionsInput,
   ): PickHit | null {
     if (!this.prepare(camera, viewport, opts)) return null;
     const px = ((ndc[0] + 1) / 2) * viewport.w;
@@ -471,34 +528,54 @@ export class ComponentPicker {
     viewport: Viewport,
     px: number,
     py: number,
-    opts: PickOptions,
+    opts: PickOptionsInput,
   ): PickHit | null {
+    const radius = opts.radiusPx ?? PICK_RADIUS.face;
+    // Wire shading draws no surface to click: the face-centre dot only (§5.6).
+    if (opts.wire === true) return this.nearestDot(px, py, viewport, radius, opts);
     if (!opts.cameraBased) {
-      const dot = this.nearestDot(px, py, viewport, opts.radiusPx ?? PICK_RADIUS.face);
+      const dot = this.nearestDot(px, py, viewport, radius, opts);
       if (dot !== null) return dot;
     }
-    const hit = this.castFace(this.pickRay(camera, ndc), opts);
+    const ray = this.pickRay(camera, ndc);
+    const hit = this.castFace(ray, opts);
     if (hit === null) return null;
+    // The nearest face of this mesh can still lie behind another mesh the pane draws.
+    if (opts.cameraBased && this.externallyOccluded(ray.origin, hit.local)) return null;
     return { kind: 'face', index: hit.face, t: null, point: hit.point, distancePx: 0 };
   }
 
-  private nearestDot(px: number, py: number, viewport: Viewport, radius: number): PickHit | null {
+  /**
+   * The nearest face-centre dot within `radius` px (ties: lower index) whose face is visible, faces the camera unless
+   * `backfaces`, and, camera-based, is not occluded.
+   */
+  private nearestDot(px: number, py: number, viewport: Viewport, radius: number, opts: PickOptions): PickHit | null {
     const t = this.topo as Topo;
-    let best = -1;
-    let bestD2 = radius * radius;
-    let bestPoint: readonly [number, number, number] = [0, 0, 0];
+    const r2 = radius * radius;
+    const found: number[] = [];
     for (let f = 0; f < t.faces; f++) {
       if (this.vis.faces[f] !== 1) continue;
       const q = this.projectLocal(this.faceCentroid(f, tmpA), viewport);
       if (q === null) continue;
       const d2 = (q.x - px) ** 2 + (q.y - py) ** 2;
-      if (d2 < bestD2 || (d2 === bestD2 && best === -1)) {
-        best = f;
-        bestD2 = d2;
-        bestPoint = this.worldPoint(tmpA);
-      }
+      if (d2 <= r2) found.push(d2, f);
     }
-    return best === -1 ? null : { kind: 'face', index: best, t: null, point: bestPoint, distancePx: Math.sqrt(bestD2) };
+    if (found.length === 0) return null;
+    const order = this.sortCandidates(found, () => 0);
+    for (const k of order) {
+      const f = found[2 * k + 1] as number;
+      const c = this.faceCentroid(f, tmpA);
+      if (!opts.backfaces && !this.frontFacing(f, c)) continue;
+      if (opts.cameraBased && !this.unoccluded(c, 'face', f)) continue;
+      return {
+        kind: 'face',
+        index: f,
+        t: null,
+        point: this.worldPoint(c),
+        distancePx: Math.sqrt(found[2 * k] as number),
+      };
+    }
+    return null;
   }
 
   /** Screen point (CSS px) of local point `p` for the projection of the last `project`, or null when not projectable. */
@@ -512,20 +589,25 @@ export class ComponentPicker {
     return { x: ((cx / w + 1) / 2) * viewport.w, y: ((1 - cy / w) / 2) * viewport.h, w };
   }
 
-  /** First face hit by a local-space ray, honouring hidden faces and the back-face rule. */
+  /**
+   * First face hit by a local-space ray, honouring hidden faces and the back-face rule: camera-based, the nearest face
+   * (null when it shows its back without `backfaces`: it hides what lies behind it); camera-based off, nothing
+   * occludes, so without `backfaces` the first face whose front the ray meets.
+   */
   private castFace(
     localRay: Ray,
     opts: PickOptions,
-  ): { readonly face: number; readonly point: readonly [number, number, number] } | null {
+  ): { readonly face: number; readonly point: readonly [number, number, number]; readonly local: Vector3 } | null {
     const bvh = this.ensureBvh();
     if (bvh === null) return null;
-    const hit = bvh.raycastFirst(localRay, DoubleSide);
+    const frontOnly = !opts.cameraBased && !opts.backfaces;
+    const hit = bvh.raycastFirst(localRay, frontOnly ? FrontSide : DoubleSide);
     if (hit === null) return null;
     const f = this.bvhTriFace[hit.faceIndex ?? 0] as number;
     const normal = hit.face?.normal;
     const front = normal === undefined ? true : normal.dot(localRay.direction) < 0;
-    if (!front && opts.cameraBased && !opts.backfaces) return null;
-    return { face: f, point: this.worldPoint(hit.point) };
+    if (!front && !opts.backfaces) return null;
+    return { face: f, point: this.worldPoint(hit.point), local: hit.point };
   }
 
   /** Faces under the ray (first hit), for camera-based tests and Tweak. `ray` is in world space. */
@@ -537,20 +619,21 @@ export class ComponentPicker {
     this.syncHidden(opts.hidden);
     const local = ray.clone().applyMatrix4(this.inverse);
     local.direction.normalize();
-    return this.castFace(local, opts);
+    const hit = this.castFace(local, opts);
+    return hit === null ? null : { face: hit.face, point: hit.point };
   }
 
   /**
    * Components of `kind` inside a pane rectangle (CSS px, any corner order), ascending: vertices and face dots by
-   * their projected point, edges when both projected endpoints are inside (Maya). Camera-based: occluded components
-   * are left out, and faces facing away unless `backfaces`.
+   * their projected point, edges when both projected endpoints are inside (Maya). Faces facing away are left out
+   * unless `backfaces`; camera-based, occluded components too (by this mesh or by `setOccluder`'s meshes).
    */
   marquee(
     camera: Camera,
     rect: { readonly x0: number; readonly y0: number; readonly x1: number; readonly y1: number },
     viewport: { readonly w: number; readonly h: number },
     kind: ComponentKind,
-    opts: PickOptions,
+    opts: PickOptionsInput,
   ): Uint32Array {
     if (!this.prepare(camera, viewport, opts)) return new Uint32Array(0);
     const t = this.topo as Topo;
@@ -582,10 +665,8 @@ export class ComponentPicker {
         const c = this.faceCentroid(f, tmpA);
         const q = this.projectLocal(c, viewport);
         if (q === null || !inside(q.x, q.y)) continue;
-        if (opts.cameraBased) {
-          if (!opts.backfaces && !this.frontFacing(f, c)) continue;
-          if (!this.unoccluded(c, 'face', f)) continue;
-        }
+        if (!opts.backfaces && !this.frontFacing(f, c)) continue;
+        if (opts.cameraBased && !this.unoccluded(c, 'face', f)) continue;
         out.push(f);
       }
     }
@@ -595,14 +676,15 @@ export class ComponentPicker {
   /**
    * Screen point (pane CSS px) of a component for tests and tools (B10's `screenOfVertex/Edge/Face`): a vertex, the
    * point at `t` of an edge (default 0.5), or a visible interior point of a face (its centroid, else a triangle
-   * centroid). null when hidden, off-screen, occluded (camera-based) or, for a face, facing away without `backfaces`.
+   * centroid; `wire`: the centroid, its dot, only). null when hidden, off-screen, occluded (camera-based, by this mesh
+   * or by `setOccluder`'s meshes) or, for a face, facing away without `backfaces`.
    */
   screenOf(
     camera: Camera,
     viewport: Viewport,
     kind: ComponentKind,
     index: number,
-    opts: PickOptions,
+    opts: PickOptionsInput,
     t = 0.5,
   ): { readonly x: number; readonly y: number } | null {
     if (!this.prepare(camera, viewport, opts)) return null;
@@ -630,10 +712,12 @@ export class ComponentPicker {
     }
     if (index < 0 || index >= topo.faces || this.vis.faces[index] !== 1) return null;
     const centroid = this.faceCentroid(index, new Vector3());
-    if (opts.cameraBased && !opts.backfaces && !this.frontFacing(index, centroid)) return null;
+    if (!opts.backfaces && !this.frontFacing(index, centroid)) return null;
     const candidates = [centroid];
     const tri = this.tri as Triangulation;
-    for (let k = tri.faceTriStart[index] as number; k < (tri.faceTriStart[index + 1] as number); k++) {
+    // Wire shading picks a face by its dot only, so the dot is its one point.
+    const end = opts.wire === true ? 0 : (tri.faceTriStart[index + 1] as number);
+    for (let k = tri.faceTriStart[index] as number; k < end; k++) {
       const c = new Vector3();
       for (let j = 0; j < 3; j++) c.add(this.local(topo.cv[tri.tris[3 * k + j] as number] as number, tmpB));
       candidates.push(c.divideScalar(3));

@@ -1,12 +1,14 @@
-// ComponentPicker (M6A-SPEC §4.4, §5.6): vertex/edge/face picking on fixed cameras, depth order, occlusion, back faces,
-// hidden elements, a pane's face isolate, marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a
-// randomized check of vertex and face picks against three.js's own raycaster over the same triangles.
+// ComponentPicker (M6A-SPEC §4.4, §5.6): vertex/edge/face picking on fixed cameras, depth order, occlusion (by the mesh
+// itself and by the meshes around it), back faces, the wire-shading dot rule, hidden elements, a pane's face isolate,
+// marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a randomized check of vertex and face
+// picks against three.js's own raycaster over the same triangles.
 import { BitSet, type HiddenSet, triangulate } from '@ekza-animator/mesh-core';
 import {
   BufferAttribute,
   BufferGeometry,
   type Camera,
   DoubleSide,
+  Euler,
   Matrix4,
   Mesh,
   MeshBasicMaterial,
@@ -16,7 +18,7 @@ import {
   Vector3,
 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ComponentPicker, PICK_RADIUS } from '../src';
+import { ComponentPicker, MeshSurface, PICK_RADIUS, type PickOptionsInput } from '../src';
 import type { PickOptions } from '../src/types';
 import {
   centroidOf,
@@ -25,6 +27,7 @@ import {
   edgeBetween,
   faceFacing,
   IDENTITY,
+  LAYERS,
   matrixOf,
   ndc,
   orthoFront,
@@ -33,6 +36,7 @@ import {
   plane,
   prng,
   screen,
+  THEME,
   vertexAt,
   vertexOf,
 } from './support';
@@ -41,7 +45,12 @@ const W = 400;
 const H = 300;
 const VIEW = { w: W, h: H } as const;
 const CAMERA_BASED: PickOptions = { cameraBased: true, backfaces: false, hidden: null };
+/** Camera-based selection off without back faces (wire shading's picks without the dot rule). */
 const NO_OCCLUSION: PickOptions = { cameraBased: false, backfaces: false, hidden: null };
+/** X-ray: camera-based off, back faces pickable (the caller passes `backfaces = xray || option`, §5.6). */
+const XRAY: PickOptions = { cameraBased: false, backfaces: true, hidden: null };
+/** Wire shading: camera-based off, faces by their centre dot only. */
+const WIRE: PickOptionsInput = { cameraBased: false, backfaces: false, hidden: null, wire: true };
 
 let picker: ComponentPicker | null = null;
 afterEach(() => {
@@ -284,16 +293,30 @@ describe('ComponentPicker: faces', () => {
     expect(p.hover(camera, ndc(5, 5, W, H), VIEW, 'face', CAMERA_BASED)).toBeNull();
   });
 
-  it('back faces are pickable only with backfaces or camera-based selection off', () => {
+  it('back faces are pickable only with backfaces, in every shading (x-ray passes it, §5.6)', () => {
     const d = plane();
     const p = pickerFor(d);
     const below = perspective([0.4, -3, 0.5]);
     const centre = at(below, [0, 0, 0]);
+    const full = { x0: 0, y0: 0, x1: W, y1: H } as const;
     expect(p.hover(below, centre, VIEW, 'face', CAMERA_BASED)).toBeNull();
     expect(p.hover(below, centre, VIEW, 'face', { ...CAMERA_BASED, backfaces: true })?.index).toBe(0);
-    expect(p.hover(below, centre, VIEW, 'face', NO_OCCLUSION)?.index).toBe(0);
+    // Camera-based off: neither the dot nor the ray picks the back of the face without `backfaces` …
+    expect(p.hover(below, centre, VIEW, 'face', NO_OCCLUSION)).toBeNull();
+    expect(p.hover(below, centre, VIEW, 'face', WIRE)).toBeNull();
+    expect(p.marquee(below, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(0);
+    expect(p.screenOf(below, VIEW, 'face', 0, NO_OCCLUSION)).toBeNull();
+    // … x-ray (and the Backfaces option) does.
+    expect(p.hover(below, centre, VIEW, 'face', XRAY)?.index).toBe(0);
+    expect(p.hover(below, centre, VIEW, 'face', { ...WIRE, backfaces: true })?.index).toBe(0);
+    expect(Array.from(p.marquee(below, full, VIEW, 'face', XRAY))).toEqual([0]);
+    expect(p.screenOf(below, VIEW, 'face', 0, XRAY)).not.toBeNull();
+    // Vertices and edges have no back.
+    expect(p.marquee(below, full, VIEW, 'vertex', NO_OCCLUSION)).toHaveLength(4);
     const above = perspective([0.4, 3, 0.5]);
-    expect(p.hover(above, at(above, [0, 0, 0]), VIEW, 'face', CAMERA_BASED)?.index).toBe(0);
+    for (const opts of [CAMERA_BASED, NO_OCCLUSION, WIRE, XRAY]) {
+      expect(p.hover(above, at(above, [0, 0, 0]), VIEW, 'face', opts)?.index).toBe(0);
+    }
   });
 
   it('hidden faces are neither picked nor occluding', () => {
@@ -325,6 +348,40 @@ describe('ComponentPicker: faces', () => {
       expect(p.hover(camera, at(camera, c, 6, 0), VIEW, 'face', NO_OCCLUSION)?.index).toBe(f);
       expect(p.hover(camera, at(camera, c, 6, 0), VIEW, 'face', NO_OCCLUSION)?.distancePx).toBeCloseTo(6, 3);
     }
+  });
+
+  it('wire shading picks a face by its centre dot only (§5.6)', () => {
+    const d = plane({ width: 2, height: 2, subdivisionsWidth: 2, subdivisionsHeight: 2 });
+    const p = pickerFor(d);
+    const camera = orthoTop(3);
+    for (let f = 0; f < 4; f++) {
+      const c = centroidOf(d, f);
+      expect(p.hover(camera, at(camera, c, 6, 0), VIEW, 'face', WIRE)).toMatchObject({ index: f, kind: 'face' });
+      expect(p.hover(camera, at(camera, c, 0, 7.5), VIEW, 'face', WIRE)?.distancePx).toBeCloseTo(7.5, 3);
+      // 30 px from the dot, well inside the face (100 px across): the ray would hit it, the dot rule does not.
+      expect(p.hover(camera, at(camera, c, 30, 30), VIEW, 'face', NO_OCCLUSION)?.index).toBe(f);
+      expect(p.hover(camera, at(camera, c, 30, 30), VIEW, 'face', WIRE)).toBeNull();
+      // Its screen point is the dot.
+      const q = p.screenOf(camera, VIEW, 'face', f, WIRE);
+      const expected = screen(camera, c, W, H);
+      expect(q?.x).toBeCloseTo(expected[0], 3);
+      expect(q?.y).toBeCloseTo(expected[1], 3);
+    }
+    expect(p.hover(camera, at(camera, centroidOf(d, 0), 6, 0), VIEW, 'face', { ...WIRE, radiusPx: 4 })).toBeNull();
+  });
+
+  it('wire shading with camera-based selection forced on skips occluded dots', () => {
+    const d = cube();
+    const p = pickerFor(d);
+    const camera = perspective([0.15, 0.1, 6]);
+    const front = faceFacing(d, [0, 0, 1]);
+    const back = faceFacing(d, [0, 0, -1]);
+    const forced: PickOptionsInput = { ...WIRE, cameraBased: true, backfaces: true };
+    // Both dots project within 3 px of each other; the back one lies behind the front face.
+    expect(p.hover(camera, at(camera, centroidOf(d, back)), VIEW, 'face', forced)?.index).toBe(front);
+    expect(p.hover(camera, at(camera, centroidOf(d, back)), VIEW, 'face', { ...WIRE, backfaces: true })?.index).toBe(
+      back,
+    );
   });
 
   it('raycastFace takes a world ray and the mesh transform', () => {
@@ -407,7 +464,9 @@ describe('ComponentPicker: marquee', () => {
     expect(p.marquee(camera, full, VIEW, 'face', { ...CAMERA_BASED, backfaces: true })).toHaveLength(3);
     expect(p.marquee(camera, full, VIEW, 'vertex', NO_OCCLUSION)).toHaveLength(8);
     expect(p.marquee(camera, full, VIEW, 'edge', NO_OCCLUSION)).toHaveLength(12);
-    expect(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(6);
+    // Camera-based off: every face dot facing the camera (wire), or every one with back faces (x-ray).
+    expect(p.marquee(camera, full, VIEW, 'face', NO_OCCLUSION)).toHaveLength(3);
+    expect(p.marquee(camera, full, VIEW, 'face', XRAY)).toHaveLength(6);
     const faces = Array.from(p.marquee(camera, full, VIEW, 'face', CAMERA_BASED));
     const byIndex = (a: number, b: number): number => a - b;
     expect(faces.sort(byIndex)).toEqual(
@@ -452,7 +511,8 @@ describe('ComponentPicker: marquee', () => {
     expect(faces).not.toContain(top);
     // Without the top face the two other front faces stay; the inside of the bottom face looks away from the camera.
     expect(faces).toHaveLength(2);
-    expect(p.marquee(camera, full, VIEW, 'face', { ...NO_OCCLUSION, hidden })).toHaveLength(5);
+    expect(p.marquee(camera, full, VIEW, 'face', { ...NO_OCCLUSION, hidden })).toHaveLength(2);
+    expect(p.marquee(camera, full, VIEW, 'face', { ...XRAY, hidden })).toHaveLength(5);
   });
 });
 
@@ -491,6 +551,113 @@ describe('ComponentPicker: screenOf', () => {
     far.position.set(20, 0, 3);
     far.updateMatrixWorld();
     expect(p.screenOf(far, VIEW, 'vertex', v, CAMERA_BASED)).toBeNull();
+  });
+});
+
+describe('ComponentPicker: occlusion by the meshes around it (setOccluder, occludes)', () => {
+  /** A 2 m cube centred 3 m in front of the unit cube (towards the front camera). */
+  const IN_FRONT = matrixOf(new Matrix4().makeTranslation(0, 0, 3).multiply(new Matrix4().makeScale(2, 2, 2)));
+  const full = { x0: 0, y0: 0, x1: W, y1: H } as const;
+
+  function occluderPicker(world: Float64Array): ComponentPicker {
+    const o = cube();
+    const other = new ComponentPicker();
+    other.setMesh(o.mesh, o.tri, world, true);
+    return other;
+  }
+
+  it('leaves out what another mesh hides, camera-based only', () => {
+    const d = cube();
+    const p = pickerFor(d);
+    const other = occluderPicker(IN_FRONT);
+    const camera = orthoFront(4);
+    const corner = vertexAt(d, [0.5, 0.5, 0.5]);
+    const pointer = at(camera, vertexOf(d, corner));
+    const front = faceFacing(d, [0, 0, 1]);
+    expect(p.hover(camera, pointer, VIEW, 'vertex', CAMERA_BASED)?.index).toBe(corner);
+    p.setOccluder(other);
+    try {
+      expect(p.hover(camera, pointer, VIEW, 'vertex', CAMERA_BASED)).toBeNull();
+      expect(p.hover(camera, at(camera, [0.5, 0, 0.5]), VIEW, 'edge', CAMERA_BASED)).toBeNull();
+      expect(p.hover(camera, at(camera, [0.1, 0.1, 0.5]), VIEW, 'face', CAMERA_BASED)).toBeNull();
+      for (const kind of ['vertex', 'edge', 'face'] as const) {
+        expect(p.marquee(camera, full, VIEW, kind, CAMERA_BASED)).toHaveLength(0);
+      }
+      expect(p.screenOf(camera, VIEW, 'vertex', corner, CAMERA_BASED)).toBeNull();
+      expect(p.screenOf(camera, VIEW, 'face', front, CAMERA_BASED)).toBeNull();
+      // Camera-based off (wire, x-ray): nothing occludes.
+      expect(p.hover(camera, pointer, VIEW, 'vertex', NO_OCCLUSION)?.index).toBe(corner);
+      expect(p.marquee(camera, full, VIEW, 'vertex', NO_OCCLUSION)).toHaveLength(8);
+      expect(p.screenOf(camera, VIEW, 'face', front, XRAY)).not.toBeNull();
+      // From the side the other cube is out of the way.
+      const side = perspective([4, 1.5, 0.3]);
+      const right = vertexAt(d, [0.5, 0.5, -0.5]);
+      expect(p.hover(side, at(side, vertexOf(d, right)), VIEW, 'vertex', CAMERA_BASED)?.index).toBe(right);
+    } finally {
+      p.setOccluder(null);
+      other.dispose();
+    }
+    expect(p.hover(camera, pointer, VIEW, 'vertex', CAMERA_BASED)?.index).toBe(corner);
+    expect(p.marquee(camera, full, VIEW, 'vertex', CAMERA_BASED)).toHaveLength(4);
+  });
+
+  it('a picker occludes with its visible triangles along its world placement', () => {
+    const other = occluderPicker(IN_FRONT);
+    try {
+      const through = (x: number, y: number, z0 = 10, z1 = 0): boolean =>
+        other.occludes(new Vector3(x, y, z0), new Vector3(x, y, z1));
+      expect(through(0, 0)).toBe(true);
+      expect(through(0.9, -0.9)).toBe(true);
+      expect(through(1.1, 0)).toBe(false);
+      // A segment that stops short of the cube, or ends on its surface (the margin), is not occluded.
+      expect(through(0, 0, 10, 4.5)).toBe(false);
+      expect(through(0, 0, 10, 4)).toBe(false);
+      expect(through(0, 0, 10, 3.9)).toBe(true);
+      // Hidden faces do not occlude; nor do faces outside the face isolate set.
+      const o = cube();
+      const front = faceFacing(o, [0, 0, 1]);
+      const back = faceFacing(o, [0, 0, -1]);
+      other.prepareBvh(hiddenFaces(o, [front, back]));
+      expect(through(0, 0)).toBe(false);
+      expect(through(0, 0, 3, -10)).toBe(false);
+      expect(other.occludes(new Vector3(0, 10, 3), new Vector3(0, -10, 3))).toBe(true);
+      other.prepareBvh(null);
+      expect(through(0, 0)).toBe(true);
+      const isolate = new BitSet(o.mesh.counts.faces);
+      isolate.add(faceFacing(o, [0, 1, 0]));
+      other.setIsolate(isolate);
+      other.prepareBvh(null);
+      expect(through(0, 0)).toBe(false);
+    } finally {
+      other.dispose();
+    }
+  });
+
+  it('a MeshSurface occludes with every face along its world placement, following setWorld and setData', () => {
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    try {
+      const segment = (x: number, y: number): boolean => surface.occludes(new Vector3(x, y, 10), new Vector3(x, y, 0));
+      expect(segment(0, 0)).toBe(false);
+      const o = cube();
+      surface.setData(o.data, o.tri, o.normals, null);
+      surface.setWorld(IN_FRONT);
+      expect(segment(0, 0)).toBe(true);
+      expect(segment(0.9, 0.9)).toBe(true);
+      expect(segment(1.1, 0)).toBe(false);
+      expect(surface.occludes(new Vector3(0, 0, 10), new Vector3(0, 0, 4))).toBe(false);
+      surface.setWorld(matrixOf(new Matrix4().makeTranslation(3, 0, 3)));
+      expect(segment(0, 0)).toBe(false);
+      expect(segment(3.4, 0)).toBe(true);
+      const big = cube({ width: 4, height: 4, depth: 4 });
+      surface.setData(big.data, big.tri, big.normals, null);
+      expect(segment(1.5, 0)).toBe(true);
+      // Back faces occlude as well (the surface draws both sides): from inside the cube.
+      expect(surface.occludes(new Vector3(3, 0, 3), new Vector3(3, 0, 10))).toBe(true);
+      surface.dispose();
+      expect(segment(3, 0)).toBe(false);
+    } finally {
+      surface.dispose();
+    }
   });
 });
 
@@ -591,5 +758,111 @@ describe('ComponentPicker: randomized agreement with three.js raycasting', () =>
     // The trials exercise both outcomes.
     expect(vertexHits).toBeGreaterThan(100);
     expect(faceHits).toBeGreaterThan(100);
+  });
+
+  it('vertex and face picks behind another mesh match the oracle over both meshes (setOccluder)', () => {
+    const d = cube({ subdivisionsWidth: 2, subdivisionsHeight: 2, subdivisionsDepth: 2 });
+    const p = pickerFor(d);
+    const own = oracleMesh(d);
+    const o = cube();
+    const blocker = oracleMesh(o);
+    const other = new ComponentPicker();
+    const raycaster = new Raycaster();
+    const random = prng(0xb10c);
+    let hidden = 0;
+    let shown = 0;
+    let facesHidden = 0;
+    /** True when a triangle of `mesh` (world matrix applied) lies on the camera ray before 0.9999 × `dist`. */
+    const blocks = (mesh: Mesh, origin: Vector3, dir: Vector3, dist: number): boolean => {
+      raycaster.set(origin, dir);
+      raycaster.near = 0;
+      raycaster.far = dist * (1 - 1e-4);
+      return raycaster.intersectObject(mesh).length > 0;
+    };
+    try {
+      for (let trial = 0; trial < 30; trial++) {
+        const theta = random() * Math.PI * 2;
+        const phi = (random() - 0.5) * Math.PI * 0.8;
+        const r = 3 + random() * 2;
+        const eye: [number, number, number] = [
+          r * Math.cos(phi) * Math.cos(theta),
+          r * Math.sin(phi),
+          r * Math.cos(phi) * Math.sin(theta),
+        ];
+        const camera = perspective(eye);
+        // A rotated, non-uniformly scaled cube somewhere between the camera and the mesh, a little off the line.
+        const along = 0.35 + random() * 0.3;
+        const m = new Matrix4()
+          .makeTranslation(
+            eye[0] * along + (random() - 0.5) * 0.6,
+            eye[1] * along + (random() - 0.5) * 0.6,
+            eye[2] * along + (random() - 0.5) * 0.6,
+          )
+          .multiply(new Matrix4().makeRotationFromEuler(new Euler(random() * 3, random() * 3, random() * 3)))
+          .multiply(new Matrix4().makeScale(0.3 + random() * 0.5, 0.3 + random() * 0.5, -(0.3 + random() * 0.5)));
+        other.setMesh(o.mesh, o.tri, matrixOf(m), true);
+        blocker.matrixAutoUpdate = false;
+        blocker.matrix.copy(m);
+        blocker.matrixWorld.copy(m);
+        p.setOccluder(other);
+        for (let k = 0; k < 30; k++) {
+          const v0 = Math.floor(random() * d.mesh.counts.points);
+          const [sx, sy] = screen(camera, vertexOf(d, v0), W, H);
+          const x = sx + (random() - 0.5) * 10;
+          const y = sy + (random() - 0.5) * 10;
+          const pointer = ndc(x, y, W, H);
+          const candidates: { d2: number; z: number; v: number }[] = [];
+          for (let v = 0; v < d.mesh.counts.points; v++) {
+            const [vx, vy] = screen(camera, vertexOf(d, v), W, H);
+            const d2 = (vx - x) ** 2 + (vy - y) ** 2;
+            const z = new Vector3(...vertexOf(d, v)).applyMatrix4(camera.matrixWorldInverse).z;
+            if (d2 <= 64) candidates.push({ d2, z: -z, v });
+          }
+          candidates.sort((a, b) => (Math.abs(a.d2 - b.d2) > 1e-6 ? a.d2 - b.d2 : a.z !== b.z ? a.z - b.z : a.v - b.v));
+          let expected: number | null = null;
+          let blockedFirst = false;
+          for (const c of candidates) {
+            const target = new Vector3(...vertexOf(d, c.v));
+            const dir = target.clone().sub(camera.position);
+            const dist = dir.length();
+            dir.normalize();
+            raycaster.set(camera.position, dir);
+            raycaster.near = 0;
+            raycaster.far = dist * (1 - 1e-4);
+            const hit = raycaster.intersectObject(own)[0];
+            if (hit !== undefined && !faceHasVertex(d, faceOfTriangle(d, hit.faceIndex ?? 0), c.v)) continue;
+            if (blocks(blocker, camera.position, dir, dist)) {
+              if (expected === null && c === candidates[0]) blockedFirst = true;
+              continue;
+            }
+            expected = c.v;
+            break;
+          }
+          expect(p.hover(camera, pointer, VIEW, 'vertex', CAMERA_BASED)?.index ?? null).toBe(expected);
+          if (blockedFirst) hidden++;
+          if (expected !== null) shown++;
+          // Face: the first own hit, front-facing, with nothing of the other mesh before it.
+          raycaster.near = 0;
+          raycaster.far = Infinity;
+          raycaster.setFromCamera(new Vector2(...pointer), camera);
+          const first = raycaster.intersectObject(own)[0];
+          let expectedFace: number | null = null;
+          const normal = first?.face?.normal;
+          if (first !== undefined && normal !== undefined && normal.dot(raycaster.ray.direction) < 0) {
+            const dir = raycaster.ray.direction.clone();
+            if (blocks(blocker, camera.position, dir, first.distance)) facesHidden++;
+            else expectedFace = faceOfTriangle(d, first.faceIndex ?? 0);
+          }
+          expect(p.hover(camera, pointer, VIEW, 'face', CAMERA_BASED)?.index ?? null).toBe(expectedFace);
+        }
+      }
+    } finally {
+      p.setOccluder(null);
+      other.dispose();
+    }
+    // The trials exercise hidden and visible candidates and faces.
+    expect(hidden).toBeGreaterThan(20);
+    expect(shown).toBeGreaterThan(100);
+    expect(facesHidden).toBeGreaterThan(20);
   });
 });
