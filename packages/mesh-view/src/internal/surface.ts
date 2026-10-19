@@ -26,6 +26,16 @@ import type { Topo } from './topo';
 
 export type SurfaceShading = 'wire' | 'shaded' | 'colours' | 'lit';
 
+/** What `SurfaceLayer.apply` takes per pane (the views pass one reused object: it runs before every pane render). */
+export interface SurfaceDisplay {
+  shading: SurfaceShading;
+  flat: boolean;
+  cull: boolean;
+  faceOrientation: boolean;
+  opacity: number;
+  xray: boolean;
+}
+
 export class SurfaceLayer {
   readonly mesh: Mesh;
   readonly depth: Mesh;
@@ -303,14 +313,7 @@ export class SurfaceLayer {
    * other material here: mesh-view draws the palette under the same rig, M6A-B6-3). `opacity` < 1 draws it
    * transparent; `xray` adds the depth pre-pass the overlays' occluded pass tests against.
    */
-  apply(opts: {
-    readonly shading: SurfaceShading;
-    readonly flat: boolean;
-    readonly cull: boolean;
-    readonly faceOrientation: boolean;
-    readonly opacity: number;
-    readonly xray: boolean;
-  }): void {
+  apply(opts: Readonly<SurfaceDisplay>): void {
     const u = this.uniforms;
     (u['uPaint'] as IUniform<boolean>).value = this.hasPaint && opts.shading !== 'shaded';
     (u['uFlat'] as IUniform<boolean>).value = opts.flat;

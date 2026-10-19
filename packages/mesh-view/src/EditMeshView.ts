@@ -20,6 +20,7 @@ import { GlyphBatch, SHAPE } from './internal/glyphs';
 import { LineBatch } from './internal/lines';
 import { IndexSet, Touched, uploadAll } from './internal/ranges';
 import { ViewBase } from './internal/base';
+import { copyHidden, copyPalette, hiddenFits, samePalette, sameHidden, sameSet } from './internal/sets';
 import {
   bounds,
   copyPositions,
@@ -45,24 +46,11 @@ export const NGON_CODES: ReadonlySet<string> = new Set(['nonplanar-ngon', 'conca
 const VERTEX_CODES = new Set(['non-manifold-vertex', 'stray-vertex']);
 const EDGE_CODES = new Set(['non-manifold-edge', 'zero-length-edge', 'open-border']);
 
-// Change detection compares contents against the view's own copies (taken in `setState`/`setIsolate`): a caller may
-// mutate a selection, hidden set or isolate set in place and pass the same object again (the §4.6 selection service
-// does not promise fresh objects), so identity says nothing.
-function sameSet(a: BitSet | null, b: BitSet | null): boolean {
-  if (a === null || b === null) return a === b;
-  return a.equals(b);
-}
-
+// Change detection compares contents against the view's own copies (taken in `setState`/`setIsolate`; see
+// `internal/sets.ts`).
 function sameSelection(a: ComponentSelection | null, b: ComponentSelection | null): boolean {
   if (a === null || b === null) return a === b;
   return a.kind === b.kind && sameSet(a.verts, b.verts) && sameSet(a.edges, b.edges) && sameSet(a.faces, b.faces);
-}
-
-function sameHidden(a: HiddenSet | null, b: HiddenSet | null): boolean {
-  const empty = (h: HiddenSet | null): boolean =>
-    h === null || (h.verts.isEmpty() && h.edges.isEmpty() && h.faces.isEmpty());
-  if (a === null || b === null) return empty(a) && empty(b);
-  return sameSet(a.verts, b.verts) && sameSet(a.edges, b.edges) && sameSet(a.faces, b.faces);
 }
 
 function copySelection(s: ComponentSelection | null): ComponentSelection | null {
@@ -75,32 +63,6 @@ function copySelection(s: ComponentSelection | null): ComponentSelection | null 
     order: null,
     active: -1,
   };
-}
-
-function copyHidden(h: HiddenSet | null): HiddenSet | null {
-  return h === null ? null : { verts: h.verts.clone(), edges: h.edges.clone(), faces: h.faces.clone() };
-}
-
-function copyPalette(
-  colours: ReadonlyMap<number, readonly [number, number, number]> | null,
-): Map<number, readonly [number, number, number]> | null {
-  if (colours === null) return null;
-  const out = new Map<number, readonly [number, number, number]>();
-  for (const [slot, c] of colours) out.set(slot, [c[0], c[1], c[2]]);
-  return out;
-}
-
-function samePalette(
-  a: ReadonlyMap<number, readonly [number, number, number]> | null,
-  b: ReadonlyMap<number, readonly [number, number, number]> | null,
-): boolean {
-  if (a === null || b === null) return a === b;
-  if (a.size !== b.size) return false;
-  for (const [slot, c] of a) {
-    const d = b.get(slot);
-    if (d === undefined || d[0] !== c[0] || d[1] !== c[1] || d[2] !== c[2]) return false;
-  }
-  return true;
 }
 
 function setOf(sel: ComponentSelection | null, kind: ComponentKind): BitSet | null {
@@ -234,7 +196,7 @@ export class EditMeshView extends ViewBase {
     // indices may name other elements now); the host pushes remapped ones (M6A-B6-19).
     if (this.sel !== null && !this.fits(this.sel)) this.sel = null;
     if (this.mirrored !== null && !this.fits(this.mirrored)) this.mirrored = null;
-    if (this.hidden !== null && !this.fitsHidden(this.hidden)) this.hidden = null;
+    if (this.hidden !== null && !hiddenFits(t, this.hidden)) this.hidden = null;
     if (this.isolate !== null && this.isolate.size !== t.faces) this.isolate = null;
     this.vis = { verts: new Uint8Array(t.points), edges: new Uint8Array(t.edges), faces: new Uint8Array(t.faces) };
     deriveVisibility(t, this.hidden, this.isolate, this.vis);
@@ -276,13 +238,6 @@ export class EditMeshView extends ViewBase {
   private fits(sel: ComponentSelection): boolean {
     const t = this.topo;
     return t !== null && sel.verts.size === t.points && sel.edges.size === t.edges && sel.faces.size === t.faces;
-  }
-
-  /** A hidden set of this topology: each of its sets is empty or sized to the element count. */
-  private fitsHidden(h: HiddenSet): boolean {
-    const t = this.topo;
-    const fit = (set: BitSet, count: number): boolean => set.size === count || set.isEmpty();
-    return t !== null && fit(h.verts, t.points) && fit(h.edges, t.edges) && fit(h.faces, t.faces);
   }
 
   private paintSlots(): ArrayLike<number> | null {
@@ -755,10 +710,11 @@ export class EditMeshView extends ViewBase {
     const wire = display.shading === 'wire';
     const xray = display.xray && !wire;
     const dim = display.dimmed ? MESH_VIEW_STYLE.dimOpacity : 1;
-    for (const glyphs of [this.verts, this.faceDots]) {
-      glyphs.setUniform('uShowState', true);
-      glyphs.setAlpha(dim, dim * MESH_VIEW_STYLE.occludedAlpha);
-    }
+    // Runs before every pane render: nothing allocated here (MVP-SPEC §3 rule 5).
+    this.verts.setUniform('uShowState', true);
+    this.verts.setAlpha(dim, dim * MESH_VIEW_STYLE.occludedAlpha);
+    this.faceDots.setUniform('uShowState', true);
+    this.faceDots.setAlpha(dim, dim * MESH_VIEW_STYLE.occludedAlpha);
     this.verts.show(components && mode === 'vertex', xray);
     this.faceDots.show(components && mode === 'face', xray);
 

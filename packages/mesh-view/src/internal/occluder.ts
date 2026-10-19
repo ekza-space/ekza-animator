@@ -40,15 +40,31 @@ export function localSegment(inverse: Matrix4, from: Vector3, to: Vector3, ray: 
   return segmentFar(d);
 }
 
-/** The local index of every triangle of a triangulation (corners mapped to their vertices). */
-export function triangleIndex(t: Topo, tri: Triangulation): Uint32Array {
-  const out = new Uint32Array(tri.tris.length);
-  for (let i = 0; i < out.length; i++) out[i] = t.cv[tri.tris[i] as number] as number;
+/**
+ * The local index of the triangles of a triangulation (corners mapped to their vertices): every triangle, or only
+ * those of the faces `faceVisible` marks 1.
+ */
+export function triangleIndex(t: Topo, tri: Triangulation, faceVisible: Uint8Array | null = null): Uint32Array {
+  if (faceVisible === null) {
+    const out = new Uint32Array(tri.tris.length);
+    for (let i = 0; i < out.length; i++) out[i] = t.cv[tri.tris[i] as number] as number;
+    return out;
+  }
+  // Only the triangles of drawn faces (hidden faces neither draw nor occlude, M6A-B6-6).
+  const triangles = tri.triFace.length;
+  let n = 0;
+  for (let k = 0; k < triangles; k++) if (faceVisible[tri.triFace[k] as number] === 1) n++;
+  const out = new Uint32Array(3 * n);
+  let at = 0;
+  for (let k = 0; k < triangles; k++) {
+    if (faceVisible[tri.triFace[k] as number] !== 1) continue;
+    for (let j = 0; j < 3; j++) out[at++] = t.cv[tri.tris[3 * k + j] as number] as number;
+  }
   return out;
 }
 
 /**
- * A static triangle list as an occluder (a `MeshSurface`, which draws every face). The BVH is built on the first
+ * A static triangle list as an occluder (a `MeshSurface`: the faces it draws). The BVH is built on the first
  * segment that reaches the local bounding box, so meshes nowhere near the line of sight never pay for one.
  */
 export class TriangleOccluder implements PickOccluder {

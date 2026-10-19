@@ -33,6 +33,7 @@ import {
   colourError,
   faceFacing,
   hexBytes,
+  IDENTITY,
   LAYERS,
   light,
   linear,
@@ -837,6 +838,142 @@ describe('MeshSurface', () => {
         2,
       ),
     ).toBe('');
+  });
+
+  it('repaints new palette colours by content, rewriting the paint attribute only (setPaint)', () => {
+    const d = cube();
+    const camera = orthoFront(4);
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    disposables.push(surface);
+    surface.setData(d.data, d.tri, d.normals, new Map([[0, [255, 0, 0] as const]]));
+    const centre = px(camera, [0.1, 0.15, 0.5]);
+    const colours: Partial<MeshPaneDisplay> = { shading: 'colours' };
+    expect(colourError(at(render(surface, camera, colours), centre), bytes(lit(0xff0000, camera, [0, 0, 1])), 2)).toBe(
+      '',
+    );
+    const versions = (): Map<string, number> => {
+      const out = new Map<string, number>();
+      surface.root.traverse((object) => {
+        const geometry = (object as { geometry?: BufferGeometry }).geometry;
+        if (geometry === undefined) return;
+        for (const [name, attribute] of Object.entries(geometry.attributes)) {
+          out.set(`${object.id} ${name}`, (attribute as BufferAttribute).version);
+        }
+        if (geometry.index !== null) out.set(`${object.id} index`, geometry.index.version);
+      });
+      return out;
+    };
+    const before = versions();
+    // The same colours in a fresh map (the document hands out one per query): nothing uploaded.
+    surface.setPaint(new Map([[0, [255, 0, 0] as const]]));
+    expect(versions()).toEqual(before);
+    // Another palette's colours: the paint attribute only.
+    surface.setPaint(new Map([[0, [0, 0, 255] as const]]));
+    const after = versions();
+    const changed = [...after].filter(([key, version]) => before.get(key) !== version).map(([key]) => key);
+    expect(changed.length).toBeGreaterThan(0);
+    expect(changed.every((key) => key.endsWith(' paint'))).toBe(true);
+    expect(colourError(at(render(surface, camera, colours), centre), bytes(lit(0x0000ff, camera, [0, 0, 1])), 2)).toBe(
+      '',
+    );
+    expect(surface.colours?.get(0)).toEqual([0, 0, 255]);
+    // No palette: clay.
+    surface.setPaint(null);
+    expect(
+      colourError(at(render(surface, camera, colours), centre), bytes(lit(THEME.clay, camera, [0, 0, 1])), 2),
+    ).toBe('');
+  });
+
+  it('keeps component hides: draws what an edit view with the same hidden set draws without overlays (M6A-B6-26)', () => {
+    const random = prng(26);
+    const shapes: [Derived, Camera][] = [
+      [cube(), perspective([1.6, 1.2, 2.4])],
+      [plane({ width: 2, height: 2, subdivisionsWidth: 4, subdivisionsHeight: 3 }), perspective([1.2, 2.6, 2.2])],
+    ];
+    const displays: Partial<MeshPaneDisplay>[] = [
+      { shading: 'wire', normals: 'both', triangulation: true },
+      { shading: 'shaded', wireOnShaded: true, hardEdges: true, normals: 'both', triangulation: true },
+      { shading: 'shaded', xray: true, hardEdges: true },
+    ];
+    const frameOf = (view: EditMeshView | MeshSurface, camera: Camera, display: Partial<MeshPaneDisplay>) => {
+      const pixels = frame(render(view, camera, { ...display, components: false }));
+      view.root.removeFromParent();
+      return pixels;
+    };
+    for (const [d, camera] of shapes) {
+      const { points: P, edges: E, faces: F } = d.mesh.counts;
+      const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+      disposables.push(surface);
+      surface.setData(d.data, d.tri, d.normals, null);
+      const shown = displays.map((display) => frameOf(surface, camera, display));
+      for (let round = 0; round < 4; round++) {
+        const hidden: HiddenSet = { verts: new BitSet(P), edges: new BitSet(E), faces: new BitSet(F) };
+        for (let f = 0; f < F; f++) if (random() < 0.35) hidden.faces.add(f);
+        for (let e = 0; e < E; e++) if (random() < 0.1) hidden.edges.add(e);
+        for (let v = 0; v < P; v++) if (random() < 0.1) hidden.verts.add(v);
+        if (hidden.faces.isEmpty()) hidden.faces.add(0);
+        const edit = editView(d, selectionOf('vertex', [], d.mesh.counts));
+        edit.setState(selectionOf('vertex', [], d.mesh.counts), hidden, null, null);
+        surface.setHidden(hidden);
+        displays.forEach((display, i) => {
+          const expected = frameOf(edit, camera, display);
+          const actual = frameOf(surface, camera, display);
+          expect(differentPixels(actual, expected), `round ${round}, display ${i}`).toBe(0);
+          expect(differentPixels(actual, shown[i] as Uint8Array), `round ${round}, display ${i}`).toBeGreaterThan(0);
+        });
+        // Show All: the surface draws everything again.
+        surface.setHidden(null);
+        displays.forEach((display, i) => {
+          expect(differentPixels(frameOf(surface, camera, display), shown[i] as Uint8Array)).toBe(0);
+        });
+      }
+      // A set mutated in place and passed again applies; one of another topology hides nothing; a set passed before
+      // the first `setData` applies to a revision it fits.
+      const wire = displays[0] as Partial<MeshPaneDisplay>;
+      const unhidden = shown[0] as Uint8Array;
+      const hidden: HiddenSet = { verts: new BitSet(P), edges: new BitSet(E), faces: new BitSet(F) };
+      surface.setHidden(hidden);
+      hidden.faces.add(0);
+      surface.setHidden(hidden);
+      const edit = editView(d, selectionOf('vertex', [], d.mesh.counts));
+      edit.setState(selectionOf('vertex', [], d.mesh.counts), hidden, null, null);
+      const faceZeroHidden = frameOf(edit, camera, wire);
+      expect(differentPixels(faceZeroHidden, unhidden)).toBeGreaterThan(0);
+      expect(differentPixels(frameOf(surface, camera, wire), faceZeroHidden)).toBe(0);
+      const stale: HiddenSet = { verts: new BitSet(P + 1), edges: new BitSet(E + 1), faces: new BitSet(F + 1) };
+      stale.faces.add(0);
+      surface.setHidden(stale);
+      expect(differentPixels(frameOf(surface, camera, wire), unhidden)).toBe(0);
+      const fresh = new MeshSurface({ theme: THEME, layers: LAYERS });
+      disposables.push(fresh);
+      fresh.setHidden(hidden);
+      fresh.setData(d.data, d.tri, d.normals, null);
+      expect(differentPixels(frameOf(fresh, camera, wire), faceZeroHidden)).toBe(0);
+    }
+  });
+
+  it('does not occlude through hidden faces (M6A-B6-26)', () => {
+    const d = cube();
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    disposables.push(surface);
+    surface.setData(d.data, d.tri, d.normals, null);
+    surface.setWorld(IDENTITY);
+    // Along Z through the cube's centre: only the ±Z faces lie on the segment.
+    const from = new Vector3(0.1, 0.1, 5);
+    const to = new Vector3(0.1, 0.1, -5);
+    expect(surface.occludes(from, to)).toBe(true);
+    const { points: P, edges: E, faces: F } = d.mesh.counts;
+    const hidden: HiddenSet = { verts: new BitSet(P), edges: new BitSet(E), faces: new BitSet(F) };
+    hidden.faces.add(faceFacing(d, [0, 0, 1]));
+    surface.setHidden(hidden);
+    expect(surface.occludes(from, to)).toBe(true);
+    hidden.faces.add(faceFacing(d, [0, 0, -1]));
+    surface.setHidden(hidden);
+    expect(surface.occludes(from, to)).toBe(false);
+    // Along X the ±X faces are still drawn.
+    expect(surface.occludes(new Vector3(5, 0.1, 0.1), new Vector3(-5, 0.1, 0.1))).toBe(true);
+    surface.setHidden(null);
+    expect(surface.occludes(from, to)).toBe(true);
   });
 });
 

@@ -8,7 +8,7 @@ import type { MeshViewThemeInput } from '../theme';
 import type { MeshPaneDisplay, MeshViewLayers } from '../types';
 import { LineBatch } from './lines';
 import { uploadAll } from './ranges';
-import { SurfaceLayer } from './surface';
+import { type SurfaceDisplay, SurfaceLayer } from './surface';
 import { faceCentroids, meanEdgeLength, type Topo, triangulationDiagonals } from './topo';
 
 export class ViewBase {
@@ -35,6 +35,15 @@ export class ViewBase {
   private diagonalStatesDirty = true;
   /** Corner pairs of the triangulation diagonals last built (the face of a diagonal is the face of its corners). */
   private diagonalPairs: Uint32Array = new Uint32Array(0);
+  /** `applyCommon`'s surface options, reused per pane. */
+  private readonly surfaceDisplay: SurfaceDisplay = {
+    shading: 'shaded',
+    flat: false,
+    cull: false,
+    faceOrientation: false,
+    opacity: 1,
+    xray: false,
+  };
   private disposed = false;
 
   constructor(opts: { readonly theme: MeshViewThemeInput; readonly layers: MeshViewLayers }) {
@@ -234,14 +243,15 @@ export class ViewBase {
     const wire = display.shading === 'wire';
     const xray = display.xray && !wire;
     const dim = display.dimmed ? MESH_VIEW_STYLE.dimOpacity : 1;
-    this.surface.apply({
-      shading: display.shading,
-      flat: display.flat,
-      cull: display.cull,
-      faceOrientation: display.faceOrientation,
-      opacity: dim * (xray ? MESH_VIEW_STYLE.xrayOpacity : 1),
-      xray,
-    });
+    // Runs before every pane render: one reused options object, nothing allocated (MVP-SPEC §3 rule 5).
+    const surface = this.surfaceDisplay;
+    surface.shading = display.shading;
+    surface.flat = display.flat;
+    surface.cull = display.cull;
+    surface.faceOrientation = display.faceOrientation;
+    surface.opacity = dim * (xray ? MESH_VIEW_STYLE.xrayOpacity : 1);
+    surface.xray = xray;
+    this.surface.apply(surface);
     const theme = this.theme;
     const edgeLines = wire || display.wireOnShaded || components;
     this.edges.setColours(

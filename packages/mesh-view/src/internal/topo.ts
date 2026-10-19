@@ -83,6 +83,31 @@ export function topoOfData(d: MeshData): Topo {
   };
 }
 
+/**
+ * `t` with its corner → edge links: a stored form's topology (`topoOfData`) has none, and the visibility rule needs
+ * them to hide the edges only hidden faces use (a `MeshSurface` with a hidden set, M6A-B6-26). Each corner's edge is
+ * the stored edge joining its vertex and the next corner's (found through the vertex → edge lists; −1 when none).
+ */
+export function withCornerEdges(t: Topo): Topo {
+  if (t.ce !== null) return t;
+  const ve = vertexEdges(t);
+  const ce = new Int32Array(t.corners).fill(-1);
+  for (let c = 0; c < t.corners; c++) {
+    const a = t.cv[c] as number;
+    const b = t.cv[t.cn[c] as number] as number;
+    for (let i = ve.start[a] as number; i < (ve.start[a + 1] as number); i++) {
+      const e = ve.items[i] as number;
+      const x = t.ev[2 * e] as number;
+      const y = t.ev[2 * e + 1] as number;
+      if ((x === a && y === b) || (x === b && y === a)) {
+        ce[c] = e;
+        break;
+      }
+    }
+  }
+  return { ...t, ce };
+}
+
 function faceCycles(
   faces: number,
   corners: number,

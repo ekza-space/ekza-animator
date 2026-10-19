@@ -12,6 +12,7 @@ import type { BitSet, ComponentKind, EditMesh, HiddenSet, Triangulation } from '
 import { BufferAttribute, BufferGeometry, type Camera, DoubleSide, FrontSide, Matrix4, Ray, Vector3 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { localSegment, type PickOccluder, segmentFar } from './internal/occluder';
+import { copyHidden, sameHidden, sameSet } from './internal/sets';
 import { allVisible, deriveVisibility, type Topo, topoOfEdit, type Visibility } from './internal/topo';
 import type { PickHit, PickOptions } from './types';
 
@@ -42,31 +43,6 @@ const tmpR = new Vector3();
 // The world segment handed to an external occluder (only `externallyOccluded` writes them; occluders read them).
 const occFrom = new Vector3();
 const occTo = new Vector3();
-
-function sameBits(a: { readonly words: Uint32Array; readonly size: number }, b: typeof a): boolean {
-  if (a.size !== b.size) return false;
-  const x = a.words;
-  const y = b.words;
-  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
-  return true;
-}
-
-function sameHidden(a: HiddenSet | null, b: HiddenSet | null): boolean {
-  if (a === b) return true;
-  const empty = (h: HiddenSet | null): boolean =>
-    h === null || (h.verts.isEmpty() && h.edges.isEmpty() && h.faces.isEmpty());
-  if (a === null || b === null) return empty(a) && empty(b);
-  return sameBits(a.verts, b.verts) && sameBits(a.edges, b.edges) && sameBits(a.faces, b.faces);
-}
-
-function cloneHidden(h: HiddenSet | null): HiddenSet | null {
-  return h === null ? null : { verts: h.verts.clone(), edges: h.edges.clone(), faces: h.faces.clone() };
-}
-
-function sameIsolate(a: BitSet | null, b: BitSet | null): boolean {
-  if (a === null || b === null) return a === b;
-  return sameBits(a, b);
-}
 
 export class ComponentPicker {
   /** The mesh-view chunk's size marker (§2), on every picker. */
@@ -195,8 +171,8 @@ export class ComponentPicker {
     const t = this.topo;
     if (t === null) return;
     const isolate = this.isolateInEffect();
-    if (this.visValid && sameHidden(hidden, this.hidden) && sameIsolate(isolate, this.isolateUsed)) return;
-    this.hidden = cloneHidden(hidden);
+    if (this.visValid && sameHidden(hidden, this.hidden) && sameSet(isolate, this.isolateUsed)) return;
+    this.hidden = copyHidden(hidden);
     this.isolateUsed = isolate;
     deriveVisibility(t, hidden, isolate, this.vis);
     this.visValid = true;
