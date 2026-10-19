@@ -1,6 +1,6 @@
 // ekza-animator-mcp (MCP-SPEC §4.6): the MCP server of Ekza Animator — CLI, MCP adapter, hub, headless host,
 // workspace sandbox and bridge server. The published bin is dist/cli.mjs (rolldown, every runtime dependency inlined).
-export { parseArgs, type ParsedArgs, USAGE } from './args';
+export { originWarnings, parseArgs, type ParsedArgs, parseOrigin, USAGE } from './args';
 export { configWithDefaults, DEFAULT_ALLOWED_ORIGINS, DEFAULTS, type McpServerConfig } from './config';
 export { type AgentHub, createAgentHub } from './hub/hub';
 export { createLogger, type Logger } from './log';

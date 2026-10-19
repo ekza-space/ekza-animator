@@ -3,7 +3,7 @@
 import { Client } from '@modelcontextprotocol/client';
 import { SERVER_INSTRUCTIONS, SERVER_INSTRUCTIONS_MAX_CHARS } from '@ekza-animator/agent-tools';
 import { describe, expect, it } from 'vitest';
-import { createInProcessServer, parseArgs, SERVER_VERSION } from '../src';
+import { createInProcessServer, originWarnings, parseArgs, parseOrigin, SERVER_VERSION } from '../src';
 
 describe('in-process server (MCP-SPEC §4.6)', () => {
   it('serves the hub to an SDK client', async () => {
@@ -76,6 +76,61 @@ describe('command-line arguments (MCP-SPEC §5.22.2)', () => {
       'http://localhost:3270',
     ]);
     expect(parseArgs(['--no-bridge'], env, '/cwd')).toMatchObject({ config: { bridge: { enabled: false } } });
+  });
+
+  it('accepts exact scheme://host[:port] origins only, normalised as the browser sends them (§5.10)', () => {
+    expect(parseOrigin('http://localhost:3270')).toEqual({ origin: 'http://localhost:3270' });
+    expect(parseOrigin(' HTTP://LocalHost:3270/ ')).toEqual({ origin: 'http://localhost:3270' });
+    expect(parseOrigin('https://animator.example.org:443')).toEqual({ origin: 'https://animator.example.org' });
+    expect(parseOrigin('http://[::1]:3100')).toEqual({ origin: 'http://[::1]:3100' });
+    expect(parseOrigin('http://localhost:*')).toEqual({ origin: 'http://localhost:*' });
+    for (const bad of [
+      '*',
+      'null',
+      'localhost:3000',
+      'http://localhost:3000/editor',
+      'http://localhost:3000/?x=1',
+      'http://localhost:3000#a',
+      'http://user:pw@localhost:3000',
+      'http://*:3000',
+      'http://*.example.org',
+      'http://localhost:3*',
+      'http://localhost:0',
+      'http://localhost:70000',
+      'file:///tmp/editor.html',
+      'chrome-extension://abcdef',
+      'ws://localhost:3000',
+      '',
+    ]) {
+      expect([bad, 'error' in parseOrigin(bad)]).toEqual([bad, true]);
+    }
+  });
+
+  it('refuses an invalid allowed origin from the flag or the environment', () => {
+    expect(parseArgs(['--allow-origin', '*'], env, '/')).toMatchObject({ kind: 'error', message: /--allow-origin/ });
+    expect(parseArgs(['--allow-origin', 'http://localhost:3270/editor'], env, '/')).toMatchObject({ kind: 'error' });
+    expect(parseArgs([], { EKZA_MCP_ALLOWED_ORIGINS: 'http://localhost:3270,null' }, '/')).toMatchObject({
+      kind: 'error',
+      message: /EKZA_MCP_ALLOWED_ORIGINS/,
+    });
+  });
+
+  it('warns about plain http off loopback, a * port and shared gateways, not about loopback origins', () => {
+    const warningsOf = (origin: string): readonly string[] => {
+      const parsed = parseArgs(['--allow-origin', origin], env, '/');
+      if (parsed.kind !== 'serve') throw new Error(`not serve: ${origin}`);
+      return parsed.warnings;
+    };
+    expect(warningsOf('http://localhost:3270')).toEqual([]);
+    expect(warningsOf('http://127.0.0.1:3100')).toEqual([]);
+    expect(warningsOf('http://[::1]:3100')).toEqual([]);
+    expect(warningsOf('https://animator.example.org')).toEqual([]);
+    expect(warningsOf('http://192.168.1.20:3000')).toEqual([expect.stringMatching(/plain http/)]);
+    expect(warningsOf('http://localhost:*')).toEqual([expect.stringMatching(/every port/)]);
+    expect(warningsOf('https://ipfs.io')).toEqual([expect.stringMatching(/shared gateway/)]);
+    expect(warningsOf('https://gateway.pinata.cloud')).toEqual([expect.stringMatching(/shared gateway/)]);
+    expect(warningsOf('http://dweb-gateway.example:*')).toHaveLength(3);
+    expect(originWarnings('http://localhost:3000')).toEqual([]);
   });
 
   it('refuses bad values and unknown options; there is no --token flag', () => {

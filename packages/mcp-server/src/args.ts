@@ -28,12 +28,67 @@ export type ParsedArgs =
       readonly config: McpServerConfig;
       readonly httpRequested: string | null;
       readonly tokenFile: string | null;
+      /** stderr warnings about risky allowed origins (§5.10); the CLI prints them at the warn level. */
+      readonly warnings: readonly string[];
     }
   | { readonly kind: 'version' }
   | { readonly kind: 'help' }
   | { readonly kind: 'error'; readonly message: string };
 
 const LOG_LEVELS = ['error', 'warn', 'info', 'debug'] as const;
+
+/** `scheme://host[:port]` (§5.10): http(s), a DNS name, an IPv4 address or a bracketed IPv6 address, a port or `*`. */
+const ORIGIN =
+  /^(https?):\/\/(\[[0-9A-Fa-f:.]+\]|[A-Za-z0-9](?:[A-Za-z0-9.-]{0,251}[A-Za-z0-9])?)(?::(\d{1,5}|\*))?\/?$/i;
+const LOOPBACK_HOST = /^(localhost|127\.\d{1,3}\.\d{1,3}\.\d{1,3}|\[::1\])$/;
+const GATEWAY_HOST = /(^|[.-])(ipfs|ipns|gateway)([.-]|$)/;
+const DEFAULT_PORTS: Readonly<Record<string, string>> = { http: '80', https: '443' };
+
+/**
+ * An allowed bridge origin as the browser sends it (§5.10): exact `scheme://host[:port]`, `*` only as the whole port;
+ * scheme and host lower-cased, a default port and one trailing slash dropped. Anything else (`*`, `null`, a path, a
+ * query, credentials, another scheme) is an error.
+ */
+export function parseOrigin(text: string): { readonly origin: string } | { readonly error: string } {
+  const match = ORIGIN.exec(text.trim());
+  if (match === null) {
+    return {
+      error: `allowed origin ${JSON.stringify(text.slice(0, 80))} is not scheme://host[:port] (http or https; '*' only as the whole port)`,
+    };
+  }
+  const scheme = (match[1] as string).toLowerCase();
+  const host = (match[2] as string).toLowerCase();
+  const port = match[3];
+  if (port !== undefined && port !== '*' && (Number(port) < 1 || Number(port) > 65_535)) {
+    return { error: `allowed origin ${text.trim()} has a port outside 1…65535` };
+  }
+  const shown = port === undefined || port === DEFAULT_PORTS[scheme] ? '' : `:${port}`;
+  return { origin: `${scheme}://${host}${shown}` };
+}
+
+/** The warnings §5.10 asks for: plain http off loopback, a `*` port, a shared (path-based) gateway host. */
+export function originWarnings(origin: string): string[] {
+  const match = ORIGIN.exec(origin);
+  if (match === null) return [];
+  const [, scheme, host, port] = match as unknown as [string, string, string, string | undefined];
+  const warnings: string[] = [];
+  if (scheme === 'http' && !LOOPBACK_HOST.test(host)) {
+    warnings.push(
+      `allowed origin ${origin} is plain http off this computer: anyone on that network path can serve a page that pairs as the editor`,
+    );
+  }
+  if (port === '*') {
+    warnings.push(
+      `allowed origin ${origin} admits every port on ${host}: any local dev server there can pose as the editor`,
+    );
+  }
+  if (GATEWAY_HOST.test(host)) {
+    warnings.push(
+      `allowed origin ${origin} looks like a shared gateway: every site served from it shares the origin and can pose as the editor`,
+    );
+  }
+  return warnings;
+}
 
 function int(value: string | undefined, flag: string, min: number, max: number): number | string {
   if (value === undefined || !/^\d+$/.test(value)) return `${flag} needs an integer`;
@@ -61,8 +116,20 @@ export function parseArgs(
   let logLevel: McpServerConfig['logLevel'] = 'info';
   let seed: number | null = null;
   const testing: { pairingTtlMs?: number; pairingLockoutMs?: number; resumeWindowMs?: number } = {};
+  const warnings: string[] = [];
+  const allow = (text: string, from: string): string | null => {
+    const parsed = parseOrigin(text);
+    if ('error' in parsed) return `${from}: ${parsed.error}`;
+    if (!origins.includes(parsed.origin)) {
+      origins.push(parsed.origin);
+      warnings.push(...originWarnings(parsed.origin));
+    }
+    return null;
+  };
   for (const origin of (env['EKZA_MCP_ALLOWED_ORIGINS'] ?? '').split(',')) {
-    if (origin.trim() !== '') origins.push(origin.trim());
+    if (origin.trim() === '') continue;
+    const error = allow(origin, 'EKZA_MCP_ALLOWED_ORIGINS');
+    if (error !== null) return { kind: 'error', message: error };
   }
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i] as string;
@@ -95,8 +162,10 @@ export function parseArgs(
         if (flag === '--workspace') workspace = resolve(cwd, text);
         else if (flag === '--allow-dir') readOnlyRoots.push(resolve(cwd, text));
         else if (flag === '--samples-dir') samplesDir = resolve(cwd, text);
-        else if (flag === '--allow-origin') origins.push(text);
-        else if (flag === '--http') http = text;
+        else if (flag === '--allow-origin') {
+          const error = allow(text, '--allow-origin');
+          if (error !== null) return { kind: 'error', message: error };
+        } else if (flag === '--http') http = text;
         else if (flag === '--token-file') tokenFile = resolve(cwd, text);
         else auditLog = resolve(cwd, text);
         break;
@@ -147,5 +216,5 @@ export function parseArgs(
     logLevel,
     seed,
   };
-  return { kind: 'serve', config, httpRequested: http, tokenFile };
+  return { kind: 'serve', config, httpRequested: http, tokenFile, warnings };
 }

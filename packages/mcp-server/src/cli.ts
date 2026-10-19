@@ -1,6 +1,7 @@
 // The `ekza-animator-mcp` bin (MCP-SPEC §5.22.2): parses arguments, logs to stderr, serves MCP over stdio and exits
 // when stdin closes. stdout carries only MCP messages (and the --version / --help text).
 import { parseArgs, USAGE } from './args';
+import { createLogger } from './log';
 import { startMcpServer } from './start';
 import { SERVER_VERSION } from './version';
 
@@ -17,6 +18,8 @@ async function main(): Promise<number> {
       process.stderr.write(`ekza-animator-mcp: ${parsed.message}\n${USAGE}`);
       return 2;
     case 'serve': {
+      const log = createLogger(parsed.config.logLevel, process.stderr);
+      for (const warning of parsed.warnings) log.warn(warning);
       if (parsed.httpRequested !== null) {
         process.stderr.write('ekza-animator-mcp: --http is not available in this build yet\n');
         return 2;
