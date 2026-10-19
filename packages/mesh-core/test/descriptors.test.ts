@@ -199,6 +199,10 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
     }
   });
 
+  // Ops whose kernel owner has landed them (literal updates, M6A-SPEC §3 rule 9): their runs are tested in the
+  // owner's test dirs. B2: `mesh.transformComponents` (test/transform).
+  const LANDED: ReadonlySet<string> = new Set(['mesh.transformComponents']);
+
   it('poll true and run refuses not-implemented until the owner lands the op', () => {
     const mesh = emptyMesh();
     const ctx = {
@@ -210,11 +214,17 @@ describe('MESH_OPS / MESH_SET_OPS (B0a stubs)', () => {
       curves: { compile: () => ({}) as never, evaluate: () => 0 },
       epsilon: 1e-9,
     } as const;
-    const outcomes = Object.values(MESH_OPS).map((op) => {
-      const result = op.run(mesh, null, {}, ctx);
-      return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
-    });
-    expect(outcomes).toEqual(Object.keys(MESH_OPS).map((id) => [id, true, 'not-implemented']));
+    const outcomes = Object.values(MESH_OPS)
+      .filter((op) => !LANDED.has(op.id))
+      .map((op) => {
+        const result = op.run(mesh, null, {}, ctx);
+        return [op.id, op.poll(mesh, null, ctx), isRefusal(result) ? result.code : 'ran'];
+      });
+    expect(outcomes).toEqual(
+      Object.keys(MESH_OPS)
+        .filter((id) => !LANDED.has(id))
+        .map((id) => [id, true, 'not-implemented']),
+    );
     const setOutcomes = Object.values(MESH_SET_OPS).map((op) => {
       const result = op.run([], {}, { hidden: null, faceted: true, curves: ctx.curves, epsilon: 1e-9 });
       return [op.id, op.poll([], {}), isRefusal(result) ? result.code : 'ran'];
@@ -279,6 +289,10 @@ describe('eager/lazy split (§2)', () => {
       'normals',
       'primitives',
       'predicates',
+      // B2
+      'select',
+      'soft',
+      'symmetry',
     ];
     const silent = dirs.flatMap((dir) =>
       readdirSync(join(SRC, dir))
