@@ -57,7 +57,8 @@ describe('mesh.create.* (§5.16)', () => {
       pivot: [0, 0, 0],
       source: null,
       faceted: true,
-      palette: null,
+      // Literal update (B13, §5.19 / §10 "Model scene"): the first modeling action creates the default palette.
+      palette: DEFAULT_PALETTE_ID,
       material: { preset: 'unlit' },
       colourOutput: 'palette-texture',
       generator: {
@@ -155,7 +156,7 @@ describe('mesh.create.* (§5.16)', () => {
     expect(counts(t, id)).toBe('40/60/22');
   });
 
-  it.skipIf(READY.b1)('poll-fails the kinds the reference kernel cannot build until B1 lands', async () => {
+  it.skipIf(READY.primitives)('poll-fails the kinds the reference kernel cannot build until B1 lands', async () => {
     const t = await meshTestApp();
     for (const kind of ['sphere', 'cone', 'torus'] as const) {
       expect(t.app.operators.poll(`mesh.create.${kind}`, undefined, {})).toEqual({
@@ -165,7 +166,7 @@ describe('mesh.create.* (§5.16)', () => {
     }
   });
 
-  it.skipIf(!READY.b1)(
+  it.skipIf(!READY.primitives)(
     '[READY.b1] creates sphere, cone and torus with the low-poly defaults (§5.29 oracles)',
     async () => {
       const t = await meshTestApp();

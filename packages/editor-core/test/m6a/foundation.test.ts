@@ -262,6 +262,30 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     // B8 (m6a/mesh-io)
     'mesh.makeEditable',
     'file.exportModel',
+    // B13 (m6a/model-content; its own junk-argument case: test/m6a/content/junk.test.ts)
+    'mesh.create.template',
+    'mesh.primitive.set',
+    'mesh.setAttributes',
+    'palette.ensureDefault',
+    'palette.create',
+    'palette.duplicate',
+    'palette.rename',
+    'palette.addSwatch',
+    'palette.setSwatch',
+    'palette.removeSwatch',
+    'palette.assign',
+    'palette.replaceSwatch',
+    'palette.setActive',
+    'select.mesh.bySwatch',
+    'imagePlane.import',
+    'imagePlane.set',
+    'imagePlane.delete',
+    'scene.group',
+    'scene.parent',
+    'scene.unparent',
+    'scene.duplicate',
+    'scene.delete',
+    'scene.rename',
   ]);
 
   it('cancels with a reason, never fails or throws, with or without args', async () => {
