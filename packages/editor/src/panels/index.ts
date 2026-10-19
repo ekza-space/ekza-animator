@@ -5,6 +5,7 @@ import { registerClipsPanel } from './clips';
 import { registerDopeSheetPanel } from './dopesheet';
 import { registerGraphPanel } from './graph';
 import { registerOutlinerPanel } from './outliner';
+import { registerPalettePanel } from './palette';
 import { registerTimelinePanel } from './timeline';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
@@ -23,6 +24,8 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerChannelBoxPanel(registry),
     registerAttributesPanel(registry),
     registerDopeSheetPanel(registry),
+    // M6a (B13): the Palette panel (Model's right dock; a lazy body).
+    registerPalettePanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();
