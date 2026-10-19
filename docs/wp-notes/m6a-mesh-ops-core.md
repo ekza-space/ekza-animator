@@ -199,6 +199,17 @@ rc 0; `check:size` on that build: 865,794 B ≤ 900,000 B. Heavier local propert
 (`B3_PROPERTY_SCALE=5` for `properties.test.ts` twice, `=10` for `symmetry.test.ts` three times). Port 3164 free
 afterwards.
 
+**Fix round 2** (on `f8e9e61`, the code of this round; CI unset, local Chrome): `format:check` (1145 files), `lint`
+(oxlint `--type-aware`), `typecheck`, `check:deps` (15 packages) rc 0; `test` (turbo, `--concurrency=3 --force`) 15/15
+tasks green — anim-core 671, ui 87, doc 233, doc-yjs 78, rig 202, mesh-view 2, **mesh-core 469 + 2 skipped** (Node +
+Chromium; the skips are still the `READY.b2` cross-checks), io 170, editor-core 793, headless-tests 173, viewport
+100 + 1 skipped, curve-editor 207 + 3 skipped, web 10, editor 359 + 1 skipped, tooling 14; `build` and `check:size`
+864,426 B ≤ 900,000 B; the full e2e suite (`EKZA_E2E_PORT=3164 pnpm run test:e2e --workers=4`, chrome): 109 passed,
+10 skipped, rc 0. Heavier local runs: `B3_PROPERTY_SCALE=10` for `symmetry.test.ts` four times, `=5` for
+`properties.test.ts`, the Chromium ops-core file five times. The first `test` run of the round failed once in the
+Chromium sequence property (the P4 oracle, see the fix round 2 bullet above); the failing seed passes since. Port 3164
+free afterwards.
+
 ## Open for the integration agent
 
 - M6A-B3-12: `packages/mesh-core/test/descriptors.test.ts` (B0a's test) — the `LANDED` literal update; merge with
