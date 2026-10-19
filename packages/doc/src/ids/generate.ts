@@ -20,6 +20,14 @@ const PREFIX: Readonly<Record<IdKind, string>> = {
   curve: 'crv_',
   key: 'k_',
   tx: 'tx_',
+  // M6a (M6A-SPEC §3 rule 3)
+  mesh: 'msh_',
+  group: 'grp_',
+  palette: 'pal_',
+  swatch: 'sw_',
+  imagePlane: 'img_',
+  skeleton: 'skl_',
+  joint: 'jnt_',
 };
 
 const BODY_LENGTH: Readonly<Record<IdKind, number>> = {
@@ -33,6 +41,13 @@ const BODY_LENGTH: Readonly<Record<IdKind, number>> = {
   curve: 16,
   key: 12,
   tx: 16,
+  mesh: 16,
+  group: 16,
+  palette: 16,
+  swatch: 16,
+  imagePlane: 16,
+  skeleton: 16,
+  joint: 16,
 };
 
 const cryptoIdSource: IdSource = {
@@ -68,6 +83,34 @@ export function solverId(rig: RigId, templateKey: string): SolverId {
     throw new EkzaError('invalid-record', 'A solver template key must not be empty');
   }
   return `slv_${digestBase62(sha256(new TextEncoder().encode(`${rig}:${templateKey}`)), 16)}` as SolverId;
+}
+
+/**
+ * Deterministic ID of a record created by a MeshSetOp, `mesh.create.*`, `mesh.create.template`, Make editable or the
+ * default palette (M6A-SPEC §3 rule 3): the kind's prefix + base62 of
+ * `sha256(opId + ':' + inputs.join(',') + ':' + seed + ':' + n)` (16 characters; keys 12). `seed` is the `LastRun` seed
+ * of the run being adjusted (a fresh `newId('tx')` on a first run), so an adjusted re-run reuses the ids; `n` numbers
+ * the records one run creates. Two peers or two runs with the same inputs derive the same id.
+ */
+export function derivedId<K extends IdKind>(
+  kind: K,
+  opId: string,
+  inputs: readonly string[],
+  seed: string,
+  n: number,
+): IdOfKind[K] {
+  const prefix = PREFIX[kind];
+  const length = BODY_LENGTH[kind];
+  if (prefix === undefined || length === undefined) {
+    throw new EkzaError('unsupported', `Unknown ID kind '${String(kind)}'`);
+  }
+  if (typeof opId !== 'string' || opId.length === 0) {
+    throw new EkzaError('invalid-record', 'derivedId: opId must be a non-empty string');
+  }
+  if (!Number.isSafeInteger(n) || n < 0)
+    throw new EkzaError('invalid-record', `derivedId: n must be an integer ≥ 0, got ${n}`);
+  const text = `${opId}:${inputs.join(',')}:${seed}:${n}`;
+  return (prefix + digestBase62(sha256(new TextEncoder().encode(text)), length)) as IdOfKind[K];
 }
 
 /**

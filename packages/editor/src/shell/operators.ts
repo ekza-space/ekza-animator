@@ -13,8 +13,9 @@ import {
   type SelectionMask,
   type UiDialog,
 } from '@ekza-animator/editor-core';
+import type { StoreApi } from 'zustand/vanilla';
 import type {} from './operator-map';
-import type { WorkspaceApi } from './types';
+import type { ShellUiState, WorkspaceApi } from './types';
 
 export const UI_DIALOGS: readonly UiDialog[] = [
   'open',
@@ -56,6 +57,8 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
 
 export interface ShellOperatorDeps {
   readonly workspace: WorkspaceApi;
+  /** The shell's UI state (M6a: the time slider's visibility per workspace). */
+  readonly ui: StoreApi<ShellUiState>;
   /** Called when the import dialog closes without importing (drops the pending file). */
   readonly onImportClosed: () => void;
 }
@@ -154,7 +157,7 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
   const resetWorkspace: OperatorDef = {
     id: 'workspace.reset',
     label: 'Reset Workspace',
-    description: 'Restore the default Animate layout.',
+    description: 'Restore the default layout of the current workspace.',
     category: 'view',
     scope: 'global',
     apply() {
@@ -187,7 +190,22 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     },
   };
 
-  return [toggleMaximize, open, close, setPrefs, resetWorkspace, showPanel, selectionMask].map(
+  // M6a (§8.2): Windows › Timeline shows or hides the time slider in the current workspace (hidden in Model).
+  const toggleTimeline: OperatorDef = {
+    id: 'workspace.toggleTimeline',
+    label: 'Timeline',
+    description: 'Show or hide the time slider in this workspace.',
+    category: 'view',
+    scope: 'global',
+    apply() {
+      const workspace = app.session.getState().workspace;
+      const ui = deps.ui.getState();
+      const shown = ui.timeline[workspace] ?? app.workspaces.get(workspace)?.timeline ?? true;
+      deps.ui.setState({ timeline: { ...ui.timeline, [workspace]: !shown } });
+    },
+  };
+
+  return [toggleMaximize, open, close, setPrefs, resetWorkspace, showPanel, selectionMask, toggleTimeline].map(
     (def) => ({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }) as const,
   );
 }

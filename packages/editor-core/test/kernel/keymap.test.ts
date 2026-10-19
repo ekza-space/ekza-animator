@@ -112,8 +112,9 @@ describe('MAYA_KEYMAP (§4.10)', () => {
     expect(resolve(key('Space'), 'viewport', 'hold')?.op).toBe('view.cameraRadial');
     expect(resolve(key('Space'), 'graph', 'hold')).toBeNull();
     expect(resolve(key('Space'), 'viewport', 'press')).toBeNull();
-    expect(other.isTapHoldKey('Space')).toBe(true);
-    expect(other.isTapHoldKey('KeyS')).toBe(false);
+    const noMods = { mod: false, shift: false, alt: false, ctrl: false };
+    expect(other.isTapHoldKey('Space', ['viewport', 'global'], noMods)).toBe(true);
+    expect(other.isTapHoldKey('KeyS', ['viewport', 'global'], noMods)).toBe(false);
   });
 
   it('never binds browser- and OS-reserved chords', () => {
