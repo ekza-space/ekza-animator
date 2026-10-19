@@ -395,7 +395,9 @@ describe('same-size ops (a result that differs from what the op read, §5.6 undo
     a.components.apply(cube, 'vertex', [3], 'replace');
     a.components.apply(cube, 'face', [0], 'replace');
     const moved = primitive('cube', { width: 2 });
-    expect(() => commitOp(a, cube, moved, selectionOf('face', [1], moved.counts), { fail: true })).toThrow();
+    expect(() => commitOp(a, cube, moved, selectionOf('face', [1], moved.counts), { fail: true })).toThrow(
+      'the op failed after storing its selection',
+    );
     // B7 applies the op's delta backward in its verify microtask (a content change, §5.5 rule 3): the runtime's
     // version moves while its revision stays.
     const runtime = a.meshes.get(cube);
@@ -448,7 +450,7 @@ describe.skipIf(!READY.b7)('a same-size op through the real runtime (B7 commitOp
     (a.meshes as unknown as { attach?(app: EditorApp): void }).attach?.(a);
     const reads: number[][] = [];
     const op: MeshOp = {
-      id: 'mesh.test.b10advance' as MeshOp['id'],
+      id: 'mesh.test.b10advance',
       label: 'Advance',
       kinds: ['face'],
       params: [],
@@ -479,7 +481,7 @@ describe.skipIf(!READY.b7)('a same-size op through the real runtime (B7 commitOp
         if (opts?.fail === true) throw new Error('the operator failed after the commit');
         return result;
       },
-    } as never);
+    });
     return { reads };
   }
 
