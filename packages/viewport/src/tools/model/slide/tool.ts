@@ -12,6 +12,7 @@ import {
   meshKernel,
   type MeshOpSession,
   type NumericTarget,
+  RESERVED_MODAL_KEYS,
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPhase,
@@ -158,16 +159,17 @@ export class SlideTool implements ToolInstance {
   }
 
   key(e: ToolKeyEvent): boolean {
-    if (e.type !== 'down' || this.press === null) return false;
-    if (e.code === 'Escape') {
+    if (this.press === null) return false;
+    if (e.type === 'down' && e.code === 'Escape') {
       this.cancel();
       return true;
     }
-    if (e.code === 'Enter' || e.code === 'NumpadEnter') {
+    if (e.type === 'down' && (e.code === 'Enter' || e.code === 'NumpadEnter')) {
       this.commit();
       return true;
     }
-    return false;
+    // §5.10: `Backspace`, `PageUp` and `PageDown` mean nothing to a slide; swallowed, never the keymap's delete.
+    return RESERVED_MODAL_KEYS.has(e.code);
   }
 
   cancel(): void {

@@ -10,6 +10,7 @@ import type { MeshId } from '@ekza-animator/doc';
 import {
   type EditorApp,
   type NumericTarget,
+  RESERVED_MODAL_KEYS,
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPhase,
@@ -111,7 +112,9 @@ export class InsertLoopTool implements ToolInstance {
   }
 
   key(e: ToolKeyEvent): boolean {
-    if (e.type !== 'down' || this.seed === null) return false;
+    if (this.seed === null) return false;
+    // §5.10: a reserved key going up, or `Backspace`, is swallowed (never the keymap's delete).
+    if (e.type !== 'down') return RESERVED_MODAL_KEYS.has(e.code);
     if (e.code === 'Escape') {
       this.cancel();
       return true;
@@ -128,7 +131,7 @@ export class InsertLoopTool implements ToolInstance {
       this.preview();
       return true;
     }
-    return false;
+    return RESERVED_MODAL_KEYS.has(e.code);
   }
 
   cancel(): void {

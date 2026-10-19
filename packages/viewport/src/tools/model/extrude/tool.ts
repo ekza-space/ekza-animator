@@ -20,6 +20,7 @@ import {
   type NumericTarget,
   numericParams,
   paramSliderRate,
+  RESERVED_MODAL_KEYS,
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPhase,
@@ -209,12 +210,13 @@ export class ExtrudeTool implements ToolInstance {
   }
 
   key(e: ToolKeyEvent): boolean {
-    if (e.type !== 'down' || this.drag === null) return false;
-    if (e.code === 'Escape') {
+    if (this.drag === null) return false;
+    if (e.type === 'down' && e.code === 'Escape') {
       this.cancel();
       return true;
     }
-    return false;
+    // §5.10: the other reserved modal keys are swallowed during a drag (never the keymap's `mesh.delete`).
+    return RESERVED_MODAL_KEYS.has(e.code);
   }
 
   cancel(): void {

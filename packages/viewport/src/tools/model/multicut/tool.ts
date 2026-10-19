@@ -9,7 +9,14 @@
 // rubber band to the snapped pointer.
 import type { Vec3 } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
-import type { EditorApp, ToolInstance, ToolKeyEvent, ToolPhase, ToolPointerEvent } from '@ekza-animator/editor-core';
+import {
+  type EditorApp,
+  RESERVED_MODAL_KEYS,
+  type ToolInstance,
+  type ToolKeyEvent,
+  type ToolPhase,
+  type ToolPointerEvent,
+} from '@ekza-animator/editor-core';
 import type { EditMesh } from '@ekza-animator/mesh-core';
 import { PREVIEW } from '../topology/overlay';
 import { isRefusal, type PanePoint, type TopologyRuntime } from '../topology/runtime';
@@ -146,7 +153,9 @@ export class MultiCutTool implements ToolInstance {
   }
 
   key(e: ToolKeyEvent): boolean {
-    if (e.type !== 'down' || this.points.length === 0) return false;
+    if (this.points.length === 0) return false;
+    // §5.10: a reserved key going up, or `PageUp`/`PageDown` (no count to step), is swallowed.
+    if (e.type !== 'down') return RESERVED_MODAL_KEYS.has(e.code);
     if (e.code === 'Backspace') {
       this.points = this.points.slice(0, -1);
       if (this.points.length === 0) this.mesh = null;
@@ -161,7 +170,7 @@ export class MultiCutTool implements ToolInstance {
       this.reset();
       return true;
     }
-    return false;
+    return RESERVED_MODAL_KEYS.has(e.code);
   }
 
   cancel(): void {

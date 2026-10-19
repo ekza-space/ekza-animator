@@ -6,7 +6,14 @@
 // follows the pointer and a ring marks the target; `Esc` cancels with no step; RMB is ignored during the drag.
 import type { Vec3 } from '@ekza-animator/anim-core';
 import type { MeshId } from '@ekza-animator/doc';
-import type { EditorApp, ToolInstance, ToolKeyEvent, ToolPhase, ToolPointerEvent } from '@ekza-animator/editor-core';
+import {
+  type EditorApp,
+  RESERVED_MODAL_KEYS,
+  type ToolInstance,
+  type ToolKeyEvent,
+  type ToolPhase,
+  type ToolPointerEvent,
+} from '@ekza-animator/editor-core';
 import type { ComponentKind } from '@ekza-animator/mesh-core';
 import { PREVIEW } from '../topology/overlay';
 import type { TopologyRuntime } from '../topology/runtime';
@@ -118,9 +125,14 @@ export class TargetWeldTool implements ToolInstance {
   }
 
   key(e: ToolKeyEvent): boolean {
-    if (e.type !== 'down' || this.drag === null || e.code !== 'Escape') return false;
-    this.cancel();
-    return true;
+    if (this.drag === null) return false;
+    if (e.type === 'down' && e.code === 'Escape') {
+      this.cancel();
+      return true;
+    }
+    // §5.10: the other reserved modal keys are swallowed during the drag (in object mode `Backspace` would otherwise
+    // reach the keymap's `scene.delete`).
+    return RESERVED_MODAL_KEYS.has(e.code);
   }
 
   cancel(): void {
