@@ -5,8 +5,9 @@
 // `MeshSurface` (outside component mode, meshes outside the hilite set) or, while a component mode is active and the
 // mesh is hilited and open, as an `EditMeshView` with a `ComponentPicker`. The host follows the runtimes (incremental
 // `changed` events, rebuilds), the component selection service (selection, hidden sets, symmetry partners), the
-// session (workspace, mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes), and
-// applies each pane's display before the pane renders ("Dim unhilited", hidden and isolated objects). Picking is per
+// session (workspace, mode, hilite, hidden objects, per-pane isolate) and the document (placements, palettes and a
+// mesh's palette assignment), and applies each pane's display before the pane renders ("Dim unhilited", hidden and
+// isolated objects; allocation-free). Component hides apply to surfaces too (M6A-B6-26). Picking is per
 // pane and skips what that pane does not draw (hidden objects, the pane's object isolate and face isolate, §5.6);
 // camera-based picks also test every other mesh the pane draws as an occluder (M6A-B6-22); each picker's BVH is built
 // on idle (M6A-B6-8). Hover, soft weights, Mesh Check problems and face isolate sets are pushed by their owners (B10,
@@ -106,18 +107,25 @@ function sameMatrix(a: Float64Array, b: Float64Array): boolean {
   return true;
 }
 
-/** Same palette colours (slot → sRGB): the document hands out a fresh map on every query. */
-function samePalette(
-  a: ReadonlyMap<number, readonly [number, number, number]> | null,
-  b: ReadonlyMap<number, readonly [number, number, number]> | null,
-): boolean {
-  if (a === null || b === null) return a === b;
-  if (a.size !== b.size) return false;
-  for (const [slot, c] of a) {
-    const d = b.get(slot);
-    if (d === undefined || d[0] !== c[0] || d[1] !== c[1] || d[2] !== c[2]) return false;
-  }
-  return true;
+/** A writable `MeshPaneDisplay` (`applyPane` reuses one per display). */
+type PaneScratch = { -readonly [K in keyof MeshPaneDisplay]: MeshPaneDisplay[K] };
+
+/** Copies `display` into `out` with the mesh's own `dimmed` (no allocation: it runs before every pane render). */
+function paneFor(out: PaneScratch, display: MeshPaneDisplay, dimmed: boolean): MeshPaneDisplay {
+  out.shading = display.shading;
+  out.wireOnShaded = display.wireOnShaded;
+  out.flat = display.flat;
+  out.cull = display.cull;
+  out.xray = display.xray;
+  out.components = display.components;
+  out.normals = display.normals;
+  out.faceOrientation = display.faceOrientation;
+  out.triangulation = display.triangulation;
+  out.hardEdges = display.hardEdges;
+  out.meshCheck = display.meshCheck;
+  out.symmetryPlane = display.symmetryPlane;
+  out.dimmed = dimmed;
+  return out;
 }
 
 export class MeshDisplay {
@@ -129,6 +137,24 @@ export class MeshDisplay {
   private readonly characterWorld: ((character: CharacterId) => Float64Array | null) | null;
   private readonly entries = new Map<MeshId, Entry>();
   private readonly disposers: Disposer[] = [];
+  /** `applyPane`'s per-mesh display, reused for every mesh and pane. */
+  private readonly pane: PaneScratch = {
+    shading: 'shaded',
+    wireOnShaded: false,
+    flat: false,
+    cull: false,
+    xray: false,
+    components: true,
+    normals: 'off',
+    faceOrientation: false,
+    triangulation: false,
+    hardEdges: false,
+    meshCheck: false,
+    symmetryPlane: false,
+    dimmed: false,
+  };
+  /** Each pane's object isolate list as a set, rebuilt when the session hands out a new list (`drawnIn`). */
+  private readonly isolateSets = new Map<string, { list: readonly string[]; set: ReadonlySet<string> }>();
   private disposed = false;
 
   constructor(mod: typeof MeshViewModule, opts: MeshDisplayOptions) {
@@ -244,9 +270,11 @@ export class MeshDisplay {
 
   /**
    * Brings one host up to date. Runs for every hosted mesh on each document batch that touches meshes, groups or
-   * characters (any commit, any rename), so it does only what changed: the views skip unchanged palette colours, the
-   * soft weights and Mesh Check problems go to a new edit view only (their owners push changes themselves), and the
-   * picker is rebuilt for a new version or edit mesh and otherwise only follows a moved world matrix (no BVH refit).
+   * characters (any commit, any rename, a palette reassignment), so it does only what changed: both views take the
+   * record's palette colours by content (a reassignment rewrites the paint only, a rename uploads nothing), a surface
+   * takes the mesh's hidden set by content, the soft weights and Mesh Check problems go to a new edit view only (their
+   * owners push changes themselves), and the picker is rebuilt for a new version or edit mesh and otherwise only
+   * follows a moved world matrix (no BVH refit).
    */
   private syncEntry(entry: Entry, runtime: MeshRuntime, record: MeshRecord): void {
     const model = this.app.session.getState().model;
@@ -304,10 +332,17 @@ export class MeshDisplay {
         entry.version = -1;
       }
       const data = runtime.data();
+      const colours = this.paletteColours(record.palette);
       if (data !== null && entry.version !== runtime.version) {
-        entry.surface.setData(data, runtime.triangulation(), runtime.normals(), this.paletteColours(record.palette));
+        entry.surface.setData(data, runtime.triangulation(), runtime.normals(), colours);
         entry.version = runtime.version;
+      } else {
+        // The record's palette changed without a new revision (`palette.assign`, its undo or redo, a peer's write):
+        // only the paint is rewritten, and only when the colours differ.
+        entry.surface.setPaint(colours);
       }
+      // Component hides stay in force outside component mode and on meshes outside the hilite set (M6A-B6-26).
+      entry.surface.setHidden(this.hiddenOf(entry.id));
       entry.surface.setWorld(entry.world);
     }
   }
@@ -359,7 +394,10 @@ export class MeshDisplay {
   // ---------------------------------------------------------------------------------------------------------------
   // state, paint
 
-  /** Selection, hidden set, hover and mirrored partners of every edit view (after a selection change). */
+  /**
+   * Selection, hidden set, hover and mirrored partners of every edit view, and the hidden set of every surface (after
+   * a selection-service change: a hide or Show All reaches meshes shown as surfaces too, M6A-B6-26).
+   */
   refreshStates(): void {
     for (const entry of this.entries.values()) {
       const runtime = this.app.meshes.get(entry.id);
@@ -367,6 +405,8 @@ export class MeshDisplay {
         this.applyState(entry, runtime);
         // A hidden-set change rebuilds the BVH: on idle too (a no-op when the BVH is current).
         this.scheduleBvh(entry);
+      } else if (entry.surface !== null) {
+        entry.surface.setHidden(this.hiddenOf(entry.id));
       }
     }
     this.target.invalidate();
@@ -467,17 +507,12 @@ export class MeshDisplay {
     return out;
   }
 
+  /** The record's palette colours into the view (both compare by content: unchanged colours upload nothing). */
   private applyPaint(entry: Entry): void {
     const record = this.app.store.get('meshes', entry.id);
     const colours = this.paletteColours(record?.palette ?? null);
     if (entry.edit !== null) entry.edit.setPaint(colours);
-    else if (entry.surface !== null) {
-      const runtime = this.app.meshes.get(entry.id);
-      const data = runtime?.data() ?? null;
-      if (runtime !== undefined && data !== null && !samePalette(entry.surface.colours, colours)) {
-        entry.surface.setData(data, runtime.triangulation(), runtime.normals(), colours);
-      }
-    }
+    else entry.surface?.setPaint(colours);
   }
 
   // ---------------------------------------------------------------------------------------------------------------
@@ -492,10 +527,26 @@ export class MeshDisplay {
     const model = this.app.session.getState().model;
     if (model.hiddenObjects.size > 0 && inSubtree(this.app.store, record, model.hiddenObjects)) return false;
     const isolate = model.isolate[paneId];
-    if (isolate !== undefined && isolate !== null && !inSubtree(this.app.store, record, new Set<string>(isolate))) {
+    if (
+      isolate !== undefined &&
+      isolate !== null &&
+      !inSubtree(this.app.store, record, this.isolateSet(paneId, isolate))
+    ) {
       return false;
     }
     return true;
+  }
+
+  /** The pane's isolate list as a set: built once per list (session state is replaced, never mutated in place). */
+  private isolateSet(paneId: string, list: readonly string[]): ReadonlySet<string> {
+    const cached = this.isolateSets.get(paneId);
+    if (cached !== undefined && cached.list === list) return cached.set;
+    const set = new Set<string>(list);
+    if (cached !== undefined) {
+      cached.list = list;
+      cached.set = set;
+    } else this.isolateSets.set(paneId, { list, set });
+    return set;
   }
 
   private applyPane(entry: Entry, display: MeshPaneDisplay, paneId: string): void {
@@ -509,10 +560,8 @@ export class MeshDisplay {
     entry.root.visible = shown;
     if (!shown) return;
     const componentMode = model.componentMode !== 'object';
-    const pane: MeshPaneDisplay = {
-      ...display,
-      dimmed: display.dimmed && componentMode && !entry.hilited,
-    };
+    // Runs before every pane render (playback with props in Animate too): the reused scratch, nothing allocated.
+    const pane = paneFor(this.pane, display, display.dimmed && componentMode && !entry.hilited);
     if (entry.edit !== null) {
       entry.edit.setIsolate(entry.faceIsolate.get(paneId) ?? null);
       entry.edit.applyPane(pane);

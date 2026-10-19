@@ -2,12 +2,18 @@
 // runtime through `addMeshLayer`, MeshSurface outside component mode, EditMeshView + picker for hilited open meshes,
 // placements through groups, palette colours, hidden objects, per-pane isolate, "Dim unhilited", hover, face isolate,
 // revisions written while shown, the pane-flag mapping, occlusion of camera-based picks by the other meshes a pane
-// draws, and the World symmetry plane without a partner map.
+// draws, the World symmetry plane without a partner map, palette reassignment (and its undo) on surfaces, component
+// hides kept on surfaces, and the reused per-pane display.
 import type { Disposer, ReadonlyXf } from '@ekza-animator/anim-core';
 import type { CharacterId, GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-animator/doc';
 import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { BitSet, type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import { BitSet, type HiddenSet, type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import type {
+  EditMeshView as EditMeshViewType,
+  MeshPaneDisplay,
+  MeshSurface as MeshSurfaceType,
+} from '@ekza-animator/mesh-view';
 import {
   type BufferAttribute,
   type BufferGeometry,
@@ -61,8 +67,10 @@ beforeAll(async () => {
   await loadMeshKernel();
 });
 
-async function setup(): Promise<Harness> {
+/** `before` runs on the app before the display subscribes to it (stubs of B10's selection service). */
+async function setup(before?: (app: EditorApp) => void): Promise<Harness> {
   const app = createFakeEditorApp();
+  before?.(app);
   const element = document.createElement('canvas');
   Object.assign(element.style, { position: 'fixed', left: '0px', top: '0px', width: `${W}px`, height: `${H}px` });
   document.body.append(element);
@@ -266,6 +274,75 @@ function enterComponentMode(app: EditorApp, mode: 'vertex' | 'edge' | 'face', hi
   for (const id of hilite) app.meshes.open(id);
   const model = app.session.getState().model;
   app.session.setState({ model: { ...model, componentMode: mode, lastComponentMode: mode, hilite } });
+}
+
+/** A stand-in for B10's hide and Show All (B0a's selection service refuses `setHidden`). */
+interface HiddenStub {
+  /** Replaces a mesh's hidden set (null = Show All) and notifies the service's listeners, as a hide does. */
+  set(mesh: MeshId, hidden: HiddenSet | null): void;
+}
+
+/** Installs the stand-in on `app.components`; call it before the display subscribes (`setup`'s `before`). */
+function stubHidden(app: EditorApp): HiddenStub {
+  const sets = new Map<MeshId, HiddenSet>();
+  const listeners: ((version: number) => void)[] = [];
+  const components = app.components;
+  const hidden = components.hidden.bind(components);
+  const subscribe = components.subscribe.bind(components);
+  vi.spyOn(components, 'hidden').mockImplementation((mesh) => sets.get(mesh) ?? hidden(mesh));
+  vi.spyOn(components, 'subscribe').mockImplementation((listener) => {
+    listeners.push(listener);
+    return subscribe(listener);
+  });
+  let version = 0;
+  return {
+    set(mesh, set) {
+      if (set === null) sets.delete(mesh);
+      else sets.set(mesh, set);
+      version++;
+      for (const listener of listeners) listener(version);
+    },
+  };
+}
+
+/** Every attribute and index version under the hosts, keyed by object and name (a version moves with each upload). */
+function attributeVersions(hosts: ReadonlySet<MeshLayerHost>): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const host of hosts) {
+    host.root.traverse((object) => {
+      const geometry = (object as { geometry?: BufferGeometry }).geometry;
+      if (geometry === undefined) return;
+      for (const [name, attribute] of Object.entries(geometry.attributes)) {
+        out.set(`${object.id} ${name}`, (attribute as BufferAttribute).version);
+      }
+      if (geometry.index !== null) out.set(`${object.id} index`, geometry.index.version);
+    });
+  }
+  return out;
+}
+
+/** The keys whose version moved. */
+function movedVersions(before: Map<string, number>, after: Map<string, number>): string[] {
+  return [...after].filter(([key, version]) => before.get(key) !== version).map(([key]) => key);
+}
+
+function putPalette(app: EditorApp, id: string, srgb: readonly [number, number, number], order = 'a0'): PaletteId {
+  const palette = `pal_${id}` as PaletteId;
+  app.store.transact({ label: 'Palette' }, (tx) => {
+    tx.put('palettes', { id: palette, name: id, order, deleted: null });
+    tx.put('swatches', {
+      id: `sw_${id}` as SwatchId,
+      palette,
+      slot: 0,
+      order: 'a0',
+      name: id,
+      srgb: [srgb[0], srgb[1], srgb[2]],
+      kind: 'flat',
+      ramp: null,
+      deleted: null,
+    });
+  });
+  return palette;
 }
 
 describe('viewport mesh display', () => {
@@ -882,6 +959,160 @@ describe('viewport mesh display', () => {
     setMode('object-x');
     h.render(camera);
     expect(off(h.pixel(...probe), clayFront())).toBe('');
+  });
+
+  it('follows a palette reassignment of a mesh shown as a surface, its undo and redo (palette.assign, §8)', async () => {
+    const h = await setup();
+    const camera = front();
+    const red = putPalette(h.app, 'A', [255, 0, 0]);
+    const blue = putPalette(h.app, 'B', [0, 0, 255], 'a1');
+    const a = createMesh(h.app, 'msh_A', primitive('cube', {}), { palette: red });
+    const at = screen(camera, [0.1, 0.1, 0.5]);
+    const colours = { shading: 'colours' } as const;
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront(0xff0000))).toBe('');
+    const before = attributeVersions(h.hosts);
+    // A rename: a meshes batch that changes nothing the surface shows uploads nothing.
+    h.app.store.transact({ label: 'Rename' }, (tx) => tx.patch('meshes', a, { name: 'Renamed' }));
+    h.render(camera, colours);
+    expect(attributeVersions(h.hosts)).toEqual(before);
+    // The reassignment: the record's palette only (no new revision); the paint attribute alone is rewritten.
+    h.app.store.transact({ label: 'Assign Palette' }, (tx) => tx.patch('meshes', a, { palette: blue }));
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront(0x0000ff))).toBe('');
+    const moved = movedVersions(before, attributeVersions(h.hosts));
+    expect(moved.length).toBeGreaterThan(0);
+    expect(moved.filter((key) => !key.endsWith(' paint'))).toEqual([]);
+    // Undo and redo arrive as document batches too.
+    h.app.store.undo.undo();
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront(0xff0000))).toBe('');
+    h.app.store.undo.redo();
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront(0x0000ff))).toBe('');
+    // No palette: clay. And a mesh outside the hilite set in component mode is a surface as well.
+    const b = createMesh(h.app, 'msh_B', primitive('cube', {}), {
+      placement: { t: [3, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    });
+    enterComponentMode(h.app, 'vertex', [b]);
+    h.app.store.transact({ label: 'Assign Palette' }, (tx) => tx.patch('meshes', a, { palette: null }));
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront())).toBe('');
+    h.app.store.transact({ label: 'Assign Palette' }, (tx) => tx.patch('meshes', a, { palette: red }));
+    h.render(camera, colours);
+    expect(off(h.pixel(...at), clayFront(0xff0000))).toBe('');
+  });
+
+  it('keeps component hides on meshes shown as surfaces until Show All: drawn, picked through (M6A-B6-26)', async () => {
+    let hide!: HiddenStub;
+    const h = await setup((app) => {
+      hide = stubHidden(app);
+    });
+    const camera = front();
+    const view = { w: W, h: H } as const;
+    const opts = { cameraBased: true, backfaces: false } as const;
+    // A: a standing 2 × 1 m plane of two quads at z = 0; B: a red 1.6 × 0.4 × 0.4 m bar 2 m behind it.
+    const a = createMesh(h.app, 'msh_A', primitive('plane', { width: 2, height: 1, subdivisionsWidth: 2 }), {
+      placement: { t: [0, 0, 0], ...STANDING },
+    });
+    const b = createMesh(h.app, 'msh_B', primitive('cube', { width: 1.6, height: 0.4, depth: 0.4 }), {
+      placement: { t: [0, 0, -2], q: [0, 0, 0, 1], s: [1, 1, 1] },
+      palette: putPalette(h.app, 'R', [255, 0, 0]),
+    });
+    const aboveRight = screen(camera, [0.5, 0.35, 0]);
+    const aboveLeft = screen(camera, [-0.5, 0.35, 0]);
+    const throughRight = screen(camera, [0.5, 0, 0]);
+    const colours = { shading: 'colours' } as const;
+    // Hide A's right quad in face mode.
+    enterComponentMode(h.app, 'face', [a]);
+    const counts = h.app.meshes.get(a)?.mesh?.counts;
+    if (counts === undefined) throw new Error('A is not open');
+    const right = faceCentreX(h.app, a, 0) > 0 ? 0 : 1;
+    const hidden: HiddenSet = {
+      verts: new BitSet(counts.points),
+      edges: new BitSet(counts.edges),
+      faces: new BitSet(counts.faces),
+    };
+    hidden.faces.add(right);
+    hide.set(a, hidden);
+    h.render(camera, colours);
+    expect(off(h.pixel(...aboveRight), hex(BACKGROUND), 1)).toBe('');
+    expect(off(h.pixel(...aboveLeft), clayFront())).toBe('');
+    // F8: A shows as a surface and its hides stay (Maya: until Show All).
+    let model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, componentMode: 'object' } });
+    expect(h.display.picker(a)).toBeNull();
+    h.render(camera, colours);
+    expect(off(h.pixel(...aboveRight), hex(BACKGROUND), 1)).toBe('');
+    expect(off(h.pixel(...aboveLeft), clayFront())).toBe('');
+    expect(off(h.pixel(...throughRight), clayFront(0xff0000))).toBe('');
+    // B hilited, A outside the hilite set: A's hidden quad hides nothing, its drawn quad still does.
+    enterComponentMode(h.app, 'vertex', [b]);
+    const pickAt = (p: readonly [number, number, number]) =>
+      h.display.pick(camera, ndcOf(camera, p), view, 'vertex', opts, 'pane-persp');
+    h.render(camera, colours);
+    expect(off(h.pixel(...aboveRight), hex(BACKGROUND), 1)).toBe('');
+    expect(pickAt([0.8, 0.2, -1.8])?.mesh).toBe(b);
+    expect(pickAt([-0.8, 0.2, -1.8])).toBeNull();
+    // Show All: the quad is drawn again and hides B's corner again.
+    hide.set(a, null);
+    expect(pickAt([0.8, 0.2, -1.8])).toBeNull();
+    model = h.app.session.getState().model;
+    h.app.session.setState({ model: { ...model, componentMode: 'object' } });
+    h.render(camera, colours);
+    expect(off(h.pixel(...aboveRight), clayFront())).toBe('');
+    expect(off(h.pixel(...throughRight), clayFront())).toBe('');
+  });
+
+  it('applies each pane through one reused display object, dimming each mesh on its own', async () => {
+    const h = await setup();
+    const camera = front();
+    const mod = await loadMeshView();
+    const seen: { readonly display: object; readonly dimmed: boolean; readonly kind: string }[] = [];
+    // The classes' own `applyPane`, called through from the spies.
+    type Apply<T> = (this: T, display: MeshPaneDisplay) => void;
+    const surfaceApply = Object.getOwnPropertyDescriptor(mod.MeshSurface.prototype, 'applyPane')
+      ?.value as Apply<MeshSurfaceType>;
+    const editApply = Object.getOwnPropertyDescriptor(mod.EditMeshView.prototype, 'applyPane')
+      ?.value as Apply<EditMeshViewType>;
+    const spies = [
+      vi.spyOn(mod.MeshSurface.prototype, 'applyPane').mockImplementation(function (this: MeshSurfaceType, display) {
+        seen.push({ display, dimmed: display.dimmed, kind: 'surface' });
+        surfaceApply.call(this, display);
+      }),
+      vi.spyOn(mod.EditMeshView.prototype, 'applyPane').mockImplementation(function (this: EditMeshViewType, display) {
+        seen.push({ display, dimmed: display.dimmed, kind: 'edit' });
+        editApply.call(this, display);
+      }),
+    ];
+    try {
+      const a = createMesh(h.app, 'msh_A', primitive('cube', {}));
+      createMesh(h.app, 'msh_B', primitive('cube', {}), {
+        placement: { t: [3, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+      });
+      enterComponentMode(h.app, 'vertex', [a]);
+      h.render(camera, { dimUnhilited: true }, 'pane-a');
+      h.render(camera, { dimUnhilited: false }, 'pane-b');
+      h.render(camera, { dimUnhilited: true }, 'pane-a');
+      expect(seen.map((s) => `${s.kind} ${s.dimmed}`)).toEqual([
+        'edit false',
+        'surface true',
+        'edit false',
+        'surface false',
+        'edit false',
+        'surface true',
+      ]);
+      // One object for every mesh and pane: nothing allocated per render.
+      expect(new Set(seen.map((s) => s.display)).size).toBe(1);
+      // "Dim unhilited" applies in component mode only.
+      const model = h.app.session.getState().model;
+      h.app.session.setState({ model: { ...model, componentMode: 'object' } });
+      seen.length = 0;
+      h.render(camera, { dimUnhilited: true }, 'pane-a');
+      expect(seen.map((s) => `${s.kind} ${s.dimmed}`)).toEqual(['surface false', 'surface false']);
+    } finally {
+      for (const spy of spies) spy.mockRestore();
+    }
   });
 
   it('follows a new revision of a shown mesh and drops hosts on dispose', async () => {
