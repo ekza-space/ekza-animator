@@ -1,5 +1,4 @@
-// Posing tools (MCP-SPEC §6.2 pose_read and §6.3, tools 8–13; P2) and the stretch pose_plant_feet (S1). D0 lands the
-// final schemas with `ready: false`.
+// Posing tools (MCP-SPEC §6.2 pose_read and §6.3, tools 8–13; P2) and the stretch pose_plant_feet (S1, not built).
 import { z } from 'zod';
 import {
   bodyPartName,
@@ -26,6 +25,15 @@ import {
   writes,
 } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { poseRead as poseReadRun } from './read';
+import {
+  ikTargetConfirm,
+  poseAim as poseAimRun,
+  poseIkTarget as poseIkTargetRun,
+  poseReset as poseResetRun,
+  poseSet as poseSetRun,
+  poseTransfer as poseTransferRun,
+} from './write';
 
 export const ROTATE_ORDERS = ['xyz', 'yzx', 'zxy', 'xzy', 'yxz', 'zyx'] as const;
 const xyzOut = z.object({ x: z.number().optional(), y: z.number().optional(), z: z.number().optional() });
@@ -38,7 +46,14 @@ export const poseRead = defineTool({
   name: 'pose_read',
   title: 'Read the pose',
   description:
-    'Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space.',
+    'Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. ' +
+    'channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder ' +
+    '— change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along ' +
+    'the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, ' +
+    'in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames ' +
+    '(≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the primary ' +
+    'controls (name secondary controls to read them). It reads the keyed animation; withUserOverrides: true reads ' +
+    'what the user sees (their unkeyed edits at their current frame).',
   group: 'pose',
   input: z
     .strictObject({
@@ -99,6 +114,9 @@ export const poseRead = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.read,
+  example: { clip: 'walk', frames: [0], targets: { bodyParts: ['arm.L'] } },
+  ready: true,
+  run: (ctx, args) => poseReadRun(ctx, args) as never,
 });
 
 const poseSetItem = z.strictObject({
@@ -123,7 +141,13 @@ export const poseSet = defineTool({
   name: 'pose_set',
   title: 'Set a pose',
   description:
-    'Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them (pose-to-pose blocking).',
+    'Set Channel Box values (degrees, metres) of one or more controls at one clip frame and key them ' +
+    '(pose-to-pose blocking). set: [{control, rotateDeg {x,y,z}, translateM, scaleFactor, attrs}] in ' +
+    "pose_read's shape (≤ 100 controls); rotations are the control's Channel Box rotations in its rotate " +
+    'order, zero = rest. key: key (default) always keys every edited channel, and syncRotation (default ' +
+    "true) keys all rotation axes of a control, like Maya's S; static sets clip-wide values on channels " +
+    "without keys; pose_only proposes an unkeyed pose at the user's current frame (needs the View " +
+    'grant). mode relative adds to the keyed values. Prefer pose_aim and pose_ik_target for limbs.',
   group: 'pose',
   input: z.strictObject({
     ...scoped,
@@ -173,6 +197,9 @@ export const poseSet = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', frame: 10, set: [{ control: 'fk.lowerArm.L', rotateDeg: { z: 45 } }] },
+  ready: true,
+  run: (ctx, args) => poseSetRun(ctx, args) as never,
 });
 
 const aimItem = z
@@ -199,7 +226,13 @@ const aimItem = z
 export const poseAim = defineTool({
   name: 'pose_aim',
   title: 'Aim bones',
-  description: 'Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one frame.',
+  description:
+    'Point bones of FK chains in a character-space direction or toward a point or bone, keyed at one ' +
+    'frame. aims: [{bone, direction | towardBone | towardPointM}] (≤ 12, parents first); directions are ' +
+    "the character's: up, down, forward, back, left, right, sums such as up+left, or [x, y, z] with +X " +
+    "the character's left, +Y up, +Z forward. keepTwist (default true) keeps the bone's twist; weight " +
+    'blends; a head aim splits over neck and head. Keys the driving FK controls; reports the achieved ' +
+    'direction and the error in degrees. A bone of an IK limb answers limb_mode: use pose_ik_target.',
   group: 'pose',
   input: z.strictObject({
     ...scoped,
@@ -222,13 +255,22 @@ export const poseAim = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', frame: 0, aims: [{ bone: 'leftUpperArm', direction: [0.8, 0.6, 0] }] },
+  ready: true,
+  run: (ctx, args) => poseAimRun(ctx, args) as never,
 });
 
 export const poseIkTarget = defineTool({
   name: 'pose_ik_target',
   title: 'Place an IK hand or foot',
   description:
-    'Place an IK hand or foot at a position in character space, keyed at one frame (an FK limb switches to IK only over a range you give).',
+    'Place an IK hand or foot at a position in character space, keyed at one frame (an FK limb switches ' +
+    "to IK only over a range you give). Exactly one of positionM (absolute, metres: +X the character's " +
+    'left, +Y up, +Z forward), offsetM (from where the hand or foot is at that frame) or nearBone {bone, ' +
+    'offsetM}. orientDeg is relative to rest: toes up 20° is {pitchDeg: 20}; yawDeg turns toward the ' +
+    "character's left; rollDeg lifts the left side. poleDirection points the knee or elbow. Legs are IK " +
+    "by default; on a limb that is FK at that frame pass ensureIk: 'auto' with switchRangeFrames [start, " +
+    'end] (FK keys outside keep playing). Reports whether it reached and the error.',
   group: 'pose',
   input: z
     .strictObject({
@@ -288,13 +330,21 @@ export const poseIkTarget = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', frame: 0, limb: 'leg.L', offsetM: [0, 0.1, 0] },
+  ready: true,
+  confirm: (ctx, args) => ikTargetConfirm(ctx, args),
+  run: (ctx, args) => poseIkTargetRun(ctx, args) as never,
 });
 
 export const poseTransfer = defineTool({
   name: 'pose_transfer',
   title: 'Copy or mirror a pose',
   description:
-    'Copy or mirror a pose from one frame or clip to other frames (holds, mirrored poses) without the clipboard.',
+    'Copy or mirror a pose from one frame or clip to other frames (holds, mirrored poses) without the ' +
+    'clipboard. Reads the keyed pose at fromFrame of fromClip (default: clip) and keys it at every ' +
+    'toFrames frame (≤ 64) on the controls or body parts (default: all). mirror: flip swaps both sides, ' +
+    "left_to_right / right_to_left copy one side onto the other (humanoid rigs). The user's clipboard is " +
+    'untouched.',
   group: 'pose',
   input: z.strictObject({
     ...scoped,
@@ -318,12 +368,18 @@ export const poseTransfer = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', fromFrame: 0, toFrames: [30] },
+  ready: true,
+  run: (ctx, args) => poseTransferRun(ctx, args) as never,
 });
 
 export const poseReset = defineTool({
   name: 'pose_reset',
   title: 'Reset to rest',
-  description: 'Key controls back to their rest pose at frames.',
+  description:
+    'Key controls back to their rest pose at frames. Keys every keyable, unlocked channel of the ' +
+    "controls or body parts (default: all) at its rest value (0°, 0 m, factor 1, the attribute's " +
+    'default) at each frame (≤ 64). Locked channels and mode attributes such as ikFk stay as they are.',
   group: 'pose',
   input: z.strictObject({
     ...scoped,
@@ -340,6 +396,9 @@ export const poseReset = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', frames: [0], bodyParts: ['arm.L'] },
+  ready: true,
+  run: (ctx, args) => poseResetRun(ctx, args) as never,
 });
 
 export const posePlantFeet = defineTool({

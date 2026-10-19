@@ -1,5 +1,4 @@
-// Keys and timing tools (MCP-SPEC §6.2 keys_read and §6.4, tools 6 and 14–18; P2). D0 lands the final schemas with
-// `ready: false`.
+// Keys and timing tools (MCP-SPEC §6.2 keys_read and §6.4, tools 6 and 14–18; P2).
 import { z } from 'zod';
 import {
   atLeastOne,
@@ -25,6 +24,15 @@ import {
   writes,
 } from '../../schemas/common';
 import { BUDGETS, defineTool } from '../define';
+import { keysRead as keysReadRun } from './read';
+import {
+  keysAdjust as keysAdjustRun,
+  keysDelete as keysDeleteRun,
+  keysDeleteConfirm,
+  keysRetime as keysRetimeRun,
+  keysSet as keysSetRun,
+  keysTween as keysTweenRun,
+} from './write';
 
 const unitOut = z.enum(['deg', 'm', 'factor', 'none']);
 const infinityOut = z.enum(['constant', 'linear', 'cycle', 'cycle_offset', 'oscillate']);
@@ -34,7 +42,13 @@ const VALUE_MAX = 100_000;
 export const keysRead = defineTool({
   name: 'keys_read',
   title: 'Read keys',
-  description: 'Read raw keys (frame, value, tangents) of controls in a frame range, paged.',
+  description:
+    'Read raw keys (frame, value, tangents) of controls in a frame range, paged. ' +
+    'Use curves_summary first to see which curves matter. Each curve lists its unit (deg for rotations and angle ' +
+    'attributes, m for translations, factor for scale) and infinities, and keys as [frame, value, inType, outType, ' +
+    'flags] (flags: b breakdown, k broken tangents, w weighted curve); frames are clip frames. precision: full returns ' +
+    'unrounded values (display rounds to 0.01°, 0.1 mm). At most limit keys per page (default 200, ≤ 500): when ' +
+    'cursor is not null, call again with the same arguments plus cursor for the next page.',
   group: 'keys',
   input: z.strictObject({
     ...scoped,
@@ -68,6 +82,9 @@ export const keysRead = defineTool({
   stretch: false,
   kind: 'read',
   budget: BUDGETS.rawKeys,
+  example: { clip: 'walk', targets: { controls: ['fk.upperArm.L'], channels: ['rz'] } },
+  ready: true,
+  run: (ctx, args) => keysReadRun(ctx, args) as never,
 });
 
 const keyItem = z.strictObject({
@@ -86,7 +103,14 @@ const keyItem = z.strictObject({
 export const keysSet = defineTool({
   name: 'keys_set',
   title: 'Set keys',
-  description: 'Write keys on control channels at clip frames, or key the current keyed pose of controls at frames.',
+  description:
+    'Write keys on control channels at clip frames, or key the current keyed pose of controls at frames. ' +
+    "keys: [{control, channel, frame, value, tangent?, breakdown?}] with value in the channel's unit (rx " +
+    'ry rz and angle attributes in degrees, tx ty tz in metres, sx sy sz as factor), ≤ 2,000 keys; or ' +
+    "keyPoseAt {controls or bodyParts, frames} keys the evaluated keyed pose (not the user's unkeyed " +
+    "edits) at those frames. Frames outside the clip range fail unless extendRange: true. In the user's " +
+    "editor pass clip. One call = one undo step; a key behind the user's unkeyed edit at that frame is " +
+    'reported in hiddenByOverrides.',
   group: 'keys',
   input: z
     .strictObject({
@@ -123,12 +147,19 @@ export const keysSet = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', keys: [{ control: 'fk.upperArm.L', channel: 'rz', frame: 10, value: 45 }] },
+  ready: true,
+  run: (ctx, args) => keysSetRun(ctx, args) as never,
 });
 
 export const keysDelete = defineTool({
   name: 'keys_delete',
   title: 'Delete keys',
-  description: 'Delete keys of control channels at frames or in a range.',
+  description:
+    'Delete keys of control channels at frames or in a range. targets {controls or bodyParts, channels?} ' +
+    '(default: every keyable channel), and exactly one of frames (exact clip frames) or rangeFrames ' +
+    '[start, end] (inclusive). Deleting more than 500 keys asks the user first (headless: pass confirm: ' +
+    'true). One undo step.',
   group: 'keys',
   input: z
     .strictObject({
@@ -151,6 +182,10 @@ export const keysDelete = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', targets: { controls: ['ik.leg.L'] }, rangeFrames: [12, 18] },
+  ready: true,
+  confirm: (ctx, args) => keysDeleteConfirm(ctx, args),
+  run: (ctx, args) => keysDeleteRun(ctx, args) as never,
 });
 
 const amplitudeOut = z.array(
@@ -161,7 +196,13 @@ export const keysAdjust = defineTool({
   name: 'keys_adjust',
   title: 'Adjust key values',
   description:
-    'Change animation values over a frame range: scale them ("25 % bigger") about a pivot or offset them ("hips 3 cm lower"), keeping tangent shapes.',
+    'Change animation values over a frame range: scale them ("25 % bigger") about a pivot or offset them ' +
+    '("hips 3 cm lower"), keeping tangent shapes. scalePercent 125 makes every key inside rangeFrames ' +
+    '(default: the clip range) or at frames 25 % bigger about the pivot (rest: 0°, 0 m, factor 1; mean; ' +
+    'range_start; {frame}); offsetDeg, offsetM and offsetFactor add to rotation, translation and scale ' +
+    'channels. falloffFrames fades the change out outside the range. Tangent handles keep their shape; ' +
+    'locked channels and channels without keys are skipped and listed. Reports the peak-to-peak ' +
+    'amplitude before and after. ≤ 200 curves per call.',
   group: 'keys',
   input: z
     .strictObject({
@@ -220,13 +261,21 @@ export const keysAdjust = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'wave', targets: { bodyParts: ['arm.L'] }, scalePercent: 125 },
+  ready: true,
+  run: (ctx, args) => keysAdjustRun(ctx, args) as never,
 });
 
 export const keysRetime = defineTool({
   name: 'keys_retime',
   title: 'Retime keys',
   description:
-    'Shift, scale, insert or remove time on keys (offset with wrap-around for loops, scale about a pivot, snapped to frames).',
+    'Shift, scale, insert or remove time on keys (offset with wrap-around for loops, scale about a ' +
+    'pivot, snapped to frames). mode offset moves keys by offsetFrames (wrap: true on loop clips moves ' +
+    'keys leaving the range to the other end); scale multiplies key times about pivotFrame by factor (2 ' +
+    '= twice as slow); insert_time / delete_time insert or remove frames at atFrame. snapToFrames ' +
+    '(default true) lands keys on whole frames and merges collisions (merged, snapped); ripple shifts ' +
+    'later keys too. To slow a whole clip, retime every body part and grow its range with clip_update.',
   group: 'keys',
   input: z
     .strictObject({
@@ -276,13 +325,21 @@ export const keysRetime = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', targets: { bodyParts: ['arm.L'] }, mode: 'offset', offsetFrames: 2, wrap: true },
+  ready: true,
+  run: (ctx, args) => keysRetimeRun(ctx, args) as never,
 });
 
 export const keysTween = defineTool({
   name: 'keys_tween',
   title: 'Key tweens and breakdowns',
   description:
-    'Key tweens and breakdowns at frames between neighbouring keys (tween, toward a neighbour, ease, push/pull, toward default).',
+    'Key tweens and breakdowns at frames between neighbouring keys (tween, toward a neighbour, ease, ' +
+    'push/pull, toward default). For each frame (≤ 64) and each target channel keyed before and after ' +
+    'it, keys the value amountPercent of the way (tween 50 = halfway; neighbor toward the nearer key; ' +
+    "ease; push_pull exaggerates; to_default toward rest); −150…150, beyond ±100 only with the user's " +
+    'overshoot preference. breakdown (default true) marks the new keys as breakdowns. To tween the ' +
+    "user's selected keys, read them with scene_summary and pass their controls and frames.",
   group: 'keys',
   input: z.strictObject({
     ...scoped,
@@ -303,4 +360,7 @@ export const keysTween = defineTool({
   stretch: false,
   kind: 'edit',
   budget: BUDGETS.write,
+  example: { clip: 'walk', targets: { bodyParts: ['arm.L'] }, frames: [5], mode: 'tween', amountPercent: 30 },
+  ready: true,
+  run: (ctx, args) => keysTweenRun(ctx, args) as never,
 });
