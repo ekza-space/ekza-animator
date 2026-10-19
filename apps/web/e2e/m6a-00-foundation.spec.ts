@@ -133,17 +133,26 @@ const EDITOR_OPS = [
   'file.exportModel',
 ];
 
+/** Landed operators that run without arguments (they open UI, never touch the document). */
+const LANDED_WITHOUT_ARGS: ReadonlySet<string> = new Set(['ui.commandPalette']);
+
 test('every M6a operator resolves and poll-fails cleanly; the document stays untouched', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
   const before = await call(page, 'counts');
   const refused: string[] = [];
   for (const op of [...MESH_OPS, ...EDITOR_OPS]) {
+    // M6A-SPEC §3 rule 9 literal update (B9): the command palette has landed and opens without arguments.
+    if (LANDED_WITHOUT_ARGS.has(op)) continue;
     // `run` fails the test for an unregistered operator or a stub that reaches its apply (helpers/test-api.ts).
     const result = await run(page, op);
     if (result.status !== 'cancelled' || (result.reason ?? '') === '') refused.push(`${op}: ${JSON.stringify(result)}`);
   }
   expect(refused).toEqual([]);
+  expect((await run(page, 'ui.commandPalette')).status).toBe('finished');
+  await expect(page.getByTestId('cmdk')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('cmdk')).toBeHidden();
   expect(MESH_OPS.length + EDITOR_OPS.length).toBe(42 + 77);
   expect(await call(page, 'counts')).toEqual(before);
   expect(await call(page, 'history')).toEqual({ undo: [], redo: [] });
@@ -207,8 +216,8 @@ for (const platform of ['mac', 'other', null] as const) {
   });
 }
 
-// Gate (M6A-SPEC §3 rule 4, §10.1): `test.fixme('b9…')` until B9 registers the Model workspace and the workspace tabs.
-test.fixme('b9: the Model tab is present and ws=model opens it', async ({ page }) => {
+// B9 registers the Model workspace and the workspace tabs (the former `test.fixme('b9…')` gate, §3 rule 4).
+test('the Model tab is present and ws=model opens it', async ({ page }) => {
   await openModel(page);
   await expect(page.getByTestId('ws-tab-model')).toBeVisible();
   await expect(page.getByTestId('ws-tab-animate')).toBeVisible();
