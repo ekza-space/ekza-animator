@@ -839,10 +839,13 @@ export class ViewportManager {
             : null;
     const space = mode === 'translate' ? prefs.moveSpace : mode === 'rotate' ? prefs.rotateSpace : 'object';
     this.kit.configure(mode, space, session.tools.manipulatorSize);
-    // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups); elsewhere
-    // the transform tools sit on the lead control (B12a extends move and rotate to objects and components).
+    // M6a: in Model's object mode the Scale tool sits on the selected scene objects (meshes and groups). Model never
+    // draws or picks rig controls, so there a control selection carried over from Animate gets no manipulator (it
+    // would be edited and auto-keyed unseen, §5.17): move and rotate show none until B12a's object and component
+    // targets land. In Animate the transform tools sit on the lead control.
     let target: ManipTarget | null = null;
     this.objectTarget = false;
+    const model = this.workspace === 'model';
     // The scale handles and drags live in the lazy scale chunk: until it has loaded no scale manipulator shows.
     const scale = mode === 'scale' ? scaleKit() : null;
     if (mode === 'scale' && scale === null) {
@@ -850,10 +853,10 @@ export class ViewportManager {
         this.manipulatorDirty = true;
         this.invalidate();
       });
-    } else if (scale !== null && session.workspace === 'model' && session.model.componentMode === 'object') {
+    } else if (scale !== null && model && session.model.componentMode === 'object') {
       target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
       this.objectTarget = target !== null;
-    } else if (mode !== null) {
+    } else if (mode !== null && !model) {
       target = this.manipTarget(session.selection.controls.at(-1) ?? null);
     }
     this.kit.setTarget(target);
@@ -1191,7 +1194,7 @@ export class ViewportManager {
     const alt = standIn ? false : e.altKey;
     // M2a §5.18: a plain MMB drag (no Alt) with Channel Box channels selected runs the virtual slider; Alt+MMB stays
     // navigation, and without selected channels a plain MMB drag does nothing (M1).
-    if (button === 1 && !alt && this.startVirtualSlider(pane, e)) {
+    if (button === 1 && !alt && this.startVirtualSlider(pane, e, standIn)) {
       this.standIn = null;
       return;
     }
@@ -1239,12 +1242,17 @@ export class ViewportManager {
     }
   }
 
-  private startVirtualSlider(pane: PaneRuntime, e: PointerEvent): boolean {
+  private startVirtualSlider(pane: PaneRuntime, e: PointerEvent, standIn: boolean): boolean {
     if (!this.app.prefs.getState().virtualSlider.viewportMmb) return false;
     const refs = this.app.session.getState().selection.channels;
     if (refs.length === 0) return false;
+    // M6a §5.17: the selected channels are rig controls'. Model does not draw them (unless the pane's Show ▸ Controls
+    // is on), and a control selection carried over from Animate is never edited or keyed unseen there.
+    if (this.workspace === 'model' && !pane.display.controls) return false;
     const drag = startVirtualSliderDrag(this.app, refs, pane.element, e, {
       pointerLock: this.pointerLockAllowed,
+      // §5.17 (b): the MMB stand-in is delivered as MMB with Alt and Shift cleared (no ×0.1 from the chord's Shift).
+      standIn,
       onEnd: () => {
         this.virtualDrag = null;
         this.invalidate();

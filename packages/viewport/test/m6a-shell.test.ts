@@ -1,9 +1,23 @@
 // M6A-SPEC §4.7, §5.17, §5.26 (B9): the M6a camera layers, pane memory per workspace, per-pane shading of character
 // models (pixel probes), mesh layers (`addMeshLayer`, `applyPane` per pane), reference image planes in their ortho
-// pane, the pointer platform rules (no context-menu RMB, the Model MMB stand-in, marking-menu presses) and the Scale
-// tool on controls (Animate) and on scene objects (Model), with undo.
-import type { CharacterId, ControlId, ControlRecord, MeshId, MeshRecord, Tx } from '@ekza-animator/doc';
-import { type DisplayFlags, type ToolInstance, type ToolPointerEvent, VIEWPORT_TOOL } from '@ekza-animator/editor-core';
+// pane, the pointer platform rules (no context-menu RMB, the Model MMB stand-in, marking-menu presses, the stand-in's
+// virtual slider at the MMB rate), a control selection carried over to Model (no manipulator, no unseen edit) and
+// the Scale tool on controls (Animate) and on scene objects (Model), with undo.
+import { DEG2RAD } from '@ekza-animator/anim-core';
+import type { CharacterId, ControlId, ControlRecord, MeshId, MeshRecord, RigId, Tx } from '@ekza-animator/doc';
+import {
+  type DisplayFlags,
+  registerBuiltinOperators,
+  type ToolInstance,
+  type ToolPointerEvent,
+  VIEWPORT_TOOL,
+} from '@ekza-animator/editor-core';
+import {
+  createFakeIkEditorApp,
+  type FakeEditorApp,
+  fixtureControl,
+  withLimbIkRecords,
+} from '@ekza-animator/editor-core/testing';
 import type { LoadedModel } from '@ekza-animator/io/three';
 import {
   BoxGeometry,
@@ -24,11 +38,12 @@ import {
   MODEL_DISPLAY,
   type PanePointerPress,
   SCALE_LABEL,
+  startVirtualSliderDrag,
 } from '../src';
 import { applyMainLayers } from '../src/layers';
 import type { MeshLayerHost } from '../src/manager/meshLayers';
 import type { SceneSync } from '../src/sync/SceneSync';
-import { createRig, drag, pointer, type Rig } from './helpers';
+import { createRig, drag, fixtures, pointer, type Rig } from './helpers';
 
 let rig: Rig | null = null;
 afterEach(() => {
@@ -427,6 +442,180 @@ describe('pointer platform rules (§5.17)', () => {
     drag(pane, { x: 400, y: 300 }, { x: 460, y: 300 }, standIn);
     expect(events).toEqual([]);
     expect(rig.vm.camera('pane-single')).not.toEqual(tumbled);
+  });
+});
+
+// ---------- a control selection carried over from Animate (§5.17) ----------
+
+const IK_RIG = 'rig_SyntheticWave001' as RigId;
+const ctl = (key: string): ControlId => fixtureControl(IK_RIG, key);
+
+/** The synthetic IK rig in one pane (Animate), pointer capture for the virtual slider. */
+async function ikRig(): Promise<Rig> {
+  const { snapshot, skeleton } = await fixtures();
+  const app = createFakeIkEditorApp({ snapshot: withLimbIkRecords(snapshot), skeleton });
+  registerBuiltinOperators(app);
+  const r = await createRig({ app: app as FakeEditorApp });
+  rig = r;
+  r.layout('single');
+  r.vm.setPointerLockAllowed(false);
+  r.frame();
+  return r;
+}
+
+function selectControl(r: Rig, key: string, channel?: 'rz'): void {
+  r.app.session.setState({
+    selection: {
+      ...r.app.session.getState().selection,
+      controls: [ctl(key)],
+      channels: channel === undefined ? [] : [{ control: ctl(key), channel }],
+    },
+  });
+}
+
+function setTool(r: Rig, tool: string): void {
+  r.app.session.setState({ tools: { ...r.app.session.getState().tools, viewport: tool } });
+}
+
+/** A pointer move with a movement, as the browser reports it under capture or lock (MMB held). */
+function slide(element: HTMLElement, movementX: number, init?: PointerEventInit): void {
+  element.dispatchEvent(
+    new PointerEvent('pointermove', {
+      bubbles: true,
+      cancelable: true,
+      pointerId: 1,
+      pointerType: 'mouse',
+      buttons: 4,
+      button: -1,
+      movementX,
+      ...init,
+    }),
+  );
+}
+
+/** A 40 px virtual-slider drag in four moves, pressed with `press` and moved with `held`; returns Δrz in degrees. */
+function slideDrag(r: Rig, press: PointerEventInit, held: PointerEventInit = {}, px = 40): number {
+  const pane = r.panes.get(PANE) as HTMLElement;
+  const before = r.app.evaluation.channelValues(ctl('fk.lowerArm.L')).rz;
+  pointer(pane, 'pointerdown', 300, 300, press);
+  for (let i = 0; i < 4; i++) slide(pane, px / 4, held);
+  pointer(pane, 'pointerup', 300 + px, 300, press);
+  r.app.flushScheduled();
+  return (r.app.evaluation.channelValues(ctl('fk.lowerArm.L')).rz - before) / DEG2RAD;
+}
+
+describe('a control selection carried over to Model (§5.17)', () => {
+  it('gets no W, E or R manipulator in any mode, and a drag where its handle was edits and keys nothing', async () => {
+    const r = await ikRig();
+    await loadScaleKit();
+    const control = ctl('fk.lowerArm.L');
+    // Free translate and scale too, so every tool has a handle on it in Animate.
+    r.app.store.transact({ label: 'Keyable', undoable: false }, (tx) =>
+      tx.patch('controls', control, {
+        keyable: { ...keyableOf(tx, control), t: [true, true, true], s: [true, true, true] },
+      }),
+    );
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    const pane = r.panes.get(PANE) as HTMLElement;
+    const handles = [
+      [VIEWPORT_TOOL.move, 'tx'],
+      [VIEWPORT_TOOL.rotate, 'rz'],
+      [VIEWPORT_TOOL.scale, 'sx'],
+    ] as const;
+    // Animate: each tool sits on the lead control.
+    const grabs = new Map<string, { x: number; y: number }>();
+    for (const [tool, handle] of handles) {
+      setTool(r, tool);
+      r.frame();
+      const at = r.vm.manipulatorScreenPoint(PANE, handle);
+      expect(at, `${tool} on the control in Animate`).not.toBeNull();
+      if (at !== null) grabs.set(tool, at);
+    }
+    const before = { ...r.app.evaluation.channelValues(control) };
+    const historyBefore = r.app.history.peekUndo()?.label ?? null;
+
+    setWorkspace(r, 'model');
+    for (const componentMode of ['object', 'vertex', 'edge', 'face'] as const) {
+      r.app.session.setState({ model: { ...r.app.session.getState().model, componentMode } });
+      for (const [tool, handle] of handles) {
+        // The carried-over selection (a press on empty space in Model may clear it: re-select it each time).
+        selectControl(r, 'fk.lowerArm.L', 'rz');
+        setTool(r, tool);
+        r.frame();
+        expect(r.vm.manipulatorScreenPoint(PANE, handle), `${tool} in Model ${componentMode} mode`).toBeNull();
+        const at = grabs.get(tool) as { x: number; y: number };
+        const rect = r.vm.paneRect(PANE) as { x: number; y: number };
+        drag(pane, { x: rect.x + at.x, y: rect.y + at.y }, { x: rect.x + at.x + 30, y: rect.y + at.y - 30 });
+      }
+    }
+    r.app.flushScheduled();
+    expect(r.app.evaluation.channelValues(control)).toEqual(before);
+    expect(['Move', 'Rotate', 'Scale']).not.toContain(r.app.history.peekUndo()?.label);
+    expect(r.app.history.peekUndo()?.label ?? null).toBe(historyBefore);
+
+    // Back in Animate the manipulator is there again.
+    setWorkspace(r, 'animate');
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    setTool(r, VIEWPORT_TOOL.rotate);
+    r.frame();
+    expect(r.vm.manipulatorScreenPoint(PANE, 'rz')).not.toBeNull();
+  });
+
+  it('a plain MMB drag leaves the hidden control’s selected channels alone; a pane that shows controls slides them', async () => {
+    const r = await ikRig();
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    setWorkspace(r, 'model');
+    expect(r.vm.paneState(PANE)?.display.controls).toBe(false);
+    const pane = r.panes.get(PANE) as HTMLElement;
+    pointer(pane, 'pointerdown', 300, 300, { button: 1 });
+    expect(r.vm.virtualSliderActive).toBe(false);
+    pointer(pane, 'pointerup', 300, 300, { button: 1 });
+    expect(slideDrag(r, { button: 1 })).toBe(0);
+    expect(r.app.history.canUndo()).toBe(false);
+    // Show ▸ Controls in this pane: the control is drawn, so the shipped virtual slider runs (one step).
+    setDisplay(r, PANE, { controls: true });
+    expect(slideDrag(r, { button: 1 })).toBeCloseTo(20, 9);
+    expect(r.app.history.peekUndo()?.label).toBe('Drag Rotate Z');
+  });
+});
+
+describe('the MMB stand-in reaches the virtual slider as MMB (§5.17 (b))', () => {
+  it('a 40 px Alt+Shift+LMB drag with the keys held gives the same delta as a 40 px MMB drag; Mod keeps ×10', async () => {
+    const r = await ikRig();
+    selectControl(r, 'fk.lowerArm.L', 'rz');
+    setWorkspace(r, 'model');
+    setDisplay(r, PANE, { controls: true });
+    const chord = { button: 0, altKey: true, shiftKey: true };
+    for (const profile of ['trackpad', 'mayaOneButton'] as const) {
+      r.vm.setNavProfile(profile);
+      const mmb = slideDrag(r, { button: 1 });
+      const standIn = slideDrag(r, chord, { altKey: true, shiftKey: true });
+      expect(mmb).toBeCloseTo(20, 9);
+      expect(standIn).toBeCloseTo(mmb, 9);
+      // Ctrl+Alt+Shift+LMB = Ctrl+MMB: the coarse ×10 rate (4 px = 20°), Shift still not fine.
+      const coarse = slideDrag(r, { ...chord, ctrlKey: true }, { altKey: true, shiftKey: true, ctrlKey: true }, 4);
+      expect(coarse).toBeCloseTo(20, 9);
+    }
+    // A real MMB drag with Shift held stays fine (×0.1): the rule applies to the stand-in only.
+    expect(slideDrag(r, { button: 1 }, { shiftKey: true })).toBeCloseTo(2, 9);
+  });
+
+  it('startVirtualSliderDrag: `standIn` reads Shift as released for the moves and the initial motion', async () => {
+    const r = await ikRig();
+    const pane = r.panes.get(PANE) as HTMLElement;
+    const refs = [{ control: ctl('fk.lowerArm.L'), channel: 'rz' as const }];
+    const press = new PointerEvent('pointerdown', { pointerId: 1, button: 0, shiftKey: true, altKey: true });
+    const before = r.app.evaluation.channelValues(ctl('fk.lowerArm.L')).rz;
+    const gesture = startVirtualSliderDrag(r.app, refs, pane, press, {
+      pointerLock: false,
+      standIn: true,
+      initialDx: 4,
+    });
+    expect(gesture).not.toBeNull();
+    slide(pane, 36, { shiftKey: true });
+    gesture?.end(true);
+    r.app.flushScheduled();
+    expect((r.app.evaluation.channelValues(ctl('fk.lowerArm.L')).rz - before) / DEG2RAD).toBeCloseTo(20, 9);
   });
 });
 
