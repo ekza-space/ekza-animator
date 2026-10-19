@@ -70,7 +70,7 @@ import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
 import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
-import { loadScaleKit, scaleKit } from '../manipulators/scale/load';
+import { onScaleKitLoaded, requestScaleKit, scaleKit } from '../manipulators/scale/load';
 import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { NavigationController, NavState } from '../navigation/NavigationController';
 import { isMmbStandIn, type NavGesture, pointerGesture, wheelAction } from '../navigation/profiles';
@@ -229,6 +229,11 @@ export class ViewportManager {
    * that draw controls (Show ▸ Controls), the same rule as the MMB virtual slider (M6A-B9-21).
    */
   private controlTargetInModel = false;
+  /**
+   * The manager has asked for the lazy scale chunk since the Scale tool was last chosen: a failed load is not tried
+   * again on every manipulator refresh (playback refreshes each frame), only when the tool is chosen again.
+   */
+  private scaleKitRequested = false;
   private readonly views = new Map<string, Map<ViewPreset, ViewCamera>>();
   private readonly shots = new Map<CameraId, ShotCamera>();
   private readonly listeners = new Set<() => void>();
@@ -860,10 +865,11 @@ export class ViewportManager {
     // The scale handles and drags live in the lazy scale chunk: until it has loaded no scale manipulator shows.
     const scale = mode === 'scale' ? scaleKit() : null;
     if (mode === 'scale' && scale === null) {
-      void loadScaleKit().then(() => {
-        this.manipulatorDirty = true;
-        this.invalidate();
-      });
+      // Loaded handles show through `onScaleKitLoaded` (whoever's load it was); a failure is toasted once.
+      if (!this.scaleKitRequested) {
+        this.scaleKitRequested = true;
+        void requestScaleKit(this.app.services.notify);
+      }
     } else if (mode !== null) {
       if (scale !== null && model && objectMode) {
         target = scale.objectManipTarget(this.app, (character) => this.sync.placement(character));
@@ -1579,6 +1585,10 @@ export class ViewportManager {
   private subscribe(): void {
     const { app } = this;
     this.disposers.push(
+      onScaleKitLoaded(() => {
+        this.manipulatorDirty = true;
+        this.invalidate();
+      }),
       app.evaluation.subscribe(() => {
         this.manipulatorDirty = true;
         this.invalidate();
@@ -1614,7 +1624,10 @@ export class ViewportManager {
           this.invalidate();
         }
         if (state.tools !== previous.tools) {
-          if (state.tools.viewport !== previous.tools.viewport) this.tool();
+          if (state.tools.viewport !== previous.tools.viewport) {
+            this.scaleKitRequested = false;
+            this.tool();
+          }
           this.manipulatorDirty = true;
           for (const pane of this.panes.values()) this.picker.forget(pane.id);
           this.invalidate();
