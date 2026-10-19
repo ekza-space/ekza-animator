@@ -42,6 +42,14 @@ const TABLE_OF_KIND: Readonly<Partial<Record<keyof IdOfKind, TableName>>> = {
   layer: 'layers',
   curve: 'curves',
   key: 'keys',
+  // M6a (M6A-SPEC §4.2)
+  mesh: 'meshes',
+  group: 'groups',
+  palette: 'palettes',
+  swatch: 'swatches',
+  imagePlane: 'imagePlanes',
+  skeleton: 'skeletons',
+  joint: 'joints',
 };
 
 /**

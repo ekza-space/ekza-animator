@@ -21,6 +21,9 @@
     },
     {
       "path": "../../io/src"
+    },
+    {
+      "path": "../../mesh-core/src"
     }
   ]
 }

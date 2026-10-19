@@ -94,6 +94,21 @@ export const DEFAULT_DISPLAY: DisplayFlags = {
   xray: false,
   hud: true,
   springBones: false,
+  // M6a (M6A-SPEC §4.6): the Animate defaults (today's look); B9 keeps per-workspace pane flags.
+  shading: 'lit',
+  wireOnShaded: false,
+  flat: false,
+  cull: false,
+  components: true,
+  normals: 'off',
+  faceOrientation: false,
+  triangulation: false,
+  hardEdges: false,
+  polyCount: false,
+  meshCheck: false,
+  symmetryPlane: true,
+  dimUnhilited: false,
+  imagePlanes: true,
 };
 
 /** What the viewport panel shows for a pane (header, HUD, lock badge). Immutable snapshots. */

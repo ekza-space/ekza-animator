@@ -37,7 +37,9 @@ export function naiveKernelDeps(skeleton: SkeletonDesc | null): KernelDeps {
       applyOverrides: naiveApplyOverrides,
     },
     loadModel: (character) =>
-      skeleton === null ? null : { container: placeholderContainer(character.asset), skeleton },
+      skeleton === null || character.asset === null
+        ? null
+        : { container: placeholderContainer(character.asset), skeleton },
   };
 }
 

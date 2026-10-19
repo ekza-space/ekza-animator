@@ -30,6 +30,7 @@
       "**",
       "!packages/anim-core/src/types.ts",
       "!packages/anim-core/src/errors.ts",
+      "!packages/anim-core/src/params/types.ts",
       "!packages/doc/src/ids.ts",
       "!packages/doc/src/records.ts",
       "!packages/doc/src/store.ts",
@@ -39,7 +40,9 @@
       "!packages/editor-core/src/operators/args.ts",
       "!packages/viewport/src/types.ts",
       "!packages/curve-editor/src/types.ts",
-      "!packages/editor/src/test-api/types.ts"
+      "!packages/editor/src/test-api/types.ts",
+      "!packages/mesh-core/src/types.ts",
+      "!packages/mesh-view/src/types.ts"
     ]
   },
   "linter": {
@@ -56,6 +59,7 @@
       "**",
       "!packages/anim-core/src/types.ts",
       "!packages/anim-core/src/errors.ts",
+      "!packages/anim-core/src/params/types.ts",
       "!packages/doc/src/ids.ts",
       "!packages/doc/src/records.ts",
       "!packages/doc/src/store.ts",
@@ -65,7 +69,9 @@
       "!packages/editor-core/src/operators/args.ts",
       "!packages/viewport/src/types.ts",
       "!packages/curve-editor/src/types.ts",
-      "!packages/editor/src/test-api/types.ts"
+      "!packages/editor/src/test-api/types.ts",
+      "!packages/mesh-core/src/types.ts",
+      "!packages/mesh-view/src/types.ts"
     ]
   },
   "javascript": {

@@ -5,6 +5,7 @@ import type { ConformanceCaps, DocumentStore } from '../../store';
 import { registerCoreCases } from './core';
 import { hostRunner } from './harness';
 import { registerReplicatingCases } from './replicating';
+import { registerSchemaV3Cases, registerSchemaV3ReplicatingCases } from './schemaV3';
 
 /**
  * Registers the suite with the host test runner's global `describe`/`it` (Vitest needs `globals: true`). `factory`
@@ -17,6 +18,10 @@ export function runDocumentStoreConformance(label: string, factory: () => Docume
   const runner = hostRunner();
   runner.describe(`DocumentStore conformance: ${label}`, () => {
     registerCoreCases(runner, factory);
-    if (caps.replicating) registerReplicatingCases(runner, caps);
+    registerSchemaV3Cases(runner, factory);
+    if (caps.replicating) {
+      registerReplicatingCases(runner, caps);
+      registerSchemaV3ReplicatingCases(runner, caps);
+    }
   });
 }
