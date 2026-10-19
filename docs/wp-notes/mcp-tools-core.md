@@ -8,13 +8,13 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
 
 | Item (§8 P2) | Where | State |
 |---|---|---|
-| The rest of `createAgentToolRuntime`: rate limit (20/s, bursts of 50), the queue (edits and files one at a time in arrival order, reads at once, ≤ 64 waiting), the gesture wait, the redo wait, confirmations with the timeout, pause meeting queued calls, read-only projects, presence focus (cleared 3 s after the call), progress (≤ 4/s, sanitised), toasts as warnings, the actor's own steps and batches | `agent-tools/src/runtime/runtime.ts` | working; `test/runtime-full.test.ts` |
+| The rest of `createAgentToolRuntime`: rate limit (20/s, bursts of 50), the queue (edits and files one at a time in arrival order, reads at once, ≤ 64 waiting), the gesture wait, the redo wait, confirmations with the timeout (cancellable even when the host ignores the card's abort), pause meeting queued calls, read-only projects, presence per call (an edit in flight speaks for the actor; cleared 3 s after the last call), progress (≤ 4/s, sanitised), toasts as warnings, the actor's own steps and batches, the scope guard (MAI-P2-26) | `agent-tools/src/runtime/runtime.ts` | working; `test/runtime-full.test.ts` |
 | `RevisionTracker` with the automatic per-curve stale check (1,024 batches per clip remembered) | `src/runtime/revisions.ts` | working; `test/tools-write.test.ts`, `test/tools-history.test.ts` |
 | Resolver's remaining parts: targets → channel targets, body parts, limbs, frames and ranges, keys of targets, scopes | `src/resolve/targets.ts` (+ D0's `resolver.ts`) | working; `test/tools-resolve.test.ts` |
 | Units and character space: degrees/radians, rounding, fps numbers, named directions, the named orientation angles (pitch, yaw, roll relative to rest), the radians warning; pose evaluation helpers | `src/units/{units,pose}.ts` | working; `test/units.test.ts` |
-| Shared tool steps (address, clip info that marks seen, stale check, operator value, write result) | `src/runtime/toolkit.ts` | exported for P3–P6 |
+| Shared tool steps (address, clip info that marks seen, stale check, operator value, write result, `explicitOperatorsIn` / `notAvailableInThisBuild`) | `src/runtime/toolkit.ts` | exported for P3–P6 |
 | Tools 4–25 and 31–32 (ready in the manifest) | `src/tools/{scene,rig,keys,pose,curves,clip,history}/**` | ready; see "Gated on P1" |
-| Axis hints (`rig_describe {detail: 'detailed'}`) | `src/tools/rig/describe.ts` | cached per rig program |
+| Axis hints and joint labels (`rig_describe {detail: 'detailed'}`; MAI-P2-25) | `src/tools/rig/describe.ts` | cached per rig program |
 | Server instructions (spec text), three guides, seven prompt plans | `src/text/{instructions,resources,prompts}.ts` | `test/tools-envelope.test.ts` |
 | Full descriptions (§5.20.1) of tools 4–25, 31–32 and the connection tools; an `example` on every catalogue tool (MAI-D0-25 hand-off) | `src/tools/**/defs.ts` | schema lint green |
 | `READY.p2` | every package's `test/ready.ts` | true |
@@ -59,10 +59,12 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
   rounding step) to the keyed value is left out only when the channel already has a key at that frame; every other
   edit keys, equal values included, so blocking a rest pose at f0 keeps it when f10 is keyed (§11.3 blocker). Fed back
   at a keyed frame: no step; elsewhere the motion stays identical.
-- **MAI-P2-10** Stale check: a clip this actor never saw has no automatic check (the first write passes); every
-  result that names a clip marks it seen (scene_summary marks every clip it lists); the actor's own batches are found
-  after the run by the recorded step's `docTxId` (`markOwn`), its undo navigations by `runOwn`; a document load
-  clears the memory; a foreign change older than the 1,024 remembered batches answers with a warning only.
+- **MAI-P2-10** Stale check: a clip this actor never saw has no automatic check (the first write passes); only results
+  that carry `clip` mark it seen (§4.4) — `scene_summary` and the summary resource list revisions but mark nothing, so
+  a summary between a read and a write never hides a user edit (fix round 1: it used to mark every listed clip); the
+  actor's own batches are found after the run by the recorded step's `docTxId` (`markOwn`), its undo navigations by
+  `runOwn`; a document load clears the memory; a foreign change older than the 1,024 remembered batches answers with
+  a warning only.
 - **MAI-P2-11** `OperatorRun.warnings` (toasts raised during a run) come from wrapping `services.notify.toast` for the
   duration of the run (warning, error and info toasts; the user still sees them). A frozen notifier is left alone.
 - **MAI-P2-12** The redo wait (§5.8 4a) applies with the `user` capability; a host that cannot confirm answers
@@ -76,9 +78,11 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
 - **MAI-P2-15** Deadlines stay the host's (it aborts the call's signal); the runtime reports the waits as progress
   messages `WAITING_FOR_DRAG`, `WAITING_FOR_CONFIRM` and `WAITING_FOR_REDO` (exported) so the bridge can extend a
   deadline once when a card opens (§5.8 7). Wait messages bypass the 250 ms progress throttle.
-- **MAI-P2-16** Presence: at the start of every live call the activity is the tool's title; tools refine it with
-  `ctx.focus` (targets, frame, label); 3 s after the call the focus and activity are cleared (the peer stays; P7
-  removes it at disconnect).
+- **MAI-P2-16** Presence, per call: every running call keeps its own focus and activity (the tool's title at the
+  start, refined with `ctx.focus`, the wait messages while it waits); the actor shows the edit or files call in flight
+  (running or waiting for a drag, a redo or a confirmation) over any read, else the newest read — a read never
+  replaces a waiting edit's activity. 3 s after the **last** call ended the focus and activity are cleared (the peer
+  stays; P7 removes it at disconnect).
 - **MAI-P2-17** `clip_update {activate: true}` headless runs `clip.setActive` with `access: 'view'` (no user to
   protect); live it needs View (unchanged).
 - **MAI-P2-18** `history_revert`: `unreachable` lists this runtime's own step ids found in neither stack (the runtime
@@ -96,28 +100,99 @@ Binding definition: [MCP-SPEC §8 P2](../MCP-SPEC.md#p2--tools-core-agent-tools)
 - **MAI-P2-23** `bodyParts` may resolve up to 1,000 controls (`CONTROLS_MAX`, a whole rig with its secondary chains):
   §5.5 bounds writes by key records (≤ 50,000), curves (`keys_adjust` ≤ 200) and frames; the `controls` lists of the
   schemas stay ≤ 100 and `pose_set` ≤ 100 items, so "retime the whole clip" works on rigs with many controls.
+- **MAI-P2-24** `keys_delete` needs exactly one of `frames` / `rangeFrames` (§6.4 makes both optional): deleting every
+  key of the targets needs an explicit range, so a call that forgot both never wipes whole curves (`invalid_args`
+  names the two fields). Stricter than the interface; INT records it.
+- **MAI-P2-25** `rig_describe {detail: 'detailed'}` adds `label` to humanoid controls (§6.2's plain-language labels,
+  `elbow hinge; bend = ry−`; an optional field the §6.2 interface does not list): anatomy names the joint and its
+  actions (elbow and knee hinges bend forward / back, shoulder raise and forward, hip lift and out, head and neck nod,
+  tilt and turn, spine bend and twist, ankle, wrist, collarbone), the axis-hint numbers pick the channel and sign of
+  each (the largest move along the action's direction, a point in front of the joint for a turn, the channel that
+  leaves the tip in place for a twist), nothing per model. On Seed-san `fk.lowerArm.L` reads exactly the spec's
+  example plus `; twist = rx`. A limb's FK controls are now measured with that limb in FK: legs are IK at rest, where
+  every FK leg channel used to read "twist: the tip stays".
+- **MAI-P2-26** Guards until P1 is in (fix round 1; the §10.1 order no longer carries the hazard alone):
+  - **scope guard** (runtime, every `ctx.run` with a `runScope`, so `operator_run {context}` too): the operator is
+    polled first as an actor run **without** a scope; a scope-ready operator poll-fails there (§4.10: its scope is
+    empty, "no targets"), one that passes still reads the user's selection, active clip or playhead and the call
+    answers `unsupported` "… is not available yet: this editor's <op> does not take explicit targets" (detail
+    `operator`). The probe uses the run's own arguments and the session of that moment, so an operator that ignores
+    the scope polls the same way in the run itself — it can never edit what the user selected. Today that refuses
+    `keys_tween`, `curves_set_interpolation`, `curves_euler_filter` and `curves_simplify` (not dry) whenever the
+    shipped operator would act (e.g. `graph.eulerFilter` polls on any editable active clip); with P1's migrations the
+    probe fails and the run goes ahead. If a migrated operator ever polls fine without a scope, its READY.p1 tests
+    fail with `unsupported` (visible at INT).
+  - **P1 marker** `explicitOperatorsIn(app)`: true once `key.write` no longer poll-fails with D0's stub reason
+    `NOT_AVAILABLE_YET` (P1 replaces every stub in one merge). Until then `clip_create` without `activate` (the shipped
+    `clip.new`/`clip.duplicate` always activate) answers `unsupported` up front with the hint to pass `activate: true`
+    (live, needs View) or leave it out (headless); live `clip_delete` of the clip the user looks at is refused before
+    any confirmation card; headless deletes the active clip with `access: 'view'` (no user to protect).
+- **MAI-P2-27** `keys_retime` computes where the keys land: beyond ±100,000 frames → `limit` (detail path
+  `offsetFrames` / `factor` / `frames`); keys that leave the clip range → a warning naming `clip_update {rangeFrames}`
+  (the tool has no `extendRange`). Offsets with `wrap` stay inside the loop.
+- **MAI-P2-28** `keys_read` cursors carry the clip revision of the first page; a later page of a changed clip answers
+  `expired_handle` "The clip changed since the first page (revision a, now b)", hint "repeat the read without cursor".
+- **MAI-P2-29** `keys_tween`'s description and `amountPercent` now state the operator's Tween-slider scale (tween
+  −100 = the previous key, 0 = halfway, +100 = the next key; 30 % of the way = −40). The earlier text said
+  "50 = halfway", which the operator (`w = (a + 100) / 200`, M2A §5.13) puts at 75 %.
+- **MAI-P2-30** The AE copies (P9 decides the final ones): AE-13 runs on Seed-san (Polybot's hands cannot reach the top
+  of its 37 cm head: 31 cm of arm, 45 cm from the shoulder); AE-10's setup noise is 0.05° peak-to-peak and the script
+  simplifies at 0.12° (Polybot's k = 0.63 makes "2 mm·k" 1.25 mm); the UAL walk copies measure the seam's velocity
+  mismatch relative to the clean walk's own (+0.05°/frame) because §5.16's literal mismatch is the acceleration of any
+  smooth loop (≈ 5°/frame on the clean UAL walk's bones, 0.36 rad/frame on its channels), and detect the heel strike
+  as the foot's furthest-forward frame (an in-place walk's stance foot slides back).
 
 ## Gated on P1 — merge P1 before P2 (§10.1 order)
 
 The tools are ready in the manifest (the contract), but some run P1's work:
 
-- **Hazard before P1:** `keys_tween`, `curves_set_interpolation`, `curves_euler_filter` and `curves_simplify` (not
-  dry) run scope-ready operators. Until P1 migrates them to `selectionOf(ctx)`/`scopedClipOf(ctx)`, the shipped
-  operators read the **user's** selection and active clip under an actor. Their tests are
-  `describe.skipIf(!READY.p1)`; if P2 ever merged first, these four must not be called.
-- Live `clip_create` without `activate` and `clip_delete` of the user's active clip need P1's `clip.new {activate}`
-  and actor-safe `clip.delete`; until then the runner's invariant fails them (`internal`, rolled back).
+- `keys_tween`, `curves_set_interpolation`, `curves_euler_filter` and `curves_simplify` (not dry) run scope-ready
+  operators. Until P1 migrates them to `selectionOf(ctx)`/`scopedClipOf(ctx)` the shipped operators read the
+  **user's** selection, active clip and playhead under an actor; the scope guard (MAI-P2-26) refuses such a run with
+  `unsupported` "not available yet" before it starts, so merging P2 first is safe — the tools are just unavailable.
+  Their semantics tests are `describe.skipIf(!READY.p1)`; the guard tests run now (`test/tools-write.test.ts`).
+- `clip_create` without `activate` and live `clip_delete` of the user's active clip answer `unsupported` up front
+  until P1's `clip.new {activate}` and actor-safe `clip.delete` are in (MAI-P2-26). (Earlier notes said such runs
+  were "rolled back": the document was, the user's unkeyed overrides were not — see "Found outside P2".)
 - `key.write`, `key.delete`, `key.adjust`, `key.retime`, `pose.setAt`, `pose.goals`, `pose.transfer`,
   `clip.makeLoop`, `edit.revertSteps` are D0 stubs: the tools answer `poll_failed` "not available yet" until P1.
   P2's tests run them against **test doubles** (`test/p1-doubles.ts`, a view of the app whose `runUntyped` routes
   those ids to small §4.10 implementations over the shipped edit kernel); with `READY.p1` the same tests run against
-  P1's real operators.
+  P1's real operators. The `edit.revertSteps` double labels its step like §4.10 (`AI: Revert N steps`) and the test
+  asserts that exact label, so P1's operator is held to it.
+- With P1, the READY.p1-gated reference scripts (MAI-P2-30, below) run: AE-04, -07, -08, -09, -10, -13, -19, -21,
+  -23, -24. Their graders and setups already run; for AE-09, -10, -19, -21 and -23 the shipped operator under the
+  equivalent **user** selection (what P1's scope-ready operators must equal, §9.2) passes the grader with the
+  scripts' arguments; AE-13 is checked through `pose_ik_target` with the arm switched to IK by user keys.
 
 ## Found outside P2
+
+- **D0 / INT — runner rule 6 does not restore the user's unkeyed overrides.** An actor run that writes the session
+  fails with `agent-ustate` and the runner restores the recorded session (`session.setState(rollback, true)`), but
+  the session keeper reacts twice: the run's own frame or clip change drops the overrides (keeper rule: overrides
+  belong to one clip frame), and the rollback's change back drops them again from the restored state. Probe on the
+  D0 kernel: `clip.new` (shipped, always activates) as an actor run with the user at frame 12 and one override →
+  `failed agent-ustate`, `session.time` and `activeClip` identical by reference, the clip not created, overrides
+  1 → 0 (and their history records dropped). P2 no longer runs such operators (MAI-P2-26), but any actor run that
+  trips rule 6 on time or the active clip loses the user's overrides; the keeper should skip the rollback (or the
+  runner restore the overrides after the keeper ran).
 
 - D0's `test/support.ts` `seedUserSession` sets the frame and the override in one `setState`, so the session keeper
   drops the override at once: the fixture of the every-operator invariant test (§5.14, P3 extends it) has no override.
   P2's `test/p2-support.ts` seeds the frame first, then the override. Hand-off to P3.
+
+## For INT review: edits outside P2's files (§8.1 route)
+
+P2 cannot open contract PRs from its worktree (no push); these edits are kept small, additive and listed here so INT
+routes them (contract PR or owner review) when it merges `mcp/tools-core`:
+
+| File | Owner after D0 (§8.1) | P2's edit | Note |
+|---|---|---|---|
+| `packages/agent-tools/src/types.ts` | closed (contract PRs) | `AGENT_TOOLSET_VERSION` `1.0.0` → `1.0.0-dev.1` | MAI-P2-1; INT picks the release version |
+| `biome.json` (root) | integration agent | `files.includes` leaves `packages/agent-tools/tools.manifest.json` out | MAI-P2-2 |
+| `packages/mcp-server/test/{in-process,cli}.test.ts` | P6 | literal updates: tools/list = the committed manifest's names, prompts/list = the prompts with plans | MAI-P2-3; P6 to confirm |
+| `packages/agent-tools/src/index.ts` | not in the table (D0 created it) | additive exports of P2's modules (runtime, toolkit incl. `explicitOperatorsIn` / `notAvailableInThisBuild`, targets, units, summary data) | INT to confirm the export list |
+| every package's `test/ready.ts` | each package | `READY.p2 = true` | §3 rule 3 (a package flips its own flag) |
 
 ## Hand-offs to the other packages
 
@@ -129,6 +204,14 @@ The tools are ready in the manifest (the contract), but some run P1's work:
 - **P6 (resources):** `GUIDE_TEXT` has the three guides; `sceneSummaryData`, `userSelectionOf`, `userTimeOf` and
   `describeRig(…, {detail: 'detailed'})` give the template payloads (§5.20.3); `PROMPTS[].plan` are written, so
   prompts/list now lists all seven (P6 adds prompts/get).
+- **P3 (operator_run):** the runtime's scope guard (MAI-P2-26) applies to every `ctx.run` with a `runScope`, so before
+  P1 an `operator_run {context}` on a shipped (unmigrated) scope-ready operator answers `unsupported` with
+  `detail.operator` whenever the operator would act on the user's state; P3's selection-leak regression can rely on
+  it. `explicitOperatorsIn(app)` tells whether P1's operators are in.
+- **P1:** a migrated scope-ready operator must poll-fail for an actor run without a scope (§4.10 "no targets"),
+  including `graph.eulerFilter` and `graph.curves.simplify`, which act on every curve of the active clip when nothing
+  is selected in user runs; otherwise the scope guard keeps refusing it. `edit.revertSteps` labels actor runs
+  `AI: Revert N steps` (asserted by P2's history test under READY.p1).
 - **P3/P4/P5:** `runtime/toolkit.ts` (`addressed`, `clipInfo`, `staleCheck`, `valueOf`, `writeResult`, `atFrame`),
   `resolve/targets.ts` (`resolveControls`, `channelTargets`, `keysOfTargets`, `keySelection`, `checkFrames`,
   `limbOf`), `units` and `poses` (namespaces) are exported from the package root; `runtimeStateOf(ctx)` gives the
@@ -136,11 +219,20 @@ The tools are ready in the manifest (the contract), but some run P1's work:
 
 ## Reference scripts (P2's own copies until P9)
 
-`test/ae-scripts.test.ts`: AE-01 (the shared wave script), AE-02 (`pose_set` blocking with the axis from the axis
-hints), AE-06 (1.5× slower), AE-12 (relaxed arms, head turned 30° left), AE-18 (25 % bigger), AE-25 (key the user's
-shown pose) — scripted through the runtime, graded on raw bone worlds from `evaluateAt`. AE-03/-04/-05/-07/-08/-09/
--10/-11/-13/-14/-19…-23 need P4's analysis or P5's capture tools, P1's scope migrations, `ensureIk: 'auto'`,
-`wrap` or the UAL walk fixtures: P9's reference scripts cover them once those land.
+Scripted through the runtime (headless, P1's operators real or doubled), graded on raw bone worlds and raw curve keys
+by `test/ae-graders.ts` (own minimal implementations of cycles, period, pops, holds, seams, lags); setups by
+`test/ae-tasks.ts` (user edits without an actor). Every grader also rejects its unedited setup (§9.3.4).
+
+| Task | File | Runs |
+|---|---|---|
+| AE-01 wave, AE-02 nod (pose_set blocking), AE-06 1.5× slower, AE-12 relaxed pose + head turn, AE-18 25 % bigger, AE-25 key the shown pose | `test/ae-scripts.test.ts` | now |
+| AE-03 breathing idle loop (chest label + `clip_make_loop`), AE-11 overshoot that settles, AE-20 moving hold, AE-22 two turns (right-hand wave, then `clip_update` + `keys_retime ×1.5`) | `test/ae-scripts-timing.test.ts` | now |
+| AE-09 spine flips, AE-10 dense mocap, AE-13 hand on the head top (Seed-san), AE-19 ease out/in, AE-23 tween the user's selected keys (live), AE-24 AE-09 on an adversarial document | `test/ae-scripts-p1.test.ts` | scripts READY.p1; setups, graders and operator equivalents now |
+| AE-04 hitching loop, AE-07 contact +2, AE-08 arms trail by 2, AE-21 uneven arm spacing — UAL `Walk_Loop` | `test/ae-scripts-ual.test.ts` | scripts READY.p1 (need `clip.makeLoop` slope matching, `key.retime {wrap}`, scope-ready `graph.tangent.set`, none modelled by the doubles); setups, graders and intended results now |
+
+Not P2's: AE-05 (P5/stretch `pose_plant_feet` or foot-slide analysis), AE-14 (block a walk: P4's analysis), AE-15
+(export/save: P6), AE-16 (diagnosis: P4 + `submit_answer`), AE-17 (undo everything incl. a user edit between turns:
+P9's harness).
 
 ## Tests added (agent-tools)
 
