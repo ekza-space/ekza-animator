@@ -136,6 +136,40 @@ describe('typed values (§5.10 units)', () => {
     expect(parseParam(DISTANCE, 'abc')).toEqual({ error: 'Local Translate Z: type a number' });
     expect(parseParam(MODE, 'sideways')).toEqual({ error: 'Mode: one of Relative, Multiple' });
   });
+
+  it('reads numbers with the shipped grammar (research 09 §6.4): units, decimal comma, expressions, relative', () => {
+    const close = (result: ReturnType<typeof parseParam>): number => {
+      if (!('value' in result) || typeof result.value !== 'number') throw new Error(JSON.stringify(result));
+      return result.value;
+    };
+    // Angles are typed in degrees; `rad` and `deg` suffixes convert.
+    expect(close(parseParam(ANGLE, '1.5rad'))).toBeCloseTo(1.5, 12);
+    expect(close(parseParam(ANGLE, '30deg'))).toBeCloseTo(Math.PI / 6, 12);
+    expect(close(parseParam(ANGLE, '45°'))).toBeCloseTo(Math.PI / 4, 12);
+    expect(close(parseParam(ANGLE, '=45*2'))).toBeCloseTo(Math.PI / 2, 12);
+    // Distances in metres; cm and mm convert (§5.10 `50cm`).
+    expect(close(parseParam(DISTANCE, '10cm'))).toBeCloseTo(0.1, 12);
+    expect(close(parseParam(DISTANCE, '50 cm'))).toBeCloseTo(0.5, 12);
+    expect(close(parseParam(DISTANCE, '25mm'))).toBeCloseTo(0.025, 12);
+    expect(close(parseParam(DISTANCE, '1,5'))).toBeCloseTo(1.5, 12);
+    expect(close(parseParam(DISTANCE, '1,5cm'))).toBeCloseTo(0.015, 12);
+    expect(close(parseParam(DISTANCE, '=2*0.25'))).toBeCloseTo(0.5, 12);
+    expect(close(parseParam(DISTANCE, '1m + 20cm'))).toBeCloseTo(1.2, 12);
+    // Relative forms count from the value the prompt started from.
+    expect(close(parseParam(DISTANCE, '+=0.1', 0.4))).toBeCloseTo(0.5, 12);
+    expect(close(parseParam(DISTANCE, '*=2', 0.4))).toBeCloseTo(0.8, 12);
+    expect(close(parseParam(ANGLE, '+=10', Math.PI / 2))).toBeCloseTo((100 * Math.PI) / 180, 12);
+    expect(close(parseParam(FRACTION, '+=10%', 0.5))).toBeCloseTo(0.6, 12);
+    expect(close(parseParam(FRACTION, '=0.1*3'))).toBeCloseTo(0.3, 12);
+    expect(parseParam(DIVISIONS, '2*1.6')).toEqual({ value: 3 });
+    // Units the field does not take are refused, never silently dropped.
+    expect(parseParam(DISTANCE, '10in')).toEqual({ error: 'Local Translate Z: type a number' });
+    expect(parseParam(DISTANCE, '90deg')).toEqual({ error: 'Local Translate Z: type a number' });
+    expect(parseParam(ANGLE, '10cm')).toEqual({ error: 'Angle: type a number' });
+    expect(parseParam(FRACTION, '0.3rad')).toEqual({ error: 'Fraction: type a number' });
+    expect(parseParam(DIVISIONS, '3m')).toEqual({ error: 'Divisions: type a number' });
+    expect(parseParam(DISTANCE, '1/0')).toEqual({ error: 'Local Translate Z: type a number' });
+  });
 });
 
 describe('palette entries (§5.18)', () => {
@@ -221,6 +255,21 @@ describe('palette entries (§5.18)', () => {
     controller.setQuery('test extrude');
     controller.choose();
     expect(controller.state.getState().prompt?.values['divisions']).toBe('4');
+  });
+
+  it('typed values in the prompt: units convert, relative entries count from the starting value', () => {
+    const { app, controller, runs } = rig();
+    app.session.setState({ workspace: 'model' });
+    const modeling = app.prefs.getState().modeling;
+    app.prefs.setState({ modeling: { ...modeling, optionDefaults: { 'test.extrude': { divisions: 4 } } } });
+    controller.open();
+    controller.setQuery('test extrude');
+    controller.choose();
+    controller.setField('50cm');
+    controller.nextField(1);
+    controller.setField('+=2');
+    controller.submitPrompt();
+    expect(runs.map((r) => r.args)).toEqual([{ localTranslateZ: 0.5, divisions: 6, mode: 'relative' }]);
   });
 });
 

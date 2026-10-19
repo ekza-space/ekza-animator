@@ -3,8 +3,14 @@
 // arguments ("Four View", "Export…") and one entry per workspace ("Workspace: Model"), with key labels and poll
 // reasons read when it opens. Enter runs the highlighted entry (`source: 'palette'`); an operator with value params
 // first prompts for its primary field inline (Tab moves through the others), then runs with the typed values.
-import { type ParamDef, type ParamValue, primaryParam } from '@ekza-animator/anim-core';
-import type { EditorApp, MenuItemDef, OperatorResult, RunContext } from '@ekza-animator/editor-core';
+import { DEG2RAD, type ParamDef, type ParamValue, primaryParam, RAD2DEG } from '@ekza-animator/anim-core';
+import {
+  type EditorApp,
+  type MenuItemDef,
+  type OperatorResult,
+  parseNumericInput,
+  type RunContext,
+} from '@ekza-animator/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { shortcutFor } from '../../shell/menus';
 import type { PaletteEntry, PalettePrompt, PaletteState } from './types';
@@ -99,8 +105,21 @@ export function formatParam(param: ParamDef, value: ParamValue | undefined): str
   return typeof value === 'string' || typeof value === 'boolean' ? String(value) : JSON.stringify(value);
 }
 
-/** Parses typed text for a param (§5.10: `30%` = 0.3 for fractions, degrees for angles); an error string otherwise. */
-export function parseParam(param: ParamDef, text: string): { readonly value: ParamValue } | { readonly error: string } {
+/** A number with a length unit (`50cm`, `0.5 m`, `1,5mm`): §5.10's distance example; the divisor makes metres. */
+const LENGTH = /((?:\d+(?:[.,]\d*)?|[.,]\d+)(?:e[+-]?\d+)?)\s*(mm|cm|m)(?![a-z])/gi;
+const LENGTH_DIVISOR: Readonly<Record<string, string>> = { m: '', cm: '/100', mm: '/1000' };
+
+/**
+ * Parses typed text for a param with the shipped numeric grammar (`parseNumericInput`, research 09 §6.4, §5.10):
+ * `[=]expr`, `+=`/`-=`/`*=`/`/=` against `current` (the value the prompt started from) and a decimal comma; angles are
+ * typed in degrees and alone take `deg`/`rad`/`°`, distances alone take `m`/`cm`/`mm` (§5.10 `50cm`); `fraction`
+ * adds `30%` = `0.3` (§1); `int` rounds. Any other unit is refused. An error string when the text does not parse.
+ */
+export function parseParam(
+  param: ParamDef,
+  text: string,
+  current?: ParamValue,
+): { readonly value: ParamValue } | { readonly error: string } {
   const raw = text.trim();
   if (raw === '') return { value: param.default };
   switch (param.kind) {
@@ -127,13 +146,29 @@ export function parseParam(param: ParamDef, text: string): { readonly value: Par
     case 'distance':
     case 'angle':
     case 'fraction': {
-      const percent = param.kind === 'fraction' && raw.endsWith('%');
-      const number = Number.parseFloat(percent ? raw.slice(0, -1) : raw.replace(/[a-z°\s]+$/i, ''));
-      if (!Number.isFinite(number)) return { error: `${param.label}: type a number` };
-      if (param.kind === 'int') return { value: Math.round(number) };
-      if (param.kind === 'angle') return { value: (number * Math.PI) / 180 };
-      if (percent) return { value: number / 100 };
-      return { value: number };
+      const start = typeof current === 'number' ? current : typeof param.default === 'number' ? param.default : 0;
+      const refuse = { error: `${param.label}: type a number` };
+      // The shipped grammar reads `deg`/`rad`/`°` anywhere; only angles take them.
+      if (param.kind !== 'angle' && /deg|rad|°/i.test(raw)) return refuse;
+      let value: number | null;
+      if (param.kind === 'angle') {
+        const degrees = parseNumericInput(raw, start * RAD2DEG);
+        value = degrees === null ? null : degrees * DEG2RAD;
+      } else if (param.kind === 'fraction' && raw.endsWith('%')) {
+        const percent = parseNumericInput(raw.slice(0, -1), start * 100);
+        value = percent === null ? null : percent / 100;
+      } else if (param.kind === 'distance') {
+        // Each `<number><unit>` becomes a metres group the shipped grammar reads (`50cm` → `(50/100)`).
+        const metres = raw.replace(
+          LENGTH,
+          (_all, n: string, unit: string) => `(${n}${LENGTH_DIVISOR[unit.toLowerCase()] ?? ''})`,
+        );
+        value = parseNumericInput(metres, start);
+      } else {
+        value = parseNumericInput(raw, start);
+      }
+      if (value === null) return refuse;
+      return { value: param.kind === 'int' ? Math.round(value) : value };
     }
   }
 }
@@ -301,8 +336,9 @@ export function createCommandPaletteController(deps: CommandPaletteDeps): Comman
       const prompt = state.getState().prompt;
       if (prompt === null) return;
       const args: Record<string, ParamValue> = {};
+      const defaults = deps.app.prefs.getState().modeling.optionDefaults[prompt.entry.op] ?? {};
       for (const param of prompt.entry.params) {
-        const parsed = parseParam(param, prompt.values[param.name] ?? '');
+        const parsed = parseParam(param, prompt.values[param.name] ?? '', defaults[param.name] ?? param.default);
         if ('error' in parsed) {
           state.setState({ prompt: { ...prompt, field: param.name, error: parsed.error } });
           return;
