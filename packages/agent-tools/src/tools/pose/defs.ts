@@ -51,8 +51,9 @@ export const poseRead = defineTool({
     '— change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along ' +
     'the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, ' +
     'in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames ' +
-    '(≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the primary ' +
-    'controls (name secondary controls to read them). It reads the keyed animation; withUserOverrides: true reads ' +
+    '(≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the controls ' +
+    'rig_describe lists concisely (name finger, secondary or mode-hidden controls to read them). It reads the keyed ' +
+    'animation; withUserOverrides: true reads ' +
     'what the user sees (their unkeyed edits at their current frame).',
   group: 'pose',
   input: z

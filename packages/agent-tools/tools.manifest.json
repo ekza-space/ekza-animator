@@ -1,5 +1,5 @@
 {
-  "hash": "760ec775af9f6598a5d676dcc190ecb319650cce09770ec9cbc15c34220567db",
+  "hash": "e7bd3b8c5efaf22a7ed464fc8f59fc0ead62b6c7ff71c06ab8a2ef687ccf4ee9",
   "tools": [
     {
       "access": "read",
@@ -1529,7 +1529,7 @@
         "openWorldHint": false,
         "readOnlyHint": true
       },
-      "description": "Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder — change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames (≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the primary controls (name secondary controls to read them). It reads the keyed animation; withUserOverrides: true reads what the user sees (their unkeyed edits at their current frame).",
+      "description": "Read the pose at frames or sampled over a range, as Channel Box values (in pose_set’s shape) or as bone positions and orientations in character space. channels (default): per control rotateDeg, translateM, scaleFactor and attrs as {x, y, z} with its rotateOrder — change values and pass the item to pose_set as it is. world: per bone positionM, direction (unit vector along the bone) and orientDeg {pitchDeg (tip up +), yawDeg (toward the character’s left +), rollDeg} relative to rest, in character space (+Y up, +Z forward, +X the character’s left). frames ≤ 8, or rangeFrames with stepFrames (≤ 64 samples); default: the user’s frame of this clip, else its first frame. Default targets: the controls rig_describe lists concisely (name finger, secondary or mode-hidden controls to read them). It reads the keyed animation; withUserOverrides: true reads what the user sees (their unkeyed edits at their current frame).",
       "group": "pose",
       "hosts": [
         "live",

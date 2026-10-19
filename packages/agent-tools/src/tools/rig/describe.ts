@@ -51,6 +51,27 @@ function isFolded(control: ControlRecord, part: string): boolean {
   return control.group === 'secondary' || control.key.startsWith('sec.') || part.startsWith('fingers.');
 }
 
+/**
+ * The concise view of a rig (§5.5): the group a control is counted in instead of being listed — secondary and finger
+ * controls per body part, and the controls a limb's current mode hides in the editor (FK in IK, IK and pole in FK) —
+ * or null for a listed (primary) control. rig_describe and pose_read's default targets share it.
+ */
+export function conciseFolding(app: EditorApp, character: CharacterId): (control: ControlRecord) => string | null {
+  const rig = app.store.query.rigOfCharacter(character);
+  const humanoid = rig?.generator.name === 'ekza-autorig-humanoid';
+  const modes = limbModes(app, character);
+  const hiddenByMode = new Map<string, string>();
+  for (const limb of limbsOf(app, character)) {
+    const mode = modes[limb.id];
+    if (mode === 'ik') for (const id of limb.fkControls) hiddenByMode.set(id, `${limb.id} fk (hidden in IK)`);
+    if (mode === 'fk') for (const id of limb.ikControls) hiddenByMode.set(id, `${limb.id} ik (hidden in FK)`);
+  }
+  return (control) => {
+    const part = bodyPartOf(app, control.id) ?? (humanoid ? 'other' : 'all');
+    return isFolded(control, part) ? part : (hiddenByMode.get(control.id) ?? null);
+  };
+}
+
 const WORDS: readonly (readonly [number, string, string])[] = [
   [1, 'up', 'down'],
   [2, 'forward', 'back'],
@@ -160,20 +181,13 @@ export function describeRig(
   const facts = detailed && runtime !== undefined ? axisFactsOf(runtime) : null;
   const secondary = new Map<string, number>();
   const rows: RigControlRow[] = [];
-  const modes = limbModes(app, character);
-  // Concise: the controls a limb's current mode hides in the editor (FK in IK, IK and pole in FK) are counted too.
-  const hiddenByMode = new Map<string, string>();
-  for (const limb of limbsOf(app, character)) {
-    const mode = modes[limb.id];
-    if (mode === 'ik') for (const id of limb.fkControls) hiddenByMode.set(id, `${limb.id} fk (hidden in IK)`);
-    if (mode === 'fk') for (const id of limb.ikControls) hiddenByMode.set(id, `${limb.id} ik (hidden in FK)`);
-  }
+  const fold = conciseFolding(app, character);
   for (const control of controls) {
     const part = bodyPartOf(app, control.id) ?? (humanoid ? 'other' : 'all');
     if (wanted !== null && !wanted.has(part)) continue;
     if (!drill && !detailed) {
-      const folded = isFolded(control, part) ? part : hiddenByMode.get(control.id);
-      if (folded !== undefined) {
+      const folded = fold(control);
+      if (folded !== null) {
         secondary.set(folded, (secondary.get(folded) ?? 0) + 1);
         continue;
       }
@@ -226,6 +240,7 @@ export function describeRig(
     const control = app.store.get('controls', id as never);
     return control === undefined ? id : controlKeyOf(control);
   };
+  const modes = limbModes(app, character);
   const limbs = limbsOf(app, character)
     .filter((limb) => wanted === null || wanted.has(limb.id))
     .map((limb) => ({

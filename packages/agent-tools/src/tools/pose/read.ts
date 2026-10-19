@@ -7,6 +7,7 @@ import type { ControlRecord } from '@ekza-animator/doc';
 import { attrChannelsOf, type CharacterRuntime, isKeyable } from '@ekza-animator/editor-core';
 import { readAttr } from '@ekza-animator/rig';
 import { controlKeyOf } from '../../resolve/resolver';
+import { conciseFolding } from '../rig/describe';
 import { checkReadFrames, rangeArg, resolveControls } from '../../resolve/targets';
 import type { TargetsArg } from '../../resolve/targets';
 import { addressed, clipInfo } from '../../runtime/toolkit';
@@ -200,13 +201,15 @@ export function poseRead(ctx: AgentToolContext, args: PoseReadArgs): Promise<Age
     args.targets === undefined
       ? null
       : resolveControls(ctx.app, ctx.resolve, target.character.id, args.targets.controls, args.targets.bodyParts);
-  // Default: the primary controls (secondary controls only when named, §5.5 read budget).
+  // Default: the controls rig_describe lists concisely (§5.5 read budget): secondary and finger controls, and the
+  // ones a limb's mode hides, only when named.
   const controls =
     named ??
     (() => {
       const rig = ctx.app.store.query.rigOfCharacter(target.character.id);
+      const fold = conciseFolding(ctx.app, target.character.id);
       return (rig === undefined ? [] : ctx.app.store.query.controlsOfRig(rig.id)).filter(
-        (control) => control.group !== 'secondary',
+        (control) => fold(control) === null,
       );
     })();
   const bones = wantWorld
