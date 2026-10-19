@@ -30,7 +30,7 @@ export { mirrorEdgePoint } from './symmetry/pointer';
 // ---------- B3 ----------
 export { regionFrame } from './ops/extrude/frame';
 // ---------- B4 ----------
-export { appendMesh, copySubset } from './stubs/subset';
+export { appendMesh, copySubset } from './subset';
 // ---------- B5 ----------
 export { checkMesh } from './stubs/check';
 // ---------- B13 ----------
