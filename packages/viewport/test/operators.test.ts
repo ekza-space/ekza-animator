@@ -29,7 +29,8 @@ describe('viewport operators', () => {
     const { registerViewportContributions } = await import('../src');
     const dispose = registerViewportContributions(rig.app, rig.vm);
     // M6A-SPEC §3 rule 9/10 literal update (B9): `R` selects the new viewport Scale tool.
-    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate', 'scale']);
+    // Literal update (B13, §4.7): the Paint Colour tool (Model only).
+    expect(rig.app.tools.list('viewport').map((t) => t.id)).toEqual(['select', 'move', 'rotate', 'scale', 'paint']);
     const ids = [
       'view.layout',
       'view.frame',
