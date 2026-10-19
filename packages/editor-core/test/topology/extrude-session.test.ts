@@ -388,8 +388,15 @@ describe.skipIf(!READY.b3)('the extrude session (§5.8; READY.b3)', () => {
 
     it('a pivot edit ends it without the zero-drop', async () => {
       const t = await extruded();
+      // Through the runner first: B12a's Edit Pivot is registered, but while it is B0a's stub its poll fails ("not
+      // available yet") and the runner's hook runs only after a passing poll (a refused operator starts no gesture),
+      // so the session stays open; once B12a's operator lands, this run itself ends the session (no drop either way).
+      expect(t.app.operators.get('model.pivot.editToggle')).toBeDefined();
+      const ran = await t.app.runUntyped('model.pivot.editToggle', undefined, { source: 'keyboard' });
+      expect(t.app.extrude.state === null).toBe(ran.status === 'finished');
+      expect(counts(t, t.id)).toBe('12/20/10');
+      // The hook by the operator's id (what the landed operator reaches through the runner): ends it, no drop.
       const engine = shim(t).engine();
-      // B12a's operator (a B0a stub until it lands): the session's runner hook decides by its id.
       const pivot: OperatorDef<unknown, unknown, unknown> = {
         id: 'model.pivot.editToggle',
         label: 'Edit Pivot',
