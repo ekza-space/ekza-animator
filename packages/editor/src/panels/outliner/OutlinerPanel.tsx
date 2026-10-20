@@ -36,6 +36,7 @@ import {
   TOOLBAR,
 } from '../channel-box/kit/styles';
 import { ClipNameInput } from '../clips/ClipNameInput';
+import { LazyBody } from '../palette/lazy';
 import { setHoveredControl } from './hover';
 import { useLimbHiddenControls } from './limbHidden';
 import {
@@ -75,7 +76,28 @@ const selectHidden = (s: SessionState): ReadonlySet<ControlId> => s.hiddenContro
 const selectActiveCharacter = (s: SessionState): CharacterId | null => s.activeCharacter;
 const selectActiveClip = (s: SessionState): SessionState['activeClip'] => s.activeClip;
 
-export function OutlinerPanel({ app, instanceId }: PanelProps): JSX.Element {
+const loadModelOutliner = () => import('./ModelOutliner');
+
+/**
+ * The Outliner: the Animate tree (characters, rig, skeleton, clips) or, in the Model workspace, the Model variant
+ * (M6A-SPEC §8.8, B13; a lazy chunk loaded on the first Model visit).
+ */
+export function OutlinerPanel(props: PanelProps): JSX.Element {
+  const workspace = useSession(selectWorkspace);
+  if (workspace !== 'model') return <AnimateOutliner {...props} />;
+  return (
+    <LazyBody
+      name="Model Outliner"
+      load={loadModelOutliner}
+      props={props}
+      fallback={<div className={PANEL_ROOT} style={PANEL_ROOT_STYLE} data-testid="outliner-panel" />}
+    />
+  );
+}
+
+const selectWorkspace = (s: SessionState): string => s.workspace;
+
+function AnimateOutliner({ app, instanceId }: PanelProps): JSX.Element {
   const doc = useDocQuery(readOutlinerDoc, OUTLINER_TABLES);
   const runtimes = useCharactersVersion(app);
   const selected = useSession(selectedControls, sameIds);

@@ -37,6 +37,9 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   shortcuts: () => import('./ShortcutsDialog').then((m) => ({ default: m.ShortcutsDialog })),
   preferences: () => import('./PreferencesDialog').then((m) => ({ default: m.PreferencesDialog })),
   recovery: () => import('./RecoveryDialog').then((m) => ({ default: m.RecoveryDialog })),
+  // M6a (B13)
+  makeEditableReport: () => import('./MakeEditableReport').then((m) => ({ default: m.MakeEditableReportDialog })),
+  imagePlaneImport: () => import('./ImagePlaneImport').then((m) => ({ default: m.ImagePlaneImportDialog })),
 };
 
 const loadConfirm = (): Promise<Module<ConfirmProps>> =>
@@ -52,6 +55,8 @@ export const DIALOG_NAMES: Readonly<Record<ChunkKey, string>> = {
   shortcuts: 'Keyboard shortcuts',
   preferences: 'Preferences dialog',
   recovery: 'Recovery dialog',
+  makeEditableReport: 'Make editable report',
+  imagePlaneImport: 'Image plane import dialog',
   confirm: 'confirmation prompt',
 };
 

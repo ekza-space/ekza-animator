@@ -750,7 +750,9 @@ describe('ik2 compile rules (§5.4)', () => {
 });
 
 describe('ik2 op allocates nothing per evaluation (§8 A1 DoD)', () => {
-  it('evaluates an IK rig 60 000 times without a young-generation collection', async () => {
+  // 180,000 evaluations: about 5 s alone, over the 30 s default under a loaded machine (the turbo test run with other
+  // agents; INT). The timeout is not a tolerance: the assertion is the collection count.
+  it('evaluates an IK rig 60 000 times without a young-generation collection', { timeout: 120_000 }, async () => {
     const skeleton = richHumanoid();
     const program = ikRig(skeleton);
     const values = new Map<ControlId, ChannelValues>([

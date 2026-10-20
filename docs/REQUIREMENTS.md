@@ -305,7 +305,8 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 
 Rewritten 2026-10-19 with the modeling plan ([MODELING-PLAN](MODELING-PLAN.md) v0.2) and the M6a build spec
 ([M6A-SPEC](M6A-SPEC.md) v1.0). FR-MOD-02…04 (splines) keep their IDs and move to M8; FR-MOD-05 is split into the rows
-below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates.
+below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates. ✓ = built and green on
+`m6a/integration` (2026-10-20; [integration notes](wp-notes/m6a-integration.md)), owner review open.
 
 | ID | Requirement | Pri | M | Acceptance criterion |
 |---|---|---|---|---|
@@ -314,31 +315,31 @@ below. Acceptance criteria name the M6a e2e scenarios (`E2E-MOD-NN`) and gates.
 | FR-MOD-03 | Generators (sweep, loft, revolve, extrude) with construction history, outputting `mesh-core` meshes. | LATER | M8 | Editing a profile updates the mesh. |
 | FR-MOD-04 | `EKZA_curves` glTF extension (registered prefix) with a `LINE_STRIP` fallback. | LATER | M8 | Validator passes; three plugin loads it. |
 | FR-MOD-05 | *Withdrawn 2026-10-19: split into FR-MOD-06…30 (M6a) and FR-MOD-31…36 (M6b, M6c, M7).* | — | — | — |
-| FR-MOD-06 | Model workspace with its layout, menus (Mesh, Edit Mesh, Mesh Tools, Mesh Display), status-line groups and hidden timeline; workspace tabs as pipeline steps. | V1 | M6a | E2E-MOD-01…32 run in the Model workspace; switching keeps the document (M6A-SPEC §5.17). |
-| FR-MOD-07 | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu) with hilite, per-mode selection memory, click/marquee with Maya modifiers, hover pre-selection, camera-based selection and Maya's loop table (loop, partial loop, ring, deselect) for vertices, edges and faces; grow/shrink/convert/border/shell. | V1 | M6a | E2E-MOD-02, E2E-MOD-26. |
-| FR-MOD-08 | Selection changes are undo steps in the Model workspace (coalesced additive picks), off in Animate. | V1 | M6a | E2E-MOD-26. |
-| FR-MOD-09 | Hide selected/unselected and show all for components and objects; isolate per pane. | V1 | M6a | E2E-MOD-25. |
-| FR-MOD-10 | Soft selection (Volume/Surface, falloff presets, `B`/`B`+drag). | V1 | M6a | E2E-MOD-10. |
-| FR-MOD-11 | Symmetry Object/World X/Y/Z remembered per mesh, with vertex/edge/face partner maps; every base tool mirrors by the per-tool table, one symmetric result at the seam. | V1 | M6a | E2E-MOD-04, -20, -21, -22; property P10. |
-| FR-MOD-12 | Six primitives with low-poly defaults (and a Maya preference) and live parameters until the first component edit; templates prop, handheld, humanoid guides and a humanoid body mesh generator. | V1 | M6a | E2E-MOD-27; AS-LP-A′. |
-| FR-MOD-13 | Component W/E/R (new Scale tool) in World/Object/Normal space; MMB-drag moves the selection (Maya rule); Tweak style; grid/vertex/increment snapping across meshes; pivot editing; Freeze/Reset Transformations. | V1 | M6a | E2E-MOD-23, -28. |
-| FR-MOD-14 | Extrude faces and border edges as an adjustable session (`Ctrl+E`, then the extrude manipulator or `W`/`E`/`R` on the cap, then Divisions — one undo step), and Shift+drag smart extrude. | V1 | M6a | E2E-MOD-01, -17, -18. |
-| FR-MOD-15 | Inset; Bevel edges (fraction/absolute, 1–3 segments, clamp, fan corners with a warning). | V1 | M6a | E2E-MOD-07; count oracles. |
-| FR-MOD-16 | Insert Edge Loop (relative, equal distance, multiple), Offset Edge Loop, Connect and Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes, Esc cancels with no step). | V1 | M6a | E2E-MOD-05, -06. |
-| FR-MOD-17 | Slide Edge/Vertex along rails; Average Vertices with pinned borders and seam. | V1 | M6a | E2E-MOD-24. |
-| FR-MOD-18 | Bridge (equal counts, two faces; divisions, twist, offset) and Fill Hole. | V1 | M6a | E2E-MOD-28; count oracles. |
-| FR-MOD-19 | Merge (distance), Merge to Center, Target Weld, Collapse, Merge by Distance; Maya plain Delete and Delete Edge/Vertex. | V1 | M6a | E2E-MOD-08; count oracles. |
-| FR-MOD-20 | Spin Edge, Flip Triangle Edge, Triangulate, Quadrangulate. | V1 | M6a | Count oracles; E2E-MOD-32. |
-| FR-MOD-21 | Combine, Separate, Extract, Duplicate Faces as mesh-set operations in one undo step; Mirror (cut, merge, reversed winding) and Symmetrize; Group/Parent/Unparent/Duplicate. | V1 | M6a | E2E-MOD-09, -28. |
-| FR-MOD-22 | Per-edge hard flags with one propagation rule, faceted new meshes, Soften/Harden/Set Normal Angle/Reverse/Conform; one triangulation and normal function for viewport, picking, HUD and export (WYSIWYG). | V1 | M6a | E2E-MOD-32; property P7-hard. |
-| FR-MOD-23 | Per-face palette slot as colour truth (project palettes, Palette panel, Paint Colour, fill shell, select by swatch, replace swatch, variants); exports as one palette texture with collapsed UVs (default), `COLOR_0`, or one material per colour. | V1 | M6a | E2E-MOD-11 (round trip within 1/255). |
-| FR-MOD-24 | Planar, box and cylindrical UV projections; UVs propagated by every op. | V1 | M6a | Projection goldens (M6A-SPEC §5.28). |
-| FR-MOD-25 | Reference image planes per ortho camera (offset, size, opacity, depth, lock), never picked or exported, saved in the project. | V1 | M6a | E2E-MOD-29. |
-| FR-MOD-26 | Poly Count HUD with a triangle budget bar; Mesh Check panel and overlay with "select matching" and explicit fixes. | V1 | M6a | E2E-MOD-09, -25; HUD counts equal the kernel's. |
-| FR-MOD-27 | Adjust Last Operation (Last-op card and Channel Box INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Toolkit with option boxes. | V1 | M6a | E2E-MOD-06, -07, -19. |
-| FR-MOD-28 | Mesh storage as revision refs over content-addressed chunks (schema v3), autosave and `.ekzanim` with mesh blobs, byte-bounded undo; bit-exact undo and deterministic revisions. | V1 | M6a | E2E-MOD-14; properties P5, P6, P8; B7 memory bench. |
-| FR-MOD-29 | Make editable for imported meshes (licence-gated) keeping skin weights, morph targets, UVs and colours; export through the surgeon's "replace primitives" step with bake marker v2; edited characters keep MToon outlines and expressions. | V1 | M6a | E2E-MOD-12, -30, -31. |
-| FR-MOD-30 | Static GLB export (author writer) with the `ekza/omoba-handheld-v1` profile, `mesh.*`/`ekza.*` lints and the `ekza_model_v1` provenance block. | V1 | M6a | E2E-MOD-13; AS-LP-B. |
+| FR-MOD-06 | Model workspace with its layout, menus (Mesh, Edit Mesh, Mesh Tools, Mesh Display), status-line groups and hidden timeline; workspace tabs as pipeline steps. | V1 | M6a ✓ | E2E-MOD-01…32 run in the Model workspace; switching keeps the document (M6A-SPEC §5.17). |
+| FR-MOD-07 | Component modes (`F8`, `F9`/`1`, `F10`/`2`, `3`, RMB menu) with hilite, per-mode selection memory, click/marquee with Maya modifiers, hover pre-selection, camera-based selection and Maya's loop table (loop, partial loop, ring, deselect) for vertices, edges and faces; grow/shrink/convert/border/shell. | V1 | M6a ✓ | E2E-MOD-02, E2E-MOD-26. |
+| FR-MOD-08 | Selection changes are undo steps in the Model workspace (every discrete gesture its own step; auto-repeated keys and drags coalesce, M6A-SPEC S3), off in Animate. | V1 | M6a ✓ | E2E-MOD-26. |
+| FR-MOD-09 | Hide selected/unselected and show all for components and objects; isolate per pane. | V1 | M6a ✓ | E2E-MOD-25. |
+| FR-MOD-10 | Soft selection (Volume/Surface, falloff presets, `B`/`B`+drag). | V1 | M6a ✓ | E2E-MOD-10. |
+| FR-MOD-11 | Symmetry Object/World X/Y/Z remembered per mesh, with vertex/edge/face partner maps; every base tool mirrors by the per-tool table, one symmetric result at the seam. | V1 | M6a ✓ | E2E-MOD-04, -20, -21, -22; property P10. |
+| FR-MOD-12 | Six primitives with low-poly defaults (and a Maya preference) and live parameters until the first component edit; templates prop, handheld, humanoid guides and a humanoid body mesh generator. | V1 | M6a ✓ | E2E-MOD-27; AS-LP-A′; AS-LP-S part A. |
+| FR-MOD-13 | Component W/E/R (new Scale tool) in World/Object/Component space (Maya's per-component Normal is M6a-stretch, S21); MMB-drag moves the selection (Maya rule); Tweak style; grid/vertex/increment snapping across meshes; pivot editing; Freeze/Reset Transformations. | V1 | M6a ✓ | E2E-MOD-23, -28. |
+| FR-MOD-14 | Extrude faces and border edges as an adjustable session (`Ctrl+E`, then the extrude manipulator or `W`/`E`/`R` on the cap, then Divisions — one history step with an args undo stack inside the session, S18), and Shift+drag smart extrude. | V1 | M6a ✓ | E2E-MOD-01, -17, -18. |
+| FR-MOD-15 | Inset; Bevel edges (fraction/absolute, 1–3 segments, clamp, fan corners with a warning). | V1 | M6a ✓ | E2E-MOD-07; count oracles. |
+| FR-MOD-16 | Insert Edge Loop (relative, equal distance, multiple), Offset Edge Loop, Connect and Multi-Cut (points on edges/vertices, Ctrl loop, snap, RMB/Enter completes, Esc cancels with no step). | V1 | M6a ✓ | E2E-MOD-05, -06. |
+| FR-MOD-17 | Slide Edge/Vertex along rails; Average Vertices with pinned borders and seam. | V1 | M6a ✓ | E2E-MOD-24. |
+| FR-MOD-18 | Bridge (equal counts, two faces; divisions, twist, offset) and Fill Hole. | V1 | M6a ✓ | E2E-MOD-28; count oracles. |
+| FR-MOD-19 | Merge (distance), Merge to Center, Target Weld, Collapse, Merge by Distance; Maya plain Delete and Delete Edge/Vertex. | V1 | M6a ✓ | E2E-MOD-08; count oracles. |
+| FR-MOD-20 | Spin Edge, Flip Triangle Edge, Triangulate, Quadrangulate. | V1 | M6a ✓ | Count oracles; E2E-MOD-32. |
+| FR-MOD-21 | Combine, Separate, Extract, Duplicate Faces as mesh-set operations in one undo step; Mirror (cut, merge, reversed winding) and Symmetrize; Group/Parent/Unparent/Duplicate. | V1 | M6a ✓ | E2E-MOD-09, -28. |
+| FR-MOD-22 | Per-edge hard flags with one propagation rule, faceted new meshes, Soften/Harden/Set Normal Angle/Reverse/Conform; one triangulation and normal function for viewport, picking, HUD and export (WYSIWYG). | V1 | M6a ✓ | E2E-MOD-32; property P7-hard. |
+| FR-MOD-23 | Per-face palette slot as colour truth (project palettes, Palette panel, Paint Colour, fill shell, select by swatch, replace swatch, variants); exports as one palette texture with collapsed UVs (default), `COLOR_0`, or one material per colour. | V1 | M6a ✓ | E2E-MOD-11 (round trip within 1/255). |
+| FR-MOD-24 | Planar, box and cylindrical UV projections; UVs propagated by every op. | V1 | M6a ✓ | Projection goldens (M6A-SPEC §5.28). |
+| FR-MOD-25 | Reference image planes per ortho camera (offset, size, opacity, depth, lock), never picked or exported, saved in the project. | V1 | M6a ✓ | E2E-MOD-29. |
+| FR-MOD-26 | Poly Count HUD with a triangle budget bar; Mesh Check panel and overlay with "select matching" and explicit fixes. | V1 | M6a ✓ | E2E-MOD-09, -25; HUD counts equal the kernel's. |
+| FR-MOD-27 | Adjust Last Operation (Last-op card and Channel Box INPUTS, `T`), Repeat Last (`G`), last tool (`Y`), numeric input in the narrow capture window; Modeling Toolkit with option boxes. | V1 | M6a ✓ | E2E-MOD-06, -07, -19. |
+| FR-MOD-28 | Mesh storage as revision refs over content-addressed chunks (schema v3), autosave and `.ekzanim` with mesh blobs, byte-bounded undo; bit-exact undo and deterministic revisions. | V1 | M6a ✓ | E2E-MOD-14; properties P5, P6, P8; B7 memory bench. |
+| FR-MOD-29 | Make editable for imported meshes (licence-gated) keeping skin weights, morph targets, UVs and colours; export through the surgeon's "replace primitives" step with bake marker v2; edited characters keep MToon outlines and expressions. | V1 | M6a ✓ | E2E-MOD-12, -30, -31. |
+| FR-MOD-30 | Static GLB export (author writer) with the `ekza/omoba-handheld-v1` profile, `mesh.*`/`ekza.*` lints and the `ekza_model_v1` provenance block. | V1 | M6a ✓ | E2E-MOD-13; AS-LP-B. |
 | FR-MOD-31 | VRM humanoid skeleton templates, Joint tool and Quick Rig; Apply Pose as Rest. | V1 | M6b | MODELING-PLAN §5.3 (fitter within 0.03 H). |
 | FR-MOD-32 | Auto-skin "Auto (low-poly)" (rigid islands + bone heat) with ≤ 4 normalized influences. | V1 | M6b | Polybot within one joint on ≥ 98 % of vertices. |
 | FR-MOD-33 | Weight tools (table, paint, mirror, copy/paste, prune/normalize) and the ROM test loop. | V1 | M6b | E2E-SKIN-02, -03. |

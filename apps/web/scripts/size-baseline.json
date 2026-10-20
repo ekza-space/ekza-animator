@@ -1,0 +1,17 @@
+{
+  "description": "M6A-SPEC §5.27 (B9): the recorded M2a baseline of the /editor first-visit route (production build, gzip -9, the check:size measure) and the M6a eager allowance over it. Re-recorded only by INT with an owner decision (§9.1).",
+  "baseline": {
+    "label": "M2a (v0.2.0, m6a/spec ec541b4)",
+    "total": 845267,
+    "recorded": "2026-10-19, docs/wp-notes/m6a-contracts-foundation.md (Eager route)"
+  },
+  "eagerDelta": {
+    "allowance": 20480,
+    "enforce": false,
+    "pending": "Owner decision requested in docs/wp-notes/m6a-contracts-foundation.md ('Decision requested (INT / owner): the M6a eager allowance'): B0a alone uses +19,160 B. Until it is decided the delta is reported as a warning; INT sets enforce to true with the decided allowance."
+  },
+  "modelChunk": {
+    "warnBytes": 250000,
+    "boundaries": ["mesh-kernel", "mesh-view", "marking-menu"]
+  }
+}

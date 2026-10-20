@@ -209,16 +209,16 @@ describe('insertKeyPreservingShape (MVP-SPEC §4.11.4)', () => {
         }
       }
     }
-    fc.assert(
-      fc.property(curveArbitrary(), fc.double({ min: -0.5, max: 1.5, noNaN: true }), (c, where) => {
-        const first = c.keys[0]!.t;
-        const last = c.keys[c.keys.length - 1]!.t;
-        const result = insertKeyPreservingShape(c, first + (last - first) * where);
-        const created = result.keys.filter((k) => !c.keys.includes(k));
-        expect(negativeZeros(created)).toEqual([]);
-      }),
-      { numRuns: 1000 },
-    );
+    const property = fc.property(curveArbitrary(), fc.double({ min: -0.5, max: 1.5, noNaN: true }), (c, where) => {
+      const first = c.keys[0]!.t;
+      const last = c.keys[c.keys.length - 1]!.t;
+      const result = insertKeyPreservingShape(c, first + (last - first) * where);
+      const created = result.keys.filter((k) => !c.keys.includes(k));
+      expect(negativeZeros(created)).toEqual([]);
+    });
+    fc.assert(property, { numRuns: 1000 });
+    // The seeds that found an input key carrying −0 copied onto a frozen neighbour (B0a and B9 notes, INT).
+    for (const seed of [-657253700, -1009123903]) fc.assert(property, { numRuns: 1000, seed });
   });
 
   it('a key already at the frame (within 1e-6) is returned unchanged', () => {
@@ -312,7 +312,10 @@ describe('insert at AnimX snapping thresholds (wp-notes W1-22)', () => {
     );
   });
 
-  it('weighted spans beyond the monotonic limit: exact unless AnimX re-corrects a half by its 1e-10 margin', () => {
+  // 3,000 runs: under a loaded machine this took over the 30 s default (B9 notes); the timeout is not a tolerance.
+  it('weighted spans beyond the monotonic limit: exact unless AnimX re-corrects a half by its 1e-10 margin', {
+    timeout: 120_000,
+  }, () => {
     // Handles up to 4× the span force the monotonic-X correction. The halves of a corrected span lie on the monotonic
     // boundary, where AnimX's `kDblEpsilon` margin can move a control point again (~5 % of these cases; measured
     // ≤ 3.3e-8 on 30,000). Deterministic sample (fixed seed).

@@ -35,6 +35,15 @@ import {
 import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-animator/rig';
 import { asArtifacts } from '../shell/exports';
 import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
+// M6a (M6A-SPEC §4.8): one file per owner, spread into the API below; each owner fills only its own file.
+import { integrationTestApi } from './m6a/integration';
+import { meshRuntimeDocTestApi } from './m6a/mesh-runtime-doc';
+import { modelContentTestApi } from './m6a/model-content';
+import { modelOpsUiTestApi } from './m6a/model-ops-ui';
+import { modelSelectUiTestApi } from './m6a/model-select-ui';
+import { modelTransformToolsTestApi } from './m6a/model-transform-tools';
+import { shellWorkspacesTestApi } from './m6a/shell-workspaces';
+import type { M6aTestApiContext } from './m6a/support';
 import type { EkzaAnimatorTestApi } from './types';
 
 export interface TestApiHandle {
@@ -256,7 +265,15 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     return { x: r.x + point.x, y: r.y + point.y };
   };
 
+  const m6a: M6aTestApiContext = { shell, sync };
   const api: EkzaAnimatorTestApi = {
+    ...shellWorkspacesTestApi(m6a),
+    ...meshRuntimeDocTestApi(m6a),
+    ...modelSelectUiTestApi(m6a),
+    ...modelTransformToolsTestApi(m6a),
+    ...modelOpsUiTestApi(m6a),
+    ...modelContentTestApi(m6a),
+    ...integrationTestApi(m6a),
     ready,
     get webgl() {
       const gl = ui.getState().gl;
@@ -276,7 +293,8 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
           error: { code: 'internal', message: error instanceof Error ? error.message : String(error) },
         };
       }
-      if (result.status === 'finished' && op === 'file.export') {
+      // M6a (§4.8): static-model exports are reported too (contract note, M6A-B8 wp-notes).
+      if (result.status === 'finished' && (op === 'file.export' || op === 'file.exportModel')) {
         const artifacts = asArtifacts(result.value);
         if (artifacts !== null) shell.exports.recordArtifacts(artifacts);
       }
@@ -317,6 +335,12 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
         ripple: session.tools.ripple,
         dirty: session.dirty,
         recovery: session.recovery.map((slot) => slot.id),
+        // M6a (M6A-SPEC §4.8)
+        workspace: session.workspace,
+        mode: session.model.componentMode,
+        hilite: [...session.model.hilite],
+        capture: { ...app.capture.state },
+        extrudeSession: app.extrude.state !== null,
       };
     },
     counts() {

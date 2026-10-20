@@ -337,6 +337,175 @@
       }
     },
     {
+      "files": ["packages/mesh-core/src/**"],
+      "excludeFiles": ["packages/mesh-core/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**", "!./**", "!../**", "!@ekza-animator/anim-core", "!earcut", "!robust-predicates"],
+                "message": "@ekza-animator/mesh-core may import only: @ekza-animator/anim-core, earcut, robust-predicates (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ],
+        "no-restricted-globals": [
+          "error",
+          {
+            "name": "window",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "document",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "navigator",
+            "message": "Headless packages run in Node and workers: no DOM (ARCHITECTURE \u00a73 rule 2)."
+          },
+          {
+            "name": "process",
+            "message": "Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "Buffer",
+            "message": "Use Uint8Array; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          },
+          {
+            "name": "require",
+            "message": "ES modules only; Node APIs are allowed only in src/testing/** and test/** (MVP-SPEC \u00a72)."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mesh-core/src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!earcut",
+                  "!robust-predicates",
+                  "!fast-check",
+                  "!node:*"
+                ],
+                "message": "@ekza-animator/mesh-core/testing may import only: @ekza-animator/anim-core, earcut, robust-predicates, fast-check, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mesh-core/test/**", "packages/mesh-core/bench/**", "packages/mesh-core/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!fast-check",
+                  "!vitest",
+                  "!vitest/**",
+                  "!@vitest/browser-playwright",
+                  "!node:*"
+                ],
+                "message": "mesh-core tests may import only: @ekza-animator/anim-core, fast-check, vitest, vitest/**, @vitest/browser-playwright, node:* (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mesh-view/src/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/mesh-core",
+                  "!three",
+                  "!three/**",
+                  "!three-mesh-bvh"
+                ],
+                "message": "@ekza-animator/mesh-view may import only: @ekza-animator/anim-core, @ekza-animator/mesh-core, three, three/**, three-mesh-bvh (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["packages/mesh-view/test/**", "packages/mesh-view/vitest.config.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-animator/anim-core",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/testing",
+                  "!three",
+                  "!three/**",
+                  "!three-mesh-bvh",
+                  "!vitest",
+                  "!vitest/**",
+                  "!@vitest/browser-playwright"
+                ],
+                "message": "mesh-view tests may import only: @ekza-animator/anim-core, @ekza-animator/mesh-core, @ekza-animator/mesh-core/testing, three, three/**, three-mesh-bvh, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+              },
+              {
+                "regex": "^@ekza-animator/[^/]+/[^/]+/",
+                "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "files": ["packages/rig/src/**"],
       "rules": {
         "no-restricted-imports": [
@@ -433,13 +602,21 @@
                   "!@ekza-animator/doc",
                   "!@ekza-animator/rig",
                   "!@gltf-transform/**",
-                  "!fflate"
+                  "!fflate",
+                  "!@ekza-animator/mesh-core"
                 ],
-                "message": "@ekza-animator/io may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/io may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate, @ekza-animator/mesh-core (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/mesh-core",
+                "allowTypeImports": true,
+                "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-animator/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-animator/mesh-core') in the one loader that is allowed to."
               }
             ]
           }
@@ -590,9 +767,11 @@
                   "!three/**",
                   "!vitest",
                   "!vitest/**",
-                  "!node:*"
+                  "!node:*",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/testing"
                 ],
-                "message": "@ekza-animator/io tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, @ekza-animator/doc/testing, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/io tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, @ekza-animator/doc/testing, three, three/**, vitest, vitest/**, node:*, @ekza-animator/mesh-core, @ekza-animator/mesh-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -622,9 +801,11 @@
                   "!@ekza-animator/io",
                   "!@ekza-animator/io/write",
                   "!@ekza-animator/io/project",
-                  "!zustand/vanilla"
+                  "!zustand/vanilla",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors"
                 ],
-                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, zustand/vanilla (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, zustand/vanilla, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -652,6 +833,11 @@
                 "name": "@ekza-animator/io",
                 "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
                 "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/mesh-core",
+                "allowTypeImports": true,
+                "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-animator/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-animator/mesh-core') in the one loader that is allowed to."
               }
             ]
           }
@@ -706,9 +892,12 @@
                   "!@ekza-animator/io/project",
                   "!@ekza-animator/io/testing",
                   "!zustand/vanilla",
-                  "!node:*"
+                  "!node:*",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing"
                 ],
-                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/testing, zustand/vanilla, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core/testing may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/testing, zustand/vanilla, node:*, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -765,9 +954,12 @@
                   "!gltf-validator",
                   "!vitest",
                   "!vitest/**",
-                  "!node:*"
+                  "!node:*",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing"
                 ],
-                "message": "@ekza-animator/editor-core tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, zustand/vanilla, fast-check, gltf-validator, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor-core tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, zustand/vanilla, fast-check, gltf-validator, vitest, vitest/**, node:*, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -805,9 +997,13 @@
                   "!three/**",
                   "!vitest",
                   "!vitest/**",
-                  "!node:*"
+                  "!node:*",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing",
+                  "!@ekza-animator/mesh-view"
                 ],
-                "message": "@ekza-animator/headless-tests tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/headless-tests tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/doc/testing, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/testing, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:*, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing, @ekza-animator/mesh-view (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -838,13 +1034,28 @@
                   "!@ekza-animator/io/three",
                   "!camera-controls",
                   "!three",
-                  "!three/**"
+                  "!three/**",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-view"
                 ],
-                "message": "@ekza-animator/viewport may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/** (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/viewport may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/**, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-view (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
                 "message": "Deep imports across packages are not allowed: use the package entry or a declared subpath (MVP-SPEC \u00a73 convention 2)."
+              }
+            ],
+            "paths": [
+              {
+                "name": "@ekza-animator/mesh-core",
+                "allowTypeImports": true,
+                "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-animator/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-animator/mesh-core') in the one loader that is allowed to."
+              },
+              {
+                "name": "@ekza-animator/mesh-view",
+                "allowTypeImports": true,
+                "message": "mesh-view is a lazy chunk (M6A-SPEC \u00a72): import types only; viewport/src/mesh/** loads it with a dynamic import."
               }
             ]
           }
@@ -875,9 +1086,13 @@
                   "!three/**",
                   "!vitest",
                   "!vitest/**",
-                  "!@vitest/browser-playwright"
+                  "!@vitest/browser-playwright",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing",
+                  "!@ekza-animator/mesh-view"
                 ],
-                "message": "@ekza-animator/viewport tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/**, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/viewport tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/editor-core, @ekza-animator/editor-core/testing, @ekza-animator/io, @ekza-animator/io/three, camera-controls, three, three/**, vitest, vitest/**, @vitest/browser-playwright, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing, @ekza-animator/mesh-view (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1046,9 +1261,11 @@
                   "!react-dom",
                   "!react-dom/**",
                   "!three",
-                  "!three/**"
+                  "!three/**",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors"
                 ],
-                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/** (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1076,6 +1293,11 @@
                 "name": "@ekza-animator/io",
                 "importNames": ["readProjectArchive", "writeProjectArchive", "writeProjectJson"],
                 "message": "The project archive code loads lazily: import it with a dynamic import('@ekza-animator/io/project') (M2A-SPEC \u00a75.21.2)."
+              },
+              {
+                "name": "@ekza-animator/mesh-core",
+                "allowTypeImports": true,
+                "message": "The mesh kernel is a lazy chunk (M6A-SPEC \u00a72): import types only (or @ekza-animator/mesh-core/descriptors); load the kernel with a dynamic import('@ekza-animator/mesh-core') in the one loader that is allowed to."
               }
             ]
           }
@@ -1117,9 +1339,12 @@
                   "!react-dom/**",
                   "!three",
                   "!three/**",
-                  "!@ekza-animator/editor-core/testing"
+                  "!@ekza-animator/editor-core/testing",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing"
                 ],
-                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor/testing (panel harness) may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/write, @ekza-animator/io/project, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",
@@ -1218,9 +1443,12 @@
                   "!@ekza-animator/editor-core/testing",
                   "!vitest",
                   "!vitest/**",
-                  "!@vitest/browser-playwright"
+                  "!@vitest/browser-playwright",
+                  "!@ekza-animator/mesh-core",
+                  "!@ekza-animator/mesh-core/descriptors",
+                  "!@ekza-animator/mesh-core/testing"
                 ],
-                "message": "@ekza-animator/editor tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing, vitest, vitest/**, @vitest/browser-playwright (ARCHITECTURE \u00a73)."
+                "message": "@ekza-animator/editor tests may import only: @ekza-animator/anim-core, @ekza-animator/doc, @ekza-animator/rig, @ekza-animator/io, @ekza-animator/io/three, @ekza-animator/editor-core, @ekza-animator/viewport, @ekza-animator/curve-editor, @ekza-animator/ui, @react-three/fiber, dockview-react, react-resizable-panels, @tanstack/react-virtual, zustand, zustand/**, react, react/**, react-dom, react-dom/**, three, three/**, @ekza-animator/editor-core/testing, vitest, vitest/**, @vitest/browser-playwright, @ekza-animator/mesh-core, @ekza-animator/mesh-core/descriptors, @ekza-animator/mesh-core/testing (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-animator/[^/]+/[^/]+/",

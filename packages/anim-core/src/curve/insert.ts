@@ -204,5 +204,21 @@ export function insertKeyPreservingShape(
   }
 
   const frozen = [...modified].map((j) => (j < p ? j : j + 1)).sort((a, b) => a - b);
+  // Every key the insert writes holds +0 where a handle is zero (a JSON round trip turns −0 into +0): the new key and
+  // the frozen neighbours, whose untouched sides may carry a −0 from the input.
+  for (const index of [p, ...frozen]) out[index] = withoutNegativeZeros(out[index]!);
   return { keys: out, index: p, frozen };
+}
+
+const plusZero = (x: number): number => x + 0;
+
+/** The key with −0 handle components rewritten as +0 (the same object when it has none). */
+function withoutNegativeZeros(k: KeyData): KeyData {
+  const negative = (h: Handle): boolean => Object.is(h.dt, -0) || Object.is(h.dv, -0);
+  if (!negative(k.inHandle) && !negative(k.outHandle)) return k;
+  return {
+    ...k,
+    inHandle: { ...k.inHandle, dt: plusZero(k.inHandle.dt), dv: plusZero(k.inHandle.dv) },
+    outHandle: { ...k.outHandle, dt: plusZero(k.outHandle.dt), dv: plusZero(k.outHandle.dv) },
+  };
 }

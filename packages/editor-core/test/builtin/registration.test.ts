@@ -2,11 +2,14 @@
 // importers, exporters, export profiles, menu items and the maya keymap; robustness of polls against untyped args.
 import { EkzaError } from '@ekza-animator/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-animator/io';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_EXPORTERS,
   BUILTIN_IMPORTERS,
   BUILTIN_MENU_ITEMS,
+  loadModelOperators,
+  MODEL_MENU_ITEMS,
   MAYA_KEYMAP,
   registerBuiltinOperators,
   registerBuiltins,
@@ -100,7 +103,10 @@ function isStub(error: unknown): boolean {
   return error instanceof EkzaError && error.code === 'not-implemented';
 }
 
-const MENUS = /^(file|edit|select|key|pose|clip|graph|time|rig|view)$/;
+// M6A-SPEC §3 rule 9 literal update (§8.3): Model's menus, whose items appear only in the Model workspace.
+const MENUS =
+  /^(file|edit|select|key|pose|clip|graph|time|rig|view|create|modify|display|mesh|edit-mesh|mesh-tools|mesh-display|uv)$/;
+const MODEL_ONLY_MENUS = /^(create|modify|display|mesh|edit-mesh|mesh-tools|mesh-display|uv)$/;
 
 /** Operators beyond §4.9 requested by other work packages (WP-9 R-1, R-3), with their undo flag. */
 const ADDITIONS: Readonly<Record<string, boolean>> = { 'select.channels': false, 'view.camera.setSettings': true };
@@ -132,6 +138,105 @@ const M2A_OPERATORS: Readonly<Record<string, boolean>> = {
   'file.autosaveNow': false,
 };
 
+/**
+ * M6A-SPEC §6 operators registered by the built-ins from B0a on (stubs until their owners land them), with the U
+ * column (§3 rule 9 literal update): every §6.1 kernel op (undoable) and the §6.2 editor operators.
+ */
+const M6A_OPERATORS: Readonly<Record<string, boolean>> = {
+  ...Object.fromEntries(
+    [...Object.keys(MESH_OP_DESCRIPTORS), ...Object.keys(MESH_SET_OP_DESCRIPTORS)].map((id) => [id, true]),
+  ),
+  'workspace.set': false,
+  'view.shading': false,
+  'view.display.set': false,
+  'ui.commandPalette': false,
+  'ui.markingMenu': false,
+  'select.mode': false,
+  'model.hilite': false,
+  'select.components': false,
+  'select.mesh.loop': false,
+  'select.mesh.ring': false,
+  'select.mesh.grow': false,
+  'select.mesh.shrink': false,
+  'select.mesh.border': false,
+  'select.mesh.shell': false,
+  'select.mesh.all': false,
+  'select.mesh.invert': false,
+  'select.mesh.none': false,
+  'select.mesh.convert': false,
+  'select.mesh.matching': false,
+  'select.mesh.bySwatch': false,
+  'select.objects': false,
+  'select.mesh.pickWalk': false,
+  'view.hide': false,
+  'view.showAll': false,
+  'view.isolate': false,
+  'model.symmetry.set': false,
+  'model.softSelect.set': false,
+  'model.softSelect.toggle': false,
+  'model.selectionStyle.set': false,
+  'model.cameraBased.set': false,
+  'model.backfaces.toggle': false,
+  'model.constraint.set': false,
+  'model.snap.toggle': false,
+  'model.pivot.editToggle': false,
+  'mesh.pivot.set': true,
+  'mesh.pivot.center': true,
+  'mesh.pivot.bottomCenter': true,
+  'mesh.pivot.reset': true,
+  'mesh.pivot.bake': true,
+  'mesh.resetTransforms': true,
+  'mesh.freezeTransforms': true,
+  'scene.object.transform': true,
+  'edit.adjustLast': false,
+  'edit.repeatLast': false,
+  'model.animateOnly': false,
+  'tool.last': false,
+  'view.lastOpCard': false,
+  'mesh.create.cube': true,
+  'mesh.create.sphere': true,
+  'mesh.create.cylinder': true,
+  'mesh.create.cone': true,
+  'mesh.create.plane': true,
+  'mesh.create.torus': true,
+  'mesh.create.template': true,
+  'mesh.primitive.set': true,
+  'mesh.makeEditable': true,
+  'mesh.setAttributes': true,
+  'palette.ensureDefault': true,
+  'palette.create': true,
+  'palette.duplicate': true,
+  'palette.rename': true,
+  'palette.addSwatch': true,
+  'palette.setSwatch': true,
+  'palette.removeSwatch': true,
+  'palette.assign': true,
+  'palette.replaceSwatch': true,
+  'palette.setActive': false,
+  'imagePlane.import': true,
+  'imagePlane.set': true,
+  'imagePlane.delete': true,
+  'scene.group': true,
+  'scene.parent': true,
+  'scene.unparent': true,
+  'scene.duplicate': true,
+  'scene.delete': true,
+  'scene.rename': true,
+  'file.exportModel': false,
+};
+
+/** M6a operators that act anywhere (key scope 'global'); every other M6a operator is in the 'model' scope. */
+const M6A_GLOBAL: ReadonlySet<string> = new Set([
+  'workspace.set',
+  'view.shading',
+  'view.display.set',
+  'ui.commandPalette',
+  'ui.markingMenu',
+  'edit.adjustLast',
+  'edit.repeatLast',
+  'file.exportModel',
+]);
+
 /** §4.9 operators registered by other work packages (menus and keymaps may name them). */
 const OTHERS: ReadonlySet<string> = new Set([
   'select.curveKeys',
@@ -152,15 +257,23 @@ const OTHERS: ReadonlySet<string> = new Set([
   'graph.view.setMode',
 ]);
 
+/** The built-in menu data: the eager items and the Model items of the Model operators chunk (M6A-INT-13). */
+const ALL_MENU_ITEMS = [...BUILTIN_MENU_ITEMS, ...MODEL_MENU_ITEMS];
+
 describe('built-in operators', () => {
   it('registers every §4.9 operator owned by WP-7b with its undo flag, plus the requested additions', () => {
     const app = createFakeEditorApp({ snapshot: waveDoc(), skeleton: humanoidSkeleton() });
     const dispose = registerBuiltinOperators(app);
     const ids = app.operators.list().map((def) => def.id);
     expect([...ids].sort()).toEqual(
-      [...Object.keys(CATALOG), ...Object.keys(ADDITIONS), ...Object.keys(M2A_OPERATORS)].sort(),
+      [
+        ...Object.keys(CATALOG),
+        ...Object.keys(ADDITIONS),
+        ...Object.keys(M2A_OPERATORS),
+        ...Object.keys(M6A_OPERATORS),
+      ].sort(),
     );
-    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS })) {
+    for (const [id, undo] of Object.entries({ ...ADDITIONS, ...M2A_OPERATORS, ...M6A_OPERATORS })) {
       expect([id, app.operators.get(id)?.flags?.undo === true]).toEqual([id, undo]);
     }
     for (const [id, undo] of Object.entries(CATALOG)) {
@@ -178,7 +291,13 @@ describe('built-in operators', () => {
         description: (def.description ?? '') !== '',
         category: def.category,
         scope: def.scope,
-      }).toEqual({ id: def.id, label: true, description: true, category: def.id.split('.')[0], scope: 'global' });
+      }).toEqual({
+        id: def.id,
+        label: true,
+        description: true,
+        category: def.id.split('.')[0],
+        scope: def.id in M6A_OPERATORS && !M6A_GLOBAL.has(def.id) ? 'model' : 'global',
+      });
     }
   });
 
@@ -231,7 +350,9 @@ describe('built-in operators', () => {
 });
 
 describe('registerBuiltins', () => {
-  it('contributes operators, importers, exporters, profiles, menu items and the maya keymap', () => {
+  it('contributes operators, importers, exporters, profiles, menu items and the maya keymap', async () => {
+    // The Model menu items register once the Model operators chunk has loaded (M6A-INT-13).
+    await loadModelOperators();
     const app = kernelApp({ snapshot: waveDoc() });
     const before = app.keymap.bindings().length;
     const dispose = registerBuiltins(app);
@@ -239,7 +360,7 @@ describe('registerBuiltins', () => {
     expect(app.importers.list().map((def) => def.id)).toEqual(BUILTIN_IMPORTERS.map((def) => def.id));
     expect(app.exporters.list().map((def) => def.id)).toEqual(['bake-into-model', 'animation-glb', 'vrma']);
     expect(app.exportProfiles.list().map((def) => def.id)).toEqual(BUILTIN_EXPORT_PROFILES.map((def) => def.id));
-    expect(app.menus.list()).toHaveLength(BUILTIN_MENU_ITEMS.length);
+    expect(app.menus.list()).toHaveLength(ALL_MENU_ITEMS.length);
     expect(app.keymap.bindings().length).toBe(before + MAYA_KEYMAP.length);
     dispose();
     expect(app.operators.list()).toEqual([]);
@@ -266,8 +387,8 @@ describe('registerBuiltins', () => {
 
   it('builds menu items for registered (or other packages’) operators only, with unique ids', () => {
     const ids = new Set(BUILTIN_OPERATORS.map((def) => def.id));
-    expect(new Set(BUILTIN_MENU_ITEMS.map((item) => item.id)).size).toBe(BUILTIN_MENU_ITEMS.length);
-    for (const item of BUILTIN_MENU_ITEMS) {
+    expect(new Set(ALL_MENU_ITEMS.map((item) => item.id)).size).toBe(ALL_MENU_ITEMS.length);
+    for (const item of ALL_MENU_ITEMS) {
       const top = item.menu.split('.')[0] ?? '';
       expect({ id: item.id, known: ids.has(item.op) || OTHERS.has(item.op), menu: MENUS.test(top) }).toEqual({
         id: item.id,
@@ -276,7 +397,11 @@ describe('registerBuiltins', () => {
       });
     }
     // The time slider owns its context menu.
-    expect(BUILTIN_MENU_ITEMS.some((item) => item.menu === 'timeline.context')).toBe(false);
+    expect(ALL_MENU_ITEMS.some((item) => item.menu === 'timeline.context')).toBe(false);
+    // Model's own menus never reach the Animate menu bar.
+    for (const item of ALL_MENU_ITEMS.filter((entry) => MODEL_ONLY_MENUS.test(entry.menu.split('.')[0] ?? ''))) {
+      expect([item.id, item.workspaces]).toEqual([item.id, ['model']]);
+    }
   });
 
   it('binds keys only to registered operators or to the ones of other packages', () => {
@@ -289,7 +414,7 @@ describe('registerBuiltins', () => {
   it('menu-item arguments pass their operator polls', () => {
     const app = opsApp();
     const ctx: OperatorContext = { app, panel: null, paneId: null };
-    for (const item of BUILTIN_MENU_ITEMS) {
+    for (const item of ALL_MENU_ITEMS) {
       const def = app.operators.get(item.op);
       if (def === undefined) continue;
       let result: ReturnType<NonNullable<typeof def.poll>> = true;

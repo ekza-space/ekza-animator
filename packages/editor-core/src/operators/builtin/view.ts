@@ -10,9 +10,12 @@ import {
   type ManipSpace,
   type NavProfile,
   PANEL,
+  VIEWPORT_TOOL,
 } from '../../types';
+import { isTransformTool } from '../../workspaces/switch';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';
 import { pollEditable } from './polls';
+import { setComponentSpace } from './snap';
 import { NOT_AVAILABLE_YET } from './stub';
 
 /** Manipulator size limits in CSS px (§4.9 `view.manipulatorSize`). */
@@ -27,18 +30,20 @@ const TOOL_FIELD = {
   [PANEL.dopeSheet]: 'dopeSheet',
 } as const satisfies Readonly<Record<string, 'viewport' | 'graph' | 'dopeSheet'>>;
 const DOPE_TOOLS: ReadonlySet<string> = new Set(Object.values(DOPE_TOOL));
-/** The built-in tool ids of the panels whose tools grow in M2a (§4.5 `GRAPH_TOOL`, `DOPE_TOOL`). */
+/** The built-in tool ids of the panels whose tools grow in M2a (§4.5 `GRAPH_TOOL`, `DOPE_TOOL`) and M6a (§4.6
+ *  `VIEWPORT_TOOL`: scale, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Paint Colour, the extrude manipulator). */
 const BUILTIN_TOOLS: Readonly<Record<string, ReadonlySet<string>>> = {
   [PANEL.graph]: new Set(Object.values(GRAPH_TOOL)),
   [PANEL.dopeSheet]: DOPE_TOOLS,
+  [PANEL.viewport]: new Set(Object.values(VIEWPORT_TOOL)),
 };
 
 const viewTool = defineOperator({
   id: 'view.tool',
   label: 'Tool',
   description:
-    'Choose the viewport tool (Q select, W move, E rotate), the Graph Editor tool (Q, W, I insert, R scale) or the ' +
-    'Dope Sheet tool (Q, W, R scale).',
+    'Choose the viewport tool (Q select, W move, E rotate, R scale; the Model tools), the Graph Editor tool (Q, W, ' +
+    'I insert, R scale) or the Dope Sheet tool (Q, W, R scale).',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll({ app }, args) {
@@ -59,10 +64,21 @@ const viewTool = defineOperator({
     return BUILTIN_TOOLS[panel]?.has(tool) === true ? fail(NOT_AVAILABLE_YET) : fail(`Unknown ${panel} tool '${tool}'`);
   },
   apply({ app }, args) {
-    const tools = app.session.getState().tools;
+    const session = app.session.getState();
+    const tools = session.tools;
     const key = TOOL_FIELD[args.panel as keyof typeof TOOL_FIELD];
     if (key === undefined) throw new EkzaError('unsupported', `The ${args.panel} panel has no tools`);
-    if (tools[key] !== args.tool) app.session.setState({ tools: { ...tools, [key]: args.tool } });
+    // M6a (§6.2): in Model the last non-transform viewport tool is what `Y` re-activates (Maya's "last tool").
+    const model =
+      session.workspace === 'model' &&
+      key === 'viewport' &&
+      !isTransformTool(args.tool) &&
+      session.model.lastTool !== args.tool
+        ? { ...session.model, lastTool: args.tool }
+        : session.model;
+    if (tools[key] !== args.tool || model !== session.model) {
+      app.session.setState({ tools: { ...tools, [key]: args.tool }, model });
+    }
   },
 });
 
@@ -83,22 +99,28 @@ const manipulatorSize = defineOperator({
 const setManipSpace = defineOperator({
   id: 'view.setManipSpace',
   label: 'Manipulator Space',
-  description: 'Object or world space for the move tool; object, world or gimbal for the rotate tool.',
+  description:
+    'Object or world space for the move tool; object, world or gimbal for the rotate tool; component orientation for both in Model.',
   category: 'view',
   scope: GLOBAL_SCOPE,
   poll(_ctx, raw) {
     const args: unknown = raw;
     if (!isRecord(args) || (args['tool'] !== 'move' && args['tool'] !== 'rotate'))
       return fail('expects { tool, space }');
+    // M6a (B12a, §5.15): Move and Rotate gain the Component orientation (remembered per app, `transformSpace`).
+    if (args['space'] === 'component') return OK;
     if (!SPACES.includes(args['space'] as ManipSpace)) return fail("space is 'object', 'world' or 'gimbal'");
     return args['tool'] === 'move' && args['space'] === 'gimbal' ? fail('Gimbal space is for the rotate tool') : OK;
   },
   apply({ app }, args) {
+    const space = args.space as ManipSpace | 'component';
+    setComponentSpace(app, args.tool, space === 'component');
+    if (space === 'component') return;
     if (args.tool === 'move') {
-      if (args.space === 'gimbal') throw new EkzaError('unsupported', 'Gimbal space is for the rotate tool');
-      app.prefs.setState({ moveSpace: args.space });
+      if (space === 'gimbal') throw new EkzaError('unsupported', 'Gimbal space is for the rotate tool');
+      app.prefs.setState({ moveSpace: space });
     } else {
-      app.prefs.setState({ rotateSpace: args.space });
+      app.prefs.setState({ rotateSpace: space });
     }
   },
 });

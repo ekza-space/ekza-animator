@@ -1,12 +1,23 @@
 // Creates the shell core for one editor (MVP-SPEC §7 WP-8): panel registry with the built-in panels, shell
 // operators and menu items, frame hooks, probes, workspace adapter, keyboard adapter and the file pipeline.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, OperatorResult, PanelKind, PrefsStorage, RunContext } from '@ekza-animator/editor-core';
+import {
+  type EditorApp,
+  type OperatorAction,
+  type OperatorResult,
+  type PanelKind,
+  type PrefsStorage,
+  provideShellOverlays,
+  type RunContext,
+} from '@ekza-animator/editor-core';
 import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
-import { KeyboardAdapter } from '../input/keyboard';
-import { scopeChainOf } from '../input/pointer';
+import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
+import { createCommandPalette } from '../overlays/CommandPalette';
+import { createMarkingMenus, marksMenus, prefetchMarkingMenu } from '../overlays/MarkingMenu';
 import { registerBuiltinPanels } from '../panels';
+import { registerModelSelectUi } from '../panels/viewport/hud';
+import { registerModelTransformUi } from '../panels/viewport/ModalReadout';
 import { simplifyMessage, toleranceOfArgs } from '../panels/graph/simplify';
 import { graphTestHooks } from '../panels/graph/testHooks';
 import { screenOfTimelineFrame, screenOfTimelineTick } from '../panels/timeline/host';
@@ -17,7 +28,7 @@ import type { EditorParams } from '../test-api/params';
 import { startShellAutosave } from './autosave';
 import { asArtifacts, createExportRecorder } from './exports';
 import { createFilePipeline } from './files';
-import { ANIMATE_SLOTS, FIXED_KINDS } from './layout';
+import { ALL_SLOTS, FIXED_KINDS } from './layout';
 import { registerShellMenuItems } from './menuItems';
 import { registerShellOperators } from './operators';
 import { createProbeRegistry } from './probes';
@@ -50,6 +61,7 @@ export const INITIAL_UI: ShellUiState = {
   busy: null,
   dockMaximized: false,
   confirm: null,
+  timeline: {},
 };
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -91,7 +103,8 @@ export function createShell(opts: CreateShellOptions): Shell {
     if (helpTimer !== null) clearTimeout(helpTimer);
   });
 
-  const notifyError = (text: string): void => app.services.notify.toast({ kind: 'error', text });
+  const notifyError = (text: string, action?: OperatorAction): void =>
+    app.services.notify.toast({ kind: 'error', text, ...(action === undefined ? {} : { action }) });
 
   const confirm = (request: Omit<ConfirmRequest, 'resolve'>): Promise<boolean> => {
     if (params.e2e) return Promise.resolve(true);
@@ -135,10 +148,11 @@ export function createShell(opts: CreateShellOptions): Shell {
         result.error.code === 'not-implemented'
           ? `${result.error.message} is not implemented in this build`
           : result.error.message;
-      notifyError(`${label} failed: ${message}`);
+      notifyError(`${label} failed: ${message}`, result.error.action);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
-    } else if (op === 'file.export') {
+    } else if (op === 'file.export' || op === 'file.exportModel') {
+      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes).
       const artifacts = asArtifacts(result.value);
       if (artifacts !== null) exports.recordArtifacts(artifacts);
     } else if (op === 'graph.curves.simplify') {
@@ -167,27 +181,86 @@ export function createShell(opts: CreateShellOptions): Shell {
   });
   disposers.push(() => files.dispose());
 
+  // M6A-SPEC §5.17 (B0b): the hierarchical scope chain, the capture window and the viewport tool-key bridge.
   const keyboard = new KeyboardAdapter({
     keymap: app.keymap,
-    scopeChain: () => {
-      const hover = ui.getState().hover;
-      return { scopes: scopeChainOf(hover), panel: hover?.kind ?? null, paneId: hover?.paneId ?? null };
-    },
+    scopeChain: () => scopeChain(app, ui.getState().hover),
     blocked: () => app.session.getState().dialog !== null || ui.getState().confirm !== null,
     spaceBehaviour: () => app.prefs.getState().spaceBehaviour,
     dispatch: ({ op, args, ctx }) => void runFromUi(op, args, ctx),
+    capture: (e) => app.capture.state.armed !== null && app.capture.key(e),
+    viewportTool: () => {
+      const vm = ui.getState().viewport;
+      return vm === null ? null : viewportToolTarget(app, () => vm.activeTool());
+    },
   });
 
-  disposers.push(registerShellOperators(app, { workspace, onImportClosed: () => files.cancelImport() }));
+  disposers.push(registerShellOperators(app, { workspace, ui, onImportClosed: () => files.cancelImport() }));
+
+  // M6A-SPEC §5.18 (B9): marking menus (the viewport's press hook, `ui.markingMenu`) and the command palette.
+  const lastContext = (): RunContext => {
+    const last = ui.getState().lastPanel;
+    return {
+      ...(last === null ? {} : { panel: last.kind }),
+      ...(last === null || last.paneId === null ? {} : { paneId: last.paneId }),
+    };
+  };
+  const markingMenus = createMarkingMenus({ app, run: (op, args, ctx) => runFromUi(op, args, ctx), help });
+  disposers.push(() => markingMenus.dispose());
+  const commandPalette = createCommandPalette({
+    app,
+    run: (op, args, ctx) => runFromUi(op, args, ctx),
+    context: lastContext,
+    help,
+  });
+  disposers.push(
+    provideShellOverlays(app, {
+      openCommandPalette: () => commandPalette.open(),
+      openMarkingMenu: (def, ctx) => markingMenus.openByCommand(def, ctx),
+    }),
+  );
+  const pointerMenus = (press: Parameters<typeof markingMenus.handlePress>[0]): boolean =>
+    markingMenus.handlePress(press);
+  /** Hooks the presses of a viewport (null unhooks); test fakes without the hook are left alone. */
+  const hookMenus = (vm: ShellUiState['viewport'], handler: typeof pointerMenus | null): void => {
+    if (typeof vm?.setPointerMenus === 'function') vm.setPointerMenus(handler);
+  };
+  hookMenus(ui.getState().viewport, pointerMenus);
+  disposers.push(
+    ui.subscribe((state, previous) => {
+      if (state.viewport === previous.viewport) return;
+      hookMenus(previous.viewport, null);
+      hookMenus(state.viewport, pointerMenus);
+    }),
+    () => hookMenus(ui.getState().viewport, null),
+  );
+  // The marking menus (controller and drawing) load before the first menu opens: when a workspace that has marking
+  // menus is entered (Model), or when one is registered for the active workspace. Animate never loads them.
+  const prefetchMenus = (): void => {
+    if (typeof window === 'undefined' || markingMenus.controller() !== null) return;
+    if (marksMenus(app)) prefetchMarkingMenu(markingMenus);
+  };
+  prefetchMenus();
+  disposers.push(
+    app.session.subscribe((state, previous) => {
+      if (state.workspace === previous.workspace) return;
+      markingMenus.close();
+      prefetchMenus();
+    }),
+    app.markingMenus.subscribe(prefetchMenus),
+  );
   // M2A-SPEC §5.20: autosave and the Recovery prompt (browser services only).
   disposers.push(startShellAutosave({ app, runFromUi: (op, args) => runFromUi(op, args) }));
   const extraPanels: { kind: PanelKind; title: string }[] = [];
   for (const def of registry.list()) {
-    if (FIXED_KINDS.has(def.kind) || ANIMATE_SLOTS.some((slot) => slot.kind === def.kind)) continue;
+    if (FIXED_KINDS.has(def.kind) || ALL_SLOTS.some((slot) => slot.kind === def.kind)) continue;
     if (extraPanels.some((panel) => panel.kind === def.kind)) continue;
     extraPanels.push({ kind: def.kind, title: def.title });
   }
   disposers.push(registerShellMenuItems(app, extraPanels));
+  // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
+  disposers.push(registerModelSelectUi(app));
+  disposers.push(registerModelTransformUi(app));
 
   let glFrames = 0;
 
@@ -220,6 +293,8 @@ export function createShell(opts: CreateShellOptions): Shell {
     files,
     exports,
     keyboard,
+    markingMenus,
+    commandPalette,
     attachWorkspace: (api) => workspace.attach(api),
     help,
     confirm,

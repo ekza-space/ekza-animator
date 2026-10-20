@@ -1,7 +1,8 @@
 // ManipulatorKit (ADR 0006 §7, MVP-SPEC §4.11.16): translate (3 axes, 3 planes, view-plane centre) in object/world
-// space and rotate (3 rings + view ring) in object/world/gimbal space, drawn in the overlay pass at a constant pixel
-// size per pane and picked analytically in screen space. Drags produce channel edits (./drag.ts); the viewport tools
-// feed them into the editor-core gesture helper.
+// space, rotate (3 rings + view ring) in object/world/gimbal space and (M6a, B9) scale (3 axes with cube ends and a
+// uniform centre cube) in object space, drawn in the overlay pass at a constant pixel size per pane and picked
+// analytically in screen space. Drags produce channel edits (./drag.ts, ./scale/math.ts); the viewport tools feed
+// them into the editor-core gesture helper.
 import {
   gimbalAxes,
   type Quat,
@@ -13,6 +14,7 @@ import {
 } from '@ekza-animator/anim-core';
 import type { ManipSpace } from '@ekza-animator/editor-core';
 import {
+  BoxGeometry,
   type Camera,
   Color,
   ConeGeometry,
@@ -39,7 +41,7 @@ import { PICK, VIEWPORT_THEME } from '../theme';
 import type { ManipHandle, ScreenPoint } from '../types';
 import { cross, ringScreenTangent } from './drag';
 
-export type ManipMode = 'translate' | 'rotate';
+export type ManipMode = 'translate' | 'rotate' | 'scale';
 
 /** What the manipulator sits on: the lead selected control. Scene space. */
 export interface ManipTarget {
@@ -50,10 +52,11 @@ export interface ManipTarget {
   readonly parentQ: Quat;
   readonly r: ReadonlyVec3;
   readonly order: RotateOrder;
-  /** Channels a drag may edit: keyable and not locked. */
+  /** Channels a drag may edit: keyable and not locked (`s`, M6a: the Scale tool's; absent = all three). */
   readonly keyable: {
     readonly t: readonly [boolean, boolean, boolean];
     readonly r: readonly [boolean, boolean, boolean];
+    readonly s?: readonly [boolean, boolean, boolean];
   };
   /**
    * Keyable channels that are locked. Their axis handles (translate arrows, rotate rings) are drawn dimmed and never
@@ -73,6 +76,9 @@ const CONE_RADIUS = 0.045;
 const PLANE_MIN = 0.22;
 const PLANE_MAX = 0.42;
 const CENTER_HALF = 0.07;
+/** Scale handles (M6a): cube ends of the axes and the uniform centre cube, in manipulator units. */
+const SCALE_CUBE = 0.08;
+const UNIFORM_HALF = 0.09;
 export const RING_RADIUS = 0.75;
 export const VIEW_RING_RADIUS = 0.95;
 const RING_SEGMENTS = 64;
@@ -81,6 +87,7 @@ const GIMBAL_DANGER_COS = Math.cos((80 * Math.PI) / 180);
 
 export const TRANSLATE_HANDLES: readonly ManipHandle[] = ['tx', 'ty', 'tz', 'txy', 'tyz', 'txz', 'tview'];
 export const ROTATE_HANDLES: readonly ManipHandle[] = ['rx', 'ry', 'rz', 'rview'];
+export const SCALE_HANDLES: readonly ManipHandle[] = ['sx', 'sy', 'sz', 'suniform'];
 /** Handles that stand for exactly one channel each; the channel has the handle's name. */
 export type AxisHandle = 'tx' | 'ty' | 'tz' | 'rx' | 'ry' | 'rz';
 const AXIS_HANDLES: { readonly t: readonly AxisHandle[]; readonly r: readonly AxisHandle[] } = {
@@ -123,6 +130,8 @@ export class ManipulatorKit {
     [0, 0, 1],
   ];
   private danger: readonly boolean[] = [false, false, false];
+  /** M6a (B12a): pivot editing draws the manipulator dashed (§5.15). */
+  private dashed = false;
   /** Bumped on every visual change. */
   version = 0;
 
@@ -140,7 +149,9 @@ export class ManipulatorKit {
     for (let k = 0; k < 3; k++) {
       this.add(this.axisVisual((['tx', 'ty', 'tz'] as const)[k] as ManipHandle, AXIS_COLORS[k] as string));
       this.add(this.ringVisual((['rx', 'ry', 'rz'] as const)[k] as ManipHandle, AXIS_COLORS[k] as string, RING_RADIUS));
+      this.add(this.scaleAxisVisual((['sx', 'sy', 'sz'] as const)[k] as ManipHandle, AXIS_COLORS[k] as string));
     }
+    this.add(this.uniformVisual());
     for (const handle of ['txy', 'tyz', 'txz'] as const) {
       this.add(this.planeVisual(handle, AXIS_COLORS[PLANE_AXES[handle][2]]));
     }
@@ -148,9 +159,10 @@ export class ManipulatorKit {
     this.add(this.ringVisual('rview', VIEWPORT_THEME.axisView, VIEW_RING_RADIUS));
   }
 
-  /** Tool mode (move → translate, rotate → rotate, otherwise null), handle space and size in CSS px. */
+  /** Tool mode (move → translate, rotate → rotate, scale → scale, otherwise null), handle space and size in CSS px.
+   *  Scale handles always use object axes (each object scales in its own axes). */
   configure(mode: ManipMode | null, space: ManipSpace, sizePx: number): void {
-    const s: ManipSpace = mode === 'translate' && space === 'gimbal' ? 'object' : space;
+    const s: ManipSpace = mode === 'scale' ? 'object' : mode === 'translate' && space === 'gimbal' ? 'object' : space;
     if (mode === this.mode && s === this.space && sizePx === this.sizePx) return;
     this.mode = mode;
     this.space = s;
@@ -161,6 +173,25 @@ export class ManipulatorKit {
   setTarget(target: ManipTarget | null): void {
     this.target = target;
     this.refresh();
+  }
+
+  /** M6a (B12a, §5.15): dashed lines while the pivot is edited. */
+  setDashed(dashed: boolean): void {
+    if (dashed === this.dashed) return;
+    this.dashed = dashed;
+    for (const visual of this.visuals.values()) {
+      for (const material of visual.lines) {
+        material.dashed = dashed;
+        material.dashSize = 0.05;
+        material.gapSize = 0.04;
+        material.needsUpdate = true;
+      }
+    }
+    this.version++;
+  }
+
+  get isDashed(): boolean {
+    return this.dashed;
   }
 
   setHover(handle: ManipHandle | null): boolean {
@@ -213,6 +244,10 @@ export class ManipulatorKit {
   handles(): readonly ManipHandle[] {
     if (!this.visible) return [];
     const target = this.target as ManipTarget;
+    if (this.mode === 'scale') {
+      const s = target.keyable.s ?? [true, true, true];
+      return SCALE_HANDLES.filter((h) => (h === 'suniform' ? s.some(Boolean) : s[axisIndex(h)]));
+    }
     if (this.mode === 'translate') {
       const t = target.keyable.t;
       return TRANSLATE_HANDLES.filter((h) => {
@@ -238,7 +273,7 @@ export class ManipulatorKit {
    * through the handle.
    */
   lockedHandles(): readonly AxisHandle[] {
-    if (!this.visible) return [];
+    if (!this.visible || this.mode === 'scale') return [];
     const locked = (this.target as ManipTarget).locked;
     if (locked === undefined) return [];
     const axes: readonly AxisHandle[] = this.mode === 'translate' ? AXIS_HANDLES.t : AXIS_HANDLES.r;
@@ -295,14 +330,26 @@ export class ManipulatorKit {
     let best: ManipHandle | null = null;
     let bestDistance: number = PICK.manipulatorPx;
     for (const handle of this.pickable()) {
+      // M6a (B12a): a plane handle seen edge-on (an orthographic side view) draws as a line over one of its axes and
+      // cannot be dragged in its plane: the press belongs to the axis.
+      if (this.edgeOn(handle, camera)) continue;
       const d = this.handleDistance(handle, camera, projector, s, x, y);
-      if (handle === 'tview' && d === 0) return 'tview';
+      if ((handle === 'tview' || handle === 'suniform') && d === 0) return handle;
       if (d <= bestDistance) {
         best = handle;
         bestDistance = d;
       }
     }
     return best;
+  }
+
+  /** Whether a plane handle's plane contains the view direction (within ~11°): it cannot be dragged in its plane. */
+  private edgeOn(handle: ManipHandle, camera: Camera): boolean {
+    if (handle !== 'txy' && handle !== 'tyz' && handle !== 'txz') return false;
+    const n = this.axesCache[PLANE_AXES[handle][2]];
+    const e = camera.matrixWorld.elements;
+    const len = Math.hypot(e[8], e[9], e[10]) || 1;
+    return Math.abs((n[0] * e[8] + n[1] * e[9] + n[2] * e[10]) / len) < 0.2;
   }
 
   /**
@@ -320,8 +367,15 @@ export class ManipulatorKit {
         ? { x: out[0] as number, y: out[1] as number, depth: out[2] as number }
         : null;
     const pivot = target.pivot;
-    if (handle === 'tview') return project(pivot);
-    if (handle === 'tx' || handle === 'ty' || handle === 'tz') {
+    if (handle === 'tview' || handle === 'suniform') return project(pivot);
+    if (
+      handle === 'tx' ||
+      handle === 'ty' ||
+      handle === 'tz' ||
+      handle === 'sx' ||
+      handle === 'sy' ||
+      handle === 'sz'
+    ) {
       const u = this.axesCache[axisIndex(handle)];
       return project(add(pivot, scale(u, 0.7 * s)));
     }
@@ -418,8 +472,12 @@ export class ManipulatorKit {
     const show = this.visible;
     this.root.visible = show;
     for (const visual of this.visuals.values()) {
-      const translate = TRANSLATE_HANDLES.includes(visual.handle);
-      visual.root.visible = show && (translate ? mode === 'translate' : mode === 'rotate');
+      const handleMode: ManipMode = TRANSLATE_HANDLES.includes(visual.handle)
+        ? 'translate'
+        : SCALE_HANDLES.includes(visual.handle)
+          ? 'scale'
+          : 'rotate';
+      visual.root.visible = show && handleMode === mode;
     }
     this.occluder.visible = show && mode === 'rotate';
     this.orientHandles();
@@ -468,9 +526,17 @@ export class ManipulatorKit {
         .get((['tx', 'ty', 'tz'] as const)[k] as ManipHandle)
         ?.root.quaternion.copy(q.setFromUnitVectors(X, axis));
       this.visuals
+        .get((['sx', 'sy', 'sz'] as const)[k] as ManipHandle)
+        ?.root.quaternion.copy(q.setFromUnitVectors(X, axis));
+      this.visuals
         .get((['rx', 'ry', 'rz'] as const)[k] as ManipHandle)
         ?.root.quaternion.copy(q.setFromUnitVectors(Z, axis));
     }
+    this.visuals
+      .get('suniform')
+      ?.root.quaternion.setFromRotationMatrix(
+        new Matrix4().makeBasis(new Vector3(...axes[0]), new Vector3(...axes[1]), new Vector3(...axes[2])),
+      );
     for (const handle of ['txy', 'tyz', 'txz'] as const) {
       const [a, b] = PLANE_AXES[handle];
       const u = new Vector3(...axes[a]);
@@ -525,6 +591,7 @@ export class ManipulatorKit {
     const geometry = new LineSegmentsGeometry();
     geometry.setPositions(positions);
     const line = new LineSegments2(geometry, material);
+    line.computeLineDistances(); // M6a: dashed pivot editing (setDashed)
     line.frustumCulled = false;
     return line;
   }
@@ -541,6 +608,31 @@ export class ManipulatorKit {
     cone.frustumCulled = false;
     root.add(cone);
     return { handle, root, lines: [material], meshes: [coneMaterial], baseColor: color };
+  }
+
+  /** A scale axis (M6a): a line from the centre to a cube. */
+  private scaleAxisVisual(handle: ManipHandle, color: string): HandleVisual {
+    const root = new Group();
+    const material = lineMaterial({ width: 2, vertexColors: false, color, depthTest: false });
+    root.add(this.line([AXIS_START, 0, 0, AXIS_END - SCALE_CUBE, 0, 0], material));
+    const cubeGeometry = new BoxGeometry(SCALE_CUBE, SCALE_CUBE, SCALE_CUBE);
+    cubeGeometry.translate(AXIS_END - SCALE_CUBE / 2, 0, 0);
+    const cubeMaterial = new MeshBasicMaterial({ color, depthTest: false, toneMapped: false });
+    const cube = new Mesh(cubeGeometry, cubeMaterial);
+    cube.frustumCulled = false;
+    root.add(cube);
+    return { handle, root, lines: [material], meshes: [cubeMaterial], baseColor: color };
+  }
+
+  /** The uniform scale handle (M6a): a cube at the centre. */
+  private uniformVisual(): HandleVisual {
+    const root = new Group();
+    const size = 2 * UNIFORM_HALF;
+    const material = new MeshBasicMaterial({ color: VIEWPORT_THEME.axisView, depthTest: false, toneMapped: false });
+    const cube = new Mesh(new BoxGeometry(size, size, size), material);
+    cube.frustumCulled = false;
+    root.add(cube);
+    return { handle: 'suniform', root, lines: [], meshes: [material], baseColor: VIEWPORT_THEME.axisView };
   }
 
   private planeVisual(handle: 'txy' | 'tyz' | 'txz', color: string): HandleVisual {
@@ -617,9 +709,26 @@ export class ManipulatorKit {
         out.push(seg[0] as number, seg[1] as number, seg[3] as number, seg[4] as number);
       }
     };
-    if (handle === 'tx' || handle === 'ty' || handle === 'tz') {
+    if (
+      handle === 'tx' ||
+      handle === 'ty' ||
+      handle === 'tz' ||
+      handle === 'sx' ||
+      handle === 'sy' ||
+      handle === 'sz'
+    ) {
       const u = this.axesCache[axisIndex(handle)];
       push(add(pivot, scale(u, AXIS_START * s)), add(pivot, scale(u, AXIS_END * s)));
+    } else if (handle === 'suniform') {
+      const [e1, e2] = basisOf(this.ringAxis('rview', camera), camera, true);
+      const h = UNIFORM_HALF * 1.2 * s;
+      const c = [
+        add(pivot, add(scale(e1, -h), scale(e2, -h))),
+        add(pivot, add(scale(e1, h), scale(e2, -h))),
+        add(pivot, add(scale(e1, h), scale(e2, h))),
+        add(pivot, add(scale(e1, -h), scale(e2, h))),
+      ];
+      for (let i = 0; i < 4; i++) push(c[i] as Vec3, c[(i + 1) % 4] as Vec3);
     } else if (handle === 'txy' || handle === 'tyz' || handle === 'txz') {
       const corners = planeCorners(pivot, this.axesCache, PLANE_AXES[handle], s);
       for (let i = 0; i < 4; i++) push(corners[i] as Vec3, corners[(i + 1) % 4] as Vec3);
@@ -653,7 +762,8 @@ export class ManipulatorKit {
   ): number {
     const poly = this.screenPolyline(handle, camera, projector, s);
     if (poly.length === 0) return Number.POSITIVE_INFINITY;
-    const filled = handle === 'tview' || handle === 'txy' || handle === 'tyz' || handle === 'txz';
+    const filled =
+      handle === 'tview' || handle === 'suniform' || handle === 'txy' || handle === 'tyz' || handle === 'txz';
     if (filled && poly.length >= 16 && insideQuad(poly, x, y)) return 0;
     let best = Number.POSITIVE_INFINITY;
     const tmp = [0, 0];
@@ -676,7 +786,11 @@ export class ManipulatorKit {
 }
 
 function axisIndex(handle: ManipHandle): 0 | 1 | 2 {
-  return handle === 'tx' || handle === 'rx' ? 0 : handle === 'ty' || handle === 'ry' ? 1 : 2;
+  return handle === 'tx' || handle === 'rx' || handle === 'sx'
+    ? 0
+    : handle === 'ty' || handle === 'ry' || handle === 'sy'
+      ? 1
+      : 2;
 }
 
 function planeCorners(

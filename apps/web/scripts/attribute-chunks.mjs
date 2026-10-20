@@ -125,14 +125,11 @@ function attributeChunk(code, map) {
   return parts;
 }
 
-function main() {
-  const args = process.argv.slice(2);
-  const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
-  const top = args.includes('--top') ? Number(args[args.indexOf('--top') + 1]) : 40;
-  const withLazy = args.includes('--lazy');
-  if (!existsSync(nextDir)) throw new Error('no .next: build with ANIMATOR_SOURCE_MAPS=1 first');
-  const route = readRouteScripts(nextDir);
-  const files = withLazy ? [...route.initial, ...route.lazy.flatMap((group) => group.files)] : route.initial;
+/**
+ * Attributes the gzip -9 bytes of `files` (paths under `nextDir`, sources from `route`) to packages and top-level
+ * modules through their source maps. Chunks without a map count as "(no map)".
+ */
+export function attributeFiles(nextDir, route, files) {
   const modules = new Map();
   const packages = new Map();
   let total = 0;
@@ -180,6 +177,26 @@ function main() {
     packages.set(entry.pkg, pkg);
   }
   const byGzip = (a, b) => b.gzip - a.gzip;
+  return {
+    files,
+    total,
+    totalRaw,
+    unmappedChunks,
+    packages: [...packages.values()].sort(byGzip),
+    modules: [...modules.values()].sort(byGzip),
+  };
+}
+
+function main() {
+  const args = process.argv.slice(2);
+  const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
+  const top = args.includes('--top') ? Number(args[args.indexOf('--top') + 1]) : 40;
+  const withLazy = args.includes('--lazy');
+  if (!existsSync(nextDir)) throw new Error('no .next: build with ANIMATOR_SOURCE_MAPS=1 first');
+  const route = readRouteScripts(nextDir);
+  const files = withLazy ? [...route.initial, ...route.lazy.flatMap((group) => group.files)] : route.initial;
+  const report = attributeFiles(nextDir, route, files);
+  const { total, totalRaw, unmappedChunks } = report;
   const pct = (v) => `${((v / total) * 100).toFixed(1)} %`;
   process.stdout.write(
     `Chunk attribution of /editor${withLazy ? ' (initial + lazy)' : ' (initial scripts)'}: ${files.length} scripts, ` +
@@ -187,11 +204,11 @@ function main() {
       `${unmappedChunks > 0 ? `; ${unmappedChunks} chunks without a source map` : ''}\n\n`,
   );
   process.stdout.write('| Package | gzip -9 | share | raw |\n|---|---:|---:|---:|\n');
-  for (const p of [...packages.values()].sort(byGzip)) {
+  for (const p of report.packages) {
     process.stdout.write(`| ${p.pkg} | ${kB(p.gzip)} | ${pct(p.gzip)} | ${kB(p.raw)} |\n`);
   }
   process.stdout.write(`\n| Top-level module (top ${top}) | gzip -9 | share | raw |\n|---|---:|---:|---:|\n`);
-  for (const m of [...modules.values()].sort(byGzip).slice(0, top)) {
+  for (const m of report.modules.slice(0, top)) {
     process.stdout.write(`| ${m.module} | ${kB(m.gzip)} | ${pct(m.gzip)} | ${kB(m.raw)} |\n`);
   }
   if (jsonOut !== null) {
@@ -202,8 +219,8 @@ function main() {
           files,
           totalGzip: total,
           totalRaw,
-          packages: [...packages.values()].sort(byGzip),
-          modules: [...modules.values()].sort(byGzip),
+          packages: report.packages,
+          modules: report.modules,
         },
         null,
         2,

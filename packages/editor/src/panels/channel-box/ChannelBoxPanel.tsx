@@ -23,6 +23,7 @@ import {
   LIMB_NAME,
   limbOfControlApp,
   PANEL,
+  type SceneObjectId,
   type SessionState,
   sortChannelsForDisplay,
 } from '@ekza-animator/editor-core';
@@ -30,6 +31,7 @@ import type { LimbDesc } from '@ekza-animator/rig';
 import { startVirtualSliderDrag, type VirtualSliderDrag } from '@ekza-animator/viewport';
 import {
   type JSX,
+  lazy,
   memo,
   type MouseEvent,
   type PointerEvent,
@@ -38,6 +40,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  Suspense,
   useState,
   useSyncExternalStore,
 } from 'react';
@@ -56,6 +59,19 @@ import { type ChannelCell, ChannelReadout, PROXY_CELL, type ReadoutTargets } fro
 import { CHANNEL_STATE_STYLE, channelStateTitle, type StateBar } from './states';
 
 const PANEL_KIND = PANEL.channelBox;
+
+// M6a (M6A-SPEC §8.6; B11): a mesh or group object's rows and INPUTS in Model, a lazy chunk.
+const MeshChannels = lazy(() => import('./MeshChannels'));
+
+/** The mesh or group object whose channels the Channel Box shows in Model (the lead object, else the hilite lead). */
+export function modelLeadObject(s: SessionState): SceneObjectId | null {
+  if (s.workspace !== 'model') return null;
+  const isObject = (id: string): boolean => id.startsWith('msh_') || id.startsWith('grp_');
+  const lead = s.selection.objects.at(-1);
+  if (lead !== undefined && isObject(lead)) return lead;
+  if (s.model.componentMode === 'object') return null;
+  return s.model.hilite.at(-1) ?? null;
+}
 
 const AXIS = { x: 0, y: 1, z: 2 } as const;
 
@@ -106,6 +122,7 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
   const shell = useOptionalShell();
   const pointerLock = shell?.params.pointerLock ?? true;
   const selected = useSession(selectedControls, sameIds);
+  const modelLead = useSession(modelLeadObject);
   const channelRefs = useSession(selectChannelRefs, sameChannelRefs);
   const read = useCallback(
     (store: DocumentStore): SelectionView => {
@@ -416,6 +433,13 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
     ]);
   });
 
+  if (lead === null && modelLead !== null) {
+    return (
+      <Suspense fallback={null}>
+        <MeshChannels app={app} lead={modelLead} />
+      </Suspense>
+    );
+  }
   if (lead === null) {
     return (
       <div className={PANEL_ROOT} data-testid="channel-box-panel" data-instance={instanceId}>

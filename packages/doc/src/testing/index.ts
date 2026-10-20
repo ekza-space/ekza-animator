@@ -24,4 +24,19 @@ export {
   type SyntheticFixture,
 } from './fixtures';
 export { createTestNetwork, TestNetwork } from './network';
+// M6a (M6A-SPEC §4.2): complete records of the seven modeling tables.
+export {
+  makeTestGroup,
+  makeTestImageAsset,
+  makeTestImagePlane,
+  makeTestJoint,
+  makeTestMesh,
+  makeTestPalette,
+  makeTestSkeleton,
+  makeTestSwatch,
+  testHash,
+  withSchemaV3,
+} from './records-v3';
 export { checkSteps, type PropertyOptions, Rng } from './random';
+// M6a B7 (M6A-SPEC §9 B7): mesh-ref fork detection and the observed refs of a batch.
+export { type MeshRefFork, meshRefForks, type ObservedRef, refsOfBatch } from './meshRefs';

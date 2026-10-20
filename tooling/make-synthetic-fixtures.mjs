@@ -6,6 +6,9 @@
 //   wave-doc.json           a DocSnapshot: project, asset, character, rig with FK controls for those bones and a clip
 //                           `wave` whose `fk.lowerArm.L` rz curve has keys 30° / −30° / 30° at frames 0 / 15 / 30
 //   rest-pose.json          the expected canonical bone worlds at rest (t, q, s and the column-major matrix)
+//   prohibited-modification.vrm
+//                           (M6a, B8) a VRM 1.0 avatar on that skeleton — one skinned mesh of a box per bone — whose
+//                           meta says `modification: 'prohibited'`: Make editable must refuse it (E2E-MOD-12)
 //
 // The output is byte-for-byte deterministic. The data is synthetic (MIT, repository licence): the control records
 // follow the auto-rig conventions of MVP-SPEC §4.11.15 but are not a golden for `autoRig`.
@@ -22,6 +25,8 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 export const SYNTHETIC_DIR = join(ROOT, 'fixtures', 'synthetic');
 export const SYNTHETIC_FILES = ['humanoid-skeleton.json', 'wave-doc.json', 'rest-pose.json'];
+/** Binary fixtures (written as bytes, compared byte for byte). */
+export const SYNTHETIC_BINARIES = ['prohibited-modification.vrm'];
 
 const DEG = Math.PI / 180;
 const HEIGHT = 1.7;
@@ -518,6 +523,207 @@ export function buildSyntheticFixtures() {
   return Object.fromEntries(Object.entries(files).map(([name, value]) => [name, `${formatJson(value, 0)}\n`]));
 }
 
+/** The binary fixtures, keyed by file name. */
+export function buildSyntheticBinaries() {
+  return { 'prohibited-modification.vrm': buildProhibitedVrm(buildSkeleton()) };
+}
+
+// ---------- prohibited-modification.vrm (M6a, B8) ----------
+
+/**
+ * A minimal VRM 1.0 on the synthetic skeleton: the bone nodes with their rest TRS, one mesh `Body` of an axis-aligned
+ * box per bone (24 vertices, faceted, rigidly skinned to its bone), one material, the skin with exact inverse bind
+ * matrices, and `VRMC_vrm` with the humanoid map and a meta that forbids modification.
+ */
+function buildProhibitedVrm(skeleton) {
+  const worlds = restWorlds(skeleton);
+  const joints = skeleton.nodes.filter((node) => node.parent !== -1).map((node) => node.index);
+  const positions = [];
+  const normals = [];
+  const jointIds = [];
+  const weights = [];
+  const indices = [];
+  const FACES = [
+    [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ],
+    [
+      [-1, 0, 0],
+      [0, 0, 1],
+      [0, 1, 0],
+    ],
+    [
+      [0, 1, 0],
+      [0, 0, 1],
+      [1, 0, 0],
+    ],
+    [
+      [0, -1, 0],
+      [1, 0, 0],
+      [0, 0, 1],
+    ],
+    [
+      [0, 0, 1],
+      [1, 0, 0],
+      [0, 1, 0],
+    ],
+    [
+      [0, 0, -1],
+      [0, 1, 0],
+      [1, 0, 0],
+    ],
+  ];
+  joints.forEach((node, slot) => {
+    const centre = worlds[node].t;
+    const half = Math.max(0.01, (BONES[node][5] ?? 0.02) * 0.6);
+    for (const [n, u, v] of FACES) {
+      const base = positions.length / 3;
+      for (const [a, b] of [
+        [-1, -1],
+        [1, -1],
+        [1, 1],
+        [-1, 1],
+      ]) {
+        for (let k = 0; k < 3; k++) positions.push(Math.fround(centre[k] + half * (n[k] + a * u[k] + b * v[k])));
+        normals.push(...n);
+        jointIds.push(slot, 0, 0, 0);
+        weights.push(1, 0, 0, 0);
+      }
+      indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+    }
+  });
+  const ibm = [];
+  for (const node of joints) {
+    const w = worlds[node];
+    const inv = qConj(w.q);
+    const t = qRotate(inv, [-w.t[0], -w.t[1], -w.t[2]]);
+    ibm.push(...mat4Compose(t, inv, [1, 1, 1]).map(clean));
+  }
+
+  const parts = [];
+  const views = [];
+  const accessors = [];
+  let length = 0;
+  const addView = (bytes, target) => {
+    const pad = (4 - (length % 4)) % 4;
+    if (pad > 0) parts.push(new Uint8Array(pad));
+    length += pad;
+    views.push({
+      buffer: 0,
+      byteOffset: length,
+      byteLength: bytes.length,
+      ...(target === undefined ? {} : { target }),
+    });
+    parts.push(bytes);
+    length += bytes.length;
+    return views.length - 1;
+  };
+  const addAccessor = (array, componentType, type, count, target, minMax) => {
+    const bufferView = addView(new Uint8Array(array.buffer), target);
+    const accessor = { bufferView, componentType, count, type };
+    if (minMax) {
+      const min = [Infinity, Infinity, Infinity];
+      const max = [-Infinity, -Infinity, -Infinity];
+      for (let i = 0; i < array.length; i++) {
+        min[i % 3] = Math.min(min[i % 3], array[i]);
+        max[i % 3] = Math.max(max[i % 3], array[i]);
+      }
+      Object.assign(accessor, { max, min });
+    }
+    accessors.push(accessor);
+    return accessors.length - 1;
+  };
+  const vertexCount = positions.length / 3;
+  const POSITION = addAccessor(new Float32Array(positions), 5126, 'VEC3', vertexCount, 34962, true);
+  const NORMAL = addAccessor(new Float32Array(normals), 5126, 'VEC3', vertexCount, 34962, false);
+  const JOINTS_0 = addAccessor(new Uint8Array(jointIds), 5121, 'VEC4', vertexCount, 34962, false);
+  const WEIGHTS_0 = addAccessor(new Float32Array(weights), 5126, 'VEC4', vertexCount, 34962, false);
+  const INDICES = addAccessor(new Uint16Array(indices), 5123, 'SCALAR', indices.length, 34963, false);
+  const IBM = addAccessor(new Float32Array(ibm), 5126, 'MAT4', joints.length, undefined, false);
+  const bin = new Uint8Array(length + ((4 - (length % 4)) % 4));
+  let offset = 0;
+  for (const part of parts) {
+    bin.set(part, offset);
+    offset += part.length;
+  }
+
+  const nodes = skeleton.nodes.map((node) => {
+    const { t, q } = node.restLocal;
+    const children = skeleton.nodes.filter((child) => child.parent === node.index).map((child) => child.index);
+    return {
+      name: node.name,
+      ...(children.length > 0 ? { children } : {}),
+      ...(t.some((c) => c !== 0) ? { translation: t } : {}),
+      ...(q[0] !== 0 || q[1] !== 0 || q[2] !== 0 ? { rotation: q } : {}),
+    };
+  });
+  nodes.push({ name: 'Body', mesh: 0, skin: 0 });
+  const humanBones = {};
+  for (const [bone, index] of Object.entries(skeleton.humanoid)) humanBones[bone] = { node: index };
+  const json = {
+    asset: { version: '2.0', generator: 'ekza-animator make-synthetic-fixtures' },
+    extensionsUsed: ['VRMC_vrm'],
+    extensions: {
+      VRMC_vrm: {
+        specVersion: '1.0',
+        meta: {
+          name: 'Prohibited modification (synthetic)',
+          version: '1',
+          authors: ['Ekza Animator tests'],
+          licenseUrl: 'https://vrm.dev/licenses/1.0/',
+          avatarPermission: 'onlyAuthor',
+          allowExcessivelyViolentUsage: false,
+          allowExcessivelySexualUsage: false,
+          commercialUsage: 'personalNonProfit',
+          allowPoliticalOrReligiousUsage: false,
+          allowAntisocialOrHateUsage: false,
+          creditNotation: 'required',
+          allowRedistribution: false,
+          modification: 'prohibited',
+        },
+        humanoid: { humanBones },
+      },
+    },
+    scene: 0,
+    scenes: [{ nodes: [0, nodes.length - 1] }],
+    nodes,
+    meshes: [
+      {
+        name: 'Body',
+        primitives: [{ attributes: { POSITION, NORMAL, JOINTS_0, WEIGHTS_0 }, indices: INDICES, material: 0 }],
+      },
+    ],
+    materials: [{ name: 'Body', pbrMetallicRoughness: { baseColorFactor: [0.8, 0.8, 0.8, 1], metallicFactor: 0 } }],
+    skins: [{ name: 'Body', inverseBindMatrices: IBM, joints, skeleton: 0 }],
+    accessors,
+    bufferViews: views,
+    buffers: [{ byteLength: bin.length }],
+  };
+  return assembleGlb(JSON.stringify(json), bin);
+}
+
+/** glTF 2.0 binary: header, JSON chunk padded with spaces, BIN chunk padded with zeros. */
+function assembleGlb(text, bin) {
+  const jsonBytes = new TextEncoder().encode(text);
+  const jsonLength = (jsonBytes.length + 3) & ~3;
+  const total = 12 + 8 + jsonLength + 8 + bin.length;
+  const out = new Uint8Array(total);
+  const dv = new DataView(out.buffer);
+  dv.setUint32(0, 0x46546c67, true);
+  dv.setUint32(4, 2, true);
+  dv.setUint32(8, total, true);
+  dv.setUint32(12, jsonLength, true);
+  dv.setUint32(16, 0x4e4f534a, true);
+  out.set(jsonBytes, 20);
+  out.fill(0x20, 20 + jsonBytes.length, 20 + jsonLength);
+  dv.setUint32(20 + jsonLength, bin.length, true);
+  dv.setUint32(24 + jsonLength, 0x004e4942, true);
+  out.set(bin, 28 + jsonLength);
+  return out;
+}
+
 const LINE_WIDTH = 120;
 
 /**
@@ -552,23 +758,35 @@ function main(argv) {
   const outDir = outIndex === -1 ? SYNTHETIC_DIR : resolve(argv[outIndex + 1] ?? '');
   const check = argv.includes('--check');
   const files = buildSyntheticFixtures();
+  const binaries = buildSyntheticBinaries();
   if (check) {
-    const stale = Object.entries(files)
-      .filter(([name, text]) => {
-        const file = join(outDir, name);
-        return !existsSync(file) || readFileSync(file, 'utf8') !== text;
-      })
-      .map(([name]) => name);
+    const stale = [
+      ...Object.entries(files)
+        .filter(([name, text]) => {
+          const file = join(outDir, name);
+          return !existsSync(file) || readFileSync(file, 'utf8') !== text;
+        })
+        .map(([name]) => name),
+      ...Object.entries(binaries)
+        .filter(([name, bytes]) => {
+          const file = join(outDir, name);
+          return !existsSync(file) || Buffer.compare(readFileSync(file), Buffer.from(bytes)) !== 0;
+        })
+        .map(([name]) => name),
+    ];
     if (stale.length > 0) {
       console.error(`Synthetic fixtures are stale: ${stale.join(', ')}. Run node tooling/make-synthetic-fixtures.mjs`);
       return 1;
     }
-    console.log(`Synthetic fixtures are up to date (${Object.keys(files).length} files).`);
+    console.log(
+      `Synthetic fixtures are up to date (${Object.keys(files).length + Object.keys(binaries).length} files).`,
+    );
     return 0;
   }
   mkdirSync(outDir, { recursive: true });
   for (const [name, text] of Object.entries(files)) writeFileSync(join(outDir, name), text);
-  console.log(`Wrote ${Object.keys(files).join(', ')} to ${outDir}`);
+  for (const [name, bytes] of Object.entries(binaries)) writeFileSync(join(outDir, name), bytes);
+  console.log(`Wrote ${[...Object.keys(files), ...Object.keys(binaries)].join(', ')} to ${outDir}`);
   return 0;
 }
 

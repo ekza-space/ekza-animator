@@ -33,6 +33,7 @@ import {
   type WritePath,
 } from './export';
 import { yieldToHost } from './host';
+import { characterEdits } from './exportModel';
 import { EDITOR_VERSION } from './samples';
 import { fpsValue } from './util';
 
@@ -195,9 +196,16 @@ export async function runExportPipeline(
       exportExtension(app, req, kind),
     );
     const opts = { meta: meta(baked, rig), fileName, profile };
+    // M6a (M6A-SPEC §5.22, B8): the character's edited meshes go in through the surgeon's geometry step (marker v2).
+    const geometry =
+      kind === 'bake-into-model'
+        ? await characterEdits(app, character.id, {
+            dropTangents: (req as { dropTangents?: unknown }).dropTangents === true,
+          })
+        : [];
     artifacts.push(
       kind === 'bake-into-model'
-        ? await io.bakeIntoModel(runtime.container, skeleton, baked, opts)
+        ? await io.bakeIntoModel(runtime.container, skeleton, baked, geometry.length > 0 ? { ...opts, geometry } : opts)
         : await io.writeAnimationGlb(skeleton, baked, opts),
     );
   }

@@ -2,7 +2,7 @@
 // SHA-256 of their bytes. `get` is async and re-verifies hash and size, so the interface fits a remote store later
 // and in-place corruption of resident bytes is detected instead of propagated.
 import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord } from '@ekza-animator/doc';
+import { type AssetId, type AssetRecord, assetMime } from '@ekza-animator/doc';
 import type { AssetStore } from '../types';
 
 interface Blob {
@@ -18,7 +18,15 @@ export function createMemoryAssetStore(): AssetStore {
       const copy = bytes.slice();
       const id = (await sha256Hex(copy)) as AssetId;
       if (!blobs.has(id)) blobs.set(id, { bytes: copy, size: copy.byteLength });
-      return { id, name: meta.name, ext: meta.ext, mime: 'model/gltf-binary', size: copy.byteLength, role: meta.role };
+      return {
+        id,
+        name: meta.name,
+        ext: meta.ext,
+        mime: assetMime(meta.ext),
+        size: copy.byteLength,
+        role: meta.role,
+        provenance: null,
+      };
     },
     async get(id: AssetId): Promise<Uint8Array> {
       const blob = blobs.get(id);

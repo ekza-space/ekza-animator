@@ -15,9 +15,10 @@ describe('viewport test API helpers (MVP-SPEC §4.8)', () => {
     addCamera(rig.app, shotCamera({ locked: true }));
     rig.layout('split');
     const api = viewportTestApi(rig.vm);
+    // M6A-SPEC §4.8 literal update (B9): every pane also reports its shading (additive field).
     expect(api.panes()).toEqual([
-      { id: 'pane-left', camera: 'shot', locked: true, rect: { x: 0, y: 0, w: 600, h: 600 } },
-      { id: 'pane-right', camera: 'persp', locked: false, rect: { x: 600, y: 0, w: 600, h: 600 } },
+      { id: 'pane-left', camera: 'shot', locked: true, rect: { x: 0, y: 0, w: 600, h: 600 }, shading: 'lit' },
+      { id: 'pane-right', camera: 'persp', locked: false, rect: { x: 600, y: 0, w: 600, h: 600 }, shading: 'lit' },
     ]);
     expect(api.cameraOf('pane-left')).toEqual({ position: [0, 1.2, 4], quaternion: [0, 0, 0, 1] });
   });

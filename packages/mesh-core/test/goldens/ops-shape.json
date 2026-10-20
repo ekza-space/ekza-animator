@@ -1,0 +1,12 @@
+{
+  "oracle/triangulate-cube": "8/18/12 31d5fce1becbc72c676e5d84a2a94a720a1b20845d5f75d043932d4ca0b05ab7",
+  "oracle/half-cube": "8/12/5",
+  "oracle/half-cube-mirror": "12/20/10 e2ebd052dc79d5d779a8bfbc24e5ee649d9a1e14c490f6725b113838200bb955",
+  "oracle/mirrored-duplicate-combine": "16/24/10 a388653f787ee9fd733538fe378e6c7c6ab0f5dd061c0065e26da7a6c860890c",
+  "oracle/spin-cube-edge": "8/12/6 cdac589530d6dd33b97251f9665fa9248de3d6d768721c1c2fb0cfa8fb2ecda8",
+  "oracle/cut-plane": "9/12/4 2888f58a0471028e82afaf7243b87bf06d315f362b0c0b87087e0d6093662462",
+  "script/cube/1": "33097f9323ded4dc34ce16f5425399869fd3939ab46056be4724d96113a20324",
+  "script/cylinder/2": "931982323752798600aa56bb6ae652909fe13b2d0178fcdb61825aaabb9ef354",
+  "script/sphere/3": "4f4f548ffb6bafad88b00f9293f9af9a1df33ac6661c488b632b3b02009cf66e",
+  "script/torus/4": "20d8f7b777dc93943dc4dd614811a0cfeba66754d5c5500ebf81b83f643e0a70"
+}

@@ -1,14 +1,22 @@
-// The Animate workspace layout (research 09 §2, §9): default dock arrangement and its persistence. Pure helpers over
-// dockview's API and serialized JSON; the stored layout is versioned and every storage access is guarded.
+// Workspace dock layouts (research 09 §2, §9; M6A-SPEC §4.8, §8.2): the default dock arrangement of each workspace
+// and its persistence. Pure helpers over dockview's API and serialized JSON; each workspace's layout is stored under
+// its own versioned key (`ekza-animator:layout:v<N>:<workspace>`: Animate v2, Model v1) and every storage access is
+// guarded.
 import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-animator/editor-core';
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
 
 export const WORKSPACE_ID = 'animate';
 /** 2 since M2a: the Animate layout has a Dope Sheet tab beside the Graph Editor (M2A-SPEC §4.8). */
 export const LAYOUT_SCHEMA_VERSION = 2;
+/** Layout versions per workspace (M6A-SPEC §4.8): Animate keeps v2, Model starts at v1. */
+export const LAYOUT_VERSIONS: Readonly<Record<string, number>> = { animate: LAYOUT_SCHEMA_VERSION, model: 1 };
+/** The layout version of a workspace (workspaces without their own layout use Animate's). */
+export const layoutVersion = (workspace: string): number => LAYOUT_VERSIONS[workspace] ?? LAYOUT_SCHEMA_VERSION;
 /** research 09 §9.2: `ekza-animator:layout:v<version>:<workspace>`; the key carries the version. */
-export const layoutStorageKey = (workspace: string = WORKSPACE_ID, version: number = LAYOUT_SCHEMA_VERSION): string =>
-  `ekza-animator:layout:v${version}:${workspace}`;
+export const layoutStorageKey = (
+  workspace: string = WORKSPACE_ID,
+  version: number = layoutVersion(workspace),
+): string => `ekza-animator:layout:v${version}:${workspace}`;
 /** The M1 key (`ekza-animator:layout:v1:<workspace>`), read once by the v1 → v2 migration and never written. */
 export const layoutStorageKeyV1 = (workspace: string = WORKSPACE_ID): string => layoutStorageKey(workspace, 1);
 
@@ -30,10 +38,39 @@ export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: 
   { kind: PANEL.dopeSheet, slot: 'bottom', title: 'Dope Sheet' },
 ];
 
+/** M6a panel kinds (§4.8 `PANEL` additions; registered by B10, B11, B13 as lazy chunks). */
+export const MODEL_PANEL = { toolkit: PANEL.toolkit, palette: PANEL.palette, meshCheck: PANEL.meshCheck } as const;
+
+/** Dock slots of the Model workspace (§8.2): left Outliner, centre Viewport, right Toolkit (first tab) | Channel Box |
+ *  Attributes | Palette, bottom Mesh Check (collapsed to its tab strip). The time slider is hidden. */
+export const MODEL_SLOTS: readonly { readonly kind: PanelKind; readonly slot: DockSlot; readonly title: string }[] = [
+  { kind: PANEL.viewport, slot: 'center', title: 'Viewport' },
+  { kind: PANEL.outliner, slot: 'left', title: 'Outliner' },
+  { kind: MODEL_PANEL.toolkit, slot: 'right', title: 'Toolkit' },
+  { kind: PANEL.channelBox, slot: 'right', title: 'Channel Box' },
+  { kind: PANEL.attributes, slot: 'right', title: 'Attributes' },
+  { kind: MODEL_PANEL.palette, slot: 'right', title: 'Palette' },
+  { kind: MODEL_PANEL.meshCheck, slot: 'bottom', title: 'Mesh Check' },
+];
+
+/** The dock slots of a workspace's layout (Model's, else Animate's). */
+export function slotsOf(workspace: string): typeof ANIMATE_SLOTS {
+  return workspace === 'model' ? MODEL_SLOTS : ANIMATE_SLOTS;
+}
+
+/** Every panel kind a workspace layout may place (for titles and placeholders). */
+export const ALL_SLOTS: typeof ANIMATE_SLOTS = [
+  ...ANIMATE_SLOTS,
+  ...MODEL_SLOTS.filter((slot) => !ANIMATE_SLOTS.some((other) => other.kind === slot.kind)),
+];
+
 /** Panel kinds rendered outside dockview (fixed regions). */
 export const FIXED_KINDS: ReadonlySet<PanelKind> = new Set([PANEL.timeline]);
 
 export const DOCK_SIZES = { left: 240, right: 280, bottomFraction: 0.36, bottomMin: 160 } as const;
+/** Model's docks (§8.2): Outliner 240 px, right dock 300 px (min 260), Mesh Check collapsed to its tab strip
+ *  (`--size-tab`, 26 px: the panel's minimum height lets the group shrink to its tabs; dockview's default is 100). */
+export const MODEL_DOCK_SIZES = { left: 240, right: 300, rightMin: 260, bottom: 26 } as const;
 
 /** How the layout shows a panel kind: its registered component, or the placeholder. */
 export interface PanelComponent {
@@ -120,6 +157,65 @@ export function buildAnimateLayout(
 }
 
 /**
+ * Builds the default Model layout (M6A-SPEC §8.2) into an empty dockview: the viewport in the centre, the Outliner on
+ * the left, Toolkit (active) | Channel Box | Attributes | Palette on the right and Mesh Check below, collapsed.
+ */
+export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) => PanelComponent | null): void {
+  const viewportEntry = resolve(PANEL.viewport);
+  const center = viewportEntry === null ? null : api.addPanel(addOptions(viewportEntry));
+  const dock = (
+    kinds: readonly PanelKind[],
+    direction: 'left' | 'right' | 'below',
+    size: { readonly initialWidth?: number; readonly initialHeight?: number },
+    constraints: { readonly minimumWidth?: number; readonly minimumHeight?: number } = {},
+  ): void => {
+    let first: IDockviewPanel | null = null;
+    for (const kind of kinds) {
+      const e = resolve(kind);
+      if (e === null) continue;
+      if (first === null) {
+        const position = center === null ? { direction } : { referencePanel: center, direction };
+        first = api.addPanel(addOptions(e, { position, ...size, ...constraints }));
+      } else {
+        api.addPanel(
+          addOptions(e, { position: { referencePanel: first, direction: 'within' }, inactive: true, ...constraints }),
+        );
+      }
+    }
+    // The group was sized before its panel (and the panel's minimum) was in it: dockview's default minimum (100 px)
+    // clamped a smaller initial height. Size it again now that the panel's minimum applies.
+    if (first !== null && constraints.minimumHeight !== undefined && size.initialHeight !== undefined) {
+      first.group.api.setSize({ height: size.initialHeight });
+    }
+  };
+  dock([PANEL.outliner], 'left', { initialWidth: MODEL_DOCK_SIZES.left });
+  dock(
+    [MODEL_PANEL.toolkit, PANEL.channelBox, PANEL.attributes, MODEL_PANEL.palette],
+    'right',
+    { initialWidth: MODEL_DOCK_SIZES.right },
+    { minimumWidth: MODEL_DOCK_SIZES.rightMin },
+  );
+  dock(
+    [MODEL_PANEL.meshCheck],
+    'below',
+    { initialHeight: MODEL_DOCK_SIZES.bottom },
+    { minimumHeight: MODEL_DOCK_SIZES.bottom },
+  );
+  center?.api.setActive();
+}
+
+/** Builds a workspace's default layout (Model's, else Animate's). */
+export function buildWorkspaceLayout(
+  workspace: string,
+  api: DockviewApi,
+  resolve: (kind: PanelKind) => PanelComponent | null,
+  height: number,
+): void {
+  if (workspace === 'model') buildModelLayout(api, resolve);
+  else buildAnimateLayout(api, resolve, height);
+}
+
+/**
  * Layout v1 → v2 (M2A-SPEC §4.8) on a restored M1 layout: the Dope Sheet joins the group that holds the Graph Editor
  * as an inactive tab (or a new bottom group when the Graph Editor was closed); the rest of the layout is kept.
  * Nothing happens when the layout already has a Dope Sheet or this build cannot show one.
@@ -143,9 +239,17 @@ export function addDopeSheetTab(api: DockviewApi, resolve: (kind: PanelKind) => 
 }
 
 /** Adds a closed panel back into its default dock (next to a sibling of the same slot when one is open). */
-export function addPanelToDefaultDock(api: DockviewApi, entry: PanelComponent): IDockviewPanel {
-  const slot = ANIMATE_SLOTS.find((candidate) => candidate.kind === entry.kind)?.slot ?? 'center';
-  const siblings = ANIMATE_SLOTS.filter((candidate) => candidate.slot === slot).map((candidate) => candidate.kind);
+export function addPanelToDefaultDock(
+  api: DockviewApi,
+  entry: PanelComponent,
+  workspace: string = WORKSPACE_ID,
+): IDockviewPanel {
+  const slots = slotsOf(workspace);
+  const slot =
+    slots.find((candidate) => candidate.kind === entry.kind)?.slot ??
+    ALL_SLOTS.find((candidate) => candidate.kind === entry.kind)?.slot ??
+    'center';
+  const siblings = slots.filter((candidate) => candidate.slot === slot).map((candidate) => candidate.kind);
   const sibling = api.panels.find((panel) => {
     const kind = kindOfPanel(panel);
     return kind !== null && siblings.includes(kind);
@@ -192,6 +296,7 @@ function readText(
 
 /** Validates a stored layout of the expected version. */
 function parseStored(raw: string, workspace: string, version: number): StoredLayoutResult {
+  const current = layoutVersion(workspace);
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -202,7 +307,7 @@ function parseStored(raw: string, workspace: string, version: number): StoredLay
   if (typeof stored !== 'object' || stored === null || typeof stored.schemaVersion !== 'number') {
     return { kind: 'reset', reason: 'invalid' };
   }
-  if (stored.schemaVersion > LAYOUT_SCHEMA_VERSION) return { kind: 'reset', reason: 'newer' };
+  if (stored.schemaVersion > current) return { kind: 'reset', reason: 'newer' };
   if (stored.schemaVersion !== version || stored.workspace !== workspace || !isSerializedDockview(stored.dockview)) {
     return { kind: 'reset', reason: 'invalid' };
   }
@@ -217,7 +322,9 @@ function parseStored(raw: string, workspace: string, version: number): StoredLay
 export function readStoredLayout(storage: PrefsStorage | null, workspace: string = WORKSPACE_ID): StoredLayoutResult {
   const current = readText(storage, layoutStorageKey(workspace));
   if (current.failed) return { kind: 'none' };
-  if (current.text !== null) return parseStored(current.text, workspace, LAYOUT_SCHEMA_VERSION);
+  if (current.text !== null) return parseStored(current.text, workspace, layoutVersion(workspace));
+  // Only Animate has an older layout to migrate (M1's v1); Model starts at v1.
+  if (workspace !== WORKSPACE_ID) return { kind: 'none' };
   const v1 = readText(storage, layoutStorageKeyV1(workspace));
   if (v1.failed || v1.text === null) return { kind: 'none' };
   const old = parseStored(v1.text, workspace, 1);
@@ -230,7 +337,7 @@ export function writeStoredLayout(
   workspace: string = WORKSPACE_ID,
 ): void {
   if (storage === null) return;
-  const stored: StoredLayout = { schemaVersion: LAYOUT_SCHEMA_VERSION, workspace, dockview };
+  const stored: StoredLayout = { schemaVersion: layoutVersion(workspace), workspace, dockview };
   try {
     storage.setItem(layoutStorageKey(workspace), JSON.stringify(stored));
   } catch {

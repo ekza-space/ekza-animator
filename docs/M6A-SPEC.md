@@ -175,7 +175,7 @@ of §5.27 (B9 writes it).
    `helpers/m6a-<package-slug>.ts`); benches are `apps/web/e2e/bench/m6a-<slug>.bench.ts` (browser) and
    `packages/mesh-core/bench/*.bench.ts` (Node). Kernel goldens are JSON files in `packages/mesh-core/test/goldens/`.
 6. **Notes.** Each package records interpretations in `docs/wp-notes/m6a-<slug>.md`; INT copies the decisions into
-   a new DECISIONS-OPEN §H "M6a build deviations" (IDs `M6A-<id>-<n>`, e.g. `M6A-B3-4`).
+   a new DECISIONS-OPEN §I "M6a build deviations" (IDs `M6A-<id>-<n>`, e.g. `M6A-B3-4`).
 7. **Every rule of MVP-SPEC §3 and M2A-SPEC §3 still holds** (no allocation in per-frame paths, explicit
    registration, Node-safe headless packages, `EkzaError` for caller errors, repair never reject for document
    content, literal updates are not weakening).
@@ -512,6 +512,15 @@ Rules for the new tables (`doc/src/tables/**`, `doc/src/records/validate.ts`; B0
 | `joints` | `char:<skeletonCharacter(skeleton)>` | `humanBone` known or null; vectors finite | skeletons, joints (parent, mirror) |
 | `characters` (changed) | unchanged | `source` present (repair: `{kind:'asset', asset}` from `asset`); `asset === source.asset` for kind `asset`; `asset === null` for kind `model` | + skeletons (`source.skeleton`); assets only when non-null |
 
+**Write checks and load repairs** (B0a, M6A-B0A-6). A local write runs the **per-record** rules of this table and
+rejects a record that breaks one (`EkzaError('invalid-record')`: an empty name, a self-parent, a malformed `data`
+ref); remote batches are applied as received (ADR 0011). The **cross-record** rules (a `parent` of the same owner
+that exists, is a group for a group, and closes no cycle; unique live mesh names per owner) are not write checks:
+the operators that write parents and names keep them (`scene.*` and the `mesh.create.*` names, B13/B7: unique names on
+create, rename and duplicate, a reparent that would close a cycle is refused), queries read a parent that breaks them
+as a root, and `migrateSnapshot` repairs them on load (parent → null, a cycle broken at its smallest id, a duplicate
+name gets the ` 2` suffix), so a reload never has to repair what M6a's own operators wrote.
+
 `DocQueries` additions (`doc/src/store.ts`, B0a implements them in the memory store and `doc-yjs`):
 
 ```ts
@@ -551,11 +560,14 @@ it; the conformance suite covers it):
 export type UndoEvictReason = 'limit' | 'clear' | 'budget' | 'redo-cleared' | 'load';
 export interface UndoManager {
   …M1…
-  /** M6a: every entry, oldest undo entry first, and the redo entries from the next redo to the last. Read-only
-   *  views valid until the next store write; O(1) to obtain. */
+  /** M6a: every entry, oldest undo entry first, and the redo entries from the next redo to the last. Frozen views,
+   *  valid until the next store write and the same object until the stacks change: the first read after a change
+   *  builds them (O(n), n ≤ limit), every further read is O(1). A coalesced transaction replaces the top entry by a
+   *  merged one (same txId) or pops it when its edits cancel out; entries() shows that, onEvict does not report it
+   *  (transactions that write `meshes.data` never set a coalesceKey, §5.20). */
   entries(): { readonly undo: readonly UndoEntry[]; readonly redo: readonly UndoEntry[] };
   /** M6a: entries leaving the manager for good (the 500 limit, clear(), evictOldest, a new transaction clearing
-   *  redo, load()). Called synchronously after the change, in eviction order. */
+   *  redo, load()). Called synchronously after the change, in eviction order. Coalescing is not an eviction. */
   onEvict(listener: (entries: readonly UndoEntry[], reason: UndoEvictReason) => void): () => void;
   /** M6a: drops the n oldest undo entries (the BlobStore byte budget, §5.20); fires onEvict(…, 'budget'). */
   evictOldest(n: number): void;
@@ -940,6 +952,16 @@ export function checkMesh(m: EditMesh | MeshData, opts?: { readonly hidden?: Hid
   readonly duplicateSlots?: ReadonlySet<number> }): readonly MeshProblem[];
 /** §5.8 region frame of a face set (mesh-local), shared by extrude, inset and the extrude manipulator. */
 export function regionFrame(m: EditMesh, faces: ArrayLike<number>): OpFrame;
+/** INT (B12b, M6A-B12B-5): the frame of the border chain holding the lowest-index border edge (null without one). */
+export function borderChainFrame(m: EditMesh, edges: ArrayLike<number>): OpFrame | null;
+/** INT (B12b, M6A-B12B-5): the frame the extrude kernel applies to the picked group under symmetry: its own frame, a
+ *  self-mirrored group's, or a picked mirror partner's (`S·F`, improper; `mirror`, typed in
+ *  `ops/extrude/sessionFrame.ts`, says how drags convert). */
+export interface ExtrudeGroupFrame { readonly frame: OpFrame; readonly role: 'own' | 'self' | 'source' | 'partner';
+  readonly mirror: ExtrudeMirror | null }
+export function extrudeGroupFrame(m: EditMesh, kind: 'face' | 'edge', picks: ArrayLike<number>, opts?: {
+  readonly keepFacesTogether?: boolean; readonly symmetry?: SymmetryContext | null; readonly placement?: ReadonlyXf }):
+  ExtrudeGroupFrame | null;
 
 // ---------- primitives, templates (B1, B13) ----------
 export type PrimitiveKind = 'cube' | 'sphere' | 'cylinder' | 'cone' | 'plane' | 'torus' | 'humanoidBody';
@@ -1026,6 +1048,7 @@ export interface PickOptions {
   readonly backfaces: boolean;
   readonly hidden: HiddenSet | null;
   readonly radiusPx?: number;                // vertex 8, edge 6 (defaults)
+  readonly wire?: boolean;                   // the pane draws no surface: faces pick by their dot only (§5.6; INT, M6A-B6-1)
 }
 /** CPU picking with a three-mesh-bvh BVH (refit after position commits, rebuild after topology commits, deferred to
  *  the first pick or idle) and a screen-space grid for vertices and edges. */
@@ -1238,7 +1261,9 @@ export interface SoftSelectSettings {
 export type SelectionStyle = 'marquee' | 'drag' | 'tweak';       // 'drag' (paint select) is M6a-stretch
 export type SelectionConstraint = 'off' | 'angle' | 'border' | 'loop' | 'ring' | 'shell';   // only 'off' in core
 export type RunSource = 'keyboard' | 'menu' | 'marking-menu' | 'toolkit' | 'palette' | 'tool' | 'card' | 'api';
-export interface RunContext { readonly panel?: PanelKind; readonly paneId?: string; readonly source?: RunSource }   // changed (additive)
+export interface RunContext { readonly panel?: PanelKind; readonly paneId?: string; readonly source?: RunSource;
+  readonly repeat?: boolean }   // changed (additive); repeat: the run comes from an auto-repeated keydown (§5.6 coalescing)
+export interface OperatorContext { …M1…; readonly source?: RunSource; readonly repeat?: boolean }   // changed (additive): the run context's source and repeat flag (LastRun, §5.6)
 export interface ComponentCounts { readonly vertex: number; readonly edge: number; readonly face: number }
 /** The last undoable run of an operator that declares `params` (`[]` allowed) or is flagged adjustable or repeatable
  *  (ADR 0016 D6; §5.7). */
@@ -1446,8 +1471,10 @@ export interface EditorHistory {
   /** Records a selection-only step ('Select', 'Hide', 'Show'), coalescing by §5.6; clears redo in both EditorHistory
    *  and the doc (`UndoManager.clearRedo()`). A step with only a selection part is not empty: `isEmpty` and pruning
    *  keep it. Dropping a step that owns a doc entry (the 500-step limit included) evicts the doc entries up to it
-   *  (`evictOldest`), so no doc entry outlives its step. */
-  recordSelection(part: SelectionPart, label: 'Select' | 'Hide' | 'Show'): void;
+   *  (`evictOldest`), so no doc entry outlives its step. `opts.repeat`: the part continues the previous gesture (an
+   *  auto-repeated grow/shrink key, a continuous drag) and merges into the top step when it is the selection-only step
+   *  the previous call created, with the same kind and gesture, nothing recorded or navigated since. */
+  recordSelection(part: SelectionPart, label: 'Select' | 'Hide' | 'Show', opts?: { readonly repeat?: boolean }): void;
   /** Steps leaving the history for good, oldest first. */
   onDrop(listener: (steps: readonly HistoryStep[], reason: HistoryDropReason) => void): Disposer;
   /** Drops the n oldest steps and their doc entries (UndoManager.evictOldest); fires onDrop(…, 'budget'). */
@@ -1459,8 +1486,8 @@ export type BlobId = string;                    // lowercase sha256 hex
 /** Content-addressed mesh chunks and manifests (ADR 0015 §3). Not AssetRecords. */
 export interface BlobStore {
   put(bytes: Uint8Array): BlobId;              // sync: hashes, dedupes, keeps bytes resident
-  get(id: BlobId): Promise<Uint8Array>;        // hash-verified; EkzaError('blob-missing' | 'blob-corrupt')
-  peek(id: BlobId): Uint8Array | undefined;
+  get(id: BlobId): Promise<Uint8Array>;        // hash-verified; EkzaError('blob-missing' | 'blob-corrupt'); a copy the caller owns
+  peek(id: BlobId): Uint8Array | undefined;    // the resident bytes, lent read-only (never mutate them; copy first)
   has(id: BlobId): boolean;                    // resident (the store has no other backing; autosave owns IndexedDB)
   /** Frees resident blobs not in `reachable` (mark-and-sweep, §5.20). Never call it inside a transaction or an
    *  emit loop (§5.20 sweep rule). */
@@ -1473,7 +1500,8 @@ export interface BlobStore {
    *  browser autosave store never parses manifests. */
   closure(manifests: readonly BlobId[]): readonly BlobId[];
 }
-export interface EditorServices { …M1/M2a…; readonly blobs?: BlobStore | null }   // absent: an in-memory store
+export interface EditorServices { …M1/M2a…; readonly blobs?: BlobStore | null;   // absent: an in-memory store
+  readonly kernelDebug?: boolean }   // §3 rule 8: on in development and e2e builds; applied (setKernelDebug) when the kernel chunk loads; absent = off
 export interface AutosaveStore {                // changed: slots carry their mesh blob closure (§5.20)
   open(): Promise<string>;
   /** The autosave store is the **single owner** of the IndexedDB `blobs` object store: it writes the blobs of
@@ -1741,6 +1769,12 @@ export interface EkzaAnimatorTestApi {
   blobs(): { resident: number; residentBytes: number; historyBytes: number; journalBytes: number };
   /** INT (`m6a/integration.ts`; E2E-MOD-30) */
   setExpression(character: string, name: string, weight: number): void;
+  /** INT (additive at INT, M6A-INT-17; E2E-MOD-30): a page rectangle's RGBA rows after a render; a display-model
+   *  node's world position as drawn (spring bones included) */
+  pixels(paneId: string, x: number, y: number, w: number, h: number): { width: number; height: number;
+    data: number[] } | null;
+  displayNodeWorld(character: string, node: string): [number, number, number] | null;
+  displayModel(character: string): { meshes: number; vertices: number } | null;   // as drawn (a rebuild shows)
 }
 ```
 
@@ -2170,7 +2204,7 @@ conformance test and each tool's unit test assert it); the wheel stays dolly; `P
   size. `T` is the explicit opener at any time (§5.7). With `numericCapture: 'explicit'` only `T` and card fields
   take numbers. Case (b) takes a digit pressed right after `Mod+E` (a mode key for a Maya hand): "`Ctrl+E`, then `2`"
   is on the B12a owner feel-check script, and INT records the owner's choice (keep, or exempt `1`–`7` from case (b))
-  in DECISIONS-OPEN §H.
+  in DECISIONS-OPEN §I.
 - The modal readout chip (B12a) shows the active field, the entry text and the keys ("Enter ✓ · Esc ✕ · Tab next");
   the help line mirrors it; a polite live region announces committed values ("Extrude local translate Z 0.5 metres").
 
@@ -2621,7 +2655,10 @@ soft select; E2E-MOD-20/21/22 are rewritten for Live Mirror in the same decision
   after the current batch completes, or idle, ≤ 1 per 5 s), so a budget eviction fired inside `commitOp` can never
   free the chunks that commit just put. B7 keeps chunk reference counts incrementally (on commit, undo-entry eviction
   and runtime disposal), so the budget check and a sweep are O(changed chunks), never a set difference over all of
-  history. Fuzz case (B7): "budget eviction during commit" never leaves a ref to a missing blob.
+  history. A transaction that writes `meshes.data` **never sets a `coalesceKey`** (one commit per op): coalescing
+  replaces or pops the top doc entry without `onEvict` (§4.2), so a coalesced mesh commit would drop a ref unreported
+  (the conformance case "coalescing is not an eviction" pins that behaviour). Fuzz case (B7): "budget eviction during
+  commit" never leaves a ref to a missing blob.
 - **Undo byte budget** (Q-MOD-K-12): bytes of blobs reachable **only** from history (set (2) minus sets (1), (3),
   (4), (5)) plus journal bytes plus selection-snapshot bytes count against `prefs.modeling.undoBudgetMB` (256 MB);
   journals alone against `journalBudgetMB` (64 MB: the oldest journal edges are dropped first, except the edge to the
@@ -3310,7 +3347,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 | `anim-core/src/params/**`, `anim-core/src/hash/**`, `anim-core/src/index.ts`; `io/src/hash/**`, `doc/src/migrations/sha256.ts` (wrappers, §4.1) | `ParamDef` helpers, streaming SHA-256 and the unchanged io/doc wrappers | closed after B0a | — |
 | `editor-core/src/types.ts`, `editor-core/src/operators/args.ts`, `editor-core/src/history/**` | §4.6 types, `OperatorMap` rows, selection parts, `onDrop`, `dropOldest`, `recordSelection` (per-gesture steps, repeat coalescing, selection-aware `isEmpty`/pruning, limit drops paired with `evictOldest`, `clearRedo`) | closed after B0a | B10 calls `recordSelection` |
 | `mesh-core/src/{index.ts,descriptors.ts}` (barrels), `mesh-core/src/ops/*/{index.ts,descriptor.ts}` stubs, `mesh-core/src/registry.ts` (`MESH_OPS`), `mesh-core/src/kernel.ts` (`KERNEL_MARKER`) | stub exports, every op stub and descriptor with final params | barrels: only stub lines change; each `ops/<dir>/` belongs to its kernel owner (§6.1 Kernel column) | — |
-| `mesh-core/src/reference/**` | reference `editMeshFrom`, revision codec, `triangulate` (fan for convex faces, earcut for the rest), `computeNormals` (face + angle-weighted corner normals split at hard edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' \| 'plane' \| 'cylinder')` — static meshes, no Euler ops | B1 (switches the barrel lines to its modules and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
+| `mesh-core/src/reference/**` | reference `editMeshFrom`, revision codec, `triangulate` (§5.4: quads by the diagonal rule, n-gons by earcut, a fan only when earcut returns fewer than n − 2 triangles), `computeNormals` (face + angle-weighted corner normals split at hard edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' \| 'plane' \| 'cylinder')` — static meshes, no Euler ops | B1 (switches the barrel lines to its modules and deletes the directory) | B6, B7, B8 build on it until `READY.b1` |
 | `editor-core/src/keymap/**`, `editor-core/src/operators/builtin/{menus.ts,keymapShadows.ts}`, `editor/src/shell/{menuItems.ts,menus.ts}` | `keymapShadows.ts` stub (`model.animateOnly`) | **B0b**, then **B9** after B0b merges | B10…B13 add rows and menu items through contract PRs to §7/§8.3 |
 | `editor/src/input/keyboard.ts` | — | B0b (scope chain, capture hook, active-tool key route, tap/hold contract), then B9 | B11 registers the capture handler through the hook |
 | `editor-core/src/operators/builtin/index.ts`, `edit.ts`, `operators/runner.ts`, `operators/registry.ts` | registration of every new operator file; stubs of `edit.adjustLast`/`edit.repeatLast`; a no-op `LastRun` recorder | **B11** (incl. the `edit.undo`/`edit.redo` session hook) | B7 provides `MeshRuntime` hooks; B12b provides `app.extrude.stepBack/stepForward` |
@@ -3358,8 +3395,8 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
   anim-core, io/doc wrappers keeping their signatures; (5) mesh-core: the public types of §4.3, `BitSet` (complete,
   tagged encoding), `selectionOf`, `refuse`/`isRefusal`, **a working reference** `editMeshFrom`/`emptyMesh` for static
   meshes (traversal, value writes, layers, write log with exact `apply`; Euler operators throw `not-implemented`),
-  `writeRevision`/`readRevision`/`parseManifest` with canonical tails, reference `triangulate` (fan for convex faces,
-  earcut otherwise), `computeNormals` (face normals by Newell, angle-weighted corner normals split at hard, border and
+  `writeRevision`/`readRevision`/`parseManifest` with canonical tails, reference `triangulate` (§5.4: n-gons by
+  earcut, a fan from the first corner only when earcut returns fewer than n − 2 triangles), `computeNormals` (face normals by Newell, angle-weighted corner normals split at hard, border and
   non-manifold edges), `validateMesh` (invariants 1–5), `topologyStats`, `primitive('cube' | 'plane' | 'cylinder')`
   (§6.3 parameters, faceted, all hard; no UVs needed); the descriptors barrel with every §6.1 descriptor (final `id`,
   `label`, `kinds`, `params`, `flags`, `symmetry`) and `PRIMITIVE_PARAMS`, and the `MESH_OPS` registry with every op
@@ -3692,7 +3729,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 - **Owner feel check**: when B12a merges, the owner gets a 30-minute Chrome session script (component W/E/R with
   Component orientation compared against Maya 2026's Normal, MMB-drag, snapping, pivot, soft select, symmetry,
   "`Ctrl+E`, then `2`" for the capture window of §5.10, `Ctrl+E` then `W` in World on a tilted face); findings and the
-  two owner choices become a B12a follow-up or INT items (DECISIONS-OPEN §H).
+  two owner choices become a B12a follow-up or INT items (DECISIONS-OPEN §I).
 - **DoD**: CI green; READY flag `b12a`.
 
 ### B12b — Topology tools: extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge
@@ -3700,7 +3737,10 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 - **Dirs**: `viewport/src/tools/model/{extrude,multicut,loop,weld,slide}/**`, `viewport/src/manipulators/extrude/**`,
   `editor-core/src/operators/builtin/extrudeSession.ts` (`ExtrudeSessionApi`), `editor-core/src/app/factories/
   extrude.ts`, `apps/web/e2e/m6a-{04,05,06,08,17,18,20,21,22,24,28}-*.spec.ts`,
-  `docs/wp-notes/m6a-model-topology-tools.md`.
+  `docs/wp-notes/m6a-model-topology-tools.md`; added at INT (B12b's request): `editor-core/src/operators/builtin/
+  extrudeEngine.ts`, `viewport/src/tools/model/topology/**`, `editor-core/test/topology/**`,
+  `viewport/test/m6a-topology/**`, `apps/web/e2e/helpers/m6a-model-topology-tools.ts`,
+  `mesh-core/src/ops/extrude/sessionFrame.ts`.
 - **Responsibilities**: research 16 U-3 (topology) and §5.8 session (open, the end-trigger table, zero-drop with its
   toast, the **args undo stack** with `stepBack`/`stepForward`, `reopen` for `T`, absorption honouring World/Object
   for W/E and the session frame for R, the extrude manipulator with its local/world toggle), smart extrude (Shift at
@@ -3752,7 +3792,7 @@ package's **Dirs** below; where two globs could overlap, the narrower one in thi
 - **Responsibilities**: merge in the §11.1 order; turn every READY/`test.fixme` gate into a failure (stretch fixmes
   stay); E2E-MOD-01, -15, -16, -30, -31 and the AS-LP-S twin; the full budget bench (§5.27); README (Model workspace,
   "What M6a is for", GIFs recorded from the e2e build), ROADMAP status and budgets, REQUIREMENTS milestone marks,
-  DECISIONS-OPEN §H (build deviations `M6A-*`, the §5.14 overrun decision if taken, the owner feel-check findings);
+  DECISIONS-OPEN §I (build deviations `M6A-*`, the §5.14 overrun decision if taken, the owner feel-check findings);
   the owner demo script (§11.3); one budgeted **fix round** (≈ 4) on the verifier's findings.
 - **DoD**: §11.2.
 
@@ -3779,8 +3819,8 @@ into failures.
 
 | ID | Name | Steps | Assertions | Owner | Gates |
 |---|---|---|---|---|---|
-| E2E-MOD-01 | **Extrude with a typed value** | Model scene; Shift+RMB on empty `pane-persp` → `mm-slot-N` (Cube); `3` (pointer over the pane); click `screenOfFace(cube, top, 'pane-persp')` (`top` = the face whose Newell normal is +Y); `Mod+E`; type `0.5`, `Enter`; `lastop-field-divisions` = `2`; one undo | after `Enter`: 12/20/10; the top face (same index) has its four vertices at y = 1.0, centroid moved by exactly (0, 0.5, 0), area 1.0; `lastOpCard().title` "Extrude", field `localTranslateZ` text "0.500 m"; after Divisions 2: 16/28/14 and `history().undo` has the same length as before the edit (adjusted, not added); after one undo: 8/12/6 and the manifest equals the cube's pre-extrude manifest | INT | — |
-| E2E-MOD-02 | Mac without F-keys | as E2E-MOD-01, with `ws=model&platform=mac` (keyboard labels) and the trackpad navigation profile: enter face mode by RMB on the cube → `mm-slot-S` (Face); also press `1`, `2`, `3`, `3` | modes: RMB → face; `1` vertex, `2` edge, `3` face, `3` again → object (`state().mode`); extrude results as E2E-MOD-01 through `⌘E`; the card and help line show `⌘E`; no F-key is pressed in the test (the `platform=mac` Multi-Cut Ctrl-click case is in E2E-MOD-05, with its owner) | B10 | b3, b7, b11 |
+| E2E-MOD-01 | **Extrude with a typed value** | Model scene; Shift+RMB on empty `pane-persp` → `mm-slot-N` (Cube); `3` (pointer over the pane); click `screenOfFace(cube, top, 'pane-persp')` (`top` = the face whose Newell normal is +Y); `Mod+E`; type `0.5`, `Enter`; `lastop-field-divisions` = `2`; `Esc` (ends the extrude session, §5.8); one undo | after `Enter`: 12/20/10; the top face (same index) has its four vertices at y = 1.0, centroid moved by exactly (0, 0.5, 0), area 1.0; `lastOpCard().title` "Extrude", field `localTranslateZ` text "0.500 m"; after Divisions 2: 16/28/14 and `history().undo` has the same length as before the edit (adjusted, not added); after `Esc`: `state().extrudeSession` false, 16/28/14 kept (no zero-drop: the cap moved); after one undo: 8/12/6 and the manifest equals the cube's pre-extrude manifest. Amended at INT (M6A-INT-3): inside the session one undo steps the args stack (Divisions back to 1, §5.8 and E2E-MOD-17), so the row ends the session first | INT | — |
+| E2E-MOD-02 | Mac without F-keys | as E2E-MOD-01, with `ws=model&platform=mac` (keyboard labels) and the trackpad navigation profile: enter face mode by RMB on the cube → `mm-slot-S` (Face); also press `1`, `2`, `3`, `3` | modes: RMB → face; `1` vertex, `2` edge, `3` face, `3` again → object (`state().mode`); extrude results as E2E-MOD-01 through `⌘E` (Divisions on the card expanded from its pill, then `Esc` before the one undo, as amended at INT, M6A-INT-3); the help line shows `⌘E` and the card names it as the pill's tooltip and the expanded card's header (M6A-INT-4); no F-key is pressed in the test (the `platform=mac` Multi-Cut Ctrl-click case is in E2E-MOD-05, with its owner) | B10 | b3, b7, b11 |
 | E2E-MOD-03 | `Mod+E` scopes | Model scene: `resolveKey({code:'KeyE', mod:true}, …)` over `pane-persp` and over the Outliner; press `Mod+E` over the Outliner; `Mod+Shift+E` over `pane-persp`; `Esc`; part (b): cube; `3`; top face; `Mod+E` over the pane; part (c): `ws=animate`, `Mod+E` | over the pane and over the Outliner: `mesh.extrude` in scope `model`; `Mod+E` over the Outliner opens no dialog and `helpLine()` says "Select faces or border edges"; `Mod+Shift+E` opens Export; (b) 12/20/10, `state().dialog` null; (c) the Export dialog opens (`ui.open`, scope `global`) | B0b | part (b): b3, b7, b10 |
 | E2E-MOD-04 | Symmetry: extrude both arms | Model scene; `run('mesh.create.template', {template:'humanoidBody', style:'smooth', height:1.6})`; select it; `run('model.symmetry.set', {mode:'object-x'})`; `3`; click `screenOfFace(body, f, 'pane-side')` where `f` = the left-hand end-cap face (max centroid x, normal ≈ +X; `pane-side` looks along −X, so the cap faces the camera); `Mod+E`; type `0.1`, `Enter` | after the click: `model().selected[body].face` = [f], `model().expanded[body].face` = [f, p(f)], `hud('pane-side').selected.face` = 1 and `selectedSym.face` = 1 (HUD text `1 (+1 sym)`); after `Enter`, with `n = faceLen(f)`: V/E/F grow by exactly +2n/+4n/+2n (two single-face extrudes of an n-gon); the two cap centroids are mirror images (x negated, 1e-6); `symmetry(body).unmatched` = 0; `history().undo` grew by exactly one step | B12b | b12a, b13 |
 | E2E-MOD-05 | Multi-Cut across two quads | Model scene; `run('mesh.create.plane', {width:2, subdivisionsWidth:2, subdivisionsHeight:1})` (6/7/2; the plane lies in XZ); select; `K`; click the left border edge at its midpoint, the shared middle edge at its midpoint, the right border edge at its midpoint; RMB; then `K`, click two points, `Esc`; then `K`, `Ctrl`-click the edge of the left half that lies on z = −0.5 at t = 0.5; part (b): the same Ctrl-click on a fresh 9/12/4 plane with `platform=mac` and the trackpad profile (pointer-down button 0 + `ctrlKey`; the browser's `contextmenu` follows) | after RMB: 9/12/4, the three cut points at z = 0 and y = 0 (1e-6), one history step "Multi-Cut"; after `Esc`: counts and `history().undo` unchanged; after the `Ctrl`-click: **+3/+5/+2 (12/17/6)**: the ring runs from that border edge across the bottom-left quad, the first cut's chord and the top-left quad to the opposite border, one step "Insert Edge Loop"; (b) the same counts, the tool still active, no marking menu open | B12b | — |
@@ -3875,7 +3915,7 @@ unmerged packages as `test.fixme` naming them.
   +20,480 B eager delta) green.
 - AS-LP-A, A′ and B passed by the owner (times recorded); the owner feel check after B12a done.
 - README (Model workspace, "What M6a is for" with the gaps of §1.4, GIFs), ROADMAP (status, budgets), REQUIREMENTS
-  (FR-MOD-06…30, FR-SHELL-08/09/11 marked ✓ or partial), DECISIONS-OPEN §H and this spec consistent with the code.
+  (FR-MOD-06…30, FR-SHELL-08/09/11 marked ✓ or partial), DECISIONS-OPEN §I and this spec consistent with the code.
 - `v0.3.0` tag is the owner's call.
 
 ### 11.3 Owner demo script (10 minutes)
@@ -3892,8 +3932,23 @@ unmerged packages as `test.fixme` naming them.
 
 ### 11.4 Integration record
 
-Filled by INT (as M2A-SPEC §10.4): merge commits, gate conversions, deviations (`M6A-INT-*`), budgets, the owner feel
-check and AS-LP results.
+Filled by INT (as M2A-SPEC §10.4) on 2026-10-20; details in
+[`wp-notes/m6a-integration.md`](wp-notes/m6a-integration.md), owner items in DECISIONS-OPEN §I.
+
+- **Merges** (§11.1 order, `--no-ff`): B0a `b85b7ac`, B0b `8a6ff94`, B9 `fc4cb60`, B1 `a495049`, B6 `983a142`, B7
+  `960feb0`, B8 `b4954cb`, B2 `3710d3e`, B3 `5e2792b`, B4 `7c47b33`, B5 `01a211d`, B10 `e57acfc`, B11 `308dea4`, B13
+  `7c000a5`, B12a `bf2c3e3`, B12b `e04d85a` (M6A-INT-1).
+- **Gates**: every READY flag and §10.1 `test.fixme` is a failure (`a13c0f5`, M6A-INT-2); the fourteen M6a-stretch
+  items are `test.fixme` in `m6a-stretch.spec.ts` with their fallbacks (M6A-INT-30).
+- **INT scenarios**: E2E-MOD-01, -15 (scripted humanoid), -16, -30 (Seed-san face edit), -31 (re-bake), AS-LP-S parts
+  A (`m6a-aslp-a.spec.ts`, the scripted Lowpoly Lad: ≤ 3,000 triangles, loops, one material, Mesh Check clean,
+  partnered, grounded, frozen, every Part A tool in the history) and B (`m6a-aslp-b.spec.ts`, the handheld prop with
+  deterministic bytes across a project reopen).
+- **Deviations**: M6A-INT-3…33 (rows E2E-MOD-01/-02 amended to §5.8, the lazy Model operators and selection service,
+  the test-API additions of §4.8, the package hand-overs, one export material per palette, scenario readings).
+- **Budgets**: §5.27 rows re-measured (`m6a-budgets.bench.ts` with the B6 and B12a benches): all within budget except
+  the marquee (report-only miss); the route is under the 900,000 B gate, the eager allowance is the owner's decision.
+- **Open**: the owner feel check (B12a), the owner demo script (§11.3) and the owner's AS-LP run; the README GIFs.
 
 ---
 
@@ -4020,3 +4075,20 @@ majors and 29 minors; duplicates are merged below. Every item was applied unless
 | Minor | bevel default on the clamp | Maya fraction semantics (S23) |
 
 Rejected outright: none. Sizes grew by ≈ 8.5 agent-days (§9).
+
+### 12.4 B0a contract text before the freeze
+
+The integration agent's B0a build brought these §4/§5 texts in line with the contracts it landed (B0a review fix
+round 1; details and reasons in [wp-notes/m6a-contracts-foundation](wp-notes/m6a-contracts-foundation.md)):
+
+| Where | Change |
+|---|---|
+| §4.6 `RunContext`, `OperatorContext`, `EditorHistory.recordSelection`, `EditorServices` | additive: `repeat` (auto-repeated keydown) and `source` on the operator context, `recordSelection(…, opts?: {repeat})` for §5.6 coalescing, `kernelDebug` (§3 rule 8) — M6A-B0A-2 |
+| §4.6 `BlobStore.get`/`peek` | `get` returns a copy the caller owns; `peek` lends the resident bytes read-only |
+| §4.2 `UndoManager.entries()` | frozen views, the same object until the stacks change; built on the first read after a change (O(n), n ≤ 500), O(1) after — M6A-B0A-26 |
+| §4.2 `entries()`/`onEvict`, §5.20 | coalescing replaces or pops the top entry and is not an eviction; transactions that write `meshes.data` never set a `coalesceKey` — M6A-B0A-27 |
+| §9 B0a (5), §9.1 `mesh-core/src/reference/**` | the reference `triangulate` follows §5.4: n-gons by earcut, a fan from the first corner only when earcut returns fewer than n − 2 triangles (the earlier "fan for convex faces" wording contradicted §5.4) — M6A-B0A-8 |
+| §4.2 rules table | write checks are per record; cross-record parent and name rules are kept by their operators, read as roots by queries and repaired on load — M6A-B0A-6 |
+
+Open for the owner: the eager-route allowance of §5.27 (B0a alone uses most of the +20,480 B; the options are in the
+wp-notes, "Eager route").

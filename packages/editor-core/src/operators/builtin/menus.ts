@@ -1,10 +1,11 @@
 // Built-in menu-bar items (ADR 0008 menu registry). Menu ids: top-level `file`, `edit`, `select`, `key`, `pose`,
-// `clip`, `graph`, `time`, `rig`, `view`; a dotted id is a submenu (`graph.tangents`). The shell adds its own items
+// `clip`, `graph`, `time`, `rig`, `view`, and Model's `create`, `modify`, `display`, `mesh`, `edit-mesh`,
+// `mesh-tools`, `mesh-display`, `uv` (M6A-SPEC §8.3); a dotted id is a submenu (`graph.tangents`). The shell adds its own items
 // (dialogs, windows, help); the time slider owns `timeline.context`. Enabled state and shortcut labels come from the
 // operators' polls and the keymap.
 import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
 import type { LimbId } from '@ekza-animator/rig';
-import type { GraphViewMode, MenuItemDef, TweenMode } from '../../types';
+import type { GraphViewMode, MenuItemDef, TweenMode, WorkspaceId } from '../../types';
 
 type Item = Omit<MenuItemDef, 'id'> & { readonly name: string };
 
@@ -166,6 +167,33 @@ const M2A_MENU_ITEMS: readonly MenuItemDef[] = [
   ),
 ];
 
+// ---------- M6a: the Model menu set (M6A-SPEC §8.1, §8.3; B0b) ----------
+// The Model menu items live in `./modelMenus` (the Model operators chunk, M6A-INT-13): they register once that chunk
+// has loaded (the first Model entry); the menu ids of Model's menu bar stay here (`WorkspaceDef.menus`).
+
+const ANIMATE: readonly WorkspaceId[] = ['animate'];
+
+/** The Model workspace's menu-bar menus in order (§8.1): the data of its `WorkspaceDef.menus` (B9 registers Model). */
+export const MODEL_MENUS: readonly string[] = [
+  'file',
+  'edit',
+  'create',
+  'select',
+  'modify',
+  'display',
+  'mesh',
+  'edit-mesh',
+  'mesh-tools',
+  'mesh-display',
+  'uv',
+  'windows',
+  'help',
+];
+
+function inWorkspaces(workspaces: readonly WorkspaceId[], list: readonly MenuItemDef[]): MenuItemDef[] {
+  return list.map((item) => ({ ...item, workspaces }));
+}
+
 export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[] = [
   ...items('file', 'new', [{ name: 'new', op: 'file.new', label: 'New Project' }]),
   ...items('file', 'save', [
@@ -188,16 +216,19 @@ export const BUILTIN_MENU_ITEMS: readonly MenuItemDef[] = [
     { name: 'undo', op: 'edit.undo' },
     { name: 'redo', op: 'edit.redo' },
   ]),
-  ...items('edit', 'clipboard', [
-    { name: 'copy', op: 'edit.copy' },
-    { name: 'paste', op: 'edit.paste' },
-    { name: 'delete', op: 'edit.delete' },
-  ]),
-
-  ...items('select', 'controls', [
-    { name: 'all', op: 'select.all' },
-    { name: 'none', op: 'select.none' },
-    { name: 'mirror', op: 'select.mirror' },
+  // M6a: the pose clipboard and control selection act on controls, which Model never shows (its own Edit and
+  // Select items follow); Animate lists them exactly as shipped.
+  ...inWorkspaces(ANIMATE, [
+    ...items('edit', 'clipboard', [
+      { name: 'copy', op: 'edit.copy' },
+      { name: 'paste', op: 'edit.paste' },
+      { name: 'delete', op: 'edit.delete' },
+    ]),
+    ...items('select', 'controls', [
+      { name: 'all', op: 'select.all' },
+      { name: 'none', op: 'select.none' },
+      { name: 'mirror', op: 'select.mirror' },
+    ]),
   ]),
 
   ...items('key', 'set', [

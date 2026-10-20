@@ -1,0 +1,213 @@
+# M6a B9 — Shell: workspaces, marking menus, command palette, Scale tool, shading, overlay slots, size gate: build notes
+
+Branch `m6a/shell-workspaces` (from `m6a/spec` at `ec541b4`, with `m6a/contracts-foundation` merged at `4d70522` and
+`m6a/keymap-menus` (B0b) merged at `3289791`). Scope:
+[M6A-SPEC §9 B9](../M6A-SPEC.md#b9--shell-workspaces-marking-menus-command-palette-scale-tool-shading-overlay-slots-size-gate)
+with the shared-file roles of §9.1. Decision IDs below are `M6A-B9-<n>`.
+
+## What landed (by spec responsibility)
+
+| B9 item | Where |
+|---|---|
+| Workspace tabs `Model › Rig & Skin › Animate › Review` with glyphs (§5.17, §8.1) | `editor-core/src/workspaces/index.ts` (Model, Rig & Skin and Review definitions, Model's status glyph, `workspaceTabs`); `editor/src/shell/WorkspaceTabs.tsx` (`ws-tabs`, `ws-tab-<id>`, `ws-glyph-<id>`, role `tablist`, text tooltips, short labels below 1280 px) in `MenuBar.tsx` |
+| Switching rules (§5.17) | `editor-core/src/workspaces/switch.ts` (`switchWorkspace`, `workspaceProblem`); `workspace.set` in `operators/builtin/workspace.ts`; the boot path (`ws=`, else `prefs.lastWorkspace`) in `editor/src/shell/EditorRoot.tsx` |
+| Per-workspace dock layouts (§4.8, §8.2) | `editor/src/shell/layout.ts` (`MODEL_SLOTS`, `buildModelLayout`, versions per workspace: Animate v2, Model v1), `editor/src/shell/workspace.ts` (one dockview, the layout JSON swapped when `session.workspace` changes) |
+| Per-workspace `viewportLayout`/`maximizedPane` and pane display memory | `session.workspaceViews` in `switchWorkspace`; `viewport/src/manager/workspaceViews.ts` (`MODEL_DISPLAY`, Model's M-Side cameras) and the `<workspace>:<paneId>` memory of `ViewportManager` (`setWorkspace`, `paneSetup`) |
+| Menus, status-line groups, timeline visibility | B0b's `MODEL_MENUS`; `StatusLine.tsx` renders the workspace's `statusGroups`; Model's groups in `shell/statusGroups.tsx` (lazy) with `shell/statusGroupRegistry.ts`; `TimelineRegion.tsx` hides the time slider in Model, `workspace.toggleTimeline` (Windows › Timeline) shows it |
+| Generic `MarkingMenu` (§5.18) | `editor/src/overlays/MarkingMenu/` (`controller.ts` lazy: trigger matching, flick, press-drag-release, click-release, key tap/hold, disabled reasons, Esc; `MarkingMenuView.tsx` lazy: `mm-<menuId>`, `mm-slot-<N…NW>`, `mm-item-<n>`; `index.tsx` eager facade) |
+| Command palette `Mod+K` (§5.18) | `editor/src/overlays/CommandPalette/` (`controller.ts` lazy: fuzzy search, aliases, workspace entries, menu variants, the params prompt; `CommandPaletteView.tsx` lazy: `cmdk`, `cmdk-input`, `cmdk-item-<operatorId>`; `index.tsx` eager facade); `ui.commandPalette` / `ui.markingMenu` through `editor-core/src/workspaces/ports.ts` |
+| Viewport Scale tool (`R`) | `viewport/src/tools/scaleTool.ts` (eager definition), `viewport/src/manipulators/scale/{math,tool,kit,load}.ts` (lazy chunk), the scale handles in `ManipulatorKit.ts`, `DragControl.s0`/`keyable.s` in `drag.ts`, object targets in `viewport/src/manager/objects.ts` |
+| Shading `4`–`7` and the new `DisplayFlags` | `view.shading`, `view.display.set` (editor-core, through the pane display port); `view.display.toggle` takes every boolean flag; `viewport/src/manager/shading.ts` (character models per pane); Model pane header: `pane-shading-<paneId>`, `pane-show-<paneId>-<flag>`, Wire/Flat/X-ray/Cull (`PaneView.tsx`) |
+| Pointer platform rules (§5.17) | `ViewportManager.pointerDown` (`contextmenu` never RMB; marking-menu presses through `setPointerMenus`; a placing/dragging tool keeps its presses), `navigation/profiles.ts` `isMmbStandIn` (Alt+Shift+LMB = MMB in Model on trackpad/one-button; the virtual slider gets `standIn`, M6A-B9-22) |
+| Camera layers 6–9, `addMeshLayer` | `viewport/src/layers.ts`, `viewport/src/manager/meshLayers.ts`, `ViewportManager.addMeshLayer` (applyPane before each pane render) |
+| Overlay slots | `editor/src/overlays/slots/index.tsx` (`registerPaneOverlay`, `registerShellOverlay`, `PaneOverlays`, `ShellOverlays`) in `PaneView.tsx` and `EditorShell.tsx` |
+| `pixel` probe | `ViewportManager.readPixel`, `viewportTestApi().pixel`, `editor/src/test-api/m6a/shell-workspaces.ts` (`pixel`, `markingMenu`, `commandPalette`) |
+| Image planes on layer 9 for B13 | `viewport/src/manager/imagePlanes.ts` (lazy), `ViewportManager.setImagePlanes(specs)` / `imagePlanesIn(paneId)` |
+| `check:size` | `apps/web/scripts/check-size.mjs` (eager-delta gate, Model chunk warning, attribution report, the `marking-menu` and `command-palette` boundaries), `apps/web/scripts/size-baseline.json`, `attribute-chunks.mjs` (`attributeFiles`) |
+
+## Decisions and deviations
+
+| ID | Decision | Why |
+|---|---|---|
+| M6A-B9-1 | **B0b merged into this branch** before building (B9 takes over B0b's keymap, keyboard and menu files, §9.1; B0b merges first, §11.1). | Building on B0b's scope chain, `MODEL_MENUS` and `helpHints` instead of re-creating them avoids conflicts at INT. |
+| M6A-B9-2 | **Ports instead of moving operators**: `view.shading`, `view.display.set`, `ui.commandPalette` and `ui.markingMenu` stay registered with the editor-core built-ins (headless scripts, menus and the palette see them) and reach the ViewportManager and the shell through `providePaneDisplay` / `provideShellOverlays` (`editor-core/src/workspaces/ports.ts`); without a port they poll-fail ("No viewport pane", "The command palette needs the editor window"). | A registry id can be registered once; B0a's stubs live in editor-core (M6A-B0A-15) and the pane display lives in the viewport. |
+| M6A-B9-3 | **Leaving Model drops to object mode by writing `session.model.componentMode`** (and `lastComponentMode`) inside `workspace.set`; it ends the extrude session (`app.extrude.end('workspace', {drop: false})`), disarms the capture, and closes a live Last-op card with `LastRun.closed = LEFT_MODEL_REASON` ("Left the Model workspace"). The ViewportManager cancels a running tool gesture on the switch; B8's display rebuild follows `session.workspace` itself. | `app.run` inside `apply` throws `nested-run`, so B10's `select.mode` cannot be called; **B10**: close the edit links of hilited runtimes by following `session.model.componentMode` (not only inside `select.mode`). |
+| M6A-B9-4 | **Tool and pick mask per workspace** are remembered per app (not a session field): the first entry takes `WorkspaceDef.defaultTool`/`pickMask`, later entries what the user left. | §5.17 makes them workspace properties; `SessionState` has no field for them and is closed after B0a. |
+| M6A-B9-5 | **Pane memory per workspace includes the camera binding**; the view cameras (where a pane id looks from) stay shared, so the persp camera survives a switch. Model's split layout is **M-Side** (`front \| persp`): `pane-left` looks through `front` in Model. `ViewportLayout` is unchanged (`single \| split \| quad`). | §8.2 presets M-Single/M-Quad/M-Side without a new layout id. |
+| M6A-B9-6 | **Model's pane display** (`MODEL_DISPLAY`): §4.6 Model defaults plus `controls: false` (rig controls are not drawn in Model, whose pick mask has no controls). | §5.17 "control selection carried over from Animate is never keyed unseen". |
+| M6A-B9-7 | **Character shading per pane** by swapping materials around the pane's main pass (`CharacterShading`): `wire` = wireframe in `--wire-wiremode`, `shaded` = Lambert `--clay`, `colours` = Lambert with each material's base colour and texture, `lit` = the model's own materials (no swap). `flat`/`cull` apply to the shading materials only; `wireOnShaded` adds a wireframe pass (`--wire`) over the characters; MToon outline materials are hidden outside `lit`. Mesh-view surfaces shade themselves through `applyPane`. | §4.7 defines the four modes for "the mesh"; the characters' own (MToon) materials are not cloned. |
+| M6A-B9-8 | **The new pane header controls show in Model only**: Shading ▾, Show ▾ and Wire/Flat/X-ray/Cull. Animate's header is the shipped one; `4`–`7` and `view.shading` work in both. | §3 rule 10: Animate changes only where the spec names them. |
+| M6A-B9-9 | **Marking menus**: specificity picks between matching menus (a `when.modes` match scores 2, `when.over` 1; ties by registration order); the dead zone and flick distance are 20 px, slots are 45° sectors of filled slots only; **a live gesture (button or key held) measures its direction from the press point, a drawn item under the pointer wins over the direction, and a menu left open for a click reads directions from its drawn centre** (fix round 4: near a window edge the drawing moves inwards by up to 144 px, `EDGE_MARGIN`, so every item stays clickable; flicks measured from that moved centre ran nothing or the opposite slot); releasing inside the dead zone (a click-release, or a press held still) leaves the menu open; a press outside an open menu closes it and is swallowed; submenus open in place and stay open for a click; `ui.markingMenu` from the keyboard (the key still held) follows the key, from menus or the palette it opens for a click at the last pointer position. The drawing appears after the 250 ms flick window (at once for a click-release or a tap). Its accessible name is derived from the id without the workspace prefix (`model.tools.face` → "Tools Face menu"; `MarkingMenuDef` has no label field and `types.ts` is closed), a submenu's is the label of the item that opened it. A tool in phase `placing`/`dragging` gets RMB first (Multi-Cut completes). The press hook is `ViewportManager.setPointerMenus(handler)` with `PanePointerPress.overMesh()` (a raycast of the character meshes and the mesh-layer roots). | §5.18 leaves selection between menus and these details open; §5.17 rule (a). |
+| M6A-B9-10 | **Command palette entries**: one per workspace (`Workspace: <label>`, `cmdk-item-workspace.set:<id>`), the menu items with arguments as variants of their operator (`cmdk-item-<op>:<menuItemId>`; menu labels, workspace and mode filters), then every other non-internal operator visible in the workspace (`cmdk-item-<op>`). Disabled entries stay listed with their poll reason. The prompt asks for the operator's value-bound, shown, non-data params (primary first), starting from `prefs.modeling.optionDefaults[op]`. Typed numbers use the shipped grammar (`parseNumericInput`, research 09 §6.4; fix round 4): expressions, `+=`/`-=`/`*=`/`/=` against the value the prompt started from, a decimal comma; angles are typed in degrees and alone take `deg`/`rad`/`°`; distances alone take `m`/`cm`/`mm` (§5.10's `50cm` example; the shipped parser has no length units, so each `<number><unit>` becomes a metres group first); fractions take `0.3` or `30%`; ints round; any other unit is refused with "<Label>: type a number". B11's `parseParamInput` can replace this once it lands. `ui.commandPalette` carries the aliases Search, F3 Search, Menu Search, Find Command. | §5.18 lists operators; menu arguments ("Four View", "Export…") and workspaces are what a user searches for. |
+| M6A-B9-11 | **Scale tool on scene objects commits one document gesture** (`beginKeyEditGesture`, label "Scale") that patches `meshes`/`groups` placements about each object's pivot, instead of running B12a's `scene.object.transform`. Scale handles use object axes; an axis scales by the ratio of the positions along it (crossing the pivot mirrors, Maya), the centre cube by `1 + (dx − dy)/size` (≥ 0.01). Object targets show only for the Scale tool in Model's object mode; move/rotate on objects stay B12a's. **Only the topmost selected objects are scaled** (fix round 2): a selected object with a selected ancestor (same owner; the chain of `objectWorld`) follows that ancestor instead of being scaled twice, and the manipulator sits on the last of the topmost objects (`topmostSelectedObjects` in `viewport/src/manager/objects.ts`; a member of a parent cycle counts as a root). | B12a owns object W/E/R commits; the Scale tool must work at B9's merge (§9 B9 tests "Scale tool on a mesh object … (undo)"). B12a may route the commit through `scene.object.transform`. Maya and Blender transform only the topmost selected objects; scaling a group and its child both compounded the child's scale (f²). |
+| M6A-B9-12 | **Overlay slots**: `registerPaneOverlay(slot, Component)` for `hud` (top-left, B10), `bindPose` (bottom-right, B10), `emptyState` (centre, B13), `gettingStarted` (top-right, B13), `lastOpCard` (bottom-left, B11), `modalReadout` (whole pane, B12a); `registerShellOverlay('optionBox', Component)` (B11). The latest registration of a slot draws; slot wrappers are `pointer-events: none` (interactive overlays set `pointer-events: auto`). Model status bodies: `registerStatusGroup(id, Component)` replaces B9's default bodies (`mode`, `symmetry`, `soft`, `snap`, `pivot`), which read the session and run the owners' operators, disabled with their poll reasons until those land. | §4.8 names `registerPaneOverlay(id, component)`. |
+| M6A-B9-13 | **New panel kinds as strings**: `MODEL_PANEL = { toolkit, palette, meshCheck }` in `shell/layout.ts`; `editor-core/src/types.ts` `PANEL` (closed after B0a) does not have them yet. **Contract PR for INT**: add them to `PANEL` (§4.8). | §9.1: the types file is closed. |
+| M6A-B9-14 | **Eager allowance not enforced yet**: `size-baseline.json` records the M2a route (845,267 B) and the §5.27 allowance (+20,480 B) with `enforce: false` and the pending owner decision; `check:size` prints the delta and a `WARN` until INT sets `enforce: true` with the decided allowance (an enforced, exceeded delta fails the gate; e2e builds are never compared). The 900,000 B gate and every lazy boundary stay hard gates. | M6A-B0A "Decision requested: the M6a eager allowance": B0a alone used +19,160 B, B0b +4,806 B; the gate as written cannot be green before the owner decides (options A/B/C there). |
+| M6A-B9-15 | **Model workspace chunk** = the lazy groups of the `mesh-kernel`, `mesh-view` and `marking-menu` boundaries (configurable in `size-baseline.json`), warned above 250,000 B. The chunk attribution report prints when the build carries source maps (`ANIMATOR_SOURCE_MAPS=1`). | §5.27 names the chunk, not its contents. |
+| M6A-B9-16 | **Lazy by default**: the marking-menu and command-palette controllers and drawings, Model's status bodies, the Scale tool's behaviour and maths, and the image-plane layer load on demand (Model entry, first use, first planes). Until the scale chunk has loaded no scale manipulator shows and a press does nothing; `setImagePlanes` returns a promise. A viewport press starts the marking-menu load only where menus exist (`marksMenus`: Model, or a workspace a registered menu lists — the prefetch's rule), so a click in Animate loads nothing (fix round 1). | §5.27 eager budget; see "Eager route" below. |
+| M6A-B9-17 | **`view.tool` in Model records the last non-transform viewport tool** in `session.model.lastTool` (Maya's `Y` skips Q/W/E/R); the built-in M6a tools that are not registered yet poll-fail "not available yet" instead of "Unknown viewport tool". | §6.2 `view.tool` (changed). |
+| M6A-B9-18 | **Model's status glyph** reads Mesh Check through the loaded kernel's `checkMesh` (B5; a stub reads as clean) per runtime version and the triangle budgets of §5.24 (`BUDGET_TRIS` in editor-core, the mesh's or the nearest parent's budget). INT may point it at B8's `io/profiles/budgets.ts`. Disabled tabs carry no glyph. | §5.17 glyph rules; B8's table is not in this branch. |
+| M6A-B9-19 | **`panes()` rows also report `shading`** (additive runtime field; the §4.8 type lists the M1 fields), so specs can read a pane's shading (E2E-MOD-19 `4` → wire). | The test-API types file is closed after B0a. |
+| M6A-B9-20 | **Windows menu**: Model lists its own panels (Toolkit, Palette, Mesh Check) and Timeline; the layout submenu has Model's presets (Single, Four View, Front \| Persp) there and Animate's in Animate. Reset Workspace resets the current workspace's layout. | §8.2 presets, "Windows › Timeline shows it". |
+| M6A-B9-21 | **Control edits from a Model pane only where the pane draws controls** (fix rounds 1 and 2): one rule for every edit path. The pane's MMB virtual slider leaves control channels alone unless that pane draws controls (Show ▸ Controls); the transform tools likewise put a manipulator on the lead control in Model **only in object mode, only when no object target applies** (the Scale tool's selected objects win), and that manipulator draws, hovers, picks and drags **only in the panes that draw controls** (`controlTargetInModel`, `kitIn(pane)` in `ViewportManager`); with every pane hiding controls (Model's default) there is none. Component modes show no handle on controls (their handles are B12a's components). Animate is unchanged. | §5.17: Model neither draws nor picks controls, and a control selection carried over from Animate is never edited or keyed unseen (the same reason as the `model.animateOnly` rows). Round 1 gated the slider on Show ▸ Controls but never showed W/E/R handles, so showing controls enabled one edit path and not the other. |
+| M6A-B9-22 | **The MMB stand-in reaches the virtual slider as MMB**: `startVirtualSliderDrag` takes an optional `standIn` (default false) that reads Shift as released for the whole gesture and keeps `Mod` ×10; the ViewportManager passes it for stand-in presses. **Contract note for B12a** (`virtualSliderDrag.ts` is B12a's file): the option is additive; B12a's INPUTS-field slider from the viewport MMB rule must pass it through as well. | §5.17 (b): delivered as MMB with Alt and Shift cleared, the INPUTS virtual slider among its targets. |
+| M6A-B9-24 | **Workspace statuses are re-read at human speed** (fix round 3; `editor/src/shell/statusSchedule.ts`): a committed document batch or mesh change schedules one re-read at most 250 ms later (`STATUS_SETTLE_MS`), however many arrive; preview frames (`origin: 'preview'` batches, mesh `changed` with `preview: true`) schedule nothing while they keep coming, and the statuses are re-read once they have been quiet for 250 ms (a cancelled drag leaves no committed batch) or at once with a committed change. A drag arms one timer per 250 ms window and reads no status. | §4.6 "`status?(app)` … read on human-speed changes only"; MVP-SPEC §3 (no per-frame work): before, every drag frame re-rendered the tab strip and re-ran `animateStatus` (a re-sort of every key) and `modelStatus`. |
+| M6A-B9-25 | **A lazy chunk that fails to load is reported, never an unhandled rejection** (fix round 3): the Scale tool's chunk through `requestScaleKit` (one error toast per failed load, "The Scale tool could not be loaded…", whoever joined it), the command palette and the marking menu on the help line (`PALETTE_LOAD_FAILED`, `MARKING_MENU_LOAD_FAILED`). Retries follow user actions only: the ViewportManager asks once per choice of the Scale tool (not on every manipulator refresh; playback refreshes each frame), the tool again on activation or a press, the palette on the next `Mod+K`, the marking menu on the next command or right-button press (other presses and the prefetch stay quiet). The facades load the controller and the drawing together, so the React.lazy drawing never fails on its own; `onScaleKitLoaded` shows the scale handles whoever's load succeeded. Test seams: `setScaleKitImporterForTests`, the facades' optional `importChunks`. | Offline after a redeploy, `R` or `Mod+K` did nothing silently and rejected unhandled; the manipulator retried the import on every refresh. |
+| M6A-B9-26 | **A single or maximized viewport pane fills the panel** (fix round 4): `PaneView`'s root `<section>` is `w-full`. In the single-pane flex row it shrank to its header's width (Model's first view drew a 382 px persp pane in a 900 px panel; Animate's Space-maximize and Single layout 386 of 920 px), inherited from M2a and made visible by Model's default layout. | §8.2 "persp maximized at start"; the e2e asserts the pane's box equals the panel's in Model and in Animate. |
+| M6A-B9-27 | **Mesh Check starts collapsed to its tab strip** (fix round 4): its panel carries `minimumHeight` 26 px (`--size-tab`; serialized with the layout, so a restored Model layout keeps it) and the group is sized to 26 px again once the panel is in it (dockview's default group minimum of 100 px applied while the group was still empty); the right dock's panels carry §8.2's 260 px minimum width. | §8.2: "bottom dock Mesh Check, collapsed", the right dock "300 px, min 260". |
+| M6A-B9-23 | **E2E fixture marking menu**: the test API registers `e2e.fixture` (plain RMB in Model: N Wireframe, S Shaded, E disabled, list Lit) on e2e pages opened with `mmFixture=1`, read from `location.search` in `test-api/m6a/shell-workspaces.ts` (the test-API types and `params.ts` are closed). | The pointer-rule (a) e2e must show a real right-button press opening a registered menu while `contextmenu` alone opens nothing, before B10/B11 register the real menus. |
+
+## Literal updates (§3 rule 9)
+
+- `editor-core/test/m6a/foundation.test.ts`: the built-ins register Model, Rig & Skin, Animate and Review; the
+  poll-fail loop accepts the landed B9 operators' own reasons.
+- `headless-tests/test/ops.m6a-foundation.test.ts`: the four workspaces.
+- `editor/test/test-api.test.ts`: `workspaces()` lists the four tabs; `pixel` has landed (no viewport → `[0, 0, 0, 0]`).
+- `viewport/test/operators.test.ts`: the viewport tools include `scale` (§3 rule 10 "R selects the new Scale tool").
+- `viewport/test/testApi.test.ts`: `panes()` rows carry `shading`.
+- `apps/web/e2e/m6a-00-foundation.spec.ts`: the poll-fail loop skips `ui.commandPalette`, which opens the palette
+  without arguments (asserted and closed); the Model-tab test's `b9` gate is lifted. `m6a-03-mod-e-scopes.spec.ts`:
+  part (a)'s `b9` gate is lifted.
+
+## Minimal edits in files other packages own
+
+- `viewport/src/tools/virtualSliderDrag.ts` (B12a): the optional `standIn` option (M6A-B9-22), three lines in the
+  move handler and the initial motion; nothing else changes.
+
+## Eager route (§5.27)
+
+Production build, `check:size` (gzip -9, first visit): B0b merged **869,233 B** → this branch **881,183 B** (B9
+**+11,950 B**, fix rounds 1–4 included; fix round 3's failure handling and status schedule +547 B, fix round 4 +65 B;
+gate 900,000 B green, headroom 18,817 B; no boundary violation).
+Lazy-loading the marking menu, the command palette, Model's status bodies, the Scale tool and the image planes took B9
+from +16.1 kB to +11.1 kB. The eager B9 code is the workspace definitions, status and switching rules, the workspace
+operators (≈ 3.4 kB), the workspace tabs, slots and facades (≈ 2.1 kB), the per-workspace pane memory, character
+shading, mesh-layer hosting, pointer rules and scale handles in the viewport, and the shell changes (status line, help
+line, pane header, layout swap). M6a total: **+35,916 B over the M2a baseline** (allowance +20,480 B: not enforced,
+M6A-B9-14). Model workspace chunk: 22.7 kB (kernel and marking menu; mesh-view has no consumer in this build).
+
+A per-file attribution of the eager scripts (fix round 4, source-map build) puts B9's own eager files at: workspace
+tabs 1.0 kB, workspace switching 0.6 kB, character shading (`viewport/src/manager/shading.ts`) 0.7 kB, the marking-menu
+and palette facades 0.5 + 0.4 kB, overlay slots 0.5 kB, the scale tool definition and loader 0.3 + 0.3 kB, Model's pane
+display defaults 0.3 kB, the status schedule 0.2 kB, mesh-layer hosting 0.15 kB; the rest is B9's share of shared
+files (ViewportManager, ManipulatorKit's scale handles, PaneView's Model header, StatusLine, the workspace operators
+and definitions). If the decided allowance is tight for B10–B13, the next lazy candidates are the character shading
+(needed only once a pane leaves `lit`: Model entry or `4`–`6`), the Model pane-header controls and the scale handles
+(both Model or Scale-tool only); each needs a load-failure path like M6A-B9-25.
+
+## DoD status
+
+| DoD item | Status |
+|---|---|
+| CI green | Local gates green (below). |
+| `check:size` passes with both gates | **Not met: blocked on the owner's decision, which no builder can make.** The 900,000 B gate passes (881,183 B, fix round 4). The +20,480 B eager-delta gate is not enforced (`size-baseline.json` `eagerDelta.enforce: false`, M6A-B9-14) because the allowance is the owner's number (MODELING-PLAN R38, M6A-SPEC §12.4, "Decision requested" in the B0a notes); as of fix round 4 no decision is recorded on any branch (`m6a/spec` is still at `ec541b4`). Against the options there: **A** (+40,960 B over M2a, limit 886,227 B) passes with 5,044 B to spare; **B** (+20,480 B from the B0a merge, limit 884,907 B) passes with 3,724 B; **C** (+20,480 B over M2a, limit 865,747 B) fails by 15,436 B (B0a and B0b alone use +23,966 B, so no B9-side trim reaches C; under C, Model-only registrations and descriptors of B0a, B0b and B9 move behind the first Model entry, a §2 contract change). When the owner decides, INT records it in §5.27 and DECISIONS-OPEN §I, sets `enforce: true` with that allowance (under B also `baseline.total` 864,427 B) and re-runs `check:size`. |
+| READY flag `b9` | Set by INT at merge (the `b9` gates of the foundation e2e and E2E-MOD-03 (a) are lifted on this branch). |
+
+## Hand-over
+
+- **B10**: register `model.modes`/`model.convert` marking menus (`app.contribute({kind: 'markingMenu'})`; the press
+  routing, gestures and drawing are here); replace status bodies with `registerStatusGroup('mode', …)` if needed;
+  register the HUD with `registerPaneOverlay('hud', …)` (and `bindPose`); load the mesh display with
+  `loadMeshDisplay({ app, target: vm })` — `ViewportManager.addMeshLayer` and `invalidate` are B6's `MeshLayerTarget`;
+  follow `session.model.componentMode` to close runtimes when `workspace.set` drops to object mode (M6A-B9-3).
+- **B11**: `model.tools.*`, `model.primitives`, `model.merge` menu data; the Last-op card in
+  `registerPaneOverlay('lastOpCard', …)`; the option box in `registerShellOverlay('optionBox', …)`; the palette prompts
+  operators with `params` from `prefs.modeling.optionDefaults`.
+- **B12a**: `model.options` menu data; `registerPaneOverlay('modalReadout', …)`; symmetry/soft/snap/pivot status
+  bodies are defaults over your operators; the Scale tool's object commit (M6A-B9-11) and the MMB stand-in
+  (`button 1`, Alt/Shift cleared) are in place for the MMB rule. `refreshManipulator` in Model (M6A-B9-21): add the
+  object and component targets ahead of the control target; the control target stays the last resort, object mode
+  only, limited to panes that draw controls (`controlTargetInModel`) — never an unconditional fallback to
+  `selection.controls`. Object move and rotate transform `topmostSelectedObjects` (M6A-B9-11), not every selected
+  object. Pass `standIn` to `startVirtualSliderDrag` for the INPUTS-field slider too (M6A-B9-22).
+- **B13**: `ViewportManager.setImagePlanes(specs)` draws decoded planes per ortho pane (behind/front, opacity, size,
+  offset; never picked); `registerPaneOverlay('emptyState' | 'gettingStarted', …)`; the Model layout has the
+  Palette tab placeholder (`palette` kind).
+- **B6/INT**: one `MeshLayerHost` declaration (B6's `viewport/src/mesh/display.ts` and B9's
+  `viewport/src/manager/meshLayers.ts` have the same shape; this branch does not export B9's from the package index,
+  so B6's exports win); `LAYER.meshComponents … helpers` = 6…9 as B6's `MESH_LAYERS`.
+- **INT**: decide the eager allowance (M6A-B9-14) and set `enforce`; add `toolkit`, `palette`, `meshCheck` to `PANEL`
+  (M6A-B9-13); the B6 bench's `b9` gate can be lifted.
+- **INT / anim-core owner** (not B9; identical on `main`): `anim-core/test/curve/insert.test.ts` is flaky. The
+  random-seed property "never writes −0 into a handle" found a counterexample (seed −1009123903) whose generated input
+  key already carries `outHandle.dv` −0, which the insert copies onto a frozen neighbour; "weighted spans beyond the
+  monotonic limit" timed out at 30 s under load. Pin the fast-check seed or keep −0 out of `curveArbitrary`'s inputs
+  (or normalise it in `insertKeyPreservingShape`), and raise the slow property's timeout. Fix round 3's test run was
+  green.
+
+## Gates (local, real Chrome; port 3170)
+
+Fix round 1 (HEAD after the fix commits, clean tree): `format:check`, `lint`, `typecheck`, `check:deps`,
+`check:fixtures`, `check:licenses` green; `test` (turbo `test test:tooling --force --concurrency=3`, CI unset) 15/15
+tasks green: anim-core 671, doc 233, doc-yjs 78, mesh-core 134, mesh-view 2, io 170, rig 202, editor-core 859,
+curve-editor 207 + 3 skipped, viewport 126 + 1 skipped, editor 425 + 1 skipped, headless-tests 173, ui 87, web 16,
+tooling 14; `build` green; `check:size` 880,433 B ≤ 900,000 B (eager-delta warning, M6A-B9-14 and "DoD status"); B9
+e2e (`m6a-shell.spec.ts` 8, the lifted `m6a-00-foundation` and E2E-MOD-03 (a)) green; the full e2e suite
+(`EKZA_E2E_PORT=3170 pnpm run test:e2e -- --workers=4`, project `chrome`) **120 passed, 10 skipped, 0 failed** (B0b:
+110 passed, 12 skipped; +8 shell checks, +2 lifted gates).
+
+Fix round 1 added: viewport tests for a control selection carried over to Model (no W/E/R manipulator in any mode,
+no edit from a drag where its handle was, no MMB slide while the pane hides controls) and for the stand-in's virtual
+slider (40 px with Alt+Shift held = 40 px MMB = +20°, `Mod` ×10, `standIn` on `startVirtualSliderDrag`); a component
+test that a press in Animate loads no marking-menu controller; the shell e2e with the `e2e.fixture` menu (a real
+right-button press opens `mm-e2e.fixture`, press-drag-release and a flick run its slots, `contextmenu` alone opens
+nothing) and a Polybot cog carried from Animate into Model (no manipulator, no unseen slide; with Show ▸ Controls the
+stand-in slides at the MMB rate).
+
+Fix round 2 (HEAD after the fix commits, clean tree): `format:check`, `lint`, `typecheck`, `check:deps`,
+`check:fixtures`, `check:licenses` green; `test` (`turbo run test test:tooling --force --concurrency=3`, CI unset) 15/15
+tasks green with the same counts except viewport **129 + 1 skipped** (+3); `build` green; `check:size` 880,571 B ≤
+900,000 B (eager-delta warning +35,304 B, M6A-B9-14 and "DoD status"); B9 e2e run (`m6a-shell.spec.ts` 8, with
+`m6a-00-foundation` and `m6a-03-mod-e-scopes`, whose `b9` gates are lifted) 17 passed, 1 skipped (E2E-MOD-03 (b), gated
+on b3/b7/b10); the full e2e suite (`EKZA_E2E_PORT=3170 pnpm run test:e2e -- --workers=4`, project `chrome`) **120
+passed, 10 skipped, 0 failed**.
+
+Fix round 2 added (verifier round 2's two minor findings; its blocker is the eager allowance above, which is the
+owner's decision): viewport tests that the Scale tool scales only the topmost selected objects (a lid under a selected
+crate through an unselected inner group keeps its placement, the manipulator sits on the crate's pivot, one undo
+restores both scaled objects) and the `topmostSelectedObjects` chain rules (a deleted or cross-owner parent ends the
+chain, a parent cycle drops none of its members), and that W/E/R follow the virtual slider's rule for a control
+carried into Model (no ring in a pane that hides controls, a drag where it would be edits and keys nothing, the ring
+in the pane that draws controls rotates the control in one step "Rotate", no handle in component modes); the shell
+e2e shows the ring on the Polybot cog with Show ▸ Controls and none once controls are hidden again. Both viewport
+tests fail without the fixes.
+
+Fix round 3 (verifier round 3: the blocker is the eager allowance above, the owner's decision; the anim-core flake is
+handed to INT under "Hand-over"; the two B9 minors are fixed): M6A-B9-24 and M6A-B9-25. Added tests: the status
+schedule frame by frame on manual timers (coalescing, a 2 s drag reads nothing and arms ≤ 9 timers, a committed change
+mid-drag, dispose), the shell re-reading a probe workspace's status not per preview frame of a 600 ms key drag, once
+after the drag is cancelled, and within the window after a committed change (the Animate glyph turns ○); the scale
+loader (one toast for two callers, a retry on the next request, the loaded listener), the Scale tool and manipulator
+offline (one import and one toast for the tool and the manipulator together, none for 20 refreshes, a retry and a toast
+on a press, handles once R is chosen again online); the palette and the marking menu offline (help-line message, no
+unhandled rejection, quiet left presses and prefetch, the next try loads). Gates at HEAD after the fix commits, clean
+tree: `format:check`, `lint`, `typecheck`, `check:deps` green; `test` (`turbo run test test:tooling --force
+--concurrency=3 --continue`, CI unset) 15/15 tasks green, the same counts as round 2 except viewport **131 + 1
+skipped** (+2) and editor **432 + 1 skipped** (+7), anim-core 671 green this time; `build` green (production, no e2e
+flag); `check:size` 881,118 B ≤ 900,000 B (eager-delta warning +35,851 B); the full e2e suite once
+(`EKZA_E2E_PORT=3170 pnpm run test:e2e`), project `chrome`: **120 passed, 10 skipped, 0 failed**. That run was invoked
+with `-- --workers=3 --project=chrome`; pnpm passes the flags after `--`, so Playwright treated them as file filters,
+while the config saw `--project` in `argv` and enabled both projects: the `chromium-swiftshader` project ran once as
+well (100 passed, 20 failed, 10 skipped; every failure a shipped M1/M2a spec, 30 s timeouts of software rendering
+with three workers on the shared machine; the B9 specs passed there too). It was not re-run (CPU rules); CI runs that
+project and is the place to confirm it.
+
+Fix round 4 (verifier round 4: the blocker is the eager allowance above, still the owner's decision; its two majors and
+three minors are fixed): M6A-B9-9 (directions from the press point, the menu's accessible name), M6A-B9-10 (the
+palette's numeric grammar), M6A-B9-26 (a single or maximized pane fills the panel), M6A-B9-27 (Mesh Check collapsed,
+right dock minimum). Added tests: the marking menu from presses within the edge margin of every window edge and
+corner — a flick and a press-drag-release towards each of the eight slots run that slot, a held key at a corner
+likewise, a drawn item under the pointer wins over the direction and leaving it goes back to the direction, a
+click-release near an edge reads directions from the drawn centre, the real pointer on a drawn slot near the bottom
+edge runs it; the menu's accessible name; the palette's grammar (`1.5rad`, `30deg`, `45°`, `=45*2`, `10cm`, `50 cm`,
+`25mm`, `1,5`, `1,5cm`, `1m + 20cm`, relative forms against the starting value, `+=10%`, refused `10in`, `90deg` on a
+distance, `10cm` on an angle, `1/0`) and a prompt run with `50cm` and `+=2`; e2e: flicks from presses near the left, top
+and bottom edges of the maximized viewport in real Chrome, a single or maximized pane's box equal to the viewport
+panel's (Model's first view, Animate's Space and Single), Mesh Check 26 px and the right dock 300 px, also after a round
+trip through Animate. The four edge tests and both label checks fail on the round-3 controller. The pointer-rule e2e now
+presses left of the empty-state card, which sits at the centre of the now full-width pane. Gates at HEAD after the fix
+commits, clean tree, CI unset: `format:check` (1142 files), `lint`, `typecheck`, `check:deps`, `check:fixtures`,
+`check:licenses` green; `test` (`turbo run test test:tooling --force --concurrency=3 --continue`) 15/15 tasks green, the
+round-3 counts except editor **442 + 1 skipped** (+10); `build` (`turbo run build --force`, production) green;
+`check:size` 881,183 B ≤ 900,000 B (eager-delta warning +35,916 B, "DoD status"); the full e2e suite once
+(`EKZA_E2E_PORT=3170 pnpm run test:e2e`, project `chrome` only) **122 passed, 10 skipped, 0 failed** (+2 shell checks).
