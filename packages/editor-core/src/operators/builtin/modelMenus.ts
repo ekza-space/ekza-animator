@@ -174,7 +174,7 @@ export const MODEL_MENU_ITEMS: readonly MenuItemDef[] = [
     ['combine', 'mesh.combine'],
     ['separate', 'mesh.separate'],
     ['fillHole', 'mesh.fillHole'],
-    ['mirror', 'mesh.mirror', undefined, 'Mirror…'],
+    ['mirror', 'mesh.mirror', undefined, 'Mirror'],
     ['symmetrize', 'mesh.symmetrize'],
   ]),
   ...model(
@@ -233,7 +233,7 @@ export const MODEL_MENU_ITEMS: readonly MenuItemDef[] = [
   ...model('mesh-display', 'normals', [
     ['soften', 'mesh.soften'],
     ['harden', 'mesh.harden'],
-    ['setNormalAngle', 'mesh.setNormalAngle', undefined, 'Set Normal Angle…'],
+    ['setNormalAngle', 'mesh.setNormalAngle', undefined, 'Set Normal Angle'],
     ['reverse', 'mesh.reverse'],
     ['conform', 'mesh.conform'],
   ]),

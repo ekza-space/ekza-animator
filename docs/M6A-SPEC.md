@@ -2328,8 +2328,9 @@ triangles = one spin; on a selected quad face it toggles `FACE_FLIP_DIAGONAL`. C
   MeshSetOp is allowed only while the re-run yields the same output keys (else the card closes with "Adjust would
   change which meshes exist").
 - **Combine** (`arity: 'many'`, ≥ 2 authored meshes of one owner): `appendMesh` into the first-selected mesh (lead =
-  first in selection order); `pivot: 'center' | 'first' | 'origin'` sets the result's placement (centre of the
-  combined bounds, the first mesh's, or identity); material slots unified by identity key; palettes must match or
+  first in selection order); `pivot: 'first' | 'center' | 'origin'` sets the result's placement (the first mesh's —
+  the default since acceptance fix round 1, so the lead's object origin and its Object-mode symmetry plane stay put —
+  the centre of the combined bounds, or identity); material slots unified by identity key; palettes must match or
   one input has none (else refusal "Combine needs one palette: assign it first" with the action `palette.assign`);
   morph layers united in the first mesh's manifest order, missing deltas zero; skin layers need the same skeleton
   (`combine.skeleton-mismatch`), joint palettes united and remapped. Inputs other than the first are removed.
@@ -3149,10 +3150,10 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 | Select | Object Mode `F8` · Vertex `F9`/`1` · Edge `F10`/`2` · Face `3` · Convert Selection ▸ · Grow `>` · Shrink `<` · Edge Loop · Edge Ring · Border · Shell · All · Invert · None · By Swatch |
 | Modify | Center Pivot · Pivot ▸ (Bottom Center, Reset, Bake, Edit Pivot `D`) · Freeze Transformations · Reset Transformations · Snap ▸ (Grid `X`, Vertex `V`, Increment `J`) |
 | Display | Hide Selected `H` · Show All `Shift+H` · Hide Unselected `Alt+H` · Isolate `Shift+L` · Shading ▸ `4`–`7` |
-| Mesh | Combine · Separate · Fill Hole · Mirror… · Symmetrize · Triangulate · Quadrangulate · Cleanup… · Mesh Check · Make Editable |
+| Mesh | Combine · Separate · Fill Hole · Mirror · Symmetrize · Triangulate · Quadrangulate · Cleanup… · Mesh Check · Make Editable |
 | Edit Mesh | Extrude `Mod+E` · Inset · Bevel `Mod+B` · Bridge · Merge ▸ (Merge, Merge to Center, Merge by Distance, Collapse) `M` · Connect · Insert Edge Loop (on the selected edge; Ekza) · Average Vertices · Extract · Duplicate Face · Delete Edge/Vertex `Mod+Delete` · Spin Edge ▸ · Flip Triangle Edge · Assign Colour ▸ |
 | Mesh Tools | Multi-Cut `K` · Insert Edge Loop (tool) · Offset Edge Loop · Slide Edge · Target Weld · Paint Colour |
-| Mesh Display | Soften Edge · Harden Edge · Set Normal Angle… · Reverse · Conform · Faceted ✓ · Show ▸ (Normals, Face Orientation, Triangulation, Hard Edges, Wire on Shaded, Backface Culling, Dim Unhilited) |
+| Mesh Display | Soften Edge · Harden Edge · Set Normal Angle · Reverse · Conform · Faceted ✓ · Show ▸ (Normals, Face Orientation, Triangulation, Hard Edges, Wire on Shaded, Backface Culling, Dim Unhilited) |
 | UV | Planar · Automatic · Cylindrical |
 
 ### 8.4 Marking menus (data; positions provisional until Q-MOD-UI-1)
@@ -3161,7 +3162,7 @@ timeline row hidden (Windows › Timeline shows it). Presets: M-Single, M-Quad, 
 |---|---|---|
 | `model.modes` (RMB on a mesh) | N Edge · W Vertex · S Face · NE Object Mode · E UV (disabled, "UV editor arrives later") · NW Multi (disabled, stretch) · SE Select ▸ (All, Shell, Border, Invert) · SW — (Vertex Face, not offered) | Select All · Select Shell · Hide Selected · Show All · Isolate · Assign Colour ▸ · Pivot ▸ · Rename… · Attributes |
 | `model.primitives` (Shift+RMB, nothing selected or over empty space) | N Cube · NE Cylinder · E Sphere · SE Plane · S Cone · SW Torus · W Humanoid Body… · NW Primitive Options… | Templates ▸ · Reference Image ▸ · Import mesh… |
-| `model.tools.object` (Shift+RMB, mesh object) | N Insert Edge Loop · NE Mirror… · E Combine · SE Separate · S Center Pivot · SW Delete · W Multi-Cut · NW Mesh Check | Freeze · Reset · Triangulate · Conform · Cleanup… · Make Editable |
+| `model.tools.object` (Shift+RMB, mesh object) | N Insert Edge Loop · NE Mirror · E Combine · SE Separate · S Center Pivot · SW Delete · W Multi-Cut · NW Mesh Check | Freeze · Reset · Triangulate · Conform · Cleanup… · Make Editable |
 | `model.tools.vertex` (Shift+RMB, vertex mode) | N Merge to Center · NE Target Weld · E Connect · SE Chamfer Vertex (disabled, stretch) · **S Extrude** (poll: vertex extrude arrives later) · **SW Delete** · **W Multi-Cut** · NW Average Vertices | Delete Edge/Vertex · Merge · Slide · Snap to Grid |
 | `model.tools.edge` (Shift+RMB, edge mode) | N Insert Edge Loop · NE Bevel · E Bridge · SE Collapse · **S Extrude** · **SW Delete** · **W Multi-Cut** · NW Soften/Harden ▸ | Delete Edge/Vertex · Fill Hole · Offset Edge Loop · Slide Edge · Connect · Spin ▸ · Flip Triangle Edge · Select Loop / Ring |
 | `model.tools.face` (Shift+RMB, face mode) | N Inset · NE Bevel (the faces' edges, §5.9) · E Duplicate Face · SE Extract · **S Extrude** · **SW Delete** · **W Multi-Cut** · NW Poke (disabled, stretch) | Bridge · Triangulate · Quadrangulate · Reverse · Assign Colour ▸ · Mirror |

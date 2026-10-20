@@ -34,7 +34,7 @@ export const TOOLS_OBJECT_MENU: MarkingMenuDef = {
   when: { modes: ['object'], over: 'mesh' },
   slots: {
     N: tool('Insert Edge Loop', 'insertLoop'),
-    NE: op('mesh.mirror', 'Mirror…'),
+    NE: op('mesh.mirror', 'Mirror'),
     E: op('mesh.combine', 'Combine'),
     SE: op('mesh.separate', 'Separate'),
     S: op('mesh.pivot.center', 'Center Pivot'),
@@ -95,7 +95,7 @@ export const TOOLS_EDGE_MENU: MarkingMenuDef = {
       submenu: [
         op('mesh.soften', 'Soften Edge'),
         op('mesh.harden', 'Harden Edge'),
-        op('mesh.setNormalAngle', 'Set Normal Angle…'),
+        op('mesh.setNormalAngle', 'Set Normal Angle'),
       ],
     },
   },

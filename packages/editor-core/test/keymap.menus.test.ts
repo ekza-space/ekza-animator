@@ -128,7 +128,7 @@ describe('Model menus (§8.3)', () => {
         'Combine',
         'Separate',
         'Fill Hole',
-        'Mirror…',
+        'Mirror',
         'Symmetrize',
         'Triangulate',
         'Quadrangulate',
@@ -156,7 +156,7 @@ describe('Model menus (§8.3)', () => {
     ['edit-mesh.spin-edge', ['Spin Edge Forward', 'Spin Edge Backward']],
     ['edit-mesh.assign-colour', ['Active Swatch']],
     ['mesh-tools', ['Multi-Cut', 'Insert Edge Loop', 'Offset Edge Loop', 'Slide Edge', 'Target Weld', 'Paint Colour']],
-    ['mesh-display', ['Soften Edge', 'Harden Edge', 'Set Normal Angle…', 'Reverse', 'Conform']],
+    ['mesh-display', ['Soften Edge', 'Harden Edge', 'Set Normal Angle', 'Reverse', 'Conform']],
     [
       'mesh-display.show',
       [
