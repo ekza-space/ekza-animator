@@ -769,3 +769,31 @@ override any of them. Merged into `dev` on 2026-10-20; not tagged: `v0.3.0` wait
 | M6A-INT-18…25 | Package hand-overs | Separate names and Combine's palette action; mirror helpers +0; `PANEL` kinds; one `MeshLayerHost`; the anim-core −0 flake; the pixel probe; Assign Colour's active swatch; `PickOptions.wire` | integration notes |
 | M6A-INT-26 | Meshes on one palette wrote one material each | Fixed: one material per palette (one per used swatch with material-per-colour) | `exportModel.ts` |
 | M6A-INT-28…30 | Scenario readings (E2E-MOD-15 tapered legs, E2E-MOD-31's "original file", the AS-LP-S twin) | As in the integration notes | `apps/web/e2e` |
+
+## J. M6a acceptance fix round 1 (on `dev`, 2026-10-20)
+
+The M6a acceptance round on `dev` (`c0e402f`: the Model workspace driven by hand in real Chrome) found one blocker,
+four major and four minor defects. Fixed ones have regression tests that fail without the fix (the blocker's e2e test
+was checked against the unfixed build). New e2e spec `apps/web/e2e/m6a-r1-fixes.spec.ts`.
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6A-INT-34 | **Blocker**: a moved mesh (Channel Box, W drag, redo, Combine, a moved ✎ mesh) kept drawing at its old transform while picking, the manipulator, `F` and export used the new one. The scene's `matrixWorldAutoUpdate` is off and SceneSync's world pass runs only for character poses; mesh-view roots (`matrixAutoUpdate = false`) only flagged `matrixWorldNeedsUpdate` | **Fixed**: `ViewportManager.render` updates every mesh host's world matrices before drawing dirty panes | `viewport/src/manager/ViewportManager.ts`; e2e (pixels before/after the move and after undo) |
+| M6A-INT-35 | **Major**: Combine moved the result's object origin to the bounds centre, so Object X mirrored about x = 0.253 (unmatched 140/140) | **Fixed**: `mesh.combine`'s default `pivot` is `'first'` (the lead's placement); `'center'` and `'origin'` stay | `mesh-core/src/ops/combine/`; M6A-SPEC §5.13; `setops.test.ts` |
+| M6A-INT-36 | **Major**: double-click loop selection worked only with Q: with W/E/R the first click put the manipulator on the edge and the second press hit it | **Fixed**: the last component click is shared by every tool's Model pointer; a press completing a double-click goes to the manipulator as usual, and when it is released without moving, selection takes it (the loop); a drag still drags (`DoubleClickPress`, so a quick click-then-drag of a handle is kept). A double-click on an edge that was already selected before the first click still lands on its manipulator, as before | `viewport/src/tools/model/select/runtime.ts`, `selectTool.ts`, `transformTool.ts`; e2e (W, E, R) |
+| M6A-INT-37 | **Major**: the status-line Symmetry select stayed disabled after a cube was created (and after File › Open) | **Fixed**: status-line poll reasons re-read on every session change and every mesh/group write | `editor/src/shell/statusGroups.tsx`; e2e |
+| M6A-INT-38 | **Major**: under symmetry the one-sided Bridge (arm onto the +X hole) could not be selected: Select › Edge Loop stored the mirrored −X loop, and Bridge saw three loops | **Fixed** per §5.6 ("additive gestures store the picked side only"): walkers (loop, ring, grow, shrink, convert, border, shell, the loop table) store the part of their result reachable from the stored picks; an additive pick of a derived partner stores nothing. Ops, the HUD and the drawing still read the expanded set | `editor-core/src/operators/builtin/selectMesh.ts`, `selection/component/service.ts`; `select/operators.test.ts` |
+| M6A-INT-39 | Minor: in Model the Channel Box kept Animate's control selection (Polybot "Head") | **Fixed**: in Model the selected (or hilited) mesh/group object leads | `editor/src/panels/channel-box/ChannelBoxPanel.tsx`; e2e |
+| M6A-INT-40 | Minor: Mesh Check docked with zero height | **Fixed**: a click on the tab of a group collapsed to its tab bar opens it by 220 px (the default stays collapsed, §8.2) | `editor/src/shell/WorkspaceHost.tsx`; e2e |
+| M6A-INT-41 | Minor: symmetry lost on Save → Open | **Fixed (default derived)**: symmetry stays session state (§5.14), but a load or open gives meshes directly in a Humanoid template group Object X again unless the session already has an entry; other meshes stay off | `editor-core/src/session/repair.ts` (`templateSymmetry`), `keeper.ts`, `app/kernel.ts`; `select/operators.test.ts` |
+| M6A-INT-42 | Minor UI (a): the Handheld template's card showed the humanoid args; (e): Insert Edge Loop showed Number of Loops in Relative mode | **Fixed**: the Last-op card shows the fields that apply to the recorded args (templates by kind; Insert Edge Loop: weight for Relative/Equal, Number of Loops for Multiple). Adjusts still coerce against every param | `editor-core/src/operators/builtin/lastop.ts`, `lastopEngine.ts`; `templates.test.ts`, `kernel-ops.test.ts` |
+| M6A-INT-43 | Minor UI (c): "Mirror…" and "Set Normal Angle…" opened no dialog | **Fixed**: labels without the ellipsis (they run at once; args in the Last-op card) | `modelMenus.ts`, `editor/src/overlays/menus/tools.ts`; M6A-SPEC §8.3 tables |
+
+**Deferred** (recorded in [TODO](../TODO.md); no regression, each needs more than a fix round):
+
+| # | What | Why deferred | Next step |
+|---|---|---|---|
+| M6A-INT-44 | (b) Offset Edge Loop without a selection is disabled ("Select components first") | Needs a drag tool like Insert Edge Loop (a new `ToolDef`, hover preview, symmetric pointer rule) | A B12b-style tool in M6b's first fix round |
+| M6A-INT-45 | (d) Static GLB export shows "Validator not run" | `services.validate` is `null` in the browser (owner item "glTF validator … in the app" in §I) | Wire the validator worker (lazy chunk; size budget) |
+| M6A-INT-46 | (f) `F` in edge mode right after a Bevel frames the bevel handle very close | The framing reads the post-bevel component selection (tiny new edges); needs a framing rule for a live topology-tool session | Frame the hilited mesh when the selection's bounds are below a minimum size |
+| M6A-INT-47 | (g) The quad layout's large HUD covers the model in each pane | A layout/design decision (compact HUD per pane size) | Compact HUD below a pane size, or HUD in the maximized pane only |
