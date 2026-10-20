@@ -20,6 +20,7 @@ import {
   topologyStats,
 } from '../../src';
 import { expandIndices, Mirror, mirrorPoint } from '../../src/ops/extrude/shared/symmetry';
+import { READY } from '../ready';
 import {
   combined,
   cylinderData,
@@ -30,7 +31,6 @@ import {
   topOf,
   vertexNear,
 } from './fixtures';
-import { READY } from '../ready';
 import {
   counts,
   ctxOf,
@@ -554,6 +554,65 @@ describe('Merge to Center under symmetry with the runtime’s expanded input (M6
     expect(counts(m)).toBe('7/11/6');
     expect(distanceToVertex(m, [0, 0.5, 0.5])).toBeLessThan(1e-6);
     expect(symmetryProblems(m)).toEqual([]);
+  });
+});
+
+// M6A-INT-49 (§5.14 merge rows): each side merges separately. The runtime hands Merge the expanded selection, so one
+// picked vertex arrives with its mirror; that pair is never "two vertices" for Always Merge for Two. A coincident pair
+// (a V-snap on both sides) gets partners from B2's map and merges together with its mirror.
+describe('Merge under symmetry: per side, coincident pairs partnered (M6A-INT-49)', () => {
+  const b2Ctx = (m: EditMesh) =>
+    ctxOf({
+      symmetry: buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY_XF, tolerance: 0.001 }),
+      preserveSeam: true,
+    });
+
+  /** A cube with two height spans whose (±0.5, 0, 0.5) vertices are snapped onto (±0.5, 0.5, 0.5). */
+  function snapped(): { readonly m: EditMesh; readonly a: number; readonly b: number } {
+    const m = editMeshFrom(primitive('cube', { subdivisionsHeight: 2 }));
+    m.begin('snap');
+    for (const x of [0.5, -0.5]) m.setPosition(vertexNear(m, [x, 0, 0.5]), x, 0.5, 0.5);
+    m.end();
+    const a = vertexNear(m, [0.5, 0.5, 0.5]);
+    const b = [...Array(m.counts.points).keys()].find((v) => {
+      const p = position(m, v);
+      return v !== a && Math.hypot(p[0] - 0.5, p[1] - 0.5, p[2] - 0.5) < 1e-9;
+    }) as number;
+    return { m, a, b };
+  }
+
+  it.skipIf(!READY.b2)('B2 pairs both coincident vertices of each side (no unmatched)', () => {
+    const { m, a, b } = snapped();
+    const map = buildSymmetryMap(m, { axis: 'x', space: 'object', placement: IDENTITY_XF, tolerance: 0.001 });
+    expect(map.unmatched).toBe(0);
+    for (const v of [a, b]) expect(position(m, map.vertex[v] as number)).toEqual([-0.5, 0.5, 0.5]);
+    expect(map.vertex[a]).not.toBe(map.vertex[b]);
+    // The swap rule keeps the topology: every edge has its mirror.
+    expect([...map.edge].filter((e) => e === -1)).toEqual([]);
+  });
+
+  it.skipIf(!READY.b2)('one picked vertex (with the runtime’s mirror) is not a merge pair: refused', () => {
+    const m = editMeshFrom(primitive('cube', { subdivisionsHeight: 2 }));
+    const v = vertexNear(m, [0.5, 0.5, 0.5]);
+    const p = vertexNear(m, [-0.5, 0.5, 0.5]);
+    runRefused(m, 'mesh.merge', sel(m, 'vertex', [v, p]), 'merge.nothing', { alwaysMergeTwo: true }, b2Ctx(m));
+    runRefused(m, 'mesh.merge', sel(m, 'vertex', [v]), 'merge.nothing', { alwaysMergeTwo: true }, b2Ctx(m));
+  });
+
+  it.skipIf(!READY.b2)('a coincident pair merges on both sides, picked or expanded', () => {
+    for (const expanded of [false, true]) {
+      const { m, a, b } = snapped();
+      const before = m.counts.points;
+      const ctx = b2Ctx(m);
+      const map = ctx.symmetry?.map as SymmetryMap;
+      const picks = expanded ? [a, b, map.vertex[a] as number, map.vertex[b] as number] : [a, b];
+      const result = runOk(m, 'mesh.merge', sel(m, 'vertex', picks), { alwaysMergeTwo: true }, ctx);
+      expect(m.counts.points).toBe(before - 2);
+      expect(result.warnings.filter((w) => w.code === 'symmetry.unmatched-partner')).toEqual([]);
+      const stats = topologyStats(m);
+      expect([stats.nonManifoldEdges, stats.nonManifoldVerts]).toEqual([0, 0]);
+      expect(symmetryProblems(m)).toEqual([]);
+    }
   });
 });
 

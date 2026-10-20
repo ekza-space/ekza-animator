@@ -13,17 +13,17 @@ import { refuse } from '../../refusal';
 import type { ComponentKind, ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';
 import {
+  bool,
+  guarded,
   isHiddenVert,
   num,
-  pos,
-  bool,
   opResult,
   pickOrder,
+  pos,
   resolveArgs,
   selected,
   selectionResult,
   touchedVerts,
-  guarded,
 } from '../extrude/shared/util';
 import { clusterByDistance, countWarning, mergeGroups, mergesAnything } from './clusters';
 import { MERGE, MERGE_BY_DISTANCE, MERGE_TO_CENTER } from './descriptor';
@@ -76,6 +76,19 @@ function ordered(group: readonly number[], priority: ReadonlyMap<number, number>
   return [...group].sort((a, b) => (priority.get(a) ?? Infinity) - (priority.get(b) ?? Infinity) || a - b);
 }
 
+/** The picks without the mirror partners of earlier picks (pick order kept; seam vertices are their own partner). */
+function oneSide(picked: readonly number[], mirror: NonNullable<ReturnType<typeof mirrorOf>>): number[] {
+  const kept = new Set<number>();
+  const out: number[] = [];
+  for (const v of picked) {
+    const p = mirror.partner('vertex', v);
+    if (p !== -1 && p !== v && kept.has(p)) continue;
+    kept.add(v);
+    out.push(v);
+  }
+  return out;
+}
+
 const pollMerge = pollSelection('merge.no-selection', 'Select vertices to merge');
 
 function runMerge(
@@ -92,10 +105,13 @@ function runMerge(
   const expanded = expandIndices(mirror, 'vertex', picked);
   const priority = new Map<number, number>(picked.map((v, i) => [v, i]));
   let groups = clusterByDistance(m, expanded.indices, Math.max(0, num(args, 'distance', 0.001)));
-  if (picked.length === 2 && bool(args, 'alwaysMergeTwo', true)) {
+  // One pick per mirror pair (§5.14: each side merges separately): the runtime expands the selection before the run,
+  // so a single picked vertex arrives with its mirror, and that pair is never "two vertices" to merge.
+  const sides = mirror === null ? picked : oneSide(picked, mirror);
+  if (sides.length === 2 && bool(args, 'alwaysMergeTwo', true)) {
     // The two picks merge whatever their distance, and so do their mirror images; groups that meet merge into one
     // (a pick on the seam joins both sides: one self-mirrored group, §5.14).
-    const [a, b] = picked as [number, number];
+    const [a, b] = sides as [number, number];
     const joins: [number, number][] = [[a, b]];
     if (mirror !== null) {
       const pa = mirror.partner('vertex', a);
