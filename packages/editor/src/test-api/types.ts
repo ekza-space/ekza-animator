@@ -134,4 +134,11 @@ export interface EkzaAnimatorTestApi {
   blobs(): { resident: number; residentBytes: number; historyBytes: number; journalBytes: number };
   /** INT (`m6a/integration.ts`; E2E-MOD-30) */
   setExpression(character: string, name: string, weight: number): void;
+  /** INT (additive, M6A-INT-17): a page rectangle's RGBA after a render, rows top-down; null off the pane. */
+  pixels(paneId: string, x: number, y: number, w: number, h: number): { width: number; height: number;
+    data: number[] } | null;
+  /** INT (additive, M6A-INT-17): a display-model node's world position as drawn (spring bones included). */
+  displayNodeWorld(character: string, node: string): [number, number, number] | null;
+  /** INT (additive, M6A-INT-17): the character's display model as drawn (a rebuild shows as new counts). */
+  displayModel(character: string): { meshes: number; vertices: number } | null;
 }

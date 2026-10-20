@@ -1759,6 +1759,12 @@ export interface EkzaAnimatorTestApi {
   blobs(): { resident: number; residentBytes: number; historyBytes: number; journalBytes: number };
   /** INT (`m6a/integration.ts`; E2E-MOD-30) */
   setExpression(character: string, name: string, weight: number): void;
+  /** INT (additive at INT, M6A-INT-17; E2E-MOD-30): a page rectangle's RGBA rows after a render; a display-model
+   *  node's world position as drawn (spring bones included) */
+  pixels(paneId: string, x: number, y: number, w: number, h: number): { width: number; height: number;
+    data: number[] } | null;
+  displayNodeWorld(character: string, node: string): [number, number, number] | null;
+  displayModel(character: string): { meshes: number; vertices: number } | null;   // as drawn (a rebuild shows)
 }
 ```
 

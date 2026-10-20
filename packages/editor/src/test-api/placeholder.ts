@@ -105,6 +105,9 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
     imagePlanes: () => notImplemented('imagePlanes'),
     blobs: () => notImplemented('blobs'),
     setExpression: () => notImplemented('setExpression'),
+    pixels: () => notImplemented('pixels'),
+    displayNodeWorld: () => notImplemented('displayNodeWorld'),
+    displayModel: () => notImplemented('displayModel'),
   };
   return {
     api,

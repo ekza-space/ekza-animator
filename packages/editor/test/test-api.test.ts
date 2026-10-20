@@ -397,7 +397,10 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     expect(api.pixel('pane-persp', 0, 0)).toEqual([0, 0, 0, 0]);
     // B7 landed (literal update): an unknown mesh has no ready runtime.
     expect(() => api.meshFaces('msh_A')).toThrow(/has no ready runtime/);
-    expect(() => api.setExpression('c', 'smile', 1)).toThrow(/INT/);
+    // INT landed (literal update): without a viewport the expression and node reads refuse; pixels answer null.
+    expect(() => api.setExpression('c', 'smile', 1)).toThrow(/No ViewportManager/);
+    expect(() => api.displayNodeWorld('c', 'Head')).toThrow(/No ViewportManager/);
+    expect(api.pixels('pane-persp', 0, 0, 4, 4)).toBeNull();
   });
 });
 

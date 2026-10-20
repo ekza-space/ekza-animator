@@ -40,6 +40,7 @@ import {
 import { controlForNode } from '@ekza-animator/rig';
 import {
   AmbientLight,
+  type BufferGeometry,
   type Camera,
   DirectionalLight,
   type Object3D,
@@ -620,6 +621,77 @@ export class ViewportManager {
     const out = new Uint8Array(4);
     gl.readPixels(x, y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, out);
     return [out[0] as number, out[1] as number, out[2] as number, out[3] as number];
+  }
+
+  /**
+   * The colours of a page rectangle (CSS px) after a render (test API `pixels`, E2E-MOD-30): RGBA rows top-down in
+   * drawing-buffer pixels, clipped to the canvas; null when nothing of it is on the canvas.
+   */
+  readPixels(
+    clientX: number,
+    clientY: number,
+    w: number,
+    h: number,
+  ): { readonly width: number; readonly height: number; readonly data: Uint8Array } | null {
+    if (this.disposed) return null;
+    const canvas = this.renderer.domElement;
+    const rect = canvas.getBoundingClientRect();
+    const gl = this.renderer.getContext();
+    const sx = gl.drawingBufferWidth / rect.width;
+    const sy = gl.drawingBufferHeight / rect.height;
+    const x0 = Math.max(0, Math.floor((clientX - rect.left) * sx));
+    const x1 = Math.min(gl.drawingBufferWidth, Math.ceil((clientX + w - rect.left) * sx));
+    const top = Math.max(0, Math.floor((clientY - rect.top) * sy));
+    const bottom = Math.min(gl.drawingBufferHeight, Math.ceil((clientY + h - rect.top) * sy));
+    if (x1 <= x0 || bottom <= top) return null;
+    this.dirty = true;
+    this.render(true);
+    const width = x1 - x0;
+    const height = bottom - top;
+    const raw = new Uint8Array(width * height * 4);
+    gl.readPixels(x0, gl.drawingBufferHeight - bottom, width, height, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+    // GL rows run bottom-up: flip to top-down.
+    const data = new Uint8Array(raw.length);
+    for (let row = 0; row < height; row++) {
+      data.set(raw.subarray((height - 1 - row) * width * 4, (height - row) * width * 4), row * width * 4);
+    }
+    return { width, height, data };
+  }
+
+  /**
+   * Sets a VRM expression's weight on a character's display model and applies it (test API `setExpression`,
+   * E2E-MOD-30). False when the character has no VRM display model or no such expression.
+   */
+  setExpression(character: CharacterId, name: string, weight: number): boolean {
+    const manager = this.sync.model(character)?.vrm?.expressionManager ?? null;
+    if (manager === null || manager.getExpression(name) === null) return false;
+    manager.setValue(name, weight);
+    manager.update();
+    this.invalidate();
+    return true;
+  }
+
+  /** A character's display model as drawn: its meshes and their vertices (a rebuild shows as a new count). */
+  displayModelInfo(character: CharacterId): { readonly meshes: number; readonly vertices: number } | null {
+    const root = this.sync.model(character)?.root ?? null;
+    if (root === null) return null;
+    let meshes = 0;
+    let vertices = 0;
+    root.traverse((object) => {
+      const geometry = (object as { readonly isMesh?: boolean; readonly geometry?: BufferGeometry }).geometry;
+      if ((object as { readonly isMesh?: boolean }).isMesh !== true || geometry === undefined) return;
+      meshes++;
+      vertices += geometry.getAttribute('position')?.count ?? 0;
+    });
+    return { meshes, vertices };
+  }
+
+  /** World position of a display-model node by name, as last drawn (springs included); null without one. */
+  displayNodeWorld(character: CharacterId, name: string): [number, number, number] | null {
+    const node = this.sync.model(character)?.root.getObjectByName(name) ?? null;
+    if (node === null) return null;
+    const e = node.matrixWorld.elements;
+    return [e[12], e[13], e[14]];
   }
 
   /** Whether a mesh is under a pane point: a character mesh or a mesh-view surface (marking menus' `when.over`). */
