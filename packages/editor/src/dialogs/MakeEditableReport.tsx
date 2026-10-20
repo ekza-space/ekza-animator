@@ -16,22 +16,16 @@ import { count } from './format';
  * the mesh's runtime is not ready.
  */
 function useMeshCheck(app: EditorApp, mesh: MeshId | null): readonly CheckRow[] | null {
-  const read = (): readonly CheckRow[] | null => {
-    if (mesh === null) return null;
-    try {
-      const problems = meshProblems(app, mesh);
-      return problems === null ? null : checkRows(problems).filter((row) => row.code !== 'open-border');
-    } catch {
-      return null;
-    }
-  };
-  const [rows, setRows] = useState(read);
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `read` closes over app and mesh only
-  useEffect(() => {
-    setRows(read());
-    return app.meshes.subscribe(() => setRows(read()));
-  }, [app, mesh]);
-  return rows;
+  // Re-render on every mesh runtime change; the rows are read during render.
+  const [, setVersion] = useState(0);
+  useEffect(() => app.meshes.subscribe(() => setVersion((v) => v + 1)), [app]);
+  if (mesh === null) return null;
+  try {
+    const problems = meshProblems(app, mesh);
+    return problems === null ? null : checkRows(problems).filter((row) => row.code !== 'open-border');
+  } catch {
+    return null;
+  }
 }
 
 export function MakeEditableReportDialog(): JSX.Element {

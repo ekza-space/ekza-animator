@@ -664,14 +664,14 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
             />
             Soft Select (B)
           </label>
-          <label className="flex items-center justify-between gap-2">
-            <span>Radius (m)</span>
+          <div className="flex items-center justify-between gap-2">
+            <label htmlFor="mtk-soft-radius">Radius (m)</label>
             <RadiusField
               radius={soft.radius}
               onKeyDown={releaseOnEnter}
               onValue={(value) => run('model.softSelect.set', { radius: value })}
             />
-          </label>
+          </div>
           <div className="flex items-center gap-1">
             {(['volume', 'surface'] as const).map((falloff) => (
               <button
@@ -783,6 +783,7 @@ function RadiusField({
       className={cn(INPUT, 'w-28')}
       step={0.05}
       min={0}
+      id="mtk-soft-radius"
       data-testid="mtk-soft-radius"
       onKeyDown={onKeyDown}
       value={draft ?? String(Math.round(radius * 100) / 100)}

@@ -93,7 +93,7 @@ function editableRecord(id: MeshId, character: CharacterId, asset: string): Mesh
     placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
     pivot: [0, 0, 0],
     source: { asset: asset as never, mesh: 0 },
-    data: { manifest: 'b'.repeat(64), rev: 1, base: null, joints: [] } as never,
+    data: { manifest: 'b'.repeat(64), rev: 1, base: null, joints: [] },
     faceted: false,
     generator: null,
     palette: null,

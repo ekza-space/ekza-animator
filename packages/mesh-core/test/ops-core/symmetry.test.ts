@@ -597,6 +597,7 @@ describe('Merge under symmetry: per side, coincident pairs partnered (M6A-INT-49
     const p = vertexNear(m, [-0.5, 0.5, 0.5]);
     runRefused(m, 'mesh.merge', sel(m, 'vertex', [v, p]), 'merge.nothing', { alwaysMergeTwo: true }, b2Ctx(m));
     runRefused(m, 'mesh.merge', sel(m, 'vertex', [v]), 'merge.nothing', { alwaysMergeTwo: true }, b2Ctx(m));
+    expect(m.counts.points).toBe(12);
   });
 
   it.skipIf(!READY.b2)('a coincident pair merges on both sides, picked or expanded', () => {
