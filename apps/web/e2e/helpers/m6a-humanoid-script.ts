@@ -8,25 +8,25 @@ import { expect, type Page } from '@playwright/test';
 import { createPrimitive, setMode } from './m6a-model';
 import { call, runOk } from './test-api';
 
-type Vec3 = readonly [number, number, number];
-type Kind = 'vertex' | 'edge' | 'face';
+export type Vec3 = readonly [number, number, number];
+export type Kind = 'vertex' | 'edge' | 'face';
 
-const EPS = 1e-4;
+export const EPS = 1e-4;
 
-interface MeshView {
+export interface MeshView {
   readonly positions: readonly Vec3[];
   readonly faces: readonly (readonly number[])[];
   readonly edges: readonly (readonly [number, number])[];
 }
 
-async function view(page: Page, mesh: string): Promise<MeshView> {
+export async function view(page: Page, mesh: string): Promise<MeshView> {
   const positions = (await call(page, 'meshPositions', mesh)) as unknown as Vec3[];
   const faces = await call(page, 'meshFaces', mesh);
   const edges = (await call(page, 'meshEdges', mesh)).map((edge) => edge.v);
   return { positions, faces, edges };
 }
 
-function centroid(m: MeshView, face: number): Vec3 {
+export function centroid(m: MeshView, face: number): Vec3 {
   const verts = m.faces[face] ?? [];
   const sum = [0, 0, 0];
   for (const v of verts) for (let k = 0; k < 3; k++) sum[k] = (sum[k] ?? 0) + ((m.positions[v] as Vec3)[k] ?? 0);
@@ -34,7 +34,7 @@ function centroid(m: MeshView, face: number): Vec3 {
 }
 
 /** The unit Newell normal of a face. */
-function normal(m: MeshView, face: number): Vec3 {
+export function normal(m: MeshView, face: number): Vec3 {
   const verts = m.faces[face] ?? [];
   const n = [0, 0, 0];
   verts.forEach((v, i) => {
@@ -49,36 +49,36 @@ function normal(m: MeshView, face: number): Vec3 {
 }
 
 /** The faces matching `test` (by centroid and normal), in index order. */
-function facesWhere(m: MeshView, test: (c: Vec3, n: Vec3) => boolean): number[] {
+export function facesWhere(m: MeshView, test: (c: Vec3, n: Vec3) => boolean): number[] {
   return m.faces.flatMap((_, f) => (test(centroid(m, f), normal(m, f)) ? [f] : []));
 }
 
 /** The edges matching `test` (by their end points), in index order. */
-function edgesWhere(m: MeshView, test: (a: Vec3, b: Vec3) => boolean): number[] {
+export function edgesWhere(m: MeshView, test: (a: Vec3, b: Vec3) => boolean): number[] {
   return m.edges.flatMap(([a, b], e) => (test(m.positions[a] as Vec3, m.positions[b] as Vec3) ? [e] : []));
 }
 
 /** The one element of a non-empty list with the largest `key` (ties: the lower index). */
-function maxBy(list: readonly number[], key: (index: number) => number): number {
+export function maxBy(list: readonly number[], key: (index: number) => number): number {
   expect(list.length, 'a candidate exists').toBeGreaterThan(0);
   let best = list[0] as number;
   for (const index of list) if (key(index) > key(best) + EPS) best = index;
   return best;
 }
 
-async function select(page: Page, mesh: string, kind: Kind, indices: readonly number[]): Promise<void> {
+export async function select(page: Page, mesh: string, kind: Kind, indices: readonly number[]): Promise<void> {
   await setMode(page, kind);
   await runOk(page, 'select.components', { mesh, kind, indices, mode: 'replace' });
 }
 
-async function counts(page: Page, mesh: string): Promise<string> {
+export async function counts(page: Page, mesh: string): Promise<string> {
   const info = await call(page, 'meshInfo', mesh);
   return info === null
     ? 'none'
     : `${info.counts.v}/${info.counts.e}/${info.counts.f}, ${info.stats.boundaryLoops} border loops, ${info.stats.nonManifoldEdges + info.stats.nonManifoldVerts} non-manifold`;
 }
 
-const near = (a: number, b: number): boolean => Math.abs(a - b) <= EPS;
+export const near = (a: number, b: number): boolean => Math.abs(a - b) <= EPS;
 
 /** The record of the script's steps (the operators it ran), for the scenario's report. */
 export interface HumanoidRun {
