@@ -74,7 +74,9 @@ function useTweenTargetLabel(app: EditorApp, ref: { readonly current: HTMLElemen
         state.selection.channels !== previous.selection.channels ||
         state.tools.tweenTarget !== previous.tools.tweenTarget ||
         state.tools.keyTarget !== previous.tools.keyTarget ||
-        state.time.sceneFrame !== previous.time.sceneFrame ||
+        // While playing, the label would change on every frame and is not actionable; it updates when playback stops.
+        (state.time.sceneFrame !== previous.time.sceneFrame && !state.time.playing) ||
+        state.time.playing !== previous.time.playing ||
         state.activeCharacter !== previous.activeCharacter ||
         state.activeClip !== previous.activeClip
       ) {
@@ -282,7 +284,7 @@ export function TweenBar(props: { readonly panel: TweenPanel }): JSX.Element {
       </span>
       <button
         type="button"
-        className={cn(BUTTON, 'max-w-28 truncate')}
+        className={cn(BUTTON, 'w-24 justify-start truncate tabular-nums')}
         data-testid={`tween-target-${panel}`}
         aria-label="Tween target"
         aria-pressed={forced}
