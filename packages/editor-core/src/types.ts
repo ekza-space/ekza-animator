@@ -22,6 +22,7 @@ export type PanelKind = string;
 export const PANEL = {
   viewport: 'viewport', graph: 'graph', timeline: 'timeline', outliner: 'outliner', clips: 'clips',
   channelBox: 'channelBox', attributes: 'attributes', dopeSheet: 'dopeSheet',   // M2a: dopeSheet
+  toolkit: 'toolkit', palette: 'palette', meshCheck: 'meshCheck',                // M6a (Model workspace, §4.8)
 } as const;
 /** 'global' or a PanelKind. */
 export type KeyScope = string;

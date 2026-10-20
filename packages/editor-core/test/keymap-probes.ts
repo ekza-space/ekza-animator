@@ -62,10 +62,23 @@ export const PROBE_MODS: readonly ProbeMods[] = [
   { mod: true, alt: true, shift: true },
 ];
 
+/** The panels Animate shipped with on M2a (the recorded answers cover these; the Model-only panel kinds `PANEL` gained
+ *  at the M6a INT, M6A-B9-13, are never docked in Animate). */
+const M2A_PANELS: readonly string[] = [
+  PANEL.viewport,
+  PANEL.graph,
+  PANEL.timeline,
+  PANEL.outliner,
+  PANEL.clips,
+  PANEL.channelBox,
+  PANEL.attributes,
+  PANEL.dopeSheet,
+];
+
 /** Animate's scope chains: the shipped `<panel>` → `global` and the pointer outside every panel. */
 export const ANIMATE_CHAINS: readonly (readonly KeyScope[])[] = [
   [GLOBAL_SCOPE],
-  ...Object.values(PANEL).map((panel) => [panel, GLOBAL_SCOPE]),
+  ...M2A_PANELS.map((panel) => [panel, GLOBAL_SCOPE]),
 ];
 
 export const TRIGGERS: readonly KeyTrigger[] = ['press', 'tap', 'hold'];

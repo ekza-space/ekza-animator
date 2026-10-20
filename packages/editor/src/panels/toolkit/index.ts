@@ -5,15 +5,15 @@
 // lazily on the first Model entry, ./ModelOpsSlot.tsx). Called by `registerBuiltinPanels` (MVP-SPEC §3 convention 10:
 // owners register their panels there).
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { PanelKind } from '@ekza-animator/editor-core';
+import { PANEL, type PanelKind } from '@ekza-animator/editor-core';
 import { registerPaneOverlay, registerShellOverlay } from '../../overlays/slots';
 import type { PanelDef, PanelRegistry } from '../types';
 import { LastOpCard } from '../viewport/LastOpCard';
 import { ModelOpsSlot } from './ModelOpsSlot';
 import { ToolkitPanel } from './ToolkitPanel';
 
-/** The Toolkit's panel kind (B9's `MODEL_PANEL.toolkit`; `PANEL` gains it at INT, M6A-B9-13). */
-export const TOOLKIT_KIND: PanelKind = 'toolkit';
+/** The Toolkit's panel kind (`PANEL.toolkit` since INT, M6A-B9-13). */
+export const TOOLKIT_KIND: PanelKind = PANEL.toolkit;
 
 export const TOOLKIT_PANEL: PanelDef = {
   id: TOOLKIT_KIND,

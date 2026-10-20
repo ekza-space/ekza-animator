@@ -39,7 +39,7 @@ export const ANIMATE_SLOTS: readonly { readonly kind: PanelKind; readonly slot: 
 ];
 
 /** M6a panel kinds (§4.8 `PANEL` additions; registered by B10, B11, B13 as lazy chunks). */
-export const MODEL_PANEL = { toolkit: 'toolkit', palette: 'palette', meshCheck: 'meshCheck' } as const;
+export const MODEL_PANEL = { toolkit: PANEL.toolkit, palette: PANEL.palette, meshCheck: PANEL.meshCheck } as const;
 
 /** Dock slots of the Model workspace (§8.2): left Outliner, centre Viewport, right Toolkit (first tab) | Channel Box |
  *  Attributes | Palette, bottom Mesh Check (collapsed to its tab strip). The time slider is hidden. */
