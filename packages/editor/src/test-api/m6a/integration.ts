@@ -53,7 +53,7 @@ export function integrationTestApi(ctx: M6aTestApiContext): IntegrationTestApi {
     displayModel(ref) {
       ctx.sync();
       const info = viewport().displayModelInfo(character(ref));
-      return info === null ? null : { meshes: info.meshes, vertices: info.vertices };
+      return info === null ? null : { meshes: info.meshes, vertices: info.vertices, drawn: info.drawn };
     },
   };
 }

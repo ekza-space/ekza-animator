@@ -139,6 +139,7 @@ export interface EkzaAnimatorTestApi {
     data: number[] } | null;
   /** INT (additive, M6A-INT-17): a display-model node's world position as drawn (spring bones included). */
   displayNodeWorld(character: string, node: string): [number, number, number] | null;
-  /** INT (additive, M6A-INT-17): the character's display model as drawn (a rebuild shows as new counts). */
-  displayModel(character: string): { meshes: number; vertices: number } | null;
+  /** INT (additive, M6A-INT-17): the character's display model as drawn (a rebuild shows as new counts); `drawn`:
+   *  its meshes on the mesh layer (M6A-INT-50: Model hides the made-editable ones). */
+  displayModel(character: string): { meshes: number; vertices: number; drawn: number } | null;
 }

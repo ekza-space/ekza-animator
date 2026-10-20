@@ -43,9 +43,9 @@ import {
   type BufferGeometry,
   type Camera,
   DirectionalLight,
-  type Object3D,
   HemisphereLight,
   NoToneMapping,
+  type Object3D,
   OrthographicCamera,
   PerspectiveCamera,
   Raycaster,
@@ -70,7 +70,7 @@ import { measureSpatialBounds, pointBounds, type SpatialBounds, unionBounds } fr
 import { fitCameraFrame, fitOrthoHeight } from '../framing/fit';
 import { applyMainLayers, LAYER } from '../layers';
 import { type DragControl, type DragSession, dragControl, rotateDrag, translateDrag } from '../manipulators/drag';
-import { type ManipMode, ManipulatorKit, type ManipTarget, RING_RADIUS } from '../manipulators/ManipulatorKit';
+import { type ManipMode, type ManipTarget, ManipulatorKit, RING_RADIUS } from '../manipulators/ManipulatorKit';
 import { onScaleKitLoaded, requestScaleKit, scaleKit } from '../manipulators/scale/load';
 import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { NavigationController, NavState } from '../navigation/NavigationController';
@@ -672,18 +672,23 @@ export class ViewportManager {
   }
 
   /** A character's display model as drawn: its meshes and their vertices (a rebuild shows as a new count). */
-  displayModelInfo(character: CharacterId): { readonly meshes: number; readonly vertices: number } | null {
+  displayModelInfo(
+    character: CharacterId,
+  ): { readonly meshes: number; readonly vertices: number; readonly drawn: number } | null {
     const root = this.sync.model(character)?.root ?? null;
     if (root === null) return null;
     let meshes = 0;
     let vertices = 0;
+    let drawn = 0;
     root.traverse((object) => {
       const geometry = (object as { readonly isMesh?: boolean; readonly geometry?: BufferGeometry }).geometry;
       if ((object as { readonly isMesh?: boolean }).isMesh !== true || geometry === undefined) return;
       meshes++;
       vertices += geometry.getAttribute('position')?.count ?? 0;
+      // On the mesh layer: drawn (Model hides the meshes mesh-view draws, §5.23).
+      if (object.layers.isEnabled(LAYER.mesh)) drawn++;
     });
-    return { meshes, vertices };
+    return { meshes, vertices, drawn };
   }
 
   /** World position of a display-model node by name, as last drawn (springs included); null without one. */
