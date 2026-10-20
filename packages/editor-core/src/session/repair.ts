@@ -1,7 +1,7 @@
 // Session repair against the document: after a committed batch (or when an app opens a document) the session points
 // only at live records. Pure: returns the fields to change.
 import type { CharacterId, ClipId, DocumentStore, GroupId, MeshId } from '@ekza-animator/doc';
-import type { ModelSessionState, SceneObjectId, SessionState } from '../types';
+import type { ModelSessionState, SceneObjectId, SessionState, SymmetrySettings } from '../types';
 import { pruneSelection } from './selection';
 
 /** Characters in display order (fractional `order`, then id). */
@@ -108,6 +108,23 @@ export function repairModel(store: DocumentStore, model: ModelSessionState, caus
   }
   if (isolate !== null) next = { ...next, isolate };
   return next;
+}
+
+/**
+ * Template symmetry after a document load or open (acceptance fix round 1): symmetry is session state (§5.14, never
+ * saved), so a reopened project would come back with every mesh 'off'. A mesh directly in a Humanoid template group
+ * without a remembered entry takes Object X again, as when it was created there (§5.16); other meshes stay off. The
+ * model state is returned unchanged when nothing is added.
+ */
+export function templateSymmetry(store: DocumentStore, model: ModelSessionState, tolerance: number): ModelSessionState {
+  let next: Map<MeshId, SymmetrySettings> | null = null;
+  for (const mesh of store.list('meshes')) {
+    if (mesh.deleted !== null || mesh.parent === null || model.symmetry.has(mesh.id)) continue;
+    if (store.get('groups', mesh.parent as GroupId)?.template?.kind !== 'humanoid') continue;
+    next ??= new Map(model.symmetry);
+    next.set(mesh.id, { mode: 'object-x', tolerance, preserveSeam: true });
+  }
+  return next === null ? model : { ...model, symmetry: next };
 }
 
 function sameRecord(a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>): boolean {

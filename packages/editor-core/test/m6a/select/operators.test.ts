@@ -753,3 +753,86 @@ describe('Mesh Check options (§5.25)', () => {
     app.dispose();
   });
 });
+
+describe('acceptance fix round 1: walkers and additive picks store the picked side only (§5.6)', () => {
+  async function grid(): Promise<{ app: EditorApp; mesh: MeshId; data: MeshData }> {
+    const app = await modelApp();
+    const mesh = addMesh(app, 'msh_Grid', 'plane', { subdivisionsWidth: 6, subdivisionsHeight: 2 });
+    const data = app.meshes.get(mesh)?.data();
+    if (data === null || data === undefined) throw new Error('data');
+    withSymmetry(app, mesh, mirrorMapX(data));
+    selectObjects(app, [mesh]);
+    return { app, mesh, data };
+  }
+
+  it('an edge loop from a pick stores its own side; the mirrored loop is derived, not stored', async () => {
+    const { app, mesh, data } = await grid();
+    const [, v] = planeAxes(data);
+    await ok(app, 'select.mode', { mode: 'edge' });
+    // The column of edges at x = −1/3 (across the strip) and its mirror at x = +1/3.
+    const column = (x: number): number[] =>
+      edgesWhere(data, (a, b) => near(a[0], x) && near(b[0], x) && !near(a[v], b[v] as number));
+    const left = column(-1 / 3);
+    const right = column(1 / 3);
+    expect(left).toHaveLength(2);
+    expect(right).toHaveLength(2);
+    await ok(app, 'select.components', { mesh, kind: 'edge', indices: [left[0] as number], mode: 'replace' });
+    await ok(app, 'select.mesh.convert', { to: 'edge', mode: 'loop' });
+    expect(selected(app, mesh, 'edge')).toEqual(left);
+    const internals = componentInternals(app.components);
+    expect([...(internals?.expanded(mesh, 'edge')?.edges.toArray() ?? [])]).toEqual(
+      [...left, ...right].sort((a, b) => a - b),
+    );
+    app.dispose();
+  });
+
+  it('grow stores the picked side; the expansion still shows both', async () => {
+    const { app, mesh, data } = await grid();
+    await ok(app, 'select.mode', { mode: 'face' });
+    const leftEnd = facesWhere(data, (c) => (c[0] as number) < -0.4);
+    expect(leftEnd).toHaveLength(2);
+    await ok(app, 'select.components', { mesh, kind: 'face', indices: leftEnd, mode: 'replace' });
+    await ok(app, 'select.mesh.grow');
+    const stored = selected(app, mesh, 'face');
+    expect(stored.every((f) => facesWhere(data, (c) => (c[0] as number) < 0).includes(f))).toBe(true);
+    expect(stored).toHaveLength(4);
+    expect(componentInternals(app.components)?.expanded(mesh, 'face')?.faces.count()).toBe(8);
+    app.dispose();
+  });
+
+  it('an additive pick of a derived partner stores nothing new', async () => {
+    const { app, mesh, data } = await grid();
+    await ok(app, 'select.mode', { mode: 'face' });
+    const left = facesWhere(data, (c) => (c[0] as number) < -0.4)[0] as number;
+    const partner = componentInternals(app.components)?.partnerOf(mesh, 'face', left) ?? -1;
+    expect(partner).not.toBe(-1);
+    await ok(app, 'select.components', { mesh, kind: 'face', indices: [left], mode: 'replace' });
+    await ok(app, 'select.components', { mesh, kind: 'face', indices: [partner], mode: 'add' });
+    expect(selected(app, mesh, 'face')).toEqual([left]);
+    app.dispose();
+  });
+});
+
+describe('acceptance fix round 1: template symmetry survives a document load', () => {
+  it('a mesh in a Humanoid template group takes Object X again after a load; other meshes stay off', async () => {
+    const app = await modelApp();
+    app.store.transact({ label: 'Template' }, (tx) =>
+      tx.put('groups', makeTestGroup('grp_Human', { template: { kind: 'humanoid', params: {} } })),
+    );
+    const body = addMesh(app, 'msh_Body', 'cube', {}, { parent: 'grp_Human' as GroupId });
+    const prop = addMesh(app, 'msh_Prop', 'cube');
+    const snapshot = app.store.snapshot();
+    // A fresh session (a reload) remembers nothing; the load brings the template's symmetry back.
+    app.session.setState({ model: { ...app.session.getState().model, symmetry: new Map() } });
+    app.store.load(snapshot);
+    const symmetry = app.session.getState().model.symmetry;
+    expect(symmetry.get(body)?.mode).toBe('object-x');
+    expect(symmetry.get(body)?.tolerance).toBe(app.prefs.getState().modeling.symmetryTolerance);
+    expect(symmetry.has(prop)).toBe(false);
+    // An explicit choice made after the load is kept by later loads.
+    await ok(app, 'model.symmetry.set', { meshes: [body], mode: 'off' });
+    app.store.load(app.store.snapshot());
+    expect(app.session.getState().model.symmetry.get(body)?.mode).toBe('off');
+    app.dispose();
+  });
+});

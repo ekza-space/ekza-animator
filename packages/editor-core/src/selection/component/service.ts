@@ -611,7 +611,12 @@ export function createComponentSelectionService(deps: ComponentSelectionDeps): C
         for (const i of picks) toggleWithPartner(k.set, i, -1, true, order);
         break;
       case 'add':
-        for (const i of picks) if (!k.set.has(i)) toggleWithPartner(k.set, i, -1, true, order);
+        // A pick whose partner is stored is already selected (derived): additive gestures store the picked side only
+        // (§5.6), so the partner pair is never stored twice (acceptance fix round 1).
+        for (const i of picks) {
+          const p = partner(i);
+          if (!k.set.has(i) && !(p >= 0 && p !== i && k.set.has(p))) toggleWithPartner(k.set, i, -1, true, order);
+        }
         break;
       case 'remove':
         for (const i of picks) toggleWithPartner(k.set, i, partner(i), false, order);

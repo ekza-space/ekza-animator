@@ -115,6 +115,49 @@ function selectionOfSet(
 /** A kernel walker on one mesh's expanded selection. */
 type Walker = (kernel: MeshKernel, mesh: EditMesh, sel: ComponentSelection, hidden: HiddenSet) => ComponentSelection;
 
+/**
+ * The picked side of a walker result under symmetry (§5.6: "additive gestures store the picked side only (the partner
+ * is derived)"). `result` is the walker on the expanded selection (what the user sees and ops read); the stored part
+ * is its intersection with the walker on the stored picks alone (plus the picks themselves when the kind is kept), so
+ * a loop walked from a derived partner is not stored and does not come back as a pick of its own. Without symmetry
+ * the expanded selection is the stored one and `result` is returned as is (acceptance fix round 1: a one-sided Bridge
+ * of an arm onto the +X hole saw the −X hole loop as a third pick).
+ */
+function pickedSide(
+  app: EditorApp,
+  mesh: MeshId,
+  from: ComponentKind,
+  to: ComponentKind,
+  result: ComponentSelection,
+  walkStored: (stored: ComponentSelection) => ComponentSelection,
+): ComponentSelection {
+  const internals = internalsOf(app);
+  if (internals.mirrored(mesh, from) === null) return result;
+  let stored: ComponentSelection;
+  try {
+    stored = app.components.get(mesh, from);
+  } catch {
+    return result;
+  }
+  const own = setOf(walkStored(stored), to);
+  const picks = from === to ? setOf(stored, to) : null;
+  const all = setOf(result, to);
+  const keep = all.clone();
+  all.forEach((i) => {
+    if (!own.has(i) && picks?.has(i) !== true) keep.delete(i);
+  });
+  if (keep.equals(all)) return result;
+  const sizes = internals.sizes(mesh);
+  if (sizes === null) return result;
+  const reduced = selectionOfSet(kernelOf(), to, keep, sizes);
+  const order = result.order?.filter((i) => keep.has(i)) ?? null;
+  return {
+    ...reduced,
+    order: order === null || order.length === 0 ? reduced.order : order,
+    active: keep.has(result.active) ? result.active : reduced.active,
+  };
+}
+
 /** Runs a walker per open hilited mesh on its expanded selection of `from`; stores the result as `to`. */
 function walk(app: EditorApp, from: ComponentKind, to: ComponentKind, fn: Walker): void {
   const kernel = kernelOf();
@@ -123,8 +166,15 @@ function walk(app: EditorApp, from: ComponentKind, to: ComponentKind, fn: Walker
     for (const id of openHilite(app)) {
       const runtime = app.meshes.get(id);
       const sel = internals.expanded(id, from);
-      if (runtime?.mesh === null || runtime?.mesh === undefined || sel === null) continue;
-      internals.store(id, fn(kernel, runtime.mesh, sel, app.components.hidden(id)), to);
+      const mesh = runtime?.mesh;
+      if (mesh === null || mesh === undefined || sel === null) continue;
+      const hidden = app.components.hidden(id);
+      const result = fn(kernel, mesh, sel, hidden);
+      internals.store(
+        id,
+        pickedSide(app, id, from, to, result, (stored) => fn(kernel, mesh, stored, hidden)),
+        to,
+      );
     }
   });
 }
@@ -316,7 +366,11 @@ const selectLoop = defineOperator({
         }
         if (args.gesture === 'double')
           for (const id of hilite) if (id !== args.mesh) internals.clearKind(id, args.kind);
-        internals.store(args.mesh, result, args.kind);
+        const hidden = app.components.hidden(args.mesh);
+        const stored = pickedSide(app, args.mesh, args.kind, args.kind, result, (picks) =>
+          kernel.loopGesture(mesh, picks, args.kind, args.component, args.gesture, hidden),
+        );
+        internals.store(args.mesh, stored, args.kind);
       }),
     );
   },

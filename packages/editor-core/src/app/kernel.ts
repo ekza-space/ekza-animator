@@ -28,7 +28,7 @@ import { createRegistry } from '../registries/registry';
 import { defaultSession } from '../session/defaults';
 import { createSessionKeeper } from '../session/keeper';
 import { activeLocation, locateCharacter } from '../session/location';
-import { repairSession } from '../session/repair';
+import { repairSession, templateSymmetry } from '../session/repair';
 import { restoreSelection, restoreSelectionPart } from '../session/selection';
 import { createToolRegistry } from '../tools/registry';
 import type {
@@ -202,7 +202,20 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     capture,
     location: () => activeLocation(app),
   });
-  const keeper = createSessionKeeper({ store, session, deps, history, evaluation });
+  const keeper = createSessionKeeper({
+    store,
+    session,
+    deps,
+    history,
+    evaluation,
+    symmetryTolerance: () => prefs.getState().modeling.symmetryTolerance,
+  });
+  {
+    // An app opened on a stored document: template meshes take their Object X symmetry (acceptance fix round 1).
+    const model = session.getState().model;
+    const next = templateSymmetry(store, model, prefs.getState().modeling.symmetryTolerance);
+    if (next !== model) session.setState({ model: next });
+  }
 
   // ---------- wiring ----------
   /** Characters whose pose a document batch changes (null: all of them). */
