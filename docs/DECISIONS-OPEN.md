@@ -443,6 +443,32 @@ in [`wp-notes/m2a-integration.md`](wp-notes/m2a-integration.md). IDs are `M2A-<p
 built** (and the contract changes among them ratified into M2A-SPEC v0.3) unless the status says otherwise; the owner
 may override any of them.
 
+### Package records (consolidated 2026-10-20)
+
+Every package decision is recorded with its reasoning and tests in its wp-note and is accepted as built unless a row
+below says otherwise; this index points to them. Owner items and decisions that change behaviour across packages are
+repeated below.
+
+| Package | Record | IDs |
+|---|---|---|
+| B0a contracts, schema v3, stubs | [m6a-contracts-foundation](wp-notes/m6a-contracts-foundation.md) | M6A-B0A-1…29 (incl. the eager-allowance decision request) |
+| B0b keymap, menus | [m6a-keymap-menus](wp-notes/m6a-keymap-menus.md) | M6A-B0B-1…16 |
+| B1 mesh kernel | [m6a-mesh-kernel](wp-notes/m6a-mesh-kernel.md) | M6A-B1-1…17 |
+| B2 selection, symmetry maps | [m6a-mesh-select](wp-notes/m6a-mesh-select.md) | M6A-B2-1…18 |
+| B3 core ops | [m6a-mesh-ops-core](wp-notes/m6a-mesh-ops-core.md) | M6A-B3-1…27 |
+| B4 shape ops | [m6a-mesh-ops-shape](wp-notes/m6a-mesh-ops-shape.md) | M6A-B4-1…24 |
+| B5 bevel, Mesh Check, UV | [m6a-mesh-bevel-check-uv](wp-notes/m6a-mesh-bevel-check-uv.md) | M6A-B5-1…16 |
+| B6 mesh view, picking | [m6a-mesh-view](wp-notes/m6a-mesh-view.md) | M6A-B6-1…26 |
+| B7 runtime, blobs, undo budget | [m6a-mesh-runtime-doc](wp-notes/m6a-mesh-runtime-doc.md) | M6A-B7-1…27 |
+| B8 io, marker v2 | [m6a-mesh-io](wp-notes/m6a-mesh-io.md) | M6A-B8-1…17 |
+| B9 shell, workspaces | [m6a-shell-workspaces](wp-notes/m6a-shell-workspaces.md) | M6A-B9-1…27 |
+| B10 modes, selection UI | [m6a-model-select-ui](wp-notes/m6a-model-select-ui.md) | M6A-B10-1…24 |
+| B11 operators UI | [m6a-model-ops-ui](wp-notes/m6a-model-ops-ui.md) | M6A-B11-1…27 |
+| B12a transform tools | [m6a-model-transform-tools](wp-notes/m6a-model-transform-tools.md) | M6A-B12A-1…19 |
+| B12b topology tools | [m6a-model-topology-tools](wp-notes/m6a-model-topology-tools.md) | M6A-B12B-1…20 |
+| B13 content | [m6a-model-content](wp-notes/m6a-model-content.md) | M6A-B13-1…21 |
+| INT | [m6a-integration](wp-notes/m6a-integration.md) | M6A-INT-1…33 |
+
 ### Owner review items
 
 These trade a stated M2a promise for something measured, or need a product call. Each is built and tested as
@@ -716,6 +742,9 @@ override any of them. Merged into `dev` on 2026-10-20; not tagged: `v0.3.0` wait
 | M6A-B13-17 | Palette › Apply in object mode is one `mesh.paint` run per selected mesh (N steps) | Built | A whole-mesh form of `mesh.paint` or coalescing |
 | B12a feel check | Capture case (b) (a digit right after `⌘E`) and Component vs Maya's per-component Normal (§1.2, §12.1) | As specified; the owner's feel check is open | Per the owner |
 | §11.3 | **Owner demo script** | Not run by the owner yet; its steps are covered by E2E-MOD-01, -04, -05, -06, -10, -11, -12, -17, -18 and AS-LP-S | — |
+| B8 hand-over (m6a-mesh-io, open items 1–2) | **glTF validator and compressed meshes in the app**: `services.validate` is `null` in the browser (the validator worker is not wired), and Make editable refuses Draco/meshopt meshes because editor-core has no decoder service | Not wired; io's half is built and tested with an injected validator and decoder | Wire the validator worker (and decide whether animation exports validate too) and add a `decodeMesh` service field (a contract change) — M6b or a fix round |
+| B4/B5 hand-over | Local symmetry helpers in B4 and B5 instead of B2's maps (M6A-B4-2, M6A-B5-7) | Kept: same semantics, verified on B2's maps | A refactor onto B2's helpers in M6b |
+| B13 hand-over | Create › New model menu item | Not built: the start card shows on any empty Model scene | Add the menu item |
 
 ### Decisions copied from the packages (accepted as built)
 

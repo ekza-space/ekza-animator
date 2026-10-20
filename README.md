@@ -8,8 +8,8 @@ then bake the clips back into the original file — every original JSON value an
 preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem; usable on its own.
 
 > **Status: alpha — milestone M2a ("game-clip daily driver") is integrated and merged into `dev`** on top of the
-> accepted M1 alpha. **M6a (the modeling base) is integrated on `m6a/integration`** and waits for the owner's review
-> before it merges (see "What M6a is for").
+> accepted M1 alpha. **M6a (the modeling base) is merged into `dev`** (2026-10-20): a Model workspace for low-poly
+> box modeling (see "What M6a is for"); its `v0.3.0` tag waits for the owner's review.
 > `pnpm dev` opens the full editor at `/editor`: bundled samples or your own `.vrm`/`.glb`, circle controls with IK
 > legs in a split view, keying, the time slider, the Dope Sheet, the Graph Editor with tweens and buffer curves,
 > exports (bake into the model, VRMA, animation-only GLB, with optional key reduction), `.ekzanim` projects and
@@ -84,7 +84,7 @@ Maya's per-component Normal, Retain component spacing).
 
 ## Features
 
-| Area | Built (M1 alpha, **M2a**) | Planned |
+| Area | Built (M1 alpha, M2a, **M6a**) | Planned |
 |---|---|---|
 | Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
 | Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview; pose-preserving rotate-order change; **two-bone leg and arm IK with knee/elbow poles, soft IK, twist, IK/FK blend, match and seamless switch, a simple foot roll with pivots from the foot mesh, custom keyable attributes, imports written to IK feet, Add Limb IK for M1 rigs** | Constraints (M2c); space switching and "pole follows foot" (M5); stretch IK |
@@ -98,7 +98,7 @@ Maya's per-component Normal, Retain component spacing).
 | Projects | `.ekzanim` (zip with source models by SHA-256), JSON debug variant; **autosave to IndexedDB with crash recovery**; schema version 2 (M1 apps open IK projects read-only) | Merge-on-open (M3) |
 | Collaboration | Data model, store boundary and conformance suite — verified in CI against a test-only Yjs store | Live sessions with presence and claims (M3), accounts and permissions (M4b) |
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
-| Modeling | **M6a (on `m6a/integration`): Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; control shapes use the shared spline type | Skeletons and skinning for own models (M6b), UV editor (M6c), AI generation (M7), splines and generators (M8) |
+| Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; control shapes use the shared spline type | Skeletons and skinning for own models (M6b), UV editor (M6c), AI generation (M7), splines and generators (M8) |
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 

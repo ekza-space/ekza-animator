@@ -1,6 +1,6 @@
 # Ekza Animator — Roadmap
 
-Status: v0.9 (2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
+Status: v0.10 (2026-10-20: **M6a merged into `dev`**, [budgets](#m6a-budgets) re-measured there, `v0.3.0` pending the owner review; v0.9 2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
 accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
 with acceptance fix rounds 1–2 (M2A-INT-20…35), **released as `v0.2.0`**; **the modeling iteration
 is planned**: the old M6 "splines first" is replaced by M6a/M6b/M6c/M7 in [MODELING-PLAN.md](MODELING-PLAN.md), splines
@@ -24,7 +24,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M4a | Ekza T1/T3 (typed animation assets, publish, open from Ekza) | Planned | — | — | depends on M1 + other repos |
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
-| M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Integrated on `m6a/integration`** (2026-10-20); not merged into `dev`, tag `v0.3.0` pending | 2026-10-19 | — | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome; [budgets](#m6a-budgets-on-m6aintegration) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
+| M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
 | M6b | Characters from own models: skeleton, auto-skin, weights, VRM 1.0/GLB writer (turnkey) | Planned (plan v0.2) | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey); ≈ 43.5 (turnkey minimum ≈ 36); overlaps M6a; turnkey release ≈ 40–45 working days after M6a's B0a starts |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
@@ -76,23 +76,23 @@ cross-package tests are `READY`/`test.fixme` gates that turn on when the package
 
 | WP | Slug | Scope | Size | Depends on | Status |
 |---|---|---|---|---|---|
-| B0a | `contracts-foundation` | §4 contracts and stubs, schema v3 (seven tables, `CharacterRecord.source`, `AssetRecord.provenance`), mesh-core interfaces + reference `editMeshFrom`, `UndoManager.entries()`/`onEvict`, history selection parts, `ParamDef`, memory `BlobStore`, operator stubs, test-API types, dependencies | 3.5 | — (M2a release) | **Done** (merged into `m6a/integration`) |
-| B0b | `keymap-menus` | hierarchical key scopes, capture hook, every §7 keymap row, §8.3 menus, keymap conformance | 2 | B0a | **Done** (merged into `m6a/integration`) |
-| B1 | `mesh-kernel` | SoA kernel, layers, write log, Euler operators, validation, revisions, triangulation, normals, hard-flag helpers, primitives, arbitraries, goldens | 7 | B0a | **Done** (merged into `m6a/integration`) |
-| B2 | `mesh-select` | walkers and Maya's loop table, grow/shrink/convert, soft weights, symmetry partner maps, component transforms | 4 | B1 | **Done** (merged into `m6a/integration`) |
-| B3 | `mesh-ops-core` | extrude, inset, insert/offset loop, connect, merge family, delete family, fill hole, bridge | 8 | B1 | **Done** (merged into `m6a/integration`) |
-| B4 | `mesh-ops-shape` | mirror, symmetrize, normals ops, triangulate/quadrangulate, spin/flip, freeze, Multi-Cut, slide, average, MeshSetOps and remap helpers | 10 | B1 | **Done** (merged into `m6a/integration`) |
-| B5 | `mesh-bevel-check-uv` | bevel (1–3 segments), Mesh Check diagnostics and fixes, UV projections | 8.5 | B1 | **Done** (merged into `m6a/integration`) |
-| B6 | `mesh-view` | edit-mode overlays, static display, CPU picking, BVH lifecycle | 6.5 | B0a | **Done** (merged into `m6a/integration`) |
-| B7 | `mesh-runtime-doc` | `MeshRuntime`, MeshSetOp runner, `BlobStore` (IndexedDB, `.ekzanim`), GC, undo byte budget, autosave, conformance cases | 7 | B0a | **Done** (merged into `m6a/integration`) |
-| B8 | `mesh-io` | make editable, `meshToPrimitives`, surgeon "replace primitives" + marker v2, display rebuild, author writer, palette PNG, handheld profile, lints, provenance | 10 | B0a | **Done** (merged into `m6a/integration`) |
-| B9 | `shell-workspaces` | workspace tabs, marking menus, command palette, Scale tool, shading modes, overlay slots, size gates | 5.5 | B0a | **Done** (merged into `m6a/integration`) |
-| B10 | `model-select-ui` | modes and hilite, component selection UI, selection undo, hide/isolate, HUD, Mesh Check UI | 6.5 | B9, B6, B0b | **Done** (merged into `m6a/integration`) |
-| B11 | `model-ops-ui` | operator registration, Toolkit, Last-op card, INPUTS, adjust/repeat, numeric capture | 5.5 | B9, B7 | **Done** (merged into `m6a/integration`) |
-| B12a | `model-transform-tools` | component W/E/R, MMB-drag, Tweak, snapping, pivots, soft select, symmetry UI; owner feel check | 5 | B10, B11, B2 | **Done** (merged into `m6a/integration`) |
-| B12b | `model-topology-tools` | extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge tools; symmetric pointer args | 5 | B10, B11, B2, B3, B4 | **Done** (merged into `m6a/integration`) |
-| B13 | `model-content` | Outliner, palette and Paint Colour, primitives UI, templates, image planes, Make editable UI, Export dialog section | 7.5 | B1, B7, B8, B9 | **Done** (merged into `m6a/integration`) |
-| INT | `integration` | E2E-MOD-01/15/16/30/31, AS-LP-S, budgets, docs, owner demo; one fix round (≈ 4) | 6 | all | **Done** on `m6a/integration` ([notes](wp-notes/m6a-integration.md), M6A-INT-1…33); the owner demo and feel check open |
+| B0a | `contracts-foundation` | §4 contracts and stubs, schema v3 (seven tables, `CharacterRecord.source`, `AssetRecord.provenance`), mesh-core interfaces + reference `editMeshFrom`, `UndoManager.entries()`/`onEvict`, history selection parts, `ParamDef`, memory `BlobStore`, operator stubs, test-API types, dependencies | 3.5 | — (M2a release) | **Done** (on `dev`) |
+| B0b | `keymap-menus` | hierarchical key scopes, capture hook, every §7 keymap row, §8.3 menus, keymap conformance | 2 | B0a | **Done** (on `dev`) |
+| B1 | `mesh-kernel` | SoA kernel, layers, write log, Euler operators, validation, revisions, triangulation, normals, hard-flag helpers, primitives, arbitraries, goldens | 7 | B0a | **Done** (on `dev`) |
+| B2 | `mesh-select` | walkers and Maya's loop table, grow/shrink/convert, soft weights, symmetry partner maps, component transforms | 4 | B1 | **Done** (on `dev`) |
+| B3 | `mesh-ops-core` | extrude, inset, insert/offset loop, connect, merge family, delete family, fill hole, bridge | 8 | B1 | **Done** (on `dev`) |
+| B4 | `mesh-ops-shape` | mirror, symmetrize, normals ops, triangulate/quadrangulate, spin/flip, freeze, Multi-Cut, slide, average, MeshSetOps and remap helpers | 10 | B1 | **Done** (on `dev`) |
+| B5 | `mesh-bevel-check-uv` | bevel (1–3 segments), Mesh Check diagnostics and fixes, UV projections | 8.5 | B1 | **Done** (on `dev`) |
+| B6 | `mesh-view` | edit-mode overlays, static display, CPU picking, BVH lifecycle | 6.5 | B0a | **Done** (on `dev`) |
+| B7 | `mesh-runtime-doc` | `MeshRuntime`, MeshSetOp runner, `BlobStore` (IndexedDB, `.ekzanim`), GC, undo byte budget, autosave, conformance cases | 7 | B0a | **Done** (on `dev`) |
+| B8 | `mesh-io` | make editable, `meshToPrimitives`, surgeon "replace primitives" + marker v2, display rebuild, author writer, palette PNG, handheld profile, lints, provenance | 10 | B0a | **Done** (on `dev`) |
+| B9 | `shell-workspaces` | workspace tabs, marking menus, command palette, Scale tool, shading modes, overlay slots, size gates | 5.5 | B0a | **Done** (on `dev`) |
+| B10 | `model-select-ui` | modes and hilite, component selection UI, selection undo, hide/isolate, HUD, Mesh Check UI | 6.5 | B9, B6, B0b | **Done** (on `dev`) |
+| B11 | `model-ops-ui` | operator registration, Toolkit, Last-op card, INPUTS, adjust/repeat, numeric capture | 5.5 | B9, B7 | **Done** (on `dev`) |
+| B12a | `model-transform-tools` | component W/E/R, MMB-drag, Tweak, snapping, pivots, soft select, symmetry UI; owner feel check | 5 | B10, B11, B2 | **Done** (on `dev`) |
+| B12b | `model-topology-tools` | extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge tools; symmetric pointer args | 5 | B10, B11, B2, B3, B4 | **Done** (on `dev`) |
+| B13 | `model-content` | Outliner, palette and Paint Colour, primitives UI, templates, image planes, Make editable UI, Export dialog section | 7.5 | B1, B7, B8, B9 | **Done** (on `dev`) |
+| INT | `integration` | E2E-MOD-01/15/16/30/31, AS-LP-S, budgets, docs, owner demo; one fix round (≈ 4) | 6 | all | **Done** (on `dev`; branch `m6a/integration` merged 2026-10-20) ([notes](wp-notes/m6a-integration.md), M6A-INT-1…33); the owner demo and feel check open |
 
 ## Recommended order
 
@@ -196,23 +196,25 @@ M2a fixes the three misses with stated targets and mechanisms: M-1 in package A4
 package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B). **All three
 are met on `dev` after the M2a merge** ([M2a budgets](#m2a-budgets-on-dev)).
 
-### M6a budgets (on `m6a/integration`)
+### M6a budgets
 
-Measured 2026-10-20 on `m6a/integration` with `apps/web/e2e/bench/m6a-{budgets,mesh-view,transform}.bench.ts` (real
-Chrome, 1440×900 at DPR 2, Apple M4 Pro shared with other agents) and the packages' Node benches (their wp-notes).
-Report-only except the gates (§5.27).
+Re-measured 2026-10-20 on `dev` right after the M6a merge (and the full local gate) with
+`pnpm --filter web bench:budgets m6a-` (`apps/web/e2e/bench/m6a-{budgets,mesh-view,transform}.bench.ts`, real Chrome
+with the GPU, 1440×900 at DPR 2, Apple M4 Pro shared with other agents, load average 16–25); the packages' Node
+benches are in their wp-notes, and the `m6a/integration` measurements in
+[wp-notes/m6a-integration.md](wp-notes/m6a-integration.md). Report-only except the gates (§5.27).
 
-| Row | Budget | Measured |
-|---|---|---|
-| Idle in Model (20k tris, face mode) | 0 frames / 2 s (gate) | **0** ✓ (E2E-MOD-16, bench) |
-| Enter component mode, 50k tris | ≤ 40 ms | 34.2 ms ✓ |
-| Hover pick, 50k tris | ≤ 0.5 ms | p95 0.1 ms ✓ |
-| Marquee with occlusion | ≤ 16 ms (10k vertices) | **65 ms for 4,452 vertices incl. a frame — miss** (owner item, DECISIONS-OPEN §I) |
-| Drag 1,000 vertices / soft drag over 10k | ≤ 4 / ≤ 8 ms per frame | p95 2.5 / 6.7 ms ✓ |
-| Typical topology op end to end | ≤ 16 ms | extrude 100 faces 14.9 ms ✓; loop on a 200-quad ring 16.2 ms (at the line) |
-| Make editable / export one edited mesh | ≤ 150 / ≤ 50 ms | 64 / 15 ms ✓ |
-| Leaving Model with an edited Seed-san | ≤ 300 ms | 189 ms ✓ |
-| Editor route, first visit | 900,000 B gate | under the gate (integration notes "Size"); the +20,480 B eager allowance is an owner item |
+| Row | Budget | `dev` (2026-10-20) | `m6a/integration` |
+|---|---|---|---|
+| Idle in Model (20k tris, face mode) | 0 frames / 2 s (gate) | **0** ✓ (E2E-MOD-16, bench) | 0 ✓ |
+| Enter component mode, 50k tris | ≤ 40 ms | 32.7 ms ✓ | 34.2 ms |
+| Hover pick, 50k tris | ≤ 0.5 ms | p95 0.1 ms ✓ | p95 0.1 ms |
+| Marquee with occlusion | ≤ 16 ms (10k vertices) | **65 ms for 4,452 vertices incl. a frame — miss** (owner item, DECISIONS-OPEN §I) | 65 ms |
+| Drag 1,024 vertices / soft drag over 10k | ≤ 4 / ≤ 8 ms per frame | p95 2.4 / 6.6 ms ✓ | p95 2.5 / 6.7 ms |
+| Typical topology op end to end | ≤ 16 ms | extrude 100 faces 15.7 ms ✓; loop on a 200-quad ring 16.0 ms ✓ (at the line); undo of the extrude 14.9 ms | 14.9 / 16.2 ms |
+| Make editable / export one edited mesh | ≤ 150 / ≤ 50 ms | 56 / 11 ms ✓ | 64 / 15 ms |
+| Leaving Model with an edited Seed-san | ≤ 300 ms | 175 ms ✓ | 189 ms |
+| Editor route, first visit (`check:size`) | 900,000 B gate | **896,299 B** ✓ (headroom 3,701 B; +51,032 B over the M2a baseline 845,267 B, eager-delta gate not enforced) | 896,274 B |
 
 ### M2a budgets (on `dev`)
 
