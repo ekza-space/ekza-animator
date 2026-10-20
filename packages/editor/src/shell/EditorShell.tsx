@@ -10,7 +10,7 @@ import { useShell, useShellUi } from './context';
 import { HelpLine } from './HelpLine';
 import { MenuBar } from './MenuBar';
 import { StatusLine } from './StatusLine';
-import { TimelineRegion } from './TimelineRegion';
+import { TimelineRegion, useChromeShown } from './TimelineRegion';
 import { Toaster } from './Toaster';
 import { WorkspaceHost } from './WorkspaceHost';
 
@@ -42,16 +42,19 @@ function ShellOverlaysHost(): JSX.Element {
 }
 
 export function EditorShell(props: { readonly toasts: ToastNotifier | null }): JSX.Element {
+  // Layout presets (docs/LAYOUT-PRESETS.md): the tool strip and the help line can be hidden per workspace.
+  const toolbar = useChromeShown('toolbar');
+  const helpLine = useChromeShown('helpLine');
   return (
     <>
       <div className="relative z-(--z-chrome) flex h-full w-full flex-col" data-testid="editor-shell">
         <MenuBar />
-        <StatusLine />
+        {toolbar ? <StatusLine /> : null}
         <main className="relative min-h-0 flex-1" aria-label="Workspace">
           <WorkspaceHost />
         </main>
         <TimelineRegion />
-        <HelpLine />
+        {helpLine ? <HelpLine /> : null}
       </div>
       <DialogHost />
       <ShellOverlaysHost />

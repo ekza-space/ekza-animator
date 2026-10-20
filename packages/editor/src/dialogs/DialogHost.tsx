@@ -40,6 +40,7 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   // M6a (B13)
   makeEditableReport: () => import('./MakeEditableReport').then((m) => ({ default: m.MakeEditableReportDialog })),
   imagePlaneImport: () => import('./ImagePlaneImport').then((m) => ({ default: m.ImagePlaneImportDialog })),
+  layoutPresets: () => import('./LayoutPresetsDialog').then((m) => ({ default: m.LayoutPresetsDialog })),
 };
 
 const loadConfirm = (): Promise<Module<ConfirmProps>> =>
@@ -57,6 +58,7 @@ export const DIALOG_NAMES: Readonly<Record<ChunkKey, string>> = {
   recovery: 'Recovery dialog',
   makeEditableReport: 'Make editable report',
   imagePlaneImport: 'Image plane import dialog',
+  layoutPresets: 'Layout presets dialog',
   confirm: 'confirmation prompt',
 };
 

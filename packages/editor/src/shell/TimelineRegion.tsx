@@ -5,18 +5,26 @@ import type { JSX } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell, useShellUi } from './context';
+import type { ChromePart } from './layout';
 import { PanelFrame, RegisteredPanel } from './PanelFrame';
 import { panelDefOfKind } from './workspace';
 
 export const TIMELINE_INSTANCE = 'timeline';
 
-/** M6a (§8.2): whether the time slider shows in the active workspace (Model hides it; Windows › Timeline toggles). */
-export function useTimelineShown(): boolean {
+/** Whether a piece of chrome shows in the active workspace (its toggle, else its default: the time slider as the
+ *  workspace definition says, M6a §8.2; the tool strip and help line on). */
+export function useChromeShown(part: ChromePart): boolean {
   const { app } = useShell();
   const workspace = useSession((s) => s.workspace);
   const workspaces = useRegistryList(app.workspaces);
-  const toggled = useShellUi((s) => s.timeline[workspace]);
-  return toggled ?? workspaces.find((def) => def.id === workspace)?.timeline ?? true;
+  const toggled = useShellUi((s) => s.chrome[workspace]?.[part]);
+  if (toggled !== undefined) return toggled;
+  return part === 'timeline' ? (workspaces.find((def) => def.id === workspace)?.timeline ?? true) : true;
+}
+
+/** M6a (§8.2): whether the time slider shows in the active workspace (Model hides it; Windows › Timeline toggles). */
+export function useTimelineShown(): boolean {
+  return useChromeShown('timeline');
 }
 
 export function TimelineRegion(): JSX.Element | null {

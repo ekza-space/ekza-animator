@@ -171,7 +171,8 @@ export interface AutosaveStatus {
 // ---------- session (U state) ----------
 export type UiDialog = 'open' | 'import' | 'export' | 'shortcuts' | 'about' | 'firstRun' | 'preferences'
   | 'recovery'                                                    // M2a
-  | 'makeEditableReport' | 'imagePlaneImport';                    // M6a, changed (additive)
+  | 'makeEditableReport' | 'imagePlaneImport'                     // M6a, changed (additive)
+  | 'layoutPresets';                                              // layout presets (additive)
 
 export interface FeetPins { readonly character: CharacterId; readonly pins: readonly FootPin[] }
 export interface SessionState {
@@ -458,6 +459,8 @@ export interface MenuItemDef {
   readonly order: number;
   readonly label?: string;                                        // default: operator label
   readonly workspaces?: readonly WorkspaceId[]; readonly modes?: readonly ComponentMode[];   // M6a, changed
+  /** A check-box item (Windows › Toolbar): ticked while this answers true, read when the menu opens. Additive. */
+  readonly checked?: (app: EditorApp) => boolean;
 }
 export type Contribution =
   | { readonly kind: 'operator'; readonly def: OperatorDef<unknown, unknown, unknown> }

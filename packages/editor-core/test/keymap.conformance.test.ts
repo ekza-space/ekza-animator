@@ -38,6 +38,10 @@ const OTHER_PACKAGES: ReadonlySet<string> = new Set([
   'time.selectBand',
   'workspace.showPanel',
   'workspace.reset',
+  // layout presets (docs/LAYOUT-PRESETS.md)
+  'workspace.toggleFocus',
+  'workspace.preset.apply',
+  'view.toggleFullscreen',
 ]);
 
 const SCOPES_IN_USE = new Set(MAYA_KEYMAP.map((binding) => binding.scope));

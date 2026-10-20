@@ -255,6 +255,10 @@ const OTHERS: ReadonlySet<string> = new Set([
   // M2a: registered by the curve-editor contribution functions (M2A-SPEC §3 rule 2)
   'dopeSheet.frame',
   'graph.view.setMode',
+  // layout presets: registered by the shell (docs/LAYOUT-PRESETS.md)
+  'workspace.toggleFocus',
+  'workspace.preset.apply',
+  'view.toggleFullscreen',
 ]);
 
 /** The built-in menu data: the eager items and the Model items of the Model operators chunk (M6A-INT-13). */
