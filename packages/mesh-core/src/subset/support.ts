@@ -306,17 +306,6 @@ export function keptSelection(m: EditMesh, sel: ComponentSelection | null, kind:
   return { kind: sel.kind, verts, edges, faces, order: sel.order, active: sel.active };
 }
 
-/**
- * Rewrites −0 as +0 in every float layer of `domain` at `index`. The §5.2 mirror helpers negate an axis component, which
- * turns a zero into −0; stored values stay canonical (a mirrored-twice mesh hashes like the original).
- */
-export function positiveZeros(m: EditMesh, domain: 'point' | 'corner', index: number): void {
-  for (const layer of m.layers()) {
-    if (layer.def.domain !== domain || layer.def.type !== 'f32') continue;
-    for (let k = 0; k < layer.def.comps; k++) if (Object.is(layer.get(index, k), -0)) layer.set(index, k, 0);
-  }
-}
-
 // ---------- marks ----------
 
 /** Sets `TEMP_MARK` on edge `e` (logged; cleared by `collectMarkedEdges`). */

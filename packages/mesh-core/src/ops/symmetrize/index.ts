@@ -8,7 +8,7 @@
 // stay and are reported (`symmetrize.unmatched`, with the vertices for a selection action). Positions only.
 import type { ParamValues } from '@ekza-animator/anim-core';
 import { refuse } from '../../refusal';
-import { argsOf, keptSelection, positiveZeros, scopeVerts, str } from '../../subset/support';
+import { argsOf, keptSelection, scopeVerts, str } from '../../subset/support';
 import {
   mirrorOf,
   mirrorPlane,
@@ -97,7 +97,6 @@ export const symmetrize: MeshOp = Object.freeze({
       reflectPoint(mirror, p[3 * source] as number, p[3 * source + 1] as number, p[3 * source + 2] as number, at);
       writeIfMoved(target);
       mirrorPointLayers(m, mirror, source, target);
-      positiveZeros(m, 'point', target);
     }
     const warnings: OpWarning[] =
       unmatched.length === 0

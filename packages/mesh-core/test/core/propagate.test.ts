@@ -160,6 +160,19 @@ describe('corners, faces, edges', () => {
     expect(read(m, 'normal.custom', 4)).toEqual([-0.5, 0, 0]);
   });
 
+  it('a negated zero stays +0 (point and corner layers; revision hashes compare bytes, M6A-B4-18)', () => {
+    const m = mesh([BUILTIN_LAYERS.normalCustom]);
+    m.begin('mirror');
+    mirrorCornerAttributes(m, 0, 4, 'x');
+    m.end();
+    expect(Object.is(m.layer('normal.custom')?.get(4, 0), 0)).toBe(true);
+    const p = mesh([morphLayer('Blink_L'), morphLayer('Blink_R')]);
+    p.begin('zero');
+    mirrorPointAttributes(p, 1, 3, 'x');
+    p.end();
+    expect(Object.is(p.layer('morph:Blink_R')?.get(3, 0), 0)).toBe(true);
+  });
+
   it('faces copy layers and material; edges copy layers; defaults reset', () => {
     const m = mesh([BUILTIN_LAYERS.crease]);
     m.begin('seed');

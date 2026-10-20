@@ -411,7 +411,8 @@ export function mirrorPointAttributes(m: EditMesh, src: number, dst: number, axi
       write(layer, dst, value);
       return;
     }
-    if (def.mirror === 'negate-axis' && def.comps >= 3) value[k0] = -(value[k0] as number);
+    // `0 - x`, not `-x`: a stored 0 stays +0 (revision hashes compare bytes, M6A-B4-18).
+    if (def.mirror === 'negate-axis' && def.comps >= 3) value[k0] = 0 - (value[k0] as number);
     const target = partnerLayer(m, layer);
     for (let k = 0; k < def.comps; k++)
       target.set(dst, k, isInteger(target) ? Math.round(value[k] as number) : (value[k] as number));
@@ -434,7 +435,7 @@ export function mirrorCornerAttributes(
     const def = layer.def;
     layer.read(src, A);
     if (def.mirror === 'flip-u' && opts.flipUVs === true) A[0] = 1 - (A[0] as number);
-    if (def.mirror === 'negate-axis' && def.comps >= 3) A[k0] = -(A[k0] as number);
+    if (def.mirror === 'negate-axis' && def.comps >= 3) A[k0] = 0 - (A[k0] as number); // +0 stays +0
     write(layer, dst, A);
   }
 }

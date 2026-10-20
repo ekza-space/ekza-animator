@@ -29,7 +29,6 @@ import {
   faceVerts,
   guarded,
   num,
-  positiveZeros,
   resultSelection,
   str,
   vertEdges,
@@ -247,7 +246,6 @@ export const mirror: MeshOp = Object.freeze({
           plane.reflect(pos[3 * v] as number, pos[3 * v + 1] as number, pos[3 * v + 2] as number, OUT);
           const w = m.makeVert((OUT[0] as number) + 0, (OUT[1] as number) + 0, (OUT[2] as number) + 0);
           mirrorPointLayers(m, layerMirror, v, w);
-          positiveZeros(m, 'point', w);
           copyOf[v] = w;
         }
       }
@@ -262,7 +260,6 @@ export const mirror: MeshOp = Object.freeze({
         let c = m.faceCorner(g);
         for (const source of corners) {
           mirrorCornerLayers(m, layerMirror, source, c, { flipUVs });
-          positiveZeros(m, 'corner', c);
           c = m.cornerNext(c);
         }
         for (const source of faceCorners(m, f)) sourceEdges.add(m.cornerEdge(source));
