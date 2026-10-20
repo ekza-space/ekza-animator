@@ -1,4 +1,5 @@
-export { AUTORIG_VERSION, autoRig, readRigDefinition, writeRigDefinition } from './autorig/autoRig';
+export { AUTORIG_VERSION, autoRig } from './autorig/autoRig';
+export { readRigDefinition, writeRigDefinition } from './autorig/definition';
 export { compileRig } from './compile/compileRig';
 export { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, VRM_REQUIRED_BONES, VRM0_BONE_ALIASES } from './humanoid/bones';
 export { flipYawHumanLocal, humanoidRestWorldPositions } from './humanoid/rest';

@@ -1,6 +1,15 @@
 // Shortcut sheet (`?`, research 09 §7.1 rule 5): generated from the keymap's binding table, grouped by scope, with
-// the platform's labels. Operators that are not registered in this build are listed as unavailable.
-import { GLOBAL_SCOPE, type EditorApp, type KeyBinding, pickWalkDispatch } from '@ekza-animator/editor-core';
+// the platform's labels. Operators that are not registered in this build are listed as unavailable. M6a (B0b): the
+// Model scopes and the tool modifiers the viewport tools read while a key is held (M6A-SPEC §7).
+import {
+  GLOBAL_SCOPE,
+  type EditorApp,
+  type KeyBinding,
+  MODEL_SCOPE,
+  pickWalkDispatch,
+  TOOL_MODIFIERS,
+  toolModifierKeys,
+} from '@ekza-animator/editor-core';
 import { Dialog, DialogContent, Kbd, Search, TextInput } from '@ekza-animator/ui';
 import { type JSX, useMemo, useState } from 'react';
 import { useShell } from '../shell/context';
@@ -14,7 +23,24 @@ const SCOPE_LABEL: Readonly<Record<string, string>> = {
   channelBox: 'Channel Box',
   clips: 'Clips',
   attributes: 'Attributes',
+  [MODEL_SCOPE.model]: 'Model',
+  [MODEL_SCOPE.viewport]: 'Model viewport',
+  [MODEL_SCOPE.component]: 'Model viewport, component modes',
+  [MODEL_SCOPE.vertex]: 'Model viewport, vertex mode',
+  [MODEL_SCOPE.edge]: 'Model viewport, edge mode',
+  [MODEL_SCOPE.face]: 'Model viewport, face mode',
+  [MODEL_SCOPE.outliner]: 'Model Outliner',
 };
+
+/** Tool modifiers (§7): keys the Model viewport tools read while held or during a drag, not keymap rows. */
+export function toolModifierRows(app: EditorApp): ShortcutRow[] {
+  return TOOL_MODIFIERS.map((doc) => ({
+    scope: 'toolModifiers',
+    keys: toolModifierKeys(doc, app.keymap.platform),
+    label: `${doc.tool}: ${doc.text}`,
+    available: true,
+  }));
+}
 
 export interface ShortcutRow {
   readonly scope: string;
@@ -59,12 +85,15 @@ export function ShortcutsDialog(): JSX.Element {
   const shell = useShell();
   const [filter, setFilter] = useState('');
   const rows = useMemo(() => shortcutRows(shell.app), [shell]);
+  const modifiers = useMemo(() => toolModifierRows(shell.app), [shell]);
   const needle = filter.trim().toLowerCase();
   const visible =
     needle === '' ? rows : rows.filter((row) => `${row.keys} ${row.label}`.toLowerCase().includes(needle));
   const scopes = [...new Set(visible.map((row) => row.scope))].sort((a, b) =>
     a === GLOBAL_SCOPE ? -1 : b === GLOBAL_SCOPE ? 1 : a.localeCompare(b),
   );
+  const visibleModifiers =
+    needle === '' ? modifiers : modifiers.filter((row) => `${row.keys} ${row.label}`.toLowerCase().includes(needle));
 
   return (
     <Dialog
@@ -114,6 +143,23 @@ export function ShortcutsDialog(): JSX.Element {
               </table>
             </section>
           ))}
+          {visibleModifiers.length === 0 ? null : (
+            <section className="flex flex-col gap-1" data-testid="shortcuts-tool-modifiers">
+              <h3 className="text-ui font-semibold text-fg-2">Tool modifiers (Model viewport, while held)</h3>
+              <table className="w-full text-ui">
+                <tbody>
+                  {visibleModifiers.map((row) => (
+                    <tr key={`${row.keys}|${row.label}`} className="text-fg">
+                      <td className="w-48 py-0.5 pr-3 align-top">
+                        <Kbd>{row.keys}</Kbd>
+                      </td>
+                      <td className="py-0.5">{row.label}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </section>
+          )}
         </div>
       </DialogContent>
     </Dialog>

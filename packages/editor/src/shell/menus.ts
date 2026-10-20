@@ -1,13 +1,23 @@
 // Menu bar model (research 09 §4.1; ADR 0008): built from the menu registry, with enabled state from operator polls
 // and shortcut labels from the keymap. Pure functions over the EditorApp, so the React menu bar stays thin.
-import type {
-  EditorApp,
-  KeyBinding,
-  KeymapManager,
-  MenuItemDef,
-  OperatorId,
-  RunContext,
+//
+// M6a (M6A-SPEC §8.1, §8.3; B0b): menu sets per workspace. An item with `workspaces` is listed only there (items
+// without it everywhere), an item with `modes` only in those component modes; a workspace's `menus` order its menu
+// bar and drop the other known menus (Model shows no Key or Pose menu). Shortcut labels name the chord that runs the
+// item where the menu was opened (`Mod+Shift+E` for Export in Model, where `Mod+E` extrudes).
+import {
+  type EditorApp,
+  type KeyBinding,
+  type KeymapManager,
+  type KeyScope,
+  type MenuItemDef,
+  type OperatorId,
+  type RunContext,
+  resolveChord,
+  WORKSPACE,
+  type WorkspaceId,
 } from '@ekza-animator/editor-core';
+import { scopeChain } from '../input/keyboard';
 
 /** Menu-bar order and labels of known top-level menu ids; other ids follow before Windows and Help. */
 export const TOP_MENUS: readonly { readonly id: string; readonly label: string }[] = [
@@ -23,6 +33,14 @@ export const TOP_MENUS: readonly { readonly id: string; readonly label: string }
   { id: 'rig', label: 'Rig' },
   { id: 'view', label: 'View' },
   { id: 'display', label: 'Display' },
+  // M6a: Model's menus (§8.1); its `WorkspaceDef.menus` give their order there.
+  { id: 'create', label: 'Create' },
+  { id: 'modify', label: 'Modify' },
+  { id: 'mesh', label: 'Mesh' },
+  { id: 'edit-mesh', label: 'Edit Mesh' },
+  { id: 'mesh-tools', label: 'Mesh Tools' },
+  { id: 'mesh-display', label: 'Mesh Display' },
+  { id: 'uv', label: 'UV' },
   { id: 'windows', label: 'Windows' },
   { id: 'help', label: 'Help' },
 ];
@@ -36,6 +54,8 @@ export interface MenuItemView {
   readonly shortcut: string | null;
   /** null when enabled; otherwise the poll's reason (shown as the tooltip, research 09 §8.7). */
   readonly disabledReason: string | null;
+  /** A check-box item's state when the menu opened; null for a plain item. */
+  readonly checked: boolean | null;
 }
 
 export interface MenuSection {
@@ -62,25 +82,45 @@ const SUBMENU_LABELS: Readonly<Record<string, string>> = { 'rig.ik-fk': 'IK/FK' 
 /** Context menus ('timeline.context') are panel-owned and never shown in the menu bar. */
 const isContextMenu = (menu: string): boolean => menu.endsWith('.context') || menu === 'context';
 
-/** Top-level menus to show: the known ones that have items, then other registered ids, then Windows and Help. */
-export function topMenus(items: readonly MenuItemDef[]): readonly { readonly id: string; readonly label: string }[] {
+/** The menu bar's workspace: its id and, when registered, its menu set (`WorkspaceDef.menus`). */
+export interface MenuWorkspace {
+  readonly id: WorkspaceId;
+  readonly menus?: readonly string[] | undefined;
+}
+
+/** Listed in `workspace` (items without `workspaces` are listed everywhere). */
+export function inWorkspace(item: MenuItemDef, workspace: WorkspaceId): boolean {
+  return item.workspaces === undefined || item.workspaces.includes(workspace);
+}
+
+/**
+ * Top-level menus to show, in the workspace's menu-set order (default: Animate, ordered as `TOP_MENUS`): the known
+ * menus of the set that have items there, then other registered ids (extensions), then Windows and Help. Known menus
+ * outside the set are not shown.
+ */
+export function topMenus(
+  items: readonly MenuItemDef[],
+  workspace: MenuWorkspace = { id: WORKSPACE.animate },
+): readonly { readonly id: string; readonly label: string }[] {
   const present = new Set<string>();
   for (const item of items) {
-    if (isContextMenu(item.menu)) continue;
+    if (isContextMenu(item.menu) || !inWorkspace(item, workspace.id)) continue;
     present.add(item.menu.split('.')[0] ?? item.menu);
   }
-  const known = TOP_MENUS.filter((menu) => present.has(menu.id));
+  const order = workspace.menus ?? TOP_MENUS.map((menu) => menu.id);
+  const knownIds = new Set([...TOP_MENUS.map((menu) => menu.id), ...order]);
+  const labelOf = (id: string): string => TOP_MENUS.find((menu) => menu.id === id)?.label ?? titleCase(id);
   const seenLabels = new Set<string>();
   const out: { id: string; label: string }[] = [];
-  for (const menu of known.filter((m) => !TRAILING.has(m.id))) {
-    if (seenLabels.has(menu.label)) continue;
-    seenLabels.add(menu.label);
-    out.push(menu);
-  }
-  const knownIds = new Set(TOP_MENUS.map((menu) => menu.id));
-  for (const id of [...present].filter((menuId) => !knownIds.has(menuId)).sort())
-    out.push({ id, label: titleCase(id) });
-  for (const menu of known.filter((m) => TRAILING.has(m.id))) out.push(menu);
+  const push = (id: string): void => {
+    const label = labelOf(id);
+    if (seenLabels.has(label)) return;
+    seenLabels.add(label);
+    out.push({ id, label });
+  };
+  for (const id of order) if (!TRAILING.has(id) && present.has(id)) push(id);
+  for (const id of [...present].filter((menuId) => !knownIds.has(menuId)).sort()) push(id);
+  for (const id of order) if (TRAILING.has(id) && present.has(id)) push(id);
   return out;
 }
 
@@ -104,13 +144,27 @@ export function stableKey(value: unknown): string {
     .join(',')}}`;
 }
 
-/** Keyboard label of the binding that runs `op` with `args` (global scope preferred), e.g. 'Ctrl+Z' / '⌘Z'. */
-export function shortcutFor(keymap: KeymapManager, op: string, args: unknown): string | null {
+/**
+ * Keyboard label of the binding that runs `op` with `args`, e.g. 'Ctrl+Z' / '⌘Z'. With `scopes` (the chain where the
+ * menu was opened) a binding that a deeper scope shadows there is passed over for one that really runs the item;
+ * otherwise, and when none does, the global binding is preferred.
+ */
+export function shortcutFor(
+  keymap: KeymapManager,
+  op: string,
+  args: unknown,
+  scopes?: readonly KeyScope[],
+): string | null {
   const key = stableKey(args);
   let best: KeyBinding | null = null;
+  let live = false;
   for (const binding of keymap.bindings()) {
     if (binding.op !== op || stableKey(binding.args) !== key) continue;
-    if (best === null || (best.scope !== 'global' && binding.scope === 'global')) best = binding;
+    const runs = scopes !== undefined && resolveChord(keymap, binding.chord, scopes, binding.trigger) === binding;
+    if (best === null || (runs && !live) || (runs === live && best.scope !== 'global' && binding.scope === 'global')) {
+      best = binding;
+      live = runs;
+    }
   }
   if (best === null) return null;
   if (best.trigger === 'tap' || best.trigger === 'hold') {
@@ -143,7 +197,21 @@ function pollReason(app: EditorApp, item: MenuItemDef, ctx: RunContext): string 
   }
 }
 
-function sectionsOf(app: EditorApp, items: readonly MenuItemDef[], ctx: RunContext): MenuSection[] {
+function checkedOf(app: EditorApp, item: MenuItemDef): boolean | null {
+  if (item.checked === undefined) return null;
+  try {
+    return item.checked(app);
+  } catch {
+    return false;
+  }
+}
+
+function sectionsOf(
+  app: EditorApp,
+  items: readonly MenuItemDef[],
+  ctx: RunContext,
+  scopes: readonly KeyScope[],
+): MenuSection[] {
   const groups = new Map<string, MenuItemDef[]>();
   const seen = new Set<string>();
   const sorted = [...items].sort((a, b) => a.order - b.order);
@@ -164,20 +232,37 @@ function sectionsOf(app: EditorApp, items: readonly MenuItemDef[], ctx: RunConte
         label: itemLabel(app, item),
         op: item.op,
         args: item.args,
-        shortcut: shortcutFor(app.keymap, item.op, item.args),
+        shortcut: shortcutFor(app.keymap, item.op, item.args, scopes),
         disabledReason: pollReason(app, item, ctx),
+        checked: checkedOf(app, item),
       })),
     }));
 }
 
-/** Sections (by group, separated in the UI) and sub-menus of one top-level menu, polled in `ctx`. */
+/**
+ * Sections (by group, separated in the UI) and sub-menus of one top-level menu, polled in `ctx`: the items listed in
+ * the active workspace and component mode.
+ */
 export function menuContents(
   app: EditorApp,
   menuId: string,
   ctx: RunContext,
 ): { readonly sections: readonly MenuSection[]; readonly submenus: readonly SubmenuView[] } {
+  const session = app.session.getState();
+  const mode = session.model.componentMode;
+  const scopes = scopeChain(
+    app,
+    ctx.panel === undefined ? null : { kind: ctx.panel, scope: ctx.panel, paneId: ctx.paneId ?? null },
+  ).scopes;
   const ids = new Set(menuAliases(menuId));
-  const all = app.menus.list().filter((item) => !isContextMenu(item.menu));
+  const all = app.menus
+    .list()
+    .filter(
+      (item) =>
+        !isContextMenu(item.menu) &&
+        inWorkspace(item, session.workspace) &&
+        (item.modes === undefined || item.modes.includes(mode)),
+    );
   const own = all.filter((item) => ids.has(item.menu));
   const subIds = [
     ...new Set(
@@ -185,7 +270,7 @@ export function menuContents(
     ),
   ];
   return {
-    sections: sectionsOf(app, own, ctx),
+    sections: sectionsOf(app, own, ctx, scopes),
     submenus: subIds.map((id) => ({
       id,
       label: SUBMENU_LABELS[id] ?? titleCase(id.slice(id.indexOf('.') + 1)),
@@ -193,6 +278,7 @@ export function menuContents(
         app,
         all.filter((item) => item.menu === id),
         ctx,
+        scopes,
       ),
     })),
   };

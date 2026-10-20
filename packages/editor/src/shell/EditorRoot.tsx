@@ -2,7 +2,7 @@
 // the EditorApp, the shell core, the providers, the GL host and the workspace chrome; installs the window input
 // adapter, the first-run dialog and (e2e builds with ?e2e=1) the test API.
 import { seededIdSource, type IdSource } from '@ekza-animator/doc';
-import type { EditorApp, EditorServices } from '@ekza-animator/editor-core';
+import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-animator/editor-core';
 import { ToastProvider, TooltipProvider } from '@ekza-animator/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { GLHost } from '../gl/GLHost';
@@ -34,6 +34,8 @@ export interface EditorRootProps {
   readonly samplesPath?: string;
   /** The build allows e2e mode (NEXT_PUBLIC_EKZA_E2E=1); e2e mode itself needs `?e2e=1` as well. */
   readonly e2e?: boolean;
+  /** M6a (§3 rule 8): the mesh kernel validates after every commit (development builds; e2e mode turns it on too). */
+  readonly kernelDebug?: boolean;
   /** Overrides the URL parameters (harnesses and tests). */
   readonly params?: EditorParams;
   readonly panels?: PanelRegistry;
@@ -59,6 +61,7 @@ function boot(props: EditorRootProps): Boot {
     ...(params.ns === null ? {} : { storageNamespace: params.ns }),
     ...(params.storageBlocked ? { storageBlocked: true } : {}),
     pointerLock: params.pointerLock,
+    kernelDebug: props.kernelDebug === true || params.e2e,
     onDownload: (record) => shell?.exports.recordDownload(record),
     ...(props.createValidatorWorker === undefined ? {} : { createValidatorWorker: props.createValidatorWorker }),
   });
@@ -68,6 +71,12 @@ function boot(props: EditorRootProps): Boot {
   } catch (error) {
     console.error('Ekza Animator: the editor kernel could not start', error);
     return { kind: 'unavailable', error, params };
+  }
+  // M6a (M6A-SPEC §4.8, §5.17): the workspace opens as `ws=<id>` asks (any build), else as the user left it
+  // (`prefs.lastWorkspace`), through the switching rules of `workspace.set` (layout, tool, pick mask, pane memory).
+  const startIn = params.ws ?? app.prefs.getState().lastWorkspace;
+  if (app.workspaces.get(startIn)?.enabled === true && startIn !== app.session.getState().workspace) {
+    switchWorkspace(app, startIn);
   }
   if (params.e2e) {
     app.prefs.setState({

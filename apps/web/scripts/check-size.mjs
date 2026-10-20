@@ -7,10 +7,17 @@
 // decimal bytes. Fails above 900,000 B, or when a required lazy boundary's code is in the eager scripts; prints
 // every lazy chunk group with its size.
 //
-// Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>]
-import { existsSync, writeFileSync } from 'node:fs';
+// M6a (M6A-SPEC §5.27; B9): the eager-delta gate — the route may grow by at most the M6a allowance (+20,480 B) over
+// the recorded M2a baseline (`size-baseline.json`; enforced once the owner has decided the allowance, a warning
+// until then); the Model workspace chunk (the lazy groups entering Model loads: kernel, mesh view, marking menu)
+// warns above 250 kB; and with source maps in the build (`ANIMATOR_SOURCE_MAPS=1`) the eager scripts' bytes are
+// attributed to packages (the chunk attribution report, `attribute-chunks.mjs`).
+//
+// Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>] [--baseline <file>]
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { attributeFiles } from './attribute-chunks.mjs';
 import { kB, readRouteScripts } from './lib/route-scripts.mjs';
 
 /** CI gate: the §14 budget (decimal bytes, gzip -9). */
@@ -53,7 +60,59 @@ export const BOUNDARIES = [
   { id: 'dialog-open', label: 'dialog: Open', markers: ['-file-input'] },
   { id: 'test-api', label: 'e2e test API', markers: ['flushAutosave: '] },
   { id: 'path-browserify', label: 'path-browserify (loaded by the export path)', markers: ['Path must be a string.'] },
+  // M6A-SPEC §2 (B0a): the mesh kernel (mesh-core root: ops, editMeshFrom, triangulation, normals, revisions) and the
+  // mesh view (mesh-view, three-mesh-bvh) load on first need; their marker constants are referenced by every entry.
+  { id: 'mesh-kernel', label: 'mesh kernel (mesh-core)', markers: ['ekza-mesh-kernel'] },
+  { id: 'mesh-view', label: 'mesh view (mesh-view, three-mesh-bvh)', markers: ['ekza-mesh-view'] },
+  // M6A-SPEC §5.18 (B9): the drawings of the marking menu and the command palette load when first opened.
+  { id: 'marking-menu', label: 'marking menu drawing', markers: ['mm-slot-'] },
+  { id: 'command-palette', label: 'command palette list', markers: ['cmdk-input'] },
+  // M6A-INT-13/14 (§5.27): the Model operators chunk (definitions, polls and bodies of the Model-only operators, the
+  // Model menu items, the op descriptors) loads on the first Model entry; B10's selection service with the kernel.
+  { id: 'model-operators', label: 'Model operators', markers: ['Works on edges: enter edge mode first'] },
+  { id: 'component-selection', label: 'component selection service', markers: ['is not open for component edits'] },
 ];
+
+/** The recorded M2a baseline and the M6a eager allowance (`size-baseline.json`, §5.27). */
+export const BASELINE_FILE = join(dirname(fileURLToPath(import.meta.url)), 'size-baseline.json');
+
+/** Reads a size baseline file (null when there is none). */
+export function readBaseline(file = BASELINE_FILE) {
+  if (!existsSync(file)) return null;
+  return JSON.parse(readFileSync(file, 'utf8'));
+}
+
+/**
+ * The eager-delta check (§5.27): how far the measured route is above the recorded baseline, against the allowance.
+ * `over` is true above `baseline + allowance`; it fails the gate only when the baseline says `enforce` (production
+ * builds; an e2e build carries test routes and is never compared).
+ */
+export function eagerDelta(total, baseline, e2eBuild) {
+  if (baseline === null || baseline === undefined) return null;
+  const base = baseline.baseline?.total;
+  const allowance = baseline.eagerDelta?.allowance;
+  if (typeof base !== 'number' || typeof allowance !== 'number') return null;
+  const delta = total - base;
+  return {
+    baseline: base,
+    allowance,
+    limit: base + allowance,
+    delta,
+    over: delta > allowance,
+    enforced: baseline.eagerDelta?.enforce === true && !e2eBuild,
+    comparable: !e2eBuild,
+    pending: typeof baseline.eagerDelta?.pending === 'string' ? baseline.eagerDelta.pending : null,
+  };
+}
+
+/** The Model workspace chunk (§5.27): the lazy groups of the given boundaries, with the warning threshold. */
+export function modelChunk(lazy, baseline) {
+  const boundaries = baseline?.modelChunk?.boundaries ?? ['mesh-kernel', 'mesh-view', 'marking-menu'];
+  const groups = lazy.filter((group) => group.boundary !== null && boundaries.includes(group.boundary));
+  const bytes = groups.reduce((sum, group) => sum + group.bytes, 0);
+  const warnBytes = baseline?.modelChunk?.warnBytes ?? 250_000;
+  return { bytes, warnBytes, over: bytes > warnBytes, groups: groups.map((group) => group.boundary) };
+}
 
 /**
  * Lazy boundaries a browser's first visit loads before the empty state can be used: the editor opens the First-run
@@ -73,6 +132,7 @@ const has = (source, markers) => markers.some((marker) => source.includes(marker
 export function checkSize(nextDir, opts = {}) {
   const gate = opts.gate ?? GATE_BYTES;
   const target = opts.target ?? TARGET_BYTES;
+  const baseline = opts.baseline === undefined ? readBaseline() : opts.baseline;
   const route = readRouteScripts(nextDir, opts.route ?? 'editor');
   const initial = route.initial.map((file) => ({ file, bytes: route.sizes.get(file) ?? 0 }));
   const eager = initial.reduce((sum, { bytes }) => sum + bytes, 0);
@@ -92,11 +152,32 @@ export function checkSize(nextDir, opts = {}) {
   const firstVisit = lazy.filter((group) => group.boundary !== null && FIRST_VISIT.includes(group.boundary));
   const total = eager + firstVisit.reduce((sum, group) => sum + group.bytes, 0);
   const problems = [];
+  const warnings = [];
   if (route.missing.length > 0) problems.push(`initial scripts missing from the build: ${route.missing.join(', ')}`);
   if (total > gate)
     problems.push(`initial route ${total.toLocaleString('en')} B > gate ${gate.toLocaleString('en')} B`);
   for (const id of violations)
     problems.push(`lazy boundary broken: ${BOUNDARIES.find((b) => b.id === id)?.label} is in the initial route`);
+  const delta = eagerDelta(total, baseline, route.e2eBuild);
+  if (delta !== null && delta.over && delta.comparable) {
+    const text =
+      `M6a eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
+      `baseline > allowance +${delta.allowance.toLocaleString('en')} B (limit ${delta.limit.toLocaleString('en')} B)`;
+    if (delta.enforced) problems.push(text);
+    else warnings.push(`${text}; not enforced: ${delta.pending ?? 'the baseline file does not enforce it'}`);
+  }
+  const model = modelChunk(lazy, baseline);
+  if (model.over) {
+    warnings.push(
+      `Model workspace chunk ${model.bytes.toLocaleString('en')} B > ${model.warnBytes.toLocaleString('en')} B ` +
+        `(${model.groups.join(', ')})`,
+    );
+  }
+  let attribution = null;
+  if (opts.attribute !== false) {
+    const mapped = route.initial.filter((file) => /\/\/# sourceMappingURL=\S+\s*$/.test(route.sources.get(file) ?? ''));
+    if (mapped.length > 0) attribution = attributeFiles(nextDir, route, route.initial);
+  }
   return {
     e2eBuild: route.e2eBuild,
     initial,
@@ -108,7 +189,14 @@ export function checkSize(nextDir, opts = {}) {
     lazy,
     violations,
     present: BOUNDARIES.filter((boundary) => lazy.some((group) => group.boundary === boundary.id)).map((b) => b.id),
+    eagerDelta: delta,
+    modelChunk: model,
+    attribution:
+      attribution === null
+        ? null
+        : { packages: attribution.packages, unmappedChunks: attribution.unmappedChunks, total: attribution.total },
     problems,
+    warnings,
     ok: problems.length === 0,
   };
 }
@@ -138,6 +226,29 @@ function print(report) {
   const absent = BOUNDARIES.filter((b) => !report.present.includes(b.id) && !report.violations.includes(b.id));
   if (absent.length > 0)
     out(`boundaries not in this build (no marker anywhere): ${absent.map((b) => b.id).join(', ')}`);
+  const delta = report.eagerDelta;
+  if (delta !== null) {
+    out(
+      `M6a eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
+        `(allowance +${bytes(delta.allowance)}, limit ${bytes(delta.limit)}; ` +
+        `${delta.comparable ? (delta.enforced ? 'enforced' : 'not enforced yet') : 'e2e build: not compared'})`,
+    );
+  }
+  out(
+    `Model workspace chunk (lazy: ${report.modelChunk.groups.join(', ') || 'none in this build'}): ` +
+      `${bytes(report.modelChunk.bytes)} (warning above ${bytes(report.modelChunk.warnBytes)})`,
+  );
+  if (report.attribution === null) {
+    out('chunk attribution: build with ANIMATOR_SOURCE_MAPS=1 for the per-package report of the eager scripts');
+  } else {
+    out(
+      `chunk attribution of the eager scripts (gzip -9${report.attribution.unmappedChunks > 0 ? `; ${report.attribution.unmappedChunks} chunks without a map` : ''}):`,
+    );
+    for (const pkg of report.attribution.packages.slice(0, 12)) {
+      out(`  ${kB(pkg.gzip).padStart(10)}  ${pkg.pkg}`);
+    }
+  }
+  for (const warning of report.warnings) out(`WARN: ${warning}`);
   if (report.ok) {
     const headroom = report.gate - report.total;
     const verdict =
@@ -158,7 +269,10 @@ function main() {
   }
   let report;
   try {
-    report = checkSize(nextDir);
+    const baseline = args.includes('--baseline')
+      ? readBaseline(resolve(args[args.indexOf('--baseline') + 1]))
+      : undefined;
+    report = checkSize(nextDir, baseline === undefined ? {} : { baseline });
   } catch (error) {
     process.stderr.write(`check:size: ${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);

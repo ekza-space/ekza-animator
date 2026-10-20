@@ -8,7 +8,8 @@ then bake the clips back into the original file — every original JSON value an
 preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem; usable on its own.
 
 > **Status: alpha — milestone M2a ("game-clip daily driver") is integrated and merged into `dev`** on top of the
-> accepted M1 alpha.
+> accepted M1 alpha. **M6a (the modeling base) is merged into `dev`** (2026-10-20): a Model workspace for low-poly
+> box modeling (see "What M6a is for"); its `v0.3.0` tag waits for the owner's review.
 > `pnpm dev` opens the full editor at `/editor`: bundled samples or your own `.vrm`/`.glb`, circle controls with IK
 > legs in a split view, keying, the time slider, the Dope Sheet, the Graph Editor with tweens and buffer curves,
 > exports (bake into the model, VRMA, animation-only GLB, with optional key reduction), `.ekzanim` projects and
@@ -61,9 +62,41 @@ planted in the file. Chrome and Edge are the supported browsers; Firefox and
 Safari follow in V1. The first alpha (M1, `v0.1.0`) targeted in-place loops, emotes and blocking with FK legs and
 Pose › Plant Feet, which still works for FK legs.
 
+## What M6a is for
+
+M6a adds a **Model workspace** (the tab next to Animate) for **low-poly box modeling** with Maya's hands: component
+modes on `1`/`2`/`3` (or the RMB marking menu), Maya's loop and ring picks, marking menus on Shift+RMB, **Extrude on
+`⌘E`/`Ctrl+E`** as an adjustable session (drag the cap with W/E/R, change Divisions on the Last-op card, step back one
+drag at a time with undo), Insert Edge Loop, Multi-Cut, Bevel, Bridge, Merge/Target Weld, Slide, Mirror and
+Symmetrize, **symmetry remembered per mesh** (every tool mirrors), soft selection, snapping and pivots, the Modeling
+Toolkit with option boxes, `G` to repeat and `T` to type a value. Colour is a **palette slot per face** (Palette panel,
+Paint Colour), exported as one palette texture, vertex colours or one material per colour. Templates (a prop, a
+handheld item, humanoid guides and a body), reference image planes, a Poly Count HUD with budgets and a Mesh Check
+panel help a model stay game-ready. **Static GLB export** writes the model with Ekza's provenance block and the
+`ekza/omoba-handheld-v1` profile; imported characters can be **made editable** and baked back with their skin
+weights, expressions and MToon looks.
+
+Known gaps, said plainly: no subdivision preview, booleans, sculpting, UV editor or texture painting (M6c), no
+skeleton or skinning for your own models yet (M6b), no Live Mirror (Symmetry plus Mesh › Mirror instead), and the
+M6a-stretch items listed in the e2e report as `test.fixme` (Extrude Manifold, Select Similar, lasso, Poke, edge snap,
+ramp swatches, `.gpl` palettes, component pick-walk, selection constraints, unequal Bridge, Multi-Cut across faces,
+Maya's per-component Normal, Retain component spacing).
+
+## Focused layouts
+
+Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs/LAYOUT-PRESETS.md)):
+
+| Shortcut | What it does |
+|---|---|
+| `Ctrl+Space` or `Alt+0` (`⌥0`) | Focus mode: only the viewport, no tool strip or help line; again to restore exactly (macOS often takes `Ctrl+Space` for the input source, so use `⌥0` there) |
+| `Alt+1` … `Alt+4` | Built-in presets: Animate (default), Blocking (one viewport + time slider), Polish (viewport over a large Graph Editor), Review (viewport + playback only) |
+| `Shift+F` | Browser full screen (also Windows › Full Screen) |
+| Windows › Tool Strip / Help Line / Time Slider | Show or hide each piece of chrome in the current workspace |
+| Windows › Presets › Save Current Layout as… | Save your own preset (stored in the browser; rename or delete it from the same menu) |
+
 ## Features
 
-| Area | Built (M1 alpha, **M2a**) | Planned |
+| Area | Built (M1 alpha, M2a, **M6a**) | Planned |
 |---|---|---|
 | Open | `.glb`, `.vrm` (VRM 0.x and 1.0), drag-and-drop, bundled samples, `.vrma` as a clip, Draco/meshopt/KTX2 display; embedded clips imported at their own frame rate with key reduction | FBX/BVH/Mixamo with humanoid retarget, `.gltf` multi-file, humanoid mapping for generic rigs (M2b); animation-only GLB onto a character |
 | Control rig | Auto FK rig with circle controls sized from the mesh, offset groups (zero = rest), side colours, `root`/`cog`/hips controls; 1:1 FK rig for any skinned GLB; Pin/Plant Feet; VRM node constraints in the preview; pose-preserving rotate-order change; **two-bone leg and arm IK with knee/elbow poles, soft IK, twist, IK/FK blend, match and seamless switch, a simple foot roll with pivots from the foot mesh, custom keyable attributes, imports written to IK feet, Add Limb IK for M1 rigs** | Constraints (M2c); space switching and "pole follows foot" (M5); stretch IK |
@@ -77,7 +110,7 @@ Pose › Plant Feet, which still works for FK legs.
 | Projects | `.ekzanim` (zip with source models by SHA-256), JSON debug variant; **autosave to IndexedDB with crash recovery**; schema version 2 (M1 apps open IK projects read-only) | Merge-on-open (M3) |
 | Collaboration | Data model, store boundary and conformance suite — verified in CI against a test-only Yjs store | Live sessions with presence and claims (M3), accounts and permissions (M4b) |
 | Ekza | Space-compatible exports, slot vocabulary, provenance, registry-aligned lints, interop warnings | Upload as `ekza:animation` asset, one-click publish, open from Ekza (M4a) |
-| Modeling | Control shapes use the shared spline type; table and tool registries | Spline modeling, generators (M6) |
+| Modeling | **M6a: Model workspace, component modes, the box-modeling tool set with symmetry, soft selection, snapping, the extrude session, Last-op card and Toolkit, palette colour, templates, reference planes, HUD and Mesh Check, static GLB export, Make editable for imported characters**; control shapes use the shared spline type | Skeletons and skinning for own models (M6b), UV editor (M6c), AI generation (M7), splines and generators (M8) |
 
 Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 

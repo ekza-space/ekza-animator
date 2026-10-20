@@ -327,11 +327,13 @@ describe('Bevy path lints (M1-stretch)', () => {
 });
 
 describe('profiles and rules', () => {
-  it('ships the four ADR 0010 profiles as data', () => {
+  it('ships the four ADR 0010 profiles and the M6a handheld profile as data', () => {
     expect(BUILTIN_EXPORT_PROFILES.map((p) => p.id)).toEqual([
       'ekza/space-avatar-v1',
       'ekza/omoba-humanoid-v1',
       'ekza/vrma-humanoid-v1',
+      // M6A-SPEC §5.22 (B8): the static handheld-prop profile.
+      'ekza/omoba-handheld-v1',
       'local/generic',
     ]);
     expect(profile('ekza/omoba-humanoid-v1').requiredClips).toEqual(['idle', 'walk', 'attack', 'cast', 'death']);
@@ -356,6 +358,7 @@ describe('profiles and rules', () => {
     expect(ruleSeverity('ekza.slot-name', null)).toBe('warning');
     expect(ruleSeverity('ekza.non-redistributable', profile('ekza/space-avatar-v1'))).toBe('error');
     expect(ruleSeverity('rendition_animation', null)).toBeNull();
-    expect(LINT_RULES.every((rule) => /^[a-z_]+$|^[a-z]+\.[a-z-]+$/.test(rule.id))).toBe(true);
+    // M6A-SPEC §4.5 adds sub-namespaced codes (`mesh.budget.tris`, `ekza.handheld.grip`).
+    expect(LINT_RULES.every((rule) => /^[a-z_]+$|^[a-z]+(\.[a-z-]+)+$/.test(rule.id))).toBe(true);
   });
 });

@@ -13,7 +13,7 @@ import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';
 import type { KernelHistory } from '../history/history';
 import type { SessionState, SessionStore } from '../types';
 import { isDocumentLoad } from './loads';
-import { repairSession } from './repair';
+import { repairSession, templateSymmetry } from './repair';
 
 export interface SessionKeeper {
   dispose(): void;
@@ -25,6 +25,8 @@ export function createSessionKeeper(ctx: {
   readonly deps: KernelDeps;
   readonly history: KernelHistory;
   readonly evaluation: KernelEvaluation;
+  /** The preferences' symmetry tolerance (metres) a reloaded template mesh's Object X takes. */
+  readonly symmetryTolerance?: () => number;
 }): SessionKeeper {
   const { store, session, deps, history, evaluation } = ctx;
   /** `clip@frame` per character with an active clip. */
@@ -72,6 +74,11 @@ export function createSessionKeeper(ctx: {
     const cause = batch.origin !== 'load' ? 'commit' : isDocumentLoad(store, batch) ? 'load' : 'visibility';
     const patch = repairSession(store, session.getState(), cause);
     if (patch !== null) session.setState(patch);
+    if (cause === 'load' && ctx.symmetryTolerance !== undefined) {
+      const model = session.getState().model;
+      const next = templateSymmetry(store, model, ctx.symmetryTolerance());
+      if (next !== model) session.setState({ model: next });
+    }
     // Clip fps, range, scene start or loop may have moved a clip frame without a session change.
     if (
       batch.origin === 'load' ||

@@ -1,7 +1,7 @@
 // Session repair against the document: after a committed batch (or when an app opens a document) the session points
 // only at live records. Pure: returns the fields to change.
-import type { CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
-import type { SessionState } from '../types';
+import type { CharacterId, ClipId, DocumentStore, GroupId, MeshId } from '@ekza-animator/doc';
+import type { ModelSessionState, SceneObjectId, SessionState, SymmetrySettings } from '../types';
 import { pruneSelection } from './selection';
 
 /** Characters in display order (fractional `order`, then id). */
@@ -51,6 +51,8 @@ export function repairSession(
   }
   if (state.feetPins !== null && store.get('characters', state.feetPins.character) === undefined) patch.feetPins = null;
   if (state.hoverControl !== null && store.get('controls', state.hoverControl) === undefined) patch.hoverControl = null;
+  const model = repairModel(store, state.model, cause);
+  if (model !== state.model) patch.model = model;
   if (cause === 'load' || cause === 'open') {
     if (state.dirty) patch.dirty = false;
     const name = store.get('project', 'project')?.name;
@@ -59,6 +61,70 @@ export function repairSession(
     patch.dirty = true;
   }
   return Object.keys(patch).length === 0 ? null : patch;
+}
+
+/**
+ * M6a (M6A-SPEC §5.6; B10): the Model session points at live meshes and groups only (hilite, hidden objects, pane
+ * isolate sets); a document load ends component editing (object mode, no hilite) and clears hiding and isolation,
+ * which are per-user session state never saved with the document.
+ */
+export function repairModel(store: DocumentStore, model: ModelSessionState, cause: RepairCause): ModelSessionState {
+  if (cause === 'load') {
+    const reset =
+      model.componentMode !== 'object' ||
+      model.hilite.length > 0 ||
+      model.hiddenObjects.size > 0 ||
+      Object.keys(model.isolate).length > 0;
+    if (!reset) return model;
+    return {
+      ...model,
+      componentMode: 'object',
+      lastComponentMode: model.componentMode === 'object' ? model.lastComponentMode : model.componentMode,
+      hilite: [],
+      hiddenObjects: new Set(),
+      isolate: {},
+    };
+  }
+  const liveMesh = (id: string): boolean => {
+    const record = store.get('meshes', id as MeshId);
+    return record !== undefined && record.deleted === null && record.data !== null;
+  };
+  const liveObject = (id: string): boolean => {
+    const record = store.get('meshes', id as MeshId) ?? store.get('groups', id as GroupId);
+    return record !== undefined && record.deleted === null;
+  };
+  let next = model;
+  const hilite = model.hilite.filter(liveMesh);
+  if (hilite.length !== model.hilite.length) next = { ...next, hilite };
+  if ([...model.hiddenObjects].some((id) => !liveObject(id))) {
+    next = { ...next, hiddenObjects: new Set([...model.hiddenObjects].filter(liveObject)) };
+  }
+  let isolate: Record<string, readonly SceneObjectId[] | null> | null = null;
+  for (const [pane, list] of Object.entries(model.isolate)) {
+    if (list === null || list.every(liveObject)) continue;
+    isolate ??= { ...model.isolate };
+    const kept = list.filter(liveObject);
+    isolate[pane] = kept.length === 0 ? null : kept;
+  }
+  if (isolate !== null) next = { ...next, isolate };
+  return next;
+}
+
+/**
+ * Template symmetry after a document load or open (acceptance fix round 1): symmetry is session state (§5.14, never
+ * saved), so a reopened project would come back with every mesh 'off'. A mesh directly in a Humanoid template group
+ * without a remembered entry takes Object X again, as when it was created there (§5.16); other meshes stay off. The
+ * model state is returned unchanged when nothing is added.
+ */
+export function templateSymmetry(store: DocumentStore, model: ModelSessionState, tolerance: number): ModelSessionState {
+  let next: Map<MeshId, SymmetrySettings> | null = null;
+  for (const mesh of store.list('meshes')) {
+    if (mesh.deleted !== null || mesh.parent === null || model.symmetry.has(mesh.id)) continue;
+    if (store.get('groups', mesh.parent as GroupId)?.template?.kind !== 'humanoid') continue;
+    next ??= new Map(model.symmetry);
+    next.set(mesh.id, { mode: 'object-x', tolerance, preserveSeam: true });
+  }
+  return next === null ? model : { ...model, symmetry: next };
 }
 
 function sameRecord(a: Readonly<Record<string, string>>, b: Readonly<Record<string, string>>): boolean {

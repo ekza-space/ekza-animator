@@ -1,6 +1,8 @@
 # ADR 0013 — Editor history: document undo plus unkeyed session edits
 
-- Status: Accepted (2026-10-17, design review rev. 2)
+- Status: Accepted (2026-10-17, design review rev. 2). Extended 2026-10-19 by [ADR 0016](0016-modeling-interaction-paradigm.md)
+  D12 (a third, session-only step part for selection and hiding in the Model workspace; `onDrop`/`dropOldest` for
+  the mesh undo byte budget; contracts in [M6A-SPEC](../M6A-SPEC.md) §4.6); decisions 1–5 below are unchanged
 - Inputs: research [01](../research/01-maya-animation-features.md) §3.4 (KY-*, CB-02 "changed" state),
   [06](../research/06-collaboration.md) §9 (per-user patch undo), [08](../research/08-extensibility-modeling.md) §5.1,
   [09](../research/09-ui-ux-spec.md) §6.3 (undo granularity); ADR 0002; design review (animator lens).

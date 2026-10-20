@@ -1,12 +1,13 @@
 # Ekza Animator — Roadmap
 
-Status: v0.8 (2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
+Status: v0.10 (2026-10-20: **M6a merged into `dev`**, [budgets](#m6a-budgets) re-measured there, `v0.3.0` pending the owner review; v0.9 2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
+accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
 with acceptance fix rounds 1–2 (M2A-INT-20…35), **released as `v0.2.0`**; **the modeling iteration
 is planned**: the old M6 "splines first" is replaced by M6a/M6b/M6c/M7 in [MODELING-PLAN.md](MODELING-PLAN.md), splines
 move to M8, and the [recommended order](#recommended-order) puts modeling before collaboration; v0.8 applies the plan's
 design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: every merged milestone task updates it. Requirement IDs refer to
 [REQUIREMENTS.md](REQUIREMENTS.md); the MVP build plan is [MVP-SPEC.md](MVP-SPEC.md), the M2a build plan is
-[M2A-SPEC.md](M2A-SPEC.md). Sizes are rough
+[M2A-SPEC.md](M2A-SPEC.md), the M6a build plan is [M6A-SPEC.md](M6A-SPEC.md). Sizes are rough
 **agent-days** (one implementation agent working full time); calendar time depends on parallelism.
 
 ## Status
@@ -23,7 +24,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M4a | Ekza T1/T3 (typed animation assets, publish, open from Ekza) | Planned | — | — | depends on M1 + other repos |
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
-| M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | Planned (plan v0.2) | — | — | [MODELING-PLAN §4](MODELING-PLAN.md#4-m6a--modeling-base); ≈ 108 agent-days + a fix round, critical path ≈ 28 working days (≈ 31 with the fix round); ADRs 0014–0016 proposed; next after the M2a release |
+| M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
 | M6b | Characters from own models: skeleton, auto-skin, weights, VRM 1.0/GLB writer (turnkey) | Planned (plan v0.2) | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--characters-from-own-models-turnkey); ≈ 43.5 (turnkey minimum ≈ 36); overlaps M6a; turnkey release ≈ 40–45 working days after M6a's B0a starts |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
@@ -64,6 +65,34 @@ start together and build in parallel in their own worktrees (branches `m2a/<slug
 | A4 | `graph-posing` | Tween family (status line too), breakdown display, half-cycle mirror animation, buffer curves, normalized/stacked views, scale/region tool, M-1 (frame profile first) | A4 | 5.5 | Done (on `dev`; M-1 met, p95 3.2 ms on `dev`; E2E-M2A-15 ungated) | [notes](wp-notes/m2a-graph-posing.md); FR-KEY-08..09, FR-GE-18..20 |
 | A5 | `platform-perf` | M-2 lazy loading + size gate, M-3 curve evaluation, autosave + recovery, export key reduction | A5 | 5 | Done (on `dev`; M-2 gate in CI, M-3 met) | FR-PROJ-05, FR-EXP-12; [notes](wp-notes/m2a-platform-perf.md) |
 | INT | `integration` | Acceptance E2E-M2A-23/24 (walk and attack with leg IK), budgets, README/ROADMAP/REQUIREMENTS/DECISIONS, owner demo script | Integration | 3 | Done (on `dev`; branch `m2a/integration` with its fix round 1, merged last, M2A-INT-19; acceptance fix round 1 on `dev`, M2A-INT-20…33) | [notes](wp-notes/m2a-integration.md); gates turned into failures, M2A-INT-1…14; fix round 1 M2A-INT-15…18 (value scale, unit-aware Graph Editor fields, M2a-stretch fixmes and the mesh-pick hint, the demo walkthrough and the −0 handles it found); [acceptance fix round 1](wp-notes/m2a-integration.md#acceptance-fix-round-1-on-dev-m2a-int-2033) M2A-INT-20…33 |
+
+### M6a work-package status
+
+Packages, ownership and gates: [M6A-SPEC §9](M6A-SPEC.md#9-work-packages) (shared files in §9.1). B0a lands first;
+then B0b, B1, B6, B7, B8 and B9 start together; B2…B5 when B1 merges; B10 after B9, B6, B0b; B11 after B9, B7; B12a
+after B10, B11, B2; B12b after B10, B11, B2, B3, B4; B13 after B1, B7, B8, B9; INT after all. Branches `m6a/<slug>`;
+cross-package tests are `READY`/`test.fixme` gates that turn on when the package they need merges; merge order in
+[M6A-SPEC §11.1](M6A-SPEC.md#111-merge-order).
+
+| WP | Slug | Scope | Size | Depends on | Status |
+|---|---|---|---|---|---|
+| B0a | `contracts-foundation` | §4 contracts and stubs, schema v3 (seven tables, `CharacterRecord.source`, `AssetRecord.provenance`), mesh-core interfaces + reference `editMeshFrom`, `UndoManager.entries()`/`onEvict`, history selection parts, `ParamDef`, memory `BlobStore`, operator stubs, test-API types, dependencies | 3.5 | — (M2a release) | **Done** (on `dev`) |
+| B0b | `keymap-menus` | hierarchical key scopes, capture hook, every §7 keymap row, §8.3 menus, keymap conformance | 2 | B0a | **Done** (on `dev`) |
+| B1 | `mesh-kernel` | SoA kernel, layers, write log, Euler operators, validation, revisions, triangulation, normals, hard-flag helpers, primitives, arbitraries, goldens | 7 | B0a | **Done** (on `dev`) |
+| B2 | `mesh-select` | walkers and Maya's loop table, grow/shrink/convert, soft weights, symmetry partner maps, component transforms | 4 | B1 | **Done** (on `dev`) |
+| B3 | `mesh-ops-core` | extrude, inset, insert/offset loop, connect, merge family, delete family, fill hole, bridge | 8 | B1 | **Done** (on `dev`) |
+| B4 | `mesh-ops-shape` | mirror, symmetrize, normals ops, triangulate/quadrangulate, spin/flip, freeze, Multi-Cut, slide, average, MeshSetOps and remap helpers | 10 | B1 | **Done** (on `dev`) |
+| B5 | `mesh-bevel-check-uv` | bevel (1–3 segments), Mesh Check diagnostics and fixes, UV projections | 8.5 | B1 | **Done** (on `dev`) |
+| B6 | `mesh-view` | edit-mode overlays, static display, CPU picking, BVH lifecycle | 6.5 | B0a | **Done** (on `dev`) |
+| B7 | `mesh-runtime-doc` | `MeshRuntime`, MeshSetOp runner, `BlobStore` (IndexedDB, `.ekzanim`), GC, undo byte budget, autosave, conformance cases | 7 | B0a | **Done** (on `dev`) |
+| B8 | `mesh-io` | make editable, `meshToPrimitives`, surgeon "replace primitives" + marker v2, display rebuild, author writer, palette PNG, handheld profile, lints, provenance | 10 | B0a | **Done** (on `dev`) |
+| B9 | `shell-workspaces` | workspace tabs, marking menus, command palette, Scale tool, shading modes, overlay slots, size gates | 5.5 | B0a | **Done** (on `dev`) |
+| B10 | `model-select-ui` | modes and hilite, component selection UI, selection undo, hide/isolate, HUD, Mesh Check UI | 6.5 | B9, B6, B0b | **Done** (on `dev`) |
+| B11 | `model-ops-ui` | operator registration, Toolkit, Last-op card, INPUTS, adjust/repeat, numeric capture | 5.5 | B9, B7 | **Done** (on `dev`) |
+| B12a | `model-transform-tools` | component W/E/R, MMB-drag, Tweak, snapping, pivots, soft select, symmetry UI; owner feel check | 5 | B10, B11, B2 | **Done** (on `dev`) |
+| B12b | `model-topology-tools` | extrude session, smart extrude, Multi-Cut, Insert Edge Loop, Target Weld, Slide, Bridge tools; symmetric pointer args | 5 | B10, B11, B2, B3, B4 | **Done** (on `dev`) |
+| B13 | `model-content` | Outliner, palette and Paint Colour, primitives UI, templates, image planes, Make editable UI, Export dialog section | 7.5 | B1, B7, B8, B9 | **Done** (on `dev`) |
+| INT | `integration` | E2E-MOD-01/15/16/30/31, AS-LP-S, budgets, docs, owner demo; one fix round (≈ 4) | 6 | all | **Done** (on `dev`; branch `m6a/integration` merged 2026-10-20) ([notes](wp-notes/m6a-integration.md), M6A-INT-1…33); the owner demo and feel check open |
 
 ## Recommended order
 
@@ -166,6 +195,26 @@ Not measured: the Apple M1 reference laptop, Safari and Firefox (V1), and the Sw
 M2a fixes the three misses with stated targets and mechanisms: M-1 in package A4 (M2A-SPEC §5.21.1), M-2 and M-3 in
 package A5 (§5.21.2, §5.21.3, with a CI size gate at 900,000 B and an initial-route target of 800,000 B). **All three
 are met on `dev` after the M2a merge** ([M2a budgets](#m2a-budgets-on-dev)).
+
+### M6a budgets
+
+Re-measured 2026-10-20 on `dev` right after the M6a merge (and the full local gate) with
+`pnpm --filter web bench:budgets m6a-` (`apps/web/e2e/bench/m6a-{budgets,mesh-view,transform}.bench.ts`, real Chrome
+with the GPU, 1440×900 at DPR 2, Apple M4 Pro shared with other agents, load average 16–25); the packages' Node
+benches are in their wp-notes, and the `m6a/integration` measurements in
+[wp-notes/m6a-integration.md](wp-notes/m6a-integration.md). Report-only except the gates (§5.27).
+
+| Row | Budget | `dev` (2026-10-20) | `m6a/integration` |
+|---|---|---|---|
+| Idle in Model (20k tris, face mode) | 0 frames / 2 s (gate) | **0** ✓ (E2E-MOD-16, bench) | 0 ✓ |
+| Enter component mode, 50k tris | ≤ 40 ms | 32.7 ms ✓ | 34.2 ms |
+| Hover pick, 50k tris | ≤ 0.5 ms | p95 0.1 ms ✓ | p95 0.1 ms |
+| Marquee with occlusion | ≤ 16 ms (10k vertices) | **65 ms for 4,452 vertices incl. a frame — miss** (owner item, DECISIONS-OPEN §I) | 65 ms |
+| Drag 1,024 vertices / soft drag over 10k | ≤ 4 / ≤ 8 ms per frame | p95 2.4 / 6.6 ms ✓ | p95 2.5 / 6.7 ms |
+| Typical topology op end to end | ≤ 16 ms | extrude 100 faces 15.7 ms ✓; loop on a 200-quad ring 16.0 ms ✓ (at the line); undo of the extrude 14.9 ms | 14.9 / 16.2 ms |
+| Make editable / export one edited mesh | ≤ 150 / ≤ 50 ms | 56 / 11 ms ✓ | 64 / 15 ms |
+| Leaving Model with an edited Seed-san | ≤ 300 ms | 175 ms ✓ | 189 ms |
+| Editor route, first visit (`check:size`) | 900,000 B gate | **896,299 B** ✓ (headroom 3,701 B; +51,032 B over the M2a baseline 845,267 B, eager-delta gate not enforced) | 896,274 B |
 
 ### M2a budgets (on `dev`)
 
@@ -377,7 +426,8 @@ constraints in collaboration.
 ## M6 — Modeling (replaced 2026-10-18: polygons first)
 
 The old M6 ("Modeling, splines first") is replaced by a polygon-first sequence planned in
-[MODELING-PLAN.md](MODELING-PLAN.md) on research 10–16, with ADRs 0014–0017 (proposed) and the owner decisions of
+[MODELING-PLAN.md](MODELING-PLAN.md) on research 10–16, with ADRs 0014–0016 (accepted with the M6a spec) and 0017
+(proposed; its provenance items accepted with M6a) and the owner decisions of
 [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18). The owner's goal is a
 turnkey tool: model a low-poly character and a prop → rig and skin → animate → export to Ekza, with AI generation
 feeding the same pipeline later. Interaction model: Maya's (component modes, marking menus, Maya keys and names) with
@@ -385,6 +435,9 @@ Blender's semantics (adjust last operation, typed numbers in tools, live preview
 a BMesh-style kernel; no construction history (ADR 0016, ADR 0014).
 
 ### M6a — Modeling base (≈ 108 agent-days + a fix round)
+
+Build spec: [M6A-SPEC.md](M6A-SPEC.md) v1.0 (contracts, normative behaviours, operator table, keymap, UI placement,
+work packages, E2E-MOD-01…32, AS-LP-A/B); where it refines the plan, its §12.2 says why.
 
 **Deliverables**: Model workspace tab (Model › Rig & Skin › Animate › Review) with marking menus, command palette,
 viewport Scale tool and shading modes (pulled from M2c); `mesh-core` kernel (radial-edge structure of arrays, write
@@ -406,7 +459,8 @@ step with bake marker v2, edited characters re-displayed through the normal load
 **Packages**: B0a contracts, schema v3 and mesh-core interfaces → B0b keymap rows ‖ B1 kernel ‖ B6 mesh-view ‖ B7
 runtime + blobs ‖ B8 io ‖ B9 shell → B2…B5 (selection, core ops, shape ops + Multi-Cut + slide, bevel + Mesh Check +
 UV) and B10…B13 (selection UI, operators UI, B12a transform tools ‖ B12b topology tools, content) → INT → fix round
-([MODELING-PLAN §4.2](MODELING-PLAN.md#42-work-packages)); critical path ≈ 28 working days, ≈ 31 with the fix round.
+([M6A-SPEC §9](M6A-SPEC.md#9-work-packages), [status](#m6a-work-package-status)); critical path B0a → B1 → B4 → B12b → INT
+≈ 31.5 working days, ≈ 35.5 with the fix round (B12b waits for B3 and B4; 27.5 / 31 if it starts on READY gates).
 
 **Acceptance**: kernel property tests (validity, Euler characteristic, manifoldness, bit-exact undo, cross-runtime
 determinism, attribute propagation, all-hard preservation, symmetric tools) and the count oracles; E2E-MOD-01…32 in

@@ -1,0 +1,142 @@
+{
+  "extrude/cube-face": {
+    "counts": "12/20/10",
+    "manifest": "d10b98a2d3035e4529c544ad8ea695a9959c789a9fa6886bf9055577e3379a53"
+  },
+  "extrude/cube-face-divisions-2": {
+    "counts": "16/28/14",
+    "manifest": "a72b5f2c8cc4828473e0abec64ac20f36256e33479ed6024e8e1a87991d1fa17"
+  },
+  "extrude/cube-face-divisions-3": {
+    "counts": "20/36/18",
+    "manifest": "b86546a4fcf7ab62c5815aff239f4f2206290955706ed36355b4b4b842962ae0"
+  },
+  "extrude/two-faces-together": {
+    "counts": "14/24/12",
+    "manifest": "2a75d458c43d461ec3f83c94b3e1e5d2a9272abfc1d87e4b99950eb0b8b6e427"
+  },
+  "extrude/two-faces-individually": {
+    "counts": "16/28/14",
+    "manifest": "b5dd6547ee9847668a137bed88fe1aae2486ef1e51f77036f39bb2c84dfbe5cc"
+  },
+  "insertLoop/four-sides": {
+    "counts": "12/20/10",
+    "manifest": "8f2cd4d1ff599e76f4c7003d0de50dba18febb704a5dd61d8e4c90e3765bd73c"
+  },
+  "insertLoop/x-ring-symmetry-0.3": {
+    "counts": "16/28/14",
+    "manifest": "0cb56593a482f20013be9fa9915e9ae648ea5517e63ade26d08a192647de20b2"
+  },
+  "insertLoop/x-ring-symmetry-0.5": {
+    "counts": "12/20/10",
+    "manifest": "077222b9b270a0185b7f5295baa1bb98cb8c2ab1545b59870bd6815c6133f77f"
+  },
+  "insertLoop/cylinder-multiple-3": {
+    "counts": "40/72/34",
+    "manifest": "3ed5065c19f49de595d3738a0e35ae515cecaa272a468fb5e0d23b986f6f637c"
+  },
+  "delete/cube-edge": {
+    "counts": "8/11/5",
+    "manifest": "20a3b5ec76b5b37d4d567a242950fe0ec3ca0d02bde27e93545edb07df691ed0"
+  },
+  "deleteEdgeVertex/cube-edge": {
+    "counts": "6/9/5",
+    "manifest": "4ecb2181e81390dd9dc0fba9e5673985af22ed7874e7c5fe559d5e816c32a7bd"
+  },
+  "delete/cube-corner-refused": {
+    "counts": "8/12/6",
+    "manifest": "97cce91b103741a2ec83edd66b250a373afe26d2c0c172a4da7bfd314ff43718"
+  },
+  "deleteEdgeVertex/cube-corner": {
+    "counts": "7/9/4",
+    "manifest": "f50e79dae5932210a6a2b1df5dc4680431e8148c3c9cf298070376b93410cdf5"
+  },
+  "mergeToCenter/cube-top": {
+    "counts": "5/8/5",
+    "manifest": "2f1bf15862bfe08247958b41af855c51e21478d34edecd307a3a7b80ef7d664a"
+  },
+  "collapse/cube-edge": {
+    "counts": "7/11/6",
+    "manifest": "1a1bff7b9c001191ce6c54a4497b3d257d3d9b121deeebf53df56e68776e002c"
+  },
+  "targetWeld/cube-adjacent": {
+    "counts": "7/11/6",
+    "manifest": "f5f3393e5ddd1c08e9066a49a20350bcc794164b638fe6dc8ebc6490643ee681"
+  },
+  "mergeByDistance/half-cube-mirrored": {
+    "counts": "12/20/10",
+    "manifest": "f3ad04bb613535cdf2709cf62cceb280df237714cdc0d9bb03b2f28e09bae857"
+  },
+  "fillHole/open-cylinder-twice": {
+    "counts": "16/24/10",
+    "manifest": "234a1d4ee4973345349dbe19649a671cef719c06de5d8292d79681a0753cb85d"
+  },
+  "bridge/two-cylinders-divisions-2": {
+    "counts": "48/88/42",
+    "manifest": "d63bf3e63bea89d62311928e1c6818e8ff9e239f62ee40c7360cfe136b9aa3e5"
+  },
+  "mergeByDistance/two-planes": {
+    "counts": "6/7/2",
+    "manifest": "273b4b54a17d5ad6d78593e93a62140722bbfcb0f1101553e3c3daa2d9827002"
+  },
+  "extrude/sphere-region-transformed": {
+    "counts": "100/208/110",
+    "manifest": "d3cd45cab4652750b3267be1388fd2c2f314eb25b5b2579e831336630c5bb0bb"
+  },
+  "extrude/world-space-placed": {
+    "counts": "12/20/10",
+    "manifest": "9530686f1bc6e6aaac678789f44a5d052f0017bfa5be5466ce2fb60af714a3c3"
+  },
+  "extrude/border-edges": {
+    "counts": "14/21/8",
+    "manifest": "d5a00ba6b3ab9355c098690811457525de1bb208ac58e4f17c1624ec697e9855"
+  },
+  "extrude/symmetric-sides": {
+    "counts": "16/28/14",
+    "manifest": "5266c067056f1488b3779badc74c89a07ca0b2add4e921caf145ea6f84b73c55"
+  },
+  "inset/individual-even-clamped": {
+    "counts": "28/48/22",
+    "manifest": "83c90fa6df3d674f9bb0c870043e2901e491ed333430acd8f093be78322432a3"
+  },
+  "insertLoop/equal-torus": {
+    "counts": "84/168/84",
+    "manifest": "ece72f9313aa97ae441ef361d2b1470f6e42dcabb16e8e464e57ca5b403b398e"
+  },
+  "offsetLoop/tall-cube-middle": {
+    "counts": "20/36/18",
+    "manifest": "0dd5d0a33d436a5c0be27e56ace415992d40f185cdb2b33b0afb67416e58ec0e"
+  },
+  "connect/cube-ring": {
+    "counts": "12/20/10",
+    "manifest": "6d9619ffd068b0a36bab4c1d532569a3272532479a4a3203386db78d21f6439b"
+  },
+  "merge/sphere-pole-cluster": {
+    "counts": "83/174/93",
+    "manifest": "8ca3c88ff248ebdb9cdd80060d012735f2591035ce5b0acae215e635a4a20e43"
+  },
+  "bridge/two-cylinders-twist-taper": {
+    "counts": "56/104/50",
+    "manifest": "2d201f75d375557669b1b13b7dc7f22e82f6ce4124148f3bf2e37bd43315814c"
+  },
+  "deleteEdgeVertex/sphere-vertex": {
+    "counts": "85/176/93",
+    "manifest": "16474f714954495d1ca97ff0985359e6d943fc2f6411277681b2895db71c5709"
+  },
+  "script/22": {
+    "counts": "239/472/237",
+    "manifest": "5dbbdce8bb0b3c7075b544cce3a5c6b6ce5d84ebcc1366408f4202ed1f301c9f"
+  },
+  "script/33": {
+    "counts": "179/387/206",
+    "manifest": "86e847c6f27fe58b9316100af55ce3d26616e8fc880578061cb08c629377800d"
+  },
+  "script/44": {
+    "counts": "98/204/104",
+    "manifest": "894fcd5a189e868b71129945a46f3cbaa573276e3fd8f6f18642898de346ef8a"
+  },
+  "script/55": {
+    "counts": "105/206/100",
+    "manifest": "2611cb06f0799da8284f73a4cc38279a1e8a5e2fe8e8eae9f70317601f947191"
+  }
+}

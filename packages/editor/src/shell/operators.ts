@@ -13,8 +13,12 @@ import {
   type SelectionMask,
   type UiDialog,
 } from '@ekza-animator/editor-core';
+import type { StoreApi } from 'zustand/vanilla';
+import { CHROME_PARTS, type ChromePart } from './layout';
 import type {} from './operator-map';
-import type { WorkspaceApi } from './types';
+import type * as PresetOps from './presetOps';
+import { builtinPreset, type LayoutPresetStore, presetNameProblem } from './presets';
+import type { ShellUiState, WorkspaceApi } from './types';
 
 export const UI_DIALOGS: readonly UiDialog[] = [
   'open',
@@ -25,6 +29,11 @@ export const UI_DIALOGS: readonly UiDialog[] = [
   'firstRun',
   'preferences',
   'recovery',
+  // M6a (B13): the Make editable report and the reference image import (M6A-SPEC §4.6 UiDialog).
+  'makeEditableReport',
+  'imagePlaneImport',
+  // Layout presets (docs/LAYOUT-PRESETS.md): save, rename and delete the user's presets.
+  'layoutPresets',
 ];
 
 /** Dialogs whose implementation has not landed yet (none since M2a's Recovery dialog). */
@@ -52,12 +61,37 @@ const PREF_KEYS: ReadonlySet<string> = new Set([
   'virtualSlider',
   'exportReduce',
   'autosave',
+  // M6a (M6A-SPEC §4.6; B13): the first-run start workspace and the modeling preferences (palette recents).
+  'lastWorkspace',
+  'modeling',
 ]);
 
 export interface ShellOperatorDeps {
   readonly workspace: WorkspaceApi;
+  /** The shell's UI state (M6a: the time slider's visibility per workspace). */
+  readonly ui: StoreApi<ShellUiState>;
+  /** The user's layout presets (docs/LAYOUT-PRESETS.md). */
+  readonly presets: LayoutPresetStore;
+  /** The document whose Fullscreen API `view.toggleFullscreen` uses (default: the global document; null: none). */
+  readonly document?: Document | null;
   /** Called when the import dialog closes without importing (drops the pending file). */
   readonly onImportClosed: () => void;
+}
+
+type PresetOpsModule = typeof PresetOps;
+
+let presetOpsLoading: Promise<PresetOpsModule> | null = null;
+
+/** Loads the preset operators' bodies (`./presetOps`) once; a failed load is forgotten so the next run tries again. */
+function loadPresetOps(): Promise<PresetOpsModule> {
+  if (presetOpsLoading === null) {
+    const attempt = import('./presetOps');
+    presetOpsLoading = attempt;
+    attempt.catch(() => {
+      if (presetOpsLoading === attempt) presetOpsLoading = null;
+    });
+  }
+  return presetOpsLoading;
 }
 
 const ok: PollResult = true;
@@ -67,7 +101,10 @@ const fail = (reason: string): PollResult => ({ ok: false, reason });
 function pollDialog(app: EditorApp, dialog: UiDialog): PollResult {
   if (!UI_DIALOGS.includes(dialog)) return fail(`Unknown dialog '${String(dialog)}'`);
   if (PENDING_DIALOGS.has(dialog)) return fail('not available yet');
-  if (dialog === 'export' && app.store.list('characters').length === 0) return fail('Load a character to export');
+  // M6a (B13): the Export dialog's Static model section exports scene meshes without a character (§8.8).
+  if (dialog === 'export' && app.store.list('characters').length === 0 && app.store.list('meshes').length === 0) {
+    return fail('Load a character to export');
+  }
   // M2A-SPEC §5.20: File › Recover… needs the autosave store (the dialog lists its orphaned slots).
   if (
     dialog === 'recovery' &&
@@ -154,7 +191,7 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
   const resetWorkspace: OperatorDef = {
     id: 'workspace.reset',
     label: 'Reset Workspace',
-    description: 'Restore the default Animate layout.',
+    description: 'Restore the default layout of the current workspace.',
     category: 'view',
     scope: 'global',
     apply() {
@@ -187,9 +224,174 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     },
   };
 
-  return [toggleMaximize, open, close, setPrefs, resetWorkspace, showPanel, selectionMask].map(
-    (def) => ({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }) as const,
-  );
+  // M6a (§8.2): Windows › Timeline shows or hides the time slider in the current workspace (hidden in Model).
+  const toggleTimeline: OperatorDef = {
+    id: 'workspace.toggleTimeline',
+    label: 'Timeline',
+    description: 'Show or hide the time slider in this workspace.',
+    category: 'view',
+    scope: 'global',
+    apply() {
+      deps.workspace.setChrome('timeline', !deps.workspace.chrome().timeline);
+    },
+  };
+
+  // Layout presets (docs/LAYOUT-PRESETS.md): the chrome toggles, focus mode, presets and fullscreen.
+  const toggleChrome: OperatorDef<{ readonly part: ChromePart; readonly shown?: boolean }> = {
+    id: 'workspace.toggleChrome',
+    label: 'Show or Hide Chrome',
+    aliases: ['Hide toolbar', 'Show toolbar', 'Hide UI'],
+    description: 'Show or hide the tool strip, the help line or the time slider in this workspace.',
+    category: 'view',
+    scope: 'global',
+    poll: (_ctx, args) =>
+      CHROME_PARTS.includes(args.part)
+        ? ok
+        : fail(`expects { part: ${CHROME_PARTS.map((p) => `'${p}'`).join(' | ')} }`),
+    apply(_ctx, args) {
+      deps.workspace.setChrome(args.part, args.shown ?? !deps.workspace.chrome()[args.part]);
+    },
+  };
+
+  const toggleFocus: OperatorDef<void, { readonly focused: boolean }> = {
+    id: 'workspace.toggleFocus',
+    label: 'Focus Mode',
+    aliases: ['Hide UI', 'Show UI', 'Toggle UI'],
+    description: 'Hide the panels and the tool strip around the viewport; again to bring them back as they were.',
+    category: 'view',
+    scope: 'global',
+    poll: () => (deps.workspace.dockview === null ? fail('The workspace is not shown yet') : ok),
+    apply() {
+      return { focused: deps.workspace.toggleFocus() };
+    },
+  };
+
+  const presetWorkspace = (): string => app.session.getState().workspace;
+  const animateLike = (workspace: string): boolean => (app.workspaces.get(workspace)?.timeline ?? true) === true;
+
+  const applyPreset: OperatorDef<{ readonly preset: string }, void, PresetOpsModule> = {
+    id: 'workspace.preset.apply',
+    label: 'Apply Layout Preset',
+    aliases: ['Layout preset', 'Workspace layout'],
+    description: 'Switch to a built-in or saved layout preset (panels, chrome and viewport panes).',
+    category: 'view',
+    scope: 'global',
+    poll(_ctx, args) {
+      if (typeof args.preset !== 'string' || args.preset === '') return fail('expects { preset }');
+      if (deps.workspace.dockview === null) return fail('The workspace is not shown yet');
+      const workspace = presetWorkspace();
+      const builtin = builtinPreset(args.preset);
+      if (builtin !== undefined) {
+        if (builtin.animateOnly && !animateLike(workspace)) {
+          return fail(`${builtin.label} is an Animate preset; Alt+1 restores this workspace's default layout`);
+        }
+        return ok;
+      }
+      return deps.presets.get(workspace, args.preset) === undefined ? fail(`No preset '${args.preset}'`) : ok;
+    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.applyPreset(app, deps, args.preset),
+  };
+
+  const savePreset: OperatorDef<
+    { readonly name: string },
+    { readonly id: string; readonly persistent: boolean },
+    PresetOpsModule
+  > = {
+    id: 'workspace.preset.save',
+    label: 'Save Layout Preset',
+    description: 'Save the current panels, chrome and viewport panes as a named preset of this workspace.',
+    category: 'view',
+    scope: 'global',
+    flags: { internal: true },
+    poll(_ctx, args) {
+      const problem = presetNameProblem(args.name);
+      if (problem !== null) return fail(problem);
+      return deps.workspace.dockview === null ? fail('The workspace is not shown yet') : ok;
+    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.savePreset(app, deps, args.name),
+  };
+
+  const renamePreset: OperatorDef<{ readonly id: string; readonly name: string }, void, PresetOpsModule> = {
+    id: 'workspace.preset.rename',
+    label: 'Rename Layout Preset',
+    category: 'view',
+    scope: 'global',
+    flags: { internal: true },
+    poll(_ctx, args) {
+      const problem = presetNameProblem(args.name);
+      if (problem !== null) return fail(problem);
+      const workspace = presetWorkspace();
+      if (deps.presets.get(workspace, args.id) === undefined) return fail(`No preset '${String(args.id)}'`);
+      const clash = deps.presets
+        .list(workspace)
+        .find((preset) => preset.id !== args.id && preset.name.toLowerCase() === args.name.trim().toLowerCase());
+      return clash === undefined ? ok : fail(`A preset named '${clash.name}' already exists`);
+    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.renamePreset(app, deps, args.id, args.name),
+  };
+
+  const deletePreset: OperatorDef<{ readonly id: string }, void, PresetOpsModule> = {
+    id: 'workspace.preset.delete',
+    label: 'Delete Layout Preset',
+    category: 'view',
+    scope: 'global',
+    flags: { internal: true },
+    poll: (_ctx, args) =>
+      deps.presets.get(presetWorkspace(), args.id) === undefined ? fail(`No preset '${String(args.id)}'`) : ok,
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.deletePreset(app, deps, args.id),
+  };
+
+  const doc = (): Document | null =>
+    deps.document !== undefined ? deps.document : typeof document === 'undefined' ? null : document;
+  const toggleFullscreen: OperatorDef = {
+    id: 'view.toggleFullscreen',
+    label: 'Full Screen',
+    aliases: ['Fullscreen'],
+    description: 'Show the editor full screen (the browser Fullscreen API), or leave full screen.',
+    category: 'view',
+    scope: 'global',
+    poll() {
+      const d = doc();
+      return d !== null && d.fullscreenEnabled ? ok : fail('Full screen is not available in this browser');
+    },
+    apply() {
+      const d = doc();
+      if (d === null) return;
+      // Called in the key or menu event's user activation; the browser answers asynchronously.
+      const request =
+        d.fullscreenElement === null
+          ? d.documentElement.requestFullscreen({ navigationUI: 'hide' })
+          : d.exitFullscreen();
+      request.catch((error: unknown) =>
+        app.services.notify.toast({
+          kind: 'warning',
+          text: `The browser refused full screen${error instanceof Error ? `: ${error.message}` : ''}`,
+        }),
+      );
+    },
+  };
+
+  return [
+    toggleMaximize,
+    open,
+    close,
+    setPrefs,
+    resetWorkspace,
+    showPanel,
+    selectionMask,
+    toggleTimeline,
+    toggleChrome,
+    toggleFocus,
+    applyPreset,
+    savePreset,
+    renamePreset,
+    deletePreset,
+    toggleFullscreen,
+  ].map((def) => ({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }) as const);
 }
 
 export function registerShellOperators(app: EditorApp, deps: ShellOperatorDeps): Disposer {

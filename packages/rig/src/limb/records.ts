@@ -8,7 +8,7 @@ import {
   type SolverRecord,
   solverId,
 } from '@ekza-animator/doc';
-import { hasRequiredHumanoid } from '../autorig/autoRig';
+import { hasRequiredHumanoid } from '../autorig/definition';
 import { clean } from '../autorig/shapes';
 import { restContext } from '../autorig/spec';
 import { bendOf } from '../ik/core';

@@ -5,7 +5,11 @@ export default defineConfig({
     environment: 'node',
     include: ['test/**/*.test.ts'],
     globals: true,
+    // M6A-SPEC §3 rule 8: the kernel debug switch is on in every test setup.
+    setupFiles: ['test/setup.ts'],
     // property and browser tests take seconds on 2-core CI runners; the 5 s default is too tight there
     testTimeout: 30_000,
+    // M6a B7: report-only benches (`vitest bench --run`), M6A-SPEC §5.27.
+    benchmark: { include: ['bench/**/*.bench.ts'] },
   },
 });

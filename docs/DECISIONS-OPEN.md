@@ -443,6 +443,32 @@ in [`wp-notes/m2a-integration.md`](wp-notes/m2a-integration.md). IDs are `M2A-<p
 built** (and the contract changes among them ratified into M2A-SPEC v0.3) unless the status says otherwise; the owner
 may override any of them.
 
+### Package records (consolidated 2026-10-20)
+
+Every package decision is recorded with its reasoning and tests in its wp-note and is accepted as built unless a row
+below says otherwise; this index points to them. Owner items and decisions that change behaviour across packages are
+repeated below.
+
+| Package | Record | IDs |
+|---|---|---|
+| B0a contracts, schema v3, stubs | [m6a-contracts-foundation](wp-notes/m6a-contracts-foundation.md) | M6A-B0A-1…29 (incl. the eager-allowance decision request) |
+| B0b keymap, menus | [m6a-keymap-menus](wp-notes/m6a-keymap-menus.md) | M6A-B0B-1…16 |
+| B1 mesh kernel | [m6a-mesh-kernel](wp-notes/m6a-mesh-kernel.md) | M6A-B1-1…17 |
+| B2 selection, symmetry maps | [m6a-mesh-select](wp-notes/m6a-mesh-select.md) | M6A-B2-1…18 |
+| B3 core ops | [m6a-mesh-ops-core](wp-notes/m6a-mesh-ops-core.md) | M6A-B3-1…27 |
+| B4 shape ops | [m6a-mesh-ops-shape](wp-notes/m6a-mesh-ops-shape.md) | M6A-B4-1…24 |
+| B5 bevel, Mesh Check, UV | [m6a-mesh-bevel-check-uv](wp-notes/m6a-mesh-bevel-check-uv.md) | M6A-B5-1…16 |
+| B6 mesh view, picking | [m6a-mesh-view](wp-notes/m6a-mesh-view.md) | M6A-B6-1…26 |
+| B7 runtime, blobs, undo budget | [m6a-mesh-runtime-doc](wp-notes/m6a-mesh-runtime-doc.md) | M6A-B7-1…27 |
+| B8 io, marker v2 | [m6a-mesh-io](wp-notes/m6a-mesh-io.md) | M6A-B8-1…17 |
+| B9 shell, workspaces | [m6a-shell-workspaces](wp-notes/m6a-shell-workspaces.md) | M6A-B9-1…27 |
+| B10 modes, selection UI | [m6a-model-select-ui](wp-notes/m6a-model-select-ui.md) | M6A-B10-1…24 |
+| B11 operators UI | [m6a-model-ops-ui](wp-notes/m6a-model-ops-ui.md) | M6A-B11-1…27 |
+| B12a transform tools | [m6a-model-transform-tools](wp-notes/m6a-model-transform-tools.md) | M6A-B12A-1…19 |
+| B12b topology tools | [m6a-model-topology-tools](wp-notes/m6a-model-topology-tools.md) | M6A-B12B-1…20 |
+| B13 content | [m6a-model-content](wp-notes/m6a-model-content.md) | M6A-B13-1…21 |
+| INT | [m6a-integration](wp-notes/m6a-integration.md) | M6A-INT-1…33 |
+
 ### Owner review items
 
 These trade a stated M2a promise for something measured, or need a product call. Each is built and tested as
@@ -588,7 +614,9 @@ offline lazy chunks (owner item above); A5-11 the Export dialog passes `prefs.ex
 
 The modeling iteration is planned in [MODELING-PLAN.md](MODELING-PLAN.md) on research
 [10](research/10-maya-poly-modeling.md)–[16](research/16-model-workspace-ui.md) (`R10`…`R16`), with ADRs
-[0014](adr/0014-mesh-kernel.md)–[0017](adr/0017-ai-generation-boundary.md) (proposed). Every item has a **default
+[0014](adr/0014-mesh-kernel.md)–[0017](adr/0017-ai-generation-boundary.md) (0014–0016 accepted on 2026-10-19 with
+[M6A-SPEC](M6A-SPEC.md) v1.0, which applies these defaults and lists its refinements in §12.2; 0017 proposed, its
+provenance items accepted with M6a). Every item has a **default
 chosen** so that the M6a spec can be written and B0a can start; **the owner may override any of them**. Items marked
 **override** replace a research note's recommendation on evidence (MODELING-PLAN §11 lists all twenty-six research
 conflicts and their resolutions; §12 lists the forty design-review findings of 2026-10-19 and what was done with
@@ -611,7 +639,7 @@ each, including the rejected and partly applied ones). IDs from the research not
 |---|---|---|---|---|
 | Q-MOD-UI-1 | Compass positions of the RMB mode menu and Shift+RMB tool menus (Autodesk documents the items, not the positions) | **The owner checks once on Maya 2026/2027**; until then R16 §5.4/§6.1 as **provisional** slots (S Extrude, W Multi-Cut, SW Delete = Maya's plain Delete with Delete Edge/Vertex in the list) | Changing positions after release breaks gesture memory | M6a spec freeze |
 | Q-MOD-UI-2 | Component-mode keys | `F8`; `F9`/`1` vertex; `F10`/`2` edge; `3` face; the active digit again returns to object mode; **F11 and F12 never bound in web builds** (R10 Q-MOD-10-3, R11 Q1, R16 Q-MOD-UI-2/-12) | F-keys only: unusable on Mac laptops and in browsers for F11/F12 | M6a |
-| Q-MOD-UI-3 | `Ctrl+E` | **Extrude** in `model.viewport.component`; Export keeps `Mod+E` elsewhere and gains `Mod+Shift+E` everywhere (R10 Q-MOD-10-2, R11 Q2, R16 Q-MOD-UI-3) | Extrude only by menu and Shift+drag | M6a |
+| Q-MOD-UI-3 | `Ctrl+E` | **Extrude** in `model.viewport.component`; Export keeps `Mod+E` elsewhere and gains `Mod+Shift+E` everywhere (R10 Q-MOD-10-2, R11 Q2, R16 Q-MOD-UI-3). *Widened by M6A-SPEC v1.1 S17 to the whole Model workspace (`model` scope), as the default was presented to the owner: in Model, Export is `Mod+Shift+E`; Animate keeps `Mod+E`* | Extrude only by menu and Shift+drag | M6a |
 | Q-MOD-UI-4 | Bevel, Multi-Cut and merge keys (Maya has no defaults) | `Mod+B`, `K`, `M` (Blender Industry Compatible habits; R11 Q3) | Menu-only like Maya | any time (keymap data) |
 | Q-MOD-UI-5 | Workspaces | Tabs `Model › Rig & Skin › Animate › Review` with status glyphs; no default switch hotkey; Model layout four-view with persp maximized; timeline hidden in Model (R16 Q-MOD-UI-5/-7/-8/-11) | Cosmetic; closes Q-UI-1 | M6a |
 | Q-MOD-UI-6 | `Delete` on edges | **override of R16 Q-MOD-UI-6** (dissolve): **Maya behaviour** — `Delete` merges the edge's faces and keeps the end vertices; `Mod+Delete`/`Mod+Backspace` = Delete Edge/Vertex (clean); the Shift+RMB SW slot runs plain Delete with Delete Edge/Vertex in its list; R16 §6.1, §19.3 and §19.4 are marked superseded; a stray-vertex lint offers a one-click fix (R10 Q-MOD-10-5) | Dissolve by default: breaks the owner's Maya habit and can change shapes (a cube edge → a prism) | M6a |
@@ -621,7 +649,7 @@ each, including the rejected and partly applied ones). IDs from the research not
 | Q-MOD-UI-10 | Blender keymap preset | **V1 or later**, as a complete data pack, tested by a Blender user (R11 Q7) | Earlier: +1 modal transform operator and a second QA matrix during M6 | V1 |
 | Q-MOD-UI-11 | Primitive defaults | **Low poly** (sphere 12×8 = 168 tris, cylinder and cone 8 sides, torus 12×6, plane 1×1) with a "Maya defaults" preference (R10 Q-MOD-10-4; R16's 8×6 sphere not taken) | — | any time |
 | Q-MOD-UI-12 | Faceted or smooth new meshes | **Faceted** (all edges hard; record flag `faceted`); every op follows one hard-flag rule: edges inside a former all-hard face stay hard, side/strip edges use the op's `smoothingAngle`, default 0° on faceted meshes and 30° otherwise; Set Normal Angle is a one-shot operator, not a live modifier (R11 Q5, R12 §5.1) | 30° smoothing by default; without the rule, gentle extrudes would leave smooth patches in flat-shaded models | any time |
-| Q-MOD-UI-13 | Undoable selection | **On in Model, off in Animate** (preference per workspace): consecutive selection gestures coalesce into one "Select" step in `EditorHistory`, session-only, never in the document or CRDT (Maya records selection in its undo queue by default; corrects R09 §6.3) | Off: a stray click on empty space loses a hand-built loop selection with no way back | M6a |
+| Q-MOD-UI-13 | Undoable selection | **On in Model, off in Animate** (preference per workspace): consecutive selection gestures coalesce into one "Select" step in `EditorHistory`, session-only, never in the document or CRDT (Maya records selection in its undo queue by default; corrects R09 §6.3). *Refined by M6A-SPEC v1.1 S3: one step per discrete gesture, as Maya records each click; only auto-repeated grow/shrink keys and continuous drags coalesce* | Off: a stray click on empty space loses a hand-built loop selection with no way back | M6a |
 | Q-MOD-UI-14 | MMB-drag in the viewport | **Maya rule**: with W/E/R active, MMB-drag anywhere moves/rotates/scales the selection (last-picked handle axis, or the view plane); when Channel Box channels or an INPUTS field are selected it stays the virtual slider (shipped M2a condition) | Without it there is no fast way to push components without grabbing a handle | M6a |
 | Q-MOD-UI-15 | Meshes outside the hilite set in component mode | **Opaque and unpickable**; "Dim unhilited" as a per-pane option (R16 §5.3 proposed 70 % opacity) | Fading hides fitting problems (helmet on head, eyes in sockets) and adds sorting artefacts | any time |
 | Q-MOD-UI-16 | Hide and isolate | `H` hide selected, `Shift+H` show all, `Alt+H` hide unselected (components and objects), `Shift+L` isolate per pane; Maya's `Ctrl+H`/`Ctrl+1` unbound (browser); hiding is session state, not saved | Keymap data | any time |
@@ -685,3 +713,109 @@ each, including the rejected and partly applied ones). IDs from the research not
 | Q-GEN-8 | Rig for generated humanoids | **Provider rig when it uses VRM bone naming** (Tripo rig `v3.0-20260909`, `spec: "vrm"`, verified 2026-10-18), otherwise Quick Rig + Auto (low-poly); geodesic voxel binding in G2 (R15 Q8, R14 Q-SKIN-8) | Own rig always: weaker on polygon soup until voxel binding exists | M7 spec |
 | Q-GEN-9 | Provider tier of a generation | The user **attests paid tier** in the Generate panel (the API cannot tell); `ekza.provenance-free-tier` is an error for a T3 publish without the attestation | Warning only: free-tier outputs (owned by Tripo, CC BY at Meshy) could be published as the user's own | M7 spec |
 | Q-GEN-10 | Gateway exposure | **Default deny**: mounted only with `GEN_GATEWAY_ENABLED=1` and an auth or a loopback-only bind; refuses to start with keys and no auth; server-side daily/monthly caps from env; the app's first CSP lands in G-b before BYO keys | Optional auth: any reachable server build with a key set spends the operator's credits | M7 spec |
+
+## H. Naming: Ekza Studio and Ekza Hub (2026-10-19)
+
+| ID | Decision | Owner choice | Notes |
+|---|---|---|---|
+| NAME-1 | The editor (this repository) is renamed from **Ekza Animator** to **Ekza Studio**: it now covers modeling, rigging, animation and the AI agent bridge. | Chosen by the owner | GitHub repository renamed to `ekza-space/ekza-studio`; the code rename runs after M6a and M-AI merge (TODO "Rename"). |
+| NAME-2 | The publishing site currently called "Ekza Studio" (`studio.ekza.io`, `ekza-registry/web`) becomes **Ekza Hub**: create in Studio, publish in Hub. | Chosen by the owner | Production change: new domain `hub.ekza.io` with redirects from `studio.ekza.io`, registry UI branding, public docs and in-game links. Deploy only with the owner's OK. |
+| NAME-3 | Research 05 advised against reusing "Ekza Studio" because of the registry UI; NAME-2 resolves that conflict instead of picking another editor name. | Superseded advice | Trademark check before a public launch still applies (research 05 §5). |
+
+## I. M6a build deviations (2026-10-20)
+
+M6a was built in sixteen packages (B0a, B0b, B1…B13 with B12a/B12b) on `m6a/<slug>` branches and integrated on
+`m6a/integration` ([M6A-SPEC](M6A-SPEC.md) v1.1, §11.1 merge order). Each package recorded its interpretations in
+`docs/wp-notes/m6a-*.md` with the reasoning and tests; the integration's are in
+[`wp-notes/m6a-integration.md`](wp-notes/m6a-integration.md). IDs are `M6A-<package>-<n>`. All are **accepted as
+built** (contract changes among them are in M6A-SPEC, marked "INT") unless the status says otherwise; the owner may
+override any of them. Merged into `dev` on 2026-10-20; not tagged: `v0.3.0` waits for the owner's review below.
+
+### Owner review items
+
+| ID | Item | Built | Alternative |
+|---|---|---|---|
+| M6A-B0A (Decision requested), M6A-B9-14, M6A-INT-32 | **The M6a eager allowance** (§5.27: +20,480 B over the M2a baseline 845,267 B) | Option C as far as it goes: the Model-only operators, their menus and the component selection service load with their chunk on the first Model entry (M6A-INT-13, -14). The route is under the 900,000 B gate (see the integration notes' "Size") but about +50 kB over M2a, above options A (+40,960), B and C; `size-baseline.json` keeps `enforce: false` | Record the measured delta as the allowance and cut in M2b (IK operator bodies, the Dope Sheet controller, `camera-controls`, M2A-INT-4); or move the descriptors' param tables lazy too (a §2 change) |
+| M6A-INT-33 | **Marquee with occlusion** (§5.27 ≤ 16 ms for 10k vertices, report-only) | Miss: 65 ms for 4,452 vertices in the editor bench including a frame (B6's package bench met its row); hover, enter-component-mode, drags and soft drags are within budget; a typical topology op end to end sits at the 16 ms line (extrude 100 faces 14.9 ms, loop on a 200-quad ring 16.2 ms) | M6b: a screen-space grid for marquee candidates (M6A-B6-20 named it), occlusion tested on the BVH in one batch |
+| M6A-B5-4, -6, -15, -16 | **Bevel limits**: partial chamfers on folds leave non-planar strips (Mesh Check reports them); strips across a UV seam take one side's values; Roundness > 0.5 can cross profiles near corners; tents at sharp apexes | Built as §5.9 states, every case reported by Mesh Check and covered by `clamp.test.ts` | Limit the effective roundness per corner like the width clamp; a triangle cap for in-line vertices |
+| M6A-B6-22, -26 | **Characters in Model**: ModelLoader's (not made editable) character meshes are not occluders for component picks; component hides of a character mesh are not drawn outside Model where ModelLoader draws it | Not built (props and made-editable meshes are complete) | A `PickOccluder` over ModelLoader's meshes in bind pose (M6b, when characters stay on screen while modeling) |
+| M6A-B13-17 | Palette › Apply in object mode is one `mesh.paint` run per selected mesh (N steps) | Built | A whole-mesh form of `mesh.paint` or coalescing |
+| B12a feel check | Capture case (b) (a digit right after `⌘E`) and Component vs Maya's per-component Normal (§1.2, §12.1) | As specified; the owner's feel check is open | Per the owner |
+| §11.3 | **Owner demo script** | Not run by the owner yet; its steps are covered by E2E-MOD-01, -04, -05, -06, -10, -11, -12, -17, -18 and AS-LP-S | — |
+| B8 hand-over (m6a-mesh-io, open items 1–2) | **glTF validator and compressed meshes in the app**: `services.validate` is `null` in the browser (the validator worker is not wired), and Make editable refuses Draco/meshopt meshes because editor-core has no decoder service | Not wired; io's half is built and tested with an injected validator and decoder | Wire the validator worker (and decide whether animation exports validate too) and add a `decodeMesh` service field (a contract change) — M6b or a fix round |
+| B4/B5 hand-over | Local symmetry helpers in B4 and B5 instead of B2's maps (M6A-B4-2, M6A-B5-7) | Kept: same semantics, verified on B2's maps | A refactor onto B2's helpers in M6b |
+| B13 hand-over | Create › New model menu item | Not built: the start card shows on any empty Model scene | Add the menu item |
+
+### Decisions copied from the packages (accepted as built)
+
+| ID | Decision | Where |
+|---|---|---|
+| M6A-B13-16 | Swatch ids are derived for every palette (`derivedId('swatch', 'palette.swatch', [palette], '', slot)`), not only the default one; slots are never reused, so (palette, slot) is a stable key and two peers adding the same slot converge | `editor-core/src/operators/builtin/palette.ts` |
+| M6A-B13-17 | Above (owner item) | `PaletteView.apply` |
+| M6A-B13-18 | A swatch paints only meshes of its own palette (Paint Colour, Palette › Apply and, since INT, Assign Colour without a slot, M6A-INT-24) | `paintRules.ts`, `operators/builtin/mesh/index.ts` |
+| M6A-B13-19 | `mesh.create.template`'s `height` is nullable (auto: a body created into Humanoid guides takes their height) | `templates.ts` |
+| M6A-B13-20 | Getting started ticks ② to ⑥ for the session | `modelProgress.ts` |
+| M6A-B13-21 | Static export roots hold a mesh in their subtree (mesh-less groups are not roots) | `exportModel.ts` |
+
+### Integration decisions (M6a)
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6A-INT-1, -2 | Merge order; READY/`test.fixme` gates | §11.1 order, `--no-ff`; every gate is a failure; only stretch items stay `test.fixme` | integration notes |
+| M6A-INT-3, -4 | E2E-MOD-01/-02 vs §5.8 | Rows amended: `Esc` ends the session before the one undo; the card names `⌘E` as its tooltip/header | M6A-SPEC §10.1 |
+| M6A-INT-13, -14 | Size | Model operators and the selection service load lazily | `modelOpsChunk.ts`, `modelManifest.ts` |
+| M6A-INT-16 | Merge to Center under symmetry merged both arms' caps into one point | Fixed (groups by the mirror plane) | `mesh-core/src/ops/merge` |
+| M6A-INT-17 | Test API | `setExpression`; additive `pixels`, `displayNodeWorld`, `displayModel` | M6A-SPEC §4.8 |
+| M6A-INT-18…25 | Package hand-overs | Separate names and Combine's palette action; mirror helpers +0; `PANEL` kinds; one `MeshLayerHost`; the anim-core −0 flake; the pixel probe; Assign Colour's active swatch; `PickOptions.wire` | integration notes |
+| M6A-INT-26 | Meshes on one palette wrote one material each | Fixed: one material per palette (one per used swatch with material-per-colour) | `exportModel.ts` |
+| M6A-INT-28…30 | Scenario readings (E2E-MOD-15 tapered legs, E2E-MOD-31's "original file", the AS-LP-S twin) | As in the integration notes | `apps/web/e2e` |
+
+## J. M6a acceptance fix round 1 (on `dev`, 2026-10-20)
+
+The M6a acceptance round on `dev` (`c0e402f`: the Model workspace driven by hand in real Chrome) found one blocker,
+four major and four minor defects. Fixed ones have regression tests that fail without the fix (the blocker's e2e test
+was checked against the unfixed build). New e2e spec `apps/web/e2e/m6a-r1-fixes.spec.ts`.
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6A-INT-34 | **Blocker**: a moved mesh (Channel Box, W drag, redo, Combine, a moved ✎ mesh) kept drawing at its old transform while picking, the manipulator, `F` and export used the new one. The scene's `matrixWorldAutoUpdate` is off and SceneSync's world pass runs only for character poses; mesh-view roots (`matrixAutoUpdate = false`) only flagged `matrixWorldNeedsUpdate` | **Fixed**: `ViewportManager.render` updates every mesh host's world matrices before drawing dirty panes | `viewport/src/manager/ViewportManager.ts`; e2e (pixels before/after the move and after undo) |
+| M6A-INT-35 | **Major**: Combine moved the result's object origin to the bounds centre, so Object X mirrored about x = 0.253 (unmatched 140/140) | **Fixed**: `mesh.combine`'s default `pivot` is `'first'` (the lead's placement); `'center'` and `'origin'` stay | `mesh-core/src/ops/combine/`; M6A-SPEC §5.13; `setops.test.ts` |
+| M6A-INT-36 | **Major**: double-click loop selection worked only with Q: with W/E/R the first click put the manipulator on the edge and the second press hit it | **Fixed**: the last component click is shared by every tool's Model pointer; a press completing a double-click goes to the manipulator as usual, and when it is released without moving, selection takes it (the loop); a drag still drags (`DoubleClickPress`, so a quick click-then-drag of a handle is kept). A double-click on an edge that was already selected before the first click still lands on its manipulator, as before | `viewport/src/tools/model/select/runtime.ts`, `selectTool.ts`, `transformTool.ts`; e2e (W, E, R) |
+| M6A-INT-37 | **Major**: the status-line Symmetry select stayed disabled after a cube was created (and after File › Open) | **Fixed**: status-line poll reasons re-read on every session change and every mesh/group write | `editor/src/shell/statusGroups.tsx`; e2e |
+| M6A-INT-38 | **Major**: under symmetry the one-sided Bridge (arm onto the +X hole) could not be selected: Select › Edge Loop stored the mirrored −X loop, and Bridge saw three loops | **Fixed** per §5.6 ("additive gestures store the picked side only"): walkers (loop, ring, grow, shrink, convert, border, shell, the loop table) store the part of their result reachable from the stored picks; an additive pick of a derived partner stores nothing. Ops, the HUD and the drawing still read the expanded set | `editor-core/src/operators/builtin/selectMesh.ts`, `selection/component/service.ts`; `select/operators.test.ts` |
+| M6A-INT-39 | Minor: in Model the Channel Box kept Animate's control selection (Polybot "Head") | **Fixed**: in Model the selected (or hilited) mesh/group object leads | `editor/src/panels/channel-box/ChannelBoxPanel.tsx`; e2e |
+| M6A-INT-40 | Minor: Mesh Check docked with zero height | **Fixed**: a click on the tab of a group collapsed to its tab bar opens it by 220 px (the default stays collapsed, §8.2) | `editor/src/shell/WorkspaceHost.tsx`; e2e |
+| M6A-INT-41 | Minor: symmetry lost on Save → Open | **Fixed (default derived)**: symmetry stays session state (§5.14), but a load or open gives meshes directly in a Humanoid template group Object X again unless the session already has an entry; other meshes stay off | `editor-core/src/session/repair.ts` (`templateSymmetry`), `keeper.ts`, `app/kernel.ts`; `select/operators.test.ts` |
+| M6A-INT-42 | Minor UI (a): the Handheld template's card showed the humanoid args; (e): Insert Edge Loop showed Number of Loops in Relative mode | **Fixed**: the Last-op card shows the fields that apply to the recorded args (templates by kind; Insert Edge Loop: weight for Relative/Equal, Number of Loops for Multiple). Adjusts still coerce against every param | `editor-core/src/operators/builtin/lastop.ts`, `lastopEngine.ts`; `templates.test.ts`, `kernel-ops.test.ts` |
+| M6A-INT-43 | Minor UI (c): "Mirror…" and "Set Normal Angle…" opened no dialog | **Fixed**: labels without the ellipsis (they run at once; args in the Last-op card) | `modelMenus.ts`, `editor/src/overlays/menus/tools.ts`; M6A-SPEC §8.3 tables |
+
+**Deferred** (recorded in [TODO](../TODO.md); no regression, each needs more than a fix round):
+
+| # | What | Why deferred | Next step |
+|---|---|---|---|
+| M6A-INT-44 | (b) Offset Edge Loop without a selection is disabled ("Select components first") | Needs a drag tool like Insert Edge Loop (a new `ToolDef`, hover preview, symmetric pointer rule) | A B12b-style tool in M6b's first fix round |
+| M6A-INT-45 | (d) Static GLB export shows "Validator not run" | `services.validate` is `null` in the browser (owner item "glTF validator … in the app" in §I) | Wire the validator worker (lazy chunk; size budget) |
+| M6A-INT-46 | (f) `F` in edge mode right after a Bevel frames the bevel handle very close | The framing reads the post-bevel component selection (tiny new edges); needs a framing rule for a live topology-tool session | Frame the hilited mesh when the selection's bounds are below a minimum size |
+| M6A-INT-47 | (g) The quad layout's large HUD covers the model in each pane | A layout/design decision (compact HUD per pane size) | Compact HUD below a pane size, or HUD in the maximized pane only |
+
+## K. M6a acceptance fix round 2 (on `dev`, 2026-10-20)
+
+The second acceptance pass on `dev` (`73e970e`) found three major and five minor defects. Each fix has a regression
+test that fails without it (unit tests in the owning package; real-Chrome e2e in `apps/web/e2e/m6a-r2-fixes.spec.ts`).
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6A-INT-48 | **Major**: in an extrude session the R handles (drawn along world, object or component axes) wrote the same-named cap arg: the world X handle on a top cap scaled it along Z; on a +X cap the Z handle scaled the normal | **Fixed**: the absorb delta carries the dragged manipulator's axes (`scaleAxes`), and the engine re-expresses the factors along the cap's axes (cᵀ·S·c, exact for aligned axes), as translate and rotate already converted. The extrude manipulator's own scale handles keep the cap's axes | `editor-core/src/operators/builtin/extrudeEngine.ts` (`capScale`), `types.ts`, `viewport/src/tools/model/transform/runtime.ts`; `extrude-session.test.ts`; e2e |
+| M6A-INT-49 | **Major**: Merge under symmetry: one picked vertex merged with its own mirror onto the seam (the runtime hands Merge the expanded selection, so Always Merge for Two saw two vertices); a coincident pair (V-snap) merged on one side only (the symmetry map paired only the first vertex of a coincident group) | **Fixed**: Merge counts one pick per mirror pair (one vertex plus its mirror is never a merge pair: `merge.nothing`). **Spec deviation (§5.14 map rule, B2)**: after the mutual nearest-match pass, still unmatched off-seam vertices pair with the nearest unmatched candidate (mutual), and two pairs of a coincident group swap when that pairs more neighbours, so edges and faces pair too. Meshes without coincident vertices get the same map as before | `mesh-core/src/ops/merge/index.ts`, `symmetry/map.ts`; `ops-core/symmetry.test.ts` |
+| M6A-INT-50 | **Major**: Model drew an edited skinned character twice: mesh-view's bind-pose editable mesh and the loaded display's posed body | **Fixed**: the model loader maps glTF mesh indices to their drawn objects (`LoadedModel.meshObjects`); in Model SceneSync takes the objects of meshes made editable off the mesh layer (neither drawn nor picked), other workspaces show them again. Meshes not made editable still show posed in Model (owner item below). Test API `displayModel` gains `drawn` | `io/src/three/index.ts`, `viewport/src/sync/SceneSync.ts`, `ViewportManager.displayModelInfo`; `sync.test.ts`; e2e |
+| M6A-INT-51 | Minor: the Make editable report said "Degenerate faces: none" while Mesh Check listed zero-area faces | **Fixed**: the row is "Dropped triangles" (what Make editable dropped), and a new "Mesh Check" row shows the panel's own check (codes and counts, or "clean"). The test API's `meshInfo.problems` stays `validateMesh` (structural validity), a different check | `editor/src/dialogs/MakeEditableReport.tsx`; e2e |
+| M6A-INT-52 | Minor: the Toolkit soft radius showed an unrounded value after a `B` drag | **Fixed**: shown rounded to centimetres like the status line; while focused it keeps what is typed | `editor/src/panels/toolkit/ToolkitView.tsx` (`RadiusField`); `m6a-model-ops-ui.test.tsx` |
+| M6A-INT-53 | Minor: `F` with a group selected framed the whole scene | **Fixed**: framing in Model expands selected groups to their descendant meshes | `viewport/src/tools/model/select/runtime.ts` (`meshesIn`); e2e |
+| M6A-INT-54 | Minor: Select › None was disabled in object mode | **Fixed**: an object-mode row `builtin.model.select.noneObjects` (`select.objects {ids: [], mode: replace}`), like Select › All's two rows; the component row keeps `select.mesh.none` (§8.3 Select menu gains the row) | `editor-core/src/operators/builtin/modelMenus.ts`; `keymap.menus.test.ts`; e2e |
+
+**Owner decisions** (no code change in this round):
+
+| # | What | Default kept | Option |
+|---|---|---|---|
+| M6A-INT-55 | Shift+double-click on an edge of another loop adds only that edge (Maya adds the loop) | M6A-SPEC §5.6 loop table: no common loop with the existing picks → plain Shift toggle | Shift+double-click adds the edge's own loop, as in Maya (B10 loop-table rule) |
+| M6A-INT-56 | In Model, a character's meshes not made editable stay in the posed display while the editable ones show at bind pose | Hide only what mesh-view draws (no duplicate) | Pose the whole display at bind pose in Model (rest bone locals while Model is active) |

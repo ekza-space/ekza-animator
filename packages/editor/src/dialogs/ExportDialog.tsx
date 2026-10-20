@@ -25,6 +25,7 @@ import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from '../shell/context';
 import { asArtifacts } from '../shell/exports';
 import { isRestricted } from '../shell/summary';
+import { ExportStaticSection } from './ExportStaticSection';
 import { count } from './format';
 
 export { count };
@@ -166,9 +167,15 @@ export function defaultExportClips(
   return new Set((animated.length > 0 ? animated : clips).map((clip) => clip.id));
 }
 
+const hasMeshes = (store: DocumentStore): boolean => store.list('meshes').length > 0;
+
 export function ExportDialog(): JSX.Element {
   const shell = useShell();
   const { app } = shell;
+  // M6a (B13, §8.8): the Static model (GLB) section, the default in Model or without a character.
+  const meshes = useDocQuery(hasMeshes, ['meshes']);
+  const workspace = useSession((s) => s.workspace);
+  const [modeChoice, setMode] = useState<'animation' | 'static' | null>(null);
   const exporters = useRegistryList(app.exporters);
   const profiles = useRegistryList(app.exportProfiles);
   const characters = useDocQuery(characterOptions, ['characters']);
@@ -245,6 +252,45 @@ export function ExportDialog(): JSX.Element {
       ? 'Load a character to export'
       : (pollExporter(app, exporter, request) ?? (needsAck && !acknowledged ? 'Acknowledge the licence first' : null));
   const warnings = exportWarnings(app, character, kind);
+  const mode = modeChoice ?? (workspace === 'model' || characters.length === 0 ? 'static' : 'animation');
+  const modeSwitch =
+    meshes || workspace === 'model' ? (
+      <RadioGroup
+        value={mode}
+        onValueChange={(value) => setMode(value === 'static' ? 'static' : 'animation')}
+        aria-label="What to export"
+        className="grid gap-1.5 md:grid-cols-2"
+      >
+        <RadioGroupItem
+          value="animation"
+          label="Animation"
+          hint="Clips of a character: bake into the model, animation-only GLB or VRMA"
+          data-testid="export-animation"
+        />
+        <RadioGroupItem
+          value="static"
+          label="Static model (GLB)"
+          hint="Scene meshes as a static glTF binary, with the palette and the profile's checks"
+          data-testid="export-static"
+        />
+      </RadioGroup>
+    ) : null;
+
+  if (mode === 'static') {
+    return (
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open) void shell.runFromUi('ui.close');
+        }}
+      >
+        <DialogContent title="Export" width="lg" data-testid="export-dialog">
+          <div className="mb-4">{modeSwitch}</div>
+          <ExportStaticSection onCancel={() => void shell.runFromUi('ui.close')} />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   const run = async (): Promise<void> => {
     if (request === null) return;
@@ -268,6 +314,7 @@ export function ExportDialog(): JSX.Element {
     >
       <DialogContent title="Export" width="lg" data-testid="export-dialog">
         <div className="flex flex-col gap-4">
+          {modeSwitch}
           {characters.length > 1 ? (
             <label className="flex items-center gap-2 text-ui text-fg-2" htmlFor={`${ids}-character`}>
               Character

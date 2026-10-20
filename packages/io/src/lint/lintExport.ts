@@ -27,6 +27,7 @@ import {
 import type { ExportKind, ExportProfileDef, GlbContainer, GltfJson, LintIssue } from '../types';
 import { clipNameKey } from '../writers/names';
 import { ruleSeverity } from './rules';
+import { checkStatic } from './static';
 
 const MiB = 1_048_576;
 export const HARD_JSON_LIMIT = 8 * MiB;
@@ -110,6 +111,11 @@ export async function lintExportWithContext(
     emit('ekza.extensions-required', `extensionsRequired lists ${required.join(', ')}`, '/extensionsRequired');
   }
 
+  // M6a (M6A-SPEC §4.5): static models have no clips; their own rules replace the animation checks.
+  if (kind === 'static-glb') {
+    checkStatic(json, new GltfReader(json, parsed.bin), bytes, profile, emit);
+    return issues;
+  }
   checkNames(animations, ours, emit);
   if (kind !== 'vrma') checkHipsOnlyTranslation(extensions, animations, emit);
   checkUnitQuaternions(new GltfReader(json, parsed.bin), animations, ours, emit);

@@ -28,8 +28,8 @@ import { createRegistry } from '../registries/registry';
 import { defaultSession } from '../session/defaults';
 import { createSessionKeeper } from '../session/keeper';
 import { activeLocation, locateCharacter } from '../session/location';
-import { repairSession } from '../session/repair';
-import { restoreSelection } from '../session/selection';
+import { repairSession, templateSymmetry } from '../session/repair';
+import { restoreSelection, restoreSelectionPart } from '../session/selection';
 import { createToolRegistry } from '../tools/registry';
 import type {
   Contribution,
@@ -38,6 +38,7 @@ import type {
   ExporterDef,
   ImporterDef,
   KeyBinding,
+  MarkingMenuDef,
   MenuItemDef,
   OperatorResult,
   OperatorReturn,
@@ -45,9 +46,15 @@ import type {
   Prefs,
   RunContext,
   SessionState,
+  WorkspaceDef,
 } from '../types';
 import type { KernelDeps } from './deps';
+import { createCapture } from './factories/capture';
+import { createComponents } from './factories/components';
+import { createExtrude } from './factories/extrude';
+import { createBlobs, createMeshes } from './factories/meshes';
 import { bindInternals } from './internals';
+import { createMeshDisplay } from '../workflows/meshDisplay';
 
 export interface KernelOptions {
   readonly services: EditorServices;
@@ -141,9 +148,24 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
   const exporters = createRegistry<ExporterDef>('Exporter');
   const exportProfiles = createRegistry<ExportProfileDef>('Export profile');
   const menus = createRegistry<MenuItemDef>('Menu item');
+  // M6a (M6A-SPEC §4.6, §9.1): workspaces, marking menus and the modeling services, one factory file each.
+  const workspaces = createRegistry<WorkspaceDef>('Workspace');
+  const markingMenus = createRegistry<MarkingMenuDef>('Marking menu');
+  const blobs = createBlobs(services);
+  const meshes = createMeshes({ store, blobs, services, requestFrame });
+  const components = createComponents({ session, meshes: () => meshes });
+  const numericCapture = createCapture();
+  const extrude = createExtrude();
 
   // ---------- characters and evaluation ----------
   const cache = deps.rig.createCurveCache(store, deps.curves.engine);
+  // M6a (§5.23, B8): characters with edited meshes display a container rebuilt from their latest revisions.
+  const meshDisplay = createMeshDisplay({
+    store,
+    session,
+    app: () => app,
+    redisplay: (character) => characters.redisplay(character),
+  });
   const characters = createCharacterRegistry({
     store,
     deps,
@@ -151,6 +173,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     assets: services.assets,
     notify: services.notify,
     models: services.models,
+    display: meshDisplay,
   });
   const evaluation = createEvaluationService({ store, session, characters, deps, cache, requestFrame });
   const playback = createPlaybackClock({ store, session, deps, requestFrame });
@@ -164,6 +187,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     now,
     locate: (character: CharacterId) => locateCharacter(app, character),
     restoreSelection: (snapshot: unknown) => restoreSelection(app, snapshot),
+    restoreSelectionPart: (part, side) => restoreSelectionPart(app, part, side),
     reconcile: () => capture?.reconcile(),
     navigated: () => capture?.sync(),
   });
@@ -178,7 +202,20 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     capture,
     location: () => activeLocation(app),
   });
-  const keeper = createSessionKeeper({ store, session, deps, history, evaluation });
+  const keeper = createSessionKeeper({
+    store,
+    session,
+    deps,
+    history,
+    evaluation,
+    symmetryTolerance: () => prefs.getState().modeling.symmetryTolerance,
+  });
+  {
+    // An app opened on a stored document: template meshes take their Object X symmetry (acceptance fix round 1).
+    const model = session.getState().model;
+    const next = templateSymmetry(store, model, prefs.getState().modeling.symmetryTolerance);
+    if (next !== model) session.setState({ model: next });
+  }
 
   // ---------- wiring ----------
   /** Characters whose pose a document batch changes (null: all of them). */
@@ -278,6 +315,13 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     playback,
     history,
     services,
+    workspaces,
+    markingMenus,
+    meshes,
+    components,
+    extrude,
+    capture: numericCapture,
+    blobs,
     run<K extends keyof OperatorMap>(id: K, ...rest: OperatorRunArgs<K>): Promise<OperatorResult<OperatorReturn<K>>> {
       const [args, ctx] = rest as readonly [unknown?, RunContext?];
       return run(id, args, ctx) as Promise<OperatorResult<OperatorReturn<K>>>;
@@ -299,6 +343,10 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
           return exportProfiles.register(contribution.def);
         case 'menu':
           return menus.register(contribution.def);
+        case 'workspace':
+          return workspaces.register(contribution.def);
+        case 'markingMenu':
+          return markingMenus.register(contribution.def);
       }
     },
     requestFrame,
@@ -315,6 +363,9 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
       for (const dispose of disposers.splice(0).reverse()) dispose();
       keeper.dispose();
       capture?.dispose();
+      history.dispose();
+      meshes.dispose();
+      meshDisplay.dispose();
       characters.dispose();
       evaluation.dispose();
       cache.dispose();

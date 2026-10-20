@@ -6,6 +6,7 @@ import {
   Button,
   Download,
   Menubar,
+  MenubarCheckboxItem,
   MenubarContent,
   MenubarItem,
   MenubarMenu,
@@ -23,12 +24,14 @@ import { useShell } from './context';
 import { type MenuSection, menuContents, topMenus } from './menus';
 import { prefetchForMenuItems } from './prefetch';
 import type { Shell } from './types';
+import { WorkspaceTabs } from './WorkspaceTabs';
 
 function menuContext(shell: Shell): RunContext {
   const last = shell.ui.getState().lastPanel;
   return {
     ...(last === null ? {} : { panel: last.kind }),
     ...(last === null || last.paneId === null ? {} : { paneId: last.paneId }),
+    source: 'menu',
   };
 }
 
@@ -38,20 +41,37 @@ function Sections(props: { readonly shell: Shell; readonly sections: readonly Me
       {props.sections.map((section, index) => (
         <Fragment key={section.group}>
           {index === 0 ? null : <MenubarSeparator />}
-          {section.items.map((item) => (
-            <MenubarItem
-              key={item.id}
-              data-testid={`menu-item-${item.id}`}
-              disabled={item.disabledReason !== null}
-              title={item.disabledReason ?? undefined}
-              onSelect={() => {
-                void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
-              }}
-            >
-              <span className="truncate">{item.label}</span>
-              {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
-            </MenubarItem>
-          ))}
+          {section.items.map((item) =>
+            item.checked === null ? (
+              <MenubarItem
+                key={item.id}
+                data-testid={`menu-item-${item.id}`}
+                disabled={item.disabledReason !== null}
+                title={item.disabledReason ?? undefined}
+                onSelect={() => {
+                  void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
+                }}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
+              </MenubarItem>
+            ) : (
+              // Check-box items (Windows › Tool Strip, Focus Mode…): ticked as they were when the menu opened.
+              <MenubarCheckboxItem
+                key={item.id}
+                data-testid={`menu-item-${item.id}`}
+                checked={item.checked}
+                disabled={item.disabledReason !== null}
+                title={item.disabledReason ?? undefined}
+                onSelect={() => {
+                  void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
+                }}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
+              </MenubarCheckboxItem>
+            ),
+          )}
         </Fragment>
       ))}
     </>
@@ -92,7 +112,10 @@ export function MenuBar(): JSX.Element {
   const shell = useShell();
   const { app } = shell;
   const items = useRegistryList(app.menus);
-  const menus = topMenus(items);
+  // M6a (§8.1): each workspace shows its own menu set (B0b's `topMenus`); Animate's is the shipped one.
+  const workspaceId = useSession((s) => s.workspace);
+  const workspaces = useRegistryList(app.workspaces);
+  const menus = topMenus(items, { id: workspaceId, menus: workspaces.find((def) => def.id === workspaceId)?.menus });
   const projectName = useSession((s) => s.projectName);
   const dirty = useSession((s) => s.dirty);
 
@@ -115,6 +138,8 @@ export function MenuBar(): JSX.Element {
           </MenubarMenu>
         ))}
       </Menubar>
+      {/* M6A-SPEC §8.1: the workspace tabs sit right of the menus. */}
+      <WorkspaceTabs />
       <div className="ml-auto flex min-w-0 items-center gap-3">
         <span className="truncate text-ui text-fg-2" data-testid="project-title" title={projectName}>
           {projectName}

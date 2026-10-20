@@ -1,17 +1,35 @@
 // Menu items contributed by the shell for its own operators (dialogs, panels, workspace, help). Built-in editing
 // commands come from WP-7b's BUILTIN_MENU_ITEMS; items with the same operator and arguments are shown once.
 import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout } from '@ekza-animator/editor-core';
-import { ANIMATE_SLOTS } from './layout';
+import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-animator/editor-core';
+import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
+import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
+
+/** What the check-box items of the Windows menu read when it opens (layout presets, docs/LAYOUT-PRESETS.md). */
+export interface ShellMenuState {
+  chromeShown(part: ChromePart): boolean;
+  focused(): boolean;
+  fullscreen(): boolean;
+}
+
+/** The workspaces that use Animate's layout (the Animate presets are listed there). */
+const ANIMATE_LIKE: readonly WorkspaceId[] = ['animate', 'rig', 'review'];
 
 const LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: string }[] = [
   { layout: 'single', label: 'Single View' },
   { layout: 'split', label: 'Shot | Free (Split)' },
   { layout: 'quad', label: 'Four View' },
 ];
+/** Model's presets (§8.2): M-Single, M-Quad, M-Side (`front | persp`, the split layout's panes in Model). */
+const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: string }[] = [
+  { layout: 'single', label: 'Single View' },
+  { layout: 'quad', label: 'Four View' },
+  { layout: 'split', label: 'Front | Persp (Side)' },
+];
 
 export function shellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
+  state?: ShellMenuState,
 ): MenuItemDef[] {
   const items: MenuItemDef[] = [
     {
@@ -88,12 +106,72 @@ export function shellMenuItems(
       label: 'About Ekza Animator',
     },
     {
+      // M6A-SPEC §8.3 Mesh › Mesh Check: shows the Mesh Check panel (B10 registers it).
+      id: 'shell.mesh.meshCheck',
+      menu: 'mesh',
+      op: 'workspace.showPanel',
+      args: { panel: 'meshCheck' },
+      group: 'check',
+      order: 250,
+      label: 'Mesh Check',
+      workspaces: ['model'],
+    },
+    {
       id: 'shell.windows.reset',
       menu: 'windows',
       op: 'workspace.reset',
       group: 'workspace',
       order: 900,
       label: 'Reset Workspace',
+    },
+    {
+      // M6A-SPEC §8.2: Model hides the time slider; Windows › Timeline shows it (and hides it again). Layout presets:
+      // listed in every workspace, beside the other chrome toggles.
+      id: 'shell.windows.timeline',
+      menu: 'windows',
+      op: 'workspace.toggleTimeline',
+      group: 'chrome',
+      order: 820,
+      label: 'Time Slider',
+      ...(state === undefined ? {} : { checked: () => state.chromeShown('timeline') }),
+    },
+    {
+      id: 'shell.windows.toolbar',
+      menu: 'windows',
+      op: 'workspace.toggleChrome',
+      args: { part: 'toolbar' },
+      group: 'chrome',
+      order: 800,
+      label: 'Tool Strip',
+      ...(state === undefined ? {} : { checked: () => state.chromeShown('toolbar') }),
+    },
+    {
+      id: 'shell.windows.helpLine',
+      menu: 'windows',
+      op: 'workspace.toggleChrome',
+      args: { part: 'helpLine' },
+      group: 'chrome',
+      order: 810,
+      label: 'Help Line',
+      ...(state === undefined ? {} : { checked: () => state.chromeShown('helpLine') }),
+    },
+    {
+      id: 'shell.windows.focus',
+      menu: 'windows',
+      op: 'workspace.toggleFocus',
+      group: 'chrome',
+      order: 830,
+      label: 'Focus Mode',
+      ...(state === undefined ? {} : { checked: () => state.focused() }),
+    },
+    {
+      id: 'shell.windows.fullscreen',
+      menu: 'windows',
+      op: 'view.toggleFullscreen',
+      group: 'chrome',
+      order: 840,
+      label: 'Full Screen',
+      ...(state === undefined ? {} : { checked: () => state.fullscreen() }),
     },
   ];
   const panels = [...ANIMATE_SLOTS.map((slot) => ({ kind: slot.kind, title: slot.title })), ...extraPanels];
@@ -108,26 +186,130 @@ export function shellMenuItems(
       label: panel.title,
     });
   });
-  LAYOUTS.forEach((entry, index) => {
+  // M6a: the Model-only panels (Toolkit, Palette, Mesh Check) are listed in Model.
+  MODEL_SLOTS.filter((slot) => !panels.some((panel) => panel.kind === slot.kind)).forEach((slot, index) => {
     items.push({
-      id: `shell.windows.layout.${entry.layout}`,
-      menu: 'windows.layout',
-      op: 'view.layout',
-      args: { layout: entry.layout },
-      group: 'layouts',
+      id: `shell.windows.panel.${slot.kind}`,
+      menu: 'windows',
+      op: 'workspace.showPanel',
+      args: { panel: slot.kind },
+      group: 'panels',
+      order: 150 + index,
+      label: slot.title,
+      workspaces: ['model'],
+    });
+  });
+  const layouts = (list: typeof LAYOUTS, workspaces: readonly WorkspaceId[], prefix: string): void => {
+    list.forEach((entry, index) => {
+      items.push({
+        id: `${prefix}.${entry.layout}`,
+        menu: 'windows.layout',
+        op: 'view.layout',
+        args: { layout: entry.layout },
+        group: 'layouts',
+        order: 200 + index,
+        label: entry.label,
+        workspaces,
+      });
+    });
+  };
+  layouts(LAYOUTS, ['animate', 'rig', 'review'], 'shell.windows.layout');
+  layouts(MODEL_LAYOUTS, ['model'], 'shell.windows.model-layout');
+  // Windows › Presets (after Layout, so the sub-menus keep their order): the built-in presets, then the manage items.
+  items.push(
+    {
+      id: 'shell.windows.presets.save',
+      menu: 'windows.presets',
+      op: 'ui.open',
+      args: { dialog: 'layoutPresets' },
+      group: 'manage',
+      order: 400,
+      label: 'Save Current Layout as…',
+    },
+    {
+      // The same dialog, opened on its list (the extra argument keeps the item apart from Save…).
+      id: 'shell.windows.presets.manage',
+      menu: 'windows.presets',
+      op: 'ui.open',
+      args: { dialog: 'layoutPresets', manage: true },
+      group: 'manage',
+      order: 410,
+      label: 'Rename or Delete Presets…',
+    },
+    {
+      // Model has no Blocking, Polish or Review: Alt+1 brings back its default layout.
+      id: 'shell.windows.presets.model-default',
+      menu: 'windows.presets',
+      op: 'workspace.preset.apply',
+      args: { preset: 'animate' },
+      group: 'builtin',
+      order: 200,
+      label: 'Default Layout',
+      workspaces: ['model'],
+    },
+  );
+  BUILTIN_PRESETS.forEach((preset, index) => {
+    items.push({
+      id: `shell.windows.presets.${preset.id}`,
+      menu: 'windows.presets',
+      op: 'workspace.preset.apply',
+      args: { preset: preset.id },
+      group: 'builtin',
       order: 200 + index,
-      label: entry.label,
+      label: preset.label,
+      workspaces: ANIMATE_LIKE,
     });
   });
   return items;
 }
 
+/** Windows › Presets items of the user's presets (one per saved preset, listed in its workspace). */
+export function userPresetMenuItems(presets: LayoutPresetStore, workspaces: readonly WorkspaceId[]): MenuItemDef[] {
+  return workspaces.flatMap((workspace) =>
+    presets.list(workspace).map(
+      (preset, index): MenuItemDef => ({
+        id: `shell.windows.presets.user.${workspace}.${preset.id}`,
+        menu: 'windows.presets',
+        op: 'workspace.preset.apply',
+        args: { preset: preset.id },
+        group: 'user',
+        order: 300 + index,
+        label: preset.name,
+        workspaces: [workspace],
+      }),
+    ),
+  );
+}
+
+/** Keeps the Windows › Presets items of the user's presets in step with the store. */
+export function registerUserPresetMenuItems(app: EditorApp, presets: LayoutPresetStore): Disposer {
+  let disposers: Disposer[] = [];
+  const sync = (): void => {
+    for (const dispose of disposers.reverse()) dispose();
+    disposers = [];
+    const workspaces = app.workspaces.list().map((def) => def.id);
+    for (const def of userPresetMenuItems(presets, workspaces)) {
+      disposers.push(app.contribute({ kind: 'menu', def }));
+    }
+  };
+  sync();
+  const unsubscribe = presets.subscribe(sync);
+  const unsubscribeWorkspaces = app.workspaces.subscribe(sync);
+  return () => {
+    unsubscribe();
+    unsubscribeWorkspaces();
+    for (const dispose of disposers.reverse()) dispose();
+    disposers = [];
+  };
+}
+
 export function registerShellMenuItems(
   app: EditorApp,
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
+  state?: ShellMenuState,
 ): Disposer {
   const disposers: Disposer[] = [];
-  for (const def of shellMenuItems(extraPanels)) {
+  for (const def of shellMenuItems(extraPanels, state)) {
     if (app.menus.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'menu', def }));
   }

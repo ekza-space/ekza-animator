@@ -3,6 +3,7 @@
 import type { CharacterId, ControlId } from '@ekza-animator/doc';
 import type { DragSession } from '../manipulators/drag';
 import type { AxisHandle } from '../manipulators/ManipulatorKit';
+import type { ObjectScaleSession } from '../manipulators/scale/math';
 import type { ManipHandle, MarqueeRect, PickResult } from '../types';
 
 export interface ViewportToolHost {
@@ -25,4 +26,9 @@ export interface ViewportToolHost {
   setActiveHandle(handle: ManipHandle | null): void;
   /** Maps a joint to the control that drives it (nearest driven ancestor), or null. */
   controlForJoint(character: CharacterId, node: number): ControlId | null;
+  /**
+   * M6a (B9): starts a Scale-tool drag on the selected scene objects (meshes and groups, Model object mode) when the
+   * manipulator sits on them; null otherwise. Optional for extension hosts.
+   */
+  beginObjectDrag?(paneId: string, handle: ManipHandle, x: number, y: number): ObjectScaleSession | null;
 }

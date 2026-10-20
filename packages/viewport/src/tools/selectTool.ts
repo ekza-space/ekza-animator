@@ -1,6 +1,9 @@
 // The viewport select tool (`Q`; MVP-SPEC §4.11.16): click picks the nearest control (manipulator > control >
 // joint), a repeated click within 3 px over the same candidates cycles to the next one, and an LMB drag of ≥ 4 px on
 // empty space draws a marquee (crossing test). Modifiers: Shift toggle, Mod remove, Mod+Shift add.
+// M6a (B10, §5.6): in the Model workspace the same presses select components of the hilited meshes (component modes)
+// or mesh objects (object mode) through the Model select runtime (`./model/select`); the move, rotate and scale tools
+// share this behaviour for presses that miss their manipulator.
 import type { CharacterId, ControlId } from '@ekza-animator/doc';
 import {
   type EditorApp,
@@ -15,6 +18,8 @@ import {
 import { PICK } from '../theme';
 import type { MarqueeRect } from '../types';
 import type { ViewportToolHost } from './host';
+import { modelSelectOf } from './model/select';
+import type { ModelSelectBehaviour, ModelSelectRuntime } from './model/select/runtime';
 
 /** Selection mode for click and marquee modifiers (research 09 §6.1). */
 export function selectModeOf(e: { readonly shift: boolean; readonly mod: boolean }): SelectMode {
@@ -54,22 +59,46 @@ export class SelectBehaviour {
     readonly index: number;
   } | null = null;
 
+  /** M6a: the Model behaviour of the runtime it was made for, and whether it owns the current press. */
+  private model: { readonly runtime: ModelSelectRuntime; readonly behaviour: ModelSelectBehaviour } | null = null;
+  private modelPress = false;
+
   constructor(
     private readonly app: EditorApp,
     private readonly host: ViewportToolHost,
   ) {}
 
   get pressed(): boolean {
-    return this.press !== null;
+    return this.press !== null || this.modelPress;
+  }
+
+  /** The Model behaviour while the Model workspace is active and its runtime has loaded, else null. */
+  private modelBehaviour(): ModelSelectBehaviour | null {
+    if (this.app.session.getState().workspace !== 'model') return null;
+    const runtime = modelSelectOf(this.app);
+    if (runtime === null) return null;
+    if (this.model?.runtime !== runtime) this.model = { runtime, behaviour: runtime.behaviour(this.host) };
+    return this.model.behaviour;
+  }
+
+  /** A press that completes a Model double-click (§5.6 loop table): the transform tools give it to selection. */
+  completesDouble(e: ToolPointerEvent): boolean {
+    return this.modelBehaviour()?.completesDouble(e) ?? false;
   }
 
   pointerDown(e: ToolPointerEvent): boolean {
     if (e.button !== 0 || e.paneId === null) return false;
+    const model = this.modelBehaviour();
+    if (model !== null) {
+      this.modelPress = model.pointerDown(e);
+      return this.modelPress;
+    }
     this.press = { paneId: e.paneId, x: e.x, y: e.y, mode: selectModeOf(e), marquee: false };
     return true;
   }
 
   pointerMove(e: ToolPointerEvent): boolean {
+    if (this.modelPress) return this.model?.behaviour.pointerMove(e) ?? false;
     const press = this.press;
     if (press === null) return false;
     if (!press.marquee && Math.hypot(e.x - press.x, e.y - press.y) >= PICK.marqueeMinPx) press.marquee = true;
@@ -78,6 +107,10 @@ export class SelectBehaviour {
   }
 
   pointerUp(e: ToolPointerEvent): boolean {
+    if (this.modelPress) {
+      this.modelPress = false;
+      return this.model?.behaviour.pointerUp(e) ?? false;
+    }
     const press = this.press;
     if (press === null) return false;
     this.press = null;
@@ -94,6 +127,10 @@ export class SelectBehaviour {
   }
 
   cancel(): void {
+    if (this.modelPress) {
+      this.modelPress = false;
+      this.model?.behaviour.cancel();
+    }
     if (this.press?.marquee === true) this.host.setMarquee(this.press.paneId, null);
     this.press = null;
   }

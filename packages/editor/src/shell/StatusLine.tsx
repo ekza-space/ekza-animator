@@ -1,7 +1,16 @@
 // Status line / tool strip (research 09 §4.2, M2A-SPEC §7): viewport tools, move and rotate manipulator spaces
 // (incl. gimbal), selection mask, key target (M2a), the Tween bar slot (M2a, A4 mounts the bar), auto-key and the
 // viewport layout preset. Every control runs an operator.
-import { type KeyTarget, PANEL, VIEWPORT_TOOL, type ManipSpace, type ViewportLayout } from '@ekza-animator/editor-core';
+// M6a (M6A-SPEC §8.2; B9): the groups and their order come from the active workspace's `statusGroups` (Animate's are
+// the shipped ones); Model adds the mode, symmetry, soft-selection, snapping and pivot groups (./statusGroups.tsx).
+import {
+  ANIMATE_STATUS_GROUPS,
+  type KeyTarget,
+  PANEL,
+  VIEWPORT_TOOL,
+  type ManipSpace,
+  type ViewportLayout,
+} from '@ekza-animator/editor-core';
 import {
   AutoKeyIcon,
   Bone,
@@ -11,6 +20,7 @@ import {
   LAYOUT_ICONS,
   MoveToolIcon,
   RotateToolIcon,
+  ScaleToolIcon,
   SelectToolIcon,
   SpaceGimbalIcon,
   SpaceObjectIcon,
@@ -20,17 +30,29 @@ import {
   ToggleGroupItem,
   Tooltip,
 } from '@ekza-animator/ui';
-import type { JSX, ReactNode } from 'react';
+import { Fragment, type JSX, lazy, type ReactNode, Suspense } from 'react';
 import { usePrefs, useSession } from '../hooks';
+import { useRegistryList } from '../hooks/useRegistry';
 import { TweenBar } from '../panels/shared/TweenBar';
 import { useShell, useShellUi } from './context';
 import { shortcutFor } from './menus';
+
+/** Model's groups (mode, symmetry, soft selection, snapping, pivot): a lazy chunk, drawn only in Model. */
+const ModelStatusGroup = lazy(() => import('./statusGroups').then((module) => ({ default: module.ModelStatusGroup })));
 
 const TOOL_ICONS: Readonly<Record<string, IconComponent>> = {
   [VIEWPORT_TOOL.select]: SelectToolIcon,
   [VIEWPORT_TOOL.move]: MoveToolIcon,
   [VIEWPORT_TOOL.rotate]: RotateToolIcon,
+  [VIEWPORT_TOOL.scale]: ScaleToolIcon,
 };
+/** The viewport tools the status line offers (Q W E R); the modeling tools live in the Toolkit and menus. */
+const STATUS_TOOLS: ReadonlySet<string> = new Set([
+  VIEWPORT_TOOL.select,
+  VIEWPORT_TOOL.move,
+  VIEWPORT_TOOL.rotate,
+  VIEWPORT_TOOL.scale,
+]);
 const DEFAULT_TOOLS = [
   { id: VIEWPORT_TOOL.select, label: 'Select' },
   { id: VIEWPORT_TOOL.move, label: 'Move' },
@@ -54,6 +76,12 @@ const LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: strin
   { layout: 'single', label: 'Single view' },
   { layout: 'split', label: 'Shot camera | free camera' },
   { layout: 'quad', label: 'Four views' },
+];
+/** Model's presets (§8.2): M-Single, M-Quad, M-Side (`front | persp`). */
+const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label: string }[] = [
+  { layout: 'single', label: 'Single view' },
+  { layout: 'quad', label: 'Four views' },
+  { layout: 'split', label: 'Front | perspective' },
 ];
 
 function Group(props: { readonly label: string; readonly children: ReactNode }): JSX.Element {
@@ -90,7 +118,14 @@ export function StatusLine(): JSX.Element {
   const autoKey = usePrefs((p) => p.autoKey);
   const keyTarget = useSession((s) => s.tools.keyTarget);
 
-  const registered = app.tools.list(PANEL.viewport).map((def) => ({ id: def.id, label: def.label }));
+  const workspaceId = useSession((s) => s.workspace);
+  const workspaces = useRegistryList(app.workspaces);
+  const groups = workspaces.find((def) => def.id === workspaceId)?.statusGroups ?? ANIMATE_STATUS_GROUPS;
+  const model = workspaceId === 'model';
+  const registered = app.tools
+    .list(PANEL.viewport)
+    .filter((def) => STATUS_TOOLS.has(def.id))
+    .map((def) => ({ id: def.id, label: def.label }));
   const tools = registered.length > 0 ? registered : DEFAULT_TOOLS;
   const run = (op: string, args?: unknown): void => {
     void shell.runFromUi(op, args, { panel: PANEL.viewport });
@@ -105,6 +140,197 @@ export function StatusLine(): JSX.Element {
     })();
   };
 
+  /** The groups by id (M6a: the workspace orders and picks them). */
+  const render = (id: string): JSX.Element | null => {
+    switch (id) {
+      case 'tools':
+        return (
+          <Group key="tools" label="Tools">
+            <ToggleGroup
+              type="single"
+              value={tool}
+              onValueChange={(value) => {
+                if (value !== '') run('view.tool', { panel: PANEL.viewport, tool: value });
+              }}
+            >
+              {tools.map((entry) => {
+                const Icon = TOOL_ICONS[entry.id];
+                return (
+                  <Tip
+                    key={entry.id}
+                    text={`${entry.label} tool`}
+                    shortcut={shortcutFor(app.keymap, 'view.tool', { panel: PANEL.viewport, tool: entry.id })}
+                  >
+                    <ToggleGroupItem
+                      value={entry.id}
+                      aria-label={`${entry.label} tool`}
+                      data-testid={`status-tool-${entry.id}`}
+                    >
+                      {Icon === undefined ? entry.label : <Icon />}
+                    </ToggleGroupItem>
+                  </Tip>
+                );
+              })}
+            </ToggleGroup>
+          </Group>
+        );
+      case 'moveSpace':
+        return (
+          <Group key="moveSpace" label="Move space">
+            <span className="text-ui-dense text-fg-3">Move</span>
+            <ToggleGroup type="single" value={moveSpace} onValueChange={(value) => setSpace('move', value)}>
+              {(['object', 'world'] as const).map((space) => {
+                const Icon = SPACE_ICONS[space];
+                return (
+                  <Tip key={space} text={`Move in ${SPACE_LABELS[space].toLowerCase()} space`}>
+                    <ToggleGroupItem
+                      value={space}
+                      aria-label={`Move: ${SPACE_LABELS[space]}`}
+                      data-testid={`status-move-space-${space}`}
+                    >
+                      <Icon />
+                    </ToggleGroupItem>
+                  </Tip>
+                );
+              })}
+            </ToggleGroup>
+          </Group>
+        );
+      case 'rotateSpace':
+        return (
+          <Group key="rotateSpace" label="Rotate space">
+            <span className="text-ui-dense text-fg-3">Rotate</span>
+            <ToggleGroup type="single" value={rotateSpace} onValueChange={(value) => setSpace('rotate', value)}>
+              {(['object', 'world', 'gimbal'] as const).map((space) => {
+                const Icon = SPACE_ICONS[space];
+                return (
+                  <Tip key={space} text={`Rotate in ${SPACE_LABELS[space].toLowerCase()} space`}>
+                    <ToggleGroupItem
+                      value={space}
+                      aria-label={`Rotate: ${SPACE_LABELS[space]}`}
+                      data-testid={`status-rotate-space-${space}`}
+                    >
+                      <Icon />
+                    </ToggleGroupItem>
+                  </Tip>
+                );
+              })}
+            </ToggleGroup>
+          </Group>
+        );
+      case 'selectionMask':
+        return (
+          <Group key="selectionMask" label="Selection mask">
+            <span className="text-ui-dense text-fg-3">Pick</span>
+            {(
+              [
+                ['controls', 'Controls', <DisplayControlsIcon key="c" />],
+                ['joints', 'Joints', <Bone key="j" size={16} />],
+                ['meshes', 'Meshes', <Box key="m" size={16} />],
+              ] as const
+            ).map(([key, label, icon]) => (
+              <Tip key={key} text={`Select ${label.toLowerCase()} in the viewport`}>
+                <Toggle
+                  pressed={mask[key]}
+                  aria-label={`Pick ${label}`}
+                  data-testid={`status-mask-${key}`}
+                  onPressedChange={(pressed) => run('view.selectionMask', { mask: { [key]: pressed } })}
+                >
+                  {icon}
+                </Toggle>
+              </Tip>
+            ))}
+          </Group>
+        );
+      case 'keyTarget':
+        return (
+          <Group key="keyTarget" label="Key target">
+            <span className="text-ui-dense text-fg-3">Key</span>
+            <ToggleGroup
+              type="single"
+              value={keyTarget}
+              onValueChange={(value) => {
+                if (value !== '') run('key.setTarget', { target: value });
+              }}
+            >
+              {KEY_TARGETS.map((entry) => {
+                const poll = app.operators.poll('key.setTarget', { panel: PANEL.viewport }, { target: entry.target });
+                const reason = poll === true ? null : poll.reason;
+                return (
+                  <Tip key={entry.target} text={reason === null ? entry.label : `${entry.label} (${reason})`}>
+                    <ToggleGroupItem
+                      value={entry.target}
+                      aria-label={entry.label}
+                      data-testid={`status-keytarget-${entry.target}`}
+                      disabled={reason !== null && entry.target !== keyTarget}
+                    >
+                      <span className="text-ui">{entry.short}</span>
+                    </ToggleGroupItem>
+                  </Tip>
+                );
+              })}
+            </ToggleGroup>
+          </Group>
+        );
+      case 'keying':
+        return (
+          <Fragment key="keying">
+            {/* M2a Tween bar slot (M2A-SPEC §7): A4 mounts the compact bar here. */}
+            <div className="contents" data-testid="status-tween-slot">
+              <TweenBar panel="status" />
+            </div>
+            <Group label="Keying">
+              <Tip text="Auto key" shortcut={shortcutFor(app.keymap, 'key.toggleAutoKey', undefined)}>
+                <Toggle
+                  pressed={autoKey}
+                  aria-label="Auto key"
+                  data-testid="status-autokey"
+                  onPressedChange={() => run('key.toggleAutoKey')}
+                  className="aria-pressed:text-autokey! aria-pressed:shadow-[inset_0_-2px_0_var(--autokey)]!"
+                >
+                  <AutoKeyIcon />
+                  <span className="text-ui">Auto key</span>
+                </Toggle>
+              </Tip>
+            </Group>
+          </Fragment>
+        );
+      case 'layout':
+        return (
+          <Group key="layout" label="Viewport layout">
+            <ToggleGroup
+              type="single"
+              value={layout}
+              onValueChange={(value) => {
+                if (value !== '') run('view.layout', { layout: value });
+              }}
+            >
+              {(model ? MODEL_LAYOUTS : LAYOUTS).map((entry) => {
+                const Icon = LAYOUT_ICONS[entry.layout];
+                return (
+                  <Tip key={entry.layout} text={entry.label}>
+                    <ToggleGroupItem
+                      value={entry.layout}
+                      aria-label={entry.label}
+                      data-testid={`status-layout-${entry.layout}`}
+                    >
+                      {Icon === undefined ? entry.layout : <Icon />}
+                    </ToggleGroupItem>
+                  </Tip>
+                );
+              })}
+            </ToggleGroup>
+          </Group>
+        );
+      default:
+        return (
+          <Suspense key={id} fallback={null}>
+            <ModelStatusGroup id={id} />
+          </Suspense>
+        );
+    }
+  };
+
   return (
     <div
       className="flex h-[var(--size-statusline)] shrink-0 items-center gap-2 overflow-x-auto border-b border-line bg-header px-2"
@@ -112,162 +338,7 @@ export function StatusLine(): JSX.Element {
       aria-label="Status line"
       data-testid="statusline"
     >
-      <Group label="Tools">
-        <ToggleGroup
-          type="single"
-          value={tool}
-          onValueChange={(value) => {
-            if (value !== '') run('view.tool', { panel: PANEL.viewport, tool: value });
-          }}
-        >
-          {tools.map((entry) => {
-            const Icon = TOOL_ICONS[entry.id];
-            return (
-              <Tip
-                key={entry.id}
-                text={`${entry.label} tool`}
-                shortcut={shortcutFor(app.keymap, 'view.tool', { panel: PANEL.viewport, tool: entry.id })}
-              >
-                <ToggleGroupItem
-                  value={entry.id}
-                  aria-label={`${entry.label} tool`}
-                  data-testid={`status-tool-${entry.id}`}
-                >
-                  {Icon === undefined ? entry.label : <Icon />}
-                </ToggleGroupItem>
-              </Tip>
-            );
-          })}
-        </ToggleGroup>
-      </Group>
-      <Group label="Move space">
-        <span className="text-ui-dense text-fg-3">Move</span>
-        <ToggleGroup type="single" value={moveSpace} onValueChange={(value) => setSpace('move', value)}>
-          {(['object', 'world'] as const).map((space) => {
-            const Icon = SPACE_ICONS[space];
-            return (
-              <Tip key={space} text={`Move in ${SPACE_LABELS[space].toLowerCase()} space`}>
-                <ToggleGroupItem
-                  value={space}
-                  aria-label={`Move: ${SPACE_LABELS[space]}`}
-                  data-testid={`status-move-space-${space}`}
-                >
-                  <Icon />
-                </ToggleGroupItem>
-              </Tip>
-            );
-          })}
-        </ToggleGroup>
-      </Group>
-      <Group label="Rotate space">
-        <span className="text-ui-dense text-fg-3">Rotate</span>
-        <ToggleGroup type="single" value={rotateSpace} onValueChange={(value) => setSpace('rotate', value)}>
-          {(['object', 'world', 'gimbal'] as const).map((space) => {
-            const Icon = SPACE_ICONS[space];
-            return (
-              <Tip key={space} text={`Rotate in ${SPACE_LABELS[space].toLowerCase()} space`}>
-                <ToggleGroupItem
-                  value={space}
-                  aria-label={`Rotate: ${SPACE_LABELS[space]}`}
-                  data-testid={`status-rotate-space-${space}`}
-                >
-                  <Icon />
-                </ToggleGroupItem>
-              </Tip>
-            );
-          })}
-        </ToggleGroup>
-      </Group>
-      <Group label="Selection mask">
-        <span className="text-ui-dense text-fg-3">Pick</span>
-        {(
-          [
-            ['controls', 'Controls', <DisplayControlsIcon key="c" />],
-            ['joints', 'Joints', <Bone key="j" size={16} />],
-            ['meshes', 'Meshes', <Box key="m" size={16} />],
-          ] as const
-        ).map(([key, label, icon]) => (
-          <Tip key={key} text={`Select ${label.toLowerCase()} in the viewport`}>
-            <Toggle
-              pressed={mask[key]}
-              aria-label={`Pick ${label}`}
-              data-testid={`status-mask-${key}`}
-              onPressedChange={(pressed) => run('view.selectionMask', { mask: { [key]: pressed } })}
-            >
-              {icon}
-            </Toggle>
-          </Tip>
-        ))}
-      </Group>
-      <Group label="Key target">
-        <span className="text-ui-dense text-fg-3">Key</span>
-        <ToggleGroup
-          type="single"
-          value={keyTarget}
-          onValueChange={(value) => {
-            if (value !== '') run('key.setTarget', { target: value });
-          }}
-        >
-          {KEY_TARGETS.map((entry) => {
-            const poll = app.operators.poll('key.setTarget', { panel: PANEL.viewport }, { target: entry.target });
-            const reason = poll === true ? null : poll.reason;
-            return (
-              <Tip key={entry.target} text={reason === null ? entry.label : `${entry.label} (${reason})`}>
-                <ToggleGroupItem
-                  value={entry.target}
-                  aria-label={entry.label}
-                  data-testid={`status-keytarget-${entry.target}`}
-                  disabled={reason !== null && entry.target !== keyTarget}
-                >
-                  <span className="text-ui">{entry.short}</span>
-                </ToggleGroupItem>
-              </Tip>
-            );
-          })}
-        </ToggleGroup>
-      </Group>
-      {/* M2a Tween bar slot (M2A-SPEC §7): A4 mounts the compact bar here. */}
-      <div className="contents" data-testid="status-tween-slot">
-        <TweenBar panel="status" />
-      </div>
-      <Group label="Keying">
-        <Tip text="Auto key" shortcut={shortcutFor(app.keymap, 'key.toggleAutoKey', undefined)}>
-          <Toggle
-            pressed={autoKey}
-            aria-label="Auto key"
-            data-testid="status-autokey"
-            onPressedChange={() => run('key.toggleAutoKey')}
-            className="aria-pressed:text-autokey! aria-pressed:shadow-[inset_0_-2px_0_var(--autokey)]!"
-          >
-            <AutoKeyIcon />
-            <span className="text-ui">Auto key</span>
-          </Toggle>
-        </Tip>
-      </Group>
-      <Group label="Viewport layout">
-        <ToggleGroup
-          type="single"
-          value={layout}
-          onValueChange={(value) => {
-            if (value !== '') run('view.layout', { layout: value });
-          }}
-        >
-          {LAYOUTS.map((entry) => {
-            const Icon = LAYOUT_ICONS[entry.layout];
-            return (
-              <Tip key={entry.layout} text={entry.label}>
-                <ToggleGroupItem
-                  value={entry.layout}
-                  aria-label={entry.label}
-                  data-testid={`status-layout-${entry.layout}`}
-                >
-                  {Icon === undefined ? entry.layout : <Icon />}
-                </ToggleGroupItem>
-              </Tip>
-            );
-          })}
-        </ToggleGroup>
-      </Group>
+      {groups.map((id) => render(id))}
     </div>
   );
 }

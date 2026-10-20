@@ -56,6 +56,7 @@ export function makeTestAsset(name: string): AssetRecord {
     mime: 'model/gltf-binary',
     size: 0,
     role: 'model',
+    provenance: null,
   };
 }
 
@@ -71,6 +72,7 @@ export function makeTestCharacter(fields: {
     id: fields.id,
     name: fields.name,
     asset: fields.asset,
+    source: { kind: 'asset', asset: fields.asset },
     format: 'vrm1',
     rig: fields.rig,
     placement: { t: [fields.x ?? 0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },

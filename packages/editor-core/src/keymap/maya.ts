@@ -1,6 +1,7 @@
-// The `maya` keymap preset: MVP-SPEC §4.10 and the M2A-SPEC §6 additions as data. Chords use `KeyboardEvent.code`;
+// The `maya` keymap preset: MVP-SPEC §4.10, the M2A-SPEC §6 and the M6A-SPEC §7 additions as data. Chords use `KeyboardEvent.code`;
 // `mod` is Cmd on macOS and Ctrl elsewhere. A more specific scope wins over 'global' (KeymapManager.resolve).
 import type { Chord, KeyBinding, KeyScope, KeyTrigger, OperatorId } from '../types';
+import { MODEL_SCOPE } from './scopes';
 
 const V = 'viewport';
 const G = 'graph';
@@ -135,5 +136,84 @@ TANGENT_DIGITS.forEach((type, i) => bind([key(`Digit${i + 1}`)], 'graph.tangent.
 bind([key('KeyF')], 'dopeSheet.frame', [D], { what: 'selection' });
 bind([key('KeyA')], 'dopeSheet.frame', [D], { what: 'all' });
 
-/** The `maya` preset (MVP-SPEC §4.10 + M2A-SPEC §6), registered by `registerBuiltins` through a keymap contribution. */
+// ---------- M6a additions (M6A-SPEC §7; the Model scopes of §5.17) ----------
+// m = the whole Model workspace, mv = its viewport, mvc = any component mode there, mve/mvf = edge/face mode,
+// mo = its Outliner. Rows bind to the §6 operators (stubs until their owners land). `V`/`ANY` rows reach Animate too:
+// the §3 rule 10 changes (`R` Scale tool, `4`–`7` shading, `Mod+Shift+E` Export) and `Mod+K` (command palette).
+const M = MODEL_SCOPE.model;
+const MV = MODEL_SCOPE.viewport;
+const MVC = MODEL_SCOPE.component;
+const MO = MODEL_SCOPE.outliner;
+const COMPONENTS = ['vertex', 'edge', 'face'] as const;
+
+bind([key('F8')], 'select.mode', [MV], { mode: 'toggle' });
+COMPONENTS.forEach((mode, i) => {
+  // F9 vertex, F10 edge (F11 is never bound: browser fullscreen); 1/2/3 on every keyboard (Blender habit).
+  bind(i < 2 ? [key(`F${9 + i}`), key(`Digit${i + 1}`)] : [key('Digit3')], 'select.mode', [MV], { mode });
+  bind([key(`F${9 + i}`, { mod: true })], 'select.mesh.convert', [MVC], { to: mode, mode: 'touching' });
+});
+(['wire', 'shaded', 'colours', 'lit'] as const).forEach((mode, i) =>
+  bind([key(`Digit${4 + i}`)], 'view.shading', [V], { mode }),
+);
+bind([key('KeyE', { mod: true })], 'mesh.extrude', [M]);
+bind([key('KeyE', { mod: true, shift: true })], 'ui.open', [ANY], { dialog: 'export' });
+bind([key('KeyB', { mod: true })], 'mesh.bevel', [MVC]);
+bind([key('KeyK')], 'view.tool', [MV], { panel: 'viewport', tool: 'multiCut' });
+bind([key('KeyM')], 'ui.markingMenu', [MVC], { menu: 'model.merge' });
+bind([key('KeyG')], 'edit.repeatLast', [MV]);
+bind([key('KeyT')], 'view.lastOpCard', [MV], { expand: true, focusPrimary: true });
+bind([key('KeyY')], 'tool.last', [MV]);
+bind([key('KeyR')], 'view.tool', [V], { panel: 'viewport', tool: 'scale' });
+bind([key('Delete'), key('Backspace')], 'mesh.delete', [MVC]);
+bind([key('Delete'), key('Backspace')], 'scene.delete', [MV]);
+bind([key('Delete', { mod: true }), key('Backspace', { mod: true })], 'mesh.deleteEdgeVertex', [MVC]);
+bind([key('Period', { shift: true })], 'select.mesh.grow', [MVC]);
+bind([key('Comma', { shift: true })], 'select.mesh.shrink', [MVC]);
+bind([key('KeyH')], 'view.hide', [MV, MO], { target: 'selected' });
+bind([key('KeyH', { shift: true })], 'view.showAll', [MV, MO]);
+bind([key('KeyH', { alt: true })], 'view.hide', [MV, MO], { target: 'unselected' });
+bind([key('KeyL', { shift: true })], 'view.isolate', [MV]);
+bind([key('ArrowRight', { ctrl: true, alt: true })], 'mesh.spinEdge', [MODEL_SCOPE.edge], { direction: 'forward' });
+bind([key('ArrowLeft', { ctrl: true, alt: true })], 'mesh.spinEdge', [MODEL_SCOPE.edge], { direction: 'back' });
+for (const [code, direction] of ARROWS) bind([key(code)], 'select.mesh.pickWalk', [MVC], { direction });
+bind([key('KeyD', { mod: true })], 'scene.duplicate', [MV, MO]);
+bind([key('KeyD', { mod: true })], 'mesh.duplicateFaces', [MODEL_SCOPE.face]);
+bind([key('KeyG', { mod: true })], 'scene.group', [MV, MO]);
+bind([key('KeyP')], 'scene.parent', [MV, MO]);
+bind([key('KeyP', { shift: true })], 'scene.unparent', [MV, MO]);
+bind([key('Insert'), key('Home')], 'model.pivot.editToggle', [MV]);
+bind([key('KeyB')], 'model.softSelect.toggle', [MV], undefined, 'tap');
+bind([key('Backquote')], 'model.selectionStyle.set', [MV], { style: 'toggle' });
+// Animate rows that would key, mirror or paste controls the modeler cannot see (§5.17): poll-fail in Model.
+bind(
+  [
+    key('KeyS'),
+    key('KeyW', { shift: true }),
+    key('KeyE', { shift: true }),
+    key('KeyR', { shift: true }),
+    key('KeyS', { alt: true }),
+    key('KeyM', { alt: true }),
+    key('KeyC', { mod: true }),
+    key('KeyV', { mod: true }),
+    key('KeyV', { mod: true, shift: true }),
+  ],
+  'model.animateOnly',
+  [MV],
+);
+bind([key('KeyA', { mod: true })], 'select.mesh.all', [MVC]);
+bind([key('KeyA', { mod: true })], 'select.objects', [MV], { all: 'meshes', mode: 'replace' });
+bind([key('KeyK', { mod: true })], 'ui.commandPalette', [ANY]);
+
+// ---------- Layout presets for focused work (docs/LAYOUT-PRESETS.md) ----------
+// Ctrl+Space hides the UI around the viewport (Maya); macOS takes Ctrl+Space for the input-source switch when more
+// than one input source is set up (Windows: the Chinese IME toggle), so Alt+0 does the same everywhere. Space keys are
+// tap/hold keys: the Ctrl+Space row is a tap. Alt+1…4 apply the built-in presets; Shift+F toggles browser fullscreen.
+bind([key('Space', { ctrl: true })], 'workspace.toggleFocus', [ANY], undefined, 'tap');
+bind([key('Digit0', { alt: true })], 'workspace.toggleFocus', [ANY]);
+(['animate', 'blocking', 'polish', 'review'] as const).forEach((preset, i) =>
+  bind([key(`Digit${i + 1}`, { alt: true })], 'workspace.preset.apply', [ANY], { preset }),
+);
+bind([key('KeyF', { shift: true })], 'view.toggleFullscreen', [ANY]);
+
+/** The `maya` preset (MVP-SPEC §4.10 + M2A-SPEC §6 + M6A-SPEC §7), registered by `registerBuiltins` through a keymap contribution. */
 export const MAYA_KEYMAP: readonly KeyBinding[] = Object.freeze(bindings.map((binding) => Object.freeze(binding)));

@@ -26,7 +26,7 @@ import {
   sceneToClipFrame,
   wrapClipFrame,
 } from '@ekza-animator/doc';
-import { type GlbContainer, parseGlb, skeletonFromGltf } from '@ekza-animator/io';
+import type { GlbContainer } from '@ekza-animator/io';
 import {
   applyOverrides,
   type ChannelBuffer,
@@ -140,9 +140,14 @@ export const DEFAULT_DEPS: KernelDeps = {
     createClipSampler,
     applyOverrides,
   },
-  loadModel: async (character: CharacterRecord, assets: AssetStore): Promise<ModelSource> => {
-    const bytes = await assets.get(character.asset);
-    const container = await parseGlb(bytes);
-    return { container, skeleton: skeletonFromGltf(container) };
+  loadModel: (character: CharacterRecord, assets: AssetStore): Promise<ModelSource> | null => {
+    // M6a: a model-sourced character (M6b, `asset === null`) has no glTF model to parse.
+    const asset = character.asset;
+    if (asset === null) return null;
+    return (async () => {
+      const bytes = await assets.get(asset);
+      const { readModelSource } = await import('./modelSource');
+      return readModelSource(bytes);
+    })();
   },
 };

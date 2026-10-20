@@ -111,7 +111,7 @@ describe('KeyboardAdapter', () => {
       expect.objectContaining({
         op: 'key.set',
         args: { channels: 'all' },
-        ctx: { panel: 'viewport', paneId: 'pane-right' },
+        ctx: { panel: 'viewport', paneId: 'pane-right', source: 'keyboard' },
       }),
     ]);
   });
@@ -331,6 +331,38 @@ describe('KeyboardAdapter', () => {
     expect(s.dispatched.map((d) => d.op)).toEqual(['key.toggleAutoKey', 'time.step', 'time.step']);
   });
 
+  it('M6a: keyboard runs carry source "keyboard" and auto-repeats carry repeat: true', () => {
+    const s = setup();
+    s.adapter.keyDown(key('keydown', { code: 'Period', key: '≥', altKey: true }));
+    s.adapter.keyDown(key('keydown', { code: 'Period', key: '≥', altKey: true, repeat: true }));
+    expect(s.dispatched.map((d) => d.ctx)).toEqual([{ source: 'keyboard' }, { source: 'keyboard', repeat: true }]);
+  });
+
+  it('M6a: asks the keymap about tap/hold with the scope chain and the modifiers', () => {
+    const app = createFakeEditorApp({ platform: 'mac' });
+    app.contribute({ kind: 'keymap', bindings: BINDINGS });
+    const asked: unknown[] = [];
+    const keymap: KeymapManager = {
+      ...app.keymap,
+      isTapHoldKey: (code, scopes, mods) => {
+        asked.push({ code, scopes, mods });
+        return app.keymap.isTapHoldKey(code, scopes, mods);
+      },
+    };
+    const adapter = new KeyboardAdapter({
+      keymap,
+      scopeChain: () => VIEWPORT,
+      blocked: () => false,
+      spaceBehaviour: () => 'maya',
+      dispatch: () => {},
+      timers: manualTimers(),
+    });
+    adapter.keyDown(key('keydown', { code: 'KeyB', key: 'b', metaKey: true, ctrlKey: true }));
+    expect(asked).toEqual([
+      { code: 'KeyB', scopes: VIEWPORT.scopes, mods: { mod: true, shift: false, alt: false, ctrl: true } },
+    ]);
+  });
+
   describe('Space tap and hold (200 ms)', () => {
     it('a tap under 200 ms toggles maximize for the pane under the pointer', () => {
       const s = setup();
@@ -344,7 +376,7 @@ describe('KeyboardAdapter', () => {
         expect.objectContaining({
           op: 'view.toggleMaximize',
           trigger: 'tap',
-          ctx: { panel: 'viewport', paneId: 'pane-right' },
+          ctx: { panel: 'viewport', paneId: 'pane-right', source: 'keyboard' },
         }),
       ]);
     });

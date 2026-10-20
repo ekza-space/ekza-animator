@@ -18,7 +18,10 @@ export function ViewportPanel({ app }: PanelProps): JSX.Element {
   const vm = useViewportManager(app);
   const layout = useSession((s) => s.viewportLayout);
   const maximized = useSession((s) => s.maximizedPane);
-  const empty = useDocQuery(hasNoCharacters, ['characters']);
+  // M6a (B13): Model's empty scene shows the Model start card (a pane overlay) instead of the drop zone, whose card
+  // would sit over the meshes being modeled and take their clicks.
+  const model = useSession((s) => s.workspace === 'model');
+  const empty = useDocQuery(hasNoCharacters, ['characters']) && !model;
   const panes = LAYOUT_PANES[layout] ?? LAYOUT_PANES.split;
   // M2a §5.18: the e2e switch `pointerLock=off` makes the viewport's virtual slider use pointer capture.
   const pointerLock = useOptionalShell()?.params.pointerLock ?? true;

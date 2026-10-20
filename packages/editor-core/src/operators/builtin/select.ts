@@ -75,7 +75,7 @@ export function pruneForControls(app: EditorApp, selection: Selection): Selectio
     if (key !== undefined && shown.has(key.curve)) keys.set(id, parts);
   }
   const channels = selection.channels.filter((ref) => controls.has(ref.control));
-  return { controls: selection.controls, keys, channels };
+  return { controls: selection.controls, keys, channels, objects: selection.objects };
 }
 
 /** Selects controls (one character at a time) and prunes the dependent key and channel selections. */
