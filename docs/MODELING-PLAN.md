@@ -13,9 +13,12 @@ spec (`docs/M6A-SPEC.md`, …) derived from this plan, as [M2A-SPEC](M2A-SPEC.md
   (AI generation), [16](research/16-model-workspace-ui.md) (Model workspace UI); earlier [03](research/03-ekza-reuse-audit.md),
   [06](research/06-collaboration.md), [08](research/08-extensibility-modeling.md), [09](research/09-ui-ux-spec.md).
 - Decisions: [ADR 0014](adr/0014-mesh-kernel.md) mesh kernel, [ADR 0015](adr/0015-mesh-storage-in-the-document.md)
-  mesh storage, [ADR 0016](adr/0016-modeling-interaction-paradigm.md) interaction paradigm,
-  [ADR 0017](adr/0017-ai-generation-boundary.md) AI generation boundary (all *Proposed*; accepted when the M6a spec
-  freezes, ADR 0017 at the M7 spec).
+  mesh storage, [ADR 0016](adr/0016-modeling-interaction-paradigm.md) interaction paradigm (all three **Accepted**
+  2026-10-19 with the M6a build spec), [ADR 0017](adr/0017-ai-generation-boundary.md) AI generation boundary
+  (*Proposed*; its provenance items accepted with M6a, the rest at the M7 spec).
+- Build spec: [M6A-SPEC](M6A-SPEC.md) v1.0 (2026-10-19) turns §2–§4 into contracts, normative behaviours and work
+  packages; where it refines this plan (flattened extrude args, selection coalescing, B12b dependencies and the
+  critical path, kept BIN ranges in the surgeon, …) its §12.2 is binding.
 - Owner decisions with the defaults chosen: [DECISIONS-OPEN §G](DECISIONS-OPEN.md#g-modeling-iteration-m6am7-defaults-chosen-2026-10-18).
   Queue: [TODO.md](../TODO.md). Sizes are **agent-days** (ROADMAP convention).
 
@@ -634,7 +637,7 @@ the maps, B3/B4/B5 the kernel side, B12a/B12b the tools; the M6a spec copies thi
 | Soft select | weights computed from the expanded selection; each vertex takes its own side's delta scaled by its weight | vertices within tolerance of the plane: in-plane part only, as above |
 | Extrude, Inset, Bevel, Offset Edge Loop, Delete, Merge/Collapse, Soften/Harden, Average Vertices, Paint Colour | expanded selection; scalar args apply to both halves; extrude `local*` args act in mirror-consistent region frames, so the numbers are identical | a region or merge group that is its own mirror is processed once; its merge centre is snapped onto the plane; Average keeps seam vertices on the plane |
 | Multi-Cut | every cut point mapped as above; the mirrored path is a second cut | a path that crosses the seam is clipped at the first crossing, the crossing snaps onto the plane, and the kept half is mirrored: one symmetric cut |
-| Insert Edge Loop | the seed edge's ring and the partner ring (weight mapped by orientation); Multiple/equal-distance identical | a ring that is its own partner (a waist loop) inserts **one** loop; every new vertex gets a partner |
+| Insert Edge Loop | the seed edge's ring and the partner ring (weight mapped by orientation); Multiple/equal-distance identical | decided by the mapped seed point (refined in M6A-SPEC v1.1 §5.14): a loop whose mirror is itself (a waist ring, or a crossing ring at the plane) is inserted **once**; otherwise both loops (a cube X-ring at 0.3 gives two loops at x = ±0.2); every new vertex gets a partner |
 | Slide Edge/Vertex | partner edges slide by the same percent along mirrored rails | seam vertices slide only along the plane |
 | Target Weld | source `s` → target `g` also welds `p(s)` → `p(g)` | `g` on the seam: both `s` and `p(s)` weld onto `g`; `g = p(s)`: Merge to Center onto the plane; `s` on the seam and `g` off it: refused with Preserve Seam |
 | Bridge | the picked pair and its mirrored pair; twist and start offset mirrored (sign flipped) | a pair of loops that is its own mirror (a neck) bridges once |

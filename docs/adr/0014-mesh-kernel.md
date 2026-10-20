@@ -1,7 +1,8 @@
 # ADR 0014 — Mesh kernel: radial-edge structure of arrays, write log, deterministic operations
 
-- Status: Proposed (2026-10-18, revised 2026-10-19 after the design review, MODELING-PLAN §12); becomes Accepted
-  when the M6a spec freezes (package B0a)
+- Status: Accepted (2026-10-19, with [M6A-SPEC](../M6A-SPEC.md) v1.0; proposed 2026-10-18, revised 2026-10-19 after
+  the design review, MODELING-PLAN §12). The normative contracts are M6A-SPEC §4; where a sketch here differs,
+  the spec wins (its §12.2 lists the refinements).
 - Inputs: research [13](../research/13-mesh-kernel.md) (K1–K14, measurements §8), [10](../research/10-maya-poly-modeling.md)
   §4–§5, [12](../research/12-lowpoly-workflow.md) §4–§5, [14](../research/14-skinning-own-models.md) §8.1,
   [08](../research/08-extensibility-modeling.md) §9.8; [MODELING-PLAN](../MODELING-PLAN.md) §3.2; ADRs 0002, 0005, 0006,

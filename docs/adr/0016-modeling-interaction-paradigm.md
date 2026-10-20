@@ -1,7 +1,8 @@
 # ADR 0016 — Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset
 
-- Status: Proposed (2026-10-18, revised 2026-10-19 after the design review, MODELING-PLAN §12); becomes Accepted
-  when the M6a spec freezes (package B0a)
+- Status: Accepted (2026-10-19, with [M6A-SPEC](../M6A-SPEC.md) v1.0; proposed 2026-10-18, revised 2026-10-19 after
+  the design review, MODELING-PLAN §12). The normative contracts are M6A-SPEC §4; where a sketch here differs,
+  the spec wins (its §12.2 lists the refinements).
 - Inputs: research [10](../research/10-maya-poly-modeling.md) §0, §2, §5–§6, [11](../research/11-blender-vs-maya-modeling-ux.md)
   (D1–D12), [12](../research/12-lowpoly-workflow.md) §12, [16](../research/16-model-workspace-ui.md) (U1–U12, §19),
   [09](../research/09-ui-ux-spec.md) §6–§7; [MODELING-PLAN](../MODELING-PLAN.md) §1, §3.4, §3.7; ADRs 0008, 0013.
