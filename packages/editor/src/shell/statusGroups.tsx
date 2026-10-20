@@ -12,7 +12,7 @@ import {
 } from '@ekza-animator/editor-core';
 import { NativeSelect, Toggle, ToggleGroup, ToggleGroupItem, Tooltip } from '@ekza-animator/ui';
 import { type ComponentType, createElement, type JSX } from 'react';
-import { useSession } from '../hooks';
+import { useDocQuery, useSession } from '../hooks';
 import { useShell } from './context';
 import { shortcutFor } from './menus';
 import { type StatusGroupProps, useStatusGroup } from './statusGroupRegistry';
@@ -25,6 +25,24 @@ function reasonOf(app: EditorApp, op: string, args?: unknown): string | null {
   return poll === true ? null : poll.reason;
 }
 
+const docVersion = (): number => 0;
+const sameReasons = (a: readonly (string | null)[], b: readonly (string | null)[]): boolean =>
+  a.length === b.length && a.every((reason, i) => reason === b[i]);
+
+/**
+ * The live poll reasons of status-line operator runs: re-read on every session change (selection, hilite, mode,
+ * workspace) and every mesh or group write, so a control never keeps the enablement of an earlier render (a
+ * Symmetry select disabled after a cube was created and selected; acceptance fix round 1).
+ */
+function useReasons(app: EditorApp, calls: readonly (readonly [string, unknown?])[]): readonly (string | null)[] {
+  useDocQuery(docVersion, ['meshes', 'groups']);
+  return useSession(() => calls.map(([op, args]) => reasonOf(app, op, args)), sameReasons);
+}
+
+function useReason(app: EditorApp, op: string, args?: unknown): string | null {
+  return useReasons(app, [[op, args]])[0] ?? null;
+}
+
 function Tip(props: { readonly text: string; readonly children: JSX.Element }): JSX.Element {
   return <Tooltip content={props.text}>{props.children}</Tooltip>;
 }
@@ -35,9 +53,11 @@ const MODES: readonly { readonly mode: ComponentMode; readonly short: string; re
   { mode: 'edge', short: 'Edg', label: 'Edge mode' },
   { mode: 'face', short: 'Face', label: 'Face mode' },
 ];
+const MODE_POLLS = MODES.map((entry) => ['select.mode', { mode: entry.mode }] as const);
 
 function ModeBody(props: StatusGroupProps): JSX.Element {
   const mode = useSession((s) => s.model.componentMode);
+  const reasons = useReasons(props.app, MODE_POLLS);
   return (
     <ToggleGroup
       type="single"
@@ -46,8 +66,8 @@ function ModeBody(props: StatusGroupProps): JSX.Element {
         if (value !== '') props.run('select.mode', { mode: value });
       }}
     >
-      {MODES.map((entry) => {
-        const reason = reasonOf(props.app, 'select.mode', { mode: entry.mode });
+      {MODES.map((entry, i) => {
+        const reason = reasons[i] ?? null;
         const key = shortcutFor(props.app.keymap, 'select.mode', { mode: entry.mode });
         const text = `${entry.label}${key === null ? '' : `  ${key}`}${reason === null ? '' : ` (${reason})`}`;
         return (
@@ -76,6 +96,7 @@ const SYMMETRY: readonly { readonly value: SymmetryMode; readonly label: string 
   { value: 'world-y', label: 'World Y' },
   { value: 'world-z', label: 'World Z' },
 ];
+const SYMMETRY_POLL = { mode: 'object-x' } as const;
 
 function SymmetryBody(props: StatusGroupProps): JSX.Element {
   // The lead hilited (else selected) mesh's remembered symmetry (§5.14; B12a owns the setting).
@@ -83,7 +104,7 @@ function SymmetryBody(props: StatusGroupProps): JSX.Element {
     const lead = s.model.hilite.at(-1) ?? s.selection.objects.at(-1);
     return lead === undefined ? 'off' : (s.model.symmetry.get(lead as never)?.mode ?? 'off');
   });
-  const reason = reasonOf(props.app, 'model.symmetry.set', { mode: 'object-x' });
+  const reason = useReason(props.app, 'model.symmetry.set', SYMMETRY_POLL);
   return (
     <Tip text={reason === null ? 'Symmetry' : `Symmetry (${reason})`}>
       <NativeSelect
@@ -101,7 +122,7 @@ function SymmetryBody(props: StatusGroupProps): JSX.Element {
 
 function SoftBody(props: StatusGroupProps): JSX.Element {
   const soft = useSession((s) => s.model.softSelect);
-  const reason = reasonOf(props.app, 'model.softSelect.toggle');
+  const reason = useReason(props.app, 'model.softSelect.toggle');
   return (
     <Tip text={reason === null ? 'Soft selection  B' : `Soft selection (${reason})`}>
       <Toggle
@@ -128,13 +149,15 @@ const SNAPS: readonly {
   { kind: 'vertex', short: '.V', label: 'Snap to vertices (hold V)' },
   { kind: 'increment', short: '~J', label: 'Snap in increments (hold J)' },
 ];
+const SNAP_POLLS = SNAPS.map((entry) => ['model.snap.toggle', { kind: entry.kind }] as const);
 
 function SnapBody(props: StatusGroupProps): JSX.Element {
   const snap = useSession((s) => s.model.snap);
+  const reasons = useReasons(props.app, SNAP_POLLS);
   return (
     <>
-      {SNAPS.map((entry) => {
-        const reason = reasonOf(props.app, 'model.snap.toggle', { kind: entry.kind });
+      {SNAPS.map((entry, i) => {
+        const reason = reasons[i] ?? null;
         return (
           <Tip key={entry.kind} text={reason === null ? entry.label : `${entry.label} (${reason})`}>
             <Toggle
@@ -155,7 +178,7 @@ function SnapBody(props: StatusGroupProps): JSX.Element {
 
 function PivotBody(props: StatusGroupProps): JSX.Element {
   const on = useSession((s) => s.model.pivotEdit);
-  const reason = reasonOf(props.app, 'model.pivot.editToggle');
+  const reason = useReason(props.app, 'model.pivot.editToggle');
   return (
     <Tip text={reason === null ? 'Edit pivot  D / Insert' : `Edit pivot (${reason})`}>
       <Toggle
