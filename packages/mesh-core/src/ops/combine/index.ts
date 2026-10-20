@@ -1,7 +1,7 @@
 // MeshSetOp `mesh.combine {pivot}` (M6A-SPEC §5.13; owner B4; runner B7). Appends every other input into the first
-// (the lead, first selected) with `appendMesh`, each input's geometry moved into the result's space: `pivot` 'center'
-// (the centre of the combined world bounds, unrotated, unit scale — Maya's default), 'first' (the lead's placement) or
-// 'origin' (identity). An input whose transform into the result has a negative determinant (Maya's mirror route:
+// (the lead, first selected) with `appendMesh`, each input's geometry moved into the result's space: `pivot` 'first'
+// (the lead's placement, the default: its object origin and symmetry plane stay put), 'center' (the centre of the
+// combined world bounds, unrotated, unit scale) or 'origin' (identity). An input whose transform into the result has a negative determinant (Maya's mirror route:
 // duplicate, scale X −1, Combine) is appended with reversed winding, so it faces outward. Material slots unite by
 // identity key, morph layers by name, joint palettes by joint id. Refusals: fewer than two meshes, asset-backed inputs
 // (M6a), different palettes (`combine.palette-mismatch`, "assign it first") or skeletons (`combine.skeleton-mismatch`).
@@ -61,7 +61,7 @@ export const combine: MeshSetOp = Object.freeze({
     const verdict = combinePoll(inputs);
     if (verdict !== true) return verdict;
     const args = argsOf(COMBINE.params, raw);
-    const pivot = str<string>(args, 'pivot', 'center');
+    const pivot = str<string>(args, 'pivot', 'first');
     const lead = inputs[0] as MeshSetInput;
     let placement: ReadonlyXf = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] };
     if (pivot === 'first') placement = lead.placement;

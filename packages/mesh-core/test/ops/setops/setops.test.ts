@@ -126,10 +126,14 @@ function combinedHalves(): MeshData {
 describe('mesh.combine', () => {
   it('two cubes → one 16/24/12 mesh at the centre of their bounds; the second input is removed', () => {
     const result = ok(
-      runSet(set('mesh.combine'), [
-        { key: 'a', mesh: cube(), placement: at(-1) },
-        { key: 'b', mesh: cube(), placement: at(3), materials: ['preset:lit'] },
-      ]),
+      runSet(
+        set('mesh.combine'),
+        [
+          { key: 'a', mesh: cube(), placement: at(-1) },
+          { key: 'b', mesh: cube(), placement: at(3), materials: ['preset:lit'] },
+        ],
+        { pivot: 'center' },
+      ),
     );
     expect(result.removed).toEqual(['b']);
     expect(result.outputs).toHaveLength(1);
@@ -147,6 +151,21 @@ describe('mesh.combine', () => {
     const slots = new Set(Array.from(out.data.faceMaterial));
     expect([...slots].sort((x, y) => x - y)).toEqual([0, 1]);
     expect(signedVolume(out.data)).toBeCloseTo(2, 6);
+  });
+
+  it("the default pivot keeps the lead's object origin (its Object X plane stays on the seam)", () => {
+    // Acceptance fix round 1: a body at the origin combined with an arm on +X keeps translation 0, not the bounds
+    // centre, so Object X symmetry still mirrors about the body's seam.
+    const out = ok(
+      runSet(set('mesh.combine'), [
+        { key: 'body', mesh: cube() },
+        { key: 'arm', mesh: cube(), placement: at(1.5) },
+      ]),
+    ).outputs[0];
+    expect(out?.placement.t).toEqual([0, 0, 0]);
+    const xs = Array.from({ length: 16 }, (_, v) => position(out?.data as MeshData, v)[0]).sort((p, q) => p - q);
+    expect(xs[0]).toBe(-0.5);
+    expect(xs[15]).toBe(2);
   });
 
   it('pivot first keeps the lead untouched; origin is identity', () => {
