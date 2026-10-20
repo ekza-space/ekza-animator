@@ -2,11 +2,37 @@
 // built — triangles, glTF vertices welded into points, dropped degenerate faces, hard edges, the layers it carried
 // over (UVs, colours, skin, morph targets) and its warnings ("Tangents will be refused at export unless you drop
 // them"). Shown after the Outliner's Make editable button; Undo reverts the whole step.
-import { lastMakeEditableReport } from '@ekza-animator/editor-core';
+import type { MeshId } from '@ekza-animator/doc';
+import { type EditorApp, lastMakeEditableReport } from '@ekza-animator/editor-core';
 import { Button, Dialog, DialogContent, DialogFooter, TriangleAlert } from '@ekza-animator/ui';
-import type { JSX } from 'react';
+import { type JSX, useEffect, useState } from 'react';
+import { type CheckRow, checkRows, meshProblems } from '../panels/meshcheck/checks';
 import { useShell } from '../shell/context';
 import { count } from './format';
+
+/**
+ * Mesh Check's rows for the editable mesh (the same check as the panel, M6A-INT-51: the dialog said "Degenerate faces:
+ * none" — Make editable's dropped triangles — while Mesh Check listed zero-area faces left after the weld); null while
+ * the mesh's runtime is not ready.
+ */
+function useMeshCheck(app: EditorApp, mesh: MeshId | null): readonly CheckRow[] | null {
+  const read = (): readonly CheckRow[] | null => {
+    if (mesh === null) return null;
+    try {
+      const problems = meshProblems(app, mesh);
+      return problems === null ? null : checkRows(problems).filter((row) => row.code !== 'open-border');
+    } catch {
+      return null;
+    }
+  };
+  const [rows, setRows] = useState(read);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `read` closes over app and mesh only
+  useEffect(() => {
+    setRows(read());
+    return app.meshes.subscribe(() => setRows(read()));
+  }, [app, mesh]);
+  return rows;
+}
 
 export function MakeEditableReportDialog(): JSX.Element {
   const shell = useShell();
@@ -15,6 +41,7 @@ export function MakeEditableReportDialog(): JSX.Element {
   const record = last === null ? undefined : app.store.get('meshes', last.mesh);
   const close = (): void => void shell.runFromUi('ui.close');
   const report = last?.report ?? null;
+  const check = useMeshCheck(app, last?.mesh ?? null);
   const warnings = report === null ? [] : [...report.warnings];
   if (report?.hadTangents === true && !warnings.some((w) => w.includes('Tangent'))) {
     warnings.push('Tangents will be refused at export unless you drop them');
@@ -47,9 +74,17 @@ export function MakeEditableReportDialog(): JSX.Element {
               </dd>
               <dt>Hard edges</dt>
               <dd className="ekza-numeric text-fg">{report.hardEdges}</dd>
-              <dt>Degenerate faces</dt>
+              <dt>Dropped triangles</dt>
               <dd className="ekza-numeric text-fg">
-                {report.degenerateDropped === 0 ? 'none' : `${count(report.degenerateDropped, 'face')} dropped`}
+                {report.degenerateDropped === 0 ? 'none' : `${count(report.degenerateDropped, 'degenerate triangle')}`}
+              </dd>
+              <dt>Mesh Check</dt>
+              <dd className="text-fg" data-testid="make-editable-check">
+                {check === null
+                  ? 'checking…'
+                  : check.length === 0
+                    ? 'clean'
+                    : check.map((row) => `${row.code} ${row.count}`).join(', ')}
               </dd>
               <dt>Layers</dt>
               <dd className="text-fg" data-testid="make-editable-layers">
