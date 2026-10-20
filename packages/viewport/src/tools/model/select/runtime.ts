@@ -405,6 +405,24 @@ export class ModelSelectRuntime {
     return out;
   }
 
+  /** The meshes of selected objects: a mesh itself, a group its descendant meshes (F frames a group's children). */
+  private meshesIn(ids: readonly string[]): MeshId[] {
+    const wanted = new Set(ids);
+    const groups = new Map(this.app.store.list('groups').map((group) => [group.id as string, group.parent]));
+    const under = (parent: string | null): boolean => {
+      const seen = new Set<string>();
+      for (let at = parent; at !== null && !seen.has(at); at = groups.get(at) ?? null) {
+        if (wanted.has(at)) return true;
+        seen.add(at);
+      }
+      return false;
+    };
+    return this.app.store
+      .list('meshes')
+      .filter((mesh) => mesh.deleted === null && (wanted.has(mesh.id) || under(mesh.parent)))
+      .map((mesh) => mesh.id);
+  }
+
   /** World positions of every vertex of meshes (their stored revisions). */
   private meshPoints(ids: readonly string[]): Float32Array[] {
     const out: Float32Array[] = [];
@@ -424,7 +442,7 @@ export class ModelSelectRuntime {
     if (what === 'selection') {
       const components = bounds(this.selectionPoints());
       if (components !== null) return components;
-      const objects = bounds(this.meshPoints(state.selection.objects));
+      const objects = bounds(this.meshPoints(this.meshesIn(state.selection.objects)));
       if (objects !== null) return objects;
     }
     return bounds(this.meshPoints(this.app.meshes.list().map((runtime) => runtime.id)));
