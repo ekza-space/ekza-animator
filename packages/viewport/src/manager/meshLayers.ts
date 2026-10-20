@@ -5,7 +5,7 @@ import type { DisplayFlags } from '@ekza-animator/editor-core';
 import type { MeshPaneDisplay } from '@ekza-animator/mesh-view';
 import type { Object3D } from 'three';
 
-/** What `ViewportManager.addMeshLayer` takes (§4.7; B6's `MeshLayerHost` has the same shape). */
+/** What `ViewportManager.addMeshLayer` takes (§4.7; `mesh/display.ts` re-exports it). */
 export interface MeshLayerHost {
   readonly root: Object3D;
   /** Called before every pane render with that pane's display (one scene, N cameras). */

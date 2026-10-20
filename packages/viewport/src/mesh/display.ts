@@ -28,16 +28,13 @@ import type {
   PickOccluder,
   PickOptionsInput,
 } from '@ekza-animator/mesh-view';
-import { type Camera, Group, type Object3D, Vector3 } from 'three';
+import { type Camera, Group, Vector3 } from 'three';
+import type { MeshLayerHost } from '../manager/meshLayers';
 import { MESH_LAYERS } from './layers';
 import { inSubtree, meshWorld, worldPlaneInLocal } from './world';
 
-/** What `ViewportManager.addMeshLayer` takes (§4.7). */
-export interface MeshLayerHost {
-  readonly root: Object3D;
-  applyPane(display: MeshPaneDisplay, paneId: string): void;
-  dispose(): void;
-}
+/** What `ViewportManager.addMeshLayer` takes (§4.7): the manager's one declaration (B6 and B9 had one each). */
+export type { MeshLayerHost };
 
 /** The part of the viewport the display needs: B9's `addMeshLayer` and a redraw request. */
 export interface MeshLayerTarget {
