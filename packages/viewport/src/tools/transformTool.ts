@@ -249,6 +249,13 @@ class TransformTool implements ToolInstance {
 
   pointerDown(e: ToolPointerEvent): boolean {
     if (e.paneId === null) return false;
+    // The second press of a component double-click goes to selection (the loop table, §5.6), not to the manipulator
+    // the first click put on that component (Maya double-click loop selection with Move/Rotate/Scale active).
+    if (this.select.completesDouble(e)) {
+      const selected = this.select.pointerDown(e);
+      if (selected) this.owner = 'select';
+      return selected;
+    }
     if (this.model.get()?.pointerDown(e) === true) {
       this.owner = 'model';
       return true;
@@ -346,7 +353,7 @@ export function withModelTransform(
     tool === 'scale' ? 'Scale' : tool === 'rotate' ? 'Rotate' : 'Move',
     gestureFactory,
   );
-  let owner: 'model' | 'controls' | 'inner' | null = null;
+  let owner: 'model' | 'controls' | 'select' | 'inner' | null = null;
   return {
     activate: () => {
       setTweakHandle(app, null);
@@ -359,6 +366,12 @@ export function withModelTransform(
       inner.deactivate?.();
     },
     pointerDown: (e) => {
+      if (select.completesDouble(e)) {
+        // As in TransformTool: a component double-click's second press selects the loop.
+        const selected = select.pointerDown(e);
+        if (selected) owner = 'select';
+        return selected;
+      }
       if (model.get()?.pointerDown(e) === true) {
         owner = 'model';
         return true;
@@ -377,6 +390,7 @@ export function withModelTransform(
       return handled;
     },
     pointerMove: (e) => {
+      if (owner === 'select') return select.pointerMove(e);
       if (owner === 'model') return model.get()?.pointerMove(e) ?? true;
       if (owner === 'controls') {
         controls.move(e);
@@ -387,6 +401,7 @@ export function withModelTransform(
     pointerUp: (e) => {
       const was = owner;
       owner = null;
+      if (was === 'select') return select.pointerUp(e);
       if (was === 'model') return model.get()?.pointerUp(e) ?? true;
       if (was === 'controls') {
         controls.up(e);
@@ -398,6 +413,7 @@ export function withModelTransform(
       owner = null;
       model.get()?.cancel();
       controls.cancel();
+      select.cancel();
       inner.cancel?.();
     },
     key: (e) => model.get()?.key(e) ?? inner.key?.(e) ?? false,

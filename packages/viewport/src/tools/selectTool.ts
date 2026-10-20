@@ -81,6 +81,11 @@ export class SelectBehaviour {
     return this.model.behaviour;
   }
 
+  /** A press that completes a Model double-click (§5.6 loop table): the transform tools give it to selection. */
+  completesDouble(e: ToolPointerEvent): boolean {
+    return this.modelBehaviour()?.completesDouble(e) ?? false;
+  }
+
   pointerDown(e: ToolPointerEvent): boolean {
     if (e.button !== 0 || e.paneId === null) return false;
     const model = this.modelBehaviour();

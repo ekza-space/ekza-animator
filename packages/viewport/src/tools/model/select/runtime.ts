@@ -59,6 +59,11 @@ interface PaneQuery {
 
 /** The pointer behaviour of the select, move, rotate and scale tools in the Model workspace. */
 export interface ModelSelectBehaviour {
+  /**
+   * Whether a LMB press completes a double-click on the component the last click hit (§5.6 loop table): the transform
+   * tools then give the press to selection instead of the manipulator that the first click put on that component.
+   */
+  completesDouble(e: ToolPointerEvent): boolean;
   pointerDown(e: ToolPointerEvent): boolean;
   pointerMove(e: ToolPointerEvent): boolean;
   pointerUp(e: ToolPointerEvent): boolean;
@@ -85,6 +90,11 @@ export class ModelSelectRuntime {
   /** The last right-button press per pane (pane-local): where the RMB mode menu was opened. */
   private readonly pressAt = new Map<string, { x: number; y: number }>();
   private lastKey: string | null = null;
+  /**
+   * The last component click, shared by every tool's Model pointer behaviour (select, move, rotate, scale), so a
+   * double-click is recognised whichever tool's behaviour took its first press (acceptance fix round 1).
+   */
+  lastClick: LastClick | null = null;
   /** Face isolate sets pushed to the display, per pane. */
   private readonly pushedIsolates = new Map<string, Set<MeshId>>();
   /** Mesh Check problems pushed to the display, with the change key they were computed for. */
@@ -554,6 +564,16 @@ function bounds(points: readonly Float32Array[]): SpatialBounds | null {
   return { minX, maxX, minY, maxY, minZ, maxZ };
 }
 
+interface LastClick {
+  readonly paneId: string;
+  readonly x: number;
+  readonly y: number;
+  readonly at: number;
+  readonly hit: string | null;
+  /** The modifiers of the first click: a double-click repeats them (Shift/Mod double-clicks, §5.6). */
+  readonly mode: SelectMode;
+}
+
 interface Press {
   readonly paneId: string;
   readonly x: number;
@@ -573,15 +593,14 @@ interface Press {
  */
 class ModelPointer implements ModelSelectBehaviour {
   private press: Press | null = null;
-  private last: {
-    readonly paneId: string;
-    readonly x: number;
-    readonly y: number;
-    readonly at: number;
-    readonly hit: string | null;
-    /** The modifiers of the first click: a double-click repeats them (Shift/Mod double-clicks, §5.6). */
-    readonly mode: SelectMode;
-  } | null = null;
+
+  private get last(): LastClick | null {
+    return this.runtime.lastClick;
+  }
+
+  private set last(value: LastClick | null) {
+    this.runtime.lastClick = value;
+  }
 
   constructor(
     private readonly runtime: ModelSelectRuntime,
@@ -592,15 +611,30 @@ class ModelPointer implements ModelSelectBehaviour {
     return this.runtime.app;
   }
 
-  pointerDown(e: ToolPointerEvent): boolean {
-    if (e.button !== 0 || e.paneId === null) return false;
+  private isDouble(e: ToolPointerEvent): boolean {
     const last = this.last;
-    const double =
+    return (
       last !== null &&
       last.paneId === e.paneId &&
       last.mode === selectModeOf(e) &&
       e.timeStamp - last.at <= DOUBLE_CLICK_MS &&
-      Math.hypot(e.x - last.x, e.y - last.y) <= DOUBLE_CLICK_PX;
+      Math.hypot(e.x - last.x, e.y - last.y) <= DOUBLE_CLICK_PX
+    );
+  }
+
+  completesDouble(e: ToolPointerEvent): boolean {
+    return (
+      e.button === 0 &&
+      e.paneId !== null &&
+      this.app.session.getState().model.componentMode !== 'object' &&
+      (this.last?.hit ?? null) !== null &&
+      this.isDouble(e)
+    );
+  }
+
+  pointerDown(e: ToolPointerEvent): boolean {
+    if (e.button !== 0 || e.paneId === null) return false;
+    const double = this.isDouble(e);
     this.press = {
       paneId: e.paneId,
       x: e.x,
