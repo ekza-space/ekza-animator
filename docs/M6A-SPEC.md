@@ -3932,8 +3932,23 @@ unmerged packages as `test.fixme` naming them.
 
 ### 11.4 Integration record
 
-Filled by INT (as M2A-SPEC §10.4): merge commits, gate conversions, deviations (`M6A-INT-*`), budgets, the owner feel
-check and AS-LP results.
+Filled by INT (as M2A-SPEC §10.4) on 2026-10-20; details in
+[`wp-notes/m6a-integration.md`](wp-notes/m6a-integration.md), owner items in DECISIONS-OPEN §H.
+
+- **Merges** (§11.1 order, `--no-ff`): B0a `b85b7ac`, B0b `8a6ff94`, B9 `fc4cb60`, B1 `a495049`, B6 `983a142`, B7
+  `960feb0`, B8 `b4954cb`, B2 `3710d3e`, B3 `5e2792b`, B4 `7c47b33`, B5 `01a211d`, B10 `e57acfc`, B11 `308dea4`, B13
+  `7c000a5`, B12a `bf2c3e3`, B12b `e04d85a` (M6A-INT-1).
+- **Gates**: every READY flag and §10.1 `test.fixme` is a failure (`a13c0f5`, M6A-INT-2); the fourteen M6a-stretch
+  items are `test.fixme` in `m6a-stretch.spec.ts` with their fallbacks (M6A-INT-30).
+- **INT scenarios**: E2E-MOD-01, -15 (scripted humanoid), -16, -30 (Seed-san face edit), -31 (re-bake), AS-LP-S parts
+  A (`m6a-aslp-a.spec.ts`, the scripted Lowpoly Lad: ≤ 3,000 triangles, loops, one material, Mesh Check clean,
+  partnered, grounded, frozen, every Part A tool in the history) and B (`m6a-aslp-b.spec.ts`, the handheld prop with
+  deterministic bytes across a project reopen).
+- **Deviations**: M6A-INT-3…33 (rows E2E-MOD-01/-02 amended to §5.8, the lazy Model operators and selection service,
+  the test-API additions of §4.8, the package hand-overs, one export material per palette, scenario readings).
+- **Budgets**: §5.27 rows re-measured (`m6a-budgets.bench.ts` with the B6 and B12a benches): all within budget except
+  the marquee (report-only miss); the route is under the 900,000 B gate, the eager allowance is the owner's decision.
+- **Open**: the owner feel check (B12a), the owner demo script (§11.3) and the owner's AS-LP run; the README GIFs.
 
 ---
 

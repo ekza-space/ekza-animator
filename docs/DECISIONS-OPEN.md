@@ -677,3 +677,48 @@ each, including the rejected and partly applied ones). IDs from the research not
 | Q-GEN-8 | Rig for generated humanoids | **Provider rig when it uses VRM bone naming** (Tripo rig `v3.0-20260909`, `spec: "vrm"`, verified 2026-10-18), otherwise Quick Rig + Auto (low-poly); geodesic voxel binding in G2 (R15 Q8, R14 Q-SKIN-8) | Own rig always: weaker on polygon soup until voxel binding exists | M7 spec |
 | Q-GEN-9 | Provider tier of a generation | The user **attests paid tier** in the Generate panel (the API cannot tell); `ekza.provenance-free-tier` is an error for a T3 publish without the attestation | Warning only: free-tier outputs (owned by Tripo, CC BY at Meshy) could be published as the user's own | M7 spec |
 | Q-GEN-10 | Gateway exposure | **Default deny**: mounted only with `GEN_GATEWAY_ENABLED=1` and an auth or a loopback-only bind; refuses to start with keys and no auth; server-side daily/monthly caps from env; the app's first CSP lands in G-b before BYO keys | Optional auth: any reachable server build with a key set spends the operator's credits | M7 spec |
+
+## H. M6a build deviations (2026-10-20)
+
+M6a was built in sixteen packages (B0a, B0b, B1…B13 with B12a/B12b) on `m6a/<slug>` branches and integrated on
+`m6a/integration` ([M6A-SPEC](M6A-SPEC.md) v1.1, §11.1 merge order). Each package recorded its interpretations in
+`docs/wp-notes/m6a-*.md` with the reasoning and tests; the integration's are in
+[`wp-notes/m6a-integration.md`](wp-notes/m6a-integration.md). IDs are `M6A-<package>-<n>`. All are **accepted as
+built** (contract changes among them are in M6A-SPEC, marked "INT") unless the status says otherwise; the owner may
+override any of them. Not merged into `dev`, not tagged: that waits for the owner's review below.
+
+### Owner review items
+
+| ID | Item | Built | Alternative |
+|---|---|---|---|
+| M6A-B0A (Decision requested), M6A-B9-14, M6A-INT-32 | **The M6a eager allowance** (§5.27: +20,480 B over the M2a baseline 845,267 B) | Option C as far as it goes: the Model-only operators, their menus and the component selection service load with their chunk on the first Model entry (M6A-INT-13, -14). The route is under the 900,000 B gate (see the integration notes' "Size") but about +50 kB over M2a, above options A (+40,960), B and C; `size-baseline.json` keeps `enforce: false` | Record the measured delta as the allowance and cut in M2b (IK operator bodies, the Dope Sheet controller, `camera-controls`, M2A-INT-4); or move the descriptors' param tables lazy too (a §2 change) |
+| M6A-INT-33 | **Marquee with occlusion** (§5.27 ≤ 16 ms for 10k vertices, report-only) | Miss: 65 ms for 4,452 vertices in the editor bench including a frame (B6's package bench met its row); hover, enter-component-mode, drags and soft drags are within budget; a typical topology op end to end sits at the 16 ms line (extrude 100 faces 14.9 ms, loop on a 200-quad ring 16.2 ms) | M6b: a screen-space grid for marquee candidates (M6A-B6-20 named it), occlusion tested on the BVH in one batch |
+| M6A-B5-4, -6, -15, -16 | **Bevel limits**: partial chamfers on folds leave non-planar strips (Mesh Check reports them); strips across a UV seam take one side's values; Roundness > 0.5 can cross profiles near corners; tents at sharp apexes | Built as §5.9 states, every case reported by Mesh Check and covered by `clamp.test.ts` | Limit the effective roundness per corner like the width clamp; a triangle cap for in-line vertices |
+| M6A-B6-22, -26 | **Characters in Model**: ModelLoader's (not made editable) character meshes are not occluders for component picks; component hides of a character mesh are not drawn outside Model where ModelLoader draws it | Not built (props and made-editable meshes are complete) | A `PickOccluder` over ModelLoader's meshes in bind pose (M6b, when characters stay on screen while modeling) |
+| M6A-B13-17 | Palette › Apply in object mode is one `mesh.paint` run per selected mesh (N steps) | Built | A whole-mesh form of `mesh.paint` or coalescing |
+| B12a feel check | Capture case (b) (a digit right after `⌘E`) and Component vs Maya's per-component Normal (§1.2, §12.1) | As specified; the owner's feel check is open | Per the owner |
+| §11.3 | **Owner demo script** | Not run by the owner yet; its steps are covered by E2E-MOD-01, -04, -05, -06, -10, -11, -12, -17, -18 and AS-LP-S | — |
+
+### Decisions copied from the packages (accepted as built)
+
+| ID | Decision | Where |
+|---|---|---|
+| M6A-B13-16 | Swatch ids are derived for every palette (`derivedId('swatch', 'palette.swatch', [palette], '', slot)`), not only the default one; slots are never reused, so (palette, slot) is a stable key and two peers adding the same slot converge | `editor-core/src/operators/builtin/palette.ts` |
+| M6A-B13-17 | Above (owner item) | `PaletteView.apply` |
+| M6A-B13-18 | A swatch paints only meshes of its own palette (Paint Colour, Palette › Apply and, since INT, Assign Colour without a slot, M6A-INT-24) | `paintRules.ts`, `operators/builtin/mesh/index.ts` |
+| M6A-B13-19 | `mesh.create.template`'s `height` is nullable (auto: a body created into Humanoid guides takes their height) | `templates.ts` |
+| M6A-B13-20 | Getting started ticks ② to ⑥ for the session | `modelProgress.ts` |
+| M6A-B13-21 | Static export roots hold a mesh in their subtree (mesh-less groups are not roots) | `exportModel.ts` |
+
+### Integration decisions (M6a)
+
+| # | What | Decision | Where |
+|---|---|---|---|
+| M6A-INT-1, -2 | Merge order; READY/`test.fixme` gates | §11.1 order, `--no-ff`; every gate is a failure; only stretch items stay `test.fixme` | integration notes |
+| M6A-INT-3, -4 | E2E-MOD-01/-02 vs §5.8 | Rows amended: `Esc` ends the session before the one undo; the card names `⌘E` as its tooltip/header | M6A-SPEC §10.1 |
+| M6A-INT-13, -14 | Size | Model operators and the selection service load lazily | `modelOpsChunk.ts`, `modelManifest.ts` |
+| M6A-INT-16 | Merge to Center under symmetry merged both arms' caps into one point | Fixed (groups by the mirror plane) | `mesh-core/src/ops/merge` |
+| M6A-INT-17 | Test API | `setExpression`; additive `pixels`, `displayNodeWorld`, `displayModel` | M6A-SPEC §4.8 |
+| M6A-INT-18…25 | Package hand-overs | Separate names and Combine's palette action; mirror helpers +0; `PANEL` kinds; one `MeshLayerHost`; the anim-core −0 flake; the pixel probe; Assign Colour's active swatch; `PickOptions.wire` | integration notes |
+| M6A-INT-26 | Meshes on one palette wrote one material each | Fixed: one material per palette (one per used swatch with material-per-colour) | `exportModel.ts` |
+| M6A-INT-28…30 | Scenario readings (E2E-MOD-15 tapered legs, E2E-MOD-31's "original file", the AS-LP-S twin) | As in the integration notes | `apps/web/e2e` |
