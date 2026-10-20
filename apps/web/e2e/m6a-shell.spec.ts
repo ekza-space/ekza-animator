@@ -139,6 +139,11 @@ test('the pixel probe reads the rendered pane (and nothing outside it); shading 
   // The character covers the pane's centre: in wireframe the surface is gone there or drawn as lines.
   const centre = { x: pane.rect.x + pane.rect.w / 2, y: pane.rect.y + pane.rect.h / 2 };
   await runOk(page, 'view.shading', { mode: 'shaded', paneId: MODEL_PANE });
+  // Under parallel workers the character may not be drawn yet: wait until the centre is not the background (the
+  // corner's pixel) before reading the shaded look (B13's hand-over: it read [52, 53, 59] at the centre once).
+  await expect
+    .poll(async () => (await call(page, 'pixel', MODEL_PANE, centre.x, centre.y)).join(), { timeout: 15_000 })
+    .not.toBe(corner.join());
   const shaded = await call(page, 'pixel', MODEL_PANE, centre.x, centre.y);
   await runOk(page, 'view.shading', { mode: 'lit', paneId: MODEL_PANE });
   const lit = await call(page, 'pixel', MODEL_PANE, centre.x, centre.y);
