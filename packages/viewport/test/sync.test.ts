@@ -1,5 +1,5 @@
 import { mat4Compose, mat4Multiply, type Quat } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlRecord } from '@ekza-animator/doc';
+import type { CharacterId, ControlRecord, MeshId, MeshRecord } from '@ekza-animator/doc';
 import type { FakeEditorApp } from '@ekza-animator/editor-core/testing';
 import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
 import type { LoadedModel } from '@ekza-animator/io/three';
@@ -79,6 +79,30 @@ function modelOf(skeleton: SkeletonDesc, extras?: Partial<LoadedModel>): LoadedM
     nodeConstraints: null,
     dispose: () => {},
     ...extras,
+  };
+}
+
+/** A character's glTF mesh 0 made editable (a live record with a source and data). */
+function editableRecord(id: MeshId, character: CharacterId, asset: string): MeshRecord {
+  return {
+    id,
+    name: 'Body',
+    owner: { character },
+    parent: null,
+    order: 'a0',
+    placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
+    pivot: [0, 0, 0],
+    source: { asset: asset as never, mesh: 0 },
+    data: { manifest: 'b'.repeat(64), rev: 1, base: null, joints: [] } as never,
+    faceted: false,
+    generator: null,
+    palette: null,
+    material: { preset: 'unlit' },
+    colourOutput: 'palette-texture',
+    skin: null,
+    budget: null,
+    handheld: null,
+    deleted: null,
   };
 }
 
@@ -168,6 +192,37 @@ describe('SceneSync', () => {
     expect([material.transparent, material.opacity, material.depthWrite]).toEqual([true, 0.5, false]);
     s.sync.setXray(false);
     expect([material.transparent, material.opacity, material.depthWrite]).toEqual([false, 1, true]);
+  });
+
+  it('in Model hides the display objects of a glTF mesh made editable (mesh-view draws it at bind pose, M6A-INT-50)', async () => {
+    const s = await setup();
+    const { skeleton } = await fixtures();
+    const body = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    const hair = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
+    const model = modelOf(skeleton, {
+      meshObjects: new Map([
+        [0, [body]],
+        [1, [hair]],
+      ]),
+    });
+    model.nodes[1]?.add(body, hair);
+    s.sync.attachModel(s.character, model);
+    const shown = () => [body.layers.isEnabled(LAYER.mesh), hair.layers.isEnabled(LAYER.mesh)];
+    s.sync.update({ springs: false, nowMs: 0 });
+    expect(shown()).toEqual([true, true]);
+    const asset = s.app.store.get('characters', s.character)?.asset;
+    s.app.store.transact({ label: 'Make editable', undoable: false }, (tx) =>
+      tx.put('meshes', editableRecord('msh_body' as MeshId, s.character, String(asset))),
+    );
+    // Animate keeps the posed display (the rebuilt container carries the edits there).
+    s.sync.update({ springs: false, nowMs: 0 });
+    expect(shown()).toEqual([true, true]);
+    s.app.session.setState({ workspace: 'model' });
+    s.sync.update({ springs: false, nowMs: 0 });
+    expect(shown()).toEqual([false, true]);
+    s.app.session.setState({ workspace: 'animate' });
+    s.sync.update({ springs: false, nowMs: 0 });
+    expect(shown()).toEqual([true, true]);
   });
 
   it('x-ray really blends meshes on screen and switches back (shader variant follows `transparent`)', async () => {

@@ -6,10 +6,10 @@ import { EkzaError } from '@ekza-animator/anim-core';
 import type { SkeletonDesc } from '@ekza-animator/rig';
 import { type VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { Group, type Object3D, type SkinnedMesh, type WebGLRenderer } from 'three';
+import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { type GLTF, GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js';
-import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';
 import type { GlbContainer } from '../types';
 
 export interface LoadedModel {
@@ -18,6 +18,11 @@ export interface LoadedModel {
   /** By SkeletonDesc node index. */
   readonly nodeObjects: readonly (Object3D | null)[];
   readonly skinnedMeshes: readonly SkinnedMesh[];
+  /**
+   * The drawn objects of each glTF mesh (one per primitive, every node that instances it), by glTF mesh index. Model
+   * hides a mesh made editable here, since mesh-view draws it (M6A-SPEC §5.23). Absent on hand-built test models.
+   */
+  readonly meshObjects?: ReadonlyMap<number, readonly Object3D[]>;
   /** Loaded with autoUpdateHumanBones: false; never rotateVRM0. */
   readonly vrm: VRM | null;
   readonly springBones: { update(deltaSeconds: number): void; reset(): void } | null;
@@ -80,9 +85,15 @@ function buildModel(gltf: GLTF, skeleton: SkeletonDesc): LoadedModel {
 
   const byGltfIndex = new Map<number, Object3D>();
   const skinnedMeshes: SkinnedMesh[] = [];
+  const meshObjects = new Map<number, Object3D[]>();
   scene.traverse((object) => {
-    const index = gltf.parser.associations.get(object)?.nodes;
+    const association = gltf.parser.associations.get(object);
+    const index = association?.nodes;
     if (index !== undefined && !byGltfIndex.has(index)) byGltfIndex.set(index, object);
+    const meshIndex = association?.meshes;
+    if (meshIndex !== undefined && (object as { isMesh?: boolean }).isMesh === true) {
+      meshObjects.set(meshIndex, [...(meshObjects.get(meshIndex) ?? []), object]);
+    }
     if ((object as Partial<SkinnedMesh>).isSkinnedMesh === true) skinnedMeshes.push(object as SkinnedMesh);
   });
   const nodeObjects = skeleton.nodes.map((node) => byGltfIndex.get(node.gltfIndex) ?? null);
@@ -93,6 +104,7 @@ function buildModel(gltf: GLTF, skeleton: SkeletonDesc): LoadedModel {
     root,
     nodeObjects,
     skinnedMeshes,
+    meshObjects,
     vrm,
     springBones:
       springs === null

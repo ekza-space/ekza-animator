@@ -16,6 +16,7 @@ import {
 import {
   type CharacterRuntime,
   type ControlVisibility,
+  characterMeshRecords,
   controlVisibilityResolver,
   type EditorApp,
   limbVisibilityState,
@@ -49,6 +50,8 @@ interface CharacterSlot {
   builtFrom: CharacterRuntime['program'] | null;
   /** §5.5 rule-2 state per limb of the program (`limbVisibilityState`; 255 = not read yet). */
   limbStates: Uint8Array;
+  /** The model's objects hidden because mesh-view draws their mesh (Model, made editable; §5.23). */
+  hidden: Object3D[];
 }
 
 const UNKNOWN_LIMB_STATE = 255;
@@ -79,6 +82,8 @@ export class SceneSync {
   private placementDirty = true;
   /** Visibility inputs changed (selection, hidden controls, preferences) since the last `update()`. */
   private visibilityDirty = false;
+  /** The workspace or the character mesh records changed: re-read which glTF meshes mesh-view draws (§5.23). */
+  private editableDirty = true;
   private lastSpringTime = -1;
   private stamp = 0;
 
@@ -104,9 +109,14 @@ export class SceneSync {
         if (tables.has('characters')) this.placementDirty = true;
         const touched = batch.origin === 'load' || tables.has('controls');
         if (touched) this.structureDirty = true;
-        if (touched || this.placementDirty) this.opts.onChange();
+        if (tables.has('meshes') || batch.origin === 'load') this.editableDirty = true;
+        if (touched || this.placementDirty || this.editableDirty) this.opts.onChange();
       }),
       app.session.subscribe((state, previous) => {
+        if (state.workspace !== previous.workspace) {
+          this.editableDirty = true;
+          this.opts.onChange();
+        }
         if (
           state.hiddenControls !== previous.hiddenControls ||
           state.showSecondary !== previous.showSecondary ||
@@ -160,6 +170,10 @@ export class SceneSync {
    */
   update(opts: { readonly springs: boolean; readonly nowMs: number }): boolean {
     let changed = false;
+    if (this.editableDirty) {
+      this.editableDirty = false;
+      for (const slot of this.slots.values()) if (this.applyEditableHides(slot)) changed = true;
+    }
     if (this.structureDirty) {
       this.structureDirty = false;
       for (const slot of this.slots.values()) this.rebuildLines(slot);
@@ -252,6 +266,8 @@ export class SceneSync {
     slot.nodeOf = nodeIndexOf(model);
     slot.group.add(model.root);
     model.root.traverse((object) => prepareObject(object, slot.materials));
+    slot.hidden = [];
+    this.editableDirty = true;
     slot.poseDirty = true;
     this.opts.onChange();
   }
@@ -324,6 +340,7 @@ export class SceneSync {
         poseDirty: true,
         builtFrom: null,
         limbStates: new Uint8Array(0),
+        hidden: [],
       };
       this.slots.set(id, slot);
       this.readPlacement(slot);
@@ -351,9 +368,33 @@ export class SceneSync {
     // The character registry owns the model's lifetime (DisplayModel.dispose); only detach it here.
     if (this.xray) for (const state of slot.materials) restoreMaterial(state);
     slot.model.root.removeFromParent();
+    for (const object of slot.hidden) object.layers.set(LAYER.mesh);
+    slot.hidden = [];
     slot.model = null;
     slot.nodeOf = new Map();
     slot.materials = [];
+  }
+
+  /**
+   * In Model a character's glTF meshes made editable are drawn by mesh-view at bind pose (§5.17, §5.23): the loaded
+   * display hides them (no layer: neither drawn nor picked), so the posed body is never drawn on top of the editable
+   * one. Elsewhere the display shows everything (the rebuilt container carries the edits). True when anything changed.
+   */
+  private applyEditableHides(slot: CharacterSlot): boolean {
+    const model = slot.model;
+    if (model === null) return false;
+    const next: Object3D[] = [];
+    if (this.opts.app.session.getState().workspace === 'model' && model.meshObjects !== undefined) {
+      for (const record of characterMeshRecords(this.opts.app.store, slot.id)) {
+        const index = record.source?.mesh;
+        if (index !== undefined) next.push(...(model.meshObjects.get(index) ?? []));
+      }
+    }
+    if (next.length === slot.hidden.length && next.every((object, i) => object === slot.hidden[i])) return false;
+    for (const object of slot.hidden) object.layers.set(LAYER.mesh);
+    for (const object of next) object.layers.disableAll();
+    slot.hidden = next;
+    return true;
   }
 
   private rebuildLines(slot: CharacterSlot): void {
