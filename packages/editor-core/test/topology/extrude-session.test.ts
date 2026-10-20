@@ -11,12 +11,12 @@ import {
   absorbArgs,
   beginSmartExtrude,
   EXTRUDE_REMOVED,
-  extrudeManipulatorFrame,
   type ExtrudeSessionShim,
+  extrudeManipulatorFrame,
   isIdentityExtrude,
   manipulatorFrame,
-  onModelHelp,
   type OperatorDef,
+  onModelHelp,
   worldPlacement,
 } from '../../src';
 import { READY } from '../ops-ui/ready';
@@ -135,6 +135,48 @@ describe('the zero-drop identity (§5.8)', () => {
       [0, 1, 0],
       [0, 0, 1],
     ]);
+  });
+  it('absorbArgs: R handles drawn along world axes scale the cap along those axes, not the same-named arg (M6A-INT-48)', () => {
+    const xf = { t: [0, 0, 0] as Vec3, q: [0, 0, 0, 1] as Quat, s: [1, 1, 1] as Vec3 };
+    const world: [Vec3, Vec3, Vec3] = [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ];
+    // A top cap: frame X is world Z, Y world X, Z (the normal) world Y.
+    const top = {
+      pivot: [0, 0.5, 0] as Vec3,
+      axes: [
+        [0, 0, 1],
+        [1, 0, 0],
+        [0, 1, 0],
+      ] as [Vec3, Vec3, Vec3],
+    };
+    const wide = absorbArgs({}, { scale: [1.5, 1, 1], scaleAxes: world }, top, xf);
+    expect(wide['localScaleY']).toBeCloseTo(1.5, 12);
+    expect(wide['localScaleX']).toBeCloseTo(1, 12);
+    expect(wide['localScaleZ']).toBeCloseTo(1, 12);
+    // Without the axes the factors are the cap's own (the extrude manipulator's scale handles).
+    expect(absorbArgs({}, { scale: [1.5, 1, 1] }, top, xf)['localScaleX']).toBeCloseTo(1.5, 12);
+    // A +X cap: the world Z handle flattens the cap along Z, never its normal.
+    const side = {
+      pivot: [0.5, 0, 0] as Vec3,
+      axes: [
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, 0, 0],
+      ] as [Vec3, Vec3, Vec3],
+    };
+    const flat = absorbArgs({}, { scale: [1, 1, 0] }, side, xf);
+    expect(flat['localScaleZ']).toBe(0);
+    const flatWorld = absorbArgs({}, { scale: [1, 1, 0], scaleAxes: world }, side, xf);
+    expect(flatWorld['localScaleY']).toBeCloseTo(0, 12);
+    expect(flatWorld['localScaleZ']).toBeCloseTo(1, 12);
+    // The mirrored partner (left-handed frame on the −X cap): world Y still scales the frame's X.
+    const mirrored = { ...side, mirror: { m: [-1, 0, 0, 0, 1, 0, 0, 0, 1], t: [0, 0, 0] as [number, number, number] } };
+    const up = absorbArgs({}, { scale: [1, 2, 1], scaleAxes: world }, mirrored, xf);
+    expect(up['localScaleX']).toBeCloseTo(2, 12);
+    expect(up['localScaleZ']).toBeCloseTo(1, 12);
   });
 });
 

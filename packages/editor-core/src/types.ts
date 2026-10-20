@@ -977,7 +977,13 @@ export interface ComponentSelectionService {
 // ---------- extrude session and numeric capture (B12b, B11) ----------
 export interface AbsorbGesture {
   /** World-space delta about the session frame's pivot since the gesture began. */
-  update(delta: { readonly translate?: Vec3; readonly rotate?: Quat; readonly scale?: Vec3 }): void;
+  /** `scaleAxes`: the world axes `scale`'s factors are along (the dragged manipulator's); omitted = the cap's axes. */
+  update(delta: {
+    readonly translate?: Vec3;
+    readonly rotate?: Quat;
+    readonly scale?: Vec3;
+    readonly scaleAxes?: readonly [Vec3, Vec3, Vec3];
+  }): void;
   commit(): void;                              // one edit.adjustLast run
   cancel(): void;
 }

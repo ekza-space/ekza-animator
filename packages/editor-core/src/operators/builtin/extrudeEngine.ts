@@ -119,6 +119,11 @@ export interface AbsorbDelta {
   readonly translate?: Vec3;
   readonly rotate?: Quat;
   readonly scale?: Vec3;
+  /**
+   * The world axes `scale`'s factors are along (the dragged manipulator's axes, e.g. R in world space). Omitted: the
+   * factors are along the cap's own axes (the extrude manipulator's scale handles).
+   */
+  readonly scaleAxes?: readonly [Vec3, Vec3, Vec3];
 }
 
 type M3 = readonly [number, number, number, number, number, number, number, number, number];
@@ -307,11 +312,40 @@ export function absorbArgs(
     out['localRotateZ'] = e[2];
   }
   if (delta.scale !== undefined) {
-    out['localScaleX'] = Math.max(0, numberArg(start, 'localScaleX', 1) * delta.scale[0]);
-    out['localScaleY'] = Math.max(0, numberArg(start, 'localScaleY', 1) * delta.scale[1]);
-    out['localScaleZ'] = Math.max(0, numberArg(start, 'localScaleZ', 1) * delta.scale[2]);
+    const f =
+      delta.scaleAxes === undefined ? delta.scale : capScale(delta.scale, delta.scaleAxes, start, frame, placement);
+    out['localScaleX'] = Math.max(0, numberArg(start, 'localScaleX', 1) * f[0]);
+    out['localScaleY'] = Math.max(0, numberArg(start, 'localScaleY', 1) * f[1]);
+    out['localScaleZ'] = Math.max(0, numberArg(start, 'localScaleZ', 1) * f[2]);
   }
   return out;
+}
+
+/**
+ * Factors along world `axes` re-expressed along the cap's axes (where the extrude manipulator draws its scale
+ * handles, mirrored for a partner group): the stretch of each cap axis c under S = Σ fₖ·aₖ·aₖᵀ, cᵀ·S·c. Exact when
+ * the axes are aligned up to order and sign (a world X handle on a cap facing +Y scales the cap axis along world X).
+ */
+function capScale(
+  factors: Vec3,
+  axes: readonly [Vec3, Vec3, Vec3],
+  start: ParamValues,
+  frame: Frame,
+  placement: ReadonlyXf,
+): Vec3 {
+  const cap = manipulatorFrame(start, frame, placement, 'local').scaleAxes;
+  const along = (c: Vec3): number => {
+    let sum = 0;
+    let weight = 0;
+    for (let k = 0; k < 3; k++) {
+      const a = axes[k] as Vec3;
+      const d = dot(a, c);
+      sum += (factors[k] as number) * d * d;
+      weight += d * d;
+    }
+    return weight > 1e-12 ? sum / weight : 1;
+  };
+  return [along(cap[0]), along(cap[1]), along(cap[2])];
 }
 
 /** The frame axes rotated by Euler xyz angles in that frame (columns of A·R, R = Rz·Ry·Rx). */

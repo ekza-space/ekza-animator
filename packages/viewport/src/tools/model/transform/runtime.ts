@@ -43,9 +43,9 @@ import {
   beginKeyEditGesture,
   beginSmartExtrude,
   type CardPreview,
+  type ComponentServiceInternals,
   clampParamValue,
   componentInternals,
-  type ComponentServiceInternals,
   type EditorApp,
   type KeyEditGesture,
   liveLastRun,
@@ -66,8 +66,8 @@ import {
 } from '@ekza-animator/editor-core';
 import type { ComponentKind } from '@ekza-animator/mesh-core';
 import { MESH_OP_DESCRIPTORS, PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
-import type { ViewportManager } from '../../../manager/ViewportManager';
 import { objectWorld, pivotWorld, type SceneObjectRecord, topmostSelectedObjects } from '../../../manager/objects';
+import type { ViewportManager } from '../../../manager/ViewportManager';
 import type { ManipMode, ManipTarget } from '../../../manipulators/ManipulatorKit';
 import type { ManipHandle } from '../../../types';
 import type { ViewportToolHost } from '../../host';
@@ -128,6 +128,12 @@ export async function createModelTransformRuntime(app: EditorApp, vm: ViewportMa
 
 function quatOfAxesTuple(axes: readonly [ReadonlyVec3, ReadonlyVec3, ReadonlyVec3]): Quat {
   return quatOfAxes([...axes[0]] as Vec3, [...axes[1]] as Vec3, [...axes[2]] as Vec3);
+}
+
+/** A manipulator's axes as plain world vectors (the extrude session's scale conversion). */
+function worldAxesOf(axes: readonly [ReadonlyVec3, ReadonlyVec3, ReadonlyVec3]): [Vec3, Vec3, Vec3] {
+  const v = (a: ReadonlyVec3): Vec3 => [a[0], a[1], a[2]];
+  return [v(axes[0]), v(axes[1]), v(axes[2])];
 }
 
 function sameQuat(a: Quat, b: Quat, eps = 1e-9): boolean {
@@ -919,7 +925,9 @@ export class ModelTransformRuntime implements ModelManipulator {
         if (motion === null) return;
         if (motion.kind === 'translate') absorb.update({ translate: motion.delta });
         else if (motion.kind === 'rotate') absorb.update({ rotate: quatFromAxisAngle(motion.axis, motion.angle) });
-        else absorb.update({ scale: motion.factors });
+        // The R handles are drawn along the manipulator's axes (world, object, component), not the cap's (§5.8):
+        // the factors are re-expressed along the cap's axes, as translate and rotate convert their world deltas.
+        else absorb.update({ scale: motion.factors, scaleAxes: worldAxesOf(base.drag.axes) });
       },
       finish,
     };
