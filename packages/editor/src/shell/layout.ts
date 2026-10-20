@@ -204,6 +204,44 @@ export function buildModelLayout(api: DockviewApi, resolve: (kind: PanelKind) =>
   center?.api.setActive();
 }
 
+/**
+ * The dock shapes of the built-in layout presets (docs/LAYOUT-PRESETS.md): `viewport` keeps only the viewport (Blocking,
+ * Review, focus mode); `viewportOverGraph` puts the viewport over a large Graph Editor with the Dope Sheet as an
+ * inactive tab of its group (Polish). Kinds `resolve` returns null for are left out.
+ */
+export type PresetDock = 'default' | 'viewport' | 'viewportOverGraph';
+
+/** Share of the dock area the Graph Editor takes in the Polish preset. */
+export const POLISH_GRAPH_FRACTION = 0.55;
+
+export function buildPresetLayout(
+  dock: Exclude<PresetDock, 'default'>,
+  api: DockviewApi,
+  resolve: (kind: PanelKind) => PanelComponent | null,
+  height: number,
+): void {
+  const viewportEntry = resolve(PANEL.viewport);
+  const center = viewportEntry === null ? null : api.addPanel(addOptions(viewportEntry));
+  if (dock === 'viewportOverGraph') {
+    let bottom: IDockviewPanel | null = null;
+    for (const kind of [PANEL.graph, PANEL.dopeSheet]) {
+      const e = resolve(kind);
+      if (e === null) continue;
+      if (bottom === null) {
+        bottom = api.addPanel(
+          addOptions(e, {
+            position: center === null ? { direction: 'below' } : { referencePanel: center, direction: 'below' },
+            initialHeight: Math.max(DOCK_SIZES.bottomMin, Math.round(height * POLISH_GRAPH_FRACTION)),
+          }),
+        );
+      } else {
+        api.addPanel(addOptions(e, { position: { referencePanel: bottom, direction: 'within' }, inactive: true }));
+      }
+    }
+  }
+  center?.api.setActive();
+}
+
 /** Builds a workspace's default layout (Model's, else Animate's). */
 export function buildWorkspaceLayout(
   workspace: string,
@@ -268,15 +306,40 @@ export function addPanelToDefaultDock(
 
 // ---------- persistence ----------
 
+/** Which pieces of fixed chrome a workspace shows (docs/LAYOUT-PRESETS.md): the status line / tool strip
+ *  (`toolbar`), the help line and the time slider. Absent = the workspace's default. */
+export interface ChromeVisibility {
+  readonly toolbar: boolean;
+  readonly helpLine: boolean;
+  readonly timeline: boolean;
+}
+export type ChromePart = keyof ChromeVisibility;
+export const CHROME_PARTS: readonly ChromePart[] = ['toolbar', 'helpLine', 'timeline'];
+
+/** What focus mode hid, to put back exactly: the dock layout and the chrome as they were. */
+export interface FocusSnapshot {
+  readonly dockview: SerializedDockview;
+  readonly chrome: Partial<ChromeVisibility>;
+}
+
 interface StoredLayout {
   readonly schemaVersion: number;
   readonly workspace: string;
   readonly dockview: SerializedDockview;
+  /** Layout presets (additive, no version bump): the chrome toggles and the focus-mode snapshot. */
+  readonly chrome?: Partial<ChromeVisibility>;
+  readonly focus?: FocusSnapshot;
+}
+
+/** What a stored layout carries besides the dock arrangement. */
+export interface StoredExtras {
+  readonly chrome?: Partial<ChromeVisibility>;
+  readonly focus?: FocusSnapshot;
 }
 
 export type StoredLayoutResult =
   | { readonly kind: 'none' }
-  | { readonly kind: 'ok'; readonly layout: SerializedDockview }
+  | ({ readonly kind: 'ok'; readonly layout: SerializedDockview } & StoredExtras)
   /** M2a: no v2 layout, but a valid M1 (v1) layout under the v1 key: restore it, add the Dope Sheet, store as v2. */
   | { readonly kind: 'migrate'; readonly from: 1; readonly layout: SerializedDockview }
   | { readonly kind: 'reset'; readonly reason: 'newer' | 'invalid' };
@@ -311,7 +374,33 @@ function parseStored(raw: string, workspace: string, version: number): StoredLay
   if (stored.schemaVersion !== version || stored.workspace !== workspace || !isSerializedDockview(stored.dockview)) {
     return { kind: 'reset', reason: 'invalid' };
   }
-  return { kind: 'ok', layout: stored.dockview };
+  const chrome = parseChrome(stored.chrome);
+  const focus = parseFocus(stored.focus);
+  return {
+    kind: 'ok',
+    layout: stored.dockview,
+    ...(chrome === null ? {} : { chrome }),
+    ...(focus === null ? {} : { focus }),
+  };
+}
+
+/** The valid chrome flags of a stored value (anything else is dropped); null without any. */
+export function parseChrome(value: unknown): Partial<ChromeVisibility> | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as Readonly<Record<string, unknown>>;
+  const out: { -readonly [K in ChromePart]?: boolean } = {};
+  for (const part of CHROME_PARTS) {
+    const flag = record[part];
+    if (typeof flag === 'boolean') out[part] = flag;
+  }
+  return Object.keys(out).length === 0 ? null : out;
+}
+
+function parseFocus(value: unknown): FocusSnapshot | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as Partial<FocusSnapshot>;
+  if (!isSerializedDockview(record.dockview)) return null;
+  return { dockview: record.dockview, chrome: parseChrome(record.chrome) ?? {} };
 }
 
 /**
@@ -335,9 +424,17 @@ export function writeStoredLayout(
   storage: PrefsStorage | null,
   dockview: SerializedDockview,
   workspace: string = WORKSPACE_ID,
+  extras: StoredExtras = {},
 ): void {
   if (storage === null) return;
-  const stored: StoredLayout = { schemaVersion: layoutVersion(workspace), workspace, dockview };
+  const chrome = extras.chrome === undefined || Object.keys(extras.chrome).length === 0 ? null : extras.chrome;
+  const stored: StoredLayout = {
+    schemaVersion: layoutVersion(workspace),
+    workspace,
+    dockview,
+    ...(chrome === null ? {} : { chrome }),
+    ...(extras.focus === undefined ? {} : { focus: extras.focus }),
+  };
   try {
     storage.setItem(layoutStorageKey(workspace), JSON.stringify(stored));
   } catch {
@@ -355,7 +452,7 @@ export function clearStoredLayout(storage: PrefsStorage | null, workspace: strin
   }
 }
 
-function isSerializedDockview(value: unknown): value is SerializedDockview {
+export function isSerializedDockview(value: unknown): value is SerializedDockview {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<SerializedDockview>;
   return (

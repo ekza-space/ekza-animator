@@ -127,7 +127,6 @@ describe('MAYA_KEYMAP (§4.10)', () => {
       ['Tab', { ctrlKey: true }],
       ['ArrowLeft', { altKey: true }],
       ['ArrowRight', { altKey: true }],
-      ['Space', { ctrlKey: true }],
       ['KeyE', { altKey: true }],
       ['KeyF', { altKey: true }],
       ...Array.from({ length: 12 }, (_, i): [string, Mods] => [`F${i + 1}`, {}]),
@@ -141,6 +140,24 @@ describe('MAYA_KEYMAP (§4.10)', () => {
             `${code} ${JSON.stringify(mods)}`,
           ).toBeNull();
         }
+      }
+    }
+  });
+
+  it('binds Ctrl+Space only as the focus-mode tap (the OS may take it first; Alt+0 is the alternative)', () => {
+    // Owner request (docs/LAYOUT-PRESETS.md): Maya's "hide UI". macOS and Windows IMEs may switch the input source on
+    // Ctrl+Space before the page sees it, so Alt+0 runs the same operator everywhere.
+    const scopes = ['viewport', 'graph', 'timeline', 'outliner', 'channelBox', 'clips', 'attributes'];
+    for (const platform of [other, mayaKeymap('mac')]) {
+      for (const scope of scopes) {
+        expect(platform.resolve(key('Space', { ctrlKey: true }), [scope, 'global'], 'tap')?.op).toBe(
+          'workspace.toggleFocus',
+        );
+        expect(platform.resolve(key('Space', { ctrlKey: true }), [scope, 'global'], 'hold')).toBeNull();
+        expect(platform.resolve(key('Space', { ctrlKey: true }), [scope, 'global'], 'press')).toBeNull();
+        expect(platform.resolve(key('Digit0', { altKey: true }), [scope, 'global'], 'press')?.op).toBe(
+          'workspace.toggleFocus',
+        );
       }
     }
   });

@@ -54,6 +54,8 @@ export interface MenuItemView {
   readonly shortcut: string | null;
   /** null when enabled; otherwise the poll's reason (shown as the tooltip, research 09 §8.7). */
   readonly disabledReason: string | null;
+  /** A check-box item's state when the menu opened; null for a plain item. */
+  readonly checked: boolean | null;
 }
 
 export interface MenuSection {
@@ -195,6 +197,15 @@ function pollReason(app: EditorApp, item: MenuItemDef, ctx: RunContext): string 
   }
 }
 
+function checkedOf(app: EditorApp, item: MenuItemDef): boolean | null {
+  if (item.checked === undefined) return null;
+  try {
+    return item.checked(app);
+  } catch {
+    return false;
+  }
+}
+
 function sectionsOf(
   app: EditorApp,
   items: readonly MenuItemDef[],
@@ -223,6 +234,7 @@ function sectionsOf(
         args: item.args,
         shortcut: shortcutFor(app.keymap, item.op, item.args, scopes),
         disabledReason: pollReason(app, item, ctx),
+        checked: checkedOf(app, item),
       })),
     }));
 }

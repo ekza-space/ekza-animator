@@ -29,8 +29,9 @@ import { startShellAutosave } from './autosave';
 import { asArtifacts, createExportRecorder } from './exports';
 import { createFilePipeline } from './files';
 import { ALL_SLOTS, FIXED_KINDS } from './layout';
-import { registerShellMenuItems } from './menuItems';
+import { registerShellMenuItems, registerUserPresetMenuItems } from './menuItems';
 import { registerShellOperators } from './operators';
+import { createLayoutPresetStore } from './presets';
 import { createProbeRegistry } from './probes';
 import { type Summarizer, summarizeModel } from './summary';
 import type { ConfirmRequest, HelpMessage, Shell, ShellUiState } from './types';
@@ -61,7 +62,8 @@ export const INITIAL_UI: ShellUiState = {
   busy: null,
   dockMaximized: false,
   confirm: null,
-  timeline: {},
+  chrome: {},
+  focus: {},
 };
 
 const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
@@ -195,7 +197,9 @@ export function createShell(opts: CreateShellOptions): Shell {
     },
   });
 
-  disposers.push(registerShellOperators(app, { workspace, ui, onImportClosed: () => files.cancelImport() }));
+  // Layout presets (docs/LAYOUT-PRESETS.md): the user's presets live beside the layouts, in the same storage.
+  const presets = createLayoutPresetStore(opts.storage);
+  disposers.push(registerShellOperators(app, { workspace, ui, presets, onImportClosed: () => files.cancelImport() }));
 
   // M6A-SPEC §5.18 (B9): marking menus (the viewport's press hook, `ui.markingMenu`) and the command palette.
   const lastContext = (): RunContext => {
@@ -257,7 +261,14 @@ export function createShell(opts: CreateShellOptions): Shell {
     if (extraPanels.some((panel) => panel.kind === def.kind)) continue;
     extraPanels.push({ kind: def.kind, title: def.title });
   }
-  disposers.push(registerShellMenuItems(app, extraPanels));
+  disposers.push(
+    registerShellMenuItems(app, extraPanels, {
+      chromeShown: (part) => workspace.chrome()[part],
+      focused: () => workspace.focused(),
+      fullscreen: () => typeof document !== 'undefined' && document.fullscreenElement !== null,
+    }),
+  );
+  disposers.push(registerUserPresetMenuItems(app, presets));
   // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
   disposers.push(registerModelSelectUi(app));
   disposers.push(registerModelTransformUi(app));
@@ -290,6 +301,7 @@ export function createShell(opts: CreateShellOptions): Shell {
     restoreFallbackFrames: () => app.setFrameRequester(() => fallback.request()),
     probes,
     workspace,
+    presets,
     files,
     exports,
     keyboard,

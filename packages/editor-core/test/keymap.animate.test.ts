@@ -22,6 +22,12 @@ const NAMED_CHANGES: readonly RegExp[] = [
   /^(other|mac) KeyR - viewport press → view\.tool \{"panel":"viewport","tool":"scale"\}@viewport$/,
   /^(other|mac) Digit[4-7] - viewport press → view\.shading \{"mode":"(wire|shaded|colours|lit)"\}@viewport$/,
   /^(other KeyK (mod|ctrl)|mac KeyK mod) \w+ press → ui\.commandPalette@global$/,
+  // Layout presets (docs/LAYOUT-PRESETS.md): Alt+0 focus mode, Alt+1…4 the built-in presets, Shift+F full screen
+  // and Ctrl+Space as the focus-mode tap (Ctrl is Mod on Windows and Linux).
+  /^(other|mac) Digit0 alt \w+ press → workspace\.toggleFocus@global$/,
+  /^(other|mac) Digit[1-4] alt \w+ press → workspace\.preset\.apply \{"preset":"(animate|blocking|polish|review)"\}@global$/,
+  /^(other|mac) KeyF shift \w+ press → view\.toggleFullscreen@global$/,
+  /^(other Space (mod|ctrl)|mac Space ctrl) \w+ tap → workspace\.toggleFocus@global$/,
 ];
 
 function table(): string[] {
@@ -51,6 +57,8 @@ describe('Animate keymap (M2a snapshot)', () => {
     }
     // Mod+Shift+E and Mod+K over each of the nine chains (Cmd on macOS; Ctrl, probed as mod and as ctrl, elsewhere),
     // R and 4–7 over the viewport.
-    expect(added).toHaveLength(2 * 9 * 2 + 9 * 2 + 2 * (1 + 4));
+    // Layout presets: Alt+0…4 and Shift+F over each chain on both platforms, Ctrl+Space taps (probed as mod and as
+    // ctrl elsewhere, as ctrl on macOS).
+    expect(added).toHaveLength(2 * 9 * 2 + 9 * 2 + 2 * (1 + 4) + 2 * 9 * 6 + 3 * 9);
   });
 });

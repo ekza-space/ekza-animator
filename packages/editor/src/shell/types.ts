@@ -11,7 +11,7 @@ import type {
 } from '@ekza-animator/editor-core';
 import type { ExportArtifact } from '@ekza-animator/io';
 import type { ViewportManager } from '@ekza-animator/viewport';
-import type { DockviewApi } from 'dockview-react';
+import type { DockviewApi, SerializedDockview } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { KeyboardAdapter } from '../input/keyboard';
 import type { CommandPalette } from '../overlays/CommandPalette';
@@ -21,6 +21,8 @@ import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
 import type { EditorParams } from '../test-api/params';
 import type { EkzaAnimatorTestApi } from '../test-api/types';
+import type { ChromePart, ChromeVisibility, PresetDock } from './layout';
+import type { LayoutPresetStore } from './presets';
 import type { ModelSummary } from './summary';
 
 // ---------- probes: what the e2e test API reads from panels (§4.8) ----------
@@ -135,9 +137,12 @@ export interface ShellUiState {
   readonly busy: string | null;
   readonly dockMaximized: boolean;
   readonly confirm: ConfirmRequest | null;
-  /** M6a (§8.2): the time slider shown (true) or hidden (false) per workspace, where the user toggled it (Windows ›
-   *  Timeline); absent = the workspace definition's `timeline`. */
-  readonly timeline: Readonly<Record<string, boolean>>;
+  /** Chrome toggles per workspace (docs/LAYOUT-PRESETS.md; M6a §8.2 for the time slider): the tool strip, help line
+   *  and time slider shown (true) or hidden (false) where the user toggled them (Windows menu, presets, focus mode);
+   *  an absent part = the workspace's default. Stored with the workspace's layout. */
+  readonly chrome: Readonly<Record<string, Partial<ChromeVisibility>>>;
+  /** Workspaces in focus mode (Ctrl+Space / Alt+0). */
+  readonly focus: Readonly<Record<string, boolean>>;
 }
 
 // ---------- the last export (test API `lastExport()`) ----------
@@ -173,6 +178,20 @@ export interface WorkspaceApi {
   hasMaximized(): boolean;
   /** Panel kinds present in the layout. */
   kinds(): readonly PanelKind[];
+  /** The chrome the active workspace shows (its toggles over its defaults). */
+  chrome(): ChromeVisibility;
+  /** Shows or hides one piece of chrome in the active workspace. */
+  setChrome(part: ChromePart, shown: boolean): void;
+  /** True while the shown workspace is in focus mode. */
+  focused(): boolean;
+  /** Enters focus mode (only the viewport, no tool strip or help line) or restores what it hid; returns the new state.
+   *  False without a mounted workspace. */
+  toggleFocus(): boolean;
+  /** The shown layout and chrome toggles (for a user preset); null before the workspace has mounted. */
+  capture(): { readonly dockview: SerializedDockview; readonly chrome: Partial<ChromeVisibility> } | null;
+  /** Replaces the shown layout (a built-in dock shape or a saved layout) and the chrome toggles; leaves focus mode.
+   *  False before the workspace has mounted. */
+  applyLayout(dock: PresetDock | SerializedDockview, chrome: Partial<ChromeVisibility>): boolean;
 }
 
 // ---------- file pipeline ----------
@@ -226,6 +245,8 @@ export interface Shell {
   restoreFallbackFrames(): void;
   readonly probes: ProbeRegistry;
   readonly workspace: WorkspaceApi;
+  /** The user's layout presets per workspace (docs/LAYOUT-PRESETS.md). */
+  readonly presets: LayoutPresetStore;
   readonly files: FilePipeline;
   readonly exports: ExportRecorder;
   readonly keyboard: KeyboardAdapter;

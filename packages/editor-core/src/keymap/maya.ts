@@ -204,5 +204,16 @@ bind([key('KeyA', { mod: true })], 'select.mesh.all', [MVC]);
 bind([key('KeyA', { mod: true })], 'select.objects', [MV], { all: 'meshes', mode: 'replace' });
 bind([key('KeyK', { mod: true })], 'ui.commandPalette', [ANY]);
 
+// ---------- Layout presets for focused work (docs/LAYOUT-PRESETS.md) ----------
+// Ctrl+Space hides the UI around the viewport (Maya); macOS takes Ctrl+Space for the input-source switch when more
+// than one input source is set up (Windows: the Chinese IME toggle), so Alt+0 does the same everywhere. Space keys are
+// tap/hold keys: the Ctrl+Space row is a tap. Alt+1…4 apply the built-in presets; Shift+F toggles browser fullscreen.
+bind([key('Space', { ctrl: true })], 'workspace.toggleFocus', [ANY], undefined, 'tap');
+bind([key('Digit0', { alt: true })], 'workspace.toggleFocus', [ANY]);
+(['animate', 'blocking', 'polish', 'review'] as const).forEach((preset, i) =>
+  bind([key(`Digit${i + 1}`, { alt: true })], 'workspace.preset.apply', [ANY], { preset }),
+);
+bind([key('KeyF', { shift: true })], 'view.toggleFullscreen', [ANY]);
+
 /** The `maya` preset (MVP-SPEC §4.10 + M2A-SPEC §6 + M6A-SPEC §7), registered by `registerBuiltins` through a keymap contribution. */
 export const MAYA_KEYMAP: readonly KeyBinding[] = Object.freeze(bindings.map((binding) => Object.freeze(binding)));

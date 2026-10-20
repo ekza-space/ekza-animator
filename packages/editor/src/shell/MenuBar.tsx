@@ -6,6 +6,7 @@ import {
   Button,
   Download,
   Menubar,
+  MenubarCheckboxItem,
   MenubarContent,
   MenubarItem,
   MenubarMenu,
@@ -40,20 +41,37 @@ function Sections(props: { readonly shell: Shell; readonly sections: readonly Me
       {props.sections.map((section, index) => (
         <Fragment key={section.group}>
           {index === 0 ? null : <MenubarSeparator />}
-          {section.items.map((item) => (
-            <MenubarItem
-              key={item.id}
-              data-testid={`menu-item-${item.id}`}
-              disabled={item.disabledReason !== null}
-              title={item.disabledReason ?? undefined}
-              onSelect={() => {
-                void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
-              }}
-            >
-              <span className="truncate">{item.label}</span>
-              {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
-            </MenubarItem>
-          ))}
+          {section.items.map((item) =>
+            item.checked === null ? (
+              <MenubarItem
+                key={item.id}
+                data-testid={`menu-item-${item.id}`}
+                disabled={item.disabledReason !== null}
+                title={item.disabledReason ?? undefined}
+                onSelect={() => {
+                  void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
+                }}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
+              </MenubarItem>
+            ) : (
+              // Check-box items (Windows › Tool Strip, Focus Mode…): ticked as they were when the menu opened.
+              <MenubarCheckboxItem
+                key={item.id}
+                data-testid={`menu-item-${item.id}`}
+                checked={item.checked}
+                disabled={item.disabledReason !== null}
+                title={item.disabledReason ?? undefined}
+                onSelect={() => {
+                  void props.shell.runFromUi(item.op, item.args, menuContext(props.shell));
+                }}
+              >
+                <span className="truncate">{item.label}</span>
+                {item.shortcut === null ? null : <MenuShortcut>{item.shortcut}</MenuShortcut>}
+              </MenubarCheckboxItem>
+            ),
+          )}
         </Fragment>
       ))}
     </>
