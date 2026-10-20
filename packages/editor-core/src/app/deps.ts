@@ -26,7 +26,7 @@ import {
   sceneToClipFrame,
   wrapClipFrame,
 } from '@ekza-animator/doc';
-import { type GlbContainer, parseGlb, skeletonFromGltf } from '@ekza-animator/io';
+import type { GlbContainer } from '@ekza-animator/io';
 import {
   applyOverrides,
   type ChannelBuffer,
@@ -146,8 +146,8 @@ export const DEFAULT_DEPS: KernelDeps = {
     if (asset === null) return null;
     return (async () => {
       const bytes = await assets.get(asset);
-      const container = await parseGlb(bytes);
-      return { container, skeleton: skeletonFromGltf(container) };
+      const { readModelSource } = await import('./modelSource');
+      return readModelSource(bytes);
     })();
   },
 };

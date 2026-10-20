@@ -1,7 +1,7 @@
 // Autosave and crash recovery (M2A-SPEC §4.9 `file.recover`, `file.discardRecovery`, `file.autosaveNow`, §5.20).
 // The host starts the autosave controller (`startAutosave`, browser shell); without one these operators poll-fail.
 import { EkzaError } from '@ekza-animator/anim-core';
-import { type CharacterId, type ClipId, migrateSnapshot } from '@ekza-animator/doc';
+import type { CharacterId, ClipId } from '@ekza-animator/doc';
 import { autosaveOf } from '../../app/autosave';
 import { attachMeshes } from '../../mesh';
 import { addBlobSource } from '../../services/blobs';
@@ -88,6 +88,7 @@ const fileRecover = defineOperator<'file.recover', Recovered>({
         throw new EkzaError('asset-corrupt', `The recovered asset ${record.name} does not match its SHA-256 ${id}`);
       }
     }
+    const { migrateSnapshot } = await import('./snapshotMigrate');
     const migrated = migrateSnapshot(read.snapshot);
     for (const record of Object.values(migrated.snapshot.tables.assets ?? {})) {
       if (read.assets.has(record.id) || (await app.services.assets.has(record.id))) continue;

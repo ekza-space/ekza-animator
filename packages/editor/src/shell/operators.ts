@@ -4,7 +4,6 @@
 import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
 import {
   type Contribution,
-  DEFAULT_WORKSPACE_VIEWS,
   type EditorApp,
   type OperatorDef,
   PANEL,
@@ -17,6 +16,7 @@ import {
 import type { StoreApi } from 'zustand/vanilla';
 import { CHROME_PARTS, type ChromePart } from './layout';
 import type {} from './operator-map';
+import type * as PresetOps from './presetOps';
 import { builtinPreset, type LayoutPresetStore, presetNameProblem } from './presets';
 import type { ShellUiState, WorkspaceApi } from './types';
 
@@ -76,6 +76,22 @@ export interface ShellOperatorDeps {
   readonly document?: Document | null;
   /** Called when the import dialog closes without importing (drops the pending file). */
   readonly onImportClosed: () => void;
+}
+
+type PresetOpsModule = typeof PresetOps;
+
+let presetOpsLoading: Promise<PresetOpsModule> | null = null;
+
+/** Loads the preset operators' bodies (`./presetOps`) once; a failed load is forgotten so the next run tries again. */
+function loadPresetOps(): Promise<PresetOpsModule> {
+  if (presetOpsLoading === null) {
+    const attempt = import('./presetOps');
+    presetOpsLoading = attempt;
+    attempt.catch(() => {
+      if (presetOpsLoading === attempt) presetOpsLoading = null;
+    });
+  }
+  return presetOpsLoading;
 }
 
 const ok: PollResult = true;
@@ -253,7 +269,7 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
   const presetWorkspace = (): string => app.session.getState().workspace;
   const animateLike = (workspace: string): boolean => (app.workspaces.get(workspace)?.timeline ?? true) === true;
 
-  const applyPreset: OperatorDef<{ readonly preset: string }> = {
+  const applyPreset: OperatorDef<{ readonly preset: string }, void, PresetOpsModule> = {
     id: 'workspace.preset.apply',
     label: 'Apply Layout Preset',
     aliases: ['Layout preset', 'Workspace layout'],
@@ -273,26 +289,15 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
       }
       return deps.presets.get(workspace, args.preset) === undefined ? fail(`No preset '${args.preset}'`) : ok;
     },
-    apply(_ctx, args) {
-      const workspace = presetWorkspace();
-      const builtin = builtinPreset(args.preset);
-      if (builtin !== undefined) {
-        const views = DEFAULT_WORKSPACE_VIEWS[workspace] ?? DEFAULT_WORKSPACE_VIEWS['animate'];
-        deps.workspace.applyLayout(builtin.dock, builtin.chrome);
-        app.session.setState({
-          viewportLayout: builtin.viewportLayout ?? views?.layout ?? 'split',
-          maximizedPane: builtin.viewportLayout === null ? (views?.maximizedPane ?? null) : null,
-        });
-        return;
-      }
-      const preset = deps.presets.get(workspace, args.preset);
-      if (preset === undefined) throw new EkzaError('unsupported', `No preset '${args.preset}'`);
-      deps.workspace.applyLayout(preset.dockview, preset.chrome);
-      app.session.setState({ viewportLayout: preset.viewportLayout, maximizedPane: preset.maximizedPane });
-    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.applyPreset(app, deps, args.preset),
   };
 
-  const savePreset: OperatorDef<{ readonly name: string }, { readonly id: string; readonly persistent: boolean }> = {
+  const savePreset: OperatorDef<
+    { readonly name: string },
+    { readonly id: string; readonly persistent: boolean },
+    PresetOpsModule
+  > = {
     id: 'workspace.preset.save',
     label: 'Save Layout Preset',
     description: 'Save the current panels, chrome and viewport panes as a named preset of this workspace.',
@@ -304,21 +309,11 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
       if (problem !== null) return fail(problem);
       return deps.workspace.dockview === null ? fail('The workspace is not shown yet') : ok;
     },
-    apply(_ctx, args) {
-      const captured = deps.workspace.capture();
-      if (captured === null) throw new EkzaError('unsupported', 'The workspace is not shown yet');
-      const session = app.session.getState();
-      const preset = deps.presets.save(session.workspace, args.name, {
-        dockview: captured.dockview,
-        chrome: captured.chrome,
-        viewportLayout: session.viewportLayout,
-        maximizedPane: session.maximizedPane,
-      });
-      return { id: preset.id, persistent: deps.presets.persistent() };
-    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.savePreset(app, deps, args.name),
   };
 
-  const renamePreset: OperatorDef<{ readonly id: string; readonly name: string }> = {
+  const renamePreset: OperatorDef<{ readonly id: string; readonly name: string }, void, PresetOpsModule> = {
     id: 'workspace.preset.rename',
     label: 'Rename Layout Preset',
     category: 'view',
@@ -334,12 +329,11 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
         .find((preset) => preset.id !== args.id && preset.name.toLowerCase() === args.name.trim().toLowerCase());
       return clash === undefined ? ok : fail(`A preset named '${clash.name}' already exists`);
     },
-    apply(_ctx, args) {
-      deps.presets.rename(presetWorkspace(), args.id, args.name);
-    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.renamePreset(app, deps, args.id, args.name),
   };
 
-  const deletePreset: OperatorDef<{ readonly id: string }> = {
+  const deletePreset: OperatorDef<{ readonly id: string }, void, PresetOpsModule> = {
     id: 'workspace.preset.delete',
     label: 'Delete Layout Preset',
     category: 'view',
@@ -347,9 +341,8 @@ export function shellOperatorDefs(app: EditorApp, deps: ShellOperatorDeps): Cont
     flags: { internal: true },
     poll: (_ctx, args) =>
       deps.presets.get(presetWorkspace(), args.id) === undefined ? fail(`No preset '${String(args.id)}'`) : ok,
-    apply(_ctx, args) {
-      deps.presets.remove(presetWorkspace(), args.id);
-    },
+    prepare: loadPresetOps,
+    apply: (_ctx, args, impl) => impl.deletePreset(app, deps, args.id),
   };
 
   const doc = (): Document | null =>

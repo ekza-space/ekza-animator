@@ -16,7 +16,7 @@ import {
 } from '@ekza-animator/rig';
 import { applyChannelEdits } from '../../edit/channels';
 import { channelsAt, limbContext, plantIkLeg } from '../../workflows/ik';
-import { summarizeMirrorWarnings } from '../../workflows/mirrorAnimation';
+import { summarizeMirrorWarnings } from '../../workflows/mirrorWarnings';
 import type { ChannelEditResult, CharacterRuntime, EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import {

@@ -1,14 +1,31 @@
 // Mirror animation (M2A-SPEC §4.9 `pose.mirrorAnimation`, §5.14; A4): flip, left → right or right → left on the
-// active clip, optionally half a cycle later; humanoid rigs only. One step, label `Mirror Animation`.
+// active clip, optionally half a cycle later; humanoid rigs only. One step, label `Mirror Animation`. The workflow
+// loads with the first run (`prepare`, the eager-route budget §5.27); the runner polls again after it.
 import { EkzaError } from '@ekza-animator/anim-core';
 import type { ControlId } from '@ekza-animator/doc';
 import { isHumanoidProgram, type MirrorMode } from '@ekza-animator/rig';
 import { GLOBAL_SCOPE } from '../../types';
-import { mirrorAnimation } from '../../workflows/mirrorAnimation';
+import type * as MirrorWorkflow from '../../workflows/mirrorAnimation';
 import { activeClipRecord, selectedControls } from '../../workflows/targets';
 import type { CountResult } from '../args';
 import { type AnyOperator, all, defineOperator, fail, isRecord, OK } from './define';
 import { activeRuntimeOf, pollClipEdit, pollRuntime } from './polls';
+
+type MirrorWorkflowModule = typeof MirrorWorkflow;
+
+let loading: Promise<MirrorWorkflowModule> | null = null;
+
+/** Loads the Mirror Animation workflow once; a failed load is forgotten so the next run tries again. */
+function loadMirrorWorkflow(): Promise<MirrorWorkflowModule> {
+  if (loading === null) {
+    const attempt = import('../../workflows/mirrorAnimation');
+    loading = attempt;
+    attempt.catch(() => {
+      if (loading === attempt) loading = null;
+    });
+  }
+  return loading;
+}
 
 const MODES: readonly MirrorMode[] = ['flip', 'leftToRight', 'rightToLeft'];
 
@@ -53,12 +70,13 @@ const mirrorAnimationOperator = defineOperator({
     }
     return OK;
   },
-  apply({ app, tx }, args) {
+  prepare: loadMirrorWorkflow,
+  apply({ app, tx }, args, workflow) {
     if (tx === null) throw new EkzaError('internal', 'pose.mirrorAnimation runs in a transaction');
     const clip = activeClipRecord(app, tx);
     if (clip === undefined) return { count: 0 } satisfies CountResult;
     const controls = args.controls ?? selectedControls(app, tx).map((control) => control.id);
-    const result = mirrorAnimation(app, tx, clip, {
+    const result = workflow.mirrorAnimation(app, tx, clip, {
       mode: args.mode,
       offset: args.offset ?? 'none',
       controls: controls.length > 0 ? controls : null,
