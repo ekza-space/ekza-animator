@@ -290,3 +290,18 @@ describe.skipIf(!READY.b4)('whole meshes in object mode (§6.1 Modes "…, objec
     expect(positionsOf(f, f.id)).toEqual(after);
   });
 });
+
+describe.skipIf(!READY.b3)('acceptance fix round 1: Insert Edge Loop card fields follow the mode', () => {
+  it('Relative shows the weight, not Number of Loops; an adjust to Multiple swaps them and keeps the loops count', async () => {
+    const t = await cubeIn('edge', topEdgeAlongX);
+    await t.app.runUntyped('mesh.insertLoop', { weight: 0.3 }, { source: 'menu' });
+    const shown = (): string[] =>
+      (t.app.session.getState().lastRun?.params ?? []).filter((p) => p.hidden !== true).map((p) => p.name);
+    expect(shown()).toEqual(['mode', 'weight']);
+    // Mode and a field of the new mode in one adjust (the patch is coerced against every param of the op).
+    await t.app.run('edit.adjustLast', { args: { mode: 'multiple', divisions: 3 } });
+    expect(t.app.session.getState().lastRun?.args).toMatchObject({ mode: 'multiple', divisions: 3 });
+    expect(shown()).toEqual(['mode', 'divisions']);
+    expect(counts(t, t.id)).toBe('20/36/18');
+  });
+});

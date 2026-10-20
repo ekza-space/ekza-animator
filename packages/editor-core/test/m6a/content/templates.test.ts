@@ -255,3 +255,21 @@ describe('mesh.primitive.set (live parameters, §5.16)', () => {
     expect(pollReason(t, 'mesh.primitive.set', { mesh: 'msh_nope' })).toBe('expects { mesh, params }');
   });
 });
+
+describe('acceptance fix round 1: the Last-op card shows the fields of the template run', () => {
+  const fields = (t: MeshTestApp): string[] =>
+    (t.app.session.getState().lastRun?.params ?? []).filter((p) => p.hidden !== true).map((p) => p.name);
+
+  it('Handheld and Prop have no humanoid fields; Guides take height and proportions; a Body height and style', async () => {
+    const t = await meshTestApp();
+    await runValue<Created>(t, 'mesh.create.template', { template: 'handheld' });
+    expect(t.app.session.getState().lastRun?.id).toBe('mesh.create.template');
+    expect(fields(t)).toEqual([]);
+    await runValue<Created>(t, 'mesh.create.template', { template: 'prop' });
+    expect(fields(t)).toEqual([]);
+    await runValue<Created>(t, 'mesh.create.template', { template: 'humanoid' });
+    expect(fields(t)).toEqual(['height', 'preset']);
+    await runValue<Created>(t, 'mesh.create.template', { template: 'humanoidBody' });
+    expect(fields(t)).toEqual(['height', 'style']);
+  });
+});

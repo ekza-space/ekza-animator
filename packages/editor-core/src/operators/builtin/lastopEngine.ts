@@ -174,7 +174,9 @@ export function adjustedArgs(app: EditorApp, last: LastRun, patch: unknown): Rec
   const kind = last.kind !== null || WHOLE_MESH_OPS.has(last.id);
   return {
     ...last.args,
-    ...coercePartial(last.params, patch),
+    // Every param of the operation, not only the card's fields (a card shows the fields that apply to the recorded
+    // args; an adjust may switch the mode and set a field of the new mode in one patch).
+    ...coercePartial(def?.params ?? last.params, patch),
     ...(extra.includes('meshes') ? { meshes: last.targets } : {}),
     ...(extra.includes('kind') && kind ? { kind: last.kind } : {}),
   };

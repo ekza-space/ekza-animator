@@ -370,6 +370,33 @@ function warningsOf(value: unknown): readonly OpWarning[] {
 }
 
 /**
+ * Card fields that apply only to some arguments of an operation (acceptance fix round 1): a Handheld or Prop template
+ * has none of the humanoid fields, Humanoid Guides take height and proportions, a Humanoid Body height and style; Insert
+ * Edge Loop shows Number of Loops only for "Multiple edge loops", and the weight only for the other two modes.
+ */
+const CARD_FIELDS: Readonly<Record<string, (args: ParamValues) => (name: string) => boolean>> = {
+  'mesh.create.template': (args) => {
+    const template = args['template'];
+    if (template === 'humanoid') return (name) => name === 'height' || name === 'preset';
+    if (template === 'humanoidBody') return (name) => name === 'height' || name === 'style';
+    return () => false;
+  },
+  'mesh.insertLoop': (args) => {
+    const multiple = (args['mode'] ?? 'relative') === 'multiple';
+    return (name) => (name === 'divisions' ? multiple : name === 'weight' ? !multiple : true);
+  },
+};
+
+/** The params a LastRun's card shows for its recorded args. */
+function cardParams(def: OperatorDef<unknown, unknown, unknown>, args: ParamValues): readonly ParamDef[] {
+  const params = def.params ?? [];
+  const fields = CARD_FIELDS[def.id];
+  if (fields === undefined) return params;
+  const shown = fields(args);
+  return params.filter((param) => shown(param.name));
+}
+
+/**
  * The runner's LastRun hook (§5.7): records `session.lastRun` for qualifying runs, closes a live card for any other run
  * that recorded a step, and arms the capture window after a keyboard-invoked run with a primary param (§5.10 (b)).
  */
@@ -388,11 +415,12 @@ export function recordLastRun(app: EditorApp, run: FinishedRun): void {
   const targets = adjusted ? previous.targets : targetsOfRun(def, args, value, before);
   settleSelection(app, targets);
   const flags = def.flags;
+  const recorded = recordedArgs(app, def, args, value);
   const lastRun: LastRun = Object.freeze({
     id: def.id,
     label: def.label,
-    params: def.params ?? [],
-    args: recordedArgs(app, def, args, value),
+    params: cardParams(def, recorded),
+    args: recorded,
     kind: adjusted ? previous.kind : kindOfRun(def, args, before),
     stepId,
     docSeqAfter: app.store.version,
