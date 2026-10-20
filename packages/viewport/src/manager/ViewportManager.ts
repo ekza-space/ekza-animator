@@ -769,6 +769,11 @@ export class ViewportManager {
     this.prepareFrame();
     if (!this.dirty) return;
     this.dirty = false;
+    // The scene's matrixWorldAutoUpdate is off and SceneSync's world pass runs only for a character pose or placement
+    // change, so mesh-view hosts (whose roots carry `matrixAutoUpdate = false` and flag `matrixWorldNeedsUpdate` on
+    // `setWorld`) propagate their world matrices here: otherwise a moved mesh keeps drawing at its old transform while
+    // picking, the manipulator and framing follow the new one (acceptance fix round 1).
+    for (const host of this.meshHosts) host.root.updateMatrixWorld();
     const renderer = this.renderer;
     const canvasRect = renderer.domElement.getBoundingClientRect();
     let rendered = 0;
