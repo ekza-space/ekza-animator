@@ -48,10 +48,23 @@ function buildComponents(shell: Shell): Record<string, PanelComponent> {
   return components;
 }
 
-/** Tabs: the viewport cannot be closed (it is the workspace's centre); other panels re-open from Windows. */
+/** A group whose body is shorter than this is collapsed to its tab bar (Model's Mesh Check dock, §8.2). */
+const COLLAPSED_BODY_PX = 40;
+/** The body height a click on a collapsed group's tab opens it to. */
+export const EXPANDED_BODY_PX = 220;
+
+/**
+ * Tabs: the viewport cannot be closed (it is the workspace's centre); other panels re-open from Windows. A click on
+ * the tab of a group collapsed to its tab bar (Model's Mesh Check dock) opens the group to a usable height
+ * (acceptance fix round 1: the panel was docked with zero height until the sash was dragged).
+ */
 function Tab(props: IDockviewPanelHeaderProps<PanelParams>): JSX.Element {
   const kind: PanelKind | undefined = props.params.kind;
-  return <DockviewDefaultTab {...props} hideClose={kind === PANEL.viewport} />;
+  const api = props.api;
+  const onClick = useCallback(() => {
+    if (api.height < COLLAPSED_BODY_PX) api.group.api.setSize({ height: api.group.api.height + EXPANDED_BODY_PX });
+  }, [api]);
+  return <DockviewDefaultTab {...props} onClick={onClick} hideClose={kind === PANEL.viewport} />;
 }
 
 export function WorkspaceHost(): JSX.Element {
