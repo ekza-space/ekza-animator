@@ -192,13 +192,18 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
       textureSide,
       joints: 0,
     });
+    // Meshes painting with one palette share their materials (§5.19 "A palette texture: one material, one PNG"; D:
+    // one material per used swatch): the material is named after the palette, so the writer's content key unites
+    // them; a mesh without a palette keeps its own material.
+    const materialName =
+      record.palette === null ? record.name : (app.store.get('palettes', record.palette)?.name ?? record.name);
     return {
       id: record.id,
       name: record.name,
       placement: record.placement,
       mesh: {
         data,
-        materials: Array.from({ length: slots }, () => ({ preset, name: record.name })),
+        materials: Array.from({ length: slots }, () => ({ preset, name: materialName })),
         colourOutput,
         paletteId: record.palette,
       },

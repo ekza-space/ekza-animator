@@ -119,6 +119,31 @@ describe('mesh.io: file.exportModel', () => {
     app.dispose();
   });
 
+  it('two meshes painting with one palette share one material and one image (§5.19; AS-LP-A "1 material")', async () => {
+    const { app, cube } = await sceneApp();
+    const record = app.store.get('meshes', cube);
+    const second = 'msh_Cube000000000002' as MeshId;
+    app.store.transact({ label: 'Second' }, (tx) => {
+      tx.put('meshes', makeTestMesh(second, { name: 'Cube 2', palette: record?.palette ?? null }));
+      app.meshes.writeData(tx, second, paintedCube());
+    });
+    const artifact = await exportModel(app, { objects: [], fileName: 'two', profile: 'local/generic' });
+    expect(artifact.validation?.errors).toBe(0);
+    const json = (await parseGlb(artifact.bytes)).json as Json;
+    expect(json['meshes']).toHaveLength(2);
+    expect(json['materials']).toEqual([expect.objectContaining({ name: 'Ekza Default 16' })]);
+    expect(json['images']).toHaveLength(1);
+    const perColour = await exportModel(app, {
+      objects: [],
+      fileName: 'two-colours',
+      profile: 'local/generic',
+      colourOutput: 'material-per-colour',
+    });
+    const names = ((await parseGlb(perColour.bytes)).json['materials'] as { name: string }[]).map((m) => m.name);
+    expect(names).toEqual(['Ekza Default 16 swatch 0', 'Ekza Default 16 swatch 4']);
+    app.dispose();
+  });
+
   it('reads the export back through three.js GLTFLoader when the host has a display loader (the browser path)', async () => {
     let loads = 0;
     let disposed = 0;
