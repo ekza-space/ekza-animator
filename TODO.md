@@ -5,6 +5,22 @@ Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
 Updated 2026-10-19.
 
+## Parked — specs ready, build later (owner decision, 2026-10-20)
+
+Focus is the modeling base (M6a) first. These tracks are fully specified and parked; their code branches are kept.
+
+- [ ] **M6b — Rig & Skin workspace** (joint tool, orient/mirror joints, templates + Quick Rig, bind + auto weights,
+      Paint Skin Weights, Component Editor, constraints, control-shape editing, VRM/GLB export of own models):
+      [M6B-SPEC](docs/M6B-SPEC.md) v1.1, research 17–19. Spec branch `m6b/spec` (also carries plan updates to
+      MODELING-PLAN §5, ROADMAP, REQUIREMENTS — merge them when M6b starts). ≈ 70 agent-days.
+- [ ] **M-AI — Agent bridge (MCP)**: headless tool layer, `ekza-animator-mcp` server, live bridge with pairing,
+      see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
+      research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
+      `mcp/operators-scope` (P1), `mcp/tools-core` (P2) — not verified, resume from them. ≈ 55 agent-days.
+- [ ] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Maya Hypershade-lite), assign to
+      objects or selected faces, flat/smooth; export Lambert → roughness 1/metallic 0, Blinn → roughness from
+      glossiness (+ `KHR_materials_specular`). ≈ 0.5 day.
+
 ## Rename — Ekza Animator becomes Ekza Studio (owner decision, 2026-10-19)
 
 The editor grew from an animator into a full 3D package (modeling, rigging, animation, AI agent), so it takes the
