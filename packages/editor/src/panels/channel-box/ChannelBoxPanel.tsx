@@ -433,7 +433,9 @@ export function ChannelBoxPanel({ app, instanceId }: PanelProps): JSX.Element {
     ]);
   });
 
-  if (lead === null && modelLead !== null) {
+  // In Model the selected mesh or group object leads, even while Animate's control selection persists (that selection
+  // is kept for the return to Animate; acceptance fix round 1).
+  if (modelLead !== null) {
     return (
       <Suspense fallback={null}>
         <MeshChannels app={app} lead={modelLead} />
