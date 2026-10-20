@@ -56,12 +56,12 @@ test('E2E-MOD-13 — handheld sword', async ({ page }) => {
     expect(ALLOWED_EXTENSIONS.has(name), name).toBe(true);
   }
   const grip = json.asset.extras?.['ekza_handheld_v1'] as
-    | { bone: string; offset: number[]; rotationDegrees: number[]; scale: number }
+    | { bone: string; offset: number[]; rotation_degrees: number[]; scale: number }
     | undefined;
   expect(grip).toBeDefined();
   expect(['rightHand', 'leftHand']).toContain(grip?.bone);
-  for (const c of grip?.offset ?? []) expect(Math.abs(c)).toBeLessThanOrEqual(0.3);
-  for (const c of grip?.rotationDegrees ?? []) expect(Math.abs(c)).toBeLessThanOrEqual(360);
+  for (const c of grip?.offset ?? [Number.NaN]) expect(Math.abs(c)).toBeLessThanOrEqual(0.3);
+  for (const c of grip?.rotation_degrees ?? [Number.NaN]) expect(Math.abs(c)).toBeLessThanOrEqual(360);
   expect(grip?.scale).toBeGreaterThanOrEqual(0.25);
   expect(grip?.scale).toBeLessThanOrEqual(2);
   expect(json.skins ?? []).toHaveLength(0);
