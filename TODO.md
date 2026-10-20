@@ -60,6 +60,7 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 9. [x] M6a integration (6) + one fix round (≈ 4): E2E-MOD-01…32, AS-LP-S (parts A and B scripted), budgets ([M6A-SPEC §10–§11](docs/M6A-SPEC.md#10-acceptance-tests-e2e-scenarios-and-as-lp)). **Done 2026-10-20**, merged into `dev`.
 9b. [x] M6a acceptance fix round 1 on `dev` (2026-10-20): display of moved meshes (blocker), Combine origin, W/E/R double-click loops, status-line Symmetry, one-sided Bridge under symmetry, Channel Box lead, Mesh Check dock, template symmetry after a load, Last-op card fields — [DECISIONS-OPEN §J](docs/DECISIONS-OPEN.md#j-m6a-acceptance-fix-round-1-on-dev-2026-10-20).
 9c. [ ] M6a deferred UI items (§J M6A-INT-44…47): Offset Edge Loop as a drag tool; in-app glTF validator for static exports; `F` after Bevel; compact quad HUD.
+9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (Maya) or keeps the §5.6 toggle; whole character display at bind pose in Model.
 9a. [ ] Owner: AS-LP-A/B by hand, the demo script ([M6A-SPEC §11.3](docs/M6A-SPEC.md#113-owner-demo-script-10-minutes)), the §I review; then tag `v0.3.0` (owner's call).
 
 ## Then — characters from own models (M6b, ≈ 43.5; starts when B1, B7, B8, B9 have merged, day ≈ 13.5)
