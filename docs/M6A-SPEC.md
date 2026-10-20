@@ -1038,6 +1038,7 @@ export interface PickOptions {
   readonly backfaces: boolean;
   readonly hidden: HiddenSet | null;
   readonly radiusPx?: number;                // vertex 8, edge 6 (defaults)
+  readonly wire?: boolean;                   // the pane draws no surface: faces pick by their dot only (§5.6; INT, M6A-B6-1)
 }
 /** CPU picking with a three-mesh-bvh BVH (refit after position commits, rebuild after topology commits, deferred to
  *  the first pick or idle) and a screen-space grid for vertices and edges. */

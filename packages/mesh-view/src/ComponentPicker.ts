@@ -19,13 +19,12 @@ import type { PickHit, PickOptions } from './types';
 export type { PickOccluder } from './internal/occluder';
 
 /**
- * `PickOptions` (§4.4) with mesh-view's own field (M6A-B6-1, M6A-B6-7): `wire` = the pane draws no surface (wire
- * shading), so a face is picked by its centre dot only (§5.6 "wireframe: the face-centre dot within 8 px"). Absent =
- * false. Back faces follow `backfaces` alone in every shading: the caller passes `xray || Backfaces option` (§5.6).
+ * `PickOptions` (§4.4; `wire` joined the contract at INT, M6A-B6-1, M6A-B6-7): `wire` = the pane draws no surface
+ * (wire shading), so a face is picked by its centre dot only (§5.6 "wireframe: the face-centre dot within 8 px").
+ * Absent = false. Back faces follow `backfaces` alone in every shading: the caller passes `xray || Backfaces option`
+ * (§5.6). The alias stays for the package's callers.
  */
-export interface PickOptionsInput extends PickOptions {
-  readonly wire?: boolean;
-}
+export type PickOptionsInput = PickOptions;
 
 /** Default pick radii in CSS px (§5.6). */
 export const PICK_RADIUS = { vertex: 8, edge: 6, face: 8 } as const;

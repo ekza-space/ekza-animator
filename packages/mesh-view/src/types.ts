@@ -33,4 +33,5 @@ export interface PickOptions {
   readonly backfaces: boolean;
   readonly hidden: HiddenSet | null;
   readonly radiusPx?: number;                // vertex 8, edge 6 (defaults)
+  readonly wire?: boolean;                   // the pane draws no surface: faces pick by their dot only (§5.6; INT)
 }
