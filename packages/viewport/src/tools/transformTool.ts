@@ -45,6 +45,8 @@ const defaultGesture: GestureFactory = (app, label) => beginChannelEditGesture(a
 
 /** Pointer travel (CSS px) before a press on a handle becomes a drag; a shorter press is a click and edits nothing. */
 const DRAG_THRESHOLD_PX = 2;
+/** The select runtime's double-click distance (`DOUBLE_CLICK_PX`, in the lazy Model chunk). */
+const DOUBLE_CLICK_PX = 4;
 
 /** Channel names for the locked-handle hint (the Channel Box labels). */
 const CHANNEL_LABEL: Readonly<Record<AxisHandle, string>> = {
@@ -97,6 +99,42 @@ interface Drag {
   gesture: ChannelEditGesture | null;
   moved: boolean;
   failed: boolean;
+}
+
+/**
+ * The second press of a component double-click that lands on the manipulator the first click put there (§5.6 loop
+ * table; Maya double-click loop selection with Move/Rotate/Scale active). The press goes to the manipulator as usual;
+ * released without moving it is given to selection instead (the loop), so a quick click-then-drag of a handle still
+ * drags (acceptance fix round 1).
+ */
+class DoubleClickPress {
+  private down: ToolPointerEvent | null = null;
+
+  constructor(private readonly select: SelectBehaviour) {}
+
+  begin(e: ToolPointerEvent): void {
+    this.down = this.select.completesDouble(e) ? e : null;
+  }
+
+  move(e: ToolPointerEvent): void {
+    const down = this.down;
+    if (down !== null && Math.hypot(e.x - down.x, e.y - down.y) > DOUBLE_CLICK_PX) this.down = null;
+  }
+
+  /** On release: true when selection took the press (`cancelOwner` dropped the manipulator's press first). */
+  end(e: ToolPointerEvent, cancelOwner: () => void): boolean {
+    const down = this.down;
+    this.down = null;
+    if (down === null) return false;
+    cancelOwner();
+    this.select.pointerDown(down);
+    this.select.pointerUp(e);
+    return true;
+  }
+
+  reset(): void {
+    this.down = null;
+  }
 }
 
 /** Model's behaviour for a tool, rebuilt when the runtime changes. */
@@ -234,6 +272,7 @@ class TransformTool implements ToolInstance {
   private readonly controls: ControlDrags;
   /** Who owns the current press: the Model runtime, the control drags or the select behaviour. */
   private owner: 'model' | 'controls' | 'select' | null = null;
+  private readonly double: DoubleClickPress;
 
   constructor(
     private readonly app: EditorApp,
@@ -243,19 +282,14 @@ class TransformTool implements ToolInstance {
     gestureFactory: GestureFactory,
   ) {
     this.select = new SelectBehaviour(app, host);
+    this.double = new DoubleClickPress(this.select);
     this.model = new ModelLink(app, host, tool, this.select);
     this.controls = new ControlDrags(app, host, label, gestureFactory);
   }
 
   pointerDown(e: ToolPointerEvent): boolean {
     if (e.paneId === null) return false;
-    // The second press of a component double-click goes to selection (the loop table, §5.6), not to the manipulator
-    // the first click put on that component (Maya double-click loop selection with Move/Rotate/Scale active).
-    if (this.select.completesDouble(e)) {
-      const selected = this.select.pointerDown(e);
-      if (selected) this.owner = 'select';
-      return selected;
-    }
+    this.double.begin(e);
     if (this.model.get()?.pointerDown(e) === true) {
       this.owner = 'model';
       return true;
@@ -280,6 +314,7 @@ class TransformTool implements ToolInstance {
   }
 
   pointerMove(e: ToolPointerEvent): boolean {
+    this.double.move(e);
     if (this.owner === 'model') return this.model.get()?.pointerMove(e) ?? true;
     if (this.owner === 'controls') {
       this.controls.move(e);
@@ -291,6 +326,14 @@ class TransformTool implements ToolInstance {
   pointerUp(e: ToolPointerEvent): boolean {
     const owner = this.owner;
     this.owner = null;
+    if (owner === 'model' || owner === 'controls') {
+      const cancelOwner = (): void => {
+        if (owner === 'model') this.model.get()?.cancel();
+        else this.controls.cancel();
+      };
+      if (this.double.end(e, cancelOwner)) return true;
+    }
+    this.double.reset();
     if (owner === 'model') return this.model.get()?.pointerUp(e) ?? true;
     if (owner === 'controls') {
       this.controls.up(e);
@@ -300,6 +343,7 @@ class TransformTool implements ToolInstance {
   }
 
   cancel(): void {
+    this.double.reset();
     this.owner = null;
     this.model.get()?.cancel();
     this.controls.cancel();
@@ -353,7 +397,8 @@ export function withModelTransform(
     tool === 'scale' ? 'Scale' : tool === 'rotate' ? 'Rotate' : 'Move',
     gestureFactory,
   );
-  let owner: 'model' | 'controls' | 'select' | 'inner' | null = null;
+  let owner: 'model' | 'controls' | 'inner' | null = null;
+  const double = new DoubleClickPress(select);
   return {
     activate: () => {
       setTweakHandle(app, null);
@@ -366,12 +411,7 @@ export function withModelTransform(
       inner.deactivate?.();
     },
     pointerDown: (e) => {
-      if (select.completesDouble(e)) {
-        // As in TransformTool: a component double-click's second press selects the loop.
-        const selected = select.pointerDown(e);
-        if (selected) owner = 'select';
-        return selected;
-      }
+      double.begin(e);
       if (model.get()?.pointerDown(e) === true) {
         owner = 'model';
         return true;
@@ -390,7 +430,7 @@ export function withModelTransform(
       return handled;
     },
     pointerMove: (e) => {
-      if (owner === 'select') return select.pointerMove(e);
+      double.move(e);
       if (owner === 'model') return model.get()?.pointerMove(e) ?? true;
       if (owner === 'controls') {
         controls.move(e);
@@ -401,7 +441,14 @@ export function withModelTransform(
     pointerUp: (e) => {
       const was = owner;
       owner = null;
-      if (was === 'select') return select.pointerUp(e);
+      if (was === 'model' || was === 'controls') {
+        const cancelOwner = (): void => {
+          if (was === 'model') model.get()?.cancel();
+          else controls.cancel();
+        };
+        if (double.end(e, cancelOwner)) return true;
+      }
+      double.reset();
       if (was === 'model') return model.get()?.pointerUp(e) ?? true;
       if (was === 'controls') {
         controls.up(e);
@@ -411,6 +458,7 @@ export function withModelTransform(
     },
     cancel: () => {
       owner = null;
+      double.reset();
       model.get()?.cancel();
       controls.cancel();
       select.cancel();
