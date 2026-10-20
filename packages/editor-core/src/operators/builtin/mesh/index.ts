@@ -14,9 +14,12 @@ import { attachMeshes } from '../../../mesh';
 import { meshKernel } from '../../../mesh/kernel';
 import { kindOf, MESH_EXTRA_ARGS, meshOperator, meshSetOperator, opArgs, targetsOf } from '../../../mesh/operator';
 import { runSeed, runSettings } from '../../../mesh/seed';
-import type { MeshOpArgs, MeshOpOutcome, OperatorDef, ToolId } from '../../../types';
+import type { MeshId } from '@ekza-animator/doc';
+import type { EditorApp, MeshOpArgs, MeshOpOutcome, OperatorDef, ToolId } from '../../../types';
 import type { AnyOperator } from '../define';
 import { rememberResolvedArgs } from '../lastop';
+import { swatchMismatch } from '../paintRules';
+import { activeSwatchOf } from '../palette';
 import { WHOLE_MESH_OPS, wholeMeshRun } from './whole';
 
 export { MESH_EXTRA_ARGS, WHOLE_MESH_OPS, wholeMeshRun };
@@ -173,7 +176,7 @@ export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<Mesh
       const kind = onWhole ? null : kindOf(ctx.app, args);
       const targets = targetsOf(ctx.app, args, kind, onWhole);
       const settings = runSettings(ctx, desc.id);
-      const result = meshes.commitOp(ctx.tx, op, targets, opArgs(args), {
+      const result = meshes.commitOp(ctx.tx, op, targets, opArgs(paintSlot(ctx.app, desc.id, targets, args)), {
         seed: runSeed(ctx, desc.id),
         kind,
         ...(settings === undefined ? {} : { settings }),
@@ -183,6 +186,20 @@ export function registeredMeshOperator(desc: MeshOpDescriptor): OperatorDef<Mesh
       return outcome;
     },
   };
+}
+
+/**
+ * `mesh.paint` without a `slot` (Edit Mesh › Assign Colour › Active Swatch, the marking menus, `G`) paints with the
+ * active swatch (§6.1 "UI passes the active swatch's slot"; B13's hand-over, M6A-B13-18): its slot, refused when the
+ * swatch is not in a target's palette. Without an active swatch the descriptor's default slot applies.
+ */
+function paintSlot(app: EditorApp, id: string, targets: readonly MeshId[], args: MeshOpArgs): MeshOpArgs {
+  if (id !== 'mesh.paint' || args?.['slot'] !== undefined) return args;
+  const swatch = activeSwatchOf(app);
+  if (swatch === null) return args;
+  const mismatch = swatchMismatch(app, targets, swatch);
+  if (mismatch !== null) throw new EkzaError('op-refused', mismatch, { code: 'paint.swatch-palette' });
+  return { ...args, slot: swatch.slot };
 }
 
 export function registeredMeshSetOperator(desc: MeshSetOpDescriptor): AnyOperator {

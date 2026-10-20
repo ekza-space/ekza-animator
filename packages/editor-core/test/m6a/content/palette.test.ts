@@ -277,3 +277,33 @@ describe('select.mesh.bySwatch', () => {
     expect(t.app.history.peekUndo()?.label).toBe('Select');
   });
 });
+
+describe('Assign Colour › Active Swatch (mesh.paint without a slot, §6.1; B13 hand-over M6A-B13-18)', () => {
+  it('paints with the active swatch, refuses a swatch of another palette, and paints slot 0 without one', async () => {
+    const t = await meshTestApp();
+    await runValue(t, 'workspace.set', { workspace: 'model' });
+    const id = await cube(t);
+    selectObjects(t, [id]);
+    await runValue(t, 'select.mode', { mode: 'face' });
+    await runValue(t, 'select.components', { mesh: id, kind: 'face', indices: [0], mode: 'replace' });
+    await runValue(t, 'palette.setActive', { swatch: defaultSwatchId(4) });
+    await runValue(t, 'mesh.paint', { kind: 'face' });
+    expect(faceSlots(t, id)[0]).toBe(4);
+    expect(t.app.session.getState().lastRun?.args).toMatchObject({ slot: 4 });
+    // A swatch of another palette (a duplicate of the default one) is refused with the reason.
+    const { palette: other } = await runValue<{ palette: PaletteId }>(t, 'palette.duplicate', {
+      palette: DEFAULT_PALETTE_ID,
+    });
+    const foreign = t.app.store.query.swatchesOfPalette(other).find((s) => s.slot === 6);
+    if (foreign === undefined) throw new Error('no swatch in the duplicate');
+    await runValue(t, 'palette.setActive', { swatch: foreign.id });
+    const refused = await t.app.runUntyped('mesh.paint', { kind: 'face' });
+    expect(refused).toMatchObject({ status: 'failed', error: { code: 'op-refused' } });
+    expect(refused.status === 'failed' ? refused.error.message : '').toMatch(/not in .*palette/);
+    expect(faceSlots(t, id)[0]).toBe(4);
+    // No active swatch: the descriptor's default slot.
+    await runValue(t, 'palette.setActive', { swatch: null });
+    await runValue(t, 'mesh.paint', { kind: 'face' });
+    expect(faceSlots(t, id)[0]).toBe(0);
+  });
+});
