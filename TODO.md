@@ -17,6 +17,11 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
       research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
       `mcp/operators-scope` (P1), `mcp/tools-core` (P2) — not verified, resume from them. ≈ 55 agent-days.
+- [ ] **Layout presets for focused work** (owner request, 2026-10-20; right after M6a, inside its workspace/layout
+      system): Animate (default) Alt+1; Blocking — one big viewport + time slider only, Alt+2; Polish — viewport over a
+      large Graph Editor + time slider, Alt+3; Review — viewport full window + playback only, Alt+4; Maya-style
+      "hide UI" toggle Ctrl+Space (panels around the viewport); browser fullscreen button + Shift+F; user presets
+      saved in prefs. ≈ 0.5 day.
 - [ ] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Maya Hypershade-lite), assign to
       objects or selected faces, flat/smooth; export Lambert → roughness 1/metallic 0, Blinn → roughness from
       glossiness (+ `KHR_materials_specular`). ≈ 0.5 day.
