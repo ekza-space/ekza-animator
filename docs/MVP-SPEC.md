@@ -2375,6 +2375,9 @@ specific scope wins over `*`.
 | `Digit7` | `graph.tangent.set {type: 'plateau'}` (poll-fails until the M1-stretch item lands) | G, T |
 | `KeyB` / `KeyU` | `graph.tangent.break` / `graph.tangent.unify` | G |
 | `Shift+Slash` (`?`) | `ui.open {dialog:'shortcuts'}` | * |
+| `Ctrl+Space` (tap), `Alt+Digit0` | `workspace.toggleFocus` (focus mode; *layout presets, 2026-10*) | * |
+| `Alt+Digit1`…`Alt+Digit4` | `workspace.preset.apply {preset:'animate'/'blocking'/'polish'/'review'}` (*layout presets*) | * |
+| `Shift+KeyF` | `view.toggleFullscreen` (browser Fullscreen API; *layout presets*) | * |
 
 **Keyboard focus** (*v0.3 integration, acceptance round 2*). Hotkeys follow the hovered panel, whatever has the DOM
 focus, with these exceptions:
@@ -2398,7 +2401,9 @@ focus, with these exceptions:
 Unbound in the MVP (menu or status line only): Gimbal/Object/World rotate space (status line toggle group),
 `pose.pinFeet`, `pose.plantFeet`, `graph.curves.simplify`, `graph.eulerFilter`, `select.mirror`.
 Never bound (browser/OS reserved): `Mod+W/T/N/Q/H/M`, `Mod+1…9`, `Mod+Tab`, `Alt+←/→`, `F1`–`F12`,
-`Ctrl+Space`, `Mod+L/R`, `Alt+E`/`Alt+F` (browser menus on Windows). Navigation chords and wheel gestures are
+`Mod+L/R`, `Alt+E`/`Alt+F` (browser menus on Windows). *Layout presets (2026-10, owner request):* `Ctrl+Space` is
+bound to focus mode (Maya's "hide UI"); macOS and Windows IMEs may take it for the input-source switch first, so
+`Alt+0` does the same ([LAYOUT-PRESETS.md](LAYOUT-PRESETS.md)). Navigation chords and wheel gestures are
 handled by the navigation profile, not the keymap (§4.11.16, §4.11.18).
 
 ### 4.11 Normative behaviours

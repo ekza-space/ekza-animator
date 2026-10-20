@@ -82,6 +82,18 @@ M6a-stretch items listed in the e2e report as `test.fixme` (Extrude Manifold, Se
 ramp swatches, `.gpl` palettes, component pick-walk, selection constraints, unequal Bridge, Multi-Cut across faces,
 Maya's per-component Normal, Retain component spacing).
 
+## Focused layouts
+
+Hide what you do not need, per workspace (details: [docs/LAYOUT-PRESETS.md](docs/LAYOUT-PRESETS.md)):
+
+| Shortcut | What it does |
+|---|---|
+| `Ctrl+Space` or `Alt+0` (`⌥0`) | Focus mode: only the viewport, no tool strip or help line; again to restore exactly (macOS often takes `Ctrl+Space` for the input source, so use `⌥0` there) |
+| `Alt+1` … `Alt+4` | Built-in presets: Animate (default), Blocking (one viewport + time slider), Polish (viewport over a large Graph Editor), Review (viewport + playback only) |
+| `Shift+F` | Browser full screen (also Windows › Full Screen) |
+| Windows › Tool Strip / Help Line / Time Slider | Show or hide each piece of chrome in the current workspace |
+| Windows › Presets › Save Current Layout as… | Save your own preset (stored in the browser; rename or delete it from the same menu) |
+
 ## Features
 
 | Area | Built (M1 alpha, M2a, **M6a**) | Planned |
