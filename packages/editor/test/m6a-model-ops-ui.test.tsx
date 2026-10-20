@@ -493,6 +493,18 @@ describe('the Modeling Toolkit (§8.5)', () => {
     expect(by('mtk-mesh-check').textContent).toBe(checks ? 'Mesh Check ✓' : 'Mesh Check');
   });
 
+  it('the soft radius field shows a B-drag radius rounded like the status line (M6A-INT-52)', async () => {
+    const { app } = await modelApp();
+    await mount(app, <ToolkitView app={app} instanceId="toolkit" />, { width: 300, height: 900 });
+    await waitFor(() => maybe('mtk-soft-radius') !== null);
+    await act(async () => {
+      const model = app.session.getState().model;
+      app.session.setState({ model: { ...model, softSelect: { ...model.softSelect, radius: 0.189464570813 } } });
+    });
+    await settle(20);
+    expect((by('mtk-soft-radius') as HTMLInputElement).value).toBe('0.19');
+  });
+
   it('sections collapse and remember it; narrow packs the buttons; the empty state creates primitives', async () => {
     const app = createFakeEditorApp();
     registerBuiltins(app);

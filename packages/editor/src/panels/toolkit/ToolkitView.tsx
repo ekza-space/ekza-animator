@@ -666,18 +666,10 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
           </label>
           <label className="flex items-center justify-between gap-2">
             <span>Radius (m)</span>
-            <input
-              type="number"
-              className={cn(INPUT, 'w-28')}
-              step={0.05}
-              min={0}
-              data-testid="mtk-soft-radius"
+            <RadiusField
+              radius={soft.radius}
               onKeyDown={releaseOnEnter}
-              value={soft.radius}
-              onChange={(event) => {
-                const value = Number(event.currentTarget.value);
-                if (Number.isFinite(value) && value > 0) run('model.softSelect.set', { radius: value });
-              }}
+              onValue={(value) => run('model.softSelect.set', { radius: value })}
             />
           </label>
           <div className="flex items-center gap-1">
@@ -768,5 +760,39 @@ export default function ToolkitView({ app, instanceId }: PanelProps): JSX.Elemen
         </button>
       </footer>
     </div>
+  );
+}
+
+/**
+ * The soft-selection radius: shown rounded to centimetres like the status line (a `B` drag sets an unrounded radius);
+ * while focused it keeps what is typed, and each valid value applies at once.
+ */
+function RadiusField({
+  radius,
+  onKeyDown,
+  onValue,
+}: {
+  readonly radius: number;
+  readonly onKeyDown: (event: ReactKeyboardEvent<HTMLInputElement>) => void;
+  readonly onValue: (value: number) => void;
+}): JSX.Element {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="number"
+      className={cn(INPUT, 'w-28')}
+      step={0.05}
+      min={0}
+      data-testid="mtk-soft-radius"
+      onKeyDown={onKeyDown}
+      value={draft ?? String(Math.round(radius * 100) / 100)}
+      onFocus={(event) => setDraft(event.currentTarget.value)}
+      onBlur={() => setDraft(null)}
+      onChange={(event) => {
+        setDraft(event.currentTarget.value);
+        const value = Number(event.currentTarget.value);
+        if (Number.isFinite(value) && value > 0) onValue(value);
+      }}
+    />
   );
 }
