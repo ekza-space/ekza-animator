@@ -1,6 +1,6 @@
 // MeshSetOp `mesh.separate` (M6A-SPEC §5.13; Maya Separate; owner B4; runner B7). One output per shell (faces
 // connected through shared vertices), each keeping the input's placement and material slots: the shell with the lowest
-// face index stays in the input record, the others become new records ("Separated", numbered by the runner). Loose
+// face index stays in the input record, the others become new records named after the input ("<name> 2", "3"…: the runner numbers them). Loose
 // vertices and wire edges belong to no shell and are dropped (`separate.loose-dropped`). Several inputs separate one
 // by one. Refusals: asset-backed inputs (M6a), a mesh with a single shell.
 import type { ParamValues } from '@ekza-animator/anim-core';
@@ -60,7 +60,7 @@ export const separate: MeshSetOp = Object.freeze({
           materials: input.materials,
           from: [input.key],
           selection: null,
-          name: i === 0 ? '' : 'Separated',
+          name: '', // the input's name: the runner numbers new records "<name> 2", "3"… (§5.13)
         });
       });
     }

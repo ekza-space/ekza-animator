@@ -203,7 +203,7 @@ export interface MeshSetOutput {
   readonly materials: readonly string[];
   readonly from: readonly string[];                  // input keys the output's geometry came from
   readonly selection: ComponentSelection | null;
-  readonly name: string;                             // proposed name ('Hero_body 2', 'Extracted 1')
+  readonly name: string;                             // proposed name ('Extracted'); '' = the source record's (numbered)
 }
 export interface MeshSetResult {
   readonly outputs: readonly MeshSetOutput[];

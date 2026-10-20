@@ -15,7 +15,7 @@ import type {
   Refusal,
 } from '@ekza-animator/mesh-core';
 import { DEFAULT_DEPS } from '../app/deps';
-import type { MeshSetCommitResult } from '../types';
+import type { MeshSetCommitResult, OperatorAction } from '../types';
 import { epsilonOf } from './context';
 import type { MeshKernel } from './kernel';
 import {
@@ -62,6 +62,19 @@ const isRefusal = (x: unknown): x is Refusal =>
 
 const NEW_KEY = /^new:(\d+)$/;
 
+/** The way out a refusal offers (the kernel's `Refusal` has no action): Combine's palette mismatch assigns the first
+ *  input's palette to every input ("Combine needs one palette: assign it first", §5.13). */
+function refusalAction(
+  code: string,
+  run: SetOpRun,
+  records: ReadonlyMap<MeshId, MeshRecord>,
+): { action?: OperatorAction } {
+  if (code !== 'combine.palette-mismatch') return {};
+  const palette = run.inputs.map((id) => records.get(id)?.palette ?? null).find((p) => p !== null) ?? null;
+  if (palette === null) return {};
+  return { action: { label: 'Assign palette', op: 'palette.assign', args: { meshes: [...run.inputs], palette } } };
+}
+
 export function runSetOp(run: SetOpRun): SetOpOutcome {
   const { tx, op } = run;
   if (run.inputs.length === 0) throw new EkzaError('op-refused', 'Select a mesh first');
@@ -98,7 +111,10 @@ export function runSetOp(run: SetOpRun): SetOpOutcome {
   const verdict = op.poll(setInputs, run.args);
   if (verdict !== true) {
     close();
-    throw new EkzaError('op-refused', verdict.reason, { code: verdict.code });
+    throw new EkzaError('op-refused', verdict.reason, {
+      code: verdict.code,
+      ...refusalAction(verdict.code, run, records),
+    });
   }
   const first = records.get(run.inputs[0] as MeshId) as MeshRecord;
   const firstData = preOp.get(run.inputs[0] as MeshId) as MeshData;
@@ -116,7 +132,12 @@ export function runSetOp(run: SetOpRun): SetOpOutcome {
     for (const input of setInputs) input.mesh.abort();
     close();
   }
-  if (isRefusal(result)) throw new EkzaError('op-refused', result.reason, { code: result.code });
+  if (isRefusal(result)) {
+    throw new EkzaError('op-refused', result.reason, {
+      code: result.code,
+      ...refusalAction(result.code, run, records),
+    });
+  }
   if (run.expectOutputs !== undefined) {
     const keys = result.outputs.map((o) => o.key);
     const same = keys.length === run.expectOutputs.length && keys.every((key, i) => key === run.expectOutputs?.[i]);
@@ -163,7 +184,8 @@ export function runSetOp(run: SetOpRun): SetOpOutcome {
     const skin = source.source !== null ? null : source.skin;
     const record: MeshRecord = {
       id,
-      name: uniqueMeshName(tx, source.owner, output.name, names),
+      // An empty proposed name is the source record's (Separate: "<name> 2", "3"…, §5.13).
+      name: uniqueMeshName(tx, source.owner, output.name.trim() === '' ? source.name : output.name, names),
       owner: source.owner,
       parent: source.parent,
       order: orderAfterSiblings(tx, source.owner, source.parent, source.order),

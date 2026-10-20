@@ -22,6 +22,7 @@ import { ownerOfControl } from '../session/location';
 import { selectionSnapshot } from '../session/selection';
 import type {
   EditorApp,
+  OperatorAction,
   OperatorDef,
   OperatorRegistry,
   OperatorResult,
@@ -79,6 +80,15 @@ const isThenable = (value: unknown): value is PromiseLike<unknown> =>
 
 const isPlainRecord = (value: unknown): value is Readonly<Record<string, unknown>> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
+
+/** The way out an operator's error offers (`details.action`: a label and an operator id), else undefined. */
+function actionOf(details: unknown): OperatorAction | undefined {
+  if (!isPlainRecord(details) || !isPlainRecord(details['action'])) return undefined;
+  const { label, op, args } = details['action'];
+  if (typeof label !== 'string' || typeof op !== 'string' || !op.includes('.')) return undefined;
+  const id = op as OperatorAction['op'];
+  return args === undefined ? { label, op: id } : { label, op: id, args };
+}
 
 /**
  * The args an operator with `params` runs with (§4.6): the option box's defaults for UI runs, the given args over
@@ -260,11 +270,13 @@ export function createOperatorRunner(deps: {
     } catch (error) {
       if (rollback !== null) session.setState(rollback, true);
       if (applied) reconcileMeshes(app);
+      const action = error instanceof EkzaError ? actionOf(error.details) : undefined;
       return {
         status: 'failed',
         error: {
           code: error instanceof EkzaError ? error.code : 'internal',
           message: error instanceof Error ? error.message : String(error),
+          ...(action === undefined ? {} : { action }),
         },
       } as const;
     }

@@ -3,7 +3,7 @@
 // soft-deleted, the op's writes into its inputs are aborted, and the pre-op MeshData of every input is kept. The ops
 // here are test MeshSetOps against the contract; B4's real ones run through the same runner.
 import { derivedId, type MeshId, type MeshRef } from '@ekza-animator/doc';
-import { makeTestGroup } from '@ekza-animator/doc/testing';
+import { makeTestGroup, makeTestPalette } from '@ekza-animator/doc/testing';
 import {
   type MeshSetInput,
   type MeshSetOp,
@@ -15,6 +15,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import type { OperatorDef } from '../../src';
 import { ADJUST_RECORD_SET } from '../../src/mesh/setOps';
+import { loadMeshKernel } from '../../src';
 import { createMesh, cube, meshTestApp, type MeshTestApp } from './support';
 
 const IDENTITY = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } as const;
@@ -310,5 +311,59 @@ describe('Adjust Last over a MeshSetOp (§5.13 record-set rule)', () => {
     expect(() => commit(true)).toThrow(expect.objectContaining({ code: 'op-refused', message: ADJUST_RECORD_SET }));
     // A first run (not an adjustment) may yield any set.
     expect(commit(false).created).toHaveLength(3);
+  });
+});
+
+describe('MeshSetOp record names (§5.13)', () => {
+  it('Separate names the new records after the input: "<name> 2", "3"…; taken names are skipped', async () => {
+    const t = await meshTestApp();
+    const kernel = await loadMeshKernel();
+    const combine = kernel.MESH_SET_OPS['mesh.combine'];
+    const separate = kernel.MESH_SET_OPS['mesh.separate'];
+    if (combine === undefined || separate === undefined) throw new Error('missing kernel set op');
+    const a = createMesh(t, 'msh_A', cube(), { name: 'Torso' });
+    const b = createMesh(t, 'msh_B', cube(), { name: 'Arm', placement: { ...IDENTITY, t: [3, 0, 0] } });
+    const c = createMesh(t, 'msh_C', cube(), { name: 'Leg', placement: { ...IDENTITY, t: [6, 0, 0] } });
+    t.app.store.transact({ label: 'Combine' }, (tx) =>
+      t.meshes.commitSetOp(tx, combine, [a, b, c], {}, { seed: 'combine', kind: null }),
+    );
+    expect(t.app.meshes.get(a)?.data()?.counts.faces).toBe(18);
+    // The scene has another "Torso 2" already: the runner skips the taken name.
+    createMesh(t, 'msh_Other', cube(), { name: 'Torso 2' });
+    let created: readonly MeshId[] = [];
+    t.app.store.transact({ label: 'Separate' }, (tx) => {
+      created = t.meshes.commitSetOp(tx, separate, [a], {}, { seed: 'separate', kind: null }).created;
+    });
+    expect(t.app.store.get('meshes', a)?.name).toBe('Torso');
+    expect(created.map((id) => t.app.store.get('meshes', id)?.name)).toEqual(['Torso 3', 'Torso 4']);
+  });
+});
+
+describe('MeshSetOp refusals with a way out (§5.13)', () => {
+  it('Combine over two palettes fails with the palette.assign action; running it lets Combine finish', async () => {
+    const t = await meshTestApp();
+    const kernel = await loadMeshKernel();
+    const combine = kernel.MESH_SET_OPS['mesh.combine'];
+    if (combine === undefined) throw new Error('missing kernel set op');
+    t.app.store.transact({ label: 'Palettes' }, (tx) => {
+      tx.put('palettes', makeTestPalette('pal_A'));
+      tx.put('palettes', makeTestPalette('pal_B'));
+    });
+    const a = createMesh(t, 'msh_A', cube(), { palette: 'pal_A' as never });
+    const b = createMesh(t, 'msh_B', cube(), { palette: 'pal_B' as never, placement: { ...IDENTITY, t: [3, 0, 0] } });
+    register(t, { ...combine, id: 'mesh.test.combine' }, () => 'seed-c');
+    const failed = await t.app.runUntyped('mesh.test.combine', { meshes: [a, b] });
+    expect(failed).toEqual({
+      status: 'failed',
+      error: {
+        code: 'op-refused',
+        message: 'Combine needs one palette: assign it first',
+        action: { label: 'Assign palette', op: 'palette.assign', args: { meshes: [a, b], palette: 'pal_A' } },
+      },
+    });
+    if (failed.status !== 'failed' || failed.error.action === undefined) throw new Error('no action');
+    expect((await t.app.runUntyped(failed.error.action.op, failed.error.action.args)).status).toBe('finished');
+    expect(t.app.store.get('meshes', b)?.palette).toBe('pal_A');
+    expect((await t.app.runUntyped('mesh.test.combine', { meshes: [a, b] })).status).toBe('finished');
   });
 });

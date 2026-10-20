@@ -314,7 +314,11 @@ export interface OperatorDef<A = void, R = void, P = void> {
 export type OperatorResult<R = unknown> =
   | { readonly status: 'finished'; readonly value: R }
   | { readonly status: 'cancelled'; readonly reason: string }
-  | { readonly status: 'failed'; readonly error: { readonly code: string; readonly message: string } };
+  | { readonly status: 'failed'; readonly error: { readonly code: string; readonly message: string;
+      /** M6a (additive): a way out the UI offers with the failure, e.g. Combine's `palette.assign` (§5.13). */
+      readonly action?: OperatorAction } };
+/** An operator a toast or a failure offers to run (`Notifier.toast` action, failed `OperatorResult`). */
+export interface OperatorAction { readonly label: string; readonly op: OperatorId; readonly args?: unknown }
 export interface OperatorRegistry {
   register<A, R, P>(def: OperatorDef<A, R, P>): Disposer;
   get(id: string): OperatorDef<unknown, unknown, unknown> | undefined;
@@ -486,7 +490,7 @@ export interface ClipboardService {
 }
 export interface Notifier {
   toast(t: { readonly kind: 'info' | 'success' | 'warning' | 'error'; readonly text: string;
-             readonly action?: { readonly label: string; readonly op: OperatorId; readonly args?: unknown } }): void;
+             readonly action?: OperatorAction }): void;
 }
 /** Opaque display model (three.js objects live in io/three + viewport; editor-core never touches them). */
 export interface DisplayModel { readonly kind: 'three'; readonly handle: unknown; dispose(): void }

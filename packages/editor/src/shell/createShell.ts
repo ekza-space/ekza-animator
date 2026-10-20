@@ -3,6 +3,7 @@
 import type { Disposer } from '@ekza-animator/anim-core';
 import {
   type EditorApp,
+  type OperatorAction,
   type OperatorResult,
   type PanelKind,
   type PrefsStorage,
@@ -102,7 +103,8 @@ export function createShell(opts: CreateShellOptions): Shell {
     if (helpTimer !== null) clearTimeout(helpTimer);
   });
 
-  const notifyError = (text: string): void => app.services.notify.toast({ kind: 'error', text });
+  const notifyError = (text: string, action?: OperatorAction): void =>
+    app.services.notify.toast({ kind: 'error', text, ...(action === undefined ? {} : { action }) });
 
   const confirm = (request: Omit<ConfirmRequest, 'resolve'>): Promise<boolean> => {
     if (params.e2e) return Promise.resolve(true);
@@ -146,7 +148,7 @@ export function createShell(opts: CreateShellOptions): Shell {
         result.error.code === 'not-implemented'
           ? `${result.error.message} is not implemented in this build`
           : result.error.message;
-      notifyError(`${label} failed: ${message}`);
+      notifyError(`${label} failed: ${message}`, result.error.action);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
     } else if (op === 'file.export' || op === 'file.exportModel') {
