@@ -2393,8 +2393,10 @@ Seam is on by default (MODELING-PLAN §3.14, ADR 0016 D13; this section is the n
 - Vertex partner: reflect each vertex across the plane (Object: the mesh-local plane through the object origin; World:
   the world plane mapped into mesh-local space), find the nearest vertex within `tolerance` in an integer spatial hash
   (cell = tolerance; ties to the smaller index). A pair is accepted only when the match is **mutual**; otherwise both
-  get −1. A vertex within `tolerance` of the plane is its own partner (on the seam). `unmatched` counts off-seam
-  vertices with −1.
+  get −1. Coincident vertices (DECISIONS-OPEN §K M6A-INT-49): the vertices still unmatched then pair with the
+  nearest still unmatched candidate within `tolerance` (mutual), and two pairs of a coincident group swap when that
+  pairs more of their neighbours. A vertex within `tolerance` of the plane is its own partner (on the seam).
+  `unmatched` counts off-seam vertices with −1.
 - Edge partner: the edge joining the partners of the endpoints (−1 if absent); `edgeReversed` = 1 when the partner's
   `edgeVert(…, 0)` is the partner of this edge's `edgeVert(…, 1)`.
 - Face partner: the face over the partner vertex set (matched by sorted vertex tuple); −1 if absent.
