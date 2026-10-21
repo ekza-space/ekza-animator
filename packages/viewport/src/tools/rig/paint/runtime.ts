@@ -14,7 +14,6 @@ import {
   jointName,
   influencesOf,
   meshKernel,
-  PANEL,
   setBrush,
   skinCharacter,
   skinTargets,
@@ -250,8 +249,14 @@ export class RigSkinRuntime {
     if (this.app.session.getState().rig.activeInfluence === null && character !== null) {
       const mesh = skinTargets(this.app)[0];
       const first = mesh === undefined ? undefined : influencesOf(this.app, [mesh])[0];
+      // U state written after the mode switch's run (an operator never runs inside another one's apply).
       if (mesh !== undefined && first !== undefined) {
-        void this.app.runUntyped('skin.influence.setActive', { mesh, joint: first }, { panel: PANEL.viewport });
+        queueMicrotask(() => {
+          const rig = this.app.session.getState().rig;
+          if (rig.activeInfluence === null && rig.mode === 'skin') {
+            this.app.session.setState({ rig: { ...rig, activeInfluence: { mesh, joint: first } } });
+          }
+        });
       }
     }
   }
