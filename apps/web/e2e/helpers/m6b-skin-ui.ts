@@ -91,16 +91,17 @@ export function partnersOf(positions: readonly (readonly number[])[]): number[] 
   });
 }
 
-/** The points inside a Cube Lad truth box (by name), from local positions. */
+/** The points of a Cube Lad truth box (by name): its 8 corners, from local positions (boxes touch at their ends, so
+ *  a point is the box's when it is one of its corners). */
 export function boxPoints(positions: readonly (readonly number[])[], name: string): number[] {
   const box = cubeLadTruth().boxes.find((candidate) => candidate.name === name);
   if (box === undefined) throw new Error(`No box ${name}`);
   const out: number[] = [];
   positions.forEach((p, v) => {
-    const inside = [0, 1, 2].every(
-      (k) => Math.abs((p[k] as number) - (box.center[k] as number)) <= (box.size[k] as number) / 2 + 1e-5,
+    const corner = [0, 1, 2].every(
+      (k) => Math.abs(Math.abs((p[k] as number) - (box.center[k] as number)) - (box.size[k] as number) / 2) <= 1e-5,
     );
-    if (inside) out.push(v);
+    if (corner) out.push(v);
   });
   return out;
 }
