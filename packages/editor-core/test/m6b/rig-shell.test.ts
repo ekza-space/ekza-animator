@@ -318,6 +318,24 @@ describe('entering, leaving and the pose view (§5.17, §5.24)', () => {
     expect(pose()).toEqual(bind);
   });
 
+  it('a typed Channel Box value in Rig & Skin is a test pose (channel.setValues), never a key', async () => {
+    const app = await rigApp();
+    app.prefs.setState({ autoKey: true });
+    const hash = keysHash(app);
+    const before = app.history.peekUndo();
+    await runOk(app, 'channel.setValues', {
+      edits: [{ control: W.lowerArmL, channel: 'rz', value: 0.3 }],
+      key: 'auto',
+    });
+    expect(app.rig.testPose.values(W.character).get(W.lowerArmL)).toEqual({ rz: 0.3 });
+    expect(keysHash(app)).toBe(hash);
+    expect(app.session.getState().overrides.size).toBe(0);
+    expect(app.history.peekUndo()?.label).toBe('Test Pose');
+    await runOk(app, 'edit.undo');
+    expect(app.history.peekUndo()).toBe(before);
+    expect(app.rig.testPose.values(W.character).size).toBe(0);
+  });
+
   it('outside Rig & Skin channel gestures keep the shipped path (overrides, keys)', async () => {
     const app = await rigApp();
     await runOk(app, 'workspace.set', { workspace: 'animate' });
