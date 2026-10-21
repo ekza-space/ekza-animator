@@ -1,7 +1,7 @@
-import type { ClipId, ControlId, DocSnapshot, KeyId } from '@ekza-animator/doc';
-import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { ClipId, ControlId, DocSnapshot, KeyId } from '@ekza-studio/doc';
+import type { EditorApp, SessionState } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { Component, type JSX, type ReactNode, useEffect, useLayoutEffect } from 'react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { EditorAppProvider, useDocQuery, useEditorApp, usePrefs, useRunOperator, useSession } from '../src';

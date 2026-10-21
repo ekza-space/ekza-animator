@@ -9,7 +9,7 @@
 // the shim answers `state: null`, `beginAbsorb → null`, `stepBack/stepForward → false`.
 //
 // The shim is created before the app exists (app/kernel.ts); the runner's hooks bind the app on its first run.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type {
   AbsorbGesture,
   EditorApp,

@@ -11,8 +11,8 @@ import type {
   MeshId,
   MeshOwner,
   MeshRecord,
-} from '@ekza-animator/doc';
-import { assetMeshId } from '@ekza-animator/editor-core';
+} from '@ekza-studio/doc';
+import { assetMeshId } from '@ekza-studio/editor-core';
 
 export type SceneObjectRecord = MeshRecord | GroupRecord;
 

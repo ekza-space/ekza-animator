@@ -1,10 +1,10 @@
 // ops.* (WP-7b): export through `file.export` and the built-in exporters (MVP-SPEC §4.11.10, §4.11.13): bake into
 // the model (surgeon), VRMA and animation-only GLB on the fixtures, the validation policy, metadata, the licence gate,
 // profile preflight, self-contained multi-clip files, downloads and round trips back into the editor.
-import { quatAngle, quatSlerp } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId, ControlId } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { EditorApp, ImportResult } from '@ekza-animator/editor-core';
+import { quatAngle, quatSlerp } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { EditorApp, ImportResult } from '@ekza-studio/editor-core';
 import {
   compareValidation,
   type ExportArtifact,
@@ -13,7 +13,7 @@ import {
   parseGlb,
   readAnimations,
   skeletonFromGltf,
-} from '@ekza-animator/io';
+} from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED,

@@ -1,7 +1,7 @@
 // Deterministic test documents (MVP-SPEC §7 WP-2 `makeTestDocument`): N characters, each with an asset, a rig of M
 // controls (a binary tree under 'root'), one clip with a base layer, rx/ry/rz curves per control and K keys per
 // curve. The same options always produce the same snapshot (IDs come from a fixed seed, not the default source).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { AssetId, CharacterId, ControlId, IdSource, RigId } from '../ids';
 import { controlId, newId, seededIdSource } from '../ids/generate';
 import { sha256Hex } from '../migrations/sha256';

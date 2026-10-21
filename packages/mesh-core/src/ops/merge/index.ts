@@ -8,7 +8,7 @@
 // Symmetry (§5.14): merge and merge to center run on the expanded selection — the picked group and its mirror merge
 // separately; a group that is its own mirror merges once with its centre snapped onto the plane. Nothing to merge is
 // a refusal (`<op>.nothing`), so no empty step is recorded.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import type { ComponentKind, ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';

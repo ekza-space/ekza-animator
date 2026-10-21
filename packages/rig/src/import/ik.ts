@@ -1,5 +1,5 @@
-import { eulerNear, type Frame, type KeyData, type Vec3 } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import { eulerNear, type Frame, type KeyData, type Vec3 } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
 import { internalsOf, isRigOpSkipped, type RigInternals } from '../kernel/internals';
 import { matchIkToFk } from '../limb/match';
 import { LIMB_TEMPLATES } from '../limb/template';

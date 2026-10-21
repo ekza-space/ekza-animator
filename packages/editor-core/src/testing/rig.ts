@@ -17,8 +17,8 @@ import {
   type Xf,
   eulerToQuat,
   xfIdentity,
-} from '@ekza-animator/anim-core';
-import type { AttrDef, BoneRef, ControlId, ControlRecord, HumanBoneName, RigRecord } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { AttrDef, BoneRef, ControlId, ControlRecord, HumanBoneName, RigRecord } from '@ekza-studio/doc';
 import {
   type AttrKey,
   type AttrSlot,
@@ -30,7 +30,7 @@ import {
   type RigProgram,
   type RigWarning,
   type SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 
 /** Channel slot of a TRS channel (tx ty tz rx ry rz sx sy sz), or -1 for custom attributes. */
 export function channelSlot(channel: string): number {

@@ -9,8 +9,8 @@ import {
   PANEL,
   type RunContext,
   type SymmetryMode,
-} from '@ekza-animator/editor-core';
-import { NativeSelect, Toggle, ToggleGroup, ToggleGroupItem, Tooltip } from '@ekza-animator/ui';
+} from '@ekza-studio/editor-core';
+import { NativeSelect, Toggle, ToggleGroup, ToggleGroupItem, Tooltip } from '@ekza-studio/ui';
 import { type ComponentType, createElement, type JSX } from 'react';
 import { useDocQuery, useSession } from '../hooks';
 import { useShell } from './context';

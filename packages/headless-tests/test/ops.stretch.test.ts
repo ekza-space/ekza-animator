@@ -1,10 +1,10 @@
 // ops.* (WP-7b): M1-stretch operators on the real packages — pose-preserving rotate-order change (§4.11.5: with
 // unsynchronized rx/ry keys the bone worlds are equal at every union time, 1e-6) and animation-only GLB import onto a
 // character by node name (FR-IO-10), dispatched by content sniffing through `file.open`.
-import { mat4Decompose, type Quat, quatAngle } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId, ControlId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import type { ExportArtifact } from '@ekza-animator/io';
+import { mat4Decompose, type Quat, quatAngle } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import type { ExportArtifact } from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED,

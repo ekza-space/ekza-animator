@@ -1,9 +1,9 @@
 // Mounted Dope Sheets per app: `dopeSheet.frame`, the ripple control set and the e2e probe act on the focused one —
 // the one the pointer last entered or pressed, else the most recently mounted. Type-only imports of the controller
 // keep this module (loaded with the eager panel wrapper) free of the lazy body's code.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { DopeSheetController } from '@ekza-animator/curve-editor';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { DopeSheetController } from '@ekza-studio/curve-editor';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 export interface DopeSheetHandle {
   readonly controller: DopeSheetController;

@@ -1,5 +1,5 @@
 // Time-slider geometry: the frame ↔ x mapping, the vertical bands and the ruler steps (research 09 §4.9).
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 import type { FrameRange } from './band';
 
 /** Height of the label strip at the top; key ticks fill the rest of the slider (CSS px). */

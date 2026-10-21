@@ -1,5 +1,5 @@
-import { eulerNear, eulerToQuat, type RotateOrder } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, ControlRecord, RigRecord, TrsChannel } from '@ekza-animator/doc';
+import { eulerNear, eulerToQuat, type RotateOrder } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, ControlRecord, RigRecord, TrsChannel } from '@ekza-studio/doc';
 import { internalsOf } from '../kernel/internals';
 import { mirrorChannels } from '../mirror/mirrorPose';
 import { SLOT_CHANNELS } from '../sampler/channels';

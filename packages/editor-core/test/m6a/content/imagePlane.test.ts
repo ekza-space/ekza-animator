@@ -2,8 +2,8 @@
 // plane record (one step); without bytes the menu path opens the import dialog for its camera and writes nothing;
 // `imagePlane.set` validates and clamps, a locked plane takes only lock and visibility; delete is a soft delete; a
 // project with a plane needs the v3 writer.
-import type { ImagePlaneId } from '@ekza-animator/doc';
-import { requiredWriterVersion } from '@ekza-animator/doc';
+import type { ImagePlaneId } from '@ekza-studio/doc';
+import { requiredWriterVersion } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { imageBytesOf, imageExt, LOCKED_REASON, pendingImagePlaneCamera } from '../../../src';
 import { JPEG_HEADER, meshTestApp, PNG_1X1, pollReason, runValue } from './support';

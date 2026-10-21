@@ -1,7 +1,7 @@
 // Shorthands for the `ParamDef` lists of the op descriptors and primitives (M6A-SPEC §6.1, §6.3). Eager-safe: plain
 // data, no kernel code. Units are stored units (metres, radians, fractions 0…1); steps follow §4.1 (int 1, angle 1°,
 // distance 0.01). Selection- and pointer-bound params are hidden (the card and INPUTS never show them).
-import type { JsonValue, ParamBound, ParamDef } from '@ekza-animator/anim-core';
+import type { JsonValue, ParamBound, ParamDef } from '@ekza-studio/anim-core';
 
 export const DEG = Math.PI / 180;
 

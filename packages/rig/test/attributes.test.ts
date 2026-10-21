@@ -1,6 +1,6 @@
 // M2A-SPEC §4.3, §5.1 rules 1–3 and §5.4 rule 1 (A0): attribute slots, defaults, sampling and overrides; the op
 // compile context, `compile` after `createProgram` with its `state`, and `run` returning false.
-import { curveEngine, mat4Compose, quatFromAxisAngle } from '@ekza-animator/anim-core';
+import { curveEngine, mat4Compose, quatFromAxisAngle } from '@ekza-studio/anim-core';
 import {
   type AttrDef,
   type ClipId,
@@ -16,8 +16,8 @@ import {
   type RigId,
   type SolverId,
   type SolverRecord,
-} from '@ekza-animator/doc';
-import { makeTestDocument } from '@ekza-animator/doc/testing';
+} from '@ekza-studio/doc';
+import { makeTestDocument } from '@ekza-studio/doc/testing';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {

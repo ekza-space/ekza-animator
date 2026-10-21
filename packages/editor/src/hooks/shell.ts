@@ -1,7 +1,7 @@
 // Shell hooks for panels (MVP-SPEC §7 WP-8; the shell ↔ panel bridge documented in docs/wp-notes/wp-8.md). They
 // degrade to no-ops when a panel renders without the shell (a bare EditorAppProvider in a unit test).
-import type { OperatorResult, RunContext } from '@ekza-animator/editor-core';
-import type { ViewportManager } from '@ekza-animator/viewport';
+import type { OperatorResult, RunContext } from '@ekza-studio/editor-core';
+import type { ViewportManager } from '@ekza-studio/viewport';
 import { useCallback, useEffect, useRef, useSyncExternalStore } from 'react';
 import { useOptionalShell } from '../shell/context';
 import { useEditorApp } from './context';

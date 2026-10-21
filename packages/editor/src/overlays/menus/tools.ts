@@ -4,8 +4,8 @@
 // SW slots are the same family in every component menu: S Extrude, W Multi-Cut, SW Delete (Maya's plain Delete).
 // Data only: items name operators (stubs poll-fail with their reasons until their owners land them); items that are
 // M6a-stretch carry a static `disabledReason`.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, MarkingMenuDef, MarkingMenuItem, OperatorId } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, MarkingMenuDef, MarkingMenuItem, OperatorId } from '@ekza-studio/editor-core';
 import { MERGE_MENU } from './merge';
 import { PRIMITIVES_MENU } from './primitives';
 

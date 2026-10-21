@@ -3,7 +3,7 @@
 // V/E/F and the manifest id of the result, and seeded op sequences on primitives. `SPEC_COUNTS` holds the spec's own
 // numbers, so regenerating the golden file can never move an oracle. Shared by the Node test (which keeps
 // test/goldens/ops-core.json) and the Chromium test (which compares against it); no Node APIs here.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import {
   type ComponentKind,

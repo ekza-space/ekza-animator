@@ -1,5 +1,5 @@
 // Component selections as kernel values (M6A-SPEC §4.3, §12.2 S2). Eager-safe.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { BitSet } from './bitset';
 import type { ComponentKind, ComponentSelection, MeshCounts } from './types';
 

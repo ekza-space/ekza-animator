@@ -5,7 +5,7 @@
 // (`beginCardPreview`, ≤ 1 re-run per frame, "update on release" above 50 ms) with the capture window armed on the
 // dragged field (§5.10 (a)); `Reset ⟲` restores the defaults; `✕` hides the card and keeps the operation for `G`. A
 // closed card shows its reason in the pill's tooltip for 3 s, then disappears.
-import type { ParamDef, ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamDef, ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import {
   beginCardPreview,
   dismissLastOpCard,
@@ -20,8 +20,8 @@ import {
   type RunContext,
   setLastOpCardExpanded,
   visibleParams,
-} from '@ekza-animator/editor-core';
-import { cn } from '@ekza-animator/ui';
+} from '@ekza-studio/editor-core';
+import { cn } from '@ekza-studio/ui';
 import { type JSX, type RefObject, useEffect, useMemo, useRef, useState } from 'react';
 
 import { scopeChain } from '../../input/keyboard';

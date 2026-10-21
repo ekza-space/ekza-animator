@@ -4,7 +4,7 @@
 // M6a (B10, §5.6): in the Model workspace the same presses select components of the hilited meshes (component modes)
 // or mesh objects (object mode) through the Model select runtime (`./model/select`); the move, rotate and scale tools
 // share this behaviour for presses that miss their manipulator.
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   limbOfControlApp,
@@ -14,7 +14,7 @@ import {
   type ToolInstance,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { PICK } from '../theme';
 import type { MarqueeRect } from '../types';
 import type { ViewportToolHost } from './host';

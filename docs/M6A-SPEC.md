@@ -18,7 +18,7 @@ deliberate refinement of the plan.
 Requirements: [REQUIREMENTS](REQUIREMENTS.md) FR-MOD-06…30 and FR-SHELL-08, -09, -11 (moved to M6a).
 
 Normative words: **MUST**, **SHOULD**, **MAY**. "Contract" means a type or signature in §4 or a package's *Public
-API* block in §9. "Kernel" means `@ekza-animator/mesh-core`. Counts are written **V/E/F** (vertices, edges, faces).
+API* block in §9. "Kernel" means `@ekza-studio/mesh-core`. Counts are written **V/E/F** (vertices, edges, faces).
 Distances are metres, angles are stored in radians and shown in degrees. Fractions (param kind `fraction`: Maya's
 Fraction, Weight, Offset, Strength) are stored 0…1 and **shown as fractions** (`0.300`, as Maya shows them); typed
 input accepts `0.3` and `30%` for the same value, and a bare number is always a fraction (`30` is clamped to the
@@ -113,8 +113,8 @@ the lockfile are the integration agent's, ARCHITECTURE §3 rule 6):
 
 | Package | Dir | May import | Must not import |
 |---|---|---|---|
-| `@ekza-animator/mesh-core` | `packages/mesh-core` (subpaths `./descriptors`, `./testing`) | anim-core, `earcut`, `robust-predicates`; dev: `fast-check` | three, React, DOM, doc, editor-core, WASM |
-| `@ekza-animator/mesh-view` | `packages/mesh-view` | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
+| `@ekza-studio/mesh-core` | `packages/mesh-core` (subpaths `./descriptors`, `./testing`) | anim-core, `earcut`, `robust-predicates`; dev: `fast-check` | three, React, DOM, doc, editor-core, WASM |
+| `@ekza-studio/mesh-view` | `packages/mesh-view` | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
 
 Dependency edges added: `io → mesh-core` (only from the lazy `io/mesh` and `io/write` entries); `editor-core →
 mesh-core` (`./descriptors` statically; the kernel only through dynamic `import()`); `viewport → mesh-view, mesh-core`
@@ -122,7 +122,7 @@ mesh-core` (`./descriptors` statically; the kernel only through dynamic `import(
 only, lazy); `headless-tests → mesh-core, mesh-view`. `mesh-core` is a headless package under ARCHITECTURE §3 rule 2
 (Node-safe, no globals).
 
-**Eager/lazy split (binding, §5.27 gates).** `@ekza-animator/mesh-core/descriptors` holds the op **descriptors**
+**Eager/lazy split (binding, §5.27 gates).** `@ekza-studio/mesh-core/descriptors` holds the op **descriptors**
 (id, label, kinds, params, flags, symmetry class; no kernel code, no `earcut`, no predicates) and `PRIMITIVE_PARAMS`;
 menus, keymap rows, the command palette, option boxes and Last-op cards read only it. The kernel (`mesh-core` root:
 `MESH_OPS` with `poll`/`run`, `editMeshFrom`, triangulation, normals, revisions) is a lazy chunk loaded by
@@ -585,7 +585,7 @@ name below is exported from the package root (the lazy kernel chunk, §2) except
 arbitraries, fixtures and the golden runner.
 
 ```ts
-import type { ParamDef, ParamValues, ReadonlyVec3, ReadonlyQuat, ReadonlyXf, Vec3, AnimCurve, CurveEngine } from '@ekza-animator/anim-core';
+import type { ParamDef, ParamValues, ReadonlyVec3, ReadonlyQuat, ReadonlyXf, Vec3, AnimCurve, CurveEngine } from '@ekza-studio/anim-core';
 
 // ---------- counts, domains, layers ----------
 export interface MeshCounts { readonly points: number; readonly edges: number; readonly faces: number; readonly corners: number }
@@ -988,7 +988,7 @@ lazy chunk (§2): `viewport/src/mesh/**` imports it dynamically; its entry refer
 ```ts
 import type { Camera, Object3D, Ray } from 'three';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, HiddenSet, MeshData, MeshProblem, Normals,
-  Triangulation } from '@ekza-animator/mesh-core';
+  Triangulation } from '@ekza-studio/mesh-core';
 
 /** Colours resolved from the design tokens (§8.9), never literals. */
 export interface MeshViewTheme {
@@ -1072,8 +1072,8 @@ pulls mesh-core through io (§2).
 
 ```ts
 import type { AssetId, AssetMaterialRef, AssetRecord, ColourOutput, DerivedFrom, DocSnapshot, GeneratorProvenance,
-  HandheldGrip } from '@ekza-animator/doc';
-import type { MeshData } from '@ekza-animator/mesh-core';
+  HandheldGrip } from '@ekza-studio/doc';
+import type { MeshData } from '@ekza-studio/mesh-core';
 
 export const BUILTIN_EXPORT_KINDS = ['bake-into-model', 'animation-glb', 'vrma', 'static-glb'] as const;   // changed
 
@@ -1219,11 +1219,11 @@ Lint codes (`io/src/lint/rules.ts`, ADR 0010 table shape; severities `local / Ek
 `packages/editor-core/src/types.ts` additions and changes (B0a; shapes normative):
 
 ```ts
-import type { ParamDef, ParamValues, Quat, Vec3 } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId, MeshRef } from '@ekza-animator/doc';
+import type { ParamDef, ParamValues, Quat, Vec3 } from '@ekza-studio/anim-core';
+import type { GroupId, MeshId, MeshRef } from '@ekza-studio/doc';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRemap, FalloffCurve, HiddenSet, MeshData,
   MeshOp, MeshOpDescriptor, MeshSetOp, MeshSetOpDescriptor, Normals, OpFrame, OpResult, OpWarning, Refusal,
-  SymmetryAxis, SymmetryMap, Triangulation } from '@ekza-animator/mesh-core';   // type-only: no kernel code is bundled
+  SymmetryAxis, SymmetryMap, Triangulation } from '@ekza-studio/mesh-core';   // type-only: no kernel code is bundled
 
 // ---------- workspaces ----------
 export type WorkspaceId = 'model' | 'rig' | 'animate' | 'review' | (string & {});

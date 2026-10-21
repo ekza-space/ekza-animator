@@ -11,7 +11,7 @@
 // - M6a display hook (M6A-SPEC §5.23, B8): a character with edited meshes displays a container rebuilt in memory
 //   (`ctx.display.containerFor`); `redisplay` reloads a display (the previous one stays until the new one is ready,
 //   and a later reload wins over an earlier one that finishes after it). Characters without edits load as before.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type AnyChange,
   type AssetId,
@@ -23,9 +23,9 @@ import {
   type ClipId,
   type DocumentStore,
   type TableName,
-} from '@ekza-animator/doc';
-import type { GlbContainer } from '@ekza-animator/io';
-import type { ChannelBuffer, ClipSampler, CurveCache, PoseBuffers, RigProgram, SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { GlbContainer } from '@ekza-studio/io';
+import type { ChannelBuffer, ClipSampler, CurveCache, PoseBuffers, RigProgram, SkeletonDesc } from '@ekza-studio/rig';
 import type { KernelDeps, ModelSource } from '../app/deps';
 import type { CharacterDisplaySource } from '../workflows/meshDisplay';
 import type {

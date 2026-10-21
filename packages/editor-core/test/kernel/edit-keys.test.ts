@@ -1,5 +1,5 @@
-import { type AnimCurve, EkzaError, type KeyData, RAD2DEG, type TangentType } from '@ekza-animator/anim-core';
-import type { ClipId, ClipRecord, CurveId, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
+import { type AnimCurve, EkzaError, type KeyData, RAD2DEG, type TangentType } from '@ekza-studio/anim-core';
+import type { ClipId, ClipRecord, CurveId, KeyId, KeyRecord, Tx } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

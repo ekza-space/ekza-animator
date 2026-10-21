@@ -1,6 +1,6 @@
 // Typed access to the app → ViewportManager registry (see ./registry.ts).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { managerOf, subscribeManager } from './registry';
 import type { ViewportManager } from './ViewportManager';
 

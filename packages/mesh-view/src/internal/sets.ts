@@ -2,7 +2,7 @@
 // mutate a selection, hidden set or isolate set in place and pass the same object again (the §4.6 selection service
 // does not promise fresh objects), and the document hands out a fresh palette map on every query, so identity says
 // nothing either way. Each holder keeps its own copy and compares contents.
-import type { BitSet, HiddenSet } from '@ekza-animator/mesh-core';
+import type { BitSet, HiddenSet } from '@ekza-studio/mesh-core';
 import type { Topo } from './topo';
 
 /** Palette colours: slot → sRGB bytes. */

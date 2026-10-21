@@ -3,7 +3,7 @@
 // evaluation service evaluates dirty characters once; after the GL render the 2D canvases redraw. R3F's single rAF
 // drives it (`addEffect` / `addAfterEffect`); without WebGL a plain rAF scheduler drives the same hooks, so the Graph
 // Editor and time slider still work.
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { FrameCallback, FrameHooks } from '../shell/types';
 
 export function createFrameHooks(app: EditorApp, onError: (error: unknown) => void): FrameHooks {

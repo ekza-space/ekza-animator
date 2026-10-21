@@ -48,7 +48,7 @@ neighbour tangents, which R5 forbids.
   fractional ruler positions). The shared exact clock — what scenario A and presence need — is `sceneFrame`.
 - With one character, matching fps and `sceneStart = 0`, every mapping is the identity.
 
-### Curve engine (`@ekza-animator/anim-core`)
+### Curve engine (`@ekza-studio/anim-core`)
 
 - **Port Autodesk AnimX to TypeScript** (Apache-2.0, keep NOTICE and per-file headers) for segment evaluation
   (Hermite non-weighted, Bézier weighted with Maya's monotonic-X correction, linear, step, step-next),

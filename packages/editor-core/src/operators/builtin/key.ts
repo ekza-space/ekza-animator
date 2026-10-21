@@ -1,7 +1,7 @@
 // Keying and channel operators (MVP-SPEC §4.9 `key.*`, `channel.*`; §4.11.1 keying, §4.11.2 value edits).
 // M2a (M2A-SPEC §5.1 rule 4, §5.12, §5.19; A2): `key.set` keys attribute channels by the `keyAll` rule, keys body
 // parts and sets breakdown keys; `key.setTarget` writes the status line's key target.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   type Axes,
   type ChannelId,
@@ -11,7 +11,7 @@ import {
   type ReadView,
   TRS_CHANNELS,
   type TrsChannel,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   attrChannelsOf,
   isAttrChannel,

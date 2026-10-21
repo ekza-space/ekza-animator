@@ -14,7 +14,7 @@ import type {
   PaletteId,
   SwatchId,
   SwatchRecord,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   BUILTIN_MENU_ITEMS,
   type EditorApp,
@@ -22,11 +22,11 @@ import {
   type MarkingMenuItem,
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, type SymmetryMap, writeRevision } from '@ekza-animator/mesh-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { viewportManagerOf } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type MeshData, primitive, type SymmetryMap, writeRevision } from '@ekza-studio/mesh-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { viewportManagerOf } from '@ekza-studio/viewport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { CONVERT_MENU } from '../src/overlays/menus/convert';
 import { MODES_MENU } from '../src/overlays/menus/modes';
@@ -287,7 +287,7 @@ describe('Mesh Check (§5.25)', () => {
    * unpainted, read slot 0, so B5 reports each as `duplicate-slot`.
    */
   const duplicatePalette = (app: FakeEditorApp): MeshId => {
-    // `@ekza-animator/doc/testing` reads fixtures from disk (node:fs), so the records are spelled out here.
+    // `@ekza-studio/doc/testing` reads fixtures from disk (node:fs), so the records are spelled out here.
     const swatch = (id: string, slot: number, order: string): SwatchRecord => ({
       id: id as SwatchId,
       palette: 'pal_P' as PaletteId,

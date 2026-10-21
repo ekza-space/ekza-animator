@@ -1,4 +1,4 @@
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import { registerAttributesPanel } from './attributes';
 import { registerChannelBoxPanel } from './channel-box';
 import { registerClipsPanel } from './clips';

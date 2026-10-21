@@ -1,7 +1,7 @@
 // M2A-SPEC §5.20 (FR-PROJ-05): the autosave scheduler (debounce, max interval, deferred during a preview, serialized
 // writes, clean ends, quota pause, storage off), housekeeping and the orphan list, and the operators file.recover,
 // file.discardRecovery and file.autosaveNow — on the wave fixture with a manual clock and an in-memory store.
-import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
+import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   AUTOSAVE_BLOCKED_TOAST,

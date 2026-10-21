@@ -1,7 +1,7 @@
 // GLB container (glTF 2.0 binary): header, JSON chunk and the first BIN chunk. The original bytes are kept as is;
 // `bin` is a zero-copy view. Consistency checks that do not prevent reading (declared length, chunk alignment,
 // extra chunks) are reported by checkInputBudget instead of throwing here.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { isRecord } from '../gltf/schema';
 import { sha256Hex } from '../hash/sha256';
 import type { GlbContainer, GltfJson } from '../types';

@@ -1,6 +1,6 @@
 // Empty viewport (research 09 §10.1): drop hint, "Open file…" and the three bundled samples. Dropping a file is
 // handled by the shell's window-wide drop target (WP-8); this card only explains it.
-import type { EditorApp, SampleId } from '@ekza-animator/editor-core';
+import type { EditorApp, SampleId } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { useSession } from '../../hooks';
 

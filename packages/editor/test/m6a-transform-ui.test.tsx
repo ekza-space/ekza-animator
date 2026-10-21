@@ -2,7 +2,7 @@
 // the pane edges; the capture entry with its keys, mirrored on the help line; the snap candidate and the soft-select
 // radius ring), the `model.options` and space marking menus (registered on the first Model entry, their checked
 // states and runs) and the B12a test API group (`symmetry`, `softWeights`) on the whole shell.
-import type { DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import type { DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-studio/doc';
 import {
   BUILTIN_MENU_ITEMS,
   type EditorApp,
@@ -12,11 +12,11 @@ import {
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
   setComponentSpace,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { setTransformReadout, transformReadout } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { setTransformReadout, transformReadout } from '@ekza-studio/viewport';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { MOVE_SPACE_MENU, OPTIONS_MENU, OPTIONS_MENU_LMB, ROTATE_SPACE_MENU } from '../src/overlays/menus/options';
 import { EditorRoot } from '../src/shell/EditorRoot';

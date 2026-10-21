@@ -381,7 +381,7 @@ the palette end, so no existing point's indices change and only the edited chunk
 order.
 
 ```ts
-import type { ReadonlyVec3 } from '@ekza-animator/anim-core';
+import type { ReadonlyVec3 } from '@ekza-studio/anim-core';
 
 // ---------- skin value objects (C0 working baseline: readSkin, withSkin, readSkinReview) ----------
 /** Point layer (u8, interp 'or', mirror 'none'): points to review after a fill or a transfer (§5.14). */
@@ -558,8 +558,8 @@ export function checkSkin(skin: SkinWeights | null, ctx: Pick<WeightContext, 'sk
 
 ```ts
 import type { Axes, CharacterId, ConstraintId, ConstraintRecord, ControlId, ControlShape, HumanBoneName, JointId,
-  JointRecord, MeshId, RigId, SkeletonRecord, SpaceTarget } from '@ekza-animator/doc';
-import type { MeshData, SkinWeights, TriangleBvh } from '@ekza-animator/mesh-core';   // types only
+  JointRecord, MeshId, RigId, SkeletonRecord, SpaceTarget } from '@ekza-studio/doc';
+import type { MeshData, SkinWeights, TriangleBvh } from '@ekza-studio/mesh-core';   // types only
 // RigDefinition, RigOpImpl, ReduceSpec, ImportedCurve, ClipSampler: the shipped rig types of this file.
 
 // ---------- SkeletonDesc (changed, additive) ----------
@@ -731,9 +731,9 @@ rig types.
 ### 4.4 io — skinned measurement, character writer, profiles, lints (C0 stubs; owners C1, C10, C11)
 
 ```ts
-import type { CharacterVrmMeta, ClipId, ColourOutput, JointRecord, MeshId } from '@ekza-animator/doc';
-import type { MeshData, SkinWeights } from '@ekza-animator/mesh-core';
-import type { DocSkeletonInput, SkeletonDesc, SkeletonNode } from '@ekza-animator/rig';
+import type { CharacterVrmMeta, ClipId, ColourOutput, JointRecord, MeshId } from '@ekza-studio/doc';
+import type { MeshData, SkinWeights } from '@ekza-studio/mesh-core';
+import type { DocSkeletonInput, SkeletonDesc, SkeletonNode } from '@ekza-studio/rig';
 
 // ---------- skeletons from records (C1, `io/src/skeleton/fromDoc.ts`; §5.1) ----------
 /** Joint nodes only (`isJoint` true, `hasMesh` false); equal on its joint subset to what skeletonFromGltf gives for
@@ -813,8 +813,8 @@ No type changes (`ControlShapeKind` is `string`).
 `packages/editor-core/src/types.ts` additions (closed after M6a's B0a; C0 changes it), shapes normative:
 
 ```ts
-import type { ChannelValues, CharacterId, ConstraintId, ControlId, JointId, MeshId } from '@ekza-animator/doc';
-import type { BindReport, PaintOp, SkinBindArgs, SkinWeights } from '@ekza-animator/mesh-core';   // type-only
+import type { ChannelValues, CharacterId, ConstraintId, ControlId, JointId, MeshId } from '@ekza-studio/doc';
+import type { BindReport, PaintOp, SkinBindArgs, SkinWeights } from '@ekza-studio/mesh-core';   // type-only
 
 // ---------- Rig & Skin session (U) ----------
 export type RigMode = 'object' | 'skeleton' | 'skin' | 'shape';

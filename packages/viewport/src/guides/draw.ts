@@ -7,8 +7,8 @@
 // - a "Handheld" group: the grip gizmo at the group origin (the grip) — a ring around +Y, a +Y arrow for the shaft and
 //   a +Z arrow for the fingertips.
 // Lines are drawn without a depth test (always visible over the model) at reduced opacity.
-import type { GroupRecord } from '@ekza-animator/doc';
-import { type EditorApp, objectWorld } from '@ekza-animator/editor-core';
+import type { GroupRecord } from '@ekza-studio/doc';
+import { type EditorApp, objectWorld } from '@ekza-studio/editor-core';
 import {
   BufferGeometry,
   Float32BufferAttribute,

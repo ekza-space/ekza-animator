@@ -1,5 +1,5 @@
 {
-  "name": "@ekza-animator/mesh-core",
+  "name": "@ekza-studio/mesh-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "bench": "vitest bench --run"
   },
   "dependencies": {
-    "@ekza-animator/anim-core": "workspace:*",
+    "@ekza-studio/anim-core": "workspace:*",
     "earcut": "3.2.4",
     "robust-predicates": "3.0.3"
   },

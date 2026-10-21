@@ -16,9 +16,9 @@ import {
   quatNormalize,
   type Quat,
   type ReadonlyQuat,
-} from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type HumanoidClipData } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type HumanoidClipData } from '@ekza-studio/rig';
 import { GltfReader } from '../gltf/accessor';
 import {
   animationsOf,

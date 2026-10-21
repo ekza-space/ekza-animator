@@ -2,9 +2,9 @@
 // humanoid body with derived ids; a cube created with the Humanoid group selected is its child with Object X
 // symmetry; `mesh.primitive.set` regenerates until the first component edit freezes the parameters (renames, palette
 // and attribute changes keep them).
-import type { GroupId, MeshId } from '@ekza-animator/doc';
-import { derivedId } from '@ekza-animator/doc';
-import { MESH_OPS } from '@ekza-animator/mesh-core';
+import type { GroupId, MeshId } from '@ekza-studio/doc';
+import { derivedId } from '@ekza-studio/doc';
+import { MESH_OPS } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PALETTE_ID, FROZEN_REASON, type LastRun, runSeedOf } from '../../../src';
 import { counts, type MeshTestApp, meshTestApp, paintFaces, pollReason, runValue, selectObjects } from './support';

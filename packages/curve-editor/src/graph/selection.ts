@@ -1,7 +1,7 @@
 // Key-part selection rules shared by the Graph Editor gestures and `select.curveKeys` (research 09 §6.1): click
 // replaces, Shift toggles, Mod removes, Mod+Shift adds.
-import type { KeyId } from '@ekza-animator/doc';
-import type { KeyPartSelection, SelectMode } from '@ekza-animator/editor-core';
+import type { KeyId } from '@ekza-studio/doc';
+import type { KeyPartSelection, SelectMode } from '@ekza-studio/editor-core';
 
 export const KEY_PART: KeyPartSelection = { key: true, in: false, out: false };
 export const NO_PARTS: KeyPartSelection = { key: false, in: false, out: false };

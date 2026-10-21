@@ -1,10 +1,10 @@
 // Shell harness behind the dev/e2e-only route /dev/shell (MVP-SPEC §7 WP-8): the complete editor shell — dockview
 // workspace, menus, status line, dialogs, input adapter, GL host, test API — over a fake EditorApp loaded with the
 // synthetic wave document, so the shell can be exercised before the real kernel (WP-7a/7b) is merged. Browser only.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { DocSnapshot } from '@ekza-animator/doc';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { type JSX, useCallback } from 'react';
 import { EditorRoot } from '../shell/EditorRoot';
 import type { Shell } from '../shell/types';

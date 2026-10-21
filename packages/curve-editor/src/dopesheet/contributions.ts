@@ -2,7 +2,7 @@
 // Select / Move / Scale tools (`view.tool {panel: 'dopeSheet'}`, Q / W / R) and the Dope Sheet's ripple control set
 // (§5.11: the controls it shows). This module imports the controller's type only, so registering the contributions
 // does not load the controller (the panel's body is lazy, §5.21.2 boundary 4).
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   DOPE_TOOL,
   type EditorApp,
@@ -11,7 +11,7 @@ import {
   PANEL,
   registerRippleControls,
   type ToolDef,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { DopeSheetController } from './DopeSheetController';
 
 const FRAME_TARGETS = ['selection', 'all'] as const;

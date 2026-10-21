@@ -1,17 +1,10 @@
 // Shared helpers of the B11 tests (M6A-SPEC §9 B11): a value-only kernel op (`mesh.test.advance`) that the module mock
-// of `@ekza-animator/mesh-core` adds to `MESH_OPS`, so the B11 registration path (`registeredMeshOperator` over B7's
+// of `@ekza-studio/mesh-core` adds to `MESH_OPS`, so the B11 registration path (`registeredMeshOperator` over B7's
 // `meshOperator`) runs end to end on the B0a reference kernel (no Euler operators). Only types are imported from the
 // kernel here: the mock factory passes the real module in.
-import type { ParamDef, ParamValues } from '@ekza-animator/anim-core';
-import type * as Kernel from '@ekza-animator/mesh-core';
-import type {
-  ComponentSelection,
-  EditMesh,
-  MeshOp,
-  MeshOpDescriptor,
-  OpResult,
-  Refusal,
-} from '@ekza-animator/mesh-core';
+import type { ParamDef, ParamValues } from '@ekza-studio/anim-core';
+import type * as Kernel from '@ekza-studio/mesh-core';
+import type { ComponentSelection, EditMesh, MeshOp, MeshOpDescriptor, OpResult, Refusal } from '@ekza-studio/mesh-core';
 
 const DY: ParamDef = {
   name: 'dy',

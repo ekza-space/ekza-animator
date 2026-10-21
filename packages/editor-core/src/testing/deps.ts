@@ -1,8 +1,8 @@
 // The kernel's dependency bindings for the fake app: naive store, curve engine, rig program and stand-ins (see
 // `naive.ts`). Runtimes come from a given SkeletonDesc instead of model files.
-import type { AssetId } from '@ekza-animator/doc';
-import type { GlbContainer } from '@ekza-animator/io';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { AssetId } from '@ekza-studio/doc';
+import type { GlbContainer } from '@ekza-studio/io';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { KernelDeps } from '../app/deps';
 import { naiveCycleAwareCurveEngine } from './curves';
 import {

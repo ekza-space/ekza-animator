@@ -1,5 +1,5 @@
-import { eulerNear, type Mat4, type Vec3 } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, ControlRecord } from '@ekza-animator/doc';
+import { eulerNear, type Mat4, type Vec3 } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, ControlRecord } from '@ekza-studio/doc';
 import { hasRequiredHumanoid } from '../autorig/definition';
 import { BIND_ROTATE } from '../kernel/constants';
 import { internalsOf, type RigInternals } from '../kernel/internals';

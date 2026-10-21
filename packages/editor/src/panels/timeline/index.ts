@@ -1,6 +1,6 @@
 // WP-6t: the Timeline panel (time slider, range slider, playback row). Registered by registerBuiltinPanels.
-import type { Disposer } from '@ekza-animator/anim-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { PanelRegistry } from '../types';
 import { TimelinePanel } from './TimelinePanel';
 

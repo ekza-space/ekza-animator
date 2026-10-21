@@ -2,10 +2,10 @@
 // JSON values and the BIN prefix byte-identical, validator without new errors, morph NORMAL kept, new vertices
 // normalized, the extension diffs, the rebuild for display, rollback and re-bake with geometry and clips together,
 // and animation-only bakes unchanged (v1 bytes).
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import type { MeshData } from '@ekza-animator/mesh-core';
-import { setKernelDebug } from '@ekza-animator/mesh-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import type { MeshData } from '@ekza-studio/mesh-core';
+import { setKernelDebug } from '@ekza-studio/mesh-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { GltfReader } from '../src/gltf/accessor';

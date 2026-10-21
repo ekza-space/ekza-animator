@@ -1,5 +1,5 @@
-import type { RotateOrder, Vec3 } from '@ekza-animator/anim-core';
-import type { ControlShape, HumanBoneName } from '@ekza-animator/doc';
+import type { RotateOrder, Vec3 } from '@ekza-studio/anim-core';
+import type { ControlShape, HumanBoneName } from '@ekza-studio/doc';
 import { HUMAN_BONE_NAMES } from '../humanoid/bones';
 import {
   fingerJoint,

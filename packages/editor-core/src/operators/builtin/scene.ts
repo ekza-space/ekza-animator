@@ -18,7 +18,7 @@
 // Made-editable (asset-backed) meshes keep their place in their character: grouping, parenting and duplicating them
 // is refused (Duplicate Faces makes an authored copy, §5.13).
 // The document writes live in the lazy `contentApply.ts` (M6A-B13-10): `prepare` loads it, `apply` runs its body.
-import { type ReadonlyXf } from '@ekza-animator/anim-core';
+import { type ReadonlyXf } from '@ekza-studio/anim-core';
 import {
   type BudgetPresetId,
   type GroupId,
@@ -27,7 +27,7 @@ import {
   type MeshOwner,
   type MeshRecord,
   type ReadView,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { worldPlacement } from '../../mesh/context';
 import { ownerKey } from '../../mesh/records';
 import type { EditorApp, PollResult } from '../../types';

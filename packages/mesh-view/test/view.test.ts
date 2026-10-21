@@ -12,8 +12,8 @@ import {
   type HiddenSet,
   selectionOf,
   triangulate,
-} from '@ekza-animator/mesh-core';
-import { cubeData } from '@ekza-animator/mesh-core/testing';
+} from '@ekza-studio/mesh-core';
+import { cubeData } from '@ekza-studio/mesh-core/testing';
 import { type BufferAttribute, type BufferGeometry, type Camera, Matrix4, type Points, Vector3 } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { EditMeshView, MeshSurface } from '../src';

@@ -2,8 +2,8 @@
 // deleted afterwards) — slot round trips, assets written once and collected when unreferenced, orphans with Web Locks
 // (the real lock manager, and a fake one to close a page) and with the heartbeat fallback, namespaces, and the
 // browser services' storage switches.
-import type { AssetId, AssetRecord } from '@ekza-animator/doc';
-import type { AutosaveSlotInfo } from '@ekza-animator/editor-core';
+import type { AssetId, AssetRecord } from '@ekza-studio/doc';
+import type { AutosaveSlotInfo } from '@ekza-studio/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   AUTOSAVE_DB,

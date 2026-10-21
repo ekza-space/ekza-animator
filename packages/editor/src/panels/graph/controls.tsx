@@ -1,5 +1,5 @@
 // Small form controls of the Graph Editor panel, styled with the design tokens (research 09 §8.2, §8.7). They stay
-// local until the shared primitives of @ekza-animator/ui land (WP-8).
+// local until the shared primitives of @ekza-studio/ui land (WP-8).
 import { type JSX, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 /** Look of the toolbar's buttons (exported for menu triggers that render their own button). */

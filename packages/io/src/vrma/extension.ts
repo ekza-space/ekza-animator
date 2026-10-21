@@ -11,7 +11,7 @@ import {
   RefMap,
   type WriterContext,
 } from '@gltf-transform/core';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 
 export const VRMC_VRM_ANIMATION = 'VRMC_vrm_animation';
 const BONE_ORDER = new Map<string, number>(HUMAN_BONE_NAMES.map((name, i) => [name, i]));

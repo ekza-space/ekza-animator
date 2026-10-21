@@ -1,6 +1,6 @@
-import { quatAngle, quatFromAxisAngle, type ReadonlyQuat } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId, ClipRecord, KeyRecord } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { quatAngle, quatFromAxisAngle, type ReadonlyQuat } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId, ClipRecord, KeyRecord } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { activeClip, activeClipFrame, activeRuntime, applyChannelEdits, ensureCurve } from '../../src';
 import { createFakeEditorApp } from '../../src/testing';

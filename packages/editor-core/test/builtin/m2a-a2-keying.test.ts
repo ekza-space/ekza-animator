@@ -1,7 +1,7 @@
 // M2A-SPEC §5.1 rules 1–6, §5.12, §5.19 (A2): attribute channels through the edit kernel, `key.set` with the
 // `keyAll` rule (explicit only as selected Channel Box channels), body-part keying, breakdown keys, `key.setTarget`,
 // `pose.resetToRest`, the pose clipboard and mirror with attributes, locks and Delete at frame.
-import type { ChannelId, ControlId, DocSnapshot } from '@ekza-animator/doc';
+import type { ChannelId, ControlId, DocSnapshot } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, keyTargetControls } from '../../src';
 import type { EditorApp } from '../../src/types';

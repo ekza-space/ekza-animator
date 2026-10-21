@@ -10,7 +10,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-const scope = (name) => `@ekza-animator/${name}`;
+const scope = (name) => `@ekza-studio/${name}`;
 const ANIM_CORE = scope('anim-core');
 const DOC = scope('doc');
 const DOC_YJS = scope('doc-yjs');
@@ -35,7 +35,7 @@ const VRM = ['@pixiv/three-vrm', '@pixiv/three-vrm-animation'];
  * integration-agent decision (MVP-SPEC §3 convention 3).
  */
 export const ALLOWED = {
-  'ekza-animator': {
+  'ekza-studio': {
     dependencies: [],
     devDependencies: [
       '@biomejs/biome',

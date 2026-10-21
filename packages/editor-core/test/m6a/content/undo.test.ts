@@ -1,6 +1,6 @@
 // M6A-SPEC §10.2 editor-core gate for B13's operators: each one, run on a valid case, is one history step whose undo
 // restores the document exactly and whose redo gives back exactly what the run wrote.
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PALETTE_ID, swatchIdFor } from '../../../src';
 import { type MeshTestApp, meshTestApp, paintFaces, PNG_1X1, runValue, selectObjects } from './support';

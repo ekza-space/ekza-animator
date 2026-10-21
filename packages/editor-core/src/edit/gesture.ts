@@ -4,7 +4,7 @@
 // preview cancelled from outside, `edit.escape`) leaves no trace. Session overrides the drag consumed (a Tween bar
 // drag on the pose keys channels whose overrides then leave the session) go into the same step, as the operator
 // runner records them, so undo brings them back (MVP-SPEC §4.11.1 rule 5).
-import type { ChangeBatch, Tx } from '@ekza-animator/doc';
+import type { ChangeBatch, Tx } from '@ekza-studio/doc';
 import { internalsOf } from '../app/internals';
 import type { CaptureOutcome } from '../history/capture';
 import { overrideDelta, sameLocation } from '../history/overrides';

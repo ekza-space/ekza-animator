@@ -8,8 +8,8 @@
 // a `min` and a `max`: `(max − min)/200`; other attributes `unitsPerPx`. Shift ×0.1 and Mod ×10 are read at each
 // move, so the value integrates increments. Values are relative per control (start value + motion) and clamped to an
 // attribute's range.
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlRecord } from '@ekza-animator/doc';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlRecord } from '@ekza-studio/doc';
 import type { ChannelEdit, ChannelEditGesture, ChannelRef, EditorApp, Prefs } from '../types';
 import {
   attrDefOf,

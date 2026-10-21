@@ -1,6 +1,6 @@
 // M2A-SPEC §5.17 (A2): the arrow keys always run select.pickWalk, which runs the time operators when
 // prefs.arrowKeys is 'frames'; the shortcut sheet labels the arrows with the behaviour that is active.
-import { pickWalkDispatch, registerBuiltinOperators } from '@ekza-animator/editor-core';
+import { pickWalkDispatch, registerBuiltinOperators } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { shortcutRows } from '../src/dialogs/ShortcutsDialog';
 import { createTestShell } from './shell-helpers';

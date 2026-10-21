@@ -1,7 +1,7 @@
 // Flat topology arrays the overlays and the picker read (M6A-SPEC §4.4): corner → vertex, face and edge, taken once per
 // topology from an `EditMesh` (or a stored `MeshData`), so every later loop is a typed-array walk instead of a method
 // call per element. Also the one visibility rule both the draw list and the picker use (hidden and isolated elements).
-import type { BitSet, EditMesh, HiddenSet, MeshData } from '@ekza-animator/mesh-core';
+import type { BitSet, EditMesh, HiddenSet, MeshData } from '@ekza-studio/mesh-core';
 
 export interface Topo {
   readonly points: number;

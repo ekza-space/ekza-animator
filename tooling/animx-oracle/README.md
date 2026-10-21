@@ -1,6 +1,6 @@
 # AnimX oracle
 
-Golden-value generator for the curve engine of `@ekza-animator/anim-core` (MVP-SPEC §6.3, ADR 0003). It compiles
+Golden-value generator for the curve engine of `@ekza-studio/anim-core` (MVP-SPEC §6.3, ADR 0003). It compiles
 [Autodesk AnimX](https://github.com/Autodesk/animx) — the C++ library that evaluates animation curves "in the exact
 same way as Maya" — together with a small adapter, runs deterministic curves through it and writes the results to
 `packages/anim-core/test/goldens/animx-goldens.json`. The unit test `test/curve/animx-goldens.test.ts` compares the

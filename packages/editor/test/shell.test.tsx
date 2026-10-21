@@ -1,11 +1,11 @@
 // The whole shell over the fake app (EditorRoot as the /dev/shell harness mounts it): menus, status line, first-run
 // dialog, window keyboard routing, toasts, drag-and-drop, the GL host's demand rendering and the "no per-frame
 // React renders" rule.
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { DocSnapshot } from '@ekza-animator/doc';
-import { GLOBAL_SCOPE, type EditorApp, type OperatorDef } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import { GLOBAL_SCOPE, type EditorApp, type OperatorDef } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { Profiler, StrictMode } from 'react';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';

@@ -1,7 +1,7 @@
 // Loader of the import pipelines (`importPath.ts`), a lazy chunk of the editor route (M2A-SPEC §5.21.2, like the model
 // loader it feeds and the export path): the import operators load it in `prepare`, so their synchronous `apply` finds
 // it loaded; hosts start it on intent (a file dragged over the window, a sample hovered, the Open dialog).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type * as ImportPathModule from './importPath';
 
 export type ImportPath = typeof ImportPathModule;

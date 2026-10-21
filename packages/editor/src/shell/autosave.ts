@@ -2,8 +2,8 @@
 // host provides an autosave store (`EditorServices.autosave` present: the browser services), opens the Recovery
 // dialog once per page load when orphaned slots exist (after the first-run dialog), and removes this page's
 // snapshot on `beforeunload` while the project is not dirty (best effort).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { type EditorApp, type OperatorResult, startAutosave } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { type EditorApp, type OperatorResult, startAutosave } from '@ekza-studio/editor-core';
 
 export interface ShellAutosaveOptions {
   readonly app: EditorApp;

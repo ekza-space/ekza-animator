@@ -1,12 +1,6 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import {
-  type AssetId,
-  type AssetRecord,
-  type DocSnapshot,
-  SCHEMA_VERSION,
-  serializeSnapshot,
-} from '@ekza-animator/doc';
-import { readFixture, readSyntheticFixture, withSchemaV3 } from '@ekza-animator/doc/testing';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { type AssetId, type AssetRecord, type DocSnapshot, SCHEMA_VERSION, serializeSnapshot } from '@ekza-studio/doc';
+import { readFixture, readSyntheticFixture, withSchemaV3 } from '@ekza-studio/doc/testing';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { canonicalJson } from '../src/gltf/json';

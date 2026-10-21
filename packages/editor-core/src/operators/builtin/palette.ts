@@ -18,7 +18,7 @@
 // `paintRefusal(app, meshes, swatch)` (`paintRules.ts`, loaded only by the lazy Palette panel and Paint Colour tool) is
 // the editor-side rule of §5.19 that the kernel cannot see; they check it before running `mesh.paint`.
 // The document writes live in the lazy `contentApply.ts` (M6A-B13-10): `prepare` loads it, `apply` runs its body.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   derivedId,
   type MeshId,
@@ -28,7 +28,7 @@ import {
   type ReadView,
   type SwatchId,
   type SwatchRecord,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { attachMeshes, loadMeshKernel, meshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } from './define';

@@ -1,4 +1,4 @@
-import type { ReadonlyXf, RotateOrder } from '@ekza-animator/anim-core';
+import type { ReadonlyXf, RotateOrder } from '@ekza-studio/anim-core';
 import {
   type Axes,
   type Binding,
@@ -8,7 +8,7 @@ import {
   controlId,
   type RigId,
   type Side,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { restWorlds } from '../humanoid/rest';
 import type { XfArrays } from '../math/xfa';
 import type { SkeletonDesc } from '../types';

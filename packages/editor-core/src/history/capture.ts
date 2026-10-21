@@ -10,7 +10,7 @@
 // A document load (`store.load`) clears the history. When the doc undo stacks are emptied without a load batch (a
 // load that changed nothing visible, `undo.clear()`), the history steps lose their document parts: no entry they
 // could own exists any more.
-import type { ChangeBatch, DocumentStore, UndoEntry } from '@ekza-animator/doc';
+import type { ChangeBatch, DocumentStore, UndoEntry } from '@ekza-studio/doc';
 import { isDocumentLoad } from '../session/loads';
 import type { KernelHistory } from './history';
 

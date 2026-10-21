@@ -3,8 +3,8 @@
 // menu, else the hover point), and the active mode's digit returns to object mode while F9/F10 stay idempotent. The
 // viewport's Model select runtime provides the probe; headless apps have none (no mesh under the pointer; a keyboard
 // run counts as a digit).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 
 export interface ModelPointerProbe {
   /**

@@ -1,7 +1,7 @@
 // M6A-SPEC §5.17, §8.1, §8.2, §8.10 (B9): the whole shell with the workspaces — tabs and glyphs, the dock layout and
 // viewport layout per workspace (Animate's untouched by Model), the hidden time slider, Model's status-line groups,
 // help line and pane header, the overlay slots, `ws=` and `prefs.lastWorkspace` at start, and Mod+K.
-import type { DocSnapshot } from '@ekza-animator/doc';
+import type { DocSnapshot } from '@ekza-studio/doc';
 import {
   animateStatus,
   BUILTIN_MENU_ITEMS,
@@ -9,10 +9,10 @@ import {
   type EditorApp,
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { viewportManagerOf } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { viewportManagerOf } from '@ekza-studio/viewport';
 import type { JSX } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { registerPaneOverlay } from '../src/overlays/slots';

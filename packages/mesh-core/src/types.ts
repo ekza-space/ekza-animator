@@ -2,7 +2,7 @@
 // first). Excluded from formatting in biome.json so it stays diffable against the spec. Only `interface`/`type`
 // declarations live here (§4 placement rule); the `function`, `class` and `const` lines of §4.3 are implementation
 // modules re-exported from the package root (`BitSet` is ./bitset.ts; the type import below is its declaration).
-import type { ParamDef, ParamValues, ReadonlyVec3, ReadonlyXf, Vec3, AnimCurve, CurveEngine } from '@ekza-animator/anim-core';
+import type { ParamDef, ParamValues, ReadonlyVec3, ReadonlyXf, Vec3, AnimCurve, CurveEngine } from '@ekza-studio/anim-core';
 import type { BitSet } from './bitset';
 
 // ---------- counts, domains, layers ----------

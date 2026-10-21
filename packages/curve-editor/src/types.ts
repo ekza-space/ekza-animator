@@ -1,8 +1,8 @@
 // Contract file: MVP-SPEC §4.7 with the M2A-SPEC §4.7 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
-import type { BodyPart, GraphViewMode } from '@ekza-animator/editor-core';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-studio/doc';
+import type { BodyPart, GraphViewMode } from '@ekza-studio/editor-core';
 
 /** x = (frame − f0)·sx ;  y = heightCss − (displayValue − v0)·sy  (displayValue: degrees for r*, metres for t*). */
 export interface GraphViewState { readonly f0: number; readonly v0: number; readonly sx: number; readonly sy: number }

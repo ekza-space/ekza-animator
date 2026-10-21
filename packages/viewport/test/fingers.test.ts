@@ -1,11 +1,11 @@
 // MVP-SPEC §4.11.15 acceptance (WP-5 test list): in a framed hand view on Seed-san and Polybot every finger control
 // has a pick point at least 6 px from every other control's polyline. Needs the real GLB reader (WP-4), the
 // auto-rig with mesh-based sizes (WP-3) and the control-shape library (lollipops, WP-1); it runs once they land.
-import { EkzaError, getControlShape } from '@ekza-animator/anim-core';
-import type { AssetId, CharacterId, ControlRecord, DocSnapshot, RigId } from '@ekza-animator/doc';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { parseGlb, skeletonFromGltf } from '@ekza-animator/io';
-import { autoRig, type SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError, getControlShape } from '@ekza-studio/anim-core';
+import type { AssetId, CharacterId, ControlRecord, DocSnapshot, RigId } from '@ekza-studio/doc';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { parseGlb, skeletonFromGltf } from '@ekza-studio/io';
+import { autoRig, type SkeletonDesc } from '@ekza-studio/rig';
 import { afterEach, describe, expect, it } from 'vitest';
 import { commands } from 'vitest/browser';
 import { createRig, type Rig } from './helpers';

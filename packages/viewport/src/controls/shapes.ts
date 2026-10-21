@@ -1,7 +1,7 @@
 // Control shape line geometry (MVP-SPEC §4.11.15): unit splines from the anim-core shape registry, tessellated
 // into line segments, then placed in control-local space by `size` and `ControlShape.offset`.
-import { getControlShape, mat4Compose, tessellateSplineSet } from '@ekza-animator/anim-core';
-import type { ControlShape } from '@ekza-animator/doc';
+import { getControlShape, mat4Compose, tessellateSplineSet } from '@ekza-studio/anim-core';
+import type { ControlShape } from '@ekza-studio/doc';
 
 /** Segments per circle of the fallback shape (an unknown kind, or a `custom` shape without data). */
 const FALLBACK_SEGMENTS = 48;

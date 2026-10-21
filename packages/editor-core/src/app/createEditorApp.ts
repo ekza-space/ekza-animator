@@ -1,5 +1,5 @@
 // `createEditorApp` (MVP-SPEC §7 WP-7a): the production kernel over the real doc, anim-core, rig and io packages.
-import type { DocumentStore, IdSource } from '@ekza-animator/doc';
+import type { DocumentStore, IdSource } from '@ekza-studio/doc';
 import type { EditorApp, EditorServices } from '../types';
 import { DEFAULT_DEPS } from './deps';
 import { createKernelApp } from './kernel';

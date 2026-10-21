@@ -8,7 +8,7 @@ import {
   type ToolDef,
   type ToolInstance,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { GraphEditorController } from '../graph/GraphEditorController';
 import type { GraphHit } from '../types';
 

@@ -1,4 +1,4 @@
-import type { EkzaAnimatorTestApi } from '@ekza-animator/editor';
+import type { EkzaAnimatorTestApi } from '@ekza-studio/editor';
 import { expect, type Page } from '@playwright/test';
 
 declare global {

@@ -5,9 +5,9 @@
 // slot with `registerPaneOverlay(slot, Component)` (the latest registration of a slot is drawn) and decide themselves
 // in which workspaces and modes they show. Slot wrappers never take the pointer: interactive overlays set
 // `pointer-events: auto` on their own elements.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import type { PaneState } from '@ekza-animator/viewport';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import type { PaneState } from '@ekza-studio/viewport';
 import { type ComponentType, type JSX, useSyncExternalStore } from 'react';
 
 /** The pane overlay slots, in drawing order (later ones on top). */

@@ -1,8 +1,8 @@
 // Shared helpers of B10's editor-core tests: a kernel app in the Model workspace with a memory blob store, meshes
 // written as whole revisions through the runtime registry, and a hand-made X-mirror symmetry map.
-import type { MeshId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
-import { type MeshData, type PrimitiveKind, primitive, type SymmetryMap } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
+import { type MeshData, type PrimitiveKind, primitive, type SymmetryMap } from '@ekza-studio/mesh-core';
 import { vi } from 'vitest';
 import { createMemoryBlobStore, type EditorApp, loadMeshKernel, provideModelPointer } from '../../../src';
 import { createFakeServices } from '../../../src/testing';

@@ -1,7 +1,7 @@
 // M6A-SPEC §5.21 (B8): Make editable — licence gate, size and compression refusals, the morph- and skin-aware weld,
 // per-corner layers, hard-edge recovery, degenerate triangles, strips and fans, and the real fixtures (Polybot,
 // Seed-san, UAL) giving valid, deterministic meshes.
-import { readFixture } from '@ekza-animator/doc/testing';
+import { readFixture } from '@ekza-studio/doc/testing';
 import {
   EDGE_HARD,
   parseManifest,
@@ -10,7 +10,7 @@ import {
   topologyStats,
   validateMesh,
   writeRevision,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { editLicence, meshFacts, meshFromGltf } from '../src/mesh';

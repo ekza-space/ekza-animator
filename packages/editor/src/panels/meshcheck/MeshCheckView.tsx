@@ -5,10 +5,10 @@
 // `DisplayFlags.meshCheck` on (panes made later too), so the overlay (driven by that flag in the Model select runtime)
 // draws the markers.
 // "Clean" = no code except `open-border` on open meshes.
-import type { MeshId } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type RunContext } from '@ekza-animator/editor-core';
-import type { MeshProblem } from '@ekza-animator/mesh-core';
-import { subscribeViewportManager, type ViewportManager, viewportManagerOf } from '@ekza-animator/viewport';
+import type { MeshId } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type RunContext } from '@ekza-studio/editor-core';
+import type { MeshProblem } from '@ekza-studio/mesh-core';
+import { subscribeViewportManager, type ViewportManager, viewportManagerOf } from '@ekza-studio/viewport';
 import { type JSX, useEffect, useState } from 'react';
 import { useOptionalShell } from '../../shell/context';
 import { type CheckRow, checkedMesh, checkRows, duplicateSwatchOf, meshProblems } from './checks';

@@ -1,8 +1,8 @@
 // Palettes and swatches (M6A-SPEC §5.19, §6.2; B13): the default palette created by the first modeling action, slots
 // never reused, swatch edits recolour, variants by duplicate, assign, Replace Swatch over `mesh.paint.remap`, the
 // active swatch and Select by Swatch.
-import type { MeshId, PaletteId, SwatchId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import type { MeshId, PaletteId, SwatchId } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PALETTE_ID, defaultSwatchId, nextSlot, paintRefusal, parseHex, toHex } from '../../../src';
 // The default palette's table lives with the lazy operator bodies (M6A-B13-10).

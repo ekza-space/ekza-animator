@@ -7,8 +7,8 @@
 // `Ctrl+Shift`-click at the nearest snap step, `Ctrl`+MMB (the trackpad stand-in included) at 0.5 — one step each,
 // the tool stays active. RMB never cancels. The preview draws the cut the kernel would make (mirror included) and a
 // rubber band to the snapped pointer.
-import type { Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   RESERVED_MODAL_KEYS,
@@ -16,8 +16,8 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import type { EditMesh } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import type { EditMesh } from '@ekza-studio/mesh-core';
 import { PREVIEW } from '../topology/overlay';
 import { isRefusal, type PanePoint, type TopologyRuntime } from '../topology/runtime';
 

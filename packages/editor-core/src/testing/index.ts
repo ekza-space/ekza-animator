@@ -1,6 +1,6 @@
-// '@ekza-animator/editor-core/testing': the shared test kit (MVP-SPEC §7 WP-0b, owned by WP-7a).
+// '@ekza-studio/editor-core/testing': the shared test kit (MVP-SPEC §7 WP-0b, owned by WP-7a).
 // Browser-safe: nothing here imports Node APIs, so Vitest browser-mode panel tests and the /dev/panels route use it
-// as well. Read fixtures with `@ekza-animator/doc/testing` (Node) and pass them in.
+// as well. Read fixtures with `@ekza-studio/doc/testing` (Node) and pass them in.
 import { installModelOperators } from '../operators/builtin/modelOps';
 import * as modelOperatorsChunk from '../operators/builtin/modelOpsChunk';
 

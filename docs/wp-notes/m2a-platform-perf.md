@@ -10,7 +10,7 @@ live here and the spec's A5 references point here. Decision IDs below are `M2A-A
 | A5 item | Where |
 |---|---|
 | §5.21.2 chunk attribution (first deliverable) | `apps/web/scripts/attribute-chunks.mjs` (`pnpm --filter web size:attribute` on a build made with `ANIMATOR_SOURCE_MAPS=1`), the route's script set in `scripts/lib/route-scripts.mjs`; the report is [below](#m-2-chunk-attribution-and-the-cuts) |
-| §5.21.2 lazy boundaries | (1) model loader: `editor/src/services/models.ts` (`import('@ekza-animator/io/three')`); (2) export path: `editor-core/src/workflows/export.ts` (`loadWritePath`, `import('@ekza-animator/io/write')`) and the pipeline `workflows/exportRun.ts`; (3) every dialog and the confirm prompt: `editor/src/dialogs/DialogHost.tsx` (`React.lazy`), the e2e test API (`shell/EditorRoot.tsx`); (4) the Dope Sheet panel: A3's `React.lazy` boundary, verified on a trial merge (M2A-A5-6); (5) the project archive and fflate: the new subpath `@ekza-animator/io/project`, loaded by `workflows/project.ts`; plus the import pipelines (`workflows/importLoader.ts`, M2A-A5-2) |
+| §5.21.2 lazy boundaries | (1) model loader: `editor/src/services/models.ts` (`import('@ekza-studio/io/three')`); (2) export path: `editor-core/src/workflows/export.ts` (`loadWritePath`, `import('@ekza-studio/io/write')`) and the pipeline `workflows/exportRun.ts`; (3) every dialog and the confirm prompt: `editor/src/dialogs/DialogHost.tsx` (`React.lazy`), the e2e test API (`shell/EditorRoot.tsx`); (4) the Dope Sheet panel: A3's `React.lazy` boundary, verified on a trial merge (M2A-A5-6); (5) the project archive and fflate: the new subpath `@ekza-studio/io/project`, loaded by `workflows/project.ts`; plus the import pipelines (`workflows/importLoader.ts`, M2A-A5-2) |
 | §5.21.2 intent prefetch | `editor/src/shell/prefetch.ts`: a file dragged over the window (model loader, import pipelines, Import dialog, archive), a sample button hovered or pressed and the Open dialog (model loader, import pipelines), an opened menu (the chunks its items need), the Export dialog (`preloadExportPath`); never at idle |
 | §5.21.2 `check:size` gate | `apps/web/scripts/check-size.mjs` (gate 900,000 B, target 800,000 B, boundary markers, lazy group list), CI step in `.github/workflows/ci.yml` after the build, fixture-build tests in `apps/web/test/check-size.test.ts` |
 | §5.21.3 anim-core fast paths | `anim-core/src/curve/{evaluate.ts,compile.ts,animx/evaluate.ts,animx/bezier.ts}`: the segment hint and once-bound hot-path bindings (M2A-A5-7) |
@@ -51,18 +51,18 @@ M2a contracts, stubs and layout v2): ≈ 9 kB together.
 | three | 218.9 kB | three/build | 172.6 kB |
 | next (React, router) | 136.4 kB | dockview-core | 83.0 kB |
 | dockview-core | 83.0 kB | next/dist/compiled | 82.0 kB |
-| @ekza-animator/editor | 75.5 kB | @react-three/fiber | 49.1 kB |
-| @ekza-animator/editor-core | 52.4 kB | three/examples/jsm (GLTF/Draco/KTX2/meshopt loaders) | 46.3 kB |
+| @ekza-studio/editor | 75.5 kB | @react-three/fiber | 49.1 kB |
+| @ekza-studio/editor-core | 52.4 kB | three/examples/jsm (GLTF/Draco/KTX2/meshopt loaders) | 46.3 kB |
 | @react-three/fiber | 49.1 kB | next/src/client | 43.5 kB |
-| @ekza-animator/io | 34.2 kB | @ekza-animator/editor/src/panels | 42.3 kB |
+| @ekza-studio/io | 34.2 kB | @ekza-studio/editor/src/panels | 42.3 kB |
 | @pixiv/three-vrm | 32.3 kB | @pixiv/three-vrm/lib | 32.3 kB |
-| @ekza-animator/rig | 28.0 kB | editor-core/src/operators | 21.2 kB |
-| @ekza-animator/viewport | 26.3 kB | editor/src/shell | 14.1 kB |
-| @ekza-animator/curve-editor | 22.1 kB | editor-core/src/workflows | 11.8 kB |
+| @ekza-studio/rig | 28.0 kB | editor-core/src/operators | 21.2 kB |
+| @ekza-studio/viewport | 26.3 kB | editor/src/shell | 14.1 kB |
+| @ekza-studio/curve-editor | 22.1 kB | editor-core/src/workflows | 11.8 kB |
 | @gltf-transform/core | 17.1 kB | fflate | 9.9 kB |
-| @ekza-animator/doc | 16.9 kB | @gltf-transform/core/src/io | 8.4 kB |
+| @ekza-studio/doc | 16.9 kB | @gltf-transform/core/src/io | 8.4 kB |
 | react-resizable-panels | 13.5 kB | editor/src/dialogs | 8.3 kB |
-| @ekza-animator/anim-core | 11.9 kB | rig/src/import | 6.6 kB |
+| @ekza-studio/anim-core | 11.9 kB | rig/src/import | 6.6 kB |
 | fflate | 9.9 kB | | |
 
 The plan from it: the model loader (three/examples loaders + three-vrm ≈ 79 kB with their share of `three`), glTF

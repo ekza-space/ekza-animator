@@ -25,7 +25,7 @@ Decision IDs below are `M6A-B11-<n>`.
 | E2E-MOD-07, -09, -19, -32 (gated, §10.1 Gates) plus ungated B11 checks in the same files | `apps/web/e2e/m6a-{07,09,19,32}-*.spec.ts`, `apps/web/e2e/helpers/m6a-model-ops-ui.ts` |
 
 **READY flags for B11's dependents**: B12a/B12b/B13 can probe B11 by `app.operators.get('edit.adjustLast')` not
-answering "not available yet", or by `registeredMeshOperator` being exported from `@ekza-animator/editor-core`.
+answering "not available yet", or by `registeredMeshOperator` being exported from `@ekza-studio/editor-core`.
 
 ## Decisions and deviations
 

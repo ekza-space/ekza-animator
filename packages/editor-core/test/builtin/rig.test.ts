@@ -1,7 +1,7 @@
 // rig.setRotateOrder (M1-stretch, MVP-SPEC §4.11.5): the control's curves in every clip, its static values and its
 // pose override are converted so the control's world rotation is unchanged; undoable as one step.
-import { mat4Decompose, type Quat, quatAngle } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
+import { mat4Decompose, type Quat, quatAngle } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { expectUndoRedoExact, opsApp, opsAppWith, READY, runOk, runResult, setSceneFrame, WAVE } from './support';
 

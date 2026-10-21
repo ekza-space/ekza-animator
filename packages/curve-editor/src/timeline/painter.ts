@@ -1,6 +1,6 @@
 // Canvas2D painters of the time slider (ADR 0007 §7, research 09 §4.9). Drawing happens in CSS px under a
 // `setTransform(dpr, …)`; vertical bars are snapped to device pixels so ticks stay crisp at DPR 1 and 2.
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 import { BAND_HALF_CELL, bandHasSpan, type FrameRange } from './band';
 import type { TickSet } from './keys';
 import { LABEL_STRIP, layoutFrameToX, type RulerSteps, rulerSteps, type SliderLayout } from './layout';

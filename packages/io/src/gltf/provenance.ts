@@ -1,7 +1,7 @@
 // Clip provenance at import (MVP-SPEC §4.11.6 step 7, ADR 0010 §3): embedded clips of a VRM inherit its licence
 // meta, names matching /mixamo/i are never redistributable, sources without licence data are 'unknown', and bundled
 // samples pass their known licence.
-import type { ClipProvenance, DerivedFrom } from '@ekza-animator/doc';
+import type { ClipProvenance, DerivedFrom } from '@ekza-studio/doc';
 import type { VrmLicenseInfo } from '../types';
 
 const MIXAMO = /mixamo/i;

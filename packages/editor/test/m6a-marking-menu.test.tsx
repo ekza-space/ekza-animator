@@ -2,10 +2,10 @@
 // over a mesh or empty space), the flick, press-drag-release and click-release gestures, key-triggered menus (tap
 // leaves it open, hold-move-release runs), disabled items with their reasons, Esc, the drawn component, and the lazy
 // controller (a press in Animate loads nothing).
-import type { MarkingMenuDef, OperatorDef, OperatorResult, RunContext } from '@ekza-animator/editor-core';
-import { registerBuiltinWorkspaces } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { PanePointerPress } from '@ekza-animator/viewport';
+import type { MarkingMenuDef, OperatorDef, OperatorResult, RunContext } from '@ekza-studio/editor-core';
+import { registerBuiltinWorkspaces } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { PanePointerPress } from '@ekza-studio/viewport';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   createMarkingMenus,

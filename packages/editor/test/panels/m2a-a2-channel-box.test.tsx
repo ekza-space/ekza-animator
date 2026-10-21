@@ -2,10 +2,10 @@
 // row (raw @ikFk row hidden; edits and keys the IK control's curve; the switch button), the virtual slider on rows
 // (MMB press on any row, LMB drag ≥ 3 px on a name; one history step; a refused Pointer Lock falls back to capture),
 // and Lock disabled on attribute rows.
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId } from '@ekza-animator/doc';
-import { type EditorApp, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId } from '@ekza-studio/doc';
+import { type EditorApp, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';

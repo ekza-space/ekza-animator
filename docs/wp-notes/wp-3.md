@@ -1,4 +1,4 @@
-# WP-3 — `@ekza-animator/rig`: build notes
+# WP-3 — `@ekza-studio/rig`: build notes
 
 Status: 2026-10-17. Every responsibility of MVP-SPEC §7 WP-3 is implemented, including the M1-stretch items
 `convertRotateOrderKeys` (pose-preserving rotate-order change) and `remapRawClipByName` (stretch consumer).
@@ -44,7 +44,7 @@ Unit tests live in `packages/rig/test` (synthetic skeletons only); the fixture g
   evaluate 0.030 ms/pose** (92 controls, 147 nodes; budget 0.5 ms). Only the reduction gate (needs WP-1) was not
   exercised.
 - **Integration evidence (fix round 1).** With a throwaway vitest alias config (not committed) pointing
-  `@ekza-animator/io` at the WP-4 worktree's real readers and, in a second run, `@ekza-animator/anim-core` at the
+  `@ekza-studio/io` at the WP-4 worktree's real readers and, in a second run, `@ekza-studio/anim-core` at the
   WP-1 worktree: `rig.fixtures.test.ts` 14 pass + 1 skipped (WP-4 only) and 15/15 pass (WP-4 + WP-1), exit code 0
   in both; `packages/rig` with WP-1's anim-core 109/109 pass.
 - **Stub probes** (`pendingStub`, both test helpers) mark a promise returned by a real async implementation as

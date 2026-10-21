@@ -3,7 +3,7 @@
 // the Inset and Bevel handles), and the loader of the lazy topology kit that holds their behaviour, previews and the
 // manipulator drawing (§5.27: the eager route holds descriptors, registrations, keymap rows and shell code). The kit
 // loads on the first Model entry; until it has loaded a press with one of these tools does nothing.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
   PANEL,
@@ -11,7 +11,7 @@ import {
   type ToolInstance,
   type ToolPhase,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import type { ManipHandle } from '../../../types';
 import type { ViewportToolHost } from '../../host';

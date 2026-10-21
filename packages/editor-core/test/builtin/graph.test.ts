@@ -1,8 +1,8 @@
 // Graph Editor operators (MVP-SPEC §4.9 `graph.*`, §4.11.3–§4.11.5) on the wave fixture: targets (selected keys and
 // handles, else the shown curves), tangent rules, weights, infinity, numeric fields, moving/scaling/deleting/
 // inserting keys, the key clipboard, Euler filter and Simplify; undo/redo exactness.
-import { type AnimCurve, type KeyData, RAD2DEG } from '@ekza-animator/anim-core';
-import type { CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
+import { type AnimCurve, type KeyData, RAD2DEG } from '@ekza-studio/anim-core';
+import type { CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { EDITOR_CURVE_ENGINE } from '../../src/app/deps';
 import {

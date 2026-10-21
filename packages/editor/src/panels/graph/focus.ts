@@ -1,9 +1,9 @@
 // Mounted Graph Editors per app. The first mounted editor registers the graph contributions (tools, graph.frame,
 // select.curveKeys); the last one to unmount removes them. `graph.frame` and the e2e test hooks act on the focused
 // editor: the one the pointer last entered or pressed, else the most recently mounted.
-import type { Disposer } from '@ekza-animator/anim-core';
-import { type GraphEditorController, registerGraphContributions } from '@ekza-animator/curve-editor';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { type GraphEditorController, registerGraphContributions } from '@ekza-studio/curve-editor';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 export interface GraphEditorHandle {
   readonly controller: GraphEditorController;

@@ -2,19 +2,19 @@
 // anim-core, rig and io packages) with the test kit's recording services and a glTF-Validator, fixture import,
 // runtime waits, document snapshots and the undo/redo-exactness check of §6.3. The tests skip until every sibling
 // package has merged (they call real readers, rig solvers and writers), MVP-SPEC §8.1.
-import { type AnimCurve, curveEngine, EkzaError } from '@ekza-animator/anim-core';
-import { type CharacterId, emptySnapshot, fractionalIndex, seededIdSource } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
+import { type AnimCurve, curveEngine, EkzaError } from '@ekza-studio/anim-core';
+import { type CharacterId, emptySnapshot, fractionalIndex, seededIdSource } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
 import {
   type CharacterRuntime,
   createEditorApp,
   type EditorApp,
   type EditorServices,
   type ImportResult,
-} from '@ekza-animator/editor-core';
-import { createFakeServices, type FakeServices } from '@ekza-animator/editor-core/testing';
-import { checkInputBudget, parseGlb, type ValidationIssue, type ValidationReport } from '@ekza-animator/io';
-import { autoRig, compileRig, mirrorPose } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import { createFakeServices, type FakeServices } from '@ekza-studio/editor-core/testing';
+import { checkInputBudget, parseGlb, type ValidationIssue, type ValidationReport } from '@ekza-studio/io';
+import { autoRig, compileRig, mirrorPose } from '@ekza-studio/rig';
 import * as gltfValidator from 'gltf-validator';
 import { expect } from 'vitest';
 

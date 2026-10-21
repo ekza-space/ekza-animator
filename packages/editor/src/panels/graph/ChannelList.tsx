@@ -1,9 +1,9 @@
 // Graph Editor channel list (research 09 §4.7): character › control › channel rows (virtualized), colour swatches,
 // show/hide (eye) and lock per channel, a name filter and "only animated". Clicking selects channels (Shift toggle,
 // Mod remove, Mod+Shift add) and shows only their curves; double-clicking a channel selects all keys of its curve.
-import { type ChannelTreeNode, selectModeFor } from '@ekza-animator/curve-editor';
-import type { ControlRecord, DocumentStore } from '@ekza-animator/doc';
-import type { ChannelRef, EditorApp } from '@ekza-animator/editor-core';
+import { type ChannelTreeNode, selectModeFor } from '@ekza-studio/curve-editor';
+import type { ControlRecord, DocumentStore } from '@ekza-studio/doc';
+import type { ChannelRef, EditorApp } from '@ekza-studio/editor-core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { type JSX, type MouseEvent, memo, useRef } from 'react';
 import { type ChannelRow, rowRefs } from './model';

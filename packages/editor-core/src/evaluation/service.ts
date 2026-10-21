@@ -2,7 +2,7 @@
 // clip time per character, once-per-tick pose evaluation into each runtime's buffers, and channel values/states for
 // the Channel Box. Channel values and states read the store directly (preview overlay included), so they are
 // correct between ticks and for characters without a runtime.
-import { type CompiledAnimCurve, type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
+import { type CompiledAnimCurve, type Disposer, EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {
   type ChannelId,
   type CharacterId,
@@ -13,8 +13,8 @@ import {
   type DocumentStore,
   TRS_CHANNELS,
   type TrsChannel,
-} from '@ekza-animator/doc';
-import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-studio/rig';
 import type { KernelDeps } from '../app/deps';
 import { channelDefault, channelDefaultOf, isKeyable, isLocked } from '../edit/channelMeta';
 import type { CharacterRegistry, CharacterRuntime, ChannelState, EvaluationService, SessionStore } from '../types';

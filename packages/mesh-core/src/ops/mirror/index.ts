@@ -15,7 +15,7 @@
 // 5. Each copied quad shows the mirror image of its source's diagonal (`FACE_FLIP_DIAGONAL` set where the shared
 //    triangulation's tie-break would pick the other one), so the halves look identical.
 // `selection′` = every face (face memory). Half cube (centre loop, −X faces deleted) 8/12/5 → 12/20/10.
-import { mat4Invert, mat4Multiply, type ParamValues } from '@ekza-animator/anim-core';
+import { mat4Invert, mat4Multiply, type ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD, FACE_FLIP_DIAGONAL } from '../../constants';
 import { allEdgesHard } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';

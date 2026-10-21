@@ -2,7 +2,7 @@
 // a viewport pane's display flags, which live in the ViewportManager; `ui.commandPalette` and `ui.markingMenu` open
 // shell overlays. The operators stay registered with the built-ins (scripts, menus and the palette see them in every
 // app) and poll-fail politely until the viewport or the shell provides its port. One port of each kind per app.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type { DisplayFlags, EditorApp, MarkingMenuDef, RunContext } from '../types';
 
 /** What the viewport offers the pane display operators (B9's ViewportManager). */

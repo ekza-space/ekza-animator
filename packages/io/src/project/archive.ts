@@ -9,7 +9,7 @@
 // entry shape as `assets`), never under `assets`, which an M2a reader accepts only for glb/vrm/vrma. An M2a reader
 // ignores both prefixes (unknown entries are never inflated) and opens such a project read-only. Entry order:
 // manifest.json, project.json, then assets/, blobs/ and images/, each sorted by name.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   type AssetId,
   assetMime,
@@ -19,7 +19,7 @@ import {
   parseSnapshot,
   SCHEMA_VERSION,
   serializeSnapshot,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { type UnzipFileInfo, unzipSync, zipSync, type Zippable } from 'fflate';
 import { canonicalJson } from '../gltf/json';
 import { isIndex, isRecord, type JsonRecord, textOf, unknownList } from '../gltf/schema';

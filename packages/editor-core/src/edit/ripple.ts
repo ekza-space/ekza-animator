@@ -3,8 +3,8 @@
 // selected controls of the active character, all of them when none is selected) or the controls the Dope Sheet shows
 // (its "Show" setting). Panels that show their own set register a provider for their panel kind, so operators run
 // from the keymap (the arrow-key nudge, paste insert) ripple over what that panel shows.
-import type { Disposer, Frame } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId, KeyId, ReadView } from '@ekza-animator/doc';
+import type { Disposer, Frame } from '@ekza-studio/anim-core';
+import type { ClipId, ControlId, CurveId, KeyId, ReadView } from '@ekza-studio/doc';
 import type { EditorApp, PanelKind } from '../types';
 
 /** The ripple of one edit (§5.11): the scope curves and the region before the edit. */

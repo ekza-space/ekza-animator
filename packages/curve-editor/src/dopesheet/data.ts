@@ -10,9 +10,9 @@ import {
   type InfinityMode,
   Segment,
   segmentControlPoints,
-} from '@ekza-animator/anim-core';
-import type { CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
-import type { EditorApp, KeyPartSelection } from '@ekza-animator/editor-core';
+} from '@ekza-studio/anim-core';
+import type { CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
+import type { EditorApp, KeyPartSelection } from '@ekza-studio/editor-core';
 import type { DopeSheetRow } from '../types';
 
 /** Key times closer than this share a glyph (§5.10). */

@@ -25,7 +25,7 @@ import type {
   RigRecord,
   SkeletonId,
   SwatchRecord,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import type { RowView } from './layers';
 import { byOrderThenId, compareStrings } from './rows';
 

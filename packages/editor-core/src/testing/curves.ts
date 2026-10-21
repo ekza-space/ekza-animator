@@ -11,7 +11,7 @@ import {
   Segment,
   type SegmentKind,
   type TangentType,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 
 export const naiveCurveEngine: CurveEngine = {
   compile: (curve) => compileNaiveCurve(curve),

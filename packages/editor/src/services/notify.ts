@@ -1,5 +1,5 @@
 // Toast queue behind the Notifier service (research 09 §6.5: bottom-right, 4 s, at most 3 visible, Undo action).
-import type { Notifier, OperatorId } from '@ekza-animator/editor-core';
+import type { Notifier, OperatorId } from '@ekza-studio/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 
 export interface ToastItem {

@@ -8,7 +8,7 @@
 // - Per-table migrations come from `TableDef.migrations` and move each record from the snapshot's
 //   `tableVersions[table]` to the registered `TableDef.version`.
 // New IDs are derived, never random, so two clients migrating the same document write identical records.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { BUILTIN_TABLES } from '../records';
 import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type { DocSnapshot, SnapshotTables } from '../store';

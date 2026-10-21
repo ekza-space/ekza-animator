@@ -1,5 +1,5 @@
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { readAnimations } from '../src/animation/read';
 import { parseGlb } from '../src/glb/parse';

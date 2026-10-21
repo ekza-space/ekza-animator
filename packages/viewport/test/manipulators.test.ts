@@ -9,10 +9,10 @@ import {
   quatMultiply,
   quatRotateVec3,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ControlId, ControlRecord } from '@ekza-animator/doc';
-import { beginChannelEditGesture, type ChannelEdit, type ChannelEditGesture } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeServices } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/anim-core';
+import type { ControlId, ControlRecord } from '@ekza-studio/doc';
+import { beginChannelEditGesture, type ChannelEdit, type ChannelEditGesture } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeServices } from '@ekza-studio/editor-core/testing';
 import { OrthographicCamera, WebGLRenderer } from 'three';
 import { afterEach, describe, expect, it } from 'vitest';
 import { dragControl, rotateEdits } from '../src/manipulators/drag';

@@ -1,10 +1,10 @@
 // The kernel's `OpContext` for one mesh (M6A-SPEC §4.3, §5.14, §5.15): world placement through the scene hierarchy,
 // the mesh's symmetry and soft-select settings (or the ones a re-run recorded in `LastRun.context`, §5.7), hidden
 // components (B10), the curve engine and the scale-relative epsilon.
-import { type ReadonlyXf, xfIdentity, xfMultiply } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId, MeshRecord, ReadView } from '@ekza-animator/doc';
-import type { CurveEngine } from '@ekza-animator/anim-core';
-import type { EditMesh, HiddenSet, MeshData, OpContext, SoftContext, SymmetryMap } from '@ekza-animator/mesh-core';
+import { type ReadonlyXf, xfIdentity, xfMultiply } from '@ekza-studio/anim-core';
+import type { GroupId, MeshId, MeshRecord, ReadView } from '@ekza-studio/doc';
+import type { CurveEngine } from '@ekza-studio/anim-core';
+import type { EditMesh, HiddenSet, MeshData, OpContext, SoftContext, SymmetryMap } from '@ekza-studio/mesh-core';
 import type { SoftSelectSettings, SymmetrySettings } from '../types';
 
 /** The symmetry and soft context of a run: the session's (a first run) or the recorded ones (adjust/repeat). */

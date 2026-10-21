@@ -1,7 +1,7 @@
 // Topology helpers of the overlays and the picker: flat arrays from edit and stored forms, the one visibility rule
 // (hidden faces take the edges and vertices only they use along; isolate sets), diagonals, centroids and CSR maps;
 // and the view-side mirrored partners (§5.6 "expanded minus stored").
-import { BitSet, type HiddenSet, selectionOf, type SymmetryMap } from '@ekza-animator/mesh-core';
+import { BitSet, type HiddenSet, selectionOf, type SymmetryMap } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { mirroredOf, partnerOf } from '../src';
 import {

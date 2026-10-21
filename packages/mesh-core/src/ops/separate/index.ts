@@ -3,7 +3,7 @@
 // face index stays in the input record, the others become new records named after the input ("<name> 2", "3"…: the runner numbers them). Loose
 // vertices and wire edges belong to no shell and are dropped (`separate.loose-dropped`). Several inputs separate one
 // by one. Refusals: asset-backed inputs (M6a), a mesh with a single shell.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { copySubset } from '../../subset/copy';
 import { bitsOf, shells } from '../../subset/setops';

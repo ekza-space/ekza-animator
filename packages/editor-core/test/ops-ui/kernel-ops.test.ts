@@ -3,8 +3,8 @@
 // bit-identical to a fresh run; Bevel's `30%` fraction and its Segments adjust without a new step; Insert Edge Loop
 // repeated by `G` from an edge of another ring; a paramless repeatable op (Triangulate) repeated on the next selection;
 // Triangulate, Conform and Average Vertices on whole meshes in object mode (§6.1 Modes "…, object").
-import type { MeshId } from '@ekza-animator/doc';
-import { editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { beginCardPreview, type NumericCapture } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/support';

@@ -1,7 +1,7 @@
 // Clip timing and `ekza_animation_v1` clip metadata helpers shared by the bake, the writers and the editor's export
 // preflight. Kept apart from the bake so the editor's initial route does not load the bake (M2A-SPEC §5.21.2).
-import type { Frame } from '@ekza-animator/anim-core';
-import type { DerivedFrom } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { DerivedFrom } from '@ekza-studio/doc';
 import type { EkzaClipMetaV1 } from '../types';
 
 export function clipFramesToSeconds(frames: Frame, fps: { readonly num: number; readonly den: number }): number {

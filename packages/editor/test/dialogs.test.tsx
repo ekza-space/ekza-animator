@@ -1,15 +1,10 @@
 // Dialogs with the fake app: import summary (format and licence badges, clip checklist, reduce, options), export
 // (kinds from the exporter registry, clips, profiles filtered by kind, poll reasons, results and lints), the
 // shortcut sheet and preferences; plus the frame gate that keeps demand rendering alive.
-import { type EditorApp, GLOBAL_SCOPE, type ExporterDef } from '@ekza-animator/editor-core';
-import type { CharacterId, ClipId } from '@ekza-animator/doc';
-import {
-  DEFAULT_EXPORT_REDUCE,
-  type ExportArtifact,
-  type ExportProfileDef,
-  type ExportRequest,
-} from '@ekza-animator/io';
-import { NumberField } from '@ekza-animator/ui';
+import { type EditorApp, GLOBAL_SCOPE, type ExporterDef } from '@ekza-studio/editor-core';
+import type { CharacterId, ClipId } from '@ekza-studio/doc';
+import { DEFAULT_EXPORT_REDUCE, type ExportArtifact, type ExportProfileDef, type ExportRequest } from '@ekza-studio/io';
+import { NumberField } from '@ekza-studio/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../src/dialogs/DialogHost';

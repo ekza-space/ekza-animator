@@ -1,9 +1,9 @@
 // Contract file: MVP-SPEC §4.3 with the M2A-SPEC §4.3 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { CurveEngine, Fps, Frame, InfinityMode, KeyData, Mat4, Quat, ReadonlyQuat, ReadonlyVec3, ReadonlyXf,
-  RotateOrder } from '@ekza-animator/anim-core';
+  RotateOrder } from '@ekza-studio/anim-core';
 import type { AttrDef, BoneRef, ChannelId, ChannelValues, ClipId, ConstraintRecord, ControlId, ControlRecord,
-  HumanBoneName, ModelFormat, RigId, RigRecord, SolverId, SolverRecord } from '@ekza-animator/doc';
+  HumanBoneName, ModelFormat, RigId, RigRecord, SolverId, SolverRecord } from '@ekza-studio/doc';
 
 /** One glTF node, in topological order (parents before children). */
 export interface SkeletonNode {

@@ -1,7 +1,7 @@
 // M2A-SPEC §5.9, §5.11 (A3) on the time slider: Mod+drag copies the band's keys, ripple band moves and scales over
 // one global region (the band), the MMB drag carries the pose, breakdown ticks, the band grab points and key ticks
 // of the test API, and the Ripple/Insert/Remove/Delete Time menu items.
-import { registerBuiltinOperators } from '@ekza-animator/editor-core';
+import { registerBuiltinOperators } from '@ekza-studio/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_TIMELINE_THEME } from '../../src/timeline/theme';
 import {

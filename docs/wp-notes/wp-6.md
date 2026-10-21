@@ -56,7 +56,7 @@ redraw of every edited curve (painting ~40k handles at 20k selected keys is ~7 m
 
 ## Public API beyond §7 (additive)
 
-`@ekza-animator/curve-editor` keeps every §7 signature and adds:
+`@ekza-studio/curve-editor` keeps every §7 signature and adds:
 
 - `GraphEditorController`: `host` (the `GraphToolHost` tools receive), `curves` (shown CurveIds), `size`, `busy`,
   `stats` (redraw counters for idle checks), `cursor()`, `cancel()` (Esc/blur/pointercancel), `pointerLeave()`.

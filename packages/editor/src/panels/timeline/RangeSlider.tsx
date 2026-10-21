@@ -2,9 +2,9 @@
 // fields edit the clip's range (`clip.setSettings`, undoable); the inner fields and the bar edit the playback range
 // (`time.setPlaybackRange`, session state in scene frames). Dragging the bar's ends moves one end, its middle shifts
 // the range; double-click toggles between the whole clip and the last custom range.
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { type JSX, type PointerEvent as ReactPointerEvent, useRef, useState } from 'react';
 import { useSession } from '../../hooks';
 import { FrameInput } from './fields';

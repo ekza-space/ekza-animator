@@ -1,4 +1,4 @@
-import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
+import { naiveCurveEngine } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CHANNEL_COLORS, DEFAULT_GRAPH_THEME } from '../src';
 import { frameToX, valueToY } from '../src/view/transform';

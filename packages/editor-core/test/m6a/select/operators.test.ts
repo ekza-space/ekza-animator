@@ -1,11 +1,11 @@
 // B10 (M6A-SPEC §5.6, §6.2): component modes and hilite, selection gestures as history steps (one per gesture,
 // continuation coalescing, undo/redo restoring the selection, nothing in Animate), all/invert/none, object selection,
 // hide/show/isolate, and the Model session repair. Walker operators (B2) and Mesh Check matching (B5) are gated.
-import type { GroupId, MeshId, PaletteId } from '@ekza-animator/doc';
-import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-animator/doc/testing';
-import type { MeshData } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
-import { buildMeshData } from '@ekza-animator/mesh-core/testing';
+import type { GroupId, MeshId, PaletteId } from '@ekza-studio/doc';
+import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-studio/doc/testing';
+import type { MeshData } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
+import { buildMeshData } from '@ekza-studio/mesh-core/testing';
 import { describe, expect, it } from 'vitest';
 import {
   componentInternals,

@@ -4,9 +4,9 @@
 // be aligned before Combine; constrained handles take the candidate's projection on their axis or plane), `J`
 // increments (0.1 m, 15°, 0.1). Snapping moves the pivot and the selection keeps its spacing (Maya's Retain component
 // spacing on).
-import type { ReadonlyVec3, Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import { type EditorApp, objectsDrawnIn } from '@ekza-animator/editor-core';
+import type { ReadonlyVec3, Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { type EditorApp, objectsDrawnIn } from '@ekza-studio/editor-core';
 import type { ManipHandle } from '../../../types';
 import { meshWorld, transformPoint } from './frame';
 import { type Motion, movedAxes, PLANE_NORMAL, TRANSLATE_AXIS } from './motion';

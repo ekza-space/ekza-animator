@@ -4,7 +4,7 @@
 // map's arrays, so a B3 op runs symmetric with any map (tests build reference maps; the runtime passes B2's).
 // `expandIndices` and `mirrorPoint` follow §5.14 exactly as `expandSelection`/`mirrorEdgePoint` define them (a gated
 // test cross-checks them against B2's functions once `READY.b2`).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import { KERNEL_MARKER } from '../../../kernel';
 import type { ComponentKind, EditMesh, OpWarning, SymmetryContext, SymmetryMap } from '../../../types';
 import type { Affine } from './affine';

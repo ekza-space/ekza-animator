@@ -1,9 +1,9 @@
 // The viewport panel (WP-5): pane grid per layout, pane headers, HUD and the empty-state drop zone, mounted with the
 // shared test kit's fake app (no model loader, so the panel hosts its own canvas and ViewportManager).
-import type { CameraId, DocSnapshot } from '@ekza-animator/doc';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { viewportManagerOf } from '@ekza-animator/viewport';
+import type { CameraId, DocSnapshot } from '@ekza-studio/doc';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { viewportManagerOf } from '@ekza-studio/viewport';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, EditorAppProvider } from '../src';
 import { registerViewportPanel, ViewportPanel } from '../src/panels/viewport';

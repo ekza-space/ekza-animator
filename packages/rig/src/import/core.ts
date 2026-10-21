@@ -9,8 +9,8 @@ import {
   reduceKeys,
   type TangentType,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ControlRecord, TrsChannel } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ControlRecord, TrsChannel } from '@ekza-studio/doc';
 import { BIND_ROTATE } from '../kernel/constants';
 import type { RigInternals } from '../kernel/internals';
 import { allocXfArrays, type XfArrays, xfaIdentity, xfaInvMul, xfaMul, xfaMulInv } from '../math/xfa';

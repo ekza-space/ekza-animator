@@ -1,8 +1,8 @@
 // Graph Editor panel (MVP-SPEC §7 WP-6) over the shared test kit's fake app and the synthetic wave document.
-import { EkzaError, tangentFields } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId, DocSnapshot, KeyId } from '@ekza-animator/doc';
-import { type KeyPartSelection, PANEL, parseNumericInput } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { EkzaError, tangentFields } from '@ekza-studio/anim-core';
+import type { ClipId, ControlId, CurveId, DocSnapshot, KeyId } from '@ekza-studio/doc';
+import { type KeyPartSelection, PANEL, parseNumericInput } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';

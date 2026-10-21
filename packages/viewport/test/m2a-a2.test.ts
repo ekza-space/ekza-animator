@@ -2,15 +2,15 @@
 // sets hidden, selected ghosts at 25 % alpha, never pickable or marquee-selected), pole annotation lines from the
 // mid bone to the pole, and the plain-MMB virtual slider (pointer capture and Pointer Lock paths, Esc under lock,
 // refused locks, Alt+MMB stays navigation).
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId, RigId } from '@ekza-animator/doc';
-import { registerBuiltinOperators } from '@ekza-animator/editor-core';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId, RigId } from '@ekza-studio/doc';
+import { registerBuiltinOperators } from '@ekza-studio/editor-core';
 import {
   createFakeIkEditorApp,
   type FakeEditorApp,
   fixtureControl,
   withLimbIkRecords,
-} from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { startVirtualSliderDrag } from '../src';
 import { ControlLayer } from '../src/controls/ControlLayer';

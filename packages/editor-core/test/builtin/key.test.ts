@@ -1,6 +1,6 @@
 // Keying and channel operators (MVP-SPEC §4.11.1, §4.11.2): what `key.set` keys and with which values, overrides
 // consumed by keying, delete at frame, auto key, typed channel values and channel locks; undo/redo exactness.
-import type { ControlId } from '@ekza-animator/doc';
+import type { ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { curveOf as waveCurve } from '../kernel/support';
 import {

@@ -12,7 +12,7 @@
 // with a hole or a handle refuses `delete.hole`, a union without any border (it closes a whole shell) refuses
 // `delete.closed` — unless every vertex of it is deleted (vertex mode), when the shell simply goes. `selection′` is
 // empty. Symmetry: the expanded selection (§5.14). Nothing is kept unused (§5.1 orphan cleanup).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { allEdgesHard, mergeEdgeFlags } from '../../normals/hard';
 import { refuse } from '../../refusal';

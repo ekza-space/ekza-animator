@@ -1,4 +1,4 @@
-// '@ekza-animator/doc/testing' (Node only; may use node:fs). Final signatures (MVP-SPEC §7 WP-2) plus the building
+// '@ekza-studio/doc/testing' (Node only; may use node:fs). Final signatures (MVP-SPEC §7 WP-2) plus the building
 // blocks other test suites reuse (documented in docs/wp-notes/wp-2.md).
 export { runDocumentStoreConformance } from './conformance';
 export {

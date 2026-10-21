@@ -24,7 +24,7 @@ Decision IDs below are `M6A-B12B-<n>`.
 
 **READY flag for B12a**: `app.extrude` is no longer the B0a stub when `extrudeEngineModule()` (or `loadExtrudeEngine()`)
 resolves, or when `app.extrude.state` becomes non-null after a `mesh.extrude` run; `beginSmartExtrude` is exported from
-`@ekza-animator/editor-core`.
+`@ekza-studio/editor-core`.
 
 ## Decisions and deviations
 

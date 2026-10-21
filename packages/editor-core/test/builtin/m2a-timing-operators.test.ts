@@ -2,7 +2,7 @@
 // graph.keys.move / scale ripple defaults by panel, the value scale of graph.keys.scale (§5.15.3, enabled at
 // integration), graph.keys.paste 'insert' and graph.keys.copyTo. Every undoable operator reverts and redoes exactly in
 // one step (§9.2).
-import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
+import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { ensureCurve, registerRippleControls } from '../../src';
 import type { EditorApp, KeyPartSelection } from '../../src/types';

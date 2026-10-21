@@ -11,9 +11,9 @@ import {
   quatShortestArc,
   type ReadonlyQuat,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { CharacterId, HumanBoneName, ModelFormat, RigId } from '@ekza-animator/doc';
-import { readSyntheticFixture } from '@ekza-animator/doc/testing';
+} from '@ekza-studio/anim-core';
+import type { CharacterId, HumanBoneName, ModelFormat, RigId } from '@ekza-studio/doc';
+import { readSyntheticFixture } from '@ekza-studio/doc/testing';
 import type { SkeletonDesc, SkeletonNode } from '../src';
 
 export const IDS = {

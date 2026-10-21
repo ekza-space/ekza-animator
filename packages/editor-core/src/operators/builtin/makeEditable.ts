@@ -6,9 +6,9 @@
 // slots and its first revision as `data`. Importing or animating a character writes no mesh record (rule 10).
 // `prepare` runs the lazy half (`workflows/exportModel.ts`: the io/mesh entry decodes, welds and gates, the record is
 // built); a refusal fails the run with its reason and writes nothing. The poll checks the licence up front.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, MeshId } from '@ekza-animator/doc';
-import { type MakeEditableReport, readVrmLicense } from '@ekza-animator/io';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId, MeshId } from '@ekza-studio/doc';
+import { type MakeEditableReport, readVrmLicense } from '@ekza-studio/io';
 import { isAssetCharacter } from '../../characters/registry';
 import type { EditorApp, PollResult } from '../../types';
 import type { MakeEditablePrepared } from '../../workflows/exportModel';

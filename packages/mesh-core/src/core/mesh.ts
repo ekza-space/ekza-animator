@@ -23,7 +23,7 @@
 //
 // Topology changes only through the Euler operators of ../euler/operators.ts; this module owns storage, traversal,
 // logged writes, element moves, transactions and `apply`.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { isKernelDebug } from './debug';
 import { kernelError } from '../kernel';
 import {

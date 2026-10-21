@@ -1,9 +1,9 @@
 // The curves a Graph Editor shows (ARCHITECTURE §9 `CurveSet`): visible CurveIds → records, keys and compiled curves
 // from the evaluation service. Rebuilt lazily after document changes; reads go through the store, so an active
 // preview (a drag in progress) is what gets drawn.
-import type { CompiledAnimCurve } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlRecord, CurveId, CurveRecord, KeyId, KeyRecord } from '@ekza-animator/doc';
-import { channelUnit, type EditorApp } from '@ekza-animator/editor-core';
+import type { CompiledAnimCurve } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlRecord, CurveId, CurveRecord, KeyId, KeyRecord } from '@ekza-studio/doc';
+import { channelUnit, type EditorApp } from '@ekza-studio/editor-core';
 import { channelColor } from '../channel-tree/colors';
 import { channelDisplayScale } from '../view/transform';
 

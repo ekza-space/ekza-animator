@@ -1,7 +1,7 @@
 // Kernel ops of `ops/extrude/` (M6A-SPEC §6.1, §5.8; B3): `mesh.extrude` on faces (regions or individual faces) and
 // on border edges, with divisions, the cap transform in its region frame, mirror-consistent frames under symmetry
 // (§5.14) and an `adjust` fast path for the value args. Vertex mode poll-fails ("not available yet", §1.2).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { resolveSmoothingAngle } from '../../normals/normals';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';

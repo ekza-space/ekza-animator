@@ -1,7 +1,7 @@
 // Windows › Presets (docs/LAYOUT-PRESETS.md): save the current layout under a name, and apply, rename or delete the
 // user's presets of the active workspace. Every action runs a `workspace.preset.*` operator; the list follows the
 // preset store.
-import { Button, Dialog, DialogContent, DialogFooter, TextInput } from '@ekza-animator/ui';
+import { Button, Dialog, DialogContent, DialogFooter, TextInput } from '@ekza-studio/ui';
 import { type FormEvent, type JSX, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useSession } from '../hooks';
 import { useShell } from '../shell/context';

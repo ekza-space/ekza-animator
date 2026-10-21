@@ -2,8 +2,8 @@
 // node indices. Times are made strictly increasing (keys at or before the previous time are dropped together with
 // their values); channels whose data is inconsistent are truncated to the keys both accessors hold. Meshopt-compressed
 // animation data cannot be decoded headlessly and throws EkzaError('compressed-animation').
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AnimPath, RawChannel, RawClip, SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AnimPath, RawChannel, RawClip, SkeletonDesc } from '@ekza-studio/rig';
 import { GltfReader } from '../gltf/accessor';
 import { animationsOf, type GltfAnimationDef, isIndex, isRecord, listField, pointer } from '../gltf/schema';
 import type { GlbContainer } from '../types';

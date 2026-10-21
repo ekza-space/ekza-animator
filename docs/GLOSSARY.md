@@ -21,7 +21,7 @@ descriptively.
 | **Clip frame / scene frame** | Clip frame: time in the clip's own fps (what the ruler and Graph Editor show). Scene frame: the shared clock at the project's scene fps; `clipFrame = (sceneFrame − sceneStart)·clipFps/sceneFps`. |
 | **cog** | "Centre of gravity" control: a pure space (translate + rotate) above the pelvis and spine; it drives no bone itself. |
 | **Compiled curve** | Typed-array form of a curve (times, values, resolved slopes and handles, segment kinds) built from key records for fast evaluation and drawing. |
-| **Conformance suite** | Shared tests (`@ekza-animator/doc/testing`) every `DocumentStore` implementation must pass; the test-only Yjs store runs its replicating part (convergence, invariants, per-user undo) in CI from M1. |
+| **Conformance suite** | Shared tests (`@ekza-studio/doc/testing`) every `DocumentStore` implementation must pass; the test-only Yjs store runs its replicating part (convergence, invariants, per-user undo) in CI from M1. |
 | **Control** | The thing an animator selects and keys (a circle, cube, star, lollipop…). Controls drive bones; bones are never keyed. |
 | **Control shape** | The drawn geometry of a control, a `SplineSet` from the control-shape registry (the same type future spline modeling uses). |
 | **CRDT** | Conflict-free replicated data type (Yjs) used for real-time collaboration from M3. |

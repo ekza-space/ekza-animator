@@ -6,7 +6,7 @@
 // g on the seam: both s and p(s) weld onto g; g = p(s): both merge to their centre on the plane; s on the seam and g
 // off it: refused with Preserve Seam (`symmetry.seam`); a missing partner welds once with
 // `symmetry.unmatched-partner`.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { unmatchedWarnings, mirrorOf } from '../extrude/shared/symmetry';

@@ -40,7 +40,7 @@ becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN 
 
 - [x] GitHub repository renamed `ekza-space/ekza-animator` → `ekza-space/ekza-studio` (the old URL redirects).
 - [ ] Code rename, right after M6a and M-AI (MCP) are merged into `dev` and before M6b starts (running agents use the
-      current paths): package scope `@ekza-animator/*` → `@ekza-studio/*`, app title, `.ekzanim` metadata
+      current paths): package scope `@ekza-studio/*` → `@ekza-studio/*`, app title, `.ekzanim` metadata
       `generator`, README/ARCHITECTURE/docs, MCP server name, local folder `ekza-animator` → `ekza-studio` with
       `git worktree repair`. One agent, full local gate.
 - [ ] Ekza Hub (separate task, production — deploy only with the owner's OK): Hub branding in `ekza-registry/web`,

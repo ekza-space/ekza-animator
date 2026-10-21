@@ -1,5 +1,5 @@
-import { EkzaError, type Quat } from '@ekza-animator/anim-core';
-import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-animator/doc';
+import { EkzaError, type Quat } from '@ekza-studio/anim-core';
+import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-studio/doc';
 import { TwoBoneCore } from '../ik/core';
 import { internalsOf } from '../kernel/internals';
 import type { RigOpImpl } from '../kernel/ops';

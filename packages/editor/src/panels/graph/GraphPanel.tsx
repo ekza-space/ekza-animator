@@ -1,9 +1,9 @@
 // Graph Editor panel (MVP-SPEC §7 WP-6, research 09 §4.7): toolbar, numeric fields, the channel list and the curve
 // view, in a resizable split. Panel-local state: filter, "only animated", hidden curves, collapsed rows; M2a: the
 // view mode (M2A-SPEC §5.15.2), persisted with the layout in the dockview panel's parameters.
-import { buildChannelTree, type GraphEditorController, selectModeFor } from '@ekza-animator/curve-editor';
-import type { DocumentStore } from '@ekza-animator/doc';
-import type { ChannelRef, GraphViewMode } from '@ekza-animator/editor-core';
+import { buildChannelTree, type GraphEditorController, selectModeFor } from '@ekza-studio/curve-editor';
+import type { DocumentStore } from '@ekza-studio/doc';
+import type { ChannelRef, GraphViewMode } from '@ekza-studio/editor-core';
 import { type JSX, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useOptionalShell } from '../../shell/context';
 import { Group, Panel, Separator as SplitSeparator } from 'react-resizable-panels';

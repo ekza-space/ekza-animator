@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AttrDef, ChannelId, ChannelValues, ControlId, ControlRecord, TrsChannel } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AttrDef, ChannelId, ChannelValues, ControlId, ControlRecord, TrsChannel } from '@ekza-studio/doc';
 import { type AttrKey, CHANNELS_PER_CONTROL, type ChannelBuffer, type RigProgram } from '../types';
 
 // Channel slots: tx ty tz rx ry rz sx sy sz (CHANNELS_PER_CONTROL per control) in `ChannelBuffer.values`; custom

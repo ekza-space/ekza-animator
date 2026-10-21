@@ -2,10 +2,10 @@
 // scene in Model: no character, mesh, group or image plane) and the dismissible Getting started card in the
 // `gettingStarted` slot. Each draws in one pane only — the maximized pane, else `pane-persp` (every Model layout has
 // it), else the layout's first pane — and its body is a lazy chunk. Registered once per panel registry.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { DocumentStore } from '@ekza-animator/doc';
-import type { SessionState } from '@ekza-animator/editor-core';
-import { LAYOUT_PANES } from '@ekza-animator/viewport';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { DocumentStore } from '@ekza-studio/doc';
+import type { SessionState } from '@ekza-studio/editor-core';
+import { LAYOUT_PANES } from '@ekza-studio/viewport';
 import { type JSX, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { type PaneOverlayProps, registerPaneOverlay } from '../../overlays/slots';

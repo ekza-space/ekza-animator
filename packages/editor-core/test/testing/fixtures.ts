@@ -1,6 +1,6 @@
-import type { CharacterId, ClipId, ControlId, CurveId, DocSnapshot, KeyId, LayerId, RigId } from '@ekza-animator/doc';
-import { readSyntheticFixture, withSchemaV3 } from '@ekza-animator/doc/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { CharacterId, ClipId, ControlId, CurveId, DocSnapshot, KeyId, LayerId, RigId } from '@ekza-studio/doc';
+import { readSyntheticFixture, withSchemaV3 } from '@ekza-studio/doc/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 
 export interface RestPoseFixture {
   readonly bones: readonly {

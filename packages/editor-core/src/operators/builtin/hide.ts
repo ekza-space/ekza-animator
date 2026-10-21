@@ -9,8 +9,8 @@
 //   every mesh (object mode).
 // - `view.isolate {paneId?}`: toggles the pane's isolate set: the selected objects (object mode), the hilited meshes
 //   (component modes) and in face mode only their selected faces.
-import type { GroupId, MeshId } from '@ekza-animator/doc';
-import type { BitSet, ComponentKind } from '@ekza-animator/mesh-core';
+import type { GroupId, MeshId } from '@ekza-studio/doc';
+import type { BitSet, ComponentKind } from '@ekza-studio/mesh-core';
 import { componentInternals } from '../../selection/component/service';
 import { recordHide } from '../../selection/component/steps';
 import type { EditorApp, HideSnapshot, OperatorContext, PollResult, SceneObjectId } from '../../types';

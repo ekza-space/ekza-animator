@@ -2,7 +2,7 @@
 // matrix column padding and sparse substitution. Buffers are the GLB BIN chunk (buffers[0] without uri) or base64
 // data URIs. Data compressed by EXT_meshopt_compression / KHR_meshopt_compression (or held only in a meshopt
 // fallback buffer) cannot be read headlessly and throws `CompressedDataError`.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { GltfJson } from '../types';
 import {
   accessorsOf,

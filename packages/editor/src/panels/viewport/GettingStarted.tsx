@@ -4,8 +4,8 @@
 // slot) ⑥ export the model (a static model export finished). Steps ②–⑥ stay ticked once reached in this session.
 // Every key comes from the keymap (`KeymapManager.label` through `shortcutFor`); the card never takes input outside
 // its own buttons, and ✕ dismisses it for this browser.
-import type { DocumentStore } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
+import type { DocumentStore } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { useDocQuery } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';

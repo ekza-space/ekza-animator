@@ -1,8 +1,8 @@
 // Shared helpers of the B12b editor-core tests (M6A-SPEC §5.8, §9 B12b): an editor app in Model with the B11 runtime
 // chunk and the extrude engine loaded (as the editor loads both on the first Model entry), meshes in a component mode
 // with a selection, counts and world positions.
-import type { MeshId } from '@ekza-animator/doc';
-import { type ComponentKind, editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { type ComponentKind, editMeshFrom, type MeshData, primitive, selectionOf } from '@ekza-studio/mesh-core';
 import { loadExtrudeEngine, loadOpsRuntime, switchWorkspace } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp } from '../mesh/support';
 

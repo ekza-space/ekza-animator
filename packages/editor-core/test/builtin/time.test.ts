@@ -1,6 +1,6 @@
 // Time operators (MVP-SPEC §4.9 `time.*`, §4.11.8): clip-frame units, snapping and clamping, scene units, key
 // jumps that wrap, playback state; frame changes discard pose overrides; nothing enters the undo history.
-import type { ControlId } from '@ekza-animator/doc';
+import type { ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { registerBuiltinOperators } from '../../src';
 import { createFakeEditorApp } from '../../src/testing';

@@ -208,9 +208,9 @@ Packages (new):
 
 | Package | Runs in | Contents | Depends on |
 |---|---|---|---|
-| `@ekza-animator/gen-core` | browser + server | types (`GenRequest`, `GenJob`, `GenCapabilities`, `GenTerms`, `GeneratorProvenance`), state machine, JSON schemas for params, cost formatting | nothing (zero deps, like `anim-core`) |
-| `@ekza-animator/gen-gateway` | server only | Fetch-API handler `handle(req: Request): Promise<Response>`, adapters, job store and blob store interfaces, webhook verifiers, fetcher, quotas, redacting logger | `gen-core`; no React, no three |
-| post chain = `@ekza-animator/mesh-core` operators (research 13 §5.17) | worker for heavy jobs (research 13 K9) + Node tests | normalize, weld, prune, reduce, normals, palette bake, budget report | `meshoptimizer` 1.3.0 (MIT, lazy Wasm), `@gltf-transform/*` 4.5.1 (already pinned) |
+| `@ekza-studio/gen-core` | browser + server | types (`GenRequest`, `GenJob`, `GenCapabilities`, `GenTerms`, `GeneratorProvenance`), state machine, JSON schemas for params, cost formatting | nothing (zero deps, like `anim-core`) |
+| `@ekza-studio/gen-gateway` | server only | Fetch-API handler `handle(req: Request): Promise<Response>`, adapters, job store and blob store interfaces, webhook verifiers, fetcher, quotas, redacting logger | `gen-core`; no React, no three |
+| post chain = `@ekza-studio/mesh-core` operators (research 13 §5.17) | worker for heavy jobs (research 13 K9) + Node tests | normalize, weld, prune, reduce, normals, palette bake, budget report | `meshoptimizer` 1.3.0 (MIT, lazy Wasm), `@gltf-transform/*` 4.5.1 (already pinned) |
 | editor panel + ops | browser | Generate panel, job tray, `gen.*` operators, `GenerationClient` (HTTP + SSE) | `editor-core`, `gen-core` |
 
 Mounting: in server builds, `apps/web/app/api/gen/[...path]/route.ts` re-exports the gateway handler

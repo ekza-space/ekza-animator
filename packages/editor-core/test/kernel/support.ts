@@ -10,8 +10,8 @@ import type {
   KeyId,
   KeyRecord,
   Tx,
-} from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { expect } from 'vitest';
 import type { KernelDeps } from '../../src/app/deps';
 import { createKernelApp, type KernelOptions } from '../../src/app/kernel';

@@ -1,7 +1,7 @@
 // Fixture helpers of the shared test kit (MVP-SPEC §3 conventions 7 and 13, §7 WP-0b). Node only.
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 
 export type LicensedFixture = 'seed-san.vrm' | 'polybot.vrm' | 'quaternius-ual.glb' | 'quaternius-idle-meshopt.glb';
 export type SyntheticFixture = 'humanoid-skeleton.json' | 'wave-doc.json' | 'rest-pose.json';

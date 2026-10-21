@@ -1,4 +1,4 @@
-import type { AssetId } from '@ekza-animator/doc';
+import type { AssetId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { createMemoryAssetStore } from '../../src';
 

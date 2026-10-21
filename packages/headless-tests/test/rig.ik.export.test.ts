@@ -1,10 +1,10 @@
 // A1 (M2A-SPEC §5.7, §8 A1 tests): an M1 rig upgraded with limb IK at ikFk 0 (the records `rig.addLimbIk` writes)
 // exports byte-identical files until a limb is switched — bake into the model, VRMA and animation GLB, through the
 // production kernel (`file.export`), with smooth and stepped curves on the legs, arms, fingers and cog.
-import type { CharacterId, ClipId, ControlId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import type { ExportArtifact, ExportKind, ExportRequest } from '@ekza-animator/io';
-import { type LimbId, limbIkRecords, readRigDefinition } from '@ekza-animator/rig';
+import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import type { ExportArtifact, ExportKind, ExportRequest } from '@ekza-studio/io';
+import { type LimbId, limbIkRecords, readRigDefinition } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 

@@ -3,9 +3,9 @@
 // and the attached app carry over when the implementation loads with the kernel, and the handles stay the same
 // objects, their subscribers seeing 'loading' → 'ready'. This file runs first in its own module graph: the kernel
 // is not loaded when it starts.
-import type { MeshId, MeshRef } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
-import { primitive } from '@ekza-animator/mesh-core';
+import type { MeshId, MeshRef } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
+import { primitive } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import {
   createEditorApp,

@@ -9,7 +9,7 @@
 // mirrored pair of edge groups measures the weight from mirrored sides (the source group, on the positive side of
 // the plane, as without symmetry; its partner gets the reflected points), so the weight applies to both halves; a
 // group that is its own mirror is symmetrized (a point on a crossing edge lands on the plane).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { allEdgesHard } from '../../normals/hard';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';

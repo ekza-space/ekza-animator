@@ -1,5 +1,5 @@
 // React bindings shared by B13's Model panels (Outliner, Palette): runtime-driven re-renders.
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { useMemo, useSyncExternalStore } from 'react';
 
 /**

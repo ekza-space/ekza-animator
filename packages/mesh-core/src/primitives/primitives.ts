@@ -11,7 +11,7 @@
 //   (0.25, 0.25) (bottom) and (0.75, 0.25) (top), radius 0.25, seen from outside;
 // - torus: u around the axis (seam on −Z), v around the section (seam on the outer equator).
 // Axes of cylinder, cone and torus along +Y; rings start on −Z. `humanoidBody` is B13's template generator.
-import { coerceArgs } from '@ekza-animator/anim-core';
+import { coerceArgs } from '@ekza-studio/anim-core';
 import { EDGE_HARD } from '../constants';
 import { buildMeshData } from '../core/build';
 import { notImplemented } from '../kernel';

@@ -2,8 +2,8 @@
 // (`session.curveBuffers`, never saved or synced): snapshot copies the target curves, swap exchanges each target
 // curve with its buffer (one undoable step; the buffers themselves are U state and undo does not restore them), clear
 // forgets them. The kernel drops the buffer of a deleted curve.
-import { type AnimCurve, EkzaError } from '@ekza-animator/anim-core';
-import type { CurveId, CurveRecord, KeyRecord, ReadView, Tx } from '@ekza-animator/doc';
+import { type AnimCurve, EkzaError } from '@ekza-studio/anim-core';
+import type { CurveId, CurveRecord, KeyRecord, ReadView, Tx } from '@ekza-studio/doc';
 import { newRecordId } from '../../app/internals';
 import { animCurve, keyDataOf } from '../../edit/context';
 import { type CurveBuffer, type EditorApp, GLOBAL_SCOPE } from '../../types';

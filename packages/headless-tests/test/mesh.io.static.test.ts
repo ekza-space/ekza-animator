@@ -2,19 +2,19 @@
 // authored GLBs with 0 validator errors, deterministic bytes (twice; after reopening the `.ekzanim` once B7 stores
 // mesh blobs in it), the palette and vertex-colour outputs, the handheld profile on a grip root, budget lints, and
 // poll refusals for character meshes and empty scenes.
-import { derivedId, type GroupId, type MeshId, seededIdSource } from '@ekza-animator/doc';
-import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-animator/doc/testing';
+import { derivedId, type GroupId, type MeshId, seededIdSource } from '@ekza-studio/doc';
+import { makeTestGroup, makeTestMesh, makeTestPalette, makeTestSwatch } from '@ekza-studio/doc/testing';
 import {
   createEditorApp,
   type DisplayModel,
   type EditorApp,
   loadMeshKernel,
   type ModelLoader,
-} from '@ekza-animator/editor-core';
-import { createFakeServices } from '@ekza-animator/editor-core/testing';
-import { type ExportArtifact, parseGlb } from '@ekza-animator/io';
-import { loadGltfInNode } from '@ekza-animator/io/testing';
-import { BUILTIN_LAYERS, type MeshData, primitive } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import { createFakeServices } from '@ekza-studio/editor-core/testing';
+import { type ExportArtifact, parseGlb } from '@ekza-studio/io';
+import { loadGltfInNode } from '@ekza-studio/io/testing';
+import { BUILTIN_LAYERS, type MeshData, primitive } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { AccessorReader } from './mesh.io.support';
 import { importFixture, realApp, runOk, validate } from './ops.support';

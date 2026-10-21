@@ -1,5 +1,5 @@
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
+import { EkzaError, type Frame } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
 import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT } from '../humanoid/bones';
 import { HUMAN_BONE_INDEX, isHumanBoneName } from '../humanoid/map';
 import { isHumanoidProgram } from '../inverse/solve';

@@ -133,7 +133,7 @@ Every descriptor is B0a's, unchanged (§11.1 op freeze); `test/descriptors.test.
 Fix round 2, on the code of `b6e3dd1`: `format:check` (1146 files), `lint`, `typecheck`, `check:deps` (15 packages)
 green; `test` (`turbo run test test:tooling --concurrency=2 --force`) 15/15 tasks green, **mesh-core 468 passed + 8
 skipped** (Node + Chromium in real Chrome; the skips are the `READY.b2`/`READY.b3` cases, now eight with the three
-World-map cases), editor 359 + 1 skipped, editor-core 793. The first forced run had one `@ekza-animator/editor` file
+World-map cases), editor 359 + 1 skipped, editor-core 793. The first forced run had one `@ekza-studio/editor` file
 fail (9 tests) under the concurrent load; it passed alone and the full forced rerun passed — the editor does not use
 the B4 symmetry code. No UI file changed; the e2e run's production build passes `check:size`: 865,794 B ≤ 900,000 B,
 the mesh kernel a lazy 51.0 kB chunk. Full e2e suite (`EKZA_E2E_PORT=3165`, project `chrome`): 109 passed,

@@ -1,7 +1,7 @@
 // Accessors for the active character's clip, runtime and clip frame (MVP-SPEC §4.11.8: the UI shows active-clip
 // frames).
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
 import type { CharacterRuntime, EditorApp } from '../types';
 
 export function activeClip(app: EditorApp): ClipRecord | null {

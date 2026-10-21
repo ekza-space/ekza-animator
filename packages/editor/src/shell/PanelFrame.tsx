@@ -1,7 +1,7 @@
 // The frame every panel renders in: key-scope and hover attributes for the input adapter, and an error boundary so
 // a failing panel shows a message instead of taking the editor down.
-import type { EditorApp, KeyScope, PanelKind } from '@ekza-animator/editor-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { EditorApp, KeyScope, PanelKind } from '@ekza-studio/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import { Component, type ErrorInfo, type JSX, type ReactNode } from 'react';
 import { INSTANCE_ATTR, PANEL_ATTR, SCOPE_ATTR } from '../input/pointer';
 import type { PanelDef } from '../panels/types';

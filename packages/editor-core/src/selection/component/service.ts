@@ -20,8 +20,8 @@
 //   Removal gestures on either side remove the pick and its partner.
 // - `session.model.components` (counts over the hilited meshes) and the runtimes' edit links follow the session: the
 //   hilited meshes are open while a component mode is active in Model and closed otherwise (§5.5 rule 8).
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import type {
   BitSet,
   ComponentKind,
@@ -29,7 +29,7 @@ import type {
   ElementRemap,
   HiddenSet,
   SymmetryMap,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { type MeshKernel, meshKernel } from '../../mesh';
 import type {
   ComponentCounts,

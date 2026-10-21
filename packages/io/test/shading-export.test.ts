@@ -3,8 +3,8 @@
 // bytes unchanged, unlit meshes unchanged, and a re-import (glTF Transform and three.js) reading the factors back.
 import { WebIO } from '@gltf-transform/core';
 import { KHRMaterialsSpecular, KHRMaterialsUnlit, type Specular } from '@gltf-transform/extensions';
-import { BUILTIN_LAYERS, type MeshData, setKernelDebug } from '@ekza-animator/mesh-core';
-import { cubeData } from '@ekza-animator/mesh-core/testing';
+import { BUILTIN_LAYERS, type MeshData, setKernelDebug } from '@ekza-studio/mesh-core';
+import { cubeData } from '@ekza-studio/mesh-core/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { readBackStatic } from '../src/export/author/artifact';
 import { writeStaticGlb } from '../src/export/author';
@@ -13,7 +13,7 @@ import { parseGlb } from '../src/glb/parse';
 import { srgbEotf } from '../src/mesh';
 import { manualModelProvenance } from '../src/provenance/model';
 import { loadGltfInNode } from '../src/testing';
-import type { ColourOutput } from '@ekza-animator/doc';
+import type { ColourOutput } from '@ekza-studio/doc';
 import type { StaticMaterial, StaticScene, StaticSwatch, SwatchShading } from '../src/types';
 import { validateGltf } from '../src/validate/validate';
 import { READY } from './ready';

@@ -2,7 +2,7 @@
 // and its persistence. Pure helpers over dockview's API and serialized JSON; each workspace's layout is stored under
 // its own versioned key (`ekza-animator:layout:v<N>:<workspace>`: Animate v2, Model v1) and every storage access is
 // guarded.
-import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-animator/editor-core';
+import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-studio/editor-core';
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
 
 export const WORKSPACE_ID = 'animate';

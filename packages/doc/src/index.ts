@@ -1,4 +1,4 @@
-export { EkzaError } from '@ekza-animator/anim-core';
+export { EkzaError } from '@ekza-studio/anim-core';
 export * from './ids';
 export { controlId, derivedId, newId, seededIdSource, setDefaultIdSource, solverId } from './ids/generate';
 export { deriveMigratedId, migrateSnapshot } from './migrations/migrate';

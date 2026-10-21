@@ -2,7 +2,7 @@
 // selected face → its centroid (one cube edge → 7/11/6); connected selected components collapse to one point (the
 // centroid of their vertices). `selection′` = the resulting vertices. Symmetry (§5.14): the expanded selection; a group
 // that is its own mirror lands on the plane.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';
 import { expandIndices, mirrorOf, unmatchedWarnings } from '../extrude/shared/symmetry';

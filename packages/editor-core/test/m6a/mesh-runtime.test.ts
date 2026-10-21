@@ -1,10 +1,10 @@
 // M6A-SPEC §4.6, §5.5, §9 B0a (6): the lazy kernel loader, the stub MeshRuntimeRegistry over the reference kernel
 // (runtimes reach 'ready' for revisions it can read, 'error' for missing blobs; writeData writes whole revisions) and
 // the meshOperator/meshSetOperator wrappers built from descriptors.
-import type { MeshId, MeshRef } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
-import { type MeshData, primitive, selectionOf, triangulate, writeRevision } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import type { MeshId, MeshRef } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
+import { type MeshData, primitive, selectionOf, triangulate, writeRevision } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryBlobStore,

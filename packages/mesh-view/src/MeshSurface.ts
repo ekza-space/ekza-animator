@@ -4,8 +4,8 @@
 // hides stay in force here (§5.6 "hidden components are not drawn" until Show All; M6A-B6-26): hidden faces, the edges
 // and vertices only they use and their overlays are not drawn and do not occlude. It also answers camera-based
 // occlusion for the components of other meshes (`occludes`, §5.6; M6A-B6-22).
-import type { HiddenSet, MeshData, Normals, Triangulation } from '@ekza-animator/mesh-core';
-import { EDGE_HARD } from '@ekza-animator/mesh-core';
+import type { HiddenSet, MeshData, Normals, Triangulation } from '@ekza-studio/mesh-core';
+import { EDGE_HARD } from '@ekza-studio/mesh-core';
 import type { Vector3 } from 'three';
 import { ViewBase } from './internal/base';
 import { type PickOccluder, TriangleOccluder, triangleIndex } from './internal/occluder';

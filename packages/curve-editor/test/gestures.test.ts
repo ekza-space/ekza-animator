@@ -1,4 +1,4 @@
-import type { CurveId, KeyId } from '@ekza-animator/doc';
+import type { CurveId, KeyId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   AXIS_LOCK_PX,

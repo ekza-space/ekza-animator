@@ -1,7 +1,7 @@
-import { quatAngle, type Quat, type ReadonlyXf } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-animator/rig';
+import { quatAngle, type Quat, type ReadonlyXf } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-studio/rig';
 import { VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';

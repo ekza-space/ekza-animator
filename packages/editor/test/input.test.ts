@@ -1,7 +1,7 @@
 // DOM input adapter (MVP-SPEC §7 WP-8 tests): scope chain from the hovered panel, tap vs hold, text-input
 // suppression and `KeyboardEvent.code` with non-Latin `key`.
-import { GLOBAL_SCOPE, type KeyBinding, type KeymapManager } from '@ekza-animator/editor-core';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { GLOBAL_SCOPE, type KeyBinding, type KeymapManager } from '@ekza-studio/editor-core';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { isClosedMenuTrigger, menuTriggerKeyRoute } from '../src/input/focus';

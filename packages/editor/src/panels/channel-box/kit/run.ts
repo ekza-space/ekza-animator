@@ -1,6 +1,6 @@
 // Operator calls from the data panels: typed by OperatorMap, tagged with the calling panel, and reported to the user
 // when they do not finish (the runner never throws; MVP-SPEC §4.11.0).
-import type { ChannelRef, EditorApp, OperatorMap, OperatorResult, PanelKind } from '@ekza-animator/editor-core';
+import type { ChannelRef, EditorApp, OperatorMap, OperatorResult, PanelKind } from '@ekza-studio/editor-core';
 
 type Args<K extends keyof OperatorMap> = OperatorMap[K]['args'];
 type Result<K extends keyof OperatorMap> = OperatorMap[K]['result'];

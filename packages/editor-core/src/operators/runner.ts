@@ -11,8 +11,8 @@
 // `prepare` that returns a plain value (not a promise) keeps the run synchronous up to `apply`.
 // M6a (M6A-SPEC §5.8; B12b): the extrude session's hooks run after the first poll (an ending run ends the session
 // before it reads the mesh) and after every finished run (an extrude opens a session; an adjusted one steps it).
-import { coerceArgs, EkzaError } from '@ekza-animator/anim-core';
-import type { DocumentStore } from '@ekza-animator/doc';
+import { coerceArgs, EkzaError } from '@ekza-studio/anim-core';
+import type { DocumentStore } from '@ekza-studio/doc';
 import { bindCapture } from '../edit/capture';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';

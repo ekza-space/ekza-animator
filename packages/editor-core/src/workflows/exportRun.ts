@@ -3,8 +3,8 @@
 // overrides; io bakes integer frames (step schedule from rig), optionally reduces the sampled tracks (§5.16), writes
 // the file(s), lints and reads them back; the host's validator report is added when it has one. Async, no document
 // writes; yields between clips.
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
+import { EkzaError, type Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
 import {
   type BakedClip,
   type BakeOptions,
@@ -16,8 +16,8 @@ import {
   exportFileName,
   type LintIssue,
   type ValidationReport,
-} from '@ekza-animator/io';
-import { computeStepSchedule, humanoidRestWorldPositions, type TrackKey } from '@ekza-animator/rig';
+} from '@ekza-studio/io';
+import { computeStepSchedule, humanoidRestWorldPositions, type TrackKey } from '@ekza-studio/rig';
 import type { EditorApp } from '../types';
 import {
   type BuiltinExportKind,

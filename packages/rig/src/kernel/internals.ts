@@ -1,5 +1,5 @@
-import type { RotateOrder } from '@ekza-animator/anim-core';
-import type { ConstraintRecord, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import type { RotateOrder } from '@ekza-studio/anim-core';
+import type { ConstraintRecord, ControlRecord, SolverRecord } from '@ekza-studio/doc';
 import { deriveInternals } from '../compile/build';
 import type { XfArrays } from '../math/xfa';
 import type { AttrKey, AttrSlot, LimbDesc, RigProgram, SkeletonDesc } from '../types';

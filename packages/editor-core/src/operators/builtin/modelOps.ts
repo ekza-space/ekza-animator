@@ -7,7 +7,7 @@
 // coerces and polls (`pendingModelOperator`), so a key press, a menu click or a script run in that window still runs
 // the real operator. Loading fills each proxy in place with its definition (poll, prepare, apply, params, extraArgs,
 // description, tool, undo label): every holder of the registry's object sees the real operator afterwards.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { OperatorDef, PollResult } from '../../types';
 import type { AnyOperator } from './define';
 import { MODEL_OPERATOR_MANIFEST } from './modelManifest';
@@ -94,7 +94,7 @@ function fill(proxy: AnyOperator, def: AnyOperator): void {
 
 /**
  * Fills the proxies from a loaded chunk (once). Exported for test setups, which install the chunk synchronously
- * (`@ekza-animator/editor-core/testing`); the app loads it through `loadModelOperators`.
+ * (`@ekza-studio/editor-core/testing`); the app loads it through `loadModelOperators`.
  */
 export function installModelOperators(module: ModelOpsModule): void {
   if (chunk !== null) return;

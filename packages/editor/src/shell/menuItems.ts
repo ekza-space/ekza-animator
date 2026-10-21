@@ -1,7 +1,7 @@
 // Menu items contributed by the shell for its own operators (dialogs, panels, workspace, help). Built-in editing
 // commands come from WP-7b's BUILTIN_MENU_ITEMS; items with the same operator and arguments are shown once.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-studio/editor-core';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
 

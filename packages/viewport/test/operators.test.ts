@@ -1,4 +1,4 @@
-import { type CameraId, EkzaError, fractionalIndex } from '@ekza-animator/doc';
+import { type CameraId, EkzaError, fractionalIndex } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FIRST_SHOT_CAMERA } from '../src';
 import { RADIAL_MARGIN_PX } from '../src/manager/ViewportManager';

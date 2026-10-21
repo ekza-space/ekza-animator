@@ -2,7 +2,7 @@
 // that always emits the smallest ready glTF index, so a file whose nodes are already parent-first keeps its glTF
 // order. The order is a function of the file alone, which lets `io/testing.loadGltfInNode` map three.js objects by
 // SkeletonDesc index without a skeleton.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { listField } from '../gltf/schema';
 
 /** Minimal glTF JSON view used for ordering. */

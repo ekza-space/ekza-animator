@@ -1,7 +1,7 @@
 // Analytic screen-space picking of controls and joints (ADR 0006 §5, MVP-SPEC §4.11.16): scene-space polylines are
 // projected per pane (cached until the camera, pose or control set changes), hits are segments within 6 CSS px,
 // candidates are ordered by screen distance, then depth, then control size, and the marquee uses the crossing test.
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
 import type { ControlEntry } from '../controls/ControlLayer';
 import { PICK } from '../theme';
 import type { MarqueeRect, ScreenPoint } from '../types';

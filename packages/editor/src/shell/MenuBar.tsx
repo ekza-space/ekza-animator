@@ -1,6 +1,6 @@
 // Menu bar (research 09 §4.1): menus from the menu registry, enabled state from operator polls evaluated when a
 // menu opens, shortcut labels from the keymap. Commands run in the context of the last hovered panel.
-import type { RunContext } from '@ekza-animator/editor-core';
+import type { RunContext } from '@ekza-studio/editor-core';
 import {
   AppMarkIcon,
   Button,
@@ -16,7 +16,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
   MenuShortcut,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { Fragment, type JSX, useEffect } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

@@ -1,7 +1,7 @@
 // The rig-definition records and the humanoid check (MVP-SPEC §4.11.6, §4.11.15) without the rig generators: the
 // editor's first route reads rigs (`readRigDefinition`) and checks humanoid skeletons; `autoRig` and its control
 // templates (`./autoRig`, `./generic`, `./humanoid`) load with the import path.
-import type { ReadView, RigId, Tx } from '@ekza-animator/doc';
+import type { ReadView, RigId, Tx } from '@ekza-studio/doc';
 import { VRM_REQUIRED_BONES } from '../humanoid/bones';
 import type { RigDefinition, SkeletonDesc } from '../types';
 

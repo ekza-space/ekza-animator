@@ -3,8 +3,8 @@
 // which draws props in every workspace and hilited meshes' components in Model), picks components and objects for
 // the select tool, tracks the pointer for the headless Model operators, frames component selections and pushes face
 // isolate sets. Animate without meshes never loads it.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import type { ModelSelectRuntime } from './runtime';
 

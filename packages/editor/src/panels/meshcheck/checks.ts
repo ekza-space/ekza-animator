@@ -2,9 +2,9 @@
 // `checkMesh`): problems grouped by code with their elements, a severity per code and the `mesh.cleanup` fix each
 // code offers ("select matching" is every code's default action). Visible elements only (the mesh's hidden set),
 // `open-border` only on meshes their template flags closed, `duplicate-slot` from the mesh's palette.
-import type { MeshId } from '@ekza-animator/doc';
-import { duplicateSlotsOf, type EditorApp, meshCheckOptions, meshKernel } from '@ekza-animator/editor-core';
-import type { Domain, MeshProblem } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { duplicateSlotsOf, type EditorApp, meshCheckOptions, meshKernel } from '@ekza-studio/editor-core';
+import type { Domain, MeshProblem } from '@ekza-studio/mesh-core';
 
 export type CheckSeverity = 'error' | 'warning' | 'info';
 

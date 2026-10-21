@@ -166,7 +166,7 @@ task from the cache of the review's forced run of the same inputs); a clean forc
 ## Benchmarks (report only)
 
 SHA-256 (anim-core, Node 25): ≈ 345 MB/s, a 64 KiB chunk in 0.19 ms. Reference kernel at 50k triangles
-(`pnpm --filter @ekza-animator/mesh-core bench`): `editMeshFrom` 5.2 ms, `triangulate` 2.6 ms, `computeNormals` 10.7 ms,
+(`pnpm --filter @ekza-studio/mesh-core bench`): `editMeshFrom` 5.2 ms, `triangulate` 2.6 ms, `computeNormals` 10.7 ms,
 `topologyStats` 2.1 ms, `writeRevision` 5.6 ms, `readRevision` 0.19 ms.
 
 ## Known issue outside B0a's files

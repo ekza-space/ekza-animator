@@ -10,7 +10,7 @@
 // - the edits of a character as surgeon `PrimitiveEdit`s (bake into model, §5.22) and its rebuilt display container
 //   (§5.23);
 // - Make editable's record (§5.21), built from the lazy io/mesh entry for `mesh.makeEditable`.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type {
   CharacterId,
   ColourOutput,
@@ -20,7 +20,7 @@ import type {
   MeshId,
   MeshRecord,
   PaletteId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type ExportArtifact,
   type ExportProfileDef,
@@ -33,9 +33,9 @@ import {
   type StaticNode,
   type StaticSwatch,
   skeletonFromGltf,
-} from '@ekza-animator/io';
-import type { MeshLintInput, StaticThreeReadBack } from '@ekza-animator/io/write';
-import type { MeshData } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/io';
+import type { MeshLintInput, StaticThreeReadBack } from '@ekza-studio/io/write';
+import type { MeshData } from '@ekza-studio/mesh-core';
 import type { GatedModelLoader } from '../characters/models';
 import { isAssetCharacter } from '../characters/registry';
 import { loadMeshKernel } from '../mesh';

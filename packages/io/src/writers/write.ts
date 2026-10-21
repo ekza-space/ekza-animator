@@ -1,8 +1,8 @@
 // Fresh-document writers (ADR 0005 §7–8, MVP-SPEC §4.11.12): animation-only GLB and VRMA, both through glTF
 // Transform (never three's GLTFExporter).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-studio/rig';
 import type { Node } from '@gltf-transform/core';
 import type { BakedClip, BakedTrack, EkzaAnimationV1, ExportArtifact, ExportProfileDef, LintIssue } from '../types';
 import { VRMC_VRM_ANIMATION, VRMCVrmAnimation } from '../vrma/extension';

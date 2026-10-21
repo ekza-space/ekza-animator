@@ -1,6 +1,6 @@
 // The editor shell's imperative core (MVP-SPEC §7 WP-8): what the React shell, the GL host, the input adapter,
 // the dialogs, the panels and the e2e test API share. One Shell per mounted editor; no React state lives here.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type {
   EditorApp,
   ImporterDef,
@@ -8,9 +8,9 @@ import type {
   PanelKind,
   PrefsStorage,
   RunContext,
-} from '@ekza-animator/editor-core';
-import type { ExportArtifact } from '@ekza-animator/io';
-import type { ViewportManager } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import type { ExportArtifact } from '@ekza-studio/io';
+import type { ViewportManager } from '@ekza-studio/viewport';
 import type { DockviewApi, SerializedDockview } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { KeyboardAdapter } from '../input/keyboard';

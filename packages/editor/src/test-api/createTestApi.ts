@@ -12,7 +12,7 @@ import {
   keyIndexAt,
   mat4Decompose,
   segmentControlPoints,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import {
   BUILTIN_TABLES,
   type CharacterId,
@@ -24,15 +24,15 @@ import {
   type CurveId,
   TRS_CHANNELS,
   type TrsChannel,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   channelDefaultOf,
   controlVisibility,
   type ManipHandle,
   type OperatorResult,
   type RunContext,
-} from '@ekza-animator/editor-core';
-import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import { applyOverrides, controlWorld, footPivotWorlds, type LimbId } from '@ekza-studio/rig';
 import { asArtifacts } from '../shell/exports';
 import { type Shell, type TweenPanel, tweenProbeKey } from '../shell/types';
 // M6a (M6A-SPEC §4.8): one file per owner, spread into the API below; each owner fills only its own file.

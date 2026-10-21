@@ -1,8 +1,8 @@
 // The soft-selection weights of a hilited mesh (M6A-SPEC §5.15; B12a): what a component transform would use now, for
 // the overlay's tint (the viewport's transform runtime) and the test API's `softWeights`. Only lazy code imports it
 // (§5.27: not in the eager route).
-import type { MeshId } from '@ekza-animator/doc';
-import type { BitSet, EditMesh } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { BitSet, EditMesh } from '@ekza-studio/mesh-core';
 import { meshKernel } from '../../mesh';
 import { worldPlacement } from '../../mesh/context';
 import { componentInternals } from '../../selection/component/service';

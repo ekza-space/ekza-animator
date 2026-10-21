@@ -2,8 +2,8 @@
 // with `valuePivot`/`valueFactor`. Values scale around a pivot in display units (degrees for rotations); the `dv` of
 // fixed handles scales with the factor, so the curve between scaled keys keeps its shape scaled; a negative factor
 // flips the keys around the pivot. Keys of locked curves are not changed.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CurveId, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CurveId, KeyId, KeyRecord, Tx } from '@ekza-studio/doc';
 import type { EditorApp, KeyEditResult } from '../types';
 import { channelUnit, isLocked, isTrsChannel } from './channelMeta';
 import { fromDisplayValue } from './numeric';

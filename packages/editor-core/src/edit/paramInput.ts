@@ -22,7 +22,7 @@ import {
   type ParamValues,
   paramLimits,
   RAD2DEG,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import { parseNumericInput } from './numeric';
 
 export type ParamInputResult =

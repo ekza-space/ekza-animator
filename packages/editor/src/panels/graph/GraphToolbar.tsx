@@ -2,16 +2,16 @@
 // infinity, Euler filter, Simplify and framing; M2a (M2A-SPEC §7, A4): the Scale tool, the view mode (absolute,
 // normalized, stacked), buffer curves (snapshot, swap), breakdown conversion (in "More ▾") and the Tween bar. Every
 // button runs an operator (MVP-SPEC §4.9).
-import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
-import type { GraphEditorController } from '@ekza-animator/curve-editor';
-import { type EditorApp, GRAPH_TOOL, type GraphViewMode, PANEL } from '@ekza-animator/editor-core';
+import type { InfinityMode, TangentType } from '@ekza-studio/anim-core';
+import type { GraphEditorController } from '@ekza-studio/curve-editor';
+import { type EditorApp, GRAPH_TOOL, type GraphViewMode, PANEL } from '@ekza-studio/editor-core';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { type JSX, useState } from 'react';
 import { useSession } from '../../hooks';
 import { TweenBar } from '../shared/TweenBar';

@@ -6,8 +6,8 @@
 // moment after the user left one, so: a `pointerlockchange` to unlocked during an active gesture cancels it (the Esc
 // path under lock); a rejected `requestPointerLock()` promise or a `pointerlockerror` falls back to pointer capture
 // for that gesture; under pointer capture Esc cancels as usual. Releasing the pointer commits (one history step).
-import type { ChannelRef, EditorApp, VirtualSlider } from '@ekza-animator/editor-core';
-import { beginVirtualSlider } from '@ekza-animator/editor-core';
+import type { ChannelRef, EditorApp, VirtualSlider } from '@ekza-studio/editor-core';
+import { beginVirtualSlider } from '@ekza-studio/editor-core';
 
 export interface VirtualSliderDrag {
   /** 'lock' while Pointer Lock holds the pointer, 'capture' otherwise. */

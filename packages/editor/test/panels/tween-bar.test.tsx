@@ -2,10 +2,10 @@
 // with a breakdown key at the frame (E2E-M2A-13 numbers), Esc cancels without a trace, the thumb springs back to 0,
 // the target label follows the selection and toggles to the pose, presets run `key.tween`, and the overshoot toggle
 // widens the slider to ±150. The status-line variant keeps its presets in an overflow menu.
-import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
-import type { ControlId, CurveId, DocSnapshot, KeyId } from '@ekza-animator/doc';
-import { ensureCurve, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
+import type { ControlId, CurveId, DocSnapshot, KeyId } from '@ekza-studio/doc';
+import { ensureCurve, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { EditorAppProvider } from '../../src';

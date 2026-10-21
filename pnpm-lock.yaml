@@ -86,10 +86,10 @@ importers:
 
   apps/web:
     dependencies:
-      '@ekza-animator/editor':
+      '@ekza-studio/editor':
         specifier: workspace:*
         version: link:../../packages/editor
-      '@ekza-animator/ui':
+      '@ekza-studio/ui':
         specifier: workspace:*
         version: link:../../packages/ui
       '@pixiv/three-vrm':
@@ -111,10 +111,10 @@ importers:
         specifier: 'catalog:'
         version: 0.186.1
     devDependencies:
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../../packages/doc
-      '@ekza-animator/io':
+      '@ekza-studio/io':
         specifier: workspace:*
         version: link:../../packages/io
       '@playwright/test':
@@ -168,16 +168,16 @@ importers:
 
   packages/curve-editor:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/editor-core':
+      '@ekza-studio/editor-core':
         specifier: workspace:*
         version: link:../editor-core
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
     devDependencies:
@@ -196,7 +196,7 @@ importers:
 
   packages/doc:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
     devDependencies:
@@ -212,7 +212,7 @@ importers:
 
   packages/doc-yjs:
     dependencies:
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
       yjs:
@@ -231,31 +231,31 @@ importers:
 
   packages/editor:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/curve-editor':
+      '@ekza-studio/curve-editor':
         specifier: workspace:*
         version: link:../curve-editor
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/editor-core':
+      '@ekza-studio/editor-core':
         specifier: workspace:*
         version: link:../editor-core
-      '@ekza-animator/io':
+      '@ekza-studio/io':
         specifier: workspace:*
         version: link:../io
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
-      '@ekza-animator/ui':
+      '@ekza-studio/ui':
         specifier: workspace:*
         version: link:../ui
-      '@ekza-animator/viewport':
+      '@ekza-studio/viewport':
         specifier: workspace:*
         version: link:../viewport
       '@react-three/fiber':
@@ -310,19 +310,19 @@ importers:
 
   packages/editor-core:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/io':
+      '@ekza-studio/io':
         specifier: workspace:*
         version: link:../io
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
       zustand:
@@ -344,25 +344,25 @@ importers:
 
   packages/headless-tests:
     devDependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/editor-core':
+      '@ekza-studio/editor-core':
         specifier: workspace:*
         version: link:../editor-core
-      '@ekza-animator/io':
+      '@ekza-studio/io':
         specifier: workspace:*
         version: link:../io
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
-      '@ekza-animator/mesh-view':
+      '@ekza-studio/mesh-view':
         specifier: workspace:*
         version: link:../mesh-view
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
       '@pixiv/three-vrm':
@@ -389,16 +389,16 @@ importers:
 
   packages/io:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
       '@gltf-transform/core':
@@ -438,7 +438,7 @@ importers:
 
   packages/mesh-core:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
       earcut:
@@ -466,10 +466,10 @@ importers:
 
   packages/mesh-view:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
       three:
@@ -497,10 +497,10 @@ importers:
 
   packages/rig:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
     devDependencies:
@@ -562,25 +562,25 @@ importers:
 
   packages/viewport:
     dependencies:
-      '@ekza-animator/anim-core':
+      '@ekza-studio/anim-core':
         specifier: workspace:*
         version: link:../anim-core
-      '@ekza-animator/doc':
+      '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
-      '@ekza-animator/editor-core':
+      '@ekza-studio/editor-core':
         specifier: workspace:*
         version: link:../editor-core
-      '@ekza-animator/io':
+      '@ekza-studio/io':
         specifier: workspace:*
         version: link:../io
-      '@ekza-animator/mesh-core':
+      '@ekza-studio/mesh-core':
         specifier: workspace:*
         version: link:../mesh-core
-      '@ekza-animator/mesh-view':
+      '@ekza-studio/mesh-view':
         specifier: workspace:*
         version: link:../mesh-view
-      '@ekza-animator/rig':
+      '@ekza-studio/rig':
         specifier: workspace:*
         version: link:../rig
       camera-controls:

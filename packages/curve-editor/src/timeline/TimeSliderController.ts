@@ -4,7 +4,7 @@
 // opens the band menu. Everything is in active-clip frames (§4.11.8). Canvas2D, no React.
 // M2a (M2A-SPEC §5.9, §5.11): Mod+drag on the band middle copies its keys, band moves and scales ripple when
 // `tools.ripple` is on (one global region: the band), an MMB drag scrubs carrying the pose, breakdown ticks are green.
-import { type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {
   type AnyChange,
   batchTables,
@@ -13,7 +13,7 @@ import {
   type KeyId,
   type TableName,
   type Tx,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   copyKeys,
   type EditorApp,
@@ -27,7 +27,7 @@ import {
   type SessionState,
   scaleKeys,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { TimeSliderHit } from '../types';
 import {
   type BandScale,

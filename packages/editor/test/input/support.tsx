@@ -10,8 +10,8 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type WorkspaceDef,
-} from '@ekza-animator/editor-core';
-import type { ViewportManager } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import type { ViewportManager } from '@ekza-studio/viewport';
 import { type JSX, useRef } from 'react';
 import { PANE_ATTR, PANEL_ATTR } from '../../src/input/pointer';
 import { useWindowInput } from '../../src/shell/useWindowInput';

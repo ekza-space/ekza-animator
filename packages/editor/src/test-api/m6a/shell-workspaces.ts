@@ -1,5 +1,5 @@
 // M6a test API, B9 group (M6A-SPEC §4.8): workspaces, pixels, key resolution, marking menus, the command palette.
-import type { KeyInput, MarkingMenuDef } from '@ekza-animator/editor-core';
+import type { KeyInput, MarkingMenuDef } from '@ekza-studio/editor-core';
 import { scopeChain } from '../../input/keyboard';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';

@@ -2,8 +2,8 @@
 // of extrude 100 faces and an Insert Edge Loop on a 200-quad ring — the op in its transaction plus the derived caches
 // (full triangulation and normals, as after a topology commit) — and a few heavier B3 ops. Each row runs on one mesh
 // and undoes its own delta, so the setup copy is not measured; the "undo + redo" rows give the share of that undo.
-// Run: pnpm --filter @ekza-animator/mesh-core bench
-import type { ParamValues } from '@ekza-animator/anim-core';
+// Run: pnpm --filter @ekza-studio/mesh-core bench
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { bench, describe } from 'vitest';
 import {
   type ComponentKind,

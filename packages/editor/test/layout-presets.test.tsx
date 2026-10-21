@@ -1,16 +1,16 @@
 // Layout presets for focused work (docs/LAYOUT-PRESETS.md): the user preset store (persistence, blocked storage),
 // the chrome toggles, focus mode's exact round trip, the built-in presets, user presets surviving a reload, the
 // Windows menu's check-box items and Presets sub-menu, and the fullscreen operator.
-import type { DocSnapshot } from '@ekza-animator/doc';
+import type { DocSnapshot } from '@ekza-studio/doc';
 import {
   BUILTIN_MENU_ITEMS,
   type EditorApp,
   MODEL_MENU_ITEMS,
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { SerializedDockview } from 'dockview-react';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createMemoryStorage } from '../src/services/storage';

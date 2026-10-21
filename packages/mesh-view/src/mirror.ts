@@ -2,7 +2,7 @@
 // `EditMeshView.setState(…, mirrored)` and the hover partner. A view-side helper over `SymmetryMap`'s partner arrays,
 // so hosts do not need the kernel's `expandSelection` to draw; it agrees with it by construction (partner −1 = none,
 // self = on the seam).
-import { BitSet, type ComponentKind, type ComponentSelection, type SymmetryMap } from '@ekza-animator/mesh-core';
+import { BitSet, type ComponentKind, type ComponentSelection, type SymmetryMap } from '@ekza-studio/mesh-core';
 
 function partners(map: SymmetryMap, kind: ComponentKind): Int32Array {
   return kind === 'vertex' ? map.vertex : kind === 'edge' ? map.edge : map.face;

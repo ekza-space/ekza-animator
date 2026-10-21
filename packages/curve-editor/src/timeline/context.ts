@@ -1,7 +1,7 @@
 // What the time slider shows: the active character's active clip, in that clip's frames (MVP-SPEC §4.11.8).
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipRecord } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipRecord } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { FrameRange } from './band';
 
 /** `ProjectRecord.sceneFps` default (§4.2) when the document has no project record yet. */

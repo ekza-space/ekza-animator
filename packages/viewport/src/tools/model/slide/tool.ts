@@ -5,8 +5,8 @@
 // screen direction over its screen length (−1…1, clamped). The preview is a `MeshOpSession` of `mesh.slide` (its
 // adjust re-solves from the pre-slide positions; no document writes); release commits it with one `mesh.slide` run
 // (`source: 'tool'`); `Esc` cancels with no step. A digit during the drag types the percent (§5.10 readout).
-import type { ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   meshKernel,
@@ -17,9 +17,9 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import type { ComponentSelection, EditMesh } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/editor-core';
+import type { ComponentSelection, EditMesh } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import type { TopologyRuntime } from '../topology/runtime';
 
 const DRAG_PX = 3;

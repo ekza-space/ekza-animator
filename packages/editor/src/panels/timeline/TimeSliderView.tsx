@@ -1,8 +1,8 @@
 // The time-slider canvas: owns a TimeSliderController, feeds it size and pointer input, redraws it after every R3F
 // frame (same frame as the viewport during playback) and opens the RMB menu. No React state changes per frame:
 // the ARIA value and the cursor are written to the DOM directly.
-import { TimeSliderController } from '@ekza-animator/curve-editor';
-import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-animator/editor-core';
+import { TimeSliderController } from '@ekza-studio/curve-editor';
+import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-studio/editor-core';
 import { addAfterEffect } from '@react-three/fiber';
 import {
   type JSX,

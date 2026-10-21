@@ -2,7 +2,7 @@
 // change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, JsonValue, KeyData, ReadonlyQuat,
-  ReadonlyVec3, ReadonlyXf, RotateOrder, SplineSet } from '@ekza-animator/anim-core';
+  ReadonlyVec3, ReadonlyXf, RotateOrder, SplineSet } from '@ekza-studio/anim-core';
 import type { AssetId, CameraId, CharacterId, ClipId, ConstraintId, ControlId, CurveId, GroupId, ImagePlaneId, JointId,
   KeyId, LayerId, MeshId, PaletteId, RigId, SkeletonId, SolverId, SwatchId, UserId } from './ids';
 

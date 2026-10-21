@@ -13,8 +13,8 @@ import {
   type ReadonlyXf,
   type Vec3,
   type Xf,
-} from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord, ReadView, Tx } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord, ReadView, Tx } from '@ekza-studio/doc';
 import { attachMeshes, meshKernel } from '../../mesh';
 import { runSeed } from '../../mesh/seed';
 import type { ApplyContext, EditorApp } from '../../types';

@@ -1,7 +1,7 @@
 // SkeletonDesc.boneSupport (M2A-SPEC §4.3, §5.2.3; A1): the per-node horizontal support function of the dominant
 // vertices, and the foot-region rule (a lower leg's vertices below the ankle count for the foot).
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { skeletonFromGltf } from '../src/skeleton/read';

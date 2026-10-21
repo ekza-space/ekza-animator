@@ -84,16 +84,16 @@ gesture is one undo step.
 Test against the kit until the real package lands (MVP-SPEC §3 convention 12); do not write private fakes of another
 package's interface.
 
-- **Fake app** (`@ekza-animator/editor-core/testing`): `createFakeEditorApp({ snapshot, skeleton })` is a full
+- **Fake app** (`@ekza-studio/editor-core/testing`): `createFakeEditorApp({ snapshot, skeleton })` is a full
   `EditorApp` over a naive document store (real transaction, preview and undo semantics), naive curves and naive FK.
   It records every `app.run` in `app.calls`; operators you register run through the real runner rules. It never
   imports Node APIs, so Vitest browser-mode tests use it too. `createFakeServices()` records downloads and toasts.
-- **Fixtures** (`@ekza-animator/doc/testing`, Node): `readFixture('seed-san.vrm')` for licensed binaries,
+- **Fixtures** (`@ekza-studio/doc/testing`, Node): `readFixture('seed-san.vrm')` for licensed binaries,
   `readSyntheticFixture('wave-doc.json')` (a `DocSnapshot`), `'humanoid-skeleton.json'` (a `SkeletonDesc`) and
   `'rest-pose.json'` (expected rest bone worlds). Browser-mode tests read the same files with
   `commands.readFile('../../fixtures/synthetic/<name>')` from `vitest/browser` (paths resolve from the package root).
   The synthetic files are generated: change `tooling/make-synthetic-fixtures.mjs` and run it, never edit the JSON.
-- **three.js in Node** (`@ekza-animator/io/testing`): `loadGltfInNode(bytes)` returns the scene, the VRM,
+- **three.js in Node** (`@ekza-studio/io/testing`): `loadGltfInNode(bytes)` returns the scene, the VRM,
   `nodeByIndex` in `SkeletonDesc` node order (`skeletonNodeOrder`: parents first, smallest glTF index first) and
   three's `animations`.
 - **Panel harness**: `pnpm dev`, then open `/dev/panels?panel=<id>` to mount one registered panel full-page with the

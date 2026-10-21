@@ -1,7 +1,7 @@
 // Plumbing of the conformance suite: the host test runner (through its globals, so the suite works under Vitest
 // `globals: true`, Jest or Mocha without importing any of them), assertions with readable diffs, and a small scene
 // built through the public store API.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type {
   AssetId,
   CameraId,

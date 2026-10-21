@@ -14,8 +14,8 @@
 //   `morphNormals`: geometric corner normals of base + delta minus those of the base (custom normals left out, so the
 //   delta is the shape's own change on top of the stored normal; non-finite values become 0).
 // - A mesh whose original primitives had TANGENT is refused unless `dropTangents` (the generator arrives in M7).
-import type { ColourOutput } from '@ekza-animator/doc';
-import type { MeshData } from '@ekza-animator/mesh-core';
+import type { ColourOutput } from '@ekza-studio/doc';
+import type { MeshData } from '@ekza-studio/mesh-core';
 import type { PaletteTexture, PrimitiveOut } from '../types';
 import { srgb8ToLinear } from './colour';
 import { computeNormals, triangulate } from './kernel';

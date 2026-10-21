@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, RigId, RigRecord } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId, RigId, RigRecord } from '@ekza-studio/doc';
 import { VRM_REQUIRED_BONES } from '../humanoid/bones';
 import { humanTemplateKey } from '../humanoid/map';
 import { limbIkRecords } from '../limb/records';

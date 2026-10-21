@@ -2,7 +2,7 @@
 // the Model viewport. Slots N Edge · W Vertex · S Face · NE Object Mode · E UV (later) · NW Multi (stretch) ·
 // SE Select ▸; the list below. Running a mode slot on a mesh that is not hilited adds it to the hilite set
 // (`select.mode` reads the press point through the pointer probe, §5.6). Positions are provisional (Q-MOD-UI-1).
-import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-animator/editor-core';
+import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-studio/editor-core';
 
 const mode = (label: string, value: 'object' | 'vertex' | 'edge' | 'face'): MarkingMenuItem => ({
   label,

@@ -1,7 +1,7 @@
 // The character's licence badge (research 09 §10.3): what VRM meta allows, e.g.
 // "Redistribution: no · Modification: prohibited". Warns when baking into the model would need an acknowledgement.
-import type { ModelFormat } from '@ekza-animator/doc';
-import type { VrmLicenseInfo } from '@ekza-animator/io';
+import type { ModelFormat } from '@ekza-studio/doc';
+import type { VrmLicenseInfo } from '@ekza-studio/io';
 
 export interface LicenceSummary {
   readonly title: string;

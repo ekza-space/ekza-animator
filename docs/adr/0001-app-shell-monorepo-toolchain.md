@@ -28,7 +28,7 @@ were re-verified against the npm registry on 2026-10-17:
 2. **Monorepo: pnpm 10.32.1 workspaces** (`packageManager: "pnpm@10.32.1"`), `catalog:` for shared versions,
    `minimumReleaseAge: 20160` (14 days) in `pnpm-workspace.yaml`, **Turborepo 2.11.7** for cached tasks.
    Internal packages are **just-in-time TypeScript** (`exports` → `./src/index.ts`), private, scope
-   `@ekza-animator/*`, never built until publishing (M2+).
+   `@ekza-studio/*`, never built until publishing (M2+).
 3. **Language: TypeScript 6.0.3** with a TS-7-clean `tsconfig` (no `baseUrl`, `moduleResolution: "bundler"`,
    `module: "esnext"`, `verbatimModuleSyntax`, `strict`, `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`). TS 6 defaults `types` to `[]`, so the configuration is a **matrix**: a base

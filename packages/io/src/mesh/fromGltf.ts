@@ -13,8 +13,8 @@
 //      flat: its edges are hard). Triangles with fewer than three distinct points are dropped and counted.
 //
 // Deterministic: the same container and mesh index always give the same MeshData.
-import type { AssetId, AssetMaterialRef } from '@ekza-animator/doc';
-import type { LayerDef, MeshData } from '@ekza-animator/mesh-core';
+import type { AssetId, AssetMaterialRef } from '@ekza-studio/doc';
+import type { LayerDef, MeshData } from '@ekza-studio/mesh-core';
 import { CompressedDataError, GltfReader } from '../gltf/accessor';
 import {
   accessorsOf,

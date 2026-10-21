@@ -1,6 +1,6 @@
 // Import dialog (research 09 §10.2; MVP-SPEC §7 WP-8): summary of the dropped model (format, size, licence badge),
 // the embedded-clip checklist, clip frame rate and key reduction, then `file.importModel` with those options.
-import { DEFAULT_REDUCE } from '@ekza-animator/rig';
+import { DEFAULT_REDUCE } from '@ekza-studio/rig';
 import {
   Badge,
   Button,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   NativeSelect,
   TriangleAlert,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { type JSX, useId, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell, useShellUi } from '../shell/context';

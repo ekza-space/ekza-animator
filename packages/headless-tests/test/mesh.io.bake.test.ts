@@ -3,16 +3,16 @@
 // the validator finds no new errors, new vertices are normalized and morph targets keep NORMAL; a Make editable
 // without edits bakes exactly as M2a did (v1); export → re-import → re-bake keeps the geometry with the original
 // baseline (the headless twin of E2E-MOD-31), also after an earlier bake emptied a material slot.
-import type { CharacterId, ClipId } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { CharacterId, ClipId } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import {
   compareValidation,
   type ExportArtifact,
   type ExportRequest,
   type GlbContainer,
   parseGlb,
-} from '@ekza-animator/io';
+} from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
   AccessorReader,

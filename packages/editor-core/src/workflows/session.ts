@@ -1,7 +1,7 @@
 // Session updates shared by the workflows: activating a character's clip at a frame, clearing the selection, and
 // resetting the document-bound session state before a document is replaced (`file.new`, `file.openProject`).
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipRecord, ReadView } from '@ekza-animator/doc';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipRecord, ReadView } from '@ekza-studio/doc';
 import { internalsOf } from '../app/internals';
 import { DEFAULT_TIME } from '../session/defaults';
 import type { EditorApp, Selection, SessionState } from '../types';

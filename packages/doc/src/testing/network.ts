@@ -2,7 +2,7 @@
 // reordering and network partitions. Updates are opaque; replicating stores must apply them idempotently and in any
 // order (CRDT updates). Lost updates are recovered by `settle()`, which re-sends every peer's full history (the
 // anti-entropy a real provider performs with state vectors on reconnect).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { Partition } from '../records';
 import type { ReplicaNetwork, ReplicatingStore } from '../store';
 import { Rng } from './random';

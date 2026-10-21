@@ -1,7 +1,7 @@
 // Pose sources and bake helpers over real fixtures (writers and surgeon tests).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { bakeClip, ekzaAnimationMeta } from '../../src/bake/bake';
 import { createFkPoseSource } from '../../src/testing';
 import type { BakedClip, EkzaAnimationV1, PoseSource } from '../../src/types';

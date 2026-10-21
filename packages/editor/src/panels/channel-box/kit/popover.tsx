@@ -1,5 +1,5 @@
 // Anchored popover of the data panels (clip settings): rendered into document.body under its anchor, closed by Esc
-// or a pointer press outside. A stand-in until `@ekza-animator/ui` ships the Radix Popover (WP-8); wp-notes D-3.
+// or a pointer press outside. A stand-in until `@ekza-studio/ui` ships the Radix Popover (WP-8); wp-notes D-3.
 import { type JSX, type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 

@@ -3,7 +3,7 @@
 // override of the shared triangulation. Edges that are not between two triangles and faces that are not quads are
 // skipped with the warning `flip.skipped`; nothing to flip refuses. Under symmetry the partner of a source quad (centroid
 // on the positive side) gets the mirrored diagonal, and partner edges spin the mirrored way.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { FACE_FLIP_DIAGONAL } from '../../constants';
 import { refuse } from '../../refusal';
 import {

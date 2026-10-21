@@ -4,7 +4,7 @@
 // runs inside transactions the caller aborts, so inputs are unchanged and every output is a valid stored mesh — on
 // fixed cases and as a property over random primitives and soups, face sets, offsets and placements (det < 0 included):
 // faces are conserved and the closed volumes of Combine's inputs add up.
-import type { ParamValues, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ParamValues, ReadonlyXf } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

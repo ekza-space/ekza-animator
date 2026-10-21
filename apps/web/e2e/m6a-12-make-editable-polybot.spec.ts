@@ -7,7 +7,7 @@
 // part of E2E-MOD-12, gated on B7's primitives) reads a static export back through three.js in the page and finds it
 // in lastExport().
 import { readFileSync } from 'node:fs';
-import { derivedId } from '@ekza-animator/doc';
+import { derivedId } from '@ekza-studio/doc';
 import { expect, test } from '@playwright/test';
 import { exportOne, readGlb, sampleBytes, validatorErrors } from './helpers/g4-export';
 import { accessorValues as values, bodyOf, changedValues, dot, forearmRingEdge, type Json } from './helpers/m6a-bake';

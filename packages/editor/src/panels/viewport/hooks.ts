@@ -1,11 +1,11 @@
 // React bindings of the viewport manager for the viewport panel.
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import {
   type PaneState,
   subscribeViewportManager,
   type ViewportManager,
   viewportManagerOf,
-} from '@ekza-animator/viewport';
+} from '@ekza-studio/viewport';
 import { useCallback, useSyncExternalStore } from 'react';
 
 /** The app's ViewportManager (created by the GL host), re-rendering when it appears or goes away. */

@@ -1,6 +1,6 @@
-import type { CurveId } from '@ekza-animator/doc';
-import type { ToolDef } from '@ekza-animator/editor-core';
-import type { FakeServices } from '@ekza-animator/editor-core/testing';
+import type { CurveId } from '@ekza-studio/doc';
+import type { ToolDef } from '@ekza-studio/editor-core';
+import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GRAPH_TOOLS, type GraphEditorController, type GraphToolHost, registerGraphContributions } from '../src';
 import { xToFrame } from '../src/view/transform';

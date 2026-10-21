@@ -1,6 +1,6 @@
 // React bindings of the EditorApp (MVP-SPEC §7 WP-8 public API; built by the shared test kit, WP-0b) and the shell
 // hooks panels use to reach the GL host, the frame loop, the help line and the e2e test API.
-import type { Prefs, SessionState } from '@ekza-animator/editor-core';
+import type { Prefs, SessionState } from '@ekza-studio/editor-core';
 import { useEditorApp } from './context';
 import { useStoreSelector } from './useStoreSelector';
 

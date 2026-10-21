@@ -1,4 +1,4 @@
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 import { internalsOf } from '../kernel/internals';
 import type { ClipSampler, CurveInfo, RigProgram, TrackKey } from '../types';
 import { clipOpActivity, keyedCurves, mappedKeyTimes, trackInfluence } from './influence';

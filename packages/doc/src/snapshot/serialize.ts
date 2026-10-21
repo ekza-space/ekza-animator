@@ -1,7 +1,7 @@
 // Deterministic snapshot text (ADR 0011 §2): sorted keys at every level, numbers as shortest round-trip JSON, no
 // timestamps, two-space indentation, `\n` line endings and a final newline. Small leaf objects and arrays of
 // primitives stay on one line so `project.json` remains readable and diffable. Same snapshot → same bytes.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { BUILTIN_TABLES } from '../records';
 import { makeProject } from '../records/factories';
 import type { DocSnapshot, SnapshotTables } from '../store';

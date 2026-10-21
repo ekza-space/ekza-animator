@@ -7,7 +7,7 @@
 // - P8: the incremental revision (`previous` + `dirty`) equals the full one, after the run and after its undo;
 // - P4 helpers: consistent winding of every two-face edge, positive signed volume for closed outward meshes.
 // No Node APIs here (the Chromium run imports it too).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import {
   type ComponentSelection,
   type EditMesh,

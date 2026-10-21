@@ -3,10 +3,10 @@
 // hyperextended right knee) imports onto Polybot with the left leg IK and the right leg FK, matching an FK-only
 // Polybot; UAL `Walk_Loop` (on UAL's own skeleton with a humanoid map) keeps each leg IK within the tolerance or
 // falls back with the reported errors, and the pole curves move continuously.
-import { curveEngine, type Fps, mat4Decompose, type Quat, quatAngle, type Vec3 } from '@ekza-animator/anim-core';
-import type { ChannelValues, HumanBoneName, TrsChannel } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
+import { curveEngine, type Fps, mat4Decompose, type Quat, quatAngle, type Vec3 } from '@ekza-studio/anim-core';
+import type { ChannelValues, HumanBoneName, TrsChannel } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-studio/io';
 import {
   autoRig,
   CHANNELS_PER_CONTROL,
@@ -24,7 +24,7 @@ import {
   type SkeletonDesc,
   writeAttr,
   writeControlChannels,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const IDS = { character: 'chr_IkImportGates001' as never, rig: 'rig_IkImportGates001' as never };

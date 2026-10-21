@@ -1,10 +1,10 @@
 // M6A-SPEC §5.27 (B7 rows, report-only): commit (hash dirty chunks + write the ref) ≤ 3 ms, undo through the journal
 // ≤ 5 ms and by rebuild ≤ 40 ms at 50k triangles; memory per edited 50k-tri mesh ≤ 40 MB; undo-retained chunks and
 // journals within the 256 MB budget on 50 morph layers × 200 commits of a 10k-vertex mesh (evicted chunks freed).
-// Run with `pnpm --filter @ekza-animator/editor-core exec vitest bench --run` (the kernel debug switch is off here:
+// Run with `pnpm --filter @ekza-studio/editor-core exec vitest bench --run` (the kernel debug switch is off here:
 // `validateMesh` after every commit is a test and development-build cost, not a runtime one).
-import type { MeshId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import type { MeshId } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
 import {
   editMeshFrom,
   type MeshData,
@@ -13,7 +13,7 @@ import {
   primitive,
   selectionOf,
   setKernelDebug,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { bench, describe } from 'vitest';
 import { createEditorApp, createMemoryBlobStore, type KernelMeshRuntimes, loadMeshKernel } from '../src';
 import { createFakeServices } from '../src/testing';

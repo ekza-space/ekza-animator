@@ -1,11 +1,4 @@
-import {
-  type Quat,
-  quatInvert,
-  quatMultiply,
-  quatNormalize,
-  quatRotateVec3,
-  type Vec3,
-} from '@ekza-animator/anim-core';
+import { type Quat, quatInvert, quatMultiply, quatNormalize, quatRotateVec3, type Vec3 } from '@ekza-studio/anim-core';
 
 // Allocation-free two-bone IK for the `ik2` op (M2A-SPEC §5.3, research 07 §9.2) with the rest-exact amendments.
 // The steps are those of the M1 solver (`twoBone.ts`, kept bit-for-bit for Plant Feet), on preallocated scratch:

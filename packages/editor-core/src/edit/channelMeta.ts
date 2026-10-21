@@ -1,8 +1,8 @@
 // Facts about channels used across the kernel: buffer slots (rig CHANNELS_PER_CONTROL layout), rotation channels
 // (degrees in the UI), defaults (0, or 1 for scale) and the keyable/locked flags of a control; M2a: display units and
 // defaults of custom attribute channels ('@name', M2A-SPEC §5.1 rules 5–6).
-import type { TangentType } from '@ekza-animator/anim-core';
-import type { AttrDef, ChannelId, ControlRecord, TrsChannel } from '@ekza-animator/doc';
+import type { TangentType } from '@ekza-studio/anim-core';
+import type { AttrDef, ChannelId, ControlRecord, TrsChannel } from '@ekza-studio/doc';
 import type { ChannelUnit } from '../types';
 
 const SLOTS: Readonly<Record<TrsChannel, number>> = {

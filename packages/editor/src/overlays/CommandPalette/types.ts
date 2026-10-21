@@ -1,6 +1,6 @@
 // The command palette's shared shapes (M6A-SPEC §5.18; B9): eager and tiny, so the shell, the test API and the lazy
 // controller agree without pulling the controller into the eager route.
-import type { ParamDef } from '@ekza-animator/anim-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
 
 export interface PaletteEntry {
   /** Unique within one opening. */

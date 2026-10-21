@@ -2,8 +2,8 @@
 // with tolerances of 5 / 6 / 5 / 4 CSS px. Locked curves are drawn but never hit. Where keys or curves overlap (e.g.
 // several flat channels through one point), the one drawn on top wins: what is hit is what is seen. Marquee queries
 // return the keys (or, when no key is inside, the shown handles) inside a rectangle.
-import { Segment } from '@ekza-animator/anim-core';
-import type { KeyId } from '@ekza-animator/doc';
+import { Segment } from '@ekza-studio/anim-core';
+import type { KeyId } from '@ekza-studio/doc';
 import { type CurveEntry, drawnOf } from '../graph/curveSet';
 import { lowerBound, segmentBezier, segmentKind, segmentValueAt, visibleRange } from '../graph/geometry';
 import { type GraphScene, handlePosition, handlesShown, keyX, keyY, type Point } from '../graph/scene';

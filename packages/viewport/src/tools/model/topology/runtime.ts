@@ -3,8 +3,8 @@
 // the tools preview from (tools get no pointer moves without a press), component picks through B10's Model select
 // runtime, scratch runs of kernel ops for previews and validation (on a copy of the stored revision: no document
 // writes, no preview session), and the help line.
-import type { Disposer, ReadonlyVec3, ReadonlyXf, Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { Disposer, ReadonlyVec3, ReadonlyXf, Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   extrudeManipulatorFrame,
@@ -13,7 +13,7 @@ import {
   sayModelHelp,
   VIEWPORT_TOOL,
   worldPlacement,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type {
   ComponentKind,
   ComponentSelection,
@@ -22,7 +22,7 @@ import type {
   OpResult,
   OpWarning,
   Refusal,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { type Camera, Group, OrthographicCamera, PerspectiveCamera } from 'three';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import { ExtrudeManipView, ValueHandleView } from '../../../manipulators/extrude/view';

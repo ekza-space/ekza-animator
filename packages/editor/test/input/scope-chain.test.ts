@@ -1,6 +1,6 @@
 // B0b (M6A-SPEC §5.17): the adapter's scope chain under the pointer, the test API's `resolveKey` over it, and the
 // help line's resolved meanings.
-import { type ComponentMode, registerBuiltinOperators } from '@ekza-animator/editor-core';
+import { type ComponentMode, registerBuiltinOperators } from '@ekza-studio/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { helpHints, keyHints, scopeChain } from '../../src/input/keyboard';
 import { shellWorkspacesTestApi } from '../../src/test-api/m6a/shell-workspaces';

@@ -5,7 +5,7 @@
 // source lies on the positive side of the plane) is moved with S ∘ T ∘ S, T the transform of its source group's
 // frame (the reflected frame S·F, identical numbers): the result then carries the source group's frame and S, so a
 // caller converts a drag of the picked group in the source's frame with the mirrored delta.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import type { EditMesh, OpFrame, SymmetryContext } from '../../types';
 import { borderRecords, chainFrame, chainsOf } from './edges';
 import { frameOf } from './geometry';

@@ -12,9 +12,9 @@ import {
   type LayerId,
   type LayerRecord,
   type RigId,
-} from '@ekza-animator/doc';
-import { readSyntheticFixture } from '@ekza-animator/doc/testing';
-import { createNaiveStore, naiveCurveEngine } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/doc';
+import { readSyntheticFixture } from '@ekza-studio/doc/testing';
+import { createNaiveStore, naiveCurveEngine } from '@ekza-studio/editor-core/testing';
 import {
   compileRig,
   computeStepSchedule,
@@ -23,7 +23,7 @@ import {
   readControlChannels,
   readRigDefinition,
   type SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { afterEach, describe, expect, it } from 'vitest';
 
 const DEG = Math.PI / 180;

@@ -4,7 +4,7 @@
 //
 // Precedence on the same chord, scope and trigger: user overrides > preference bindings (e.g. Space = play) >
 // contributions, the latest contribution first (so the `maya` preset, contributed by the built-ins, is the base).
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type { Chord, KeyBinding, KeyInput, KeymapManager, KeyScope, KeyTrigger, OperatorId } from '../types';
 import { chordLabel } from './labels';
 import { MODEL_SCOPE } from './scopes';

@@ -1,7 +1,7 @@
 // Budget presets (M6A-SPEC §5.24, research 12 §2.2; B8 owns the presets, B10 the HUD that reads them): advisory
 // triangle budgets with the "warn above" thresholds, plus the per-asset materials, palette texture and joint budgets.
 // Data only — eager-safe, no kernel code.
-import type { BudgetPresetId, MeshBudget } from '@ekza-animator/doc';
+import type { BudgetPresetId, MeshBudget } from '@ekza-studio/doc';
 
 export interface BudgetPreset {
   readonly tris: number;

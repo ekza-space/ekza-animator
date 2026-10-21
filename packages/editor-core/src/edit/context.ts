@@ -1,15 +1,6 @@
 // Shared plumbing of the edit kernel: clip frames, base layers, curve views over a transaction.
-import { type AnimCurve, type CompiledAnimCurve, EkzaError, type Frame, type KeyData } from '@ekza-animator/anim-core';
-import type {
-  ClipId,
-  ClipRecord,
-  CurveId,
-  CurveRecord,
-  KeyRecord,
-  LayerRecord,
-  ReadView,
-  Tx,
-} from '@ekza-animator/doc';
+import { type AnimCurve, type CompiledAnimCurve, EkzaError, type Frame, type KeyData } from '@ekza-studio/anim-core';
+import type { ClipId, ClipRecord, CurveId, CurveRecord, KeyRecord, LayerRecord, ReadView, Tx } from '@ekza-studio/doc';
 import { internalsOf, newRecordId } from '../app/internals';
 import { clipFrameAt, sceneFpsOf } from '../evaluation/time';
 import type { EditorApp } from '../types';

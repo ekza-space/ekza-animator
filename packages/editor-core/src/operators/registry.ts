@@ -1,6 +1,6 @@
 // Operator registry (ADR 0008 §1): ids are `<area>.<object>.<verb>`; duplicates are errors; `poll` never throws (a
 // throwing poll reads as disabled with its message, so menus stay usable).
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { EditorApp, OperatorContext, OperatorDef, OperatorRegistry, PollResult, RunContext } from '../types';
 
 export type AnyOperatorDef = OperatorDef<unknown, unknown, unknown>;

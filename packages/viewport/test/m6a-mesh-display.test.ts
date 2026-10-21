@@ -4,16 +4,16 @@
 // revisions written while shown, the pane-flag mapping, occlusion of camera-based picks by the other meshes a pane
 // draws, the World symmetry plane without a partner map, palette reassignment (and its undo) on surfaces, component
 // hides kept on surfaces, and the reused per-pane display.
-import type { Disposer, ReadonlyXf } from '@ekza-animator/anim-core';
-import type { CharacterId, GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-animator/doc';
-import { type EditorApp, loadMeshKernel } from '@ekza-animator/editor-core';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { BitSet, type HiddenSet, type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import type { Disposer, ReadonlyXf } from '@ekza-studio/anim-core';
+import type { CharacterId, GroupId, MeshId, MeshRecord, MeshRef, PaletteId, SwatchId } from '@ekza-studio/doc';
+import { type EditorApp, loadMeshKernel } from '@ekza-studio/editor-core';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { BitSet, type HiddenSet, type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
 import type {
   EditMeshView as EditMeshViewType,
   MeshPaneDisplay,
   MeshSurface as MeshSurfaceType,
-} from '@ekza-animator/mesh-view';
+} from '@ekza-studio/mesh-view';
 import {
   type BufferAttribute,
   type BufferGeometry,

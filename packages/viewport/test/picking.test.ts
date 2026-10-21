@@ -1,4 +1,4 @@
-import type { ControlId, ControlRecord } from '@ekza-animator/doc';
+import type { ControlId, ControlRecord } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PickResult } from '../src';
 import { segmentIntersectsRect } from '../src/picking/geometry';

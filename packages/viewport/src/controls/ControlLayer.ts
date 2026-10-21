@@ -6,9 +6,9 @@
 // M2a (M2A-SPEC §5.5, A2): a control is 'visible', 'ghost' or 'hidden' (`controlVisibility`). Ghosts (a selected
 // control the IK/FK rule hides) draw in a third batch at 25 % alpha and are never pickable; poles draw a dashed
 // annotation line from the limb's mid bone to the pole control (`--rig-pole-line`, 1 px, 60 % alpha) in both passes.
-import type { Mat4 } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId, ControlRecord, Side } from '@ekza-animator/doc';
-import type { ControlVisibility } from '@ekza-animator/editor-core';
+import type { Mat4 } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId, ControlRecord, Side } from '@ekza-studio/doc';
+import type { ControlVisibility } from '@ekza-studio/editor-core';
 import { Color, Group } from 'three';
 import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LAYER } from '../layers';

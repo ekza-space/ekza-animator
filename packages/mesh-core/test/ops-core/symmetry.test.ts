@@ -4,7 +4,7 @@
 // Target Weld seam table, Bridge's mirrored pair, unmatched partners processed on one side with
 // `symmetry.unmatched-partner`. Maps come from the §5.14 definition (`referenceSymmetryMap`); `READY.b2` cross-checks
 // B3's helpers against B2's functions.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

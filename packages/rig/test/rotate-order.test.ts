@@ -6,7 +6,7 @@ import {
   eulerToQuat,
   type KeyData,
   type RotateOrder,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import { Euler, Quaternion } from 'three';
 import { describe, expect, it } from 'vitest';
 import { convertRotateOrderKeys, convertRotateOrderKeysWith } from '../src';

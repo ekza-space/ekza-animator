@@ -4,8 +4,8 @@
 // rotate tools. In Model's object mode it scales the selected meshes and groups about their pivots in one document
 // gesture (one step "Scale"). A press that misses the manipulator selects like the select tool. Component scaling is
 // B12a's (the same tool id branches on the component mode, §4.6).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import {
   beginChannelEditGesture,
   beginKeyEditGesture,
@@ -14,7 +14,7 @@ import {
   type KeyEditGesture,
   type ToolInstance,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { objectTable, sceneObject } from '../../manager/objects';
 import type { ViewportToolHost } from '../../tools/host';
 import { SCALE_LABEL, type ScaleGestureFactory } from '../../tools/scaleTool';

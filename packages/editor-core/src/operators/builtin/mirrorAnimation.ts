@@ -1,9 +1,9 @@
 // Mirror animation (M2A-SPEC §4.9 `pose.mirrorAnimation`, §5.14; A4): flip, left → right or right → left on the
 // active clip, optionally half a cycle later; humanoid rigs only. One step, label `Mirror Animation`. The workflow
 // loads with the first run (`prepare`, the eager-route budget §5.27); the runner polls again after it.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import { isHumanoidProgram, type MirrorMode } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
+import { isHumanoidProgram, type MirrorMode } from '@ekza-studio/rig';
 import { GLOBAL_SCOPE } from '../../types';
 import type * as MirrorWorkflow from '../../workflows/mirrorAnimation';
 import { activeClipRecord, selectedControls } from '../../workflows/targets';

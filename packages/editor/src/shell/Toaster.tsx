@@ -1,5 +1,5 @@
 // Toasts (research 09 §6.5): bottom-right above the timeline, at most three, with an optional action (Undo).
-import { Toast, ToastAction, ToastClose, ToastTitle, ToastViewport } from '@ekza-animator/ui';
+import { Toast, ToastAction, ToastClose, ToastTitle, ToastViewport } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useStoreSelector } from '../hooks/useStoreSelector';
 import type { ToastItem, ToastNotifier } from '../services/notify';

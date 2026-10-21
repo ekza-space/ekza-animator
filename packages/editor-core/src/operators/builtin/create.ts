@@ -7,10 +7,10 @@
 //
 // The kernel is a lazy chunk: `prepare` loads it and builds the primitive (the B0a reference kernel builds cube,
 // plane and cylinder; sphere, cone and torus poll-fail until B1's kernel provides them).
-import { coerceArgs, EkzaError, type ParamValues, xfIdentity } from '@ekza-animator/anim-core';
-import { derivedId, type GroupId, type GroupRecord, type MeshRecord } from '@ekza-animator/doc';
-import { MAYA_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
-import type { MeshData, PrimitiveKind } from '@ekza-animator/mesh-core';
+import { coerceArgs, EkzaError, type ParamValues, xfIdentity } from '@ekza-studio/anim-core';
+import { derivedId, type GroupId, type GroupRecord, type MeshRecord } from '@ekza-studio/doc';
+import { MAYA_PRIMITIVE_DEFAULTS, PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
+import type { MeshData, PrimitiveKind } from '@ekza-studio/mesh-core';
 import { attachMeshes, type KernelMeshRuntimes, loadMeshKernel, meshKernel } from '../../mesh';
 import { orderAfterSiblings, uniqueMeshName } from '../../mesh/records';
 import { runSeed } from '../../mesh/seed';

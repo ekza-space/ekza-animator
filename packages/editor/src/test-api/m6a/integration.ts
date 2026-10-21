@@ -1,8 +1,8 @@
 // M6a test API, integration group (M6A-SPEC §4.8; E2E-MOD-30): expression weights on a character's display model,
 // a pane rectangle's pixels, a display-model node's drawn position and the display model's counts (the last three
 // additive, M6A-INT-17).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId } from '@ekza-studio/doc';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 

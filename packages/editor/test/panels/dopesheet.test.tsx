@@ -1,8 +1,8 @@
 // The Dope Sheet panel (M2A-SPEC §5.10, §7, §4.8; A3) in Vitest browser mode: the React.lazy body loads only once
 // the panel's box is shown, the contributions are registered by the wrapper, the toolbar runs its operators, the row
 // labels select and expand, the probe answers in page px, and Show and the expansion persist with the layout.
-import type { ControlId, KeyId } from '@ekza-animator/doc';
-import { PANEL, registerBuiltinOperators } from '@ekza-animator/editor-core';
+import type { ControlId, KeyId } from '@ekza-studio/doc';
+import { PANEL, registerBuiltinOperators } from '@ekza-studio/editor-core';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { DopeSheetPanel } from '../../src/panels/dopesheet/DopeSheetPanel';

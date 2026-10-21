@@ -4,9 +4,9 @@
 // Apply: `MeshRuntimeRegistry.commitOp` / `commitSetOp` inside the operator's one transaction, with the run's step
 // seed, component kind and (for an adjusted re-run) the recorded symmetry/soft context. Params, JSON schema and
 // defaults derive from `desc.params` (ADR 0016 D6); `meshes` and `kind` pass through `coerceArgs` untouched.
-import { EkzaError, type ParamValues } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import type { ComponentKind, MeshOpDescriptor, MeshSetOpDescriptor } from '@ekza-animator/mesh-core';
+import { EkzaError, type ParamValues } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { ComponentKind, MeshOpDescriptor, MeshSetOpDescriptor } from '@ekza-studio/mesh-core';
 import type {
   EditorApp,
   KeyScope,

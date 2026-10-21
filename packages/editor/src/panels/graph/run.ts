@@ -1,4 +1,4 @@
-import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
+import { type EditorApp, PANEL } from '@ekza-studio/editor-core';
 
 /**
  * Runs an operator from the Graph Editor panel (scope 'graph'); failures and refusals reach the user as toasts, the

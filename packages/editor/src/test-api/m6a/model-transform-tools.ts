@@ -5,8 +5,8 @@
 // - `softWeights(mesh)`: the weights a component transform of the mesh would use now (§5.15: `w = f(d / r)` from the
 //   expanded selection, seeds 1, hidden vertices 0); null when soft selection is off, outside a component mode or for
 //   a mesh that is not hilited.
-import type { MeshId } from '@ekza-animator/doc';
-import { attachMeshes, softWeightsOf, symmetryOf } from '@ekza-animator/editor-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { attachMeshes, softWeightsOf, symmetryOf } from '@ekza-studio/editor-core';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 

@@ -5,7 +5,7 @@
 // values are copied from the face's corners, the flip-diagonal bit (meaningless on triangles) is cleared. Under
 // symmetry the partner face of a source face (centroid on the positive side) is cut along the mirrored diagonals, so
 // a symmetric mesh stays symmetric (quad ties would otherwise go to the smaller vertex index on both sides).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { FACE_FLIP_DIAGONAL } from '../../constants';
 import { refuse } from '../../refusal';
 import {

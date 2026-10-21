@@ -34,7 +34,7 @@ import {
   type TxMeta,
   type UndoManager,
   type UserId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import * as Y from 'yjs';
 
 type Row = { readonly id: string; readonly [field: string]: unknown };

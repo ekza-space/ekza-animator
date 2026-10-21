@@ -2,7 +2,7 @@
 // kernel entry module references it in code that survives tree shaking (`kernelError` puts it into the details of
 // every kernel error), so a package that pulls kernel code into the eager editor route fails the size gate's
 // `mesh-kernel` boundary the day it does so. Eager code (`./descriptors`) never imports this module.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 
 /** `check-size` marker of the kernel chunk (§2); referenced by every kernel entry module. */
 export const KERNEL_MARKER = 'ekza-mesh-kernel' as const;

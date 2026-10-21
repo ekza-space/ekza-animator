@@ -1,9 +1,9 @@
 // M6A-SPEC §9 B0a (6)–(7): workspaces and marking-menu registries, the M6a session and preference defaults, the
 // service stubs (components, capture, extrude), RunContext source/repeat, the no-op LastRun recorder, selection
 // snapshots as a superset of the shipped shape, and every new operator resolving and poll-failing cleanly.
-import type { PrimitiveKind as DocPrimitiveKind } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
-import type { PrimitiveKind as MeshPrimitiveKind } from '@ekza-animator/mesh-core';
+import type { PrimitiveKind as DocPrimitiveKind } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
+import type { PrimitiveKind as MeshPrimitiveKind } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import {
   ANIMATE_ONLY_REASON,

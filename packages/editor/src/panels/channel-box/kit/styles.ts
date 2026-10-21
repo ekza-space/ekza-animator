@@ -1,5 +1,5 @@
 // Shared Tailwind class strings of the WP-9 data panels. Tokens come from research 09 §8; the ones WP-8 has not put
-// into `@ekza-animator/ui/styles.css` yet are written as `var(--token, fallback)` so the panels look right before
+// into `@ekza-studio/ui/styles.css` yet are written as `var(--token, fallback)` so the panels look right before
 // and after the token build lands.
 
 export const PANEL_ROOT = 'flex h-full min-h-0 flex-col bg-panel text-xs text-fg select-none';

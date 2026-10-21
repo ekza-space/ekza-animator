@@ -1,9 +1,9 @@
 // The editor root shared by the production `Editor` and the dev/e2e shell harness: creates the browser services and
 // the EditorApp, the shell core, the providers, the GL host and the workspace chrome; installs the window input
 // adapter, the first-run dialog and (e2e builds with ?e2e=1) the test API.
-import { seededIdSource, type IdSource } from '@ekza-animator/doc';
-import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-animator/editor-core';
-import { ToastProvider, TooltipProvider } from '@ekza-animator/ui';
+import { seededIdSource, type IdSource } from '@ekza-studio/doc';
+import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-studio/editor-core';
+import { ToastProvider, TooltipProvider } from '@ekza-studio/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';

@@ -4,8 +4,8 @@
 // move beyond 3 CSS px or any click; its messages go to the help line) and the registration of B11's marking menus
 // while the shell is mounted. A lazy chunk (§5.27): `panels/toolkit/ModelOpsSlot.tsx` mounts it on the first Model
 // entry.
-import type { Disposer } from '@ekza-animator/anim-core';
-import { type EditorApp, type NumericCapture, onModelHelp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { type EditorApp, type NumericCapture, onModelHelp } from '@ekza-studio/editor-core';
 import { type JSX, lazy, Suspense, useEffect, useState } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { useSession } from '../../hooks';

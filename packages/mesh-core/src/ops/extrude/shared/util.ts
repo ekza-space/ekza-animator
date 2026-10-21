@@ -2,7 +2,7 @@
 // topology ops (extrude, inset, loops, connect, merge family, delete family, fill, bridge). Lives inside B3's
 // `ops/extrude/` directory (§9 Dirs); nothing outside B3's op directories imports it. Kernel code (lazy chunk):
 // every entry references `KERNEL_MARKER` through `kernelError`.
-import { coerceArgs, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValue, type ParamValues } from '@ekza-studio/anim-core';
 import { kernelError } from '../../../kernel';
 import { refuse } from '../../../refusal';
 import { selectionOf } from '../../../selection';

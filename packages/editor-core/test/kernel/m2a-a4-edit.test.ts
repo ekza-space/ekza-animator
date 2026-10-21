@@ -1,8 +1,8 @@
 // M2A-SPEC §5.13 tween family and §5.15.3 value scaling (A4) on the kernel: the formulas of every mode, overshoot
 // and attribute ranges, the 'frame' target (neighbours, the keyAll rule, Channel Box channels, skipped channels),
 // runs of selected keys, target resolution, the slider gesture (one step, coalesced, Esc) and `scaleKeyValues`.
-import { type TangentType } from '@ekza-animator/anim-core';
-import type { AttrDef, ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
+import { type TangentType } from '@ekza-studio/anim-core';
+import type { AttrDef, ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

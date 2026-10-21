@@ -1,7 +1,7 @@
 // Read-back check (MVP-SPEC §4.11.10 step 5): re-parses an export, finds every baked clip and track in it and
 // compares the stored samples with the baked ones (1e-4 rad for rotations, 1e-5 for translation and scale).
-import { quatAngle, quatSlerp, type Quat } from '@ekza-animator/anim-core';
-import { HUMAN_BONE_NAMES, type SkeletonDesc } from '@ekza-animator/rig';
+import { quatAngle, quatSlerp, type Quat } from '@ekza-studio/anim-core';
+import { HUMAN_BONE_NAMES, type SkeletonDesc } from '@ekza-studio/rig';
 import { parseGlbSync } from '../glb/parse';
 import { GltfReader } from '../gltf/accessor';
 import {

@@ -1,9 +1,9 @@
 // Canonical rest worlds of a SkeletonDesc: rest locals composed parent-first, with the model→canonical `facing`
 // applied at the scene roots (MVP-SPEC §4.11.9). Transforms compose as T·R·S (exact for uniform scale, which is what
 // humanoid rigs use), matching the synthetic rest-pose fixture.
-import { type ReadonlyXf, type Xf, xfMultiply } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import type { SkeletonDesc, SkeletonNode } from '@ekza-animator/rig';
+import { type ReadonlyXf, type Xf, xfMultiply } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import type { SkeletonDesc, SkeletonNode } from '@ekza-studio/rig';
 
 /** Rest world transform of every node (SkeletonDesc order) in canonical character space. */
 export function restWorlds(skeleton: Pick<SkeletonDesc, 'nodes' | 'facing'>): Xf[] {

@@ -8,7 +8,7 @@ import {
   type KeyData,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 
 const TIME_EPSILON = 1e-6;
 

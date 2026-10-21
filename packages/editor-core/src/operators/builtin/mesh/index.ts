@@ -7,14 +7,14 @@
 // The LastRun recorder stores **resolved** args (§5.7: `OpResult.resolvedArgs` for kernel ops): `apply` is B7's
 // commit path (the same calls `meshOperator.apply` makes) with the kernel's resolved args remembered for the outcome
 // it returns. Until a kernel owner lands an op, the kernel's stub refuses it with "<Label> is not available yet".
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { MeshOpDescriptor, MeshSetOpDescriptor } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { MeshOpDescriptor, MeshSetOpDescriptor } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { attachMeshes } from '../../../mesh';
 import { meshKernel } from '../../../mesh/kernel';
 import { kindOf, MESH_EXTRA_ARGS, meshOperator, meshSetOperator, opArgs, targetsOf } from '../../../mesh/operator';
 import { runSeed, runSettings } from '../../../mesh/seed';
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import type { EditorApp, MeshOpArgs, MeshOpOutcome, OperatorDef, ToolId } from '../../../types';
 import type { AnyOperator } from '../define';
 import { rememberResolvedArgs } from '../lastop';

@@ -14,7 +14,7 @@
 //
 // Positions and topology are untouched (`topology: false`); a run that writes nothing still succeeds (the runtime
 // writes no revision then). Refusals: `paint.no-faces`, `paint.out-of-range`, `paint.no-face`.
-import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValues } from '@ekza-studio/anim-core';
 import { BUILTIN_LAYERS } from '../../layers/builtin';
 import { refuse } from '../../refusal';
 import { selectionOf } from '../../selection';

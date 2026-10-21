@@ -6,7 +6,7 @@
 // object plane with `tolerance` (null → the map's tolerance, else 0.001 m: `prefs.modeling.symmetryTolerance`).
 // Object mode acts on every visible vertex, vertex mode on the pairs the selection touches. Vertices without a partner
 // stay and are reported (`symmetrize.unmatched`, with the vertices for a selection action). Positions only.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { argsOf, keptSelection, scopeVerts, str } from '../../subset/support';
 import {

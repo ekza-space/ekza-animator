@@ -1,4 +1,4 @@
-import type { HumanBoneName } from '@ekza-animator/doc';
+import type { HumanBoneName } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   autoRig,

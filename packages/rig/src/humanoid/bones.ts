@@ -1,4 +1,4 @@
-import type { HumanBoneName } from '@ekza-animator/doc';
+import type { HumanBoneName } from '@ekza-studio/doc';
 
 // VRM 1.0 humanoid tables. Parents follow the VRM 1.0 specification (three-vrm `VRMHumanBoneParentMap`); for
 // optional bones the parent is the specification parent, and consumers resolve the nearest present ancestor.

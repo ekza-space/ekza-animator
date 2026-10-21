@@ -1,4 +1,4 @@
-import { newId, seededIdSource } from '@ekza-animator/doc';
+import { newId, seededIdSource } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits } from '../../src';
 import { edit, kernelApp, setFrame, W, waveDoc } from './support';

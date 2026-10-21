@@ -348,7 +348,7 @@ does not refuse:
 The new types go into `packages/rig/src/types.ts` (additive). `ConstraintRecord` itself is unchanged:
 
 ```ts
-import type { Axes, ControlId, SpaceTarget } from '@ekza-animator/doc';
+import type { Axes, ControlId, SpaceTarget } from '@ekza-studio/doc';
 
 export type ConstraintType = 'parent' | 'point' | 'orient' | 'aim';
 

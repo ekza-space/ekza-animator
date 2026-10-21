@@ -11,8 +11,8 @@ import {
   rotateOrderAxes,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ManipSpace } from '@ekza-animator/editor-core';
+} from '@ekza-studio/anim-core';
+import type { ManipSpace } from '@ekza-studio/editor-core';
 import {
   BoxGeometry,
   type Camera,

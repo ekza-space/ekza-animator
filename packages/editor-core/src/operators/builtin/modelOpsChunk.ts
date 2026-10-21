@@ -6,7 +6,7 @@
 // registry holds the eager proxies of `./modelOps`, built from the generated manifest (`./modelManifest`), which this
 // chunk fills in place. Only lazy code and tests import values from it (test/m6a/model-ops.test.ts checks the eager
 // side).
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { CREATE_OPERATORS } from './create';
 import type { AnyOperator } from './define';
 import { EXPORT_MODEL_OPERATORS } from './exportModel';

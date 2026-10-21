@@ -13,11 +13,11 @@ import {
   quatToEuler,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { parseGlb, skeletonFromGltf } from '@ekza-animator/io';
-import { loadGltfInNode } from '@ekza-animator/io/testing';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { parseGlb, skeletonFromGltf } from '@ekza-studio/io';
+import { loadGltfInNode } from '@ekza-studio/io/testing';
 import {
   autoRig,
   type ChannelBuffer,
@@ -37,7 +37,7 @@ import {
   type SkeletonDesc,
   writeAttr,
   writeControlChannels,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { type Object3D, type SkinnedMesh, Vector3 } from 'three';
 import { PerformanceObserver, performance } from 'node:perf_hooks';
 import { getHeapSpaceStatistics, setFlagsFromString } from 'node:v8';

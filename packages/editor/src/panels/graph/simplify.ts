@@ -1,6 +1,6 @@
 // Simplify feedback and tolerances (MVP-SPEC §4.11.4 Simplify). Acceptance round 1: Simplify gave no feedback, and
 // on clips imported with key reduction (the same 0.1° default) it silently removed nothing.
-import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
+import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-studio/rig';
 
 /** Tolerance choices as multiples of `DEFAULT_REDUCE`, named by their rotation value. */
 export const SIMPLIFY_TOLERANCES = [

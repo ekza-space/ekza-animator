@@ -1,7 +1,7 @@
 // Scene clock ↔ clip frames (MVP-SPEC §4.11.8, ADR 0003):
 //   clipFrame = (sceneFrame − clip.sceneStart) · (clip.fps.num · sceneFps.den) / (clip.fps.den · sceneFps.num)
 // `sceneStart` is in scene frames. Products are formed before the division so integer inputs stay exact.
-import { EkzaError, type Fps, type Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Fps, type Frame } from '@ekza-studio/anim-core';
 import type { ClipRecord } from '../records';
 
 function assertFps(fps: Fps, what: string): void {

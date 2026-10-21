@@ -1,6 +1,6 @@
 // Contribution registries (ADR 0008): built-ins and extensions register through the same calls. Registration order
 // is the list order; a duplicate id is an error; a disposer removes only the definition it registered.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { Registry } from '../types';
 
 export function createRegistry<T extends { readonly id: string }>(kind: string): Registry<T> {

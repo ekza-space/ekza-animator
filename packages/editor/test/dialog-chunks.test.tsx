@@ -2,10 +2,10 @@
 // loaded, a redeploy that replaced the chunk hashes). A failed dialog closes with a toast and the editor keeps running;
 // the next open loads the chunk again (React.lazy alone would keep the rejected load for the rest of the page). The
 // chunk loaders are swapped through the test seam to fail without a network.
-import type { DocSnapshot } from '@ekza-animator/doc';
-import { GLOBAL_SCOPE } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import { GLOBAL_SCOPE } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { type JSX, useState } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { DialogHost, preloadDialog, setDialogLoaderForTests } from '../src/dialogs/DialogHost';

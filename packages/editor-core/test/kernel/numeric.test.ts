@@ -1,5 +1,5 @@
-import { RAD2DEG } from '@ekza-animator/anim-core';
-import type { ChannelId } from '@ekza-animator/doc';
+import { RAD2DEG } from '@ekza-studio/anim-core';
+import type { ChannelId } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { formatChannelValue, fromDisplayValue, parseNumericInput, toDisplayValue } from '../../src';

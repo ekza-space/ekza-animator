@@ -1,9 +1,9 @@
 // Recovery dialog (M2A-SPEC §5.20, FR-PROJ-05): the autosaved projects whose page closed before they were saved —
 // project name, when, characters, clips, size — with Recover (`file.recover`), Discard (asks first;
 // `file.discardRecovery`) and Later (keeps them; the shell does not prompt again in this page load).
-import { autosaveOf } from '@ekza-animator/editor-core';
-import type { AutosaveSlotInfo } from '@ekza-animator/editor-core';
-import { Button, Dialog, DialogContent, DialogFooter } from '@ekza-animator/ui';
+import { autosaveOf } from '@ekza-studio/editor-core';
+import type { AutosaveSlotInfo } from '@ekza-studio/editor-core';
+import { Button, Dialog, DialogContent, DialogFooter } from '@ekza-studio/ui';
 import { type JSX, useEffect, useState } from 'react';
 import { useSession } from '../hooks';
 import { useShell } from '../shell/context';

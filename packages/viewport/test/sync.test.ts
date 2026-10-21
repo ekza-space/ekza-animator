@@ -1,9 +1,9 @@
-import { mat4Compose, mat4Multiply, type Quat } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlRecord, MeshId, MeshRecord } from '@ekza-animator/doc';
-import type { FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { LoadedModel } from '@ekza-animator/io/three';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { mat4Compose, mat4Multiply, type Quat } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlRecord, MeshId, MeshRecord } from '@ekza-studio/doc';
+import type { FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { LoadedModel } from '@ekza-studio/io/three';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import {
   BoxGeometry,
   Group,

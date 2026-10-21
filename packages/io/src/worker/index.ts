@@ -1,9 +1,9 @@
-// '@ekza-animator/io/worker': the in-app glTF-Validator worker protocol (M1-stretch, MVP-SPEC §1.2). io never
+// '@ekza-studio/io/worker': the in-app glTF-Validator worker protocol (M1-stretch, MVP-SPEC §1.2). io never
 // imports gltf-validator: the editor's worker entry imports it and calls `serveGltfValidator(self, module)`; the
 // main thread wraps the Worker with `createValidatorClient(worker)`. The bundler-specific `new Worker(new URL(...))`
 // call belongs to the host. Both ends take a minimal message endpoint (a Worker, a worker's global scope or a
 // MessagePort), so this module needs neither the DOM nor the WebWorker library at runtime.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { ValidationIssue, ValidationReport } from '../types';
 import { type GltfValidatorModule, validateWith } from '../validate/validate';
 

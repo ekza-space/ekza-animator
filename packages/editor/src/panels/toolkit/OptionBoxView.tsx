@@ -2,8 +2,8 @@
 // `optbox-apply`; B11): an operator's visible params as the defaults of its next run from the UI (menus, keys, marking
 // menus, the Toolkit, its tool), stored in `prefs.modeling.optionDefaults[op]` as soon as a field changes. Apply runs
 // the operator with them; Reset forgets them; Esc or ✕ closes. A lazy chunk.
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
-import { type EditorApp, visibleParams } from '@ekza-animator/editor-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
+import { type EditorApp, visibleParams } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useRef } from 'react';
 import { usePrefs } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';

@@ -1,7 +1,7 @@
 // A2 test fixture: the wave document with limb IK records (the shared kit's `withLimbIkRecords`, shaped like the
 // rig's `limbIkRecords` output) and a fake app whose rig programs list those limbs, with the built-in operators.
-import type { ControlId, DocSnapshot } from '@ekza-animator/doc';
-import type { LimbId } from '@ekza-animator/rig';
+import type { ControlId, DocSnapshot } from '@ekza-studio/doc';
+import type { LimbId } from '@ekza-studio/rig';
 import { registerBuiltinOperators } from '../../src';
 import {
   createFakeIkEditorApp,

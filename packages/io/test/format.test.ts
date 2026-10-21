@@ -1,4 +1,4 @@
-import { readFixture } from '@ekza-animator/doc/testing';
+import { readFixture } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { readEmbeddedAvatarHeightScale } from '../src/gltf/ekzaMeta';

@@ -1,4 +1,4 @@
-// Generic action icons from Lucide (ISC). The editor imports icons only through @ekza-animator/ui, so this list is
+// Generic action icons from Lucide (ISC). The editor imports icons only through @ekza-studio/ui, so this list is
 // the set the shell and panels may use; add names here when a panel needs another one.
 export {
   BookOpen,

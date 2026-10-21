@@ -4,8 +4,8 @@
 // it has loaded a pointer press opens nothing and, in a workspace that has marking menus, starts the load. The
 // controller and the drawing load together, so the drawing never fails on its own; a failed load says so on the help
 // line when the user asked for a menu (a command, a right-button press) and is tried again on the next one.
-import type { EditorApp, MarkingMenuDef, RunContext } from '@ekza-animator/editor-core';
-import type { PanePointerPress } from '@ekza-animator/viewport';
+import type { EditorApp, MarkingMenuDef, RunContext } from '@ekza-studio/editor-core';
+import type { PanePointerPress } from '@ekza-studio/viewport';
 import { type JSX, lazy, Suspense } from 'react';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { useStoreSelector } from '../../hooks/useStoreSelector';

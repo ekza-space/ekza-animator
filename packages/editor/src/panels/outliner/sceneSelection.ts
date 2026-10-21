@@ -2,8 +2,8 @@
 // `select.objects {ids, mode}`. Until that operator lands (it poll-fails "not available yet" in a build without B10)
 // the panels write the object selection directly, as selection-only U state allows (M6A-B13-4), so the Outliner,
 // Attributes and Palette stay usable; with B10 the operator (and its "Select" history step) always runs.
-import type { EditorApp, OperatorResult, RunContext, SceneObjectId, SelectMode } from '@ekza-animator/editor-core';
-import { NOT_AVAILABLE_YET } from '@ekza-animator/editor-core';
+import type { EditorApp, OperatorResult, RunContext, SceneObjectId, SelectMode } from '@ekza-studio/editor-core';
+import { NOT_AVAILABLE_YET } from '@ekza-studio/editor-core';
 
 type Run = (op: string, args?: unknown, ctx?: RunContext) => Promise<OperatorResult<unknown>>;
 

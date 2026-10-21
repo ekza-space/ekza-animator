@@ -1,6 +1,6 @@
 // Importer resolution for opened and dropped files (ADR 0008 importer registry): by extension (longest match, so
 // `.ekzanim.json` beats `.json`), then content sniffing when several importers claim the extension.
-import type { ImporterDef, Registry } from '@ekza-animator/editor-core';
+import type { ImporterDef, Registry } from '@ekza-studio/editor-core';
 
 export function extensionMatch(name: string, extension: string): boolean {
   return name.toLowerCase().endsWith(`.${extension.toLowerCase()}`);

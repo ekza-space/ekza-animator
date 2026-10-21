@@ -6,9 +6,9 @@
 //
 // Both kernel modules are mocked so the value-only test op (`mesh.test.advance`, ./support.ts) is a kernel op with a
 // descriptor: the B0a reference kernel has no real op yet.
-import type { MeshId } from '@ekza-animator/doc';
-import * as kernel from '@ekza-animator/mesh-core';
-import type * as Descriptors from '@ekza-animator/mesh-core/descriptors';
+import type { MeshId } from '@ekza-studio/doc';
+import * as kernel from '@ekza-studio/mesh-core';
+import type * as Descriptors from '@ekza-studio/mesh-core/descriptors';
 import { describe, expect, it, vi } from 'vitest';
 import {
   beginCardPreview,
@@ -24,14 +24,14 @@ import type { AdvanceOp } from './support';
 
 const advanceOp = (): AdvanceOp => (kernel as unknown as { __advance: AdvanceOp }).__advance;
 
-vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core', async (importOriginal) => {
   const actual = await importOriginal<typeof kernel>();
   const { makeAdvanceOp } = await import('./support');
   const advance = makeAdvanceOp(actual);
   return { ...actual, MESH_OPS: Object.freeze({ ...actual.MESH_OPS, [advance.id]: advance }), __advance: advance };
 });
 
-vi.mock('@ekza-animator/mesh-core/descriptors', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core/descriptors', async (importOriginal) => {
   const actual = await importOriginal<typeof Descriptors>();
   const { ADVANCE } = await import('./support');
   return { ...actual, MESH_OP_DESCRIPTORS: Object.freeze({ ...actual.MESH_OP_DESCRIPTORS, [ADVANCE.id]: ADVANCE }) };

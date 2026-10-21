@@ -1,7 +1,7 @@
 // What an op run read on a target (M6A-SPEC §5.7: an adjusted re-run reads the selection of the recorded kind that the
 // undo restored, whatever the current mode) and the selection helpers the sessions and the journal share: copies that
 // later selection writes cannot change, equality, and bytes for the undo budget.
-import type { ComponentKind, ComponentSelection } from '@ekza-animator/mesh-core';
+import type { ComponentKind, ComponentSelection } from '@ekza-studio/mesh-core';
 
 /**
  * What an op run read on one target: the component kind (null for an object-level run) and the selection of that kind

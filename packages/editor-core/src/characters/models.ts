@@ -1,8 +1,8 @@
 // The display-model loader as the kernel exposes it (`app.services.models`): loads wait until the host has called
 // `setRenderer` (KTX2 support detection needs the WebGLRenderer, MVP-SPEC §4.5 ModelLoader). Hosts must call
 // `app.services.models.setRenderer(gl)` on this wrapper, not on the loader they passed in.
-import type { GlbContainer } from '@ekza-animator/io';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { GlbContainer } from '@ekza-studio/io';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { DisplayModel, ModelLoader } from '../types';
 
 export interface GatedModelLoader extends ModelLoader {

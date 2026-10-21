@@ -3,9 +3,9 @@
 // view, never picked, never exported). Each image asset is decoded once with `createImageBitmap` and shared by the
 // planes that show it; a plane draws nothing while its image decodes, and an image that cannot be read is reported
 // once (a toast) and stays undrawn.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { AssetId, ImagePlaneRecord } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { AssetId, ImagePlaneRecord } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { ImagePlaneSpec } from '../manager/imagePlanes';
 
 /** What the binding needs of the viewport (the ViewportManager; tests pass a recorder). */

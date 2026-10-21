@@ -2,8 +2,8 @@
 // label (LMB after 3 px, or an MMB press) changes the value by the shipped per-pixel rate (`paramSliderRate`), with
 // the M2a modifier rule read at every move: `Shift` ×0.1 slower, `Mod` ×10 faster. Values integrate the increments
 // and stay inside the param's hard limits (ints round). Pointer capture keeps the drag on the label; `Esc` cancels.
-import type { ParamDef } from '@ekza-animator/anim-core';
-import { clampParamValue, type EditorApp, paramSliderRate, virtualSliderFactor } from '@ekza-animator/editor-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import { clampParamValue, type EditorApp, paramSliderRate, virtualSliderFactor } from '@ekza-studio/editor-core';
 
 /** LMB drags on a label start after this many CSS px (the Channel Box rule). */
 export const LABEL_DRAG_PX = 3;

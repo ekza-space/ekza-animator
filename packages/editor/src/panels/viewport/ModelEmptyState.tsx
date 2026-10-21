@@ -2,7 +2,7 @@
 // primitives (Cube, Cylinder 8, Sphere 12×8, Plane, Cone 8, Torus), the templates (Humanoid guides, Humanoid body
 // smooth or segmented, Handheld, Prop), Import mesh…, "Edit a sample: Polybot (CC0)" and "Generate with AI… · Coming
 // later" (disabled), with key hints rendered through the keymap (`⌘E` on macOS, `Ctrl+E` elsewhere).
-import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
+import { type EditorApp, PANEL } from '@ekza-studio/editor-core';
 import { type JSX, useRef, useState } from 'react';
 import { useRunOperator, useSession } from '../../hooks';
 import { scopeChain } from '../../input/keyboard';

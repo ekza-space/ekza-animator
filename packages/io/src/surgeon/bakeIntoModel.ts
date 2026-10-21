@@ -8,8 +8,8 @@
 // extension lists); a re-bake of such a file rolls geometry and clips back together and re-applies both: meshes edited
 // now are written from their new data, meshes the previous bake replaced are carried over as they are. Bakes without
 // any geometry write v1 and stay byte-identical to M2a outputs.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { SkeletonDesc, TrackKey } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { SkeletonDesc, TrackKey } from '@ekza-studio/rig';
 import { parseTrackKey, trackKey } from '../bake/bake';
 import { normalizeClipMeta } from '../bake/meta';
 import { align4, assembleGlb } from '../glb/write';

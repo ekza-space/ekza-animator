@@ -3,7 +3,7 @@
 // on every wall edge. The cap keeps the original face indices; `selection′` = the cap faces. `adjust` re-places the
 // cap for value args (positions and wall hardness only), bit-identical to a fresh run with the merged args; the
 // result's warnings, frame and resolved args then follow the adjustment.
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
 import { refuse } from '../../refusal';

@@ -1,8 +1,8 @@
 // Palette panel model (M6A-SPEC §5.19, §8.8; research 16 §14; B13): pure reads of the document and the session that
 // the panel, the Outliner and the Attributes panel share — the mesh the panels act on, a palette's swatches in display
 // order, the slots a mesh uses, the recent swatches.
-import type { DocumentStore, MeshId, MeshRecord, PaletteId, PaletteRecord, SwatchRecord } from '@ekza-animator/doc';
-import { DEFAULT_PALETTE_ID, type EditorApp, type SessionState } from '@ekza-animator/editor-core';
+import type { DocumentStore, MeshId, MeshRecord, PaletteId, PaletteRecord, SwatchRecord } from '@ekza-studio/doc';
+import { DEFAULT_PALETTE_ID, type EditorApp, type SessionState } from '@ekza-studio/editor-core';
 
 /** How many recent swatches the panel keeps (`prefs.modeling.paletteRecents`). */
 export const MAX_RECENTS = 8;

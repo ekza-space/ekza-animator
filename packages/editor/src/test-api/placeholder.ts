@@ -1,6 +1,6 @@
 // Degraded e2e test API for an editor whose kernel could not start (e.g. a build where createEditorApp is still a
 // stub): `ready`, `webgl` and `renderedFrames` work, every other function throws EkzaError('not-implemented').
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { WebGlInfo } from '../gl/webgl';
 import type { EkzaAnimatorTestApi } from './types';
 

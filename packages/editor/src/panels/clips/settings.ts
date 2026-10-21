@@ -1,9 +1,9 @@
 // Clip naming and settings rules of the Clips panel (MVP-SPEC §4.2 ClipRecord, §4.5 ClipSettingsArgs; ADR 0010
 // §2–§5): pure functions over a string draft, so the form can validate while the user types and send
 // `clip.setSettings` with exactly the fields that changed.
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord, DerivedFrom, Redistributable, RootMotionMode } from '@ekza-animator/doc';
-import type { ClipSettingsArgs } from '@ekza-animator/editor-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord, DerivedFrom, Redistributable, RootMotionMode } from '@ekza-studio/doc';
+import type { ClipSettingsArgs } from '@ekza-studio/editor-core';
 import { formatFixed, parseNumericInput } from '../channel-box/kit/kernel';
 
 // ---------- names ----------

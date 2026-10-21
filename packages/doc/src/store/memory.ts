@@ -15,7 +15,7 @@
 //   exceptions are rethrown asynchronously and never undo a commit.
 // - Adapters (doc-yjs) observe committed changes with their partitions through `observeCommits` and feed remote
 //   changes with `applyChanges(…, { partitions })`.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, UserId } from '../ids';
 import {
   BUILTIN_TABLES,

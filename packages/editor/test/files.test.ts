@@ -1,10 +1,10 @@
 // The file pipeline (drag-and-drop, pickers, test API loadFile) and the browser services: importer resolution,
 // the import dialog hand-off, confirmation before replacing a dirty project, asset verification, storage
 // fallbacks, clipboard fallback and the toast queue.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetId } from '@ekza-animator/doc';
-import type { ImporterDef } from '@ekza-animator/editor-core';
-import { DEFAULT_REDUCE } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AssetId } from '@ekza-studio/doc';
+import type { ImporterDef } from '@ekza-studio/editor-core';
+import { DEFAULT_REDUCE } from '@ekza-studio/rig';
 import { describe, expect, it, vi } from 'vitest';
 import { CHECK_ALL_CLIPS_MAX, defaultClipSelection, importOptions } from '../src/dialogs/ImportDialog';
 import { createBrowserAssetStore, sha256Hex } from '../src/services/assets';

@@ -1,6 +1,6 @@
 // Bounds for F / A (research 09 §4.7): frame selection = the selected keys, or whole curves when no key is selected;
 // frame all = every visible curve's keys plus the drawn curve between them (overshooting spline segments included).
-import { Segment } from '@ekza-animator/anim-core';
+import { Segment } from '@ekza-studio/anim-core';
 import type { ViewBounds } from '../view/transform';
 import { type CurveEntry, drawnOf } from './curveSet';
 import { segmentKind, segmentValueAt } from './geometry';

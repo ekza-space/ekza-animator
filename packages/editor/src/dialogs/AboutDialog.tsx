@@ -1,5 +1,5 @@
 // About (research 09 §4.1 Help; ADR 0009, ADR 0012): version, licence, sample credits and third-party notices.
-import { Dialog, DialogContent, ExternalLink } from '@ekza-animator/ui';
+import { Dialog, DialogContent, ExternalLink } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useShell } from '../shell/context';
 import { EDITOR_VERSION, SAMPLES } from './samples';

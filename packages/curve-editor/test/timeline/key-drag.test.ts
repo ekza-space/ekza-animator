@@ -1,7 +1,7 @@
 // Band move and scale through the edit kernel (MVP-SPEC §4.11.3, §4.11.17): one history step per drag. The kernel
 // helpers are WP-7a's; until they land the drags that need them are skipped (§8.1: blocked by WP-7a) and the
 // stub path checks that a failed drag leaves the document untouched.
-import type { FakeServices } from '@ekza-animator/editor-core/testing';
+import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   addCurve,

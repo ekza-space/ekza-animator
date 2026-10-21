@@ -14,7 +14,7 @@ import {
   type MeshProblem,
   type Normals,
   type Triangulation,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { BufferAttribute, BufferGeometry, Color, DoubleSide, Mesh, MeshBasicMaterial } from 'three';
 import { GlyphBatch, SHAPE } from './internal/glyphs';
 import { LineBatch } from './internal/lines';

@@ -1,4 +1,4 @@
-import type { ClipId, ClipRecord, KeyId, UserId } from '@ekza-animator/doc';
+import type { ClipId, ClipRecord, KeyId, UserId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   activeClip,

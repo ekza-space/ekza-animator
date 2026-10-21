@@ -12,7 +12,7 @@
 //   old or new end of a domain whose count changed — topology edits included, since the kernel's DirtySet lists every
 //   stored-array element it wrote; every other chunk keeps its hash. The canonical tail is re-derived from what is
 //   known: an unchanged last stored chunk was non-default, unchanged chunks past it were default.
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import { isEditMesh } from '../core/access';
 import { KernelMesh } from '../core/mesh';
 import { kernelError } from '../kernel';

@@ -19,7 +19,7 @@ import {
   quatMultiply,
   type ReadonlyVec3,
   type Vec3,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import {
   batchTables,
   type CameraId,
@@ -28,7 +28,7 @@ import {
   type ControlId,
   type ControlRecord,
   type PreviewSession,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type EditorApp,
   type NavProfile,
@@ -36,8 +36,8 @@ import {
   type ToolInstance,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
-import { controlForNode } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import { controlForNode } from '@ekza-studio/rig';
 import {
   AmbientLight,
   type BufferGeometry,

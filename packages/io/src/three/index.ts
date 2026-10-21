@@ -1,9 +1,9 @@
-// '@ekza-animator/io/three' (browser; three + @pixiv/three-vrm): the display-model loader (ARCHITECTURE §7).
+// '@ekza-studio/io/three' (browser; three + @pixiv/three-vrm): the display-model loader (ARCHITECTURE §7).
 // GLTFLoader with VRMLoaderPlugin (autoUpdateHumanBones: false, the kernel writes raw bone locals; never
 // VRMUtils.rotateVRM0), self-hosted Draco and KTX2 decoders and the meshopt decoder. The model hangs under a
 // canonical character root that carries the SkeletonDesc facing (π yaw for VRM 0.x), the only place it is applied.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { type VRM, VRMLoaderPlugin, VRMUtils } from '@pixiv/three-vrm';
 import { Group, type Object3D, type SkinnedMesh, type WebGLRenderer } from 'three';
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js';

@@ -5,9 +5,9 @@
 // The same operators on real rigs with A1's math run in headless-tests (ops.ik.test.ts). The cases that held only
 // before A1 merged (§3 rule 4) script the rig's `not-implemented` stub through the seam since integration, so the
 // "not available yet" fallback stays covered.
-import { EkzaError, type Mat4, type SplineSet } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
-import type { ChannelBuffer, LimbId, PoseBuffers, RigProgram } from '@ekza-animator/rig';
+import { EkzaError, type Mat4, type SplineSet } from '@ekza-studio/anim-core';
+import type { ChannelId, ChannelValues, ControlId, ControlRecord, SolverRecord } from '@ekza-studio/doc';
+import type { ChannelBuffer, LimbId, PoseBuffers, RigProgram } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src/types';
 import { NOT_AVAILABLE_YET } from '../../src/operators/builtin/stub';

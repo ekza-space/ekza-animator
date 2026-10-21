@@ -1,6 +1,6 @@
 // The merge marking menu (M6A-SPEC §8.4 `model.merge`, §7 `KeyM` in component modes; B11): N Merge to Center ·
 // E Target Weld (the tool) · S Merge · W Collapse; Merge by Distance in the list. `M` with Alt stays Mirror Pose.
-import type { MarkingMenuDef } from '@ekza-animator/editor-core';
+import type { MarkingMenuDef } from '@ekza-studio/editor-core';
 
 export const MERGE_MENU: MarkingMenuDef = {
   id: 'model.merge',

@@ -1,4 +1,4 @@
-import type { BoneRef, ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import type { BoneRef, ConstraintRecord, ControlId, ControlRecord, SolverRecord } from '@ekza-studio/doc';
 import { restWorlds } from '../humanoid/rest';
 import { bendOf, restBand } from '../ik/core';
 import { OP_BONE, OP_CONTROL, OP_CUSTOM } from '../kernel/constants';

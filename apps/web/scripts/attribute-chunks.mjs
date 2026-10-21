@@ -78,7 +78,7 @@ export function classifySource(source) {
   }
   const ws = /^(packages|apps)\/([^/]+)\/(.*)$/.exec(path);
   if (ws !== null) {
-    const pkg = ws[1] === 'packages' ? `@ekza-animator/${ws[2]}` : `apps/${ws[2]}`;
+    const pkg = ws[1] === 'packages' ? `@ekza-studio/${ws[2]}` : `apps/${ws[2]}`;
     const parts = ws[3].split('/');
     const topModule = `${pkg}/${parts.slice(0, parts[0] === 'src' && parts.length > 2 ? 2 : 1).join('/')}`;
     return { pkg, module: topModule };

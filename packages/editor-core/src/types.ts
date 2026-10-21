@@ -4,16 +4,16 @@
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { StoreApi } from 'zustand/vanilla';
 import type { AnimCurve, CompiledAnimCurve, Disposer, Frame, Handle, ParamDef, ParamValues, Quat, TangentType,
-  Vec3 } from '@ekza-animator/anim-core';
+  Vec3 } from '@ekza-studio/anim-core';
 import type { AssetId, AssetRecord, CameraId, ChangeBatch, ChannelId, ChannelValues, CharacterId, ClipId, ControlId,
-  CurveId, DocumentStore, GroupId, KeyId, MeshId, MeshRef, Tx, UndoResult, UserId } from '@ekza-animator/doc';
+  CurveId, DocumentStore, GroupId, KeyId, MeshId, MeshRef, Tx, UndoResult, UserId } from '@ekza-studio/doc';
 import type { ComponentKind, ComponentSelection, DirtySet, EditMesh, ElementRemap, FalloffCurve, HiddenSet, MeshData,
   MeshOp, MeshSetOp, Normals, OpFrame, OpResult, OpWarning, Refusal, SymmetryAxis, SymmetryMap,
-  Triangulation } from '@ekza-animator/mesh-core';   // type-only: no kernel code is bundled
+  Triangulation } from '@ekza-studio/mesh-core';   // type-only: no kernel code is bundled
 import type { ExportArtifact, ExportKind, ExportProfileDef, ExportReduceSpec, ExportRequest, GlbContainer,
-  ValidationReport } from '@ekza-animator/io';
+  ValidationReport } from '@ekza-studio/io';
 import type { ChannelBuffer, ClipSampler, FootPin, LimbId, PoseBuffers, PoseClipboard, RigProgram,
-  SkeletonDesc } from '@ekza-animator/rig';
+  SkeletonDesc } from '@ekza-studio/rig';
 import type { OperatorMap } from './operators/args';
 
 // ---------- panels and scopes ----------

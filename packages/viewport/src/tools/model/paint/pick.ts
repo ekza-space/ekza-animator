@@ -3,9 +3,9 @@
 // the kernel runtimes only (positions, the cached triangulation, the world placement through groups), so it works
 // whether or not a mesh-view display is loaded; hidden objects, objects outside a pane's isolate list and hidden faces
 // are never picked.
-import { quatRotateVec3, type ReadonlyVec3, type Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord } from '@ekza-animator/doc';
-import { type EditorApp, worldPlacement } from '@ekza-animator/editor-core';
+import { quatRotateVec3, type ReadonlyVec3, type Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord } from '@ekza-studio/doc';
+import { type EditorApp, worldPlacement } from '@ekza-studio/editor-core';
 import type { CameraSnapshot } from '../../../types';
 
 /** What picking needs of the viewport: the pane's camera and its size in CSS px. */

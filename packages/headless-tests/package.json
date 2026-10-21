@@ -1,5 +1,5 @@
 {
-  "name": "@ekza-animator/headless-tests",
+  "name": "@ekza-studio/headless-tests",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -10,13 +10,13 @@
     "typecheck": "tsc -b"
   },
   "devDependencies": {
-    "@ekza-animator/anim-core": "workspace:*",
-    "@ekza-animator/doc": "workspace:*",
-    "@ekza-animator/editor-core": "workspace:*",
-    "@ekza-animator/io": "workspace:*",
-    "@ekza-animator/mesh-core": "workspace:*",
-    "@ekza-animator/mesh-view": "workspace:*",
-    "@ekza-animator/rig": "workspace:*",
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/editor-core": "workspace:*",
+    "@ekza-studio/io": "workspace:*",
+    "@ekza-studio/mesh-core": "workspace:*",
+    "@ekza-studio/mesh-view": "workspace:*",
+    "@ekza-studio/rig": "workspace:*",
     "@pixiv/three-vrm": "catalog:",
     "@pixiv/three-vrm-animation": "catalog:",
     "@types/node": "catalog:",

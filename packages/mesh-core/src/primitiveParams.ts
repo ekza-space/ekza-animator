@@ -2,7 +2,7 @@
 // .primitiveDefaults 'low-poly'); `MAYA_PRIMITIVE_DEFAULTS` holds Maya's (preference 'maya'). Every param is
 // value-bound; the primary field is the first subdivision count (humanoidBody: height). Plane lies in XZ facing +Y;
 // cylinder, cone and torus axes along +Y; all centred at the origin. Eager: plain data.
-import type { ParamDef, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamDef, ParamValues } from '@ekza-studio/anim-core';
 import { distance, enumOf, int } from './paramKit';
 import type { PrimitiveKind } from './types';
 

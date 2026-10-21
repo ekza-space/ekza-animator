@@ -20,8 +20,8 @@
 // - Pruning is not a drop: a step that loses its last part to pruning outside a doc eviction (its doc entry taken
 //   over by a later step, cancelled out by coalescing, `forgetDocEntries`, `dropOverrides`) disappears without
 //   `onDrop`; it holds nothing a drop listener releases (M6A-B0A-25).
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, DocumentStore, UndoEntry, UndoEvictReason, UndoResult } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId, DocumentStore, UndoEntry, UndoEvictReason, UndoResult } from '@ekza-studio/doc';
 import type {
   EditorHistory,
   HistoryDropReason,

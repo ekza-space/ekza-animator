@@ -1,8 +1,8 @@
 // Graph view transform (MVP-SPEC §4.7, ADR 0007): x = (frame − f0)·sx ; y = H − (displayValue − v0)·sy.
 // Frames are active-clip frames; display values are degrees for rotation channels and curve units otherwise.
-import { RAD2DEG } from '@ekza-animator/anim-core';
-import type { ChannelId } from '@ekza-animator/doc';
-import type { ChannelUnit } from '@ekza-animator/editor-core';
+import { RAD2DEG } from '@ekza-studio/anim-core';
+import type { ChannelId } from '@ekza-studio/doc';
+import type { ChannelUnit } from '@ekza-studio/editor-core';
 import type { GraphViewState } from '../types';
 
 /** Zoom limits: px per frame and px per display unit. */

@@ -8,8 +8,8 @@
 // in their unit (an angle attribute in degrees: `30` on Roll is 30°); the IK/FK proxy row (`cb-ikfk-row`) for any
 // control of a limb, editing the limb IK control's `@ikFk` (its raw row is hidden), with a switch button; the
 // virtual slider on a MMB press on any row, or an LMB drag of ≥ 3 px horizontally that starts on a channel name.
-import type { CharacterId, ChannelId, ControlId, ControlRecord, DocumentStore } from '@ekza-animator/doc';
-import { TRS_CHANNELS, type TrsChannel } from '@ekza-animator/doc';
+import type { CharacterId, ChannelId, ControlId, ControlRecord, DocumentStore } from '@ekza-studio/doc';
+import { TRS_CHANNELS, type TrsChannel } from '@ekza-studio/doc';
 import {
   attrChannelsOf,
   type ChannelEdit,
@@ -26,9 +26,9 @@ import {
   type SceneObjectId,
   type SessionState,
   sortChannelsForDisplay,
-} from '@ekza-animator/editor-core';
-import type { LimbDesc } from '@ekza-animator/rig';
-import { startVirtualSliderDrag, type VirtualSliderDrag } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import type { LimbDesc } from '@ekza-studio/rig';
+import { startVirtualSliderDrag, type VirtualSliderDrag } from '@ekza-studio/viewport';
 import {
   type JSX,
   lazy,

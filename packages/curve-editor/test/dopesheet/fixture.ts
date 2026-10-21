@@ -1,7 +1,7 @@
 // Shared set-up of the Dope Sheet tests: the synthetic wave document (humanoid rig, clip 0–30) in a fake EditorApp
 // with the built-in operators, a mounted DopeSheetController with its contributions, curves with chosen keys,
 // pointer events and pixel probes.
-import type { Frame, TangentType } from '@ekza-animator/anim-core';
+import type { Frame, TangentType } from '@ekza-studio/anim-core';
 import {
   type ChannelId,
   type ControlId,
@@ -10,9 +10,9 @@ import {
   type KeyId,
   type KeyRecord,
   newId,
-} from '@ekza-animator/doc';
-import { registerBuiltinOperators, type ToolPointerEvent, type ToolWheelEvent } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/doc';
+import { registerBuiltinOperators, type ToolPointerEvent, type ToolWheelEvent } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { DopeSheetController, registerDopeSheetContributions } from '../../src';
 import { WAVE, waveSnapshot } from '../timeline/fixture';
 

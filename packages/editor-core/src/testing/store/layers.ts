@@ -1,6 +1,6 @@
 // Row sources of the naive store: the committed tables, copy-on-write overlays (transactions and previews) and a
 // read view that applies partition visibility and soft deletion.
-import type { Partition } from '@ekza-animator/doc';
+import type { Partition } from '@ekza-studio/doc';
 import { compareStrings, isDeleted, partitionOfRow, type Row } from './rows';
 
 export interface RowSource {

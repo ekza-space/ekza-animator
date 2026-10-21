@@ -5,7 +5,7 @@
 // through the mirror. B2 owns `buildSymmetryMap`, `expandSelection` and `mirrorEdgePoint` (§4.3); these helpers follow
 // the same rules on a map the caller passes, so the B4 ops work and are tested before B2 merges.
 // `test/ops/symmetry.test.ts` checks them against B2's functions once `READY.b2` holds (M6A-B4-2, M6A-B4-3).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import { mirrorCornerAttributes, mirrorName, mirrorPointAttributes } from '../layers/propagate';
 import type {
   AttrLayer,

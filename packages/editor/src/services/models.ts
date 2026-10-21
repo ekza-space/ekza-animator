@@ -1,13 +1,13 @@
-// Model loader over @ekza-animator/io/three (GLTFLoader + VRMLoaderPlugin, self-hosted decoders). The three loader
+// Model loader over @ekza-studio/io/three (GLTFLoader + VRMLoaderPlugin, self-hosted decoders). The three loader
 // module is a lazy chunk (M2A-SPEC §5.21.2, M-2 boundary 1): it loads on the first display-model load, or earlier on
 // intent (`preloadModelLoader`: a file dragged over the window, the Open dialog, a sample button hovered or pressed,
 // a project being opened), never at idle. Loads wait for `setRenderer` (KTX2 support detection needs the
 // WebGLRenderer; ARCHITECTURE §7): a file dropped before the canvas exists loads once it does, and without WebGL the
 // display model never loads while the 2D panels keep working.
-import type { DisplayModel, ModelLoader } from '@ekza-animator/editor-core';
-import type { GlbContainer } from '@ekza-animator/io';
-import type * as IoThree from '@ekza-animator/io/three';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { DisplayModel, ModelLoader } from '@ekza-studio/editor-core';
+import type { GlbContainer } from '@ekza-studio/io';
+import type * as IoThree from '@ekza-studio/io/three';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 
 type ThreeLoader = ReturnType<typeof IoThree.createThreeModelLoader>;
 
@@ -16,7 +16,7 @@ let threeModule: Promise<typeof IoThree> | null = null;
 /** Starts loading the three.js model loader chunk (idempotent; a failed load is retried by the next call). */
 export function preloadModelLoader(): Promise<typeof IoThree> {
   if (threeModule === null) {
-    threeModule = import('@ekza-animator/io/three');
+    threeModule = import('@ekza-studio/io/three');
     threeModule.catch(() => {
       threeModule = null;
     });

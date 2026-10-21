@@ -4,7 +4,7 @@
 // (pending until the runtime follows, whatever the result's sizes; a same-size result keeps the other kinds; rolled-back
 // commits), revisions remembered across undo and redo, the mirrored selection, session counts and the runtimes' edit
 // links following the hilite. The same-size op through B7's real `commitOp` is gated on READY.b7.
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   BitSet,
   type ComponentSelection,
@@ -15,7 +15,7 @@ import {
   type OpResult,
   primitive,
   selectionOf,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { type ApplyContext, componentInternals, type EditorApp } from '../../../src';
 import { READY } from './ready';

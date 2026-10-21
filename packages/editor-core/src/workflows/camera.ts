@@ -1,6 +1,6 @@
 // The shot camera an import creates when the project has none (MVP-SPEC §4.11.6 step 8): a 50 mm lens, 3/4 front
 // view from chest height, framed on the character's height; locked, so the split layout's left pane is a stable shot.
-import { mat4Decompose, type Quat, type ReadonlyVec3, type Vec3 } from '@ekza-animator/anim-core';
+import { mat4Decompose, type Quat, type ReadonlyVec3, type Vec3 } from '@ekza-studio/anim-core';
 
 /** Vertical field of view of a 50 mm lens on a 24 mm-high full-frame sensor. */
 export const SHOT_FOV_Y = 2 * Math.atan(12 / 50);

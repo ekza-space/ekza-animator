@@ -2,8 +2,8 @@
 // splitters; Space-maximized pane), pane headers, HUD and the empty-state drop zone. The 3D view is drawn by the
 // shared canvas behind the workspace; panes register their surfaces with the app's ViewportManager.
 // M2a (A2): the panel passes the Pointer Lock switch to the manager and runs the "FK limbs only" notice (§5.7).
-import { type EditorApp, watchFkOnlyRigs } from '@ekza-animator/editor-core';
-import { LAYOUT_PANES, type ViewportManager } from '@ekza-animator/viewport';
+import { type EditorApp, watchFkOnlyRigs } from '@ekza-studio/editor-core';
+import { LAYOUT_PANES, type ViewportManager } from '@ekza-studio/viewport';
 import { type JSX, useEffect } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import { useDocQuery, useSession } from '../../hooks';

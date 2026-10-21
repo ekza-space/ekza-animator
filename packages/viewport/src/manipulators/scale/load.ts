@@ -2,7 +2,7 @@
 // ViewportManager share one load; until it resolves the tool does nothing and no scale manipulator shows. A load that
 // fails (offline after a redeploy, a network error) is reported once to the user by `requestScaleKit`, and only the
 // user's next Scale action (choosing the tool again, a press with it) tries again.
-import type { Notifier } from '@ekza-animator/editor-core';
+import type { Notifier } from '@ekza-studio/editor-core';
 import type * as ScaleKitModule from './kit';
 
 export type ScaleKit = typeof ScaleKitModule;

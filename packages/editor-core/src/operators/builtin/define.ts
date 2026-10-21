@@ -1,6 +1,6 @@
 // Typing and small helpers for the built-in operators: each definition is checked against `OperatorMap` (args and
 // result of its id), then stored type-erased like any contribution (ADR 0008 §1–2).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type {
   OperatorArgs,
   OperatorContext,

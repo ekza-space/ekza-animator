@@ -12,12 +12,12 @@ import {
   quatAngle,
   reduceKeys,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
-import { type GlbContainer, parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
-import { loadGltfInNode } from '@ekza-animator/io/testing';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { naiveCurveEngine } from '@ekza-studio/editor-core/testing';
+import { type GlbContainer, parseGlb, readAnimations, skeletonFromGltf } from '@ekza-studio/io';
+import { loadGltfInNode } from '@ekza-studio/io/testing';
 import {
   autoRig,
   CHANNELS_PER_CONTROL,
@@ -35,7 +35,7 @@ import {
   type RigProgram,
   type SkeletonDesc,
   writeControlChannels,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { AnimationMixer, LoopOnce } from 'three';
 import { describe, expect, it } from 'vitest';
 

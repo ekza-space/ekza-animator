@@ -3,8 +3,8 @@
 // checks. The import pipelines themselves (`importModel.ts`, `importAnimation.ts`) load as one lazy chunk on the first
 // import (`importLoader.ts`, M2A-SPEC §5.21.2); keeping these helpers here keeps that chunk off the editor's initial
 // route.
-import type { CharacterId, ClipId, ReadView } from '@ekza-animator/doc';
-import { isHumanoidProgram } from '@ekza-animator/rig';
+import type { CharacterId, ClipId, ReadView } from '@ekza-studio/doc';
+import { isHumanoidProgram } from '@ekza-studio/rig';
 import type { EditorApp } from '../types';
 import { nameKey } from './names';
 

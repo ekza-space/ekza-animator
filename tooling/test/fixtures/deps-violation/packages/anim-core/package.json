@@ -1,5 +1,5 @@
 {
-  "name": "@ekza-animator/anim-core",
+  "name": "@ekza-studio/anim-core",
   "private": true,
   "dependencies": {
     "three": "catalog:"

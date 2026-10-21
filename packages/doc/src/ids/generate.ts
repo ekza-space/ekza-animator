@@ -1,4 +1,4 @@
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { ControlId, IdKind, IdOfKind, IdSource, RigId, SolverId } from '../ids';
 import { digestBase62, sha256 } from '../migrations/sha256';
 

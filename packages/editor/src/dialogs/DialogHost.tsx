@@ -6,7 +6,7 @@
 // hashes). Each dialog and the prompt sit in an error boundary: a failure closes that dialog (the prompt answers
 // Cancel), says so in a toast and leaves the editor running; the next open loads the chunk again (`React.lazy` keeps a
 // rejected load for good, so a failed attempt's lazy component is replaced).
-import type { UiDialog } from '@ekza-animator/editor-core';
+import type { UiDialog } from '@ekza-studio/editor-core';
 import {
   Component,
   type ComponentType,

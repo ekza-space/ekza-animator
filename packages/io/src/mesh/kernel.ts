@@ -9,4 +9,4 @@ export {
   EDGE_HARD,
   morphLayer,
   triangulate,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';

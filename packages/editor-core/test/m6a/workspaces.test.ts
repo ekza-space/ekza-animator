@@ -1,8 +1,8 @@
 // M6A-SPEC §5.17, §6.2 (B9): the four workspace tabs, `workspace.set` and its switching rules, Model's status glyph,
 // `view.tool` in Model, and the pane and overlay operators through their ports.
-import type { MeshId, MeshRef } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+import type { MeshId, MeshRef } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   BUILTIN_WORKSPACES,

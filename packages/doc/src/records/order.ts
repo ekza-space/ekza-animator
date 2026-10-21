@@ -8,7 +8,7 @@
 // - the fraction is any run of base62 digits that does not end in '0'.
 // `fractionalIndex(null, null)` is 'a0'; appending after the last key increments the integer part, so a list built by
 // appending stays short ('a0', 'a1', … 'az', 'b00', …).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 
 const DIGITS = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 const ZERO = '0';

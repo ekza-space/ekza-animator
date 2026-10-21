@@ -1,8 +1,8 @@
 // M2A-SPEC §5.20: the Recovery dialog (rows with name, time, counts and size; Recover, Discard after a confirm, Later)
 // and the shell's side of autosave: the dialog opens by itself once per page load when orphaned slots exist (after
 // the first-run dialog), never with a fake host, and `beforeunload` cleans a page that is not dirty.
-import type { AutosaveSlotInfo, AutosaveStore } from '@ekza-animator/editor-core';
-import { GLOBAL_SCOPE } from '@ekza-animator/editor-core';
+import type { AutosaveSlotInfo, AutosaveStore } from '@ekza-studio/editor-core';
+import { GLOBAL_SCOPE } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../src/dialogs/DialogHost';
 import { relativeTime, sizeText } from '../src/dialogs/RecoveryDialog';

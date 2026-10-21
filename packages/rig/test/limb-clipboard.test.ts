@@ -1,6 +1,6 @@
 // A1 (M2A-SPEC §5.8, §5.1 rule 4): the pose clipboard carries the IK controls' attribute values except the
 // `keyAll: false` ones (ikFk, soft), locally and mirrored (AttrDef.mirror: twists negate, roll and bank copy).
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { applyPoseClipboard, makePoseClipboard, registerBuiltinRigOps } from '../src';
 import { richHumanoid } from './helpers';

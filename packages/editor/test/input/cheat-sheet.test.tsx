@@ -1,6 +1,6 @@
 // B0b (M6A-SPEC §7, §9 B0b "the cheat sheet lists every new binding"): the shortcut sheet shows each §7 row under
 // its Model scope and documents the tool modifiers.
-import { MAYA_KEYMAP, MODEL_SCOPE, registerBuiltinOperators, TOOL_MODIFIERS } from '@ekza-animator/editor-core';
+import { MAYA_KEYMAP, MODEL_SCOPE, registerBuiltinOperators, TOOL_MODIFIERS } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { DialogHost } from '../../src/dialogs/DialogHost';
 import { shortcutRows, toolModifierRows } from '../../src/dialogs/ShortcutsDialog';

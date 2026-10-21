@@ -1,8 +1,8 @@
 // Pose operators (MVP-SPEC §4.9 `pose.*`; §4.11.2 value edits, §4.11.19 pin/plant feet, §4.11.20 mirror). Every
 // pose change goes through `applyChannelEdits` with `key: 'auto'`, so it keys, sets static values or overrides by
 // the same rules as a manipulator drag. Rotations from the rig solvers come back through `eulerNear` (rig).
-import { EkzaError, type Mat4 } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-animator/doc';
+import { EkzaError, type Mat4 } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-studio/doc';
 import {
   applyPoseClipboard,
   type FootPin,
@@ -13,7 +13,7 @@ import {
   type PoseBuffers,
   type PoseClipboard,
   plantFeetChannels,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { applyChannelEdits } from '../../edit/channels';
 import { channelsAt, limbContext, plantIkLeg } from '../../workflows/ik';
 import { summarizeMirrorWarnings } from '../../workflows/mirrorWarnings';

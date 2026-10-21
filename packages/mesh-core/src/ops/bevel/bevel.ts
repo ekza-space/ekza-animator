@@ -31,7 +31,7 @@
 // afterwards. Refusals: `bevel.no-selection`, `bevel.border-edge`, `bevel.non-manifold`, `bevel.zero-width` (no valid
 // width at all, e.g. Roundness 1 with even segments at a corner), `bevel.too-wide` (Clamp off and a width past the
 // next vertex or one that folds faces over).
-import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { kernelError } from '../../kernel';
 import {

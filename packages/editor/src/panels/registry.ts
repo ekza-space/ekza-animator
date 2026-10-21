@@ -1,4 +1,4 @@
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { PanelDef, PanelRegistry } from './types';
 
 /**

@@ -2,8 +2,8 @@
 // parents' (groups or meshes of the same owner) up to the owner root (the scene, or a character's root), as the
 // column-major matrix mesh-view and the picker take. A parent that is missing, deleted, of another owner or closes
 // a cycle ends the chain there (the queries treat such a record as a root, §4.2 load repairs).
-import { mat4Compose, mat4Identity, mat4Multiply } from '@ekza-animator/anim-core';
-import type { CharacterId, GroupRecord, MeshRecord, ReadView } from '@ekza-animator/doc';
+import { mat4Compose, mat4Identity, mat4Multiply } from '@ekza-studio/anim-core';
+import type { CharacterId, GroupRecord, MeshRecord, ReadView } from '@ekza-studio/doc';
 
 /** Longest parent chain followed (deeper chains are cut, as a cycle would be). */
 const MAX_DEPTH = 64;

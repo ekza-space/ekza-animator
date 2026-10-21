@@ -1,9 +1,9 @@
 // Key moves and handle drags through document previews and the WP-7a edit kernel (MVP-SPEC §4.11.3, §4.11.4,
 // E2E-09/10/13). These run once the kernel lands: until then `moveKeys`/`setKeyHandle` are stubs (MVP-SPEC §8.1).
-import { RAD2DEG } from '@ekza-animator/anim-core';
-import type { KeyRecord } from '@ekza-animator/doc';
-import type { ToolPointerEvent } from '@ekza-animator/editor-core';
-import { type FakeEditorApp, type FakeServices, naiveCurveEngine } from '@ekza-animator/editor-core/testing';
+import { RAD2DEG } from '@ekza-studio/anim-core';
+import type { KeyRecord } from '@ekza-studio/doc';
+import type { ToolPointerEvent } from '@ekza-studio/editor-core';
+import { type FakeEditorApp, type FakeServices, naiveCurveEngine } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { registerGraphContributions } from '../src';
 import {

@@ -2,9 +2,9 @@
 // store, mesh records stored as revisions, and small kernel ops written against the MeshOp contract that change only
 // values (positions, flags, layers) — the B0a reference kernel has no Euler operators, so topology cases wait for
 // READY.b1 (ready.ts).
-import type { ParamDef, ParamValues } from '@ekza-animator/anim-core';
-import { type MeshId, type MeshRecord, type MeshRef, seededIdSource } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import type { ParamDef, ParamValues } from '@ekza-studio/anim-core';
+import { type MeshId, type MeshRecord, type MeshRef, seededIdSource } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
 import {
   BUILTIN_LAYERS,
   type ComponentSelection,
@@ -17,7 +17,7 @@ import {
   refuse,
   selectionOf,
   writeRevision,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import {
   type AutosaveStore,
   createEditorApp,

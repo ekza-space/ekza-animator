@@ -1,10 +1,10 @@
 // Hosting of mesh-view in the viewport (M6A-SPEC §4.4, §4.7, §2; B6). The eager part is this file only: the one lazy
-// loader of `@ekza-animator/mesh-view` (with three-mesh-bvh) and of the display that hosts it, and the mapping of a
+// loader of `@ekza-studio/mesh-view` (with three-mesh-bvh) and of the display that hosts it, and the mapping of a
 // pane's `DisplayFlags` onto `MeshPaneDisplay`. Everything that draws or picks lives in the lazy chunk, which carries
 // the mesh-view size marker (§2 boundary); eager code must never contain the marker string.
-import type { DisplayFlags } from '@ekza-animator/editor-core';
-import type * as MeshViewModule from '@ekza-animator/mesh-view';
-import type { MeshPaneDisplay } from '@ekza-animator/mesh-view';
+import type { DisplayFlags } from '@ekza-studio/editor-core';
+import type * as MeshViewModule from '@ekza-studio/mesh-view';
+import type { MeshPaneDisplay } from '@ekza-studio/mesh-view';
 import type * as DisplayModule from './display';
 import type { MeshDisplay, MeshDisplayOptions } from './display';
 
@@ -21,7 +21,7 @@ let display: Promise<typeof DisplayModule> | null = null;
 export function loadMeshView(): Promise<MeshView> {
   if (view === null) {
     // oxlint-disable-next-line no-restricted-imports -- the one lazy mesh-view loader of the viewport (M6A-SPEC §2)
-    view = import('@ekza-animator/mesh-view').then(
+    view = import('@ekza-studio/mesh-view').then(
       (loaded) => {
         // The chunk's entry references its size marker; reading it keeps the export in the chunk.
         if (typeof loaded.VIEW_MARKER !== 'string') throw new Error('mesh-view chunk without its marker');

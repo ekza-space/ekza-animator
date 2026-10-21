@@ -7,9 +7,9 @@
 //
 // `prepare*` read and convert (asset store, partitions); `applyClipImport` writes the clips in the operator's
 // transaction and activates the first. A file the Animator wrote keeps its `ekza_animation_v1` provenance.
-import { EkzaError, type Fps } from '@ekza-animator/anim-core';
-import type { AssetRecord, CharacterId, ClipId, ClipProvenance, Tx } from '@ekza-animator/doc';
-import { type GlbContainer, parseGlb, readAnimations, readVrma, skeletonFromGltf } from '@ekza-animator/io';
+import { EkzaError, type Fps } from '@ekza-studio/anim-core';
+import type { AssetRecord, CharacterId, ClipId, ClipProvenance, Tx } from '@ekza-studio/doc';
+import { type GlbContainer, parseGlb, readAnimations, readVrma, skeletonFromGltf } from '@ekza-studio/io';
 import {
   DEFAULT_REDUCE,
   detectClipFps,
@@ -18,7 +18,7 @@ import {
   importHumanoidClip,
   importRawClip,
   remapRawClipByName,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { newRecordId } from '../app/internals';
 import type { ClipsResult, ImportAnimationOptions } from '../operators/args';
 import type { CharacterRuntime, EditorApp } from '../types';

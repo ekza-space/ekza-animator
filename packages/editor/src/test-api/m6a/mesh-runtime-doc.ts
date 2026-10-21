@@ -3,10 +3,10 @@
 // 'asset', its derived MeshId, §5.21); counts, stats and normals come from the runtimes (the kernel's one
 // triangulation and normals); positions in mesh-local or world space (the placement through groups, parent meshes and
 // the character root).
-import { quatRotateVec3 } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord } from '@ekza-animator/doc';
-import { assetMeshRows, attachMeshes, meshKernel, worldPlacement } from '@ekza-animator/editor-core';
-import type { MeshData } from '@ekza-animator/mesh-core';
+import { quatRotateVec3 } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord } from '@ekza-studio/doc';
+import { assetMeshRows, attachMeshes, meshKernel, worldPlacement } from '@ekza-studio/editor-core';
+import type { MeshData } from '@ekza-studio/mesh-core';
 import type { EkzaAnimatorTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 

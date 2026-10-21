@@ -19,7 +19,7 @@
 //    the t* snap and the seam test go through the map's mirror in mesh-local space (Object, or World mapped through the
 //    placement).
 // No removals happen, so every index is stable during the run.
-import type { JsonValue, ParamValues } from '@ekza-animator/anim-core';
+import type { JsonValue, ParamValues } from '@ekza-studio/anim-core';
 import { kernelError } from '../../kernel';
 import { orient2d, segmentsCross2d } from '../../predicates';
 import { isRefusal, refuse } from '../../refusal';

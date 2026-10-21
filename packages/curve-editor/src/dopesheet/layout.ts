@@ -1,6 +1,6 @@
 // Dope Sheet geometry (M2A-SPEC §5.10, research 09 §4.8): the ruler strip at the top, the region-bar strip under
 // it, then one row per Dope Sheet row. x = (frame − f0)·sx; row i's top = ROWS_TOP + i·ROW_HEIGHT − scrollY.
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 import type { DopeSheetViewState } from '../types';
 
 /** Height of the ruler strip (frame labels; click/drag scrubs). CSS px. */

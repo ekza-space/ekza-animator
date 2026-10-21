@@ -3,8 +3,8 @@
 // palette need them); each operator's `prepare` loads this module (`loadPresetOps`) and its `apply` runs the matching
 // function here, so the editor's first route carries only the definitions (the eager-route budget, §5.27). The runner
 // polls again after `prepare`, so a run that started before the load still checks the state it applies to.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { DEFAULT_WORKSPACE_VIEWS, type EditorApp } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { DEFAULT_WORKSPACE_VIEWS, type EditorApp } from '@ekza-studio/editor-core';
 import type { ShellOperatorDeps } from './operators';
 import { builtinPreset } from './presets';
 

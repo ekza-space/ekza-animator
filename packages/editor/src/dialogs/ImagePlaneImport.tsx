@@ -1,8 +1,8 @@
 // The reference image import dialog (M6A-SPEC §5.26, §8.3 Create › Reference Image; B13): a PNG or JPEG for the front,
 // side or top view (the menu item's view preselected), its name, then `imagePlane.import {camera, name, bytes}` — one
 // undo step. The new plane becomes the selected plane, so the Attributes panel shows its Image plane section.
-import { pendingImagePlaneCamera } from '@ekza-animator/editor-core';
-import { Button, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem, TextInput } from '@ekza-animator/ui';
+import { pendingImagePlaneCamera } from '@ekza-studio/editor-core';
+import { Button, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem, TextInput } from '@ekza-studio/ui';
 import { type JSX, useId, useState } from 'react';
 import { setSelectedPlane } from '../panels/outliner/planeSelection';
 import { useShell } from '../shell/context';

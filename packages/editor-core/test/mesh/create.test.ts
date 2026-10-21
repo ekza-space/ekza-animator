@@ -1,9 +1,9 @@
 // M6A-SPEC §5.16, §6.2, §6.3 (B7): `mesh.create.<kind>` — authored scene meshes at the origin, faceted (every edge
 // hard), live parameters with the preferred default set, the default palette, derived ids kept by an adjusted
 // re-run, unique names, selection and object mode, creation into a template group with its symmetry, undo/redo.
-import { derivedId, type MeshId } from '@ekza-animator/doc';
-import { makeTestGroup, makeTestPalette } from '@ekza-animator/doc/testing';
-import { EDGE_HARD } from '@ekza-animator/mesh-core';
+import { derivedId, type MeshId } from '@ekza-studio/doc';
+import { makeTestGroup, makeTestPalette } from '@ekza-studio/doc/testing';
+import { EDGE_HARD } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { type LastRun, runSeedOf } from '../../src';
 import { DEFAULT_PALETTE_ID } from '../../src/operators/builtin/create';

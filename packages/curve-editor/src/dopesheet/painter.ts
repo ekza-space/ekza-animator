@@ -2,7 +2,7 @@
 // yellow when selected, a yellow outline when partly selected), hold bars, stepped hatching, the ruler, the region
 // bar, the playhead, playback-range shading and the marquee. Only visible rows and visible frames are drawn; glyphs
 // of one style share one path (of rects in a rotated frame, see `diamond`).
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 import { rulerSteps } from '../timeline/layout';
 import type { DopeSheetRow, DopeSheetViewState } from '../types';
 import type { DopeSheetData, RowGlyphs } from './data';

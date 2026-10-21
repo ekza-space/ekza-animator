@@ -1,6 +1,6 @@
 // Creates the shell core for one editor (MVP-SPEC §7 WP-8): panel registry with the built-in panels, shell
 // operators and menu items, frame hooks, probes, workspace adapter, keyboard adapter and the file pipeline.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
   type OperatorAction,
@@ -9,7 +9,7 @@ import {
   type PrefsStorage,
   provideShellOverlays,
   type RunContext,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { createStore } from 'zustand/vanilla';
 import { createFallbackScheduler, createFrameHooks } from '../gl/frameLoop';
 import { KeyboardAdapter, scopeChain, viewportToolTarget } from '../input/keyboard';
@@ -45,7 +45,7 @@ export interface CreateShellOptions {
   readonly toasts?: ToastNotifier | null;
   /** Panels to show; default: a registry with `registerBuiltinPanels`. */
   readonly panels?: PanelRegistry;
-  /** Model summary for the import dialog; default: @ekza-animator/io. */
+  /** Model summary for the import dialog; default: @ekza-studio/io. */
   readonly summarize?: Summarizer;
   /** How long a help-line message stays, ms. */
   readonly helpMs?: number;

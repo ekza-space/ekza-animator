@@ -13,8 +13,8 @@ import type {
   ClipRecord,
   ControlRecord,
   DocumentStore,
-} from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
+} from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { type JSX, useCallback, useId, useMemo, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';

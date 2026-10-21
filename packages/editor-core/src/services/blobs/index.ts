@@ -11,7 +11,7 @@
 //   next one, so a sweep can never free what a commit in progress just stored).
 // - `closure` expands manifests to their chunks by reading the manifest JSON directly (no kernel needed, so the
 //   autosave store never parses manifests).
-import { type Disposer, EkzaError, sha256Hex } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError, sha256Hex } from '@ekza-studio/anim-core';
 import type { BlobId, BlobStore } from '../../types';
 
 const HEX64 = /^[0-9a-f]{64}$/;

@@ -5,7 +5,7 @@
 // Loops that touch at a bow-tie vertex are separate holes: each simple loop is filled on its own, and only when one
 // of its own vertices is touched (M6A-B3-26). Symmetry: the expanded selection (a hole across the seam is one loop,
 // filled once).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { averageCornerAttributes } from '../../layers/propagate';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, Refusal } from '../../types';

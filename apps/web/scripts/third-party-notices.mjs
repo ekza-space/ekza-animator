@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 
 const appDir = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const repoDir = resolve(appDir, '../..');
-const WORKSPACE_SCOPE = '@ekza-animator/';
+const WORKSPACE_SCOPE = '@ekza-studio/';
 const LICENSE_FILE = /^(licen[cs]es?|copying|notices?)([.-].*)?$/i;
 
 /** Node's lookup: `node_modules/<name>` in `fromDir` and its ancestors (pnpm keeps a package's deps as siblings). */

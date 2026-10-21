@@ -1,8 +1,8 @@
 // Breakdown conversion (M2A-SPEC §4.9 `key.convert`, §5.12; A4): the selected keys, or the keys at the current frame
 // on the key-target controls, become breakdowns (they keep their ratio between the keys around them when those move)
 // or plain keys again. Keys of locked curves keep their kind.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { KeyId, KeyRecord, ReadView } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { KeyId, KeyRecord, ReadView } from '@ekza-studio/doc';
 import { isLocked, isTrsChannel } from '../../edit/channelMeta';
 import { currentClipFrame } from '../../edit/context';
 import { activeClipOf } from '../../evaluation/time';

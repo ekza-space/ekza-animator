@@ -1,9 +1,9 @@
 // The curve view of the Graph Editor panel: two stacked canvases (ADR 0007 §2) driven by a GraphEditorController.
 // DOM pointer, wheel and key events become editor-core tool events here; hi-DPI backing stores follow a
 // ResizeObserver (devicePixelContentBoxSize, with contentRect × devicePixelRatio as the fallback).
-import { GraphEditorController } from '@ekza-animator/curve-editor';
-import type { CurveId } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-animator/editor-core';
+import { GraphEditorController } from '@ekza-studio/curve-editor';
+import type { CurveId } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type ToolPointerEvent } from '@ekza-studio/editor-core';
 import { type JSX, memo, useEffect, useRef, useState } from 'react';
 import { attachGraphEditor, focusGraphEditor, type GraphEditorHandle } from './focus';
 

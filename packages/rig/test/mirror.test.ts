@@ -1,5 +1,5 @@
-import type { Vec3 } from '@ekza-animator/anim-core';
-import { type ChannelValues, type ControlId, controlId } from '@ekza-animator/doc';
+import type { Vec3 } from '@ekza-studio/anim-core';
+import { type ChannelValues, type ControlId, controlId } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

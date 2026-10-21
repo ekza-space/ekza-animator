@@ -1,7 +1,7 @@
 // Browser implementations of the EditorServices (MVP-SPEC §4.5, §7 WP-8): in-memory asset store with async
 // verification, file download, clipboard, toasts, the three.js model loader, localStorage preferences and the
 // IndexedDB autosave store (M2A-SPEC §5.20) and (M6a) the mesh blob store.
-import type { BlobStore, EditorServices } from '@ekza-animator/editor-core';
+import type { BlobStore, EditorServices } from '@ekza-studio/editor-core';
 import { createBrowserAssetStore } from './assets';
 import { createIndexedDbAutosaveStore, newSlotId } from './autosave';
 import { createBrowserBlobStore } from './blobs';

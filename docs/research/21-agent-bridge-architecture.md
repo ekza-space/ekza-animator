@@ -177,10 +177,10 @@ Layering (additions to ARCHITECTURE §3, enforced by `tooling/check-deps.mjs`):
 
 | Package | May import | Must not import |
 |---|---|---|
-| `@ekza-animator/motion-analysis`, `@ekza-animator/schematic-render` (note 22 §6.1; private, headless) | anim-core, rig; `fflate` (schematic PNG) | editor-core, React, DOM, WebGL, `node:*` |
-| `@ekza-animator/agent-tools` (private, headless) | anim-core, doc, rig, io (main entry), editor-core, motion-analysis, schematic-render, `zod` (note 22 D9) | React, DOM, WebGL, `three`, `node:*`, `ws`, MCP SDK, `@anthropic-ai/sdk` |
-| `@ekza-animator/mcp-server` (Node app, published as `ekza-animator-mcp`) | agent-tools, editor-core, io, doc, rig, anim-core, `@modelcontextprotocol/server`, `ws`, `node:*`; optional `gltf-validator` | React, DOM, `three`, viewport, editor |
-| `@ekza-animator/editor` (adds `src/agent/`) | everything it imports today + agent-tools | the MCP SDK, `ws` (the browser `WebSocket` is enough) |
+| `@ekza-studio/motion-analysis`, `@ekza-studio/schematic-render` (note 22 §6.1; private, headless) | anim-core, rig; `fflate` (schematic PNG) | editor-core, React, DOM, WebGL, `node:*` |
+| `@ekza-studio/agent-tools` (private, headless) | anim-core, doc, rig, io (main entry), editor-core, motion-analysis, schematic-render, `zod` (note 22 D9) | React, DOM, WebGL, `three`, `node:*`, `ws`, MCP SDK, `@anthropic-ai/sdk` |
+| `@ekza-studio/mcp-server` (Node app, published as `ekza-animator-mcp`) | agent-tools, editor-core, io, doc, rig, anim-core, `@modelcontextprotocol/server`, `ws`, `node:*`; optional `gltf-validator` | React, DOM, `three`, viewport, editor |
+| `@ekza-studio/editor` (adds `src/agent/`) | everything it imports today + agent-tools | the MCP SDK, `ws` (the browser `WebSocket` is enough) |
 
 Nothing depends on `mcp-server`. `agent-tools` sits between editor-core and editor in the graph. `zod` is not in
 the lockfile today; it arrives with `@modelcontextprotocol/server` (`zod ^4.2.0`) and note 22's wire schemas.

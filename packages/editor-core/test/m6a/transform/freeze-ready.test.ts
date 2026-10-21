@@ -2,7 +2,7 @@
 // (READY.b4). This file has no module mock (operators.test.ts substitutes a stand-in op): with the B0a stub in the
 // kernel both poll-fail with the shared "not available yet" reason, so the Modify menu shows them disabled instead of
 // failing with an error toast; with B4 merged the same runs finish.
-import * as kernel from '@ekza-animator/mesh-core';
+import * as kernel from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { type EditorApp, NOT_AVAILABLE_YET } from '../../../src';
 import { addMesh, modelApp, selectObjects } from '../select/support';

@@ -35,8 +35,8 @@ import {
   type ReadonlyXf,
   type Vec3,
   type Xf,
-} from '@ekza-animator/anim-core';
-import type { CharacterId, MeshId } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { CharacterId, MeshId } from '@ekza-studio/doc';
 import {
   type AbsorbGesture,
   beginCardPreview,
@@ -63,9 +63,9 @@ import {
   type TransformSpace,
   transformSpace,
   virtualSliderFactor,
-} from '@ekza-animator/editor-core';
-import type { ComponentKind } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS, PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/editor-core';
+import type { ComponentKind } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS, PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
 import { objectWorld, pivotWorld, type SceneObjectRecord, topmostSelectedObjects } from '../../../manager/objects';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import type { ManipMode, ManipTarget } from '../../../manipulators/ManipulatorKit';

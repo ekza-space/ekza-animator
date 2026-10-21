@@ -6,7 +6,7 @@
 // - After a committed batch the session points only at live records: an active character and an active clip per
 //   character (repaired to the first one when missing), a selection, overrides and feet pins without deleted ids.
 // - `dirty` tracks unsaved document changes: set by committed batches, cleared by a document load.
-import type { CharacterId, ChannelValues, ControlId, DocumentStore } from '@ekza-animator/doc';
+import type { CharacterId, ChannelValues, ControlId, DocumentStore } from '@ekza-studio/doc';
 import type { KernelDeps } from '../app/deps';
 import type { KernelEvaluation } from '../evaluation/service';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';

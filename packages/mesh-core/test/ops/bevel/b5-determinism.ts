@@ -2,7 +2,7 @@
 // oracles, profiles, face mode, symmetric runs and seeded random selections on every primitive), after each cleanup
 // fix on its Mesh Check fixture and after each projection, and digests of Mesh Check's reports on the corpus. Shared
 // by the Node test (which keeps test/goldens/b5-determinism.json) and the Chromium test; no Node APIs here.
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import {
   checkMesh,

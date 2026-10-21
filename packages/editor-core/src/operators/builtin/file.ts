@@ -2,9 +2,9 @@
 // import, save and export. Everything asynchronous (parsing, hashing, the asset store, baking) happens in `prepare`; `apply`
 // writes the document in one transaction (imports) or replaces it (new, open project), and downloads. The import
 // pipelines are a lazy chunk (`workflows/importLoader.ts`, M2A-SPEC §5.21.2): `prepare` loads them, `apply` uses them.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { emptySnapshot } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { emptySnapshot } from '@ekza-studio/doc';
+import type { ExportArtifact, ExportRequest } from '@ekza-studio/io';
 import type { EditorApp, OperatorContext } from '../../types';
 import { GLOBAL_SCOPE } from '../../types';
 import { blockingLints, requestProblem, withReadBackLint } from '../../workflows/export';

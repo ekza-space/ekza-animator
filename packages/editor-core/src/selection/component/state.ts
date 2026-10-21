@@ -3,7 +3,7 @@
 // components, the revision the indices belong to and a small cache of the state seen at earlier revisions (undo and
 // redo of a topology commit bring the selection of that revision back). Kernel values (BitSet) come from the lazy
 // kernel chunk; nothing here imports kernel code.
-import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshData } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshData } from '@ekza-studio/mesh-core';
 import type { MeshKernel } from '../../mesh';
 import type { MeshRuntime } from '../../types';
 

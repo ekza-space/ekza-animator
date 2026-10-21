@@ -2,7 +2,7 @@
 // and rows (badges, Make editable, selection, hilite, rename, drag to reparent, planes), the Palette panel, the
 // Attributes panel's Model sections, the Model start card and Getting started, the reference image import dialog,
 // the Export dialog's Static model section and the first-run start question.
-import type { CharacterId, DocSnapshot, MeshId } from '@ekza-animator/doc';
+import type { CharacterId, DocSnapshot, MeshId } from '@ekza-studio/doc';
 import {
   attachMeshes,
   DEFAULT_PALETTE_ID,
@@ -11,8 +11,8 @@ import {
   meshKernel,
   registerBuiltins,
   swatchIdFor,
-} from '@ekza-animator/editor-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { userEvent } from 'vitest/browser';

@@ -2,8 +2,8 @@
 // IK controls and poles of FK limbs), dimmed like user-hidden controls. Checked per evaluated pose, so an animated
 // ikFk updates the rows: each limb's rule-2 state is compared in place first (no allocation per frame), and the set
 // is rebuilt only when one changed; it keeps its identity while it does not change (no re-render during playback).
-import type { ControlId } from '@ekza-animator/doc';
-import { type EditorApp, limbHiddenControls, limbVisibilityState } from '@ekza-animator/editor-core';
+import type { ControlId } from '@ekza-studio/doc';
+import { type EditorApp, limbHiddenControls, limbVisibilityState } from '@ekza-studio/editor-core';
 import { useCallback, useRef, useSyncExternalStore } from 'react';
 
 const EMPTY: ReadonlySet<ControlId> = new Set();

@@ -1,8 +1,8 @@
 // The time slider's RMB menu (§4.11.17): items from `TimeSliderController.contextMenu`, grouped by their menu
 // group; the 'tangent' group is a submenu. Items whose operator polls false are disabled, with the poll's reason as
 // their tooltip.
-import type { EditorApp } from '@ekza-animator/editor-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import {
   type JSX,
   type KeyboardEvent as ReactKeyboardEvent,

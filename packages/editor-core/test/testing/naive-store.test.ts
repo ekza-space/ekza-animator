@@ -1,4 +1,4 @@
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   type ChangeBatch,
   type ClipRecord,
@@ -8,7 +8,7 @@ import {
   type KeyRecord,
   SCHEMA_VERSION,
   solverId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { createNaiveStore } from '../../src/testing';
 import { WAVE, waveDoc } from './fixtures';

@@ -2,7 +2,7 @@
 // IK control or pole) the IK/FK segmented buttons (a switch with match), Match FK to IK / Match IK to FK, the switch
 // key mode (`prefs.ikFkSwitchKey`), and for legs the foot-roll pivot fields (cm; the break angle in degrees) that run
 // `rig.setFootParams`; on a humanoid rig without limb IK, the "Add Limb IK" button (`rig.addLimbIk`).
-import type { CharacterId, ControlId, ControlRecord, DocumentStore } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ControlRecord, DocumentStore } from '@ekza-studio/doc';
 import {
   type EditorApp,
   type IkFkKeyMode,
@@ -10,8 +10,8 @@ import {
   limbOfControlApp,
   PANEL,
   type Prefs,
-} from '@ekza-animator/editor-core';
-import type { FootRollParams, LimbDesc, LimbId } from '@ekza-animator/rig';
+} from '@ekza-studio/editor-core';
+import type { FootRollParams, LimbDesc, LimbId } from '@ekza-studio/rig';
 import { type JSX, useCallback, useId, useMemo, useSyncExternalStore } from 'react';
 import { useDocQuery, usePrefs } from '../../hooks';
 import { NumberField } from '../channel-box/kit/fields';

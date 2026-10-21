@@ -1,5 +1,5 @@
-import type { Frame } from '@ekza-animator/anim-core';
-import { type ChannelId, type ClipId, type ControlId, controlId } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import { type ChannelId, type ClipId, type ControlId, controlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   autoRig,

@@ -4,8 +4,8 @@
 // option box, the capture-window bridge and the marking menus (`optionBox` shell slot, §8.4, §8.5, §5.10; mounted
 // lazily on the first Model entry, ./ModelOpsSlot.tsx). Called by `registerBuiltinPanels` (MVP-SPEC §3 convention 10:
 // owners register their panels there).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { PANEL, type PanelKind } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { PANEL, type PanelKind } from '@ekza-studio/editor-core';
 import { registerPaneOverlay, registerShellOverlay } from '../../overlays/slots';
 import type { PanelDef, PanelRegistry } from '../types';
 import { LastOpCard } from '../viewport/LastOpCard';

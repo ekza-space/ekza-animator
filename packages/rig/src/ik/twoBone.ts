@@ -8,7 +8,7 @@ import {
   quatRotateVec3,
   type ReadonlyVec3,
   type Vec3,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import type { TwoBoneIkInput, TwoBoneIkOutput } from '../types';
 import { TwoBoneCore } from './core';
 

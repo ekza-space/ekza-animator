@@ -1,4 +1,4 @@
-import type { BoneRef } from '@ekza-animator/doc';
+import type { BoneRef } from '@ekza-studio/doc';
 import { HUMAN_BONE_INDEX, humanNodeIndices } from '../humanoid/map';
 import type { SkeletonDesc } from '../types';
 

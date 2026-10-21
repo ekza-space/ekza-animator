@@ -1,6 +1,6 @@
 // Node-order helpers of the shared test kit (MVP-SPEC §7 WP-0b). The order itself is `skeletonNodeOrder` from
 // io/src/skeleton/order.ts, the same function `skeletonFromGltf` uses (DECISIONS-OPEN B-16).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { GltfNodesJson } from '../skeleton/order';
 
 export { type GltfNodesJson, skeletonNodeOrder } from '../skeleton/order';

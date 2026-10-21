@@ -1,6 +1,6 @@
 import { getHeapSpaceStatistics } from 'node:v8';
-import { mat4Decompose, type Quat, quatAngle, type Vec3 } from '@ekza-animator/anim-core';
-import { type ChannelValues, type ControlId, controlId } from '@ekza-animator/doc';
+import { mat4Decompose, type Quat, quatAngle, type Vec3 } from '@ekza-studio/anim-core';
+import { type ChannelValues, type ControlId, controlId } from '@ekza-studio/doc';
 import {
   autoRig,
   type ChannelBuffer,

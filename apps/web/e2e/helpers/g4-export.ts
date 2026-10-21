@@ -3,8 +3,8 @@
 // through io's `validateGltf` / `compareValidation`), read GLB chunks, and the small quaternion kit the pose checks use.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { compareValidation, setGltfValidator, type ValidationReport, validateGltf } from '@ekza-animator/io';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { compareValidation, setGltfValidator, type ValidationReport, validateGltf } from '@ekza-studio/io';
 import { expect, type Page } from '@playwright/test';
 import { failIfBlocked, lastExport, type RunResult } from './test-api';
 

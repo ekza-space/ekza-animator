@@ -1,7 +1,7 @@
 // M6A-SPEC §4.6, §5.20: the memory BlobStore (B0a complete): content addressing, dedupe, verified reads, fresh roots,
 // mark-and-sweep and the manifest chunk closure.
-import { EkzaError, sha256Hex } from '@ekza-animator/anim-core';
-import { primitive, writeRevision } from '@ekza-animator/mesh-core';
+import { EkzaError, sha256Hex } from '@ekza-studio/anim-core';
+import { primitive, writeRevision } from '@ekza-studio/mesh-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { createMemoryBlobStore } from '../../src';

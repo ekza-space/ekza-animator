@@ -1,4 +1,4 @@
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import type { ImporterDef, OperatorDef, ToolDef } from '../../src';
 import { createRegistry } from '../../src/registries/registry';

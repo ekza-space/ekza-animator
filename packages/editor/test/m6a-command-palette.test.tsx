@@ -1,7 +1,7 @@
 // M6A-SPEC §5.18 (B9): the command palette — fuzzy search over the operators visible in the current workspace
 // (labels, ids, Blender-style aliases), menu items with arguments and "Workspace: …" entries, key labels and poll
 // reasons, Enter runs (`source: 'palette'`), the inline prompt of operators with params, and the list UI.
-import type { ParamDef } from '@ekza-animator/anim-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
 import {
   BUILTIN_MENU_ITEMS,
   type OperatorDef,
@@ -9,8 +9,8 @@ import {
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
   type RunContext,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';
 import { CommandPaletteHost, createCommandPalette, PALETTE_LOAD_FAILED } from '../src/overlays/CommandPalette';

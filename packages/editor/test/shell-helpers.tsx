@@ -1,8 +1,8 @@
 // Mounting helpers for shell tests: a shell over the fake app, rendered at the e2e viewport size.
-import type { DocSnapshot } from '@ekza-animator/doc';
-import type { PrefsStorage } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import type { PrefsStorage } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { act, type ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { EditorAppProvider } from '../src/hooks';

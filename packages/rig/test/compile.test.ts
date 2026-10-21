@@ -1,4 +1,4 @@
-import { mat4Compose, quatFromAxisAngle } from '@ekza-animator/anim-core';
+import { mat4Compose, quatFromAxisAngle } from '@ekza-studio/anim-core';
 import {
   type ConstraintRecord,
   type ConstraintId,
@@ -8,7 +8,7 @@ import {
   type SolverId,
   type SolverRecord,
   type UserId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { afterEach, describe, expect, it } from 'vitest';
 import {

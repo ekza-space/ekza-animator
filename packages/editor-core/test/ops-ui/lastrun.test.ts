@@ -5,9 +5,9 @@
 //
 // The kernel module is mocked to add `mesh.test.advance` (./support.ts) to `MESH_OPS`, so the B11 registration path
 // (`registeredMeshOperator` over B7's `meshOperator`) runs end to end on the B0a reference kernel.
-import type { ParamValues } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import * as kernel from '@ekza-animator/mesh-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import * as kernel from '@ekza-studio/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type ComponentSelectionService,
@@ -28,7 +28,7 @@ import { enterModel } from './model';
 import { READY } from './ready';
 import { ADVANCE, type AdvanceOp } from './support';
 
-vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core', async (importOriginal) => {
   const actual = await importOriginal<typeof kernel>();
   const { makeAdvanceOp } = await import('./support');
   const advance = makeAdvanceOp(actual);

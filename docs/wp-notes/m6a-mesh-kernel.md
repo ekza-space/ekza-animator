@@ -18,7 +18,7 @@ Branch `m6a/mesh-kernel` (from `m6a/spec`, with `m6a/contracts-foundation` merge
 | Hard-flag helpers (H1–H4 checks, H2 dihedral rule) and `resolveSmoothingAngle` | `src/normals/hard.ts`, `src/normals/normals.ts` |
 | Six primitives with both default sets and UVs (`humanoidBody` delegates to B13's generator) | `src/primitives/primitives.ts` |
 | `robust-predicates` wrapper | `src/predicates/index.ts` |
-| fast-check arbitraries, fixtures, state dumps, Euler step runner, golden runner | `src/testing/index.ts` (`@ekza-animator/mesh-core/testing`) |
+| fast-check arbitraries, fixtures, state dumps, Euler step runner, golden runner | `src/testing/index.ts` (`@ekza-studio/mesh-core/testing`) |
 | First benches | `bench/kernel.bench.ts` |
 | B0a's reference kernel and its barrel lines replaced; `src/reference/**` deleted | `src/index.ts` (B1 lines only) |
 
@@ -73,7 +73,7 @@ order.
 - `src/predicates` — `orient2d`, `orient3d`, `incircle`, `segmentsCross2d` in right-handed, y-up conventions.
 - `src/triangulate/triangulate.ts` — `isDegenerateNgon` (Mesh Check's `ngon-degenerate`, B5) and
   `dirtyTriangleFaces(m, dirty)`, the `dirtyFaces` argument of an incremental `triangulate` for a `DirtySet` (M6A-B1-11).
-- `@ekza-animator/mesh-core/testing` — `cubeData`, `brokenMeshes`, `nonManifoldCorpus`, `storedState`, `diffStored`,
+- `@ekza-studio/mesh-core/testing` — `cubeData`, `brokenMeshes`, `nonManifoldCorpus`, `storedState`, `diffStored`,
   `linkState`, `linkArray`, `firstDifference`, `signedVolume`, `vef`, `arbPrimitive`, `arbSoup`, `arbEulerStep`,
   `resolveEulerStep`, `goldenRunner`, `rounded`. `test/properties/harness.ts` shows the full per-op check that op tests
   can copy: validity, canonical links, canonical dead slots (`deadSlotProblem`), remap, dirty set, incremental revision
@@ -156,7 +156,7 @@ additive and **awaits INT ratification** (or INT moves it into a contract change
 - `packages/mesh-core/test/{descriptors.test.ts,raw.d.ts}`, `bench/reference.bench.ts` (deleted for
   `bench/kernel.bench.ts`) — M6A-B1-13.
 
-## Benchmarks (report only; Node 25.6, Apple M4 Pro; `pnpm --filter @ekza-animator/mesh-core bench`; fix round 1)
+## Benchmarks (report only; Node 25.6, Apple M4 Pro; `pnpm --filter @ekza-studio/mesh-core bench`; fix round 1)
 
 At 50k triangles (plane 158 × 158), debug validation off:
 

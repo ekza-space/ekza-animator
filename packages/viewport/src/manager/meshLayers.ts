@@ -1,8 +1,8 @@
 // Mesh layer hosting (M6A-SPEC §4.7; B9): mesh-view's per-mesh views (B6) join the one shared scene through
 // `ViewportManager.addMeshLayer`, and the manager hands each pane's display to every host before the pane renders,
 // so one scene serves N panes with different shading (wire, shaded, colours, lit), overlays and dimming.
-import type { DisplayFlags } from '@ekza-animator/editor-core';
-import type { MeshPaneDisplay } from '@ekza-animator/mesh-view';
+import type { DisplayFlags } from '@ekza-studio/editor-core';
+import type { MeshPaneDisplay } from '@ekza-studio/mesh-view';
 import type { Object3D } from 'three';
 
 /** What `ViewportManager.addMeshLayer` takes (§4.7; `mesh/display.ts` re-exports it). */

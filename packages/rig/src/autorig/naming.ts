@@ -1,4 +1,4 @@
-import type { Side } from '@ekza-animator/doc';
+import type { Side } from '@ekza-studio/doc';
 
 // Naming helpers for generated controls: sanitized node names, sibling order keys and left/right inference from
 // node names (research 07 §16.3).

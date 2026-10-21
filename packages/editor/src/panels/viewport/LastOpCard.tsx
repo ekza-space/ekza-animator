@@ -2,7 +2,7 @@
 // that decides in which pane the card shows and loads the card itself (`../toolkit/LastOpCardView`, a lazy chunk)
 // only when there is one. Shown in Model, in the pane where the last operation ran (`T` may name another; a pane
 // that is not drawn falls back to the maximized pane), for operations with fields; hidden after `✕` until `T`.
-import { type LastOpCardState, lastOpCardState, subscribeLastOpCard, visibleParams } from '@ekza-animator/editor-core';
+import { type LastOpCardState, lastOpCardState, subscribeLastOpCard, visibleParams } from '@ekza-studio/editor-core';
 import { type JSX, lazy, Suspense, useSyncExternalStore } from 'react';
 import { useSession } from '../../hooks';
 import type { PaneOverlayProps } from '../../overlays/slots';

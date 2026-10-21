@@ -1,8 +1,8 @@
 // Small helpers shared by the workflows and the built-in operators: untyped-input guards, frame-rate arithmetic,
 // constant stand-in curves and raw-clip statistics.
-import type { AnimCurve, Fps, KeyData } from '@ekza-animator/anim-core';
-import type { DerivedFrom } from '@ekza-animator/doc';
-import type { RawClip } from '@ekza-animator/rig';
+import type { AnimCurve, Fps, KeyData } from '@ekza-studio/anim-core';
+import type { DerivedFrom } from '@ekza-studio/doc';
+import type { RawClip } from '@ekza-studio/rig';
 
 export function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

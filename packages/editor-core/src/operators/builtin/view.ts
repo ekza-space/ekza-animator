@@ -1,7 +1,7 @@
 // View operators owned by WP-7b (MVP-SPEC §4.9): tools, manipulator size and space, navigation profile, and camera
 // settings (WP-9 R-3). The pane, camera navigation and framing operators belong to the viewport (WP-5).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CameraId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CameraId } from '@ekza-studio/doc';
 import {
   DOPE_TOOL,
   type EditorApp,

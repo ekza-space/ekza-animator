@@ -1,8 +1,8 @@
 // A1 (M2A-SPEC §5.8): clip import writes IK controls for limbs whose ikFk default is ≥ 0.5 (the match pole rule at
 // every key time), with the fidelity check and the per-limb FK fallback (one stepped @ikFk 0 key, a warning and
 // `ImportedClipKeys.limbs`); `ik: 'none'` keeps M1; pole curves move continuously.
-import { type Fps, quatAngle, quatFromAxisAngle, quatToEuler, type Vec3 } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, TrsChannel } from '@ekza-animator/doc';
+import { type Fps, quatAngle, quatFromAxisAngle, quatToEuler, type Vec3 } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, TrsChannel } from '@ekza-studio/doc';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   CHANNELS_PER_CONTROL,

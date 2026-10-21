@@ -1,7 +1,7 @@
 // Rig operators (MVP-SPEC §4.9 `rig.*`): pose-preserving rotate-order change (M1-stretch, §4.11.5), control shape
 // size, secondary-control visibility.
-import { EkzaError, type RotateOrder } from '@ekza-animator/anim-core';
-import type { ControlId, RigId, Tx } from '@ekza-animator/doc';
+import { EkzaError, type RotateOrder } from '@ekza-studio/anim-core';
+import type { ControlId, RigId, Tx } from '@ekza-studio/doc';
 import { GLOBAL_SCOPE } from '../../types';
 import { changeRotateOrder } from '../../workflows/rotateOrder';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord } from './define';

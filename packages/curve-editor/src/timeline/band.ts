@@ -1,5 +1,5 @@
 // Time-slider band arithmetic (MVP-SPEC §4.11.3, §4.11.17): pure functions in active-clip frames.
-import type { Frame } from '@ekza-animator/anim-core';
+import type { Frame } from '@ekza-studio/anim-core';
 
 /** A closed frame range; `start <= end` once normalized. The time-slider band and playback ranges use it. */
 export interface FrameRange {

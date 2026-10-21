@@ -16,9 +16,9 @@ import {
   type ReadonlyVec3,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import type { ChannelEdit, ManipSpace } from '@ekza-animator/editor-core';
+} from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
+import type { ChannelEdit, ManipSpace } from '@ekza-studio/editor-core';
 import type { Camera } from 'three';
 import type { PaneProjector } from '../picking/geometry';
 import type { ManipHandle } from '../types';

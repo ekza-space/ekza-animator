@@ -2,8 +2,8 @@
 // VRM meta (title, authors, licence, `allowRedistribution`); clip or node names matching /mixamo/i force
 // `redistributable: 'no'`; GLB and VRMA files without licence data are 'unknown'; bundled samples pass their known
 // licence; a VRMA written by the Animator carries its clips' provenance in `ekza_animation_v1`, which is kept.
-import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-animator/doc';
-import type { GlbContainer, VrmLicenseInfo } from '@ekza-animator/io';
+import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-studio/doc';
+import type { GlbContainer, VrmLicenseInfo } from '@ekza-studio/io';
 import { isRecord, parseDerivedFrom } from './util';
 
 /** A licence known in advance (bundled samples). */

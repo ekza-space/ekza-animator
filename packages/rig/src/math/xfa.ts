@@ -1,4 +1,4 @@
-import type { Mat4, ReadonlyXf, Xf } from '@ekza-animator/anim-core';
+import type { Mat4, ReadonlyXf, Xf } from '@ekza-studio/anim-core';
 
 // Structure-of-arrays similarity transforms (t, q, s) used by the kernel and the solvers. Element `i` occupies
 // t[3i..3i+2], q[4i..4i+3] (x, y, z, w) and s[3i..3i+2]. Composition follows research 07 §1.2 and anim-core `xf`:

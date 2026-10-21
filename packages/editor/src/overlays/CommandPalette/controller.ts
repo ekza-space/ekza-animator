@@ -3,14 +3,14 @@
 // arguments ("Four View", "Export…") and one entry per workspace ("Workspace: Model"), with key labels and poll
 // reasons read when it opens. Enter runs the highlighted entry (`source: 'palette'`); an operator with value params
 // first prompts for its primary field inline (Tab moves through the others), then runs with the typed values.
-import { DEG2RAD, type ParamDef, type ParamValue, primaryParam, RAD2DEG } from '@ekza-animator/anim-core';
+import { DEG2RAD, type ParamDef, type ParamValue, primaryParam, RAD2DEG } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
   type MenuItemDef,
   type OperatorResult,
   parseNumericInput,
   type RunContext,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import { shortcutFor } from '../../shell/menus';
 import type { PaletteEntry, PalettePrompt, PaletteState } from './types';

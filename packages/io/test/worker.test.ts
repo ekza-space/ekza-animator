@@ -1,6 +1,6 @@
 // io/worker (M1-stretch): the validator protocol over a real MessageChannel with the Khronos glTF-Validator.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { readFixture } from '@ekza-animator/doc/testing';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { readFixture } from '@ekza-studio/doc/testing';
 import * as gltfValidator from 'gltf-validator';
 import { MessageChannel, type MessagePort } from 'node:worker_threads';
 import { afterEach, describe, expect, it } from 'vitest';

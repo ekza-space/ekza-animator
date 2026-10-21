@@ -1,6 +1,6 @@
 // Dirty-set arithmetic for the runtime caches and incremental revision writes (M6A-SPEC §4.3 `DirtySet`, §5.4
 // "caches update only dirty faces", §5.20 incremental writes).
-import type { DirtySet, EditMesh, MeshCounts, MeshDelta } from '@ekza-animator/mesh-core';
+import type { DirtySet, EditMesh, MeshCounts, MeshDelta } from '@ekza-studio/mesh-core';
 
 type Indices = Uint32Array | 'all';
 

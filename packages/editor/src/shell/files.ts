@@ -5,7 +5,7 @@
 // Several files (one drop, one picker selection, or drops in quick succession) open strictly one after another: a
 // model's import dialog must close before the next file opens, otherwise the next model would replace the pending
 // one and an animation would run before its character exists.
-import type { EditorApp, OperatorResult } from '@ekza-animator/editor-core';
+import type { EditorApp, OperatorResult } from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
 import { MODEL_IMPORT_OP, openOrderRank, PROJECT_OPEN_OP, resolveImporter } from './importers';
 import type { Summarizer } from './summary';

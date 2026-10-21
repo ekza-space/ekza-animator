@@ -16,7 +16,7 @@ import {
   type SymmetryMode,
   symmetryOf,
   symmetryTargets,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 
 /** The symmetry mode the options menu reflects: the first target mesh's (hilite, else selection). */
 function currentSymmetry(app: EditorApp): SymmetryMode | null {

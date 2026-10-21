@@ -1,6 +1,6 @@
 // Bundled samples (ADR 0012): served by the web app from `/samples/<file>` (apps/web/scripts/copy-assets.mjs) and
 // credited in fixtures/LICENSES.md. Their licences are known, so imported clips carry them as provenance.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { SampleId } from '../operators/args';
 import type { KnownLicense } from './provenance';
 

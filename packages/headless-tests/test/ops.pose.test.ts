@@ -1,8 +1,8 @@
 // ops.* (WP-7b): pose operators on the real rig (MVP-SPEC §4.11.19, §4.11.20): Plant Feet on Polybot (US-25), mirror
 // scope and Polybot's unpaired toes, and pose copy/paste across humanoid characters (by template key).
-import { mat4Decompose, quatAngle } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { mat4Decompose, quatAngle } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 

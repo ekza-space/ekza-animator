@@ -9,7 +9,7 @@
 //
 // The capture is created before the app exists (app/kernel.ts); `bindCapture` binds the app on first use (the runner
 // and the built-ins call it), like `attachMeshes` for the mesh runtime.
-import { type Disposer, isNumericParam, type ParamDef, primaryParam } from '@ekza-animator/anim-core';
+import { type Disposer, isNumericParam, type ParamDef, primaryParam } from '@ekza-studio/anim-core';
 import { loadOpsRuntime, opsRuntime } from '../operators/builtin/lastop';
 import type { EditorApp, LastRun, NumericCaptureApi, NumericCaptureState } from '../types';
 import type { CaptureEngine } from './captureEngine';

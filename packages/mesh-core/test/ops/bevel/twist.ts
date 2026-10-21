@@ -15,7 +15,7 @@
 // - `zero-area-face`, `zero-length-edge`: Mesh Check's own codes on the result.
 // Signs within float32 rounding of zero (the straight corners a slide leaves on an edge) count as no sign.
 // No Node APIs here (the Chromium run may import it).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import {
   checkMesh,
   type ComponentSelection,

@@ -1,7 +1,7 @@
 // URL parameters of the editor (MVP-SPEC §4.8). They take effect only in e2e builds (NEXT_PUBLIC_EKZA_E2E=1)
 // opened with `?e2e=1`; ordinary builds ignore them, so no URL can switch a user's editor into test mode. The one
 // exception is M6a `ws=<id>` (M6A-SPEC §4.8): a deep link to a workspace, read in any build.
-import type { NavProfile } from '@ekza-animator/editor-core';
+import type { NavProfile } from '@ekza-studio/editor-core';
 
 export interface EditorParams {
   /** e2e mode: fresh storage, seeded IDs, no UI transitions, the test API on window. */

@@ -8,7 +8,7 @@ import type {
   UndoManager,
   UndoResult,
   UndoSkipReason,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { deepEqual, diffFields, mergeUnitOf, type Row } from './rows';
 
 /** Loosely typed `Change`; the store casts it to `AnyChange` at the API boundary. */

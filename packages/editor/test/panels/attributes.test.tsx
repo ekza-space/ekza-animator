@@ -1,4 +1,4 @@
-import type { VrmLicenseInfo } from '@ekza-animator/io';
+import type { VrmLicenseInfo } from '@ekza-studio/io';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AttributesPanel, CAMERA_SETTINGS_OP } from '../../src/panels/attributes/AttributesPanel';
 import {

@@ -3,8 +3,8 @@
 // `derivedId('mesh', op.id, inputIds, seed, n)` (an adjusted re-run with the same seed reuses the ids), soft-deletes
 // removed inputs and keeps the pre-op MeshData of every input (the last set-op, §5.5 rule 5). The op runs on the
 // inputs' EditMeshes inside kernel transactions that are aborted afterwards: inputs change only through the outputs.
-import { EkzaError, type ParamValues, type ReadonlyXf } from '@ekza-animator/anim-core';
-import { derivedId, type MeshId, type MeshRecord, type MeshRef, type Tx } from '@ekza-animator/doc';
+import { EkzaError, type ParamValues, type ReadonlyXf } from '@ekza-studio/anim-core';
+import { derivedId, type MeshId, type MeshRecord, type MeshRef, type Tx } from '@ekza-studio/doc';
 import type {
   ComponentKind,
   ComponentSelection,
@@ -13,7 +13,7 @@ import type {
   MeshSetOp,
   MeshSetResult,
   Refusal,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { DEFAULT_DEPS } from '../app/deps';
 import type { MeshSetCommitResult, OperatorAction } from '../types';
 import { epsilonOf } from './context';

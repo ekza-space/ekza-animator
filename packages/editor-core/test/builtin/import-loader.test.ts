@@ -2,7 +2,7 @@
 // `importPath.ts` once, the import operators load it in `prepare` and use it in `apply`, and the helpers polls need
 // synchronously live in `importChecks.ts`, which imports neither pipeline module.
 import { readFileSync } from 'node:fs';
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import * as checks from '../../src/workflows/importChecks';
 import { importPathLoaded, loadImportPath, preloadImportPath } from '../../src/workflows/importLoader';

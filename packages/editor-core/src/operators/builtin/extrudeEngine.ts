@@ -35,9 +35,9 @@ import {
   quatRotateVec3,
   type ReadonlyXf,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import type { ComponentKind, EditMesh, ExtrudeGroupFrame, OpFrame } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { ComponentKind, EditMesh, ExtrudeGroupFrame, OpFrame } from '@ekza-studio/mesh-core';
 import { worldPlacement } from '../../mesh/context';
 import { meshKernel } from '../../mesh/kernel';
 import { targetsOf } from '../../mesh/operator';

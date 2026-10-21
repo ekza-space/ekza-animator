@@ -2,7 +2,7 @@
 // card on the events of §5.7's table, the engine of `edit.adjustLast` (undo + re-run with the recorded context) and
 // the card's live mesh preview. It loads with the B11 runtime chunk (`loadOpsRuntime` in ./lastop.ts: the first Model
 // entry, a recorded LastRun, an adjust); the eager route keeps only the recorder, the per-app state and the polls.
-import { coerceArgs, type ParamDef, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamDef, type ParamValue, type ParamValues } from '@ekza-studio/anim-core';
 import { attachMeshes } from '../../mesh';
 import { meshKernel } from '../../mesh/kernel';
 import type { EditorApp, LastRun, MeshOpSession, RunContext, SessionState, SymmetrySettings } from '../../types';
@@ -19,7 +19,7 @@ import {
   takeBaseline,
 } from './lastop';
 import { WHOLE_MESH_OPS } from './mesh/whole';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 
 // ---------- the tracker (§5.7 "When the card closes") ----------
 

@@ -10,9 +10,9 @@ import {
   evaluateAnimCurve,
   type KeyData,
   segmentControlPoints,
-} from '@ekza-animator/anim-core';
-import type { AttrDef, ChangeBatch, ControlId, CurveId, KeyId, SolverId, Tx } from '@ekza-animator/doc';
-import type { LimbDesc, RigProgram } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import type { AttrDef, ChangeBatch, ControlId, CurveId, KeyId, SolverId, Tx } from '@ekza-studio/doc';
+import type { LimbDesc, RigProgram } from '@ekza-studio/rig';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { EDITOR_CURVE_ENGINE } from '../../src/app/deps';

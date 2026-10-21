@@ -18,7 +18,7 @@ navigation of an unlocked shot camera, and evaluation of `VRMC_node_constraint` 
 ## Decision
 
 1. **One WebGL canvas, one shared scene, N panes.** R3F 9 hosts a single `<Canvas frameloop="demand">` fixed
-   behind the DOM workspace (`pointer-events: none`). `@ekza-animator/viewport` owns a framework-free
+   behind the DOM workspace (`pointer-events: none`). `@ekza-studio/viewport` owns a framework-free
    `ViewportManager`: panes register a surface `<div>` (rect from `ResizeObserver` + layout events), a camera
    binding and display flags; per dirty pane it sets viewport/scissor, camera layers and renders
    **main scene → controls (two passes) → clear depth → manipulators/overlays**. Rendering runs in a

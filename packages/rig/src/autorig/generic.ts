@@ -1,4 +1,4 @@
-import type { Side } from '@ekza-animator/doc';
+import type { Side } from '@ekza-studio/doc';
 import { nameBoneRef } from '../compile/bones';
 import { boneShape, controlSize, toLocalDirection } from './shapes';
 import { sanitizeNodeName, sideFromName } from './naming';

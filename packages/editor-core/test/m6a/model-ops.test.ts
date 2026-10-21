@@ -1,5 +1,5 @@
 // M6A-INT-13 (M6A-SPEC §5.27, the B0a notes' option C): the Model operators chunk and its eager side. The manifest is
-// generated from the chunk's definitions (`EKZA_WRITE_MODEL_MANIFEST=1 pnpm --filter @ekza-animator/editor-core exec
+// generated from the chunk's definitions (`EKZA_WRITE_MODEL_MANIFEST=1 pnpm --filter @ekza-studio/editor-core exec
 // vitest run test/m6a/model-ops.test.ts` rewrites it) and must not drift; the proxies the registry holds are the
 // chunk's operators once it has loaded; no eager editor-core module imports a value from the chunk's modules.
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';

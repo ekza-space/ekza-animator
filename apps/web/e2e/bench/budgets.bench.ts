@@ -591,7 +591,7 @@ test('bake + write VRMA, 1 humanoid × 10 s @ 30 fps', async ({ page }) => {
     return out;
   }, request);
   expect(runs.every((r) => r.status === 'finished')).toBe(true);
-  // M-2: the first export loads the export path's chunk (@ekza-animator/io/write) unless the Export dialog prefetched
+  // M-2: the first export loads the export path's chunk (@ekza-studio/io/write) unless the Export dialog prefetched
   // it; the later runs are the bake + write itself.
   const s = stats(runs.slice(1).map((r) => r.ms));
   const firstExtra = (runs[0]?.ms ?? Number.NaN) - s.median;

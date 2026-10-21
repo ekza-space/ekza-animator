@@ -1,5 +1,5 @@
-import type { ClipRecord } from '@ekza-animator/doc';
-import type { FakeServices } from '@ekza-animator/editor-core/testing';
+import type { ClipRecord } from '@ekza-studio/doc';
+import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ClipsPanel } from '../../src/panels/clips/ClipsPanel';
 import {

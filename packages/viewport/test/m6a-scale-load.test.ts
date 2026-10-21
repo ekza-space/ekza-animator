@@ -1,9 +1,9 @@
 // M6A-SPEC §4.7, §5.27 (B9): the lazy scale chunk failing to load (offline after a redeploy, a network error). The
 // user is told once per failed load, nothing rejects unhandled, the manipulator does not retry on every refresh
 // (playback refreshes each frame), and the user's next Scale action (choosing R again, a press) tries again.
-import type { ControlId } from '@ekza-animator/doc';
-import { type ToolPointerEvent, VIEWPORT_TOOL } from '@ekza-animator/editor-core';
-import type { FakeServices } from '@ekza-animator/editor-core/testing';
+import type { ControlId } from '@ekza-studio/doc';
+import { type ToolPointerEvent, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
+import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   onScaleKitLoaded,

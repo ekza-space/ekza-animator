@@ -2,8 +2,8 @@
 // curve cache and WP-7a's kernel and history. Until those land their stubs throw `not-implemented` and this file
 // skips itself (MVP-SPEC §8.1); afterwards it replays the Graph Editor steps of E2E-08…E2E-13 headlessly with exact
 // evaluation. Operators that WP-7b registers (`select.keys`, `graph.key.insert`) get minimal stand-ins until then.
-import { curveEngine, EkzaError, RAD2DEG } from '@ekza-animator/anim-core';
-import { type CurveId, createMemoryStore, type KeyId, type KeyRecord } from '@ekza-animator/doc';
+import { curveEngine, EkzaError, RAD2DEG } from '@ekza-studio/anim-core';
+import { type CurveId, createMemoryStore, type KeyId, type KeyRecord } from '@ekza-studio/doc';
 import {
   createEditorApp,
   type EditorApp,
@@ -13,8 +13,8 @@ import {
   type OperatorDef,
   setTangentTypes,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import { createFakeServices } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core';
+import { createFakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { GraphEditorController, registerGraphContributions } from '../src';
 import { applyKeySelection } from '../src/graph/selection';

@@ -1,7 +1,7 @@
 // Structural validation of the built-in record types (MVP-SPEC §4.2). Validators return human-readable problems
 // ('field: expected …'); an empty list means valid. Unknown extra fields are allowed: records written by newer apps
 // or extensions keep them (ADR 0011). The key validator is hand-written because it runs on every key write.
-import type { InfinityMode, RotateOrder, TangentType } from '@ekza-animator/anim-core';
+import type { InfinityMode, RotateOrder, TangentType } from '@ekza-studio/anim-core';
 import type {
   BudgetPresetId,
   BuiltinTableName,

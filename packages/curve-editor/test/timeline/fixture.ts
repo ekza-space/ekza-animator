@@ -1,6 +1,6 @@
 // Shared set-up of the time-slider tests: the synthetic wave document in a fake EditorApp (MVP-SPEC §3
 // convention 12), a mounted controller, pointer events and pixel probes.
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {
   type ChannelId,
   type CharacterId,
@@ -14,9 +14,9 @@ import {
   type KeyRecord,
   type LayerId,
   newId,
-} from '@ekza-animator/doc';
-import { moveKeys, scaleKeys, selectionSnapshot, type ToolPointerEvent } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/doc';
+import { moveKeys, scaleKeys, selectionSnapshot, type ToolPointerEvent } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { commands } from 'vitest/browser';
 import { registerTimelineContributions, TimeSliderController } from '../../src';
 

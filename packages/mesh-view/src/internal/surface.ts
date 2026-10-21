@@ -4,7 +4,7 @@
 // what is drawn is what ships. Invisible faces (hidden, isolated out) become degenerate triangles, which keeps every
 // face's index range stable for incremental updates. Three materials share the geometry: opaque (pushed back by a
 // polygon offset so overlays win the depth test), transparent (x-ray, dimmed) and a depth-only pre-pass for x-ray.
-import type { Normals, Triangulation } from '@ekza-animator/mesh-core';
+import type { Normals, Triangulation } from '@ekza-studio/mesh-core';
 import {
   BufferAttribute,
   BufferGeometry,

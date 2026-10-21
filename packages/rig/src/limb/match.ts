@@ -1,5 +1,5 @@
-import { EkzaError, type Mat4, mat4Decompose, quatAngle, type Quat } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import { EkzaError, type Mat4, mat4Decompose, quatAngle, type Quat } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
 import { TwoBoneCore } from '../ik/core';
 import { solveBoneChannels, solveControlChannels } from '../inverse/solve';
 import { internalsOf } from '../kernel/internals';

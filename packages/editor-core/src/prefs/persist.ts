@@ -1,6 +1,6 @@
 // Preference persistence through `services.storage` (ARCHITECTURE §4.1): versioned JSON, every access in try/catch,
 // every field validated on load (an invalid field falls back to its default, an unknown version to all defaults).
-import type { TangentType } from '@ekza-animator/anim-core';
+import type { TangentType } from '@ekza-studio/anim-core';
 import type { KeyBinding, KeyTrigger, Prefs, PrefsStorage } from '../types';
 
 export const PREFS_STORAGE_KEY = 'ekza-animator.prefs';

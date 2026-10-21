@@ -1,7 +1,7 @@
-import { flipYawVec3, quatAngle, type Quat } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture, readSyntheticFixture } from '@ekza-animator/doc/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { flipYawVec3, quatAngle, type Quat } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture, readSyntheticFixture } from '@ekza-studio/doc/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';

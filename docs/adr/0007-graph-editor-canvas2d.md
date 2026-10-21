@@ -15,7 +15,7 @@ retime poses (no Dope Sheet, a display-only time slider) and that several Maya G
 
 ## Decision
 
-1. **Canvas2D on the main thread**, framework-free in `@ekza-animator/curve-editor` (painters, view transform,
+1. **Canvas2D on the main thread**, framework-free in `@ekza-studio/curve-editor` (painters, view transform,
    hit-testing, interaction controllers). The editor package wraps it in React panels; the channel list is
    virtualized DOM.
 2. **Two stacked canvases per editor**: *base* (grid, labels, infinity, curves, keys, handles; redrawn on view or

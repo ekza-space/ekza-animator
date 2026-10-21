@@ -9,7 +9,7 @@
 //    `ghost` instead (25 % alpha, not pickable). `fk.toes` and finger controls follow rule 1 only.
 // 3. A selected control that rule 2 hides is `ghost` (drawn at 25 % alpha, never pickable) and stays selected.
 // 4–5. The viewport draws pole lines for visible poles and recomputes visibility per pose version (viewport).
-import type { CharacterId, ControlId, ControlRecord } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ControlRecord } from '@ekza-studio/doc';
 import type { ControlVisibility, EditorApp } from '../types';
 
 /** ikFk at or above this hides the FK chain; at or below `IK_HIDDEN_AT` the IK control and pole (§5.5 rule 2). */

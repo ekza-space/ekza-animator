@@ -1,6 +1,6 @@
 // Fixed chrome below the docks (research 09 §9.1): the time slider and range/playback row are not dockable in M1.
 // The region renders the registered timeline panel (WP-6t) or a placeholder of the same height.
-import { PANEL } from '@ekza-animator/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

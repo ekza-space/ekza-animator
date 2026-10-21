@@ -2,7 +2,7 @@
 // clock) and WP-3 (curve cache, sampler, rig compiler) are merged their stubs throw `not-implemented`, so these
 // tests skip themselves (MVP-SPEC §8.1: blocked tests name the blocking WP) and run as soon as the packages land; the
 // model-import case also needs WP-4 (io parse, skeleton, format).
-import { type AnimCurve, curveEngine, EkzaError } from '@ekza-animator/anim-core';
+import { type AnimCurve, curveEngine, EkzaError } from '@ekza-studio/anim-core';
 import {
   type AssetId,
   type CameraId,
@@ -12,10 +12,10 @@ import {
   type Partition,
   sceneToClipFrame,
   seededIdSource,
-} from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import { detectModelFormat, parseGlb, skeletonFromGltf } from '@ekza-animator/io';
-import { autoRig, compileRig, createCurveCache, writeRigDefinition } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import { detectModelFormat, parseGlb, skeletonFromGltf } from '@ekza-studio/io';
+import { autoRig, compileRig, createCurveCache, writeRigDefinition } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import {
   applyChannelEdits,

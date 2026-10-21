@@ -13,15 +13,15 @@ test('the repository follows the dependency rules', () => {
 test('a deliberate violation fixture is rejected for every rule', () => {
   const violations = checkWorkspace(violationFixture);
   const expected = [
-    `ekza-animator: 'typescript' must use "catalog:", found "^6.0.3"`,
-    `@ekza-animator/anim-core: dependencies must not include 'three'`,
-    `@ekza-animator/doc: dependencies must not include '@ekza-animator/rig'`,
-    `@ekza-animator/doc-yjs: internal '@ekza-animator/doc' must use "workspace:*", found "1.0.0"`,
-    `@ekza-animator/doc-yjs: 'yjs' must be pinned to an exact version, found "^13.6.33"`,
-    '@ekza-animator/mystery: unknown workspace package (add it to the allow-list in tooling/check-deps.mjs)',
-    `@ekza-animator/rig: devDependencies must not include '@ekza-animator/doc-yjs'`,
-    '@ekza-animator/rig: nothing may depend on @ekza-animator/doc-yjs (private, test-only)',
-    'dependency cycle: @ekza-animator/doc -> @ekza-animator/rig -> @ekza-animator/doc',
+    `ekza-studio: 'typescript' must use "catalog:", found "^6.0.3"`,
+    `@ekza-studio/anim-core: dependencies must not include 'three'`,
+    `@ekza-studio/doc: dependencies must not include '@ekza-studio/rig'`,
+    `@ekza-studio/doc-yjs: internal '@ekza-studio/doc' must use "workspace:*", found "1.0.0"`,
+    `@ekza-studio/doc-yjs: 'yjs' must be pinned to an exact version, found "^13.6.33"`,
+    '@ekza-studio/mystery: unknown workspace package (add it to the allow-list in tooling/check-deps.mjs)',
+    `@ekza-studio/rig: devDependencies must not include '@ekza-studio/doc-yjs'`,
+    '@ekza-studio/rig: nothing may depend on @ekza-studio/doc-yjs (private, test-only)',
+    'dependency cycle: @ekza-studio/doc -> @ekza-studio/rig -> @ekza-studio/doc',
   ];
   for (const violation of expected) assert.ok(violations.includes(violation), `missing violation: ${violation}`);
 });

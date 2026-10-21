@@ -2,7 +2,7 @@
 // undo/redo on the same and on rebuilt meshes, abort exactness on refusals, P8 incremental revisions, canonical links
 // and dead slots, the delta's remap), reference symmetry maps (§5.14 definition, brute force) and small geometry
 // helpers. No Node APIs: the Chromium run imports it too.
-import type { ParamValues, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ParamValues, ReadonlyXf } from '@ekza-studio/anim-core';
 import { expect } from 'vitest';
 import {
   type ComponentKind,

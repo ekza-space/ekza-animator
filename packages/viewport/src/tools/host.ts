@@ -1,6 +1,6 @@
 // What a viewport tool may ask of the viewport (ToolDef<ViewportToolHost>.create(app, host)). Built-in tools and
 // extension tools use the same host.
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
 import type { DragSession } from '../manipulators/drag';
 import type { AxisHandle } from '../manipulators/ManipulatorKit';
 import type { ObjectScaleSession } from '../manipulators/scale/math';

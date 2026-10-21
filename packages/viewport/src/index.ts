@@ -1,4 +1,4 @@
-// @ekza-animator/viewport — one-canvas multi-pane three.js viewport (MVP-SPEC §4.6, §7 WP-5; ADR 0006).
+// @ekza-studio/viewport — one-canvas multi-pane three.js viewport (MVP-SPEC §4.6, §7 WP-5; ADR 0006).
 export { registerViewportContributions } from './manager/contributions';
 export { subscribeViewportManager, viewportManagerOf } from './manager/lookup';
 export { resolveControl, type ViewportTestApi, viewportTestApi } from './manager/testApi';

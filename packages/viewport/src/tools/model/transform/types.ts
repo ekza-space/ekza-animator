@@ -1,8 +1,8 @@
 // What the ViewportManager and Model's transform runtime (B12a, M6A-SPEC §5.15) exchange: the runtime places the
 // manipulator in Model (component selections, objects for Move and Rotate, pivot editing) ahead of B9's object scale
 // target and the control target, and reads the pane camera and the manipulator's frame for its drags. Types only.
-import type { Mat4, ReadonlyVec3, Vec3 } from '@ekza-animator/anim-core';
-import type { CharacterId } from '@ekza-animator/doc';
+import type { Mat4, ReadonlyVec3, Vec3 } from '@ekza-studio/anim-core';
+import type { CharacterId } from '@ekza-studio/doc';
 import type { Camera } from 'three';
 import type { ManipMode, ManipTarget } from '../../../manipulators/ManipulatorKit';
 import type { PaneProjector } from '../../../picking/geometry';

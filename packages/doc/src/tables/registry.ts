@@ -2,7 +2,7 @@
 // Built-in tables are described by constant definitions (nothing registers on import); extensions call
 // `registerTable`. Tables without a definition are opaque: they live in the `scene` partition, merge per field, have
 // no soft delete and no validation beyond a string `id`, and survive snapshots verbatim.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   BUILTIN_TABLES,
   type BuiltinTableName,

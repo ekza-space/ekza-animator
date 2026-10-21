@@ -12,8 +12,8 @@
 // closure the controller passes); a write stores only the blobs the database does not have, checks inside its
 // transaction that the ones it relies on are still there, and an idle pass after a write or a removal deletes the
 // blobs no slot lists. `read(slot).blob` reads them back for recovery (lazily, through the BlobStore's sources).
-import type { AssetId, AssetRecord } from '@ekza-animator/doc';
-import type { AutosaveSlotInfo, AutosaveStore, BlobId } from '@ekza-animator/editor-core';
+import type { AssetId, AssetRecord } from '@ekza-studio/doc';
+import type { AutosaveSlotInfo, AutosaveStore, BlobId } from '@ekza-studio/editor-core';
 
 export const AUTOSAVE_DB = 'ekza-animator-autosave-v1';
 /** 1: M2a (slots, assets); 2: M6a adds `blobs`. */

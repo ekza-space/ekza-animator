@@ -1,8 +1,8 @@
 // In-memory content-addressed asset store (research 06 §10.1, MVP-SPEC §4.11.21): blobs keyed by the lowercase
 // SHA-256 of their bytes. `get` is async and re-verifies hash and size, so the interface fits a remote store later
 // and in-place corruption of resident bytes is detected instead of propagated.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { type AssetId, type AssetRecord, assetMime } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { type AssetId, type AssetRecord, assetMime } from '@ekza-studio/doc';
 import type { AssetStore } from '../types';
 
 interface Blob {

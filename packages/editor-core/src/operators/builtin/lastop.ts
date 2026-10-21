@@ -14,9 +14,9 @@
 // read, the step, the store version, the pane, the run source, the flags, the targets, the step seed and the
 // symmetry/soft context. An adjusted re-run (`edit.adjustLast`) keeps the recorded source, pane, tool, seed, context,
 // kind and targets: it is the same operation with new values.
-import { EkzaError, type ParamDef, type ParamValue, type ParamValues } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import type { ComponentKind, OpWarning } from '@ekza-animator/mesh-core';
+import { EkzaError, type ParamDef, type ParamValue, type ParamValues } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { ComponentKind, OpWarning } from '@ekza-studio/mesh-core';
 import { openLastOpCard, resetLastOpCard } from '../../edit/capture';
 import type * as CaptureEngineModule from '../../edit/captureEngine';
 import type { KernelHistory } from '../../history/history';

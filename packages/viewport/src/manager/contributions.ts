@@ -4,8 +4,8 @@
 // it and picks on Space release).
 // M6a (B9): the `scale` tool (`R`), every boolean display flag in view.display.toggle, and the pane display port of
 // editor-core's view.shading / view.display.set. M6a (B12b): the topology tools.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import { type CameraId, type CameraRecord, fractionalIndex, newId } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import { type CameraId, type CameraRecord, fractionalIndex, newId } from '@ekza-studio/doc';
 import {
   BOOLEAN_DISPLAY_FLAGS,
   type EditorApp,
@@ -15,7 +15,7 @@ import {
   type OperatorReturn,
   type PollResult,
   providePaneDisplay,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { firstShotCamera } from '../cameras/cameras';
 import { attachGuides } from '../guides';
 import { attachImagePlanes } from '../imageplanes';

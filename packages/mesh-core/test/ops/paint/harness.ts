@@ -3,7 +3,7 @@
 // stored arrays and links exactly, forward re-yields the result, also on runtimes rebuilt from either state) and P8
 // (the incremental revision equals the full one). Also: hand-built symmetry maps by mirrored centroids (B2's
 // `buildSymmetryMap` is not on this branch; the paint ops read only `face` partners).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import {
   BitSet,
   type ComponentSelection,

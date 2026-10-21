@@ -1,5 +1,5 @@
 // Context menus of the data panels (RMB): a small ARIA menu rendered into document.body at the pointer. A stand-in
-// until `@ekza-animator/ui` ships the Radix ContextMenu primitive (WP-8); docs/wp-notes/wp-9.md D-3.
+// until `@ekza-studio/ui` ships the Radix ContextMenu primitive (WP-8); docs/wp-notes/wp-9.md D-3.
 import {
   type JSX,
   type KeyboardEvent,

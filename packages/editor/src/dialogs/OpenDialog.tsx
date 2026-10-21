@@ -1,6 +1,6 @@
 // Open / Import dialogs without a pending file: a file picker (accepting every registered importer's extensions)
 // and the bundled samples. The chosen file goes through the same pipeline as drag-and-drop.
-import { Button, Dialog, DialogContent, FolderOpen } from '@ekza-animator/ui';
+import { Button, Dialog, DialogContent, FolderOpen } from '@ekza-studio/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { useRegistryList } from '../hooks/useRegistry';
 import { useShell } from '../shell/context';

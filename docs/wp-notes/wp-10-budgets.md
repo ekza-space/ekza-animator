@@ -96,12 +96,12 @@ EKZA_E2E_PORT=3124 pnpm --filter web bench:budgets
 # route JS of a production build: build without NEXT_PUBLIC_EKZA_E2E, serve it on the port, then
 EKZA_E2E_PORT=3124 pnpm --filter web exec playwright test -c e2e/bench/playwright.config.ts -g "route JS"
 # package benches
-pnpm --filter @ekza-animator/rig exec vitest run test/bench.test.ts --reporter=verbose
-pnpm --filter @ekza-animator/headless-tests exec vitest run test/rig.fixtures.test.ts -t "evaluation time" --reporter=verbose
-pnpm --filter @ekza-animator/doc exec vitest run test/bench.test.ts --reporter=verbose
-pnpm --filter @ekza-animator/anim-core exec vitest bench --run
-pnpm --filter @ekza-animator/curve-editor exec vitest run test/bench.test.ts --reporter=verbose
-pnpm --filter @ekza-animator/viewport exec vitest run test/bench.test.ts --reporter=verbose
+pnpm --filter @ekza-studio/rig exec vitest run test/bench.test.ts --reporter=verbose
+pnpm --filter @ekza-studio/headless-tests exec vitest run test/rig.fixtures.test.ts -t "evaluation time" --reporter=verbose
+pnpm --filter @ekza-studio/doc exec vitest run test/bench.test.ts --reporter=verbose
+pnpm --filter @ekza-studio/anim-core exec vitest bench --run
+pnpm --filter @ekza-studio/curve-editor exec vitest run test/bench.test.ts --reporter=verbose
+pnpm --filter @ekza-studio/viewport exec vitest run test/bench.test.ts --reporter=verbose
 ```
 
 ## Export scenarios E2E-16…E2E-18 (same branch)

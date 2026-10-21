@@ -2,7 +2,7 @@
 // verified on open, a corrupt one left out), reference images as `images/<sha256>.<ext>` under the manifest key
 // `images` (never `assets`), the new per-entry limits, deterministic archives that round-trip byte-identically, and
 // an M2a reader (the shipped one, as a double) opening such a project read-only without inflating the new entries.
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import {
   type AssetId,
   type AssetRecord,
@@ -10,14 +10,14 @@ import {
   type DocSnapshot,
   type MeshId,
   SCHEMA_VERSION,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   makeTestImageAsset,
   makeTestImagePlane,
   makeTestMesh,
   readSyntheticFixture,
   withSchemaV3,
-} from '@ekza-animator/doc/testing';
+} from '@ekza-studio/doc/testing';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { PROJECT_LIMITS, readProjectArchive, writeProjectArchive } from '../src/project/archive';

@@ -11,8 +11,8 @@ import {
   type Xf,
   xfInvert,
   xfMultiply,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, HumanBoneName } from '@ekza-studio/doc';
 import { HUMAN_BONE_INDEX } from '../humanoid/map';
 import { isHumanoidProgram, solveBoneChannels } from '../inverse/solve';
 import { internalsOf, isRigOpSkipped, type RigInternals } from '../kernel/internals';

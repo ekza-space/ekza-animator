@@ -13,7 +13,7 @@
 //   accepted when mutual; −1 otherwise.
 // The map reads positions and topology only (hidden components have partners like any other); rebuild it after a
 // topology commit and, in World mode, after a placement change.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import { kernelError } from '../kernel';
 import type { EditMesh, SymmetryAxis, SymmetryMap } from '../types';
 import { PointHash } from './hash';

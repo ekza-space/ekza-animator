@@ -1,7 +1,7 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetId, CharacterRecord, ControlRecord, DocSnapshot } from '@ekza-animator/doc';
-import type { GlbContainer } from '@ekza-animator/io';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AssetId, CharacterRecord, ControlRecord, DocSnapshot } from '@ekza-studio/doc';
+import type { GlbContainer } from '@ekza-studio/io';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import type { KernelDeps, ModelSource } from '../../src/app/deps';
 import { createKernelApp } from '../../src/app/kernel';

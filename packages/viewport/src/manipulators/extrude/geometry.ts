@@ -3,8 +3,8 @@
 // axes with the local/world toggle), rotate rings, scale cubes on the cap's axes, a centre cube for uniform scale and
 // the local/world toggle — at a constant pixel size. Handle ids are the `ManipHandle`s of the W/E/R manipulators, so
 // `screenOfManipulator` addresses them the same way (§4.7); the toggle is `space`.
-import type { Vec3 } from '@ekza-animator/anim-core';
-import type { ExtrudeManipFrame } from '@ekza-animator/editor-core';
+import type { Vec3 } from '@ekza-studio/anim-core';
+import type { ExtrudeManipFrame } from '@ekza-studio/editor-core';
 import { type Camera, OrthographicCamera, PerspectiveCamera } from 'three';
 import type { PaneProjector } from '../../picking/geometry';
 import type { ManipHandle } from '../../types';

@@ -7,8 +7,8 @@
 // drag and typed percent; the extrude manipulator (shown with a session, its handles absorbed into the extrude's
 // args, the local/world toggle, `Esc` during the first drag ends the session with the zero-drop, `Shift` during a
 // drag ×0.1 per move) and the Inset value handle.
-import { quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import { quatFromAxisAngle, quatRotateVec3, type Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord, MeshRef } from '@ekza-studio/doc';
 import {
   attachMeshes,
   type EditorApp,
@@ -20,9 +20,9 @@ import {
   RESERVED_MODAL_KEYS,
   selectInputsField,
   type ToolPhase,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelSelectRuntime, modelSelectOf, modelTransformOf } from '../../src';
 import { ringScreenTangent } from '../../src/manipulators/drag';
@@ -367,7 +367,7 @@ describe('Multi-Cut (§5.11; the modal tool contract §5.10)', () => {
     const s = await scene(data, 'top');
     await tool(s, 'multiCut');
     const said: string[] = [];
-    const { onModelHelp } = await import('@ekza-animator/editor-core');
+    const { onModelHelp } = await import('@ekza-studio/editor-core');
     onModelHelp(s.app, (m) => said.push(m.text));
     click(s, at(s, 'edge', zEdges[0] as number, 0.5));
     click(s, at(s, 'edge', zEdges[2] as number, 0.5));
@@ -908,7 +908,7 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
       const view = s.rig.vm.paneView(PANE);
       if (view === null || p === null) continue;
       const projector = new PaneProjector().set(view.camera, view.width, view.height, 0.01);
-      const frame = (await import('@ekza-animator/editor-core')).extrudeManipulatorFrame(s.app);
+      const frame = (await import('@ekza-studio/editor-core')).extrudeManipulatorFrame(s.app);
       if (frame === null) throw new Error('no frame');
       const k =
         worldPerPixel(view.camera, view.height, projector, frame.pivot) *
@@ -1012,7 +1012,7 @@ describe('the extrude manipulator (§5.8) and the value handle (§5.9)', () => {
 
   it('the toggle switches the handles between the cap and world axes', async () => {
     const s = await extruded();
-    const { extrudeManipulatorFrame } = await import('@ekza-animator/editor-core');
+    const { extrudeManipulatorFrame } = await import('@ekza-studio/editor-core');
     const frame = extrudeManipulatorFrame(s.app);
     const view = s.rig.vm.paneView(PANE);
     if (frame === null || view === null) throw new Error('no frame');

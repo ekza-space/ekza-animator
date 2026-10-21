@@ -5,8 +5,8 @@ import {
   quatMultiply,
   type Quat,
   type ReadonlyXf,
-} from '@ekza-animator/anim-core';
-import { HUMAN_BONE_NAMES, type TrackKey } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import { HUMAN_BONE_NAMES, type TrackKey } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { bakeClip, clipFramesToSeconds, ekzaAnimationMeta } from '../src/bake/bake';
 import { restWorlds } from '../src/skeleton/rest';

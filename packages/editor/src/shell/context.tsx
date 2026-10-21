@@ -1,4 +1,4 @@
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { createContext, type JSX, type ReactNode, useContext } from 'react';
 import { useStoreSelector } from '../hooks/useStoreSelector';
 import type { Shell, ShellUiState } from './types';

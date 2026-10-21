@@ -2,8 +2,8 @@
 // commit | cancel). Key and handle drags run as one key-edit gesture (`beginKeyEditGesture`, M2A-SPEC §4.5): pointer
 // moves coalesce to one document preview update per animation frame (M-1 mechanism 1), the release commits one
 // transaction and records one editor-history step; Esc cancels without a trace.
-import type { Handle } from '@ekza-animator/anim-core';
-import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
+import type { Handle } from '@ekza-studio/anim-core';
+import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-studio/doc';
 import {
   beginKeyEditGesture,
   type EditorApp,
@@ -14,7 +14,7 @@ import {
   type SelectMode,
   setKeyHandle,
   toDisplayValue,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { OverlayState } from '../painters/overlay';
 import type { GraphViewState } from '../types';
 import { panView, zoomView } from '../view/transform';

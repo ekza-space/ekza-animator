@@ -4,8 +4,8 @@
 // menus, the capture bridge (pointer slop, "Entry discarded"), the Modeling Toolkit (poll reasons, ⋯, sections,
 // narrow, empty state) and the Channel Box of a mesh (TRS rows, the INPUTS primitive and last-op entries, the selected
 // INPUTS field), plus the B11 test-API group.
-import type { ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   type KernelMeshRuntimes,
@@ -17,8 +17,8 @@ import {
   registerBuiltins,
   selectedInputsField,
   switchWorkspace,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { EditorAppProvider } from '../src/hooks';

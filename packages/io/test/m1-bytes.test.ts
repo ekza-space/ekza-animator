@@ -1,10 +1,10 @@
 // M2A-SPEC §9.2 (io): the writers are unchanged without `reduce` — byte-identical to the M1 outputs on the three
 // fixtures. The SHA-256 values below were recorded from the M1 io sources (A0 merge base) and re-checked after the
 // M2a reduction landed; a deliberate writer change updates them in the same commit with the reason.
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { bakeClip, ekzaAnimationMeta } from '../src/bake/bake';
 import { parseGlb } from '../src/glb/parse';
