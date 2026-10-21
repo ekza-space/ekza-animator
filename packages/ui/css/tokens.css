@@ -100,6 +100,20 @@
   --soft-3: #d9363e;
   --soft-4: #4a1a1e;
   --clay: #6e7179;
+  --joint-bone: #aeb2bb;
+  --joint-missing: #ef6b6b;
+  --brush-ring: #ffd84d;
+  --constraint-line: #6f95ff;
+  --pose-test: #f2a5b8;
+  --marker-quickrig: #ff9f43;
+  --marker-quickrig-ghost: #b8732f;
+  --weight-0: #000000;
+  --weight-1: #ffffff;
+  --weight-ramp-0: #2d1b4e;
+  --weight-ramp-1: #6a2c70;
+  --weight-ramp-2: #c2410c;
+  --weight-ramp-3: #f59e0b;
+  --weight-ramp-4: #fde68a;
   /* radius */
   --r-field: 3px;
   --r-button: 4px;

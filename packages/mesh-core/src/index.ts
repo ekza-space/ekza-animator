@@ -39,3 +39,6 @@ export { appendMesh, copySubset } from './subset';
 export { checkMesh } from './check';
 // ---------- B13 ----------
 export { humanoidBody } from './templates';
+// ---------- M6b (M6B-SPEC §4.2; C0 lines: the skin barrel and the reference triangle queries, C2 replaces the latter)
+export * from './skin';
+export { TriangleBvh } from './query/reference';

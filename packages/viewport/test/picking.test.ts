@@ -20,7 +20,9 @@ function control(r: Rig, key: string): ControlRecord {
 }
 
 function select(r: Rig, ids: readonly ControlId[]): void {
-  r.app.session.setState({ selection: { controls: [...ids], keys: new Map(), channels: [], objects: [] } });
+  r.app.session.setState({
+    selection: { controls: [...ids], keys: new Map(), channels: [], objects: [], joints: [], constraints: [] },
+  });
 }
 
 function setTool(r: Rig, tool: string): void {
