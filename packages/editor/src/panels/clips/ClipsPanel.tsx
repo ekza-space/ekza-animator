@@ -38,7 +38,7 @@ function readClips(store: DocumentStore): ClipsView {
 }
 
 const CLIP_TABLES = ['characters', 'clips'] as const;
-const SOURCE_LABEL = { new: 'New', embedded: 'Embedded', imported: 'Imported' } as const;
+const SOURCE_LABEL = { new: 'New', embedded: 'Embedded', imported: 'Imported', test: 'Test' } as const;
 const selectActiveCharacter = (s: SessionState): CharacterId | null => s.activeCharacter;
 const selectActiveClip = (s: SessionState): SessionState['activeClip'] => s.activeClip;
 

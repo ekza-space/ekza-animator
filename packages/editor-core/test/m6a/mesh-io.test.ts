@@ -88,6 +88,7 @@ async function characterApp(
       placement: { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] },
       order: 'a0',
       deleted: null,
+      vrm: null, // M6B-SPEC §3 rule 9: schema 4 characters carry vrm
     });
     writeRigDefinition(tx, autoRig(skeleton, { character, rig }));
   });

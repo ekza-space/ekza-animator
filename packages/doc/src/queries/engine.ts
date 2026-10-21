@@ -17,6 +17,7 @@ import type {
 import type {
   ChannelId,
   ClipRecord,
+  ConstraintRecord,
   ControlRecord,
   CurveRecord,
   GroupRecord,
@@ -28,6 +29,7 @@ import type {
   OrthoCamera,
   Partition,
   RigRecord,
+  SkeletonRecord,
   SwatchRecord,
 } from '../records';
 import type { DocQueries } from '../store';
@@ -121,6 +123,12 @@ export class QueryEngine implements DocQueries {
   private readonly swatchCache = new Map<string, readonly SwatchRecord[]>();
   private readonly imagePlaneCache = new Map<string, readonly ImagePlaneRecord[]>();
   private readonly jointCache = new Map<string, readonly JointRecord[]>();
+  // M6b schema v4 (M6B-SPEC §4.1)
+  private readonly skeletonsByCharacter = new MultiIndex();
+  private readonly constraintsByRig = new MultiIndex();
+  private readonly meshesBySkeleton = new MultiIndex();
+  private readonly constraintCache = new Map<string, readonly ConstraintRecord[]>();
+  private readonly boundCache = new Map<string, readonly MeshRecord[]>();
 
   private readonly keyCache = new Map<string, KeyProjection>();
   /**
@@ -188,6 +196,14 @@ export class QueryEngine implements DocQueries {
       case 'rigs':
         this.relink(this.rigsByCharacter, str(before, 'character'), str(after, 'character'), id);
         break;
+      // M6b schema v4
+      case 'skeletons':
+        this.relink(this.skeletonsByCharacter, str(before, 'character'), str(after, 'character'), id);
+        break;
+      case 'constraints':
+        this.relink(this.constraintsByRig, str(before, 'rig'), str(after, 'rig'), id);
+        this.dropKeys(this.constraintCache, str(before, 'rig'), str(after, 'rig'));
+        break;
       case 'controls':
         this.relink(this.controlsByRig, str(before, 'rig'), str(after, 'rig'), id);
         this.relink(this.controlsByRigKey, before && rigKey(before), after && rigKey(after), id);
@@ -197,6 +213,8 @@ export class QueryEngine implements DocQueries {
       case 'meshes':
         this.relink(this.meshesByOwner, ownerOf(before), ownerOf(after), id);
         this.dropKeys(this.hierarchyCache, ownerOf(before), ownerOf(after));
+        this.relink(this.meshesBySkeleton, skinSkeletonOf(before), skinSkeletonOf(after), id);
+        this.dropKeys(this.boundCache, skinSkeletonOf(before), skinSkeletonOf(after));
         break;
       case 'groups':
         this.relink(this.groupsByOwner, ownerOf(before), ownerOf(after), id);
@@ -234,6 +252,8 @@ export class QueryEngine implements DocQueries {
     this.swatchCache.clear();
     this.imagePlaneCache.clear();
     this.jointCache.clear();
+    this.constraintCache.clear();
+    this.boundCache.clear();
   }
 
   /** Forgets everything (the storage was cleared). */
@@ -253,6 +273,9 @@ export class QueryEngine implements DocQueries {
       this.swatchesByPalette,
       this.imagePlanesByCamera,
       this.jointsBySkeleton,
+      this.skeletonsByCharacter,
+      this.constraintsByRig,
+      this.meshesBySkeleton,
     ]) {
       index.clear();
     }
@@ -565,6 +588,46 @@ export class QueryEngine implements DocQueries {
     }
     return cached;
   }
+
+  // ---------- M6b schema v4 (M6B-SPEC §4.1) ----------
+
+  skeletonOfCharacter(character: CharacterId): SkeletonRecord | undefined {
+    const skeletons = this.liveAll(
+      'skeletons',
+      this.skeletonsByCharacter.get(character),
+    ) as unknown as SkeletonRecord[];
+    if (skeletons.length <= 1) return skeletons[0];
+    // Several live skeletons for one character (concurrent Quick Rig commits): the newest, i.e. the greatest id.
+    return skeletons.reduce((max, skeleton) => (compareStrings(skeleton.id, max.id) > 0 ? skeleton : max));
+  }
+
+  constraintsOfRig(rig: RigId): readonly ConstraintRecord[] {
+    let cached = this.constraintCache.get(rig);
+    if (cached === undefined) {
+      const constraints = this.liveAll('constraints', this.constraintsByRig.get(rig)) as unknown as ConstraintRecord[];
+      cached = freeze(constraints.sort((a, b) => compareStrings(a.id, b.id)));
+      this.constraintCache.set(rig, cached);
+    }
+    return cached;
+  }
+
+  meshesBoundTo(skeleton: SkeletonId): readonly MeshRecord[] {
+    let cached = this.boundCache.get(skeleton);
+    if (cached === undefined) {
+      const meshes = this.liveAll('meshes', this.meshesBySkeleton.get(skeleton)) as unknown as MeshRecord[];
+      cached = freeze(meshes.sort(byOrderThenId));
+      this.boundCache.set(skeleton, cached);
+    }
+    return cached;
+  }
+}
+
+/** M6b: the skeleton a mesh is bound to (`MeshRecord.skin.skeleton`), if any. */
+function skinSkeletonOf(record: Row | undefined): string | undefined {
+  const skin = record?.['skin'];
+  if (typeof skin !== 'object' || skin === null) return undefined;
+  const skeleton = (skin as Readonly<Record<string, unknown>>)['skeleton'];
+  return typeof skeleton === 'string' ? skeleton : undefined;
 }
 
 function clipControl(curve: Row): string {

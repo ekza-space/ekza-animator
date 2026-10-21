@@ -7,10 +7,16 @@ import {
   COLOUR_OUTPUTS,
   GROUP_TEMPLATES,
   HANDHELD_LIMITS,
+  JOINT_ROLES,
   MESH_NAME_MAX,
   PRIMITIVE_KINDS,
+  SHAPE_FIELDS,
   SKELETON_PRESETS,
   SWATCH_SHADERS,
+  VRM_LICENSE_PRESETS,
+  VRM_META_ENUMS,
+  VRM_META_FLAGS,
+  VRM_META_STRINGS,
 } from './validate';
 import { SWATCH_SHADER_DEFAULTS } from '../records';
 
@@ -143,6 +149,113 @@ export function repairSwatchShader(record: Obj, problems: string[] = []): Record
   return patch;
 }
 
+// ---------- M6b schema v4 (M6B-SPEC §4.1 rules table) ----------
+
+/**
+ * The control-key stem of a joint name (`JointRecord.key`, M6B-SPEC §4.1): the name reduced to `[A-Za-z0-9_-]`
+ * (anything else becomes `_`), `node` for an empty name — rig's `sanitizeNodeName`, which doc cannot import.
+ */
+export function jointKeyStem(name: unknown): string {
+  const cleaned = (typeof name === 'string' ? name : '').replace(/[^A-Za-z0-9_-]/g, '_');
+  return cleaned.length === 0 ? 'node' : cleaned;
+}
+
+/** `CharacterVrmMeta` repaired field by field to the schema defaults (`name` defaults to the character's name). */
+function repairVrmMeta(value: Obj, characterName: unknown, problems: string[]): Obj {
+  const patch: Record<string, unknown> = {};
+  for (const field of VRM_META_STRINGS) {
+    if (typeof value[field] === 'string') continue;
+    patch[field] = field === 'name' && typeof characterName === 'string' ? characterName : '';
+  }
+  for (const field of VRM_META_FLAGS) if (typeof value[field] !== 'boolean') patch[field] = false;
+  for (const [field, values] of Object.entries(VRM_META_ENUMS)) {
+    if (!(values as readonly unknown[]).includes(value[field])) patch[field] = values[0];
+  }
+  for (const field of ['authors', 'references'] as const) {
+    const items = value[field];
+    if (!Array.isArray(items)) patch[field] = [];
+    else if (items.some((item) => typeof item !== 'string'))
+      patch[field] = items.filter((item) => typeof item === 'string');
+  }
+  const preset = value['licensePreset'];
+  if (preset !== null && !(VRM_LICENSE_PRESETS as readonly unknown[]).includes(preset)) patch['licensePreset'] = null;
+  const thumbnail = value['thumbnail'];
+  if (thumbnail !== null && (typeof thumbnail !== 'string' || thumbnail.length === 0)) patch['thumbnail'] = null;
+  const fields = Object.keys(patch);
+  if (fields.length === 0) return value;
+  problems.push(`vrm: ${fields.join(', ')} repaired to the schema defaults`);
+  return { ...value, ...patch };
+}
+
+/** `ControlShape.edited`: absent, or known fields without duplicates (unknown and duplicate entries dropped). */
+function repairShapeEdited(shape: unknown, problems: string[]): unknown {
+  if (!isObj(shape) || !('edited' in shape) || shape['edited'] === undefined) return shape;
+  const edited = shape['edited'];
+  if (!Array.isArray(edited)) {
+    problems.push('shape.edited: not an array, removed');
+    const { edited: _edited, ...rest } = shape;
+    return rest;
+  }
+  const kept: unknown[] = [];
+  for (const field of edited) {
+    if ((SHAPE_FIELDS as readonly unknown[]).includes(field) && !kept.includes(field)) kept.push(field);
+  }
+  if (kept.length === edited.length) return shape;
+  problems.push('shape.edited: unknown and duplicate fields dropped');
+  return { ...shape, edited: kept };
+}
+
+/**
+ * Cross-record repair of `JointRecord.key` (M6B-SPEC §4.1): unique among each skeleton's live joints — a missing or
+ * empty key takes the sanitized name (`jointKeyStem`), and duplicates (in id order, the first keeps its key) take
+ * `#n` suffixes (n = 1, 2, … skipping keys in use). Returns a new table only when something changed.
+ */
+export function repairJointKeys(joints: Readonly<Record<string, unknown>>): {
+  readonly joints: Readonly<Record<string, unknown>>;
+  readonly problems: readonly string[];
+} {
+  const problems: string[] = [];
+  const bySkeleton = new Map<string, string[]>();
+  for (const [id, row] of Object.entries(joints)) {
+    if (!isObj(row) || !isLive(row)) continue;
+    const skeleton = String(row['skeleton']);
+    const ids = bySkeleton.get(skeleton);
+    if (ids === undefined) bySkeleton.set(skeleton, [id]);
+    else ids.push(id);
+  }
+  const keyOf = (row: Obj): string =>
+    typeof row['key'] === 'string' && row['key'].length > 0 ? row['key'] : jointKeyStem(row['name']);
+  const changed = new Map<string, string>();
+  for (const ids of bySkeleton.values()) {
+    ids.sort(codeUnitOrder);
+    const used = new Set<string>();
+    for (const id of ids) used.add(keyOf(joints[id] as Obj));
+    const holders = new Set<string>();
+    for (const id of ids) {
+      const row = joints[id] as Obj;
+      let key = keyOf(row);
+      if (holders.has(key)) {
+        let n = 1;
+        while (used.has(`${key}#${n}`)) n++;
+        const next = `${key}#${n}`;
+        problems.push(`joints/${id}: key '${key}' is used by another joint of the skeleton, set to '${next}'`);
+        key = next;
+        used.add(key);
+      }
+      holders.add(key);
+      if (row['key'] !== key) {
+        if (typeof row['key'] !== 'string' || row['key'].length === 0)
+          problems.push(`joints/${id}: key missing, set to '${key}'`);
+        changed.set(id, key);
+      }
+    }
+  }
+  if (changed.size === 0) return { joints, problems };
+  const out: Record<string, unknown> = { ...joints };
+  for (const [id, key] of changed) out[id] = { ...(joints[id] as Obj), key };
+  return { joints: out, problems };
+}
+
 /**
  * Per-record repairs of the M6A-SPEC §4.2 rules table (and the v3 fields of characters and assets). Unknown tables and
  * records that need no repair come back unchanged (`===`). Problems a repair cannot fix (a wrong type with no
@@ -159,6 +272,46 @@ export function repairRecord(table: string, record: unknown): RepairResult {
       if (!isObj(source) && typeof asset === 'string' && asset.length > 0) {
         problems.push("source: missing, set to {kind: 'asset', asset}");
         next = { ...record, source: { kind: 'asset', asset } };
+      }
+      // v4 (M6B-SPEC §4.1): `vrm` is null or a complete VRM meta object.
+      const vrm = record['vrm'];
+      if (!isObj(vrm)) {
+        if (vrm !== null) {
+          problems.push('vrm: missing or not an object, set to null');
+          next = { ...next, vrm: null };
+        }
+      } else {
+        const repaired = repairVrmMeta(vrm, record['name'], problems);
+        if (repaired !== vrm) next = { ...next, vrm: repaired };
+      }
+      break;
+    }
+    case 'joints': {
+      // v4: role and key (key uniqueness per skeleton is the cross-record `repairJointKeys`).
+      const patch: Record<string, unknown> = {};
+      if (!(JOINT_ROLES as readonly unknown[]).includes(record['role'])) {
+        problems.push("role: missing or unknown, set to 'bone'");
+        patch['role'] = 'bone';
+      }
+      if (typeof record['key'] !== 'string' || record['key'].length === 0) {
+        patch['key'] = jointKeyStem(record['name']);
+        problems.push(`key: missing, set to '${String(patch['key'])}'`);
+      }
+      if (Object.keys(patch).length > 0) next = { ...record, ...patch };
+      break;
+    }
+    case 'controls': {
+      // v4: `shape.edited`.
+      const shape = repairShapeEdited(record['shape'], problems);
+      if (shape !== record['shape']) next = { ...record, shape };
+      break;
+    }
+    case 'clips': {
+      // v4: a test clip source must be {kind: 'test', generator: 'rom', version: 1}.
+      const source = record['source'];
+      if (isObj(source) && source['kind'] === 'test' && (source['generator'] !== 'rom' || source['version'] !== 1)) {
+        problems.push("source: unknown test clip generator, set to {kind: 'new'}");
+        next = { ...record, source: { kind: 'new' } };
       }
       break;
     }

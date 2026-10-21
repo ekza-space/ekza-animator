@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.2 with the M2A-SPEC §4.2 and M6A-SPEC §4.2 additions, copied verbatim (shapes are normative;
+// Contract file: MVP-SPEC §4.2 with the M2A-SPEC §4.2, M6A-SPEC §4.2 and M6B-SPEC §4.1 (schema v4) additions, copied verbatim (shapes are normative;
 // change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, JsonValue, KeyData, ReadonlyQuat,
@@ -59,7 +59,8 @@ export interface AssetRecord {
   readonly ext: 'glb' | 'vrm' | 'vrma' | 'png' | 'jpg';                          // changed: + png, jpg (image planes; archived under `images/`, §5.20)
   readonly mime: 'model/gltf-binary' | 'image/png' | 'image/jpeg';               // changed
   readonly size: number;
-  readonly role: 'model' | 'animation-source' | 'reference-image';               // changed: + reference-image
+  readonly role: 'model' | 'animation-source' | 'reference-image' | 'thumbnail';   // changed: + reference-image; M6b v4: + thumbnail
+                                                                                   // (png/jpg, square; archived under images/, M6A §5.20)
   /** v3 (ADR 0017 §7): null for assets imported before v3 and for plain imports; set by M7 generation. */
   readonly provenance: AssetProvenance | null;
 }
@@ -102,6 +103,34 @@ export interface CharacterRecord {
   readonly placement: ReadonlyXf;              // scene placement of the character root (MVP: offset along X per character)
   readonly order: string;                      // fractional index
   readonly deleted: Tombstone;
+  /** v4: VRM meta of a model-sourced character's exports (§5.22); null until the user sets it; ignored for
+   *  asset-sourced characters (their VRM meta is the asset's). */
+  readonly vrm: CharacterVrmMeta | null;
+}
+
+// ---------- M6b schema v4 (M6B-SPEC §4.1): new ----------
+export type VrmLicensePreset = 'cc0' | 'cc-by-4.0' | 'personal' | 'custom';
+/** VRMC_vrm 1.0 meta (schema defaults in comments) plus the editor's licence preset and thumbnail. */
+export interface CharacterVrmMeta {
+  readonly name: string;                                   // required; default: the character name
+  readonly version: string;                                // '' = omitted
+  readonly authors: readonly string[];                     // required, ≥ 1 non-empty entry at export (no default)
+  readonly copyrightInformation: string;                   // '' = omitted
+  readonly contactInformation: string;                     // '' = omitted
+  readonly references: readonly string[];
+  readonly licensePreset: VrmLicensePreset | null;         // null = not chosen: export blocked (Q-SKIN-3)
+  readonly avatarPermission: 'onlyAuthor' | 'onlySeparatelyLicensedPerson' | 'everyone';          // onlyAuthor
+  readonly commercialUsage: 'personalNonProfit' | 'personalProfit' | 'corporation';                // personalNonProfit
+  readonly creditNotation: 'required' | 'unnecessary';                                             // required
+  readonly allowRedistribution: boolean;                                                          // false
+  readonly modification: 'prohibited' | 'allowModification' | 'allowModificationRedistribution';   // prohibited
+  readonly allowExcessivelyViolentUsage: boolean;                                                 // false
+  readonly allowExcessivelySexualUsage: boolean;                                                  // false
+  readonly allowPoliticalOrReligiousUsage: boolean;                                               // false
+  readonly allowAntisocialOrHateUsage: boolean;                                                   // false
+  readonly otherLicenseUrl: string;                        // '' = omitted; the CC presets fill the deed URL
+  readonly thirdPartyLicenses: string;                     // '' = filled from provenance at export (§5.22)
+  readonly thumbnail: AssetId | null;                      // AssetRecord role 'thumbnail'
 }
 
 export interface RigRecord {
@@ -125,7 +154,10 @@ export interface ControlShape {
   readonly custom: SplineSet | null;           // kind === 'custom' only
   readonly color: 'side' | `#${string}`;
   readonly lineWidth: number | null;           // px; null = theme default (2)
+  readonly edited?: readonly ShapeField[];    // M6b v4, optional: absent = generated; 'kind' also covers the custom points
 }
+/** M6b v4: shape fields a user edited; `rig.autoRig.update` keeps them (§5.20). */
+export type ShapeField = 'kind' | 'size' | 'offset' | 'color' | 'lineWidth';
 
 export interface Binding {
   readonly bone: BoneRef;
@@ -225,7 +257,8 @@ export type RootMotionMode = 'hips' | 'in-place';
 export type ClipSource =
   | { readonly kind: 'new' }
   | { readonly kind: 'embedded'; readonly asset: AssetId; readonly animationIndex: number; readonly animationName: string }
-  | { readonly kind: 'imported'; readonly fileName: string; readonly asset: AssetId | null };
+  | { readonly kind: 'imported'; readonly fileName: string; readonly asset: AssetId | null }
+  | { readonly kind: 'test'; readonly generator: 'rom'; readonly version: 1 };     // M6b v4: generated test clip; never exported
 
 export type Redistributable = 'yes' | 'no' | 'unknown';
 export interface DerivedFrom {
@@ -473,6 +506,11 @@ export interface SkeletonRecord {              // M6b creates them; M6a validate
   readonly symmetry: boolean;
   readonly deleted: Tombstone;
 }
+/** M6b v4. 'bone' deforms (a candidate of automatic weights); 'helper' and 'prop' do not deform: automatic methods skip
+ *  them unless masked in, paint and the table may still weight them (with the lint skin.non-deforming-weighted).
+ *  'helper' = the template root, sockets (§5.6.3), end and aim helpers; 'prop' = the attach point of a held prop
+ *  (§5.6.2). */
+export type JointRole = 'bone' | 'helper' | 'prop';
 export interface JointRecord {                 // M6b creates them; M6a validates and preserves
   readonly id: JointId;
   readonly skeleton: SkeletonId;
@@ -486,6 +524,12 @@ export interface JointRecord {                 // M6b creates them; M6a validate
   readonly side: Side;
   readonly mirror: JointId | null;
   readonly deleted: Tombstone;
+  readonly role: JointRole;                   // v4
+  /** v4: stable control-key stem, set once at creation and never changed by a rename: template joints the human bone
+   *  or 'root'; other joints the sanitized name at creation (`sanitizeNodeName`), de-duplicated per skeleton with the
+   *  shipped `#n` rule; `char.makeEditable` the import-time stem, so control ids equal the asset rig's (§5.23).
+   *  Template keys of non-humanoid controls of model-sourced skeletons: fk.<key>, sec.<key>, prop.<key>, sock.<key>. */
+  readonly key: string;
 }
 
 /** Helper used by the curve engine: a curve record + its keys as an AnimCurve. */
