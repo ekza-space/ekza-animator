@@ -3,14 +3,15 @@
 // operator), resolved args recorded for Adjust Last, the Rebind and Unbind questions, the masked re-solve ("Bind
 // Unweighted Points") leaving the record and every other point unchanged, the same weights whatever the user's Model
 // symmetry, the first-bind control rig, refusals, keys untouched (P-C6) — and the skin service: `SkinSkeleton` from
-// records, the worker protocol (copies, transfer lists, superseding) and the inline path.
+// records, the worker protocol (copies, transfer lists, superseding), the inline path and the inline fallback when the
+// worker fails; the joint-mask poll, a masked run on the stored bind arguments and P-S7's split-vertex crack check.
 import { createHash } from 'node:crypto';
 import type { CharacterId, JointId, MeshId, RigId, SkeletonId } from '@ekza-studio/doc';
 import { makeTestJoint, makeTestRig, makeTestSkeleton } from '@ekza-studio/doc/testing';
-import { readSkin, skinGeometryOf, withSkin, writeRevision } from '@ekza-studio/mesh-core';
+import { bindSkin, readSkin, skinGeometryOf, withSkin, writeRevision } from '@ekza-studio/mesh-core';
 import { readRigDefinition } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
-import type { EditorApp, LastRun } from '../../src';
+import { type EditorApp, type LastRun, loadWritePath } from '../../src';
 import { answerRebind, answerUnbind, rebindRequest, unbindRequest } from '../../src/operators/builtin/rig/bind';
 import {
   createSkinService,
@@ -350,6 +351,146 @@ describe('skin.bind (§5.9)', () => {
     expect((f.app.session.getState().lastRun as LastRun).args).toMatchObject({ holds: [held] });
   });
 
+  it('a joint mask naming no joint of the skeleton is the empty-mask poll refusal, not a failed run', async () => {
+    const f = await bodyCharacter();
+    const reason = (args: unknown): string | null => {
+      const poll = f.app.operators.poll('skin.bind', {}, args);
+      return poll === true ? null : poll.reason;
+    };
+    expect(reason({ joints: ['nope'] })).toBe('Bind Skin needs at least one joint to bind to');
+    expect(reason({ joints: ['nope', `${f.skeleton}:head`] })).toBeNull();
+    const refused = await f.app.runUntyped('skin.bind', { joints: ['nope'] });
+    expect(refused.status).not.toBe('failed');
+    expect(readSkin(dataOf(f.app, f.mesh))).toBeNull();
+    // With no mask, a skeleton whose joints are all helpers has nothing to bind to either.
+    f.app.store.transact({ label: 'helpers' }, (tx) => {
+      for (const joint of tx.list('joints'))
+        if (joint.skeleton === f.skeleton) tx.patch('joints', joint.id, { role: 'helper' });
+    });
+    expect(reason({})).toBe('Bind Skin needs at least one joint to bind to');
+  });
+
+  it('a masked run with only {points} re-solves with the stored bind arguments (§0.4.4) and records them', async () => {
+    const f = await bodyCharacter();
+    expect((await f.app.runUntyped('skin.bind', { method: 'closest', pruneBelow: 0.1 })).status).toBe('finished');
+    const points = [5, 6, 7, 50, 120];
+    expect((await f.app.runUntyped('skin.bind', { points })).status).toBe('finished');
+    const inherited = readSkin(dataOf(f.app, f.mesh));
+    expect((f.app.session.getState().lastRun as LastRun).args).toMatchObject({
+      method: 'closest',
+      pruneBelow: 0.1,
+      points,
+    });
+    await f.app.runUntyped('edit.undo');
+    expect((await f.app.runUntyped('skin.bind', { method: 'closest', pruneBelow: 0.1, points })).status).toBe(
+      'finished',
+    );
+    const explicit = readSkin(dataOf(f.app, f.mesh));
+    expect(inherited?.palette).toEqual(explicit?.palette);
+    expect(Array.from(inherited?.joints ?? [])).toEqual(Array.from(explicit?.joints ?? []));
+    expect(Array.from(inherited?.weights ?? [])).toEqual(Array.from(explicit?.weights ?? []));
+    await f.app.runUntyped('edit.undo');
+    // The run's own values still win over the stored record.
+    expect((await f.app.runUntyped('skin.bind', { method: 'rigid-islands', points })).status).toBe('finished');
+    expect((f.app.session.getState().lastRun as LastRun).args).toMatchObject({ method: 'rigid-islands' });
+    expect(f.app.store.get('meshes', f.mesh)?.skin).toMatchObject({ bind: { method: 'closest', pruneBelow: 0.1 } });
+  });
+
+  it('P-S7 cracks: every GPU corner of a welded point carries its row, ≤ 1e-6 m apart under random poses', async () => {
+    const f = await bodyCharacter('segmented');
+    expect((await f.app.runUntyped('skin.bind', {})).status).toBe('finished');
+    const data = dataOf(f.app, f.mesh);
+    const skin = readSkin(data);
+    if (skin === null) throw new Error('not bound');
+    const io = await (await loadWritePath()).loadMeshIo();
+    const out = io.meshToPrimitivesDetailed(data, {
+      colourOutput: 'asset',
+      palette: null,
+      paint: null,
+      morphNormals: new Set(),
+      hadTangents: false,
+      dropTangents: false,
+    });
+    if ('refused' in out) throw new Error(out.reason);
+    // Points of the mesh by their exact position (a position shared by two points is left out: not one welded point).
+    const pointAt = new Map<string, number>();
+    const shared = new Set<string>();
+    for (let p = 0; p < data.counts.points; p++) {
+      const key = Array.from(data.position.subarray(3 * p, 3 * p + 3)).join(',');
+      if (pointAt.has(key)) shared.add(key);
+      pointAt.set(key, p);
+    }
+    const groups = new Map<string, { joints: number[]; weights: number[] }[]>();
+    for (const primitive of out.primitives) {
+      const position = primitive.attributes['POSITION'] as Float32Array;
+      const joints = primitive.attributes['JOINTS_0'] as Uint8Array | Uint16Array;
+      const weights = primitive.attributes['WEIGHTS_0'] as Float32Array;
+      for (let v = 0; v < position.length / 3; v++) {
+        const key = Array.from(position.subarray(3 * v, 3 * v + 3)).join(',');
+        if (shared.has(key) || !pointAt.has(key)) continue;
+        const list = groups.get(key) ?? [];
+        list.push({
+          joints: Array.from(joints.subarray(4 * v, 4 * v + 4)),
+          weights: Array.from(weights.subarray(4 * v, 4 * v + 4)),
+        });
+        groups.set(key, list);
+      }
+    }
+    const split = [...groups.entries()].filter(([, list]) => list.length > 1);
+    expect(split.length).toBeGreaterThan(0);
+    // A ROM stand-in: random rigid transforms per palette joint, 8 poses.
+    let seed = 7;
+    const rand = (): number => {
+      seed = (seed * 1_103_515_245 + 12_345) % 2_147_483_648;
+      return seed / 2_147_483_648;
+    };
+    let worst = 0;
+    for (let pose = 0; pose < 8; pose++) {
+      const mats = skin.palette.map(() => {
+        const [a, b, c] = [rand() * 2 * Math.PI, rand() * 2 * Math.PI, rand() * 2 * Math.PI];
+        const [ca, sa, cb, sb, cc, sc] = [Math.cos(a), Math.sin(a), Math.cos(b), Math.sin(b), Math.cos(c), Math.sin(c)];
+        // Rz(c)·Ry(b)·Rx(a) and a translation
+        return [
+          cc * cb,
+          cc * sb * sa - sc * ca,
+          cc * sb * ca + sc * sa,
+          rand() - 0.5,
+          sc * cb,
+          sc * sb * sa + cc * ca,
+          sc * sb * ca - cc * sa,
+          rand() - 0.5,
+          -sb,
+          cb * sa,
+          cb * ca,
+          rand() - 0.5,
+        ];
+      });
+      for (const [key, list] of split) {
+        const [x, y, z] = key.split(',').map(Number) as [number, number, number];
+        const skinned = list.map(({ joints, weights }) => {
+          const o = [0, 0, 0];
+          for (let k = 0; k < 4; k++) {
+            const m = mats[joints[k] as number] as number[];
+            const w = weights[k] as number;
+            for (let r = 0; r < 3; r++)
+              o[r] =
+                (o[r] as number) +
+                w *
+                  ((m[4 * r] as number) * x +
+                    (m[4 * r + 1] as number) * y +
+                    (m[4 * r + 2] as number) * z +
+                    (m[4 * r + 3] as number));
+          }
+          return o;
+        });
+        const first = skinned[0] as number[];
+        for (const o of skinned)
+          worst = Math.max(worst, Math.hypot(o[0]! - first[0]!, o[1]! - first[1]!, o[2]! - first[2]!));
+      }
+    }
+    expect(worst).toBeLessThanOrEqual(1e-6);
+  });
+
   it('refuses scene meshes, placed meshes, an empty joint mask and asset-sourced characters', async () => {
     const f = await bodyCharacter();
     const scene = await runValue<{ created: string[] }>(f.t, 'mesh.create.template', { template: 'prop' });
@@ -463,6 +604,50 @@ describe('the skin service', () => {
     expect(posted[0]?.request.job.geometry.positions).not.toBe(inputs.geometry.positions);
     expect(posted[0]?.transfer).toContain(posted[0]?.request.job.geometry.positions.buffer);
     expect(inputs.geometry.positions.length).toBeGreaterThan(0);
+  });
+
+  it('a worker that fails to load falls back to the inline path for pending and later binds', async () => {
+    const f = await bodyCharacter();
+    let created = 0;
+    const port: SkinWorkerPort = {
+      onmessage: null,
+      onerror: null,
+      terminate: () => {},
+      postMessage() {
+        // The chunk did not load: the worker reports an error event and never answers.
+        queueMicrotask(() => port.onerror?.({ message: 'Failed to fetch dynamically imported module' }));
+      },
+    };
+    (f.app.rig as unknown as { skinWorker: () => SkinWorkerPort }).skinWorker = () => {
+      created++;
+      return port;
+    };
+    const service = createSkinService({ app: () => f.app });
+    const inputs = await skinBindInputs(f.app, f.mesh);
+    const job: SkinBindJob = {
+      geometry: inputs.geometry,
+      skeleton: inputs.skeleton,
+      args: {
+        method: 'auto-lowpoly',
+        joints: null,
+        points: null,
+        hierarchy: true,
+        dropoff: 4,
+        stiffness: 1,
+        pruneBelow: 0.025,
+        rigidifyAbove: null,
+        symmetrize: true,
+      },
+      previous: null,
+    };
+    const expected = bindSkin(job.geometry, job.skeleton, job.args, null);
+    const result = await service.run(f.mesh, job);
+    expect(Array.from(result.skin.weights)).toEqual(Array.from(expected.skin.weights));
+    expect(service.usedWorker).toBe(false);
+    expect(service.busy).toBe(false);
+    const again = await service.run(f.mesh, job);
+    expect(Array.from(again.skin.joints)).toEqual(Array.from(expected.skin.joints));
+    expect(created).toBe(1);
   });
 
   it('binds inline without a worker; cancel rejects what is pending', async () => {

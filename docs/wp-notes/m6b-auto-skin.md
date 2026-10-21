@@ -43,6 +43,9 @@ Branch `m6b/auto-skin` (from `m6b/mvp` at `22b0e11`, `m6b/rig-contracts` merged)
 | M6B-C4-17 | `autoWeightPoints` is implemented (pure; tested); its operator stays deferred. | Cheap with the visibility queries; Auto-Rig and C11 reuse it. |
 | M6B-C4-19 | **P-S4 on seam points and ties** (fix round 1): after symmetrize, `sortEntries`/`keepLargest`/`rigidify`/`toFloat32` take a `MirrorOrder` — ties break on `min(rank[j], rank[M(j)])`, then on a side order swapped between a point and its partner (`flip = p(v) < v`); on a seam point (`p(v) = v`) a tied mirror pair is kept or dropped as a unit (a pair that does not fit whole is dropped with everything after it, so the kept entries stay the largest), a seam point whose top is a tied pair is never rigidified, and the pair shares the f32 residual in halves. Runs without symmetrize keep the plain rank order (goldens unchanged). The P-S4 test runs every method × {defaults, `pruneBelow 0`, `stiffness 0.1` + `pruneBelow 0`, `hierarchy false`, `hierarchy false` + `pruneBelow 0` + `dropoff 0.1`, `rigidifyAbove 0.5` + `pruneBelow 0`} on both bodies, and again with a left-before-right skeleton order (the old code failed 6 of these 7 cases). | §5.26 P-S4 "w(v) = M(w(p(v))) exactly". |
 | M6B-C4-20 | **A point mask needs a bound mesh**: `skin.bind` with `points` on a mesh without skin polls "Bind body first: only a bound mesh re-binds selected points" (was an internal `invalid-mesh` from `writeData`), and "Only selected points" skips the request's unbound meshes. | §5.9 step 4 needs previous weights outside the mask. |
+| M6B-C4-21 | **A joint mask is resolved in the poll** (fix round 2): `skin.bind` polls "Bind Skin needs at least one joint to bind to" when its `joints` name no live joint of the character's skeleton (`{joints: ['nope']}` was a failed run with `skin.empty-mask`), and, with no mask, when the skeleton has no deforming joint (`role: 'bone'`). | §5.9 lists the empty joint mask among the refusals. |
+| M6B-C4-22 | **A masked run defaults to the stored bind arguments** (fix round 2): with `points`, each mesh's args are the run's own values over its `MeshRecord.skin.bind` (`method`, `hierarchy`, `dropoff`, `stiffness`, `pruneBelow`, `rigidifyAbove`, `symmetrize`, `joints`) over the operator defaults, so `{meshes, points}` (C7's Bind Unweighted Points fix, C3's Quick Rig re-run) needs no merging by the caller. The first target's resolved values are recorded in `LastRun.args` (the Adjust Last card shows the method that ran; a re-run from the card passes them explicitly). Several targets with different stored records each use their own; the card shows the first one's. | §0.4.4 "with the stored bind arguments". |
+| M6B-C4-23 | **A worker that fails falls back inline** (fix round 2): the worker's `error` event (the chunk did not load, offline, a crash) re-runs every pending job on the main thread with `bindSkin` (the same pure function; the service keeps the caller's job, the worker had a copy) and the session binds inline from then on (`usedWorker: false`). | Was: pending binds rejected with `internal`. |
 | M6B-C4-18 | **check:size reads web-worker entries**: `apps/web/scripts/lib/route-scripts.mjs` recognizes Turbopack's worker loader (`e.v(e.r(n).default("…turbopack-worker…", [files]))`) as a lazy group, so the `skin-worker` boundary is labelled (12.6 kB gzip) and its chunks never count as eager. The solvers' adjacency moved to `geometry/adjacency.ts` so the worker bundles no kernel module (else the group took the mesh-kernel label). | C0's follow-up ("C1 and C4 assert … check:size reports … skin-worker as lazy groups"). |
 
 ## Calibration spike (§5.9 island rule; Cube Lad, generated body, Polybot)
@@ -74,6 +77,17 @@ gates); C4 does not ship one. **Open for INT and the owner**: the proposed contr
 "exact ≥ 70 % (C4 spike: 74.3 % T, 74.2 % A; rigid nearest-centroid 79.5 %); within one joint ≥ 98 %", which the
 committed test asserts.
 
+Fix round 2, per island (Polybot T, 1,184 points, 37 islands; `auto-lowpoly` defaults vs `rigid-islands`, i.e. rigid
+on the spec's nearest-centroid `c`): the losses are the 8 finger shells (118 points; `c` = the intermediate phalanx,
+the artist's proximal / thumb metacarpal; auto 41, rigid 0), the torso shell (100; `c` = `chest` = the artist's, but
+its votes reach past tree distance 1, so it is heat: auto 37, rigid 100), the shoulder shells (2 × 26; auto 7 each,
+rigid 26 each), the forearms (2 × 50; the artist splits 37 / 13 with the hand) and a chest shell whose centroid is
+nearest `spine` (26; auto 3, rigid 0). An **oracle** that picks, per island, the better of the spec's two outcomes
+(rigid on `c` or heat) scores 1,007 / 1,184 = **85.05 %**; any threshold set of the spec's rule decides islands with
+less information, so it stays below 85 % on T (the measured best was 76.7 %). Reaching 85 % therefore needs a
+different choice of `c` (e.g. a finger shell on its chain's first joint), which the spec's rule fixes (§5.9: "c = the
+joint nearest the island's centroid") — a contract change, not a calibration.
+
 ## Benches (`pnpm --filter @ekza-studio/mesh-core bench`, report-only; M-series laptop, Node 25)
 
 | Bench | Mean | Budget |
@@ -104,6 +118,29 @@ The geometry (partner map, triangulation) is built once outside the timed body, 
   mass-weighted `H` with a stronger preconditioner). Imports authored in centimetres are affected.
 - **Holds on a full bind** (M6B-C4-10): a full bind/Rebind replaces held weights (Maya); masked runs keep them.
 - The shared-file edits below.
+
+## Open for INT (fix round 2)
+
+Unchanged from fix round 1 and still not closable by C4 alone:
+
+- **P-S7 exact ≥ 85 % (blocker for DoD as written)**: proposed contract PR to the §5.26 P-S7 row: "exact ≥ 70 % (C4
+  spike: 74.3 % T, 74.2 % A; rigid nearest-centroid 79.5 %); within one joint ≥ 98 % (98.2 %)". The per-island
+  evidence above shows that the spec's island rule with any thresholds cannot reach 85 %; the alternative is an owner
+  request for a different `c` rule (a contract change of §5.9).
+- **Occluders** (M6B-C4-3): record "visibility tests the bound mesh's own triangles" as an MVP deviation, or a contract
+  PR adding occluder triangles to `bindSkin`'s input.
+- **Holds on a full bind** (M6B-C4-10): documented Maya-like behaviour (a full bind or a confirmed Rebind replaces
+  held weights; masked runs keep them). Applying holds on a full run would need `applyHolds` to extend the new palette
+  with held keys the solve left out (a full run's palette lists only weighted joints, §5.9 palette rules), so it is
+  left for the owner's decision.
+- **Callers of a masked run** (C3 re-run, C7 Validation fix): may now pass only `{meshes, points}` (M6B-C4-22).
+- **Worker in a real browser**: covered by the throwaway run (§ Determinism) until E2E-SKIN-01's gates merge; the
+  load-failure fallback (M6B-C4-23) is unit-tested with a failing port.
+
+Split-vertex cracks (P-S7 "≤ 1e-6 m over the ROM clip"): weights are per welded point, so every corner of a point gets
+the same row; `auto-skin.test.ts` asserts it through io's `meshToPrimitivesDetailed` on the bound segmented body (every
+GPU vertex group of one welded point, 8 random rigid poses per palette joint, max distance ≤ 1e-6 m). The check over
+C1's ROM clip and skinning runtime is INT's once C1 lands.
 
 ## Shared files touched (for INT)
 

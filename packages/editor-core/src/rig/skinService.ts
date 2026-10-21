@@ -419,6 +419,8 @@ export interface SkinServiceImpl extends SkinService {
 
 interface Pending {
   readonly mesh: MeshId;
+  /** The job as the caller gave it (the worker got a copy): an inline retry after a worker failure re-runs it. */
+  readonly job: SkinBindJob;
   readonly resolve: (result: SkinBindResult) => void;
   readonly reject: (error: unknown) => void;
 }
@@ -429,6 +431,8 @@ export function createSkinService(deps: { readonly app: () => EditorApp }): Skin
   let worker: SkinWorkerPort | null = null;
   let nextId = 1;
   let usedWorker = false;
+  /** Set once the worker failed to load or crashed: the session binds inline from then on. */
+  let workerFailed = false;
   const pending = new Map<number, Pending>();
   const reports = new Map<MeshId, BindReport>();
   const latest = new Map<MeshId, number>();
@@ -441,7 +445,8 @@ export function createSkinService(deps: { readonly app: () => EditorApp }): Skin
     for (const listener of listeners) listener();
   };
 
-  const factory = (): (() => SkinWorkerPort) | null => (deps.app().rig as unknown as SkinWorkerHost).skinWorker ?? null;
+  const factory = (): (() => SkinWorkerPort) | null =>
+    workerFailed ? null : ((deps.app().rig as unknown as SkinWorkerHost).skinWorker ?? null);
 
   const onMessage = (event: { readonly data: SkinWorkerResponse }): void => {
     const response = event.data;
@@ -505,7 +510,7 @@ export function createSkinService(deps: { readonly app: () => EditorApp }): Skin
       const id = nextId++;
       latest.set(mesh, id);
       const promise = new Promise<SkinBindResult>((resolve, reject) => {
-        pending.set(id, { mesh, resolve, reject });
+        pending.set(id, { mesh, job, resolve, reject });
       });
       setBusy();
       const create = factory();
@@ -519,13 +524,13 @@ export function createSkinService(deps: { readonly app: () => EditorApp }): Skin
           worker = create();
           worker.onmessage = onMessage;
           worker.onerror = (event) => {
+            // The worker script did not load (a chunk error, offline) or crashed: bindSkin is the same pure function
+            // on this thread, so every pending job re-runs inline and later binds skip the worker.
             event.preventDefault?.();
-            const failed = [...pending.values()];
-            pending.clear();
+            workerFailed = true;
+            usedWorker = false;
             stopWorker();
-            setBusy();
-            for (const entry of failed)
-              entry.reject(new EkzaError('internal', `skin worker: ${event.message ?? 'failed'}`));
+            for (const [pendingId, entry] of pending) void runInline(pendingId, entry.job);
           };
         }
         const copy = copyJob(job);

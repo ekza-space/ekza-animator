@@ -4,7 +4,8 @@
 // mesh: the new skin layers, `MeshRecord.skin = {skeleton, bind}` (the `SkinBindRecord` of a full run; a masked run
 // keeps the stored record) and, when the character has no control rig yet, the generated rig (§5.16). Rebinding a
 // bound mesh with no point mask asks first (`rebindSkin`, answered by `answerRebind`); Adjust Last never asks again.
-// A masked run keeps the held joints' weights (§5.10, `applyHolds`) and needs a bound mesh. `skin.weights.autoForJoints`
+// A masked run keeps the held joints' weights (§5.10, `applyHolds`), needs a bound mesh and defaults its method and
+// options to the mesh's stored bind record (§0.4.4). `skin.weights.autoForJoints`
 // stays deferred (§0.3).
 import { EkzaError, type JsonValue, type ParamDef } from '@ekza-studio/anim-core';
 import type { CharacterId, MeshId, MeshRecord, SkeletonId, Tx } from '@ekza-studio/doc';
@@ -172,7 +173,11 @@ function bindPoll(app: EditorApp, args: unknown): ReturnType<typeof fail> {
     character = owner;
   }
   const joints = isRecord(args) ? args['joints'] : undefined;
-  if (Array.isArray(joints) && joints.length === 0) return fail('Bind Skin needs at least one joint to bind to');
+  if (Array.isArray(joints) && joints.length === 0) return fail(EMPTY_MASK);
+  // §5.9 refuses an empty joint mask: a mask whose keys name no joint of the skeleton is empty too (and with no mask,
+  // a skeleton without a deforming joint has nothing to bind to).
+  if (character !== null && !maskHasJoint(app, character, Array.isArray(joints) ? joints : null))
+    return fail(EMPTY_MASK);
   // A point mask re-solves some points of a bound mesh; the others keep weights it would not have.
   const points = isRecord(args) ? args['points'] : undefined;
   if (Array.isArray(points)) {
@@ -183,6 +188,24 @@ function bindPoll(app: EditorApp, args: unknown): ReturnType<typeof fail> {
     }
   }
   return OK;
+}
+
+const EMPTY_MASK = 'Bind Skin needs at least one joint to bind to';
+
+/** True when the joint mask (null: every deforming joint) names at least one live joint of the character's skeleton. */
+function maskHasJoint(app: EditorApp, character: CharacterId, mask: readonly unknown[] | null): boolean {
+  const record = app.store.get('characters', character);
+  const skeleton = record === undefined ? null : skeletonOfModelCharacter(app.store, record);
+  if (skeleton === null) return true; // bindRefusal reports a missing skeleton
+  const keys = mask === null ? null : new Set(mask.filter((key): key is string => typeof key === 'string'));
+  return app.store
+    .list('joints')
+    .some(
+      (joint) =>
+        joint.skeleton === skeleton &&
+        joint.deleted === null &&
+        (keys === null ? joint.role === 'bone' : keys.has(joint.id)),
+    );
 }
 
 // ---------- rebind confirm (§5.9) ----------
@@ -268,6 +291,31 @@ function solverArgs(args: unknown): SkinBindArgs {
     rigidifyAbove: typeof a['rigidifyAbove'] === 'number' ? a['rigidifyAbove'] : null,
     symmetrize: typeof a['symmetrize'] === 'boolean' ? a['symmetrize'] : null,
   };
+}
+
+/** The `SkinBindRecord` keys a masked run inherits (§0.4.4: "with the stored bind arguments"). */
+const STORED_KEYS = [
+  'method',
+  'hierarchy',
+  'dropoff',
+  'stiffness',
+  'pruneBelow',
+  'rigidifyAbove',
+  'symmetrize',
+  'joints',
+] as const;
+
+/**
+ * The args of a masked run on one mesh: the run's own values over the mesh's stored bind record (Bind Unweighted
+ * Points and the Quick Rig re-run pass only `{meshes, points}`), over the operator defaults.
+ */
+function maskedArgs(app: EditorApp, mesh: MeshId, args: unknown): SkinBindArgs {
+  const skin = app.store.get('meshes', mesh)?.skin ?? null;
+  const stored = skin !== null && 'bind' in skin && isRecord(skin.bind) ? skin.bind : null;
+  const merged: Record<string, unknown> = {};
+  if (stored !== null) for (const key of STORED_KEYS) if (stored[key] !== undefined) merged[key] = stored[key];
+  if (isRecord(args)) for (const [key, value] of Object.entries(args)) if (value !== undefined) merged[key] = value;
+  return solverArgs(merged);
 }
 
 /** The held joint keys of a character (§5.10; recorded in the args, never read again on replay). */
@@ -362,23 +410,31 @@ async function prepareBind(ctx: OperatorContext, args: BindArgs): Promise<BindPr
   app.session.setState({ busy: { label: BUSY, progress: 0 } });
   try {
     const runs: BindRun[] = [];
+    const masked = base.points !== null;
+    // A masked run's method and options default to each mesh's stored record; the first target's are recorded.
+    let resolved: SkinBindArgs = base;
     let recorded: boolean | null = base.symmetrize;
     for (const [i, mesh] of meshes.entries()) {
+      const meshArgs = masked ? maskedArgs(app, mesh, args) : base;
+      if (i === 0) {
+        resolved = meshArgs;
+        recorded = meshArgs.symmetrize;
+      }
       const inputs = await skinBindInputs(app, mesh);
       // `symmetrize: null` resolves per mesh at invoke time; the first target's value is the one recorded.
-      const symmetrize = base.symmetrize ?? autoSymmetrize(inputs.geometry, inputs.skeleton);
+      const symmetrize = meshArgs.symmetrize ?? autoSymmetrize(inputs.geometry, inputs.skeleton);
       recorded ??= symmetrize;
-      const previous = base.points === null ? null : inputs.previous;
+      const previous = masked ? inputs.previous : null;
       // §5.10: the held entries of the masked points come back from a copy (the worker takes `previous`'s buffers).
       const heldFrom: SkinWeights | null =
         previous !== null && holds.length > 0
           ? { ...previous, joints: previous.joints.slice(), weights: previous.weights.slice() }
           : null;
-      const job = { geometry: inputs.geometry, skeleton: inputs.skeleton, args: { ...base, symmetrize }, previous };
+      const job = { geometry: inputs.geometry, skeleton: inputs.skeleton, args: { ...meshArgs, symmetrize }, previous };
       const solved =
         typeof service.run === 'function'
           ? await service.run(mesh, job)
-          : await app.rig.skin.bind(mesh, { ...base, symmetrize });
+          : await app.rig.skin.bind(mesh, { ...meshArgs, symmetrize });
       const result =
         heldFrom === null || base.points === null
           ? solved
@@ -386,7 +442,7 @@ async function prepareBind(ctx: OperatorContext, args: BindArgs): Promise<BindPr
       runs.push({ inputs, result });
       app.session.setState({ busy: { label: BUSY, progress: (i + 1) / meshes.length } });
     }
-    return { runs, args: { ...base, symmetrize: recorded ?? false }, holds, asked: false };
+    return { runs, args: { ...resolved, symmetrize: recorded ?? false }, holds, asked: false };
   } finally {
     if (app.session.getState().busy?.label === BUSY) app.session.setState({ busy: null });
   }
@@ -436,8 +492,25 @@ const bind = defineOperator<'skin.bind', BindPrepared>({
     }
     for (const [character, skeleton] of characters) ensureControlRig(tx, character, skeleton);
     const value = { meshes: prepared.runs.map((run) => run.inputs.mesh) };
-    // Recorded for Adjust Last and replay: the resolved symmetrize and holds; `confirm` never replays.
-    rememberResolvedArgs(value, { symmetrize: prepared.args.symmetrize, holds: [...prepared.holds], confirm: false });
+    // Recorded for Adjust Last and replay: the resolved symmetrize and holds (a masked run also its method and options,
+    // which may come from the stored record); `confirm` never replays.
+    const a = prepared.args;
+    rememberResolvedArgs(value, {
+      ...(full
+        ? {}
+        : {
+            method: a.method,
+            hierarchy: a.hierarchy,
+            dropoff: a.dropoff,
+            stiffness: a.stiffness,
+            pruneBelow: a.pruneBelow,
+            rigidifyAbove: a.rigidifyAbove,
+            joints: a.joints === null ? null : [...a.joints],
+          }),
+      symmetrize: a.symmetrize,
+      holds: [...prepared.holds],
+      confirm: false,
+    });
     return value;
   },
 });
