@@ -103,4 +103,20 @@ Each in the commit that changes the contract; every assertion kept:
 
 ## Gates (local, real Chrome; port 3160)
 
-See the final section below (filled after the full run).
+`EKZA_E2E_PORT=3160 pnpm run ci` on `b9d3d5b` (plus this note): **exit 0**.
+
+- format:check, lint, typecheck, check:deps, check:fixtures (the two generators' `--check`), check:licenses: pass.
+- test (turbo 15/15): mesh-core 905, editor-core 1340, editor 521 (+1 skipped), anim-core 671, io 262, doc 263,
+  viewport 243 (+1 skipped), rig 232, curve-editor 209 (+3 skipped), headless 193, ui 94, doc-yjs 85, mesh-view 75,
+  web 22, tooling (node:test) 22. Skips are the existing M6a ones; none added.
+- build: pass. `next.config.ts` needed no skin-worker entry (Turbopack bundles `new Worker(new URL(...))`).
+- check:size: 894,440 B (gate 900,000 B, headroom 5,560 B); eager delta **+4,871 B** over the 889,569 B baseline
+  (C0 allowance 2,048 B: see the INT request above; the MVP total allowance 6,144 B is not enforced yet). No boundary
+  violation: `rig-workspace` 2.5 kB and `clip-library` 0.7 kB are lazy groups; `skin-worker` and `character-runtime`
+  are reported absent (their entries have no importer until C3/C1 wire them). `apps/web/test/m6b-size.test.ts` puts
+  each of the four markers into the eager scripts and expects the gate to fail.
+- test:e2e (local Chrome GPU, project `chrome`): 219 passed, 23 skipped (the existing skips), 2.5 min; includes
+  E2E-M6B-00 (`m6b-00-foundation.spec.ts`).
+- Flake seen once, not caused by C0: in the previous full run, editor-core `m6a/mesh-io.test.ts` "displays the rebuilt
+  container once a mesh is edited" timed out at 30 s under parallel turbo load; it passes alone (≈ 2.5 s, 3/3) and in
+  this run. Shipped M6a test, left unchanged.
