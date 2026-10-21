@@ -1,9 +1,13 @@
 // The Rig & Skin menu set (M6B-SPEC §0.4.5, §8.4; C7): every item names its operator with `workspaces: ['rig']`, so
 // Model and Animate never list it. Only what works in the MVP is listed (Q-MVP-15: deferred items are absent, not
-// disabled stubs). Items whose arguments depend on the selection (Symmetry X, Snap to Projected Center, Map Humanoid
-// Bone) live in the status line and the Rig Toolkit, which compute them. Registered by the lazy rig shell
-// (`shell/rig/register.ts`) on the first Rig & Skin entry; the menu ids are the eager `RIG_MENUS`.
+// disabled stubs). Registered by the lazy rig shell (`shell/rig/register.ts`) on the first Rig & Skin entry; the
+// menu ids are the eager `RIG_MENUS`. Items whose arguments come from the active skeleton or the lead joint
+// (Skeleton › Symmetry X ✓, Map Humanoid Bone ▸) are re-registered when those change (`registerRigDynamicMenus`).
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { HumanBoneName, JointId, SkeletonRecord } from '@ekza-studio/doc';
 import { type EditorApp, type MenuItemDef, type OperatorId, PANEL, paneDisplayPort } from '@ekza-studio/editor-core';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
+import { JOINT_SIZES } from '../rig/operators';
 
 const RIG = ['rig'] as const;
 
@@ -74,7 +78,20 @@ export const RIG_MENU_ITEMS: readonly MenuItemDef[] = [
   ...rig('select', 'joints', [['allJoints', 'select.joints', { all: true }, 'All Joints']], 300),
   // Modify.
   ...rig('modify', 'pose', [['resetTest', 'rig.pose.resetTest', undefined, 'Reset Test Pose']]),
-  // Display (§0.4.5): Joint Size lives in the status line (it edits a preference by steps).
+  // Display (§0.4.5).
+  ...rig(
+    'display.joint-size',
+    'sizes',
+    JOINT_SIZES.map(
+      ([size, label]): Row => [
+        `size${size}`,
+        'rig.jointSize.set',
+        { size },
+        label,
+        (app) => app.prefs.getState().rigging.jointSize === size,
+      ],
+    ),
+  ),
   ...rig('display', 'joints', [
     [
       'xrayJoints',
@@ -111,6 +128,20 @@ export const RIG_MENU_ITEMS: readonly MenuItemDef[] = [
     PRESETS.map(([preset, label]): Row => [preset, 'skel.template.create', { preset }, label]),
   ),
   ...rig('skeleton', 'rig', [['updateControlRig', 'rig.autoRig.update', undefined, 'Update Control Rig']], 300),
+  ...rig(
+    'skeleton',
+    'options',
+    [
+      [
+        'snapCenter',
+        'rig.snap.projectedCenter',
+        undefined,
+        'Snap to Projected Center',
+        (app) => app.session.getState().rig.snap.projectedCenter,
+      ],
+    ],
+    410,
+  ),
   // Skin (§0.4.5).
   ...rig('skin', 'bind', [
     ['bind', 'skin.bind', undefined, 'Bind Skin…'],
@@ -142,3 +173,76 @@ export const RIG_MENU_ITEMS: readonly MenuItemDef[] = [
     160,
   ),
 ];
+
+/** The active character's live skeleton, or undefined. */
+function activeSkeleton(app: EditorApp): SkeletonRecord | undefined {
+  const character = app.session.getState().rig.character;
+  const skeleton = character === null ? undefined : app.store.query.skeletonOfCharacter(character);
+  return skeleton?.deleted === null ? skeleton : undefined;
+}
+
+/** The lead (last) selected live joint, or null. */
+function leadJoint(app: EditorApp): JointId | null {
+  const joints = app.session.getState().selection.joints;
+  const lead = joints[joints.length - 1];
+  return lead !== undefined && app.store.get('joints', lead)?.deleted === null ? lead : null;
+}
+
+const FINGERS = /(Thumb|Index|Middle|Ring|Little)/;
+/** Map Humanoid Bone ▸ groups: centre, the left and right limbs, then the fingers of each hand. */
+function boneGroup(bone: HumanBoneName): readonly [string, number] {
+  const side = bone.startsWith('left') ? 'left' : bone.startsWith('right') ? 'right' : null;
+  if (side === null) return ['center', 0];
+  return FINGERS.test(bone) ? [`${side}-fingers`, side === 'left' ? 3 : 4] : [side, side === 'left' ? 1 : 2];
+}
+
+/** Skeleton › Symmetry X ✓ and Map Humanoid Bone ▸ for this skeleton and lead joint (no args: poll-fails). */
+export function rigDynamicMenuItems(skeleton: SkeletonRecord | undefined, joint: JointId | null): MenuItemDef[] {
+  const symmetry: MenuItemDef = {
+    id: 'rig.skeleton.symmetry',
+    menu: 'skeleton',
+    group: 'options',
+    order: 400,
+    op: 'skel.symmetry.set',
+    ...(skeleton === undefined ? {} : { args: { skeleton: skeleton.id, on: !skeleton.symmetry } }),
+    label: 'Symmetry X',
+    workspaces: RIG,
+    checked: () => skeleton?.symmetry === true,
+  };
+  const bones: MenuItemDef[] = [null, ...HUMAN_BONE_NAMES].map((bone, index) => {
+    const [group, rank] = bone === null ? ['none', 5] : boneGroup(bone);
+    return {
+      id: `rig.skeleton.map-humanoid-bone.${bone ?? 'none'}`,
+      menu: 'skeleton.map-humanoid-bone',
+      group,
+      order: rank * 1000 + index,
+      op: 'skel.joint.setHumanBone',
+      ...(joint === null ? {} : { args: { joint, bone } }),
+      label: bone ?? 'None',
+      workspaces: RIG,
+      checked: (app: EditorApp) => joint !== null && (app.store.get('joints', joint)?.humanBone ?? null) === bone,
+    };
+  });
+  return [symmetry, ...bones];
+}
+
+/** Keeps the selection-dependent Skeleton items current (re-registered when the skeleton or the lead joint changes). */
+export function registerRigDynamicMenus(app: EditorApp): Disposer {
+  let key: string | null = null;
+  let items: Disposer[] = [];
+  const refresh = (): void => {
+    const skeleton = activeSkeleton(app);
+    const joint = leadJoint(app);
+    const next = `${skeleton?.id ?? '-'}:${String(skeleton?.symmetry)}:${joint ?? '-'}`;
+    if (next === key) return;
+    key = next;
+    for (const dispose of items.splice(0)) dispose();
+    items = rigDynamicMenuItems(skeleton, joint).map((def) => app.contribute({ kind: 'menu', def }));
+  };
+  refresh();
+  const offs = [app.session.subscribe(refresh), app.store.subscribe(refresh)];
+  return () => {
+    for (const off of offs) off();
+    for (const dispose of items.splice(0)) dispose();
+  };
+}

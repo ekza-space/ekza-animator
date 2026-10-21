@@ -1,14 +1,15 @@
 // The Validation panel (M6B-SPEC §8.12, §5.21, §0.4.5; C7): the active character's rows under the chosen profile, as
 // the export gate. Header: Profile [▾] · ✕ errors ⚠ warnings ℹ infos · [Re-run]; one row per problem with Select (the
-// mode and selection: joints → Skeleton, points → Skin) and Fix (a named operator, one undo step); the footer says
-// which profiles the character is ready for and opens Export Character…. A lazy chunk (panels/index.ts registers it).
+// mode, the selection and frames it: joints → Skeleton, points → Skin; `selectValidationRow`) and Fix (a named
+// operator, one undo step); [Re-run] forgets the cached rows; the footer says which profiles the character is ready
+// for and opens Export Character…. A lazy chunk (panels/index.ts registers it).
 import {
-  type EditorApp,
   PANEL,
   profileKind,
   RIG_PROFILES,
   type RigValidationRow,
   type RunContext,
+  selectValidationRow,
 } from '@ekza-studio/editor-core';
 import { NativeSelect } from '@ekza-studio/ui';
 import type { JSX } from 'react';
@@ -21,18 +22,6 @@ const GLYPH: Readonly<Record<RigValidationRow['severity'], string>> = { error: '
 const BUTTON =
   'inline-flex h-6 items-center rounded-[4px] border border-line bg-[var(--bg-field,#17181b)] px-2 text-[11px] text-fg ' +
   'hover:border-[var(--border-strong,#4b4e58)] hover:bg-[var(--bg-hover,#30323a)] disabled:cursor-not-allowed disabled:opacity-50';
-
-/** Select a row's subject (§5.21): joints in Skeleton mode, points in Skin mode, meshes and characters as objects. */
-async function selectRow(app: EditorApp, row: RigValidationRow, run: ReturnType<typeof useRunOperator>): Promise<void> {
-  const joints = row.ids.filter((id) => app.store.get('joints', id as never) !== undefined);
-  if (joints.length > 0) {
-    await run('rig.mode', { mode: 'skeleton' }, CTX);
-    await run('select.joints', { ids: joints }, CTX);
-    return;
-  }
-  const meshes = row.ids.filter((id) => app.store.get('meshes', id as never) !== undefined);
-  if (meshes.length > 0) await run('select.objects', { ids: meshes, mode: 'replace' }, CTX);
-}
 
 export default function ValidationView(props: PanelProps): JSX.Element {
   const { app } = props;
@@ -71,6 +60,9 @@ export default function ValidationView(props: PanelProps): JSX.Element {
           ✕ {count('error')} ⚠ {count('warning')} ℹ {count('info')}
         </span>
         <span className="text-fg-3">({profileKind(profile) === 'plain' ? 'plain' : 'VRM / Ekza'})</span>
+        <button type="button" className={BUTTON} data-testid="val-rerun" onClick={() => validation.rerun()}>
+          Re-run
+        </button>
       </header>
       {rows.length === 0 ? (
         <p className="text-fg-3" data-testid="val-clean">
@@ -96,7 +88,7 @@ export default function ValidationView(props: PanelProps): JSX.Element {
                 type="button"
                 className={BUTTON}
                 data-testid={`val-select-${row.code}`}
-                onClick={() => void selectRow(app, row, run)}
+                onClick={() => void selectValidationRow(app, row, CTX)}
               >
                 Select
               </button>

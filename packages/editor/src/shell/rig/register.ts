@@ -6,12 +6,13 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { RIG_MARKING_MENUS } from '../../overlays/menus/rig';
 import { registerRigOverlays } from '../../panels/viewport/rig/overlays';
-import { RIG_MENU_ITEMS } from '../menus/rig';
+import { RIG_MENU_ITEMS, registerRigDynamicMenus } from '../menus/rig';
 import type { RigShellDeps } from './index';
+import { registerRigShellOperators } from './operators';
 import { registerRigStatusGroups } from './status';
 
 export function registerRigShellUi(app: EditorApp, deps: RigShellDeps): Disposer {
-  const disposers: Disposer[] = [];
+  const disposers: Disposer[] = [registerRigShellOperators(app), registerRigDynamicMenus(app)];
   for (const def of RIG_MENU_ITEMS) {
     if (app.menus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'menu', def }));
   }

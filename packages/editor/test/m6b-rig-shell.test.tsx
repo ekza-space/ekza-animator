@@ -164,7 +164,14 @@ describe('the Rig menus (§0.4.5)', () => {
       'Windows',
     ]);
     const labels = (menu: string) => RIG_MENU_ITEMS.filter((item) => item.menu === menu).map((item) => item.label);
-    expect(labels('skeleton')).toEqual(['Quick Rig…', 'Orient Joints…', 'Mirror Joints…', 'Update Control Rig']);
+    expect(labels('skeleton')).toEqual([
+      'Quick Rig…',
+      'Orient Joints…',
+      'Mirror Joints…',
+      'Update Control Rig',
+      'Snap to Projected Center',
+    ]);
+    expect(labels('display.joint-size')).toEqual(['Small', 'Medium', 'Large', 'Extra Large']);
     expect(labels('skin')).toContain('Go to Bind Pose');
     expect(labels('file')).toEqual(['Export Character…', 'VRM Meta…', 'Render Thumbnail']);
     expect(labels('windows')).toEqual(['Rig Toolkit', 'Paint Weights', 'Validation']);
@@ -189,6 +196,42 @@ describe('the Rig menus (§0.4.5)', () => {
     expect(bodies).toEqual(['rigMode', 'poseView', 'rigSymmetry', 'rigSnap', 'jointDisplay']);
     // The shipped Windows layouts are Animate's; Rig & Skin lists its own presets.
     expect(RIG_LAYOUTS.map((entry) => entry.layout)).toEqual(['single', RIG_LAYOUT.side, RIG_LAYOUT.markers]);
+  });
+});
+
+describe('the selection-dependent Skeleton items (§0.4.5)', () => {
+  it('Symmetry X ✓ and Map Humanoid Bone ▸ follow the active skeleton and the lead joint', async () => {
+    const test = await rigShell();
+    const app = test.app;
+    const symmetry = () => app.menus.get('rig.skeleton.symmetry');
+    expect(symmetry()?.args).toBeUndefined(); // no skeleton yet: the item poll-fails
+    await act(async () => {
+      addModelCharacter(app);
+    });
+    expect(symmetry()?.args).toEqual({ skeleton: 'skl_Model0001', on: false });
+    expect(symmetry()?.checked?.(app)).toBe(true);
+    const spine = () => app.menus.get('rig.skeleton.map-humanoid-bone.spine');
+    expect(spine()?.menu).toBe('skeleton.map-humanoid-bone');
+    expect(spine()?.args).toBeUndefined(); // no joint selected
+    await act(async () => {
+      app.session.setState({ selection: { ...app.session.getState().selection, joints: ['jnt_Hips0001' as JointId] } });
+    });
+    expect(spine()?.args).toEqual({ joint: 'jnt_Hips0001', bone: 'spine' });
+    expect(app.menus.get('rig.skeleton.map-humanoid-bone.hips')?.checked?.(app)).toBe(true);
+    expect(app.menus.get('rig.skeleton.map-humanoid-bone.none')?.args).toEqual({ joint: 'jnt_Hips0001', bone: null });
+  });
+
+  it('Snap to Projected Center ✓ and Joint Size ▸ run their shell operators', async () => {
+    const test = await rigShell();
+    const app = test.app;
+    expect(app.session.getState().rig.snap.projectedCenter).toBe(true);
+    await run(app, 'rig.snap.projectedCenter');
+    expect(app.session.getState().rig.snap.projectedCenter).toBe(false);
+    await run(app, 'rig.jointSize.set', { size: 1.5 });
+    expect(app.prefs.getState().rigging.jointSize).toBe(1.5);
+    expect(app.menus.get('rig.display.joint-size.size1.5')?.checked?.(app)).toBe(true);
+    await run(app, 'rig.jointSize.set', { step: -1 });
+    expect(app.prefs.getState().rigging.jointSize).toBe(1.25);
   });
 });
 
@@ -272,5 +315,8 @@ describe('the Rig Toolkit and the Validation panel (§8.6, §8.12)', () => {
     await waitUntil(() => by('val-row-skin.unbound').getAttribute('data-severity') === 'warning');
     expect(document.querySelector('[data-testid="val-row-vrm.licence-unset"]')).toBeNull();
     expect(by('val-ready').textContent).toMatch(/Local \/ generic ✓/);
+    // [Re-run] re-derives the rows (same document: same rows).
+    await act(async () => by('val-rerun').click());
+    expect(by('val-row-skin.unbound').getAttribute('data-severity')).toBe('warning');
   });
 });
