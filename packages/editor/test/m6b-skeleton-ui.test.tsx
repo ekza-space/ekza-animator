@@ -16,6 +16,7 @@ import {
 import { DEFAULT_FLEXION, skeletonTemplate, templateJointRecords } from '@ekza-studio/rig';
 import { act } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { userEvent } from 'vitest/browser';
 import { optionBoxStore } from '../src/overlays/menus/optionBox';
 import { QuickRigPanelBody } from '../src/panels/quickRig/body';
 import { SkeletonSection } from '../src/panels/rigToolkit/sections/skeleton';
@@ -219,15 +220,11 @@ describe('the Rig Toolkit Skeleton section (§8.6)', () => {
     expect((by('attr-joint-humanBone') as HTMLSelectElement).value).toBe('rightLowerLeg');
     const z = by('attr-joint-restZ') as HTMLInputElement;
     await act(async () => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(z, '0.05');
-      z.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-    await act(async () => {
-      z.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      await userEvent.clear(z);
+      await userEvent.type(z, '0.05{Enter}');
     });
     expect(setRest).toHaveLength(1);
-    expect((setRest[0]?.['position'] as number[])[2]).toBe(0.05);
+    expect(setRest[0]?.['position']).toEqual([expect.any(Number), expect.any(Number), 0.05]);
     await act(async () => by('rtk-opt-skel.joint.orient').click());
     expect(optionBoxStore(test.app).getState().op).toBe('skel.joint.orient');
     await act(async () => by('rtk-opt-skel.joint.mirror').click());
