@@ -65,8 +65,10 @@ describe('the recorded baseline (size-baseline.json)', () => {
     const recorded = readBaseline(BASELINE_FILE);
     expect(recorded?.baseline.total).toBe(889_569);
     expect(recorded?.eagerDelta.allowance).toBe(6_144);
-    expect(recorded?.eagerDelta.enforce).toBe(false);
-    expect(recorded?.eagerDelta.pending).toMatch(/C7/);
+    // C7 (rig-shell) turned the gate on (§0.4.9; literal update, §3 rule 9): enforced, nothing pending.
+    expect(recorded?.eagerDelta.enforce).toBe(true);
+    expect(recorded?.eagerDelta.pending).toBeUndefined();
+    expect(recorded?.eagerDelta.packages).toEqual({ c0: 2048, c7: 2560, c12: 1024, c1: 512 });
     expect(recorded?.modelChunk?.warnBytes).toBe(250_000);
     expect(JSON.parse(readFileSync(BASELINE_FILE, 'utf8'))).toEqual(recorded);
   });
@@ -83,6 +85,7 @@ describe('the eager-delta gate (§5.27)', () => {
       enforced: true,
       comparable: true,
       pending: 'owner decision pending',
+      packages: null,
     });
     expect(eagerDelta(870_000, baseline({ total: 845_000, allowance: 20_480, enforce: true }), false)?.over).toBe(true);
     expect(eagerDelta(870_000, null, false)).toBeNull();

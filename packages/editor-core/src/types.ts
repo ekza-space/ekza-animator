@@ -89,7 +89,8 @@ export interface DisplayFlags {
   readonly shapeCvs: boolean;          // Shapes mode with CV edit
 }
 export type Shading = 'wire' | 'shaded' | 'colours' | 'lit';
-export type ViewportLayout = 'single' | 'split' | 'quad';
+export type ViewportLayout = 'single' | 'split' | 'quad'
+  | 'rig-side' | 'rig-markers';   // M6b C7, changed (additive): R-Side `front │ persp`, R-Markers `front │ side │ persp`
 /** Manipulator handles; gimbal rings reuse rx/ry/rz (axis = channel). */
 export type ManipHandle = 'tx' | 'ty' | 'tz' | 'txy' | 'tyz' | 'txz' | 'tview' | 'rx' | 'ry' | 'rz' | 'rview'
   | 'sx' | 'sy' | 'sz' | 'suniform' | 'pivot';   // M6a, changed: Scale tool, pivot handle

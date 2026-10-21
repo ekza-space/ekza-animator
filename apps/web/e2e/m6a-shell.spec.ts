@@ -35,11 +35,13 @@ test('workspace tabs: Model › Rig & Skin › Animate › Review; a click on Mo
   await expect(tabs.getByRole('tab')).toHaveCount(4);
   expect((await call(page, 'workspaces')).map((w) => [w.id, w.enabled, w.active, w.glyph])).toEqual([
     ['model', true, false, 'todo'],
-    ['rig', true, false, 'none'],
+    // M6B-SPEC §3 rule 9 literal update (C7): Rig & Skin's glyph is ○ without a skeleton (§5.21).
+    ['rig', true, false, 'todo'],
     ['animate', true, true, 'todo'],
     ['review', false, false, 'none'],
   ]);
   await expect(page.getByTestId('ws-glyph-model')).toHaveText('○');
+  await expect(page.getByTestId('ws-glyph-rig')).toHaveText('○');
   await page.getByTestId('ws-tab-review').click({ force: true });
   expect((await call(page, 'state')).workspace).toBe('animate');
   await page.getByTestId('ws-tab-model').click();

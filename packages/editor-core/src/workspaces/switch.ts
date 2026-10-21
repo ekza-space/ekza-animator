@@ -16,6 +16,8 @@ export const DEFAULT_WORKSPACE_VIEWS: Readonly<
 > = {
   model: { layout: 'quad', maximizedPane: 'pane-persp' },
   animate: { layout: 'split', maximizedPane: null },
+  // M6b (§8.2): Rig & Skin opens on R-Side (`front │ persp`).
+  rig: { layout: 'rig-side', maximizedPane: null },
 };
 
 /** The transform tools (Q W E R): `Y` (last tool, Maya) skips them, so `view.tool` records only the others. */
@@ -56,6 +58,9 @@ export function switchWorkspace(app: EditorApp, id: WorkspaceId): boolean {
   if (def === undefined) throw new EkzaError('unsupported', `Unknown workspace '${id}'`);
   const from = app.session.getState().workspace;
   if (app.prefs.getState().lastWorkspace !== id) app.prefs.setState({ lastWorkspace: id });
+  // M6b C7 (§5.24, M6B-C7-15): entering Rig & Skin loads the rig-workspace chunk (the boot path enters without
+  // `workspace.set`'s prepare); until it has loaded the eager shadow rows and the refused channel edits stand in.
+  if (id === 'rig' && !app.rig.loaded) void app.rig.load().catch(() => undefined);
   if (from === id) return false;
   if (from === 'model') {
     // Before the session is read: ending the session may record its args and change the selection (§5.8).

@@ -1,9 +1,9 @@
 // The Rig & Skin workspace (M6B-SPEC §5.24, §0.4.5; C0 baseline, then C7): the enabled `WorkspaceDef` with its MVP
-// menus and status groups (its layout a placeholder until C7 lands `rig-side`), and the loaders of the two lazy
-// chunks whose operators the runner resolves on first use (§2.1): `rig-workspace` (every skel.*, skin.*, char.*,
+// menus and status groups, the `rig-side` layout, the mode key scopes (CR-4) and the tab glyph, and the loaders of the
+// two lazy chunks whose operators the runner resolves on first use (§2.1): `rig-workspace` (every skel.*, skin.*, char.*,
 // rig.shape.*, rig.constraint.* and Rig & Skin rig.* operator, `select.joints`, `mesh.importStatic`,
 // `file.exportCharacter`) and `clip-library` (library.*). Eager and tiny: no rig code is imported here.
-import type { EditorApp, WorkspaceDef } from '../types';
+import type { EditorApp, WorkspaceDef, WorkspaceStatus } from '../types';
 
 /** The MVP menus (§0.4.5; `constrain` and `control` arrive after the MVP, Q-MVP-15). */
 export const RIG_MENUS: readonly string[] = [
@@ -44,9 +44,23 @@ export const RIG_WORKSPACE: WorkspaceDef = {
   defaultTool: 'select',
   pickMask: { controls: true, joints: true, meshes: true, groups: false },
   timeline: true,
-  // Placeholder until C7 registers the `rig-side` preset (editor/src/shell/rig/layouts.ts).
-  layout: 'animate',
+  layout: 'rig-side',
+  // CR-4 (§7): `rig.viewport.<mode>` in front of `rig.viewport` outside Object mode.
+  keyModes: (app) => {
+    const mode = app.session.getState().rig.mode;
+    return mode === 'object' ? [] : [mode];
+  },
+  status: rigStatus,
 };
+
+const NO_GLYPH: WorkspaceStatus = { glyph: 'todo', reasons: ['No skeleton yet'] };
+
+/** The tab glyph (§5.21): the Validation service's glyph of the active character once the rig chunk is loaded. */
+export function rigStatus(app: EditorApp): WorkspaceStatus {
+  const character = app.session.getState().rig.character;
+  if (character === null || !app.rig.loaded) return NO_GLYPH;
+  return app.rig.validation.status(character, null);
+}
 
 /**
  * Unregistered operator ids the `rig-workspace` chunk registers (§2.1): every skel.*, skin.*, char.* and Rig & Skin

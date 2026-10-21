@@ -15,6 +15,10 @@ const NORMALS: readonly DisplayFlags['normals'][] = ['off', 'face', 'vertex', 'b
 const ENUM_FLAGS: Readonly<Partial<Record<keyof DisplayFlags, readonly string[]>>> = {
   shading: SHADINGS,
   normals: NORMALS,
+  // M6b (§4.6; C7's Display menu): the joint and weight display.
+  jointAxes: ['none', 'selected', 'all'],
+  jointLabels: ['none', 'hover', 'all'],
+  weights: ['off', 'greyscale', 'ramp', 'influences'],
 };
 export const BOOLEAN_DISPLAY_FLAGS: readonly (keyof DisplayFlags)[] = [
   'mesh',
@@ -36,6 +40,12 @@ export const BOOLEAN_DISPLAY_FLAGS: readonly (keyof DisplayFlags)[] = [
   'symmetryPlane',
   'dimUnhilited',
   'imagePlanes',
+  // M6b (§4.6)
+  'joints',
+  'xrayJoints',
+  'weightNumbers',
+  'lockRelative',
+  'constraintLines',
 ];
 
 /** Why a `DisplayFlags` patch is invalid, or null. */

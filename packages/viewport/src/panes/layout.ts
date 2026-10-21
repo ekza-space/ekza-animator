@@ -12,6 +12,9 @@ export const LAYOUT_PANES: Readonly<Record<ViewportLayout, readonly string[]>> =
   single: ['pane-single'],
   split: ['pane-left', 'pane-right'],
   quad: ['pane-top', 'pane-persp', 'pane-front', 'pane-side'],
+  // M6b (M6B-SPEC §8.2, §0.4.2; C7): Rig & Skin's R-Side `front │ persp` and R-Markers `front │ side │ persp`.
+  'rig-side': ['pane-front', 'pane-persp'],
+  'rig-markers': ['pane-front', 'pane-side', 'pane-persp'],
 };
 
 /**

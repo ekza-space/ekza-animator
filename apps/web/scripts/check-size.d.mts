@@ -42,7 +42,14 @@ export interface SizeReport {
 }
 export interface SizeBaseline {
   readonly baseline: { readonly total: number; readonly label?: string; readonly recorded?: string };
-  readonly eagerDelta: { readonly allowance: number; readonly enforce: boolean; readonly pending?: string };
+  readonly eagerDelta: {
+    readonly allowance: number;
+    readonly enforce: boolean;
+    readonly pending?: string;
+    readonly gate?: string;
+    /** M6B-SPEC §0.4.9: the per-package eager allowances inside the gate (bytes). */
+    readonly packages?: Readonly<Record<string, number>>;
+  };
   readonly modelChunk?: { readonly warnBytes?: number; readonly boundaries?: readonly string[] };
 }
 export interface EagerDelta {
@@ -54,6 +61,7 @@ export interface EagerDelta {
   readonly enforced: boolean;
   readonly comparable: boolean;
   readonly pending: string | null;
+  readonly packages: Readonly<Record<string, number>> | null;
 }
 export interface ModelChunk {
   readonly bytes: number;
