@@ -25,7 +25,8 @@ export { inspectVrma, readVrma, type VrmaReadResult } from './vrma/read';
 export { clipExportName, exportFileName } from './writers/names';
 export { writeAnimationGlb, writeVrma } from './writers/write';
 // ---------- M6b (M6B-SPEC §4.4, §0.5; C0 stub and baseline lines, each owner changes only its own) ----------
-export { CONTAINER_GENERATOR, characterVertices, synthesizeContainer, writeCharacter } from './character';
+export { CONTAINER_GENERATOR, synthesizeContainer, writeCharacter } from './character';
+export { characterVertices } from './character/vertices';
 export { parseStarterPackManifest, retargetUalClip, UAL_BONE_MAP, writeHumanoidVrma } from './library';
 export { VRM_LINT_RULES } from './lint/vrm';
 export {

@@ -27,7 +27,7 @@ import {
   type ModelLoader,
 } from '@ekza-studio/editor-core';
 import { createFakeServices } from '@ekza-studio/editor-core/testing';
-import { jointsFingerprint, parseGlb, skeletonFromGltf } from '@ekza-studio/io';
+import { jointsFingerprint, parseGlb, skeletonFromGltf, writeCharacter } from '@ekza-studio/io';
 import { loadGltfInNode } from '@ekza-studio/io/testing';
 import { type SkinWeights, withSkin } from '@ekza-studio/mesh-core';
 import type { SkeletonDesc } from '@ekza-studio/rig';
@@ -162,7 +162,7 @@ describe('a model character made in the app (§5.1)', { timeout: 120_000 }, () =
     if (parts === null || parts === 'loading') throw new Error('no parts');
     const kernel = await loadMeshKernel();
     const meshes = chunk.characterMeshes(a.store, kernel, parts);
-    const bytes = await chunk.writeCharacter(
+    const bytes = await writeCharacter(
       {
         skeleton: runtime.skeleton,
         joints: parts.joints,

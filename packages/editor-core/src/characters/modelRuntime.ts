@@ -23,13 +23,7 @@ import {
   type ClipId,
   type MeshRecord,
 } from '@ekza-studio/doc';
-import {
-  characterVertices,
-  type GlbContainer,
-  type SkeletonFromDocOptions,
-  skeletonFromDoc,
-  synthesizeContainer,
-} from '@ekza-studio/io';
+import { characterVertices, type GlbContainer, type SkeletonFromDocOptions, skeletonFromDoc } from '@ekza-studio/io';
 import type { ChannelBuffer, ClipSampler, PoseBuffers, RigProgram, SkeletonDesc } from '@ekza-studio/rig';
 import { loadMeshKernel, type MeshKernel } from '../mesh/kernel';
 import type { CharacterEvent, CharacterRuntime, DisplayModel, EditorApp } from '../types';
@@ -214,9 +208,11 @@ export function createModelCharacters(
     return skeletonFromDoc(docSkeletonInput(view, kernel, parts), options);
   };
 
+  /** The display container (the writer comes with the write path, so glTF Transform loads once for both). */
   const containerOf = async (kernel: MeshKernel, parts: ModelParts, skeleton: SkeletonDesc): Promise<GlbContainer> => {
     const meshes = characterMeshes(store, kernel, parts);
-    return synthesizeContainer({
+    const write = await loadWritePath();
+    return write.synthesizeContainer({
       skeleton,
       joints: parts.joints,
       meshes,
