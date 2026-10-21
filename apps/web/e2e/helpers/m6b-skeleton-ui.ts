@@ -120,7 +120,7 @@ export async function createSkeleton(page: Page, label = 'Create Skeleton'): Pro
 
 /** Presses a tool key (`KeyW`, `KeyE`, …) with the pointer over a pane (tool keys belong to the viewport scope). */
 export async function toolKey(page: Page, code: string, paneId: string = RIG_FRONT_PANE): Promise<void> {
-  const centre = centreOf(await paneRect(page, paneId as never));
+  const centre = centreOf(await paneRect(page, paneId));
   await page.mouse.move(centre.x, centre.y);
   await page.keyboard.press(code);
   const tool = code === 'KeyW' ? 'move' : code === 'KeyE' ? 'rotate' : code === 'KeyR' ? 'scale' : 'select';
