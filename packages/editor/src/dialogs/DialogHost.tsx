@@ -43,8 +43,8 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   layoutPresets: () => import('./LayoutPresetsDialog').then((m) => ({ default: m.LayoutPresetsDialog })),
   // M6b (C0 placeholders; each owner replaces its line)
   applyPoseAsRest: pendingRig,
-  unbindSkin: pendingRig,
-  rebindSkin: pendingRig,
+  unbindSkin: () => import('./SkinBindDialogs').then((m) => ({ default: m.UnbindSkinDialog })),
+  rebindSkin: () => import('./SkinBindDialogs').then((m) => ({ default: m.RebindSkinDialog })),
   vrmMeta: () => import('./VrmMetaDialog').then((m) => ({ default: m.VrmMetaDialog })),
   makeCharacterEditable: pendingRig,
   attachProp: pendingRig,

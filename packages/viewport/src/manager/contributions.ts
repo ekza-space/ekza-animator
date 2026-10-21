@@ -22,6 +22,7 @@ import { attachImagePlanes } from '../imageplanes';
 import { LAYOUT_PANES } from '../panes/layout';
 import { attachViewportRig } from '../rig/joints/attach';
 import { paintToolDef } from '../tools/model/paint';
+import { attachRigSkin } from '../tools/rig/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
 import { attachModelTransform } from '../tools/model/transform';
@@ -224,6 +225,8 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     registerTopologyTools(app, vm),
     // M6b (C3): the Rig & Skin joints, Quick Rig markers and their pointer layer (lazy, on the first Rig & Skin entry).
     attachViewportRig(app, vm),
+    // M6b (C6): Skin mode — the skinned and weight display, the Paint Skin Weights tool (lazy, on the first Rig & Skin entry).
+    attachRigSkin(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

@@ -17,7 +17,9 @@ export const DEFAULT_BRUSH: BrushSettings = {
 const TAB_MEMORY: RigSessionState['tabMemory'] = {
   object: { right: 'channelBox', bottom: 'validation' },
   skeleton: { right: 'rigToolkit', bottom: 'validation' },
-  skin: { right: 'paintWeights', bottom: 'componentEditor' },
+  // The Component Editor arrives after the MVP (§0.3, C6): Skin mode keeps Validation below (showing the absent
+  // editor's tab would cover the viewport in the R-Side layout, which has no slot for it).
+  skin: { right: 'paintWeights', bottom: 'validation' },
   shape: { right: 'attributes', bottom: 'validation' },
 };
 

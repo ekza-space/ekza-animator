@@ -5,7 +5,7 @@ export const READY = {
   c2: true,
   c3: true,
   c4: true,
-  c6: false,
+  c6: true,
   c7: true,
   c10: true,
   c12: true,

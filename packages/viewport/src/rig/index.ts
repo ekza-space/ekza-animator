@@ -11,7 +11,7 @@ export class ConstraintLines {}
 /** C9: §5.20 (deferred after the MVP). */
 export class ShapeCvOverlay {}
 /** C6: the paint brush ring (§8.3). */
-export class BrushRing {}
+export { BrushRing, type BrushRingState } from './brush';
 /** C3: the Quick Rig markers, their left ghosts and the live skeleton preview (§0.4.2). */
 export { QuickRigMarkerOverlay as QuickRigMarkers } from './markers/overlay';
 /** C3: the skeleton runtime of a viewport (overlays, the pointer layer, the test API's screen queries). */

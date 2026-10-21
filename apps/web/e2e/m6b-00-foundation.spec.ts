@@ -38,6 +38,8 @@ const LANDED: Readonly<Record<string, string>> = {
   'skel.quickRig.start': 'Select the meshes to rig',
   'skel.quickRig.guess': 'Quick Rig is not open',
   'skel.quickRig.clear': 'Quick Rig is not open',
+  // C6 (skin UI)
+  'skin.weights.mirror': 'No bound mesh (Skin › Bind Skin first)',
 };
 
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */

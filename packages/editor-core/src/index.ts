@@ -488,3 +488,38 @@ export {
 } from './operators/builtin/rig/quickRigSession';
 export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
 export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';
+// C6 (skin UI): the weight helpers the lazy Paint Skin Weights tool, the Paint Weights panel, the Toolkit Skin section
+// and the test API read (rig-workspace code; nothing eager imports them).
+export {
+  activeJoint,
+  boundCharacter,
+  boundMeshesOf,
+  heldKeysOf,
+  jointName,
+  skinPaintRefusal,
+  selectedPoints,
+  skinCharacter,
+  skinTargets,
+  stampArgs,
+  type WeightInputs,
+  weightContext,
+  weightInputs,
+  weightInputsNow,
+} from './operators/builtin/rig/weights';
+export {
+  brushPatch,
+  influencesOf,
+  setBrush,
+  setSkinTestRotate,
+  skinTestRotate,
+  subscribeSkinTestRotate,
+  walkJoint,
+  writeHolds,
+} from './operators/builtin/rig/influence';
+export {
+  answerRebind,
+  answerUnbind,
+  BIND_PARAMS,
+  rebindRequest,
+  unbindRequest,
+} from './operators/builtin/rig/bind';
