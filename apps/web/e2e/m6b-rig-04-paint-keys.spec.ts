@@ -6,7 +6,7 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // changes the radius, `M`+drag the opacity, `N`+drag the value; `Shift+I`+click on a forearm point makes leftLowerArm
 // the active influence; `I`+click sets Value to its weight there (1e-6); Flood (the panel's button) with value 0.5 on a
 // fresh joint (one with no weight yet) puts 0.5 on every point of the hilited mesh — with the brush's X-mirror at its
-// Skin-mode default (on), since Flood is one-sided (M6B-C6-16); `Alt+F` is never bound. The `U`
+// Skin-mode default (on), since Flood is one-sided (M6B-C6-17); `Alt+F` is never bound. The `U`
 // operation marking menu (`rig.paint.ops`) arrives after the MVP (§0.3), so its flick is not part of this cut.
 //
 // Gates (§0.7): c2 — `test.fixme` until it merges (§3 rule 4).
@@ -57,7 +57,7 @@ test.describe('E2E-RIG-04 Paint keys', () => {
     await expect.poll(async () => (await call(page, 'paint')).value).toBeCloseTo(1, 6);
 
     // Flood 0.5 on a fresh joint through the panel's default path: Skin mode turned the brush's X-mirror on (the
-    // template skeleton is symmetric), and Flood stays one-sided anyway (M6B-C6-16): a one-sided fresh joint never
+    // template skeleton is symmetric), and Flood stays one-sided anyway (M6B-C6-17): a one-sided fresh joint never
     // hands its points to its mirror joint.
     await runOk(page, 'workspace.showPanel', { panel: 'paintWeights' });
     // A fresh joint: a deforming joint no point weights yet (the Cube Lad's boxes bind rigidly to their limbs); a

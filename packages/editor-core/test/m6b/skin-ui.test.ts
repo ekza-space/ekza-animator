@@ -225,7 +225,7 @@ describe('skin.weights.paint (§5.11)', () => {
   });
 });
 
-describe('Flood is one-sided by default (M6B-C6-16)', () => {
+describe('Flood is one-sided by default (M6B-C6-17)', () => {
   it('the panel path (no args) with the brush X-mirror on floods only the active joint', async () => {
     const f = await boundBody();
     const { app } = f;

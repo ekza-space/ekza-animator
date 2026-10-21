@@ -535,7 +535,7 @@ describe('P-S3 mirrored strokes and Flood over random stamps (fast-check)', () =
   });
 });
 
-describe('Flood and the mirror (M6B-C6-16)', () => {
+describe('Flood and the mirror (M6B-C6-17)', () => {
   const bound = boundBody();
   const all = Array.from({ length: bound.skin.points }, (_, v) => v);
 

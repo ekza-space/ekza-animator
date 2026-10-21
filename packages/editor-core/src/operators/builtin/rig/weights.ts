@@ -487,7 +487,7 @@ const flood = defineOperator<'skin.weights.flood', Prepared>({
     const value = numberOr(a['value'], brush.value);
     const opacity = numberOr(a['opacity'], brush.opacity);
     // One-sided by default (Maya's Flood; §5.11's Flood row has no mirror): the brush's X-mirror stroke setting is
-    // not inherited, so the panel's Flood never hands a left joint's points to the right one (M6B-C6-16).
+    // not inherited, so the panel's Flood never hands a left joint's points to the right one (M6B-C6-17).
     const mirror = typeof a['mirror'] === 'boolean' ? a['mirror'] : false;
     const points = Array.isArray(a['points']) ? (a['points'] as number[]) : null;
     warnNonDeforming(ctx.app, joint);

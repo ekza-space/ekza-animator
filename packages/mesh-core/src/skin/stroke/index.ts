@@ -12,8 +12,8 @@
 // direct op, then the mirrored op, then the symmetrize of seam points (`p(v) = v`: the op once, then
 // `w ← ½(w + M(w))`). When the stroke covers both `v` and `p(v)` (a stamp across the centre line), the op that comes
 // from the smaller point index of the pair runs first on both points, so the pair stays exact mirror images (P-S3;
-// M6B-C6-17, the §5.11 order read per pair). Flood (one stamp over a mask) mirrors only onto points outside the mask
-// and never symmetrizes the seam (M6B-C6-16). A centre joint (`M(a) = a`) applies the op once at each point with the larger strength of the
+// M6B-C6-18, the §5.11 order read per pair). Flood (one stamp over a mask) mirrors only onto points outside the mask
+// and never symmetrizes the seam (M6B-C6-17). A centre joint (`M(a) = a`) applies the op once at each point with the larger strength of the
 // point and its partner, so a stroke on one side gives the same weights on both.
 import { EkzaError } from '@ekza-studio/anim-core';
 import { pointGraph } from '../geometry/adjacency';
@@ -302,13 +302,13 @@ class Stroke implements StrokeSession {
     let row = start;
     const sd = this.strength[v] as number;
     const q = this.partners === null ? -1 : (this.partners[v] as number);
-    // Flood (M6B-C6-16): the mask is painted directly; the mirror reaches only the partners outside the mask, so a
+    // Flood (M6B-C6-17): the mask is painted directly; the mirror reaches only the partners outside the mask, so a
     // mirrored Flood of a one-sided joint never hands its own points to the mirror joint.
     const sq = q < 0 || q === v || (this.opts.flood && sd > 0) ? 0 : (this.strength[q] as number);
     if (this.partners !== null && this.centre && q >= 0 && q !== v) {
       row = this.ops.op(row, joint, op, value, Math.max(sd, sq));
     } else if (sd > 0 && sq > 0 && q < v) {
-      // Both `v` and `p(v)` are stamped (M6B-C6-17): the op that comes from the smaller point index of the pair runs
+      // Both `v` and `p(v)` are stamped (M6B-C6-18): the op that comes from the smaller point index of the pair runs
       // first on both points, so `w(v) = M(w(p(v)))` stays exact (P-S3) for strokes across the centre line.
       row = this.ops.op(row, this.mirrorKey, op, value, sq);
       row = this.ops.op(row, joint, op, value, sd);
@@ -324,8 +324,8 @@ class Stroke implements StrokeSession {
   /** Smooth: per stamp, one pass over the stamp's points (each reads the values before the pass). Smooth is
    *  joint-agnostic, so with the mirror the mirrored op at `p(v)` is the same smoothing: every point of the stamp and
    *  every partner is smoothed once with the larger strength of the point and its partner (the centre-joint rule;
-   *  M6B-C6-17), then the stamped seam points symmetrize. A pair stamped on both sides therefore stays an exact mirror
-   *  image (P-S3); a Flood's partners inside the mask already carry the flood strength (M6B-C6-16). */
+   *  M6B-C6-18), then the stamped seam points symmetrize. A pair stamped on both sides therefore stays an exact mirror
+   *  image (P-S3); a Flood's partners inside the mask already carry the flood strength (M6B-C6-17). */
   private smoothStamp(stamp: StrokeStamp): Uint32Array {
     const P = this.buf.points;
     const strengths = new Map<number, number>();

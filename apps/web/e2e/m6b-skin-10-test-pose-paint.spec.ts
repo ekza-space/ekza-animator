@@ -27,7 +27,7 @@ import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/tes
 // `E` on joints): `1`, `E` 60° on the left knee (an IK leg) bends the shin by > 0.02 H, the test pose holds @ikFk 0 on
 // leg.L, the HUD shows FK FOR TEST, keys unchanged, the document's ikFk unchanged. Part (b), Skin mode: `2`, `E` with
 // leftLowerLeg active takes the same IK → FK test switch (the paint tool holds the limb's @ikFk at 0 in the test pose,
-// M6B-C6-18); `E` with leftLowerArm active rotates the elbow with the tool still paintSkinWeights.
+// M6B-C6-19); `E` with leftLowerArm active rotates the elbow with the tool still paintSkinWeights.
 //
 // Gates (§0.7): c2; the Skeleton-mode part (b) + c3 — `test.fixme` until they merge (§3 rule 4).
 const GATES = ['c2'] as const;
