@@ -51,7 +51,7 @@ export function CharacterSection({ app }: RigToolkitSectionProps): JSX.Element |
           {licence}
         </dd>
       </dl>
-      <ThumbnailPreview app={app} character={character} run={run} size={72} />
+      <ThumbnailPreview app={app} character={character} run={run} size={72} testId="attr-char-thumb" />
       <div className="flex flex-wrap gap-1.5">
         <Button
           size="sm"

@@ -11,6 +11,8 @@ export function ThumbnailPreview(props: {
   readonly character: CharacterId;
   readonly run?: (op: string, args: unknown) => Promise<unknown>;
   readonly size?: number;
+  /** `data-testid` stem (the Export dialog's `export-char-thumb`; the Rig Toolkit's `attr-char-thumb`). */
+  readonly testId?: string;
 }): JSX.Element {
   const { app, character } = props;
   const thumbnail: AssetId | null = useDocQuery(
@@ -39,9 +41,10 @@ export function ThumbnailPreview(props: {
   }, [app, thumbnail]);
   const url = shown !== null && shown.asset === thumbnail ? shown.url : null;
   const size = props.size ?? 112;
+  const testId = props.testId ?? 'export-char-thumb';
   const run = props.run ?? ((op: string, args: unknown) => app.runUntyped(op, args));
   return (
-    <div className="flex flex-col items-start gap-1.5" data-testid="export-char-thumb" data-asset={thumbnail ?? ''}>
+    <div className="flex flex-col items-start gap-1.5" data-testid={testId} data-asset={thumbnail ?? ''}>
       <div
         className="grid place-items-center overflow-hidden rounded-button border border-line bg-field text-ui-dense text-fg-3"
         style={{ width: size, height: size }}
@@ -55,7 +58,7 @@ export function ThumbnailPreview(props: {
         ) : (
           <div
             title="Thumbnail"
-            data-testid="export-char-thumb-image"
+            data-testid={`${testId}-image`}
             style={{ width: size, height: size, backgroundImage: `url(${url})`, backgroundSize: 'cover' }}
           />
         )}
@@ -64,7 +67,7 @@ export function ThumbnailPreview(props: {
         size="sm"
         variant="default"
         disabled={busy}
-        data-testid="export-char-thumb-render"
+        data-testid={`${testId}-render`}
         onClick={() => {
           setBusy(true);
           void run('char.renderThumbnail', { character }).finally(() => setBusy(false));
