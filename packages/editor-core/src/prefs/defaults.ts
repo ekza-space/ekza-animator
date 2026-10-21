@@ -1,5 +1,6 @@
-// Preferences (P state) defaults, MVP-SPEC §4.5, M2A-SPEC §4.5 and M6A-SPEC §4.6.
+// Preferences (P state) defaults, MVP-SPEC §4.5, M2A-SPEC §4.5, M6A-SPEC §4.6 and M6B-SPEC §4.6.
 import { DEFAULT_EXPORT_REDUCE } from '@ekza-studio/io';
+import { DEFAULT_BRUSH } from '../session/rig';
 import type { Prefs } from '../types';
 
 export function defaultPrefs(platform: 'mac' | 'other'): Prefs {
@@ -28,6 +29,21 @@ export function defaultPrefs(platform: 'mac' | 'other'): Prefs {
     // M6a (M6A-SPEC §4.6)
     lastWorkspace: 'animate',
     modeling: defaultModelingPrefs(),
+    // M6b (M6B-SPEC §4.6)
+    rigging: defaultRiggingPrefs(),
+  };
+}
+
+/** `Prefs.rigging` defaults (M6B-SPEC §4.6). */
+export function defaultRiggingPrefs(): Prefs['rigging'] {
+  return {
+    jointSize: 1,
+    brush: DEFAULT_BRUSH,
+    influenceSort: 'hierarchy',
+    influenceColours: {},
+    optionDefaults: {},
+    orientPreset: 'maya',
+    holds: {},
   };
 }
 
@@ -36,7 +52,7 @@ export function defaultModelingPrefs(): Prefs['modeling'] {
   return {
     primitiveDefaults: 'low-poly',
     numericCapture: 'auto',
-    undoSelection: { model: true, animate: false },
+    undoSelection: { model: true, animate: false, rig: true }, // M6b: selection undo in Rig & Skin (§5.24)
     undoBudgetMB: 256,
     journalBudgetMB: 64,
     symmetryTolerance: 0.001,

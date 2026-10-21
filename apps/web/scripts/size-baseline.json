@@ -1,17 +1,24 @@
 {
-  "description": "M6A-SPEC §5.27 (B9): the recorded M2a baseline of the /editor first-visit route (production build, gzip -9, the check:size measure) and the M6a eager allowance over it. Re-recorded only by INT with an owner decision (§9.1).",
+  "description": "M6B-SPEC §0.4.9 (Q-MVP-14): the /editor first-visit route measured on dev before M6b's C0 (production build, gzip -9, the check:size measure) and the MVP eager allowance over it. C0 records it as its first commit so its own delta counts; C7 turns the gate on. The M6a record it replaces is kept under `previous`.",
   "baseline": {
-    "label": "M2a (v0.2.0, m6a/spec ec541b4)",
-    "total": 845267,
-    "recorded": "2026-10-19, docs/wp-notes/m6a-contracts-foundation.md (Eager route)"
+    "label": "dev before M6b C0 (m6b/mvp 906520c, code = dev 6f9fab9)",
+    "total": 889569,
+    "recorded": "2026-10-22, docs/wp-notes/m6b-rig-contracts.md (Eager route)"
   },
   "eagerDelta": {
-    "allowance": 20480,
+    "allowance": 6144,
     "enforce": false,
-    "pending": "Owner decision requested in docs/wp-notes/m6a-contracts-foundation.md ('Decision requested (INT / owner): the M6a eager allowance'): B0a alone uses +19,160 B. Until it is decided the delta is reported as a warning; INT sets enforce to true with the decided allowance."
+    "pending": "M6B-SPEC §0.4.9: the MVP eager gate (+6,144 B over this baseline) is C7's (rig-shell) to enforce; per-package allowances C0 2,048 B, C7 2,560 B, C12 1,024 B, C1 512 B, every other package 0 B.",
+    "packages": { "c0": 2048, "c7": 2560, "c12": 1024, "c1": 512 }
   },
   "modelChunk": {
     "warnBytes": 250000,
     "boundaries": ["mesh-kernel", "mesh-view", "marking-menu"]
+  },
+  "previous": {
+    "label": "M2a (v0.2.0, m6a/spec ec541b4)",
+    "total": 845267,
+    "allowance": 20480,
+    "recorded": "2026-10-19, docs/wp-notes/m6a-contracts-foundation.md (Eager route)"
   }
 }

@@ -1,11 +1,11 @@
-// Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4 and M6A-SPEC §4.5 additions, copied verbatim (shapes are normative;
+// Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4, M6A-SPEC §4.5 and M6B-SPEC §4.4/§0.5 additions, copied verbatim (shapes are normative;
 // change the spec first). The M6a functions and constants live in the lazy entries `io/mesh` and `io/write` (§4.5).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, ReadonlyXf } from '@ekza-studio/anim-core';
-import type { AssetId, AssetRecord, CharacterId, ClipId, ColourOutput, DerivedFrom, DocSnapshot,
-  GeneratorProvenance, HandheldGrip, Redistributable, RootMotionMode } from '@ekza-studio/doc';
-import type { MeshData } from '@ekza-studio/mesh-core';
-import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-studio/rig';
+import type { AssetId, AssetRecord, CharacterId, CharacterVrmMeta, ClipId, ColourOutput, DerivedFrom, DocSnapshot,
+  GeneratorProvenance, HandheldGrip, JointRecord, MeshId, Redistributable, RootMotionMode } from '@ekza-studio/doc';
+import type { MeshData, SkinWeights } from '@ekza-studio/mesh-core';
+import type { PoseBuffers, RigProgram, SkeletonDesc, TrackKey } from '@ekza-studio/rig';
 
 /** Loosely typed glTF JSON; typed accessors live in io/src/gltf/schema.ts. */
 export interface GltfJson {
@@ -332,3 +332,66 @@ export interface StaticExportRequest {
 }
 // The shipped 'local/generic' profile (kind '*') also applies to static exports: generic lints only.
 
+
+// =====================================================================================================================
+// M6b (M6B-SPEC §4.4): skinned measurement, character writer, profiles, lints (C0 stubs; owners C1, C10, C11), and the
+// §0.5 clip library (C12). `function`/`const` lines are implementation modules re-exported from the root.
+// =====================================================================================================================
+
+// ---------- character writer (C1 minimal; C10 full; §5.22) ----------
+export interface CharacterMeshIn {
+  readonly id: MeshId; readonly name: string;
+  readonly data: MeshData;                                   // identity placement, character space
+  readonly skin: SkinWeights | null;                         // null = static mesh parented to the root
+  readonly materials: readonly { readonly preset: 'unlit' | 'lit'; readonly name: string }[];
+  readonly colourOutput: ColourOutput; readonly paletteId: string | null;
+  readonly prop: boolean;                                    // bound only to prop joints
+}
+export interface CharacterWriteInput {
+  readonly skeleton: SkeletonDesc;                           // skeletonFromDoc; node i = written joint node i
+  readonly joints: readonly JointRecord[];                   // names, roles
+  readonly meshes: readonly CharacterMeshIn[];
+  readonly palettes: ReadonlyMap<string, readonly { readonly slot: number; readonly srgb: readonly [number, number, number] }[]>;
+  readonly clips: readonly { readonly name: string; readonly fps: number; readonly loop: boolean;
+    readonly tracks: readonly RawTrackOut[] }[];             // sampled by editor-core through the kernel (ADR 0005)
+  readonly vrm: CharacterVrmMeta | null;                     // null → plain GLB (no VRMC_vrm)
+  readonly thumbnailPng: Uint8Array | null;
+  readonly model: EkzaModelV1;
+  readonly heightScale: number | null;                       // extras.ekza.avatar.heightScale when set
+}
+export interface RawTrackOut { readonly node: number; readonly path: 'translation' | 'rotation' | 'scale';
+  readonly times: Float32Array; readonly values: Float32Array; readonly interpolation: 'LINEAR' | 'STEP' }
+
+/** `file.exportCharacter` request (§6.4). */
+export interface CharacterExportRequest {
+  readonly character: string;                                // CharacterId (model-sourced; asset characters use the shipped bake path)
+  readonly fileName: string;
+  readonly format: 'vrm' | 'glb';
+  readonly profile: string | null;                           // 'ekza/space-avatar-v1' | 'ekza/omoba-humanoid-v1' | 'local/generic' | null
+  readonly clips: readonly ClipId[] | 'slots';               // 'slots' = every clip with an Ekza slot name
+  readonly includeProps: boolean | null;                     // null = the profile's default (§5.22)
+  readonly material: 'unlit' | 'lit' | null;                 // null = each mesh's own
+  readonly thumbnail: 'stored' | 'none';                     // vrm: 'stored' (required by the profile lints)
+  readonly validate: boolean;                                // glTF-Validator (lazy) + the read-back
+}
+
+// ---------- io (C12): library (§0.5) ----------
+export interface StarterPackClip {
+  readonly id: string;                       // file stem, [a-z0-9-]+
+  readonly source: string;                   // UAL clip name, e.g. 'Walk_Loop'
+  readonly label: string; readonly slot: string | null; readonly loop: boolean;
+  readonly file: string;                     // '<id>.vrma'
+  readonly bytes: number; readonly sha256: string;
+  readonly duration: number; readonly fps: 30;
+  readonly license: 'CC0-1.0'; readonly credit: 'Quaternius';
+}
+export interface StarterPackManifest {
+  readonly version: 1; readonly id: 'ekza/starter-pack';
+  readonly title: string;                    // 'Starter pack — Universal Animation Library'
+  readonly license: 'CC0-1.0';
+  readonly credit: string;                   // 'Universal Animation Library by Quaternius (CC0)'
+  readonly sourceUrl: string;                // https://quaternius.com/packs/universalanimationlibrary.html
+  readonly source: { readonly file: string; readonly sha256: string };   // the fixture
+  readonly generator: string;                // 'tooling/make-starter-pack.mjs v1'
+  readonly clips: readonly StarterPackClip[];
+}

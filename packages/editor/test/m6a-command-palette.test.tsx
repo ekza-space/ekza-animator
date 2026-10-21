@@ -179,9 +179,11 @@ describe('palette entries (§5.18)', () => {
     const keys = animate.map((e) => e.key);
     expect(keys).toContain('workspace.set:model');
     expect(animate.find((e) => e.key === 'workspace.set:model')?.label).toBe('Workspace: Model');
-    expect(animate.find((e) => e.key === 'workspace.set:rig')).toMatchObject({
+    // M6B-SPEC §3 rule 9 literal update: Rig & Skin is enabled; Review is the disabled workspace.
+    expect(animate.find((e) => e.key === 'workspace.set:rig')).toMatchObject({ enabled: true });
+    expect(animate.find((e) => e.key === 'workspace.set:review')).toMatchObject({
       enabled: false,
-      reason: 'Arrives with characters from your own models (v0.4)',
+      reason: 'Arrives in V1',
     });
     expect(keys).toContain('ui.commandPalette');
     expect(keys).not.toContain('ui.markingMenu'); // internal
@@ -201,8 +203,9 @@ describe('palette entries (§5.18)', () => {
   it('Enter runs the highlighted entry with source "palette" and closes; a disabled entry stays', () => {
     const { controller, runs } = rig();
     controller.open();
-    controller.setQuery('workspace: rig');
-    expect(controller.items()[0]?.label).toBe('Workspace: Rig & Skin');
+    // M6B-SPEC §3 rule 9 literal update: Review is the disabled workspace (Rig & Skin is enabled).
+    controller.setQuery('workspace: review');
+    expect(controller.items()[0]?.label).toBe('Workspace: Review');
     controller.choose();
     expect(runs).toEqual([]);
     expect(controller.state.getState().open).toBe(true);
@@ -295,13 +298,14 @@ describe('the palette UI (§8.10 cmdk, cmdk-input, cmdk-item-<operatorId>)', () 
     expect(document.activeElement).toBe(input);
     await update(() => userEvent.type(input, 'workspace'));
     expect(controller.state.getState().query).toBe('workspace');
-    // Same score: enabled entries first, then by label (Animate, Model; Review and Rig & Skin last).
+    // Same score: enabled entries first, then by label (Animate, Model, Rig & Skin; Review last). M6B-SPEC §3 rule 9:
+    // Rig & Skin is enabled, Review is the disabled entry.
     expect(byTestId(document.body, 'cmdk-item-workspace.set:animate').getAttribute('aria-selected')).toBe('true');
     await update(() => userEvent.keyboard('{ArrowDown}'));
     const model = byTestId(document.body, 'cmdk-item-workspace.set:model');
     expect(model.getAttribute('aria-selected')).toBe('true');
-    expect(byTestId(document.body, 'cmdk-item-workspace.set:rig').getAttribute('aria-disabled')).toBe('true');
-    expect(byTestId(document.body, 'cmdk-item-workspace.set:rig').textContent).toContain('v0.4');
+    expect(byTestId(document.body, 'cmdk-item-workspace.set:review').getAttribute('aria-disabled')).toBe('true');
+    expect(byTestId(document.body, 'cmdk-item-workspace.set:review').textContent).toContain('V1');
     await update(() => userEvent.keyboard('{ArrowDown}{ArrowUp}{Enter}'));
     expect(runs.map((r) => r.args)).toEqual([{ workspace: 'model' }]);
     expect(document.querySelector('[data-testid="cmdk"]')).toBeNull();

@@ -6,6 +6,8 @@ import { registerCoreCases } from './core';
 import { hostRunner } from './harness';
 import { registerReplicatingCases } from './replicating';
 import { registerSchemaV3Cases, registerSchemaV3ReplicatingCases } from './schemaV3';
+// M6b C0 (M6B-SPEC §4.1): schema v4.
+import { registerSchemaV4Cases, registerSchemaV4ReplicatingCases } from './schemaV4';
 // M6a B7: the opaque mesh-ref cases (testing/meshRefs.ts).
 import { registerMeshRefCases, registerMeshRefReplicatingCases } from '../meshRefs';
 
@@ -21,10 +23,12 @@ export function runDocumentStoreConformance(label: string, factory: () => Docume
   runner.describe(`DocumentStore conformance: ${label}`, () => {
     registerCoreCases(runner, factory);
     registerSchemaV3Cases(runner, factory);
+    registerSchemaV4Cases(runner, factory);
     registerMeshRefCases(runner, factory);
     if (caps.replicating) {
       registerReplicatingCases(runner, caps);
       registerSchemaV3ReplicatingCases(runner, caps);
+      registerSchemaV4ReplicatingCases(runner, caps);
       registerMeshRefReplicatingCases(runner, caps);
     }
   });

@@ -23,6 +23,7 @@
     "@types/three": "catalog:",
     "gltf-validator": "2.0.0-dev.3.10",
     "three": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "vrm-validator": "2.0.0-dev.3.10"
   }
 }

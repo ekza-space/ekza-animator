@@ -20,6 +20,11 @@
 // - Pruning is not a drop: a step that loses its last part to pruning outside a doc eviction (its doc entry taken
 //   over by a later step, cancelled out by coalescing, `forgetDocEntries`, `dropOverrides`) disappears without
 //   `onDrop`; it holds nothing a drop listener releases (M6A-B0A-25).
+//
+// M6b (M6B-SPEC §4.6, §5.17; C0 working baseline): test-pose parts. `recordTestPose` records one step per gesture
+// ('Test Pose'); undo applies the part's `before`, redo its `after` through the context (`restoreTestPose`, which
+// writes the test pose without recording). `dropTestPoses` (leaving Rig & Skin) removes the parts like
+// `dropOverrides`: steps left empty are pruned without `onDrop`.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId, DocumentStore, UndoEntry, UndoEvictReason, UndoResult } from '@ekza-studio/doc';
 import type {
@@ -30,6 +35,7 @@ import type {
   OverrideDelta,
   SelectionPart,
   SessionStore,
+  TestPosePart,
 } from '../types';
 import { applyOverrideValues, mergeDeltas, type OverrideLocation, sameLocation, withoutControls } from './overrides';
 
@@ -69,6 +75,8 @@ export interface HistoryContext {
   restoreSelection(snapshot: unknown): void;
   /** M6a: applies one side of a selection part (undo: `before`, redo: `after`); never changes mode or hilite. */
   restoreSelectionPart?(part: SelectionPart, side: 'before' | 'after'): readonly string[];
+  /** M6b: applies one side of a test-pose part (undo: `before`, redo: `after`) without recording a step. */
+  restoreTestPose?(part: TestPosePart, side: 'before' | 'after'): void;
   /** Runs before every read or navigation, so pending direct commits are attributed first. */
   reconcile(): void;
   /** Runs after the doc undo stack was navigated (whether or not the store emitted a batch). */
@@ -203,12 +211,18 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
     if (step.selection !== undefined && step.selection !== null && ctx.restoreSelectionPart !== undefined) {
       warnings.push(...ctx.restoreSelectionPart(step.selection, direction === 'undo' ? 'before' : 'after'));
     }
+    if (step.testPose !== undefined && step.testPose !== null) {
+      ctx.restoreTestPose?.(step.testPose, direction === 'undo' ? 'before' : 'after');
+    }
     notify();
     return { label: step.label, doc, overridesRestored, warnings };
   };
 
   const isEmpty = (step: HistoryStep): boolean =>
-    step.docTxId === null && step.overrides === null && (step.selection === undefined || step.selection === null);
+    step.docTxId === null &&
+    step.overrides === null &&
+    (step.selection === undefined || step.selection === null) &&
+    (step.testPose === undefined || step.testPose === null);
 
   const prune = (steps: HistoryStep[], edit: (step: HistoryStep) => HistoryStep): boolean => {
     let changed = false;
@@ -366,6 +380,24 @@ export function createEditorHistory(ctx: HistoryContext): KernelHistory {
       const before = undoSteps.length;
       dropOldestSteps(n, 'budget');
       if (undoSteps.length !== before) notify();
+    },
+    recordTestPose(part: TestPosePart, label: string): void {
+      if (part === null || typeof part !== 'object' || part.kind !== 'testPose') {
+        throw new EkzaError('unsupported', 'recordTestPose: not a test-pose part');
+      }
+      ctx.reconcile();
+      history.record({ label, docTxId: null, overrides: null, testPose: part });
+    },
+    dropTestPoses(character?: CharacterId): void {
+      const edit = (step: HistoryStep): HistoryStep =>
+        step.testPose === undefined ||
+        step.testPose === null ||
+        (character !== undefined && step.testPose.character !== character)
+          ? step
+          : { ...step, testPose: null };
+      const changedUndo = prune(undoSteps, edit);
+      const changedRedo = prune(redoSteps, edit);
+      if (changedUndo || changedRedo) notify();
     },
     dropOverrides(where): void {
       const controls = where.controls === undefined ? null : new Set(where.controls);

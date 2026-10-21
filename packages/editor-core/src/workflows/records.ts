@@ -71,8 +71,9 @@ export function characterRecord(fields: {
   readonly placement: ReadonlyXf;
   readonly order: string;
 }): CharacterRecord {
-  // M6a schema 3: an imported character is asset-sourced (`source.asset === asset`).
-  return { ...fields, source: { kind: 'asset', asset: fields.asset }, deleted: null };
+  // M6a schema 3: an imported character is asset-sourced (`source.asset === asset`); M6b schema 4: `vrm` stays null
+  // (an asset-sourced character's VRM meta is the asset's).
+  return { ...fields, source: { kind: 'asset', asset: fields.asset }, deleted: null, vrm: null };
 }
 
 export function clipRecord(fields: {

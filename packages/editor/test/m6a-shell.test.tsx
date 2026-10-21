@@ -116,11 +116,13 @@ describe('workspace tabs (§5.17, §8.1)', () => {
       'ws-tab-review',
     ]);
     expect(testId('ws-tab-animate').getAttribute('aria-selected')).toBe('true');
-    expect(testId('ws-tab-rig').getAttribute('aria-disabled')).toBe('true');
+    // M6B-SPEC §3 rule 9 literal update: Rig & Skin is enabled; Review is the disabled tab.
+    expect(testId('ws-tab-rig').getAttribute('aria-disabled')).not.toBe('true');
+    expect(testId('ws-tab-review').getAttribute('aria-disabled')).toBe('true');
     expect(testId('ws-glyph-model').textContent).toBe('○');
     expect(testId('ws-glyph-animate').textContent).toBe('●'); // the wave clip has keys
-    expect(query('ws-glyph-rig')).toBeNull();
-    testId('ws-tab-rig').click();
+    expect(query('ws-glyph-review')).toBeNull();
+    testId('ws-tab-review').click();
     await settle(30);
     expect(app.session.getState().workspace).toBe('animate');
     // Animate shows its menus; Model its own (no Key or Pose menu there).
@@ -252,8 +254,8 @@ describe('layouts per workspace (§4.8, §5.17, §8.2)', () => {
     const third = await mount({ ws: 'animate' }, { lastWorkspace: 'model' });
     expect(third.app.session.getState().workspace).toBe('animate');
     await third.view.unmount();
-    // A disabled workspace is never opened.
-    const fourth = await mount({ ws: 'rig' });
+    // A disabled workspace is never opened (M6B-SPEC §3 rule 9: Review; Rig & Skin is enabled).
+    const fourth = await mount({ ws: 'review' });
     expect(fourth.app.session.getState().workspace).toBe('animate');
     await fourth.view.unmount();
   });
