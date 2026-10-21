@@ -1,6 +1,7 @@
 # Ekza Studio — M6b build specification ("Rig & Skin workspace")
 
-Status: v1.1 (2026-10-19), the binding build spec for milestone M6b, revised after its design review (45 issues: one
+Status: **v1.2 (2026-10-22): §0 "MVP cut" added — binding, it wins over every other section where they differ
+([ADR 0020](adr/0020-m6b-mvp-cut.md))**; v1.1 (2026-10-19), the binding build spec for milestone M6b, revised after its design review (45 issues: one
 blocker, twenty-three majors, twenty-one minors, three of them duplicates; the record with every applied change and
 every rejection is §12.5). M6b turns
 a mesh modelled in the editor (M6a) into
@@ -34,12 +35,529 @@ space), `L` = local, `Z` = a control's zero frame, superscript `⁰` = rest. "Jo
 point); "palette" = the joint list a mesh's skin layers index. Angles are stored in radians and shown in degrees;
 weights are fractions shown as `0.500`.
 
-Contents: [1 Scope](#1-scope) · [2 Dependencies, branches, M6a prerequisites](#2-dependencies-branches-and-m6a-prerequisites) ·
+Contents: [0 MVP cut](#0-mvp-cut-owner-flow-2026-10-22) · [1 Scope](#1-scope) · [2 Dependencies, branches, M6a prerequisites](#2-dependencies-branches-and-m6a-prerequisites) ·
 [3 Conventions](#3-conventions-deltas-to-m6a-spec-3) · [4 Contract deltas](#4-contract-deltas) ·
 [5 Normative behaviours](#5-normative-behaviours) · [6 Operator table](#6-operator-table) ·
 [7 Keymap](#7-keymap-additions-preset-maya) · [8 UI placement](#8-ui-placement) · [9 Work packages](#9-work-packages) ·
 [10 Acceptance](#10-acceptance-tests-e2e-scenarios-and-as-lp-t) · [11 Integration and definition of done](#11-integration-plan-and-m6b-definition-of-done) ·
 [12 Decisions, refinements, owner questions](#12-defaults-refinements-and-owner-questions) · [13 Sources](#13-sources)
+
+---
+
+## 0. MVP cut (owner flow, 2026-10-22)
+
+**Binding. Where §0 and any other section of this file differ, §0 wins.** Every other section keeps its text as the
+full-M6b reference; items §0.3 marks *deferred* are built after the MVP (their spec text, tests and ids stay, their
+e2e scenarios are not landed in the MVP). Decision record: [ADR 0020](adr/0020-m6b-mvp-cut.md).
+
+### 0.1 Goal in the owner's words
+
+> "I model a character. I go to the front view and place locators where the joints are — elbows, shoulders, neck,
+> head — and in the side view too, and the VRM skeleton is created automatically from these locators. I quickly
+> adjust it to the model. I press a button, everything gets skinned, and I can look at different animations."
+
+The MVP is that loop, end to end, in one browser tab: **model → Quick Rig markers → Create Skeleton → fit joints →
+Bind Skin → paint fixes → test pose → clip library preview → Use Clip → edit in the Graph Editor → shade → Export
+VRM 1.0** that OMOBA's runtime admits (§0.4.6) and Ekza Space plays. Everything else of M6b (constraints, control
+shape editing, the Joint tool, imports recovery, the weight table) follows after the MVP.
+
+### 0.2 Primary scenario (precise UX)
+
+Starting point: a scene mesh (or several) modelled in Model — a low-poly humanoid box-modelled from cubes, standing on
+the ground (min y = 0), facing +Z, **T-posed**, X-symmetric (M6a's symmetry; the "Cube Lad" of §0.7 is the reference).
+
+1. **Enter.** Select the meshes → the Rig & Skin tab (or Model Toolkit footer `Rig & Skin ▸`). The checklist (§0.4.5)
+   opens at ① *Place markers*; its button (and Skeleton › Quick Rig…) starts **Quick Rig** on the selected meshes.
+2. **Markers, pre-placed.** Quick Rig switches the viewport to the layout **R-Markers** (`front │ side │ persp`,
+   40/30/30) and runs the **One-Click guess** at once (`guessMarkers`, §0.4.2): nine user markers appear on the mesh —
+   centre markers **Head top**, **Chin / neck**, **Pelvis** (on `x = 0`) and side markers **Shoulder**, **Elbow**,
+   **Wrist**, **Knee**, **Ankle**, **Toe** on the character's **right** side (`x < 0`, the left half of the front
+   pane). The left side shows their mirror images as non-interactive ghosts. The user only corrects. The marker list in
+   the Quick Rig panel names each marker with its state (guessed / moved) and highlights the selected one; when the
+   guess fails (no leg split or no arm run) the markers are placed from the template proportions on the bounds and the
+   panel says why. **Clear** removes every marker (the panel then asks for them in list order: a click in the front
+   pane places the next missing marker at the click's x/y with its depth by projected centre); **Guess** re-runs the
+   guess. Markers and the preview are session state (U): no document write, no history step, gone when Quick Rig closes
+   or the workspace changes.
+3. **Front edits X/Y, side edits Z.** Dragging a marker in the **front** pane changes only its x and y; in the **side**
+   pane only its z and y; **dragging in an orthographic pane never changes the axis that pane does not show**, so a
+   depth set in the side view survives any later front drag. Centre markers keep `x = 0` (a front drag moves them in y
+   only). The persp pane shows markers and the preview but does not drag them (hover hint "Drag markers in the front or
+   side view"). Snapping: `X` grid snap as in Model; `Shift` ×0.1 drag speed.
+4. **Live skeleton preview.** While markers move, the **VRM humanoid skeleton of the chosen template** (Standard 33 by
+   default; Lite 17 / Core 21 / Full 52 in the panel's template select) is fitted from the markers on every pointer
+   frame (`fitTemplate`, §0.4.2) and drawn as a preview (joints and bones in the ghost style of §8.3, both sides), so
+   the user sees spine, chest, clavicles, neck, head, fingers and toes follow. Interpolated joints (spine, chest,
+   clavicles, fingers, toe tails) are never markers.
+5. **Create Skeleton.** The panel's **Create Skeleton** runs `skel.quickRig.commit` (§5.8 step 5): in **one undo
+   step** the character is created from the selected meshes (§5.1 `char.fromModel`), its skeleton with the previewed
+   joints (bit-equal to the last preview), and its control rig (legs IK, arms FK). Quick Rig closes; Skeleton mode
+   (`1`) is active with the joints drawn.
+6. **Fit joints quickly.** Skeleton mode, symmetry on: `W` drag moves a joint with its subtree, `D` held + `W` the joint
+   only (knees, elbows), `E` rotates the rest (before binding), the partner follows (§5.7). Skeleton › Orient Joints and
+   Mirror Joints (§5.5, §5.6.1) are there for non-standard edits; Attributes of the selected joint (name, human bone,
+   rest position) sit in the Rig Toolkit; rename is optional (§0.3).
+7. **Bind Skin — one click.** Checklist ③ or Skin › Bind Skin runs `skin.bind` with the defaults (`auto-lowpoly`, four
+   influences, normalized, symmetrized) on every mesh of the character, in the skin worker, one undo step; Skin mode
+   (`2`) opens with the greyscale weight display. The option box `⋯` exposes the method and its numbers.
+8. **Paint fixes.** Skin mode: the Paint Skin Weights brush with Replace / Add / Smooth (Scale too), value, opacity,
+   radius (`B`/`M`/`N` drags), Flood, X-mirror stroke (default on with skeleton symmetry), holds; greyscale or
+   influence-colour display; pick the active influence in the panel list or by clicking a joint glyph. One stroke = one
+   undo step. Mirror Skin Weights copies one side to the other.
+9. **Test pose.** `E` on a bound joint (or a control in Object mode) poses it for testing (§5.17: never a key, never in
+   the document; IK limbs switch to FK for the test); painting works on the posed mesh; **Go to Bind Pose** returns.
+10. **Look at animations.** The **Clip Library** panel (Rig Toolkit section in Rig & Skin, a right-dock tab in Animate;
+    §0.4.7) lists the CC0 starter pack (Idle, Walk, Run, Jog, Sword attack, Punch, Cast, Hit, Death, Dance, Pistol
+    shoot, Jump start / loop / land). **Click a clip → the character plays it** in a loop (preview: no document write,
+    no undo step, badge `PREVIEW Walk`); click another to switch, `Esc` or Stop to end.
+11. **Use Clip.** The clip's **Use Clip** button brings it into the document as an **editable clip on the character's
+    controls** (one undo step, the shipped VRMA import path, the clip becomes active); in Animate it is edited like
+    any clip — the Graph Editor, the Dope Sheet, keys. Works on imported VRM characters as well.
+12. **Shade** (shipped, [SHADING-SPEC](SHADING-SPEC.md)): in Model, select faces or the mesh → Assign New Material ›
+    Lambert / Blinn, or edit swatches in the Palette panel; weights survive (paint edits never touch skin layers).
+13. **Export VRM 1.0.** File › Export Character…: VRM meta (name, authors, licence preset — "Open — CC0" first), the
+    thumbnail, the profile **Ekza avatar — Space and OMOBA (VRM 1.0)** (`ekza/space-avatar-v1`), the Validation rows
+    as the gate, the banner "OMOBA plays its own motion library on your VRM; your clips play in Space". The file passes
+    glTF-Validator, `vrm-validator`, the `vrm.*` lints (OMOBA's runtime rules, §0.4.6) and OMOBA's own
+    `validate-runtime-vrm`.
+
+### 0.3 Scope: in and deferred
+
+| Package (§9) | MVP | What the MVP builds | Deferred (post-MVP; spec text kept) |
+|---|---|---|---|
+| **C0** contracts | **in** | §4 contracts verbatim (complete, so post-MVP work adds no schema change), schema v4 (§4.1) compatible with swatches table v2 (§0.4.8), stubs, the §0.5 additions, lazy chunks incl. `clip-library`, fixtures incl. the Cube Lad (§0.7), test-API stubs, e2e helpers | — |
+| **C1** character runtime | **in** | §5.1 (`char.fromModel`, `char.adopt`, `mesh.importStatic`, `skeletonFromDoc`, `jointsFingerprint`, `measureSkinned`, container, registry hook, `character-runtime` chunk), `SkinnedSurface`, §5.16 `rig.autoRig.update` (humanoid + generic rules; prop and socket controls are written but unused), minimal writer, CR-7 (§0.4.1) | — (props and sockets arrive with C2's deferred operators) |
+| **C2** templates + Quick Rig | **in** | §5.2 templates (four presets, Standard 33 default, root helper, flexion, CR-2 pre-fit), **Quick Rig v2** (§0.4.2) with `guessMarkers` and `fitTemplate`, `projectedCenter`, the BVH, joint edits for the flow: `skel.joint.move`, `skel.joint.rotateRest`, `skel.joint.setRest`, `skel.joint.orient` (§5.5, key conversion included), `skel.joint.mirror` (§5.6.1), `skel.joint.setHumanBone`, `skel.joint.rename` (optional: implement if time remains), `skel.symmetry.set`, `skel.template.create`, `skel.template.addMissing`, `skel.joint.flex`, `checkSkeleton` (`skel.*`, `xform.*`) | Joint tool chains (`skel.joint.create`), Insert/Split, Remove/Delete, reparent/unparent, Duplicate, Set Side/Role, sockets, Attach Prop, `skel.pose.applyAsRest` and the A-pose path (§0.4.2) |
+| **C3** skeleton UI | **in** (subset) | Quick Rig panel, markers tool and the front/side axis rule, live preview, layout R-Markers; joint overlay and picking (§8.3 joints, bones, x-ray, axes on selection, labels on hover, missing-bone rings); §5.7 state table (`W`, `D`+`W`, `E`, `D`+`E`; test pose on bound joints incl. IK → FK); Orient / Mirror option boxes; the Rig Toolkit Skeleton section with the selected joint's fields | Joint, Insert Joint and Socket tools, Add Chain, Duplicate, Attach Prop dialog, T-Stance, Apply Pose as Rest dialog, Outliner joint rows (need CR-5), Channel Box rest rows, `rig.tools.skeleton` marking menu |
+| **C4** auto-skin | **in** | §5.9: `auto-lowpoly` (default), `heat` (Jacobi PCG), `rigid-islands`, `closest`; visibility; post-processing with symmetrize and rigidify; palette rules; point and joint masks (one joint = rigid attach); the skin worker; `skin.bind` (incl. the `rebindSkin` confirm), `skin.unbind`; first-bind control rig; the CSR / PSD Laplacian / lumped-mass / PCG kit | `skin.weights.autoForJoints` (no Joint tool in the MVP), sparse LDLᵀ (only inpainting needs it) |
+| **C5** weights kernel | **merged into C6** for the MVP (the MVP's ≤ 10 packages) | the MVP subset lives in C6 (below) | inpainting, `transferWeights`, `fillMissingWeights`, `foldJoints`, Hammer, Move Weights, copy/paste vertex weights, Rigid Islands utility, review layer flow |
+| **C6** skin UI | **in** (+ C5 subset) | kernel: §5.10 normalization with holds, `editWeights` kinds `set`, `stroke`, `flood`, `smooth`, `prune`, `normalize`, `compact`; `beginStroke` (P-S2); `mirrorWeights` (P-S3); `checkSkin`; `skinDirty`; UI: Paint Skin Weights (Replace, Add, Scale, Smooth, Flood, value, opacity, radius, falloff, surface/volume, front faces, X-mirror stroke, `B`/`M`/`N`/`I`/`Shift+I`, posed picking, Skin-mode `E` test rotate), weight display greyscale / ramp / influence colours (the 0-byte influence switch), Paint Weights panel (§8.7, influence list with holds), the Rig Toolkit Skin section (Bind Skin button and `⋯`, Unbind, Mirror Skin Weights, Prune, Normalize), Attributes › Skin inside the Toolkit | Component Editor (optional: implement if time remains, tests as `test.fixme('c6-ce')`), numbers overlay, Lock-Relative, Paint Select mode, the `rig.tools.skin`/`skin.joint`/`paint.ops` marking menus |
+| **C7** rig shell | **in** (subset) | §5.24 workspace (enabled tab, modes Object / Skeleton `1` / Skin `2`, `F8`; Shapes mode hidden), CR-4 (§0.4.1), scopes and shadows (`S` never keys), §5.17 test pose (`TestPoseService`, `recordTestPose`, `dropTestPoses`), channel sources `animate`, `bind`, `test` and the `preview` hook (§0.5), pose view Bind / Test (+ the `PREVIEW` badge), layouts R-Side and R-Markers, menus Skeleton and Skin (MVP items only) and File › Export Character / VRM Meta / Render Thumbnail, Rig Toolkit frame with the MVP checklist (§0.4.5), Validation service and panel as the export gate, tab glyph, empty states, Getting started card, the eager gate | ROM clip (`skin.test.rom`; the library replaces it for "look at animations"), Constrain and Control menus, marking menus other than `rig.modes`, Rig Outliner variant (CR-5), R-Quad / R-Paint presets |
+| C8a constraint kernel | **deferred** | — (the compiler keeps compiling constraint records as disabled ops; `parseConstraintParams` and `withoutConstraints` stay C0 baselines) | all of §5.18 |
+| C8b constraint UI | **deferred** | — | all of §5.19 |
+| C9 control shapes | **deferred** | — | all of §5.20 (the shipped Attributes Size field stays) |
+| **C10** character writer | **in** | §5.22 corrected by §0.4.6: VRM 1.0 writer (meta, licence presets, thumbnail, palette materials with swatch shaders, slot clips through the kernel, `ekza_model_v1`, determinism, joint-subset read-back), plain GLB through `local/generic` only, the `vrm.*` lints = OMOBA's runtime rules, Export dialog Character section, VRM Meta dialog, Attributes › Character inside the Toolkit, `/e2e/character-check`, the optional OMOBA validator runner | props in exports (no Attach Prop), `ekza/omoba-humanoid-v1` for model characters (demoted, §0.4.6) |
+| C11 imports and recovery | **deferred** | — (Skin mode on imported characters is read-only: "Rig and skin edits on imported avatars arrive after the MVP"; **Use Clip and preview work on imported VRMs**) | all of §5.23, §5.14 automation |
+| **C12** clip library (**new**) | **in** | §0.4.7: the CC0 starter pack converted once from the Quaternius UAL fixture to VRMA on the VRM humanoid, committed with a manifest and licence rows; the Clip Library panel; preview; Use Clip | user libraries, uploads, Hub-hosted packs, retargeting non-UAL sources |
+| INT | **in** | merges, gates → failures, AS-MVP-1 (§0.7), E2E-RIG-10, budgets, docs, the OMOBA validator run, a fix round | AS-LP-T (§10.3) moves to after the full M6b |
+
+The §1.2 stretch list stays deferred except the CC0 starter pack, which is now C12 (core). Owner-visible features
+that are deferred never appear as enabled UI in the MVP: their menu items are absent (not disabled stubs), so the
+menus show only what works. C0 still registers every §6 operator id from stub files (contract freeze), but the menus,
+the palette and the keymap list only the MVP operators (§0.6).
+
+### 0.4 Binding deltas
+
+#### 0.4.1 Branches, M6a contract requests, release
+
+- **M6a is released** (`v0.3.0`, `v0.3.1` on `main`). The staging rule of §2.2 is replaced: the MVP integration branch
+  is **`m6b/mvp`** (from `dev`, carrying this spec). C0 lands on it first; every package branches `m6b/<slug>` from
+  `m6b/mvp` after its dependsOn packages merged there and merges back into it. INT merges `m6b/mvp` into `dev` as its
+  last step, with the full gate green. Schema v4 reaches `main` only with the release that ships the MVP (owner's call,
+  §0.8 Q-MVP-1); `v0.3.x` patch releases are cut from `main`.
+- **Contract requests** (§2.4): M6a's packages are merged, so the MVP edits M6a files **directly**, each change owned
+  by one package (§9.0) and tested by it. In the MVP: **CR-2** (`humanoidBodyRig`) → C2; **CR-4** (`keyModes` in the
+  scope chain) → C7; **CR-7** (`mesh.primitive.set` refuses skinned meshes) → C1. **Deferred with their fallbacks**
+  (§2.4 last column): CR-1 (weight-only `writeData`: plain `writeData`, stroke undo ≤ 40 ms, the C6 bench reports),
+  CR-3 (marking menus over joints), CR-5 (per-workspace Outliner/Attributes/Channel Box providers: the Rig panels render
+  inside the Rig Toolkit), CR-6 (palette mirror keys: the MVP's joints are template joints whose VRM names pair
+  `left*`/`right*`, which the shipped name-pair rule handles), CR-8, CR-9, CR-10 (their features are deferred).
+- `READY` and `test.fixme` gates (§3 rule 4) work as specified, with the gate ids of §9.0.
+
+#### 0.4.2 Quick Rig v2 (replaces §5.8 for the MVP; C2 maths, C3 UI)
+
+- **Markers** (`QuickRigMarker`, §0.5): centre `headTop`, `chin`, `pelvis` (x = 0); right side `shoulder`, `elbow`,
+  `wrist`, `knee`, `ankle`, `toe` (x < 0; the left joints use the mirror `(−x, y, z)`). Meaning: `headTop` = the top of
+  the head (head tail; with the ground it gives `H`); `chin` = where the neck meets the head, under the chin; `pelvis` =
+  the hips joint; `shoulder` = the upper-arm joint (the ball of the shoulder); `elbow`, `wrist` = lower-arm and hand
+  joints; `knee`, `ankle` = lower-leg and foot joints; `toe` = the toes joint (the ball of the foot).
+- **Fit** (`fitTemplate(template, markers, bvh, opts)`, pure, deterministic; preview and commit call it with the same
+  inputs, so the committed joints equal the last preview bit for bit). With `H = headTop.y − ground` (ground = the
+  meshes' min y): `hips = pelvis`; `rightUpperLeg = (knee.x, pelvis.y − 0.02 H, pelvis.z)`; `rightLowerLeg = knee`;
+  `rightFoot = ankle`; `rightToes = toe`, toes tail = the meshes' front extent at the toe's x and below `toe.y + 0.02 H`
+  (else `toe + (0, 0, 0.04 H)`); `rightUpperArm = shoulder`, `rightLowerArm = elbow`, `rightHand = wrist`, hand tail =
+  `wrist + 0.55·(wrist − elbow)`; `rightShoulder` (clavicle) = halfway between `shoulder` and the spine axis at the
+  shoulder's height (z of the chest); `neck = (0, chin.y − 0.01 H, chin.z)`; `head = (0, chin.y + 0.02 H, chin.z)`;
+  head tail = `headTop`; `spine`, `chest` (and `upperChest` for Full 52) evenly between `hips` and `neck` on the line
+  between them, their z by projected centre; fingers by preset along `wrist − elbow` with the thumb at 45° (§5.2
+  finger table on the hand length `h = |hand tail − wrist|`); every left joint the mirror of its right partner; rest
+  flexion (§5.2, 2°) last. Markers are never moved by the fit; joints are (flexion).
+- **Guess** (`guessMarkers(bvh, bounds)`): §5.8 step 2's silhouette method extended to the new markers: `headTop` =
+  the highest inside sample on `x = 0`; `chin` = the narrowest row between the shoulder row and 0.9 H; `pelvis` =
+  `(0, groin.y + 0.04 H, ·)`; `knee` midway between groin and 0.05 H on the leg run's centre; `ankle` at 0.05 H;
+  `toe` at 0.02 H, z at 0.65 of the foot's length from the ankle toward the front extent; `shoulder`, `elbow`,
+  `wrist` from the arm run and the arm angle as §5.8 (shoulder = `elbow − 0.95·(wrist − elbow)` clamped into the torso
+  edge). Every marker's z = the slab midpoint along the front view ray through its (x, y) (`projectedCenter`), elbows
+  shifted back and knees forward by the hinge bias. Deterministic, ≤ 50 ms at 10k triangles (C2 bench, report-only).
+  Thresholds are defaults calibrated by C2's spike on the fixtures (recorded in its wp-notes; a change is a contract PR
+  to this paragraph).
+- **T-pose required in the MVP.** The guess still measures the arm angle; when it exceeds 15° (`aPose: true`) the panel
+  shows "A-posed arms: the skeleton follows them, but VRM export needs a T-pose — straighten the arms in Model (the
+  A-pose fix arrives after the MVP)" and Validation reports `skel.tpose` (an error for the Ekza profile, a warning for
+  `local/generic`). T-Stance and Apply Pose as Rest are deferred.
+- **Axis rule** (C3): a drag in a pane maps the pointer to the plane through the marker that faces that pane's camera
+  and writes only the two axes the pane shows (front: x, y; side: z, y; top, if the user switched a pane to it: x, z);
+  the hidden axis is copied from the marker, bit-equal. Centre markers clamp x to 0. Perspective panes never drag
+  markers.
+- **Session state** (`RigSessionState.quickRig`, §0.5) holds the markers, which ones the user moved, the selected
+  marker, the template preset and the current preview; the stepper of §5.8 collapses to one panel (markers, template,
+  Guess, Clear, Create Skeleton, Cancel). `skel.quickRig.commit` args: `{preset, markers, meshes, flexion}` (no
+  `proportions`: the markers carry the proportions). Leaving Rig & Skin, `Esc` or Cancel closes Quick Rig without a
+  step.
+- **Gates** (C2, P-J4 replaced): on synthesized markers (the truth's own joints) the fit places every humanoid joint
+  within **0.03 H** of the truth on the Cube Lad (§0.7), the generated body and T-posed Polybot; the guess places every
+  marker within **0.05 H** of the truth markers on the same three; a front drag of 1,000 random markers leaves z
+  bit-equal and a side drag leaves x bit-equal (C3 unit test of the axis rule).
+
+#### 0.4.3 Joint fit (C2 kernel, C3 UI)
+
+The §5.7 state table holds as written (`W` subtree, `D`+`W` joint only, `E` rest rotate before binding, `D`+`E`
+re-orient, test pose on bound joints, `R` disabled) with symmetry. Orient Joint (§5.5) and Mirror Joint (§5.6.1) are in
+the Skeleton menu and the Toolkit. Selecting joints: click (sphere > bone > mesh), `Shift`/`Mod` modifiers, marquee in
+Skeleton mode, `Mod+A`. Every rest edit runs `rig.autoRig.update` in its transaction (§5.16). A required bone can be
+re-mapped with `skel.joint.setHumanBone` from the Toolkit; `skel.required-bones` keeps its Fix (Add Missing Bones).
+
+#### 0.4.4 Bind and weights (C4 kernel, C6 kernel and UI)
+
+§5.9 and §5.10–§5.12 hold for the listed subset. **Unweighted points** (a Model edit that appended unweighted geometry
+to a bound mesh, e.g. a new primitive combined in a later Model session — rare, since M6a's layer rules carry weights
+through topology ops) are fixed without inpainting: the Validation row `skin.unweighted-vertex` gets the Fix **Bind
+Unweighted Points** = `skin.bind {meshes: [m], points: <the unweighted points>}` with the stored bind arguments (a
+masked re-solve; every other point keeps its weights bit-equal). The automatic fill on leaving Model is deferred.
+
+#### 0.4.5 Shell, checklist, Validation (C7)
+
+- **Checklist (MVP)**: ① *Place markers* (done when the character has a skeleton; button: Quick Rig) · ② *Fit joints*
+  (no `skel.*` error; hint "`D` + drag moves one joint") · ③ *Bind skin* (every mesh bound; button: Bind Skin, one
+  click) · ④ *Fix weights* (no `skin.*` error or warning; button: Skin mode, Paint) · ⑤ *Try animations* (a library
+  clip was previewed this session or a clip exists; button: Clip Library) · ⑥ *Export* (no error row for the chosen
+  profile; button: Export Character…). It collapses to `Setup 6/6 · ●`.
+- **Validation** (§5.21) with the MVP rows: every `skel.*` and `xform.*` row, `skin.unbound`, `skin.unweighted-vertex`
+  (Fix §0.4.4), `skin.influences`, `skin.weight-sum`, `skin.unreachable-island`, `skin.cross-side`,
+  `skin.joint-without-weights`, `skin.non-deforming-weighted`, `rig.out-of-sync`, and every `vrm.*` row of §0.4.6.
+  The Export dialog's Character section blocks on the profile's error rows.
+- **Menus (MVP)**: Skeleton — Quick Rig… · Skeleton Template ▸ · Orient Joints ⋯ · Mirror Joints ⋯ · Map Humanoid
+  Bone ▸ · Rename (if built) · Symmetry X ✓ · Snap to Projected Center ✓; Skin — Bind Skin ⋯ · Unbind Skin · Go to
+  Bind Pose · Paint Skin Weights · Mirror Skin Weights ⋯ · Smooth Skin Weights ⋯ · Prune Small Weights ⋯ · Normalize
+  Weights · Remove Unused Influences · Component Editor (if built); Display — Joint Size ▸ · X-Ray Joints · Local
+  Rotation Axes ▸ · Joint Labels ▸ · Weight Display ▸; File — Export Character… · VRM Meta… · Render Thumbnail;
+  Windows — Rig Toolkit · Paint Weights · Validation · Clip Library.
+
+#### 0.4.6 Export: VRM 1.0 is the OMOBA deliverable (corrects §5.22 "Profiles" and the banner; C10)
+
+Facts verified in `omoba-bevy` (`passport/src/humanoid.rs`, read-only): **OMOBA has no skeleton of its own; it uses
+VRM humanoid semantics and plays its own motion library on VRM avatars** (user clips play in Ekza Space). The
+deliverable is therefore **one VRM 1.0 file** (`VRMC_vrm`, `specVersion "1.0"`) that Space and OMOBA both admit; the
+plain five-clip GLB is not an OMOBA deliverable.
+
+- **Profiles for model-sourced characters**: `ekza/space-avatar-v1` (label "Ekza avatar — Space and OMOBA (VRM 1.0)",
+  the default) writes `writeCharacter({format: 'vrm'})` and adds the `vrm.*` lints below to its rules; `local/generic`
+  writes VRM 1.0 or a plain GLB (`format: 'glb'`, the plain GLB's only route). `ekza/omoba-humanoid-v1` (the shipped
+  five-clip GLB bake) is **not offered** for model-sourced characters; it stays unchanged for asset-sourced bakes.
+- **`vrm.*` lints = OMOBA's runtime rules** (errors for the Ekza profile, warnings for `local/generic` VRM, absent for
+  plain GLB), each with the exact limit: `vrm.glb-size` (GLB ≤ 50 MiB), `vrm.json-size` (JSON chunk ≤ 4 MiB),
+  `vrm.node-count` (≤ 4,096 nodes), `vrm.humanoid-bone-count` (≤ 64 humanoid bones), `vrm.required-bones` (the 15
+  required: hips, spine, head, left/right upper arm, lower arm, hand, upper leg, lower leg, foot), `vrm.parent-map`
+  (every mapped bone's nearest mapped ancestor is its VRM 1.0 humanoid parent), `vrm.trs-only` (nodes carry TRS, never
+  `matrix`), `vrm.uniform-scale` (positive uniform scale on every node), `vrm.extensions-required` (only
+  `KHR_materials_unlit`, `KHR_texture_transform`; `extensionsUsed` is unrestricted, so `KHR_materials_specular` of a
+  Blinn swatch stays allowed as used-only), `vrm.bones-skinned` (every mapped bone is a joint of a skin of a mesh node
+  under scene 0), `vrm.spec-version` (`VRMC_vrm.specVersion` = "1.0"), plus §5.21's `vrm.meta-required`,
+  `vrm.licence-unset`, `vrm.thumbnail-square`. The rules run on the **written bytes** (`io/src/lint/vrm.ts`), so they
+  hold for every route.
+- **Rest pose**: T-pose with the template's 2° elbow and knee flexion (§5.2) — inside VRM's T-pose tolerance and
+  admitted by OMOBA.
+- **Clips in the VRM**: slot clips (incl. clips brought in with Use Clip) are embedded for Space; OMOBA ignores them.
+- **Banner** (Export dialog, Character section; replaces §5.22's interop banner): **"OMOBA plays its own motion
+  library on your VRM; your clips play in Space."**
+- **External validator** (INT, local only, never in `pnpm run ci`): `tooling/omoba-validate.mjs <file.vrm>` runs `cargo
+  run -p omoba-passport --bin validate-runtime-vrm -- <file.vrm>` in `/Users/wotori/git/ekza/omoba-bevy` with that
+  repository's existing target dir (`CARGO_TARGET_DIR` = its shared `target`; never `cargo clean`, never a new target
+  dir) and exits 0 with "skipped" when the checkout is absent. The checkout is read-only for this project.
+
+#### 0.4.7 C12 — Clip Library (new package)
+
+- **Source**: `fixtures/animations/quaternius-ual.glb` (Quaternius Universal Animation Library, CC0 1.0, Rigify `DEF-*`
+  skeleton, shipped fixture with its LICENSES row). Reference pose: its `A_TPose` clip at the first key.
+- **Bone map** (`UAL_BONE_MAP`, ported from `omoba-bevy/scripts/retarget_animations.py` `BONE_MAP` and checked against
+  `ekza-avatar-renderer/src/humanoidRetarget.ts`, both read-only): `DEF-hips` → hips, `DEF-spine.001` → spine,
+  `DEF-spine.002` → chest, `DEF-spine.003` → upperChest, `DEF-neck` → neck, `DEF-head` → head, `DEF-shoulder.L/R` →
+  left/rightShoulder, `DEF-upper_arm.*` → *UpperArm, `DEF-forearm.*` → *LowerArm, `DEF-hand.*` → *Hand, `DEF-thigh.*`
+  → *UpperLeg, `DEF-shin.*` → *LowerLeg, `DEF-foot.*` → *Foot, `DEF-toe.*` → *Toes, fingers `DEF-f_index|f_middle|
+  f_ring|f_pinky|thumb.0{1,2,3}.L/R` → *Index|Middle|Ring|Little|Thumb + Proximal|Intermediate|Distal (VRM 1.0 thumb
+  names: `.01` → ThumbMetacarpal, `.02` → ThumbProximal, `.03` → ThumbDistal).
+- **Retarget** (`retargetUalClip`, io, pure and deterministic): the world-space delta method of the OMOBA script onto
+  the **VRM normalized T-pose** (the VRMA frame): per sampled frame `ΔW_b(t) = W_b(t) · (W_b^ref)⁻¹` for every mapped
+  bone `b` (rotations; `W^ref` = `A_TPose`'s first key), yaw alignment `A` (identity or 180° about Y, from the sign of
+  the left hand's x in the reference, so the result faces +Z with left = +X), normalized world `N_b = A·ΔW_b·A⁻¹`,
+  local `n_b = N_parent(b)⁻¹ · N_b` along the VRM humanoid parent map; hips translation = the hips world position
+  rotated by `A`, in source metres, with `restHipsPosition` = the reference hips (the shipped VRMA importer scales by
+  hips height). Sampling at the source key times (30 fps), quaternions normalized with `w ≥ 0` continuity
+  (hemisphere-continuous), no reduction beyond removing constant tracks.
+- **Clips** (14; ids are file names; `slot` is a suggestion applied on Use Clip only when the character has no clip
+  in that slot):
+
+  | id | UAL clip | label | slot | loop |
+  |---|---|---|---|---|
+  | `idle` | Idle_Loop | Idle | idle | ✓ |
+  | `walk` | Walk_Loop | Walk | walk | ✓ |
+  | `run` | Sprint_Loop | Run | run | ✓ |
+  | `jog` | Jog_Fwd_Loop | Jog | — | ✓ |
+  | `sword-attack` | Sword_Attack | Sword attack | attack | — |
+  | `punch` | Punch_Cross | Punch | — | — |
+  | `cast` | Spell_Simple_Shoot | Cast | cast | — |
+  | `hit` | Hit_Chest | Hit | hit | — |
+  | `death` | Death01 | Death | death | — |
+  | `dance` | Dance_Loop | Dance | dance | ✓ |
+  | `pistol-shoot` | Pistol_Shoot | Pistol shoot | — | — |
+  | `jump-start` | Jump_Start | Jump start | jump | — |
+  | `jump-loop` | Jump_Loop | Jump loop | — | ✓ |
+  | `jump-land` | Jump_Land | Jump land | — | — |
+
+- **Tooling**: `tooling/make-starter-pack.mjs [--check]` (deterministic; `--check` writes nothing and exits 1 when the
+  committed outputs differ; run by `check:fixtures`) reads the fixture, verifies its SHA-256 against
+  `fixtures/LICENSES.md`, retargets each clip and writes **committed outputs** to `apps/web/public/library/animations/`:
+  `<id>.vrma` (VRMA 1.0 through the shipped VRMA writer path, `ekza_animation_v1` provenance: licence CC0-1.0, credit
+  Quaternius, source UAL clip name), `starter-pack.json` (the manifest, §0.5) and `LICENSE.md` (CC0 deed link and the
+  credit line). These are the one exception to ADR 0012's "public/ is generated": they are derived artefacts committed
+  so the static deploy needs no build step (ADR 0020). Budget: all files together ≤ 4 MiB (C12 test). `fixtures/
+  LICENSES.md` gains a "Starter pack" section with one row per file (derived from the UAL row, CC0); the third-party
+  notices page credits "Universal Animation Library by Quaternius (CC0)".
+- **Serving**: same origin, `/library/animations/starter-pack.json` and `/library/animations/<file>` (studio.ekza.io
+  serves `apps/web/public` as static files; no CDN, ADR 0012); `EditorServices.libraryPath` (default `/library/`)
+  lets tests and embeds point elsewhere. Files are fetched lazily on the first panel open, verified against the
+  manifest's `sha256` and `bytes` (mismatch → the clip is listed disabled with "The file failed its checksum"), and
+  cached in memory per session.
+- **Panel** (`clipLibrary`, lazy chunk `clip-library`, marker `ekza-clip-library`): a list of clip cards (label,
+  duration, loop glyph, slot chip), a search field, Play/Stop per card, **Use Clip** per card, the active character's
+  name and "Library: Quaternius UAL · CC0" with the credit link. Placement: a right-dock tab in Animate (Windows › Clip
+  Library) and a Rig Toolkit section in Rig & Skin. Empty state without a humanoid character: "Select a humanoid
+  character (a VRM, or one you rigged here) to preview clips".
+- **Preview** (`library.preview {character, clip}` / `library.stop`; U state, never an undo step): the VRMA is read
+  (`inspectVrma`) and converted in memory onto the character's rig with the shipped `importHumanoidClip` (same options
+  as Use Clip), then played in a loop at its own clock through the evaluation channel source **`preview`** (§0.5): the
+  viewport shows it; the document, the history, `session.overrides`, the test pose and the current time are untouched
+  (keys hash and store version unchanged). Any document change, keying attempt, workspace switch, character switch,
+  `Esc`, Stop or a second click on the playing card stops it. Works on asset-sourced (imported VRM) and model-sourced
+  humanoid characters; a generic (non-humanoid) character gets "Clips need a humanoid character".
+- **Use Clip** (`library.useClip {character, clip}`; undoable, one step "Use Clip Walk"): fetches the verified bytes and
+  runs the **shipped VRMA import path** (`prepareVrmaImport`/`applyClipImport` of `file.importAnimation`) onto the
+  character: one clip named by the label (unique per character), keys on the character's controls (IK legs written as
+  IK by the shipped `ik: 'auto'` rule), the manifest slot when free, provenance licence CC0-1.0 with the credit, the
+  clip made active; the preview stops. In Animate the clip is an ordinary editable clip (Graph Editor, Dope Sheet).
+- **Tests**: retarget unit tests (bone map coverage of every UAL `DEF-*` deformer except the root; the reference frame
+  gives identity normalized rotations within 1e-6; a known Walk frame against a three-vrm-animation playback golden of
+  the produced VRMA on the VRM normalized rig, within 1e-4 rad); the tooling `--check` round trip; manifest parse and
+  checksum refusal; preview leaves the store version, history and keys hash unchanged; Use Clip = one undo step and its
+  clip equals a `file.importAnimation` of the same bytes (deep-equal curves); E2E-LIB-01…03 (§0.7).
+
+#### 0.4.8 Shading and schema v4 compatibility
+
+Schema v4 (§4.1) changes only the core tables named there; the **swatches table stays version 2** (ADR 0019): the
+3 → 4 migration never touches `swatches`, `emptySnapshot` writes `schemaVersion: 4` with `tableVersions.swatches = 2`,
+and a v3 document with swatches version 1 or 2 migrates both (core 3 → 4, swatches 1 → 2) in one load. A v0.3.1 build
+opens a v4 document read-only (the newer-schema rule). The character writer applies swatch shaders on `lit` meshes
+exactly as SHADING-SPEC §4 does for static exports (Lambert → roughness 1 / metallic 0; Blinn → roughness from
+glossiness and `KHR_materials_specular` in `extensionsUsed` only); VRM exports keep the palette texture (§5.22) per
+shader group; `unlit` meshes keep `KHR_materials_unlit`.
+
+#### 0.4.9 Budgets (replaces the eager row of §5.25 for the MVP)
+
+The `/editor` initial route stays **≤ 900,000 B** (`check:size`; ≈ 889.5 kB on `dev` at the MVP start) and the MVP's
+eager additions are **≤ +6,144 B gzip** over the `dev` measure recorded by C0 (gate, C7). Lazy chunks: `rig-workspace`
+≤ 250 kB, `skin-worker` ≤ 120 kB, `character-runtime` ≤ 150 kB, **`clip-library` ≤ 60 kB** gzip (warnings), each with
+its BOUNDARY marker never in the initial route. The library panel's operators, panel and preview code live in
+`clip-library`; Animate's eager route gains only the panel stub and the Windows menu item. Every other §5.25 row
+applies to the MVP features it names; rows of deferred features are not measured.
+
+### 0.5 Contract additions and changes (C0 lands them with §4)
+
+```ts
+// ---------- rig (C2): Quick Rig v2 — replaces QuickRigMarker, QuickRigMarkers, fitTemplate, guessMarkers of §4.3 ----------
+export type QuickRigMarker = 'headTop' | 'chin' | 'pelvis' | 'shoulder' | 'elbow' | 'wrist' | 'knee' | 'ankle' | 'toe';
+export const QUICK_RIG_CENTRE_MARKERS: readonly QuickRigMarker[];   // ['headTop', 'chin', 'pelvis']
+export const QUICK_RIG_SIDE_MARKERS: readonly QuickRigMarker[];     // ['shoulder', 'elbow', 'wrist', 'knee', 'ankle', 'toe']
+/** Character space; side markers are the character's RIGHT side (x < 0); the left side is their (−x, y, z) mirror. */
+export type QuickRigMarkers = Readonly<Partial<Record<QuickRigMarker, readonly [number, number, number]>>>;
+/** §0.4.2 fit. Missing markers take the template's proportions scaled to the bounds. Pure; preview = commit. */
+export function fitTemplate(template: readonly TemplateJoint[], markers: QuickRigMarkers, bvh: TriangleBvh,
+  opts: { readonly ground: number; readonly hingeBias: number /* 0.15 */; readonly flexion: number /* 2° */ }): readonly TemplateJoint[];
+/** §0.4.2 guess; null when no leg split or arm run is found. `aPose` = armAngle > 15°. */
+export function guessMarkers(bvh: TriangleBvh, bounds: readonly [readonly number[], readonly number[]]):
+  { readonly markers: Required<QuickRigMarkers>; readonly armAngle: number; readonly aPose: boolean } | null;
+
+// ---------- editor-core (C0 types; C3 Quick Rig state, C7 channel sources, C12 library) ----------
+export interface QuickRigState {
+  readonly meshes: readonly MeshId[];                            // the scene meshes being rigged
+  readonly preset: SkeletonPreset;                               // 'standard33'
+  readonly markers: QuickRigMarkers;
+  readonly moved: ReadonlySet<QuickRigMarker>;                   // user-moved (vs guessed)
+  readonly selected: QuickRigMarker | null;
+  readonly guess: { readonly armAngle: number; readonly aPose: boolean; readonly failed: string | null } | null;
+  readonly preview: readonly TemplateJoint[] | null;             // fitTemplate of the current markers
+}
+// RigSessionState.quickRig (changed from §4.6): QuickRigState | null
+export type ChannelSource = 'animate' | 'bind' | 'test' | 'clip' | 'preview';   // changed: + 'preview' (C12)
+/** C0 hook in `editor-core/src/evaluation/rigSource.ts`: C12 registers the provider of the 'preview' source. */
+export interface ChannelSourceProvider {
+  /** Channel values (attribute channels included) of the character at the provider's own clock, or null = defaults. */
+  values(character: CharacterId): ReadonlyMap<ControlId, ChannelValues> | null;
+  readonly version: number;                                      // bumps per preview frame
+}
+export function registerChannelSourceProvider(source: 'preview', provider: ChannelSourceProvider): Disposer;
+export interface ClipPreviewState { readonly character: CharacterId; readonly clip: string; readonly seconds: number;
+  readonly duration: number; readonly loop: boolean }
+export interface ClipLibraryService {
+  /** The manifest from `<libraryPath>animations/starter-pack.json`, parsed and cached. */
+  manifest(): Promise<StarterPackManifest>;
+  /** Verified bytes of one clip (sha256 and size against the manifest), cached per session. */
+  bytes(clip: string): Promise<Uint8Array>;
+  readonly preview: ClipPreviewState | null;
+  subscribe(listener: () => void): Disposer;
+}
+export interface EditorApp { …; readonly library: { readonly service: ClipLibraryService; load(): Promise<void>;
+  readonly loaded: boolean } }                                    // changed (additive); loads the clip-library chunk
+export interface EditorServices { …; readonly libraryPath?: string }   // default '/library/'
+export const PANEL = { …, clipLibrary: 'clipLibrary', quickRig: 'quickRig' } as const;   // changed
+// Layout preset ids 'rig-side' (§8.2) and 'rig-markers' (front │ side │ persp, 40/30/30): C7, editor/src/shell/rig/layouts.ts
+
+// ---------- io (C12): library ----------
+export interface StarterPackClip {
+  readonly id: string;                       // file stem, [a-z0-9-]+
+  readonly source: string;                   // UAL clip name, e.g. 'Walk_Loop'
+  readonly label: string; readonly slot: string | null; readonly loop: boolean;
+  readonly file: string;                     // '<id>.vrma'
+  readonly bytes: number; readonly sha256: string;
+  readonly duration: number; readonly fps: 30;
+  readonly license: 'CC0-1.0'; readonly credit: 'Quaternius';
+}
+export interface StarterPackManifest {
+  readonly version: 1; readonly id: 'ekza/starter-pack';
+  readonly title: string;                    // 'Starter pack — Universal Animation Library'
+  readonly license: 'CC0-1.0';
+  readonly credit: string;                   // 'Universal Animation Library by Quaternius (CC0)'
+  readonly sourceUrl: string;                // https://quaternius.com/packs/universalanimationlibrary.html
+  readonly source: { readonly file: string; readonly sha256: string };   // the fixture
+  readonly generator: string;                // 'tooling/make-starter-pack.mjs v1'
+  readonly clips: readonly StarterPackClip[];
+}
+export const UAL_BONE_MAP: Readonly<Record<string, HumanBoneName>>;
+/** Throws EkzaError('invalid-input') naming the field. */
+export function parseStarterPackManifest(json: unknown): StarterPackManifest;
+/** §0.4.7 world-delta retarget of one UAL clip onto the VRM normalized T-pose. */
+export function retargetUalClip(ual: GlbContainer, clip: string): HumanoidClipData;
+/** Deterministic VRMA 1.0 bytes of a normalized humanoid clip (the shipped VRMA writer's layout and provenance). */
+export function writeHumanoidVrma(data: HumanoidClipData, meta: { readonly generator: string;
+  readonly license: string; readonly credit: string; readonly source: string }): Promise<Uint8Array>;
+```
+
+Test-API additions (`EkzaStudioTestApi`, each in its owner's `editor/src/test-api/m6b/<slug>.ts`):
+
+```ts
+quickRig(): { markers: Record<string, number[]>; moved: string[]; selected: string | null; preset: string;
+  preview: { key: string; position: number[] }[] | null; aPose: boolean | null } | null;          // C3
+screenOfMarker(marker: string, side: 'R' | 'L', paneId: string): { x: number; y: number } | null; // C3
+library(): { clips: { id: string; label: string; slot: string | null; ok: boolean }[];
+  preview: { character: string; clip: string; seconds: number } | null } | null;                 // C12
+```
+
+### 0.6 Operators in the MVP
+
+Registered, menu-listed and implemented in the MVP (owners as §6 unless noted): `mesh.importStatic`, `char.fromModel`,
+`char.adopt` (C1); `char.setVrmMeta`, `char.renderThumbnail`, `file.exportCharacter` (C10); `skel.template.create`,
+`skel.template.addMissing`, `skel.quickRig.start` / `.setMarker` / `.guess` / **`.clear`** / **`.setPreset`** /
+**`.cancel`** (U state; C3, new ids in bold), `skel.quickRig.commit` (args §0.4.2), `skel.joint.move`,
+`skel.joint.rotateRest`, `skel.joint.setRest`, `skel.joint.orient`, `skel.joint.mirror`, `skel.joint.setHumanBone`,
+`skel.joint.flex`, `skel.symmetry.set`, `skel.joint.rename` (if built), `select.joints` (C2 kernel / C3 UI);
+`skin.bind`, `skin.unbind` (C4); `skin.weights.paint`, `.flood`, `.set`, `.mirror`, `.smooth`, `.prune`, `.normalize`,
+`skin.palette.compact`, `skin.influence.*`, `skin.paint.*`, `skin.testRotate.toggle` (C6); `rig.mode`, `rig.pose.view`,
+`rig.pose.resetTest`, `rig.animateOnly`, `rig.validation.profile`, `rig.autoRig.update` (C1 / C7), `view.hide` /
+`view.showAll` / `view.isolate` Rig variants (C7); **`library.open`**, **`library.preview {character, clip}`**,
+**`library.stop`** (U state), **`library.useClip {character, clip}`** (undoable, one step; C12). Every other §6 id is
+registered by C0 from its stub file, poll-fails "Arrives after the MVP" and is listed nowhere (menus, palette, keymap).
+
+### 0.7 Acceptance: AS-MVP-1 and the MVP e2e scenarios
+
+**Cube Lad** (C0): a low-poly humanoid box-modelled from cubes with M6a operators — torso, pelvis, head, neck, upper
+arms, forearms, hands, thighs, shins, feet (13 boxes, a few extrudes), T-posed, X-symmetric, 1.70 m, one combined mesh
+(≈ 300 triangles). Built two ways that must agree: `apps/web/e2e/helpers/m6b-cube-lad.ts` (`buildCubeLad()` through
+`run('mesh.create.cube', …)`, transforms and `mesh.combine`) and `tooling/make-mvp-fixtures.mjs` →
+`fixtures/models/cube-lad.glb` (unskinned) and `fixtures/models/cube-lad-truth.json` (the designed joint positions of
+every Standard 33 joint and the nine truth markers; MIT, this repository).
+
+**AS-MVP-1 — "Cube Lad comes alive"** (the owner flow as an acceptance scenario; the owner runs it once by hand in
+Chrome, times recorded, not gating; INT's scripted twin E2E-MVP-01 replays it through the UI and the test API):
+
+| Step | Action | Checks |
+|---|---|---|
+| 1 | Model: build the Cube Lad (`buildCubeLad()`); select it; Rig & Skin | the checklist shows ① |
+| 2 | ① Place markers → Quick Rig opens with the R-Markers layout and the guessed markers | nine markers + six mirrored ghosts; every marker within 0.05 H of the truth markers; `history()` unchanged |
+| 3 | front pane: drag the right elbow marker 0.03 m down; side pane: drag the right knee marker 0.02 m forward | the elbow's z and the knee's x are bit-equal to before; the left elbow and knee mirror them; the preview's `rightLowerArm` has the elbow marker's x and y (its z differs by the 2° flexion only) and followed the drag; still no document change |
+| 4 | Create Skeleton (Standard 33) | one undo step "Create Skeleton"; a model-sourced character with 34 joints (`root` a helper); every humanoid joint within 0.03 H of the truth (with the two drags applied to the truth); a control rig with IK legs; the committed joints equal the last preview bit for bit |
+| 5 | `1`; select the right knee; hold `D` and `W`-drag it 0.01 m in z in the side pane | both knees moved (symmetry); the feet's rests bit-equal; one undo step |
+| 6 | ③ Bind Skin (one click) | one undo step; every point weighted, ≤ 4 influences, sums within 1e-6, no weight on `root`; each forearm box dominated by its lower arm on ≥ 95 % of its points |
+| 7 | `E` on the left elbow (30°); `2`; active `leftUpperArm`; one Replace stroke (value 1, mirror on) over the shoulder box's outer points; Go to Bind Pose | `TEST POSE` after `E`, keys hash unchanged; the stroke changed the left points and their right partners (`w(p(v)) = M(w(v))`); one undo step per stroke; Bind restores the rest |
+| 8 | Clip Library: play Walk, Sword attack, Death in turn | for each, `posedPositions` of a hand point change over 0.5 s of preview; store version, `history()` and keys hash unchanged; Stop returns the bind pose |
+| 9 | Use Clip on Walk; Animate; Graph Editor: drag one key of `fk.upperArm.L` rz by +10° | "Use Clip Walk" is one undo step; `clips()` holds Walk (slot `walk`, provenance CC0 Quaternius) with keys on the character's controls; the key edit is one undo step and changes `boneWorld(leftUpperArm)` at that frame |
+| 10 | Model: select the torso faces; Edit Mesh › Assign New Material › Blinn; back to Rig & Skin | weights of every point bit-equal; Validation clean |
+| 11 | VRM Meta (author "Tester", CC0); Render Thumbnail; Export Character (VRM 1.0, `ekza/space-avatar-v1`, clips: slots) | Validation clean, Export enabled; glTF-Validator and `vrm-validator` 0 errors; every `vrm.*` lint clean; read-back equal (joints, humanoid map, `jointsFingerprint`, tris); three-vrm loads it and plays a VRMA idle (`/e2e/character-check`); the file has `KHR_materials_specular` in `extensionsUsed` only; exporting twice gives the same SHA-256; the file is written to `test-results/m6b-mvp/cube-lad.vrm` |
+| 12 | (INT, local) `node tooling/omoba-validate.mjs test-results/m6b-mvp/cube-lad.vrm` | OMOBA's `validate-runtime-vrm` accepts it (exit 0) |
+
+**MVP e2e scenarios** (files `apps/web/e2e/m6b-<family>-NN-<slug>.spec.ts`; Gates as §10's rule over the §9.0 closures;
+scenarios of §10.1 not listed here are deferred and are not landed in the MVP):
+
+| ID | Name | Steps → assertions (summary; the full rows are the §10.1 rows where they exist, cut to the MVP features) | Owner | Gates |
+|---|---|---|---|---|
+| E2E-M6B-00 | Foundation | `m6b-00-foundation.spec.ts`: the Rig & Skin tab enabled, the `rig-workspace` and `clip-library` chunks load, MVP operators listed in the palette, deferred ids absent from menus | C0 | — |
+| E2E-QR-01 | **Markers: guess, axis rule, live preview** | Cube Lad; Quick Rig → markers within 0.05 H; front drag keeps z bit-equal, side drag keeps x bit-equal, centre markers keep x = 0; left ghosts mirror; the preview follows each pointer frame; Clear empties, clicks in the front pane re-place markers in list order, Guess restores; `Esc` closes with `history()` unchanged | C3 | — |
+| E2E-QR-02 | **Create Skeleton** | Cube Lad and the generated humanoid body (smooth): guess, Create Skeleton → one step, joints within 0.03 H of each truth, committed = last preview; template Full 52 adds `upperChest` and fingers; an A-posed variant (arms rotated 35° in Model) shows the A-pose notice and `skel.tpose` | C3 | c1 |
+| E2E-JNT-01 | **Fit joints** | character from E2E-QR-02 (`run`); `1`; `D`+`W` a knee (front pane) → partner follows, feet bit-equal; `W` an upper arm → subtree moves; `E` rest-rotate before binding; Orient Joints (Auto → World on humanoid joints: no change); Mirror Joints L → R updates in place (ids unchanged); every rest edit one step; keys hash unchanged; after a bind (`run('skin.bind', {})`) `W` keeps the mesh (Move Skinned Joints) and `E` is a test pose | C3 | c1, c4 |
+| E2E-SKIN-01 | **Bind Skin, one click** (MVP cut of §10.1) | Cube Lad character (`run`); Toolkit ③ Bind Skin → one step; ≤ 4 influences, sums within 1e-6, no weight on `root`; bound manifests equal a Node `bindSkin` run (P-S5 through the UI); import `polybot-unskinned-tpose.glb` (`mesh.importStatic`), Quick Rig guess, Create Skeleton, Bind → no error row, joints within 0.05 H of `polybot-truth.json` | C4 | c1, c2, c3, c6, c7 |
+| E2E-SKIN-02 | Paint fix with one undo (§10.1 row) | as §10.1 on the bound Cube Lad | C6 | c2 |
+| E2E-SKIN-03 | Mirror Skin Weights (§10.1 row, the Component Editor step replaced by `run('skin.weights.set', …)`) | as §10.1 | C6 | c2 |
+| E2E-SKIN-10 | Test pose, posed painting with mirror stroke, Go to Bind Pose (§10.1 part (a) and the knee/Skin-mode `E` items of part (b)) | as §10.1 | C6 | c2, c3 |
+| E2E-RIG-04 | Paint keys (§10.1 row without Paint Select mode: Flood over the hilited mesh's points with a value of 0.5 on a fresh joint) | as §10.1 | C6 | c2 |
+| E2E-RIG-01 | **MVP checklist** | Cube Lad; ① markers + Create Skeleton; ② `D`-drag a knee; ③ Bind; ④ one stroke; ⑤ preview a library clip; ⑥ Export Character dialog with Export enabled → every glyph `done`, tab glyph ● | C7 | c1, c2, c3, c4, c6, c10, c12 |
+| E2E-RIG-02 | Modes, scopes, shadows (§10.1 row without Shapes and the Joint tool) | `1`, `2`, `F8`; `S` in every mode leaves the keys hash unchanged; `Mod+E` opens Export; `Alt+C` → weights in Skin mode | C7 | c1, c2, c4 |
+| E2E-RIG-05 | Pose view and history (§10.1 row) | as §10.1 | C7 | c1, c2, c3, c4 |
+| E2E-RIG-08 | Validation as the export gate (§10.1 row) + an A-posed `skel.tpose` blocking the Ekza profile but not `local/generic` | as §10.1 | C7 | c1, c2, c10 |
+| E2E-SKIN-05 | **VRM 1.0 export** (§10.1 row on the bound Cube Lad) + every `vrm.*` lint clean, the banner text, a Blinn swatch exported used-only, three exports byte-identical | C10 | c2, c4, c7 |
+| E2E-SKIN-06 | **Plain GLB is local only** | bound Cube Lad: the Export dialog offers `ekza/space-avatar-v1` and `local/generic` only; `local/generic` + GLB writes no `VRMC_vrm` and passes its lints; a fixture VRM with `extensionsRequired: ['KHR_draco_mesh_compression']` read through the `vrm.*` lints gives `vrm.extensions-required` | C10 | c2, c4, c7 |
+| E2E-LIB-01 | **Preview on an imported VRM** | `file.loadSample {sample: 'polybot'}`; Animate; Windows › Clip Library; play Walk, then Death, then Stop → bone worlds change while playing; store version, history and keys hash unchanged; `Esc` stops; a keying attempt stops the preview first | C12 | — |
+| E2E-LIB-02 | **Use Clip and edit it** | Polybot; Use Clip on Sword attack → one undo step; the clip deep-equals a `file.importAnimation` of the same bytes; slot `attack`; Graph Editor key drag edits it; undo twice removes edit and clip; manifest checksum failure (served bytes altered by a route intercept) lists the clip disabled | C12 | — |
+| E2E-LIB-03 | **Library on a rigged model** | bound Cube Lad in Rig & Skin; the Toolkit's Clip Library section previews Idle (badge `PREVIEW Idle`), `E` on a joint stops it; Use Clip Run → slot `run` | C12 | c1, c2, c3, c4, c7 |
+| E2E-MVP-01 | **AS-MVP-1 scripted** | the table above, steps 1–11, plus the file written for step 12 | INT | — |
+| E2E-RIG-10 | Idle (§10.1 row) | as §10.1 | INT | — |
+
+Unit and headless gates of the MVP: §10.2 rows restricted to the MVP features, with P-J1 (for the MVP edits), P-J2,
+P-J3, P-J4 (§0.4.2), P-J6, P-S1 (for the MVP edit kinds), P-S2, P-S3, P-S4, P-S5, P-S6, P-S7 (Polybot, the generated
+body and the Cube Lad), P-C6, P-W1, P-W2, the swatches/schema compatibility tests of §0.4.8 and C12's tests.
+
+**MVP definition of done**: every §9.0 package merged into `m6b/mvp` and `m6b/mvp` merged into `dev`; `pnpm run ci`
+green on `dev` with the MVP scenarios above and every M1/M2a/M6a/shading suite unchanged; AS-MVP-1 passed by the owner
+with step 12 green; the §0.4.9 gates green; README ("Rig & Skin: from cubes to a VRM in minutes"), ROADMAP, TODO,
+REQUIREMENTS (FR-JNT/FR-SKIN rows marked ✓ or partial), DECISIONS-OPEN (an "M6b MVP deviations" section) and this
+spec consistent with the code. The release tag is the owner's call.
+
+### 0.8 Owner decisions taken for the MVP (defaults; the owner may override any)
+
+| ID | Decision | Why |
+|---|---|---|
+| Q-MVP-1 | Build on `m6b/mvp` from `dev`; no `m6b/dev` staging; `m6b/mvp` → `dev` only at INT; schema v4 reaches `main` with the MVP release (tag: owner's call, proposed `v0.4.0`) | M6a is released; one integration branch is enough |
+| Q-MVP-2 | M6a files are edited directly by the owning M6b package (CR-2 C2, CR-4 C7, CR-7 C1); CR-1, -3, -5, -6, -8, -9, -10 deferred with their fallbacks | the M6a packages are closed; only three CRs serve the owner flow |
+| Q-MVP-3 | Quick Rig marker set v2: nine user markers (`headTop`, `chin`, `pelvis`; right-side `shoulder`, `elbow`, `wrist`, `knee`, `ankle`, `toe`); `pelvis` = the hips joint; "chin / neck" one marker with neck and head derived; spine, chest, clavicles, fingers and toe tails interpolated | the owner's list; fewest clicks that still pin every limb |
+| Q-MVP-4 | Markers drag only in orthographic panes (front: x/y, side: z/y; the hidden axis never changes); persp shows them read-only; layout R-Markers `front │ side │ persp` | the owner's front/side rule, without depth ambiguity in persp |
+| Q-MVP-5 | T-posed models required for VRM export in the MVP; the A-pose path (T-Stance, Apply Pose as Rest) deferred; A-posed arms are fitted and flagged | VRMA and OMOBA assume a T-pose rest; keeps the MVP small |
+| Q-MVP-6 | One VRM 1.0 deliverable for Space and OMOBA through `ekza/space-avatar-v1`; OMOBA's runtime rules as `vrm.*` lints on every Ekza VRM export; plain GLB only through `local/generic`; `ekza/omoba-humanoid-v1` not offered for model characters (unchanged for asset bakes) | OMOBA uses VRM humanoid semantics and its own motion library |
+| Q-MVP-7 | Starter pack = 14 UAL clips (table §0.4.7); "Jog" = `Jog_Fwd_Loop`; "Jump" = `Jump_Start` / `Jump_Loop` / `Jump_Land`; slots as listed, applied only when free | the owner's list mapped to the clips that exist in UAL |
+| Q-MVP-8 | Starter-pack outputs committed in `apps/web/public/library/animations/` (exception to ADR 0012's generated-public rule), verified by `--check` in `check:fixtures` | the static deploy at studio.ekza.io needs the files without a build-time conversion |
+| Q-MVP-9 | Retarget = world-space delta from UAL `A_TPose` onto the VRM normalized T-pose (the OMOBA script's method); `DEF-spine.001/.002/.003` → spine / chest / upperChest | proven on OMOBA's avatars; VRMA's own frame |
+| Q-MVP-10 | Use Clip = the shipped VRMA import path; preview = a new session-only `preview` channel source that stops on any document change | reuses tested code; the preview can never dirty the document |
+| Q-MVP-11 | ROM clip deferred (the library is the "look at animations" step); schema v4 keeps `ClipSource 'test'` unchanged | no schema change later |
+| Q-MVP-12 | C5 merged into C6 for the MVP; inpainting, transfer and the automatic fill deferred; unweighted points fixed by a masked rebind | ≤ 10 packages; the flow never needs inpainting |
+| Q-MVP-13 | No new npm package for the library: `io/src/library` (retarget, manifest), `editor-core/src/library`, the `clipLibrary` panel, lazy chunk `clip-library` | fewer manifests; one more BOUNDARY |
+| Q-MVP-14 | MVP eager allowance +6,144 B gzip under the unchanged 900,000 B gate | ≈ 10.5 kB headroom on `dev` |
+| Q-MVP-15 | Deferred UI is absent, not disabled (menus, palette, keymap list only MVP operators); Component Editor and joint rename optional | an MVP that shows only what works |
 
 ---
 
@@ -57,7 +575,7 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies, branches, M6a prerequisites](#
 | 6 | **Weights** | Normalization contract with holds; Paint Skin Weights (Replace/Add/Scale/Smooth, Flood, value/opacity, deterministic stroke rule, surface/volume, X-mirror stroke, sample, pick influence, posed painting); weight display (greyscale, ramp, influence colours, numbers overlay, Lock-Relative); Component Editor with a Hold row; assign, rigid islands, Mirror/Copy (inpainting)/Smooth/Hammer Skin Weights, copy/paste vertex weights, prune, normalize, Remove Unused Influences, Move Weights; missing weights after topology edits filled by inpainting with a review flag | FR-SKIN-02…06 |
 | 7 | **Constraints** | Built-in rig ops `parent`, `point`, `orient`, `aim` on the shipped `ConstraintRecord` (params v1); weights and blend as holder attribute channels; offsets rest-derived / stored / snap, per target (Add Target with an offset mode; Update Offset with a match target for drops); sequential hemisphere-aligned rotation average; five world-up types; compiler rules (data-flow edges, solvers before constraints, conflict and cycle disabling); influence, export and inverse fixes; create, edit, targets, Update/Clear Offset, Bake to Keys, Mirror, Delete; UI in Rig & Skin and in Animate's Rig menu | FR-RIG-10 |
 | 8 | **Control shapes** | Library (10 shipped + `arrow`, `arrow2`, `gear`, `doubleCircle`); colour (side, 32-swatch palette, hex); size; line width; `W`/`E`/`R` on the shape offset; CV edit converting to `custom`; Mirror/Copy/Paste/Reset/Size from Mesh; user edits survive `rig.autoRig.update`; never keys, never recompile | FR-RIG-13 |
-| 9 | **Export** | Fresh VRM 1.0 and plain GLB character writer (VRM meta with licence presets, thumbnail, palette materials, `ekza_model_v1`, slot clips, props); OMOBA five-clip GLB; validators and read-back; exporter-agnostic `ekza/space-avatar-v1`; `vrm.*` lints; interop banner | FR-SKIN-07, FR-SKIN-09 |
+| 9 | **Export** | Fresh VRM 1.0 and plain GLB character writer (VRM meta with licence presets, thumbnail, palette materials, `ekza_model_v1`, slot clips, props); ~~OMOBA five-clip GLB~~ **VRM 1.0 is the OMOBA deliverable, the plain GLB is `local/generic` only (§0.4.6)**; validators and read-back; exporter-agnostic `ekza/space-avatar-v1`; `vrm.*` lints (OMOBA's runtime rules, §0.4.6); interop banner | FR-SKIN-07, FR-SKIN-09 |
 | 10 | **Imports** | Weight edits on made-editable meshes of imported characters, exported through M6a's surgeon (the "skin surgeon"); `char.makeEditable` converts an imported character into a model-sourced one (rebind at rest, licence gate) | FR-SKIN-08 |
 | 11 | **Schema** | v4 (§4.1): `CharacterRecord.vrm`, `JointRecord.role` (`bone`/`helper`/`prop`) and `JointRecord.key` (the rename-proof control-key stem), thumbnail assets, test clips, `ControlShape.edited`; the writer version rule for skeletons, built-in constraints and test clips | — |
 
@@ -73,7 +591,7 @@ Contents: [1 Scope](#1-scope) · [2 Dependencies, branches, M6a prerequisites](#
 | Connect Joint (connect mode), Reroot Skeleton (generic skeletons) | Reparent / Disconnect |
 | Orient Joint options "match active joint" and "view axis" | presets and the Maya fields |
 | Symmetric CV edits inside one centre control | Mirror Shape between counterparts |
-| CC0 VRMA starter pack converted once from the Quaternius UAL fixture | user-authored clips |
+| ~~CC0 VRMA starter pack converted once from the Quaternius UAL fixture~~ — **now core: package C12 (§0.4.7)** | — |
 
 Stretch scenarios live in `apps/web/e2e/m6b-stretch.spec.ts` as `test.fixme` with the fallback asserted.
 
@@ -95,7 +613,8 @@ with a template or Quick Rig, add a ponytail chain with the Joint tool, bind it 
 rotating joints and scrubbing a range-of-motion clip, fix weights by typing numbers into the Component Editor or
 painting with Maya's Paint Skin Weights semantics, attach the sword to the right hand with a parent constraint whose
 weights can be keyed, restyle the control shapes, animate a walk and an attack with the shipped M1/M2a tools, and
-export a VRM 1.0 for Ekza Space and a five-clip GLB for OMOBA that pass the Ekza profiles. The release is `v0.4.0`
+export one VRM 1.0 that Ekza Space and OMOBA both admit (OMOBA plays its own motion library on it; corrected by §0.4.6)
+and pass the Ekza profiles. The release is `v0.4.0`
 ("turnkey"; the tag is the owner's call). It does not author facial expressions or spring bones, does not do skin
 layers or envelopes, and keeps rotations of a weighted orient constraint stateless (targets far apart in rotation can
 flip, as Maya's Average mode does).
@@ -149,6 +668,8 @@ assumes the owner's decision on M6a's eager allowance (M6a B0a wp-notes, option 
 
 ### 2.2 Branches and the release cut
 
+*Superseded for the MVP by §0.4.1 (M6a is released; integration branch `m6b/mvp`; three CRs are direct edits).*
+
 M6b overlaps M6a, but `v0.3.0` must be cut from an M6a-only `dev`. Therefore:
 
 1. C0 creates the staging branch **`m6b/dev`** from `dev` after M6a's B0a merged. Every M6b package branches from
@@ -184,6 +705,8 @@ recorded as owner question Q-M6B-1 (§12.4).
 | INT | every M6a package and M6a's fix round (the turnkey acceptance models with M6a's tools) | every CR merged (a CR still open at INT is an owner decision) |
 
 ### 2.4 Contract requests to M6a (small; land on `dev` through M6A-SPEC contract PRs)
+
+*For the MVP, §0.4.1 decides which CRs are built (CR-2, CR-4, CR-7, as direct edits) and which keep their fallback.*
 
 Every request below is filed by the M6b integration agent as an **M6A-SPEC contract PR against `dev`** (the M6A-SPEC
 text first, then the code): the M6a owner of the file implements it when that package is still open; once the package
@@ -1160,6 +1683,8 @@ proportions, flexion): changing the preset in the Last-op card re-runs it with t
 
 ### 5.3 Joint tool, Insert Joint, Add Chain (C2 maths; C3 tool)
 
+*MVP: the Joint tool, Insert Joint, Add Chain and Duplicate Joints are deferred (§0.3); projected centre and the symmetry rules are used by Quick Rig v2 (§0.4.2).*
+
 Modal tool contract (M6A-SPEC §5.10): `idle → hover → placing → confirm | cancel`; previews never write the document.
 
 | Input | Behaviour |
@@ -1273,7 +1798,7 @@ with consistent local frames on both sides (Q-RIGB-4; P-J3 tests both cases).
 
 Involution: mirroring twice restores positions bit-equal and rotations within 1e-12 (P-J3).
 
-#### 5.6.2 Attach Prop (`char.attachProp`; C2 with C1's adoption and C8a's constraint creation)
+#### 5.6.2 Attach Prop (`char.attachProp`; C2 with C1's adoption and C8a's constraint creation) — *deferred after the MVP (§0.3)*
 
 `char.attachProp {character, objects, hand: 'rightHand' | 'leftHand', name, keepSource: false}` in one transaction:
 
@@ -1299,7 +1824,7 @@ Involution: mirroring twice restores positions bit-equal and rotations within 1e
 The scene source is soft-deleted unless `keepSource` (then it stays as the handheld export root). Exports include
 props by default for VRM and exclude them for the OMOBA humanoid profile, which equips handhelds itself (§5.22).
 
-#### 5.6.3 Sockets (`skel.socket.create`; C2 maths; C3 tool)
+#### 5.6.3 Sockets (`skel.socket.create`; C2 maths; C3 tool) — *deferred after the MVP (§0.3)*
 
 A **socket** is a non-deforming `helper` joint with a visible control: the place a prop is sheathed (back, hip), the
 look-at target of an aim constraint, or any locator a constraint needs. `skel.socket.create {preset, parent, name,
@@ -1348,6 +1873,8 @@ pose; `rig.autoRig.update`. A confirm dialog states "Clips authored on the old r
 Do this before animating." Blocked by the licence gate on `modification: prohibited` imports.
 
 ### 5.8 Quick Rig (C2 fitter; C3 stepper)
+
+*MVP: replaced by Quick Rig v2 (§0.4.2: nine markers, front/side axis rule, live preview, one panel); the silhouette method below is the basis of its guess.*
 
 A stepper in the Rig Toolkit (not a modal dialog), modelled on Maya's Quick Rig Step-by-Step and Mixamo's markers:
 
@@ -1675,6 +2202,8 @@ or older projects. Weight edits never run it and never recompile (§5.1 "When it
 
 ### 5.17 Pose view, test pose, ROM clip and Go to Bind Pose (C7; research 17 J7, 19 §5.3, §11)
 
+*MVP: the ROM clip is deferred (the Clip Library preview, §0.4.7, is the "look at animations" step); everything else applies.*
+
 | View | Viewport shows | Editable | Badge |
 |---|---|---|---|
 | **Bind** (on every entry) | the rest = bind pose (channel source `bind`: default channels on the constraint-free program) | joint rests, Orient/Mirror Joint, templates, Quick Rig, Bind Skin, weights, constraints, shapes | `BIND POSE` |
@@ -1718,7 +2247,7 @@ or older projects. Weight edits never run it and never recompile (§5.1 "When it
   from Animate's clip list unless "Show test clips" is on, and **never exported** (every writer and the export dialog
   skip them).
 
-### 5.18 Constraints: evaluation and compilation (C8a; research 18 §3–§9)
+### 5.18 Constraints: evaluation and compilation (C8a; research 18 §3–§9) — *deferred after the MVP (§0.3)*
 
 #### 5.18.1 Frames and the zero-frame rule
 
@@ -1818,7 +2347,7 @@ tracks they affect. **`VRMC_node_constraint` is never written** for authoring co
 rest-relative weights: it cannot express them; research 18 K8). VRMA drops motion of non-humanoid constraint-driven
 bones and the export dialog lists them.
 
-### 5.19 Constraint operators and their UI rules (C8a cores; C8b operators and UI; research 18 §8, §12; 19 §9)
+### 5.19 Constraint operators and their UI rules (C8a cores; C8b operators and UI; research 18 §8, §12; 19 §9) — *deferred after the MVP (§0.3)*
 
 1. **Create** (`rig.constraint.create {type, maintainOffset: 'rest' | 'current' | 'none', skip, weights: 'attrs' |
    'static', blend, interp, aim?, key?, follow: 'bone' | 'control'}`; Constrain › Parent/Point/Orient/Aim): **Maya
@@ -1871,7 +2400,7 @@ bones and the export dialog lists them.
    chip "⛓ grip: Hand" (`--cb-constrained`), its weight and blend rows sit under Custom; TRS fields keep their normal
    states (they stay free). Outliner: constraints are child rows of their driven control (`⛓ parent → rightHand`).
 
-### 5.20 Control shapes (C9; research 18 §11, 19 §10)
+### 5.20 Control shapes (C9; research 18 §11, 19 §10) — *deferred after the MVP (§0.3)*
 
 1. **Storage**: `ControlShape` unchanged plus `edited?` (§4.1); `p_local = offset · (size · p_unit)` is the only
    placement formula; limits 64 splines and 4,096 points per shape (operators refuse larger custom shapes; loading
@@ -2016,7 +2545,9 @@ The checklist collapses to one line (`Setup 6/7 · ●`) once ⑥ is done.
 - **`ekza_model_v1`** (M6a): `rig: 'vrm-humanoid'` (or `'generic'`), `skeletonTemplate: 'vrm-humanoid@1.0.0/<preset>'`,
   provenance with `derivedFrom` (an imported character's asset entry after `char.makeEditable`, AI assets), hashed with
   the bytes. `extras.ekza.avatar.heightScale` when set.
-- **Profiles** (`io/src/profiles`): `ekza/space-avatar-v1` becomes **exporter-agnostic** — the shipped surgeon bake for
+- **Profiles** (`io/src/profiles`; **corrected by §0.4.6**: for model-sourced characters `ekza/space-avatar-v1` is the one
+  VRM 1.0 deliverable for Space and OMOBA with the `vrm.*` runtime lints, the plain GLB goes through `local/generic`
+  only, and `ekza/omoba-humanoid-v1` is not offered; the text below is the v1.1 plan): `ekza/space-avatar-v1` becomes **exporter-agnostic** — the shipped surgeon bake for
   asset-sourced characters, `writeCharacter({format: 'vrm'})` for model-sourced ones, the same lints plus `vrm.*`, the
   Validation rows and `rendition_format` reading the written `VRMC_vrm`; `ekza/omoba-humanoid-v1` writes the plain GLB
   (`format: 'glb'`, no `VRMC_vrm`) with the five required clips; `local/generic` either format.
@@ -2026,11 +2557,10 @@ The checklist collapses to one line (`Setup 6/7 · ●`) once ⑥ is done.
   within 1e-4 H; mesh nodes, their order and names are not compared, §5.1), three-vrm `VRMLoaderPlugin` loads the VRM, `humanoid.getRawBoneNode` resolves every mapped bone, the
   e2e route `/e2e/vrma-check` plays a VRMA idle on it; triangle and joint counts equal the document's.
 - **Determinism**: exporting twice, and again after saving and reopening the project, gives byte-identical files.
-- **Interop banner** in the Export dialog (ADR 0010 §6): "Ekza Space plays the embedded idle and walk. OMOBA uses your
-  VRM avatar with its own motion library; the plain GLB plays its five clips. Props are equipped by OMOBA, not
-  exported in the humanoid GLB."
+- **Interop banner** in the Export dialog (ADR 0010 §6; **replaced by §0.4.6**): "OMOBA plays its own motion library
+  on your VRM; your clips play in Space."
 
-### 5.23 Imported characters (C11; research 14 §8.3)
+### 5.23 Imported characters (C11; research 14 §8.3) — *deferred after the MVP (§0.3)*
 
 - **Weight edits without conversion.** A made-editable mesh of an imported character (`skin: {asset, skin}`, M6a §5.21)
   is editable in **Skin mode**: palette keys are `node:<n>` with `<n>` the **glTF node index** (not the skin-joint
@@ -2607,6 +3137,256 @@ the 1 px `--comp-halo` (M6A-SPEC §8.9).
 
 ## 9. Work packages
 
+### 9.0 MVP work packages (binding for the MVP, §0)
+
+The MVP is built in **ten packages** (nine build packages and INT) on the integration branch `m6b/mvp` (§0.4.1):
+each package branches `m6b/<slug>` from `m6b/mvp` once its **dependsOn** packages have merged there, works only in its
+**Dirs**, lands the e2e scenarios it owns (§0.7) with `test.fixme('<gate ids>')` for gates that have not merged, and
+merges back with `pnpm run ci` green (local Chrome for e2e). Shared-file rules of §9.1 hold with the MVP owners named
+here; a path not listed belongs to nobody and needs INT's approval. The table after this subsection (C0…C11, INT) is
+the full-M6b reference; for the MVP, this subsection wins.
+
+```mermaid
+flowchart LR
+  C0["C0 contracts, schema v4, stubs, fixtures"] --> C1["C1 character runtime"]
+  C0 --> C2["C2 templates + Quick Rig kernel + joint edits"]
+  C0 --> C4["C4 auto-skin"]
+  C0 --> C7["C7 rig shell"]
+  C0 --> C12["C12 clip library"]
+  C1 --> C10["C10 character writer (VRM 1.0)"]
+  C2 & C7 --> C3["C3 Quick Rig UI + joint UI"]
+  C1 & C4 & C7 --> C6["C6 weights kernel (C5 subset) + skin UI"]
+  C1 & C2 & C3 & C4 & C6 & C7 & C10 & C12 --> INT["INT: AS-MVP-1, merges, budgets, docs"]
+```
+
+| ID | Slug | Size | dependsOn | Unit `READY` gates |
+|---|---|---|---|---|
+| C0 | `rig-contracts` | 4.5 | — | — |
+| C1 | `character-runtime` | 5 | C0 | `c2` (CR-2 pre-fit in tests) |
+| C2 | `skeleton-kernel` | 5 | C0 | `c1` (autoRig.update inside joint edits, `skeletonFromDoc` in tests) |
+| C4 | `auto-skin` | 4.5 | C0 | `c1` (first-bind control rig), `c2` (BVH speed; the C0 reference serves until then) |
+| C7 | `rig-shell` | 5.5 | C0 | `c1` (test pose on a compiled model rig), `c2`, `c4`, `c6`, `c10` (Validation rows from their rules) |
+| C12 | `clip-library` | 5 | C0 | `c1` (preview and Use Clip on model characters; imported VRMs need nothing) |
+| C10 | `character-writer` | 5 | C1 | `c2`, `c4` (bound fixtures in tests) |
+| C3 | `skeleton-ui` | 5 | C2, C7 | `c1` (Create Skeleton commits a character), `c4` (bound-state rows of §5.7) |
+| C6 | `skin-ui` | 6 | C1, C4, C7 | `c2` |
+| INT | `integration` | 3 (+ fix round ≈ 3) | C1, C2, C3, C4, C6, C7, C10, C12 | turns every gate into a failure |
+
+**Total ≈ 48.5 agent-days** plus the fix round; at most six packages run at once (after C0: C1, C2, C4, C7, C12;
+then C10, C3, C6). **Critical path**: C0 (4.5) → C7 (5.5) → C6 (6) → INT (3 + 3) ≈ 22 working days.
+
+#### C0 — `rig-contracts` (integration agent; first)
+
+- **Dirs**: every C0 row of §9.1 with the §0.5 additions: `doc/src/{records.ts,ids.ts,store.ts}`, `doc/src/{records,
+  snapshot,migrations,queries}/**`, `doc/src/store/references.ts`, the `doc-yjs` query additions;
+  `rig/src/{types.ts,index.ts}`, `rig/src/constraints/params.ts`, the stubs `rig/src/{templates,joints,quickrig,
+  validate,constraints,shapes,makeEditable}/index.ts` and `rig/src/autorig/update.ts`; `mesh-core/src/skin/{index.ts,
+  types.ts,layers.ts}`, `mesh-core/src/skin/*/index.ts` stubs, `mesh-core/src/query/reference.ts`, the barrel lines in
+  `mesh-core/src/index.ts`; `io/src/types.ts`, the stubs `io/src/character/index.ts`, `io/src/skeleton/fromDoc.ts`,
+  `io/src/library/index.ts`; `mesh-view/src/skin/index.ts` and `viewport/src/rig/index.ts` stubs;
+  `editor-core/src/{types.ts,operators/args.ts}`, `editor-core/src/history/**`, `editor-core/src/operators/builtin/rig/
+  *.ts` stubs and `rig/index.ts`, `editor-core/src/operators/builtin/library.ts` stub, the baselines
+  `editor-core/src/{workspaces/rig.ts,app/factories/rig.ts,session/rig.ts,evaluation/rigSource.ts}` (incl.
+  `registerChannelSourceProvider`), `editor-core/src/library/index.ts` stub, `editor-core/src/characters/runtimeChunk.ts`
+  (entry, marker, BOUNDARY); `editor/src/panels/clipLibrary/index.tsx` and `editor/src/panels/quickRig/index.tsx` stubs
+  with one registration line each in `editor/src/panels/index.ts`; `editor/src/test-api/{types.ts,createTestApi.ts}`,
+  `editor/src/test-api/m6b/*.ts` stubs; `packages/ui/css/tokens.css` (§8.14 tokens + `--marker-quickrig-ghost`);
+  `apps/web/scripts/{check-size.mjs,size-baseline.json}` (the four BOUNDARIES `ekza-rig-workspace`, `ekza-skin-worker`,
+  `ekza-character-runtime`, `ekza-clip-library`; the `dev` measure as the MVP baseline); `apps/web/e2e/helpers/
+  {m6b-rig.ts,m6b-cube-lad.ts}`, `apps/web/e2e/m6b-00-foundation.spec.ts`; `tooling/{make-polybot-unskinned.mjs,
+  make-mvp-fixtures.mjs}` and their `tooling/test/*.test.mjs`; `fixtures/models/{polybot-unskinned.glb,
+  polybot-unskinned-tpose.glb,polybot-truth.json,cube-lad.glb,cube-lad-truth.json}`; `fixtures/LICENSES.md` (rows and an
+  empty "Starter pack" section for C12); package manifests (dev dependencies of §2.1), `pnpm-lock.yaml`,
+  `apps/web/next.config.ts` (the skin worker entry); `docs/wp-notes/m6b-rig-contracts.md`.
+- **Scope**: §9 C0 responsibilities (1), (2), (4), (5), (6), (7) with the §0.5 contract (Quick Rig v2 types, the
+  `preview` channel source hook, the library types, the test-API additions, `PANEL` and layout ids); schema v4 with the
+  swatches compatibility of §0.4.8; every §6 operator id registered from its stub file, only the §0.6 ids listed in
+  menus/palette/keymap (deferred ids poll-fail "Arrives after the MVP" and are listed nowhere); the Cube Lad helper and
+  fixture (§0.7) that agree within 1e-6 m; the Polybot fixtures (A-pose and T-pose) with `polybot-truth.json` and the
+  nine truth markers of each fixture. **No CR filing** (§0.4.1).
+- **DoD**: `pnpm run ci` green on `m6b/mvp`; the §4 and §0.5 blocks compile together; a v3 project with swatches
+  version 1 and one with version 2 open writable and save as schema 4 with swatches 2; `minWriterVersion` table per
+  §4.1; every §0.6 operator resolves and poll-fails cleanly; `check:size` fails on a fixture that pulls any of the four
+  lazy chunks eagerly; C0's eager delta recorded with an attribution report.
+- **E2E owned**: E2E-M6B-00.
+
+#### C1 — `character-runtime`
+
+- **Dirs**: §9 C1 Dirs (`rig/src/autorig/**`, `io/src/skeleton/**`, `io/src/character/**` until C1 merges,
+  `mesh-view/src/skin/**` except `display/**`, `viewport/src/rig/skinned/**`, `editor-core/src/characters/{model.ts,
+  runtimeChunk.ts}`, `editor-core/src/workflows/characterDisplay.ts`, `editor-core/src/operators/builtin/rig/
+  {character.ts,autorig.ts}`, `editor/src/test-api/m6b/character-runtime.ts`, `packages/headless-tests/test/
+  m6b.character.*`, `docs/wp-notes/m6b-character-runtime.md`) **plus** the one-line model-character hook in
+  `editor-core/src/characters/registry.ts` and the CR-7 refusal in `editor-core/src/operators/builtin/templates.ts`
+  (`mesh.primitive.set` refuses a mesh with skin layers or a non-null `MeshRecord.skin`, `primitive.skinned`).
+- **Scope**: §9 C1 responsibilities; §5.16 rule 5's prop and socket controls are implemented (unit-tested on records)
+  though no MVP operator creates such joints; CR-7.
+- **DoD**: §9 C1 tests; CI green; READY flag `c1`.
+- **E2E owned**: none (its paths are exercised by E2E-QR-02, E2E-SKIN-01, E2E-MVP-01).
+
+#### C2 — `skeleton-kernel`
+
+- **Dirs**: `rig/src/{templates,joints,quickrig,validate}/**`, `mesh-core/src/query/**` (after C0),
+  `mesh-core/src/templates/humanoidBodyRig.ts` and its export line in `mesh-core/src/templates/index.ts` (CR-2),
+  `editor-core/src/operators/builtin/rig/{skeleton.ts,quickRig.ts}`, `rig/test/m6b-skeleton/**`,
+  `rig/bench/m6b-skeleton.bench.ts`, `mesh-core/bench/m6b-query.bench.ts`, `editor/src/test-api/m6b/skeleton-kernel.ts`,
+  `docs/wp-notes/m6b-skeleton-kernel.md`.
+- **Scope**: §5.2 templates (four presets, Standard 33 default, helper `root`, flexion, the CR-2 pre-fit on the generated
+  body); **Quick Rig v2** (§0.4.2: `fitTemplate`, `guessMarkers`, the calibration spike on the Cube Lad, the generated
+  body and T-posed Polybot, recorded in wp-notes); `projectedCenter`; the BVH `TriangleBvh` (≡ the reference); the MVP
+  joint edits of §0.3 (`moveJoints`, rest rotation, `setRest`, `orientJoints` with key conversion, `mirrorJoints`,
+  `setHumanBone`, `rename` if time remains, `flex`, `addMissing`), each running `rig.autoRig.update` in its
+  transaction; `skel.template.create` and `skel.quickRig.commit` (`{preset, markers, meshes, flexion}`, creating the
+  character through `char.fromModel` in the same transaction); `checkSkeleton` (`skel.*`, `xform.*`; `skel.tpose` per
+  §0.4.2).
+- **DoD**: P-J1 (MVP edits), P-J2, P-J3, P-J4 (§0.4.2 gates), template counts and positions, required-bone rules,
+  orient key conversion, BVH ≡ reference on random meshes and rays, guess ≤ 50 ms (bench, report); CI green; READY
+  flag `c2`.
+- **E2E owned**: none (C3 owns the UI scenarios).
+
+#### C3 — `skeleton-ui`
+
+- **Dirs**: `viewport/src/tools/rig/{quickRig,jointTransform}/**`, `viewport/src/rig/{joints,markers}/**`,
+  `editor/src/panels/quickRig/**` (after C0's stub), `editor/src/panels/rigToolkit/sections/skeleton/**`,
+  `editor-core/src/operators/builtin/rig/quickRigSession.ts` (the U-state Quick Rig operators of §0.6),
+  `editor/src/test-api/m6b/skeleton-ui.ts`, `apps/web/e2e/m6b-{qr-01,qr-02,jnt-01}-*.spec.ts`,
+  `apps/web/e2e/helpers/m6b-skeleton-ui.ts`, `apps/web/e2e/bench/m6b-joints.bench.ts`, `docs/wp-notes/m6b-skeleton-ui.md`.
+- **Scope**: the Quick Rig panel and markers tool (§0.2 steps 2–5, §0.4.2 axis rule, ghosts, the preview drawn on every
+  pointer frame, Guess, Clear and click-to-place, template select, Create Skeleton, Cancel/`Esc`, the A-pose notice,
+  layout R-Markers through C7's layout id); joint display and picking (§8.3 rows Joint, Bone, X-ray, Local axes, Labels,
+  Missing required bone; sphere > bone > mesh; joints pickable only in Rig & Skin); the §5.7 state table on joints
+  (rest edits through C2's operators; `E` on a bound joint writes the test pose through `app.rig.testPose` with
+  `@ikFk = 0` on IK limbs and the `FK FOR TEST` HUD); the Orient and Mirror option boxes; the Toolkit Skeleton section
+  (template, Quick Rig…, Orient ⋯, Mirror ⋯, symmetry and projected-centre toggles, the selected joint's name, human
+  bone select, rest position); Skeleton-mode help-line texts.
+- **DoD**: axis-rule unit test (front keeps z, side keeps x, bit-equal; centre x = 0); preview = commit; the state table
+  through the DOM adapter; joint overlay rebuild ≤ 2 ms (bench, report); CI green; READY flag `c3`.
+- **E2E owned**: E2E-QR-01, E2E-QR-02, E2E-JNT-01.
+
+#### C4 — `auto-skin`
+
+- **Dirs**: `mesh-core/src/skin/{bind,closest,islands,heat,laplacian,pcg,post,visibility,geometry}/**`,
+  `mesh-core/test/m6b-bind/**`, `mesh-core/bench/m6b-bind.bench.ts`, `editor/src/workers/skin.worker.ts`,
+  `editor-core/src/rig/skinService.ts`, `editor-core/src/operators/builtin/rig/bind.ts`,
+  `editor/src/test-api/m6b/auto-skin.ts`, `apps/web/e2e/m6b-skin-01-*.spec.ts`, `docs/wp-notes/m6b-auto-skin.md`.
+- **Scope**: §9 C4 responsibilities without `autoWeightPoints`/`skin.weights.autoForJoints` and without sparse LDLᵀ
+  (§0.3): the four methods, visibility, post-processing (symmetrize on the fixed partner map, rigidify), palette rules,
+  masks (the masked re-solve is the §0.4.4 fix), the island rule and its calibration spike (Cube Lad, generated body,
+  Polybot), the worker protocol, `skin.bind` (defaults resolved at invoke time, the `rebindSkin` confirm, "update on
+  release" card, first-bind `rig.autoRig.update`), `skin.unbind`, the sparse kit (CSR, PSD `cotLaplacian`, lumped mass,
+  Jacobi PCG).
+- **DoD**: P-S4, P-S5, P-S7 (incl. the Cube Lad: every box single-influence except the boxes spanning a joint;
+  no weight on `root`); masked re-solve leaves other points bit-equal; the bind record has no points; benches (10k ×
+  60 ≤ 1 s, 3k × 34 ≤ 200 ms); CI green; READY flag `c4`.
+- **E2E owned**: E2E-SKIN-01.
+
+#### C6 — `skin-ui` (with the C5 MVP subset)
+
+- **Dirs**: the C5 kernel dirs of the MVP subset `mesh-core/src/skin/{normalize,edit,stroke,mirror,check}/**`,
+  `mesh-core/test/m6b-weights/**`, `mesh-core/bench/m6b-weights.bench.ts`,
+  `editor-core/src/operators/builtin/rig/{weights.ts,influence.ts}`, `editor/src/test-api/m6b/weights-kernel.ts`; and
+  the §9 C6 Dirs minus the deferred surfaces: `viewport/src/tools/rig/paint/**`, `viewport/src/rig/brush/**`,
+  `mesh-view/src/skin/display/**`, `editor/src/panels/{paintWeights,componentEditor}/**`,
+  `editor/src/panels/rigToolkit/sections/skin/**`, `editor/src/test-api/m6b/skin-ui.ts`,
+  `apps/web/e2e/m6b-{skin-02,skin-03,skin-10,rig-04}-*.spec.ts`, `apps/web/e2e/bench/m6b-paint.bench.ts`,
+  `docs/wp-notes/m6b-skin-ui.md`.
+- **Scope**: kernel (§0.3 C6 row): §5.10 normalization with holds (recorded in args), `editWeights` kinds `set`,
+  `stroke`, `flood`, `smooth`, `prune`, `normalize`, `compact`, `beginStroke`, `mirrorWeights`, `checkSkin`,
+  `skinDirty`, the palette append rule; operators `skin.weights.{paint,flood,set,mirror,smooth,prune,normalize}`,
+  `skin.palette.compact` (each one transaction through plain `writeData`, the CR-1 fallback); UI: the Paint Skin
+  Weights tool (§5.11 without Paint Select), weight display greyscale / ramp / influence colours with the 0-byte
+  influence switch, the Paint Weights panel (§8.7 without Move/Copy/Paste/Hammer buttons), the Toolkit Skin section
+  (Bind Skin one click and `⋯` option box, Unbind, Mirror Skin Weights ⋯, Smooth ⋯, Prune ⋯, Normalize, Attributes ›
+  Skin fields), Skin-mode help texts; the Component Editor only if time remains (`test.fixme('c6-ce')`).
+- **DoD**: P-S1 (MVP kinds), P-S2, P-S3, P-S6; the 0-byte influence switch (browser test); preview = commit for strokes;
+  no recompile per stroke (`rigCompiles` unchanged); a hold toggled with two meshes hilited holds on both; paint bench
+  ≤ 4 ms at 10k points (report); CI green; READY flag `c6` (and `c5`, set by the same merge).
+- **E2E owned**: E2E-SKIN-02, E2E-SKIN-03, E2E-SKIN-10, E2E-RIG-04.
+
+#### C7 — `rig-shell`
+
+- **Dirs**: §9 C7 Dirs (`editor-core/src/workspaces/rig.ts`, `editor-core/src/app/factories/rig.ts`,
+  `editor-core/src/session/rig.ts`, `editor-core/src/evaluation/rigSource.ts`, `editor-core/src/rig/{testPose,
+  validation,chunk}/**`, `editor-core/src/operators/builtin/rig/{mode.ts,pose.ts,shadows.ts}`,
+  `editor-core/src/keymap/maya.rig.ts`, `editor/src/shell/rig/**`, `editor/src/shell/menus/rig.ts`,
+  `editor/src/overlays/menus/rig/{index,modes}.ts`, `editor/src/panels/{rigToolkit,validation}/**` (frames; owners'
+  sections excluded), `editor/src/panels/viewport/rig/**`, `apps/web/scripts/check-size.mjs` (the MVP gate lines),
+  `editor/src/test-api/m6b/rig-shell.ts`, `apps/web/e2e/m6b-{rig-01,rig-02,rig-05,rig-08}-*.spec.ts`,
+  `docs/wp-notes/m6b-rig-shell.md`) **plus** CR-4 in `editor-core/src/keymap/scopes.ts` (`WorkspaceDef.keyModes`) and
+  the layout presets `rig-side` and `rig-markers` in `editor/src/shell/rig/layouts.ts` with one registration line in
+  `editor/src/shell/layout.ts`.
+- **Scope**: §0.3 C7 row: §5.24 (modes Object / Skeleton / Skin, `F8`, digits; active character; entering/leaving;
+  selection undo), §5.17 without the ROM clip (test pose service, `dropTestPoses`, channel sources `animate`, `bind`,
+  `test` and the `preview` provider hook, Go to Bind Pose, Reset, auto-key off), §7 rows of the MVP operators,
+  shadows and conformance, the §0.4.5 menus, the `rig.modes` marking menu, status groups (mode, pose view, symmetry,
+  snap, joint display, brush strip slot), the pose badges incl. `PREVIEW <clip>`, the Rig Toolkit frame with the MVP
+  checklist (§0.4.5) and the Clip Library section slot, the Validation service and panel (§0.4.5 rows, profile
+  selector, Select/Fix, the suppression of M6a's three skin lints), tab glyph, empty states, the Getting started card
+  with the owner-flow steps, the §0.4.9 eager gate.
+- **DoD**: §9 C7 tests restricted to the MVP; `S` never keys in any Rig scope (keys hash); test poses never in the
+  document and dropped from the history on leaving; `check:size` with the MVP gate; CI green; READY flag `c7`.
+- **E2E owned**: E2E-RIG-01, E2E-RIG-02, E2E-RIG-05, E2E-RIG-08.
+
+#### C10 — `character-writer`
+
+- **Dirs**: §9 C10 Dirs (`io/src/character/**` after C1, `io/src/vrm/**`, `io/src/profiles/character.ts`,
+  `io/src/lint/vrm.ts`, `editor-core/src/workflows/exportCharacter.ts`, `editor-core/src/operators/builtin/rig/
+  export.ts`, `editor/src/dialogs/export/character/**`, `editor/src/dialogs/VrmMetaDialog.tsx`,
+  `editor/src/panels/rigToolkit/sections/character/**` (Attributes › Character inside the Toolkit, CR-5 fallback),
+  `viewport/src/thumbnail/**`, `apps/web/app/e2e/character-check/**`, `packages/headless-tests/test/m6b.writer.*`,
+  `editor/src/test-api/m6b/character-writer.ts`, `apps/web/e2e/m6b-{skin-05,skin-06}-*.spec.ts`,
+  `apps/web/e2e/bench/m6b-export.bench.ts`, `docs/wp-notes/m6b-character-writer.md`) **plus** the Space profile
+  entry in `io/src/profiles/builtin.ts` (label, `vrm.*` rules, model-character routing) and the `vrm.*` rows in
+  `io/src/lint/rules.ts`, and `tooling/omoba-validate.mjs`.
+- **Scope**: §5.22 as corrected by §0.4.6 and §0.4.8: the VRM 1.0 writer (layout, `VRMC_vrm`, meta and licence
+  presets, thumbnail, palette materials with swatch shaders, slot clips through the kernel incl. Use-Clip clips,
+  `ekza_model_v1`, determinism, joint-subset read-back), plain GLB through `local/generic` only, every `vrm.*` lint on
+  the written bytes, the profile routing for model-sourced characters, the Export dialog Character section with the
+  §0.4.6 banner and the Validation gate, the VRM Meta dialog, `char.setVrmMeta`, `char.renderThumbnail`,
+  `file.exportCharacter`, `/e2e/character-check`, the optional OMOBA validator runner.
+- **DoD**: P-W1, P-W2; glTF-Validator and `vrm-validator` 0 errors on the generated body, the Cube Lad and a
+  Polybot-unskinned records copy; one failing fixture per `vrm.*` rule; Blinn used-only; export bench (report); CI
+  green; READY flag `c10`.
+- **E2E owned**: E2E-SKIN-05, E2E-SKIN-06.
+
+#### C12 — `clip-library` (new)
+
+- **Dirs**: `io/src/library/**` (after C0's stub), `io/test/m6b-library/**`, `editor-core/src/library/**` (after C0's
+  stub), `editor-core/src/operators/builtin/library.ts` (after C0's stub), `editor-core/src/evaluation/previewSource.ts`
+  (the `preview` provider, registered through C0's hook), `editor/src/panels/clipLibrary/**` (after C0's stub),
+  `editor/src/panels/rigToolkit/sections/library/**`, `editor/src/test-api/m6b/clip-library.ts`,
+  `tooling/make-starter-pack.mjs`, `tooling/test/starter-pack.test.mjs`, `apps/web/public/library/**`, the "Starter
+  pack" section of `fixtures/LICENSES.md` (rows only), the credit line in `apps/web/scripts/third-party-notices.mjs`,
+  the `make-starter-pack.mjs --check` line of `tooling/check-fixtures.mjs`, `apps/web/e2e/m6b-lib-{01,02,03}-*.spec.ts`,
+  `apps/web/e2e/helpers/m6b-clip-library.ts`, `docs/wp-notes/m6b-clip-library.md`.
+- **Scope**: §0.4.7 in full: `UAL_BONE_MAP`, `retargetUalClip`, `writeHumanoidVrma`, `parseStarterPackManifest`; the
+  tooling script and its committed outputs (14 VRMA files, `starter-pack.json`, `LICENSE.md`; ≤ 4 MiB) with
+  `--check`; licence rows and the credit; `ClipLibraryService` (fetch, checksum, cache); the preview through the
+  `preview` channel source with its stop rules; `library.open` / `.preview` / `.stop` / `.useClip` (one undo step over
+  the shipped VRMA import path, slot when free, provenance); the Clip Library panel in Animate (right-dock tab,
+  Windows menu) and its Rig Toolkit section; the `clip-library` lazy chunk ≤ 60 kB gzip.
+- **DoD**: §0.4.7 tests; preview leaves store version, history and keys hash unchanged; Use Clip deep-equals
+  `file.importAnimation`; `node tooling/make-starter-pack.mjs --check` clean; `check:licenses` green with the new rows;
+  CI green; READY flag `c12`.
+- **E2E owned**: E2E-LIB-01, E2E-LIB-02, E2E-LIB-03.
+
+#### INT — `integration` (integration agent; after every package)
+
+- **Dirs**: `apps/web/e2e/m6b-mvp-01-*.spec.ts` (E2E-MVP-01), `apps/web/e2e/m6b-rig-10-*.spec.ts`,
+  `apps/web/e2e/helpers/m6b-mvp-script.ts`, `apps/web/e2e/bench/m6b-budgets.bench.ts`,
+  `editor/src/test-api/m6b/integration.ts`, `README.md`, `TODO.md`, `docs/{ROADMAP,REQUIREMENTS,DECISIONS-OPEN,
+  MODELING-PLAN}.md`, `docs/guides/characters-to-ekza.md` (T0: export a VRM, upload it in Ekza Hub as an avatar, what
+  Space and OMOBA do with it), this spec (integration record), `docs/wp-notes/m6b-integration.md`; merge conflict
+  resolution in any file during merges.
+- **Scope**: merge the packages into `m6b/mvp` in dependency order (C0; C1, C2, C4, C7, C12 as they finish; C10, C3, C6),
+  turn every gate into a failure (deferred scenarios are not landed, so no fixme remains), E2E-MVP-01 and E2E-RIG-10,
+  the §0.4.9 and §5.25 MVP budgets, the OMOBA validator run on the E2E-MVP-01 export (§0.7 step 12, local), the owner
+  demo (AS-MVP-1 by hand), docs, one fix round, then `m6b/mvp` → `dev`.
+- **DoD**: §0.7 "MVP definition of done".
+- **E2E owned**: E2E-MVP-01, E2E-RIG-10.
+
+### 9.0b Full-M6b work packages (reference; post-MVP)
+
 Parallel build in separate git worktrees, branches `m6b/<slug>` from **`m6b/dev`** (§2.2), the M2a/M6a pattern: C0
 lands contracts, stubs, the schema change and the working baselines first; every package starts when its **dependsOn**
 packages (M6b and M6a) have merged; everything else it needs goes through `READY` / `test.fixme` gates (§3 rule 4) that
@@ -2895,7 +3675,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   per profile, one row per skin problem; glyph rules; E2E-RIG-01, -02, -05, -08, -09.
 - **DoD**: CI green; `check:size` with the M6b gate; READY flag `c7`.
 
-### C8a — Constraint kernel
+### C8a — Constraint kernel — *deferred after the MVP (§0.3)*
 
 - **Dirs**: `rig/src/constraints/**` (after C0's params baseline), `rig/src/compile/**`, `rig/src/kernel/{ops.ts,
   constants.ts}`, `rig/src/schedule/influence.ts`, `rig/src/inverse/solve.ts`, `rig/test/m6b-constraints/**`,
@@ -2910,7 +3690,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   bench (≤ 0.1 ms).
 - **DoD**: CI green; READY flag `c8a`.
 
-### C8b — Constraint UI and operators
+### C8b — Constraint UI and operators — *deferred after the MVP (§0.3)*
 
 - **Dirs**: `editor-core/src/operators/builtin/rig/constraints.ts`, `editor/src/panels/attributes/sections/rig/
   constraint.tsx`, `editor/src/panels/outliner/rig/constraints/**`, `editor/src/panels/channel-box/rig/constraints.tsx`,
@@ -2925,7 +3705,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   with the record; E2E-RIG-06, E2E-CNS-01, -02.
 - **DoD**: CI green; READY flag `c8b`.
 
-### C9 — Control shapes
+### C9 — Control shapes — *deferred after the MVP (§0.3)*
 
 - **Dirs**: `anim-core/src/spline/shapes.ts` (append), `rig/src/shapes/**`, `editor-core/src/operators/builtin/rig/
   shapes.ts`, `editor-core/src/characters/shapeOnly.ts` (the CR-10 recompile filter), `viewport/src/sync/controlShapes.ts`
@@ -2963,7 +3743,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
   channels, no `uri`, limits); licence preset fields; thumbnail square; export bench; E2E-SKIN-05, -06.
 - **DoD**: CI green; READY flag `c10`.
 
-### C11 — Imports and recovery
+### C11 — Imports and recovery — *deferred after the MVP (§0.3)*
 
 - **Dirs**: `rig/src/makeEditable/**`, `editor-core/src/operators/builtin/rig/{makeEditable.ts,recovery.ts}`,
   `editor-core/src/workflows/{makeCharacterEditable.ts,fillOnLeaveModel.ts}`, `editor-core/src/rig/assetSkin.ts`
@@ -2996,6 +3776,9 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
 ---
 
 ## 10. Acceptance tests, e2e scenarios and AS-LP-T
+
+*MVP: the acceptance scenario AS-MVP-1 and the MVP e2e list are §0.7; scenarios of §10.1 not named there are deferred
+(not landed in the MVP). AS-LP-T (§10.3) follows the full M6b.*
 
 Playwright rules: MVP-SPEC §6.1, M2A-SPEC §9 and M6A-SPEC §10 (real input at test-API coordinates, assertions through
 the test API, independent scenarios, `chrome` and `chromium-swiftshader` projects in CI, mouse profile unless a row says
@@ -3088,12 +3871,15 @@ file hashes.
 | **D. Animate** (M1/M2a tools) | controls appear as for an imported VRM; a 1 s in-place walk loop at 30 fps with IK legs (planted feet, closed loop) and a ponytail swing keyed on its `sec.*` controls; an `attack` clip with the IK right arm swinging the sword; a `sheathe` moment: key the grip weights hand 1 → 0, back 0 → 1 over two frames; rough `idle`, `cast`, `death` | the M2a walk checks hold on the own character; the ponytail follows its keys and the head; the sword follows the hand through the attack (prop world = hand world · offset within 1e-4 at every frame before the switch) and sits on the back after it (prop world = the socket's world within 1e-4) |
 | **E. Export** | VRM meta (authors, CC0 preset, thumbnail rendered) → `ekza/space-avatar-v1` → `lowpoly-lad.vrm` (props included, slot clips); `ekza/omoba-humanoid-v1` → `lowpoly-lad.glb` (five clips, props excluded); the M6a `lowpoly-sword.glb` from part B | glTF-Validator and `vrm-validator` 0 errors; Ekza lints 0 errors; read-back equal (tris, joints, humanoid map, palette samples within 1/255); three-vrm plays `walk` on the VRM; the OMOBA GLB holds the five clips and no sword mesh; VRM < 1 MiB; exports twice and after reopening the project → byte-identical; (owner, optional) upload the VRM to Ekza Hub as an avatar (T0 guide) |
 
-Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its own retargeted library on VRM avatars;
-the plain GLB's five clips play in OMOBA's non-VRM path; Ekza Space plays the VRM's embedded `idle`/`walk`.
+Release-note caveat (ADR 0010 §6; corrected by §0.4.6): OMOBA has no skeleton of its own — it admits the VRM 1.0
+humanoid and plays its own motion library on it; Ekza Space plays the VRM's embedded `idle`/`walk`. The plain GLB is a
+local/generic export, not an OMOBA deliverable.
 
 ---
 
 ## 11. Integration plan and M6b definition of done
+
+*MVP: merge order and integration are §9.0 INT; the MVP definition of done is in §0.7.*
 
 ### 11.1 Merge order (into `m6b/dev`; INT then merges `m6b/dev` into `dev` after the `release/0.3.0` cut)
 

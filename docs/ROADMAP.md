@@ -1,6 +1,8 @@
 # Ekza Studio — Roadmap
 
-Status: v1.0 (2026-10-19: **M6b expanded into the Rig & Skin workspace and its build spec written** —
+Status: v1.1 (2026-10-22: **M6b MVP in progress** — the owner flow cut, [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22)
+v1.2 and [ADR 0020](adr/0020-m6b-mvp-cut.md), [MVP packages](#m6b-mvp-work-package-status); M6a released as `v0.3.0`, basic shading
+as `v0.3.1`); v1.0 (2026-10-19: **M6b expanded into the Rig & Skin workspace and its build spec written** —
 [M6B-SPEC](M6B-SPEC.md) v1.1 (revised after its design review), [work-package status](#m6b-work-package-status); constraints and control-shape editing
 moved from M2c to M6b; v0.9 2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
 accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
@@ -28,7 +30,7 @@ design review, MODELING-PLAN v0.2). Keep the [status table](#status) current: ev
 | M4b | Collaboration auth and permissions | Planned | — | — | after M3 |
 | M5 | V2: layers, IK polish, power tools | Planned | — | — | |
 | M6a | Modeling base: Model workspace, low-poly box modeling, palette colour, static GLB export | **Done**, merged into `dev` (2026-10-20); tag `v0.3.0` pending the owner review | 2026-10-19 | 2026-10-20 | [M6A-SPEC](M6A-SPEC.md) v1.1: B0a, B0b, B1…B13 (B12a/B12b) merged in the §11.1 order ([status](#m6a-work-package-status)); every READY/`test.fixme` gate is a failure; E2E-MOD-01…32, AS-LP-S (parts A and B) and the M1/M2a suites green in Chrome, full local gate green on `dev` after the merge; [budgets](#m6a-budgets) re-measured (one report-only miss: the marquee); the eager allowance, the owner feel check and the demo script are owner items in [DECISIONS-OPEN §I](DECISIONS-OPEN.md#i-m6a-build-deviations-2026-10-20); M6b, M6c and M7 stay planned |
-| M6b | Rig & Skin workspace (turnkey): skeletons and joint tools, Quick Rig, Bind Skin and weight tools, constraints, control shapes, VRM 1.0/GLB writer | **Spec ready** ([M6B-SPEC](M6B-SPEC.md) v1.1, 2026-10-19, after its design review); build not started | — | — | [MODELING-PLAN §5](MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey) → [M6B-SPEC §9](M6B-SPEC.md#9-work-packages): C0…C11 + INT ([status](#m6b-work-package-status)); ≈ 70.5 agent-days + a fix round (turnkey minimum ≈ 62); on the staging branch `m6b/dev` until M6a's release cut; contract requests to M6a land on `dev` (M6B-SPEC §2.4); turnkey release ≈ 46–47 working days after M6a's B0a starts |
+| M6b | Rig & Skin workspace: **MVP** (owner flow: Quick Rig markers → VRM skeleton → Bind Skin → paint → CC0 clip library → VRM 1.0 for Space and OMOBA), then the full workspace (constraints, control shapes, joint tools, imports recovery) | **MVP in progress** (2026-10-22, branch `m6b/mvp`); full M6b after the MVP | 2026-10-22 | — | [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) (binding MVP cut, v1.2) → [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0): C0, C1, C2, C3, C4, C6 (+ C5 subset), C7, C10, C12 (new: clip library), INT ([status](#m6b-mvp-work-package-status)); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 working days; deferred: C8a, C8b, C9, C11 and parts of C2/C3/C5/C6/C7 (≈ 22 + AS-LP-T) |
 | M6c | UV editor and texturing basics (optional) | Planned (plan v0.2) | — | — | [MODELING-PLAN §6](MODELING-PLAN.md#6-m6c--uv-editor-and-texturing-basics-optional); ≈ 18; by demand |
 | M7 | AI 3D generation (server gateway, Tripo + Meshy, post chain, provenance) | Planned (plan v0.2) | — | — | [MODELING-PLAN §7](MODELING-PLAN.md#7-m7--ai-3d-generation); G1 ≈ 22, G2 ≈ 14, G3 with M4a/M4b; ADR 0017 proposed |
 | M8 | Splines and generators (the old M6 "splines first") | Planned | — | — | after M7; output type is the M6 mesh kernel |
@@ -97,7 +99,28 @@ cross-package tests are `READY`/`test.fixme` gates that turn on when the package
 | B13 | `model-content` | Outliner, palette and Paint Colour, primitives UI, templates, image planes, Make editable UI, Export dialog section | 7.5 | B1, B7, B8, B9 | **Done** (on `dev`) |
 | INT | `integration` | E2E-MOD-01/15/16/30/31, AS-LP-S, budgets, docs, owner demo; one fix round (≈ 4) | 6 | all | **Done** (on `dev`; branch `m6a/integration` merged 2026-10-20) ([notes](wp-notes/m6a-integration.md), M6A-INT-1…33); the owner demo and feel check open |
 
+### M6b MVP work-package status
+
+Binding: [M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) and [§9.0](M6B-SPEC.md#90-mvp-work-packages-binding-for-the-mvp-0).
+Branches `m6b/<slug>` from and back into the integration branch **`m6b/mvp`** (from `dev`); INT merges `m6b/mvp` into
+`dev` at the end. M6a is released, so no staging branch; CR-2, CR-4 and CR-7 are direct edits by C2, C7 and C1.
+
+| WP | Slug | Scope | Size | Depends on | Status |
+|---|---|---|---|---|---|
+| C0 | `rig-contracts` | schema v4 (swatches stay 2), §4 + §0.5 contracts and stubs, four lazy chunks, Cube Lad and Polybot fixtures, e2e helpers | 4.5 | — | Planned |
+| C1 | `character-runtime` | characters from scene meshes, `skeletonFromDoc`, container in the `character-runtime` chunk, skinned display, `rig.autoRig.update`, CR-7 | 5 | C0 | Planned |
+| C2 | `skeleton-kernel` | templates (Standard 33 default), Quick Rig v2 fit + guess, BVH, MVP joint edits (move, rest rotate, orient, mirror, human bone), `skel.*` lints, CR-2 | 5 | C0 | Planned |
+| C4 | `auto-skin` | Bind Skin (`auto-lowpoly`, heat, rigid islands, closest), worker, Bind/Unbind, sparse kit | 4.5 | C0 | Planned |
+| C7 | `rig-shell` | tab, modes, test pose, channel sources incl. the `preview` hook, menus, Toolkit + MVP checklist, Validation as export gate, CR-4, eager gate | 5.5 | C0 | Planned |
+| C12 | `clip-library` | CC0 UAL starter pack → VRMA (tooling + committed outputs + manifest + licence rows), Clip Library panel, preview, Use Clip | 5 | C0 | Planned |
+| C10 | `character-writer` | VRM 1.0 writer (meta, thumbnail, shaders, clips), `vrm.*` = OMOBA runtime lints, plain GLB local only, export dialog | 5 | C1 | Planned |
+| C3 | `skeleton-ui` | Quick Rig panel and markers (front x/y, side z/y), live preview, joint display and edits, Orient/Mirror boxes | 5 | C2, C7 | Planned |
+| C6 | `skin-ui` | weights kernel (C5 subset) + Paint Skin Weights, display, Paint Weights panel, Toolkit Skin section | 6 | C1, C4, C7 | Planned |
+| INT | `integration` | AS-MVP-1 scripted (E2E-MVP-01) + owner run, OMOBA validator on the export, E2E-RIG-10, budgets, docs; fix round (≈ 3) | 3 | all | Planned |
+
 ### M6b work-package status
+
+*Full M6b, the reference for the work after the MVP; the MVP's packages are [above](#m6b-mvp-work-package-status).*
 
 Packages, ownership and gates: [M6B-SPEC §9](M6B-SPEC.md#9-work-packages) (shared files in §9.1). Branches `m6b/<slug>`
 merge into the staging branch `m6b/dev` until M6a's `release/0.3.0` is cut, then INT merges `m6b/dev` into `dev`
@@ -130,9 +153,10 @@ The queue of next actions is [TODO.md](../TODO.md).
    script, tag `v0.2.0`.
 2. **M6a modeling base**, with the M2c shell prerequisites (marking menus, command palette, workspaces, viewport Scale
    tool) pulled into its packages B0b and B9.
-3. **M6b Rig & Skin workspace** ([M6B-SPEC](M6B-SPEC.md)), overlapping M6a on the staging branch `m6b/dev` from its
-   package C0; then the **turnkey release** (`v0.4.0`), estimated ≈ 46–47 working days after M6a's package B0a starts
-   (8–10 agents in parallel, one fix round per integration).
+3. **M6b MVP** ([M6B-SPEC §0](M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22), 2026-10-22): the owner flow from a
+   box-modelled mesh to a VRM 1.0 for Space and OMOBA with a CC0 clip library, on `m6b/mvp` (≈ 48.5 agent-days,
+   critical path ≈ 22 working days); release tag the owner's call (proposed `v0.4.0`). Then the **rest of M6b**
+   (constraints, control shapes, joint tools, imports recovery, AS-LP-T) as the turnkey release.
 4. **"Publish avatar to Ekza"** (the T3 slice of M4a: only the `studio-upload` scope is needed, the avatar kind exists)
    in parallel with **M7 G1**; then **M7 G2**, with **M6c** in parallel if wanted.
 5. **M2b** and the rest of **M2c** → **V1** release.

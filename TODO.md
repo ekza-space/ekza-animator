@@ -3,16 +3,33 @@
 Ordered queue of what to do next. The plans behind it: [ROADMAP](docs/ROADMAP.md#recommended-order) and
 [MODELING-PLAN](docs/MODELING-PLAN.md) (v0.2, revised after its design review, §12); owner decisions with defaults:
 [DECISIONS-OPEN](docs/DECISIONS-OPEN.md). Sizes are agent-days; "day N" counts working days from the start of B0a.
-Updated 2026-10-20 (M6a built, integrated and merged into `dev`).
+Updated 2026-10-22 (M6b MVP in progress on `m6b/mvp`; M6a released as `v0.3.0`, basic shading as `v0.3.1`).
+
+## Now — M6b MVP: Rig & Skin owner flow (in progress, 2026-10-22)
+
+Binding scope: [M6B-SPEC §0](docs/M6B-SPEC.md#0-mvp-cut-owner-flow-2026-10-22) v1.2, [ADR 0020](docs/adr/0020-m6b-mvp-cut.md).
+Model → Quick Rig markers (front/side) → live VRM skeleton → Create Skeleton → fit joints → Bind Skin (one click) →
+paint fixes → test pose → CC0 clip library preview → Use Clip → Graph Editor → shade → Export VRM 1.0 that OMOBA's
+runtime admits. Integration branch `m6b/mvp` (from `dev`); ≈ 48.5 agent-days + a fix round, critical path ≈ 22 days.
+
+- [x] MVP cut written: M6B-SPEC v1.2 §0 and §9.0, ADR 0020 (2026-10-22).
+- [ ] C0 contracts, schema v4 (swatches table stays 2), stubs, lazy chunks incl. `clip-library`, Cube Lad and Polybot fixtures (4.5).
+- [ ] After C0, in parallel: C1 character runtime (5), C2 templates + Quick Rig v2 kernel + joint edits (5), C4 auto-skin (4.5), C7 rig shell (5.5), C12 clip library — CC0 UAL starter pack as VRMA, preview, Use Clip (5).
+- [ ] Then: C10 VRM 1.0 writer with the OMOBA runtime lints (5, after C1); C3 Quick Rig UI + joint UI (5, after C2 + C7); C6 weights kernel + skin UI (6, after C1 + C4 + C7).
+- [ ] INT (3 + fix round ≈ 3): AS-MVP-1 "Cube Lad comes alive" scripted (E2E-MVP-01) and by the owner, OMOBA `validate-runtime-vrm` on the export, budgets, docs; `m6b/mvp` → `dev`.
+- [ ] Owner reviews the MVP decisions Q-MVP-1…15 ([M6B-SPEC §0.8](docs/M6B-SPEC.md#08-owner-decisions-taken-for-the-mvp-defaults-the-owner-may-override-any)); release tag is the owner's call (proposed `v0.4.0`).
 
 ## Parked — specs ready, build later (owner decision, 2026-10-20)
 
 Focus is the modeling base (M6a) first. These tracks are fully specified and parked; their code branches are kept.
 
-- [ ] **M6b — Rig & Skin workspace** (joint tool, orient/mirror joints, templates + Quick Rig, bind + auto weights,
-      Paint Skin Weights, Component Editor, constraints, control-shape editing, VRM/GLB export of own models):
-      [M6B-SPEC](docs/M6B-SPEC.md) v1.1, research 17–19. Spec branch `m6b/spec` (also carries plan updates to
-      MODELING-PLAN §5, ROADMAP, REQUIREMENTS — merge them when M6b starts). ≈ 70 agent-days.
+- [ ] **M6b after the MVP** (deferred by the MVP cut, [M6B-SPEC §0.3](docs/M6B-SPEC.md#03-scope-in-and-deferred); spec
+      text kept): C8a/C8b constraints (parent/point/orient/aim, Attach Prop, sockets, bake), C9 control-shape editing,
+      C11 imports recovery (Make Character Editable, skin surgeon edits on imported avatars, fill missing weights by
+      inpainting), the Joint tool / Insert / Split / Remove / Delete / Duplicate / Add Chain, the A-pose path (T-Stance,
+      Apply Pose as Rest), Auto Weights for Selected Joints, the Component Editor (if not built in C6), numbers overlay,
+      Lock-Relative, Copy/Move/Hammer weights, the ROM clip, Rig Outliner variant and marking menus (CR-3, CR-5),
+      CR-1/CR-6/CR-8/CR-9/CR-10, §1.2 stretch items, AS-LP-T "Lowpoly Lad and his sword".
 - [ ] **M-AI — Agent bridge (MCP)**: headless tool layer, `ekza-animator-mcp` server, live bridge with pairing,
       see-tools, analysis, evals: [MCP-SPEC](docs/MCP-SPEC.md) v0.2, [ADR 0018](docs/adr/0018-agent-bridge-mcp.md),
       research 20–22. Spec branch `mcp/spec`; started code branches `mcp/contracts-foundation` (D0),
@@ -76,14 +93,11 @@ items (eager allowance, marquee budget miss, bevel limits, feel check, demo scri
 9d. [ ] M6a owner decisions from fix round 2 (§K M6A-INT-55, 56): Shift+double-click adds the edge's loop (Maya) or keeps the §5.6 toggle; whole character display at bind pose in Model.
 9a. [ ] Owner: AS-LP-A/B by hand, the demo script ([M6A-SPEC §11.3](docs/M6A-SPEC.md#113-owner-demo-script-10-minutes)), the §I review; then tag `v0.3.0` (owner's call).
 
-## Then — Rig & Skin workspace (M6b, ≈ 70.5 + a fix round; C0 starts after M6a's B0a, on the staging branch `m6b/dev` — [M6B-SPEC §9](docs/M6B-SPEC.md#9-work-packages))
+## Then — M6b remainder (after the MVP; [M6B-SPEC §9.0b](docs/M6B-SPEC.md#90b-full-m6b-work-packages-reference-post-mvp))
 
-10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-maya-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review (45 issues; the record is its §12.5: joint roles and sockets, rename-proof control keys, the A-pose Quick Rig, IK test poses, Auto Weights for Selected Joints, contract requests CR-1…CR-10 on `dev`; refinements in its §12.2; MODELING-PLAN §5, ROADMAP and REQUIREMENTS updated).
-11. [ ] Owner reviews the M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them): staging branch + schema v4, the grown scope, Attach Prop for the sword, rig regenerated inside skeleton edits, the eager allowance) and calibrates the rig marking menus together with Q-MOD-UI-1. Defaults stand until overridden.
-12. [ ] C0 contracts, schema v4, stubs, lazy chunks, Polybot-unskinned fixtures (4.5) right after M6a's B0a; it creates `m6b/dev` and files the contract requests CR-1…CR-10 as M6A-SPEC contract PRs on `dev` ([M6B-SPEC §2.4](docs/M6B-SPEC.md#24-contract-requests-to-m6a-small-land-on-dev-through-m6a-spec-contract-prs)).
-13. [ ] After C0: C8a constraint kernel (5); after M6a's B1: C2 skeleton kernel (5.5); after B1 + B7: C4 auto-skin (6); after B1, B7, B8, B9: C1 character runtime (6); after C4 + B2: C5 weights kernel (4.5); after B0b, B9, B10, B11: C7 rig shell (6.5); after C1: C10 character writer (5). Then C3 skeleton UI (5.5), C6 skin UI (6), C8b constraint UI (3), C9 control shapes (3.5), C11 imports and recovery (4.5) — M6b's work ends ≈ day 32.
-14. [ ] Owner feel check (30 min, Chrome) when C3 and C6 merge: Joint tool, `D`-held moves, the `E` test pose, brush keys, the Component Editor.
-15. [ ] M6b integration (5) + one fix round (≈ 4) after M6a's fix round and the `release/0.3.0` cut: `m6b/dev` → `dev`, E2E-SKIN-01…14, E2E-RIG-01…10, E2E-CNS-01…04, AS-LP-T "Lowpoly Lad and his sword" end to end by the owner ([M6B-SPEC §10.3](docs/M6B-SPEC.md#103-as-lp-t--lowpoly-lad-and-his-sword-turnkey-owner-run-replaces-modeling-plan-8-parts-ce)); tag `v0.4.0` — estimated ≈ 46–47 working days after B0a starts.
+10. [x] Write `docs/M6B-SPEC.md` from [MODELING-PLAN §5](docs/MODELING-PLAN.md#5-m6b--rig--skin-workspace-turnkey), expanded on the owner's request into the full Rig & Skin workspace (joint tools, Orient/Mirror Joint, Quick Rig, Bind Skin, Paint Skin Weights, Component Editor, weight utilities, constraints and control-shape editing from M2c, test poses, Validation, VRM 1.0/GLB writer) from research [17](docs/research/17-maya-rigging-basics.md), [18](docs/research/18-constraints-control-shapes.md), [19](docs/research/19-rig-workspace-ui.md). **Done 2026-10-19: [M6B-SPEC](docs/M6B-SPEC.md) v1.1** after its design review; **v1.2 (2026-10-22) adds the MVP cut (§0)**.
+11. [ ] Owner reviews the remaining M6b owner questions ([M6B-SPEC §12.4](docs/M6B-SPEC.md#124-owner-questions-defaults-chosen-the-build-starts-on-them); Q-M6B-1 is superseded by Q-MVP-1) and calibrates the rig marking menus together with Q-MOD-UI-1 before they are built.
+12. [ ] After the MVP: the deferred packages C8a, C8b, C9, C11 and the deferred parts of C2/C3/C5/C6/C7 (Parked list above), then AS-LP-T and the turnkey feel check.
 
 ## After the turnkey release
 
