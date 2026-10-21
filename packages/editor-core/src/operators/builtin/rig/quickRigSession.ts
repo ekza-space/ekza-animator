@@ -30,7 +30,7 @@ import { loadMeshKernel } from '../../../mesh/kernel';
 import { PANEL, type EditorApp, type PollResult, type QuickRigState } from '../../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../define';
 import { CHECK_REASONS, quickRigFit, quickRigStartInfo } from './quickRig';
-import { rigGeometry, rigTarget } from './skeleton';
+import { meshesOfObjects, rigGeometry, rigTarget } from './skeleton';
 
 /** Every marker in list order (the pick rule's tie order and the click-to-place order, §0.4.2). */
 export const QUICK_RIG_MARKERS: readonly QuickRigMarker[] = Object.freeze([
@@ -181,7 +181,8 @@ function startObjects(app: EditorApp, view: ReadView, raw: unknown): readonly st
     return (raw['meshes'] as unknown[]).filter((id): id is string => typeof id === 'string');
   }
   const state = app.session.getState();
-  if (state.selection.objects.length > 0) return state.selection.objects;
+  // Selected objects that still exist (Create Skeleton adopts the scene meshes under new ids).
+  if (meshesOfObjects(view, state.selection.objects).length > 0) return state.selection.objects;
   const character = state.rig.character;
   if (character === null) return [];
   return view.query
