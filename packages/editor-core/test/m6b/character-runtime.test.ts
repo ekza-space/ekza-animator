@@ -18,11 +18,13 @@ import {
   fractionalIndex,
 } from '@ekza-studio/doc';
 import { readFixture } from '@ekza-studio/doc/testing';
+import { jointsFingerprint } from '@ekza-studio/io';
 import { type SkinWeights, withSkin } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { EditorApp } from '../../src';
 import { ModelRuntime } from '../../src/characters/modelRuntime';
 import type { KernelCharacters } from '../../src/characters/registry';
+import { EMPTY_FINGERPRINT } from '../../src/operators/builtin/rig/character';
 import { PRIMITIVE_SKINNED } from '../../src/operators/builtin/templates';
 import { meshTestApp, type MeshTestApp } from '../mesh/support';
 
@@ -178,6 +180,12 @@ describe('char.fromModel (§5.1)', () => {
     expect(await t.app.runUntyped('char.adopt', { character: 'chr_nope', objects: [hat] })).toMatchObject({
       status: 'cancelled',
     });
+  });
+});
+
+describe('the empty skeleton fingerprint', () => {
+  it('is jointsFingerprint([]) (char.fromModel writes it before any joint exists)', () => {
+    expect(EMPTY_FINGERPRINT).toBe(jointsFingerprint([]));
   });
 });
 

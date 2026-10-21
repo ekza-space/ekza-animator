@@ -10,9 +10,9 @@
 // user's and stay. The warnings (removed bones, a kind change) and the stale stored offsets are toasted once.
 import { EkzaError, type ParamDef } from '@ekza-studio/anim-core';
 import type { CharacterId, ControlId, ControlRecord, SolverId, SolverRecord, Tx } from '@ekza-studio/doc';
-import { characterVertices, skeletonFromDoc } from '@ekza-studio/io';
 import { type AutoRigUpdate, ikOf, readRigDefinition, updateAutoRig } from '@ekza-studio/rig';
 import { characterMeshes, characterPalettes, docSkeletonInput, modelParts } from '../../../characters/modelInput';
+import { type CharacterRuntimeChunk, loadCharacterRuntime } from '../../../characters/runtimeChunk';
 import { loadMeshKernel, type MeshKernel } from '../../../mesh';
 import type { EditorApp, OperatorContext } from '../../../types';
 import { loadWritePath } from '../../../workflows/export';
@@ -20,19 +20,22 @@ import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } fr
 
 type MeshIo = Awaited<ReturnType<Awaited<ReturnType<typeof loadWritePath>>['loadMeshIo']>>;
 
-/** The libraries `writeAutoRigUpdate` needs synchronously. */
+/** The libraries `writeAutoRigUpdate` needs synchronously (the io parts through the character-runtime chunk). */
 export interface AutoRigLibs {
   readonly kernel: MeshKernel;
   readonly meshIo: MeshIo;
+  readonly runtime: CharacterRuntimeChunk;
 }
 
 let libs: Promise<AutoRigLibs> | null = null;
 
-/** Loads the mesh kernel and io's mesh entry once (call from `prepare`). */
+/** Loads the mesh kernel, io's mesh entry and the character-runtime chunk once (call from `prepare`). */
 export function prepareAutoRig(): Promise<AutoRigLibs> {
-  libs ??= Promise.all([loadMeshKernel(), loadWritePath().then((write) => write.loadMeshIo())]).then(
-    ([kernel, meshIo]) => ({ kernel, meshIo }),
-  );
+  libs ??= Promise.all([
+    loadMeshKernel(),
+    loadWritePath().then((write) => write.loadMeshIo()),
+    loadCharacterRuntime(),
+  ]).then(([kernel, meshIo, runtime]) => ({ kernel, meshIo, runtime }));
   libs.catch(() => {
     libs = null;
   });
@@ -83,8 +86,8 @@ export function writeAutoRigUpdate(
   if (parts === null) throw new EkzaError('unsupported', 'The character has no skeleton');
   if (parts === 'loading') throw new EkzaError('mesh-loading', 'Mesh is loading');
   const meshes = characterMeshes(tx, loaded.kernel, parts).filter((mesh) => mesh.skin !== null);
-  const skeleton = skeletonFromDoc(docSkeletonInput(tx, loaded.kernel, parts), {
-    vertices: characterVertices(loaded.meshIo, meshes, characterPalettes(tx, meshes)),
+  const skeleton = loaded.runtime.skeletonFromDoc(docSkeletonInput(tx, loaded.kernel, parts), {
+    vertices: loaded.runtime.characterVertices(loaded.meshIo, meshes, characterPalettes(tx, meshes)),
   });
   const current = readRigDefinition(tx, record.rig) ?? null;
   const existing = current !== null && current.controls.length > 0 ? current : null;

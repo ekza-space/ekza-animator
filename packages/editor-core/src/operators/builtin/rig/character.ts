@@ -45,7 +45,6 @@ import {
   type SkeletonRecord,
   type Tx,
 } from '@ekza-studio/doc';
-import { jointsFingerprint } from '@ekza-studio/io';
 import type { MeshData } from '@ekza-studio/mesh-core';
 import { AUTORIG_VERSION } from '@ekza-studio/rig';
 import { transformedData } from '../../../characters/modelInput';
@@ -61,6 +60,8 @@ export const FREEZE_FIRST = 'Freeze Transformations first';
 export const NOTHING_SELECTED = 'Select the meshes of the character first';
 export const SKINNED_IMPORT = 'Open skinned models as characters (File › Open)';
 export const MESH_LOADING = 'Mesh is loading';
+/** `jointsFingerprint([])`: the rig of a skeleton without joints yet (SHA-256 of the empty string). */
+export const EMPTY_FINGERPRINT = 'sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855';
 
 // ---------------------------------------------------------------------------------------------------------------
 // sources
@@ -318,7 +319,7 @@ export function createModelCharacter(
     format: 'ekza.rig',
     version: 1,
     generator: { name: 'ekza-autorig-humanoid', version: AUTORIG_VERSION },
-    skeleton: { format: 'vrm1', fingerprint: jointsFingerprint([]), facing: [0, 0, 0, 1] },
+    skeleton: { format: 'vrm1', fingerprint: EMPTY_FINGERPRINT, facing: [0, 0, 0, 1] },
     deleted: null,
   };
   tx.put('characters', character);
