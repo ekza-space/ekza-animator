@@ -163,6 +163,48 @@ describe('moves (§5.7)', () => {
     expect(get(apply(joints, free), 'neck').restPosition[0]).toBeCloseTo(0.05, 15);
   });
 
+  it('W / E on a centre joint with symmetry moves its subtree symmetrically (both sides stay mirrors)', () => {
+    const joints = human();
+    const mirrorError = (js: readonly JointRecord[]): number => {
+      let worst = 0;
+      for (const j of js) {
+        if (j.side !== 'L') continue;
+        const p = get(js, j.key.replace(/^left/, 'right')).restPosition;
+        worst = Math.max(
+          worst,
+          Math.hypot(j.restPosition[0] + p[0], j.restPosition[1] - p[1], j.restPosition[2] - p[2]),
+        );
+      }
+      return worst;
+    };
+    const chest = get(joints, 'chest').restPosition;
+    const moved = apply(
+      joints,
+      moveJoints(joints, [id('chest')], { t: [0.05, 0.01, 0.002], pivot: chest }, 'subtree', true),
+    );
+    expect(mirrorError(moved)).toBeLessThan(1e-12);
+    expect(get(moved, 'chest').restPosition).toEqual([0, chest[1] + 0.01, chest[2] + 0.002]);
+    expect(get(moved, 'leftHand').restPosition[1]).toBeCloseTo(get(joints, 'leftHand').restPosition[1] + 0.01, 12);
+    // A lean (about Z) keeps only its mirror-invariant part (none); a bow (about X) passes through.
+    const lean = moveJoints(
+      joints,
+      [id('chest')],
+      { q: quatFromAxisAngle([0, 0, 1], 0.3), pivot: chest },
+      'subtree',
+      true,
+    );
+    expect(lean.upserts).toEqual([]);
+    const bow = apply(
+      joints,
+      moveJoints(joints, [id('chest')], { q: quatFromAxisAngle([1, 0, 0], 0.2), pivot: chest }, 'subtree', true),
+    );
+    expect(mirrorError(bow)).toBeLessThan(1e-12);
+    expect(get(bow, 'head').restPosition[2]).toBeGreaterThan(get(joints, 'head').restPosition[2] + 0.01);
+    // Without symmetry the subtree takes the delta as given.
+    const free = apply(joints, moveJoints(joints, [id('chest')], { t: [0.05, 0, 0], pivot: chest }, 'subtree', false));
+    expect(get(free, 'leftHand').restPosition[0]).toBeCloseTo(get(joints, 'leftHand').restPosition[0] + 0.05, 12);
+  });
+
   it('E (subtree rotation) rotates positions about the pivot, keeps identity rests identity, rotates the others', () => {
     const joints = human().map((j) => (j.key === 'leftHand' ? { ...j, restRotation: [0, 0, 0.6, 0.8] as const } : j));
     const pivot = get(joints, 'leftUpperArm').restPosition;

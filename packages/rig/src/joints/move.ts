@@ -1,6 +1,7 @@
 // Rest moves and rotations (M6B-SPEC §5.7; C2): `W` (subtree), `D`+`W` (joint only), `E` (rotate the subtree's rest
 // about a pivot) and `D`+`E` (re-orient the joint only), with X symmetry: a partner of a moved joint moves by the
-// mirrored delta `(−x, y, z)` (rotations `(x, −y, −z, w)`) about the mirrored pivot, and centre joints keep x = 0.
+// mirrored delta `(−x, y, z)` (rotations `(x, −y, −z, w)`) about the mirrored pivot, centre joints keep x = 0, and a
+// centre joint's subtree moves by the delta's mirror-invariant part (no x, twist about X only) so it stays symmetric.
 // A subtree rotation keeps identity rest rotations identity (World-oriented humanoid joints, the §5.7 Apply Pose as
 // Rest rule); every other rotation takes the delta, and a joint-only rotation re-orients whatever the rest. No edit moves a joint it does not move (P-J1).
 import { quatMultiply, quatNormalize, quatRotateVec3 } from '@ekza-studio/anim-core';
@@ -19,6 +20,17 @@ const mirrorDelta = (d: Delta): Delta => ({
   q: d.q === null ? null : [d.q[0], -d.q[1], -d.q[2], d.q[3]],
   pivot: mirrorV3(d.pivot),
 });
+
+/** The mirror-invariant part of a delta: x translation 0, pivot on x = 0, the rotation's twist about X (normalized;
+ *  null when nothing is left). */
+function symmetricDelta(d: Delta): Delta {
+  let q: Q4 | null = null;
+  if (d.q !== null) {
+    const l = Math.hypot(d.q[0], d.q[3]);
+    q = l > 1e-12 && !(d.q[0] === 0 && d.q[3] === 1) ? [d.q[0] / l, 0, 0, d.q[3] / l] : null;
+  }
+  return { t: [0, d.t[1], d.t[2]], q, pivot: [0, d.pivot[1], d.pivot[2]] };
+}
 
 function applyPoint(p: readonly number[], d: Delta): [number, number, number] {
   let x = (p[0] as number) - d.pivot[0];
@@ -63,7 +75,17 @@ export function moveJoints(
       if (partner !== undefined && !selected.includes(partner.id)) assign(partner.id, mirrored, false);
     }
   }
-  for (const id of selected) assign(id, base, true);
+  // A centre joint on x = 0 moved (W, E) with symmetry moves its subtree symmetrically: no x translation, the pivot on x = 0
+  // and only the rotation's mirror-invariant part (the twist about X), so both sides of the subtree stay mirrors.
+  const centre: Delta = symmetricDelta(base);
+  for (const id of selected) {
+    const joint = index.get(id) as JointRecord;
+    assign(
+      id,
+      symmetry && mode === 'subtree' && joint.side === 'C' && joint.restPosition[0] === 0 ? centre : base,
+      true,
+    );
+  }
 
   const upserts: JointRecord[] = [];
   for (const joint of index.order) {
