@@ -493,7 +493,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       category: 'select',
       scope: 'model',
       flags: { selection: true },
-      workspaces: ['model'],
+      workspaces: ['model', 'rig'],
     },
     {
       id: 'select.mesh.pickWalk',

@@ -14,7 +14,7 @@
 // object mode); Skeleton mode hides joints (`session.rig.hiddenJoints`, U state without a step: `HideSnapshot` has no
 // joints) and isolates the selected joints' characters' meshes; Skin mode acts like Model's vertex mode on the
 // hilited meshes (else the active character's bound meshes): the faces the selected points touch.
-import type { CharacterId, GroupId, JointId, MeshId } from '@ekza-studio/doc';
+import type { CharacterId, GroupId, JointId, MeshId, SkeletonId } from '@ekza-studio/doc';
 import type { BitSet, ComponentKind } from '@ekza-studio/mesh-core';
 import { componentInternals } from '../../selection/component/service';
 import { recordHide } from '../../selection/component/steps';
@@ -99,8 +99,8 @@ function selectedJoints(app: EditorApp): JointId[] {
   });
 }
 
-/** The live meshes of the selected joints' characters (else the active character's). */
-function jointCharacterMeshes(app: EditorApp): MeshId[] {
+/** The characters of the selected joints (else the active character). */
+function jointCharacters(app: EditorApp): Set<CharacterId> {
   const characters = new Set<CharacterId>();
   for (const id of selectedJoints(app)) {
     const joint = app.store.get('joints', id);
@@ -109,19 +109,34 @@ function jointCharacterMeshes(app: EditorApp): MeshId[] {
   }
   const active = app.session.getState().rig.character;
   if (characters.size === 0 && active !== null) characters.add(active);
+  return characters;
+}
+
+/** The live meshes of the selected joints' characters (else the active character's). */
+function jointCharacterMeshes(app: EditorApp): MeshId[] {
+  const characters = jointCharacters(app);
   return app.store
     .list('meshes')
     .filter((mesh) => mesh.deleted === null && 'character' in mesh.owner && characters.has(mesh.owner.character))
     .map((mesh) => mesh.id);
 }
 
-/** Rig Skeleton mode: hides the selected joints, or every other live joint; U state. */
+/**
+ * Rig Skeleton mode: hides the selected joints, or every other live joint of the selected joints' skeletons (else the
+ * active character's skeleton; other characters' joints are untouched); U state.
+ */
 function hideJoints(app: EditorApp, target: 'selected' | 'unselected'): void {
   const state = app.session.getState();
   const selected = new Set<string>(selectedJoints(app));
   const hidden = new Set(state.rig.hiddenJoints);
+  const characters = jointCharacters(app);
+  const inScope = (skeleton: SkeletonId): boolean => {
+    const record = app.store.get('skeletons', skeleton);
+    return record !== undefined && characters.has(record.character);
+  };
   for (const joint of app.store.list('joints')) {
     if (joint.deleted !== null || selected.has(joint.id) === (target === 'unselected')) continue;
+    if (target === 'unselected' && !inScope(joint.skeleton)) continue;
     hidden.add(joint.id);
   }
   app.session.setState({ rig: { ...state.rig, hiddenJoints: hidden } });

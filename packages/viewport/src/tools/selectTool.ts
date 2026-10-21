@@ -145,6 +145,7 @@ export class SelectBehaviour {
     const ids = this.candidateControls(paneId, x, y, meshPicks);
     if (ids.length === 0) {
       this.last = null;
+      if (this.rigObjectClick(paneId, x, y, mode)) return;
       if (mode === 'replace') this.select([], 'replace', paneId);
       return;
     }
@@ -166,6 +167,26 @@ export class SelectBehaviour {
     this.last = { paneId, x, y, key, order, index };
     this.select([order[index] as ControlId], mode, paneId);
     this.hintMeshPick(order[index] as ControlId, meshPicks);
+  }
+
+  /**
+   * M6b C7 (§5.24): Rig & Skin Object mode picks meshes too (pick mask meshes, joints, controls). A click that hits no
+   * control picks the nearest scene mesh (`select.objects`); a plain click on empty space also clears the objects.
+   * Returns true when the click selected a mesh.
+   */
+  private rigObjectClick(paneId: string, x: number, y: number, mode: SelectMode): boolean {
+    const state = this.app.session.getState();
+    if (state.workspace !== 'rig' || state.rig.mode !== 'object' || !state.tools.selectionMask.meshes) return false;
+    const mesh = modelSelectOf(this.app)?.pickObject(paneId, x, y) ?? null;
+    const ctx = { panel: PANEL.viewport, paneId };
+    if (mesh !== null) {
+      void this.app.run('select.objects', { ids: [mesh], mode }, ctx);
+      return true;
+    }
+    if (mode === 'replace' && state.selection.objects.length > 0) {
+      void this.app.run('select.objects', { ids: [], mode: 'replace' }, ctx);
+    }
+    return false;
   }
 
   /** Candidate controls in pick order; `meshPicks` gets the controls only a mesh hit named, with its character. */
