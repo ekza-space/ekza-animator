@@ -19,7 +19,8 @@ export function AboutDialog(): JSX.Element {
         <div className="flex flex-col gap-4 text-ui text-fg-2">
           <p>
             Ekza Studio <span className="ekza-numeric text-fg">{EDITOR_VERSION}</span> — an open-source, browser-based
-            character animator for glTF and VRM with a Maya-grade workflow. Public alpha.
+            3D studio for glTF and VRM characters (modeling, rigging, animation) with a Maya-grade workflow. Public
+            alpha.
           </p>
           <p>
             The editor's code is MIT licensed by the Ekza Studio contributors; the AnimX curve port is Apache-2.0 (©

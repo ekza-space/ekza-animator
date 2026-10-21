@@ -13,8 +13,8 @@ export default function LandingPage(): JSX.Element {
       <header className="flex flex-col gap-4">
         <h1 className="text-4xl font-semibold tracking-tight">Ekza Studio</h1>
         <p className="text-lg text-fg-2">
-          An open-source, browser-based character animator for glTF and VRM, with a Maya-grade workflow: circle
-          controls, Channel Box, time slider and a Graph Editor, then lossless bakes back into your file.
+          An open-source, browser-based 3D studio for glTF and VRM characters, with a Maya-grade workflow: box modeling,
+          circle controls, Channel Box, time slider and a Graph Editor, then lossless bakes back into your file.
         </p>
         <div className="flex flex-wrap items-center gap-4">
           <Link
