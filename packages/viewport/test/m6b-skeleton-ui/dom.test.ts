@@ -83,7 +83,9 @@ async function rigScene(opts?: { readonly tool?: string }): Promise<Rig> {
     rig: { ...state.rig, mode: 'skeleton', character: CHARACTER },
     tools: { ...state.tools, viewport: opts?.tool ?? 'select', selectionMask: MODE_MASKS.skeleton },
   });
-  for (let i = 0; i < 200 && viewportRigOf(app) === null; i++) await new Promise((r) => setTimeout(r, 10));
+  // The rig chunk loads lazily on the first Rig & Skin entry: a cold load under a parallel test run can take seconds.
+  const deadline = performance.now() + 15_000;
+  while (viewportRigOf(app) === null && performance.now() < deadline) await new Promise((r) => setTimeout(r, 10));
   expect(viewportRigOf(app)).not.toBeNull();
   rig.frame();
   return rig;

@@ -255,14 +255,21 @@ describe('file.exportCharacter (§6.4)', () => {
 
   it('the VRM meta rows gate the Space profile: errors block the download; local/generic exports', async () => {
     const { t, character } = await riggedLad();
-    expect(
-      characterExportRows(t.app, character, 'ekza/space-avatar-v1', 'vrm').map((r) => [r.code, r.severity]),
-    ).toEqual([
+    // INT: with C6 merged the Validation rows add `skin.joint-without-weights` (info: joints the automatic bind left
+    // without weights); info rows never gate, so the gate is the error and warning rows.
+    const gating = (profile: string) =>
+      characterExportRows(t.app, character, profile, 'vrm')
+        .filter((r) => r.severity !== 'info')
+        .map((r) => [r.code, r.severity]);
+    expect(gating('ekza/space-avatar-v1')).toEqual([
       ['vrm.meta-required', 'error'],
       ['vrm.licence-unset', 'error'],
       ['vrm.thumbnail-square', 'warning'],
     ]);
-    expect(characterExportRows(t.app, character, 'local/generic', 'vrm')).toEqual([]);
+    expect(gating('local/generic')).toEqual([]);
+    expect(
+      characterExportRows(t.app, character, 'local/generic', 'vrm').every((r) => r.code.startsWith('skin.')),
+    ).toBe(true);
     const [blocked] = await ok<ExportArtifact[]>(t.app, 'file.exportCharacter', {});
     expect(blocked?.lints.filter((l) => l.severity === 'error').map((l) => l.code)).toEqual([
       'vrm.meta-required',

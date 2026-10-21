@@ -476,7 +476,6 @@ const bind = defineOperator<'skin.bind', BindPrepared>({
       if (app.meshes.get(inputs.mesh)?.data() !== inputs.data) {
         throw new EkzaError('op-refused', 'The mesh changed while binding: run Bind Skin again');
       }
-      app.meshes.writeData(tx, inputs.mesh, kernel.withSkin(inputs.data, result.skin));
       const record = tx.get('meshes', inputs.mesh) as MeshRecord;
       const stored = record.skin !== null && 'skeleton' in record.skin ? record.skin : null;
       const skin: MeshRecord['skin'] = full
@@ -487,7 +486,10 @@ const bind = defineOperator<'skin.bind', BindPrepared>({
         : stored !== null && stored.skeleton === inputs.skeletonId
           ? stored
           : { skeleton: inputs.skeletonId, bind: null };
+      // The record names its skeleton before the data is written, so the revision's `joints` (the reference copy of
+      // the palette, `MeshRef.joints`) lists the bound joints on the first bind too.
       if (skin !== record.skin) tx.patch('meshes', inputs.mesh, { skin });
+      app.meshes.writeData(tx, inputs.mesh, kernel.withSkin(inputs.data, result.skin));
       characters.set(inputs.character, inputs.skeletonId);
     }
     for (const [character, skeleton] of characters) ensureControlRig(tx, character, skeleton);

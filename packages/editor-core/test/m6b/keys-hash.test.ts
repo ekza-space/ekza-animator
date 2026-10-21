@@ -227,8 +227,15 @@ export const P_C6_ROWS: readonly Row[] = [
   // C12: U state on the naive kit (no humanoid here: the preview's own run on a VRM, keys hash included, is in
   // test/m6b/library.test.ts).
   { id: 'library.open', status: 'checked', owner: 'C12' },
-  { id: 'library.preview', status: 'checked', owner: 'C12', setup: () => ({ character: 'chr_none', clip: 'walk' }) },
-  { id: 'library.stop', status: 'checked', owner: 'C12' },
+  // INT: on the naive kit both refuse (no character, nothing playing); the refusal is their whole run here.
+  {
+    id: 'library.preview',
+    status: 'checked',
+    owner: 'C12',
+    setup: () => ({ character: 'chr_none', clip: 'walk' }),
+    refuses: 'The character does not exist',
+  },
+  { id: 'library.stop', status: 'checked', owner: 'C12', refuses: 'No clip preview is playing' },
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
 ];
 
