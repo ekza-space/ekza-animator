@@ -4,6 +4,16 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import type { ViewportManager } from '../../../manager/ViewportManager';
+import type { RigSkinRuntime } from './runtime';
+
+export type { RigSkinRuntime } from './runtime';
+
+const runtimes = new WeakMap<EditorApp, RigSkinRuntime>();
+
+/** The app's loaded Skin mode runtime (the test API and panels read it), or null before the first Rig & Skin entry. */
+export function rigSkinOf(app: EditorApp): RigSkinRuntime | null {
+  return runtimes.get(app) ?? null;
+}
 
 export function attachRigSkin(app: EditorApp, vm: ViewportManager): Disposer {
   let stop: Disposer | null = null;
@@ -15,7 +25,13 @@ export function attachRigSkin(app: EditorApp, vm: ViewportManager): Disposer {
     import('./runtime').then(
       (chunk) => {
         loading = false;
-        if (!disposed) stop = chunk.startRigSkin(app, vm);
+        if (disposed) return;
+        const runtime = chunk.startRigSkin(app, vm);
+        runtimes.set(app, runtime);
+        stop = () => {
+          runtime.dispose();
+          if (runtimes.get(app) === runtime) runtimes.delete(app);
+        };
       },
       (error: unknown) => {
         loading = false;

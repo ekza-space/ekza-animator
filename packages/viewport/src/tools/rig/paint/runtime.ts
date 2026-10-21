@@ -408,6 +408,46 @@ export class RigSkinRuntime {
     return [`${weight.toFixed(2)} · ${jointName(this.app, active)}`];
   }
 
+  /**
+   * The active influence's weight of every visible point of the shown bound meshes in a pane (page CSS px; text with
+   * 2 decimals, '0.00' included) — the numbers overlay's labels (§5.12; the overlay itself arrives after the MVP) and the
+   * posed screen positions tests paint at. A point is visible when it is in the pane, one of its triangles faces the
+   * camera and the pane ray through it hits it first.
+   */
+  weightLabels(paneId: string): { mesh: string; point: number; text: string; x: number; y: number }[] {
+    const rect = this.vm.paneRect(paneId);
+    if (rect === null) return [];
+    const camera = this.vm.camera(paneId);
+    const active = this.app.session.getState().rig.activeInfluence?.joint ?? null;
+    const surfaces = this.surfaces();
+    const world = new Map(surfaces.map((surface) => [surface, this.worldOf(surface)] as const));
+    const out: { mesh: string; point: number; text: string; x: number; y: number }[] = [];
+    for (const surface of surfaces) {
+      const inputs = weightInputsNow(this.app, surface.mesh as MeshId);
+      const w = world.get(surface) as Float64Array;
+      if (inputs === null) continue;
+      const P = Math.floor(w.length / 3);
+      for (let v = 0; v < P; v++) {
+        const point: [number, number, number] = [w[3 * v] as number, w[3 * v + 1] as number, w[3 * v + 2] as number];
+        const screen = projectToPane(camera, rect.w, rect.h, point);
+        if (screen === null || screen.x < 0 || screen.y < 0 || screen.x > rect.w || screen.y > rect.h) continue;
+        const ray = paneRay(this.vm, paneId, screen.x, screen.y);
+        const hit = ray === null ? null : pickSurfaces(surfaces, ray, world);
+        if (hit === null || hit.surface !== surface) continue;
+        const corners = [0, 1, 2].map((k) => surface.tris[3 * hit.tri + k] as number);
+        const near = Math.hypot(hit.point[0] - point[0], hit.point[1] - point[1], hit.point[2] - point[2]);
+        if (!corners.includes(v) && near > 1e-4) continue;
+        let weight = 0;
+        for (let k = 0; k < 4; k++) {
+          if (inputs.skin.palette[inputs.skin.joints[4 * v + k] as number]?.key === active)
+            weight += inputs.skin.weights[4 * v + k] as number;
+        }
+        out.push({ mesh: surface.mesh, point: v, text: weight.toFixed(2), x: rect.x + screen.x, y: rect.y + screen.y });
+      }
+    }
+    return out;
+  }
+
   /** Test probe: the weight display state per shown mesh. */
   weightState(): {
     readonly mesh: MeshId;
@@ -453,25 +493,14 @@ function pointTrianglesCached(geometry: SkinGeometry): { readonly start: Int32Ar
   return value ?? { start: new Int32Array(1), tris: new Int32Array(0) };
 }
 
-/** The runtime of an app's viewport (tests and the test API read it). */
-const runtimes = new WeakMap<EditorApp, RigSkinRuntime>();
-
-export function rigSkinRuntimeOf(app: EditorApp): RigSkinRuntime | null {
-  return runtimes.get(app) ?? null;
-}
-
-/** Starts the runtime of a viewport; the disposer stops it. */
-export function startRigSkin(app: EditorApp, vm: ViewportManager): Disposer {
+/** Starts the runtime of a viewport (./index.ts keeps it per app and disposes it). */
+export function startRigSkin(app: EditorApp, vm: ViewportManager): RigSkinRuntime {
   const runtime = new RigSkinRuntime(app, vm);
-  runtimes.set(app, runtime);
   void runtime.start().catch((error: unknown) => {
     app.services.notify.toast({
       kind: 'error',
       text: `Skin mode could not load: ${error instanceof Error ? error.message : String(error)}`,
     });
   });
-  return () => {
-    runtime.dispose();
-    if (runtimes.get(app) === runtime) runtimes.delete(app);
-  };
+  return runtime;
 }

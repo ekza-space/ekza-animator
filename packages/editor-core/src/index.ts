@@ -484,3 +484,10 @@ export {
   walkJoint,
   writeHolds,
 } from './operators/builtin/rig/influence';
+export {
+  answerRebind,
+  answerUnbind,
+  BIND_PARAMS,
+  rebindRequest,
+  unbindRequest,
+} from './operators/builtin/rig/bind';

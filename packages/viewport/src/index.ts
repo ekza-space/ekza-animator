@@ -66,3 +66,6 @@ export {
 } from './tools/model/transform/readout';
 export type { ManipulatorFrame, ModelManipulator, ModelManipulatorTarget } from './tools/model/transform/types';
 export { mmbHandleFor, withModelTransform } from './tools/transformTool';
+// M6b (C6): Skin mode's runtime of a viewport (the skinned and weight display, the Paint Skin Weights tool), loaded on
+// the first Rig & Skin entry.
+export { type RigSkinRuntime, rigSkinOf } from './tools/rig/paint';
