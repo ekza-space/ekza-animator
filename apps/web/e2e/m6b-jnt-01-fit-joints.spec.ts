@@ -85,8 +85,9 @@ test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned 
 
   // Bound: W moves the joint, never the mesh (Move Skinned Joints); E is a test pose.
   await runOk(page, 'skin.bind', {});
-  const body = (await call(page, 'meshes')).find((row) => row.owner === character)?.id ?? '';
+  const body = (await call(page, 'meshes')).find((row) => row.owner === `char:${character}`)?.id ?? '';
   const points = await call(page, 'posedPositions', body, [0, 1, 2, 3]);
+  expect(points).toHaveLength(4);
   await toolKey(page, 'KeyW');
   const head = await jointAt(page, id('head'), RIG_FRONT_PANE);
   await drag(page, head, { dx: 0, dy: -4 });
