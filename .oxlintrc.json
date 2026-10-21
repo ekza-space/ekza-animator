@@ -1392,9 +1392,10 @@
                   "!@ekza-studio/doc",
                   "!@ekza-studio/rig",
                   "!@ekza-studio/io",
-                  "!gltf-validator"
+                  "!gltf-validator",
+                  "!@ekza-studio/mesh-core"
                 ],
-                "message": "@ekza-studio/editor workers may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, gltf-validator (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/editor workers may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @ekza-studio/io, gltf-validator, @ekza-studio/mesh-core (the skin worker, M6B-SPEC \u00a72.1) (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

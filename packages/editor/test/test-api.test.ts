@@ -101,7 +101,18 @@ describe('createTestApi', () => {
       readOnly: false,
     });
     expect(api.counts()).toMatchObject({ characters: 1, clips: 1, curves: 1, keys: 3, controls: 27 });
-    expect(api.characters()).toEqual([{ id: CHARACTER, name: 'Synthetic Humanoid', format: 'vrm1' }]);
+    // M6B-SPEC §3 rule 9: characters() gains the source, the skeleton, the rig and the meshes (§4.8).
+    expect(api.characters()).toEqual([
+      {
+        id: CHARACTER,
+        name: 'Synthetic Humanoid',
+        format: 'vrm1',
+        source: 'asset',
+        skeleton: null,
+        rig: 'rig_SyntheticWave001',
+        meshes: [],
+      },
+    ]);
     const controls = api.controls();
     expect(controls).toHaveLength(27);
     expect(controls.find((c) => c.key === 'fk.lowerArm.L')).toMatchObject({ id: LOWER_ARM, side: 'L', visible: true });

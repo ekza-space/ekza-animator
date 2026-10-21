@@ -11,6 +11,13 @@ import { registerTimelinePanel } from './timeline';
 import { registerToolkitPanel } from './toolkit';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
+// M6b (M6B-SPEC §8, §0.4.7; C0 registers every MVP panel, each body is its owner's lazy chunk).
+import { registerClipLibraryPanel } from './clipLibrary';
+import { registerComponentEditorPanel } from './componentEditor';
+import { registerPaintWeightsPanel } from './paintWeights';
+import { registerQuickRigPanel } from './quickRig';
+import { registerRigToolkitPanel } from './rigToolkit';
+import { registerValidationPanel } from './validation';
 import { registerModelStartOverlays } from './viewport/modelOverlays';
 
 /**
@@ -35,6 +42,13 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerPalettePanel(registry),
     // M6a (B13): the Model start card and the Getting started card (pane overlay slots).
     registerModelStartOverlays(),
+    // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6, C6)
+    registerClipLibraryPanel(registry),
+    registerQuickRigPanel(registry),
+    registerRigToolkitPanel(registry),
+    registerValidationPanel(registry),
+    registerPaintWeightsPanel(registry),
+    registerComponentEditorPanel(registry),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();
