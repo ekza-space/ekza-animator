@@ -99,10 +99,12 @@ test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned 
   expect((await call(page, 'rigState')).testPose.controls).toBeGreaterThan(0);
   // E on a knee of the IK leg: the limb switches to FK for the test (FK FOR TEST), the shin bends, no key.
   await expect(page.getByTestId(`hud-badge-fkTest-${RIG_FRONT_PANE}`)).toHaveCount(0);
-  const shin = await call(page, 'posedPositions', body);
+  const all = Array.from({ length: 128 }, (_, i) => i);
+  const shin = await call(page, 'posedPositions', body, all);
+  expect(shin.length).toBe(128);
   const leftKnee = await jointAt(page, id('leftLowerLeg'), RIG_FRONT_PANE);
   await drag(page, leftKnee, { dx: 20, dy: 4 });
   await expect(page.getByTestId(`hud-badge-fkTest-${RIG_FRONT_PANE}`)).toHaveText('FK FOR TEST');
-  expect(await call(page, 'posedPositions', body)).not.toEqual(shin);
+  expect(await call(page, 'posedPositions', body, all)).not.toEqual(shin);
   expect(await keysHash(page)).toBe(hash);
 });
