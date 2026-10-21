@@ -138,6 +138,11 @@ function repairShapeEdited(shape: unknown, problems: string[]): unknown {
  * Cross-record repair of `JointRecord.key` (M6B-SPEC §4.1): unique among each skeleton's live joints — a missing or
  * empty key takes the sanitized name (`jointKeyStem`), and duplicates (in id order, the first keeps its key) take
  * `#n` suffixes (n = 1, 2, … skipping keys in use). Returns a new table only when something changed.
+ *
+ * Contract (M6B-C0-23): uniqueness is a cross-record rule, so local writes do not check it (the per-record write
+ * validation sees one joint). Every writer of joints (C2's skeleton operators, Quick Rig, char.fromModel) allocates keys
+ * unique among the skeleton's live joints itself, e.g. by running this function over the skeleton's joints plus the new
+ * ones before the write; a duplicate that slips through is repaired on the next load.
  */
 export function repairJointKeys(joints: Readonly<Record<string, unknown>>): {
   readonly joints: Readonly<Record<string, unknown>>;
