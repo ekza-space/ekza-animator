@@ -7,6 +7,6 @@ export const READY = {
   c4: false,
   c6: false,
   c7: false,
-  c10: false,
+  c10: true,
   c12: false,
 } as const;

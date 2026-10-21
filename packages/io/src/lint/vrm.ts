@@ -412,7 +412,7 @@ function checkDocument(document: JsonRecord, emit: Emit): VrmRuntimeReport {
     visited++;
     const parent = parents[node];
     world[node] = (parent === null || parent === undefined ? 1 : (world[parent] as number)) * (scales[node] as number);
-    const w = world[node] as number;
+    const w = world[node];
     if (!(w >= 1e-12 && w <= 1e12)) {
       emit('vrm.uniform-scale', `VRM node ${node} accumulated scale exceeds the supported range`, `/nodes/${node}`);
     }

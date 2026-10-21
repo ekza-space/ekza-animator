@@ -43,7 +43,7 @@ const META = new Set<string>(VRM_META_RULE_IDS);
 function only(bytes: Uint8Array): { code: string; message: string } {
   const all = vrmIssues(bytes);
   const issues = all.some((i) => RUNTIME.has(i.code)) ? all.filter((i) => RUNTIME.has(i.code)) : all;
-  if (issues.length !== all.length) expect(all.filter((i) => !RUNTIME.has(i.code) && !META.has(i.code))).toEqual([]);
+  expect(all.filter((i) => !RUNTIME.has(i.code) && !META.has(i.code))).toEqual([]);
   expect(codesOf(issues)).toHaveLength(1);
   return { code: issues[0]?.code ?? '', message: issues[0]?.message ?? '' };
 }

@@ -50,7 +50,7 @@ const THUMB = renderCharacterThumbnail([], new Map(), 64);
 const body = () => humanoidBody({ style: 'smooth', height: 1.7 });
 
 async function jsonOf(bytes: Uint8Array): Promise<Json> {
-  return (await parseGlb(bytes)).json as unknown as Json;
+  return (await parseGlb(bytes)).json;
 }
 
 describe('VRM 1.0 (format vrm)', () => {
@@ -278,11 +278,10 @@ describe('P-W1 read-back on the joint subset', () => {
       expect(back.tris).toBe(back.expectedTris);
       expect(back.humanoid).toBe(format === 'vrm' ? Object.keys(write.skeleton.humanoid ?? {}).length : 0);
       expect(await gltfErrors(bytes)).toEqual([]);
-      if (format === 'vrm') {
-        expect(await vrmErrors(bytes)).toEqual([]);
-        const lints = await lintExport('bake-into-model', bytes, SPACE);
-        expect(lints.filter((l) => l.code.startsWith('vrm.'))).toEqual([]);
-      }
+      // VRM: vrm-validator and the vrm.* rows of the Space profile; a plain GLB through local/generic has none.
+      expect(format === 'vrm' ? await vrmErrors(bytes) : []).toEqual([]);
+      const lints = await lintExport('bake-into-model', bytes, format === 'vrm' ? SPACE : LOCAL);
+      expect(lints.filter((l) => l.code.startsWith('vrm.'))).toEqual([]);
     }
   });
 

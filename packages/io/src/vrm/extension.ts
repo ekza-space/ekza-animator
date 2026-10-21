@@ -111,7 +111,7 @@ export class VRMCVrmExtension extends Extension {
     }
     const def: Partial<VRMCVRM> & { specVersion: string } = {
       specVersion: vrm.getSpecVersion() as VRMCVRM['specVersion'],
-      humanoid: { humanBones: humanBones as VRMCVRM['humanoid']['humanBones'] },
+      humanoid: { humanBones: humanBones },
     };
     const meta = vrm.getMeta();
     if (meta !== null) {

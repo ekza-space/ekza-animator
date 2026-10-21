@@ -46,7 +46,7 @@ export function polybotJoints(): JointRecord[] {
   const humanoid = POLYBOT_TRUTH.poses.tpose.humanoid;
   const present = new Set(Object.keys(humanoid));
   const joints: JointRecord[] = [
-    makeTestJoint('jnt_root' as JointId, 'skl_truth', {
+    makeTestJoint('jnt_root', 'skl_truth', {
       parent: null,
       order: order(0),
       name: 'root',
