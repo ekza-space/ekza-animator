@@ -88,3 +88,6 @@ export { mirrorJoints } from './mirror';
 export { moveJoints, setJointRest } from './move';
 export { autoSecondary, convertBoneAlignedRotation, frameQuat, orientJoints } from './orient';
 export { canonicalQuat, JointIndex } from './util';
+// Naming and humanoid lookups the editor's joint operators share (re-exported through this module's barrel line).
+export { sideFromName } from '../autorig/naming';
+export { humanChainChildren, mirrorHumanBone } from '../humanoid/map';

@@ -28,8 +28,10 @@ export {
   duplicateJoints,
   flexJoints,
   frameQuat,
+  humanChainChildren,
   insertJoint,
   JointIndex,
+  mirrorHumanBone,
   mirrorJoints,
   moveJoints,
   orientJoints,
@@ -38,6 +40,7 @@ export {
   reparentJoints,
   setHumanBone,
   setJointRest,
+  sideFromName,
   socketPlacement,
   splitBone,
 } from './joints';
@@ -60,6 +63,8 @@ export { convertRotateOrderKeys, convertRotateOrderKeysWith } from './pose/rotat
 export {
   FIT,
   fitTemplate,
+  frontCentreZ,
+  frontExtent,
   GUESS,
   guessMarkers,
   type JointLookup,

@@ -19,6 +19,25 @@ import {
 import { opsApp, runOk } from '../builtin/support';
 import { setFrame, W, waveApp } from '../kernel/support';
 
+/** The §0.6 ids C2 (skeleton kernel) implemented: they poll for real, never "not available yet". */
+const C2_LANDED: readonly string[] = [
+  'skel.template.create',
+  'skel.template.addMissing',
+  'skel.quickRig.center',
+  'skel.quickRig.faceForward',
+  'skel.quickRig.commit',
+  'skel.joint.move',
+  'skel.joint.rotateRest',
+  'skel.joint.setRest',
+  'skel.joint.orient',
+  'skel.joint.mirror',
+  'skel.joint.setHumanBone',
+  'skel.joint.flex',
+  'skel.symmetry.set',
+  'skel.joint.rename',
+  'select.joints',
+];
+
 /** §6 (every id) and §0.6 (the MVP ids). */
 const MVP: readonly string[] = [
   'mesh.importStatic',
@@ -159,9 +178,12 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     };
-    expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
-      MVP.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
+    // Landed operators poll for real (C2: the skeleton kernel's §0.6 ids); the others keep the stub reason.
+    const stubbed = MVP.filter((id) => !C2_LANDED.includes(id));
+    expect(stubbed.map((id) => [id, reasonOf(id)])).toEqual(
+      stubbed.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
     );
+    expect(C2_LANDED.filter((id) => reasonOf(id) === NOT_AVAILABLE_YET)).toEqual([]);
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(
       DEFERRED.map((id) => [id, ARRIVES_AFTER_MVP, true]),
     );
@@ -174,9 +196,9 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
 
   it('running a chunk id before the chunk loaded loads it and resolves cleanly', async () => {
     const app = opsApp();
-    expect(await app.runUntyped('skel.quickRig.commit', {})).toEqual({
+    expect(await app.runUntyped('skel.joint.create', {})).toEqual({
       status: 'cancelled',
-      reason: NOT_AVAILABLE_YET,
+      reason: ARRIVES_AFTER_MVP,
     });
     expect(app.rig.loaded).toBe(true);
     expect(await app.runUntyped('library.stop')).toEqual({ status: 'cancelled', reason: NOT_AVAILABLE_YET });
