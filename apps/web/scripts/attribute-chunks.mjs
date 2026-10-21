@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Chunk attribution of the editor route (M2A-SPEC §5.21.2, M-2 first deliverable): reads a production build made
-// with browser source maps (`ANIMATOR_SOURCE_MAPS=1 pnpm --filter web build`) and attributes every byte of the
+// with browser source maps (`STUDIO_SOURCE_MAPS=1 pnpm --filter web build`) and attributes every byte of the
 // route's initial scripts (`lib/route-scripts.mjs`, the definition `check:size` and the bench share) to a package
 // and a top-level module through the source maps.
 //
@@ -192,7 +192,7 @@ function main() {
   const jsonOut = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
   const top = args.includes('--top') ? Number(args[args.indexOf('--top') + 1]) : 40;
   const withLazy = args.includes('--lazy');
-  if (!existsSync(nextDir)) throw new Error('no .next: build with ANIMATOR_SOURCE_MAPS=1 first');
+  if (!existsSync(nextDir)) throw new Error('no .next: build with STUDIO_SOURCE_MAPS=1 first');
   const route = readRouteScripts(nextDir);
   const files = withLazy ? [...route.initial, ...route.lazy.flatMap((group) => group.files)] : route.initial;
   const report = attributeFiles(nextDir, route, files);

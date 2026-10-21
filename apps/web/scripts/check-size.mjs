@@ -10,7 +10,7 @@
 // M6a (M6A-SPEC §5.27; B9): the eager-delta gate — the route may grow by at most the M6a allowance (+20,480 B) over
 // the recorded M2a baseline (`size-baseline.json`; enforced once the owner has decided the allowance, a warning
 // until then); the Model workspace chunk (the lazy groups entering Model loads: kernel, mesh view, marking menu)
-// warns above 250 kB; and with source maps in the build (`ANIMATOR_SOURCE_MAPS=1`) the eager scripts' bytes are
+// warns above 250 kB; and with source maps in the build (`STUDIO_SOURCE_MAPS=1`) the eager scripts' bytes are
 // attributed to packages (the chunk attribution report, `attribute-chunks.mjs`).
 //
 // Usage: node scripts/check-size.mjs [--next <dir>] [--json <file>] [--baseline <file>]
@@ -239,7 +239,7 @@ function print(report) {
       `${bytes(report.modelChunk.bytes)} (warning above ${bytes(report.modelChunk.warnBytes)})`,
   );
   if (report.attribution === null) {
-    out('chunk attribution: build with ANIMATOR_SOURCE_MAPS=1 for the per-package report of the eager scripts');
+    out('chunk attribution: build with STUDIO_SOURCE_MAPS=1 for the per-package report of the eager scripts');
   } else {
     out(
       `chunk attribution of the eager scripts (gzip -9${report.attribution.unmappedChunks > 0 ? `; ${report.attribution.unmappedChunks} chunks without a map` : ''}):`,

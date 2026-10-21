@@ -3,13 +3,17 @@ import type { NextConfig } from 'next';
 /** `PHASE_DEVELOPMENT_SERVER` of `next/constants` (config files may import only `next` itself). */
 const PHASE_DEVELOPMENT_SERVER = 'phase-development-server';
 
-/** `ANIMATOR_STATIC_EXPORT=1` builds a static, server-less editor (GitHub Pages, IPFS, intranet). */
-const staticExport = process.env.ANIMATOR_STATIC_EXPORT === '1';
+/** Reads a `STUDIO_*` switch, also accepting its pre-rename `ANIMATOR_*` name (Ekza Animator → Ekza Studio). */
+const envFlag = (name: string): boolean =>
+  process.env[`STUDIO_${name}`] === '1' || process.env[`ANIMATOR_${name}`] === '1';
+
+/** `STUDIO_STATIC_EXPORT=1` builds a static, server-less editor (GitHub Pages, IPFS, intranet). */
+const staticExport = envFlag('STATIC_EXPORT');
 /**
- * `ANIMATOR_SOURCE_MAPS=1` writes browser source maps next to the client chunks: `pnpm --filter web size:attribute`
+ * `STUDIO_SOURCE_MAPS=1` writes browser source maps next to the client chunks: `pnpm --filter web size:attribute`
  * reads them for the chunk attribution report (M2A-SPEC §5.21.2). Never set for a deployed build.
  */
-const browserSourceMaps = process.env.ANIMATOR_SOURCE_MAPS === '1';
+const browserSourceMaps = envFlag('SOURCE_MAPS');
 
 const PAGE_EXTENSIONS = ['tsx', 'ts', 'jsx', 'js'];
 /**
