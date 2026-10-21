@@ -278,6 +278,8 @@ describe('the preview channel source (§0.5 C0 hook)', () => {
     const app = waveApp();
     // The test pose service is the rig-workspace chunk's (§0.4.9): it exists once the chunk is loaded.
     expect(() => app.rig.testPose).toThrow(/app\.rig\.load/);
+    // Prototype getters: enumerating `app.rig` (React's dev-mode prop logging, a spread) reads none of them.
+    expect(() => ({ ...app.rig })).not.toThrow();
     await app.rig.load();
     app.evaluation.setChannelSource(W.character, 'bind');
     app.evaluation.tick();

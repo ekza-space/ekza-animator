@@ -37,7 +37,7 @@ const beforeRunListeners = new WeakMap<OperatorRegistry, Set<BeforeDocumentRun>>
  * order; a throwing listener never stops the run (its error is reported and the next listener runs).
  */
 export function beforeDocumentRun(registry: OperatorRegistry, id: string): void {
-  for (const listener of [...(beforeRunListeners.get(registry) ?? [])]) {
+  for (const listener of Array.from(beforeRunListeners.get(registry) ?? [])) {
     try {
       listener(id as OperatorId);
     } catch (error) {
