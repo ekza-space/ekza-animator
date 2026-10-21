@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { cubeLadGlbPoints, cubeLadPoints, buildCubeLad } from './helpers/m6b-cube-lad';
 import { enterRig, expectRefused } from './helpers/m6b-rig';
-import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, run } from './helpers/test-api';
 
 // E2E-M6B-00 (M6B-SPEC §0.7, §9.0 C0): the Rig & Skin tab is enabled, the rig-workspace and clip-library chunks load
 // on demand (never with the route), the MVP operators are listed in the palette and deferred ids are absent from the
@@ -102,7 +102,9 @@ test('the palette lists the MVP operators in Rig & Skin; deferred ids are in no 
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('cmdk')).toBeHidden();
   // The menu bar's labels never show a deferred operator.
+  // (C0 lands no rig menu items; C7's Skeleton and Skin menus extend this check.)
   const menubar = (await page.getByRole('menubar').textContent()) ?? '';
+  expect(menubar).toContain('File');
   for (const label of ['Constrain', 'Control']) expect(menubar).not.toContain(label);
 });
 
@@ -111,7 +113,12 @@ test('the Clip Library is a Windows item of Animate and opens its panel; no badg
 }) => {
   await openEditor(page);
   await expectKernelStarted(page);
-  await runOk(page, 'workspace.showPanel', { panel: 'clipLibrary' });
+  expect((await call(page, 'state')).workspace).toBe('animate');
+  // Windows › Clip Library (derived from the ANIMATE_SLOTS entry) opens the panel.
+  await page.getByTestId('menu-windows').click();
+  const item = page.getByTestId('menu-item-shell.windows.panel.clipLibrary');
+  await expect(item).toHaveText(/Clip Library/);
+  await item.click();
   await expect(page.getByTestId('clip-library-panel')).toBeVisible();
   await expect(page.locator('[data-testid^="hud-badge-"]')).toHaveCount(0);
 });

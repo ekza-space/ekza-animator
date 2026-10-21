@@ -100,12 +100,12 @@ describe('the eager-delta gate (§5.27)', () => {
     const enforced = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: true }) });
     expect(enforced.ok).toBe(false);
     expect(enforced.problems).toEqual([
-      `M6a eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
+      `M6b MVP eager delta +100 B over the ${(measured - 100).toLocaleString('en')} B baseline > allowance +50 B (limit ${(measured - 50).toLocaleString('en')} B)`,
     ]);
     const pending = checkSize(build, { baseline: baseline({ total: measured - 100, allowance: 50, enforce: false }) });
     expect(pending.ok).toBe(true);
     expect(pending.warnings).toEqual([
-      expect.stringMatching(/^M6a eager delta \+100 B .* not enforced: owner decision pending$/),
+      expect.stringMatching(/^M6b MVP eager delta \+100 B .* not enforced: owner decision pending$/),
     ]);
     const within = checkSize(build, { baseline: baseline({ total: measured - 40, allowance: 50, enforce: true }) });
     expect(within.ok).toBe(true);

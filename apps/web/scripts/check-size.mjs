@@ -180,7 +180,7 @@ export function checkSize(nextDir, opts = {}) {
   const delta = eagerDelta(total, baseline, route.e2eBuild);
   if (delta !== null && delta.over && delta.comparable) {
     const text =
-      `M6a eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
+      `M6b MVP eager delta +${delta.delta.toLocaleString('en')} B over the ${delta.baseline.toLocaleString('en')} B ` +
       `baseline > allowance +${delta.allowance.toLocaleString('en')} B (limit ${delta.limit.toLocaleString('en')} B)`;
     if (delta.enforced) problems.push(text);
     else warnings.push(`${text}; not enforced: ${delta.pending ?? 'the baseline file does not enforce it'}`);
@@ -254,7 +254,7 @@ function print(report) {
   const delta = report.eagerDelta;
   if (delta !== null) {
     out(
-      `M6a eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
+      `M6b MVP eager delta: ${delta.delta >= 0 ? '+' : ''}${bytes(delta.delta)} over the baseline ${bytes(delta.baseline)} ` +
         `(allowance +${bytes(delta.allowance)}, limit ${bytes(delta.limit)}; ` +
         `${delta.comparable ? (delta.enforced ? 'enforced' : 'not enforced yet') : 'e2e build: not compared'})`,
     );
