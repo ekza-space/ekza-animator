@@ -16,15 +16,17 @@ afterEach(() => {
   c = null;
 });
 
-/** The arm box of skinned.test.ts: x ≤ 0 on bone 0, the rest on bone 1; one unweighted point when asked. */
-function arm(unweighted = false) {
+/** The arm box of skinned.test.ts: x ≤ 0 on bone 0, the rest on bone 1; the end points (x > 0.49) unweighted, or
+ *  with Σ = 0.5 (an import's problem points), when asked. */
+function arm(unweighted: boolean | 'sum' = false) {
   const d = derived(primitive('cube', { width: 1, height: 0.2, depth: 0.2, subdivisionsWidth: 4 }));
   const P = d.data.counts.points;
   const joints = new Uint16Array(4 * P);
   const weights = new Float32Array(4 * P);
   for (let p = 0; p < P; p++) {
     joints[4 * p] = (d.data.position[3 * p] as number) > 1e-6 ? 1 : 0;
-    weights[4 * p] = unweighted && (d.data.position[3 * p] as number) > 0.49 ? 0 : 1;
+    const end = (d.data.position[3 * p] as number) > 0.49;
+    weights[4 * p] = end && unweighted === 'sum' ? 0.5 : end && unweighted === true ? 0 : 1;
   }
   const skin: SkinWeights = {
     points: P,
@@ -62,7 +64,7 @@ function uploads(gl: WebGL2RenderingContext, fn: () => void): number {
   return bytes;
 }
 
-function setup(unweighted = false) {
+function setup(unweighted: boolean | 'sum' = false) {
   const { d, skin } = arm(unweighted);
   const view = new SkinnedSurface({ theme: THEME, layers: LAYERS });
   views.push(view);
@@ -124,5 +126,18 @@ describe('WeightDisplay', () => {
     expect(display.state.visible).toBe(false);
     display.set('greyscale', 1);
     expect(display.state).toEqual({ mode: 'greyscale', active: 1, visible: true });
+  });
+
+  it('problem points (|Σ − 1| > 1e-6) get a --lint-error dot; normal points keep the weight colour', () => {
+    const { display, camera, canvas: cv } = setup('sum');
+    display.set('greyscale', 1);
+    cv.render(camera);
+    // Near the Σ = 0.5 end points: the lint colour (red over blue), not a grey of 0.5.
+    const dot = cv.pixel(...screen(camera, [0.497, 0, 0], 400, 300));
+    expect((dot[0] as number) - (dot[2] as number)).toBeGreaterThan(60);
+    // Halfway to the next column (x 0.375): the plain weight colour (white, w = 1 there and 0.5 at the end).
+    const plain = cv.pixel(...screen(camera, [0.3, 0, 0], 400, 300));
+    expect(Math.abs((plain[0] as number) - (plain[2] as number))).toBeLessThan(10);
+    expect(DEFAULT_WEIGHT_COLORS.lintError).toBe(0xef6b6b);
   });
 });

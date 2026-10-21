@@ -1,7 +1,9 @@
 // The weight display of a bound mesh in Skin mode (M6B-SPEC §5.12, §8.3; C6): greyscale (`--weight-0` black →
 // `--weight-1` white, Maya's colour feedback), a colour-blind-safe ramp (`--weight-ramp-0…4`) or influence colours
 // (each joint its golden-angle hue, the vertex colour `Σ w_i·c_i`), with the clay light rig's shading; unweighted points
-// read `--danger`.
+// read `--danger`; problem points (`|Σ − 1| > 1e-6`, imports) get a `--lint-error` dot (the faces around the point,
+// within a fifth of the way to their other corners; > 4 influences cannot reach the GPU's four slots, so the skin's
+// own check reports those).
 //
 // It is a second draw of the `SkinnedSurface`'s geometry (the posed positions and the `skinIndex`/`skinWeight`
 // attributes C1 uploads per corner) with its own material, added to the surface's root just in front of it. The shader
@@ -19,6 +21,8 @@ export interface WeightDisplayColors {
   readonly weight1: number;
   readonly ramp: readonly [number, number, number, number, number];
   readonly danger: number;
+  /** `--lint-error`: the problem-point dot (defaults to the token when absent). */
+  readonly lintError?: number;
 }
 
 export const DEFAULT_WEIGHT_COLORS: WeightDisplayColors = {
@@ -26,7 +30,10 @@ export const DEFAULT_WEIGHT_COLORS: WeightDisplayColors = {
   weight1: 0xffffff,
   ramp: [0x2d1b4e, 0x6a2c70, 0xc2410c, 0xf59e0b, 0xfde68a],
   danger: 0xef6b6b,
+  lintError: 0xef6b6b,
 };
+
+const DEFAULT_LINT_ERROR = 0xef6b6b;
 
 /** Bones the influence-colour table holds (VRM humanoids have ≤ 64 mapped bones; generic rigs share colours). */
 export const MAX_DISPLAY_BONES = 128;
@@ -44,6 +51,7 @@ uniform vec3 uBones[${MAX_DISPLAY_BONES}];
 varying vec3 vNormal;
 varying float vWeight;
 varying float vTotal;
+varying float vProblem;
 varying vec3 vInfluence;
 vec3 boneColor(float index) {
   int i = int(index + 0.5);
@@ -53,6 +61,7 @@ void main() {
   vNormal = normalize(normalMatrix * normal);
   vWeight = dot(skinWeight, vec4(equal(skinIndex, vec4(uActive))));
   vTotal = skinWeight.x + skinWeight.y + skinWeight.z + skinWeight.w;
+  vProblem = vTotal > 0.0 && abs(vTotal - 1.0) > 1e-6 ? 1.0 : 0.0;
   vInfluence = skinWeight.x * boneColor(skinIndex.x) + skinWeight.y * boneColor(skinIndex.y)
     + skinWeight.z * boneColor(skinIndex.z) + skinWeight.w * boneColor(skinIndex.w);
   vec4 view = modelViewMatrix * vec4(position, 1.0);
@@ -66,9 +75,11 @@ uniform vec3 uWeight0;
 uniform vec3 uWeight1;
 uniform vec3 uRamp[5];
 uniform vec3 uDanger;
+uniform vec3 uLintError;
 varying vec3 vNormal;
 varying float vWeight;
 varying float vTotal;
+varying float vProblem;
 varying vec3 vInfluence;
 vec3 ramp(float w) {
   float x = clamp(w, 0.0, 1.0) * 4.0;
@@ -84,7 +95,8 @@ void main() {
   float fill = max(dot(n, normalize(${v3(LIGHT_RIG.fillDir)})), 0.0);
   float light = 0.62 + 0.3 * key + 0.08 * fill;
   vec3 base;
-  if (vTotal < 0.5) base = uDanger;
+  if (vProblem > 0.8) base = uLintError;
+  else if (vTotal < 0.5) base = uDanger;
   else if (uMode == 1) base = ramp(vWeight);
   else if (uMode == 2) base = vInfluence;
   else base = mix(uWeight0, uWeight1, clamp(vWeight, 0.0, 1.0));
@@ -124,6 +136,7 @@ export class WeightDisplay {
       uWeight1: { value: new Color(colors.weight1) },
       uRamp: { value: colors.ramp.map((c) => new Color(c)) },
       uDanger: { value: new Color(colors.danger) },
+      uLintError: { value: new Color(colors.lintError ?? DEFAULT_LINT_ERROR) },
     };
     this.material = new ShaderMaterial({
       uniforms: this.uniforms,
