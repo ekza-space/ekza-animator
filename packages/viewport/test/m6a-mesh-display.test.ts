@@ -339,6 +339,9 @@ function putPalette(app: EditorApp, id: string, srgb: readonly [number, number, 
       srgb: [srgb[0], srgb[1], srgb[2]],
       kind: 'flat',
       ramp: null,
+      shader: 'lambert',
+      glossiness: 0.5,
+      specular: [255, 255, 255],
       deleted: null,
     });
   });
@@ -420,6 +423,9 @@ describe('viewport mesh display', () => {
         srgb: [255, 0, 0],
         kind: 'flat',
         ramp: null,
+        shader: 'lambert',
+        glossiness: 0.5,
+        specular: [255, 255, 255],
         deleted: null,
       });
     });
@@ -799,6 +805,9 @@ describe('viewport mesh display', () => {
         srgb: [255, 0, 0],
         kind: 'flat',
         ramp: null,
+        shader: 'lambert',
+        glossiness: 0.5,
+        specular: [255, 255, 255],
         deleted: null,
       });
     });

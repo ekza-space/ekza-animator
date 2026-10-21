@@ -66,7 +66,10 @@ describe('emptySnapshot', () => {
     expect(snapshot.schemaVersion).toBe(SCHEMA_VERSION);
     expect(Object.keys(snapshot.tables).sort()).toEqual([...BUILTIN_TABLES].sort());
     expect(snapshot.tables.project.project?.name).toBe('Shot 1');
-    expect(Object.values(snapshot.tableVersions).every((v) => v === 1)).toBe(true);
+    // SHADING-SPEC §2: swatches at table version 2, every other built-in table at 1.
+    for (const [table, version] of Object.entries(snapshot.tableVersions)) {
+      expect(version).toBe(table === 'swatches' ? 2 : 1);
+    }
     const store = createMemoryStore();
     store.load(snapshot);
     expect(store.snapshot()).toEqual(snapshot);

@@ -6,7 +6,7 @@ import { BUILTIN_TABLES } from '../records';
 import { makeProject } from '../records/factories';
 import type { DocSnapshot, SnapshotTables } from '../store';
 import { compareStrings } from '../store/diff';
-import { BUILTIN_TABLE_VERSION } from '../tables/registry';
+import { builtinTableVersion } from '../tables/registry';
 import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from './version';
 
 export { SCHEMA_VERSION } from './version';
@@ -21,7 +21,7 @@ export function emptySnapshot(projectName?: string): DocSnapshot {
   const tableVersions: Record<string, number> = {};
   for (const name of [...BUILTIN_TABLES].sort(compareStrings)) {
     tables[name] = {};
-    tableVersions[name] = BUILTIN_TABLE_VERSION;
+    tableVersions[name] = builtinTableVersion(name);
   }
   tables['project'] = { project };
   return {

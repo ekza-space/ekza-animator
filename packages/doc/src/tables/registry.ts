@@ -14,6 +14,7 @@ import {
   type TableDef,
   type TableName,
 } from '../records';
+import { repairSwatchShader } from '../records/repair';
 import { validateBuiltin } from '../records/validate';
 import type { RigId, SkeletonId } from '../ids';
 
@@ -30,8 +31,29 @@ const SCOPE_FIELD: Readonly<Record<string, string>> = {
   solvers: 'rig',
   joints: 'skeleton',
 };
-/** Version of every built-in table in this build (SCHEMA_VERSION 1 baseline: no migrations yet). */
+/** Version of a built-in table without migrations (SCHEMA_VERSION 1 baseline). */
 export const BUILTIN_TABLE_VERSION = 1;
+
+/**
+ * Per-table migrations of the built-in tables (`TableDef.migrations`: index i migrates version i+1 → i+2); a table's
+ * version is 1 + its migration count. `swatches` 1 → 2 (SHADING-SPEC §2, ADR 0019): every swatch gets its shader
+ * fields (`shader` 'lambert', `glossiness` 0.5, `specular` white) when they are missing; pure and idempotent.
+ */
+const BUILTIN_MIGRATIONS: Readonly<Partial<Record<BuiltinTableName, readonly ((record: unknown) => unknown)[]>>> = {
+  swatches: [
+    (record) => {
+      if (typeof record !== 'object' || record === null || Array.isArray(record)) return record;
+      const row = record as Readonly<Record<string, unknown>>;
+      const patch = repairSwatchShader(row);
+      return Object.keys(patch).length === 0 ? record : { ...row, ...patch };
+    },
+  ],
+};
+
+/** The version of a built-in table in this build (`DocSnapshot.tableVersions`). */
+export function builtinTableVersion(name: BuiltinTableName): number {
+  return BUILTIN_TABLE_VERSION + (BUILTIN_MIGRATIONS[name]?.length ?? 0);
+}
 
 function field(record: { readonly id: string }, name: string): string {
   return String((record as Readonly<Record<string, unknown>>)[name]);
@@ -100,12 +122,12 @@ function builtinPartition(
 function builtinDef(name: BuiltinTableName): TableDef {
   return {
     name,
-    version: BUILTIN_TABLE_VERSION,
+    version: builtinTableVersion(name),
     mergeUnit: MERGE_UNIT[name],
     softDelete: name !== 'project' && name !== 'assets' && name !== 'keys',
     partition: (record, lookup) => builtinPartition(name, record, lookup),
     validate: (record) => validateBuiltin(name, record),
-    migrations: [],
+    migrations: BUILTIN_MIGRATIONS[name] ?? [],
   };
 }
 

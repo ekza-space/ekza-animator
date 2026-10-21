@@ -130,9 +130,10 @@ describe('table definitions and partitions', () => {
     for (const table of BUILTIN_TABLES) {
       const def = getTableDef(table);
       expect(def?.name).toBe(table);
-      expect(def?.version).toBe(1);
+      // SHADING-SPEC §2: swatches are at table version 2 (one migration); every other built-in table at 1.
+      expect(def?.version).toBe(table === 'swatches' ? 2 : 1);
       expect(def?.mergeUnit).toBe(MERGE_UNIT[table]);
-      expect(def?.migrations).toEqual([]);
+      expect(def?.migrations).toHaveLength(table === 'swatches' ? 1 : 0);
       expect(isSoftDeletable(table)).toBe(!['project', 'assets', 'keys'].includes(table));
     }
     expect(getTableDef('vendor.unknown')).toBeUndefined();

@@ -10,7 +10,9 @@ import {
   MESH_NAME_MAX,
   PRIMITIVE_KINDS,
   SKELETON_PRESETS,
+  SWATCH_SHADERS,
 } from './validate';
+import { SWATCH_SHADER_DEFAULTS } from '../records';
 
 type Obj = Readonly<Record<string, unknown>>;
 const isObj = (value: unknown): value is Obj => typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -99,6 +101,48 @@ function repairMeshOrGroup(table: 'meshes' | 'groups', record: Obj, problems: st
   return next;
 }
 
+/** A three-integer 0…255 triple, or null when `value` already is one (missing items become `fill`). */
+function repairByteTriple(value: unknown, fill: number): number[] | null {
+  const items: readonly unknown[] = Array.isArray(value) ? value : [];
+  const fixed = [0, 1, 2].map((i) => {
+    const v = items[i];
+    return finite(v) ? clamp(Math.round(v), 0, 255) : fill;
+  });
+  return items.length !== 3 || fixed.some((v, i) => v !== items[i]) ? fixed : null;
+}
+
+/**
+ * The shader fields of a swatch (SHADING-SPEC §2; swatches table version 2): the patch that repairs them, empty when
+ * they are fine. Missing fields take `SWATCH_SHADER_DEFAULTS` (the v1 → v2 migration is this repair); an unknown
+ * shader becomes 'lambert'; a glossiness is clamped into 0…1 (0.5 when not a finite number); a malformed specular
+ * becomes white, a well-formed one is clamped and rounded.
+ */
+export function repairSwatchShader(record: Obj, problems: string[] = []): Record<string, unknown> {
+  const patch: Record<string, unknown> = {};
+  if (!(SWATCH_SHADERS as readonly unknown[]).includes(record['shader'])) {
+    problems.push(`shader: ${'shader' in record ? 'unknown' : 'missing'}, set to '${SWATCH_SHADER_DEFAULTS.shader}'`);
+    patch['shader'] = SWATCH_SHADER_DEFAULTS.shader;
+  }
+  const glossiness = record['glossiness'];
+  const gloss = finite(glossiness) ? clamp(glossiness, 0, 1) : SWATCH_SHADER_DEFAULTS.glossiness;
+  if (gloss !== glossiness) {
+    problems.push('glossiness: clamped into 0…1');
+    patch['glossiness'] = gloss;
+  }
+  const specular = record['specular'];
+  if (!Array.isArray(specular) || specular.length !== 3) {
+    problems.push('specular: missing or malformed, set to white');
+    patch['specular'] = [...SWATCH_SHADER_DEFAULTS.specular];
+  } else {
+    const fixed = repairByteTriple(specular, 255);
+    if (fixed !== null) {
+      problems.push('specular: clamped and rounded to three integers 0…255');
+      patch['specular'] = fixed;
+    }
+  }
+  return patch;
+}
+
 /**
  * Per-record repairs of the M6A-SPEC §4.2 rules table (and the v3 fields of characters and assets). Unknown tables and
  * records that need no repair come back unchanged (`===`). Problems a repair cannot fix (a wrong type with no
@@ -135,16 +179,14 @@ export function repairRecord(table: string, record: unknown): RepairResult {
       }
       break;
     case 'swatches': {
-      const srgb = record['srgb'];
-      const items: readonly unknown[] = Array.isArray(srgb) ? srgb : [];
-      const fixed = [0, 1, 2].map((i) => {
-        const v = items[i];
-        return finite(v) ? clamp(Math.round(v), 0, 255) : 0;
-      });
-      if (items.length !== 3 || fixed.some((v, i) => v !== items[i])) {
+      const patch: Record<string, unknown> = {};
+      const srgb = repairByteTriple(record['srgb'], 0);
+      if (srgb !== null) {
         problems.push('srgb: clamped and rounded to three integers 0…255');
-        next = { ...record, srgb: fixed };
+        patch['srgb'] = srgb;
       }
+      Object.assign(patch, repairSwatchShader(record, problems));
+      if (Object.keys(patch).length > 0) next = { ...record, ...patch };
       break;
     }
     case 'imagePlanes': {

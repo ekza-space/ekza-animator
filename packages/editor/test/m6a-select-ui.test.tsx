@@ -297,6 +297,9 @@ describe('Mesh Check (§5.25)', () => {
       srgb: [128, 128, 128],
       kind: 'flat',
       ramp: null,
+      shader: 'lambert',
+      glossiness: 0.5,
+      specular: [255, 255, 255],
       deleted: null,
     });
     app.store.transact({ label: 'Palette' }, (tx) => {
