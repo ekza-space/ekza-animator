@@ -21,7 +21,9 @@ export function ViewportPanel({ app }: PanelProps): JSX.Element {
   // M6a (B13): Model's empty scene shows the Model start card (a pane overlay) instead of the drop zone, whose card
   // would sit over the meshes being modeled and take their clicks.
   const model = useSession((s) => s.workspace === 'model');
-  const empty = useDocQuery(hasNoCharacters, ['characters']) && !model;
+  // M6b (C7): Rig & Skin draws its own empty state (a pane overlay) over the meshes being rigged, so no drop zone.
+  const rig = useSession((s) => s.workspace === 'rig');
+  const empty = useDocQuery(hasNoCharacters, ['characters']) && !model && !rig;
   const panes = LAYOUT_PANES[layout] ?? LAYOUT_PANES.split;
   // M2a §5.18: the e2e switch `pointerLock=off` makes the viewport's virtual slider use pointer capture.
   const pointerLock = useOptionalShell()?.params.pointerLock ?? true;
@@ -66,6 +68,25 @@ function PaneGrid(props: {
         <Splitter />
         <Panel id={`vp-${b}`} minSize="120px">
           {pane(b)}
+        </Panel>
+      </Group>
+    );
+  }
+  if (panes.length === 3) {
+    // M6b (C7): R-Markers `front │ side │ persp`, 40/30/30 (M6B-SPEC §0.4.2).
+    const [a, b, c] = panes as readonly [string, string, string];
+    return (
+      <Group orientation="horizontal" className="flex-1" id="ekza-viewport-triple">
+        <Panel id={`vp-${a}`} minSize="120px" defaultSize="40">
+          {pane(a)}
+        </Panel>
+        <Splitter />
+        <Panel id={`vp-${b}`} minSize="120px" defaultSize="30">
+          {pane(b)}
+        </Panel>
+        <Splitter />
+        <Panel id={`vp-${c}`} minSize="120px" defaultSize="30">
+          {pane(c)}
         </Panel>
       </Group>
     );

@@ -1,5 +1,5 @@
 {
-  "description": "M6B-SPEC §0.4.9 (Q-MVP-14): the /editor first-visit route measured on dev before M6b's C0 (production build, gzip -9, the check:size measure) and the MVP eager allowance over it. C0 records it as its first commit so its own delta counts; C7 turns the gate on. The M6a record it replaces is kept under `previous`.",
+  "description": "M6B-SPEC §0.4.9 (Q-MVP-14): the /editor first-visit route measured on dev before M6b's C0 (production build, gzip -9, the check:size measure) and the MVP eager allowance over it. C0 recorded it as its first commit so its own delta counts; C7 (rig-shell) turned the gate on. The M6a record it replaces is kept under `previous`.",
   "baseline": {
     "label": "dev before M6b C0 (m6b/mvp 906520c, code = dev 6f9fab9)",
     "total": 889569,
@@ -7,9 +7,14 @@
   },
   "eagerDelta": {
     "allowance": 6144,
-    "enforce": false,
-    "pending": "M6B-SPEC §0.4.9: the MVP eager gate (+6,144 B over this baseline) is C7's (rig-shell) to enforce; per-package allowances C0 2,048 B, C7 2,560 B, C12 1,024 B, C1 512 B, every other package 0 B.",
-    "packages": { "c0": 2048, "c7": 2560, "c12": 1024, "c1": 512 }
+    "enforce": true,
+    "gate": "M6B-SPEC §0.4.9: the MVP eager additions over this baseline are at most +6,144 B (enforced by C7). Per-package allowances (measured by each package at its merge, recorded in its wp-notes): C0 2,048 B, C7 2,560 B, C12 1,024 B, C1 512 B, every other package 0 B.",
+    "packages": {
+      "c0": 2048,
+      "c7": 2560,
+      "c12": 1024,
+      "c1": 512
+    }
   },
   "modelChunk": {
     "warnBytes": 250000,

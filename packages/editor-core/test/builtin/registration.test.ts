@@ -11,6 +11,7 @@ import {
   loadModelOperators,
   MODEL_MENU_ITEMS,
   MAYA_KEYMAP,
+  RIG_SHADOW_KEYMAP,
   registerBuiltinOperators,
   registerBuiltins,
 } from '../../src';
@@ -367,7 +368,8 @@ describe('registerBuiltins', () => {
     expect(app.exporters.list().map((def) => def.id)).toEqual(['bake-into-model', 'animation-glb', 'vrma']);
     expect(app.exportProfiles.list().map((def) => def.id)).toEqual(BUILTIN_EXPORT_PROFILES.map((def) => def.id));
     expect(app.menus.list()).toHaveLength(ALL_MENU_ITEMS.length);
-    expect(app.keymap.bindings().length).toBe(before + MAYA_KEYMAP.length);
+    // M6b C7 (M6B-C7-15): the Rig & Skin shadow rows come with the preset.
+    expect(app.keymap.bindings().length).toBe(before + MAYA_KEYMAP.length + RIG_SHADOW_KEYMAP.length);
     dispose();
     expect(app.operators.list()).toEqual([]);
     expect(app.importers.list()).toEqual([]);

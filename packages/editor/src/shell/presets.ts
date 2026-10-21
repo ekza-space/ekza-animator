@@ -84,7 +84,7 @@ export const presetsStorageKey = (workspace: string): string =>
   `ekza-animator:presets:v${PRESETS_SCHEMA_VERSION}:${workspace}`;
 export const PRESET_NAME_MAX = 60;
 
-const VIEWPORT_LAYOUTS: ReadonlySet<string> = new Set(['single', 'split', 'quad']);
+const VIEWPORT_LAYOUTS: ReadonlySet<string> = new Set(['single', 'split', 'quad', 'rig-side', 'rig-markers']);
 
 /** Why `name` cannot name a preset, or null. */
 export function presetNameProblem(name: unknown): string | null {

@@ -10,6 +10,7 @@ import type {
   PollResult,
   RunContext,
 } from '../types';
+import { rigRunRefusal } from '../evaluation/rigSource';
 
 export type AnyOperatorDef = OperatorDef<unknown, unknown, unknown>;
 
@@ -78,6 +79,9 @@ export function createOperatorRegistry(app: () => EditorApp): OperatorRegistry {
     poll(id: string, ctx?: RunContext, args?: unknown): PollResult {
       const def = operators.get(id);
       if (def === undefined) return { ok: false, reason: unknownOperator(id) };
+      // M6b C7 (§5.17, §5.24): what the runner refuses in Rig & Skin; menus, the palette and the Channel Box show it.
+      const refused = rigRunRefusal(app(), def);
+      if (refused !== null) return { ok: false, reason: refused };
       try {
         return def.poll?.(operatorContext(app(), ctx), args) ?? true;
       } catch (error) {

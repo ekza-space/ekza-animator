@@ -9,6 +9,7 @@ import {
   type MenuItemDef,
   type OperatorResult,
   parseNumericInput,
+  rigKeyingRefusal,
   type RunContext,
 } from '@ekza-studio/editor-core';
 import { createStore, type StoreApi } from 'zustand/vanilla';
@@ -224,6 +225,7 @@ export function paletteEntries(app: EditorApp, ctx: RunContext): PaletteEntry[] 
   const items: readonly MenuItemDef[] = app.menus.list();
   for (const item of items) {
     if (!visibleIn(item.workspaces, workspace)) continue;
+    if (rigKeyingRefusal(app, item.op) !== null) continue; // M6b C7 (§5.17): no keying entries in Rig & Skin
     if (item.modes !== undefined && !item.modes.includes(session.model.componentMode)) continue;
     if (item.menu.endsWith('.context')) continue;
     if (item.args === undefined) continue;
@@ -245,7 +247,7 @@ export function paletteEntries(app: EditorApp, ctx: RunContext): PaletteEntry[] 
   // Every other operator visible in this workspace.
   for (const def of app.operators.list()) {
     if (def.flags?.internal === true || variants.has(def.id)) continue;
-    if (!visibleIn(def.workspaces, workspace)) continue;
+    if (!visibleIn(def.workspaces, workspace) || rigKeyingRefusal(app, def.id) !== null) continue;
     add({
       key: def.id,
       op: def.id,

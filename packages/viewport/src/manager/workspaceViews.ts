@@ -61,10 +61,20 @@ const MODEL_CAMERAS: Readonly<Record<string, PaneCamera>> = {
   'pane-right': VIEW('persp'),
 };
 
+/** Rig & Skin's pane display (M6B-SPEC §4.6, §8.3; C7): the joints overlay with x-ray, axes on the selection and
+ *  labels on hover; meshes lit with their wire hidden; controls shown (Object mode poses them for tests). */
+export const RIG_DISPLAY: DisplayFlags = {
+  ...DEFAULT_DISPLAY,
+  joints: true,
+  xrayJoints: true,
+  jointAxes: 'selected',
+  jointLabels: 'hover',
+  constraintLines: true,
+};
+
 /** The display a pane starts with in a workspace. */
 export function defaultDisplayOf(workspace: string): DisplayFlags {
-  // M6b: Rig & Skin starts from DEFAULT_DISPLAY until C7 lands its per-mode display (joints overlay, x-ray, axes).
-  return workspace === 'model' ? MODEL_DISPLAY : DEFAULT_DISPLAY;
+  return workspace === 'model' ? MODEL_DISPLAY : workspace === 'rig' ? RIG_DISPLAY : DEFAULT_DISPLAY;
 }
 
 /** The camera a pane looks through in a workspace until the user picks another one. */

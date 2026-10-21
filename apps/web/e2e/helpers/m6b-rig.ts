@@ -5,10 +5,13 @@ import { expect, type Page } from '@playwright/test';
 import { createPrimitive, enterModel, type ScreenPoint } from './m6a-model';
 import { call, openEditor, run, runOk } from './test-api';
 
-/** Rig & Skin's front pane in the MVP layouts (R-Side `front │ persp`, R-Markers `front │ side │ persp`). */
-export const RIG_FRONT_PANE = 'pane-left';
+/** Rig & Skin's front pane in the MVP layouts (R-Side `front │ persp`, R-Markers `front │ side │ persp`; C7: the
+ *  layouts' own pane ids, as §10 names them). */
+export const RIG_FRONT_PANE = 'pane-front';
+/** Rig & Skin's side pane (R-Markers). */
+export const RIG_SIDE_PANE = 'pane-side';
 /** Rig & Skin's perspective pane. */
-export const RIG_PERSP_PANE = 'pane-right';
+export const RIG_PERSP_PANE = 'pane-persp';
 
 /** Switches to Rig & Skin through `workspace.set` (the tab's operator; it loads the rig-workspace chunk first). */
 export async function enterRig(page: Page): Promise<void> {

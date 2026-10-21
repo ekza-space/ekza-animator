@@ -14,6 +14,7 @@
 import { coerceArgs, EkzaError } from '@ekza-studio/anim-core';
 import type { DocumentStore } from '@ekza-studio/doc';
 import { bindCapture } from '../edit/capture';
+import { rigRunRefusal } from '../evaluation/rigSource';
 import type { CaptureOutcome, DocCapture } from '../history/capture';
 import type { KernelHistory } from '../history/history';
 import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
@@ -210,6 +211,10 @@ export function createOperatorRunner(deps: {
     let applied = false;
     try {
       const args = coerceRunArgs(app, def, rawArgs, ctx);
+      // M6b C7 (§5.17, §5.24): keying and curve edits are refused in Rig & Skin, whichever surface runs them (and
+      // every document edit while the window is narrower than 1024 px).
+      const refused = rigRunRefusal(app, def);
+      if (refused !== null) return cancelled(refused);
       const first = def.poll?.(opCtx, args) ?? true;
       if (first !== true) return cancelled(first.reason);
       // M6a (§5.8; B12b): the extrude session ends at the start of the gesture that ends it, before it reads the mesh.
