@@ -134,6 +134,15 @@ const DEFERRED: readonly string[] = [
   'rig.shape.cvMode',
 ];
 
+/** MVP operators their owners have landed: their real poll on the wave fixture (no args, nothing selected). */
+const LANDED: Readonly<Record<string, string>> = {
+  // C1 (character runtime)
+  'mesh.importStatic': 'expects { bytes, name }',
+  'char.fromModel': 'Select the meshes of the character first',
+  'char.adopt': 'expects { character, objects? }',
+  'rig.autoRig.update': 'Make a character from your model first',
+};
+
 const disposers: (() => void)[] = [];
 afterEach(() => {
   for (const dispose of disposers.splice(0).reverse()) dispose();
@@ -160,7 +169,10 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       return poll === true ? 'ok' : poll.reason;
     };
     expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
-      MVP.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
+      MVP.map((id) => [
+        id,
+        id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : (LANDED[id] ?? NOT_AVAILABLE_YET),
+      ]),
     );
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(
       DEFERRED.map((id) => [id, ARRIVES_AFTER_MVP, true]),

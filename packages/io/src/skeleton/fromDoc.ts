@@ -1,8 +1,16 @@
-// Skeletons from records (M6B-SPEC §4.4, §5.1; C1). C0 working baselines: `skeletonFromDoc` for a skeleton without
-// skinned meshes (rest data only: radii null, joint-based height, no support) and `jointsFingerprint`; `measureSkinned`
-// is a stub. C1 adds the measurement from the character's meshes (radii, support, mesh height) with `measureSkinned`.
+// Skeletons from records (M6B-SPEC §4.4, §5.1; C1): `skeletonFromDoc` (joint nodes only, rest locals derived from
+// the character-space rest positions and rotations, radii, foot support and height measured from the character's bound
+// meshes through `measureSkinned`), `jointsFingerprint` and the re-export of `measureSkinned` (./measure.ts).
+//
+// The measurement mirrors what skeletonFromGltf measures on the character writer's output (§5.1 equality gate): the
+// writer emits one skin listing every joint, so every joint is "skinned" (radius inheritance), the segments follow the
+// humanoid chain child else the first child (never `JointRecord.tail`, which glTF cannot carry), and the height is the
+// bound meshes' bounds height. The radii are a percentile over vertices, so they depend on how the writer splits points
+// into vertices (by normal, UV and material): callers that know the export layout pass it (`opts.vertices`, built by
+// io's `characterVertices`) and get the written file's radii exactly; without it the points are measured.
+import type { SkinWeights } from '@ekza-studio/mesh-core';
 import {
-  EkzaError,
+  mat4Compose,
   quatInvert,
   quatMultiply,
   quatNormalize,
@@ -14,7 +22,11 @@ import {
 import type { HumanBoneName, JointRecord } from '@ekza-studio/doc';
 import type { DocSkeletonInput, SkeletonDesc, SkeletonNode } from '@ekza-studio/rig';
 import { sha256HexSync } from '../hash/sha256';
+import { boneSegmentsOf, footRegionsOf, measureSkinned, NO_NODE } from './measure';
 import { JOINT_HEIGHT_FACTOR } from './read';
+import { restWorldsOf } from './rest';
+
+export { measureSkinned } from './measure';
 
 const IDENTITY_FACING: ReadonlyQuat = [0, 0, 0, 1];
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
@@ -68,7 +80,7 @@ function restLocal(joint: JointRecord, parent: JointRecord | undefined): Xf {
 /** Joint nodes only (`isJoint` true, `hasMesh` false); equal on its joint subset to what skeletonFromGltf gives for
  *  the writer's output of these records (§5.1, gate §10.2); `fingerprint` = `jointsFingerprint`. In `io` because it
  *  needs `measureSkinned` and io's SHA-256 (`io → rig`, never the reverse). */
-export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
+export function skeletonFromDoc(input: DocSkeletonInput, opts: SkeletonFromDocOptions = {}): SkeletonDesc {
   const live = input.joints.filter((joint) => joint.deleted === null && joint.skeleton === input.skeleton.id);
   const ordered = topological(live);
   const index = new Map(ordered.map((joint, i) => [joint.id as string, i]));
@@ -98,24 +110,157 @@ export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
   }
   const jointHeight = (maxY - minY) * JOINT_HEIGHT_FACTOR;
   const humanoidTemplate = input.skeleton.template === 'vrm-humanoid';
+  const humanoidMap = humanoidTemplate ? humanoid : null;
+  const measured = measureDoc(nodes, ordered, humanoidMap, input.meshes, opts.vertices ?? null);
+  const meshHeight = measured?.height ?? null;
+  const fromMesh = meshHeight !== null && meshHeight > 0;
   return {
     format: humanoidTemplate ? 'vrm1' : 'gltf',
     facing: IDENTITY_FACING,
     nodes,
-    humanoid: humanoidTemplate ? humanoid : null,
+    humanoid: humanoidMap,
     springJoints: [],
     nodeConstraints: [],
     constrainedNodes: [],
-    boneRadii: nodes.map(() => null),
-    height: jointHeight > 0 ? jointHeight : 1,
-    heightSource: 'joints',
+    boneRadii: measured === null ? nodes.map(() => null) : [...measured.radii],
+    height: fromMesh ? meshHeight : jointHeight > 0 ? jointHeight : 1,
+    heightSource: fromMesh ? 'mesh' : 'joints',
     fingerprint: jointsFingerprint(nodes),
     ekzaHeightScale: null,
     warnings: [],
+    ...(measured === null ? {} : { boneSupport: [...measured.support] }),
     props: ordered.flatMap((joint, i) => (joint.role === 'prop' ? [i] : [])),
     helpers: ordered.flatMap((joint, i) => (joint.role === 'helper' ? [i] : [])),
     jointKeys: ordered.map((joint) => joint.key),
   };
+}
+
+type DocMesh = DocSkeletonInput['meshes'][number];
+
+/** The export vertices of a bound mesh (the writer's layout, `characterVertices`): `joints` index its skin palette. */
+export interface DocVertices {
+  readonly positions: Float32Array;
+  readonly joints: Uint8Array | Uint16Array | Uint32Array;
+  readonly weights: Float32Array;
+}
+
+/** C1 (additive): what skeletonFromDoc measures besides the records. */
+export interface SkeletonFromDocOptions {
+  /** Per bound mesh (MeshId), its export vertices; a mesh without an entry is measured on its points. With the
+   *  writer's layout the radii equal what skeletonFromGltf measures on the written file (the §5.1 gate). */
+  readonly vertices?: ReadonlyMap<string, DocVertices> | null;
+}
+
+/**
+ * Radii, support and bounds height over the bound meshes' export vertices (`vertices`) or points, placed by their
+ * `placement`, or null without a bound mesh. Palette keys are JointIds; a key that names no live joint of the skeleton weighs nothing here.
+ */
+function measureDoc(
+  nodes: readonly SkeletonNode[],
+  ordered: readonly JointRecord[],
+  humanoid: Readonly<Partial<Record<HumanBoneName, number>>> | null,
+  meshes: readonly DocMesh[],
+  vertices: ReadonlyMap<string, DocVertices> | null,
+): {
+  readonly radii: readonly (number | null)[];
+  readonly support: readonly (Float32Array | null)[];
+  readonly height: number | null;
+} | null {
+  const bound = meshes.filter(
+    (mesh): mesh is DocMesh & { readonly skin: SkinWeights } => mesh.skin !== null && mesh.skin.points > 0,
+  );
+  if (bound.length === 0 || nodes.length === 0) return null;
+  const nodeOf = new Map(ordered.map((joint, i) => [joint.id as string, i]));
+  const sources = bound.map((mesh) => {
+    const given = vertices?.get(mesh.id);
+    if (given !== undefined) {
+      const count = Math.min(given.positions.length / 3, given.joints.length / 4, given.weights.length / 4);
+      return { mesh, count, positions: given.positions, joints: given.joints, weights: given.weights };
+    }
+    const count = Math.min(mesh.skin.points, mesh.data.counts.points);
+    return { mesh, count, positions: mesh.data.position, joints: mesh.skin.joints, weights: mesh.skin.weights };
+  });
+  let total = 0;
+  for (const source of sources) total += source.count;
+  const positions = new Float32Array(3 * total);
+  const joints = new Uint16Array(4 * total);
+  const weights = new Float32Array(4 * total);
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  let at = 0;
+  for (const source of sources) {
+    const { mesh, count } = source;
+    const palette = mesh.skin.palette.map((entry) => nodeOf.get(entry.key) ?? NO_NODE);
+    placePoints(source.positions, mesh.placement, count, positions, 3 * at);
+    for (let i = 0; i < 4 * count; i++) {
+      joints[4 * at + i] = palette[source.joints[i] as number] ?? NO_NODE;
+      weights[4 * at + i] = source.weights[i] as number;
+    }
+    for (let v = 0; v < count; v++) {
+      const y = positions[3 * (at + v) + 1] as number;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+    }
+    at += count;
+  }
+  const worlds = restWorldsOf(nodes, IDENTITY_FACING);
+  const nodeWorld = new Float64Array(16 * nodes.length);
+  worlds.forEach((world, i) => nodeWorld.set(mat4Compose(world), 16 * i));
+  const childrenOf: number[][] = nodes.map(() => []);
+  for (const node of nodes) if (node.parent !== -1) childrenOf[node.parent]?.push(node.index);
+  // The writer's one skin lists every joint, so every joint is skinned (§5.22).
+  const skinned = new Set(nodes.map((node) => node.index));
+  const measured = measureSkinned({
+    positions,
+    joints,
+    weights,
+    nodeWorld,
+    segments: boneSegmentsOf(nodes, childrenOf, humanoid),
+    parents: Int32Array.from(nodes, (node) => node.parent),
+    skinned,
+    feet: footRegionsOf(humanoid),
+  });
+  return { ...measured, height: Number.isFinite(maxY - minY) ? maxY - minY : null };
+}
+
+/** Writes `count` points placed by the column-major `placement` (float32, like the writer's POSITION). */
+function placePoints(
+  p: ArrayLike<number>,
+  placement: Float64Array,
+  count: number,
+  out: Float32Array,
+  offset: number,
+): void {
+  const m = placement;
+  const identity =
+    m.length < 16 ||
+    (m[0] === 1 &&
+      m[5] === 1 &&
+      m[10] === 1 &&
+      m[15] === 1 &&
+      m[12] === 0 &&
+      m[13] === 0 &&
+      m[14] === 0 &&
+      m[1] === 0 &&
+      m[2] === 0 &&
+      m[4] === 0 &&
+      m[6] === 0 &&
+      m[8] === 0 &&
+      m[9] === 0);
+  for (let v = 0; v < count; v++) {
+    const x = p[3 * v] as number;
+    const y = p[3 * v + 1] as number;
+    const z = p[3 * v + 2] as number;
+    if (identity) {
+      out[offset + 3 * v] = x;
+      out[offset + 3 * v + 1] = y;
+      out[offset + 3 * v + 2] = z;
+      continue;
+    }
+    out[offset + 3 * v] = (m[0] as number) * x + (m[4] as number) * y + (m[8] as number) * z + (m[12] as number);
+    out[offset + 3 * v + 1] = (m[1] as number) * x + (m[5] as number) * y + (m[9] as number) * z + (m[13] as number);
+    out[offset + 3 * v + 2] = (m[2] as number) * x + (m[6] as number) * y + (m[10] as number) * z + (m[14] as number);
+  }
 }
 
 /** skeletonFingerprint's lines (name | parentName | t | q | s, rounded to 1e-5, sorted) over the **joint** nodes only
@@ -132,20 +277,4 @@ export function jointsFingerprint(nodes: readonly SkeletonNode[]): string {
     })
     .sort();
   return `sha256:${sha256HexSync(new TextEncoder().encode(lines.join('\n')))}`;
-}
-
-/** Typed-array core of measureMeshes (MVP-SPEC §4.11.15): radii (1.25 × P90 of dominated points' distance to the
- *  bone segment) and the M2a foot support, in character space. measureMeshes delegates to it; outputs unchanged. */
-export function measureSkinned(_input: {
-  readonly positions: Float32Array | Float64Array; // 3V bind-pose positions, character space
-  readonly joints: Uint16Array; // 4V node indices (after palette mapping)
-  readonly weights: Float32Array; // 4V
-  readonly nodeWorld: Float64Array; // 16 × nodes rest worlds
-  readonly segments: readonly {
-    readonly node: number;
-    readonly child: number | null;
-    readonly tail: readonly number[] | null;
-  }[];
-}): { readonly radii: readonly (number | null)[]; readonly support: readonly (Float32Array | null)[] } {
-  throw new EkzaError('not-implemented', 'io.measureSkinned');
 }

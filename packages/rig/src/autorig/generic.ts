@@ -27,15 +27,18 @@ function depthFirstOrder(ctx: RestContext): number[] {
 }
 
 /**
- * Template keys `<prefix>.<sanitizedNodeName>[#n]` for the given nodes, `#n` being the occurrence among identical
- * sanitized names in depth-first order (the first occurrence has no suffix).
+ * Template keys `<prefix>.<stem>[#n]` for the given nodes, `#n` being the occurrence among identical stems in
+ * depth-first order (the first occurrence has no suffix). The stem is the joint's stable key (`SkeletonDesc.jointKeys`,
+ * model-sourced skeletons, M6B-SPEC §5.16 rule 1: a rename keeps the control) or else the sanitized node name.
  */
-function nodeKeys(ctx: RestContext, nodes: ReadonlySet<number>, prefix: string): Map<number, string> {
+export function nodeKeys(ctx: RestContext, nodes: ReadonlySet<number>, prefix: string): Map<number, string> {
   const seen = new Map<string, number>();
   const keys = new Map<number, string>();
+  const stems = ctx.skeleton.jointKeys;
   for (const node of depthFirstOrder(ctx)) {
     if (!nodes.has(node)) continue;
-    const base = sanitizeNodeName(ctx.skeleton.nodes[node]?.name ?? '');
+    const stem = stems?.[node];
+    const base = stem !== undefined && stem !== '' ? stem : sanitizeNodeName(ctx.skeleton.nodes[node]?.name ?? '');
     const count = seen.get(base) ?? 0;
     seen.set(base, count + 1);
     keys.set(node, count === 0 ? `${prefix}.${base}` : `${prefix}.${base}#${count}`);
@@ -118,10 +121,10 @@ function boneAlignedSpec(
  * Generic 1:1 FK rig (MVP-SPEC §4.11.15): one bone-aligned control per skin joint (except node-constraint
  * destinations) with a `full` binding, parented to the control of the nearest ancestor joint.
  */
-export function genericControlSpecs(ctx: RestContext): ControlSpec[] {
+export function genericControlSpecs(ctx: RestContext, skip: ReadonlySet<number> = new Set()): ControlSpec[] {
   const joints = new Set<number>();
   ctx.skeleton.nodes.forEach((node, i) => {
-    if (node.isJoint && !ctx.constrained.has(i)) joints.add(i);
+    if (node.isJoint && !ctx.constrained.has(i) && !skip.has(i)) joints.add(i);
   });
   const keys = nodeKeys(ctx, joints, 'fk');
   const byName = namesIndex(ctx, joints);
@@ -153,7 +156,11 @@ export function genericControlSpecs(ctx: RestContext): ControlSpec[] {
  * drives the nearest driven ancestor bone. Joints without a driven ancestor get none (they never move with the
  * character's controls).
  */
-export function secondaryControlSpecs(ctx: RestContext, drivenBy: ReadonlyMap<number, string>): ControlSpec[] {
+export function secondaryControlSpecs(
+  ctx: RestContext,
+  drivenBy: ReadonlyMap<number, string>,
+  skip: ReadonlySet<number> = new Set(),
+): ControlSpec[] {
   const humanoidNodes = new Set(Object.values(ctx.skeleton.humanoid ?? {}));
   const nodes = ctx.skeleton.nodes;
   const controlOf = new Map(drivenBy);
@@ -168,7 +175,7 @@ export function secondaryControlSpecs(ctx: RestContext, drivenBy: ReadonlyMap<nu
   };
   const eligible = new Set<number>();
   nodes.forEach((node, i) => {
-    if (!node.isJoint || humanoidNodes.has(i) || ctx.springs.has(i) || ctx.constrained.has(i)) return;
+    if (!node.isJoint || humanoidNodes.has(i) || ctx.springs.has(i) || ctx.constrained.has(i) || skip.has(i)) return;
     eligible.add(i);
   });
   const keys = nodeKeys(ctx, eligible, 'sec');
