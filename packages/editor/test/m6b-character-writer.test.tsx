@@ -170,7 +170,7 @@ describe('the Export dialog Character section (§8.13)', () => {
     await waitUntil(() => !(body('export-confirm') as HTMLButtonElement).disabled);
     // Render Thumbnail: a thumbnail asset, the warning gone.
     await update(() => body('export-char-thumb-render').click());
-    await waitUntil(() => app.store.get('characters', character)?.vrm?.thumbnail != null, 30_000);
+    await waitUntil(() => (app.store.get('characters', character)?.vrm?.thumbnail ?? null) !== null, 30_000);
     await waitUntil(() => maybe('export-char-clean') !== null);
     // Export: the result is listed (this cube is not bound, so OMOBA's rules refuse it and nothing downloads).
     await update(() => body('export-confirm').click());

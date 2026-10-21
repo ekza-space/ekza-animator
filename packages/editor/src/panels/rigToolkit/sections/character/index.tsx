@@ -1,7 +1,6 @@
 // The Rig Toolkit's Character section (M6B-SPEC §8.6, §8.9 Attributes › Character inside the Toolkit — the CR-5
 // fallback; C10): the Rig & Skin character's name and source, its VRM meta at a glance (licence, authors), the
 // thumbnail with Render, and the buttons VRM Meta… and Export Character…. Imported avatars show their source only.
-import type { CharacterId } from '@ekza-studio/doc';
 import { characterOf } from '@ekza-studio/editor-core';
 import { VRM_LICENCE_CHOICES } from '@ekza-studio/io';
 import { Button } from '@ekza-studio/ui';
@@ -12,7 +11,7 @@ import type { RigToolkitSectionProps } from '../types';
 
 export function CharacterSection({ app }: RigToolkitSectionProps): JSX.Element | null {
   const key = useSession((s) => `${s.rig.character ?? ''}:${s.activeCharacter ?? ''}`);
-  const character = useDocQuery(() => characterOf(app, undefined), ['characters']) as CharacterId | null;
+  const character = useDocQuery(() => characterOf(app, undefined), ['characters']);
   void key;
   const record = useDocQuery(
     (store) => (character === null ? undefined : store.get('characters', character)),

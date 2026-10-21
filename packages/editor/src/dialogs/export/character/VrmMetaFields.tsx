@@ -7,7 +7,7 @@ import { makeVrmMeta } from '@ekza-studio/doc';
 import type { EditorApp } from '@ekza-studio/editor-core';
 import { VRM_LICENCE_CHOICES } from '@ekza-studio/io';
 import { Checkbox, NativeSelect, RadioGroup, RadioGroupItem, TextInput } from '@ekza-studio/ui';
-import { type JSX, useEffect, useId, useState } from 'react';
+import { type JSX, useId, useState } from 'react';
 import { useDocQuery } from '../../../hooks';
 
 export interface VrmMetaFieldsProps {
@@ -64,8 +64,13 @@ function CommitText(props: {
   readonly invalid?: boolean;
   readonly onCommit: (text: string) => void;
 }): JSX.Element {
-  const [text, setText] = useState(props.value);
-  useEffect(() => setText(props.value), [props.value]);
+  // The draft is local until committed; a new stored value replaces it (the draft remembers which value it edits).
+  const [draft, setDraft] = useState<{ readonly of: string; readonly text: string }>({
+    of: props.value,
+    text: props.value,
+  });
+  const text = draft.of === props.value ? draft.text : props.value;
+  const setText = (next: string) => setDraft({ of: props.value, text: next });
   const commit = () => {
     if (text !== props.value) props.onCommit(text);
   };
@@ -121,7 +126,7 @@ export function VrmMetaFields(props: VrmMetaFieldsProps): JSX.Element {
         id={field(key)}
         value={meta[key]}
         data-testid={`vrm-meta-${key}`}
-        onChange={(event) => patch({ [key]: event.currentTarget.value } as MetaPatch)}
+        onChange={(event) => patch({ [key]: event.currentTarget.value })}
         options={options.map((option) => ({ value: option.value, label: option.label }))}
       />
     </label>

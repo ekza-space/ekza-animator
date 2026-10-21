@@ -13,17 +13,15 @@ export function ThumbnailPreview(props: {
   readonly size?: number;
 }): JSX.Element {
   const { app, character } = props;
-  const thumbnail = useDocQuery(
+  const thumbnail: AssetId | null = useDocQuery(
     (store) => store.get('characters', character)?.vrm?.thumbnail ?? null,
     ['characters'],
-  ) as AssetId | null;
-  const [url, setUrl] = useState<string | null>(null);
+  );
+  // The object URL of the stored PNG, tagged with the asset it shows (another asset shows nothing until loaded).
+  const [shown, setShown] = useState<{ readonly asset: AssetId; readonly url: string } | null>(null);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
-    if (thumbnail === null) {
-      setUrl(null);
-      return;
-    }
+    if (thumbnail === null) return;
     let live = true;
     let created: string | null = null;
     void app.services.assets
@@ -31,16 +29,15 @@ export function ThumbnailPreview(props: {
       .then((bytes) => {
         if (!live || typeof URL.createObjectURL !== 'function') return;
         created = URL.createObjectURL(new Blob([bytes as BlobPart], { type: 'image/png' }));
-        setUrl(created);
+        setShown({ asset: thumbnail, url: created });
       })
-      .catch(() => {
-        if (live) setUrl(null);
-      });
+      .catch(() => {});
     return () => {
       live = false;
       if (created !== null) URL.revokeObjectURL(created);
     };
   }, [app, thumbnail]);
+  const url = shown !== null && shown.asset === thumbnail ? shown.url : null;
   const size = props.size ?? 112;
   const run = props.run ?? ((op: string, args: unknown) => app.runUntyped(op, args));
   return (
@@ -56,7 +53,11 @@ export function ThumbnailPreview(props: {
             '…'
           )
         ) : (
-          <img src={url} alt="Thumbnail" width={size} height={size} />
+          <div
+            title="Thumbnail"
+            data-testid="export-char-thumb-image"
+            style={{ width: size, height: size, backgroundImage: `url(${url})`, backgroundSize: 'cover' }}
+          />
         )}
       </div>
       <Button
