@@ -98,6 +98,23 @@ function motion(mixer: AnimationMixer, update: () => void, objects: readonly Obj
   return most;
 }
 
+/** Width and height of the `VRMC_vrm.meta.thumbnailImage` PNG (its IHDR), or null without one. */
+function thumbnailSize(bytes: Uint8Array): { readonly width: number; readonly height: number } | null {
+  const dv = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const jsonLength = dv.getUint32(12, true);
+  const json = JSON.parse(new TextDecoder().decode(bytes.subarray(20, 20 + jsonLength))) as {
+    extensions?: { VRMC_vrm?: { meta?: { thumbnailImage?: number } } };
+    images?: { bufferView?: number }[];
+    bufferViews?: { byteOffset?: number; byteLength: number }[];
+  };
+  const image = json.extensions?.VRMC_vrm?.meta?.thumbnailImage;
+  const view = image === undefined ? undefined : json.bufferViews?.[json.images?.[image]?.bufferView ?? -1];
+  if (view === undefined) return null;
+  const bin = 20 + jsonLength + 8 + (view.byteOffset ?? 0);
+  const png = new DataView(bytes.buffer, bytes.byteOffset + bin, view.byteLength);
+  return { width: png.getUint32(16), height: png.getUint32(20) };
+}
+
 async function check(bytes: Uint8Array, opts?: { readonly vrma?: Uint8Array }): Promise<CharacterCheckResult> {
   const gltf = await newLoader().parseAsync(bytes.slice().buffer, '');
   const vrm = gltf.userData['vrm'] as VRM | undefined;
@@ -140,10 +157,9 @@ async function check(bytes: Uint8Array, opts?: { readonly vrma?: Uint8Array }): 
     name?: string;
     authors?: string[];
     licenseUrl?: string;
-    thumbnailImage?: HTMLImageElement;
   };
-  const thumbnail =
-    meta.thumbnailImage === undefined ? null : { width: meta.thumbnailImage.width, height: meta.thumbnailImage.height };
+  // three-vrm loads the thumbnail image only on request (`needThumbnailImage`): read its PNG header from the file.
+  const thumbnail = thumbnailSize(bytes);
 
   // The VRMA idle on the normalized humanoid.
   const animation =
