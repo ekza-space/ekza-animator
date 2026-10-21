@@ -3,9 +3,9 @@
 // along world Y; rotations compose about the cap's pivot; scale in the session frame), the args undo stack (undo steps
 // back through absorbed drags without changing the history length; undo at index 0 removes the extrude), every row of
 // the end-trigger table with its zero-drop (a mode switch keeps a zero extrude), smart extrude chains, `T`'s reopen.
-import { type Quat, quatFromAxisAngle, quatRotateVec3, type ReadonlyXf, type Vec3 } from '@ekza-animator/anim-core';
-import type { MeshRecord } from '@ekza-animator/doc';
-import { borderChainFrame, editMeshFrom, type MeshData, primitive } from '@ekza-animator/mesh-core';
+import { type Quat, quatFromAxisAngle, quatRotateVec3, type ReadonlyXf, type Vec3 } from '@ekza-studio/anim-core';
+import type { MeshRecord } from '@ekza-studio/doc';
+import { borderChainFrame, editMeshFrom, type MeshData, primitive } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import {
   absorbArgs,

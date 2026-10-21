@@ -1,12 +1,12 @@
 // Panel harness behind the dev/e2e-only route /dev/panels?panel=<id> (MVP-SPEC §7 WP-0b, then WP-8): mounts one
-// registered panel full-page with a fake EditorApp (@ekza-animator/editor-core/testing) inside the shell's context
+// registered panel full-page with a fake EditorApp (@ekza-studio/editor-core/testing) inside the shell's context
 // (shell hooks, frame callbacks, probes; the GL host for the viewport panel), so panel owners can work on a panel
 // before the real kernel exists. Browser and Vitest browser mode only.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { DocSnapshot } from '@ekza-animator/doc';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { PANEL } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { PANEL } from '@ekza-studio/editor-core';
 import { type JSX, useEffect } from 'react';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';

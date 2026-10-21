@@ -1,7 +1,7 @@
 // E2E-18 (MVP-SPEC §6.2): UAL with `Idle_Loop` exported as an animation-only GLB. The file validates with 0 errors,
 // has no meshes or skins, keeps the source's node names (and their parents), and its raw locals re-read in Node with
 // io's `readAnimations` equal, at frame 10, the locals the editor's `boneWorld` gives (`W_parent⁻¹ · W_node`).
-import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
+import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-studio/io';
 import { expect, test } from '@playwright/test';
 import {
   boneWorldRotations,

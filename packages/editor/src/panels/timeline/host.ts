@@ -1,9 +1,9 @@
 // Mounted time sliders per EditorApp: the first one registers the slider's contributions (`time.selectBand`, the
 // RMB menu items), the last one to unmount removes them, and the most recently used one is "focused" — the one
 // `time.selectBand` and the e2e test API act on.
-import type { Disposer, Frame } from '@ekza-animator/anim-core';
-import { registerTimelineContributions, type TimeSliderController } from '@ekza-animator/curve-editor';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer, Frame } from '@ekza-studio/anim-core';
+import { registerTimelineContributions, type TimeSliderController } from '@ekza-studio/curve-editor';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 interface Host {
   readonly sliders: Map<TimeSliderController, HTMLCanvasElement>;

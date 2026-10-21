@@ -1,4 +1,4 @@
-# WP-5 notes — viewport (`@ekza-animator/viewport` + `editor/src/panels/viewport`)
+# WP-5 notes — viewport (`@ekza-studio/viewport` + `editor/src/panels/viewport`)
 
 Status: implemented on branch `wp/wp-5` (2026-10-17). Everything in MVP-SPEC §7 WP-5 is built and tested against
 the shared test kit; tests that need another package's real implementation run automatically once it lands. The

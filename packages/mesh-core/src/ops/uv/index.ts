@@ -9,7 +9,7 @@
 // camera's view direction and up in world space; the op maps it into mesh-local space through `ctx.placement`.
 // Refusals: `uv.no-faces` (vertex/edge selections or nothing visible), `uv.no-camera` (axis camera without a usable
 // camera). Under symmetry the run is the expanded face selection (`symmetry.unmatched-partner` for lonely faces).
-import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_SEAM } from '../../constants';
 import { BUILTIN_LAYERS } from '../../layers/builtin';
 import { refuse } from '../../refusal';

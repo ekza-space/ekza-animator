@@ -7,7 +7,7 @@
 // other JSON value and the BIN prefix stay byte-identical. The original accessors and bufferViews stay (unused) so the
 // bake marker v2 can re-point the original primitives at them. Quantized inputs are written as float accessors, and
 // `extensionsUsed`/`extensionsRequired` lose Draco and mesh quantization when their last user is replaced.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { parseGlb, parseGlbSync } from '../glb/parse';
 import { align4, assembleGlb } from '../glb/write';
 import type { GltfReader } from '../gltf/accessor';

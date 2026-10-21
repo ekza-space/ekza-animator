@@ -3,8 +3,8 @@
 // `ToolDef.keys` (§5.17), so it receives them first while active. The behaviour and the face picking live in a lazy
 // chunk (`./tool`, `./pick`) loaded when the tool is first created; until it arrives a press does nothing. A failed
 // load is toasted once and tried again on the next activation or press.
-import type { EditorApp, ToolDef, ToolInstance } from '@ekza-animator/editor-core';
-import { PANEL, VIEWPORT_TOOL } from '@ekza-animator/editor-core';
+import type { EditorApp, ToolDef, ToolInstance } from '@ekza-studio/editor-core';
+import { PANEL, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
 import type { ViewportToolHost } from '../../host';
 import type { PaintView } from './pick';
 import type * as PaintChunk from './tool';

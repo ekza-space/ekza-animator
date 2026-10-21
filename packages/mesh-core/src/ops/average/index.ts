@@ -6,7 +6,7 @@
 // partner's mirror image), and seam vertices stay on the plane (pinned with Preserve Seam, else projected onto it) —
 // through the map's mirror in mesh-local space (Object, or World mapped through the placement).
 // Positions only; `adjust` re-runs from the pre-op positions for new `iterations`/`strength` (live preview).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { argsOf, edgeCorners, keptSelection, num, scopeVerts, vertEdges } from '../../subset/support';
 import { contextMirror, expandWarnings, partnerOf, projectOntoPlane, reflectPoint } from '../../subset/symmetry';

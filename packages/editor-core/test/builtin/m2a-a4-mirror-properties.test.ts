@@ -3,8 +3,8 @@
 // (step and stepNext included), weighted curves, every infinity and random ranges; time order and range of the
 // written keys; the non-periodic flag; the remap applied twice is the identity. Flip through the operator:
 // flip ∘ flip = id on random curves (values, handles, tangent types, weighting, infinities, breakdowns).
-import type { AnimCurve, Handle, InfinityMode, KeyData, TangentType } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId } from '@ekza-animator/doc';
+import type { AnimCurve, Handle, InfinityMode, KeyData, TangentType } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { internalsOf } from '../../src/app/internals';

@@ -2,7 +2,7 @@
 // resolves against the current mesh (component indices modulo the counts, args from the seeds), so any sequence is
 // meaningful on any mesh, and fast-check samples with fixed seeds give the same steps in Node and in Chromium. No Node
 // APIs here.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import {
   type ComponentKind,

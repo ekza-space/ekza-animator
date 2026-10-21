@@ -387,7 +387,7 @@ quaternion rotation paths and **Auto / AutoMix / AutoEase tangent computation**.
 Spline/Clamped/Plateau tangent computation; §5.4 marks those formulas as calibrated approximations.
 The Maya API (`MFnAnimCurve`) supplies the storage convention.
 
-**Plan:** port AnimX to TypeScript (keeping its Apache-2.0 NOTICE/attribution) as `@ekza-animator/curves`
+**Plan:** port AnimX to TypeScript (keeping its Apache-2.0 NOTICE/attribution) as `@ekza-studio/curves`
 (pure functions, zero deps). Build the C++ AnimX as a small CLI and use it as a **golden-test oracle**
 (random curves × all tangent/infinity types, max |Δ| < 1e-9). If a Maya licence is available, add
 Maya-exported fixtures for Spline/Clamped/Plateau.

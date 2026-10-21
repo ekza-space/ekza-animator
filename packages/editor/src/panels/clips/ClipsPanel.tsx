@@ -1,8 +1,8 @@
 // Clips panel (FR-CLIP-01…04, FR-CLIP-09, research 09 §4.3 "Clips tab"): the clips of every character with the
 // active-clip radio, inline rename, new / duplicate / delete and the settings popover. Every change runs a `clip.*`
 // operator, so each is one undo step.
-import type { CharacterId, CharacterRecord, ClipId, ClipRecord, DocumentStore } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
+import type { CharacterId, CharacterRecord, ClipId, ClipRecord, DocumentStore } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import type { PanelProps } from '../types';

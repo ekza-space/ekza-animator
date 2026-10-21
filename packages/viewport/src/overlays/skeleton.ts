@@ -1,8 +1,8 @@
 // Skeleton display (DisplayFlags.skeleton): a line from every joint to its nearest joint ancestor, drawn from the
 // evaluated bone worlds, plus the joint positions used by joint picking. Bones are hidden by default (FR-RIG-05).
-import type { Mat4 } from '@ekza-animator/anim-core';
-import type { CharacterId } from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { Mat4 } from '@ekza-studio/anim-core';
+import type { CharacterId } from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { Color, Group } from 'three';
 import { multiplyAt } from '../controls/ControlLayer';
 import { LAYER } from '../layers';

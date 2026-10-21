@@ -1,4 +1,4 @@
-# Ekza Animator — Modeling plan (M6a, M6b, M6c, M7)
+# Ekza Studio — Modeling plan (M6a, M6b, M6c, M7)
 
 Status: v0.2 (2026-10-19), plan for the owner's review, revised after the design review (one blocker, twenty
 major and nineteen minor findings; every decision, including the rejected and partly applied ones, is in
@@ -122,7 +122,7 @@ over the same operator ids (11 §9, 16 §19.5).
  Model (M6a)                         Rig & Skin (M6b)                    Animate (M1/M2a, unchanged)        Export / Ekza
  primitives → extrude/loops/bevel →  template skeleton → Quick Rig →     FK/IK controls, Dope Sheet,        .vrm (VRM 1.0) / .glb /
  mirror/symmetry → palette colour →  auto-skin → weight fixes → ROM  →   Graph Editor, tweens, loops   →    handheld .glb → lints,
- Mesh Check + budget HUD             test → (back to Model: weights      → slot clips idle/walk/…           validators → Studio upload
+ Mesh Check + budget HUD             test → (back to Model: weights      → slot clips idle/walk/…           validators → Hub upload
         ▲                             follow topology edits)                                                 (T0 manual, T3 publish)
         └── AI generation (M7): gateway → import → reduce/cleanup/palette bake → same Model → Rig & Skin path
 ```
@@ -173,11 +173,11 @@ New packages follow the layering of ARCHITECTURE §3 (headless below the view la
 
 | Package | Dir | Responsibility | May import | Must not import |
 |---|---|---|---|---|
-| `@ekza-animator/mesh-core` (new) | `packages/mesh-core` | SoA mesh, attribute layers, write log + `MeshDelta`, Euler operators, `validateMesh`, `topologyStats`, revision chunks/manifest, deterministic triangulation, derived normals, all modeling ops, selection walkers, soft selection, symmetry maps, UV projections (M6a) and unwrap/pack (M6c), skin math (M6b), templates; `/testing` (fast-check arbitraries, golden runner) | anim-core, `earcut`, `robust-predicates` | three, React, DOM, doc, WASM |
-| `@ekza-animator/mesh-view` (new) | `packages/mesh-view` | edit-mode overlays (surface, edges, vertices, face dots, soft ramp, normals, lint, symmetry plane), `ComponentPicker` (hover, click, marquee, lasso, occlusion), BVH lifecycle, geometry descriptors → three | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core |
-| `@ekza-animator/mesh-wasm` (new, M7) | `packages/mesh-wasm` | lazy adapters in a worker: `Decimator` (meshoptimizer), later `BooleanSolver` (manifold-3d), `UvAtlas` (xatlas) | mesh-core, the WASM libraries | three, React, doc |
-| `@ekza-animator/gen-core` (new, M7) | `packages/gen-core` | isomorphic generation types and state machine (ADR 0017) | nothing | everything |
-| `@ekza-animator/gen-gateway` (new, M7) | `packages/gen-gateway` | server-only Fetch handler, adapters, job/blob stores, webhooks, quotas | gen-core | React, three, browser packages |
+| `@ekza-studio/mesh-core` (new) | `packages/mesh-core` | SoA mesh, attribute layers, write log + `MeshDelta`, Euler operators, `validateMesh`, `topologyStats`, revision chunks/manifest, deterministic triangulation, derived normals, all modeling ops, selection walkers, soft selection, symmetry maps, UV projections (M6a) and unwrap/pack (M6c), skin math (M6b), templates; `/testing` (fast-check arbitraries, golden runner) | anim-core, `earcut`, `robust-predicates` | three, React, DOM, doc, WASM |
+| `@ekza-studio/mesh-view` (new) | `packages/mesh-view` | edit-mode overlays (surface, edges, vertices, face dots, soft ramp, normals, lint, symmetry plane), `ComponentPicker` (hover, click, marquee, lasso, occlusion), BVH lifecycle, geometry descriptors → three | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core |
+| `@ekza-studio/mesh-wasm` (new, M7) | `packages/mesh-wasm` | lazy adapters in a worker: `Decimator` (meshoptimizer), later `BooleanSolver` (manifold-3d), `UvAtlas` (xatlas) | mesh-core, the WASM libraries | three, React, doc |
+| `@ekza-studio/gen-core` (new, M7) | `packages/gen-core` | isomorphic generation types and state machine (ADR 0017) | nothing | everything |
+| `@ekza-studio/gen-gateway` (new, M7) | `packages/gen-gateway` | server-only Fetch handler, adapters, job/blob stores, webhooks, quotas | gen-core | React, three, browser packages |
 | `anim-core` (changed) | — | `ParamDef` (kinds, limits, step, `primary`, `bound: 'selection' \| 'pointer' \| 'value'`): the one parameter description shared by kernel ops and editor operators | — | — |
 | `doc` (changed) | — | schema v3 tables (`meshes`, `groups`, `palettes`, `swatches`, `skeletons`, `joints`, `imagePlanes`), `CharacterRecord.source`, `AssetRecord.provenance`, `referencesOf` for the new tables (incl. `meshes.data.joints`), validation, migration; `UndoManager.entries()` and `onEvict` | — | — |
 | `io` (changed) | — | `meshFromGltf` (make editable), `meshToPrimitives`, author writer (static in M6a, VRM 1.0 character in M6b), surgeon "replace primitives" with bake marker v2, in-memory container rebuild for the character display, palette PNG writer, handheld profile, new lints, `.ekzanim` `blobs/` | + mesh-core | — |
@@ -922,7 +922,7 @@ outputs, painted eyes and logos. It can run in parallel with M7.
 | G0 (inside M6a) | `AssetRecord.provenance` (schema v3, B0a), `ekza_model_v1` provenance block and the four `ekza.provenance-*` lints (B8), the `EditorServices.generation` optional slot | in M6a |
 | **G1** | G-a intake operators; G-b `gen-core` + `gen-gateway` (default deny, auth, server caps, CSP); G-c Tripo and Meshy adapters + mock provider server; G-d editor side; G-e integration | ≈ 22 |
 | **G2** | G-f self-hosted GPU worker image (TRELLIS.2, TripoSG, UniRig; SBOM licence check); G-g `fal` + `hunyuan-cloud` adapters, multiview, OBJ import for quads; G-h geodesic voxel binding (research 14 §5.5); integration | ≈ 14 |
-| G3 (with M4a/M4b) | hosted platform key with per-user quotas and spend dashboards, BYO on hosted, registry AI fields and Studio badge (upstream), optional C2PA sidecar | ≈ 6 + upstream |
+| G3 (with M4a/M4b) | hosted platform key with per-user quotas and spend dashboards, BYO on hosted, registry AI fields and Hub badge (upstream), optional C2PA sidecar | ≈ 6 + upstream |
 
 ### 7.2 G1 work packages
 
@@ -982,7 +982,7 @@ Release-note caveat (ADR 0010 §6): OMOBA **admits** the humanoid but plays its 
 | 1 | **M2a release** (`v0.2.0`): owner review of DECISIONS-OPEN §F, demo script, tag | A stable, tagged animation baseline before a large iteration touches shared contracts (operators, selection, keymap, schema) |
 | 2 | **M6a** with the M2c shell prerequisites pulled into B0b and B9 | The owner's priority is a turnkey tool; marking menus, command palette and workspaces are prerequisites for every modeling surface, so they move forward rather than delaying modeling; the rest of M2c does not block modeling |
 | 3 | **M6b**, overlapping M6a from C0 | Needs only the kernel foundation (B1), document runtime (B7), make-editable (B8) and the shell (B9); skeleton, auto-skin and writers are built on imported static meshes while M6a's tools are in flight |
-| 4 | **Turnkey release** (`v0.4.0`) | Closes the loop model → rig → animate → export; T0 (manual upload to Studio) works with no ecosystem change |
+| 4 | **Turnkey release** (`v0.4.0`) | Closes the loop model → rig → animate → export; T0 (manual upload to Hub) works with no ecosystem change |
 | 5 | **"Publish avatar"** (the T3 slice of M4a) in parallel with M7 G1 | Needs only the `studio-upload` registry scope (the avatar kind exists, unlike `ekza:animation`), ≈ 2 days here plus registry work in its repository; ends the turnkey story inside Ekza |
 | 6 | **M7 G1**, then G2 (with M6c in parallel if wanted) | Generated meshes are only useful once cleanup (M6a) and rig/skin (M6b) exist; contracts are already in place from M6a, so nothing is retrofitted; integrating later also lands on newer provider models (Meshy and Tripo retired modes within months) |
 | 7 | **M2b** (FBX/BVH/Mixamo retarget) and the rest of **M2c** → **V1** release | M2b's humanoid inference (FR-IO-13) also helps M7 with Mixamo-like provider rigs (G2); M2c polish (constraints, onion skin, playblast, audio, hotkey editor, IO worker) can then include the Model workspace |

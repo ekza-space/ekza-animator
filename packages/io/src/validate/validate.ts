@@ -2,7 +2,7 @@
 // itself (it is a devDependency here and a dependency of the editor's validator worker only, ARCHITECTURE §3): the
 // host installs the module once with `setGltfValidator(await import('gltf-validator'))` — tests in their setup, the
 // worker (M1-stretch) at start-up.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { ValidationIssue, ValidationReport } from '../types';
 
 export { readBackCheck } from './readBack';

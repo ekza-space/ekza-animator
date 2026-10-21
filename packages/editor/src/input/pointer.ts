@@ -1,6 +1,6 @@
 // Pointer side of the DOM input adapter: which panel (and viewport pane) is under the pointer, plus the browser
 // defaults an animation tool must suppress (research 09 §5.1, §7.1 rule 4).
-import { GLOBAL_SCOPE, type KeyScope, PANEL, type PanelKind } from '@ekza-animator/editor-core';
+import { GLOBAL_SCOPE, type KeyScope, PANEL, type PanelKind } from '@ekza-studio/editor-core';
 
 /** Attributes the shell puts on every panel frame. */
 export const PANEL_ATTR = 'data-ekza-panel';

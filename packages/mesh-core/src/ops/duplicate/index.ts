@@ -4,7 +4,7 @@
 // boundary (`duplicate.offset-clamped`). On an asset-backed mesh it is the one MeshSetOp allowed in M6a: it makes an
 // authored static copy without skin and morph layers (`duplicate.static-copy`); the in-place variant would change the
 // asset's topology and is refused.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { copySubset } from '../../subset/copy';
 import { bitsOf, detachInPlace, insetData, selectedFaces } from '../../subset/setops';

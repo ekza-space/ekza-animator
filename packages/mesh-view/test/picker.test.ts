@@ -2,7 +2,7 @@
 // itself and by the meshes around it), back faces, the wire-shading dot rule, hidden elements, a pane's face isolate,
 // marquee counts and Maya's edge rule, transforms, BVH refit and rebuild, and a randomized check of vertex and face
 // picks against three.js's own raycaster over the same triangles.
-import { BitSet, type HiddenSet, triangulate } from '@ekza-animator/mesh-core';
+import { BitSet, type HiddenSet, triangulate } from '@ekza-studio/mesh-core';
 import {
   BufferAttribute,
   BufferGeometry,

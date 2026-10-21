@@ -1,7 +1,7 @@
 // B2 benches (report only; M6A-SPEC §9 B2 Tests, §5.27): soft weights over 10k vertices (budget ≤ 2 ms; Volume and
 // Surface, the E2E-MOD-10 plane), symmetry maps at 10k and 50k triangles, a component transform with soft weights and
-// symmetry over 10k vertices, and the walkers on a large torus. Run: pnpm --filter @ekza-animator/mesh-core bench
-import { curveEngine } from '@ekza-animator/anim-core';
+// symmetry over 10k vertices, and the walkers on a large torus. Run: pnpm --filter @ekza-studio/mesh-core bench
+import { curveEngine } from '@ekza-studio/anim-core';
 import { bench, describe } from 'vitest';
 import {
   BitSet,

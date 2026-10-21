@@ -1,6 +1,6 @@
 // The shell's confirmation prompt (`shell.confirm`): title, text, Cancel and the confirming action. Loaded lazily by
 // the dialog host (M2A-SPEC §5.21.2).
-import { Button, Dialog, DialogContent, DialogFooter } from '@ekza-animator/ui';
+import { Button, Dialog, DialogContent, DialogFooter } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import type { ConfirmRequest } from '../shell/types';
 

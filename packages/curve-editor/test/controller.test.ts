@@ -1,5 +1,5 @@
-import { makeKeyData } from '@ekza-animator/anim-core';
-import type { KeyId } from '@ekza-animator/doc';
+import { makeKeyData } from '@ekza-studio/anim-core';
+import type { KeyId } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { GraphViewState } from '../src';
 import { GraphEditorController, registerGraphContributions } from '../src';

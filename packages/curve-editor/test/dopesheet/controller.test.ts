@@ -2,7 +2,7 @@
 // modifiers, empty clicks, marquee, key drags as one history step (Select/Move tools, MMB), region-bar move and
 // scale, the Scale tool, ripple over the shown controls, Esc, Mod+A, ruler scrub, wheel per profile, framing,
 // `dopeSheet.frame` and the tools, and painting at DPR 1 and 2.
-import { DOPE_TOOL } from '@ekza-animator/editor-core';
+import { DOPE_TOOL } from '@ekza-studio/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_DOPE_THEME } from '../../src/dopesheet/theme';
 import {

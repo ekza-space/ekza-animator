@@ -1,6 +1,6 @@
 // Selection operators (MVP-SPEC §4.9 `select.*`): modes and lead, one character at a time, pruning of the key and
 // channel selections, panel-dependent select all / none, mirror selection, key parts.
-import type { ControlId, KeyId } from '@ekza-animator/doc';
+import type { ControlId, KeyId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { registerBuiltinOperators } from '../../src';
 import { combine, combineKeys } from '../../src/operators/builtin/select';

@@ -31,7 +31,7 @@ with §4.5, §5.19, §5.21–§5.25 and E2E-MOD-12. Decision IDs below are `M6A-
 
 | # | What | Why |
 |---|---|---|
-| M6A-B8-1 | **editor-core reaches io/mesh through io/write.** `@ekza-animator/io/write` exports `loadMeshIo()` (a dynamic import of `./mesh`), the surgeon and the author writer load the mesh entry the same way, so the write path (animation exports) never loads the kernel; `io/write` also exports `BAKE_MARKER_V2_KEY`, `exportStaticModel`, `readBackStatic`, the budget helpers and `manualModelProvenance`. | editor-core's import rules allow `io/write` but not `io/mesh` (§2 names only `io → mesh-core` from the two lazy entries); no lint or manifest change needed. |
+| M6A-B8-1 | **editor-core reaches io/mesh through io/write.** `@ekza-studio/io/write` exports `loadMeshIo()` (a dynamic import of `./mesh`), the surgeon and the author writer load the mesh entry the same way, so the write path (animation exports) never loads the kernel; `io/write` also exports `BAKE_MARKER_V2_KEY`, `exportStaticModel`, `readBackStatic`, the budget helpers and `manualModelProvenance`. | editor-core's import rules allow `io/write` but not `io/mesh` (§2 names only `io → mesh-core` from the two lazy entries); no lint or manifest change needed. |
 | M6A-B8-2 | **Kernel values enter io through one module**, `io/src/mesh/kernel.ts` (one `oxlint-disable-next-line no-restricted-imports` with the reason). Only `io/mesh` (and the lazy imports of `io/write`) reach it; the size gate's `mesh-kernel` boundary stays green. | io's lint rule allows mesh-core types only (B0a); §4.5 says io/mesh imports the kernel. |
 | M6A-B8-3 | **Weld and points**: the weld key is the bits of position, JOINTS_0/WEIGHTS_0 and every morph POSITION delta, with −0 keyed as +0 (an exporter's centre-line −0 would otherwise crack the mesh; fix round 1); a point is made only for vertices referenced by kept triangles, in first-vertex order. Hard edges where two faces' corner normals differ by more than ≈ 0.08° (dot < 1 − 1e-6) at either endpoint; a primitive without `NORMAL` is flat (its edges hard, no custom normals). Duplicate target names get ` 2`, ` 3`. | §5.21 steps 5–7; glTF's flat-normal rule for primitives without NORMAL. |
 | M6A-B8-4 | **Skin palette meta** on `skin.joints`: `{ skin: <glTF skin index>, joints: [{ id: 'node:<n>', name, parent: <palette index or −1> }] }` from the first node that skins the mesh. | §4.3 leaves the meta shape to the writer ("{ joints: [{ id, parent }] }"). |
@@ -79,11 +79,11 @@ accepts them into §9.1 or moves them.
    `gltf-validator` in `editor/src/workers/**` only (`.oxlintrc.json`, a dynamic `import()` included), io never imports
    it, and editor-core has no dependency on it. Two routes, each an INT/owner decision:
    - the designed one (MVP-SPEC M1-stretch): `editor/src/workers/index.ts` (an empty placeholder today) calls
-     `serveGltfValidator(self, await import('gltf-validator'))` from `@ekza-animator/io/worker`; `browser.ts` wraps
+     `serveGltfValidator(self, await import('gltf-validator'))` from `@ekza-studio/io/worker`; `browser.ts` wraps
      `opts.createValidatorWorker` (already an `EditorProps` option, unused) with `createValidatorClient(worker)` and
      sets `validate: (bytes) => client.validate(bytes)`; `apps/web/app/editor/EditorIsland.tsx` passes
      `createValidatorWorker={() => new Worker(new URL(…, import.meta.url), { type: 'module' })}` (needs an editor
-     subpath export for the worker entry and `@ekza-animator/io/worker` in the workers' import list);
+     subpath export for the worker entry and `@ekza-studio/io/worker` in the workers' import list);
    - or a main-thread lazy import in `browser.ts`, which needs `gltf-validator` added to `editor/src/**`'s import list.
    Either way `services.validate` is shared with `file.export`, whose M2a app path has no validator (bake into model
    would validate the source and the output on every export): the owner decides whether animation exports get it

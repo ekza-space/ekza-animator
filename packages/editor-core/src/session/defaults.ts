@@ -1,6 +1,6 @@
 // Session (U state) defaults, MVP-SPEC §4.5, M2A-SPEC §4.5 and M6A-SPEC §4.6: every value here is the documented
 // default.
-import type { UserId } from '@ekza-animator/doc';
+import type { UserId } from '@ekza-studio/doc';
 import type { AutosaveStatus, ModelSessionState, SessionState, TimeState, ToolState } from '../types';
 
 export const DEFAULT_TIME: TimeState = {

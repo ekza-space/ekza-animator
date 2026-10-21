@@ -6,7 +6,7 @@
 // points so the end triangles become quads (Maya `polyDuplicateEdge -deleteEdge`). A face side where the loop turns
 // inside the face (its crossing edge is selected too) gets no chord, with the warning `offsetLoop.corner`
 // (M6A-B3-10). Chords follow H1; `selection′` = the new edges. Symmetry: the expanded selection.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { allEdgesHard } from '../../normals/hard';
 import { refuse } from '../../refusal';
 import type { ComponentSelection, EditMesh, MeshOp, OpContext, OpResult, OpWarning, Refusal } from '../../types';

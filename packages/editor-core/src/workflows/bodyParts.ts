@@ -1,7 +1,7 @@
 // M2A-SPEC §5.19 body parts (FR-KEY-10): a pure template-key table over humanoid auto-rigs (A0, complete). A
 // control outside the table (eyes, secondary controls) belongs to the part of its nearest grouped ancestor; controls
 // of generic rigs belong to none.
-import type { ControlId, ControlRecord, ReadView } from '@ekza-animator/doc';
+import type { ControlId, ControlRecord, ReadView } from '@ekza-studio/doc';
 import type { BodyPart, EditorApp } from '../types';
 
 /** Generator of humanoid auto-rigs (RigRecord.generator.name). */

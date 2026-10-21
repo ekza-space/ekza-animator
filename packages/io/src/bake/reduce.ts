@@ -16,8 +16,8 @@
 //   accessor (TIME_ACCESSOR_BYTES + 4 B per time) against the full samples on the shared full time array; otherwise
 //   its tracks keep every sample. So a reduced file is never larger than the unreduced one (smooth 30 fps clips keep
 //   nearly every sample at R02's tolerances, and the extra time accessors made them larger).
-import type { Frame } from '@ekza-animator/anim-core';
-import { HUMAN_BONE_NAMES, type SkeletonDesc, type TrackKey } from '@ekza-animator/rig';
+import type { Frame } from '@ekza-studio/anim-core';
+import { HUMAN_BONE_NAMES, type SkeletonDesc, type TrackKey } from '@ekza-studio/rig';
 import { restWorlds } from '../skeleton/rest';
 import type { BakedClip, BakedTrack, ExportReduceSpec, ReductionStats } from '../types';
 

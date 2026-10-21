@@ -1,6 +1,6 @@
 // M2A-SPEC §5.9, §5.11, §5.12 (A3): the edit kernel's ripple (one global region over the scope curves), breakdown
 // retiming inside moveKeys/scaleKeys, copyKeys and insertTime.
-import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
+import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

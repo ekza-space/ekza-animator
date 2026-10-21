@@ -18,10 +18,10 @@
 // parameters (`rev + 1`, selection cleared, same id). After the first component edit `generator` is null and the
 // poll fails with "Primitive parameters were frozen by a component edit".
 // The document writes live in the lazy `contentApply.ts` (M6A-B13-10): `prepare` loads it, `apply` runs its body.
-import { coerceArgs, type ParamDef, type ParamValues } from '@ekza-animator/anim-core';
-import { type HandheldGrip, type MeshId, type MeshRecord } from '@ekza-animator/doc';
-import type { MeshData, PrimitiveKind } from '@ekza-animator/mesh-core';
-import { PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
+import { coerceArgs, type ParamDef, type ParamValues } from '@ekza-studio/anim-core';
+import { type HandheldGrip, type MeshId, type MeshRecord } from '@ekza-studio/doc';
+import type { MeshData, PrimitiveKind } from '@ekza-studio/mesh-core';
+import { PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
 import { loadMeshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';

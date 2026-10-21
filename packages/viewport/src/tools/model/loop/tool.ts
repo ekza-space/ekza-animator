@@ -5,8 +5,8 @@
 // seed edge); release places it with one `mesh.insertLoop` run (`source: 'tool'`, so `G` re-activates this tool,
 // §5.7). `Esc` cancels with no step; RMB is ignored while sliding; a digit during the slide types the weight and
 // `PageUp`/`PageDown` step the loop count of Multiple mode (§5.10).
-import type { ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   type NumericTarget,
@@ -15,8 +15,8 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/editor-core';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { PREVIEW } from '../topology/overlay';
 import { isRefusal, type PanePoint, type TopologyRuntime } from '../topology/runtime';
 

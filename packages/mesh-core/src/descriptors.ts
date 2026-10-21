@@ -1,4 +1,4 @@
-// `@ekza-animator/mesh-core/descriptors` (M6A-SPEC §2 eager/lazy split): the op descriptors and primitive parameters
+// `@ekza-studio/mesh-core/descriptors` (M6A-SPEC §2 eager/lazy split): the op descriptors and primitive parameters
 // that menus, keymap rows, the command palette, option boxes and Last-op cards read. Plain data only — no kernel code,
 // no earcut, no predicates, no kernel marker — so the eager editor route can import it. B0a writes this barrel; only
 // stub lines change afterwards (§3 rule 2).

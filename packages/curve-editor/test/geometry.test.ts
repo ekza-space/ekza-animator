@@ -8,8 +8,8 @@ import {
   type KeyData,
   Segment,
   segmentControlPoints,
-} from '@ekza-animator/anim-core';
-import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/anim-core';
+import { naiveCurveEngine } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import {
   bezierParamAt,

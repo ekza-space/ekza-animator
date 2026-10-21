@@ -2,7 +2,7 @@
 // chunk. A search field over the filtered entries with their key labels and the reasons of the disabled ones;
 // ↑/↓ move, Enter runs (or opens the inline prompt of an operator with params: Tab moves between its fields), Esc
 // or a click outside closes.
-import { cn } from '@ekza-animator/ui';
+import { cn } from '@ekza-studio/ui';
 import { type JSX, type KeyboardEvent, useEffect, useRef } from 'react';
 import { useStoreSelector } from '../../hooks/useStoreSelector';
 import type { CommandPaletteController, PaletteEntry } from './controller';

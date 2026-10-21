@@ -2,9 +2,9 @@
 // real rig): mirror animation skips the humanoid secondary controls (their rest frames are not world-aligned) with
 // a warning naming how many, writes the FK arms half a cycle later exactly at every frame (the FR-POSE-05 gate on
 // world-aligned controls), and undoes and redoes exactly.
-import { curveEngine } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, ControlRecord } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { curveEngine } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, ControlRecord } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED,

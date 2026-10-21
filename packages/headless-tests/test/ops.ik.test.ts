@@ -2,9 +2,9 @@
 // and body parts on IK rigs, Add Limb IK on an M1 rig (pose unchanged bit for bit, undo exact), the seamless switch
 // (keys and pose at f − 1 and f), match round trips and the hyperextension warning, match range, Plant Feet on IK
 // legs, keying and reset with limb attributes, foot pivots. Needs A1's limb IK (merged; the gate became a failure).
-import { mat4Decompose, quatAngle } from '@ekza-animator/anim-core';
-import type { ChannelId, CharacterId, ControlId } from '@ekza-animator/doc';
-import { controlVisibility, type EditorApp, keyTargetControls } from '@ekza-animator/editor-core';
+import { mat4Decompose, quatAngle } from '@ekza-studio/anim-core';
+import type { ChannelId, CharacterId, ControlId } from '@ekza-studio/doc';
+import { controlVisibility, type EditorApp, keyTargetControls } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED,

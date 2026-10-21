@@ -1,6 +1,6 @@
 // The marking menu's shared shapes (M6A-SPEC §5.18; B9): eager and tiny, so the shell, the test API and the lazy
 // controller agree without pulling the controller into the eager route.
-import type { CompassSlot, MarkingMenuDef, RunContext } from '@ekza-animator/editor-core';
+import type { CompassSlot, MarkingMenuDef, RunContext } from '@ekza-studio/editor-core';
 
 /** One drawn item: an operator run (with args), or a submenu; disabled with the poll's (or a static) reason. */
 export interface MarkingMenuEntry {

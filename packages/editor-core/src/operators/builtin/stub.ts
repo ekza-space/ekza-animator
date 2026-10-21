@@ -1,8 +1,8 @@
 // M2A-SPEC §3 rule 1 (and M6A-SPEC §3 rule 1): every new operator is registered from the foundation package on as a
 // stub that resolves and poll-fails with "not available yet" (menus show it disabled, keymaps and scripts get a clean
 // `cancelled` result); the owning work package replaces the definition in the same file.
-import type { ParamDef } from '@ekza-animator/anim-core';
-import { EkzaError } from '@ekza-animator/anim-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { GLOBAL_SCOPE, type KeyScope, type OperatorCategory, type ToolId, type WorkspaceId } from '../../types';
 import type { OperatorMap } from '../args';
 import { type AnyOperator, defineOperator, fail } from './define';

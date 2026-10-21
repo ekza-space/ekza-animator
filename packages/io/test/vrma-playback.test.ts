@@ -1,10 +1,10 @@
 // E2E-17 in Node: a VRMA written from Seed-san (VRM 1.0) or Polybot (VRM 0.x, canonical facing) plays through
 // @pixiv/three-vrm-animation on Seed-san (VRM 1.0) and Polybot (VRM 0.x); the normalized bone rotations equal N_b
 // (Seed-san) and flipYaw(N_b) (Polybot), §4.11.9.
-import { flipYawQuat, quatAngle, type Quat } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { flipYawQuat, quatAngle, type Quat } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import { createVRMAnimationClip, type VRMAnimation, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { AnimationMixer, LoopOnce } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';

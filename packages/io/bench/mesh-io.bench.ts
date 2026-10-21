@@ -1,8 +1,8 @@
 // B8 benches (M6A-SPEC §5.27, report only): Make editable from a GLB ≤ 150 ms, export of one edited mesh (the
 // surgeon's geometry step) ≤ 50 ms, the display rebuild of an edited Seed-san ≤ 300 ms (rebuild + three.js load in
 // Node, standing in for the browser's ModelLoader). Run: npx vitest bench --run (in packages/io).
-import { readFixture } from '@ekza-animator/doc/testing';
-import { setKernelDebug } from '@ekza-animator/mesh-core';
+import { readFixture } from '@ekza-studio/doc/testing';
+import { setKernelDebug } from '@ekza-studio/mesh-core';
 import { bench, describe } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { meshFromGltf } from '../src/mesh';

@@ -1,8 +1,8 @@
 // Eager part of the mesh runtime (M6A-SPEC §2 eager/lazy split, B7): the registry's interface and constants, shared
 // by the eager facade (facade.ts) and the lazy implementation (impl.ts, loaded with the kernel chunk).
-import type { Disposer, ParamValues } from '@ekza-animator/anim-core';
-import type { DocumentStore, MeshId, MeshRef, Tx } from '@ekza-animator/doc';
-import type { ComponentKind, ComponentSelection, MeshData, MeshOp, MeshSetOp, Refusal } from '@ekza-animator/mesh-core';
+import type { Disposer, ParamValues } from '@ekza-studio/anim-core';
+import type { DocumentStore, MeshId, MeshRef, Tx } from '@ekza-studio/doc';
+import type { ComponentKind, ComponentSelection, MeshData, MeshOp, MeshSetOp, Refusal } from '@ekza-studio/mesh-core';
 import type {
   BlobId,
   BlobStore,

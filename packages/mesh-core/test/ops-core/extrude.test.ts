@@ -1,7 +1,7 @@
 // `mesh.extrude`, `regionFrame` and `mesh.inset` behaviour (M6A-SPEC §5.8, §5.9, §5.3, §5.2): the cap transform's
 // argument order, world space, together vs individual, border-edge extrusion, offset and thickness, H2 on walls,
 // attribute propagation, the `adjust` fast path (bit-identical to a fresh run) and the region frame.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_LAYERS,

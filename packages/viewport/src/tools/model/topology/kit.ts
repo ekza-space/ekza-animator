@@ -1,7 +1,7 @@
 // The topology kit (M6A-SPEC §4.7, §5.27; B12b), the lazy chunk behind the eager tool definitions of ./index.ts:
 // one runtime per viewport (previews, the extrude manipulator, hover, scratch runs) and the tools' behaviour.
-import type { EditorApp, ToolInstance } from '@ekza-animator/editor-core';
-import { VIEWPORT_TOOL } from '@ekza-animator/editor-core';
+import type { EditorApp, ToolInstance } from '@ekza-studio/editor-core';
+import { VIEWPORT_TOOL } from '@ekza-studio/editor-core';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import { extrudeGrabPoint, worldPerPixel } from '../../../manipulators/extrude/geometry';
 import type { ManipHandle } from '../../../types';

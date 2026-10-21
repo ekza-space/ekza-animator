@@ -10,7 +10,7 @@ import {
   type Triangulation,
   triangulate,
   computeNormals,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import {
   type Camera,
   Color,

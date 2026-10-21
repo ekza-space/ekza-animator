@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { createContext, type JSX, type ReactNode, useContext } from 'react';
 
 const EditorAppContext = createContext<EditorApp | null>(null);

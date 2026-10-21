@@ -1,9 +1,9 @@
 // The editor root shared by the production `Editor` and the dev/e2e shell harness: creates the browser services and
 // the EditorApp, the shell core, the providers, the GL host and the workspace chrome; installs the window input
 // adapter, the first-run dialog and (e2e builds with ?e2e=1) the test API.
-import { seededIdSource, type IdSource } from '@ekza-animator/doc';
-import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-animator/editor-core';
-import { ToastProvider, TooltipProvider } from '@ekza-animator/ui';
+import { seededIdSource, type IdSource } from '@ekza-studio/doc';
+import { type EditorApp, type EditorServices, switchWorkspace } from '@ekza-studio/editor-core';
+import { ToastProvider, TooltipProvider } from '@ekza-studio/ui';
 import { type JSX, useEffect, useRef } from 'react';
 import { GLHost } from '../gl/GLHost';
 import { EditorAppProvider } from '../hooks';
@@ -69,7 +69,7 @@ function boot(props: EditorRootProps): Boot {
   try {
     app = props.createApp({ services, platform, ...(params.e2e ? { idSource: seededIdSource(1) } : {}) });
   } catch (error) {
-    console.error('Ekza Animator: the editor kernel could not start', error);
+    console.error('Ekza Studio: the editor kernel could not start', error);
     return { kind: 'unavailable', error, params };
   }
   // M6a (M6A-SPEC §4.8, §5.17): the workspace opens as `ws=<id>` asks (any build), else as the user left it
@@ -133,14 +133,14 @@ function ReadyEditor(props: {
       .then(({ createTestApi }) => {
         if (cancelled) return;
         const handle = createTestApi(shell);
-        window.__EKZA_ANIMATOR_TEST__ = handle.api;
+        window.__EKZA_STUDIO_TEST__ = handle.api;
         uninstall = () => {
-          if (window.__EKZA_ANIMATOR_TEST__ === handle.api) delete window.__EKZA_ANIMATOR_TEST__;
+          if (window.__EKZA_STUDIO_TEST__ === handle.api) delete window.__EKZA_STUDIO_TEST__;
           handle.dispose();
         };
       })
       // The editor keeps working without it; the spec waiting for the global fails with this message in its log.
-      .catch((error: unknown) => console.error('Ekza Animator: the e2e test API could not be loaded', error));
+      .catch((error: unknown) => console.error('Ekza Studio: the e2e test API could not be loaded', error));
     return () => {
       cancelled = true;
       uninstall?.();

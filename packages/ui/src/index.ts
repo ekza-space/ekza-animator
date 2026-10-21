@@ -1,4 +1,4 @@
-// @ekza-animator/ui: design tokens (tokens.json → styles.css custom properties and Tailwind theme), Radix-based
+// @ekza-studio/ui: design tokens (tokens.json → styles.css custom properties and Tailwind theme), Radix-based
 // primitives styled with the tokens (props follow Radix) and the icon set (research 09 §8; MVP-SPEC §7 WP-8).
 // Nothing registers on import.
 export { cn } from './cn';

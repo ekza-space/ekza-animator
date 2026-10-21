@@ -1,8 +1,8 @@
 // What one Graph Editor frame shows: view, size, curves, selection and time context. Painters and hit-testing read
 // the same scene, so what is hit is what is drawn.
-import type { CompiledAnimCurve } from '@ekza-animator/anim-core';
-import type { CurveId, KeyId } from '@ekza-animator/doc';
-import type { KeyPartSelection } from '@ekza-animator/editor-core';
+import type { CompiledAnimCurve } from '@ekza-studio/anim-core';
+import type { CurveId, KeyId } from '@ekza-studio/doc';
+import type { KeyPartSelection } from '@ekza-studio/editor-core';
 import { GRAPH_METRICS } from '../painters/theme';
 import type { GraphViewMode, GraphViewState } from '../types';
 import { frameToX, valueToY } from '../view/transform';

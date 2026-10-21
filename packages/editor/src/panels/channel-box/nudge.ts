@@ -2,7 +2,7 @@
 // selected control, relative to each control's own value. A burst — key presses and auto-repeat until the arrow is
 // released, Enter, Tab, blur or Esc — is ONE interactive edit: a `beginChannelEditGesture` (live preview, one
 // history step, auto-key on commit). M2a: attribute rows nudge in their display unit (1° on `angle` attributes).
-import type { ChannelId, ControlId } from '@ekza-animator/doc';
+import type { ChannelId, ControlId } from '@ekza-studio/doc';
 import {
   type ChannelEditGesture,
   type ChannelUnit,
@@ -10,7 +10,7 @@ import {
   clampChannelValue,
   type EditorApp,
   type PanelKind,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { fromDisplayValue, isRotationChannel, startChannelEditGesture, toDisplayValue } from './kit/kernel';
 import { type ChannelReadout, readoutValueKey } from './readout';
 

@@ -1,5 +1,5 @@
-import type { ReadonlyVec3 } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
+import type { ReadonlyVec3 } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
 import { allocXfArrays, type XfArrays, xfaMul, xfaSet } from '../math/xfa';
 import type { SkeletonDesc } from '../types';
 import { HUMAN_BONE_NAMES } from './bones';

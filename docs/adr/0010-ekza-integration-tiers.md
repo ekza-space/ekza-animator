@@ -9,13 +9,13 @@
 
 ## Context
 
-The Animator should help the Ekza ecosystem: export formats today, upload later. Facts from research 03: Ekza
+Ekza Studio should help the Ekza ecosystem: export formats today, upload later. Facts from research 03: Ekza
 Space plays embedded `idle`/`walk` from an avatar VRM; OMOBA admits avatars with five named clips but plays its
 own retargeted library for VRM humanoids; the registry knows only `avatar` and `weapon` kinds and rejects any JSON
 key named `uri`; no Ekza service accepts animation assets yet. `@ekza/avatar-renderer` peers `three <0.186` and is
 not on npm. The design review found that the clip metadata contract (`contactSeconds`, `tags`, `derivedFrom`)
 could not be authored because clips had no such fields, that lint codes did not match the registry's issue codes,
-that `model/vrma` has no registry or IANA meaning, and that the Studio → Animator direction had no contract.
+that `model/vrma` has no registry or IANA meaning, and that the Hub → Studio direction had no contract.
 
 ## Decision
 
@@ -25,9 +25,9 @@ that `model/vrma` has no registry or IANA meaning, and that the Studio → Anima
    | Tier | Deliverable | Ecosystem change | Milestone |
    |---|---|---|---|
    | **T0** | `.vrm`/`.glb` with appended slot-named clips (surgeon), `.vrma` per clip, animation-only `.glb`, Tier-0 lints, export profiles and metadata | none | **MVP** |
-   | **T1** | Typed asset `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1` (builder `none`, format `vrma`, ≤ 8 MiB, 1–32 animations) | registry migration + validator + Studio UI; SDKs; Space/OMOBA consumers | M4a |
+   | **T1** | Typed asset `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1` (builder `none`, format `vrma`, ≤ 8 MiB, 1–32 animations) | registry migration + validator + Hub UI; SDKs; Space/OMOBA consumers | M4a |
    | **T2** | Avatar-owned animation sets: `asset.extras.ekza_animation_set_v1` slot → clip in `desktop / humanoid-glb-v2` | OMOBA reads aliases from the hashed asset | M4a+ |
-   | **T3** | "Publish to Ekza" from the Animator (device-code login, new `studio-upload` scope) | registry account scope | M4a |
+   | **T3** | "Publish to Ekza" from Ekza Studio (device-code login, new `studio-upload` scope) | registry account scope | M4a |
 
 2. **Metadata contract** (written by every exporter in the MVP), inside `asset.extras` so it is covered by the
    content hash (types: MVP-SPEC §4.4 `EkzaAnimationV1`, `EkzaClipMetaV1`):
@@ -101,13 +101,13 @@ that `model/vrma` has no registry or IANA meaning, and that the Studio → Anima
    selection, the shared-library gate). Using the real renderer requires these upstream changes: an injectable
    `DRACOLoader`/decoder path (no gstatic CDN), npm publication or a tagged tarball (today a git dependency built
    in `prepare`, which pnpm 10 blocks and `minimumReleaseAge` does not cover), and a three peer range `<0.187`.
-8. **Studio → Animator (contract defined now, implemented in M4a)**: deep link
+8. **Hub → Studio (contract defined now, implemented in M4a)**: deep link
    `/editor?open=ekza:avatar:<uuid>&sha256=<hex>` downloads the avatar's rendition through the registry and
    verifies its SHA-256 before loading; an iframe embed uses a versioned `postMessage` protocol
-   `ekza-animator-embed/v1`: host → editor `open { asset, sha256 }`, editor → host `ready`,
+   `ekza-studio-embed/v1`: host → editor `open { asset, sha256 }`, editor → host `ready`,
    `exported { kind, fileName, sha256, bytes }` (transferable), `error { code, message }`, with origin allow-lists
-   on both sides. Owned jointly with Ekza Studio (React 18 stays isolated behind the iframe, research 04 §13).
-9. The Animator **project file** is not uploaded in T1; storing it as a private registry source object is an owner
+   on both sides. Owned jointly with Ekza Hub (React 18 stays isolated behind the iframe, research 04 §13).
+9. The Ekza Studio **project file** is not uploaded in T1; storing it as a private registry source object is an owner
    question (Q-EKZA-7).
 
 ## Alternatives
@@ -121,7 +121,7 @@ new JSON clip format for Ekza was rejected: VRMA is the standard interchange (02
 - MVP exports already carry everything T1 validators need (metadata incl. provenance, profile-clean containers,
   registry-aligned issue codes).
 - Upstream PRs suggested (owner decision, DECISIONS-OPEN §C): renderer drops the `embedded.length === 0` gate;
-  injectable decoder path; npm publication; three peer `<0.187`; Studio adds `cast` to its preview vocabulary;
+  injectable decoder path; npm publication; three peer `<0.187`; Hub adds `cast` to its preview vocabulary;
   the embed protocol above.
 - T1/T3 (M4a) depend only on M1 plus work in other repositories, so they are scheduled independently of
   collaboration auth (M4b); tracking issues in the registry, SDK and game repositories open during M2.

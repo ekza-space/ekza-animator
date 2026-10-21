@@ -1,9 +1,9 @@
 // io.* (WP-4): the export pipeline over the real rig kernel on the licensed fixtures — skeletonFromGltf → autoRig →
 // compileRig → bakeClip → bakeIntoModel / writeAnimationGlb / writeVrma → read-back, lints and glTF-Validator
 // (§4.11.10, §4.11.13). Skipped until WP-3's autoRig and compileRig land.
-import { EkzaError, type Quat, quatAngle } from '@ekza-animator/anim-core';
-import { type CharacterId, controlId, type RigId } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture, readSyntheticFixture } from '@ekza-animator/doc/testing';
+import { EkzaError, type Quat, quatAngle } from '@ekza-studio/anim-core';
+import { type CharacterId, controlId, type RigId } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture, readSyntheticFixture } from '@ekza-studio/doc/testing';
 import {
   bakeClip,
   bakeIntoModel,
@@ -18,14 +18,8 @@ import {
   validateGltf,
   writeAnimationGlb,
   writeVrma,
-} from '@ekza-animator/io';
-import {
-  autoRig,
-  compileRig,
-  humanoidRestWorldPositions,
-  type RigProgram,
-  type SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/io';
+import { autoRig, compileRig, humanoidRestWorldPositions, type RigProgram, type SkeletonDesc } from '@ekza-studio/rig';
 import * as gltfValidator from 'gltf-validator';
 import { beforeAll, describe, expect, it } from 'vitest';
 

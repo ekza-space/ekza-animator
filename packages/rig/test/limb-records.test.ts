@@ -1,5 +1,5 @@
 // A1 (M2A-SPEC §5.2): limb IK records — controls, attributes, solver params, hinge, rest pole and foot parameters.
-import { type AttrDef, type ControlRecord, controlId, solverId } from '@ekza-animator/doc';
+import { type AttrDef, type ControlRecord, controlId, solverId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   AUTORIG_VERSION,

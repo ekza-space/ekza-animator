@@ -2,7 +2,7 @@
 // slot, row-major from the top-left of a grid that is 64 × 64 px for ≤ 64 swatches (8 × 8 cells), 128 × 64 for ≤ 128
 // (16 × 8) and 128 × 128 for ≤ 256 (16 × 16); unused cells black. Every corner of a painted face samples the centre of
 // its cell, so the colour is exact at any distance.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { encodePngRgb } from '../png/encode';
 import type { PaletteTexture } from '../types';
 

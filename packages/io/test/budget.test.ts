@@ -1,4 +1,4 @@
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { checkInputBudget, MAX_BUDGET_ISSUES } from '../src/budget/check';
 import { parseGlb } from '../src/glb/parse';

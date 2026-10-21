@@ -1,5 +1,5 @@
-import type { Fps, KeyData } from '@ekza-animator/anim-core';
-import type { ChannelValues, HumanBoneName, TrsChannel } from '@ekza-animator/doc';
+import type { Fps, KeyData } from '@ekza-studio/anim-core';
+import type { ChannelValues, HumanBoneName, TrsChannel } from '@ekza-studio/doc';
 import {
   CHANNELS_PER_CONTROL,
   type ChannelBuffer,

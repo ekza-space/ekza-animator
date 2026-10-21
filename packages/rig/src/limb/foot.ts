@@ -1,4 +1,4 @@
-import type { Quat, ReadonlyVec3, SplineSet, Vec3 } from '@ekza-animator/anim-core';
+import type { Quat, ReadonlyVec3, SplineSet, Vec3 } from '@ekza-studio/anim-core';
 import { clean } from '../autorig/shapes';
 import { allocXfArrays, type XfArrays, xfaMul } from '../math/xfa';
 import type { FootRollParams, SkeletonDesc } from '../types';

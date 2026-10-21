@@ -67,7 +67,7 @@ Browser support: Chromium (primary), Firefox and Safari 26+ (secondary, smoke-te
 **Next.js 16 is the product shell. The editor stays framework-agnostic.** This gives the owner his preferred stack and keeps Vite's advantages where they count:
 
 - `apps/web` (Next 16): landing, `/editor` (client island), `/embed` (iframe for Ekza Studio, driven by a `postMessage` API), `/api/*` (upload proxy to the Ekza registry, auth callback). These HTTP routes exist only in the dynamic deploy.
-- `apps/playground` (Vite 8): a minimal host that mounts `@ekza-animator/editor` without Next. It is the embedding-conformance test, the perf-bench host and the Vitest browser-mode environment.
+- `apps/playground` (Vite 8): a minimal host that mounts `@ekza-studio/editor` without Next. It is the embedding-conformance test, the perf-bench host and the Vitest browser-mode environment.
 - Collaboration (later) runs as a separate WebSocket service (Yjs: `y-websocket`/Hocuspocus first, `yrs` in Rust later; see `03-ekza-reuse-audit.md` §0.5).
 
 Why not embed the editor into Ekza Studio as a package? Studio's web app is Remix 2.16 + React 18.3 + R3F 8 + three 0.185. Our editor package needs React 19 + R3F 9 + three 0.186. The **iframe `/embed` route with a versioned `postMessage` contract** (`open(assetUrl)`, `save → {glb|vrma bytes, metadata}`, `close`) decouples the two release trains. The non-React packages (`anim-core`, `doc`, `rig`, `io`) can still be imported directly by any host.
@@ -80,7 +80,7 @@ Why not embed the editor into Ekza Studio as a package? Studio's web app is Remi
    // apps/web/app/editor/EditorIsland.tsx
    'use client';
    import dynamic from 'next/dynamic';
-   const Editor = dynamic(() => import('@ekza-animator/editor').then((m) => m.Editor), {
+   const Editor = dynamic(() => import('@ekza-studio/editor').then((m) => m.Editor), {
      ssr: false,             // allowed only inside Client Components
      loading: () => <EditorSplash />,
    });
@@ -94,7 +94,7 @@ Why not embed the editor into Ekza Studio as a package? Studio's web app is Remi
    }
    ```
 
-   `apps/web/workers/io.worker.ts` contains one line: `import '@ekza-animator/io/worker';`. Packages never call `new Worker(new URL(...))` themselves, so the same package works under Turbopack, Vite, webpack and Remix.
+   `apps/web/workers/io.worker.ts` contains one line: `import '@ekza-studio/io/worker';`. Packages never call `new Worker(new URL(...))` themselves, so the same package works under Turbopack, Vite, webpack and Remix.
 2. **`next.config.ts`:**
 
    ```ts
@@ -520,7 +520,7 @@ ekza-animator/
 │   │   │   ├── editor/              # page.tsx (RSC) → EditorIsland.tsx ('use client', ssr:false)
 │   │   │   ├── embed/               # iframe route for Ekza Studio (postMessage contract)
 │   │   │   └── api/                 # upload proxy, auth callback (dynamic deploy only)
-│   │   ├── workers/io.worker.ts     # one line: import '@ekza-animator/io/worker'
+│   │   ├── workers/io.worker.ts     # one line: import '@ekza-studio/io/worker'
 │   │   ├── public/decoders/         # self-hosted draco / meshopt / basis transcoders
 │   │   ├── e2e/                     # Playwright specs + screenshot baselines (Linux)
 │   │   └── next.config.ts

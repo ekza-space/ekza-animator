@@ -7,7 +7,7 @@
 // furthest — Polybot's legs are 0.32 m long and straight at rest, Seed-san's are straight too — so the IK targets
 // stay inside the legs' reach and the feet can be planted at all; every assertion of §9.1 is kept.
 import { readFileSync } from 'node:fs';
-import { DEFAULT_EXPORT_REDUCE, parseGlb, readAnimations, skeletonFromGltf, trackLeverArms } from '@ekza-animator/io';
+import { DEFAULT_EXPORT_REDUCE, parseGlb, readAnimations, skeletonFromGltf, trackLeverArms } from '@ekza-studio/io';
 import { expect, type Page, test } from '@playwright/test';
 import { clickFrame, clickOutlinerRow, keysOf, pressOverPane } from './helpers/g3-input';
 import {

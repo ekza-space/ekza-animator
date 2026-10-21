@@ -4,7 +4,7 @@
 // apply in it (offset and thickness are face-region args). An interior edge refuses: it would make a fin.
 // `selection′` = the new outer edges. Winding (M6A-B3-1): for a border edge its face runs a → b, the quads run
 // (B_k, A_k, A_k+1, B_k+1), against the face on the border edge (§5.8 step 7 writes (a, b, b′, a′)).
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import { copyCornerAttributes, copyPointAttributes } from '../../layers/propagate';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';

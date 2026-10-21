@@ -11,7 +11,7 @@ import {
   xfIdentity,
   xfInvert,
   coerceArgs,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import {
   type BudgetPresetId,
   type ImagePlaneRecord,
@@ -31,8 +31,8 @@ import {
   SWATCH_SHADER_DEFAULTS,
   type SwatchRecord,
   type Tx,
-} from '@ekza-animator/doc';
-import type { ComponentSelection } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/doc';
+import type { ComponentSelection } from '@ekza-studio/mesh-core';
 import { newRecordId } from '../../app/internals';
 import { attachMeshes, type KernelMeshRuntimes, meshKernel } from '../../mesh';
 import { localFromWorld, MAX_NAME, orderAfterSiblings, ownerKey, uniqueMeshName } from '../../mesh/records';

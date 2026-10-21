@@ -1,6 +1,6 @@
 // WP-6 owns this directory: the Graph Editor panel (MVP-SPEC §3 convention 10, §7 WP-6).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { PanelRegistry } from '../types';
 import { GraphPanel } from './GraphPanel';
 

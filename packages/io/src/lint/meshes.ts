@@ -9,8 +9,8 @@
 // - `ekza.provenance-ai-undisclosed`: AI-generated sources exported without the generator in the provenance block.
 //
 // Lazy: reachable only through `io/mesh` (it uses the kernel's Mesh Check).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { MeshData, MeshProblem } from '@ekza-animator/mesh-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { MeshData, MeshProblem } from '@ekza-studio/mesh-core';
 import { checkMesh, EDGE_HARD } from '../mesh/kernel';
 import type { BudgetPreset } from '../profiles/budgets';
 import type { ExportProfileDef, LintIssue } from '../types';

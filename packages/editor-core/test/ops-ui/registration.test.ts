@@ -2,9 +2,9 @@
 // `meshOperator` / `meshSetOperator` (label, params, flags, pass-through args, Model workspace, tools, aliases,
 // internal ops), and every op renders a Last-op card from its params or none: the card's fields are the visible params
 // (primary first), each default displays and parses back to itself.
-import { coerceArgs, isNumericParam, type ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { coerceArgs, isNumericParam, type ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
   formatParamValue,

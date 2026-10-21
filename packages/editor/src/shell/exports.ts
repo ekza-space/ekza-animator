@@ -1,6 +1,6 @@
 // Records the last exported file for the e2e test API (`lastExport()`, MVP-SPEC §4.8). Downloads are seen first
 // (the export operator downloads before it returns); the operator's artifacts then fill in lints and read-back.
-import type { ExportArtifact } from '@ekza-animator/io';
+import type { ExportArtifact } from '@ekza-studio/io';
 import { sha256Hex } from '../services/assets';
 import type { ExportRecorder, LastExport } from './types';
 

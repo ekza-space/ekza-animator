@@ -1,7 +1,7 @@
 // Small React bindings shared by the data panels, on top of the editor hooks (useSession, useDocQuery).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
+import type { EditorApp, SessionState } from '@ekza-studio/editor-core';
 import { useCallback, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react';
 
 /** Increments on every character registry event (runtime added, removed, recompiled, display loaded). */

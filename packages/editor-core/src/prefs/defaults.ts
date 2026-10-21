@@ -1,5 +1,5 @@
 // Preferences (P state) defaults, MVP-SPEC §4.5, M2A-SPEC §4.5 and M6A-SPEC §4.6.
-import { DEFAULT_EXPORT_REDUCE } from '@ekza-animator/io';
+import { DEFAULT_EXPORT_REDUCE } from '@ekza-studio/io';
 import type { Prefs } from '../types';
 
 export function defaultPrefs(platform: 'mac' | 'other'): Prefs {

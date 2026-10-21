@@ -1,7 +1,7 @@
 // Imported clips as records: the clip, its base layer, one curve per imported channel and its keys. IDs are taken
 // in `prepare` (the clip's partition is opened before the transaction); `writeClipPlan` puts the records in
 // dependency order inside the import transaction (clip before layer before curves before keys, §4.11.21).
-import type { Fps, Frame } from '@ekza-animator/anim-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
 import type {
   CharacterId,
   ClipId,
@@ -12,8 +12,8 @@ import type {
   KeyRecord,
   LayerRecord,
   Tx,
-} from '@ekza-animator/doc';
-import type { ImportedClipKeys, ReduceSpec } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { ImportedClipKeys, ReduceSpec } from '@ekza-studio/rig';
 import { newRecordId } from '../app/internals';
 import type { EditorApp } from '../types';
 import { baseLayerRecord, clipRecord, curveRecord, keyRecord } from './records';

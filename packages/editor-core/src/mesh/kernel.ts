@@ -1,13 +1,13 @@
-// The lazy kernel chunk (M6A-SPEC §2): `loadMeshKernel()` imports `@ekza-animator/mesh-core` on first need (a project
+// The lazy kernel chunk (M6A-SPEC §2): `loadMeshKernel()` imports `@ekza-studio/mesh-core` on first need (a project
 // with mesh records, entering Model, a `mesh.*` run) together with the runtime registry's implementation (impl.ts:
 // commits, sessions, journal, GC — B0a's size note: only a facade of the registry fits in the editor route). Until both
 // resolve, runtimes are 'loading' and `mesh.*` polls fail with "Mesh tools are loading". This is the one module of
 // editor-core that imports the kernel at run time. B10's component selection service loads with them (M6A-INT-14).
-import type * as MeshKernelModule from '@ekza-animator/mesh-core';
+import type * as MeshKernelModule from '@ekza-studio/mesh-core';
 import type * as ComponentServiceModule from '../selection/component/service';
 import type * as MeshImplModule from './impl';
 
-/** The lazy kernel module (`@ekza-animator/mesh-core`). */
+/** The lazy kernel module (`@ekza-studio/mesh-core`). */
 export type MeshKernel = typeof MeshKernelModule;
 /** The lazy runtime implementation module. */
 export type MeshImpl = typeof MeshImplModule;
@@ -25,7 +25,7 @@ export function loadMeshKernel(): Promise<MeshKernel> {
   if (kernelLoad === null) {
     const load = Promise.all([
       // oxlint-disable-next-line no-restricted-imports -- the one lazy kernel loader of editor-core (M6A-SPEC §2)
-      import('@ekza-animator/mesh-core'),
+      import('@ekza-studio/mesh-core'),
       import('./impl'),
       import('../selection/component/service'),
     ]).then(([kernelModule, implModule, componentModule]) => {

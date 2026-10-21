@@ -1,8 +1,8 @@
 // Workspace tabs (M6A-SPEC §5.17, §8.1; B9): `Model › Rig & Skin › Animate › Review` in the menu bar, with status
 // glyphs that carry text tooltips (never colour alone): ● done, ◐ needs attention (the reasons), ○ nothing yet.
 // Disabled tabs say when they arrive. Below 1280 px the labels shorten. A click runs `workspace.set`.
-import type { WorkspaceDef, WorkspaceStatus } from '@ekza-animator/editor-core';
-import { cn, Tooltip } from '@ekza-animator/ui';
+import type { WorkspaceDef, WorkspaceStatus } from '@ekza-studio/editor-core';
+import { cn, Tooltip } from '@ekza-studio/ui';
 import { Fragment, type JSX, useEffect, useMemo, useState } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

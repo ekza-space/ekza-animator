@@ -3,7 +3,7 @@
 // `React.lazy` boundary the first time its dock tab is shown (§5.21.2 required lazy boundary 4): the controller,
 // painter and toolbar code stay out of the editor's initial route. Dockview keeps an inactive tab mounted with its
 // content detached, so "shown" is a non-empty size of the panel's box.
-import { registerDopeSheetContributions } from '@ekza-animator/curve-editor';
+import { registerDopeSheetContributions } from '@ekza-studio/curve-editor';
 import { type JSX, lazy, Suspense, useEffect, useRef, useState } from 'react';
 import type { PanelProps } from '../types';
 import { focusedDopeSheet } from './focus';

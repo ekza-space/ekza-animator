@@ -20,7 +20,7 @@
 //   partner's rail has no mirror image among its own edges (asymmetric topology: it keeps its own rails, so it never
 //   leaves the pre-slide surface).
 // Not repeatable (pointer-bound reference). `adjust` re-solves new percents from the pre-slide positions.
-import type { JsonValue, ParamValues } from '@ekza-animator/anim-core';
+import type { JsonValue, ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { argsOf, edgeCorners, keptSelection, num, scopeEdges, scopeVerts, vertEdges } from '../../subset/support';
 import {

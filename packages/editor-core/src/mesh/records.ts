@@ -1,6 +1,6 @@
 // Record helpers of the mesh runtime's writers (`mesh.create.*`, the MeshSetOp runner): unique names per owner,
 // sibling order, material identity keys, skin keys and world ↔ parent-local placements (M6A-SPEC §4.2, §5.13, §5.16).
-import { type ReadonlyXf, xfIdentity, xfInvert, xfMultiply } from '@ekza-animator/anim-core';
+import { type ReadonlyXf, xfIdentity, xfInvert, xfMultiply } from '@ekza-studio/anim-core';
 import {
   type CharacterId,
   fractionalIndex,
@@ -10,7 +10,7 @@ import {
   type MeshOwner,
   type MeshRecord,
   type ReadView,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { worldPlacement } from './context';
 
 /** Longest record name (§4.2). */

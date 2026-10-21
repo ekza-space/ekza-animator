@@ -1,6 +1,6 @@
 // System clipboard with an in-app fallback (ClipboardService, MVP-SPEC §4.5). Permission or focus errors never
 // lose a copy: the last written text is kept and returned when the system clipboard cannot be read.
-import type { ClipboardService } from '@ekza-animator/editor-core';
+import type { ClipboardService } from '@ekza-studio/editor-core';
 
 export function createBrowserClipboard(): ClipboardService {
   let fallback: string | null = null;

@@ -1,6 +1,6 @@
-// `@ekza-animator/io/write` (M2A-SPEC §4.4, M-2 §5.21.2): the export path — bake, surgeon, animation-GLB and VRMA
+// `@ekza-studio/io/write` (M2A-SPEC §4.4, M-2 §5.21.2): the export path — bake, surgeon, animation-GLB and VRMA
 // writers, export lints and the read-back check — behind one subpath, so `editor-core` and `editor` load glTF
-// Transform with a dynamic `import('@ekza-animator/io/write')` only when an export runs. The main entry keeps
+// Transform with a dynamic `import('@ekza-studio/io/write')` only when an export runs. The main entry keeps
 // exporting the same names in M2a (headless tests and tooling use it).
 import type * as MeshIo from './mesh';
 

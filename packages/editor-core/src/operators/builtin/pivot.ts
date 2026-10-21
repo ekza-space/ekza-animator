@@ -15,8 +15,8 @@
 // - `scene.object.transform {ids, placements}`: object W/E/R, MMB and Channel Box commits in Model, labelled by the
 //   dominant change ("Move", "Rotate", "Scale").
 // The bounds and the matrices are the lazy half (`pivotImpl.ts`, loaded by `prepare`, §5.27).
-import type { ParamDef, ReadonlyVec3, ReadonlyXf, Vec3, Xf } from '@ekza-animator/anim-core';
-import type { GroupId, GroupRecord, MeshId, MeshRecord, ReadView, Tx } from '@ekza-animator/doc';
+import type { ParamDef, ReadonlyVec3, ReadonlyXf, Vec3, Xf } from '@ekza-studio/anim-core';
+import type { GroupId, GroupRecord, MeshId, MeshRecord, ReadView, Tx } from '@ekza-studio/doc';
 import { meshKernel } from '../../mesh';
 import type { EditorApp, OperatorContext, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK, optionalArgs } from './define';

@@ -1,7 +1,7 @@
 // Small topology reads of the selection service over the kernel's edit links (M6A-SPEC §4.3 EditMesh traversal, §5.6):
 // the faces a selection touches (hide, face isolate) and the hidden closure (the edges and vertices that only hidden
 // faces use are hidden with them, the rule mesh-view draws with, M6A-B6-6). Allocation is per call, never per frame.
-import type { BitSet, ComponentKind, EditMesh, HiddenSet } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, EditMesh, HiddenSet } from '@ekza-studio/mesh-core';
 import type { MeshKernel } from '../../mesh';
 
 /** Calls `fn` with every corner of face `f`, in winding order. */

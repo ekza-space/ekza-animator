@@ -3,7 +3,7 @@
 // edges in one face (`spin.same-face`) and spins that would duplicate an edge. Counts never change; `selection′` = the
 // spun edges. Under symmetry (the runtime expands the selection) an edge on the negative side whose mirror partner is
 // spun too turns the other way, so the result stays a mirror image.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import {
   argsOf,

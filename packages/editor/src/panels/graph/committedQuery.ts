@@ -2,7 +2,7 @@
 // tree, the selected keys' numeric fields and the toolbar state — re-read after committed changes only. Preview batches
 // (each coalesced drag update) are skipped: during a drag the fields keep their pre-drag values (the canvas readout
 // shows the offsets), the commit re-reads them, and a cancel restores exactly what they show.
-import { batchTouches, type DocumentStore, type TableName } from '@ekza-animator/doc';
+import { batchTouches, type DocumentStore, type TableName } from '@ekza-studio/doc';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useEditorApp } from '../../hooks';
 

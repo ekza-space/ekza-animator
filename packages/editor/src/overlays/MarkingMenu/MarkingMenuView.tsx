@@ -1,8 +1,8 @@
 // The marking menu's drawing (M6A-SPEC §5.18, §8.10 `mm-<menuId>`, `mm-slot-<N…NW>`, `mm-item-<n>`; B9): a lazy
 // chunk, loaded when a menu first opens (it is drawn only after the 250 ms flick window). Eight compass slots around
 // the centre and the list below; disabled items show their reason. No animation (`prefers-reduced-motion` or not).
-import type { CompassSlot } from '@ekza-animator/editor-core';
-import { cn } from '@ekza-animator/ui';
+import type { CompassSlot } from '@ekza-studio/editor-core';
+import { cn } from '@ekza-studio/ui';
 import type { CSSProperties, JSX } from 'react';
 import {
   COMPASS,

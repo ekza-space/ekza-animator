@@ -3,10 +3,10 @@
 // needs the picks for the source side, M6A-B2-12), the pivot (the world bounding-box centre of those vertices, Maya)
 // and the Component frame (Z = the area-weighted average of the selected faces' normals, or of the normals of the faces
 // around the selected vertices; X/Y by the region-frame rule of §5.8, as B2's `mesh.transformComponents` resolves it).
-import { type Mat4, mat4Compose, mat4Decompose, type Quat, type Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import { type EditorApp, worldPlacement } from '@ekza-animator/editor-core';
-import type { ComponentKind, ComponentSelection, MeshData } from '@ekza-animator/mesh-core';
+import { type Mat4, mat4Compose, mat4Decompose, type Quat, type Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { type EditorApp, worldPlacement } from '@ekza-studio/editor-core';
+import type { ComponentKind, ComponentSelection, MeshData } from '@ekza-studio/mesh-core';
 import { Matrix3, Matrix4, Quaternion, Vector3 } from 'three';
 
 /** One hilited mesh's share of a component transform. */

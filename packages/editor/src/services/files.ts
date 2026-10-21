@@ -1,5 +1,5 @@
 // File download through a temporary object URL (FileService, MVP-SPEC §4.5).
-import type { FileService } from '@ekza-animator/editor-core';
+import type { FileService } from '@ekza-studio/editor-core';
 
 export interface DownloadRecord {
   readonly fileName: string;

@@ -1,6 +1,6 @@
 // WP-5 owns this directory: the viewport dock panel (MVP-SPEC §3 convention 10, §7 WP-5).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { PanelRegistry } from '../types';
 import { ViewportPanel } from './ViewportPanel';
 

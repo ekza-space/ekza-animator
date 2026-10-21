@@ -3,7 +3,7 @@
 // visible edges (Surface; Dijkstra from every seed at once, cut at r). Seeds (the expanded selected vertices) weigh 1,
 // vertices beyond r and hidden vertices 0; hidden seeds and hidden edges carry nothing. Deterministic: ties break by
 // vertex index and every loop runs in index order.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import type { BitSet } from '../bitset';
 import { kernelError } from '../kernel';
 import { PointHash } from '../symmetry/hash';

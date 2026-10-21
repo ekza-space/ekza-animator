@@ -5,10 +5,10 @@
 // preview update, compiling the moved curves (both shared with the Graph Editor's M-1 path, §5.21.1) and the Dope
 // Sheet's own redraw. The bounds asserted only catch order-of-magnitude regressions; the e2e bench `m2a-a3.bench.ts`
 // measures the whole editor.
-import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
-import { createMemoryStore, newId } from '@ekza-animator/doc';
-import { createEditorApp, type EditorApp } from '@ekza-animator/editor-core';
-import { createFakeServices } from '@ekza-animator/editor-core/testing';
+import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
+import { createMemoryStore, newId } from '@ekza-studio/doc';
+import { createEditorApp, type EditorApp } from '@ekza-studio/editor-core';
+import { createFakeServices } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DopeSheetController, registerDopeSheetContributions } from '../../src';
 import { waveSnapshot } from '../timeline/fixture';

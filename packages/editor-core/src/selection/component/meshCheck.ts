@@ -7,8 +7,8 @@
 //   (§5.16 "closed and manifold"). Every other mesh is open by default ("Clean" ignores `open-border` on it).
 // - **Duplicate slots**: the slots two live swatches of the mesh's palette share (a merge of two peers' palettes can
 //   produce them; the slot rule never reuses one locally).
-import type { GroupId, MeshId, MeshRecord, ReadView } from '@ekza-animator/doc';
-import type { HiddenSet } from '@ekza-animator/mesh-core';
+import type { GroupId, MeshId, MeshRecord, ReadView } from '@ekza-studio/doc';
+import type { HiddenSet } from '@ekza-studio/mesh-core';
 import type { EditorApp } from '../../types';
 
 export interface MeshCheckOptions {

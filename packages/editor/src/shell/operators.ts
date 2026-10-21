@@ -1,7 +1,7 @@
 // Operators owned by the shell (MVP-SPEC §4.9 owner 8): `view.toggleMaximize`, `ui.open`, `ui.close`, plus the
 // shell's own commands for preferences, the workspace and the selection mask. Registered through
 // `app.contribute` like every other operator (ADR 0008); none of them writes the document.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import {
   type Contribution,
   type EditorApp,
@@ -12,7 +12,7 @@ import {
   type Prefs,
   type SelectionMask,
   type UiDialog,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { StoreApi } from 'zustand/vanilla';
 import { CHROME_PARTS, type ChromePart } from './layout';
 import type {} from './operator-map';

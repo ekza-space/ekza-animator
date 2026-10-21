@@ -1,6 +1,6 @@
 // Shared poll conditions of the built-in operators.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
 import type { CharacterRuntime, EditorApp, PollResult } from '../../types';
 import { activeClipRecord } from '../../workflows/targets';
 import { fail, OK } from './define';

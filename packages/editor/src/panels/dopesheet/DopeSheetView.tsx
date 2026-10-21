@@ -7,9 +7,9 @@ import {
   DopeSheetController,
   type DopeSheetShow,
   selectModeFor,
-} from '@ekza-animator/curve-editor';
-import type { ChannelRef, EditorApp, ToolPointerEvent } from '@ekza-animator/editor-core';
-import { DOPE_TOOL, PANEL } from '@ekza-animator/editor-core';
+} from '@ekza-studio/curve-editor';
+import type { ChannelRef, EditorApp, ToolPointerEvent } from '@ekza-studio/editor-core';
+import { DOPE_TOOL, PANEL } from '@ekza-studio/editor-core';
 import {
   type JSX,
   type MouseEvent as ReactMouseEvent,

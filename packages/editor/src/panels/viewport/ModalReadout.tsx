@@ -6,9 +6,9 @@
 //
 // `registerModelTransformUi(app)` (one line in the shell) registers the slot and, on the first Model entry, B12a's
 // marking menus (`model.options`, the `W`/`E`+LMB space menus; a lazy chunk).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, NumericCaptureState } from '@ekza-animator/editor-core';
-import { subscribeTransformReadout, transformReadout } from '@ekza-animator/viewport';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, NumericCaptureState } from '@ekza-studio/editor-core';
+import { subscribeTransformReadout, transformReadout } from '@ekza-studio/viewport';
 import { type JSX, lazy, Suspense, useSyncExternalStore } from 'react';
 import { type PaneOverlayProps, registerPaneOverlay } from '../../overlays/slots';
 

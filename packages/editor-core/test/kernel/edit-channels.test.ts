@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, Tx } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, Tx } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, beginChannelEditGesture, type ChannelEditResult, type KeyPolicy } from '../../src';
 import { cancelChannelEditGestures } from '../../src/edit/channels';

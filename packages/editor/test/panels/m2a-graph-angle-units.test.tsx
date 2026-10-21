@@ -2,10 +2,10 @@
 // attribute (`@roll`, `unit: 'angle'`) shows and takes degrees in the key fields like the Channel Box and the curve
 // axis — a key at 20° reads 20.000 in both, typing 30 writes 30°, and the in/out angle fields match the slope the
 // canvas draws (measured on screen from the key and its handle).
-import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
-import type { ControlId, CurveId, KeyId } from '@ekza-animator/doc';
-import { ensureCurve, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import type { FakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
+import type { ControlId, CurveId, KeyId } from '@ekza-studio/doc';
+import { ensureCurve, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import type { FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';

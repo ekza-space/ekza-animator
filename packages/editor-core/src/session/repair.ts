@@ -1,6 +1,6 @@
 // Session repair against the document: after a committed batch (or when an app opens a document) the session points
 // only at live records. Pure: returns the fields to change.
-import type { CharacterId, ClipId, DocumentStore, GroupId, MeshId } from '@ekza-animator/doc';
+import type { CharacterId, ClipId, DocumentStore, GroupId, MeshId } from '@ekza-studio/doc';
 import type { ModelSessionState, SceneObjectId, SessionState, SymmetrySettings } from '../types';
 import { pruneSelection } from './selection';
 

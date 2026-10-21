@@ -3,11 +3,11 @@
 // registry (rebuilt containers, latest load wins), the debounced display controller, and the three.js read-back of
 // static exports.
 import { readFileSync } from 'node:fs';
-import { type CharacterId, derivedId, type MeshId, newId, seededIdSource } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import { detectModelFormat, type GlbContainer, parseGlb, skeletonFromGltf } from '@ekza-animator/io';
-import type { MeshData } from '@ekza-animator/mesh-core';
-import { autoRig, writeRigDefinition } from '@ekza-animator/rig';
+import { type CharacterId, derivedId, type MeshId, newId, seededIdSource } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import { detectModelFormat, type GlbContainer, parseGlb, skeletonFromGltf } from '@ekza-studio/io';
+import type { MeshData } from '@ekza-studio/mesh-core';
+import { autoRig, writeRigDefinition } from '@ekza-studio/rig';
 import { createStore } from 'zustand/vanilla';
 import { describe, expect, it, vi } from 'vitest';
 import {
@@ -306,7 +306,7 @@ describe('the display controller', () => {
       redisplay: () => Promise.resolve(),
       timers,
     });
-    const { makeTestMesh } = await import('@ekza-animator/doc/testing');
+    const { makeTestMesh } = await import('@ekza-studio/doc/testing');
     app.store.transact({ label: 'Create' }, (tx) => tx.put('meshes', makeTestMesh('msh_Scene')));
     expect(pending).toEqual([]);
     await app.run('mesh.makeEditable', { character, meshIndex: 0 });

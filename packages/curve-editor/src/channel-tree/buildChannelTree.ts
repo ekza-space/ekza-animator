@@ -9,8 +9,8 @@ import {
   type ControlRecord,
   type CurveRecord,
   TRS_CHANNELS,
-} from '@ekza-animator/doc';
-import { type EditorApp, sortChannelsForDisplay } from '@ekza-animator/editor-core';
+} from '@ekza-studio/doc';
+import { type EditorApp, sortChannelsForDisplay } from '@ekza-studio/editor-core';
 import type { ChannelTreeNode } from '../types';
 import { CHANNEL_COLORS, channelColor, channelLabel } from './colors';
 

@@ -1,4 +1,4 @@
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act, type JSX, useState } from 'react';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { ExpressionField, NumberField } from '../../src/panels/channel-box/kit/fields';

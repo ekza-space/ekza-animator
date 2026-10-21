@@ -1,6 +1,6 @@
 // Document-store conformance suite (MVP-SPEC §7 WP-2, ADR 0002 §5): every DocumentStore implementation runs the
 // non-replicating part; replicating stores (caps.replicating) also run the replicating part against caps.harness.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { ConformanceCaps, DocumentStore } from '../../store';
 import { registerCoreCases } from './core';
 import { hostRunner } from './harness';

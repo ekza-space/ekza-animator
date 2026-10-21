@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import { fixturePath, type LicensedFixture, readFixture, readSyntheticFixture } from '../src/testing';
 

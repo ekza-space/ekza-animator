@@ -1,8 +1,8 @@
 // M2A-SPEC §5.16 export-side key reduction (FR-EXP-12): tolerance bound at every sample, keep set, determinism, STEP
 // and constant tracks untouched, stats, the bake option, the writers and their read-back against the reduced clip.
-import { quatFromAxisAngle, type Quat, quatSlerp, type ReadonlyXf } from '@ekza-animator/anim-core';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { HUMAN_BONE_NAMES, type SkeletonDesc, type TrackKey } from '@ekza-animator/rig';
+import { quatFromAxisAngle, type Quat, quatSlerp, type ReadonlyXf } from '@ekza-studio/anim-core';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { HUMAN_BONE_NAMES, type SkeletonDesc, type TrackKey } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { bakeClip, ekzaAnimationMeta } from '../src/bake/bake';
 import {

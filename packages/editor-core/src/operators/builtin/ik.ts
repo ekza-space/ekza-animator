@@ -1,15 +1,15 @@
 // Limb IK operators (M2A-SPEC §4.9 `rig.*` IK rows, §5.6–§5.7; A2 on A1's rig functions): add limb IK to an M1
 // rig, switch a limb between IK and FK with the key policies, match one side to the other at the current frame or
 // over a range, and edit a leg's foot-roll pivots. Each undoable operator is one transaction and one history step.
-import { EkzaError, eulerFilterCurves, type Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ControlId, CurveId, SolverId, Tx } from '@ekza-animator/doc';
+import { EkzaError, eulerFilterCurves, type Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ChannelValues, CharacterId, ControlId, CurveId, SolverId, Tx } from '@ekza-studio/doc';
 import {
   type FootRollParams,
   type Ik2Params,
   isHumanoidProgram,
   type LimbId,
   readRigDefinition,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { newKeyTangents } from '../../edit/channelMeta';
 import { applyChannelEdits } from '../../edit/channels';
 import { animCurve } from '../../edit/context';

@@ -3,8 +3,8 @@
 // through io's `validateGltf` / `compareValidation`), read GLB chunks, and the small quaternion kit the pose checks use.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { compareValidation, setGltfValidator, type ValidationReport, validateGltf } from '@ekza-animator/io';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { compareValidation, setGltfValidator, type ValidationReport, validateGltf } from '@ekza-studio/io';
 import { expect, type Page } from '@playwright/test';
 import { failIfBlocked, lastExport, type RunResult } from './test-api';
 
@@ -69,7 +69,7 @@ export async function exportOne(page: Page, request: ExportRequestArgs): Promise
   const download = page.waitForEvent('download', { timeout: 60_000 });
   // The artifacts' bytes stay in the page (a 10 MB bake would be serialized as a number array): only summaries return.
   const result: RunResult = await page.evaluate(async (exportArgs): Promise<RunResult> => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) return { status: 'failed', error: { code: 'internal', message: 'no test API' } };
     const ran = await api.run('file.export', exportArgs);
     const artifacts = Array.isArray(ran.value)
@@ -336,7 +336,7 @@ export async function boneWorldRotations(
 ): Promise<Record<string, Quat>[]> {
   return page.evaluate(
     ([id, boneNames, clipFrames]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       return clipFrames.map((frame) =>
         Object.fromEntries(boneNames.map((name) => [name, api.boneWorld(id, name, frame).q] as const)),

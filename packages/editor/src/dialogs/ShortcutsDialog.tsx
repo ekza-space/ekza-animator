@@ -9,8 +9,8 @@ import {
   pickWalkDispatch,
   TOOL_MODIFIERS,
   toolModifierKeys,
-} from '@ekza-animator/editor-core';
-import { Dialog, DialogContent, Kbd, Search, TextInput } from '@ekza-animator/ui';
+} from '@ekza-studio/editor-core';
+import { Dialog, DialogContent, Kbd, Search, TextInput } from '@ekza-studio/ui';
 import { type JSX, useMemo, useState } from 'react';
 import { useShell } from '../shell/context';
 

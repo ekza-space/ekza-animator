@@ -1,6 +1,6 @@
 // Swatch shaders (SHADING-SPEC §5): the shader args of palette.addSwatch / palette.setSwatch and Assign New Material
 // (`palette.assignMaterial`) on faces and objects, in one undo step.
-import type { MeshId, PaletteId, SwatchId } from '@ekza-animator/doc';
+import type { MeshId, PaletteId, SwatchId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_PALETTE_ID, defaultSwatchId } from '../../../src';
 import { faceSlots, meshTestApp, paintFaces, pollReason, runValue, selectObjects } from './support';

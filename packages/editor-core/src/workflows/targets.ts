@@ -16,7 +16,7 @@ import type {
   KeyId,
   KeyRecord,
   ReadView,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { activeClipOf } from '../evaluation/time';
 import type { BodyPart, EditorApp, KeyPartSelection, KeyTarget, SessionState } from '../types';
 import { bodyPartIn } from './bodyParts';

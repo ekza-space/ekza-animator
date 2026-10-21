@@ -1,6 +1,6 @@
 // The one-shot tween (M2A-SPEC §4.9 `key.tween`, §5.13; A4): menus, scripts and preset buttons run it; the Tween bar's
 // slider uses the gesture form (`beginTweenGesture`). One step per run.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   applyTweenPlan,
   clampTweenAmount,

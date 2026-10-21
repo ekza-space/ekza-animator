@@ -95,9 +95,9 @@ Rig data stores DCC semantics, because animators and every DCC exchange format t
 
 | Package (proposal) | Contents | Dependencies |
 |---|---|---|
-| `@ekza-animator/math` | Similarity transforms, quaternion helpers, Euler ↔ quaternion for all 6 orders, continuity conversion, Euler filter, angle unwrap | none (three types optional) |
-| `@ekza-animator/rig` | `RigDoc` types and validation, auto-rig generators, compiler, evaluator, constraints, IK solvers, foot roll, spaces, mirroring, pose clipboard, import-to-controls | math. three only in thin adapters (skeleton extraction, mesh measurements) |
-| `@ekza-animator/bake` | Sampling loop, continuity, constant collapse, key reduction, per-target channel selection, track builders. The writers are glTF Transform for plain glTF/VRMA and an append-only patcher for VRM (03 §5.1). | math, rig |
+| `@ekza-studio/math` | Similarity transforms, quaternion helpers, Euler ↔ quaternion for all 6 orders, continuity conversion, Euler filter, angle unwrap | none (three types optional) |
+| `@ekza-studio/rig` | `RigDoc` types and validation, auto-rig generators, compiler, evaluator, constraints, IK solvers, foot roll, spaces, mirroring, pose clipboard, import-to-controls | math. three only in thin adapters (skeleton extraction, mesh measurements) |
+| `@ekza-studio/bake` | Sampling loop, continuity, constant collapse, key reduction, per-target channel selection, track builders. The writers are glTF Transform for plain glTF/VRMA and an append-only patcher for VRM (03 §5.1). | math, rig |
 
 This layering mirrors Ekza Space's `src/engine` boundary in the `core` repo (a pure engine with no app dependencies; hosts adapt its outputs). The viewport only *reads* `Pose` buffers. Gizmos write channel values through the same API the graph editor uses.
 

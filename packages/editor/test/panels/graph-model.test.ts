@@ -5,8 +5,8 @@ import {
   type Handle,
   type TangentFields,
   tangentFields,
-} from '@ekza-animator/anim-core';
-import { buildChannelTree, type ChannelTreeNode } from '@ekza-animator/curve-editor';
+} from '@ekza-studio/anim-core';
+import { buildChannelTree, type ChannelTreeNode } from '@ekza-studio/curve-editor';
 import type {
   CharacterId,
   ClipId,
@@ -17,9 +17,9 @@ import type {
   KeyId,
   KeyRecord,
   LayerId,
-} from '@ekza-animator/doc';
-import { parseNumericInput } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/doc';
+import { parseNumericInput } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import {
   applyChannelSelection,

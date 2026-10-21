@@ -1,6 +1,6 @@
 // Fixtures and checks shared by B2's tests (walkers, soft selection, symmetry, transforms). No Node APIs (the
 // Chromium run imports it too).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import {
   BitSet,
   type ComponentKind,

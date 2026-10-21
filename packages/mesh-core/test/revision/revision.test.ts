@@ -4,7 +4,7 @@
 // incremental write of the same content give the same manifest id; unchanged chunks keep their hashes after local
 // edits; canonical JSON manifests; parseManifest refuses newer versions and malformed manifests.
 import fc from 'fast-check';
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_LAYERS,

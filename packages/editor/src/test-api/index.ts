@@ -9,4 +9,4 @@ export type { ModelSelectUiTestApi } from './m6a/model-select-ui';
 export type { ModelTransformToolsTestApi } from './m6a/model-transform-tools';
 export type { ShellWorkspacesTestApi } from './m6a/shell-workspaces';
 export type { M6aTestApiContext } from './m6a/support';
-export type { EkzaAnimatorTestApi } from './types';
+export type { EkzaStudioTestApi } from './types';

@@ -22,7 +22,7 @@ async function exportSword(page: Page, group: string): Promise<Exported> {
   await runOk(page, 'select.mode', { mode: 'object' });
   await runOk(page, 'file.exportModel', { objects: [group], fileName: 'sword.glb', profile: PROFILE });
   const last = await lastExport(page);
-  const lints = await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.lastExport()?.lints ?? null);
+  const lints = await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.lastExport()?.lints ?? null);
   if (last === null || lints === null) throw new Error('nothing exported');
   return { bytes: last.bytes, sha256: last.sha256, lints };
 }

@@ -1,7 +1,7 @@
 // Static model export (M6A-SPEC §6.2, §5.19, §5.22; B8): `file.exportModel {StaticExportRequest}` writes the export
 // roots as a static GLB through io's author writer, lints it for the profile, reads it back and validates it when the
 // host has a validator; error lints block the download. The pipeline (`workflows/exportModel.ts`) is a lazy chunk.
-import type { ExportArtifact, StaticExportRequest } from '@ekza-animator/io';
+import type { ExportArtifact, StaticExportRequest } from '@ekza-studio/io';
 import type { EditorApp } from '../../types';
 import { blockingLints } from '../../workflows/export';
 import type * as ExportModelPipeline from '../../workflows/exportModel';

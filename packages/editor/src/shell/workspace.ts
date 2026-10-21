@@ -4,8 +4,8 @@
 //
 // M6a (M6A-SPEC §4.8, §5.17; B9): one dockview, the layout JSON swapped per workspace: when `session.workspace`
 // changes, the leaving workspace's layout is saved under its key and the entered one's is restored (or built).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, PanelKind, PrefsStorage } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, PanelKind, PrefsStorage } from '@ekza-studio/editor-core';
 import type { DockviewApi, SerializedDockview } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { PanelRegistry } from '../panels/types';

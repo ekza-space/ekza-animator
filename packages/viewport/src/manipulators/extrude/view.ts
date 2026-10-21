@@ -2,8 +2,8 @@
 // topology kit. The parts live in the main scene on the helpers layer (always drawn, depth test off, above the
 // geometry) and place themselves per pane right before they draw (`onBeforeRender` sees that pane's camera and
 // viewport), so one object serves N panes at a constant pixel size, like the W/E/R manipulator (B9's kit).
-import type { Vec3 } from '@ekza-animator/anim-core';
-import type { ExtrudeManipFrame } from '@ekza-animator/editor-core';
+import type { Vec3 } from '@ekza-studio/anim-core';
+import type { ExtrudeManipFrame } from '@ekza-studio/editor-core';
 import {
   BoxGeometry,
   type BufferGeometry,

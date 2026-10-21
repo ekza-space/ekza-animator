@@ -71,13 +71,13 @@ Dependency direction (mirrors the rule in Ekza Space's `src/engine`: engine modu
 
 | Package (proposal) | Contains | May import | Must not import |
 |---|---|---|---|
-| `@ekza-animator/core` | IDs, schemas, record store, transactions, undo, operator/tool/editor registries (headless parts), selection model, property paths | `three/src/math` only (or own math) | React, DOM, WebGL, Next.js |
-| `@ekza-animator/anim` | curves, keys, tangents, sampling, Euler filter, bake, key reduction | core | React, WebGL |
-| `@ekza-animator/rig` | controls, constraints, IK, control-shape library, eval ops | core, anim | React, WebGL |
-| `@ekza-animator/geo` (later) | `CurveData`, NURBS/Bezier math, tessellation, generators, `MeshData` | core | React, WebGL |
-| `@ekza-animator/io-gltf` | glTF/GLB/VRM/VRMA import/export via glTF-Transform, extension codecs, export profiles | core, anim, rig, geo | React |
-| `@ekza-animator/view-three` | `SceneView`, picking map, gizmos, curve display | core + three | Next.js |
-| `@ekza-animator/ui` | editors (viewport, outliner, graph editor, …), layout | everything above, React, R3F | — |
+| `@ekza-studio/core` | IDs, schemas, record store, transactions, undo, operator/tool/editor registries (headless parts), selection model, property paths | `three/src/math` only (or own math) | React, DOM, WebGL, Next.js |
+| `@ekza-studio/anim` | curves, keys, tangents, sampling, Euler filter, bake, key reduction | core | React, WebGL |
+| `@ekza-studio/rig` | controls, constraints, IK, control-shape library, eval ops | core, anim | React, WebGL |
+| `@ekza-studio/geo` (later) | `CurveData`, NURBS/Bezier math, tessellation, generators, `MeshData` | core | React, WebGL |
+| `@ekza-studio/io-gltf` | glTF/GLB/VRM/VRMA import/export via glTF-Transform, extension codecs, export profiles | core, anim, rig, geo | React |
+| `@ekza-studio/view-three` | `SceneView`, picking map, gizmos, curve display | core + three | Next.js |
+| `@ekza-studio/ui` | editors (viewport, outliner, graph editor, …), layout | everything above, React, R3F | — |
 | `apps/web` | Next.js shell, routing, auth, Ekza upload, CSP headers | everything | — |
 
 Rule: `core`, `anim`, `rig`, `geo`, `io-gltf` run in Node under Vitest with no DOM. That is what makes operators testable, bake runnable in a Worker, and a CLI/batch exporter possible.

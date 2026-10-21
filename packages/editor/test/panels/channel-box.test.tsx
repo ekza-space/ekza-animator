@@ -1,6 +1,6 @@
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { ChannelState, EditorApp } from '@ekza-animator/editor-core';
-import type { FakeServices } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { ChannelState, EditorApp } from '@ekza-studio/editor-core';
+import type { FakeServices } from '@ekza-studio/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { ChannelBoxPanel } from '../../src/panels/channel-box/ChannelBoxPanel';

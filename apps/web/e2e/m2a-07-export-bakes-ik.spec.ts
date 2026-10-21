@@ -1,4 +1,4 @@
-import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
+import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-studio/io';
 import { expect, test } from '@playwright/test';
 import {
   boneWorldRotations,

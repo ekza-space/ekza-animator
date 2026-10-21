@@ -17,7 +17,7 @@ extensions, and later mergeable into a CRDT store.
 
    ```
    manifest.json          { "format": "ekza-animator-project", "schemaVersion": 1, "minWriterVersion": 1,
-                            "app": { "name": "Ekza Animator", "version": "0.1.0" },
+                            "app": { "name": "Ekza Studio", "version": "0.1.0" },
                             "assets": [{ "sha256": "...", "size": 123, "mime": "model/gltf-binary", "ext": "vrm", "path": "assets/<sha256>.vrm" }] }
    project.json           the document snapshot (below)
    assets/<sha256>.<ext>  source models, byte-identical to what the user opened
@@ -25,7 +25,7 @@ extensions, and later mergeable into a CRDT store.
 
 2. **`project.json`** = `DocSnapshot`: `{ format, schemaVersion, minWriterVersion, tableVersions, tables: {
    <table>: { <id>: record } } }` with **sorted keys at every level**, no timestamps, numbers as shortest
-   round-trip JSON. Records are exactly the `@ekza-animator/doc` record types. Session state (selection, time,
+   round-trip JSON. Records are exactly the `@ekza-studio/doc` record types. Session state (selection, time,
    view cameras, layout) is not included. Tables without a registered `TableDef` (missing extensions, newer apps)
    are preserved verbatim and written back unchanged; unknown fields of known records likewise.
 3. **Plain JSON debug variant** `*.ekzanim.json`: the same `DocSnapshot` plus `"assets"` entries without bytes

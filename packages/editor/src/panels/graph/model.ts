@@ -1,7 +1,7 @@
 // Pure state of the Graph Editor panel: which controls and curves it lists and shows, the numeric fields of the
 // selected keys and the toolbar's toggle states. Everything is derived from the document and the session.
-import { EkzaError, type Fps, type InfinityMode, tangentFields } from '@ekza-animator/anim-core';
-import { type ChannelTreeNode, channelDisplayScale, channelNodes } from '@ekza-animator/curve-editor';
+import { EkzaError, type Fps, type InfinityMode, tangentFields } from '@ekza-studio/anim-core';
+import { type ChannelTreeNode, channelDisplayScale, channelNodes } from '@ekza-studio/curve-editor';
 import type {
   CharacterId,
   ClipId,
@@ -12,7 +12,7 @@ import type {
   DocumentStore,
   KeyId,
   KeyRecord,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type ChannelRef,
   channelUnit,
@@ -20,7 +20,7 @@ import {
   type KeyFieldsArgs,
   type KeyPartSelection,
   parseNumericInput,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 
 function characterOfControl(store: DocumentStore, control: ControlId): CharacterId | null {
   const record = store.get('controls', control);

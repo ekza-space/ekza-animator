@@ -1,8 +1,8 @@
 // Space-hold camera radial (M1-stretch, MVP-SPEC §4.10 `Space` hold → view.cameraRadial): the pane's cameras on a
 // ring around the pointer. Moving the pointer towards an item highlights it and releasing Space looks through it; a
 // click on an item does the same. Escape, a press elsewhere or a release in the centre closes it unchanged.
-import { type EditorApp, PANEL, type PaneCamera } from '@ekza-animator/editor-core';
-import type { ViewportManager } from '@ekza-animator/viewport';
+import { type EditorApp, PANEL, type PaneCamera } from '@ekza-studio/editor-core';
+import type { ViewportManager } from '@ekza-studio/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 export interface CameraChoice {

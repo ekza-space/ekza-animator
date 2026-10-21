@@ -4,7 +4,7 @@
 // afterwards (each vertex and its partner set to the mean of p and S·p(partner); seam vertices onto the plane).
 // Division rings lie at i/n between the base and the placed cap (linear). The same function serves the first run and
 // the `adjust` fast path, so both write bit-identical positions.
-import type { ParamValue, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ParamValue, ReadonlyXf } from '@ekza-studio/anim-core';
 import type { EditMesh, OpFrame, OpWarning } from '../../types';
 import { type CapData, capTransform, offsetAndThickness, opFrame } from './geometry';
 import { type Affine, apply, compose } from './shared/affine';

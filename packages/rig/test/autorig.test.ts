@@ -1,5 +1,5 @@
-import { EkzaError, quatRotateVec3 } from '@ekza-animator/anim-core';
-import { type ControlRecord, controlId } from '@ekza-animator/doc';
+import { EkzaError, quatRotateVec3 } from '@ekza-studio/anim-core';
+import { type ControlRecord, controlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { AUTORIG_VERSION, autoRig, compileRig, type RigDefinition, type SkeletonDesc } from '../src';
 import { genericSkeleton, IDS, richHumanoid, syntheticSkeleton } from './helpers';

@@ -1,4 +1,4 @@
-import type { Fps, Frame } from '@ekza-animator/anim-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
 import { isHumanoidProgram } from '../inverse/solve';
 import { internalsOf, type RigInternals } from '../kernel/internals';
 import { allocXfArrays, type XfArrays, xfaCopy, xfaMul } from '../math/xfa';

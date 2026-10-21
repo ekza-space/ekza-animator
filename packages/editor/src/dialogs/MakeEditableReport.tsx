@@ -2,9 +2,9 @@
 // built — triangles, glTF vertices welded into points, dropped degenerate faces, hard edges, the layers it carried
 // over (UVs, colours, skin, morph targets) and its warnings ("Tangents will be refused at export unless you drop
 // them"). Shown after the Outliner's Make editable button; Undo reverts the whole step.
-import type { MeshId } from '@ekza-animator/doc';
-import { type EditorApp, lastMakeEditableReport } from '@ekza-animator/editor-core';
-import { Button, Dialog, DialogContent, DialogFooter, TriangleAlert } from '@ekza-animator/ui';
+import type { MeshId } from '@ekza-studio/doc';
+import { type EditorApp, lastMakeEditableReport } from '@ekza-studio/editor-core';
+import { Button, Dialog, DialogContent, DialogFooter, TriangleAlert } from '@ekza-studio/ui';
 import { type JSX, useEffect, useState } from 'react';
 import { type CheckRow, checkRows, meshProblems } from '../panels/meshcheck/checks';
 import { useShell } from '../shell/context';

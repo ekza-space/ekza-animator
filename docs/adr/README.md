@@ -5,6 +5,10 @@ immutable once accepted: a later ADR supersedes an earlier one, which is then ma
 below was accepted on 2026-10-17 and **revised once, before any implementation, after the design review of the
 same day (rev. 2)**; each revised ADR says so in its status line.
 
+Names: on 2026-10-19 the editor was renamed from Ekza Animator to **Ekza Studio** and the publishing site from Ekza
+Studio to **Ekza Hub** ([DECISIONS-OPEN §H](../DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19)).
+The ADRs use the new names; that edit is editorial and does not revise any decision.
+
 Code sketches inside ADRs are illustrative. The normative TypeScript contracts are in
 [MVP-SPEC §4](../MVP-SPEC.md#4-shared-contracts); where an ADR snippet and §4 differ, **§4 wins**.
 

@@ -1,7 +1,7 @@
 // Naive in-memory DocumentStore of the shared test kit (MVP-SPEC §7 WP-0b): the transaction, preview and undo
 // semantics of §4.2 and §4.11.0 over plain maps, with linear scans instead of indexes. WP-2's memory store is the
 // production implementation; this one exists so packages can test against the contract before it lands.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   type AnyChange,
   BUILTIN_TABLES,
@@ -22,7 +22,7 @@ import {
   type Tx,
   type TxMeta,
   type UserId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { CommittedTables, Overlay, type RowSource, RowView } from './layers';
 import { createQueries } from './queries';
 import { compareStrings, deepEqual, isSoftDeletable, mergeUnitOf, type Row } from './rows';

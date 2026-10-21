@@ -2,8 +2,8 @@
 // a cached base layer plus the playhead, hit-testing, selection (shared `Selection.keys`), key drags through
 // `beginKeyEditGesture` (one history step; ripple §5.11 and breakdown retiming §5.12 in the kernel), the region bar,
 // navigation per profile and framing. Canvas2D, no React; the panel draws the row labels from `rows()`.
-import { type Disposer, EkzaError, type Frame } from '@ekza-animator/anim-core';
-import type { ChangeBatch, ClipId, ControlId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
+import { type Disposer, EkzaError, type Frame } from '@ekza-studio/anim-core';
+import type { ChangeBatch, ClipId, ControlId, CurveId, KeyId, Tx } from '@ekza-studio/doc';
 import {
   beginKeyEditGesture,
   controlVisibility,
@@ -20,7 +20,7 @@ import {
   type ToolKeyEvent,
   type ToolPointerEvent,
   type ToolWheelEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { applyKeySelection, KEY_PART, selectModeFor } from '../graph/selection';
 import { bandMoveDelta, bandScale, snapFrame } from '../timeline/band';
 import type { DopeSheetHit, DopeSheetRow, DopeSheetRowKind, DopeSheetViewState } from '../types';

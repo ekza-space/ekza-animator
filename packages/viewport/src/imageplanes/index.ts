@@ -1,8 +1,8 @@
 // Reference image planes, the eager half (M6A-SPEC §5.26; B13): a document subscription that loads the binding chunk
 // (`./binding`: decode, hand the planes to the viewport) once the project has a plane. A project without reference
 // images never loads it. A failed chunk load is reported once and tried again on the next plane change.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type * as BindingChunk from './binding';
 import type { ImageDecoder, ImagePlaneBinding, ImagePlaneTarget } from './binding';
 

@@ -1,4 +1,4 @@
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type { ProbeMap, ProbeRegistry } from './types';
 
 /** Probes stack per kind: the newest registration wins; disposing it reveals the previous one. */

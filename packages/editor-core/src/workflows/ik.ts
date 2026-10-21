@@ -1,10 +1,10 @@
 // Limb IK in the editor (M2A-SPEC §5.5–§5.8, A2): which limb a control belongs to, the limbs of a character's
 // compiled rig, and the IK/FK workflows the `rig.*` IK operators run (match, switch keys, match range, foot
 // parameters, Plant Feet on IK legs, the "FK limbs only" notice). The rig math (records, the ik2 op, matching) is
-// A1's (`@ekza-animator/rig`); this file reads compiled `RigProgram.limbs`, calls the rig's limb functions through
+// A1's (`@ekza-studio/rig`); this file reads compiled `RigProgram.limbs`, calls the rig's limb functions through
 // one seam (`limbKitOf`) and writes channels through the edit kernel.
-import { type Disposer, EkzaError, type Frame, type Mat4 } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
+import { type Disposer, EkzaError, type Frame, type Mat4 } from '@ekza-studio/anim-core';
+import type { ChannelId, ChannelValues, CharacterId, ClipRecord, ControlId, ReadView } from '@ekza-studio/doc';
 import {
   applyOverrides,
   type ChannelBuffer,
@@ -24,7 +24,7 @@ import {
   readRigDefinition,
   validateFootParams,
   writeControlChannels,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { attrChannelsOf, isKeyable, isLocked } from '../edit/channelMeta';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from '../evaluation/time';
 import { internalsOf } from '../app/internals';

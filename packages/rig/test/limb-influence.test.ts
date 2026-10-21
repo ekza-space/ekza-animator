@@ -1,8 +1,8 @@
 // A1 (M2A-SPEC §5.8 influencing curves): the step schedule and the influence key times of tracks written by the ik2
 // op include the IK control, pole and attribute curves and the curves moving the upper bone's parent (cog, fk.hips;
 // the spine chain for arms). Programs without IK and upgraded rigs without IK keys keep the M1 sets.
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ClipId, ControlId } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ClipId, ControlId } from '@ekza-studio/doc';
 import { beforeAll, afterAll, describe, expect, it } from 'vitest';
 import {
   autoRig,

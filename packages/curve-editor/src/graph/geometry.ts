@@ -3,7 +3,7 @@
 // cubic Bézier P0 = key i, P1 = P0 + out handle, P2 = P3 + in handle, P3 = key i+1 in the (frame, value) plane, so the
 // painter draws it exactly and this module evaluates the very curve on screen (ADR 0007 §3). Infinity regions repeat
 // the key range per the pre/post modes. Nothing here allocates per call.
-import { type CompiledAnimCurve, Segment, type SegmentKind } from '@ekza-animator/anim-core';
+import { type CompiledAnimCurve, Segment, type SegmentKind } from '@ekza-studio/anim-core';
 
 const at = (array: Float64Array, i: number): number => array[i] as number;
 

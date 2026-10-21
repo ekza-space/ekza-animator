@@ -6,8 +6,8 @@ import {
   mat4Decompose,
   quatFromAxisAngle,
   reduceKeys,
-} from '@ekza-animator/anim-core';
-import { type ControlId, controlId, type HumanBoneName } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import { type ControlId, controlId, type HumanBoneName } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   autoRig,

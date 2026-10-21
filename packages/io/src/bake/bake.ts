@@ -22,9 +22,9 @@ import {
   quatAngle,
   RAD2DEG,
   type ReadonlyQuat,
-} from '@ekza-animator/anim-core';
-import type { DerivedFrom } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES, type PoseBuffers, type RigProgram, type TrackKey } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import type { DerivedFrom } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES, type PoseBuffers, type RigProgram, type TrackKey } from '@ekza-studio/rig';
 import { restWorlds } from '../skeleton/rest';
 import { clipFramesToSeconds, normalizeClipMeta } from './meta';
 import { reduceBakedClip } from './reduce';

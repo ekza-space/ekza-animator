@@ -1,11 +1,11 @@
 // The editor-core, doc and io helpers the WP-9 data panels call (MVP-SPEC §7 WP-7a, WP-2, WP-4), in one place.
 // The stub fallbacks of the parallel build (docs/wp-notes/wp-9.md, D-1) were removed at the v0.3 integration: the
 // panels use the kernel's helpers directly, including its numeric-field grammar (research 09 §6.4).
-import type { ChannelId } from '@ekza-animator/doc';
+import type { ChannelId } from '@ekza-studio/doc';
 import {
   defaultChannelValue as docDefaultChannelValue,
   isRotationChannel as docIsRotationChannel,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   beginChannelEditGesture,
   type ChannelEditGesture,
@@ -16,8 +16,8 @@ import {
   type KeyPolicy,
   parseNumericInput as coreParseNumericInput,
   toDisplayValue as coreToDisplayValue,
-} from '@ekza-animator/editor-core';
-import { type GlbContainer, readVrmLicense as ioReadVrmLicense, type VrmLicenseInfo } from '@ekza-animator/io';
+} from '@ekza-studio/editor-core';
+import { type GlbContainer, readVrmLicense as ioReadVrmLicense, type VrmLicenseInfo } from '@ekza-studio/io';
 
 /** `rx`, `ry`, `rz`: shown in degrees. */
 export const isRotationChannel: (channel: ChannelId) => boolean = docIsRotationChannel;

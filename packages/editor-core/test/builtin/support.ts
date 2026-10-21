@@ -9,10 +9,10 @@ import {
   eulerFilterCurves,
   reduceKeys,
   tangentFields,
-} from '@ekza-animator/anim-core';
-import { type DocSnapshot, emptySnapshot, fractionalIndex } from '@ekza-animator/doc';
-import { checkInputBudget, parseGlb, readVrmLicense } from '@ekza-animator/io';
-import { applyPoseClipboard, isHumanoidProgram, mirrorPose, plantFeetChannels } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import { type DocSnapshot, emptySnapshot, fractionalIndex } from '@ekza-studio/doc';
+import { checkInputBudget, parseGlb, readVrmLicense } from '@ekza-studio/io';
+import { applyPoseClipboard, isHumanoidProgram, mirrorPose, plantFeetChannels } from '@ekza-studio/rig';
 import { expect } from 'vitest';
 import { registerBuiltinOperators } from '../../src';
 import { createFakeEditorApp, createFakeServices, type FakeEditorApp, type FakeServices } from '../../src/testing';

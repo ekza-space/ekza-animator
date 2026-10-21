@@ -2,7 +2,7 @@
 // and its persistence. Pure helpers over dockview's API and serialized JSON; each workspace's layout is stored under
 // its own versioned key (`ekza-animator:layout:v<N>:<workspace>`: Animate v2, Model v1) and every storage access is
 // guarded.
-import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-animator/editor-core';
+import { PANEL, type PanelKind, type PrefsStorage } from '@ekza-studio/editor-core';
 import type { AddPanelOptions, DockviewApi, IDockviewPanel, SerializedDockview } from 'dockview-react';
 
 export const WORKSPACE_ID = 'animate';
@@ -12,7 +12,10 @@ export const LAYOUT_SCHEMA_VERSION = 2;
 export const LAYOUT_VERSIONS: Readonly<Record<string, number>> = { animate: LAYOUT_SCHEMA_VERSION, model: 1 };
 /** The layout version of a workspace (workspaces without their own layout use Animate's). */
 export const layoutVersion = (workspace: string): number => LAYOUT_VERSIONS[workspace] ?? LAYOUT_SCHEMA_VERSION;
-/** research 09 §9.2: `ekza-animator:layout:v<version>:<workspace>`; the key carries the version. */
+/**
+ * research 09 §9.2: `ekza-animator:layout:v<version>:<workspace>`; the key carries the version. The prefix is kept from
+ * the Ekza Animator name (DECISIONS-OPEN NAME-1) so saved layouts survive the rename.
+ */
 export const layoutStorageKey = (
   workspace: string = WORKSPACE_ID,
   version: number = layoutVersion(workspace),

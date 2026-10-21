@@ -10,7 +10,7 @@
 // - each quad keeps the diagonal that was the removed edge (`FACE_FLIP_DIAGONAL` set where the shared triangulation
 //   would pick the other one), so the shape you see does not change.
 // Nothing to join refuses `quadrangulate.no-pairs` with the reason. `selection′` = the faces in scope after the joins.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD, EDGE_SEAM, FACE_FLIP_DIAGONAL } from '../../constants';
 import { dihedralAngle } from '../../normals/hard';
 import { orient2d } from '../../predicates';

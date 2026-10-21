@@ -1,5 +1,5 @@
 // Exported clip and file names (MVP-SPEC §4.11.10 step 6, ADR 0010 §5).
-import type { ClipRecord } from '@ekza-animator/doc';
+import type { ClipRecord } from '@ekza-studio/doc';
 import { normalizeClipMeta } from '../bake/meta';
 import type { BakedClip, EkzaAnimationV1, EkzaClipMetaV1 } from '../types';
 

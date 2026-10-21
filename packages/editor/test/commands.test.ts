@@ -1,7 +1,7 @@
 // Shell operators (view.toggleMaximize, ui.open/close, prefs.set, view.selectionMask), the menu bar model (registry
 // order, dedupe, sub-menus, poll-driven enabled state, keymap labels) and runFromUi's result handling.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { GLOBAL_SCOPE, type MenuItemDef } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { GLOBAL_SCOPE, type MenuItemDef } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { menuContents, shortcutFor, stableKey, topMenus } from '../src/shell/menus';
 import { shellMenuItems } from '../src/shell/menuItems';

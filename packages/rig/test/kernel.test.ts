@@ -7,9 +7,9 @@ import {
   quatRotateVec3,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import { controlId } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
+import { controlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   autoRig,

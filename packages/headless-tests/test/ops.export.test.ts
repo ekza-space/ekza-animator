@@ -1,10 +1,10 @@
 // ops.* (WP-7b): export through `file.export` and the built-in exporters (MVP-SPEC §4.11.10, §4.11.13): bake into
 // the model (surgeon), VRMA and animation-only GLB on the fixtures, the validation policy, metadata, the licence gate,
 // profile preflight, self-contained multi-clip files, downloads and round trips back into the editor.
-import { quatAngle, quatSlerp } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId, ControlId } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { EditorApp, ImportResult } from '@ekza-animator/editor-core';
+import { quatAngle, quatSlerp } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipId, ControlId } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { EditorApp, ImportResult } from '@ekza-studio/editor-core';
 import {
   compareValidation,
   type ExportArtifact,
@@ -13,7 +13,7 @@ import {
   parseGlb,
   readAnimations,
   skeletonFromGltf,
-} from '@ekza-animator/io';
+} from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import {
   BLOCKED,
@@ -390,7 +390,7 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     const [vrma] = await exportOk(app, request(bot.character, [wave], { kind: 'vrma' }));
     if (vrma === undefined) throw new Error('no artifact');
     const source = await parseGlb(vrma.bytes);
-    /** The VRMA without the Animator's provenance, so the import judges it by its names. */
+    /** The VRMA without the editor's provenance, so the import judges it by its names. */
     const foreign = (edit: (json: Record<string, unknown>) => void) =>
       withJson(source, (json) => {
         const asset = json['asset'] as { extras?: Record<string, unknown> };

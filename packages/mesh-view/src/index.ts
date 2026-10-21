@@ -1,4 +1,4 @@
-// `@ekza-animator/mesh-view` (M6A-SPEC §4.4): edit-mode overlays, static mesh surfaces and component picking — a LAZY
+// `@ekza-studio/mesh-view` (M6A-SPEC §4.4): edit-mode overlays, static mesh surfaces and component picking — a LAZY
 // chunk that `viewport/src/mesh/**` imports dynamically (with three-mesh-bvh). This entry module references
 // `VIEW_MARKER`, the `check-size` marker of the `mesh-view` boundary (§2), so eager code that pulls mesh-view in fails
 // the size gate.

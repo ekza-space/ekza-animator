@@ -3,8 +3,8 @@
 // M6a (M6A-SPEC §4.7, §8.2, §8.10; B9): in Model the header has Shading ▾ (`4`–`7`), Show ▾ (every display flag) and
 // the Wire, Flat, X-ray and Cull toggles; the surface carries the overlay slots the owners fill (HUD, Last-op card,
 // modal readout, empty state, Getting started, BIND POSE).
-import type { CameraRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type Shading } from '@ekza-animator/editor-core';
+import type { CameraRecord } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type Shading } from '@ekza-studio/editor-core';
 import {
   type DisplayFlags,
   defaultDisplayOf,
@@ -12,7 +12,7 @@ import {
   type PaneState,
   type ViewportManager,
   type ViewPreset,
-} from '@ekza-animator/viewport';
+} from '@ekza-studio/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { PaneOverlays } from '../../overlays/slots';

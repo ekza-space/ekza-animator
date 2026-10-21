@@ -12,7 +12,7 @@ import {
   type RigId,
   type SolverRecord,
   solverId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import type {
   FootRollParams,
   Ik2Params,
@@ -21,7 +21,7 @@ import type {
   RigDefinition,
   RigProgram,
   SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { createKernelApp } from '../app/kernel';
 import { MAYA_KEYMAP } from '../keymap/maya';
 import type { EditorApp, EditorServices } from '../types';

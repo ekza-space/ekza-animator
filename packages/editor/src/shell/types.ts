@@ -1,6 +1,6 @@
 // The editor shell's imperative core (MVP-SPEC §7 WP-8): what the React shell, the GL host, the input adapter,
 // the dialogs, the panels and the e2e test API share. One Shell per mounted editor; no React state lives here.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type {
   EditorApp,
   ImporterDef,
@@ -8,9 +8,9 @@ import type {
   PanelKind,
   PrefsStorage,
   RunContext,
-} from '@ekza-animator/editor-core';
-import type { ExportArtifact } from '@ekza-animator/io';
-import type { ViewportManager } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import type { ExportArtifact } from '@ekza-studio/io';
+import type { ViewportManager } from '@ekza-studio/viewport';
 import type { DockviewApi, SerializedDockview } from 'dockview-react';
 import type { StoreApi } from 'zustand/vanilla';
 import type { KeyboardAdapter } from '../input/keyboard';
@@ -20,7 +20,7 @@ import type { HoverTarget } from '../input/pointer';
 import type { PanelRegistry } from '../panels/types';
 import type { ToastNotifier } from '../services/notify';
 import type { EditorParams } from '../test-api/params';
-import type { EkzaAnimatorTestApi } from '../test-api/types';
+import type { EkzaStudioTestApi } from '../test-api/types';
 import type { ChromePart, ChromeVisibility, PresetDock } from './layout';
 import type { LayoutPresetStore } from './presets';
 import type { ModelSummary } from './summary';
@@ -31,12 +31,12 @@ import type { ModelSummary } from './summary';
 
 /** Viewport slice (WP-5 `viewportTestApi(vm)`); without one the test API answers from the ViewportManager. */
 export type ViewportProbe = Pick<
-  EkzaAnimatorTestApi,
+  EkzaStudioTestApi,
   'panes' | 'cameraOf' | 'screenOfControl' | 'screenOfManipulator' | 'renderedFrames'
 >;
 
 /** The M1 fields of `graph()`; the M2a field `viewMode` is optional in a probe. */
-type GraphState = NonNullable<ReturnType<EkzaAnimatorTestApi['graph']>>;
+type GraphState = NonNullable<ReturnType<EkzaStudioTestApi['graph']>>;
 
 /**
  * Graph Editor slice (WP-6 `graphTestHooks(app)`); without one `graph()` and `screenOf{Key,Handle,Curve}` are null.
@@ -44,18 +44,18 @@ type GraphState = NonNullable<ReturnType<EkzaAnimatorTestApi['graph']>>;
  * (A4); for a probe without them (test fakes) the test API answers 'absolute' and null. `graph().buffers` comes from
  * the session.
  */
-export type GraphProbe = Pick<EkzaAnimatorTestApi, 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'> & {
+export type GraphProbe = Pick<EkzaStudioTestApi, 'screenOfKey' | 'screenOfHandle' | 'screenOfCurve'> & {
   graph(): (Omit<GraphState, 'viewMode' | 'buffers'> & Partial<Pick<GraphState, 'viewMode'>>) | null;
-} & Partial<Pick<EkzaAnimatorTestApi, 'screenOfRegionHandle'>>;
+} & Partial<Pick<EkzaStudioTestApi, 'screenOfRegionHandle'>>;
 
 /** Time slider slice (WP-6t `screenOfTimelineFrame/Tick`); without one both are null. M2a: `timelineTicks` and
  *  `screenOfBand` are optional in a probe; the time slider's probe provides both (A3), a probe without them (test
  *  fakes) gives no ticks and no band point. */
-export type TimelineProbe = Pick<EkzaAnimatorTestApi, 'screenOfFrame' | 'screenOfTick'> &
-  Partial<Pick<EkzaAnimatorTestApi, 'timelineTicks' | 'screenOfBand'>>;
+export type TimelineProbe = Pick<EkzaStudioTestApi, 'screenOfFrame' | 'screenOfTick'> &
+  Partial<Pick<EkzaStudioTestApi, 'timelineTicks' | 'screenOfBand'>>;
 
 /** M2a (A3): the Dope Sheet slice; null answers while its dock tab is inactive (like M1's `graph()`). */
-export type DopeSheetProbe = Pick<EkzaAnimatorTestApi, 'dopeSheet' | 'screenOfDopeKey' | 'screenOfDopeRegion'>;
+export type DopeSheetProbe = Pick<EkzaStudioTestApi, 'dopeSheet' | 'screenOfDopeKey' | 'screenOfDopeRegion'>;
 
 /** Panels that mount the shared Tween bar (M2A-SPEC §5.13). */
 export type TweenPanel = 'graph' | 'dopeSheet' | 'status';

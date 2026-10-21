@@ -18,7 +18,7 @@ import {
   type Handle,
   type KeyData,
   type TangentType,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import type {
   AttrDef,
   ChannelId,
@@ -30,8 +30,8 @@ import type {
   KeyRecord,
   ReadView,
   Tx,
-} from '@ekza-animator/doc';
-import type { MirrorMode } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { MirrorMode } from '@ekza-studio/rig';
 import { internalsOf, newRecordId } from '../app/internals';
 import { attrDefOf, channelDefaultOf, isKeyable, isLocked, isTrsChannel } from '../edit/channelMeta';
 import { keyDataOf } from '../edit/context';

@@ -3,7 +3,7 @@
 // activate another palette's swatch: its slot would paint another colour there, or a slot the palette lacks). Only the
 // lazy Paint Colour tool, Palette panel and operator bodies import this module (no operator definition does), so it
 // stays out of the eager route (§5.27).
-import type { MeshId, SwatchRecord } from '@ekza-animator/doc';
+import type { MeshId, SwatchRecord } from '@ekza-studio/doc';
 import type { EditorApp } from '../../types';
 
 /** Null when every mesh may be painted (with `swatch`: by that swatch), else the reason. */

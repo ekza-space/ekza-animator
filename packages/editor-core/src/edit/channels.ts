@@ -11,8 +11,8 @@
 // M2a (M2A-SPEC §5.1): '@name' attribute channels follow the same table (keyable by `AttrDef.keyable`, never
 // locked); a new key on a `stepped` attribute gets in 'flat', out 'step'. Values are written as given: attribute
 // ranges are clamped where values are produced (virtual slider, tween) or consumed (the ik2 op), never here.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza-studio/doc';
 import { internalsOf } from '../app/internals';
 import { activeClipOf } from '../evaluation/time';
 import type { CaptureOutcome } from '../history/capture';

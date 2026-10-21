@@ -2,7 +2,7 @@
 // pivot and orientation resolution, hidden components, exact undo (P5) and determinism, symmetry (mirrored deltas,
 // seam vertices, Preserve Seam, unmatched partners), soft weights (the E2E-MOD-10 plane), the adjust fast path, and
 // P10 for transforms and soft selection as properties.
-import { curveEngine, type ParamValues, type ReadonlyXf } from '@ekza-animator/anim-core';
+import { curveEngine, type ParamValues, type ReadonlyXf } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

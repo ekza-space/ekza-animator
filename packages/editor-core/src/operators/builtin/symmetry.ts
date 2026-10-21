@@ -4,7 +4,7 @@
 // preferences' tolerance in metres, Preserve Seam on). B7's runtimes build the partner maps from these settings
 // (`MeshRuntime.symmetry()`), B6 draws the plane and the mirrored components, B11's tracker closes a Last-op card whose
 // targets' symmetry changed.
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import { attachMeshes } from '../../mesh';
 import type { EditorApp, OperatorContext, PollResult, SymmetryMode, SymmetrySettings } from '../../types';
 import { type AnyOperator, defineOperator, fail, isFiniteNumber, isRecord, OK } from './define';

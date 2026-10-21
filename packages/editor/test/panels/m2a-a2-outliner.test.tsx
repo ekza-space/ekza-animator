@@ -1,8 +1,8 @@
 // M2A-SPEC §5.5 (A2, browser mode): the Outliner dims the controls the IK/FK rule hides, following an animated or
 // overridden ikFk at the next evaluation.
-import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import type { ControlId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import { createFakeIkEditorApp, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { readLimbStates } from '../../src/panels/outliner/limbHidden';

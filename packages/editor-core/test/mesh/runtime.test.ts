@@ -2,8 +2,8 @@
 // transaction, the journal fast path and the rebuild fallback for undo/redo, `close` keeping the journal with
 // adjust-last synchronous, `data()` of closed meshes, 'loading' and 'error' with their poll failures, remote changes,
 // preview sessions (fast path, re-run, cancel, 'before-last' across the undo of its own step) and atomic refusals.
-import type { MeshId, MeshRef, UserId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import type { MeshId, MeshRef, UserId } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
 import {
   type MeshData,
   parseManifest,
@@ -12,9 +12,9 @@ import {
   selectionOf,
   setKernelDebug,
   writeRevision,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { addBlobSource, type MeshRuntimeEvent, meshOperator } from '../../src';
 import {
   advanceOp,

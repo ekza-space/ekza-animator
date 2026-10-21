@@ -3,10 +3,10 @@
 // bake), Reset/Freeze Transformations and object transforms — on the real kernel and runtime (B1, B2, B7) with B10's
 // selection service. `mesh.applyTransform` is B4's kernel op: until B4 merges, the module mock below substitutes a
 // positions-only implementation so Freeze and Bake Pivot run end to end (READY.b4 then uses the real op).
-import { type Mat4, mat4Compose, type ParamValues } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId } from '@ekza-animator/doc';
-import { makeTestGroup } from '@ekza-animator/doc/testing';
-import type * as Kernel from '@ekza-animator/mesh-core';
+import { type Mat4, mat4Compose, type ParamValues } from '@ekza-studio/anim-core';
+import type { GroupId, MeshId } from '@ekza-studio/doc';
+import { makeTestGroup } from '@ekza-studio/doc/testing';
+import type * as Kernel from '@ekza-studio/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type EditorApp,
@@ -22,7 +22,7 @@ import {
 } from '../../../src';
 import { addMesh, modelApp, pointOf, selectObjects } from '../select/support';
 
-vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core', async (importOriginal) => {
   const actual = await importOriginal<typeof Kernel>();
   const real = actual.MESH_OPS['mesh.applyTransform'] as Kernel.MeshOp;
   // B4 landed when its op runs on a cube without the stub's refusal.

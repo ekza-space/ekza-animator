@@ -8,7 +8,7 @@
 // After an Inset or Bevel (no session) it shows their value handle instead: dragging it is a virtual slider on the
 // offset/fraction (the card preview, one adjust on release). A press anywhere else selects like the select tool, which
 // ends the session at its start (§5.8).
-import { quatFromAxisAngle, type Vec3 } from '@ekza-animator/anim-core';
+import { quatFromAxisAngle, type Vec3 } from '@ekza-studio/anim-core';
 import {
   type AbsorbGesture,
   beginCardPreview,
@@ -28,8 +28,8 @@ import {
   type ToolPhase,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/editor-core';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { rayLineParameter, ringScreenTangent } from '../../../manipulators/drag';
 import {
   axisOf,

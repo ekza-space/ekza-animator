@@ -1,8 +1,8 @@
 // The lazy scale chunk (M6A-SPEC §4.7; B9): the Scale tool's behaviour, the scale drag maths and the scene-object
 // targets, loaded when the Scale tool is first used (`./load.ts`). The ViewportManager reaches it through the loader.
-import { type Mat4, mat4Decompose } from '@ekza-animator/anim-core';
-import type { CharacterId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { type Mat4, mat4Decompose } from '@ekza-studio/anim-core';
+import type { CharacterId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { objectWorld, pivotWorld, topmostSelectedObjects } from '../../manager/objects';
 import type { ManipTarget } from '../ManipulatorKit';
 import type { ScaleObject } from './math';

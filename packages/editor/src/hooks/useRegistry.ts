@@ -1,4 +1,4 @@
-import type { Registry } from '@ekza-animator/editor-core';
+import type { Registry } from '@ekza-studio/editor-core';
 import { useMemo, useSyncExternalStore } from 'react';
 
 /** The items of a contribution registry; re-renders when something registers or unregisters. */

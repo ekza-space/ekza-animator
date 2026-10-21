@@ -1,6 +1,6 @@
 // Clip operators (MVP-SPEC §4.9 `clip.*`): defaults of new clips, naming rules, deep duplication, soft delete with
 // a replacement active clip, switching, and clip settings incl. the keep-seconds frame-rate change; undo/redo.
-import type { ClipId, ClipRecord, KeyRecord } from '@ekza-animator/doc';
+import type { ClipId, ClipRecord, KeyRecord } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { registerBuiltinOperators } from '../../src';
 import { createFakeEditorApp } from '../../src/testing';

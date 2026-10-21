@@ -176,7 +176,7 @@ describe('the chunk attribution report', () => {
     expect(report.attribution?.unmappedChunks).toBe(0);
     expect(report.attribution?.packages.map((p) => p.pkg).sort()).toEqual([
       '(unmapped)',
-      '@ekza-animator/editor',
+      '@ekza-studio/editor',
       'react',
     ]);
     const sum = report.attribution?.packages.reduce((total, p) => total + p.gzip, 0) ?? 0;

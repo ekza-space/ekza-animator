@@ -1,15 +1,15 @@
 // A naive FK PoseSource over a SkeletonDesc (shared test kit, MVP-SPEC §3 convention 12): bake, writer and surgeon
 // tests run without the rig kernel (WP-3). Each node's local transform comes from a callback (rest when it returns
 // null); worlds, raw locals, humanoid N_b (§4.11.9) and the hips position are filled like the kernel fills them.
-import { mat4Compose, quatInvert, quatMultiply, type ReadonlyXf, type Xf, xfMultiply } from '@ekza-animator/anim-core';
-import type { HumanBoneName, RigId } from '@ekza-animator/doc';
+import { mat4Compose, quatInvert, quatMultiply, type ReadonlyXf, type Xf, xfMultiply } from '@ekza-studio/anim-core';
+import type { HumanBoneName, RigId } from '@ekza-studio/doc';
 import {
   HUMAN_BONE_NAMES,
   HUMAN_BONE_PARENT,
   type PoseBuffers,
   type RigProgram,
   type SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import type { PoseSource } from '../types';
 
 export interface FkPoseSourceOptions {

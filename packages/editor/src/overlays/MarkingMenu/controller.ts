@@ -7,7 +7,7 @@
 // Near a window edge the drawing moves inwards so every item can be clicked, but a live gesture (button or key held)
 // keeps measuring its direction from where it started: a flick means the same thing anywhere in the window. A drawn
 // item under the pointer wins over the direction.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type {
   CompassSlot,
   EditorApp,
@@ -15,8 +15,8 @@ import type {
   MarkingMenuItem,
   OperatorResult,
   RunContext,
-} from '@ekza-animator/editor-core';
-import type { PanePointerPress } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import type { PanePointerPress } from '@ekza-studio/viewport';
 import { createStore, type StoreApi } from 'zustand/vanilla';
 import type { MarkingMenuEntry, MarkingMenuState, MarkingMenuTarget, OpenMarkingMenu } from './types';
 

@@ -1,6 +1,6 @@
 // The Timeline panel in Vitest browser mode over the fake app (MVP-SPEC §7 WP-6t): registration, the time-slider
 // canvas wiring, frame field, clip and fps controls, transport, range slider, RMB menu and per-frame rendering.
-import type { ClipId, ClipRecord } from '@ekza-animator/doc';
+import type { ClipId, ClipRecord } from '@ekza-studio/doc';
 import { act, Profiler } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createPanelRegistry, EditorAppProvider, registerBuiltinPanels } from '../../../src';

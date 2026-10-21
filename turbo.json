@@ -10,7 +10,7 @@
     },
     "build": {
       "dependsOn": ["^build", "transit"],
-      "env": ["NEXT_PUBLIC_*", "ANIMATOR_STATIC_EXPORT"],
+      "env": ["NEXT_PUBLIC_*", "STUDIO_STATIC_EXPORT", "ANIMATOR_STATIC_EXPORT"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "$TURBO_ROOT$/fixtures/**",

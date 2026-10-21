@@ -131,7 +131,7 @@ export async function boneWorlds(
 ): Promise<Record<string, World>> {
   return page.evaluate(
     ([id, names, frame]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       return Object.fromEntries(
         names.map((name) => [name, frame === null ? api.boneWorld(id, name) : api.boneWorld(id, name, frame)] as const),

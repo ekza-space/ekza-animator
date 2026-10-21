@@ -1,8 +1,8 @@
 // The viewport part of the e2e test API (MVP-SPEC §4.8): panes, cameras, page positions of controls and manipulator
 // handles, and the rendered-frame counter. The shell's test API (WP-8) delegates to these so the geometry rules
 // ("a point ON the shape polyline", "a grab point on the handle") stay with the viewport.
-import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { ControlId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { topologyManipulatorPoint } from '../tools/model/topology';
 import type { ManipHandle } from '../types';
 import type { ViewportManager } from './ViewportManager';

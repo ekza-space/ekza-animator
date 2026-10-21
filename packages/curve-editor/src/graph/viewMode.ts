@@ -3,7 +3,7 @@
 // draws at 0. Stacked views give every curve its own lane. The data never changes: the mapping is an affine
 // `drawn = v · scale + offset` per curve (`CurveEntry.scale`/`offset`), so painting, hit-testing, framing and drag
 // conversions all go through it.
-import { Segment } from '@ekza-animator/anim-core';
+import { Segment } from '@ekza-studio/anim-core';
 import type { GraphViewMode, GraphViewState } from '../types';
 import { VIEW_LIMITS } from '../view/transform';
 import type { CurveEntry } from './curveSet';

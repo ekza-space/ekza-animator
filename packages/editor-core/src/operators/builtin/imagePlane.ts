@@ -10,8 +10,8 @@
 //   plane accepts only `locked` and `visible` ("The image plane is locked") unless the same patch unlocks it.
 // - `imagePlane.delete {id}`: soft delete (the image asset stays referenced by the undo history).
 // The document writes live in the lazy `contentApply.ts` (M6A-B13-10): `prepare` loads it, `apply` runs its body.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetRecord, ImagePlaneRecord, OrthoCamera } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AssetRecord, ImagePlaneRecord, OrthoCamera } from '@ekza-studio/doc';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, forward, isRecord, OK } from './define';
 import { type ContentApplyModule, loadContentApply, loadedContentApply } from './contentLoad';

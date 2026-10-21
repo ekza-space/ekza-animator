@@ -2,7 +2,7 @@
 // convert, the symmetry maps and pointer-rule samples, soft weights and transform results (manifest ids). Shared by
 // the Node test (which keeps test/goldens/mesh-select.json) and the Chromium test (which compares against it); no
 // Node APIs here.
-import { curveEngine, sha256Hex } from '@ekza-animator/anim-core';
+import { curveEngine, sha256Hex } from '@ekza-studio/anim-core';
 import {
   BitSet,
   buildSymmetryMap,

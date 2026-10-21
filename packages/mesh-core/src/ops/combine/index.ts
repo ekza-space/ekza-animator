@@ -6,7 +6,7 @@
 // identity key, morph layers by name, joint palettes by joint id. Refusals: fewer than two meshes, asset-backed inputs
 // (M6a), different palettes (`combine.palette-mismatch`, "assign it first") or skeletons (`combine.skeleton-mismatch`).
 // The other inputs are removed.
-import { mat4Invert, mat4Multiply, type ParamValues, type ReadonlyXf } from '@ekza-animator/anim-core';
+import { mat4Invert, mat4Multiply, type ParamValues, type ReadonlyXf } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { appendMeshMatrix } from '../../subset/append';
 import { applyMatrixToMesh, matrixOf, transformPoint } from '../../subset/matrix';

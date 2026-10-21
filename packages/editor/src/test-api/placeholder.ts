@@ -1,18 +1,18 @@
 // Degraded e2e test API for an editor whose kernel could not start (e.g. a build where createEditorApp is still a
 // stub): `ready`, `webgl` and `renderedFrames` work, every other function throws EkzaError('not-implemented').
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { WebGlInfo } from '../gl/webgl';
-import type { EkzaAnimatorTestApi } from './types';
+import type { EkzaStudioTestApi } from './types';
 
 declare global {
   interface Window {
-    __EKZA_ANIMATOR_TEST__?: EkzaAnimatorTestApi;
+    __EKZA_STUDIO_TEST__?: EkzaStudioTestApi;
   }
 }
 
 /** Imperative side of the placeholder API, driven by the fallback canvas. */
 export interface PlaceholderTestApi {
-  readonly api: EkzaAnimatorTestApi;
+  readonly api: EkzaStudioTestApi;
   /** The WebGL context exists (or could not be created): resolves `ready`. */
   settle(webgl: WebGlInfo): void;
   countFrame(): void;
@@ -28,7 +28,7 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
   const notImplemented = (name: string): never => {
     throw new EkzaError('not-implemented', `editor.testApi.${name} (the editor kernel did not start)`);
   };
-  const api: EkzaAnimatorTestApi = {
+  const api: EkzaStudioTestApi = {
     ready,
     get webgl() {
       return webgl;

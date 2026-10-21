@@ -2,8 +2,8 @@
 // navigation and tool hints; busy state and the selection on the right. Human-speed state only, never per frame.
 // M6a (M6A-SPEC §5.17, §8.2; B9): in Model the hints are the mode and the resolved meaning of the modeling keys under
 // the pointer (`⌘E Extrude` on macOS, `Ctrl+E Extrude` elsewhere), and the selection counts objects.
-import { type ComponentMode, GLOBAL_SCOPE, PANEL } from '@ekza-animator/editor-core';
-import { cn, LoaderCircle } from '@ekza-animator/ui';
+import { type ComponentMode, GLOBAL_SCOPE, PANEL } from '@ekza-studio/editor-core';
+import { cn, LoaderCircle } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useEditorApp, usePrefs, useSession } from '../hooks';
 import { helpHints } from '../input/keyboard';

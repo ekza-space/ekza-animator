@@ -1,4 +1,4 @@
-# WP-1 notes — `@ekza-animator/anim-core` curve engine, reduction, shapes
+# WP-1 notes — `@ekza-studio/anim-core` curve engine, reduction, shapes
 
 Builder notes for the integration agent: what landed, interpretations of MVP-SPEC v0.2, deviations, requested
 contract changes and hand-offs to other work packages. Branch `wp/wp-1`.

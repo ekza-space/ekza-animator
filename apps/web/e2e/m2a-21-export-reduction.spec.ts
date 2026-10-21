@@ -4,7 +4,7 @@
 // more than the per-node tolerances. The ≥ 3× shrink is asserted on linear blocking keys (M2A-A5-3 in
 // docs/wp-notes/m2a-platform-perf.md: at R02's 0.2 mm tolerances the wave's 60° swing in 15 frames keeps its samples).
 import { readFileSync } from 'node:fs';
-import { DEFAULT_EXPORT_REDUCE, parseGlb, readAnimations, skeletonFromGltf, trackLeverArms } from '@ekza-animator/io';
+import { DEFAULT_EXPORT_REDUCE, parseGlb, readAnimations, skeletonFromGltf, trackLeverArms } from '@ekza-studio/io';
 import { expect, type Page, test } from '@playwright/test';
 import { exportOne, sampleBytes, validationReport } from './helpers/g4-export';
 import { controlId, seedSample, seedWaveClip } from './helpers/seed';

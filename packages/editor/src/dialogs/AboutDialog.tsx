@@ -1,5 +1,5 @@
 // About (research 09 §4.1 Help; ADR 0009, ADR 0012): version, licence, sample credits and third-party notices.
-import { Dialog, DialogContent, ExternalLink } from '@ekza-animator/ui';
+import { Dialog, DialogContent, ExternalLink } from '@ekza-studio/ui';
 import type { JSX } from 'react';
 import { useShell } from '../shell/context';
 import { EDITOR_VERSION, SAMPLES } from './samples';
@@ -15,14 +15,15 @@ export function AboutDialog(): JSX.Element {
         if (!open) void shell.runFromUi('ui.close');
       }}
     >
-      <DialogContent title="About Ekza Animator" width="md" data-testid="about-dialog">
+      <DialogContent title="About Ekza Studio" width="md" data-testid="about-dialog">
         <div className="flex flex-col gap-4 text-ui text-fg-2">
           <p>
-            Ekza Animator <span className="ekza-numeric text-fg">{EDITOR_VERSION}</span> — an open-source, browser-based
-            character animator for glTF and VRM with a Maya-grade workflow. Public alpha.
+            Ekza Studio <span className="ekza-numeric text-fg">{EDITOR_VERSION}</span> — an open-source, browser-based
+            3D studio for glTF and VRM characters (modeling, rigging, animation) with a Maya-grade workflow. Public
+            alpha.
           </p>
           <p>
-            The editor's code is MIT licensed by the Ekza Animator contributors; the AnimX curve port is Apache-2.0 (©
+            The editor's code is MIT licensed by the Ekza Studio contributors; the AnimX curve port is Apache-2.0 (©
             Autodesk, Inc.). Fonts: Inter and JetBrains Mono (SIL Open Font License 1.1).
           </p>
           <section className="flex flex-col gap-1.5">

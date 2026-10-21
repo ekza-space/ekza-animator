@@ -6,9 +6,9 @@
 // M2a (M2A-SPEC §5.1 rule 5, §5.6; A2): rows are TRS channels and '@name' attributes, shown in the unit of
 // `channelUnit` (an `angle` attribute in degrees, `bool` as 0/1, `enum` by its labels), plus the IK/FK proxy row
 // (cell `PROXY_CELL`): the limb IK control's `@ikFk`.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { ChannelId, CharacterId, ControlId, ControlRecord } from '@ekza-animator/doc';
-import { attrDefOf, type ChannelState, channelUnit, type EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { ChannelId, CharacterId, ControlId, ControlRecord } from '@ekza-studio/doc';
+import { attrDefOf, type ChannelState, channelUnit, type EditorApp } from '@ekza-studio/editor-core';
 import { formatChannelValue, toDisplayValue } from './kit/kernel';
 
 export interface ChannelCell {

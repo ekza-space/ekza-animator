@@ -44,7 +44,7 @@ Research disagrees on *when* the CRDT enters:
 ## Decision
 
 1. **The MVP production store is `MemoryDocumentStore`**, an in-house, synchronous, in-memory record store in
-   `@ekza-animator/doc` behind the `DocumentStore` interface of
+   `@ekza-studio/doc` behind the `DocumentStore` interface of
    [MVP-SPEC §4.2](../MVP-SPEC.md#42-doc--records-partitions-store-transactions-undo-replication). No app package
    imports `yjs`.
 2. **The interface follows 06 §7.2**, adapted to typed tables:
@@ -76,7 +76,7 @@ Research disagrees on *when* the CRDT enters:
    `minWriterVersion`** on the project and in snapshots; migrations are pure, idempotent, use origin `migration`,
    and derive new IDs as `hash(oldId + ':' + purpose)` so concurrent migrations write identical records;
    per-table versions (`DocSnapshot.tableVersions`, `TableDef.version`).
-5. **Conformance suite** in `@ekza-animator/doc/testing`:
+5. **Conformance suite** in `@ekza-studio/doc/testing`:
    `runDocumentStoreConformance(label, factory, caps: { replicating: boolean; harness?: ReplicaHarness })`.
    The non-replicating part covers transactions, nested joins, batches, preview/commit/cancel, undo/redo/coalescing,
    per-field compare-before-restore with simulated external writes, partition lifecycle, snapshot/load round trip,

@@ -1,4 +1,4 @@
-# Ekza Animator — M2a build specification ("game-clip daily driver")
+# Ekza Studio — M2a build specification ("game-clip daily driver")
 
 Status: v0.3 (2026-10-18, integration revision: A0…A5 merged, and with the integration merged into `dev`; the packages' contract PRs ratified into this file and
 [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended
@@ -85,7 +85,7 @@ every use is feature-detected and wrapped in try/catch (NFR-12). The toolchain o
 
 | Package | Change | Why |
 |---|---|---|
-| `@ekza-animator/io` | new subpath export `"./write": "./src/write.ts"` (bake, surgeon, animation-GLB and VRMA writers, export lints) | M-2: glTF Transform loads only when an export runs (§5.21.2) |
+| `@ekza-studio/io` | new subpath export `"./write": "./src/write.ts"` (bake, surgeon, animation-GLB and VRMA writers, export lints) | M-2: glTF Transform loads only when an export runs (§5.21.2) |
 | `apps/web` | script `"check:size": "node scripts/check-size.mjs"` | M-2 size gate |
 | root | `ci` runs `pnpm --filter web check:size` after `build` | M-2 size gate in CI |
 
@@ -217,8 +217,8 @@ Table versions are **not** bumped (all new fields are optional; M1 apps preserve
 `packages/rig/src/types.ts` additions:
 
 ```ts
-import type { AttrDef, BoneRef, ControlId, SolverId } from '@ekza-animator/doc';
-import type { ReadonlyVec3 } from '@ekza-animator/anim-core';
+import type { AttrDef, BoneRef, ControlId, SolverId } from '@ekza-studio/doc';
+import type { ReadonlyVec3 } from '@ekza-studio/anim-core';
 
 /** A limb that can carry two-bone IK. */
 export type LimbId = 'leg.L' | 'leg.R' | 'arm.L' | 'arm.R';
@@ -363,7 +363,7 @@ The internal `ScheduledRigOp` gains `state: unknown` (the `compile` result, `und
 `ImportedClipKeys` gains `readonly limbs?: readonly { readonly limb: LimbId; readonly mode: 'ik' | 'fk';
 readonly maxRotationErrorRad: number; readonly maxMidErrorM: number }[]` (one row per limb that `'auto'` considered).
 
-Public API additions (`@ekza-animator/rig`, owner A1; signatures in §8 A1).
+Public API additions (`@ekza-studio/rig`, owner A1; signatures in §8 A1).
 
 ### 4.4 io — export reduction, write subpath
 
@@ -392,10 +392,10 @@ output byte for byte); `BakeOptions.reduce?: { readonly spec: ExportReduceSpec; 
 readonly leverArm: ReadonlyMap<number, number>; readonly keep: ReadonlyMap<TrackKey, readonly Frame[]> } | null`;
 `BakedClip.reduction?: ReductionStats`; `ExportArtifact.stats.reduction?: ReductionStats`.
 
-The `@ekza-animator/io/write` subpath re-exports `bakeClip`, `bakeIntoModel`, `writeAnimationGlb`, `writeVrma`,
+The `@ekza-studio/io/write` subpath re-exports `bakeClip`, `bakeIntoModel`, `writeAnimationGlb`, `writeVrma`,
 `lintExport`, `readBackCheck`, `ekzaAnimationMeta`, `preexistingTracks` and `reduceBakedClip` (§8 A5). The main entry
 keeps exporting them in M2a (headless tests and tooling use it; no breaking change), but `editor-core` and `editor`
-obtain them only through a dynamic `import('@ekza-animator/io/write')`; an oxlint `no-restricted-imports` rule in
+obtain them only through a dynamic `import('@ekza-studio/io/write')`; an oxlint `no-restricted-imports` rule in
 those two packages forbids importing these names from the main entry, so the bundler can drop glTF Transform from
 the initial route.
 
@@ -404,10 +404,10 @@ the initial route.
 `packages/editor-core/src/types.ts` additions and changes:
 
 ```ts
-import type { AnimCurve, Frame } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord, ChangeBatch, ChannelId, ControlId, ControlRecord, CurveId, KeyId } from '@ekza-animator/doc';
-import type { ExportReduceSpec } from '@ekza-animator/io';
-import type { LimbId } from '@ekza-animator/rig';
+import type { AnimCurve, Frame } from '@ekza-studio/anim-core';
+import type { AssetId, AssetRecord, ChangeBatch, ChannelId, ControlId, ControlRecord, CurveId, KeyId } from '@ekza-studio/doc';
+import type { ExportReduceSpec } from '@ekza-studio/io';
+import type { LimbId } from '@ekza-studio/rig';
 
 export const PANEL = { …M1, dopeSheet: 'dopeSheet' } as const;                 // changed (additive)
 export const GRAPH_TOOL = { select: 'select', move: 'move', insert: 'insert', scale: 'scale' } as const;   // changed
@@ -514,7 +514,7 @@ export interface EditorApp {
 }
 ```
 
-Edit kernel additions (`@ekza-animator/editor-core`, §4.11.0 of MVP-SPEC extended):
+Edit kernel additions (`@ekza-studio/editor-core`, §4.11.0 of MVP-SPEC extended):
 
 ```ts
 /** One key-editing drag (Graph Editor, Dope Sheet, time slider): preview, once-per-frame updates, one history step. */
@@ -574,9 +574,9 @@ also writes it on a key already at the frame (`key.set {breakdown}`); default `'
 `packages/editor-core/src/operators/args.ts` (*changed*, additive; behaviour in §4.9):
 
 ```ts
-import type { Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId, CurveId } from '@ekza-animator/doc';
-import type { FootRollParams, LimbId } from '@ekza-animator/rig';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId, CurveId } from '@ekza-studio/doc';
+import type { FootRollParams, LimbId } from '@ekza-studio/rig';
 import type { BodyPart, GraphViewMode, IkFkKeyMode, KeyTarget, TweenMode } from '../types';
 
 export type KeyChannels = 'all' | 'translate' | 'rotate' | 'scale' | 'attributes' | 'selected';   // changed: + 'attributes'
@@ -657,9 +657,9 @@ it).
 `packages/curve-editor/src/types.ts` additions:
 
 ```ts
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId } from '@ekza-animator/doc';
-import type { BodyPart, GraphViewMode } from '@ekza-animator/editor-core';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId } from '@ekza-studio/doc';
+import type { BodyPart, GraphViewMode } from '@ekza-studio/editor-core';
 
 export type DopeSheetRowKind = 'summary' | 'character' | 'group' | 'control' | 'channel';
 export interface DopeSheetRow {
@@ -711,7 +711,7 @@ Test API additions (`packages/editor/src/test-api/types.ts`; A0 writes the types
 probes):
 
 ```ts
-export interface EkzaAnimatorTestApi {
+export interface EkzaStudioTestApi {
   …M1…
   state(): { …M1…; keyTarget: string; ripple: boolean; dirty: boolean; recovery: string[] };   // changed (additive)
   curves(clip: string, control?: string): { …M1…; keys: { …M1…; breakdown: boolean }[] }[];   // changed (additive)
@@ -1596,7 +1596,7 @@ the store mechanisms (2, 3) alone reach about 3.9 ms. The frame needs its own me
   capture (the two totals within 1 %), recording both numbers.
 - **Required lazy boundaries** (dynamic `import()`, prefetched on intent, never at idle): (1) the model loader
   (`io/three`, `@pixiv/three-vrm`, three's GLTF/Draco/KTX2/meshopt loaders) on the first file drop, Open, sample
-  hover/click or `file.openProject`; (2) the export path (`@ekza-animator/io/write`, glTF Transform) when the Export
+  hover/click or `file.openProject`; (2) the export path (`@ekza-studio/io/write`, glTF Transform) when the Export
   dialog opens or `file.export` runs; (3) every dialog (`React.lazy`); (4) the Dope Sheet panel until its tab is
   first shown; (5) `fflate` and the project archive code on the first save or open.
 - `Open Seed-san to interactive` (report) must not regress by more than 100 ms median; the first export's extra
@@ -1840,13 +1840,13 @@ owner. Every other path belongs to exactly one package's **Dirs** below.
   and `endErrorM`/`midErrorM`; §5.8 import to IK with the fidelity check and the per-limb FK fallback, Plant Feet IK
   solve, the influencing-curve definition in `computeStepSchedule` and `computeInfluenceKeyTimes`;
   `registerBuiltinRigOps`.
-- **Public API** (`@ekza-animator/rig`, additions):
+- **Public API** (`@ekza-studio/rig`, additions):
 
 ```ts
-import type { Disposer, Frame, Mat4, SplineSet } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, ControlRecord, SolverRecord } from '@ekza-animator/doc';
+import type { Disposer, Frame, Mat4, SplineSet } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, ControlRecord, SolverRecord } from '@ekza-studio/doc';
 import type { ChannelBuffer, ClipSampler, FootRollParams, LimbDesc, LimbId, PoseBuffers, RigDefinition, RigProgram,
-  SkeletonDesc, TrackKey } from '@ekza-animator/rig';
+  SkeletonDesc, TrackKey } from '@ekza-studio/rig';
 
 export function registerBuiltinRigOps(): Disposer;                                    // registers 'solver:ik2'
 export function limbIkRecords(def: RigDefinition, skeleton: SkeletonDesc, opts: { readonly limbs: readonly LimbId[];
@@ -1941,13 +1941,13 @@ export function computeInfluenceKeyTimes(program: RigProgram, sampler: ClipSampl
   arguments (`ripple` and its panel default, value scale via A4's `scaleKeyValues` once merged — until then
   `valueFactor` ≠ 1 poll-fails; turned on at integration, M2A-INT-17); `graph.keys.paste` `'insert'`;
   `graph.keys.copyTo`.
-- **Public API** (`@ekza-animator/curve-editor`, additions):
+- **Public API** (`@ekza-studio/curve-editor`, additions):
 
 ```ts
-import type { Disposer, Frame } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId } from '@ekza-animator/doc';
-import type { EditorApp, ToolKeyEvent, ToolPointerEvent, ToolWheelEvent } from '@ekza-animator/editor-core';
-import type { DopeSheetHit, DopeSheetRow, DopeSheetViewState } from '@ekza-animator/curve-editor';
+import type { Disposer, Frame } from '@ekza-studio/anim-core';
+import type { ClipId, ControlId, CurveId } from '@ekza-studio/doc';
+import type { EditorApp, ToolKeyEvent, ToolPointerEvent, ToolWheelEvent } from '@ekza-studio/editor-core';
+import type { DopeSheetHit, DopeSheetRow, DopeSheetViewState } from '@ekza-studio/curve-editor';
 
 export function buildDopeSheetRows(app: EditorApp, opts: { readonly clip: ClipId | null; readonly controls: readonly ControlId[];
   readonly expanded: ReadonlySet<string>; readonly show: 'selected' | 'character' }): DopeSheetRow[];
@@ -2046,12 +2046,12 @@ export function registerDopeSheetContributions(app: EditorApp, focused: () => Do
   A0 parses from the URL; §5.16 reduction (`reduceBakedClip`, `ExportRequest.reduce`, Export dialog checkbox, stats,
   read-back against the reduced clip; influence key times behind `READY.a1`); re-measure the full §14 table with the
   bench.
-- **Public API** (`@ekza-animator/io` and `/write`, additions):
+- **Public API** (`@ekza-studio/io` and `/write`, additions):
 
 ```ts
-import type { BakedClip, ExportReduceSpec, ReductionStats } from '@ekza-animator/io';
-import type { Frame } from '@ekza-animator/anim-core';
-import type { SkeletonDesc, TrackKey } from '@ekza-animator/rig';
+import type { BakedClip, ExportReduceSpec, ReductionStats } from '@ekza-studio/io';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { SkeletonDesc, TrackKey } from '@ekza-studio/rig';
 export const DEFAULT_EXPORT_REDUCE: ExportReduceSpec;
 export function reduceBakedClip(clip: BakedClip, opts: { readonly spec: ExportReduceSpec; readonly height: number;
   readonly leverArm: ReadonlyMap<number, number>; readonly keep: ReadonlyMap<TrackKey, readonly Frame[]> }): { readonly clip: BakedClip; readonly stats: ReductionStats };

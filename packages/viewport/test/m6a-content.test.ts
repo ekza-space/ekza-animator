@@ -2,8 +2,8 @@
 // decoded images → the viewport's plane set, lazy until a plane exists), template guides (humanoid proportions and
 // the handheld grip gizmo on the helpers layer, Model only) and the Paint Colour tool (face picking from the pane
 // camera, click, drag stroke, Shift fill, the `I` eyedropper, `Enter` on the selection, refusals).
-import type { MeshId, SwatchId } from '@ekza-animator/doc';
-import { seededIdSource } from '@ekza-animator/doc';
+import type { MeshId, SwatchId } from '@ekza-studio/doc';
+import { seededIdSource } from '@ekza-studio/doc';
 import {
   attachMeshes,
   createEditorApp,
@@ -15,9 +15,9 @@ import {
   registerBuiltins,
   swatchIdFor,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import { createFakeServices, type FakeServices } from '@ekza-animator/editor-core/testing';
-import { MESH_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/editor-core';
+import { createFakeServices, type FakeServices } from '@ekza-studio/editor-core/testing';
+import { MESH_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { Group } from 'three';
 import { describe, expect, it } from 'vitest';
 import { attachGuides } from '../src/guides';

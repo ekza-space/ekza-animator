@@ -11,8 +11,8 @@ import type {
   ControlRecord,
   DocumentStore,
   HumanBoneName,
-} from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 
 export interface OutlinerCharacter {
   readonly record: CharacterRecord;

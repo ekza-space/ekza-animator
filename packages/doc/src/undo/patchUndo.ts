@@ -14,7 +14,7 @@
 //   synchronously after the change, in eviction order. Coalescing replaces the top entry by a merged one with the same
 //   txId (and drops it when the edits cancel out): that is not an eviction (§4.2). Transactions that write
 //   `meshes.data` never set a coalesceKey (§5.20), so no chunk reference leaves the history unreported.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { AnyChange, TxMeta, UndoEntry, UndoEvictReason, UndoManager, UndoResult, UndoSkipReason } from '../store';
 import { deepEqual } from '../store/diff';
 import type { PlannedWrites } from '../store/references';

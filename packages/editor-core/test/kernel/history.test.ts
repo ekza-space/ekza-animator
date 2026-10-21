@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CameraId, CameraRecord, ChangeBatch, ChannelValues, ControlId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CameraId, CameraRecord, ChangeBatch, ChannelValues, ControlId } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits, beginChannelEditGesture } from '../../src';

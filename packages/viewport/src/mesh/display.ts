@@ -12,11 +12,11 @@
 // camera-based picks also test every other mesh the pane draws as an occluder (M6A-B6-22); each picker's BVH is built
 // on idle (M6A-B6-8). Hover, soft weights, Mesh Check problems and face isolate sets are pushed by their owners (B10,
 // B12a); document batches redo only what changed (M6A-B6-25).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { batchTables, type CharacterId, type MeshId, type MeshRecord, type PaletteId } from '@ekza-animator/doc';
-import type { EditorApp, MeshRuntime, WorkspaceId } from '@ekza-animator/editor-core';
-import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshProblem } from '@ekza-animator/mesh-core';
-import type * as MeshViewModule from '@ekza-animator/mesh-view';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { batchTables, type CharacterId, type MeshId, type MeshRecord, type PaletteId } from '@ekza-studio/doc';
+import type { EditorApp, MeshRuntime, WorkspaceId } from '@ekza-studio/editor-core';
+import type { BitSet, ComponentKind, ComponentSelection, HiddenSet, MeshProblem } from '@ekza-studio/mesh-core';
+import type * as MeshViewModule from '@ekza-studio/mesh-view';
 import type {
   ComponentPicker,
   EditMeshView,
@@ -29,7 +29,7 @@ import type {
   PickOccluder,
   PickOptionsInput,
   SwatchShading,
-} from '@ekza-animator/mesh-view';
+} from '@ekza-studio/mesh-view';
 import { type Camera, Group, Vector3 } from 'three';
 import type { MeshLayerHost } from '../manager/meshLayers';
 import { MESH_LAYERS } from './layers';

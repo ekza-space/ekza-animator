@@ -6,7 +6,7 @@
 // - Handheld grip (`attr-grip-<field>`) on a handheld root (bone, offset, rotation in degrees, scale);
 // - Image plane (`attr-plane-<field>`) for the plane selected in the Outliner: name, camera, offset ("x, y" metres),
 //   size, opacity, depth, lock, visible; a locked plane takes only its lock and visibility.
-import type { ParamDef } from '@ekza-animator/anim-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
 import type {
   DocumentStore,
   GroupRecord,
@@ -15,9 +15,9 @@ import type {
   MeshBudget,
   MeshId,
   MeshRecord,
-} from '@ekza-animator/doc';
-import { BUDGET_PRESETS, type EditorApp, type SessionState, TOON_REASON } from '@ekza-animator/editor-core';
-import { PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
+} from '@ekza-studio/doc';
+import { BUDGET_PRESETS, type EditorApp, type SessionState, TOON_REASON } from '@ekza-studio/editor-core';
+import { PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
 import { type JSX, useCallback, useId, useState } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../hooks';
 import { NumberField } from '../channel-box/kit/fields';

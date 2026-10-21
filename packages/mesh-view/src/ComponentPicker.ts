@@ -8,7 +8,7 @@
 // and against the meshes around this one (`setOccluder`: the other meshes a pane draws, M6A-B6-22); the picker in turn
 // occludes for them (`occludes`). Back faces are pickable only with `backfaces` (the caller passes x-ray || the
 // Backfaces option, §5.6). Hidden elements are never pickable.
-import type { BitSet, ComponentKind, EditMesh, HiddenSet, Triangulation } from '@ekza-animator/mesh-core';
+import type { BitSet, ComponentKind, EditMesh, HiddenSet, Triangulation } from '@ekza-studio/mesh-core';
 import { BufferAttribute, BufferGeometry, type Camera, DoubleSide, FrontSide, Matrix4, Ray, Vector3 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import { localSegment, type PickOccluder, segmentFar } from './internal/occluder';

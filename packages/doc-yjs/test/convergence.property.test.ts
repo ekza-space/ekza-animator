@@ -8,8 +8,8 @@ import {
   type ReplicatingStore,
   seededIdSource,
   serializeSnapshot,
-} from '@ekza-animator/doc';
-import { checkProjections, newScene, writeScene } from '@ekza-animator/doc/testing';
+} from '@ekza-studio/doc';
+import { checkProjections, newScene, writeScene } from '@ekza-studio/doc/testing';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { yjsHarness } from '../src';

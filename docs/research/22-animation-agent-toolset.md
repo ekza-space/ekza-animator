@@ -555,7 +555,7 @@ capabilities differ, declared in `scene_summary.host`:
 ```ts
 // packages/agent-tools/src/types.ts
 import type { z } from 'zod';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 export type AgentHost = 'live' | 'headless';
 export interface AgentToolDef<I extends z.ZodObject, O extends z.ZodType> {

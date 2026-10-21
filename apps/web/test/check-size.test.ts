@@ -58,7 +58,7 @@ const CHUNKS = {
   'models.js': push(20, 'e=>{"VRMC_materials_mtoon";"THREE.GLTFLoader"}'),
   'writer.js': push(30, 'e=>{"glTF-Transform"}'),
   'about.js': push(40, 'e=>{"data-testid","about-dialog"}'),
-  'welcome.js': push(50, `e=>{"data-testid","firstrun-dialog";"${'Welcome to Ekza Animator. '.repeat(20)}"}`),
+  'welcome.js': push(50, `e=>{"data-testid","firstrun-dialog";"${'Welcome to Ekza Studio. '.repeat(20)}"}`),
 };
 
 describe('route scripts', () => {

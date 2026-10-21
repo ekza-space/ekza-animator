@@ -1,7 +1,7 @@
 // Contract file: M6A-SPEC §4.4 (mesh-view types), copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec. The §4.4 classes live in
 // implementation modules (B0a: the skeleton in ./index.ts; B6 the bodies).
-import type { ComponentKind, HiddenSet } from '@ekza-animator/mesh-core';
+import type { ComponentKind, HiddenSet } from '@ekza-studio/mesh-core';
 
 /** Colours resolved from the design tokens (§8.9), never literals. */
 export interface MeshViewTheme {

@@ -1,6 +1,6 @@
 // B1 kernel benches (report only; M6A-SPEC §5.27, §9 B1 DoD): derive edit links at 50k triangles (budget ≤ 40 ms
 // incl. caches), normals, triangulation (full and incremental), revision write (full and incremental) and read,
-// Euler operator throughput with its undo, and validation. Run: pnpm --filter @ekza-animator/mesh-core bench
+// Euler operator throughput with its undo, and validation. Run: pnpm --filter @ekza-studio/mesh-core bench
 import { bench, describe } from 'vitest';
 import {
   computeNormals,

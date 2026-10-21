@@ -1,8 +1,8 @@
 // Contract file: MVP-SPEC §4.6, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { Quat, ReadonlyVec3, Vec3 } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
-import type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset } from '@ekza-animator/editor-core';
+import type { Quat, ReadonlyVec3, Vec3 } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
+import type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset } from '@ekza-studio/editor-core';
 
 export type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset };
 export interface PaneDescriptor {

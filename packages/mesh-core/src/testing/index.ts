@@ -1,4 +1,4 @@
-// `@ekza-animator/mesh-core/testing` (M6A-SPEC §4.3, §5.29): fixtures, state dumps, fast-check arbitraries and the
+// `@ekza-studio/mesh-core/testing` (M6A-SPEC §4.3, §5.29): fixtures, state dumps, fast-check arbitraries and the
 // golden runner for kernel tests (B1) and every op package's tests (B2…B5). Test-only: imports fast-check; never
 // imported by shipped code.
 import fc from 'fast-check';

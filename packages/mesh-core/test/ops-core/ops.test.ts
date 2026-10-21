@@ -2,7 +2,7 @@
 // §5.12, §5.3): placement modes and ring termination, adjust fast paths, H1/H2/H3, pick order, refusals and warnings,
 // hidden components, layer rules of new faces. Every run goes through the checked runner (validity, exact undo/redo,
 // incremental revisions).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
   BitSet,

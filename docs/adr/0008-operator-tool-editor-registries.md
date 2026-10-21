@@ -35,7 +35,7 @@ types) that the contracts did not have.
    pointer, wheel and key handlers, `cancel`, cursor). Manipulators belong to the viewport. Camera navigation is
    not a tool; it runs under any tool (Maya Alt-navigation) and in 2D editors follows the navigation profile.
    Event routing in a panel: active drag/modal → active tool → panel default (navigation) → pass through.
-4. **Panels** (`PanelDef` in `@ekza-animator/editor`): id, kind (open string), title, component, key scope,
+4. **Panels** (`PanelDef` in `@ekza-studio/editor`): id, kind (open string), title, component, key scope,
    multi-instance flag. Registration is **explicit** (`register<Name>Panel(registry)` called from
    `registerBuiltinPanels`), never a side effect of importing a module. Panel view state is per-user workspace
    state, never in the document.
@@ -54,10 +54,10 @@ types) that the contracts did not have.
    | importers (`ImporterDef`) | `EditorApp` | `.glb/.vrm` model, `.vrma`, `.ekzanim(.json)` |
    | exporters (`ExporterDef`) | `EditorApp` | `bake-into-model`, `animation-glb`, `vrma` |
    | export profiles (`ExportProfileDef`, data) | `EditorApp` | Ekza Tier-0 profiles and generic local profiles (ADR 0010) |
-   | panels (`PanelDef`) | `@ekza-animator/editor` | viewport, graph, timeline, outliner, clips, channel box, attributes |
-   | control shapes | `@ekza-animator/anim-core` | circle, halfCircle, square, cube, sphere, diamond, arrow4, star, cross, lollipop |
-   | rig op kinds | `@ekza-animator/rig` | none in M1 (constraint/solver slots); `ik2` in V1 |
-   | document tables (`TableDef`) | `@ekza-animator/doc` | the 12 built-in tables, with per-table versions |
+   | panels (`PanelDef`) | `@ekza-studio/editor` | viewport, graph, timeline, outliner, clips, channel box, attributes |
+   | control shapes | `@ekza-studio/anim-core` | circle, halfCircle, square, cube, sphere, diamond, arrow4, star, cross, lollipop |
+   | rig op kinds | `@ekza-studio/rig` | none in M1 (constraint/solver slots); `ik2` in V1 |
+   | document tables (`TableDef`) | `@ekza-studio/doc` | the 12 built-in tables, with per-table versions |
 
    Identifiers are open strings (panel kinds, scopes, tool ids, export kinds, shape kinds) with exported built-in
    constants. **Unknown data survives**: tables without a registered `TableDef` load as opaque, transactable tables

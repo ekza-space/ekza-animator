@@ -1,11 +1,11 @@
 // The e2e test API (MVP-SPEC §4.8) over the fake app with the synthetic wave document: reads, lookups by id or
 // template key, evaluation at frames, screen positions through probes, run() results and lastExport().
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId, DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
-import { loadMeshKernel, registerBuiltins } from '@ekza-animator/editor-core';
-import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
-import type { ExportArtifact } from '@ekza-animator/io';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { ClipId, ControlId, CurveId, DocSnapshot, MeshId, MeshRecord, MeshRef } from '@ekza-studio/doc';
+import { loadMeshKernel, registerBuiltins } from '@ekza-studio/editor-core';
+import { naiveCurveEngine } from '@ekza-studio/editor-core/testing';
+import type { ExportArtifact } from '@ekza-studio/io';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createTestApi } from '../src/test-api/createTestApi';
 import { createPlaceholderTestApi } from '../src/test-api/placeholder';

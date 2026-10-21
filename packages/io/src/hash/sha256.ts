@@ -1,7 +1,7 @@
 // SHA-256 wrappers of io (M6A-SPEC §4.1): the digest core lives in anim-core (streaming, non-copying); io keeps its
 // shipped names and signatures. `sha256Hex` uses WebCrypto when the platform has it; `sha256HexSync` is the
 // synchronous path for `skeletonFromGltf` fingerprints and platforms without `crypto.subtle`.
-import { sha256, toHex as hex } from '@ekza-animator/anim-core';
+import { sha256, toHex as hex } from '@ekza-studio/anim-core';
 
 /** Lowercase hex of a byte array. */
 export function toHex(bytes: Uint8Array): string {

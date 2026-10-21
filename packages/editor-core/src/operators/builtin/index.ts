@@ -1,8 +1,8 @@
 // Built-in contributions (MVP-SPEC §7 WP-7b, ADR 0008): every §4.9 operator owned by WP-7b, the importers,
 // exporters, export profiles, menu items and the `maya` keymap — registered through the same registries extensions
 // use, explicitly (nothing registers on import).
-import type { Disposer } from '@ekza-animator/anim-core';
-import { BUILTIN_EXPORT_PROFILES } from '@ekza-animator/io';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { BUILTIN_EXPORT_PROFILES } from '@ekza-studio/io';
 import { MAYA_KEYMAP } from '../../keymap/maya';
 import type { EditorApp } from '../../types';
 import { AUTOSAVE_OPERATORS } from './autosave';

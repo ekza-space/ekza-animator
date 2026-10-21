@@ -2,7 +2,7 @@
 // 1 − (3x² − 2x³)), linear (1 − x), sharp ((1 − x)²), root (√(1 − x)), sphere (√(1 − x²)), constant (1). A custom
 // falloff is an anim-core `AnimCurve` evaluated at frame x (research 13 §5.15; M6a-stretch in the UI), clamped to
 // [0, 1].
-import { type AnimCurve, curveEngine } from '@ekza-animator/anim-core';
+import { type AnimCurve, curveEngine } from '@ekza-studio/anim-core';
 import { kernelError } from '../kernel';
 import type { FalloffCurve } from '../types';
 

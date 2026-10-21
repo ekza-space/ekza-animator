@@ -1,9 +1,9 @@
 // Scene objects (M6A-SPEC §5.13, §6.2; B13): group (pivot at the bounding-box centre, world transforms kept), parent
 // and unparent (same owner, no cycles, world kept), duplicate (shared revision, unique names, subtrees), delete
 // (descendants, selection), rename and mesh attributes (record patches, never component edits).
-import { type ReadonlyXf, xfIdentity } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId } from '@ekza-animator/doc';
-import { makeTestGroup, makeTestMesh } from '@ekza-animator/doc/testing';
+import { type ReadonlyXf, xfIdentity } from '@ekza-studio/anim-core';
+import type { GroupId, MeshId } from '@ekza-studio/doc';
+import { makeTestGroup, makeTestMesh } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { objectWorld, sceneObject } from '../../../src';
 import { type MeshTestApp, meshTestApp, pollReason, runValue, selectObjects } from './support';

@@ -1,7 +1,7 @@
 // Fixed-size bitset over element indices (M6A-SPEC §4.3): component selections, hidden sets and per-mode memory.
 // Words are 32-bit; bits at or above `size` are always zero. `encode` picks the smaller of two tagged encodings, so a
 // selection snapshot never costs more than size / 8 bytes plus the tag (§5.6 undo byte budget). Eager-safe.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 
 const TAG_RUNS = 0;
 const TAG_WORDS = 1;

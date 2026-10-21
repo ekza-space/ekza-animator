@@ -1,5 +1,5 @@
-import type { ChannelId, ControlRecord } from '@ekza-animator/doc';
-import { channelDisplayLabel } from '@ekza-animator/editor-core';
+import type { ChannelId, ControlRecord } from '@ekza-studio/doc';
+import { channelDisplayLabel } from '@ekza-studio/editor-core';
 
 /** Channel swatch and curve colours: research 09 §8.2 `--axis-x/y/z` and `--channel-other`. */
 export const CHANNEL_COLORS: { readonly x: string; readonly y: string; readonly z: string; readonly other: string } = {

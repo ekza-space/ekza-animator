@@ -2,12 +2,12 @@
 // (MVP-SPEC §4.11.6): records and counts, the auto-rig, the shot camera, frame rate and key reduction of embedded
 // clips, accuracy against the source samplers, provenance, undo/redo, and the rejections (not a GLB, no skin).
 import { existsSync } from 'node:fs';
-import { quatAngle } from '@ekza-animator/anim-core';
-import type { ClipId, ClipRecord, KeyRecord } from '@ekza-animator/doc';
-import { fixturePath, readFixture } from '@ekza-animator/doc/testing';
-import type { CharacterRuntime, ImportResult } from '@ekza-animator/editor-core';
-import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-animator/io';
-import type { RawClip } from '@ekza-animator/rig';
+import { quatAngle } from '@ekza-studio/anim-core';
+import type { ClipId, ClipRecord, KeyRecord } from '@ekza-studio/doc';
+import { fixturePath, readFixture } from '@ekza-studio/doc/testing';
+import type { CharacterRuntime, ImportResult } from '@ekza-studio/editor-core';
+import { parseGlb, readAnimations, skeletonFromGltf } from '@ekza-studio/io';
+import type { RawClip } from '@ekza-studio/rig';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { BLOCKED, docJson, importFixture, realApp, runOk, runtimeOf, SIBLINGS_READY } from './ops.support';
 

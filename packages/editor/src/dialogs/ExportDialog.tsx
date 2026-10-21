@@ -1,10 +1,10 @@
 // Export dialog (research 09 §10.4; MVP-SPEC §4.11.10, §7 WP-8): kind (bake into the model, animation-only GLB,
 // VRMA), clips, export profile, licence acknowledgement, interop and node-constraint warnings, key reduction
 // (M2A-SPEC §5.16), then `file.export` and its lints, read-back results and sample counts. Opening the dialog starts
-// loading the export path (`@ekza-animator/io/write`, M2A-SPEC §5.21.2) so the first export does not wait for it.
-import type { CharacterId, ClipId, DocumentStore } from '@ekza-animator/doc';
-import { type EditorApp, type ExporterDef, preloadExportPath } from '@ekza-animator/editor-core';
-import { type ExportArtifact, type ExportReduceSpec, type ExportRequest, readVrmLicense } from '@ekza-animator/io';
+// loading the export path (`@ekza-studio/io/write`, M2A-SPEC §5.21.2) so the first export does not wait for it.
+import type { CharacterId, ClipId, DocumentStore } from '@ekza-studio/doc';
+import { type EditorApp, type ExporterDef, preloadExportPath } from '@ekza-studio/editor-core';
+import { type ExportArtifact, type ExportReduceSpec, type ExportRequest, readVrmLicense } from '@ekza-studio/io';
 import {
   Badge,
   Button,
@@ -18,7 +18,7 @@ import {
   RadioGroupItem,
   TextInput,
   TriangleAlert,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { type JSX, useEffect, useId, useMemo, useState } from 'react';
 import { useDocQuery, usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

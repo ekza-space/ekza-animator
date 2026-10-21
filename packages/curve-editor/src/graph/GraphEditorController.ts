@@ -7,8 +7,8 @@
 // frozen while a document preview runs; buffer curves (§5.15.1) draw dashed behind the curves; the scale tool's
 // region box (§5.15.3); breakdown glyphs (§5.12). M-1: drags repaint only their curves over a cached static layer,
 // and the scheduled (coalesced) preview update runs before each redraw.
-import type { CompiledAnimCurve, Disposer, Fps, Frame } from '@ekza-animator/anim-core';
-import type { AnyChange, ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-animator/doc';
+import type { CompiledAnimCurve, Disposer, Fps, Frame } from '@ekza-studio/anim-core';
+import type { AnyChange, ChangeBatch, ClipRecord, CurveId, KeyId } from '@ekza-studio/doc';
 import {
   compileWithAppEngine,
   type CurveBuffer,
@@ -24,7 +24,7 @@ import {
   type ToolKeyEvent,
   type ToolPointerEvent,
   type ToolWheelEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { channelLabel } from '../channel-tree/colors';
 import { HitScratch, hitTestScene } from '../hit/hitTest';
 import { sizeBackingStore } from '../painters/canvas';

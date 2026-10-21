@@ -2,8 +2,8 @@
 // to the pointer during a transform drag (the dragged value), the snap candidate ring and chip ("→ vertex 128 ·
 // Torso"), the soft-select radius ring while `B` is held, and the value a drag committed with typed fields for the
 // help line (§5.10). Eager and tiny: the editor overlay subscribes to it, the lazy transform runtime writes it.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 export interface TransformReadout {
   readonly paneId: string;

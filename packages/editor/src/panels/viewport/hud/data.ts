@@ -4,15 +4,15 @@
 // Edges, Faces, Tris (UVs when a mesh has them), the mirrored partners (`40 (+40 sym)`), the mode badge line
 // (`FACE · SYM X · SOFT 0.50 m`) and a budget bar on triangles (ok < 90 %, warn 90–100 %, danger > 100 %). Triangle
 // counts come from the runtime's triangulation (what export ships, §5.4). Computed on demand, never per frame.
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   componentInternals,
   type EditorApp,
   type MeshRuntime,
   meshBudget,
   objectsDrawnIn,
-} from '@ekza-animator/editor-core';
-import type { ComponentKind } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import type { ComponentKind } from '@ekza-studio/mesh-core';
 
 export interface HudCounts {
   vertex: number;

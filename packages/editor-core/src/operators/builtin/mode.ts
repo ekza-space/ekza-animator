@@ -12,9 +12,9 @@
 //   `session.model.hilite` keeps the list (not drawn) for the Last-op card's comparison (§5.7).
 // - A mode switch ends an open extrude session without a zero-drop (§5.8); with `convertOnModeSwitch` the selection
 //   converts to the new kind (touching).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import type { ComponentKind } from '@ekza-animator/mesh-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { ComponentKind } from '@ekza-studio/mesh-core';
 import { meshKernel } from '../../mesh';
 import { componentInternals } from '../../selection/component/service';
 import { modelPointer } from '../../selection/component/probes';

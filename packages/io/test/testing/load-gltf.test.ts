@@ -1,7 +1,7 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { VRM0_BONE_ALIASES } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { VRM0_BONE_ALIASES } from '@ekza-studio/rig';
 import type { Object3D } from 'three';
 import { describe, expect, it } from 'vitest';
 import { loadGltfInNode, readGlbJson, skeletonNodeOrder } from '../../src/testing';

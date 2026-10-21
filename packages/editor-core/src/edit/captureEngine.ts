@@ -22,7 +22,7 @@
 //   (b) too: the editor's capture bridge calls `disarm()` for them.
 // Modifier keys alone never disarm. With `prefs.modeling.numericCapture: 'explicit'` nothing arms (only `T` and the
 // card fields take numbers).
-import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-animator/anim-core';
+import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-studio/anim-core';
 import type { LastRun, NumericCaptureApi, NumericCaptureState, NumericTarget, SessionState } from '../types';
 import { type CaptureHost, type CaptureKeyEvent, ENTRY_DISCARDED, IDLE_CAPTURE, numericParams } from './capture';
 import { formatParamValue, parseParamInput } from './paramInput';

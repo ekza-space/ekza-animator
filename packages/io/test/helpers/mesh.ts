@@ -1,6 +1,6 @@
 // Synthetic glTF meshes for the M6a mesh IO tests (B8): small triangle meshes with optional normals, UVs, colours,
 // skin and morph targets, built through the shared GltfBuilder, and a minimal PNG reader for palette round trips.
-import type { LayerDef, MeshData } from '@ekza-animator/mesh-core';
+import type { LayerDef, MeshData } from '@ekza-studio/mesh-core';
 import { unzlibSync } from 'fflate';
 import { parseGlb } from '../../src/glb/parse';
 import { GltfBuilder } from '../../src/testing/glb';

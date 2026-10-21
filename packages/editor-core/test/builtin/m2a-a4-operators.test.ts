@@ -1,8 +1,8 @@
 // A4 operators (M2A-SPEC §4.9): `key.tween` (§5.13, the E2E-M2A-13 numbers), `key.convert` (§5.12),
 // `graph.buffer.snapshot/swap/clear` (§5.15.1) and `pose.mirrorAnimation` (§5.14: channel rule, the half-cycle
 // procedure with its gate, flip involution, scope rules, secondary controls), each with poll, apply and undo/redo.
-import { type AnimCurve, curveEngine, type KeyData, type TangentType } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
+import { type AnimCurve, curveEngine, type KeyData, type TangentType } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { internalsOf } from '../../src/app/internals';
 import { ensureCurve } from '../../src/edit/keys';

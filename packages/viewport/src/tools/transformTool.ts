@@ -10,7 +10,7 @@
 // last-picked handle (`session.model.tweakHandle`, set by a LMB press on a handle, cleared on a tool switch), else in
 // the view plane / about the view axis / uniformly — in Animate on the selected controls through the same channel-edit
 // gesture. The tools take `X`, `V`, `J`, `D` and `B` first (`ToolDef.keys`; snapping, pivot editing, soft radius).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import {
   beginChannelEditGesture,
   type ChannelEditGesture,
@@ -24,7 +24,7 @@ import {
   type ToolPhase,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import type { DragSession } from '../manipulators/drag';
 import type { AxisHandle, ManipMode } from '../manipulators/ManipulatorKit';
 import type { ManipHandle } from '../types';

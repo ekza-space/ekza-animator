@@ -3,8 +3,8 @@
 // /dev/panels harness exercise the production runner, history, edit kernel, evaluation and keymap. It never calls
 // the sibling packages' implementations, so it works whatever state they are in, and it never imports Node APIs,
 // so it runs in Vitest browser mode as well.
-import type { DocSnapshot } from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { createKernelApp } from '../app/kernel';
 import { MAYA_KEYMAP } from '../keymap/maya';
 import type { EditorApp, EditorServices } from '../types';

@@ -4,8 +4,8 @@
 // `data` in state 'loading' (and starts the load), remembers `open` intents, pinned autosave blobs and the attached
 // app, and refuses edits with "Mesh tools are loading". Once loaded it delegates; handles stay the same objects (they
 // forward to the implementation's runtimes), so a subscriber of a handle sees 'loading' → 'ready' like any change.
-import { type Disposer, EkzaError, type ParamValues } from '@ekza-animator/anim-core';
-import { type ChangeBatch, type MeshId, type MeshRef, type Tx } from '@ekza-animator/doc';
+import { type Disposer, EkzaError, type ParamValues } from '@ekza-studio/anim-core';
+import { type ChangeBatch, type MeshId, type MeshRef, type Tx } from '@ekza-studio/doc';
 import type {
   ComponentKind,
   ComponentSelection,
@@ -17,7 +17,7 @@ import type {
   Refusal,
   SymmetryMap,
   Triangulation,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import type {
   BlobId,
   EditorApp,

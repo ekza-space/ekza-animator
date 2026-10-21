@@ -2,8 +2,8 @@
 // aliases), spring-bone joints (VRMC_springBone joints; VRM 0.x secondaryAnimation chains = each listed root and all
 // of its descendants, as three-vrm imports them) and VRMC_node_constraint entries. Inputs are glTF node indices;
 // outputs are SkeletonDesc node indices.
-import type { HumanBoneName, ModelFormat } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES, type NodeConstraintDesc, VRM0_BONE_ALIASES } from '@ekza-animator/rig';
+import type { HumanBoneName, ModelFormat } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES, type NodeConstraintDesc, VRM0_BONE_ALIASES } from '@ekza-studio/rig';
 import type { GltfJson } from '../types';
 import { isIndex, isRecord, type JsonRecord, nodesOf, rootExtensions, unknownList } from '../gltf/schema';
 

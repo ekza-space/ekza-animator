@@ -1,4 +1,4 @@
-# Ekza Animator — Roadmap
+# Ekza Studio — Roadmap
 
 Status: v0.10 (2026-10-20: **M6a merged into `dev`**, [budgets](#m6a-budgets) re-measured there, `v0.3.0` pending the owner review; v0.9 2026-10-19: **the M6a build spec is written** — [M6A-SPEC](M6A-SPEC.md) v1.0, ADRs 0014–0016
 accepted, [work-package status](#m6a-work-package-status) below; v0.8 2026-10-19, M1 released as `v0.1.0` on `main`; **M2a integrated and merged into `dev`** (M2A-SPEC v0.3)
@@ -390,10 +390,10 @@ M6/M7 so the sync transport covers mesh blobs once.
 ## M4a — Ekza T1/T3 (≈ 15–20 agent-days in this repo + ecosystem work)
 
 **Deliverables**: Tier 1 typed asset `ekza:animation:<uuid>` with profile `universal / vrma-humanoid-v1` (registry
-migration, validator, Studio UI, SDK changes, Space emote consumer — tracked in the owning repos per research 03
+migration, validator, Hub UI, SDK changes, Space emote consumer — tracked in the owning repos per research 03
 §7.2–7.4, with tracking issues opened during M2); Tier 3 "Publish to Ekza" (device-code login, `studio-upload`
 scope, upload flow with lints and provenance); "Open from Ekza" deep link with verified download and the
-`ekza-animator-embed/v1` iframe protocol with Studio; Tier 2 avatar animation sets (OMOBA aliases) if prioritized.
+`ekza-studio-embed/v1` iframe protocol with Hub; Tier 2 avatar animation sets (OMOBA aliases) if prioritized.
 
 **Acceptance**: an animation exported from the editor is published, admitted by the registry profile check and
 played as an emote in Ekza Space.
@@ -535,7 +535,7 @@ fallback; sandboxed third-party plugins.
 | Registry/game changes slip | M4a | Tier 0 already works in Space; Tier 1 tracked in owning repos from M2 |
 | R3F 9 pins React minors; three.js focus on WebGPU | ongoing | Renovate groups; renderer swap isolated in `viewport` |
 | Scope creep from Maya breadth | all | Requirements carry priorities; MVP-SPEC is the contract; modeling: BASE/stretch tags, bevel ≤ 3 segments, bounded Multi-Cut (MODELING-PLAN §4.5) |
-| Name conflict for "Ekza Animator" | before M1 alpha | Trademark search (Q-NAME-3) |
+| Name conflict for "Ekza Studio" | before M1 alpha | Trademark search (Q-NAME-3) |
 | Mesh kernel emits invalid topology or non-deterministic results | M6a | Refusal policy, `validateMesh` after every commit in debug builds, property tests P1–P9 incl. Node vs Chromium hashes (ADR 0014) |
 | Modeling edits silently break skin weights or VRM expressions | M6a/M6b | Attribute layers with propagation rules inside one revision, stable morph order, licence gate, surgeon read-back tests (ADR 0015) |
 | Shared-contract ripple into shipped animation code (operators, selection, keymap scopes, schema v3) | M6a | One atomic contracts package (B0a, keymap rows in B0b); M1/M2a e2e stay green at every merge |

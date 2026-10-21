@@ -1,4 +1,4 @@
-# Ekza Animator — Architecture
+# Ekza Studio — Architecture
 
 Status: v0.2 (2026-10-17, design review revision), the design baseline for milestone M1 (MVP); amended 2026-10-19
 for the modeling base M6a (packages `mesh-core` and `mesh-view`, schema v3, selection undo in Model; ADRs 0014–0016,
@@ -38,21 +38,21 @@ Design principles:
 ```mermaid
 flowchart TB
   subgraph Shell["apps/web — Next.js 16 (client island)"]
-    EDITOR["@ekza-animator/editor<br/>React 19 shell, dockview, panels, R3F GLHost, dialogs"]
-    UI["@ekza-animator/ui<br/>tokens, primitives, icons"]
+    EDITOR["@ekza-studio/editor<br/>React 19 shell, dockview, panels, R3F GLHost, dialogs"]
+    UI["@ekza-studio/ui<br/>tokens, primitives, icons"]
   end
   subgraph Interactive["Imperative, DOM/WebGL, no React"]
-    VP["@ekza-animator/viewport<br/>ViewportManager, SceneSync, navigation, picking, manipulators"]
-    CE["@ekza-animator/curve-editor<br/>Canvas2D Graph Editor + time slider"]
-    MV["@ekza-animator/mesh-view (M6a)<br/>edit-mode overlays, component picking (three-mesh-bvh)"]
+    VP["@ekza-studio/viewport<br/>ViewportManager, SceneSync, navigation, picking, manipulators"]
+    CE["@ekza-studio/curve-editor<br/>Canvas2D Graph Editor + time slider"]
+    MV["@ekza-studio/mesh-view (M6a)<br/>edit-mode overlays, component picking (three-mesh-bvh)"]
   end
   subgraph Headless["Headless (Node-safe): no React, no DOM, no WebGL"]
-    EC["@ekza-animator/editor-core<br/>session, operators + runner, edit kernel, history, registries, keymaps, playback, evaluation"]
-    IO["@ekza-animator/io<br/>GLB container, budgets, skeleton/clip readers, bake, surgeon, VRMA/GLB writers, lints, profiles, project zip"]
-    RIG["@ekza-animator/rig<br/>auto-rig, compiler, stateless kernel, sampler, import, mirror, two-bone IK, pose clipboard"]
-    DOC["@ekza-animator/doc<br/>records, tables, partitions, DocumentStore, transactions, preview, patch undo, snapshots, conformance"]
-    MC["@ekza-animator/mesh-core (M6a)<br/>mesh kernel: SoA radial-edge mesh, write log, Euler ops, modeling ops, revisions"]
-    AC["@ekza-animator/anim-core<br/>math, rotate orders, Euler filter, AnimX curve engine, reduction, control shapes"]
+    EC["@ekza-studio/editor-core<br/>session, operators + runner, edit kernel, history, registries, keymaps, playback, evaluation"]
+    IO["@ekza-studio/io<br/>GLB container, budgets, skeleton/clip readers, bake, surgeon, VRMA/GLB writers, lints, profiles, project zip"]
+    RIG["@ekza-studio/rig<br/>auto-rig, compiler, stateless kernel, sampler, import, mirror, two-bone IK, pose clipboard"]
+    DOC["@ekza-studio/doc<br/>records, tables, partitions, DocumentStore, transactions, preview, patch undo, snapshots, conformance"]
+    MC["@ekza-studio/mesh-core (M6a)<br/>mesh kernel: SoA radial-edge mesh, write log, Euler ops, modeling ops, revisions"]
+    AC["@ekza-studio/anim-core<br/>math, rotate orders, Euler filter, AnimX curve engine, reduction, control shapes"]
   end
   subgraph TestOnly["Private, test-only"]
     YJS["packages/doc-yjs<br/>ReplicatingStore over Yjs (runs the full conformance suite)"]
@@ -105,18 +105,18 @@ Runtime data flow:
 
 | Package | Dir | Responsibility | May import | Must not import |
 |---|---|---|---|---|
-| `@ekza-animator/anim-core` | `packages/anim-core` | Vectors, quaternions, 4×4 float64 matrices, TRS; DCC rotate orders ↔ three orders; Euler↔quat, `eulerNear`, Euler filter, gimbal axes; `EkzaError`; AnimX curve engine (compile, evaluate, tangents, infinity, shape-preserving insert, numeric fields); `reduceKeys`; control-shape registry and `SplineSet` tessellation | nothing (zero runtime deps) | everything, incl. `three` |
-| `@ekza-animator/mesh-core` (M6a) | `packages/mesh-core` | Mesh kernel (ADR 0014): BMesh-style radial-edge structure of arrays, attribute layers with propagation and mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, revision manifest + content-addressed chunks, one triangulation and normal function, every modeling op (`MeshOp`/`MeshSetOp` with `ParamDef` params), selection walkers, soft selection, symmetry maps, primitives, templates; `/testing` (arbitraries, goldens) | anim-core, `earcut`, `robust-predicates` | three, React, DOM, doc, editor-core, WASM |
-| `@ekza-animator/doc` | `packages/doc` | IDs, record types, `TableDef` registry, `DocumentStore` (memory) with partitions, transactions, preview sessions, `PatchUndoManager` (per merge unit), queries, scene-time mapping, migrations, snapshots, conformance suite + test network (`/testing`) | anim-core | three, React, DOM, yjs |
+| `@ekza-studio/anim-core` | `packages/anim-core` | Vectors, quaternions, 4×4 float64 matrices, TRS; DCC rotate orders ↔ three orders; Euler↔quat, `eulerNear`, Euler filter, gimbal axes; `EkzaError`; AnimX curve engine (compile, evaluate, tangents, infinity, shape-preserving insert, numeric fields); `reduceKeys`; control-shape registry and `SplineSet` tessellation | nothing (zero runtime deps) | everything, incl. `three` |
+| `@ekza-studio/mesh-core` (M6a) | `packages/mesh-core` | Mesh kernel (ADR 0014): BMesh-style radial-edge structure of arrays, attribute layers with propagation and mirror rules, write log + `MeshDelta`, Euler operators, `validateMesh`, revision manifest + content-addressed chunks, one triangulation and normal function, every modeling op (`MeshOp`/`MeshSetOp` with `ParamDef` params), selection walkers, soft selection, symmetry maps, primitives, templates; `/testing` (arbitraries, goldens) | anim-core, `earcut`, `robust-predicates` | three, React, DOM, doc, editor-core, WASM |
+| `@ekza-studio/doc` | `packages/doc` | IDs, record types, `TableDef` registry, `DocumentStore` (memory) with partitions, transactions, preview sessions, `PatchUndoManager` (per merge unit), queries, scene-time mapping, migrations, snapshots, conformance suite + test network (`/testing`) | anim-core | three, React, DOM, yjs |
 | `packages/doc-yjs` (private, test-only) | `packages/doc-yjs` | `ReplicatingStore` over one `Y.Doc` per partition; runs the full conformance suite in CI | doc, `yjs` | everything else; nothing may depend on it |
-| `@ekza-animator/rig` | `packages/rig` | `SkeletonDesc` types, humanoid tables, auto-rig (humanoid FK + secondary, generic 1:1, mesh-based sizes), rig compiler + kernel, `ClipSampler`, inverse solving, clip import (fps detection, interpolation mapping, VRMA rules, reduction), step schedule, mirror, pose clipboard, two-bone IK, plant feet | anim-core, doc | three, React, DOM, io |
-| `@ekza-animator/io` | `packages/io` | GLB container, input budgets + structural checks, accessor reader, `skeletonFromGltf` (incl. bone radii), `readAnimations`, VRMA reader, bake sampler, surgeon, animation-only GLB and VRMA writers (glTF Transform), lints + export profiles, validator wrapper, `.ekzanim` zip; subpaths `/three` (browser model loader), `/worker` (stretch), `/testing` (Node GLTFLoader harness) | anim-core, doc, rig, mesh-core (M6a), `@gltf-transform/*`, `fflate`; `/three` and `/testing` also `three`, `@pixiv/three-vrm*` | React; DOM outside `/three` |
-| `@ekza-animator/editor-core` | `packages/editor-core` | `EditorApp` kernel: session state (zustand vanilla), prefs, operator registry + runner, edit kernel, editor history, contribution registries (importers, exporters, export profiles, menus), keymaps, tools API, built-in operators and workflows, playback clock, evaluation service, character runtime registry, service interfaces; `/testing` fake app | anim-core, doc, rig, io (headless entry), mesh-core (M6a), `zustand/vanilla` | React, DOM, WebGL, `three`, `io/three` |
-| `@ekza-animator/mesh-view` (M6a) | `packages/mesh-view` | Edit-mode overlays (surface, edges, vertices, face dots, normals, lint, symmetry plane, soft ramp), static mesh display, `ComponentPicker` (CPU, BVH) | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
-| `@ekza-animator/viewport` | `packages/viewport` | `ViewportManager`, panes, view cameras, `NavigationController` (camera-controls), `SceneSync`, control/joint rendering, picking + marquee + cycling, `ManipulatorKit` (object/world/gimbal), viewport tools, HUD data | anim-core, doc, rig, editor-core, io/three, mesh-core, mesh-view (M6a), `three`, `camera-controls` | React, R3F |
-| `@ekza-animator/curve-editor` | `packages/curve-editor` | Graph view transform, painters, hit-testing, interaction controllers, time slider with range editing; Canvas2D only | anim-core, doc, rig, editor-core | React, three |
-| `@ekza-animator/ui` | `packages/ui` | Design tokens (`tokens.json` → CSS vars), Tailwind preset and `@source` setup, primitives (Radix-based, shadcn-style, owned), icon set | React, `radix-ui`, `lucide-react` | domain packages |
-| `@ekza-animator/editor` | `packages/editor` | React app: `EditorShell`, `WorkspaceHost` (dockview adapter), panel registry + panels, `GLHost` (R3F), dialogs, DOM input adapter (hotkeys, tap/hold), browser services, test API | everything above, React, R3F, dockview, zustand | Next.js |
+| `@ekza-studio/rig` | `packages/rig` | `SkeletonDesc` types, humanoid tables, auto-rig (humanoid FK + secondary, generic 1:1, mesh-based sizes), rig compiler + kernel, `ClipSampler`, inverse solving, clip import (fps detection, interpolation mapping, VRMA rules, reduction), step schedule, mirror, pose clipboard, two-bone IK, plant feet | anim-core, doc | three, React, DOM, io |
+| `@ekza-studio/io` | `packages/io` | GLB container, input budgets + structural checks, accessor reader, `skeletonFromGltf` (incl. bone radii), `readAnimations`, VRMA reader, bake sampler, surgeon, animation-only GLB and VRMA writers (glTF Transform), lints + export profiles, validator wrapper, `.ekzanim` zip; subpaths `/three` (browser model loader), `/worker` (stretch), `/testing` (Node GLTFLoader harness) | anim-core, doc, rig, mesh-core (M6a), `@gltf-transform/*`, `fflate`; `/three` and `/testing` also `three`, `@pixiv/three-vrm*` | React; DOM outside `/three` |
+| `@ekza-studio/editor-core` | `packages/editor-core` | `EditorApp` kernel: session state (zustand vanilla), prefs, operator registry + runner, edit kernel, editor history, contribution registries (importers, exporters, export profiles, menus), keymaps, tools API, built-in operators and workflows, playback clock, evaluation service, character runtime registry, service interfaces; `/testing` fake app | anim-core, doc, rig, io (headless entry), mesh-core (M6a), `zustand/vanilla` | React, DOM, WebGL, `three`, `io/three` |
+| `@ekza-studio/mesh-view` (M6a) | `packages/mesh-view` | Edit-mode overlays (surface, edges, vertices, face dots, normals, lint, symmetry plane, soft ramp), static mesh display, `ComponentPicker` (CPU, BVH) | mesh-core, anim-core, `three`, `three-mesh-bvh` | React, R3F, editor-core, doc |
+| `@ekza-studio/viewport` | `packages/viewport` | `ViewportManager`, panes, view cameras, `NavigationController` (camera-controls), `SceneSync`, control/joint rendering, picking + marquee + cycling, `ManipulatorKit` (object/world/gimbal), viewport tools, HUD data | anim-core, doc, rig, editor-core, io/three, mesh-core, mesh-view (M6a), `three`, `camera-controls` | React, R3F |
+| `@ekza-studio/curve-editor` | `packages/curve-editor` | Graph view transform, painters, hit-testing, interaction controllers, time slider with range editing; Canvas2D only | anim-core, doc, rig, editor-core | React, three |
+| `@ekza-studio/ui` | `packages/ui` | Design tokens (`tokens.json` → CSS vars), Tailwind preset and `@source` setup, primitives (Radix-based, shadcn-style, owned), icon set | React, `radix-ui`, `lucide-react` | domain packages |
+| `@ekza-studio/editor` | `packages/editor` | React app: `EditorShell`, `WorkspaceHost` (dockview adapter), panel registry + panels, `GLHost` (R3F), dialogs, DOM input adapter (hotkeys, tap/hold), browser services, test API | everything above, React, R3F, dockview, zustand | Next.js |
 | `packages/headless-tests` (private, test-only) | `packages/headless-tests` | Node tests across packages on licensed fixtures (parity, imports, exports) | all headless packages; dev: three, three-vrm(-animation), gltf-validator | — |
 | `apps/web` | `apps/web` | Next.js routes (`/`, `/editor`, dev-only `/dev/panels`, e2e-only `/e2e/vrma-check`), static assets (samples, decoders, notices), e2e specs | editor, ui; the e2e route also `three`, `@pixiv/three-vrm`, `@pixiv/three-vrm-animation`; e2e specs also `io`, `doc` | domain packages directly from app code |
 
@@ -476,8 +476,8 @@ named P0–P3 (R06), distinct from Ekza tiers T0–T3 and plugin trust levels.
   `asset.extras.ekza_animation_v1` metadata with per-clip contact, tags and provenance; export profiles as data;
   lints with registry-aligned codes; interop warnings; VRM-meta licence gate; MIME `model/gltf-binary`.
 - **Contract for later tiers**: typed kind `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1`, slot
-  vocabulary v1, registry/SDK/game changes listed in R03 §7.2–7.4; Studio deep link and the
-  `ekza-animator-embed/v1` iframe protocol (M4a).
+  vocabulary v1, registry/SDK/game changes listed in R03 §7.2–7.4; Hub deep link and the
+  `ekza-studio-embed/v1` iframe protocol (M4a).
 - **Copy-adapted MIT helpers** from `ekza-avatar-renderer` (commit `33c417c`), each with an attribution header
   (source repo, path, commit, MIT):
 
@@ -532,7 +532,7 @@ shared runners or SwiftShader, except the two deterministic ones: idle frames an
 | app | Playwright 1.63 (real Chrome locally, SwiftShader on CI) against `NEXT_PUBLIC_EKZA_E2E=1 next build && next start` | E2E-00…E2E-27 of [MVP-SPEC §6](docs/MVP-SPEC.md#6-acceptance-tests-and-e2e-scenarios); exported files validated in Node and re-imported |
 
 Determinism hooks: `?e2e=1` (e2e builds only) uses fresh storage, Maya navigation and Space defaults, fixes the ID
-seed, disables animations and exposes `window.__EKZA_ANIMATOR_TEST__`. Screenshot baselines (V1) only from the Linux
+seed, disables animations and exposes `window.__EKZA_STUDIO_TEST__`. Screenshot baselines (V1) only from the Linux
 CI container.
 
 ---

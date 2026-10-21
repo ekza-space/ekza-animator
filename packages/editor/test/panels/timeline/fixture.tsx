@@ -1,7 +1,7 @@
 // Set-up of the Timeline panel tests: the panel over the fake app with the synthetic wave document.
-import type { ClipId, ClipRecord, DocSnapshot } from '@ekza-animator/doc';
-import type { OperatorDef, SessionState } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+import type { ClipId, ClipRecord, DocSnapshot } from '@ekza-studio/doc';
+import type { OperatorDef, SessionState } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { act } from 'react';
 import { EditorAppProvider } from '../../../src';
 import { TimelinePanel } from '../../../src/panels/timeline/TimelinePanel';

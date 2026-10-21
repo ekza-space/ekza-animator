@@ -2,7 +2,7 @@
 // bare number is a fraction (clamped with a problem); distances take m/cm/mm; angles are typed in degrees; ints
 // round half away from zero; nullable params take "auto"; the shipped grammar (relative entries, expressions, a
 // decimal comma) is unchanged; display texts are Maya's (`0.500 m`, `0.300`).
-import { DEG2RAD, type ParamDef, primaryParam } from '@ekza-animator/anim-core';
+import { DEG2RAD, type ParamDef, primaryParam } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

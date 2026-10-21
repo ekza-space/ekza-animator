@@ -1,9 +1,9 @@
 // M6A-SPEC §5.6, §9 B0a (3): EditorHistory selection parts — one step per gesture, auto-repeat coalescing, a
 // selection step clears the doc redo, selection-only steps survive pruning, onDrop reasons, dropOldest and limit drops
 // paired with UndoManager.evictOldest, doc evictions taking the doc part away.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { createMemoryStore, type DocumentStore, type MeshId } from '@ekza-animator/doc';
-import { makeTestMesh } from '@ekza-animator/doc/testing';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { createMemoryStore, type DocumentStore, type MeshId } from '@ekza-studio/doc';
+import { makeTestMesh } from '@ekza-studio/doc/testing';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { createStore } from 'zustand/vanilla';

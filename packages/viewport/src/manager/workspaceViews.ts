@@ -1,7 +1,7 @@
 // Per-workspace pane defaults (M6A-SPEC §4.6 DisplayFlags, §5.17, §8.2; B9). Pane display flags and camera bindings
 // are remembered per workspace (`<workspace>:<paneId>`), so Model's `colours` shading and M-Side split never show in
 // Animate's panes; the view cameras themselves (where a pane id looks from) stay shared, so switching keeps them.
-import type { DisplayFlags, PaneCamera, ViewPreset } from '@ekza-animator/editor-core';
+import type { DisplayFlags, PaneCamera, ViewPreset } from '@ekza-studio/editor-core';
 import { defaultPaneCamera } from '../panes/layout';
 
 /** Animate's pane display: today's look (M6a fields at their Animate defaults). */

@@ -1,9 +1,9 @@
 // M6A-SPEC §5.21 `meshToPrimitives` and §5.19 colour outputs (B8): the asset round trip of the fixtures (positions,
 // normals, UVs, weights and morph deltas survive Make editable → export), derived morph NORMAL deltas, the tangent
 // refusal, index widths, and the palette / vertex-colour / per-colour outputs.
-import { readFixture } from '@ekza-animator/doc/testing';
-import { BUILTIN_LAYERS, EDGE_HARD, type MeshData, morphLayer, setKernelDebug } from '@ekza-animator/mesh-core';
-import { buildMeshData, cubeData } from '@ekza-animator/mesh-core/testing';
+import { readFixture } from '@ekza-studio/doc/testing';
+import { BUILTIN_LAYERS, EDGE_HARD, type MeshData, morphLayer, setKernelDebug } from '@ekza-studio/mesh-core';
+import { buildMeshData, cubeData } from '@ekza-studio/mesh-core/testing';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';
 import { GltfReader } from '../src/gltf/accessor';

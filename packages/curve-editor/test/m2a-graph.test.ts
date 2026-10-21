@@ -2,10 +2,10 @@
 // frozen during a drag, edits convert per curve, data unchanged by a mode switch), the view-mode operator, buffer
 // curves and breakdown glyphs on the canvas, the Scale tool's region box (edges, corners, inside, outside), and the
 // M-1 drag path (coalesced updates applied before a redraw, the cached static layer).
-import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
-import type { KeyId, KeyRecord } from '@ekza-animator/doc';
-import { moveKeys, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { createFakeEditorApp } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
+import type { KeyId, KeyRecord } from '@ekza-studio/doc';
+import { moveKeys, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import { createFakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { DEFAULT_GRAPH_THEME, nextViewMode, registerGraphContributions } from '../src';
 import { STACK_LANE, STACK_MIN_LANE_PX } from '../src/graph/viewMode';

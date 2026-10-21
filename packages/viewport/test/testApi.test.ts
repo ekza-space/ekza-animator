@@ -1,4 +1,4 @@
-import type { ControlId } from '@ekza-animator/doc';
+import type { ControlId } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveControl, viewportTestApi } from '../src';
 import { addCamera, createRig, type Rig, shotCamera } from './helpers';

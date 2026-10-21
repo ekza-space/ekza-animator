@@ -1,4 +1,4 @@
-import { derivedId } from '@ekza-animator/doc';
+import { derivedId } from '@ekza-studio/doc';
 import { expect, test } from '@playwright/test';
 import { exportOne, readGlb, sampleBytes, validatorErrors } from './helpers/g4-export';
 import { accessorValues, bodyOf, changedValues, forearmRingEdge, type Json } from './helpers/m6a-bake';

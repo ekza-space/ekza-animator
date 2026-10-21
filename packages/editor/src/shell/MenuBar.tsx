@@ -1,6 +1,6 @@
 // Menu bar (research 09 §4.1): menus from the menu registry, enabled state from operator polls evaluated when a
 // menu opens, shortcut labels from the keymap. Commands run in the context of the last hovered panel.
-import type { RunContext } from '@ekza-animator/editor-core';
+import type { RunContext } from '@ekza-studio/editor-core';
 import {
   AppMarkIcon,
   Button,
@@ -16,7 +16,7 @@ import {
   MenubarSubTrigger,
   MenubarTrigger,
   MenuShortcut,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { Fragment, type JSX, useEffect } from 'react';
 import { useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';
@@ -124,9 +124,9 @@ export function MenuBar(): JSX.Element {
       className="flex h-[var(--size-menubar)] shrink-0 items-center gap-2 border-b border-line bg-header px-2"
       data-testid="menubar"
     >
-      <span className="flex items-center gap-1.5 pr-1 text-ui font-semibold text-fg" aria-label="Ekza Animator">
+      <span className="flex items-center gap-1.5 pr-1 text-ui font-semibold text-fg" aria-label="Ekza Studio">
         <AppMarkIcon size={16} className="text-accent-text" />
-        <span className="hidden sm:inline">Ekza Animator</span>
+        <span className="hidden sm:inline">Ekza Studio</span>
       </span>
       <Menubar aria-label="Main menu">
         {menus.map((menu) => (

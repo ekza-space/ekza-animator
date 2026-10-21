@@ -3,8 +3,8 @@
 // frame writes onto the same template key + channel of the active character; a weighted flag that differs converts
 // fixed handles (weighted → non-weighted keeps the slope; non-weighted → weighted takes 1/3 of the adjacent span
 // along the same direction).
-import type { Frame, Handle } from '@ekza-animator/anim-core';
-import type { ClipRecord, CurveId, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
+import type { Frame, Handle } from '@ekza-studio/anim-core';
+import type { ClipRecord, CurveId, KeyId, KeyRecord, Tx } from '@ekza-studio/doc';
 import { newRecordId } from '../app/internals';
 import { isKeyable, isLocked } from '../edit/channelMeta';
 import { ensureCurve } from '../edit/keys';

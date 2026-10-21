@@ -5,8 +5,8 @@
 // stored, snapshots carry the object-level state, restores skip every mesh — and creates the service the moment the
 // kernel chunk resolves (before the runtimes report ready, so the service follows them from the start). From then on
 // every call, the subscriptions and `componentInternals` reach the service.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import { componentServiceModule, whenMeshKernelLoaded } from '../../mesh/kernel';
 import type {
   ComponentSelectionService,

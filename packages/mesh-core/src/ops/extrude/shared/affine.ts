@@ -1,7 +1,7 @@
 // Affine maps of mesh-local points (row-major 3×3 linear part + translation), float64. Used by the extrude cap
 // transform (§5.8 step 5), its mirror conjugation (§5.14: the partner region's transform is S ∘ T ∘ S) and the
 // world-space variant (args in world axes, positions in mesh-local coordinates).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import type { V3 } from './util';
 
 export interface Affine {

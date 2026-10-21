@@ -2,8 +2,8 @@
 // strip, help line, time slider) and the viewport pane layout. Four built-ins ship (Animate, Blocking, Polish, Review
 // on Alt+1…4); users save their own per workspace under `ekza-animator:presets:v1:<workspace>`. Every storage access
 // is guarded: with storage blocked (or a write failing) the presets live for the session only.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { PrefsStorage, ViewportLayout } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { PrefsStorage, ViewportLayout } from '@ekza-studio/editor-core';
 import type { SerializedDockview } from 'dockview-react';
 import { type ChromeVisibility, isSerializedDockview, type PresetDock, parseChrome } from './layout';
 
@@ -79,6 +79,7 @@ export interface UserPreset {
 export type UserPresetData = Omit<UserPreset, 'id' | 'name' | 'savedAt'>;
 
 export const PRESETS_SCHEMA_VERSION = 1;
+/** The `ekza-animator:` prefix is kept from the old name (DECISIONS-OPEN NAME-1) so saved presets survive the rename. */
 export const presetsStorageKey = (workspace: string): string =>
   `ekza-animator:presets:v${PRESETS_SCHEMA_VERSION}:${workspace}`;
 export const PRESET_NAME_MAX = 60;

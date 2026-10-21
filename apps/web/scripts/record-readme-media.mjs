@@ -22,10 +22,10 @@ const out = resolve(option('--out', '../../docs/media'));
 const only = option('--only', null);
 const VIEW = { width: 1280, height: 800 };
 
-const call = (page, name, ...rest) => page.evaluate(([n, r]) => window.__EKZA_ANIMATOR_TEST__[n](...r), [name, rest]);
+const call = (page, name, ...rest) => page.evaluate(([n, r]) => window.__EKZA_STUDIO_TEST__[n](...r), [name, rest]);
 
 async function run(page, op, opArgs) {
-  const result = await page.evaluate(([o, a]) => window.__EKZA_ANIMATOR_TEST__.run(o, a), [op, opArgs]);
+  const result = await page.evaluate(([o, a]) => window.__EKZA_STUDIO_TEST__.run(o, a), [op, opArgs]);
   if (result.status !== 'finished')
     throw new Error(`${op}: ${result.status} ${result.reason ?? result.error?.message ?? ''}`);
   return result.value;
@@ -33,9 +33,9 @@ async function run(page, op, opArgs) {
 
 async function open(page) {
   await page.goto(`${base}/editor?e2e=1&platform=mac`);
-  await page.waitForFunction(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
+  await page.waitForFunction(() => window.__EKZA_STUDIO_TEST__ !== undefined);
   await page.evaluate(async () => {
-    await window.__EKZA_ANIMATOR_TEST__.ready;
+    await window.__EKZA_STUDIO_TEST__.ready;
   });
 }
 
@@ -125,7 +125,7 @@ async function dopeSheet(page) {
   await run(page, 'select.controls', { ids: arm, mode: 'replace' });
   await run(page, 'workspace.showPanel', { panel: 'dopeSheet' });
   await page.getByTestId('ds-canvas').waitFor();
-  await page.waitForFunction(() => (window.__EKZA_ANIMATOR_TEST__.dopeSheet()?.canvasRect.w ?? 0) > 0);
+  await page.waitForFunction(() => (window.__EKZA_STUDIO_TEST__.dopeSheet()?.canvasRect.w ?? 0) > 0);
   await run(page, 'time.setFrame', { frame: 10 });
   await settle(page, 800);
   return {

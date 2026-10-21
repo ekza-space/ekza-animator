@@ -6,10 +6,10 @@
 //
 // The kernel module is mocked so three of the ops are spies on the B0a reference kernel (the stubs refuse every run
 // until B4/B5 land): each records what it read and moves the vertices it acts on, so every run records a step.
-import type { ParamValues } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import * as kernel from '@ekza-animator/mesh-core';
-import type { ComponentSelection, EditMesh, MeshOp, OpResult } from '@ekza-animator/mesh-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import * as kernel from '@ekza-studio/mesh-core';
+import type { ComponentSelection, EditMesh, MeshOp, OpResult } from '@ekza-studio/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import { type EditorApp, WHOLE_MESH_OPS } from '../../src';
 import { createMesh, type MeshTestApp, meshTestApp, verticesOf } from '../mesh/support';
@@ -22,7 +22,7 @@ interface SpyOp extends MeshOp {
 
 const SPIED = vi.hoisted(() => ['mesh.triangulate', 'mesh.conform', 'mesh.quadrangulate'] as const);
 
-vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core', async (importOriginal) => {
   const actual = await importOriginal<typeof kernel>();
   const spy = (id: string): SpyOp => {
     const reads: (string | null)[] = [];

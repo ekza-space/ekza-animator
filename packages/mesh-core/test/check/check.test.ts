@@ -1,7 +1,7 @@
 // Mesh Check (M6A-SPEC §5.25, §9 B5 Tests): the synthetic corpus with one fixture per code, the thresholds (1e-6 ×
 // the bounds diagonal, 1 % planarity, 1° stray vertices), visibility, ordering, both input forms, clean primitives and
 // clean bevel results.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

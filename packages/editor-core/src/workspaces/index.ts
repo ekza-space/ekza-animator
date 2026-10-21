@@ -2,8 +2,8 @@
 // Model and Animate are built; Rig & Skin and Review are disabled tabs with the release they arrive in. Each
 // definition carries its menus, status-line groups, key scope, default tool and pick mask, timeline visibility and
 // layout preset; `workspace.set` (./switch.ts) applies them.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord } from '@ekza-animator/doc';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord } from '@ekza-studio/doc';
 import { meshKernel } from '../mesh';
 import { MODEL_MENUS } from '../operators/builtin/menus';
 import type { EditorApp, WorkspaceDef, WorkspaceStatus } from '../types';

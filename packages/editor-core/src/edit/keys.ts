@@ -1,7 +1,7 @@
 // Edit-kernel helpers for curves and keys (MVP-SPEC §4.11.0 table, §4.11.3, §4.11.4). Every writer of keys —
 // operators, Graph Editor and time-slider drags, manipulators — goes through these, inside the caller's transaction
 // or preview update (`tx`). Keys of curves locked in the Graph Editor (`CurveRecord.locked`) are never edited.
-import { EkzaError, type Frame, type Handle, type KeyData, RAD2DEG, type TangentType } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame, type Handle, type KeyData, RAD2DEG, type TangentType } from '@ekza-studio/anim-core';
 import type {
   ChannelId,
   ClipId,
@@ -12,7 +12,7 @@ import type {
   KeyRecord,
   ReadView,
   Tx,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { internalsOf, newRecordId } from '../app/internals';
 import type { EditorApp, KeyEditOptions, KeyEditResult } from '../types';
 import { channelDefaultOf, channelUnit } from './channelMeta';

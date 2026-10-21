@@ -2,8 +2,8 @@
 // ModelFormat ('vrm0' | 'vrm1' | 'gltf'), detects VRM 1.0 from the `VRMC_vrm` extension object instead of
 // `extensionsUsed`, and rejects files that declare both VRM versions (EkzaError('vrm-both')). The VRM licence reader
 // below is new code.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ModelFormat } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ModelFormat } from '@ekza-studio/doc';
 import type { GlbContainer, GltfJson, VrmLicenseInfo } from '../types';
 import { isRecord, type JsonRecord, rootExtensions, stringList } from './schema';
 

@@ -1,7 +1,7 @@
 // Redraw benchmark (ADR 0007 §9, ARCHITECTURE §14): reported as test annotations, not a CI gate. The bounds asserted
 // here only catch order-of-magnitude regressions on slow shared runners.
-import type { KeyData } from '@ekza-animator/anim-core';
-import type { ControlId, KeyId } from '@ekza-animator/doc';
+import type { KeyData } from '@ekza-studio/anim-core';
+import type { ControlId, KeyId } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import { addCurve, key, type Mounted, mount, selectKeys, waveApp } from './support/app';
 

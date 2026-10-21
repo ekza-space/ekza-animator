@@ -2,7 +2,7 @@
 // Seed-san and Polybot, the body-part key target, visibility rule 1 on M1 rigs, the schema rule end to end (an M1
 // project opens writable and saves schemaVersion 2 / minWriterVersion 1; an enabled ik2 solver saves 2), and the
 // rotate-order change on a loop clip, whose cyclic curves the editor evaluates cycle-aware (§5.23).
-import { mat4Decompose, type Quat, quatAngle } from '@ekza-animator/anim-core';
+import { mat4Decompose, type Quat, quatAngle } from '@ekza-studio/anim-core';
 import {
   type ClipId,
   type ControlId,
@@ -10,16 +10,16 @@ import {
   type DocSnapshot,
   SCHEMA_VERSION,
   solverId,
-} from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
+} from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
 import {
   type BodyPart,
   bodyPartOf,
   controlVisibility,
   type EditorApp,
   keyTargetControls,
-} from '@ekza-animator/editor-core';
-import { readProjectArchive, writeProjectArchive } from '@ekza-animator/io';
+} from '@ekza-studio/editor-core';
+import { readProjectArchive, writeProjectArchive } from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 

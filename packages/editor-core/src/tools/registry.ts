@@ -1,6 +1,6 @@
 // Tool registry (ADR 0008 §3): per-panel interaction modes keyed by (panel, tool id). The active tool per panel is
 // session state (`session.tools`); `view.tool` switches it.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
 import type { PanelKind, ToolDef, ToolId, ToolRegistry } from '../types';
 
 export function createToolRegistry(): ToolRegistry {

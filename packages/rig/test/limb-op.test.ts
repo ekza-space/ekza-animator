@@ -12,8 +12,8 @@ import {
   quatMultiply,
   quatRotateVec3,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, SolverRecord } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, SolverRecord } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {

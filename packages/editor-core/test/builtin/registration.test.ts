@@ -1,8 +1,8 @@
 // Registration of the built-in contributions (MVP-SPEC §7 WP-7b, ADR 0008): every §4.9 operator owned by WP-7b,
 // importers, exporters, export profiles, menu items and the maya keymap; robustness of polls against untyped args.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { BUILTIN_EXPORT_PROFILES } from '@ekza-animator/io';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { BUILTIN_EXPORT_PROFILES } from '@ekza-studio/io';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { describe, expect, it } from 'vitest';
 import {
   BUILTIN_EXPORTERS,

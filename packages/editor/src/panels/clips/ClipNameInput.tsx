@@ -1,7 +1,7 @@
 // Inline clip rename (Clips panel, Outliner, Attributes; FR-OUT-04, FR-CLIP-02): validates while typing and shows
 // the reason under the field, Enter or blur commits through `clip.rename`, Esc cancels.
-import type { ClipRecord } from '@ekza-animator/doc';
-import type { EditorApp, PanelKind } from '@ekza-animator/editor-core';
+import type { ClipRecord } from '@ekza-studio/doc';
+import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useId, useRef, useState } from 'react';
 import { FieldMessage } from '../channel-box/kit/message';
 import { runOperator } from '../channel-box/kit/run';

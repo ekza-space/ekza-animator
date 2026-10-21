@@ -1,6 +1,6 @@
 // Contributions of the time slider (MVP-SPEC §4.9 owner 6t, ADR 0008): the `time.selectBand` operator and the
 // built-in items of the slider's RMB menu ('timeline.context', §4.11.17).
-import type { Disposer, Frame, TangentType } from '@ekza-animator/anim-core';
+import type { Disposer, Frame, TangentType } from '@ekza-studio/anim-core';
 import {
   type CountResult,
   type EditorApp,
@@ -9,7 +9,7 @@ import {
   PANEL,
   type PollResult,
   type SelectMode,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { activeTimelineContext } from './context';
 import { applyBandSelection } from './keys';
 

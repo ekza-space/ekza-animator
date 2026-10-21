@@ -1,7 +1,7 @@
 // Pane layouts of the viewport panel (MVP-SPEC §1.1, research 09 §3) and the GL viewport of a pane inside the one
 // shared canvas (ADR 0006 §1).
-import type { CameraId } from '@ekza-animator/doc';
-import type { ViewportLayout } from '@ekza-animator/editor-core';
+import type { CameraId } from '@ekza-studio/doc';
+import type { ViewportLayout } from '@ekza-studio/editor-core';
 import type { PaneCamera, ViewPreset } from '../types';
 
 /**

@@ -1,8 +1,8 @@
 // The selected reference image plane (M6A-SPEC §5.26, §8.8; B13): image planes are never picked in the viewport, so
 // the Outliner's Reference rows (and a fresh import) select one for the Attributes panel's Image plane section. Per
 // app, U state outside the document; selecting scene objects clears it, and a deleted plane is never reported.
-import type { ImagePlaneId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { ImagePlaneId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { useEffect, useSyncExternalStore } from 'react';
 
 interface Slot {

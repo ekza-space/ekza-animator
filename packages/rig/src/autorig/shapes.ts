@@ -8,8 +8,8 @@ import {
   type ReadonlyVec3,
   type SplineSet,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ControlShape } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ControlShape } from '@ekza-studio/doc';
 
 // Control shapes for the auto-rig (MVP-SPEC §4.11.15). Built-in planar shapes are unit size in XY with normal +Z;
 // `size` is the radius / half-extent in metres and `offset` places the shape in control-local space.

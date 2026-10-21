@@ -6,7 +6,7 @@
 ## Context
 
 The editor is a heavy client-only application (WebGL, Canvas2D, workers) with headless cores that must
-also run in Node (tests, CLI bakes) and later inside Ekza Studio. The owner asked for Next.js. Research 04
+also run in Node (tests, CLI bakes) and later inside Ekza Hub. The owner asked for Next.js. Research 04
 recommended Next 16 + pnpm 11 + TypeScript 7.0.2 + Vitest 5 + dependency-cruiser. The local development
 machine has Node 25.6 and pnpm 10.32 installed; corepack is not shipped with Node 25. Several of those picks
 were re-verified against the npm registry on 2026-10-17:
@@ -23,12 +23,12 @@ were re-verified against the npm registry on 2026-10-17:
 
 1. **Shell: Next.js 16 App Router** (`apps/web`). The editor is a client island (`'use client'` +
    `next/dynamic(..., { ssr: false })`). No `three`, R3F or editor import in any Server Component. The editor
-   never *requires* a Next server: `ANIMATOR_STATIC_EXPORT=1` produces a static build. A Vite playground host
-   is deferred to M2.
+   never *requires* a Next server: `STUDIO_STATIC_EXPORT=1` (the pre-rename `ANIMATOR_STATIC_EXPORT=1` still
+   works) produces a static build. A Vite playground host is deferred to M2.
 2. **Monorepo: pnpm 10.32.1 workspaces** (`packageManager: "pnpm@10.32.1"`), `catalog:` for shared versions,
    `minimumReleaseAge: 20160` (14 days) in `pnpm-workspace.yaml`, **Turborepo 2.11.7** for cached tasks.
    Internal packages are **just-in-time TypeScript** (`exports` → `./src/index.ts`), private, scope
-   `@ekza-animator/*`, never built until publishing (M2+).
+   `@ekza-studio/*`, never built until publishing (M2+).
 3. **Language: TypeScript 6.0.3** with a TS-7-clean `tsconfig` (no `baseUrl`, `moduleResolution: "bundler"`,
    `module: "esnext"`, `verbatimModuleSyntax`, `strict`, `noUncheckedIndexedAccess`,
    `exactOptionalPropertyTypes`). TS 6 defaults `types` to `[]`, so the configuration is a **matrix**: a base

@@ -1,10 +1,10 @@
 // Mesh-click picking (M1-stretch): CPU raycast with the current skinning, dominant joint of the hit triangle, mask and
 // display gating, lowest priority, and the select tool turning a mesh hit into a control selection.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
-import { VIEWPORT_TOOL } from '@ekza-animator/editor-core';
-import type { LoadedModel } from '@ekza-animator/io/three';
-import { controlForNode, type SkeletonDesc } from '@ekza-animator/rig';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
+import { VIEWPORT_TOOL } from '@ekza-studio/editor-core';
+import type { LoadedModel } from '@ekza-studio/io/three';
+import { controlForNode, type SkeletonDesc } from '@ekza-studio/rig';
 import {
   Bone,
   BoxGeometry,

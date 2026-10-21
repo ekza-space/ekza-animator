@@ -4,7 +4,7 @@
 // M-1 mechanism 5 (M2A-SPEC §5.21.1): during a drag the curves the drag does not touch are painted once into a cached
 // static layer (an offscreen canvas per static state), and each frame of the drag copies it and repaints only the
 // dragged curves, their keys and handles over it.
-import type { CurveId } from '@ekza-animator/doc';
+import type { CurveId } from '@ekza-studio/doc';
 import type { GraphScene, Point } from '../graph/scene';
 import { beginFrame } from './canvas';
 import { CurvePainterScratch, type EntryFilter, paintBuffers, paintCurves } from './curves';

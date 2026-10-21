@@ -1,6 +1,6 @@
 // WorkspaceHost (dockview adapter): the Animate layout, layout persistence round trip (versioned, try/catch), Reset
 // Workspace, show-panel and group maximize.
-import { PANEL } from '@ekza-animator/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { DockviewApi, SerializedDockview } from 'dockview-react';
 import type { JSX } from 'react';
 import { describe, expect, it } from 'vitest';

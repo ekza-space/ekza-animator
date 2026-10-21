@@ -2,8 +2,8 @@
 // outputs become records with derived ids (an adjusted re-run with the same seed reuses them), removed inputs are
 // soft-deleted, the op's writes into its inputs are aborted, and the pre-op MeshData of every input is kept. The ops
 // here are test MeshSetOps against the contract; B4's real ones run through the same runner.
-import { derivedId, type MeshId, type MeshRef } from '@ekza-animator/doc';
-import { makeTestGroup, makeTestPalette } from '@ekza-animator/doc/testing';
+import { derivedId, type MeshId, type MeshRef } from '@ekza-studio/doc';
+import { makeTestGroup, makeTestPalette } from '@ekza-studio/doc/testing';
 import {
   type MeshSetInput,
   type MeshSetOp,
@@ -11,7 +11,7 @@ import {
   primitive,
   refuse,
   selectionOf,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { OperatorDef } from '../../src';
 import { ADJUST_RECORD_SET } from '../../src/mesh/setOps';

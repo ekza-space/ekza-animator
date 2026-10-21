@@ -4,7 +4,7 @@
 // ends the extrude session, disarms the numeric capture, closes the Last-op card and drops to object mode (the
 // component bitsets stay in the selection service). The ViewportManager swaps each pane's display flags and the shell
 // swaps the dock layout when `session.workspace` changes; the character display rebuild follows the same change (B8).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { EditorApp, SelectionMask, ToolId, ViewportLayout, WorkspaceId } from '../types';
 
 /** Why the Last-op card closed when the user left Model (`LastRun.closed`). */

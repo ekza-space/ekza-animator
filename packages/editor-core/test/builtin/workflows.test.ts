@@ -1,9 +1,9 @@
 // Pure parts of the workflows: clip naming rules, provenance (§4.11.6 step 7), import clip options (§4.11.6 step 5),
 // clip selection defaults, shot-camera framing, project file names; the export download gate (§4.11.10 step 5).
-import { quatRotateVec3 } from '@ekza-animator/anim-core';
-import type { CharacterId } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportRequest, GlbContainer, ReadBackReport, VrmLicenseInfo } from '@ekza-animator/io';
-import { DEFAULT_REDUCE } from '@ekza-animator/rig';
+import { quatRotateVec3 } from '@ekza-studio/anim-core';
+import type { CharacterId } from '@ekza-studio/doc';
+import type { ExportArtifact, ExportRequest, GlbContainer, ReadBackReport, VrmLicenseInfo } from '@ekza-studio/io';
+import { DEFAULT_REDUCE } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import type { ExporterDef } from '../../src/types';
 import { frameShotCamera, lookAtQuaternion, SHOT_FOV_Y } from '../../src/workflows/camera';
@@ -178,7 +178,7 @@ describe('provenance', () => {
     expect(isRestrictedLicense(license({ modification: 'allowModification', allowRedistribution: true }))).toBe(false);
   });
 
-  it('reads the provenance the Animator wrote into a VRMA', () => {
+  it('reads the provenance the editor wrote into a VRMA', () => {
     const meta = {
       schema: 1,
       clips: [

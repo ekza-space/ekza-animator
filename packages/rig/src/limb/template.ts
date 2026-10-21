@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { BoneRef, ConstraintRecord, ControlId, HumanBoneName, SolverRecord } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { BoneRef, ConstraintRecord, ControlId, HumanBoneName, SolverRecord } from '@ekza-studio/doc';
 import type { FootRollParams, Ik2Params, LimbId, RigOpCompileContext } from '../types';
 import { LIMB_IDS } from '../types';
 

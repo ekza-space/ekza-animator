@@ -1,7 +1,7 @@
 // A deterministic PNG writer for 8-bit RGB images (M6A-SPEC §5.19 `ekza-palette-v1`): the signature, then exactly the
 // chunks IHDR, sRGB (rendering intent 0), one IDAT (zlib by fflate at level 9, filter type 0 on every row) and IEND.
 // No timestamps, no text chunks, fixed compression settings: the same pixels always give the same bytes.
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { zlibSync } from 'fflate';
 
 const SIGNATURE = Uint8Array.of(137, 80, 78, 71, 13, 10, 26, 10);

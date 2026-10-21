@@ -1,6 +1,6 @@
 // Test support for the curve-editor browser tests: the shared test kit's fake app over the synthetic wave document,
 // canvases mounted in the page, pointer/wheel event builders and dependency probes for stubbed packages.
-import { EkzaError, type InfinityMode, type KeyData, type TangentType } from '@ekza-animator/anim-core';
+import { EkzaError, type InfinityMode, type KeyData, type TangentType } from '@ekza-studio/anim-core';
 import type {
   ChannelId,
   ClipId,
@@ -11,7 +11,7 @@ import type {
   KeyId,
   KeyRecord,
   LayerId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type EditorApp,
   type KeyPartSelection,
@@ -20,8 +20,8 @@ import {
   type ToolKeyEvent,
   type ToolPointerEvent,
   type ToolWheelEvent,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { commands } from 'vitest/browser';
 import { GraphEditorController } from '../../src';
 

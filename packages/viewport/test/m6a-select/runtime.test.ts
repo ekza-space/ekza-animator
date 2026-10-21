@@ -3,16 +3,16 @@
 // by marquee only with both endpoints inside, sends double-clicks to the loop table, selects mesh objects in object
 // mode, pre-highlights the hovered component, answers the operators' pointer probe, frames component selections and
 // pushes face isolate sets to the mesh display.
-import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import type { MeshId, MeshRecord, MeshRef } from '@ekza-studio/doc';
 import {
   type EditorApp,
   historyLabels,
   loadMeshKernel,
   modelPointer,
   registerBuiltinOperators,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelSelectRuntime, modelSelectOf } from '../../src';
 import { loopGestureOf } from '../../src/tools/model/select/runtime';

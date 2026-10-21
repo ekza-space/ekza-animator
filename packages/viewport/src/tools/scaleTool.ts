@@ -2,8 +2,8 @@
 // controls in Animate, on scene objects in Model's object mode; one history step "Scale") lives in the lazy scale
 // chunk (`manipulators/scale/tool.ts`), loaded when the tool is first created; until then a press does nothing. A
 // failed load says so (a toast) and is tried again on the next activation or press.
-import type { ChannelEditGesture, EditorApp, ToolDef, ToolInstance } from '@ekza-animator/editor-core';
-import { PANEL, VIEWPORT_TOOL } from '@ekza-animator/editor-core';
+import type { ChannelEditGesture, EditorApp, ToolDef, ToolInstance } from '@ekza-studio/editor-core';
+import { PANEL, VIEWPORT_TOOL } from '@ekza-studio/editor-core';
 import { requestScaleKit, scaleKit } from '../manipulators/scale/load';
 import type { ViewportToolHost } from './host';
 import { TRANSFORM_TOOL_KEYS } from './model/transform';

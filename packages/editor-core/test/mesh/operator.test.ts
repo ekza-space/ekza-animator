@@ -2,9 +2,9 @@
 // `passThrough: def.extraArgs`) and reach `apply`; default targets are the hilited meshes with a selection of the
 // kind; Adjust Last's recorded kind, seed and symmetry/soft context reach the commit; READY.b1: real kernel ops
 // (extrude) through the runtime, undo through the journal back to the identical manifest.
-import { coerceArgs } from '@ekza-animator/anim-core';
-import { primitive, selectionOf } from '@ekza-animator/mesh-core';
-import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-animator/mesh-core/descriptors';
+import { coerceArgs } from '@ekza-studio/anim-core';
+import { primitive, selectionOf } from '@ekza-studio/mesh-core';
+import { MESH_OP_DESCRIPTORS, MESH_SET_OP_DESCRIPTORS } from '@ekza-studio/mesh-core/descriptors';
 import { describe, expect, it, vi } from 'vitest';
 import { adjustedRun, type LastRun, meshOperator, meshSetOperator, runSeedOf, runSettings } from '../../src';
 import { createMesh, meshTestApp } from './support';

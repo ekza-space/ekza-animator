@@ -1,6 +1,6 @@
 # Glossary
 
-Short definitions of terms used across the Ekza Animator docs and code. Maya and Blender names are used
+Short definitions of terms used across the Ekza Studio docs and code. Maya and Blender names are used
 descriptively.
 
 | Term | Meaning |
@@ -21,7 +21,7 @@ descriptively.
 | **Clip frame / scene frame** | Clip frame: time in the clip's own fps (what the ruler and Graph Editor show). Scene frame: the shared clock at the project's scene fps; `clipFrame = (sceneFrame − sceneStart)·clipFps/sceneFps`. |
 | **cog** | "Centre of gravity" control: a pure space (translate + rotate) above the pelvis and spine; it drives no bone itself. |
 | **Compiled curve** | Typed-array form of a curve (times, values, resolved slopes and handles, segment kinds) built from key records for fast evaluation and drawing. |
-| **Conformance suite** | Shared tests (`@ekza-animator/doc/testing`) every `DocumentStore` implementation must pass; the test-only Yjs store runs its replicating part (convergence, invariants, per-user undo) in CI from M1. |
+| **Conformance suite** | Shared tests (`@ekza-studio/doc/testing`) every `DocumentStore` implementation must pass; the test-only Yjs store runs its replicating part (convergence, invariants, per-user undo) in CI from M1. |
 | **Control** | The thing an animator selects and keys (a circle, cube, star, lollipop…). Controls drive bones; bones are never keyed. |
 | **Control shape** | The drawn geometry of a control, a `SplineSet` from the control-shape registry (the same type future spline modeling uses). |
 | **CRDT** | Conflict-free replicated data type (Yjs) used for real-time collaboration from M3. |
@@ -30,6 +30,7 @@ descriptively.
 | **DCO** | Developer Certificate of Origin: contributors certify their right to submit code with a `Signed-off-by:` line, checked in CI. |
 | **Edit kernel** | The editor-core helpers every writer uses (`applyChannelEdits`, `beginChannelEditGesture`, `moveKeys`, `scaleKeys`, `setKeyHandle`, …), so operators, tools and panels follow identical keying rules. |
 | **Editor history** | The undo/redo stack the user sees: document undo entries interleaved with unkeyed override edits (ADR 0013). |
+| **Ekza Studio, Ekza Hub** | Ekza Studio is this editor, called **Ekza Animator** until 2026-10-19; Ekza Hub is the publishing site (`ekza-registry/web`), called "Ekza Studio" until then (DECISIONS-OPEN §H). Research notes, work-package notes and decision logs written before the rename keep the old names. Persisted identifiers keep the old name: `ekza-animator-doc`, `ekza-animator-project`, `ekza_animator_bake_v*`, provenance `tool: 'ekza-animator'`, the `ekza-animator:` storage keys and the autosave database. |
 | **Euler filter** | Removes ±360° jumps and gimbal-equivalent flips in Euler curves by choosing, key by key, the nearest of the two equivalent angle triples. |
 | **`eulerNear`** | Converts a quaternion to Euler angles in a given rotate order closest to reference angles (usually the control's current values), so keys never flip. |
 | **Export profile** | Data describing an export target (registry platform/profile, size limits, required clips, lint severities), e.g. `ekza/space-avatar-v1`. |

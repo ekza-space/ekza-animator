@@ -4,10 +4,11 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: {
-    default: 'Ekza Animator',
-    template: '%s · Ekza Animator',
+    default: 'Ekza Studio',
+    template: '%s · Ekza Studio',
   },
-  description: 'Open-source, browser-based character animator for glTF and VRM with a Maya-grade workflow.',
+  description:
+    'Open-source, browser-based 3D studio for glTF and VRM characters: modeling, rigging and animation with a Maya-grade workflow.',
 };
 
 export const viewport: Viewport = {

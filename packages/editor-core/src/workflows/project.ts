@@ -1,15 +1,15 @@
 // Project files (ADR 0011): `.ekzanim` (zip: manifest, project.json, source models by SHA-256) and the
 // `.ekzanim.json` debug variant. Saving reads every referenced asset through the verifying asset store; opening
 // checks the assets, puts them into the asset store and replaces the document (never merges). The archive code and
-// fflate load with a dynamic `import('@ekza-animator/io/project')` on the first save or open (M2A-SPEC §5.21.2).
+// fflate load with a dynamic `import('@ekza-studio/io/project')` on the first save or open (M2A-SPEC §5.21.2).
 //
 // M6a (M6A-SPEC §5.20, B7): a save also stores every manifest and chunk reachable from live mesh records (the blob
 // closure, read verified through `BlobStore.get`) and reference images; opening puts the archive's verified blobs
 // into the blob store before the document loads, so meshes are ready at once (a missing blob makes its mesh
 // 'error', the project still opens). The JSON variant carries no blob or image bytes and says so.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-animator/doc';
-import type * as ProjectModule from '@ekza-animator/io/project';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { AssetId, AssetRecord, DocSnapshot } from '@ekza-studio/doc';
+import type * as ProjectModule from '@ekza-studio/io/project';
 import { attachMeshes } from '../mesh';
 import { chunkIdsOfManifest } from '../mesh/shared';
 import type { BlobId, EditorApp } from '../types';
@@ -24,12 +24,12 @@ export const PROJECT_JSON_MIME = 'application/json';
 let projectModule: Promise<typeof ProjectModule> | null = null;
 
 /**
- * Loads `@ekza-animator/io/project` (the `.ekzanim` archive code with fflate) once; a failed load is retried by the
+ * Loads `@ekza-studio/io/project` (the `.ekzanim` archive code with fflate) once; a failed load is retried by the
  * next call. Hosts call it on intent (the File menu opening) so the first save or open does not wait for it.
  */
 export function loadProjectArchive(): Promise<typeof ProjectModule> {
   if (projectModule === null) {
-    projectModule = import('@ekza-animator/io/project');
+    projectModule = import('@ekza-studio/io/project');
     projectModule.catch(() => {
       projectModule = null;
     });

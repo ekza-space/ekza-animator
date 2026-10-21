@@ -1,5 +1,5 @@
 // M6A-SPEC §4.1 bench (report): SHA-256 throughput ≥ 300 MB/s in Node 25 on the reference machine, a 64 KiB chunk
-// in ≤ 0.25 ms. Run: pnpm --filter @ekza-animator/anim-core exec vitest bench --run test/bench/sha256.bench.ts
+// in ≤ 0.25 ms. Run: pnpm --filter @ekza-studio/anim-core exec vitest bench --run test/bench/sha256.bench.ts
 import { bench, describe } from 'vitest';
 import { sha256 } from '../../src';
 

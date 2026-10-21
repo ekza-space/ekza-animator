@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generates the CSS of @ekza-animator/ui that is derived from other sources (research 09 §8; MVP-SPEC §7 WP-8):
+// Generates the CSS of @ekza-studio/ui that is derived from other sources (research 09 §8; MVP-SPEC §7 WP-8):
 //
 //   css/tokens.css          CSS custom properties from tokens.json (the source of truth)
 //   css/dockview-core.css   the structural part of dockview-react 8.4.0's stylesheet without its colour themes

@@ -2,7 +2,7 @@
 // W To Vertices · S To Faces · E To UVs (later) · NE To Edge Loop · NW To Edge Ring · SE To Shell · SW To Border; the
 // list holds the contained and perimeter conversions and Grow/Shrink. Every item is also in Select › Convert
 // Selection and the command palette (ADR 0016 D10).
-import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-animator/editor-core';
+import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-studio/editor-core';
 
 const convert = (
   label: string,

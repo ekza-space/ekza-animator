@@ -1,9 +1,9 @@
 // M2A-SPEC §5.16 (FR-EXP-12) through `file.export` on the fixtures: `reduce` absent or null gives the M1 bytes, a
 // reduced export validates, reads back against the reduced clip, reports its stats and stays within the per-node
 // tolerances of the unreduced bake at every integer frame; re-exports are byte-identical.
-import { quatSlerp, type Quat } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { quatSlerp, type Quat } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipId } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import {
   DEFAULT_EXPORT_REDUCE,
   type ExportArtifact,
@@ -13,8 +13,8 @@ import {
   sha256Hex,
   skeletonFromGltf,
   trackLeverArms,
-} from '@ekza-animator/io';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+} from '@ekza-studio/io';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, SIBLINGS_READY, setSceneFrame } from './ops.support';
 

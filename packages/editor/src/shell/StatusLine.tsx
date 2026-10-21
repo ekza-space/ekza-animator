@@ -10,7 +10,7 @@ import {
   VIEWPORT_TOOL,
   type ManipSpace,
   type ViewportLayout,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import {
   AutoKeyIcon,
   Bone,
@@ -29,7 +29,7 @@ import {
   ToggleGroup,
   ToggleGroupItem,
   Tooltip,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { Fragment, type JSX, lazy, type ReactNode, Suspense } from 'react';
 import { usePrefs, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

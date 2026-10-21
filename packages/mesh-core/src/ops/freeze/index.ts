@@ -3,7 +3,7 @@
 // normals by the inverse transpose (renormalized), every face reversed when det(M) < 0 so a mirrored freeze keeps
 // outward winding. Refuses skinned meshes (`freeze.skinned`), non-matrices and singular matrices (`freeze.singular`:
 // a zero scale would flatten the mesh). The selection is kept.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { SKIN_JOINTS, SKIN_WEIGHTS } from '../../layers/builtin';
 import { refuse } from '../../refusal';
 import { argsOf, keptSelection } from '../../subset/support';

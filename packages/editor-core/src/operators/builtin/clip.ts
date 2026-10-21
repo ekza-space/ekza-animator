@@ -1,6 +1,6 @@
 // Clip operators (MVP-SPEC §4.9 `clip.*`): several named clips per character. New clips and duplicates get their
 // IDs in `prepare`, where their partition (`clip:<id>`) is opened before the transaction writes into it (§4.11.21).
-import { EkzaError, type Frame } from '@ekza-animator/anim-core';
+import { EkzaError, type Frame } from '@ekza-studio/anim-core';
 import type {
   CharacterId,
   ClipId,
@@ -12,7 +12,7 @@ import type {
   Redistributable,
   RootMotionMode,
   Tx,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { newRecordId } from '../../app/internals';
 import { type EditorApp, GLOBAL_SCOPE, type Selection } from '../../types';
 import { planEmptyClip, writeClipPlan } from '../../workflows/clipWrite';

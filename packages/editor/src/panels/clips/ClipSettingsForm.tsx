@@ -1,8 +1,8 @@
 // Clip settings (FR-CLIP-04, FR-CLIP-09): fps with keep-seconds / keep-frames, range, scene start, loop, root
 // motion, Ekza slot, contact frame, tags and provenance. Used in the Clips panel's settings popover and in the
 // Attributes panel. One Apply = one `clip.setSettings` run with the changed fields = one undo step.
-import type { ClipRecord, Redistributable, RootMotionMode } from '@ekza-animator/doc';
-import type { EditorApp, PanelKind } from '@ekza-animator/editor-core';
+import type { ClipRecord, Redistributable, RootMotionMode } from '@ekza-studio/doc';
+import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
 import { type JSX, type ReactNode, useId, useState } from 'react';
 import { runOperator } from '../channel-box/kit/run';
 import {

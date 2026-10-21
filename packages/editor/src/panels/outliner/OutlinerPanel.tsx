@@ -1,8 +1,8 @@
 // Outliner (FR-OUT-01…04, research 09 §4.3): a virtualized ARIA tree of characters with their rig controls,
 // skeleton bones and clips. Selection goes through `select.controls` and follows the session both ways; hovering a
 // control asks the viewport to pre-highlight it.
-import type { CharacterId, ClipId, ClipRecord, ControlId, ControlRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, type SessionState } from '@ekza-animator/editor-core';
+import type { CharacterId, ClipId, ClipRecord, ControlId, ControlRecord } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, type SessionState } from '@ekza-studio/editor-core';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   type CSSProperties,

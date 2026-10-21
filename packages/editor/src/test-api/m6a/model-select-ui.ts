@@ -3,17 +3,17 @@
 // and active component), `expanded` = the picks plus their symmetry partners (what walkers and ops run on), `hidden`
 // = the hidden components (the closure). `screenOf*` are page CSS px of components of hilited meshes in component
 // modes (null when the pane does not draw them, they are occluded, off-screen or back-facing).
-import type { MeshId } from '@ekza-animator/doc';
-import { componentInternals, objectsDrawnIn } from '@ekza-animator/editor-core';
-import type { BitSet, ComponentKind } from '@ekza-animator/mesh-core';
-import { modelSelectOf } from '@ekza-animator/viewport';
+import type { MeshId } from '@ekza-studio/doc';
+import { componentInternals, objectsDrawnIn } from '@ekza-studio/editor-core';
+import type { BitSet, ComponentKind } from '@ekza-studio/mesh-core';
+import { modelSelectOf } from '@ekza-studio/viewport';
 import { checkRows, meshProblems } from '../../panels/meshcheck/checks';
 import { hudData } from '../../panels/viewport/hud/data';
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
 export type ModelSelectUiTestApi = Pick<
-  EkzaAnimatorTestApi,
+  EkzaStudioTestApi,
   'model' | 'screenOfVertex' | 'screenOfEdge' | 'screenOfFace' | 'hud' | 'meshCheck' | 'paneObjects'
 >;
 
@@ -45,9 +45,9 @@ export function modelSelectUiTestApi(ctx: M6aTestApiContext): ModelSelectUiTestA
       const model = state.model;
       const kind: ComponentKind = model.componentMode === 'object' ? model.lastComponentMode : model.componentMode;
       const internals = componentInternals(app.components);
-      const selected: ReturnType<EkzaAnimatorTestApi['model']>['selected'] = {};
-      const expanded: ReturnType<EkzaAnimatorTestApi['model']>['expanded'] = {};
-      const hidden: ReturnType<EkzaAnimatorTestApi['model']>['hidden'] = {};
+      const selected: ReturnType<EkzaStudioTestApi['model']>['selected'] = {};
+      const expanded: ReturnType<EkzaStudioTestApi['model']>['expanded'] = {};
+      const hidden: ReturnType<EkzaStudioTestApi['model']>['hidden'] = {};
       for (const runtime of app.meshes.list()) {
         if (runtime.state !== 'ready') continue;
         const id = runtime.id;

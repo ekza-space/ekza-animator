@@ -1,7 +1,7 @@
 // Selection operators (MVP-SPEC §4.9 `select.*`, ADR 0008 §8). Selection is per-user session state: not undoable
 // itself, restored by undo/redo through the snapshots history steps carry. It is limited to one character: selecting
 // another character's controls makes that character active and replaces the selection.
-import type { CharacterId, ControlId, ControlRecord, KeyId } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ControlRecord, KeyId } from '@ekza-studio/doc';
 import { ownerOfControl } from '../../session/location';
 import {
   type ChannelRef,

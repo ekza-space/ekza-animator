@@ -4,7 +4,7 @@
 // new face selection). `offset` insets the extracted faces' boundary (./subset/inset; `extract.offset-clamped`). The
 // input keeps every other face, edge and vertex. Refusals: asset-backed inputs (M6a), no selected faces, every face
 // selected with `separate` (nothing would stay).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../../refusal';
 import { copySubset } from '../../subset/copy';
 import { bitsOf, detachInPlace, insetData, removeFaces, selectedFaces } from '../../subset/setops';

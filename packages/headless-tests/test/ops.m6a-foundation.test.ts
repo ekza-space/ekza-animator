@@ -2,9 +2,9 @@
 // the saved project readable by M2a writers (minWriterVersion ≤ 2, characters carry `source`, assets
 // `provenance: null`); a mesh revision written through the stub runtime registry makes the project need writer 3,
 // and the M6a session/history wiring works on the real app.
-import type { MeshId, MeshRecord } from '@ekza-animator/doc';
-import { loadMeshKernel } from '@ekza-animator/editor-core';
-import { readProjectArchive } from '@ekza-animator/io';
+import type { MeshId, MeshRecord } from '@ekza-studio/doc';
+import { loadMeshKernel } from '@ekza-studio/editor-core';
+import { readProjectArchive } from '@ekza-studio/io';
 import { describe, expect, it } from 'vitest';
 import { importFixture, realApp, runOk } from './ops.support';
 

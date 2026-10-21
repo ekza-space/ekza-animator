@@ -9,7 +9,7 @@
 //   incremental write gives the before id;
 // - P7-hard: an all-hard mesh stays all-hard (unless the caller says the op may soften).
 // No Node APIs: shared by the Node and the Chromium runs.
-import type { ParamValues, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ParamValues, ReadonlyXf } from '@ekza-studio/anim-core';
 import { expect } from 'vitest';
 import {
   type ComponentSelection,

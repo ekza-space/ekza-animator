@@ -1,11 +1,11 @@
 // M2A-SPEC §4.8 (A0, editor): the kernel-level test API functions and the panel-slice stubs, the M2a URL parameters
 // and storage switches, layout v1 → v2 migration (the v1 key is kept), the Dope Sheet placeholder panel, the status
 // line key-target toggle and Tween bar slot, and the frame loop's first step.
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import type { AttrDef, ClipId, ControlId, CurveId, DocSnapshot } from '@ekza-animator/doc';
-import { PANEL, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { naiveCurveEngine } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import type { AttrDef, ClipId, ControlId, CurveId, DocSnapshot } from '@ekza-studio/doc';
+import { PANEL, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import { naiveCurveEngine } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { SerializedDockview } from 'dockview-react';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, registerBuiltinPanels } from '../src';

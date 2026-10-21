@@ -1,7 +1,7 @@
 // Record builders for the workflows (MVP-SPEC §4.2 records, §4.9 defaults). Every field is spelled out, so the
 // records written by operators are deterministic and complete; the store validates them on write. IDs come from the
 // caller (generated in `prepare` with the app's ID source, so the partitions they land in can be opened first).
-import type { Fps, Frame, KeyData, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { Fps, Frame, KeyData, ReadonlyXf } from '@ekza-studio/anim-core';
 import {
   type AssetId,
   type CameraId,
@@ -26,7 +26,7 @@ import {
   type RigId,
   type RootMotionMode,
   SCHEMA_VERSION,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 
 /** Default clip range of `clip.new` and of the empty clip an import creates (§4.9). */
 export const DEFAULT_CLIP_RANGE: { readonly start: Frame; readonly end: Frame } = { start: 0, end: 60 };

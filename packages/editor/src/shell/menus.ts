@@ -16,7 +16,7 @@ import {
   resolveChord,
   WORKSPACE,
   type WorkspaceId,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { scopeChain } from '../input/keyboard';
 
 /** Menu-bar order and labels of known top-level menu ids; other ids follow before Windows and Help. */

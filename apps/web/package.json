@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Next.js 16 shell for Ekza Animator: landing page, /editor client island, e2e specs.",
+  "description": "Next.js 16 shell for Ekza Studio: landing page, /editor client island, e2e specs.",
   "license": "MIT",
   "scripts": {
     "assets": "node scripts/copy-assets.mjs && node scripts/third-party-notices.mjs",
@@ -18,8 +18,8 @@
     "bench:budgets": "playwright test -c e2e/bench/playwright.config.ts"
   },
   "dependencies": {
-    "@ekza-animator/editor": "workspace:*",
-    "@ekza-animator/ui": "workspace:*",
+    "@ekza-studio/editor": "workspace:*",
+    "@ekza-studio/ui": "workspace:*",
     "@pixiv/three-vrm": "catalog:",
     "@pixiv/three-vrm-animation": "catalog:",
     "next": "16.3.8",
@@ -28,8 +28,8 @@
     "three": "catalog:"
   },
   "devDependencies": {
-    "@ekza-animator/doc": "workspace:*",
-    "@ekza-animator/io": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/io": "workspace:*",
     "@playwright/test": "1.63.0",
     "@tailwindcss/postcss": "4.3.3",
     "@types/node": "catalog:",

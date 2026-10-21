@@ -8,7 +8,7 @@
 // refuses `inset.no-boundary`. Symmetry (§5.14): runs on the expanded selection; a self-mirrored region is
 // symmetrized. `adjust` re-places the inner faces for offset, depth, even offset, clamp and smoothing angle; the
 // result's warnings (`inset.clamped`), frame and resolved args then follow the adjustment.
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';
 import { refuse } from '../../refusal';

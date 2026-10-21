@@ -1,9 +1,9 @@
 // Clip selector and fps menu of the timeline (FR-CLIP-03, FR-TIME-05): switching clips runs `clip.setActive`; a
 // new frame rate asks whether to keep timing in seconds (re-time keys) or keep frame numbers, then runs
 // `clip.setSettings`.
-import type { Fps } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
+import type { Fps } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
+import { type EditorApp, PANEL } from '@ekza-studio/editor-core';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { fieldClass } from './fields';

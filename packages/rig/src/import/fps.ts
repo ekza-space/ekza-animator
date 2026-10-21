@@ -1,4 +1,4 @@
-import type { Fps } from '@ekza-animator/anim-core';
+import type { Fps } from '@ekza-studio/anim-core';
 import type { HumanoidClipData, RawClip } from '../types';
 
 /** Candidate source rates, lowest first (MVP-SPEC §4.11.6 step 5). */

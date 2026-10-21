@@ -1,9 +1,9 @@
 // M2A-SPEC §5.6, §5.2.3, §5.7 (A2, browser mode): the Attributes panel's Limb section — IK/FK segmented buttons
 // (switch with match), Match buttons, the switch key mode preference, the leg foot-pivot fields (cm, degrees) and
 // "Add Limb IK" on rigs without limb IK.
-import { DEG2RAD } from '@ekza-animator/anim-core';
-import { type EditorApp, registerBuiltinOperators } from '@ekza-animator/editor-core';
-import { createFakeIkEditorApp, type FakeServices, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import { DEG2RAD } from '@ekza-studio/anim-core';
+import { type EditorApp, registerBuiltinOperators } from '@ekza-studio/editor-core';
+import { createFakeIkEditorApp, type FakeServices, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { act, Profiler } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { AttributesPanel } from '../../src/panels/attributes/AttributesPanel';

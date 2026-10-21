@@ -1,5 +1,5 @@
-import { quatAngle, type Quat } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
+import { quatAngle, type Quat } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
 import { type VRMAnimation, VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';

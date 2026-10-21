@@ -1,8 +1,8 @@
 // Summary of a dropped model for the import dialog (research 09 §10.2): format, size, scene counts, embedded clips
 // and the VRM licence. JSON only (io's GLB container, format detection and licence reader); clip import itself is
 // file.importModel's job.
-import type { ModelFormat } from '@ekza-animator/doc';
-import { detectModelFormat, type GltfJson, readVrmLicense, type VrmLicenseInfo } from '@ekza-animator/io';
+import type { ModelFormat } from '@ekza-studio/doc';
+import { detectModelFormat, type GltfJson, readVrmLicense, type VrmLicenseInfo } from '@ekza-studio/io';
 
 export interface ModelClipSummary {
   /** glTF animation index (the import dialog's `import-clip-<index>`). */
@@ -68,7 +68,7 @@ export function isRestricted(license: VrmLicenseInfo | null): boolean {
   return license !== null && (license.modification === 'prohibited' || license.allowRedistribution === false);
 }
 
-/** Reads the summary with @ekza-animator/io (throws io's EkzaError codes, e.g. 'not-glb', 'vrm-both'); the GLB parser
+/** Reads the summary with @ekza-studio/io (throws io's EkzaError codes, e.g. 'not-glb', 'vrm-both'); the GLB parser
  * loads with the first summary (`./glbParse`). */
 export const summarizeModel: Summarizer = async (bytes) => {
   const { parseGlb } = await import('./glbParse');

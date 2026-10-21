@@ -9,7 +9,7 @@
 // split and the new vertex joins its faces; only an edge without faces refuses `insertLoop.no-ring`. `adjust`
 // re-places a single relative/equal loop for a new weight (positions and the interpolated layers, bit-identical to a
 // fresh run); with symmetry or `multiple` it declines (the caller re-runs).
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { copyCornerAttributes, interpolateCornerAttributes, interpolatePointAttributes } from '../../layers/propagate';
 import { allEdgesHard } from '../../normals/hard';

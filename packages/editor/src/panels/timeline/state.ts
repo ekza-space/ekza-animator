@@ -1,8 +1,8 @@
 // React-side reads of the timeline panel: the active character's clips and clock (human-speed state only; per-frame
 // values are written imperatively by the components that show them).
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import { batchTouches, type CharacterId, type ClipId, type ClipRecord, type DocumentStore } from '@ekza-animator/doc';
-import type { EditorApp, SessionState } from '@ekza-animator/editor-core';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import { batchTouches, type CharacterId, type ClipId, type ClipRecord, type DocumentStore } from '@ekza-studio/doc';
+import type { EditorApp, SessionState } from '@ekza-studio/editor-core';
 import { useCallback } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 

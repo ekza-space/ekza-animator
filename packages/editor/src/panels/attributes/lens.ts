@@ -1,6 +1,6 @@
 // Shot-camera lens fields (research 09 §4.6): focal length ↔ vertical field of view on a 24 mm-high sensor
 // (35 mm full frame), fov = 2·atan(sensorH / (2·f)). 35 mm ≈ 37.8°.
-import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
+import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
 
 export const SENSOR_HEIGHT_MM = 24;
 export const MIN_FOCAL_MM = 1;

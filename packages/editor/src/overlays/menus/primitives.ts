@@ -1,7 +1,7 @@
 // The primitives marking menu (M6A-SPEC §8.4 `model.primitives`; B11): Shift+RMB over empty space in object mode
 // creates a primitive at the origin with the low-poly defaults (§5.16, §6.3). The humanoid body opens with its
 // smooth style; the templates, reference images and mesh import are in the list.
-import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-animator/editor-core';
+import type { MarkingMenuDef, MarkingMenuItem } from '@ekza-studio/editor-core';
 
 const create = (kind: string, label: string): MarkingMenuItem => ({ op: `mesh.create.${kind}`, label });
 const template = (label: string, args: Readonly<Record<string, unknown>>): MarkingMenuItem => ({

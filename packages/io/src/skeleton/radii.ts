@@ -3,9 +3,9 @@
 // canonical space. A joint's radius is 1.25 × P90 of the distances from its bone segment of the vertices it dominates
 // (weight ≥ 0.5). Fallbacks, so every skinned joint of a readable mesh gets a value: vertices it influences with
 // weight ≥ 0.1, then the nearest ancestor's radius. Compressed (meshopt/Draco) or unskinned meshes give null radii.
-import { mat4Identity, mat4Multiply } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { mat4Identity, mat4Multiply } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import type { GltfReader } from '../gltf/accessor';
 import { DRACO_EXTENSION, isIndex, isRecord, listField, meshesOf, nodesOf, skinsOf } from '../gltf/schema';
 import { boneSupportOf, type FootRegion } from './support';

@@ -1,5 +1,5 @@
-import type { RotateOrder } from '@ekza-animator/anim-core';
-import type { AttrDef, ControlId, ControlRecord } from '@ekza-animator/doc';
+import type { RotateOrder } from '@ekza-studio/anim-core';
+import type { AttrDef, ControlId, ControlRecord } from '@ekza-studio/doc';
 import { HUMAN_BONE_NAMES } from '../humanoid/bones';
 import { humanNodeIndices, nearestHumanAncestor } from '../humanoid/map';
 import { facingXf, nodeParents, restLocals, restWorlds } from '../humanoid/rest';

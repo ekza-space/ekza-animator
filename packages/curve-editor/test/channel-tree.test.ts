@@ -1,5 +1,5 @@
-import type { ChannelId, ControlId } from '@ekza-animator/doc';
-import { createFakeEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import type { ChannelId, ControlId } from '@ekza-studio/doc';
+import { createFakeEditorApp, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { describe, expect, it } from 'vitest';
 import { buildChannelTree, CHANNEL_COLORS, channelColor, channelLabel, channelNodes } from '../src';
 import { addCurve, key, WAVE, waveApp, waveDoc } from './support/app';

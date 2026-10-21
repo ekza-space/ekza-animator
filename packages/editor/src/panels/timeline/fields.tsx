@@ -1,6 +1,6 @@
 // Numeric fields of the timeline panel. The current-frame field and the scene-time readout change every frame
 // during playback, so they write the DOM directly from store subscriptions instead of re-rendering React.
-import { type EditorApp, PANEL } from '@ekza-animator/editor-core';
+import { type EditorApp, PANEL } from '@ekza-studio/editor-core';
 import { type JSX, type KeyboardEvent, useEffect, useRef, useState } from 'react';
 import { formatFrameValue, parseFrameInput } from './input';
 import { currentFrameOf, subscribeToFrame } from './state';

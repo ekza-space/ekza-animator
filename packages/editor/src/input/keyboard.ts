@@ -27,7 +27,7 @@ import {
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPhase,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { dropdownKeyRoute, isDropdown, isInOverlay, isTextEntry } from './focus';
 
 /** Tap vs hold threshold (research 09 §7.1 rule 3). */

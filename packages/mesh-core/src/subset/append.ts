@@ -5,7 +5,7 @@
 // det(xf) < 0 (a mirrored duplicate) every appended face's corner order is reversed together with its corner values and
 // custom normals go through the inverse transpose, so the result faces outward. Appended vertices and faces are
 // contiguous: [P₀, P₀ + b.points) and [F₀, F₀ + b.faces) in b's order.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import { SKIN_JOINTS } from '../layers/builtin';
 import type { AppendResult, AttrLayer, EditMesh, LayerDef, MeshData } from '../types';
 import {

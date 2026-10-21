@@ -2,7 +2,7 @@
 // display flags, the command palette and marking menus. The pane and overlay operators reach the viewport and the
 // shell through their ports (../../workspaces/ports.ts), so they resolve in every app and poll-fail where the UI is
 // missing (headless scripts).
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import type { DisplayFlags, OperatorContext, Shading } from '../../types';
 import { paneDisplayPort, shellOverlayPort } from '../../workspaces/ports';
 import { switchWorkspace, workspaceProblem } from '../../workspaces/switch';

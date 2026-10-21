@@ -1,7 +1,7 @@
 // WorkspaceHost (ARCHITECTURE §10): the dockview adapter. Registered panels render through their PanelDef; Animate
 // slots without a registered panel render a placeholder until the owning work package lands.
-import type { Disposer } from '@ekza-animator/anim-core';
-import { PANEL, type PanelKind } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import { PANEL, type PanelKind } from '@ekza-studio/editor-core';
 import {
   DockviewDefaultTab,
   type DockviewReadyEvent,

@@ -1,7 +1,7 @@
 // Text input of the timeline panel: frame expressions (research 09 §4.9 "accepts +10, -5"), frame rates, and the
 // clip ↔ scene frame mapping of §4.11.8 for playback ranges (the panel passes scene frames to the operator).
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord } from '@ekza-animator/doc';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord } from '@ekza-studio/doc';
 
 const NUMBER = String.raw`(\d+(?:\.\d*)?|\.\d+)`;
 const RELATIVE = new RegExp(String.raw`^([+-])=?\s*${NUMBER}$`);

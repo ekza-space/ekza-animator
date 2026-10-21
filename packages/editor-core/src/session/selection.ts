@@ -5,7 +5,7 @@
 // mode, hilite, per-mesh component selections) and the shipped shape (controls, keys, channels), so an M2a reader and
 // an M6a reader both read it. Restoring sets controls, keys, channels and objects; it never changes the component
 // mode or the hilite (§5.6), and per-mesh component selections go through `app.components.restore`.
-import type { ControlId, GroupId, KeyId, MeshId } from '@ekza-animator/doc';
+import type { ControlId, GroupId, KeyId, MeshId } from '@ekza-studio/doc';
 import type {
   ChannelRef,
   ComponentMode,

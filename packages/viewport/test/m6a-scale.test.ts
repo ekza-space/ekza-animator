@@ -1,7 +1,7 @@
 // M6A-SPEC §4.6 ManipHandle `sx/sy/sz/suniform`, §4.7 (B9): the Scale manipulator's handles and picking, and the
 // scale maths (axis ratio, uniform travel, pivot-preserving placements, channel edits).
-import { quatRotateVec3, type ReadonlyXf } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
+import { quatRotateVec3, type ReadonlyXf } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
 import { OrthographicCamera } from 'three';
 import { describe, expect, it } from 'vitest';
 import { dragControl } from '../src/manipulators/drag';

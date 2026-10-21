@@ -4,8 +4,8 @@
 // Shift locks the dominant axis after 4 px). Time scales through `scaleKeys` (factor ≥ 0.01, snapping, breakdown
 // retiming), values through `scaleKeyValues` (fixed handles' dv scale too; a negative factor flips). One drag is one
 // `Scale Keys` step.
-import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-animator/doc';
-import { type ChannelUnit, channelUnit, scaleKeys, scaleKeyValues, toDisplayValue } from '@ekza-animator/editor-core';
+import type { ChannelId, CurveId, KeyId, Tx } from '@ekza-studio/doc';
+import { type ChannelUnit, channelUnit, scaleKeys, scaleKeyValues, toDisplayValue } from '@ekza-studio/editor-core';
 import type { OverlayState } from '../painters/overlay';
 import type { RegionHandle } from '../types';
 import { frameToX, valueToY, xToFrame } from '../view/transform';

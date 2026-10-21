@@ -1,4 +1,4 @@
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, type PanelDef, registerBuiltinPanels } from '../src';
 import { PanelHarness } from '../src/testing';

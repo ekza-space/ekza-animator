@@ -1,6 +1,6 @@
 // SHA-256 wrappers of doc (M6A-SPEC §4.1): the digest core lives in anim-core (streaming, non-copying); doc keeps its
 // shipped names and signatures for deterministic ID derivation in migrations and auto-rig IDs.
-import { sha256 as sha256Digest, toHex } from '@ekza-animator/anim-core';
+import { sha256 as sha256Digest, toHex } from '@ekza-studio/anim-core';
 
 /** SHA-256 digest of `bytes` (32 bytes). */
 export function sha256(bytes: Uint8Array): Uint8Array {

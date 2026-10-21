@@ -8,9 +8,9 @@
 // whatever the current mode), and the session survives the undo of that step (the ref then equals the session's base).
 // `commitOp` takes a session only when the selection its run would read equals the session's (`sameInput`), so a
 // committed session is always what a fresh run would have written.
-import { EkzaError, type ParamValues } from '@ekza-animator/anim-core';
-import { deepEqual, type MeshId } from '@ekza-animator/doc';
-import type { ComponentSelection, MeshDelta, MeshOp, OpResult, Refusal } from '@ekza-animator/mesh-core';
+import { EkzaError, type ParamValues } from '@ekza-studio/anim-core';
+import { deepEqual, type MeshId } from '@ekza-studio/doc';
+import type { ComponentSelection, MeshDelta, MeshOp, OpResult, Refusal } from '@ekza-studio/mesh-core';
 import type { MeshOpSession } from '../types';
 import { dirtyOf } from './dirty';
 import type { OpInput } from './input';

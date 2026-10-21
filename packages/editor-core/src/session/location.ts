@@ -1,5 +1,5 @@
 // Where pose overrides live (ADR 0013): the active character's active clip at its current clip frame.
-import type { CharacterId, ControlId, ReadView } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ReadView } from '@ekza-studio/doc';
 import { activeClipOf } from '../evaluation/time';
 import type { OverrideLocation } from '../history/overrides';
 import type { EditorApp } from '../types';

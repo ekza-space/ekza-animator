@@ -12,7 +12,7 @@ import {
   TWEEN_OVERSHOOT_LIMIT,
   type TweenGesture,
   type TweenMode,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import {
   cn,
   DropdownMenu,
@@ -21,7 +21,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import {
   type JSX,
   type PointerEvent as ReactPointerEvent,

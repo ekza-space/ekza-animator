@@ -1,6 +1,6 @@
 // Navigation profiles (research 09 §5.1, MVP-SPEC §4.11.16): which pointer chords and wheel gestures tumble, track
 // or dolly. Profiles change bindings only, never the camera maths (NavigationController).
-import type { NavProfile } from '@ekza-animator/editor-core';
+import type { NavProfile } from '@ekza-studio/editor-core';
 
 export type NavGesture = 'tumble' | 'track' | 'dolly';
 

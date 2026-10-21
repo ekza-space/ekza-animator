@@ -1,9 +1,9 @@
 {
-  "name": "@ekza-animator/ui",
+  "name": "@ekza-studio/ui",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Design tokens, Tailwind setup, primitives and icons for the Ekza Animator shell.",
+  "description": "Design tokens, Tailwind setup, primitives and icons for the Ekza Studio shell.",
   "license": "MIT",
   "sideEffects": ["**/*.css"],
   "exports": {

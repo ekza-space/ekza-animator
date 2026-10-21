@@ -1,15 +1,15 @@
 // M2A-SPEC §1.2 (integration): the M2a-core fallback of the M2a-stretch mesh-pick → IK control mapping. A mesh click
 // on a limb in IK (`ikFk > 0.5`) keeps selecting the FK control the bone maps to and says "IK limb: pick the IK
 // control"; FK limbs, control and joint picks, and characters without limbs say nothing.
-import type { CharacterId, ControlId, RigId } from '@ekza-animator/doc';
-import { registerBuiltinOperators } from '@ekza-animator/editor-core';
+import type { CharacterId, ControlId, RigId } from '@ekza-studio/doc';
+import { registerBuiltinOperators } from '@ekza-studio/editor-core';
 import {
   createFakeIkEditorApp,
   type FakeEditorApp,
   type FakeServices,
   fixtureControl,
   withLimbIkRecords,
-} from '@ekza-animator/editor-core/testing';
+} from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { PickResult } from '../src';
 import type { ViewportToolHost } from '../src/tools/host';

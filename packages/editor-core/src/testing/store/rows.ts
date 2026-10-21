@@ -1,6 +1,6 @@
 // Plain-record helpers of the naive document store (shared test kit, MVP-SPEC §7 WP-0b). They mirror the doc
 // contracts (§4.2) without depending on WP-2's implementation.
-import type { MergeUnit, Partition } from '@ekza-animator/doc';
+import type { MergeUnit, Partition } from '@ekza-studio/doc';
 
 /** Any stored record: built-in tables are typed at the API boundary; unknown tables stay opaque. */
 export interface Row {

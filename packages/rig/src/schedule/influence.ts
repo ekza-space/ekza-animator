@@ -1,5 +1,5 @@
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ControlRecord } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ControlRecord } from '@ekza-studio/doc';
 import { HUMAN_BONE_NAMES } from '../humanoid/bones';
 import { internalsOf, type RigInternals, type ScheduledRigOp } from '../kernel/internals';
 import type { ClipSampler, CurveInfo, RigProgram, TrackKey } from '../types';

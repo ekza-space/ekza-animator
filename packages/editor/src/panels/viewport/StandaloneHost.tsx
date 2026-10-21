@@ -2,8 +2,8 @@
 // (`services.models === null`: the shared test kit's fake app in /dev/panels and browser tests) gets its own canvas,
 // WebGLRenderer, ViewportManager and render-on-demand loop behind the panel. In the editor the shell's R3F canvas
 // creates the ViewportManager instead (WP-8 GLHost), and this host never mounts.
-import type { EditorApp } from '@ekza-animator/editor-core';
-import { registerViewportContributions, ViewportManager } from '@ekza-animator/viewport';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import { registerViewportContributions, ViewportManager } from '@ekza-studio/viewport';
 import { type JSX, useEffect, useRef, useState } from 'react';
 import { WebGLRenderer } from 'three';
 
@@ -24,7 +24,7 @@ export function StandaloneHost(props: { readonly app: EditorApp }): JSX.Element 
     try {
       renderer = new WebGLRenderer({ canvas, antialias: true });
     } catch (error) {
-      console.error('Ekza Animator: the viewport canvas failed to start', error);
+      console.error('Ekza Studio: the viewport canvas failed to start', error);
       return undefined;
     }
     renderer.setPixelRatio(window.devicePixelRatio);

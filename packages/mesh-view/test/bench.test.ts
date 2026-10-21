@@ -13,7 +13,7 @@ import {
   primitive,
   selectionOf,
   triangulate,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { Matrix4 } from 'three';
 import { ComponentPicker, EditMeshView, MeshSurface } from '../src';

@@ -4,7 +4,7 @@
 // pane renders and restored right after. Flat and backface culling apply to the shading materials (the model's own
 // materials are left alone); wire on shaded draws a wireframe pass over them. The mesh-view surfaces (B6) shade
 // themselves through `MeshLayerHost.applyPane`.
-import type { DisplayFlags } from '@ekza-animator/editor-core';
+import type { DisplayFlags } from '@ekza-studio/editor-core';
 import {
   Color,
   DoubleSide,

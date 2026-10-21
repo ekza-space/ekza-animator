@@ -8,7 +8,7 @@
 //   scale, orthogonal): every B4 row of the §5.14 table keeps a world-symmetric mesh world-symmetric;
 // - Symmetrize through a World map, and Mirror's vector layers (morph deltas, custom normals) in World position;
 // - behind READY.b2: B2's World maps pair what the B4 test maps pair, and the ops keep B2-mapped meshes symmetric.
-import { mat4Compose, type ReadonlyXf } from '@ekza-animator/anim-core';
+import { mat4Compose, type ReadonlyXf } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import {

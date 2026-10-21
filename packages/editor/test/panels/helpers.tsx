@@ -9,10 +9,10 @@ import type {
   ControlId,
   ControlRecord,
   DocSnapshot,
-} from '@ekza-animator/doc';
-import type { EditorApp, OperatorDef, SessionState } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { EditorApp, OperatorDef, SessionState } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { act, type ReactNode } from 'react';
 import { userEvent } from 'vitest/browser';
 import { EditorAppProvider } from '../../src';

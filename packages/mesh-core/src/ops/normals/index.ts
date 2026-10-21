@@ -8,7 +8,7 @@
 //   leads), then a closed patch with negative signed volume is flipped, an open one when most of its faces point
 //   towards its centroid (ties keep).
 // Face mode converts edge/vertex selections by containment (./subset/support scopeFaces/scopeEdges).
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import { EDGE_HARD } from '../../constants';
 import { NORMAL_CUSTOM } from '../../layers/builtin';
 import { isHardByAngle } from '../../normals/hard';

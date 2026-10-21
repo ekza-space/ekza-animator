@@ -121,7 +121,7 @@ the `mesh-kernel` boundary holds (kernel chunk 39.2 kB lazy, B1: 28.6 kB). The f
 (`EKZA_E2E_PORT=3163`, `--workers=4`, chrome project): 109 passed, 10 skipped (the stretch `test.fixme` entries and
 B0a's `b9` fixme), rc 0 — B2 owns no E2E-MOD scenario (§10.1).
 
-## Benchmarks (report only; Node 25.6, Apple M-series; `pnpm --filter @ekza-animator/mesh-core bench`)
+## Benchmarks (report only; Node 25.6, Apple M-series; `pnpm --filter @ekza-studio/mesh-core bench`)
 
 `bench/select.bench.ts`, debug validation off:
 

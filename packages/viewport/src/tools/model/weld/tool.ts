@@ -4,8 +4,8 @@
 // their midpoint when dragged with MMB (the trackpad's MMB stand-in included). The kernel welds the mirror pair under
 // symmetry (an unpaired one once, with the help line's "No mirror partner: applied to one side"). A rubber band
 // follows the pointer and a ring marks the target; `Esc` cancels with no step; RMB is ignored during the drag.
-import type { Vec3 } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { Vec3 } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type EditorApp,
   RESERVED_MODAL_KEYS,
@@ -13,8 +13,8 @@ import {
   type ToolKeyEvent,
   type ToolPhase,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import type { ComponentKind } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import type { ComponentKind } from '@ekza-studio/mesh-core';
 import { PREVIEW } from '../topology/overlay';
 import type { TopologyRuntime } from '../topology/runtime';
 

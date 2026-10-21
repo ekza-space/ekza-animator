@@ -1,13 +1,13 @@
 // WP-6 contributions (MVP-SPEC §4.9 owner 6): the Graph Editor tools, `graph.frame` and `select.curveKeys`; M2a:
 // the Scale tool and `graph.view.setMode` (M2A-SPEC §5.15.2–3, A4), acting on the focused Graph Editor.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type EditorApp,
   type GraphViewMode,
   type OperatorArgs,
   type OperatorDef,
   PANEL,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { GRAPH_TOOLS } from '../tools/graphTools';
 import type { GraphEditorController } from './GraphEditorController';
 import { applyKeySelection, KEY_PART } from './selection';

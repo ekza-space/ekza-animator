@@ -17,7 +17,7 @@
 // S·pivot); seam vertices take the in-plane part (with Preserve Seam they are projected onto the plane); picked
 // vertices without a partner get M on their own side only and the run warns `symmetry.unmatched-partner`. With soft
 // selection every vertex takes w·Δ, weights from the expanded selection (§5.15).
-import { coerceArgs, type ParamValues, type ReadonlyXf } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValues, type ReadonlyXf } from '@ekza-studio/anim-core';
 import { BitSet } from '../../bitset';
 import { kernelError } from '../../kernel';
 import { refuse } from '../../refusal';

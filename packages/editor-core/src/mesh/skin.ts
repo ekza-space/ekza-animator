@@ -9,8 +9,8 @@
 //   a live ancestor folds onto the first live palette root); merged influences add up, the top 4 are kept and
 //   renormalized; the read carries the warning `skin.dangling-joint`.
 // - **Morph names** come from the manifest's `morph:<name>` layers only, in manifest order.
-import type { JointId, MeshRecord } from '@ekza-animator/doc';
-import type { MeshData, OpWarning } from '@ekza-animator/mesh-core';
+import type { JointId, MeshRecord } from '@ekza-studio/doc';
+import type { MeshData, OpWarning } from '@ekza-studio/mesh-core';
 
 export interface PaletteJoint {
   readonly id: string;

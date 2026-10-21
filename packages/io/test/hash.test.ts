@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { sha256Hex as coreSha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex as coreSha256Hex } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import { sha256Hex, sha256HexSync, toHex } from '../src/hash/sha256';
 

@@ -2,7 +2,7 @@
 // `asset.extras.ekza_model_v1` (tool, version, derived-from entries, generator) and the handheld grip block
 // `asset.extras.ekza_handheld_v1` of the registry's handheld-glb-v1 contract. Both are written with a fixed key order
 // so the bytes are deterministic, and neither ever holds a key named `uri` (a self-contained GLB has none).
-import type { DerivedFrom, HandheldGrip } from '@ekza-animator/doc';
+import type { DerivedFrom, HandheldGrip } from '@ekza-studio/doc';
 import type { EkzaModelV1 } from '../types';
 
 export const MODEL_META_KEY = 'ekza_model_v1';
@@ -11,7 +11,7 @@ export const HANDHELD_META_KEY = 'ekza_handheld_v1';
 /** Bounds of the grip block (M6A-SPEC §4.2 `HandheldGrip`). */
 export const HANDHELD_BOUNDS = { offset: 0.3, rotationDegrees: 360, scale: [0.25, 2] } as const;
 
-/** The manual-authoring provenance of an Ekza Animator export. */
+/** The manual-authoring provenance of an Ekza Studio export. */
 export function manualModelProvenance(opts: {
   readonly toolVersion: string;
   readonly projectSha256?: string | null;

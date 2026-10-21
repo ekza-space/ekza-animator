@@ -1,8 +1,8 @@
 // Pose operators (MVP-SPEC §4.9 `pose.*`, §4.11.19, §4.11.20) on the synthetic humanoid: reset, copy/paste (session
 // and system clipboard, mirrored), mirror flip and one-sided modes with scope expansion, pin/plant feet; every pose
 // change goes through the §4.11.2 rules (static values here, the controls have no keys).
-import { mat4Decompose, quatAngle } from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+import { mat4Decompose, quatAngle } from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import type { FakeEditorApp } from '../../src/testing';
 import { expectUndoRedoExact, opsApp, opsAppWith, READY, runOk, runResult, setSceneFrame, WAVE } from './support';

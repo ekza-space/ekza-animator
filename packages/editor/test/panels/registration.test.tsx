@@ -1,4 +1,4 @@
-import { PANEL } from '@ekza-animator/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { createPanelRegistry, registerBuiltinPanels } from '../../src';
 import { registerAttributesPanel } from '../../src/panels/attributes';

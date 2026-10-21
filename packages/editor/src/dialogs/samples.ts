@@ -1,5 +1,5 @@
 // Bundled samples and their credits (ADR 0012; fixtures/LICENSES.md). Shown in the Open dialog and in About.
-import type { SampleId } from '@ekza-animator/editor-core';
+import type { SampleId } from '@ekza-studio/editor-core';
 
 export interface SampleInfo {
   readonly id: SampleId;

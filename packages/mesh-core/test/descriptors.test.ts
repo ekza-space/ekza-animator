@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { assertParams, coerceArgs, type ParamDef, paramDefaults, primaryParam } from '@ekza-animator/anim-core';
+import { assertParams, coerceArgs, type ParamDef, paramDefaults, primaryParam } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
   MAYA_PRIMITIVE_DEFAULTS,

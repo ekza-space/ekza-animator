@@ -1,9 +1,9 @@
 // One key-retiming drag as one undo step (MVP-SPEC §4.11.0 "Drags use store.beginPreview …"): the edit kernel runs
 // inside preview updates, the final update resolves collisions, the commit becomes one document undo entry and the
 // gesture records exactly one editor-history step.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { PreviewSession, Tx } from '@ekza-animator/doc';
-import { type EditorApp, selectionSnapshot } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { PreviewSession, Tx } from '@ekza-studio/doc';
+import { type EditorApp, selectionSnapshot } from '@ekza-studio/editor-core';
 
 export class KeyDrag {
   private preview: PreviewSession | null = null;

@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ControlId, Tx } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ControlId, Tx } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { applyChannelEdits } from '../../src';
 import { createNaiveStore } from '../../src/testing';

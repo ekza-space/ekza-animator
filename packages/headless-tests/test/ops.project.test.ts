@@ -1,9 +1,9 @@
 // ops.* (WP-7b): projects through the operators (ADR 0011, MVP-SPEC §4.9 `file.*`): `.ekzanim` save → open round
 // trip (E2E-19), the JSON debug variant, `file.open` dispatch by file type, `file.new`, dirty tracking, and opening
 // that replaces (never merges).
-import type { AssetId, ClipId, ControlId } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { AssetId, ClipId, ControlId } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { describe, expect, it } from 'vitest';
 import { BLOCKED, importFixture, realApp, runOk, runtimeOf, SIBLINGS_READY, setSceneFrame } from './ops.support';
 

@@ -1,11 +1,11 @@
 // Contract file: MVP-SPEC §4.4 with the M2A-SPEC §4.4 and M6A-SPEC §4.5 additions, copied verbatim (shapes are normative;
 // change the spec first). The M6a functions and constants live in the lazy entries `io/mesh` and `io/write` (§4.5).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { Fps, Frame, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { Fps, Frame, ReadonlyXf } from '@ekza-studio/anim-core';
 import type { AssetId, AssetRecord, CharacterId, ClipId, ColourOutput, DerivedFrom, DocSnapshot,
-  GeneratorProvenance, HandheldGrip, Redistributable, RootMotionMode } from '@ekza-animator/doc';
-import type { MeshData } from '@ekza-animator/mesh-core';
-import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-animator/rig';
+  GeneratorProvenance, HandheldGrip, Redistributable, RootMotionMode } from '@ekza-studio/doc';
+import type { MeshData } from '@ekza-studio/mesh-core';
+import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-studio/rig';
 
 /** Loosely typed glTF JSON; typed accessors live in io/src/gltf/schema.ts. */
 export interface GltfJson {

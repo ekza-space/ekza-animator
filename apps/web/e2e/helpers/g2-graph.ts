@@ -49,7 +49,7 @@ export async function rzKeyAt(page: Page, seed: WaveSeed, frame: number): Promis
 export async function sampleCurve(page: Page, curve: string, from: number, to: number, step: number) {
   return page.evaluate(
     ([id, a, b, h]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       const samples: { frame: number; value: number }[] = [];
       const count = Math.round((b - a) / h);

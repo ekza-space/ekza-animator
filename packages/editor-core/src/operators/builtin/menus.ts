@@ -3,8 +3,8 @@
 // `mesh-tools`, `mesh-display`, `uv` (M6A-SPEC §8.3); a dotted id is a submenu (`graph.tangents`). The shell adds its own items
 // (dialogs, windows, help); the time slider owns `timeline.context`. Enabled state and shortcut labels come from the
 // operators' polls and the keymap.
-import type { InfinityMode, TangentType } from '@ekza-animator/anim-core';
-import type { LimbId } from '@ekza-animator/rig';
+import type { InfinityMode, TangentType } from '@ekza-studio/anim-core';
+import type { LimbId } from '@ekza-studio/rig';
 import type { GraphViewMode, MenuItemDef, TweenMode, WorkspaceId } from '../../types';
 
 type Item = Omit<MenuItemDef, 'id'> & { readonly name: string };

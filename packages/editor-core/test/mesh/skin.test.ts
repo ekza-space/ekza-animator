@@ -2,8 +2,8 @@
 // "add joint" after another wrote weights on it: the weights fold to the nearest live ancestor from the manifest,
 // `skin.dangling-joint`; an imported skin with `data.joints: []` never folds), morph names from the manifest only,
 // unknown layers surviving commits, undo and the revision codec, and `MeshRef.joints` copied from the manifest.
-import type { JointId, MeshRecord, SkeletonId } from '@ekza-animator/doc';
-import { makeTestCharacter, makeTestJoint, makeTestSkeleton } from '@ekza-animator/doc/testing';
+import type { JointId, MeshRecord, SkeletonId } from '@ekza-studio/doc';
+import { makeTestCharacter, makeTestJoint, makeTestSkeleton } from '@ekza-studio/doc/testing';
 import {
   BUILTIN_LAYERS,
   editMeshFrom,
@@ -14,7 +14,7 @@ import {
   primitive,
   readRevision,
   writeRevision,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { morphNamesOf, readSkin, refJointsOf } from '../../src';
 import { createMesh, meshTestApp, offsetOp, testOperator } from './support';

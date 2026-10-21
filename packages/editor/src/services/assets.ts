@@ -1,9 +1,9 @@
 // Content-addressed in-memory asset store of the browser host (research 06 §10.1; MVP-SPEC §4.5 AssetStore).
 // `get` re-hashes the stored bytes, so a corrupted cache surfaces as EkzaError('asset-corrupt') instead of a broken
 // bake. Async so a remote store (presigned URLs, M3) fits behind the same interface.
-import { EkzaError } from '@ekza-animator/anim-core';
-import { type AssetId, type AssetRecord, assetMime } from '@ekza-animator/doc';
-import type { AssetStore } from '@ekza-animator/editor-core';
+import { EkzaError } from '@ekza-studio/anim-core';
+import { type AssetId, type AssetRecord, assetMime } from '@ekza-studio/doc';
+import type { AssetStore } from '@ekza-studio/editor-core';
 
 /** Lowercase hex SHA-256 of `bytes` (WebCrypto). */
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {

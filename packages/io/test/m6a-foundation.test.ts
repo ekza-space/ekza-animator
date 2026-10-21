@@ -7,7 +7,7 @@ import { BUILTIN_EXPORT_KINDS, BUILTIN_EXPORT_PROFILES, PROFILE_OMOBA_HANDHELD }
 import { editLicence, meshFromGltf, meshToPrimitives, writePaletteTexture } from '../src/mesh';
 import { readProjectArchive, writeProjectArchive } from '../src/project/archive';
 import { rebuildContainer, replacePrimitives, writeStaticGlb } from '../src/write';
-import { emptySnapshot } from '@ekza-animator/doc';
+import { emptySnapshot } from '@ekza-studio/doc';
 
 const code = async (fn: () => unknown): Promise<string | null> => {
   try {

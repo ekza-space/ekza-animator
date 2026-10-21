@@ -3,7 +3,7 @@
 // centred at `offset` in the camera plane (right, up), `size` metres high with the image's aspect and `opacity`.
 // `behind` planes draw right after the backdrop without depth (geometry drawn later covers them), `front` planes
 // after the geometry and controls without a depth test. They live in their own scene: never picked, never exported.
-import type { ViewPreset } from '@ekza-animator/editor-core';
+import type { ViewPreset } from '@ekza-studio/editor-core';
 import {
   DoubleSide,
   Matrix4,

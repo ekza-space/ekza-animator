@@ -9,8 +9,8 @@ import {
   type ReplicatingStore,
   serializeSnapshot,
   type UserId,
-} from '@ekza-animator/doc';
-import { makeTestDocument, newScene, seedScene, writeScene } from '@ekza-animator/doc/testing';
+} from '@ekza-studio/doc';
+import { makeTestDocument, newScene, seedScene, writeScene } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import * as Y from 'yjs';
 import { createYjsStore, isYjsStore, type YjsDocumentStore, yjsHarness } from '../src';

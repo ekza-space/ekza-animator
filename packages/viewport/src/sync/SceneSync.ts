@@ -5,14 +5,14 @@
 // M2a (M2A-SPEC §5.5, A2): control visibility is `controlVisibility` (rules 1–3), recomputed on selection,
 // hidden-control and preference changes and, per evaluated pose, only when a limb's ikFk crossed a rule-2 threshold
 // (a per-slot state array, compared without allocating); limbs' poles get their annotation lines.
-import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
+import { type Mat4, mat4Compose } from '@ekza-studio/anim-core';
 import {
   batchTables,
   type CharacterId,
   type CharacterRecord,
   type ControlId,
   type ControlRecord,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type CharacterRuntime,
   type ControlVisibility,
@@ -20,8 +20,8 @@ import {
   controlVisibilityResolver,
   type EditorApp,
   limbVisibilityState,
-} from '@ekza-animator/editor-core';
-import type { LoadedModel } from '@ekza-animator/io/three';
+} from '@ekza-studio/editor-core';
+import type { LoadedModel } from '@ekza-studio/io/three';
 import { Group, type Material, type Mesh, type Object3D, type Scene } from 'three';
 import type { ControlLayer, PoleLink } from '../controls/ControlLayer';
 import { LAYER } from '../layers';

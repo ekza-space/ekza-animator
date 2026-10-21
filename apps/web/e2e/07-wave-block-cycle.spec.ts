@@ -14,7 +14,7 @@ function sampleFrames(page: Page, ms: number): Promise<number[]> {
         const frames: number[] = [];
         const start = performance.now();
         const tick = (): void => {
-          const state = window.__EKZA_ANIMATOR_TEST__?.state();
+          const state = window.__EKZA_STUDIO_TEST__?.state();
           if (state?.clipFrame !== null && state?.clipFrame !== undefined) frames.push(state.clipFrame);
           if (performance.now() - start < duration) requestAnimationFrame(tick);
           else resolve(frames);

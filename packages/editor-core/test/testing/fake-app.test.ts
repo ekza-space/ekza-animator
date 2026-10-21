@@ -1,5 +1,5 @@
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { ChannelValues, ClipId, ControlId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { ChannelValues, ClipId, ControlId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { createFakeEditorApp, createFakeServices, type FakeEditorApp } from '../../src/testing';
 import type { OperatorDef } from '../../src/types';

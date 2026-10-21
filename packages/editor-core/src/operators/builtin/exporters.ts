@@ -1,6 +1,6 @@
 // Built-in exporters (ADR 0008 exporter registry, ADR 0005): bake into the original model (surgeon), animation-only
 // GLB, and VRMA (one file per clip). `file.export` dispatches through the registry; extensions add kinds the same way.
-import type { ExportRequest } from '@ekza-animator/io';
+import type { ExportRequest } from '@ekza-studio/io';
 import type { EditorApp, ExporterDef } from '../../types';
 import { type BuiltinExportKind, exportExtension, pollExport, runExport } from '../../workflows/export';
 

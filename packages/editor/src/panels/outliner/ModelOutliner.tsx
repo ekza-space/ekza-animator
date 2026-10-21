@@ -5,15 +5,15 @@
 // mode, adds a mesh to the hilite set (`model.hilite`); a plane row selects the plane for Attributes. Dragging an
 // object onto a group or mesh parents it (`scene.parent`), onto Scene unparents it (`scene.unparent`). RMB: Make
 // editable · Rename (`F2`/`Enter`) · Duplicate · Group · Isolate · Center Pivot · Mesh Check · Export Selected….
-import type { CharacterId, MeshId, MeshRecord } from '@ekza-animator/doc';
+import type { CharacterId, MeshId, MeshRecord } from '@ekza-studio/doc';
 import {
   type EditorApp,
   meshKernel,
   type SceneObjectId,
   type SessionState,
   type SymmetrySettings,
-} from '@ekza-animator/editor-core';
-import type { MeshData } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import type { MeshData } from '@ekza-studio/mesh-core';
 import {
   type DragEvent,
   type JSX,

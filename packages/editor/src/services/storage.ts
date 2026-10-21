@@ -1,7 +1,8 @@
 // Preference and layout storage over localStorage (PrefsStorage, MVP-SPEC §4.5). Every access is wrapped in
 // try/catch (private mode, quota, disabled storage): the editor runs with no storage at all (research 09 §9.2).
-import type { PrefsStorage } from '@ekza-animator/editor-core';
+import type { PrefsStorage } from '@ekza-studio/editor-core';
 
+/** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1): a new prefix would orphan stored prefs and layouts. */
 export const STORAGE_PREFIX = 'ekza-animator:';
 
 /** Keys are stored as `${namespace}${key}`. Falls back to memory when localStorage is unavailable. */

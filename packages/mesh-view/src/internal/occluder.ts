@@ -3,7 +3,7 @@
 // the surfaces of meshes outside the hilite set) answer whether a world segment from the camera to a candidate crosses
 // one of their drawn triangles. `TriangleOccluder` is the surface-side answer: a three-mesh-bvh BVH over a static
 // triangle list, built only once a segment reaches its bounding box.
-import type { Triangulation } from '@ekza-animator/mesh-core';
+import type { Triangulation } from '@ekza-studio/mesh-core';
 import { Box3, BufferAttribute, BufferGeometry, DoubleSide, Matrix4, Ray, Vector3 } from 'three';
 import { MeshBVH } from 'three-mesh-bvh';
 import type { Topo } from './topo';

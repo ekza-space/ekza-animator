@@ -2,8 +2,8 @@
 // compile to ops; a record whose kind and type have no registered implementation compiles to a disabled op with an
 // 'unsupported-op' warning. `registerBuiltinRigOps` registers the built-in implementations (M2a: `solver:ik2`, A1)
 // without a schema change. Registration is explicit (nothing registers on import).
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import type { ConstraintRecord, ControlId, SolverRecord } from '@ekza-studio/doc';
 import { ik2Op } from '../limb/ik2';
 import type { ChannelBuffer, PoseBuffers, RigOpCompileContext, RigProgram } from '../types';
 

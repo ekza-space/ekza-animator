@@ -3,8 +3,8 @@
 // glb/vrm/vrma under the manifest key `assets`, and never inflates `images/` or `blobs/` entries. The container code
 // is copied verbatim; the document part keeps M2a's rule (schema 2: a newer `minWriterVersion` opens read-only).
 // It also reports the entries it inflated, so a test can tell that unknown entries were never read.
-import { EkzaError, sha256Hex } from '@ekza-animator/anim-core';
-import { parseSnapshot } from '@ekza-animator/doc';
+import { EkzaError, sha256Hex } from '@ekza-studio/anim-core';
+import { parseSnapshot } from '@ekza-studio/doc';
 import { type UnzipFileInfo, unzipSync } from 'fflate';
 
 /** The M2a app's core format version. */

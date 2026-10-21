@@ -1,8 +1,8 @@
 // Graph Editor parts of the e2e test API (MVP-SPEC §4.8 `graph`, `screenOfKey`, `screenOfHandle`, `screenOfCurve`),
 // in page CSS px, for the focused Graph Editor. The shell's test API (WP-8) delegates to these.
-import type { RegionHandle } from '@ekza-animator/curve-editor';
-import type { CurveId, KeyId } from '@ekza-animator/doc';
-import type { EditorApp, GraphViewMode } from '@ekza-animator/editor-core';
+import type { RegionHandle } from '@ekza-studio/curve-editor';
+import type { CurveId, KeyId } from '@ekza-studio/doc';
+import type { EditorApp, GraphViewMode } from '@ekza-studio/editor-core';
 import { focusedGraphEditor, type GraphEditorHandle } from './focus';
 
 export interface GraphTestHooks {

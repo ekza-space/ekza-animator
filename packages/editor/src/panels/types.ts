@@ -1,5 +1,5 @@
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, KeyScope, PanelKind } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, KeyScope, PanelKind } from '@ekza-studio/editor-core';
 import type { ComponentType } from 'react';
 
 export interface PanelProps {

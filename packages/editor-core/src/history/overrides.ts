@@ -1,7 +1,7 @@
 // Override bookkeeping shared by the runner, the gesture helper and the history: session pose overrides are
 // `ControlId → ChannelValues`; history steps store the before/after values of the controls a step changed.
-import type { Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ChannelValues, ClipId, ControlId } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { CharacterId, ChannelValues, ClipId, ControlId } from '@ekza-studio/doc';
 import type { OverrideDelta } from '../types';
 
 /** Where overrides live: the active character's active clip at its clip frame. */

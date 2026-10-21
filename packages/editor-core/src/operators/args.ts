@@ -1,12 +1,12 @@
 // Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions and the M6A-SPEC §6 rows (B0a), copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-animator/anim-core';
+import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-studio/anim-core';
 import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, GroupId, ImagePlaneId,
   ImagePlaneRecord, KeyId, MeshId, MeshRecord, OrthoCamera, PaletteId, Redistributable, RootMotionMode, SwatchId,
-  SwatchShader } from '@ekza-animator/doc';
-import type { ComponentKind } from '@ekza-animator/mesh-core';
-import type { ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-animator/io';
-import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-animator/rig';
+  SwatchShader } from '@ekza-studio/doc';
+import type { ComponentKind } from '@ekza-studio/mesh-core';
+import type { ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-studio/io';
+import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-studio/rig';
 import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMode, HistoryResult, IkFkKeyMode,
   KeyPartSelection, KeyPolicy, KeyTarget, LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed,
   Prefs, SelectionMask, SelectMode, ToolId, TweenMode, UiDialog, ViewportLayout } from '../types';

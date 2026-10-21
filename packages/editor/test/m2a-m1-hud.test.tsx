@@ -1,9 +1,9 @@
 // M2A-SPEC §5.21.1 (M-1): the viewport HUD rewrites its frame and seconds only when the text changes. It listens to
 // every document batch, and a drag emits one per frame; writing the same text again replaced the text node, which
 // invalidated layout and made the viewport's next rect read force a layout in the middle of the frame.
-import type { DocSnapshot } from '@ekza-animator/doc';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { DocSnapshot } from '@ekza-studio/doc';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { EditorAppProvider } from '../src';
 import { ViewportPanel } from '../src/panels/viewport';

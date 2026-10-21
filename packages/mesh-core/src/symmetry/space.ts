@@ -10,7 +10,7 @@
 // but it always is the exact local image of the world-space reflection. The in-plane projection of a point is the
 // midpoint of p and S(p) (`p − d(p)·g`), the in-plane part of a delta `Δ − (n·Δ)·g` — the helpers ops share (§5.14
 // seam rules). World distances between local points are |diag(s)·(p − q)| (the rotation keeps lengths).
-import type { ReadonlyVec3, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyVec3, ReadonlyXf } from '@ekza-studio/anim-core';
 import { kernelError } from '../kernel';
 import type { SymmetryAxis, SymmetryMap } from '../types';
 

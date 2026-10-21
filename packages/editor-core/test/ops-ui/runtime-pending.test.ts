@@ -3,8 +3,8 @@
 // the chunk has loaded (unless it was disarmed meanwhile); the tracker, bound late, closes a LastRun that another write
 // made stale; Adjust Last waits for the chunk (undo waits for that adjust). (The chunk loads once per module graph,
 // so the cases share one load.)
-import type { ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import {
   type EditorApp,

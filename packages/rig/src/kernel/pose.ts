@@ -1,5 +1,5 @@
-import type { Mat4 } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
+import type { Mat4 } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
 import { controlSlotOf } from '../sampler/channels';
 import type { PoseBuffers, RigProgram } from '../types';
 

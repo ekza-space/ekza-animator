@@ -1,6 +1,6 @@
 // View and rig operators owned by WP-7b (MVP-SPEC §4.9): tools, manipulator size and space, navigation profile,
 // control size (undoable), secondary controls, camera settings (WP-9 R-3). Rotate order: rig.test.ts.
-import type { CameraId } from '@ekza-animator/doc';
+import type { CameraId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { expectUndoRedoExact, opsApp, runOk, runResult, WAVE } from './support';
 

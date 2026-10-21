@@ -5,7 +5,7 @@ import {
   curveEngine,
   EkzaError,
   type Frame,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import {
   type AnyChange,
   batchTables,
@@ -17,7 +17,7 @@ import {
   type CurveRecord,
   type DocumentStore,
   TRS_CHANNELS,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { CHANNELS_PER_CONTROL, type ChannelBuffer, type ClipSampler, type CurveInfo, type RigProgram } from '../types';
 import { attrChannelSlot, channelDefaultValue, channelSlot } from './channels';
 

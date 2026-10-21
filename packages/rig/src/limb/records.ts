@@ -7,7 +7,7 @@ import {
   fractionalIndex,
   type SolverRecord,
   solverId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import { hasRequiredHumanoid } from '../autorig/definition';
 import { clean } from '../autorig/shapes';
 import { restContext } from '../autorig/spec';

@@ -1,7 +1,7 @@
 // A synthetic third-party VRMA for reader tests (MVP-SPEC §4.11.7): non-identity rest rotations on humanoid and
 // non-humanoid nodes, a translation-only intermediate node between hips and spine, a rotated intermediate node
 // between chest and neck, a rotated root above hips and an eye mapping.
-import { quatNormalize, type Quat } from '@ekza-animator/anim-core';
+import { quatNormalize, type Quat } from '@ekza-studio/anim-core';
 import { GltfBuilder } from '../../src/testing/glb';
 
 export const VRMA_TIMES = [0, 0.5, 1];

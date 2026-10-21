@@ -5,10 +5,10 @@
 //                 └─► character registry (runtimes) ─► evaluation (dirty characters) ─► requestFrame
 //   session time  ──► keeper (drop overrides of moved characters) ─► evaluation ─► requestFrame
 //   prefs         ──► storage (persisted) ─► keymap (user overrides, Space behaviour)
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { AnyChange, CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-animator/doc';
-import { setDefaultIdSource } from '@ekza-animator/doc';
-import type { ExportProfileDef } from '@ekza-animator/io';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { AnyChange, CharacterId, ChangeBatch, DocumentStore, IdSource } from '@ekza-studio/doc';
+import { setDefaultIdSource } from '@ekza-studio/doc';
+import type { ExportProfileDef } from '@ekza-studio/io';
 import { createStore } from 'zustand/vanilla';
 import { gateModelLoader } from '../characters/models';
 import { createCharacterRegistry } from '../characters/registry';

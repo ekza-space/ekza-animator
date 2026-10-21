@@ -14,8 +14,8 @@ import {
   type ControlRecord,
   type ReadView,
   TRS_CHANNELS,
-} from '@ekza-animator/doc';
-import type { MirrorMode, PoseClipboard } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import type { MirrorMode, PoseClipboard } from '@ekza-studio/rig';
 import { attrChannelsOf, attrDefOf, channelDefaultOf, isKeyAllChannel, isKeyable, isLocked } from '../edit/channelMeta';
 import type { ChannelEdit, EditorApp } from '../types';
 

@@ -1,4 +1,4 @@
-import { readFixture } from '@ekza-animator/doc/testing';
+import { readFixture } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { CHUNK_BIN, CHUNK_JSON, parseGlb, readGlbLayout } from '../src/glb/parse';
 import { align4, assembleGlb } from '../src/glb/write';

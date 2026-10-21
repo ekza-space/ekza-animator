@@ -10,8 +10,8 @@
 // - **Two-phase** (`pending`): a commit changes the content before its transaction ends; the batch that carries the
 //   new ref confirms it (the journal edge is recorded then), anything else reverts it, so the runtime never
 //   diverges from the committed ref.
-import { type Disposer, EkzaError } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRef } from '@ekza-animator/doc';
+import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRef } from '@ekza-studio/doc';
 import type {
   ComponentSelection,
   DirtySet,
@@ -22,7 +22,7 @@ import type {
   RevisionManifest,
   SymmetryMap,
   Triangulation,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import type { BlobId, BlobStore, MeshRuntime, MeshRuntimeEvent, MeshRuntimeState } from '../types';
 import { ALL_DIRTY, CLEAN, dirtyOf, mergeDirty, trianglesDirty } from './dirty';
 import type { OpInput } from './input';

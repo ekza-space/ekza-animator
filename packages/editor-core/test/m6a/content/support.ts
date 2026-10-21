@@ -1,8 +1,8 @@
 // Shared helpers of B13's editor-core tests (M6A-SPEC §9 B13): an app over the real doc store and kernel (B7's
 // `meshTestApp`), paint strokes committed through the runtime (B11 registers `mesh.paint`; until then the tests commit
 // the kernel op directly, as its operator would), counts, world bounds and READY probes.
-import type { MeshId } from '@ekza-animator/doc';
-import { MESH_OPS } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import { MESH_OPS } from '@ekza-studio/mesh-core';
 import { type MeshTestApp, meshTestApp } from '../../mesh/support';
 
 export { meshTestApp, type MeshTestApp };

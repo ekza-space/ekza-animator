@@ -14,8 +14,8 @@
 //   (`BlobStore.closure`, after reading non-resident manifests through `BlobStore.get`) and a verified blob reader;
 //   the closure is pinned as a GC root from the moment the snapshot is taken until the write resolves, and the last
 //   written slot's closure stays pinned until the next write or the slot's removal.
-import { SCHEMA_VERSION, serializeSnapshot } from '@ekza-animator/doc';
-import type { AssetRecord, ChangeBatch } from '@ekza-animator/doc';
+import { SCHEMA_VERSION, serializeSnapshot } from '@ekza-studio/doc';
+import type { AssetRecord, ChangeBatch } from '@ekza-studio/doc';
 import { attachMeshes } from '../mesh';
 import type { AutosaveSlotInfo, AutosaveStatus, AutosaveStore, BlobId, EditorApp } from '../types';
 import { liveManifests, openAllPartitions } from '../workflows/project';
@@ -257,7 +257,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
         cancelTimer();
         setStatus({ pending: false, error: 'quota' });
       } else {
-        console.warn('Ekza Animator: autosave failed', error);
+        console.warn('Ekza Studio: autosave failed', error);
         setStatus({ error: messageOf(error) });
       }
       throw error;
@@ -343,7 +343,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     try {
       await refreshRecovery();
     } catch (error) {
-      console.warn('Ekza Animator: could not list recovery points', error);
+      console.warn('Ekza Studio: could not list recovery points', error);
     }
     // A page that was just reloaded may still hold its lock for a moment: look once more a little later.
     timers.recheck = clock.setTimeout(() => {

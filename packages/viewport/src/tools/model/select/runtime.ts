@@ -9,8 +9,8 @@
 // - pushes `view.isolate`'s face sets to the display and drops the ones a topology change made stale;
 // - drives the Mesh Check overlay (§5.25): while any pane has `DisplayFlags.meshCheck` in Model, every drawn mesh's
 //   problems (the Mesh Check panel's options) go to the display, recomputed only for meshes that changed.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   componentInternals,
   type EditorApp,
@@ -20,8 +20,8 @@ import {
   provideModelPointer,
   type SelectMode,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
-import type { BitSet, ComponentKind, MeshProblem } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import type { BitSet, ComponentKind, MeshProblem } from '@ekza-studio/mesh-core';
 import { type Camera, Matrix4, Ray, Vector3 } from 'three';
 import type { SpatialBounds } from '../../../framing/bounds';
 import type { ViewportManager } from '../../../manager/ViewportManager';

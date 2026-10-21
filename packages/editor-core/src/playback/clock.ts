@@ -9,8 +9,8 @@
 // - With `snapToFrames` the displayed frame is an integer active-clip frame; the clock keeps the fractional position
 //   internally so real-time playback does not drift.
 // - A frame change made by someone else (scrubbing during playback) moves the clock to that frame.
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { ClipRecord, DocumentStore } from '@ekza-animator/doc';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { ClipRecord, DocumentStore } from '@ekza-studio/doc';
 import type { KernelDeps } from '../app/deps';
 import { activeClipOf, sceneFpsOf } from '../evaluation/time';
 import type { PlaybackClock, SessionStore, TimeState } from '../types';

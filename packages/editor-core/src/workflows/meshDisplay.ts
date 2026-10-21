@@ -8,7 +8,7 @@
 //   by `rebuildContainer` from the latest revisions of their edited meshes (never a geometry swap inside the loaded
 //   scene). The rebuild runs when leaving Model and on idle after commits (debounced 500 ms, then
 //   `requestIdleCallback` with a 2 s timeout); the previous display stays until the new one is ready.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import {
   type ChangeBatch,
   type CharacterId,
@@ -16,8 +16,8 @@ import {
   derivedId,
   type MeshId,
   type MeshRecord,
-} from '@ekza-animator/doc';
-import type { GlbContainer } from '@ekza-animator/io';
+} from '@ekza-studio/doc';
+import type { GlbContainer } from '@ekza-studio/io';
 import { isAssetCharacter } from '../characters/registry';
 import type { CharacterRuntime, EditorApp, SessionStore } from '../types';
 

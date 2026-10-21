@@ -1,7 +1,7 @@
 // Cameras (ADR 0006 §3): per-pane view cameras (persp/top/front/side, user state) and shot cameras (CameraRecord,
 // document state, shared by every pane that looks through them). Canonical space: +Y up, characters face +Z.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
-import type { CameraId, CameraRecord } from '@ekza-animator/doc';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
+import type { CameraId, CameraRecord } from '@ekza-studio/doc';
 import { OrthographicCamera, PerspectiveCamera, Vector3 } from 'three';
 import { type NavCamera, NavigationController } from '../navigation/NavigationController';
 import type { CameraSnapshot, ViewPreset } from '../types';

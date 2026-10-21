@@ -1,8 +1,8 @@
 // M6A-SPEC §5.20 (B7): mesh blobs in `.ekzanim` saves and opens (byte-identical saves, a fresh app opens the same
 // revision, the JSON variant warns and its meshes go 'error' where the chunks are not resident), in autosave writes
 // (the blob closure per slot, in-flight and slot pins as GC roots) and in recovery (the slot as a lazy blob source).
-import type { AssetId, AssetRecord, MeshId, MeshRef } from '@ekza-animator/doc';
-import { primitive } from '@ekza-animator/mesh-core';
+import type { AssetId, AssetRecord, MeshId, MeshRef } from '@ekza-studio/doc';
+import { primitive } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import {
   type AutosaveSlotInfo,

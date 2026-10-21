@@ -1,7 +1,7 @@
 // Shared bake inputs for io tests: default options and the synthetic humanoid skeleton.
-import { quatFromAxisAngle, type ReadonlyXf } from '@ekza-animator/anim-core';
-import { readSyntheticFixture } from '@ekza-animator/doc/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import { quatFromAxisAngle, type ReadonlyXf } from '@ekza-studio/anim-core';
+import { readSyntheticFixture } from '@ekza-studio/doc/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { BakeOptions, EkzaClipMetaV1 } from '../../src/types';
 
 export const syntheticSkeleton = (): SkeletonDesc => readSyntheticFixture('humanoid-skeleton.json') as SkeletonDesc;

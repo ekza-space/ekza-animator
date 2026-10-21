@@ -6,9 +6,9 @@ import {
   quatAngle,
   quatFromAxisAngle,
   type ReadonlyQuat,
-} from '@ekza-animator/anim-core';
-import type { ClipRecord, ControlId } from '@ekza-animator/doc';
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import type { ClipRecord, ControlId } from '@ekza-studio/doc';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import { describe, expect, it } from 'vitest';
 import { createFakeEditorApp, naiveCurveEngine } from '../../src/testing';
 import { naiveSceneToClipFrame, naiveWrapClipFrame } from '../../src/testing/naive';

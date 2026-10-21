@@ -5,7 +5,7 @@
 // (partner −1) stay on their own side and are counted. The mirror follows B2's `MirrorSpace` (Object: the local axis
 // plane at `map.plane`; World: the world axis plane through the origin mapped into local space by the placement), so
 // INT can swap these helpers for B2's `expandSelection`, `selectionUnmatchedWarning` and `symmetrizeVertices`.
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import type { BitSet } from '../../bitset';
 import { kernelError } from '../../kernel';
 import type { ComponentKind, ComponentSelection, EditMesh, HiddenSet, OpWarning, SymmetryMap } from '../../types';

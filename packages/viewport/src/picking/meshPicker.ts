@@ -2,8 +2,8 @@
 // the current skinning and morphs applied (three's Mesh.raycast). The hit triangle's dominant joint (skin weights ×
 // barycentric coordinates) names the node; the caller maps it to the nearest driving control. Clicks only, never
 // hover: a skinned raycast costs O(triangles) skinned vertices.
-import type { CharacterId } from '@ekza-animator/doc';
-import type { LoadedModel } from '@ekza-animator/io/three';
+import type { CharacterId } from '@ekza-studio/doc';
+import type { LoadedModel } from '@ekza-studio/io/three';
 import {
   type Box3,
   type BufferAttribute,

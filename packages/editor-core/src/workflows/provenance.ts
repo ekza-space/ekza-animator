@@ -1,9 +1,9 @@
 // Clip provenance on import (MVP-SPEC §4.11.6 step 7, ADR 0010 §3): embedded clips of a VRM inherit the avatar's
 // VRM meta (title, authors, licence, `allowRedistribution`); clip or node names matching /mixamo/i force
 // `redistributable: 'no'`; GLB and VRMA files without licence data are 'unknown'; bundled samples pass their known
-// licence; a VRMA written by the Animator carries its clips' provenance in `ekza_animation_v1`, which is kept.
-import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-animator/doc';
-import type { GlbContainer, VrmLicenseInfo } from '@ekza-animator/io';
+// licence; a VRMA written by the editor carries its clips' provenance in `ekza_animation_v1`, which is kept.
+import type { ClipProvenance, DerivedFrom, Redistributable } from '@ekza-studio/doc';
+import type { GlbContainer, VrmLicenseInfo } from '@ekza-studio/io';
 import { isRecord, parseDerivedFrom } from './util';
 
 /** A licence known in advance (bundled samples). */
@@ -89,7 +89,7 @@ export function isRestrictedLicense(license: VrmLicenseInfo | null): boolean {
 const REDISTRIBUTABLE: ReadonlySet<string> = new Set(['yes', 'no', 'unknown']);
 
 /**
- * Provenance recorded by the Animator in a file it wrote (`asset.extras.ekza_animation_v1`): the entry of the glTF
+ * Provenance recorded by the editor in a file it wrote (`asset.extras.ekza_animation_v1`): the entry of the glTF
  * animation `index` (its `index` field), or the first entry when `index` is omitted (a VRMA holds one clip). Null
  * when the file carries none for that animation or it is malformed.
  */

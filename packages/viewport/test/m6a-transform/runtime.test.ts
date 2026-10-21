@@ -4,8 +4,8 @@
 // `scene.object.transform`, the MMB rule (view plane, last-picked handle, the INPUTS field), Tweak, snapping (grid,
 // increments, vertex onto another mesh), pivot editing (objects and components), the soft-select radius and overlay,
 // symmetric transforms through the UI path and the numeric capture target of a drag.
-import { type Mat4, mat4Compose } from '@ekza-animator/anim-core';
-import type { MeshId, MeshRecord, MeshRef } from '@ekza-animator/doc';
+import { type Mat4, mat4Compose } from '@ekza-studio/anim-core';
+import type { MeshId, MeshRecord, MeshRef } from '@ekza-studio/doc';
 import {
   componentInternals,
   type EditorApp,
@@ -15,9 +15,9 @@ import {
   registerBuiltinOperators,
   selectInputsField,
   setComponentSpace,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import { type MeshData, primitive, writeRevision } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import { type MeshData, primitive, writeRevision } from '@ekza-studio/mesh-core';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { type ModelTransformRuntime, modelSelectOf, modelTransformOf, transformReadout } from '../../src';
 import { createRig, drag, pointer, type Rig } from '../helpers';

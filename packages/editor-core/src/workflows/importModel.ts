@@ -1,8 +1,8 @@
 // Model import (MVP-SPEC §4.11.6): `prepareModelImport` parses, checks, rigs and converts clips without touching the
 // document (asynchronous; asset store, partitions); `applyModelImport` writes every record in the operator's single
 // transaction and points the session at the new character.
-import { EkzaError, type Fps } from '@ekza-animator/anim-core';
-import type { AssetRecord, CameraId, CharacterId, ClipId, ModelFormat, RigId, Tx } from '@ekza-animator/doc';
+import { EkzaError, type Fps } from '@ekza-studio/anim-core';
+import type { AssetRecord, CameraId, CharacterId, ClipId, ModelFormat, RigId, Tx } from '@ekza-studio/doc';
 import {
   checkInputBudget,
   detectModelFormat,
@@ -12,7 +12,7 @@ import {
   readVrmLicense,
   skeletonFromGltf,
   type VrmLicenseInfo,
-} from '@ekza-animator/io';
+} from '@ekza-studio/io';
 import {
   autoRig,
   compileRig,
@@ -23,7 +23,7 @@ import {
   type RigDefinition,
   type SkeletonDesc,
   writeRigDefinition,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { newRecordId } from '../app/internals';
 import type { ImportModelOptions, ImportResult } from '../operators/args';
 import type { EditorApp } from '../types';

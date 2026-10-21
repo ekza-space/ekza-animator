@@ -1,7 +1,7 @@
 // Curve painter (ADR 0007 §3–4): exact cubic Béziers via bezierCurveTo from the compiled handles, lineTo for linear
 // and stepped spans, a per-pixel sampled polyline for curves with more than one key per pixel, and dotted infinity
 // regions drawn by repeating (cycle, cycle-offset, oscillate) or extending (constant, linear) the key range.
-import { Segment, type SegmentKind } from '@ekza-animator/anim-core';
+import { Segment, type SegmentKind } from '@ekza-studio/anim-core';
 import { type CurveEntry, drawnOf } from '../graph/curveSet';
 import {
   drawnValueAt,

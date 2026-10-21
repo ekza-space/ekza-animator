@@ -1,4 +1,4 @@
-import { RAD2DEG } from '@ekza-animator/anim-core';
+import { RAD2DEG } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import type { GraphViewState } from '../src';
 import { frameStep, isMajor, MIN_FRAME_STEP_PX, MIN_VALUE_STEP_PX, stepDecimals, valueStep } from '../src/view/grid';

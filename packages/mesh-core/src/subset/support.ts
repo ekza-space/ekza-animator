@@ -2,7 +2,7 @@
 // resolution, the component sets an op acts on, small traversal helpers, the temporary flag mark that lets an op find
 // its elements again after removals moved them, orphan cleanup and the Euler-refusal guard. Kernel-internal (not in the
 // barrel).
-import { coerceArgs, EkzaError, type ParamDef, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, EkzaError, type ParamDef, type ParamValues } from '@ekza-studio/anim-core';
 import { refuse } from '../refusal';
 import { selectionOf } from '../selection';
 import type { ComponentKind, ComponentSelection, EditMesh, HiddenSet, Refusal } from '../types';

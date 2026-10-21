@@ -1,5 +1,5 @@
 // The kernel's seam to its sibling packages. `createEditorApp` binds the real implementations (doc, anim-core,
-// rig, io); the shared test kit binds naive stand-ins (`@ekza-animator/editor-core/testing`), so panels and kernel
+// rig, io); the shared test kit binds naive stand-ins (`@ekza-studio/editor-core/testing`), so panels and kernel
 // tests run against the same kernel code whatever state the sibling packages are in. Nothing here is public API.
 import {
   type AnimCurve,
@@ -11,7 +11,7 @@ import {
   type Frame,
   insertKeyPreservingShape,
   type KeyData,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import {
   type CharacterRecord,
   type ChannelValues,
@@ -25,8 +25,8 @@ import {
   type RigId,
   sceneToClipFrame,
   wrapClipFrame,
-} from '@ekza-animator/doc';
-import type { GlbContainer } from '@ekza-animator/io';
+} from '@ekza-studio/doc';
+import type { GlbContainer } from '@ekza-studio/io';
 import {
   applyOverrides,
   type ChannelBuffer,
@@ -41,7 +41,7 @@ import {
   readRigDefinition,
   registerBuiltinRigOps,
   type SkeletonDesc,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import type { AssetStore } from '../types';
 
 /** What a character runtime is built from: the parsed model container and its skeleton. */

@@ -9,8 +9,8 @@ import {
   type ReadonlyQuat,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId, ControlRecord } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId, ControlRecord } from '@ekza-studio/doc';
 import { internalsOf, type RigInternals } from '../kernel/internals';
 import { SLOT_CHANNELS } from '../sampler/channels';
 import type { MirrorMode, RigProgram } from '../types';

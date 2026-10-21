@@ -1,8 +1,8 @@
 // Per-app kernel internals the edit-kernel helpers need beyond the public `EditorApp` surface: the dependency
 // bindings (curve engine, shape-preserving insert, scene clock) and the history capture. Apps built by the kernel
 // register theirs; any other `EditorApp` implementation gets the production bindings and no capture.
-import type { IdOfKind, IdSource, TableName } from '@ekza-animator/doc';
-import { newId } from '@ekza-animator/doc';
+import type { IdOfKind, IdSource, TableName } from '@ekza-studio/doc';
+import { newId } from '@ekza-studio/doc';
 import type { DocCapture } from '../history/capture';
 import type { EditorApp } from '../types';
 import { DEFAULT_DEPS, type KernelDeps } from './deps';

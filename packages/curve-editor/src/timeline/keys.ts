@@ -1,8 +1,8 @@
 // Keys the time slider shows and edits (MVP-SPEC §4.11.17): those of the selected controls of the active character,
 // or of all its controls when nothing is selected, on the base layer of the active clip.
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ControlId, CurveRecord, KeyId, KeyRecord } from '@ekza-animator/doc';
-import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-animator/editor-core';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ControlId, CurveRecord, KeyId, KeyRecord } from '@ekza-studio/doc';
+import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-studio/editor-core';
 import { bandContains, type FrameRange, makeBand } from './band';
 import { activeTimelineContext, type TimelineContext } from './context';
 

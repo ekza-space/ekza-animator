@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright Autodesk, Inc. (AnimX); TypeScript port: Ekza Animator contributors. See ../../../NOTICE.
+// Copyright Autodesk, Inc. (AnimX); TypeScript port: Ekza Studio contributors. See ../../../NOTICE.
 // Licensed under the Apache License, Version 2.0 (../../../LICENSE-APACHE-2.0).
 // Internal entry of the AnimX port (https://github.com/Autodesk/animx @ 11c31ac74e526b599031414866db639383c9a5e0).
 

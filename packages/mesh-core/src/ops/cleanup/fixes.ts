@@ -13,7 +13,7 @@
 // - dissolve: joins the two edges of each stray vertex (H3);
 // - deleteLoose: kills wire edges, then vertices without edges.
 import { BitSet } from '../../bitset';
-import { EkzaError } from '@ekza-animator/anim-core';
+import { EkzaError } from '@ekza-studio/anim-core';
 import { copyEdgeAttributes, mergePointAttributes } from '../../layers/propagate';
 import { triangulate } from '../../triangulate/triangulate';
 import type { EditMesh, HiddenSet } from '../../types';

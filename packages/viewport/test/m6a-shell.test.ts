@@ -4,7 +4,7 @@
 // virtual slider at the MMB rate), a control selection carried over to Model (no manipulator, no unseen edit; edits
 // only from a pane that draws controls) and the Scale tool on controls (Animate) and on scene objects (Model, the
 // topmost selected objects only), with undo.
-import { DEG2RAD } from '@ekza-animator/anim-core';
+import { DEG2RAD } from '@ekza-studio/anim-core';
 import type {
   CharacterId,
   ControlId,
@@ -16,21 +16,21 @@ import type {
   RigId,
   Tx,
   UserId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type DisplayFlags,
   registerBuiltinOperators,
   type ToolInstance,
   type ToolPointerEvent,
   VIEWPORT_TOOL,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import {
   createFakeIkEditorApp,
   type FakeEditorApp,
   fixtureControl,
   withLimbIkRecords,
-} from '@ekza-animator/editor-core/testing';
-import type { LoadedModel } from '@ekza-animator/io/three';
+} from '@ekza-studio/editor-core/testing';
+import type { LoadedModel } from '@ekza-studio/io/three';
 import {
   BoxGeometry,
   Group,

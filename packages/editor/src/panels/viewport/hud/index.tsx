@@ -2,9 +2,9 @@
 // drawn in Model while the pane's `polyCount` flag is on; the HUD itself is a lazy chunk), the `BIND POSE` badge
 // (bottom-right, Model with a skinned mesh) and the `model.modes` / `model.convert` marking menus. The shell calls
 // `registerModelSelectUi` once per app.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { DocumentStore } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { DocumentStore } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { type JSX, lazy, Suspense } from 'react';
 import { useDocQuery, useSession } from '../../../hooks';
 import { CONVERT_MENU } from '../../../overlays/menus/convert';

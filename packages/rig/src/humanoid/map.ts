@@ -1,4 +1,4 @@
-import type { HumanBoneName, Side } from '@ekza-animator/doc';
+import type { HumanBoneName, Side } from '@ekza-studio/doc';
 import type { SkeletonDesc } from '../types';
 import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT } from './bones';
 

@@ -1,5 +1,5 @@
 {
-  "name": "@ekza-animator/mesh-view",
+  "name": "@ekza-studio/mesh-view",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@ekza-animator/anim-core": "workspace:*",
-    "@ekza-animator/mesh-core": "workspace:*",
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/mesh-core": "workspace:*",
     "three": "catalog:",
     "three-mesh-bvh": "0.9.15"
   },

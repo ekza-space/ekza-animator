@@ -1,6 +1,6 @@
-// `@ekza-animator/mesh-core` (M6A-SPEC §4.3): the mesh kernel's public API — a LAZY chunk. The editor loads it with a
+// `@ekza-studio/mesh-core` (M6A-SPEC §4.3): the mesh kernel's public API — a LAZY chunk. The editor loads it with a
 // dynamic `import()` (MeshRuntimeRegistry, io/mesh, viewport/src/mesh/**); the eager route reads only
-// `@ekza-animator/mesh-core/descriptors`. B0a wrote this barrel with the reference kernel and stub lines; each owner
+// `@ekza-studio/mesh-core/descriptors`. B0a wrote this barrel with the reference kernel and stub lines; each owner
 // changes only the lines of its own symbols (§3 rule 2): B1 the kernel lines (core, revision, derived data,
 // primitives), B2 select/soft/symmetry, B3 regionFrame, B4 copySubset/appendMesh, B5 checkMesh, B13 humanoidBody.
 export * from './descriptors';

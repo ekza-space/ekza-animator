@@ -10,7 +10,7 @@
 // Symmetry (pointer class): the mirrored pair is bridged too (pairing and rings mirrored exactly, so twist and offset
 // act mirrored); a pair that is its own mirror bridges once; a pair with an unpaired loop bridges once with
 // `symmetry.unmatched-partner`.
-import type { ParamValue, ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValue, ParamValues } from '@ekza-studio/anim-core';
 import { interpolateCornerAttributes, interpolatePointAttributes } from '../../layers/propagate';
 import { applySmoothingAngle } from '../../normals/hard';
 import { resolveSmoothingAngle } from '../../normals/normals';

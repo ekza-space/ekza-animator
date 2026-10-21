@@ -2,7 +2,7 @@
 // Rules about "our" clips (slot names, unit quaternions) use the clip indices recorded in
 // `asset.extras.ekza_animation_v1`; rules about admission of the whole file (unique names, hips-only translation,
 // required clips) look at every animation.
-import { HUMAN_BONE_NAMES } from '@ekza-animator/rig';
+import { HUMAN_BONE_NAMES } from '@ekza-studio/rig';
 import { CHUNK_BIN, CHUNK_JSON, parseGlbSync, readGlbLayout } from '../glb/parse';
 import { GltfReader } from '../gltf/accessor';
 import { readEmbeddedAvatarHeightScale } from '../gltf/ekzaMeta';

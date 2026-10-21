@@ -1,7 +1,7 @@
 // Intent prefetch of the editor route's lazy chunks (M2A-SPEC §5.21.2: "prefetched on intent, never at idle"). Each
 // helper starts a dynamic import that the later use shares, so the first drop, export, save or dialog does not wait
 // for its chunk; nothing here runs unless the user shows the intent.
-import { loadProjectArchive, preloadExportPath, preloadImportPath, type UiDialog } from '@ekza-animator/editor-core';
+import { loadProjectArchive, preloadExportPath, preloadImportPath, type UiDialog } from '@ekza-studio/editor-core';
 import { preloadDialog } from '../dialogs/DialogHost';
 import { preloadModelLoader } from '../services/models';
 

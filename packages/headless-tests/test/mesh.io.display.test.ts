@@ -1,8 +1,8 @@
 // mesh.io (M6A-SPEC §5.23; B8): the display of an edited character is its model rebuilt in memory — the Seed-san face
 // edited, the rebuilt container loads through three.js + three-vrm with its MToon materials, expressions (morph
 // targets) and spring bones intact, and the edited primitive in place of the original.
-import { displayContainer } from '@ekza-animator/editor-core';
-import { loadGltfInNode } from '@ekza-animator/io/testing';
+import { displayContainer } from '@ekza-studio/editor-core';
+import { loadGltfInNode } from '@ekza-studio/io/testing';
 import { describe, expect, it } from 'vitest';
 import { makeEditable, splitAndCommit } from './mesh.io.support';
 import { importFixture, realApp } from './ops.support';

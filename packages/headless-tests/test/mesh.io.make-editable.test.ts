@@ -2,9 +2,9 @@
 // mesh of Polybot, Seed-san and the UAL mannequin becomes a valid record with the derived id, undo and redo are exact,
 // importing writes no mesh record, the virtual asset rows, and the licence refusal of the synthetic prohibited VRM.
 import { readFileSync } from 'node:fs';
-import { derivedId, requiredWriterVersion } from '@ekza-animator/doc';
-import { assetMeshRows } from '@ekza-animator/editor-core';
-import { topologyStats, validateMesh } from '@ekza-animator/mesh-core';
+import { derivedId, requiredWriterVersion } from '@ekza-studio/doc';
+import { assetMeshRows } from '@ekza-studio/editor-core';
+import { topologyStats, validateMesh } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import { makeEditable, meshData } from './mesh.io.support';
 import { expectUndoRedoExact, importFixture, realApp, runOk } from './ops.support';

@@ -4,7 +4,7 @@
 // M6a (M6A-SPEC §5.7, §5.8; B11): `edit.adjustLast` (re-runs the last operation with new values in place of its
 // step), `edit.repeatLast` (`G`, by the run source), and the extrude-session hook of `edit.undo`/`edit.redo` (while a
 // session is open they step its args stack first, `app.extrude.stepBack/stepForward`).
-import { EkzaError, stripBound } from '@ekza-animator/anim-core';
+import { EkzaError, stripBound } from '@ekza-studio/anim-core';
 import { cancelChannelEditGestures } from '../../edit/channels';
 import type { EditorApp, LastRun, RunContext } from '../../types';
 import { GLOBAL_SCOPE, type HistoryResult, type OperatorContext, PANEL } from '../../types';

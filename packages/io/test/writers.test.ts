@@ -1,7 +1,7 @@
-import { quatAngle, type Quat, type ReadonlyXf } from '@ekza-animator/anim-core';
-import type { HumanBoneName } from '@ekza-animator/doc';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
-import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-animator/rig';
+import { quatAngle, type Quat, type ReadonlyXf } from '@ekza-studio/anim-core';
+import type { HumanBoneName } from '@ekza-studio/doc';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
+import { HUMAN_BONE_NAMES, HUMAN_BONE_PARENT, type SkeletonDesc } from '@ekza-studio/rig';
 import { VRMAnimationLoaderPlugin } from '@pixiv/three-vrm-animation';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { describe, expect, it } from 'vitest';
@@ -76,7 +76,7 @@ describe('writeAnimationGlb', () => {
       expect(out.json['skins']).toBeUndefined();
       const names = new Set(skeleton.nodes.map((n) => n.name));
       expect(nodesOf(out.json).every((n) => names.has(n.name ?? ''))).toBe(true);
-      expect(out.json.asset.generator).toBe('Ekza Animator 0.1.0');
+      expect(out.json.asset.generator).toBe('Ekza Studio 0.1.0');
       const metaOut = (out.json.asset.extras as Record<string, { clips: { index: number; name: string }[] }>)[
         'ekza_animation_v1'
       ];

@@ -6,7 +6,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import {
   computeNormals,

@@ -1,5 +1,5 @@
 {
-  "name": "@ekza-animator/editor-core",
+  "name": "@ekza-studio/editor-core",
   "version": "0.0.0",
   "private": true,
   "type": "module",
@@ -15,11 +15,11 @@
     "typecheck": "tsc -b"
   },
   "dependencies": {
-    "@ekza-animator/anim-core": "workspace:*",
-    "@ekza-animator/doc": "workspace:*",
-    "@ekza-animator/io": "workspace:*",
-    "@ekza-animator/mesh-core": "workspace:*",
-    "@ekza-animator/rig": "workspace:*",
+    "@ekza-studio/anim-core": "workspace:*",
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/io": "workspace:*",
+    "@ekza-studio/mesh-core": "workspace:*",
+    "@ekza-studio/rig": "workspace:*",
     "zustand": "5.0.15"
   },
   "devDependencies": {

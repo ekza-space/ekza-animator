@@ -14,7 +14,7 @@
 //
 // Warnings: `cleanup.found` (selecting, with the element count), `cleanup.fixed` (with the count), `cleanup.clean`
 // (nothing to do), `cleanup.non-manifold` (a collapse made an edge with more than two faces).
-import { coerceArgs, type ParamValues } from '@ekza-animator/anim-core';
+import { coerceArgs, type ParamValues } from '@ekza-studio/anim-core';
 import { BitSet } from '../../bitset';
 import { checkMesh } from '../../check';
 import type {

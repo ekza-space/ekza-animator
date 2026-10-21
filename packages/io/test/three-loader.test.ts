@@ -1,5 +1,5 @@
-import { quatAngle, type Quat } from '@ekza-animator/anim-core';
-import { type LicensedFixture, readFixture } from '@ekza-animator/doc/testing';
+import { quatAngle, type Quat } from '@ekza-studio/anim-core';
+import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
 import { Quaternion, Vector3 } from 'three';
 import { describe, expect, it } from 'vitest';
 import { parseGlb } from '../src/glb/parse';

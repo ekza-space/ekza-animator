@@ -4,9 +4,9 @@
 // checkboxes; enums and axes are segmented controls. Typed values commit on Enter, Tab or blur; Esc restores the shown
 // value. Enter (once accepted) and Esc give the keyboard back to the editor (the input blurs, as the Channel Box's
 // fields do): the hotkeys of the hovered pane (`T`, `G`, `Y`, digits) work again without a click elsewhere.
-import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-animator/anim-core';
-import { type EditorApp, formatParamValue, paramEditText, parseParamInput } from '@ekza-animator/editor-core';
-import { cn } from '@ekza-animator/ui';
+import { isNumericParam, type ParamDef, type ParamValue } from '@ekza-studio/anim-core';
+import { type EditorApp, formatParamValue, paramEditText, parseParamInput } from '@ekza-studio/editor-core';
+import { cn } from '@ekza-studio/ui';
 import {
   Fragment,
   type JSX,

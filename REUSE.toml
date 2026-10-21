@@ -1,19 +1,19 @@
 # Machine-readable licensing (https://reuse.software, spec 3.2). The code is MIT; the AnimX port is Apache-2.0;
 # fixtures keep their own licences (fixtures/LICENSES.md, ADR 0009, ADR 0012).
 version = 1
-SPDX-PackageName = "ekza-animator"
-SPDX-PackageSupplier = "Ekza Animator contributors"
+SPDX-PackageName = "ekza-studio"
+SPDX-PackageSupplier = "Ekza Studio contributors"
 
 [[annotations]]
 path = "**"
 precedence = "aggregate"
-SPDX-FileCopyrightText = "Ekza Animator contributors"
+SPDX-FileCopyrightText = "Ekza Studio contributors"
 SPDX-License-Identifier = "MIT"
 
 [[annotations]]
 path = "packages/anim-core/src/curve/animx/**"
 precedence = "override"
-SPDX-FileCopyrightText = ["Autodesk, Inc.", "Ekza Animator contributors"]
+SPDX-FileCopyrightText = ["Autodesk, Inc.", "Ekza Studio contributors"]
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]

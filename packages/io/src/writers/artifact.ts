@@ -1,5 +1,5 @@
 // Shared tail of every exporter: lints for the chosen profile, the read-back check, SHA-256 and stats.
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { sha256Hex } from '../hash/sha256';
 import { type LintContext, lintExportWithContext } from '../lint/lintExport';
 import type { BakedClip, ExportArtifact, ExportKind, ExportProfileDef, LintIssue, ReductionStats } from '../types';

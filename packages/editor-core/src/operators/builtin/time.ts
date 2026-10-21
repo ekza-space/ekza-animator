@@ -1,7 +1,7 @@
 // Time operators (MVP-SPEC §4.9 `time.*`, §4.11.8): frames are active-clip frames unless `unit: 'scene'`; the
 // session keeps the scene clock. Frame changes discard pose overrides (the kernel does it for every writer).
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ChannelValues, ClipRecord, ControlId, CurveId, KeyId, ReadView } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ChannelValues, ClipRecord, ControlId, CurveId, KeyId, ReadView } from '@ekza-studio/doc';
 import { insertTime, keysInRemovedTime } from '../../edit/keys';
 import { defaultRippleControls, rippleCurves } from '../../edit/ripple';
 import {

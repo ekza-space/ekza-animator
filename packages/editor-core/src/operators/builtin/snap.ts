@@ -6,7 +6,7 @@
 //   contract), so the Component choice is remembered per app here and `view.setManipSpace` accepts it.
 // - The last-picked manipulator handle of the W/E/R tools (`session.model.tweakHandle`, the MMB rule): set by a LMB
 //   press on a handle, cleared on a tool switch.
-import type { Disposer } from '@ekza-animator/anim-core';
+import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp, ManipHandle } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from './define';
 

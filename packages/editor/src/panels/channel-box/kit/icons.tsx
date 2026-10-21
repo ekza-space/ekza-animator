@@ -1,5 +1,5 @@
 // 14 px line icons of the data panels (research 09 §8.6 grid: 1.5 px stroke, round caps). Stand-ins until the
-// `@ekza-animator/ui` icon set lands (WP-8). Decorative: callers label the control they sit in.
+// `@ekza-studio/ui` icon set lands (WP-8). Decorative: callers label the control they sit in.
 import type { CSSProperties, JSX, ReactNode } from 'react';
 
 function Icon(props: { readonly children: ReactNode; readonly style?: CSSProperties | undefined }): JSX.Element {

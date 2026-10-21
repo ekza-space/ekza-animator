@@ -4,7 +4,7 @@
 // `mesh.transformComponents` args, object placements or a moved pivot. MMB drags use the same rules with a
 // virtual handle (the last-picked one, else the view plane, the view axis or uniform scale). Pure functions of the
 // drag start and the pointer: a drag never accumulates error.
-import type { ReadonlyVec3, Vec3 } from '@ekza-animator/anim-core';
+import type { ReadonlyVec3, Vec3 } from '@ekza-studio/anim-core';
 import { cameraForward, rayLineParameter, rayPlane, ringScreenTangent } from '../../../manipulators/drag';
 import type { ManipMode } from '../../../manipulators/ManipulatorKit';
 import type { ManipHandle } from '../../../types';

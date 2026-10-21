@@ -6,8 +6,8 @@
 // palette (a variant). SHADING-SPEC §5: the active swatch's shader (Lambert/Blinn, glossiness, specular) and New
 // Lambert / New Blinn (Assign New Material on the selection); Blinn swatches show a highlight dot. Every edit runs an
 // operator.
-import type { DocumentStore, MeshId, MeshRecord, PaletteId, SwatchId, SwatchRecord } from '@ekza-animator/doc';
-import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex } from '@ekza-animator/editor-core';
+import type { DocumentStore, MeshId, MeshRecord, PaletteId, SwatchId, SwatchRecord } from '@ekza-studio/doc';
+import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex } from '@ekza-studio/editor-core';
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useMemo, useState } from 'react';
 import { useDocQuery, usePrefs, useRunOperator, useSession } from '../../hooks';
 import { shortcutFor } from '../../shell/menus';

@@ -1,8 +1,8 @@
 // Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8 and M6A-SPEC §4.8 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
-import type { ChannelId } from '@ekza-animator/doc';
-import type { ManipHandle } from '@ekza-animator/editor-core';
-export interface EkzaAnimatorTestApi {
+import type { ChannelId } from '@ekza-studio/doc';
+import type { ManipHandle } from '@ekza-studio/editor-core';
+export interface EkzaStudioTestApi {
   readonly ready: Promise<void>;                              // editor mounted, WebGL context created
   readonly webgl: { readonly ok: boolean; readonly renderer: string | null };
   run(op: string, args?: unknown, ctx?: { panel?: string; paneId?: string }): Promise<{ status: string; value?: unknown; reason?: string; error?: { code: string; message: string } }>;

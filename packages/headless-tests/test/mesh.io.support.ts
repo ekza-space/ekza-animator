@@ -2,10 +2,10 @@
 // edit that needs no kernel Euler operator (faces split at their centroids, written as a new revision through
 // `MeshRuntimeRegistry.writeData`, the path every M6a op commits through), a keyed clip, GLB JSON helpers and the
 // preservation check of the surgeon (§5.22, E2E-MOD-12).
-import type { CharacterId, ClipId, MeshId } from '@ekza-animator/doc';
-import { assetMeshId, type EditorApp } from '@ekza-animator/editor-core';
-import type { GlbContainer } from '@ekza-animator/io';
-import type { LayerDef, MeshData } from '@ekza-animator/mesh-core';
+import type { CharacterId, ClipId, MeshId } from '@ekza-studio/doc';
+import { assetMeshId, type EditorApp } from '@ekza-studio/editor-core';
+import type { GlbContainer } from '@ekza-studio/io';
+import type { LayerDef, MeshData } from '@ekza-studio/mesh-core';
 import { expect } from 'vitest';
 import { runOk, setSceneFrame } from './ops.support';
 

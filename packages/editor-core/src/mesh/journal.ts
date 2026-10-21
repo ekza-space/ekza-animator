@@ -11,8 +11,8 @@
 //   them across undo and redo as `TxMeta.selectionBefore/After` will. Their bytes count with the deltas.
 // - Pins are reported (`pinned`/`unpinned`) whenever they change, a dropped pinned edge included, so the registry's
 //   ledger roots for the last op's revisions (§5.20 root 3) never outlive the edge.
-import type { MeshId } from '@ekza-animator/doc';
-import type { ComponentSelection, EditMesh, MeshDelta } from '@ekza-animator/mesh-core';
+import type { MeshId } from '@ekza-studio/doc';
+import type { ComponentSelection, EditMesh, MeshDelta } from '@ekza-studio/mesh-core';
 import { type OpInput, selectionBytes } from './input';
 
 export interface JournalEdge {

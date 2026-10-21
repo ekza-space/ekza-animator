@@ -4,7 +4,7 @@
 // partners by the sorted partner vertex tuple — and the runtime's expansion of 'expand'-class selections. Object maps
 // reflect across the local axis plane at `plane`; World maps across the world axis plane through the world origin,
 // mapped into mesh-local space through `placement` (§5.14; B2's convention).
-import type { ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ReadonlyXf } from '@ekza-studio/anim-core';
 import {
   BitSet,
   type ComponentSelection,

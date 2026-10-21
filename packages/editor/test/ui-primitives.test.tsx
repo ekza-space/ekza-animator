@@ -1,4 +1,4 @@
-// @ekza-animator/ui primitives the shell does not mount itself (ContextMenu, DropdownMenu, Popover, Tabs, Select,
+// @ekza-studio/ui primitives the shell does not mount itself (ContextMenu, DropdownMenu, Popover, Tabs, Select,
 // IconButton, the icon set): they open, select and close in a real browser with Radix props. The ui package's own
 // Vitest runs in Node, so the browser checks live here.
 import {
@@ -36,7 +36,7 @@ import {
   ToastProvider,
   ToastTitle,
   ToastViewport,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { type JSX, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { userEvent } from 'vitest/browser';

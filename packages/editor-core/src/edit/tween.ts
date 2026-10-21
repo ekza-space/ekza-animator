@@ -5,17 +5,8 @@
 // and a *value* step maps a slider amount to target values without reading anything. `tweenEdits` is both in one
 // call; the slider gesture plans when the drag starts ("captured when the gesture starts") and re-evaluates the plan
 // for every amount, so its preview updates never read the preview overlay they replace.
-import { EkzaError, type Frame, type TangentType } from '@ekza-animator/anim-core';
-import type {
-  ChannelId,
-  ControlId,
-  ControlRecord,
-  CurveId,
-  CurveRecord,
-  KeyId,
-  KeyRecord,
-  Tx,
-} from '@ekza-animator/doc';
+import { EkzaError, type Frame, type TangentType } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, ControlRecord, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-studio/doc';
 import { internalsOf } from '../app/internals';
 import { activeClipOf } from '../evaluation/time';
 import type { ChannelRef, EditorApp, TweenMode } from '../types';

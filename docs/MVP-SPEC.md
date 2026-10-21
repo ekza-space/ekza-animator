@@ -1,4 +1,4 @@
-# Ekza Animator — MVP build specification (milestone M1)
+# Ekza Studio — MVP build specification (milestone M1)
 
 Status: v0.2 (2026-10-17, design review revision) with the **v0.3 integration** changes of 2026-10-18 marked
 inline. Audience: the integration agent (WP-0, WP-8, WP-10), seven
@@ -246,7 +246,7 @@ About dialog links it.
 ## 3. Repository layout and conventions
 
 ```
-ekza-animator/
+ekza-studio/
 ├── apps/web/                      Next.js 16 shell
 │   ├── app/                       layout.tsx, page.tsx (landing), editor/page.tsx + EditorIsland.tsx,
 │   │                              dev/panels/page.tsx (panel harness), e2e/vrma-check/page.tsx
@@ -296,7 +296,7 @@ Conventions (all packages):
 6. Errors: domain functions throw `EkzaError` (`anim-core/src/errors.ts`, re-exported by `doc`) for invalid
    caller input; they never throw on document content (repair and warn). Codes are listed in §4.11.0.
 7. Tests live in `packages/*/test/**/*.test.ts`. Licensed fixtures are read with `readFixture(name)` from
-   `@ekza-animator/doc/testing`; synthetic fixtures with `readSyntheticFixture(name)`.
+   `@ekza-studio/doc/testing`; synthetic fixtures with `readSyntheticFixture(name)`.
 8. Copy-adapted code carries an attribution header:
    `// Adapted from <repo>/<path> @ <commit> (MIT, © <holder>). Changes: <summary>.`
 9. Commit messages: Conventional Commits; every commit has a DCO `Signed-off-by:` trailer.
@@ -308,8 +308,8 @@ Conventions (all packages):
     `@source "../editor/src";` and `@source "./src";` so classes used only inside workspace packages reach the
     CSS that `apps/web` builds. A WP-0 smoke test asserts that a class used only in `packages/editor` is in
     the built CSS.
-12. **Fakes come only from the shared test kit** (WP-0b): `@ekza-animator/editor-core/testing`,
-    `@ekza-animator/doc/testing`, `@ekza-animator/io/testing` and `fixtures/synthetic/*`. A WP may extend the
+12. **Fakes come only from the shared test kit** (WP-0b): `@ekza-studio/editor-core/testing`,
+    `@ekza-studio/doc/testing`, `@ekza-studio/io/testing` and `fixtures/synthetic/*`. A WP may extend the
     kit through a PR to its owner; it does not write private fakes of another package's interface.
 13. `check:fixtures` covers `fixtures/models/**` and `fixtures/animations/**` (licensed binaries, one SHA-256 row
     each in `fixtures/LICENSES.md`). `fixtures/synthetic/**` is generated test data under the repository licence.
@@ -503,7 +503,7 @@ export interface IdSource { randomBytes(n: number): Uint8Array }
 
 ```ts
 import type { AnimCurve, ControlShapeKind, Fps, Frame, InfinityMode, KeyData, ReadonlyQuat, ReadonlyXf,
-  RotateOrder, SplineSet } from '@ekza-animator/anim-core';
+  RotateOrder, SplineSet } from '@ekza-studio/anim-core';
 import type { AssetId, CameraId, CharacterId, ClipId, ConstraintId, ControlId, CurveId, KeyId, LayerId, RigId,
   SolverId, UserId } from './ids';
 
@@ -1008,9 +1008,9 @@ export interface ConformanceCaps {
 
 ```ts
 import type { CurveEngine, Fps, Frame, InfinityMode, KeyData, Mat4, Quat, ReadonlyQuat, ReadonlyVec3, ReadonlyXf,
-  RotateOrder } from '@ekza-animator/anim-core';
+  RotateOrder } from '@ekza-studio/anim-core';
 import type { ChannelId, ChannelValues, ClipId, ConstraintRecord, ControlId, ControlRecord, HumanBoneName,
-  ModelFormat, RigId, RigRecord, SolverRecord } from '@ekza-animator/doc';
+  ModelFormat, RigId, RigRecord, SolverRecord } from '@ekza-studio/doc';
 
 /** One glTF node, in topological order (parents before children). */
 export interface SkeletonNode {
@@ -1225,10 +1225,10 @@ export type { CurveEngine, Mat4 };
 `packages/io/src/types.ts`
 
 ```ts
-import type { Fps, Frame, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { Fps, Frame, ReadonlyXf } from '@ekza-studio/anim-core';
 import type { AssetId, AssetRecord, CharacterId, ClipId, DerivedFrom, DocSnapshot, Redistributable,
-  RootMotionMode } from '@ekza-animator/doc';
-import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-animator/rig';
+  RootMotionMode } from '@ekza-studio/doc';
+import type { PoseBuffers, RigProgram, TrackKey } from '@ekza-studio/rig';
 
 /** Loosely typed glTF JSON; typed accessors live in io/src/gltf/schema.ts. */
 export interface GltfJson {
@@ -1442,13 +1442,13 @@ export interface ModelPlacement { readonly facing: ReadonlyXf }
 
 ```ts
 import type { StoreApi } from 'zustand/vanilla';
-import type { CompiledAnimCurve, Disposer, Frame, Handle, TangentType } from '@ekza-animator/anim-core';
+import type { CompiledAnimCurve, Disposer, Frame, Handle, TangentType } from '@ekza-studio/anim-core';
 import type { AssetId, AssetRecord, CameraId, ChannelId, ChannelValues, CharacterId, ClipId, ControlId, CurveId,
-  DocumentStore, KeyId, Tx, UndoResult, UserId } from '@ekza-animator/doc';
+  DocumentStore, KeyId, Tx, UndoResult, UserId } from '@ekza-studio/doc';
 import type { ExportArtifact, ExportKind, ExportProfileDef, ExportRequest, GlbContainer,
-  ValidationReport } from '@ekza-animator/io';
+  ValidationReport } from '@ekza-studio/io';
 import type { ChannelBuffer, ClipSampler, FootPin, PoseBuffers, PoseClipboard, RigProgram,
-  SkeletonDesc } from '@ekza-animator/rig';
+  SkeletonDesc } from '@ekza-studio/rig';
 import type { OperatorMap } from './operators/args';
 
 // ---------- panels and scopes ----------
@@ -1937,11 +1937,11 @@ export interface EditorApp {
 §4.9; plugins extend `OperatorMap` by declaration merging.
 
 ```ts
-import type { Fps, Frame, InfinityMode, RotateOrder, TangentType } from '@ekza-animator/anim-core';
+import type { Fps, Frame, InfinityMode, RotateOrder, TangentType } from '@ekza-studio/anim-core';
 import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, KeyId, Redistributable,
-  RootMotionMode } from '@ekza-animator/doc';
-import type { ExportArtifact, ExportRequest } from '@ekza-animator/io';
-import type { MirrorMode, ReduceSpec } from '@ekza-animator/rig';
+  RootMotionMode } from '@ekza-studio/doc';
+import type { ExportArtifact, ExportRequest } from '@ekza-studio/io';
+import type { MirrorMode, ReduceSpec } from '@ekza-studio/rig';
 import type { ChannelEditResult, ChannelRef, DisplayFlags, HistoryResult, KeyPartSelection, KeyPolicy,
   LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed, Prefs, SelectionMask, SelectMode, ToolId,
   UiDialog, ViewportLayout } from '../types';
@@ -2105,9 +2105,9 @@ export interface OperatorMap {
 `packages/viewport/src/types.ts`
 
 ```ts
-import type { Quat, ReadonlyVec3, Vec3 } from '@ekza-animator/anim-core';
-import type { CharacterId, ControlId } from '@ekza-animator/doc';
-import type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset } from '@ekza-animator/editor-core';
+import type { Quat, ReadonlyVec3, Vec3 } from '@ekza-studio/anim-core';
+import type { CharacterId, ControlId } from '@ekza-studio/doc';
+import type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset } from '@ekza-studio/editor-core';
 
 export type { DisplayFlags, ManipHandle, PaneCamera, ViewPreset };
 export interface PaneDescriptor {
@@ -2139,8 +2139,8 @@ export type { ReadonlyVec3 };
 `packages/curve-editor/src/types.ts`
 
 ```ts
-import type { Frame } from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId, KeyId } from '@ekza-studio/doc';
 
 /** x = (frame − f0)·sx ;  y = heightCss − (displayValue − v0)·sy  (displayValue: degrees for r*, metres for t*). */
 export interface GraphViewState { readonly f0: number; readonly v0: number; readonly sx: number; readonly sy: number }
@@ -2168,7 +2168,7 @@ export type TimeSliderHit =
 
 ### 4.8 Test API (e2e contract)
 
-`packages/editor/src/test-api/types.ts` — installed on `window.__EKZA_ANIMATOR_TEST__` only when the build has
+`packages/editor/src/test-api/types.ts` — installed on `window.__EKZA_STUDIO_TEST__` only when the build has
 `NEXT_PUBLIC_EKZA_E2E=1` **and** the URL has `?e2e=1`.
 
 URL parameters (e2e builds only): `e2e=1` uses a fresh storage namespace, sets `firstRunDone: true`,
@@ -2184,9 +2184,9 @@ time-slider helpers `screenOfTimelineFrame/Tick` (WP-6t), which follow the focus
 the IDs are seeded per page load, so new records skip IDs a reopened project already uses.
 
 ```ts
-import type { ChannelId } from '@ekza-animator/doc';
-import type { ManipHandle } from '@ekza-animator/editor-core';
-export interface EkzaAnimatorTestApi {
+import type { ChannelId } from '@ekza-studio/doc';
+import type { ManipHandle } from '@ekza-studio/editor-core';
+export interface EkzaStudioTestApi {
   readonly ready: Promise<void>;                              // editor mounted, WebGL context created
   readonly webgl: { readonly ok: boolean; readonly renderer: string | null };
   run(op: string, args?: unknown, ctx?: { panel?: string; paneId?: string }): Promise<{ status: string; value?: unknown; reason?: string; error?: { code: string; message: string } }>;
@@ -3038,7 +3038,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 - Projects: `chrome` (local default: `channel: 'chrome'`, real GPU) and `chromium-swiftshader` (CI: bundled
   Chromium, `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`). Viewport 1440×900,
   `deviceScaleFactor: 1`. Firefox/WebKit smoke is V1.
-- Every spec waits for `window.__EKZA_ANIMATOR_TEST__.ready`; spec `00-webgl` asserts `webgl.ok === true` and fails
+- Every spec waits for `window.__EKZA_STUDIO_TEST__.ready`; spec `00-webgl` asserts `webgl.ok === true` and fails
   the run otherwise.
 - Interactions use real pointer and keyboard events at coordinates from the test API (`screenOfControl`,
   `screenOfManipulator`, `screenOfKey`, `screenOfHandle`, `screenOfCurve`, `screenOfFrame`, `screenOfTick`) and the
@@ -3177,24 +3177,24 @@ Total ≈ 63 agent-days; critical path ≈ WP-0 (3) + A2/A7 (8–8.5) + WP-10 (5
      `apps/web/scripts/third-party-notices.mjs`.
   6. `apps/web`: `app/layout.tsx`, `app/page.tsx` (landing: name, one-line pitch, "Open editor", credits link),
      `app/editor/page.tsx` + `EditorIsland.tsx` (`'use client'`, `next/dynamic(…, {ssr:false})`),
-     `next.config.ts` (static-export switch `ANIMATOR_STATIC_EXPORT=1`, `transpilePackages` for all
-     `@ekza-animator/*`, `images.unoptimized: true`), `app/globals.css` importing `@ekza-animator/ui/styles.css`
+     `next.config.ts` (static-export switch `STUDIO_STATIC_EXPORT=1`, `transpilePackages` for all
+     `@ekza-studio/*`, `images.unoptimized: true`), `app/globals.css` importing `@ekza-studio/ui/styles.css`
      (Tailwind `@source` per convention 11) and the Tailwind smoke test; a placeholder `Editor` in
      `packages/editor` mounting an R3F `<Canvas>` and a test API with `ready` and `webgl`.
   7. Playwright config (§6.1) and spec `00-webgl.spec.ts` (E2E-00 minus the drop-zone check).
   8. `.github/workflows/ci.yml` (Node 24, pnpm 10.32.1, cache; jobs: format:check, lint, typecheck, check:deps,
      check:fixtures, check:licenses, test, build, e2e on `chromium-swiftshader`, `dco`), PR template with a DCO
      checkbox, issue templates.
-  9. Repository docs: `LICENSE` (MIT, "Ekza Animator contributors"; scope note: Apache-2.0 island, fixtures under
+  9. Repository docs: `LICENSE` (MIT, "Ekza Studio contributors"; scope note: Apache-2.0 island, fixtures under
      their own licences), `CONTRIBUTING.md` (setup, package map, how to add an operator/panel/tool, dependency
      requests, DCO, clean-room rule), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SECURITY.md` (private
      disclosure; untrusted file parsing), `TRADEMARKS.md`.
   10. Initialize git if absent (default branch `main`, integration branch `dev`; feature branches merge into `dev`).
-- **Public API** (math, `@ekza-animator/anim-core`; `EkzaError` is in §4.1):
+- **Public API** (math, `@ekza-studio/anim-core`; `EkzaError` is in §4.1):
 
 ```ts
 import type { Mat4, Quat, ReadonlyQuat, ReadonlyVec3, ReadonlyXf, RotateOrder, ThreeEulerOrder, Vec3, Xf }
-  from '@ekza-animator/anim-core';
+  from '@ekza-studio/anim-core';
 export function quatMultiply(a: ReadonlyQuat, b: ReadonlyQuat, out?: Quat): Quat;
 export function quatInvert(q: ReadonlyQuat, out?: Quat): Quat;
 export function quatNormalize(q: ReadonlyQuat, out?: Quat): Quat;
@@ -3245,7 +3245,7 @@ export const RAD2DEG: number;
   `tooling/make-synthetic-fixtures.mjs`, `packages/editor/src/{hooks,panels/registry.ts}` (→ WP-8),
   `apps/web/app/dev/panels/` (→ WP-8).
 - **Responsibilities**
-  1. `createFakeEditorApp` (`@ekza-animator/editor-core/testing`): a full `EditorApp` with a naive in-memory
+  1. `createFakeEditorApp` (`@ekza-studio/editor-core/testing`): a full `EditorApp` with a naive in-memory
      `DocumentStore` (correct transact/preview/undo semantics, linear scans instead of indexes), naive FK
      evaluation over a `SkeletonDesc` (control world + `rotate`/`translateRotate`/`full` bindings), a recording
      operator registry (records every `run` call; registered operators run), real session/prefs zustand stores,
@@ -3257,14 +3257,14 @@ export const RAD2DEG: number;
   3. Real React hooks (`useEditorApp`, `useSession`, `usePrefs`, `useDocQuery`), `EditorAppProvider`,
      `createPanelRegistry`, and the dev/e2e-only route `/dev/panels?panel=<id>` that mounts one panel with a fake
      app (404 unless `NODE_ENV=development` or `NEXT_PUBLIC_EKZA_E2E=1`).
-  4. `@ekza-animator/io/testing`: `loadGltfInNode(bytes)` (three `GLTFLoader` + `VRMLoaderPlugin` in Node with an
+  4. `@ekza-studio/io/testing`: `loadGltfInNode(bytes)` (three `GLTFLoader` + `VRMLoaderPlugin` in Node with an
      image-decoding stub, pattern from ekza-avatar-renderer's `vrm1Retarget.test.ts`), returning the scene, the
      VRM (if any) and objects by `SkeletonDesc` node index.
-  5. `@ekza-animator/doc/testing` fixture helpers (`fixturePath`, `readFixture`, `readSyntheticFixture`).
+  5. `@ekza-studio/doc/testing` fixture helpers (`fixturePath`, `readFixture`, `readSyntheticFixture`).
 - **Public API**: the `testing` subpaths listed in WP-2, WP-4 and WP-7a, and the hooks in WP-8.
 - **DoD**: each UI WP can mount its panel in `/dev/panels` and unit-test against `createFakeEditorApp` on day 1.
 
-### WP-1 — `@ekza-animator/anim-core` (curve engine, reduction, shapes)
+### WP-1 — `@ekza-studio/anim-core` (curve engine, reduction, shapes)
 
 - **Dir**: `packages/anim-core/` (math already done in WP-0a), `tooling/animx-oracle/`.
 - **Responsibilities**: AnimX port (segment evaluation incl. weighted Bézier root solve with the monotonic-X
@@ -3278,7 +3278,7 @@ export const RAD2DEG: number;
 
 ```ts
 import type { AnimCurve, CompiledAnimCurve, ControlShapeKind, CurveEngine, Disposer, Fps, Frame, Handle, KeyData,
-  ReduceOptions, ReduceResult, RotateOrder, SegmentKind, SplineSet, TangentFields, TangentType } from '@ekza-animator/anim-core';
+  ReduceOptions, ReduceResult, RotateOrder, SegmentKind, SplineSet, TangentFields, TangentType } from '@ekza-studio/anim-core';
 export function compileAnimCurve(curve: AnimCurve, opts?: { readonly cycleAwareAuto?: boolean }): CompiledAnimCurve;
 export function evaluateAnimCurve(c: CompiledAnimCurve, frame: Frame): number;
 export function evaluateAnimCurveSlope(c: CompiledAnimCurve, frame: Frame): number;   // value per frame
@@ -3315,7 +3315,7 @@ export function tessellateSplineSet(s: SplineSet, segmentsPerSpan?: number): Flo
 - **DoD**: goldens committed with the generator script and README; Apache headers + `NOTICE` +
   `LICENSE-APACHE-2.0`; documented deviations for Spline/Clamped; bench recorded.
 
-### WP-2 — `@ekza-animator/doc` and `packages/doc-yjs` (store, undo, conformance, replication)
+### WP-2 — `@ekza-studio/doc` and `packages/doc-yjs` (store, undo, conformance, replication)
 
 - **Dirs**: `packages/doc/`, `packages/doc-yjs/`.
 - **Responsibilities**: record validation and `TableDef` registry (built-ins, opaque unknown tables in the
@@ -3335,11 +3335,11 @@ export function tessellateSplineSet(s: SplineSet, segmentsPerSpan?: number): Flo
 - **Public API**
 
 ```ts
-import type { AnimCurve, Disposer, Fps, Frame } from '@ekza-animator/anim-core';
+import type { AnimCurve, Disposer, Fps, Frame } from '@ekza-studio/anim-core';
 import type { CameraRecord, ChannelId, ClipRecord, ConformanceCaps, CurveRecord, DocSnapshot, DocumentStore, IdOfKind,
   IdSource, KeyRecord, LayerRecord, Partition, ProjectRecord, RecordOf, ReplicaHarness, ReplicaNetwork,
-  ReplicatingStore, RigId, ControlId, TableDef, TableName, UserId } from '@ekza-animator/doc';
-// '@ekza-animator/doc'
+  ReplicatingStore, RigId, ControlId, TableDef, TableName, UserId } from '@ekza-studio/doc';
+// '@ekza-studio/doc'
 export function newId<K extends keyof IdOfKind>(kind: K, source?: IdSource): IdOfKind[K];   // WP-0a
 export function controlId(rig: RigId, templateKey: string): ControlId;                     // WP-0a
 export function seededIdSource(seed: number): IdSource;                                    // WP-0a
@@ -3371,7 +3371,7 @@ export function toAnimCurve(curve: CurveRecord, keys: readonly KeyRecord[]): Ani
 export function deepEqual(a: unknown, b: unknown): boolean;
 export function diffFields(before: object, after: object): readonly string[];
 
-// '@ekza-animator/doc/testing' (Node only; may use node:fs)
+// '@ekza-studio/doc/testing' (Node only; may use node:fs)
 export type LicensedFixture = 'seed-san.vrm' | 'polybot.vrm' | 'quaternius-ual.glb' | 'quaternius-idle-meshopt.glb';
 export type SyntheticFixture = 'humanoid-skeleton.json' | 'wave-doc.json' | 'rest-pose.json';
 export function runDocumentStoreConformance(label: string, factory: () => DocumentStore, caps: ConformanceCaps): void;
@@ -3394,7 +3394,7 @@ export function yjsHarness(): ReplicaHarness;
 - **DoD**: memory store passes the non-replicating suite; `doc-yjs` passes the full suite; any interface change
   it forced is merged into §4 before WP-7b's operator freeze; no `three`/DOM imports.
 
-### WP-3 — `@ekza-animator/rig` (auto-rig, kernel, sampler, import, mirror, IK solver)
+### WP-3 — `@ekza-studio/rig` (auto-rig, kernel, sampler, import, mirror, IK solver)
 
 - **Dir**: `packages/rig/`.
 - **Responsibilities**: humanoid tables; auto-rig (§4.11.15: humanoid FK with `cog`/`fk.hips`, mesh-based sizes,
@@ -3408,12 +3408,12 @@ export function yjsHarness(): ReplicaHarness;
 
 ```ts
 import type { AnimCurve, CurveEngine, CompiledAnimCurve, Disposer, Fps, Frame, KeyData, Mat4, ReadonlyVec3,
-  RotateOrder } from '@ekza-animator/anim-core';
+  RotateOrder } from '@ekza-studio/anim-core';
 import type { ChannelValues, CharacterId, ClipId, ConstraintRecord, ControlId, CurveId, DocumentStore, HumanBoneName,
-  ReadView, RigId, RigRecord, SolverRecord, TrsChannel, Tx } from '@ekza-animator/doc';
+  ReadView, RigId, RigRecord, SolverRecord, TrsChannel, Tx } from '@ekza-studio/doc';
 import type { ChannelBuffer, ClipSampler, FootPin, HumanoidClipData, ImportHumanoidOptions, ImportRawOptions,
   ImportedClipKeys, MirrorMode, PoseBuffers, PoseClipboard, RawClip, RigDefinition, RigProgram, SkeletonDesc,
-  TrackKey, TwoBoneIkInput, TwoBoneIkOutput } from '@ekza-animator/rig';
+  TrackKey, TwoBoneIkInput, TwoBoneIkOutput } from '@ekza-studio/rig';
 
 export const HUMAN_BONE_NAMES: readonly HumanBoneName[];                 // 55, VRM 1.0 order (buffer layout)
 export const HUMAN_BONE_PARENT: Readonly<Record<HumanBoneName, HumanBoneName | null>>;
@@ -3488,7 +3488,7 @@ export function plantFeetChannels(program: RigProgram, pose: PoseBuffers, pins: 
   two-bone IK and plant feet; bench evaluate ≤ 0.5 ms (report).
 - **DoD**: all gates green, including the `headless-tests` rig files after step 4 of §8.1.
 
-### WP-4 — `@ekza-animator/io` (readers, budgets, bake, surgeon, writers, lints, project files, three loader)
+### WP-4 — `@ekza-studio/io` (readers, budgets, bake, surgeon, writers, lints, project files, three loader)
 
 - **Dir**: `packages/io/` (main entry headless; `src/three/`, `src/worker/` (stretch), `src/testing/` subpaths),
   `tooling/make-compressed-fixture.mjs`, `fixtures/animations/quaternius-idle-meshopt.glb` + its `LICENSES.md` row.
@@ -3507,12 +3507,12 @@ export function plantFeetChannels(program: RigProgram, pose: PoseBuffers, pins: 
 - **Public API**
 
 ```ts
-import type { Frame } from '@ekza-animator/anim-core';
-import type { AssetId, AssetRecord, ClipRecord, DocSnapshot, HumanBoneName, ModelFormat } from '@ekza-animator/doc';
-import type { HumanoidClipData, RawClip, SkeletonDesc, TrackKey } from '@ekza-animator/rig';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { AssetId, AssetRecord, ClipRecord, DocSnapshot, HumanBoneName, ModelFormat } from '@ekza-studio/doc';
+import type { HumanoidClipData, RawClip, SkeletonDesc, TrackKey } from '@ekza-studio/rig';
 import type { BakeOptions, BakedClip, EkzaAnimationV1, ExportArtifact, ExportKind, ExportProfileDef, GlbContainer,
   GltfJson, InputBudget, LintIssue, PoseSource, ProjectArchive, ReadBackReport, ValidationIssue, ValidationReport,
-  VrmLicenseInfo } from '@ekza-animator/io';
+  VrmLicenseInfo } from '@ekza-studio/io';
 import type { Object3D, SkinnedMesh } from 'three';
 import type { VRM } from '@pixiv/three-vrm';
 
@@ -3550,7 +3550,7 @@ export function writeProjectJson(snapshot: DocSnapshot, assets: readonly AssetRe
 export function readProjectArchive(bytes: Uint8Array): Promise<ProjectArchive>;        // zip or JSON variant (assets empty)
 export function clipFramesToSeconds(frames: Frame, fps: { readonly num: number; readonly den: number }): number;
 
-// '@ekza-animator/io/three' (browser; three + @pixiv/three-vrm)
+// '@ekza-studio/io/three' (browser; three + @pixiv/three-vrm)
 export interface LoadedModel {
   readonly root: Object3D;                                     // canonical character root (facing applied here only)
   readonly nodeObjects: readonly (Object3D | null)[];          // by SkeletonDesc node index
@@ -3565,7 +3565,7 @@ export function createThreeModelLoader(opts: { readonly decoderPath: string }): 
   load(c: GlbContainer, skeleton: SkeletonDesc): Promise<{ readonly kind: 'three'; readonly handle: LoadedModel; dispose(): void }>;
 };
 
-// '@ekza-animator/io/testing' (Node; WP-0b, then WP-4)
+// '@ekza-studio/io/testing' (Node; WP-0b, then WP-4)
 export function loadGltfInNode(bytes: Uint8Array): Promise<{ readonly scene: Object3D; readonly vrm: VRM | null;
   readonly nodeByIndex: readonly (Object3D | null)[] }>;
 ```
@@ -3580,7 +3580,7 @@ export function loadGltfInNode(bytes: Uint8Array): Promise<{ readonly scene: Obj
 - **DoD**: all gates; writers never use three's `GLTFExporter`; the surgeon never re-serializes the original BIN;
   outputs deterministic.
 
-### WP-5 — `@ekza-animator/viewport` (+ `editor/src/panels/viewport`)
+### WP-5 — `@ekza-studio/viewport` (+ `editor/src/panels/viewport`)
 
 - **Dirs**: `packages/viewport/`, `packages/editor/src/panels/viewport/`.
 - **Responsibilities**: `ViewportManager` (ADR 0006); view cameras and shot-camera binding; layouts from session
@@ -3599,11 +3599,11 @@ export function loadGltfInNode(bytes: Uint8Array): Promise<{ readonly scene: Obj
 - **Public API**
 
 ```ts
-import type { Disposer, ReadonlyVec3 } from '@ekza-animator/anim-core';
-import type { ControlId } from '@ekza-animator/doc';
-import type { EditorApp, NavProfile } from '@ekza-animator/editor-core';
+import type { Disposer, ReadonlyVec3 } from '@ekza-studio/anim-core';
+import type { ControlId } from '@ekza-studio/doc';
+import type { EditorApp, NavProfile } from '@ekza-studio/editor-core';
 import type { CameraSnapshot, DisplayFlags, ManipHandle, MarqueeRect, PaneDescriptor, PickResult,
-  ScreenPoint } from '@ekza-animator/viewport';
+  ScreenPoint } from '@ekza-studio/viewport';
 import type { Scene, WebGLRenderer } from 'three';
 
 export const DEFAULT_DISPLAY: DisplayFlags;
@@ -3645,7 +3645,7 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
 - **DoD**: E2E-05, E2E-06, E2E-22, E2E-25, E2E-26 pass after integration; 4 panes × 1 VRM playback CPU per frame
   recorded.
 
-### WP-6 — `@ekza-animator/curve-editor` Graph Editor (+ `editor/src/panels/graph`)
+### WP-6 — `@ekza-studio/curve-editor` Graph Editor (+ `editor/src/panels/graph`)
 
 - **Dirs**: `packages/curve-editor/` except `src/timeline/`, `packages/editor/src/panels/graph/`.
 - **Responsibilities**: ADR 0007 renderer and controllers; channel tree; Graph tools (`select`, `move`,
@@ -3658,10 +3658,10 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
 - **Public API**
 
 ```ts
-import type { Disposer, Frame } from '@ekza-animator/anim-core';
-import type { ClipId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
-import type { EditorApp, ToolKeyEvent, ToolPointerEvent, ToolWheelEvent } from '@ekza-animator/editor-core';
-import type { ChannelTreeNode, GraphHit, GraphViewState } from '@ekza-animator/curve-editor';
+import type { Disposer, Frame } from '@ekza-studio/anim-core';
+import type { ClipId, ControlId, CurveId, KeyId } from '@ekza-studio/doc';
+import type { EditorApp, ToolKeyEvent, ToolPointerEvent, ToolWheelEvent } from '@ekza-studio/editor-core';
+import type { ChannelTreeNode, GraphHit, GraphViewState } from '@ekza-studio/curve-editor';
 
 export const CHANNEL_COLORS: { readonly x: string; readonly y: string; readonly z: string; readonly other: string };
 export function buildChannelTree(app: EditorApp, opts: { readonly clip: ClipId | null; readonly controls: readonly ControlId[];
@@ -3707,9 +3707,9 @@ export function registerGraphContributions(app: EditorApp, focused: () => GraphE
 - **Public API**
 
 ```ts
-import type { Disposer, Frame } from '@ekza-animator/anim-core';
-import type { EditorApp, ToolPointerEvent } from '@ekza-animator/editor-core';
-import type { TimeSliderHit } from '@ekza-animator/curve-editor';
+import type { Disposer, Frame } from '@ekza-studio/anim-core';
+import type { EditorApp, ToolPointerEvent } from '@ekza-studio/editor-core';
+import type { TimeSliderHit } from '@ekza-studio/curve-editor';
 
 export class TimeSliderController {
   constructor(opts: { readonly app: EditorApp; readonly canvas: HTMLCanvasElement });
@@ -3736,7 +3736,7 @@ export function registerTimelineContributions(app: EditorApp, focused: () => Tim
   (one history step each); menu actions; scrub snaps to integer active-clip frames at 24 and 30 fps.
 - **DoD**: E2E-23 and the timeline parts of E2E-04/E2E-07 pass after integration.
 
-### WP-7a — `@ekza-animator/editor-core` kernel
+### WP-7a — `@ekza-studio/editor-core` kernel
 
 - **Dir**: `packages/editor-core/` except `src/operators/builtin/`, `src/workflows/`.
 - **Responsibilities**: `createEditorApp`; session and prefs stores (prefs persisted through `services.storage`,
@@ -3751,12 +3751,12 @@ export function registerTimelineContributions(app: EditorApp, focused: () => Tim
 - **Public API**
 
 ```ts
-import type { Frame, Handle, TangentType } from '@ekza-animator/anim-core';
+import type { Frame, Handle, TangentType } from '@ekza-studio/anim-core';
 import type { ChannelId, ClipId, ClipRecord, ControlId, CurveId, DocSnapshot, DocumentStore, IdSource, KeyId, Tx,
-  UserId } from '@ekza-animator/doc';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+  UserId } from '@ekza-studio/doc';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import type { AssetStore, ChannelEdit, ChannelEditGesture, ChannelEditResult, CharacterRuntime, EditorApp,
-  EditorServices, KeyBinding, KeyEditOptions, KeyEditResult, KeyPolicy, Prefs, Selection, SessionState } from '@ekza-animator/editor-core';
+  EditorServices, KeyBinding, KeyEditOptions, KeyEditResult, KeyPolicy, Prefs, Selection, SessionState } from '@ekza-studio/editor-core';
 
 export function createEditorApp(opts: {
   readonly services: EditorServices;
@@ -3790,7 +3790,7 @@ export function insertKeyOnCurve(app: EditorApp, tx: Tx, curve: CurveId, frame: 
 export function deleteKeys(app: EditorApp, tx: Tx, keys: readonly KeyId[]): number;
 export function ensureCurve(app: EditorApp, tx: Tx, clip: ClipId, control: ControlId, channel: ChannelId): CurveId;
 
-// '@ekza-animator/editor-core/testing' (WP-0b, then WP-7a)
+// '@ekza-studio/editor-core/testing' (WP-0b, then WP-7a)
 export interface FakeEditorApp extends EditorApp { readonly calls: readonly { readonly id: string; readonly args: unknown }[] }
 export function createFakeEditorApp(opts?: { readonly snapshot?: DocSnapshot; readonly skeleton?: SkeletonDesc;
   readonly services?: Partial<EditorServices>; readonly platform?: 'mac' | 'other' }): FakeEditorApp;
@@ -3814,8 +3814,8 @@ export function createFakeEditorApp(opts?: { readonly snapshot?: DocSnapshot; re
 - **Public API**
 
 ```ts
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp, ExporterDef, ImporterDef, MenuItemDef } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp, ExporterDef, ImporterDef, MenuItemDef } from '@ekza-studio/editor-core';
 
 export const BUILTIN_IMPORTERS: readonly ImporterDef[];
 export const BUILTIN_EXPORTERS: readonly ExporterDef[];
@@ -3830,7 +3830,7 @@ export function registerBuiltins(app: EditorApp): Disposer;
   `file.export` passes the §4.11.13 policy; plant feet; mirror scope.
 - **DoD**: all 7b operators implemented and tested (stretch operators may poll-fail with "not available yet").
 
-### WP-8 — `@ekza-animator/editor` shell, `@ekza-animator/ui`, `apps/web` (integration agent)
+### WP-8 — `@ekza-studio/editor` shell, `@ekza-studio/ui`, `apps/web` (integration agent)
 
 - **Dirs**: `packages/editor/src/{shell,gl,input,dialogs,services,hooks,test-api,workers}/`,
   `packages/editor/src/{index.ts,Editor.tsx,panels/registry.ts}`, `packages/ui/`, `apps/web/` (beyond WP-0a).
@@ -3857,9 +3857,9 @@ export function registerBuiltins(app: EditorApp): Disposer;
 
 ```ts
 import type { ComponentType, JSX, ReactNode } from 'react';
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { DocumentStore, TableName } from '@ekza-animator/doc';
-import type { EditorApp, EditorServices, KeyScope, PanelKind, Prefs, SessionState } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { DocumentStore, TableName } from '@ekza-studio/doc';
+import type { EditorApp, EditorServices, KeyScope, PanelKind, Prefs, SessionState } from '@ekza-studio/editor-core';
 
 export interface EditorProps {
   readonly decoderPath?: string;            // default '/decoders/'
@@ -3890,7 +3890,7 @@ export function useEditorApp(): EditorApp;
 export function useSession<T>(selector: (s: SessionState) => T, equality?: (a: T, b: T) => boolean): T;
 export function usePrefs<T>(selector: (p: Prefs) => T): T;
 export function useDocQuery<T>(read: (store: DocumentStore) => T, tables: readonly TableName[]): T;
-// @ekza-animator/ui: tokens.json, styles.css, and the primitives/icons listed above (props follow Radix).
+// @ekza-studio/ui: tokens.json, styles.css, and the primitives/icons listed above (props follow Radix).
 ```
 
 - **Deps**: everything; React 19.3.0, R3F 9.8.1, dockview-react 8.4.0, zustand, react-resizable-panels, ui.
@@ -3918,8 +3918,8 @@ export function useDocQuery<T>(read: (store: DocumentStore) => T, tables: readon
 - **Public API**
 
 ```ts
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { PanelRegistry } from '@ekza-animator/editor';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { PanelRegistry } from '@ekza-studio/editor';
 export function registerOutlinerPanel(registry: PanelRegistry): Disposer;
 export function registerClipsPanel(registry: PanelRegistry): Disposer;
 export function registerChannelBoxPanel(registry: PanelRegistry): Disposer;

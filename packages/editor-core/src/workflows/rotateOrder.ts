@@ -4,7 +4,7 @@
 // on all three curves, synchronized. Static values and pose overrides are converted as a triple. The curves are
 // sampled with the editor's engine (`deps.curves.engine`, cycle-aware on cyclic curves, M2A-SPEC §5.23), so the values
 // converted between a curve's keys are the values the editor evaluates and draws.
-import { type AnimCurve, eulerNear, eulerToQuat, type RotateOrder, type Vec3 } from '@ekza-animator/anim-core';
+import { type AnimCurve, eulerNear, eulerToQuat, type RotateOrder, type Vec3 } from '@ekza-studio/anim-core';
 import type {
   ChannelValues,
   ClipRecord,
@@ -14,8 +14,8 @@ import type {
   KeyRecord,
   LayerRecord,
   Tx,
-} from '@ekza-animator/doc';
-import { convertRotateOrderKeysWith } from '@ekza-animator/rig';
+} from '@ekza-studio/doc';
+import { convertRotateOrderKeysWith } from '@ekza-studio/rig';
 import { internalsOf, newRecordId } from '../app/internals';
 import { animCurve, keyDataOf } from '../edit/context';
 import { ensureCurve } from '../edit/keys';

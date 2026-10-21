@@ -6,7 +6,7 @@ import {
   type ComponentMode,
   MODEL_MENU_ITEMS,
   registerBuiltinOperators,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { afterEach, describe, expect, it } from 'vitest';
 import { menuContents, shortcutFor, topMenus } from '../../src/shell/menus';
 import { createTestShell, type TestShell } from '../shell-helpers';

@@ -13,7 +13,7 @@
 // shaders split into one material per shader group (sharing the palette PNG for 'palette-texture'). Lambert-only
 // scenes write exactly the bytes they wrote before shaders. Skin layers are not written (static models). `asset.extras` carries `ekza_model_v1` and, for a handheld
 // export root, `ekza_handheld_v1`. Deterministic: the same scene always gives the same bytes.
-import type { ColourOutput } from '@ekza-animator/doc';
+import type { ColourOutput } from '@ekza-studio/doc';
 import { type Buffer, Document, type Material, type Node, type Texture, Logger, WebIO } from '@gltf-transform/core';
 import { KHRMaterialsSpecular, KHRMaterialsUnlit } from '@gltf-transform/extensions';
 import type { DetailedPrimitive } from '../../mesh/toPrimitives';

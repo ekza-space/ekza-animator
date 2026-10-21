@@ -1,5 +1,5 @@
 // `app.meshes` and `app.blobs` (M6A-SPEC §9.1: one factory file per editor service; owned by B7 after B0a).
-import type { DocumentStore } from '@ekza-animator/doc';
+import type { DocumentStore } from '@ekza-studio/doc';
 import { createMeshRuntimeRegistry, type KernelMeshRuntimes } from '../../mesh';
 import { createMemoryBlobStore } from '../../services/blobs';
 import type { BlobStore, EditorServices } from '../../types';

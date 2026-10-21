@@ -20,10 +20,10 @@ export function KernelUnavailable(props: { readonly error: unknown; readonly e2e
 
   useEffect(() => {
     if (testApi === null) return undefined;
-    window.__EKZA_ANIMATOR_TEST__ = testApi.api;
+    window.__EKZA_STUDIO_TEST__ = testApi.api;
     if (!webgl.ok) testApi.settle({ ok: false, renderer: webgl.renderer });
     return () => {
-      if (window.__EKZA_ANIMATOR_TEST__ === testApi.api) delete window.__EKZA_ANIMATOR_TEST__;
+      if (window.__EKZA_STUDIO_TEST__ === testApi.api) delete window.__EKZA_STUDIO_TEST__;
     };
   }, [testApi, webgl]);
 

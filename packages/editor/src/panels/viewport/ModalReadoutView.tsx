@@ -1,8 +1,8 @@
 // The modal readout's drawing (M6A-SPEC §8.7; B12a), a lazy chunk of `ModalReadout.tsx`: a chip 16 px right of and
 // below the pointer that flips at the pane edges (z-order 20), the snap candidate's ring and name, and the soft-select
 // radius ring. During a capture entry the chip shows the field, the entry and the keys; the help line mirrors it.
-import type { EditorApp, NumericCaptureState } from '@ekza-animator/editor-core';
-import { setTransformReadout, type TransformReadout, transformReadout } from '@ekza-animator/viewport';
+import type { EditorApp, NumericCaptureState } from '@ekza-studio/editor-core';
+import { setTransformReadout, type TransformReadout, transformReadout } from '@ekza-studio/viewport';
 import { type JSX, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useOptionalShell } from '../../shell/context';
 

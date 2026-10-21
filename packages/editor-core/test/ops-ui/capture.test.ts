@@ -3,9 +3,9 @@
 // Tab; an unfinished entry is discarded when (b) disarms ("Entry discarded"); Enter without an entry disarms (b) and
 // changes nothing; modifier keys never disarm; `4` after a released drag reaches the keymap; `30%` and `0.3` are the
 // same fraction; `T` opens the card with the primary field focused.
-import type { ParamDef } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
-import * as kernel from '@ekza-animator/mesh-core';
+import type { ParamDef } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
+import * as kernel from '@ekza-studio/mesh-core';
 import { describe, expect, it, vi } from 'vitest';
 import {
   type CaptureMessage,
@@ -19,7 +19,7 @@ import { createMesh, type MeshTestApp, meshTestApp, positionsOf } from '../mesh/
 import { enterModel } from './model';
 import { ADVANCE } from './support';
 
-vi.mock('@ekza-animator/mesh-core', async (importOriginal) => {
+vi.mock('@ekza-studio/mesh-core', async (importOriginal) => {
   const actual = await importOriginal<typeof kernel>();
   const { makeAdvanceOp } = await import('./support');
   const advance = makeAdvanceOp(actual);

@@ -2,7 +2,7 @@
 // sets, digests of their triangulation and normals, and the manifest after fixed Euler scripts (fast-check samples
 // with fixed seeds are the same in every engine). Shared by the Node test (which keeps the golden file) and the
 // Chromium test (which compares against it); no Node APIs here.
-import { sha256Hex } from '@ekza-animator/anim-core';
+import { sha256Hex } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import {
   computeNormals,

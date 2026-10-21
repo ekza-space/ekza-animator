@@ -1,8 +1,8 @@
 // What a press in the Graph Editor does (MVP-SPEC §4.11.18, §4.11.3, research 09 §4.7): on release below the drag
 // threshold it is a click (select, insert), past it a drag (move keys, drag handles, marquee). The drag set is
 // predicted from the click's selection change, so a drag never waits for the asynchronous `select.keys` run.
-import type { CurveId, KeyId } from '@ekza-animator/doc';
-import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-animator/editor-core';
+import type { CurveId, KeyId } from '@ekza-studio/doc';
+import type { EditorApp, KeyPartSelection, SelectMode } from '@ekza-studio/editor-core';
 import { type HitScratch, handlesInRect, keysInRect, type ScreenRect } from '../hit/hitTest';
 import type { GraphHit } from '../types';
 import {

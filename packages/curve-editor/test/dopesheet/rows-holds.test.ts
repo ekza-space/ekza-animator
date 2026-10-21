@@ -1,8 +1,8 @@
 // Dope Sheet rows and row data (M2A-SPEC §5.10, A3): Summary › Character › Body part › Control › Channel on the
 // humanoid wave rig, expansion, Show, dimmed rows, glyph aggregation (key / breakdown / selected), the channel hold
 // rule and the aggregate hold rule's cases.
-import type { ChannelId, ControlId, CurveId } from '@ekza-animator/doc';
-import { createFakeEditorApp, withLimbIkRecords } from '@ekza-animator/editor-core/testing';
+import type { ChannelId, ControlId, CurveId } from '@ekza-studio/doc';
+import { createFakeEditorApp, withLimbIkRecords } from '@ekza-studio/editor-core/testing';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildDopeSheetRows, holdIntervals } from '../../src';
 import { waveSnapshot } from '../timeline/fixture';

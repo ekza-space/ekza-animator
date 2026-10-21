@@ -1,7 +1,7 @@
 // M2A-SPEC §8 Integration: regressions found when A1…A5 met on one branch. Each case names the packages whose
 // changes met and the rule it guards.
-import type { AnimCurve, KeyData, TangentType } from '@ekza-animator/anim-core';
-import type { CurveId, KeyId } from '@ekza-animator/doc';
+import type { AnimCurve, KeyData, TangentType } from '@ekza-studio/anim-core';
+import type { CurveId, KeyId } from '@ekza-studio/doc';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { ensureCurve, type KeyEditOptions, moveKeys } from '../../src';

@@ -1,9 +1,9 @@
 // Browser-mode test helpers: a fake EditorApp over the synthetic wave document (shared test kit), a real WebGL
 // canvas and pane elements laid out like the viewport panel.
-import type { CameraId, CameraRecord, DocSnapshot } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
+import type { CameraId, CameraRecord, DocSnapshot } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
 import { WebGLRenderer } from 'three';
 import { commands } from 'vitest/browser';
 import {

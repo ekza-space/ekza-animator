@@ -7,8 +7,8 @@
 // kernel's `checkMesh`, B5; the plain button until it lands), triangles / budget (§5.24, `meshBudget`) with the
 // budget bar's states, Export model…, Rig & Skin (v0.4). Empty state: "Select a mesh, or create one" with primitive
 // buttons.
-import type { ParamValue } from '@ekza-animator/anim-core';
-import type { MeshId } from '@ekza-animator/doc';
+import type { ParamValue } from '@ekza-studio/anim-core';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   type ComponentMode,
   type EditorApp,
@@ -18,8 +18,8 @@ import {
   type RunContext,
   type SessionState,
   type SymmetryMode,
-} from '@ekza-animator/editor-core';
-import { cn } from '@ekza-animator/ui';
+} from '@ekza-studio/editor-core';
+import { cn } from '@ekza-studio/ui';
 import {
   type JSX,
   type MouseEvent,

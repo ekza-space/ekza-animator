@@ -4,9 +4,9 @@
 // output and material preset (each mesh's own unless overridden), Drop tangents (only when a made-editable mesh's glTF
 // primitives carried tangents), the file name, then the lints, the validator's result and the file size of what was
 // written.
-import type { DocumentStore, GroupRecord, MeshRecord } from '@ekza-animator/doc';
-import { type EditorApp, topmost } from '@ekza-animator/editor-core';
-import type { ExportArtifact, StaticExportRequest } from '@ekza-animator/io';
+import type { DocumentStore, GroupRecord, MeshRecord } from '@ekza-studio/doc';
+import { type EditorApp, topmost } from '@ekza-studio/editor-core';
+import type { ExportArtifact, StaticExportRequest } from '@ekza-studio/io';
 import {
   Badge,
   Button,
@@ -16,7 +16,7 @@ import {
   NativeSelect,
   TextInput,
   TriangleAlert,
-} from '@ekza-animator/ui';
+} from '@ekza-studio/ui';
 import { type JSX, useId, useMemo, useState } from 'react';
 import { useDocQuery, useSession } from '../hooks';
 import { useRegistryList } from '../hooks/useRegistry';

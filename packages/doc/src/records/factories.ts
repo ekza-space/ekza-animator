@@ -1,6 +1,6 @@
 // Record factories with the documented defaults (MVP-SPEC §4.2, §4.9 `clip.new`, §4.11.1 key defaults, Q-TIME-1,
 // Q-ANIM-1, Q-VP-2). Every factory validates its result and throws `EkzaError('invalid-record')` for invalid input.
-import { type AnimCurve, EkzaError } from '@ekza-animator/anim-core';
+import { type AnimCurve, EkzaError } from '@ekza-studio/anim-core';
 import { newId } from '../ids/generate';
 import type {
   AssetRecord,

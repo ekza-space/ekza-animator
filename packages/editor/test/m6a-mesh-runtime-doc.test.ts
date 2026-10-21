@@ -9,7 +9,7 @@ import {
   type MeshId,
   type MeshRecord,
   type MeshRef,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   type AutosaveSlotInfo,
   autosaveOf,
@@ -18,10 +18,10 @@ import {
   type KernelMeshRuntimes,
   loadMeshKernel,
   startAutosave,
-} from '@ekza-animator/editor-core';
-import { createFakeServices, naiveCurveEngine } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { primitive, writeRevision } from '@ekza-animator/mesh-core';
+} from '@ekza-studio/editor-core';
+import { createFakeServices, naiveCurveEngine } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { primitive, writeRevision } from '@ekza-studio/mesh-core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   autosaveDatabaseName,

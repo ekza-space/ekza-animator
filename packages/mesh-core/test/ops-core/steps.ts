@@ -1,6 +1,6 @@
 // Abstract B3 op steps for property tests (M6A-SPEC §5.29): an op, a component kind, selection seeds mapped modulo
 // the current counts (so any step is meaningful on any mesh) and args. Shared by the Node and Chromium runs.
-import type { ParamValues } from '@ekza-animator/anim-core';
+import type { ParamValues } from '@ekza-studio/anim-core';
 import fc from 'fast-check';
 import type { ComponentKind, ComponentSelection, EditMesh } from '../../src';
 import { sel } from './support';

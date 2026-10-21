@@ -1,4 +1,4 @@
-import type { ControlRecord } from '@ekza-animator/doc';
+import type { ControlRecord } from '@ekza-studio/doc';
 import type { RigInternals } from '../kernel/internals';
 import type { RigWarning } from '../types';
 

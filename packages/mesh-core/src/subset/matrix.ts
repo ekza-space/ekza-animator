@@ -3,7 +3,7 @@
 // the 'negate-axis' mirror rule) through its linear part; custom normals (`normal.custom`) through the inverse
 // transpose, renormalized (an all-zero "no custom normal" value stays zero); a negative determinant reverses every face,
 // so a mirrored result still faces outward (§5.13 `appendMesh`, Freeze).
-import { type Mat4, mat4Compose, type ReadonlyXf } from '@ekza-animator/anim-core';
+import { type Mat4, mat4Compose, type ReadonlyXf } from '@ekza-studio/anim-core';
 import { NORMAL_CUSTOM } from '../layers/builtin';
 import type { AttrLayer, EditMesh, LayerDef } from '../types';
 

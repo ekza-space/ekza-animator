@@ -10,8 +10,8 @@ import {
   quatToEuler,
   type RotateOrder,
   type Vec3,
-} from '@ekza-animator/anim-core';
-import type { ChannelValues, ControlId } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { ChannelValues, ControlId } from '@ekza-studio/doc';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   evaluateWithLimbMode,

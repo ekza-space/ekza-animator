@@ -1,4 +1,4 @@
-import type { CameraId } from '@ekza-animator/doc';
+import type { CameraId } from '@ekza-studio/doc';
 import { afterEach, describe, expect, it } from 'vitest';
 import { type CameraSnapshot, WHEEL_BURST_MS } from '../src';
 import { pointerGesture, wheelAction } from '../src/navigation/profiles';

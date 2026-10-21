@@ -154,7 +154,7 @@ gives what a plain run of the expanded selection gives (asserted by P10, M6A-B3-
 Shared, Node-free helpers: `support.ts` (contexts, the checked runner, reference symmetry maps), `fixtures.ts`,
 `steps.ts` (op-step arbitraries), `checks.ts` (per-step properties, layer envelopes).
 
-## Benchmarks (report only; Node 25.6, Apple M4 Pro, machine shared with other agents at load ≈ 30; `pnpm --filter @ekza-animator/mesh-core bench`)
+## Benchmarks (report only; Node 25.6, Apple M4 Pro, machine shared with other agents at load ≈ 30; `pnpm --filter @ekza-studio/mesh-core bench`)
 
 Debug validation off; each row runs the op in its transaction on one mesh and undoes it (the undo + redo rows give
 that share, ≈ 0.005 ms). §5.27 budget for a typical topology op: ≤ 16 ms **including GPU upload** (INT measures end

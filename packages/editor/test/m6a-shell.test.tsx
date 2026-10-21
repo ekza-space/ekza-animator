@@ -1,7 +1,7 @@
 // M6A-SPEC §5.17, §8.1, §8.2, §8.10 (B9): the whole shell with the workspaces — tabs and glyphs, the dock layout and
 // viewport layout per workspace (Animate's untouched by Model), the hidden time slider, Model's status-line groups,
 // help line and pane header, the overlay slots, `ws=` and `prefs.lastWorkspace` at start, and Mod+K.
-import type { DocSnapshot } from '@ekza-animator/doc';
+import type { DocSnapshot } from '@ekza-studio/doc';
 import {
   animateStatus,
   BUILTIN_MENU_ITEMS,
@@ -9,10 +9,10 @@ import {
   type EditorApp,
   registerBuiltinOperators,
   registerBuiltinWorkspaces,
-} from '@ekza-animator/editor-core';
-import { createFakeEditorApp, type FakeEditorApp } from '@ekza-animator/editor-core/testing';
-import type { SkeletonDesc } from '@ekza-animator/rig';
-import { viewportManagerOf } from '@ekza-animator/viewport';
+} from '@ekza-studio/editor-core';
+import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
+import type { SkeletonDesc } from '@ekza-studio/rig';
+import { viewportManagerOf } from '@ekza-studio/viewport';
 import type { JSX } from 'react';
 import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { registerPaneOverlay } from '../src/overlays/slots';
@@ -96,8 +96,8 @@ async function mount(
   mounted = view;
   await waitFor(() => app !== null && shell !== null && query('editor-shell') !== null);
   if (app === null || shell === null) throw new Error('the editor did not start');
-  await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+  await window.__EKZA_STUDIO_TEST__?.ready;
   return { view, app, shell };
 }
 
@@ -358,8 +358,8 @@ describe('command palette (§5.18)', () => {
       new KeyboardEvent('keydown', { code: 'KeyK', key: 'k', ctrlKey: true, bubbles: true, cancelable: true }),
     );
     await waitFor(() => query('cmdk-input') !== null);
-    expect(window.__EKZA_ANIMATOR_TEST__?.commandPalette()?.open).toBe(true);
-    const shellApi = window.__EKZA_ANIMATOR_TEST__;
+    expect(window.__EKZA_STUDIO_TEST__?.commandPalette()?.open).toBe(true);
+    const shellApi = window.__EKZA_STUDIO_TEST__;
     expect(shellApi?.commandPalette()?.items.some((item) => item.label === 'Workspace: Model')).toBe(true);
     const input = testId('cmdk-input') as HTMLInputElement;
     input.focus();

@@ -1,7 +1,7 @@
 // Minimal preferences (MVP-SPEC §7 WP-8; research 09 §9.2): navigation profile, Space behaviour, auto-key mode,
 // import reduction, Graph Editor handles; Reset Workspace. Preferences are P state, never written to the document.
-import type { Prefs } from '@ekza-animator/editor-core';
-import { Button, Dialog, DialogContent, DialogFooter, NativeSelect } from '@ekza-animator/ui';
+import type { Prefs } from '@ekza-studio/editor-core';
+import { Button, Dialog, DialogContent, DialogFooter, NativeSelect } from '@ekza-studio/ui';
 import type { JSX, ReactNode } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';

@@ -1,10 +1,10 @@
 // ops.* (WP-7b), US-14 / §6.3: every undoable operator of the catalog reverts exactly on one undo and redoes exactly on
 // one redo against the real memory store (document snapshots deep-equal), on a Polybot scene with a keyed wave clip;
 // and a 30-step mixed session undoes back to the post-import state and redoes forward again.
-import type { CharacterId, ClipId, ControlId, CurveId, KeyId } from '@ekza-animator/doc';
-import { readFixture } from '@ekza-animator/doc/testing';
-import type { EditorApp } from '@ekza-animator/editor-core';
-import type { ExportArtifact } from '@ekza-animator/io';
+import type { CharacterId, ClipId, ControlId, CurveId, KeyId } from '@ekza-studio/doc';
+import { readFixture } from '@ekza-studio/doc/testing';
+import type { EditorApp } from '@ekza-studio/editor-core';
+import type { ExportArtifact } from '@ekza-studio/io';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   BLOCKED,

@@ -2,8 +2,8 @@
 // (history-only blob bytes + journal bytes + selection-snapshot bytes) with one toast, the journal cap that keeps the
 // last op's edge, autosave pins, and the fuzz cases "nothing reachable is freed" and "budget eviction during commit
 // never leaves a ref to a missing blob".
-import type { MeshId, MeshRecord, MeshRef, UndoEntry, UserId } from '@ekza-animator/doc';
-import { BitSet, primitive } from '@ekza-animator/mesh-core';
+import type { MeshId, MeshRecord, MeshRef, UndoEntry, UserId } from '@ekza-studio/doc';
+import { BitSet, primitive } from '@ekza-studio/mesh-core';
 import fc from 'fast-check';
 import { describe, expect, it, vi } from 'vitest';
 import { BUDGET_TOAST, type SelectionSnapshot } from '../../src';
@@ -390,7 +390,7 @@ describe('fuzz (§5.20 B7 cases)', () => {
               expect(runtime?.state).toBe('ready');
               expect(runtime?.data()?.counts).toBeDefined();
               // The runtime's content is the committed revision.
-              const kernel = await import('@ekza-animator/mesh-core');
+              const kernel = await import('@ekza-studio/mesh-core');
               const ref = record.data as MeshRef;
               const stored = kernel.readRevision(
                 kernel.parseManifest(t.blobs.peek(ref.manifest) as Uint8Array),

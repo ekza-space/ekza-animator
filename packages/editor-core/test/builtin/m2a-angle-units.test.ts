@@ -3,8 +3,8 @@
 // `graph.keys.setFields` takes its value and tangent angles/weights in degrees, and the handle drag metrics
 // (`setKeyHandle`) measure its weights in degrees, so an angle attribute behaves exactly like `rz`. A plain attribute
 // stays in its own units.
-import { RAD2DEG } from '@ekza-animator/anim-core';
-import type { ChannelId, CurveId, KeyId, KeyRecord } from '@ekza-animator/doc';
+import { RAD2DEG } from '@ekza-studio/anim-core';
+import type { ChannelId, CurveId, KeyId, KeyRecord } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { ensureCurve } from '../../src';
 import type { EditorApp } from '../../src/types';

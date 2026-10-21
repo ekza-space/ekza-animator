@@ -9,7 +9,7 @@
 // active swatch and with a swatch that is not in the mesh's palette; the reasons are toasted, as the data panels
 // report cancelled runs. `I` is a hold the tool observes: `key()` returns false for it (§5.17), so the keymap still
 // resolves the key.
-import type { MeshId } from '@ekza-animator/doc';
+import type { MeshId } from '@ekza-studio/doc';
 import {
   activeSwatchOf,
   type EditorApp,
@@ -20,7 +20,7 @@ import {
   type ToolInstance,
   type ToolKeyEvent,
   type ToolPointerEvent,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { faceAt, type PaintView } from './pick';
 
 export const NO_SWATCH = 'Pick a swatch in the Palette first';

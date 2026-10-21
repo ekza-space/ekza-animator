@@ -15,9 +15,9 @@ import {
   reduceKeys,
   type TangentType,
   tangentFields,
-} from '@ekza-animator/anim-core';
-import type { ChannelId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-animator/doc';
-import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import type { ChannelId, ControlId, CurveId, CurveRecord, KeyId, KeyRecord, Tx } from '@ekza-studio/doc';
+import { DEFAULT_REDUCE, type ReduceSpec } from '@ekza-studio/rig';
 import { EDITOR_CURVE_OPTIONS } from '../../app/deps';
 import { channelUnit, isRotation } from '../../edit/channelMeta';
 import { animCurve, compileInTx, currentClipFrame, keyDataOf } from '../../edit/context';

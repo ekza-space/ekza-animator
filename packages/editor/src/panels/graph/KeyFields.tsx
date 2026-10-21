@@ -1,7 +1,7 @@
 // Numeric fields of the selected keys (MVP-SPEC §4.11.4, research 09 §4.7 stats fields): frame, value (degrees for
 // rotations), in/out angle and in/out weight (weighted curves only), with expressions; multi-selections show '—'
 // and apply relative input (+=, -=) to every key. Edits run `graph.keys.setFields`.
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { NumberField } from './controls';
 import { type FieldInput, fieldArgs, formatField, type KeyField, type KeyFieldValues } from './model';

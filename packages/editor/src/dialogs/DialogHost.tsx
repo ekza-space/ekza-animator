@@ -6,7 +6,7 @@
 // hashes). Each dialog and the prompt sit in an error boundary: a failure closes that dialog (the prompt answers
 // Cancel), says so in a toast and leaves the editor running; the next open loads the chunk again (`React.lazy` keeps a
 // rejected load for good, so a failed attempt's lazy component is replaced).
-import type { UiDialog } from '@ekza-animator/editor-core';
+import type { UiDialog } from '@ekza-studio/editor-core';
 import {
   Component,
   type ComponentType,
@@ -192,8 +192,8 @@ class DialogBoundary extends Component<BoundaryProps, { readonly failed: boolean
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    if (error instanceof DialogLoadError) console.warn(`Ekza Animator: ${error.message}`);
-    else console.error(`Ekza Animator: the ${DIALOG_NAMES[this.props.name]} failed`, error, info.componentStack);
+    if (error instanceof DialogLoadError) console.warn(`Ekza Studio: ${error.message}`);
+    else console.error(`Ekza Studio: the ${DIALOG_NAMES[this.props.name]} failed`, error, info.componentStack);
     this.props.onError(error);
   }
 

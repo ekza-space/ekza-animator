@@ -2,8 +2,8 @@
 // (`./runtime`: component and object drags, the MMB rule, Tweak, snapping, pivots, the soft-select radius and overlay)
 // when the Model workspace is entered. Until it has loaded the move/rotate/scale tools behave as in Animate (presses
 // select; no component manipulator shows).
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { ViewportManager } from '../../../manager/ViewportManager';
 import type { ModelTransformRuntime } from './runtime';
 
@@ -66,7 +66,7 @@ export function attachModelTransform(app: EditorApp, vm: ViewportManager): Dispo
         },
         (error: unknown) => {
           loading = false;
-          console.error('Ekza Animator: the Model transform runtime could not load', error);
+          console.error('Ekza Studio: the Model transform runtime could not load', error);
         },
       );
   };

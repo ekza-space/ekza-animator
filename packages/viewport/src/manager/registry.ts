@@ -1,7 +1,7 @@
 // Which ViewportManager serves an EditorApp. The shell's GL host creates the manager (it owns the WebGLRenderer);
 // the viewport panel and the e2e test API find it here, so PanelProps stay `{ app, instanceId }`.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 interface Entry<T> {
   manager: T | null;

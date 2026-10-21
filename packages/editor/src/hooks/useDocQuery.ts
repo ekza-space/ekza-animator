@@ -1,4 +1,4 @@
-import { batchTouches, type DocumentStore, type TableName } from '@ekza-animator/doc';
+import { batchTouches, type DocumentStore, type TableName } from '@ekza-studio/doc';
 import { useMemo, useSyncExternalStore } from 'react';
 import { useEditorApp } from './context';
 

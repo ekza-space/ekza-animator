@@ -1,9 +1,9 @@
 // Scene objects (meshes and groups, M6A-SPEC §4.2) as the viewport's transform tools see them (B9): the world matrix
 // of an object (its placement composed with its parents', and with the character root for character-owned meshes)
 // and its pivot. The Scale tool scales the selected objects in Model's object mode; B12a's move and rotate reuse it.
-import { type Mat4, mat4Compose, mat4Multiply, type ReadonlyVec3, type ReadonlyXf } from '@ekza-animator/anim-core';
-import type { CharacterId, GroupRecord, MeshRecord } from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import { type Mat4, mat4Compose, mat4Multiply, type ReadonlyVec3, type ReadonlyXf } from '@ekza-studio/anim-core';
+import type { CharacterId, GroupRecord, MeshRecord } from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 
 export type SceneObjectRecord = MeshRecord | GroupRecord;
 

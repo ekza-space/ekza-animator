@@ -1,7 +1,7 @@
 // The registry of status-line group bodies (M6A-SPEC §8.10; B9): eager and tiny. B10 and B12a replace Model's
 // default bodies (./statusGroups.tsx, a lazy chunk) with `registerStatusGroup(id, Component)`.
-import type { Disposer } from '@ekza-animator/anim-core';
-import type { EditorApp } from '@ekza-animator/editor-core';
+import type { Disposer } from '@ekza-studio/anim-core';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import { type ComponentType, useSyncExternalStore } from 'react';
 
 export interface StatusGroupProps {

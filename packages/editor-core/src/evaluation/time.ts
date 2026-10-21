@@ -1,8 +1,8 @@
 // Scene clock helpers (MVP-SPEC §4.11.8): the session's scene frame maps to each character's active-clip frame
 // through the clip's fps and `sceneStart`; outside the clip range a looping clip wraps into [start, end) and a
 // non-looping clip holds its end pose.
-import type { Fps, Frame } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipRecord, ReadView } from '@ekza-animator/doc';
+import type { Fps, Frame } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipRecord, ReadView } from '@ekza-studio/doc';
 import type { KernelDeps } from '../app/deps';
 import type { SessionState } from '../types';
 

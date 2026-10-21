@@ -8,8 +8,8 @@
 // ('click' | 'marquee'; a click is remembered so that a double-click's loop gesture reads the selection from before
 // its first click, §5.6 and M6A-B2-6) and `also` (the other hilited meshes one marquee covers, `{ mesh, indices }[]`:
 // the whole marquee is one run, so it is one step even when the first mesh's part changes nothing).
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { GroupId, MeshId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { GroupId, MeshId } from '@ekza-studio/doc';
 import type {
   BitSet,
   ComponentKind,
@@ -18,7 +18,7 @@ import type {
   EditMesh,
   HiddenSet,
   MeshData,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { type MeshKernel, meshKernel } from '../../mesh';
 import { meshCheckOptions } from '../../selection/component/meshCheck';
 import { componentInternals, type ComponentServiceInternals } from '../../selection/component/service';

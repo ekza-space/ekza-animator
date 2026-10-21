@@ -1,7 +1,7 @@
 // Soft-selection weights (M6A-SPEC §5.15): the six presets at sample distances (1e-9 against the float32 rounding of
 // the preset), Volume (world Euclidean) vs Surface (geodesic along visible edges, cut at r), world-space radii under a
 // scaled placement, hidden vertices and edges, custom AnimCurve falloffs and caller errors.
-import { type AnimCurve, makeKeyData } from '@ekza-animator/anim-core';
+import { type AnimCurve, makeKeyData } from '@ekza-studio/anim-core';
 import { describe, expect, it } from 'vitest';
 import { BitSet, editMeshFrom, softWeights } from '../../src';
 import { FALLOFF_PRESETS, presetFalloff } from '../../src/soft/falloff';

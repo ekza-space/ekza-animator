@@ -25,7 +25,7 @@
 //   the deferred check (a microtask after the current batch; sweeps at most once per 5 s): the undo byte budget
 //   (history-only blob bytes + journal bytes + selection-snapshot bytes) drops the oldest history steps, the journal
 //   cap drops the oldest unpinned edges, then a sweep frees what no root references and is not fresh.
-import { type Disposer, EkzaError, type ParamValues } from '@ekza-animator/anim-core';
+import { type Disposer, EkzaError, type ParamValues } from '@ekza-studio/anim-core';
 import {
   type AnyChange,
   type ChangeBatch,
@@ -34,7 +34,7 @@ import {
   type MeshRef,
   type Tx,
   type UndoEntry,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import type {
   ComponentKind,
   ComponentSelection,
@@ -48,7 +48,7 @@ import type {
   Refusal,
   RevisionManifest,
   SymmetryMap,
-} from '@ekza-animator/mesh-core';
+} from '@ekza-studio/mesh-core';
 import { DEFAULT_DEPS } from '../app/deps';
 import { internalsOf } from '../app/internals';
 import type {

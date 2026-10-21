@@ -1,4 +1,4 @@
-import type { CharacterId, ControlId, ControlRecord } from '@ekza-animator/doc';
+import type { CharacterId, ControlId, ControlRecord } from '@ekza-studio/doc';
 import { act } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { OutlinerPanel, rowIndentPx } from '../../src/panels/outliner/OutlinerPanel';

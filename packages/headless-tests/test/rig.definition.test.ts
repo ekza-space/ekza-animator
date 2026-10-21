@@ -1,8 +1,8 @@
 // WP-3 rig records through a document store (shared test kit store until WP-2's memory store lands).
-import type { ConstraintId, ConstraintRecord, SolverId, SolverRecord } from '@ekza-animator/doc';
-import { createNaiveStore } from '@ekza-animator/editor-core/testing';
-import { autoRig, compileRig, readRigDefinition, type SkeletonDesc, writeRigDefinition } from '@ekza-animator/rig';
-import { readSyntheticFixture } from '@ekza-animator/doc/testing';
+import type { ConstraintId, ConstraintRecord, SolverId, SolverRecord } from '@ekza-studio/doc';
+import { createNaiveStore } from '@ekza-studio/editor-core/testing';
+import { autoRig, compileRig, readRigDefinition, type SkeletonDesc, writeRigDefinition } from '@ekza-studio/rig';
+import { readSyntheticFixture } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 
 const IDS = { character: 'chr_DefinitionTest01' as never, rig: 'rig_DefinitionTest01' as never };

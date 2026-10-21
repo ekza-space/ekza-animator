@@ -1,14 +1,14 @@
 // Dope Sheet rows (M2A-SPEC §5.10): Summary › Character › Body part (humanoid rigs) › Control › Channel. Only
 // controls with at least one keyed curve in the clip get rows; channel rows exist for keyed channels. Every row lists
 // the keyed base-layer curves under it.
-import type { ChannelId, CharacterId, ClipId, ControlId, ControlRecord, CurveId } from '@ekza-animator/doc';
+import type { ChannelId, CharacterId, ClipId, ControlId, ControlRecord, CurveId } from '@ekza-studio/doc';
 import {
   type BodyPart,
   bodyPartOf,
   controlVisibility,
   type EditorApp,
   sortChannelsForDisplay,
-} from '@ekza-animator/editor-core';
+} from '@ekza-studio/editor-core';
 import { channelLabel } from '../channel-tree/colors';
 import type { DopeSheetRow, DopeSheetRowKind } from '../types';
 

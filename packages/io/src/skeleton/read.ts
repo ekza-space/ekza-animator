@@ -7,8 +7,8 @@ import {
   type ReadonlyQuat,
   type Xf,
   xfIdentity,
-} from '@ekza-animator/anim-core';
-import { type SkeletonDesc, type SkeletonNode, VRM_REQUIRED_BONES } from '@ekza-animator/rig';
+} from '@ekza-studio/anim-core';
+import { type SkeletonDesc, type SkeletonNode, VRM_REQUIRED_BONES } from '@ekza-studio/rig';
 import { GltfReader } from '../gltf/accessor';
 import { readEmbeddedAvatarHeightScale } from '../gltf/ekzaMeta';
 import { detectModelFormat } from '../gltf/format';

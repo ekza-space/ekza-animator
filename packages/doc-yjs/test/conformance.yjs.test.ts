@@ -1,5 +1,5 @@
 // doc-yjs runs the full conformance suite, replicating part included (MVP-SPEC §6.3 doc gate, ADR 0002 §5–6).
-import { runDocumentStoreConformance } from '@ekza-animator/doc/testing';
+import { runDocumentStoreConformance } from '@ekza-studio/doc/testing';
 import { createYjsStore, yjsHarness } from '../src';
 
 let next = 0;

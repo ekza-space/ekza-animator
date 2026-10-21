@@ -1,7 +1,7 @@
 // What `EditMeshView` and `MeshSurface` share (M6A-SPEC §4.4): the surface, the wire/hard edges, normals and
 // triangulation lines (skipping hidden and isolated faces, `faceVisibility`), the world matrix and the per-pane display
 // rules.
-import type { Normals, Triangulation } from '@ekza-animator/mesh-core';
+import type { Normals, Triangulation } from '@ekza-studio/mesh-core';
 import { Group } from 'three';
 import { MESH_VIEW_STYLE, ORDER, STATE } from '../style';
 import type { MeshViewThemeInput } from '../theme';

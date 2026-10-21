@@ -1,7 +1,7 @@
 // Autosave and crash recovery (M2A-SPEC §4.9 `file.recover`, `file.discardRecovery`, `file.autosaveNow`, §5.20).
 // The host starts the autosave controller (`startAutosave`, browser shell); without one these operators poll-fail.
-import { EkzaError } from '@ekza-animator/anim-core';
-import type { CharacterId, ClipId } from '@ekza-animator/doc';
+import { EkzaError } from '@ekza-studio/anim-core';
+import type { CharacterId, ClipId } from '@ekza-studio/doc';
 import { autosaveOf } from '../../app/autosave';
 import { attachMeshes } from '../../mesh';
 import { addBlobSource } from '../../services/blobs';

@@ -12,7 +12,7 @@ import {
   type KeyData,
   Segment,
   type SegmentKind,
-} from '@ekza-animator/anim-core';
+} from '@ekza-studio/anim-core';
 import type {
   ChannelId,
   ChannelValues,
@@ -24,7 +24,7 @@ import type {
   DocumentStore,
   ReadView,
   RigId,
-} from '@ekza-animator/doc';
+} from '@ekza-studio/doc';
 import {
   CHANNELS_PER_CONTROL,
   type ChannelBuffer,
@@ -33,7 +33,7 @@ import {
   type CurveInfo,
   type RigDefinition,
   type RigProgram,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import { compileNaiveCurve, evaluateNaiveCurve } from './curves';
 import { channelDefault, channelSlot } from './rig';
 import { compareStrings } from './store/rows';

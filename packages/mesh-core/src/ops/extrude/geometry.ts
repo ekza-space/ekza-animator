@@ -3,7 +3,7 @@
 // thickness along the even-thickness normal, (c) local scale, (d) local rotate (R = Rz·Ry·Rx), (e) local translate —
 // about the region's pivot in its frame (or world axes with `space: 'world'`). A mirrored partner region uses the
 // conjugate S ∘ T ∘ S of its source region's transform (§5.14: the reflected frame S·F, identical numbers).
-import type { ParamValue, ReadonlyXf } from '@ekza-animator/anim-core';
+import type { ParamValue, ReadonlyXf } from '@ekza-studio/anim-core';
 import type { EditMesh, OpFrame } from '../../types';
 import {
   type Affine,

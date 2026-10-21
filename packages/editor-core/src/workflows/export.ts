@@ -4,11 +4,11 @@
 // `ekza_animation_v1` metadata, lints it and reads it back. Async, no document writes; yields between clips.
 //
 // This module holds the request checks, polls and helpers the editor needs before an export; the pipeline itself is
-// `exportRun.ts`, and the bake, writers, surgeon, lints and read-back come from `@ekza-animator/io/write`. Both load
+// `exportRun.ts`, and the bake, writers, surgeon, lints and read-back come from `@ekza-studio/io/write`. Both load
 // by a dynamic import the first time an export runs (M2A-SPEC §4.4, §5.21.2: glTF Transform and the pipeline stay
 // off the editor's initial route).
-import type { Frame } from '@ekza-animator/anim-core';
-import type { CharacterRecord, ClipRecord, ControlId, ReadView } from '@ekza-animator/doc';
+import type { Frame } from '@ekza-studio/anim-core';
+import type { CharacterRecord, ClipRecord, ControlId, ReadView } from '@ekza-studio/doc';
 import {
   clipExportName,
   clipFramesToSeconds,
@@ -21,8 +21,8 @@ import {
   type LintSeverity,
   readVrmLicense,
   type VrmLicenseInfo,
-} from '@ekza-animator/io';
-import type * as WriteModule from '@ekza-animator/io/write';
+} from '@ekza-studio/io';
+import type * as WriteModule from '@ekza-studio/io/write';
 import {
   type ClipSampler,
   computeInfluenceKeyTimes,
@@ -30,7 +30,7 @@ import {
   nodeForControl,
   type RigProgram,
   type TrackKey,
-} from '@ekza-animator/rig';
+} from '@ekza-studio/rig';
 import type { CharacterRuntime, EditorApp, PollResult } from '../types';
 import { nameKey, sanitizeClipName } from './names';
 import { isRestrictedLicense } from './provenance';
@@ -65,18 +65,18 @@ function licenseOf(container: GlbContainer): VrmLicenseInfo | null {
   return license;
 }
 
-/** The export path module (`@ekza-animator/io/write`), imported once on first use. */
+/** The export path module (`@ekza-studio/io/write`), imported once on first use. */
 export type WritePath = typeof WriteModule;
 let writePath: Promise<WritePath> | null = null;
 
 /**
- * Loads `@ekza-animator/io/write` (bake, writers, surgeon, lints, read-back; M2A-SPEC §4.4). The first call starts
+ * Loads `@ekza-studio/io/write` (bake, writers, surgeon, lints, read-back; M2A-SPEC §4.4). The first call starts
  * the dynamic import, later calls share it; a failed load is retried by the next call. Hosts call it on intent (the
  * Export dialog opening) so the first export does not wait for the chunk.
  */
 export function loadWritePath(): Promise<WritePath> {
   if (writePath === null) {
-    writePath = import('@ekza-animator/io/write');
+    writePath = import('@ekza-studio/io/write');
     writePath.catch(() => {
       writePath = null;
     });

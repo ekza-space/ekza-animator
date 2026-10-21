@@ -1,7 +1,7 @@
 // Transport, loop, speed and auto-key controls of the timeline (research 09 §4.9, FR-TIME-04/06, FR-KEY auto-key).
 // Every control runs an operator; the shortcut shown in a tooltip comes from the keymap.
-import type { EditorApp, LoopMode, OperatorId, PlaybackSpeed, Prefs, SessionState } from '@ekza-animator/editor-core';
-import { PANEL } from '@ekza-animator/editor-core';
+import type { EditorApp, LoopMode, OperatorId, PlaybackSpeed, Prefs, SessionState } from '@ekza-studio/editor-core';
+import { PANEL } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { usePrefs, useSession } from '../../hooks';
 import { selectClass } from './ClipControls';

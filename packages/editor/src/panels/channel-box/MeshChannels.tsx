@@ -17,8 +17,8 @@ import {
   RAD2DEG,
   DEG2RAD,
   type ReadonlyXf,
-} from '@ekza-animator/anim-core';
-import type { DocumentStore, GroupRecord, MeshId, MeshRecord } from '@ekza-animator/doc';
+} from '@ekza-studio/anim-core';
+import type { DocumentStore, GroupRecord, MeshId, MeshRecord } from '@ekza-studio/doc';
 import {
   type EditorApp,
   type LastRun,
@@ -29,10 +29,10 @@ import {
   selectInputsField,
   subscribeInputsField,
   visibleParams,
-} from '@ekza-animator/editor-core';
-import { PRIMITIVE_PARAMS } from '@ekza-animator/mesh-core/descriptors';
-import type { PrimitiveKind } from '@ekza-animator/mesh-core';
-import { cn } from '@ekza-animator/ui';
+} from '@ekza-studio/editor-core';
+import { PRIMITIVE_PARAMS } from '@ekza-studio/mesh-core/descriptors';
+import type { PrimitiveKind } from '@ekza-studio/mesh-core';
+import { cn } from '@ekza-studio/ui';
 import { type JSX, type KeyboardEvent, useCallback, useRef, useState, useSyncExternalStore } from 'react';
 import { useDocQuery, useSession } from '../../hooks';
 import { useOptionalShell } from '../../shell/context';

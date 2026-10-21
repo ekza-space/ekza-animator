@@ -1,6 +1,6 @@
 // The harness's own diagnostic panel: what the fake app holds and evaluates. It edits session and document state
 // directly (not through operators) because it is a test tool, not product UI.
-import { DEG2RAD, RAD2DEG } from '@ekza-animator/anim-core';
+import { DEG2RAD, RAD2DEG } from '@ekza-studio/anim-core';
 import {
   BUILTIN_TABLES,
   type ChannelId,
@@ -10,8 +10,8 @@ import {
   type DocumentStore,
   TRS_CHANNELS,
   type TrsChannel,
-} from '@ekza-animator/doc';
-import type { EditorApp } from '@ekza-animator/editor-core';
+} from '@ekza-studio/doc';
+import type { EditorApp } from '@ekza-studio/editor-core';
 import type { JSX } from 'react';
 import { useDocQuery, useSession } from '../hooks';
 import type { PanelDef, PanelProps } from '../panels/types';

@@ -2,7 +2,7 @@
 // "Getting started" card that says plainly what M1 is for. Closing it in any way marks the first run done.
 // M6a (M6A-SPEC §8.8, research 16 §16.1; B13): "What do you want to do first?" — Animate an avatar or Model something
 // new — sets the start workspace (`workspace.set`) and `prefs.lastWorkspace`.
-import { Button, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem } from '@ekza-animator/ui';
+import { Button, Dialog, DialogContent, DialogFooter, RadioGroup, RadioGroupItem } from '@ekza-studio/ui';
 import { type JSX, useState } from 'react';
 import { usePrefs } from '../hooks';
 import { useShell } from '../shell/context';
@@ -36,7 +36,7 @@ export function FirstRunDialog(): JSX.Element {
       }}
     >
       <DialogContent
-        title="Welcome to Ekza Animator"
+        title="Welcome to Ekza Studio"
         description="Two choices, then load an avatar. Both can be changed later in Preferences."
         width="lg"
         data-testid="firstrun-dialog"
