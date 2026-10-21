@@ -233,6 +233,24 @@ describe('§5.7 state table through the DOM', () => {
     expect(joint(rig, 'rightHand').restPosition).not.toEqual(wrist);
   });
 
+  it('X held snaps the moved joint to the grid (the hidden axis untouched)', async () => {
+    const rig = await scene('move');
+    const step = rig.app.prefs.getState().modeling.gridStep;
+    const before = joint(rig, 'rightLowerLeg').restPosition;
+    const from = at(rig, 'rightLowerLeg', 'pane-front');
+    window.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyX' }));
+    holdD(true);
+    drag(rig.panes.get('pane-front') as HTMLElement, from, { x: from.x + 17, y: from.y + 9 });
+    holdD(false);
+    window.dispatchEvent(new KeyboardEvent('keyup', { code: 'KeyX' }));
+    await settle();
+    await settle();
+    const after = joint(rig, 'rightLowerLeg').restPosition;
+    expect(Math.abs(after[0] / step - Math.round(after[0] / step))).toBeLessThan(1e-9);
+    expect(Math.abs(after[1] / step - Math.round(after[1] / step))).toBeLessThan(1e-9);
+    expect(Object.is(after[2], before[2])).toBe(true);
+  });
+
   it('the Test view refuses rest edits; R never scales joints', async () => {
     const rig = await scene('move');
     const toasts = (rig.app.services as unknown as { toasts: readonly { text: string }[] }).toasts;

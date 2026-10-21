@@ -298,7 +298,16 @@ export class JointInput {
       ];
       if (drag.hidden !== null) worldDelta[drag.hidden] = 0;
       const scale = e.shift ? 0.1 : 1;
-      const t = linear(drag.toCharacter, worldDelta).map((v) => v * scale) as unknown as Vec3;
+      let t = linear(drag.toCharacter, worldDelta).map((v) => v * scale) as unknown as Vec3;
+      // `X` held: the lead joint's rest lands on the grid (the pane's hidden axis stays where it is).
+      const grid = this.keys.isHeld('KeyX') ? this.app.prefs.getState().modeling.gridStep : null;
+      if (grid !== null && grid > 0) {
+        t = [0, 1, 2].map((k) => {
+          if (k === drag.hidden) return 0;
+          const p = drag.pivot[k] as number;
+          return Math.round((p + (t[k] as number)) / grid) * grid - p;
+        }) as unknown as Vec3;
+      }
       const mode = drag.action.mode;
       drag.args = { joints: drag.ids, translateX: t[0], translateY: t[1], translateZ: t[2], mode };
       this.host.setPreview(previewOf(moveJoints(drag.joints, drag.ids, { t, pivot: [0, 0, 0] }, mode, drag.symmetry)));
