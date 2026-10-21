@@ -1,5 +1,6 @@
 // The test pose (M6B-SPEC §4.6, §5.17; C0 working baseline in C7's dir, then C7): per character, per control channel
-// values, never in the document and never a key; `set` records one 'Test Pose' history step unless `record: false`.
+// values, never in the document and never a key; `set` records one 'Test Pose' history step unless `record: false`
+// and forgets the copy Go to Bind Pose kept (`clear`) for `restore`.
 // It lives in the rig-workspace chunk (`rig/chunk/services.ts`; `app.rig.testPose` exists once the chunk is
 // loaded): only Rig & Skin writes a test pose, and the eager route stays small (§0.4.9).
 import type { CharacterId, ChannelValues, ControlId } from '@ekza-studio/doc';
@@ -35,6 +36,9 @@ export function createTestPoseService(deps: {
     },
     values,
     set(character, next, opts) {
+      // A new pose — a test edit, or an undo/redo of a 'Test Pose' step — makes the copy Go to Bind Pose kept stale:
+      // Test then shows only what the history says exists (never a pose an undo removed).
+      kept.delete(character);
       if (opts?.record !== false) {
         deps
           .history()

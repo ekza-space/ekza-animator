@@ -1,11 +1,14 @@
 // Validation rows (M6B-SPEC §5.21, §0.4.5; C7): the MVP rows of a character, derived from the rule owners' pure
 // functions — C2's `checkSkeleton` (skel.*, xform.*), C6's `checkSkin` (skin.*) — plus the rows only the shell sees:
-// `skin.unbound` (a mesh of the character without a skin) and the VRM meta rows (`vrm.meta-required`,
-// `vrm.licence-unset`, `vrm.thumbnail-square`; C10's byte-level `vrm.*` lints run on the written file at export).
+// `skin.unbound` (a mesh of the character without a skin), `rig.out-of-sync` (the control rig's recorded skeleton
+// fingerprint differs from the joints' `jointsFingerprint`: merges, old projects; §5.16) and the VRM meta rows
+// (`vrm.meta-required`, `vrm.licence-unset`, `vrm.thumbnail-square`; C10's byte-level `vrm.*` lints run on the
+// written file at export).
 // Severity follows the export profile ("VRM / Ekza" or "plain"); a rule that has not landed yet (its stub throws
 // `not-implemented`) gives no rows. One row per code (and per mesh for skin rows).
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { AssetId, CharacterId, MeshId } from '@ekza-studio/doc';
+import { skeletonFromDoc } from '@ekza-studio/io';
 import type { SkinProblem } from '@ekza-studio/mesh-core';
 import { checkSkeleton, type RigProblem } from '@ekza-studio/rig';
 import { meshKernel } from '../../mesh/kernel';
@@ -99,6 +102,8 @@ function fixOf(row: RawRow, owner: { readonly character: CharacterId; readonly s
         : fix('Bind unweighted points', 'skin.bind', { meshes: [mesh], points: [...list] });
     }
     case 'skin.influences':
+      // §5.21 "Prune to 4": every weight tool keeps at most four influences per point (§5.10), prune included.
+      return fix('Prune to 4', 'skin.weights.prune');
     case 'skin.weight-sum':
       return fix('Normalize', 'skin.weights.normalize');
     case 'rig.out-of-sync':
@@ -169,6 +174,8 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     const input = docSkeletonInput(app, character);
     const problems: readonly RigProblem[] = input === null ? [] : landed(() => checkSkeleton(input));
     for (const problem of problems) rows.push({ code: problem.code, message: problem.message, ids: problem.ids });
+    const outOfSync = rigOutOfSync(app, record.rig, skeleton);
+    if (outOfSync !== null && !rows.some((row) => row.code === outOfSync.code)) rows.push(outOfSync);
   }
   const meshes = characterMeshes(app.store, character);
   const unbound = meshes.filter((mesh) => mesh.skin === null);
@@ -220,6 +227,24 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     });
   }
   return rows;
+}
+
+/**
+ * `rig.out-of-sync` (§5.21): the rig records the fingerprint of the skeleton it was generated from (C1's
+ * `rig.autoRig.update` writes `skeletonFromDoc(…).fingerprint`); joints edited without an update (merges, older
+ * projects) no longer match it. Joints only (`jointsFingerprint`), so meshes never matter.
+ */
+function rigOutOfSync(
+  app: Pick<EditorApp, 'store'>,
+  rigId: string | null,
+  found: NonNullable<ReturnType<typeof characterSkeleton>>,
+): RawRow | null {
+  const rig = rigId === null ? undefined : app.store.get('rigs', rigId as never);
+  if (rig === undefined || rig.deleted !== null || found.joints.length === 0) return null;
+  const fingerprint = skeletonFromDoc({ skeleton: found.skeleton, joints: found.joints, meshes: [] }).fingerprint;
+  return fingerprint === rig.skeleton.fingerprint
+    ? null
+    : { code: 'rig.out-of-sync', message: 'The control rig does not match the joints', ids: [rig.id] };
 }
 
 /** The thumbnail asset exists (its squareness is C10's: the renderer writes square images only). */

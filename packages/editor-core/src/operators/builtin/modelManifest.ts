@@ -508,7 +508,7 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       category: 'view',
       scope: 'model',
       flags: { selection: true },
-      workspaces: ['model'],
+      workspaces: ['model', 'rig'],
     },
     {
       id: 'view.showAll',
@@ -516,9 +516,9 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       category: 'view',
       scope: 'model',
       flags: { selection: true },
-      workspaces: ['model'],
+      workspaces: ['model', 'rig'],
     },
-    { id: 'view.isolate', label: 'Isolate Select', category: 'view', scope: 'model', workspaces: ['model'] },
+    { id: 'view.isolate', label: 'Isolate Select', category: 'view', scope: 'model', workspaces: ['model', 'rig'] },
     { id: 'model.symmetry.set', label: 'Symmetry', category: 'model', scope: 'model', workspaces: ['model'] },
     {
       id: 'model.softSelect.set',

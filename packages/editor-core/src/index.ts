@@ -432,12 +432,15 @@ export {
   profileKind,
   RIG_PROFILES,
   type RigValidation,
+  type RowSelection,
   rigChecklist,
   rigValidation,
+  selectValidationRow,
 } from './rig/validation';
 export { activeCharacter, LEFT_RIG_REASON, TEST_POSE_TOAST } from './rig/chunk/workspace';
 export { beginTestPoseGesture } from './rig/testPose/gesture';
-export { KEYING_CHORDS, RIG_KEYMAP, RIG_SCOPE } from './keymap/maya.rig';
+export { KEYING_CHORDS, RIG_SCOPE, RIG_SHADOW_KEYMAP } from './keymap/maya.rig';
+export { RIG_KEYMAP } from './rig/chunk/keymap';
 export { BIND_A_MESH_FIRST, MODE_MASKS, RIG_ONLY_REASON } from './operators/builtin/rig/mode';
 export { type ChannelEditRedirect, registerChannelEditRedirect } from './evaluation/rigSource';
 export { type CharacterRuntimeChunk, loadCharacterRuntime } from './characters/runtimeChunk';

@@ -5,13 +5,15 @@
 //   and the last mode; 'object' returns. Skin needs a bound mesh of the active character ("Bind a mesh first (Skin ›
 //   Bind Skin)"); Shapes arrives after the MVP. A mode switch is U state (no undo step): it sets the pick mask and the
 //   default tool of the mode (Select; Skin: Paint Skin Weights once C6 registers it), cancels channel gestures and
-//   closes the Last-op card. The shell follows `session.rig.mode` with the dock tabs (`tabMemory`).
+//   closes the Last-op card. Selection is remembered per mode (§5.24): the joints of Skeleton mode and the controls of
+//   Object mode come back when the mode is entered again (points stay per mesh in the component selection service).
+//   The shell follows `session.rig.mode` with the dock tabs (`tabMemory`).
 // - `rig.validation.profile {profile}`: the profile the Validation panel shows (U state).
 // `rig.outliner.delete` stays a deferred stub (the Rig Outliner needs CR-5).
 import { EkzaError } from '@ekza-studio/anim-core';
 import { cancelChannelEditGestures } from '../../../edit/channels';
 import { rigValidation } from '../../../rig/validation';
-import type { EditorApp, OperatorContext, PollResult, RigMode, SelectionMask } from '../../../types';
+import type { EditorApp, OperatorContext, PollResult, RigMode, Selection, SelectionMask } from '../../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK } from '../define';
 import { ARRIVES_AFTER_MVP, rigStub } from './stub';
 
@@ -65,11 +67,38 @@ function pollMode(ctx: OperatorContext, args: unknown): PollResult {
   return OK;
 }
 
+/** The selection each mode had when it was left (per app session; §5.24). */
+const remembered = new WeakMap<object, Map<RigMode, readonly string[]>>();
+/** The selection list a mode remembers: joints (Skeleton), controls (Object). */
+const MODE_SELECTION: Partial<Record<RigMode, 'joints' | 'controls'>> = { skeleton: 'joints', object: 'controls' };
+
+/** The selection with the entered mode's remembered list back (live records only), after saving the left mode's. */
+function modeSelection(app: EditorApp, from: RigMode, to: RigMode): Selection {
+  const selection = app.session.getState().selection;
+  let memory = remembered.get(app.session);
+  if (memory === undefined) {
+    memory = new Map();
+    remembered.set(app.session, memory);
+  }
+  const left = MODE_SELECTION[from];
+  if (left !== undefined) memory.set(from, selection[left]);
+  const entered = MODE_SELECTION[to];
+  const list = memory.get(to);
+  if (entered === undefined || list === undefined) return selection;
+  const table = entered === 'joints' ? 'joints' : 'controls';
+  const live = list.filter((id) => {
+    const record = app.store.get(table, id as never) as { readonly deleted?: unknown } | undefined;
+    return record !== undefined && (record.deleted ?? null) === null;
+  });
+  return { ...selection, [entered]: live };
+}
+
 /** Switches the mode (U state; the caller polled). */
 export function setRigMode(app: EditorApp, mode: RigMode): void {
   const state = app.session.getState();
   if (state.rig.mode === mode) return;
   cancelChannelEditGestures(app);
+  const selection = modeSelection(app, state.rig.mode, mode);
   const tool = app.tools.get('viewport', MODE_TOOLS[mode]) === undefined ? 'select' : MODE_TOOLS[mode];
   const lastRun =
     state.lastRun !== null && state.lastRun.closed === null
@@ -79,6 +108,7 @@ export function setRigMode(app: EditorApp, mode: RigMode): void {
     rig: { ...state.rig, mode, lastMode: mode === 'object' ? state.rig.lastMode : mode },
     tools: { ...state.tools, viewport: tool, selectionMask: MODE_MASKS[mode] },
     lastRun,
+    ...(selection === state.selection ? {} : { selection }),
   });
 }
 

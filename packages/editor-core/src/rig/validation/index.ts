@@ -11,6 +11,7 @@ import { DEFAULT_PROFILE, profileRows, type RawRow, rawRows } from './rows';
 
 export { type ChecklistGlyph, type ChecklistStep, checklistSummary, rigChecklist } from './checklist';
 export { DEFAULT_PROFILE, profileKind, RIG_PROFILES, SEVERITY } from './rows';
+export { type RowSelection, selectValidationRow } from './select';
 
 /** The rows that make the tab glyph ◐ besides errors (§5.21). */
 const ATTENTION_CODES: ReadonlySet<string> = new Set(['skin.review', 'skin.unweighted-vertex', 'skel.tpose']);
@@ -19,6 +20,8 @@ export interface RigValidation extends RigValidationService {
   /** The profile the panel shows (`rig.validation.profile`); `rows(c, null)` and `status(c, null)` use it. */
   readonly profile: string;
   setProfile(profile: string | null): boolean;
+  /** [Re-run] (§8.12): forgets the cached rows and re-derives them on the next read. */
+  rerun(): void;
   /** The MVP checklist of a character (§0.4.5; null: no character, the list starts at ①). */
   checklist(character: CharacterId | null): readonly ChecklistStep[];
   /** ⑤ "a library clip was previewed this session". */
@@ -97,6 +100,10 @@ export function createRigValidation(deps: { readonly app: () => EditorApp }): Ri
         rows: character === null ? [] : rows(character, null),
         previewed,
       });
+    },
+    rerun() {
+      cache.clear();
+      notify();
     },
     markPreviewed() {
       if (previewed) return;

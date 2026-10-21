@@ -58,6 +58,9 @@ export function switchWorkspace(app: EditorApp, id: WorkspaceId): boolean {
   if (def === undefined) throw new EkzaError('unsupported', `Unknown workspace '${id}'`);
   const from = app.session.getState().workspace;
   if (app.prefs.getState().lastWorkspace !== id) app.prefs.setState({ lastWorkspace: id });
+  // M6b C7 (§5.24, M6B-C7-15): entering Rig & Skin loads the rig-workspace chunk (the boot path enters without
+  // `workspace.set`'s prepare); until it has loaded the eager shadow rows and the refused channel edits stand in.
+  if (id === 'rig' && !app.rig.loaded) void app.rig.load().catch(() => undefined);
   if (from === id) return false;
   if (from === 'model') {
     // Before the session is read: ending the session may record its args and change the selection (§5.8).

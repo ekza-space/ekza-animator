@@ -11,11 +11,11 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { CharacterId, JointId } from '@ekza-studio/doc';
 import { cancelChannelEditGestures } from '../../edit/channels';
 import { registerChannelEditRedirect } from '../../evaluation/rigSource';
-import { RIG_KEYMAP } from '../../keymap/maya.rig';
 import { ownerOfControl } from '../../session/location';
 import type { EditorApp, PoseView, TestPoseService } from '../../types';
 import { beginTestPoseGesture } from '../testPose/gesture';
 import type { RigValidation } from '../validation';
+import { RIG_KEYMAP } from './keymap';
 
 /** Why the Last-op card closed when the user left Rig & Skin. */
 export const LEFT_RIG_REASON = 'Left the Rig & Skin workspace';

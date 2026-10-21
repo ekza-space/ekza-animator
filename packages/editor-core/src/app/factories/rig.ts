@@ -49,10 +49,17 @@ class Rig implements RigApi {
     return this.services !== null;
   }
   load(): Promise<void> {
-    this.loading ??= import('../../operators/builtin/rig/index').then((chunk) => {
-      this.services = chunk.createRigServices(this.deps);
-      this.detach = chunk.registerRigWorkspaceOperators(this.deps.app());
-    });
+    if (this.loading === null) {
+      const loading = import('../../operators/builtin/rig/index').then((chunk) => {
+        this.services ??= chunk.createRigServices(this.deps);
+        this.detach ??= chunk.registerRigWorkspaceOperators(this.deps.app());
+      });
+      this.loading = loading;
+      // A failed load (offline after a redeploy) is retried by the next call.
+      loading.catch(() => {
+        if (this.loading === loading) this.loading = null;
+      });
+    }
     return this.loading;
   }
   dispose(): void {

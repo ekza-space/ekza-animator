@@ -62,13 +62,30 @@ export function registerChannelEditRedirect(redirect: ChannelEditRedirect): Disp
   return () => redirects.delete(redirect);
 }
 
-/** The gesture a registered redirect opens for this app and label, or null (the shipped gesture runs). */
+/**
+ * The gesture a registered redirect opens for this app and label, or null (the shipped gesture runs). In Rig & Skin
+ * before the rig-workspace chunk has registered its redirect (a reload straight into Rig & Skin, a failed load), the
+ * edit is refused: an inert gesture that writes nothing (never an override or a key, M6B-C7-15) while the chunk loads.
+ */
 export function redirectedChannelEdit(app: EditorApp, label: string): ChannelEditGesture | null {
   for (const redirect of redirects) {
     const gesture = redirect(app, label);
     if (gesture !== null) return gesture;
   }
-  return null;
+  if (app.session.getState().workspace !== 'rig') return null;
+  void app.rig.load().catch(() => undefined);
+  let active = true;
+  const end = (): void => {
+    active = false;
+  };
+  return {
+    get active() {
+      return active;
+    },
+    update: () => undefined,
+    commit: end,
+    cancel: end,
+  };
 }
 
 export interface ChannelSources {

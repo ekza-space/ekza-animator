@@ -5,7 +5,7 @@
 // and dropped from the history on leaving, no empty steps); the pose view; the Validation rows per profile, the tab
 // glyph and the MVP checklist.
 import { sha256Hex } from '@ekza-studio/anim-core';
-import type { CharacterId, MeshId, RigId, SkeletonId } from '@ekza-studio/doc';
+import type { CharacterId, JointId, MeshId, RigId, SkeletonId } from '@ekza-studio/doc';
 import {
   makeTestJoint,
   makeTestMesh,
@@ -14,6 +14,7 @@ import {
   makeTestThumbnailAsset,
   makeTestVrmMeta,
 } from '@ekza-studio/doc/testing';
+import { skeletonFromDoc } from '@ekza-studio/io';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ANIMATE_ONLY_REASON,
@@ -28,15 +29,19 @@ import {
   MODE_MASKS,
   PANEL,
   RIG_KEYMAP,
+  RIG_SHADOW_KEYMAP,
   RIG_WORKSPACE,
   registerBuiltins,
   registerChannelSourceProvider,
   resolveChord,
   rigStatus,
   rigValidation,
+  selectValidationRow,
+  switchWorkspace,
   TEST_POSE_TOAST,
 } from '../../src';
 import { ARRIVES_AFTER_MVP } from '../../src/operators/builtin/rig/stub';
+import { profileRows } from '../../src/rig/validation/rows';
 import { createFakeServices } from '../../src/testing';
 import { opsApp, runOk, runResult } from '../builtin/support';
 import { ch } from '../keymap-support';
@@ -119,14 +124,58 @@ describe('the §7 MVP rows and their conformance', () => {
     const app = await rigApp();
     const forbidden = (chord: Chord): boolean =>
       (chord.code === 'KeyF' && chord.alt === true) || (chord.code === 'KeyB' && chord.shift === true);
-    expect(RIG_KEYMAP.filter((row) => !row.scope.startsWith('rig')).map((row) => row.scope)).toEqual([]);
+    const rows = [...RIG_KEYMAP, ...RIG_SHADOW_KEYMAP];
+    expect(rows.filter((row) => !row.scope.startsWith('rig')).map((row) => row.scope)).toEqual([]);
     // §7 conformance: every rig.*, skel.*, skin.* binding names a registered operator (view.* rows are the
     // viewport's, registered with the viewport manager in the browser).
-    const unknown = RIG_KEYMAP.filter(
+    const unknown = rows.filter(
       (row) => /^(rig|skel|skin|select)\./.test(row.op) && app.operators.get(row.op) === undefined,
     );
     expect(unknown.map((row) => row.op)).toEqual([]);
-    expect(RIG_KEYMAP.filter((row) => forbidden(row.chord))).toEqual([]);
+    expect(rows.filter((row) => forbidden(row.chord))).toEqual([]);
+    // No two rows share a chord and a scope.
+    const keys = rows.map((row) => `${JSON.stringify(row.chord)}@${row.scope}`);
+    expect(keys.length).toBe(new Set(keys).size);
+  });
+
+  it('every §7 row of an MVP operator resolves in its scope (MVP rows only; deferred rows unbound)', async () => {
+    const app = await rigApp();
+    const V = PANEL.viewport;
+    // [chord, chain, op, args?] — §7 rows of the §0.6 operators (`rv` Object mode, `rvj` Skeleton, `rvw` Skin).
+    const table: readonly (readonly [string, readonly string[], string, unknown?])[] = [
+      ['F8', rigChain(V), 'rig.mode', { mode: 'toggle' }],
+      ['Digit1', rigChain(V), 'rig.mode', { mode: 'skeleton' }],
+      ['Digit2', rigChain(V, 'skeleton'), 'rig.mode', { mode: 'skin' }],
+      ['KeyG', rigChain(V), 'edit.repeatLast'],
+      ['KeyT', rigChain(V), 'view.lastOpCard', { expand: true, focusPrimary: true }],
+      ['KeyY', rigChain(V), 'tool.last'],
+      ['KeyE', rigChain(V, 'skin'), 'skin.testRotate.toggle'],
+      ['ArrowUp', rigChain(V, 'skin'), 'skin.influence.walk', { direction: 'up' }],
+      ['ArrowLeft', rigChain(PANEL.paintWeights), 'skin.influence.walk', { direction: 'left' }],
+      ['Shift+Period', rigChain(V, 'skin'), 'select.mesh.grow'],
+      ['Shift+Comma', rigChain(V, 'skin'), 'select.mesh.shrink'],
+      ['Mod+KeyA', rigChain(V, 'skeleton'), 'select.joints', { all: true }],
+      ['Mod+KeyA', rigChain(V, 'skin'), 'select.mesh.all'],
+      ['Mod+KeyA', rigChain(V), 'select.all'],
+      ['Ctrl+Shift+Comma', rigChain(V, 'skin'), 'skin.paint.mode', { step: -1 }],
+      ['Ctrl+Shift+Period', rigChain(V, 'skin'), 'skin.paint.mode', { step: 1 }],
+      ['Ctrl+Shift+Period', rigChain(PANEL.paintWeights), 'skin.paint.mode', { step: 1 }],
+      ['Alt+KeyC', rigChain(V, 'skin'), 'view.display.toggle', { flag: 'weights' }],
+      ['Alt+KeyR', rigChain(V, 'skin'), 'skin.paint.mirrorToggle'],
+      ['Alt+KeyA', rigChain(V, 'skin'), 'view.display.toggle', { flag: 'wireOnShaded' }],
+      ['KeyH', rigChain(V, 'skeleton'), 'view.hide', { target: 'selected' }],
+      ['Shift+KeyH', rigChain(PANEL.outliner), 'view.showAll'],
+      ['Alt+KeyH', rigChain(V, 'skin'), 'view.hide', { target: 'unselected' }],
+      ['Shift+KeyL', rigChain(V), 'view.isolate'],
+      ['Delete', rigChain(V), 'rig.animateOnly'],
+      ['KeyS', rigChain(V, 'skeleton'), 'rig.animateOnly'],
+      ['Mod+KeyE', rigChain(V), 'ui.open', { dialog: 'export' }],
+    ];
+    const got = table.map(([chord, chain, op, args]) => {
+      const binding = resolveChord(app.keymap, ch(chord), chain);
+      return [chord, chain[0], binding?.op ?? null, binding?.args ?? null, op, args ?? null];
+    });
+    expect(got.filter((row) => row[2] !== row[4] || JSON.stringify(row[3]) !== JSON.stringify(row[5]))).toEqual([]);
   });
 
   it('S and every keying chord resolve to rig.animateOnly in every Rig scope that keys in Animate', async () => {
@@ -197,6 +246,61 @@ describe('the §7 MVP rows and their conformance', () => {
   });
 });
 
+describe('booting straight into Rig & Skin (M6B-C7-15: ?ws=rig, prefs.lastWorkspace)', () => {
+  it('before the rig chunk has loaded S keys nothing and channel edits write nothing; then the chunk takes over', async () => {
+    const app = waveApp();
+    disposers.push(registerBuiltins(app));
+    select(app, [W.lowerArmL]);
+    app.prefs.setState({ autoKey: true });
+    // The boot path (EditorRoot): `switchWorkspace` without `workspace.set`'s prepare.
+    switchWorkspace(app, 'rig');
+    expect(app.rig.loaded).toBe(false);
+    const hash = keysHash(app);
+    const version = app.store.version;
+    const before = app.history.peekUndo();
+    // Every keying chord in every Rig chain resolves to the eager shadow, never to key.set / pose.*.
+    const keying = ['key.set', 'key.deleteAtFrame', 'pose.copy', 'pose.paste', 'pose.mirror', 'graph.keys.keyCurves'];
+    const leaks: string[] = [];
+    for (const chain of allRigChains()) {
+      for (const chord of [...KEYING_CHORDS, ch('KeyS'), ch('Delete')]) {
+        const op = resolveChord(app.keymap, chord, chain)?.op ?? 'none';
+        if (keying.includes(op) || op.startsWith('graph.keys.')) leaks.push(`${JSON.stringify(chord)} → ${op}`);
+      }
+    }
+    expect(leaks).toEqual([]);
+    expect(resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.viewport))?.op).toBe('rig.animateOnly');
+    // A manipulator drag and a typed Channel Box value write neither overrides nor keys.
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.5 }]);
+    gesture.commit();
+    app.flushScheduled();
+    expect(app.session.getState().overrides.size).toBe(0);
+    // Running what S resolves to (the runner loads the chunk, then rig.animateOnly poll-fails).
+    const binding = resolveChord(app.keymap, ch('KeyS'), rigChain(PANEL.viewport));
+    const result = await runResult(app, binding?.op ?? '', binding?.args);
+    expect(result.status).toBe('cancelled');
+    expect([keysHash(app), app.store.version, app.history.peekUndo()]).toEqual([hash, version, before]);
+    // The chunk is loaded now: Bind on entry, the test-pose redirect answers.
+    expect(app.rig.loaded).toBe(true);
+    expect(app.session.getState().rig.poseView).toBe('bind');
+    await runOk(app, 'channel.setValues', {
+      edits: [{ control: W.lowerArmL, channel: 'rz', value: 0.3 }],
+      key: 'auto',
+    });
+    expect(app.rig.testPose.values(W.character).get(W.lowerArmL)).toEqual({ rz: 0.3 });
+    expect(keysHash(app)).toBe(hash);
+  });
+
+  it('switching to Rig & Skin starts loading the rig chunk', async () => {
+    const app = waveApp();
+    disposers.push(registerBuiltins(app));
+    switchWorkspace(app, 'rig');
+    await app.rig.load();
+    expect(app.rig.loaded).toBe(true);
+    expect(resolveChord(app.keymap, ch('Digit1'), rigChain(PANEL.viewport))?.op).toBe('rig.mode');
+  });
+});
+
 describe('modes (§5.24)', () => {
   it('1 / 2 / the digit again / F8; Skin needs a bound mesh; Shapes after the MVP; U state only', async () => {
     const app = await rigApp();
@@ -224,6 +328,27 @@ describe('modes (§5.24)', () => {
     expect(app.history.peekUndo()).toBe(steps);
     await runOk(app, 'workspace.set', { workspace: 'animate' });
     expect((await runResult(app, 'rig.mode', { mode: 'object' })).status).toBe('cancelled');
+  });
+
+  it('selection is remembered per mode: joints in Skeleton, controls in Object', async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app);
+    app.session.setState({ rig: { ...app.session.getState().rig, character } });
+    const selection = (): { readonly joints: readonly string[]; readonly controls: readonly string[] } => {
+      const { joints, controls } = app.session.getState().selection;
+      return { joints, controls };
+    };
+    select(app, [W.lowerArmL]);
+    await runOk(app, 'rig.mode', { mode: 'skeleton' });
+    app.session.setState({ selection: { ...app.session.getState().selection, joints: [SPINE] } });
+    // Object mode: the controls it had come back; Skeleton keeps its joints for later.
+    await runOk(app, 'rig.mode', { mode: 'object' });
+    select(app, [W.handL]);
+    app.session.setState({ selection: { ...app.session.getState().selection, joints: [] } });
+    await runOk(app, 'rig.mode', { mode: 'skeleton' });
+    expect(selection().joints).toEqual([SPINE]);
+    await runOk(app, 'rig.mode', { mode: 'object' });
+    expect(selection().controls).toEqual([W.handL]);
   });
 });
 
@@ -318,6 +443,23 @@ describe('entering, leaving and the pose view (§5.17, §5.24)', () => {
     expect(pose()).toEqual(bind);
   });
 
+  it('Go to Bind Pose, then undo of the test pose: Test brings back only what the history has', async () => {
+    const app = await rigApp();
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 0.5 }]);
+    gesture.commit();
+    await runOk(app, 'rig.pose.view', { view: 'bind' });
+    expect(app.rig.testPose.values(W.character).size).toBe(0);
+    await runOk(app, 'edit.undo'); // undoes 'Test Pose' (the pose before it was empty)
+    await runOk(app, 'rig.pose.view', { view: 'test' });
+    expect(app.rig.testPose.values(W.character).size).toBe(0);
+    expect(app.evaluation.channelValues(W.lowerArmL).rz).toBe(0);
+    // Redo brings the pose back through the history (and the view follows it).
+    await runOk(app, 'edit.redo');
+    expect(app.rig.testPose.values(W.character).get(W.lowerArmL)).toEqual({ rz: 0.5 });
+    expect(app.session.getState().rig.poseView).toBe('test');
+  });
+
   it('a typed Channel Box value in Rig & Skin is a test pose (channel.setValues), never a key', async () => {
     const app = await rigApp();
     app.prefs.setState({ autoKey: true });
@@ -347,15 +489,34 @@ describe('entering, leaving and the pose view (§5.17, §5.24)', () => {
   });
 });
 
-/** A model-sourced character: a skeleton with two joints and one mesh of the character (unbound). */
-function addModelCharacter(app: EditorApp, opts?: { readonly vrm?: boolean; readonly bound?: boolean }): CharacterId {
+const HIPS = 'jnt_Hips0001' as JointId;
+const SPINE = 'jnt_Spine001' as JointId;
+
+/**
+ * A model-sourced character: a skeleton with two joints and one mesh of the character (unbound). Its rig records the
+ * joints' fingerprint (as C1's `rig.autoRig.update` does) unless `outOfSync`.
+ */
+function addModelCharacter(
+  app: EditorApp,
+  opts?: { readonly vrm?: boolean; readonly bound?: boolean; readonly outOfSync?: boolean },
+): CharacterId {
   const character = 'chr_Model0001' as CharacterId;
   const skeleton = 'skl_Model0001' as SkeletonId;
   const rig = 'rig_Model0001' as RigId;
   const thumbnail = makeTestThumbnailAsset('thumb');
+  const skeletonRecord = makeTestSkeleton(skeleton, character, { preset: 'standard33' });
+  const joints = [
+    makeTestJoint(HIPS, skeleton, { name: 'hips', humanBone: 'hips', key: 'hips' }),
+    makeTestJoint(SPINE, skeleton, { name: 'spine', humanBone: 'spine', key: 'spine', parent: HIPS }),
+  ];
+  const rigRecord = makeTestRig(rig, character);
+  const fingerprint = skeletonFromDoc({ skeleton: skeletonRecord, joints, meshes: [] }).fingerprint;
   app.store.transact({ label: 'Model character' }, (tx) => {
     if (opts?.vrm === true) tx.put('assets', thumbnail);
-    tx.put('rigs', makeTestRig(rig, character));
+    tx.put(
+      'rigs',
+      opts?.outOfSync === true ? rigRecord : { ...rigRecord, skeleton: { ...rigRecord.skeleton, fingerprint } },
+    );
     tx.put('characters', {
       id: character,
       name: 'Cube Lad',
@@ -371,17 +532,8 @@ function addModelCharacter(app: EditorApp, opts?: { readonly vrm?: boolean; read
           ? { ...makeTestVrmMeta('Cube Lad', { authors: ['Tester'], licensePreset: 'cc0' }), thumbnail: thumbnail.id }
           : null,
     });
-    tx.put('skeletons', makeTestSkeleton(skeleton, character, { preset: 'standard33' }));
-    tx.put('joints', makeTestJoint('jnt_Hips0001', skeleton, { name: 'hips', humanBone: 'hips', key: 'hips' }));
-    tx.put(
-      'joints',
-      makeTestJoint('jnt_Spine001', skeleton, {
-        name: 'spine',
-        humanBone: 'spine',
-        key: 'spine',
-        parent: 'jnt_Hips0001' as never,
-      }),
-    );
+    tx.put('skeletons', skeletonRecord);
+    for (const joint of joints) tx.put('joints', joint);
     tx.put(
       'meshes',
       makeTestMesh('msh_Body0001', {
@@ -465,5 +617,92 @@ describe('Validation (§5.21, §0.4.5)', () => {
     expect(rigValidation(app).checklist(character)[2]?.glyph).toBe('done');
     await runOk(app, 'rig.mode', { mode: 'skin' });
     expect(app.session.getState().rig.mode).toBe('skin');
+  });
+
+  it('rig.out-of-sync: the recorded rig fingerprint differs from the joints; Fix = Update Control Rig', async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app, { vrm: true, bound: true, outOfSync: true });
+    const rows = rigValidation(app).rows(character, null);
+    expect(rows.map((row) => [row.code, row.severity, row.fix?.op ?? null])).toEqual([
+      ['rig.out-of-sync', 'warning', 'rig.autoRig.update'],
+    ]);
+    expect(
+      rigValidation(app)
+        .rows(character, 'local/generic')
+        .map((row) => row.code),
+    ).toEqual(['rig.out-of-sync']);
+  });
+
+  it('the Fix of each skin row (§5.21): Prune to 4, Normalize', () => {
+    const owner = { character: 'chr_X' as CharacterId, skeleton: null };
+    const rows = profileRows(
+      [
+        { code: 'skin.influences', message: '', ids: ['msh_A'] },
+        { code: 'skin.weight-sum', message: '', ids: ['msh_A'] },
+      ],
+      null,
+      owner,
+    );
+    expect(rows.map((row) => [row.code, row.fix?.label, row.fix?.op])).toEqual([
+      ['skin.influences', 'Prune to 4', 'skin.weights.prune'],
+      ['skin.weight-sum', 'Normalize', 'skin.weights.normalize'],
+    ]);
+  });
+
+  it('[Re-run] forgets the cached rows and notifies', async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app);
+    const validation = rigValidation(app);
+    const first = validation.rows(character, null);
+    let notified = 0;
+    disposers.push(validation.subscribe(() => notified++));
+    validation.rerun();
+    expect(notified).toBe(1);
+    expect(validation.rows(character, null)).toEqual(first);
+  });
+
+  it('Select on a joint row: Skeleton mode and the joints selected', async () => {
+    const app = await rigApp();
+    addModelCharacter(app);
+    const result = await selectValidationRow(app, { ids: [HIPS, SPINE] });
+    expect(result.mode).toBe('skeleton');
+    expect(app.session.getState().rig.mode).toBe('skeleton');
+    // `select.joints` is C2/C3's (a stub that poll-fails until they land): when it ran, the joints are selected.
+    const ran = app.operators.poll('select.joints', undefined, { ids: [HIPS, SPINE], mode: 'replace' }) === true;
+    expect(result.selected).toBe(ran);
+    if (ran) expect(app.session.getState().selection.joints).toEqual([HIPS, SPINE]);
+  });
+});
+
+describe('hide, show and isolate in Rig & Skin (§6.3, §7)', () => {
+  it('Skeleton mode hides joints (selected / unselected) and Show All shows them; U state', async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app);
+    app.session.setState({ rig: { ...app.session.getState().rig, character } });
+    await runOk(app, 'rig.mode', { mode: 'skeleton' });
+    const steps = app.history.peekUndo();
+    const hidden = (): string[] => [...app.session.getState().rig.hiddenJoints].sort();
+    expect((await runResult(app, 'view.hide', { target: 'selected' })).status).toBe('cancelled'); // nothing selected
+    app.session.setState({ selection: { ...app.session.getState().selection, joints: [SPINE] } });
+    await runOk(app, 'view.hide', { target: 'selected' });
+    expect(hidden()).toEqual([SPINE]);
+    await runOk(app, 'view.showAll');
+    expect(hidden()).toEqual([]);
+    await runOk(app, 'view.hide', { target: 'unselected' });
+    expect(hidden()).toEqual([HIPS]);
+    expect(app.history.peekUndo()).toBe(steps);
+    // Isolate in Skeleton mode: the selected joints' character's meshes in the pane.
+    await runOk(app, 'view.isolate', { paneId: 'pane-persp' });
+    expect(app.session.getState().model.isolate['pane-persp']).toEqual(['msh_Body0001']);
+    // Object mode: objects, as in Model.
+    await runOk(app, 'rig.mode', { mode: 'object' });
+    app.session.setState({ selection: { ...app.session.getState().selection, objects: ['msh_Body0001' as MeshId] } });
+    await runOk(app, 'view.hide', { target: 'selected' });
+    expect([...app.session.getState().model.hiddenObjects]).toEqual(['msh_Body0001']);
+    await runOk(app, 'view.showAll');
+    expect(app.session.getState().model.hiddenObjects.size).toBe(0);
+    // Animate: still refused.
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    expect((await runResult(app, 'view.hide', { target: 'unselected' })).status).toBe('cancelled');
   });
 });

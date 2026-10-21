@@ -9,7 +9,12 @@
 //   every mesh (object mode).
 // - `view.isolate {paneId?}`: toggles the pane's isolate set: the selected objects (object mode), the hilited meshes
 //   (component modes) and in face mode only their selected faces.
-import type { GroupId, MeshId } from '@ekza-studio/doc';
+//
+// M6b C7 (M6B-SPEC §6.3, §7, §0.6): the Rig & Skin variants, by the Rig mode: Object mode acts on objects (as Model's
+// object mode); Skeleton mode hides joints (`session.rig.hiddenJoints`, U state without a step: `HideSnapshot` has no
+// joints) and isolates the selected joints' characters' meshes; Skin mode acts like Model's vertex mode on the
+// hilited meshes (else the active character's bound meshes): the faces the selected points touch.
+import type { CharacterId, GroupId, JointId, MeshId } from '@ekza-studio/doc';
 import type { BitSet, ComponentKind } from '@ekza-studio/mesh-core';
 import { componentInternals } from '../../selection/component/service';
 import { recordHide } from '../../selection/component/steps';
@@ -60,7 +65,66 @@ function selectedSet(app: EditorApp, mesh: MeshId, kind: ComponentKind): BitSet 
 }
 
 function modelPoll(ctx: OperatorContext): PollResult {
-  return ctx.app.session.getState().workspace === 'model' ? OK : fail(MODEL_ONLY_REASON);
+  const workspace = ctx.app.session.getState().workspace;
+  return workspace === 'model' || workspace === 'rig' ? OK : fail(MODEL_ONLY_REASON);
+}
+
+/** What hide, show and isolate act on: objects, joints (Rig Skeleton mode) or components of a kind. */
+type HideTarget = 'object' | 'joints' | ComponentKind;
+function hideTarget(app: EditorApp): HideTarget {
+  const state = app.session.getState();
+  if (state.workspace !== 'rig') return state.model.componentMode;
+  return state.rig.mode === 'skeleton' ? 'joints' : state.rig.mode === 'skin' ? 'vertex' : 'object';
+}
+
+/** The meshes a component hide acts on: the hilited ones; in Rig & Skin without any, the active character's bound. */
+function componentMeshes(app: EditorApp): MeshId[] {
+  const state = app.session.getState();
+  if (state.workspace !== 'rig' || state.model.hilite.length > 0) return [...state.model.hilite];
+  const character = state.rig.character;
+  return app.store
+    .list('meshes')
+    .filter(
+      (mesh) =>
+        mesh.deleted === null && mesh.skin !== null && 'character' in mesh.owner && mesh.owner.character === character,
+    )
+    .map((mesh) => mesh.id);
+}
+
+/** The live selected joints. */
+function selectedJoints(app: EditorApp): JointId[] {
+  return app.session.getState().selection.joints.filter((id) => {
+    const joint = app.store.get('joints', id);
+    return joint !== undefined && joint.deleted === null;
+  });
+}
+
+/** The live meshes of the selected joints' characters (else the active character's). */
+function jointCharacterMeshes(app: EditorApp): MeshId[] {
+  const characters = new Set<CharacterId>();
+  for (const id of selectedJoints(app)) {
+    const joint = app.store.get('joints', id);
+    const skeleton = joint === undefined ? undefined : app.store.get('skeletons', joint.skeleton);
+    if (skeleton !== undefined) characters.add(skeleton.character);
+  }
+  const active = app.session.getState().rig.character;
+  if (characters.size === 0 && active !== null) characters.add(active);
+  return app.store
+    .list('meshes')
+    .filter((mesh) => mesh.deleted === null && 'character' in mesh.owner && characters.has(mesh.owner.character))
+    .map((mesh) => mesh.id);
+}
+
+/** Rig Skeleton mode: hides the selected joints, or every other live joint; U state. */
+function hideJoints(app: EditorApp, target: 'selected' | 'unselected'): void {
+  const state = app.session.getState();
+  const selected = new Set<string>(selectedJoints(app));
+  const hidden = new Set(state.rig.hiddenJoints);
+  for (const joint of app.store.list('joints')) {
+    if (joint.deleted !== null || selected.has(joint.id) === (target === 'unselected')) continue;
+    hidden.add(joint.id);
+  }
+  app.session.setState({ rig: { ...state.rig, hiddenJoints: hidden } });
 }
 
 const hide = defineOperator({
@@ -71,7 +135,7 @@ const hide = defineOperator({
   scope: 'model',
   flags: { selection: true },
   extraArgs: ['target'],
-  workspaces: ['model'],
+  workspaces: ['model', 'rig'],
   poll(ctx, args): PollResult {
     if (!isRecord(args) || !TARGETS.includes(args['target'])) {
       return fail('expects { target: selected | unselected }');
@@ -79,10 +143,11 @@ const hide = defineOperator({
     const ok = modelPoll(ctx);
     if (ok !== true || args['target'] === 'unselected') return ok;
     const state = ctx.app.session.getState();
-    const mode = state.model.componentMode;
+    const mode = hideTarget(ctx.app);
+    if (mode === 'joints') return selectedJoints(ctx.app).length > 0 ? OK : fail(NOTHING_SELECTED);
     if (mode === 'object')
       return state.selection.objects.some((id) => liveObject(ctx.app, id)) ? OK : fail(NOTHING_SELECTED);
-    const any = state.model.hilite.some((mesh) => {
+    const any = componentMeshes(ctx.app).some((mesh) => {
       const set = selectedSet(ctx.app, mesh, mode);
       return set !== null && !set.isEmpty();
     });
@@ -91,11 +156,15 @@ const hide = defineOperator({
   apply(ctx, args) {
     const app = ctx.app;
     const state = app.session.getState();
-    const mode = state.model.componentMode;
+    const mode = hideTarget(app);
+    if (mode === 'joints') {
+      hideJoints(app, args.target);
+      return;
+    }
     if (mode !== 'object') {
       const internals = componentInternals(app.components);
       if (internals === null) return;
-      const meshes = state.model.hilite.filter((mesh) => (app.meshes.get(mesh)?.mesh ?? null) !== null);
+      const meshes = componentMeshes(app).filter((mesh) => (app.meshes.get(mesh)?.mesh ?? null) !== null);
       const before = hideSnapshot(app, meshes);
       internals.batch(() => {
         for (const mesh of meshes) {
@@ -134,14 +203,18 @@ const showAll = defineOperator({
   category: 'view',
   scope: 'model',
   flags: { selection: true },
-  workspaces: ['model'],
+  workspaces: ['model', 'rig'],
   poll: (ctx) => modelPoll(ctx),
   apply(ctx) {
     const app = ctx.app;
     const state = app.session.getState();
+    const mode = hideTarget(app);
+    if (mode === 'joints') {
+      if (state.rig.hiddenJoints.size > 0) app.session.setState({ rig: { ...state.rig, hiddenJoints: new Set() } });
+      return;
+    }
     const internals = componentInternals(app.components);
-    const meshes =
-      state.model.componentMode === 'object' ? app.meshes.list().map((runtime) => runtime.id) : [...state.model.hilite];
+    const meshes = mode === 'object' ? app.meshes.list().map((runtime) => runtime.id) : componentMeshes(app);
     const before = hideSnapshot(app, meshes);
     internals?.batch(() => {
       for (const mesh of meshes) internals.show(mesh);
@@ -167,7 +240,7 @@ const isolate = defineOperator({
   category: 'view',
   scope: 'model',
   extraArgs: ['paneId'],
-  workspaces: ['model'],
+  workspaces: ['model', 'rig'],
   poll(ctx, args): PollResult {
     if (optionalArgs(args) === null) return fail('expects { paneId? }');
     const ok = modelPoll(ctx);
@@ -176,10 +249,12 @@ const isolate = defineOperator({
     if (pane === null) return fail('no viewport pane');
     const state = ctx.app.session.getState();
     if ((state.model.isolate[pane] ?? null) !== null) return OK; // toggles off
-    if (state.model.componentMode === 'object') {
+    const mode = hideTarget(ctx.app);
+    if (mode === 'joints') return jointCharacterMeshes(ctx.app).length > 0 ? OK : fail(NOTHING_SELECTED);
+    if (mode === 'object') {
       return state.selection.objects.some((id) => liveObject(ctx.app, id)) ? OK : fail(NOTHING_SELECTED);
     }
-    return state.model.hilite.length > 0 ? OK : fail('Select a mesh first');
+    return componentMeshes(ctx.app).length > 0 ? OK : fail('Select a mesh first');
   },
   apply(ctx, args) {
     const app = ctx.app;
@@ -194,9 +269,13 @@ const isolate = defineOperator({
       app.session.setState({ model: { ...state.model, isolate: isolates } });
       return;
     }
-    const mode = state.model.componentMode;
+    const mode = hideTarget(app);
     const objects: SceneObjectId[] =
-      mode === 'object' ? state.selection.objects.filter((id) => liveObject(app, id)) : [...state.model.hilite];
+      mode === 'object'
+        ? state.selection.objects.filter((id) => liveObject(app, id))
+        : mode === 'joints'
+          ? jointCharacterMeshes(app)
+          : componentMeshes(app);
     if (mode === 'face' && internals !== null) {
       const faces = new Map<MeshId, BitSet>();
       for (const mesh of state.model.hilite) {
