@@ -178,14 +178,22 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     };
-    // Landed owners' operators poll for real: C2's skeleton kernel ids and C7's rig shell four poll on
-    // their own args (literal update, §3 rule 9); the others keep the stub reason.
+    // Landed owners' operators poll for real: C2's skeleton kernel ids, C7's rig shell four and C3's Quick Rig session
+    // poll on their own args (literal update, §3 rule 9); the others keep the stub reason.
     const LANDED: Readonly<Record<string, string>> = {
       'rig.animateOnly': 'Keys and poses are set in Animate',
       'rig.mode': 'expects { mode }',
       'rig.pose.view': 'expects { view }',
       'rig.pose.resetTest': 'Rig & Skin modes are in the Rig & Skin workspace',
       'rig.validation.profile': 'expects { profile }',
+      // C3: the Quick Rig session operators (U state) poll on the selection and on Quick Rig being open.
+      'skel.quickRig.start': 'Select the meshes to rig',
+      'skel.quickRig.setMarker': 'Quick Rig is not open',
+      'skel.quickRig.guess': 'Quick Rig is not open',
+      'skel.quickRig.clear': 'Quick Rig is not open',
+      'skel.quickRig.setPreset': 'Quick Rig is not open',
+      'skel.quickRig.cancel': 'Quick Rig is not open',
+      'skel.quickRig.pick': 'Quick Rig is not open',
     };
     const stubbed = MVP.filter((id) => !C2_LANDED.includes(id));
     expect(stubbed.map((id) => [id, reasonOf(id)])).toEqual(stubbed.map((id) => [id, LANDED[id] ?? NOT_AVAILABLE_YET]));

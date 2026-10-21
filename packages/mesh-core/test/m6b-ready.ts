@@ -3,7 +3,7 @@
 export const READY = {
   c1: false,
   c2: true,
-  c3: false,
+  c3: true,
   c4: false,
   c6: false,
   c7: true,

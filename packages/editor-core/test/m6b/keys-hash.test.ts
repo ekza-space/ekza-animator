@@ -2,6 +2,7 @@
 // the ones §3 rule 7 lists. C0 lands the table frame with every operator row pending; each owner turns its rows into
 // runs (the row's `status` becomes 'checked' and its `args` the fixture run) when it lands the operator.
 import { createHash } from 'node:crypto';
+import type { MeshId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { ANIMATE_ONLY_REASON, beginChannelEditGesture, type EditorApp, registerBuiltinWorkspaces } from '../../src';
 import { opsApp } from '../builtin/support';
@@ -44,16 +45,23 @@ export const P_C6_ROWS: readonly Row[] = [
     modelCharacter(app);
     return { skeleton: C2_SKELETON };
   }),
-  ...pending(
-    'C3',
-    'skel.quickRig.start',
-    'skel.quickRig.setMarker',
-    'skel.quickRig.guess',
-    'skel.quickRig.clear',
-    'skel.quickRig.setPreset',
-    'skel.quickRig.cancel',
-    'skel.quickRig.pick',
-  ),
+  // C3: Start and Guess need the mesh kernel (`opsApp` has none); test/m6b/skeleton-ui/quick-rig-session.test.ts
+  // asserts they leave the document (and so the keys) alone. The other Quick Rig operators run on an open Quick Rig.
+  ...pending('C3', 'skel.quickRig.start', 'skel.quickRig.guess'),
+  checked('C3', 'skel.quickRig.setMarker', (app) => {
+    openQuickRig(app);
+    return { name: 'knee', point: [-0.1, 0.45, 0.03] };
+  }),
+  checked('C3', 'skel.quickRig.clear', (app) => openQuickRig(app)),
+  checked('C3', 'skel.quickRig.setPreset', (app) => {
+    openQuickRig(app);
+    return { preset: 'full52' };
+  }),
+  checked('C3', 'skel.quickRig.cancel', (app) => openQuickRig(app)),
+  checked('C3', 'skel.quickRig.pick', (app) => {
+    openQuickRig(app);
+    return { marker: 'elbow' };
+  }),
   ...pending(
     'C2',
     'skel.joint.create',
@@ -174,6 +182,28 @@ export const P_C6_ROWS: readonly Row[] = [
   ...pending('C12', 'library.open', 'library.preview', 'library.stop'),
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
 ];
+
+/** C3's fixture: Quick Rig open (U state) on a mesh id; the preview stays empty without the mesh kernel. */
+function openQuickRig(app: EditorApp): undefined {
+  const rig = app.session.getState().rig;
+  app.session.setState({
+    rig: {
+      ...rig,
+      quickRig: {
+        meshes: ['msh_QuickRig000001' as MeshId],
+        preset: 'standard33',
+        markers: { pelvis: [0, 0.93, 0], knee: [-0.1, 0.46, 0] },
+        moved: new Set(),
+        selected: null,
+        guess: null,
+        preview: null,
+        checks: { centred: true, grounded: true, facing: true },
+        refit: null,
+      },
+    },
+  });
+  return undefined;
+}
 
 /** C7's fixture: Rig & Skin entered with a control selected and a test pose on it (a test gesture). */
 async function rigSetup<T>(app: EditorApp, args: T): Promise<T> {
