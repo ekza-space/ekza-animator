@@ -87,14 +87,6 @@ export const VRM_LINT_RULES: readonly LintRuleDef[] = Object.freeze([
   ...VRM_META_RULE_IDS.map((id): LintRuleDef => ({ id, local: null, ekza: null, description: DESCRIPTIONS[id] })),
 ]);
 
-/** The Space profile's severity overrides for the `vrm.*` rows (§0.4.6: errors; the thumbnail a warning). */
-export const SPACE_VRM_RULES: readonly { readonly id: string; readonly severity: LintSeverity }[] = [
-  ...VRM_RUNTIME_RULE_IDS.map((id) => ({ id, severity: 'error' as const })),
-  { id: 'vrm.meta-required', severity: 'error' },
-  { id: 'vrm.licence-unset', severity: 'error' },
-  { id: 'vrm.thumbnail-square', severity: 'warning' },
-];
-
 const VRM_CODES = new Set<string>([...VRM_RUNTIME_RULE_IDS, ...VRM_META_RULE_IDS]);
 
 /** Whether a lint code is one of the `vrm.*` rows. */
