@@ -116,7 +116,23 @@ reads and redirect hooks (with the refused edit before the chunk), the rig shell
 eager shadow rows and the chunk load on entry (+401 B; the round-0 measure was 892,589 B, +1,485 B). The Rig hide
 variants are in the lazy Model operators chunk; the rest of the Rig rows, the menus and the shell operators are lazy.
 
-## Gates (local, real Chrome; port 3164)
+## Gates, fix round 1 (local, real Chrome; port 3164)
+
+`EKZA_E2E_PORT=3164 pnpm run ci` (machine load average 60–97 from other processes throughout):
+
+- run 1 stopped at lint (a conditional `expect` in the new select test, an unnecessary cast); fixed.
+- run 2: format:check, lint, typecheck, check:deps, check:fixtures, check:licenses, test (editor-core 1366, editor
+  531 + 1 skipped, the other packages as before), build and check:size all pass; test:e2e **222 passed, 27 skipped,
+  2 failed**: `m6a-content` reference images (30 s test timeout) and `shading-01-blinn` (a 5 s pixel-readback poll).
+  Neither touches Rig & Skin. Both pass when run again on the same build (`m6a-content` 8/8, `shading-01` alone, then
+  with `m6a-30-seed-san` ×2 each, 4/4). A second full e2e pass on the same build: 222 passed, 2 failed
+  (`shading-01` again, `m6a-30-seed-san`), both green on the repeat run: timing under contention, not a regression.
+- C7's specs: E2E-RIG-01/-02/-05/-08 ungated parts green, including the new `?ws=rig` scenario of E2E-RIG-02 and the
+  [Re-run] check of E2E-RIG-08; the four gated full rows stay `test.fixme` with their gates.
+- Separate production build (no `NEXT_PUBLIC_EKZA_E2E`): `check:size` 892,990 B, eager delta +3,421 B (see above).
+- Port 3164 free at the end.
+
+## Gates, round 0 (local, real Chrome; port 3164)
 
 `EKZA_E2E_PORT=3164 pnpm run ci`: **exit 0** (third run; the machine's load average was 10–38 from other processes).
 
