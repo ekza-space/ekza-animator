@@ -460,9 +460,12 @@ describe('P-S3 mirror weights', () => {
         { kind: 'stroke', joint: 'leftShoulder', op, value: 0.6, stamps, mirror: true },
         context(bound),
       );
-      expect(out.changed.length, op).toBeGreaterThan(0);
-      expect(asymmetric(bound, out.skin), op).toEqual([]);
-      expect(invalidPoints(out.skin), op).toEqual([]);
+      expect({
+        op,
+        changed: out.changed.length > 0,
+        asymmetric: asymmetric(bound, out.skin),
+        invalid: invalidPoints(out.skin),
+      }).toEqual({ op, changed: true, asymmetric: [], invalid: [] });
     }
   });
 });
@@ -512,9 +515,8 @@ describe('P-S3 mirrored strokes and Flood over random stamps (fast-check)', () =
           const v = op === 'add' ? value : Math.abs(value);
           const out = editWeights(bound.skin, { kind: 'stroke', joint, op, value: v, stamps, mirror: true }, ctx);
           expect(invalidPoints(out.skin)).toEqual([]);
-          if (op !== 'smooth' || raw.every((stamp) => stamp.every(([u]) => symmetricRing(u)))) {
-            expect(asymmetric(bound, out.skin)).toEqual([]);
-          }
+          const exact = op !== 'smooth' || raw.every((stamp) => stamp.every(([u]) => symmetricRing(u)));
+          expect(exact ? asymmetric(bound, out.skin) : []).toEqual([]);
           // A mirrored Flood stays valid, and Mirror Skin Weights makes any result exact again.
           const flood = editWeights(
             out.skin,

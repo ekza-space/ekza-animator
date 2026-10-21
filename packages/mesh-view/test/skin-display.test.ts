@@ -134,10 +134,10 @@ describe('WeightDisplay', () => {
     cv.render(camera);
     // Near the Σ = 0.5 end points: the lint colour (red over blue), not a grey of 0.5.
     const dot = cv.pixel(...screen(camera, [0.497, 0, 0], 400, 300));
-    expect((dot[0] as number) - (dot[2] as number)).toBeGreaterThan(60);
+    expect(dot[0] - dot[2]).toBeGreaterThan(60);
     // Halfway to the next column (x 0.375): the plain weight colour (white, w = 1 there and 0.5 at the end).
     const plain = cv.pixel(...screen(camera, [0.3, 0, 0], 400, 300));
-    expect(Math.abs((plain[0] as number) - (plain[2] as number))).toBeLessThan(10);
+    expect(Math.abs(plain[0] - plain[2])).toBeLessThan(10);
     expect(DEFAULT_WEIGHT_COLORS.lintError).toBe(0xef6b6b);
   });
 });
