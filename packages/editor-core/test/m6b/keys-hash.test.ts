@@ -203,8 +203,8 @@ describe('P-C6: rig edits never key (table frame, §5.26)', () => {
     const result = await app.runUntyped(row.id, args);
     // A checked row must really run (a refused run would leave the hash unchanged trivially), unless refusing is
     // the operator's whole job (then it must refuse with exactly its reason).
-    if (row.refuses === undefined) expect(result.status).toBe('finished');
-    else expect(result).toEqual({ status: 'cancelled', reason: row.refuses });
+    const expected = row.refuses === undefined ? 'finished' : `cancelled: ${row.refuses}`;
+    expect(result.status === 'cancelled' ? `cancelled: ${result.reason}` : result.status).toBe(expected);
     expect(keysHash(app)).toBe(before);
   });
 });
