@@ -12,6 +12,9 @@
     },
     {
       "path": "../../doc/src"
+    },
+    {
+      "path": "../../mesh-core/src"
     }
   ]
 }

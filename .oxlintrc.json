@@ -505,8 +505,15 @@
           {
             "patterns": [
               {
-                "group": ["**", "!./**", "!../**", "!@ekza-studio/anim-core", "!@ekza-studio/doc"],
-                "message": "@ekza-studio/rig may import only: @ekza-studio/anim-core, @ekza-studio/doc (ARCHITECTURE \u00a73)."
+                "group": [
+                  "**",
+                  "!./**",
+                  "!../**",
+                  "!@ekza-studio/anim-core",
+                  "!@ekza-studio/doc",
+                  "!@ekza-studio/mesh-core"
+                ],
+                "message": "@ekza-studio/rig may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/mesh-core (types only, M6B-SPEC \u00a72.1) (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -559,6 +566,8 @@
                   "!@ekza-studio/anim-core",
                   "!@ekza-studio/doc",
                   "!@ekza-studio/doc/testing",
+                  "!@ekza-studio/mesh-core",
+                  "!@ekza-studio/mesh-core/testing",
                   "!fast-check",
                   "!three",
                   "!three/**",
@@ -566,7 +575,7 @@
                   "!vitest/**",
                   "!node:*"
                 ],
-                "message": "@ekza-studio/rig tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, fast-check, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/rig tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/mesh-core, @ekza-studio/mesh-core/testing, fast-check, three, three/**, vitest, vitest/**, node:* (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",

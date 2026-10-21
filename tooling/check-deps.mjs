@@ -75,7 +75,8 @@ export const ALLOWED = {
     devDependencies: [...BROWSER_TESTS, '@types/three'],
   },
   [RIG]: {
-    dependencies: [ANIM_CORE, DOC],
+    // M6B-SPEC §2.1: rig → mesh-core for types only (TriangleBvh, MeshData, SkinWeights in the §4.3 signatures).
+    dependencies: [ANIM_CORE, DOC, MESH_CORE],
     devDependencies: [...VITEST, '@types/three', 'fast-check', 'three'],
   },
   [IO]: {

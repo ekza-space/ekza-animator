@@ -503,6 +503,9 @@ importers:
       '@ekza-studio/doc':
         specifier: workspace:*
         version: link:../doc
+      '@ekza-studio/mesh-core':
+        specifier: workspace:*
+        version: link:../mesh-core
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
