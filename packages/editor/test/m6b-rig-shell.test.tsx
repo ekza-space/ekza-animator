@@ -174,14 +174,17 @@ describe('the Rig menus (§0.4.5)', () => {
     const test = await rigShell();
     expect(RIG_MENU_ITEMS.every((item) => test.app.menus.get(item.id) !== undefined)).toBe(true);
     expect(RIG_MARKING_MENUS.map((def) => test.app.markingMenus.get(def.id)?.workspaces)).toEqual([['rig']]);
-    let bodies: (string | null)[] = [];
+    const seen: Record<string, boolean> = {};
     function Probe(): null {
-      bodies = ['rigMode', 'poseView', 'rigSymmetry', 'rigSnap', 'jointDisplay'].map((id) =>
-        useStatusGroup(id) === null ? null : id,
-      );
+      seen['rigMode'] = useStatusGroup('rigMode') !== null;
+      seen['poseView'] = useStatusGroup('poseView') !== null;
+      seen['rigSymmetry'] = useStatusGroup('rigSymmetry') !== null;
+      seen['rigSnap'] = useStatusGroup('rigSnap') !== null;
+      seen['jointDisplay'] = useStatusGroup('jointDisplay') !== null;
       return null;
     }
     await mountPlain(<Probe />);
+    const bodies = Object.keys(seen).filter((id) => seen[id] === true);
     expect(bodies).toEqual(['rigMode', 'poseView', 'rigSymmetry', 'rigSnap', 'jointDisplay']);
     // The shipped Windows layouts are Animate's; Rig & Skin lists its own presets.
     expect(RIG_LAYOUTS.map((entry) => entry.layout)).toEqual(['single', RIG_LAYOUT.side, RIG_LAYOUT.markers]);
