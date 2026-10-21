@@ -6,7 +6,9 @@
 import type { HumanBoneName } from '@ekza-studio/doc';
 import { TriangleBvh } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
+import type { SkeletonId, SkeletonRecord } from '@ekza-studio/doc';
 import {
+  checkSkeleton,
   DEFAULT_FLEXION,
   fitTemplate,
   GUESS,
@@ -23,6 +25,7 @@ import {
   type SkeletonPreset,
   skeletonTemplate,
   type TemplateJoint,
+  templateJointRecords,
 } from '../../src';
 import { boundsOf, cubeLad, dist, type Fixture, generatedBody, polybotTPose, type Triangles, type V3 } from './support';
 
@@ -213,6 +216,29 @@ describe('P-J4 guess: within 0.05 H of the truth markers, bit-identical over two
   it('no leg split → null', () => {
     const block: Triangles = boxTriangles([0, 0.85, 0], [0.4, 1.7, 0.3]);
     expect(guessMarkers(new TriangleBvh(block.positions, block.tris), boundsOf(block))).toBeNull();
+  });
+});
+
+describe('guess → fit → checkSkeleton: the One-Click path is lint-clean (E2E-SKIN-01 "no error row")', () => {
+  const PRESETS: readonly SkeletonPreset[] = ['lite17', 'core21', 'standard33', 'full52'];
+  const cases = FIXTURES.flatMap((make) => PRESETS.map((preset) => [make().name, preset, make] as const));
+  it.each(cases)('%s, %s', (_name, preset, make) => {
+    const f = make();
+    const guess = guessMarkers(f.bvh, f.bounds);
+    expect(guess).not.toBeNull();
+    if (guess === null) return;
+    const SKEL = 'skl_g' as SkeletonId;
+    const skeleton: SkeletonRecord = {
+      id: SKEL,
+      character: 'chr_g' as never,
+      template: 'vrm-humanoid',
+      templateVersion: '1.0.0',
+      preset,
+      symmetry: true,
+      deleted: null,
+    };
+    const joints = templateJointRecords(fitOf(f, guess.markers, preset), SKEL);
+    expect(checkSkeleton({ skeleton, joints, meshes: [] })).toEqual([]);
   });
 });
 

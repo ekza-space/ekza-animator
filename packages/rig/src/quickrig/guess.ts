@@ -1,6 +1,7 @@
 // Quick Rig v2 One-Click guess (M6B-SPEC §0.4.2 "Guess", §5.8 step 2's silhouette method; C2): the nine markers from
 // the front silhouette (256 rows over the height, square columns, x = 0 a column), each marker's depth by the slab
-// midpoint of the front ray through it, the elbow shifted back and the knee forward by the hinge bias. Deterministic
+// midpoint of the front ray through it, the elbow shifted back and the knee forward by the hinge bias (never tilting a
+// T-posed segment past `GUESS.maxBiasTilt`, so the guess passes `skel.tpose`). Deterministic
 // (float64, fixed scan orders, ties in index order). Thresholds are the §0.4.2 defaults as calibrated by C2's spike on
 // the Cube Lad, the generated body and T-posed Polybot (`GUESS`; the record is docs/wp-notes/m6b-skeleton-kernel.md).
 import type { TriangleBvh } from '@ekza-studio/mesh-core';
@@ -41,7 +42,21 @@ export const GUESS = Object.freeze({
   maxArmAngle: (50 * Math.PI) / 180,
   aPoseAngle: (15 * Math.PI) / 180,
   hingeBias: 0.15,
+  /** The hinge bias never tilts a T-posed segment (shin: knee → ankle; arm: shoulder → elbow → wrist) past this
+   *  angle, inside `skel.tpose`'s 5° (M6B-C2-20: Polybot's thick knee biased forward by 0.15 of its slab tilted the
+   *  shin 5.3°). */
+  maxBiasTilt: (4 * Math.PI) / 180,
 });
+
+/**
+ * `z` limited to within the depth offset from `refZ` that tilts a segment of length `along` on its axis and `perp`
+ * across it (in the view plane) by at most `GUESS.maxBiasTilt`; an already steeper segment pins `z` to `refZ`.
+ */
+function limitTilt(z: number, refZ: number, along: number, perp: number): number {
+  const reach = Math.tan(GUESS.maxBiasTilt) * Math.abs(along);
+  const room = Math.sqrt(Math.max(0, reach * reach - perp * perp));
+  return Math.min(refZ + room, Math.max(refZ - room, z));
+}
 
 interface Front {
   readonly raster: Raster;
@@ -329,10 +344,23 @@ export function guessMarkers(
   const wristX = -wristS;
   const elbowX = -elbowS;
   const shoulderX = -shoulderS;
-  const elbowZ = centreZ(bvh, f, elbowX, elbowY) - GUESS.hingeBias * thickness(bvh, f, elbowX, elbowY);
-  const kneeZ = centreZ(bvh, f, kneeX, kneeY) + GUESS.hingeBias * thickness(bvh, f, kneeX, kneeY);
+  const aPose = armAngle > GUESS.aPoseAngle;
+  const shoulderZ = centreZ(bvh, f, shoulderX, shoulderY);
+  const wristZ = centreZ(bvh, f, wristX, wristY);
+  let elbowZ = centreZ(bvh, f, elbowX, elbowY) - GUESS.hingeBias * thickness(bvh, f, elbowX, elbowY);
+  if (!aPose) {
+    // T-posed arms stay within the tilt bound of both segments (an A-posed arm is skel.tpose anyway).
+    elbowZ = limitTilt(elbowZ, shoulderZ, elbowX - shoulderX, elbowY - shoulderY);
+    elbowZ = limitTilt(elbowZ, wristZ, wristX - elbowX, wristY - elbowY);
+  }
   // The ankle's depth is the shin's, 0.05 H above it: at the ankle's own height the front ray may run along the foot.
   const ankleZ = centreZ(bvh, f, ankleX, ankleY + GUESS.ankleDepthAbove * H);
+  const kneeZ = limitTilt(
+    centreZ(bvh, f, kneeX, kneeY) + GUESS.hingeBias * thickness(bvh, f, kneeX, kneeY),
+    ankleZ,
+    kneeY - ankleY,
+    kneeX - ankleX,
+  );
   // Toe: 0.65 of the foot's length from the ankle toward the front extent at the toe's x (rays below toe + 0.02 H).
   let frontZ = -Infinity;
   for (let k = 0; k < 6; k++) {
@@ -346,12 +374,12 @@ export function guessMarkers(
     headTop: [0, headTopY, headZ],
     chin: [0, chinY, centreZ(bvh, f, 0, chinY)],
     pelvis: [0, pelvisY, centreZ(bvh, f, 0, pelvisY)],
-    shoulder: [shoulderX, shoulderY, centreZ(bvh, f, shoulderX, shoulderY)],
+    shoulder: [shoulderX, shoulderY, shoulderZ],
     elbow: [elbowX, elbowY, elbowZ],
-    wrist: [wristX, wristY, centreZ(bvh, f, wristX, wristY)],
+    wrist: [wristX, wristY, wristZ],
     knee: [kneeX, kneeY, kneeZ],
     ankle: [ankleX, ankleY, ankleZ],
     toe: [toeX, toeY, toeZ],
   };
-  return { markers, armAngle, aPose: armAngle > GUESS.aPoseAngle };
+  return { markers, armAngle, aPose };
 }
