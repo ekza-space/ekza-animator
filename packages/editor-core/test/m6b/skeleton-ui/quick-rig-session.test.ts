@@ -48,11 +48,11 @@ describe('skel.quickRig.start (§0.2 steps 1–2)', () => {
     expect([...state.moved]).toEqual([]);
     expect(state.guess).toMatchObject({ aPose: false, failed: null });
     const truth = cubeLadTruth().markers;
-    for (const name of QUICK_RIG_MARKERS) {
+    const off = QUICK_RIG_MARKERS.map((name) => {
       const marker = state.markers[name];
-      expect(marker, name).toBeDefined();
-      expect(dist(marker ?? [], truth[name]) / H, name).toBeLessThanOrEqual(0.05);
-    }
+      return [name, marker === undefined ? Number.POSITIVE_INFINITY : dist(marker, truth[name]) / H] as const;
+    }).filter(([, error]) => error > 0.05);
+    expect(off).toEqual([]);
     // Centre markers on x = 0, side markers on the character's right (x < 0).
     for (const name of ['headTop', 'chin', 'pelvis'] as const)
       expect(Object.is(state.markers[name]?.[0], 0)).toBe(true);

@@ -14,7 +14,7 @@
 // - `.setMarker {name, point}` (the markers tool calls `setQuickRigMarker` directly on every pointer frame), `.guess`,
 //   `.clear`, `.setPreset {preset}`, `.cancel`, `.pick {marker}`.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
-import type { CharacterId, MeshId, ReadView } from '@ekza-studio/doc';
+import type { MeshId, ReadView } from '@ekza-studio/doc';
 import {
   DEFAULT_FLEXION,
   guessMarkers,
@@ -185,7 +185,7 @@ function startObjects(app: EditorApp, view: ReadView, raw: unknown): readonly st
   const character = state.rig.character;
   if (character === null) return [];
   return view.query
-    .meshesOfOwner(character as CharacterId)
+    .meshesOfOwner(character)
     .filter((mesh) => mesh.deleted === null)
     .map((mesh) => mesh.id);
 }

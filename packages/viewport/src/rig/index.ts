@@ -3,7 +3,7 @@
 // fill them without touching a shared file; this module loads lazily through `loadViewportRig()` (./load.ts).
 
 /** C3: instanced spheres, octahedral bones, axes, labels, ghosts, x-ray passes; §5.3, §8.3. */
-export class JointOverlay {}
+export { JointOverlay } from './joints/overlay';
 /** C6: numbers overlay, §5.12. */
 export class WeightNumbers {}
 /** C8b: §5.19 (deferred after the MVP). */
@@ -13,4 +13,6 @@ export class ShapeCvOverlay {}
 /** C6: the paint brush ring (§8.3). */
 export class BrushRing {}
 /** C3: the Quick Rig markers, their left ghosts and the live skeleton preview (§0.4.2). */
-export class QuickRigMarkers {}
+export { QuickRigMarkerOverlay as QuickRigMarkers } from './markers/overlay';
+/** C3: the skeleton runtime of a viewport (overlays, the pointer layer, the test API's screen queries). */
+export { createRigRuntime, type ViewportRigRuntime } from './runtime';

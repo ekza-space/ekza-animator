@@ -129,6 +129,20 @@ export interface PanePointerPress {
 /** The handler of marking-menu presses: true = it opened a menu (the press goes nowhere else). */
 export type PanePointerMenus = (press: PanePointerPress) => boolean;
 
+/**
+ * M6b (C3): a pointer layer above the active viewport tool. Presses go to it after navigation and the marking menus
+ * and before the tool; a press it takes (`true`) keeps its moves and release, `Esc` and blur cancel it. Hover moves
+ * reach it too. Rig & Skin uses it for the Quick Rig markers and the joints of Skeleton mode (§5.7, §0.4.2), so the
+ * shipped select, move and rotate tools keep their behaviour everywhere else.
+ */
+export interface ViewportPointerLayer {
+  pointerDown(e: ToolPointerEvent): boolean;
+  pointerMove(e: ToolPointerEvent): void;
+  pointerUp(e: ToolPointerEvent): void;
+  cancel(): void;
+  hover?(paneId: string, x: number, y: number): void;
+}
+
 /** What the viewport panel shows for a pane (header, HUD, lock badge). Immutable snapshots. */
 export interface PaneState {
   readonly id: string;
@@ -256,6 +270,9 @@ export class ViewportManager {
   private nav: NavDrag | null = null;
   private wheel: WheelBurst | null = null;
   private toolPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
+  /** M6b (C3): the pointer layer above the tool and the press it owns. */
+  private pointerLayer: ViewportPointerLayer | null = null;
+  private layerPointer: { readonly paneId: string; readonly pointerId: number } | null = null;
   /** M2a §5.18: a plain MMB drag running the Channel Box virtual slider on the selected channels. */
   private virtualDrag: VirtualSliderDrag | null = null;
   /** Pointer Lock for the virtual slider (the e2e URL switch `pointerLock=off` turns it off). */
@@ -519,6 +536,22 @@ export class ViewportManager {
   /** Sets the handler of marking-menu presses (the shell's marking menus), or null. */
   setPointerMenus(handler: PanePointerMenus | null): void {
     this.pointerMenus = handler;
+  }
+  /** M6b (C3): sets the pointer layer above the tool (null removes it); the disposer removes this layer. */
+  setPointerLayer(layer: ViewportPointerLayer | null): Disposer {
+    if (this.layerPointer !== null) {
+      this.layerPointer = null;
+      this.pointerLayer?.cancel();
+    }
+    this.pointerLayer = layer;
+    return () => {
+      if (this.pointerLayer !== layer) return;
+      if (this.layerPointer !== null) {
+        this.layerPointer = null;
+        layer?.cancel();
+      }
+      this.pointerLayer = null;
+    };
   }
 
   /**
@@ -1412,7 +1445,8 @@ export class ViewportManager {
     this.lastPointerPane = pane.id;
     this.pointerAt = { paneId: pane.id, clientX: e.clientX, clientY: e.clientY };
     if (e.button === 1) e.preventDefault(); // no autoscroll / primary-selection paste
-    if (this.nav !== null || this.toolPointer !== null || this.virtualSliderActive) return;
+    if (this.nav !== null || this.toolPointer !== null || this.layerPointer !== null || this.virtualSliderActive)
+      return;
     // M6a rule (b) (§5.17): in Model on the trackpad and one-button profiles, Alt+Shift+LMB is the MMB stand-in.
     const standIn = isMmbStandIn(this.profile, this.workspace, e);
     this.standIn = standIn ? e.pointerId : null;
@@ -1459,6 +1493,15 @@ export class ViewportManager {
         return;
       }
     }
+    if (!standIn && this.pointerLayer?.pointerDown(this.toolEvent(pane, e)) === true) {
+      this.layerPointer = { paneId: pane.id, pointerId: e.pointerId };
+      this.capture(pane, e.pointerId);
+      this.setHover(null, null);
+      window.addEventListener('keydown', this.onKeyDown);
+      window.addEventListener('blur', this.onBlur);
+      this.invalidate();
+      return;
+    }
     if (tool?.pointerDown?.(this.toolEvent(pane, e)) === true) {
       this.toolPointer = { paneId: pane.id, pointerId: e.pointerId };
       this.capture(pane, e.pointerId);
@@ -1499,6 +1542,14 @@ export class ViewportManager {
       if (nav.pointerId === e.pointerId) this.moveNav(pane, e, nav);
       return;
     }
+    const layer = this.layerPointer;
+    if (layer !== null) {
+      if (layer.pointerId === e.pointerId && layer.paneId === pane.id) {
+        this.pointerLayer?.pointerMove(this.toolEvent(pane, e));
+        this.invalidate();
+      }
+      return;
+    }
     if (this.toolPointer !== null) {
       if (this.toolPointer.pointerId === e.pointerId && this.toolPointer.paneId === pane.id) {
         this.tool()?.pointerMove?.(this.toolEvent(pane, e));
@@ -1509,6 +1560,7 @@ export class ViewportManager {
     if (e.buttons !== 0) return;
     const { x, y } = this.local(pane, e);
     this.hoverAt(pane.id, x, y);
+    this.pointerLayer?.hover?.(pane.id, x, y);
   }
 
   private pointerUp(pane: PaneRuntime, e: PointerEvent, cancelled = false): void {
@@ -1516,6 +1568,16 @@ export class ViewportManager {
     if (nav !== null && nav.pointerId === e.pointerId) {
       this.endNav(false);
       this.release(pane, e.pointerId);
+      return;
+    }
+    const layer = this.layerPointer;
+    if (layer !== null && layer.pointerId === e.pointerId && layer.paneId === pane.id) {
+      this.layerPointer = null;
+      this.removeDragListeners();
+      if (cancelled) this.pointerLayer?.cancel();
+      else this.pointerLayer?.pointerUp(this.toolEvent(pane, e));
+      this.release(pane, e.pointerId);
+      this.invalidate();
       return;
     }
     const pointer = this.toolPointer;
@@ -1535,6 +1597,11 @@ export class ViewportManager {
   private cancelInteraction(): void {
     this.standIn = null;
     this.virtualDrag?.end(false);
+    if (this.layerPointer !== null) {
+      this.layerPointer = null;
+      this.pointerLayer?.cancel();
+      this.invalidate();
+    }
     if (this.toolPointer !== null) {
       this.toolPointer = null;
       this.tool()?.cancel?.();
