@@ -35,15 +35,16 @@ async function run(a: EditorApp, op: string, args?: unknown, ctx?: RunContext) {
 }
 
 describe('workspace tabs (§5.17)', () => {
-  it('registers Model › Rig & Skin › Animate › Review; Rig & Skin and Review are disabled with their release', () => {
+  // M6B-SPEC §3 rule 9 literal update: Rig & Skin is enabled (M6b C0).
+  it('registers Model › Rig & Skin › Animate › Review; Review is disabled with its release', () => {
     const a = app();
     expect(workspaceTabs(a).map((def) => [def.id, def.label, def.shortLabel, def.enabled])).toEqual([
       ['model', 'Model', 'Mdl', true],
-      ['rig', 'Rig & Skin', 'Rig', false],
+      ['rig', 'Rig & Skin', 'Rig', true],
       ['animate', 'Animate', 'Anim', true],
       ['review', 'Review', 'Rev', false],
     ]);
-    expect(a.workspaces.get('rig')?.disabledReason).toBe('Arrives with characters from your own models (v0.4)');
+    expect(a.workspaces.get('rig')?.disabledReason).toBeUndefined();
     expect(a.workspaces.get('review')?.disabledReason).toBe('Arrives in V1');
     expect(BUILTIN_WORKSPACES.map((def) => def.id)).toEqual(['model', 'rig', 'animate', 'review']);
   });
@@ -87,10 +88,7 @@ describe('workspace tabs (§5.17)', () => {
 describe('workspace.set (§5.17)', () => {
   it('refuses unknown and disabled workspaces with their reason, and needs { workspace }', async () => {
     const a = app();
-    expect(await run(a, 'workspace.set', { workspace: 'rig' })).toEqual({
-      status: 'cancelled',
-      reason: 'Arrives with characters from your own models (v0.4)',
-    });
+    // M6B-SPEC §3 rule 9 literal update: Rig & Skin is enabled, so only Review is refused as disabled.
     expect(await run(a, 'workspace.set', { workspace: 'review' })).toEqual({
       status: 'cancelled',
       reason: 'Arrives in V1',
@@ -242,6 +240,16 @@ const DISPLAY: DisplayFlags = {
   symmetryPlane: true,
   dimUnhilited: false,
   imagePlanes: true,
+  // M6B-SPEC §3 rule 9: the M6b display flags at their Animate defaults.
+  joints: false,
+  xrayJoints: false,
+  jointAxes: 'none',
+  jointLabels: 'none',
+  weights: 'off',
+  weightNumbers: false,
+  lockRelative: false,
+  constraintLines: false,
+  shapeCvs: false,
 };
 
 /** A pane display port over a plain map (what the ViewportManager provides). */

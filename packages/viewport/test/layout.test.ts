@@ -62,7 +62,14 @@ describe('pane layouts', () => {
     expect(rig.vm.renderedFrames).toBe(after);
     const control = rig.app.store.list('controls')[3];
     rig.app.session.setState({
-      selection: { controls: [control?.id ?? never()], keys: new Map(), channels: [], objects: [] },
+      selection: {
+        controls: [control?.id ?? never()],
+        keys: new Map(),
+        channels: [],
+        objects: [],
+        joints: [],
+        constraints: [],
+      },
     });
     rig.frame();
     rig.frame();

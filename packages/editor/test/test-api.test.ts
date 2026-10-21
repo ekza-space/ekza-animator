@@ -313,7 +313,8 @@ describe('M6a test API (B0a kernel-level functions)', () => {
     // M6A-SPEC §3 rule 9 literal update (§5.17, B9): the four tabs; disabled ones carry no glyph.
     expect(api.workspaces()).toEqual([
       { id: 'model', label: 'Model', enabled: true, active: false, glyph: 'todo', reasons: ['No editable mesh yet'] },
-      { id: 'rig', label: 'Rig & Skin', enabled: false, active: false, glyph: 'none', reasons: [] },
+      // M6B-SPEC §3 rule 9: Rig & Skin is enabled (its glyph arrives with C7's status).
+      { id: 'rig', label: 'Rig & Skin', enabled: true, active: false, glyph: 'none', reasons: [] },
       { id: 'animate', label: 'Animate', enabled: true, active: true, glyph: 'done', reasons: [] },
       { id: 'review', label: 'Review', enabled: false, active: false, glyph: 'none', reasons: [] },
     ]);

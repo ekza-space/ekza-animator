@@ -53,7 +53,7 @@ describe('defaultPrefs', () => {
       modeling: {
         primitiveDefaults: 'low-poly',
         numericCapture: 'auto',
-        undoSelection: { model: true, animate: false },
+        undoSelection: { model: true, animate: false, rig: true }, // M6B-SPEC §3 rule 9
         undoBudgetMB: 256,
         journalBudgetMB: 64,
         symmetryTolerance: 0.001,
@@ -65,6 +65,25 @@ describe('defaultPrefs', () => {
         toolkitCollapsed: [],
         paletteRecents: [],
         convertOnModeSwitch: false,
+      },
+      // M6B-SPEC §4.6 (§3 rule 9 literal update)
+      rigging: {
+        jointSize: 1,
+        brush: {
+          op: 'replace',
+          value: 1,
+          opacity: 1,
+          radiusPx: 40,
+          falloff: 'smooth',
+          reach: 'surface',
+          frontOnly: true,
+          mirror: true,
+        },
+        influenceSort: 'hierarchy',
+        influenceColours: {},
+        optionDefaults: {},
+        orientPreset: 'maya',
+        holds: {},
       },
     });
     expect(defaultPrefs('mac').navProfile).toBe('trackpad');
@@ -101,6 +120,7 @@ describe('M2a preferences (version stays 1)', () => {
       autosave: defaults.autosave,
       lastWorkspace: 'animate',
       modeling: defaults.modeling,
+      rigging: defaults.rigging, // M6B-SPEC §3 rule 9
     });
   });
 
@@ -164,6 +184,7 @@ describe('M6a preferences (version stays 1)', () => {
     expect(sanitizePrefs({ ...defaults, lastWorkspace: 'Not An Id!', modeling: 'off' }, defaults)).toMatchObject({
       lastWorkspace: 'animate',
       modeling: defaults.modeling,
+      rigging: defaults.rigging, // M6B-SPEC §3 rule 9
     });
   });
 });

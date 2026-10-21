@@ -41,7 +41,19 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   makeEditableReport: () => import('./MakeEditableReport').then((m) => ({ default: m.MakeEditableReportDialog })),
   imagePlaneImport: () => import('./ImagePlaneImport').then((m) => ({ default: m.ImagePlaneImportDialog })),
   layoutPresets: () => import('./LayoutPresetsDialog').then((m) => ({ default: m.LayoutPresetsDialog })),
+  // M6b (C0 placeholders; each owner replaces its line)
+  applyPoseAsRest: () => pendingRig('Apply Pose as Rest'),
+  unbindSkin: () => pendingRig('Unbind Skin'),
+  rebindSkin: () => pendingRig('Rebind Skin'),
+  vrmMeta: () => pendingRig('VRM Meta'),
+  makeCharacterEditable: () => pendingRig('Make Character Editable'),
+  attachProp: () => pendingRig('Attach Prop'),
 };
+
+/** M6b: the placeholder of a Rig & Skin dialog until its owner lands it. */
+function pendingRig(title: string): Promise<DialogModule> {
+  return import('./PendingRigDialog').then((m) => ({ default: () => <m.PendingRigDialog title={title} /> }));
+}
 
 const loadConfirm = (): Promise<Module<ConfirmProps>> =>
   import('./ConfirmDialog').then((m) => ({ default: m.ConfirmDialog }));
@@ -59,6 +71,12 @@ export const DIALOG_NAMES: Readonly<Record<ChunkKey, string>> = {
   makeEditableReport: 'Make editable report',
   imagePlaneImport: 'Image plane import dialog',
   layoutPresets: 'Layout presets dialog',
+  applyPoseAsRest: 'Apply Pose as Rest dialog',
+  unbindSkin: 'Unbind Skin dialog',
+  rebindSkin: 'Rebind Skin dialog',
+  vrmMeta: 'VRM Meta dialog',
+  makeCharacterEditable: 'Make Character Editable dialog',
+  attachProp: 'Attach Prop dialog',
   confirm: 'confirmation prompt',
 };
 
