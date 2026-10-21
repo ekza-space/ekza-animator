@@ -133,6 +133,8 @@ export class PaintSkinTool implements ToolInstance {
 
   pointerDown(e: ToolPointerEvent): boolean {
     if (e.button !== 0 || e.paneId === null || e.alt) return false;
+    // The brush paints in Skin mode only (Skin › Paint Skin Weights from another mode only arms the tool).
+    if (!this.runtime.toolActive()) return false;
     const brush = this.app.session.getState().rig.paint.brush;
     const field = [...this.held].map((code) => HOLD_FIELD[code]).find((f) => f !== undefined);
     if (field !== undefined) {
