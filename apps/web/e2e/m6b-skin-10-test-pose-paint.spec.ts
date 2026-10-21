@@ -5,6 +5,7 @@ import {
   asymmetricPoints,
   boundCubeLad,
   boxPoints,
+  dismissGettingStarted,
   enterSkin,
   hoverPersp,
   partnersOf,
@@ -39,8 +40,9 @@ test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
     const lad = await boundCubeLad(page);
     const head = await controlId(page, 'fk.head', lad.character);
     const arm = await controlId(page, 'fk.lowerArm.L', lad.character);
-    // Animate: a key on fk.head, then an unkeyed override on it.
+    // Animate: a clip, a key on fk.head, then an unkeyed override on it.
     await runOk(page, 'workspace.set', { workspace: 'animate' });
+    await runOk(page, 'clip.new', { character: lad.character });
     await runOk(page, 'select.controls', { ids: [head], mode: 'replace' });
     await runOk(page, 'key.set');
     await runOk(page, 'channel.setValues', { edits: [{ control: head, channel: 'rx', value: 0.25 }], key: 'none' });
@@ -49,6 +51,7 @@ test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
 
     await enterRig(page);
     const hash = await keysHash(page);
+    await dismissGettingStarted(page);
     await hoverPersp(page);
     await runOk(page, 'select.controls', { ids: [arm], mode: 'replace' });
     await page.keyboard.press('KeyE');

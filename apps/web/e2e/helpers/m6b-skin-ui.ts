@@ -64,8 +64,15 @@ export async function hoverPersp(page: Page): Promise<void> {
   await page.mouse.move(at.x, at.y);
 }
 
-/** Skin mode (`2`) with the Paint Skin Weights tool and the weight display on. */
+/** Closes the Getting started card of every pane (it sits over the perspective pane's top right). */
+export async function dismissGettingStarted(page: Page): Promise<void> {
+  const dismiss = page.getByTestId('rig-getting-started-dismiss');
+  for (let guard = 0; guard < 4 && (await dismiss.count()) > 0; guard++) await dismiss.first().click();
+}
+
+/** Skin mode (`2`) with the Paint Skin Weights tool and the weight display on (the Getting started card closed). */
 export async function enterSkin(page: Page): Promise<void> {
+  await dismissGettingStarted(page);
   await hoverPersp(page);
   await page.keyboard.press('Digit2');
   await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
