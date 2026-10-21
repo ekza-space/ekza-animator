@@ -1,29 +1,34 @@
-// C6 paint bench (M6B-SPEC §5.25 "Paint stroke at 10k points ≤ 4 ms per pointer frame"; report-only): the generated
-// humanoid body made a character (Standard 33) and bound with the defaults, Skin mode, the Paint Skin Weights tool; a
+// C6 paint bench (M6B-SPEC §5.25 "Paint stroke at 10k points ≤ 4 ms per pointer frame"; report-only): a 10k-point
+// sphere and the generated
+// humanoid body, each made a character (Standard 33) and bound with the defaults, Skin mode, the Paint Skin Weights tool; a
 // stroke of synthetic pointer events dispatched on the perspective pane, each pointermove timed synchronously (the
 // tool's posed pick, the surface flood of the stamp, the kernel stroke session and the partial weight upload it
 // queues). Also the stroke commit (pointerup → the undo step) and an undo. Results go to stdout, annotations and
-// `.acceptance/budgets/m6b-paint.json`. Needs C2 (`skel.template.create`) merged. Run: `pnpm --filter web
+// `.acceptance/budgets/m6b-paint-*.json`. Needs C2 (`skel.template.create`) merged. Run: `pnpm --filter web
 // bench:budgets -g m6b-paint` (EKZA_E2E_PORT as for e2e).
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { expect, test } from '@playwright/test';
-import { createBodyCharacter, RIG_PERSP_PANE } from '../helpers/m6b-rig';
+import { expect, type Page, test } from '@playwright/test';
+import { createBodyCharacter, createPrimitive, enterRig, RIG_PERSP_PANE } from '../helpers/m6b-rig';
+import { enterModel } from '../helpers/m6a-model';
 import { enterSkin } from '../helpers/m6b-skin-ui';
 import { call, openEditor, runOk } from '../helpers/test-api';
 
 const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
 
-test('m6b-paint: pointer frames of a paint stroke, the commit and its undo (report)', async ({ page }) => {
+/** A character to paint: the mesh, the character and its leftLowerArm joint. */
+type Setup = (page: Page) => Promise<{ readonly character: string }>;
+
+async function measure(page: Page, name: string, setup: Setup): Promise<void> {
   await openEditor(page);
-  const body = await createBodyCharacter(page);
+  const body = await setup(page);
   // The character adopted the scene mesh under a new id: Bind Skin names it.
   const bound = await runOk<{ meshes: string[] }>(page, 'skin.bind', {});
   const mesh = bound.meshes[0] ?? '';
   await enterSkin(page);
   const skeleton = await call(page, 'skeleton', body.character);
   const arm = skeleton?.joints.find((joint) => joint.humanBone === 'leftLowerArm')?.id ?? '';
-  await runOk(page, 'skin.influence.setActive', { mesh: mesh, joint: arm });
+  await runOk(page, 'skin.influence.setActive', { mesh, joint: arm });
   const points = (await call(page, 'meshInfo', mesh))?.counts.v ?? 0;
   const labels = (await call(page, 'weightLabels', RIG_PERSP_PANE)).filter((label) => label.mesh === mesh);
   expect(labels.length).toBeGreaterThan(0);
@@ -75,9 +80,27 @@ test('m6b-paint: pointer frames of a paint stroke, the commit and its undo (repo
     budgetMs: 4,
   };
   // oxlint-disable-next-line no-console -- the bench reports to stdout (report-only, like budgets.bench.ts)
-  console.log('m6b-paint', JSON.stringify(report));
-  test.info().annotations.push({ type: 'm6b-paint', description: JSON.stringify(report) });
+  console.log(name, JSON.stringify(report));
+  test.info().annotations.push({ type: name, description: JSON.stringify(report) });
   const dir = fileURLToPath(OUT);
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(new URL('m6b-paint.json', OUT), `${JSON.stringify(report, null, 2)}\n`);
+  writeFileSync(new URL(`${name}.json`, OUT), `${JSON.stringify(report, null, 2)}\n`);
+}
+
+test('m6b-paint-body: the generated humanoid body (report)', async ({ page }) => {
+  await measure(page, 'm6b-paint-body', async (p) => createBodyCharacter(p));
+});
+
+test('m6b-paint-10k: a 10k-point sphere made a character (report)', async ({ page }) => {
+  await measure(page, 'm6b-paint-10k', async (p) => {
+    await enterModel(p);
+    const sphere = await createPrimitive(p, 'sphere', { radius: 0.8, subdivisionsAxis: 100, subdivisionsHeight: 101 });
+    await runOk(p, 'scene.object.transform', {
+      ids: [sphere],
+      placements: [{ t: [0, 0.8, 0], q: [0, 0, 0, 1], s: [1, 1, 1] }],
+    });
+    await runOk(p, 'select.objects', { ids: [sphere], mode: 'replace' });
+    await enterRig(p);
+    return runOk<{ character: string }>(p, 'skel.template.create', { preset: 'standard33', objects: [sphere] });
+  });
 });
