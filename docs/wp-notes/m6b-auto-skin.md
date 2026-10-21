@@ -97,4 +97,14 @@ left unallocated. `skin-worker` lazy, 12.6 kB gzip (warning above 120 kB).
 
 ## Gates (local, real Chrome; port 3163)
 
-See the end of this file (filled after the full run).
+`EKZA_E2E_PORT=3163 pnpm run ci` on `5cf42cf`: format:check, lint, typecheck, check:deps, check:fixtures,
+check:licenses pass; the first `test` step hit two 30 s timeouts in io's `project.test.ts` and one in editor-core's
+`m6a/mesh-io.test.ts` (files C4 does not touch) under a machine load average of 100–117 from other processes, and
+turbo stopped the remaining tasks. Each suite passed alone at once, then the remaining steps ran one by one:
+
+- test (turbo 15/15): mesh-core 943, editor-core 1353, editor 521 (+1 skipped), anim-core 671, io 262, doc 263,
+  viewport 243 (+1 skipped), rig 232, curve-editor 209 (+3 skipped), headless 193, ui 94, doc-yjs 85, mesh-view 75,
+  web 24, tooling (node:test). No skip added.
+- build: pass. check:size: 891,371 B (gate 900,000 B); M6b MVP eager delta +1,802 B; `skin-worker` lazy 12.6 kB.
+- test:e2e (local Chrome GPU, project `chrome`, Playwright's own server on 3163, stopped with the run): **219 passed**,
+  25 skipped (the existing 23 and E2E-SKIN-01's two gated tests).
