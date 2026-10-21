@@ -12,7 +12,7 @@ import type { CharacterId, JointId, JointRecord, MeshId, MeshRecord, ReadView, S
 import type { MeshData, SkinBindArgs, SkinSkeleton, SkinWeights } from '@ekza-studio/mesh-core';
 import {
   DEFAULT_FLEXION,
-  fitTemplate,
+  fitQuickRig,
   GUESS,
   guessMarkers,
   humanChainChildren,
@@ -101,15 +101,8 @@ export function quickRigFit(
   input: QuickRigFitInput,
 ): { readonly joints: readonly TemplateJoint[]; readonly geometry: RigGeometry } {
   const geometry = rigGeometry(app, view, input.meshes);
-  const top = input.markers.headTop;
-  const height = top !== undefined && top[1] > geometry.ground ? top[1] - geometry.ground : geometry.height;
-  const template = placeTemplate(
-    skeletonTemplate(input.preset, { height, proportions: 'standard', flexion: input.flexion }),
-    [0, geometry.ground, 0],
-  );
-  const joints = fitTemplate(template, input.markers, geometry.bvh, {
+  const joints = fitQuickRig(input.preset, input.markers, geometry.bvh, {
     ground: geometry.ground,
-    hingeBias: GUESS.hingeBias,
     flexion: input.flexion,
   });
   return { joints, geometry };

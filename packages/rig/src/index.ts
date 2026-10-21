@@ -62,6 +62,7 @@ export { applyPoseClipboard, makePoseClipboard } from './pose/clipboard';
 export { convertRotateOrderKeys, convertRotateOrderKeysWith } from './pose/rotateOrder';
 export {
   FIT,
+  fitQuickRig,
   fitTemplate,
   frontCentreZ,
   frontExtent,
