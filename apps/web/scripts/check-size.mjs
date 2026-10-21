@@ -121,6 +121,10 @@ export function eagerDelta(total, baseline, e2eBuild) {
     enforced: baseline.eagerDelta?.enforce === true && !e2eBuild,
     comparable: !e2eBuild,
     pending: typeof baseline.eagerDelta?.pending === 'string' ? baseline.eagerDelta.pending : null,
+    packages:
+      typeof baseline.eagerDelta?.packages === 'object' && baseline.eagerDelta.packages !== null
+        ? baseline.eagerDelta.packages
+        : null,
   };
 }
 
@@ -258,6 +262,11 @@ function print(report) {
         `(allowance +${bytes(delta.allowance)}, limit ${bytes(delta.limit)}; ` +
         `${delta.comparable ? (delta.enforced ? 'enforced' : 'not enforced yet') : 'e2e build: not compared'})`,
     );
+    // M6B-SPEC §0.4.9 (C7): the per-package allowances inside the MVP gate (each package measures its own delta).
+    if (delta.packages !== null) {
+      const list = Object.entries(delta.packages).map(([id, allowance]) => `${id} +${bytes(allowance)}`);
+      out(`  per-package eager allowances (measured at each merge, wp-notes): ${list.join(', ')}; others 0 B`);
+    }
   }
   out(
     `Model workspace chunk (lazy: ${report.modelChunk.groups.join(', ') || 'none in this build'}): ` +
