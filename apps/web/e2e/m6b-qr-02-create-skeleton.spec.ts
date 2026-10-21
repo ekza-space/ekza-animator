@@ -39,6 +39,7 @@ async function expectCommitted(
   preview: QuickRigView['preview'],
   truthJoints: ReadonlyMap<string, readonly number[]>,
   H: number,
+  tolerance = 0.03,
 ): Promise<void> {
   const joints = await jointsByKey(page, character);
   expect(preview?.map((joint) => [joint.key, joint.position])).toEqual(
@@ -47,7 +48,7 @@ async function expectCommitted(
   const off = [...truthJoints]
     .filter(([key]) => key !== 'root' && joints.has(key))
     .map(([key, position]) => [key, dist(joints.get(key)?.restPosition ?? [], position) / H] as const)
-    .filter(([, error]) => error > 0.03);
+    .filter(([, error]) => error > tolerance);
   expect(off).toEqual([]);
   expect((await call(page, 'rigState')).mode).toBe('skeleton');
 }
@@ -129,7 +130,9 @@ test.fixme(`E2E-QR-02: the generated humanoid body and an A-posed Cube Lad (gate
   await runOk(page, 'select.objects', { ids: [root], mode: 'replace' });
   const state = await startQuickRig(page);
   const body = await createSkeleton(page);
-  await expectCommitted(page, body, state.preview, bodyTruth, H);
+  // On the generated body the guessed elbow is 0.041 H from the CR-2 elbow (C2's calibration, M6B-C2 spike table), so
+  // the guess → fit chain meets the guess gate (0.05 H), not the fit gate (docs/wp-notes/m6b-skeleton-ui.md, M6B-C3-12).
+  await expectCommitted(page, body, state.preview, bodyTruth, H, 0.05);
 
   // An A-posed Cube Lad (arms 35° down): the A-pose notice; after Create Skeleton Validation reports skel.tpose.
   await runOk(page, 'edit.undo');
