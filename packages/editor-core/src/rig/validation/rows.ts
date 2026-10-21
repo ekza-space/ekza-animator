@@ -159,7 +159,10 @@ function skinMessage(problem: SkinProblem, mesh: string): string {
 /** Every raw row of a character (profile-independent). */
 export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: CharacterId): RawRow[] {
   const record = app.store.get('characters', character);
-  if (record === undefined || record.source.kind !== 'model') return [];
+  // Asset-sourced characters (imported VRMs) are validated by their export profile's lints; Rig & Skin rows are for
+  // model characters. (`source` is read defensively: pre-v3 snapshots loaded without migration in tests lack it.)
+  const source = (record as { readonly source?: { readonly kind: string } } | undefined)?.source;
+  if (record === undefined || source?.kind !== 'model') return [];
   const rows: RawRow[] = [];
   const skeleton = characterSkeleton(app.store, character);
   if (skeleton !== null) {
