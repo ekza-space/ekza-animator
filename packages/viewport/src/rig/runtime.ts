@@ -9,6 +9,8 @@ import { type EditorApp, quickRigOf, rigGeometry } from '@ekza-studio/editor-cor
 import { projectedCenter, type QuickRigMarker } from '@ekza-studio/rig';
 import type { ViewportManager, ViewportPointerLayer } from '../manager/ViewportManager';
 import { JointInput } from '../tools/rig/jointTransform/input';
+import { rigSkinRuntimes } from '../tools/rig/paint';
+import { startRigSkin } from '../tools/rig/paint/runtime';
 import { type HeldKeys, PERSP_MARKER_HINT, QuickRigInput } from '../tools/rig/quickRig/input';
 import { buildJointScene, EMPTY_SCENE, type JointPreview } from './joints/data';
 import { JointOverlay } from './joints/overlay';
@@ -236,6 +238,15 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
       setHint(null);
     },
   ];
+
+  // C6's Skin mode runtime (the skinned and weight display, Paint Skin Weights, the brush ring) starts with this chunk:
+  // one eager Rig & Skin hook loads both (INT, §0.4.9 — C6's own subscription was a second eager copy of C3's).
+  const skin = startRigSkin(app, vm);
+  rigSkinRuntimes.set(app, skin);
+  disposers.push(() => {
+    skin.dispose();
+    if (rigSkinRuntimes.get(app) === skin) rigSkinRuntimes.delete(app);
+  });
 
   const pageless = (point: { x: number; y: number } | null): { x: number; y: number } | null =>
     point === null ? null : { x: point.x, y: point.y };
