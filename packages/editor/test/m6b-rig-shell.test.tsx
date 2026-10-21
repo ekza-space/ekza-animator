@@ -378,7 +378,8 @@ describe('the dock tabs per mode (§5.24, §8.2)', () => {
     rememberTabs(test.app, 'skin', [PANEL.channelBox]);
     expect(test.app.session.getState().rig.tabMemory.skin).toEqual({
       right: PANEL.channelBox,
-      bottom: PANEL.componentEditor,
+      // C6: Skin mode keeps Validation below while the Component Editor is deferred (literal update, §3 rule 9).
+      bottom: PANEL.validation,
     });
   });
 });
