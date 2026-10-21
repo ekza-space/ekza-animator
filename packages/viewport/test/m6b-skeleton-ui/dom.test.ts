@@ -163,6 +163,23 @@ function scene(tool?: string): Promise<Rig> {
   return rigScene(tool === undefined ? undefined : { tool });
 }
 
+describe('Skeleton mode display (§5.24)', () => {
+  it('x-rays the mesh and hides the controls in Skeleton mode; Object mode gets them back and small joints', async () => {
+    const rig = await scene();
+    const runtime = viewportRigOf(rig.app);
+    const display = () => rig.vm.paneState('pane-front')?.display;
+    expect(display()).toMatchObject({ xray: true, controls: false });
+    const full = runtime?.joints.joint(jid('head'))?.radius ?? 0;
+    const state = rig.app.session.getState();
+    rig.app.session.setState({ rig: { ...state.rig, mode: 'object' } });
+    expect(display()).toMatchObject({ xray: false, controls: true });
+    runtime?.ensure();
+    expect(runtime?.joints.joint(jid('head'))?.radius).toBeCloseTo(full * 0.6, 12);
+    rig.app.session.setState({ rig: { ...rig.app.session.getState().rig, mode: 'skeleton' } });
+    expect(display()).toMatchObject({ xray: true, controls: false });
+  });
+});
+
 describe('§5.7 state table through the DOM', () => {
   it('D + W in the side pane moves the knees only (feet bit-equal, x untouched), one step', async () => {
     const rig = await scene('move');

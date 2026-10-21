@@ -60,6 +60,9 @@ export interface JointSceneData {
 
 export const EMPTY_SCENE: JointSceneData = { joints: [], bones: [], missing: [] };
 
+/** Joint size outside Skeleton mode (§5.24 "joints (small)"). */
+export const SMALL_JOINTS = 0.6;
+
 /** A rest-space override of joints while a drag previews a rest edit (the overlay draws it before the commit). */
 export type JointPreview = ReadonlyMap<JointId, Pick<JointRecord, 'restPosition' | 'restRotation' | 'tail'>>;
 
@@ -135,7 +138,8 @@ export function buildJointScene(app: EditorApp, opts?: { readonly preview?: Join
       });
     if (records.length === 0) continue;
     const H = skeletonHeight(records);
-    const radius = Math.max(jointSize, 0.05) * 0.012 * H;
+    // §5.24: full-size joints in Skeleton mode, small ones in the other modes.
+    const radius = Math.max(jointSize, 0.05) * 0.012 * H * (state.rig.mode === 'skeleton' ? 1 : SMALL_JOINTS);
     const placement = mat4Compose(character.placement);
     const placementQ = mat4Decompose(placement).q;
     const posed = preview === null && posedView(app, character.id) ? runtimeNodes(app, character.id) : null;

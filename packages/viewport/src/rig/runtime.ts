@@ -177,12 +177,43 @@ export function createRigRuntime(app: EditorApp, vm: ViewportManager): ViewportR
     },
     dispose: () => {},
   };
+  // §5.24 Skeleton mode display (a pane option): the mesh in x-ray and the controls hidden while the mode is on; the
+  // flags a pane had come back when the mode is left (unless the user changed them meanwhile).
+  const skeletonDisplay = new Map<string, { readonly xray: boolean; readonly controls: boolean }>();
+  const applySkeletonDisplay = (on: boolean): void => {
+    if (on) {
+      for (const paneId of vm.paneIds()) {
+        const display = vm.paneState(paneId)?.display;
+        if (display === undefined || skeletonDisplay.has(paneId)) continue;
+        skeletonDisplay.set(paneId, { xray: display.xray, controls: display.controls });
+        if (!display.xray || display.controls)
+          vm.updatePane(paneId, { display: { ...display, xray: true, controls: false } });
+      }
+      return;
+    }
+    for (const [paneId, before] of skeletonDisplay) {
+      const display = vm.paneState(paneId)?.display;
+      if (display !== undefined && display.xray && !display.controls) {
+        vm.updatePane(paneId, { display: { ...display, xray: before.xray, controls: before.controls } });
+      }
+    }
+    skeletonDisplay.clear();
+  };
+  const skeletonMode = (): boolean => {
+    const state = app.session.getState();
+    return state.workspace === 'rig' && state.rig.mode === 'skeleton';
+  };
+  if (skeletonMode()) applySkeletonDisplay(true);
+
   const disposers: Disposer[] = [
     vm.addMeshLayer(jointsHost),
     vm.addMeshLayer(markersHost),
     vm.setPointerLayer(layer),
     app.store.subscribe(() => invalidate()),
     app.session.subscribe((state, previous) => {
+      if (state.rig.mode !== previous.rig.mode && previous.workspace === 'rig' && state.workspace === 'rig') {
+        applySkeletonDisplay(state.rig.mode === 'skeleton');
+      }
       if (
         state.workspace !== previous.workspace ||
         state.rig !== previous.rig ||
