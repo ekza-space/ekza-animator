@@ -16,9 +16,11 @@
 import type { ControlId, MeshId } from '@ekza-studio/doc';
 import {
   beginChannelEditGesture,
+  type ChannelEdit,
   type ChannelEditGesture,
   type EditorApp,
   heldKeysOf,
+  limbOfControlIn,
   meshKernel,
   PANEL,
   setBrush,
@@ -71,6 +73,8 @@ interface Adjust {
 interface Rotate {
   readonly gesture: ChannelEditGesture;
   readonly control: ControlId;
+  /** `@ikFk` 0 on the limb's IK control when the joint's FK control belongs to an IK limb (FK for the test). */
+  readonly extra: readonly ChannelEdit[];
   readonly channel: 'rx' | 'ry' | 'rz';
   readonly sign: number;
   readonly start: number;
@@ -177,6 +181,7 @@ export class PaintSkinTool implements ToolInstance {
           channel: this.rotate.channel,
           value: this.rotate.start + this.rotate.sign * delta,
         },
+        ...this.rotate.extra,
       ]);
       return true;
     }
@@ -340,9 +345,22 @@ export class PaintSkinTool implements ToolInstance {
     // Screen y grows downwards: a counter-clockwise drag on screen is a positive rotation about the axis to the viewer.
     const sign = (f[axis] as number) > 0 ? 1 : -1;
     const start = this.app.evaluation.channelValues(target.control)[channel];
+    // IK → FK for the test (§5.11, §5.17, as `E` on a joint in Skeleton mode): when the joint's control is an FK
+    // control of a limb that is (partly) IK, the test pose also holds the limb's switch at 0, so the FK turn shows.
+    const extra: ChannelEdit[] = [];
+    const program = this.app.characters.get(target.character)?.program;
+    const limb = program === undefined ? null : limbOfControlIn(program, target.control);
+    if (
+      limb !== null &&
+      limb.fkControls.includes(target.control) &&
+      (this.app.evaluation.ikFk(target.character, limb.id) ?? 0) > 0
+    ) {
+      extra.push({ control: limb.params.ikControl, channel: '@ikFk', value: 0 });
+    }
     this.rotate = {
       gesture: beginChannelEditGesture(this.app, 'Rotate', { key: 'none' }),
       control: target.control,
+      extra,
       channel,
       sign,
       start,

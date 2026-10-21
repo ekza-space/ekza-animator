@@ -364,7 +364,9 @@ export class RigSkinRuntime {
   }
 
   /** The active influence's joint on screen (pane px) and the control that drives it, or null. */
-  rotateTarget(paneId: string): { readonly x: number; readonly y: number; readonly control: ControlId } | null {
+  rotateTarget(
+    paneId: string,
+  ): { readonly x: number; readonly y: number; readonly control: ControlId; readonly character: CharacterId } | null {
     const active = this.app.session.getState().rig.activeInfluence;
     const character = this.character();
     const rect = this.vm.paneRect(paneId);
@@ -382,7 +384,7 @@ export class RigSkinRuntime {
       (m[16 * node + 14] ?? 0) + t[2],
     ];
     const screen = projectToPane(this.vm.camera(paneId), rect.w, rect.h, world);
-    return screen === null ? null : { ...screen, control };
+    return screen === null ? null : { ...screen, control, character };
   }
 
   /** Draws the test-rotate ring in a pane while it is on (hidden otherwise). */
