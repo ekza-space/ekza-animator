@@ -30,6 +30,10 @@ test('E2E-RIG-08 (MVP part): the Validation panel, its profile and its empty sta
   await expect(page.getByTestId('val-ready')).toContainText('Local / generic ✓');
   expect(await call(page, 'history')).toEqual(history);
   expect(await call(page, 'validation')).toEqual([]);
+  // [Re-run] re-derives the rows (no document change, no step).
+  await page.getByTestId('val-rerun').click();
+  await expect(page.getByTestId('val-clean')).toBeVisible();
+  expect(await call(page, 'history')).toEqual(history);
 });
 
 test.fixme(`E2E-RIG-08: Validation as the export gate (gates: ${GATES})`, async ({ page }) => {

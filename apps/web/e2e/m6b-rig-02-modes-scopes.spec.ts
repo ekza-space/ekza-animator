@@ -83,6 +83,32 @@ test('E2E-RIG-02 (MVP part): modes, digits, F8; S never keys; Mod+E; Alt+C on an
   expect(await animateKeys()).toEqual(before);
 });
 
+test('E2E-RIG-02 (MVP part): booting straight into Rig & Skin (?ws=rig): S never keys from the first frame', async ({
+  page,
+}) => {
+  // A reload while in Rig & Skin opens it again (`prefs.lastWorkspace`) without `workspace.set`: the Rig shadow rows
+  // are eager (M6B-C7-15), so S is `rig.animateOnly` before the rig-workspace chunk has loaded.
+  await openEditor(page, '&ws=rig');
+  expect((await call(page, 'state')).workspace).toBe('rig');
+  expect(await call(page, 'resolveKey', { code: 'KeyS' }, VIEWPORT)).toMatchObject({ op: 'rig.animateOnly' });
+  await expectKernelStarted(page);
+  await seedSample(page, 'polybot');
+  const hips = await controlId(page, 'fk.hips');
+  await runOk(page, 'select.controls', { ids: [hips], mode: 'replace' });
+  const hash = await keysHash(page);
+  await hoverPersp(page);
+  await page.keyboard.press('KeyS');
+  for (const panel of ['channelBox', 'outliner', 'timeline', 'graph', 'dopeSheet']) {
+    expect((await call(page, 'resolveKey', { code: 'KeyS' }, { panel }))?.op, panel).toBe('rig.animateOnly');
+  }
+  expect(await keysHash(page)).toBe(hash);
+  // The chunk has loaded by now: the Rig rows and the Bind view are there.
+  await expect.poll(async () => (await call(page, 'rigState')).poseView).toBe('bind');
+  expect(await call(page, 'resolveKey', { code: 'Digit1' }, VIEWPORT)).toMatchObject({ op: 'rig.mode' });
+  await page.keyboard.press('KeyS');
+  expect(await keysHash(page)).toBe(hash);
+});
+
 test.fixme(`E2E-RIG-02: modes, scopes, shadows on a bound body (gates: ${GATES})`, async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
