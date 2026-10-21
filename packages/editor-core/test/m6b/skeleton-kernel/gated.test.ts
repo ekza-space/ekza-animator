@@ -66,7 +66,7 @@ describe.skipIf(!READY.c4)('with C4 (the bind solver)', () => {
     const result = await t.app.runUntyped('skel.quickRig.commit', {
       ...commit(meshes),
       markers: { ...truthMarkers(), knee },
-      confirmed: true,
+      confirm: true,
     });
     expect(result.status).toBe('finished');
     expect(t.app.history.peekUndo()?.label).toBe('Refit Skeleton');

@@ -733,6 +733,8 @@ const templateCreate = defineOperator<'skel.template.create', TemplatePrepared>(
     writeTemplateSkeleton(tx, skeleton, prepared.preset, prepared.template);
     updateControlRig(ctx.app, tx, character);
     enterSkeletonMode(ctx.app, character);
+    // The composed char.fromModel annotates its own label; the step is this operator's.
+    tx.annotate({ label: 'Skeleton Template' });
     return { character, skeleton };
   },
 });

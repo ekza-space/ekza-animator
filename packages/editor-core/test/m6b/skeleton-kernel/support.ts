@@ -145,6 +145,8 @@ export function fakeFromModel(): OperatorDef<unknown, unknown, unknown> {
         });
         tx.softDelete('meshes', source);
       }
+      // C1's operator labels its own step; the composing operators must re-annotate theirs.
+      tx.annotate({ label: 'Character from Selection' });
       return { character, skeleton };
     },
   };

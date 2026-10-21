@@ -13,14 +13,12 @@ import type { MeshData, SkinBindArgs, SkinSkeleton, SkinWeights } from '@ekza-st
 import {
   DEFAULT_FLEXION,
   fitQuickRig,
-  GUESS,
   guessMarkers,
   humanChainChildren,
   isSkeletonPreset,
   JointIndex,
   markersFromJoints,
   mirrorHumanBone,
-  placeTemplate,
   QUICK_RIG_CENTRE_MARKERS,
   QUICK_RIG_SIDE_MARKERS,
   type QuickRigMarker,
@@ -176,10 +174,22 @@ export function quickRigStartInfo(
 // ---------------------------------------------------------------------------------------------------------------------
 // The rebind of a re-run (§0.4.2: "rebinds every bound mesh with its stored bind arguments")
 
-/** §4.2 `SkinSkeleton` of joint records (palette keys = joint ids), for the solvers. */
-export function skinSkeletonOf(joints: readonly JointRecord[], height: number): SkinSkeleton {
+/**
+ * §4.2 `SkinSkeleton` of joint records (palette keys = joint ids), for the solvers; H = the joints' height over heads
+ * and tails (C4's rule for `skin.bind`, so a refit's rebind sees the skeleton as Bind Skin does).
+ */
+export function skinSkeletonOf(joints: readonly JointRecord[]): SkinSkeleton {
   const index = new JointIndex(joints);
   const order = index.order;
+  let minY = Number.POSITIVE_INFINITY;
+  let maxY = Number.NEGATIVE_INFINITY;
+  for (const joint of order) {
+    for (const p of joint.tail === null ? [joint.restPosition] : [joint.restPosition, joint.tail]) {
+      minY = Math.min(minY, p[1]);
+      maxY = Math.max(maxY, p[1]);
+    }
+  }
+  const height = maxY - minY > 1e-6 ? maxY - minY : 1;
   const at = new Map<JointId, number>(order.map((joint, i) => [joint.id, i]));
   const J = order.length;
   const parent = new Int32Array(J);
@@ -267,15 +277,10 @@ interface Rebind {
 }
 
 /** The new weights of the bound meshes over the refitted joints (the solver of C4, synchronously). */
-function rebind(
-  app: EditorApp,
-  view: ReadView,
-  bound: readonly MeshRecord[],
-  joints: readonly JointRecord[],
-  height: number,
-): Rebind[] {
+function rebind(app: EditorApp, bound: readonly MeshRecord[], joints: readonly JointRecord[]): Rebind[] {
   const runtimes = kernelMeshes(app);
-  const skeleton = skinSkeletonOf(joints, height);
+  const skeleton = skinSkeletonOf(joints);
+  const height = skeleton.height;
   return bound.map((record) => {
     const data = runtimes?.get(record.id)?.data() ?? null;
     if (data === null) throw new EkzaError('mesh-loading', 'Mesh is loading');
@@ -333,7 +338,7 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
     { name: 'markers', label: 'Markers', kind: 'data', bound: 'pointer', default: null, nullable: true, hidden: true },
     { name: 'meshes', label: 'Meshes', kind: 'data', bound: 'selection', default: null, nullable: true, hidden: true },
   ],
-  extraArgs: ['confirmed'],
+  extraArgs: ['confirm'],
   poll(ctx, args): PollResult {
     const input = commitArgs(args);
     if (typeof input === 'string') return fail(input);
@@ -364,7 +369,7 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
           );
         }
         const bound = view.query.meshesBoundTo(target.skeleton);
-        if (bound.length > 0 && (args as unknown as Record<string, unknown>)['confirmed'] !== true) {
+        if (bound.length > 0 && (args as unknown as Record<string, unknown>)['confirm'] !== true) {
           throw new EkzaError('confirm-required', REBIND_CONFIRM);
         }
         let rebinds: Rebind[] = [];
@@ -373,7 +378,7 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
           const edit = refitTemplateJoints(live, joints);
           const next = new Map(live.map((joint) => [joint.id, joint]));
           for (const joint of edit.upserts) next.set(joint.id, joint);
-          rebinds = rebind(ctx.app, view, bound, [...next.values()], geometry.height);
+          rebinds = rebind(ctx.app, bound, [...next.values()]);
         }
         refit = { skeleton: target.skeleton, character: target.character, rebinds };
       }
@@ -397,6 +402,8 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
     } else if (prepared.target.kind === 'scene') {
       ({ character, skeleton } = applyFromModel(ctx, prepared.fromModel as FromModelStep));
       writeTemplateSkeleton(tx, skeleton, prepared.preset, prepared.joints);
+      // The composed char.fromModel annotates its own label; the step is Create Skeleton.
+      tx.annotate({ label: 'Create Skeleton' });
     } else {
       character = prepared.target.character;
       const found = tx.query.skeletonOfCharacter(character);
