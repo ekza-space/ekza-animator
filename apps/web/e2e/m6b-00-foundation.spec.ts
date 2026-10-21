@@ -114,10 +114,10 @@ test('the palette lists the MVP operators in Rig & Skin; deferred ids are in no 
   expect(palette?.items.find((item) => item.op === 'skin.bind')).toMatchObject({ label: 'Bind Skin', enabled: false });
   await page.keyboard.press('Escape');
   await expect(page.getByTestId('cmdk')).toBeHidden();
-  // The menu bar's labels never show a deferred operator.
-  // (C0 lands no rig menu items; C7's Skeleton and Skin menus extend this check.)
+  // The menu bar's labels never show a deferred operator; C7's Skeleton and Skin menus are there (§0.4.5).
+  await expect(page.getByRole('menubar')).toContainText('Skeleton');
   const menubar = (await page.getByRole('menubar').textContent()) ?? '';
-  expect(menubar).toContain('File');
+  for (const label of ['File', 'Skeleton', 'Skin', 'Windows']) expect(menubar).toContain(label);
   for (const label of ['Constrain', 'Control']) expect(menubar).not.toContain(label);
 });
 

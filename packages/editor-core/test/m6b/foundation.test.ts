@@ -163,6 +163,11 @@ const LANDED: Readonly<Record<string, string>> = {
   // C4 (auto-skin)
   'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
   'skin.unbind': 'No bound mesh to unbind',
+  // C7 (rig shell; literal update, §3 rule 9)
+  'rig.mode': 'expects { mode }',
+  'rig.pose.view': 'expects { view }',
+  'rig.pose.resetTest': 'Rig & Skin modes are in the Rig & Skin workspace',
+  'rig.validation.profile': 'expects { profile }',
 };
 
 const disposers: (() => void)[] = [];

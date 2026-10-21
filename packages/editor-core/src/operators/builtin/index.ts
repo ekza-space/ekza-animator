@@ -4,6 +4,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import { BUILTIN_EXPORT_PROFILES } from '@ekza-studio/io';
 import { MAYA_KEYMAP } from '../../keymap/maya';
+import { RIG_SHADOW_KEYMAP } from '../../keymap/maya.rig';
 import type { EditorApp } from '../../types';
 import { AUTOSAVE_OPERATORS } from './autosave';
 import { BREAKDOWN_OPERATORS } from './breakdown';
@@ -109,6 +110,8 @@ export function registerBuiltins(app: EditorApp): Disposer {
     if (app.menus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'menu', def }));
   }
   disposers.push(app.contribute({ kind: 'keymap', bindings: MAYA_KEYMAP }));
+  // M6b C7 (M6B-C7-15): `S` keys nothing in Rig & Skin before the rig-workspace chunk (and its rows) has loaded.
+  disposers.push(app.contribute({ kind: 'keymap', bindings: RIG_SHADOW_KEYMAP }));
   disposers.push(registerModelOperators(app));
   return disposeAll(disposers);
 }

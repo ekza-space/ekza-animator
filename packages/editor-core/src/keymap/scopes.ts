@@ -41,11 +41,18 @@ export interface ScopeChainInput {
   /** The pointer is over the viewport panel (component scopes apply there only). */
   readonly viewport: boolean;
   readonly mode: ComponentMode;
+  /**
+   * M6b (CR-4): the active workspace's mode scope suffixes, deepest first (`WorkspaceDef.keyModes`); when given they
+   * replace Model's component-mode levels over the viewport (`rig.viewport.skeleton` → `rig.viewport`). Absent or
+   * null: Model's rule (`<w>.viewport.<mode>` → `<w>.viewport.component` in a component mode).
+   */
+  readonly modes?: readonly string[] | null;
 }
 
 /**
  * Most specific first, ending with 'global'. In a workspace with a key scope `w`, over the viewport in a component
- * mode: `w.viewport.<mode>` → `w.viewport.component` → `w.viewport` → `viewport` → `w` → `global`; over another panel
+ * mode: `w.viewport.<mode>` → `w.viewport.component` → `w.viewport` → `viewport` → `w` → `global` (with `modes`, M6b
+ * CR-4: `w.viewport.<modes[0]>` → … → `w.viewport` → …); over another panel
  * `w.<panel>` → `<panel>` → `w` → `global`; outside every panel `w` → `global`.
  */
 export function keyScopeChain(input: ScopeChainInput): KeyScope[] {
@@ -54,7 +61,8 @@ export function keyScopeChain(input: ScopeChainInput): KeyScope[] {
   if (workspace === null) return panel === null ? [GLOBAL_SCOPE] : [panel, GLOBAL_SCOPE];
   if (panel === null) return [workspace, GLOBAL_SCOPE];
   const own = `${workspace}.${panel}`;
-  const component = input.viewport && mode !== 'object' ? [`${own}.${mode}`, `${own}.component`] : [];
+  const suffixes = input.modes ?? (mode !== 'object' ? [mode, 'component'] : []);
+  const component = input.viewport ? suffixes.map((suffix) => `${own}.${suffix}`) : [];
   return [...component, own, panel, workspace, GLOBAL_SCOPE];
 }
 

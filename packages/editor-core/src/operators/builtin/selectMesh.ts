@@ -676,15 +676,18 @@ function visibleMeshes(app: EditorApp): SceneObjectId[] {
     .map((mesh) => mesh.id);
 }
 
+const RIG_OBJECT_MODE_REASON = 'Objects are picked in Object mode';
+const OBJECTS_REASON = 'Objects are selected in Model and Rig & Skin';
+
 const selectObjects = defineOperator({
   id: 'select.objects',
   label: 'Select Objects',
-  description: 'Selects meshes and groups in Model.',
+  description: 'Selects meshes and groups (Model, and Rig & Skin in Object mode).',
   category: 'select',
   scope: 'model',
   flags: { selection: true },
   extraArgs: ['ids', 'all', 'mode'],
-  workspaces: ['model'],
+  workspaces: ['model', 'rig'],
   poll(ctx, args): PollResult {
     if (!isRecord(args) || !SELECT_MODES.includes(args['mode'])) {
       return fail('expects { ids?, all?: meshes, mode }');
@@ -695,7 +698,10 @@ const selectObjects = defineOperator({
       }
     }
     if (args['all'] !== undefined && args['all'] !== 'meshes') return fail("all must be 'meshes'");
-    return ctx.app.session.getState().workspace === 'model' ? OK : fail(MODEL_ONLY_REASON);
+    // M6b C7 (§5.24): Rig & Skin's Object mode picks meshes (the active character and Quick Rig read them).
+    const state = ctx.app.session.getState();
+    if (state.workspace === 'rig') return state.rig.mode === 'object' ? OK : fail(RIG_OBJECT_MODE_REASON);
+    return state.workspace === 'model' ? OK : fail(OBJECTS_REASON);
   },
   apply(ctx, args) {
     const app = ctx.app;

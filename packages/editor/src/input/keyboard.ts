@@ -86,11 +86,14 @@ export interface HoveredPanel {
  */
 export function scopeChain(app: Pick<EditorApp, 'session' | 'workspaces'>, hover: HoveredPanel | null): KeyScopeChain {
   const session = app.session.getState();
+  const def = app.workspaces.get(session.workspace);
   const scopes = keyScopeChain({
-    workspace: app.workspaces.get(session.workspace)?.keyScope ?? null,
+    workspace: def?.keyScope ?? null,
     panel: hover === null || hover.scope === GLOBAL_SCOPE ? null : hover.scope,
     viewport: hover?.kind === PANEL.viewport,
     mode: session.model.componentMode,
+    // M6b (CR-4): a workspace with its own modes (Rig & Skin) names its mode scopes.
+    modes: def?.keyModes?.(app as EditorApp) ?? null,
   });
   return { scopes, panel: hover?.kind ?? null, paneId: hover?.paneId ?? null };
 }
