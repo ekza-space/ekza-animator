@@ -27,6 +27,8 @@ const LANDED: Readonly<Record<string, string>> = {
   // C4 (auto-skin)
   'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
   'skin.unbind': 'No bound mesh to unbind',
+  // C6 (skin UI)
+  'skin.weights.mirror': 'No bound mesh (Skin › Bind Skin first)',
 };
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */
 const DEFERRED = [

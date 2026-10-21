@@ -131,11 +131,13 @@ export class RigSkinRuntime {
   ): SurfaceCache | null {
     const runtime = this.app.meshes.get(mesh);
     const data = runtime?.data() ?? null;
-    const inputs = data === null ? null : weightInputsNow(this.app, mesh);
-    const posed = this.display?.posedPoints(mesh) ?? null;
-    if (runtime === undefined || inputs === null || posed === null) return null;
+    if (runtime === undefined || data === null) return null;
+    // Refit once per revision and pose (never per stamp, §5.11): the weights a stroke previews do not move it.
     const hit = this.cache.get(mesh);
     if (hit !== undefined && hit.version === runtime.version && hit.pose === pose && hit.data === data) return hit;
+    const inputs = weightInputsNow(this.app, mesh);
+    const posed = this.display?.posedPoints(mesh) ?? null;
+    if (inputs === null || posed === null) return null;
     const surface: PaintSurface = {
       mesh,
       positions: posed,
@@ -350,6 +352,17 @@ export class RigSkinRuntime {
     return hit;
   }
 
+  /** The stored skin of a bound mesh's current revision (read once per revision). */
+  skinOf(mesh: MeshId): SkinWeights | null {
+    const data = this.app.meshes.get(mesh)?.data() ?? null;
+    if (data === null) return null;
+    const cached = skins.get(data);
+    if (cached !== undefined) return cached;
+    const skin = meshKernel()?.readSkin(data) ?? null;
+    if (skin !== null) skins.set(data, skin);
+    return skin;
+  }
+
   /** The active influence's joint on screen (pane px) and the control that drives it, or null. */
   rotateTarget(paneId: string): { readonly x: number; readonly y: number; readonly control: ControlId } | null {
     const active = this.app.session.getState().rig.activeInfluence;
@@ -394,8 +407,8 @@ export class RigSkinRuntime {
 
   /** `0.62 · leftLowerArm`; with Alt the point's full list (≤ 4 rows). */
   private readout(hit: SurfaceHit, alt: boolean): string[] {
-    const inputs = weightInputsNow(this.app, hit.surface.mesh as MeshId);
-    if (inputs === null) return [];
+    const skin = this.skinOf(hit.surface.mesh as MeshId);
+    if (skin === null) return [];
     const w = this.worldOf(hit.surface);
     let v = -1;
     let best = Number.POSITIVE_INFINITY;
@@ -413,8 +426,8 @@ export class RigSkinRuntime {
     }
     const rows: [string, number][] = [];
     for (let k = 0; k < 4; k++) {
-      const weight = inputs.skin.weights[4 * v + k] as number;
-      const key = inputs.skin.palette[inputs.skin.joints[4 * v + k] as number]?.key;
+      const weight = skin.weights[4 * v + k] as number;
+      const key = skin.palette[skin.joints[4 * v + k] as number]?.key;
       if (weight > 0 && key !== undefined) rows.push([key, weight]);
     }
     if (alt) return rows.map(([key, weight]) => `${weight.toFixed(2)} · ${jointName(this.app, key)}`);
@@ -439,9 +452,9 @@ export class RigSkinRuntime {
     const world = new Map(surfaces.map((surface) => [surface, this.worldOf(surface)] as const));
     const out: { mesh: string; point: number; text: string; x: number; y: number }[] = [];
     for (const surface of surfaces) {
-      const inputs = weightInputsNow(this.app, surface.mesh as MeshId);
+      const skin = this.skinOf(surface.mesh as MeshId);
       const w = world.get(surface) as Float64Array;
-      if (inputs === null) continue;
+      if (skin === null) continue;
       const P = Math.floor(w.length / 3);
       for (let v = 0; v < P; v++) {
         const point: [number, number, number] = [w[3 * v] as number, w[3 * v + 1] as number, w[3 * v + 2] as number];
@@ -455,8 +468,8 @@ export class RigSkinRuntime {
         if (!corners.includes(v) && near > 1e-4) continue;
         let weight = 0;
         for (let k = 0; k < 4; k++) {
-          if (inputs.skin.palette[inputs.skin.joints[4 * v + k] as number]?.key === active)
-            weight += inputs.skin.weights[4 * v + k] as number;
+          if (skin.palette[skin.joints[4 * v + k] as number]?.key === active)
+            weight += skin.weights[4 * v + k] as number;
         }
         out.push({ mesh: surface.mesh, point: v, text: weight.toFixed(2), x: rect.x + screen.x, y: rect.y + screen.y });
       }
@@ -486,6 +499,9 @@ export class RigSkinRuntime {
     this.rotateRing.dispose();
   }
 }
+
+/** Stored skins per revision (MeshData is immutable). */
+const skins = new WeakMap<object, SkinWeights>();
 
 const graphs = new WeakMap<SkinGeometry, { readonly start: Int32Array; readonly next: Int32Array }>();
 function pointGraphCached(geometry: SkinGeometry): { readonly start: Int32Array; readonly next: Int32Array } {
