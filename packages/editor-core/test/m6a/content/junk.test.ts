@@ -18,6 +18,8 @@ const B13_OPERATORS = [
   'palette.replaceSwatch',
   'palette.setActive',
   'select.mesh.bySwatch',
+  // SHADING-SPEC §5
+  'palette.assignMaterial',
   'imagePlane.import',
   'imagePlane.set',
   'imagePlane.delete',

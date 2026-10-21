@@ -2,7 +2,8 @@
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-animator/anim-core';
 import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, GroupId, ImagePlaneId,
-  ImagePlaneRecord, KeyId, MeshId, MeshRecord, OrthoCamera, PaletteId, Redistributable, RootMotionMode, SwatchId } from '@ekza-animator/doc';
+  ImagePlaneRecord, KeyId, MeshId, MeshRecord, OrthoCamera, PaletteId, Redistributable, RootMotionMode, SwatchId,
+  SwatchShader } from '@ekza-animator/doc';
 import type { ComponentKind } from '@ekza-animator/mesh-core';
 import type { ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-animator/io';
 import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-animator/rig';
@@ -32,6 +33,12 @@ export interface ImportAnimationOptions {
 export interface ImportResult { readonly character: CharacterId; readonly clips: readonly ClipId[]; readonly warnings: readonly string[] }
 export interface ClipsResult { readonly clips: readonly ClipId[]; readonly warnings: readonly string[] }
 export interface CountResult { readonly count: number }
+/** The shader fields `palette.addSwatch`/`palette.setSwatch` take (SHADING-SPEC §5). */
+export interface SwatchShaderArgs {
+  readonly shader?: SwatchShader;
+  readonly glossiness?: number;
+  readonly specular?: readonly [number, number, number];
+}
 export type KeyChannels = 'all' | 'translate' | 'rotate' | 'scale' | 'attributes' | 'selected';   // changed: + 'attributes'
 /** M2a §5.19: the body parts a 'bodyPart' key target groups controls into (re-exported for operator authors). */
 export type { BodyPart };
@@ -330,10 +337,14 @@ export interface OperatorMap {
   'palette.create': { args: { readonly name: string }; result: { readonly palette: PaletteId } };
   'palette.duplicate': { args: { readonly palette: PaletteId }; result: { readonly palette: PaletteId } };
   'palette.rename': { args: { readonly palette: PaletteId; readonly name: string }; result: void };
-  'palette.addSwatch': { args: { readonly palette: PaletteId; readonly srgb: readonly [number, number, number]; readonly name?: string };
-    result: { readonly swatch: SwatchId; readonly slot: number } };
-  'palette.setSwatch': { args: { readonly swatch: SwatchId; readonly srgb?: readonly [number, number, number]; readonly name?: string };
-    result: void };
+  'palette.addSwatch': { args: { readonly palette: PaletteId; readonly srgb: readonly [number, number, number]; readonly name?: string }
+    & SwatchShaderArgs; result: { readonly swatch: SwatchId; readonly slot: number } };
+  'palette.setSwatch': { args: { readonly swatch: SwatchId; readonly srgb?: readonly [number, number, number]; readonly name?: string }
+    & SwatchShaderArgs; result: void };
+  // SHADING-SPEC §5: Assign New Material (a new swatch with the shader, painted on the selection, one step).
+  'palette.assignMaterial': { args: { readonly shader: SwatchShader; readonly meshes?: readonly MeshId[];
+    readonly srgb?: readonly [number, number, number]; readonly name?: string };
+    result: { readonly swatch: SwatchId; readonly slot: number; readonly meshes: readonly MeshId[] } };
   'palette.removeSwatch': { args: { readonly swatch: SwatchId }; result: void };
   'palette.assign': { args: { readonly meshes?: readonly MeshId[]; readonly palette: PaletteId }; result: void };
   'palette.replaceSwatch': { args: { readonly palette: PaletteId; readonly from: number; readonly to: number;

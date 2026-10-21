@@ -296,9 +296,15 @@ export interface StaticNode {
   readonly children: readonly StaticNode[];
 }
 export type StaticMaterial = { readonly preset: 'unlit' | 'lit'; readonly name: string };
+/** A swatch's shader (SHADING-SPEC §4): Lambert or Blinn with its glossiness 0…1 and specular sRGB colour. */
+export interface SwatchShading { readonly shader: 'lambert' | 'blinn'; readonly glossiness: number;
+  readonly specular: readonly [number, number, number] }
+/** A live swatch of an exported palette; `shader` absent = Lambert (SHADING-SPEC §4). */
+export interface StaticSwatch { readonly slot: number; readonly srgb: readonly [number, number, number];
+  readonly shader?: SwatchShading }
 export interface StaticScene {
   readonly roots: readonly StaticNode[];
-  readonly palettes: ReadonlyMap<string, readonly { readonly slot: number; readonly srgb: readonly [number, number, number] }[]>;
+  readonly palettes: ReadonlyMap<string, readonly StaticSwatch[]>;
   readonly handheld: HandheldGrip | null;
   readonly model: EkzaModelV1;
 }

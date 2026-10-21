@@ -28,6 +28,7 @@ import {
   type PaletteId,
   type PaletteRecord,
   type ReadView,
+  SWATCH_SHADER_DEFAULTS,
   type SwatchRecord,
   type Tx,
 } from '@ekza-animator/doc';
@@ -36,6 +37,7 @@ import { newRecordId } from '../../app/internals';
 import { attachMeshes, type KernelMeshRuntimes, meshKernel } from '../../mesh';
 import { localFromWorld, MAX_NAME, orderAfterSiblings, ownerKey, uniqueMeshName } from '../../mesh/records';
 import { runSeed } from '../../mesh/seed';
+import type { SwatchShaderArgs } from '../args';
 import type {
   ApplyContext,
   EditorApp,
@@ -53,6 +55,7 @@ import {
   cleanName,
   lastOrder,
   livePalette,
+  materialPlan,
   nextSlot,
   replaceTargets,
   slotArg,
@@ -564,31 +567,134 @@ export function paletteRename({ tx }: ApplyContext, args: OperatorArgs<'palette.
   tx.patch('palettes', args.palette, { name: cleanName(args.name) as string });
 }
 
-export function paletteAddSwatch({ tx }: ApplyContext, args: OperatorArgs<'palette.addSwatch'>) {
-  if (tx === null) throw new EkzaError('internal', 'palette.addSwatch runs in a transaction');
-  const slot = nextSlot(tx, args.palette);
-  const id = swatchIdFor(args.palette, slot);
-  const live = tx.query.swatchesOfPalette(args.palette);
+/** The shader fields of a new swatch: the args' where given, else `SWATCH_SHADER_DEFAULTS` (SHADING-SPEC §1). */
+function shaderOf(args: SwatchShaderArgs): Pick<SwatchRecord, 'shader' | 'glossiness' | 'specular'> {
+  return {
+    shader: args.shader ?? SWATCH_SHADER_DEFAULTS.shader,
+    glossiness: args.glossiness ?? SWATCH_SHADER_DEFAULTS.glossiness,
+    specular: srgbOf(args.specular ?? SWATCH_SHADER_DEFAULTS.specular),
+  };
+}
+
+/** Puts a new swatch at the palette's next slot (`palette.addSwatch`, `palette.assignMaterial`). */
+function putSwatch(
+  tx: Tx,
+  palette: PaletteId,
+  srgb: readonly [number, number, number],
+  name: string,
+  shader: SwatchShaderArgs,
+): { readonly swatch: SwatchRecord['id']; readonly slot: number } {
+  const slot = nextSlot(tx, palette);
+  const id = swatchIdFor(palette, slot);
+  const live = tx.query.swatchesOfPalette(palette);
   tx.put('swatches', {
     id,
-    palette: args.palette,
+    palette,
     slot,
     order: fractionalIndex(lastOrder(live), null),
-    name: cleanName(args.name) ?? toHex(srgbOf(args.srgb)),
-    srgb: srgbOf(args.srgb),
+    name,
+    srgb: srgbOf(srgb),
     kind: 'flat',
     ramp: null,
+    ...shaderOf(shader),
     deleted: null,
   });
   return { swatch: id, slot };
 }
 
+export function paletteAddSwatch({ tx }: ApplyContext, args: OperatorArgs<'palette.addSwatch'>) {
+  if (tx === null) throw new EkzaError('internal', 'palette.addSwatch runs in a transaction');
+  return putSwatch(tx, args.palette, args.srgb, cleanName(args.name) ?? toHex(srgbOf(args.srgb)), args);
+}
+
 export function paletteSetSwatch({ tx }: ApplyContext, args: OperatorArgs<'palette.setSwatch'>) {
   if (tx === null) throw new EkzaError('internal', 'palette.setSwatch runs in a transaction');
-  const patch: { srgb?: [number, number, number]; name?: string } = {};
+  const patch: {
+    -readonly [K in 'srgb' | 'name' | 'shader' | 'glossiness' | 'specular']?: SwatchRecord[K];
+  } = {};
   if (args.srgb !== undefined) patch.srgb = srgbOf(args.srgb);
   if (args.name !== undefined) patch.name = cleanName(args.name) as string;
+  if (args.shader !== undefined) patch.shader = args.shader;
+  if (args.glossiness !== undefined) patch.glossiness = args.glossiness;
+  if (args.specular !== undefined) patch.specular = srgbOf(args.specular);
   tx.patch('swatches', args.swatch, patch);
+}
+
+/** `Lambert 1`, `Blinn 2`, …: the first name of the form `<base> <n>` no live swatch of the palette has. */
+function uniqueSwatchName(view: ReadView, palette: PaletteId, base: string): string {
+  const taken = new Set(view.query.swatchesOfPalette(palette).map((swatch) => swatch.name));
+  for (let n = 1; ; n++) if (!taken.has(`${base} ${n}`)) return `${base} ${n}`;
+}
+
+/** The sRGB colour of the first face Assign New Material paints (keeps the look when only the shader changes). */
+function firstFaceColour(
+  app: EditorApp,
+  view: ReadView,
+  palette: PaletteId,
+  mesh: MeshId,
+  faceMode: boolean,
+): readonly [number, number, number] | null {
+  let face = 0;
+  if (faceMode) {
+    const faces = attachMeshes(app)?.selectionFor(mesh, 'face')?.faces;
+    let first = -1;
+    faces?.forEach((f) => {
+      if (first === -1) first = f;
+    });
+    if (first === -1) return null;
+    face = first;
+  }
+  const slot = faceSlotsOf(app, mesh)?.[face];
+  if (slot === undefined) return null;
+  return view.query.swatchBySlot(palette, slot)?.srgb ?? null;
+}
+
+/**
+ * `palette.assignMaterial` (SHADING-SPEC §5; Maya's Assign New Material): in one transaction a new swatch with the
+ * shader in the targets' palette, painted on the selected faces (face mode) or on every face of the target meshes;
+ * targets whose material preset is `unlit` become `lit`; the swatch becomes the active one.
+ */
+export function paletteAssignMaterial(ctx: ApplyContext, args: OperatorArgs<'palette.assignMaterial'>) {
+  const { app, tx } = ctx;
+  const kernel = meshKernel();
+  const op = kernel?.MESH_OPS['mesh.paint'];
+  const meshes = attachMeshes(app);
+  if (tx === null || op === undefined || meshes === null) throw new EkzaError('mesh-loading', BUSY_KERNEL);
+  const plan = materialPlan(app, args);
+  const first = plan.meshes[0];
+  const palette = first === undefined ? null : (tx.get('meshes', first)?.palette ?? null);
+  if (first === undefined || palette === null) throw new EkzaError('op-refused', 'Select faces or a mesh first');
+  const base = args.shader === 'blinn' ? 'Blinn' : 'Lambert';
+  const colour = args.srgb ?? firstFaceColour(app, tx, palette, first, plan.faceMode) ?? [128, 128, 128];
+  const name = cleanName(args.name) ?? uniqueSwatchName(tx, palette, base);
+  const created = putSwatch(tx, palette, colour, name, { shader: args.shader });
+  const seed = runSeed(ctx, 'palette.assignMaterial');
+  if (plan.faceMode) {
+    meshes.commitOp(tx, op, plan.meshes, { slot: created.slot, faces: null }, { seed, kind: 'face' });
+  } else {
+    // Every face of each object: one run per mesh, its `faces` list is its own (M6A-B13-17).
+    for (const mesh of plan.meshes) {
+      const faces = app.meshes.get(mesh)?.data()?.counts.faces ?? 0;
+      meshes.commitOp(
+        tx,
+        op,
+        [mesh],
+        { slot: created.slot, faces: Array.from({ length: faces }, (_, f) => f) },
+        { seed, kind: 'face' },
+      );
+    }
+  }
+  for (const mesh of plan.meshes) {
+    const record = tx.get('meshes', mesh);
+    if (record !== undefined && 'preset' in record.material && record.material.preset === 'unlit') {
+      tx.patch('meshes', mesh, { material: { preset: 'lit' } });
+    }
+  }
+  const model = app.session.getState().model;
+  if (model.activeSwatch !== created.swatch) {
+    app.session.setState({ model: { ...model, activeSwatch: created.swatch } });
+  }
+  return { swatch: created.swatch, slot: created.slot, meshes: [...plan.meshes] };
 }
 
 export function paletteRemoveSwatch({ app, tx }: ApplyContext, args: OperatorArgs<'palette.removeSwatch'>) {
@@ -1002,6 +1108,7 @@ export function ensureDefaultPalette(tx: Tx): PaletteId {
       srgb: parseHex(swatch.hex) as [number, number, number],
       kind: 'flat',
       ramp: null,
+      ...SWATCH_SHADER_DEFAULTS,
       deleted: null,
     });
   });

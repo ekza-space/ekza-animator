@@ -13,6 +13,7 @@ export { compareValidation } from './validate/validate';
 export { writeAnimationGlb, writeVrma } from './writers/write';
 // M6a (M6A-SPEC §4.5): the author writer for static models and the surgeon's "replace primitives" step (B8).
 export { writeStaticGlb } from './export/author';
+export { type ShaderFactors, shaderFactors, shaderKey, shaderLabel } from './export/author/shading';
 export { BAKE_MARKER_KEY, BAKE_MARKER_V2_KEY } from './surgeon/marker';
 export { rebuildContainer, replacePrimitives } from './surgeon/replacePrimitives';
 

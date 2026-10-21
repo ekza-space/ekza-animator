@@ -789,6 +789,15 @@ export const MODEL_OPERATOR_MANIFEST: ModelOperatorManifest = {
       workspaces: ['model'],
     },
     {
+      id: 'palette.assignMaterial',
+      label: 'Assign New Material',
+      category: 'palette',
+      scope: 'model',
+      flags: { undo: true },
+      workspaces: ['model'],
+      aliases: ['Lambert', 'Blinn', 'Hypershade', 'New Material', 'Assign Material'],
+    },
+    {
       id: 'imagePlane.import',
       label: 'Reference Image',
       category: 'imagePlane',

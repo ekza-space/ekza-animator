@@ -1,6 +1,7 @@
 // `meshToPrimitives` (M6A-SPEC §5.21 "meshToPrimitives", §5.19 colour outputs): an edited mesh → glTF primitives.
 //
-// - One primitive per used material slot (ascending); with 'material-per-colour' one per (slot, swatch).
+// - One primitive per used material slot (ascending); with 'material-per-colour' one per (slot, swatch); with a
+//   `shaderOf` (SHADING-SPEC §4) one per (slot, shader group) for the other outputs ('' = Lambert sorts first).
 // - Triangles from the shared triangulation (§5.4); corner keys (point, normal, uv0, uv1, colour) deduplicated in
 //   first-use order; NORMAL always written (the one normals function, custom normals included).
 // - Colour outputs: 'asset' keeps uv0/uv1/color0 as they are (made-editable meshes); 'palette-texture' gives every
@@ -29,12 +30,19 @@ export interface MeshToPrimitivesOptions {
   readonly morphNormals: ReadonlySet<string>;
   readonly hadTangents: boolean;
   readonly dropTangents: boolean;
+  /**
+   * The shader group key of a slot (SHADING-SPEC §4; '' = Lambert): faces of different groups go to different
+   * primitives (materials) for 'palette-texture' and 'vertex-colour'. Absent or null: no split.
+   */
+  readonly shaderOf?: ((slot: number) => string) | null;
 }
 
 /** A primitive with what the writers need beyond `PrimitiveOut`. */
 export interface DetailedPrimitive extends PrimitiveOut {
   /** 'material-per-colour': the swatch slot of the group; else null. */
   readonly swatch: number | null;
+  /** The shader group key of the primitive's faces ('' = Lambert or no split; SHADING-SPEC §4). */
+  readonly shader: string;
   readonly vertexCount: number;
   /** Morph target names in manifest order (the order of `targets`). */
   readonly targetNames: readonly string[];
@@ -81,24 +89,31 @@ export function meshToPrimitivesDetailed(
   const morphs = [...data.layers.values()].filter((layer) => layer.def.name.startsWith(MORPH_PREFIX));
   const targetNames = morphs.map((layer) => layer.def.name.slice(MORPH_PREFIX.length));
 
-  // Group the faces' triangles by (material slot, swatch).
+  // Group the faces' triangles by (material slot, swatch) or (material slot, shader group).
   const perColour = mode === 'material-per-colour';
+  const shaderOf = !perColour && mode !== 'asset' ? (opts.shaderOf ?? null) : null;
   const groups = new Map<
     string,
-    { readonly material: number; readonly swatch: number | null; readonly tris: number[] }
+    { readonly material: number; readonly swatch: number | null; readonly shader: string; readonly tris: number[] }
   >();
   for (let f = 0; f < F; f++) {
     const material = data.faceMaterial[f] as number;
     const swatch = perColour ? resolveSlot(paintOf(f)) : null;
-    const key = `${material}:${swatch ?? ''}`;
+    const shader = shaderOf === null ? '' : shaderOf(resolveSlot(paintOf(f)));
+    const key = `${material}:${swatch ?? ''}:${shader}`;
     let group = groups.get(key);
     if (group === undefined) {
-      group = { material, swatch, tris: [] };
+      group = { material, swatch, shader, tris: [] };
       groups.set(key, group);
     }
     for (let t = tri.faceTriStart[f] as number; t < (tri.faceTriStart[f + 1] as number); t++) group.tris.push(t);
   }
-  const ordered = [...groups.values()].sort((a, b) => a.material - b.material || (a.swatch ?? 0) - (b.swatch ?? 0));
+  const ordered = [...groups.values()].sort(
+    (a, b) =>
+      a.material - b.material ||
+      (a.swatch ?? 0) - (b.swatch ?? 0) ||
+      (a.shader < b.shader ? -1 : a.shader > b.shader ? 1 : 0),
+  );
 
   // Morph normal deltas: geometric normals (custom normals left out) of the base and of each target's shape.
   const needsMorphNormals = targetNames.some((name) => wantsNormals(opts.morphNormals, name));
@@ -300,6 +315,7 @@ export function meshToPrimitivesDetailed(
       indices,
       targets,
       swatch: group.swatch,
+      shader: group.shader,
       vertexCount: n,
       targetNames,
     });
