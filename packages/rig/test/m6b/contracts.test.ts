@@ -9,27 +9,19 @@ import {
   bakeConstraints,
   CONSTRAINT_OPS,
   chainParent,
-  checkSkeleton,
   deleteJoints,
   duplicateJoints,
   editShapePoints,
-  fitTemplate,
   generatedShape,
-  guessMarkers,
   insertJoint,
   mirrorConstraint,
-  mirrorJoints,
   mirrorShape,
-  moveJoints,
-  orientJoints,
   parseConstraintParams,
-  projectedCenter,
   QUICK_RIG_CENTRE_MARKERS,
   QUICK_RIG_SIDE_MARKERS,
   type RigDefinition,
   removeJoints,
   reparentJoints,
-  skeletonTemplate,
   socketPlacement,
   splitBone,
   transformShape,
@@ -147,36 +139,20 @@ describe('Quick Rig v2 marker lists (§0.5)', () => {
   });
 });
 
+// C2 landed skeletonTemplate, fitTemplate, guessMarkers, projectedCenter, orientJoints, mirrorJoints, moveJoints and
+// checkSkeleton (tested in test/m6b-skeleton/); the deferred symbols keep their stubs.
 describe('stubs fail not-implemented with their symbol (§3 rule 1)', () => {
   const any = null as never;
   it.each([
-    [
-      'skeletonTemplate',
-      () => skeletonTemplate('standard33', { height: 1.7, proportions: 'standard', flexion: 0.035 }),
-    ],
-    ['fitTemplate', () => fitTemplate([], {}, any, { ground: 0, hingeBias: 0.15, flexion: 0.035 })],
-    [
-      'guessMarkers',
-      () =>
-        guessMarkers(any, [
-          [0, 0, 0],
-          [1, 1, 1],
-        ]),
-    ],
-    ['projectedCenter', () => projectedCenter(any, [0, 0, 0], [0, 0, 1], { mode: 'new', fallbackRadius: 0.05 })],
-    ['orientJoints', () => orientJoints([], any)],
-    ['mirrorJoints', () => mirrorJoints([], any, any)],
     ['insertJoint', () => insertJoint([], any, 0.5, any)],
     ['splitBone', () => splitBone([], any, any, 2, any)],
     ['removeJoints', () => removeJoints([], [])],
     ['deleteJoints', () => deleteJoints([], [])],
     ['reparentJoints', () => reparentJoints([], [], null)],
-    ['moveJoints', () => moveJoints([], [], { pivot: [0, 0, 0] }, 'subtree', true)],
     ['applyPoseAsRest', () => applyPoseAsRest([], any)],
     ['duplicateJoints', () => duplicateJoints([], [], { mirror: false }, any)],
     ['chainParent', () => chainParent([], [0, 0, 0], { selected: null, preset: null, newRoot: false })],
     ['socketPlacement', () => socketPlacement([], 'back', any, 1.7)],
-    ['checkSkeleton', () => checkSkeleton(any)],
     ['bakeConstraints', () => bakeConstraints(any, any, [], any)],
     ['mirrorConstraint', () => mirrorConstraint(any, any, any)],
     ['transformShape', () => transformShape(any, {}, [0, 0, 0])],

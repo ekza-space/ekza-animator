@@ -7,25 +7,30 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { cubeLad, generatedBody, meshTriangles, polybotTPose, type Triangles, type V3 } from './support';
 
-function same(t: Triangles, rays: readonly (readonly [V3, V3])[], points: readonly V3[]): void {
+/** Every query the BVH answers differently from the reference, as `[query, input]` rows ([] = identical). */
+function differences(t: Triangles, rays: readonly (readonly [V3, V3])[], points: readonly V3[]): unknown[] {
   const bvh = new TriangleBvh(t.positions, t.tris);
   const ref = new ReferenceTriangleBvh(t.positions, t.tris);
+  const out: unknown[] = [];
+  const check = (query: string, input: unknown, a: unknown, b: unknown): void => {
+    if (JSON.stringify(a) !== JSON.stringify(b)) out.push([query, input, a, b]);
+  };
   for (const [o, d] of rays) {
-    expect(bvh.raycastAll(o, d)).toEqual(ref.raycastAll(o, d));
-    expect(bvh.raycastAll(o, d, 1.5)).toEqual(ref.raycastAll(o, d, 1.5));
-    expect(bvh.raycast(o, d, 0, Number.POSITIVE_INFINITY)).toEqual(ref.raycast(o, d, 0, Number.POSITIVE_INFINITY));
+    check('raycastAll', [o, d], bvh.raycastAll(o, d), ref.raycastAll(o, d));
+    check('raycastAll maxT', [o, d], bvh.raycastAll(o, d, 1.5), ref.raycastAll(o, d, 1.5));
+    check('raycast', [o, d], bvh.raycast(o, d, 0, Number.POSITIVE_INFINITY), ref.raycast(o, d, 0, Infinity));
     const all = ref.raycastAll(o, d);
     const mid = all[Math.floor(all.length / 2)];
-    if (mid !== undefined) {
-      expect(bvh.raycast(o, d, mid.t, 10)).toEqual(ref.raycast(o, d, mid.t, 10));
-      const ignore = new Set([mid.tri, all[0]?.tri ?? -1]);
-      expect(bvh.raycast(o, d, 0, 10, ignore)).toEqual(ref.raycast(o, d, 0, 10, ignore));
-    }
+    const minT = mid?.t ?? 0;
+    check('raycast minT', [o, d, minT], bvh.raycast(o, d, minT, 10), ref.raycast(o, d, minT, 10));
+    const ignore = new Set([mid?.tri ?? -1, all[0]?.tri ?? -1]);
+    check('raycast ignore', [o, d], bvh.raycast(o, d, 0, 10, ignore), ref.raycast(o, d, 0, 10, ignore));
   }
   for (const p of points) {
-    expect(bvh.closestPoint(p)).toEqual(ref.closestPoint(p));
-    expect(bvh.closestPoint(p, 0.05)).toEqual(ref.closestPoint(p, 0.05));
+    check('closestPoint', p, bvh.closestPoint(p), ref.closestPoint(p));
+    check('closestPoint max', p, bvh.closestPoint(p, 0.05), ref.closestPoint(p, 0.05));
   }
+  return out;
 }
 
 const coord = fc.integer({ min: -1000, max: 1000 }).map((n) => n / 1000);
@@ -42,7 +47,9 @@ describe('TriangleBvh ≡ ReferenceTriangleBvh', () => {
         soup,
         fc.array(fc.tuple(vec, vec), { minLength: 1, maxLength: 8 }),
         fc.array(vec, { minLength: 1, maxLength: 8 }),
-        (t, rays, points) => same(t, rays, points),
+        (t, rays, points) => {
+          expect(differences(t, rays, points)).toEqual([]);
+        },
       ),
       { seed: 6201, numRuns: 150 },
     );
@@ -80,7 +87,7 @@ describe('TriangleBvh ≡ ReferenceTriangleBvh', () => {
     }
     const points: V3[] = [];
     for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) points.push([i / 4, j / 4, (i * j) / 16]);
-    for (const t of meshes) same(t, rays, points);
+    for (const t of meshes) expect(differences(t, rays, points)).toEqual([]);
   });
 
   it('the Quick Rig fixtures: front and side rays on a grid, closest points on a grid', () => {
@@ -104,7 +111,7 @@ describe('TriangleBvh ≡ ReferenceTriangleBvh', () => {
           points.push([x, y, z]);
         }
       }
-      same(f.triangles, rays, points);
+      expect(differences(f.triangles, rays, points)).toEqual([]);
     }
   });
 

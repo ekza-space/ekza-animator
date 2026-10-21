@@ -1,23 +1,16 @@
-// C2 (skeleton kernel; M6B-SPEC §5.3–§5.7): pure joint edits over records. C0 stubs.
+// C2 (skeleton kernel; M6B-SPEC §5.3–§5.7): pure joint edits over records. The MVP edits (§0.3: move, rest rotation,
+// set rest, Orient, Mirror, Map Humanoid Bone, Rename, Restore Rest Flexion, Add Missing Bones, the template refit)
+// are implemented; the deferred ones (Joint tool chains, insert/split, remove/delete, reparent, duplicate, Apply Pose
+// as Rest, sockets) keep their C0 stubs.
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { JointId, JointRecord } from '@ekza-studio/doc';
 import type { TriangleBvh } from '@ekza-studio/mesh-core';
-import type { JointEdit, MirrorJointArgs, OrientJointArgs } from '../types';
+import type { JointEdit } from '../types';
 
 const stub = (symbol: string): never => {
   throw new EkzaError('not-implemented', `rig.${symbol}`);
 };
 
-export function orientJoints(_joints: readonly JointRecord[], _args: OrientJointArgs): JointEdit {
-  return stub('orientJoints');
-}
-export function mirrorJoints(
-  _joints: readonly JointRecord[],
-  _args: MirrorJointArgs,
-  _newId: (n: number) => JointId,
-): JointEdit {
-  return stub('mirrorJoints');
-}
 export function insertJoint(
   _joints: readonly JointRecord[],
   _bone: { readonly joint: JointId; readonly child: JointId },
@@ -49,15 +42,6 @@ export function reparentJoints(
   _parent: JointId | null,
 ): JointEdit {
   return stub('reparentJoints');
-}
-export function moveJoints(
-  _joints: readonly JointRecord[],
-  _ids: readonly JointId[],
-  _delta: { readonly t?: readonly number[]; readonly q?: readonly number[]; readonly pivot: readonly number[] },
-  _mode: 'subtree' | 'joint',
-  _symmetry: boolean,
-): JointEdit {
-  return stub('moveJoints');
 }
 /** Rest rotation rule of §5.7: identity-rest joints stay identity; every other joint takes q(boneWorld). */
 export function applyPoseAsRest(
@@ -98,3 +82,9 @@ export function socketPlacement(
 ): { readonly parent: JointId; readonly position: readonly [number, number, number] } | null {
   return stub('socketPlacement');
 }
+
+export { addMissingBones, flexJoints, renameJoint, setHumanBone } from './humanoid';
+export { mirrorJoints } from './mirror';
+export { moveJoints, setJointRest } from './move';
+export { autoSecondary, convertBoneAlignedRotation, frameQuat, orientJoints } from './orient';
+export { canonicalQuat, JointIndex } from './util';

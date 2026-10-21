@@ -134,7 +134,7 @@ export function polybotTPose(): Fixture {
   return fixture(
     'Polybot (T-pose)',
     glbTriangles('polybot-unskinned-tpose.glb'),
-    truth.poses.tpose.humanoid as unknown as Fixture['joints'],
+    truth.poses.tpose.humanoid,
     truth.poses.tpose.markers as unknown as Fixture['markers'],
   );
 }
