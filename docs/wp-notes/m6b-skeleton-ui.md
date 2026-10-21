@@ -98,7 +98,8 @@ nothing pushed or merged) merged both into this branch and ran the three specs u
 baseline (allowance +6,144 B, limit 895,713 B: within). C7 measured +4,016 B for C0 + C7 (C2 adds none), so C3's eager
 share is **≈ +508 B** against a per-package allowance of 0 B: the `attachViewportRig` hook (the runtime itself is the
 lazy `viewport-rig` chunk), the pointer-layer lines in `ViewportManager` and the Skeleton/Quick Rig help-line texts.
-INT: please record it against the unallocated +1,536 B of the MVP allowance, or tell C3 which part to move.
+The per-package split (C0 2,048 · C7 2,560 · C12 1,024 · C1 512) already spends the whole +6,144 B, so INT decides:
+re-split (C0 + C7 measured 4,016 of their 4,608 B) or tell C3 which part to move.
 
 ## Gates (local Chrome, port 3167; HEAD before this section)
 
