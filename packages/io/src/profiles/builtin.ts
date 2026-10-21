@@ -2,6 +2,7 @@
 // GET /v1/profiles/{platform}/{profile}, shipped as static offline copies. `kind: '*'` marks a profile that applies
 // to every export kind (local/generic).
 import { profileRules } from '../lint/rules';
+import { SPACE_VRM_RULES } from '../lint/vrm';
 import type { ExportKind, ExportProfileDef } from '../types';
 import { PROFILE_OMOBA_HANDHELD } from './handheld';
 
@@ -11,16 +12,19 @@ const MiB = 1_048_576;
 export const ANY_EXPORT_KIND = '*';
 
 export const BUILTIN_EXPORT_PROFILES: readonly ExportProfileDef[] = [
+  // M6b (M6B-SPEC §0.4.6; C10): the one VRM deliverable for Ekza Space and OMOBA — the asset bake of an imported VRM
+  // and the VRM 1.0 writer of a model character (`profiles/character.ts`); OMOBA's runtime rules (`vrm.*`) are errors
+  // and the JSON chunk limit is OMOBA's 4 MiB.
   {
     id: 'ekza/space-avatar-v1',
-    label: 'Ekza Space avatar (VRM with clips)',
+    label: 'Ekza avatar — Space and OMOBA (VRM 1.0)',
     platform: 'universal',
     profile: 'vrm-humanoid-v1',
     kind: 'bake-into-model',
     maxBytes: 50 * MiB,
-    jsonMaxBytes: 8 * MiB,
+    jsonMaxBytes: 4 * MiB,
     ekza: true,
-    rules: profileRules(true),
+    rules: [...profileRules(true), ...SPACE_VRM_RULES],
   },
   {
     id: 'ekza/omoba-humanoid-v1',

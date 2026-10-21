@@ -28,6 +28,7 @@ import type { ExportKind, ExportProfileDef, GlbContainer, GltfJson, LintIssue } 
 import { clipNameKey } from '../writers/names';
 import { ruleSeverity } from './rules';
 import { checkStatic } from './static';
+import { checkVrmMeta, checkVrmRuntime, profileWantsVrm } from './vrm';
 
 const MiB = 1_048_576;
 export const HARD_JSON_LIMIT = 8 * MiB;
@@ -126,6 +127,14 @@ export async function lintExportWithContext(
   }
   if (kind === 'vrma') checkVrma(json, extensions, animations, emit);
   else checkBevyPaths(json, animations, emit);
+  // M6b (M6B-SPEC §0.4.6; C10): OMOBA's runtime rules on VRM files exported for a profile (errors for the Space
+  // profile, warnings for local/generic; an export without a profile keeps the generic lints only) and on every file
+  // of a profile that lists them (the Space profile: a plain GLB fails vrm.spec-version).
+  const vrm = extensions['VRM'] !== undefined || extensions['VRMC_vrm'] !== undefined;
+  if (kind !== 'vrma' && ((vrm && profile !== null) || profileWantsVrm(profile))) {
+    checkVrmRuntime(bytes, emit);
+    checkVrmMeta(root, parsed.bin, emit);
+  }
   return issues;
 }
 

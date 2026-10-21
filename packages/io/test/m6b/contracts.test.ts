@@ -137,7 +137,9 @@ describe('stubs fail not-implemented (§3 rule 1)', () => {
   ] as const)('%s rejects', async (message, call) => {
     await expect(call()).rejects.toMatchObject({ code: 'not-implemented', message });
   });
-  it('VRM_LINT_RULES is empty until C10', () => {
-    expect(VRM_LINT_RULES).toEqual([]);
+  it('VRM_LINT_RULES lists the §0.4.6 runtime rows and the §5.21 meta rows (C10 landed them)', () => {
+    expect(VRM_LINT_RULES.map((rule) => rule.id)).toEqual(
+      expect.arrayContaining(['vrm.spec-version', 'vrm.bones-skinned', 'vrm.meta-required', 'vrm.thumbnail-square']),
+    );
   });
 });

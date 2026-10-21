@@ -2,6 +2,7 @@
 // code. `local` is the severity for local exports (no profile or a non-Ekza profile), `ekza` for Ekza profiles; null
 // means the rule does not apply. Profiles may override severities per rule (`ExportProfileDef.rules`).
 import type { ExportProfileDef, LintSeverity } from '../types';
+import { VRM_LINT_RULES } from './vrm';
 
 export interface LintRuleDef {
   readonly id: string;
@@ -177,6 +178,8 @@ export const LINT_RULES: readonly LintRuleDef[] = [
       ['ekza.provenance-free-tier', 'warning', 'warning', 'Generation not attested as paid tier'],
     ] as const
   ).map(([id, local, ekza, description]): LintRuleDef => ({ id, local, ekza, description })),
+  // ---------- M6b (M6B-SPEC §0.4.6; C10): OMOBA's runtime rules and the VRM 1.0 meta rows, `./vrm.ts` ----------
+  ...VRM_LINT_RULES,
 ];
 
 const BY_ID = new Map(LINT_RULES.map((rule) => [rule.id, rule]));
