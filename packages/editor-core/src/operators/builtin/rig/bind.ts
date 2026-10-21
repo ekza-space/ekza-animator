@@ -9,13 +9,7 @@
 import { EkzaError, type JsonValue, type ParamDef } from '@ekza-studio/anim-core';
 import type { CharacterId, MeshId, MeshRecord, SkeletonId, Tx } from '@ekza-studio/doc';
 import { skeletonFromDoc } from '@ekza-studio/io';
-import {
-  applyHolds,
-  type BindMethod,
-  type SkinBindArgs,
-  type SkinBindRecord,
-  type SkinWeights,
-} from '@ekza-studio/mesh-core';
+import type { BindMethod, SkinBindArgs, SkinBindRecord, SkinWeights } from '@ekza-studio/mesh-core';
 import { readRigDefinition, updateAutoRig, writeRigDefinition } from '@ekza-studio/rig';
 import { loadMeshKernel, meshKernel } from '../../../mesh/kernel';
 import {
@@ -388,7 +382,7 @@ async function prepareBind(ctx: OperatorContext, args: BindArgs): Promise<BindPr
       const result =
         heldFrom === null || base.points === null
           ? solved
-          : { ...solved, skin: applyHolds(solved.skin, heldFrom, base.points, holds) };
+          : { ...solved, skin: (await loadMeshKernel()).applyHolds(solved.skin, heldFrom, base.points, holds) };
       runs.push({ inputs, result });
       app.session.setState({ busy: { label: BUSY, progress: (i + 1) / meshes.length } });
     }

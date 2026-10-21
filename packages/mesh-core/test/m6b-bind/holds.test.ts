@@ -59,21 +59,25 @@ describe('applyHolds (§5.10 on a masked bind)', () => {
           const out = applyHolds(solved, before, points, held);
           const masked = new Set(points);
           const heldSet = new Set(held);
+          const problems: string[] = [];
           for (let v = 0; v < out.points; v++) {
             if (!masked.has(v)) {
-              expect(Array.from(out.joints.subarray(4 * v, 4 * v + 4))).toEqual(
-                Array.from(solved.joints.subarray(4 * v, 4 * v + 4)),
-              );
-              expect(Array.from(out.weights.subarray(4 * v, 4 * v + 4))).toEqual(
-                Array.from(solved.weights.subarray(4 * v, 4 * v + 4)),
-              );
+              for (let k = 0; k < 4; k++) {
+                if (out.joints[4 * v + k] !== solved.joints[4 * v + k]) problems.push(`${v}: unmasked joint changed`);
+                if (!Object.is(out.weights[4 * v + k], solved.weights[4 * v + k])) {
+                  problems.push(`${v}: unmasked weight changed`);
+                }
+              }
               continue;
             }
-            expect(rowProblems(out, v)).toEqual([]);
+            problems.push(...rowProblems(out, v));
             const was = row(before, v);
             const now = row(out, v);
-            for (const key of heldSet) expect(Object.is(now.get(key) ?? 0, was.get(key) ?? 0)).toBe(true);
+            for (const key of heldSet) {
+              if (!Object.is(now.get(key) ?? 0, was.get(key) ?? 0)) problems.push(`${v}: held ${key} changed`);
+            }
           }
+          expect(problems).toEqual([]);
         },
       ),
       { numRuns: 60 },

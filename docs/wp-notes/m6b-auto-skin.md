@@ -16,7 +16,7 @@ Branch `m6b/auto-skin` (from `m6b/mvp` at `22b0e11`, `m6b/rig-contracts` merged)
 | Operators | `editor-core/src/operators/builtin/rig/bind.ts`: `skin.bind` (params of §6.2, invoke-time targets/symmetrize/holds, the solve in `prepare` with a progress pill, one transaction with the layers, `MeshRecord.skin` and the first-bind control rig, the `rebindSkin` question), `skin.unbind` (the `unbindSkin` question); `skin.weights.autoForJoints` stays the deferred stub |
 | Worker | `editor/src/workers/skin.worker.ts` (`handleSkinRequest`, installed only inside a worker), `editor/src/services/skinWorker.ts` (`installSkinWorker`: the `new Worker(new URL(…))` factory on `app.rig`) + one call in `shell/EditorRoot.tsx` |
 | Test API | `editor/src/test-api/m6b/auto-skin.ts`: `skin(mesh)` (skeleton, palette keys, bind record, review, `checkSkin` problems once C6 lands them) |
-| Tests | `mesh-core/test/m6b-bind/*` (sparse kit, geometry, bind invariants per method, P-S4, masks, P-S5 goldens Node + Chromium, P-S7, visibility vs the reference), `editor-core/test/m6b/auto-skin.test.ts` (operators and service), `apps/web/test/m6b-skin-worker-size.test.ts`, `apps/web/e2e/m6b-skin-01-bind-one-click.spec.ts` (E2E-SKIN-01, `test.fixme` until c1, c2, c3, c6, c7) |
+| Tests | `mesh-core/test/m6b-bind/*` (sparse kit, geometry, bind invariants per method, P-S4 with option-box variants, masks, `applyHolds` (`holds.test.ts`), P-S5 goldens Node + Chromium, P-S7, visibility vs the reference), `editor-core/test/m6b/auto-skin.test.ts` (operators and service), `apps/web/test/m6b-skin-worker-size.test.ts`, `apps/web/e2e/m6b-skin-01-bind-one-click.spec.ts` (E2E-SKIN-01, `test.fixme` until c1, c2, c3, c6, c7) |
 | Benches | `mesh-core/bench/m6b-bind.bench.ts` |
 | READY | `c4: true` in the four `test/m6b-ready.ts` files |
 
@@ -32,8 +32,8 @@ Branch `m6b/auto-skin` (from `m6b/mvp` at `22b0e11`, `m6b/rig-contracts` merged)
 | M6B-C4-6 | **P-S7 exact threshold calibrated to 70 %** (spec: "≥ 85 % (calibrated in C4's spike)"); "within one joint" stays ≥ 98 % (measured 98.7 %). Polybot's skeleton is the artist's 55 joints (truth positions, `polybot.vrm` hierarchy, `*_End` nodes as helpers). | The artist splits islands between neighbours (forearm 37 lowerArm / 13 hand, neck 33 / 31) and binds shells to the proximal joint; even rigid nearest-centroid binding (the island rules' upper bound) reaches 79.5 %. INT: a contract PR to the P-S7 row if the owner accepts. |
 | M6B-C4-7 | **Cube Lad P-S7 reading** ("every box single-influence except the boxes spanning a joint"): the torso, pelvis, neck, head, upper-arm, forearm, thigh and shin boxes are single-influence (forearms on their lower arm, 100 %); the hand boxes (finger joints inside) and the foot boxes (toe joint inside) may blend. Observed: the torso binds to `chest` (its bottom corners see no segment: the hips segments lie behind the pelvis box) and the neck box to `chest` (the `chest → neck` segment runs through it); the foot box binds to `toes` (the ankle lies in the shin box, so the back corners see only the toes segment). | Box models put joints in neighbouring boxes; the visibility rule is the spec's. Worth a look in the owner's demo (a walk rotates the toes). |
 | M6B-C4-8 | **Masked solves** write only the masked points (others bit-equal, palette = previous + appended). Heat: points outside the mask are sources of value 1 on their dominant joint with `H = stiffness / max(d, 1e-4 H)²`; the island rule is decided on the whole island. | §5.9 step 4; P-S9-style property test with every method. |
-| M6B-C4-9 | **`symmetrize: null`** resolves per mesh at invoke time (`paired ≥ 0.9` and the skeleton has mirror pairs); the value recorded in `LastRun.args` is the first target's. P-S4 holds exactly: sums run in descending-weight order and `½(a + b)` is commutative, so a point and its partner get the same doubles. | §4.2; one recorded boolean for several meshes. |
-| M6B-C4-10 | **Holds** are resolved (recorded args, else the session's per-character set) and recorded, but `bindSkin` has no holds parameter: a bind replaces held weights, as Maya's does. | §6.2 records them; the §4.2 signature has none. |
+| M6B-C4-9 | **`symmetrize: null`** resolves per mesh at invoke time (`paired ≥ 0.9` and the skeleton has mirror pairs); the value recorded in `LastRun.args` is the first target's. P-S4 holds exactly: sums run in descending-weight order and `½(a + b)` is commutative, so a point and its partner get the same doubles; every step after symmetrize is mirror-aware (M6B-C4-19). | §4.2; one recorded boolean for several meshes. |
+| M6B-C4-10 | **Holds** are resolved at invoke time (recorded args, else the session's per-character set) and recorded. A **masked** run (Bind Unweighted Points, "Only selected points", the Quick Rig re-run) applies them: `applyHolds(next, previous, points, holds)` (mesh-core, pure; additive export) restores every held entry of the masked points bit-equal from the previous weights, rescales the solved not-held entries to `avail = 1 − Σ held`, drops the smallest not-held beyond 4 (ties: larger palette index), puts the f32 residual in the largest not-held weight, and keeps the previous row when nothing fits (`avail ≤ 0`, no free slot, or the solve weighted only held joints). A **full** bind (first bind, or Rebind after its confirm) replaces every weight, held or not, as Maya's does. | §5.10 "held joints never change under any weight tool"; `bindSkin`'s §4.2 signature has no holds, so the operator post-processes (the worker takes `previous`'s buffers, so the operator keeps a copy when holds apply). Full-run holds: an INT/owner call (DECISIONS-OPEN). |
 | M6B-C4-11 | **Rebind / Unbind questions**: the operator's `prepare` opens `rebindSkin` / `unbindSkin` and the second poll cancels the run ("Answer the … question first"); `rebindRequest`/`answerRebind` and `unbindRequest`/`answerUnbind` (exported from `bind.ts`) are what C6's dialogs call: Rebind re-runs with `confirm: true` (an extra arg), "Only selected points" runs a masked bind per mesh with its vertex selection. The recorded args hold `confirm: false`, so Repeat asks again; Adjust Last (source `card`) never asks. | §5.9; `UiDialog` carries no payload. |
 | M6B-C4-12 | **Default targets** (no `meshes`): every authored mesh of the bind character — `session.rig.character`, else `activeCharacter`, else the selection's owner, else the only model-sourced character with a skeleton. Refusals: no character, a scene mesh, a mesh (or ancestor) with a placement, meshes of two characters, an asset-sourced character ("Rig and skin edits on imported avatars arrive after the MVP"), an empty joint mask (`skin.empty-mask`). | §0.2 step 7 ("on every mesh of the character"), §5.9 refusals. |
 | M6B-C4-13 | **First-bind control rig** (`ensureControlRig`): when the character's rig has no live control, `updateAutoRig(current, skeletonFromDoc(records), ids, {ik: legs})` is written in the bind's transaction (the rig record patched, the generated records added parents first). C0 baselines; C1 may swap in its in-transaction helper. | §5.16 "inside the first `skin.bind` when no rig exists yet"; gate `c1` for the full rules. |
@@ -41,6 +41,8 @@ Branch `m6b/auto-skin` (from `m6b/mvp` at `22b0e11`, `m6b/rig-contracts` merged)
 | M6B-C4-15 | **Progress and abort** (CR-AR-2 (b), partly): `session.busy = {label: 'Binding skin…', progress: meshes done / meshes}`; `app.rig.skin.cancel()` aborts (rejects, terminates the worker). | The worker reports no per-island progress (bindSkin has no callback). |
 | M6B-C4-16 | Palette entries carry `parent` and `mirror` keys (CR-6's field, written by `withSkin` only when known); template joint ids pair by M6a's name rule anyway. | §4.2. |
 | M6B-C4-17 | `autoWeightPoints` is implemented (pure; tested); its operator stays deferred. | Cheap with the visibility queries; Auto-Rig and C11 reuse it. |
+| M6B-C4-19 | **P-S4 on seam points and ties** (fix round 1): after symmetrize, `sortEntries`/`keepLargest`/`rigidify`/`toFloat32` take a `MirrorOrder` — ties break on `min(rank[j], rank[M(j)])`, then on a side order swapped between a point and its partner (`flip = p(v) < v`); on a seam point (`p(v) = v`) a tied mirror pair is kept or dropped as a unit (a pair that does not fit whole is dropped with everything after it, so the kept entries stay the largest), a seam point whose top is a tied pair is never rigidified, and the pair shares the f32 residual in halves. Runs without symmetrize keep the plain rank order (goldens unchanged). The P-S4 test runs every method × {defaults, `pruneBelow 0`, `stiffness 0.1` + `pruneBelow 0`, `hierarchy false`, `hierarchy false` + `pruneBelow 0` + `dropoff 0.1`, `rigidifyAbove 0.5` + `pruneBelow 0`} on both bodies, and again with a left-before-right skeleton order (the old code failed 6 of these 7 cases). | §5.26 P-S4 "w(v) = M(w(p(v))) exactly". |
+| M6B-C4-20 | **A point mask needs a bound mesh**: `skin.bind` with `points` on a mesh without skin polls "Bind body first: only a bound mesh re-binds selected points" (was an internal `invalid-mesh` from `writeData`), and "Only selected points" skips the request's unbound meshes. | §5.9 step 4 needs previous weights outside the mask. |
 | M6B-C4-18 | **check:size reads web-worker entries**: `apps/web/scripts/lib/route-scripts.mjs` recognizes Turbopack's worker loader (`e.v(e.r(n).default("…turbopack-worker…", [files]))`) as a lazy group, so the `skin-worker` boundary is labelled (12.6 kB gzip) and its chunks never count as eager. The solvers' adjacency moved to `geometry/adjacency.ts` so the worker bundles no kernel module (else the group took the mesh-kernel label). | C0's follow-up ("C1 and C4 assert … check:size reports … skin-worker as lazy groups"). |
 
 ## Calibration spike (§5.9 island rule; Cube Lad, generated body, Polybot)
@@ -60,6 +62,18 @@ Branch `m6b/auto-skin` (from `m6b/mvp` at `22b0e11`, `m6b/rig-contracts` merged)
 The looser extents gain ≤ 4 points of Polybot's exact rate by making the generated segmented torso rigid (worse
 deformation); none reaches 85 %. The defaults stay (M6B-C4-5, -6).
 
+Fix round 1, the rigid joint choice (Polybot T / A, every island rigid on the rule's joint, symmetrize off): the
+spec's nearest-centroid `c` **79.5 / 79.5 %**; the majority vote 69.2 %; the most proximal vote 37.2 / 33.8 %; the
+centre's parent when voted 49.3 %; per-point votes without islands 60.4 / 60.2 %. Polybot has 37 islands; the artist
+splits 7 of them (298 points) between neighbours (neck 33 / upperChest 31, forearm 37 / hand 13, upper arm 30 /
+shoulder 6 / forearm 6, thigh 19 / shin 6), so **any one-joint-per-island rule tops out at 91.6 %** (each island on
+its artist majority), and the remaining gap of the spec's centre rule is the artist's style: whole finger shells on the
+proximal phalanx (the centroid lies on the intermediate), shoulder shells on the shoulder, the torso shell on `chest`.
+Reaching 85 % needs a rule tuned to this one artist (and it would have to keep the Cube Lad and the generated body
+gates); C4 does not ship one. **Open for INT and the owner**: the proposed contract change of the §5.26 P-S7 row is
+"exact ≥ 70 % (C4 spike: 74.3 % T, 74.2 % A; rigid nearest-centroid 79.5 %); within one joint ≥ 98 %", which the
+committed test asserts.
+
 ## Benches (`pnpm --filter @ekza-studio/mesh-core bench`, report-only; M-series laptop, Node 25)
 
 | Bench | Mean | Budget |
@@ -78,6 +92,18 @@ The geometry (partner map, triangulation) is built once outside the timed body, 
 - Worker and main thread: a local throwaway Chrome run (e2e build, port 3163) bound the generated body through the
   operator once with the skin worker (`usedWorker: true`) and once on a page without `Worker`: the same manifest
   (`1bb76b21…`). E2E-SKIN-01 asserts the same once its gates merge.
+
+## Open for INT (fix round 1)
+
+- **P-S7 exact ≥ 85 %** is not met (74.3 / 74.2 %; the test asserts ≥ 70 %): a contract PR to the §5.26 row or a
+  request for a tuned rule (calibration spike above).
+- **Occluders** (M6B-C4-3): visibility tests the bound mesh's own triangles, not every mesh of the character; record
+  as an MVP deviation or extend `bindSkin`'s input with extra occluder triangles in a contract PR.
+- **Heat scale** (M6B-C4-1): the literal `H` is not scale-invariant (a body scaled 100× changes the dominant joint on
+  about half its points; 0.01× on 5 %); post-MVP contract change (normalize distances by the skeleton height, or the
+  mass-weighted `H` with a stronger preconditioner). Imports authored in centimetres are affected.
+- **Holds on a full bind** (M6B-C4-10): a full bind/Rebind replaces held weights (Maya); masked runs keep them.
+- The shared-file edits below.
 
 ## Shared files touched (for INT)
 
