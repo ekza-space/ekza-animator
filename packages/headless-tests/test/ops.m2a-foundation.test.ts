@@ -172,8 +172,9 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
     });
   });
 
-  // M6A-SPEC §3 rule 9 literal update: this build saves schemaVersion 3 (minWriterVersion rules unchanged).
-  it('an M1 project opens writable and saves schemaVersion 3 / minWriterVersion 1; an enabled ik2 solver saves 2', async () => {
+  // M6A-SPEC §3 rule 9 literal update: this build saves schemaVersion 3 (minWriterVersion rules unchanged); M6B-SPEC
+  // §3 rule 9: 4.
+  it('an M1 project opens writable and saves schemaVersion 4 / minWriterVersion 1; an enabled ik2 solver saves 2', async () => {
     const { app } = realApp();
     fkLimbsOnly(app);
     const bot = await importFixture(app, 'polybot.vrm');
@@ -203,7 +204,7 @@ describe.skipIf(!SIBLINGS_READY)(`M2a foundation on the fixtures ${BLOCKED}`, { 
     await runOk(m2a, 'file.save', { fileName: 'm2a.ekzanim' });
     const saved = await readProjectArchive(services.downloads.at(-1)?.bytes ?? new Uint8Array(0));
     expect(saved.snapshot.schemaVersion).toBe(SCHEMA_VERSION);
-    expect(saved.snapshot.schemaVersion).toBe(3);
+    expect(saved.snapshot.schemaVersion).toBe(4); // M6B-SPEC §3 rule 9 (schema v4)
     expect(saved.snapshot.minWriterVersion).toBe(1);
     expect(saved.readOnly).toBe(false);
 

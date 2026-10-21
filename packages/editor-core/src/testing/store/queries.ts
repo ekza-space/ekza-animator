@@ -4,6 +4,7 @@ import type {
   CharacterId,
   ClipId,
   ClipRecord,
+  ConstraintRecord,
   ControlId,
   ControlRecord,
   CurveId,
@@ -24,6 +25,7 @@ import type {
   RigId,
   RigRecord,
   SkeletonId,
+  SkeletonRecord,
   SwatchRecord,
 } from '@ekza-studio/doc';
 import type { RowView } from './layers';
@@ -107,6 +109,17 @@ export function createQueries(view: RowView): DocQueries {
         .sort(byOrderThenId),
     jointsOfSkeleton: (skeleton: SkeletonId) =>
       hierarchyOrder((view.list('joints') as unknown as JointRecord[]).filter((joint) => joint.skeleton === skeleton)),
+    // M6b schema v4 (M6B-SPEC §4.1), linear scans
+    skeletonOfCharacter: (character: CharacterId) =>
+      (view.list('skeletons') as unknown as SkeletonRecord[])
+        .filter((skeleton) => skeleton.character === character)
+        .at(-1),
+    constraintsOfRig: (rig: RigId) =>
+      (view.list('constraints') as unknown as ConstraintRecord[]).filter((constraint) => constraint.rig === rig),
+    meshesBoundTo: (skeleton: SkeletonId) =>
+      (view.list('meshes') as unknown as MeshRecord[])
+        .filter((mesh) => mesh.skin !== null && 'skeleton' in mesh.skin && mesh.skin.skeleton === skeleton)
+        .sort(byOrderThenId),
   };
 }
 

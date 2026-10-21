@@ -17,7 +17,8 @@
       "!apps/web/next-env.d.ts",
       "!pnpm-lock.yaml",
       "!docs/research",
-      "!fixtures/synthetic"
+      "!fixtures/synthetic",
+      "!fixtures/models/*-truth.json"
     ]
   },
   "formatter": {
@@ -42,6 +43,7 @@
       "!packages/curve-editor/src/types.ts",
       "!packages/editor/src/test-api/types.ts",
       "!packages/mesh-core/src/types.ts",
+      "!packages/mesh-core/src/skin/types.ts",
       "!packages/mesh-view/src/types.ts"
     ]
   },
@@ -71,6 +73,7 @@
       "!packages/curve-editor/src/types.ts",
       "!packages/editor/src/test-api/types.ts",
       "!packages/mesh-core/src/types.ts",
+      "!packages/mesh-core/src/skin/types.ts",
       "!packages/mesh-view/src/types.ts"
     ]
   },

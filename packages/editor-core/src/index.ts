@@ -417,3 +417,10 @@ export {
   toWorld,
   worldAxes,
 } from './operators/builtin/extrudeEngine';
+// ---------- M6b (M6B-SPEC §4.6, §0.5; C0 baselines and hooks) ----------
+export { type ChannelSources, previewValues, registerChannelSourceProvider } from './evaluation/rigSource';
+export { defaultRiggingPrefs } from './prefs/defaults';
+export { DEFAULT_BRUSH, defaultRigSession } from './session/rig';
+export { isRigWorkspaceOperator, lazyOperatorChunk, RIG_MENUS, RIG_STATUS_GROUPS } from './workspaces/rig';
+export { type CharacterRuntimeChunk, loadCharacterRuntime } from './characters/runtimeChunk';
+export { ARRIVES_AFTER_MVP } from './operators/builtin/rig/stub';

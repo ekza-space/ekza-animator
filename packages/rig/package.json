@@ -15,7 +15,8 @@
   },
   "dependencies": {
     "@ekza-studio/anim-core": "workspace:*",
-    "@ekza-studio/doc": "workspace:*"
+    "@ekza-studio/doc": "workspace:*",
+    "@ekza-studio/mesh-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "catalog:",

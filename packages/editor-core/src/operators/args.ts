@@ -1,17 +1,19 @@
-// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions and the M6A-SPEC §6 rows (B0a), copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.5 with the M2A-SPEC §4.5 additions, the M6A-SPEC §6 rows (B0a) and the M6B-SPEC §6/§0.6 rows (C0), copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { Fps, Frame, InfinityMode, ParamValues, ReadonlyVec3, ReadonlyXf, RotateOrder, TangentType } from '@ekza-studio/anim-core';
-import type { CameraId, ChannelId, CharacterId, ClipId, ControlId, CurveId, DerivedFrom, GroupId, ImagePlaneId,
-  ImagePlaneRecord, KeyId, MeshId, MeshRecord, OrthoCamera, PaletteId, Redistributable, RootMotionMode, SwatchId,
-  SwatchShader } from '@ekza-studio/doc';
-import type { ComponentKind } from '@ekza-studio/mesh-core';
-import type { ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-studio/io';
-import type { FootRollParams, LimbId, MirrorMode, ReduceSpec } from '@ekza-studio/rig';
+import type { CameraId, ChannelId, CharacterId, CharacterVrmMeta, ClipId, ConstraintId, ControlId, CurveId, DerivedFrom,
+  GroupId, HumanBoneName, ImagePlaneId, ImagePlaneRecord, JointId, JointRole, KeyId, MeshId, MeshRecord, OrthoCamera,
+  PaletteId, Redistributable, RootMotionMode, Side, SkeletonId, SwatchId, SwatchShader } from '@ekza-studio/doc';
+import type { BindMethod, ComponentKind, PaintOp, StrokeStamp } from '@ekza-studio/mesh-core';
+import type { CharacterExportRequest, ExportArtifact, ExportRequest, StaticExportRequest } from '@ekza-studio/io';
+import type { BakeConstraintsArgs, ConstraintType, FootRollParams, LimbId, MirrorMode, QuickRigMarker, QuickRigMarkers,
+  ReduceSpec, SkeletonPreset } from '@ekza-studio/rig';
 import type { BodyPart, ChannelEditResult, ChannelRef, DisplayFlags, GraphViewMode, HistoryResult, IkFkKeyMode,
   KeyPartSelection, KeyPolicy, KeyTarget, LoopMode, ManipSpace, NavProfile, PaneCamera, PanelKind, PlaybackSpeed,
   Prefs, SelectionMask, SelectMode, ToolId, TweenMode, UiDialog, ViewportLayout } from '../types';
 import type { ComponentMode, MeshOpArgs, MeshOpOutcome, MeshSetCommitResult, SceneObjectId, SelectionConstraint,
   SelectionStyle, Shading, SoftSelectSettings, SymmetryMode, WorkspaceId } from '../types';
+import type { BrushSettings, PaintMode, PoseView, RigMode } from '../types';
 
 export type SampleId = 'seed-san' | 'polybot' | 'quaternius-ual';
 export interface FileArgs { readonly name: string; readonly bytes: Uint8Array }
@@ -362,4 +364,152 @@ export interface OperatorMap {
   'scene.delete': { args: { readonly ids?: readonly SceneObjectId[] } | void; result: CountResult };
   'scene.rename': { args: { readonly id: SceneObjectId; readonly name: string }; result: void };
   'file.exportModel': { args: StaticExportRequest; result: readonly ExportArtifact[] };
+
+  // ===================== M6b (M6B-SPEC §6, §0.6; C0 registers every id from its owner's stub file) =====================
+  // ---------- §6.1 characters and skeletons ----------
+  'mesh.importStatic': { args: { readonly bytes: Uint8Array; readonly name: string }; result: { readonly meshes: readonly MeshId[] } };
+  'char.fromModel': { args: { readonly objects?: readonly SceneObjectId[]; readonly name?: string | null } | void;
+    result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
+  'char.adopt': { args: { readonly character: CharacterId; readonly objects?: readonly SceneObjectId[] }; result: { readonly meshes: readonly MeshId[] } };
+  'char.attachProp': { args: { readonly hand?: 'rightHand' | 'leftHand'; readonly name?: string | null; readonly keepSource?: boolean;
+    readonly objects?: readonly SceneObjectId[] } | void; result: { readonly joint: JointId } };
+  'char.makeEditable': { args: { readonly character: CharacterId }; result: { readonly skeleton: SkeletonId } };
+  'char.setVrmMeta': { args: { readonly character: CharacterId; readonly patch: Partial<CharacterVrmMeta> }; result: void };
+  'char.renderThumbnail': { args: { readonly character: CharacterId }; result: { readonly asset: string } };
+  'skel.template.create': { args: { readonly preset?: SkeletonPreset; readonly proportions?: 'auto' | 'standard' | 'bigHead';
+    readonly flexion?: number; readonly objects?: readonly SceneObjectId[] } | void;
+    result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
+  'skel.template.addMissing': { args: { readonly skeleton: SkeletonId }; result: { readonly added: readonly JointId[]; readonly mapped: readonly JointId[] } };
+  'skel.quickRig.start': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
+  'skel.quickRig.setMarker': { args: { readonly name: QuickRigMarker; readonly point: readonly [number, number, number] }; result: void };
+  'skel.quickRig.guess': { args: void; result: void };
+  'skel.quickRig.clear': { args: void; result: void };                                            // §0.6 (new)
+  'skel.quickRig.setPreset': { args: { readonly preset: SkeletonPreset }; result: void };         // §0.6 (new)
+  'skel.quickRig.cancel': { args: void; result: void };                                           // §0.6 (new)
+  'skel.quickRig.pick': { args: { readonly marker: QuickRigMarker | null }; result: void };       // §0.6 (new)
+  'skel.quickRig.center': { args: { readonly meshes?: readonly MeshId[] } | void; result: void }; // §0.6 (new): Center and ground
+  'skel.quickRig.faceForward': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };   // §0.6 (new): Rotate to face +Z
+  'skel.quickRig.commit': { args: { readonly preset: SkeletonPreset; readonly markers: QuickRigMarkers;
+    readonly meshes: readonly MeshId[]; readonly flexion: number };                               // §0.4.2 args
+    result: { readonly character: CharacterId; readonly skeleton: SkeletonId } };
+  'skel.joint.create': { args: { readonly points: readonly (readonly [number, number, number])[]; readonly parent?: JointId | null;
+    readonly prefix?: string; readonly orient?: 'world' | 'maya' | 'blender'; readonly symmetry?: boolean };
+    result: { readonly joints: readonly JointId[] } };
+  'skel.joint.duplicate': { args: { readonly joints?: readonly JointId[]; readonly mirror?: boolean } | void; result: { readonly joints: readonly JointId[] } };
+  'skel.joint.setRole': { args: { readonly joints?: readonly JointId[]; readonly role: JointRole }; result: void };
+  'skel.socket.create': { args: { readonly preset?: 'back' | 'hipL' | 'hipR' | 'handL' | 'handR' | 'custom'; readonly parent?: JointId | null;
+    readonly name?: string | null; readonly position?: readonly [number, number, number] | null } | void; result: { readonly joint: JointId } };
+  'skel.joint.insert': { args: { readonly bone: { readonly joint: JointId; readonly child: JointId }; readonly t?: number };
+    result: { readonly joint: JointId } };
+  'skel.bone.split': { args: { readonly joint?: JointId; readonly n?: number } | void; result: { readonly joints: readonly JointId[] } };
+  'skel.joint.remove': { args: { readonly joints?: readonly JointId[] } | void; result: CountResult };
+  'skel.joint.delete': { args: { readonly joints?: readonly JointId[] } | void; result: CountResult };
+  'skel.joint.reparent': { args: { readonly joints?: readonly JointId[]; readonly parent?: JointId } | void; result: void };
+  'skel.joint.unparent': { args: { readonly joints?: readonly JointId[] } | void; result: void };
+  'skel.joint.rename': { args: { readonly joint: JointId; readonly name: string; readonly mirror?: boolean }; result: void };
+  'skel.joint.setHumanBone': { args: { readonly joint: JointId; readonly bone: HumanBoneName | null }; result: void };
+  'skel.joint.setSide': { args: { readonly joints?: readonly JointId[]; readonly side: Side }; result: void };
+  'skel.joint.move': { args: ParamValues & { readonly joints?: readonly JointId[]; readonly pivot?: readonly number[];
+    readonly mode?: 'subtree' | 'joint'; readonly symmetry?: boolean }; result: void };
+  'skel.joint.rotateRest': { args: ParamValues & { readonly joints?: readonly JointId[]; readonly pivot?: readonly number[];
+    readonly mode?: 'subtree' | 'joint' }; result: void };
+  'skel.joint.setRest': { args: { readonly joint: JointId; readonly position?: readonly [number, number, number] | null;
+    readonly rotation?: readonly [number, number, number, number] | null }; result: void };
+  'skel.joint.orient': { args: ParamValues & { readonly joints?: readonly JointId[] } | void; result: void };
+  'skel.joint.mirror': { args: ParamValues & { readonly root?: JointId } | void; result: { readonly joints: readonly JointId[] } };
+  'skel.joint.flex': { args: { readonly angle?: number; readonly joints?: readonly JointId[] } | void; result: void };
+  'skel.symmetry.set': { args: { readonly skeleton: SkeletonId; readonly on: boolean }; result: void };
+  'skel.pose.tStance': { args: void; result: void };
+  'skel.pose.applyAsRest': { args: void; result: void };
+  // ---------- §6.2 skin and weights (`holds` is the internal recorded arg of every undoable weight operator) ----------
+  'skin.bind': { args: { readonly method?: BindMethod; readonly hierarchy?: boolean; readonly dropoff?: number; readonly stiffness?: number;
+    readonly pruneBelow?: number; readonly rigidifyAbove?: number | null; readonly symmetrize?: boolean | null;
+    readonly joints?: readonly string[] | null; readonly points?: readonly number[] | null; readonly meshes?: readonly MeshId[];
+    readonly holds?: readonly string[] } | void; result: { readonly meshes: readonly MeshId[] } };
+  'skin.weights.autoForJoints': { args: { readonly joints?: readonly string[]; readonly meshes?: readonly MeshId[] | null;
+    readonly holds?: readonly string[] } | void; result: void };
+  'skin.unbind': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
+  'skin.weights.paint': { args: { readonly mesh: MeshId; readonly joint: string; readonly op: PaintOp; readonly value: number;
+    readonly stamps: readonly StrokeStamp[]; readonly mirror: boolean; readonly holds?: readonly string[] }; result: void };
+  'skin.weights.flood': { args: { readonly op?: PaintOp; readonly value?: number; readonly opacity?: number; readonly mirror?: boolean;
+    readonly joint?: string; readonly points?: readonly number[] | null; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.set': { args: { readonly value: number; readonly mode?: 'set' | 'add' | 'mul'; readonly joint: string; readonly mesh: MeshId;
+    readonly points: readonly number[]; readonly holds?: readonly string[] }; result: void };
+  'skin.weights.assign': { args: { readonly joint?: string; readonly points?: readonly number[]; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.rigidIslands': { args: { readonly points?: readonly number[]; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.mirror': { args: { readonly direction?: 'positive-to-negative' | 'negative-to-positive';
+    readonly surface?: 'partners' | 'closest-point'; readonly selection?: boolean; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.transfer': { args: { readonly method?: 'inpaint' | 'closest-point' | 'closest-component'; readonly distance?: number;
+    readonly angle?: number; readonly source?: MeshId; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.smooth': { args: { readonly factor?: number; readonly iterations?: number; readonly expand?: number;
+    readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.hammer': { args: { readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.copyVertex': { args: void; result: void };
+  'skin.weights.pasteVertex': { args: { readonly mirrorJoints?: boolean; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.prune': { args: { readonly below?: number; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.normalize': { args: { readonly lockActive?: boolean; readonly holds?: readonly string[] } | void; result: void };
+  'skin.weights.move': { args: { readonly fraction?: number; readonly from?: string; readonly to?: readonly string[];
+    readonly holds?: readonly string[] } | void; result: void };
+  'skin.palette.compact': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
+  'skin.weights.fillMissing': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
+  'skin.review.mark': { args: { readonly meshes?: readonly MeshId[] } | void; result: void };
+  'skin.influence.setActive': { args: { readonly mesh: MeshId; readonly joint: string } | null; result: void };
+  'skin.influence.hold': { args: { readonly joint?: string; readonly on: boolean }; result: void };
+  'skin.influence.holdAll': { args: void; result: void };
+  'skin.influence.releaseAll': { args: void; result: void };
+  'skin.influence.walk': { args: { readonly direction: 'up' | 'down' | 'left' | 'right' }; result: void };
+  'skin.influence.pickDominant': { args: { readonly mesh?: MeshId; readonly point: number }; result: void };
+  'skin.paint.mode': { args: { readonly mode?: PaintMode; readonly step?: -1 | 1 }; result: void };
+  'skin.paint.set': { args: { readonly patch: Partial<BrushSettings> }; result: void };
+  'skin.paint.mirrorToggle': { args: void; result: void };
+  'skin.paint.sample': { args: { readonly mesh?: MeshId; readonly point: number }; result: void };
+  'skin.testRotate.toggle': { args: void; result: void };
+  'skin.test.rom': { args: { readonly character: CharacterId }; result: { readonly clip: ClipId } };
+  // ---------- §6.3 workspace, control rig, constraints and shapes ----------
+  'rig.mode': { args: { readonly mode: RigMode | 'toggle' }; result: void };
+  'rig.pose.view': { args: { readonly view: PoseView }; result: void };
+  'rig.pose.resetTest': { args: void; result: void };
+  'rig.animateOnly': { args: void; result: void };
+  'rig.validation.profile': { args: { readonly profile: string | null }; result: void };
+  'rig.outliner.delete': { args: { readonly ids?: readonly string[] } | void; result: void };
+  'select.joints': { args: { readonly ids?: readonly JointId[] | null; readonly all?: boolean; readonly mode?: SelectMode } | void; result: void };
+  'rig.autoRig.update': { args: { readonly ikLegs?: boolean; readonly ikArms?: boolean; readonly character?: CharacterId } | void; result: void };
+  'rig.constraint.create': { args: { readonly type: ConstraintType; readonly maintainOffset?: 'rest' | 'current' | 'none';
+    readonly skipTranslate?: readonly [boolean, boolean, boolean]; readonly skipRotate?: readonly [boolean, boolean, boolean];
+    readonly weights?: 'attrs' | 'static'; readonly blend?: boolean; readonly interp?: 'average' | 'shortest';
+    readonly aimAxis?: readonly [number, number, number] | 'auto'; readonly upAxis?: readonly [number, number, number] | 'auto';
+    readonly worldUp?: unknown; readonly follow?: 'bone' | 'control'; readonly key?: string;   // 'auto' = derived
+    readonly targets?: readonly string[]; readonly driven?: string }; result: { readonly constraint: ConstraintId } };
+  'rig.constraint.edit': { args: { readonly constraint: ConstraintId; readonly patch: Readonly<Record<string, unknown>> }; result: void };
+  'rig.constraint.addTarget': { args: { readonly constraint: ConstraintId; readonly target?: string; readonly key?: string;   // 'auto' = derived
+    readonly weight?: number; readonly offset?: 'rest' | 'current' | 'snap' | 'auto' }; result: void };
+  'rig.constraint.removeTarget': { args: { readonly constraint: ConstraintId; readonly key: string }; result: void };
+  'rig.constraint.updateOffset': { args: { readonly constraint: ConstraintId; readonly targets?: readonly string[] | null;
+    readonly match?: string | null }; result: void };
+  'rig.constraint.clearOffset': { args: { readonly constraint: ConstraintId; readonly targets?: readonly string[] }; result: void };
+  'rig.constraint.bake': { args: Partial<BakeConstraintsArgs>; result: void };
+  'rig.constraint.mirror': { args: { readonly constraints?: readonly ConstraintId[] } | void; result: void };
+  'rig.constraint.delete': { args: { readonly constraints?: readonly ConstraintId[] } | void; result: void };
+  'rig.constraint.repairAttrs': { args: { readonly constraint: ConstraintId }; result: void };
+  'rig.constraint.poleVector': { args: void; result: void };
+  'rig.space.add': { args: Readonly<Record<string, unknown>>; result: void };                     // stretch
+  'rig.space.switch': { args: Readonly<Record<string, unknown>>; result: void };                  // stretch
+  'rig.shape.replace': { args: { readonly kind: string; readonly controls?: readonly ControlId[] }; result: void };
+  'rig.shape.set': { args: { readonly size?: number | null; readonly color?: string | null; readonly lineWidth?: number | null;
+    readonly offset?: unknown; readonly controls?: readonly ControlId[] }; result: void };
+  'rig.shape.transform': { args: { readonly delta: unknown; readonly pivot: readonly number[]; readonly controls?: readonly ControlId[] }; result: void };
+  'rig.shape.editPoints': { args: { readonly control: ControlId; readonly edits: readonly unknown[] }; result: void };
+  'rig.shape.mirror': { args: { readonly direction?: 'left-to-right' | 'right-to-left' | 'selected'; readonly controls?: readonly ControlId[] } | void; result: void };
+  'rig.shape.copy': { args: { readonly control: ControlId }; result: void };
+  'rig.shape.paste': { args: { readonly controls?: readonly ControlId[] } | void; result: void };
+  'rig.shape.reset': { args: { readonly fields?: readonly string[] | null; readonly controls?: readonly ControlId[] } | void; result: void };
+  'rig.shape.sizeFromMesh': { args: { readonly fields?: readonly string[] | null; readonly controls?: readonly ControlId[] } | void; result: void };
+  'rig.shape.cvMode': { args: { readonly on: boolean | 'toggle' }; result: void };
+  // ---------- §6.4 export ----------
+  'file.exportCharacter': { args: CharacterExportRequest; result: readonly ExportArtifact[] };
+  // ---------- §0.6 the clip library (C12) ----------
+  'library.open': { args: void; result: void };
+  'library.preview': { args: { readonly character: CharacterId; readonly clip: string }; result: void };
+  'library.stop': { args: void; result: void };
+  'library.useClip': { args: { readonly character: CharacterId; readonly clip: string }; result: { readonly clip: ClipId } };
 }

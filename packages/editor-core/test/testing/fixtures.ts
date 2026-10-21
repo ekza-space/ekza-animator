@@ -1,5 +1,5 @@
 import type { CharacterId, ClipId, ControlId, CurveId, DocSnapshot, KeyId, LayerId, RigId } from '@ekza-studio/doc';
-import { readSyntheticFixture, withSchemaV3 } from '@ekza-studio/doc/testing';
+import { readSyntheticFixture, withSchemaV4 } from '@ekza-studio/doc/testing';
 import type { SkeletonDesc } from '@ekza-studio/rig';
 
 export interface RestPoseFixture {
@@ -14,10 +14,10 @@ export interface RestPoseFixture {
 }
 
 /**
- * The wave document as the app holds it: the M1 fixture in its schema 3 form (M6A-SPEC §3 rule 9 literal update; the
+ * The wave document as the app holds it: the M1 fixture in its schema 4 form (M6A/M6B-SPEC §3 rule 9 literal update; the
  * app always loads documents through `migrateSnapshot`, which adds `source`, `provenance: null` and the M6a tables).
  */
-export const waveDoc = (): DocSnapshot => withSchemaV3(readSyntheticFixture('wave-doc.json') as DocSnapshot);
+export const waveDoc = (): DocSnapshot => withSchemaV4(readSyntheticFixture('wave-doc.json') as DocSnapshot);
 export const humanoidSkeleton = (): SkeletonDesc => readSyntheticFixture('humanoid-skeleton.json') as SkeletonDesc;
 export const restPose = (): RestPoseFixture => readSyntheticFixture('rest-pose.json') as RestPoseFixture;
 
