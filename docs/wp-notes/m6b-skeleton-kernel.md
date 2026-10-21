@@ -167,6 +167,18 @@ agents' runs):
 - New C2 suites: rig `m6b-skeleton` 62 tests; editor-core `m6b/skeleton-kernel` 18 (+ 3 gated on `c1`/`c4`); editor
   test-API 2; the P-C6 table runs 10 C2 rows.
 
+### Fix round 1 gates (HEAD before this note: `164a4ca`; load average 40–160 from other agents)
+
+- `EKZA_E2E_PORT=3162 pnpm run ci`: format:check, lint, typecheck, check:deps, check:fixtures, check:licenses pass;
+  `test` stopped on viewport's `m6a-transform/runtime.test.ts` "Esc (cancel) during a drag" (a 5 s drag under load),
+  which passes alone (29/29). The rest of the chain was run step by step:
+- `turbo run test test:tooling --continue`: every package green except that viewport case again (1/244); rig 303,
+  editor-core 1,363 (+3 gated), editor 523, mesh-core 905, io 262, headless 193, anim-core 671, doc 263, doc-yjs 85,
+  curve-editor 209, mesh-view 75, ui 94, web 22.
+- build pass; check:size 890,866 B ≤ 900,000 B (M6b eager delta +1,297 B).
+- `EKZA_E2E_PORT=3162 pnpm run test:e2e` (chrome): 219 passed, 23 skipped, 0 failed; port 3162 free afterwards.
+- Bench `guessMarkers` (with the tilt bound): min 0.41–0.89 ms, mean 0.69–1.32 ms (budget 50 ms).
+
 ## Not done / left to others
 
 - The P-C6 rows of `skel.template.create`, `skel.quickRig.commit`, `.center`, `.faceForward` stay `pending` in the
