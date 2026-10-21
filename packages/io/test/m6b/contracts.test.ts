@@ -8,13 +8,10 @@ import { describe, expect, it } from 'vitest';
 import {
   jointsFingerprint,
   parseGlb,
-  parseStarterPackManifest,
-  retargetUalClip,
   skeletonFromDoc,
   skeletonFromGltf,
   UAL_BONE_MAP,
   VRM_LINT_RULES,
-  writeHumanoidVrma,
 } from '../../src';
 import { skeletonFingerprint } from '../../src/skeleton/read';
 
@@ -121,22 +118,9 @@ describe('UAL_BONE_MAP (§0.4.7)', () => {
   });
 });
 
-describe('stubs fail not-implemented (§3 rule 1)', () => {
-  const any = null as never;
-  it.each([
-    ['io.parseStarterPackManifest', () => parseStarterPackManifest({})],
-    ['io.retargetUalClip', () => retargetUalClip(any, 'Walk_Loop')],
-  ] as const)('%s', (message, call) => {
-    expect(call).toThrow(expect.objectContaining({ code: 'not-implemented', message }));
-  });
-  it.each([
-    [
-      'io.writeHumanoidVrma',
-      () => writeHumanoidVrma(any, { generator: 'g', license: 'CC0-1.0', credit: 'Q', source: 's' }),
-    ],
-  ] as const)('%s rejects', async (message, call) => {
-    await expect(call()).rejects.toMatchObject({ code: 'not-implemented', message });
-  });
+// Every io stub of §4.4/§0.5 has landed (C1: measureSkinned, writeCharacter, synthesizeContainer; C12:
+// parseStarterPackManifest, retargetUalClip, writeHumanoidVrma); their tests live with their owners.
+describe('io stubs (§3 rule 1)', () => {
   it('VRM_LINT_RULES is empty until C10', () => {
     expect(VRM_LINT_RULES).toEqual([]);
   });

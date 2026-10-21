@@ -168,6 +168,11 @@ const LANDED: Readonly<Record<string, string>> = {
   'rig.pose.view': 'expects { view }',
   'rig.pose.resetTest': 'Rig & Skin modes are in the Rig & Skin workspace',
   'rig.validation.profile': 'expects { profile }',
+  // C12 (clip library; no character, no preview)
+  'library.open': 'ok',
+  'library.preview': 'expects { character, clip }',
+  'library.stop': 'No clip preview is playing',
+  'library.useClip': 'expects { character, clip }',
 };
 
 const disposers: (() => void)[] = [];
@@ -222,7 +227,7 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       reason: ARRIVES_AFTER_MVP,
     });
     expect(app.rig.loaded).toBe(true);
-    expect(await app.runUntyped('library.stop')).toEqual({ status: 'cancelled', reason: NOT_AVAILABLE_YET });
+    expect(await app.runUntyped('library.stop')).toEqual({ status: 'cancelled', reason: 'No clip preview is playing' });
     expect(app.library.loaded).toBe(true);
     expect(await app.runUntyped('skel.nope.missing')).toEqual({
       status: 'cancelled',

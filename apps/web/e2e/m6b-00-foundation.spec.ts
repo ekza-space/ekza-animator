@@ -89,7 +89,8 @@ test('Rig & Skin is enabled; the rig-workspace and clip-library chunks load on d
 
   // A library id runs after its chunk has loaded (§2.1: the runner loads the chunk first).
   expect(loaded(scripts, 'ekza-clip-library')).toBe(false);
-  await expectRefused(page, 'library.open', 'not available yet');
+  // (C12 landed the library: `library.stop` without a preview refuses with its own reason.)
+  await expectRefused(page, 'library.stop', 'No clip preview is playing');
   await expect.poll(() => loaded(scripts, 'ekza-clip-library')).toBe(true);
 
   // Nothing touched the document or the history.
@@ -103,7 +104,7 @@ test('the palette lists the MVP operators in Rig & Skin; deferred ids are in no 
   await openEditor(page);
   await expectKernelStarted(page);
   await enterRig(page);
-  await expectRefused(page, 'library.open', 'not available yet'); // the clip-library chunk too
+  await expectRefused(page, 'library.stop', 'No clip preview is playing'); // the clip-library chunk too (C12)
   expect((await run(page, 'ui.commandPalette')).status).toBe('finished');
   await expect(page.getByTestId('cmdk')).toBeVisible();
   const palette = await call(page, 'commandPalette');
