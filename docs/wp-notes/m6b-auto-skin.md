@@ -134,3 +134,13 @@ turbo stopped the remaining tasks. Each suite passed alone at once, then the rem
 - build: pass. check:size: 891,371 B (gate 900,000 B); M6b MVP eager delta +1,802 B; `skin-worker` lazy 12.6 kB.
 - test:e2e (local Chrome GPU, project `chrome`, Playwright's own server on 3163, stopped with the run): **219 passed**,
   25 skipped (the existing 23 and E2E-SKIN-01's two gated tests).
+
+### Fix round 1 gates (`e24ecde`, real Chrome, port 3163)
+
+format:check, lint, typecheck, check:deps, check:fixtures, check:licenses pass. `pnpm run ci` stopped once in
+viewport's `m6a-transform/runtime.test.ts` ("Esc during a drag", a screenshot timeout at load average 80–88 from
+other processes; viewport untouched by C4); the file passed alone (29/29), then `turbo run test test:tooling
+--continue` passed everything: mesh-core 953, editor-core 1356, editor 521 (+1 skipped), viewport 243 (+1 skipped),
+rig 232, headless 193, io 262, anim-core 671, doc 263, curve-editor 209 (+3 skipped), ui 94, doc-yjs 85, mesh-view 75,
+web 24, tooling. build pass; check:size 891,372 B (gate 900,000 B; M6b eager delta +1,803 B). test:e2e: 219 passed,
+25 skipped (E2E-SKIN-01's two stay `test.fixme` on c1, c2, c3, c6, c7).
