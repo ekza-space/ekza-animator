@@ -1,6 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { drag, pointOf } from './helpers/g1-viewport';
-import { enterRig, keysHash, RIG_PERSP_PANE } from './helpers/m6b-rig';
+import { enterRig, keysHash, RIG_PERSP_PANE, screenOfJoint } from './helpers/m6b-rig';
 import {
   asymmetricPoints,
   boundCubeLad,
@@ -23,9 +23,13 @@ import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/tes
 // the active influence leftLowerArm; Replace value 1 with the X-mirror stroke on; one stroke over the inner elbow on
 // the posed mesh: the left points and their partners change (`w(p(v)) = M(w(v))`, rightLowerArm on the right), one
 // step per stroke; status Bind empties the test pose, Test restores it, Reset Test Pose empties it; back in Animate
-// the fk.head override is unchanged and fk.lowerArm.L has none. Part (b) needs C3's joint overlay and E on joints.
+// the fk.head override is unchanged and fk.lowerArm.L has none. Part (b), Skeleton mode (needs C3's joint overlay and
+// `E` on joints): `1`, `E` 60° on the left knee (an IK leg) bends the shin by > 0.02 H, the test pose holds @ikFk 0 on
+// leg.L, the HUD shows FK FOR TEST, keys unchanged, the document's ikFk unchanged. Part (b), Skin mode: `2`, `E` with
+// leftLowerLeg active takes the same IK → FK test switch (the paint tool holds the limb's @ikFk at 0 in the test pose,
+// M6B-C6-18); `E` with leftLowerArm active rotates the elbow with the tool still paintSkinWeights.
 //
-// Gates (§0.7): c2; part (b) + c3 — `test.fixme` until they merge (§3 rule 4).
+// Gates (§0.7): c2; the Skeleton-mode part (b) + c3 — `test.fixme` until they merge (§3 rule 4).
 const GATES = ['c2'] as const;
 const GATES_B = ['c2', 'c3'] as const;
 
@@ -112,34 +116,112 @@ test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
     expect(await call(page, 'overrides', arm)).toEqual({});
   });
 
-  test.fixme(`(b) E on joints, IK legs switch to FK for the test, the Skin-mode E (gates: ${GATES_B.join(', ')})`, async ({
+  test.fixme(`(b) E on the left knee in Skeleton mode: the IK leg turns FK for the test (gates: ${GATES_B.join(', ')})`, async ({
     page,
   }) => {
     await openEditor(page);
     await expectKernelStarted(page);
     const lad = await boundCubeLad(page);
+    const legs = await legProbe(page, lad);
+    const hash = await keysHash(page);
+    // `1`, `E` on the left knee joint (an IK leg): the limb switches to FK for the test and the shin bends.
+    await dismissGettingStarted(page);
+    await hoverPersp(page);
+    await page.keyboard.press('Digit1');
+    await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skeleton');
+    await page.keyboard.press('KeyE');
+    const knee = await screenOfJoint(page, lad.joint('leftLowerLeg'), RIG_PERSP_PANE);
+    await drag(page, knee, { dx: 40, dy: 8 });
+    await expect.poll(async () => (await call(page, 'rigState')).poseView).toBe('test');
+    await expect.poll(legs.moved).toBeGreaterThan(0.02 * legs.H);
+    // The test pose holds @ikFk 0 on ik.leg.L (§5.7, §5.17); the HUD names the limb (§10.1: `L LEG · FK FOR TEST`).
+    expect((await legs.ikFk())['leg.L']).toBe(0);
+    await expect(page.getByTestId(`hud-badge-fkTest-${RIG_PERSP_PANE}`)).toContainText('FK FOR TEST');
+    expect(await keysHash(page)).toBe(hash);
+    await runOk(page, 'rig.pose.resetTest');
+    await runOk(page, 'workspace.set', { workspace: 'animate' });
+    expect(await legs.ikFk()).toEqual(legs.document);
+  });
+
+  test('(b) the Skin-mode E: the knee of an IK leg turns FK for the test, the elbow rotates, the tool stays', async ({
+    page,
+  }) => {
+    await openEditor(page);
+    await expectKernelStarted(page);
+    const lad = await boundCubeLad(page);
+    const legs = await legProbe(page, lad);
+    const hash = await keysHash(page);
+    // `2`, `E` with leftLowerLeg active: the knee's FK control turns and the test pose holds the leg's @ikFk at 0
+    // (the same IK → FK test switch as `E` on the joint, §5.11, §5.17); the tool stays Paint Skin Weights.
     await enterSkin(page);
+    await runOk(page, 'skin.influence.setActive', { mesh: lad.mesh, joint: lad.joint('leftLowerLeg') });
+    await hoverPersp(page);
+    await page.keyboard.press('KeyE');
+    await dragTestRing(page, 4);
+    expect((await call(page, 'state')).tool).toBe('paintSkinWeights');
+    await expect.poll(async () => (await call(page, 'rigState')).poseView).toBe('test');
+    await expect.poll(legs.moved).toBeGreaterThan(0.02 * legs.H);
+    expect((await legs.ikFk())['leg.L']).toBe(0);
+    await page.keyboard.press('KeyE');
+
+    // `E` with leftLowerArm active (an FK arm): the elbow rotates, the tool stays.
     await runOk(page, 'skin.influence.setActive', { mesh: lad.mesh, joint: lad.joint('leftLowerArm') });
     await hoverPersp(page);
     await page.keyboard.press('KeyE');
     const posed = await call(page, 'posedPositions', lad.mesh);
-    // The test-rotate ring sits on the active influence's joint; drag a quarter of it.
-    await hoverPersp(page);
-    const ring = page.getByTestId('test-rotate-ring');
-    await expect(ring).toBeVisible();
-    const box = await ring.boundingBox();
-    if (box === null) throw new Error('no test-rotate ring');
-    const cx = box.x + box.width / 2;
-    const cy = box.y + box.height / 2;
-    const r = box.width / 2;
-    await page.mouse.move(cx + r, cy);
-    await page.mouse.down();
-    for (let i = 1; i <= 6; i++) {
-      const a = (-i * Math.PI) / 12;
-      await page.mouse.move(cx + r * Math.cos(a), cy + r * Math.sin(a));
-    }
-    await page.mouse.up();
+    await dragTestRing(page, 6);
     expect((await call(page, 'state')).tool).toBe('paintSkinWeights');
     expect(await call(page, 'posedPositions', lad.mesh)).not.toEqual(posed);
+    expect(await keysHash(page)).toBe(hash);
+
+    // The document's ikFk never changed.
+    await runOk(page, 'rig.pose.resetTest');
+    await runOk(page, 'workspace.set', { workspace: 'animate' });
+    expect(await legs.ikFk()).toEqual(legs.document);
   });
 });
+
+/** The left shin's displacement from bind (posed) and the limbs' evaluated ikFk, with the document's values. */
+async function legProbe(
+  page: Page,
+  lad: { readonly mesh: string; readonly character: string },
+): Promise<{
+  readonly H: number;
+  readonly document: Record<string, number>;
+  readonly ikFk: () => Promise<Record<string, number>>;
+  readonly moved: () => Promise<number>;
+}> {
+  const ikFk = async (): Promise<Record<string, number>> =>
+    Object.fromEntries((await call(page, 'limbs', lad.character)).map((limb) => [limb.id, limb.ikFk]));
+  const document = await ikFk();
+  expect(document['leg.L']).toBeGreaterThan(0);
+  const positions = await positionsOf(page, lad.mesh);
+  const ys = positions.map((p) => p[1] as number);
+  const H = Math.max(...ys) - Math.min(...ys);
+  const shin = boxPoints(positions, 'shin.L');
+  expect(shin).toHaveLength(8);
+  const bind = await call(page, 'posedPositions', lad.mesh, shin);
+  const moved = async (): Promise<number> => {
+    const now = await call(page, 'posedPositions', lad.mesh, shin);
+    return Math.max(...now.map((p, k) => Math.hypot(...p.map((x, i) => x - (bind[k]?.[i] ?? 0)))));
+  };
+  return { H, document, ikFk, moved };
+}
+
+/** Drags the Skin-mode test-rotate ring (`test-rotate-ring`) by `steps` × 15° from its right edge. */
+async function dragTestRing(page: Page, steps: number): Promise<void> {
+  const ring = page.getByTestId('test-rotate-ring');
+  await expect(ring).toBeVisible();
+  const box = await ring.boundingBox();
+  if (box === null) throw new Error('no test-rotate ring');
+  const cx = box.x + box.width / 2;
+  const cy = box.y + box.height / 2;
+  const r = box.width / 2;
+  await page.mouse.move(cx + r, cy);
+  await page.mouse.down();
+  for (let i = 1; i <= steps; i++) {
+    const a = (-i * Math.PI) / 12;
+    await page.mouse.move(cx + r * Math.cos(a), cy + r * Math.sin(a));
+  }
+  await page.mouse.up();
+}

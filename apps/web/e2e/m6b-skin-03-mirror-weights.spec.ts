@@ -14,7 +14,8 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // `run('skin.weights.set', …)`; C6). Bound Cube Lad; Skin mode; the left elbow ring (the left upper arm box's elbow
 // end) gets leftUpperArm 0.6; the Rig Toolkit's Mirror Skin Weights (defaults: +X → −X): every right partner holds
 // rightUpperArm 0.6 and the rest mirrored (`w(p(v)) = M(w(v))`); then Mirror Skin Weights with the option box's
-// direction −X → +X leaves the left side bit-equal (involution). One step per run.
+// direction −X → +X leaves the left side bit-equal (involution). One step per run that changes weights; the second run
+// is a no-op on the now-symmetric skin, finishes and records zero steps.
 //
 // Gates (§0.7): c2 — `test.fixme` until it merges (§3 rule 4).
 const GATES = ['c2'] as const;
@@ -55,10 +56,15 @@ test.describe('E2E-SKIN-03 Mirror Skin Weights', () => {
     const leftRows = await call(page, 'weights', lad.mesh, left);
     await page.getByTestId('rtk-opt-skin.weights.mirror').click();
     await page.getByTestId('rtk-opt-skin.weights.mirror-direction').selectOption('negative-to-positive');
+    // The first run left the right side the exact mirror of the left, so copying it back changes nothing: the run
+    // finishes and records ZERO steps (a no-op records none, M6B-C6-3). "One step per run" is the first run's +1.
     undo = (await call(page, 'history')).undo.length;
-    await page.getByTestId('rtk-btn-skin.weights.mirror').click();
-    await expect.poll(async () => (await call(page, 'history')).undo.at(-1)).toBe('Mirror Skin Weights');
-    expect((await call(page, 'history')).undo.length).toBeLessThanOrEqual(undo + 1);
+    const button = page.getByTestId('rtk-btn-skin.weights.mirror');
+    const runs = Number(await button.getAttribute('data-runs'));
+    await button.click();
+    await expect(button).toHaveAttribute('data-runs', String(runs + 1));
+    await expect(button).toHaveAttribute('data-status', 'finished');
+    expect((await call(page, 'history')).undo.length).toBe(undo);
     expect(await call(page, 'weights', lad.mesh, left)).toEqual(leftRows);
   });
 });

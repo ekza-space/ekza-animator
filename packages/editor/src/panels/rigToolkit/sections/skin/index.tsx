@@ -148,6 +148,9 @@ function SkinButton(props: {
   const values = useOptionDefaults(op);
   const [reason] = useReasons(app, [[op, props.args]]);
   const [open, setOpen] = useState(false);
+  // The outcome of this button's last run (`data-runs` counts settled runs): a no-op run records no undo step, so
+  // this is how a test sees that it finished (E2E-SKIN-03).
+  const [last, setLast] = useState<{ readonly runs: number; readonly status: string }>({ runs: 0, status: '' });
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-stretch gap-1">
@@ -157,7 +160,14 @@ function SkinButton(props: {
           disabled={reason !== null}
           title={reason ?? undefined}
           data-testid={props.testId ?? `rtk-btn-${op}`}
-          onClick={() => void run(op, { ...(props.options === true ? values : {}), ...props.args }, CTX)}
+          data-runs={last.runs}
+          data-status={last.status}
+          onClick={() =>
+            void run(op, { ...(props.options === true ? values : {}), ...props.args }, CTX).then(
+              (result) => setLast((was) => ({ runs: was.runs + 1, status: result.status })),
+              () => setLast((was) => ({ runs: was.runs + 1, status: 'failed' })),
+            )
+          }
         >
           {props.label}
         </button>
