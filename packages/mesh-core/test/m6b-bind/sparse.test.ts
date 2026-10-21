@@ -29,7 +29,7 @@ function geometry(positions: number[], tris: number[]): SkinGeometry {
 }
 
 function dense(a: CsrMatrix): number[][] {
-  const out = Array.from({ length: a.n }, () => new Array<number>(a.n).fill(0));
+  const out = Array.from({ length: a.n }, () => Array.from({ length: a.n }, () => 0));
   for (let i = 0; i < a.n; i++) {
     for (let k = a.rowPtr[i] as number; k < (a.rowPtr[i + 1] as number); k++) {
       (out[i] as number[])[a.col[k] as number] = a.val[k] as number;
@@ -87,6 +87,7 @@ describe('cotLaplacian (Lpsd = −Δ)', () => {
       const geom = skinGeometryOf(body(style), 1.6);
       const L = cotLaplacian(geom, { clamp: true });
       const at = new Map<string, number>();
+      const wrongSign: string[] = [];
       for (let i = 0; i < L.n; i++) {
         let sum = 0;
         let scale = 0;
@@ -94,17 +95,18 @@ describe('cotLaplacian (Lpsd = −Δ)', () => {
           const j = L.col[k] as number;
           const v = L.val[k] as number;
           at.set(`${i},${j}`, v);
-          if (i === j) expect(v).toBeGreaterThanOrEqual(0);
-          else expect(v).toBeLessThanOrEqual(0);
+          if ((i === j && v < 0) || (i !== j && v > 0)) wrongSign.push(`${i},${j}`);
           sum += v;
           scale += Math.abs(v);
         }
         expect(Math.abs(sum)).toBeLessThanOrEqual(1e-12 * Math.max(1, scale));
       }
-      for (const [key, v] of at) {
+      expect(wrongSign).toEqual([]);
+      const asymmetric = [...at].filter(([key, v]) => {
         const [i, j] = key.split(',');
-        expect(at.get(`${j},${i}`)).toBe(v);
-      }
+        return at.get(`${j},${i}`) !== v;
+      });
+      expect(asymmetric).toEqual([]);
       fc.assert(
         fc.property(fc.array(fc.double({ min: -1, max: 1, noNaN: true }), { minLength: L.n, maxLength: L.n }), (xs) => {
           const x = Float64Array.from(xs);

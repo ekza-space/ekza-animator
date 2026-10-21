@@ -19,6 +19,13 @@ import {
 import { opsApp, runOk } from '../builtin/support';
 import { setFrame, W, waveApp } from '../kernel/support';
 
+/** MVP operators their owners have landed: the poll reason on this fixture (no model-sourced character). */
+const LANDED: Readonly<Record<string, string>> = {
+  // C4 (auto-skin)
+  'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
+  'skin.unbind': 'No bound mesh to unbind',
+};
+
 /** §6 (every id) and §0.6 (the MVP ids). */
 const MVP: readonly string[] = [
   'mesh.importStatic',
@@ -160,7 +167,10 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       return poll === true ? 'ok' : poll.reason;
     };
     expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
-      MVP.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
+      MVP.map((id) => [
+        id,
+        LANDED[id] ?? (id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET),
+      ]),
     );
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(
       DEFERRED.map((id) => [id, ARRIVES_AFTER_MVP, true]),

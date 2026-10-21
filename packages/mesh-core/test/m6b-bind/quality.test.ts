@@ -57,13 +57,13 @@ describe('P-S7 bind quality', () => {
       for (const method of ['auto-lowpoly', 'heat'] as const) {
         const { skin } = bindSkin(geom, skeleton, { ...DEFAULT_ARGS, method }, null);
         noHelperWeight(skin, skeleton);
-        for (let v = 0; v < skin.points; v++) {
+        // forearm: between the elbow (0.475) and the wrist (0.7)
+        const forearm = [...Array(skin.points).keys()].filter((v) => {
           const x = Math.abs(geom.positions[3 * v] as number);
-          // forearm: between the elbow (0.475) and the wrist (0.7)
-          if (x > 0.5 && x < 0.68 && (geom.positions[3 * v + 1] as number) > 1.1) {
-            expect(spine.has(keysOf(skin, v)[0] as string)).toBe(false);
-          }
-        }
+          return x > 0.5 && x < 0.68 && (geom.positions[3 * v + 1] as number) > 1.1;
+        });
+        expect(forearm.length).toBeGreaterThan(0);
+        expect(forearm.filter((v) => spine.has(keysOf(skin, v)[0] as string))).toEqual([]);
         if (style !== 'segmented' || method !== 'auto-lowpoly') continue;
         const islands = skinIslands(geom);
         let limbs = 0;
@@ -98,11 +98,11 @@ describe('P-S7 bind quality', () => {
       'shin.L': 'leftLowerLeg',
     };
     const single = new Set(['torso', 'pelvis', 'neck', 'head', ...Object.keys(expected)]);
-    for (let v = 0; v < skin.points; v++) {
-      const box = lad.boxOf[v] as string;
-      const keys = keysOf(skin, v);
-      if (single.has(box)) expect(keys.length).toBe(1);
-      if (expected[box] !== undefined) expect(keys).toEqual([expected[box]]);
-    }
+    const points = [...Array(skin.points).keys()];
+    const blended = points.filter((v) => single.has(lad.boxOf[v] as string) && keysOf(skin, v).length !== 1);
+    expect(blended).toEqual([]);
+    const limb = points.filter((v) => expected[lad.boxOf[v] as string] !== undefined);
+    expect(limb.length).toBe(64);
+    expect(limb.map((v) => keysOf(skin, v))).toEqual(limb.map((v) => [expected[lad.boxOf[v] as string]]));
   });
 });

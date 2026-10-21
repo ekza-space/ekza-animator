@@ -42,6 +42,7 @@ function vector(skin: SkinWeights, v: number): [string, number][] {
  *  unused slots 0, every palette joint used (full run) and listed in skeleton order. */
 function expectValid(skin: SkinWeights, skeleton: SkinSkeleton, full = true): void {
   const used = new Set<number>();
+  const problems: string[] = [];
   for (let v = 0; v < skin.points; v++) {
     let sum = 0;
     let last = Number.POSITIVE_INFINITY;
@@ -50,22 +51,23 @@ function expectValid(skin: SkinWeights, skeleton: SkinSkeleton, full = true): vo
     for (let k = 0; k < 4; k++) {
       const w = skin.weights[4 * v + k] as number;
       const j = skin.joints[4 * v + k] as number;
-      expect(w).toBeGreaterThanOrEqual(0);
+      if (!(w >= 0)) problems.push(`point ${v}: negative weight`);
       if (w === 0) {
         ended = true;
-        expect(j).toBe(0);
+        if (j !== 0) problems.push(`point ${v}: unused slot ${k} names joint ${j}`);
         continue;
       }
-      expect(ended).toBe(false);
-      expect(w <= last).toBe(true);
-      if (w === last) expect(j).toBeGreaterThan(lastIndex);
+      if (ended) problems.push(`point ${v}: a weight after an unused slot`);
+      if (w > last) problems.push(`point ${v}: not descending`);
+      if (w === last && j <= lastIndex) problems.push(`point ${v}: a tie not in palette order`);
       last = w;
       lastIndex = j;
       used.add(j);
       sum += w;
     }
-    expect(Math.abs(sum - 1)).toBeLessThanOrEqual(1e-6);
+    if (!(Math.abs(sum - 1) <= 1e-6)) problems.push(`point ${v}: sum ${sum}`);
   }
+  expect(problems).toEqual([]);
   if (!full) return;
   expect(used.size).toBe(skin.palette.length);
   const order = skin.palette.map((entry) => skeleton.keys.indexOf(entry.key));
@@ -179,16 +181,12 @@ describe('bindSkin: masks and palette rules', () => {
     for (const v of holes) for (let k = 0; k < 4; k++) [joints[4 * v + k], weights[4 * v + k]] = [0, 0];
     const previous: SkinWeights = { ...full, joints, weights };
     const { skin } = bindSkin(geom, skeleton, args({ points: holes }), previous);
-    for (let v = 0; v < skin.points; v++) {
-      if (holes.includes(v)) {
-        expect(vector(skin, v).length).toBeGreaterThan(0);
-        continue;
-      }
-      expect(Array.from(skin.joints.subarray(4 * v, 4 * v + 4))).toEqual(Array.from(joints.subarray(4 * v, 4 * v + 4)));
-      expect(Array.from(skin.weights.subarray(4 * v, 4 * v + 4))).toEqual(
-        Array.from(weights.subarray(4 * v, 4 * v + 4)),
-      );
-    }
+    expect(holes.map((v) => vector(skin, v).length > 0)).toEqual(holes.map(() => true));
+    const others = [...Array(skin.points).keys()].filter((v) => !holes.includes(v));
+    const rows = (s: SkinWeights | Uint16Array | Float32Array, v: number) =>
+      Array.from((s as Uint16Array | Float32Array).subarray(4 * v, 4 * v + 4));
+    expect(others.map((v) => rows(skin.joints, v))).toEqual(others.map((v) => rows(joints, v)));
+    expect(others.map((v) => rows(skin.weights, v))).toEqual(others.map((v) => rows(weights, v)));
     expectValid(skin, skeleton, false);
   });
 
@@ -299,10 +297,11 @@ describe('bindSkin: methods', () => {
     expect(heat.report.cgIterations).toBeGreaterThan(0);
     const rigid = bindSkin(geom, skeleton, args({ method: 'heat', rigidifyAbove: 0.5 }), null).skin;
     expectValid(rigid, skeleton);
-    for (let v = 0; v < rigid.points; v++) {
+    const notRigid = [...Array(rigid.points).keys()].filter((v) => {
       const vec = vector(rigid, v);
-      if ((vec[0] as [string, number])[1] >= 0.5) expect(vec).toEqual([[(vec[0] as [string, number])[0], 1]]);
-    }
+      return (vec[0] as [string, number])[1] >= 0.5 && vec.length !== 1;
+    });
+    expect(notRigid).toEqual([]);
   });
 
   it('an island that sees no joint binds rigidly to the nearest-centroid joint and is reported (heat)', () => {
@@ -338,6 +337,7 @@ describe('visibility', () => {
       const reference = new TriangleBvh(geom.positions, geom.tris);
       const incident = pointTriangles(geom);
       const P = geom.positions.length / 3;
+      let checked = 0;
       fc.assert(
         fc.property(
           fc.integer({ min: 0, max: P - 1 }),
@@ -355,11 +355,13 @@ describe('visibility', () => {
             const e = incident.start[v + 1] as number;
             const ignore = new Set(Array.from(incident.tris.subarray(s, e)));
             const expected = reference.raycast(o, dir, 0, 1 - 1e-6, ignore) !== null;
+            checked++;
             return occluder.occluded(o[0], o[1], o[2], dir[0], dir[1], dir[2], incident.tris, s, e) === expected;
           },
         ),
         { numRuns: 400 },
       );
+      expect(checked).toBeGreaterThanOrEqual(400);
     }
   });
 

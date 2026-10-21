@@ -29,11 +29,10 @@ describe('skinGeometryOf', () => {
     for (const style of ['smooth', 'segmented'] as const) {
       const geom = skinGeometryOf(body(style), 1.6);
       expect(geom.paired).toBe(1);
-      for (let p = 0; p < geom.partner.length; p++) {
-        const q = geom.partner[p] as number;
-        expect(geom.partner[q]).toBe(p);
-        if (q === p) expect(Math.abs(geom.positions[3 * p] as number)).toBeLessThanOrEqual(1.6e-4);
-      }
+      const all = [...Array(geom.partner.length).keys()];
+      expect(all.filter((p) => geom.partner[geom.partner[p] as number] !== p)).toEqual([]);
+      const seam = all.filter((p) => geom.partner[p] === p);
+      expect(seam.filter((p) => Math.abs(geom.positions[3 * p] as number) > 1.6e-4)).toEqual([]);
     }
   });
 

@@ -381,7 +381,7 @@ export function bindSkin(
 
   const ctx = makeContext(geom, skeleton, candidate);
   const { islands } = ctx;
-  const raw: (WeightVector | null)[] = new Array<WeightVector | null>(P).fill(null);
+  const raw: (WeightVector | null)[] = Array.from({ length: P }, () => null);
   const unreachable: number[] = [];
   let rigidIslands = 0;
   let heatIslands = 0;
@@ -521,7 +521,7 @@ export function bindSkin(
   }
 
   // ---------- post-processing (§5.9 step 3) ----------
-  const stage1: (WeightVector | null)[] = new Array<WeightVector | null>(P).fill(null);
+  const stage1: (WeightVector | null)[] = Array.from({ length: P }, () => null);
   for (let v = 0; v < P; v++) {
     if (solve[v] !== 1) {
       stage1[v] = prevVector(v);

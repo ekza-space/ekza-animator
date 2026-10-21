@@ -81,7 +81,7 @@ export function polybot(pose: 'tpose' | 'apose'): Polybot {
   if (prim === undefined || prim.indices === undefined) throw new Error('polybot: no primitive');
   const vertexPositions = accessor(glb, prim.attributes['POSITION'] as number);
   const indices = accessor(glb, prim.indices);
-  const positions = new Array<number>(3 * truth.points).fill(0);
+  const positions = Array.from({ length: 3 * truth.points }, () => 0);
   const seen = new Uint8Array(truth.points);
   truth.vertexPoint.forEach((point, vertex) => {
     if (seen[point] === 1) return;
@@ -114,7 +114,7 @@ export function polybot(pose: 'tpose' | 'apose'): Polybot {
     while (p >= 0 && !inSkeleton.has(vrm.json.nodes[p]?.name ?? '')) p = parentNode[p] as number;
     const parentName = p >= 0 ? (vrm.json.nodes[p]?.name ?? null) : null;
     // End nodes carry no weight in the artist's skin: helpers (never automatic candidates).
-    const end = /_End$/.test(name);
+    const end = name.endsWith('_End');
     return {
       key: keyOf(name),
       parent: parentName === null ? null : keyOf(parentName),
