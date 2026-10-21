@@ -2,14 +2,7 @@
 // OMOBA/Space banner, only `ekza/space-avatar-v1` (VRM 1.0 only) and `local/generic` (VRM or plain GLB), the VRM meta
 // rows blocking Export until a licence and an author are set (each edit one `char.setVrmMeta` step), Render Thumbnail,
 // the export result; the VRM Meta dialog; the Rig Toolkit's Character section.
-import {
-  type CharacterId,
-  type JointId,
-  type JointRecord,
-  type MeshId,
-  type SkeletonId,
-  makeVrmMeta,
-} from '@ekza-studio/doc';
+import { type CharacterId, type MeshId, makeVrmMeta } from '@ekza-studio/doc';
 import { type EditorApp, loadMeshKernel, registerBuiltins } from '@ekza-studio/editor-core';
 import { CHARACTER_EXPORT_BANNER } from '@ekza-studio/io';
 import { act } from 'react';
@@ -57,28 +50,11 @@ const body = (id: string): HTMLElement => {
 };
 const maybe = (id: string): HTMLElement | null => document.querySelector<HTMLElement>(`[data-testid="${id}"]`);
 
-/** A joint record (doc/testing reads fixtures with node:fs, so the browser tests build their own). */
-function joint(id: string, skeleton: SkeletonId, fields: Partial<JointRecord>): JointRecord {
-  return {
-    id: id as JointId,
-    skeleton,
-    parent: null,
-    order: 'a0',
-    name: id,
-    humanBone: null,
-    restPosition: [0, 0, 0],
-    restRotation: [0, 0, 0, 1],
-    tail: null,
-    side: 'C',
-    mirror: null,
-    deleted: null,
-    role: 'bone',
-    key: id,
-    ...fields,
-  };
-}
-
-/** A shell in Rig & Skin with a character made from a cube and a two-joint skeleton (root → hips). */
+/**
+ * A shell in Rig & Skin with a bound character: the generated humanoid body, Skeleton Template (Standard 33) and Bind
+ * Skin (INT: with C2, C4 and C7 merged the Validation rows join the export gate, so the character must be a valid one
+ * for the meta rows to be the only errors).
+ */
 async function rigShell(): Promise<{
   app: EditorApp;
   shell: ReturnType<typeof createTestShell>['shell'];
@@ -87,28 +63,16 @@ async function rigShell(): Promise<{
   const test = createTestShell({ snapshot: fixtures.snapshot, skeleton: fixtures.skeleton });
   registerBuiltins(test.app);
   test.app.session.setState({ workspace: 'model' });
-  const { mesh } = (await run(test.app, 'mesh.create.cube')) as { mesh: MeshId };
-  const made = (await run(test.app, 'char.fromModel', { objects: [mesh], name: 'Box Lad' })) as {
-    character: CharacterId;
-    skeleton: SkeletonId;
-  };
+  const { mesh } = (await run(test.app, 'mesh.create.template', { template: 'humanoidBody' })) as { mesh: MeshId };
+  await act(() => test.app.rig.load());
+  const made = (await run(test.app, 'skel.template.create', { objects: [mesh] })) as { character: CharacterId };
   await act(async () => {
-    test.app.store.transact({ label: 'joints (test)' }, (tx) => {
-      tx.put('joints', joint('jnt_root', made.skeleton, { name: 'root', order: 'a0', role: 'helper', key: 'root' }));
-      tx.put(
-        'joints',
-        joint('jnt_hips', made.skeleton, {
-          name: 'hips',
-          parent: 'jnt_root' as JointId,
-          order: 'a1',
-          humanBone: 'hips',
-          restPosition: [0, 0.5, 0],
-          key: 'hips',
-        }),
-      );
-    });
-    test.app.session.setState({ workspace: 'rig' });
+    test.app.store.transact({ label: 'name (test)' }, (tx) =>
+      tx.patch('characters', made.character, { name: 'Box Lad' }),
+    );
   });
+  test.app.session.setState({ workspace: 'rig' });
+  await run(test.app, 'skin.bind', { meshes: [mesh] });
   return { app: test.app, shell: test.shell, character: made.character };
 }
 
@@ -171,12 +135,19 @@ describe('the Export dialog Character section (§8.13)', () => {
     // Render Thumbnail: a thumbnail asset, the warning gone.
     await update(() => body('export-char-thumb-render').click());
     await waitUntil(() => (app.store.get('characters', character)?.vrm?.thumbnail ?? null) !== null, 30_000);
-    await waitUntil(() => maybe('export-char-clean') !== null);
-    // Export: the result is listed (this cube is not bound, so OMOBA's rules refuse it and nothing downloads).
+    await waitUntil(() => maybe('export-char-row-vrm.thumbnail-square') === null);
+    // INT: the bound body keeps Validation's info rows (e.g. unweighted finger joints), so the list is not "clean"; no
+    // row is an error or a warning.
+    const rows = [...document.querySelectorAll<HTMLElement>('[data-testid^="export-char-row-"]')];
+    expect(
+      rows.map((row) => [row.dataset['testid']?.startsWith('export-char-row-skin.'), row.textContent?.slice(0, 4)]),
+    ).toEqual(rows.map(() => [true, 'info']));
+    expect((body('export-confirm') as HTMLButtonElement).disabled).toBe(false);
+    // Export: the result is listed (the bound body passes OMOBA's rules: no vrm.* row).
     await update(() => body('export-confirm').click());
     await waitUntil(() => maybe('export-char-result') !== null, 30_000);
     expect(body('export-char-result').textContent).toContain('Box_Lad.vrm');
-    expect(body('export-char-result').textContent).toContain('vrm.bones-skinned');
+    expect(body('export-char-result').textContent).not.toContain('vrm.');
     expect(body('export-char-size').textContent).toMatch(/KiB|B$/);
     await view.unmount();
   });
