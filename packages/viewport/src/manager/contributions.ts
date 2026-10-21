@@ -21,6 +21,7 @@ import { attachGuides } from '../guides';
 import { attachImagePlanes } from '../imageplanes';
 import { LAYOUT_PANES } from '../panes/layout';
 import { paintToolDef } from '../tools/model/paint';
+import { attachRigSkin } from '../tools/rig/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
 import { attachModelTransform } from '../tools/model/transform';
@@ -221,6 +222,8 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     attachModelTransform(app, vm),
     // M6a (B12b): Multi-Cut, Insert Edge Loop, Target Weld, Slide Edge and the extrude manipulator (a lazy kit).
     registerTopologyTools(app, vm),
+    // M6b (C6): Skin mode — the skinned and weight display, the Paint Skin Weights tool (lazy, on the first Rig & Skin entry).
+    attachRigSkin(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

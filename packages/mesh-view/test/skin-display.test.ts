@@ -48,11 +48,11 @@ function uploads(gl: WebGL2RenderingContext, fn: () => void): number {
   gl.bufferData = ((...args: unknown[]) => {
     bytes += size(args[1]);
     return (data as (...a: unknown[]) => void)(...args);
-  }) as typeof gl.bufferData;
+  });
   gl.bufferSubData = ((...args: unknown[]) => {
     bytes += size(args[2]);
     return (sub as (...a: unknown[]) => void)(...args);
-  }) as typeof gl.bufferSubData;
+  });
   try {
     fn();
   } finally {
@@ -118,7 +118,7 @@ describe('WeightDisplay', () => {
     expect(influenceColor(0)).not.toEqual(influenceColor(1));
     // The unweighted end of the box (x > 0.49) is drawn in --danger.
     const end = cv.pixel(...screen(camera, [0.497, 0, 0], 400, 300));
-    expect(end[0]).toBeGreaterThan(end[2] as number);
+    expect(end[0]).toBeGreaterThan(end[2]);
     expect(DEFAULT_WEIGHT_COLORS.danger).toBe(0xef6b6b);
     display.set('off', 0);
     expect(display.state.visible).toBe(false);

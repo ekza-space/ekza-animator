@@ -8,16 +8,7 @@
 // reads the active influence's weight as `w = dot(skinWeight, vec4(equal(skinIndex, vec4(uActive))))`, so switching the
 // active influence or the mode changes uniforms only: no buffer upload (0 bytes, the §5.25 gate) and no program
 // recompile. Weight edits reach it through the surface's partial `skinWeight` uploads.
-import {
-  BufferGeometry,
-  Color,
-  DoubleSide,
-  type IUniform,
-  Mesh,
-  type Object3D,
-  ShaderMaterial,
-  Vector3,
-} from 'three';
+import { BufferGeometry, Color, DoubleSide, type IUniform, Mesh, type Object3D, ShaderMaterial, Vector3 } from 'three';
 import { LIGHT_RIG } from '../../style';
 
 export type WeightDisplayMode = 'off' | 'greyscale' | 'ramp' | 'influences';
