@@ -5,6 +5,7 @@
 export type * from './types';
 export { ComponentPicker, PICK_RADIUS, type PickOccluder, type PickOptionsInput } from './ComponentPicker';
 export { EditMeshView, emptySelection, NGON_CODES } from './EditMeshView';
+export type { PaletteShaders, SwatchShading } from './internal/sets';
 export { MeshSurface } from './MeshSurface';
 export { mirroredOf, partnerOf } from './mirror';
 export { MESH_VIEW_STYLE } from './style';

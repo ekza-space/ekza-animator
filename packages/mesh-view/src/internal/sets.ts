@@ -7,6 +7,44 @@ import type { Topo } from './topo';
 
 /** Palette colours: slot → sRGB bytes. */
 export type PaletteColours = ReadonlyMap<number, readonly [number, number, number]>;
+/** Blinn parameters of a swatch (SHADING-SPEC §3): glossiness 0…1 and the specular colour as sRGB bytes. */
+export interface SwatchShading {
+  readonly glossiness: number;
+  readonly specular: readonly [number, number, number];
+}
+/** Swatch shaders: slot → Blinn parameters; slots without an entry are Lambert. */
+export type PaletteShaders = ReadonlyMap<number, SwatchShading>;
+
+/** Same Blinn slots with the same parameters (null and an empty map are the same: all Lambert). */
+export function sameShaders(a: PaletteShaders | null, b: PaletteShaders | null): boolean {
+  const x = a ?? EMPTY_SHADERS;
+  const y = b ?? EMPTY_SHADERS;
+  if (x.size !== y.size) return false;
+  for (const [slot, s] of x) {
+    const t = y.get(slot);
+    if (
+      t === undefined ||
+      t.glossiness !== s.glossiness ||
+      t.specular[0] !== s.specular[0] ||
+      t.specular[1] !== s.specular[1] ||
+      t.specular[2] !== s.specular[2]
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+export function copyShaders(shaders: PaletteShaders | null): Map<number, SwatchShading> | null {
+  if (shaders === null || shaders.size === 0) return null;
+  const out = new Map<number, SwatchShading>();
+  for (const [slot, s] of shaders) {
+    out.set(slot, { glossiness: s.glossiness, specular: [s.specular[0], s.specular[1], s.specular[2]] });
+  }
+  return out;
+}
+
+const EMPTY_SHADERS: PaletteShaders = new Map();
 
 /** Same size and the same bits (null only equals null). */
 export function sameSet(a: BitSet | null, b: BitSet | null): boolean {

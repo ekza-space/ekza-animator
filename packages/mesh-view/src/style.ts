@@ -52,6 +52,8 @@ export const LIGHT_RIG = {
   ambient: 0.4,
   key: 0.5,
   fill: 0.15,
+  /** Peak of a Blinn swatch's key-light highlight at glossiness 0.5 (SHADING-SPEC §3). */
+  specular: 0.6,
   backFactor: 0.7,
   orientationAmbient: 0.6,
   orientationKey: 0.4,

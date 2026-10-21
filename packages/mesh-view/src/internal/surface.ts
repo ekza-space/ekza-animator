@@ -1,5 +1,5 @@
 // The shaded surface of a mesh (research 13 §7.1): one GPU vertex per corner (position, corner normal, palette colour,
-// state byte, soft weight; the flat display takes each triangle's plane in the shader), indexed by the one
+// swatch shader, state byte, soft weight; the flat display takes each triangle's plane in the shader), indexed by the one
 // triangulation (§5.4) so
 // what is drawn is what ships. Invisible faces (hidden, isolated out) become degenerate triangles, which keeps every
 // face's index range stable for incremental updates. Three materials share the geometry: opaque (pushed back by a
@@ -21,6 +21,7 @@ import { MESH_VIEW_STYLE, ORDER } from '../style';
 import type { MeshViewThemeInput } from '../theme';
 import { DEFAULT_MESH_VIEW_THEME } from '../theme';
 import { addRange, Touched, tracked, uploadAll } from './ranges';
+import type { PaletteShaders } from './sets';
 import { DEPTH_FRAGMENT, DEPTH_VERTEX, SURFACE_FRAGMENT, SURFACE_VERTEX } from './shaders';
 import type { Topo } from './topo';
 
@@ -47,6 +48,10 @@ export class SurfaceLayer {
   private position = new BufferAttribute(new Float32Array(0), 3);
   private normal = new BufferAttribute(new Float32Array(0), 3);
   private paint = new BufferAttribute(new Uint8Array(0), 3, true);
+  /** Swatch shader per corner (SHADING-SPEC §3): specular sRGB and a gloss byte (0 = Lambert, 1…255 = Blinn 0…1). */
+  private shade = new BufferAttribute(new Uint8Array(0), 4, true);
+  /** The `shade` attribute holds only zeros (every face Lambert). */
+  private shadeEmpty = true;
   private state = new BufferAttribute(new Uint8Array(0), 1);
   private soft = new BufferAttribute(new Uint8Array(0), 1, true);
   private index = new BufferAttribute(new Uint32Array(0), 1);
@@ -130,12 +135,15 @@ export class SurfaceLayer {
     this.position = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
     this.normal = tracked(new BufferAttribute(new Float32Array(3 * C), 3));
     this.paint = tracked(new BufferAttribute(new Uint8Array(3 * C), 3, true));
+    this.shade = tracked(new BufferAttribute(new Uint8Array(4 * C), 4, true));
+    this.shadeEmpty = true;
     this.state = tracked(new BufferAttribute(new Uint8Array(C), 1));
     this.soft = tracked(new BufferAttribute(new Uint8Array(C), 1, true));
     this.index = tracked(new BufferAttribute(new Uint32Array(tri.tris.length), 1));
     geometry.setAttribute('position', this.position);
     geometry.setAttribute('normal', this.normal);
     geometry.setAttribute('paint', this.paint);
+    geometry.setAttribute('shade', this.shade);
     geometry.setAttribute('state', this.state);
     geometry.setAttribute('soft', this.soft);
     geometry.setIndex(this.index);
@@ -271,14 +279,19 @@ export class SurfaceLayer {
     uploadAll(this.soft);
   }
 
-  /** Palette colours per face (slot → sRGB bytes); faces whose slot has no colour show clay. null = clay. */
+  /**
+   * Palette colours per face (slot → sRGB bytes); faces whose slot has no colour show clay. null = clay. `shaders`
+   * (slot → Blinn parameters; absent slots are Lambert, SHADING-SPEC §3) fill the `shade` attribute.
+   */
   writePaint(
     t: Topo,
     slots: ArrayLike<number> | null,
     colours: ReadonlyMap<number, readonly [number, number, number]> | null,
+    shaders: PaletteShaders | null = null,
   ): void {
     this.hasPaint = colours !== null;
     (this.uniforms['uPaint'] as IUniform<boolean>).value = this.hasPaint;
+    this.writeShade(t, slots, colours === null ? null : shaders);
     if (colours === null) {
       this.fillPaint(this.clayBytes);
       return;
@@ -297,6 +310,38 @@ export class SurfaceLayer {
     this.touch();
   }
 
+  /**
+   * The `shade` attribute: zeros (Lambert) everywhere, then each Blinn slot's specular and gloss byte on its faces. An
+   * all-Lambert palette over an all-Lambert attribute uploads nothing (a colour edit rewrites `paint` only).
+   */
+  private writeShade(t: Topo, slots: ArrayLike<number> | null, shaders: PaletteShaders | null): void {
+    const out = this.shade.array as Uint8Array;
+    const none = shaders === null || shaders.size === 0;
+    if (none && this.shadeEmpty) return;
+    out.fill(0);
+    this.shadeEmpty = none;
+    if (shaders !== null && !none) {
+      for (let f = 0; f < t.faces; f++) {
+        const shader = shaders.get(slots === null ? 0 : (slots[f] ?? 0));
+        if (shader === undefined) continue;
+        const gloss = 1 + Math.round(Math.min(1, Math.max(0, shader.glossiness)) * 254);
+        for (let i = t.fstart[f] as number; i < (t.fstart[f + 1] as number); i++) {
+          const c = 4 * (t.fcorners[i] as number);
+          out[c] = shader.specular[0];
+          out[c + 1] = shader.specular[1];
+          out[c + 2] = shader.specular[2];
+          out[c + 3] = gloss;
+        }
+      }
+    }
+    uploadAll(this.shade);
+  }
+
+  /** The `shade` bytes (tests: 4 per corner). */
+  get shadeBytes(): Uint8Array {
+    return this.shade.array as Uint8Array;
+  }
+
   private fillPaint(rgb: readonly [number, number, number]): void {
     const out = this.paint.array as Uint8Array;
     for (let i = 0; i < out.length; i += 3) {
@@ -309,8 +354,9 @@ export class SurfaceLayer {
   }
 
   /**
-   * Per-pane display: `wire` hides the surface; `shaded` draws clay; `colours`/`lit` the palette colours (`lit` has no
-   * other material here: mesh-view draws the palette under the same rig, M6A-B6-3). `opacity` < 1 draws it
+   * Per-pane display: `wire` hides the surface; `shaded` draws clay; `colours`/`lit` the palette colours with their
+   * swatch shaders (`lit` has no other material here: mesh-view draws the palette under the same rig, M6A-B6-3;
+   * SHADING-SPEC §3). `opacity` < 1 draws it
    * transparent; `xray` adds the depth pre-pass the overlays' occluded pass tests against.
    */
   apply(opts: Readonly<SurfaceDisplay>): void {
