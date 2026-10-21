@@ -88,6 +88,8 @@ const preamble = [
   'Ekza Studio is MIT licensed (see LICENSE in the source repository). It includes or depends on the',
   'third-party software listed below, each under its own licence. Bundled sample models are credited in',
   'fixtures/LICENSES.md and in Help → About.',
+  // M6B-SPEC §0.4.7 (C12): the clip library's starter pack.
+  'Clip library starter pack: Universal Animation Library by Quaternius (CC0), see library/animations/LICENSE.md.',
   `Packages: ${packages.length}.`,
 ].join('\n');
 

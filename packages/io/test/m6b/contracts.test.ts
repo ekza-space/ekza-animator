@@ -8,15 +8,12 @@ import {
   jointsFingerprint,
   measureSkinned,
   parseGlb,
-  parseStarterPackManifest,
-  retargetUalClip,
   skeletonFromDoc,
   skeletonFromGltf,
   synthesizeContainer,
   UAL_BONE_MAP,
   VRM_LINT_RULES,
   writeCharacter,
-  writeHumanoidVrma,
 } from '../../src';
 import { skeletonFingerprint } from '../../src/skeleton/read';
 
@@ -127,18 +124,14 @@ describe('stubs fail not-implemented (§3 rule 1)', () => {
   const any = null as never;
   it.each([
     ['io.measureSkinned', () => measureSkinned(any)],
-    ['io.parseStarterPackManifest', () => parseStarterPackManifest({})],
-    ['io.retargetUalClip', () => retargetUalClip(any, 'Walk_Loop')],
+    // C12 landed parseStarterPackManifest and retargetUalClip (tests in test/m6b-library).
   ] as const)('%s', (message, call) => {
     expect(call).toThrow(expect.objectContaining({ code: 'not-implemented', message }));
   });
   it.each([
     ['io.writeCharacter', () => writeCharacter(any, { generator: 'test', format: 'vrm' })],
     ['io.synthesizeContainer', () => synthesizeContainer(any)],
-    [
-      'io.writeHumanoidVrma',
-      () => writeHumanoidVrma(any, { generator: 'g', license: 'CC0-1.0', credit: 'Q', source: 's' }),
-    ],
+    // C12 landed writeHumanoidVrma (tests in test/m6b-library).
   ] as const)('%s rejects', async (message, call) => {
     await expect(call()).rejects.toMatchObject({ code: 'not-implemented', message });
   });
