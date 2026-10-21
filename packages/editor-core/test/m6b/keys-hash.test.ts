@@ -3,8 +3,9 @@
 // runs (the row's `status` becomes 'checked' and its `args` the fixture run) when it lands the operator.
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import type { EditorApp } from '../../src';
+import { beginChannelEditGesture, type EditorApp, registerBuiltinWorkspaces } from '../../src';
 import { opsApp } from '../builtin/support';
+import { W } from '../kernel/support';
 import { LIBRARY_OPERATORS } from '../../src/operators/builtin/library';
 import { RIG_WORKSPACE_OPERATORS } from '../../src/operators/builtin/rig/index';
 
@@ -103,16 +104,18 @@ export const P_C6_ROWS: readonly Row[] = [
     'skin.testRotate.toggle',
   ),
   ...pending('C11', 'skin.weights.fillMissing', 'skin.review.mark'),
-  ...pending(
-    'C7',
-    'skin.test.rom',
-    'rig.mode',
-    'rig.pose.view',
-    'rig.pose.resetTest',
-    'rig.animateOnly',
-    'rig.validation.profile',
-    'rig.outliner.delete',
-  ),
+  // C7 (deferred after the MVP: the ROM clip and the Rig Outliner's delete).
+  ...pending('C7', 'skin.test.rom', 'rig.outliner.delete'),
+  { id: 'rig.mode', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, { mode: 'skeleton' }) },
+  { id: 'rig.pose.view', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, { view: 'bind' }) },
+  { id: 'rig.pose.resetTest', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, undefined) },
+  { id: 'rig.animateOnly', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, undefined) },
+  {
+    id: 'rig.validation.profile',
+    status: 'checked',
+    owner: 'C7',
+    setup: async (app) => rigSetup(app, { profile: 'local/generic' }),
+  },
   // §3 rule 7: the auto-rig update soft-deletes controls whose bone vanished (their curves stay).
   { id: 'rig.autoRig.update', status: 'keys', owner: 'C1' },
   ...pending(
@@ -150,6 +153,18 @@ export const P_C6_ROWS: readonly Row[] = [
   ...pending('C12', 'library.open', 'library.preview', 'library.stop'),
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
 ];
+
+/** C7's fixture: Rig & Skin entered with a control selected and a test pose on it (a test gesture). */
+async function rigSetup<T>(app: EditorApp, args: T): Promise<T> {
+  registerBuiltinWorkspaces(app);
+  await app.runUntyped('workspace.set', { workspace: 'rig' });
+  const control = W.lowerArmL;
+  app.session.setState({ selection: { ...app.session.getState().selection, controls: [control] } });
+  const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+  gesture.update([{ control, channel: 'rz', value: 0.5 }]);
+  gesture.commit();
+  return args;
+}
 
 describe('P-C6: rig edits never key (table frame, §5.26)', () => {
   it('lists every operator of the rig-workspace and clip-library chunks once', () => {
