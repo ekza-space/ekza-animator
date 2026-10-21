@@ -4,7 +4,7 @@
 // float64, typed arrays, no `Math.random`, ties to the smaller joint (palette) index, then the smaller point index.
 import { EkzaError } from '@ekza-studio/anim-core';
 import { closestWeights } from '../closest';
-import { pointGraph, pointTriangles } from '../geometry';
+import { pointGraph, pointTriangles } from '../geometry/adjacency';
 import { solveHeatIsland } from '../heat';
 import { type Islands, skinIslands } from '../islands';
 import { cotLaplacian } from '../laplacian';
