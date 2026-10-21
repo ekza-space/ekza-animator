@@ -181,3 +181,14 @@ other processes; viewport untouched by C4); the file passed alone (29/29), then 
 rig 232, headless 193, io 262, anim-core 671, doc 263, curve-editor 209 (+3 skipped), ui 94, doc-yjs 85, mesh-view 75,
 web 24, tooling. build pass; check:size 891,372 B (gate 900,000 B; M6b eager delta +1,803 B). test:e2e: 219 passed,
 25 skipped (E2E-SKIN-01's two stay `test.fixme` on c1, c2, c3, c6, c7).
+
+### Fix round 2 gates (`2d7f1e1`, real Chrome, port 3163)
+
+`EKZA_E2E_PORT=3163 pnpm run ci`: the first run stopped in editor-core's `m2a-a4-mirror-properties.test.ts`
+(`halfCycleKeys`, an unseeded fast-check property: seed −767337172 fails 2 of its 11 tests at 2.6e-8 > 1e-9). The
+failure reproduces with that seed pinned. It sits in `workflows/mirrorAnimation.ts`, which this branch does not change
+from `m6b/mvp`, so it is a pre-existing flake for M2a's owner and INT. The second run exited 0:
+format:check, lint, typecheck, check:deps, check:fixtures, check:licenses; test 15/15 (mesh-core 953, editor-core
+1360, editor 521 (+1 skipped), viewport 243 (+1 skipped), headless 193, others unchanged); build; check:size 891,371 B
+(gate 900,000 B; M6b eager delta +1,802 B); test:e2e 219 passed, 25 skipped (E2E-SKIN-01's two still `test.fixme` on
+c1, c2, c3, c6, c7).
