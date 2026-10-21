@@ -1,4 +1,5 @@
-// M6B-SPEC §4.4 and §0.5 (C0): io's working baselines — `skeletonFromDoc` for a skeleton without skinned meshes (rest
+// M6B-SPEC §4.4 and §0.5 (C0): io's working baselines (C1 landed measureSkinned, writeCharacter and
+// synthesizeContainer: their tests are test/m6b/character-runtime/*) — `skeletonFromDoc` for a skeleton without skinned meshes (rest
 // data only: radii null, joint-based height) and `jointsFingerprint` — the spec's UAL bone map against the fixture's
 // deformers, and every stub failing `not-implemented`.
 import type { JointRecord, SkeletonRecord } from '@ekza-studio/doc';
@@ -6,16 +7,13 @@ import { makeTestJoint, makeTestSkeleton, readFixture } from '@ekza-studio/doc/t
 import { describe, expect, it } from 'vitest';
 import {
   jointsFingerprint,
-  measureSkinned,
   parseGlb,
   parseStarterPackManifest,
   retargetUalClip,
   skeletonFromDoc,
   skeletonFromGltf,
-  synthesizeContainer,
   UAL_BONE_MAP,
   VRM_LINT_RULES,
-  writeCharacter,
   writeHumanoidVrma,
 } from '../../src';
 import { skeletonFingerprint } from '../../src/skeleton/read';
@@ -126,15 +124,12 @@ describe('UAL_BONE_MAP (§0.4.7)', () => {
 describe('stubs fail not-implemented (§3 rule 1)', () => {
   const any = null as never;
   it.each([
-    ['io.measureSkinned', () => measureSkinned(any)],
     ['io.parseStarterPackManifest', () => parseStarterPackManifest({})],
     ['io.retargetUalClip', () => retargetUalClip(any, 'Walk_Loop')],
   ] as const)('%s', (message, call) => {
     expect(call).toThrow(expect.objectContaining({ code: 'not-implemented', message }));
   });
   it.each([
-    ['io.writeCharacter', () => writeCharacter(any, { generator: 'test', format: 'vrm' })],
-    ['io.synthesizeContainer', () => synthesizeContainer(any)],
     [
       'io.writeHumanoidVrma',
       () => writeHumanoidVrma(any, { generator: 'g', license: 'CC0-1.0', credit: 'Q', source: 's' }),

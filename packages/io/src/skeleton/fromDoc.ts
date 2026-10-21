@@ -5,9 +5,10 @@
 // The measurement mirrors what skeletonFromGltf measures on the character writer's output (§5.1 equality gate): the
 // writer emits one skin listing every joint, so every joint is "skinned" (radius inheritance), the segments follow the
 // humanoid chain child else the first child (never `JointRecord.tail`, which glTF cannot carry), and the height is the
-// bound meshes' bounds height. Vertices are the meshes' points (the writer splits points into corners by normal and
-// UV; the radii agree within the gate's 1e-4 H on the fixtures, wp-notes M6B-C1-3).
-import type { MeshData, SkinWeights } from '@ekza-studio/mesh-core';
+// bound meshes' bounds height. The radii are a percentile over vertices, so they depend on how the writer splits points
+// into vertices (by normal, UV and material): callers that know the export layout pass it (`opts.vertices`, built by
+// io's `characterVertices`) and get the written file's radii exactly; without it the points are measured.
+import type { SkinWeights } from '@ekza-studio/mesh-core';
 import {
   mat4Compose,
   quatInvert,
@@ -79,7 +80,7 @@ function restLocal(joint: JointRecord, parent: JointRecord | undefined): Xf {
 /** Joint nodes only (`isJoint` true, `hasMesh` false); equal on its joint subset to what skeletonFromGltf gives for
  *  the writer's output of these records (§5.1, gate §10.2); `fingerprint` = `jointsFingerprint`. In `io` because it
  *  needs `measureSkinned` and io's SHA-256 (`io → rig`, never the reverse). */
-export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
+export function skeletonFromDoc(input: DocSkeletonInput, opts: SkeletonFromDocOptions = {}): SkeletonDesc {
   const live = input.joints.filter((joint) => joint.deleted === null && joint.skeleton === input.skeleton.id);
   const ordered = topological(live);
   const index = new Map(ordered.map((joint, i) => [joint.id as string, i]));
@@ -110,8 +111,9 @@ export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
   const jointHeight = (maxY - minY) * JOINT_HEIGHT_FACTOR;
   const humanoidTemplate = input.skeleton.template === 'vrm-humanoid';
   const humanoidMap = humanoidTemplate ? humanoid : null;
-  const measured = measureDoc(nodes, ordered, humanoidMap, input.meshes);
-  const fromMesh = measured !== null && measured.height !== null && measured.height > 0;
+  const measured = measureDoc(nodes, ordered, humanoidMap, input.meshes, opts.vertices ?? null);
+  const meshHeight = measured?.height ?? null;
+  const fromMesh = meshHeight !== null && meshHeight > 0;
   return {
     format: humanoidTemplate ? 'vrm1' : 'gltf',
     facing: IDENTITY_FACING,
@@ -121,7 +123,7 @@ export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
     nodeConstraints: [],
     constrainedNodes: [],
     boneRadii: measured === null ? nodes.map(() => null) : [...measured.radii],
-    height: fromMesh ? (measured.height as number) : jointHeight > 0 ? jointHeight : 1,
+    height: fromMesh ? meshHeight : jointHeight > 0 ? jointHeight : 1,
     heightSource: fromMesh ? 'mesh' : 'joints',
     fingerprint: jointsFingerprint(nodes),
     ekzaHeightScale: null,
@@ -135,15 +137,30 @@ export function skeletonFromDoc(input: DocSkeletonInput): SkeletonDesc {
 
 type DocMesh = DocSkeletonInput['meshes'][number];
 
+/** The export vertices of a bound mesh (the writer's layout, `characterVertices`): `joints` index its skin palette. */
+export interface DocVertices {
+  readonly positions: Float32Array;
+  readonly joints: Uint8Array | Uint16Array | Uint32Array;
+  readonly weights: Float32Array;
+}
+
+/** C1 (additive): what skeletonFromDoc measures besides the records. */
+export interface SkeletonFromDocOptions {
+  /** Per bound mesh (MeshId), its export vertices; a mesh without an entry is measured on its points. With the
+   *  writer's layout the radii equal what skeletonFromGltf measures on the written file (the §5.1 gate). */
+  readonly vertices?: ReadonlyMap<string, DocVertices> | null;
+}
+
 /**
- * Radii, support and bounds height over the bound meshes' points (placed by their `placement`), or null without a
- * bound mesh. Palette keys are JointIds; a key that names no live joint of the skeleton weighs nothing here.
+ * Radii, support and bounds height over the bound meshes' export vertices (`vertices`) or points, placed by their
+ * `placement`, or null without a bound mesh. Palette keys are JointIds; a key that names no live joint of the skeleton weighs nothing here.
  */
 function measureDoc(
   nodes: readonly SkeletonNode[],
   ordered: readonly JointRecord[],
   humanoid: Readonly<Partial<Record<HumanBoneName, number>>> | null,
   meshes: readonly DocMesh[],
+  vertices: ReadonlyMap<string, DocVertices> | null,
 ): {
   readonly radii: readonly (number | null)[];
   readonly support: readonly (Float32Array | null)[];
@@ -154,21 +171,30 @@ function measureDoc(
   );
   if (bound.length === 0 || nodes.length === 0) return null;
   const nodeOf = new Map(ordered.map((joint, i) => [joint.id as string, i]));
+  const sources = bound.map((mesh) => {
+    const given = vertices?.get(mesh.id);
+    if (given !== undefined) {
+      const count = Math.min(given.positions.length / 3, given.joints.length / 4, given.weights.length / 4);
+      return { mesh, count, positions: given.positions, joints: given.joints, weights: given.weights };
+    }
+    const count = Math.min(mesh.skin.points, mesh.data.counts.points);
+    return { mesh, count, positions: mesh.data.position, joints: mesh.skin.joints, weights: mesh.skin.weights };
+  });
   let total = 0;
-  for (const mesh of bound) total += Math.min(mesh.skin.points, mesh.data.counts.points);
+  for (const source of sources) total += source.count;
   const positions = new Float32Array(3 * total);
   const joints = new Uint16Array(4 * total);
   const weights = new Float32Array(4 * total);
   let minY = Number.POSITIVE_INFINITY;
   let maxY = Number.NEGATIVE_INFINITY;
   let at = 0;
-  for (const mesh of bound) {
-    const count = Math.min(mesh.skin.points, mesh.data.counts.points);
+  for (const source of sources) {
+    const { mesh, count } = source;
     const palette = mesh.skin.palette.map((entry) => nodeOf.get(entry.key) ?? NO_NODE);
-    placePoints(mesh.data, mesh.placement, count, positions, 3 * at);
+    placePoints(source.positions, mesh.placement, count, positions, 3 * at);
     for (let i = 0; i < 4 * count; i++) {
-      joints[4 * at + i] = palette[mesh.skin.joints[i] as number] ?? NO_NODE;
-      weights[4 * at + i] = mesh.skin.weights[i] as number;
+      joints[4 * at + i] = palette[source.joints[i] as number] ?? NO_NODE;
+      weights[4 * at + i] = source.weights[i] as number;
     }
     for (let v = 0; v < count; v++) {
       const y = positions[3 * (at + v) + 1] as number;
@@ -197,8 +223,14 @@ function measureDoc(
   return { ...measured, height: Number.isFinite(maxY - minY) ? maxY - minY : null };
 }
 
-/** Writes `count` points of `data` placed by the column-major `placement` (float32, like the writer's POSITION). */
-function placePoints(data: MeshData, placement: Float64Array, count: number, out: Float32Array, offset: number): void {
+/** Writes `count` points placed by the column-major `placement` (float32, like the writer's POSITION). */
+function placePoints(
+  p: ArrayLike<number>,
+  placement: Float64Array,
+  count: number,
+  out: Float32Array,
+  offset: number,
+): void {
   const m = placement;
   const identity =
     m.length < 16 ||
@@ -215,7 +247,6 @@ function placePoints(data: MeshData, placement: Float64Array, count: number, out
       m[6] === 0 &&
       m[8] === 0 &&
       m[9] === 0);
-  const p = data.position;
   for (let v = 0; v < count; v++) {
     const x = p[3 * v] as number;
     const y = p[3 * v + 1] as number;
