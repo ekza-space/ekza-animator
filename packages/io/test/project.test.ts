@@ -1,6 +1,6 @@
 import { EkzaError } from '@ekza-studio/anim-core';
 import { type AssetId, type AssetRecord, type DocSnapshot, SCHEMA_VERSION, serializeSnapshot } from '@ekza-studio/doc';
-import { readFixture, readSyntheticFixture, withSchemaV3 } from '@ekza-studio/doc/testing';
+import { readFixture, readSyntheticFixture, withSchemaV4 } from '@ekza-studio/doc/testing';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
 import { canonicalJson } from '../src/gltf/json';
@@ -17,8 +17,9 @@ import {
 
 // The fixture is an M1 (schema 1) document; the tests below use it as a current snapshot (M2A-SPEC §3 rule 8: the
 // schema 1 → 2 migration is the identity on records; M6A-SPEC §3 rule 9 literal update: the schema 3 form adds
-// `source`, `provenance: null` and the empty M6a tables, `withSchemaV3`).
-const waveDoc = (): DocSnapshot => withSchemaV3(readSyntheticFixture('wave-doc.json') as DocSnapshot);
+// `source`, `provenance: null` and the empty M6a tables, `withSchemaV3`; M6B-SPEC §3 rule 9: the schema 4 form adds
+// `vrm: null` to characters, `withSchemaV4`).
+const waveDoc = (): DocSnapshot => withSchemaV4(readSyntheticFixture('wave-doc.json') as DocSnapshot);
 
 function polybotAsset(): { readonly id: AssetId; readonly record: AssetRecord; readonly bytes: Uint8Array } {
   const bytes = readFixture('polybot.vrm');

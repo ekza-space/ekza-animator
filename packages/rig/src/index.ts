@@ -41,3 +41,31 @@ export {
 export { computeInfluenceKeyTimes } from './schedule/influence';
 export { computeStepSchedule } from './schedule/steps';
 export * from './types';
+// ---------- M6b (M6B-SPEC §4.3; C0 stub and baseline lines, each owner changes only its own) ----------
+export { updateAutoRig } from './autorig/update';
+export { bakeConstraints, CONSTRAINT_OPS, mirrorConstraint, withoutConstraints } from './constraints';
+export { parseConstraintParams } from './constraints/params';
+export {
+  applyPoseAsRest,
+  chainParent,
+  deleteJoints,
+  duplicateJoints,
+  insertJoint,
+  mirrorJoints,
+  moveJoints,
+  orientJoints,
+  removeJoints,
+  reparentJoints,
+  socketPlacement,
+  splitBone,
+} from './joints';
+export {
+  fitTemplate,
+  guessMarkers,
+  projectedCenter,
+  QUICK_RIG_CENTRE_MARKERS,
+  QUICK_RIG_SIDE_MARKERS,
+} from './quickrig';
+export { editShapePoints, generatedShape, mirrorShape, transformShape } from './shapes';
+export { skeletonTemplate } from './templates';
+export { checkSkeleton } from './validate';

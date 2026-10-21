@@ -8,12 +8,15 @@ import type {
   ChannelId,
   ColourOutput,
   HumanBoneName,
+  JointRole,
   ModelFormat,
   OrthoCamera,
   PrimitiveKind,
+  ShapeField,
   Side,
   SwatchShader,
 } from '../records';
+import { repairVrmMeta } from './vrm';
 
 type Problems = string[];
 type Obj = Readonly<Record<string, unknown>>;
@@ -71,6 +74,9 @@ export const SWATCH_SHADERS = ['lambert', 'blinn'] as const satisfies readonly S
 export const ORTHO_CAMERAS = ['front', 'side', 'top'] as const satisfies readonly OrthoCamera[];
 export const SKELETON_PRESETS = ['lite17', 'core21', 'standard33', 'full52', 'custom'] as const;
 export const GROUP_TEMPLATES = ['prop', 'handheld', 'humanoid'] as const;
+// M6b schema v4 (M6B-SPEC §4.1).
+export const JOINT_ROLES = ['bone', 'helper', 'prop'] as const satisfies readonly JointRole[];
+export const SHAPE_FIELDS = ['kind', 'size', 'offset', 'color', 'lineWidth'] as const satisfies readonly ShapeField[];
 /** VRM 1.0 humanoid bone names (doc keeps its own list: it cannot import rig). */
 export const HUMAN_BONE_NAMES = [
   'hips',
@@ -340,8 +346,12 @@ const clipSource: Check = (v, p, out) => {
       str(v['fileName'], `${p}.fileName`, out);
       nullable(nonEmpty)(v['asset'], `${p}.asset`, out);
       return;
+    case 'test': // M6b v4: a generated test clip (ROM), never exported
+      literal('rom')(v['generator'], `${p}.generator`, out);
+      literal(1)(v['version'], `${p}.version`, out);
+      return;
     default:
-      out.push(`${p}.kind: expected 'new', 'embedded' or 'imported'`);
+      out.push(`${p}.kind: expected 'new', 'embedded', 'imported' or 'test'`);
   }
 };
 const provenance = shape({
@@ -403,7 +413,7 @@ const assetShape = shape({
   ext: oneOf(['glb', 'vrm', 'vrma', 'png', 'jpg']),
   mime: oneOf(['model/gltf-binary', 'image/png', 'image/jpeg']),
   size: int(0),
-  role: oneOf(['model', 'animation-source', 'reference-image']),
+  role: oneOf(['model', 'animation-source', 'reference-image', 'thumbnail']),
   provenance: nullable(assetProvenance),
 });
 
@@ -434,6 +444,10 @@ const characterShape = shape({
   placement: xf,
   order,
   deleted: tombstone,
+  // M6b v4: null, or a VRM meta every field of which is present and of its type (it repairs to itself).
+  vrm: (v, p, out) => {
+    if (v !== null && (!isObj(v) || repairVrmMeta(v, v['name']) !== v)) out.push(`${p}: expected null or a VRM meta`);
+  },
 });
 
 const rigShape = shape({
@@ -466,6 +480,21 @@ const controlShapeCheck = shape({
   hiddenByDefault: bool,
   deleted: tombstone,
 });
+/** M6b v4: `ControlShape.edited` — absent, or known shape fields without duplicates. */
+const shapeEdited: Check = (v, p, out) => {
+  if (v === undefined) return;
+  if (!Array.isArray(v)) {
+    out.push(`${p}: expected an array of shape fields`);
+    return;
+  }
+  const seen = new Set<unknown>();
+  for (let i = 0; i < v.length; i++) {
+    const field: unknown = v[i];
+    if (!(SHAPE_FIELDS as readonly unknown[]).includes(field)) out.push(`${p}[${i}]: expected a shape field`);
+    else if (seen.has(field)) out.push(`${p}[${i}]: duplicate shape field`);
+    seen.add(field);
+  }
+};
 
 const constraintShape = shape({
   id,
@@ -748,6 +777,8 @@ const jointShape = shape({
   side: oneOf(SIDES),
   mirror: nullable(nonEmpty),
   deleted: tombstone,
+  role: oneOf(JOINT_ROLES),
+  key: nonEmpty,
 });
 
 /** Cross-field rules the structural checks cannot express. */
@@ -766,6 +797,8 @@ const RULES: Partial<Record<BuiltinTableName, (record: Obj, out: Problems) => vo
   controls(record, out) {
     if (record['parent'] === record['id']) out.push('parent: a control cannot be its own parent');
     if (record['mirror'] === record['id']) out.push('mirror: a control cannot mirror itself');
+    const shapeRecord = record['shape'];
+    if (isObj(shapeRecord)) shapeEdited(shapeRecord['edited'], 'shape.edited', out);
   },
   cameras(record, out) {
     if (isFiniteNumber(record['near']) && isFiniteNumber(record['far']) && record['far'] <= record['near']) {
@@ -778,6 +811,9 @@ const RULES: Partial<Record<BuiltinTableName, (record: Obj, out: Problems) => vo
     const expected = ext === 'png' ? 'image/png' : ext === 'jpg' ? 'image/jpeg' : 'model/gltf-binary';
     if (typeof ext === 'string' && typeof mime === 'string' && mime !== expected) {
       out.push(`mime: expected '${expected}' for ext '${ext}'`);
+    }
+    if (record['role'] === 'thumbnail' && ext !== 'png' && ext !== 'jpg') {
+      out.push("ext: expected 'png' or 'jpg' for a thumbnail");
     }
   },
   characters(record, out) {

@@ -30,6 +30,8 @@ export {
   meshPaneDisplay,
 } from './mesh';
 export { defaultPaneCamera, FIRST_SHOT_CAMERA, LAYOUT_PANES } from './panes/layout';
+// M6b (M6B-SPEC §4.7): the lazy Rig & Skin overlays (C0 stubs; C3, C6, C8b, C9 fill viewport/src/rig/**).
+export { loadViewportRig, type ViewportRigModule } from './rig/load';
 // M6a (B10): the Model select runtime (mesh display, component and object picking, the operators' pointer probe).
 export {
   attachModelSelect,
