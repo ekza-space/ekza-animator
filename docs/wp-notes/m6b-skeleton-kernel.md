@@ -92,6 +92,47 @@ Thresholds stay in `FIT`, `GUESS` and `START_CHECKS` (`rig/src/quickrig`), one p
   `editor/test/m6b-skeleton-kernel-test-api.test.ts`.
 - C0's `READY` flag files: `c2: true` in mesh-core, rig, io and editor-core.
 
-## Gates (local; port 3162)
+- E2E-M6B-00 (C0's spec), literal update: its MVP sample holds three C2 ids (`skel.template.create`,
+  `skel.joint.orient`, `skel.joint.mirror`); with nothing selected they now refuse with their real reasons ("Select the
+  meshes to rig", "Select joints first") instead of "not available yet" (`LANDED` map in the spec).
 
-See the end of this file (filled after the run).
+## Benches (report only; reference Mac under load average ≈ 20–90 from other agents)
+
+| Row | Cube Lad (192 tris) | Polybot T (2,130) | body ×16 (7,904) | body ×64 (31,616) |
+|---|---:|---:|---:|---:|
+| `guessMarkers` (budget ≤ 50 ms at 10k) | 0.42 ms | 0.52 ms | 0.58 ms | 1.0 ms |
+| `fitQuickRig` (one preview frame) | 0.025 ms | 0.035 ms | 0.067 ms | 0.19 ms |
+| `quickRigStartChecks` | 0.004 ms | 0.017 ms | 0.051 ms | 0.18 ms |
+| `TriangleBvh` build | 0.07 ms | 1.8 ms | 7.6 ms | 41 ms |
+
+`m6b-query.bench.ts` (64 rays / points): sphere 9,800 tris — build 12 ms; `raycastAll` 0.042 ms (reference 11.4 ms);
+`closestPoint` 0.46 ms (reference 21.7 ms); torus 25,600 tris — build 35 ms; `raycastAll` 0.045 ms (reference 30 ms).
+The build sorts each node's triangles (n log² n); Quick Rig caches the geometry per revision, so it runs once per
+session start or model edit.
+
+## Gates (local, real Chrome; port 3162)
+
+`EKZA_E2E_PORT=3162 pnpm run ci` on `340ac9e` + the E2E-M6B-00 literal update, machine load average 70–100 (other
+agents' runs):
+
+- format:check, lint (`oxlint --type-aware`), typecheck, check:deps (15 packages), check:fixtures, check:licenses: pass.
+- test (turbo 15/15) pass on the second run. The first run had two unrelated timeouts under load (io
+  `project.test.ts` "round-trips a snapshot…" 30 s and mesh-core `bevel/clamp.test.ts` property case 30 s); both pass
+  alone (11/11, 7/7).
+- build: pass. check:size: route 890,865 B (gate 900,000 B); **M6b MVP eager delta +1,296 B** (C0 measured +1,535 B
+  on its branch: C2 adds no eager bytes; all its code is in the `rig-workspace` chunk, 36.8 kB, and the e2e test-API
+  chunk).
+- test:e2e (project `chrome`): 217 passed, 23 skipped, 2 failed — E2E-M6B-00 (the literal above, fixed) and
+  E2E-MOD-30 (the Seed-san outline ratio 0.166 vs < 0.1, a known load flake, C0 notes); both specs rerun alone on
+  3162 after the fix: 5/5 passed. The 3162 server was Playwright's own and stopped with each run; the port is free.
+- New C2 suites: rig `m6b-skeleton` 62 tests; editor-core `m6b/skeleton-kernel` 18 (+ 3 gated on `c1`/`c4`); editor
+  test-API 2; the P-C6 table runs 10 C2 rows.
+
+## Not done / left to others
+
+- P-J2 runs on the Standard 33 template skeleton with a world-delta pose (skinning matrices within 1e-9) and the
+  key-conversion identity; Seed-san-as-records needs C1's `skeletonFromDoc` over an asset and is not in this suite.
+- The P-C6 rows of `skel.template.create`, `skel.quickRig.commit`, `.center`, `.faceForward` stay `pending` in the
+  table (no mesh kernel in `opsApp`); their keys hash is asserted in `skeleton-kernel/quick-rig.test.ts`.
+- `skel.joint.rename` is built (the optional §0.3 item).
+- E2E owned: none (C3 owns the Quick Rig and joint UI scenarios).
