@@ -14,6 +14,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { ChannelValues, CharacterId, ControlId } from '@ekza-studio/doc';
 import type { ChannelBuffer, RigProgram } from '@ekza-studio/rig';
+import { ANIMATE_ONLY_REASON } from '../operators/builtin/keymapShadows';
 import type { ChannelEditGesture, ChannelSource, ChannelSourceProvider, EditorApp, TestPoseService } from '../types';
 
 const providers: ChannelSourceProvider[] = [];
@@ -86,6 +87,67 @@ export function redirectedChannelEdit(app: EditorApp, label: string): ChannelEdi
     commit: end,
     cancel: end,
   };
+}
+
+/**
+ * C7 (§5.17 "keying is impossible in Rig & Skin"): the operators that key, paste or mirror a pose or edit curves. In
+ * Rig & Skin the runner and `operators.poll` refuse them before their own poll (whatever the source: keyboard, palette,
+ * menus, the Channel Box's "Key Selected", the Graph Editor), so a test pose is never written into the document.
+ * Reading curves (copy, the buffer snapshot) stays allowed.
+ */
+const RIG_KEYING: ReadonlySet<string> = new Set([
+  'key.set',
+  'key.deleteAtFrame',
+  'key.convert',
+  'key.tween',
+  'pose.paste',
+  'pose.mirror',
+  'pose.mirrorAnimation',
+  'pose.plantFeet',
+  'pose.resetToRest',
+  'time.insertTime',
+  'time.deleteTime',
+  'rig.ikFk.switch',
+  'rig.ikFk.match',
+  'rig.ikFk.matchRange',
+]);
+const GRAPH_READS: ReadonlySet<string> = new Set(['graph.keys.copy', 'graph.buffer.snapshot', 'graph.buffer.clear']);
+
+/** The refusal reason when `id` keys or edits curves in Rig & Skin, else null. */
+export function rigKeyingRefusal(app: Pick<EditorApp, 'session'>, id: string): string | null {
+  if (app.session.getState().workspace !== 'rig') return null;
+  const keying = RIG_KEYING.has(id) || (id.startsWith('graph.') && !GRAPH_READS.has(id));
+  return keying ? ANIMATE_ONLY_REASON : null;
+}
+
+/** §5.24 (research 09 §11.2): below 1024 px Rig & Skin is view-only (test poses and Validation). */
+export const RIG_VIEW_ONLY_REASON = 'Open on a larger screen to edit';
+const viewOnlyApps = new WeakSet<object>();
+/** Document edits that stay allowed while view-only: a typed Channel Box value is a test pose there. */
+const VIEW_ONLY_ALLOWED: ReadonlySet<string> = new Set(['channel.setValues']);
+
+/** The rig shell reports a narrow window (< 1024 px) per app; Rig & Skin then refuses document edits. */
+export function setRigViewOnly(app: EditorApp, viewOnly: boolean): void {
+  if (viewOnly) viewOnlyApps.add(app);
+  else viewOnlyApps.delete(app);
+}
+
+export function rigViewOnly(app: EditorApp): boolean {
+  return app.session.getState().workspace === 'rig' && viewOnlyApps.has(app);
+}
+
+/**
+ * Why the runner (and `operators.poll`) refuses an operator in Rig & Skin, or null: keying (`rigKeyingRefusal`), or
+ * a document edit while the window is narrower than 1024 px.
+ */
+export function rigRunRefusal(
+  app: EditorApp,
+  def: { readonly id: string; readonly flags?: { readonly undo?: boolean } },
+): string | null {
+  const keying = rigKeyingRefusal(app, def.id);
+  if (keying !== null) return keying;
+  if (def.flags?.undo === true && !VIEW_ONLY_ALLOWED.has(def.id) && rigViewOnly(app)) return RIG_VIEW_ONLY_REASON;
+  return null;
 }
 
 export interface ChannelSources {

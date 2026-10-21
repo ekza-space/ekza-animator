@@ -442,6 +442,7 @@ export { beginTestPoseGesture } from './rig/testPose/gesture';
 export { KEYING_CHORDS, RIG_SCOPE, RIG_SHADOW_KEYMAP } from './keymap/maya.rig';
 export { RIG_KEYMAP } from './rig/chunk/keymap';
 export { BIND_A_MESH_FIRST, MODE_MASKS, RIG_ONLY_REASON } from './operators/builtin/rig/mode';
-export { type ChannelEditRedirect, registerChannelEditRedirect } from './evaluation/rigSource';
+export { type ChannelEditRedirect, registerChannelEditRedirect, rigKeyingRefusal } from './evaluation/rigSource';
+export { RIG_VIEW_ONLY_REASON, rigViewOnly, setRigViewOnly } from './evaluation/rigSource';
 export { type CharacterRuntimeChunk, loadCharacterRuntime } from './characters/runtimeChunk';
 export { ARRIVES_AFTER_MVP } from './operators/builtin/rig/stub';
