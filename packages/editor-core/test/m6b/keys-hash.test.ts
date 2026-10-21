@@ -147,7 +147,11 @@ export const P_C6_ROWS: readonly Row[] = [
   ),
   ...pending('C10', 'file.exportCharacter'),
   // §0.6: Use Clip writes a clip with keys (an Animate edit, not a rig edit); the others are U state.
-  ...pending('C12', 'library.open', 'library.preview', 'library.stop'),
+  // C12: U state on the naive kit (no humanoid here: the preview's own run on a VRM, keys hash included, is in
+  // test/m6b/library.test.ts).
+  { id: 'library.open', status: 'checked', owner: 'C12' },
+  { id: 'library.preview', status: 'checked', owner: 'C12', setup: () => ({ character: 'chr_none', clip: 'walk' }) },
+  { id: 'library.stop', status: 'checked', owner: 'C12' },
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
 ];
 

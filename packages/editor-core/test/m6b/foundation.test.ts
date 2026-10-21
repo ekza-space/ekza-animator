@@ -159,9 +159,15 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     };
-    expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
-      MVP.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
-    );
+    // C12 landed the library operators: their polls are real (no character, no preview).
+    const landed: Readonly<Record<string, string>> = {
+      'rig.animateOnly': 'Keys and poses are set in Animate',
+      'library.open': 'ok',
+      'library.preview': 'expects { character, clip }',
+      'library.stop': 'No clip preview is playing',
+      'library.useClip': 'expects { character, clip }',
+    };
+    expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(MVP.map((id) => [id, landed[id] ?? NOT_AVAILABLE_YET]));
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(
       DEFERRED.map((id) => [id, ARRIVES_AFTER_MVP, true]),
     );
@@ -179,7 +185,7 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       reason: NOT_AVAILABLE_YET,
     });
     expect(app.rig.loaded).toBe(true);
-    expect(await app.runUntyped('library.stop')).toEqual({ status: 'cancelled', reason: NOT_AVAILABLE_YET });
+    expect(await app.runUntyped('library.stop')).toEqual({ status: 'cancelled', reason: 'No clip preview is playing' });
     expect(app.library.loaded).toBe(true);
     expect(await app.runUntyped('skel.nope.missing')).toEqual({
       status: 'cancelled',
