@@ -28,6 +28,16 @@ export const DEFAULT_DISPLAY: DisplayFlags = {
   symmetryPlane: true,
   dimUnhilited: false,
   imagePlanes: true,
+  // M6b (M6B-SPEC §4.6): Animate keeps today's look (the joints overlay is Rig & Skin's).
+  joints: false,
+  xrayJoints: false,
+  jointAxes: 'none',
+  jointLabels: 'none',
+  weights: 'off',
+  weightNumbers: false,
+  lockRelative: false,
+  constraintLines: false,
+  shapeCvs: false,
 };
 
 /** Model's pane display (§4.6, research 16 U7): palette colours, wire on shaded, flat, hard edges, the poly count;
@@ -53,6 +63,7 @@ const MODEL_CAMERAS: Readonly<Record<string, PaneCamera>> = {
 
 /** The display a pane starts with in a workspace. */
 export function defaultDisplayOf(workspace: string): DisplayFlags {
+  // M6b: Rig & Skin starts from DEFAULT_DISPLAY until C7 lands its per-mode display (joints overlay, x-ray, axes).
   return workspace === 'model' ? MODEL_DISPLAY : DEFAULT_DISPLAY;
 }
 
