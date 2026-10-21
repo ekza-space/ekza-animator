@@ -19,9 +19,14 @@ export function withModelCharacters(base: KernelCharacters, ctx: ModelHookContex
   };
   const check = (): void => {
     if (loading !== null || !ctx.store.list('characters').some((c) => c.source?.kind === 'model')) return;
-    loading = loadCharacterRuntime().then((chunk) => {
-      if (impl === null && loading !== null) impl = chunk.createModelCharacters(base, ctx, emit);
-    });
+    loading = loadCharacterRuntime().then(
+      (chunk) => {
+        if (impl === null && loading !== null) impl = chunk.createModelCharacters(base, ctx, emit);
+      },
+      () => {
+        loading = null; // retried on the next batch
+      },
+    );
   };
   const off = [base.subscribe(emit), ctx.store.subscribe(check)];
   check();
