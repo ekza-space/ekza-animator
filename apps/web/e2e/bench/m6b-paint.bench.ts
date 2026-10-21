@@ -17,13 +17,15 @@ const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
 test('m6b-paint: pointer frames of a paint stroke, the commit and its undo (report)', async ({ page }) => {
   await openEditor(page);
   const body = await createBodyCharacter(page);
-  await runOk(page, 'skin.bind', {});
+  // The character adopted the scene mesh under a new id: Bind Skin names it.
+  const bound = await runOk<{ meshes: string[] }>(page, 'skin.bind', {});
+  const mesh = bound.meshes[0] ?? '';
   await enterSkin(page);
   const skeleton = await call(page, 'skeleton', body.character);
   const arm = skeleton?.joints.find((joint) => joint.humanBone === 'leftLowerArm')?.id ?? '';
-  await runOk(page, 'skin.influence.setActive', { mesh: body.mesh, joint: arm });
-  const points = (await call(page, 'meshInfo', body.mesh))?.counts.v ?? 0;
-  const labels = (await call(page, 'weightLabels', RIG_PERSP_PANE)).filter((label) => label.mesh === body.mesh);
+  await runOk(page, 'skin.influence.setActive', { mesh: mesh, joint: arm });
+  const points = (await call(page, 'meshInfo', mesh))?.counts.v ?? 0;
+  const labels = (await call(page, 'weightLabels', RIG_PERSP_PANE)).filter((label) => label.mesh === mesh);
   expect(labels.length).toBeGreaterThan(0);
   const centre = {
     x: labels.reduce((sum, label) => sum + label.x, 0) / labels.length,
