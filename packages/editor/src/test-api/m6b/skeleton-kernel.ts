@@ -14,7 +14,6 @@ import {
   fitQuickRig,
   guessMarkers,
   isSkeletonPreset,
-  type QuickRigMarkers,
   quickRigStartChecks,
   type SkeletonPreset,
   skeletonTemplate,

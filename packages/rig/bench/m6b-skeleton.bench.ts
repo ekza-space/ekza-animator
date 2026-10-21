@@ -17,8 +17,7 @@ function subdivide(t: Triangles, levels: number): Triangles {
       const found = mid.get(key);
       if (found !== undefined) return found;
       const index = positions.length / 3;
-      for (let k = 0; k < 3; k++)
-        positions.push(((positions[3 * a + k]) + (positions[3 * b + k])) / 2);
+      for (let k = 0; k < 3; k++) positions.push((positions[3 * a + k] + positions[3 * b + k]) / 2);
       mid.set(key, index);
       return index;
     };
