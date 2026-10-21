@@ -152,10 +152,24 @@ export function heldSum(row: Row, held: (i: number) => boolean): number {
 }
 
 /**
+ * A mirror-invariant name of a palette index (`min(key, mirror key)`), so a tie between entries can be broken the same
+ * way on a point and on its mirror image (P-S3); two entries with the same canon are a mirror pair.
+ */
+export type MirrorCanon = (i: number) => string;
+
+/**
  * Keeps at most 4 entries: drops the smallest not-held entry other than `keep` (ties: the larger palette index) and
  * rescales the not-held entries other than `keep` to `target` (their sum before the drop). False when it cannot fit.
+ * With `canon` (mirror-aware callers), ties drop the larger canon instead, and a tied mirror pair is dropped together,
+ * so a symmetric row stays symmetric.
  */
-export function pruneToFour(row: Row, held: (i: number) => boolean, keep: number, target: number): boolean {
+export function pruneToFour(
+  row: Row,
+  held: (i: number) => boolean,
+  keep: number,
+  target: number,
+  canon?: MirrorCanon,
+): boolean {
   if (row.idx.length <= MAX_INFLUENCES) return true;
   while (row.idx.length > MAX_INFLUENCES) {
     let drop = -1;
@@ -168,11 +182,24 @@ export function pruneToFour(row: Row, held: (i: number) => boolean, keep: number
       }
       const w = row.w[k] as number;
       const d = row.w[drop] as number;
-      if (w < d || (w === d && i > (row.idx[drop] as number))) drop = k;
+      const j = row.idx[drop] as number;
+      const later = canon === undefined ? i > j : canon(i) > canon(j) || (canon(i) === canon(j) && i > j);
+      if (w < d || (w === d && later)) drop = k;
     }
     if (drop < 0) return false;
+    const dropped = row.idx[drop] as number;
+    const dw = row.w[drop] as number;
     row.idx.splice(drop, 1);
     row.w.splice(drop, 1);
+    if (canon !== undefined) {
+      // The tied mirror partner goes too (one of a symmetric pair alone would break the symmetry).
+      const c = canon(dropped);
+      const twin = row.idx.findIndex((i, k) => i !== keep && !held(i) && row.w[k] === dw && canon(i) === c);
+      if (twin >= 0) {
+        row.idx.splice(twin, 1);
+        row.w.splice(twin, 1);
+      }
+    }
   }
   const free: number[] = [];
   for (let k = 0; k < row.idx.length; k++) {
@@ -281,7 +308,7 @@ export function normalizeRow(row: Row, held: (i: number) => boolean, locked: num
  * Fits a row whose not-held entries were recomputed (smooth, symmetrize, mirror): the not-held entries are scaled to
  * `avail = 1 − Σ held` and the row is cut to 4. Null when nothing is free.
  */
-export function fitFree(row: Row, held: (i: number) => boolean): Row | null {
+export function fitFree(row: Row, held: (i: number) => boolean, canon?: MirrorCanon): Row | null {
   const out = cloneRow(row);
   dropZeros(out);
   const hs = heldSum(out, held);
@@ -291,7 +318,7 @@ export function fitFree(row: Row, held: (i: number) => boolean): Row | null {
   const rest = sumDesc(free.map((k) => out.w[k] as number));
   if (!(rest > 0) || !(avail > 0)) return null;
   for (const k of free) out.w[k] = ((out.w[k] as number) * avail) / rest;
-  if (!pruneToFour(out, held, -1, avail)) return null;
+  if (!pruneToFour(out, held, -1, avail, canon)) return null;
   return out;
 }
 
@@ -299,6 +326,10 @@ export function fitFree(row: Row, held: (i: number) => boolean): Row | null {
  * Writes a float64 row into point `v` as f32 (§5.9 step 3e): values rounded, the residual 1 − Σ into the largest
  * not-held entry (held values are copied bit-equal), slots by descending weight (ties: smaller palette index), unused
  * slots 0. Returns true when the stored point changed.
+ *
+ * Mirror exactness (P-S3, with `canon`): a tie for the largest entry goes to the smaller canon (`min(key, mirror
+ * key)`) instead of the smaller palette index, and a tied mirror pair (`leftLowerArm` = `rightLowerArm` on a seam
+ * point) shares the residual half and half, so a point and its mirror image get the same bits on mirrored joints.
  */
 export function writeRow(
   joints: Uint16Array,
@@ -306,21 +337,41 @@ export function writeRow(
   v: number,
   row: Row,
   held: (i: number) => boolean,
+  canon?: MirrorCanon,
 ): boolean {
   const entries = row.idx.map((i, k) => ({ i, w: Math.fround(row.w[k] as number) })).filter((e) => e.w > 0);
   if (entries.length > MAX_INFLUENCES) throw new EkzaError('internal', 'writeRow: more than 4 influences');
   if (entries.length > 0) {
     const sum = sumDesc(entries.map((e) => e.w));
-    let top = -1;
-    for (let k = 0; k < entries.length; k++) {
-      const e = entries[k] as { i: number; w: number };
-      if (held(e.i)) continue;
-      const t = top < 0 ? undefined : entries[top];
-      if (t === undefined || e.w > t.w || (e.w === t.w && e.i < t.i)) top = k;
-    }
     const residual = 1 - sum;
-    const t = entries[top];
-    if (t !== undefined && residual !== 0 && Math.abs(residual) < 1e-4) t.w = Math.fround(t.w + residual);
+    if (residual !== 0 && Math.abs(residual) < 1e-4) {
+      const before = (x: { i: number; w: number }, y: { i: number; w: number }): boolean => {
+        if (x.w !== y.w) return x.w > y.w;
+        if (canon === undefined) return x.i < y.i;
+        const cx = canon(x.i);
+        const cy = canon(y.i);
+        return cx !== cy ? cx < cy : x.i < y.i;
+      };
+      let top = -1;
+      for (let k = 0; k < entries.length; k++) {
+        const e = entries[k] as { i: number; w: number };
+        if (held(e.i)) continue;
+        const t = top < 0 ? undefined : entries[top];
+        if (t === undefined || before(e, t)) top = k;
+      }
+      const t = entries[top];
+      if (t !== undefined) {
+        const c = canon === undefined ? null : canon(t.i);
+        const twin =
+          c === null ? undefined : entries.find((e) => e !== t && !held(e.i) && e.w === t.w && canon?.(e.i) === c);
+        if (twin === undefined) t.w = Math.fround(t.w + residual);
+        else {
+          const w = Math.fround(t.w + residual / 2);
+          t.w = w;
+          twin.w = w;
+        }
+      }
+    }
   }
   entries.sort((x, y) => y.w - x.w || x.i - y.i);
   let changed = false;

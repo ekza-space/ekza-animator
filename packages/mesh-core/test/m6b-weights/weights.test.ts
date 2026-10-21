@@ -19,6 +19,7 @@ import {
   type WeightContext,
   type WeightEdit,
 } from '../../src';
+import { graphOf } from '../../src/skin/stroke';
 import { skeletonOf } from '../m6b-bind/fixtures';
 import { asymmetric, boundBody, context, invalidPoints, leftPoints, mirrorKey, pointsNear, vectorOf } from './support';
 
@@ -395,6 +396,177 @@ describe('P-S3 mirror weights', () => {
       context(bound),
     );
     expect(asymmetric(bound, centre.skin)).toEqual([]);
+  });
+
+  it('seam points end exact after Mirror Skin Weights (the residual is shared by a tied mirror pair)', () => {
+    const ctx = context(bound);
+    const seam: number[] = [];
+    for (let v = 0; v < bound.skin.points; v++) if (bound.geometry.partner[v] === v) seam.push(v);
+    expect(seam.length).toBeGreaterThan(0);
+    // The review's counterexample: point 0 (x = 0, its own partner) set to leftLowerArm 0.6699950844049455.
+    const edited = editWeights(
+      bound.skin,
+      { kind: 'set', points: [seam[0] as number], joint: 'leftLowerArm', value: 0.6699950844049455, mode: 'set' },
+      ctx,
+    ).skin;
+    const out = mirrorWeights(edited, { direction: 'positive-to-negative', surface: 'partners', points: null }, ctx);
+    expect(asymmetric(bound, out.skin)).toEqual([]);
+    const row = vectorOf(out.skin, seam[0] as number);
+    expect(row.get('leftLowerArm')).toBe(row.get('rightLowerArm'));
+    expect(invalidPoints(out.skin)).toEqual([]);
+  });
+
+  it('random edits on both sides and on the seam, then Mirror Skin Weights: asymmetric() == [] (fast-check)', () => {
+    const P = bound.skin.points;
+    const keys = bound.skeleton.keys.filter((_, i) => bound.skeleton.deform[i] === 1);
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.record({
+            points: fc.array(fc.integer({ min: 0, max: P - 1 }), { minLength: 1, maxLength: 12 }),
+            joint: fc.constantFrom(...keys),
+            value: fc.double({ min: 0, max: 1, noNaN: true }),
+          }),
+          { minLength: 1, maxLength: 4 },
+        ),
+        fc.constantFrom('positive-to-negative' as const, 'negative-to-positive' as const),
+        (edits, direction) => {
+          const ctx = context(bound);
+          let skin = bound.skin;
+          for (const e of edits) skin = editWeights(skin, { kind: 'set', mode: 'set', ...e }, ctx).skin;
+          const out = mirrorWeights(skin, { direction, surface: 'partners', points: null }, ctx).skin;
+          expect(asymmetric(bound, out)).toEqual([]);
+          expect(invalidPoints(out)).toEqual([]);
+        },
+      ),
+      { numRuns: 60 },
+    );
+  });
+
+  it('a mirrored stroke whose stamps cover both v and p(v) on a one-sided joint stays exact', () => {
+    const chest = pointsNear(bound, [0, 1.25, 0.1], 0.2);
+    expect(chest.some((v) => (bound.geometry.positions[3 * v] as number) > 0.01)).toBe(true);
+    expect(chest.some((v) => (bound.geometry.positions[3 * v] as number) < -0.01)).toBe(true);
+    for (const op of ['replace', 'add', 'scale', 'smooth'] as const) {
+      // Uneven strengths across the centre line (the left side stronger), in two overlapping stamps.
+      const strength = (v: number, k: number): number =>
+        0.3 + 0.5 * Math.max(0, bound.geometry.positions[3 * v] as number) * 4 + 0.1 * k;
+      const stamps: StrokeStamp[] = [0, 1].map((k) => ({
+        points: Uint32Array.from(chest),
+        strength: Float32Array.from(chest.map((v) => Math.min(1, strength(v, k)))),
+      }));
+      const out = editWeights(
+        bound.skin,
+        { kind: 'stroke', joint: 'leftShoulder', op, value: 0.6, stamps, mirror: true },
+        context(bound),
+      );
+      expect(out.changed.length, op).toBeGreaterThan(0);
+      expect(asymmetric(bound, out.skin), op).toEqual([]);
+      expect(invalidPoints(out.skin), op).toEqual([]);
+    }
+  });
+});
+
+describe('P-S3 mirrored strokes and Flood over random stamps (fast-check)', () => {
+  const bound = boundBody();
+  const P = bound.skin.points;
+  const keys = bound.skeleton.keys.filter((_, i) => bound.skeleton.deform[i] === 1);
+  const graph = graphOf(bound.geometry);
+  const ring = (v: number): number[] => Array.from(graph.next.slice(graph.start[v], graph.start[v + 1]));
+  /** The generated body's triangulation is not mirror-symmetric everywhere (quad diagonals at the toes): Smooth
+   *  reads 1-rings, so its exactness holds only where `ring(p(v)) = p(ring(v))`. */
+  const symmetricRing = (v: number): boolean => {
+    const p = bound.geometry.partner[v] as number;
+    const a = ring(v)
+      .map((u) => bound.geometry.partner[u] as number)
+      .sort((x, y) => x - y);
+    const b = ring(p).sort((x, y) => x - y);
+    return a.length === b.length && a.every((u, k) => u === b[k]);
+  };
+  /** Holds closed under the mirror (a one-sided hold is itself an asymmetry). */
+  const symmetricHolds = fc
+    .subarray(keys, { maxLength: 3 })
+    .map((h) => [...new Set(h.flatMap((key) => [key, mirrorKey(key)]))]);
+
+  it('w(v) = M(w(p(v))) after every op, both sides stamped, uneven strengths, symmetric holds', () => {
+    fc.assert(
+      fc.property(
+        fc.array(
+          fc.array(fc.tuple(fc.integer({ min: 0, max: P - 1 }), fc.double({ min: 0, max: 1, noNaN: true })), {
+            minLength: 1,
+            maxLength: 40,
+          }),
+          { minLength: 1, maxLength: 4 },
+        ),
+        fc.constantFrom(...OPS),
+        fc.constantFrom(...keys),
+        fc.double({ min: -1, max: 1, noNaN: true }),
+        symmetricHolds,
+        (raw, op, joint, value, holds) => {
+          if (holds.includes(joint)) return;
+          const ctx = context(bound, holds);
+          const stamps: StrokeStamp[] = raw.map((stamp) => ({
+            points: Uint32Array.from(stamp.map(([v]) => v)),
+            strength: Float32Array.from(stamp.map(([, s]) => s)),
+          }));
+          const v = op === 'add' ? value : Math.abs(value);
+          const out = editWeights(bound.skin, { kind: 'stroke', joint, op, value: v, stamps, mirror: true }, ctx);
+          expect(invalidPoints(out.skin)).toEqual([]);
+          if (op !== 'smooth' || raw.every((stamp) => stamp.every(([u]) => symmetricRing(u)))) {
+            expect(asymmetric(bound, out.skin)).toEqual([]);
+          }
+          // A mirrored Flood stays valid, and Mirror Skin Weights makes any result exact again.
+          const flood = editWeights(
+            out.skin,
+            { kind: 'flood', points: raw[0]?.map(([u]) => u) ?? [], joint, op, value: v, opacity: 0.5, mirror: true },
+            ctx,
+          ).skin;
+          expect(invalidPoints(flood)).toEqual([]);
+          const fixed = mirrorWeights(
+            flood,
+            { direction: 'negative-to-positive', surface: 'partners', points: null },
+            ctx,
+          );
+          expect(asymmetric(bound, fixed.skin)).toEqual([]);
+        },
+      ),
+      { numRuns: 200 },
+    );
+  });
+});
+
+describe('Flood and the mirror (M6B-C6-16)', () => {
+  const bound = boundBody();
+  const all = Array.from({ length: bound.skin.points }, (_, v) => v);
+
+  it('Flood Replace 1 on leftUpperArm over every point leaves no point on rightUpperArm', () => {
+    for (const mirror of [false, true]) {
+      const out = editWeights(
+        bound.skin,
+        { kind: 'flood', points: all, joint: 'leftUpperArm', op: 'replace', value: 1, opacity: 1, mirror },
+        context(bound),
+      ).skin;
+      for (let v = 0; v < out.points; v++) {
+        expect(vectorOf(out, v).get('rightUpperArm'), `${mirror} ${v}`).toBeUndefined();
+        expect(vectorOf(out, v).get('leftUpperArm'), `${mirror} ${v}`).toBe(1);
+      }
+    }
+  });
+
+  it('a mirrored Flood over the full mask equals the one-sided Flood; over one side it reaches the partners', () => {
+    const base = { kind: 'flood', points: all, joint: 'leftUpperArm', op: 'replace', value: 0.5, opacity: 1 } as const;
+    const plain = editWeights(bound.skin, { ...base, mirror: false }, context(bound)).skin;
+    const mirrored = editWeights(bound.skin, { ...base, mirror: true }, context(bound)).skin;
+    expect(Array.from(mirrored.weights)).toEqual(Array.from(plain.weights));
+    expect(Array.from(mirrored.joints)).toEqual(Array.from(plain.joints));
+    for (let v = 0; v < plain.points; v++) expect(vectorOf(plain, v).get('rightUpperArm') ?? 0).not.toBe(0.25);
+    const left = leftPoints(bound);
+    const oneSide = editWeights(bound.skin, { ...base, points: left, mirror: true }, context(bound)).skin;
+    for (const v of left) {
+      const p = bound.geometry.partner[v] as number;
+      expect(vectorOf(oneSide, v).get('leftUpperArm')).toBe(vectorOf(oneSide, p).get('rightUpperArm'));
+    }
+    expect(asymmetric(bound, oneSide)).toEqual([]);
   });
 });
 

@@ -4,8 +4,8 @@
 // else the closest point on the source half's triangles with barycentric interpolation (`surface: 'closest-point'`
 // always takes this path). The source vector moves to the mirror joints (`mirror` link → mirrored human bone → name
 // swap, as `SkinSkeleton.mirror` resolves them; a joint without one maps to itself); held joints at the target keep
-// their weights; seam points (|x| ≤ 1e-4 H or their own partner) symmetrize. An exact copy (no holds, ≤ 4 entries,
-// normalized) is written bit for bit, and a target that already holds the result keeps its slots, so mirroring twice
+// their weights; seam points (|x| ≤ 1e-4 H or their own partner) symmetrize. An exact copy (≤ 4 entries, normalized,
+// the held joints already equal to the image) is written bit for bit, and a target that already holds the result keeps its slots, so mirroring twice
 // on a symmetric mesh is an involution (P-S3).
 import {
   fitFree,
@@ -187,13 +187,14 @@ export function mirrorWeights(
     if (from === null) continue;
     const image = ops.mirrored(from);
     const current = buf.row(v);
-    const heldAny = current.idx.some((i) => ops.held(i)) || image.idx.some((i) => ops.held(i));
-    if (!heldAny) {
-      if (sameEntries(current, image)) continue;
-      if (image.idx.length <= MAX_INFLUENCES && Math.abs(sumDesc(image.w) - 1) <= SUM_TOLERANCE) {
-        writeExact(buf, v, image);
-        continue;
-      }
+    if (sameEntries(current, image)) continue;
+    // The held joints already match the image (none held, or symmetric holds): the exact copy keeps them bit-equal.
+    const heldMatch = [...current.idx, ...image.idx].every(
+      (i) => !ops.held(i) || Math.fround(weightOf(current, i)) === Math.fround(weightOf(image, i)),
+    );
+    if (heldMatch && image.idx.length <= MAX_INFLUENCES && Math.abs(sumDesc(image.w) - 1) <= SUM_TOLERANCE) {
+      writeExact(buf, v, image);
+      continue;
     }
     // Held joints keep their weights; the mirrored not-held entries share what they leave.
     const out: Row = { idx: [], w: [] };
@@ -209,7 +210,7 @@ export function mirrorWeights(
       out.idx.push(i);
       out.w.push(image.w[k] as number);
     }
-    const fitted = fitFree(out, ops.held);
+    const fitted = fitFree(out, ops.held, ops.canon);
     if (fitted !== null && !sameEntries(current, fitted)) ops.write(v, fitted);
   }
   const out = buf.skin();

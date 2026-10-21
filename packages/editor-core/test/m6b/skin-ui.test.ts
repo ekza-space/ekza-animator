@@ -9,7 +9,7 @@ import { makeTestJoint, makeTestRig, makeTestSkeleton } from '@ekza-studio/doc/t
 import { editWeights, readSkin, type SkinWeights } from '@ekza-studio/mesh-core';
 import { describe, expect, it } from 'vitest';
 import type { EditorApp, LastRun } from '../../src';
-import { skinTestRotate } from '../../src/operators/builtin/rig/influence';
+import { setBrush, skinTestRotate } from '../../src/operators/builtin/rig/influence';
 import { skinTargets, weightContext, weightInputs } from '../../src/operators/builtin/rig/weights';
 import { type MeshTestApp, meshTestApp, runValue } from '../m6a/content/support';
 
@@ -222,6 +222,28 @@ describe('skin.weights.paint (§5.11)', () => {
     expect(flood.status).toBe('finished');
     const last = app.session.getState().lastRun as LastRun;
     expect(last.args).toMatchObject({ holds: [f.key('leftUpperArm')], op: 'replace', value: 1, opacity: 0.5 });
+  });
+});
+
+describe('Flood is one-sided by default (M6B-C6-16)', () => {
+  it('the panel path (no args) with the brush X-mirror on floods only the active joint', async () => {
+    const f = await boundBody();
+    const { app } = f;
+    await app.runUntyped('skin.influence.setActive', { mesh: f.mesh, joint: f.key('leftUpperArm') });
+    setBrush(app, { op: 'replace', value: 1, opacity: 1, mirror: true });
+    const result = await app.runUntyped('skin.weights.flood', {});
+    expect(result.status).toBe('finished');
+    expect((app.session.getState().lastRun as LastRun).args).toMatchObject({ mirror: false });
+    const skin = skinOf(app, f.mesh);
+    for (let v = 0; v < skin.points; v++) {
+      expect(weightsAt(skin, v)).toEqual({ [f.key('leftUpperArm')]: 1 });
+    }
+    // An explicit mirror reaches only the partners outside the mask: over every point it is the same flood.
+    await app.runUntyped('edit.undo');
+    const mirrored = await app.runUntyped('skin.weights.flood', { mirror: true });
+    expect(mirrored.status).toBe('finished');
+    const again = skinOf(app, f.mesh);
+    expect(Array.from(again.weights)).toEqual(Array.from(skin.weights));
   });
 });
 

@@ -10,7 +10,10 @@
 // X-mirror (§5.11): a point `v` with strength `s` also applies the op at its partner `p(v)` on the mirror joint `M(a)`
 // (the partner map, else the closest point to the mirrored position within 0.01 H, else none). Per point: first the
 // direct op, then the mirrored op, then the symmetrize of seam points (`p(v) = v`: the op once, then
-// `w ← ½(w + M(w))`). A centre joint (`M(a) = a`) applies the op once at each point with the larger strength of the
+// `w ← ½(w + M(w))`). When the stroke covers both `v` and `p(v)` (a stamp across the centre line), the op that comes
+// from the smaller point index of the pair runs first on both points, so the pair stays exact mirror images (P-S3;
+// M6B-C6-17, the §5.11 order read per pair). Flood (one stamp over a mask) mirrors only onto points outside the mask
+// and never symmetrizes the seam (M6B-C6-16). A centre joint (`M(a) = a`) applies the op once at each point with the larger strength of the
 // point and its partner, so a stroke on one side gives the same weights on both.
 import { EkzaError } from '@ekza-studio/anim-core';
 import { pointGraph } from '../geometry/adjacency';
@@ -18,6 +21,7 @@ import {
   cloneRow,
   fitFree,
   MAX_INFLUENCES,
+  type MirrorCanon,
   mirrorKeyOf,
   type Row,
   readRow,
@@ -59,6 +63,8 @@ export function graphOf(geometry: SkinGeometry): { readonly start: Int32Array; r
 /** Shared machinery of the weight edits over a `WeightBuffer`: §5.10 ops on rows, smooth, symmetrize, writes. */
 export class RowOps {
   readonly held: (i: number) => boolean;
+  /** `min(key, mirror key)` per palette index: mirror-invariant tie-breaks for prune and the f32 residual (P-S3). */
+  readonly canon: MirrorCanon;
 
   constructor(
     readonly buf: WeightBuffer,
@@ -67,6 +73,18 @@ export class RowOps {
     this.held = (i) => {
       const entry = this.buf.palette[i];
       return entry !== undefined && ctx.holds.has(entry.key);
+    };
+    const canons = new Map<string, string>();
+    this.canon = (i) => {
+      const entry = this.buf.palette[i];
+      if (entry === undefined) return `#${i}`;
+      let c = canons.get(entry.key);
+      if (c === undefined) {
+        const m = mirrorKeyOf(ctx.skeleton, entry.key, entry);
+        c = m < entry.key ? m : entry.key;
+        canons.set(entry.key, c);
+      }
+      return c;
     };
   }
 
@@ -122,7 +140,7 @@ export class RowOps {
       }
     }
     if (sameRow(out, row)) return row;
-    return fitFree(out, this.held) ?? row;
+    return fitFree(out, this.held, this.canon) ?? row;
   }
 
   /** Smooth (§5.11, §5.13): the point's not-held vector `lerp`s toward the average of its 1-ring, then §5.10. */
@@ -165,7 +183,7 @@ export class RowOps {
 
   /** Writes a row to point `v`; true when the stored point changed. */
   write(v: number, row: Row): boolean {
-    return writeRow(this.buf.joints, this.buf.weights, v, row, this.held);
+    return writeRow(this.buf.joints, this.buf.weights, v, row, this.held, this.canon);
   }
 
   /** Copies point `v` of `source` into the buffer (restores an untouched point bit-equal). */
@@ -222,6 +240,8 @@ class Stroke implements StrokeSession {
       readonly op: PaintOp;
       readonly value: number;
       readonly mirror: boolean;
+      /** A Flood (one stamp over a mask): mirrored ops reach only points outside the mask. */
+      readonly flood?: boolean;
     },
   ) {
     if (ctx.holds.has(opts.joint)) throw new EkzaError('op-refused', `${opts.joint} is held`);
@@ -282,21 +302,30 @@ class Stroke implements StrokeSession {
     let row = start;
     const sd = this.strength[v] as number;
     const q = this.partners === null ? -1 : (this.partners[v] as number);
+    // Flood (M6B-C6-16): the mask is painted directly; the mirror reaches only the partners outside the mask, so a
+    // mirrored Flood of a one-sided joint never hands its own points to the mirror joint.
+    const sq = q < 0 || q === v || (this.opts.flood && sd > 0) ? 0 : (this.strength[q] as number);
     if (this.partners !== null && this.centre && q >= 0 && q !== v) {
-      row = this.ops.op(row, joint, op, value, Math.max(sd, this.strength[q] as number));
+      row = this.ops.op(row, joint, op, value, Math.max(sd, sq));
+    } else if (sd > 0 && sq > 0 && q < v) {
+      // Both `v` and `p(v)` are stamped (M6B-C6-17): the op that comes from the smaller point index of the pair runs
+      // first on both points, so `w(v) = M(w(p(v)))` stays exact (P-S3) for strokes across the centre line.
+      row = this.ops.op(row, this.mirrorKey, op, value, sq);
+      row = this.ops.op(row, joint, op, value, sd);
     } else {
       row = this.ops.op(row, joint, op, value, sd);
-      if (this.partners !== null && q >= 0 && q !== v) {
-        row = this.ops.op(row, this.mirrorKey, op, value, this.strength[q] as number);
-      }
-      if (this.partners !== null && q === v && sd > 0) row = this.ops.symmetrize(row);
+      if (sq > 0) row = this.ops.op(row, this.mirrorKey, op, value, sq);
+      if (this.partners !== null && q === v && sd > 0 && !this.opts.flood) row = this.ops.symmetrize(row);
     }
     if (row === start) this.ops.restore(v, this.startJoints, this.startWeights);
     else this.ops.write(v, row);
   }
 
-  /** Smooth: per stamp, the direct pass, then the mirrored pass, then the seam symmetrize (each from the values the
-   *  previous pass left; within a pass every point reads the values before the pass). */
+  /** Smooth: per stamp, one pass over the stamp's points (each reads the values before the pass). Smooth is
+   *  joint-agnostic, so with the mirror the mirrored op at `p(v)` is the same smoothing: every point of the stamp and
+   *  every partner is smoothed once with the larger strength of the point and its partner (the centre-joint rule;
+   *  M6B-C6-17), then the stamped seam points symmetrize. A pair stamped on both sides therefore stays an exact mirror
+   *  image (P-S3); a Flood's partners inside the mask already carry the flood strength (M6B-C6-16). */
   private smoothStamp(stamp: StrokeStamp): Uint32Array {
     const P = this.buf.points;
     const strengths = new Map<number, number>();
@@ -307,34 +336,32 @@ class Stroke implements StrokeSession {
       if (!(v >= 0 && v < P) || !(s > 0)) continue;
       strengths.set(v, Math.max(strengths.get(v) ?? 0, s));
     }
+    const stamped = [...strengths.keys()];
+    if (this.partners !== null) {
+      for (const v of stamped) {
+        const q = this.partners[v] as number;
+        if (q >= 0 && q !== v) strengths.set(q, Math.max(strengths.get(q) ?? 0, strengths.get(v) as number));
+      }
+    }
     const order = [...strengths.keys()].sort((a, b) => a - b);
     const changed = new Set<number>();
-    const pass = (targets: readonly (readonly [number, number])[]): void => {
-      const snapshot = new Map<number, Row>();
-      const rows = (u: number): Row => {
-        let row = snapshot.get(u);
-        if (row === undefined) {
-          row = this.buf.row(u);
-          snapshot.set(u, row);
-        }
-        return row;
-      };
-      const results: [number, Row][] = [];
-      for (const [v, s] of targets) {
-        const next = this.ops.smooth(v, s, rows);
-        if (next !== null) results.push([v, next]);
+    const snapshot = new Map<number, Row>();
+    const rows = (u: number): Row => {
+      let row = snapshot.get(u);
+      if (row === undefined) {
+        row = this.buf.row(u);
+        snapshot.set(u, row);
       }
-      for (const [v, row] of results) if (this.ops.write(v, row)) changed.add(v);
+      return row;
     };
-    pass(order.map((v) => [v, strengths.get(v) as number]));
-    if (this.partners !== null) {
-      const mirrored: [number, number][] = [];
-      for (const v of order) {
-        const q = this.partners[v] as number;
-        if (q >= 0 && q !== v) mirrored.push([q, strengths.get(v) as number]);
-      }
-      pass(mirrored);
-      for (const v of order) {
+    const results: [number, Row][] = [];
+    for (const v of order) {
+      const next = this.ops.smooth(v, strengths.get(v) as number, rows);
+      if (next !== null) results.push([v, next]);
+    }
+    for (const [v, row] of results) if (this.ops.write(v, row)) changed.add(v);
+    if (this.partners !== null && this.opts.flood !== true) {
+      for (const v of stamped.sort((a, b) => a - b)) {
         if (this.partners[v] !== v) continue;
         const row = this.buf.row(v);
         const next = this.ops.symmetrize(row);
@@ -353,7 +380,14 @@ function clampStrength(s: number): number {
 export function beginStroke(
   skin: SkinWeights,
   ctx: WeightContext,
-  opts: { readonly joint: string; readonly op: PaintOp; readonly value: number; readonly mirror: boolean },
+  opts: {
+    readonly joint: string;
+    readonly op: PaintOp;
+    readonly value: number;
+    readonly mirror: boolean;
+    /** Internal (`editWeights({kind: 'flood'})`): the mirror reaches only points outside the single stamp's mask. */
+    readonly flood?: boolean;
+  },
 ): StrokeSession {
   return new Stroke(skin, ctx, opts);
 }

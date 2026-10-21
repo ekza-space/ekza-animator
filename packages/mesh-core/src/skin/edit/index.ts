@@ -69,6 +69,7 @@ export function editWeights(
         op: edit.op,
         value: edit.value,
         mirror: edit.mirror,
+        flood: true,
       });
       session.addStamp({ points, strength: new Float32Array(points.length).fill(edit.opacity) });
       return session.finish();

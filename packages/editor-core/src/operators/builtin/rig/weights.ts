@@ -7,7 +7,8 @@
 // - `skin.weights.paint {mesh, joint, op, value, stamps, mirror, holds}`: a stroke of the Paint Skin Weights tool (the
 //   tool previews the same stamps through `beginStroke`; the commit is bit-identical, P-S2).
 // - `skin.weights.flood {op, value, opacity, mirror, joint, points, holds}`: the brush's op at `s = opacity` on every
-//   point of the target meshes (or `points`). Defaults: the session brush and the active influence.
+//   point of the target meshes (or `points`). Defaults: the session brush and the active influence; `mirror` defaults
+//   to false (with `mirror: true` only the partners outside the mask take the mirrored op).
 // - `skin.weights.set {value, mode, joint, mesh, points, holds}`: table edits and scripts (§5.12).
 // - `skin.weights.mirror {direction, surface, selection, holds}`, `.smooth {factor, iterations, expand, holds}`,
 //   `.prune {below, holds}`, `.normalize {lockActive, holds}`: the utilities of §5.13 on the target meshes (the selected
@@ -462,7 +463,7 @@ const flood = defineOperator<'skin.weights.flood', Prepared>({
       min: 0,
       max: 1,
     },
-    { name: 'mirror', label: 'Mirror', kind: 'bool', bound: 'value', default: null, nullable: true },
+    { name: 'mirror', label: 'Mirror', kind: 'bool', bound: 'value', default: false, nullable: true },
     jointParam('selection'),
     pointsParam,
     holdsParam,
@@ -485,7 +486,9 @@ const flood = defineOperator<'skin.weights.flood', Prepared>({
     const op = isOp(a['op']) ? a['op'] : brush.op;
     const value = numberOr(a['value'], brush.value);
     const opacity = numberOr(a['opacity'], brush.opacity);
-    const mirror = typeof a['mirror'] === 'boolean' ? a['mirror'] : brush.mirror;
+    // One-sided by default (Maya's Flood; §5.11's Flood row has no mirror): the brush's X-mirror stroke setting is
+    // not inherited, so the panel's Flood never hands a left joint's points to the right one (M6B-C6-16).
+    const mirror = typeof a['mirror'] === 'boolean' ? a['mirror'] : false;
     const points = Array.isArray(a['points']) ? (a['points'] as number[]) : null;
     warnNonDeforming(ctx.app, joint);
     const prepared = await prepareEach(ctx, args, skinTargets(ctx.app), (inputs, weightCtx) => {
