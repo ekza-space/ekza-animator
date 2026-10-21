@@ -62,9 +62,9 @@ mesh-core.
 
 ## Benches (report-only; this machine, load average 11–30)
 
-- `rig.autoRig.update` inside a skeleton edit, Standard 33: well under the 5 ms budget (rig test annotation).
-- Container rebuild of the Cube Lad without the loader (editor-core) and of the generated body with a three.js
-  `ModelLoader` in Node (headless): both far under 300 ms (test annotations).
+- `updateAutoRig`, Standard 33 (34 joints): 0.17 ms (budget 5 ms; rig test annotation).
+- Container rebuild + three.js load in Node, generated body (494 tris, 34 joints): 4.6 ms per `redisplay` (budget
+  300 ms; headless annotation). The browser's `ModelLoader` adds its GPU uploads; not measured here.
 
 ## Handoffs
 
@@ -79,6 +79,17 @@ mesh-core.
   touched there.
 - **INT**: approve the one-line `io/src/write.ts` export (M6B-C1-6) and the `kernel.ts`/`registry.ts` hook lines.
 
-## Gates
+## Gates (local, real Chrome GPU; port 3161)
 
-See the end of this file (filled after the run).
+`EKZA_E2E_PORT=3161 pnpm run ci` on `496f272`: **exit 0**.
+
+- format:check, lint, typecheck, check:deps, check:fixtures, check:licenses: pass.
+- test (turbo): editor-core 1352, mesh-core 905, anim-core 671, editor 521 (+1 skipped), io 271, doc 263, viewport 244
+  (+1 skipped), rig 242, curve-editor 209 (+3 skipped), headless 196, ui 94, doc-yjs 85, mesh-view 78, web 22, tooling.
+  No skip added.
+- build: pass. check:size: 891,480 B (gate 900,000 B); MVP eager delta +1,911 B (C0 recorded +1,535 B: C1 ≈ +376 B,
+  allowance 512 B); `character runtime (model-sourced characters)` 13.9 kB lazy; no boundary in the initial route.
+- test:e2e (project `chrome`): 219 passed, 23 skipped (the existing skips), 1.9 min. C1 owns no e2e scenario.
+- The first run of the gate (`35db65f` + notes) failed one editor-core test under load average ≈ 43
+  (`m6a/mesh-io.test.ts` "displays the rebuilt container…", a 30 s timeout; 2.4 s alone, green in the rerun).
+- The 3161 server was Playwright's own and stopped with the run; the port is free.
