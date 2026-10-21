@@ -31,6 +31,9 @@ const LANDED: Readonly<Record<string, string>> = {
   // C4 (auto-skin)
   'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
   'skin.unbind': 'No bound mesh to unbind',
+  // C10 (character writer)
+  'char.setVrmMeta': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  'file.exportCharacter': 'Make a character from your model first (Rig & Skin › Quick Rig)',
 };
 
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */

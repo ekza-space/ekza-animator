@@ -5,7 +5,8 @@
 import { EkzaError } from '@ekza-studio/anim-core';
 import type * as MeshIoModule from '../mesh';
 import type { DocVertices } from '../skeleton/fromDoc';
-import type { CharacterMeshIn, CharacterWriteInput, PaletteTexture } from '../types';
+import { shaderKey } from '../export/author/shading';
+import type { CharacterMeshIn, CharacterWriteInput, PaletteTexture, StaticSwatch, SwatchShading } from '../types';
 
 export type MeshIo = typeof MeshIoModule;
 
@@ -30,16 +31,41 @@ export class PaletteCache {
   }
 }
 
-/** A mesh's primitives exactly as the writer emits them (one function for the writer and `characterVertices`). */
-export function primitivesOf(io: MeshIo, palettes: PaletteCache, source: CharacterMeshIn) {
-  const swatches = source.paletteId === null ? [] : (palettes.swatches.get(source.paletteId) ?? []);
+/** The swatch shader of every live slot of a palette (SHADING-SPEC §4; a slot listed twice keeps its first entry). */
+export function shadingOf(swatches: readonly StaticSwatch[]): Map<number, SwatchShading | undefined> {
+  const shading = new Map<number, SwatchShading | undefined>();
+  for (const swatch of swatches) if (!shading.has(swatch.slot)) shading.set(swatch.slot, swatch.shader);
+  return shading;
+}
+
+/**
+ * A mesh's primitives exactly as the writer emits them (one function for the writer and `characterVertices`).
+ * - `forcePalette` (the VRM writer, §5.22): a mesh with a palette writes the palette texture whatever its colour
+ *   output (MToon ignores vertex colours). The vertex split is the same for every output (one vertex per point, slot
+ *   and normal), so the measured radii do not change.
+ * - Lit meshes split their faces per swatch shader (SHADING-SPEC §4); the palettes' swatches carry `shader` when the
+ *   caller passes `StaticSwatch`es (C1's display container passes none: one Lambert group).
+ */
+export function primitivesOf(
+  io: MeshIo,
+  palettes: PaletteCache,
+  source: CharacterMeshIn,
+  opts: { readonly forcePalette?: boolean } = {},
+) {
+  const swatches: readonly StaticSwatch[] =
+    source.paletteId === null ? [] : (palettes.swatches.get(source.paletteId) ?? []);
   let output = source.colourOutput;
+  if (opts.forcePalette === true && source.paletteId !== null) output = 'palette-texture';
   let palette: PaletteTexture | null = null;
   if (output === 'palette-texture') {
     palette = palettes.get(source.paletteId);
     if (palette === null) output = 'vertex-colour';
   }
   const paint = new Map(swatches.map((swatch) => [swatch.slot, swatch.srgb] as const));
+  const shading = shadingOf(swatches);
+  const shaderOfSlot = (slot: number): SwatchShading | undefined =>
+    shading.has(slot) ? shading.get(slot) : shading.get(0);
+  const lit = source.materials.some((material) => material.preset === 'lit');
   const result = io.meshToPrimitivesDetailed(source.data, {
     colourOutput: output,
     palette,
@@ -47,9 +73,10 @@ export function primitivesOf(io: MeshIo, palettes: PaletteCache, source: Charact
     morphNormals: new Set(),
     hadTangents: false,
     dropTangents: false,
+    shaderOf: lit ? (slot) => shaderKey(shaderOfSlot(slot)) : null,
   });
   if ('refused' in result) throw new EkzaError('unsupported', result.reason);
-  return { primitives: result.primitives, output, paint };
+  return { primitives: result.primitives, output, paint, shaderOfSlot };
 }
 
 /**

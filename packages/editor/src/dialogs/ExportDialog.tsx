@@ -26,6 +26,7 @@ import { useShell } from '../shell/context';
 import { asArtifacts } from '../shell/exports';
 import { isRestricted } from '../shell/summary';
 import { ExportStaticSection } from './ExportStaticSection';
+import { ExportCharacterSection, modelCharacters } from './export/character/ExportCharacterSection';
 import { count } from './format';
 
 export { count };
@@ -175,7 +176,10 @@ export function ExportDialog(): JSX.Element {
   // M6a (B13, §8.8): the Static model (GLB) section, the default in Model or without a character.
   const meshes = useDocQuery(hasMeshes, ['meshes']);
   const workspace = useSession((s) => s.workspace);
-  const [modeChoice, setMode] = useState<'animation' | 'static' | null>(null);
+  const [modeChoice, setMode] = useState<'animation' | 'static' | 'character' | null>(null);
+  // M6b (C10, §8.13): the Character section for characters made from models (the default in Rig & Skin and while
+  // such a character is active).
+  const models = useDocQuery(modelCharacters, ['characters']);
   const exporters = useRegistryList(app.exporters);
   const profiles = useRegistryList(app.exportProfiles);
   const characters = useDocQuery(characterOptions, ['characters']);
@@ -252,14 +256,21 @@ export function ExportDialog(): JSX.Element {
       ? 'Load a character to export'
       : (pollExporter(app, exporter, request) ?? (needsAck && !acknowledged ? 'Acknowledge the licence first' : null));
   const warnings = exportWarnings(app, character, kind);
-  const mode = modeChoice ?? (workspace === 'model' || characters.length === 0 ? 'static' : 'animation');
+  const modelActive = models.some((m) => m.id === activeCharacter);
+  const mode =
+    modeChoice ??
+    (models.length > 0 && (workspace === 'rig' || modelActive)
+      ? 'character'
+      : workspace === 'model' || characters.length === 0
+        ? 'static'
+        : 'animation');
   const modeSwitch =
-    meshes || workspace === 'model' ? (
+    meshes || workspace === 'model' || models.length > 0 ? (
       <RadioGroup
         value={mode}
-        onValueChange={(value) => setMode(value === 'static' ? 'static' : 'animation')}
+        onValueChange={(value) => setMode(value === 'static' || value === 'character' ? value : 'animation')}
         aria-label="What to export"
-        className="grid gap-1.5 md:grid-cols-2"
+        className={models.length > 0 ? 'grid gap-1.5 md:grid-cols-3' : 'grid gap-1.5 md:grid-cols-2'}
       >
         <RadioGroupItem
           value="animation"
@@ -273,8 +284,32 @@ export function ExportDialog(): JSX.Element {
           hint="Scene meshes as a static glTF binary, with the palette and the profile's checks"
           data-testid="export-static"
         />
+        {models.length > 0 ? (
+          <RadioGroupItem
+            value="character"
+            label="Character (VRM)"
+            hint="A character made from your model: a VRM 1.0 avatar for Ekza Space and OMOBA, or a plain GLB"
+            data-testid="export-mode-character"
+          />
+        ) : null}
       </RadioGroup>
     ) : null;
+
+  if (mode === 'character') {
+    return (
+      <Dialog
+        open
+        onOpenChange={(open) => {
+          if (!open) void shell.runFromUi('ui.close');
+        }}
+      >
+        <DialogContent title="Export" width="lg" data-testid="export-dialog">
+          <div className="mb-4">{modeSwitch}</div>
+          <ExportCharacterSection onCancel={() => void shell.runFromUi('ui.close')} />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   if (mode === 'static') {
     return (

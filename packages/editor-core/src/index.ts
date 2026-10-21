@@ -456,3 +456,13 @@ export type {
   SkinWorkerRequest,
   SkinWorkerResponse,
 } from './rig/skinService';
+// C10 (§5.22, §6.4): the character export's request defaults, checks and gating rows (the Export dialog's Character
+// section and the Rig Toolkit read them; the pipeline itself loads with the rig-workspace chunk).
+export {
+  type CharacterExportPlan,
+  characterExportRows,
+  characterOf,
+  characterRequestProblem,
+  isModelCharacter,
+  normalizeCharacterRequest,
+} from './workflows/exportCharacter';

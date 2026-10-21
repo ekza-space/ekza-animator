@@ -173,6 +173,10 @@ const LANDED: Readonly<Record<string, string>> = {
   'library.preview': 'expects { character, clip }',
   'library.stop': 'No clip preview is playing',
   'library.useClip': 'expects { character, clip }',
+  // C10 (character writer)
+  'char.setVrmMeta': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  'char.renderThumbnail': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  'file.exportCharacter': 'Make a character from your model first (Rig & Skin › Quick Rig)',
 };
 
 const disposers: (() => void)[] = [];

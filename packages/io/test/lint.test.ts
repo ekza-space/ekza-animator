@@ -85,7 +85,12 @@ function build(spec: Spec = {}): Uint8Array {
 describe('lintExport', () => {
   it('passes a clean file with no issues', async () => {
     expect(await lintExport('bake-into-model', build(), null)).toEqual([]);
-    expect(await lintExport('bake-into-model', build(), profile('ekza/space-avatar-v1'))).toEqual([]);
+    // M6B-SPEC §0.4.6 (C10): the Space profile adds OMOBA's runtime rules (`vrm.*`, errors). This three-bone VRM is
+    // not an avatar OMOBA admits (12 required bones missing, no meta); every other rule stays clean.
+    const space = await lintExport('bake-into-model', build(), profile('ekza/space-avatar-v1'));
+    expect(space.filter((issue) => !issue.code.startsWith('vrm.'))).toEqual([]);
+    expect(codes(space)).toContain('vrm.required-bones');
+    expect(space.every((issue) => issue.severity === 'error' || issue.code === 'vrm.thumbnail-square')).toBe(true);
   });
 
   it('finds a planted uri key anywhere, in any case', async () => {

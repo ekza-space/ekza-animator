@@ -17,6 +17,9 @@ export { type ShaderFactors, shaderFactors, shaderKey, shaderLabel } from './exp
 export { BAKE_MARKER_KEY, BAKE_MARKER_V2_KEY } from './surgeon/marker';
 // M6b (C1, §5.1): the character writer and the display container behind the write path (glTF Transform loads once).
 export { synthesizeContainer, writeCharacter } from './character';
+// M6b (C10, §5.22): the character export artifact (writer, lints, read-back) and the thumbnail renderer.
+export { exportCharacterArtifact, readBackCharacter } from './character/artifact';
+export { renderCharacterThumbnail } from './vrm/thumbnail';
 export { rebuildContainer, replacePrimitives } from './surgeon/replacePrimitives';
 
 /** The `io/mesh` module type (for callers of `loadMeshIo`). */

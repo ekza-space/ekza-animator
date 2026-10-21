@@ -3,6 +3,7 @@
 // runs (the row's `status` becomes 'checked' and its `args` the fixture run) when it lands the operator.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { makeTestJoint } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
 import { beginChannelEditGesture, type EditorApp, loadMeshKernel, registerBuiltinWorkspaces } from '../../src';
 import { opsApp } from '../builtin/support';
@@ -52,7 +53,19 @@ export const P_C6_ROWS: readonly Row[] = [
   },
   ...pending('C2', 'char.attachProp'),
   ...pending('C11', 'char.makeEditable'),
-  ...pending('C10', 'char.setVrmMeta', 'char.renderThumbnail'),
+  // C10: on the wave fixture (keys present) with a character made in Model from a cube.
+  {
+    id: 'char.setVrmMeta',
+    status: 'checked',
+    owner: 'C10',
+    setup: async (app) => ({ character: await cubeCharacter(app), patch: { authors: ['A'], licensePreset: 'cc0' } }),
+  },
+  {
+    id: 'char.renderThumbnail',
+    status: 'checked',
+    owner: 'C10',
+    setup: async (app) => ({ character: await cubeCharacter(app) }),
+  },
   // C2: Skeleton Template, Create Skeleton and the start-check fixes need the mesh kernel (`opsApp` has none); their
   // keys hash is asserted in test/m6b/skeleton-kernel/quick-rig.test.ts.
   ...pending('C2', 'skel.template.create', 'skel.quickRig.commit', 'skel.quickRig.center', 'skel.quickRig.faceForward'),
@@ -179,7 +192,13 @@ export const P_C6_ROWS: readonly Row[] = [
     'rig.shape.sizeFromMesh',
     'rig.shape.cvMode',
   ),
-  ...pending('C10', 'file.exportCharacter'),
+  {
+    id: 'file.exportCharacter',
+    status: 'checked',
+    owner: 'C10',
+    // No profile (this app registers none): a plain GLB with the generic lints.
+    setup: async (app) => ({ character: await jointedCharacter(app), profile: null, format: 'glb' }),
+  },
   // §0.6: Use Clip writes a clip with keys (an Animate edit, not a rig edit); the others are U state.
   // C12: U state on the naive kit (no humanoid here: the preview's own run on a VRM, keys hash included, is in
   // test/m6b/library.test.ts).
@@ -212,6 +231,38 @@ async function rigSetup<T>(app: EditorApp, args: T): Promise<T> {
   gesture.update([{ control, channel: 'rz', value: 0.5 }]);
   gesture.commit();
   return args;
+}
+
+/** A model character made from a scene cube (C1's `char.fromModel`): no joints yet. */
+async function cubeCharacter(app: EditorApp): Promise<string> {
+  const made = await app.runUntyped('char.fromModel', { objects: [await sceneCube(app)] });
+  if (made.status !== 'finished') throw new Error(`char.fromModel: ${JSON.stringify(made)}`);
+  return (made.value as { character: string }).character;
+}
+
+/** A model character with a two-joint skeleton (root → hips), unbound: enough for a plain GLB export. */
+async function jointedCharacter(app: EditorApp): Promise<string> {
+  const character = await cubeCharacter(app);
+  const skeleton = app.store.query.skeletonOfCharacter(character as never);
+  if (skeleton === undefined) throw new Error('no skeleton');
+  app.store.transact({ label: 'joints (test)' }, (tx) => {
+    tx.put(
+      'joints',
+      makeTestJoint('jnt_root', skeleton.id, { name: 'root', order: 'a0', role: 'helper', key: 'root' }),
+    );
+    tx.put(
+      'joints',
+      makeTestJoint('jnt_hips', skeleton.id, {
+        name: 'hips',
+        parent: 'jnt_root' as never,
+        order: 'a1',
+        humanBone: 'hips',
+        restPosition: [0, 1, 0],
+        key: 'hips',
+      }),
+    );
+  });
+  return character;
 }
 
 describe('P-C6: rig edits never key (table frame, §5.26)', () => {

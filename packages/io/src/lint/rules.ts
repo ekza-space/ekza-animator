@@ -10,6 +10,12 @@ export interface LintRuleDef {
   readonly description: string;
 }
 
+/** The `vrm.*` codes (M6B-SPEC §0.4.6; C10): OMOBA's 16 runtime rules, then the 3 VRM 1.0 meta rows. */
+export const VRM_RULE_IDS: readonly string[] =
+  'spec-version container glb-size json-size node-count humanoid-bone-count bone-names required-bones parent-map node-tree trs-only unit-rotation translation-range uniform-scale extensions-required bones-skinned meta-required licence-unset thumbnail-square'
+    .split(' ')
+    .map((id) => `vrm.${id}`);
+
 export const LINT_RULES: readonly LintRuleDef[] = [
   {
     id: 'rendition_external_data',
@@ -177,6 +183,12 @@ export const LINT_RULES: readonly LintRuleDef[] = [
       ['ekza.provenance-free-tier', 'warning', 'warning', 'Generation not attested as paid tier'],
     ] as const
   ).map(([id, local, ekza, description]): LintRuleDef => ({ id, local, ekza, description })),
+  // ---------- M6b (M6B-SPEC §0.4.6; C10): OMOBA's runtime rules, warnings locally (errors through the Space profile's
+  // overrides, absent for the other Ekza profiles), and the VRM 1.0 meta rows (the Space profile only). The checks and
+  // the full descriptions (`VRM_LINT_RULES`) are ./vrm.ts, off the editor route. ----------
+  ...VRM_RULE_IDS.map(
+    (id, i): LintRuleDef => ({ id, local: i < 16 ? 'warning' : null, ekza: null, description: 'See lint/vrm.ts' }),
+  ),
 ];
 
 const BY_ID = new Map(LINT_RULES.map((rule) => [rule.id, rule]));

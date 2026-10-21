@@ -121,7 +121,9 @@ describe('UAL_BONE_MAP (§0.4.7)', () => {
 // Every io stub of §4.4/§0.5 has landed (C1: measureSkinned, writeCharacter, synthesizeContainer; C12:
 // parseStarterPackManifest, retargetUalClip, writeHumanoidVrma); their tests live with their owners.
 describe('io stubs (§3 rule 1)', () => {
-  it('VRM_LINT_RULES is empty until C10', () => {
-    expect(VRM_LINT_RULES).toEqual([]);
+  it('VRM_LINT_RULES lists the §0.4.6 runtime rows and the §5.21 meta rows (C10 landed them)', () => {
+    expect(VRM_LINT_RULES.map((rule) => rule.id)).toEqual(
+      expect.arrayContaining(['vrm.spec-version', 'vrm.bones-skinned', 'vrm.meta-required', 'vrm.thumbnail-square']),
+    );
   });
 });
