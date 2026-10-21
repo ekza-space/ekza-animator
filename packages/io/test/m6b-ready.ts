@@ -2,7 +2,7 @@
 // own flag in the commit that merges it into m6b/mvp; INT turns every gate into a failure (every flag true).
 export const READY = {
   c1: true,
-  c2: false,
+  c2: true,
   c3: false,
   c4: false,
   c6: false,

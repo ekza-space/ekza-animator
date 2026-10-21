@@ -8,6 +8,7 @@ import { type EditorApp, loadMeshKernel } from '../../src';
 import { opsApp } from '../builtin/support';
 import { LIBRARY_OPERATORS } from '../../src/operators/builtin/library';
 import { RIG_WORKSPACE_OPERATORS } from '../../src/operators/builtin/rig/index';
+import { C2_SKELETON, modelCharacter } from './skeleton-kernel/records';
 
 type Row = {
   readonly id: string;
@@ -21,6 +22,12 @@ type Row = {
 
 const pending = (owner: string, ...ids: readonly string[]): Row[] =>
   ids.map((id) => ({ id, status: 'pending', owner }));
+const checked = (owner: string, id: string, setup: (app: EditorApp) => unknown): Row => ({
+  id,
+  status: 'checked',
+  owner,
+  setup,
+});
 
 /** Every §6 operator (§6.1–§6.4) and the §0.6 additions; `keys` rows may write curves or keys (§3 rule 7). */
 export const P_C6_ROWS: readonly Row[] = [
@@ -45,14 +52,13 @@ export const P_C6_ROWS: readonly Row[] = [
   ...pending('C2', 'char.attachProp'),
   ...pending('C11', 'char.makeEditable'),
   ...pending('C10', 'char.setVrmMeta', 'char.renderThumbnail'),
-  ...pending(
-    'C2',
-    'skel.template.create',
-    'skel.template.addMissing',
-    'skel.quickRig.commit',
-    'skel.quickRig.center',
-    'skel.quickRig.faceForward',
-  ),
+  // C2: Skeleton Template, Create Skeleton and the start-check fixes need the mesh kernel (`opsApp` has none); their
+  // keys hash is asserted in test/m6b/skeleton-kernel/quick-rig.test.ts.
+  ...pending('C2', 'skel.template.create', 'skel.quickRig.commit', 'skel.quickRig.center', 'skel.quickRig.faceForward'),
+  checked('C2', 'skel.template.addMissing', (app) => {
+    modelCharacter(app);
+    return { skeleton: C2_SKELETON };
+  }),
   ...pending(
     'C3',
     'skel.quickRig.start',
@@ -75,19 +81,26 @@ export const P_C6_ROWS: readonly Row[] = [
     'skel.joint.delete',
     'skel.joint.reparent',
     'skel.joint.unparent',
-    'skel.joint.rename',
-    'skel.joint.setHumanBone',
     'skel.joint.setSide',
-    'skel.joint.move',
-    'skel.joint.rotateRest',
-    'skel.joint.setRest',
-    'skel.joint.mirror',
-    'skel.joint.flex',
-    'skel.symmetry.set',
     'skel.pose.tStance',
     'skel.pose.applyAsRest',
-    'select.joints',
   ),
+  checked('C2', 'skel.joint.rename', (app) => ({ joint: modelCharacter(app)('leftHand'), name: 'hand_L' })),
+  checked('C2', 'skel.joint.setHumanBone', (app) => ({ joint: modelCharacter(app)('leftHand'), bone: null })),
+  checked('C2', 'skel.joint.move', (app) => ({
+    joints: [modelCharacter(app)('rightLowerLeg')],
+    translateZ: 0.01,
+    mode: 'joint',
+  })),
+  checked('C2', 'skel.joint.rotateRest', (app) => ({ joints: [modelCharacter(app)('leftUpperArm')], rotateZ: -0.3 })),
+  checked('C2', 'skel.joint.setRest', (app) => ({ joint: modelCharacter(app)('head'), position: [0, 1.45, 0.01] })),
+  checked('C2', 'skel.joint.mirror', (app) => ({ root: modelCharacter(app)('leftUpperArm') })),
+  checked('C2', 'skel.joint.flex', (app) => ({ joints: [modelCharacter(app)('leftLowerArm')], angle: 0.05 })),
+  checked('C2', 'skel.symmetry.set', (app) => {
+    modelCharacter(app);
+    return { skeleton: C2_SKELETON, on: false };
+  }),
+  checked('C2', 'select.joints', (app) => ({ ids: [modelCharacter(app)('hips')], mode: 'replace' })),
   // §3 rule 7: Orient Joint converts rotation keys of bone-aligned controls.
   { id: 'skel.joint.orient', status: 'keys', owner: 'C2' },
   ...pending('C4', 'skin.bind', 'skin.weights.autoForJoints', 'skin.unbind'),
@@ -196,6 +209,7 @@ describe('P-C6: rig edits never key (table frame, §5.26)', () => {
     const args = await row.setup?.(app);
     const before = keysHash(app);
     const result = await app.runUntyped(row.id, args);
+    // A checked row must really run (a refused run would leave the hash unchanged trivially).
     expect(result.status).toBe('finished');
     expect(keysHash(app)).toBe(before);
   });
