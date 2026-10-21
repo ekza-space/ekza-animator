@@ -79,31 +79,34 @@ kernels and their operators, review-layer clearing on paint.
 | `editor-core/test/m6b/skin-ui.test.ts`, `mesh-view/test/skin-display.test.ts`, `viewport/test/m6b-paint.test.ts` (new) | C6's unit and browser tests | tests next to the code they test | pending (paths) |
 | the four `test/m6b-ready.ts` | `c6: true` | READY flag | flag |
 
-**Eager bytes**: C6's eager addition is **+162 B gzip** (the `attachRigSkin` subscription and its line), measured as the
-`/editor` route of this branch (+5,060 B over the M6b baseline) minus the merge base `7b930df` with C1, C4 and C7
-(+4,898 B). C6's allowance is 0 B (§0.4.9); **INT approval requested** for 162 B of the unused headroom (the gate:
-+5,060 ≤ +6,144 B, route 894,629 ≤ 900,000 B).
+**Eager bytes**: C6's eager addition is **+168 B gzip** (the `attachRigSkin` subscription and its line, 162 B; fix round
+1 adds 6 B: Flood's `mirror` default in the eager operator table), measured as the `/editor` route of this branch
+(+5,066 B over the M6b baseline) minus the merge base `7b930df` with C1, C4 and C7 (+4,898 B). C6's allowance is 0 B
+(§0.4.9); **INT approval requested** for 168 B of the unused headroom (the gate: +5,066 ≤ +6,144 B, route 894,635 ≤
+900,000 B). No zero-byte route exists in this cut: nothing else loads the viewport's lazy rig chunk on a Rig & Skin
+entry (C7's eager shell hook has no viewport manager), so moving the subscription needs an INT decision on which eager
+hook owns it.
 
 ## Gate results
 
-Run in this worktree on the last code commit (local Chrome GPU, port 3168), one sequence:
+Fix round 1, run in this worktree on the last code commit (local Chrome GPU, port 3168):
 
 | Gate | Result |
 |---|---|
 | `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses` | green |
-| `pnpm run test` (turbo, 15 tasks) | green (15/15). An earlier run hit M6a's unseeded property test `mesh-core/test/normals/cases.test.ts › incremental › updating a cache for a non-topology DirtySet equals a full computation` once (seed 1199846347, a 3e-8 position edit; flaky, untouched by C6) |
-| `pnpm run build` + `check:size` | green: 894,629 B ≤ 900,000 B; M6b eager +5,060 B ≤ +6,144 B |
-| C6 e2e (SKIN-02, -03, -10, RIG-04) | `test.fixme` on `c2` in this branch (part (b) of SKIN-10 also on `c3`); **all five pass, twice in a row** (incl. SKIN-10 (b)'s Skin-mode `E`; `c6-ce` stays fixme) against a scratch merge of `m6b/skeleton-kernel` with the fixmes lifted (`tmp/c6-verify`, local only, removed after) |
-| full e2e (`EKZA_E2E_PORT=3168 pnpm run test:e2e`) | green: 226 passed, 35 skipped (the gated `test.fixme` scenarios, C6's four among them), 0 failed |
+| `pnpm run test` (turbo, 15 tasks, `--concurrency=1`) | green (15/15) |
+| `pnpm run build` + `pnpm --filter web check:size` | green: 894,635 B ≤ 900,000 B; M6b eager +5,066 B ≤ +6,144 B |
+| C6 e2e (SKIN-02, -03, -10, RIG-04) | `test.fixme` on `c2` in this branch (the Skeleton-mode part of SKIN-10 (b) also on `c3`). Against a scratch merge of `m6b/skeleton-kernel` (`e7527cb`) with the `c2` fixmes lifted (local only, removed after): **5 passed, `--repeat-each=2`: 10 passed** (the `c3` knee test and `c6-ce` skipped). Without the Skin-mode IK → FK fix (M6B-C6-19 reverted) the new Skin-mode knee test fails (the shin does not move), so it guards the fix |
+| full e2e (`EKZA_E2E_PORT=3168 pnpm run test:e2e`) | green: 226 passed, 36 skipped (the gated scenarios, C6's among them), 0 failed. A first run had one failure in M6a's `m6a-26-selection-undo-loop-table.spec.ts` ("a control selection records no Select step", untouched by C6); it passed 3/3 alone and the full rerun was green |
 
 **Benches** (report-only):
 
-- kernel (`pnpm --filter @ekza-studio/mesh-core bench`, worm 10k points × 60 joints): a whole 20-stamp stroke
-  (≈ 300 points per stamp) Replace 1.13 ms (≈ 0.06 ms per stamp), with X-mirror 2.35 ms; Smooth 7.7 ms (0.39 ms per
-  stamp), with mirror 15 ms; commit (finish + `skinDirty`) 0.80 ms; on every point: smooth 20 ms, normalize 1.9 ms,
-  compact 2.3 ms, mirror 1.7 ms.
-- browser (`e2e/bench/m6b-paint.bench.ts` with C2 merged, real Chrome): 10,002-point sphere character, 40 pointer
-  frames: mean 0.72 ms, p95 1.2 ms, max 1.4 ms per frame (budget ≤ 4 ms) — pick, stamp, kernel and the queued partial
-  upload; commit dispatch 0.7 ms, undo round trip 24 ms; the generated body (249 points): mean 0.10 ms.
+- kernel (`vitest bench bench/m6b-weights.bench.ts`, worm 10k points × 60 joints): a whole 20-stamp stroke (≈ 300
+  points per stamp) Replace 1.16 ms (≈ 0.06 ms per stamp), with X-mirror 2.33 ms; Smooth 7.4 ms (0.37 ms per stamp),
+  with mirror 15 ms; commit (finish + `skinDirty`) 0.79 ms; on every point: smooth 20 ms, normalize 1.9 ms, compact
+  2.2 ms, mirror 1.4 ms.
+- browser (`bench:budgets -g m6b-paint` on the scratch merge with C2, real Chrome): 10,002-point sphere character, 40
+  pointer frames: mean 0.62 ms, p95 1.1 ms, max 1.3 ms per frame (budget ≤ 4 ms) — pick, stamp, kernel and the queued
+  partial upload; commit dispatch 0.6 ms, undo round trip 21 ms; the generated body (249 points): mean 0.09 ms.
 - the weight-display switch: 0 bytes, no new program (mesh-view browser test; E2E-SKIN-02 counts `bufferData` /
   `bufferSubData` in the page across two influence clicks and a redraw).
