@@ -45,14 +45,14 @@ function uploads(gl: WebGL2RenderingContext, fn: () => void): number {
   let bytes = 0;
   const size = (value: unknown): number =>
     typeof value === 'number' ? value : ((value as ArrayBufferView | null)?.byteLength ?? 0);
-  gl.bufferData = ((...args: unknown[]) => {
+  gl.bufferData = (...args: unknown[]) => {
     bytes += size(args[1]);
     return (data as (...a: unknown[]) => void)(...args);
-  });
-  gl.bufferSubData = ((...args: unknown[]) => {
+  };
+  gl.bufferSubData = (...args: unknown[]) => {
     bytes += size(args[2]);
     return (sub as (...a: unknown[]) => void)(...args);
-  });
+  };
   try {
     fn();
   } finally {
