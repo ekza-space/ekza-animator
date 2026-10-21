@@ -42,7 +42,7 @@ export { computeInfluenceKeyTimes } from './schedule/influence';
 export { computeStepSchedule } from './schedule/steps';
 export * from './types';
 // ---------- M6b (M6B-SPEC §4.3; C0 stub and baseline lines, each owner changes only its own) ----------
-export { updateAutoRig } from './autorig/update';
+export { AUTORIG_UPDATE_RULES, ikOf, mergeShape, updateAutoRig } from './autorig/update';
 export { bakeConstraints, CONSTRAINT_OPS, mirrorConstraint, withoutConstraints } from './constraints';
 export { parseConstraintParams } from './constraints/params';
 export {
