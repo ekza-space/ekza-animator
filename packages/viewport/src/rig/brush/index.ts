@@ -37,13 +37,20 @@ function circle(testId: string, dashed: boolean): HTMLDivElement {
 }
 
 export class BrushRing {
-  private readonly ring = circle('brush-ring', false);
-  private readonly volume = circle('brush-ring-volume', true);
-  private readonly partner = circle('brush-ring-partner', false);
+  private readonly ring: HTMLDivElement;
+  private readonly volume: HTMLDivElement;
+  private readonly partner: HTMLDivElement;
   private readonly chip = document.createElement('div');
   private shown: BrushRingState | null = null;
 
-  constructor(private readonly parent: HTMLElement = document.body) {
+  /** `name` prefixes the test ids (`brush-ring`, `brush-ring-volume`, `brush-ring-partner`, `brush-readout`). */
+  constructor(
+    private readonly parent: HTMLElement = document.body,
+    name = 'brush',
+  ) {
+    this.ring = circle(`${name}-ring`, false);
+    this.volume = circle(`${name}-ring-volume`, true);
+    this.partner = circle(`${name}-ring-partner`, false);
     Object.assign(this.chip.style, {
       position: 'fixed',
       pointerEvents: 'none',
@@ -56,7 +63,7 @@ export class BrushRing {
       font: '11px/1.4 var(--font-ui, system-ui, sans-serif)',
       whiteSpace: 'pre',
     } satisfies Partial<CSSStyleDeclaration>);
-    this.chip.dataset['testid'] = 'brush-readout';
+    this.chip.dataset['testid'] = `${name}-readout`;
     this.partner.style.opacity = '0.6';
     parent.append(this.ring, this.volume, this.partner, this.chip);
   }

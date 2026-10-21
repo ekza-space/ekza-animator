@@ -12,9 +12,12 @@ import {
   boundMeshesOf,
   type EditorApp,
   jointName,
+  influencesOf,
   meshKernel,
+  PANEL,
   setBrush,
   skinCharacter,
+  skinTargets,
   skinTestRotate,
   subscribeSkinTestRotate,
   weightInputsNow,
@@ -52,7 +55,7 @@ interface SurfaceCache {
 export class RigSkinRuntime {
   readonly ring = new BrushRing();
   /** The test-rotate ring on the active influence's joint (`E` in Skin mode). */
-  readonly rotateRing = new BrushRing();
+  readonly rotateRing = new BrushRing(document.body, 'test-rotate');
   private display: SkinnedCharacterDisplay | null = null;
   private mod: MeshView | null = null;
   private readonly weights = new Map<MeshId, { readonly surface: SkinnedSurface; readonly display: WeightDisplay }>();
@@ -243,6 +246,14 @@ export class RigSkinRuntime {
     const character = this.character();
     const skeleton = character === null ? undefined : this.app.store.query.skeletonOfCharacter(character);
     if (skeleton !== undefined) setBrush(this.app, { mirror: skeleton.symmetry });
+    // Maya starts with an influence picked: the first weighted joint of the first target mesh (skeleton order).
+    if (this.app.session.getState().rig.activeInfluence === null && character !== null) {
+      const mesh = skinTargets(this.app)[0];
+      const first = mesh === undefined ? undefined : influencesOf(this.app, [mesh])[0];
+      if (mesh !== undefined && first !== undefined) {
+        void this.app.runUntyped('skin.influence.setActive', { mesh, joint: first }, { panel: PANEL.viewport });
+      }
+    }
   }
 
   /** Live preview of a stroke: the surface's partial weight upload (a grown palette rebuilds its bone map). */

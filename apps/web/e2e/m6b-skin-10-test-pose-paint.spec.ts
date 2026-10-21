@@ -123,8 +123,22 @@ test.describe('E2E-SKIN-10 test pose, posed painting, Go to Bind Pose', () => {
     await hoverPersp(page);
     await page.keyboard.press('KeyE');
     const posed = await call(page, 'posedPositions', lad.mesh);
-    const centre = await screenCentroid(page, lad.mesh, boxPoints(await positionsOf(page, lad.mesh), 'forearm.L'));
-    await drag(page, { x: centre.x + 48, y: centre.y }, { dx: 0, dy: -30 });
+    // The test-rotate ring sits on the active influence's joint; drag a quarter of it.
+    await hoverPersp(page);
+    const ring = page.getByTestId('test-rotate-ring');
+    await expect(ring).toBeVisible();
+    const box = await ring.boundingBox();
+    if (box === null) throw new Error('no test-rotate ring');
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const r = box.width / 2;
+    await page.mouse.move(cx + r, cy);
+    await page.mouse.down();
+    for (let i = 1; i <= 6; i++) {
+      const a = (-i * Math.PI) / 12;
+      await page.mouse.move(cx + r * Math.cos(a), cy + r * Math.sin(a));
+    }
+    await page.mouse.up();
     expect((await call(page, 'state')).tool).toBe('paintSkinWeights');
     expect(await call(page, 'posedPositions', lad.mesh)).not.toEqual(posed);
   });
