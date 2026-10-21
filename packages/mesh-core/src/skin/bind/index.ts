@@ -11,6 +11,7 @@ import { cotLaplacian } from '../laplacian';
 import {
   keepLargest,
   MAX_INFLUENCES,
+  type MirrorOrder,
   prune,
   rigidify,
   sortEntries,
@@ -540,6 +541,8 @@ export function bindSkin(
     stage1[v] = vec;
   }
   const final: (WeightVector | null)[] = stage1.slice();
+  // P-S4: a symmetrized point orders, cuts, rigidifies and rounds mirror-aware; v and p(v) take opposite sides.
+  const orders: (MirrorOrder | undefined)[] = Array.from({ length: P }, () => undefined);
   if (args.symmetrize) {
     for (let v = 0; v < P; v++) {
       if (solve[v] !== 1) continue;
@@ -548,7 +551,11 @@ export function bindSkin(
       const own = stage1[v] as WeightVector;
       const other = stage1[u] ?? { joints: [], weights: [] };
       const sym = symmetrized(own, other, mirror);
-      if (keepLargest(sym, rank)) final[v] = sym;
+      const order: MirrorOrder = { mirror, flip: u < v, seam: u === v };
+      if (keepLargest(sym, rank, order)) {
+        final[v] = sym;
+        orders[v] = order;
+      }
     }
   }
 
@@ -561,9 +568,10 @@ export function bindSkin(
       continue;
     }
     const vec = final[v] as WeightVector;
-    sortEntries(vec, rank);
-    rigidify(vec, args.rigidifyAbove);
-    const weights = toFloat32(vec);
+    const order = orders[v];
+    sortEntries(vec, rank, order);
+    rigidify(vec, args.rigidifyAbove, order);
+    const weights = toFloat32(vec, order);
     out.push({ joints: vec.joints, weights });
     for (const j of vec.joints) used[j] = 1;
   }

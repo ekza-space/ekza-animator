@@ -114,23 +114,77 @@ describe('bindSkin: invariants of every method', () => {
     }
   });
 
-  it('P-S4: on the symmetric generated bodies w(v) = M(w(p(v))) exactly after a symmetrized bind', () => {
+  // The option-box values that produce 5-entry unions and tied mirror pairs on seam points (partner = self): the
+  // 4-influence cut, rigidify and the f32 residual must all be mirror-aware.
+  const SYMMETRY_VARIANTS: readonly (readonly [string, Partial<Args>])[] = [
+    ['defaults', {}],
+    ['pruneBelow 0', { pruneBelow: 0 }],
+    ['stiffness 0.1, pruneBelow 0', { stiffness: 0.1, pruneBelow: 0 }],
+    ['hierarchy false', { hierarchy: false }],
+    ['hierarchy false, pruneBelow 0, dropoff 0.1', { hierarchy: false, pruneBelow: 0, dropoff: 0.1 }],
+    ['rigidifyAbove 0.5, pruneBelow 0', { rigidifyAbove: 0.5, pruneBelow: 0 }],
+  ];
+
+  /** Asymmetric points of a symmetrized bind: w(v) ≠ M(w(p(v))), seam points included (p(v) = v). */
+  function asymmetric(geom: SkinGeometry, skeleton: SkinSkeleton, skin: SkinWeights): string[] {
+    const mirrorKey = (key: string): string => {
+      const j = skeleton.keys.indexOf(key);
+      const m = skeleton.mirror[j] as number;
+      return m >= 0 ? (skeleton.keys[m] as string) : key;
+    };
+    const bad: string[] = [];
+    for (let v = 0; v < skin.points; v++) {
+      const p = geom.partner[v] as number;
+      if (p < 0) {
+        bad.push(`point ${v}: no partner`);
+        continue;
+      }
+      const own = new Map(vector(skin, v));
+      const other = vector(skin, p).map(([key, w]) => [mirrorKey(key), w] as const);
+      if (other.length !== own.size || other.some(([key, w]) => own.get(key) !== w)) {
+        bad.push(`point ${v}${p === v ? ' (seam)' : ''}: ${JSON.stringify(vector(skin, v))}`);
+      }
+    }
+    return bad;
+  }
+
+  for (const [label, patch] of SYMMETRY_VARIANTS) {
+    it(`P-S4: on the symmetric generated bodies w(v) = M(w(p(v))) exactly after a symmetrized bind (${label})`, () => {
+      for (const style of ['smooth', 'segmented'] as const) {
+        for (const method of METHODS) {
+          const { geom, skeleton } = bodyCase(style);
+          const { skin } = bindSkin(geom, skeleton, args({ ...patch, method, symmetrize: true }), null);
+          expect(asymmetric(geom, skeleton, skin), `${style} ${method}`).toEqual([]);
+          expectValid(skin, skeleton);
+        }
+      }
+    });
+  }
+
+  it('P-S4 holds with a left-before-right skeleton order (the tie rule is mirror-invariant)', () => {
     for (const style of ['smooth', 'segmented'] as const) {
+      const mesh = body(style);
+      const rows = bodySkeletonRows();
+      // Every right row is directly followed by its left row (bothSides): swap them so left comes first.
+      const swapped = [...rows];
+      for (let i = 0; i + 1 < swapped.length; i++) {
+        const row = swapped[i] as (typeof rows)[number];
+        const next = swapped[i + 1] as (typeof rows)[number];
+        if (row.key.startsWith('right') && next.key === `left${row.key.slice(5)}`) {
+          swapped[i] = next;
+          swapped[i + 1] = row;
+          i++;
+        }
+      }
+      expect(swapped.findIndex((row) => row.key === 'leftUpperLeg')).toBeLessThan(
+        swapped.findIndex((row) => row.key === 'rightUpperLeg'),
+      );
+      const skeleton = skeletonOf(swapped);
+      const geom = skinGeometryOf(mesh, skeleton.height);
       for (const method of METHODS) {
-        const { geom, skeleton } = bodyCase(style);
-        const { skin } = bindSkin(geom, skeleton, args({ method, symmetrize: true }), null);
-        const mirrorKey = (key: string): string => {
-          const j = skeleton.keys.indexOf(key);
-          const m = skeleton.mirror[j] as number;
-          return m >= 0 ? (skeleton.keys[m] as string) : key;
-        };
-        for (let v = 0; v < skin.points; v++) {
-          const p = geom.partner[v] as number;
-          expect(p).toBeGreaterThanOrEqual(0);
-          const own = new Map(vector(skin, v));
-          const other = vector(skin, p).map(([key, w]) => [mirrorKey(key), w] as const);
-          expect(other.length).toBe(own.size);
-          for (const [key, w] of other) expect(own.get(key)).toBe(w);
+        for (const [, patch] of SYMMETRY_VARIANTS) {
+          const { skin } = bindSkin(geom, skeleton, args({ ...patch, method, symmetrize: true }), null);
+          expect(asymmetric(geom, skeleton, skin), `${style} ${method}`).toEqual([]);
         }
       }
     }
