@@ -34,9 +34,13 @@ import {
   registerBuiltins,
   registerChannelSourceProvider,
   resolveChord,
+  RIG_VIEW_ONLY_REASON,
+  rigKeyingRefusal,
   rigStatus,
   rigValidation,
+  rigViewOnly,
   selectValidationRow,
+  setRigViewOnly,
   switchWorkspace,
   TEST_POSE_TOAST,
 } from '../../src';
@@ -704,5 +708,149 @@ describe('hide, show and isolate in Rig & Skin (§6.3, §7)', () => {
     // Animate: still refused.
     await runOk(app, 'workspace.set', { workspace: 'animate' });
     expect((await runResult(app, 'view.hide', { target: 'unselected' })).status).toBe('cancelled');
+  });
+});
+
+describe('keying is impossible in Rig & Skin (§5.17), whichever surface runs it', () => {
+  /** Ids the runner refuses in Rig & Skin: keying, pose paste/mirror, curve edits. */
+  const KEYING_RUNS: readonly (readonly [string, unknown])[] = [
+    ['key.set', { channels: 'all' }],
+    ['key.set', { channels: 'selected' }], // the Channel Box's "Key Selected"
+    ['key.deleteAtFrame', undefined],
+    ['pose.mirror', { mode: 'flip' }],
+    ['pose.paste', undefined],
+    ['pose.resetToRest', undefined],
+    ['graph.keys.keyCurves', undefined],
+    ['graph.keys.delete', undefined],
+    ['time.insertTime', { frames: 2 }],
+  ];
+
+  it('a test pose, then key.set / Key Selected / pose.mirror / curve edits: refused, keys hash unchanged', async () => {
+    const app = await rigApp();
+    select(app, [W.lowerArmL]);
+    app.session.setState({
+      selection: { ...app.session.getState().selection, channels: [{ control: W.lowerArmL, channel: 'rz' }] },
+    });
+    const gesture = beginChannelEditGesture(app, 'Rotate', { key: 'auto' });
+    gesture.update([{ control: W.lowerArmL, channel: 'rz', value: 1.234 }]);
+    gesture.commit();
+    const hash = keysHash(app);
+    const version = app.store.version;
+    const step = app.history.peekUndo();
+    for (const [id, args] of KEYING_RUNS) {
+      const result = await runResult(app, id, args);
+      expect([id, result]).toEqual([id, { status: 'cancelled', reason: ANIMATE_ONLY_REASON }]);
+      expect(app.operators.poll(id, undefined, args)).toEqual({ ok: false, reason: ANIMATE_ONLY_REASON });
+    }
+    expect([keysHash(app), app.store.version, app.history.peekUndo()]).toEqual([hash, version, step]);
+    expect(app.session.getState().overrides.size).toBe(0);
+    // Reading curves stays allowed: the refusal is not what fails them.
+    expect(rigKeyingRefusal(app, 'graph.keys.copy')).toBeNull();
+    expect(rigKeyingRefusal(app, 'pose.copy')).toBeNull();
+    // Animate keys as before.
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    select(app, [W.lowerArmL]);
+    expect(rigKeyingRefusal(app, 'key.set')).toBeNull();
+    await runOk(app, 'key.set');
+    expect(keysHash(app)).not.toBe(hash);
+  });
+});
+
+describe('selection undo in Rig & Skin (§5.24)', () => {
+  it('a control selection gesture records one Select step; undo restores the selection, no document change', async () => {
+    const app = await rigApp();
+    expect(app.prefs.getState().modeling.undoSelection['rig']).toBe(true);
+    const version = app.store.version;
+    const top = app.history.peekUndo();
+    await runOk(app, 'select.controls', { ids: [W.lowerArmL], mode: 'replace' });
+    const first = app.history.peekUndo();
+    expect(first?.label).toBe('Select');
+    await runOk(app, 'select.controls', { ids: [W.handL], mode: 'add' });
+    expect(app.session.getState().selection.controls).toEqual([W.lowerArmL, W.handL]);
+    expect(app.history.peekUndo()).not.toBe(first); // one step per gesture
+    // A gesture that changes nothing records nothing.
+    const second = app.history.peekUndo();
+    await runOk(app, 'select.controls', { ids: [W.handL], mode: 'add' });
+    expect(app.history.peekUndo()).toBe(second);
+    await runOk(app, 'edit.undo');
+    expect(app.session.getState().selection.controls).toEqual([W.lowerArmL]);
+    await runOk(app, 'edit.undo');
+    expect(app.session.getState().selection.controls).toEqual([]);
+    expect(app.history.peekUndo()).toBe(top);
+    await runOk(app, 'edit.redo');
+    expect(app.session.getState().selection.controls).toEqual([W.lowerArmL]);
+    // select.none (viewport) and select.mirror are gestures too.
+    await runOk(app, 'select.none');
+    expect(app.history.peekUndo()?.label).toBe('Select');
+    await runOk(app, 'edit.undo');
+    expect(app.session.getState().selection.controls).toEqual([W.lowerArmL]);
+    expect(app.store.version).toBe(version);
+  });
+
+  it('Animate keeps selection out of the history', async () => {
+    const app = await rigApp();
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    const top = app.history.peekUndo();
+    await runOk(app, 'select.controls', { ids: [W.lowerArmL], mode: 'replace' });
+    expect(app.history.peekUndo()).toBe(top);
+  });
+});
+
+describe('Object mode picks meshes (§5.24 pick mask)', () => {
+  it('select.objects runs in Rig & Skin Object mode only (and in Model)', async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app);
+    app.session.setState({ rig: { ...app.session.getState().rig, character } });
+    app.store.transact({ label: 'Scene mesh' }, (tx) => tx.put('meshes', makeTestMesh('msh_Scene0001', {})));
+    await runOk(app, 'select.objects', { ids: ['msh_Scene0001'], mode: 'replace' });
+    expect(app.session.getState().selection.objects).toEqual(['msh_Scene0001']);
+    expect(app.history.peekUndo()?.label).toBe('Select');
+    await runOk(app, 'rig.mode', { mode: 'skeleton' });
+    const refused = await runResult(app, 'select.objects', { ids: [], mode: 'replace' });
+    expect(refused).toEqual({ status: 'cancelled', reason: 'Objects are picked in Object mode' });
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    const animate = await runResult(app, 'select.objects', { ids: [], mode: 'replace' });
+    expect(animate).toEqual({ status: 'cancelled', reason: 'Objects are selected in Model and Rig & Skin' });
+  });
+});
+
+describe('view-only below 1024 px (§5.24)', () => {
+  it('document edits are refused in Rig & Skin; test poses still work; other workspaces are unaffected', async () => {
+    const app = await rigApp();
+    setRigViewOnly(app, true);
+    disposers.push(() => setRigViewOnly(app, false));
+    expect(rigViewOnly(app)).toBe(true);
+    const refs = [{ control: W.lowerArmL, channel: 'rz' }];
+    const refused = await runResult(app, 'channel.toggleLock', { refs });
+    expect(refused).toEqual({ status: 'cancelled', reason: RIG_VIEW_ONLY_REASON });
+    await runOk(app, 'channel.setValues', { edits: [{ control: W.lowerArmL, channel: 'rz', value: 0.2 }] });
+    expect(app.rig.testPose.values(W.character).get(W.lowerArmL)).toEqual({ rz: 0.2 });
+    await runOk(app, 'select.controls', { ids: [W.lowerArmL], mode: 'replace' }); // U state stays allowed
+    await runOk(app, 'workspace.set', { workspace: 'animate' });
+    expect(rigViewOnly(app)).toBe(false);
+    await runOk(app, 'channel.toggleLock', { refs });
+  });
+});
+
+describe('Alt+H in Skeleton mode is limited to the skeletons in scope', () => {
+  it("hiding the unselected joints leaves another character's joints alone", async () => {
+    const app = await rigApp();
+    const character = addModelCharacter(app);
+    app.session.setState({ rig: { ...app.session.getState().rig, character } });
+    const otherSkeleton = 'skl_Other0001' as SkeletonId;
+    const otherJoint = 'jnt_Other0001' as JointId;
+    app.store.transact({ label: 'Other skeleton' }, (tx) => {
+      tx.put('skeletons', makeTestSkeleton(otherSkeleton, 'chr_Other0001', { preset: 'standard33' }));
+      tx.put('joints', makeTestJoint(otherJoint, otherSkeleton, { name: 'hips', humanBone: 'hips', key: 'hips' }));
+    });
+    await runOk(app, 'rig.mode', { mode: 'skeleton' });
+    app.session.setState({ selection: { ...app.session.getState().selection, joints: [SPINE] } });
+    await runOk(app, 'view.hide', { target: 'unselected' });
+    expect([...app.session.getState().rig.hiddenJoints]).toEqual([HIPS]);
+    // No joint selected: the active character's skeleton.
+    await runOk(app, 'view.showAll');
+    app.session.setState({ selection: { ...app.session.getState().selection, joints: [] } });
+    await runOk(app, 'view.hide', { target: 'unselected' });
+    expect([...app.session.getState().rig.hiddenJoints].sort()).toEqual([HIPS, SPINE].sort());
   });
 });

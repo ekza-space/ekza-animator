@@ -1,7 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
 import { drag, pointOf } from './helpers/g1-viewport';
+import { createPrimitive, openModel } from './helpers/m6a-model';
 import { buildCubeLad } from './helpers/m6b-cube-lad';
-import { enterRig, RIG_FRONT_PANE, RIG_PERSP_PANE } from './helpers/m6b-rig';
+import { enterRig, expectRefused, RIG_FRONT_PANE, RIG_PERSP_PANE } from './helpers/m6b-rig';
 import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
 
 // E2E-RIG-01 (M6B-SPEC §0.7 "MVP checklist"; owner C7): the Cube Lad goes through ① Place markers + Create Skeleton,
@@ -44,6 +45,34 @@ test('E2E-RIG-01 (MVP part): the checklist starts at ①, the empty state, Getti
   await page.getByTestId('rig-empty-sample').click();
   await expect(page.getByTestId('rig-empty')).toBeHidden();
   expect((await call(page, 'rigState')).character).not.toBeNull();
+});
+
+test('E2E-RIG-01 (MVP part): Object mode picks a scene mesh (Quick Rig on it); view-only below 1024 px', async ({
+  page,
+}) => {
+  await openModel(page);
+  await expectKernelStarted(page);
+  const cube = await createPrimitive(page, 'cube');
+  await runOk(page, 'select.objects', { ids: [], mode: 'replace' });
+  await enterRig(page);
+  const quickRig = page.getByTestId('rig-empty-quickrig');
+  await expect(quickRig).toBeDisabled();
+  // §5.24: the Object-mode pick mask has meshes; a click on the cube selects it, and Quick Rig is offered on it.
+  const face = await pointOf(page, () => call(page, 'screenOfFace', cube, 0, RIG_PERSP_PANE), 'a cube face');
+  await page.mouse.click(face.x, face.y);
+  await expect(quickRig).toBeEnabled();
+  expect((await call(page, 'history')).undo.at(-1)).toBe('Select'); // selection undo in Rig & Skin
+  await runOk(page, 'edit.undo');
+  await expect(quickRig).toBeDisabled();
+  await runOk(page, 'edit.redo');
+  await expect(quickRig).toBeEnabled();
+  // Below 1024 px Rig & Skin is view-only: the banner, and document edits are refused (§5.24).
+  const size = page.viewportSize();
+  await page.setViewportSize({ width: 900, height: size?.height ?? 800 });
+  await expect(page.getByTestId('rig-view-only')).toContainText('Open on a larger screen to edit');
+  await expectRefused(page, 'channel.toggleLock', 'Open on a larger screen to edit', { refs: [] });
+  if (size !== null) await page.setViewportSize(size);
+  await expect(page.getByTestId('rig-view-only')).toBeHidden();
 });
 
 test.fixme(`E2E-RIG-01: the MVP checklist on the Cube Lad (gates: ${GATES})`, async ({ page }) => {

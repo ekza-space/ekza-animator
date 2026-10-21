@@ -1,8 +1,8 @@
 import { expect, type Page, test } from '@playwright/test';
 import { centreOf, drag, paneRect, pointOf } from './helpers/g1-viewport';
-import { createBodyCharacter, enterRig, keysHash, RIG_PERSP_PANE, undoUntil } from './helpers/m6b-rig';
+import { createBodyCharacter, enterRig, expectRefused, keysHash, RIG_PERSP_PANE, undoUntil } from './helpers/m6b-rig';
 import { controlId, seedSample } from './helpers/seed';
-import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api';
+import { call, expectKernelStarted, openEditor, run, runOk } from './helpers/test-api';
 
 // E2E-RIG-05 (M6B-SPEC §10.1 row; owner C7): Object mode, `E` on two controls writes test poses (never keys, never the
 // document): the view switches to Test with the toast once per session; status Bind ↔ Test restores the pose; an
@@ -83,6 +83,50 @@ test('E2E-RIG-05 (MVP part): test poses on controls, Bind ↔ Test, undo inside 
   expect(history.redo).toEqual([]);
   expect(history.undo.filter((label) => label !== 'Select').at(-1)).toBe(keyed);
   expect(await keysHash(page)).toBe(hash);
+});
+
+test('E2E-RIG-05 (MVP part): a test pose is never keyed: Channel Box Key Selected, the palette, key.set', async ({
+  page,
+}) => {
+  await openEditor(page);
+  await expectKernelStarted(page);
+  await seedSample(page, 'polybot');
+  const arm = await controlId(page, 'fk.lowerArm.L');
+  const head = await controlId(page, 'fk.head');
+  await enterRig(page);
+  await runOk(page, 'select.controls', { ids: [arm], mode: 'replace' });
+  await runOk(page, 'channel.setValues', { edits: [{ control: arm, channel: 'rz', value: 1.234 }], key: 'auto' });
+  await expect.poll(() => rz(page, arm)).toBeCloseTo(1.234);
+  const hash = await keysHash(page);
+  const counts = await call(page, 'counts');
+  // The Channel Box's right-click "Key Selected" (§5.17: keying is impossible in Rig & Skin).
+  await runOk(page, 'workspace.showPanel', { panel: 'channelBox' });
+  const row = page.locator('[data-channel="rz"]').first();
+  await row.click({ button: 'right' });
+  await page.getByTestId('cb-menu-key-selected').click();
+  // The palette lists no keying entry; a run of key.set, pose.mirror or a curve edit is refused.
+  expect((await run(page, 'ui.commandPalette')).status).toBe('finished');
+  await expect(page.getByTestId('cmdk')).toBeVisible();
+  const ops = new Set((await call(page, 'commandPalette'))?.items.map((item) => item.op) ?? []);
+  for (const op of ['key.set', 'key.deleteAtFrame', 'pose.mirror', 'pose.paste', 'graph.keys.keyCurves']) {
+    expect(ops.has(op), op).toBe(false);
+  }
+  await page.keyboard.press('Escape');
+  for (const [op, args] of [
+    ['key.set', { channels: 'all' }],
+    ['pose.mirror', { mode: 'flip' }],
+    ['graph.keys.keyCurves', undefined],
+  ] as const) {
+    await expectRefused(page, op, 'Keys and poses are set in Animate', args);
+  }
+  expect(await keysHash(page)).toBe(hash);
+  expect(await call(page, 'counts')).toEqual(counts);
+  // Selection undo (§5.24): one Select step per gesture; undo restores the selection, no document change.
+  await runOk(page, 'select.controls', { ids: [head], mode: 'replace' });
+  expect((await call(page, 'history')).undo.at(-1)).toBe('Select');
+  await runOk(page, 'edit.undo');
+  expect((await call(page, 'state')).selection.controls).toEqual([arm]);
+  expect(await call(page, 'counts')).toEqual(counts);
 });
 
 test.fixme(`E2E-RIG-05: pose view and history on a bound body (gates: ${GATES})`, async ({ page }) => {

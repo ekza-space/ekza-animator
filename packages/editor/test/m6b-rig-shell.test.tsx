@@ -13,7 +13,14 @@ import type {
   RigRecord,
   SkeletonId,
 } from '@ekza-studio/doc';
-import { type EditorApp, PANEL, RIG_MENUS, registerBuiltins } from '@ekza-studio/editor-core';
+import {
+  type EditorApp,
+  PANEL,
+  RIG_MENUS,
+  RIG_VIEW_ONLY_REASON,
+  registerBuiltins,
+  rigViewOnly,
+} from '@ekza-studio/editor-core';
 import type { SkeletonDesc } from '@ekza-studio/rig';
 import { act, type JSX } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -25,6 +32,8 @@ import { ALL_SLOTS, slotsOf } from '../src/shell/layout';
 import { RIG_MENU_ITEMS } from '../src/shell/menus/rig';
 import { topMenus } from '../src/shell/menus';
 import { applyRigLayout, RIG_LAYOUT, RIG_LAYOUTS, RIG_SLOTS } from '../src/shell/rig/layouts';
+import { followModeTabs, rememberTabs } from '../src/shell/rig/register';
+import { RIG_VIEW_ONLY_QUERY, rigNarrow, watchRigViewOnly } from '../src/shell/rig/viewOnly';
 import { useStatusGroup } from '../src/shell/statusGroupRegistry';
 import { by, cleanup, mountPlain } from './panels/helpers';
 import { createTestShell, ShellFrame, waveFixtures } from './shell-helpers';
@@ -318,5 +327,92 @@ describe('the Rig Toolkit and the Validation panel (§8.6, §8.12)', () => {
     // [Re-run] re-derives the rows (same document: same rows).
     await act(async () => by('val-rerun').click());
     expect(by('val-row-skin.unbound').getAttribute('data-severity')).toBe('warning');
+  });
+});
+
+describe('the dock tabs per mode (§5.24, §8.2)', () => {
+  it('follow the mode and remember the tabs the user left showing in a mode', async () => {
+    const test = await rigShell();
+    addModelCharacter(test.app);
+    const shown: string[] = [];
+    let visible: string[] = [];
+    const dockview = {
+      get panels() {
+        return visible.map((kind) => ({ params: { kind }, api: { isVisible: true } }));
+      },
+    };
+    disposers.push(
+      followModeTabs(test.app, {
+        showPanel: (kind) => {
+          shown.push(kind);
+          return true;
+        },
+        dockview: () => dockview as never,
+      }),
+    );
+    await run(test.app, 'rig.mode', { mode: 'skeleton' });
+    expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.rigToolkit]);
+    // The user picks Attributes in Skeleton mode, then leaves it.
+    visible = [PANEL.viewport, PANEL.attributes, PANEL.validation];
+    await run(test.app, 'rig.mode', { mode: 'object' });
+    expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.channelBox]);
+    expect(test.app.session.getState().rig.tabMemory.skeleton).toEqual({
+      right: PANEL.attributes,
+      bottom: PANEL.validation,
+    });
+    visible = [PANEL.channelBox, PANEL.validation];
+    await run(test.app, 'rig.mode', { mode: 'skeleton' });
+    expect(shown.slice(-2)).toEqual([PANEL.validation, PANEL.attributes]);
+    // Object mode kept its default (the user did not change it).
+    expect(test.app.session.getState().rig.tabMemory.object).toEqual({
+      right: PANEL.channelBox,
+      bottom: PANEL.validation,
+    });
+  });
+
+  it('a dock with no Rig tab showing keeps its remembered tab', async () => {
+    const test = await rigShell();
+    const before = test.app.session.getState().rig.tabMemory;
+    rememberTabs(test.app, 'skin', [PANEL.viewport]);
+    expect(test.app.session.getState().rig.tabMemory).toBe(before);
+    rememberTabs(test.app, 'skin', [PANEL.channelBox]);
+    expect(test.app.session.getState().rig.tabMemory.skin).toEqual({
+      right: PANEL.channelBox,
+      bottom: PANEL.componentEditor,
+    });
+  });
+});
+
+describe('view-only below 1024 px (§5.24)', () => {
+  it('the window width drives editor-core view-only and the banner flag', async () => {
+    const test = await rigShell();
+    const listeners = new Set<() => void>();
+    const media = {
+      matches: true,
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    };
+    const original = globalThis.matchMedia;
+    globalThis.matchMedia = ((query: string) => {
+      expect(query).toBe(RIG_VIEW_ONLY_QUERY);
+      return media;
+    }) as never;
+    try {
+      const stop = watchRigViewOnly(test.app);
+      expect([rigNarrow(), rigViewOnly(test.app)]).toEqual([true, true]);
+      const refused = await test.app.runUntyped('channel.toggleLock', {
+        refs: [{ control: test.app.store.list('controls')[0]?.id, channel: 'rz' }],
+      });
+      expect(refused).toEqual({ status: 'cancelled', reason: RIG_VIEW_ONLY_REASON });
+      media.matches = false;
+      for (const listener of Array.from(listeners)) listener();
+      expect([rigNarrow(), rigViewOnly(test.app)]).toEqual([false, false]);
+      media.matches = true;
+      for (const listener of Array.from(listeners)) listener();
+      stop();
+      expect([rigNarrow(), rigViewOnly(test.app), listeners.size]).toEqual([false, false, 0]);
+    } finally {
+      globalThis.matchMedia = original;
+    }
   });
 });
