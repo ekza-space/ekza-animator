@@ -4,11 +4,18 @@
 // mesh: the new skin layers, `MeshRecord.skin = {skeleton, bind}` (the `SkinBindRecord` of a full run; a masked run
 // keeps the stored record) and, when the character has no control rig yet, the generated rig (§5.16). Rebinding a
 // bound mesh with no point mask asks first (`rebindSkin`, answered by `answerRebind`); Adjust Last never asks again.
-// `skin.weights.autoForJoints` stays deferred (§0.3).
+// A masked run keeps the held joints' weights (§5.10, `applyHolds`) and needs a bound mesh. `skin.weights.autoForJoints`
+// stays deferred (§0.3).
 import { EkzaError, type JsonValue, type ParamDef } from '@ekza-studio/anim-core';
 import type { CharacterId, MeshId, MeshRecord, SkeletonId, Tx } from '@ekza-studio/doc';
 import { skeletonFromDoc } from '@ekza-studio/io';
-import type { BindMethod, SkinBindArgs, SkinBindRecord } from '@ekza-studio/mesh-core';
+import {
+  applyHolds,
+  type BindMethod,
+  type SkinBindArgs,
+  type SkinBindRecord,
+  type SkinWeights,
+} from '@ekza-studio/mesh-core';
 import { readRigDefinition, updateAutoRig, writeRigDefinition } from '@ekza-studio/rig';
 import { loadMeshKernel, meshKernel } from '../../../mesh/kernel';
 import {
@@ -172,6 +179,15 @@ function bindPoll(app: EditorApp, args: unknown): ReturnType<typeof fail> {
   }
   const joints = isRecord(args) ? args['joints'] : undefined;
   if (Array.isArray(joints) && joints.length === 0) return fail('Bind Skin needs at least one joint to bind to');
+  // A point mask re-solves some points of a bound mesh; the others keep weights it would not have.
+  const points = isRecord(args) ? args['points'] : undefined;
+  if (Array.isArray(points)) {
+    const unbound = meshes.find((mesh) => !isBound(app, mesh));
+    if (unbound !== undefined) {
+      const name = app.store.get('meshes', unbound)?.name ?? unbound;
+      return fail(`Bind ${name} first: only a bound mesh re-binds selected points`);
+    }
+  }
   return OK;
 }
 
@@ -212,6 +228,8 @@ export async function answerRebind(app: EditorApp, choice: 'rebind' | 'selected'
     return;
   }
   for (const mesh of request.meshes) {
+    // An unbound mesh has no weights to keep outside the selection: it is left for a full bind.
+    if (!isBound(app, mesh)) continue;
     const points = app.components.get(mesh, 'vertex').verts.toArray();
     if (points.length === 0) continue;
     await app.runUntyped('skin.bind', { ...args, meshes: [mesh], points: Array.from(points) });
@@ -356,16 +374,21 @@ async function prepareBind(ctx: OperatorContext, args: BindArgs): Promise<BindPr
       // `symmetrize: null` resolves per mesh at invoke time; the first target's value is the one recorded.
       const symmetrize = base.symmetrize ?? autoSymmetrize(inputs.geometry, inputs.skeleton);
       recorded ??= symmetrize;
-      const job = {
-        geometry: inputs.geometry,
-        skeleton: inputs.skeleton,
-        args: { ...base, symmetrize },
-        previous: base.points === null ? null : inputs.previous,
-      };
-      const result =
+      const previous = base.points === null ? null : inputs.previous;
+      // §5.10: the held entries of the masked points come back from a copy (the worker takes `previous`'s buffers).
+      const heldFrom: SkinWeights | null =
+        previous !== null && holds.length > 0
+          ? { ...previous, joints: previous.joints.slice(), weights: previous.weights.slice() }
+          : null;
+      const job = { geometry: inputs.geometry, skeleton: inputs.skeleton, args: { ...base, symmetrize }, previous };
+      const solved =
         typeof service.run === 'function'
           ? await service.run(mesh, job)
           : await app.rig.skin.bind(mesh, { ...base, symmetrize });
+      const result =
+        heldFrom === null || base.points === null
+          ? solved
+          : { ...solved, skin: applyHolds(solved.skin, heldFrom, base.points, holds) };
       runs.push({ inputs, result });
       app.session.setState({ busy: { label: BUSY, progress: (i + 1) / meshes.length } });
     }

@@ -1,7 +1,7 @@
 // mesh-core skin (M6B-SPEC §4.2): the skin value objects (C0 baselines), the solvers' inputs, the sparse kit (C4), bind
 // (C4) and the weight edits (C5/C6). One line per module; each owner changes only its own lines (§3 rule 2).
 
-export { autoWeightPoints, bindSkin, ISLAND_RULE } from './bind';
+export { applyHolds, autoWeightPoints, bindSkin, ISLAND_RULE } from './bind';
 export { checkSkin } from './check';
 // C6 (with the C5 MVP subset)
 export { editWeights, skinDirty } from './edit';

@@ -276,6 +276,80 @@ describe('skin.bind (§5.9)', () => {
     expect(f.app.store.get('meshes', f.mesh)?.skin).toEqual(record);
   });
 
+  it('a point mask on an unbound mesh is a poll refusal, not an internal error', async () => {
+    const f = await bodyCharacter();
+    const poll = f.app.operators.poll('skin.bind', {}, { points: [0, 1, 2] });
+    expect(poll === true ? null : poll.reason).toMatch(/first: only a bound mesh re-binds selected points$/);
+    const result = await f.app.runUntyped('skin.bind', { points: [0, 1, 2] });
+    expect(result.status).not.toBe('failed');
+    expect(readSkin(dataOf(f.app, f.mesh))).toBeNull();
+  });
+
+  it('"Only selected points" skips an unbound mesh of the request and re-binds the bound one', async () => {
+    const f = await bodyCharacter();
+    const extra = await runValue<{ root: string }>(f.t, 'mesh.create.template', { template: 'humanoidBody' });
+    const second = extra.root as MeshId;
+    f.app.store.transact({ label: 'own' }, (tx) =>
+      tx.patch('meshes', second, { owner: { character: f.character }, parent: null }),
+    );
+    expect((await f.app.runUntyped('skin.bind', { meshes: [f.mesh] })).status).toBe('finished');
+    const before = readSkin(dataOf(f.app, f.mesh));
+    const model = f.app.session.getState().model;
+    f.app.session.setState({
+      model: { ...model, componentMode: 'vertex', lastComponentMode: 'vertex', hilite: [f.mesh, second] },
+    });
+    f.app.components.apply(f.mesh, 'vertex', [0, 1, 2], 'replace');
+    f.app.components.apply(second, 'vertex', [0, 1, 2], 'replace');
+    const asked = await f.app.runUntyped('skin.bind', { method: 'closest' });
+    expect(asked.status).toBe('cancelled');
+    expect([...(rebindRequest(f.app)?.meshes ?? [])].sort()).toEqual([f.mesh, second].sort());
+    await answerRebind(f.app, 'selected');
+    expect(top(f.app)?.label).toBe('Bind Skin');
+    expect(readSkin(dataOf(f.app, second))).toBeNull();
+    const after = readSkin(dataOf(f.app, f.mesh));
+    expect(after?.palette.slice(0, before?.palette.length)).toEqual(before?.palette);
+  });
+
+  it('a masked bind keeps the held joints’ weights bit-equal (§5.10) and records the holds', async () => {
+    const f = await bodyCharacter();
+    await f.app.runUntyped('skin.bind', { method: 'heat' });
+    const before = readSkin(dataOf(f.app, f.mesh));
+    if (before === null) throw new Error('not bound');
+    const weightOf = (skin: typeof before, v: number, key: string): number => {
+      for (let k = 0; k < 4; k++) {
+        const w = skin.weights[4 * v + k] as number;
+        if (w > 0 && skin.palette[skin.joints[4 * v + k] as number]?.key === key) return w;
+      }
+      return 0;
+    };
+    // The joint that most often blends as a second influence; hold it and re-solve its blended points rigidly.
+    const counts = new Map<string, number>();
+    for (let v = 0; v < before.points; v++) {
+      if (!((before.weights[4 * v + 1] as number) > 0)) continue;
+      const key = before.palette[before.joints[4 * v + 1] as number]?.key as string;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    const held = [...counts.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]?.[0] as string;
+    const points = [...Array(before.points).keys()].filter((v) => {
+      const w = weightOf(before, v, held);
+      return w > 0 && w < 1;
+    });
+    expect(points.length).toBeGreaterThan(0);
+    const rig = f.app.session.getState().rig;
+    f.app.session.setState({ rig: { ...rig, holds: new Map([[f.character, new Set([held])]]) } });
+    const result = await f.app.runUntyped('skin.bind', { method: 'rigid-islands', points });
+    expect(result.status).toBe('finished');
+    const after = readSkin(dataOf(f.app, f.mesh));
+    if (after === null) throw new Error('not bound');
+    for (const v of points) {
+      expect(Object.is(weightOf(after, v, held), weightOf(before, v, held))).toBe(true);
+      let sum = 0;
+      for (let k = 0; k < 4; k++) sum += after.weights[4 * v + k] as number;
+      expect(Math.abs(sum - 1)).toBeLessThanOrEqual(1e-6);
+    }
+    expect((f.app.session.getState().lastRun as LastRun).args).toMatchObject({ holds: [held] });
+  });
+
   it('refuses scene meshes, placed meshes, an empty joint mask and asset-sourced characters', async () => {
     const f = await bodyCharacter();
     const scene = await runValue<{ created: string[] }>(f.t, 'mesh.create.template', { template: 'prop' });

@@ -30,6 +30,8 @@ import type {
 } from '../types';
 import { boneSegments, nearestSegments, Occluder, type Segments, segmentClosest } from '../visibility';
 
+export { applyHolds } from './holds';
+
 /** §5.9 auto-lowpoly island rule thresholds (calibrated by C4's spike; docs/wp-notes/m6b-auto-skin.md). */
 export const ISLAND_RULE: {
   /** Every vote within this tree distance of c … */
