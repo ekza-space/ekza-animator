@@ -6,6 +6,7 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import { type EditorApp, PANEL, type RigMode } from '@ekza-studio/editor-core';
 import { RIG_MARKING_MENUS } from '../../overlays/menus/rig';
+import { registerSkeletonUi } from '../../panels/rigToolkit/sections/skeleton/register';
 import { registerRigOverlays } from '../../panels/viewport/rig/overlays';
 import { RIG_MENU_ITEMS, registerRigDynamicMenus } from '../menus/rig';
 import type { RigShellDeps } from './index';
@@ -69,6 +70,8 @@ export function registerRigShellUi(app: EditorApp, deps: RigShellDeps): Disposer
     if (app.markingMenus.get(def.id) === undefined) disposers.push(app.contribute({ kind: 'markingMenu', def }));
   }
   disposers.push(registerRigStatusGroups(), registerRigOverlays(app), watchRigViewOnly(app), followModeTabs(app, deps));
+  // C3: the skeleton UI's shell parts (the FK FOR TEST badge).
+  disposers.push(registerSkeletonUi(app));
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
   };
