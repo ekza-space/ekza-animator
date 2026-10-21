@@ -73,6 +73,9 @@ export class ClipLibrary implements ClipLibraryService {
   private watching: Disposer[] = [];
   private frameHandle: unknown = null;
   private readonly unregister: Disposer;
+  private readonly offRuns: Disposer;
+  /** Counts document runs (undoable operators, undo, redo): a preview prepared before one of them is stale. */
+  documentRuns = 0;
 
   constructor(
     private readonly app: EditorApp,
@@ -83,6 +86,9 @@ export class ClipLibrary implements ClipLibraryService {
     const now = opts.now ?? (() => (typeof performance === 'undefined' ? Date.now() : performance.now()));
     this.source = new ClipPreviewSource(internalsOf(app).deps.curves.engine, now);
     this.unregister = registerPreviewSource(this.source);
+    this.offRuns = app.operators.onBeforeDocumentRun(() => {
+      this.documentRuns++;
+    });
     libraries.set(app, this);
   }
 
@@ -189,6 +195,7 @@ export class ClipLibrary implements ClipLibraryService {
   dispose(): void {
     this.stopPreview();
     this.unregister();
+    this.offRuns();
     this.listeners.clear();
     if (libraries.get(this.app) === this) libraries.delete(this.app);
   }

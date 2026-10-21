@@ -209,6 +209,13 @@ describe('library preview (§0.4.7)', () => {
     expect(app.evaluation.channelValues(control.id)).toEqual(animate);
   });
 
+  it('a document run while the clip is being read keeps that preview from starting', async () => {
+    const pending = app.runUntyped('library.preview', { character, clip: 'walk' });
+    await runOk(app, 'clip.new', { character });
+    expect(await pending).toMatchObject({ status: 'finished' });
+    expect(library.preview).toBeNull();
+  });
+
   it('refuses a generic target and an unknown clip', async () => {
     expect(await app.runUntyped('library.preview', { character: 'chr_missing', clip: 'walk' })).toMatchObject({
       status: 'cancelled',

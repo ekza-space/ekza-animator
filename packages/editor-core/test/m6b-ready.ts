@@ -8,5 +8,5 @@ export const READY = {
   c6: false,
   c7: false,
   c10: false,
-  c12: false,
+  c12: true,
 } as const;

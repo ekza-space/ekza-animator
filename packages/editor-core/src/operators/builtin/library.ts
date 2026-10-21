@@ -76,7 +76,13 @@ const open = defineOperator<'library.open'>({
   apply() {},
 });
 
-const preview = defineOperator<'library.preview', Awaited<ReturnType<typeof previewClipOf>>>({
+interface PreviewPlan {
+  readonly clip: Awaited<ReturnType<typeof previewClipOf>>;
+  /** `documentRuns` when the preparation started: a document run since then makes the preview stale. */
+  readonly runs: number;
+}
+
+const preview = defineOperator<'library.preview', PreviewPlan>({
   id: 'library.preview',
   label: 'Preview Clip',
   description: 'Plays a library clip on the character in a loop without writing the document (M6B-SPEC §0.4.7)',
@@ -87,12 +93,16 @@ const preview = defineOperator<'library.preview', Awaited<ReturnType<typeof prev
   poll: ({ app }, args) => pollTarget(app, args),
   async prepare({ app }, args) {
     const library = requireClipLibrary(app);
+    const runs = library.documentRuns;
     const clip = await library.clip(args.clip);
     if (library.failed(clip.id)) throw new EkzaError('checksum', CHECKSUM_FAILED, { clip: clip.id });
-    return previewClipOf(app, args.character, clip, await verifiedBytes(app, library, clip.id));
+    return { clip: await previewClipOf(app, args.character, clip, await verifiedBytes(app, library, clip.id)), runs };
   },
   apply({ app }, _args, prepared) {
-    requireClipLibrary(app).startPreview(prepared);
+    const library = requireClipLibrary(app);
+    // A key, Use Clip or undo ran while the clip was being read: that edit wins, the preview does not start.
+    if (library.documentRuns !== prepared.runs) return;
+    library.startPreview(prepared.clip);
   },
 });
 
