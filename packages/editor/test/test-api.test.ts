@@ -427,5 +427,9 @@ describe('placeholder test API (kernel unavailable)', () => {
     expect(() => testApi.api.counts()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
     expect(() => testApi.api.workspaces()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
     expect(() => testApi.api.meshes()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    // M6b: the groups throw too, and the degraded API is not a thenable (it may be awaited or returned).
+    expect(() => testApi.api.rigCompiles('c')).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect(() => testApi.api.library()).toThrow(expect.objectContaining({ code: 'not-implemented' }));
+    expect((testApi.api as unknown as { readonly then?: unknown }).then).toBeUndefined();
   });
 });

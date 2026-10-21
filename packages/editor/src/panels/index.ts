@@ -16,6 +16,9 @@ import { PANEL } from '@ekza-studio/editor-core';
 import { lazyPanelDef } from './lazyPanel';
 import { registerModelStartOverlays } from './viewport/modelOverlays';
 
+/** M6b: the Rig & Skin panel bodies, one lazy group (./rigPanels.ts). */
+const loadRigPanels = () => import('./rigPanels');
+
 /**
  * Registers every built-in panel. Each panel directory exports `register<Name>Panel`; panel owners edit only their
  * directory and the shell never edits panel directories (MVP-SPEC §3 convention 10).
@@ -40,11 +43,11 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     registerModelStartOverlays(),
     // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6, C6)
     registry.register(lazyPanelDef(PANEL.clipLibrary, 'Clip Library', () => import('./clipLibrary'))),
-    registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', () => import('./quickRig'))),
-    registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', () => import('./rigToolkit'))),
-    registry.register(lazyPanelDef(PANEL.validation, 'Validation', () => import('./validation'))),
-    registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', () => import('./paintWeights'))),
-    registry.register(lazyPanelDef(PANEL.componentEditor, 'Component Editor', () => import('./componentEditor'))),
+    registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.validation, 'Validation', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', loadRigPanels)),
+    registry.register(lazyPanelDef(PANEL.componentEditor, 'Component Editor', loadRigPanels)),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();
