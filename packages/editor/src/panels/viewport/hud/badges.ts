@@ -5,59 +5,54 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp, ViewportBadgeProvider } from '@ekza-studio/editor-core';
 import { createElement, type JSX, useSyncExternalStore } from 'react';
 
-const providers: ViewportBadgeProvider[] = [];
+const providers = new Set<ViewportBadgeProvider>();
 const listeners = new Set<() => void>();
 let version = 0;
 
 const notify = (): void => {
-  version += 1;
+  version++;
   for (const listener of Array.from(listeners)) listener();
+};
+const subscribe = (listener: () => void): (() => void) => {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 };
 
 /** Registers a badge provider; the disposer removes it. Badges draw in registration order. */
 export function registerViewportBadge(provider: ViewportBadgeProvider): Disposer {
-  providers.push(provider);
+  providers.add(provider);
   const off = provider.subscribe(notify);
   notify();
   return () => {
-    const index = providers.indexOf(provider);
-    if (index < 0) return;
-    providers.splice(index, 1);
-    off();
-    notify();
+    if (providers.delete(provider)) {
+      off();
+      notify();
+    }
   };
 }
 
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
-}
-
 /** The pane's badges (`hud-badge-<provider id>-<paneId>`), mounted in the viewport HUD of every workspace. */
-export function ViewportBadges(props: { readonly app: EditorApp; readonly paneId: string }): JSX.Element | null {
+export function ViewportBadges(props: { readonly app: EditorApp; readonly paneId: string }): JSX.Element[] {
   useSyncExternalStore(
     subscribe,
     () => version,
     () => version,
   );
-  const badges = providers.flatMap((provider) => {
+  return [...providers].flatMap((provider) => {
     const label = provider.label(props.app);
-    return label === null ? [] : [{ id: provider.id, label }];
+    return label === null
+      ? []
+      : [
+          createElement(
+            'span',
+            {
+              key: provider.id,
+              className:
+                'rounded-sm bg-[var(--bg-pressed,#3a3d46)] px-1 text-[10px] font-semibold tracking-wide text-fg',
+              'data-testid': `hud-badge-${provider.id}-${props.paneId}`,
+            },
+            label,
+          ),
+        ];
   });
-  if (badges.length === 0) return null;
-  return createElement(
-    'span',
-    { className: 'flex items-center gap-1', 'data-testid': `hud-badges-${props.paneId}` },
-    badges.map((badge) =>
-      createElement(
-        'span',
-        {
-          key: badge.id,
-          className: 'rounded-sm bg-[var(--bg-pressed,#3a3d46)] px-1 text-[10px] font-semibold tracking-wide text-fg',
-          'data-testid': `hud-badge-${badge.id}-${props.paneId}`,
-        },
-        badge.label,
-      ),
-    ),
-  );
 }

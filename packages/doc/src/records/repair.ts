@@ -13,11 +13,8 @@ import {
   SHAPE_FIELDS,
   SKELETON_PRESETS,
   SWATCH_SHADERS,
-  VRM_LICENSE_PRESETS,
-  VRM_META_ENUMS,
-  VRM_META_FLAGS,
-  VRM_META_STRINGS,
 } from './validate';
+import { repairVrmMeta } from './vrm';
 import { SWATCH_SHADER_DEFAULTS } from '../records';
 
 type Obj = Readonly<Record<string, unknown>>;
@@ -160,33 +157,6 @@ export function jointKeyStem(name: unknown): string {
   return cleaned.length === 0 ? 'node' : cleaned;
 }
 
-/** `CharacterVrmMeta` repaired field by field to the schema defaults (`name` defaults to the character's name). */
-function repairVrmMeta(value: Obj, characterName: unknown, problems: string[]): Obj {
-  const patch: Record<string, unknown> = {};
-  for (const field of VRM_META_STRINGS) {
-    if (typeof value[field] === 'string') continue;
-    patch[field] = field === 'name' && typeof characterName === 'string' ? characterName : '';
-  }
-  for (const field of VRM_META_FLAGS) if (typeof value[field] !== 'boolean') patch[field] = false;
-  for (const [field, values] of Object.entries(VRM_META_ENUMS)) {
-    if (!(values as readonly unknown[]).includes(value[field])) patch[field] = values[0];
-  }
-  for (const field of ['authors', 'references'] as const) {
-    const items = value[field];
-    if (!Array.isArray(items)) patch[field] = [];
-    else if (items.some((item) => typeof item !== 'string'))
-      patch[field] = items.filter((item) => typeof item === 'string');
-  }
-  const preset = value['licensePreset'];
-  if (preset !== null && !(VRM_LICENSE_PRESETS as readonly unknown[]).includes(preset)) patch['licensePreset'] = null;
-  const thumbnail = value['thumbnail'];
-  if (thumbnail !== null && (typeof thumbnail !== 'string' || thumbnail.length === 0)) patch['thumbnail'] = null;
-  const fields = Object.keys(patch);
-  if (fields.length === 0) return value;
-  problems.push(`vrm: ${fields.join(', ')} repaired to the schema defaults`);
-  return { ...value, ...patch };
-}
-
 /** `ControlShape.edited`: absent, or known fields without duplicates (unknown and duplicate entries dropped). */
 function repairShapeEdited(shape: unknown, problems: string[]): unknown {
   if (!isObj(shape) || !('edited' in shape) || shape['edited'] === undefined) return shape;
@@ -238,7 +208,7 @@ export function repairJointKeys(joints: Readonly<Record<string, unknown>>): {
         let n = 1;
         while (used.has(`${key}#${n}`)) n++;
         const next = `${key}#${n}`;
-        problems.push(`joints/${id}: key '${key}' is used by another joint of the skeleton, set to '${next}'`);
+        problems.push(`joints/${id}: duplicate key, set to '${next}'`);
         key = next;
         used.add(key);
       }
@@ -281,8 +251,11 @@ export function repairRecord(table: string, record: unknown): RepairResult {
           next = { ...next, vrm: null };
         }
       } else {
-        const repaired = repairVrmMeta(vrm, record['name'], problems);
-        if (repaired !== vrm) next = { ...next, vrm: repaired };
+        const repaired = repairVrmMeta(vrm, record['name']);
+        if (repaired !== vrm) {
+          problems.push('vrm: fields repaired to the schema defaults');
+          next = { ...next, vrm: repaired };
+        }
       }
       break;
     }

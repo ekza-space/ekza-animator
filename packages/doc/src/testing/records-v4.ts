@@ -2,7 +2,7 @@
 // under schema 4. Deterministic: callers pass the ids they need.
 import type { AssetId } from '../ids';
 import type { AssetRecord, CharacterVrmMeta } from '../records';
-import { makeVrmMeta } from '../records/factories';
+import { makeVrmMeta } from '../records/vrm';
 import { jointKeyStem } from '../records/repair';
 import type { DocSnapshot, SnapshotTables } from '../store';
 import { testHash, withSchemaV3 } from './records-v3';

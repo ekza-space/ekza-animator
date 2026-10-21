@@ -15,8 +15,8 @@ import type {
   ShapeField,
   Side,
   SwatchShader,
-  VrmLicensePreset,
 } from '../records';
+import { repairVrmMeta } from './vrm';
 
 type Problems = string[];
 type Obj = Readonly<Record<string, unknown>>;
@@ -77,36 +77,6 @@ export const GROUP_TEMPLATES = ['prop', 'handheld', 'humanoid'] as const;
 // M6b schema v4 (M6B-SPEC §4.1).
 export const JOINT_ROLES = ['bone', 'helper', 'prop'] as const satisfies readonly JointRole[];
 export const SHAPE_FIELDS = ['kind', 'size', 'offset', 'color', 'lineWidth'] as const satisfies readonly ShapeField[];
-export const VRM_LICENSE_PRESETS = [
-  'cc0',
-  'cc-by-4.0',
-  'personal',
-  'custom',
-] as const satisfies readonly VrmLicensePreset[];
-/** The enum fields of `CharacterVrmMeta` with their values; the first value is the VRMC_vrm 1.0 schema default. */
-export const VRM_META_ENUMS = {
-  avatarPermission: ['onlyAuthor', 'onlySeparatelyLicensedPerson', 'everyone'],
-  commercialUsage: ['personalNonProfit', 'personalProfit', 'corporation'],
-  creditNotation: ['required', 'unnecessary'],
-  modification: ['prohibited', 'allowModification', 'allowModificationRedistribution'],
-} as const;
-/** The boolean fields of `CharacterVrmMeta` (schema default false). */
-export const VRM_META_FLAGS = [
-  'allowRedistribution',
-  'allowExcessivelyViolentUsage',
-  'allowExcessivelySexualUsage',
-  'allowPoliticalOrReligiousUsage',
-  'allowAntisocialOrHateUsage',
-] as const;
-/** The string fields of `CharacterVrmMeta` ('' = omitted, except `name`). */
-export const VRM_META_STRINGS = [
-  'name',
-  'version',
-  'copyrightInformation',
-  'contactInformation',
-  'otherLicenseUrl',
-  'thirdPartyLicenses',
-] as const;
 /** VRM 1.0 humanoid bone names (doc keeps its own list: it cannot import rig). */
 export const HUMAN_BONE_NAMES = [
   'hips',
@@ -464,17 +434,6 @@ const characterSource: Check = (v, p, out) => {
   }
 };
 
-/** M6b v4: `CharacterVrmMeta` — every field present and of its type, enums known. */
-const vrmMeta = shape({
-  ...Object.fromEntries(VRM_META_STRINGS.map((field) => [field, str])),
-  ...Object.fromEntries(VRM_META_FLAGS.map((field) => [field, bool])),
-  ...Object.fromEntries(Object.entries(VRM_META_ENUMS).map(([field, values]) => [field, oneOf(values)])),
-  authors: array(str),
-  references: array(str),
-  licensePreset: nullable(oneOf(VRM_LICENSE_PRESETS)),
-  thumbnail: nullable(nonEmpty),
-});
-
 const characterShape = shape({
   id,
   name: str,
@@ -485,9 +444,9 @@ const characterShape = shape({
   placement: xf,
   order,
   deleted: tombstone,
+  // M6b v4: null, or a VRM meta every field of which is present and of its type (it repairs to itself).
   vrm: (v, p, out) => {
-    if (v === undefined) out.push(`${p}: expected null or a VRM meta object`);
-    else nullable(vrmMeta)(v, p, out);
+    if (v !== null && (!isObj(v) || repairVrmMeta(v, v['name']) !== v)) out.push(`${p}: expected null or a VRM meta`);
   },
 });
 

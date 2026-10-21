@@ -11,13 +11,9 @@ import { registerTimelinePanel } from './timeline';
 import { registerToolkitPanel } from './toolkit';
 import type { PanelRegistry } from './types';
 import { registerViewportPanel } from './viewport';
-// M6b (M6B-SPEC §8, §0.4.7; C0 registers every MVP panel, each body is its owner's lazy chunk).
-import { registerClipLibraryPanel } from './clipLibrary';
-import { registerComponentEditorPanel } from './componentEditor';
-import { registerPaintWeightsPanel } from './paintWeights';
-import { registerQuickRigPanel } from './quickRig';
-import { registerRigToolkitPanel } from './rigToolkit';
-import { registerValidationPanel } from './validation';
+// M6b (M6B-SPEC §8, §0.4.7; C0 registers every MVP panel, each body is its owner's lazy chunk ./<id>/index.tsx).
+import { PANEL } from '@ekza-studio/editor-core';
+import { lazyPanelDef } from './lazyPanel';
 import { registerModelStartOverlays } from './viewport/modelOverlays';
 
 /**
@@ -43,12 +39,12 @@ export function registerBuiltinPanels(registry: PanelRegistry): Disposer {
     // M6a (B13): the Model start card and the Getting started card (pane overlay slots).
     registerModelStartOverlays(),
     // M6b (C0 registration lines; bodies: C12, C3, C7, C7, C6, C6)
-    registerClipLibraryPanel(registry),
-    registerQuickRigPanel(registry),
-    registerRigToolkitPanel(registry),
-    registerValidationPanel(registry),
-    registerPaintWeightsPanel(registry),
-    registerComponentEditorPanel(registry),
+    registry.register(lazyPanelDef(PANEL.clipLibrary, 'Clip Library', () => import('./clipLibrary'))),
+    registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', () => import('./quickRig'))),
+    registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', () => import('./rigToolkit'))),
+    registry.register(lazyPanelDef(PANEL.validation, 'Validation', () => import('./validation'))),
+    registry.register(lazyPanelDef(PANEL.paintWeights, 'Paint Weights', () => import('./paintWeights'))),
+    registry.register(lazyPanelDef(PANEL.componentEditor, 'Component Editor', () => import('./componentEditor'))),
   ];
   return () => {
     for (const dispose of [...disposers].reverse()) dispose();

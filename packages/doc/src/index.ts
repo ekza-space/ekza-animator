@@ -12,9 +12,10 @@ export {
   makeKey,
   makeLayer,
   makeProject,
-  makeVrmMeta,
   toAnimCurve,
 } from './records/factories';
+// M6b (M6B-SPEC §4.1): the VRM meta defaults and repair.
+export { makeVrmMeta, repairVrmMeta } from './records/vrm';
 export { fractionalIndex, isFractionalIndex } from './records/order';
 // M6a (M6A-SPEC §4.2): repairs of loaded content (also run by migrateSnapshot).
 export {

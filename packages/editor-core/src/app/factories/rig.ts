@@ -2,16 +2,8 @@
 // in-memory baseline that records its history parts), the skin service and the validation service (stubs), and the
 // loader of the lazy rig-workspace chunk (§2.1) that registers its operators once per app.
 import { type Disposer, EkzaError } from '@ekza-studio/anim-core';
-import type { ChannelValues, CharacterId, ControlId, MeshId } from '@ekza-studio/doc';
-import type { BindReport, SkinBindArgs, SkinWeights } from '@ekza-studio/mesh-core';
-import type {
-  EditorApp,
-  EditorHistory,
-  RigValidationService,
-  SkinService,
-  TestPoseService,
-  WorkspaceStatus,
-} from '../../types';
+import type { ChannelValues, CharacterId, ControlId } from '@ekza-studio/doc';
+import type { EditorApp, EditorHistory, RigValidationService, SkinService, TestPoseService } from '../../types';
 
 export interface RigApi {
   readonly testPose: TestPoseService;
@@ -34,73 +26,51 @@ export function createTestPoseService(deps: {
   const kept = new Map<CharacterId, Pose>();
   const listeners = new Set<(version: number) => void>();
   let version = 0;
-  const bump = (characters: Iterable<CharacterId>): void => {
+  /** Writes (or, with an empty pose, removes) the poses of `ids`, then notifies. */
+  const write = (ids: readonly CharacterId[], pose: (id: CharacterId) => Pose): void => {
+    for (const id of ids) {
+      const next = pose(id);
+      if (next.size === 0) poses.delete(id);
+      else poses.set(id, next);
+      deps.changed(id);
+    }
     version++;
-    for (const character of characters) deps.changed(character);
     for (const listener of Array.from(listeners)) listener(version);
   };
-  const service: TestPoseService = {
+  const values = (character: CharacterId): Pose => poses.get(character) ?? NO_POSE;
+  return {
     get version() {
       return version;
     },
-    values: (character) => poses.get(character) ?? NO_POSE,
-    set(character, values, opts) {
-      const before = poses.get(character) ?? NO_POSE;
-      const after = new Map(values);
-      if (after.size === 0) poses.delete(character);
-      else poses.set(character, after);
+    values,
+    set(character, next, opts) {
       if (opts?.record !== false) {
-        deps.history().recordTestPose({ kind: 'testPose', character, before, after }, 'Test Pose');
+        deps
+          .history()
+          .recordTestPose({ kind: 'testPose', character, before: values(character), after: next }, 'Test Pose');
       }
-      bump([character]);
+      write([character], () => new Map(next));
     },
     clear(character) {
-      const ids = character === undefined ? [...poses.keys()] : poses.has(character) ? [character] : [];
-      if (ids.length === 0) return;
-      for (const id of ids) {
-        kept.set(id, poses.get(id) ?? NO_POSE);
-        poses.delete(id);
-      }
-      bump(ids);
+      const ids = character === undefined ? [...poses.keys()] : [character];
+      for (const id of ids) kept.set(id, values(id));
+      write(ids, () => NO_POSE);
     },
     restore(character) {
-      const pose = kept.get(character);
-      if (pose === undefined || pose.size === 0) return false;
-      poses.set(character, pose);
-      bump([character]);
-      return true;
+      const pose = kept.get(character) ?? NO_POSE;
+      if (pose.size > 0) write([character], () => pose);
+      return pose.size > 0;
     },
     forget(character) {
-      const ids = character === undefined ? [...new Set([...poses.keys(), ...kept.keys()])] : [character];
-      for (const id of ids) kept.delete(id);
-      const cleared = ids.filter((id) => poses.delete(id));
-      if (cleared.length > 0) bump(cleared);
+      if (character === undefined) kept.clear();
+      else kept.delete(character);
+      write(character === undefined ? [...poses.keys()] : [character], () => NO_POSE);
     },
     subscribe(listener) {
       listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
+      return () => listeners.delete(listener);
     },
   };
-  return service;
-}
-
-/** C4 replaces it with the skin-worker client (`editor-core/src/rig/skinService.ts`). */
-function createSkinServiceStub(): SkinService {
-  return {
-    bind: (_mesh: MeshId, _args: SkinBindArgs): Promise<{ readonly skin: SkinWeights; readonly report: BindReport }> =>
-      Promise.reject(new EkzaError('not-implemented', 'editor-core.SkinService.bind')),
-    busy: false,
-    clipboard: null,
-  };
-}
-
-const NO_STATUS: WorkspaceStatus = Object.freeze({ glyph: 'none', reasons: [] });
-
-/** C7 replaces it with the Validation service (`editor-core/src/rig/validation/**`). */
-function createValidationStub(): RigValidationService {
-  return { rows: () => [], status: () => NO_STATUS };
 }
 
 export function createRig(deps: {
@@ -113,8 +83,14 @@ export function createRig(deps: {
   let detach: Disposer | null = null;
   return {
     testPose: createTestPoseService(deps),
-    skin: createSkinServiceStub(),
-    validation: createValidationStub(),
+    // C4 replaces the skin service with the skin-worker client (`editor-core/src/rig/skinService.ts`).
+    skin: {
+      bind: () => Promise.reject(new EkzaError('not-implemented', 'editor-core.SkinService.bind')),
+      busy: false,
+      clipboard: null,
+    },
+    // C7 replaces the validation service (`editor-core/src/rig/validation/**`).
+    validation: { rows: () => [], status: () => ({ glyph: 'none', reasons: [] }) },
     load(): Promise<void> {
       loading ??= import('../../operators/builtin/rig/index').then((chunk) => {
         detach = chunk.registerRigWorkspaceOperators(deps.app());

@@ -1,10 +1,18 @@
-// The Rig Toolkit panel (M6B-SPEC §8; registered by C0, body by C7): the definition is eager, the body a lazy chunk
-// (./View.tsx) that C7 replaces.
-import type { Disposer } from '@ekza-studio/anim-core';
-import { PANEL } from '@ekza-studio/editor-core';
-import { lazyPanelDef } from '../lazyPanel';
-import type { PanelRegistry } from '../types';
+// The Rig Toolkit panel body (M6B-SPEC §8; C0 stub, C7 replaces it): a lazy chunk — panels/index.ts registers the
+// panel with `lazyPanelDef`, so nothing of this directory is in the editor route.
+import type { JSX } from 'react';
+import type { PanelProps } from '../types';
+import { RIG_TOOLKIT_SECTIONS } from './sections';
 
-export function registerRigToolkitPanel(registry: PanelRegistry): Disposer {
-  return registry.register(lazyPanelDef(PANEL.rigToolkit, 'Rig Toolkit', () => import('./View')));
+export default function RigToolkitView(props: PanelProps): JSX.Element {
+  return (
+    <div className="flex h-full flex-col gap-2 overflow-auto p-2 text-ui text-fg-2" data-testid="rtk-panel">
+      {RIG_TOOLKIT_SECTIONS.map((section) => (
+        <section key={section.id} data-testid={`rtk-section-${section.id}`}>
+          <h3 className="font-semibold text-fg">{section.title}</h3>
+          <section.component app={props.app} />
+        </section>
+      ))}
+    </div>
+  );
 }

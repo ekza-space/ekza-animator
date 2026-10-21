@@ -300,9 +300,7 @@ describe('validation and repairs of the §4.1 rules table (repair, never reject)
 
   it('characters: vrm is null or complete; fields repair to the schema defaults, arrays drop non-strings', () => {
     const base = character();
-    expect(validateRecord('characters', { ...base, vrm: undefined })).toContain(
-      'vrm: expected null or a VRM meta object',
-    );
+    expect(validateRecord('characters', { ...base, vrm: undefined })).toEqual(['vrm: expected null or a VRM meta']);
     const { vrm: _vrm, ...missing } = base;
     expect(repairRecord('characters', missing).record).toMatchObject({ vrm: null });
     expect(repairRecord('characters', { ...base, vrm: 'cc0' }).record).toMatchObject({ vrm: null });
@@ -318,7 +316,26 @@ describe('validation and repairs of the §4.1 rules table (repair, never reject)
       thumbnail: 7,
     };
     const invalid = { ...base, name: 'Lowpoly Lad', vrm: broken };
-    expect(validateRecord('characters', invalid).length).toBeGreaterThanOrEqual(8);
+    expect(validateRecord('characters', invalid)).toEqual(['vrm: expected null or a VRM meta']);
+    // Each malformed field alone fails the write check.
+    const fields = [
+      'authors',
+      'references',
+      'licensePreset',
+      'avatarPermission',
+      'allowRedistribution',
+      'modification',
+    ];
+    const problems = fields.map((field) => [
+      field,
+      validateRecord('characters', { ...base, vrm: { ...makeTestVrmMeta('Lad'), [field]: broken[field as 'authors'] } })
+        .length,
+    ]);
+    expect(problems).toEqual(fields.map((field) => [field, 1]));
+    expect(validateRecord('characters', { ...base, vrm: { ...makeTestVrmMeta('Lad'), thumbnail: 7 } }).length).toBe(1);
+    expect(validateRecord('characters', { ...base, vrm: { ...makeTestVrmMeta('Lad'), name: 5 } }).length).toBe(1);
+    const { authors: _authors, ...noAuthors } = makeTestVrmMeta('Lad');
+    expect(validateRecord('characters', { ...base, vrm: noAuthors }).length).toBe(1);
     const repaired = repairRecord('characters', invalid);
     expect(repaired.record).toMatchObject({
       vrm: makeTestVrmMeta('Lowpoly Lad', { authors: ['A', 'B'] }),

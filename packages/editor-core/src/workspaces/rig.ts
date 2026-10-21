@@ -6,7 +6,7 @@
 import type { EditorApp, WorkspaceDef } from '../types';
 
 /** The MVP menus (§0.4.5; `constrain` and `control` arrive after the MVP, Q-MVP-15). */
-export const RIG_MENUS: readonly string[] = Object.freeze([
+export const RIG_MENUS: readonly string[] = [
   'file',
   'edit',
   'create',
@@ -17,10 +17,10 @@ export const RIG_MENUS: readonly string[] = Object.freeze([
   'skin',
   'windows',
   'help',
-]);
+];
 
 /** The status-line groups (§5.24; the brush strip shows in Skin mode only). */
-export const RIG_STATUS_GROUPS: readonly string[] = Object.freeze([
+export const RIG_STATUS_GROUPS: readonly string[] = [
   'tools',
   'rigMode',
   'poseView',
@@ -30,9 +30,9 @@ export const RIG_STATUS_GROUPS: readonly string[] = Object.freeze([
   'brush',
   'moveSpace',
   'layout',
-]);
+];
 
-export const RIG_WORKSPACE: WorkspaceDef = Object.freeze({
+export const RIG_WORKSPACE: WorkspaceDef = {
   id: 'rig',
   label: 'Rig & Skin',
   shortLabel: 'Rig',
@@ -46,27 +46,15 @@ export const RIG_WORKSPACE: WorkspaceDef = Object.freeze({
   timeline: true,
   // Placeholder until C7 registers the `rig-side` preset (editor/src/shell/rig/layouts.ts).
   layout: 'animate',
-});
+};
 
-/** Operator ids that live in the `rig-workspace` chunk (§2.1). */
+/**
+ * Unregistered operator ids the `rig-workspace` chunk registers (§2.1): every skel.*, skin.*, char.* and Rig & Skin
+ * rig.* operator (Animate's rig.* operators are eager, so they are always registered), `select.joints`,
+ * `mesh.importStatic` and `file.exportCharacter`.
+ */
 export function isRigWorkspaceOperator(id: string): boolean {
-  return (
-    id.startsWith('skel.') ||
-    id.startsWith('skin.') ||
-    id.startsWith('char.') ||
-    id.startsWith('rig.shape.') ||
-    id.startsWith('rig.constraint.') ||
-    id.startsWith('rig.space.') ||
-    id.startsWith('rig.pose.') ||
-    id.startsWith('rig.validation.') ||
-    id.startsWith('rig.outliner.') ||
-    id.startsWith('rig.autoRig.') ||
-    id === 'rig.mode' ||
-    id === 'rig.animateOnly' ||
-    id === 'select.joints' ||
-    id === 'mesh.importStatic' ||
-    id === 'file.exportCharacter'
-  );
+  return /^(?:(?:skel|skin|char|rig)\.|(?:select\.joints|mesh\.importStatic|file\.exportCharacter)$)/.test(id);
 }
 
 /**

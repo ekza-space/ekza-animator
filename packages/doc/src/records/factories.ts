@@ -6,7 +6,6 @@ import type {
   AssetRecord,
   BuiltinTableName,
   CameraRecord,
-  CharacterVrmMeta,
   ClipRecord,
   CurveRecord,
   CurveWithKeys,
@@ -40,35 +39,6 @@ function defined<T extends object>(record: T): T {
   const out: Record<string, unknown> = {};
   for (const [name, value] of Object.entries(record)) if (value !== undefined) out[name] = value;
   return out as T;
-}
-
-/**
- * M6b (M6B-SPEC §4.1): a VRM meta with the VRMC_vrm 1.0 schema defaults — `name` given, no author, no licence chosen
- * (export stays blocked until the user picks one, Q-SKIN-3), no thumbnail — overridable per field.
- */
-export function makeVrmMeta(name: string, fields: Partial<CharacterVrmMeta> = {}): CharacterVrmMeta {
-  return {
-    name,
-    version: '',
-    authors: [],
-    copyrightInformation: '',
-    contactInformation: '',
-    references: [],
-    licensePreset: null,
-    avatarPermission: 'onlyAuthor',
-    commercialUsage: 'personalNonProfit',
-    creditNotation: 'required',
-    allowRedistribution: false,
-    modification: 'prohibited',
-    allowExcessivelyViolentUsage: false,
-    allowExcessivelySexualUsage: false,
-    allowPoliticalOrReligiousUsage: false,
-    allowAntisocialOrHateUsage: false,
-    otherLicenseUrl: '',
-    thirdPartyLicenses: '',
-    thumbnail: null,
-    ...fields,
-  };
 }
 
 /** M6a (M6A-SPEC §4.2): the media type of an asset by its extension (png, jpg: images; glb, vrm, vrma: glTF binary). */

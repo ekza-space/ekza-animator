@@ -1,10 +1,12 @@
-// The Component Editor panel (M6B-SPEC §8; registered by C0, body by C6): the definition is eager, the body a lazy chunk
-// (./View.tsx) that C6 replaces.
-import type { Disposer } from '@ekza-studio/anim-core';
-import { PANEL } from '@ekza-studio/editor-core';
-import { lazyPanelDef } from '../lazyPanel';
-import type { PanelRegistry } from '../types';
+// The Component Editor panel body (M6B-SPEC §8; C0 stub, C6 replaces it): a lazy chunk — panels/index.ts registers the
+// panel with `lazyPanelDef`, so nothing of this directory is in the editor route.
+import type { JSX } from 'react';
+import type { PanelProps } from '../types';
 
-export function registerComponentEditorPanel(registry: PanelRegistry): Disposer {
-  return registry.register(lazyPanelDef(PANEL.componentEditor, 'Component Editor', () => import('./View')));
+export default function ComponentEditorView(_props: PanelProps): JSX.Element {
+  return (
+    <div className="grid h-full place-items-center p-4 text-ui text-fg-3" data-testid="ce-panel">
+      Select points in Skin mode
+    </div>
+  );
 }

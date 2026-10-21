@@ -2,7 +2,7 @@
 import type { BrushSettings, RigSessionState } from '../types';
 
 /** Maya's Paint Skin Weights defaults (§8.7): Replace, value 1, opacity 1, 40 px, smooth, surface, front faces. */
-export const DEFAULT_BRUSH: BrushSettings = Object.freeze({
+export const DEFAULT_BRUSH: BrushSettings = {
   op: 'replace',
   value: 1,
   opacity: 1,
@@ -11,15 +11,15 @@ export const DEFAULT_BRUSH: BrushSettings = Object.freeze({
   reach: 'surface',
   frontOnly: true,
   mirror: true,
-});
+};
 
 /** The right and bottom dock tabs per mode (§5.24 table), remembered per mode once the user changes them. */
-const TAB_MEMORY: RigSessionState['tabMemory'] = Object.freeze({
+const TAB_MEMORY: RigSessionState['tabMemory'] = {
   object: { right: 'channelBox', bottom: 'validation' },
   skeleton: { right: 'rigToolkit', bottom: 'validation' },
   skin: { right: 'paintWeights', bottom: 'componentEditor' },
   shape: { right: 'attributes', bottom: 'validation' },
-});
+};
 
 export function defaultRigSession(): RigSessionState {
   return {

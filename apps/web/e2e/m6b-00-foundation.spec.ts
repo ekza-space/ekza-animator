@@ -113,7 +113,7 @@ test('the Clip Library is a Windows item of Animate and opens its panel; no badg
   await expectKernelStarted(page);
   await runOk(page, 'workspace.showPanel', { panel: 'clipLibrary' });
   await expect(page.getByTestId('clip-library-panel')).toBeVisible();
-  await expect(page.locator('[data-testid^="hud-badges-"]')).toHaveCount(0);
+  await expect(page.locator('[data-testid^="hud-badge-"]')).toHaveCount(0);
 });
 
 test('the Cube Lad helper builds exactly the points of fixtures/models/cube-lad.glb (1e-6 m)', async ({ page }) => {

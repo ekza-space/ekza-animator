@@ -1,10 +1,12 @@
-// The Clip Library panel (M6B-SPEC §8; registered by C0, body by C12): the definition is eager, the body a lazy chunk
-// (./View.tsx) that C12 replaces.
-import type { Disposer } from '@ekza-studio/anim-core';
-import { PANEL } from '@ekza-studio/editor-core';
-import { lazyPanelDef } from '../lazyPanel';
-import type { PanelRegistry } from '../types';
+// The Clip Library panel body (M6B-SPEC §8; C0 stub, C12 replaces it): a lazy chunk — panels/index.ts registers the
+// panel with `lazyPanelDef`, so nothing of this directory is in the editor route.
+import type { JSX } from 'react';
+import type { PanelProps } from '../types';
 
-export function registerClipLibraryPanel(registry: PanelRegistry): Disposer {
-  return registry.register(lazyPanelDef(PANEL.clipLibrary, 'Clip Library', () => import('./View')));
+export default function ClipLibraryView(_props: PanelProps): JSX.Element {
+  return (
+    <div className="grid h-full place-items-center p-4 text-ui text-fg-3" data-testid="clip-library-panel">
+      Select a humanoid character (a VRM, or one you rigged here) to preview clips
+    </div>
+  );
 }

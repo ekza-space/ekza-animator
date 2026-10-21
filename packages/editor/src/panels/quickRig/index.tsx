@@ -1,10 +1,12 @@
-// The Quick Rig panel (M6B-SPEC §8; registered by C0, body by C3): the definition is eager, the body a lazy chunk
-// (./View.tsx) that C3 replaces.
-import type { Disposer } from '@ekza-studio/anim-core';
-import { PANEL } from '@ekza-studio/editor-core';
-import { lazyPanelDef } from '../lazyPanel';
-import type { PanelRegistry } from '../types';
+// The Quick Rig panel body (M6B-SPEC §8; C0 stub, C3 replaces it): a lazy chunk — panels/index.ts registers the
+// panel with `lazyPanelDef`, so nothing of this directory is in the editor route.
+import type { JSX } from 'react';
+import type { PanelProps } from '../types';
 
-export function registerQuickRigPanel(registry: PanelRegistry): Disposer {
-  return registry.register(lazyPanelDef(PANEL.quickRig, 'Quick Rig', () => import('./View')));
+export default function QuickRigView(_props: PanelProps): JSX.Element {
+  return (
+    <div className="grid h-full place-items-center p-4 text-ui text-fg-3" data-testid="quickrig-panel">
+      Quick Rig places markers on the selected meshes
+    </div>
+  );
 }

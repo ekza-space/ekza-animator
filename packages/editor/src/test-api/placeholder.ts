@@ -18,6 +18,32 @@ export interface PlaceholderTestApi {
   countFrame(): void;
 }
 
+/** The M6b test-API functions (§4.8, §0.5). */
+const M6B_FUNCTIONS = [
+  'skeleton',
+  'skeletonDesc',
+  'containerVersion',
+  'screenOfJoint',
+  'screenOfBone',
+  'skin',
+  'weights',
+  'paint',
+  'weightLabels',
+  'componentEditor',
+  'rigState',
+  'validation',
+  'constraints',
+  'controlShape',
+  'screenOfShapeCv',
+  'keysHash',
+  'posedPositions',
+  'projectedCenter',
+  'rigCompiles',
+  'quickRig',
+  'screenOfMarker',
+  'library',
+] as const;
+
 export function createPlaceholderTestApi(): PlaceholderTestApi {
   let webgl: WebGlInfo = { ok: false, renderer: null };
   let frames = 0;
@@ -28,7 +54,7 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
   const notImplemented = (name: string): never => {
     throw new EkzaError('not-implemented', `editor.testApi.${name} (the editor kernel did not start)`);
   };
-  const api: EkzaStudioTestApi = {
+  const base = {
     ready,
     get webgl() {
       return webgl;
@@ -108,30 +134,10 @@ export function createPlaceholderTestApi(): PlaceholderTestApi {
     pixels: () => notImplemented('pixels'),
     displayNodeWorld: () => notImplemented('displayNodeWorld'),
     displayModel: () => notImplemented('displayModel'),
-    // M6b (§4.8, §0.5)
-    skeleton: () => notImplemented('skeleton'),
-    skeletonDesc: () => notImplemented('skeletonDesc'),
-    containerVersion: () => notImplemented('containerVersion'),
-    screenOfJoint: () => notImplemented('screenOfJoint'),
-    screenOfBone: () => notImplemented('screenOfBone'),
-    skin: () => notImplemented('skin'),
-    weights: () => notImplemented('weights'),
-    paint: () => notImplemented('paint'),
-    weightLabels: () => notImplemented('weightLabels'),
-    componentEditor: () => notImplemented('componentEditor'),
-    rigState: () => notImplemented('rigState'),
-    validation: () => notImplemented('validation'),
-    constraints: () => notImplemented('constraints'),
-    controlShape: () => notImplemented('controlShape'),
-    screenOfShapeCv: () => notImplemented('screenOfShapeCv'),
-    keysHash: () => notImplemented('keysHash'),
-    posedPositions: () => notImplemented('posedPositions'),
-    projectedCenter: () => notImplemented('projectedCenter'),
-    rigCompiles: () => notImplemented('rigCompiles'),
-    quickRig: () => notImplemented('quickRig'),
-    screenOfMarker: () => notImplemented('screenOfMarker'),
-    library: () => notImplemented('library'),
-  };
+  } satisfies Omit<EkzaStudioTestApi, (typeof M6B_FUNCTIONS)[number]>;
+  // M6b (§4.8, §0.5): every group function throws too.
+  const m6b = Object.fromEntries(M6B_FUNCTIONS.map((name) => [name, () => notImplemented(name)]));
+  const api = Object.assign(base, m6b) as unknown as EkzaStudioTestApi;
   return {
     api,
     settle(info) {
