@@ -57,13 +57,30 @@ C6), IK → FK for `E` on joints (C3), Skeleton/Skin help-line texts (C3/C6).
 
 ## Eager route (§0.4.9)
 
-Production build, `check:size` (gzip -9, first visit): **892,546 B** (gate 900,000 B, headroom 7,454 B); the M6b MVP
-eager delta **+2,977 B** over the 889,569 B baseline (allowance +6,144 B, now enforced). C0 recorded 891,104 B, so
-**C7's own delta is +1,442 B** (allowance 2,560 B): the `WorkspaceDef` additions (layout, `keyModes`, `rigStatus`),
+Production build, `check:size` (gzip -9, first visit): **892,589 B** (gate 900,000 B, headroom 7,411 B); the M6b MVP
+eager delta **+3,020 B** over the 889,569 B baseline (allowance +6,144 B, now enforced). C0 recorded 891,104 B, so
+**C7's own delta is +1,485 B** (allowance 2,560 B): the `WorkspaceDef` additions (layout, `keyModes`, `rigStatus`),
 CR-4's chain and call site, the Rig dock layout and viewport presets (`shell/rig/layouts.ts`, the triple pane grid,
 `RIG_DISPLAY`, the icon), the M6b display flags, the channel-source reads and redirect hooks, and the rig shell hook.
 `Rig & Skin workspace` (rig-workspace) stays lazy at 9.9 kB; the rig shell UI is its own lazy group.
 
 ## Gates (local, real Chrome; port 3164)
 
-(Filled in after the full run.)
+`EKZA_E2E_PORT=3164 pnpm run ci`: **exit 0** (third run; the machine's load average was 10–38 from other processes).
+
+- format:check, lint, typecheck, check:deps, check:fixtures, check:licenses: pass.
+- test (turbo): editor-core 1356, editor 529 (+1 skipped), mesh-core 905, anim-core 671, doc 263, io 262, viewport 243
+  (+1 skipped), rig 232, curve-editor 209 (+3 skipped), headless 193, ui 94, doc-yjs 85, mesh-view 75, web 22. No skip
+  added. C7's: editor-core `test/m6b/rig-shell.test.ts` (16), the C7 rows of `m6b/keys-hash.test.ts` (P-C6, now
+  `checked`), editor `test/m6b-rig-shell.test.tsx` (8).
+- build: pass; check:size as above (`Rig & Skin workspace` lazy 9.9 kB).
+- test:e2e (local Chrome GPU, project `chrome`): **223 passed**, 27 skipped (the shipped skips plus C7's four gated
+  rows: E2E-RIG-01 `c1, c2, c3, c4, c6, c10, c12`, E2E-RIG-02 `c1, c2, c4`, E2E-RIG-05 `c1, c2, c3, c4`, E2E-RIG-08
+  `c1, c2, c10`, as `test.fixme` with their full bodies). The ungated MVP parts of all four run green: modes, digits,
+  `F8`, `S` never keys, `Mod+E`, `Alt+C` (RIG-02 on Polybot); test poses through the rotate manipulator, Bind ↔ Test,
+  undo inside Rig & Skin, leaving drops the steps (RIG-05 on Polybot); the checklist at ①, the empty state, Getting
+  started, R-Side panes (RIG-01); the Validation panel, its profile and empty states (RIG-08).
+- Runs 1 and 2 failed on one test each: run 1 `editor-core ops-ui/kernel-ops` (a shipped M6a timing flag,
+  `preview.slow`, under load; green alone and in run 3); run 2 `e2e/m6a-shell` (the Rig & Skin glyph literal, updated:
+  ○ without a skeleton).
+- The 3164 server was Playwright's own and stopped with the run; the port is free.
