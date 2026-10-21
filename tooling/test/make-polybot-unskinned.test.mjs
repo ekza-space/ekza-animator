@@ -60,6 +60,9 @@ test('the truth: canonical facing, horizontal T-pose arms, the markers and one d
       'toe',
     ]);
     for (const name of ['shoulder', 'elbow', 'wrist', 'knee', 'ankle', 'toe']) assert.ok(pose.markers[name][0] < 0);
+    // §0.4.2: centre markers on x = 0; every marker on or above the ground.
+    for (const name of ['headTop', 'chin', 'pelvis']) assert.equal(pose.markers[name][0], 0, name);
+    for (const [name, marker] of Object.entries(pose.markers)) assert.ok(marker[1] >= pose.ground, name);
   }
   assert.equal(truth.dominantJoint.length, truth.points);
   assert.ok(Math.max(...truth.vertexPoint) === truth.points - 1);

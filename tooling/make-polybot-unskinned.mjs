@@ -236,16 +236,20 @@ function poseTruth(source, world, positions) {
   const H = maxY - minY;
   const head = humanoid.head;
   const neck = humanoid.neck;
+  // §0.4.2: centre markers have x = 0 (the axis rule clamps them); a marker lies on or above the ground (the artist's
+  // toes joint sits a few millimetres below the sole: its marker is clamped to the ground, the joint truth is kept).
+  const hips = humanoid.hips;
+  const toes = humanoid.rightToes;
   const markers = {
     headTop: point([0, maxY, head[2]]),
     chin: point([0, neck[1] + 0.01 * H, neck[2]]),
-    pelvis: humanoid.hips,
+    pelvis: point([0, hips[1], hips[2]]),
     shoulder: humanoid.rightUpperArm,
     elbow: humanoid.rightLowerArm,
     wrist: humanoid.rightHand,
     knee: humanoid.rightLowerLeg,
     ankle: humanoid.rightFoot,
-    toe: humanoid.rightToes,
+    toe: point([toes[0], Math.max(toes[1], minY), toes[2]]),
   };
   return { height: round(H), ground: round(minY), humanoid, nodes, markers };
 }
