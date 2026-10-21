@@ -10,6 +10,7 @@ import { EditorAppProvider } from '../hooks';
 import type { PanelRegistry } from '../panels/types';
 import { createShellServices } from '../services/browser';
 import type { ToastNotifier } from '../services/notify';
+import { installSkinWorker } from '../services/skinWorker';
 import { detectPlatform, type EditorParams, parseEditorParams } from '../test-api/params';
 import { ShellProvider } from './context';
 import { createShell } from './createShell';
@@ -75,6 +76,8 @@ function boot(props: EditorRootProps): Boot {
     console.error('Ekza Studio: the editor kernel could not start', error);
     return { kind: 'unavailable', error, params };
   }
+  // M6b C4: Bind Skin solves in the skin worker (its code is a lazy entry of its own).
+  installSkinWorker(app);
   // M6a (M6A-SPEC §4.8, §5.17): the workspace opens as `ws=<id>` asks (any build), else as the user left it
   // (`prefs.lastWorkspace`), through the switching rules of `workspace.set` (layout, tool, pick mask, pane memory).
   const startIn = params.ws ?? app.prefs.getState().lastWorkspace;

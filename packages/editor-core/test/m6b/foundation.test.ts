@@ -160,6 +160,9 @@ const LANDED: Readonly<Record<string, string>> = {
   'char.fromModel': 'Select the meshes of the character first',
   'char.adopt': 'expects { character, objects? }',
   'rig.autoRig.update': 'Make a character from your model first',
+  // C4 (auto-skin)
+  'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
+  'skin.unbind': 'No bound mesh to unbind',
 };
 
 const disposers: (() => void)[] = [];

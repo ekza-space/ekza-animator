@@ -22,11 +22,15 @@ const MVP = [
   'file.exportCharacter',
   'library.open',
 ];
-/** The sample's ids an owner has landed: they poll for real (nothing is selected here). C2: the skeleton kernel. */
+/** MVP operators their owners have landed: the poll reason in an empty project (nothing is selected here). */
 const LANDED: Readonly<Record<string, string>> = {
+  // C2 (skeleton kernel)
   'skel.template.create': 'Select the meshes to rig',
   'skel.joint.orient': 'Select joints first',
   'skel.joint.mirror': 'Select joints first',
+  // C4 (auto-skin)
+  'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
+  'skin.unbind': 'No bound mesh to unbind',
 };
 
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */
