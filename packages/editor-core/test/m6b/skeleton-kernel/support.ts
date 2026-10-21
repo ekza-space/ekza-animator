@@ -6,14 +6,7 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { mat4Compose, xfIdentity } from '@ekza-studio/anim-core';
-import {
-  type CharacterRecord,
-  derivedId,
-  type MeshId,
-  type MeshRecord,
-  type MeshRef,
-  type Tx,
-} from '@ekza-studio/doc';
+import { type CharacterRecord, derivedId, type MeshId, type MeshRecord, type MeshRef, type Tx } from '@ekza-studio/doc';
 import { makeTestRig } from '@ekza-studio/doc/testing';
 import type { MeshData } from '@ekza-studio/mesh-core';
 import { buildMeshData } from '@ekza-studio/mesh-core/testing';
