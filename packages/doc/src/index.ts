@@ -14,9 +14,18 @@ export {
   makeProject,
   toAnimCurve,
 } from './records/factories';
+// M6b (M6B-SPEC §4.1): the VRM meta defaults and repair.
+export { makeVrmMeta, repairVrmMeta } from './records/vrm';
 export { fractionalIndex, isFractionalIndex } from './records/order';
 // M6a (M6A-SPEC §4.2): repairs of loaded content (also run by migrateSnapshot).
-export { type RepairResult, repairHierarchy, repairRecord, repairSwatchShader } from './records/repair';
+export {
+  jointKeyStem,
+  type RepairResult,
+  repairHierarchy,
+  repairJointKeys,
+  repairRecord,
+  repairSwatchShader,
+} from './records/repair';
 export { emptySnapshot, parseSnapshot, SCHEMA_VERSION, serializeSnapshot } from './snapshot/serialize';
 export { requiredWriterVersion } from './snapshot/version';
 export * from './store';

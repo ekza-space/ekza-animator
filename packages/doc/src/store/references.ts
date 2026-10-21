@@ -81,6 +81,9 @@ export function referencesOf(table: string, row: Row): readonly Reference[] {
       push(out, 'rigs', row['rig']);
       const source = row['source'];
       if (isObject(source)) push(out, 'skeletons', source['skeleton']);
+      // v4 (M6B-SPEC §4.1): the thumbnail asset of the VRM meta.
+      const vrm = row['vrm'];
+      if (isObject(vrm)) push(out, 'assets', vrm['thumbnail']);
       break;
     }
     case 'rigs':

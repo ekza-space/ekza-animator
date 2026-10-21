@@ -1,9 +1,11 @@
-// Contract file: MVP-SPEC §4.3 with the M2A-SPEC §4.3 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.3 with the M2A-SPEC §4.3 and M6B-SPEC §4.3 (with the §0.5 Quick Rig v2) additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { CurveEngine, Fps, Frame, InfinityMode, KeyData, Mat4, Quat, ReadonlyQuat, ReadonlyVec3, ReadonlyXf,
   RotateOrder } from '@ekza-studio/anim-core';
-import type { AttrDef, BoneRef, ChannelId, ChannelValues, ClipId, ConstraintRecord, ControlId, ControlRecord,
-  HumanBoneName, ModelFormat, RigId, RigRecord, SolverId, SolverRecord } from '@ekza-studio/doc';
+import type { AttrDef, Axes, BoneRef, ChannelId, ChannelValues, ClipId, ConstraintId, ConstraintRecord,
+  ControlId, ControlRecord, HumanBoneName, JointId, JointRecord, MeshId, ModelFormat, RigId, RigRecord, SkeletonRecord,
+  SolverId, SolverRecord, SpaceTarget } from '@ekza-studio/doc';
+import type { MeshData, SkinWeights } from '@ekza-studio/mesh-core';   // M6b: types only (rig → mesh-core, §2.1)
 
 /** One glTF node, in topological order (parents before children). */
 export interface SkeletonNode {
@@ -50,6 +52,13 @@ export interface SkeletonDesc {
    * below its foot's rest position count for the foot (rigs often skin the heel to the shin; A1 notes).
    */
   readonly boneSupport?: readonly (Float32Array | null)[];
+  /** M6b: node indices of prop joints (JointRecord.role 'prop'); absent for glTF-sourced skeletons. */
+  readonly props?: readonly number[];
+  /** M6b: node indices of helper joints (role 'helper'); absent for glTF-sourced skeletons. */
+  readonly helpers?: readonly number[];
+  /** M6b: per node, the stable control-key stem (JointRecord.key) of model-sourced skeletons; the auto-rig uses it
+   *  instead of the sanitized name for non-humanoid template keys (§3 rule 3). Absent for glTF-sourced skeletons. */
+  readonly jointKeys?: readonly string[];
 }
 
 /** Assembled view of the rig records (readRigDefinition). */
@@ -310,3 +319,100 @@ export type TrackKey = `${number}/${'translation' | 'rotation' | 'scale'}`;
 export interface FootPin { readonly side: 'L' | 'R'; readonly footWorld: Mat4 }
 
 export type { CurveEngine, Mat4 };
+
+// =====================================================================================================================
+// M6b (M6B-SPEC §4.3, Quick Rig v2 of §0.5): skeletons from records, templates, joint edits, constraints, control rig
+// update. `function`/`const` lines are implementation modules (C0 stubs or baselines) re-exported from the root.
+// =====================================================================================================================
+
+// ---------- skeletons from records (C1; §5.1; the function lives in io, §4.4: rig never imports io) ----------
+export interface DocSkeletonInput {
+  readonly skeleton: SkeletonRecord;
+  readonly joints: readonly JointRecord[];                      // live joints of the skeleton
+  /** Meshes of the character for radii, support, height and the xform.* checks; [] gives radii null and joint-based
+   *  height. `placement` = the mesh's world matrix through its parent chain (column-major, character space). */
+  readonly meshes: readonly { readonly id: MeshId; readonly data: MeshData; readonly skin: SkinWeights | null;
+    readonly placement: Float64Array }[];
+}
+
+// ---------- templates and Quick Rig (C2; §5.2, §0.4.2) ----------
+export type SkeletonPreset = 'lite17' | 'core21' | 'standard33' | 'full52';
+export interface TemplateJoint {
+  readonly key: 'root' | HumanBoneName;
+  readonly parent: 'root' | HumanBoneName | null;
+  readonly position: readonly [number, number, number];        // metres, character space
+  readonly tail: readonly [number, number, number] | null;     // leaves
+}
+// Quick Rig v2 (§0.5) — replaces QuickRigMarker, QuickRigMarkers, fitTemplate, guessMarkers of §4.3.
+export type QuickRigMarker = 'headTop' | 'chin' | 'pelvis' | 'shoulder' | 'elbow' | 'wrist' | 'knee' | 'ankle' | 'toe';
+/** Character space; side markers are the character's RIGHT side (x < 0); the left side is their (−x, y, z) mirror. */
+export type QuickRigMarkers = Readonly<Partial<Record<QuickRigMarker, readonly [number, number, number]>>>;
+
+// ---------- joint edits (C2; pure, over records; §5.3–§5.7) ----------
+export interface JointEdit {
+  readonly upserts: readonly JointRecord[];                    // created or changed joints (full records)
+  readonly deletes: readonly JointId[];
+  readonly folds: ReadonlyMap<JointId, JointId>;               // removed joint → surviving ancestor that receives its weights
+  readonly rotationDeltas: ReadonlyMap<JointId, readonly [number, number, number, number]>;   // old → new rest rotation (Orient)
+  readonly warnings: readonly string[];
+}
+export interface OrientJointArgs {
+  readonly joints: readonly JointId[];
+  readonly mode: 'world' | 'aim';
+  readonly primary: '+x' | '-x' | '+y' | '-y' | '+z' | '-z';
+  readonly secondary: '+x' | '-x' | '+y' | '-y' | '+z' | '-z' | 'auto';
+  readonly secondaryWorld: '+x' | '-x' | '+y' | '-y' | '+z' | '-z';
+  readonly children: boolean;
+  readonly symmetry: boolean;
+}
+export interface MirrorJointArgs {
+  readonly root: JointId;
+  readonly direction: 'left-to-right' | 'right-to-left' | 'auto';
+  readonly mode: 'orientation' | 'behavior' | 'auto';       // auto: Orientation iff every subtree joint has identity rest rotation
+  readonly search: string; readonly replace: string;
+  readonly update: boolean;
+}
+export type RigProblemCode = 'skel.required-bones' | 'skel.unique-names' | 'skel.unique-human-bone' | 'skel.parent-map'
+  | 'skel.multiple-roots' | 'skel.tpose' | 'skel.hinge-bend' | 'skel.symmetry' | 'skel.grounded' | 'skel.facing'
+  | 'skel.orientation-mixed' | 'xform.scale' | 'xform.not-frozen' | 'pose.bind-mismatch' | 'rig.constraint-cycle'
+  | 'rig.constraint-dangling' | 'rig.constraint-conflict' | 'rig.constraint-invalid' | 'rig.out-of-sync';
+export interface RigProblem { readonly code: RigProblemCode; readonly ids: readonly string[]; readonly message: string }
+
+// ---------- control rig update (C1; §5.16) ----------
+export interface AutoRigUpdate {
+  readonly rig: RigDefinition;                                 // full definition after the update
+  readonly softDeleted: readonly ControlId[];                  // controls whose bone vanished (their curves stay)
+  readonly staleOffsets: readonly string[];                    // constraints with stored offsets whose targets moved
+  readonly warnings: readonly string[];
+}
+
+// ---------- constraints (C8a; §5.18; research 18 §4.1, verbatim) ----------
+export type ConstraintType = 'parent' | 'point' | 'orient' | 'aim';
+export type WorldUp =
+  | { readonly type: 'scene' }
+  | { readonly type: 'vector'; readonly vector: readonly [number, number, number] }
+  | { readonly type: 'object'; readonly target: SpaceTarget }
+  | { readonly type: 'objectRotation'; readonly target: SpaceTarget; readonly vector: readonly [number, number, number] }
+  | { readonly type: 'none' };
+export type ConstraintWeights =
+  | { readonly mode: 'static' }
+  | { readonly mode: 'attrs' }
+  | { readonly mode: 'select'; readonly order: readonly string[] };   // stretch (space switching); append-only
+export interface ConstraintParams {
+  readonly v: 1;
+  readonly key: string;                      // [A-Za-z][A-Za-z0-9_]{0,23}, unique among the holder's constraints
+  readonly holder: ControlId | null;         // owns the @<key>.* attributes; null = static weights, blend 1
+  readonly weights: ConstraintWeights;
+  readonly blend: boolean;                   // '@<key>.blend' exists
+  readonly skip: { readonly t: Axes; readonly r: Axes };    // true = the axis is NOT constrained
+  readonly interp: 'average' | 'shortest';
+  readonly aim: { readonly aimAxis: readonly [number, number, number]; readonly upAxis: readonly [number, number, number];
+    readonly worldUp: WorldUp } | null;      // aim only
+}
+export interface BakeConstraintsArgs {
+  readonly constraints: readonly ConstraintId[];
+  readonly clips: 'active' | 'all';
+  readonly range: 'clip' | { readonly start: number; readonly end: number };
+  readonly after: 'disable' | 'delete' | 'keep';
+  readonly reduce: ReduceSpec | null;
+}

@@ -116,6 +116,8 @@ describe('session and document', () => {
         keys: new Map([[W.keys[1], { key: true, in: false, out: false }]]),
         channels: [{ control: W.handL, channel: 'rz' }],
         objects: [],
+        joints: [],
+        constraints: [],
       },
       overrides: new Map([[W.handL, { rz: 1 }]]),
       feetPins: { character: W.character, pins: [] },
@@ -157,6 +159,8 @@ describe('selection snapshots', () => {
     keys: new Map([[W.keys[0], { key: true, in: false, out: true }]]),
     channels: [{ control: W.lowerArmL, channel: 'rz' }],
     objects: [],
+    joints: [],
+    constraints: [],
   };
 
   it('round-trips through JSON and restores into the session', () => {
@@ -196,6 +200,8 @@ describe('selection snapshots', () => {
       keys: new Map(),
       channels: [],
       objects: [],
+      joints: [], // M6B-SPEC §3 rule 9
+      constraints: [],
     });
   });
 });

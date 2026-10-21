@@ -17,5 +17,13 @@ const E2E_BUILD = process.env.NEXT_PUBLIC_EKZA_E2E === '1';
 const KERNEL_DEBUG = process.env.NODE_ENV !== 'production' || E2E_BUILD;
 
 export function EditorIsland(): JSX.Element {
-  return <Editor decoderPath="/decoders/" samplesPath="/samples/" e2e={E2E_BUILD} kernelDebug={KERNEL_DEBUG} />;
+  return (
+    <Editor
+      decoderPath="/decoders/"
+      samplesPath="/samples/"
+      libraryPath="/library/"
+      e2e={E2E_BUILD}
+      kernelDebug={KERNEL_DEBUG}
+    />
+  );
 }

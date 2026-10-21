@@ -39,7 +39,7 @@ describe('M6a foundation over the real kernel', () => {
     expect(app.store.list('assets').map((asset) => asset.provenance)).toEqual([null]);
     await runOk(app, 'file.save', { fileName: 'bot.ekzanim' });
     const saved = await readProjectArchive(services.downloads.at(-1)?.bytes ?? new Uint8Array(0));
-    expect(saved.snapshot.schemaVersion).toBe(3);
+    expect(saved.snapshot.schemaVersion).toBe(4); // M6B-SPEC §3 rule 9 (schema v4)
     expect(saved.snapshot.minWriterVersion).toBeLessThanOrEqual(2);
     expect(Object.keys(saved.snapshot.tables.meshes ?? {})).toEqual([]);
   });

@@ -1,3 +1,5 @@
+// M6B-SPEC §3 rule 9 literal updates (§4.1 schema v4): the build writes schema 4; a live skeleton or model-sourced
+// character requires writer version 4 (was 3); schema 4 itself is tested in schema-v4.test.ts.
 // M6A-SPEC §4.2 (B0a): schema 3 — the 2 → 3 migration, `requiredWriterVersion`, `minWriterVersion` written by the
 // store, an M2a reader opening modeling projects read-only, validation and repairs of every rules-table row, the
 // cross-record hierarchy repairs, `referencesOf` for the new tables and `derivedId`.
@@ -117,16 +119,16 @@ describe('schema 3: migration 2 → 3', () => {
     expect(migrateSnapshot(raw).snapshot.tables.assets[assetId]?.provenance).toEqual(provenance);
   });
 
-  it('a v2 project reopens writable and saves schemaVersion 3 with minWriterVersion 2 (IK, no v3 records) or 3 (a mesh)', () => {
+  it('a v2 project reopens writable and saves schemaVersion 4 with minWriterVersion 2 (IK, no v3 records) or 3 (a mesh)', () => {
     const { snapshot } = migrateSnapshot(JSON.parse(serializeSnapshot(m2aDocument({ ik: true }))));
     const store = createMemoryStore();
     store.load(snapshot);
     expect(store.readOnly).toBe(false);
     let saved = store.snapshot();
-    expect([saved.schemaVersion, saved.minWriterVersion]).toEqual([3, 2]);
+    expect([saved.schemaVersion, saved.minWriterVersion]).toEqual([4, 2]);
     store.transact({ label: 'Create Cube' }, (tx) => tx.put('meshes', makeTestMesh('msh_A')));
     saved = store.snapshot();
-    expect([saved.schemaVersion, saved.minWriterVersion]).toEqual([3, 3]);
+    expect([saved.schemaVersion, saved.minWriterVersion]).toEqual([4, 3]);
     store.transact({ label: 'Delete' }, (tx) => tx.softDelete('meshes', 'msh_A' as never));
     expect(store.snapshot().minWriterVersion).toBe(2);
   });
@@ -162,7 +164,7 @@ describe('an M2a reader (simulated SCHEMA_VERSION 2)', () => {
     store.transact({ label: 'Create Cube' }, (tx) => tx.put('meshes', makeTestMesh('msh_A')));
     const modeling = m2a.migrateSnapshot(JSON.parse(serializeSnapshot(store.snapshot())));
     expect(modeling.readOnly).toBe(true);
-    expect(modeling.snapshot.schemaVersion).toBe(3);
+    expect(modeling.snapshot.schemaVersion).toBe(4);
     expect(Object.keys(modeling.snapshot.tables.meshes ?? {})).toEqual(['msh_A']);
   });
 });
@@ -175,17 +177,20 @@ describe('requiredWriterVersion (schema 3)', () => {
     ['imagePlanes', makeTestImagePlane('img_A', testHash('a'))],
     ['skeletons', makeTestSkeleton('skl_A', 'chr_A')],
     ['joints', makeTestJoint('jnt_A', 'skl_A')],
-  ] as const)('is 3 with a live %s record and ≤ 2 when it is soft-deleted', (table, record) => {
-    expect(requiredWriterVersion(tablesWith({ [table]: live(record) }))).toBe(3);
-    expect(requiredWriterVersion(tablesWith({ [table]: live({ ...record, deleted: DELETED }) }))).toBe(1);
-  });
+  ] as const)(
+    'is 3 (4 for skeletons, M6B-SPEC §4.1) with a live %s record and ≤ 2 when it is soft-deleted',
+    (table, record) => {
+      expect(requiredWriterVersion(tablesWith({ [table]: live(record) }))).toBe(table === 'skeletons' ? 4 : 3);
+      expect(requiredWriterVersion(tablesWith({ [table]: live({ ...record, deleted: DELETED }) }))).toBe(1);
+    },
+  );
 
-  it('is 3 with a png or jpg asset and with a live model-sourced character', () => {
+  it('is 3 with a png or jpg asset and 4 (M6B-SPEC §4.1) with a live model-sourced character', () => {
     const png = makeTestImageAsset('front.png');
     expect(requiredWriterVersion(tablesWith({ assets: live(png) }))).toBe(3);
     expect(requiredWriterVersion(tablesWith({ assets: live({ ...png, ext: 'jpg', mime: 'image/jpeg' }) }))).toBe(3);
     const model = { id: 'chr_M', source: { kind: 'model', skeleton: 'skl_A' }, asset: null, deleted: null };
-    expect(requiredWriterVersion(tablesWith({ characters: live(model) }))).toBe(3);
+    expect(requiredWriterVersion(tablesWith({ characters: live(model) }))).toBe(4);
     expect(requiredWriterVersion(tablesWith({ characters: live({ ...model, deleted: DELETED }) }))).toBe(1);
   });
 

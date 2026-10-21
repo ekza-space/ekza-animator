@@ -16,7 +16,7 @@ import {
   makeTestImagePlane,
   makeTestMesh,
   readSyntheticFixture,
-  withSchemaV3,
+  withSchemaV4,
 } from '@ekza-studio/doc/testing';
 import { unzipSync, zipSync } from 'fflate';
 import { describe, expect, it } from 'vitest';
@@ -52,7 +52,7 @@ function image(): { readonly record: AssetRecord; readonly bytes: Uint8Array } {
 /** A schema-3 document with a mesh (data ref) and an image plane over the image asset. */
 function modelingSnapshot(manifest: string, imageRecord: AssetRecord): DocSnapshot {
   const store = createMemoryStore();
-  store.load(withSchemaV3(readSyntheticFixture('wave-doc.json') as DocSnapshot));
+  store.load(withSchemaV4(readSyntheticFixture('wave-doc.json') as DocSnapshot));
   store.transact({ label: 'Model' }, (tx) => {
     tx.put('assets', imageRecord);
     tx.put('meshes', makeTestMesh('msh_Cube', { name: 'Cube', data: { manifest, rev: 1, base: null, joints: [] } }));
@@ -102,7 +102,7 @@ describe('.ekzanim with mesh blobs and reference images (§5.20)', () => {
         path: `images/${img.record.id}.png`,
       },
     ]);
-    expect(SCHEMA_VERSION).toBe(3);
+    expect(SCHEMA_VERSION).toBe(4); // M6B-SPEC §3 rule 9 (schema v4)
   });
 
   it('round-trips: verified blobs, the image as a reference-image asset, byte-identical archives twice', async () => {
@@ -185,7 +185,7 @@ describe('.ekzanim with mesh blobs and reference images (§5.20)', () => {
     expect(opened.assets.size).toBe(0);
     expect(opened.inflated).toEqual(['manifest.json', 'project.json']);
     // A project without meshes or images keeps the M2a shape: no images key, no blobs.
-    const plain = withSchemaV3(readSyntheticFixture('wave-doc.json') as DocSnapshot);
+    const plain = withSchemaV4(readSyntheticFixture('wave-doc.json') as DocSnapshot);
     const m2a = await readProjectArchiveM2a(writeProjectArchive(plain, new Map(), { version: '0.3.0' }));
     expect(m2a.readOnly).toBe(false);
   });

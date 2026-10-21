@@ -2,6 +2,8 @@
 // rule of the memory store, fresh writers at minWriterVersion 1, the AttrDef additions and `solverId`.
 // M6A-SPEC §3 rule 9 literal updates (§4.2 schema v3): this build writes SCHEMA_VERSION 3, and a schema 1 document
 // migrates through 2 to 3, which adds `source`/`provenance` and the seven empty M6a tables (`withSchemaV3`).
+// M6B-SPEC §3 rule 9 literal updates (§4.1 schema v4): this build writes SCHEMA_VERSION 4; 3 → 4 adds `vrm: null`
+// to characters and `role`/`key` to joints (`withSchemaV4`).
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   type ControlId,
@@ -24,7 +26,7 @@ import {
 } from '../src';
 import type * as MigrateModuleNs from '../src/migrations/migrate';
 import type * as VersionModuleNs from '../src/snapshot/version';
-import { makeTestControl, makeTestDocument, withSchemaV3 } from '../src/testing';
+import { makeTestControl, makeTestDocument, withSchemaV4 } from '../src/testing';
 
 type MigrateModule = typeof MigrateModuleNs;
 type VersionModule = typeof VersionModuleNs;
@@ -65,9 +67,9 @@ function m1Document(): DocSnapshot {
 
 describe('schema version 2', () => {
   it('is the version this build writes', () => {
-    expect(SCHEMA_VERSION).toBe(3);
-    expect(emptySnapshot().schemaVersion).toBe(3);
-    expect(makeProject().schemaVersion).toBe(3);
+    expect(SCHEMA_VERSION).toBe(4);
+    expect(emptySnapshot().schemaVersion).toBe(4);
+    expect(makeProject().schemaVersion).toBe(4);
   });
 
   it('fresh writers write minWriterVersion 1 (item 3)', () => {
@@ -166,16 +168,16 @@ describe('migration 1 → 2', () => {
     const once = migrateSnapshot(JSON.parse(serializeSnapshot(m1)));
     expect(once.migratedFrom).toBe(1);
     expect(once.readOnly).toBe(false);
-    expect(once.snapshot.schemaVersion).toBe(3);
+    expect(once.snapshot.schemaVersion).toBe(4);
     expect(once.snapshot.minWriterVersion).toBe(1);
-    expect(once.snapshot.tables).toEqual(withSchemaV3(m1).tables);
-    expect(once.snapshot.tableVersions).toEqual(withSchemaV3(m1).tableVersions);
+    expect(once.snapshot.tables).toEqual(withSchemaV4(m1).tables);
+    expect(once.snapshot.tableVersions).toEqual(withSchemaV4(m1).tableVersions);
     const twice = migrateSnapshot(JSON.parse(serializeSnapshot(once.snapshot)));
-    expect(twice.migratedFrom).toBe(3);
+    expect(twice.migratedFrom).toBe(4);
     expect(serializeSnapshot(twice.snapshot)).toBe(serializeSnapshot(once.snapshot));
   });
 
-  it('an M1 project opens writable and saves schemaVersion 3 / minWriterVersion 1', () => {
+  it('an M1 project opens writable and saves schemaVersion 4 / minWriterVersion 1', () => {
     const text = serializeSnapshot(m1Document());
     const { snapshot, readOnly } = migrateSnapshot(parseSnapshot(text));
     expect(readOnly).toBe(false);
@@ -185,7 +187,7 @@ describe('migration 1 → 2', () => {
     const control = Object.keys(snapshot.tables.controls)[0] as ControlId;
     store.transact({ label: 'Rename' }, (tx) => tx.patch('controls', control, { name: 'Renamed' }));
     const saved = store.snapshot();
-    expect(saved.schemaVersion).toBe(3);
+    expect(saved.schemaVersion).toBe(4);
     expect(saved.minWriterVersion).toBe(1);
   });
 

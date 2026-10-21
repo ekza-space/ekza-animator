@@ -17,6 +17,7 @@ import type {
 import type {
   ChannelId,
   ClipRecord,
+  ConstraintRecord,
   ControlRecord,
   CurveRecord,
   GroupRecord,
@@ -28,6 +29,7 @@ import type {
   OrthoCamera,
   Partition,
   RigRecord,
+  SkeletonRecord,
   SwatchRecord,
 } from '../records';
 import type { DocQueries } from '../store';
@@ -121,6 +123,9 @@ export class QueryEngine implements DocQueries {
   private readonly swatchCache = new Map<string, readonly SwatchRecord[]>();
   private readonly imagePlaneCache = new Map<string, readonly ImagePlaneRecord[]>();
   private readonly jointCache = new Map<string, readonly JointRecord[]>();
+  /** M6b schema v4 (M6B-SPEC §4.1): the three v4 queries scan their (small) tables; results cached until any write
+   *  to skeletons, constraints or meshes (kept small for the eager route, §0.4.9). */
+  private readonly v4Cache = new Map<string, unknown>();
 
   private readonly keyCache = new Map<string, KeyProjection>();
   /**
@@ -188,6 +193,11 @@ export class QueryEngine implements DocQueries {
       case 'rigs':
         this.relink(this.rigsByCharacter, str(before, 'character'), str(after, 'character'), id);
         break;
+      // M6b schema v4
+      case 'skeletons':
+      case 'constraints':
+        this.v4Cache.clear();
+        break;
       case 'controls':
         this.relink(this.controlsByRig, str(before, 'rig'), str(after, 'rig'), id);
         this.relink(this.controlsByRigKey, before && rigKey(before), after && rigKey(after), id);
@@ -197,6 +207,7 @@ export class QueryEngine implements DocQueries {
       case 'meshes':
         this.relink(this.meshesByOwner, ownerOf(before), ownerOf(after), id);
         this.dropKeys(this.hierarchyCache, ownerOf(before), ownerOf(after));
+        this.v4Cache.clear();
         break;
       case 'groups':
         this.relink(this.groupsByOwner, ownerOf(before), ownerOf(after), id);
@@ -234,6 +245,7 @@ export class QueryEngine implements DocQueries {
     this.swatchCache.clear();
     this.imagePlaneCache.clear();
     this.jointCache.clear();
+    this.v4Cache.clear();
   }
 
   /** Forgets everything (the storage was cleared). */
@@ -565,7 +577,54 @@ export class QueryEngine implements DocQueries {
     }
     return cached;
   }
+
+  // ---------- M6b schema v4 (M6B-SPEC §4.1) ----------
+
+  /** The live rows of `table` matching `match`, sorted by `order`, cached under `key` until a v4 table write. */
+  private scan<T>(
+    key: string,
+    table: string,
+    match: (row: Row) => boolean,
+    order: (a: T, b: T) => number,
+  ): readonly T[] {
+    let cached = this.v4Cache.get(key) as readonly T[] | undefined;
+    if (cached === undefined) {
+      const rows: T[] = [];
+      for (const [id] of this.storage.entries(table)) {
+        const row = this.live(table, id);
+        if (row !== undefined && match(row)) rows.push(row as unknown as T);
+      }
+      cached = freeze(rows.sort(order));
+      this.v4Cache.set(key, cached);
+    }
+    return cached;
+  }
+
+  skeletonOfCharacter(character: CharacterId): SkeletonRecord | undefined {
+    // Several live skeletons for one character (concurrent Quick Rig commits): the newest, i.e. the greatest id.
+    return this.scan<SkeletonRecord>(
+      `s${character}`,
+      'skeletons',
+      (row) => row['character'] === character,
+      (a, b) => compareStrings(b.id, a.id),
+    )[0];
+  }
+
+  constraintsOfRig(rig: RigId): readonly ConstraintRecord[] {
+    return this.scan<ConstraintRecord>(`c${rig}`, 'constraints', (row) => row['rig'] === rig, byId);
+  }
+
+  meshesBoundTo(skeleton: SkeletonId): readonly MeshRecord[] {
+    return this.scan<MeshRecord>(
+      `m${skeleton}`,
+      'meshes',
+      (row) => (row['skin'] as { readonly skeleton?: unknown } | null | undefined)?.skeleton === skeleton,
+      byOrderThenId,
+    );
+  }
 }
+
+const byId = (a: { readonly id: string }, b: { readonly id: string }): number => compareStrings(a.id, b.id);
 
 function clipControl(curve: Row): string {
   return `${String(curve['clip'])}${SEP}${String(curve['control'])}`;
