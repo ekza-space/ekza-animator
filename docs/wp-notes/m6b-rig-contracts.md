@@ -1,0 +1,106 @@
+# M6b C0 — contracts, schema v4, stubs, hooks, panel registrations, lazy chunks, fixtures: build notes
+
+Branch `m6b/rig-contracts` (from `m6b/mvp` at `906520c`, spec v1.3). Scope:
+[M6B-SPEC §9.0 C0](../M6B-SPEC.md#c0--rig-contracts-integration-agent-first) with §4 and the §0.5 additions; the
+shared-file roles of §9.1 as §9.0 restates them for the MVP. Decision IDs below are `M6B-C0-<n>`.
+
+## What landed
+
+| C0 item | Where |
+|---|---|
+| First commit: the MVP eager baseline (Q-MVP-14) | `apps/web/scripts/size-baseline.json`: the `dev` route before C0, **889,569 B** (production build, gzip -9), allowance +6,144 B, `enforce: false` (C7 turns the gate on), per-package allowances recorded; the M6a record kept under `previous` |
+| Schema v4 (§4.1, §0.4.8) | `doc/src/records.ts` (`CharacterRecord.vrm`, `CharacterVrmMeta`, `VrmLicensePreset`, `JointRole`, `JointRecord.role`/`key`, `ShapeField`, `ControlShape.edited`, `ClipSource 'test'`, `AssetRecord.role 'thumbnail'`), `store.ts` (`skeletonOfCharacter`, `constraintsOfRig`, `meshesBoundTo`), `records/validate.ts`, `records/repair.ts` (per-record rules, `jointKeyStem`, the cross-record `repairJointKeys`), `records/vrm.ts` (the meta's defaults, validation and repair in one table, `makeVrmMeta`), `migrations/migrate.ts` (`CORE_MIGRATIONS[2]`, 3 → 4, the v4 repairs on load), `snapshot/version.ts` (`SCHEMA_VERSION = 4`, `requiredWriterVersion` 4), `store/references.ts` (the VRM thumbnail), `queries/engine.ts` (memory store; doc-yjs inherits it), the naive test store's queries in `editor-core/src/testing/store/queries.ts`; `doc/testing`: `makeTestVrmMeta`, `makeTestThumbnailAsset`, `withSchemaV4`, v4 defaults in `makeTestJoint`/`makeTestCharacter`, the schema-v4 conformance cases (memory and doc-yjs, replication included) |
+| mesh-core §4.2 | `skin/types.ts` (contract file, verbatim; formatting excluded in `biome.json`), `skin/layers.ts` (`readSkin`, `readSkinReview`, `withSkin`, `SKIN_REVIEW_LAYER`: working baselines), stubs `skin/{geometry,laplacian,bind,edit,stroke,mirror,check,transfer,inpaint,fold}/index.ts`, `query/reference.ts` (the brute-force `TriangleBvh`), barrel lines in `mesh-core/src/index.ts` |
+| rig §4.3 + §0.5 | `rig/src/types.ts` (every §4.3 type with the Quick Rig v2 replacements), stubs `rig/src/{templates,quickrig,joints,validate,shapes,makeEditable}/index.ts`, `constraints/{params,index}.ts` (`parseConstraintParams` and `withoutConstraints` baselines, `CONSTRAINT_OPS`, bake and mirror stubs), `autorig/update.ts` (`updateAutoRig` baseline), the marker lists `QUICK_RIG_CENTRE_MARKERS`/`QUICK_RIG_SIDE_MARKERS` |
+| io §4.4 + §0.5 | `io/src/types.ts` (character writer, export request, starter-pack manifest), `skeleton/fromDoc.ts` (`skeletonFromDoc` and `jointsFingerprint` baselines, `measureSkinned` stub), `character/index.ts`, `library/index.ts` (`UAL_BONE_MAP` as §0.4.7 lists it, function stubs), `lint/vrm.ts` (`VRM_LINT_RULES = []`) |
+| mesh-view, viewport §4.7 | `mesh-view/src/skin/index.ts` (`SkinnedSurface`, constructor fails `not-implemented`), `viewport/src/rig/index.ts` (overlay class stubs) behind `loadViewportRig()` |
+| editor-core §4.6 + §0.5 | `types.ts` and `operators/args.ts` (every §6/§0.6 row); `workspaces/rig.ts` (enabled `RIG_WORKSPACE`, the lazy-id rule), `app/factories/rig.ts` (`app.rig`: test-pose baseline, skin and validation stubs, the rig-workspace loader), `app/factories/library.ts` (`app.library` shell), `session/rig.ts`, `evaluation/rigSource.ts` (`registerChannelSourceProvider`, the channel sources), `library/index.ts` (clip-library chunk entry), `characters/runtimeChunk.ts` + `runtimeEntry.ts` (character-runtime wrapper and entry), `history/history.ts` (`recordTestPose`, `dropTestPoses`), `operators/builtin/rig/*.ts` (one stub file per owner) + `rig/stub.ts` + `rig/index.ts` (the chunk entry), `operators/builtin/library.ts` |
+| Hooks (one-line where possible) | `evaluation/service.ts` (the channel-source fill and the preview stamp in `tick`), `operators/runner.ts` (`onBeforeDocumentRun` dispatch, the lazy-chunk resolve), `operators/registry.ts` (the listener set), `app/kernel.ts` (`rig`, `library`, `restoreTestPose`), `operators/builtin/workspace.ts` (`workspace.set` awaits the rig chunk) |
+| editor | `panels/viewport/hud/badges.ts` (+ the mount line in `PaneView.tsx`'s HUD), the `ANIMATE_SLOTS` entry in `shell/layout.ts`, `libraryPath` in `Editor.tsx`/`shell/EditorRoot.tsx`/`services/browser.ts` and `apps/web/app/editor/EditorIsland.tsx`, the six panel stubs `panels/{clipLibrary,quickRig,rigToolkit,validation,paintWeights,componentEditor}/index.tsx` with their registration lines in `panels/index.ts` (`panels/lazyPanel.tsx`), the Rig Toolkit section stubs `panels/rigToolkit/sections/{skeleton,skin,character,library}/index.tsx` with the section list and contract, `test-api/types.ts`, `createTestApi.ts` (spreads, `characters()`), `test-api/m6b/*.ts` (one stub per owner; `rig-contracts.ts` implements `keysHash()`), `test-api/placeholder.ts`, placeholder Rig & Skin dialogs (`dialogs/PendingRigDialog.tsx`), the skin worker entry `workers/skin.worker.ts` |
+| ui | §8.14 tokens and `--marker-quickrig-ghost` in `tokens.json` (generated `css/tokens.css`), 3:1 contrast rows against `--comp-halo` for the glyph colours |
+| size | `apps/web/scripts/check-size.mjs`: BOUNDARIES `rig-workspace`, `skin-worker`, `character-runtime`, `clip-library` and the §0.4.9 chunk warnings; `apps/web/test/m6b-size.test.ts` |
+| Fixtures | `tooling/make-mvp-fixtures.mjs` → `fixtures/models/cube-lad.glb`, `cube-lad-truth.json`; `tooling/make-polybot-unskinned.mjs` → `polybot-unskinned.glb`, `polybot-unskinned-tpose.glb`, `polybot-truth.json`; `tooling/test/*`; `fixtures/LICENSES.md` rows and an empty "Starter pack" section |
+| Dependencies (§2.1) | `@pixiv/types-vrmc-vrm-1.0` 3.5.5 (io dev, types only), `vrm-validator` 2.0.0-dev.3.10 (io and headless-tests dev, CI only); the `rig → mesh-core` types-only edge; `check-deps` and `.oxlintrc.json` allowances (also `@ekza-studio/mesh-core` for the editor workers) |
+| e2e | `apps/web/e2e/helpers/m6b-rig.ts`, `helpers/m6b-cube-lad.ts`, `m6b-00-foundation.spec.ts` (E2E-M6B-00) |
+
+## Working baselines (never throwing)
+
+Schema v4 migration, validation, repairs, queries, `referencesOf`, `requiredWriterVersion`; `readSkin`/`withSkin`/
+`readSkinReview`; the brute-force `TriangleBvh`; `parseConstraintParams`, `withoutConstraints`; `updateAutoRig`;
+`skeletonFromDoc` (rest data only) and `jointsFingerprint`; `EditorHistory.recordTestPose`/`dropTestPoses`; the
+in-memory `TestPoseService`; the channel sources `animate`, `bind`, `test`, `clip` with the `preview` priority; the
+enabled Rig & Skin `WorkspaceDef` and the three lazy loaders; `keysHash()`.
+
+## Interpretations and decisions
+
+| # | What | Why |
+|---|---|---|
+| M6B-C0-1 | **Cube Lad = 16 boxes, no extrudes** (torso, pelvis, neck, head and per side upper arm, forearm, hand, thigh, shin, foot), 192 triangles, built by `mesh.create.cube` per box + `scene.object.transform` + `mesh.combine {pivot: 'origin'}`. §0.7 says "13 boxes, a few extrudes" for the same 16 parts. | Extrudes would tie the Node generator to the kernel's extrude geometry; boxes give the helper and the GLB the same points exactly (checked within 1e-6 m by E2E-M6B-00). The truth file's `boxes` is the single design both sides build from. |
+| M6B-C0-2 | **Cube Lad truth joints** follow the §0.4.2 fit formulas from the truth markers (spine/chest evenly between hips and neck, clavicle halfway to the spine, `neck = chin − 0.01 H`, `head = chin + 0.02 H`, fingers by the §5.2 table along `wrist − elbow`, toes tail at the foot's front extent) with the 2° **minimum bend** on elbows (back) and knees (forward). | The C2 fitter gate (0.03 H on synthesized markers) has an exact target; a design that disagreed with the formulas would make the gate measure the design, not the fitter. |
+| M6B-C0-3 | **Polybot fixtures are in canonical space** (VRM 0.x faces −Z: positions and normals turned 180° about Y), one static mesh node at identity with Polybot's material and texture; the T-pose turns each arm's upper and then lower segment to the horizontal ±X (left = +X) about its joint, then LBS with Polybot's own weights. `polybot-truth.json`: per pose the VRM 1.0 humanoid joint positions (VRM 0 thumbs aliased), every joint node, height, ground and the nine markers (`headTop` = (0, max y, head z), `chin` = neck + 0.01 H, the rest the joints of their meaning); `vertexPoint` (glTF vertex → welded point, exact float32 weld) and `dominantJoint` (per point, an index into `joints`, the human bone or `node:<name>`). Polybot is 1.064 m tall; its `leftToes` is not in the VRM map (the node is in `nodes`). | Quick Rig requires +Z-facing models (§0.4.2 start checks); compact, exact data for P-S7 and the E2E-SKIN-01 joint check. |
+| M6B-C0-4 | `skeletonOfCharacter` on a conflict returns the **greatest** SkeletonId ("the newest by id"). | §4.1 wording; ids carry no time, so "newest" reads as the id order's last. |
+| M6B-C0-5 | **VRM meta validation** is "the meta repairs to itself" (one table in `records/vrm.ts`); a write with a malformed meta gets one problem, `vrm: expected null or a VRM meta`. A missing `vrm` (undefined) is a write error; load repairs it to `null`. | One definition for validation, repair and defaults keeps the eager bytes down (§0.4.9). |
+| M6B-C0-6 | **Joint keys**: missing → the sanitized name (`jointKeyStem`, rig's `sanitizeNodeName` rule duplicated in doc, which cannot import rig); duplicates per skeleton among live joints get `#n` in id order, `n` skipping keys already in use. Deleted joints keep their key. `makeTestJoint`'s default key is the sanitized **id** (unique), not the name. | §4.1 rules table; tests put several joints named "Joint" in one skeleton. |
+| M6B-C0-7 | **The runner resolves chunk ids**: an unregistered id that the rig-workspace chunk registers (`skel.*`, `skin.*`, `char.*`, Rig & Skin `rig.*`, `select.joints`, `mesh.importStatic`, `file.exportCharacter`) or a `library.*` id loads its chunk, then runs (a second hook in `runner.ts` next to `onBeforeDocumentRun`). | §2.1: "anything (a menu, the palette, the test API) runs an operator id with one of these prefixes". |
+| M6B-C0-8 | **`onBeforeDocumentRun`** fires after the first poll (a poll-failing run does not stop a preview) and the extrude-session hook, immediately before `prepare`, for `flags.undo` operators and `edit.undo`/`edit.redo`; a throwing listener is reported (`console.error`) and never stops the run. | §0.5 "before `prepare`"; a key attempt that cannot run must not end the preview. |
+| M6B-C0-9 | **Channel sources** (C0 baseline, C7 refines): `animate` (shipped), `bind` (channel defaults; C7 evaluates the constraint-free program), `test` (defaults ⊕ `app.rig.testPose`), `clip` (curves without overrides). A registered `preview` provider wins in every workspace when its `values(character)` is non-null (the newest registration first); the evaluation re-evaluates when any provider's `version` or the registrations change. The provider is a module-level registry (the §0.5 signature has no app). `channelValues`/`channelValue` keep reading the document (the Channel Box never shows preview values). | §0.5; C12's provider bumps its version per frame and on stop. |
+| M6B-C0-10 | **Operator stubs**: every §6 id and the §0.6 additions from one file per owner (`operators/builtin/rig/{character,autorig,skeleton,quickRig,quickRigSession,prop,bind,weights,influence,mode,pose,rom,shadows,constraints,shapes,export,makeEditable,recovery}.ts`, `operators/builtin/library.ts`). MVP ids poll-fail "not available yet", deferred ids "Arrives after the MVP" and are `internal` (no menu, palette or keymap). Key scope `rig`, workspaces `['rig']` (`rig.constraint.create`: rig and animate; `library.*`: animate and rig; `file.exportCharacter`: scope `global`). `select.joints`, `skel.symmetry.set` and `skel.pose.tStance` sit in `skeleton.ts` (C2's file; C3 owns their UI, and §9.0 gives C3 only `quickRigSession.ts`). `rig.animateOnly` carries its final reason. Ops whose §6 label is "internal: …" and the U-state ops that need pointer or record args are `internal`. | §3 rule 1, §0.6, Q-MVP-15. |
+| M6B-C0-11 | **Keymap rows and menus are not landed**: §9.0 gives `editor-core/src/keymap/maya.rig.ts`, `editor/src/shell/menus/rig.ts` and the marking menus to C7 (its §7 MVP rows, the §0.4.5 menus). C7 registers them from `app.rig.load()` (its file after C0), so they stay in the lazy chunk. | §9.0 wins over §9.1's "C0 lands empty registries". |
+| M6B-C0-12 | **Panel bodies are the lazy `panels/<id>/index.tsx`**, registered by one line each in `panels/index.ts` through `lazyPanelDef` (`panels/lazyPanel.tsx`), so a panel adds only its registration to the route. Stub test ids: `clip-library-panel`, `quickrig-panel`, `rtk-panel`, `val-panel`, `pw-panel`, `ce-panel`. The Rig Toolkit body renders `RIG_TOOLKIT_SECTIONS` (`sections/index.ts`, contract `sections/types.ts`) with `rtk-section-<id>`. | §0.4.9 eager budget; §8.15. |
+| M6B-C0-13 | **Badge slot**: `registerViewportBadge(provider)` (module registry, registration order); `ViewportBadges` draws each non-null label as `hud-badge-<provider id>-<paneId>` at the bottom right of every pane's HUD, before "Feet pinned" and the frame readout. | §0.5; §8.3 places the pose badge bottom right. |
+| M6B-C0-14 | **Contract additions beyond the spec text**: `TriangleQueries` (the instance shape of `TriangleBvh`, in the skin contract file), `RigToolkitSection(Props)`, `ViewportRigModule`, `CharacterRuntimeChunk`, `RigApi`/`LibraryApi` (factory shapes), `M6B_CHUNK_WARN_BYTES`, `ARRIVES_AFTER_MVP`, `makeVrmMeta`/`repairVrmMeta`, `jointKeyStem`/`repairJointKeys`, `previewValues`. | Implementation helpers the owners reuse; no §4 shape changed. |
+| M6B-C0-15 | `ControlLayer.setShape` (§4.7) is **not** landed: the shipped class belongs to C9 (deferred, §0.3). `VRM_LINT_RULES` is an empty list in `io/src/lint/vrm.ts` (C10's file). `UAL_BONE_MAP` is landed as §0.4.7 lists it (52 deformers, verified against the fixture's node names). | §0.3 deferrals; data the spec fixes. |
+| M6B-C0-16 | **`updateAutoRig` baseline** = `autoRig(skeleton, ids, {ik})` regenerated; current controls whose id the new rig lacks are soft-deleted (warnings); `staleOffsets` empty. **`skeletonFromDoc` baseline**: live joints of the skeleton, topological (parents first, siblings by `order` then id; cycle members appended as roots), `restRotation` read as character-space orientation, rest locals derived against the parent, format `vrm1` for `vrm-humanoid` else `gltf`, radii null, joint-based height (`JOINT_HEIGHT_FACTOR`), `props`/`helpers`/`jointKeys` filled. | §9.0 names them working baselines that keep C1/C2 green while the other runs. |
+| M6B-C0-17 | **character-runtime chunk**: `characters/runtimeChunk.ts` is the `import()` wrapper (`loadCharacterRuntime()`), `characters/runtimeEntry.ts` the entry with the marker (one module cannot be both lazy entry and its own eager wrapper). Nothing imports it yet (C1's registry hook will), so `check:size` reports its boundary "not in this build". The skin worker entry likewise waits for C4 (`new Worker(new URL('./skin.worker.ts', import.meta.url))`). | §9.1 row; the BOUNDARY tests run on fixture builds. |
+| M6B-C0-18 | **Display flags**: Animate keeps today's look (`joints` false, `jointAxes`/`jointLabels` 'none', `weights` 'off', `constraintLines` false); a `RIG_DISPLAY` (joints, x-ray joints, axes on selection, labels on hover, constraint lines) is the Rig & Skin pane default in `viewport/src/manager/workspaceViews.ts`. | §4.6 comments; C7 refines per mode. |
+| M6B-C0-19 | **READY flags**: `test/m6b-ready.ts` in mesh-core, rig, io and editor-core (`c1`…`c12` of the MVP, all false); each package sets its own on merge. **P-C6** (`editor-core/test/m6b/keys-hash.test.ts`): one row per registered rig/library operator (equal to the chunk's ids), status `pending`, `checked` (runs with the owner's `setup`) or `keys` (the §3 rule 7 exceptions: `skel.joint.orient`, `rig.autoRig.update`, `rig.constraint.{removeTarget,delete,bake}`, and `library.useClip`, which writes a clip with keys). | §3 rule 4, §5.26. |
+| M6B-C0-20 | **Placeholder dialogs**: every new `UiDialog` opens `PendingRigDialog` (title = the dialog id) until its owner replaces its loader line in `DialogHost.tsx`. | `DialogHost` maps every dialog name to a chunk. |
+| M6B-C0-21 | **§8.15 test ids are reserved** by this list and the spec table: `ws-tab-rig` exists; the panel stubs carry `rtk-panel`, `pw-panel`, `ce-panel`, `val-panel`; owners use the remaining ids as §8.15 assigns them (`hud-pose-<paneId>` stays C7's; C0's badges use `hud-badge-<id>-<paneId>`). | No runtime registry of test ids exists (none was built for M6a either). |
+| M6B-C0-22 | **No CR filing** (§0.4.1): CR-2, CR-4, CR-7 are direct edits of their owners; the others are deferred with their fallbacks. | §9.0 C0 scope. |
+
+## Eager route (§0.4.9)
+
+Production builds, `check:size` (gzip -9, first visit). Recorded baseline (first commit): **889,569 B** (dev before
+C0). This branch: **894,451 B** without source maps (**+4,882 B**, measured as the source-mapped builds' difference:
+base 889,686 B → branch 894,568 B). Gate 900,000 B: headroom 5,549 B. The four lazy chunks are outside the route
+(`rig-workspace` 2.5 kB, `clip-library` 0.8 kB; `skin-worker` and `character-runtime` have no importer yet).
+
+Attribution (source-mapped, per file, scaled gzip; base `906520c` vs this branch), grouped by the §0.4.9 categories:
+
+| Category | Files | ≈ B |
+|---|---|---:|
+| Schema v4 validation, repairs, migration, queries (eager by §2.1: `store.load` is synchronous) | `doc/src/records/{repair,vrm,validate}.ts`, `queries/engine.ts`, `snapshot/version.ts` | 1,560 |
+| C0 proper: hooks, registrations, PANEL ids, the Animate slot, stubs | `evaluation/{rigSource,service}.ts`, `operators/{registry,runner}.ts`, `history/history.ts`, `types.ts`, `app/kernel.ts`, `panels/{index,lazyPanel}`, `hud/badges.ts`, `dialogs/DialogHost.tsx`, `test-api/placeholder.ts`, `workspaceViews.ts` | 1,700 |
+| `WorkspaceDef` and the rig chunk loader (a C7 category) | `workspaces/rig.ts`, the loader in `app/factories/rig.ts` | 550 |
+| Rig session and preference defaults, the test-pose baseline (C7's services) | `session/rig.ts`, `prefs/{defaults,persist}.ts`, `app/factories/rig.ts` | 820 |
+| `EditorApp.library` service shell (a C12 category) | `app/factories/library.ts` | 250 |
+
+**Over C0's 2,048 B allowance — INT approval requested** (§0.4.9: "a package over its allowance may take unused
+headroom only with INT's approval recorded in its wp-notes"). The schema v4 bytes are in no package's allowance, and
+C0 landed items of the C7 and C12 categories that those packages now inherit instead of writing. Proposal: INT counts
+the `WorkspaceDef`/loader and the session/prefs/test-pose baselines (≈ 1,370 B) against C7's 2,560 B and the library
+shell (≈ 250 B) against C12's 1,024 B, and records the schema v4 bytes (≈ 1,560 B) as C0's contract cost; the MVP
+total then has 6,144 − 4,882 = **1,262 B** left for C7, C12 and C1's remaining eager code (C7 ≈ 1,190 of its 2,560,
+C12 ≈ 774 of its 1,024, C1 512 — together more than 1,262, so INT will have to trim or ask the owner). Trims already
+made in this package: one table for the VRM meta (validation = repairs-to-itself), panel bodies lazy with one line
+each, one placeholder dialog loader, a compact test-pose baseline, one regex for the chunk ids.
+
+## Literal updates (§3 rule 9)
+
+Each in the commit that changes the contract; every assertion kept:
+
+- Schema v4 (`51b80a5`): `SCHEMA_VERSION` 3 → 4 and saved `schemaVersion` literals (doc `schema-v2`, `schema-v3`,
+  `snapshot`; io `project`, `project-m6a`; editor-core `test/testing/fixtures.ts`; headless `ops.m2a-foundation`,
+  `ops.m6a-foundation`; e2e `m2a-00-foundation`), `withSchemaV3` → `withSchemaV4` where the migrated form is compared,
+  skeletons and model characters requiring writer version 4 (doc `schema-v3`), character records gaining `vrm: null`
+  (editor-core `create-editor-app`, `mesh-io`; viewport `fingers`).
+- editor-core contracts (`81e7d83`): Rig & Skin enabled — editor-core `m6a/workspaces` (tab list, `workspace.set`
+  refusals), editor `m6a-shell`, `m6a-command-palette`, `test-api` (Review is the disabled tab/entry); `Selection`
+  gains `joints`/`constraints` (editor-core `clip`, `session`, `m6a/foundation` and the selection literals of
+  editor-core, viewport and editor tests); `Prefs.rigging` and `undoSelection.rig` (editor-core `prefs`).
+- editor (`2884bd0`): `characters()` gains its M6b fields (editor `test-api`).
+- e2e (`67fa361`): `m6a-shell.spec` uses Review as the disabled tab and palette entry.
+
+## Gates (local, real Chrome; port 3160)
+
+See the final section below (filled after the full run).
