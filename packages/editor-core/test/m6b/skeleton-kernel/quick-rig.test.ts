@@ -113,6 +113,32 @@ describe('skel.quickRig.commit (Create Skeleton)', () => {
     expect(other).toMatchObject({ status: 'failed', error: { code: 'op-refused' } });
   });
 
+  it('a no-op re-run (the seeded markers, nothing moved) keeps every joint bit for bit; bound, it still asks first', async () => {
+    const t = await rigTestApp();
+    const first = await t.app.runUntyped('skel.quickRig.commit', commitArgs([t.lad]));
+    const skeleton = (first as { value: { skeleton: SkeletonId } }).value.skeleton;
+    const meshes = ladMeshes(t.app);
+    const joints = t.app.store.query.jointsOfSkeleton(skeleton);
+    const info = quickRigStartInfo(t.app, t.app.store, meshes);
+    if (typeof info === 'string') throw new Error(info);
+    // The preview of the seeded markers is the skeleton as it is (fingers and bent hinges included).
+    const preview = quickRigFit(t.app, t.app.store, commitArgs(meshes, info.markers)).joints;
+    const byKey = new Map(joints.map((j) => [j.key, j]));
+    expect(preview.map((j) => [j.key, j.position, j.tail])).toEqual(
+      preview.map((j) => [j.key, byKey.get(j.key)?.restPosition, byKey.get(j.key)?.tail]),
+    );
+    t.app.store.transact({ label: 'bind (test)' }, (tx) => {
+      for (const id of meshes) tx.patch('meshes', id, { skin: { skeleton, bind: {} } });
+    });
+    const again = await t.app.runUntyped('skel.quickRig.commit', commitArgs(meshes, info.markers));
+    expect(again).toMatchObject({ status: 'failed', error: { code: 'confirm-required' } });
+    t.app.store.transact({ label: 'unbind (test)' }, (tx) => {
+      for (const id of meshes) tx.patch('meshes', id, { skin: null });
+    });
+    expect((await t.app.runUntyped('skel.quickRig.commit', commitArgs(meshes, info.markers))).status).toBe('finished');
+    expect(t.app.store.query.jointsOfSkeleton(skeleton)).toEqual(joints);
+  });
+
   it('a re-run on a bound character asks for the rebind confirm first', async () => {
     const t = await rigTestApp();
     const first = await t.app.runUntyped('skel.quickRig.commit', commitArgs([t.lad]));
@@ -121,7 +147,8 @@ describe('skel.quickRig.commit (Create Skeleton)', () => {
     t.app.store.transact({ label: 'bind (test)' }, (tx) => {
       for (const id of meshes) tx.patch('meshes', id, { skin: { skeleton, bind: {} } });
     });
-    const result = await t.app.runUntyped('skel.quickRig.commit', commitArgs(meshes));
+    const knee = [-0.1, 0.46, 0.03] as const;
+    const result = await t.app.runUntyped('skel.quickRig.commit', commitArgs(meshes, { ...truthMarkers(), knee }));
     expect(result).toMatchObject({
       status: 'failed',
       error: { code: 'confirm-required', message: 'Rebind replaces painted weights' },

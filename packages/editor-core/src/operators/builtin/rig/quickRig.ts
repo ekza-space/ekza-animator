@@ -100,11 +100,50 @@ export function quickRigFit(
   input: QuickRigFitInput,
 ): { readonly joints: readonly TemplateJoint[]; readonly geometry: RigGeometry } {
   const geometry = rigGeometry(app, view, input.meshes);
-  const joints = fitQuickRig(input.preset, input.markers, geometry.bvh, {
+  const fitted = fitQuickRig(input.preset, input.markers, geometry.bvh, {
     ground: geometry.ground,
     flexion: input.flexion,
   });
-  return { joints, geometry };
+  // A re-run whose markers are still the seeding (nothing moved) keeps the skeleton as it is (M6B-C2-23): refitting
+  // the seeded markers would move the fingers (they follow the bent forearm) and re-apply the minimum bend.
+  const target = rigTarget(view, input.meshes);
+  const skeleton = typeof target !== 'string' && target.kind === 'character' ? target.skeleton : null;
+  const live = skeleton === null ? [] : view.query.jointsOfSkeleton(skeleton);
+  if (
+    live.some((joint) => joint.humanBone !== null) &&
+    sameMarkers(input.markers, seededMarkers(live, geometry.ground))
+  ) {
+    const byKey = new Map(live.map((joint) => [joint.humanBone ?? joint.key, joint]));
+    const joints = fitted.map((joint) => {
+      const current = byKey.get(joint.key);
+      return current === undefined ? joint : { ...joint, position: current.restPosition, tail: current.tail };
+    });
+    return { joints, geometry };
+  }
+  return { joints: fitted, geometry };
+}
+
+/** §0.4.2 Re-run seeding: the markers of a template skeleton's joints as they are. */
+function seededMarkers(joints: readonly JointRecord[], ground: number): QuickRigMarkers {
+  const index = new JointIndex(joints);
+  return markersFromJoints((bone) => {
+    const joint = index.byHumanBone(bone);
+    return joint === undefined ? undefined : { position: joint.restPosition, tail: joint.tail };
+  }, ground);
+}
+
+/** Every marker present in both, bit for bit, and no marker in only one. */
+function sameMarkers(a: QuickRigMarkers, b: QuickRigMarkers): boolean {
+  for (const name of MARKERS) {
+    const p = a[name];
+    const q = b[name];
+    if (p === undefined || q === undefined) {
+      if (p !== q) return false;
+      continue;
+    }
+    if (!p.every((v, i) => Object.is(v, q[i]))) return false;
+  }
+  return true;
 }
 
 export interface QuickRigStartInfo {
@@ -131,11 +170,7 @@ export function quickRigStartInfo(
   const skeleton = target.kind === 'character' ? target.skeleton : null;
   const joints = skeleton === null ? [] : view.query.jointsOfSkeleton(skeleton);
   if (skeleton !== null && joints.some((joint) => joint.humanBone !== null)) {
-    const index = new JointIndex(joints);
-    const seeded = markersFromJoints((bone) => {
-      const joint = index.byHumanBone(bone);
-      return joint === undefined ? undefined : { position: joint.restPosition, tail: joint.tail };
-    }, geometry.ground);
+    const seeded = seededMarkers(joints, geometry.ground);
     const record = view.get('skeletons', skeleton);
     const preset = record !== undefined && isSkeletonPreset(record.preset) ? record.preset : null;
     return { checks, guess: null, markers: seeded, refit: skeleton, preset };
@@ -370,6 +405,7 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
           );
         }
         const bound = view.query.meshesBoundTo(target.skeleton);
+        // §0.4.2: a bound character always asks first (even when the refit keeps every joint, M6B-C2-23).
         if (bound.length > 0 && (args as unknown as Record<string, unknown>)['confirm'] !== true) {
           throw new EkzaError('confirm-required', REBIND_CONFIRM);
         }
