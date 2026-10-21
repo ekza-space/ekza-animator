@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import { drag, pointOf } from './helpers/g1-viewport';
+import { centreOf, drag, paneRect, pointOf } from './helpers/g1-viewport';
 import { createPrimitive, openModel } from './helpers/m6a-model';
 import { buildCubeLad } from './helpers/m6b-cube-lad';
 import { enterRig, expectRefused, RIG_FRONT_PANE, RIG_PERSP_PANE } from './helpers/m6b-rig';
@@ -54,12 +54,16 @@ test('E2E-RIG-01 (MVP part): Object mode picks a scene mesh (Quick Rig on it); v
   await expectKernelStarted(page);
   const cube = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [], mode: 'replace' });
+  // Frame the cube in the perspective pane: its centre is the camera target, so it sits at the pane's centre in Rig &
+  // Skin too (entering keeps the pane cameras; the R-Side layout only changes the pane's size).
+  await runOk(page, 'view.frame', { paneId: RIG_PERSP_PANE, what: 'all' });
   await enterRig(page);
   const quickRig = page.getByTestId('rig-empty-quickrig');
   await expect(quickRig).toBeDisabled();
   // §5.24: the Object-mode pick mask has meshes; a click on the cube selects it, and Quick Rig is offered on it.
-  const face = await pointOf(page, () => call(page, 'screenOfFace', cube, 0, RIG_PERSP_PANE), 'a cube face');
-  await page.mouse.click(face.x, face.y);
+  expect(await call(page, 'paneObjects', RIG_PERSP_PANE)).toContain(cube);
+  const centre = centreOf(await paneRect(page, RIG_PERSP_PANE));
+  await page.mouse.click(centre.x, centre.y);
   await expect(quickRig).toBeEnabled();
   expect((await call(page, 'history')).undo.at(-1)).toBe('Select'); // selection undo in Rig & Skin
   await runOk(page, 'edit.undo');

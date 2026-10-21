@@ -95,36 +95,18 @@ export function redirectedChannelEdit(app: EditorApp, label: string): ChannelEdi
  * menus, the Channel Box's "Key Selected", the Graph Editor), so a test pose is never written into the document.
  * Reading curves (copy, the buffer snapshot) stays allowed.
  */
-const RIG_KEYING: ReadonlySet<string> = new Set([
-  'key.set',
-  'key.deleteAtFrame',
-  'key.convert',
-  'key.tween',
-  'pose.paste',
-  'pose.mirror',
-  'pose.mirrorAnimation',
-  'pose.plantFeet',
-  'pose.resetToRest',
-  'time.insertTime',
-  'time.deleteTime',
-  'rig.ikFk.switch',
-  'rig.ikFk.match',
-  'rig.ikFk.matchRange',
-]);
-const GRAPH_READS: ReadonlySet<string> = new Set(['graph.keys.copy', 'graph.buffer.snapshot', 'graph.buffer.clear']);
+const RIG_KEYING =
+  /^(key\.(set|deleteAtFrame|convert|tween)$|pose\.(paste|mirror|mirrorAnimation|plantFeet|resetToRest)$|time\.(insert|delete)Time$|rig\.ikFk\.|graph\.(?!keys\.copy$|buffer\.(snapshot|clear)$))/;
 
 /** The refusal reason when `id` keys or edits curves in Rig & Skin, else null. */
 export function rigKeyingRefusal(app: Pick<EditorApp, 'session'>, id: string): string | null {
   if (app.session.getState().workspace !== 'rig') return null;
-  const keying = RIG_KEYING.has(id) || (id.startsWith('graph.') && !GRAPH_READS.has(id));
-  return keying ? ANIMATE_ONLY_REASON : null;
+  return RIG_KEYING.test(id) ? ANIMATE_ONLY_REASON : null;
 }
 
 /** §5.24 (research 09 §11.2): below 1024 px Rig & Skin is view-only (test poses and Validation). */
 export const RIG_VIEW_ONLY_REASON = 'Open on a larger screen to edit';
 const viewOnlyApps = new WeakSet<object>();
-/** Document edits that stay allowed while view-only: a typed Channel Box value is a test pose there. */
-const VIEW_ONLY_ALLOWED: ReadonlySet<string> = new Set(['channel.setValues']);
 
 /** The rig shell reports a narrow window (< 1024 px) per app; Rig & Skin then refuses document edits. */
 export function setRigViewOnly(app: EditorApp, viewOnly: boolean): void {
@@ -146,7 +128,8 @@ export function rigRunRefusal(
 ): string | null {
   const keying = rigKeyingRefusal(app, def.id);
   if (keying !== null) return keying;
-  if (def.flags?.undo === true && !VIEW_ONLY_ALLOWED.has(def.id) && rigViewOnly(app)) return RIG_VIEW_ONLY_REASON;
+  // A typed Channel Box value (`channel.setValues`) is a test pose in Rig & Skin: it stays allowed.
+  if (def.flags?.undo === true && def.id !== 'channel.setValues' && rigViewOnly(app)) return RIG_VIEW_ONLY_REASON;
   return null;
 }
 

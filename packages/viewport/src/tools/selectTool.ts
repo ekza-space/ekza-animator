@@ -178,15 +178,9 @@ export class SelectBehaviour {
     const state = this.app.session.getState();
     if (state.workspace !== 'rig' || state.rig.mode !== 'object' || !state.tools.selectionMask.meshes) return false;
     const mesh = modelSelectOf(this.app)?.pickObject(paneId, x, y) ?? null;
-    const ctx = { panel: PANEL.viewport, paneId };
-    if (mesh !== null) {
-      void this.app.run('select.objects', { ids: [mesh], mode }, ctx);
-      return true;
-    }
-    if (mode === 'replace' && state.selection.objects.length > 0) {
-      void this.app.run('select.objects', { ids: [], mode: 'replace' }, ctx);
-    }
-    return false;
+    if (mesh === null && (mode !== 'replace' || state.selection.objects.length === 0)) return false;
+    void this.app.run('select.objects', { ids: mesh === null ? [] : [mesh], mode }, { panel: PANEL.viewport, paneId });
+    return mesh !== null;
   }
 
   /** Candidate controls in pick order; `meshPicks` gets the controls only a mesh hit named, with its character. */

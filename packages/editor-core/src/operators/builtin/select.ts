@@ -10,10 +10,8 @@ import {
   type KeyPartSelection,
   PANEL,
   type Selection,
-  type SelectionGesture,
   type SelectMode,
 } from '../../types';
-import { selectionGesture } from '../../selection/component/steps';
 import {
   activeClipRecord,
   baseCurves,
@@ -110,17 +108,22 @@ export function selectControls(app: EditorApp, ids: readonly ControlId[], mode: 
 }
 
 /**
- * M6b C7 (§5.24): a control selection gesture. In Rig & Skin (`prefs.modeling.undoSelection.rig`) it records one
- * selection part ("Select", never a document step); elsewhere it is the shipped `selectControls` (Animate keeps
- * selection out of the history; Model's gestures are the mesh and object operators).
+ * M6b C7 (§5.24): a control selection gesture. In Rig & Skin with `prefs.modeling.undoSelection.rig` it records one
+ * selection part ("Select", never a document step; nothing when the selection did not change), as M6a's
+ * `selectionGesture` does for meshes; elsewhere it is the shipped `selectControls` (Animate keeps selection out of the
+ * history; Model's gestures are the mesh and object operators). Inline, so the eager bundle does not pull in the mesh
+ * selection steps.
  */
 function selectControlsGesture(app: EditorApp, ids: readonly ControlId[], mode: SelectMode): void {
-  if (app.session.getState().workspace !== 'rig') {
-    selectControls(app, ids, mode);
-    return;
-  }
-  const gesture: SelectionGesture = ids.length === 0 ? 'clear' : mode === 'replace' ? 'replace' : 'additive';
-  selectionGesture(app, gesture, { meshes: [] }, () => selectControls(app, ids, mode));
+  const record =
+    app.session.getState().workspace === 'rig' && app.prefs.getState().modeling.undoSelection['rig'] === true;
+  const before = record ? app.components.snapshot([]) : null;
+  selectControls(app, ids, mode);
+  if (before === null) return;
+  const after = app.components.snapshot([]);
+  if (before.controls.join() === after.controls.join() && before.objects.join() === after.objects.join()) return;
+  const gesture = ids.length === 0 ? 'clear' : mode === 'replace' ? 'replace' : 'additive';
+  app.history.recordSelection({ kind: 'select', gesture, before, after }, 'Select');
 }
 
 function partsOf(parts: Partial<KeyPartSelection> | undefined): KeyPartSelection {
