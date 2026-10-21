@@ -86,8 +86,8 @@ describe('Clip Library body (§0.4.7)', () => {
     // The search field filters the cards.
     const search = byTestId(view.container, 'clip-library-search') as HTMLInputElement;
     await update(() => {
-      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
-      setter?.call(search, 'pun');
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+      descriptor?.set?.call(search, 'pun');
       search.dispatchEvent(new Event('input', { bubbles: true }));
     });
     expect(view.container.querySelector('[data-testid="clip-card-walk"]')).toBeNull();
