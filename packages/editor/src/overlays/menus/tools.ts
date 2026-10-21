@@ -144,6 +144,13 @@ export const TOOLS_FACE_MENU: MarkingMenuDef = {
     op('mesh.quadrangulate', 'Quadrangulate'),
     op('mesh.reverse', 'Reverse'),
     { label: 'Assign Colour', submenu: [op('mesh.paint', 'Active Swatch')] },
+    {
+      label: 'Assign New Material',
+      submenu: [
+        op('palette.assignMaterial', 'Lambert', { shader: 'lambert' }),
+        op('palette.assignMaterial', 'Blinn', { shader: 'blinn' }),
+      ],
+    },
     op('mesh.mirror', 'Mirror'),
   ],
 };

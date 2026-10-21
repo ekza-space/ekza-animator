@@ -48,7 +48,7 @@ face and a soft one a continuous highlight.
 - Shadings `colours` (Model default) and `lit` draw each face with its swatch's shader inside mesh-view's existing
   surface program (no three.js lit materials, no extra chunk): Lambert = the existing soft clay rig (ambient + key +
   fill) on the swatch colour; Blinn = the same diffuse plus a Blinn-Phong highlight of the key light:
-  `spec = linear(specular) · keyHighlight · min(4, (n + 2) / 32) · max(0, N·H)^n` with
+  `spec = linear(specular) · 0.6 · clamp((n + 2) / 32, 0.35, 4) · max(0, N·H)^n` (key light only) with
   `n = clamp(2/α² − 2, 1, 2048)`, `α = r²`, `r = 1 − glossiness` (the GGX-equivalent Blinn-Phong exponent of the
   exported roughness, so viewport and export agree: glossiness 0.5 → n = 30). `H` uses the true view direction
   (perspective) or +Z (orthographic panes).

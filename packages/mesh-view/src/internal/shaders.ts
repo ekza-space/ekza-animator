@@ -87,7 +87,8 @@ vec3 blinnHighlight(vec3 n, vec3 keyDir, vec4 shade) {
   vec3 h = normalize(keyDir + v);
   float nh = max(dot(n, h), 0.0);
   float lit = step(0.0, dot(n, keyDir));
-  float norm = min(4.0, (shininess + 2.0) / 32.0);
+  // (n + 2) / 32 (1 at glossiness 0.5), floored so rough Blinn still reads as shiny next to Lambert, capped for glints.
+  float norm = clamp((shininess + 2.0) / 32.0, 0.35, 4.0);
   return srgbToLinear(shade.rgb) * (${f(LIGHT_RIG.specular)} * norm * lit * pow(nh, shininess));
 }
 void main() {

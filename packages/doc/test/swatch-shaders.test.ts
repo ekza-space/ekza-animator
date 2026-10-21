@@ -3,7 +3,6 @@
 import { describe, expect, it } from 'vitest';
 import {
   createMemoryStore,
-  type DocSnapshot,
   emptySnapshot,
   getTableDef,
   migrateSnapshot,
@@ -83,7 +82,7 @@ describe('swatches table version 2 (SHADING-SPEC §2)', () => {
     const doc = { ...emptySnapshot(), tableVersions: { ...emptySnapshot().tableVersions, swatches: 3 } };
     expect(migrateSnapshot(doc).readOnly).toBe(true);
     const store = createMemoryStore();
-    store.load(doc as DocSnapshot);
+    store.load(doc);
     expect(store.readOnly).toBe(true);
   });
 

@@ -452,10 +452,8 @@ const assignMaterial = defineOperator({
     if (args['shader'] !== 'lambert' && args['shader'] !== 'blinn') return fail("shader must be 'lambert' or 'blinn'");
     if (args['srgb'] !== undefined && !isSrgb(args['srgb'])) return fail('srgb must be three 8-bit values (0…255)');
     if (args['name'] !== undefined && cleanName(args['name']) === null) return fail('The swatch needs a name');
-    if (meshKernel() === null) {
-      void loadMeshKernel();
-      return fail(BUSY_KERNEL);
-    }
+    // Like the mesh ops, the poll does not start the kernel (menus poll every item): Model entry loads it.
+    if (meshKernel() === null) return fail(BUSY_KERNEL);
     const plan = materialPlan(app, args);
     if (plan.meshes.length === 0) return fail('Select faces or a mesh first');
     let palette: PaletteId | null | undefined;

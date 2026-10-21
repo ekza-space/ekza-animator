@@ -70,7 +70,7 @@ async function write(s: StaticScene): Promise<Uint8Array> {
 }
 
 async function jsonOf(bytes: Uint8Array): Promise<Json> {
-  return (await parseGlb(bytes)).json as Json;
+  return (await parseGlb(bytes)).json;
 }
 
 const pbr = (material: Json | undefined): Json => (material?.['pbrMetallicRoughness'] ?? {}) as Json;
@@ -185,7 +185,8 @@ describe.skipIf(!READY)('static GLB with swatch shaders', () => {
     const materials = json['materials'] as Json[];
     // Slot 0 and slot 4 share the shader: one material (the faces of slot 5 none: unused).
     expect(materials).toHaveLength(1);
-    const ext = (materials[0]?.['extensions'] as Json)['KHR_materials_specular'] as Json;
+    const extensions = (materials[0]?.['extensions'] ?? {}) as Json;
+    const ext = extensions['KHR_materials_specular'] as Json;
     expect(ext['specularFactor']).toBeCloseTo(srgbEotf(128 / 255), 6);
     expect(ext['specularColorFactor'] ?? [1, 1, 1]).toEqual([1, 1, 1]);
     expect((await validateGltf(bytes)).errors).toBe(0);

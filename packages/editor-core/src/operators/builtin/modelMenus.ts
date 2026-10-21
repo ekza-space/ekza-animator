@@ -221,6 +221,11 @@ export const MODEL_MENU_ITEMS: readonly MenuItemDef[] = [
     ['back', 'mesh.spinEdge', { direction: 'back' }, 'Spin Edge Backward'],
   ]),
   ...model('edit-mesh.assign-colour', 'colour', [['activeSwatch', 'mesh.paint', undefined, 'Active Swatch']]),
+  // SHADING-SPEC §5: Maya's Assign New Material on the selected faces or objects.
+  ...model('edit-mesh.assign-new-material', 'material', [
+    ['lambert', 'palette.assignMaterial', { shader: 'lambert' }, 'Lambert'],
+    ['blinn', 'palette.assignMaterial', { shader: 'blinn' }, 'Blinn'],
+  ]),
 
   ...model('mesh-tools', 'tools', [
     ['multiCut', 'view.tool', tool('multiCut'), 'Multi-Cut'],

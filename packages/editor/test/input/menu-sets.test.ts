@@ -122,7 +122,8 @@ describe('menu sets per workspace', () => {
     expect(sub('select')).toEqual(['Convert Selection']);
     expect(sub('modify')).toEqual(['Pivot', 'Snap']);
     expect(sub('display')).toEqual(['Shading']);
-    expect(sub('edit-mesh')).toEqual(['Merge', 'Spin Edge', 'Assign Colour']);
+    // Literal update (SHADING-SPEC §5): + Assign New Material.
+    expect(sub('edit-mesh')).toEqual(['Merge', 'Spin Edge', 'Assign Colour', 'Assign New Material']);
     expect(sub('mesh-display')).toEqual(['Show']);
   });
 
