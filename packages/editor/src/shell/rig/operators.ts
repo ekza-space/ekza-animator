@@ -69,7 +69,7 @@ export function rigShellOperators(app: EditorApp): readonly OperatorDef<unknown>
 export function registerRigShellOperators(app: EditorApp): Disposer {
   const disposers = rigShellOperators(app)
     .filter((def) => app.operators.get(def.id) === undefined)
-    .map((def) => app.contribute({ kind: 'operator', def: def as OperatorDef<unknown, unknown, unknown> }));
+    .map((def) => app.contribute({ kind: 'operator', def }));
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
   };

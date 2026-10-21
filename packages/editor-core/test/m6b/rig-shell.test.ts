@@ -670,7 +670,7 @@ describe('Validation (§5.21, §0.4.5)', () => {
     // `select.joints` is C2/C3's (a stub that poll-fails until they land): when it ran, the joints are selected.
     const ran = app.operators.poll('select.joints', undefined, { ids: [HIPS, SPINE], mode: 'replace' }) === true;
     expect(result.selected).toBe(ran);
-    if (ran) expect(app.session.getState().selection.joints).toEqual([HIPS, SPINE]);
+    expect(app.session.getState().selection.joints).toEqual(ran ? [HIPS, SPINE] : []);
   });
 });
 
