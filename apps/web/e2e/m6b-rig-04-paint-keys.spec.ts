@@ -5,7 +5,7 @@ import { call, expectKernelStarted, openEditor, runOk } from './helpers/test-api
 // E2E-RIG-04 "Paint keys" (M6B-SPEC §0.7, §10.1 row without Paint Select mode; C6). Bound Cube Lad; `2`; `B`+drag
 // changes the radius, `M`+drag the opacity, `N`+drag the value; `Shift+I`+click on a forearm point makes leftLowerArm
 // the active influence; `I`+click sets Value to its weight there (1e-6); Flood (the panel's button) with value 0.5 on a
-// fresh joint (leftToes, no weight yet) puts 0.5 on every point of the hilited mesh; `Alt+F` is never bound. The `U`
+// fresh joint (one with no weight yet) puts 0.5 on every point of the hilited mesh; `Alt+F` is never bound. The `U`
 // operation marking menu (`rig.paint.ops`) arrives after the MVP (§0.3), so its flick is not part of this cut.
 //
 // Gates (§0.7): c2 — `test.fixme` until it merges (§3 rule 4).
@@ -57,8 +57,12 @@ test.describe('E2E-RIG-04 Paint keys', () => {
 
     // Flood 0.5 on a fresh joint (no mirror: the partner joint would take its half too).
     await runOk(page, 'workspace.showPanel', { panel: 'paintWeights' });
-    const fresh = lad.joint('leftToes');
-    expect((await call(page, 'weights', lad.mesh)).some((row) => row.joints.includes(fresh))).toBe(false);
+    // A fresh joint: a deforming joint no point weights yet (the Cube Lad's boxes bind rigidly to their limbs).
+    const rows = await call(page, 'weights', lad.mesh);
+    const fresh = ['spine', 'neck', 'leftShoulder', 'upperChest']
+      .map((bone) => lad.joint(bone))
+      .find((id) => !rows.some((row) => row.joints.includes(id)));
+    if (fresh === undefined) throw new Error('no fresh joint on the bound Cube Lad');
     await page.getByTestId(`pw-influence-${lad.joint('leftLowerArm')}`).click();
     await runOk(page, 'skin.influence.setActive', { mesh: lad.mesh, joint: fresh });
     await page.getByTestId('pw-mirror').uncheck();
