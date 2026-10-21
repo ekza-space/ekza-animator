@@ -1,4 +1,4 @@
-// Type declarations for the parts of vrm-validator 2.0.0-dev.3.10 (Apache-2.0, no bundled types) that io tests use (the same API as gltf-validator).
+// Type declarations for the parts of vrm-validator 2.0.0-dev.3.10 (Apache-2.0, no bundled types) that io tests use.
 declare module 'vrm-validator' {
   export interface ValidationOptions {
     readonly uri?: string;
