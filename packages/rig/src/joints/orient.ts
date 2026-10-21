@@ -159,8 +159,12 @@ export function orientJoints(joints: readonly JointRecord[], args: OrientJointAr
 }
 
 /**
- * §5.5 step 6: a rotation key of a bone-aligned control driving a re-oriented joint, R(r′) = Δ⁻¹·R(r), as the Euler
- * angles nearest `reference` (the previous converted key; the shipped nearest-Euler rule).
+ * §5.5 step 6: a rotation key of a bone-aligned control driving a re-oriented joint, R(r′) = Δ⁻¹·R(r)·Δ, as the Euler
+ * angles nearest `reference` (the previous converted key; the shipped nearest-Euler rule). Δ = q_old⁻¹·q_new (the
+ * rests' delta). A bone-aligned control rotates its bone by D = q·R(r)·q⁻¹ in the world (the skinning delta), so the
+ * conjugate keeps q_new·R(r′)·q_new⁻¹ = q_old·R(r)·q_old⁻¹ and the deformation at every key, down a re-oriented
+ * chain too (M6B-C2-21: the §5.5 text's Δ⁻¹·R(r) keeps the bone frame of a lone joint but turns the skin by
+ * q_old·q_new⁻¹).
  */
 export function convertBoneAlignedRotation(
   euler: readonly [number, number, number],
@@ -168,7 +172,7 @@ export function convertBoneAlignedRotation(
   delta: readonly [number, number, number, number],
   reference: readonly [number, number, number],
 ): [number, number, number] {
-  const q = quatMultiply(quatInvert(delta), eulerToQuat(euler, order));
+  const q = quatMultiply(quatMultiply(quatInvert(delta), eulerToQuat(euler, order)), delta);
   const out = eulerNear(q, order, reference);
   return [out[0], out[1], out[2]];
 }

@@ -934,8 +934,9 @@ const jointSetRest = defineOperator<'skel.joint.setRest', JointPrepared>({
 
 /**
  * §5.5 step 6: rotation keys of **bone-aligned** controls (generic and secondary chains: `drives.bone` by name) that
- * drive a re-oriented joint convert by R(r′) = Δ⁻¹·R(r) with Euler continuity. Keys convert where the three rotation
- * curves of a control are keyed at the same times (the S-key layout); other layouts are reported and left as they are.
+ * drive a re-oriented joint convert by R(r′) = Δ⁻¹·R(r)·Δ (M6B-C2-21) with Euler continuity. Keys convert where the
+ * three rotation curves of a control are keyed at the same times (the S-key layout); other layouts are reported and
+ * left as they are.
  * Humanoid controls are world-aligned and never convert. Returns the number of converted keys.
  */
 export function convertKeysForReorient(

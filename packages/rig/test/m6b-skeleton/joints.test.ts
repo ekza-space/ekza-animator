@@ -8,6 +8,7 @@ import {
   mat4Invert,
   mat4Multiply,
   quatFromAxisAngle,
+  quatInvert,
   quatMultiply,
   quatRotateVec3,
   type RotateOrder,
@@ -273,7 +274,7 @@ describe('P-J2: Orient Joint is invisible to deformation; keys of bone-aligned c
     );
   });
 
-  it('a key r on a re-oriented bone-aligned control converts to r′ with q_old·R(r) = q_new·R(r′) (every rotate order)', () => {
+  it('a key r on a re-oriented bone-aligned control converts to r′ with q_old·R(r)·q_old⁻¹ = q_new·R(r′)·q_new⁻¹ (every rotate order)', () => {
     const chain: JointRecord[] = [0, 1, 2, 3].map((i) => ({
       id: `jnt_tail_${i}` as JointId,
       skeleton: SKEL,
@@ -303,8 +304,9 @@ describe('P-J2: Orient Joint is invisible to deformation; keys of bone-aligned c
         ];
         const r: [number, number, number] = [0.3, -0.7, 1.1];
         const r2 = convertBoneAlignedRotation(r, order, delta, r);
-        const a = quatMultiply(joint.restRotation, eulerToQuat(r, order));
-        const b = quatMultiply(next, eulerToQuat(r2, order));
+        // The world rotation the control gives its bone over the rest (the skinning delta) is unchanged.
+        const a = quatMultiply(quatMultiply(joint.restRotation, eulerToQuat(r, order)), quatInvert(joint.restRotation));
+        const b = quatMultiply(quatMultiply(next, eulerToQuat(r2, order)), quatInvert(next));
         const s = Math.sign(a[3] * b[3] + a[0] * b[0] + a[1] * b[1] + a[2] * b[2]) || 1;
         for (let i = 0; i < 4; i++) expect(Math.abs((a[i] as number) - s * (b[i] as number))).toBeLessThan(1e-9);
       }
