@@ -47,7 +47,7 @@ becomes **Ekza Hub**: create in Studio, publish in Hub. Record: [DECISIONS-OPEN 
       `ekza_animator_bake_v*` extras, provenance `tool: 'ekza-animator'`, the `ekza-animator:` localStorage keys and
       the autosave IndexedDB database ([GLOSSARY](docs/GLOSSARY.md)). Research notes, wp-notes and DECISIONS-OPEN keep
       the old names as history. Full local gate green.
-- [ ] Local folder `ekza-animator` → `ekza-studio` with `git worktree repair` (parent, after the merge into `dev`).
+- [x] Local folder `ekza-animator` → `ekza-studio` with `git worktree repair` (2026-10-22; `ekza/ekza-animator` stays as a symlink for old paths).
 - [ ] MCP server name (`ekza-animator-mcp` bin, server info, MCP-SPEC/ADR 0018 snippets) → Ekza Studio on the `mcp/*`
       branches when they land (not on `dev` yet); those branches also take the scope and e2e-hook rename.
 - [ ] Ekza Hub (separate task, production — deploy only with the owner's OK): Hub branding in `ekza-registry/web`,
