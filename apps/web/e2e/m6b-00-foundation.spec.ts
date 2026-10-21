@@ -22,6 +22,11 @@ const MVP = [
   'file.exportCharacter',
   'library.open',
 ];
+/** The sample's ids an owner has landed: the poll reason in an empty project. C10: the character writer. */
+const LANDED: Readonly<Record<string, string>> = {
+  'char.setVrmMeta': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  'file.exportCharacter': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+};
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */
 const DEFERRED = [
   'skel.joint.create',
@@ -71,7 +76,9 @@ test('Rig & Skin is enabled; the rig-workspace and clip-library chunks load on d
   await tab.click();
   await expect.poll(async () => (await call(page, 'state')).workspace).toBe('rig');
   await expect.poll(() => loaded(scripts, 'ekza-rig-workspace')).toBe(true);
-  for (const op of MVP.filter((id) => !id.startsWith('library.'))) await expectRefused(page, op, 'not available yet');
+  for (const op of MVP.filter((id) => !id.startsWith('library.'))) {
+    await expectRefused(page, op, LANDED[op] ?? 'not available yet');
+  }
   for (const op of DEFERRED) await expectRefused(page, op, 'Arrives after the MVP');
 
   // A library id runs after its chunk has loaded (§2.1: the runner loads the chunk first).
