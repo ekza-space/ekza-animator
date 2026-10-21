@@ -36,7 +36,7 @@ export function FirstRunDialog(): JSX.Element {
       }}
     >
       <DialogContent
-        title="Welcome to Ekza Animator"
+        title="Welcome to Ekza Studio"
         description="Two choices, then load an avatar. Both can be changed later in Preferences."
         width="lg"
         data-testid="firstrun-dialog"

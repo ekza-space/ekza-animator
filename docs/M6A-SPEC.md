@@ -1707,7 +1707,7 @@ file per owner, `editor/src/test-api/m6a/<package-slug>.ts`, which `createTestAp
 its own file, named by the comment above each group):
 
 ```ts
-export interface EkzaAnimatorTestApi {
+export interface EkzaStudioTestApi {
   …M1/M2a…
   state(): { …M1/M2a…; workspace: string; mode: string; hilite: string[]; capture: { armed: string | null;
     field: string | null; text: string | null }; extrudeSession: boolean };            // changed (additive)

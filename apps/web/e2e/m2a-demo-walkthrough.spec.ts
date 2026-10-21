@@ -407,7 +407,7 @@ test('M2a owner demo script (§10.3), the ten steps in sequence', async ({ page 
     await expect(page.getByTestId('export-dialog')).toHaveCount(0);
 
     expect((await call(page, 'state')).dirty).toBe(true);
-    await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.flushAutosave());
+    await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.flushAutosave());
     const slot = (await call(page, 'autosave')).slot ?? '';
     const counts = await call(page, 'counts');
     const curves = await call(page, 'curves', clip);

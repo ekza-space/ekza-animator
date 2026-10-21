@@ -47,7 +47,7 @@ export function naiveKernelDeps(skeleton: SkeletonDesc | null): KernelDeps {
 export function placeholderContainer(asset: AssetId): GlbContainer {
   return {
     bytes: new Uint8Array(0),
-    json: { asset: { version: '2.0', generator: 'ekza-animator test kit (no model)' } },
+    json: { asset: { version: '2.0', generator: 'ekza-studio test kit (no model)' } },
     jsonByteLength: 0,
     bin: null,
     sha256: asset,

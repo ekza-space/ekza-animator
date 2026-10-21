@@ -257,7 +257,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
         cancelTimer();
         setStatus({ pending: false, error: 'quota' });
       } else {
-        console.warn('Ekza Animator: autosave failed', error);
+        console.warn('Ekza Studio: autosave failed', error);
         setStatus({ error: messageOf(error) });
       }
       throw error;
@@ -343,7 +343,7 @@ export function startAutosave(app: EditorApp, opts?: { readonly clock?: Autosave
     try {
       await refreshRecovery();
     } catch (error) {
-      console.warn('Ekza Animator: could not list recovery points', error);
+      console.warn('Ekza Studio: could not list recovery points', error);
     }
     // A page that was just reloaded may still hold its lock for a moment: look once more a little later.
     timers.recheck = clock.setTimeout(() => {

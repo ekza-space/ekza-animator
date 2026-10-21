@@ -17,7 +17,7 @@ test('E2E-M2A-20: autosave and recovery', async ({ page }) => {
   expect(autosave).toMatchObject({ enabled: true, pending: true });
   const slot = autosave.slot ?? '';
   expect(slot).toMatch(/^as_[0-9A-Za-z]{16}$/);
-  await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.flushAutosave());
+  await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.flushAutosave());
   expect(await call(page, 'autosave')).toMatchObject({ enabled: true, slot, pending: false });
   expect((await call(page, 'autosave')).lastSavedAt).not.toBeNull();
   const counts = await call(page, 'counts');

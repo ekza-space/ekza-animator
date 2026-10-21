@@ -18,7 +18,7 @@ const OUT = new URL('../../../../.acceptance/budgets/', import.meta.url);
 async function timedRun(page: Page, op: string, args?: unknown): Promise<number> {
   return page.evaluate(
     async ({ op, args }) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       const start = performance.now();
       const result = await api.run(op, args);
@@ -162,7 +162,7 @@ test('leaving Model with an edited character: Seed-san display rebuild', async (
   await setMode(page, 'object');
   const rebuild = await page.evaluate(
     async ({ character, before }) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       const start = performance.now();
       await api.run('workspace.set', { workspace: 'animate' });

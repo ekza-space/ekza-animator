@@ -106,7 +106,7 @@ describe('bakeIntoModel', () => {
         replaced: {},
       });
       expect(hasUriKey(marker)).toBe(false);
-      expect(out.json.asset.generator).toBe(source.json.asset.generator ?? 'Ekza Animator 0.1.0');
+      expect(out.json.asset.generator).toBe(source.json.asset.generator ?? 'Ekza Studio 0.1.0');
       expect(marker.generatorAdded).toBe(source.json.asset.generator === undefined ? true : undefined);
       // The clip reads back from the baked file exactly.
       const read = readAnimations(out, skeletonFromGltf(out)).find((c) => c.name === 'wave');
@@ -228,10 +228,10 @@ describe('bakeIntoModel', () => {
     const skeleton = skeletonFromGltf(c);
     const clip = rawClip({ ...skeleton, nodes: skeleton.nodes.map((n) => ({ ...n, isJoint: true })) }, 'wave');
     const out = await parseGlb((await bake(c, skeleton, [clip])).bytes);
-    expect(out.json.asset).toMatchObject({ version: '2.0', copyright: 'CC0', generator: 'Ekza Animator 0.1.0' });
+    expect(out.json.asset).toMatchObject({ version: '2.0', copyright: 'CC0', generator: 'Ekza Studio 0.1.0' });
     // A re-bake keeps the generator it finds.
     const again = await parseGlb((await bake(out, skeleton, [clip])).bytes);
-    expect(again.json.asset.generator).toBe('Ekza Animator 0.1.0');
+    expect(again.json.asset.generator).toBe('Ekza Studio 0.1.0');
   });
 
   it('appends without rollback (and warns) after another tool or a BIN change', async () => {

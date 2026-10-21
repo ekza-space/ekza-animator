@@ -10,7 +10,7 @@ import { type GltfValidatorModule, validateWith } from '../validate/validate';
 export type { GltfValidatorModule } from '../validate/validate';
 
 /** Message tag; requests and responses with another tag are ignored, so the channel can carry other traffic. */
-export const VALIDATOR_PROTOCOL = 'ekza-animator-validator/v1';
+export const VALIDATOR_PROTOCOL = 'ekza-studio-validator/v1';
 
 export interface ValidatorRequest {
   readonly protocol: typeof VALIDATOR_PROTOCOL;

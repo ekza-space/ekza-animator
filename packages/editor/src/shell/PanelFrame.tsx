@@ -87,7 +87,7 @@ class PanelErrorBoundary extends Component<{ readonly title: string; readonly ch
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.error(`Ekza Animator: the ${this.props.title} panel failed`, error, info.componentStack);
+    console.error(`Ekza Studio: the ${this.props.title} panel failed`, error, info.componentStack);
   }
 
   override render(): ReactNode {

@@ -3,6 +3,7 @@
 import type { TangentType } from '@ekza-studio/anim-core';
 import type { KeyBinding, KeyTrigger, Prefs, PrefsStorage } from '../types';
 
+/** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1) so saved preferences survive the rename. */
 export const PREFS_STORAGE_KEY = 'ekza-animator.prefs';
 const PREFS_VERSION = 1;
 

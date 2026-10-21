@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "Next.js 16 shell for Ekza Animator: landing page, /editor client island, e2e specs.",
+  "description": "Next.js 16 shell for Ekza Studio: landing page, /editor client island, e2e specs.",
   "license": "MIT",
   "scripts": {
     "assets": "node scripts/copy-assets.mjs && node scripts/third-party-notices.mjs",

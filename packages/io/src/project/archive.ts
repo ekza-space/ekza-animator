@@ -26,9 +26,10 @@ import { isIndex, isRecord, type JsonRecord, textOf, unknownList } from '../gltf
 import { sha256Hex } from '../hash/sha256';
 import { DEFAULT_INPUT_BUDGET, type ProjectArchive } from '../types';
 
+/** On-disk identifiers, kept unchanged by the Ekza Studio rename (DECISIONS-OPEN NAME-1); only `APP_NAME` changed. */
 export const PROJECT_FORMAT = 'ekza-animator-project';
 export const SNAPSHOT_FORMAT = 'ekza-animator-doc';
-export const APP_NAME = 'Ekza Animator';
+export const APP_NAME = 'Ekza Studio';
 
 /** Upper bounds while unzipping untrusted projects (checked against the declared sizes before inflating). */
 export const PROJECT_LIMITS = {
@@ -151,7 +152,7 @@ export async function readProjectArchive(bytes: Uint8Array): Promise<ProjectArch
   // The debug variant carries asset entries next to the snapshot fields.
   const raw = opened.kind === 'json' && isRecord(parsed) ? withoutAssets(parsed) : parsed;
   if (!isRecord(raw) || raw['format'] !== SNAPSHOT_FORMAT) {
-    throw new EkzaError('unsupported', 'project.json is not an Ekza Animator document snapshot');
+    throw new EkzaError('unsupported', 'project.json is not an Ekza Studio document snapshot');
   }
   const migrated = migrateSnapshot(raw);
   const records: Readonly<Record<string, AssetRecord>> = migrated.snapshot.tables.assets ?? {};
@@ -195,7 +196,7 @@ export interface OpenedProject {
 export async function openProject(bytes: Uint8Array): Promise<OpenedProject> {
   if (isZip(bytes)) return openZip(bytes);
   if (looksLikeJson(bytes)) return openJson(bytes);
-  throw new EkzaError('unsupported', 'Not an Ekza Animator project (.ekzanim or .ekzanim.json)');
+  throw new EkzaError('unsupported', 'Not an Ekza Studio project (.ekzanim or .ekzanim.json)');
 }
 
 async function openZip(bytes: Uint8Array): Promise<OpenedProject> {
@@ -234,10 +235,7 @@ async function openZip(bytes: Uint8Array): Promise<OpenedProject> {
   const manifestBytes = files['manifest.json'];
   const projectBytes = files['project.json'];
   if (manifestBytes === undefined || projectBytes === undefined) {
-    throw new EkzaError(
-      'unsupported',
-      'The archive has no manifest.json or project.json (not an Ekza Animator project)',
-    );
+    throw new EkzaError('unsupported', 'The archive has no manifest.json or project.json (not an Ekza Studio project)');
   }
   const manifest = readManifest(parseJson(manifestBytes, 'manifest.json'));
   const verified = async (asset: ProjectManifestAsset) => {
@@ -285,7 +283,7 @@ function withoutAssets(raw: JsonRecord): JsonRecord {
 
 function readManifest(value: unknown): ProjectManifest {
   if (!isRecord(value) || value['format'] !== PROJECT_FORMAT) {
-    throw new EkzaError('unsupported', 'manifest.json is not an Ekza Animator project manifest');
+    throw new EkzaError('unsupported', 'manifest.json is not an Ekza Studio project manifest');
   }
   const app = isRecord(value['app']) ? value['app'] : {};
   const assets = unknownList(value['assets']).map((entry): ProjectManifestAsset => {

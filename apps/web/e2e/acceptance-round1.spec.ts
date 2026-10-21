@@ -181,7 +181,7 @@ test('Graph Editor: More menu closes, Simplify reports, Shift-drags a selected k
   await page.mouse.click(at22.x, at22.y);
   await page.waitForFunction(
     ([clipId, controlId]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       const curve = api?.curves(clipId, controlId).find((candidate) => candidate.channel === 'rz');
       return curve?.keys.length === 4;
     },

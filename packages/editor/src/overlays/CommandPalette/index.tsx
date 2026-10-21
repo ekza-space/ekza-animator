@@ -78,7 +78,7 @@ export function createCommandPalette(deps: CommandPaletteFacadeDeps): CommandPal
       void load().then(
         (loaded) => loaded.open(),
         (error: unknown) => {
-          console.warn('Ekza Animator: the command palette could not be loaded', error);
+          console.warn('Ekza Studio: the command palette could not be loaded', error);
           help?.(PALETTE_LOAD_FAILED, 'error');
         },
       );

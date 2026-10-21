@@ -7,11 +7,11 @@ import { quatRotateVec3 } from '@ekza-studio/anim-core';
 import type { MeshId, MeshRecord } from '@ekza-studio/doc';
 import { assetMeshRows, attachMeshes, meshKernel, worldPlacement } from '@ekza-studio/editor-core';
 import type { MeshData } from '@ekza-studio/mesh-core';
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
 export type MeshRuntimeDocTestApi = Pick<
-  EkzaAnimatorTestApi,
+  EkzaStudioTestApi,
   | 'meshes'
   | 'meshNormals'
   | 'meshInfo'

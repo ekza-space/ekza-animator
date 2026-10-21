@@ -1,6 +1,8 @@
 // M2A-SPEC §9.2 (io): the writers are unchanged without `reduce` — byte-identical to the M1 outputs on the three
 // fixtures. The SHA-256 values below were recorded from the M1 io sources (A0 merge base) and re-checked after the
 // M2a reduction landed; a deliberate writer change updates them in the same commit with the reason.
+// Re-recorded for the Ekza Studio rename: `asset.generator` 'Ekza Animator 0.1.0' → 'Ekza Studio 0.1.0' (the only
+// change; outputs that keep the source file's generator, polybot and quaternius bake-into-model, are unchanged).
 import type { HumanBoneName } from '@ekza-studio/doc';
 import { type LicensedFixture, readFixture } from '@ekza-studio/doc/testing';
 import type { ReadonlyXf } from '@ekza-studio/anim-core';
@@ -43,13 +45,13 @@ const PROVENANCE = { toolVersion: '0.1.0', projectSha256: null, baseSha256: null
 const rigOf = (skeleton: SkeletonDesc) => (skeleton.humanoid === null ? 'gltf-nodes' : 'vrm-humanoid');
 
 const M1_SHA256: Readonly<Record<string, string>> = {
-  'seed-san.vrm/animation-glb': 'ea72ec1789db10d94ed1c98f82bd0b824ab5d5f290b86e8cc3c31ffb1140ab41',
-  'seed-san.vrm/vrma': 'bf1bcc5e5ab8f9274a81ffe475f1815900bf76d0b94b432018e4ed2cceefc855',
-  'seed-san.vrm/bake-into-model': 'feb9e59f75f45ab88994b9ee40dbdee0a9d4eedf2551992a18ac07a911481269',
-  'polybot.vrm/animation-glb': '78f67ffe402905892e74c5b6525937af3b3bb1ba07ac3afba55e6313d73ab71d',
-  'polybot.vrm/vrma': '76f9b386d83d61b1610b10cff73837a04d75a21e1f1bcbb4147e06f7ec8c633b',
+  'seed-san.vrm/animation-glb': '099b24e92dc3ab2412da6067f91a11723bb886186902abf57cee6038c88888c5',
+  'seed-san.vrm/vrma': 'f4f815417bcab51b4e50f3af5c0be9cac1b6b3ab77135757e57146a3b7fd2587',
+  'seed-san.vrm/bake-into-model': 'ae47d2568ef1a23a24ee863858072cddb0bbdb3a9878292683bb2cdaafc8acc9',
+  'polybot.vrm/animation-glb': 'd587133052a77cadb1ebedcdefc5d8a3858ffc9c2aa6dccb4e0db1b614209d20',
+  'polybot.vrm/vrma': '5d8748c6453c844714f67a72d1e632aa94137a37b22e6024221b0b9d0ac8b381',
   'polybot.vrm/bake-into-model': '24a0623c405b7f3a05400ffb266f4ffc84395cff1fcad4561cc6f311ecb80af1',
-  'quaternius-ual.glb/animation-glb': '5a823f2e87b0e10b25c495ee84f52fc622a1d1374cbfa1ae2033337707e8e66a',
+  'quaternius-ual.glb/animation-glb': 'b87159ca66e17901cf805cb076c9f578106d6b4f170e1d71174846211966ee77',
   'quaternius-ual.glb/bake-into-model': '8ec653e70cdfb49f444280ad0c49dae7dfa675e4836c4f6eb5c2e9bef452220f',
 };
 

@@ -15,6 +15,7 @@
 import type { AssetId, AssetRecord } from '@ekza-studio/doc';
 import type { AutosaveSlotInfo, AutosaveStore, BlobId } from '@ekza-studio/editor-core';
 
+/** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1): a new name would hide existing recovery points. */
 export const AUTOSAVE_DB = 'ekza-animator-autosave-v1';
 /** 1: M2a (slots, assets); 2: M6a adds `blobs`. */
 export const AUTOSAVE_DB_VERSION = 2;

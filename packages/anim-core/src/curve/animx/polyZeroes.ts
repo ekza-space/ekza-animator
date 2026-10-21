@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-// Copyright Autodesk, Inc. (AnimX); TypeScript port: Ekza Animator contributors. See ../../../NOTICE.
+// Copyright Autodesk, Inc. (AnimX); TypeScript port: Ekza Studio contributors. See ../../../NOTICE.
 // Licensed under the Apache License, Version 2.0 (../../../LICENSE-APACHE-2.0).
 // Adapted from Autodesk/animx/src/internal/nurbs.h @ 11c31ac74e526b599031414866db639383c9a5e0 (Apache-2.0,
 // © Autodesk, Inc.). Changes: ported to TypeScript; `goto` loops rewritten as structured loops; per-level scratch

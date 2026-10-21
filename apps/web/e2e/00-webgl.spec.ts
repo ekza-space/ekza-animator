@@ -6,7 +6,7 @@ test('E2E-00: WebGL is available and an idle editor renders no frames', async ({
   await openEditor(page);
 
   const webgl = await page.evaluate(() => {
-    const info = window.__EKZA_ANIMATOR_TEST__?.webgl;
+    const info = window.__EKZA_STUDIO_TEST__?.webgl;
     return info === undefined ? null : { ok: info.ok, renderer: info.renderer };
   });
   test.info().annotations.push({ type: 'webgl renderer', description: webgl?.renderer ?? 'unknown' });

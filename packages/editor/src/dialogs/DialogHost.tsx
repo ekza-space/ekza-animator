@@ -192,8 +192,8 @@ class DialogBoundary extends Component<BoundaryProps, { readonly failed: boolean
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    if (error instanceof DialogLoadError) console.warn(`Ekza Animator: ${error.message}`);
-    else console.error(`Ekza Animator: the ${DIALOG_NAMES[this.props.name]} failed`, error, info.componentStack);
+    if (error instanceof DialogLoadError) console.warn(`Ekza Studio: ${error.message}`);
+    else console.error(`Ekza Studio: the ${DIALOG_NAMES[this.props.name]} failed`, error, info.componentStack);
     this.props.onError(error);
   }
 

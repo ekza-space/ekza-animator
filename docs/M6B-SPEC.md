@@ -1004,7 +1004,7 @@ C8b), Attributes sections Joint/Skeleton (C3), Skin (C6), Constraint (C8b), Cont
 Channel Box rows: joint rest and test rows (C3), constraint rows (C8b, through the shipped `@attr` rows).
 
 ```ts
-export interface EkzaAnimatorTestApi {
+export interface EkzaStudioTestApi {
   …M1/M2a/M6a…
   characters(): { id: string; name: string; format: string; source: 'asset' | 'model'; skeleton: string | null; rig: string;
     meshes: string[] }[];                                                         // changed (additive)

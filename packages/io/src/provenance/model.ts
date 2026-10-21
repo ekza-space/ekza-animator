@@ -11,7 +11,7 @@ export const HANDHELD_META_KEY = 'ekza_handheld_v1';
 /** Bounds of the grip block (M6A-SPEC §4.2 `HandheldGrip`). */
 export const HANDHELD_BOUNDS = { offset: 0.3, rotationDegrees: 360, scale: [0.25, 2] } as const;
 
-/** The manual-authoring provenance of an Ekza Animator export. */
+/** The manual-authoring provenance of an Ekza Studio export. */
 export function manualModelProvenance(opts: {
   readonly toolVersion: string;
   readonly projectSha256?: string | null;

@@ -79,6 +79,7 @@ export interface UserPreset {
 export type UserPresetData = Omit<UserPreset, 'id' | 'name' | 'savedAt'>;
 
 export const PRESETS_SCHEMA_VERSION = 1;
+/** The `ekza-animator:` prefix is kept from the old name (DECISIONS-OPEN NAME-1) so saved presets survive the rename. */
 export const presetsStorageKey = (workspace: string): string =>
   `ekza-animator:presets:v${PRESETS_SCHEMA_VERSION}:${workspace}`;
 export const PRESET_NAME_MAX = 60;

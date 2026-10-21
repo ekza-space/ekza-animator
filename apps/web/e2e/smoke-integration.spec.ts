@@ -79,7 +79,7 @@ test('integration smoke: samples, posing, keys, Graph Editor, playback, exports,
 
   // ---------- boot: the real editor, WebGL, the empty state ----------
   await openEditor(page, '&platform=mac');
-  expect(await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.webgl.ok)).toBe(true);
+  expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.webgl.ok)).toBe(true);
   await expect(page.getByTestId('dropzone')).toBeVisible();
   await shot(page, '01-empty-editor');
 
@@ -274,7 +274,7 @@ test('integration smoke: the production editor without e2e mode', async ({ page 
   const firstRun = page.getByTestId('firstrun-dialog');
   await expect(firstRun).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('firstrun-getting-started')).toContainText('Plant Feet');
-  expect(await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__ === undefined)).toBe(true);
+  expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__ === undefined)).toBe(true);
   await shot(page, '20-production-first-run');
   await page.getByTestId('firstrun-nav-maya').click();
   await page.getByTestId('firstrun-done').click();

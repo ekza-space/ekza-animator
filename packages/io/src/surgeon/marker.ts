@@ -7,6 +7,7 @@ import { isIndex, isRecord, stringList } from '../gltf/schema';
 import { sha256Hex } from '../hash/sha256';
 import type { EkzaBakeMarkerV1, EkzaBakeMarkerV2 } from '../types';
 
+/** glTF extras keys: on-disk identifiers, kept unchanged by the Ekza Studio rename (DECISIONS-OPEN NAME-1). */
 export const BAKE_MARKER_KEY = 'ekza_animator_bake_v1';
 export const BAKE_MARKER_V2_KEY = 'ekza_animator_bake_v2';
 

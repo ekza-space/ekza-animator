@@ -68,8 +68,7 @@ const RULE = '='.repeat(100);
 const sections = [];
 for (const notice of ['packages/anim-core/NOTICE']) {
   const file = join(repoDir, notice);
-  if (existsSync(file))
-    sections.push(`${RULE}\nEkza Animator: ${notice}\n${RULE}\n${readFileSync(file, 'utf8').trim()}`);
+  if (existsSync(file)) sections.push(`${RULE}\nEkza Studio: ${notice}\n${RULE}\n${readFileSync(file, 'utf8').trim()}`);
 }
 const packages = collectPackages();
 for (const { dir, manifest } of packages) {
@@ -84,9 +83,9 @@ for (const { dir, manifest } of packages) {
 }
 
 const preamble = [
-  'Ekza Animator — third-party notices',
+  'Ekza Studio — third-party notices',
   '',
-  'Ekza Animator is MIT licensed (see LICENSE in the source repository). It includes or depends on the',
+  'Ekza Studio is MIT licensed (see LICENSE in the source repository). It includes or depends on the',
   'third-party software listed below, each under its own licence. Bundled sample models are credited in',
   'fixtures/LICENSES.md and in Help → About.',
   `Packages: ${packages.length}.`,

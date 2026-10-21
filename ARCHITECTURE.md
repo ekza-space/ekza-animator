@@ -532,7 +532,7 @@ shared runners or SwiftShader, except the two deterministic ones: idle frames an
 | app | Playwright 1.63 (real Chrome locally, SwiftShader on CI) against `NEXT_PUBLIC_EKZA_E2E=1 next build && next start` | E2E-00…E2E-27 of [MVP-SPEC §6](docs/MVP-SPEC.md#6-acceptance-tests-and-e2e-scenarios); exported files validated in Node and re-imported |
 
 Determinism hooks: `?e2e=1` (e2e builds only) uses fresh storage, Maya navigation and Space defaults, fixes the ID
-seed, disables animations and exposes `window.__EKZA_ANIMATOR_TEST__`. Screenshot baselines (V1) only from the Linux
+seed, disables animations and exposes `window.__EKZA_STUDIO_TEST__`. Screenshot baselines (V1) only from the Linux
 CI container.
 
 ---

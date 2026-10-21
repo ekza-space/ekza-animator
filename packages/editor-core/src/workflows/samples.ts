@@ -6,7 +6,7 @@ import type { KnownLicense } from './provenance';
 
 /**
  * Version written into project manifests, autosave slots and export metadata (`provenance.toolVersion`, the
- * `asset.generator` 'Ekza Animator <version>'). The M2a line is 0.2.x: files with schema-2 IK features must not
+ * `asset.generator` 'Ekza Studio <version>'). The M2a line is 0.2.x: files with schema-2 IK features must not
  * claim the M1 alpha (acceptance fix round 1). The release tag stays the owner's call.
  */
 export const EDITOR_VERSION = '0.2.0';

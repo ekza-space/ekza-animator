@@ -44,7 +44,7 @@ export function requestScaleKit(notify: Notifier): Promise<ScaleKit | null> {
     (loaded) => loaded,
     (error: unknown) => {
       if (starts) {
-        console.warn('Ekza Animator: the scale chunk could not be loaded', error);
+        console.warn('Ekza Studio: the scale chunk could not be loaded', error);
         notify.toast({ kind: 'error', text: SCALE_LOAD_FAILED });
       }
       return null;

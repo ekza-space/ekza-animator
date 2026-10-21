@@ -24,7 +24,7 @@ export function StandaloneHost(props: { readonly app: EditorApp }): JSX.Element 
     try {
       renderer = new WebGLRenderer({ canvas, antialias: true });
     } catch (error) {
-      console.error('Ekza Animator: the viewport canvas failed to start', error);
+      console.error('Ekza Studio: the viewport canvas failed to start', error);
       return undefined;
     }
     renderer.setPixelRatio(window.devicePixelRatio);

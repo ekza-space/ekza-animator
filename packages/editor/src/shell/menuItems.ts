@@ -103,7 +103,7 @@ export function shellMenuItems(
       args: { dialog: 'about' },
       group: 'about',
       order: 90,
-      label: 'About Ekza Animator',
+      label: 'About Ekza Studio',
     },
     {
       // M6A-SPEC §8.3 Mesh › Mesh Check: shows the Mesh Check panel (B10 registers it).

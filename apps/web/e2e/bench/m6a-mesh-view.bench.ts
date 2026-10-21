@@ -107,7 +107,7 @@ test('mesh-view budgets in the editor at 50k triangles', async ({ page }) => {
   // Enter component mode: the operator and the overlays' first frame. The BVH follows on idle (MeshDisplay), or with
   // the first pick if that comes sooner; the package bench (mesh-view/test/bench.test.ts) reports it with the budget.
   const entered = await page.evaluate(async () => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const start = performance.now();
     await api.run('select.mode', { mode: 'face' });

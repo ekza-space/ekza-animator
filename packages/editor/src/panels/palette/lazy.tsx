@@ -25,7 +25,7 @@ class LazyBoundary extends Component<
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.warn(`Ekza Animator: the ${this.props.name} could not be loaded`, error, info.componentStack);
+    console.warn(`Ekza Studio: the ${this.props.name} could not be loaded`, error, info.componentStack);
   }
 
   override render(): ReactNode {

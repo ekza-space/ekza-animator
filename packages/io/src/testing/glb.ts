@@ -20,7 +20,7 @@ export class GltfBuilder {
   private readonly parts: Uint8Array[] = [];
   private length = 0;
 
-  constructor(asset: Json = { version: '2.0', generator: 'ekza-animator test kit' }) {
+  constructor(asset: Json = { version: '2.0', generator: 'ekza-studio test kit' }) {
     this.json = { asset, accessors: [], bufferViews: [], buffers: [] };
   }
 
@@ -195,7 +195,7 @@ export function makeBudgetStressGlb(): Uint8Array {
   json['extensions'] = {
     VRMC_vrm: {
       specVersion: '1.0',
-      meta: { name: 'Budget stress', authors: ['ekza-animator tests'], licenseUrl: 'https://vrm.dev/licenses/1.0/' },
+      meta: { name: 'Budget stress', authors: ['ekza-studio tests'], licenseUrl: 'https://vrm.dev/licenses/1.0/' },
       humanoid: { humanBones: Object.fromEntries(bones.map((name, i) => [name, { node: i }])) },
     },
   };

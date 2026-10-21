@@ -97,8 +97,8 @@ async function mount(): Promise<{ app: FakeEditorApp; shell: Shell }> {
     />,
   );
   await waitFor(() => app !== null && shell !== null && query('editor-shell') !== null);
-  await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+  await window.__EKZA_STUDIO_TEST__?.ready;
   if (app === null || shell === null) throw new Error('the editor did not start');
   await waitFor(() => (app as FakeEditorApp).session.getState().workspace === 'model');
   return { app, shell };
@@ -160,7 +160,7 @@ describe('Poly Count HUD (§5.24)', () => {
     });
     expect(data?.budget).toEqual({ tris: 12, limit: 12, state: 'warn', label: '12 tris' });
     app.components.apply(cube, 'face', [0, 3], 'replace');
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     expect(api?.hud('pane-persp')?.selected).toMatchObject({ face: 2, tris: 4, vertex: 0 });
     expect(api?.hud('pane-persp')?.mode).toBe('face');
     // The HUD element shows the same numbers (lazy chunk, top-left of the pane).
@@ -471,7 +471,7 @@ describe('test API (B10 group, §4.8)', () => {
     const cube = createMesh(app, 'msh_Cube', primitive('cube', {}));
     await enterFaceMode(app, [cube]);
     app.components.apply(cube, 'face', [2], 'replace');
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const model = api.model();
     expect(model.mode).toBe('face');
@@ -489,6 +489,6 @@ describe('test API (B10 group, §4.8)', () => {
     const { app } = await mount();
     const cube = createMesh(app, 'msh_Cube', primitive('cube', {}));
     await waitFor(() => app.meshes.get(cube)?.state === 'ready');
-    expect(window.__EKZA_ANIMATOR_TEST__?.meshCheck(cube)).toEqual([]);
+    expect(window.__EKZA_STUDIO_TEST__?.meshCheck(cube)).toEqual([]);
   });
 });

@@ -29,7 +29,7 @@ test('E2E-MOD-14: autosave and recovery with a mesh', async ({ page, context }) 
   expect(manifest).toMatch(/^[0-9a-f]{64}$/);
   const slot = (await call(page, 'autosave')).slot ?? '';
   expect(slot).toMatch(/^as_[0-9A-Za-z]{16}$/);
-  await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.flushAutosave());
+  await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.flushAutosave());
   expect((await call(page, 'autosave')).lastSavedAt).not.toBeNull();
 
   // A second page on the same namespace, then the first page reloads (its slot becomes an orphan).

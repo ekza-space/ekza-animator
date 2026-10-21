@@ -2168,7 +2168,7 @@ export type TimeSliderHit =
 
 ### 4.8 Test API (e2e contract)
 
-`packages/editor/src/test-api/types.ts` — installed on `window.__EKZA_ANIMATOR_TEST__` only when the build has
+`packages/editor/src/test-api/types.ts` — installed on `window.__EKZA_STUDIO_TEST__` only when the build has
 `NEXT_PUBLIC_EKZA_E2E=1` **and** the URL has `?e2e=1`.
 
 URL parameters (e2e builds only): `e2e=1` uses a fresh storage namespace, sets `firstRunDone: true`,
@@ -2186,7 +2186,7 @@ the IDs are seeded per page load, so new records skip IDs a reopened project alr
 ```ts
 import type { ChannelId } from '@ekza-studio/doc';
 import type { ManipHandle } from '@ekza-studio/editor-core';
-export interface EkzaAnimatorTestApi {
+export interface EkzaStudioTestApi {
   readonly ready: Promise<void>;                              // editor mounted, WebGL context created
   readonly webgl: { readonly ok: boolean; readonly renderer: string | null };
   run(op: string, args?: unknown, ctx?: { panel?: string; paneId?: string }): Promise<{ status: string; value?: unknown; reason?: string; error?: { code: string; message: string } }>;
@@ -3038,7 +3038,7 @@ Requirement IDs refer to [REQUIREMENTS.md](REQUIREMENTS.md). Timings in stories 
 - Projects: `chrome` (local default: `channel: 'chrome'`, real GPU) and `chromium-swiftshader` (CI: bundled
   Chromium, `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader`). Viewport 1440×900,
   `deviceScaleFactor: 1`. Firefox/WebKit smoke is V1.
-- Every spec waits for `window.__EKZA_ANIMATOR_TEST__.ready`; spec `00-webgl` asserts `webgl.ok === true` and fails
+- Every spec waits for `window.__EKZA_STUDIO_TEST__.ready`; spec `00-webgl` asserts `webgl.ok === true` and fails
   the run otherwise.
 - Interactions use real pointer and keyboard events at coordinates from the test API (`screenOfControl`,
   `screenOfManipulator`, `screenOfKey`, `screenOfHandle`, `screenOfCurve`, `screenOfFrame`, `screenOfTick`) and the

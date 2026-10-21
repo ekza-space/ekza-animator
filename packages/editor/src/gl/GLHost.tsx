@@ -50,7 +50,7 @@ class CanvasBoundary extends Component<BoundaryProps, { readonly failed: boolean
   }
 
   override componentDidCatch(error: unknown, info: ErrorInfo): void {
-    console.error('Ekza Animator: the WebGL canvas failed to start', error, info.componentStack);
+    console.error('Ekza Studio: the WebGL canvas failed to start', error, info.componentStack);
     this.props.onError(error);
   }
 
@@ -68,14 +68,14 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
   try {
     app.services.models?.setRenderer(gl);
   } catch (error) {
-    if (!isNotImplemented(error)) console.error('Ekza Animator: the model loader rejected the renderer', error);
+    if (!isNotImplemented(error)) console.error('Ekza Studio: the model loader rejected the renderer', error);
   }
 
   let vm: ViewportManager | null = null;
   try {
     vm = new ViewportManager({ app, renderer: gl });
   } catch (error) {
-    if (!isNotImplemented(error)) console.error('Ekza Animator: the viewport could not start', error);
+    if (!isNotImplemented(error)) console.error('Ekza Studio: the viewport could not start', error);
   }
   let disposeContributions: () => void = () => {};
   if (vm !== null) {
@@ -83,7 +83,7 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
       disposeContributions = registerViewportContributions(app, vm);
     } catch (error) {
       // Another host already registered the viewport tools and operators; keep rendering with this manager.
-      console.error('Ekza Animator: the viewport contributions could not be registered', error);
+      console.error('Ekza Studio: the viewport contributions could not be registered', error);
     }
   }
   // The viewport slice of the e2e test API (MVP-SPEC §4.8): panes, cameras and screen points from this manager.
@@ -132,7 +132,7 @@ function attachRenderer(shell: Shell, state: RootState, gate: FrameGate): () => 
     try {
       vm?.dispose();
     } catch (error) {
-      console.error('Ekza Animator: disposing the viewport failed', error);
+      console.error('Ekza Studio: disposing the viewport failed', error);
     }
   };
 }

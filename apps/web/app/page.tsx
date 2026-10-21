@@ -11,7 +11,7 @@ export default function LandingPage(): JSX.Element {
   return (
     <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-10 px-6 py-16">
       <header className="flex flex-col gap-4">
-        <h1 className="text-4xl font-semibold tracking-tight">Ekza Animator</h1>
+        <h1 className="text-4xl font-semibold tracking-tight">Ekza Studio</h1>
         <p className="text-lg text-fg-2">
           An open-source, browser-based character animator for glTF and VRM, with a Maya-grade workflow: circle
           controls, Channel Box, time slider and a Graph Editor, then lossless bakes back into your file.

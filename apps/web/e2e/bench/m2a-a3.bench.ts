@@ -143,7 +143,7 @@ async function denseCharacter(page: Page): Promise<{ clip: string; curves: numbe
   const controls = (await call(page, 'controls')).filter((control) => control.visible).map((control) => control.id);
   await page.evaluate(
     async ({ ids, frames }) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       for (let frame = 0; frame < frames; frame++) {
         await api.run('time.setFrame', { frame });

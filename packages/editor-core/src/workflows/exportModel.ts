@@ -244,7 +244,7 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
       handheld,
       model: write.manualModelProvenance({ toolVersion: EDITOR_VERSION }),
     },
-    { fileName, profile, generator: `Ekza Animator ${EDITOR_VERSION}`, meshes: meshInputs },
+    { fileName, profile, generator: `Ekza Studio ${EDITOR_VERSION}`, meshes: meshInputs },
   );
   if (unlitShaded.length > 0) {
     artifact = {

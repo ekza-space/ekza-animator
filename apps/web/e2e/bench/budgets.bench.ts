@@ -148,7 +148,7 @@ const kb = (bytes: number) => `${(bytes / 1000).toFixed(1)} kB / ${(bytes / 1024
 
 async function counters(page: Page): Promise<{ gl: number; canvas2d: number }> {
   return page.evaluate(() => ({
-    gl: window.__EKZA_ANIMATOR_TEST__?.renderedFrames() ?? Number.NaN,
+    gl: window.__EKZA_STUDIO_TEST__?.renderedFrames() ?? Number.NaN,
     canvas2d: window.__EKZA_BENCH__?.canvas2d ?? Number.NaN,
   }));
 }
@@ -188,7 +188,7 @@ async function taskMs(cdp: CDPSession): Promise<number> {
 /** The WebGL renderer string and the device pixel ratio the page runs at. */
 async function renderer(page: Page): Promise<string> {
   return page.evaluate(
-    () => `${window.__EKZA_ANIMATOR_TEST__?.webgl.renderer ?? 'no WebGL'} at DPR ${window.devicePixelRatio}`,
+    () => `${window.__EKZA_STUDIO_TEST__?.webgl.renderer ?? 'no WebGL'} at DPR ${window.devicePixelRatio}`,
   );
 }
 
@@ -235,7 +235,7 @@ test('open Seed-san (10.9 MB VRM) to interactive', async ({ page }) => {
     await page.getByTestId('sample-seed-san').click();
     const handle = await page.waitForFunction(
       () => {
-        const api = window.__EKZA_ANIMATOR_TEST__;
+        const api = window.__EKZA_STUDIO_TEST__;
         const t0 = (window as unknown as { __t0?: number }).__t0;
         if (api === undefined || t0 === undefined || api.counts()['characters'] !== 1) return false;
         try {
@@ -268,7 +268,7 @@ test('scrub: pointer move → pose visible', async ({ page }) => {
   for (let frame = 0; frame <= 40; frame++) xs.push((await call(page, 'screenOfFrame', frame))?.x ?? Number.NaN);
   const y = (await call(page, 'screenOfFrame', 0))?.y ?? Number.NaN;
   await page.evaluate((frameXs) => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const out: { expected: number; frames: number }[] = [];
     (window as unknown as { __scrub?: typeof out }).__scrub = out;
@@ -423,7 +423,7 @@ test('Graph Editor: drag 1,000 selected keys; undo/redo the gesture', async ({ p
 
   // Undo and redo that gesture (one history step) through the operator, timed in the page.
   const timings = await page.evaluate(async () => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const out: { undo: number[]; redo: number[] } = { undo: [], redo: [] };
     for (let i = 0; i < 5; i++) {
@@ -482,7 +482,7 @@ test('undo/redo one manipulator gesture', async ({ page }) => {
   await page.keyboard.press('KeyS');
   await expect.poll(async () => (await call(page, 'state')).history.canUndo).toBe(true);
   const timings = await page.evaluate(async () => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const out: { undo: number[]; redo: number[] } = { undo: [], redo: [] };
     for (let i = 0; i < 10; i++) {
@@ -528,7 +528,7 @@ test('pose evaluation in the app, 1 humanoid with every control keyed', async ({
   // decomposes one matrix: an upper bound of the per-frame evaluation the editor does into its reused buffers.
   const perCall = await page.evaluate(
     ([id]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) throw new Error('no test API');
       for (let i = 0; i < 100; i++) api.boneWorld(id, 'hips', (i * 0.37) % 30);
       const runs = 500;
@@ -578,7 +578,7 @@ test('bake + write VRMA, 1 humanoid × 10 s @ 30 fps', async ({ page }) => {
     profile: null,
   };
   const runs = await page.evaluate(async (args) => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) throw new Error('no test API');
     const out: { ms: number; status: string; bytes: number }[] = [];
     for (let i = 0; i < 5; i++) {
@@ -627,7 +627,7 @@ test('autosave write, Seed-san × 10 clips (main thread)', async ({ page }) => {
   }
   const counts = await call(page, 'counts');
   // The first write stores the 10.9 MB model once (content-addressed); later writes rewrite the snapshot only.
-  await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.flushAutosave());
+  await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.flushAutosave());
   const cdp = await page.context().newCDPSession(page);
   await cdp.send('Performance.enable');
   const writes: { taskMs: number; wallMs: number }[] = [];
@@ -637,7 +637,7 @@ test('autosave write, Seed-san × 10 clips (main thread)', async ({ page }) => {
     const task0 = await taskMs(cdp);
     const wall = await page.evaluate(async () => {
       const start = performance.now();
-      await window.__EKZA_ANIMATOR_TEST__?.flushAutosave();
+      await window.__EKZA_STUDIO_TEST__?.flushAutosave();
       return performance.now() - start;
     });
     const task1 = await taskMs(cdp);

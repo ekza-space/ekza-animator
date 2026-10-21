@@ -1,6 +1,6 @@
 // The animation icon set (research 09 §8.6): 16 px grid, 1.5 px stroke, round caps, `currentColor`. A tangent
 // icon is the curve shape it produces through a key (the dot), so users learn them by sight. MIT, drawn for
-// Ekza Animator.
+// Ekza Studio.
 import type { JSX, ReactNode, SVGProps } from 'react';
 
 export interface IconProps extends Omit<SVGProps<SVGSVGElement>, 'children'> {
@@ -272,7 +272,7 @@ export const LOOP_ICONS: Readonly<Record<string, IconComponent>> = {
   oscillate: LoopOscillateIcon,
 };
 
-/** The Ekza Animator mark (menu bar). */
+/** The Ekza Studio mark (menu bar). */
 export const AppMarkIcon = icon('AppMark', [
   <path key="d" d="M8 1.5l6.5 6.5L8 14.5 1.5 8z" />,
   <circle key="c" cx={8} cy={8} r={2.2} fill="currentColor" stroke="none" />,

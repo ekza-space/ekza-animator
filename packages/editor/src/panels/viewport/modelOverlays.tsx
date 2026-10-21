@@ -42,6 +42,7 @@ function ModelEmptyStateSlot(props: PaneOverlayProps): JSX.Element | null {
 
 // ---------- Getting started: dismissed per browser ----------
 
+/** Kept from the Ekza Animator name (DECISIONS-OPEN NAME-1) so a dismissed card stays dismissed. */
 export const GETTING_STARTED_KEY = 'ekza-animator:model-getting-started:v1';
 const dismissListeners = new Set<() => void>();
 let dismissedCache: boolean | null = null;

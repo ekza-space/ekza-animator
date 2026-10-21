@@ -96,8 +96,8 @@ async function mount(
   mounted = view;
   await waitFor(() => app !== null && shell !== null && query('editor-shell') !== null);
   if (app === null || shell === null) throw new Error('the editor did not start');
-  await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+  await window.__EKZA_STUDIO_TEST__?.ready;
   return { view, app, shell };
 }
 
@@ -358,8 +358,8 @@ describe('command palette (§5.18)', () => {
       new KeyboardEvent('keydown', { code: 'KeyK', key: 'k', ctrlKey: true, bubbles: true, cancelable: true }),
     );
     await waitFor(() => query('cmdk-input') !== null);
-    expect(window.__EKZA_ANIMATOR_TEST__?.commandPalette()?.open).toBe(true);
-    const shellApi = window.__EKZA_ANIMATOR_TEST__;
+    expect(window.__EKZA_STUDIO_TEST__?.commandPalette()?.open).toBe(true);
+    const shellApi = window.__EKZA_STUDIO_TEST__;
     expect(shellApi?.commandPalette()?.items.some((item) => item.label === 'Workspace: Model')).toBe(true);
     const input = testId('cmdk-input') as HTMLInputElement;
     input.focus();

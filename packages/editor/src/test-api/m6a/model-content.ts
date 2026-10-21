@@ -1,9 +1,9 @@
 // M6a test API, B13 group (M6A-SPEC §4.8): palettes, the active swatch and image planes, read from the document and
 // the session. Palettes and planes in their display order; a palette's swatches by slot (deleted ones left out).
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
-export type ModelContentTestApi = Pick<EkzaAnimatorTestApi, 'palettes' | 'activeSwatch' | 'imagePlanes'>;
+export type ModelContentTestApi = Pick<EkzaStudioTestApi, 'palettes' | 'activeSwatch' | 'imagePlanes'>;
 
 const byOrder = (
   a: { readonly order: string; readonly id: string },

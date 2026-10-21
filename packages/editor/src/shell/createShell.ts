@@ -84,7 +84,7 @@ export function createShell(opts: CreateShellOptions): Shell {
   const frame = createFrameHooks(app, (error) => {
     if (reportedFrameError) return;
     reportedFrameError = true;
-    console.error('Ekza Animator: a per-frame callback failed', error);
+    console.error('Ekza Studio: a per-frame callback failed', error);
   });
   const fallback = createFallbackScheduler(frame);
   app.setFrameRequester(() => fallback.request());

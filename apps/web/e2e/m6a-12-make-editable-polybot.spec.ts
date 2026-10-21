@@ -167,7 +167,7 @@ test('file.exportModel in the browser: the three.js read-back and lastExport()',
   expect(result.status).toBe('finished');
   expect((await download).suggestedFilename()).toBe('cube.glb');
   const last = await page.evaluate(() => {
-    const value = window.__EKZA_ANIMATOR_TEST__?.lastExport() ?? null;
+    const value = window.__EKZA_STUDIO_TEST__?.lastExport() ?? null;
     return value === null ? null : { fileName: value.fileName, lints: value.lints, readBack: value.readBack };
   });
   expect(last).toMatchObject({

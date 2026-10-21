@@ -1,4 +1,4 @@
-// AnimX golden generator for @ekza-studio/anim-core (MVP-SPEC §6.3, ADR 0003). MIT, Ekza Animator contributors.
+// AnimX golden generator for @ekza-studio/anim-core (MVP-SPEC §6.3, ADR 0003). MIT, Ekza Studio contributors.
 //
 // Builds deterministic curves (hand-picked cases plus seeded random ones) in the Ekza key model, feeds them to
 // Autodesk AnimX through an `adsk::ICurve` adapter and prints JSON goldens to stdout:

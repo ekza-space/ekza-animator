@@ -390,7 +390,7 @@ describe.skipIf(!SIBLINGS_READY)(`file.export ${BLOCKED}`, { timeout: 120_000 },
     const [vrma] = await exportOk(app, request(bot.character, [wave], { kind: 'vrma' }));
     if (vrma === undefined) throw new Error('no artifact');
     const source = await parseGlb(vrma.bytes);
-    /** The VRMA without the Animator's provenance, so the import judges it by its names. */
+    /** The VRMA without the editor's provenance, so the import judges it by its names. */
     const foreign = (edit: (json: Record<string, unknown>) => void) =>
       withJson(source, (json) => {
         const asset = json['asset'] as { extras?: Record<string, unknown> };

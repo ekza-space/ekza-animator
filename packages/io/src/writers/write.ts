@@ -19,7 +19,7 @@ type WriterOptions = {
 };
 
 export function generatorName(meta: EkzaAnimationV1): string {
-  return `Ekza Animator ${meta.provenance.toolVersion}`;
+  return `Ekza Studio ${meta.provenance.toolVersion}`;
 }
 
 /**

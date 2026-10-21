@@ -82,7 +82,7 @@ export function createMarkingMenus(deps: MarkingMenuFacadeDeps): MarkingMenus {
     return loading;
   };
   const failed = (error: unknown): void => {
-    console.warn('Ekza Animator: the marking menu could not be loaded', error);
+    console.warn('Ekza Studio: the marking menu could not be loaded', error);
     deps.help(MARKING_MENU_LOAD_FAILED, 'error');
   };
   return {

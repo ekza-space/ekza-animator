@@ -97,8 +97,8 @@ async function mount(
   await waitFor(() => app !== null && document.querySelector('[data-testid="editor-shell"]') !== null);
   if (app === null) throw new Error('the editor did not create its app');
   // The test API is a lazy chunk (M2A-SPEC §5.21.2): e2e pages install it once that chunk has loaded.
-  if (params.e2e !== false) await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  if (params.e2e !== false) await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+  await window.__EKZA_STUDIO_TEST__?.ready;
   stubOperators(app);
   return { view, app };
 }
@@ -111,7 +111,7 @@ describe('editor shell', () => {
     for (const id of ['menubar', 'statusline', 'workspace', 'timeline-region', 'helpline']) {
       expect(testId(view, id)).toBeTruthy();
     }
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     expect(api).toBeDefined();
     await api?.ready;
     expect(api?.webgl.ok).toBe(true);
@@ -121,7 +121,7 @@ describe('editor shell', () => {
     await settle(300);
     expect(api?.renderedFrames()).toBe(idle);
     await view.unmount();
-    expect(window.__EKZA_ANIMATOR_TEST__).toBeUndefined();
+    expect(window.__EKZA_STUDIO_TEST__).toBeUndefined();
   });
 
   it('boots one editor under StrictMode, and marks <html> for portalled styles while mounted', async () => {
@@ -144,8 +144,8 @@ describe('editor shell', () => {
       </StrictMode>,
     );
     await waitFor(() => document.querySelector('[data-testid="editor-shell"]') !== null);
-    await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-    await window.__EKZA_ANIMATOR_TEST__?.ready;
+    await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+    await window.__EKZA_STUDIO_TEST__?.ready;
     expect(created).toHaveLength(1);
     // `?e2e=1` turns transitions off for content Radix portals to <body> too (dialogs, menus, tooltips).
     const html = document.documentElement;
@@ -387,7 +387,7 @@ describe('editor shell', () => {
 
   it('drives playback through the demand frame loop and goes idle when stopped', async () => {
     const { view, app } = await mount();
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     await api?.ready;
     await settle(100);
     const before = api?.renderedFrames() ?? 0;
@@ -448,7 +448,7 @@ describe('editor shell', () => {
 
   it('reports a lost WebGL context and recovers when it is restored', async () => {
     const { view } = await mount();
-    await window.__EKZA_ANIMATOR_TEST__?.ready;
+    await window.__EKZA_STUDIO_TEST__?.ready;
     const canvas = document.querySelector<HTMLCanvasElement>('[data-testid="gl-host"] canvas');
     const gl = canvas?.getContext('webgl2');
     const lose = gl?.getExtension('WEBGL_lose_context');
@@ -459,7 +459,7 @@ describe('editor shell', () => {
     await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="warning"]') !== null);
     lose.restoreContext();
     await waitFor(() => !(testId(view, 'helpline').textContent ?? '').includes('Graphics context lost'), 3000);
-    expect(window.__EKZA_ANIMATOR_TEST__?.webgl.ok).toBe(true);
+    expect(window.__EKZA_STUDIO_TEST__?.webgl.ok).toBe(true);
     // Acceptance round 1: the "restoring…" warning stayed after the restore; it is replaced by a confirmation.
     await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="warning"]') === null);
     await waitFor(() => document.querySelector('[data-testid="toast"][data-kind="success"]') !== null);
@@ -493,10 +493,10 @@ describe('editor shell', () => {
         />
       </Profiler>,
     );
-    await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
+    await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
     const fake = app as FakeEditorApp | null;
     if (fake === null) throw new Error('no app');
-    await window.__EKZA_ANIMATOR_TEST__?.ready;
+    await window.__EKZA_STUDIO_TEST__?.ready;
     await settle(200);
     const settled = commits;
     for (let frame = 1; frame <= 30; frame++) {

@@ -1,16 +1,16 @@
-import type { EkzaAnimatorTestApi } from '@ekza-studio/editor';
+import type { EkzaStudioTestApi } from '@ekza-studio/editor';
 import { expect, type Page } from '@playwright/test';
 
 declare global {
   interface Window {
-    __EKZA_ANIMATOR_TEST__?: EkzaAnimatorTestApi;
+    __EKZA_STUDIO_TEST__?: EkzaStudioTestApi;
   }
 }
 
-export type TestApi = EkzaAnimatorTestApi;
+export type TestApi = EkzaStudioTestApi;
 export type RunResult = Awaited<ReturnType<TestApi['run']>>;
 
-/** Opens the editor in e2e mode and waits for `__EKZA_ANIMATOR_TEST__.ready` (MVP-SPEC §6.1). */
+/** Opens the editor in e2e mode and waits for `__EKZA_STUDIO_TEST__.ready` (MVP-SPEC §6.1). */
 export async function openEditor(page: Page, query = ''): Promise<void> {
   await page.goto(`/editor?e2e=1${query}`);
   await waitForTestApi(page);
@@ -18,14 +18,14 @@ export async function openEditor(page: Page, query = ''): Promise<void> {
 
 /** Waits for the test API of the current page (after a navigation or a reload). */
 export async function waitForTestApi(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
+  await page.waitForFunction(() => window.__EKZA_STUDIO_TEST__ !== undefined);
   await page.evaluate(async () => {
-    await window.__EKZA_ANIMATOR_TEST__?.ready;
+    await window.__EKZA_STUDIO_TEST__?.ready;
   });
 }
 
 export function renderedFrames(page: Page): Promise<number> {
-  return page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.renderedFrames() ?? Number.NaN);
+  return page.evaluate(() => window.__EKZA_STUDIO_TEST__?.renderedFrames() ?? Number.NaN);
 }
 
 // ---------- integration gates (MVP-SPEC §8.1, §8.2) ----------
@@ -133,7 +133,7 @@ export async function call<K extends Exclude<keyof TestApi, 'ready' | 'webgl' | 
 ): Promise<ReturnType<TestApi[K]>> {
   const value: unknown = await page.evaluate(
     ([fn, fnArgs]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) return { __failure: { code: null, message: 'no test API on this page' } };
       try {
         return (api[fn] as (...a: unknown[]) => unknown)(...fnArgs);
@@ -157,7 +157,7 @@ export async function call<K extends Exclude<keyof TestApi, 'ready' | 'webgl' | 
 export async function run(page: Page, op: string, args?: unknown, ctx?: { panel?: string; paneId?: string }) {
   const result: RunResult = await page.evaluate(
     async ([id, runArgs, runCtx]) => {
-      const api = window.__EKZA_ANIMATOR_TEST__;
+      const api = window.__EKZA_STUDIO_TEST__;
       if (api === undefined) return { status: 'failed', error: { code: 'internal', message: 'no test API' } };
       try {
         return await api.run(id, runArgs, runCtx ?? undefined);
@@ -204,7 +204,7 @@ export async function loadFile(
       const array = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) array[i] = binary.charCodeAt(i);
       try {
-        await window.__EKZA_ANIMATOR_TEST__?.loadFile(fileName, array, options ?? undefined);
+        await window.__EKZA_STUDIO_TEST__?.loadFile(fileName, array, options ?? undefined);
         return null;
       } catch (failure) {
         const code = (failure as { code?: unknown }).code;
@@ -223,7 +223,7 @@ export async function loadFile(
 /** The last exported or saved file (`lastExport()`), with its bytes copied to Node. */
 export async function lastExport(page: Page): Promise<{ fileName: string; sha256: string; bytes: Buffer } | null> {
   const last = await page.evaluate(() => {
-    const value = window.__EKZA_ANIMATOR_TEST__?.lastExport() ?? null;
+    const value = window.__EKZA_STUDIO_TEST__?.lastExport() ?? null;
     if (value === null) return null;
     let binary = '';
     for (let i = 0; i < value.bytes.length; i += 0x8000) {

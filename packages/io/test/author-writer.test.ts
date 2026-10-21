@@ -94,19 +94,16 @@ const GRIP: HandheldGrip = { bone: 'rightHand', offset: [0, 0.05, 0], rotationDe
 describe('writeStaticGlb', () => {
   it('palette texture: 0 validator errors, one unlit material, one 64 × 64 PNG, exact cell UVs, deterministic', async () => {
     const scene = sceneOf([meshNode('Cube', paintedCube())]);
-    const bytes = await writeStaticGlb(scene, { generator: 'Ekza Animator 0.3.0' });
+    const bytes = await writeStaticGlb(scene, { generator: 'Ekza Studio 0.3.0' });
     expect(
-      Buffer.compare(
-        Buffer.from(bytes),
-        Buffer.from(await writeStaticGlb(scene, { generator: 'Ekza Animator 0.3.0' })),
-      ),
+      Buffer.compare(Buffer.from(bytes), Buffer.from(await writeStaticGlb(scene, { generator: 'Ekza Studio 0.3.0' }))),
     ).toBe(0);
     const report = await validateGltf(bytes);
     expect(report.errors).toBe(0);
     expect(report.warnings).toBe(0);
     const file = await parseGlb(bytes);
     const json = file.json as Json;
-    expect(json['asset']).toMatchObject({ generator: 'Ekza Animator 0.3.0', version: '2.0' });
+    expect(json['asset']).toMatchObject({ generator: 'Ekza Studio 0.3.0', version: '2.0' });
     expect((json['asset'] as Json)['extras']).toEqual({ ekza_model_v1: MODEL });
     expect(json['extensionsUsed']).toEqual(['KHR_materials_unlit']);
     expect(json['extensionsRequired']).toBeUndefined();
@@ -247,7 +244,7 @@ describe('the handheld profile and static lints', () => {
     const artifact = await exportStaticModel(scene, {
       fileName: 'sword.glb',
       profile: PROFILE_OMOBA_HANDHELD,
-      generator: 'Ekza Animator 0.3.0',
+      generator: 'Ekza Studio 0.3.0',
     });
     expect(artifact.lints).toEqual([]);
     expect(artifact.readBack?.ok).toBe(true);

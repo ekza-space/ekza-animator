@@ -68,7 +68,7 @@ test('NFR-13: a lost WebGL context is reported and the canvas recovers', async (
   await expect(page.locator('[data-testid="toast"][data-kind="warning"]')).toContainText('graphics context was lost');
   await lose('restoreContext');
   await expect(page.getByTestId('helpline')).not.toContainText('Graphics context lost');
-  expect(await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.webgl.ok)).toBe(true);
+  expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.webgl.ok)).toBe(true);
   const before = await renderedFrames(page);
   await page.evaluate(() => (window as DevShellWindow).__EKZA_DEV_SHELL__?.app.requestFrame());
   await expect.poll(() => renderedFrames(page)).toBeGreaterThan(before);

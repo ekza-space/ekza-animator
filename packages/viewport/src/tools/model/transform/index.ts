@@ -66,7 +66,7 @@ export function attachModelTransform(app: EditorApp, vm: ViewportManager): Dispo
         },
         (error: unknown) => {
           loading = false;
-          console.error('Ekza Animator: the Model transform runtime could not load', error);
+          console.error('Ekza Studio: the Model transform runtime could not load', error);
         },
       );
   };

@@ -91,7 +91,7 @@ test('first run: the choices are saved and the Getting started card states the r
     return { nav: state['navProfile'], space: state['spaceBehaviour'], done: state['firstRunDone'] };
   });
   expect(prefs).toEqual({ nav: 'maya', space: 'maya', done: true });
-  expect(await page.evaluate(() => window.__EKZA_ANIMATOR_TEST__?.state().dialog)).toBeNull();
+  expect(await page.evaluate(() => window.__EKZA_STUDIO_TEST__?.state().dialog)).toBeNull();
 });
 
 test('hotkeys follow the physical key and the panel under the pointer (E2E-20, shell part)', async ({ page }) => {
@@ -273,7 +273,7 @@ test('menus open dialogs; About credits the samples and links the third-party no
 test('the test API reads the fake document', async ({ page }) => {
   await openShell(page);
   const read = await page.evaluate(() => {
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     if (api === undefined) return null;
     const curves = api.curves('wave', 'fk.lowerArm.L');
     return {

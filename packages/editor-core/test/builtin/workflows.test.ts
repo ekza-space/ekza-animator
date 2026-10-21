@@ -178,7 +178,7 @@ describe('provenance', () => {
     expect(isRestrictedLicense(license({ modification: 'allowModification', allowRedistribution: true }))).toBe(false);
   });
 
-  it('reads the provenance the Animator wrote into a VRMA', () => {
+  it('reads the provenance the editor wrote into a VRMA', () => {
     const meta = {
       schema: 1,
       clips: [

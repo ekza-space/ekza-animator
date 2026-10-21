@@ -62,7 +62,7 @@ export function attachModelSelect(app: EditorApp, vm: ViewportManager): Disposer
         },
         (error: unknown) => {
           loading = false;
-          console.error('Ekza Animator: the Model select runtime could not load', error);
+          console.error('Ekza Studio: the Model select runtime could not load', error);
         },
       );
   };

@@ -1,4 +1,4 @@
-// The e2e test API (MVP-SPEC §4.8), installed on `window.__EKZA_ANIMATOR_TEST__` in e2e builds opened with
+// The e2e test API (MVP-SPEC §4.8), installed on `window.__EKZA_STUDIO_TEST__` in e2e builds opened with
 // `?e2e=1`. Reads go through the store, session and evaluation service. The panel-owned slices (viewport panes and
 // cameras, Graph Editor and time-slider positions) come from the probes the panels' packages provide; without a
 // viewport probe the ViewportManager's public API answers. Functions that take a `control` accept a ControlId or a
@@ -44,10 +44,10 @@ import { modelSelectUiTestApi } from './m6a/model-select-ui';
 import { modelTransformToolsTestApi } from './m6a/model-transform-tools';
 import { shellWorkspacesTestApi } from './m6a/shell-workspaces';
 import type { M6aTestApiContext } from './m6a/support';
-import type { EkzaAnimatorTestApi } from './types';
+import type { EkzaStudioTestApi } from './types';
 
 export interface TestApiHandle {
-  readonly api: EkzaAnimatorTestApi;
+  readonly api: EkzaStudioTestApi;
   dispose(): void;
 }
 
@@ -110,7 +110,7 @@ export function oneSidedSlope(c: CompiledAnimCurve, frame: number, side: 'left' 
   return 0;
 }
 
-function resultOf(result: OperatorResult<unknown>): Awaited<ReturnType<EkzaAnimatorTestApi['run']>> {
+function resultOf(result: OperatorResult<unknown>): Awaited<ReturnType<EkzaStudioTestApi['run']>> {
   switch (result.status) {
     case 'finished':
       return { status: 'finished', value: result.value };
@@ -266,7 +266,7 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
   };
 
   const m6a: M6aTestApiContext = { shell, sync };
-  const api: EkzaAnimatorTestApi = {
+  const api: EkzaStudioTestApi = {
     ...shellWorkspacesTestApi(m6a),
     ...meshRuntimeDocTestApi(m6a),
     ...modelSelectUiTestApi(m6a),
@@ -670,4 +670,4 @@ const SYNCED_PROBE_READS = [
   'screenOfRegionHandle',
   'screenOfTween',
   'tweenTarget',
-] as const satisfies readonly (keyof EkzaAnimatorTestApi)[];
+] as const satisfies readonly (keyof EkzaStudioTestApi)[];

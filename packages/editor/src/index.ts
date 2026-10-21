@@ -26,4 +26,4 @@ export {
   tweenProbeKey,
   type ViewportProbe,
 } from './shell/types';
-export type { EkzaAnimatorTestApi } from './test-api/types';
+export type { EkzaStudioTestApi } from './test-api/types';

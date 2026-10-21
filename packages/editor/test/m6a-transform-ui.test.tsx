@@ -82,8 +82,8 @@ async function mount(): Promise<{ app: FakeEditorApp; shell: Shell }> {
     />,
   );
   await waitFor(() => app !== null && shell !== null && query('editor-shell') !== null);
-  await waitFor(() => window.__EKZA_ANIMATOR_TEST__ !== undefined);
-  await window.__EKZA_ANIMATOR_TEST__?.ready;
+  await waitFor(() => window.__EKZA_STUDIO_TEST__ !== undefined);
+  await window.__EKZA_STUDIO_TEST__?.ready;
   if (app === null || shell === null) throw new Error('the editor did not start');
   await waitFor(() => (app as FakeEditorApp).session.getState().workspace === 'model');
   return { app, shell };
@@ -329,7 +329,7 @@ describe('the B12a test API group (§4.8)', () => {
       primitive('plane', { width: 4, height: 4, subdivisionsWidth: 4, subdivisionsHeight: 4 }),
     );
     await waitFor(() => app.meshes.get(plane)?.state === 'ready');
-    const api = window.__EKZA_ANIMATOR_TEST__;
+    const api = window.__EKZA_STUDIO_TEST__;
     expect(api?.symmetry(plane)).toEqual({
       mode: 'off',
       tolerance: 0.001,

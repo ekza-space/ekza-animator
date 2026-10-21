@@ -7,10 +7,10 @@
 //   a mesh that is not hilited.
 import type { MeshId } from '@ekza-studio/doc';
 import { attachMeshes, softWeightsOf, symmetryOf } from '@ekza-studio/editor-core';
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
-export type ModelTransformToolsTestApi = Pick<EkzaAnimatorTestApi, 'symmetry' | 'softWeights'>;
+export type ModelTransformToolsTestApi = Pick<EkzaStudioTestApi, 'symmetry' | 'softWeights'>;
 
 export function modelTransformToolsTestApi(ctx: M6aTestApiContext): ModelTransformToolsTestApi {
   const { app } = ctx.shell;

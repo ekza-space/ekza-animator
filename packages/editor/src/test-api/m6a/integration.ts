@@ -3,11 +3,11 @@
 // additive, M6A-INT-17).
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { CharacterId } from '@ekza-studio/doc';
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
 export type IntegrationTestApi = Pick<
-  EkzaAnimatorTestApi,
+  EkzaStudioTestApi,
   'setExpression' | 'pixels' | 'displayNodeWorld' | 'displayModel'
 >;
 

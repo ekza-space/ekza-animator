@@ -8,7 +8,7 @@ import type { SnapshotTables } from '../store';
  * `CORE_MIGRATIONS[1]`.
  */
 export const SCHEMA_VERSION = 3;
-/** Snapshot `format` marker. */
+/** Snapshot `format` marker: an on-disk identifier, kept unchanged by the Ekza Studio rename (DECISIONS-OPEN NAME-1). */
 export const SNAPSHOT_FORMAT = 'ekza-animator-doc';
 
 type Rows = Readonly<Record<string, unknown>>;

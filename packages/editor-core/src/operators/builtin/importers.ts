@@ -21,7 +21,7 @@ export const BUILTIN_IMPORTERS: readonly ImporterDef[] = [
     sniff: (_name, bytes) => isAnimationOnlyGlb(bytes),
   },
   { id: 'vrma', label: 'VRM animation', extensions: ['vrma'], op: 'file.importAnimation' },
-  { id: 'ekzanim', label: 'Ekza Animator project', extensions: ['ekzanim', 'ekzanim.json'], op: 'file.openProject' },
+  { id: 'ekzanim', label: 'Ekza Studio project', extensions: ['ekzanim', 'ekzanim.json'], op: 'file.openProject' },
 ];
 
 function matches(name: string, extension: string): boolean {

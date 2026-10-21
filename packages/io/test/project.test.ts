@@ -79,7 +79,7 @@ describe('.ekzanim container', () => {
       format: PROJECT_FORMAT,
       schemaVersion: SCHEMA_VERSION,
       minWriterVersion: 1,
-      app: { name: 'Ekza Animator', version: '0.1.0' },
+      app: { name: 'Ekza Studio', version: '0.1.0' },
       assets: [
         {
           sha256: asset.id,
@@ -97,6 +97,19 @@ describe('.ekzanim container', () => {
     expect(opened.kind).toBe('zip');
     expect(opened.projectText).toBe(projectText);
     expect(opened.assets).toHaveLength(1);
+    expect(opened.assets[0]?.bytes).toEqual(asset.bytes);
+  });
+
+  it('opens a project written before the rename (manifest app "Ekza Animator")', async () => {
+    const files = unzipSync(zipProject(projectText, waveDoc(), assets, { version: '0.2.0' }));
+    const manifest = JSON.parse(new TextDecoder().decode(files['manifest.json'])) as Record<string, unknown>;
+    expect(manifest['app']).toEqual({ name: 'Ekza Studio', version: '0.2.0' });
+    const legacy = { ...manifest, app: { name: 'Ekza Animator', version: '0.2.0' } };
+    const zip = zipSync({ ...files, 'manifest.json': new TextEncoder().encode(JSON.stringify(legacy)) });
+    const opened = await openProject(zip);
+    expect(opened.kind).toBe('zip');
+    expect(opened.manifest?.app).toEqual({ name: 'Ekza Animator', version: '0.2.0' });
+    expect(opened.projectText).toBe(projectText);
     expect(opened.assets[0]?.bytes).toEqual(asset.bytes);
   });
 

@@ -2,10 +2,10 @@
 // `session.lastRun` (with the run's warnings); `lastOpCard` reads the card drawn in a pane (its fields' display texts
 // and values, which field has the focus); `helpLine` the help line's current text (B9 renders it).
 import { formatParamValue, historyLabels, lastRunWarnings, visibleParams } from '@ekza-studio/editor-core';
-import type { EkzaAnimatorTestApi } from '../types';
+import type { EkzaStudioTestApi } from '../types';
 import type { M6aTestApiContext } from './support';
 
-export type ModelOpsUiTestApi = Pick<EkzaAnimatorTestApi, 'lastOp' | 'helpLine' | 'lastOpCard' | 'history'>;
+export type ModelOpsUiTestApi = Pick<EkzaStudioTestApi, 'lastOp' | 'helpLine' | 'lastOpCard' | 'history'>;
 
 interface CardField {
   name: string;

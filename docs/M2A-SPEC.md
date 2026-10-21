@@ -711,7 +711,7 @@ Test API additions (`packages/editor/src/test-api/types.ts`; A0 writes the types
 probes):
 
 ```ts
-export interface EkzaAnimatorTestApi {
+export interface EkzaStudioTestApi {
   …M1…
   state(): { …M1…; keyTarget: string; ripple: boolean; dirty: boolean; recovery: string[] };   // changed (additive)
   curves(clip: string, control?: string): { …M1…; keys: { …M1…; breakdown: boolean }[] }[];   // changed (additive)
