@@ -75,8 +75,8 @@ export function moveJoints(
       if (partner !== undefined && !selected.includes(partner.id)) assign(partner.id, mirrored, false);
     }
   }
-  // A centre joint on x = 0 moved (W, E) with symmetry moves its subtree symmetrically: no x translation, the pivot on x = 0
-  // and only the rotation's mirror-invariant part (the twist about X), so both sides of the subtree stay mirrors.
+  // A centre joint on x = 0 moved (W, E) with symmetry moves its subtree symmetrically (M6B-C2-32): no x translation,
+  // the pivot on x = 0 and only the rotation's mirror-invariant part (the twist about X), so both sides stay mirrors.
   const centre: Delta = symmetricDelta(base);
   for (const id of selected) {
     const joint = index.get(id) as JointRecord;

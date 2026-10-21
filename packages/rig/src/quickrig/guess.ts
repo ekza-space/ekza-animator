@@ -43,7 +43,7 @@ export const GUESS = Object.freeze({
   aPoseAngle: (15 * Math.PI) / 180,
   hingeBias: 0.15,
   /** The hinge bias never tilts a T-posed segment (shin: knee → ankle; arm: shoulder → elbow → wrist) past this
-   *  angle, inside `skel.tpose`'s 5° (M6B-C2-20: Polybot's thick knee biased forward by 0.15 of its slab tilted the
+   *  angle, inside `skel.tpose`'s 5° (M6B-C2-28: Polybot's thick knee biased forward by 0.15 of its slab tilted the
    *  shin 5.3°). */
   maxBiasTilt: (4 * Math.PI) / 180,
 });

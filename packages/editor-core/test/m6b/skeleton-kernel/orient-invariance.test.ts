@@ -4,7 +4,7 @@
 // (`skel.template.create`), every Orient preset with children on, applied one after the other, leaves every skinned
 // point at every ROM frame within 1e-9 m and every `humanLocal` within 1e-9. In the editor, Orient Joint (Maya) on a
 // keyed bone-aligned chain converts its keys so the bones' skinning matrices (world rotation over the rest, and
-// position) at the key times stay within 1e-9 (the conjugate rule, M6B-C2-21).
+// position) at the key times stay within 1e-9 (the conjugate rule, M6B-C2-29).
 import {
   type Mat4,
   mat4Compose,

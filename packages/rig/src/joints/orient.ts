@@ -163,7 +163,7 @@ export function orientJoints(joints: readonly JointRecord[], args: OrientJointAr
  * angles nearest `reference` (the previous converted key; the shipped nearest-Euler rule). Δ = q_old⁻¹·q_new (the
  * rests' delta). A bone-aligned control rotates its bone by D = q·R(r)·q⁻¹ in the world (the skinning delta), so the
  * conjugate keeps q_new·R(r′)·q_new⁻¹ = q_old·R(r)·q_old⁻¹ and the deformation at every key, down a re-oriented
- * chain too (M6B-C2-21: the §5.5 text's Δ⁻¹·R(r) keeps the bone frame of a lone joint but turns the skin by
+ * chain too (M6B-C2-29: the §5.5 text's Δ⁻¹·R(r) keeps the bone frame of a lone joint but turns the skin by
  * q_old·q_new⁻¹).
  */
 export function convertBoneAlignedRotation(

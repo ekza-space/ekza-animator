@@ -104,7 +104,7 @@ export function quickRigFit(
     ground: geometry.ground,
     flexion: input.flexion,
   });
-  // A re-run whose markers are still the seeding (nothing moved) keeps the skeleton as it is (M6B-C2-23): refitting
+  // A re-run whose markers are still the seeding (nothing moved) keeps the skeleton as it is (M6B-C2-31): refitting
   // the seeded markers would move the fingers (they follow the bent forearm) and re-apply the minimum bend.
   const target = rigTarget(view, input.meshes);
   const skeleton = typeof target !== 'string' && target.kind === 'character' ? target.skeleton : null;
@@ -405,7 +405,7 @@ const commit = defineOperator<'skel.quickRig.commit', CommitPrepared>({
           );
         }
         const bound = view.query.meshesBoundTo(target.skeleton);
-        // §0.4.2: a bound character always asks first (even when the refit keeps every joint, M6B-C2-23).
+        // §0.4.2: a bound character always asks first (even when the refit keeps every joint, M6B-C2-31).
         if (bound.length > 0 && (args as unknown as Record<string, unknown>)['confirm'] !== true) {
           throw new EkzaError('confirm-required', REBIND_CONFIRM);
         }

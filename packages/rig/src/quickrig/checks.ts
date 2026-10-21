@@ -13,7 +13,7 @@ export interface QuickRigStartChecks {
   readonly grounded: boolean;
   /** The toes' front extent lies in front of the ankles: the mean z of the side-view inside samples of the lowest
    *  0.05 H band is greater than the slab midpoint (the z extent's midpoint) of the band's top row. A model turned
-   *  sideways (its z extent larger than its x extent, M6B-C2-22) never faces +Z. */
+   *  sideways (its z extent larger than its x extent, M6B-C2-30) never faces +Z. */
   readonly facing: boolean;
 }
 
@@ -43,7 +43,7 @@ const sideways = (lo: readonly number[], hi: readonly number[]): boolean =>
 
 /**
  * The turn about Y (radians) that makes the model face +Z, for `skel.quickRig.faceForward`: 0 when it faces +Z, π
- * when it faces −Z, −π/2 when its toes point +X and π/2 when they point −X (M6B-C2-22: a sideways model could not be
+ * when it faces −Z, −π/2 when its toes point +X and π/2 when they point −X (M6B-C2-30: a sideways model could not be
  * fixed by the 180° turn alone). 0 for a flat or empty model.
  */
 export function quickRigFacingTurn(bounds: readonly [readonly number[], readonly number[]], bvh: TriangleBvh): number {

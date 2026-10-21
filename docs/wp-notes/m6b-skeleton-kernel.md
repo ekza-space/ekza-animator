@@ -18,8 +18,18 @@ subset), §5.21 (`skel.*`, `xform.*`). Decision IDs below are `M6B-C2-<n>`. READ
 | Operators | `editor-core/src/operators/builtin/rig/skeleton.ts`: `skel.template.create`, `skel.template.addMissing`, `skel.joint.move`, `.rotateRest`, `.setRest`, `.orient`, `.mirror`, `.setHumanBone`, `.rename`, `.flex`, `skel.symmetry.set`, `select.joints` (+ the shared helpers below); `quickRig.ts`: `skel.quickRig.commit`, `skel.quickRig.center`, `skel.quickRig.faceForward` |
 | Helpers for C3 | `quickRig.ts`: `quickRigFit(app, view, {preset, markers, meshes, flexion})` (the live preview: Create Skeleton calls the same function with the same inputs), `quickRigStartInfo(app, view, meshes)` (checks, guess or re-run seeding, the failed-guess reason), `markersArg`, `CHECK_REASONS`, `REBIND_CONFIRM`, `previewKeys`; `skeleton.ts`: `rigTarget`, `rigGeometry` (one cached world-space `TriangleBvh` per mesh set and revision), `updateControlRig`, `writeJointEdit`, `upsertRecord` |
 | Test API (C2 group) | `editor/src/test-api/m6b/skeleton-kernel.ts`: `quickRigGuess(meshes)`, `quickRigFit(args)`, `skeletonChecks(character)`, `templateJoints(preset, height)` |
-| Tests | `rig/test/m6b-skeleton/{bvh,templates,quickrig,joints,validate}.test.ts` (+ `support.ts`: the three fixtures from their GLBs and truth files); `editor-core/test/m6b/skeleton-kernel/{quick-rig,joint-ops,gated}.test.ts`; `editor/test/m6b-skeleton-kernel-test-api.test.ts` |
+| Tests | `rig/test/m6b-skeleton/{bvh,templates,quickrig,joints,validate}.test.ts` (+ `support.ts`: the three fixtures from their GLBs and truth files); `editor-core/test/m6b/skeleton-kernel/{quick-rig,joint-ops,orient-invariance,gated}.test.ts`; `editor/test/m6b-skeleton-kernel-test-api.test.ts` |
 | Benches (report only) | `rig/bench/m6b-skeleton.bench.ts`, `mesh-core/bench/m6b-query.bench.ts` |
+
+**P-J2 coverage** (`editor-core/test/m6b/skeleton-kernel/orient-invariance.test.ts`): through the shipped path
+(records → `skeletonFromDoc` → `autoRig` → `compileRig` → `evaluate`), Maya, Blender and World with children on, applied
+one after the other from `hips`, keep every skinned point over ten ROM frames (every humanoid control rotated on three
+axes, the translatable ones moved) and every `humanLocal` within 1e-9 of the original, on **Seed-san as records** (its
+joints copied from `skeletonFromGltf` into JointRecords at their world rests — non-identity rotations and secondary
+chains included; no C1 code needed) and on the **generated body's CR-2 pre-fit** (`skel.template.create`; the points
+of both generator styles, each weighted to its two nearest joints). The editor path adds a keyed three-joint hair chain
+under the head (secondary `sec.*` controls, `S`-key layout at three times), runs `skel.joint.orient` (Maya) and checks
+the hair bones' skinning matrices at every key time within 1e-9, the keys converted, and one undo restoring them.
 
 ## Calibration spike (§0.4.2: Cube Lad, generated body, T-posed Polybot)
 
@@ -72,8 +82,37 @@ Thresholds stay in `FIT`, `GUESS` and `START_CHECKS` (`rig/src/quickrig`), one p
 | M6B-C2-23 | **Joint records are written with `upsertRecord`**: new ids are put; existing ones (restored when soft-deleted) are patched with their changed fields only (stores with `strictPut` refuse a put over an existing record). | Small undo entries; works on the strict test stores. |
 | M6B-C2-24 | **`select.joints`** writes `selection.joints` (replace / toggle / add / remove, `all` = the active skeleton) without a selection history part. | §5.6 selection undo in Rig & Skin is C3's/C7's UI work. |
 | M6B-C2-25 | **CR-2 pre-fit** (`skel.template.create` on a mesh whose `generator` is `humanoidBody` with live parameters): the generator's joints through the source's world placement replace the table; tails and fingers follow the fit rules; `proportions: 'auto'` resolves through the One-Click chin (< 0.72 H → bigHead). | §5.2 "Fitting at creation". |
-| M6B-C2-26 | **Start-check fixes** move only meshes not parented under another target; Center and Ground translates by (−centre x, −min y, 0), Rotate to Face +Z by `T(c)·R_y(π)·T(−c)` around the bounds' x/z centre; both refuse character meshes ("Works on scene meshes, before Create Skeleton"). | §0.4.2: placements, one step each. |
+| M6B-C2-26 | **Start-check fixes** move only meshes not parented under another target; Center and Ground translates by (−centre x, −min y, 0), Rotate to Face +Z by `T(c)·R_y(θ)·T(−c)` around the bounds' x/z centre with θ = π, or ±π/2 for a model facing ±X (M6B-C2-30); both refuse character meshes ("Works on scene meshes, before Create Skeleton"). | §0.4.2: placements, one step each. |
 | M6B-C2-27 | **mesh-core values in editor-core go through the kernel loader** (`requireKernel()` = `meshKernel()` after `loadMeshKernel()` in `prepare`): `TriangleBvh`, `humanoidBodyRig`, `readSkin`, `bindSkin`, `skinGeometryOf`, `withSkin`. | ARCHITECTURE §3: the kernel is a lazy chunk. |
+| M6B-C2-28 | **The guess's hinge bias is tilt-bounded**: the knee's forward bias never tilts the shin (knee → ankle) past 4° (`GUESS.maxBiasTilt`), and on a T-posed arm (`aPose` false) the elbow's backward bias never tilts the upper arm or the forearm past 4°. The knee and elbow keep their slab-midpoint depth otherwise. | Fix round 1: on T-posed Polybot the knee biased forward by 0.15 of its thick slab tilted the shin 5.34°, so guess → fit → `checkSkeleton` raised `skel.tpose` (an error for the Ekza profile) and E2E-SKIN-01's "no error row" could not hold. 4° leaves room under the lint's 5° for the minimum bend (≈ θ·a/(a+b) ≈ 1° of shin tilt). Tested: guess → fit → `checkSkeleton` has no rows on the Cube Lad, both generated bodies and T-posed Polybot for all four presets. |
+| M6B-C2-29 | **Orient key conversion is the conjugate `R(r′) = Δ⁻¹·R(r)·Δ`** (Δ = q_old⁻¹·q_new), not §5.5 step 6's `Δ⁻¹·R(r)`. | A bone-aligned control turns its bone by `D = q·R(r)·q⁻¹` over the rest (the program's `rotate` binding: bone world rotation = control world rotation, the control's rest = the bone's rest). The conjugate keeps D, so the skin (`W·B⁻¹`) and the joint positions down a re-oriented chain stay exact; `Δ⁻¹·R(r)` keeps the bone frame of a lone joint but turns its skin by `q_old·q_new⁻¹` and breaks children. P-J2's editor test (a keyed hair chain, Maya) failed by 1.6 with the text's rule and holds within 1e-9 with the conjugate. |
+| M6B-C2-30 | **Sideways models**: a model whose z extent exceeds its x extent faces ±X (a humanoid's front silhouette — arms, shoulders — is wider than its depth): `facing` is false and `quickRigFacingTurn` (rig) gives the fix's turn by the same toe-band test along x: toes toward +X → −π/2, toward −X → +π/2; −Z → π; else 0. | The 180° fix could never clear a model turned 90° about Y, so Create Skeleton stayed disabled with no way forward. The turn is about the bounds' centre, so Center and Ground may be needed after it (the feet's depth offset); the editor test runs both. |
+| M6B-C2-31 | **A no-op re-run keeps the skeleton**: when the markers are bit-equal to the seeding of the existing skeleton (`quickRigStartInfo`'s markers, nothing moved), `quickRigFit` (preview and commit) returns the live joints' positions and tails for every template key instead of refitting, so Create Skeleton writes no joint change. A bound character still gets the `rebindSkin` confirm (§0.4.2 says commit "first shows" it whenever a mesh is bound; E2E-QR-02 relies on it), and a confirmed no-op rebinds as before. | Refitting the seeded markers moved the fingers by up to 3 mm (they follow the bent forearm) and bent hinges by ≈ 1e-5 m. INT may decide to skip the confirm and the rebind when the refit changes nothing (one line in `skel.quickRig.commit`'s `prepare`). |
+| M6B-C2-32 | **Symmetric moves of centre joints**: with symmetry on, `W`/`E` (subtree) on a centre joint on x = 0 moves its subtree by the delta's mirror-invariant part — no x translation, the pivot on x = 0, the rotation's twist about X only (a lean about Y or Z does nothing). Joint-only moves keep the x = 0 clamp; joint-only rotations re-orient freely. | §5.7 "centre joints stay on x = 0 and partners move with mirrored deltas": moving the chest by translateX 0.05 used to clamp the chest but move all 20 descendants +x, leaving the skeleton asymmetric. |
+
+## Contract deltas for INT (§0.4.2, §5.5, §5.7, §5.8, §5.21, §10.2)
+
+§0.4.2 says a change to its constants is a contract PR to that paragraph; C2 does not edit the spec (INT owns it).
+These are the deltas between the binding text and the code, for INT to fold into the spec before C3's and C4's tests
+rely on them. Each row names the paragraph, the text now, and the text the code implements.
+
+| Decision | Paragraph | Spec text now | Proposed text (what the code does) |
+|---|---|---|---|
+| M6B-C2-1 | §0.4.2 fit | `rightUpperLeg.x = knee.x` | `rightUpperLeg.x = −0.6 ×` the half-width of the central run of the front silhouette at the upper leg's height (`knee.x` without one) |
+| M6B-C2-2 | §0.4.2 guess | wrist pulled back by 0.25 × 0.08 H | pulled back by 1.0 × 0.08 H |
+| M6B-C2-3 | §0.4.2 fit (§5.2 table unchanged) | thumb metacarpal 0.20 h forward | 0.30 h forward in Quick Rig's fit |
+| M6B-C2-4, -5 | §5.8 step 2 | shoulder row = highest row wider than the torso by 0.05 H; arm root from the groin band | the band of such rows around the widest row above the groin, its top the shoulder row; arm root = the torso edge under the band |
+| M6B-C2-6 | §0.4.2 guess | knee midway between groin and 0.05 H | the leg's sharpest width step (≥ 3 columns) between 0.25 and 0.85 of ankle → groin, else 0.57 of the way |
+| M6B-C2-7 | §0.4.2 guess | every marker's z = slab midpoint at the marker | the ankle's z = the shin's slab midpoint 0.05 H above it |
+| M6B-C2-8 | §5.8 step 2 | groin = highest split row | the split continues through empty rows (segmented shells) |
+| M6B-C2-11 | §0.4.2 start checks | toes' mean z vs "the band's slab midpoint" | vs the midpoint of the z extent of the band's top row (the ankles) |
+| M6B-C2-12 | §0.4.2 minimum bend | `δ ≥ δmin` keeps the joint | `δ ≥ 0.999·δmin` keeps it bit-equal (re-application stability) |
+| M6B-C2-13 | §5.21 `skel.tpose` | every bone direction within 5° | arms, hand tails and shins within 5°; thighs may splay |
+| M6B-C2-28 | §0.4.2 guess | the knee forward / elbow back by the hinge bias (0.15 of the slab) | the same, never tilting the shin or a T-posed arm segment past 4° |
+| M6B-C2-29 | §5.5 step 6; §10.2 P-J2 row | `R(r′) = Δ⁻¹·R(r)`; "world rotations equal at key times" | `R(r′) = Δ⁻¹·R(r)·Δ`; "skinning matrices (world rotation over the rest, and position) equal at key times" |
+| M6B-C2-30 | §0.4.2 start checks and fixes | facing = the toe test; Rotate to Face +Z turns 180° | a model deeper than wide is sideways (facing false); the fix turns 180° or ±90° by the toe test along x; Center and Ground may follow |
+| M6B-C2-31 | §0.4.2 Re-run | commit refits the seeded markers | markers equal to the seeding keep the joints (the confirm on a bound character stays) |
+| M6B-C2-32 | §5.7 symmetry | centre joints stay on x = 0 | and a centre joint's subtree moves by the delta's mirror-invariant part (no x, twist about X) |
 
 ## Shared files and owner edits outside the C2 dirs
 
@@ -130,8 +169,6 @@ agents' runs):
 
 ## Not done / left to others
 
-- P-J2 runs on the Standard 33 template skeleton with a world-delta pose (skinning matrices within 1e-9) and the
-  key-conversion identity; Seed-san-as-records needs C1's `skeletonFromDoc` over an asset and is not in this suite.
 - The P-C6 rows of `skel.template.create`, `skel.quickRig.commit`, `.center`, `.faceForward` stay `pending` in the
   table (no mesh kernel in `opsApp`); their keys hash is asserted in `skeleton-kernel/quick-rig.test.ts`.
 - `skel.joint.rename` is built (the optional §0.3 item).
