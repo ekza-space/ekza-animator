@@ -18,7 +18,8 @@ function rigSource(app: EditorApp): {
         notify();
       };
       const offs: Disposer[] = [
-        app.store.subscribe(bump),
+        // Preview batches (a drag in progress) do not change what the panels show until they commit.
+        app.store.subscribe((batch) => batch.origin !== 'preview' && bump()),
         app.meshes.subscribe((_id, event) => event.type !== 'changed' && bump()),
       ];
       let services: Disposer[] = [];
