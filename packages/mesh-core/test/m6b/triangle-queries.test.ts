@@ -110,7 +110,8 @@ function oracleHits(positions: Float64Array, tris: Uint32Array, o: V, d: V): { t
   return out.sort((x, y) => x.t - y.t || x.tri - y.tri);
 }
 
-const coord = fc.double({ min: -1, max: 1, noNaN: true, noDefaultInfinity: true });
+/** Millimetre-grid coordinates in [−1, 1]: no subnormals, so the oracle's absolute tolerances are meaningful. */
+const coord = fc.integer({ min: -1000, max: 1000 }).map((n) => n / 1000);
 const vec = fc.tuple(coord, coord, coord);
 
 describe('TriangleBvh (reference) against a naive oracle (properties)', () => {
@@ -126,11 +127,23 @@ describe('TriangleBvh (reference) against a naive oracle (properties)', () => {
         const bvh = new TriangleBvh(positions, tris);
         const hits = bvh.raycastAll(o, d);
         const oracle = oracleHits(positions, tris, o, d);
-        // Every reference hit is an oracle hit (same triangle, t within 1e-9 relative).
-        for (const hit of hits) {
+        // Every reference hit on a well-conditioned triangle (area and incidence away from 0) is an oracle hit (the
+        // oracle's edges are 1e-9 wider): same triangle, t within 1e-6.
+        const wellConditioned = (tri: number): boolean => {
+          const at = (k: number): V => {
+            const i = 3 * (tris[3 * tri + k] as number);
+            return [positions[i] as number, positions[i + 1] as number, positions[i + 2] as number];
+          };
+          const n = cross(sub(at(1), at(0)), sub(at(2), at(0)));
+          const length = Math.hypot(...n);
+          return length > 1e-6 && Math.abs(dot(n, d)) > 1e-3 * length * Math.hypot(...d);
+        };
+        const unmatched = hits.filter((hit) => {
+          if (!wellConditioned(hit.tri)) return false;
           const match = oracle.find((x) => x.tri === hit.tri);
-          if (match !== undefined) expect(Math.abs(match.t - hit.t)).toBeLessThanOrEqual(1e-6 * Math.max(1, hit.t));
-        }
+          return match === undefined || Math.abs(match.t - hit.t) > 1e-6 * Math.max(1, hit.t);
+        });
+        expect(unmatched).toEqual([]);
         for (let i = 1; i < hits.length; i++) {
           const prev = hits[i - 1] as { t: number; tri: number };
           const next = hits[i] as { t: number; tri: number };
