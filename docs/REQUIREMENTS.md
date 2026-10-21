@@ -1,4 +1,4 @@
-# Ekza Animator — Requirements
+# Ekza Studio — Requirements
 
 Status: v0.4 (2026-10-19: FR-MOD rewritten for the modeling iteration M6a–M8 with [M6A-SPEC](M6A-SPEC.md); FR-SHELL-08,
 -09, -11 moved to M6a; v0.3 2026-10-18, M2a integrated: the shipped M2a items are marked ✓). Functional requirements are numbered `FR-<AREA>-NN`, non-functional `NFR-NN`.
@@ -276,7 +276,7 @@ Acceptance criteria are the minimum test; MVP items are also covered by the user
 | FR-EKZA-05 | "Preview as Ekza Space" panel: first an emulation of Space's rules; the real renderer after the upstream changes (decoder injection, npm publication, peer `<0.187`). | V1 | M2c | Emulated height and clip selection match Space for Seed-san. |
 | FR-EKZA-06 | Upload as typed asset `ekza:animation:<uuid>` (`universal / vrma-humanoid-v1`). | V2 | M4a | Registry accepts the VRMA. |
 | FR-EKZA-07 | One-click "Publish to Ekza" with device-code login. | V2 | M4a | New `studio-upload` scope. |
-| FR-EKZA-08 | Studio integration contract: deep link with hash verification and the versioned `ekza-animator-embed/v1` iframe protocol (`open`, `ready`, `exported`, `error`). | V2 | M4a | Contract test with a mock host page. |
+| FR-EKZA-08 | Hub integration contract: deep link with hash verification and the versioned `ekza-studio-embed/v1` iframe protocol (`open`, `ready`, `exported`, `error`). | V2 | M4a | Contract test with a mock host page. |
 
 ### FR-COL — Collaboration
 

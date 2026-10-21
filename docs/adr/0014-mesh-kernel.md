@@ -92,7 +92,7 @@ manifold-only; Blender and Blockbench are GPL.
     the first pick or idle). A GPU ID buffer (`readRenderTargetPixelsAsync`) only if measurements demand it.
 15. **Threading**: operations run on the main thread up to 50k triangles; decimation, unwrap, auto-skin and large
     imports run in workers with transferable typed arrays. No `SharedArrayBuffer` (cross-origin isolation would break
-    the Ekza Studio iframe embed, ADR 0010).
+    the Ekza Hub iframe embed, ADR 0010).
 16. **glTF bridge** (extends ADR 0005): "Make editable" is explicit per mesh (weld bit-equal positions with equal skin
     data **and equal `POSITION` deltas in every morph target**, recover hard edges from split normals, keep custom
     normals, import skin/morph/UV/colour layers, report). Export splits points by unique corner tuples per material,

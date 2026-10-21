@@ -1,6 +1,7 @@
-# Ekza Animator
+# Ekza Studio
 
-**An open-source, browser-based character animator for glTF and VRM, with a Maya-grade workflow.**
+**An open-source, browser-based 3D studio for glTF and VRM characters — modeling, rigging and animation with a
+Maya-grade workflow.** Formerly Ekza Animator (renamed 2026-10-19, [DECISIONS-OPEN §H](docs/DECISIONS-OPEN.md#h-naming-ekza-studio-and-ekza-hub-2026-10-19)).
 
 Load a rigged GLB or a VRM 0.x/1.0 avatar, get circle controls on its bones with IK legs, key poses, retime them in
 a Dope Sheet and on the time slider, tween breakdowns, shape the motion in a Graph Editor with Maya's tangent model,
@@ -29,7 +30,7 @@ preserved — or export VRMA and animation-only GLB. Part of the Ekza ecosystem;
 No open-source, web-native tool combines a professional Graph Editor (auto/spline/clamped/linear/flat/stepped
 tangents, break/unify, weighted handles), an on-model control rig, VRM/VRMA-first round trips that also write back
 into GLB, and a path to real-time multiplayer animation. The closest web neighbours are copyleft and cover one or
-two of these ([research 05](docs/research/05-landscape.md)). Ekza Animator is MIT-licensed and built so that
+two of these ([research 05](docs/research/05-landscape.md)). Ekza Studio is MIT-licensed and built so that
 collaboration, plugins and spline modeling can be added without rewriting the core.
 
 ## What M2a is for
@@ -119,8 +120,8 @@ Full numbered list: [docs/REQUIREMENTS.md](docs/REQUIREMENTS.md).
 Requirements: Node.js 24 LTS (Node 25 works with engine warnings), pnpm 10.32.1, Chrome for end-to-end tests.
 
 ```bash
-git clone <this repository> ekza-animator
-cd ekza-animator
+git clone <this repository> ekza-studio
+cd ekza-studio
 pnpm install
 pnpm dev            # http://localhost:3000/editor
 pnpm test           # unit + headless tests

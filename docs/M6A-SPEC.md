@@ -1,4 +1,4 @@
-# Ekza Animator — M6a build specification ("modeling base")
+# Ekza Studio — M6a build specification ("modeling base")
 
 Status: v1.1 (2026-10-19; v1.0 plus design-review round 1, recorded in §12.3), the binding build spec for milestone
 M6a, derived from

@@ -54,6 +54,6 @@ Tailwind to avoid `lightningcss` was rejected: MPL-2.0 on an unmodified build to
 
 ## Consequences
 
-- Ekza Studio and third parties can embed packages without obligations beyond attribution.
+- Ekza Hub and third parties can embed packages without obligations beyond attribution.
 - Reviewers reject PRs that paste code from copyleft neighbours; `CONTRIBUTING.md` states the clean-room rule.
 - Adding a dependency with a new licence is a visible, reviewed change to `license-exceptions.json`.

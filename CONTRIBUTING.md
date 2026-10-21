@@ -1,4 +1,4 @@
-# Contributing to Ekza Animator
+# Contributing to Ekza Studio
 
 Thanks for helping. This guide covers setup, how the repository is organized, how to add operators, panels and
 tools, and the legal rules every contribution follows. The design is in [ARCHITECTURE.md](ARCHITECTURE.md) and

@@ -23,4 +23,4 @@ Do not attach files you are not allowed to redistribute. -->
 
 - Browser and version:
 - OS and GPU:
-- Ekza Animator version or commit:
+- Ekza Studio version or commit:

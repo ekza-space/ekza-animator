@@ -17,7 +17,7 @@ within months (Meshy retired `meshy-5` on 2026-10-10 and retires its `lowpoly` m
 output ownership, training on inputs, retention and attribution duties. Providers state that keys must not be used
 from browser JavaScript. Open-weight models carry licence traps (Hunyuan3D territory and MAU clauses; TRELLIS.2's
 setup pulls NVIDIA rasterizer code under a non-commercial licence). The editor ships as a static export too
-(`ANIMATOR_STATIC_EXPORT=1`), where no server code runs, and its first-visit route sits under a 900,000 B gate.
+(`STUDIO_STATIC_EXPORT=1`), where no server code runs, and its first-visit route sits under a 900,000 B gate.
 Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the Ekza registry hashes
 `asset.extras.<name>_v1` blocks; EU AI Act Art. 50 transparency duties apply from 2026-08-02.
 
@@ -115,6 +115,6 @@ Generated meshes are dense, often non-manifold, mis-oriented and unrigged; the E
   intake operators and the app's first CSP are M7 work. Nothing generated is special downstream of import.
 - The feature costs the first-visit route nothing (lazy chunk; the meshoptimizer WASM loads on demand).
 - Prices and model names in research 15 are a 2026-10-18 snapshot; the M7 spec re-verifies them.
-- Upstream proposals (owner decision): a registry `prop` kind and AI-provenance fields with a Studio badge.
+- Upstream proposals (owner decision): a registry `prop` kind and AI-provenance fields with a Hub badge.
 - Legal context is shown, not decided: prompts alone may not make outputs copyrightable (US Copyright Office, Part 2,
   2025-01-29); the human edits made in the editor are what can carry authorship.

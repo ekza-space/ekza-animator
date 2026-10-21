@@ -1,4 +1,4 @@
-# Ekza Animator — MVP build specification (milestone M1)
+# Ekza Studio — MVP build specification (milestone M1)
 
 Status: v0.2 (2026-10-17, design review revision) with the **v0.3 integration** changes of 2026-10-18 marked
 inline. Audience: the integration agent (WP-0, WP-8, WP-10), seven
@@ -246,7 +246,7 @@ About dialog links it.
 ## 3. Repository layout and conventions
 
 ```
-ekza-animator/
+ekza-studio/
 ├── apps/web/                      Next.js 16 shell
 │   ├── app/                       layout.tsx, page.tsx (landing), editor/page.tsx + EditorIsland.tsx,
 │   │                              dev/panels/page.tsx (panel harness), e2e/vrma-check/page.tsx
@@ -3177,7 +3177,7 @@ Total ≈ 63 agent-days; critical path ≈ WP-0 (3) + A2/A7 (8–8.5) + WP-10 (5
      `apps/web/scripts/third-party-notices.mjs`.
   6. `apps/web`: `app/layout.tsx`, `app/page.tsx` (landing: name, one-line pitch, "Open editor", credits link),
      `app/editor/page.tsx` + `EditorIsland.tsx` (`'use client'`, `next/dynamic(…, {ssr:false})`),
-     `next.config.ts` (static-export switch `ANIMATOR_STATIC_EXPORT=1`, `transpilePackages` for all
+     `next.config.ts` (static-export switch `STUDIO_STATIC_EXPORT=1`, `transpilePackages` for all
      `@ekza-studio/*`, `images.unoptimized: true`), `app/globals.css` importing `@ekza-studio/ui/styles.css`
      (Tailwind `@source` per convention 11) and the Tailwind smoke test; a placeholder `Editor` in
      `packages/editor` mounting an R3F `<Canvas>` and a test API with `ready` and `webgl`.
@@ -3185,7 +3185,7 @@ Total ≈ 63 agent-days; critical path ≈ WP-0 (3) + A2/A7 (8–8.5) + WP-10 (5
   8. `.github/workflows/ci.yml` (Node 24, pnpm 10.32.1, cache; jobs: format:check, lint, typecheck, check:deps,
      check:fixtures, check:licenses, test, build, e2e on `chromium-swiftshader`, `dco`), PR template with a DCO
      checkbox, issue templates.
-  9. Repository docs: `LICENSE` (MIT, "Ekza Animator contributors"; scope note: Apache-2.0 island, fixtures under
+  9. Repository docs: `LICENSE` (MIT, "Ekza Studio contributors"; scope note: Apache-2.0 island, fixtures under
      their own licences), `CONTRIBUTING.md` (setup, package map, how to add an operator/panel/tool, dependency
      requests, DCO, clean-room rule), `CODE_OF_CONDUCT.md` (Contributor Covenant 2.1), `SECURITY.md` (private
      disclosure; untrusted file parsing), `TRADEMARKS.md`.

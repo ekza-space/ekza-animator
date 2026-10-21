@@ -17,7 +17,7 @@ extensions, and later mergeable into a CRDT store.
 
    ```
    manifest.json          { "format": "ekza-animator-project", "schemaVersion": 1, "minWriterVersion": 1,
-                            "app": { "name": "Ekza Animator", "version": "0.1.0" },
+                            "app": { "name": "Ekza Studio", "version": "0.1.0" },
                             "assets": [{ "sha256": "...", "size": 123, "mime": "model/gltf-binary", "ext": "vrm", "path": "assets/<sha256>.vrm" }] }
    project.json           the document snapshot (below)
    assets/<sha256>.<ext>  source models, byte-identical to what the user opened

@@ -1,4 +1,4 @@
-# Ekza Animator — Architecture
+# Ekza Studio — Architecture
 
 Status: v0.2 (2026-10-17, design review revision), the design baseline for milestone M1 (MVP); amended 2026-10-19
 for the modeling base M6a (packages `mesh-core` and `mesh-view`, schema v3, selection undo in Model; ADRs 0014–0016,
@@ -476,8 +476,8 @@ named P0–P3 (R06), distinct from Ekza tiers T0–T3 and plugin trust levels.
   `asset.extras.ekza_animation_v1` metadata with per-clip contact, tags and provenance; export profiles as data;
   lints with registry-aligned codes; interop warnings; VRM-meta licence gate; MIME `model/gltf-binary`.
 - **Contract for later tiers**: typed kind `ekza:animation:<uuid>`, profile `universal / vrma-humanoid-v1`, slot
-  vocabulary v1, registry/SDK/game changes listed in R03 §7.2–7.4; Studio deep link and the
-  `ekza-animator-embed/v1` iframe protocol (M4a).
+  vocabulary v1, registry/SDK/game changes listed in R03 §7.2–7.4; Hub deep link and the
+  `ekza-studio-embed/v1` iframe protocol (M4a).
 - **Copy-adapted MIT helpers** from `ekza-avatar-renderer` (commit `33c417c`), each with an attribution header
   (source repo, path, commit, MIT):
 

@@ -1,4 +1,4 @@
-# Ekza Animator — M2a build specification ("game-clip daily driver")
+# Ekza Studio — M2a build specification ("game-clip daily driver")
 
 Status: v0.3 (2026-10-18, integration revision: A0…A5 merged, and with the integration merged into `dev`; the packages' contract PRs ratified into this file and
 [DECISIONS-OPEN §F](DECISIONS-OPEN.md#f-m2a-build-deviations-2026-10-18), the acceptance rows E2E-M2A-23/24 amended

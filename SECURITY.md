@@ -13,7 +13,7 @@ Until `v1.0`, only the latest release and the `dev` branch receive security fixe
 
 ## Scope and threat model
 
-Ekza Animator runs entirely in the browser (or headless in Node for tests) and opens files that users drop into it.
+Ekza Studio runs entirely in the browser (or headless in Node for tests) and opens files that users drop into it.
 The main attack surface is **untrusted file parsing**:
 
 - GLB, VRM, VRMA and `.ekzanim` files are parsed by our own readers (`packages/io`) and by three.js loaders. Every

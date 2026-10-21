@@ -1,9 +1,9 @@
-# Ekza Animator — M-AI build specification ("agent bridge: MCP")
+# Ekza Studio — M-AI build specification ("agent bridge: MCP")
 
 Status: v0.2 (2026-10-19; v0.2 applies design review round 1, recorded in §11.3; binding from the start of package
 D0), the build spec for
 milestone **M-AI**: an AI agent (Claude Code, Claude Desktop or any other MCP client) reads and edits an Ekza
-Animator project, either **live** in the editor tab the user has open or **headless** on project files, through one
+Studio project, either **live** in the editor tab the user has open or **headless** on project files, through one
 curated, typed tool layer over the operator registry. M-AI pulls the MCP/agent half of FR-EXT-06 (ROADMAP M5)
 forward as its own milestone, at the owner's request ("connect MCP so an AI agent can help make animation and do
 tasks in the editor").

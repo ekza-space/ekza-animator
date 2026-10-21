@@ -1,4 +1,4 @@
-# Ekza Animator — M6b build specification ("Rig & Skin workspace")
+# Ekza Studio — M6b build specification ("Rig & Skin workspace")
 
 Status: v1.1 (2026-10-19), the binding build spec for milestone M6b, revised after its design review (45 issues: one
 blocker, twenty-three majors, twenty-one minors, three of them duplicates; the record with every applied change and
@@ -2005,7 +2005,7 @@ The checklist collapses to one line (`Setup 6/7 · ●`) once ⑥ is done.
 - **Thumbnail** (`char.renderThumbnail {character}`): 1024 × 1024 PNG rendered from the persp pane with the framing
   helper (front three-quarter view, bind pose, palette shading, transparent background off), stored as an `AssetRecord`
   (`role: 'thumbnail'`, by hash) and referenced by `vrm.thumbnail`; exports read the stored bytes, so re-exports are
-  byte-identical on any GPU. The same PNG is the Studio thumbnail (T3).
+  byte-identical on any GPU. The same PNG is the Hub thumbnail (T3).
 - **Clips**: every exported clip is sampled through the kernel at integer frames (ADR 0005), tracks for
   `RigProgram.drivenNodes` (constraint-driven bones included, R8), names = Ekza slot names (`ekza.slot-name`), M2a's
   export-side key reduction, `contact` → `contactSeconds` extras as today; `clips: 'slots'` exports every clip with a
@@ -2985,7 +2985,7 @@ owner. M6b never edits an M6a-owned file except through C0's one-line registrati
 - **Dirs**: `apps/web/e2e/m6b-{skin-08,rig-10}-*.spec.ts`, `apps/web/e2e/m6b-aslp.spec.ts` (AS-LP-S2 scripted twin),
   `apps/web/e2e/m6b-stretch.spec.ts`, `apps/web/e2e/helpers/m6b-turnkey-script.ts`, `apps/web/e2e/bench/m6b-budgets.bench.ts`,
   `editor/src/test-api/m6b/integration.ts`, `README.md`, `docs/{ROADMAP,REQUIREMENTS,DECISIONS-OPEN,MODELING-PLAN}.md`,
-  `docs/guides/characters-to-ekza.md` (T0: export a VRM, upload it in Studio as an avatar, what Space and OMOBA do with
+  `docs/guides/characters-to-ekza.md` (T0: export a VRM, upload it in Hub as an avatar, what Space and OMOBA do with
   it), this spec (integration record), manifests and `next.config.ts`, `docs/wp-notes/m6b-integration.md`.
 - **Responsibilities**: merge in §11.1 order; the `m6b/dev` → `dev` merge after the release cut; turn every gate into a
   failure (stretch fixmes stay); E2E-SKIN-08, E2E-RIG-10 and the AS-LP-S2 twin; the budget bench (§5.25); README ("What
