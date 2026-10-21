@@ -130,9 +130,9 @@ after C0 (they need a contract PR); the others are unlisted shared or M6a files 
 
 ## Eager route (§0.4.9)
 
-Production build (no `NEXT_PUBLIC_EKZA_E2E`), `check:size` (gzip -9, first visit), fix round 2: **893,591 B** (gate
-900,000 B, headroom 6,409 B); the M6b MVP eager delta **+4,022 B** over the 889,569 B baseline (allowance +6,144 B,
-enforced). C0 recorded 891,104 B, so **C7's own delta is +2,487 B** (allowance 2,560 B). Round 2 added +601 B over
+Production build (no `NEXT_PUBLIC_EKZA_E2E`), `check:size` (gzip -9, first visit), fix round 2: **893,585 B** (gate
+900,000 B, headroom 6,415 B); the M6b MVP eager delta **+4,016 B** over the 889,569 B baseline (allowance +6,144 B,
+enforced). C0 recorded 891,104 B, so **C7's own delta is +2,481 B** (allowance 2,560 B). Round 2 added +595 B over
 round 1's 892,990 B: the runner/registry refusal (one regex of the keying ids, the view-only reason), the inline
 control selection part, the Object-mode mesh pick in the select tool and the palette filter. A first cut that reused
 M6a's `selectionGesture` pulled the mesh selection steps into the eager bundle (+493 B; 2,865 B over C0, above the
@@ -145,6 +145,24 @@ additions (layout, `keyModes`, `rigStatus`), CR-4's chain and call site, the Rig
 reads and redirect hooks (with the refused edit before the chunk), the rig shell hook, and — new in round 1 — the
 eager shadow rows and the chunk load on entry (+401 B; the round-0 measure was 892,589 B, +1,485 B). The Rig hide
 variants are in the lazy Model operators chunk; the rest of the Rig rows, the menus and the shell operators are lazy.
+
+## Gates, fix round 2 (local, real Chrome; port 3164)
+
+`EKZA_E2E_PORT=3164 pnpm run ci` (load average 73–92 from other processes):
+
+- format:check, lint, typecheck, check:deps, check:fixtures, check:licenses: pass.
+- test: one M6a viewport test failed under load (`m6a-transform/runtime.test.ts` "Esc (cancel) during a drag": the
+  scale chunk "Failed to fetch dynamically imported module", so the drag never armed; Model workspace, not Rig & Skin);
+  it passes alone (29/29) and the next `pnpm run test` was green: 15/15 tasks (editor-core 1372, editor 534 + 1
+  skipped, viewport 243 + 1 skipped, headless 193, curve-editor 209 + 3 skipped, the rest as before).
+- build: pass; check:size 893,585 B (see above).
+- test:e2e: the first two runs stopped before any test — `next build` of the e2e server panicked in Turbopack
+  ("TaskId … all_assets_from_entries_filtered was canceled", the same task id twice: a stale persistent cache after the
+  interleaved production and e2e builds). With the worktree's `apps/web/.next/cache/turbopack` removed: **226 passed,
+  27 skipped, 0 failed** (the shipped skips plus C7's four gated full rows).
+- C7's specs (with m6b-00-foundation and m6a-shell): green, including the new MVP parts E2E-RIG-01 part 2 (mesh pick,
+  selection undo, view-only at 900 px) and E2E-RIG-05 part 2 (Key Selected, palette, refused keying, selection undo).
+- Port 3164 free at the end.
 
 ## Gates, fix round 1 (local, real Chrome; port 3164)
 
