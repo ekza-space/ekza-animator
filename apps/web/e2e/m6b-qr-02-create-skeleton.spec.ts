@@ -74,6 +74,7 @@ test.fixme(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in p
 
   // Full 52: undo, Quick Rig again on the scene mesh, the template select, Create Skeleton.
   await runOk(page, 'edit.undo');
+  await runOk(page, 'rig.mode', { mode: 'object' });
   const mesh = (await call(page, 'meshes')).find((row) => row.owner === 'scene')?.id ?? '';
   await runOk(page, 'select.objects', { ids: [mesh], mode: 'replace' });
   await startQuickRig(page);
@@ -87,7 +88,6 @@ test.fixme(`E2E-QR-02: Create Skeleton on the Cube Lad, Full 52, the re-run in p
 
   // The re-run: Quick Rig again on the character (nothing selected) seeds the markers from its joints.
   const ids = [...(await jointsByKey(page, full)).values()].map((joint) => joint.id).sort();
-  await runOk(page, 'select.objects', { ids: [], mode: 'replace' });
   await page.getByTestId('rtk-btn-skel.quickRig.start').click();
   await expect.poll(async () => (await quickRig(page))?.moved.length ?? 0).toBe(9);
   await expect(page.getByTestId('quickrig-preset')).toBeDisabled();
@@ -125,6 +125,7 @@ test.fixme(`E2E-QR-02: the generated humanoid body and an A-posed Cube Lad (gate
   );
   const H = Math.max(...[...bodyTruth.values()].map((p) => p[1] ?? 0));
   await runOk(page, 'edit.undo');
+  await runOk(page, 'rig.mode', { mode: 'object' });
   await runOk(page, 'select.objects', { ids: [root], mode: 'replace' });
   const state = await startQuickRig(page);
   const body = await createSkeleton(page);

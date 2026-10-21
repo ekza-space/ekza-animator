@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { drag } from './helpers/g1-viewport';
 import { keysHash, RIG_FRONT_PANE } from './helpers/m6b-rig';
-import { cubeLadInRig, jointAt, jointsByKey, quickRig } from './helpers/m6b-skeleton-ui';
+import { cubeLadInRig, jointAt, jointsByKey, quickRig, toolKey } from './helpers/m6b-skeleton-ui';
 import { call, runOk } from './helpers/test-api';
 
 // E2E-JNT-01 (M6B-SPEC §0.7 "Fit joints"; owner C3, gates c1 — the character — and c4 — the bind): the Cube Lad
@@ -44,7 +44,7 @@ test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned 
   const feet = [await rest(page, character, 'rightFoot'), await rest(page, character, 'leftFoot')];
   const kneeL = await rest(page, character, 'leftLowerLeg');
   const before = (await steps(page)).length;
-  await page.keyboard.press('KeyW');
+  await toolKey(page, 'KeyW');
   const knee = await jointAt(page, id('rightLowerLeg'), RIG_FRONT_PANE);
   await page.keyboard.down('KeyD');
   await drag(page, knee, { dx: -6, dy: 0 });
@@ -62,7 +62,7 @@ test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned 
   expect((await rest(page, character, 'rightHand'))[1]).toBeGreaterThan(hand[1] ?? 0);
 
   // E before binding: the rests rotate (the subtree about the joint).
-  await page.keyboard.press('KeyE');
+  await toolKey(page, 'KeyE');
   const elbow = await jointAt(page, id('rightLowerArm'), RIG_FRONT_PANE);
   const wrist = await rest(page, character, 'rightHand');
   await drag(page, elbow, { dx: 3, dy: 18 });
@@ -87,12 +87,12 @@ test.fixme(`E2E-JNT-01: fit joints with the §5.7 gestures; bound: Move Skinned 
   await runOk(page, 'skin.bind', {});
   const body = (await call(page, 'meshes')).find((row) => row.owner === character)?.id ?? '';
   const points = await call(page, 'posedPositions', body, [0, 1, 2, 3]);
-  await page.keyboard.press('KeyW');
+  await toolKey(page, 'KeyW');
   const head = await jointAt(page, id('head'), RIG_FRONT_PANE);
   await drag(page, head, { dx: 0, dy: -4 });
   await expect.poll(async () => (await steps(page)).at(-1)).toBe('Move Joints');
   expect(await call(page, 'posedPositions', body, [0, 1, 2, 3])).toEqual(points);
-  await page.keyboard.press('KeyE');
+  await toolKey(page, 'KeyE');
   const forearm = await jointAt(page, id('leftLowerArm'), RIG_FRONT_PANE);
   await drag(page, forearm, { dx: -2, dy: 20 });
   await expect.poll(async () => (await call(page, 'rigState')).poseView).toBe('test');

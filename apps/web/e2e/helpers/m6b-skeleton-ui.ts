@@ -1,7 +1,7 @@
 // C3 content helpers (M6B-SPEC §0.7 E2E-QR-01/02, E2E-JNT-01): open Quick Rig on the Cube Lad, marker and joint
 // screen points, Quick Rig's state, the side pane's screen direction of +Z, distances in H.
 import { expect, type Page } from '@playwright/test';
-import { pointOf } from './g1-viewport';
+import { centreOf, paneRect, pointOf } from './g1-viewport';
 import { createPrimitive, enterModel } from './m6a-model';
 import { buildCubeLad, cubeLadTruth, type Vec3 } from './m6b-cube-lad';
 import { enterRig, RIG_FRONT_PANE, RIG_SIDE_PANE } from './m6b-rig';
@@ -116,6 +116,15 @@ export async function createSkeleton(page: Page, label = 'Create Skeleton'): Pro
   await expect.poll(async () => (await call(page, 'history')).undo.at(-1), { timeout: 15_000 }).toBe(label);
   await expect.poll(() => quickRig(page)).toBeNull();
   return (await call(page, 'rigState')).character ?? '';
+}
+
+/** Presses a tool key (`KeyW`, `KeyE`, …) with the pointer over a pane (tool keys belong to the viewport scope). */
+export async function toolKey(page: Page, code: string, paneId: string = RIG_FRONT_PANE): Promise<void> {
+  const centre = centreOf(await paneRect(page, paneId as never));
+  await page.mouse.move(centre.x, centre.y);
+  await page.keyboard.press(code);
+  const tool = code === 'KeyW' ? 'move' : code === 'KeyE' ? 'rotate' : code === 'KeyR' ? 'scale' : 'select';
+  await expect.poll(async () => (await call(page, 'state')).tool).toBe(tool);
 }
 
 export type { Vec3 };
