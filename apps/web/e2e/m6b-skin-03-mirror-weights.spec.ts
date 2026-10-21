@@ -62,3 +62,15 @@ test.describe('E2E-SKIN-03 Mirror Skin Weights', () => {
     expect(await call(page, 'weights', lad.mesh, left)).toEqual(leftRows);
   });
 });
+
+// The Component Editor is optional in the MVP (§0.3, §9.0 C6): its table edit replaces `skin.weights.set` here once
+// it is built.
+test.fixme('c6-ce: Component Editor — the leftUpperArm column takes 0.6 for every selected row', async ({ page }) => {
+  await openEditor(page);
+  await expectKernelStarted(page);
+  const lad = await boundCubeLad(page);
+  await enterSkin(page);
+  await runOk(page, 'workspace.showPanel', { panel: 'componentEditor' });
+  await page.getByTestId(`ce-cell-0-${lad.joint('leftUpperArm')}`).fill('0.6');
+  expect((await call(page, 'componentEditor'))?.columns).toContain(lad.joint('leftUpperArm'));
+});
