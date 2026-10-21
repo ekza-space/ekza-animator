@@ -59,7 +59,7 @@ test.describe('E2E-RIG-04 Paint keys', () => {
     await runOk(page, 'workspace.showPanel', { panel: 'paintWeights' });
     // A fresh joint: a deforming joint no point weights yet (the Cube Lad's boxes bind rigidly to their limbs).
     const rows = await call(page, 'weights', lad.mesh);
-    const fresh = ['spine', 'neck', 'leftShoulder', 'upperChest']
+    const fresh = ['spine', 'neck', 'leftShoulder']
       .map((bone) => lad.joint(bone))
       .find((id) => !rows.some((row) => row.joints.includes(id)));
     if (fresh === undefined) throw new Error('no fresh joint on the bound Cube Lad');
