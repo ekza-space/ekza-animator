@@ -66,6 +66,7 @@ section). Decision IDs below are `M6B-C3-<n>`. READY flag `c3` is set in the fou
 | `editor-core/src/index.ts` | barrel lines: the Quick Rig session helpers, `CHECK_REASONS`, `REBIND_CONFIRM`, `ASSET_CHARACTER_REFUSAL`, `POSED_REFUSAL`, `rigGeometry` | lazy UI code and tests (C7's pattern) |
 | `editor/src/shell/rig/register.ts` (C7) | one line: `registerSkeletonUi(app)` (the `FK FOR TEST` badge) | lazy rig shell UI |
 | `editor/src/shell/HelpLine.tsx` | Skeleton-mode and Quick Rig hints by tool | §9.0 C3 "Skeleton-mode help-line texts" |
+| `apps/web/e2e/m6b-00-foundation.spec.ts` (C0, closed) | literal update: `skel.quickRig.start`, `.guess`, `.clear` refuse with their real reasons | §3 rule 9 |
 | tests: `editor-core/test/m6b/foundation.test.ts`, `m6b/keys-hash.test.ts` | literal updates (§3 rule 9): C3's ids poll for real; P-C6 rows `setMarker`, `clear`, `setPreset`, `cancel`, `pick` run (Start and Guess need the mesh kernel: asserted in `quick-rig-session.test.ts`) | §3 rule 9 |
 | the merge of C2 and C7 | `editor-core/test/m6b/foundation.test.ts` (both owners' rows), `keys-hash.test.ts` (`rig.animateOnly` refuses by design: the row expects its reason), `rig-shell.test.ts` and `editor/test/m6b-rig-shell.test.tsx` (an opt-in full Standard template fixture where C2's `skel.required-bones` now applies) | the two branches' tests met for the first time |
 
@@ -90,3 +91,20 @@ nothing pushed or merged) merged both into this branch and ran the three specs u
 |---|---:|---:|
 | Joint overlay rebuild, 34 joints (viewport browser test, `rebuildMs`) | median < 0.1 ms (timer resolution), max 0.2 ms | ≤ 2 ms |
 | Joint overlay rebuild through the editor (`bench/m6b-joints.bench.ts`, select + query, an upper bound) | median 0.40 ms, p95 0.70 ms | ≤ 2 ms |
+
+## Eager route (§0.4.9)
+
+`check:size` on this branch: **894,093 B** (gate 900,000 B); the M6b MVP eager delta **+4,524 B** over the 889,569 B
+baseline (allowance +6,144 B, limit 895,713 B: within). C7 measured +4,016 B for C0 + C7 (C2 adds none), so C3's eager
+share is **≈ +508 B** against a per-package allowance of 0 B: the `attachViewportRig` hook (the runtime itself is the
+lazy `viewport-rig` chunk), the pointer-layer lines in `ViewportManager` and the Skeleton/Quick Rig help-line texts.
+INT: please record it against the unallocated +1,536 B of the MVP allowance, or tell C3 which part to move.
+
+## Gates (local Chrome, port 3167; HEAD before this section)
+
+`EKZA_E2E_PORT=3167 pnpm run ci`: format:check, lint (`oxlint --type-aware`), typecheck, check:deps, check:fixtures,
+check:licenses pass; `test` (turbo) green — editor-core 1,404 (+3 gated), editor 544, viewport 264, rig 303, mesh-core
+905, headless 193 and the rest unchanged; build pass; check:size as above; `test:e2e` 227 passed, 30 skipped,
+**1 failed**: E2E-M6B-00 (C0's foundation spec still expected "not available yet" from `skel.quickRig.start`, `.guess`,
+`.clear`) — literal update above, the spec alone then 4/4. C3's own specs: E2E-QR-01 2/2 passed; E2E-QR-02 and
+E2E-JNT-01 skipped (`test.fixme`, gates c1, c4; passed ungated on the scratch merge). The 3167 servers were stopped.
