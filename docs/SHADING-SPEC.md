@@ -99,8 +99,11 @@ UI:
 - Palette panel: the active swatch row gets a **Shader** section — Lambert/Blinn choice, Glossiness (slider and number,
   committed on release/Enter, one step each), Specular colour; Blinn swatches show a highlight dot in the grid.
   Buttons **New Lambert** and **New Blinn** run Assign New Material on the selection.
-- Menus: Assign New Material › Lambert / Blinn next to Assign Colour in the object and face marking-menu lists; the
-  command palette finds it (aliases "Lambert", "Blinn", "Hypershade", "New Material"). No default key (Maya has none).
+- Menus: Edit Mesh › Assign New Material › Lambert / Blinn, and the same sub-menu next to Assign Colour in the
+  component and face marking-menu lists; the command palette finds it (aliases "Lambert", "Blinn", "Hypershade", "New
+  Material"). No default key (Maya has none).
+- Like the mesh operators, the poll does not start the mesh kernel (menus poll every item): it says "Mesh tools are
+  loading" until Model entry has loaded it.
 
 ## 6. Tests
 

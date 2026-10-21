@@ -24,9 +24,13 @@ Focus is the modeling base (M6a) first. These tracks are fully specified and par
       saved in prefs. ≈ 0.5 day. Done on `feat/focus-presets`: Windows › Tool Strip / Help Line / Time Slider
       check-box items per workspace, focus mode also on Alt+0 (macOS takes Ctrl+Space for the input source), Windows ›
       Presets with Save Current Layout as… / Rename or Delete; [docs/LAYOUT-PRESETS.md](docs/LAYOUT-PRESETS.md).
-- [ ] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Maya Hypershade-lite), assign to
+- [x] **Basic shading without UVs** (after M6a): Lambert and Blinn materials (Maya Hypershade-lite), assign to
       objects or selected faces, flat/smooth; export Lambert → roughness 1/metallic 0, Blinn → roughness from
-      glossiness (+ `KHR_materials_specular`). ≈ 0.5 day.
+      glossiness (+ `KHR_materials_specular`). ≈ 0.5 day. Done on `feat/shading`: every palette swatch is a shader
+      (swatches table v2, core schema stays 3 for M6b — [ADR 0019](docs/adr/0019-swatch-shaders.md)); Palette panel
+      Shader section and New Lambert/Blinn, Edit Mesh › Assign New Material (`palette.assignMaterial`, one undo step);
+      Blinn highlight in Colours/Lit; export applies shaders on `lit` meshes (Assign New Material switches its targets
+      to lit; unlit + Blinn warns `material.unlit-shader`); [docs/SHADING-SPEC.md](docs/SHADING-SPEC.md).
 
 ## Rename — Ekza Animator becomes Ekza Studio (owner decision, 2026-10-19)
 
