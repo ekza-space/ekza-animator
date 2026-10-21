@@ -273,7 +273,9 @@ export function createShell(opts: CreateShellOptions): Shell {
   // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
   disposers.push(registerModelSelectUi(app));
   // M6b (C7): the Rig & Skin shell UI, loaded on the first entry.
-  disposers.push(registerRigShell(app, { showPanel: (kind) => workspace.showPanel(kind) }));
+  disposers.push(
+    registerRigShell(app, { showPanel: (kind) => workspace.showPanel(kind), dockview: () => workspace.dockview }),
+  );
   disposers.push(registerModelTransformUi(app));
 
   let glFrames = 0;

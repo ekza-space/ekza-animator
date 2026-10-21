@@ -3,10 +3,13 @@
 // badge, the HUD mode badge, the empty state and the Getting started card, the dock tab following the mode) once.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp, PanelKind } from '@ekza-studio/editor-core';
+import type { DockviewApi } from 'dockview-react';
 
 export interface RigShellDeps {
   /** Shows (activates) a dock panel of the current workspace (`WorkspaceApi.showPanel`). */
   readonly showPanel: (kind: PanelKind) => boolean;
+  /** The bound dockview (null before it mounts): the dock tabs a mode is left with are remembered (§5.24). */
+  readonly dockview?: () => DockviewApi | null;
 }
 
 export function registerRigShell(app: EditorApp, deps: RigShellDeps): Disposer {

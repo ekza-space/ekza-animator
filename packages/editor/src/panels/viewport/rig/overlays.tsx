@@ -4,16 +4,24 @@
 // - the HUD mode badge top left (`hud-rigmode-<paneId>`: `JOINT · SYM X` with the joint count chip, `SKIN`);
 // - the empty state (no character): "Select a mesh to turn into a character, or a character", Quick Rig on the
 //   selected meshes and "Edit a sample: Polybot (CC0)";
-// - the dismissible Getting started card with the owner flow, keys read from the keymap.
+// - the dismissible Getting started card with the owner flow, keys read from the keymap;
+// - below 1024 px the view-only banner "Open on a larger screen to edit" (§5.24, research 09 §11.2).
 // Pane slots draw their latest registration, so each Rig overlay draws the slot's earlier component outside Rig & Skin.
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { DocumentStore } from '@ekza-studio/doc';
-import { type EditorApp, PANEL, type SessionState, type ViewportBadgeProvider } from '@ekza-studio/editor-core';
+import {
+  type EditorApp,
+  PANEL,
+  RIG_VIEW_ONLY_REASON,
+  type SessionState,
+  type ViewportBadgeProvider,
+} from '@ekza-studio/editor-core';
 import { type ComponentType, type JSX, useRef, useSyncExternalStore } from 'react';
 import { useDocQuery, useRunOperator, useSession } from '../../../hooks';
 import { scopeChain } from '../../../input/keyboard';
 import { type PaneOverlayProps, type PaneOverlaySlot, paneOverlay, registerPaneOverlay } from '../../../overlays/slots';
 import { shortcutFor } from '../../../shell/menus';
+import { rigNarrow, subscribeRigNarrow } from '../../../shell/rig/viewOnly';
 import { registerViewportBadge } from '../hud/badges';
 import { overlayPane } from '../modelOverlays';
 import { useOwnPointer } from '../ownPointer';
@@ -228,6 +236,34 @@ function RigGettingStarted(props: PaneOverlayProps): JSX.Element | null {
   );
 }
 
+// ---------- the view-only banner ----------
+
+/** Below 1024 px Rig & Skin is view-only (§5.24; research 09 §11.2): test poses and Validation still work. */
+export function RigViewOnlyBanner(props: PaneOverlayProps): JSX.Element | null {
+  const host = useSession(hostOf);
+  const narrow = useSyncExternalStore(subscribeRigNarrow, rigNarrow, rigNarrow);
+  if (host !== props.paneId || !narrow) return null;
+  return (
+    <output
+      className="pointer-events-auto mb-1 block w-64 rounded-md border border-[var(--warn,#e3b34a)] bg-[color-mix(in_srgb,var(--bg-panel,#232428)_92%,transparent)] p-2 text-[11px] text-fg shadow"
+      data-testid="rig-view-only"
+    >
+      <span className="font-semibold">{RIG_VIEW_ONLY_REASON}</span>
+      <span className="block text-fg-2">Rig & Skin is view-only below 1024 px: test poses and Validation work.</span>
+    </output>
+  );
+}
+
+/** The banner above the Getting started card (one slot: both sit top right of the host pane). */
+function RigCards(props: PaneOverlayProps): JSX.Element {
+  return (
+    <div className="flex flex-col items-end">
+      <RigViewOnlyBanner {...props} />
+      <RigGettingStarted {...props} />
+    </div>
+  );
+}
+
 // ---------- registration ----------
 
 /** Draws `component` in Rig & Skin and the slot's earlier registration elsewhere. */
@@ -247,7 +283,7 @@ export function registerRigOverlays(app: EditorApp): Disposer {
     registerViewportBadge(poseBadge(app)),
     registerPaneOverlay('hud', inRig('hud', RigModeBadge)),
     registerPaneOverlay('emptyState', inRig('emptyState', RigEmptyState)),
-    registerPaneOverlay('gettingStarted', inRig('gettingStarted', RigGettingStarted)),
+    registerPaneOverlay('gettingStarted', inRig('gettingStarted', RigCards)),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();
