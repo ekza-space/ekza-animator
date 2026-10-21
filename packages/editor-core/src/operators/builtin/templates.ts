@@ -179,8 +179,13 @@ function primitivePoll(app: EditorApp, args: unknown): PollResult {
   if (record.generator === null) return fail(FROZEN_REASON);
   const runtime = app.meshes.get(record.id);
   if (runtime?.state === 'loading') return fail('Mesh is loading');
+  // M6b CR-7 (C1, `primitive.skinned`): regenerating a skinned mesh would drop its weights.
+  if (record.skin !== null || runtime?.data()?.layers.has('skin.weights') === true) return fail(PRIMITIVE_SKINNED);
   return OK;
 }
+
+/** M6b CR-7: `mesh.primitive.set` refuses skinned meshes (refusal code `primitive.skinned`). */
+export const PRIMITIVE_SKINNED = 'Primitive parameters are frozen on a skinned mesh';
 
 const primitiveSet = defineOperator<'mesh.primitive.set', Regenerated>({
   id: 'mesh.primitive.set',

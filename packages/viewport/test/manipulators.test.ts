@@ -47,7 +47,7 @@ function control(r: Rig, key: string): ControlRecord {
 function setup(r: Rig, id: ControlId, tool: 'select' | 'move' | 'rotate', space: 'object' | 'world' | 'gimbal'): void {
   const state = r.app.session.getState();
   r.app.session.setState({
-    selection: { controls: [id], keys: new Map(), channels: [], objects: [] },
+    selection: { controls: [id], keys: new Map(), channels: [], objects: [], joints: [], constraints: [] },
     tools: { ...state.tools, viewport: tool },
   });
   if (tool === 'rotate') r.app.prefs.setState({ rotateSpace: space });
@@ -284,7 +284,9 @@ describe('manipulator drawing', () => {
 
     // A control: lighter while hovered (side colour lightened, research 09 tokens).
     setup(rig, arm.id, 'select', 'object');
-    rig.app.session.setState({ selection: { controls: [], keys: new Map(), channels: [], objects: [] } });
+    rig.app.session.setState({
+      selection: { controls: [], keys: new Map(), channels: [], objects: [], joints: [], constraints: [] },
+    });
     const pick = rig.vm.controlScreenPoint('pane-right', control(rig, 'fk.hand.R').id);
     if (pick === null) throw new Error('hand not visible');
     const plain = pixelAt(pick.x, pick.y);

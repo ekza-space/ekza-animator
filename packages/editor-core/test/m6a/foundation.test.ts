@@ -216,7 +216,7 @@ describe('selection snapshots (TxMeta.selectionBefore/After)', () => {
     const app = waveApp();
     app.store.transact({ label: 'Create' }, (tx) => tx.put('meshes', makeTestMesh('msh_A')));
     const stored = selectionSnapshot(
-      { controls: [W.handL], keys: new Map(), channels: [], objects: ['msh_A' as never] },
+      { controls: [W.handL], keys: new Map(), channels: [], objects: ['msh_A' as never], joints: [], constraints: [] },
       { componentMode: 'face', hilite: ['msh_A' as never] },
     ) as Record<string, unknown>;
     expect(stored).toEqual({
@@ -239,6 +239,8 @@ describe('selection snapshots (TxMeta.selectionBefore/After)', () => {
       keys: new Map(),
       channels: [],
       objects: [],
+      joints: [], // M6B-SPEC §3 rule 9
+      constraints: [],
     });
   });
 });

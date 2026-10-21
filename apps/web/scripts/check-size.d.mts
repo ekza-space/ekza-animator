@@ -70,6 +70,7 @@ export declare const BOUNDARIES: readonly {
   readonly markers: readonly string[];
 }[];
 export declare const BASELINE_FILE: string;
+export declare const M6B_CHUNK_WARN_BYTES: Readonly<Record<string, number>>;
 export declare function readBaseline(file?: string): SizeBaseline | null;
 export declare function eagerDelta(total: number, baseline: SizeBaseline | null, e2eBuild: boolean): EagerDelta | null;
 export declare function modelChunk(lazy: readonly LazyGroup[], baseline: SizeBaseline | null): ModelChunk;

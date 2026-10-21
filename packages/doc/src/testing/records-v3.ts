@@ -176,6 +176,9 @@ export function makeTestJoint(
     side: 'C',
     mirror: null,
     deleted: null,
+    // Schema v4 (M6B-SPEC §4.1): a deforming joint whose key is unique per id (tests may put several 'Joint's).
+    role: 'bone',
+    key: id.replace(/[^A-Za-z0-9_-]/g, '_'),
     ...fields,
   };
 }

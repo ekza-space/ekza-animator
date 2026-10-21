@@ -2,6 +2,7 @@
 // default.
 import type { UserId } from '@ekza-studio/doc';
 import type { AutosaveStatus, ModelSessionState, SessionState, TimeState, ToolState } from '../types';
+import { defaultRigSession } from './rig';
 
 export const DEFAULT_TIME: TimeState = {
   sceneFrame: 0,
@@ -69,7 +70,7 @@ export function defaultSession(user: UserId = 'local' as UserId): SessionState {
     dirty: false,
     activeCharacter: null,
     activeClip: {},
-    selection: { controls: [], keys: new Map(), channels: [], objects: [] },
+    selection: { controls: [], keys: new Map(), channels: [], objects: [], joints: [], constraints: [] },
     time: DEFAULT_TIME,
     tools: DEFAULT_TOOLS,
     overrides: new Map(),
@@ -91,5 +92,7 @@ export function defaultSession(user: UserId = 'local' as UserId): SessionState {
     lastRun: null,
     model: defaultModelSession(),
     workspaceViews: {},
+    // M6b (M6B-SPEC §4.6)
+    rig: defaultRigSession(),
   };
 }

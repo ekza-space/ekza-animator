@@ -111,6 +111,11 @@ export function boneShape(
   return makeShape(kind, size, [dirLocal[0] * slide, dirLocal[1] * slide, dirLocal[2] * slide], q, null);
 }
 
+/** A shape centred on the control pivot in its own orientation (M6b prop and socket diamonds, §5.16 rule 5). */
+export function pointShape(kind: 'diamond', size: number): ControlShape {
+  return makeShape(kind, size, [0, 0, 0], [0, 0, 0, 1], null);
+}
+
 /** Segments of the lollipop head circle. */
 const HEAD_SEGMENTS = 24;
 
