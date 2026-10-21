@@ -141,6 +141,9 @@ const LANDED: Readonly<Record<string, string>> = {
   'char.fromModel': 'Select the meshes of the character first',
   'char.adopt': 'expects { character, objects? }',
   'rig.autoRig.update': 'Make a character from your model first',
+  // C4 (auto-skin)
+  'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
+  'skin.unbind': 'No bound mesh to unbind',
 };
 
 const disposers: (() => void)[] = [];
@@ -171,7 +174,7 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
     expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
       MVP.map((id) => [
         id,
-        id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : (LANDED[id] ?? NOT_AVAILABLE_YET),
+        LANDED[id] ?? (id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET),
       ]),
     );
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(

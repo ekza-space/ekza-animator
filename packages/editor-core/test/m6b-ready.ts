@@ -4,7 +4,7 @@ export const READY = {
   c1: true,
   c2: false,
   c3: false,
-  c4: false,
+  c4: true,
   c6: false,
   c7: false,
   c10: false,

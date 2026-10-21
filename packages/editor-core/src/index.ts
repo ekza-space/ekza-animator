@@ -424,3 +424,13 @@ export { DEFAULT_BRUSH, defaultRigSession } from './session/rig';
 export { isRigWorkspaceOperator, lazyOperatorChunk, RIG_MENUS, RIG_STATUS_GROUPS } from './workspaces/rig';
 export { type CharacterRuntimeChunk, loadCharacterRuntime } from './characters/runtimeChunk';
 export { ARRIVES_AFTER_MVP } from './operators/builtin/rig/stub';
+// C4 (auto-skin): the skin-worker protocol and host types (type-only: the client lives in the rig-workspace chunk).
+export type {
+  SkinBindJob,
+  SkinBindResult,
+  SkinServiceImpl,
+  SkinWorkerHost,
+  SkinWorkerPort,
+  SkinWorkerRequest,
+  SkinWorkerResponse,
+} from './rig/skinService';
