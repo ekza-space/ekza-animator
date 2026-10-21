@@ -164,6 +164,25 @@ describe('start checks and their fixes (§0.4.2)', () => {
     expect(typeof back !== 'string' && back.checks.facing).toBe(false);
   });
 
+  it('a model facing ±X (turned 90° about Y): Rotate to Face +Z turns it the quarter turn back; Center; then every check passes', async () => {
+    for (const sign of [1, -1]) {
+      const h = Math.SQRT1_2;
+      const t = await rigTestApp({ placement: { t: [0, 0, 0], q: [0, sign * h, 0, h], s: [1, 1, 1] } });
+      const info = quickRigStartInfo(t.app, t.app.store, [t.lad]);
+      expect(typeof info !== 'string' && info.checks.facing).toBe(false);
+      expect((await t.app.runUntyped('skel.quickRig.faceForward', { meshes: [t.lad] })).status).toBe('finished');
+      const turned = quickRigStartInfo(t.app, t.app.store, [t.lad]);
+      expect(typeof turned !== 'string' && turned.checks.facing).toBe(true);
+      // The turn is about the bounds' centre, so the feet's depth offset may leave it off the centre line: Center.
+      expect((await t.app.runUntyped('skel.quickRig.center', { meshes: [t.lad] })).status).toBe('finished');
+      const fixed = quickRigStartInfo(t.app, t.app.store, [t.lad]);
+      expect(typeof fixed !== 'string' && fixed.checks).toEqual({ centred: true, grounded: true, facing: true });
+      // The placement's rotation is the identity again (up to rounding of the quarter turns).
+      const q = t.app.store.get('meshes', t.lad)?.placement.q as readonly number[];
+      expect(Math.abs(Math.abs(q[3] as number) - 1)).toBeLessThan(1e-12);
+    }
+  });
+
   it('the guess of the start info places the Cube Lad markers within 0.05 H, chin included', async () => {
     const t = await rigTestApp();
     const info = quickRigStartInfo(t.app, t.app.store, [t.lad]);

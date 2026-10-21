@@ -24,6 +24,7 @@ import {
   type QuickRigMarker,
   type QuickRigMarkers,
   type QuickRigStartChecks,
+  quickRigFacingTurn,
   quickRigStartChecks,
   refitTemplateJoints,
   type SkeletonPreset,
@@ -503,12 +504,19 @@ const center = fixOperator(
 const faceForward = fixOperator(
   'skel.quickRig.faceForward',
   'Rotate to Face +Z',
-  'Turns the meshes 180° about Y around their centre (Quick Rig start check).',
-  ({ bounds }) => {
+  'Turns the meshes about Y around their centre so they face +Z: 180°, or ±90° for a model facing ±X (Quick Rig start check).',
+  ({ bounds, bvh }) => {
     const cx = (bounds[0][0] + bounds[1][0]) / 2;
     const cz = (bounds[0][2] + bounds[1][2]) / 2;
-    // T(c)·Ry(π)·T(−c): a point p goes to (2cx − px, py, 2cz − pz).
-    return { t: [2 * cx, 0, 2 * cz], q: quatFromAxisAngle([0, 1, 0], Math.PI), s: [1, 1, 1] };
+    const turn = quickRigFacingTurn(bounds, bvh);
+    // T(c)·Ry(θ)·T(−c) with exact cos/sin for the quarter turns: p − c turns to (c·x + s·z, y, −s·x + c·z).
+    const [c, s] =
+      turn === Math.PI ? [-1, 0] : turn === Math.PI / 2 ? [0, 1] : turn === -Math.PI / 2 ? [0, -1] : [1, 0];
+    return {
+      t: [cx - (c * cx + s * cz), 0, cz - (-s * cx + c * cz)],
+      q: turn === 0 ? [0, 0, 0, 1] : quatFromAxisAngle([0, 1, 0], turn),
+      s: [1, 1, 1],
+    };
   },
 );
 

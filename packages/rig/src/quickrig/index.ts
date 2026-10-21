@@ -10,6 +10,7 @@ import { projectedCenterOf } from './raster';
 export {
   type JointLookup,
   markersFromJoints,
+  quickRigFacingTurn,
   type QuickRigStartChecks,
   quickRigStartChecks,
   START_CHECKS,

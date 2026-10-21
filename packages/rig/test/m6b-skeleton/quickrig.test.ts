@@ -21,6 +21,7 @@ import {
   QUICK_RIG_CENTRE_MARKERS,
   QUICK_RIG_SIDE_MARKERS,
   type QuickRigMarkers,
+  quickRigFacingTurn,
   quickRigStartChecks,
   type SkeletonPreset,
   skeletonTemplate,
@@ -274,6 +275,35 @@ describe('start checks (§0.4.2, CR-AR-3)', () => {
       grounded: true,
       facing: false,
     });
+  });
+
+  it('a ±X-facing Cube Lad fails facing; the facing turn (±90°, 180°, 0) makes every variant face +Z', () => {
+    const f = cubeLad();
+    const turnY = (t: Triangles, a: number): Triangles => {
+      const [c, n] =
+        Math.abs(a - Math.PI) < 1e-15
+          ? [-1, 0]
+          : Math.abs(Math.abs(a) - Math.PI / 2) < 1e-15
+            ? [0, Math.sign(a)]
+            : [1, 0];
+      return transform(t, (p) => [c * p[0] + n * p[2], p[1], -n * p[0] + c * p[2]]);
+    };
+    const turnOf = (t: Triangles) => quickRigFacingTurn(boundsOf(t), new TriangleBvh(t.positions, t.tris));
+    for (const [angle, expected] of [
+      [0, 0],
+      [Math.PI, Math.PI],
+      [Math.PI / 2, -Math.PI / 2], // toes toward +X
+      [-Math.PI / 2, Math.PI / 2], // toes toward −X
+    ] as const) {
+      const turned = turnY(f.triangles, angle);
+      expect({ angle, facing: check(turned).facing, turn: turnOf(turned) }).toEqual({
+        angle,
+        facing: angle === 0,
+        turn: expected,
+      });
+      const fixed = turnY(turned, expected);
+      expect(check(fixed)).toEqual({ centred: true, grounded: true, facing: true });
+    }
   });
 
   it('a flat or empty model fails every check', () => {

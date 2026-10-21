@@ -73,6 +73,7 @@ export {
   projectedCenter,
   QUICK_RIG_CENTRE_MARKERS,
   QUICK_RIG_SIDE_MARKERS,
+  quickRigFacingTurn,
   type QuickRigStartChecks,
   quickRigStartChecks,
   START_CHECKS,
