@@ -1,11 +1,10 @@
 // C6 paint bench (M6B-SPEC §5.25 "Paint stroke at 10k points ≤ 4 ms per pointer frame"; report-only): a 10k-point
-// sphere and the generated
-// humanoid body, each made a character (Standard 33) and bound with the defaults, Skin mode, the Paint Skin Weights tool; a
-// stroke of synthetic pointer events dispatched on the perspective pane, each pointermove timed synchronously (the
-// tool's posed pick, the surface flood of the stamp, the kernel stroke session and the partial weight upload it
-// queues). Also the stroke commit (pointerup → the undo step) and an undo. Results go to stdout, annotations and
-// `.acceptance/budgets/m6b-paint-*.json`. Needs C2 (`skel.template.create`) merged. Run: `pnpm --filter web
-// bench:budgets -g m6b-paint` (EKZA_E2E_PORT as for e2e).
+// sphere and the generated humanoid body, each made a character (Standard 33) and bound with the defaults, Skin mode,
+// the Paint Skin Weights tool; a stroke of synthetic pointer events dispatched on the perspective pane, each pointermove
+// timed synchronously (the tool's posed pick, the surface flood of the stamp, the kernel stroke session and the
+// partial weight upload it queues). Also the stroke commit (pointerup → the undo step) and an undo. Results go to
+// stdout, annotations and `.acceptance/budgets/m6b-paint-*.json`. Needs C2 (`skel.template.create`) merged. Run:
+// `pnpm --filter web bench:budgets -g m6b-paint` (EKZA_E2E_PORT as for e2e).
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { expect, type Page, test } from '@playwright/test';
