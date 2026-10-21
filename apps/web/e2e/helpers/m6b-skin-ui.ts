@@ -21,16 +21,18 @@ export interface BoundLad {
 
 /** The Cube Lad as a bound character in Rig & Skin (Object mode). */
 export async function boundCubeLad(page: Page): Promise<BoundLad> {
-  const mesh = await buildCubeLad(page);
+  const scene = await buildCubeLad(page);
   await enterRig(page);
-  await runOk(page, 'select.objects', { ids: [mesh], mode: 'replace' });
+  await runOk(page, 'select.objects', { ids: [scene], mode: 'replace' });
   const created = await runOk<{ character: string }>(page, 'skel.quickRig.commit', {
     preset: 'standard33',
     markers: cubeLadTruth().markers,
-    meshes: [mesh],
+    meshes: [scene],
     flexion: 2 * DEG,
   });
-  await runOk(page, 'skin.bind', {});
+  // The character adopted the scene mesh under a new id (§5.1 adoption): Bind Skin names it.
+  const bound = await runOk<{ meshes: string[] }>(page, 'skin.bind', {});
+  const mesh = bound.meshes[0] ?? '';
   await expect.poll(async () => (await call(page, 'skin', mesh))?.skeleton ?? null).not.toBeNull();
   const skeleton = await call(page, 'skeleton', created.character);
   const byBone = new Map<string, string>();
