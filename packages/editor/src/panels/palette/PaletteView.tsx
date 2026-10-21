@@ -3,7 +3,9 @@
 // field (a colour popover on double-click), Apply (the active swatch on the selected faces, or on every face of the
 // selected mesh objects; refused when the swatch is not in a target's palette), Pick from mesh (the Paint Colour
 // tool's `I` eyedropper), Add, Recents, "Used on mesh: n of m · Select faces", "Export colours as" and Duplicate
-// palette (a variant). Every edit runs an operator.
+// palette (a variant). SHADING-SPEC §5: the active swatch's shader (Lambert/Blinn, glossiness, specular) and New
+// Lambert / New Blinn (Assign New Material on the selection); Blinn swatches show a highlight dot. Every edit runs an
+// operator.
 import type { DocumentStore, MeshId, MeshRecord, PaletteId, SwatchId, SwatchRecord } from '@ekza-animator/doc';
 import { type EditorApp, PANEL, paintRefusal, parseHex, type SessionState, toHex } from '@ekza-animator/editor-core';
 import { type JSX, type KeyboardEvent, type MouseEvent, useCallback, useId, useMemo, useState } from 'react';
@@ -30,6 +32,15 @@ const OUTPUTS = [
   { value: 'palette-texture', label: 'Palette texture', hint: 'One material and a small palette PNG (default)' },
   { value: 'vertex-colour', label: 'Vertex colours', hint: 'COLOR_0 with a white base colour' },
   { value: 'material-per-colour', label: 'One material per colour', hint: 'A material per used swatch' },
+] as const;
+
+const SHADERS = [
+  { value: 'lambert', label: 'Lambert', hint: 'Matte: diffuse light only (glTF roughness 1, metallic 0)' },
+  {
+    value: 'blinn',
+    label: 'Blinn',
+    hint: 'Shiny: a highlight (glTF roughness 1 − glossiness, KHR_materials_specular)',
+  },
 ] as const;
 
 const selectActive = (s: SessionState): string | null => s.model.activeSwatch;
@@ -255,6 +266,7 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
         </fieldset>
 
         <ActiveRow app={app} active={active} run={run} />
+        {active === null ? null : <ShaderSection key={`${active.id}:${active.glossiness}`} swatch={active} run={run} />}
 
         <div className="flex flex-wrap items-center gap-1">
           <button
@@ -288,6 +300,22 @@ export default function PaletteView(props: { readonly app: EditorApp }): JSX.Ele
           >
             +
           </button>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1" data-testid="palette-new-material">
+          <span className={`${MUTED_TEXT} mr-1`}>New material</span>
+          {SHADERS.map((shader) => (
+            <button
+              key={shader.value}
+              type="button"
+              className={BUTTON}
+              title={`Assign New Material › ${shader.label}: a new ${shader.label} swatch on the selected faces or objects`}
+              data-testid={`palette-new-${shader.value}`}
+              onClick={() => void run('palette.assignMaterial', { shader: shader.value }, { panel: PANEL_KIND })}
+            >
+              {shader.label}
+            </button>
+          ))}
         </div>
 
         {recentSwatches.length === 0 ? null : (
@@ -411,10 +439,10 @@ function SwatchCell(props: {
     <button
       type="button"
       aria-pressed={active}
-      aria-label={`${swatch.name} ${hex}${active ? ' (active)' : ''}`}
-      title={`${swatch.name} · ${hex} · slot ${swatch.slot}`}
+      aria-label={`${swatch.name} ${hex}${swatch.shader === 'blinn' ? ' Blinn' : ''}${active ? ' (active)' : ''}`}
+      title={`${swatch.name} · ${hex} · ${swatch.shader === 'blinn' ? 'Blinn' : 'Lambert'} · slot ${swatch.slot}`}
       className={
-        'grid size-5 place-items-center rounded-[3px] border text-[11px] leading-none ' +
+        'relative grid size-5 place-items-center rounded-[3px] border text-[11px] leading-none ' +
         (active
           ? 'border-[var(--accent-text,#a996ff)] outline-2 outline-offset-1 outline-[var(--accent-text,#a996ff)]'
           : 'border-line')
@@ -422,13 +450,121 @@ function SwatchCell(props: {
       style={{ background: hex, color: contrastOn(swatch.srgb) }}
       data-testid={`palette-swatch-${swatch.slot}`}
       data-active={active ? 'true' : undefined}
+      data-shader={swatch.shader}
       onClick={props.onActivate}
       onDoubleClick={(event) => props.onEdit(event.currentTarget)}
       onContextMenu={props.onMenu}
       onKeyDown={onKeyDown}
     >
       {active ? '✓' : ''}
+      {swatch.shader === 'blinn' ? (
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute top-[2px] right-[2px] size-[5px] rounded-full bg-white shadow-[0_0_1px_1px_rgba(0,0,0,0.45)]"
+        />
+      ) : null}
     </button>
+  );
+}
+
+/**
+ * The active swatch's shader (SHADING-SPEC §5): Lambert or Blinn; for Blinn the glossiness (slider and field, one undo
+ * step per release or Enter) and the specular colour.
+ */
+function ShaderSection(props: { readonly swatch: SwatchRecord; readonly run: Run }): JSX.Element {
+  const { swatch, run } = props;
+  const ids = useId();
+  const [gloss, setGloss] = useState(swatch.glossiness);
+  const commitGloss = (value: number): void => {
+    const next = Math.min(1, Math.max(0, Math.round(value * 100) / 100));
+    setGloss(next);
+    if (Number.isFinite(next) && next !== swatch.glossiness) {
+      void run('palette.setSwatch', { swatch: swatch.id, glossiness: next }, { panel: PANEL_KIND });
+    }
+  };
+  const hint = SHADERS.find((shader) => shader.value === swatch.shader)?.hint;
+  return (
+    <div className="flex flex-col gap-1" data-testid="palette-shader">
+      <label className="flex items-center gap-2 text-fg-2" htmlFor={`${ids}-shader`} title={hint}>
+        <span className="w-16 shrink-0">Shader</span>
+        <select
+          id={`${ids}-shader`}
+          className={`${SELECT} min-w-0 flex-1`}
+          value={swatch.shader}
+          data-testid="palette-shader-type"
+          onChange={(event) =>
+            void run(
+              'palette.setSwatch',
+              { swatch: swatch.id, shader: event.currentTarget.value as SwatchRecord['shader'] },
+              { panel: PANEL_KIND },
+            )
+          }
+        >
+          {SHADERS.map((shader) => (
+            <option key={shader.value} value={shader.value}>
+              {shader.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {swatch.shader !== 'blinn' ? null : (
+        <>
+          <label className="flex items-center gap-2 text-fg-2" htmlFor={`${ids}-gloss`}>
+            <span className="w-16 shrink-0">Glossiness</span>
+            <input
+              id={`${ids}-gloss`}
+              type="range"
+              min={0}
+              max={1}
+              step={0.01}
+              className="min-w-0 flex-1"
+              value={gloss}
+              aria-label="Glossiness"
+              data-testid="palette-glossiness"
+              onChange={(event) => setGloss(Number(event.currentTarget.value))}
+              onPointerUp={(event) => commitGloss(Number(event.currentTarget.value))}
+              onKeyUp={(event) => commitGloss(Number(event.currentTarget.value))}
+              onBlur={(event) => commitGloss(Number(event.currentTarget.value))}
+            />
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              className={`${INPUT} w-14 font-mono`}
+              value={gloss}
+              aria-label="Glossiness value"
+              data-testid="palette-glossiness-value"
+              onChange={(event) => setGloss(Number(event.currentTarget.value))}
+              onBlur={(event) => commitGloss(Number(event.currentTarget.value))}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  commitGloss(Number(event.currentTarget.value));
+                }
+                event.stopPropagation();
+              }}
+            />
+          </label>
+          <label className="flex items-center gap-2 text-fg-2" title="Highlight colour: white is full strength">
+            <span className="w-16 shrink-0">Specular</span>
+            <input
+              type="color"
+              value={toHex(swatch.specular)}
+              aria-label="Specular colour"
+              data-testid="palette-specular"
+              onChange={(event) => {
+                const specular = parseHex(event.currentTarget.value);
+                if (specular !== null) {
+                  void run('palette.setSwatch', { swatch: swatch.id, specular }, { panel: PANEL_KIND });
+                }
+              }}
+            />
+            <span className={`${MUTED_TEXT} font-mono`}>{toHex(swatch.specular)}</span>
+          </label>
+        </>
+      )}
+    </div>
   );
 }
 

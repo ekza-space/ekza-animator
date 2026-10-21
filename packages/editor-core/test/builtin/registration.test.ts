@@ -213,6 +213,8 @@ const M6A_OPERATORS: Readonly<Record<string, boolean>> = {
   'palette.assign': true,
   'palette.replaceSwatch': true,
   'palette.setActive': false,
+  // SHADING-SPEC §5: Assign New Material.
+  'palette.assignMaterial': true,
   'imagePlane.import': true,
   'imagePlane.set': true,
   'imagePlane.delete': true,

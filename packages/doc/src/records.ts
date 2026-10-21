@@ -435,8 +435,20 @@ export interface SwatchRecord {
   readonly srgb: readonly [number, number, number];   // 8-bit sRGB integers 0…255
   readonly kind: 'flat' | 'ramp';              // 'ramp' is M6a-stretch (validation accepts it; M6a renders it flat)
   readonly ramp: readonly [readonly [number, number, number], readonly [number, number, number]] | null;
+  // Swatches table version 2 (SHADING-SPEC §2, ADR 0019): a swatch is the material of the faces painting its slot.
+  readonly shader: SwatchShader;               // default 'lambert'
+  readonly glossiness: number;                 // 0…1, Blinn highlight tightness (default 0.5; roughness = 1 − it)
+  readonly specular: readonly [number, number, number];   // 8-bit sRGB Blinn highlight colour (default white)
   readonly deleted: Tombstone;
 }
+/** Shading model of a swatch (SHADING-SPEC §1). */
+export type SwatchShader = 'lambert' | 'blinn';
+/** The shader fields a swatch takes when they are missing (the swatches v1 → v2 migration, repairs, factories). */
+export const SWATCH_SHADER_DEFAULTS: {
+  readonly shader: SwatchShader;
+  readonly glossiness: number;
+  readonly specular: readonly [number, number, number];
+} = { shader: 'lambert', glossiness: 0.5, specular: [255, 255, 255] };
 export type OrthoCamera = 'front' | 'side' | 'top';
 export interface ImagePlaneRecord {            // scene partition; never picked, never exported
   readonly id: ImagePlaneId;

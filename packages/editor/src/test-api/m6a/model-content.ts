@@ -26,6 +26,10 @@ export function modelContentTestApi(ctx: M6aTestApiContext): ModelContentTestApi
             slot: swatch.slot,
             srgb: [swatch.srgb[0], swatch.srgb[1], swatch.srgb[2]] as [number, number, number],
             name: swatch.name,
+            // SHADING-SPEC §5
+            shader: swatch.shader,
+            glossiness: swatch.glossiness,
+            specular: [swatch.specular[0], swatch.specular[1], swatch.specular[2]] as [number, number, number],
           })),
       }));
     },

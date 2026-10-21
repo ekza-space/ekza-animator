@@ -24,9 +24,11 @@ import type {
   MeshSurface,
   MeshViewLayers,
   MeshViewThemeInput,
+  PaletteShaders,
   PickHit,
   PickOccluder,
   PickOptionsInput,
+  SwatchShading,
 } from '@ekza-animator/mesh-view';
 import { type Camera, Group, Vector3 } from 'three';
 import type { MeshLayerHost } from '../manager/meshLayers';
@@ -349,13 +351,14 @@ export class MeshDisplay {
       }
       const data = runtime.data();
       const colours = this.paletteColours(record.palette);
+      const shaders = this.paletteShaders(record.palette);
       if (data !== null && entry.version !== runtime.version) {
-        entry.surface.setData(data, runtime.triangulation(), runtime.normals(), colours);
+        entry.surface.setData(data, runtime.triangulation(), runtime.normals(), colours, shaders);
         entry.version = runtime.version;
       } else {
         // The record's palette changed without a new revision (`palette.assign`, its undo or redo, a peer's write):
-        // only the paint is rewritten, and only when the colours differ.
-        entry.surface.setPaint(colours);
+        // only the paint is rewritten, and only when the colours or shaders differ.
+        entry.surface.setPaint(colours, shaders);
       }
       // Component hides stay in force outside component mode and on meshes outside the hilite set (M6A-B6-26).
       entry.surface.setHidden(this.hiddenOf(entry.id));
@@ -390,6 +393,7 @@ export class MeshDisplay {
           runtime.triangulation(),
           runtime.normals(),
           this.paletteColours(record?.palette ?? null),
+          this.paletteShaders(record?.palette ?? null),
         );
         entry.version = runtime.version;
       }
@@ -523,12 +527,28 @@ export class MeshDisplay {
     return out;
   }
 
+  /** The Blinn swatches of a palette (slot → glossiness, specular; SHADING-SPEC §3); null when all are Lambert. */
+  private paletteShaders(palette: PaletteId | null): PaletteShaders | null {
+    if (palette === null) return null;
+    let out: Map<number, SwatchShading> | null = null;
+    const seen = new Set<number>();
+    for (const swatch of this.app.store.query.swatchesOfPalette(palette)) {
+      if (seen.has(swatch.slot)) continue;
+      seen.add(swatch.slot);
+      if (swatch.shader !== 'blinn') continue;
+      out ??= new Map();
+      out.set(swatch.slot, { glossiness: swatch.glossiness, specular: swatch.specular });
+    }
+    return out;
+  }
+
   /** The record's palette colours into the view (both compare by content: unchanged colours upload nothing). */
   private applyPaint(entry: Entry): void {
     const record = this.app.store.get('meshes', entry.id);
     const colours = this.paletteColours(record?.palette ?? null);
-    if (entry.edit !== null) entry.edit.setPaint(colours);
-    else entry.surface?.setPaint(colours);
+    const shaders = this.paletteShaders(record?.palette ?? null);
+    if (entry.edit !== null) entry.edit.setPaint(colours, shaders);
+    else entry.surface?.setPaint(colours, shaders);
   }
 
   // ---------------------------------------------------------------------------------------------------------------

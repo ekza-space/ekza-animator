@@ -21,7 +21,10 @@ import {
   type SkeletonRecord,
   type SwatchRecord,
   BUILTIN_TABLES,
+  type BuiltinTableName,
 } from '../records';
+import { repairSwatchShader } from '../records/repair';
+import { builtinTableVersion } from '../tables/registry';
 import { sha256Hex } from '../migrations/sha256';
 import { SCHEMA_VERSION } from '../snapshot/version';
 import type { DocSnapshot, SnapshotTables } from '../store';
@@ -95,6 +98,9 @@ export function makeTestSwatch(
     srgb: [128, 128, 128],
     kind: 'flat',
     ramp: null,
+    shader: 'lambert',
+    glossiness: 0.5,
+    specular: [255, 255, 255],
     deleted: null,
     ...fields,
   };
@@ -177,7 +183,8 @@ export function makeTestJoint(
 /**
  * What a schema 1 or 2 document becomes under schema 3 (M6A-SPEC §4.2, independent of `migrateSnapshot` so tests can
  * compare against it): `schemaVersion` = SCHEMA_VERSION, every built-in table present (the seven M6a tables empty) with
- * its table version, characters with `source: {kind: 'asset', asset}` and assets with `provenance: null`. Tables and
+ * this build's table version, characters with `source: {kind: 'asset', asset}`, assets with `provenance: null` and
+ * swatches with their shader fields (swatches table version 2, SHADING-SPEC §2). Tables and
  * table versions are sorted by name, as snapshots write them.
  */
 export function withSchemaV3(snapshot: DocSnapshot): DocSnapshot {
@@ -190,13 +197,17 @@ export function withSchemaV3(snapshot: DocSnapshot): DocSnapshot {
       if (name === 'characters' && row['source'] === undefined) {
         rows[id] = { ...row, source: { kind: 'asset', asset: row['asset'] } };
       } else if (name === 'assets' && !('provenance' in row)) rows[id] = { ...row, provenance: null };
+      else if (name === 'swatches' && !('shader' in row)) rows[id] = { ...row, ...repairSwatchShader(row) };
       else rows[id] = record;
     }
     tables[name] = rows;
   }
   const tableVersions: Record<string, number> = {};
   for (const name of [...new Set([...Object.keys(snapshot.tableVersions), ...BUILTIN_TABLES])].sort(compareStrings)) {
-    tableVersions[name] = snapshot.tableVersions[name] ?? 1;
+    // Built-in tables migrate to this build's version (swatches 2, SHADING-SPEC §2); others keep theirs.
+    tableVersions[name] = (BUILTIN_TABLES as readonly string[]).includes(name)
+      ? builtinTableVersion(name as BuiltinTableName)
+      : (snapshot.tableVersions[name] ?? 1);
   }
   return {
     ...snapshot,

@@ -30,11 +30,13 @@ vec3 softRamp(float w) {
 
 export const SURFACE_VERTEX = `
 attribute vec3 paint;
+attribute vec4 shade;
 attribute float state;
 attribute float soft;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vPaint;
+varying vec4 vShade;
 varying float vState;
 varying float vSoft;
 void main() {
@@ -42,6 +44,7 @@ void main() {
   vec4 view = modelViewMatrix * vec4(position, 1.0);
   vViewPosition = view.xyz;
   vPaint = paint;
+  vShade = shade;
   vState = state;
   vSoft = soft;
   gl_Position = projectionMatrix * view;
@@ -67,10 +70,26 @@ uniform float uOpacity;
 varying vec3 vNormal;
 varying vec3 vViewPosition;
 varying vec3 vPaint;
+varying vec4 vShade;
 varying float vState;
 varying float vSoft;
 vec3 srgbToLinear(vec3 c) {
   return mix(c / 12.92, pow((c + 0.055) / 1.055, vec3(2.4)), step(vec3(0.04045), c));
+}
+// Blinn (SHADING-SPEC §3): the key light's Blinn-Phong highlight. The exponent is the GGX-equivalent of the exported
+// roughness r = 1 - glossiness (alpha = r^2, n = 2 / alpha^2 - 2), so the viewport and the GLB agree.
+vec3 blinnHighlight(vec3 n, vec3 keyDir, vec4 shade) {
+  float gloss = clamp((shade.a * 255.0 - 1.0) / 254.0, 0.0, 1.0);
+  float r = max(1.0 - gloss, 0.02);
+  float alpha = r * r;
+  float shininess = clamp(2.0 / (alpha * alpha) - 2.0, 1.0, 2048.0);
+  vec3 v = isOrthographic ? vec3(0.0, 0.0, 1.0) : normalize(-vViewPosition);
+  vec3 h = normalize(keyDir + v);
+  float nh = max(dot(n, h), 0.0);
+  float lit = step(0.0, dot(n, keyDir));
+  // (n + 2) / 32 (1 at glossiness 0.5), floored so rough Blinn still reads as shiny next to Lambert, capped for glints.
+  float norm = clamp((shininess + 2.0) / 32.0, 0.35, 4.0);
+  return srgbToLinear(shade.rgb) * (${f(LIGHT_RIG.specular)} * norm * lit * pow(nh, shininess));
 }
 void main() {
   // Flat: the plane of the drawn triangle from screen-space derivatives, which faces the viewer on either side.
@@ -81,12 +100,15 @@ void main() {
     n = normalize(vNormal);
     if (!gl_FrontFacing) n = -n;
   }
-  // A soft clay rig in view space: key from the upper left front, a low fill, ambient.
-  float key = max(dot(n, normalize(${v3(LIGHT_RIG.keyDir)})), 0.0);
+  // A soft clay rig in view space: key from the upper left front, a low fill, ambient (Lambert).
+  vec3 keyDir = normalize(${v3(LIGHT_RIG.keyDir)});
+  float key = max(dot(n, keyDir), 0.0);
   float fill = max(dot(n, normalize(${v3(LIGHT_RIG.fillDir)})), 0.0);
   float light = ${f(LIGHT_RIG.ambient)} + ${f(LIGHT_RIG.key)} * key + ${f(LIGHT_RIG.fill)} * fill;
   vec3 base = uPaint ? srgbToLinear(vPaint) : uClay;
   vec3 col = base * light;
+  // Blinn swatches add the key light's highlight (gloss byte > 0); Lambert swatches and clay have none.
+  if (uPaint && vShade.a > 0.0) col += blinnHighlight(n, keyDir, vShade);
   if (uFaceOrientation) col = (gl_FrontFacing ? uFront : uBack) * (${f(LIGHT_RIG.orientationAmbient)} + ${f(LIGHT_RIG.orientationKey)} * key);
   else if (!gl_FrontFacing) col *= ${f(LIGHT_RIG.backFactor)};
   int s = int(vState + 0.5);

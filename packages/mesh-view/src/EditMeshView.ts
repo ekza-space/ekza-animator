@@ -20,7 +20,17 @@ import { GlyphBatch, SHAPE } from './internal/glyphs';
 import { LineBatch } from './internal/lines';
 import { IndexSet, Touched, uploadAll } from './internal/ranges';
 import { ViewBase } from './internal/base';
-import { copyHidden, copyPalette, hiddenFits, samePalette, sameHidden, sameSet } from './internal/sets';
+import {
+  copyHidden,
+  copyPalette,
+  copyShaders,
+  hiddenFits,
+  type PaletteShaders,
+  samePalette,
+  sameHidden,
+  sameSet,
+  sameShaders,
+} from './internal/sets';
 import {
   bounds,
   copyPositions,
@@ -88,6 +98,8 @@ export class EditMeshView extends ViewBase {
   private hover: Hover | null = null;
   private soft: Float32Array | null = null;
   private paint: ReadonlyMap<number, readonly [number, number, number]> | null = null;
+  /** Blinn swatches of the palette (SHADING-SPEC §3); null = all Lambert. */
+  private shaders: PaletteShaders | null = null;
   private problems: readonly MeshProblem[] = [];
   private plane: { readonly axis: 'x' | 'y' | 'z'; readonly offset: number } | null = null;
   private lintsDirty = true;
@@ -218,7 +230,7 @@ export class EditMeshView extends ViewBase {
     this.faceDots.setGeometry(t.faces);
     faceCentroids(t, this.position, this.faceDots.position.array as Float32Array);
     this.writeAllStates();
-    this.surface.writePaint(t, this.paintSlots(), this.paint);
+    this.surface.writePaint(t, this.paintSlots(), this.paint, this.shaders);
     this.writeSoft();
     this.normalsDirty = true;
     this.diagonalsDirty = true;
@@ -372,7 +384,7 @@ export class EditMeshView extends ViewBase {
     if (allNormals || normalFaces.size > 0) this.normalsDirty = true;
 
     if (dirty.layers.includes('paint') || dirty.faces === 'all' || dirty.faces.length > 0) {
-      this.surface.writePaint(t, this.paintSlots(), this.paint);
+      this.surface.writePaint(t, this.paintSlots(), this.paint, this.shaders);
     }
   }
 
@@ -577,11 +589,15 @@ export class EditMeshView extends ViewBase {
   /**
    * Palette colours (slot → sRGB 8-bit) of the `paint` layer for the `colours` and `lit` shadings; null = clay. The
    * same colours again (a host re-pushing on every document batch, often as a fresh map) upload nothing; the paint
-   * slots themselves follow `update`'s dirty layers.
+   * slots themselves follow `update`'s dirty layers. `shaders` are the palette's Blinn swatches (SHADING-SPEC §3).
    */
-  setPaint(colours: ReadonlyMap<number, readonly [number, number, number]> | null): void {
-    if (samePalette(colours, this.paint)) return;
+  setPaint(
+    colours: ReadonlyMap<number, readonly [number, number, number]> | null,
+    shaders: PaletteShaders | null = null,
+  ): void {
+    if (samePalette(colours, this.paint) && sameShaders(shaders, this.shaders)) return;
     this.paint = copyPalette(colours);
+    this.shaders = copyShaders(shaders);
     if (this.topo !== null) this.surface.writePaint(this.topo, this.paintSlots(), this.paint);
   }
 

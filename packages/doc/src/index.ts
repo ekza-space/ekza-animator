@@ -16,7 +16,7 @@ export {
 } from './records/factories';
 export { fractionalIndex, isFractionalIndex } from './records/order';
 // M6a (M6A-SPEC §4.2): repairs of loaded content (also run by migrateSnapshot).
-export { type RepairResult, repairHierarchy, repairRecord } from './records/repair';
+export { type RepairResult, repairHierarchy, repairRecord, repairSwatchShader } from './records/repair';
 export { emptySnapshot, parseSnapshot, SCHEMA_VERSION, serializeSnapshot } from './snapshot/serialize';
 export { requiredWriterVersion } from './snapshot/version';
 export * from './store';
@@ -32,6 +32,7 @@ export {
   type MemoryStoreOptions,
 } from './store/memory';
 export {
+  builtinTableVersion,
   getTableDef,
   isSoftDeletable,
   mergeUnitOf,

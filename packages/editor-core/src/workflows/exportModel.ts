@@ -31,6 +31,7 @@ import {
   parseGlb,
   type StaticExportRequest,
   type StaticNode,
+  type StaticSwatch,
   skeletonFromGltf,
 } from '@ekza-animator/io';
 import type { MeshLintInput, StaticThreeReadBack } from '@ekza-animator/io/write';
@@ -140,15 +141,27 @@ async function readyData(meshes: MeshRuntimeRegistry, id: MeshId, name: string):
   return data;
 }
 
-function liveSwatches(app: EditorApp, palette: PaletteId) {
+/** The live swatches of a palette by slot, with their shaders (SHADING-SPEC §4; Lambert ones carry none). */
+function liveSwatches(app: EditorApp, palette: PaletteId): StaticSwatch[] {
   const slots = [...new Set(app.store.query.swatchesOfPalette(palette).map((swatch) => swatch.slot))].sort(
     (a, b) => a - b,
   );
-  return slots.flatMap((slot) => {
+  return slots.flatMap((slot): StaticSwatch[] => {
     const swatch = app.store.query.swatchBySlot(palette, slot);
-    return swatch === undefined ? [] : [{ slot, srgb: swatch.srgb }];
+    if (swatch === undefined) return [];
+    if (swatch.shader !== 'blinn') return [{ slot, srgb: swatch.srgb }];
+    return [
+      {
+        slot,
+        srgb: swatch.srgb,
+        shader: { shader: 'blinn', glossiness: swatch.glossiness, specular: swatch.specular },
+      },
+    ];
   });
 }
+
+/** Lint code of a Blinn swatch on a mesh exported unlit (SHADING-SPEC §4). */
+export const UNLIT_SHADER_LINT = 'material.unlit-shader';
 
 /** Runs a static export (§6.2): one artifact; error lints block the download in the operator. */
 export async function runExportModel(app: EditorApp, req: StaticExportRequest): Promise<ExportArtifact> {
@@ -157,11 +170,9 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
   const write = await loadWritePath();
   const profile: ExportProfileDef | null = req.profile === null ? null : (app.exportProfiles.get(req.profile) ?? null);
   const roots = exportRoots(app, req);
-  const palettes = new Map<
-    string,
-    readonly { readonly slot: number; readonly srgb: readonly [number, number, number] }[]
-  >();
+  const palettes = new Map<string, readonly StaticSwatch[]>();
   const meshInputs: MeshLintInput[] = [];
+  const unlitShaded: string[] = [];
 
   const build = async (record: SceneObject, rootBudget: MeshBudget): Promise<StaticNode> => {
     const children: StaticNode[] = [];
@@ -180,6 +191,12 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     const usedSlots = new Set<number>();
     const paint = data.layers.get('paint');
     if (paint !== undefined) for (let f = 0; f < data.counts.faces; f++) usedSlots.add(paint.data[f] as number);
+    else if (data.counts.faces > 0) usedSlots.add(0);
+    // Shader groups the export writes (SHADING-SPEC §4): lit meshes split their materials per used shader.
+    const bySlot = new Map(swatches.map((swatch) => [swatch.slot, swatch.shader] as const));
+    const shaderOf = (slot: number) => (bySlot.has(slot) ? bySlot.get(slot) : bySlot.get(0));
+    const usedShaders = new Set([...usedSlots].map((slot) => write.shaderKey(shaderOf(slot))));
+    if (preset === 'unlit' && [...usedShaders].some((key) => key !== '')) unlitShaded.push(record.name);
     const textureSide =
       colourOutput === 'palette-texture' && record.palette !== null ? (swatches.length <= 64 ? 64 : 128) : 0;
     meshInputs.push({
@@ -188,7 +205,12 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
       data,
       budget: write.resolveBudget(record.budget, rootBudget, profile),
       swatchSlots: record.palette === null ? null : new Set(swatches.map((swatch) => swatch.slot)),
-      materials: colourOutput === 'material-per-colour' ? Math.max(1, usedSlots.size) : 1,
+      materials:
+        colourOutput === 'material-per-colour'
+          ? Math.max(1, usedSlots.size)
+          : preset === 'lit'
+            ? Math.max(1, usedShaders.size)
+            : 1,
       textureSide,
       joints: 0,
     });
@@ -224,6 +246,21 @@ export async function runExportModel(app: EditorApp, req: StaticExportRequest): 
     },
     { fileName, profile, generator: `Ekza Animator ${EDITOR_VERSION}`, meshes: meshInputs },
   );
+  if (unlitShaded.length > 0) {
+    artifact = {
+      ...artifact,
+      lints: [
+        ...artifact.lints,
+        {
+          code: UNLIT_SHADER_LINT,
+          severity: 'warning',
+          message: `${unlitShaded.join(', ')} ${unlitShaded.length === 1 ? 'uses' : 'use'} Blinn swatches but ${
+            unlitShaded.length === 1 ? 'exports' : 'export'
+          } unlit (flat): set the material to Lit to export the shading`,
+        },
+      ],
+    };
+  }
   const three = await threeReadBack(app.services.models, artifact.bytes);
   if (three !== null) artifact = write.withThreeReadBack(artifact, three);
   const validate = app.services.validate;

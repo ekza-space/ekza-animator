@@ -13,10 +13,13 @@ import { uploadAll } from './internal/ranges';
 import {
   copyHidden,
   copyPalette,
+  copyShaders,
   hiddenFits,
   hidesNothing,
   type PaletteColours,
+  type PaletteShaders,
   samePalette,
+  sameShaders,
   sameHidden,
 } from './internal/sets';
 import { deriveVisibility, type Topo, topoOfData, type Visibility, withCornerEdges } from './internal/topo';
@@ -27,6 +30,8 @@ import type { MeshPaneDisplay, MeshViewLayers } from './types';
 export class MeshSurface extends ViewBase implements PickOccluder {
   private data: MeshData | null = null;
   private paint: PaletteColours | null = null;
+  /** Blinn swatches of the palette (SHADING-SPEC §3); null = all Lambert. */
+  private shaders: PaletteShaders | null = null;
   /** The view's own copy of the hidden set (null = nothing hidden). */
   private hidden: HiddenSet | null = null;
   /** Visibility under `hidden` (null = every element drawn), derived on `linked`. */
@@ -41,10 +46,16 @@ export class MeshSurface extends ViewBase implements PickOccluder {
   }
 
   /**
-   * Replaces the displayed revision (stored form, its triangulation and normals) and its palette colours. A hidden set
-   * kept from before applies when it fits the new topology and is dropped otherwise (M6A-B6-19).
+   * Replaces the displayed revision (stored form, its triangulation and normals) and its palette colours and shaders.
+   * A hidden set kept from before applies when it fits the new topology and is dropped otherwise (M6A-B6-19).
    */
-  setData(data: MeshData, tri: Triangulation, normals: Normals, paint: PaletteColours | null): void {
+  setData(
+    data: MeshData,
+    tri: Triangulation,
+    normals: Normals,
+    paint: PaletteColours | null,
+    shaders: PaletteShaders | null = null,
+  ): void {
     const t = topoOfData(data);
     this.data = data;
     this.topo = t;
@@ -53,10 +64,11 @@ export class MeshSurface extends ViewBase implements PickOccluder {
     this.tri = tri;
     this.normals = normals;
     this.paint = copyPalette(paint);
+    this.shaders = copyShaders(shaders);
     if (this.hidden !== null && !hiddenFits(t, this.hidden)) this.hidden = null;
     this.deriveVis(t);
     this.surface.build(t, data.position, tri, normals, this.vis?.faces ?? null);
-    this.surface.writePaint(t, this.paintSlots(), this.paint);
+    this.surface.writePaint(t, this.paintSlots(), this.paint, this.shaders);
     this.edges.setGeometry(t.edges);
     this.writeEdgeSegments(t, null);
     this.writeEdgeStates(t);
@@ -68,12 +80,13 @@ export class MeshSurface extends ViewBase implements PickOccluder {
   /**
    * Palette colours (slot → sRGB) of the displayed revision: a palette reassignment or a swatch edit. Compared by
    * content (the document hands out a fresh map per query), so unchanged colours upload nothing; otherwise only the
-   * paint attribute is rewritten.
+   * paint attributes are rewritten. `shaders`: the palette's Blinn swatches (SHADING-SPEC §3).
    */
-  setPaint(colours: PaletteColours | null): void {
-    if (samePalette(colours, this.paint)) return;
+  setPaint(colours: PaletteColours | null, shaders: PaletteShaders | null = null): void {
+    if (samePalette(colours, this.paint) && sameShaders(shaders, this.shaders)) return;
     this.paint = copyPalette(colours);
-    if (this.topo !== null) this.surface.writePaint(this.topo, this.paintSlots(), this.paint);
+    this.shaders = copyShaders(shaders);
+    if (this.topo !== null) this.surface.writePaint(this.topo, this.paintSlots(), this.paint, this.shaders);
   }
 
   /**
@@ -118,6 +131,11 @@ export class MeshSurface extends ViewBase implements PickOccluder {
   /** The displayed stored form (null before the first `setData`). */
   get current(): MeshData | null {
     return this.data;
+  }
+
+  /** The Blinn swatches drawn (a copy of the last passed to `setData` or `setPaint`; null = all Lambert). */
+  get shading(): PaletteShaders | null {
+    return this.shaders;
   }
 
   /** The palette colours drawn (a copy of the last passed to `setData` or `setPaint`). */

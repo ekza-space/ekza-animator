@@ -884,6 +884,68 @@ describe('MeshSurface', () => {
     ).toBe('');
   });
 
+  it('draws Blinn swatches with a highlight and Lambert ones without, in colours and lit only (SHADING-SPEC §3)', () => {
+    const d = cube();
+    const camera = orthoFront(4);
+    const surface = new MeshSurface({ theme: THEME, layers: LAYERS });
+    disposables.push(surface);
+    const red = new Map([[0, [255, 0, 0] as const]]);
+    surface.setData(d.data, d.tri, d.normals, red);
+    const centre = px(camera, [0.1, 0.15, 0.5]);
+    const colours: Partial<MeshPaneDisplay> = { shading: 'colours' };
+    const lambert = at(render(surface, camera, colours), centre);
+    expect(colourError(lambert, bytes(lit(0xff0000, camera, [0, 0, 1])), 2)).toBe('');
+    // Lambert: the shade attribute is all zeros.
+    const shade = (): Uint8Array => {
+      let found: Uint8Array | null = null;
+      surface.root.traverse((object) => {
+        const attribute = (object as { geometry?: BufferGeometry }).geometry?.attributes['shade'];
+        if (attribute !== undefined) found = attribute.array as Uint8Array;
+      });
+      if (found === null) throw new Error('no shade attribute');
+      return found;
+    };
+    expect(shade().every((byte) => byte === 0)).toBe(true);
+
+    // Blinn, glossiness 0.2, white specular: a broad white highlight on the red face.
+    surface.setPaint(red, new Map([[0, { glossiness: 0.2, specular: [255, 255, 255] as const }]]));
+    expect(surface.shading?.get(0)?.glossiness).toBe(0.2);
+    const bytesOf = shade();
+    expect([...bytesOf.subarray(0, 4)]).toEqual([255, 255, 255, 1 + Math.round(0.2 * 254)]);
+    const blinn = at(render(surface, camera, colours), centre);
+    expect(blinn[0]).toBeGreaterThanOrEqual(lambert[0]);
+    expect(blinn[1]).toBeGreaterThan(lambert[1] + 30);
+    expect(blinn[2]).toBeGreaterThan(lambert[2] + 30);
+    // lit draws the same; shaded (clay) has no highlight.
+    expect(colourError(at(render(surface, camera, { shading: 'lit' }), centre), blinn, 1)).toBe('');
+    expect(
+      colourError(
+        at(render(surface, camera, { shading: 'shaded' }), centre),
+        bytes(lit(THEME.clay, camera, [0, 0, 1])),
+        2,
+      ),
+    ).toBe('');
+
+    // The same shaders in fresh maps upload nothing; back to Lambert clears the attribute.
+    const versionOf = (): number => {
+      let version = -1;
+      surface.root.traverse((object) => {
+        const attribute = (object as { geometry?: BufferGeometry }).geometry?.attributes['shade'];
+        if (attribute !== undefined) version = (attribute as BufferAttribute).version;
+      });
+      return version;
+    };
+    const before = versionOf();
+    surface.setPaint(
+      new Map([[0, [255, 0, 0] as const]]),
+      new Map([[0, { glossiness: 0.2, specular: [255, 255, 255] }]]),
+    );
+    expect(versionOf()).toBe(before);
+    surface.setPaint(red, null);
+    expect(shade().every((byte) => byte === 0)).toBe(true);
+    expect(colourError(at(render(surface, camera, colours), centre), lambert, 1)).toBe('');
+  });
+
   it('keeps component hides: draws what an edit view with the same hidden set draws without overlays (M6A-B6-26)', () => {
     const random = prng(26);
     const shapes: [Derived, Camera][] = [

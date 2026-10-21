@@ -344,8 +344,9 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'mesh.setAttributes',
   ]);
 
-  it('covers the §6 operators: 38 kernel ops, 4 set-ops and 77 editor operators', () => {
-    expect(M6A.length).toBe(38 + 4 + 77);
+  // Literal update (SHADING-SPEC §5): + palette.assignMaterial (78 editor operators).
+  it('covers the §6 operators: 38 kernel ops, 4 set-ops and 78 editor operators', () => {
+    expect(M6A.length).toBe(38 + 4 + 78);
     expect(M6A.filter((d) => d.id.startsWith('mesh.') && d.extraArgs?.includes('kind') === true)).toHaveLength(42);
   });
 
@@ -371,6 +372,8 @@ describe('every M6a operator resolves and poll-fails cleanly (§3 rule 1)', () =
     'palette.replaceSwatch',
     'palette.setActive',
     'select.mesh.bySwatch',
+    // SHADING-SPEC §5 (its junk-argument case: test/m6a/content/junk.test.ts)
+    'palette.assignMaterial',
     'imagePlane.import',
     'imagePlane.set',
     'imagePlane.delete',

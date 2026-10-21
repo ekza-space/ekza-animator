@@ -12,6 +12,7 @@ import type {
   OrthoCamera,
   PrimitiveKind,
   Side,
+  SwatchShader,
 } from '../records';
 
 type Problems = string[];
@@ -65,6 +66,8 @@ export const BUDGET_PRESETS = [
   'medium-prop',
   'building',
 ] as const satisfies readonly BudgetPresetId[];
+/** Swatch shading models (SHADING-SPEC §1). */
+export const SWATCH_SHADERS = ['lambert', 'blinn'] as const satisfies readonly SwatchShader[];
 export const ORTHO_CAMERAS = ['front', 'side', 'top'] as const satisfies readonly OrthoCamera[];
 export const SKELETON_PRESETS = ['lite17', 'core21', 'standard33', 'full52', 'custom'] as const;
 export const GROUP_TEMPLATES = ['prop', 'handheld', 'humanoid'] as const;
@@ -145,7 +148,8 @@ const _exhaustive: [
   Missing<BudgetPresetId, typeof BUDGET_PRESETS>,
   Missing<OrthoCamera, typeof ORTHO_CAMERAS>,
   Missing<HumanBoneName, typeof HUMAN_BONE_NAMES>,
-] = [] as unknown as [never, never, never, never, never, never, never, never];
+  Missing<SwatchShader, typeof SWATCH_SHADERS>,
+] = [] as unknown as [never, never, never, never, never, never, never, never, never];
 void _exhaustive;
 
 const TANGENT_SET = new Set<unknown>(TANGENT_TYPES);
@@ -695,6 +699,12 @@ const swatchShape = shape({
   srgb,
   kind: oneOf(['flat', 'ramp']),
   ramp: nullable(tuple(2, srgb)),
+  // Swatches table version 2 (SHADING-SPEC §2).
+  shader: oneOf(SWATCH_SHADERS),
+  glossiness: (v, p, out) => {
+    if (!isFiniteNumber(v) || v < 0 || v > 1) out.push(`${p}: expected a number in 0…1`);
+  },
+  specular: srgb,
   deleted: tombstone,
 });
 

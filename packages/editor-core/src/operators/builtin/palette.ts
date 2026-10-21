@@ -29,7 +29,7 @@ import {
   type SwatchId,
   type SwatchRecord,
 } from '@ekza-animator/doc';
-import { loadMeshKernel, meshKernel } from '../../mesh';
+import { attachMeshes, loadMeshKernel, meshKernel } from '../../mesh';
 import type { EditorApp, PollResult } from '../../types';
 import { type AnyOperator, defineOperator, fail, isRecord, OK, optionalArgs } from './define';
 import { loadContentApply, loadedContentApply } from './contentLoad';
@@ -100,6 +100,23 @@ function isSrgb(value: unknown): value is readonly [number, number, number] {
     value.every((c) => typeof c === 'number' && Number.isFinite(c) && c >= 0 && c <= 255)
   );
 }
+
+/** Why the shader fields of `palette.addSwatch`/`palette.setSwatch`/`palette.assignMaterial` args are wrong, or null. */
+export function shaderArgsProblem(args: Readonly<Record<string, unknown>>): string | null {
+  const shader = args['shader'];
+  if (shader !== undefined && shader !== 'lambert' && shader !== 'blinn') return "shader must be 'lambert' or 'blinn'";
+  const glossiness = args['glossiness'];
+  if (glossiness !== undefined && (typeof glossiness !== 'number' || !(glossiness >= 0 && glossiness <= 1))) {
+    return 'glossiness must be a number in 0…1';
+  }
+  if (args['specular'] !== undefined && !isSrgb(args['specular'])) {
+    return 'specular must be three 8-bit values (0…255)';
+  }
+  return null;
+}
+
+/** Whether `palette.setSwatch` args change the shader. */
+const SHADER_KEYS = ['shader', 'glossiness', 'specular'] as const;
 
 export const MAX_NAME = 64;
 
@@ -198,12 +215,14 @@ const addSwatch = defineOperator({
   description: 'Adds a colour to a palette (its slot is new and never reused).',
   ...META,
   flags: { undo: true },
-  extraArgs: ['palette', 'srgb', 'name'],
+  extraArgs: ['palette', 'srgb', 'name', 'shader', 'glossiness', 'specular'],
   poll({ app }, args): PollResult {
     if (!isRecord(args)) return fail('expects { palette, srgb }');
     if (livePalette(app, args['palette']) === undefined) return fail('Unknown palette');
     if (!isSrgb(args['srgb'])) return fail('srgb must be three 8-bit values (0…255)');
     if (args['name'] !== undefined && cleanName(args['name']) === null) return fail('The swatch needs a name');
+    const shader = shaderArgsProblem(args);
+    if (shader !== null) return fail(shader);
     if (nextSlot(app.store, args['palette']) > 65_534) return fail('The palette has no free slot left');
     return OK;
   },
@@ -214,16 +233,20 @@ const addSwatch = defineOperator({
 const setSwatch = defineOperator({
   id: 'palette.setSwatch',
   label: 'Edit Swatch',
-  description: "Changes a swatch's colour or name (every face using it is recoloured).",
+  description: "Changes a swatch's colour, name or shader (every face using it follows).",
   ...META,
   flags: { undo: true, internal: true },
-  extraArgs: ['swatch', 'srgb', 'name'],
+  extraArgs: ['swatch', 'srgb', 'name', 'shader', 'glossiness', 'specular'],
   poll({ app }, args): PollResult {
-    if (!isRecord(args)) return fail('expects { swatch, srgb?, name? }');
+    if (!isRecord(args)) return fail('expects { swatch, srgb?, name?, shader?, glossiness?, specular? }');
     if (liveSwatch(app, args['swatch']) === undefined) return fail('Unknown swatch');
     if (args['srgb'] !== undefined && !isSrgb(args['srgb'])) return fail('srgb must be three 8-bit values (0…255)');
     if (args['name'] !== undefined && cleanName(args['name']) === null) return fail('The swatch needs a name');
-    return args['srgb'] === undefined && args['name'] === undefined ? fail('Nothing to change') : OK;
+    const shader = shaderArgsProblem(args);
+    if (shader !== null) return fail(shader);
+    const changes =
+      args['srgb'] !== undefined || args['name'] !== undefined || SHADER_KEYS.some((k) => args[k] !== undefined);
+    return changes ? OK : fail('Nothing to change');
   },
   prepare: loadContentApply,
   apply: (ctx, args, impl) => impl.paletteSetSwatch(ctx, args),
@@ -385,6 +408,80 @@ const selectBySwatch = defineOperator({
   apply: (ctx, args, impl) => impl.selectBySwatch(ctx, args),
 });
 
+// ---------- Assign New Material (SHADING-SPEC §5) ----------
+
+/** What Assign New Material paints: the selected faces (face mode) or every face of the target meshes. */
+export interface MaterialPlan {
+  readonly faceMode: boolean;
+  readonly meshes: readonly MeshId[];
+}
+
+/**
+ * The targets of `palette.assignMaterial`: explicit `meshes` (every face), else in face mode the hilited meshes with
+ * selected faces, else the selected mesh objects (every face).
+ */
+export function materialPlan(app: EditorApp, args: unknown): MaterialPlan {
+  const explicit = isRecord(args) ? args['meshes'] : undefined;
+  if (Array.isArray(explicit)) {
+    return { faceMode: false, meshes: explicit.filter((id): id is MeshId => typeof id === 'string') };
+  }
+  const state = app.session.getState();
+  if (state.model.componentMode === 'face' && state.model.hilite.length > 0) {
+    const meshes = attachMeshes(app);
+    return {
+      faceMode: true,
+      meshes: state.model.hilite.filter((id) => {
+        const sel = meshes?.selectionFor(id, 'face') ?? null;
+        return sel !== null && !sel.faces.isEmpty();
+      }),
+    };
+  }
+  return { faceMode: false, meshes: state.selection.objects.filter((id): id is MeshId => id.startsWith('msh_')) };
+}
+
+const assignMaterial = defineOperator({
+  id: 'palette.assignMaterial',
+  label: 'Assign New Material',
+  description: 'Creates a Lambert or Blinn swatch and assigns it to the selected faces or objects.',
+  ...META,
+  flags: { undo: true },
+  aliases: ['Lambert', 'Blinn', 'Hypershade', 'New Material', 'Assign Material'],
+  extraArgs: ['shader', 'meshes', 'srgb', 'name'],
+  poll({ app }, args): PollResult {
+    if (!isRecord(args)) return fail("expects { shader: 'lambert' | 'blinn' }");
+    if (args['shader'] !== 'lambert' && args['shader'] !== 'blinn') return fail("shader must be 'lambert' or 'blinn'");
+    if (args['srgb'] !== undefined && !isSrgb(args['srgb'])) return fail('srgb must be three 8-bit values (0…255)');
+    if (args['name'] !== undefined && cleanName(args['name']) === null) return fail('The swatch needs a name');
+    // Like the mesh ops, the poll does not start the kernel (menus poll every item): Model entry loads it.
+    if (meshKernel() === null) return fail(BUSY_KERNEL);
+    const plan = materialPlan(app, args);
+    if (plan.meshes.length === 0) return fail('Select faces or a mesh first');
+    let palette: PaletteId | null | undefined;
+    for (const id of plan.meshes) {
+      const record = app.store.get('meshes', id);
+      if (record === undefined) return fail(`Unknown mesh ${id}`);
+      if (!isAuthored(record)) return fail('Imported meshes keep their materials');
+      if (record.palette === null) return fail(`${record.name} has no palette: assign one first`);
+      if (palette !== undefined && palette !== record.palette) {
+        return fail('The selected meshes paint with different palettes');
+      }
+      palette = record.palette;
+      const runtime = app.meshes.get(id);
+      if (runtime?.state === 'loading') return fail('Mesh is loading');
+      if (runtime?.state === 'error') return fail(runtime.error ?? 'Mesh data is missing');
+    }
+    if (palette !== undefined && palette !== null && nextSlot(app.store, palette) > 65_534) {
+      return fail('The palette has no free slot left');
+    }
+    return OK;
+  },
+  async prepare() {
+    const [, impl] = await Promise.all([loadMeshKernel(), loadContentApply()]);
+    return impl;
+  },
+  apply: (ctx, args, impl) => impl.paletteAssignMaterial(ctx, args),
+});
+
 export const PALETTE_OPERATORS: readonly AnyOperator[] = [
   ensureDefault,
   createPalette,
@@ -397,4 +494,5 @@ export const PALETTE_OPERATORS: readonly AnyOperator[] = [
   replaceSwatch,
   setActive,
   selectBySwatch,
+  assignMaterial,
 ];

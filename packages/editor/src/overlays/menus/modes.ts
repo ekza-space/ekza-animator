@@ -41,6 +41,13 @@ export const MODES_MENU: MarkingMenuDef = {
     { label: 'Isolate', op: 'view.isolate' },
     { label: 'Assign Colour', submenu: [{ label: 'Active Swatch', op: 'mesh.paint' }] },
     {
+      label: 'Assign New Material',
+      submenu: [
+        { label: 'Lambert', op: 'palette.assignMaterial', args: { shader: 'lambert' } },
+        { label: 'Blinn', op: 'palette.assignMaterial', args: { shader: 'blinn' } },
+      ],
+    },
+    {
       label: 'Pivot',
       submenu: [
         { label: 'Center Pivot', op: 'mesh.pivot.center' },

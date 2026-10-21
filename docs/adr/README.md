@@ -27,6 +27,7 @@ Code sketches inside ADRs are illustrative. The normative TypeScript contracts a
 | [0015](0015-mesh-storage-in-the-document.md) | Mesh storage in the document: revision refs, content-addressed chunks, claims, undo | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0016](0016-modeling-interaction-paradigm.md) | Modeling interaction paradigm: Maya base, Blender semantics, one keymap per preset | Accepted (2026-10-19, M6A-SPEC v1.0) |
 | [0017](0017-ai-generation-boundary.md) | AI 3D generation boundary: server gateway, provider-agnostic contract, provenance by construction | Proposed (2026-10-18, rev. 2026-10-19); items 7–8 Accepted with M6A-SPEC v1.0 |
+| [0019](0019-swatch-shaders.md) | Swatch shaders: a palette swatch is the material, versioned by its table | Accepted (2026-10-21, SHADING-SPEC v1.0) |
 
 ADRs 0014–0016 were accepted on 2026-10-19 with the M6a build spec [`../M6A-SPEC.md`](../M6A-SPEC.md) v1.0, whose
 §4 holds their normative contracts (where an ADR sketch and the spec differ, the spec wins; its §12.2 lists the

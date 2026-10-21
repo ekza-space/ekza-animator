@@ -126,7 +126,7 @@ export interface EkzaAnimatorTestApi {
   history(): { undo: string[]; redo: string[] };       // labels, oldest first (B0a: kernel-level)
   /** B13 (`m6a/model-content.ts`) */
   palettes(): { id: string; name: string; swatches: { id: string; slot: number; srgb: [number, number, number];
-    name: string }[] }[];
+    name: string; shader: 'lambert' | 'blinn'; glossiness: number; specular: [number, number, number] }[] }[];
   activeSwatch(): string | null;
   imagePlanes(): { id: string; camera: string; asset: string; offset: [number, number]; size: number; opacity: number;
     depth: string; locked: boolean; visible: boolean }[];
