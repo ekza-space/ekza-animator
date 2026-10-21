@@ -153,8 +153,9 @@ export function createShell(opts: CreateShellOptions): Shell {
       notifyError(`${label} failed: ${message}`, result.error.action);
     } else if (result.status === 'cancelled') {
       help(result.reason, 'warning');
-    } else if (op === 'file.export' || op === 'file.exportModel') {
-      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes).
+    } else if (op === 'file.export' || op === 'file.exportModel' || op === 'file.exportCharacter') {
+      // M6a (§4.8): lastExport() reports static-model exports too (contract note, M6A-B8 wp-notes); M6b (C10, §4.8):
+      // and character exports (their readBack carries kind 'character').
       const artifacts = asArtifacts(result.value);
       if (artifacts !== null) exports.recordArtifacts(artifacts);
     } else if (op === 'graph.curves.simplify') {

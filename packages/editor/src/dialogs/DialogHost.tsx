@@ -45,7 +45,7 @@ const LOADERS: Readonly<Record<UiDialog, () => Promise<DialogModule>>> = {
   applyPoseAsRest: pendingRig,
   unbindSkin: pendingRig,
   rebindSkin: pendingRig,
-  vrmMeta: pendingRig,
+  vrmMeta: () => import('./VrmMetaDialog').then((m) => ({ default: m.VrmMetaDialog })),
   makeCharacterEditable: pendingRig,
   attachProp: pendingRig,
 };
@@ -74,7 +74,7 @@ export const DIALOG_NAMES: Readonly<Record<ChunkKey, string>> = {
   applyPoseAsRest: 'Rig & Skin dialog',
   unbindSkin: 'Rig & Skin dialog',
   rebindSkin: 'Rig & Skin dialog',
-  vrmMeta: 'Rig & Skin dialog',
+  vrmMeta: 'VRM Meta dialog',
   makeCharacterEditable: 'Rig & Skin dialog',
   attachProp: 'Rig & Skin dialog',
   confirm: 'confirmation prompt',

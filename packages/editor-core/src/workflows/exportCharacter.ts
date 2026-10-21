@@ -71,14 +71,14 @@ export function characterOf(app: EditorApp, explicit: unknown): CharacterId | nu
   if (typeof explicit === 'string') return explicit as CharacterId;
   const state = app.session.getState();
   for (const id of [state.rig.character, state.activeCharacter]) {
-    if (id !== null && app.store.get('characters', id)?.source.kind === 'model') return id;
+    if (id !== null && app.store.get('characters', id)?.source?.kind === 'model') return id;
   }
-  return app.store.list('characters').find((c) => c.source.kind === 'model' && c.deleted === null)?.id ?? null;
+  return app.store.list('characters').find((c) => c.source?.kind === 'model' && c.deleted === null)?.id ?? null;
 }
 
 /** Whether a character is model-sourced and live. */
 export function isModelCharacter(record: CharacterRecord | undefined): boolean {
-  return record !== undefined && record.deleted === null && record.source.kind === 'model';
+  return record !== undefined && record.deleted === null && record.source?.kind === 'model';
 }
 
 /** The request with its defaults (§6.4), or why it cannot be read. */
