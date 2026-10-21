@@ -16,6 +16,8 @@ export const DEFAULT_WORKSPACE_VIEWS: Readonly<
 > = {
   model: { layout: 'quad', maximizedPane: 'pane-persp' },
   animate: { layout: 'split', maximizedPane: null },
+  // M6b (§8.2): Rig & Skin opens on R-Side (`front │ persp`).
+  rig: { layout: 'rig-side', maximizedPane: null },
 };
 
 /** The transform tools (Q W E R): `Y` (last tool, Maya) skips them, so `view.tool` records only the others. */

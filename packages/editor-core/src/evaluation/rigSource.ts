@@ -1,5 +1,10 @@
 // Channel sources of the evaluation (M6B-SPEC §4.6, §5.17, §0.5; C0 baseline, then C7).
 //
+// C7 (MVP): 'bind' evaluates the channel defaults on the character's program. The MVP compiles no enabled constraint
+// (C8a is deferred, §0.3: every constraint record compiles as a disabled op), so that program is the constraint-free
+// one `withoutConstraints` would give and the Bind view is the rest pose exactly; C8a swaps in the compiled
+// constraint-free program when constraints arrive.
+//
 // Resolution, in every workspace (Animate included): when the registered 'preview' provider's `values(character)` is
 // non-null, those values drive the character (the channel defaults, then the provider's values); otherwise the
 // character's workspace source does — 'animate' (clip curves ⊕ session overrides, the shipped path, the default),
@@ -9,9 +14,10 @@
 import type { Disposer } from '@ekza-studio/anim-core';
 import type { ChannelValues, CharacterId, ControlId } from '@ekza-studio/doc';
 import type { ChannelBuffer, RigProgram } from '@ekza-studio/rig';
-import type { ChannelSource, ChannelSourceProvider, TestPoseService } from '../types';
+import type { ChannelEditGesture, ChannelSource, ChannelSourceProvider, EditorApp, TestPoseService } from '../types';
 
 const providers: ChannelSourceProvider[] = [];
+const NO_VALUES: ReadonlyMap<ControlId, ChannelValues> = new Map();
 let registrations = 0;
 
 /** C0 hook (§0.5): C12 registers the provider of the 'preview' source; the last registered provider wins. */
@@ -43,10 +49,38 @@ function previewStamp(): number {
   return stamp;
 }
 
+/**
+ * C7 (§5.17): who answers `beginChannelEditGesture` instead of the shipped path. The rig-workspace chunk registers one
+ * per app: in Rig & Skin a manipulator drag or a Channel Box edit of controls writes the test pose (never a key, never
+ * the document); elsewhere it returns null and the shipped gesture runs.
+ */
+export type ChannelEditRedirect = (app: EditorApp, label: string) => ChannelEditGesture | null;
+const redirects = new Set<ChannelEditRedirect>();
+
+export function registerChannelEditRedirect(redirect: ChannelEditRedirect): Disposer {
+  redirects.add(redirect);
+  return () => redirects.delete(redirect);
+}
+
+/** The gesture a registered redirect opens for this app and label, or null (the shipped gesture runs). */
+export function redirectedChannelEdit(app: EditorApp, label: string): ChannelEditGesture | null {
+  for (const redirect of redirects) {
+    const gesture = redirect(app, label);
+    if (gesture !== null) return gesture;
+  }
+  return null;
+}
+
 export interface ChannelSources {
   /** The workspace source of a character ('animate' unless set). */
   source(character: CharacterId): ChannelSource;
   set(character: CharacterId, source: ChannelSource): boolean;
+  /**
+   * C7 (§5.17, §8.9): the channel values a 'bind' or 'test' character shows instead of curves ⊕ overrides — none
+   * (defaults) in Bind, the test pose in Test — or null under 'animate' and 'clip' (the shipped reads apply). The
+   * Channel Box and the manipulators read them, so a test drag starts from the pose on screen.
+   */
+  rigValues(character: CharacterId): ReadonlyMap<ControlId, ChannelValues> | null;
   /** True once after a preview frame or (un)registration since the last call (the evaluation's tick reads it). */
   previewMoved(): boolean;
   /**
@@ -71,6 +105,12 @@ export function createChannelSources(deps: { readonly testPose: () => TestPoseSe
       if (source === 'animate') sources.delete(character);
       else sources.set(character, source);
       return true;
+    },
+    rigValues(character) {
+      const source = sources.get(character);
+      if (source === 'bind') return NO_VALUES;
+      if (source !== 'test') return null;
+      return deps.testPose()?.values(character) ?? NO_VALUES;
     },
     previewMoved() {
       const next = previewStamp();

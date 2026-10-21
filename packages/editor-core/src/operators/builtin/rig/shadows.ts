@@ -1,9 +1,19 @@
-// C7 (rig shell; M6B-SPEC §6, §0.6): the operators of this file, registered by C0 from their stubs (§3 rule 1)
-// inside the lazy rig-workspace chunk. MVP operators (§0.6) poll-fail "not available yet" until their owner lands
-// them; deferred ones poll-fail "Arrives after the MVP" and are internal (listed in no menu, palette or keymap).
-import type { AnyOperator } from '../define';
-import { rigStub } from './stub';
+// C7 (rig shell; M6B-SPEC §5.17, §7): `rig.animateOnly`, the target of every shadowed keying chord in Rig & Skin
+// (`S`, `Shift+W/E/R`, `Alt+S`, `Alt+M`, pose copy/paste, key deletion; `keymap/maya.rig.ts`). It always poll-fails,
+// so a test pose or a rig edit is never keyed or pasted unseen.
+import { ANIMATE_ONLY_REASON } from '../keymapShadows';
+import { type AnyOperator, defineOperator, fail } from '../define';
 
 export const RIG_SHADOW_OPERATORS: readonly AnyOperator[] = [
-  rigStub('rig.animateOnly', 'Animate Only', { internal: true, reason: 'Keys and poses are set in Animate' }),
+  defineOperator({
+    id: 'rig.animateOnly',
+    label: 'Animate Only',
+    description: 'Keys and poses are set in the Animate workspace; Rig & Skin poses are test poses.',
+    category: 'rig',
+    scope: 'rig',
+    flags: { internal: true },
+    workspaces: ['rig'],
+    poll: () => fail(ANIMATE_ONLY_REASON),
+    apply: () => {},
+  }),
 ];

@@ -128,6 +128,11 @@ export function createEvaluationService(ctx: {
 
   /** M2a: any channel (TRS or '@attr') at the control's clip frame: curve (else its default), then the override. */
   const channelValue = (control: ControlId, channel: ChannelId): number => {
+    // M6b C7 (§5.17): Rig & Skin's Bind and Test sources show defaults ⊕ the test pose.
+    const character = characterOf(control);
+    const rig = character === null ? null : sources.rigValues(character);
+    if (rig !== null)
+      return rig.get(control)?.[channel] ?? channelDefaultOf(store.get('controls', control) ?? null, channel);
     const override = session.getState().overrides.get(control)?.[channel];
     if (override !== undefined) return override;
     const { curve, frame } = curveAt(control, channel);
@@ -221,6 +226,11 @@ export function createEvaluationService(ctx: {
     channelValues(control: ControlId): Readonly<Record<TrsChannel, number>> {
       const values: Record<TrsChannel, number> = { tx: 0, ty: 0, tz: 0, rx: 0, ry: 0, rz: 0, sx: 1, sy: 1, sz: 1 };
       const character = characterOf(control);
+      const rig = character === null ? null : sources.rigValues(character);
+      if (rig !== null) {
+        for (const channel of TRS_CHANNELS) values[channel] = rig.get(control)?.[channel] ?? values[channel];
+        return values;
+      }
       const clip = character === null ? undefined : activeClipOf(store, session.getState(), character);
       const frame = character === null ? null : clipFrame(character);
       const base = clip === undefined ? undefined : store.query.baseLayer(clip.id);

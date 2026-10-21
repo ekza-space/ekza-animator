@@ -14,6 +14,7 @@
 import { EkzaError } from '@ekza-studio/anim-core';
 import type { ChannelId, ChannelValues, CharacterId, ControlId, Tx } from '@ekza-studio/doc';
 import { internalsOf } from '../app/internals';
+import { redirectedChannelEdit } from '../evaluation/rigSource';
 import { activeClipOf } from '../evaluation/time';
 import type { CaptureOutcome } from '../history/capture';
 import { type OverrideLocation, overrideDelta, sameLocation } from '../history/overrides';
@@ -168,6 +169,9 @@ export function beginChannelEditGesture(
   label: string,
   opts: { readonly key: KeyPolicy },
 ): ChannelEditGesture {
+  // M6b C7 (§5.17): in Rig & Skin the rig-workspace chunk answers with a test-pose gesture.
+  const redirected = redirectedChannelEdit(app, label);
+  if (redirected !== null) return redirected;
   const preview = app.store.beginPreview(label);
   const start = app.session.getState();
   const startOverrides = start.overrides;

@@ -159,9 +159,15 @@ describe('the lazy rig-workspace and clip-library chunks (§2.1, §0.4.9)', () =
       const poll = app.operators.poll(id);
       return poll === true ? 'ok' : poll.reason;
     };
-    expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(
-      MVP.map((id) => [id, id === 'rig.animateOnly' ? 'Keys and poses are set in Animate' : NOT_AVAILABLE_YET]),
-    );
+    // Landed owners' operators poll on their own args (literal update, §3 rule 9; C7: the rig shell's four).
+    const LANDED: Readonly<Record<string, string>> = {
+      'rig.animateOnly': 'Keys and poses are set in Animate',
+      'rig.mode': 'expects { mode }',
+      'rig.pose.view': 'expects { view }',
+      'rig.pose.resetTest': 'Rig & Skin modes are in the Rig & Skin workspace',
+      'rig.validation.profile': 'expects { profile }',
+    };
+    expect(MVP.map((id) => [id, reasonOf(id)])).toEqual(MVP.map((id) => [id, LANDED[id] ?? NOT_AVAILABLE_YET]));
     expect(DEFERRED.map((id) => [id, reasonOf(id), app.operators.get(id)?.flags?.internal])).toEqual(
       DEFERRED.map((id) => [id, ARRIVES_AFTER_MVP, true]),
     );
