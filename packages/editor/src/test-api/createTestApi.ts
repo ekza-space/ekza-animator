@@ -44,6 +44,20 @@ import { modelSelectUiTestApi } from './m6a/model-select-ui';
 import { modelTransformToolsTestApi } from './m6a/model-transform-tools';
 import { shellWorkspacesTestApi } from './m6a/shell-workspaces';
 import type { M6aTestApiContext } from './m6a/support';
+// M6b (M6B-SPEC §4.8, §0.5; C0): one file per owner, spread into the API below; each owner fills only its own file.
+import { autoSkinTestApi } from './m6b/auto-skin';
+import { characterRuntimeTestApi } from './m6b/character-runtime';
+import { characterWriterTestApi } from './m6b/character-writer';
+import { clipLibraryTestApi } from './m6b/clip-library';
+import { constraintUiTestApi } from './m6b/constraint-ui';
+import { controlShapesTestApi } from './m6b/control-shapes';
+import { m6bIntegrationTestApi } from './m6b/integration';
+import { rigContractsTestApi } from './m6b/rig-contracts';
+import { rigShellTestApi } from './m6b/rig-shell';
+import { skeletonKernelTestApi } from './m6b/skeleton-kernel';
+import { skeletonUiTestApi } from './m6b/skeleton-ui';
+import { skinUiTestApi } from './m6b/skin-ui';
+import { weightsKernelTestApi } from './m6b/weights-kernel';
 import type { EkzaStudioTestApi } from './types';
 
 export interface TestApiHandle {
@@ -274,6 +288,19 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     ...modelOpsUiTestApi(m6a),
     ...modelContentTestApi(m6a),
     ...integrationTestApi(m6a),
+    ...rigContractsTestApi(m6a),
+    ...characterRuntimeTestApi(m6a),
+    ...skeletonKernelTestApi(m6a),
+    ...skeletonUiTestApi(m6a),
+    ...autoSkinTestApi(m6a),
+    ...weightsKernelTestApi(m6a),
+    ...skinUiTestApi(m6a),
+    ...rigShellTestApi(m6a),
+    ...constraintUiTestApi(m6a),
+    ...controlShapesTestApi(m6a),
+    ...characterWriterTestApi(m6a),
+    ...clipLibraryTestApi(m6a),
+    ...m6bIntegrationTestApi(m6a),
     ready,
     get webgl() {
       const gl = ui.getState().gl;
@@ -351,7 +378,20 @@ export function createTestApi(shell: Shell, opts: { readonly engine?: CurveEngin
     },
     characters() {
       sync();
-      return store.list('characters').map((c) => ({ id: c.id, name: c.name, format: c.format }));
+      // M6b (§4.8, changed, additive): the source kind, the skeleton of a model character, the rig and the meshes
+      // (a record without `source` predates schema 3 and is asset-sourced).
+      return store.list('characters').map((c) => {
+        const source = (c as Partial<CharacterRecord>).source;
+        return {
+          id: c.id,
+          name: c.name,
+          format: c.format,
+          source: source?.kind ?? 'asset',
+          skeleton: source?.kind === 'model' ? source.skeleton : null,
+          rig: c.rig,
+          meshes: store.query.meshesOfOwner(c.id).map((mesh) => mesh.id),
+        };
+      });
     },
     controls(ref) {
       sync();

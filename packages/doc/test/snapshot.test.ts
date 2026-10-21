@@ -12,7 +12,7 @@ import {
   SCHEMA_VERSION,
   serializeSnapshot,
 } from '../src';
-import { makeTestDocument, readSyntheticFixture, withSchemaV3 } from '../src/testing';
+import { makeTestDocument, readSyntheticFixture, withSchemaV4 } from '../src/testing';
 import { sha256, sha256Hex } from '../src/migrations/sha256';
 
 describe('serializeSnapshot', () => {
@@ -79,7 +79,8 @@ describe('emptySnapshot', () => {
 describe('the synthetic wave document', () => {
   // M2A-SPEC §3 rule 8: the fixture stays an M1 (schema 1) document; it migrates to SCHEMA_VERSION 2 by the
   // identity. M6A-SPEC §3 rule 9 (literal update, §4.2 schema v3): 2 → 3 adds `source` to characters and
-  // `provenance: null` to assets and the seven empty M6a tables (`withSchemaV3`); nothing else changes.
+  // `provenance: null` to assets and the seven empty M6a tables (`withSchemaV3`); nothing else changes. M6B-SPEC §3
+  // rule 9 (§4.1 schema v4): 3 → 4 adds `vrm: null` to characters (`withSchemaV4`).
   it('migrates, loads and snapshots back to the same content', () => {
     const raw = readSyntheticFixture('wave-doc.json') as DocSnapshot;
     expect(raw.schemaVersion).toBe(1);
@@ -88,7 +89,7 @@ describe('the synthetic wave document', () => {
     expect(migratedFrom).toBe(1);
     const store = createMemoryStore();
     store.load(snapshot);
-    const written = withSchemaV3(raw);
+    const written = withSchemaV4(raw);
     expect(written.schemaVersion).toBe(SCHEMA_VERSION);
     expect(store.snapshot()).toEqual(written);
     expect(serializeSnapshot(store.snapshot())).toBe(serializeSnapshot(written));

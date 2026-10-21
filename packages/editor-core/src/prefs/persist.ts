@@ -105,7 +105,47 @@ export function sanitizePrefs(raw: unknown, defaults: Prefs): Prefs {
     // M6a fields (M6A-SPEC §4.6): the version stays 1; a missing or invalid field takes its default.
     lastWorkspace: pick('lastWorkspace', isWorkspaceId, defaults.lastWorkspace),
     modeling: sanitizeModeling(raw['modeling'], defaults.modeling),
+    // M6b fields (M6B-SPEC §4.6): the version stays 1; a missing or invalid field takes its default.
+    rigging: sanitizeRigging(raw['rigging'], defaults.rigging),
   };
+}
+
+function isStringRecord(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === 'string');
+}
+
+function isHolds(value: unknown): boolean {
+  return isRecord(value) && Object.values(value).every(isStringList);
+}
+
+function sanitizeRigging(raw: unknown, defaults: Prefs['rigging']): Prefs['rigging'] {
+  if (!isRecord(raw)) return defaults;
+  const shaped = pickShape(raw, defaults, {
+    jointSize: isPositive,
+    brush: isRecord,
+    influenceSort: oneOf(['alpha', 'hierarchy', 'flat'] as const),
+    influenceColours: isStringRecord,
+    optionDefaults: isOptionDefaults,
+    orientPreset: oneOf(['world', 'maya', 'blender'] as const),
+    holds: isHolds,
+  });
+  return {
+    ...shaped,
+    brush: pickShape(raw['brush'], defaults.brush, {
+      op: oneOf(['replace', 'add', 'scale', 'smooth'] as const),
+      value: isUnit,
+      opacity: isUnit,
+      radiusPx: isPositive,
+      falloff: oneOf(['smooth', 'linear', 'constant'] as const),
+      reach: oneOf(['surface', 'volume'] as const),
+      frontOnly: isBoolean,
+      mirror: isBoolean,
+    }),
+  };
+}
+
+function isUnit(value: unknown): boolean {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 && value <= 1;
 }
 
 function isWorkspaceId(value: unknown): value is string {

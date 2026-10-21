@@ -176,8 +176,8 @@ test('saving writes schema 3 / minWriterVersion 1; keying a loop clip creates cy
   const bytes: Record<string, number> = (last?.bytes ?? {}) as unknown as Record<string, number>;
   const text = new TextDecoder().decode(Uint8Array.from(Object.values(bytes)));
   const doc = JSON.parse(text) as { schemaVersion: number; minWriterVersion: number };
-  // M6A-SPEC §3 rule 9 literal update (SCHEMA_VERSION 2 → 3); the writer rule is unchanged.
-  expect(doc).toMatchObject({ schemaVersion: 3, minWriterVersion: 1 });
+  // M6A-SPEC §3 rule 9 literal update (SCHEMA_VERSION 2 → 3), M6B-SPEC §3 rule 9 (3 → 4); the writer rule is unchanged.
+  expect(doc).toMatchObject({ schemaVersion: 4, minWriterVersion: 1 });
 });
 
 test('ns keeps storage across a reload; storage=blocked keeps the editor working', async ({ page }) => {

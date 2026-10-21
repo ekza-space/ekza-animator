@@ -5,6 +5,7 @@
 import { type CompiledAnimCurve, type Disposer, EkzaError, type Frame } from '@ekza-studio/anim-core';
 import {
   type ChannelId,
+  type ChannelValues,
   type CharacterId,
   type ClipId,
   type ControlId,
@@ -17,7 +18,16 @@ import {
 import type { ChannelBuffer, CurveCache, LimbId, PoseBuffers, RigProgram } from '@ekza-studio/rig';
 import type { KernelDeps } from '../app/deps';
 import { channelDefault, channelDefaultOf, isKeyable, isLocked } from '../edit/channelMeta';
-import type { CharacterRegistry, CharacterRuntime, ChannelState, EvaluationService, SessionStore } from '../types';
+import type {
+  CharacterRegistry,
+  CharacterRuntime,
+  ChannelSource,
+  ChannelState,
+  EvaluationService,
+  SessionStore,
+  TestPoseService,
+} from '../types';
+import { createChannelSources } from './rigSource';
 import { activeClipOf, clipFrameAt, sceneFpsOf } from './time';
 
 type PoseListener = (e: { readonly poseVersion: number; readonly characters: readonly CharacterId[] }) => void;
@@ -39,10 +49,14 @@ export function createEvaluationService(ctx: {
   readonly deps: KernelDeps;
   readonly cache: CurveCache;
   readonly requestFrame: () => void;
+  /** M6b: the test pose of the 'test' channel source (null before the app exists). */
+  readonly testPose?: () => TestPoseService | null;
 }): KernelEvaluation {
   const { store, session, characters, deps, cache } = ctx;
   const engine = deps.curves.engine;
   const listeners = new Set<PoseListener>();
+  // M6b (§0.5, §5.17): the channel sources; a registered 'preview' provider wins in every workspace.
+  const sources = createChannelSources({ testPose: ctx.testPose ?? (() => null) });
   /** Characters marked by document or override changes. */
   const dirty = new Set<CharacterId>();
   let allDirty = true;
@@ -140,9 +154,14 @@ export function createEvaluationService(ctx: {
     const clip = activeClipOf(store, state, runtime.id);
     const frame = clip === undefined ? null : clipFrameAt(deps, sceneFpsOf(store), clip, state.time.sceneFrame);
     const program = runtime.program;
-    if (clip === undefined || frame === null) program.resetChannels(runtime.channels);
-    else runtime.sampler(clip.id).sample(frame, runtime.channels);
-    if (state.overrides.size > 0) deps.rig.applyOverrides(program, runtime.channels, state.overrides);
+    const apply = (values: ReadonlyMap<ControlId, ChannelValues>): void =>
+      deps.rig.applyOverrides(program, runtime.channels, values);
+    const source = sources.fill(runtime.id, program, runtime.channels, apply);
+    if (source === 'animate' || source === 'clip') {
+      if (clip === undefined || frame === null) program.resetChannels(runtime.channels);
+      else runtime.sampler(clip.id).sample(frame, runtime.channels);
+      if (source === 'animate' && state.overrides.size > 0) apply(state.overrides);
+    }
     const last = evaluatedAt.get(runtime);
     if (last === undefined) evaluatedAt.set(runtime, { clip: clip?.id ?? null, frame, program });
     else {
@@ -172,6 +191,7 @@ export function createEvaluationService(ctx: {
     },
     tick(): boolean {
       evaluated.length = 0;
+      if (sources.previewMoved()) allDirty = true;
       for (const runtime of characters.list()) {
         if (!allDirty && !dirty.has(runtime.id) && !stale(runtime)) continue;
         if (evaluateRuntime(runtime)) evaluated.push(runtime.id);
@@ -248,6 +268,9 @@ export function createEvaluationService(ctx: {
       if (deps.rig.isRigOpSkipped?.(program, desc.solver) === true) return 0;
       const value = channelValue(desc.params.ikControl, '@ikFk');
       return Number.isFinite(value) ? Math.min(1, Math.max(0, value)) : 0;
+    },
+    setChannelSource(character: CharacterId, source: ChannelSource): void {
+      if (sources.set(character, source)) service.invalidate([character]);
     },
     subscribe(listener: PoseListener): Disposer {
       listeners.add(listener);

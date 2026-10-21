@@ -7,6 +7,7 @@ import type { MeshId, MeshRecord } from '@ekza-studio/doc';
 import { meshKernel } from '../mesh';
 import { MODEL_MENUS } from '../operators/builtin/menus';
 import type { EditorApp, WorkspaceDef, WorkspaceStatus } from '../types';
+import { RIG_WORKSPACE } from './rig';
 
 export const WORKSPACE = { model: 'model', rig: 'rig', animate: 'animate', review: 'review' } as const;
 
@@ -171,21 +172,8 @@ export const MODEL_WORKSPACE: WorkspaceDef = Object.freeze({
   status: modelStatus,
 });
 
-export const RIG_WORKSPACE: WorkspaceDef = Object.freeze({
-  id: WORKSPACE.rig,
-  label: 'Rig & Skin',
-  shortLabel: 'Rig',
-  order: 1,
-  enabled: false,
-  disabledReason: 'Arrives with characters from your own models (v0.4)',
-  keyScope: null,
-  menus: ANIMATE_MENUS,
-  statusGroups: ANIMATE_STATUS_GROUPS,
-  defaultTool: 'select',
-  pickMask: { controls: true, joints: true, meshes: false, groups: false },
-  timeline: true,
-  layout: 'animate',
-});
+// M6b (M6B-SPEC §5.24): the Rig & Skin workspace is enabled; its definition lives in ./rig.ts (C0, then C7).
+export { RIG_WORKSPACE } from './rig';
 
 export const ANIMATE_WORKSPACE: WorkspaceDef = Object.freeze({
   id: WORKSPACE.animate,

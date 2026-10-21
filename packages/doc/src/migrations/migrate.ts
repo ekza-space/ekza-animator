@@ -2,7 +2,9 @@
 // - Core migrations rewrite a whole snapshot from schema v(n) to v(n+1). SCHEMA_VERSION 1 is the baseline; 1 → 2
 //   (M2A-SPEC §4.2) is the identity on records: schema 1 documents contain no `ik2` solvers, no attribute curves and
 //   no breakdown keys, and every M2a field is optional. 2 → 3 (M6A-SPEC §4.2) gives every character its `source` and
-//   every asset its `provenance: null`; nothing else changes (the seven M6a tables start empty at version 1).
+//   every asset its `provenance: null`; nothing else changes (the seven M6a tables start empty at version 1). 3 → 4
+//   (M6B-SPEC §4.1) gives every character `vrm: null` and every joint `role: 'bone'` and a unique `key` (the sanitized
+//   name, `#n` on duplicates per skeleton in id order); the swatches table is never touched (its version stays 2).
 // - Repairs (MVP-SPEC §3 rule 6, M6A-SPEC §4.2) run after the migrations on every load: the per-record repairs of the
 //   M6a rules table and the cross-record mesh/group hierarchy repairs. Repaired content is never rejected.
 // - Per-table migrations come from `TableDef.migrations` and move each record from the snapshot's
@@ -13,7 +15,7 @@ import { BUILTIN_TABLES } from '../records';
 import { SCHEMA_VERSION, SNAPSHOT_FORMAT } from '../snapshot/version';
 import type { DocSnapshot, SnapshotTables } from '../store';
 import { compareStrings } from '../store/diff';
-import { repairHierarchy, repairRecord } from '../records/repair';
+import { jointKeyStem, repairHierarchy, repairJointKeys, repairRecord } from '../records/repair';
 import { getTableDef } from '../tables/registry';
 import { digestBase62 as base62, sha256 } from './sha256';
 
@@ -44,6 +46,27 @@ export const CORE_MIGRATIONS: readonly ((snapshot: MigratableSnapshot) => Migrat
     }
     return snapshot;
   },
+  // 3 → 4 (M6B-SPEC §4.1): characters without `vrm` get null; joints without `role` get 'bone' and without `key` the
+  // sanitized name, de-duplicated per skeleton in id order. Pure and idempotent; the loop below writes schemaVersion 4.
+  (snapshot) => {
+    const characters = snapshot.tables['characters'];
+    if (characters !== undefined) {
+      for (const [key, record] of Object.entries(characters)) {
+        if (isObject(record) && !('vrm' in record)) characters[key] = { ...record, vrm: null };
+      }
+    }
+    const joints = snapshot.tables['joints'];
+    if (joints !== undefined) {
+      for (const [key, record] of Object.entries(joints)) {
+        if (!isObject(record)) continue;
+        const role = 'role' in record ? {} : { role: 'bone' };
+        const stem = 'key' in record ? {} : { key: jointKeyStem(record['name']) };
+        if ('role' in role || 'key' in stem) joints[key] = { ...record, ...role, ...stem };
+      }
+      snapshot.tables['joints'] = { ...repairJointKeys(joints).joints };
+    }
+    return snapshot;
+  },
 ];
 
 /** Tables whose records `migrateSnapshot` repairs one by one after the migrations (M6A-SPEC §4.2 rules). */
@@ -56,6 +79,10 @@ const REPAIRED_TABLES = [
   'swatches',
   'imagePlanes',
   'skeletons',
+  // M6B-SPEC §4.1 (schema v4)
+  'joints',
+  'controls',
+  'clips',
 ] as const;
 
 function repairSnapshot(snapshot: MigratableSnapshot): void {
@@ -67,6 +94,8 @@ function repairSnapshot(snapshot: MigratableSnapshot): void {
       if (repaired !== record) rows[key] = repaired;
     }
   }
+  const joints = snapshot.tables['joints'];
+  if (joints !== undefined) snapshot.tables['joints'] = { ...repairJointKeys(joints).joints };
   const meshes = snapshot.tables['meshes'];
   const groups = snapshot.tables['groups'];
   if (meshes === undefined && groups === undefined) return;
