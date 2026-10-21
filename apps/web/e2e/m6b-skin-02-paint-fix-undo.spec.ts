@@ -6,6 +6,7 @@ import {
   enterSkin,
   positionsOf,
   screenCentroid,
+  settleFrames,
   stroke,
   weightMaps,
 } from './helpers/m6b-skin-ui';
@@ -50,7 +51,9 @@ test.describe('E2E-SKIN-02 Paint fix with one undo', () => {
     await expect
       .poll(async () => (await call(page, 'paint')).holds[lad.character] ?? [])
       .toEqual([lad.joint('leftHand')]);
-    // The 0-byte gate (§5.25): switching the active influence redraws with uniforms only — no buffer upload.
+    // The 0-byte gate (§5.25): switching the active influence redraws with uniforms only — no buffer upload. The seed's
+    // revision is drawn first (an idle viewport), so only the switch is measured.
+    await settleFrames(page);
     await page.evaluate(() => {
       const probe = { bytes: 0 };
       (window as unknown as { __EKZA_UPLOADS__: typeof probe }).__EKZA_UPLOADS__ = probe;

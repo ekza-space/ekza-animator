@@ -6,7 +6,7 @@ import { expect, type Page } from '@playwright/test';
 import { centreOf, paneRect } from './g1-viewport';
 import { buildCubeLad, cubeLadTruth } from './m6b-cube-lad';
 import { enterRig, RIG_PERSP_PANE } from './m6b-rig';
-import { call, runOk } from './test-api';
+import { call, renderedFrames, runOk } from './test-api';
 
 const DEG = Math.PI / 180;
 
@@ -172,4 +172,20 @@ export function asymmetricPoints(
     if (!same) out.push(v);
   }
   return out;
+}
+
+/** Waits until the viewport is idle: no frame rendered for 300 ms (pending revisions loaded and drawn). */
+export async function settleFrames(page: Page): Promise<void> {
+  let last = -1;
+  await expect
+    .poll(
+      async () => {
+        const now = await renderedFrames(page);
+        const idle = now === last;
+        last = now;
+        return idle;
+      },
+      { intervals: [300] },
+    )
+    .toBe(true);
 }
