@@ -74,22 +74,22 @@ kernels and their operators, review-layer clearing on paint.
 | `editor-core/test/m6b/skin-ui.test.ts`, `mesh-view/test/skin-display.test.ts`, `viewport/test/m6b-paint.test.ts` (new) | C6's unit and browser tests | tests next to the code they test | pending (paths) |
 | the four `test/m6b-ready.ts` | `c6: true` | READY flag | flag |
 
-**Eager bytes**: C6's eager addition is **+163 B gzip** (the `attachRigSkin` subscription and its line), measured as the
-`/editor` route of this branch (+5,061 B over the M6b baseline) minus the merge base `7b930df` with C1, C4 and C7
-(+4,898 B). C6's allowance is 0 B (§0.4.9); **INT approval requested** for 163 B of the unused headroom (the gate:
-+5,061 ≤ +6,144 B, route 894,630 ≤ 900,000 B).
+**Eager bytes**: C6's eager addition is **+162 B gzip** (the `attachRigSkin` subscription and its line), measured as the
+`/editor` route of this branch (+5,060 B over the M6b baseline) minus the merge base `7b930df` with C1, C4 and C7
+(+4,898 B). C6's allowance is 0 B (§0.4.9); **INT approval requested** for 162 B of the unused headroom (the gate:
++5,060 ≤ +6,144 B, route 894,629 ≤ 900,000 B).
 
 ## Gate results
 
-Run in this worktree after the last code commit (local Chrome GPU, port 3168):
+Run in this worktree on the last code commit (local Chrome GPU, port 3168), one sequence:
 
 | Gate | Result |
 |---|---|
 | `pnpm run format:check`, `lint`, `typecheck`, `check:deps`, `check:fixtures`, `check:licenses` | green |
-| `pnpm run test` (turbo, 15 tasks) | green on the second run; the first run hit M6a's unseeded property test `mesh-core/test/normals/cases.test.ts › incremental › updating a cache for a non-topology DirtySet equals a full computation` (seed 1199846347, a 3e-8 position edit; flaky, untouched by C6) |
-| `pnpm run build` + `check:size` | green: 894,630 B ≤ 900,000 B; M6b eager +5,061 B ≤ +6,144 B |
-| C6 e2e (SKIN-02, -03, -10, RIG-04) | `test.fixme` on `c2` in this branch (part (b) of SKIN-10 also on `c3`); **all five pass** (incl. SKIN-10 (b)'s Skin-mode `E`) against a scratch merge of `m6b/skeleton-kernel` with the fixmes lifted (`tmp/c6-verify`, not pushed, removed after) |
-| full e2e (`EKZA_E2E_PORT=3168 pnpm run test:e2e`) | see the run record below |
+| `pnpm run test` (turbo, 15 tasks) | green (15/15). An earlier run hit M6a's unseeded property test `mesh-core/test/normals/cases.test.ts › incremental › updating a cache for a non-topology DirtySet equals a full computation` once (seed 1199846347, a 3e-8 position edit; flaky, untouched by C6) |
+| `pnpm run build` + `check:size` | green: 894,629 B ≤ 900,000 B; M6b eager +5,060 B ≤ +6,144 B |
+| C6 e2e (SKIN-02, -03, -10, RIG-04) | `test.fixme` on `c2` in this branch (part (b) of SKIN-10 also on `c3`); **all five pass, twice in a row** (incl. SKIN-10 (b)'s Skin-mode `E`; `c6-ce` stays fixme) against a scratch merge of `m6b/skeleton-kernel` with the fixmes lifted (`tmp/c6-verify`, local only, removed after) |
+| full e2e (`EKZA_E2E_PORT=3168 pnpm run test:e2e`) | green: 226 passed, 35 skipped (the gated `test.fixme` scenarios, C6's four among them), 0 failed |
 
 **Benches** (report-only):
 
