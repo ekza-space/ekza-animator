@@ -15,7 +15,7 @@ import type {
 } from '@ekza-studio/doc';
 import { type EditorApp, PANEL, RIG_MENUS, registerBuiltins } from '@ekza-studio/editor-core';
 import type { SkeletonDesc } from '@ekza-studio/rig';
-import { act } from 'react';
+import { act, type JSX } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { RIG_MARKING_MENUS } from '../src/overlays/menus/rig';
 import RigToolkitView from '../src/panels/rigToolkit';
@@ -174,17 +174,18 @@ describe('the Rig menus (§0.4.5)', () => {
     const test = await rigShell();
     expect(RIG_MENU_ITEMS.every((item) => test.app.menus.get(item.id) !== undefined)).toBe(true);
     expect(RIG_MARKING_MENUS.map((def) => test.app.markingMenus.get(def.id)?.workspaces)).toEqual([['rig']]);
-    const seen: Record<string, boolean> = {};
-    function Probe(): null {
-      seen['rigMode'] = useStatusGroup('rigMode') !== null;
-      seen['poseView'] = useStatusGroup('poseView') !== null;
-      seen['rigSymmetry'] = useStatusGroup('rigSymmetry') !== null;
-      seen['rigSnap'] = useStatusGroup('rigSnap') !== null;
-      seen['jointDisplay'] = useStatusGroup('jointDisplay') !== null;
-      return null;
+    function Probe(): JSX.Element {
+      const shown = [
+        useStatusGroup('rigMode') === null ? '' : 'rigMode',
+        useStatusGroup('poseView') === null ? '' : 'poseView',
+        useStatusGroup('rigSymmetry') === null ? '' : 'rigSymmetry',
+        useStatusGroup('rigSnap') === null ? '' : 'rigSnap',
+        useStatusGroup('jointDisplay') === null ? '' : 'jointDisplay',
+      ];
+      return <span data-testid="probe">{shown.filter((id) => id !== '').join(',')}</span>;
     }
     await mountPlain(<Probe />);
-    const bodies = Object.keys(seen).filter((id) => seen[id] === true);
+    const bodies = (by('probe').textContent ?? '').split(',');
     expect(bodies).toEqual(['rigMode', 'poseView', 'rigSymmetry', 'rigSnap', 'jointDisplay']);
     // The shipped Windows layouts are Animate's; Rig & Skin lists its own presets.
     expect(RIG_LAYOUTS.map((entry) => entry.layout)).toEqual(['single', RIG_LAYOUT.side, RIG_LAYOUT.markers]);
