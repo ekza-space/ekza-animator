@@ -115,12 +115,14 @@ export const P_C6_ROWS: readonly Row[] = [
     'skin.influence.releaseAll',
     'skin.influence.walk',
     'skin.influence.pickDominant',
-    'skin.paint.mode',
-    'skin.paint.set',
     'skin.paint.mirrorToggle',
     'skin.paint.sample',
     'skin.testRotate.toggle',
   ),
+  // C6: the brush settings run without a bound mesh; the weight operators' keys-hash checks need the mesh kernel and a
+  // bound character (`opsApp()` has neither), so `skin-ui.test.ts` asserts the hash around a stroke instead.
+  { id: 'skin.paint.mode', status: 'checked', owner: 'C6', setup: () => ({ mode: 'paint' }) },
+  { id: 'skin.paint.set', status: 'checked', owner: 'C6', setup: () => ({ patch: { radiusPx: 60 } }) },
   ...pending('C11', 'skin.weights.fillMissing', 'skin.review.mark'),
   // C7 (deferred after the MVP: the ROM clip and the Rig Outliner's delete).
   ...pending('C7', 'skin.test.rom', 'rig.outliner.delete'),
@@ -211,7 +213,8 @@ describe('P-C6: rig edits never key (table frame, §5.26)', () => {
     const args = await row.setup?.(app);
     const before = keysHash(app);
     const result = await app.runUntyped(row.id, args);
-    expect(result.status).toBe('finished');
+    // `rig.animateOnly` (the shadow of every keying chord) always poll-fails; every other checked row runs.
+    expect(result.status).toBe(row.id === 'rig.animateOnly' ? 'cancelled' : 'finished');
     expect(keysHash(app)).toBe(before);
   });
 });

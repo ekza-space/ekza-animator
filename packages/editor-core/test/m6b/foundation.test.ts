@@ -144,6 +144,26 @@ const LANDED: Readonly<Record<string, string>> = {
   // C4 (auto-skin)
   'skin.bind': 'Select a character with a skeleton (Quick Rig creates one)',
   'skin.unbind': 'No bound mesh to unbind',
+  // C6 (skin UI with the C5 MVP subset)
+  'skin.weights.paint': 'expects { mesh, joint, op, value, stamps, mirror }',
+  'skin.weights.flood': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.weights.set': 'expects { mesh, joint, value, points }',
+  'skin.weights.mirror': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.weights.smooth': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.weights.prune': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.weights.normalize': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.palette.compact': 'No bound mesh (Skin › Bind Skin first)',
+  'skin.influence.setActive': 'expects { mesh, joint } or null',
+  'skin.influence.hold': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.influence.holdAll': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.influence.releaseAll': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.influence.walk': 'expects { direction }',
+  'skin.influence.pickDominant': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.paint.mode': 'expects { mode } or { step }',
+  'skin.paint.set': 'expects { patch } with brush fields',
+  'skin.paint.mirrorToggle': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.paint.sample': 'Skin mode works on a bound character (Skin › Bind Skin first)',
+  'skin.testRotate.toggle': 'Test Rotate works in Skin mode',
 };
 
 const disposers: (() => void)[] = [];

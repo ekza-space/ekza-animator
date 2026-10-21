@@ -456,3 +456,31 @@ export type {
   SkinWorkerRequest,
   SkinWorkerResponse,
 } from './rig/skinService';
+// C6 (skin UI): the weight helpers the lazy Paint Skin Weights tool, the Paint Weights panel, the Toolkit Skin section
+// and the test API read (rig-workspace code; nothing eager imports them).
+export {
+  activeJoint,
+  boundCharacter,
+  boundMeshesOf,
+  heldKeysOf,
+  jointName,
+  skinPaintRefusal,
+  selectedPoints,
+  skinCharacter,
+  skinTargets,
+  stampArgs,
+  type WeightInputs,
+  weightContext,
+  weightInputs,
+  weightInputsNow,
+} from './operators/builtin/rig/weights';
+export {
+  brushPatch,
+  influencesOf,
+  setBrush,
+  setSkinTestRotate,
+  skinTestRotate,
+  subscribeSkinTestRotate,
+  walkJoint,
+  writeHolds,
+} from './operators/builtin/rig/influence';
