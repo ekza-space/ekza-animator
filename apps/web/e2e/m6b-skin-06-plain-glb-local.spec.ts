@@ -9,7 +9,7 @@ import {
 import { expect, test } from '@playwright/test';
 import * as gltfValidator from 'gltf-validator';
 import { sampleBytes } from './helpers/g4-export';
-import { createPrimitive } from './helpers/m6a-model';
+import { createPrimitive, enterModel } from './helpers/m6a-model';
 import { exportCharacterFile, glbJson, runExportCharacter, withGlbJson } from './helpers/m6b-character-writer';
 import { buildCubeLad } from './helpers/m6b-cube-lad';
 import { enterRig } from './helpers/m6b-rig';
@@ -51,6 +51,7 @@ test('E2E-SKIN-06 (MVP part): a VRM with a required Draco extension fails vrm.ex
 test('E2E-SKIN-06 (MVP part): the Export dialog offers the Space profile and local/generic only', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
+  await enterModel(page);
   const mesh = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [mesh], mode: 'replace' });
   await enterRig(page);

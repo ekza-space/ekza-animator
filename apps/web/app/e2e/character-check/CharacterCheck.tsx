@@ -12,7 +12,6 @@ import { type JSX, useEffect, useState } from 'react';
 import {
   AnimationMixer,
   type Bone,
-  type BufferGeometry,
   type Mesh,
   type Object3D,
   Quaternion,
@@ -112,7 +111,7 @@ async function check(bytes: Uint8Array, opts?: { readonly vrma?: Uint8Array }): 
   gltf.scene.traverse((object) => {
     const mesh = object as Mesh & Partial<SkinnedMesh>;
     if (mesh.isMesh !== true) return;
-    const geometry = mesh.geometry as BufferGeometry;
+    const geometry = mesh.geometry;
     tris += (geometry.index?.count ?? geometry.getAttribute('position').count) / 3;
     if (mesh.isSkinnedMesh === true && mesh.skeleton !== undefined) {
       skinnedMeshes++;

@@ -4,7 +4,7 @@ import { setGltfValidator, validateGltf } from '@ekza-studio/io';
 import { expect, test } from '@playwright/test';
 import * as gltfValidator from 'gltf-validator';
 import { sampleBytes } from './helpers/g4-export';
-import { createPrimitive } from './helpers/m6a-model';
+import { createPrimitive, enterModel } from './helpers/m6a-model';
 import { checkCharacter, exportCharacterFile, glbJson } from './helpers/m6b-character-writer';
 import { buildCubeLad } from './helpers/m6b-cube-lad';
 import { enterRig } from './helpers/m6b-rig';
@@ -26,6 +26,7 @@ setGltfValidator(gltfValidator);
 
 /** A character made from a cube in Rig & Skin (C1's `char.fromModel`): no skeleton yet. */
 async function cubeCharacter(page: Parameters<typeof openEditor>[0]): Promise<string> {
+  await enterModel(page);
   const mesh = await createPrimitive(page, 'cube');
   await runOk(page, 'select.objects', { ids: [mesh], mode: 'replace' });
   await enterRig(page);
