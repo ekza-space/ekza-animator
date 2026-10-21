@@ -34,9 +34,11 @@ import type {
   CharacterRegistry,
   CharacterRuntime,
   DisplayModel,
+  EditorApp,
   ModelLoader,
   Notifier,
 } from '../types';
+import { withModelCharacters } from './model';
 
 /** A character with a model asset (every character M6a writes; `asset === null` only for model sources, M6b). */
 type AssetCharacter = CharacterRecord & { readonly asset: AssetId };
@@ -147,6 +149,8 @@ export function createCharacterRegistry(ctx: {
   readonly models: ModelLoader | null;
   /** M6a (§5.23, B8): which container a display loads; absent = always the character's own. */
   readonly display?: CharacterDisplaySource | null;
+  /** M6b (§5.1, C1): the app, for the model-character runtimes (mesh data, session, palettes). */
+  readonly app?: () => EditorApp | null;
 }): KernelCharacters {
   const { store, deps } = ctx;
   const entries = new Map<CharacterId, Entry>();
@@ -416,33 +420,37 @@ export function createCharacterRegistry(ctx: {
   sync('all');
   const unsubscribe = store.subscribe(onBatch);
 
-  return {
-    get: (id: CharacterId) => {
-      const entry = entries.get(id);
-      return entry?.state === 'ready' ? entry.runtime : undefined;
+  // M6b (§5.1, C1): model-sourced characters get their runtimes through the character-runtime chunk.
+  return withModelCharacters(
+    {
+      get: (id: CharacterId) => {
+        const entry = entries.get(id);
+        return entry?.state === 'ready' ? entry.runtime : undefined;
+      },
+      list: () => ordered,
+      subscribe(listener: (e: CharacterEvent) => void): Disposer {
+        listeners.add(listener);
+        return () => {
+          listeners.delete(listener);
+        };
+      },
+      async settled(): Promise<void> {
+        while (inFlight.size > 0) await Promise.allSettled(inFlight);
+      },
+      redisplay(id: CharacterId): Promise<void> {
+        const entry = entries.get(id);
+        return entry?.state === 'ready' ? loadDisplay(entry.runtime) : Promise.resolve();
+      },
+      dispose(): void {
+        if (disposed) return;
+        disposed = true;
+        unsubscribe();
+        for (const entry of entries.values()) if (entry.state === 'ready') entry.runtime.dispose();
+        entries.clear();
+        ordered = [];
+        listeners.clear();
+      },
     },
-    list: () => ordered,
-    subscribe(listener: (e: CharacterEvent) => void): Disposer {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    async settled(): Promise<void> {
-      while (inFlight.size > 0) await Promise.allSettled(inFlight);
-    },
-    redisplay(id: CharacterId): Promise<void> {
-      const entry = entries.get(id);
-      return entry?.state === 'ready' ? loadDisplay(entry.runtime) : Promise.resolve();
-    },
-    dispose(): void {
-      if (disposed) return;
-      disposed = true;
-      unsubscribe();
-      for (const entry of entries.values()) if (entry.state === 'ready') entry.runtime.dispose();
-      entries.clear();
-      ordered = [];
-      listeners.clear();
-    },
-  };
+    ctx,
+  );
 }

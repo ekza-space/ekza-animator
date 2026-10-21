@@ -176,6 +176,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     notify: services.notify,
     models: services.models,
     display: meshDisplay,
+    app: () => app,
   });
   const evaluation = createEvaluationService({
     store,

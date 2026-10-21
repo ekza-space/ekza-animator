@@ -2,8 +2,9 @@
 // the ones §3 rule 7 lists. C0 lands the table frame with every operator row pending; each owner turns its rows into
 // runs (the row's `status` becomes 'checked' and its `args` the fixture run) when it lands the operator.
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import type { EditorApp } from '../../src';
+import { type EditorApp, loadMeshKernel } from '../../src';
 import { opsApp } from '../builtin/support';
 import { LIBRARY_OPERATORS } from '../../src/operators/builtin/library';
 import { RIG_WORKSPACE_OPERATORS } from '../../src/operators/builtin/rig/index';
@@ -23,7 +24,24 @@ const pending = (owner: string, ...ids: readonly string[]): Row[] =>
 
 /** Every §6 operator (§6.1–§6.4) and the §0.6 additions; `keys` rows may write curves or keys (§3 rule 7). */
 export const P_C6_ROWS: readonly Row[] = [
-  ...pending('C1', 'mesh.importStatic', 'char.fromModel', 'char.adopt'),
+  // C1: the runs happen on the wave fixture (keys present) with a cube made in Model, so the hash is a real check.
+  {
+    id: 'mesh.importStatic',
+    status: 'checked',
+    owner: 'C1',
+    setup: () => ({ bytes: cubeLadBytes(), name: 'cube-lad.glb' }),
+  },
+  { id: 'char.fromModel', status: 'checked', owner: 'C1', setup: async (app) => ({ objects: [await sceneCube(app)] }) },
+  {
+    id: 'char.adopt',
+    status: 'checked',
+    owner: 'C1',
+    setup: async (app) => {
+      const made = await app.runUntyped('char.fromModel', { objects: [await sceneCube(app)] });
+      const character = (made as { value: { character: string } }).value.character;
+      return { character, objects: [await sceneCube(app)] };
+    },
+  },
   ...pending('C2', 'char.attachProp'),
   ...pending('C11', 'char.makeEditable'),
   ...pending('C10', 'char.setVrmMeta', 'char.renderThumbnail'),
@@ -151,6 +169,19 @@ export const P_C6_ROWS: readonly Row[] = [
   { id: 'library.useClip', status: 'keys', owner: 'C12' },
 ];
 
+/** The Cube Lad fixture (an unskinned GLB). */
+function cubeLadBytes(): Uint8Array {
+  return new Uint8Array(readFileSync(new URL('../../../../fixtures/models/cube-lad.glb', import.meta.url)));
+}
+
+/** A cube made in Model (the mesh kernel loaded first), as the scene mesh to adopt. */
+async function sceneCube(app: EditorApp): Promise<string> {
+  await loadMeshKernel();
+  const result = await app.runUntyped('mesh.create.cube', {});
+  if (result.status !== 'finished') throw new Error(`mesh.create.cube: ${JSON.stringify(result)}`);
+  return (result.value as { mesh: string }).mesh;
+}
+
 describe('P-C6: rig edits never key (table frame, §5.26)', () => {
   it('lists every operator of the rig-workspace and clip-library chunks once', () => {
     const ids = P_C6_ROWS.map((row) => row.id);
@@ -164,7 +195,8 @@ describe('P-C6: rig edits never key (table frame, §5.26)', () => {
     const app = opsApp();
     const args = await row.setup?.(app);
     const before = keysHash(app);
-    await app.runUntyped(row.id, args);
+    const result = await app.runUntyped(row.id, args);
+    expect(result.status).toBe('finished');
     expect(keysHash(app)).toBe(before);
   });
 });
