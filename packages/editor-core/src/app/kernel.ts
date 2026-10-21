@@ -184,7 +184,7 @@ export function createKernelApp(opts: KernelOptions, deps: KernelDeps): EditorAp
     deps,
     cache,
     requestFrame,
-    testPose: () => rig.testPose,
+    testPose: () => rig.services?.testPose ?? null,
   });
   const playback = createPlaybackClock({ store, session, deps, requestFrame });
 

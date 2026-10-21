@@ -274,8 +274,11 @@ describe('the preview channel source (§0.5 C0 hook)', () => {
     expect(poseOf(app)).toEqual(bind);
   });
 
-  it('the `test` source adds the test pose over the defaults', () => {
+  it('the `test` source adds the test pose over the defaults', async () => {
     const app = waveApp();
+    // The test pose service is the rig-workspace chunk's (§0.4.9): it exists once the chunk is loaded.
+    expect(() => app.rig.testPose).toThrow(/app\.rig\.load/);
+    await app.rig.load();
     app.evaluation.setChannelSource(W.character, 'bind');
     app.evaluation.tick();
     const bind = poseOf(app);
@@ -317,6 +320,7 @@ describe('app.operators.onBeforeDocumentRun (§0.5 C0 hook)', () => {
 describe('test-pose history parts (§4.6 working baseline)', () => {
   it('records one step per gesture; undo and redo apply the parts; dropTestPoses prunes them', async () => {
     const app = opsApp();
+    await app.rig.load();
     const pose = new Map([[W.lowerArmL, { rz: 0.5 }]]);
     app.rig.testPose.set(W.character, pose);
     expect(app.history.peekUndo()).toMatchObject({ label: 'Test Pose', docTxId: null, overrides: null });

@@ -52,17 +52,6 @@ export const MODEL_DISPLAY: DisplayFlags = {
   polyCount: true,
 };
 
-/** Rig & Skin's pane display (M6B-SPEC §4.6): the joints overlay with x-ray, axes on selection, labels on hover and
- *  constraint lines (C7 refines it per mode). */
-export const RIG_DISPLAY: DisplayFlags = {
-  ...DEFAULT_DISPLAY,
-  joints: true,
-  xrayJoints: true,
-  jointAxes: 'selected',
-  jointLabels: 'hover',
-  constraintLines: true,
-};
-
 const VIEW = (preset: ViewPreset): PaneCamera => ({ kind: 'view', preset });
 
 /** Model's pane cameras: M-Single persp, M-Side `front | persp` (the split layout), M-Quad as Maya's four view. */
@@ -74,7 +63,8 @@ const MODEL_CAMERAS: Readonly<Record<string, PaneCamera>> = {
 
 /** The display a pane starts with in a workspace. */
 export function defaultDisplayOf(workspace: string): DisplayFlags {
-  return workspace === 'model' ? MODEL_DISPLAY : workspace === 'rig' ? RIG_DISPLAY : DEFAULT_DISPLAY;
+  // M6b: Rig & Skin starts from DEFAULT_DISPLAY until C7 lands its per-mode display (joints overlay, x-ray, axes).
+  return workspace === 'model' ? MODEL_DISPLAY : DEFAULT_DISPLAY;
 }
 
 /** The camera a pane looks through in a workspace until the user picks another one. */

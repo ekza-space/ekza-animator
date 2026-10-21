@@ -23,6 +23,8 @@ import { RIG_SHADOW_OPERATORS } from './shadows';
 import { SHAPE_OPERATORS } from './shapes';
 import { SKELETON_OPERATORS } from './skeleton';
 import { WEIGHT_OPERATORS } from './weights';
+// The Rig & Skin services live in this chunk (§0.4.9); `app.rig.load()` creates them.
+export { createRigServices } from '../../../rig/chunk/services';
 
 /** `check-size` marker of the rig-workspace chunk (§2.1). */
 export const RIG_WORKSPACE_MARKER = 'ekza-rig-workspace' as const;
