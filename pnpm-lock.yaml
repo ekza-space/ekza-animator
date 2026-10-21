@@ -386,6 +386,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+      vrm-validator:
+        specifier: 2.0.0-dev.3.10
+        version: 2.0.0-dev.3.10
 
   packages/io:
     dependencies:
@@ -423,6 +426,9 @@ importers:
       '@pixiv/three-vrm-animation':
         specifier: 'catalog:'
         version: 3.5.5(three@0.186.1)
+      '@pixiv/types-vrmc-vrm-1.0':
+        specifier: 3.5.5
+        version: 3.5.5
       '@types/node':
         specifier: 'catalog:'
         version: 24.19.1
@@ -435,6 +441,9 @@ importers:
       vitest:
         specifier: 'catalog:'
         version: 4.1.11(@types/node@24.19.1)(@vitest/browser-playwright@4.1.11)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))
+      vrm-validator:
+        specifier: 2.0.0-dev.3.10
+        version: 2.0.0-dev.3.10
 
   packages/mesh-core:
     dependencies:
@@ -2722,6 +2731,9 @@ packages:
       jsdom:
         optional: true
 
+  vrm-validator@2.0.0-dev.3.10:
+    resolution: {integrity: sha512-H6j+OktWaGDvqfcndcEc13PFzwM0RFh9pu/fnV4tzGNg6TSxeGyPMHQmCTfehJqC/GV4DTJ2tL4r4anHVPGSdg==}
+
   why-is-node-running@2.3.0:
     resolution: {integrity: sha512-hUrmaWBdVDcxvYqnyh09zunKzROWjbZTiNy8dBEjkS7ehEDQibXJ7XvlmtbwuTclUiIyN+CyXQD4Vmko8fNm8w==}
     engines: {node: '>=8'}
@@ -4659,6 +4671,8 @@ snapshots:
       '@vitest/browser-playwright': 4.1.11(playwright@1.63.0)(vite@8.3.2(@types/node@24.19.1)(jiti@2.7.0))(vitest@4.1.11)
     transitivePeerDependencies:
       - msw
+
+  vrm-validator@2.0.0-dev.3.10: {}
 
   why-is-node-running@2.3.0:
     dependencies:

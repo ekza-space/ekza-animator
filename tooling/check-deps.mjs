@@ -92,7 +92,15 @@ export const ALLOWED = {
       'fflate',
       'three',
     ],
-    devDependencies: [...VITEST, '@pixiv/three-vrm-animation', '@types/three', 'gltf-validator'],
+    // M6B-SPEC §2.1: VRMC_vrm 1.0 writer types (types only) and the CI-only VRM validator.
+    devDependencies: [
+      ...VITEST,
+      '@pixiv/three-vrm-animation',
+      '@pixiv/types-vrmc-vrm-1.0',
+      '@types/three',
+      'gltf-validator',
+      'vrm-validator',
+    ],
   },
   [EDITOR_CORE]: {
     dependencies: [ANIM_CORE, DOC, RIG, IO, MESH_CORE, 'zustand'],
@@ -113,6 +121,8 @@ export const ALLOWED = {
       '@types/three',
       'gltf-validator',
       'three',
+      // M6B-SPEC §2.1: the CI-only VRM validator of the character writer's gates.
+      'vrm-validator',
     ],
   },
   [VIEWPORT]: {

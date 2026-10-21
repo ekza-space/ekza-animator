@@ -604,9 +604,10 @@
                   "!@ekza-studio/rig",
                   "!@gltf-transform/**",
                   "!fflate",
-                  "!@ekza-studio/mesh-core"
+                  "!@ekza-studio/mesh-core",
+                  "!@pixiv/types-vrmc-vrm-1.0"
                 ],
-                "message": "@ekza-studio/io may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @gltf-transform/**, fflate, @ekza-studio/mesh-core (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/io may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @gltf-transform/**, fflate, @ekza-studio/mesh-core, @pixiv/types-vrmc-vrm-1.0 (types only, M6B-SPEC \u00a72.1) (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -763,9 +764,11 @@
                   "!vitest/**",
                   "!node:*",
                   "!@ekza-studio/mesh-core",
-                  "!@ekza-studio/mesh-core/testing"
+                  "!@ekza-studio/mesh-core/testing",
+                  "!@pixiv/types-vrmc-vrm-1.0",
+                  "!vrm-validator"
                 ],
-                "message": "@ekza-studio/io tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, @ekza-studio/doc/testing, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/testing (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/io tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/rig, @gltf-transform/**, fflate, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, @ekza-studio/doc/testing, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/testing, @pixiv/types-vrmc-vrm-1.0, vrm-validator (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
@@ -995,9 +998,10 @@
                   "!@ekza-studio/mesh-core",
                   "!@ekza-studio/mesh-core/descriptors",
                   "!@ekza-studio/mesh-core/testing",
-                  "!@ekza-studio/mesh-view"
+                  "!@ekza-studio/mesh-view",
+                  "!vrm-validator"
                 ],
-                "message": "@ekza-studio/headless-tests tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, @ekza-studio/editor-core, @ekza-studio/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing, @ekza-studio/mesh-view (ARCHITECTURE \u00a73)."
+                "message": "@ekza-studio/headless-tests tests may import only: @ekza-studio/anim-core, @ekza-studio/doc, @ekza-studio/doc/testing, @ekza-studio/rig, @ekza-studio/io, @ekza-studio/io/testing, @ekza-studio/editor-core, @ekza-studio/editor-core/testing, @pixiv/three-vrm, @pixiv/three-vrm-animation, gltf-validator, three, three/**, vitest, vitest/**, node:*, @ekza-studio/mesh-core, @ekza-studio/mesh-core/descriptors, @ekza-studio/mesh-core/testing, @ekza-studio/mesh-view, vrm-validator (ARCHITECTURE \u00a73)."
               },
               {
                 "regex": "^@ekza-studio/[^/]+/[^/]+/",
