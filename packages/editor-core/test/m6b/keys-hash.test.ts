@@ -3,9 +3,16 @@
 // runs (the row's `status` becomes 'checked' and its `args` the fixture run) when it lands the operator.
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import type { MeshId } from '@ekza-studio/doc';
 import { makeTestJoint } from '@ekza-studio/doc/testing';
 import { describe, expect, it } from 'vitest';
-import { beginChannelEditGesture, type EditorApp, loadMeshKernel, registerBuiltinWorkspaces } from '../../src';
+import {
+  ANIMATE_ONLY_REASON,
+  beginChannelEditGesture,
+  type EditorApp,
+  loadMeshKernel,
+  registerBuiltinWorkspaces,
+} from '../../src';
 import { opsApp } from '../builtin/support';
 import { W } from '../kernel/support';
 import { LIBRARY_OPERATORS } from '../../src/operators/builtin/library';
@@ -20,6 +27,8 @@ type Row = {
   readonly owner: string;
   /** The fixture the run needs (characters, skeletons, bound meshes …) and its args, set by the owner. */
   readonly setup?: (app: EditorApp) => unknown;
+  /** A row whose operator refuses by design (`rig.animateOnly` always poll-fails): the expected refusal reason. */
+  readonly refuses?: string;
 };
 
 const pending = (owner: string, ...ids: readonly string[]): Row[] =>
@@ -73,16 +82,23 @@ export const P_C6_ROWS: readonly Row[] = [
     modelCharacter(app);
     return { skeleton: C2_SKELETON };
   }),
-  ...pending(
-    'C3',
-    'skel.quickRig.start',
-    'skel.quickRig.setMarker',
-    'skel.quickRig.guess',
-    'skel.quickRig.clear',
-    'skel.quickRig.setPreset',
-    'skel.quickRig.cancel',
-    'skel.quickRig.pick',
-  ),
+  // C3: Start and Guess need the mesh kernel (`opsApp` has none); test/m6b/skeleton-ui/quick-rig-session.test.ts
+  // asserts they leave the document (and so the keys) alone. The other Quick Rig operators run on an open Quick Rig.
+  ...pending('C3', 'skel.quickRig.start', 'skel.quickRig.guess'),
+  checked('C3', 'skel.quickRig.setMarker', (app) => {
+    openQuickRig(app);
+    return { name: 'knee', point: [-0.1, 0.45, 0.03] };
+  }),
+  checked('C3', 'skel.quickRig.clear', (app) => openQuickRig(app)),
+  checked('C3', 'skel.quickRig.setPreset', (app) => {
+    openQuickRig(app);
+    return { preset: 'full52' };
+  }),
+  checked('C3', 'skel.quickRig.cancel', (app) => openQuickRig(app)),
+  checked('C3', 'skel.quickRig.pick', (app) => {
+    openQuickRig(app);
+    return { marker: 'elbow' };
+  }),
   ...pending(
     'C2',
     'skel.joint.create',
@@ -153,7 +169,13 @@ export const P_C6_ROWS: readonly Row[] = [
   { id: 'rig.mode', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, { mode: 'skeleton' }) },
   { id: 'rig.pose.view', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, { view: 'bind' }) },
   { id: 'rig.pose.resetTest', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, undefined) },
-  { id: 'rig.animateOnly', status: 'checked', owner: 'C7', setup: async (app) => rigSetup(app, undefined) },
+  {
+    id: 'rig.animateOnly',
+    status: 'checked',
+    owner: 'C7',
+    setup: async (app) => rigSetup(app, undefined),
+    refuses: ANIMATE_ONLY_REASON,
+  },
   {
     id: 'rig.validation.profile',
     status: 'checked',
@@ -221,6 +243,28 @@ async function sceneCube(app: EditorApp): Promise<string> {
   return (result.value as { mesh: string }).mesh;
 }
 
+/** C3's fixture: Quick Rig open (U state) on a mesh id; the preview stays empty without the mesh kernel. */
+function openQuickRig(app: EditorApp): undefined {
+  const rig = app.session.getState().rig;
+  app.session.setState({
+    rig: {
+      ...rig,
+      quickRig: {
+        meshes: ['msh_QuickRig000001' as MeshId],
+        preset: 'standard33',
+        markers: { pelvis: [0, 0.93, 0], knee: [-0.1, 0.46, 0] },
+        moved: new Set(),
+        selected: null,
+        guess: null,
+        preview: null,
+        checks: { centred: true, grounded: true, facing: true },
+        refit: null,
+      },
+    },
+  });
+  return undefined;
+}
+
 /** C7's fixture: Rig & Skin entered with a control selected and a test pose on it (a test gesture). */
 async function rigSetup<T>(app: EditorApp, args: T): Promise<T> {
   registerBuiltinWorkspaces(app);
@@ -279,8 +323,10 @@ describe('P-C6: rig edits never key (table frame, §5.26)', () => {
     const args = await row.setup?.(app);
     const before = keysHash(app);
     const result = await app.runUntyped(row.id, args);
-    // A checked row must really run (a refused run would leave the hash unchanged trivially).
-    expect(result.status).toBe('finished');
+    // A checked row must really run (a refused run would leave the hash unchanged trivially), unless refusing is
+    // the operator's whole job (then it must refuse with exactly its reason).
+    const expected = row.refuses === undefined ? 'finished' : `cancelled: ${row.refuses}`;
+    expect(result.status === 'cancelled' ? `cancelled: ${result.reason}` : result.status).toBe(expected);
     expect(keysHash(app)).toBe(before);
   });
 });

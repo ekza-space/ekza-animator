@@ -466,3 +466,25 @@ export {
   isModelCharacter,
   normalizeCharacterRequest,
 } from './workflows/exportCharacter';
+// M6b C3 (skeleton UI): the Quick Rig session helpers and the joint-edit texts. Read by lazy UI code (the markers tool,
+// the joint tools, the Quick Rig panel) and tests only; the operators stay in the rig-workspace chunk.
+export {
+  A_POSE_NOTICE,
+  closeQuickRig,
+  isCentreMarker,
+  isQuickRigMarker,
+  markerPoint,
+  nextMissingMarker,
+  PRESET_LOCKED,
+  pickQuickRigMarker,
+  QUICK_RIG_CLOSED,
+  QUICK_RIG_LABELS,
+  QUICK_RIG_MARKERS,
+  quickRigCommitArgs,
+  quickRigCommitBlock,
+  quickRigOf,
+  quickRigStartBlock,
+  setQuickRigMarker,
+} from './operators/builtin/rig/quickRigSession';
+export { CHECK_REASONS, REBIND_CONFIRM } from './operators/builtin/rig/quickRig';
+export { ASSET_CHARACTER_REFUSAL, POSED_REFUSAL, rigGeometry } from './operators/builtin/rig/skeleton';

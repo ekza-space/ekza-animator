@@ -21,7 +21,13 @@ import {
   registerBuiltins,
   rigViewOnly,
 } from '@ekza-studio/editor-core';
-import type { SkeletonDesc } from '@ekza-studio/rig';
+import {
+  DEFAULT_FLEXION,
+  type SkeletonDesc,
+  skeletonTemplate,
+  templateJointId,
+  templateJointRecords,
+} from '@ekza-studio/rig';
 import { act, type JSX } from 'react';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import { RIG_MARKING_MENUS } from '../src/overlays/menus/rig';
@@ -77,7 +83,23 @@ async function rigShell(opts?: { readonly empty?: boolean }) {
 const IDENTITY = { t: [0, 0, 0], q: [0, 0, 0, 1], s: [1, 1, 1] } as const;
 
 /** A model character (a skeleton with one joint, one unbound mesh); it becomes the active character. */
-function addModelCharacter(app: EditorApp): CharacterId {
+/** The joints of the full Standard template (C2's §5.2 joints: every required VRM bone), the hips as `jnt_Hips0001`. */
+function templateJoints(skeleton: SkeletonId): JointRecord[] {
+  const hips = templateJointId(skeleton, 'hips');
+  const remap = (id: JointId | null): JointId | null => (id === hips ? ('jnt_Hips0001' as JointId) : id);
+  return templateJointRecords(
+    skeletonTemplate('standard33', { height: 1.8, proportions: 'standard', flexion: DEFAULT_FLEXION }),
+    skeleton,
+  ).map((joint) => ({
+    ...joint,
+    id: remap(joint.id) as JointId,
+    parent: remap(joint.parent),
+    mirror: remap(joint.mirror),
+  }));
+}
+
+/** A model character with one joint (the hips), or with `template` the full Standard template skeleton. */
+function addModelCharacter(app: EditorApp, opts?: { readonly template?: boolean }): CharacterId {
   const character = 'chr_Model0001' as CharacterId;
   const skeletonId = 'skl_Model0001' as SkeletonId;
   const rig = 'rig_Model0001' as RigId;
@@ -149,7 +171,7 @@ function addModelCharacter(app: EditorApp): CharacterId {
       symmetry: true,
       deleted: null,
     });
-    tx.put('joints', joint);
+    for (const record of opts?.template === true ? templateJoints(skeletonId) : [joint]) tx.put('joints', record);
     tx.put('meshes', mesh);
   });
   app.session.setState({ rig: { ...app.session.getState().rig, character } });
@@ -299,11 +321,12 @@ describe('the Rig Toolkit and the Validation panel (§8.6, §8.12)', () => {
     expect(glyphs()).toEqual(['attention', 'todo', 'todo', 'todo', 'todo', 'todo']);
     expect(by('rtk-empty').textContent).toMatch(/Select a mesh/);
     await act(async () => {
-      addModelCharacter(test.app);
+      addModelCharacter(test.app, { template: true });
     });
     await waitUntil(() => by('rtk-step-1').getAttribute('data-glyph') === 'done');
     expect(glyphs()).toEqual(['done', 'done', 'attention', 'todo', 'attention', 'attention']);
-    expect(by('rtk-header').textContent).toMatch(/Cube Lad · standard33 · 1 joints/);
+    const count = templateJoints('skl_Model0001' as SkeletonId).length;
+    expect(by('rtk-header').textContent).toMatch(new RegExp(`Cube Lad · standard33 · ${count} joints`));
     expect(by('rtk-validation-summary').textContent).toMatch(/3 errors/);
   });
 

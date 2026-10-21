@@ -34,6 +34,10 @@ const LANDED: Readonly<Record<string, string>> = {
   // C10 (character writer)
   'char.setVrmMeta': 'Make a character from your model first (Rig & Skin › Quick Rig)',
   'file.exportCharacter': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  // C3 (literal update, §3 rule 9): the Quick Rig session operators poll on the selection and on Quick Rig being open.
+  'skel.quickRig.start': 'Select the meshes to rig',
+  'skel.quickRig.guess': 'Quick Rig is not open',
+  'skel.quickRig.clear': 'Quick Rig is not open',
 };
 
 /** §0.3: deferred ids (registered, "Arrives after the MVP", listed nowhere). */

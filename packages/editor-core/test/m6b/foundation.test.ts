@@ -177,6 +177,14 @@ const LANDED: Readonly<Record<string, string>> = {
   'char.setVrmMeta': 'Make a character from your model first (Rig & Skin › Quick Rig)',
   'char.renderThumbnail': 'Make a character from your model first (Rig & Skin › Quick Rig)',
   'file.exportCharacter': 'Make a character from your model first (Rig & Skin › Quick Rig)',
+  // C3: the Quick Rig session operators (U state) poll on the selection and on Quick Rig being open.
+  'skel.quickRig.start': 'Select the meshes to rig',
+  'skel.quickRig.setMarker': 'Quick Rig is not open',
+  'skel.quickRig.guess': 'Quick Rig is not open',
+  'skel.quickRig.clear': 'Quick Rig is not open',
+  'skel.quickRig.setPreset': 'Quick Rig is not open',
+  'skel.quickRig.cancel': 'Quick Rig is not open',
+  'skel.quickRig.pick': 'Quick Rig is not open',
 };
 
 const disposers: (() => void)[] = [];

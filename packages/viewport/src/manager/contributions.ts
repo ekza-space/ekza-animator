@@ -20,6 +20,7 @@ import { firstShotCamera } from '../cameras/cameras';
 import { attachGuides } from '../guides';
 import { attachImagePlanes } from '../imageplanes';
 import { LAYOUT_PANES } from '../panes/layout';
+import { attachViewportRig } from '../rig/joints/attach';
 import { paintToolDef } from '../tools/model/paint';
 import { scaleToolDef } from '../tools/scaleTool';
 import { attachModelSelect } from '../tools/model/select';
@@ -221,6 +222,8 @@ export function registerViewportContributions(app: EditorApp, vm: ViewportManage
     attachModelTransform(app, vm),
     // M6a (B12b): Multi-Cut, Insert Edge Loop, Target Weld, Slide Edge and the extrude manipulator (a lazy kit).
     registerTopologyTools(app, vm),
+    // M6b (C3): the Rig & Skin joints, Quick Rig markers and their pointer layer (lazy, on the first Rig & Skin entry).
+    attachViewportRig(app, vm),
   ];
   return () => {
     for (const dispose of disposers.splice(0).reverse()) dispose();

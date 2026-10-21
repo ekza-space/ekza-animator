@@ -1,12 +1,16 @@
-// The Quick Rig panel body (M6B-SPEC §8; C0 stub, C3 replaces it): a lazy chunk — panels/index.ts registers the
-// panel with `lazyPanelDef`, so nothing of this directory is in the editor route.
+// The Quick Rig panel (M6B-SPEC §0.2, §0.4.2, §8; C3): a lazy chunk — panels/index.ts registers it with
+// `lazyPanelDef`, so nothing of this directory is in the editor route. The body is host-agnostic (`./body`); the Rig
+// Toolkit's Skeleton section shows the same body while Quick Rig runs.
 import type { JSX } from 'react';
 import type { PanelProps } from '../types';
+import { QuickRigPanelBody } from './body';
 
-export default function QuickRigView(_props: PanelProps): JSX.Element {
+export { QuickRigPanelBody, type QuickRigPanelBodyProps } from './body';
+
+export default function QuickRigView(props: PanelProps): JSX.Element {
   return (
-    <div className="grid h-full place-items-center p-4 text-ui text-fg-3" data-testid="quickrig-panel">
-      Quick Rig places markers on the selected meshes
+    <div className="h-full overflow-auto">
+      <QuickRigPanelBody app={props.app} />
     </div>
   );
 }

@@ -15,6 +15,7 @@ import {
   makeTestVrmMeta,
 } from '@ekza-studio/doc/testing';
 import { skeletonFromDoc } from '@ekza-studio/io';
+import { DEFAULT_FLEXION, skeletonTemplate, templateJointId, templateJointRecords } from '@ekza-studio/rig';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   ANIMATE_ONLY_REASON,
@@ -497,22 +498,45 @@ const HIPS = 'jnt_Hips0001' as JointId;
 const SPINE = 'jnt_Spine001' as JointId;
 
 /**
- * A model-sourced character: a skeleton with two joints and one mesh of the character (unbound). Its rig records the
- * joints' fingerprint (as C1's `rig.autoRig.update` does) unless `outOfSync`.
+ * A model-sourced character: a skeleton with two joints (the hips and the spine) and one mesh of the character
+ * (unbound); with `template`, the full Standard template instead (C2's §5.2 joints: every required VRM bone, so
+ * `skel.required-bones` is clean), the hips and the spine keeping the same ids. Its rig records the joints'
+ * fingerprint (as C1's `rig.autoRig.update` does) unless `outOfSync`.
  */
 function addModelCharacter(
   app: EditorApp,
-  opts?: { readonly vrm?: boolean; readonly bound?: boolean; readonly outOfSync?: boolean },
+  opts?: {
+    readonly vrm?: boolean;
+    readonly bound?: boolean;
+    readonly outOfSync?: boolean;
+    readonly template?: boolean;
+  },
 ): CharacterId {
   const character = 'chr_Model0001' as CharacterId;
   const skeleton = 'skl_Model0001' as SkeletonId;
   const rig = 'rig_Model0001' as RigId;
   const thumbnail = makeTestThumbnailAsset('thumb');
   const skeletonRecord = makeTestSkeleton(skeleton, character, { preset: 'standard33' });
-  const joints = [
-    makeTestJoint(HIPS, skeleton, { name: 'hips', humanBone: 'hips', key: 'hips' }),
-    makeTestJoint(SPINE, skeleton, { name: 'spine', humanBone: 'spine', key: 'spine', parent: HIPS }),
-  ];
+  const rename = new Map<JointId, JointId>([
+    [templateJointId(skeleton, 'hips'), HIPS],
+    [templateJointId(skeleton, 'spine'), SPINE],
+  ]);
+  const remap = (id: JointId | null): JointId | null => (id === null ? null : (rename.get(id) ?? id));
+  const joints =
+    opts?.template === true
+      ? templateJointRecords(
+          skeletonTemplate('standard33', { height: 1.8, proportions: 'standard', flexion: DEFAULT_FLEXION }),
+          skeleton,
+        ).map((joint) => ({
+          ...joint,
+          id: remap(joint.id) as JointId,
+          parent: remap(joint.parent),
+          mirror: remap(joint.mirror),
+        }))
+      : [
+          makeTestJoint(HIPS, skeleton, { name: 'hips', humanBone: 'hips', key: 'hips' }),
+          makeTestJoint(SPINE, skeleton, { name: 'spine', humanBone: 'spine', key: 'spine', parent: HIPS }),
+        ];
   const rigRecord = makeTestRig(rig, character);
   const fingerprint = skeletonFromDoc({ skeleton: skeletonRecord, joints, meshes: [] }).fingerprint;
   app.store.transact({ label: 'Model character' }, (tx) => {
@@ -553,7 +577,7 @@ function addModelCharacter(
 describe('Validation (§5.21, §0.4.5)', () => {
   it('rows per profile: skin.unbound and the VRM meta rows; severities follow the profile', async () => {
     const app = await rigApp();
-    const character = addModelCharacter(app);
+    const character = addModelCharacter(app, { template: true });
     const validation = rigValidation(app);
     const codes = (profile: string | null) =>
       validation.rows(character, profile).map((row) => [row.code, row.severity, row.fix?.op ?? null]);
@@ -584,7 +608,7 @@ describe('Validation (§5.21, §0.4.5)', () => {
       [5, 'todo'],
       [6, 'todo'],
     ]);
-    const character = addModelCharacter(app, { vrm: true });
+    const character = addModelCharacter(app, { vrm: true, template: true });
     // The model character's mesh is selected: the active character follows the selection.
     app.session.setState({
       selection: { ...app.session.getState().selection, controls: [], objects: ['msh_Body0001' as MeshId] },
@@ -614,7 +638,7 @@ describe('Validation (§5.21, §0.4.5)', () => {
 
   it('a bound character: ③ done, Skin mode allowed, glyph ● with no error row', async () => {
     const app = await rigApp();
-    const character = addModelCharacter(app, { vrm: true, bound: true });
+    const character = addModelCharacter(app, { vrm: true, bound: true, template: true });
     app.session.setState({ rig: { ...app.session.getState().rig, character } });
     expect(rigValidation(app).rows(character, null)).toEqual([]);
     expect(rigStatus(app)).toEqual({ glyph: 'done', reasons: [] });
@@ -625,7 +649,7 @@ describe('Validation (§5.21, §0.4.5)', () => {
 
   it('rig.out-of-sync: the recorded rig fingerprint differs from the joints; Fix = Update Control Rig', async () => {
     const app = await rigApp();
-    const character = addModelCharacter(app, { vrm: true, bound: true, outOfSync: true });
+    const character = addModelCharacter(app, { vrm: true, bound: true, outOfSync: true, template: true });
     const rows = rigValidation(app).rows(character, null);
     expect(rows.map((row) => [row.code, row.severity, row.fix?.op ?? null])).toEqual([
       ['rig.out-of-sync', 'warning', 'rig.autoRig.update'],
