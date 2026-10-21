@@ -61,4 +61,15 @@ export chunks.
 
 ## Gates (local, real Chrome; port 3165)
 
-Filled in at the end of the run (below).
+`EKZA_E2E_PORT=3165 pnpm run ci` on `f036da6`: **exit 0**, one run.
+
+- format:check, lint, typecheck, check:deps, check:fixtures (25 licensed files, the 16 starter-pack rows included),
+  check:licenses: pass.
+- test (turbo 15/15): io 290 (the generator check included), editor-core 1350, editor 524 (+1 skipped), mesh-core 905,
+  anim-core 671, doc 263, viewport 243 (+1), rig 232, curve-editor 209 (+3), headless 193, ui 94, doc-yjs 85, mesh-view 75,
+  web 22, tooling (node:test) 23. No skip added.
+- build: pass. check:size: 891,370 B (gate 900,000 B); MVP eager delta +1,801 B over the 889,569 B baseline (C12's
+  share +266 B, see Budgets); `clip library` 4.7 kB lazy.
+- test:e2e (local Chrome GPU, project `chrome`): **221 passed**, 24 skipped (the existing skips and E2E-LIB-03's gate),
+  2.1 min. E2E-LIB-01, E2E-LIB-02 and E2E-M6B-00 also passed alone before the run.
+- The 3165 server was Playwright's own and stopped with the run; the port is free.
