@@ -47,7 +47,7 @@ card and the §0.4.9 eager gate. Decision IDs below are `M6B-C7-<n>`.
 | M6B-C7-9 | **Validation rows**: C2's `checkSkeleton` (skel.*, xform.*) and C6's `checkSkin` (through the lazy kernel) run when they have landed (a `not-implemented` stub gives no rows); the shell computes `skin.unbound` and the VRM meta rows (`vrm.meta-required`, `vrm.licence-unset`, `vrm.thumbnail-square` = a stored thumbnail asset; squareness is C10's renderer). Only the §0.4.5 MVP codes are shown; asset-sourced characters have no Rig rows (their export lints judge them). `rig.out-of-sync` appears when C1/C2's rule reports it (`RigProblemCode`). M6a's `mesh.*` lints are not in the panel in the MVP (they run on export bytes; the three skin lints' suppression is the character export's, C10). Profiles offered: `ekza/space-avatar-v1` (default) and `local/generic`. A skin skeleton for `checkSkin` is built from the joint records (`skinSkeletonOf`), C4/C6 may share theirs. | §5.21, §0.4.5, §0.4.6. |
 | M6B-C7-10 | **Checklist glyphs**: `done` when the step's check passes, `attention` when it can be worked on (① without a skeleton, ③ partly bound, ④ weight problems, ⑤ before a preview, ⑥ error rows), `todo` while the step before gives it nothing to check. ⑤ counts a library preview this session or a clip brought in (imported/embedded) or with curves; an empty new clip and test clips do not count. | §0.4.5 "done when …"; steps never locked. |
 | M6B-C7-11 | **Active character** (§5.24): the selected joints' skeleton, else the selected controls', else the selected objects' owner, else the only character, else the previous one while it exists. | §5.24 "else none" kept for an empty scene; keeping the last one avoids the Toolkit flickering when the selection moves to the scene. |
-| M6B-C7-12 | **Dock tabs follow the mode** (right dock only: Object → Channel Box, Skeleton → Rig Toolkit, Skin → Paint Weights, `RigSessionState.tabMemory`); the bottom dock holds Validation (the Component Editor is optional, C6). | §5.24 table; no remembered user change per mode yet (no dock event for it in the shell API). |
+| M6B-C7-12 | **Dock tabs follow the mode, remembered per mode** (fix round 2): on a mode switch the right and bottom tabs of the new mode are shown (Object → Channel Box / Validation, Skeleton → Rig Toolkit / Validation, Skin → Paint Weights / Component Editor, `RigSessionState.tabMemory`). The tabs the user left showing in the previous mode (each dock group's visible Rig tab, read from the dockview when the mode changes) are remembered for that mode first, so the next entry to it shows them (`followModeTabs`, `rememberTabs` in `shell/rig/register.ts`). A dock showing no Rig tab keeps its remembered tab. The createShell hook passes `dockview: () => workspace.dockview` (one line). | §5.24 table, §8.2 "the tab following the mode unless the user changed it in that mode (remembered per mode)". Reading the tabs at the switch needs no dock event. |
 | M6B-C7-13 | **Literal updates** (§3 rule 9, assertions kept): editor-core `m6b/foundation.test.ts` (C7's operators poll on their own args), `m6b/keys-hash.test.ts` (C7 rows `checked` with a Rig & Skin fixture), editor `test-api.test.ts` (Rig & Skin glyph ○ "No skeleton yet"), web `m6a-size.test.ts` (gate enforced, per-package allowances, `packages` field). | Owners land their rows. |
 | M6B-C7-14 | **M6b display flags accepted by the display operators** (`workspace.ts` `ENUM_FLAGS`/`BOOLEAN_DISPLAY_FLAGS`: joints, xrayJoints, jointAxes, jointLabels, weights, weightNumbers, lockRelative, constraintLines). `Alt+C` in Skin mode is bound to `view.display.toggle {flag: 'weights'}` per §7; toggling the enum (off ↔ greyscale) is C6's weight-display work. | The Display menu needs them; `weights` is an enum, the shipped toggle flips booleans. |
 | M6B-C7-15 | **`S` never keys before the rig chunk has loaded** (fix round 1). The shadow rows (`S`, `Shift+W/E/R`, `Alt+S`, `Alt+M`, `Mod+C`/`Mod+V`/`Mod+Shift+V`, `Delete`/`Backspace` → `rig.animateOnly` over the viewport and the keying panels) are **eager** and contributed with the `maya` preset (`registerBuiltins`, one line), so a reload straight into Rig & Skin (`?ws=rig`, `prefs.lastWorkspace`) or a failed chunk load never reaches `key.set`/`pose.*`; the runner loads the chunk to run `rig.animateOnly`, which poll-fails. `switchWorkspace(app, 'rig')` starts the chunk load (the boot path enters without `workspace.set`'s prepare) and a failed load is retried by the next call; until the chunk's test-pose redirect exists, a channel edit in Rig & Skin is refused (an inert gesture). §7 says rows register with the chunk: only these shadow rows are eager (+≈200 B gzip, inside C7's allowance). | DoD "`S` never keys in any Rig scope". |
@@ -58,13 +58,19 @@ card and the §0.4.9 eager gate. Decision IDs below are `M6B-C7-<n>`.
 | M6B-C7-20 | **Selection per mode** (§5.24): leaving Skeleton remembers its joints, leaving Object its controls; entering the mode again restores them (live records only; per app session, U state). Points stay per mesh in the component selection service (C6). | §5.24. |
 | M6B-C7-21 | **Kept copy and history**: any test-pose write (an edit, or an undo/redo of a 'Test Pose' step) forgets the copy Go to Bind Pose kept for that character, so Test never brings back a pose the history removed. | Review finding (fix round 1). |
 
+| M6B-C7-22 | **Keying is refused in Rig & Skin from every surface** (fix round 2). `rigRunRefusal` (`evaluation/rigSource.ts`) is checked by the runner before an operator's own poll and by `operators.poll` (menus, palette, Channel Box read it): in Rig & Skin `key.set`, `key.deleteAtFrame`, `key.convert`, `key.tween`, `pose.paste`, `pose.mirror`, `pose.mirrorAnimation`, `pose.plantFeet`, `pose.resetToRest`, `time.insertTime`, `time.deleteTime`, `rig.ikFk.*` and every `graph.*` write (all but `graph.keys.copy`, `graph.buffer.snapshot`, `graph.buffer.clear`) are cancelled with "Keys and poses are set in Animate". The palette leaves them out in Rig & Skin. One check, not a poll edit per operator: it covers the Channel Box's "Key Selected", `Mod+K`, the Graph Editor and the Dope Sheet alike, and the `?ws=rig` boot before the chunk. `channel.setValues` keeps its test-pose redirect (M6B-C7-4). | §5.17 "never a key", "keying is impossible in Rig & Skin". |
+| M6B-C7-23 | **Selection undo in Rig & Skin** (fix round 2): the control selection operators (`select.controls`, the viewport/Outliner/Dope Sheet path, plus `select.all`, `select.none`, `select.mirror`, `select.pickWalk`) record one M6a selection part ("Select", no document step, nothing when the selection did not change) while Rig & Skin is active and `prefs.modeling.undoSelection.rig` is on; Animate is unchanged. The part is recorded inline (`selectControlsGesture` in `select.ts`), not through `selectionGesture`, to keep the mesh selection steps out of the eager bundle (−493 B gzip). Object picks (`select.objects`) record through M6a's `selectionGesture` as in Model. **Joint selections**: `select.joints` is C3's (a stub here) and the closed `SelectionSnapshot` has no `joints`/`constraints` fields yet (§5.24 "extend SelectionSnapshot", additive): that contract change and the joint/constraint selection parts go to C3 + a contract PR (INT). | §5.24 "Selection undo". |
+| M6B-C7-24 | **Object mode picks meshes** (fix round 2): `select.objects` runs in Rig & Skin Object mode (manifest `workspaces: ['model', 'rig']`; other Rig modes: "Objects are picked in Object mode"; Animate: "Objects are selected in Model and Rig & Skin" instead of the component-mode text). The viewport select tool, in Rig & Skin Object mode with the meshes pick mask on, picks the nearest drawn scene mesh (`ModelSelectRuntime.pickObject`, loaded whenever meshes exist) when no control is under the cursor; a plain click on empty space also clears the objects. So the active character from the selected objects, `H`/`Shift+L` on objects and Quick Rig on the selected meshes work inside Rig & Skin. | §5.24 pick mask "meshes, joints, controls". |
+| M6B-C7-25 | **View-only below 1024 px** (fix round 2): the lazy rig shell watches `matchMedia('(max-width: 1023.98px)')` (`shell/rig/viewOnly.ts`) and sets `setRigViewOnly(app)`; in Rig & Skin the runner then refuses every operator with `flags.undo` except `channel.setValues` (a test pose there) with "Open on a larger screen to edit"; test poses, the pose view, selection, modes and Validation (re-run, profile, Select) keep working. The pane banner `rig-view-only` ("Open on a larger screen to edit" — research 09 §11.2's text — and "Rig & Skin is view-only below 1024 px: test poses and Validation work") sits above the Getting started card. Without `matchMedia` the editor stays editable. | §5.24 Accessibility; research 19, research 09 §11.2. |
+| M6B-C7-26 | **`Alt+H` in Skeleton mode** hides the other joints of the selected joints' skeletons only (else the active character's skeleton); other characters' joints are untouched (fix round 2). | Review finding. |
+
 ## Deferred or left to owners (MVP)
 
 ROM clip (`skin.test.rom`), Constrain/Control menus, marking menus other than `rig.modes`, the Rig Outliner variant
-(CR-5) and `rig.outliner.delete`, R-Quad/R-Paint, the < 1024 px view-only banner (MVP deferral: Rig & Skin stays
-editable at every width), the per-mode dock tab memory of user changes (MVP deferral: the dock tab follows the mode's
-default; no dock event reports a user's tab change), per-mode display switching (X-ray mesh in Skeleton mode: C3; weight display in Skin mode:
-C6), IK → FK for `E` on joints (C3), Skeleton/Skin help-line texts (C3/C6).
+(CR-5) and `rig.outliner.delete`, R-Quad/R-Paint, per-mode display switching (X-ray mesh in Skeleton mode: C3; weight
+display in Skin mode: C6), IK → FK for `E` on joints (C3), Skeleton/Skin help-line texts (C3/C6), joint and constraint
+selection parts (C3 with the `SelectionSnapshot` contract PR, M6B-C7-23). The view-only banner and the per-mode dock
+tab memory, listed here in round 1, are implemented in round 2 (M6B-C7-25, M6B-C7-12).
 
 ## Edits outside C7's Dirs — INT approval requested (§9.0, §9.1)
 
@@ -77,7 +83,7 @@ after C0 (they need a contract PR); the others are unlisted shared or M6a files 
 | `editor-core/src/types.ts` (*closed*) | `ViewportLayout` + `'rig-side' \| 'rig-markers'` (additive) | the R-Side/R-Markers pane ids §10 names (M6B-C7-1) | contract PR requested |
 | `apps/web/e2e/helpers/m6b-rig.ts` (*closed*) | `RIG_FRONT_PANE = 'pane-front'`, `RIG_PERSP_PANE = 'pane-persp'`, + `RIG_SIDE_PANE` | C0's constants named Animate's split panes (M6B-C7-1) | contract PR requested |
 | `apps/web/e2e/m6b-00-foundation.spec.ts` (*closed*) | the menubar check now expects Skeleton and Skin (C0's comment said C7 extends it) | C7's menus exist | contract PR requested |
-| `editor-core/src/edit/channels.ts`, `operators/builtin/key.ts` | one redirect line each (`redirectedChannelEdit`) | test poses through the shipped edit paths (M6B-C7-4) | pending |
+| `editor-core/src/edit/channels.ts`, `operators/builtin/key.ts` | one redirect line each (`redirectedChannelEdit`); round 2 adds nothing to `key.ts` (keying is refused in the runner, M6B-C7-22) | test poses through the shipped edit paths (M6B-C7-4) | pending |
 | `editor-core/src/evaluation/service.ts` | two reads of `rigValues` (Channel Box / manipulators show the pose on screen) | M6B-C7-4 | pending |
 | `editor-core/src/operators/builtin/workspace.ts` | `workspace.set` prepare loads the rig chunk; the M6b display flags | §2.1, M6B-C7-14 | pending |
 | `editor-core/src/workspaces/switch.ts` | `rig` default view (R-Side); entering Rig & Skin starts the chunk load | §8.2, M6B-C7-15 | pending |
@@ -89,6 +95,12 @@ after C0 (they need a contract PR); the others are unlisted shared or M6a files 
 | `editor/src/panels/viewport/ViewportPanel.tsx`, `viewport/src/panes/layout.ts`, `viewport/src/manager/workspaceViews.ts` | the two pane grids and `RIG_DISPLAY` | §8.2 (M6B-C7-1) | pending |
 | `ui/src/icons/custom.tsx` | the two layout icons | — | pending |
 | tests: `editor-core/test/builtin/registration.test.ts`, `m6b/foundation.test.ts`, `m6b/keys-hash.test.ts`, `editor/test/test-api.test.ts`, `apps/web/test/m6a-size.test.ts`, `apps/web/e2e/m6a-shell.spec.ts`, the four `test/m6b-ready.ts` | literal updates, assertions kept (§3 rule 9; M6B-C7-13) and the READY flag | — | pending |
+| `editor-core/src/operators/{runner.ts,registry.ts}` (round 2) | one `rigRunRefusal` check each, before the operator's poll | keying refused from every surface, view-only below 1024 px (M6B-C7-22, -25) | pending |
+| `editor-core/src/operators/builtin/select.ts` (round 2) | `selectControlsGesture`: the control selection operators record a selection part in Rig & Skin | M6B-C7-23 | pending |
+| `editor-core/src/operators/builtin/selectMesh.ts`, `modelManifest.ts` (generated) (round 2) | `select.objects` in Rig & Skin Object mode; reason texts | M6B-C7-24 | pending |
+| `viewport/src/tools/selectTool.ts` (round 2) | `rigObjectClick`: mesh pick in Rig & Skin Object mode | M6B-C7-24 | pending |
+| `editor/src/overlays/CommandPalette/controller.ts` (round 2) | keying entries left out in Rig & Skin (two lines) | M6B-C7-22 | pending |
+| `editor/src/shell/createShell.ts` (round 2) | the rig shell hook also gets `dockview` | M6B-C7-12 | pending |
 | `apps/web/scripts/{check-size.d.mts,size-baseline.json}` | the MVP gate (`enforce: true`, per-package allowances) | §9.1 gives C7 the gate through the B9 owner's review | pending |
 
 ## Fix round 1 (review of `c078648`)
@@ -105,12 +117,30 @@ after C0 (they need a contract PR); the others are unlisted shared or M6a files 
 | minor — Validation details | fixed: Prune to 4 (M6B-C7-18), Select switches mode, selects points and frames, [Re-run] |
 | minor — selection per mode, banner, dock-tab memory | selection per mode fixed (M6B-C7-20); the banner and the per-mode dock-tab memory listed as MVP deferrals |
 
+## Fix round 2 (review of `300566d`)
+
+| Finding | Disposition |
+|---|---|
+| major — a test pose can become a key through the palette / Channel Box "Key Selected" (key.set, key.deleteAtFrame, pose.mirror, graph.keys.keyCurves finish in Rig) | fixed: M6B-C7-22; unit test "keying is impossible in Rig & Skin" (test pose, then key.set all/selected, key.deleteAtFrame, pose.mirror/paste/resetToRest, graph.keys.keyCurves/delete, time.insertTime: cancelled, `operators.poll` says why, keys hash, store version and history unchanged; Animate keys as before); e2e E2E-RIG-05 MVP part 2 (the Channel Box's right-click Key Selected, the palette without keying entries, key.set / pose.mirror / graph.keys.keyCurves refused, keys hash and counts unchanged) |
+| major — selection undo in Rig & Skin not implemented | fixed for controls and objects: M6B-C7-23; unit tests "selection undo in Rig & Skin" (one step per gesture, nothing for a no-op, undo/redo restore, no document change; Animate unchanged); e2e E2E-RIG-01 MVP part 2 (an Object-mode mesh click records Select; undo/redo) and E2E-RIG-05 part 2. Joint/constraint parts: C3 + contract PR (recorded above; INT to route) |
+| major — closed/shared files without INT approval | the table above now lists round 2's edits too; C7 cannot record INT's approval itself |
+| minor — meshes cannot be picked in Rig Object mode; wrong reason text | fixed: M6B-C7-24; unit test "Object mode picks meshes"; e2e E2E-RIG-01 MVP part 2 (click on the framed cube → Quick Rig enabled) |
+| minor — `Alt+H` hides every character's joints | fixed: M6B-C7-26; unit test "Alt+H in Skeleton mode is limited to the skeletons in scope" |
+| minor — banner < 1024 px and per-mode dock tab memory deferred without approval | implemented: M6B-C7-25 (unit tests in editor-core and editor; e2e E2E-RIG-01 MVP part 2 at 900 px: banner, edit refused, banner gone at full width) and M6B-C7-12 (editor unit tests "the dock tabs per mode") |
+
 ## Eager route (§0.4.9)
 
-Production build (no `NEXT_PUBLIC_EKZA_E2E`), `check:size` (gzip -9, first visit), fix round 1: **892,990 B** (gate
-900,000 B, headroom 7,010 B); the M6b MVP eager delta **+3,421 B** over the 889,569 B baseline (allowance +6,144 B,
-enforced). C0 recorded 891,104 B, so **C7's own delta is +1,886 B** (allowance 2,560 B): the `WorkspaceDef` additions
-(layout, `keyModes`, `rigStatus`), CR-4's chain and call site, the Rig dock layout and viewport presets
+Production build (no `NEXT_PUBLIC_EKZA_E2E`), `check:size` (gzip -9, first visit), fix round 2: **893,591 B** (gate
+900,000 B, headroom 6,409 B); the M6b MVP eager delta **+4,022 B** over the 889,569 B baseline (allowance +6,144 B,
+enforced). C0 recorded 891,104 B, so **C7's own delta is +2,487 B** (allowance 2,560 B). Round 2 added +601 B over
+round 1's 892,990 B: the runner/registry refusal (one regex of the keying ids, the view-only reason), the inline
+control selection part, the Object-mode mesh pick in the select tool and the palette filter. A first cut that reused
+M6a's `selectionGesture` pulled the mesh selection steps into the eager bundle (+493 B; 2,865 B over C0, above the
+allowance) and was replaced by the inline part. The banner, the width watcher and the dock tab memory are in the lazy
+rig shell chunk; the `select.objects` change is in the lazy Model operators chunk (its manifest is eager, +5 B).
+
+Round 1: **892,990 B**; the M6b MVP eager delta **+3,421 B**; C7's own delta **+1,886 B**: the `WorkspaceDef`
+additions (layout, `keyModes`, `rigStatus`), CR-4's chain and call site, the Rig dock layout and viewport presets
 (`shell/rig/layouts.ts`, the triple pane grid, `RIG_DISPLAY`, the icon), the M6b display flags, the channel-source
 reads and redirect hooks (with the refused edit before the chunk), the rig shell hook, and — new in round 1 — the
 eager shadow rows and the chunk load on entry (+401 B; the round-0 measure was 892,589 B, +1,485 B). The Rig hide
