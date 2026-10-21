@@ -1,6 +1,5 @@
-// The character writer (M6B-SPEC §4.4, §5.22): C1's minimal writer — the joint hierarchy, one skin, skinned and static
-// meshes with palette materials — and the in-memory container of a model-sourced character (display path, §5.1). C10
-// extends it to the full VRM 1.0 / GLB writer (meta, licence, thumbnail, clips, swatch shaders, lints).
+// The character writer (M6B-SPEC §4.4, §5.22; C1 minimal, C10 full): the VRM 1.0 / plain GLB file of a model-sourced
+// character, and the in-memory container of its display (§5.1, a plain GLB).
 //
 // Layout (one glTF Transform document, deterministic: the same input always gives the same bytes):
 // - nodes 0…J−1 = the joints in `skeleton` (skeletonFromDoc) order, TRS = the derived rest locals, scale 1; root
@@ -8,12 +7,20 @@
 // - then one node per mesh (identity; names unique among siblings): skinned meshes under scene 0 with the skin,
 //   static (unbound) meshes as children of the first root joint;
 // - one skin: `joints` = every joint in skeleton order, `skeleton` = node 0, `inverseBindMatrices` = (W⁰_j)⁻¹ float32;
-// - primitives from M6a's `meshToPrimitives` (palette texture, vertex colour or material per colour), JOINTS_0 remapped
-//   from the mesh's palette to the skin order (u8 up to 256 joints, else u16), WEIGHTS_0 float32 renormalized;
-// - one embedded buffer, no `uri`, `extensionsRequired` never set, `KHR_materials_unlit` used by unlit materials;
-// - `format: 'vrm'` adds `VRMC_vrm` (`specVersion` 1.0, the humanoid map; C10 adds the meta), `'glb'` writes none.
+// - primitives from M6a's `meshToPrimitives`, JOINTS_0 remapped from the mesh's palette to the skin order (u8 up to
+//   256 joints, else u16), WEIGHTS_0 float32 renormalized; no TANGENT;
+// - materials per M6a §5.19 with the swatch shaders of SHADING-SPEC §4 on lit meshes (Lambert: metallic 0 /
+//   roughness 1; Blinn: roughness 1 − glossiness and KHR_materials_specular, in extensionsUsed only), unlit meshes
+//   with KHR_materials_unlit; `format: 'vrm'` forces the palette texture (MToon ignores vertex colours, Q-LP-0);
+// - clips: one animation per `input.clips` entry (tracks on joint nodes, shared input accessors), and
+//   `asset.extras.ekza_animation_v1` when the caller passes the clips' metadata;
+// - one embedded buffer, no `uri`, `extensionsRequired` never set; `asset.extras` carries `ekza_model_v1` and
+//   `ekza.avatar.heightScale` when set;
+// - `format: 'vrm'` adds `VRMC_vrm` 1.0 (`./../vrm/extension.ts`): the humanoid map, the meta from
+//   `CharacterWriteInput.vrm` (`vrmcMetaOf`: licence URL, presets, thirdPartyLicenses from provenance) and the
+//   thumbnail image; `'glb'` writes none.
 import { EkzaError, mat4Compose, mat4Invert } from '@ekza-studio/anim-core';
-import type { ColourOutput, HumanBoneName } from '@ekza-studio/doc';
+import type { ColourOutput, DerivedFrom } from '@ekza-studio/doc';
 import {
   type Buffer,
   Document,
@@ -24,13 +31,23 @@ import {
   type Texture,
   WebIO,
 } from '@gltf-transform/core';
-import { KHRMaterialsUnlit } from '@gltf-transform/extensions';
-import { assembleGlb } from '../glb/write';
-import { parseGlb, parseGlbSync } from '../glb/parse';
+import { KHRMaterialsSpecular, KHRMaterialsUnlit } from '@gltf-transform/extensions';
+import { shaderFactors, shaderKey, shaderLabel } from '../export/author/shading';
+import { parseGlb } from '../glb/parse';
 import type { DetailedPrimitive } from '../mesh/toPrimitives';
 import { MODEL_META_KEY, modelBlock } from '../provenance/model';
 import { restWorldsOf } from '../skeleton/rest';
-import type { CharacterMeshIn, CharacterWriteInput, GlbContainer, PaletteTexture } from '../types';
+import type {
+  CharacterMeshIn,
+  CharacterWriteInput,
+  EkzaAnimationV1,
+  GlbContainer,
+  PaletteTexture,
+  SwatchShading,
+} from '../types';
+import { VRMCVrmExtension } from '../vrm/extension';
+import { vrmcMetaOf } from '../vrm/meta';
+import { InputAccessors } from '../writers/document';
 import { type MeshIo, PaletteCache, primitivesOf } from './vertices';
 
 /** Attributes a character primitive writes besides the skin attributes. */
@@ -45,18 +62,28 @@ export const CONTAINER_GENERATOR = 'Ekza Studio character runtime';
 
 export { characterVertices } from './vertices';
 
-/** Deterministic bytes (stable order, no timestamps); C1 lands the skeleton + skinned meshes subset. */
-export async function writeCharacter(
-  input: CharacterWriteInput,
-  opts: { readonly generator: string; readonly format: 'vrm' | 'glb' },
-): Promise<Uint8Array> {
+/** Options of `writeCharacter` (§4.4; C10 adds the clips' metadata and the provenance of the meta). */
+export interface CharacterWriteOptions {
+  readonly generator: string;
+  readonly format: 'vrm' | 'glb';
+  /** `asset.extras.ekza_animation_v1` of the written clips (`outputMeta`; null or absent: none written). */
+  readonly animationMeta?: EkzaAnimationV1 | null;
+  /** Sources of the character's parts and clips, for `VRMC_vrm.meta.thirdPartyLicenses` when the meta leaves it empty. */
+  readonly derivedFrom?: readonly DerivedFrom[];
+}
+
+/** Deterministic bytes (stable order, no timestamps). */
+export async function writeCharacter(input: CharacterWriteInput, opts: CharacterWriteOptions): Promise<Uint8Array> {
   const mesh = await import('../mesh');
+  const vrm = opts.format === 'vrm';
   const doc = new Document();
   doc.setLogger(new Logger(Logger.Verbosity.ERROR));
   const asset = doc.getRoot().getAsset();
   asset.generator = opts.generator;
+  const animationMeta = opts.animationMeta ?? null;
   asset.extras = {
     [MODEL_META_KEY]: modelBlock(input.model),
+    ...(animationMeta === null ? {} : { ekza_animation_v1: animationMeta }),
     ...(input.heightScale === null ? {} : { ekza: { avatar: { heightScale: input.heightScale } } }),
   };
   const buffer = doc.createBuffer();
@@ -109,7 +136,7 @@ export async function writeCharacter(
     const node = doc.createNode(uniqueName(names, parent, source.name));
     if (parent === null) scene.addChild(node);
     else parent.addChild(node);
-    const gltfMesh = writeMesh(doc, buffer, mesh, materials, source, bound ? nodeOfJoint : null, joints.length);
+    const gltfMesh = writeMesh(doc, buffer, mesh, materials, source, bound ? nodeOfJoint : null, joints.length, vrm);
     if (gltfMesh === null) continue;
     node.setMesh(gltfMesh);
     if (bound) node.setSkin(skinOf());
@@ -117,9 +144,48 @@ export async function writeCharacter(
   // Every joint is listed by the skin, even without a skinned mesh, so the hierarchy reads back as joints (§5.22).
   if (joints.length > 0) skinOf();
 
-  const io = new WebIO().registerExtensions([KHRMaterialsUnlit]);
-  const bytes = await io.writeBinary(doc);
-  return opts.format === 'vrm' ? withVrmc(bytes, input) : bytes;
+  // Clips (§5.22): tracks on the joint nodes, sampled by the caller through the kernel.
+  const inputs = new InputAccessors(doc, buffer);
+  for (const clip of input.clips) {
+    const animation = doc.createAnimation(clip.name);
+    for (const track of clip.tracks) {
+      const target = joints[track.node];
+      if (target === undefined) continue;
+      const output = doc
+        .createAccessor()
+        .setType(track.path === 'rotation' ? 'VEC4' : 'VEC3')
+        .setArray(track.values.slice())
+        .setBuffer(buffer);
+      const sampler = doc
+        .createAnimationSampler()
+        .setInput(inputs.get(track.times))
+        .setOutput(output)
+        .setInterpolation(track.interpolation);
+      animation.addSampler(sampler);
+      animation.addChannel(
+        doc.createAnimationChannel().setTargetNode(target).setTargetPath(track.path).setSampler(sampler),
+      );
+    }
+  }
+
+  if (vrm) {
+    const extension = doc.createExtension(VRMCVrmExtension);
+    const root = extension.createVrm();
+    for (const [bone, index] of Object.entries(input.skeleton.humanoid ?? {})) {
+      const node = joints[index];
+      if (node !== undefined) root.setBone(bone, node);
+    }
+    if (input.vrm !== null) {
+      root.setMeta(vrmcMetaOf(input.vrm, opts.derivedFrom ?? []));
+      if (input.thumbnailPng !== null) {
+        root.setThumbnail(doc.createTexture('thumbnail').setImage(input.thumbnailPng).setMimeType('image/png'));
+      }
+    }
+    doc.getRoot().setExtension('VRMC_vrm', root);
+  }
+
+  const io = new WebIO().registerExtensions([KHRMaterialsUnlit, KHRMaterialsSpecular, VRMCVrmExtension]);
+  return io.writeBinary(doc);
 }
 
 /** The in-memory container of a model-sourced character (display and export path, §5.1): a plain GLB, no VRMC_vrm. */
@@ -161,6 +227,7 @@ class MaterialCache {
   private readonly textures = new Map<string, { readonly texture: Texture; readonly palette: PaletteTexture }>();
   private readonly materials = new Map<string, Material>();
   private unlit: KHRMaterialsUnlit | null = null;
+  private specular: KHRMaterialsSpecular | null = null;
 
   constructor(
     private readonly doc: Document,
@@ -188,16 +255,34 @@ class MaterialCache {
     palette: { readonly id: string; readonly texture: Texture } | null,
     colour: readonly [number, number, number] | null,
     swatch: number | null,
+    shading: SwatchShading | undefined,
   ): Material {
-    const key = JSON.stringify([preset.preset, preset.name, output, palette?.id ?? null, swatch, colour]);
+    // Shaders apply to lit materials only (SHADING-SPEC §4); '' keeps the pre-shader key, name and factors.
+    const shader = preset.preset === 'lit' ? shading : undefined;
+    const group = shaderKey(shader);
+    const key = JSON.stringify([preset.preset, preset.name, output, palette?.id ?? null, swatch, colour]) + group;
     const known = this.materials.get(key);
     if (known !== undefined) return known;
-    const name = swatch === null ? preset.name : `${preset.name} swatch ${swatch}`;
+    const label = shaderLabel(shader);
+    const name =
+      swatch === null ? (label === '' ? preset.name : `${preset.name} ${label}`) : `${preset.name} swatch ${swatch}`;
+    const factors = shaderFactors(shader);
     const material = this.doc
       .createMaterial(name)
       .setBaseColorFactor(colour === null ? [1, 1, 1, 1] : [colour[0], colour[1], colour[2], 1])
-      .setMetallicFactor(0)
-      .setRoughnessFactor(1);
+      .setMetallicFactor(factors.metallic)
+      .setRoughnessFactor(factors.roughness);
+    if (factors.specular !== null) {
+      this.specular ??= this.doc.createExtension(KHRMaterialsSpecular);
+      const c = factors.specular.colour;
+      material.setExtension(
+        'KHR_materials_specular',
+        this.specular
+          .createSpecular()
+          .setSpecularFactor(factors.specular.factor)
+          .setSpecularColorFactor([c[0], c[1], c[2]]),
+      );
+    }
     if (palette !== null) {
       material.setBaseColorTexture(palette.texture);
       material
@@ -224,8 +309,9 @@ function writeMesh(
   source: CharacterMeshIn,
   nodeOfJoint: ReadonlyMap<string, number> | null,
   jointCount: number,
+  forcePalette: boolean,
 ) {
-  const { primitives, output, paint } = primitivesOf(io, materials.palettes, source);
+  const { primitives, output, paint, shaderOfSlot } = primitivesOf(io, materials.palettes, source, { forcePalette });
   if (primitives.length === 0) return null;
   const found = output === 'palette-texture' ? materials.palette(source.paletteId) : null;
   const palette = found === null ? null : { id: source.paletteId as string, texture: found.texture };
@@ -233,6 +319,13 @@ function writeMesh(
     nodeOfJoint === null || source.skin === null
       ? null
       : source.skin.palette.map((entry) => nodeOfJoint.get(entry.key) ?? 0);
+  // Shader groups by key (the first swatch of each group carries its parameters).
+  const byKey = new Map<string, SwatchShading | undefined>();
+  const swatches = source.paletteId === null ? [] : (materials.palettes.swatches.get(source.paletteId) ?? []);
+  for (const swatch of swatches) {
+    const shading = shaderOfSlot(swatch.slot);
+    if (!byKey.has(shaderKey(shading))) byKey.set(shaderKey(shading), shading);
+  }
   const gltfMesh = doc.createMesh(source.name);
   for (const primitive of primitives) {
     const preset = source.materials[primitive.material] ??
@@ -241,12 +334,18 @@ function writeMesh(
       output === 'material-per-colour' && primitive.swatch !== null
         ? io.srgb8ToLinear(paint.get(primitive.swatch) ?? paint.get(0) ?? [255, 255, 255])
         : null;
+    const shader =
+      primitive.swatch !== null
+        ? shaderOfSlot(primitive.swatch)
+        : primitive.shader === ''
+          ? undefined
+          : byKey.get(primitive.shader);
     gltfMesh.addPrimitive(
       writePrimitive(
         doc,
         buffer,
         primitive,
-        materials.material(preset, output, palette, colour, primitive.swatch),
+        materials.material(preset, output, palette, colour, primitive.swatch, shader),
         remap,
         jointCount,
       ),
@@ -291,7 +390,7 @@ function writePrimitive(
       doc
         .createAccessor()
         .setType('VEC4')
-        .setArray(Float32Array.from(weights0 as Float32Array))
+        .setArray(renormalized(weights0 as Float32Array))
         .setBuffer(buffer),
     );
   }
@@ -299,20 +398,24 @@ function writePrimitive(
   return primitive;
 }
 
-/** Adds the `VRMC_vrm` root extension (spec 1.0, the humanoid map) to written GLB bytes. */
-function withVrmc(bytes: Uint8Array, input: CharacterWriteInput): Uint8Array {
-  const { json, bin } = parseGlbSync(bytes);
-  const humanBones: Record<string, { node: number }> = {};
-  const humanoid = input.skeleton.humanoid ?? {};
-  for (const [bone, node] of Object.entries(humanoid) as [HumanBoneName, number][]) {
-    humanBones[bone] = { node: input.skeleton.nodes[node]?.gltfIndex ?? node };
+/**
+ * WEIGHTS_0 renormalized after the float32 rounding (§5.22): each vertex's four weights sum to 1 as closely as float32
+ * allows, the residual going to its largest weight. A vertex without weight stays all-zero.
+ */
+export function renormalized(weights: Float32Array): Float32Array<ArrayBuffer> {
+  const out = Float32Array.from(weights);
+  for (let v = 0; v + 3 < out.length; v += 4) {
+    let sum = 0;
+    let largest = v;
+    for (let k = v; k < v + 4; k++) {
+      sum += out[k] as number;
+      if ((out[k] as number) > (out[largest] as number)) largest = k;
+    }
+    if (sum <= 0) continue;
+    for (let k = v; k < v + 4; k++) out[k] = Math.fround((out[k] as number) / sum);
+    let rest = 1;
+    for (let k = v; k < v + 4; k++) if (k !== largest) rest -= out[k] as number;
+    out[largest] = Math.fround(rest);
   }
-  const vrmc: Record<string, unknown> = { specVersion: '1.0', humanoid: { humanBones } };
-  const out = { ...json } as Record<string, unknown>;
-  const used = Array.isArray(out['extensionsUsed']) ? [...(out['extensionsUsed'] as string[])] : [];
-  if (!used.includes('VRMC_vrm')) used.push('VRMC_vrm');
-  out['extensionsUsed'] = used.sort();
-  const extensions = out['extensions'] as Record<string, unknown> | undefined;
-  out['extensions'] = { ...extensions, VRMC_vrm: vrmc };
-  return assembleGlb(JSON.stringify(out), bin === null ? null : [bin]);
+  return out;
 }
