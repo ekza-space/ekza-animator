@@ -32,6 +32,8 @@ export interface ShellServicesOptions extends BrowserServicesOptions {
   readonly decoderPath: string;
   /** Base URL of the bundled samples (`file.loadSample`); default '/samples/'. */
   readonly samplesPath?: string;
+  /** M6b (§0.4.7): base URL of the clip library; default '/library/'. */
+  readonly libraryPath?: string;
   readonly createValidatorWorker?: () => Worker;
   /** 'local': localStorage (default); 'memory': a fresh in-memory namespace (e2e runs); null: no storage. */
   readonly storage?: 'local' | 'memory' | null;
@@ -75,6 +77,7 @@ export function createShellServices(opts: ShellServicesOptions): ShellServices {
             ? createMemoryStorage()
             : null,
     samplesPath: opts.samplesPath ?? '/samples/',
+    libraryPath: opts.libraryPath ?? '/library/',
     autosave: autosaveStore(opts, storageKind),
     blobs: opts.blobs === undefined ? createBrowserBlobStore() : opts.blobs,
     ...(opts.kernelDebug === undefined ? {} : { kernelDebug: opts.kernelDebug }),

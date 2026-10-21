@@ -32,6 +32,8 @@ export interface EditorRootProps {
   readonly decoderPath?: string;
   /** Base URL of the bundled samples; default '/samples/'. */
   readonly samplesPath?: string;
+  /** M6b (§0.4.7): base URL of the clip library; default '/library/'. */
+  readonly libraryPath?: string;
   /** The build allows e2e mode (NEXT_PUBLIC_EKZA_E2E=1); e2e mode itself needs `?e2e=1` as well. */
   readonly e2e?: boolean;
   /** M6a (§3 rule 8): the mesh kernel validates after every commit (development builds; e2e mode turns it on too). */
@@ -56,6 +58,7 @@ function boot(props: EditorRootProps): Boot {
   const { services, toasts } = createShellServices({
     decoderPath: props.decoderPath ?? '/decoders/',
     samplesPath: props.samplesPath ?? '/samples/',
+    libraryPath: props.libraryPath ?? '/library/',
     // e2e: a fresh in-memory namespace per page load (M1), or a named one that survives reloads (M2a `ns=`).
     storage: params.e2e && params.ns === null ? 'memory' : 'local',
     ...(params.ns === null ? {} : { storageNamespace: params.ns }),

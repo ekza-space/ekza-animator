@@ -1,4 +1,4 @@
-// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8 and M6A-SPEC §4.8 additions, copied verbatim (shapes are normative; change the spec first).
+// Contract file: MVP-SPEC §4.8 with the M2A-SPEC §4.8, M6A-SPEC §4.8 and M6B-SPEC §4.8/§0.5 additions, copied verbatim (shapes are normative; change the spec first).
 // Excluded from formatting in biome.json so it stays diffable against the spec.
 import type { ChannelId } from '@ekza-studio/doc';
 import type { ManipHandle } from '@ekza-studio/editor-core';
@@ -19,7 +19,8 @@ export interface EkzaStudioTestApi {
       field: string | null; text: string | null }; extrudeSession: boolean;      // M6a, changed (additive)
   };
   counts(): Record<string, number>;                          // records per table (non-deleted)
-  characters(): { id: string; name: string; format: string }[];
+  characters(): { id: string; name: string; format: string; source: 'asset' | 'model'; skeleton: string | null; rig: string;
+    meshes: string[] }[];                                                         // M6b, changed (additive)
   controls(character?: string): { id: string; key: string; name: string; side: 'L' | 'R' | 'C'; visible: boolean; size: number }[];
   clips(character?: string): { id: string; name: string; fps: number; start: number; end: number; loop: boolean; sceneStart: number }[];
   curves(clip: string, control?: string): { id: string; control: string; channel: ChannelId; weighted: boolean; pre: string; post: string;
@@ -142,4 +143,52 @@ export interface EkzaStudioTestApi {
   /** INT (additive, M6A-INT-17): the character's display model as drawn (a rebuild shows as new counts); `drawn`:
    *  its meshes on the mesh layer (M6A-INT-50: Model hides the made-editable ones). */
   displayModel(character: string): { meshes: number; vertices: number; drawn: number } | null;
+
+  // ---------- M6b (M6B-SPEC §4.8, §0.5); each group lives in `test-api/m6b/<package-slug>.ts` of its owner ----------
+  /** C1 (`m6b/character-runtime.ts`) */
+  skeleton(character: string): { id: string; preset: string; symmetry: boolean; joints: { id: string; name: string;
+    key: string; parent: string | null; humanBone: string | null; side: string; mirror: string | null; role: string;
+    restPosition: number[]; restRotation: number[]; tail: number[] | null }[] } | null;
+  skeletonDesc(character: string): { fingerprint: string; height: number; humanoid: Record<string, number>;
+    radii: (number | null)[]; names: string[] } | null;
+  containerVersion(character: string): number;                                     // bumps on every synthesized rebuild
+  /** C3 (`m6b/skeleton-ui.ts`) */
+  screenOfJoint(joint: string, paneId: string): { x: number; y: number } | null;   // sphere centre, null when off-screen
+  screenOfBone(joint: string, child: string, paneId: string, t: number): { x: number; y: number } | null;
+  /** C4/C5 (`m6b/auto-skin.ts`, `m6b/weights-kernel.ts`) */
+  skin(mesh: string): { skeleton: string | null; palette: string[]; bind: Record<string, unknown> | null;
+    review: { reason: string; points: number[] } | null; problems: { code: string; count: number }[] } | null;
+  weights(mesh: string, points?: number[]): { joints: string[]; weights: number[] }[];   // per point, descending
+  /** C6 (`m6b/skin-ui.ts`) */
+  paint(): { mode: string; op: string; value: number; opacity: number; radiusPx: number; reach: string; mirror: boolean;
+    active: { mesh: string; joint: string } | null; holds: Record<string, string[]>; display: string };
+  weightLabels(paneId: string): { mesh: string; point: number; text: string; x: number; y: number }[];
+  componentEditor(): { mode: 'each' | 'averaged'; columns: string[]; hold: string[];
+    rows: { mesh: string; point: number; cells: Record<string, number | null>; total: number }[] } | null;
+  /** C7 (`m6b/rig-shell.ts`) */
+  rigState(): { mode: string; poseView: string; character: string | null; testPose: { controls: number; version: number };
+    checklist: { step: number; glyph: 'done' | 'attention' | 'todo' }[]; glyph: string };
+  validation(profile?: string): { code: string; severity: string; message: string; count: number; fix: string | null }[];
+  /** C8b (`m6b/constraint-ui.ts`) */
+  constraints(character: string): { id: string; type: string; driven: string; targets: Record<string, { target: string;
+    weight: number; offset: number[] | null }>; params: Record<string, unknown>; enabled: boolean; warnings: string[] }[];
+  /** C9 (`m6b/control-shapes.ts`) */
+  controlShape(control: string): { kind: string; size: number; offset: { t: number[]; q: number[]; s: number[] };
+    color: string; lineWidth: number | null; customPoints: number; edited: string[] } | null;
+  screenOfShapeCv(control: string, spline: number, anchor: number, paneId: string): { x: number; y: number } | null;
+  /** C10 (`m6b/character-writer.ts`): lastExport() also reports character exports (kind 'character', vrmValidator,
+   *  readBack: { joints, humanoid, tris, fingerprintEqual, vrmaPlayed }) */
+  keysHash(): string;                                                             // sha256 of the curves + keys tables (§3 rule 7; C0)
+  /** C1: CPU-skinned positions of a bound mesh at the current evaluated pose (character space). */
+  posedPositions(mesh: string, points?: number[]): number[][];
+  /** C3: Snap to Projected Center under a page point of a pane (the Joint tool's depth), null without a hit. */
+  projectedCenter(paneId: string, x: number, y: number): number[] | null;
+  /** C7: how many times the character's rig program was compiled (shape edits must not change it). */
+  rigCompiles(character: string): number;
+  // §0.5 Test-API additions
+  quickRig(): { markers: Record<string, number[]>; moved: string[]; selected: string | null; preset: string;
+    preview: { key: string; position: number[] }[] | null; aPose: boolean | null } | null;          // C3
+  screenOfMarker(marker: string, side: 'R' | 'L', paneId: string): { x: number; y: number } | null; // C3
+  library(): { clips: { id: string; label: string; slot: string | null; ok: boolean }[];
+    preview: { character: string; clip: string; seconds: number } | null } | null;                 // C12
 }

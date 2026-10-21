@@ -37,6 +37,8 @@ export {
   testHash,
   withSchemaV3,
 } from './records-v3';
+// M6b (M6B-SPEC §4.1): schema v4 records.
+export { makeTestThumbnailAsset, makeTestVrmMeta, withSchemaV4 } from './records-v4';
 export { checkSteps, type PropertyOptions, Rng } from './random';
 // M6a B7 (M6A-SPEC §9 B7): mesh-ref fork detection and the observed refs of a batch.
 export { type MeshRefFork, meshRefForks, type ObservedRef, refsOfBatch } from './meshRefs';
