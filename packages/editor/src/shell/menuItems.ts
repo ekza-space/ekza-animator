@@ -4,6 +4,7 @@ import type { Disposer } from '@ekza-studio/anim-core';
 import type { EditorApp, MenuItemDef, PanelKind, ViewportLayout, WorkspaceId } from '@ekza-studio/editor-core';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
+import { RIG_LAYOUTS } from './rig/layouts';
 
 /** What the check-box items of the Windows menu read when it opens (layout presets, docs/LAYOUT-PRESETS.md). */
 export interface ShellMenuState {
@@ -213,7 +214,9 @@ export function shellMenuItems(
       });
     });
   };
-  layouts(LAYOUTS, ['animate', 'rig', 'review'], 'shell.windows.layout');
+  layouts(LAYOUTS, ['animate', 'review'], 'shell.windows.layout');
+  // M6b (C7): Rig & Skin's presets R-Single, R-Side, R-Markers.
+  layouts(RIG_LAYOUTS, ['rig'], 'shell.windows.rig-layout');
   layouts(MODEL_LAYOUTS, ['model'], 'shell.windows.model-layout');
   // Windows › Presets (after Layout, so the sub-menus keep their order): the built-in presets, then the manage items.
   items.push(

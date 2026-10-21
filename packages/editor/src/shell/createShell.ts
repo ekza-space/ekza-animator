@@ -35,6 +35,7 @@ import { createLayoutPresetStore } from './presets';
 import { createProbeRegistry } from './probes';
 import { type Summarizer, summarizeModel } from './summary';
 import type { ConfirmRequest, HelpMessage, Shell, ShellUiState } from './types';
+import { registerRigShell } from './rig';
 import { createWorkspaceController } from './workspace';
 
 export interface CreateShellOptions {
@@ -271,6 +272,8 @@ export function createShell(opts: CreateShellOptions): Shell {
   disposers.push(registerUserPresetMenuItems(app, presets));
   // M6a (B10): the Poly Count HUD and BIND POSE overlays, the RMB mode and Ctrl+RMB convert marking menus.
   disposers.push(registerModelSelectUi(app));
+  // M6b (C7): the Rig & Skin shell UI, loaded on the first entry.
+  disposers.push(registerRigShell(app, { showPanel: (kind) => workspace.showPanel(kind) }));
   disposers.push(registerModelTransformUi(app));
 
   let glFrames = 0;
