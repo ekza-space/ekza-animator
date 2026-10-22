@@ -1,7 +1,7 @@
 // AUTORIG-SPEC §4.4 (D1): one StudioHost per page, the route's shell below it. Swapping Studio's shell for another
 // shell keeps the host, the app, its history and the test API; Studio's own operators (workspace, presets, maximize)
 // leave with its shell while the host's (dialogs, preferences) stay; the first-run dialog opens only when Studio's
-// shell mounts; the mounted shell is what the host's dialog layer and overlay port see. Under StrictMode the host
+// shell mounts as the page's first shell (never over a switch from Auto-Rig, AR-D8-6); the mounted shell is what the host's dialog layer and overlay port see. Under StrictMode the host
 // boots one app.
 import { createFakeEditorApp, type FakeEditorApp } from '@ekza-studio/editor-core/testing';
 import { type JSX, StrictMode, useEffect } from 'react';
@@ -34,10 +34,11 @@ function Page(props: {
   readonly which: Which;
   readonly onApp: (app: FakeEditorApp) => void;
   readonly onHost: (host: HostShell) => undefined;
+  readonly firstRun?: boolean;
 }): JSX.Element {
   return (
     <StudioHost
-      params={{ ...DEFAULT_PARAMS, e2e: true }}
+      params={{ ...DEFAULT_PARAMS, e2e: true, firstRun: props.firstRun === true }}
       onHost={props.onHost}
       createApp={({ services, platform }) => {
         const app = createFakeEditorApp({ services: { ...services, models: createSyntheticModelLoader() }, platform });
@@ -50,7 +51,7 @@ function Page(props: {
   );
 }
 
-function harness(strict = false) {
+function harness(strict = false, firstRun = false) {
   const container = document.createElement('div');
   document.body.append(container);
   const root: Root = createRoot(container);
@@ -62,7 +63,7 @@ function harness(strict = false) {
     return undefined;
   };
   const show = (which: Which): void => {
-    const page = <Page which={which} onApp={onApp} onHost={onHost} />;
+    const page = <Page which={which} onApp={onApp} onHost={onHost} firstRun={firstRun} />;
     root.render(strict ? <StrictMode>{page}</StrictMode> : page);
   };
   return {
@@ -127,7 +128,13 @@ describe('StudioHost with a switchable shell (§4.4)', () => {
     expect(window.__EKZA_STUDIO_TEST__).toBeUndefined();
   });
 
-  it('opens the first-run dialog only when Studio’s shell mounts', async () => {
+  it('opens the first-run dialog only when Studio’s shell mounts as the page’s first shell', async () => {
+    const first = harness(false, true);
+    first.show('studio');
+    await waitFor(() => present('editor-shell'));
+    await waitFor(() => first.host().app.session.getState().dialog === 'firstRun');
+    await first.unmount();
+    // AR-D8-6: a switch from the other (Auto-Rig) shell is a hand-over: no dialog over it
     const page = harness();
     page.show('other');
     await waitFor(() => present('other-shell'));
@@ -136,7 +143,9 @@ describe('StudioHost with a switchable shell (§4.4)', () => {
     await settle(50);
     expect(app.session.getState().dialog).toBeNull();
     page.show('studio');
-    await waitFor(() => app.session.getState().dialog === 'firstRun');
+    await waitFor(() => present('editor-shell'));
+    await settle(50);
+    expect(app.session.getState().dialog).toBeNull();
     await page.unmount();
   });
 
