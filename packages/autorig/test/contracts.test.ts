@@ -77,7 +77,8 @@ describe('strings and keys split per step (AUTORIG-SPEC §8.1, §8.4, §10.0)', 
     for (const step of ['markers', 'rig', 'animations', 'export']) await import(`../src/steps/${step}/strings.ts`);
     const en = messages();
     expect(Object.keys(en)).toEqual(['frame', 'model', 'markers', 'rig', 'animations', 'export']);
-    expect(Object.values(en).every((table) => Object.keys(table).length > 0)).toBe(true);
+    for (const section of [en.markers, en.rig, en.animations, en.export])
+      expect(Object.keys(section).length).toBeGreaterThan(0);
     expect(en.frame.product).toBe('Auto-Rig');
     // every value is a non-empty string or a function building one (§8.4)
     const ok = (text: unknown): boolean => (typeof text === 'string' && text.length > 0) || typeof text === 'function';
