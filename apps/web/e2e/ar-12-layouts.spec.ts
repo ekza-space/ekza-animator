@@ -1,5 +1,5 @@
-// E2E-AR-12 (AUTORIG-SPEC §10 D3, §8.2, §8.3; the frame part of AS-AR-12): the wizard frame on ① and on a step whose
-// package has not landed yet, at 1440×900 (desktop), 1024×768 with touch (tablet landscape) and 390×844 with touch
+// E2E-AR-12 (AUTORIG-SPEC §10 D3, §8.2, §8.3; the frame part of AS-AR-12): the wizard frame on ① and on ② (D4's
+// Markers; a placeholder at D3's merge), at 1440×900 (desktop), 1024×768 with touch (tablet landscape) and 390×844 with touch
 // (phone): the landmarks (header, the Steps nav with the step's h1, main, footer), no horizontal page scroll, the step
 // panel beside the panes from 1024 px and a bottom sheet below, the stepper's labels shortened on a phone, and touch
 // targets of at least 44 px where the pointer is coarse; on the touch sizes two fingers in the persp pane pan (the
@@ -105,7 +105,7 @@ for (const size of SIZES) {
   test.describe(size.name, () => {
     test.use({ viewport: { width: size.width, height: size.height }, hasTouch: size.touch });
 
-    test('the frame on ① and on a step that has not landed yet', async ({ page }) => {
+    test('the frame on ① and on ②', async ({ page }) => {
       await openAutoRigReady(page);
       await expect(page.getByTestId('ar-drop-zone')).toBeVisible();
       await expectFrame(page, size);
@@ -120,7 +120,8 @@ for (const size of SIZES) {
 
       await page.getByTestId('ar-primary').click();
       await expect.poll(async () => (await autorig(page))?.step).toBe('markers');
-      await expect(page.getByTestId('ar-step-placeholder')).toBeVisible();
+      // D4 landed ② Markers (it was a placeholder at D3's merge): its panel in the side panel / bottom sheet
+      await expect(page.getByTestId('ar-markers-panel')).toBeVisible();
       await expectFrame(page, size);
     });
 

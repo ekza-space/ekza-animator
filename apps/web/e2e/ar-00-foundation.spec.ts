@@ -58,7 +58,8 @@ test('autorig.* ids load the rig-workspace chunk on first run and refuse as stub
 test('the command palette lists the Auto-Rig compositions, disabled with their reason', async ({ page }) => {
   await openEditor(page);
   await expectKernelStarted(page);
-  await expectRefused(page, 'autorig.cancel', 'Arrives with Auto-Rig'); // loads the rig-workspace chunk
+  // loads the rig-workspace chunk (D4 landed `autorig.cancel`: with no bind running it refuses with its own poll)
+  await expectRefused(page, 'autorig.cancel', 'No skinning is running');
   expect((await run(page, 'ui.commandPalette')).status).toBe('finished');
   await expect(page.getByTestId('cmdk')).toBeVisible();
   const palette = await call(page, 'commandPalette');
