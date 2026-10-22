@@ -62,6 +62,7 @@ export class RigSkinRuntime {
   private readonly disposers: Disposer[] = [];
   private disposed = false;
   private lastMode: string | null = null;
+  private pickPending = false;
   /** True while a stroke owns the brush ring. */
   stroking = false;
   /** Bytes the weight display's last refresh uploaded (the §5.25 gate: 0 on an active-influence switch). */
@@ -204,10 +205,12 @@ export class RigSkinRuntime {
       this.lastMode = mode;
       if (entering) this.enterSkin();
       else {
+        this.pickPending = false;
         this.ring.hide();
         this.rotateRing.hide();
       }
     }
+    if (this.pickPending) this.pickFirstInfluence();
     const character = this.character();
     const meshes = character === null ? [] : boundMeshesOf(this.app, character);
     const keep = new Set<MeshId>();
@@ -247,20 +250,29 @@ export class RigSkinRuntime {
     const character = this.character();
     const skeleton = character === null ? undefined : this.app.store.query.skeletonOfCharacter(character);
     if (skeleton !== undefined) setBrush(this.app, { mirror: skeleton.symmetry });
-    // Maya starts with an influence picked: the first weighted joint of the first target mesh (skeleton order).
-    if (this.app.session.getState().rig.activeInfluence === null && character !== null) {
-      const mesh = skinTargets(this.app)[0];
-      const first = mesh === undefined ? undefined : influencesOf(this.app, [mesh])[0];
-      // U state written after the mode switch's run (an operator never runs inside another one's apply).
-      if (mesh !== undefined && first !== undefined) {
-        queueMicrotask(() => {
-          const rig = this.app.session.getState().rig;
-          if (rig.activeInfluence === null && rig.mode === 'skin') {
-            this.app.session.setState({ rig: { ...rig, activeInfluence: { mesh, joint: first } } });
-          }
-        });
+    this.pickPending = true;
+    this.pickFirstInfluence();
+  }
+
+  /**
+   * Maya starts with an influence picked: the first weighted joint of the first target mesh (skeleton order). Bind
+   * Skin enters Skin mode inside its own transaction, before the mesh is bound, so the pick waits for the bound mesh
+   * (`refresh` retries while pending; M6b acceptance fix M6B-AF-1).
+   */
+  private pickFirstInfluence(): void {
+    const character = this.character();
+    if (!this.pickPending || this.app.session.getState().rig.activeInfluence !== null || character === null) return;
+    const mesh = skinTargets(this.app)[0];
+    const first = mesh === undefined ? undefined : influencesOf(this.app, [mesh])[0];
+    if (mesh === undefined || first === undefined) return;
+    this.pickPending = false;
+    // U state written after the mode switch's run (an operator never runs inside another one's apply).
+    queueMicrotask(() => {
+      const rig = this.app.session.getState().rig;
+      if (rig.activeInfluence === null && rig.mode === 'skin') {
+        this.app.session.setState({ rig: { ...rig, activeInfluence: { mesh, joint: first } } });
       }
-    }
+    });
   }
 
   /** Live preview of a stroke: the surface's partial weight upload (a grown palette rebuilds its bone map). */

@@ -86,6 +86,12 @@ test.describe('E2E-SKIN-01 Bind Skin, one click', () => {
     await page.getByTestId('rtk-step-3-btn').click();
     await expect.poll(async () => (await call(page, 'history')).undo.length).toBe(before + 1);
     expect((await call(page, 'history')).undo.at(-1)).toBe('Bind Skin');
+    // §0.2 step 7: Skin mode opens with the Paint Skin Weights tool, the greyscale display and an influence picked
+    // (acceptance fix: Bind Skin stayed in Skeleton mode).
+    await expect.poll(async () => (await call(page, 'rigState')).mode).toBe('skin');
+    await expect.poll(async () => (await call(page, 'state')).tool).toBe('paintSkinWeights');
+    await expect.poll(async () => (await call(page, 'paint')).display).toBe('greyscale');
+    await expect.poll(async () => (await call(page, 'paint')).active?.mesh ?? null).toBe(mesh);
 
     const skin = await call(page, 'skin', mesh);
     expect(skin?.bind).toMatchObject({ v: 1, method: 'auto-lowpoly', symmetrize: true });
