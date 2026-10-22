@@ -10,6 +10,8 @@ const SAMPLE_CREDITS = [
   { work: '"Seed-san" VRM 1.0 model', author: 'VirtualCast, Inc.', license: 'VRM Public License 1.0' },
   { work: '"Polybot" VRM 0.x model', author: 'Polygonal Mind (100Avatars)', license: 'CC0 1.0' },
   { work: 'Universal Animation Library', author: 'Quaternius', license: 'CC0 1.0' },
+  // AUTORIG-SPEC §5.2: Auto-Rig's Cube Lad sample (the M6b fixture).
+  { work: '"Cube Lad" model', author: 'Ekza Studio contributors', license: 'MIT' },
 ] as const;
 
 const CARDS = [
