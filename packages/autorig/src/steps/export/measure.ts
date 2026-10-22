@@ -4,6 +4,7 @@
 import type { AutoRigExportResult } from '@ekza-studio/editor-core';
 import { formatNumber, messages } from '../../i18n';
 import type { Measured } from './labels';
+import './strings';
 
 /** A written file (`AutoRigExportResult.artifacts`; io's `ExportArtifact`). */
 export type WrittenArtifact = AutoRigExportResult['artifacts'][number];

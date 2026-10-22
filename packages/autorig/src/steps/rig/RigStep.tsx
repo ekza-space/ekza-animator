@@ -44,6 +44,7 @@ import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
 import { rebind, wantsStraighten } from './run';
 import { rigUi } from './ui';
+import './strings';
 
 const t = (): ReturnType<typeof messages>['rig'] => messages().rig;
 const button = (variant: 'default' | 'primary' | 'ghost' = 'default'): string =>

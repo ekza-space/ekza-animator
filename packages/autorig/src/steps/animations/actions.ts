@@ -13,6 +13,7 @@ import { smallStore, type SmallStore } from '../../shell/store';
 import type { ClipParams } from '../../types';
 import { type ClipCategory, IDENTITY, isIdentity, paramsFromTags } from './data';
 import { editClip, endEdit, setDraft } from './slice';
+import './strings';
 
 const t = (): ReturnType<typeof messages>['animations'] => messages().animations;
 

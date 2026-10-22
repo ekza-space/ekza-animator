@@ -25,13 +25,13 @@
     "autorig": {
       "gate": 660000,
       "target": 620000,
-      "enforce": false,
-      "total": null,
-      "pending": "D1 records the /autorig baseline at its merge (AUTORIG-SPEC §7.2); until then the gate is reported, not enforced",
+      "enforce": true,
+      "total": 657886,
       "placeholder": {
         "total": 134011,
         "recorded": "2026-10-22, D0 placeholder page (no EditorApp yet), docs/wp-notes/ar-contracts.md"
-      }
+      },
+      "recorded": "2026-10-22, D7 at the integration merge (autorig/integration: D0–D6 and A0 merged, AR-D3-G tooltip provider in Studio's shell, AR-D7-2 per-step string tables); docs/wp-notes/ar-integration.md. D1 left it unrecorded (over the gate after D3); D7 records the merged measure and enforces the 660,000 B gate"
     }
   },
   "previous": {

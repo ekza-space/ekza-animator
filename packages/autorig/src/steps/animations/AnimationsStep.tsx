@@ -61,6 +61,7 @@ import {
   trimFromSliders,
 } from './data';
 import { clearDraft, markSkipped } from './slice';
+import './strings';
 
 const t = (): ReturnType<typeof messages>['animations'] => messages().animations;
 const coarse = 'pointer-coarse:min-h-11';

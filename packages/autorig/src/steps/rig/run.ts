@@ -20,6 +20,8 @@ import { AUTORIG_PROFILE, resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
 import type { AutoRigSession, AutoRigStage } from '../../types';
 import { rigUi } from './ui';
+import '../markers/strings';
+import './strings';
 
 /** The undo labels of the inner steps (M6b's and A0's operators). */
 const LABELS = {

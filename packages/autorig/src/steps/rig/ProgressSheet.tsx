@@ -16,6 +16,7 @@ import type { AutoRigSession, AutoRigStage } from '../../types';
 import { resolveSubject } from '../../progress';
 import { cancelAutoRig } from './run';
 import { rigUi } from './ui';
+import './strings';
 
 const selectBusy = (s: AutoRigSession): AutoRigSession['busy'] => s.busy;
 const selectSubject = (s: AutoRigSession): AutoRigSession['subject'] => s.subject;

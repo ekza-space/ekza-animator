@@ -6,6 +6,7 @@ import { type JSX, useEffect, useState } from 'react';
 import { messages } from '../../i18n';
 import { type MarkerPane, type ScreenClass, screenClass } from './index';
 import { paneKind } from './slice';
+import './strings';
 
 /** The §8.3 device class, following the window's width. */
 export function useScreenClass(): ScreenClass {

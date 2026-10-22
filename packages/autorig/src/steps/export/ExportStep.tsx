@@ -28,6 +28,7 @@ import { publishToHub } from './hub';
 import { type ChecklistItem, checklistOf, firstError } from './labels';
 import { fileSize, measureArtifact } from './measure';
 import { chooseTarget, currentDownload, recordDownload, shownTarget } from './slice';
+import './strings';
 
 const t = (): ReturnType<typeof messages>['export'] => messages().export;
 const coarse = 'pointer-coarse:min-h-11';

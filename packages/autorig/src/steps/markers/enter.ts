@@ -12,6 +12,7 @@ import { resolveSubject } from '../../progress';
 import type { WizardContext } from '../../shell/context';
 import type { AutoRigPoseClass, AutoRigSubject } from '../../types';
 import { markersUi } from './ui';
+import './strings';
 
 /** §4.3: the pose class limit (the `skel.tpose` 5°; M6b's own A-pose notice fires above 15°). */
 export const A_POSE_LIMIT = (5 * Math.PI) / 180;

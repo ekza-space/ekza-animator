@@ -11,6 +11,7 @@
 // - Live rows (Validation, VRM meta) always come from the document now; the byte rules from the last download.
 import type { AutoRigExportTarget } from '@ekza-studio/editor-core';
 import { messages } from '../../i18n';
+import './strings';
 
 export type RowSeverity = 'error' | 'warning' | 'info';
 

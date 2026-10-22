@@ -6,7 +6,7 @@
 // history, the selection, the cameras, autosave and the WebGL context — mounted.
 import { seededIdSource, type IdSource } from '@ekza-studio/doc';
 import { createEditorApp, type EditorApp, type EditorServices } from '@ekza-studio/editor-core';
-import { ToastProvider, TooltipProvider } from '@ekza-studio/ui';
+import { ToastProvider } from '@ekza-studio/ui';
 import { type JSX, lazy, type ReactNode, Suspense, useEffect, useRef, useState } from 'react';
 import { DialogHost } from '../dialogs/DialogHost';
 import { GLHost } from '../gl/GLHost';
@@ -244,27 +244,25 @@ function ReadyHost(props: {
   return (
     <HostProvider host={host}>
       <EditorAppProvider app={host.app}>
-        <TooltipProvider>
-          <ToastProvider swipeDirection="right" label="Notifications">
-            <div
-              ref={root}
-              className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
-              data-testid="editor-root"
-              data-host={STUDIO_HOST_MARKER}
-              data-ekza-motion={host.params.e2e ? 'off' : undefined}
-            >
-              <GLHost />
-              <Suspense fallback={null}>
-                {props.children}
-                <ShellReady onReady={onReady} />
-              </Suspense>
-              <DialogHost />
-              <CommandPaletteHost palette={host.commandPalette} />
-              <Toaster notifier={props.toasts} />
-              <DropOverlay />
-            </div>
-          </ToastProvider>
-        </TooltipProvider>
+        <ToastProvider swipeDirection="right" label="Notifications">
+          <div
+            ref={root}
+            className="ekza-editor relative h-dvh w-dvw overflow-hidden text-fg [--ekza-tailwind-smoke:editor]"
+            data-testid="editor-root"
+            data-host={STUDIO_HOST_MARKER}
+            data-ekza-motion={host.params.e2e ? 'off' : undefined}
+          >
+            <GLHost />
+            <Suspense fallback={null}>
+              {props.children}
+              <ShellReady onReady={onReady} />
+            </Suspense>
+            <DialogHost />
+            <CommandPaletteHost palette={host.commandPalette} />
+            <Toaster notifier={props.toasts} />
+            <DropOverlay />
+          </div>
+        </ToastProvider>
       </EditorAppProvider>
     </HostProvider>
   );

@@ -195,14 +195,12 @@ describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
     expect(cleanNext(join(dir, 'missing'))).toEqual([]);
   });
 
-  it('records the /autorig gate as reported until D1 (size-baseline.json routes.autorig)', () => {
+  it('records and enforces the /autorig gate from the integration merge on (size-baseline.json routes.autorig, D7)', () => {
     const recorded = readBaseline(BASELINE_FILE);
-    expect(recorded?.routes?.['autorig']).toMatchObject({
-      gate: 660_000,
-      target: 620_000,
-      enforce: false,
-      total: null,
-    });
+    expect(recorded?.routes?.['autorig']).toMatchObject({ gate: 660_000, target: 620_000, enforce: true });
+    const total = recorded?.routes?.['autorig']?.total;
+    expect(typeof total).toBe('number');
+    expect(total as number).toBeLessThanOrEqual(660_000);
   });
 });
 

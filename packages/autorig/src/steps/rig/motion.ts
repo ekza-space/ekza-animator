@@ -9,6 +9,7 @@ import type { CharacterId } from '@ekza-studio/doc';
 import type { ClipPreviewState, EditorApp } from '@ekza-studio/editor-core';
 import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { messages } from '../../i18n';
+import './strings';
 
 /**
  * What the library preview plays now, as `{character, clip}` (null while nothing plays or the library chunk is not

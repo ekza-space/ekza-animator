@@ -4,6 +4,7 @@
 // `/editor` route's shell: it creates the Studio shell core over the page's host when it mounts and disposes it when
 // it unmounts (a switch to Auto-Rig), and it alone opens the first-run dialog.
 import { switchWorkspace } from '@ekza-studio/editor-core';
+import { TooltipProvider } from '@ekza-studio/ui';
 import { type JSX, useEffect } from 'react';
 import { useHost } from '../host/context';
 import { shellShown } from '../host/StudioHost';
@@ -120,10 +121,14 @@ export function StudioShell(props: StudioShellProps): JSX.Element {
   }, [shell]);
 
   return (
-    <ShellProvider shell={shell}>
-      <div className="contents" data-shell={STUDIO_SHELL_MARKER}>
-        <EditorShell />
-      </div>
-    </ShellProvider>
+    // The tooltip provider is Studio's (AR-D3-G): Auto-Rig's chrome uses `title`, so `/autorig` never loads Radix's
+    // tooltip layer at first visit; a tooltip outside a provider (a host dialog) creates its own.
+    <TooltipProvider>
+      <ShellProvider shell={shell}>
+        <div className="contents" data-shell={STUDIO_SHELL_MARKER}>
+          <EditorShell />
+        </div>
+      </ShellProvider>
+    </TooltipProvider>
   );
 }

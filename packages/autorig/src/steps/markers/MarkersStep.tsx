@@ -25,6 +25,7 @@ import { installMarkerKeys } from './keys';
 import { PaneLabels, useScreenClass } from './panes';
 import { Pictogram } from './Pictogram';
 import { markersUi } from './ui';
+import './strings';
 
 type Preset = QuickRigState['preset'];
 type Marker = NonNullable<QuickRigState['selected']>;
