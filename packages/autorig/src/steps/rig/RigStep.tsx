@@ -344,7 +344,7 @@ function Validation(props: { readonly ctx: WizardContext; readonly character: Ch
       {torn ? (
         <p className="text-warn" role="status" data-testid="ar-rig-torn">
           <span aria-hidden>! </span>
-          {r.torn}
+          {startPose?.kind === 'a' ? r.tornApose : r.torn}
         </p>
       ) : null}
       {deform.map((row) => (

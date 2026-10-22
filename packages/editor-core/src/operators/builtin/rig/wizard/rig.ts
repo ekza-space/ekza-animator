@@ -111,14 +111,19 @@ const rig = defineOperator<'autorig.rig', AutoRigRigResult>({
       committed
         ? character === null || app.store.get('characters', character) !== undefined
         : state.meshes.some((id) => app.store.get('meshes', id) !== undefined);
-    // AR-R4-5: after the bind (or the refit's own rebind), the separate parts that reach two limbs bind rigidly to their
-    // best joint, one Bind Skin per joint, before the straighten bakes the meshes
+    // AR-R4-5: after the bind (or the refit's own rebind), the separate parts that reach two limbs bind again — rigidly
+    // to their best joint, or a limb part over its own limb's joints — one Bind Skin per mask, before the straighten
     const rigid = (made: CharacterId): CompositionStep[] =>
       flag(args, 'rigidParts')
         ? rigidPartBinds(app, made).map((group) => ({
             id: 'skin.bind',
             before: after,
-            args: { meshes: group.meshes, method: 'rigid-islands', joints: [group.joint], confirm: true },
+            args: {
+              meshes: group.meshes,
+              ...(group.rigid ? { method: 'rigid-islands' } : {}),
+              joints: group.joints,
+              confirm: true,
+            },
           }))
         : [];
     const fail = (outcome: Exclude<CompositionOutcome, { status: 'finished' }>): never => {

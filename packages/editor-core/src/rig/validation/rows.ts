@@ -204,7 +204,7 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     let allRead = true;
     // AR-R4-5: the separate parts (every mesh but the body) whose weights reach two limbs that do not meet
     const regions = meshes.length > 1 ? limbRegions(skeleton.joints) : null;
-    const body = regions === null ? null : bodyMeshOf(app, meshes, regions);
+    const body = regions === null ? null : bodyMeshOf(app, meshes, skeleton.joints);
     for (const mesh of meshes) {
       const skin = skinOf(app, mesh);
       if (skin === null) {

@@ -69,13 +69,14 @@ export function rigidPartsOn(app: EditorApp, session: AutoRigSession): boolean {
   return meshes > 1;
 }
 
-/** Binds the separate parts that reach two limbs rigidly to their best joint (one Bind Skin per joint). */
+/** Binds the separate parts that reach two limbs again: rigidly to their best joint, a limb part over its own limb's
+ *  joints (one Bind Skin per mask, `rigidPartBinds`). */
 export async function bindPartsRigidly(app: EditorApp, character: CharacterId): Promise<boolean> {
   for (const group of rigidPartBinds(app, character)) {
     const result = await app.runUntyped('skin.bind', {
       meshes: group.meshes,
-      method: 'rigid-islands',
-      joints: [group.joint],
+      ...(group.rigid ? { method: 'rigid-islands' } : {}),
+      joints: group.joints,
       confirm: true,
     });
     if (result.status !== 'finished') return false;

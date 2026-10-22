@@ -11,7 +11,7 @@ import type { CharacterId, JointRecord, MeshId } from '@ekza-studio/doc';
 import { describe, expect, it } from 'vitest';
 import { crossLimbParts, type EditorApp, quickRigOf, rigidPartBinds } from '../../src';
 import { meshKernel } from '../../src/mesh/kernel';
-import { limbRegions, regionOfBone } from '../../src/rig/validation/limbs';
+import { crossesLimbs, limbRegions, mainBones, reachOf, regionOfBone } from '../../src/rig/validation/limbs';
 import { meshTestApp } from '../mesh/support';
 import { boxesGlb } from './glb';
 
@@ -107,6 +107,69 @@ describe('separate parts (AR-R4-5, the owner’s AR-D10-7 call)', () => {
     ]);
   });
 
+  it('how a cross-limb part binds again: rigid on its best bone, a whole-limb part over its own limb (knee kept)', () => {
+    // a chain: hips → right upper leg → lower leg → foot; spine → right shoulder → upper arm → lower arm → hand → index;
+    // spine → neck → head. Rest positions: legs down the −y side, the arm hanging beside the leg.
+    const j = (id: string, parent: string | null, humanBone: string | null, p: [number, number, number]) =>
+      ({ id, parent, humanBone, role: 'bone', restPosition: p, tail: null }) as unknown as JointRecord;
+    const joints = [
+      j('hips', null, 'hips', [0, 1, 0]),
+      j('ul', 'hips', 'rightUpperLeg', [-0.1, 0.95, 0]),
+      j('ll', 'ul', 'rightLowerLeg', [-0.1, 0.5, 0]),
+      j('ft', 'll', 'rightFoot', [-0.1, 0.08, 0]),
+      j('sp', 'hips', 'spine', [0, 1.2, 0]),
+      j('sh', 'sp', 'rightShoulder', [-0.05, 1.45, 0]),
+      j('ua', 'sh', 'rightUpperArm', [-0.2, 1.45, 0]),
+      j('la', 'ua', 'rightLowerArm', [-0.25, 1.15, 0]),
+      j('hd', 'la', 'rightHand', [-0.27, 0.9, 0]),
+      j('ix', 'hd', 'rightIndexProximal', [-0.27, 0.8, 0]),
+      j('nk', 'sp', 'neck', [0, 1.5, 0]),
+      j('he', 'nk', 'head', [0, 1.6, 0]),
+    ];
+    expect(mainBones(joints).get('ix')).toBe('hd');
+    const regions = limbRegions(joints);
+    const skin = (weights: Record<string, number>, points = 10) => {
+      const keys = Object.keys(weights);
+      const out = {
+        points,
+        palette: keys.map((key) => ({ key, parent: null, mirror: null })),
+        joints: new Uint16Array(4 * points),
+        weights: new Float32Array(4 * points),
+      };
+      // every point carries the same weights (≤ 4)
+      for (let p = 0; p < points; p++)
+        keys.forEach((key, k) => {
+          out.joints[4 * p + k] = k;
+          out.weights[4 * p + k] = weights[key] as number;
+        });
+      return out;
+    };
+    const at = (x: number, y: number) =>
+      Float32Array.from({ length: 30 }, (_, i) => (i % 3 === 0 ? x : i % 3 === 1 ? y : 0));
+    // a whole-leg cylinder the hanging hand reaches: the leg's joints only, automatic weights
+    const leg = reachOf('msh_leg' as MeshId, skin({ ul: 0.45, ll: 0.45, hd: 0.1 }), at(-0.1, 0.7), joints, regions);
+    expect(crossesLimbs(leg)).toBe(true);
+    expect(leg.regions).toEqual(['rightLeg', 'rightArm']);
+    expect(leg.bind).toEqual({ joints: ['ul', 'll', 'ft'], rigid: false });
+    // a mitten (hand and finger) touching the thigh: rigid on the hand
+    const mitten = reachOf(
+      'msh_mitten' as MeshId,
+      skin({ hd: 0.5, ix: 0.4, ll: 0.1 }),
+      at(-0.27, 0.85),
+      joints,
+      regions,
+    );
+    expect(mitten.regions).toEqual(['rightArm', 'rightLeg']);
+    expect(mitten.bind).toEqual({ joints: ['hd'], rigid: true });
+    // a hairdo: rigid on the head
+    const hair = reachOf('msh_hair' as MeshId, skin({ he: 0.8, ua: 0.1, nk: 0.1 }), at(0, 1.62), joints, regions);
+    expect(hair.bind).toEqual({ joints: ['he'], rigid: true });
+    // an arm part blending into the chest reaches only regions that meet
+    expect(
+      crossesLimbs(reachOf('msh_arm' as MeshId, skin({ ua: 0.6, la: 0.3, sp: 0.1 }), at(-0.2, 1.3), joints, regions)),
+    ).toBe(false);
+  });
+
   it('a hairdo following the head and both shoulders is a cross-limb warning; rigidParts binds it to the head', async () => {
     const plain = await rigged(false);
     expect(labels(plain.app).slice(-2)).toEqual(['Create Skeleton', 'Bind Skin']);
@@ -126,7 +189,9 @@ describe('separate parts (AR-R4-5, the owner’s AR-D10-7 call)', () => {
       // the part's own name, without the modelling tool's namespace
       expect(row?.message).toMatch(/^pCube63 moves with the head, the (left|right) arm and the (left|right) arm/);
     }
-    expect(rigidPartBinds(plain.app, plain.character)).toEqual([{ joint: best?.id, meshes: [plain.hair] }]);
+    expect(rigidPartBinds(plain.app, plain.character)).toEqual([
+      { joints: [best?.id], rigid: true, meshes: [plain.hair] },
+    ]);
 
     const rigid = await rigged(true);
     // one more Bind Skin: the hairdo alone, rigidly on the head

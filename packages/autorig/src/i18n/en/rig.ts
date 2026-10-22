@@ -36,8 +36,10 @@ export const rig = {
   offLine: 'An arm or shin is off its T-pose line — move the joint, or straighten the pose',
   warnings: 'Warnings',
   torn: 'Arms were straightened from arms-down: check the sleeves and armpits, repaint weights in Studio',
+  tornApose: 'Straightening the A-pose stretched the model: check the sleeves and armpits, repaint weights in Studio',
   rigidParts: 'Separate parts move rigidly',
-  rigidPartsHint: 'Each part that is not the body follows one bone (a hairdo the head, a hand the forearm)',
+  rigidPartsHint:
+    'A part that reaches two limbs follows its own: a hairdo moves rigidly with the head, a whole-leg part with its leg',
   // adjust
   adjustTitle: 'Adjust joints',
   adjustHelp:
