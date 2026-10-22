@@ -3,7 +3,7 @@
 // measures: the segment comes from the app-paths manifest, the page's and the layouts' loadable manifests are unioned,
 // a missing page manifest throws (no silent `{}`), and the host and the route's own shell count as initial by their
 // markers even behind `React.lazy`.
-import { readFileSync, rmSync } from 'node:fs';
+import { appendFileSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { gzipSync } from 'node:zlib';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -94,6 +94,50 @@ describe('route-group-proof route scripts (AUTORIG-SPEC §7.2)', () => {
     });
     // without markers the React.lazy shell is a lazy group (the definition is the markers, not a guess)
     expect(readRouteScripts(dir, 'editor', { initialMarkers: [] }).initial).not.toContain('static/chunks/shell.js');
+  });
+
+  it('a loader copied into another route’s chunk that sorts later keeps its group in both routes (fix round 1)', () => {
+    // Turbopack copies a module shared by several chunk groups into each group's merged chunk: here the First-run
+    // loader (id 7, defined in editor-b.js) is also defined in a chunk of the Auto-Rig shell, `zz-autorig-wizard.js`,
+    // which sorts after every editor chunk, and once more in an orphan chunk no route loads.
+    const plain = build('group');
+    const dir = build('group');
+    const welcomeLoader = 'e=>{e.v(t=>Promise.all(["static/chunks/welcome.js"].map(t=>e.l(t))).then(()=>t(50)))}';
+    const push = (id: number, body: string): string =>
+      `(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,${id},${body}]);`;
+    const chunk = (name: string): string => join(dir, 'static', 'chunks', name);
+    appendFileSync(
+      chunk('autorig.js'),
+      push(8, 'e=>{e.v(t=>Promise.all(["static/chunks/zz-autorig-wizard.js"].map(t=>e.l(t))).then(()=>t(80)))}'),
+    );
+    writeFileSync(chunk('zz-autorig-wizard.js'), `${push(7, welcomeLoader)}${push(80, 'e=>{"wizard"}')}`);
+    writeFileSync(chunk('zzz-orphan.js'), push(7, welcomeLoader));
+
+    const before = checkSize(plain, { baseline: null });
+    const editor = checkSize(dir, { baseline: null });
+    expect(editor.firstVisit.map((group) => [group.boundary, group.files])).toEqual([
+      ['dialog-first-run', chunks('welcome.js')],
+    ]);
+    expect(editor.total).toBe(before.total);
+    expect(editor.eager).toBe(before.eager);
+    expect(editor.total).toBe(before.eager + gz('welcome.js'));
+    // /autorig reaches the dialog as a lazy group, never as a first-visit group
+    const autorig = checkSize(dir, { route: 'autorig', baseline: null });
+    expect(autorig.lazy.map((group) => group.files)).toContainEqual(chunks('welcome.js'));
+    expect(autorig.firstVisit).toEqual([]);
+    // a reachable definition is the one reported, never the orphan copy
+    expect(readRouteScripts(dir, 'editor').lazy.find((group) => group.id === 7)?.definedIn).toBe(
+      'static/chunks/editor-b.js',
+    );
+  });
+
+  it('a host loader copied into a later-sorting chunk still promotes the route’s shell (fix round 1)', () => {
+    const dir = build('group');
+    writeFileSync(
+      join(dir, 'static', 'chunks', 'zz-copy.js'),
+      `(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,3,e=>{e.v(t=>Promise.all(["static/chunks/shell.js"].map(t=>e.l(t))).then(()=>t(72)))}]);`,
+    );
+    expect(readRouteScripts(dir, 'editor').promoted).toEqual([{ id: 3, files: chunks('shell.js') }]);
   });
 
   it('reads a separate layout manifest when the build writes one', () => {

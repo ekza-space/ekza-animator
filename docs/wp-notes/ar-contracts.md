@@ -15,6 +15,7 @@ Decision IDs below are `AR-D0-<n>`. Decisions for the owner are in [DECISIONS-OP
 | 3 | `feat(autorig): D0 contracts, autorig package skeleton and stubs` | §4.3/§4.5 contract, stubs, split skeletons, deps |
 | 4 | `feat(size): check:size measures /editor and /autorig per route` | the `--route` loop, per-route boundaries and gates, reachable lazy groups; E2E-AR-00 |
 | 5 | `docs(autorig): D0 layout spike, AR-B1 and AR-V1 recorded, wp-notes` | spike numbers and decision, AR-V1, this file |
+| 6 | `fix(size): loaders reachable through any defining chunk; clean .next before the ci build` | review fix round 1 (below) |
 
 The spike itself is on `autorig/d0-layout-spike` (`83b37e0`, local, **not for merge**).
 
@@ -62,8 +63,8 @@ turbopack runtime 3.7, autorig 1.2, the rest < 1 kB.
 
 ## Gates per route (commit 4)
 
-`check-size.mjs` measures every route of the build (`ROUTES`: `/editor` required, `/autorig` when
-`server/app/autorig.html` exists; `--route <name>` picks one; `--json` writes `{editor, autorig}`):
+`check-size.mjs` measures every route of the build (`ROUTES`: `/editor` required, `/autorig` required when the app
+source has its page (fix round 1), else when `server/app/autorig.html` exists; `--route <name>` picks one; `--json` writes `{editor, autorig}`):
 
 - `/editor`: gate 900,000 B, target 850,000 B, first visit `dialog-first-run`, the eager delta (AR-B1), the shipped
   BOUNDARIES **plus `autorig-shell`** (marker `ekza-autorig-shell`, referenced by `packages/autorig/src/types.ts`).
@@ -78,6 +79,32 @@ turbopack runtime 3.7, autorig 1.2, the rest < 1 kB.
   against the old reader on the same build).
 - D0 measures: `/editor` 895,732 B; `/autorig` (placeholder, no EditorApp) **134,011 B** (recorded under
   `routes.autorig.placeholder`, not as the baseline).
+
+## Review fix round 1 (size tooling)
+
+- **Loaders defined in several chunks (major).** Turbopack copies a module shared by several chunk groups into each
+  group's merged chunk, so one loader id can be defined in many chunks (measured by the reviewer: 4 of 84 ids in a
+  production build, 76 of 88 in the e2e build). The reader kept one defining chunk per id (the last in file order), so a
+  route lost a lazy group — and the First-run dialog's 6,854 B with it — whenever the copy sorting last belonged to
+  another route. `readRouteScripts` now keeps **every definition** (`{id, target, files, definedIn}` per chunk, sorted
+  by id then chunk) and treats a loader as reachable or promotable when **any** of its defining chunks is initial or
+  reachable; a lazy group reports the first reachable definition. Regression tests in `route-scripts-group.test.ts`:
+  the First-run loader copied into an Auto-Rig chunk sorting after every editor chunk (and into an orphan chunk) leaves
+  `/editor`'s total, eager bytes and first-visit group unchanged; the host's shell loader copied into a later chunk
+  still promotes the shell. Both fail on the previous reader. Real production build: unchanged (`/editor` 895,732 B,
+  first visit 6,854 B, 82 lazy groups; `/autorig` 134,011 B).
+- **Stale e2e `.next` under a production label (minor).** The e2e webServer builds into the same `.next`; a repeat
+  `pnpm run ci` restored the cached production build on top (turbo restores outputs without deleting extra files), and
+  `check:size` measured the mix as "e2e build: not compared", skipping the enforced AR-B1 gate. Two changes:
+  `pnpm run ci` runs `pnpm --filter web clean:next` (new `apps/web/scripts/clean-next.mjs`: removes every `.next` entry
+  except Turbopack's `cache`) right before `pnpm run build`; and `isE2eBuild` throws "mixes two builds" when
+  `server/app/e2e/vrma-check.html` exists but the build's own `app-paths-manifest.json` does not list
+  `/e2e/vrma-check/page`, so a mixed tree fails instead of being measured. A separate e2e `distDir` was rejected: Next
+  rewrites the tracked `next-env.d.ts` and the type paths for another distDir.
+- **`/autorig` silently skipped (minor).** `checkRoutes` takes `appDir`; a route whose `page.tsx` is in the app source
+  (route groups included, `page.dev.tsx` excluded: `hasSourcePage`) is required, and a build without its prerendered
+  HTML throws. The CLI passes this app's directory (or `--app <dir>` with `--next <dir>` for another build), so D1's move
+  under `(studio)/` cannot drop `/autorig`'s report and boundaries unnoticed.
 
 ## Layout spike (§7.0 rule 4, commit 5)
 
@@ -128,7 +155,12 @@ approval): `.oxlintrc.json` (import rules for `packages/autorig/{src,test}` — 
 (reference), `apps/web/scripts/lib/route-scripts.d.mts` (types of the changed reader), `packages/editor/src/test-api/createTestApi.ts`
 (one spread line, required by the `types.ts` line), `packages/editor-core/test/m6b/keys-hash.test.ts` (P-C6 table: the
 nine `autorig.*` rows, pending per owner, `autorig.clip.add` a §3 rule 7 `keys` exception — the table test lists every
-rig-chunk operator), `pnpm-lock.yaml`.
+rig-chunk operator), `pnpm-lock.yaml`, `apps/web/app/autorig/AutoRigIsland.tsx` (the placeholder's client island; the
+Dirs name only `page.tsx`, AR-D0-8), `packages/editor-core/src/operators/builtin/rig/wizard/compose.ts` (the composition
+runner, AR-D0-1; the Dirs name the stub files only), and from fix round 1 the root `package.json` (`ci`: one
+`pnpm --filter web clean:next &&` before the build), `apps/web/scripts/clean-next.mjs` + `clean-next.d.mts` and the
+`clean:next` script line in `apps/web/package.json`, and the fixture lines of `apps/web/test/check-size.test.ts` and
+`m6a-size.test.ts` (their e2e fixtures now list the e2e route in `app-paths-manifest.json`, as a real e2e build does).
 
 **For later packages**: D3 must add `@source "../autorig/src";` to `packages/ui/styles.css` (Tailwind scans only
 `editor/src` and `ui/src`; D0's placeholder uses classes those already contain). The spec's work-package prompt named

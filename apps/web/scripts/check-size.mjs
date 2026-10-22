@@ -13,14 +13,16 @@
 // warns above 250 kB; and with source maps in the build (`STUDIO_SOURCE_MAPS=1`) the eager scripts' bytes are
 // attributed to packages (the chunk attribution report, `attribute-chunks.mjs`).
 //
-// AUTORIG-SPEC §7.2 (D0): the gate runs once per app route (`ROUTES`: `/editor`, and `/autorig` when the build has it;
+// AUTORIG-SPEC §7.2 (D0): the gate runs once per app route (`ROUTES`: `/editor`, and `/autorig` — required when the
+// app source has its page, else when the build has it;
 // `--route <name>` picks one). Each route has its gate, target, first-visit groups and boundaries: `/editor` keeps the
 // shipped ones plus the `autorig-shell` boundary; `/autorig` (gate 660,000 B, target 620,000 B — reported, not
 // enforced, until D1 records its baseline under `routes.autorig` in `size-baseline.json`) adds the dockview,
 // curve-editor and Studio-shell boundaries and opens no First-run dialog.
 //
-// Usage: node scripts/check-size.mjs [--next <dir>] [--route <name>] [--json <file>] [--baseline <file>]
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+// Usage: node scripts/check-size.mjs [--next <dir>] [--app <dir>] [--route <name>] [--json <file>] [--baseline <file>]
+// (`--app`: the app source whose routes are required; default this app unless `--next` names another build).
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { attributeFiles } from './attribute-chunks.mjs';
@@ -295,9 +297,44 @@ export function hasRoute(nextDir, route) {
   return existsSync(join(nextDir, 'server', 'app', `${route}.html`));
 }
 
-/** The reports of every route the build has (`/editor` always; it throws without it). */
+const PAGE_FILE = /^page\.(tsx|ts|jsx|js)$/;
+
+/**
+ * Whether the app source has a page for a route: `app/<route>/page.tsx`, also under route groups
+ * (`app/(studio)/<route>/page.tsx`); `page.dev.tsx` test routes do not count.
+ */
+export function hasSourcePage(appDir, route) {
+  const want = route === '' ? '' : `/${route}`;
+  const walk = (dir, url) => {
+    if (!existsSync(dir)) return false;
+    for (const entry of readdirSync(dir)) {
+      const path = join(dir, entry);
+      if (statSync(path).isDirectory()) {
+        if (walk(path, /^\(.*\)$/.test(entry) ? url : `${url}/${entry}`)) return true;
+      } else if (url === want && PAGE_FILE.test(entry)) return true;
+    }
+    return false;
+  };
+  return walk(join(appDir, 'app'), '');
+}
+
+/**
+ * The reports of every route the build has (`/editor` always; it throws without it). With `opts.appDir` (the CLI
+ * passes the app's own), a route whose page is in the app source is required: a build without its prerendered HTML
+ * throws instead of silently dropping the route's report and boundaries (D0 fix round 1).
+ */
 export function checkRoutes(nextDir, opts = {}) {
-  const routes = opts.routes ?? ROUTES.filter((route) => route === 'editor' || hasRoute(nextDir, route));
+  const required = opts.appDir === undefined ? [] : ROUTES.filter((route) => hasSourcePage(opts.appDir, route));
+  for (const route of required) {
+    if (route !== 'editor' && !hasRoute(nextDir, route)) {
+      throw new Error(
+        `/${route} has a page in ${join(opts.appDir, 'app')} but the build has no prerendered ` +
+          `server/app/${route}.html: check:size would drop its report and boundaries`,
+      );
+    }
+  }
+  const routes =
+    opts.routes ?? ROUTES.filter((route) => route === 'editor' || required.includes(route) || hasRoute(nextDir, route));
   const reports = {};
   for (const route of routes) reports[route] = checkSize(nextDir, { ...opts, route });
   return { reports, ok: Object.values(reports).every((report) => report.ok) };
@@ -388,7 +425,14 @@ function main() {
       ? readBaseline(resolve(args[args.indexOf('--baseline') + 1]))
       : undefined;
     const routes = args.includes('--route') ? [args[args.indexOf('--route') + 1]] : undefined;
+    // the app source whose routes are required: this app for its own `.next`, `--app <dir>` for another build
+    const sourceDir = args.includes('--app')
+      ? resolve(args[args.indexOf('--app') + 1])
+      : args.includes('--next')
+        ? undefined
+        : appDir;
     result = checkRoutes(nextDir, {
+      ...(sourceDir === undefined ? {} : { appDir: sourceDir }),
       ...(baseline === undefined ? {} : { baseline }),
       ...(routes === undefined ? {} : { routes }),
     });

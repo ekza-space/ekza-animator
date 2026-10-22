@@ -1,7 +1,7 @@
 // AUTORIG-SPEC §7.2 (D0): check:size measures every route of the build — `/editor` with its shipped boundaries plus
 // `autorig-shell`, `/autorig` with the dockview, curve-editor and Studio-shell boundaries, no First-run dialog and a
 // gate reported (not enforced) until D1 records its baseline; lazy groups are only the ones a route can reach.
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -13,10 +13,12 @@ import {
   boundariesFor,
   checkRoutes,
   checkSize,
+  hasSourcePage,
   readBaseline,
   ROUTE_BOUNDARIES,
   ROUTES,
 } from '../scripts/check-size.mjs';
+import { cleanNext } from '../scripts/clean-next.mjs';
 
 const dirs: string[] = [];
 afterEach(() => {
@@ -136,6 +138,61 @@ describe('check:size per route (AUTORIG-SPEC §7.2)', () => {
     const dir = build();
     rmSync(join(dir, 'server', 'app', 'autorig.html'));
     expect(Object.keys(checkRoutes(dir, { baseline: null }).reports)).toEqual(['editor']);
+  });
+
+  it('requires /autorig when the app source has its page, also under a route group (fix round 1)', () => {
+    const app = mkdtempSync(join(tmpdir(), 'ekza-ar-app-'));
+    dirs.push(app);
+    const page = (path: string): void => {
+      mkdirSync(dirname(join(app, path)), { recursive: true });
+      writeFileSync(join(app, path), 'export default function Page() { return null; }');
+    };
+    page('app/editor/page.tsx');
+    page('app/e2e/vrma-check/page.dev.tsx');
+    expect(hasSourcePage(app, 'editor')).toBe(true);
+    expect(hasSourcePage(app, 'autorig')).toBe(false);
+    expect(hasSourcePage(app, 'e2e/vrma-check')).toBe(false);
+    const dir = build();
+    rmSync(join(dir, 'server', 'app', 'autorig.html'));
+    // no autorig page in the source: the build without it measures /editor only
+    expect(Object.keys(checkRoutes(dir, { appDir: app, baseline: null }).reports)).toEqual(['editor']);
+    page('app/(studio)/autorig/page.tsx');
+    expect(hasSourcePage(app, 'autorig')).toBe(true);
+    expect(() => checkRoutes(dir, { appDir: app, baseline: null })).toThrow(
+      /\/autorig has a page in .* but the build has no prerendered server\/app\/autorig\.html/,
+    );
+    // the build with the page measures both routes
+    expect(Object.keys(checkRoutes(build(), { appDir: app, baseline: null }).reports)).toEqual(['editor', 'autorig']);
+    // this app has the page: its own build must carry /autorig
+    expect(hasSourcePage(join(__dirname, '..'), 'autorig')).toBe(true);
+  });
+
+  it('fails on a production build written over a stale e2e .next (fix round 1)', () => {
+    const dir = build();
+    mkdirSync(join(dir, 'server', 'app', 'e2e'), { recursive: true });
+    writeFileSync(join(dir, 'server', 'app', 'e2e', 'vrma-check.html'), '<html></html>');
+    expect(() => checkSize(dir, { baseline: null })).toThrow(/mixes two builds: .*stale e2e file/);
+    const e2e = build();
+    mkdirSync(join(e2e, 'server', 'app', 'e2e'), { recursive: true });
+    writeFileSync(join(e2e, 'server', 'app', 'e2e', 'vrma-check.html'), '<html></html>');
+    writeFileSync(
+      join(e2e, 'server', 'app-paths-manifest.json'),
+      JSON.stringify({
+        '/editor/page': 'app/editor/page.js',
+        '/autorig/page': 'app/autorig/page.js',
+        '/e2e/vrma-check/page': 'app/e2e/vrma-check/page.js',
+      }),
+    );
+    expect(checkSize(e2e, { baseline: null }).e2eBuild).toBe(true);
+  });
+
+  it('clean:next removes the previous build and keeps the Turbopack cache', () => {
+    const dir = build();
+    mkdirSync(join(dir, 'cache', 'turbopack'), { recursive: true });
+    writeFileSync(join(dir, 'BUILD_ID'), 'x');
+    expect(cleanNext(dir).sort()).toEqual(['BUILD_ID', 'server', 'static']);
+    expect(readdirSync(dir)).toEqual(['cache']);
+    expect(cleanNext(join(dir, 'missing'))).toEqual([]);
   });
 
   it('records the /autorig gate as reported until D1 (size-baseline.json routes.autorig)', () => {

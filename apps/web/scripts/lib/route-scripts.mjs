@@ -111,9 +111,26 @@ function listChunks(nextDir) {
   return out;
 }
 
-/** Whether `.next` holds an e2e build (`NEXT_PUBLIC_EKZA_E2E=1`: the `/e2e/vrma-check` route exists). */
+/**
+ * Whether `.next` holds an e2e build (`NEXT_PUBLIC_EKZA_E2E=1`: the `/e2e/vrma-check` route exists). Throws when the
+ * tree mixes two builds — the e2e route's prerendered HTML is there but the build's own app-paths manifest does not
+ * list it: a production build (or a turbo cache restore of one) written over a previous e2e build's `.next`, whose
+ * stale files would make the measure skip the eager-delta gate and read stale chunks (D0 fix round 1; `pnpm run ci`
+ * runs `clean:next` before the build).
+ */
 export function isE2eBuild(nextDir) {
-  return existsSync(join(nextDir, 'server', 'app', 'e2e', 'vrma-check.html'));
+  if (!existsSync(join(nextDir, 'server', 'app', 'e2e', 'vrma-check.html'))) return false;
+  const manifestPath = join(nextDir, 'server', 'app-paths-manifest.json');
+  if (existsSync(manifestPath)) {
+    const entries = Object.keys(JSON.parse(readFileSync(manifestPath, 'utf8'))).map(stripRouteGroups);
+    if (!entries.includes('/e2e/vrma-check/page')) {
+      throw new Error(
+        `${nextDir} mixes two builds: server/app/e2e/vrma-check.html is a stale e2e file the build's ` +
+          'app-paths-manifest.json does not list; run `pnpm --filter web clean:next` and build again',
+      );
+    }
+  }
+  return true;
 }
 
 /**
@@ -200,13 +217,18 @@ export function readRouteScripts(nextDir, route = 'editor', opts = {}) {
 
   const chunks = listChunks(nextDir);
   const sources = new Map(chunks.map((chunk) => [chunk, readFileSync(join(nextDir, chunk), 'utf8')]));
-  const loaders = new Map();
+  // Every definition of every loader: Turbopack copies a module shared by several chunk groups into each group's
+  // merged chunk, so one loader id can be defined in many chunks (one per route, or a test route's copy). A loader is
+  // reachable or promotable when ANY of its defining chunks is (a single "last chunk wins" definition silently drops
+  // a group whenever the copy sorting last belongs to another route; D0 fix round 1).
+  const definitions = [];
   const loadersIn = new Map();
   for (const [chunk, source] of sources) {
     const found = chunkLoaders(source);
     loadersIn.set(chunk, found);
-    for (const loader of found) loaders.set(loader.id, { ...loader, definedIn: chunk });
+    for (const loader of found) definitions.push({ ...loader, definedIn: chunk });
   }
+  definitions.sort((a, b) => a.id - b.id || (a.definedIn < b.definedIn ? -1 : a.definedIn > b.definedIn ? 1 : 0));
 
   // The loader of a `next/dynamic` entry lives in an initial chunk and fetches exactly the manifest's files; those
   // files are initial. A lazy group whose files carry one of the route's initial markers (the shared layout's host and
@@ -215,17 +237,16 @@ export function readRouteScripts(nextDir, route = 'editor', opts = {}) {
   const initial = [...html];
   for (const file of dynamicFiles) if (!initial.includes(file)) initial.push(file);
   const markers = opts.initialMarkers ?? ROUTE_INITIAL_MARKERS[route] ?? [];
-  const sorted = [...loaders.values()].sort((a, b) => a.id - b.id);
   const promoted = [];
   for (let changed = markers.length > 0; changed; ) {
     changed = false;
-    for (const loader of sorted) {
+    for (const loader of definitions) {
+      // only a loader reachable from the initial set: one of its defining chunks is initial
+      if (!initial.includes(loader.definedIn)) continue;
       const files = loader.files.filter((file) => file.endsWith('.js') && !initial.includes(file));
       if (files.length === 0) continue;
       const source = files.map((file) => sources.get(file) ?? '').join('\n');
       if (!markers.some((marker) => source.includes(marker))) continue;
-      // only a loader reachable from the initial set: its defining chunk is initial
-      if (!initial.includes(loader.definedIn)) continue;
       for (const file of files) initial.push(file);
       promoted.push({ id: loader.id, files });
       changed = true;
@@ -233,15 +254,16 @@ export function readRouteScripts(nextDir, route = 'editor', opts = {}) {
   }
   const initialSet = new Set(initial);
   const missing = initial.filter((file) => !sources.has(file));
-  // Lazy groups are the loaders the route can reach: defined in an initial chunk, or in a chunk of a reachable lazy
-  // group (AUTORIG-SPEC §7.2: one build holds both routes, and a group only another route reaches is not this
+  // Lazy groups are the loaders the route can reach: defined (any copy) in an initial chunk, or in a chunk of a
+  // reachable lazy group (AUTORIG-SPEC §7.2: one build holds both routes, and a group only another route reaches is not this
   // route's).
   const reachable = new Set(initial);
   const lazy = [];
   const visited = new Set();
   for (let grown = true; grown; ) {
     grown = false;
-    for (const loader of sorted) {
+    for (const loader of definitions) {
+      // the first reachable definition of an id stands for it (copies of one module fetch the same files)
       if (visited.has(loader.id) || !reachable.has(loader.definedIn)) continue;
       visited.add(loader.id);
       const files = loader.files.filter((file) => file.endsWith('.js') && !initialSet.has(file));

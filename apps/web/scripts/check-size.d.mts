@@ -118,10 +118,13 @@ export declare function boundariesFor(
   route: string,
 ): readonly { readonly id: string; readonly label: string; readonly markers: readonly string[] }[];
 export declare function hasRoute(nextDir: string, route: string): boolean;
+export declare function hasSourcePage(appDir: string, route: string): boolean;
 export declare function checkRoutes(
   nextDir: string,
   opts?: {
     readonly routes?: readonly string[];
+    /** The app source (`<appDir>/app`): routes with a page there are required in the build. */
+    readonly appDir?: string;
     readonly baseline?: SizeBaseline | null;
     readonly attribute?: boolean;
   },
