@@ -45,6 +45,7 @@ import { useMotionTest, usePreview } from './motion';
 import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
 import { rebind, wantsStraighten } from './run';
+import { useHiddenControls } from '../markers/controls';
 import { rigUi } from './ui';
 import './strings';
 
@@ -60,6 +61,7 @@ const PaintWeightsControls = lazy(() =>
 const selectRig = (s: AutoRigSession): AutoRigSession['rig'] => s.rig;
 const selectSubject = (s: AutoRigSession): AutoRigSession['subject'] => s.subject;
 const selectBusy = (s: AutoRigSession): boolean => s.busy !== null;
+const selectMarkersSlice = (s: AutoRigSession): AutoRigSession['markers'] => s.markers;
 const selectStartPose = (s: AutoRigSession): AutoRigSession['startPose'] => s.startPose;
 const selectPanes = (s: AutoRigSession): string => `${s.rig.sub}|${s.markers.pane}|${s.markers.lastOrtho}`;
 
@@ -520,9 +522,36 @@ function useRigFooter(ctx: WizardContext): void {
   }, [ctx, rig.sub, busy, ui.error, progress]);
 }
 
+/**
+ * Frames ③'s review pane on the character once per character (AR-D8-9): the persp pane keeps the camera it had as
+ * ②'s narrow third, so the character stood small in the wide review pane. After the layout settled (two frames).
+ */
+function useFrameOnce(ctx: WizardContext): void {
+  const rig = useSession(ctx.session, selectRig);
+  const busy = useSession(ctx.session, selectBusy);
+  const character = useDocument(
+    ctx.app,
+    () => resolveSubject(ctx.app.store, ctx.session.getState().subject).character?.id ?? null,
+  );
+  useEffect(() => {
+    if (rig.sub !== 'review' || busy || character === null || rigUi(ctx).get().framedFor === character) return;
+    let handle = requestAnimationFrame(() => {
+      handle = requestAnimationFrame(() => {
+        rigUi(ctx).set((current) => ({ ...current, framedFor: character }));
+        void ctx.app.runUntyped('view.frame', { what: 'all', paneId: 'pane-persp' });
+      });
+    });
+    return () => cancelAnimationFrame(handle);
+  }, [ctx, rig.sub, busy, character]);
+}
+
 function PanelWithFooter(props: { readonly ctx: WizardContext }): JSX.Element {
   const { ctx } = props;
   useRigFooter(ctx);
+  useFrameOnce(ctx);
+  const rig = useSession(ctx.session, selectRig);
+  const markers = useSession(ctx.session, selectMarkersSlice);
+  useHiddenControls(ctx, rig.sub === 'adjust', `${rig.sub}:${markers.pane}`);
   useEffect(() => watchPaintedSinceBind(ctx.app, ctx.session), [ctx]);
   return <Panel ctx={ctx} />;
 }

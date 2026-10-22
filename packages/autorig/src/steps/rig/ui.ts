@@ -26,6 +26,8 @@ export interface RigUi {
    * nothing was painted (here or in Studio: every weight edit writes a revision), so a re-rig asks no rebind question.
    */
   readonly boundKey: string | null;
+  /** The character ③'s review pane was framed on (once per character, AR-D8-9). */
+  readonly framedFor: string | null;
 }
 
 const uis = new WeakMap<WizardContext['session'], SmallStore<RigUi>>();
@@ -42,6 +44,7 @@ export function rigUi(ctx: Pick<WizardContext, 'session'>): SmallStore<RigUi> {
       rebinding: false,
       showWeights: false,
       boundKey: null,
+      framedFor: null,
     });
     uis.set(ctx.session, store);
   }

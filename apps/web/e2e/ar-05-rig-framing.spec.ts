@@ -67,6 +67,8 @@ test('AR-D8-4: back on ② after Auto-rig and in ③ Adjust joints the panes fra
     .poll(async () => inside(page, SIDE, await marker('headTop', 'R', SIDE), 4), { timeout: 10_000 })
     .toBe(true);
   await expectWholeBody(page, marker);
+  // the rig's controls (the yellow IK rings) are hidden in ②'s panes
+  expect(await yellowPixels(page, FRONT)).toBeLessThan(40);
   // F over SIDE frames the same whole body
   const side = await paneRect(page, SIDE);
   await page.mouse.move(side.x + side.w / 2, side.y + side.h / 2);
@@ -95,4 +97,30 @@ test('AR-D8-4: back on ② after Auto-rig and in ③ Adjust joints the panes fra
   for (const side of ['R', 'L'] as const) {
     await expect.poll(async () => inside(page, FRONT, await joint('wrist', side, FRONT), 20)).toBe(true);
   }
+  // no control rings over the joints either; back in review the controls are drawn again
+  expect(await yellowPixels(page, FRONT)).toBeLessThan(40);
+  await page.getByTestId('ar-rig-done').click();
+  await expect.poll(async () => yellowPixels(page, 'pane-persp')).toBeGreaterThan(40);
+  // AR-D8-9: the review pane frames the character (it kept ②'s narrow-pane camera: the body stood small)
+  const persp = await paneRect(page, 'pane-persp');
+  const span = async (): Promise<number> => {
+    const head = await call(page, 'screenOfJoint', byBone('head'), 'pane-persp');
+    const toe = await joint('toe', 'R', 'pane-persp');
+    return head === null || toe === null ? 0 : Math.abs(toe.y - head.y) / persp.h;
+  };
+  // frame all on the T-posed Polybot: the head joint to the toes ≈ 0.34 of the pane (0.2 with ②'s narrow camera)
+  await expect.poll(span, { timeout: 10_000 }).toBeGreaterThan(0.28);
 });
+
+/** Pixels of a pane in the controls' yellow (the IK and FK rings). */
+async function yellowPixels(page: Page, paneId: string): Promise<number> {
+  const r = await paneRect(page, paneId);
+  const read = await call(page, 'pixels', paneId, r.x, r.y, r.w, r.h);
+  if (read === null) return 0;
+  let n = 0;
+  for (let i = 0; i < read.data.length; i += 4) {
+    const [red, green, blue] = [read.data[i] as number, read.data[i + 1] as number, read.data[i + 2] as number];
+    if (red > 200 && green > 170 && blue < 110) n++;
+  }
+  return n;
+}
