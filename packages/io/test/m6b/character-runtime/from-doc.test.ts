@@ -162,7 +162,7 @@ describe('skeletonFromGltf(writeCharacter(records)) ≡ skeletonFromDoc(records)
     );
     const moved: CharacterWriteInput = { ...write, skeleton: { ...write.skeleton, nodes } as typeof write.skeleton };
     const c = await parseGlb(await writeCharacter(moved, { generator: 'test', format: 'glb' }));
-    const json = c.json as {
+    const json = c.json as unknown as {
       nodes: { name?: string; mesh?: number; children?: number[]; translation?: number[]; rotation?: number[] }[];
     };
     const hatIndex = json.nodes.findIndex((node) => node.name === 'Hat');
