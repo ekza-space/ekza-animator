@@ -424,7 +424,11 @@ const inspect = defineOperator<'autorig.inspect', IntakeReport>({
 // ---------------------------------------------------------------------------------------------------------------------
 // fixes
 
-/** New local placements for the meshes after a world-space `delta` (a mesh under another one of them moves with it). */
+/**
+ * New local placements for the meshes after a world-space `delta` (a mesh under another one of them moves with it).
+ * The same walk as C2's fix operator in `../quickRig.ts` (outside D3's Dirs); one shared helper used by both is a D7
+ * follow-up (AR-D3-23 in docs/wp-notes/ar-wizard-shell.md).
+ */
 export function placementsAfter(
   view: ReadView,
   meshes: readonly MeshId[],
