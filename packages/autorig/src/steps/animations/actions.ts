@@ -43,7 +43,7 @@ const uis = new WeakMap<WizardContext['session'], SmallStore<AnimationsUi>>();
 export function animationsUi(ctx: Pick<WizardContext, 'session'>): SmallStore<AnimationsUi> {
   let store = uis.get(ctx.session);
   if (store === undefined) {
-    store = smallStore<AnimationsUi>({
+    const created = smallStore<AnimationsUi>({
       manifest: null,
       status: 'loading',
       error: null,
@@ -54,6 +54,20 @@ export function animationsUi(ctx: Pick<WizardContext, 'session'>): SmallStore<An
       busy: null,
       notice: null,
     });
+    // Another subject (⋯ › New, a new import, a Continue) starts with no library clip selected: the previous
+    // character's preview never shows over the next one's (AR-D9-4).
+    let subject = ctx.session.getState().subject.character;
+    ctx.session.subscribe(() => {
+      const next = ctx.session.getState().subject.character;
+      if (next === subject) return;
+      const had = subject;
+      subject = next;
+      if (had === null) return;
+      created.set((current) =>
+        current.selected === null && current.notice === null ? current : { ...current, selected: null, notice: null },
+      );
+    });
+    store = created;
     uis.set(ctx.session, store);
   }
   return store;
@@ -165,7 +179,15 @@ export async function addClip(ctx: WizardContext, clip: string): Promise<boolean
     if (replace !== null) endEdit(ctx.session);
     patchUi(ctx, {
       busy: null,
-      notice: { text: replace === null ? t().added(entry.label) : t().updated(entry.label), tone: 'info' },
+      notice: {
+        text:
+          replace !== null
+            ? t().updated(entry.label)
+            : entry.slot === null
+              ? t().addedNoSlot(entry.label)
+              : t().added(entry.label),
+        tone: 'info',
+      },
     });
     return true;
   }
@@ -230,9 +252,13 @@ export function cancelEdit(ctx: WizardContext): void {
   endEdit(ctx.session);
 }
 
-/** ▶ on a document clip (§5.5.2): the shipped path — active clip, loop, play in Animate. */
+/**
+ * ▶ on a document clip (§5.5.2): the shipped path — active clip, loop, play in Animate. The library preview's panel
+ * closes (it would name another clip than the one playing; AR-D9-5), unless a ✎ edit keeps it open.
+ */
 export async function playDocumentClip(ctx: WizardContext, clipId: ClipId): Promise<void> {
   await stopPreview(ctx);
+  if (ctx.session.getState().animations.editing === null) patchUi(ctx, { selected: null });
   if ((await ctx.run('clip.setActive', { clip: clipId })).status !== 'finished') return;
   await ctx.run('time.setLoop', { loop: 'loop' });
   if (!ctx.app.session.getState().time.playing) await ctx.run('time.play');

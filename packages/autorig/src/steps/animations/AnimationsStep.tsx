@@ -60,6 +60,7 @@ import {
   speedText,
   trimFromSliders,
 } from './data';
+import { useHiddenControls } from '../markers/controls';
 import { clearDraft, markSkipped } from './slice';
 import './strings';
 
@@ -167,7 +168,12 @@ function ClipCard(props: {
           </span>
         ) : null}
         <span className="text-fg-3 tabular-nums">{a.seconds(formatNumber(entry.duration))}</span>
-        {entry.slot === null ? null : (
+        {entry.slot === null ? (
+          // a clip without a slot says so before Add, not only on ⑤ (AR-D9-9)
+          <span className="px-1 text-[10px] text-fg-3" title={a.cardNoSlot} data-testid={`ar-clip-noslot-${entry.id}`}>
+            {a.noSlot}
+          </span>
+        ) : (
           <span className="rounded-sm bg-panel px-1 text-[10px] text-fg-2">{entry.slot}</span>
         )}
       </button>
@@ -289,8 +295,11 @@ function Library(props: { readonly ctx: WizardContext }): JSX.Element {
           ))}
         </ul>
       )}
-      <p className="text-fg-3">
-        {a.clipCount(ui.manifest?.clips.length ?? 0)} · {a.credit}
+      <p className="text-fg-3" data-testid="ar-anim-count">
+        {clips.length === (ui.manifest?.clips.length ?? 0)
+          ? a.clipCount(clips.length)
+          : a.clipCountOf(clips.length, ui.manifest?.clips.length ?? 0)}{' '}
+        · {a.credit}
       </p>
     </section>
   );
@@ -466,6 +475,8 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element {
   useEffect(() => {
     if (animationsUi(ctx).get().manifest === null) void loadManifest(ctx);
   }, [ctx]);
+  // the character plays its clips without the rig's controls over it (AR-D9-8)
+  useHiddenControls(ctx, true, 'animations');
 
   // an info notice ("Added Walk") gives way to the count after a few seconds; an error stays until the next action
   useEffect(() => {

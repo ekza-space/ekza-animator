@@ -14,6 +14,8 @@ export const animations = {
   categoryOther: 'Other',
   categories: 'Categories',
   clipCount: (n: number) => (n === 1 ? '1 clip' : `${n} clips`),
+  clipCountOf: (shown: number, total: number) => `${shown} of ${total} clips`,
+  cardNoSlot: 'No slot: added, it stays out of the VRM until you choose a slot for it',
   credit: 'CC0 · Quaternius',
   loop: 'Loops',
   seconds: (text: string) => `${text} s`,
@@ -47,6 +49,8 @@ export const animations = {
   cancelEdit: 'Cancel',
   adding: (label: string) => `Adding ${label}…`,
   added: (label: string) => `Added ${label}`,
+  addedNoSlot: (label: string) =>
+    `Added ${label} without a slot: choose one under its name, or it stays out of the VRM.`,
   updated: (label: string) => `Updated ${label}`,
   // the character's clips (§5.5.2, §5.5.4)
   onCharacter: (name: string) => `On ${name}`,
