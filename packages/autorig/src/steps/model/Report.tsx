@@ -219,7 +219,13 @@ export function FromStudio(props: { readonly ctx: WizardContext }): JSX.Element 
         type="button"
         className={button('primary')}
         onClick={() => {
-          ctx.ui.set((u) => ({ ...u, fromStudio: null }));
+          // A character from Studio is an already rigged input: like an imported VRM it continues on ④ once that is
+          // reachable (AS-AR-3; the frame's pending step, D7 AR-D7-4); scene meshes stay on ① for their report.
+          ctx.ui.set((u) => ({
+            ...u,
+            fromStudio: null,
+            pendingStep: handed.character === null ? u.pendingStep : 'animations',
+          }));
           void takeFromStudio(ctx, handed);
         }}
       >

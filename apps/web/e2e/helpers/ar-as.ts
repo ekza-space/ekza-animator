@@ -191,3 +191,24 @@ export function truthArmAngle(humanoid: Readonly<Record<string, Vec3>>): number 
   };
   return Math.max(side('leftUpperArm', 'leftHand'), side('rightUpperArm', 'rightHand'));
 }
+
+/**
+ * AS-AR-1 steps 2, 3 and 5 through the UI on an open ①: drop `file`, *Next*, *Auto-rig* (the default fingers); returns
+ * once ③ is done.
+ */
+export async function rigThroughUi(page: Page, file: string, bytes: Uint8Array): Promise<void> {
+  await dropModel(page, file, bytes);
+  await nextToMarkers(page);
+  await expect(page.getByTestId('ar-primary')).toHaveText(/Auto-rig/);
+  await page.getByTestId('ar-primary').click();
+  await onStep(page, 'rig', 60_000);
+  await expect.poll(async () => (await wizard(page)).busy, { timeout: 60_000 }).toBeNull();
+  await expect.poll(async () => (await wizard(page)).done['rig'], { timeout: 30_000 }).toBe(true);
+}
+
+/** ③ → ④ through *Animations ▸*; waits for the grid. */
+export async function toAnimations(page: Page): Promise<void> {
+  await primary(page, /Animations/);
+  await onStep(page, 'animations');
+  await expect(page.getByTestId('ar-anim-grid')).toBeVisible({ timeout: 30_000 });
+}
