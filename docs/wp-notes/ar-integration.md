@@ -151,12 +151,59 @@ Final run at `a4e0d437` (the docs commit; code unchanged since), worktree `ar-in
   count as passed while they fail as expected).
 - Targeted earlier: every `ar-*` spec (88 passed, 1 skipped), `ar-as-*` repeatedly, the bench (2 passed).
 
+## Fix round 1 (review of `69d189bb`)
+
+The review held the DoD open on three majors and three minors; all are fixed or decided (AR-D7-14…19):
+
+| Finding | Resolution |
+|---|---|
+| The step 12 `test.fail` failed in its own setup ("no subject character": `autorig.rig` by operator on ①), so it could never turn red | removed; step 12's UI test now runs to the specified last check (row gone, *Animations ▸* open). The operator-run case is its own test: the wizard adopts the subject (AR-D7-17) |
+| §11 not green: AS-AR-1 step 12's last check and AS-AR-6's texture held as `test.fail` | both pass as specified: the hands follow their forearms on *Done* (AR-D7-16, shipped operators only, P-J1 untouched); C10's writer copies the adopted asset materials with the image (AR-D7-15). D6's `ar-07` texture `fixme` and D4's `ar-05` TODO(AR-D4-T1) block now assert the specified behaviour |
+| AS-AR-5's body 73 m along +Z, the test moving its truth to follow | *Center and Ground* centres z (AR-D7-14); AS-AR-5 asserts the body at the origin, the unshifted truth and the rigged hips over the origin |
+| AS-AR-11 used `focus()` after a tabIndex check | real Tab presses from the step heading (AR-D7-19) |
+| `pnpm install` not run in the main checkout after the dev merge | run there under the integration lease after this round's merge; `pnpm run build` on `dev` checked (below) |
+| AS-AR-3's row and the undo/redo re-adoption | §11 row amended (AR-D7-19); no silent re-adoption, decided (AR-D7-18) |
+
+**Shared files touched outside D7's Dirs** (approved here as the integration agent): `editor-core/src/operators/
+builtin/rig/quickRig.ts` and its tests `editor-core/test/m6b/skeleton-kernel/quick-rig.test.ts`,
+`editor-core/test/autorig/intake.test.ts`, D3's `e2e/ar-03-model-intake.spec.ts` (an added z assertion);
+`io/src/types.ts` (the optional `CharacterMeshIn.assetMaterials` and `CharacterAssetMaterial`), `io/src/character/
+index.ts`, the new `io/src/character/assetMaterials.ts`, `io/src/write.ts` (one export), `io/test/m6b/
+character-writer/{support,writer.test}.ts`, `editor-core/src/workflows/exportCharacter.ts`, D6's
+`e2e/ar-07-export-targets.spec.ts` (`fixme` → `test`); D4's `autorig/src/steps/rig/{RigStep.tsx,ui.ts}`, the new
+`steps/rig/hands.ts` and `test/steps/rig/hands.test.ts`, D4's `e2e/ar-05-rig-adjust.spec.ts` (the TODO block → the
+specified assertions); D3's `autorig/src/shell/controller.ts` (subject adoption); `docs/M6B-SPEC.md` (§0.4.2's
+*Center and ground* sentence). No closed contract file (`args.ts`, editor-core `types.ts`) changed.
+
+**Gates (fix round 1)**, worktree `ar-integration` at `dacefb64` + this notes commit, local Chrome with the GPU,
+`EKZA_E2E_PORT=3168`, load average 11–34 from other agents:
+
+- `pnpm run ci`: format:check, lint, typecheck, check:deps green; `test` (turbo, parallel) failed on two
+  load-sensitive timings (editor-core's report-only display-container rebuild ≤ 300 ms at 604 ms, viewport's
+  `m6a-transform/runtime` Esc during a drag) and turbo stopped the siblings. Re-run `turbo run test test:tooling
+  --concurrency=1`: **16/16 green**.
+- Then the rest of `ci` in order: check:fixtures, check:licenses, `clean:next`, build, **check:size** — `/editor`
+  **896,741 B** (AR-B1 eager delta +1,053 B of +2,048 B, limit 897,736 B), `/autorig` **658,181 B ≤ 660,000 B**
+  (enforced) — **test:e2e: 342 passed, 24 skipped, 1 failed**: `m2a-23-24-acceptance` E2E-M2A-23 at 1.3 s ("Character
+  'Polybot' has no runtime yet", a load race in an M2a spec untouched by Auto-Rig); re-run alone 3 × 2 green
+  (`--repeat-each=3`). The 24 skips are the suite's existing `fixme`/conditional ones (D6's AS-AR-6 texture `fixme`
+  is now a test); no `test.fail` remains in an `ar-*` spec.
+- Targeted while iterating: `ar-05-rig-adjust`, `ar-as-01`, `ar-as-05`, `ar-as-06`, `ar-07`, `ar-as-11`, `ar-03`,
+  `m6b-qr-01` green; unit: io character writer 19/19, autorig 104 + hands 4, editor-core quick-rig + intake 25.
+- **OMOBA** (`node tooling/omoba-validate.mjs`, fresh exports of this round): `as-ar-1-polybot.vrm` (now with the
+  Polybot texture, 727,920 B), `as-ar-1-cube-lad.vrm`, `as-ar-2-polybot-apose.vrm`, `as-ar-6-polybot-textured.vrm`:
+  each exit 0, "Compatible local humanoid: VRM 1.0, 35 nodes, 33 semantic bones" (admission only; the T-pose by
+  `skel.tpose` and the read-back directions in AS-AR-1/2).
+- **Bench** (`bench:budgets autorig`, 2 passed): Auto-rig on the Cube Lad 111 ms, on a 9,408-triangle body 229 ms;
+  Straighten 20 ms; export 13 ms + 80 ms; idle on ⑤ 0 frames; dockview on `/autorig` **0 files**; first motion-test
+  frame 335 ms (report-only, AR-D7-13).
+
 ## Open for the owner
 
 - AS-AR-1 and AS-AR-2 by hand in Chrome, timed (§10 D7 DoD); the owner demo below.
-- Q-AR-17 (AR-B1 re-baseline: `/editor` +1,055 B of +2,048 B) and the `/autorig` gate as recorded (AR-D7-3).
-- AR-D4-T1 / AR-D7-7 (Move Joint and the hand tail), AR-D7-5 (C10 textures), AR-D3-15 (C2 Center and Ground leaves
-  z): owners' fixes, not Auto-Rig's.
+- Q-AR-17 (AR-B1 re-baseline: `/editor` +1,053 B of +2,048 B) and the `/autorig` gate as recorded (AR-D7-3).
+- AR-D3-23 (one shared nested-placement helper) for its owners; optionally a `vrm.*` lint on hips far from the origin
+  (C11).
 
 ### Owner demo (≈ 10 minutes)
 
