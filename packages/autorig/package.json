@@ -5,7 +5,7 @@
   "type": "module",
   "description": "Auto-Rig mode: the simplified five-step wizard shell (model, markers, rig, animations, export) over the same EditorApp as Studio.",
   "license": "MIT",
-  "sideEffects": false,
+  "sideEffects": ["./src/steps/*/strings.ts"],
   "exports": {
     ".": "./src/index.ts"
   },
