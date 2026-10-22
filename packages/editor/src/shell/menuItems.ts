@@ -1,12 +1,11 @@
 // Menu items contributed by the shell for its own operators (dialogs, panels, workspace, help). Built-in editing
 // commands come from WP-7b's BUILTIN_MENU_ITEMS; items with the same operator and arguments are shown once.
 // Auto-Rig (AUTORIG-SPEC §3.4, D2): File › Auto-Rig This Model… and Help › Switch to Auto-Rig run `shell.autoRig`, a
-// small eager operator of the Studio shell that calls the host's navigation port directly (no chunk loads before the
-// push; `autorig.navigate` is the rig chunk's palette/script wrapper of the same port).
+// small eager operator of the Studio shell that calls the host's navigation port directly (never through the Rig & Skin
+// chunk; `autorig.navigate` is that chunk's palette/script wrapper of the same port). Its subject rule is the small
+// lazy `./autoRigSwitch`, prefetched when the menu opens.
 import type { Disposer } from '@ekza-studio/anim-core';
-import type { CharacterId, MeshRecord } from '@ekza-studio/doc';
 import {
-  type AutoRigSubject,
   type EditorApp,
   hostNavigation,
   type MenuItemDef,
@@ -15,6 +14,7 @@ import {
   type ViewportLayout,
   type WorkspaceId,
 } from '@ekza-studio/editor-core';
+import type * as AutoRigSwitch from './autoRigSwitch';
 import { ANIMATE_SLOTS, type ChromePart, MODEL_SLOTS } from './layout';
 import { BUILTIN_PRESETS, type LayoutPresetStore } from './presets';
 import { RIG_LAYOUTS } from './rig/layouts';
@@ -41,48 +41,40 @@ const MODEL_LAYOUTS: readonly { readonly layout: ViewportLayout; readonly label:
   { layout: 'split', label: 'Front | Persp (Side)' },
 ];
 
-/**
- * What Auto-Rig works on when Studio switches to it (§3.4): the selection — the selected scene meshes, else the active
- * character — else every visible scene mesh; else null (Auto-Rig starts at its Model step). §3.4's last fallback, "the
- * only character", is the active character: the session keeps one active whenever a character exists
- * (`repairSession`). Visible = neither the mesh nor its parent is hidden (Model's Hide; an import's meshes sit under
- * one group). The Model operators chunk's helper is not imported: this module is eager.
- */
-function autoRigSubject(app: EditorApp): AutoRigSubject | null {
-  const { selection, activeCharacter, model } = app.session.getState();
-  const hidden: ReadonlySet<string | null> = model.hiddenObjects;
-  const scene = app.store.list('meshes').filter((mesh) => 'scene' in mesh.owner);
-  const pick = (meshes: readonly MeshRecord[], character: CharacterId | null = null): AutoRigSubject | null =>
-    meshes.length > 0 || character ? { character, meshes: meshes.map((mesh) => mesh.id) } : null;
-  return (
-    pick(scene.filter((mesh) => selection.objects.includes(mesh.id))) ??
-    pick([], activeCharacter) ??
-    pick(scene.filter((mesh) => !hidden.has(mesh.id) && !hidden.has(mesh.parent)))
-  );
-}
+/** The lazy half of the switch (`./autoRigSwitch`: the subject rule, the remembered-choice write); null when it cannot
+ *  load (the switch then happens without them). */
+const loadAutoRigSwitch = (): Promise<typeof AutoRigSwitch | null> => import('./autoRigSwitch').catch(() => null);
 
 /**
- * `shell.autoRig {subject?}`: switches to Auto-Rig on the same page through the host's navigation port, the document
- * kept. With `subject: true` (File › Auto-Rig This Model…) it needs a subject (meshes or a character) and hands
- * `autoRigSubject` over; without (Help › Switch to Auto-Rig, the first-run dialog) it hands nothing over. Not undoable;
- * hidden from the palette (`autorig.navigate` is listed there). Without a port (a harness) it does nothing.
+ * `shell.autoRig {subject?, remember?}`: switches to Auto-Rig on the same page through the host's navigation port, the
+ * document kept, handing the subject over when there is one (`autoRigSubject`, §3.4). `subject: true` (File › Auto-Rig
+ * This Model…) is enabled when the scene has meshes or a character (§3.4); Help › Switch to Auto-Rig and the first-run
+ * dialog are always enabled. `remember: true` (the first-run dialog's "Open this mode next time") first writes the
+ * landing's remembered choice. The subject rule and the write are the small `./autoRigSwitch` chunk (AR-D2-11): the
+ * poll — run when a menu showing the item opens — prefetches it (intent, M2A-SPEC §5.21.2), so a menu click does not
+ * wait for it. It never loads the Rig & Skin chunk. Not undoable; hidden from the palette (`autorig.navigate` is listed
+ * there). Without a port (a harness) it does nothing.
  */
-function autoRigOperator(app: EditorApp): OperatorDef<{ readonly subject?: boolean } | undefined> {
-  return {
-    id: 'shell.autoRig',
-    label: 'Switch to Auto-Rig',
-    category: 'ui',
-    scope: 'global',
-    flags: { internal: true },
-    poll: (_ctx, args) =>
-      args?.subject === true && autoRigSubject(app) === null ? { ok: false, reason: 'Nothing to auto-rig' } : true,
-    async prepare(_ctx, args) {
-      const subject = args?.subject === true ? autoRigSubject(app) : null;
-      await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject && { subject }) });
-    },
-    apply() {},
-  };
-}
+const AUTO_RIG_OPERATOR: OperatorDef<{ readonly subject?: boolean; readonly remember?: boolean } | undefined> = {
+  id: 'shell.autoRig',
+  label: 'Switch to Auto-Rig',
+  category: 'ui',
+  scope: 'global',
+  flags: { internal: true },
+  poll({ app }, args) {
+    void loadAutoRigSwitch();
+    return args?.subject && app.store.list('meshes').length === 0 && app.session.getState().activeCharacter === null
+      ? { ok: false, reason: 'Nothing to auto-rig' }
+      : true;
+  },
+  async prepare({ app }, args) {
+    const lazy = await loadAutoRigSwitch();
+    if (args?.remember) lazy?.writeEntryChoice('autorig');
+    const subject = lazy?.autoRigSubject(app);
+    await hostNavigation(app)?.go({ to: 'autorig', from: 'studio', ...(subject && { subject }) });
+  },
+  apply() {},
+};
 
 export function shellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
@@ -384,7 +376,7 @@ export function registerShellMenuItems(
   extraPanels: readonly { readonly kind: PanelKind; readonly title: string }[],
   state?: ShellMenuState,
 ): Disposer {
-  const disposers: Disposer[] = [app.contribute({ kind: 'operator', def: autoRigOperator(app) })];
+  const disposers: Disposer[] = [app.contribute({ kind: 'operator', def: AUTO_RIG_OPERATOR })];
   for (const def of shellMenuItems(extraPanels, state)) {
     if (app.menus.get(def.id) !== undefined) continue;
     disposers.push(app.contribute({ kind: 'menu', def }));

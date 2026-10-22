@@ -28,23 +28,16 @@ export function FirstRunDialog(): JSX.Element {
 
   /** `go`: the primary button (the Auto-Rig answer switches only from it; Studio's start workspace stays Animate). */
   const finish = async (go: boolean): Promise<void> => {
-    const remember = rememberBox.current?.checked === true;
+    const remember = rememberBox.current?.checked;
     const workspace = start === 'model' ? 'model' : 'animate';
     await shell.runFromUi('prefs.set', {
       patch: { navProfile: nav, spaceBehaviour: space, firstRunDone: true, lastWorkspace: workspace },
     });
     if (shell.app.session.getState().workspace !== workspace) await shell.runFromUi('workspace.set', { workspace });
     await shell.runFromUi('ui.close');
-    if (start !== 'autorig' || !go) return;
-    // The landing's remembered choice, the record of `./entryChoice` written inline (a lazy import here would cost the
-    // first-visit chunk more than this line; `entry-contract.test.ts` holds it to the key and record).
-    try {
-      if (remember) localStorage.setItem('ekza-studio:entry:v1', JSON.stringify({ choice: 'autorig', at: Date.now() }));
-    } catch {
-      // blocked storage: the landing asks again
-    }
-    // Studio's `shell.autoRig` (Help › Switch to Auto-Rig): the navigation port, no chunk load before the push.
-    await shell.runFromUi('shell.autoRig');
+    // Studio's `shell.autoRig` (Help › Switch to Auto-Rig): the navigation port, no chunk load before the push; with
+    // `remember` it writes the landing's remembered choice first.
+    if (start === 'autorig' && go) await shell.runFromUi('shell.autoRig', { remember });
   };
 
   return (
@@ -63,11 +56,7 @@ export function FirstRunDialog(): JSX.Element {
         <div className="grid gap-5 md:grid-cols-2">
           <section className="flex flex-col gap-2">
             <h3 className="text-ui font-semibold text-fg-2">What do you want to do first?</h3>
-            <RadioGroup
-              value={start}
-              onValueChange={(value) => setStart(value === 'model' || value === 'autorig' ? value : 'animate')}
-              aria-label="Start with"
-            >
+            <RadioGroup value={start} onValueChange={(value) => setStart(value as Start)} aria-label="Start with">
               <RadioGroupItem
                 value="animate"
                 label="Animate an avatar"

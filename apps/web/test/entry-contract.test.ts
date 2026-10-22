@@ -1,7 +1,8 @@
 // AUTORIG-SPEC §3.3 (D2): the landing (`app/entry.ts`) and Studio keep separate copies of the remembered-choice code,
 // because the app cannot be imported from the editor package and the landing must not load the editor: Studio's is
-// `packages/editor/src/dialogs/entryChoice.ts` (Preferences › Start in) plus one inline line in the first-run dialog
-// ("Open this mode next time"). This holds the copies to one key and one record:
+// `packages/editor/src/dialogs/entryChoice.ts` (Preferences › Start in, and — through Studio's switch `shell.autoRig
+// {remember}` and its lazy `shell/autoRigSwitch.ts` — the first-run dialog's "Open this mode next time"). This holds
+// the copies to one key and one record:
 // the editor's sources name the same key, write `{ choice, at }` and accept only the two choices; the page renders
 // the cards and the redirect script from `entry.ts`.
 import { readFileSync } from 'node:fs';
@@ -20,9 +21,14 @@ describe('the remembered-choice contract between the landing and Studio (§3.3)'
     expect(prefs).toContain("choice === 'autorig' || choice === 'studio'");
   });
 
-  it("the first-run dialog's remember writes the same record; Preferences uses Studio's module", () => {
-    expect(firstRun).toContain(
-      `localStorage.setItem('${ENTRY_KEY}', JSON.stringify({ choice: 'autorig', at: Date.now() }))`,
+  it("the first-run dialog's remember writes the same record through Studio's module; so does Preferences", () => {
+    expect(firstRun).toContain("shell.runFromUi('shell.autoRig', { remember })");
+    expect(firstRun).not.toContain('localStorage');
+    const menuItems = read('../../../packages/editor/src/shell/menuItems.ts');
+    expect(menuItems).toContain("writeEntryChoice('autorig')");
+    expect(menuItems).not.toContain('localStorage');
+    expect(read('../../../packages/editor/src/shell/autoRigSwitch.ts')).toContain(
+      "export { writeEntryChoice } from '../dialogs/entryChoice';",
     );
     expect(read('../../../packages/editor/src/dialogs/PreferencesDialog.tsx')).toContain("from './entryChoice'");
   });

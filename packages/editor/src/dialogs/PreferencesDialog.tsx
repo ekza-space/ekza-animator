@@ -51,7 +51,8 @@ export function PreferencesDialog(): JSX.Element {
                 const value = event.currentTarget.value;
                 const choice = value === 'autorig' || value === 'studio' ? value : null;
                 writeEntryChoice(choice);
-                setStartIn(choice ?? 'ask');
+                // what is stored now: a blocked write leaves Ask (or the old choice) showing, not the new value
+                setStartIn(readEntryChoice() ?? 'ask');
               }}
               options={[
                 { value: 'ask', label: 'Ask (show the chooser)' },
