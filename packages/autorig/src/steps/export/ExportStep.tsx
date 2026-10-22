@@ -332,20 +332,43 @@ const STATE_TEXT: Readonly<Record<ChecklistItem['state'], string>> = {
   info: 'note',
 };
 
-/** The Fix of an item: its first row's Validation Fix, or Render Thumbnail for the thumbnail row. */
+/** The meta rows the fields beside the checklist fix (§5.6.3): their Fix focuses the field (no Studio dialog). */
+const FIELD_FIX: Readonly<Record<string, { readonly label: () => string; readonly selector: string }>> = {
+  'vrm.meta-required': { label: () => messages().export.fixAuthor, selector: '[data-testid="vrm-meta-authors"]' },
+  'vrm.licence-unset': { label: () => messages().export.fixLicence, selector: '[data-testid^="vrm-licence-"]' },
+};
+
+type Fix =
+  | { readonly label: string; readonly op: string; readonly args: unknown }
+  | { readonly label: string; readonly focus: string };
+
+/** The Fix of an item: a meta field to focus, Render Thumbnail, or its first row's Validation Fix. */
 function fixOf(
   item: ChecklistItem,
   fixes: ReadonlyMap<string, RigValidationRow['fix']>,
   character: string,
-): { readonly label: string; readonly op: string; readonly args: unknown } | null {
+): Fix | null {
   for (const row of item.rows) {
+    const field = FIELD_FIX[row.code];
+    if (field !== undefined) return { label: field.label(), focus: field.selector };
     if (row.code === 'vrm.thumbnail-square') {
-      return { label: messages().export.checkFix, op: 'char.renderThumbnail', args: { character } };
+      return { label: messages().export.fixThumbnail, op: 'char.renderThumbnail', args: { character } };
     }
     const fix = fixes.get(row.code);
     if (fix !== null && fix !== undefined) return { label: fix.label, op: fix.op, args: fix.args };
   }
   return null;
+}
+
+/** Runs a Fix: an operator (one undo step), or the focus of a field beside the checklist. */
+function runFix(ctx: WizardContext, fix: Fix): void {
+  if ('focus' in fix) {
+    const field = document.querySelector<HTMLElement>(fix.focus);
+    field?.scrollIntoView({ block: 'center' });
+    field?.focus();
+    return;
+  }
+  void ctx.run(fix.op, fix.args);
 }
 
 function Checklist(props: {
@@ -360,7 +383,11 @@ function Checklist(props: {
       {items.map((item) => {
         const fix =
           item.state === 'error' || item.state === 'warning' ? fixOf(item, props.fixes, props.character) : null;
-        const detail = item.state === 'ok' || item.state === 'pending' ? null : (item.rows[0]?.message ?? null);
+        // the meta rows' messages name Studio's menu; their sentence and the fields beside say it
+        const detail =
+          item.state === 'ok' || item.state === 'pending' || FIELD_FIX[item.rows[0]?.code ?? ''] !== undefined
+            ? null
+            : (item.rows[0]?.message ?? null);
         return (
           <li
             key={item.id}
@@ -384,7 +411,7 @@ function Checklist(props: {
                 type="button"
                 className={cn(buttonClass(item.state === 'error' ? 'primary' : 'default', 'sm'), coarse)}
                 data-testid={`ar-export-fix-${item.id}`}
-                onClick={() => void ctx.run(fix.op, fix.args)}
+                onClick={() => runFix(ctx, fix)}
               >
                 {fix.label}
               </button>

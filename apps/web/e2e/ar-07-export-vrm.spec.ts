@@ -57,6 +57,12 @@ test('AS-AR-1 step 9: the Ekza avatar VRM of the Cube Lad, byte-equal to Studioâ
   await expect(page.getByTestId('ar-primary')).toBeDisabled();
   await expect(page.getByTestId('ar-status')).toHaveText('Fix first: Name and author set');
 
+  // the meta rows' Fix focuses the field beside the checklist (no Studio dialog); the thumbnail is already rendered
+  await expect(page.getByTestId('ar-export-fix-meta')).toHaveText('Add author');
+  await expect(page.getByTestId('ar-export-fix-licence')).toHaveText('Choose licence');
+  await expect(page.getByTestId('ar-export-fix-thumbnail')).toHaveCount(0);
+  await page.getByTestId('ar-export-fix-meta').click();
+  await expect(page.getByTestId('vrm-meta-authors')).toBeFocused();
   // C10's fields: one undo step per committed edit
   const before = (await history(page)).undo.length;
   await setAuthorAndLicence(page);
