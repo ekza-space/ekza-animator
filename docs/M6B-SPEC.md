@@ -749,7 +749,7 @@ One review of §0/§9.0 raised 18 issues (9 major, 9 minor). Every major and eve
 ### 0.10 Auto-Rig reuse requirements (CR-AR-1…6, owner request 2026-10-22)
 
 The owner asked for a Mixamo-style **Auto-Rig** mode (a second, minimal shell over the same document and operators;
-spec `docs/AUTORIG-SPEC.md` on branch `autorig/spec`, built after this MVP). It reuses the M6b operators, services and
+spec `docs/AUTORIG-SPEC.md`, built after this MVP). It reuses the M6b operators, services and
 panels, so the packages below **SHOULD** satisfy these requests now (cheap while building; each has a fallback owned
 by an Auto-Rig package later, so none is a blocker for the M6b DoD):
 
@@ -761,6 +761,12 @@ by an Auto-Rig package later, so none is a blocker for the M6b DoD):
 | CR-AR-4 | C7 | export the checklist evaluation `rigChecklist(app, character)` and keep the Validation service usable without the Rig Toolkit panel mounted | D3 adds the export in C7's files |
 | CR-AR-5 | C3, C6 | the markers tool, joint tools and Paint Skin Weights work in any registered `PaneView` (no dockview assumptions); the R-Markers pane ids are exported constants; one browser test mounts them in a plain grid | D4 fixes what fails |
 | CR-AR-6 | C1 | `mesh.importStatic {bytes, name, dropSkin?: boolean}`: with `dropSkin` a skinned file imports its meshes at the bind pose (skin and skeleton ignored) instead of refusing | D3 adds the argument in C1's operator file |
+
+**Status after the MVP merge** (AUTORIG-SPEC v0.2 §9, checked against `dev`): CR-AR-3 and CR-AR-4 landed; CR-AR-1
+landed except `PaintWeightsControls`; CR-AR-5 landed the pane ids but not the plain-grid test; CR-AR-6 landed as an
+untyped, untested argument; CR-AR-2 (a)(c) were not built and (b) partly (per-mesh progress, `cancel()` off the
+contract type). The remainder is Auto-Rig D-package work. The A-pose path this MVP defers (§0.3 C2/C3 rows, §0.4.2,
+Q-MVP-5) is built by AUTORIG-SPEC work package **A0** (owner decision Q-AR-4, 2026-10-22).
 
 ### 0.11 MVP integration record (INT, 2026-10-22)
 
