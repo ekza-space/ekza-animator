@@ -202,9 +202,9 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
     // AR-D10-3: the limb joints no bound mesh carries weight on (every skin read, at least one)
     let unweighted = null as Set<string> | null;
     let allRead = true;
-    // AR-R4-5: the separate parts (every mesh but the body, the tallest) whose weights reach two limbs that do not meet
-    const body = bodyMeshOf(app, meshes);
-    const regions = body === null ? null : limbRegions(skeleton.joints);
+    // AR-R4-5: the separate parts (every mesh but the body) whose weights reach two limbs that do not meet
+    const regions = meshes.length > 1 ? limbRegions(skeleton.joints) : null;
+    const body = regions === null ? null : bodyMeshOf(app, meshes, regions);
     for (const mesh of meshes) {
       const skin = skinOf(app, mesh);
       if (skin === null) {
@@ -217,7 +217,7 @@ export function rawRows(app: Pick<EditorApp, 'store' | 'meshes'>, character: Cha
       const without = new Set(problems.find((problem) => problem.code === 'skin.joint-without-weights')?.joints ?? []);
       const before: Set<string> | null = unweighted;
       unweighted = before === null ? without : new Set([...before].filter((joint: string) => without.has(joint)));
-      const data = regions === null || mesh.id === body ? null : meshData(app, mesh);
+      const data = body === null || mesh.id === body ? null : meshData(app, mesh);
       if (data !== null && regions !== null) {
         const reach = reachOf(mesh.id, skin, data.position, skeleton.joints, regions);
         if (crossesLimbs(reach)) {

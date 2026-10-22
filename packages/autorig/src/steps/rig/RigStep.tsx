@@ -45,7 +45,7 @@ import { useMotionTest, usePreview } from './motion';
 import { watchPaintedSinceBind } from './painted';
 import { ProgressSheet } from './ProgressSheet';
 import { bindPartsRigidly, rebind, wantsStraighten } from './run';
-import { pointsKey, watchStraighten } from './stretch';
+import { tornNow, watchStraighten } from './stretch';
 import { useHiddenControls } from '../markers/controls';
 import { useHiddenParts } from '../model/hiddenParts';
 import { rigUi } from './ui';
@@ -65,7 +65,7 @@ const selectSubject = (s: AutoRigSession): AutoRigSession['subject'] => s.subjec
 const selectBusy = (s: AutoRigSession): boolean => s.busy !== null;
 const selectMarkersSlice = (s: AutoRigSession): AutoRigSession['markers'] => s.markers;
 const selectStartPose = (s: AutoRigSession): AutoRigSession['startPose'] => s.startPose;
-const selectTorn = (s: AutoRigSession): AutoRigSession['rig']['torn'] => s.rig.torn;
+const selectStraightened = (s: AutoRigSession): AutoRigSession['rig']['straightened'] => s.rig.straightened;
 const selectPanes = (s: AutoRigSession): string => `${s.rig.sub}|${s.markers.pane}|${s.markers.lastOrtho}`;
 
 /** The live subject character of the wizard (a model character), and whether every one of its meshes is bound. */
@@ -281,6 +281,8 @@ function RigidParts(props: { readonly ctx: WizardContext; readonly ready: boolea
         rigUi(ctx).set((current) => ({ ...current, rebinding: false }));
       }
     } else await rebind(ctx, { confirm: !ctx.session.getState().rig.paintedSinceBind });
+    // a bind opens Skin mode (M6B-AF-1): review goes back to its own mode (no weight display unless asked)
+    await applySubMode(ctx);
   };
   return (
     <label className="flex items-center gap-2" title={r.rigidPartsHint}>
@@ -304,10 +306,10 @@ const DEFORM: ReadonlySet<string> = new Set(['skin.cross-limb']);
 function Validation(props: { readonly ctx: WizardContext; readonly character: CharacterId | null }): JSX.Element {
   const { ctx, character } = props;
   const startPose = useSession(ctx.session, selectStartPose);
-  const tornAt = useSession(ctx.session, selectTorn);
+  const straightened = useSession(ctx.session, selectStraightened);
   const r = t();
   // AR-R4-3: the straighten stretched the model, and the character still has those points
-  const torn = useDocument(ctx.app, () => tornAt !== null && pointsKey(ctx.app, character) === tornAt.key);
+  const torn = useDocument(ctx.app, () => tornNow(ctx.app, character, straightened));
   const rows = useDocument(ctx.app, () => {
     if (character === null || !ctx.app.rig.loaded) return null;
     try {

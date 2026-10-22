@@ -1,5 +1,5 @@
 // Separate parts and the limbs their weights reach (AUTORIG-SPEC §5.4; AR-R4-5, the owner's AR-D10-7 call). A
-// segmented low-poly character is many meshes: the body (the tallest mesh, ①'s rule) and its parts — hands, shoes, a
+// segmented low-poly character is many meshes: the body (the trunk the limbs hang from) and its parts — hands, shoes, a
 // hairdo, a collar. Automatic weights bind each part by distance, so the side cubes of a wide hairdo next to the
 // shoulders follow the upper arms while the rest of it follows the head: the part stretches between two limbs. Here:
 //
@@ -55,23 +55,29 @@ export function limbRegions(joints: readonly JointRecord[]): ReadonlyMap<string,
   return out;
 }
 
-/** The body of a multi-part character: its tallest mesh (①'s part analysis, AR-D10-1); null for one mesh. */
-export function bodyMeshOf(app: Pick<EditorApp, 'meshes'>, meshes: readonly MeshRecord[]): MeshId | null {
+/**
+ * The body of a multi-part character: the mesh that carries the most weight on the torso's joints (hips, spine,
+ * chests) — the trunk every limb hangs from, whatever its pose (a straightened I-pose makes no part taller). Null for
+ * one mesh or before a bind.
+ */
+export function bodyMeshOf(
+  app: Pick<EditorApp, 'meshes'>,
+  meshes: readonly MeshRecord[],
+  regions: ReadonlyMap<string, LimbRegion>,
+): MeshId | null {
   if (meshes.length < 2) return null;
   let best: MeshId | null = null;
-  let tallest = -1;
+  let most = 0;
   for (const mesh of meshes) {
-    const data = meshData(app, mesh);
-    if (data === null) continue;
-    let lo = Number.POSITIVE_INFINITY;
-    let hi = Number.NEGATIVE_INFINITY;
-    for (let i = 1; i < data.position.length; i += 3) {
-      const y = data.position[i] as number;
-      if (y < lo) lo = y;
-      if (y > hi) hi = y;
+    const skin = skinOf(app, mesh);
+    if (skin === null) continue;
+    let torso = 0;
+    for (let i = 0; i < skin.weights.length; i++) {
+      const key = skin.palette[skin.joints[i] as number]?.key;
+      if (key !== undefined && (regions.get(key) ?? 'torso') === 'torso') torso += skin.weights[i] as number;
     }
-    if (hi - lo > tallest) {
-      tallest = hi - lo;
+    if (torso > most) {
+      most = torso;
       best = mesh.id;
     }
   }
@@ -157,9 +163,9 @@ export function crossLimbParts(app: Pick<EditorApp, 'store' | 'meshes'>, charact
   const found = characterSkeleton(app.store, character);
   if (found === null) return [];
   const meshes = characterMeshes(app.store, character);
-  const body = bodyMeshOf(app, meshes);
-  if (body === null) return [];
   const regions = limbRegions(found.joints);
+  const body = bodyMeshOf(app, meshes, regions);
+  if (body === null) return [];
   const out: PartReach[] = [];
   for (const mesh of meshes) {
     if (mesh.id === body) continue;

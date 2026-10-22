@@ -1,12 +1,12 @@
-// How much *Straighten to T-Pose* stretched the model (AUTORIG-SPEC §5.4; AR-R4-3, the owner's call on round 4's
-// arms-down Wang). Straightening bakes the bound meshes into the T-pose by linear blend skinning: from an A-pose the
-// shoulders turn 35° and the sleeves follow; from arms held down (an I-pose with the arm markers placed by hand) they
-// turn 90° and the jacket between arm and body tears, while every Validation row passes. So ③ measures the bake: the
-// longest edge of the straightened meshes against its length before, and when an edge grew more than `STRETCH_LIMIT`
-// times, ③ shows "Arms were straightened from arms-down…" instead of *All good*, for as long as the meshes keep the
-// straightened points (a rebind keeps them; an undo of the straighten brings the old points back and the row goes).
-// The I-pose itself is not fixed (Studio's weight painting is the way). U state in the `rig` slice; nothing here writes
-// the document.
+// How much *Straighten to T-Pose* tore the model (AUTORIG-SPEC §5.4; AR-R4-3, the owner's call on round 4's arms-down
+// Wang). Straightening bakes the bound meshes into the T-pose by linear blend skinning: from an A-pose the shoulders
+// turn 35–50° and the sleeves follow; from arms held down (an I-pose with the arm markers placed by hand) they turn 90°
+// and the jacket between arm and body tears, while every Validation row passes. So ③ measures the bake: the length
+// the straightened edges grew beyond twice their length before (Σ max(0, l₁ − 2·l₀)), over the character's height.
+// Above `STRETCH_LIMIT` ③ shows "Arms were straightened from arms-down…" instead of *All good*, for as long as the
+// meshes keep the straightened points (a rebind keeps them; an undo of the straighten brings the old points back and
+// the row goes). The I-pose itself is not fixed (Studio's weight painting is the way). U state in the `rig` slice;
+// nothing here writes the document.
 import type { CharacterId, MeshId } from '@ekza-studio/doc';
 import { autoRigBindMeshes, type EditorApp } from '@ekza-studio/editor-core';
 import { resolveSubject } from '../../progress';
@@ -16,11 +16,11 @@ import type { WizardContext } from '../../shell/context';
 const STRAIGHTEN = 'Straighten to T-Pose';
 
 /**
- * An edge longer than this many times its length before the straighten tears the surface. Calibrated on round 4's
- * models (AR-R4-3): Polybot and Wang straightened from their A-poses stretch at most ~1.6×; Wang's arms-down I-pose
- * with hand-placed arm markers stretches the jacket under the arms ~4×.
+ * The torn length, in heights, above which ③ warns. Calibrated on round 4's models (AR-R4-3, measured on the bake):
+ * Polybot's A-pose 0 (no edge doubles), Wang's 50° A-pose 0.016 H (two cap edges of an arm), Wang's arms-down I-pose
+ * with hand-placed arm markers 7.2 H (138 edges, the jacket a quarter of its edges).
  */
-export const STRETCH_LIMIT = 2;
+export const STRETCH_LIMIT = 0.25;
 
 /** What the stretch measure reads of a mesh revision. */
 export interface StretchData {
@@ -28,45 +28,38 @@ export interface StretchData {
   readonly edgeVerts: Uint32Array;
 }
 
-/** The longest edge of `after` over its length in `before` (same topology), or 1 for another topology. */
-export function edgeStretch(before: StretchData, after: StretchData): number {
-  if (before.edgeVerts.length !== after.edgeVerts.length || before.position.length !== after.position.length) return 1;
-  const p0 = before.position;
-  const p1 = after.position;
+const edgeLength = (p: Float32Array, a: number, b: number): number =>
+  Math.hypot(
+    (p[a] as number) - (p[b] as number),
+    (p[a + 1] as number) - (p[b + 1] as number),
+    (p[a + 2] as number) - (p[b + 2] as number),
+  );
+
+/** The length the edges of `after` grew beyond twice their length in `before` (same topology; 0 for another one). */
+export function tornLength(before: StretchData, after: StretchData): number {
+  if (before.edgeVerts.length !== after.edgeVerts.length || before.position.length !== after.position.length) return 0;
   const e = after.edgeVerts;
-  let worst = 1;
-  // edges shorter than this before the bake are seams and slivers: their ratio says nothing about the surface
-  let longest = 0;
+  let torn = 0;
   for (let i = 0; i < e.length; i += 2) {
     const a = 3 * (e[i] as number);
     const b = 3 * (e[i + 1] as number);
-    longest = Math.max(
-      longest,
-      Math.hypot(
-        (p0[a] as number) - (p0[b] as number),
-        (p0[a + 1] as number) - (p0[b + 1] as number),
-        (p0[a + 2] as number) - (p0[b + 2] as number),
-      ),
-    );
+    torn += Math.max(0, edgeLength(after.position, a, b) - 2 * edgeLength(before.position, a, b));
   }
-  const floor = 1e-3 * longest;
-  for (let i = 0; i < e.length; i += 2) {
-    const a = 3 * (e[i] as number);
-    const b = 3 * (e[i + 1] as number);
-    const l0 = Math.hypot(
-      (p0[a] as number) - (p0[b] as number),
-      (p0[a + 1] as number) - (p0[b + 1] as number),
-      (p0[a + 2] as number) - (p0[b + 2] as number),
-    );
-    if (l0 <= floor) continue;
-    const l1 = Math.hypot(
-      (p1[a] as number) - (p1[b] as number),
-      (p1[a + 1] as number) - (p1[b + 1] as number),
-      (p1[a + 2] as number) - (p1[b + 2] as number),
-    );
-    if (l1 / l0 > worst) worst = l1 / l0;
+  return torn;
+}
+
+/** The height of a set of meshes (their points' y extent). */
+function heightOf(meshes: Iterable<StretchData>): number {
+  let lo = Number.POSITIVE_INFINITY;
+  let hi = Number.NEGATIVE_INFINITY;
+  for (const data of meshes) {
+    for (let i = 1; i < data.position.length; i += 3) {
+      const y = data.position[i] as number;
+      if (y < lo) lo = y;
+      if (y > hi) hi = y;
+    }
   }
-  return worst;
+  return hi > lo ? hi - lo : 0;
 }
 
 /** The bound meshes of a character and their resident revisions. */
@@ -93,14 +86,15 @@ export function pointsKey(app: EditorApp, character: CharacterId | null): string
   return `${data.size}:${hash.toString(36)}`;
 }
 
-/** The largest stretch over the meshes present before and after. */
-function stretchOf(before: ReadonlyMap<MeshId, StretchData>, after: ReadonlyMap<MeshId, StretchData>): number {
-  let worst = 1;
+/** The torn length over the meshes present before and after, in heights of the character. */
+export function tornShare(before: ReadonlyMap<MeshId, StretchData>, after: ReadonlyMap<MeshId, StretchData>): number {
+  let torn = 0;
   for (const [id, data] of after) {
     const old = before.get(id);
-    if (old !== undefined && old !== data) worst = Math.max(worst, edgeStretch(old, data));
+    if (old !== undefined && old !== data) torn += tornLength(old, data);
   }
-  return worst;
+  const height = heightOf(after.values());
+  return height > 0 ? torn / height : 0;
 }
 
 /** Resolves once the mesh runtimes hold the revisions the last transaction wrote (they take them a tick later). */
@@ -112,8 +106,8 @@ async function meshesSettled(app: EditorApp): Promise<void> {
 /**
  * Watches the history while a run may straighten (the Auto-rig composition, *Bind again*, the `skel.tpose` row's Fix,
  * or while ③ is open): the points before each step are kept, and when *Straighten to T-Pose* lands on top the stretch
- * it made is recorded in the `rig` slice once the meshes hold the baked points (`torn` with the straightened points'
- * key, or null when it stayed within `STRETCH_LIMIT`). Resolves `done()` when the last measure was recorded. The
+ * it made is recorded in the `rig` slice once the meshes hold the baked points (`straightened`: the straightened
+ * points' key and the torn length in heights). Resolves `done()` when the last measure was recorded. The
  * disposer stops it.
  */
 export function watchStraighten(ctx: Pick<WizardContext, 'app' | 'session'>): {
@@ -132,10 +126,8 @@ export function watchStraighten(ctx: Pick<WizardContext, 'app' | 'session'>): {
     if (step !== null && step.id !== top && step.label === STRAIGHTEN) {
       const snapshot = before;
       pending = meshesSettled(app).then(() => {
-        const ratio = stretchOf(snapshot, boundData(app, character()));
-        session.patch('rig', {
-          torn: ratio > STRETCH_LIMIT ? { key: pointsKey(app, character()) ?? '', ratio } : null,
-        });
+        const ratio = tornShare(snapshot, boundData(app, character()));
+        session.patch('rig', { straightened: { key: pointsKey(app, character()) ?? '', ratio } });
       });
     }
     top = step?.id ?? null;
@@ -143,4 +135,13 @@ export function watchStraighten(ctx: Pick<WizardContext, 'app' | 'session'>): {
     before = new Map([...before, ...now]);
   });
   return { stop, done: () => pending };
+}
+
+/** Whether ③ warns (AR-R4-3): the last straighten stretched an edge beyond the limit and the points are still those. */
+export function tornNow(
+  app: EditorApp,
+  character: CharacterId | null,
+  straightened: { readonly key: string; readonly ratio: number } | null,
+): boolean {
+  return straightened !== null && straightened.ratio > STRETCH_LIMIT && pointsKey(app, character) === straightened.key;
 }

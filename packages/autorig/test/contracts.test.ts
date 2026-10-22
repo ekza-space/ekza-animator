@@ -43,7 +43,7 @@ describe('Auto-Rig contract (AUTORIG-SPEC §4.3)', () => {
         motionClip: 'walk',
         paintedSinceBind: false,
         rigidParts: null,
-        torn: null,
+        straightened: null,
       },
       animations: { draft: {}, skipped: false, editing: null },
       export: { target: 'ekza-vrm', downloaded: false },

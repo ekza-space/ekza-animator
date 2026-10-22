@@ -45,9 +45,9 @@ export interface AutoRigRigSlice {
   readonly paintedSinceBind: boolean;
   /** AR-R4-5: *Separate parts move rigidly* — null until chosen: on for a multi-part subject, off for one mesh. */
   readonly rigidParts: boolean | null;
-  /** AR-R4-3: the last *Straighten to T-Pose* stretched an edge more than `STRETCH_LIMIT` times (the straightened
-   *  points' key and the ratio), null otherwise. ③ warns while the character's points still have that key. */
-  readonly torn: { readonly key: string; readonly ratio: number } | null;
+  /** AR-R4-3: the last *Straighten to T-Pose* of the subject: the straightened points' key and the longest edge's
+   *  stretch; null before one. ③ warns while the stretch is over `STRETCH_LIMIT` and the points still have that key. */
+  readonly straightened: { readonly key: string; readonly ratio: number } | null;
 }
 /** ④ Animations slice (D5). */
 export interface AutoRigAnimationsSlice {

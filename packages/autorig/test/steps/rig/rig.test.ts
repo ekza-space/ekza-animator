@@ -18,6 +18,7 @@ import {
 } from '../../../src/steps/rig/slice';
 import { watchPaintedSinceBind } from '../../../src/steps/rig/painted';
 import { rebindUnasked, stageAfter } from '../../../src/steps/rig/run';
+import { STRETCH_LIMIT, tornLength, tornShare } from '../../../src/steps/rig/stretch';
 
 describe('the rig slice (§4.3, §5.4)', () => {
   it('starts in review with the Walk motion test on', () => {
@@ -27,7 +28,7 @@ describe('the rig slice (§4.3, §5.4)', () => {
       motionClip: 'walk',
       paintedSinceBind: false,
       rigidParts: null,
-      torn: null,
+      straightened: null,
     });
     expect(MOTION_CLIPS).toEqual(['walk', 'sword-attack', 'dance']);
     expect(SUB_MODE).toEqual({ review: 'object', adjust: 'skeleton', paint: 'skin' });
@@ -189,5 +190,28 @@ describe('the paintedSinceBind listener (§4.3)', () => {
     second();
     await app.runUntyped('skin.weights.paint');
     expect(painted()).toBe(false);
+  });
+});
+
+describe('the straighten measure (AR-R4-3)', () => {
+  // a strip of two quads, 2 m wide and 1 m tall: points 0–5, edges along x and y
+  const strip = (top: number): { position: Float32Array; edgeVerts: Uint32Array } => ({
+    position: Float32Array.from([0, 0, 0, 1, 0, 0, 2, 0, 0, 0, 1, 0, 1, top, 0, 2, 1, 0]),
+    edgeVerts: Uint32Array.from([0, 1, 1, 2, 3, 4, 4, 5, 0, 3, 1, 4, 2, 5]),
+  });
+  it('the length the edges grew beyond twice their length; a rigid move, a mild stretch or another topology is 0', () => {
+    const before = strip(1);
+    expect(tornLength(before, before)).toBe(0);
+    // the middle top point pulled up to y = 4: its vertical edge is 4 m (2 m beyond twice its 1 m), its two top edges
+    // √10 m each (beyond twice their 1 m by 1.16 m)
+    expect(tornLength(before, strip(4))).toBeCloseTo(2 + 2 * (Math.sqrt(10) - 2), 6);
+    expect(tornLength(before, strip(1.5))).toBe(0);
+    const moved = { ...before, position: before.position.map((v, i) => (i % 3 === 0 ? v + 5 : v)) };
+    expect(tornLength(before, moved)).toBeCloseTo(0, 6);
+    expect(tornLength(before, { ...before, edgeVerts: Uint32Array.from([0, 1]) })).toBe(0);
+    // in heights of the character: the strip stands 4 m tall after the pull
+    const share = tornShare(new Map([['m' as never, before]]), new Map([['m' as never, strip(4)]]));
+    expect(share).toBeCloseTo((2 + 2 * (Math.sqrt(10) - 2)) / 4, 6);
+    expect(STRETCH_LIMIT).toBe(0.25);
   });
 });
