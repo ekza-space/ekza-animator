@@ -222,6 +222,7 @@ function Panel(props: { readonly ctx: WizardContext }): JSX.Element | null {
   const report = loaded && intake !== null && intake.kind !== 'rigged-other' ? intake : null;
   return (
     <div className="flex flex-col gap-3">
+      {!loaded && handed === null ? <p className="text-fg-2">{t().panelEmpty}</p> : null}
       {report === null && name !== null ? <p data-testid="ar-subject-character">{name}</p> : null}
       {report === null && handed === null ? null : (
         <Suspense fallback={null}>

@@ -90,7 +90,7 @@ function SubjectName(props: { readonly ctx: WizardContext }): JSX.Element {
   return (
     <button
       type="button"
-      className="min-w-0 truncate rounded-field px-1 text-fg hover:bg-hover disabled:hover:bg-transparent"
+      className="min-w-0 truncate rounded-field px-1 text-fg hover:bg-hover disabled:hover:bg-transparent pointer-coarse:min-h-11"
       title={canRename ? f().rename : undefined}
       disabled={!canRename}
       data-testid="ar-subject-name"

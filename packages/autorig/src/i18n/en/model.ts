@@ -23,6 +23,7 @@ export const model = {
   agoHours: (n: number) => (n === 1 ? '1 hour ago' : `${n} hours ago`),
   // the report panel
   panelTitle: 'Your model',
+  panelEmpty: 'No model yet: drop a GLB or VRM, choose a file or try a sample.',
   meshes: (n: number) => (n === 1 ? '1 mesh' : `${n} meshes`),
   triangles: (text: string) => `${text} tris`,
   tall: (text: string) => `${text} m tall`,
