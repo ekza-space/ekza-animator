@@ -1841,7 +1841,8 @@ Fixes of the second Auto-Rig acceptance run on `dev` (2 major, 10 minor findings
 - **§5.2 ①**: a static import names an untitled project after its first mesh (the header's name), after the file only
   when the meshes have no names (AR-D9-7; amends AR-D8-10). After a reload *Continue* is the footer's primary (AR-D9-10).
 - **§5.3 ②**: Quick Rig's start frames the three panes on the whole body (AR-D9-11).
-- **§5.4 ③ / §5.5 ④**: the rig's controls stay hidden on ②–④ (the session's per-user hidden set, not pane flags);
+- **§4.5 / §5.4 ③ / §5.5 ④**: the rig's controls stay hidden on ②–④ (`autorig.controls {hidden}`, a new U composition
+  writing the session's per-user hidden set, not pane flags);
   Studio shows them (AR-D9-8). Skeleton mode restores x-ray and controls flag by flag (AR-D9-3).
 - **§5.5 ④**: the library footer counts the filtered clips; a card without an OMOBA slot reads "no slot" and its *Add*
   says it stays out of the VRM until it has one; a new subject starts with no clip selected; ▶ of an added clip closes

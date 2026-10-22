@@ -23,7 +23,7 @@ import type { EditorApp } from '../../src/types';
 import { opsApp, runOk } from '../builtin/support';
 import { W } from '../kernel/support';
 
-/** The §4.5 table, in owner order (D3 intake, D4 rig, D5 clip, D6 export, D1 navigate). */
+/** The §4.5 table, in owner order (D3 intake, D4 rig, D5 clip, D6 export, D1 navigate, D9 controls: AR-D9-8). */
 const WIZARD_IDS = [
   'autorig.sample',
   'autorig.intake',
@@ -34,6 +34,7 @@ const WIZARD_IDS = [
   'autorig.clip.add',
   'autorig.export',
   'autorig.navigate',
+  'autorig.controls',
 ] as const;
 
 const disposers: (() => void)[] = [];
@@ -343,6 +344,7 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       'autorig.rig': NO_MARKERS,
       'autorig.cancel': NOTHING_TO_CANCEL,
       'autorig.navigate': NO_NAVIGATION,
+      'autorig.controls': 'expects { hidden: boolean }',
       'autorig.sample': 'expects { sample: cube-lad | polybot-tpose | polybot-apose | polybot | seed-san }',
       'autorig.intake': 'expects { bytes, name }',
       'autorig.inspect': 'expects { meshes }',
@@ -375,5 +377,28 @@ describe('WIZARD_OPERATORS in the rig-workspace chunk (AUTORIG-SPEC §4.5, §7.0
       ]);
       expect(def.label.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('autorig.controls (AR-D9-8)', () => {
+  it('hides every control for this user while held; gives back only the ones it hid; no undo step', async () => {
+    const app = opsApp();
+    const all = app.store
+      .list('controls')
+      .filter((control) => control.deleted === null)
+      .map((control) => control.id as string)
+      .sort();
+    expect(all.length).toBeGreaterThan(1);
+    const mine = all[0] as string;
+    // the user hid one control themselves
+    app.session.setState({ hiddenControls: new Set([mine as never]) });
+    const undo = app.history.peekUndo();
+    await runOk(app, 'autorig.controls', { hidden: true });
+    expect([...app.session.getState().hiddenControls].sort()).toEqual(all);
+    await runOk(app, 'autorig.controls', { hidden: true });
+    expect([...app.session.getState().hiddenControls].sort()).toEqual(all);
+    await runOk(app, 'autorig.controls', { hidden: false });
+    expect([...app.session.getState().hiddenControls]).toEqual([mine]);
+    expect(app.history.peekUndo()).toBe(undo);
   });
 });

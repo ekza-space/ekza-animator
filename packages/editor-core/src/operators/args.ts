@@ -544,4 +544,5 @@ export interface OperatorMap {
     result: AutoRigExportResult };                                                                                 // D6
   'autorig.navigate': { args: { readonly to: ShellRoute; readonly workspace?: WorkspaceId; readonly from?: 'studio' | 'autorig';
     readonly newTab?: boolean }; result: void };                                                                   // D1 (U)
+  'autorig.controls': { args: { readonly hidden: boolean }; result: void };                                        // D9 (U, AR-D9-8)
 }
